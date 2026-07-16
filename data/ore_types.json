@@ -1,0 +1,37 @@
+{
+  "time": {
+    "name": "Time Orichalchum",
+    "symbol": "⧖",
+    "colour": "#7b68ee",
+    "basePrice": 60,
+    "flavorText": "Smells faintly of burnt clocks."
+  },
+  "physics": {
+    "name": "Physics Orichalchum",
+    "symbol": "↯",
+    "colour": "#2a8fc4",
+    "basePrice": 55,
+    "flavorText": "Vibrates faintly in your pocket."
+  },
+  "life": {
+    "name": "Life Orichalchum",
+    "symbol": "✦",
+    "colour": "#3a7a52",
+    "basePrice": 70,
+    "flavorText": "Warm to the touch. Not unpleasantly."
+  },
+  "fate": {
+    "name": "Fate Orichalchum",
+    "symbol": "⚄",
+    "colour": "#b08d2e",
+    "basePrice": 90,
+    "flavorText": "Feels lucky in the hand. Statistically, it isn't."
+  },
+  "emotion": {
+    "name": "Emotion Orichalchum",
+    "symbol": "❋",
+    "colour": "#9b4a7a",
+    "basePrice": 65,
+    "flavorText": "Holding it, you feel briefly understood. It wears off."
+  }
+}

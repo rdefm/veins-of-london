@@ -1,0 +1,32 @@
+{
+  "deviceXpLevels": [0, 0, 50, 150, 400, 1000],
+  "devices": {
+    "timeDevice": {
+      "name": "Time Device",
+      "symbol": "⧖",
+      "calcType": "time",
+      "recipeKey": "timePearl",
+      "effect": "freeze",
+      "unlockFlag": "craftingUnlocked",
+      "eventUsable": false
+    },
+    "enhancementDevice": {
+      "name": "Enhancement Device",
+      "symbol": "↯",
+      "calcType": "life",
+      "recipeKey": "enhancementPowder",
+      "effect": "motion",
+      "unlockFlag": "enhancementUnlocked",
+      "eventUsable": false
+    },
+    "rewindDevice": {
+      "name": "Rewind Device",
+      "symbol": "⟲",
+      "calcType": "time",
+      "recipeKey": "rewind",
+      "effect": "rewind",
+      "unlockFlag": "craftingUnlocked",
+      "eventUsable": true
+    }
+  }
+}

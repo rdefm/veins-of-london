@@ -1,0 +1,8 @@
+{
+  "crowbar": {
+    "name": "Crowbar",
+    "slot": "weapon",
+    "attackBonus": { "min": 4, "max": 8 },
+    "description": "A 60cm steel crowbar. Heavy enough to matter. Also useful for doors, if you have legitimate reasons to open them."
+  }
+}

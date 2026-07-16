@@ -1,0 +1,58 @@
+{
+  "tierOrder": ["bedsit", "flat", "townhouse", "safehouse", "compound", "mansion"],
+  "tiers": {
+    "bedsit": {
+      "id": "bedsit", "name": "Bedsit", "tier": 1,
+      "upgradeCost": 0, "dailyCost": 50, "raidBaseChance": 0.08,
+      "maxSecuritySlots": 1, "maxRooms": 0,
+      "description": "A single room in Whitechapel. The boiler makes a sound like someone clearing their throat. No storage to speak of."
+    },
+    "flat": {
+      "id": "flat", "name": "Flat", "tier": 2,
+      "upgradeCost": 1200, "dailyCost": 80, "raidBaseChance": 0.06,
+      "maxSecuritySlots": 2, "maxRooms": 1,
+      "description": "Two rooms above a nail bar in Hackney. Neighbours ask no questions. One spare room."
+    },
+    "townhouse": {
+      "id": "townhouse", "name": "Townhouse", "tier": 3,
+      "upgradeCost": 4000, "dailyCost": 150, "raidBaseChance": 0.04,
+      "maxSecuritySlots": 3, "maxRooms": 3,
+      "description": "Three floors, Bethnal Green. Previous tenant left in a hurry. Three spare rooms."
+    },
+    "safehouse": {
+      "id": "safehouse", "name": "Safehouse", "tier": 4,
+      "upgradeCost": 12000, "dailyCost": 300, "raidBaseChance": 0.02,
+      "maxSecuritySlots": 4, "maxRooms": 5,
+      "description": "Off-grid property, no registered occupant. Not technically yours, but no one is arguing. Five spare rooms."
+    },
+    "compound": {
+      "id": "compound", "name": "Compound", "tier": 5,
+      "upgradeCost": 40000, "dailyCost": 600, "raidBaseChance": 0.01,
+      "maxSecuritySlots": 5, "maxRooms": 8,
+      "description": "Gated property, East London. Eight rooms. People who matter know you live here."
+    },
+    "mansion": {
+      "id": "mansion", "name": "Mansion & Grounds", "tier": 6,
+      "upgradeCost": 150000, "dailyCost": 1500, "raidBaseChance": 0.005,
+      "maxSecuritySlots": 6, "maxRooms": 12,
+      "description": "Grounds, staff quarters, a gate. Twelve rooms. Plato would have something to say about this."
+    }
+  },
+  "security": {
+    "lock":           { "id": "lock",           "name": "Reinforced Lock",  "cost": 80,   "raidReduction": 0.02, "description": "Slows down anyone trying the front door. Not much, but something." },
+    "cameras":        { "id": "cameras",        "name": "CCTV",             "cost": 250,  "raidReduction": 0.03, "description": "Four cameras, monitored by an app that sometimes works." },
+    "reinforcedDoor": { "id": "reinforcedDoor", "name": "Reinforced Door",  "cost": 600,  "raidReduction": 0.04, "description": "Steel-core. Would require a vehicle to breach, which draws attention." },
+    "alarm":          { "id": "alarm",          "name": "Alarm System",     "cost": 400,  "raidReduction": 0.03, "description": "Monitored alarm. Response time: nine minutes. Make of that what you will." },
+    "guard":          { "id": "guard",          "name": "Hired Guard",      "cost": 1200, "raidReduction": 0.05, "description": "Someone on site. Expensive. Asks fewer questions than you might expect." },
+    "ward":           { "id": "ward",           "name": "Orichalchum Ward", "cost": 2000, "raidReduction": 0.06, "description": "James installed it. Doesn't explain what it does. It works." }
+  },
+  "rooms": {
+    "workshop":    { "id": "workshop",    "name": "Workshop",                  "cost": 800,   "minTier": "flat",      "bonus": "crafting", "bonusValue": 0.08, "description": "Bench, tools, decent lighting. Slightly increases crafting success chance." },
+    "homeGym":     { "id": "homeGym",     "name": "Home Gym",                  "cost": 600,   "minTier": "flat",      "bonus": "body",     "bonusValue": 10,   "description": "Increases max HP and physical attack. It's just a pull-up bar and some kettlebells, but it helps." },
+    "library":     { "id": "library",     "name": "Library",                   "cost": 1200,  "minTier": "townhouse", "bonus": "crafting", "bonusValue": 0.08, "description": "Reference books, field notes. Stacks with the workshop bonus." },
+    "safeRoom":    { "id": "safeRoom",    "name": "Safe Room",                 "cost": 2000,  "minTier": "townhouse", "bonus": "storage",  "bonusValue": 0.5,  "description": "Halves the amount stolen in a raid. Panic room logic." },
+    "ops":         { "id": "ops",         "name": "Operations Room",           "cost": 5000,  "minTier": "safehouse", "bonus": "faction",  "bonusValue": 1,    "description": "Desk, screens, maps. Allows a faction contact to run operations from here." },
+    "veinStation": { "id": "veinStation", "name": "Vein Cultivation Station",  "cost": 8000,  "minTier": "safehouse", "bonus": "passive",  "bonusValue": 1,    "description": "An assigned contact tends your marked veins daily — cultivating when possible, cautiously harvesting when charged. Yield lands in your inventory automatically." },
+    "lab":         { "id": "lab",         "name": "Lab",                       "cost": 15000, "minTier": "compound",  "bonus": "crafting", "bonusValue": 0.12, "description": "Professional setup. Set stock thresholds per recipe and an assigned contact will craft to meet them each day, using their skill and improving over time. James approved of it, which is as close to a compliment as he gets." }
+  }
+}

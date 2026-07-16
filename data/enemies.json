@@ -1,0 +1,13 @@
+{
+  "raidGuards": {
+    "territorialScrapper": { "name": "Territorial Scrapper", "hpBase": 20, "attackMin": 3, "attackMax": 8 },
+    "veinGuard":            { "name": "Vein Guard",            "hpBase": 30, "attackMin": 4, "attackMax": 10 },
+    "orichalchumDealer":    { "name": "Orichalchum Dealer",    "hpBase": 25, "attackMin": 5, "attackMax": 12 }
+  },
+  "homeRaidRaider": {
+    "name": "The raider",
+    "hp": 35,
+    "attackMin": 6,
+    "attackMax": 14
+  }
+}

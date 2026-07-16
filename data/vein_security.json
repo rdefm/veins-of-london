@@ -1,0 +1,6 @@
+{
+  "none": { "label": "Unsecured", "raidResist": 0, "cost": 0 },
+  "basic": { "label": "Basic Lock", "raidResist": 15, "cost": 20 },
+  "warded": { "label": "Ward Rune", "raidResist": 35, "cost": 60 },
+  "guarded": { "label": "Hired Guard", "raidResist": 55, "cost": 120 }
+}

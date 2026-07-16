@@ -1,0 +1,42 @@
+{
+  "recipes": {
+    "timePearl": {
+      "name": "Time Pearl",
+      "symbol": "⧖",
+      "ingredient": "time",
+      "baseSuccess": 0.40,
+      "baseCalcCost": 5,
+      "effectPower": [0, 1, 1, 2, 2, 3],
+      "xpReward": 20,
+      "eventUsable": false,
+      "description": "Throw at your feet. Freezes enemy for N turns. Elegant, if you ignore what it actually is."
+    },
+    "enhancementPowder": {
+      "name": "Enhancement Powder",
+      "symbol": "↯",
+      "ingredient": "life",
+      "baseSuccess": 0.35,
+      "baseCalcCost": 6,
+      "effectPower": [0, 1, 1, 2, 2, 3],
+      "xpReward": 25,
+      "eventUsable": false,
+      "description": "Rub on skin before a fight. Life-type acceleration — you act faster than anyone can track."
+    },
+    "rewind": {
+      "name": "Rewind",
+      "symbol": "⟲",
+      "ingredient": "time",
+      "baseSuccess": 0.40,
+      "baseCalcCost": 6,
+      "effectPower": [0, 2, 2, 2, 2, 2],
+      "xpReward": 35,
+      "eventUsable": true,
+      "description": "Shaped like an hourglass. Briefly unspools time — only you remember what happened. Difficult and expensive to produce."
+    }
+  },
+  "craftingXpLevels": [0, 0, 80, 220, 500, 1000],
+  "consumablePrices": {
+    "timePearl": 120,
+    "enhancementPowder": 150
+  }
+}

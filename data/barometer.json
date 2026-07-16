@@ -1,0 +1,57 @@
+{
+  "states": {
+    "economic": {
+      "stable":    { "id": "stable",    "label": "Stable",         "description": "Markets function normally. Ore prices steady.", "effects": {} },
+      "boom":      { "id": "boom",      "label": "Economic Boom",  "description": "Demand up. Buyers flush with cash.", "effects": { "orePrice": 0.25, "mugChance": -0.05 } },
+      "recession": { "id": "recession", "label": "Recession",      "description": "Buyers tighter. Prices softer.", "effects": { "orePrice": -0.20, "mugChance": 0.05 } },
+      "crisis":    { "id": "crisis",    "label": "Financial Crisis", "description": "Market collapse. Some ore types in desperate demand.", "effects": { "orePrice": -0.35, "mugChance": 0.12, "fatePremium": 0.5 } },
+      "inflation": { "id": "inflation", "label": "High Inflation", "description": "Everything costs more. Daily costs up.", "effects": { "dailyCost": 0.30, "orePrice": 0.10 } }
+    },
+    "social": {
+      "stable":   { "id": "stable",   "label": "Stable",       "description": "Normal levels of street activity.", "effects": {} },
+      "unrest":   { "id": "unrest",   "label": "Social Unrest", "description": "Police busy elsewhere. Raid risks up, but so is opportunity.", "effects": { "mugChance": 0.08, "raidChance": 0.10 } },
+      "lockdown": { "id": "lockdown", "label": "Lockdown",      "description": "Movement restricted. Searching harder, yields lower.", "effects": { "searchFind": -0.15, "dailyCost": 0.10 } },
+      "festival": { "id": "festival", "label": "City Festival", "description": "Energy high, people out. Physics ore in demand.", "effects": { "physicsPremium": 0.40, "searchFind": 0.05 } },
+      "crime":    { "id": "crime",    "label": "Crime Wave",    "description": "Everyone is at it. Mugging risk elevated.", "effects": { "mugChance": 0.15, "homeRaid": 0.05 } }
+    },
+    "political": {
+      "stable":     { "id": "stable",     "label": "Stable",           "description": "No significant political pressure.", "effects": {} },
+      "war":        { "id": "war",        "label": "Conflict Abroad",  "description": "Military demand. Time and physics ore prices surge.", "effects": { "timePremium": 0.6, "physicsPremium": 0.4, "mugChance": 0.05 } },
+      "austerity":  { "id": "austerity",  "label": "Austerity",        "description": "Public services cut. Daily costs down but so is stability.", "effects": { "dailyCost": -0.15, "mugChance": 0.06 } },
+      "regulation": { "id": "regulation", "label": "Ore Regulation",   "description": "Government crackdown. All trading riskier, prices up.", "effects": { "mugChance": 0.10, "orePrice": 0.15 } },
+      "election":   { "id": "election",   "label": "Election Period",  "description": "Noise and distraction. Barometer effects muted temporarily.", "effects": { "effectMod": -0.3 } }
+    }
+  },
+  "actions": [
+    { "id": "lobbyConclave",  "label": "Lobby the Conclave", "section": "political", "cost": { "cash": 5000, "fate": 20 },   "requireFaction": "conclave", "description": "Lean on Conclave contacts to shift the political climate." },
+    { "id": "floodMarket",    "label": "Flood the market",   "section": "economic",  "cost": { "cash": 2000, "ore": 50 },    "requireFaction": null,       "description": "Dump ore on the market to destabilise prices. Crude but effective." },
+    { "id": "spreadRumours",  "label": "Spread rumours",     "section": "social",    "cost": { "cash": 500 },               "requireFaction": "network",  "description": "The Network's speciality. Shape public perception." },
+    { "id": "engineerCrisis", "label": "Engineer a crisis",  "section": "economic",  "cost": { "cash": 10000, "emotion": 40 }, "requireFaction": "conclave", "description": "Requires serious resources. Serious consequences." }
+  ],
+  "factionPrefs": {
+    "collective": [
+      { "section": "economic", "state": "stable", "direction": "push", "strength": 3 },
+      { "section": "social",   "state": "stable", "direction": "push", "strength": 3 }
+    ],
+    "firm": [
+      { "section": "economic",  "state": "boom",       "direction": "push", "strength": 4 },
+      { "section": "social",    "state": "crime",      "direction": "push", "strength": 3 },
+      { "section": "political", "state": "regulation", "direction": "pull", "strength": 3 }
+    ],
+    "guild": [
+      { "section": "economic",  "state": "stable", "direction": "push", "strength": 3 },
+      { "section": "political", "state": "stable", "direction": "push", "strength": 3 },
+      { "section": "social",    "state": "unrest", "direction": "pull", "strength": 2 }
+    ],
+    "network": [
+      { "section": "economic",  "state": "inflation", "direction": "push", "strength": 3 },
+      { "section": "social",    "state": "unrest",    "direction": "push", "strength": 3 },
+      { "section": "political", "state": "election",  "direction": "push", "strength": 3 }
+    ],
+    "conclave": [
+      { "section": "political", "state": "regulation", "direction": "push", "strength": 4 },
+      { "section": "political", "state": "war",        "direction": "push", "strength": 3 },
+      { "section": "economic",  "state": "crisis",     "direction": "push", "strength": 3 }
+    ]
+  }
+}
