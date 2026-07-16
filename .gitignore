@@ -1,0 +1,11 @@
+# Godot 4+ editor cache
+.godot/
+
+# Local headless binary setup (scripts/setup_godot.sh)
+.godot-bin/
+/godot
+
+# Godot import artifacts
+*.import
+export.cfg
+export_credentials.cfg
