@@ -85,6 +85,17 @@ func run() -> void:
 		assert_true(not original["nested"].has("c"), "original nested dict did not gain the copy's new key")
 	)
 
+	run_case("round_epsilon_guards_against_float_boundary_error", func():
+		# 90 * (1 - 0.35 + 0.5) is exactly 103.5 in real-number math, but
+		# IEEE-754 double precision evaluates it as 103.49999999999999.
+		# round_epsilon must still land on 104, matching REFERENCE.md.
+		var computed: float = 90.0 * (1.0 - 0.35 + 0.5)
+		assert_true(computed < 103.5, "sanity: this is the exact float precision case we're guarding against")
+		assert_eq(GameState.round_epsilon(computed), 104, "round_epsilon should round 103.4999...9 up to 104")
+		assert_eq(GameState.round_epsilon(10.0), 10, "round_epsilon should not perturb a clean integer value")
+		assert_eq(GameState.round_epsilon(10.4), 10, "round_epsilon should still round down when nowhere near a boundary")
+	)
+
 	run_case("reset_produces_a_fresh_independent_tree", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 12345

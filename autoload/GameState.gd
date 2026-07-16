@@ -137,3 +137,12 @@ static func deep_copy(value: Variant) -> Variant:
 		return copy
 	else:
 		return value
+
+
+# round() with a tiny epsilon safety margin. Use this (never plain round())
+# anywhere a price/cost/etc. is rounded from a computed multiplier — IEEE-754
+# double precision means e.g. 90 * (1 - 0.35 + 0.5) evaluates to
+# 103.49999999999999, not exactly 103.5, so a literal round() lands on 103
+# where the intended math (and REFERENCE.md's worked examples) says 104.
+static func round_epsilon(value: float) -> int:
+	return int(round(value + 0.000000001))

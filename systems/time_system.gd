@@ -1,0 +1,98 @@
+class_name TimeSystem
+extends RefCounted
+
+# Time blocks, rest, and the daily tick per R§3.1. Static funcs only.
+
+const BLOCKS_PER_DAY := 3
+const DAILY_COST_BASE := 50.0
+const REST_HEAL_FRACTION := 0.2
+
+
+static func advance_time_block() -> void:
+	var world: Dictionary = GameState.state["world"]
+	world["timeBlocksDone"].append(world["timeBlock"])
+	world["timeBlock"] += 1
+	if world["timeBlock"] >= BLOCKS_PER_DAY:
+		world["day"] += 1
+		world["timeBlock"] = 0
+		world["timeBlocksDone"] = []
+		daily_tick()
+	EventBus.state_changed.emit()
+
+
+static func is_time_exhausted() -> bool:
+	var world: Dictionary = GameState.state["world"]
+	return world["timeBlocksDone"].size() >= BLOCKS_PER_DAY
+
+
+# Consumes all remaining blocks, rolls to the next day (running
+# daily_tick), then heals the player 20% of hpMax, capped at hpMax.
+static func do_rest() -> void:
+	var world: Dictionary = GameState.state["world"]
+	world["day"] += 1
+	world["timeBlock"] = 0
+	world["timeBlocksDone"] = []
+	daily_tick()
+
+	var player: Dictionary = GameState.state["player"]
+	var heal: int = GameState.round_epsilon(player["hpMax"] * REST_HEAL_FRACTION)
+	var old_hp: int = player["hp"]
+	player["hp"] = mini(old_hp + heal, player["hpMax"])
+	var actual_heal: int = player["hp"] - old_hp
+
+	Notify.push("Rested. Day %d. +%d HP." % [world["day"], actual_heal])
+	EventBus.state_changed.emit()
+
+
+# Exact step order per R§3.1 — do not reorder. Steps for systems that
+# don't exist yet are stubs; wire the real call in when that task lands.
+static func daily_tick() -> void:
+	Barometer.tick()                     # ① barometer
+	_stub_roll_home_raid()               # ② home raid — wired in M0-T04
+	_apply_living_costs()                # ③ living costs
+	_stub_recharge_veins()               # ④ vein recharge — wired in M0-T05
+	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
+	_stub_process_rooms()                # ⑥ lab/veinStation rooms — wired in M0-T09
+	_stub_reset_device_charges()         # ⑦ device charge reset — wired in M0-T06
+	EventBus.day_ticked.emit(GameState.state["world"]["day"])
+
+
+static func _apply_living_costs() -> void:
+	var player: Dictionary = GameState.state["player"]
+	var fx: Dictionary = Barometer.get_merged_effects()
+	var daily_cost: int = GameState.round_epsilon(DAILY_COST_BASE * (1.0 + fx.get("dailyCost", 0.0)))
+	player["cash"] = maxi(0, player["cash"] - daily_cost)
+
+	var text := "Day %d: -£%d living costs." % [GameState.state["world"]["day"], daily_cost]
+	if player["cash"] == 0:
+		text += " You are flat broke."
+	Notify.push(text)
+
+
+static func _apply_tutorial_day_triggers() -> void:
+	var world: Dictionary = GameState.state["world"]
+	var flags: Dictionary = GameState.state["flags"]
+	var day: int = world["day"]
+
+	if day >= 2 and flags["tutorialStage"] == "buyer_event" and not flags["buyerEventSeen"]:
+		Notify.push("Archie texted. He's lined up the new buyer. Check Contacts.")
+
+	var unlock_day = world["archieChatUnlockDay"]
+	if flags["tutorialStage"] == "archie_craft_chat" and unlock_day != null and day >= unlock_day:
+		Notify.push("Archie wants to meet up. Check Contacts.")
+
+
+static func _stub_roll_home_raid() -> void:
+	pass
+
+
+static func _stub_recharge_veins() -> void:
+	pass
+
+
+static func _stub_process_rooms() -> void:
+	pass
+
+
+static func _stub_reset_device_charges() -> void:
+	pass
