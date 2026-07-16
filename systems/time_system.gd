@@ -53,7 +53,7 @@ static func daily_tick() -> void:
 	Cultivating.recharge_veins()         # ④ vein recharge
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	_stub_process_rooms()                # ⑥ lab/veinStation rooms — wired in M0-T09
-	_stub_reset_device_charges()         # ⑦ device charge reset — wired in M0-T06
+	Devices.reset_daily_charges()        # ⑦ device charge reset
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])
 
 
@@ -83,8 +83,4 @@ static func _apply_tutorial_day_triggers() -> void:
 
 
 static func _stub_process_rooms() -> void:
-	pass
-
-
-static func _stub_reset_device_charges() -> void:
 	pass
