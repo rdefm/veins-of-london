@@ -50,7 +50,7 @@ static func daily_tick() -> void:
 	Barometer.tick()                     # ① barometer
 	Home.roll_daily_raid()               # ② home raid
 	_apply_living_costs()                # ③ living costs
-	_stub_recharge_veins()               # ④ vein recharge — wired in M0-T05
+	Cultivating.recharge_veins()         # ④ vein recharge
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	_stub_process_rooms()                # ⑥ lab/veinStation rooms — wired in M0-T09
 	_stub_reset_device_charges()         # ⑦ device charge reset — wired in M0-T06
@@ -80,10 +80,6 @@ static func _apply_tutorial_day_triggers() -> void:
 	var unlock_day = world["archieChatUnlockDay"]
 	if flags["tutorialStage"] == "archie_craft_chat" and unlock_day != null and day >= unlock_day:
 		Notify.push("Archie wants to meet up. Check Contacts.")
-
-
-static func _stub_recharge_veins() -> void:
-	pass
 
 
 static func _stub_process_rooms() -> void:
