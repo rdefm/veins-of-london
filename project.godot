@@ -17,6 +17,8 @@ config/features=PackedStringArray("4.4", "GL Compatibility")
 
 GameData="*res://autoload/GameData.gd"
 Rng="*res://autoload/Rng.gd"
+GameState="*res://autoload/GameState.gd"
+EventBus="*res://autoload/EventBus.gd"
 
 [display]
 
