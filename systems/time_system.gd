@@ -48,7 +48,7 @@ static func do_rest() -> void:
 # don't exist yet are stubs; wire the real call in when that task lands.
 static func daily_tick() -> void:
 	Barometer.tick()                     # ① barometer
-	_stub_roll_home_raid()               # ② home raid — wired in M0-T04
+	Home.roll_daily_raid()               # ② home raid
 	_apply_living_costs()                # ③ living costs
 	_stub_recharge_veins()               # ④ vein recharge — wired in M0-T05
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
@@ -80,10 +80,6 @@ static func _apply_tutorial_day_triggers() -> void:
 	var unlock_day = world["archieChatUnlockDay"]
 	if flags["tutorialStage"] == "archie_craft_chat" and unlock_day != null and day >= unlock_day:
 		Notify.push("Archie wants to meet up. Check Contacts.")
-
-
-static func _stub_roll_home_raid() -> void:
-	pass
 
 
 static func _stub_recharge_veins() -> void:
