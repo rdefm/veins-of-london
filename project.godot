@@ -19,6 +19,7 @@ GameData="*res://autoload/GameData.gd"
 Rng="*res://autoload/Rng.gd"
 GameState="*res://autoload/GameState.gd"
 EventBus="*res://autoload/EventBus.gd"
+Snapshots="*res://autoload/Snapshots.gd"
 
 [display]
 

@@ -43,7 +43,7 @@ static func execute_sale(items: Array) -> Dictionary:
 
 	if mugged:
 		GameState.state["pendingSaleCut"] = player_cut
-		_stub_start_mugging()  # wired in M0-T08
+		Combat.start_mugging()
 		EventBus.state_changed.emit()
 		return { "ok": true, "mugged": true, "gross": gross }
 	else:
@@ -60,7 +60,3 @@ static func complete_mugged_sale() -> Dictionary:
 		GameState.state["player"]["cash"] += earned
 	EventBus.state_changed.emit()
 	return { "earned": earned, "gross": earned * 2, "mugged": true }
-
-
-static func _stub_start_mugging() -> void:
-	pass

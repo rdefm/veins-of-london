@@ -97,6 +97,8 @@ static func activate(device_id: String) -> Dictionary:
 	while device["level"] < max_level and device["xp"] >= GameData.DEVICE_XP_LEVELS[device["level"] + 1]:
 		device["level"] += 1
 		device["chargesPerDay"] += 1
+		var dt: Dictionary = GameData.DEVICES[device["type"]]
+		Notify.push("%s levelled up — now %d charges per day." % [dt["name"], device["chargesPerDay"]])
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "type": device["type"] }

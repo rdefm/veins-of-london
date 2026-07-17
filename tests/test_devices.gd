@@ -113,6 +113,11 @@ func run() -> void:
 		assert_eq(device["xp"], 50, "5 activations * 10 xp = 50")
 		assert_eq(device["level"], 2, "50 xp crosses DEVICE_XP_LEVELS[2] = 50")
 		assert_eq(device["chargesPerDay"], 2, "levelling up grants +1 chargesPerDay")
+		var found := false
+		for n in GameState.state["notifications"]:
+			if n["text"].contains("levelled up"):
+				found = true
+		assert_true(found, "levelling up should push a notification, per the HTML's awardDeviceXP")
 	)
 
 	run_case("reset_daily_charges_only_resets_devices_from_a_previous_day", func():
