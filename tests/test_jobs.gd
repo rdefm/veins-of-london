@@ -52,8 +52,17 @@ func run() -> void:
 	run_case("offer_job_blocked_while_one_is_already_active", func():
 		GameState.reset()
 		Jobs.offer_job()
+		assert_eq(GameState.state["modal"]["type"], "james_job_offer", "offer_job should open the james_job_offer modal")
 		var second := Jobs.offer_job()
 		assert_true(not second["ok"], "should refuse a second offer while one is active")
+	)
+
+	run_case("decline_job_clears_job_and_active_flag", func():
+		GameState.reset()
+		Jobs.offer_job()
+		Jobs.decline_job()
+		assert_eq(GameState.state["jamesJob"], null, "job cleared")
+		assert_eq(GameState.state["flags"]["jamesJobActive"], false, "jobActive flag cleared")
 	)
 
 	run_case("accept_job_notifies_with_qty_and_pay", func():
@@ -86,6 +95,7 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["james"]["relation"], relation_before + 5, "james relation +5")
 		assert_eq(GameState.state["jamesJob"], null, "job cleared")
 		assert_eq(GameState.state["flags"]["jamesJobActive"], false, "jobActive flag cleared")
+		assert_eq(GameState.state["modal"]["type"], "james_job_complete", "a successful fulfil should open james_job_complete")
 	)
 
 	run_case("fulfil_job_fails_with_insufficient_inventory", func():
@@ -100,6 +110,7 @@ func run() -> void:
 		assert_eq(result["have"], 0, "reports how many the player actually has")
 		assert_eq(result["need"], job["qty"], "reports how many are needed")
 		assert_true(GameState.state["jamesJob"] != null, "an unfulfilled job should stay active")
+		assert_eq(GameState.state["modal"]["type"], "james_job_short", "insufficient inventory should open james_job_short")
 	)
 
 	run_case("fulfil_job_fails_with_no_active_job", func():

@@ -42,13 +42,15 @@ static func execute_sale(items: Array) -> Dictionary:
 	var mugged: bool = Rng.chance(Barometer.get_effective_mug_chance(MUG_BASE_CHANCE))
 
 	if mugged:
+		# No sale_result modal yet — outcome isn't known until the mugging
+		# resolves; complete_mugged_sale() opens it once that happens.
 		GameState.state["pendingSaleCut"] = player_cut
 		Combat.start_mugging()
 		EventBus.state_changed.emit()
 		return { "ok": true, "mugged": true, "gross": gross }
 	else:
 		player["cash"] += player_cut
-		EventBus.state_changed.emit()
+		Modal.open("sale_result", { "earned": player_cut, "gross": gross, "mugged": false })
 		return { "ok": true, "mugged": false, "earned": player_cut, "gross": gross }
 
 
@@ -58,5 +60,40 @@ static func complete_mugged_sale() -> Dictionary:
 	GameState.state["pendingSaleCut"] = 0
 	if earned > 0:
 		GameState.state["player"]["cash"] += earned
-	EventBus.state_changed.emit()
+	Modal.open("sale_result", { "earned": earned, "gross": earned * 2, "mugged": true })
 	return { "earned": earned, "gross": earned * 2, "mugged": true }
+
+
+# state.sellState (R§2: "sell-menu qty selections, transient") backs the
+# sell_menu modal's qty steppers. Screens can't mutate it directly, so
+# these exist even though they're UI-support rather than R§3.6 formulas.
+static func adjust_sell_qty(key: String, delta: int, max_qty: int) -> void:
+	var sell_state: Dictionary = GameState.state["sellState"]
+	var current: int = sell_state.get(key, 0)
+	sell_state[key] = clampi(current + delta, 0, max_qty)
+	EventBus.state_changed.emit()
+
+
+static func clear_sell_state() -> void:
+	GameState.state["sellState"] = {}
+	EventBus.state_changed.emit()
+
+
+# Builds the items array from sellState + current stock (ore_<type> /
+# con_<recipeKey> keys, matching the HTML's doSell()), then sells it.
+static func sell_from_sell_state() -> Dictionary:
+	var sell_state: Dictionary = GameState.state["sellState"]
+	var items: Array = []
+
+	for ore_type in GameData.ORE_TYPES.keys():
+		var qty: int = sell_state.get("ore_%s" % ore_type, 0)
+		if qty > 0:
+			items.append({ "kind": "ore", "type": ore_type, "qty": qty })
+
+	for recipe_key in GameData.CONSUMABLE_PRICES.keys():
+		var qty: int = sell_state.get("con_%s" % recipe_key, 0)
+		if qty > 0:
+			items.append({ "kind": "consumable", "type": recipe_key, "qty": qty })
+
+	clear_sell_state()
+	return execute_sale(items)

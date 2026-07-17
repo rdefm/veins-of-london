@@ -45,8 +45,14 @@ static func offer_job() -> Dictionary:
 	var job := generate_james_job()
 	GameState.state["jamesJob"] = job
 	GameState.state["flags"]["jamesJobActive"] = true
-	EventBus.state_changed.emit()
+	Modal.open("james_job_offer", { "job": job })
 	return { "ok": true, "job": job }
+
+
+static func decline_job() -> void:
+	GameState.state["flags"]["jamesJobActive"] = false
+	GameState.state["jamesJob"] = null
+	EventBus.state_changed.emit()
 
 
 static func accept_job() -> Dictionary:
@@ -66,6 +72,7 @@ static func fulfil_job() -> Dictionary:
 	var inventory: Dictionary = GameState.state["player"]["inventory"]
 	var have: int = inventory.get(job["recipeKey"], 0)
 	if have < job["qty"]:
+		Modal.open("james_job_short", { "job": job, "have": have })
 		return { "ok": false, "reason": "Not enough on hand.", "have": have, "need": job["qty"] }
 
 	inventory[job["recipeKey"]] = have - job["qty"]
@@ -74,5 +81,5 @@ static func fulfil_job() -> Dictionary:
 	GameState.state["flags"]["jamesJobActive"] = false
 	GameState.state["jamesJob"] = null
 
-	EventBus.state_changed.emit()
+	Modal.open("james_job_complete", { "earned": job["totalPay"] })
 	return { "ok": true, "earned": job["totalPay"] }

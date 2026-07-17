@@ -49,11 +49,11 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 		var power = effect_power(recipe_key, skill)
 		player["inventory"][recipe_key] = player["inventory"].get(recipe_key, 0) + 1
 		award_crafting_xp(r["xpReward"])
-		EventBus.state_changed.emit()
+		Modal.open("craft_result", { "success": true, "recipeKey": recipe_key, "power": power })
 		return { "ok": true, "success": true, "recipeKey": recipe_key, "power": power }
 	else:
 		award_crafting_xp(int(floor(float(r["xpReward"]) / 3.0)))
-		EventBus.state_changed.emit()
+		Modal.open("craft_result", { "success": false, "recipeKey": recipe_key, "power": 0 })
 		return { "ok": true, "success": false, "recipeKey": recipe_key, "power": 0 }
 
 

@@ -231,7 +231,8 @@ func run() -> void:
 		}
 		var result := Combat.exit_combat()
 
-		assert_eq(result["nextScreen"], "home_raid_debrief", "home_raid should route to the debrief flow")
+		assert_eq(result["nextScreen"], "event", "home_raid should route to the generic event placeholder, not a nonexistent home_raid_debrief screen id")
+		assert_eq(GameState.state["currentScreen"], "event", "exit_combat should navigate directly for home_raid, same as it already does for raid/other")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 5, "floor(10*0.5) = 5 lost, 5 remain")
 		assert_eq(GameState.state["player"]["orichalchum"]["physics"], 4, "floor(7*0.5) = 3 lost, 4 remain")
 		assert_eq(GameState.state["home"]["storedOre"]["life"], 10, "floor(20*0.5) = 10 lost, 10 remain")

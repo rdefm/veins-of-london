@@ -59,6 +59,21 @@ func run() -> void:
 		assert_eq(vein["security"], "none", "new vein starts unsecured")
 		assert_eq(vein["oreType"], "time", "vein ore type matches seeded type")
 		assert_true(vein["location"].contains(","), "location should be 'street, suffix'")
+		assert_eq(GameState.state["modal"]["type"], "seed_result", "seed should open the seed_result modal")
+		assert_eq(GameState.state["modal"]["data"]["success"], true, "modal data reflects the outcome")
+	)
+
+	run_case("failed_seed_still_opens_seed_result_modal", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			GameState.state["player"]["cultivatingSkill"] = 1
+			var result := Cultivating.seed("time")
+			return not result.get("success", true)
+		)
+		assert_true(seed != -1, "should find a failed seed roll within 200 tries")
+		assert_eq(GameState.state["modal"]["type"], "seed_result", "failure should still open the modal")
+		assert_eq(GameState.state["modal"]["data"]["success"], false, "modal data reflects the failure")
 	)
 
 	run_case("xp_thresholds_level_the_skill_at_exactly_80", func():
@@ -94,6 +109,8 @@ func run() -> void:
 		assert_eq(vein["level"], 2, "vein should have levelled up to 2")
 		assert_eq(vein["devBar"], 0, "devBar resets to 0 on level up")
 		assert_eq(vein["levelLabel"], "Minor", "levelLabel updates with the new level")
+		assert_eq(GameState.state["modal"]["type"], "cultivate_result", "cultivate should open the cultivate_result modal")
+		assert_eq(GameState.state["modal"]["data"]["levelledUp"], true, "modal data reflects the level-up")
 	)
 
 	run_case("cultivate_lv5_is_the_cap_even_with_devBar_far_past_threshold", func():

@@ -29,6 +29,8 @@ func run() -> void:
 		# time basePrice 60, barometer stable -> effective price 60, gross = 180
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "3 ore deducted")
 		assert_eq(GameState.state["player"]["cash"], 40 + 90, "playerCut = floor(180*0.5) = 90, added to starting cash 40")
+		assert_eq(GameState.state["modal"]["type"], "sale_result", "a non-mugged sale should open the sale_result modal")
+		assert_eq(GameState.state["modal"]["data"]["mugged"], false, "modal data reflects the non-mugged outcome")
 	)
 
 	run_case("gross_math_applies_barometer_premiums", func():
@@ -92,4 +94,39 @@ func run() -> void:
 		assert_eq(GameState.state["pendingSaleCut"], 0, "pendingSaleCut clears after payout")
 		assert_eq(result["earned"], 90, "returned earned matches what was paid")
 		assert_eq(result["gross"], 180, "gross for display is earned * 2, per the prototype")
+		assert_eq(GameState.state["modal"]["type"], "sale_result", "muggingWon should open the sale_result modal")
+		assert_eq(GameState.state["modal"]["data"]["mugged"], true, "modal data reflects the mugged outcome")
+	)
+
+	run_case("adjust_sell_qty_clamps_between_0_and_max", func():
+		GameState.reset()
+		Economy.adjust_sell_qty("ore_time", 5, 3)
+		assert_eq(GameState.state["sellState"]["ore_time"], 3, "should clamp at max_qty")
+		Economy.adjust_sell_qty("ore_time", -10, 3)
+		assert_eq(GameState.state["sellState"]["ore_time"], 0, "should clamp at 0, not go negative")
+	)
+
+	run_case("clear_sell_state_empties_it", func():
+		GameState.reset()
+		Economy.adjust_sell_qty("ore_time", 2, 10)
+		Economy.clear_sell_state()
+		assert_eq(GameState.state["sellState"], {}, "should be empty after clearing")
+	)
+
+	run_case("sell_from_sell_state_builds_items_and_clears_afterward", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 10
+			GameState.state["player"]["inventory"]["timePearl"] = 5
+			Economy.adjust_sell_qty("ore_time", 3, 10)
+			Economy.adjust_sell_qty("con_timePearl", 2, 5)
+			var result := Economy.sell_from_sell_state()
+			return not result["mugged"]
+		)
+		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
+		# gross = 3*60 (time) + 2*120 (timePearl) = 420; cut = floor(420*0.5) = 210
+		assert_eq(GameState.state["player"]["cash"], 40 + 210, "sale proceeds from both ore and consumable lines")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "ore deducted")
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"], 3, "consumable deducted")
+		assert_eq(GameState.state["sellState"], {}, "sellState cleared after selling")
 	)

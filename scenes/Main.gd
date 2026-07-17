@@ -20,7 +20,7 @@ const SCREEN_SCRIPTS := {
 	"barometer": preload("res://scenes/screens/barometer.gd"),
 	"stats": preload("res://scenes/screens/stats.gd"),
 	"save": preload("res://scenes/screens/save.gd"),
-	"combat": preload("res://scenes/screens/placeholder.gd"),
+	"combat": preload("res://scenes/screens/combat.gd"),
 	"event": preload("res://scenes/screens/placeholder.gd"),
 }
 

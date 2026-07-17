@@ -53,6 +53,8 @@ func run() -> void:
 		assert_true(seed != -1, "should find a successful craft roll within 200 tries")
 		assert_eq(GameState.state["player"]["inventory"]["timePearl"], 1, "successful craft grants +1 item")
 		assert_eq(GameState.state["player"]["craftingXP"], 20, "success grants full xpReward (20 for timePearl)")
+		assert_eq(GameState.state["modal"]["type"], "craft_result", "attempt_craft should open the craft_result modal")
+		assert_eq(GameState.state["modal"]["data"]["success"], true, "modal data reflects the outcome")
 	)
 
 	run_case("attempt_craft_failure_grants_partial_xp", func():

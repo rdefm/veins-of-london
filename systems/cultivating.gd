@@ -66,11 +66,11 @@ static func seed(ore_type: String) -> Dictionary:
 		}
 		player["veins"].append(vein)
 		award_xp(30)
-		EventBus.state_changed.emit()
+		Modal.open("seed_result", { "success": true, "oreType": ore_type })
 		return { "ok": true, "success": true, "oreType": ore_type, "veinId": vein["id"] }
 	else:
 		award_xp(5)
-		EventBus.state_changed.emit()
+		Modal.open("seed_result", { "success": false, "oreType": ore_type })
 		return { "ok": true, "success": false, "oreType": ore_type }
 
 
@@ -95,11 +95,11 @@ static func cultivate(vein_id: String) -> Dictionary:
 		var levelled_up: bool = vein["level"] < LEVEL_CAP and vein["devBar"] >= level_data["devBarMax"]
 		if levelled_up:
 			level_up_vein(vein)
-		EventBus.state_changed.emit()
+		Modal.open("cultivate_result", { "success": true, "gain": gain, "veinId": vein_id, "levelledUp": levelled_up, "newLevel": vein["level"], "newLabel": vein["levelLabel"] })
 		return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "levelledUp": levelled_up, "newLevel": vein["level"], "newLabel": vein["levelLabel"] }
 	else:
 		award_xp(8)
-		EventBus.state_changed.emit()
+		Modal.open("cultivate_result", { "success": false, "veinId": vein_id })
 		return { "ok": true, "success": false, "veinId": vein_id }
 
 
