@@ -24,6 +24,25 @@ func slot_exists(slot: int) -> bool:
 	return FileAccess.file_exists(slot_path(slot))
 
 
+# Non-destructive peek at a slot's headline numbers for the save screen —
+# unlike load_from_slot, does NOT touch GameState.state. Empty dict if the
+# slot doesn't exist or is unreadable.
+func slot_summary(slot: int) -> Dictionary:
+	var path := slot_path(slot)
+	if not FileAccess.file_exists(path):
+		return {}
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed = JSON.parse_string(file.get_as_text())
+	if parsed == null or typeof(parsed) != TYPE_DICTIONARY:
+		return {}
+	return {
+		"day": parsed.get("world", {}).get("day", 0),
+		"cash": parsed.get("player", {}).get("cash", 0),
+	}
+
+
 func save_to_slot(slot: int) -> Dictionary:
 	DirAccess.make_dir_recursive_absolute(SAVES_DIR)
 	return _write_json(slot_path(slot), GameState.state)

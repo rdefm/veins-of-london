@@ -47,6 +47,26 @@ func run() -> void:
 		assert_true(not SaveManager.slot_exists(TEST_SLOT), "should not exist after deleting")
 	)
 
+	run_case("slot_summary_is_non_destructive", func():
+		SaveManager.delete_slot(TEST_SLOT)
+		assert_eq(SaveManager.slot_summary(TEST_SLOT), {}, "empty dict for a slot that doesn't exist")
+
+		GameState.reset()
+		GameState.state["world"]["day"] = 7
+		GameState.state["player"]["cash"] = 555
+		SaveManager.save_to_slot(TEST_SLOT)
+
+		GameState.state["world"]["day"] = 1
+		GameState.state["player"]["cash"] = 1
+		var summary := SaveManager.slot_summary(TEST_SLOT)
+
+		assert_eq(summary, { "day": 7, "cash": 555 }, "summary reflects the saved slot, not live state")
+		assert_eq(GameState.state["world"]["day"], 1, "slot_summary must not touch live GameState.state")
+		assert_eq(GameState.state["player"]["cash"], 1, "slot_summary must not touch live GameState.state")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("load_from_empty_slot_fails_cleanly", func():
 		SaveManager.delete_slot(TEST_SLOT)
 		var result := SaveManager.load_from_slot(TEST_SLOT)
