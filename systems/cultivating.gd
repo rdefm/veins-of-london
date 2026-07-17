@@ -51,7 +51,7 @@ static func seed(ore_type: String) -> Dictionary:
 
 	if success:
 		var vein := {
-			"id": _make_vein_id(),
+			"id": make_vein_id(),
 			"oreType": ore_type,
 			"level": 1,
 			"levelLabel": GameData.VEIN_LEVELS["1"]["label"],
@@ -200,5 +200,5 @@ static func find_vein(vein_id: String) -> Variant:
 	return null
 
 
-static func _make_vein_id() -> String:
+static func make_vein_id() -> String:
 	return "v" + str(Time.get_ticks_usec()) + str(Rng.randi_range(1000, 999999))
