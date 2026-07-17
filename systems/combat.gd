@@ -380,6 +380,7 @@ static func exit_combat() -> Dictionary:
 		"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
 	}
+	SaveManager.autosave()  # R§6: autosave on combat exit
 
 	if context == "mugging" and outcome == "win":
 		return { "nextScreen": null }

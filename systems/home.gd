@@ -69,6 +69,7 @@ static func upgrade_tier() -> Dictionary:
 	home["tier"] = next_tier_id
 	Notify.push("Moved up to %s." % next_tier["name"])
 	EventBus.state_changed.emit()
+	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 
 
@@ -95,6 +96,7 @@ static func add_security(security_id: String) -> Dictionary:
 	home["security"].append(security_id)
 	Notify.push("Installed %s." % security_data["name"])
 	EventBus.state_changed.emit()
+	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 
 
@@ -130,6 +132,7 @@ static func add_room(room_id: String) -> Dictionary:
 
 	Notify.push("Built %s." % room_data["name"])
 	EventBus.state_changed.emit()
+	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 
 

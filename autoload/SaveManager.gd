@@ -1,9 +1,9 @@
 extends Node
 
 # Save/load/autosave/export-import per R§6. 3 manual slots + 3 rotating
-# autosaves. Actual autosave *trigger wiring* (daily tick, combat exit,
-# event completion, purchases) is M0-T14's job — this just builds the
-# machinery those calls will use.
+# autosaves. autosave() is called from daily_tick, exit_combat, Events.
+# advance (on completion), and every successful cash purchase (home
+# upgrade/security/room, barometer manual push/pull) — M0-T14 wiring.
 
 const SAVE_VERSION := 1
 const SLOT_COUNT := 3

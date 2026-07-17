@@ -56,6 +56,7 @@ static func daily_tick() -> void:
 	Rooms.process_vein_station()
 	Devices.reset_daily_charges()        # ⑦ device charge reset
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])
+	SaveManager.autosave()               # R§6: autosave on every daily tick
 
 
 static func _apply_living_costs() -> void:

@@ -51,6 +51,7 @@ static func advance() -> void:
 		var on_complete: Array = _event_def().get("on_complete", [])
 		GameState.state["event"] = null
 		apply_effects(on_complete)
+		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
 		event_state["cardIndex"] += 1
 		EventBus.state_changed.emit()

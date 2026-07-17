@@ -139,6 +139,7 @@ static func _manual_action(section: String, state_id: String, direction: String)
 		progress[state_id] = clampi(progress[state_id] - 20, 0, 100)
 
 	EventBus.state_changed.emit()
+	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 
 
