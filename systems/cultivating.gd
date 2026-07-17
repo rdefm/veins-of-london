@@ -77,7 +77,7 @@ static func seed(ore_type: String) -> Dictionary:
 static func cultivate(vein_id: String) -> Dictionary:
 	if TimeSystem.is_time_exhausted():
 		return { "ok": false, "reason": "No blocks left today." }
-	var vein = _find_vein(vein_id)
+	var vein = find_vein(vein_id)
 	if vein == null:
 		return { "ok": false, "reason": "Vein not found." }
 
@@ -94,7 +94,7 @@ static func cultivate(vein_id: String) -> Dictionary:
 		award_xp(20)
 		var levelled_up: bool = vein["level"] < LEVEL_CAP and vein["devBar"] >= level_data["devBarMax"]
 		if levelled_up:
-			_level_up_vein(vein)
+			level_up_vein(vein)
 		EventBus.state_changed.emit()
 		return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "levelledUp": levelled_up, "newLevel": vein["level"], "newLabel": vein["levelLabel"] }
 	else:
@@ -106,7 +106,7 @@ static func cultivate(vein_id: String) -> Dictionary:
 static func harvest_cautious(vein_id: String) -> Dictionary:
 	if TimeSystem.is_time_exhausted():
 		return { "ok": false, "reason": "No blocks left today." }
-	var vein = _find_vein(vein_id)
+	var vein = find_vein(vein_id)
 	if vein == null or not vein["charged"]:
 		return { "ok": false, "reason": "Vein isn't charged." }
 
@@ -130,7 +130,7 @@ static func harvest_cautious(vein_id: String) -> Dictionary:
 static func harvest_full(vein_id: String) -> Dictionary:
 	if TimeSystem.is_time_exhausted():
 		return { "ok": false, "reason": "No blocks left today." }
-	var vein = _find_vein(vein_id)
+	var vein = find_vein(vein_id)
 	if vein == null or not vein["charged"]:
 		return { "ok": false, "reason": "Vein isn't charged." }
 
@@ -169,7 +169,7 @@ static func recharge_veins() -> void:
 	EventBus.state_changed.emit()
 
 
-static func _level_up_vein(vein: Dictionary) -> void:
+static func level_up_vein(vein: Dictionary) -> void:
 	if vein["level"] >= LEVEL_CAP:
 		return
 	vein["level"] += 1
@@ -193,7 +193,7 @@ static func _level_down_vein(vein: Dictionary) -> void:
 		Notify.push("A vein on %s dropped to level %d." % [location_street, vein["level"]])
 
 
-static func _find_vein(vein_id: String) -> Variant:
+static func find_vein(vein_id: String) -> Variant:
 	for vein in GameState.state["player"]["veins"]:
 		if vein["id"] == vein_id:
 			return vein
