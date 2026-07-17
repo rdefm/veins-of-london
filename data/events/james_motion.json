@@ -1,0 +1,26 @@
+{
+  "id": "james_motion",
+  "cards": [
+    { "type": "narration", "label": "Bermondsey — the storage unit", "speaker": null, "text": "James opens the door in what you're coming to recognise as his default expression: mild disappointment that the world continues to contain other people." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"You again.\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"I wanted to ask if you'd be willing to teach me any other recipes. I've been practising — the pearls are improving.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"I'm sure they are. Mediocrity tends to plateau early. What's in it for me?\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"If you've got more orders than you can handle, I could take the overflow. Or just do the grunt work — the basic stuff that takes your time without needing your skill.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "James looks at you for a long moment. He picks up a glass sphere from his bench, turns it over, sets it down again. This appears to be how he thinks." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"You are proposing to be my assistant.\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"If that's how you want to frame it.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"I want to frame it accurately. You would not be a partner, a student, or a colleague. You would handle simple orders. I would retain all complex work. You would not advertise yourself as my associate.\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"That's fine.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Hm.\" Another pause. \"Enhancement powder. It's straightforward. Life orichalchum, compressed differently to the pearls — outward rather than inward. Rub a small amount on the skin before physical exertion. Temporarily accelerates the user's movement.\"" },
+    { "type": "craft", "label": "New recipe: Enhancement Powder", "speaker": null, "text": "The compression is different from pearls — you're pushing the calc outward through a membrane rather than sealing it. The result is a fine iridescent dust. James demonstrates once. He expects you to manage after that." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Quality scales with skill, as always. Low-grade powder gives you one extra action in a fight. Better work gives you more. I trust you understand the principle.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"I'll send you work when I have overflow. Don't expect it to be glamorous. And don't be late.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "You leave with the recipe and the firm sense that James considers this arrangement a concession rather than a collaboration. You suspect that won't change." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "jamesMotionEventSeen", "value": true },
+    { "op": "set_flag", "flag": "enhancementUnlocked", "value": true },
+    { "op": "relation", "contact": "james", "value": 1 },
+    { "op": "set_screen", "screen": "contacts" }
+  ]
+}

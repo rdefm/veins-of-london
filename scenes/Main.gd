@@ -1,8 +1,9 @@
 extends Control
 
 # ScreenManager: swaps scenes/screens/* on EventBus.screen_changed, per
-# R§2.2's screen list. Placeholder scripts stand in for screens T12
-# hasn't rebuilt yet; "event" stays a placeholder until T13.
+# R§2.2's screen list. "intro" is never actually navigated to (Events.
+# start_event("intro") sends the player straight to "event" instead) but
+# stays mapped for registry completeness.
 
 const SCREEN_SCRIPTS := {
 	"title": preload("res://scenes/screens/title.gd"),
@@ -12,8 +13,8 @@ const SCREEN_SCRIPTS := {
 	"inventory": preload("res://scenes/screens/inventory.gd"),
 	"crafting": preload("res://scenes/screens/crafting.gd"),
 	"contacts": preload("res://scenes/screens/contacts.gd"),
-	"sms_archie": preload("res://scenes/screens/placeholder.gd"),
-	"sms_archie_2": preload("res://scenes/screens/placeholder.gd"),
+	"sms_archie": preload("res://scenes/screens/sms_archie.gd"),
+	"sms_archie_2": preload("res://scenes/screens/sms_archie_2.gd"),
 	"world": preload("res://scenes/screens/world.gd"),
 	"property": preload("res://scenes/screens/property.gd"),
 	"factions": preload("res://scenes/screens/factions.gd"),
@@ -21,7 +22,7 @@ const SCREEN_SCRIPTS := {
 	"stats": preload("res://scenes/screens/stats.gd"),
 	"save": preload("res://scenes/screens/save.gd"),
 	"combat": preload("res://scenes/screens/combat.gd"),
-	"event": preload("res://scenes/screens/placeholder.gd"),
+	"event": preload("res://scenes/screens/event.gd"),
 }
 
 # R§2.2: "Global bottom nav ... hidden on title, intro, event, combat".

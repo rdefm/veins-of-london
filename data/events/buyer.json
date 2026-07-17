@@ -1,0 +1,23 @@
+{
+  "id": "buyer",
+  "cards": [
+    { "type": "narration", "label": "The next morning", "speaker": null, "text": "Archie texts an address in Shoreditch and the word \"tonight\". You arrive to find him outside a craft beer bar, looking mildly disgusted by its existence." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. Same calc from the other night — I held onto it. Buyer's inside. Name's Marcus, finance, collects time-type for what he calls 'recreational use'. Don't ask. Just be normal. Or close to it.\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"This is the same stuff. From when they tried to rob us.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Correct. Which is why having two of us is better than one. You're essentially a deterrent. Like a scarecrow. No offence.\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"Some offence.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Noted.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "Marcus is exactly what you expected: fleece, Patagonia, very clean trainers. He examines the calc with the careful enthusiasm of someone who has recently read about it online. He pays promptly, which is nice." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"See? Smooth as you like. Most of them are like Marcus. Professional, prompt, no Stanley knife. That's the market we're targeting.\"" },
+    { "type": "resolution", "label": "Walking back — Shoreditch High Street", "speaker": null, "text": "Archie splits the cash on the pavement outside a Pret. The city moves around you, completely indifferent to any of this." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"So. I've got a contact who knows a lot more about this than I do. Bloke called James — craftsman, Bermondsey. Takes raw calc and makes things out of it. Like the pearls. I've been meaning to introduce you.\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"Sure.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"I'll set it up. Give me a couple of days.\"" }
+  ],
+  "on_complete": [
+    { "op": "add", "path": "player.cash", "value": 40 },
+    { "op": "set_flag", "flag": "buyerEventSeen", "value": true },
+    { "op": "set_stage", "value": "sms_archie" },
+    { "op": "set_screen", "screen": "home" }
+  ]
+}

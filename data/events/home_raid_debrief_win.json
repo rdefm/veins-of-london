@@ -1,0 +1,27 @@
+{
+  "id": "home_raid_debrief_win",
+  "cards": [
+    { "type": "resolution", "label": "Forty minutes later", "speaker": null, "text": "The police were called by a neighbour and left without much interest. You gave a statement that was technically accurate in every detail that didn't matter. The raider is gone. Your ore is still here." },
+    { "type": "narration", "label": null, "speaker": null, "text": "Archie arrives at seven in the morning with two coffees and the air of a man who has absolutely expected this." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"You alright?\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"Yeah. They didn't get anything.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Good. That's good.\" He looks around the flat. \"This place is a liability, you know that? One lock on the door and a window that doesn't close properly. You might as well put a sign up.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Anyway. You handled yourself, which is — honestly, that's more than I expected. No offence.\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"Some offence.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Fair. Look — this has made me think. We've been doing well together. You've been reliable, which in this line of work is genuinely rare. I think we should make it proper.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Official partners. Means I look out for you, you look out for me. And it means I can call in a favour — got a bloke who does security installs. Good gear, reasonable price, he doesn't ask questions. I'll have him round.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Also — and this is me being straight with you — you need to move. This place is done. Save up, find somewhere better. Nicer area, proper security, somewhere people can't just walk into at three in the morning.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"And — the vein. I said I'd transfer it. Consider it done. Time vein, Whitechapel, level one. It needs work before it'll produce anything, but it's yours. Cultivate it up, harvest what you can, make pearls. I'll handle the buyers.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "He finishes his coffee and leaves before you can thank him, which is probably how he prefers it. You check your phone. There's a pin location. The vein." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "homeRaidEventSeen", "value": true },
+    { "op": "set_flag", "flag": "homeRaidWon", "value": true },
+    { "op": "set_flag", "flag": "archiePartnerSeen", "value": true },
+    { "op": "set_flag", "flag": "homeUnlocked", "value": true },
+    { "op": "set_flag", "flag": "securityContactUnlocked", "value": true },
+    { "op": "relation", "contact": "archie", "value": 10 },
+    { "op": "grant_vein", "vein": { "oreType": "time", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
+    { "op": "set_screen", "screen": "home" }
+  ]
+}

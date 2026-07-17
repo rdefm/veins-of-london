@@ -3,10 +3,9 @@ extends Control
 
 # Actions gated by flags per R§3.11. The HTML's version routes several
 # actions to dedicated per-event screens (event_buyer, event_archie_
-# motion, ...) that don't exist under R§2.2 — T13 replaces those with
-# one generic "event" screen driven by state.event, so those actions
-# route to Nav.go_to("event") here for now (a placeholder until T13
-# actually starts an event on that screen).
+# motion, ...) that don't exist under R§2.2 — M0-T13 replaces those with
+# one generic "event" screen driven by state.event, started here via
+# Events.start_event().
 
 
 var _content: VBoxContainer
@@ -42,10 +41,10 @@ func _build_archie_card() -> Control:
 	c["content"].add_child(UI.muted_label("Trader · Whitechapel"))
 
 	if flags["archieMotionPending"] and not flags["archieMotionEventSeen"]:
-		c["content"].add_child(UI.button("💬 Archie texted — diversify", func(): Nav.go_to("event")))
+		c["content"].add_child(UI.button("💬 Archie texted — diversify", func(): Events.start_event("archie_motion")))
 
 	if flags["tutorialStage"] == "archie_craft_chat" and not flags["archieCraftChatSeen"]:
-		c["content"].add_child(UI.button("💬 Archie wants to meet", func(): Nav.go_to("event")))
+		c["content"].add_child(UI.button("💬 Archie wants to meet", func(): Events.start_event("archie_craft_chat")))
 
 	if flags["tutorialStage"] == "buyer_event" and not flags["buyerEventSeen"] and world["day"] >= 2:
 		c["content"].add_child(UI.button("💬 Archie texted — buyer tonight", func(): Nav.go_to("sms_archie_2")))
@@ -108,7 +107,7 @@ func _build_james_card() -> Control:
 	c["content"].add_child(UI.muted_label("Craftsman · Bermondsey"))
 
 	if flags["archieMotionEventSeen"] and not flags["jamesMotionEventSeen"]:
-		c["content"].add_child(UI.button("💬 Visit James — ask about new recipes", func(): Nav.go_to("event")))
+		c["content"].add_child(UI.button("💬 Visit James — ask about new recipes", func(): Events.start_event("james_motion")))
 
 	if flags["jamesMotionEventSeen"]:
 		var job_active: bool = flags["jamesJobActive"] and GameState.state["jamesJob"] != null

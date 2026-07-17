@@ -366,13 +366,10 @@ static func _raid_won() -> void:
 
 # Tears down combat state and routes to the next screen. Per R§3.7's exit
 # dispatch: mugging-win leaves the screen alone (sale_result modal is
-# already showing); home_raid routes to the generic "event" screen — T13
-# hasn't landed the debrief event yet, and "event" is the placeholder
-# every not-yet-built tutorial step already routes to, so this doesn't
-# silently fall through to title like a literal "home_raid_debrief" screen
-# id (which doesn't exist in Main.gd's registry) would; otherwise
-# inventory on a raid win, home in every other case (loss/fled/
-# mugging-loss-that-somehow-exits).
+# already showing); home_raid routes into the matching debrief event
+# (R§3.8, wired by M0-T13's Events.start_event); otherwise inventory on a
+# raid win, home in every other case (loss/fled/mugging-loss-that-somehow-
+# exits).
 static func exit_combat() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	var outcome = combat["outcome"]
@@ -389,8 +386,8 @@ static func exit_combat() -> Dictionary:
 
 	if context == "home_raid":
 		_after_home_raid_combat(outcome)
-		GameState.state["currentScreen"] = "event"
-		EventBus.screen_changed.emit("event")
+		var debrief_id: String = "home_raid_debrief_win" if outcome == "win" else "home_raid_debrief_loss"
+		Events.start_event(debrief_id)
 		return { "nextScreen": "event" }
 
 	var next_screen: String = "inventory" if (outcome == "win" and context == "raid") else "home"

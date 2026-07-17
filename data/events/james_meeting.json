@@ -1,0 +1,40 @@
+{
+  "id": "james_meeting",
+  "cards": [
+    { "type": "narration", "label": "Two days later — Bermondsey", "speaker": null, "text": "The address Archie texted is a storage unit behind a halal supermarket. You find him leaning against the corrugated shutter, hands in pockets, looking like he's waiting for a bus he knows is going to be late." },
+    { "type": "narration", "label": null, "speaker": null, "text": "The man who opens the shutter is in his sixties. Glasses with one slightly bent arm, a cardigan that has seen things. He looks at the two of you over the rim of his lenses with the specific expression of someone whose time is being wasted — and who has decided, provisionally, to allow it." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"James. Cheers for this. This is — well, he's helping me out at the moment.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Yes. I can see that. Come in, then. Don't touch anything.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "Inside: shelves of labelled jars, a workbench covered in instruments that look like someone crossed a chemistry set with an antique shop. It smells of copper and something you can't name." },
+    { "type": "narration", "label": null, "speaker": null, "text": "You lean in toward a row of sealed jars. One of them contains something that shifts — not from the movement of the shelf, not from any air in the room. It moves, very slightly, as if it noticed you." },
+    { "type": "narration", "label": null, "speaker": null, "text": "You glance up. James is watching you. His expression doesn't change, exactly. But something in it does." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"He's the best craftsman I know. Turns raw calc into — well, you've seen what the pearls do.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Don't flatter me. I'm the only craftsman you know. There's a difference.\" He turns to Archie. \"I have an order I need moved. I'll give you the next batch of pearls at cost — usual rate — if you pick up a supply run for me. Stratford. Tonight.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Yeah, alright. What am I picking up?\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Physics calc, forty units. The address will be on your phone by the time you're outside.\" He sets down the jar he's holding. \"Your associate stays here.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right.\" He's already moving toward the door. \"Cheers, James. Back in a bit.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "The shutter closes. James stands in the silence for a moment, regarding you with the careful expression of a man who has decided to do something he hasn't fully justified to himself yet." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"I have a substantial order for time pearls. My usual assistant is indisposed. You'll do.\" A pause. \"I realise that isn't flattering. It isn't meant to be.\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"I don't know how to make them.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Evidently. That is why I am going to explain it to you, slowly, using small words. Even a reasonably attentive puppy could manage this. I'm trusting you to clear that bar.\"" },
+    { "type": "craft", "label": "Crafting: Time Pearl", "speaker": null, "text": "James walks you through it. Time orichalchum, compressed into a glass sphere under controlled conditions. The calc does most of the work — you're just the hands. The sphere seals itself when it's ready. Or it doesn't, and the calc disperses. That's it, really." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"The quality of the pearl depends on how cleanly you compress it. Rushed work means the time effect is weak — one turn, maybe less. Patient, careful work produces something that can freeze a situation for several seconds. You will, at first, be rushing it. That's fine. You'll improve. Probably.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"And do try your very best not to fuck it up. The calc isn't free.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"You know, Plato described orichalchum as the second most precious metal in Atlantis. Wrote about it in the Critias — considered it almost mystical in nature.\" He pauses. \"You have absolutely no idea what the Critias is, do you.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "It isn't really a question. You don't answer it." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"It doesn't matter. The point is that people have understood what this material is for approximately two and a half thousand years, and we still have people like Archie picking up deliveries in Stratford. Make of that what you will.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "You spend two hours at the bench. Some of the pearls work. Some don't. James says nothing about the ones that don't, which is somehow worse than if he had." },
+    { "type": "resolution", "label": null, "speaker": null, "text": "You leave with a crafting kit, a basic understanding of time pearl compression, and the distinct impression that James noticed something — and has decided, for now, not to mention it." }
+  ],
+  "on_complete": [
+    { "op": "add_item", "item": "timePearl", "qty": 2 },
+    { "op": "set_flag", "flag": "metJames", "value": true },
+    { "op": "set_flag", "flag": "craftingUnlocked", "value": true },
+    { "op": "add", "path": "contacts.james.unlocked", "value": true },
+    { "op": "relation", "contact": "james", "value": 10 },
+    { "op": "set_stage", "value": "archie_craft_chat" },
+    { "op": "add", "path": "world.archieChatUnlockDay", "value": 1 },
+    { "op": "notify", "text": "Crafting unlocked. Try the Craft tab." },
+    { "op": "set_screen", "screen": "crafting" }
+  ]
+}

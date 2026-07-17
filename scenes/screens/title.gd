@@ -27,7 +27,7 @@ func _ready() -> void:
 
 func _on_new_game_pressed() -> void:
 	GameState.reset()
-	Nav.go_to("intro")
+	Events.start_event("intro")
 
 
 func _on_debug_start_pressed() -> void:

@@ -40,6 +40,17 @@ var ARCHIE_ORE_GOAL: int = 0
 var CONTACTS_DEFAULTS: Dictionary = {}
 var JAMES_JOB_TRUST_BANDS: Array = []
 
+var EVENTS: Dictionary = {}
+var SMS_THREADS: Dictionary = {}
+
+# M0-T13's full tutorial event roster (R§3.11, R§3.8). JAMES_CRAFT_CARDS
+# from the HTML is deliberately excluded — dead/unreachable content.
+const EVENT_IDS: Array[String] = [
+	"intro", "buyer", "james_meeting", "archie_craft_chat",
+	"home_raid_intro", "home_raid_debrief_win", "home_raid_debrief_loss",
+	"archie_motion", "james_motion",
+]
+
 var loaded := false
 var _load_errors: Array[String] = []
 var _errors: Array[String] = []
@@ -93,6 +104,14 @@ func load_all() -> void:
 	CONTACTS_DEFAULTS = constants.get("contacts", {})
 	JAMES_JOB_TRUST_BANDS = constants.get("jamesJobTrustBands", [])
 
+	EVENTS = {}
+	for event_id in EVENT_IDS:
+		var event_def := _load_json("res://data/events/%s.json" % event_id)
+		if not event_def.is_empty():
+			EVENTS[event_id] = event_def
+
+	SMS_THREADS = _load_json("res://data/sms.json")
+
 	loaded = true
 
 
@@ -123,6 +142,8 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), errors)
 	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
+	_validate_events(t.get("events", {}), errors)
+	_validate_sms(t.get("sms_threads", {}), errors)
 
 	return errors
 
@@ -151,6 +172,8 @@ func snapshot() -> Dictionary:
 		"enemy_home_raid_raider": ENEMY_HOME_RAID_RAIDER,
 		"time_blocks": TIME_BLOCKS,
 		"contacts_defaults": CONTACTS_DEFAULTS,
+		"events": EVENTS,
+		"sms_threads": SMS_THREADS,
 	}
 
 
@@ -286,6 +309,46 @@ func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, erro
 			errors.append("constants: contacts is missing '%s'" % key)
 			continue
 		_require_keys(contacts_defaults[key], ["startRelation", "unlocked", "recruitThreshold"], "constants.contacts.%s" % key, errors)
+
+
+const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "resolution", "craft"]
+const VALID_EFFECT_OPS: Array[String] = [
+	"set_flag", "add", "add_ore", "add_item", "relation", "grant_vein",
+	"set_screen", "notify", "set_stage", "start_home_raid_combat",
+]
+
+
+func _validate_events(events: Dictionary, errors: Array[String]) -> void:
+	for expected_id in EVENT_IDS:
+		if not events.has(expected_id):
+			errors.append("events: missing event file '%s'" % expected_id)
+
+	for key in events.keys():
+		var entry = events[key]
+		_require_keys(entry, ["id", "cards", "on_complete"], "events.%s" % key, errors)
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		if entry.get("id") != key:
+			errors.append("events.%s: id field '%s' does not match filename" % [key, entry.get("id")])
+		for card in entry.get("cards", []):
+			_require_keys(card, ["type", "label", "speaker", "text"], "events.%s.cards" % key, errors)
+			if card.has("type") and not VALID_CARD_TYPES.has(card["type"]):
+				errors.append("events.%s: unknown card type '%s'" % [key, card["type"]])
+		for effect in entry.get("on_complete", []):
+			_require_keys(effect, ["op"], "events.%s.on_complete" % key, errors)
+			if effect.has("op") and not VALID_EFFECT_OPS.has(effect["op"]):
+				errors.append("events.%s: unknown effect op '%s'" % [key, effect["op"]])
+
+
+func _validate_sms(threads: Dictionary, errors: Array[String]) -> void:
+	for expected_id in ["archie_1", "archie_2"]:
+		if not threads.has(expected_id):
+			errors.append("sms: missing thread '%s'" % expected_id)
+			continue
+		for msg in threads[expected_id]:
+			_require_keys(msg, ["from", "text"], "sms.%s" % expected_id, errors)
+			if msg.has("from") and not ["player", "archie"].has(msg["from"]):
+				errors.append("sms.%s: unknown sender '%s'" % [expected_id, msg["from"]])
 
 
 func _require_keys(entry: Dictionary, keys: Array, context: String, errors: Array[String]) -> void:

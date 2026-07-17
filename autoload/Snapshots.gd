@@ -27,3 +27,13 @@ func oldest(stack: Array) -> Variant:
 
 func clear(stack: Array) -> void:
 	stack.clear()
+
+
+# LIFO pop: removes and returns the most recently pushed snapshot, leaving
+# earlier frames in place. Event rewind uses this (unlike combat rewind,
+# which restores the oldest frame and clears the whole stack) so multiple
+# rewind charges can step back one card at a time.
+func pop_newest(stack: Array) -> Variant:
+	if stack.is_empty():
+		return null
+	return stack.pop_back()

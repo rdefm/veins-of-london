@@ -9,6 +9,16 @@ var _content: VBoxContainer
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+
+	# R§3.8: "on next visit to home screen, launch." Checked once per visit,
+	# before building the normal home UI or connecting _refresh — starting
+	# the event immediately navigates away, and this node is about to be
+	# freed by Main.gd's screen swap.
+	var flags: Dictionary = GameState.state["flags"]
+	if flags["homeRaidEventPending"] and not flags["homeRaidEventSeen"]:
+		Events.start_event("home_raid_intro")
+		return
+
 	_content = UI.screen_body(self)
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
