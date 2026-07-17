@@ -120,7 +120,7 @@ func run() -> void:
 		var expected: Dictionary = GameState.deep_copy(snapshot_before)
 		expected["player"]["inventory"]["rewind"] = 0
 		expected.erase("notifications")  # rewind pushes its own "time unspools" notification
-		var actual := GameState.deep_copy(GameState.state)
+		var actual: Dictionary = GameState.deep_copy(GameState.state)
 		actual.erase("notifications")
 		assert_eq(actual, expected, "the entire state tree (minus notifications, minus the spent charge) should exactly match the pre-advance snapshot")
 	)

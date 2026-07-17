@@ -135,7 +135,7 @@ static func _apply_one(effect: Dictionary) -> void:
 # (`gameState.world._archieChatUnlockDay = gameState.world.day + 1`): it
 # starts null, so "add" there means "today + value", not "null + value".
 static func _apply_add(path: String, value: Variant) -> void:
-	var current: Variant = GameState.get_path(path)
+	var current: Variant = GameState.read_path(path)
 	var new_value: Variant
 	if _is_number(current) and _is_number(value):
 		new_value = current + value

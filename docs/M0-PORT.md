@@ -21,7 +21,7 @@ Execute tasks **in order**. Each task = one commit. A task is done when its Acce
 **Tests:** validation passes; deliberately corrupt fixture fails validation; spot-check 10 values (e.g. fate basePrice 90, townhouse maxRooms 3, enhancementPowder ingredient "life").
 
 ## T02 — GameState, EventBus, Rng
-- `autoload/GameState.gd`: `state` built from a `new_game_state()` factory matching R§2 exactly; `reset()`; helper `get_path(p)`/no fancy accessors needed beyond direct dict access. `deep_copy(v)` util (recursive; duplicates dicts/arrays).
+- `autoload/GameState.gd`: `state` built from a `new_game_state()` factory matching R§2 exactly; `reset()`; helper `read_path(p)` (named `read_path`, not `get_path` — that name collides with `Node`'s native `get_path() -> NodePath` and fails to compile)/no fancy accessors needed beyond direct dict access. `deep_copy(v)` util (recursive; duplicates dicts/arrays).
 - `autoload/EventBus.gd`: signals `state_changed`, `screen_changed(screen)`, `day_ticked(day)`, `notification_pushed`.
 - Convention helpers in `systems/notify.gd`: `push(text)` (id = str(Time.get_ticks_usec()) + random suffix), `dismiss(id)`.
 **Tests:** new_game_state matches R§2 defaults (assert ~20 representative fields); deep_copy independence (mutate copy, original unchanged).

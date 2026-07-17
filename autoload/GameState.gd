@@ -108,11 +108,15 @@ func _new_contacts_state() -> Dictionary:
 	return contacts
 
 
-# Dot-path convenience reader, e.g. get_path("player.cash"). Not a
-# replacement for direct dict access (systems should still read/write
-# `state` directly) — just a small helper for tests/notifications that
-# want a value without knowing which layer holds it.
-func get_path(path: String, default: Variant = null) -> Variant:
+# Dot-path convenience reader, e.g. read_path("player.cash"). Named
+# read_path (not get_path) because Node already declares a native
+# get_path() -> NodePath — GameState is an autoload extending Node, so
+# reusing that name silently overrides the engine's method instead of
+# declaring a new one, which Godot 4.4 now treats as a hard parse error.
+# Not a replacement for direct dict access (systems should still
+# read/write `state` directly) — just a small helper for tests/
+# notifications that want a value without knowing which layer holds it.
+func read_path(path: String, default: Variant = null) -> Variant:
 	var current: Variant = state
 	for part in path.split("."):
 		if current is Dictionary and current.has(part):

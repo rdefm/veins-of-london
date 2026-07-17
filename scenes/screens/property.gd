@@ -98,7 +98,7 @@ func _build_room_row(room_id: String) -> Control:
 	var c := UI.card()
 	var prefix := "✅ " if installed else ("🔒 " if not available else "")
 	c["content"].add_child(UI.label(prefix + room["name"]))
-	var desc := room["description"]
+	var desc: String = room["description"]
 	if not available:
 		desc += " Requires %s." % GameData.HOME_TIERS[room["minTier"]]["name"]
 	c["content"].add_child(UI.muted_label(desc))

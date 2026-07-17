@@ -65,11 +65,11 @@ func run() -> void:
 		assert_eq(s["flags"]["consSoldCount"], 0, "flags.consSoldCount")
 	)
 
-	run_case("get_path_reads_nested_values", func():
+	run_case("read_path_reads_nested_values", func():
 		GameState.reset()
-		assert_eq(GameState.get_path("player.cash"), 40, "get_path player.cash")
-		assert_eq(GameState.get_path("contacts.archie.relation"), 10, "get_path contacts.archie.relation")
-		assert_eq(GameState.get_path("does.not.exist", "fallback"), "fallback", "get_path missing path returns default")
+		assert_eq(GameState.read_path("player.cash"), 40, "read_path player.cash")
+		assert_eq(GameState.read_path("contacts.archie.relation"), 10, "read_path contacts.archie.relation")
+		assert_eq(GameState.read_path("does.not.exist", "fallback"), "fallback", "read_path missing path returns default")
 	)
 
 	run_case("deep_copy_is_independent_of_original", func():
