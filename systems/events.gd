@@ -42,10 +42,26 @@ static func can_rewind() -> bool:
 
 # Continue: snapshots full state, then either reveals the next card or
 # (on the last card) runs on_complete and clears state.event.
+#
+# state.event.snapshots lives INSIDE the tree this deep-copies, so it must
+# be emptied before the copy — otherwise every snapshot embeds a full copy
+# of the stack as it stood a moment ago, which itself embeds every
+# snapshot before THAT, and so on. That's not a big constant; it's
+# genuine exponential blowup (each card roughly doubled the previous
+# card's advance() time in profiling — card 16 of a 24-card event took 17
+# seconds), and it eventually crashes the run out of memory. Restoring
+# the emptied field afterward keeps the live stack (and everything
+# pushed onto it) exactly as before; only what gets baked into `snap`
+# changes. rewind() below relies on this: it no longer trusts a popped
+# snapshot's own (now always-empty) `event.snapshots` field, and instead
+# carries the real, already-trimmed live stack forward explicitly.
 static func advance() -> void:
 	var event_state: Dictionary = GameState.state["event"]
+	var stack: Array = event_state["snapshots"]
+	event_state["snapshots"] = []
 	var snap: Dictionary = GameState.deep_copy(GameState.state)
-	Snapshots.push("event", event_state["snapshots"], snap)
+	event_state["snapshots"] = stack
+	Snapshots.push("event", stack, snap)
 
 	if is_last_card():
 		var on_complete: Array = _event_def().get("on_complete", [])
@@ -67,8 +83,12 @@ static func rewind() -> Dictionary:
 	var device = _find_equipped_rewind_device_with_charge()
 	var device_id = device["id"] if device != null else null
 
-	var snap: Dictionary = Snapshots.pop_newest(event_state["snapshots"])
+	var stack: Array = event_state["snapshots"]
+	var snap: Dictionary = Snapshots.pop_newest(stack)
 	GameState.state = snap
+	# snap's own event.snapshots is always [] (see advance()) — carry the
+	# real, already-popped live stack forward instead of trusting that.
+	GameState.state["event"]["snapshots"] = stack
 
 	if has_consumable:
 		GameState.state["player"]["inventory"]["rewind"] -= 1

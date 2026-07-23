@@ -37,9 +37,12 @@ func slot_summary(slot: int) -> Dictionary:
 	var parsed = JSON.parse_string(file.get_as_text())
 	if parsed == null or typeof(parsed) != TYPE_DICTIONARY:
 		return {}
+	# JSON has no int type, so these come back as float — cast explicitly
+	# (see _restore_int_types()'s note below; this path bypasses that
+	# helper since it only ever touches these two scalars).
 	return {
-		"day": parsed.get("world", {}).get("day", 0),
-		"cash": parsed.get("player", {}).get("cash", 0),
+		"day": int(parsed.get("world", {}).get("day", 0)),
+		"cash": int(parsed.get("player", {}).get("cash", 0)),
 	}
 
 
@@ -115,6 +118,7 @@ func _load_json_into_state(path: String) -> Dictionary:
 func _load_save_dict(raw: Dictionary) -> Dictionary:
 	var migrated := migrate(raw)
 	var filled := backfill_defaults(migrated)
+	_restore_int_types(filled)
 	GameState.state = filled
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -148,3 +152,115 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 		if not result.has(key):
 			result[key] = defaults[key]
 	return result
+
+
+# JSON has no int/float distinction, so every number in a just-parsed save
+# comes back as a float — Godot's own Dictionary/Array equality treats
+# int(1) and float(1.0) as distinct once nested inside a container (this
+# is what test_savemanager.gd's exact-round-trip assertions caught), and
+# real game code assumes these fields stay ints: maxi()/mini()/clampi()
+# calls (barometer.gd, combat.gd) require int arguments, and formatting
+# like "£%d" % cash would misbehave. Restore ints in place, per R§2's
+# schema, immediately after backfill so every top-level key is guaranteed
+# present. The two genuinely-float fields in the whole schema —
+# combat.evadeChance and devicesInProgress[].progress — are deliberately
+# left untouched.
+func _restore_int_types(state: Dictionary) -> void:
+	_int_key(state, "pendingSaleCut")
+	_int_dict_values(state.get("labThresholds", {}))
+
+	if state.has("meta"):
+		_int_key(state["meta"], "saveVersion")
+
+	if state.has("flags"):
+		_int_key(state["flags"], "consSoldCount")
+
+	if state.has("player"):
+		var player: Dictionary = state["player"]
+		for key in ["cash", "hp", "hpMax", "attackMin", "attackMax", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP"]:
+			_int_key(player, key)
+		_int_dict_values(player.get("orichalchum", {}))
+		_int_dict_values(player.get("inventory", {}))
+		for vein in player.get("veins", []):
+			for key in ["level", "devBar", "chargeBlocks", "claimedOnDay"]:
+				_int_key(vein, key)
+		for device in player.get("devicesCompleted", []):
+			for key in ["level", "xp", "chargesPerDay", "chargesUsedToday", "lastResetDay"]:
+				_int_key(device, key)
+		# devicesInProgress[].progress is a float (10.0, ±5.0/±2.5 deltas —
+		# see systems/devices.gd) — intentionally not touched here.
+
+	if state.has("world"):
+		var world: Dictionary = state["world"]
+		_int_key(world, "day")
+		_int_key(world, "timeBlock")
+		_int_key(world, "archieChatUnlockDay")
+
+	if state.has("home"):
+		var home: Dictionary = state["home"]
+		_int_key(home, "lastRaidDay")
+		_int_dict_values(home.get("storedOre", {}))
+
+	if state.has("factions"):
+		for faction in state["factions"].values():
+			_int_key(faction, "relation")
+
+	if state.has("contacts"):
+		for contact in state["contacts"].values():
+			for key in ["relation", "recruitThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP"]:
+				_int_key(contact, key)
+
+	if state.has("barometer"):
+		var barometer: Dictionary = state["barometer"]
+		for section_progress in barometer.get("progress", {}).values():
+			_int_dict_values(section_progress)
+		for section_cooldowns in barometer.get("cooldowns", {}).values():
+			for entry in section_cooldowns.values():
+				_int_key(entry, "push")
+				_int_key(entry, "pull")
+
+	if state.has("combat"):
+		_restore_combat_int_types(state["combat"])
+
+	if state.get("jamesJob") != null:
+		var job: Dictionary = state["jamesJob"]
+		for key in ["qty", "payPerItem", "totalPay"]:
+			_int_key(job, key)
+
+	# state.event.snapshots holds full-state copies (see systems/events.gd);
+	# recurse the same restoration into each one. In practice this is
+	# always empty at a real save point (autosave only fires from daily
+	# tick / combat exit / event completion / a purchase — never mid-event)
+	# but it costs nothing to handle defensively.
+	if state.get("event") != null:
+		var event: Dictionary = state["event"]
+		_int_key(event, "cardIndex")
+		for snap in event.get("snapshots", []):
+			_restore_int_types(snap)
+
+
+func _restore_combat_int_types(combat: Dictionary) -> void:
+	for key in ["frozenTurns", "motionTurns", "motionPower", "evadeTurns"]:
+		_int_key(combat, key)
+	# evadeChance is a float (0.0–1.0) — intentionally not touched here.
+	if combat.get("enemy") != null:
+		var enemy: Dictionary = combat["enemy"]
+		for key in ["hp", "hpMax", "attackMin", "attackMax"]:
+			_int_key(enemy, key)
+	# combat.snapshots entries (systems/combat.gd's push_combat_snapshot)
+	# are a small hand-picked dict, not a full-state copy — different
+	# shape from event snapshots, restored explicitly here.
+	for snap in combat.get("snapshots", []):
+		for key in ["playerHp", "enemyHp", "frozenTurns", "motionTurns", "motionPower", "evadeTurns"]:
+			_int_key(snap, key)
+
+
+func _int_key(dict: Dictionary, key: String) -> void:
+	if dict.has(key) and typeof(dict[key]) == TYPE_FLOAT:
+		dict[key] = int(dict[key])
+
+
+func _int_dict_values(dict: Dictionary) -> void:
+	for key in dict.keys():
+		if typeof(dict[key]) == TYPE_FLOAT:
+			dict[key] = int(dict[key])

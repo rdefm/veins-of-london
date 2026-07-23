@@ -12,10 +12,13 @@ func run() -> void:
 
 	run_case("push_emits_notification_pushed_and_state_changed", func():
 		GameState.reset()
-		var got_notification_pushed := false
-		var got_state_changed := false
-		var on_notification := func(): got_notification_pushed = true
-		var on_state := func(): got_state_changed = true
+		# Arrays, not plain vars: GDScript lambdas capture outer locals by
+		# value (see test_eventbus.gd's matching comment), so a plain var
+		# flipped inside the lambda would never be visible out here.
+		var got_notification_pushed := [false]
+		var got_state_changed := [false]
+		var on_notification := func(): got_notification_pushed[0] = true
+		var on_state := func(): got_state_changed[0] = true
 		EventBus.notification_pushed.connect(on_notification)
 		EventBus.state_changed.connect(on_state)
 
@@ -24,8 +27,8 @@ func run() -> void:
 		EventBus.notification_pushed.disconnect(on_notification)
 		EventBus.state_changed.disconnect(on_state)
 
-		assert_true(got_notification_pushed, "notification_pushed should fire")
-		assert_true(got_state_changed, "state_changed should fire")
+		assert_true(got_notification_pushed[0], "notification_pushed should fire")
+		assert_true(got_state_changed[0], "state_changed should fire")
 	)
 
 	run_case("dismiss_removes_by_id", func():
