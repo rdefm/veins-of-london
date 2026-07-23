@@ -1,0 +1,11 @@
+{
+  "id": "home_raid_intro",
+  "cards": [
+    { "type": "tension", "label": "3:14 AM", "speaker": null, "text": "Something woke you up. You lie still for a moment, cataloguing the sounds of the building. The boiler. A fox outside. Then: footsteps, not from the corridor. From inside." },
+    { "type": "narration", "label": null, "speaker": null, "text": "Someone's in the flat. Moving carefully, which is almost worse than if they were crashing around — it means they've done this before." },
+    { "type": "tension", "label": null, "speaker": null, "text": "You grab the nearest thing to hand — which, for better or worse, is the crowbar you left by the bed after last week — and go to meet them." }
+  ],
+  "on_complete": [
+    { "op": "start_home_raid_combat" }
+  ]
+}

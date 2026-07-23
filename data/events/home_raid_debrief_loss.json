@@ -1,0 +1,27 @@
+{
+  "id": "home_raid_debrief_loss",
+  "cards": [
+    { "type": "tension", "label": "Later", "speaker": null, "text": "You come round on the floor. Your ore is gone. The window is open. There's a coffee cup knocked over that wasn't knocked over before, which somehow makes it worse." },
+    { "type": "narration", "label": null, "speaker": null, "text": "Archie arrives at seven in the morning. He takes one look at you and puts the coffees down without saying anything for a moment." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. How much did they get?\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"Most of it.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Yeah.\" He sits down. \"This place is a problem. I've been meaning to say something for a while. One lock. Window doesn't close. It's practically a service entrance.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"You alright, though? Properly?\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"I'm fine.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Good. Because here's the thing — you're still here, you still fought back, and that counts for something. I've worked with people who'd have just handed it over.\" He pauses. \"Some of them were me, early on.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"I think it's time we made this official. Partners. Properly. Which means I've got a responsibility to make sure you're not operating out of a place someone can stroll into at three in the morning.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Got a bloke who does security — good stuff, fair price, no paperwork. And you need to start thinking about moving somewhere better. This is the kind of place that keeps happening to you until you leave it.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"And — the vein. Time vein, Whitechapel, level one. I said I'd give it to you and I meant it. It needs cultivating before it'll produce anything, but it's a start. Build it up, harvest it, make pearls. I'll sort the buyers.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "He stays until you've eaten something, which you didn't ask for and didn't expect. Then he leaves. You check your phone. There's a pin location. The vein." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "homeRaidEventSeen", "value": true },
+    { "op": "set_flag", "flag": "homeRaidWon", "value": false },
+    { "op": "set_flag", "flag": "archiePartnerSeen", "value": true },
+    { "op": "set_flag", "flag": "homeUnlocked", "value": true },
+    { "op": "set_flag", "flag": "securityContactUnlocked", "value": true },
+    { "op": "relation", "contact": "archie", "value": 10 },
+    { "op": "grant_vein", "vein": { "oreType": "time", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
+    { "op": "set_screen", "screen": "home" }
+  ]
+}

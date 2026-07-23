@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://j0cxpikjpyle"]
+
+[ext_resource type="Theme" uid="uid://djt3ycb8mkuyw" path="res://theme/main_theme.tres" id="1"]
+[ext_resource type="Script" uid="uid://5l4al77w7o3c" path="res://scenes/Main.gd" id="2"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+theme = ExtResource("1")
+script = ExtResource("2")

@@ -1,0 +1,13 @@
+{
+  "timeBlocks": ["Morning", "Afternoon", "Evening"],
+  "archieOreGoal": 10,
+  "contacts": {
+    "archie": { "startRelation": 10, "unlocked": true,  "recruitThreshold": 80 },
+    "james":  { "startRelation": 0,  "unlocked": false, "recruitThreshold": 100 }
+  },
+  "jamesJobTrustBands": [
+    { "maxRelation": 1,    "qtyMin": 1, "qtyMax": 3 },
+    { "maxRelation": 3,    "qtyMin": 3, "qtyMax": 6 },
+    { "maxRelation": null, "qtyMin": 5, "qtyMax": 10 }
+  ]
+}

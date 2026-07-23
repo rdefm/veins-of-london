@@ -1,0 +1,17 @@
+{
+  "id": "archie_motion",
+  "cards": [
+    { "type": "narration", "label": "A message from Archie", "speaker": null, "text": "You've been moving product. It's working. Archie's text simply says: \"good output. call me.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"So the consumables are going well. Got a buyer asking for more pearls and asking if there's anything else on offer. Which made me think — can you make anything else?\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"Not yet. James only taught me the pearls.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Yeah. Right. See, James knows how to make about forty different things and he's sitting on all of it. Which is his prerogative, obviously. But I'm thinking — have you got any sort of relationship with him yet? Because it might be worth asking.\"" },
+    { "type": "speaker", "label": null, "speaker": "You", "text": "\"Asking him to teach me more?\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Gently. James doesn't respond well to being asked for things directly. Try framing it as being useful to him. Which, actually, you could be — if he's got orders he can't fill, you could take the overflow. Might be the angle.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Worth a try anyway. He's the only craftsman I know who isn't either retired or in prison, so options are limited.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "He hangs up before you can ask anything else. You look up James's address in your phone." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "archieMotionEventSeen", "value": true },
+    { "op": "set_screen", "screen": "contacts" }
+  ]
+}

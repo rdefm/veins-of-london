@@ -1,0 +1,67 @@
+class_name Crafting
+extends RefCounted
+
+# Recipe crafting per R§3.5. Static funcs only. Crafting is not time-block
+# gated (matches the HTML prototype: attemptCraft never calls
+# advanceTimeBlock — only seed/cultivate/harvest are).
+
+
+static func craft_chance(recipe_key: String, skill: int) -> float:
+	var r: Dictionary = GameData.RECIPES[recipe_key]
+	return min(0.95, r["baseSuccess"] + (skill - 1) * 0.13 + Home.get_workshop_bonus())
+
+
+static func calc_cost(recipe_key: String, skill: int) -> int:
+	var r: Dictionary = GameData.RECIPES[recipe_key]
+	return maxi(1, GameState.round_epsilon(r["baseCalcCost"] - (skill - 1) * 0.8))
+
+
+static func effect_power(recipe_key: String, skill: int) -> Variant:
+	var r: Dictionary = GameData.RECIPES[recipe_key]
+	var powers: Array = r["effectPower"]
+	return powers[skill]
+
+
+static func can_craft(recipe_key: String) -> bool:
+	var r: Dictionary = GameData.RECIPES[recipe_key]
+	var skill: int = GameState.state["player"]["craftingSkill"]
+	var cost: int = calc_cost(recipe_key, skill)
+	var ingredient: String = r["ingredient"]
+	var have: int = GameState.state["player"]["orichalchum"].get(ingredient, 0)
+	return have >= cost
+
+
+static func attempt_craft(recipe_key: String) -> Dictionary:
+	if not can_craft(recipe_key):
+		return { "ok": false, "reason": "Not enough calc." }
+
+	var player: Dictionary = GameState.state["player"]
+	var r: Dictionary = GameData.RECIPES[recipe_key]
+	var skill: int = player["craftingSkill"]
+	var cost: int = calc_cost(recipe_key, skill)
+	var ingredient: String = r["ingredient"]
+
+	# Deducted regardless of outcome.
+	player["orichalchum"][ingredient] = maxi(0, player["orichalchum"].get(ingredient, 0) - cost)
+
+	var success: bool = Rng.chance(craft_chance(recipe_key, skill))
+	if success:
+		var power = effect_power(recipe_key, skill)
+		player["inventory"][recipe_key] = player["inventory"].get(recipe_key, 0) + 1
+		award_crafting_xp(r["xpReward"])
+		Modal.open("craft_result", { "success": true, "recipeKey": recipe_key, "power": power })
+		return { "ok": true, "success": true, "recipeKey": recipe_key, "power": power }
+	else:
+		award_crafting_xp(int(floor(float(r["xpReward"]) / 3.0)))
+		Modal.open("craft_result", { "success": false, "recipeKey": recipe_key, "power": 0 })
+		return { "ok": true, "success": false, "recipeKey": recipe_key, "power": 0 }
+
+
+# No skill-up notification here — matches the HTML prototype, where
+# awardCraftingXP (unlike awardCultivatingXP) never calls pushNotification.
+static func award_crafting_xp(amount: int) -> void:
+	var player: Dictionary = GameState.state["player"]
+	player["craftingXP"] = player["craftingXP"] + amount
+	var max_level: int = GameData.CRAFTING_XP_LEVELS.size() - 1
+	while player["craftingSkill"] < max_level and player["craftingXP"] >= GameData.CRAFTING_XP_LEVELS[player["craftingSkill"] + 1]:
+		player["craftingSkill"] += 1
