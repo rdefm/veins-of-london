@@ -87,8 +87,13 @@ func run() -> void:
 			GameState.state["contacts"]["archie"]["recruited"] = true
 			Contacts.assign_to_room("archie", "veinStation")
 			GameState.state["contacts"]["archie"]["cultivatingSkill"] = 5
+			# level 2 (not 1): level 1's devBarMax is 8, and a skill-5 success
+			# gains 1+5=6 — from devBar 2 that's 2+6=8, which would hit
+			# devBarMax and trigger a level-up, resetting devBar back to 0
+			# and masking the very success this case is trying to detect.
+			# Level 2's devBarMax (16) leaves headroom.
 			var vein := {
-				"id": "vs2", "oreType": "life", "level": 1, "levelLabel": "Trace",
+				"id": "vs2", "oreType": "life", "level": 2, "levelLabel": "Minor",
 				"devBar": 2, "charged": false, "chargeBlocks": 0, "security": "none",
 				"location": "Hackney Rd, under the railway arch", "claimedOnDay": 1, "district": "shoreditch",
 				"hospitability": { "tier": "fair", "bonuses": [] },

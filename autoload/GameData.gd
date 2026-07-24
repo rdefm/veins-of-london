@@ -378,4 +378,36 @@ func _load_json(path: String) -> Dictionary:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		_load_errors.append("Expected a JSON object at top level: %s" % path)
 		return {}
-	return parsed
+	return _normalize_numbers(parsed)
+
+
+# JSON has no int type — JSON.parse_string() returns every number as a
+# float, including whole numbers like 10 or 80. Every downstream table
+# (contacts defaults, event effect templates like grant_vein, etc.) gets
+# read into GameState's pure state tree, where int vs. float is load-
+# bearing (deep-equality save/load checks, and dict lookups that str()
+# a vein level to key into VEIN_LEVELS — "1.0" isn't "1"). Rather than
+# casting at every consumption site, normalize once here: any float with
+# no fractional part becomes int. Safe against the current data/*.json —
+# every genuinely-fractional field (baseSuccess: 0.35, raidBaseChance:
+# 0.005, etc.) stays float; nothing in the data is an intentionally-whole
+# float (e.g. "1.0") that this would misclassify.
+func _normalize_numbers(value: Variant) -> Variant:
+	match typeof(value):
+		TYPE_DICTIONARY:
+			var result := {}
+			for key in (value as Dictionary).keys():
+				result[key] = _normalize_numbers(value[key])
+			return result
+		TYPE_ARRAY:
+			var result := []
+			for item in value as Array:
+				result.append(_normalize_numbers(item))
+			return result
+		TYPE_FLOAT:
+			var f: float = value
+			if f == floor(f):
+				return int(f)
+			return f
+		_:
+			return value

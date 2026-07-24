@@ -1,77 +1,94 @@
-# Known bugs — 2026-07-23
+# Known bugs — 2026-07-24
+
+All three issues below are now fixed. `scripts/run_tests.sh` is green:
+178 passed, 0 failed.
 
 The perf hang (`docs/BUGHUNT-2026-07-17.md` §2) and the previous entries in
 this file — lambda-closure test bugs in `test_eventbus.gd`/`test_nav.gd`/
-`test_notify.gd`, and `SaveManager.gd` round-tripping ints as floats — are
-now fixed. See `systems/events.gd`'s `advance()`/`rewind()`, the caution
-note in `autoload/Snapshots.gd`, `autoload/SaveManager.gd`'s
-`_restore_int_types()`, and the array-capture pattern in the three test
-files.
-
-Fixing SaveManager surfaced two more, unrelated, pre-existing failures —
-neither caused by anything in that fix; both were just never reached
-before because the perf hang always killed the test run first.
+`test_notify.gd`, and `SaveManager.gd` round-tripping ints as floats — were
+already fixed as of 2026-07-23. See `systems/events.gd`'s `advance()`/
+`rewind()`, the caution note in `autoload/Snapshots.gd`,
+`autoload/SaveManager.gd`'s `_restore_int_types()`, and the array-capture
+pattern in the three test files.
 
 ---
 
-## 1. GameData's own JSON values are float-contaminated, one level up
+## 1. GameData's own JSON values were float-contaminated, one level up
 
-**Failing cases:** `test_playthrough.gd::full_playthrough_tutorial_economy_ticks_and_save_roundtrip`,
-`test_savemanager.gd::export_string_reimports_to_an_equal_state`.
+**Fixed in:** `autoload/GameData.gd`.
 
-**Root cause:** `data/constants.json`'s `contacts.archie.startRelation` /
-`recruitThreshold` (and likely equivalent fields elsewhere in `data/*.json`)
-load as floats — JSON has no int type — and `GameState._new_contacts_state()`
-copies them straight into a *brand-new* game's state with no cast to `int`.
-So `contacts.archie.relation` is `10.0`, not `10`, from the moment a new
-game starts, no save involved. This is invisible in scalar comparisons
-(Godot treats `10.0 != 10` as `false`), which is why `test_gamedata.gd`'s
-spot-checks never caught it, but it breaks whole-state deep-equality
-checks — exactly what these two playthrough/export tests do.
+**Root cause:** `JSON.parse_string()` always returns numbers as `float` —
+JSON has no int type — and several places copied that raw parsed value
+straight into `GameState`'s pure state tree with no cast to `int`. This
+wasn't contacts-only, as originally suspected; it turned out to be a
+general `GameData` problem hitting at least four sites:
 
-**Why it surfaced now:** the SaveManager fix (`_restore_int_types()`) now
-correctly produces a clean `int` on the *round-tripped* copy of state.
-That copy now differs from the never-saved original, which still carries
-the float — a mismatch that only exists because one side of the
-comparison got fixed and the other didn't.
+- `GameState._new_contacts_state()` — `contacts.*.relation` /
+  `recruitThreshold` from `data/constants.json`.
+- `systems/events.gd::_grant_vein()` — copies an event's vein template
+  (`level`, `devBar`, `chargeBlocks`) verbatim. This one didn't just fail
+  a comparison, it **crashed**: `Cultivating.recharge_veins()` does
+  `GameData.VEIN_LEVELS[str(vein["level"])]`, and `str(1.0)` is `"1.0"`,
+  not `"1"` — the key lookup threw `Invalid access to property or key
+  '1.0'`.
+- `systems/events.gd::_apply_add()` — the generic `add` effect op,
+  confirmed contaminating `world.archieChatUnlockDay`.
+- `systems/debug_start.gd` — `factions.guild.relation`, same pattern
+  (latent, no failing test, but same bug).
 
-**Fix direction (not applied yet):** cast the known-int fields
-(`startRelation`, `recruitThreshold`, and any equivalents in other
-`data/*.json` tables) either in `GameData._load_json()` right after
-parsing, or at the point `GameState._new_contacts_state()` (and any other
-`new_game_state()` helper reading from `GameData`) consumes them. Worth
-checking whether other `GameData` tables have the same latent
-contamination before picking one fix site — this may not be contacts-only.
+**Fix:** normalize once at the JSON-parsing boundary. `GameData._load_json()`
+now recursively converts any parsed float with zero fractional part to
+`int` before returning (`GameData._normalize_numbers()`). This fixes all
+four sites above (and any not-yet-found ones reading from `GameData`) in
+one place, rather than casting at every consumption site piecemeal.
+Verified safe against the current data — every genuinely-fractional field
+(`baseSuccess: 0.35`, `raidBaseChance: 0.005`, etc.) is unaffected; nothing
+in `data/*.json` is an intentionally-whole-number float (e.g. `1.0`) that
+this would misclassify.
 
----
+Deliberately **not** applied the same way to `SaveManager`'s save/load
+round-trip — see #3 below, which is the same underlying JSON fact but
+needs the opposite strategy.
 
-## 2. `Rooms.process_vein_station()` — uncharged-vein cultivate never succeeds
+## 2. `Rooms.process_vein_station()` cultivate roll — was a test bug, not a formula bug
 
-**Failing case:** `test_rooms.gd::veinStation_cultivates_an_uncharged_vein`.
+**Fixed in:** `tests/test_rooms.gd`.
 
-**Symptom:** the test sets `contacts.archie.cultivatingSkill = 5` (should
-make success easy) and tries all 200 seeds `0..199`, calling
-`Rooms.process_vein_station()` once per seed on a fresh level-1 vein with
-`devBar: 2`. Every single seed fails to produce `devBar > 2` — 0/200, not
-just an unlucky run. Reproduced twice, identical result both times.
+**Root cause:** the test's own fixture, not `Rooms.process_vein_station()`
+or the cultivate-chance formula (both verified correct: skill 5 gives a
+78% success chance, and rolls behaved exactly as expected). The test used
+a level-1 vein (`devBarMax: 8`) with `devBar: 2` and `cultivatingSkill: 5`
+(gain `1+5=6`). Every successful roll pushed `devBar` to exactly 8, which
+met `devBarMax` and triggered `Cultivating.level_up_vein()` — which resets
+`devBar` back to 0 as part of leveling up. That masked the very success
+the test was trying to detect via `vein["devBar"] > 2`, so it looked like
+0/200 successes when the roll was actually succeeding at roughly the
+expected rate.
 
-**Not caused by anything touched in the SaveManager/perf-hang work** — no
-changes landed in `systems/rooms.gd`, `systems/cultivating.gd`, or
-`autoload/Rng.gd`. This is a pre-existing bug (or a stale test assumption)
-that was simply never reached before, same as #1.
+**Fix:** bumped the fixture vein to level 2 (`devBarMax: 16`), which
+leaves headroom so a successful roll (`2 + 6 = 8`) no longer crosses the
+level-up threshold. `devBar: 2`, `cultivatingSkill: 5`, and the expected
+final value (`2 + (1 + 5) = 8`) are otherwise unchanged.
 
-**Not yet diagnosed further** — needs a look at `Rooms.process_vein_station()`
-and whatever cultivate-chance formula it delegates to, to see whether the
-success chance is actually zero for this input (a real formula bug) or
-whether the test's own setup doesn't match what the function expects (a
-test bug, same family as the earlier lambda-closure issues but a
-different root cause).
+## 3. SaveManager's modal round-trip — a whitelist gap, not a design flaw
 
----
+**Fixed in:** `autoload/SaveManager.gd`.
 
-## Summary
+**Found while fixing #1** — with the contacts/vein noise gone,
+`full_playthrough_tutorial_economy_ticks_and_save_roundtrip` still failed
+on one field: `modal.data.earned`/`gross` came back as `150.0`/`300.0`
+after a save/load round-trip, not `150`/`300`.
 
-| # | Issue | Status |
-|---|---|---|
-| 1 | `GameData`/`GameState` bake float-contaminated JSON values into a fresh game's `contacts` (and possibly elsewhere) | Diagnosed, not fixed — needs a decision on fix site |
-| 2 | `Rooms.process_vein_station()` cultivate roll never succeeds in `test_rooms.gd`'s uncharged-vein case, 0/200 seeds | Diagnosed, not fixed — root cause (formula vs. test) not yet isolated |
+**Root cause:** `_restore_int_types()` is a deliberate, careful whitelist
+(it explicitly protects two genuinely-float fields, `combat.evadeChance`
+and `devicesInProgress[].progress`, from being coerced) — it just never
+had an entry for `state.modal`, whose `data` shape is polymorphic
+(depends on `modal.type`: `craft_result`, `cultivate_result`,
+`sale_result`, `james_job_offer`/`_short`/`_complete`, each with different
+int fields).
+
+**Fix:** added `_restore_modal_int_types()`, a per-modal-type table in the
+same explicit style as the rest of the file (matching
+`_restore_combat_int_types()`'s precedent) — not a blanket conversion,
+since this file already has two fields where "round whole-number float"
+is a legitimate, real value.
