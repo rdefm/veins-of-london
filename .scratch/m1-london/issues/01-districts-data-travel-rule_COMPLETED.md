@@ -6,7 +6,7 @@ This ticket is system-only, verified headlessly — no UI. The Map tab ticket (0
 
 **Blocked by:** None — can start immediately.
 
-**Status:** done
+**Status:** ready-for-agent (superseded — see filename: `_COMPLETED`)
 
 - [x] `data/districts.json` matches D1's table exactly (all 9 districts, all fields, `oreBias` uniform-remainder semantics)
 - [x] Cross-district district-located action costs exactly 2 blocks total (1 travel + 1 action), same-district costs 1; both gated correctly when only 1 block remains

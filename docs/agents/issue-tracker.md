@@ -1,0 +1,36 @@
+# Issue tracker: Local Markdown
+
+Issues and specs (you may know a spec as a PRD) for this repo live as markdown files in `.scratch/`.
+
+Chosen deliberately over GitHub Issues: this repo (`rdefm/veins-of-london`) is public, and the milestone/ticket breakdown is being kept private for now.
+
+## Conventions
+
+- One feature per directory: `.scratch/<feature-slug>/`
+- The spec is `.scratch/<feature-slug>/spec.md`
+- Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` — never a single combined tickets file
+- Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
+- Comments and conversation history append to the bottom of the file under a `## Comments` heading
+
+## When a skill says "publish to the issue tracker"
+
+Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
+
+## When a skill says "fetch the relevant ticket"
+
+Read the file at the referenced path. The user will normally pass the path or the issue number directly.
+
+## Completion
+
+The five canonical triage roles (see `triage-labels.md`) are pre-work routing only — none of them mean "done." When a ticket's work lands and is committed, mark it done by renaming the file, appending `_COMPLETED` to the end of the filename, before the `.md` extension — e.g. `01-districts-data-travel-rule.md` → `01-districts-data-travel-rule_COMPLETED.md`. This renamed-file signal replaces a `Status: done` line; use `Status: wontfix` on the (unrenamed) file instead if a ticket is abandoned rather than completed. The file stays in the same directory — only the filename changes, never move it elsewhere or delete it. Git history is the audit trail; `ls .scratch/<feature-slug>/issues/` should always reflect the current backlog, with `_COMPLETED` tickets visibly closed out in place rather than removed.
+
+## Wayfinding operations
+
+Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
+
+- **Map**: `.scratch/<effort>/map.md` — the Notes / Decisions-so-far / Fog body.
+- **Child ticket**: `.scratch/<effort>/issues/NN-<slug>.md`, numbered from `01`, with the question in the body. A `Type:` line records the ticket type (`research`/`prototype`/`grilling`/`task`); a `Status:` line records `claimed`/`resolved`.
+- **Blocking**: a `Blocked by: NN, NN` line near the top. A ticket is unblocked when every file it lists is `resolved`.
+- **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
+- **Claim**: set `Status: claimed` and save before any work.
+- **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
