@@ -30,6 +30,13 @@ var FACTIONS: Dictionary = {}
 
 var DISTRICTS: Dictionary = {}
 
+var SITE_TIER_ORDER: Array = []
+var SITE_TIER_WEIGHTS: Dictionary = {}
+var SITE_PROSPECT_XP: Dictionary = {}
+var SITE_SEED_TIER_MOD: Dictionary = {}
+var SITE_DISCOVERY_BONUS_POOL: Array = []
+var SITE_NATURAL_VEIN_CHANCE: float = 0.0
+
 var BAROMETER_STATES: Dictionary = {}
 var BAROMETER_ACTIONS: Array = []
 var FACTION_BAROMETER_PREFS: Dictionary = {}
@@ -93,6 +100,14 @@ func load_all() -> void:
 
 	DISTRICTS = _load_json("res://data/districts.json")
 
+	var sites := _load_json("res://data/sites.json")
+	SITE_TIER_ORDER = sites.get("tierOrder", [])
+	SITE_TIER_WEIGHTS = sites.get("tierWeights", {})
+	SITE_PROSPECT_XP = sites.get("prospectXp", {})
+	SITE_SEED_TIER_MOD = sites.get("seedTierMod", {})
+	SITE_DISCOVERY_BONUS_POOL = sites.get("discoveryBonusPool", [])
+	SITE_NATURAL_VEIN_CHANCE = sites.get("naturalVeinChance", 0.0)
+
 	var barometer := _load_json("res://data/barometer.json")
 	BAROMETER_STATES = barometer.get("states", {})
 	BAROMETER_ACTIONS = barometer.get("actions", [])
@@ -144,6 +159,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_home(t.get("home_tier_order", []), t.get("home_tiers", {}), t.get("home_security", {}), t.get("home_rooms", {}), errors)
 	_validate_factions(t.get("factions", {}), errors)
 	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
+	_validate_sites(t.get("site_tier_order", []), t.get("site_tier_weights", {}), t.get("site_prospect_xp", {}), t.get("site_seed_tier_mod", {}), t.get("site_discovery_bonus_pool", []), errors)
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), errors)
 	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
@@ -171,6 +187,11 @@ func snapshot() -> Dictionary:
 		"home_rooms": HOME_ROOMS,
 		"factions": FACTIONS,
 		"districts": DISTRICTS,
+		"site_tier_order": SITE_TIER_ORDER,
+		"site_tier_weights": SITE_TIER_WEIGHTS,
+		"site_prospect_xp": SITE_PROSPECT_XP,
+		"site_seed_tier_mod": SITE_SEED_TIER_MOD,
+		"site_discovery_bonus_pool": SITE_DISCOVERY_BONUS_POOL,
 		"barometer_states": BAROMETER_STATES,
 		"barometer_actions": BAROMETER_ACTIONS,
 		"faction_prefs": FACTION_BAROMETER_PREFS,
@@ -298,6 +319,28 @@ func _validate_districts(districts: Dictionary, ore_types: Dictionary, errors: A
 	for key in districts.keys():
 		if not CANONICAL_DISTRICT_IDS.has(key):
 			errors.append("districts: unexpected district '%s' (not in M1-LONDON.md D1)" % key)
+
+
+const CANONICAL_SITE_TIERS: Array[String] = ["barren", "poor", "fair", "rich", "saturated"]
+const CANONICAL_SITE_BONUSES: Array[String] = ["recharge", "maxLevel", "yield"]
+
+
+func _validate_sites(tier_order: Array, tier_weights: Dictionary, prospect_xp: Dictionary, seed_tier_mod: Dictionary, discovery_bonus_pool: Array, errors: Array[String]) -> void:
+	if tier_order != CANONICAL_SITE_TIERS:
+		errors.append("sites: tierOrder must be exactly %s, got %s" % [CANONICAL_SITE_TIERS, tier_order])
+	for tier in CANONICAL_SITE_TIERS:
+		if not tier_weights.has(tier):
+			errors.append("sites: tierWeights missing tier '%s'" % tier)
+		if not prospect_xp.has(tier):
+			errors.append("sites: prospectXp missing tier '%s'" % tier)
+	for tier in ["poor", "fair", "rich", "saturated"]:
+		if not seed_tier_mod.has(tier):
+			errors.append("sites: seedTierMod missing tier '%s'" % tier)
+	if seed_tier_mod.has("barren"):
+		errors.append("sites: seedTierMod must not include 'barren' — barren sites can't be seeded")
+	for bonus in CANONICAL_SITE_BONUSES:
+		if not discovery_bonus_pool.has(bonus):
+			errors.append("sites: discoveryBonusPool missing bonus '%s'" % bonus)
 
 
 func _validate_barometer(states: Dictionary, actions: Array, faction_prefs: Dictionary, factions: Dictionary, errors: Array[String]) -> void:

@@ -5,7 +5,9 @@ extends RefCounted
 
 const LEVEL_CAP := 5
 
-# Verbatim from HTML generateLocationName().
+# Verbatim from HTML generateLocationName(). Kept as the fallback/default
+# array (also used for whitechapel, M1-LONDON.md D2's per-district
+# extension below) so pre-M1 no-arg callers are unaffected.
 const LOCATION_STREETS: Array[String] = [
 	"Brick Lane", "Bethnal Green Rd", "Commercial St", "Whitechapel High St",
 	"Mile End Rd", "Roman Rd", "Hackney Rd", "Cambridge Heath Rd", "Vallance Rd",
@@ -15,9 +17,25 @@ const LOCATION_SUFFIXES: Array[String] = [
 	"in the car park", "by the bus stop", "beside the bookies",
 ]
 
+# M1-LONDON.md D2: "location generated with district-appropriate street
+# names (extend the generator: per-district street array, 4-6 real street
+# names each)". Draft, real street names — no PROSE-REVIEW needed. soho
+# has no sites (siteCap 0, no prospecting/veins) so it's omitted.
+const DISTRICT_STREETS: Dictionary = {
+	"shoreditch": ["Old St", "Redchurch St", "Rivington St", "Curtain Rd", "Kingsland Rd", "Shoreditch High St"],
+	"city": ["Cheapside", "Cornhill", "Threadneedle St", "Leadenhall St", "Fenchurch St", "Bishopsgate"],
+	"greenwich": ["Greenwich High Rd", "Nelson Rd", "Royal Hill", "Trafalgar Rd", "Blackheath Rd", "Creek Rd"],
+	"camden": ["Camden High St", "Chalk Farm Rd", "Parkway", "Inverness St", "Kentish Town Rd", "Arlington Rd"],
+	"kingscross": ["York Way", "Pentonville Rd", "Caledonian Rd", "Euston Rd", "Grays Inn Rd", "Goods Way"],
+	"battersea": ["Battersea Park Rd", "Lavender Hill", "Northcote Rd", "Falcon Rd", "Queenstown Rd", "York Rd"],
+	"hampstead": ["Heath St", "Flask Walk", "Rosslyn Hill", "Fitzjohn's Ave", "Well Walk", "South End Rd"],
+	"whitechapel": LOCATION_STREETS,
+}
 
-static func generate_location_name() -> String:
-	return "%s, %s" % [Rng.rand_from(LOCATION_STREETS), Rng.rand_from(LOCATION_SUFFIXES)]
+
+static func generate_location_name(district: String = "") -> String:
+	var streets: Array = DISTRICT_STREETS.get(district, LOCATION_STREETS)
+	return "%s, %s" % [Rng.rand_from(streets), Rng.rand_from(LOCATION_SUFFIXES)]
 
 
 static func get_cult_chance(skill: int) -> float:
@@ -26,6 +44,63 @@ static func get_cult_chance(skill: int) -> float:
 
 static func get_bar_gain(skill: int) -> int:
 	return 1 + skill
+
+
+# M1 hospitability bonuses (M1-LONDON.md D2), read from vein.hospitability.
+# M0 veins default to { tier: "fair", bonuses: [] } — no bonus, no change
+# in behaviour.
+static func get_level_cap(vein: Dictionary) -> int:
+	var bonuses: Array = vein.get("hospitability", {}).get("bonuses", [])
+	return 6 if bonuses.has("maxLevel") else LEVEL_CAP
+
+
+# "recharge" hospitability bonus: -1 (min 1), stacks with the King's
+# Cross district special (also -1, min 1 overall).
+static func get_effective_recharge_blocks(vein: Dictionary) -> int:
+	var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
+	var blocks: int = level_data["rechargeBlocks"]
+	var bonuses: Array = vein.get("hospitability", {}).get("bonuses", [])
+	if bonuses.has("recharge"):
+		blocks -= 1
+	if vein.get("district") == "kingscross":
+		blocks -= 1
+	return maxi(1, blocks)
+
+
+# "yield" hospitability bonus applies to the ROLLED result, not the level
+# table's range: finalYield = max(rolled+1, round(rolled*1.15)) — guarantees
+# +1 over the base roll even where 1.15x a small integer would round away.
+static func apply_yield_bonus(vein: Dictionary, rolled: int) -> int:
+	var bonuses: Array = vein.get("hospitability", {}).get("bonuses", [])
+	if not bonuses.has("yield"):
+		return rolled
+	return maxi(rolled + 1, GameState.round_epsilon(rolled * 1.15))
+
+
+# Shared vein-dict constructor for every place that creates a fresh Lv1
+# vein (M0's free-floating seed() below, and systems/sites.gd's
+# attempt_seed()). site_id is null for M0-style seeding, which isn't
+# tied to a state.world.sites entry. hospitability is deep-copied — a
+# site's seeded vein and its natural-vein bonus (D2) both derive their
+# hospitability from the same site dict, and state purity requires every
+# vein to own an independent copy, never share an Array/Dictionary
+# reference with the site or with each other.
+static func make_vein(ore_type: String, dev_bar: int, district: String, site_id: Variant, hospitability: Dictionary) -> Dictionary:
+	return {
+		"id": make_vein_id(),
+		"oreType": ore_type,
+		"level": 1,
+		"levelLabel": GameData.VEIN_LEVELS["1"]["label"],
+		"devBar": dev_bar,
+		"charged": false,
+		"chargeBlocks": 0,
+		"security": "none",
+		"location": generate_location_name(district),
+		"claimedOnDay": GameState.state["world"]["day"],
+		"district": district,
+		"siteId": site_id,
+		"hospitability": GameState.deep_copy(hospitability),
+	}
 
 
 static func award_xp(amount: int) -> void:
@@ -50,20 +125,8 @@ static func seed(ore_type: String) -> Dictionary:
 	var success: bool = Rng.chance(get_cult_chance(skill))
 
 	if success:
-		var vein := {
-			"id": make_vein_id(),
-			"oreType": ore_type,
-			"level": 1,
-			"levelLabel": GameData.VEIN_LEVELS["1"]["label"],
-			"devBar": get_bar_gain(skill),
-			"charged": false,
-			"chargeBlocks": 0,
-			"security": "none",
-			"location": generate_location_name(),
-			"claimedOnDay": GameState.state["world"]["day"],
-			"district": GameState.state["world"]["currentDistrict"],
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
+		var district: String = GameState.state["world"]["currentDistrict"]
+		var vein := make_vein(ore_type, get_bar_gain(skill), district, null, { "tier": "fair", "bonuses": [] })
 		player["veins"].append(vein)
 		award_xp(30)
 		Modal.open("seed_result", { "success": true, "oreType": ore_type })
@@ -94,7 +157,7 @@ static func cultivate(vein_id: String) -> Dictionary:
 		var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
 		vein["devBar"] = vein["devBar"] + gain
 		award_xp(20)
-		var levelled_up: bool = vein["level"] < LEVEL_CAP and vein["devBar"] >= level_data["devBarMax"]
+		var levelled_up: bool = vein["level"] < get_level_cap(vein) and vein["devBar"] >= level_data["devBarMax"]
 		if levelled_up:
 			level_up_vein(vein)
 		Modal.open("cultivate_result", { "success": true, "gain": gain, "veinId": vein_id, "levelledUp": levelled_up, "newLevel": vein["level"], "newLabel": vein["levelLabel"] })
@@ -118,7 +181,7 @@ static func harvest_cautious(vein_id: String) -> Dictionary:
 
 	var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
 	var yield_range: Array = level_data["yieldCautious"]
-	var amount: int = Rng.randi_range(yield_range[0], yield_range[1])
+	var amount: int = apply_yield_bonus(vein, Rng.randi_range(yield_range[0], yield_range[1]))
 
 	var player: Dictionary = GameState.state["player"]
 	var ore_type: String = vein["oreType"]
@@ -144,7 +207,7 @@ static func harvest_full(vein_id: String) -> Dictionary:
 
 	var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
 	var yield_range: Array = level_data["yieldFull"]
-	var amount: int = Rng.randi_range(yield_range[0], yield_range[1])
+	var amount: int = apply_yield_bonus(vein, Rng.randi_range(yield_range[0], yield_range[1]))
 
 	var player: Dictionary = GameState.state["player"]
 	var ore_type: String = vein["oreType"]
@@ -166,8 +229,7 @@ static func harvest_full(vein_id: String) -> Dictionary:
 # Called from time_system.gd's daily_tick, step ④.
 static func recharge_veins() -> void:
 	for vein in GameState.state["player"]["veins"]:
-		var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
-		var recharge_blocks: int = level_data["rechargeBlocks"]
+		var recharge_blocks: int = get_effective_recharge_blocks(vein)
 		if vein["chargeBlocks"] < recharge_blocks:
 			vein["chargeBlocks"] += 1
 		if vein["chargeBlocks"] >= recharge_blocks:
@@ -176,7 +238,7 @@ static func recharge_veins() -> void:
 
 
 static func level_up_vein(vein: Dictionary) -> void:
-	if vein["level"] >= LEVEL_CAP:
+	if vein["level"] >= get_level_cap(vein):
 		return
 	vein["level"] += 1
 	vein["levelLabel"] = GameData.VEIN_LEVELS[str(vein["level"])]["label"]

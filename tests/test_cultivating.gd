@@ -280,6 +280,89 @@ func run() -> void:
 		assert_eq(v["charged"], true, "charged flips true once chargeBlocks reaches rechargeBlocks")
 	)
 
+	# ── M1 hospitability bonuses (M1-LONDON.md D2) ─────────────────
+
+	run_case("get_level_cap_is_5_without_maxLevel_bonus_6_with_it", func():
+		var plain := { "hospitability": { "tier": "fair", "bonuses": [] } }
+		var boosted := { "hospitability": { "tier": "saturated", "bonuses": ["recharge", "maxLevel", "yield"] } }
+		assert_eq(Cultivating.get_level_cap(plain), 5, "no maxLevel bonus -> cap stays 5")
+		assert_eq(Cultivating.get_level_cap(boosted), 6, "maxLevel bonus -> cap raises to 6")
+	)
+
+	run_case("level_up_vein_respects_the_maxLevel_bonus_cap", func():
+		var boosted := {
+			"id": "v1", "level": 5, "devBar": 0, "levelLabel": "Lode",
+			"hospitability": { "tier": "saturated", "bonuses": ["maxLevel"] },
+		}
+		Cultivating.level_up_vein(boosted)
+		assert_eq(boosted["level"], 6, "maxLevel bonus allows levelling past the normal cap of 5")
+		assert_eq(boosted["levelLabel"], "Deep", "levelLabel updates to the Lv6 label")
+
+		Cultivating.level_up_vein(boosted)
+		assert_eq(boosted["level"], 6, "level 6 is the hard cap even with the maxLevel bonus")
+	)
+
+	run_case("get_effective_recharge_blocks_applies_recharge_bonus_and_kingscross_stacking", func():
+		var plain := { "level": 1, "district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] } }
+		var bonus_only := { "level": 1, "district": "shoreditch", "hospitability": { "tier": "rich", "bonuses": ["recharge"] } }
+		var kingscross_only := { "level": 1, "district": "kingscross", "hospitability": { "tier": "fair", "bonuses": [] } }
+		var both := { "level": 1, "district": "kingscross", "hospitability": { "tier": "rich", "bonuses": ["recharge"] } }
+
+		assert_eq(Cultivating.get_effective_recharge_blocks(plain), 4, "Lv1 base rechargeBlocks unchanged")
+		assert_eq(Cultivating.get_effective_recharge_blocks(bonus_only), 3, "recharge bonus: -1")
+		assert_eq(Cultivating.get_effective_recharge_blocks(kingscross_only), 3, "King's Cross special: -1")
+		assert_eq(Cultivating.get_effective_recharge_blocks(both), 2, "recharge bonus stacks with King's Cross: -2")
+	)
+
+	run_case("get_effective_recharge_blocks_floors_at_1_even_when_stacked", func():
+		var deep_both := { "level": 6, "district": "kingscross", "hospitability": { "tier": "saturated", "bonuses": ["recharge"] } }
+		# Lv6 base rechargeBlocks is already 1; -1 (bonus) -1 (King's Cross) would go to -1
+		assert_eq(Cultivating.get_effective_recharge_blocks(deep_both), 1, "floors at 1, never lower, even fully stacked")
+	)
+
+	run_case("recharge_veins_charges_faster_with_recharge_bonus_and_kingscross_stacked", func():
+		GameState.reset()
+		var boosted_vein := {
+			"id": "boosted", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "kingscross",
+			"hospitability": { "tier": "rich", "bonuses": ["recharge"] },
+		}
+		GameState.state["player"]["veins"] = [boosted_vein]
+
+		Cultivating.recharge_veins()
+		assert_eq(boosted_vein["charged"], false, "1 block isn't enough yet (needs 2, effective recharge)")
+		Cultivating.recharge_veins()
+		assert_eq(boosted_vein["charged"], true, "2 blocks charges it — Lv1's base 4 minus recharge bonus minus King's Cross")
+	)
+
+	run_case("apply_yield_bonus_guarantees_at_least_plus_1_over_the_base_roll", func():
+		var vein_with_yield := { "hospitability": { "tier": "saturated", "bonuses": ["yield"] } }
+		var vein_without := { "hospitability": { "tier": "fair", "bonuses": [] } }
+
+		# A small roll where 1.15x rounds away to nothing without the +1 floor.
+		assert_eq(Cultivating.apply_yield_bonus(vein_with_yield, 1), 2, "rolled 1 -> max(2, round(1.15))=2, the +1 floor is what bites here")
+		assert_eq(Cultivating.apply_yield_bonus(vein_with_yield, 4), 5, "rolled 4 -> max(5, round(4.6))=5")
+		assert_eq(Cultivating.apply_yield_bonus(vein_with_yield, 20), 23, "rolled 20 -> max(21, round(23))=23, the 1.15x multiplier wins here")
+		assert_eq(Cultivating.apply_yield_bonus(vein_without, 1), 1, "no yield bonus -> roll passes through unchanged")
+	)
+
+	run_case("harvest_cautious_applies_the_yield_bonus_on_top_of_the_rolled_amount", func():
+		GameState.reset()
+		var vein := {
+			"id": "yield_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 5, "charged": true, "chargeBlocks": 0, "security": "none",
+			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "shoreditch",
+			"hospitability": { "tier": "saturated", "bonuses": ["yield"] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		Rng.set_seed(1)
+		var result := Cultivating.harvest_cautious("yield_vein")
+		assert_true(result["ok"], "should succeed on a charged vein")
+		# Lv1 yieldCautious is [1,2]; apply_yield_bonus(1)=2, apply_yield_bonus(2)=3
+		assert_true(result["amount"] >= 2 and result["amount"] <= 3, "yield bonus should raise the credited amount above the raw [1,2] range")
+	)
+
 	run_case("location_name_uses_the_verbatim_street_and_suffix_arrays", func():
 		Rng.set_seed(42)
 		var location := Cultivating.generate_location_name()

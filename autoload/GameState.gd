@@ -46,6 +46,7 @@ func new_game_state() -> Dictionary:
 			"day": 1, "timeBlock": 0, "timeBlocksDone": [],
 			"archieChatUnlockDay": null,
 			"currentDistrict": "shoreditch",
+			"sites": [],
 		},
 
 		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0, "storedOre": {} },

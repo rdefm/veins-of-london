@@ -73,6 +73,24 @@ func run() -> void:
 		assert_true(found, "an old-roster oreBias type ('energy') should be flagged as an unknown ore type")
 	)
 
+	run_case("corrupt_fixture_bad_site_tier_order_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["site_tier_order"] = ["barren", "poor", "fair", "saturated", "rich"]
+		var errors := GameData.validate_tables(corrupted)
+		assert_true(not errors.is_empty(), "a reordered site tierOrder should fail validation")
+	)
+
+	run_case("corrupt_fixture_seedTierMod_with_barren_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["site_seed_tier_mod"]["barren"] = 0.0
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("barren"):
+				found = true
+		assert_true(found, "seedTierMod including barren should be flagged — barren sites can't be seeded")
+	)
+
 	run_case("spot_check_values", func():
 		assert_eq(GameData.ORE_TYPES["fate"]["basePrice"], 90, "fate basePrice")
 		assert_eq(GameData.ORE_TYPES["emotion"]["symbol"], "❋", "emotion symbol")
@@ -91,4 +109,9 @@ func run() -> void:
 		assert_eq(GameData.DISTRICTS["kingscross"]["oreBias"]["time"], 0.3, "kingscross oreBias.time")
 		assert_almost_eq(GameData.DISTRICTS["city"]["priceMod"], 0.15, 0.0001, "city priceMod")
 		assert_eq(GameData.DISTRICTS["soho"]["siteCap"], 0, "soho has no sites (marketplace, no prospecting)")
+		assert_eq(GameData.SITE_TIER_WEIGHTS["fair"], 32, "site tier base weight: fair")
+		assert_eq(GameData.SITE_PROSPECT_XP["saturated"], 40, "prospect XP: saturated")
+		assert_almost_eq(GameData.SITE_SEED_TIER_MOD["rich"], 0.20, 0.0001, "seed tierMod: rich")
+		assert_eq(GameData.SITE_DISCOVERY_BONUS_POOL.size(), 3, "3 discovery bonus types")
+		assert_almost_eq(GameData.SITE_NATURAL_VEIN_CHANCE, 0.05, 0.0001, "natural vein chance")
 	)

@@ -37,6 +37,30 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_mutate_load_round_trips_sites_with_int_fields_intact", func():
+		GameState.reset()
+		GameState.state["world"]["sites"].append({
+			"id": "s1", "district": "hampstead", "tier": "rich", "oreType": "life",
+			"bonuses": ["yield"], "discoveredDay": 3, "claimed": false,
+			"npcClaimed": true, "npcClaimedDay": 5, "hasNaturalVein": false,
+		})
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["world"]["sites"] = []
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		var site: Dictionary = GameState.state["world"]["sites"][0]
+		assert_eq(typeof(site["discoveredDay"]), TYPE_INT, "discoveredDay should be restored as int, not float")
+		assert_eq(typeof(site["npcClaimedDay"]), TYPE_INT, "npcClaimedDay should be restored as int, not float")
+		assert_eq(GameState.state, original, "the full state tree (including sites) should deep-equal what was saved")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("slot_exists_and_delete_slot", func():
 		SaveManager.delete_slot(TEST_SLOT)
 		assert_true(not SaveManager.slot_exists(TEST_SLOT), "should not exist before saving")
