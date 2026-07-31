@@ -75,11 +75,13 @@ static func seed(ore_type: String) -> Dictionary:
 
 
 static func cultivate(vein_id: String) -> Dictionary:
-	if TimeSystem.is_time_exhausted():
-		return { "ok": false, "reason": "No blocks left today." }
 	var vein = find_vein(vein_id)
 	if vein == null:
 		return { "ok": false, "reason": "Vein not found." }
+
+	var travel := Travel.ensure_district(vein["district"])
+	if not travel["ok"]:
+		return travel
 
 	TimeSystem.advance_time_block()
 
@@ -104,11 +106,13 @@ static func cultivate(vein_id: String) -> Dictionary:
 
 
 static func harvest_cautious(vein_id: String) -> Dictionary:
-	if TimeSystem.is_time_exhausted():
-		return { "ok": false, "reason": "No blocks left today." }
 	var vein = find_vein(vein_id)
 	if vein == null or not vein["charged"]:
 		return { "ok": false, "reason": "Vein isn't charged." }
+
+	var travel := Travel.ensure_district(vein["district"])
+	if not travel["ok"]:
+		return travel
 
 	TimeSystem.advance_time_block()
 
@@ -128,11 +132,13 @@ static func harvest_cautious(vein_id: String) -> Dictionary:
 
 
 static func harvest_full(vein_id: String) -> Dictionary:
-	if TimeSystem.is_time_exhausted():
-		return { "ok": false, "reason": "No blocks left today." }
 	var vein = find_vein(vein_id)
 	if vein == null or not vein["charged"]:
 		return { "ok": false, "reason": "Vein isn't charged." }
+
+	var travel := Travel.ensure_district(vein["district"])
+	if not travel["ok"]:
+		return travel
 
 	TimeSystem.advance_time_block()
 

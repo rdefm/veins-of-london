@@ -13,6 +13,9 @@ static func execute_sale(items: Array) -> Dictionary:
 		return { "ok": false, "reason": "Nothing to sell." }
 
 	var player: Dictionary = GameState.state["player"]
+	var district: Dictionary = GameData.DISTRICTS.get(GameState.state["world"]["currentDistrict"], {})
+	var price_mod: float = district.get("priceMod", 0.0)
+	var danger_mod: float = district.get("dangerMod", 0.0)
 	var gross := 0
 	var cons_sold := 0
 
@@ -22,11 +25,11 @@ static func execute_sale(items: Array) -> Dictionary:
 		var qty: int = item["qty"]
 		if kind == "ore":
 			var base_price: int = GameData.ORE_TYPES[item_type]["basePrice"]
-			var price_per_unit: int = Barometer.get_effective_ore_price(item_type, base_price)
+			var price_per_unit: int = GameState.round_epsilon(Barometer.get_effective_ore_price(item_type, base_price) * (1.0 + price_mod))
 			gross += price_per_unit * qty
 			player["orichalchum"][item_type] = maxi(0, player["orichalchum"].get(item_type, 0) - qty)
 		elif kind == "consumable":
-			var price_per_unit: int = GameData.CONSUMABLE_PRICES.get(item_type, 30)
+			var price_per_unit: int = GameState.round_epsilon(GameData.CONSUMABLE_PRICES.get(item_type, 30) * (1.0 + price_mod))
 			gross += price_per_unit * qty
 			cons_sold += qty
 			player["inventory"][item_type] = maxi(0, player["inventory"].get(item_type, 0) - qty)
@@ -39,7 +42,7 @@ static func execute_sale(items: Array) -> Dictionary:
 			Notify.push("Archie texted. Check Contacts.")
 
 	var player_cut: int = int(floor(gross * PLAYER_CUT_RATIO))
-	var mugged: bool = Rng.chance(Barometer.get_effective_mug_chance(MUG_BASE_CHANCE))
+	var mugged: bool = Rng.chance(Barometer.get_effective_mug_chance(MUG_BASE_CHANCE + danger_mod))
 
 	if mugged:
 		# No sale_result modal yet — outcome isn't known until the mugging

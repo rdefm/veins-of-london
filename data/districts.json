@@ -1,0 +1,110 @@
+{
+  "shoreditch": {
+    "id": "shoreditch",
+    "name": "Shoreditch",
+    "oreBias": {},
+    "siteQualityMod": 0.00,
+    "dangerMod": 0.00,
+    "priceMod": 0.00,
+    "siteCap": 3,
+    "special": "home base",
+    "factionPresence": "collective",
+    "blurb": "Home turf. Rents keep going up and nobody knows why."
+  },
+  "city": {
+    "id": "city",
+    "name": "The City",
+    "oreBias": { "fate": 0.6 },
+    "siteQualityMod": -0.05,
+    "dangerMod": -0.05,
+    "priceMod": 0.15,
+    "siteCap": 2,
+    "special": "",
+    "factionPresence": "conclave",
+    "blurb": "Every building is a bank, a firm, or both, and something older underneath."
+  },
+  "greenwich": {
+    "id": "greenwich",
+    "name": "Greenwich",
+    "oreBias": { "time": 0.6 },
+    "siteQualityMod": 0.05,
+    "dangerMod": 0.00,
+    "priceMod": 0.00,
+    "siteCap": 3,
+    "special": "",
+    "factionPresence": "guild",
+    "blurb": "The Meridian runs through it, which the locals will mention unprompted."
+  },
+  "camden": {
+    "id": "camden",
+    "name": "Camden",
+    "oreBias": { "physics": 0.6 },
+    "siteQualityMod": 0.05,
+    "dangerMod": 0.10,
+    "priceMod": -0.05,
+    "siteCap": 4,
+    "special": "",
+    "factionPresence": "firm",
+    "blurb": "Markets, market stalls, and men who are technically also a market stall."
+  },
+  "kingscross": {
+    "id": "kingscross",
+    "name": "King's Cross",
+    "oreBias": { "time": 0.3, "physics": 0.3 },
+    "siteQualityMod": 0.00,
+    "dangerMod": 0.05,
+    "priceMod": 0.00,
+    "siteCap": 3,
+    "special": "veins here: rechargeBlocks -1 (min 1)",
+    "factionPresence": "network",
+    "blurb": "Everything in King's Cross is on its way somewhere else. Even the veins recharge faster."
+  },
+  "battersea": {
+    "id": "battersea",
+    "name": "Battersea",
+    "oreBias": { "physics": 0.6 },
+    "siteQualityMod": 0.05,
+    "dangerMod": 0.00,
+    "priceMod": 0.00,
+    "siteCap": 3,
+    "special": "",
+    "factionPresence": "firm",
+    "blurb": "The power station stopped generating decades ago. Something still hums."
+  },
+  "hampstead": {
+    "id": "hampstead",
+    "name": "Hampstead",
+    "oreBias": { "life": 0.6 },
+    "siteQualityMod": 0.10,
+    "dangerMod": -0.05,
+    "priceMod": 0.05,
+    "siteCap": 2,
+    "special": "",
+    "factionPresence": "",
+    "blurb": "Old money and older trees. The Heath keeps its own counsel."
+  },
+  "whitechapel": {
+    "id": "whitechapel",
+    "name": "Whitechapel",
+    "oreBias": { "emotion": 0.6 },
+    "siteQualityMod": 0.10,
+    "dangerMod": 0.10,
+    "priceMod": 0.00,
+    "siteCap": 3,
+    "special": "vein NPC-raid chance ×1.5 (when vein raids land, M2)",
+    "factionPresence": "collective",
+    "blurb": "The oldest grief in London, still paying rent to the newest landlords."
+  },
+  "soho": {
+    "id": "soho",
+    "name": "Soho",
+    "oreBias": {},
+    "siteQualityMod": 0.00,
+    "dangerMod": -0.05,
+    "priceMod": 0.10,
+    "siteCap": 0,
+    "special": "marketplace (M4); no veins, no prospecting",
+    "factionPresence": "network",
+    "blurb": "Nothing grows here. Everything gets sold here eventually."
+  }
+}

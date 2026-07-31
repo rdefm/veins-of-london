@@ -99,6 +99,23 @@ func run() -> void:
 		assert_true(not found, "buyerEventSeen should suppress the reminder")
 	)
 
+	run_case("day_rollover_resets_currentDistrict_to_shoreditch", func():
+		GameState.reset()
+		GameState.state["world"]["currentDistrict"] = "camden"
+		TimeSystem.advance_time_block()
+		TimeSystem.advance_time_block()
+		assert_eq(GameState.state["world"]["currentDistrict"], "camden", "still in camden mid-day")
+		TimeSystem.advance_time_block()
+		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "day rollover resets currentDistrict to home")
+	)
+
+	run_case("rest_resets_currentDistrict_to_shoreditch", func():
+		GameState.reset()
+		GameState.state["world"]["currentDistrict"] = "hampstead"
+		TimeSystem.do_rest()
+		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "resting resets currentDistrict to home")
+	)
+
 	run_case("stub_daily_tick_steps_do_not_crash", func():
 		GameState.reset()
 		# Just confirms daily_tick runs end to end with the T04/T05/T06/T09

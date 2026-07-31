@@ -51,6 +51,28 @@ func run() -> void:
 		assert_true(found, "a faction barometer pref pointing at a nonexistent state should be flagged")
 	)
 
+	run_case("corrupt_fixture_missing_district_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["districts"].erase("soho")
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("soho"):
+				found = true
+		assert_true(found, "removing a canonical district should fail validation")
+	)
+
+	run_case("corrupt_fixture_bad_district_oreBias_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["districts"]["camden"]["oreBias"] = { "energy": 0.6 }
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("energy"):
+				found = true
+		assert_true(found, "an old-roster oreBias type ('energy') should be flagged as an unknown ore type")
+	)
+
 	run_case("spot_check_values", func():
 		assert_eq(GameData.ORE_TYPES["fate"]["basePrice"], 90, "fate basePrice")
 		assert_eq(GameData.ORE_TYPES["emotion"]["symbol"], "❋", "emotion symbol")
@@ -64,4 +86,9 @@ func run() -> void:
 		assert_eq(GameData.CONSUMABLE_PRICES["timePearl"], 120, "timePearl consumable price")
 		assert_eq(GameData.SEED_ORE_COST, 40, "SEED_ORE_COST")
 		assert_eq(GameData.ARCHIE_ORE_GOAL, 10, "ARCHIE_ORE_GOAL")
+		assert_eq(GameData.DISTRICTS.size(), 9, "9 districts")
+		assert_eq(GameData.DISTRICTS["camden"]["siteCap"], 4, "camden siteCap")
+		assert_eq(GameData.DISTRICTS["kingscross"]["oreBias"]["time"], 0.3, "kingscross oreBias.time")
+		assert_almost_eq(GameData.DISTRICTS["city"]["priceMod"], 0.15, 0.0001, "city priceMod")
+		assert_eq(GameData.DISTRICTS["soho"]["siteCap"], 0, "soho has no sites (marketplace, no prospecting)")
 	)

@@ -48,6 +48,54 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 40 + cut_expected, "playerCut reflects the barometer-adjusted price")
 	)
 
+	run_case("gross_math_applies_district_priceMod", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["world"]["currentDistrict"] = "city"  # priceMod +0.15
+			GameState.state["player"]["orichalchum"]["fate"] = 10
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "fate", "qty": 2 }])
+			return not result["mugged"]
+		)
+		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
+		# fate basePrice 90, stable barometer -> 90; city priceMod +0.15 -> round_epsilon(90*1.15) = 104; gross = 208
+		var gross_expected := 208
+		var cut_expected := int(floor(gross_expected * 0.5))
+		assert_eq(GameState.state["player"]["cash"], 40 + cut_expected, "playerCut reflects the district priceMod")
+	)
+
+	run_case("consumable_price_also_gets_district_priceMod", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["world"]["currentDistrict"] = "camden"  # priceMod -0.05
+			GameState.state["player"]["inventory"]["timePearl"] = 5
+			var result := Economy.execute_sale([{ "kind": "consumable", "type": "timePearl", "qty": 1 }])
+			return not result["mugged"]
+		)
+		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
+		# timePearl 120 * (1 - 0.05) = round_epsilon(114) = 114; cut = floor(114*0.5) = 57
+		assert_eq(GameState.state["player"]["cash"], 40 + 57, "consumable sale price also carries the district priceMod")
+	)
+
+	run_case("dangerMod_can_tip_a_non_mugging_roll_into_a_mugging", func():
+		var found_seed := -1
+		for seed in range(1000):
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 10
+			Rng.set_seed(seed)
+			var base_result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 1 }])
+			if base_result.get("mugged", false):
+				continue
+			GameState.reset()
+			GameState.state["world"]["currentDistrict"] = "camden"  # dangerMod +0.10
+			GameState.state["player"]["orichalchum"]["time"] = 10
+			Rng.set_seed(seed)
+			var danger_result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 1 }])
+			if danger_result.get("mugged", false):
+				found_seed = seed
+				break
+		assert_true(found_seed != -1, "should find a seed where camden's +0.10 dangerMod tips a non-mugging roll into a mugging")
+	)
+
 	run_case("consumable_sale_flips_archieMotionPending_exactly_once", func():
 		GameState.reset()
 		GameState.state["player"]["inventory"]["timePearl"] = 5

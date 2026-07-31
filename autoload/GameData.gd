@@ -28,6 +28,8 @@ var HOME_ROOMS: Dictionary = {}
 
 var FACTIONS: Dictionary = {}
 
+var DISTRICTS: Dictionary = {}
+
 var BAROMETER_STATES: Dictionary = {}
 var BAROMETER_ACTIONS: Array = []
 var FACTION_BAROMETER_PREFS: Dictionary = {}
@@ -89,6 +91,8 @@ func load_all() -> void:
 
 	FACTIONS = _load_json("res://data/factions.json")
 
+	DISTRICTS = _load_json("res://data/districts.json")
+
 	var barometer := _load_json("res://data/barometer.json")
 	BAROMETER_STATES = barometer.get("states", {})
 	BAROMETER_ACTIONS = barometer.get("actions", [])
@@ -139,6 +143,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_vein_security(t.get("vein_security", {}), errors)
 	_validate_home(t.get("home_tier_order", []), t.get("home_tiers", {}), t.get("home_security", {}), t.get("home_rooms", {}), errors)
 	_validate_factions(t.get("factions", {}), errors)
+	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), errors)
 	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
@@ -165,6 +170,7 @@ func snapshot() -> Dictionary:
 		"home_security": HOME_SECURITY,
 		"home_rooms": HOME_ROOMS,
 		"factions": FACTIONS,
+		"districts": DISTRICTS,
 		"barometer_states": BAROMETER_STATES,
 		"barometer_actions": BAROMETER_ACTIONS,
 		"faction_prefs": FACTION_BAROMETER_PREFS,
@@ -265,6 +271,33 @@ func _validate_factions(factions: Dictionary, errors: Array[String]) -> void:
 			errors.append("factions: missing faction '%s'" % key)
 			continue
 		_require_keys(factions[key], ["id", "name", "shortName", "tagline", "industries", "description", "colour", "joinRelation"], "factions.%s" % key, errors)
+
+
+const CANONICAL_DISTRICT_IDS: Array[String] = [
+	"shoreditch", "city", "greenwich", "camden", "kingscross",
+	"battersea", "hampstead", "whitechapel", "soho",
+]
+
+
+func _validate_districts(districts: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:
+	for key in CANONICAL_DISTRICT_IDS:
+		if not districts.has(key):
+			errors.append("districts: missing canonical district '%s'" % key)
+			continue
+		var entry = districts[key]
+		_require_keys(entry, ["id", "name", "oreBias", "siteQualityMod", "dangerMod", "priceMod", "siteCap", "special", "factionPresence", "blurb"], "districts.%s" % key, errors)
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		if entry.get("id") != key:
+			errors.append("districts.%s: id field '%s' does not match key" % [key, entry.get("id")])
+		var ore_bias = entry.get("oreBias", {})
+		if typeof(ore_bias) == TYPE_DICTIONARY:
+			for ore_key in ore_bias.keys():
+				if not ore_types.is_empty() and not ore_types.has(ore_key):
+					errors.append("districts.%s.oreBias: '%s' is not a known ore type" % [key, ore_key])
+	for key in districts.keys():
+		if not CANONICAL_DISTRICT_IDS.has(key):
+			errors.append("districts: unexpected district '%s' (not in M1-LONDON.md D1)" % key)
 
 
 func _validate_barometer(states: Dictionary, actions: Array, faction_prefs: Dictionary, factions: Dictionary, errors: Array[String]) -> void:

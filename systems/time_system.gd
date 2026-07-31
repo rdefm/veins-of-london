@@ -16,6 +16,7 @@ static func advance_time_block() -> void:
 		world["day"] += 1
 		world["timeBlock"] = 0
 		world["timeBlocksDone"] = []
+		world["currentDistrict"] = "shoreditch"
 		daily_tick()
 	EventBus.state_changed.emit()
 
@@ -32,6 +33,7 @@ static func do_rest() -> void:
 	world["day"] += 1
 	world["timeBlock"] = 0
 	world["timeBlocksDone"] = []
+	world["currentDistrict"] = "shoreditch"
 	daily_tick()
 
 	var player: Dictionary = GameState.state["player"]
