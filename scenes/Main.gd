@@ -24,10 +24,11 @@ const SCREEN_SCRIPTS := {
 	"combat": preload("res://scenes/screens/combat.gd"),
 	"event": preload("res://scenes/screens/event.gd"),
 
-	# D4's 5-tab nav (map/hq/phone/bag/you). map/hq/phone/you are stubs
-	# until tickets 04/06/07 build them out; bag reuses the already-
+	# D4's 5-tab nav (map/hq/phone/bag/you). hq/phone/you are stubs
+	# until tickets 06/07 build them out; bag reuses the already-
 	# complete inventory screen (D4: "Bag — full inventory management").
-	"map": preload("res://scenes/screens/placeholder.gd"),
+	# map is ticket 04's district list -> district panel -> site/vein sheet.
+	"map": preload("res://scenes/screens/map.gd"),
 	"hq": preload("res://scenes/screens/placeholder.gd"),
 	"phone": preload("res://scenes/screens/placeholder.gd"),
 	"bag": preload("res://scenes/screens/inventory.gd"),

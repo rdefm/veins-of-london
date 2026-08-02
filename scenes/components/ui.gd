@@ -140,6 +140,24 @@ static func format_cost_label(cost: Dictionary, holdings: Dictionary) -> String:
 	return "%s — %s" % [label, amount_text]
 
 
+# D3's travel-cost label helper: the true block cost of a districted action
+# (prospect/seed/cultivate/harvest/sell), including the 1-block travel
+# surcharge. Pure formatter over pre-computed block counts — same contract
+# as format_cost_label above (cost + holdings in, string out) — so the
+# caller (a screen, which is allowed to call systems) is the one that
+# calls Travel.blocks_needed(), not this shared UI-kit helper.
+static func block_cost_suffix(travel_blocks: int, action_blocks: int = 1) -> String:
+	var total: int = travel_blocks + action_blocks
+	var unit: String = "block" if total == 1 else "blocks"
+	if travel_blocks > 0:
+		return "%d %s (travel)" % [total, unit]
+	return "%d %s" % [total, unit]
+
+
+static func format_block_cost_label(action_label: String, travel_blocks: int, action_blocks: int = 1) -> String:
+	return "%s — %s" % [action_label, block_cost_suffix(travel_blocks, action_blocks)]
+
+
 static func scroll_container() -> ScrollContainer:
 	var sc := ScrollContainer.new()
 	anchor_full_rect(sc)

@@ -363,6 +363,77 @@ func run() -> void:
 		assert_true(result["amount"] >= 2 and result["amount"] <= 3, "yield bonus should raise the credited amount above the raw [1,2] range")
 	)
 
+	# ── vein security (M1-LONDON.md D4 site/vein sheet) ─────────────
+
+	run_case("next_security_tier_id_walks_the_ladder_and_tops_out_at_guarded", func():
+		assert_eq(Cultivating.next_security_tier_id("none"), "basic", "none -> basic")
+		assert_eq(Cultivating.next_security_tier_id("basic"), "warded", "basic -> warded")
+		assert_eq(Cultivating.next_security_tier_id("warded"), "guarded", "warded -> guarded")
+		assert_eq(Cultivating.next_security_tier_id("guarded"), null, "guarded is the top of the ladder")
+	)
+
+	run_case("upgrade_vein_security_deducts_cash_and_advances_one_tier", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100
+		var vein := {
+			"id": "sec_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "shoreditch",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		var result := Cultivating.upgrade_vein_security("sec_vein")
+		assert_true(result["ok"], "should succeed with enough cash")
+		assert_eq(vein["security"], "basic", "security advances to the next tier")
+		assert_eq(GameState.state["player"]["cash"], 100 - GameData.VEIN_SECURITY["basic"]["cost"], "cash deducted by the tier's cost")
+	)
+
+	run_case("upgrade_vein_security_refuses_without_enough_cash", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 0
+		var vein := {
+			"id": "poor_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "shoreditch",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		var result := Cultivating.upgrade_vein_security("poor_vein")
+		assert_true(not result["ok"], "should refuse without enough cash")
+		assert_eq(vein["security"], "none", "security unchanged when refused")
+	)
+
+	run_case("upgrade_vein_security_refuses_at_maximum_tier", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		var vein := {
+			"id": "maxed_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "guarded",
+			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "shoreditch",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		var result := Cultivating.upgrade_vein_security("maxed_vein")
+		assert_true(not result["ok"], "already at guarded, nowhere higher to go")
+		assert_eq(GameState.state["player"]["cash"], 100000, "no cash spent when refused")
+	)
+
+	run_case("upgrade_vein_security_is_not_districted_no_block_or_travel_spent", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100
+		var vein := {
+			"id": "away_sec_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "camden",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		var result := Cultivating.upgrade_vein_security("away_sec_vein")
+		assert_true(result["ok"], "should succeed even though the vein is in a district the player isn't currently in")
+		assert_eq(GameState.state["world"]["timeBlocksDone"], [], "security upgrades aren't in D3's districted-action list — no block spent")
+		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "currentDistrict unchanged — no travel triggered")
+	)
+
 	run_case("location_name_uses_the_verbatim_street_and_suffix_arrays", func():
 		Rng.set_seed(42)
 		var location := Cultivating.generate_location_name()

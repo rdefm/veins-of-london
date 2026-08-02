@@ -24,6 +24,7 @@ func new_game_state() -> Dictionary:
 		"modal": null,
 		"bagDrawerOpen": false,
 		"inventoryTab": "ore",
+		"mapNav": { "selectedDistrict": null, "selectedSiteId": null },
 		"notifications": [],
 		"sellState": {},
 		"event": null,

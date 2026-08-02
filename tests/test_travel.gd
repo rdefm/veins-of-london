@@ -51,3 +51,47 @@ func run() -> void:
 		var result := Travel.ensure_district("shoreditch")
 		assert_true(not result["ok"], "no blocks left for the action itself")
 	)
+
+	# ── can_afford() ──────────────────────────────────────────────
+
+	run_case("can_afford_true_with_a_full_day_for_a_different_district", func():
+		GameState.reset()
+		assert_true(Travel.can_afford("camden", 1), "3 blocks available, needs 1 travel + 1 action")
+	)
+
+	run_case("can_afford_false_with_only_1_block_left_for_a_different_district", func():
+		GameState.reset()
+		GameState.state["world"]["timeBlocksDone"] = [0, 1]
+		assert_true(not Travel.can_afford("camden", 1), "1 block remaining, needs 2 (travel + action)")
+	)
+
+	run_case("can_afford_zero_action_cost_only_needs_the_travel_block", func():
+		GameState.reset()
+		GameState.state["world"]["timeBlocksDone"] = [0, 1]
+		assert_true(Travel.can_afford("camden", 0), "1 block remaining is enough for travel alone")
+	)
+
+	# ── travel_to() ───────────────────────────────────────────────
+
+	run_case("travel_to_a_different_district_spends_exactly_one_block", func():
+		GameState.reset()
+		var result := Travel.travel_to("camden")
+		assert_true(result["ok"], "should succeed with blocks available")
+		assert_eq(GameState.state["world"]["currentDistrict"], "camden", "currentDistrict updates")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "travel alone costs exactly 1 block")
+	)
+
+	run_case("travel_to_the_current_district_refuses_as_a_no_op", func():
+		GameState.reset()
+		var result := Travel.travel_to("shoreditch")
+		assert_true(not result["ok"], "travelling to where you already are should refuse, not silently succeed")
+		assert_eq(GameState.state["world"]["timeBlocksDone"], [], "no block spent")
+	)
+
+	run_case("travel_to_blocked_when_no_blocks_remain", func():
+		GameState.reset()
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+		var result := Travel.travel_to("camden")
+		assert_true(not result["ok"], "should refuse with 0 blocks remaining")
+		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "currentDistrict unchanged when blocked")
+	)

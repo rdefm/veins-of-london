@@ -5,6 +5,12 @@ extends RefCounted
 
 const LEVEL_CAP := 5
 
+# data/vein_security.json's upgrade ladder (R§1.6). The file's key order
+# already matches this, but that's an implicit JSON-insertion-order
+# guarantee — spelled out explicitly here the same way GameData.
+# SITE_TIER_ORDER/HOME_TIER_ORDER pin down their own tables' orderings.
+const VEIN_SECURITY_ORDER: Array[String] = ["none", "basic", "warded", "guarded"]
+
 # Verbatim from HTML generateLocationName(). Kept as the fallback/default
 # array (also used for whitechapel, M1-LONDON.md D2's per-district
 # extension below) so pre-M1 no-arg callers are unaffected.
@@ -270,3 +276,40 @@ static func find_vein(vein_id: String) -> Variant:
 
 static func make_vein_id() -> String:
 	return "v" + str(Time.get_ticks_usec()) + str(Rng.randi_range(1000, 999999))
+
+
+# ── vein security (M1-LONDON.md D4: site/vein sheet's "Upgrade security") ──
+
+# Null once at "guarded" — the top of the ladder.
+static func next_security_tier_id(current: String) -> Variant:
+	var idx: int = VEIN_SECURITY_ORDER.find(current)
+	if idx == -1 or idx >= VEIN_SECURITY_ORDER.size() - 1:
+		return null
+	return VEIN_SECURITY_ORDER[idx + 1]
+
+
+# Cash-only, no block: D3's travel rule enumerates exactly five districted
+# actions (prospect, seed, cultivate, harvest, sell) and security upgrades
+# aren't one of them — same reasoning as Home.add_security, which this
+# mirrors.
+static func upgrade_vein_security(vein_id: String) -> Dictionary:
+	var vein = find_vein(vein_id)
+	if vein == null:
+		return { "ok": false, "reason": "Vein not found." }
+
+	var next_id = next_security_tier_id(vein["security"])
+	if next_id == null:
+		return { "ok": false, "reason": "Already at maximum security." }
+
+	var next_data: Dictionary = GameData.VEIN_SECURITY[next_id]
+	var cost: int = next_data["cost"]
+	var player: Dictionary = GameState.state["player"]
+	if player["cash"] < cost:
+		return { "ok": false, "reason": "Not enough cash." }
+
+	player["cash"] -= cost
+	vein["security"] = next_id
+	Notify.push("Installed %s on your %s vein." % [next_data["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]])
+	EventBus.state_changed.emit()
+	SaveManager.autosave()  # R§6: autosave on purchase
+	return { "ok": true }
