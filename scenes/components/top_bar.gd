@@ -25,14 +25,20 @@ func _ready() -> void:
 	add_child(margin)
 
 	var row := UI.hbox(12)
-	# MarginContainer sizes an unconstrained child to its minimum size, not
-	# to the available width (see UI.screen_body()'s matching comment) — the
-	# day/cash labels would collapse to near-0 width and wrap one character
-	# per line without this.
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(row)
 
+	# UI.label() defaults to word-wrap (AUTOWRAP_WORD_SMART), which is right
+	# for body copy but wrong here: a Label's *minimum* width under autowrap
+	# is just its longest unbreakable fragment, not its full text — so
+	# inside an HBoxContainer (which gives non-EXPAND children exactly
+	# their minimum size) these two collapsed to a couple of characters
+	# wide and wrapped the rest of "Day 1 · Morning (0/3)" one letter per
+	# line down the screen (seen in human QA on-device). These are compact
+	# single-line status text, not paragraphs — turn wrapping off instead
+	# of fighting the container over minimum size.
 	_day_label = UI.label("")
+	_day_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	row.add_child(_day_label)
 
 	var spacer := Control.new()
@@ -40,6 +46,7 @@ func _ready() -> void:
 	row.add_child(spacer)
 
 	_cash_label = UI.label("")
+	_cash_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	row.add_child(_cash_label)
 
 	row.add_child(UI.button("🎒 Bag", func(): Bag.open()))
