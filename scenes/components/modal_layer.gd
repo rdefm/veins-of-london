@@ -68,8 +68,6 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_james_job_short(data)
 		"james_job_complete":
 			_build_james_job_complete(data)
-		"combat_items":
-			_build_combat_items()
 		_:
 			_card_content.add_child(UI.heading(type_id))
 			_card_content.add_child(UI.label("…"))
@@ -218,66 +216,9 @@ func _build_james_job_complete(data: Dictionary) -> void:
 	_card_content.add_child(UI.button("Good.", func(): Modal.close()))
 
 
-func _build_combat_items() -> void:
-	var player: Dictionary = GameState.state["player"]
-	var combat: Dictionary = GameState.state["combat"]
-
-	_card_content.add_child(UI.heading("Use an item"))
-	_card_content.add_child(UI.muted_label("Pick what to use this turn."))
-
-	if player["inventory"]["timePearl"] > 0:
-		_card_content.add_child(UI.button("⧖ Time Pearl (%d) — freeze enemy" % player["inventory"]["timePearl"], _on_use_time_pearl))
-
-	if player["inventory"]["enhancementPowder"] > 0:
-		_card_content.add_child(UI.button("↯ Enhancement Powder (%d) — extra attacks" % player["inventory"]["enhancementPowder"], _on_use_enhancement_powder))
-
-	var snap_count: int = combat["snapshots"].size()
-	if player["inventory"]["rewind"] > 0:
-		var rewind_label := "(%d turn(s) back · +50%% evade x2 turns)" % snap_count if snap_count > 0 else "(nothing to undo yet)"
-		var rewind_button := UI.button("⟲ Rewind (%d) — %s" % [player["inventory"]["rewind"], rewind_label], func(): Combat.combat_rewind())
-		rewind_button.disabled = snap_count == 0
-		_card_content.add_child(rewind_button)
-
-	var device_id = player["equipment"]["device"]
-	if device_id != null:
-		var device = null
-		for d in player["devicesCompleted"]:
-			if d["id"] == device_id:
-				device = d
-				break
-		if device != null:
-			var dt: Dictionary = GameData.DEVICES[device["type"]]
-			var charges_left: int = device["chargesPerDay"] - device["chargesUsedToday"]
-			var device_button := UI.button("%s %s (%d/%d)" % [dt["symbol"], dt["name"], charges_left, device["chargesPerDay"]], _on_use_device)
-			device_button.disabled = charges_left <= 0
-			_card_content.add_child(device_button)
-
-	_card_content.add_child(UI.button("Cancel", func(): Modal.close()))
-
-
-func _on_use_time_pearl() -> void:
-	Modal.close()
-	Combat.use_time_pearl()
-
-
-func _on_use_enhancement_powder() -> void:
-	Modal.close()
-	Combat.use_enhancement_powder()
-
-
-func _on_use_device() -> void:
-	var player: Dictionary = GameState.state["player"]
-	var device_id = player["equipment"]["device"]
-	var dt: Dictionary = {}
-	for d in player["devicesCompleted"]:
-		if d["id"] == device_id:
-			dt = GameData.DEVICES[d["type"]]
-			break
-	Modal.close()
-	if dt.get("effect", "") == "rewind":
-		Combat.combat_rewind()
-	else:
-		Combat.use_device()
+# Item-use during combat used to be a modal here ("combat_items"); D4.4's
+# BagDrawer (scenes/components/bag_drawer.gd) replaces it — combat.gd's
+# "Item" button now opens that instead of a modal.
 
 # Deferred: room_detail (manage/assign a built room) and generic confirm
 # dialogs. Confirm specifically needs its own design pass — state.modal.

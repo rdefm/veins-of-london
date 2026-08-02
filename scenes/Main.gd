@@ -23,15 +23,31 @@ const SCREEN_SCRIPTS := {
 	"save": preload("res://scenes/screens/save.gd"),
 	"combat": preload("res://scenes/screens/combat.gd"),
 	"event": preload("res://scenes/screens/event.gd"),
+
+	# D4's 5-tab nav (map/hq/phone/bag/you). map/hq/phone/you are stubs
+	# until tickets 04/06/07 build them out; bag reuses the already-
+	# complete inventory screen (D4: "Bag — full inventory management").
+	"map": preload("res://scenes/screens/placeholder.gd"),
+	"hq": preload("res://scenes/screens/placeholder.gd"),
+	"phone": preload("res://scenes/screens/placeholder.gd"),
+	"bag": preload("res://scenes/screens/inventory.gd"),
+	"you": preload("res://scenes/screens/placeholder.gd"),
 }
 
 # R§2.2: "Global bottom nav ... hidden on title, intro, event, combat".
 const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat"]
 
+# D4's persistent top bar is up on every screen except the two with no game
+# session to show cash/day/blocks for — unlike NAV_HIDDEN_SCREENS, it stays
+# visible through event/combat so the bag button keeps working there (D4.4).
+const TOP_BAR_HIDDEN_SCREENS := ["title", "intro"]
+
 var screen_container: Control
 var nav_bar: Control
+var top_bar: Control
 var notification_toast: Control
 var modal_layer: Control
+var bag_drawer: Control
 var current_screen_node: Control = null
 
 
@@ -43,6 +59,9 @@ func _ready() -> void:
 	UI.anchor_full_rect(screen_container)
 	add_child(screen_container)
 
+	top_bar = TopBar.new()
+	add_child(top_bar)
+
 	nav_bar = NavBar.new()
 	add_child(nav_bar)
 
@@ -51,6 +70,11 @@ func _ready() -> void:
 
 	modal_layer = ModalLayer.new()
 	add_child(modal_layer)
+
+	# Topmost: D4.4's bag drawer has to open over any modal, mid-event or
+	# mid-combat, from any screen.
+	bag_drawer = BagDrawer.new()
+	add_child(bag_drawer)
 
 	EventBus.screen_changed.connect(_on_screen_changed)
 	_show_screen(GameState.state["currentScreen"])
@@ -71,3 +95,4 @@ func _show_screen(screen_id: String) -> void:
 	screen_container.add_child(current_screen_node)
 
 	nav_bar.visible = not NAV_HIDDEN_SCREENS.has(screen_id)
+	top_bar.visible = not TOP_BAR_HIDDEN_SCREENS.has(screen_id)

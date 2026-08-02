@@ -1,18 +1,19 @@
 class_name NavBar
 extends Control
 
-# Bottom nav, 5 tabs. Hidden by Main.gd on the R§2.2 excluded screens
-# (title, intro, event, combat) — this component doesn't know about that
-# list itself, just renders the tabs.
+# Bottom nav, 5 tabs (D4: Map · HQ · Phone · Bag · You — supersedes the M0
+# Home/Inventory/Craft/World/Contacts set). Hidden by Main.gd on the R§2.2
+# excluded screens (title, intro, event, combat) — this component doesn't
+# know about that list itself, just renders the tabs.
 
 const BAR_HEIGHT := 64.0
 
 const TABS := [
-	{ "screen": "home", "label": "Home" },
-	{ "screen": "inventory", "label": "Inventory" },
-	{ "screen": "crafting", "label": "Craft" },
-	{ "screen": "world", "label": "World" },
-	{ "screen": "contacts", "label": "Contacts" },
+	{ "screen": "map", "label": "Map" },
+	{ "screen": "hq", "label": "HQ" },
+	{ "screen": "phone", "label": "Phone" },
+	{ "screen": "bag", "label": "Bag" },
+	{ "screen": "you", "label": "You" },
 ]
 
 

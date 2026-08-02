@@ -173,6 +173,7 @@ state = {
   meta: { saveVersion: 1 },
   currentScreen: "title",     # see screen list below
   modal: null,                # { type: String, data: Dictionary } | null
+  bagDrawerOpen: false,        # M1 D4.4; the global BagDrawer bottom sheet, independent of `modal`
   inventoryTab: "ore",
   notifications: [],          # [{ id:String, text:String }]
   sellState: {},              # sell-menu qty selections, transient
@@ -253,7 +254,11 @@ state = {
 ```
 
 ### 2.2 Screens
-`title, intro, home, veins, inventory, crafting, contacts, sms_archie, sms_archie_2, world, property, factions, barometer, stats, save, combat, event` (M0-T13 replaces the per-event screens with one generic `event` screen driven by `state.event`). Global bottom nav — Home · Inventory · Craft · World · Contacts — hidden on `title, intro, event, combat`.
+M0 roster: `title, intro, home, veins, inventory, crafting, contacts, sms_archie, sms_archie_2, world, property, factions, barometer, stats, save, combat, event` (M0-T13 replaces the per-event screens with one generic `event` screen driven by `state.event`). Still wired in `Main.gd` — later M1 tickets (04 Map, 06 HQ, 07 Phone) redistribute their content into the D4 tabs below and retire the ones D4 says to delete (`veins, world, property, factions, barometer`); nothing has been deleted yet.
+
+M1 D4 adds 5 nav-tab screen ids — `map, hq, phone, bag, you` — which **supersede the M0 bottom nav** (`Home · Inventory · Craft · World · Contacts` → `Map · HQ · Phone · Bag · You`). `map, hq, phone, you` are stub screens (`PlaceholderScreen`) until tickets 04/06/07 build them out; `bag` is fully functional — it's the existing `inventory` screen (ore/consumables/equipment/devices) registered under a second screen id, per D4's "Bag — full inventory management." The M0 `inventory` screen id is unchanged and still used by its existing call sites (raid-win routing, `home`'s Inventory button) — `bag` and `inventory` are two ids pointing at the same screen script, not a rename.
+
+Tab bar (`NavBar`) hidden on `title, intro, event, combat` (unchanged from M0). A separate persistent top bar (`TopBar`, D4: cash · day/time-blocks · bag button) is shown on every screen except `title, intro` — it stays up through `event` and `combat` so the bag button keeps working there (D4.4). The bag button opens the global `BagDrawer` bottom sheet via `state.bagDrawerOpen` (`Bag.open()`/`Bag.close()`), independent of screen navigation and of `state.modal`.
 
 ---
 

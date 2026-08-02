@@ -115,6 +115,31 @@ static func bar(value: float, max_value: float) -> ProgressBar:
 	return b
 
 
+# D4.4's shared cost-label helper. `cost` is { label:String, resource:String,
+# amount:int } — `resource` is either "cash" or an ore-type id ("physics"
+# etc.); `holdings` is the Dictionary to read the player's current amount
+# from (player.orichalchum for ore, or a synthetic {"cash": player.cash} —
+# see callers). Produces "Seed — 40 physics (have 52)" / "Bribe — £50 (have
+# £210)" per D4.4's examples; every cost-gated button in the game routes its
+# label through this so a player never has to open the bag drawer just to
+# see if they can afford something.
+static func format_cost_label(cost: Dictionary, holdings: Dictionary) -> String:
+	var resource: String = cost.get("resource", "")
+	var amount: int = cost.get("amount", 0)
+	var have: int = holdings.get(resource, 0)
+
+	var amount_text: String
+	if resource == "cash":
+		amount_text = "£%d (have £%d)" % [amount, have]
+	else:
+		amount_text = "%d %s (have %d)" % [amount, resource, have]
+
+	var label: String = cost.get("label", "")
+	if label == "":
+		return amount_text
+	return "%s — %s" % [label, amount_text]
+
+
 static func scroll_container() -> ScrollContainer:
 	var sc := ScrollContainer.new()
 	anchor_full_rect(sc)
@@ -139,7 +164,7 @@ static func screen_body(root: Control) -> VBoxContainer:
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_top", 72)  # room below the top bar (TopBar.BAR_HEIGHT + 16)
 	margin.add_theme_constant_override("margin_bottom", 80)  # room above the nav bar
 	sc.add_child(margin)
 

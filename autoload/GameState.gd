@@ -22,6 +22,7 @@ func new_game_state() -> Dictionary:
 		"meta": { "saveVersion": 1 },
 		"currentScreen": "title",
 		"modal": null,
+		"bagDrawerOpen": false,
 		"inventoryTab": "ore",
 		"notifications": [],
 		"sellState": {},

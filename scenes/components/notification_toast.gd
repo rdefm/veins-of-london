@@ -15,6 +15,7 @@ func _ready() -> void:
 
 	_entries_container = VBoxContainer.new()
 	UI.anchor_top_wide(_entries_container)
+	_entries_container.offset_top = 56.0  # clears the persistent top bar (TopBar.BAR_HEIGHT)
 	_entries_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_entries_container)
 

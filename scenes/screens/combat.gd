@@ -71,7 +71,7 @@ func _build_action_bar() -> Control:
 
 	var player: Dictionary = GameState.state["player"]
 	var has_items: bool = player["inventory"]["timePearl"] > 0 or player["inventory"]["enhancementPowder"] > 0 or player["inventory"]["rewind"] > 0 or player["equipment"]["device"] != null
-	var item_button := UI.button("🎒 Item", func(): Modal.open("combat_items"))
+	var item_button := UI.button("🎒 Item", func(): Bag.open())
 	item_button.disabled = not has_items
 	row.add_child(item_button)
 
