@@ -25,6 +25,11 @@ func _ready() -> void:
 	add_child(margin)
 
 	var row := UI.hbox(12)
+	# MarginContainer sizes an unconstrained child to its minimum size, not
+	# to the available width (see UI.screen_body()'s matching comment) — the
+	# day/cash labels would collapse to near-0 width and wrap one character
+	# per line without this.
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(row)
 
 	_day_label = UI.label("")
