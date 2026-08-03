@@ -1,3 +1,5 @@
+﻿When reporting information to me, be extremely concise and sacrifice grammar for the sake of concision.
+
 # VEIN — Project Constitution
 
 You are porting and extending **Vein**, a mobile-first, menu-driven London urban-fantasy economy game, from an HTML prototype to **Godot 4.4**. You execute specs; you do not redesign mechanics, rename things, or "improve" formulas. If a spec seems wrong, STOP and ask the human — do not guess.
@@ -8,9 +10,12 @@ You are porting and extending **Vein**, a mobile-first, menu-driven London urban
 |---|---|
 | Any number, table, formula, schema | `docs/REFERENCE.md` |
 | What to build, in what order, with what tests (port) | `docs/M0-PORT.md` |
-| Map, districts, prospecting, event framework content | `docs/M1-LONDON.md` |
+| Districts, prospecting, sites, event framework content | `docs/M1-LONDON.md` |
+| Network Map rendering (diagram, glyph grammar, filters) | `docs/M1.5-NETWORK-MAP.md` |
 | Prose, tone, dialogue rules | `docs/CONTENT-GUIDE.md` |
 | Original event prose (extract only, never mechanics) | `reference/london-orichalchum.html` |
+| Domain terminology (site vs. vein, claim states, etc.) | `CONTEXT.md` |
+| Architectural decisions and why | `docs/adr/` |
 
 The HTML file is **prose quarry only**. Never copy mechanics, formulas, or data from it — the ore roster changed and REFERENCE.md is canonical. If REFERENCE.md and the HTML disagree, REFERENCE.md wins, always.
 
@@ -81,3 +86,17 @@ If `godot` is not on PATH, run `scripts/setup_godot.sh` (M0-T00 creates it), whi
 - Consumable ids: `timePearl`, `enhancementPowder`, `rewind` (snake_case in GDScript vars is fine; JSON keys keep these exact camelCase ids).
 - Currency is `£`, integers only, field name `cash`.
 - Screen ids, flag names, and state paths: exactly as in REFERENCE.md §2.
+
+## Agent skills
+
+### Issue tracker
+
+Local markdown under `.scratch/<feature-slug>/` — chosen because this repo is public and the ticket breakdown is being kept private. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five canonical roles (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), recorded as a `Status:` line per ticket. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
