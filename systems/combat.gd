@@ -397,9 +397,10 @@ static func exit_combat() -> Dictionary:
 	return { "nextScreen": next_screen }
 
 
-# R§3.8: on loss, storedOre and carried orichalchum are each halved
-# (floor) — deliberately wider than the HTML, which only halves carried
-# ore. REFERENCE.md is canonical and explicitly includes storedOre.
+# R§3.8: on loss, carried orichalchum is halved (floor). Previously also
+# halved a separate home.storedOre pool — that field was merged into
+# player.orichalchum (M1-LONDON-T06, see systems/home.gd), so there is
+# only the one pool to lose now.
 static func _after_home_raid_combat(outcome) -> void:
 	if outcome == "win":
 		return
@@ -408,19 +409,12 @@ static func _after_home_raid_combat(outcome) -> void:
 	GameState.state["flags"]["homeRaidEventSeen"] = true
 
 	var player: Dictionary = GameState.state["player"]
-	var home: Dictionary = GameState.state["home"]
 	var lost := 0
 
 	for ore_type in player["orichalchum"].keys():
 		var qty: int = player["orichalchum"][ore_type]
 		var take: int = int(floor(qty * 0.5))
 		player["orichalchum"][ore_type] = maxi(0, qty - take)
-		lost += take
-
-	for ore_type in home["storedOre"].keys():
-		var qty: int = home["storedOre"][ore_type]
-		var take: int = int(floor(qty * 0.5))
-		home["storedOre"][ore_type] = maxi(0, qty - take)
 		lost += take
 
 	if lost > 0:

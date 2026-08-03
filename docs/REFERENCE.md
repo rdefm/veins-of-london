@@ -201,7 +201,11 @@ state = {
     currentDistrict: "shoreditch",   # M1; harmless in M0
   },
 
-  home: { tier: "bedsit", security: [], rooms: [], lastRaidDay: 0, storedOre: {} },
+  home: { tier: "bedsit", security: [], rooms: [], lastRaidDay: 0 },
+  # M1-LONDON-T06: storedOre was merged into player.orichalchum — there was
+  # never a deposit/withdraw mechanic, so it was always an empty or
+  # unreachable second pool. Carried ore is what a home raid now risks and
+  # loses (§3.3, §3.8) — there is only one ore pool.
 
   factions: { collective: {relation:0, joined:false}, firm: {...}, guild: {...},
               network: {...}, conclave: {...} },   # same shape each
@@ -255,9 +259,9 @@ state = {
 ```
 
 ### 2.2 Screens
-M0 roster: `title, intro, home, veins, inventory, crafting, contacts, sms_archie, sms_archie_2, world, property, factions, barometer, stats, save, combat, event` (M0-T13 replaces the per-event screens with one generic `event` screen driven by `state.event`). Still wired in `Main.gd` — later M1 tickets (04 Map, 06 HQ, 07 Phone) redistribute their content into the D4 tabs below and retire the ones D4 says to delete (`veins, world, property, factions, barometer`); nothing has been deleted yet.
+M0 roster (original): `title, intro, home, veins, inventory, crafting, contacts, sms_archie, sms_archie_2, world, property, factions, barometer, stats, save, combat, event` (M0-T13 replaces the per-event screens with one generic `event` screen driven by `state.event`). Later M1 tickets (04 Map, 06 HQ, 07 Phone) redistribute their content into the D4 tabs below and retire the ones D4 says to delete. **Ticket 06 (HQ merge) is done:** `property` and `crafting` are deleted (no `SCREEN_SCRIPTS` entry, no remaining `Nav.go_to` call sites) — their functionality lives under `hq`. `veins, world, factions, barometer` remain wired but are still slated for retirement by tickets 04/07.
 
-M1 D4 adds 5 nav-tab screen ids — `map, hq, phone, bag, you` — which **supersede the M0 bottom nav** (`Home · Inventory · Craft · World · Contacts` → `Map · HQ · Phone · Bag · You`). `hq, phone, you` are stub screens (`PlaceholderScreen`) until tickets 06/07 build them out; `map` is ticket 04's `MapScreen` (district list -> district panel -> site/vein sheet, `state.mapNav`-driven, per D4's "Map tab" section); `bag` is fully functional — it's the existing `inventory` screen (ore/consumables/equipment/devices) registered under a second screen id, per D4's "Bag — full inventory management." The M0 `inventory` screen id is unchanged and still used by its existing call sites (raid-win routing, `home`'s Inventory button) — `bag` and `inventory` are two ids pointing at the same screen script, not a rename.
+M1 D4 adds 5 nav-tab screen ids — `map, hq, phone, bag, you` — which **supersede the M0 bottom nav** (`Home · Inventory · Craft · World · Contacts` → `Map · HQ · Phone · Bag · You`). `phone, you` are still stub screens (`PlaceholderScreen`) until ticket 07 builds them out; `map` is ticket 04's `MapScreen` (district list -> district panel -> site/vein sheet, `state.mapNav`-driven, per D4's "Map tab" section); `hq` is ticket 06's `HqScreen` — tier/security/rooms/stored-ore/tier-upgrade (old `property`), recipes/devices as "the workbench" (old `crafting`), a gym placeholder, and assigned-contact UI for the `lab`/`veinStation` rooms (`Contacts.assign_to_room`, previously unreachable from any screen); `bag` is fully functional — it's the existing `inventory` screen (ore/consumables/equipment/devices) registered under a second screen id, per D4's "Bag — full inventory management." The M0 `inventory` screen id is unchanged and still used by its existing call sites (raid-win routing, `home`'s Inventory button) — `bag` and `inventory` are two ids pointing at the same screen script, not a rename.
 
 Tab bar (`NavBar`) hidden on `title, intro, event, combat` (unchanged from M0). A separate persistent top bar (`TopBar`, D4: cash · day/time-blocks · bag button) is shown on every screen except `title, intro` — it stays up through `event` and `combat` so the bag button keeps working there (D4.4). The bag button opens the global `BagDrawer` bottom sheet via `state.bagDrawerOpen` (`Bag.open()`/`Bag.close()`), independent of screen navigation and of `state.modal`.
 
@@ -280,8 +284,8 @@ Tab bar (`NavBar`) hidden on `title, intro, event, combat` (unchanged from M0). 
 - **Merged effects:** sum `effects` dicts of the three active states. `getEffectiveMugChance(base) = clamp(base + fx.mugChance, 0, 0.8)`. `getEffectiveOrePrice(type, base) = round(base * max(0.1, 1 + fx.orePrice + fx.<type>Premium))`.
 
 ### 3.3 Home
-- `getHomeRaidChance() = max(0.002, tier.raidBaseChance + fx.homeRaid − Σ installed raidReduction + totalStoredOre * 0.001)`.
-- Raid roll (in daily tick): skip if `day − lastRaidDay < 3`; on hit set `lastRaidDay = day`; if stored ore total is 0, nothing; else lose `floor(qty * ratio)` per type, ratio 0.50 (0.25 with safeRoom). Notification with units lost.
+- `getHomeRaidChance() = max(0.002, tier.raidBaseChance + fx.homeRaid − Σ installed raidReduction + totalCarriedOre * 0.001)`, where `totalCarriedOre` is the sum of `player.orichalchum` (see storedOre merge note in §2).
+- Raid roll (in daily tick): skip if `day − lastRaidDay < 3`; on hit set `lastRaidDay = day`; if carried ore total is 0, nothing; else lose `floor(qty * ratio)` per type from `player.orichalchum`, ratio 0.50 (0.25 with safeRoom). Notification with units lost.
 - Upgrades/rooms: enforce cash, slot caps, minTier by tier order. Room `body` bonus applies immediately: `hpMax += 10`, `hp = min(hp + 10, hpMax)`. `workshopBonus` = Σ bonusValue of installed rooms with bonus == "crafting".
 
 ### 3.4 Cultivating & harvest
@@ -319,7 +323,7 @@ Tab bar (`NavBar`) hidden on `title, intro, event, combat` (unchanged from M0). 
 - **onWin dispatch:** "muggingWon" → pay `pendingSaleCut`, sale result modal. "raidWon" → transfer vein to player. Exit combat: mugging-win keeps the sale modal; context "home_raid" → debrief flow; else → inventory (raid win) / home.
 
 ### 3.8 Home-raid event chain
-Trigger: `homeRaidEventPending` true → on next visit to home screen, launch. Flow: intro event (3 cards) → combat vs raider (hp 35, atk 6–14, context "home_raid") → debrief event (WIN or LOSS variant). Loss additionally: `storedOre` and carried `orichalchum` each halved (floor). Debrief completion (both variants): `homeRaidEventSeen = true`, `homeRaidWon` per outcome, `archiePartnerSeen = true`, `homeUnlocked = true`, `securityContactUnlocked = true`, archie relation +10, and grant a vein: time-type, Lv1, devBar 0, uncharged, security none, district "whitechapel", location "Whitechapel, behind the old brewery", claimedOnDay = today.
+Trigger: `homeRaidEventPending` true → on next visit to home screen, launch. Flow: intro event (3 cards) → combat vs raider (hp 35, atk 6–14, context "home_raid") → debrief event (WIN or LOSS variant). Loss additionally: carried `orichalchum` halved (floor) — this used to also separately halve a `storedOre` pool, but that field was merged into `orichalchum` (§2's storedOre merge note), so there is only the one pool to lose now. Debrief completion (both variants): `homeRaidEventSeen = true`, `homeRaidWon` per outcome, `archiePartnerSeen = true`, `homeUnlocked = true`, `securityContactUnlocked = true`, archie relation +10, and grant a vein: time-type, Lv1, devBar 0, uncharged, security none, district "whitechapel", location "Whitechapel, behind the old brewery", claimedOnDay = today.
 
 ### 3.9 Snapshots & Rewind (engine foundation)
 - `Snapshots.gd`: `push(stack_id, deep_copy_of_state_subset)`, bounded stacks.

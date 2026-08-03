@@ -26,7 +26,7 @@ static func recruit(contact_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Cannot recruit yet." }
 	var c: Dictionary = GameState.state["contacts"][contact_id]
 	c["recruited"] = true
-	Notify.push("%s is now working with you. Assign them to a room via Your Property." % display_name(contact_id))
+	Notify.push("%s is now working with you. Assign them to a room via HQ." % display_name(contact_id))
 	EventBus.state_changed.emit()
 	return { "ok": true }
 

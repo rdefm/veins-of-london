@@ -11,12 +11,10 @@ const SCREEN_SCRIPTS := {
 	"home": preload("res://scenes/screens/home.gd"),
 	"veins": preload("res://scenes/screens/veins.gd"),
 	"inventory": preload("res://scenes/screens/inventory.gd"),
-	"crafting": preload("res://scenes/screens/crafting.gd"),
 	"contacts": preload("res://scenes/screens/contacts.gd"),
 	"sms_archie": preload("res://scenes/screens/sms_archie.gd"),
 	"sms_archie_2": preload("res://scenes/screens/sms_archie_2.gd"),
 	"world": preload("res://scenes/screens/world.gd"),
-	"property": preload("res://scenes/screens/property.gd"),
 	"factions": preload("res://scenes/screens/factions.gd"),
 	"barometer": preload("res://scenes/screens/barometer.gd"),
 	"stats": preload("res://scenes/screens/stats.gd"),
@@ -24,12 +22,13 @@ const SCREEN_SCRIPTS := {
 	"combat": preload("res://scenes/screens/combat.gd"),
 	"event": preload("res://scenes/screens/event.gd"),
 
-	# D4's 5-tab nav (map/hq/phone/bag/you). hq/phone/you are stubs
-	# until tickets 06/07 build them out; bag reuses the already-
-	# complete inventory screen (D4: "Bag — full inventory management").
-	# map is ticket 04's district list -> district panel -> site/vein sheet.
+	# D4's 5-tab nav (map/hq/phone/bag/you). phone/you are stubs until
+	# ticket 07 builds them out; bag reuses the already-complete inventory
+	# screen (D4: "Bag — full inventory management"). map is ticket 04's
+	# district list -> district panel -> site/vein sheet. hq is ticket 06's
+	# merge of the old M0 property + crafting screens (both deleted).
 	"map": preload("res://scenes/screens/map.gd"),
-	"hq": preload("res://scenes/screens/placeholder.gd"),
+	"hq": preload("res://scenes/screens/hq.gd"),
 	"phone": preload("res://scenes/screens/placeholder.gd"),
 	"bag": preload("res://scenes/screens/inventory.gd"),
 	"you": preload("res://scenes/screens/placeholder.gd"),

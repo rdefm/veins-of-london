@@ -202,7 +202,6 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("home"):
 		var home: Dictionary = state["home"]
 		_int_key(home, "lastRaidDay")
-		_int_dict_values(home.get("storedOre", {}))
 
 	if state.has("factions"):
 		for faction in state["factions"].values():

@@ -11,25 +11,27 @@ func run() -> void:
 		assert_almost_eq(chance, 0.002, 0.0001, "raid chance should floor at 0.002, never go negative")
 	)
 
-	run_case("raid_chance_uses_tier_base_security_and_stored_ore", func():
+	run_case("raid_chance_uses_tier_base_security_and_carried_ore", func():
 		GameState.reset()
-		GameState.state["home"]["storedOre"] = { "time": 50 }
+		# M1-LONDON-T06: home.storedOre was merged into player.orichalchum —
+		# carried ore is what a raid is risking now, there's no separate pool.
+		GameState.state["player"]["orichalchum"] = { "time": 50 }
 		# bedsit base 0.08, no security, +50*0.001 = 0.05 -> 0.13
 		var chance := Home.get_home_raid_chance()
-		assert_almost_eq(chance, 0.13, 0.0001, "0.08 base + 50*0.001 stored ore")
+		assert_almost_eq(chance, 0.13, 0.0001, "0.08 base + 50*0.001 carried ore")
 	)
 
 	run_case("raid_spacing_skips_within_3_days", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 5
 		GameState.state["home"]["lastRaidDay"] = 4
-		GameState.state["home"]["storedOre"] = { "time": 100 }
+		GameState.state["player"]["orichalchum"] = { "time": 100 }
 		Rng.set_seed(1)  # irrelevant — should bail before rolling
 		Home.roll_daily_raid()
 		assert_eq(GameState.state["home"]["lastRaidDay"], 4, "day 5 - lastRaidDay 4 < 3, should skip entirely")
 	)
 
-	run_case("raid_with_no_stored_ore_updates_lastRaidDay_but_loots_nothing", func():
+	run_case("raid_with_no_carried_ore_updates_lastRaidDay_but_loots_nothing", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 10
 		GameState.state["home"]["lastRaidDay"] = 0
@@ -48,14 +50,14 @@ func run() -> void:
 				hit = true
 				break
 		assert_true(hit, "a raid should eventually hit across 200 seeds at bedsit's 0.08 base chance")
-		assert_eq(GameState.state["home"]["storedOre"], {}, "no stored ore to lose")
+		assert_eq(GameState.state["player"]["orichalchum"], {}, "no carried ore to lose")
 	)
 
 	run_case("raid_loss_ratio_is_halved_by_safeRoom", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 10
 		GameState.state["home"]["lastRaidDay"] = 0
-		GameState.state["home"]["storedOre"] = { "time": 100 }
+		GameState.state["player"]["orichalchum"] = { "time": 100 }
 		GameState.state["home"]["rooms"] = ["safeRoom"]
 
 		var seed := -1
@@ -69,14 +71,14 @@ func run() -> void:
 			GameState.state = snapshot
 
 		assert_true(seed != -1, "should find a seed that triggers the raid within 300 tries")
-		assert_eq(GameState.state["home"]["storedOre"]["time"], 75, "floor(100*0.25) = 25 lost, 75 remain, with safeRoom")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 75, "floor(100*0.25) = 25 lost, 75 remain, with safeRoom")
 	)
 
 	run_case("raid_loss_ratio_is_full_without_safeRoom", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 10
 		GameState.state["home"]["lastRaidDay"] = 0
-		GameState.state["home"]["storedOre"] = { "time": 100 }
+		GameState.state["player"]["orichalchum"] = { "time": 100 }
 
 		var seed := -1
 		for candidate in range(300):
@@ -89,7 +91,7 @@ func run() -> void:
 			GameState.state = snapshot
 
 		assert_true(seed != -1, "should find a seed that triggers the raid within 300 tries")
-		assert_eq(GameState.state["home"]["storedOre"]["time"], 50, "floor(100*0.50) = 50 lost, 50 remain, no safeRoom")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 50, "floor(100*0.50) = 50 lost, 50 remain, no safeRoom")
 	)
 
 	run_case("upgrade_tier_enforces_cash_and_advances_the_ladder", func():

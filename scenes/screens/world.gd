@@ -45,7 +45,7 @@ func _build_property_summary() -> Control:
 	var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
 	c["content"].add_child(UI.label("🏠 %s" % tier["name"]))
 	c["content"].add_child(UI.muted_label("Raid risk: %d%% · %d security upgrades · %d rooms" % [raid_pct, home["security"].size(), home["rooms"].size()]))
-	c["content"].add_child(UI.button("Manage property →", func(): Nav.go_to("property")))
+	c["content"].add_child(UI.button("Manage property →", func(): Nav.go_to("hq")))
 	return c["panel"]
 
 

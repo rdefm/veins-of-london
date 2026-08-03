@@ -183,7 +183,7 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["james"]["relation"], 10, "james_meeting: james relation +10")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "archie_craft_chat", "james_meeting: stage")
 		assert_eq(GameState.state["world"]["archieChatUnlockDay"], day + 1, "james_meeting: archieChatUnlockDay = day+1")
-		assert_eq(GameState.state["currentScreen"], "crafting", "james_meeting: -> crafting")
+		assert_eq(GameState.state["currentScreen"], "hq", "james_meeting: -> hq")
 
 		# 4. Archie falafel chat
 		var ore_before: int = GameState.state["player"]["orichalchum"].get("time", 0)

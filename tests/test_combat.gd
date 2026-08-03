@@ -219,10 +219,9 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["motionTurns"], 1, "power < 3 should grant 1 motion turn")
 	)
 
-	run_case("home_raid_loss_halves_carried_and_stored_ore", func():
+	run_case("home_raid_loss_halves_carried_ore", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"] = { "time": 10, "physics": 7 }
-		GameState.state["home"]["storedOre"] = { "life": 20 }
+		GameState.state["player"]["orichalchum"] = { "time": 10, "physics": 7, "life": 20 }
 		GameState.state["combat"] = {
 			"active": true, "context": "home_raid", "veinId": null,
 			"enemy": { "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "veinId": null, "isMugging": false },
@@ -236,7 +235,7 @@ func run() -> void:
 		assert_eq(GameState.state["event"]["eventId"], "home_raid_debrief_loss", "a loss should chain into the loss debrief event")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 5, "floor(10*0.5) = 5 lost, 5 remain")
 		assert_eq(GameState.state["player"]["orichalchum"]["physics"], 4, "floor(7*0.5) = 3 lost, 4 remain")
-		assert_eq(GameState.state["home"]["storedOre"]["life"], 10, "floor(20*0.5) = 10 lost, 10 remain")
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 10, "floor(20*0.5) = 10 lost, 10 remain")
 		assert_eq(GameState.state["flags"]["homeRaidWon"], false, "loss should set homeRaidWon false")
 		assert_eq(GameState.state["flags"]["homeRaidEventSeen"], true, "loss should still mark the event seen")
 	)

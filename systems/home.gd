@@ -2,16 +2,23 @@ class_name Home
 extends RefCounted
 
 # Home tier/security/rooms/raid system per R§3.3. Static funcs only.
+#
+# M1-LONDON-T06: home.storedOre was merged into player.orichalchum — there is
+# no deposit/withdraw mechanic anywhere, so a separate "stored" pool was
+# always either empty or unreachable. Carried ore now IS what a raid is
+# risking and losing; see systems/combat.gd's home-raid-loss code for the
+# other mechanic this touches.
 
 
 static func get_home_raid_chance() -> float:
 	var home: Dictionary = GameState.state["home"]
+	var player: Dictionary = GameState.state["player"]
 	var tier_data: Dictionary = GameData.HOME_TIERS[home["tier"]]
 	var fx: Dictionary = Barometer.get_merged_effects()
 	var raid_reduction := 0.0
 	for security_id in home["security"]:
 		raid_reduction += GameData.HOME_SECURITY[security_id]["raidReduction"]
-	var total_stored: int = _sum_ore(home["storedOre"])
+	var total_stored: int = _sum_ore(player["orichalchum"])
 	var chance: float = tier_data["raidBaseChance"] + fx.get("homeRaid", 0.0) - raid_reduction + total_stored * 0.001
 	return max(0.002, chance)
 
@@ -19,6 +26,7 @@ static func get_home_raid_chance() -> float:
 # Called from time_system.gd's daily_tick, step ②.
 static func roll_daily_raid() -> void:
 	var home: Dictionary = GameState.state["home"]
+	var player: Dictionary = GameState.state["player"]
 	var day: int = GameState.state["world"]["day"]
 
 	if day - home["lastRaidDay"] < 3:
@@ -28,7 +36,7 @@ static func roll_daily_raid() -> void:
 
 	home["lastRaidDay"] = day
 
-	var stored: Dictionary = home["storedOre"]
+	var stored: Dictionary = player["orichalchum"]
 	var total: int = _sum_ore(stored)
 	if total <= 0:
 		return

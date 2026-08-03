@@ -35,7 +35,6 @@ func run() -> void:
 
 		assert_eq(s["home"]["tier"], "bedsit", "home.tier")
 		assert_eq(s["home"]["lastRaidDay"], 0, "home.lastRaidDay")
-		assert_eq(s["home"]["storedOre"], {}, "home.storedOre")
 
 		for faction_id in ["collective", "firm", "guild", "network", "conclave"]:
 			assert_eq(s["factions"][faction_id], { "relation": 0, "joined": false }, "factions.%s" % faction_id)

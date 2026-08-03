@@ -51,7 +51,7 @@ func new_game_state() -> Dictionary:
 			"sites": [],
 		},
 
-		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0, "storedOre": {} },
+		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0 },
 
 		"factions": _new_factions_state(),
 
