@@ -46,13 +46,7 @@ func _build_todo_card() -> Control:
 	if items.is_empty():
 		c["content"].add_child(UI.muted_label("Nothing pressing."))
 	for item in items:
-		var row := UI.hbox(6)
-		row.add_child(UI.label("☑" if item["done"] else "☐"))
-		var text := UI.label(item["text"])
-		if item["done"]:
-			text.add_theme_color_override("font_color", Color(0.541176, 0.541176, 0.541176, 1))
-		row.add_child(text)
-		c["content"].add_child(row)
+		c["content"].add_child(UI.checklist_row(item["text"], item["done"]))
 	return c["panel"]
 
 

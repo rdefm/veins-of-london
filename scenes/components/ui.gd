@@ -105,6 +105,25 @@ static func back_button(target_screen: String) -> Button:
 	return button("‹ Back", func(): Nav.go_to(target_screen))
 
 
+# A checkbox glyph + wrapping text label, side by side (e.g. the to-do
+# list — home's "Things to do" card, Phone's Notes app). The text label
+# MUST get SIZE_EXPAND_FILL here: an HBoxContainer gives non-expand
+# children exactly their own minimum size on its main axis, and a
+# word-wrapped Label's minimum size is near-zero by design (it expects a
+# parent to hand it real width) — without the flag it collapses to one
+# character per line (same failure mode top_bar.gd's _day_label/_cash_label
+# comment documents, seen in human QA on-device for this exact row).
+static func checklist_row(text: String, done: bool) -> Control:
+	var row := hbox(6)
+	row.add_child(label("☑" if done else "☐"))
+	var text_label := label(text)
+	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if done:
+		text_label.add_theme_color_override("font_color", Color(0.541176, 0.541176, 0.541176, 1))
+	row.add_child(text_label)
+	return row
+
+
 static func bar(value: float, max_value: float) -> ProgressBar:
 	var b := ProgressBar.new()
 	b.min_value = 0

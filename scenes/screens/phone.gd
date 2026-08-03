@@ -114,13 +114,7 @@ func _build_notes() -> void:
 	if items.is_empty():
 		c["content"].add_child(UI.muted_label("Nothing pressing."))
 	for item in items:
-		var row := UI.hbox(6)
-		row.add_child(UI.label("☑" if item["done"] else "☐"))
-		var text := UI.label(item["text"])
-		if item["done"]:
-			text.add_theme_color_override("font_color", Color(0.541176, 0.541176, 0.541176, 1))
-		row.add_child(text)
-		c["content"].add_child(row)
+		c["content"].add_child(UI.checklist_row(item["text"], item["done"]))
 	_content.add_child(c["panel"])
 
 
@@ -163,7 +157,17 @@ func _build_headline_card(section: String) -> Control:
 
 	var c := UI.card()
 	c["content"].add_child(UI.muted_label(SECTION_LABELS[section].to_upper()))
-	c["content"].add_child(UI.heading(headline, 16))
+	# Headline strings are full sentences, not short titles — UI.heading()
+	# never wraps (by design, for titles like "Phone"/"The Ticker"), so an
+	# unwrapped sentence there overflowed the card and, since the screen's
+	# ScrollContainer has no clipping/horizontal scroll, blew out the whole
+	# page's layout width (seen in human QA on-device: text ran off past
+	# the visible window on every card, not just this one). A plain
+	# UI.label() wraps and still reads as the card's headline visually via
+	# the font-size override.
+	var headline_label := UI.label(headline)
+	headline_label.add_theme_font_size_override("font_size", 16)
+	c["content"].add_child(headline_label)
 	c["content"].add_child(UI.muted_label(state_data["description"]))
 
 	var hint_state = Barometer.trend_hint_state(section)
