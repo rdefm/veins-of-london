@@ -1,14 +1,19 @@
 class_name Events
 extends RefCounted
 
-# Event runner per R§3.9 (event rewind) and M0-T13's card/event schema.
-# Static funcs only. Cards: { type, label, speaker, text }. Events:
-# { id, cards, on_complete: [effect] }. state.event holds the runtime
-# progress: { eventId, cardIndex, snapshots }.
+# Event runner per R§3.9 (event rewind) and M0-T13's card/event schema,
+# extended by M1-LONDON D5 with a "choice" card type: { type:"choice",
+# label, speaker, text, choices:[{label, effects, result_text}] }. Picking
+# a choice (choose()) applies its effects immediately and records
+# result_text as a resolution card; the runner then behaves exactly like
+# any other resolved card — Continue/advance() moves past it. Cards:
+# { type, label, speaker, text }. Events: { id, cards, on_complete:
+# [effect] }. state.event holds the runtime progress: { eventId,
+# cardIndex, snapshots, choiceResults }.
 
 
 static func start_event(event_id: String) -> void:
-	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [] }
+	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {} }
 	Nav.go_to("event")
 
 
@@ -17,13 +22,40 @@ static func _event_def() -> Dictionary:
 	return GameData.EVENTS[event_state["eventId"]]
 
 
+# The card at the runner's current position — the one that's either
+# awaiting a Continue tap or (for a "choice" card) awaiting a pick.
+static func current_card() -> Dictionary:
+	var event_state: Dictionary = GameState.state["event"]
+	var cards: Array = _event_def()["cards"]
+	return cards[event_state["cardIndex"]]
+
+
+# True once the current card is a "choice" card whose pick hasn't been
+# made yet — the runner must not advance() past it via Continue.
+static func is_awaiting_choice() -> bool:
+	var event_state: Dictionary = GameState.state["event"]
+	var card: Dictionary = current_card()
+	if card["type"] != "choice":
+		return false
+	return not event_state["choiceResults"].has(str(event_state["cardIndex"]))
+
+
 # All cards revealed so far (index 0..cardIndex inclusive) — the event
 # screen renders this whole list so new cards push older ones up rather
-# than replacing them.
+# than replacing them. A resolved "choice" card gets its picked
+# result_text spliced in right after it as a synthetic resolution card,
+# without consuming a cardIndex slot of its own.
 static func revealed_cards() -> Array:
 	var event_state: Dictionary = GameState.state["event"]
 	var cards: Array = _event_def()["cards"]
-	return cards.slice(0, event_state["cardIndex"] + 1)
+	var choice_results: Dictionary = event_state["choiceResults"]
+
+	var result: Array = []
+	for i in range(event_state["cardIndex"] + 1):
+		result.append(cards[i])
+		if choice_results.has(str(i)):
+			result.append({ "type": "resolution", "label": null, "speaker": null, "text": choice_results[str(i)] })
+	return result
 
 
 static func is_last_card() -> bool:
@@ -41,28 +73,18 @@ static func can_rewind() -> bool:
 
 
 # Continue: snapshots full state, then either reveals the next card or
-# (on the last card) runs on_complete and clears state.event.
-#
-# state.event.snapshots lives INSIDE the tree this deep-copies, so it must
-# be emptied before the copy — otherwise every snapshot embeds a full copy
-# of the stack as it stood a moment ago, which itself embeds every
-# snapshot before THAT, and so on. That's not a big constant; it's
-# genuine exponential blowup (each card roughly doubled the previous
-# card's advance() time in profiling — card 16 of a 24-card event took 17
-# seconds), and it eventually crashes the run out of memory. Restoring
-# the emptied field afterward keeps the live stack (and everything
-# pushed onto it) exactly as before; only what gets baked into `snap`
-# changes. rewind() below relies on this: it no longer trusts a popped
-# snapshot's own (now always-empty) `event.snapshots` field, and instead
-# carries the real, already-trimmed live stack forward explicitly.
+# (on the last card) runs on_complete and clears state.event. rewind()
+# below relies on _snapshot_before_mutation()'s emptying trick: it no
+# longer trusts a popped snapshot's own (now always-empty)
+# `event.snapshots` field, and instead carries the real, already-trimmed
+# live stack forward explicitly.
 static func advance() -> void:
-	var event_state: Dictionary = GameState.state["event"]
-	var stack: Array = event_state["snapshots"]
-	event_state["snapshots"] = []
-	var snap: Dictionary = GameState.deep_copy(GameState.state)
-	event_state["snapshots"] = stack
-	Snapshots.push("event", stack, snap)
+	if is_awaiting_choice():
+		return  # a "choice" card must be resolved via choose() before Continue works
 
+	_snapshot_before_mutation()
+
+	var event_state: Dictionary = GameState.state["event"]
 	if is_last_card():
 		var on_complete: Array = _event_def().get("on_complete", [])
 		GameState.state["event"] = null
@@ -71,6 +93,38 @@ static func advance() -> void:
 	else:
 		event_state["cardIndex"] += 1
 		EventBus.state_changed.emit()
+
+
+# Resolves the current "choice" card: applies the picked choice's effects,
+# then records its result_text so revealed_cards() shows it as a
+# resolution card. Does not itself advance cardIndex — same as any other
+# card, the player still taps Continue to move past the resolution.
+static func choose(choice_index: int) -> void:
+	if not is_awaiting_choice():
+		return
+
+	_snapshot_before_mutation()
+
+	var event_state: Dictionary = GameState.state["event"]
+	var card: Dictionary = current_card()
+	var choice: Dictionary = card["choices"][choice_index]
+
+	event_state["choiceResults"][str(event_state["cardIndex"])] = choice["result_text"]
+	apply_effects(choice.get("effects", []))
+
+
+# Shared by advance() and choose() — see advance()'s original comment
+# (still accurate) on why state.event.snapshots must be emptied before
+# the deep copy: it lives inside the tree being copied, and left in
+# place would embed every prior snapshot inside the new one, compounding
+# into exponential blowup across a long event.
+static func _snapshot_before_mutation() -> void:
+	var event_state: Dictionary = GameState.state["event"]
+	var stack: Array = event_state["snapshots"]
+	event_state["snapshots"] = []
+	var snap: Dictionary = GameState.deep_copy(GameState.state)
+	event_state["snapshots"] = stack
+	Snapshots.push("event", stack, snap)
 
 
 static func rewind() -> Dictionary:

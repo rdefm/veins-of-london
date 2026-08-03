@@ -60,6 +60,14 @@ const EVENT_IDS: Array[String] = [
 	"archie_motion", "james_motion",
 ]
 
+# M1-LONDON D5's district event deck roster. Loaded into the same EVENTS
+# dict as EVENT_IDS above — a district event file is a normal event file
+# (cards/on_complete) plus a "deck" sub-object (district, weight,
+# excludeIfFlag, barometerState) that systems/district_deck.gd reads.
+# Empty until ticket 09 authors the 15 events; the engine (ticket 08) is
+# exercised against synthetic entries in tests/test_district_deck.gd.
+const DISTRICT_EVENT_IDS: Array[String] = []
+
 var loaded := false
 var _load_errors: Array[String] = []
 var _errors: Array[String] = []
@@ -124,7 +132,7 @@ func load_all() -> void:
 	JAMES_JOB_TRUST_BANDS = constants.get("jamesJobTrustBands", [])
 
 	EVENTS = {}
-	for event_id in EVENT_IDS:
+	for event_id in EVENT_IDS + DISTRICT_EVENT_IDS:
 		var event_def := _load_json("res://data/events/%s.json" % event_id)
 		if not event_def.is_empty():
 			EVENTS[event_id] = event_def
@@ -390,7 +398,7 @@ func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, erro
 		_require_keys(contacts_defaults[key], ["startRelation", "unlocked", "recruitThreshold"], "constants.contacts.%s" % key, errors)
 
 
-const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "resolution", "craft"]
+const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "resolution", "craft", "choice"]
 const VALID_EFFECT_OPS: Array[String] = [
 	"set_flag", "add", "add_ore", "add_item", "relation", "grant_vein",
 	"set_screen", "notify", "set_stage", "start_home_raid_combat",
@@ -398,7 +406,7 @@ const VALID_EFFECT_OPS: Array[String] = [
 
 
 func _validate_events(events: Dictionary, errors: Array[String]) -> void:
-	for expected_id in EVENT_IDS:
+	for expected_id in EVENT_IDS + DISTRICT_EVENT_IDS:
 		if not events.has(expected_id):
 			errors.append("events: missing event file '%s'" % expected_id)
 
@@ -413,10 +421,42 @@ func _validate_events(events: Dictionary, errors: Array[String]) -> void:
 			_require_keys(card, ["type", "label", "speaker", "text"], "events.%s.cards" % key, errors)
 			if card.has("type") and not VALID_CARD_TYPES.has(card["type"]):
 				errors.append("events.%s: unknown card type '%s'" % [key, card["type"]])
+			if card.get("type") == "choice":
+				_validate_choice_card(card, "events.%s.cards" % key, errors)
 		for effect in entry.get("on_complete", []):
 			_require_keys(effect, ["op"], "events.%s.on_complete" % key, errors)
 			if effect.has("op") and not VALID_EFFECT_OPS.has(effect["op"]):
 				errors.append("events.%s: unknown effect op '%s'" % [key, effect["op"]])
+		if entry.has("deck"):
+			_validate_deck_entry(entry["deck"], "events.%s.deck" % key, errors)
+
+
+# M1-LONDON D5's `choices` card type: { type:"choice", text,
+# choices:[{label, effects, result_text}] }.
+func _validate_choice_card(card: Dictionary, context: String, errors: Array[String]) -> void:
+	if not card.has("choices") or typeof(card["choices"]) != TYPE_ARRAY:
+		errors.append("%s: 'choice' card missing 'choices' array" % context)
+		return
+	for choice in card["choices"]:
+		_require_keys(choice, ["label", "effects", "result_text"], "%s.choices" % context, errors)
+		if typeof(choice) != TYPE_DICTIONARY:
+			continue
+		for effect in choice.get("effects", []):
+			_require_keys(effect, ["op"], "%s.choices.effects" % context, errors)
+			if effect.has("op") and not VALID_EFFECT_OPS.has(effect["op"]):
+				errors.append("%s.choices: unknown effect op '%s'" % [context, effect["op"]])
+
+
+# M1-LONDON D5's deck filter metadata: district (or "any"), weight,
+# excludeIfFlag (nullable), barometerState (nullable — reserved plumbing,
+# not exercised by any current data per D5).
+func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[String]) -> void:
+	_require_keys(deck, ["district", "weight", "excludeIfFlag", "barometerState"], context, errors)
+	if typeof(deck) != TYPE_DICTIONARY:
+		return
+	var district = deck.get("district")
+	if district != "any" and not CANONICAL_DISTRICT_IDS.has(district):
+		errors.append("%s: district '%s' is neither 'any' nor a known district" % [context, district])
 
 
 func _validate_sms(threads: Dictionary, errors: Array[String]) -> void:

@@ -1,6 +1,30 @@
 extends "res://tests/test_base.gd"
 
 
+# M1-LONDON D5's `choices` card type — installed as a synthetic event so
+# these tests don't depend on ticket 09's real content. Returns the
+# original GameData.EVENTS so callers can restore it afterward.
+func _install_choice_event() -> Dictionary:
+	var original_events: Dictionary = GameData.EVENTS
+	GameData.EVENTS = GameData.EVENTS.duplicate()
+	GameData.EVENTS["test_choice_event"] = {
+		"id": "test_choice_event",
+		"cards": [
+			{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
+			{
+				"type": "choice", "label": null, "speaker": null, "text": "Pick one",
+				"choices": [
+					{ "label": "Give £20", "effects": [{ "op": "add", "path": "player.cash", "value": -20 }], "result_text": "You handed over the cash." },
+					{ "label": "Walk away", "effects": [], "result_text": "You walked away." },
+				],
+			},
+			{ "type": "narration", "label": null, "speaker": null, "text": "Aftermath" },
+		],
+		"on_complete": [{ "op": "set_flag", "flag": "choiceEventDone", "value": true }],
+	}
+	return original_events
+
+
 func run() -> void:
 	run_case("schema_all_9_event_files_and_sms_threads_validate", func():
 		var errors := GameData.validate_tables(GameData.snapshot())
@@ -90,6 +114,108 @@ func run() -> void:
 		assert_true(found_notif, "notify")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "free", "set_stage")
 		assert_eq(GameState.state["currentScreen"], "home", "set_screen")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("is_awaiting_choice_true_only_on_an_unresolved_choice_card", func():
+		GameState.reset()
+		var original_events := _install_choice_event()
+
+		Events.start_event("test_choice_event")
+		assert_true(not Events.is_awaiting_choice(), "card 0 is a narration card")
+
+		Events.advance()
+		assert_true(Events.is_awaiting_choice(), "card 1 is an unresolved choice card")
+
+		Events.choose(0)
+		assert_true(not Events.is_awaiting_choice(), "choosing resolves the choice card")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("advance_is_a_no_op_while_awaiting_a_choice", func():
+		GameState.reset()
+		var original_events := _install_choice_event()
+
+		Events.start_event("test_choice_event")
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 1, "sanity: on the choice card")
+
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 1, "advance() must not skip an unresolved choice card")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("choose_applies_effects_and_records_result_text", func():
+		GameState.reset()
+		var original_events := _install_choice_event()
+
+		Events.start_event("test_choice_event")
+		Events.advance()  # -> choice card
+		var cash_before: int = GameState.state["player"]["cash"]
+
+		Events.choose(0)  # "Give £20"
+		assert_eq(GameState.state["player"]["cash"], cash_before - 20, "the picked choice's effects should apply")
+
+		var cards := Events.revealed_cards()
+		assert_eq(cards.size(), 3, "choice card + its synthetic resolution card, revealed so far")
+		assert_eq(cards[1]["type"], "choice")
+		assert_eq(cards[2]["type"], "resolution")
+		assert_eq(cards[2]["text"], "You handed over the cash.", "resolution card carries the picked choice's result_text")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("choosing_the_other_option_applies_its_own_effects_and_text", func():
+		GameState.reset()
+		var original_events := _install_choice_event()
+
+		Events.start_event("test_choice_event")
+		Events.advance()
+		var cash_before: int = GameState.state["player"]["cash"]
+
+		Events.choose(1)  # "Walk away" — no effects
+		assert_eq(GameState.state["player"]["cash"], cash_before, "no-effect choice should leave cash untouched")
+		assert_eq(Events.revealed_cards()[2]["text"], "You walked away.")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("continue_after_choosing_proceeds_to_the_next_card_and_on_complete_still_runs", func():
+		GameState.reset()
+		var original_events := _install_choice_event()
+
+		Events.start_event("test_choice_event")
+		Events.advance()       # -> choice card
+		Events.choose(1)       # resolve it
+		Events.advance()       # -> "Aftermath" card
+		assert_eq(GameState.state["event"]["cardIndex"], 2, "Continue after a resolved choice moves to the next real card")
+
+		Events.advance()       # last card -> on_complete
+		assert_eq(GameState.state["event"], null, "event should clear after the final continue")
+		assert_true(GameState.state["flags"]["choiceEventDone"], "on_complete still runs after a choice card mid-event")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("rewind_undoes_a_choice_pick", func():
+		GameState.reset()
+		var original_events := _install_choice_event()
+		GameState.state["player"]["inventory"]["rewind"] = 1
+
+		Events.start_event("test_choice_event")
+		Events.advance()  # -> choice card
+		var cash_before: int = GameState.state["player"]["cash"]
+
+		Events.choose(0)  # "Give £20"
+		assert_eq(GameState.state["player"]["cash"], cash_before - 20)
+
+		var result := Events.rewind()
+		assert_true(result["ok"])
+		assert_eq(GameState.state["player"]["cash"], cash_before, "rewind should undo the choice's effects")
+		assert_true(Events.is_awaiting_choice(), "rewind should un-resolve the choice card")
 
 		GameData.EVENTS = original_events
 	)

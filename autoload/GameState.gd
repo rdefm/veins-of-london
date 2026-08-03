@@ -50,6 +50,7 @@ func new_game_state() -> Dictionary:
 			"archieChatUnlockDay": null,
 			"currentDistrict": "shoreditch",
 			"sites": [],
+			"recentEvents": [],  # D5: [{id, day}] — district-deck no-repeat-within-5-days tracking
 		},
 
 		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0 },

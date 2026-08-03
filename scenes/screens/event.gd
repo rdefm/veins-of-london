@@ -64,9 +64,17 @@ func _refresh() -> void:
 	if Events.can_rewind():
 		_action_bar.add_child(UI.button("⟲ Rewind", func(): Events.rewind()))
 
-	var continue_button := UI.button("Continue →", func(): Events.advance())
-	continue_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_action_bar.add_child(continue_button)
+	if Events.is_awaiting_choice():
+		var choices: Array = Events.current_card()["choices"]
+		for i in range(choices.size()):
+			var choice_index := i
+			var choice_button := UI.button(choices[i]["label"], func(): Events.choose(choice_index))
+			choice_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_action_bar.add_child(choice_button)
+	else:
+		var continue_button := UI.button("Continue →", func(): Events.advance())
+		continue_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_action_bar.add_child(continue_button)
 
 	_scroll_to_bottom()
 

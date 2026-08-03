@@ -198,6 +198,8 @@ func _restore_int_types(state: Dictionary) -> void:
 		for site in world.get("sites", []):
 			_int_key(site, "discoveredDay")
 			_int_key(site, "npcClaimedDay")
+		for recent in world.get("recentEvents", []):
+			_int_key(recent, "day")
 
 	if state.has("home"):
 		var home: Dictionary = state["home"]
