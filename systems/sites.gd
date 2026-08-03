@@ -9,6 +9,11 @@ extends RefCounted
 # the single source of truth for both the weight table's key order and
 # "worst tier" comparisons — don't duplicate it as a local const.
 
+# D2's tierIndex for the NPC-claim formula (distinct from SITE_TIER_ORDER's
+# worst-to-best position): poor 0, fair 1, rich 2, saturated 3. barren is
+# excluded entirely by the caller — it is never claimed.
+const NPC_CLAIM_TIER_INDEX: Dictionary = { "poor": 0, "fair": 1, "rich": 2, "saturated": 3 }
+
 
 static func make_site_id() -> String:
 	return "s" + str(Time.get_ticks_usec()) + str(Rng.randi_range(1000, 999999))
@@ -270,3 +275,50 @@ static func attempt_seed(site_id: String) -> Dictionary:
 		Cultivating.award_xp(5)
 		Modal.open("seed_result", { "success": false, "oreType": ore_type, "siteId": site_id })
 		return { "ok": true, "success": false, "siteId": site_id }
+
+
+# ── NPC site-claiming & abandonment (daily tick, D2 + adr/0002) ────────
+
+static func npc_claim_chance(tier: String, age_days: int) -> float:
+	var tier_index: int = NPC_CLAIM_TIER_INDEX.get(tier, 0)
+	return clampf(0.03 + 0.02 * tier_index + 0.01 * age_days, 0.0, 0.25)
+
+
+static func npc_abandonment_chance(age_days_since_npc_claim: int) -> float:
+	return clampf(0.05 + 0.01 * age_days_since_npc_claim, 0.0, 0.15)
+
+
+# Called from time_system.gd's daily_tick, step ⑤b. Each unclaimed,
+# non-barren site may attract an NPC claim; older, richer sites are likelier.
+static func roll_npc_claims() -> void:
+	var day: int = GameState.state["world"]["day"]
+	for site in GameState.state["world"]["sites"]:
+		if site["claimed"] or site["npcClaimed"] or site["tier"] == "barren":
+			continue
+		var age_days: int = day - site["discoveredDay"]
+		if Rng.chance(npc_claim_chance(site["tier"], age_days)):
+			site["npcClaimed"] = true
+			site["npcClaimedDay"] = day
+			var district_name: String = GameData.DISTRICTS[site["district"]]["name"]
+			Notify.push("Someone's moved onto the %s site in %s." % [site["tier"], district_name])
+
+
+# Called from time_system.gd's daily_tick, step ⑤c (runs immediately after
+# ⑤b). Per adr/0002: on hit the site is deleted outright, not reverted to
+# unclaimed — this frees a siteCap slot for a genuinely fresh prospect,
+# and deliberately rules out "wait out the good NPC-claimed site".
+static func roll_npc_abandonment() -> void:
+	var day: int = GameState.state["world"]["day"]
+	var abandoned_ids: Array = []
+	for site in GameState.state["world"]["sites"]:
+		if not site["npcClaimed"]:
+			continue
+		var age_days: int = day - site["npcClaimedDay"]
+		if Rng.chance(npc_abandonment_chance(age_days)):
+			abandoned_ids.append(site["id"])
+			var district_name: String = GameData.DISTRICTS[site["district"]]["name"]
+			Notify.push("Word is the outfit running the %s site in %s got sloppy. The plot's gone quiet — worth a fresh prospect." % [site["tier"], district_name])
+
+	if not abandoned_ids.is_empty():
+		var sites: Array = GameState.state["world"]["sites"]
+		GameState.state["world"]["sites"] = sites.filter(func(s): return not abandoned_ids.has(s["id"]))

@@ -397,3 +397,138 @@ func run() -> void:
 		assert_eq(site["bonuses"], ["recharge", "maxLevel", "yield"], "mutating the seeded vein's bonuses must not leak back into the site")
 		assert_eq(natural_bonuses, ["recharge", "maxLevel", "yield"], "mutating the seeded vein's bonuses must not leak into the sibling natural vein")
 	)
+
+	# ── NPC claim / abandonment curves (adr/0002) ────────────────────
+
+	run_case("npc_claim_chance_tier_index_and_age_curve", func():
+		assert_almost_eq(Sites.npc_claim_chance("poor", 0), 0.03, 0.0001, "poor tierIndex 0, age 0: 0.03")
+		assert_almost_eq(Sites.npc_claim_chance("fair", 0), 0.05, 0.0001, "fair tierIndex 1: 0.03 + 0.02")
+		assert_almost_eq(Sites.npc_claim_chance("rich", 0), 0.07, 0.0001, "rich tierIndex 2: 0.03 + 0.04")
+		assert_almost_eq(Sites.npc_claim_chance("saturated", 0), 0.09, 0.0001, "saturated tierIndex 3: 0.03 + 0.06")
+		assert_almost_eq(Sites.npc_claim_chance("poor", 10), 0.13, 0.0001, "ageDays adds 0.01 each")
+	)
+
+	run_case("npc_claim_chance_caps_at_0_25", func():
+		assert_almost_eq(Sites.npc_claim_chance("saturated", 100), 0.25, 0.0001, "caps at 0.25 even at huge age")
+	)
+
+	run_case("npc_abandonment_chance_flat_across_tiers_and_age_curve", func():
+		assert_almost_eq(Sites.npc_abandonment_chance(0), 0.05, 0.0001, "age 0: 0.05")
+		assert_almost_eq(Sites.npc_abandonment_chance(5), 0.10, 0.0001, "age 5: 0.05 + 0.05")
+	)
+
+	run_case("npc_abandonment_chance_caps_at_0_15", func():
+		assert_almost_eq(Sites.npc_abandonment_chance(100), 0.15, 0.0001, "caps at 0.15 even at huge age")
+	)
+
+	run_case("roll_npc_claims_never_claims_a_barren_site", func():
+		for seed in range(30):
+			GameState.reset()
+			var site := _make_site("s1", "shoreditch", "barren", 1)
+			GameState.state["world"]["sites"] = [site]
+			GameState.state["world"]["day"] = 50
+			Rng.set_seed(seed)
+			Sites.roll_npc_claims()
+			assert_eq(Sites.find_site("s1")["npcClaimed"], false, "barren is never NPC-claimed (seed %d)" % seed)
+	)
+
+	run_case("roll_npc_claims_skips_already_claimed_or_npc_claimed_sites", func():
+		GameState.reset()
+		var player_claimed := _make_site("player_claimed", "shoreditch", "saturated", 1, true, false)
+		var npc_claimed := _make_site("npc_claimed", "shoreditch", "saturated", 1, false, true)
+		GameState.state["world"]["sites"] = [player_claimed, npc_claimed]
+		GameState.state["world"]["day"] = 50
+		Rng.set_seed(1)
+		Sites.roll_npc_claims()
+		assert_eq(Sites.find_site("player_claimed")["npcClaimed"], false, "player-claimed sites are never touched")
+		assert_eq(Sites.find_site("npc_claimed")["npcClaimedDay"], null, "already NPC-claimed sites are untouched (npcClaimedDay stays as set)")
+	)
+
+	run_case("roll_npc_claims_hit_sets_npcClaimed_and_notifies", func():
+		var seed := _find_seed_for(500, func():
+			GameState.reset()
+			var site := _make_site("s1", "camden", "saturated", 1)
+			GameState.state["world"]["sites"] = [site]
+			GameState.state["world"]["day"] = 30
+			Sites.roll_npc_claims()
+			return Sites.find_site("s1")["npcClaimed"]
+		)
+		assert_true(seed != -1, "should find an NPC-claim hit within 500 tries at saturated + high age")
+
+		var site: Dictionary = Sites.find_site("s1")
+		assert_eq(site["npcClaimedDay"], 30, "npcClaimedDay set to the current day")
+		var last: Dictionary = GameState.state["notifications"][-1]
+		assert_true(last["text"].contains("saturated site in Camden"), "notification names the tier and district")
+	)
+
+	run_case("roll_npc_abandonment_ignores_unclaimed_and_player_claimed_sites", func():
+		for seed in range(30):
+			GameState.reset()
+			var unclaimed := _make_site("unclaimed", "shoreditch", "fair", 1)
+			var player_claimed := _make_site("player_claimed", "shoreditch", "fair", 1, true, false)
+			GameState.state["world"]["sites"] = [unclaimed, player_claimed]
+			GameState.state["world"]["day"] = 200
+			Rng.set_seed(seed)
+			Sites.roll_npc_abandonment()
+			assert_eq(GameState.state["world"]["sites"].size(), 2, "neither unclaimed nor player-claimed sites are ever abandoned (seed %d)" % seed)
+	)
+
+	run_case("roll_npc_abandonment_hit_deletes_the_site_outright_and_notifies", func():
+		var seed := _find_seed_for(500, func():
+			GameState.reset()
+			var site := _make_site("s1", "battersea", "rich", 1, false, true)
+			site["npcClaimedDay"] = 1
+			GameState.state["world"]["sites"] = [site]
+			GameState.state["world"]["day"] = 200
+			Sites.roll_npc_abandonment()
+			return Sites.find_site("s1") == null
+		)
+		assert_true(seed != -1, "should find an abandonment hit within 500 tries at high age")
+
+		assert_eq(GameState.state["world"]["sites"], [], "the site is removed outright, not reverted to unclaimed")
+		var last: Dictionary = GameState.state["notifications"][-1]
+		assert_true(last["text"].contains("rich site in Battersea"), "notification names the tier and district")
+		assert_true(last["text"].contains("gone quiet"), "notification matches the D2 abandonment copy")
+	)
+
+	# ── soak: siteCap never permanently locks out prospecting ───────
+
+	# adr/0002's motivating scenario, verbatim: "a district could... end up
+	# permanently locked once its siteCap slots filled with a MIX of
+	# player- and NPC-claims" — the player-claimed slot is permanent and
+	# never reroll-eligible, so the only way out is NPC abandonment
+	# freeing the other slots.
+	run_case("soak_mixed_player_and_npc_claims_never_permanently_lock_a_maxed_district", func():
+		GameState.reset()
+		var district_id := "camden"
+		var site_cap: int = GameData.DISTRICTS[district_id]["siteCap"]
+		assert_true(site_cap >= 2, "test needs room for 1 player-claimed + at least 1 NPC-claimed slot")
+
+		var sites: Array = [_make_site("player_claimed", district_id, "fair", 1, true, false)]
+		for i in range(site_cap - 1):
+			var s := _make_site("npc_claimed_%d" % i, district_id, "poor", 1, false, true)
+			s["npcClaimedDay"] = 1
+			sites.append(s)
+		GameState.state["world"]["sites"] = sites
+
+		Rng.set_seed(42)
+		var ever_freed := false
+		for day in range(2, 302):
+			GameState.state["world"]["day"] = day
+			Sites.roll_npc_claims()
+			Sites.roll_npc_abandonment()
+			var count: int = Sites.sites_in_district(district_id).size()
+			assert_true(count <= site_cap, "siteCap must never be exceeded (day %d)" % day)
+			assert_true(Sites.find_site("player_claimed") != null, "the player-claimed slot is permanent — abandonment never touches it (day %d)" % day)
+			if count < site_cap:
+				ever_freed = true
+
+		assert_true(ever_freed, "NPC abandonment should free the NPC-claimed slot(s) within 300 days, even with a permanently unfreeable player-claimed site also occupying siteCap")
+
+		var count_before: int = Sites.sites_in_district(district_id).size()
+		var result := Sites.prospect(district_id)
+		assert_true(result["ok"], "prospect still succeeds (block spent) even after a mixed-claim maxed-out district")
+		assert_true(result["site"] != null, "the freed NPC-claim slot means prospect creates a genuinely new site, not a permanent no-op")
+		assert_eq(Sites.sites_in_district(district_id).size(), count_before + 1, "a freed slot is filled by a genuinely new site, not a reroll no-op")
+		assert_true(Sites.sites_in_district(district_id).size() <= site_cap, "refilling the freed slot still respects siteCap")
+	)

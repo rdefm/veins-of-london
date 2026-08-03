@@ -116,6 +116,44 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "resting resets currentDistrict to home")
 	)
 
+	run_case("daily_tick_wires_in_npc_claim_step", func():
+		var hit := false
+		for seed in range(300):
+			GameState.reset()
+			var site := {
+				"id": "s1", "district": "shoreditch", "tier": "saturated", "oreType": "time",
+				"bonuses": [], "discoveredDay": 1, "claimed": false, "npcClaimed": false,
+				"npcClaimedDay": null, "hasNaturalVein": false,
+			}
+			GameState.state["world"]["sites"] = [site]
+			GameState.state["world"]["day"] = 40
+			Rng.set_seed(seed)
+			TimeSystem.daily_tick()
+			if Sites.find_site("s1")["npcClaimed"]:
+				hit = true
+				break
+		assert_true(hit, "daily_tick should reach step 5b (Sites.roll_npc_claims) within 300 tries")
+	)
+
+	run_case("daily_tick_wires_in_npc_abandonment_step_right_after_claim_step", func():
+		var hit := false
+		for seed in range(300):
+			GameState.reset()
+			var site := {
+				"id": "s1", "district": "shoreditch", "tier": "rich", "oreType": "time",
+				"bonuses": [], "discoveredDay": 1, "claimed": false, "npcClaimed": true,
+				"npcClaimedDay": 1, "hasNaturalVein": false,
+			}
+			GameState.state["world"]["sites"] = [site]
+			GameState.state["world"]["day"] = 200
+			Rng.set_seed(seed)
+			TimeSystem.daily_tick()
+			if Sites.find_site("s1") == null:
+				hit = true
+				break
+		assert_true(hit, "daily_tick should reach step 5c (Sites.roll_npc_abandonment) within 300 tries")
+	)
+
 	run_case("stub_daily_tick_steps_do_not_crash", func():
 		GameState.reset()
 		# Just confirms daily_tick runs end to end with the T04/T05/T06/T09
