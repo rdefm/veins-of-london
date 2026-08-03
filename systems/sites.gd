@@ -159,10 +159,7 @@ static func prospect(district_id: String) -> Dictionary:
 		site = _create_site(district_id)
 
 	EventBus.state_changed.emit()
-	# D5: completing a prospect action rolls the district event deck. Kept
-	# as the very last step so it never disturbs this function's own
-	# already-seeded tier/ore/bonus rolls above.
-	DistrictDeck.maybe_trigger(district_id)
+	DistrictDeck.maybe_trigger(district_id)  # D5 — must stay last; see maybe_trigger()'s doc comment
 	return { "ok": true, "district": district_id, "site": site }
 
 

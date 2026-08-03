@@ -19,6 +19,9 @@ const NO_REPEAT_DAYS: int = 5
 # Called on completing a travel or prospect action (D5). chance(0.25) to
 # draw; a miss, or a draw with nothing eligible, is a silent no-op —
 # neither spends a turn nor consumes anything beyond the RNG roll itself.
+# Callers must invoke this as the very last step of their action, after
+# every other roll — it draws from the same seeded Rng stream, so calling
+# it any earlier would shift the outcome of whatever rolls next.
 static func maybe_trigger(district_id: String) -> void:
 	if not Rng.chance(TRIGGER_CHANCE):
 		return
@@ -54,15 +57,15 @@ static func eligible_entries(district_id: String) -> Array:
 			continue
 		var deck: Dictionary = event_def["deck"]
 
-		var deck_district = deck.get("district", "any")
+		var deck_district: String = deck.get("district", "any")
 		if deck_district != "any" and deck_district != district_id:
 			continue
 
-		var exclude_flag = deck.get("excludeIfFlag")
+		var exclude_flag: Variant = deck.get("excludeIfFlag")
 		if exclude_flag != null and GameState.state["flags"].get(exclude_flag, false):
 			continue
 
-		var barometer_state = deck.get("barometerState")
+		var barometer_state: Variant = deck.get("barometerState")
 		if barometer_state != null:
 			var section: String = barometer_state["section"]
 			var required_state: String = barometer_state["state"]

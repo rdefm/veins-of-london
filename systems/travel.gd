@@ -53,8 +53,5 @@ static func travel_to(district: String) -> Dictionary:
 
 	GameState.state["world"]["currentDistrict"] = district
 	TimeSystem.advance_time_block()
-	# D5: completing a travel action rolls the district event deck. Kept
-	# as the very last step so it never disturbs an already-seeded RNG
-	# stream's earlier draws (nothing above this line rolls anything).
-	DistrictDeck.maybe_trigger(district)
+	DistrictDeck.maybe_trigger(district)  # D5 — must stay last; see maybe_trigger()'s doc comment
 	return { "ok": true }

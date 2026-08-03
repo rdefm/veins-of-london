@@ -429,6 +429,12 @@ func _validate_events(events: Dictionary, errors: Array[String]) -> void:
 				errors.append("events.%s: unknown effect op '%s'" % [key, effect["op"]])
 		if entry.has("deck"):
 			_validate_deck_entry(entry["deck"], "events.%s.deck" % key, errors)
+			if not DISTRICT_EVENT_IDS.has(key):
+				errors.append("events.%s: has a 'deck' sub-object but is not registered in GameData.DISTRICT_EVENT_IDS — it would silently join the district-deck draw pool" % key)
+
+	for expected_id in DISTRICT_EVENT_IDS:
+		if events.has(expected_id) and not events[expected_id].has("deck"):
+			errors.append("events.%s: registered in GameData.DISTRICT_EVENT_IDS but missing its 'deck' sub-object" % expected_id)
 
 
 # M1-LONDON D5's `choices` card type: { type:"choice", text,
@@ -454,7 +460,7 @@ func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[Strin
 	_require_keys(deck, ["district", "weight", "excludeIfFlag", "barometerState"], context, errors)
 	if typeof(deck) != TYPE_DICTIONARY:
 		return
-	var district = deck.get("district")
+	var district: Variant = deck.get("district")
 	if district != "any" and not CANONICAL_DISTRICT_IDS.has(district):
 		errors.append("%s: district '%s' is neither 'any' nor a known district" % [context, district])
 
