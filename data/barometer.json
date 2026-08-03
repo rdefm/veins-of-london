@@ -1,25 +1,25 @@
 {
   "states": {
     "economic": {
-      "stable":    { "id": "stable",    "label": "Stable",         "description": "Markets function normally. Ore prices steady.", "effects": {} },
-      "boom":      { "id": "boom",      "label": "Economic Boom",  "description": "Demand up. Buyers flush with cash.", "effects": { "orePrice": 0.25, "mugChance": -0.05 } },
-      "recession": { "id": "recession", "label": "Recession",      "description": "Buyers tighter. Prices softer.", "effects": { "orePrice": -0.20, "mugChance": 0.05 } },
-      "crisis":    { "id": "crisis",    "label": "Financial Crisis", "description": "Market collapse. Some ore types in desperate demand.", "effects": { "orePrice": -0.35, "mugChance": 0.12, "fatePremium": 0.5 } },
-      "inflation": { "id": "inflation", "label": "High Inflation", "description": "Everything costs more. Daily costs up.", "effects": { "dailyCost": 0.30, "orePrice": 0.10 } }
+      "stable":    { "id": "stable",    "label": "Stable",         "description": "Markets function normally. Ore prices steady.", "effects": {}, "headlines": ["Markets hold steady, traders report muted relief.", "Ore prices unchanged for the third week running."] },
+      "boom":      { "id": "boom",      "label": "Economic Boom",  "description": "Demand up. Buyers flush with cash.", "effects": { "orePrice": 0.25, "mugChance": -0.05 }, "headlines": ["Orichalchum demand surges as buyers open their wallets.", "Boom times: dealers say the calc is moving fast, no questions asked."] },
+      "recession": { "id": "recession", "label": "Recession",      "description": "Buyers tighter. Prices softer.", "effects": { "orePrice": -0.20, "mugChance": 0.05 }, "headlines": ["Buyers tighten belts as ore prices soften.", "Recession bites: fewer offers, harder haggling."] },
+      "crisis":    { "id": "crisis",    "label": "Financial Crisis", "description": "Market collapse. Some ore types in desperate demand.", "effects": { "orePrice": -0.35, "mugChance": 0.12, "fatePremium": 0.5 }, "headlines": ["Market in freefall — fate calc changes hands at desperate prices.", "Financial crisis deepens; dealers advise caution, then ignore it."] },
+      "inflation": { "id": "inflation", "label": "High Inflation", "description": "Everything costs more. Daily costs up.", "effects": { "dailyCost": 0.30, "orePrice": 0.10 }, "headlines": ["Prices climb across the board; nobody's living costs go down.", "Inflation squeezes buyers and sellers alike."] }
     },
     "social": {
-      "stable":   { "id": "stable",   "label": "Stable",       "description": "Normal levels of street activity.", "effects": {} },
-      "unrest":   { "id": "unrest",   "label": "Social Unrest", "description": "Police busy elsewhere. Raid risks up, but so is opportunity.", "effects": { "mugChance": 0.08, "raidChance": 0.10 } },
-      "lockdown": { "id": "lockdown", "label": "Lockdown",      "description": "Movement restricted. Searching harder, yields lower.", "effects": { "searchFind": -0.15, "dailyCost": 0.10 } },
-      "festival": { "id": "festival", "label": "City Festival", "description": "Energy high, people out. Physics ore in demand.", "effects": { "physicsPremium": 0.40, "searchFind": 0.05 } },
-      "crime":    { "id": "crime",    "label": "Crime Wave",    "description": "Everyone is at it. Mugging risk elevated.", "effects": { "mugChance": 0.15, "homeRaid": 0.05 } }
+      "stable":   { "id": "stable",   "label": "Stable",       "description": "Normal levels of street activity.", "effects": {}, "headlines": ["Streets quiet. Nothing to report, which is the point.", "An uneventful week, by London's standards."] },
+      "unrest":   { "id": "unrest",   "label": "Social Unrest", "description": "Police busy elsewhere. Raid risks up, but so is opportunity.", "effects": { "mugChance": 0.08, "raidChance": 0.10 }, "headlines": ["Police stretched thin as unrest spreads across boroughs.", "Opportunists take note: attention is elsewhere tonight."] },
+      "lockdown": { "id": "lockdown", "label": "Lockdown",      "description": "Movement restricted. Searching harder, yields lower.", "effects": { "searchFind": -0.15, "dailyCost": 0.10 }, "headlines": ["Movement restricted; searches slow to a crawl.", "Lockdown in effect — expect delays, expect scrutiny."] },
+      "festival": { "id": "festival", "label": "City Festival", "description": "Energy high, people out. Physics ore in demand.", "effects": { "physicsPremium": 0.40, "searchFind": 0.05 }, "headlines": ["The City Festival draws crowds and premium prices for physics calc.", "Festival season: energy's up, so is the demand."] },
+      "crime":    { "id": "crime",    "label": "Crime Wave",    "description": "Everyone is at it. Mugging risk elevated.", "effects": { "mugChance": 0.15, "homeRaid": 0.05 }, "headlines": ["Crime wave reported; mugging risk climbs across London.", "Everyone's at it. Watch your pockets, watch your calc."] }
     },
     "political": {
-      "stable":     { "id": "stable",     "label": "Stable",           "description": "No significant political pressure.", "effects": {} },
-      "war":        { "id": "war",        "label": "Conflict Abroad",  "description": "Military demand. Time and physics ore prices surge.", "effects": { "timePremium": 0.6, "physicsPremium": 0.4, "mugChance": 0.05 } },
-      "austerity":  { "id": "austerity",  "label": "Austerity",        "description": "Public services cut. Daily costs down but so is stability.", "effects": { "dailyCost": -0.15, "mugChance": 0.06 } },
-      "regulation": { "id": "regulation", "label": "Ore Regulation",   "description": "Government crackdown. All trading riskier, prices up.", "effects": { "mugChance": 0.10, "orePrice": 0.15 } },
-      "election":   { "id": "election",   "label": "Election Period",  "description": "Noise and distraction. Barometer effects muted temporarily.", "effects": { "effectMod": -0.3 } }
+      "stable":     { "id": "stable",     "label": "Stable",           "description": "No significant political pressure.", "effects": {}, "headlines": ["No significant developments from Westminster this week.", "Political weather: calm, for now."] },
+      "war":        { "id": "war",        "label": "Conflict Abroad",  "description": "Military demand. Time and physics ore prices surge.", "effects": { "timePremium": 0.6, "physicsPremium": 0.4, "mugChance": 0.05 }, "headlines": ["Conflict abroad drives time and physics calc prices skyward.", "Military demand strains the supply chain."] },
+      "austerity":  { "id": "austerity",  "label": "Austerity",        "description": "Public services cut. Daily costs down but so is stability.", "effects": { "dailyCost": -0.15, "mugChance": 0.06 }, "headlines": ["Cuts continue; daily costs fall, so does the safety net.", "Austerity measures bite hardest where nobody's counting."] },
+      "regulation": { "id": "regulation", "label": "Ore Regulation",   "description": "Government crackdown. All trading riskier, prices up.", "effects": { "mugChance": 0.10, "orePrice": 0.15 }, "headlines": ["Government crackdown makes every trade riskier, pricier.", "New ore regulation announced; enforcement, as ever, selective."] },
+      "election":   { "id": "election",   "label": "Election Period",  "description": "Noise and distraction. Barometer effects muted temporarily.", "effects": { "effectMod": -0.3 }, "headlines": ["Election noise drowns out everything else, barometer included.", "Distraction season: effects muted, attention elsewhere."] }
     }
   },
   "actions": [

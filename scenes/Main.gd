@@ -14,24 +14,25 @@ const SCREEN_SCRIPTS := {
 	"contacts": preload("res://scenes/screens/contacts.gd"),
 	"sms_archie": preload("res://scenes/screens/sms_archie.gd"),
 	"sms_archie_2": preload("res://scenes/screens/sms_archie_2.gd"),
-	"world": preload("res://scenes/screens/world.gd"),
 	"factions": preload("res://scenes/screens/factions.gd"),
-	"barometer": preload("res://scenes/screens/barometer.gd"),
-	"stats": preload("res://scenes/screens/stats.gd"),
-	"save": preload("res://scenes/screens/save.gd"),
 	"combat": preload("res://scenes/screens/combat.gd"),
 	"event": preload("res://scenes/screens/event.gd"),
 
-	# D4's 5-tab nav (map/hq/phone/bag/you). phone/you are stubs until
-	# ticket 07 builds them out; bag reuses the already-complete inventory
-	# screen (D4: "Bag — full inventory management"). map is ticket 04's
-	# district list -> district panel -> site/vein sheet. hq is ticket 06's
-	# merge of the old M0 property + crafting screens (both deleted).
+	# D4's 5-tab nav (map/hq/phone/bag/you). bag reuses the already-complete
+	# inventory screen (D4: "Bag — full inventory management"). map is
+	# ticket 04's district list -> district panel -> site/vein sheet. hq is
+	# ticket 06's merge of the old M0 property + crafting screens (both
+	# deleted). phone is ticket 07's PhoneScreen (contact list/SMS/James
+	# jobs/notes/faction directory/Ticker, state.phoneNav-driven) — the old
+	# M0 `world`/`barometer` screens it replaces are deleted (no
+	# SCREEN_SCRIPTS entry, no remaining Nav.go_to call sites). you is
+	# ticket 07's YouScreen, merging the old M0 `stats`/`save` screens
+	# (also deleted) — save-slot UI's new home per D4.
 	"map": preload("res://scenes/screens/map.gd"),
 	"hq": preload("res://scenes/screens/hq.gd"),
-	"phone": preload("res://scenes/screens/placeholder.gd"),
+	"phone": preload("res://scenes/screens/phone.gd"),
 	"bag": preload("res://scenes/screens/inventory.gd"),
-	"you": preload("res://scenes/screens/placeholder.gd"),
+	"you": preload("res://scenes/screens/you.gd"),
 }
 
 # R§2.2: "Global bottom nav ... hidden on title, intro, event, combat".

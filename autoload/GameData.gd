@@ -349,7 +349,10 @@ func _validate_barometer(states: Dictionary, actions: Array, faction_prefs: Dict
 			errors.append("barometer: missing section '%s'" % section)
 			continue
 		for state_id in states[section].keys():
-			_require_keys(states[section][state_id], ["id", "label", "description", "effects"], "barometer.%s.%s" % [section, state_id], errors)
+			var state_entry = states[section][state_id]
+			_require_keys(state_entry, ["id", "label", "description", "effects", "headlines"], "barometer.%s.%s" % [section, state_id], errors)
+			if typeof(state_entry) == TYPE_DICTIONARY and state_entry.has("headlines") and state_entry["headlines"].size() < 2:
+				errors.append("barometer.%s.%s: headlines needs at least 2 variants (D4.5), got %d" % [section, state_id, state_entry["headlines"].size()])
 
 	for action in actions:
 		_require_keys(action, ["id", "label", "section", "cost", "requireFaction", "description"], "barometer.actions.%s" % action.get("id", "?"), errors)

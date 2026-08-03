@@ -42,7 +42,7 @@ func _refresh() -> void:
 func _build_todo_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Things to do", 14))
-	var items := _get_todo_items()
+	var items := Todo.get_items()
 	if items.is_empty():
 		c["content"].add_child(UI.muted_label("Nothing pressing."))
 	for item in items:
@@ -54,42 +54,6 @@ func _build_todo_card() -> Control:
 		row.add_child(text)
 		c["content"].add_child(row)
 	return c["panel"]
-
-
-# Ported from the HTML's getTodoItems() (same conditional chain, last 4
-# shown), with jamesCraftEventSeen mapped to craftingUnlocked — the R§2
-# flag covering the same tutorial milestone under the current schema.
-func _get_todo_items() -> Array[Dictionary]:
-	var f: Dictionary = GameState.state["flags"]
-	var day: int = GameState.state["world"]["day"]
-	var items: Array[Dictionary] = []
-
-	items.append({ "done": f["metArchie"], "text": "Get back to Archie. He's sorting the new buyer." })
-
-	if f["metArchie"]:
-		items.append({
-			"done": f["buyerEventSeen"],
-			"text": "Wait for Archie's text — he's lining up the buyer." if day < 2 else "Back up Archie on the sale tonight. Check Contacts.",
-		})
-
-	if f["buyerEventSeen"]:
-		items.append({ "done": f["metJames"], "text": "Archie mentioned a contact called James. SMS him to set it up." })
-
-	if f["metJames"]:
-		items.append({ "done": f["craftingUnlocked"], "text": "Go back to James when he's ready. He'll teach you the basics." })
-
-	if f["craftingUnlocked"]:
-		items.append({ "done": f["archieCraftChatSeen"], "text": "Catch up with Archie about what James taught you." })
-
-	if f["archieCraftChatSeen"]:
-		items.append({ "done": f["homeRaidEventSeen"], "text": "You have calc now. The flat isn't as secure as you thought." })
-
-	if f["archiePartnerSeen"]:
-		items.append({ "done": false, "text": "Archie's time vein is yours. Cultivate it. Harvest. Make pearls. Archie sells them." })
-
-	if items.size() > 4:
-		items = items.slice(items.size() - 4, items.size())
-	return items
 
 
 func _build_stats_card() -> Control:
@@ -107,7 +71,7 @@ func _build_stats_card() -> Control:
 		c["content"].add_child(UI.label("Cultivating: Lv%d (%d XP)" % [player["cultivatingSkill"], player["cultivatingXP"]]))
 		c["content"].add_child(UI.label("Veins held: %d" % player["veins"].size()))
 		c["content"].add_child(UI.label("Ore in stock: %d u" % _total_ore(player["orichalchum"])))
-		c["content"].add_child(UI.button("Save & Load", func(): Nav.go_to("save")))
+		c["content"].add_child(UI.button("Save & Load", func(): Nav.go_to("you")))
 
 	return c["panel"]
 

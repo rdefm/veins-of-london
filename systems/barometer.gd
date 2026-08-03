@@ -7,6 +7,10 @@ extends RefCounted
 const SECTIONS: Array[String] = ["economic", "social", "political"]
 const MANUAL_ACTION_COST := 2000
 
+# D4.5's Ticker trend hint: a non-active state at or above this progress
+# gets a "rumblings…" hint on its axis's headline card.
+const TREND_HINT_THRESHOLD := 70
+
 
 # Lazily fills state.barometer.progress so every section/state has an
 # entry: 100 for the currently-active state, 0 for the rest. Safe to call
@@ -98,8 +102,30 @@ static func _resolve_section(section: String) -> void:
 			progress[state_id] = 100
 			barometer[section] = state_id
 			var state_data: Dictionary = GameData.BAROMETER_STATES[section][state_id]
-			Notify.push("%s shift: %s. %s" % [section.capitalize(), state_data["label"], state_data["description"]])
+			var headline: String = Rng.rand_from(state_data["headlines"])
+			Notify.push("📰 BREAKING — %s" % headline)
 			break
+
+
+# D4.5's Ticker "rumblings..." hint: the highest-progress non-active state
+# at/above TREND_HINT_THRESHOLD, or null if none qualifies. Ties broken by
+# GameData.BAROMETER_STATES iteration order (stable across a given table).
+static func trend_hint_state(section: String) -> Variant:
+	ensure_progress()
+	var barometer: Dictionary = GameState.state["barometer"]
+	var active_state: String = barometer[section]
+	var progress: Dictionary = barometer["progress"][section]
+
+	var best_id: Variant = null
+	var best_progress := -1
+	for state_id in GameData.BAROMETER_STATES[section].keys():
+		if state_id == active_state:
+			continue
+		var p: int = progress.get(state_id, 0)
+		if p >= TREND_HINT_THRESHOLD and p > best_progress:
+			best_id = state_id
+			best_progress = p
+	return best_id
 
 
 static func can_push_pull(section: String, state_id: String, direction: String) -> bool:

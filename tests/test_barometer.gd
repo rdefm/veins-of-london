@@ -48,16 +48,43 @@ func run() -> void:
 		assert_eq(GameState.state["barometer"]["progress"]["economic"]["stable"], 0, "old active drops to 0")
 	)
 
-	run_case("resolution_pushes_a_shift_notification", func():
+	run_case("resolution_pushes_a_breaking_news_notification", func():
 		GameState.reset()
 		Barometer.ensure_progress()
 		GameState.state["barometer"]["progress"]["social"]["unrest"] = 100
+		Rng.set_seed(1)
 		Barometer._resolve_section("social")
+		var headlines: Array = GameData.BAROMETER_STATES["social"]["unrest"]["headlines"]
 		var found := false
 		for n in GameState.state["notifications"]:
-			if n["text"].begins_with("Social shift: Social Unrest."):
+			if n["text"].begins_with("📰 BREAKING — ") and headlines.has(n["text"].trim_prefix("📰 BREAKING — ")):
 				found = true
-		assert_true(found, "should push a '<Section> shift: <Label>. <description>' notification")
+		assert_true(found, "should push a '📰 BREAKING — <headline>' notification using one of the state's headline variants")
+	)
+
+
+	run_case("trend_hint_state_flags_a_non_active_state_at_or_above_70", func():
+		GameState.reset()
+		Barometer.ensure_progress()
+		GameState.state["barometer"]["progress"]["economic"]["boom"] = 70
+		assert_eq(Barometer.trend_hint_state("economic"), "boom", "boom at exactly 70 should qualify")
+	)
+
+
+	run_case("trend_hint_state_is_null_below_threshold", func():
+		GameState.reset()
+		Barometer.ensure_progress()
+		GameState.state["barometer"]["progress"]["economic"]["boom"] = 69
+		assert_eq(Barometer.trend_hint_state("economic"), null, "boom at 69 should not qualify")
+	)
+
+
+	run_case("trend_hint_state_picks_the_highest_progress_qualifying_state", func():
+		GameState.reset()
+		Barometer.ensure_progress()
+		GameState.state["barometer"]["progress"]["economic"]["boom"] = 75
+		GameState.state["barometer"]["progress"]["economic"]["crisis"] = 90
+		assert_eq(Barometer.trend_hint_state("economic"), "crisis", "crisis (90) should beat boom (75)")
 	)
 
 	run_case("manual_push_costs_2000_adds_20_progress_and_sets_cooldown", func():
