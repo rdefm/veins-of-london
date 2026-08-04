@@ -105,6 +105,28 @@ static func back_button(target_screen: String) -> Button:
 	return button("‹ Back", func(): Nav.go_to(target_screen))
 
 
+# SMS chat-bubble row (sms_archie.gd / sms_archie_2.gd): a card-styled
+# bubble, right-aligned for from_player. The label needs an explicit
+# custom_minimum_size.x — an HBoxContainer row's non-expand child (the
+# bubble panel) only ever gets ITS minimum size, and a word-wrapping
+# Label's minimum size is near-zero by design (same failure mode
+# checklist_row()/screen_body() work around) — without it, nothing in the
+# Row -> Panel -> VBox -> Label chain ever hands the Label real width to
+# wrap against, and it collapses to one word (or character) per line.
+const BUBBLE_WIDTH := 260.0
+
+static func message_bubble(text: String, from_player: bool) -> Control:
+	var row := hbox()
+	if from_player:
+		row.alignment = BoxContainer.ALIGNMENT_END
+	var bubble := card()
+	var text_label := label(text)
+	text_label.custom_minimum_size.x = BUBBLE_WIDTH
+	bubble["content"].add_child(text_label)
+	row.add_child(bubble["panel"])
+	return row
+
+
 # A checkbox glyph + wrapping text label, side by side (e.g. the to-do
 # list — home's "Things to do" card, Phone's Notes app). The text label
 # MUST get SIZE_EXPAND_FILL here: an HBoxContainer gives non-expand

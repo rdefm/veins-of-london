@@ -49,13 +49,7 @@ func _reveal_next() -> void:
 		return
 
 	var msg: Dictionary = _messages[_revealed]
-	var row := UI.hbox()
-	if msg["from"] == "player":
-		row.alignment = BoxContainer.ALIGNMENT_END
-	var bubble := UI.card()
-	bubble["content"].add_child(UI.label(msg["text"]))
-	row.add_child(bubble["panel"])
-	_messages_box.add_child(row)
+	_messages_box.add_child(UI.message_bubble(msg["text"], msg["from"] == "player"))
 	_revealed += 1
 
 	var delay: float = 0.9 if _revealed % 2 == 0 else 0.6
