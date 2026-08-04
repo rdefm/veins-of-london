@@ -137,7 +137,17 @@ static func message_bubble(text: String, from_player: bool) -> Control:
 # comment documents, seen in human QA on-device for this exact row).
 static func checklist_row(text: String, done: bool) -> Control:
 	var row := hbox(6)
-	row.add_child(label("☑" if done else "☐"))
+	# label() turns on autowrap for every label it builds, including this
+	# one-glyph checkbox — an autowrapping Label's minimum size collapses to
+	# its longest unbreakable fragment, not its full content (same failure
+	# mode top_bar.gd's _day_label/_cash_label comment documents), so
+	# without this it renders as a ~1px column with the glyph overflowing
+	# across the text label that follows it in this row. This is compact,
+	# unwrappable single-glyph content, so turn wrapping off entirely
+	# rather than guess a fixed pixel width.
+	var check_label := label("☑" if done else "☐")
+	check_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	row.add_child(check_label)
 	var text_label := label(text)
 	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if done:
