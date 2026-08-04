@@ -30,6 +30,8 @@ var FACTIONS: Dictionary = {}
 
 var DISTRICTS: Dictionary = {}
 
+var MAP_LAYOUT: Dictionary = {}
+
 var SITE_TIER_ORDER: Array = []
 var SITE_TIER_WEIGHTS: Dictionary = {}
 var SITE_PROSPECT_XP: Dictionary = {}
@@ -116,6 +118,8 @@ func load_all() -> void:
 
 	DISTRICTS = _load_json("res://data/districts.json")
 
+	MAP_LAYOUT = _load_json("res://data/map_layout.json")
+
 	var sites := _load_json("res://data/sites.json")
 	SITE_TIER_ORDER = sites.get("tierOrder", [])
 	SITE_TIER_WEIGHTS = sites.get("tierWeights", {})
@@ -175,6 +179,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_home(t.get("home_tier_order", []), t.get("home_tiers", {}), t.get("home_security", {}), t.get("home_rooms", {}), errors)
 	_validate_factions(t.get("factions", {}), errors)
 	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
+	_validate_map_layout(t.get("map_layout", {}), t.get("districts", {}), errors)
 	_validate_sites(t.get("site_tier_order", []), t.get("site_tier_weights", {}), t.get("site_prospect_xp", {}), t.get("site_seed_tier_mod", {}), t.get("site_discovery_bonus_pool", []), errors)
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), errors)
 	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), errors)
@@ -203,6 +208,7 @@ func snapshot() -> Dictionary:
 		"home_rooms": HOME_ROOMS,
 		"factions": FACTIONS,
 		"districts": DISTRICTS,
+		"map_layout": MAP_LAYOUT,
 		"site_tier_order": SITE_TIER_ORDER,
 		"site_tier_weights": SITE_TIER_WEIGHTS,
 		"site_prospect_xp": SITE_PROSPECT_XP,
@@ -335,6 +341,62 @@ func _validate_districts(districts: Dictionary, ore_types: Dictionary, errors: A
 	for key in districts.keys():
 		if not CANONICAL_DISTRICT_IDS.has(key):
 			errors.append("districts: unexpected district '%s' (not in M1-LONDON.md D1)" % key)
+
+
+# M1.5 N3: data/map_layout.json. Cross-references districts' siteCap to
+# enforce "each district has >= siteCap + 2 stopSlots" — the buffer that
+# lets a saturated site's bonus natural vein occupy a second slot beyond
+# one-per-site (see systems/map_layout.gd's assign_slots).
+func _validate_map_layout(layout: Dictionary, districts: Dictionary, errors: Array[String]) -> void:
+	_require_keys(layout, ["mapSize", "districts", "riverPath", "homeAnchor"], "map_layout", errors)
+
+	var map_size = layout.get("mapSize")
+	if typeof(map_size) != TYPE_ARRAY or map_size.size() != 2:
+		errors.append("map_layout.mapSize: expected [x, y], got %s" % str(map_size))
+
+	var home_anchor = layout.get("homeAnchor")
+	if typeof(home_anchor) != TYPE_ARRAY or home_anchor.size() != 2:
+		errors.append("map_layout.homeAnchor: expected [x, y], got %s" % str(home_anchor))
+
+	var river_path = layout.get("riverPath")
+	if typeof(river_path) != TYPE_ARRAY or river_path.size() < 2:
+		errors.append("map_layout.riverPath: expected an array of >= 2 [x, y] points")
+
+	var layout_districts = layout.get("districts", {})
+	if typeof(layout_districts) != TYPE_DICTIONARY:
+		return
+
+	for key in CANONICAL_DISTRICT_IDS:
+		if not layout_districts.has(key):
+			errors.append("map_layout.districts: missing canonical district '%s'" % key)
+			continue
+		var entry = layout_districts[key]
+		_require_keys(entry, ["anchor", "labelAnchor", "zonePolygon", "stopSlots"], "map_layout.districts.%s" % key, errors)
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+
+		var anchor = entry.get("anchor")
+		if typeof(anchor) != TYPE_ARRAY or anchor.size() != 2:
+			errors.append("map_layout.districts.%s.anchor: expected [x, y]" % key)
+		var label_anchor = entry.get("labelAnchor")
+		if typeof(label_anchor) != TYPE_ARRAY or label_anchor.size() != 2:
+			errors.append("map_layout.districts.%s.labelAnchor: expected [x, y]" % key)
+		var zone_polygon = entry.get("zonePolygon")
+		if typeof(zone_polygon) != TYPE_ARRAY or zone_polygon.size() < 3:
+			errors.append("map_layout.districts.%s.zonePolygon: expected an array of >= 3 [x, y] points" % key)
+
+		var stop_slots = entry.get("stopSlots")
+		if typeof(stop_slots) != TYPE_ARRAY:
+			errors.append("map_layout.districts.%s.stopSlots: expected an array of [x, y] points" % key)
+			continue
+		if not districts.is_empty() and districts.has(key):
+			var site_cap: int = districts[key].get("siteCap", 0)
+			if stop_slots.size() < site_cap + 2:
+				errors.append("map_layout.districts.%s.stopSlots: needs >= siteCap+2 (%d) slots, got %d" % [key, site_cap + 2, stop_slots.size()])
+
+	for key in layout_districts.keys():
+		if not CANONICAL_DISTRICT_IDS.has(key):
+			errors.append("map_layout.districts: unexpected district '%s' (not in M1-LONDON.md D1)" % key)
 
 
 const CANONICAL_SITE_TIERS: Array[String] = ["barren", "poor", "fair", "rich", "saturated"]

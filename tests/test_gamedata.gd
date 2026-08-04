@@ -91,6 +91,28 @@ func run() -> void:
 		assert_true(found, "seedTierMod including barren should be flagged — barren sites can't be seeded")
 	)
 
+	run_case("corrupt_fixture_missing_map_layout_district_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["map_layout"]["districts"].erase("soho")
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("map_layout.districts") and e.contains("soho"):
+				found = true
+		assert_true(found, "removing a canonical district from map_layout should fail validation")
+	)
+
+	run_case("corrupt_fixture_map_layout_too_few_stop_slots_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["map_layout"]["districts"]["camden"]["stopSlots"] = [[0, 0], [1, 1]]
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("camden") and e.contains("stopSlots"):
+				found = true
+		assert_true(found, "camden siteCap 4 needs >= 6 stopSlots — 2 should fail validation")
+	)
+
 	run_case("spot_check_values", func():
 		assert_eq(GameData.ORE_TYPES["fate"]["basePrice"], 90, "fate basePrice")
 		assert_eq(GameData.ORE_TYPES["emotion"]["symbol"], "❋", "emotion symbol")
@@ -114,4 +136,8 @@ func run() -> void:
 		assert_almost_eq(GameData.SITE_SEED_TIER_MOD["rich"], 0.20, 0.0001, "seed tierMod: rich")
 		assert_eq(GameData.SITE_DISCOVERY_BONUS_POOL.size(), 3, "3 discovery bonus types")
 		assert_almost_eq(GameData.SITE_NATURAL_VEIN_CHANCE, 0.05, 0.0001, "natural vein chance")
+		assert_eq(GameData.MAP_LAYOUT["mapSize"], [1170, 1560], "map_layout mapSize")
+		assert_eq(GameData.MAP_LAYOUT["districts"].size(), 9, "map_layout has 9 districts")
+		assert_eq(GameData.MAP_LAYOUT["districts"]["camden"]["stopSlots"].size(), 6, "camden siteCap 4 -> 6 stopSlots")
+		assert_eq(GameData.MAP_LAYOUT["districts"]["soho"]["stopSlots"].size(), 2, "soho siteCap 0 -> 2 stopSlots")
 	)
