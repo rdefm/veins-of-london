@@ -15,6 +15,16 @@ var _sheet_layer: Control
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
+
+	# M1-LONDON D6: "trigger on first Map-tab visit after archiePartnerSeen."
+	# Checked once per visit, same pattern as home.gd's home_raid_intro
+	# trigger — starting the event immediately navigates away, and this
+	# node is about to be freed by Main.gd's screen swap.
+	var flags: Dictionary = GameState.state["flags"]
+	if flags["archiePartnerSeen"] and not flags["cultivationTutorialSeen"]:
+		Events.start_event("archie_cultivation")
+		return
+
 	_content = UI.screen_body(self)
 
 	_sheet_layer = Control.new()
@@ -104,6 +114,9 @@ func _build_district_actions(district_id: String) -> Control:
 	var site_cap: int = district.get("siteCap", 0)
 	if site_cap <= 0:
 		row.add_child(UI.muted_label("No prospecting here"))
+	elif not GameState.state["flags"]["cultivationTutorialSeen"]:
+		# M1-LONDON D7: prospecting locked until the cultivating tutorial (D6).
+		row.add_child(UI.muted_label("Prospecting — see Archie first"))
 	else:
 		var prospect_button := UI.button(UI.format_block_cost_label("Prospect", Travel.blocks_needed(district_id), 1), func(): Sites.prospect(district_id))
 		prospect_button.disabled = not Travel.can_afford(district_id, 1)

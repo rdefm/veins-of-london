@@ -58,6 +58,9 @@ const EVENT_IDS: Array[String] = [
 	"intro", "buyer", "james_meeting", "archie_craft_chat",
 	"home_raid_intro", "home_raid_debrief_win", "home_raid_debrief_loss",
 	"archie_motion", "james_motion",
+	# M1-LONDON D6 — cultivating tutorial, triggered by scenes/screens/map.gd
+	# on the first Map-tab visit after archiePartnerSeen.
+	"archie_cultivation",
 ]
 
 # M1-LONDON D5's district event deck roster. Loaded into the same EVENTS
@@ -409,6 +412,10 @@ const VALID_EFFECT_OPS: Array[String] = [
 	"set_screen", "notify", "set_stage", "start_home_raid_combat",
 	# M1-LONDON D5 district-event ops (systems/events.gd):
 	"chance", "start_street_mugging", "npc_claim_best_unclaimed_site", "lose_time_block",
+	# M1-LONDON D6/D7 ops (systems/events.gd): grant_vein_with_site pairs a
+	# granted vein with a matching claimed site (home-raid debrief);
+	# tutorial_cultivate forces one free successful cultivate (archie_cultivation).
+	"grant_vein_with_site", "tutorial_cultivate",
 ]
 
 

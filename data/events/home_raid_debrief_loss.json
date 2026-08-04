@@ -21,7 +21,7 @@
     { "op": "set_flag", "flag": "homeUnlocked", "value": true },
     { "op": "set_flag", "flag": "securityContactUnlocked", "value": true },
     { "op": "relation", "contact": "archie", "value": 10 },
-    { "op": "grant_vein", "vein": { "oreType": "time", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
+    { "op": "grant_vein_with_site", "vein": { "oreType": "time", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
     { "op": "set_screen", "screen": "home" }
   ]
 }

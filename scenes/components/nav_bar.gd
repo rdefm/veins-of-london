@@ -16,6 +16,14 @@ const TABS := [
 	{ "screen": "you", "label": "You" },
 ]
 
+# M1-LONDON D7: the Map tab is locked (greyed, unpressable) until
+# archiePartnerSeen — a new game has nowhere to go there yet. This bar is
+# built once by Main.gd and never rebuilt, so it has to react to
+# state_changed itself, same as any screen's _refresh().
+const LOCKED_MAP_LABEL := "Stick close for now — Archie"
+
+var _buttons: Dictionary = {}
+
 
 func _ready() -> void:
 	UI.anchor_bottom_wide(self)
@@ -28,10 +36,27 @@ func _ready() -> void:
 
 	for tab in TABS:
 		var button := Button.new()
-		button.text = tab["label"]
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_tab_pressed.bind(tab["screen"]))
 		row.add_child(button)
+		_buttons[tab["screen"]] = button
+
+	EventBus.state_changed.connect(_refresh)
+	_refresh()
+
+
+func _refresh() -> void:
+	var map_locked: bool = not GameState.state["flags"]["archiePartnerSeen"]
+	for tab in TABS:
+		var button: Button = _buttons[tab["screen"]]
+		if tab["screen"] == "map" and map_locked:
+			button.text = LOCKED_MAP_LABEL
+			button.tooltip_text = LOCKED_MAP_LABEL
+			button.disabled = true
+		else:
+			button.text = tab["label"]
+			button.tooltip_text = ""
+			button.disabled = false
 
 
 func _on_tab_pressed(screen_id: String) -> void:

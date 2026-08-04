@@ -1,0 +1,19 @@
+{
+  "id": "archie_cultivation",
+  "cards": [
+    { "type": "narration", "label": "Whitechapel — behind the old brewery", "speaker": null, "text": "The vein is exactly where the pin said: a hairline crack in old brick, humming faintly at a frequency you'd ignore if you didn't already know what you were listening for. Archie's waiting with his hands in his pockets, doing an impression of a man who has never once stood around looking impatient." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. It's yours now, so you should know how it actually works, not just what the app tells you.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Cultivating's the input side. You put a session in, the dev bar fills up a bit — that's how close the vein is to producing anything worth having. Miss, and the bar stays put. No penalty beyond the time.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Fill the bar, the vein levels up. Higher level means a bigger bar next time, but a bigger harvest once you get there. It's an investment, not a jackpot.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Harvesting's the output side — that's where the actual calc comes out. Two ways to do it. Cautious pulls a smaller yield and leaves the bar alone. Full pulls more but drains the bar — empty it out and the vein drops a level. Level one, empty the bar, and it's just gone.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"So don't get greedy on something you can't afford to lose. Go on, then — put a session in. I'll watch, so you don't feel like you're talking to brick.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "You work the vein the way he showed you. It takes, first go — beginner's luck, or possibly just Archie standing close enough to make failure socially awkward. The dev bar climbs. Somewhere under Whitechapel, something that used to belong to someone else settles into belonging to you." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"There. Not complicated. Keep it charged, keep at it, and don't tell anyone else where it is.\"" }
+  ],
+  "on_complete": [
+    { "op": "tutorial_cultivate" },
+    { "op": "relation", "contact": "archie", "value": 2 },
+    { "op": "set_flag", "flag": "cultivationTutorialSeen", "value": true },
+    { "op": "set_screen", "screen": "map" }
+  ]
+}

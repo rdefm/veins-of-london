@@ -88,6 +88,8 @@ func new_game_state() -> Dictionary:
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,
 			# M1-LONDON D5 — district event one-shot flags/counters.
 			"greenwichTipOff": false, "luckyOmen": false, "conclaveNoticed": false, "oddities": 0,
+			# M1-LONDON D6 — cultivating tutorial.
+			"cultivationTutorialSeen": false,
 		},
 	}
 

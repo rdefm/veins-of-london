@@ -192,6 +192,8 @@ static func _apply_one(effect: Dictionary) -> void:
 			Contacts.award_relation(effect["contact"], effect["value"])
 		"grant_vein":
 			_grant_vein(effect["vein"])
+		"grant_vein_with_site":
+			_grant_vein_with_site(effect["vein"])
 		"set_screen":
 			Nav.go_to(effect["screen"])
 		"notify":
@@ -212,6 +214,8 @@ static func _apply_one(effect: Dictionary) -> void:
 		"lose_time_block":
 			if not TimeSystem.is_time_exhausted():
 				TimeSystem.advance_time_block()
+		"tutorial_cultivate":
+			_tutorial_cultivate()
 
 
 # Generic path+value combine: adds when both the existing value and the
@@ -251,3 +255,63 @@ static func _grant_vein(vein_template: Dictionary) -> void:
 	vein["levelLabel"] = GameData.VEIN_LEVELS[str(level)]["label"]
 	vein["claimedOnDay"] = GameState.state["world"]["day"]
 	GameState.state["player"]["veins"].append(vein)
+
+
+# M1-LONDON D7: the home-raid debrief's granted vein needs a matching
+# player-claimed site on state.world.sites, or the Map tab shows a
+# Whitechapel vein with no site backing it. Site tier/oreType/bonuses are
+# derived from the vein template's own hospitability/oreType fields (same
+# fields Sites.attempt_seed() would have produced), so the two stay in sync
+# by construction rather than by two copies of "fair, no bonuses" agreeing.
+static func _grant_vein_with_site(vein_template: Dictionary) -> void:
+	var hospitability: Dictionary = vein_template.get("hospitability", { "tier": "fair", "bonuses": [] })
+	var day: int = GameState.state["world"]["day"]
+
+	var site: Dictionary = {
+		"id": Sites.make_site_id(),
+		"district": vein_template["district"],
+		"tier": hospitability["tier"],
+		"oreType": vein_template["oreType"],
+		"bonuses": hospitability["bonuses"],
+		"discoveredDay": day,
+		"claimed": true,
+		"npcClaimed": false,
+		"npcClaimedDay": null,
+		"hasNaturalVein": false,
+	}
+	GameState.state["world"]["sites"].append(site)
+
+	var level: int = vein_template["level"]
+	var vein: Dictionary = GameState.deep_copy(vein_template)
+	vein["id"] = Cultivating.make_vein_id()
+	vein["levelLabel"] = GameData.VEIN_LEVELS[str(level)]["label"]
+	vein["claimedOnDay"] = day
+	vein["siteId"] = site["id"]
+	GameState.state["player"]["veins"].append(vein)
+
+
+# M1-LONDON D6: archie_cultivation's closer — a forced, always-successful
+# cultivate on the vein the home-raid debrief granted, at no block cost.
+# There's no vein id to reference from static JSON (the debrief creates it
+# at runtime), so this looks up "the Whitechapel time vein" directly — safe
+# because a fresh tutorial playthrough has exactly one at this point, and
+# this event only fires once, right after that debrief.
+static func _tutorial_cultivate() -> void:
+	var vein = _find_tutorial_cultivation_vein()
+	if vein == null:
+		return
+
+	var skill: int = GameState.state["player"]["cultivatingSkill"]
+	var gain: int = Cultivating.get_bar_gain(skill)
+	var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
+	vein["devBar"] = vein["devBar"] + gain
+
+	if vein["level"] < Cultivating.get_level_cap(vein) and vein["devBar"] >= level_data["devBarMax"]:
+		Cultivating.level_up_vein(vein)
+
+
+static func _find_tutorial_cultivation_vein() -> Variant:
+	for vein in GameState.state["player"]["veins"]:
+		if vein["district"] == "whitechapel" and vein["oreType"] == "time":
+			return vein
+	return null

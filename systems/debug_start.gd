@@ -36,6 +36,15 @@ static func apply() -> void:
 		_debug_vein("life", 5),
 	]
 
+	# M1-LONDON D7: 2 discovered, unclaimed sites — one rich (greenwich), one
+	# saturated (whitechapel) — so a debug-started game has something to
+	# seed/claim on the Map tab immediately. oreType/bonuses are fixed
+	# (not rolled) to keep debug start deterministic like everything else here.
+	state["world"]["sites"] = [
+		_debug_site("greenwich", "rich", "time", ["yield"]),
+		_debug_site("whitechapel", "saturated", "emotion", ["recharge", "maxLevel", "yield"]),
+	]
+
 	var flags: Dictionary = state["flags"]
 	for key in flags.keys():
 		match typeof(flags[key]):
@@ -72,6 +81,21 @@ static func apply() -> void:
 
 	Nav.go_to("home")
 	EventBus.state_changed.emit()
+
+
+static func _debug_site(district: String, tier: String, ore_type: String, bonuses: Array) -> Dictionary:
+	return {
+		"id": Sites.make_site_id(),
+		"district": district,
+		"tier": tier,
+		"oreType": ore_type,
+		"bonuses": bonuses,
+		"discoveredDay": GameState.state["world"]["day"],
+		"claimed": false,
+		"npcClaimed": false,
+		"npcClaimedDay": null,
+		"hasNaturalVein": false,
+	}
 
 
 static func _debug_vein(ore_type: String, level: int) -> Dictionary:

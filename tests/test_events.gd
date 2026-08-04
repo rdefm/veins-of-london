@@ -118,6 +118,79 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	# ── grant_vein_with_site (D7) ────────────────────────────────────────
+
+	run_case("grant_vein_with_site_creates_a_matching_claimed_site_and_links_it", func():
+		GameState.reset()
+		var world_day: int = GameState.state["world"]["day"]
+		Events.apply_effects([
+			{ "op": "grant_vein_with_site", "vein": { "oreType": "time", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
+		])
+
+		assert_eq(GameState.state["world"]["sites"].size(), 1, "creates exactly one site")
+		var site: Dictionary = GameState.state["world"]["sites"][0]
+		assert_eq(site["district"], "whitechapel")
+		assert_eq(site["tier"], "fair")
+		assert_eq(site["oreType"], "time")
+		assert_eq(site["bonuses"], [])
+		assert_true(site["claimed"])
+		assert_true(not site["npcClaimed"])
+		assert_eq(site["npcClaimedDay"], null)
+		assert_true(not site["hasNaturalVein"])
+		assert_eq(site["discoveredDay"], world_day)
+
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "appends a vein")
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(vein["siteId"], site["id"], "vein.siteId links back to the created site")
+		assert_eq(vein["claimedOnDay"], world_day)
+	)
+
+	run_case("grant_vein_with_site_derives_site_tier_and_bonuses_from_hospitability", func():
+		GameState.reset()
+		Events.apply_effects([
+			{ "op": "grant_vein_with_site", "vein": { "oreType": "physics", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Test St, nowhere", "district": "camden", "hospitability": { "tier": "rich", "bonuses": ["yield"] } } },
+		])
+		var site: Dictionary = GameState.state["world"]["sites"][0]
+		assert_eq(site["tier"], "rich")
+		assert_eq(site["bonuses"], ["yield"])
+	)
+
+	# ── tutorial_cultivate (D6) ───────────────────────────────────────────
+
+	run_case("tutorial_cultivate_adds_barGain_devBar_to_the_whitechapel_time_vein", func():
+		GameState.reset()
+		GameState.state["player"]["cultivatingSkill"] = 1
+		Events.apply_effects([
+			{ "op": "grant_vein_with_site", "vein": { "oreType": "time", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
+		])
+		Events.apply_effects([{ "op": "tutorial_cultivate" }])
+
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(vein["devBar"], Cultivating.get_bar_gain(1), "devBar increases by barGain, no roll involved")
+		assert_eq(vein["level"], 1, "not enough to level up yet at Lv1 devBarMax")
+	)
+
+	run_case("tutorial_cultivate_levels_up_the_vein_when_the_gain_crosses_devBarMax", func():
+		GameState.reset()
+		GameState.state["player"]["cultivatingSkill"] = 2  # bar_gain = 3
+		# Lv1 devBarMax is 8 (data/vein_levels.json); start 5 in so +3 lands exactly on it.
+		Events.apply_effects([
+			{ "op": "grant_vein_with_site", "vein": { "oreType": "time", "level": 1, "devBar": 5, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
+		])
+		Events.apply_effects([{ "op": "tutorial_cultivate" }])
+
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(vein["level"], 2, "should level up once devBar crosses Lv1's devBarMax")
+		assert_eq(vein["devBar"], 0, "levelling up resets devBar")
+	)
+
+	run_case("tutorial_cultivate_is_a_no_op_with_no_matching_vein", func():
+		GameState.reset()
+		var snapshot: Dictionary = GameState.deep_copy(GameState.state["player"])
+		Events.apply_effects([{ "op": "tutorial_cultivate" }])
+		assert_eq(GameState.state["player"], snapshot, "nothing to cultivate, nothing crashes or mutates")
+	)
+
 	run_case("is_awaiting_choice_true_only_on_an_unresolved_choice_card", func():
 		GameState.reset()
 		var original_events := _install_choice_event()
@@ -358,6 +431,30 @@ func run() -> void:
 		assert_eq(granted["level"], 1, "granted vein: Lv1")
 		assert_eq(granted["district"], "whitechapel", "granted vein: whitechapel")
 		assert_eq(GameState.state["currentScreen"], "home", "debrief: -> home")
+
+		# D7: the granted vein comes with a matching claimed site.
+		assert_eq(GameState.state["world"]["sites"].size(), 1, "debrief: creates exactly one site")
+		var granted_site: Dictionary = GameState.state["world"]["sites"][0]
+		assert_eq(granted_site["district"], "whitechapel", "granted site: whitechapel")
+		assert_eq(granted_site["tier"], "fair", "granted site: fair tier")
+		assert_eq(granted_site["bonuses"], [], "granted site: no bonuses")
+		assert_true(granted_site["claimed"], "granted site: claimed")
+		assert_true(not granted_site["npcClaimed"], "granted site: not npcClaimed")
+		assert_eq(granted["siteId"], granted_site["id"], "granted vein: siteId links back to the granted site")
+
+		# 5b. Cultivating tutorial (D6) — map.gd's _ready() fires this on the
+		# first Map-tab visit after archiePartnerSeen; drive it directly here
+		# since this test has no screen tree.
+		assert_true(GameState.state["flags"]["archiePartnerSeen"] and not GameState.state["flags"]["cultivationTutorialSeen"])
+		var archie_relation_before_cultivation: int = GameState.state["contacts"]["archie"]["relation"]
+		var dev_bar_before: int = granted["devBar"]
+		Events.start_event("archie_cultivation")
+		for i in range(GameData.EVENTS["archie_cultivation"]["cards"].size()):
+			Events.advance()
+		assert_true(GameState.state["flags"]["cultivationTutorialSeen"], "archie_cultivation: cultivationTutorialSeen")
+		assert_eq(GameState.state["contacts"]["archie"]["relation"], archie_relation_before_cultivation + 2, "archie_cultivation: archie relation +2")
+		assert_eq(granted["devBar"], dev_bar_before + Cultivating.get_bar_gain(GameState.state["player"]["cultivatingSkill"]), "archie_cultivation: tutorial_cultivate added barGain devBar")
+		assert_eq(GameState.state["currentScreen"], "map", "archie_cultivation: -> map")
 
 		# 6. Post-tutorial motion events
 		Events.start_event("archie_motion")

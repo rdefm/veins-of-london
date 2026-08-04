@@ -62,4 +62,15 @@ func run() -> void:
 		assert_eq(s["barometer"]["progress"]["economic"]["boom"], 100, "progress should be initialised to match the forced active state")
 
 		assert_eq(s["currentScreen"], "home", "debug start should land on the home screen")
+
+		var sites: Array = s["world"]["sites"]
+		assert_eq(sites.size(), 2, "exactly 2 discovered sites")
+		var by_district := {}
+		for site in sites:
+			by_district[site["district"]] = site
+		assert_eq(by_district["greenwich"]["tier"], "rich", "greenwich site is rich")
+		assert_eq(by_district["whitechapel"]["tier"], "saturated", "whitechapel site is saturated")
+		for site in sites:
+			assert_true(not site["claimed"], "debug sites start unclaimed")
+			assert_true(not site["npcClaimed"], "debug sites start unclaimed")
 	)
