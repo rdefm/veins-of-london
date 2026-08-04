@@ -200,6 +200,18 @@ static func _apply_one(effect: Dictionary) -> void:
 			GameState.state["flags"]["tutorialStage"] = effect["value"]
 		"start_home_raid_combat":
 			Combat.start_home_raid_combat()
+		"chance":
+			if Rng.chance(effect["p"]):
+				apply_effects(effect.get("on_success", []))
+			else:
+				apply_effects(effect.get("on_fail", []))
+		"start_street_mugging":
+			Combat.start_street_mugging()
+		"npc_claim_best_unclaimed_site":
+			Sites.npc_claim_best_unclaimed_site(GameState.state["world"]["currentDistrict"])
+		"lose_time_block":
+			if not TimeSystem.is_time_exhausted():
+				TimeSystem.advance_time_block()
 
 
 # Generic path+value combine: adds when both the existing value and the

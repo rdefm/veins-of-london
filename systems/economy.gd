@@ -16,6 +16,16 @@ static func execute_sale(items: Array) -> Dictionary:
 	var district: Dictionary = GameData.DISTRICTS.get(GameState.state["world"]["currentDistrict"], {})
 	var price_mod: float = district.get("priceMod", 0.0)
 	var danger_mod: float = district.get("dangerMod", 0.0)
+
+	# pigeon_omen (M1-LONDON D5): a one-shot flag, consumed on the very next
+	# sale attempt regardless of outcome; that sale then has a further 50%
+	# chance of a +10% price bump.
+	var flags: Dictionary = GameState.state["flags"]
+	if flags.get("luckyOmen", false):
+		flags["luckyOmen"] = false
+		if Rng.chance(0.5):
+			price_mod += 0.10
+
 	var gross := 0
 	var cons_sold := 0
 
@@ -35,7 +45,6 @@ static func execute_sale(items: Array) -> Dictionary:
 			player["inventory"][item_type] = maxi(0, player["inventory"].get(item_type, 0) - qty)
 
 	if cons_sold > 0:
-		var flags: Dictionary = GameState.state["flags"]
 		flags["consSoldCount"] = flags["consSoldCount"] + cons_sold
 		if not flags["archieMotionEventSeen"] and not flags["archieMotionPending"] and flags["consSoldCount"] >= 1:
 			flags["archieMotionPending"] = true

@@ -81,7 +81,7 @@ func _build_action_bar() -> Control:
 func _build_outcome_button(outcome: String, context: String) -> Control:
 	var label: String
 	if outcome == "win":
-		label = "✅ They've legged it" if context == "mugging" else "✅ Vein secured"
+		label = "✅ They've legged it" if Combat.NON_LETHAL_MUGGING_CONTEXTS.has(context) else "✅ Vein secured"
 	elif outcome == "fled":
 		label = "🏃 Scarper"
 	else:

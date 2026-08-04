@@ -1,0 +1,10 @@
+{
+  "id": "conclave_watch",
+  "cards": [
+    { "type": "narration", "label": "The City", "speaker": null, "text": "A man in a good coat stands very still outside a bank that isn't a bank, watching nothing in particular with the specific attention of someone paid to watch nothing in particular. He doesn't look at you. That's how you know he's looked at you." },
+    { "type": "narration", "label": null, "speaker": null, "text": "By the time you think to look back properly, he's gone, and the space he was standing in has already been filled by three tourists and a Deliveroo rider, as if London itself hurried to paper over the gap." },
+    { "type": "resolution", "label": null, "speaker": null, "text": "You add it to a growing list of things about the City you're choosing not to think about too hard." }
+  ],
+  "on_complete": [{ "op": "set_flag", "flag": "conclaveNoticed", "value": true }],
+  "deck": { "district": "city", "weight": 1, "excludeIfFlag": "conclaveNoticed", "barometerState": null }
+}

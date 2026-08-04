@@ -1,0 +1,28 @@
+{
+  "id": "city_suit",
+  "cards": [
+    { "type": "narration", "label": "The City", "speaker": null, "text": "A man in a suit that costs more than your flat buys you a coffee you didn't order, in a café you'd never choose. He introduces himself as \"a friend of a friend\", which in the City means nobody vouches for him." },
+    { "type": "speaker", "label": null, "speaker": "The Suit", "text": "\"I collect fate-type. Recreationally, you understand. Two hundred up front, I match it eightfold if the numbers land. If they don't — well. Markets.\"" },
+    {
+      "type": "choice", "label": null, "speaker": null, "text": "He's already got his card reader out.",
+      "choices": [
+        {
+          "label": "Trade (£200)",
+          "effects": [
+            { "op": "add", "path": "player.cash", "value": -200 },
+            { "op": "chance", "p": 0.5, "on_success": [{ "op": "add_ore", "type": "fate", "qty": 8 }], "on_fail": [] }
+          ],
+          "result_text": "He taps his card against yours and doesn't blink. The transaction completes with the finality of all City transactions — you'll know how it went when you check your ore."
+        },
+        {
+          "label": "Pass",
+          "effects": [],
+          "result_text": "\"Suit yourself,\" he says, and you both know exactly which word he chose."
+        }
+      ]
+    },
+    { "type": "resolution", "label": null, "speaker": null, "text": "He's gone by the time you check your phone. Some men are only ever passing through." }
+  ],
+  "on_complete": [],
+  "deck": { "district": "city", "weight": 1, "excludeIfFlag": null, "barometerState": null }
+}

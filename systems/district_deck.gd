@@ -4,9 +4,10 @@ extends RefCounted
 # District event deck per M1-LONDON.md D5. Static funcs only. A deck
 # entry is any GameData.EVENTS entry (normal Events schema — cards/
 # on_complete — see GameData.DISTRICT_EVENT_IDS) that also carries a
-# "deck" sub-object: { district, weight, excludeIfFlag, barometerState }.
-# Filtering reads GameData.EVENTS directly (not the DISTRICT_EVENT_IDS
-# list itself) so tests can inject synthetic deck entries the same way
+# "deck" sub-object: { district, weight, excludeIfFlag, barometerState,
+# requireUnclaimedSiteInDistrict? }. Filtering reads GameData.EVENTS
+# directly (not the DISTRICT_EVENT_IDS list itself) so tests can inject
+# synthetic deck entries the same way
 # tests/test_events.gd injects synthetic events, without touching the
 # const id list. Draws proceed through systems/events.gd's existing
 # runner. No event content lives here — that's ticket 09; this is purely
@@ -47,7 +48,12 @@ static func draw(district_id: String) -> Variant:
 # can draw the entry ("any" matches every district); excludeIfFlag drops
 # the entry once that flag is true; barometerState (when set) requires
 # state.barometer[section] to currently equal state — reserved plumbing,
-# unused by any current data. No-repeat-within-5-days is enforced last via
+# unused by any current data. requireUnclaimedSiteInDistrict (D5 #13,
+# optional, defaults false — only rival_prospector sets it) drops the
+# entry unless the district currently has at least one unclaimed site,
+# per D5's "any district with unclaimed sites" wording; left optional
+# rather than added to every deck object's required keys, since only one
+# of the 15 events needs it. No-repeat-within-5-days is enforced last via
 # state.world.recentEvents.
 static func eligible_entries(district_id: String) -> Array:
 	var entries: Array = []
@@ -71,6 +77,9 @@ static func eligible_entries(district_id: String) -> Array:
 			var required_state: String = barometer_state["state"]
 			if GameState.state["barometer"].get(section) != required_state:
 				continue
+
+		if deck.get("requireUnclaimedSiteInDistrict", false) and Sites.best_unclaimed_site(district_id) == null:
+			continue
 
 		if _recently_drawn(event_id):
 			continue

@@ -64,9 +64,14 @@ const EVENT_IDS: Array[String] = [
 # dict as EVENT_IDS above — a district event file is a normal event file
 # (cards/on_complete) plus a "deck" sub-object (district, weight,
 # excludeIfFlag, barometerState) that systems/district_deck.gd reads.
-# Empty until ticket 09 authors the 15 events; the engine (ticket 08) is
-# exercised against synthetic entries in tests/test_district_deck.gd.
-const DISTRICT_EVENT_IDS: Array[String] = []
+# The engine (ticket 08) is exercised against synthetic entries in
+# tests/test_district_deck.gd; these are the real ticket-09 content.
+const DISTRICT_EVENT_IDS: Array[String] = [
+	"busker_greenwich", "city_suit", "camden_shakedown", "heath_dogwalker",
+	"whitechapel_grief", "kx_delay", "soho_tout", "battersea_hum",
+	"shoreditch_archie", "conclave_watch", "pigeon_omen", "rain",
+	"rival_prospector", "foxes", "roman_brick",
+]
 
 var loaded := false
 var _load_errors: Array[String] = []
@@ -402,6 +407,8 @@ const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "res
 const VALID_EFFECT_OPS: Array[String] = [
 	"set_flag", "add", "add_ore", "add_item", "relation", "grant_vein",
 	"set_screen", "notify", "set_stage", "start_home_raid_combat",
+	# M1-LONDON D5 district-event ops (systems/events.gd):
+	"chance", "start_street_mugging", "npc_claim_best_unclaimed_site", "lose_time_block",
 ]
 
 
@@ -423,10 +430,7 @@ func _validate_events(events: Dictionary, errors: Array[String]) -> void:
 				errors.append("events.%s: unknown card type '%s'" % [key, card["type"]])
 			if card.get("type") == "choice":
 				_validate_choice_card(card, "events.%s.cards" % key, errors)
-		for effect in entry.get("on_complete", []):
-			_require_keys(effect, ["op"], "events.%s.on_complete" % key, errors)
-			if effect.has("op") and not VALID_EFFECT_OPS.has(effect["op"]):
-				errors.append("events.%s: unknown effect op '%s'" % [key, effect["op"]])
+		_validate_effect_list(entry.get("on_complete", []), "events.%s.on_complete" % key, errors)
 		if entry.has("deck"):
 			_validate_deck_entry(entry["deck"], "events.%s.deck" % key, errors)
 			if not DISTRICT_EVENT_IDS.has(key):
@@ -447,10 +451,24 @@ func _validate_choice_card(card: Dictionary, context: String, errors: Array[Stri
 		_require_keys(choice, ["label", "effects", "result_text"], "%s.choices" % context, errors)
 		if typeof(choice) != TYPE_DICTIONARY:
 			continue
-		for effect in choice.get("effects", []):
-			_require_keys(effect, ["op"], "%s.choices.effects" % context, errors)
-			if effect.has("op") and not VALID_EFFECT_OPS.has(effect["op"]):
-				errors.append("%s.choices: unknown effect op '%s'" % [context, effect["op"]])
+		_validate_effect_list(choice.get("effects", []), "%s.choices.effects" % context, errors)
+
+
+# Shared by on_complete lists and choice-card effects lists. Recurses into
+# "chance" ops' on_success/on_fail sub-lists (M1-LONDON D5) so a bad op
+# buried inside a chance branch doesn't sail through unnoticed.
+func _validate_effect_list(effects: Array, context: String, errors: Array[String]) -> void:
+	for effect in effects:
+		_require_keys(effect, ["op"], context, errors)
+		if typeof(effect) != TYPE_DICTIONARY or not effect.has("op"):
+			continue
+		if not VALID_EFFECT_OPS.has(effect["op"]):
+			errors.append("%s: unknown effect op '%s'" % [context, effect["op"]])
+			continue
+		if effect["op"] == "chance":
+			_require_keys(effect, ["p", "on_success", "on_fail"], context, errors)
+			_validate_effect_list(effect.get("on_success", []), "%s.chance.on_success" % context, errors)
+			_validate_effect_list(effect.get("on_fail", []), "%s.chance.on_fail" % context, errors)
 
 
 # M1-LONDON D5's deck filter metadata: district (or "any"), weight,

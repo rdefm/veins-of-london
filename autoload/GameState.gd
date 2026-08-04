@@ -86,6 +86,8 @@ func new_game_state() -> Dictionary:
 			"jamesJobActive": false,
 			"homeRaidEventPending": false, "homeRaidEventSeen": false, "homeRaidWon": false,
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,
+			# M1-LONDON D5 — district event one-shot flags/counters.
+			"greenwichTipOff": false, "luckyOmen": false, "conclaveNoticed": false, "oddities": 0,
 		},
 	}
 

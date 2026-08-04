@@ -1,0 +1,9 @@
+{
+  "id": "whitechapel_grief",
+  "cards": [
+    { "type": "narration", "label": "Whitechapel", "speaker": null, "text": "Whitechapel keeps its grief the way other places keep street furniture — permanent, load-bearing, mostly ignored. You feel it anyway, a low hum under the emotion-type in your bag." },
+    { "type": "resolution", "label": null, "speaker": null, "text": "It passes, the way all inherited grief eventually does — not gone, just filed. The emotion-type in your bag sits heavier when you stand up, like it's been listening the whole time." }
+  ],
+  "on_complete": [{ "op": "add_ore", "type": "emotion", "qty": 1 }],
+  "deck": { "district": "whitechapel", "weight": 1, "excludeIfFlag": null, "barometerState": null }
+}

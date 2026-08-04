@@ -3,6 +3,12 @@ extends RefCounted
 
 # Turn-based combat per R§3.7, plus rewind per R§3.9. Static funcs only.
 
+# Contexts that are a mugging in flavour (no vein at stake, "they leg it" on
+# a win) rather than a raid — shared by the win-line/label logic here and
+# in scenes/screens/combat.gd so a third mugging-flavoured context (should
+# one ever exist) is one edit, not three.
+const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = ["mugging", "event_mugging"]
+
 
 static func generate_mugger() -> Dictionary:
 	var count: int = Rng.randi_range(1, 3)
@@ -63,6 +69,18 @@ static func start_mugging() -> void:
 	_start_combat("mugging", null, enemy,
 		["%s step out of nowhere. They want what you're carrying." % enemy["name"]],
 		"muggingWon")
+
+
+# District-event-triggered street mugging (M1-LONDON D5, e.g.
+# camden_shakedown). Distinct context from "mugging" because there's no
+# pendingSaleCut to settle — onWin is "" (no dispatch; see
+# _dispatch_on_win()'s default case) and exit_combat() routes back to the
+# still-active event screen rather than to the sale flow or home.
+static func start_street_mugging() -> void:
+	var enemy := generate_mugger()
+	_start_combat("event_mugging", null, enemy,
+		["%s want a word. This is about to get physical." % enemy["name"]],
+		"")
 
 
 # Called by combat_intro events (T13) via the start_home_raid_combat effect op.
@@ -140,7 +158,7 @@ static func player_attack() -> Dictionary:
 		combat["log"].append("You attack%s — %d damage%s. Enemy: %d/%d HP." % [hit_label, dmg, frozen_note, enemy["hp"], enemy["hpMax"]])
 		if enemy["hp"] <= 0:
 			combat["outcome"] = "win"
-			combat["log"].append("They leg it. Good call on their part." if combat["context"] == "mugging" else "They go down. Vein is yours.")
+			combat["log"].append("They leg it. Good call on their part." if NON_LETHAL_MUGGING_CONTEXTS.has(combat["context"]) else "They go down. Vein is yours.")
 			_dispatch_on_win()
 			EventBus.state_changed.emit()
 			return { "ok": true, "outcome": "win" }
@@ -384,6 +402,13 @@ static func exit_combat() -> Dictionary:
 
 	if context == "mugging" and outcome == "win":
 		return { "nextScreen": null }
+
+	# event_mugging (D5): state.event is still active regardless of outcome
+	# — route back to the event screen so its scripted cards can resume.
+	if context == "event_mugging":
+		GameState.state["currentScreen"] = "event"
+		EventBus.screen_changed.emit("event")
+		return { "nextScreen": "event" }
 
 	if context == "home_raid":
 		_after_home_raid_combat(outcome)

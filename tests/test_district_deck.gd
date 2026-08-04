@@ -16,10 +16,16 @@ func _synthetic_event(event_id: String, deck: Dictionary) -> Dictionary:
 
 
 # Installs `entries` (event_id -> deck sub-object) into a duplicated
-# GameData.EVENTS. Returns the original for restoration.
+# GameData.EVENTS, first stripping every real deck-bearing entry (ticket
+# 09's 15 district events) so these engine tests stay isolated from real
+# content — same reasoning as _synthetic_event's doc comment. Returns the
+# original for restoration.
 func _install_deck(entries: Dictionary) -> Dictionary:
 	var original_events: Dictionary = GameData.EVENTS
 	GameData.EVENTS = GameData.EVENTS.duplicate()
+	for event_id in GameData.EVENTS.keys():
+		if GameData.EVENTS[event_id].has("deck"):
+			GameData.EVENTS.erase(event_id)
 	for event_id in entries.keys():
 		GameData.EVENTS[event_id] = _synthetic_event(event_id, entries[event_id])
 	return original_events
@@ -124,6 +130,47 @@ func run() -> void:
 
 		GameState.state["barometer"]["economic"] = "boom"
 		assert_eq(DistrictDeck.eligible_entries("city").size(), 1, "eligible once the section matches")
+
+		GameData.EVENTS = original_events
+	)
+
+	# ── requireUnclaimedSiteInDistrict (D5 #13, rival_prospector) ────────
+
+	run_case("requireUnclaimedSiteInDistrict_excludes_the_entry_with_nothing_unclaimed", func():
+		GameState.reset()
+		var original_events := _install_deck({
+			"e_needs_site": { "district": "any", "weight": 1, "excludeIfFlag": null, "barometerState": null, "requireUnclaimedSiteInDistrict": true },
+		})
+
+		assert_eq(DistrictDeck.eligible_entries("camden").size(), 0, "no sites at all in camden — excluded")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("requireUnclaimedSiteInDistrict_includes_the_entry_once_an_unclaimed_site_exists", func():
+		GameState.reset()
+		var original_events := _install_deck({
+			"e_needs_site": { "district": "any", "weight": 1, "excludeIfFlag": null, "barometerState": null, "requireUnclaimedSiteInDistrict": true },
+		})
+		GameState.state["world"]["sites"] = [{
+			"id": "s1", "district": "camden", "tier": "fair", "oreType": "physics",
+			"bonuses": [], "discoveredDay": 1, "claimed": false, "npcClaimed": false,
+			"npcClaimedDay": null, "hasNaturalVein": false,
+		}]
+
+		assert_eq(DistrictDeck.eligible_entries("camden").size(), 1, "camden now has an unclaimed site — eligible")
+		assert_eq(DistrictDeck.eligible_entries("hampstead").size(), 0, "the site is in camden, not hampstead — still excluded there")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("requireUnclaimedSiteInDistrict_defaults_false_when_omitted", func():
+		GameState.reset()
+		var original_events := _install_deck({
+			"e_no_site_requirement": { "district": "any", "weight": 1, "excludeIfFlag": null, "barometerState": null },
+		})
+
+		assert_eq(DistrictDeck.eligible_entries("camden").size(), 1, "omitting the field entirely must not gate the entry")
 
 		GameData.EVENTS = original_events
 	)
@@ -272,6 +319,7 @@ func run() -> void:
 
 	run_case("maybe_trigger_is_a_no_op_with_an_empty_pool_even_on_a_hit", func():
 		GameState.reset()
+		var original_events := _install_deck({})  # strips real content too — a genuinely empty pool
 		var seed := -1
 		for candidate in range(200):
 			GameState.reset()
@@ -286,4 +334,6 @@ func run() -> void:
 		DistrictDeck.maybe_trigger("shoreditch")  # no deck entries installed at all
 		assert_eq(GameState.state["event"], null, "nothing eligible -> no event starts, even on a chance hit")
 		assert_eq(GameState.state["world"]["recentEvents"], [], "nothing recorded when nothing was drawn")
+
+		GameData.EVENTS = original_events
 	)

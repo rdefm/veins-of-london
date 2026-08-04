@@ -76,6 +76,13 @@ static func roll_tier(district_id: String) -> String:
 	var district: Dictionary = GameData.DISTRICTS[district_id]
 	var skill: int = GameState.state["player"]["cultivatingSkill"]
 	var weights := compute_tier_weights(district.get("siteQualityMod", 0.0), skill)
+
+	# busker_greenwich (M1-LONDON D5): a one-shot +10 rich weight tip-off,
+	# consumed on the very next Greenwich prospect regardless of outcome.
+	if district_id == "greenwich" and GameState.state["flags"].get("greenwichTipOff", false):
+		weights["rich"] += 10
+		GameState.state["flags"]["greenwichTipOff"] = false
+
 	return roll_tier_from_weights(weights)
 
 
@@ -163,22 +170,28 @@ static func prospect(district_id: String) -> Dictionary:
 	return { "ok": true, "district": district_id, "site": site }
 
 
-static func _worst_unclaimed_site(district_id: String) -> Variant:
+# Shared by _worst_unclaimed_site() and best_unclaimed_site(): every truly-
+# unclaimed site in the district, sorted tier-first (direction per
+# want_best), oldest-breaks-ties either way. Callers just take index 0.
+static func _unclaimed_sites_by_tier(district_id: String, want_best: bool) -> Array:
 	var unclaimed: Array = []
 	for site in sites_in_district(district_id):
 		if not site["claimed"] and not site["npcClaimed"]:
 			unclaimed.append(site)
-	if unclaimed.is_empty():
-		return null
 
 	unclaimed.sort_custom(func(a, b):
 		var tier_a: int = GameData.SITE_TIER_ORDER.find(a["tier"])
 		var tier_b: int = GameData.SITE_TIER_ORDER.find(b["tier"])
 		if tier_a != tier_b:
-			return tier_a < tier_b
+			return tier_a > tier_b if want_best else tier_a < tier_b
 		return a["discoveredDay"] < b["discoveredDay"]
 	)
-	return unclaimed[0]
+	return unclaimed
+
+
+static func _worst_unclaimed_site(district_id: String) -> Variant:
+	var sorted := _unclaimed_sites_by_tier(district_id, false)
+	return sorted[0] if not sorted.is_empty() else null
 
 
 # Deletes the district's worst truly-unclaimed site and rolls a fresh one
@@ -287,6 +300,25 @@ static func npc_claim_chance(tier: String, age_days: int) -> float:
 
 static func npc_abandonment_chance(age_days_since_npc_claim: int) -> float:
 	return clampf(0.05 + 0.01 * age_days_since_npc_claim, 0.0, 0.15)
+
+
+# rival_prospector (M1-LONDON D5 #13): the district's best (highest-tier,
+# oldest-breaks-ties) unclaimed site, or null if the district has none.
+static func best_unclaimed_site(district_id: String) -> Variant:
+	var sorted := _unclaimed_sites_by_tier(district_id, true)
+	return sorted[0] if not sorted.is_empty() else null
+
+
+# rival_prospector's "refuse to pay" outcome: NPC-claims the district's best
+# unclaimed site outright (no roll — this is a deterministic consequence,
+# not the daily-tick's probabilistic NPC-claiming). A no-op if the district
+# has no unclaimed site to claim.
+static func npc_claim_best_unclaimed_site(district_id: String) -> void:
+	var site = best_unclaimed_site(district_id)
+	if site == null:
+		return
+	site["npcClaimed"] = true
+	site["npcClaimedDay"] = GameState.state["world"]["day"]
 
 
 # Called from time_system.gd's daily_tick, step ⑤b. Each unclaimed,

@@ -1,0 +1,10 @@
+{
+  "id": "roman_brick",
+  "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "Half-buried in the churned ground of wherever you're standing is a brick — old, red, unmistakably Roman — in a spot with no plausible Roman history whatsoever." },
+    { "type": "narration", "label": null, "speaker": null, "text": "You've seen one of these before. You didn't think anything of it then either. That's probably the point." },
+    { "type": "resolution", "label": null, "speaker": null, "text": "You leave it where it is. Whatever's underneath London doesn't need your help finding daylight." }
+  ],
+  "on_complete": [{ "op": "add", "path": "flags.oddities", "value": 1 }],
+  "deck": { "district": "any", "weight": 1, "excludeIfFlag": null, "barometerState": null }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "pigeon_omen",
+  "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "A pigeon lands directly on your bag, considers you with the flat, ancient judgement pigeons reserve for people who look like they're up to something, and doesn't move." },
+    { "type": "narration", "label": null, "speaker": null, "text": "You've heard the stories — fate-types collect near omens the way flies collect near anything else. You have no idea if this counts. The pigeon, notably, does not clarify." },
+    { "type": "resolution", "label": null, "speaker": null, "text": "It flies off eventually, satisfied or bored, impossible to say which. You feel, absurdly, like your next piece of luck has already been decided somewhere above you." }
+  ],
+  "on_complete": [{ "op": "set_flag", "flag": "luckyOmen", "value": true }],
+  "deck": { "district": "any", "weight": 1, "excludeIfFlag": null, "barometerState": null }
+}

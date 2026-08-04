@@ -1,0 +1,29 @@
+{
+  "id": "busker_greenwich",
+  "cards": [
+    { "type": "narration", "label": "Greenwich Market", "speaker": null, "text": "By the market, a busker inflates himself explaining the finer points of the zero meridian to a strictly disinterested crowd. He clocks you before you clock him." },
+    { "type": "speaker", "label": null, "speaker": "Busker", "text": "\"You look like someone who deals in the good stuff. I know things — where the Guild's been quiet lately. Worth twenty quid to a man who knows how to spend it.\"" },
+    {
+      "type": "choice", "label": null, "speaker": null, "text": "He's either got something, or he's very good at pretending.",
+      "choices": [
+        {
+          "label": "Give him £20",
+          "effects": [
+            { "op": "add", "path": "player.cash", "value": -20 },
+            { "op": "add_ore", "type": "time", "qty": 1 },
+            { "op": "set_flag", "flag": "greenwichTipOff", "value": true }
+          ],
+          "result_text": "He pockets the note and taps the side of his nose. \"Try the docks end. Tell no one where you heard it.\" He presses a scrap of foil into your hand, smeared with what's unmistakably time calc, like a receipt."
+        },
+        {
+          "label": "Keep walking",
+          "effects": [],
+          "result_text": "You keep walking. He shouts something about the Meridian after you. You don't catch it, and don't ask him to repeat it."
+        }
+      ]
+    },
+    { "type": "resolution", "label": null, "speaker": null, "text": "Whether or not he was lying, Greenwich feels marginally more interesting than it did five minutes ago." }
+  ],
+  "on_complete": [],
+  "deck": { "district": "greenwich", "weight": 1, "excludeIfFlag": null, "barometerState": null }
+}
