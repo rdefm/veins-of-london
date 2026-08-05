@@ -62,6 +62,14 @@ var _pins_layer: Node2D
 var _labels_layer: Node2D
 var _halos: Dictionary = {}  # veinId -> ChargeHalo
 
+# T14 asset production: a small tiled placeholder for N6's paper texture
+# (see systems/paper_texture.gd), and whether the bundled engine font
+# actually covers the 5 ore symbols — checked once here rather than per
+# stop-draw, since Font.has_char() involves the same font-data lookup
+# whether cached or not, and this project has no dynamic font swapping.
+var _paper_tile: ImageTexture
+var _ore_font_covers_symbols: bool
+
 # Stops partitioned by kind (computed once per rebuild, shared by
 # _draw_lines/_draw_stops/_rebuild_halos instead of each re-walking +
 # re-matching GameData.DISTRICTS' full stop set).
@@ -80,6 +88,9 @@ func _ready() -> void:
 	var map_size: Array = GameData.MAP_LAYOUT["mapSize"]
 	custom_minimum_size = Vector2(map_size[0], map_size[1])
 	size = custom_minimum_size
+
+	_paper_tile = PaperTexture.generate_tile_texture()
+	_ore_font_covers_symbols = OreGlyphs.font_covers_all_symbols(ThemeDB.fallback_font)
 
 	_halo_layer = Node2D.new()
 	add_child(_halo_layer)
@@ -149,8 +160,11 @@ func _draw() -> void:
 # ── paper / zones / river ───────────────────────────────────────────────
 
 func _draw_paper() -> void:
-	# Placeholder per N6 — the real paper texture is ticket 14's asset.
-	draw_rect(Rect2(Vector2.ZERO, size), PAPER_COLOUR, true)
+	# N6 asset 1 (see systems/paper_texture.gd) — a small noise tile drawn
+	# tiled across the full background, standing in for the real 1536x2048
+	# aged-cream PNG per N6's own "procedural noise ... placeholder
+	# acceptable" allowance.
+	draw_texture_rect(_paper_tile, Rect2(Vector2.ZERO, size), true)
 
 
 func _draw_zones() -> void:
@@ -227,7 +241,7 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 
 	draw_circle(pos, VEIN_STOP_RADIUS, _faded(PAPER_COLOUR, alpha))
 	draw_arc(pos, VEIN_STOP_RADIUS, 0, TAU, 32, _faded(ring_colour, alpha), ring_width, true)
-	_draw_centered_text(pos, ore["symbol"], 11, _faded(Color(ore["colour"]), alpha))
+	_draw_ore_symbol(pos, vein["oreType"], ore, alpha)
 
 	var level_scale := MapStyle.badge_scale(filter_mode, "level")
 	var countdown = MapStyle.countdown_label(filter_mode, charged, _blocks_until_charged(vein))
@@ -265,12 +279,26 @@ func _draw_unclaimed_stop(stop: Dictionary) -> void:
 	_draw_tick_mark(pos, _faded(MUTED_COLOUR, alpha))
 	if double_tick:
 		_draw_tick_mark(pos + Vector2(6, 0), _faded(MUTED_COLOUR, alpha))
-	_draw_centered_text(pos + Vector2(16, 0), ore["symbol"], 11, _faded(Color(ore["colour"]), alpha))
+	_draw_ore_symbol(pos + Vector2(16, 0), site["oreType"], ore, alpha)
 
 
 func _draw_tick_mark(pos: Vector2, colour: Color) -> void:
 	var rect := Rect2(pos - Vector2(TICK_WIDTH / 2.0, TICK_LENGTH / 2.0), Vector2(TICK_WIDTH, TICK_LENGTH))
 	draw_rect(rect, colour, true)
+
+
+# N6 asset 3: the bundled engine font has no glyph for any of the 5 ore
+# symbols (see systems/ore_glyphs.gd) — drawing ore["symbol"] as text
+# renders blank tofu, so this falls back to OreGlyphs' hand-drawn vector
+# glyphs whenever the font check (cached in _ready(), see
+# _ore_font_covers_symbols) fails, and only uses the real text glyph if a
+# future engine/font change ever starts covering them.
+func _draw_ore_symbol(pos: Vector2, ore_type: String, ore: Dictionary, alpha: float) -> void:
+	var colour := _faded(Color(ore["colour"]), alpha)
+	if _ore_font_covers_symbols:
+		_draw_centered_text(pos, ore["symbol"], 11, colour)
+	else:
+		OreGlyphs.draw(self, pos, ore_type, colour)
 
 
 # ── badges ───────────────────────────────────────────────────────────────
@@ -294,7 +322,7 @@ func _draw_security_padlock(pos: Vector2, security: String, enlarge: float, alph
 		colour = GUARDED_COLOUR
 
 	var badge_pos := pos + CLOCK_8 * BADGE_OFFSET
-	_draw_padlock_shape(self, badge_pos, _faded(colour, alpha), enlarge)
+	Icons.draw_padlock(self, badge_pos, _faded(colour, alpha), enlarge)
 
 
 func _draw_dotted_ring(pos: Vector2, radius: float, colour: Color) -> void:
@@ -302,14 +330,6 @@ func _draw_dotted_ring(pos: Vector2, radius: float, colour: Color) -> void:
 		var a0 := TAU * i / DOTTED_RING_SEGMENTS
 		var a1 := a0 + TAU / DOTTED_RING_SEGMENTS * DOTTED_RING_DASH_FRACTION
 		draw_arc(pos, radius, a0, a1, 4, colour, 2.0, true)
-
-
-# Shared by the security padlock badge and the (locked) Soho market pin —
-# a tiny lock body + shackle, drawn wherever `target` is currently drawing.
-func _draw_padlock_shape(target: CanvasItem, center: Vector2, colour: Color, enlarge: float = 1.0) -> void:
-	var body := Rect2(center + Vector2(-3, -1) * enlarge, Vector2(6, 5) * enlarge)
-	target.draw_rect(body, colour, true)
-	target.draw_arc(center + Vector2(0, -1) * enlarge, 3.0 * enlarge, PI, TAU, 8, colour, 1.5 * enlarge, true)
 
 
 # ── pins (N2/N4/N5) ───────────────────────────────────────────────────────
@@ -341,39 +361,42 @@ func _draw_pins_layer(target: CanvasItem) -> void:
 	for pin in _pins:
 		match pin["kind"]:
 			"home":
-				_draw_pin_marker(target, pin["position"], PLAYER_COLOUR, "⌂")
+				_draw_home_pin(target, pin["position"])
 			"contact":
+				# "✉" (U+2709) has the same tofu problem the ore symbols
+				# and the old "⌂" home glyph had — confirmed the same way
+				# (font.has_char() is false on the bundled engine font).
+				# Not fixed here: "envelope"/"message" isn't one of N6's 8
+				# icons, and N6 says no art beyond that list — flagged for
+				# a follow-up decision (reuse an existing icon, e.g.
+				# "phone," or add a 9th asset) rather than guessed here.
 				_draw_pin_marker(target, pin["position"], WARDED_COLOUR, "✉")
 			"market":
 				_draw_market_pin(target, pin["position"])
 
 
-# Classic teardrop marker (circle "head" + triangular point down to `pos`)
-# — a generic points-of-interest glyph per N6 ("draw as simple _draw()
-# polygons if no pack is available"); ticket 14 swaps in real icon assets.
-# Returns the head's centre so callers can layer a glyph/icon on top.
-func _draw_pin_marker_shape(target: CanvasItem, pos: Vector2, colour: Color) -> Vector2:
-	var head := pos + Vector2(0, -PIN_HEAD_RADIUS * 1.6)
-	target.draw_colored_polygon(PackedVector2Array([
-		head + Vector2(-PIN_HEAD_RADIUS * 0.7, PIN_HEAD_RADIUS * 0.6),
-		head + Vector2(PIN_HEAD_RADIUS * 0.7, PIN_HEAD_RADIUS * 0.6),
-		pos,
-	]), colour)
-	target.draw_circle(head, PIN_HEAD_RADIUS, colour)
-	return head
+# The generic teardrop marker (circle "head" + triangular point) every pin
+# sits on is N6's "pin" icon — Icons.draw_pin, T14's asset module (moved
+# out of this file; unchanged shape, still returns the head's centre so
+# callers can layer a glyph/icon on top).
+func _draw_home_pin(target: CanvasItem, pos: Vector2) -> void:
+	var head := Icons.draw_pin(target, pos, PLAYER_COLOUR)
+	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, PAPER_COLOUR)
+	Icons.draw_home(target, head, PLAYER_COLOUR, 0.5)
 
 
 func _draw_pin_marker(target: CanvasItem, pos: Vector2, colour: Color, glyph: String) -> void:
-	var head := _draw_pin_marker_shape(target, pos, colour)
+	var head := Icons.draw_pin(target, pos, colour)
 	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, PAPER_COLOUR)
 	_draw_centered_text(head, glyph, 10, colour, target)
 
 
 func _draw_market_pin(target: CanvasItem, pos: Vector2) -> void:
 	# N2/N4: padlocked until M4 — muted/grey, padlock glyph instead of a
-	# symbol, no tap action (see _activate_pin).
-	var head := _draw_pin_marker_shape(target, pos, MUTED_COLOUR)
-	_draw_padlock_shape(target, head, PAPER_COLOUR, 1.3)
+	# symbol, no tap action (see _activate_pin). Icons.draw_market exists
+	# (T14) for M4's unlock but isn't drawn here on purpose.
+	var head := Icons.draw_pin(target, pos, MUTED_COLOUR)
+	Icons.draw_padlock(target, head, PAPER_COLOUR, 1.3)
 
 
 # ── labels ───────────────────────────────────────────────────────────────
