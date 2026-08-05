@@ -66,9 +66,10 @@ func _force_win_active_combat() -> void:
 
 # Shared by every case below: new game through the fixed tutorial beats
 # (as T13) plus M1-LONDON D6's archie_cultivation, which is what actually
-# flips cultivationTutorialSeen — real play triggers it from map.gd's
-# first qualifying Map-tab visit; driving it card-by-card here is the
-# same idiom every other tutorial event in this file already uses.
+# flips cultivationTutorialSeen — real play triggers it by tapping the
+# Whitechapel contact pin on the Network map (M1.5 T13, systems/map_pins.gd);
+# driving it card-by-card here is the same idiom every other tutorial event
+# in this file already uses.
 func _play_through_tutorial_and_unlock_prospecting() -> void:
 	for event_id in ["intro", "buyer", "james_meeting", "archie_craft_chat"]:
 		Events.start_event(event_id)

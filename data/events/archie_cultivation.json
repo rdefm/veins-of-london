@@ -1,5 +1,10 @@
 {
   "id": "archie_cultivation",
+  "pin": {
+    "district": "whitechapel",
+    "showWhenFlagsTrue": ["archiePartnerSeen"],
+    "showWhenFlagsFalse": ["cultivationTutorialSeen"]
+  },
   "cards": [
     { "type": "narration", "label": "Whitechapel — behind the old brewery", "speaker": null, "text": "The vein is exactly where the pin said: a hairline crack in old brick, humming faintly at a frequency you'd ignore if you didn't already know what you were listening for. Archie's waiting with his hands in his pockets, doing an impression of a man who has never once stood around looking impatient." },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. It's yours now, so you should know how it actually works, not just what the app tells you.\"" },

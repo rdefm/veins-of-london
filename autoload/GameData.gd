@@ -184,7 +184,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), errors)
 	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
-	_validate_events(t.get("events", {}), errors)
+	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
 	_validate_sms(t.get("sms_threads", {}), errors)
 
 	return errors
@@ -481,7 +481,7 @@ const VALID_EFFECT_OPS: Array[String] = [
 ]
 
 
-func _validate_events(events: Dictionary, errors: Array[String]) -> void:
+func _validate_events(events: Dictionary, districts: Dictionary, errors: Array[String]) -> void:
 	for expected_id in EVENT_IDS + DISTRICT_EVENT_IDS:
 		if not events.has(expected_id):
 			errors.append("events: missing event file '%s'" % expected_id)
@@ -504,10 +504,24 @@ func _validate_events(events: Dictionary, errors: Array[String]) -> void:
 			_validate_deck_entry(entry["deck"], "events.%s.deck" % key, errors)
 			if not DISTRICT_EVENT_IDS.has(key):
 				errors.append("events.%s: has a 'deck' sub-object but is not registered in GameData.DISTRICT_EVENT_IDS — it would silently join the district-deck draw pool" % key)
+		if entry.has("pin"):
+			_validate_event_pin(entry["pin"], districts, "events.%s.pin" % key, errors)
 
 	for expected_id in DISTRICT_EVENT_IDS:
 		if events.has(expected_id) and not events[expected_id].has("deck"):
 			errors.append("events.%s: registered in GameData.DISTRICT_EVENT_IDS but missing its 'deck' sub-object" % expected_id)
+
+
+# M1.5 N2's contact pin: { district, showWhenFlagsTrue:[flag,...],
+# showWhenFlagsFalse:[flag,...] } — read by systems/map_pins.gd to decide
+# whether a pin for this event is currently showing on the Network map.
+func _validate_event_pin(pin: Dictionary, districts: Dictionary, context: String, errors: Array[String]) -> void:
+	_require_keys(pin, ["district", "showWhenFlagsTrue", "showWhenFlagsFalse"], context, errors)
+	if typeof(pin) != TYPE_DICTIONARY:
+		return
+	var district: Variant = pin.get("district")
+	if not districts.is_empty() and not districts.has(district):
+		errors.append("%s: district '%s' is not a known district" % [context, district])
 
 
 # M1-LONDON D5's `choices` card type: { type:"choice", text,

@@ -68,6 +68,8 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_james_job_short(data)
 		"james_job_complete":
 			_build_james_job_complete(data)
+		"network_reference":
+			_build_network_reference()
 		_:
 			_card_content.add_child(UI.heading(type_id))
 			_card_content.add_child(UI.label("…"))
@@ -222,6 +224,38 @@ func _build_james_job_complete(data: Dictionary) -> void:
 	_card_content.add_child(UI.label("\"Adequate work. Prompt enough.\" He counts out the money without ceremony."))
 	_card_content.add_child(UI.label("+£%d" % data.get("earned", 0)))
 	_card_content.add_child(UI.button("Good.", func(): Modal.close()))
+
+
+# M1.5 N5's legend button ("?" on the filter chip row, map_controls.gd) ->
+# "Network Reference": the glyph grammar, N2, plain-listed. PROSE-REVIEW:
+# every string in this function — the flavour line and all the row
+# descriptions below — is new prose, drafted per CONTENT-GUIDE.md's tone
+# bible, not yet human-audited.
+func _build_network_reference() -> void:
+	_card_content.add_child(UI.heading("Network Reference"))
+	_card_content.add_child(UI.muted_label("The lines are money. The dots are where it's coming from — or where someone beat you to it."))
+	_card_content.add_child(_legend_row("Amber line", "Your line — stops joined in claim order."))
+	_card_content.add_child(_legend_row("Coloured line", "A faction's line, in their colour."))
+	_card_content.add_child(_legend_row("Grey stub", "Someone else's claim — not yours, not connected to anything."))
+	_card_content.add_child(_legend_row("Ringed dot + symbol", "Your vein. The symbol shows the ore."))
+	_card_content.add_child(_legend_row("Tick mark", "Unclaimed site. Double tick — richer ground."))
+	_card_content.add_child(_legend_row("Filled grey dot", "Claimed. Not by you."))
+	_card_content.add_child(_legend_row("Amber halo", "Charged — ready to harvest."))
+	_card_content.add_child(_legend_row("Numeral badge", "Vein level."))
+	_card_content.add_child(_legend_row("Padlock", "Security tier — colour shows how well-warded."))
+	_card_content.add_child(_legend_row("Zone tint", "A faction's presence in the district."))
+	_card_content.add_child(_legend_row("⌂ pin", "Home. Taps through to HQ."))
+	_card_content.add_child(_legend_row("✉ pin", "Someone's waiting on you there."))
+	_card_content.add_child(_legend_row("Padlocked pin", "The Soho market. Not yet."))
+	_card_content.add_child(_legend_row("Amber ring", "Where you are right now."))
+	_card_content.add_child(UI.button("Close", func(): Modal.close()))
+
+
+func _legend_row(glyph_label: String, description: String) -> Control:
+	var row := UI.vbox(2)
+	row.add_child(UI.label(glyph_label))
+	row.add_child(UI.muted_label(description))
+	return row
 
 
 # Item-use during combat used to be a modal here ("combat_items"); D4.4's

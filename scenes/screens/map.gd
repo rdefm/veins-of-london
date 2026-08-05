@@ -16,15 +16,12 @@ var _sheet_layer: Control
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 
-	# M1-LONDON D6: "trigger on first Map-tab visit after archiePartnerSeen."
-	# Checked once per visit, same pattern as home.gd's home_raid_intro
-	# trigger — starting the event immediately navigates away, and this
-	# node is about to be freed by Main.gd's screen swap.
-	var flags: Dictionary = GameState.state["flags"]
-	if flags["archiePartnerSeen"] and not flags["cultivationTutorialSeen"]:
-		Events.start_event("archie_cultivation")
-		return
-
+	# M1-LONDON D6's archie_cultivation used to auto-fire here on first
+	# Map-tab visit after archiePartnerSeen. M1.5 T13 replaces that with a
+	# contact pin on the Network map (systems/map_pins.gd) — the event now
+	# starts only when that pin is tapped, matching N2's "contact pin when
+	# an event awaits at an address" for any future pin-triggered event,
+	# not just this one.
 	_content = UI.screen_body(self)
 
 	_sheet_layer = Control.new()

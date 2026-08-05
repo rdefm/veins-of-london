@@ -113,6 +113,17 @@ func run() -> void:
 		assert_true(found, "camden siteCap 4 needs >= 6 stopSlots — 2 should fail validation")
 	)
 
+	run_case("corrupt_fixture_bad_event_pin_district_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["events"]["archie_cultivation"]["pin"]["district"] = "not_a_real_district"
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("archie_cultivation.pin") and e.contains("not_a_real_district"):
+				found = true
+		assert_true(found, "an event pin pointing at an unknown district should be flagged")
+	)
+
 	run_case("spot_check_values", func():
 		assert_eq(GameData.ORE_TYPES["fate"]["basePrice"], 90, "fate basePrice")
 		assert_eq(GameData.ORE_TYPES["emotion"]["symbol"], "❋", "emotion symbol")

@@ -442,9 +442,9 @@ func run() -> void:
 		assert_true(not granted_site["npcClaimed"], "granted site: not npcClaimed")
 		assert_eq(granted["siteId"], granted_site["id"], "granted vein: siteId links back to the granted site")
 
-		# 5b. Cultivating tutorial (D6) — map.gd's _ready() fires this on the
-		# first Map-tab visit after archiePartnerSeen; drive it directly here
-		# since this test has no screen tree.
+		# 5b. Cultivating tutorial (D6) — real play starts this by tapping its
+		# Network-map contact pin (M1.5 T13, systems/map_pins.gd); drive it
+		# directly here since this test has no screen tree.
 		assert_true(GameState.state["flags"]["archiePartnerSeen"] and not GameState.state["flags"]["cultivationTutorialSeen"])
 		var archie_relation_before_cultivation: int = GameState.state["contacts"]["archie"]["relation"]
 		var dev_bar_before: int = granted["devBar"]
