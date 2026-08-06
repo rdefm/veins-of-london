@@ -28,7 +28,13 @@ func _ready() -> void:
 	scroll.custom_minimum_size = Vector2(330, 0)
 	_card.add_child(scroll)
 
+	# Anchors are ignored for a ScrollContainer's child, and without
+	# SIZE_EXPAND_FILL it shrinks to its content's minimum width instead of
+	# scroll's 330px — the same failure mode UI.screen_body()'s own comment
+	# documents (a word-wrapped Label's minimum width collapses near 0,
+	# breaking mid-word), and the same fix bag_drawer.gd needed.
 	_card_content = UI.vbox(8)
+	_card_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_card_content)
 
 	EventBus.state_changed.connect(_refresh)

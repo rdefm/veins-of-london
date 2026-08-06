@@ -209,8 +209,12 @@ static func format_block_cost_label(action_label: String, travel_blocks: int, ac
 	return "%s — %s" % [action_label, block_cost_suffix(travel_blocks, action_blocks)]
 
 
+# TouchScrollContainer, not a bare ScrollContainer — see its own class
+# comment: vanilla ScrollContainer has no touch/finger drag-to-scroll, only
+# this subclass's manual handling gives every screen built through this
+# (i.e. nearly all of them, via screen_body()) that behaviour.
 static func scroll_container() -> ScrollContainer:
-	var sc := ScrollContainer.new()
+	var sc := TouchScrollContainer.new()
 	anchor_full_rect(sc)
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	return sc

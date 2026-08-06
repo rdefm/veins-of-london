@@ -42,7 +42,14 @@ func _ready() -> void:
 	var scroll := UI.scroll_container()
 	card.add_child(scroll)
 
+	# Anchors are ignored for a ScrollContainer's child, and without
+	# SIZE_EXPAND_FILL it shrinks to its content's minimum width instead of
+	# the drawer's — the same failure mode UI.screen_body()'s own comment
+	# documents (a word-wrapped Label's minimum width collapses near 0,
+	# breaking mid-word, e.g. "Orichalchum" -> "Orichalchu"/"m: 20"), just
+	# not worked around here until a real device showed it.
 	_content = UI.vbox(8)
+	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_content)
 
 	EventBus.state_changed.connect(_refresh)

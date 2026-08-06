@@ -11,6 +11,25 @@ extends Control
 # what actually drops this + MapCanvas into the Map tab; until then this
 # Control isn't reachable from any screen (same situation ticket 12 left
 # MapCanvas in).
+#
+# _get_minimum_size() below matters because map.gd adds this Control as a
+# direct child of a VBoxContainer: a plain Control (this one) never
+# auto-reports its children's size to a Container parent the way another
+# Container would, so without the override the VBoxContainer sizes this row
+# at (width, 0) and the next sibling row lands directly on top of the chips
+# (found via on-device playtest, not headless — nothing here fails a
+# check-only pass or a test). It only reports HEIGHT, not _chip_row's full
+# combined width: 5 filter chips + the "?" button don't fit a phone's width,
+# and reporting that combined width would force this whole column to
+# overflow the screen horizontally (also found via on-device playtest — the
+# fix for that overflow is _scroll below, not a wider report here). Instead
+# this Control takes whatever width its VBoxContainer parent offers
+# (default SIZE_FILL), and _scroll — a horizontal-only TouchScrollContainer
+# filling this Control's rect — lets the wider chip row scroll sideways
+# within it. anchor_full_rect(_scroll) is what lets it actually fill
+# whatever rect the VBoxContainer ends up giving this Control based on that
+# reported height — anchors are only ignored for a Container's direct
+# children, and _scroll's parent is this plain Control, not a Container.
 
 const FILTER_LABELS := {
 	"ownership": "Ownership",
@@ -24,13 +43,28 @@ var map_canvas: MapCanvas
 
 var _filter_mode: String = "ownership"
 var _chip_row: HBoxContainer
+var _scroll: TouchScrollContainer
 
 
 func _ready() -> void:
 	UI.anchor_top_wide(self)
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	_scroll = TouchScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	UI.anchor_full_rect(_scroll)
+	add_child(_scroll)
+
 	_chip_row = UI.hbox(6)
-	add_child(_chip_row)
+	_scroll.add_child(_chip_row)
 	_rebuild()
+
+
+func _get_minimum_size() -> Vector2:
+	if _chip_row == null:
+		return Vector2.ZERO
+	return Vector2(0, _chip_row.get_combined_minimum_size().y)
 
 
 func _rebuild() -> void:
@@ -43,6 +77,7 @@ func _rebuild() -> void:
 		_chip_row.add_child(b)
 
 	_chip_row.add_child(UI.button("?", func(): Modal.open("network_reference")))
+	update_minimum_size()
 
 
 func _select_filter(mode: String) -> void:

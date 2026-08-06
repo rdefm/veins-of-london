@@ -41,9 +41,21 @@ extends Control
 # _draw() calls to match, and the three child Node2D layers get the same
 # factor on their own `scale` (Node2D.scale, unlike Control.scale here, is a
 # real transform their child draws already respect). Zoom math (clamping,
-# step, screen->logical conversion for hit-testing) lives in
-# systems/map_zoom.gd, pure and unit-tested, same split as the rest of this
-# file's system helpers.
+# screen->logical conversion for hit-testing) lives in systems/map_zoom.gd,
+# pure and unit-tested, same split as the rest of this file's system
+# helpers.
+#
+# Post-T15 fix 2: zoom is driven by a real two-finger pinch (_on_screen_drag
+# with 2 active touches — see _update_pinch), not a button row (an earlier
+# +/- version overlapped MapControls' filter chips and wasn't the gesture a
+# phone user expects anyway). This also fixed a second on-device bug: a bare
+# InputEventScreenTouch(pressed) used to call _handle_tap() immediately on
+# touch-DOWN, before the OS/browser could tell whether the gesture was a tap,
+# a pan, or the start of a pinch — so swiping to scroll or pinching to zoom
+# would also fire whatever was under the first finger's landing point (a
+# site sheet or district panel popping open mid-swipe). Tap detection now
+# waits for touch-UP and only fires if the release stayed within
+# TAP_MOVE_TOLERANCE of the press and no second finger ever joined.
 
 const PAPER_COLOUR := Color(0.941176, 0.925490, 0.886275)      # --paper #f0ece2
 const RIVER_COLOUR := Color(0.831373, 0.811765, 0.768627, 0.6)  # #d4cfc4 @ 60%
@@ -78,6 +90,11 @@ const HERE_RING_RADIUS := 26.0
 const DOTTED_RING_SEGMENTS := 12
 const DOTTED_RING_DASH_FRACTION := 0.5
 
+# ── input (tap vs. pan/pinch disambiguation — see class comment) ─────────
+# Screen px, not logical map px: this is a UX judgment about finger wobble,
+# unrelated to zoom_level.
+const TAP_MOVE_TOLERANCE := 16.0
+
 var filter_mode: String = "ownership"
 var zoom_level: float = MapZoom.DEFAULT
 
@@ -108,6 +125,16 @@ var _unclaimed_stops: Array = []
 # it no action), so it's tracked separately.
 var _pins: Array = []
 var _here_position: Vector2
+
+# ── touch state (tap vs. pan/pinch — see class comment) ──────────────────
+var _touches: Dictionary = {}  # touch index (int) -> current screen-space Vector2
+# Which touch (or -1 for mouse) is still a tap candidate; -100 means "none
+# — a second finger joined, or this touch/mouse drifted past tolerance".
+var _tap_index: int = -100
+var _tap_start_pos: Vector2
+# <= 0 means "no pinch in progress"; set on the second finger landing.
+var _pinch_start_distance: float = -1.0
+var _pinch_start_zoom: float = 1.0
 
 
 func _ready() -> void:
@@ -140,14 +167,6 @@ func _ready() -> void:
 
 
 # ── zoom ─────────────────────────────────────────────────────────────────
-
-func zoom_in() -> void:
-	_set_zoom(MapZoom.zoomed_in(zoom_level))
-
-
-func zoom_out() -> void:
-	_set_zoom(MapZoom.zoomed_out(zoom_level))
-
 
 func _set_zoom(new_zoom: float) -> void:
 	if is_equal_approx(new_zoom, zoom_level):
@@ -499,18 +518,92 @@ func _faded(colour: Color, alpha_mult: float) -> Color:
 # ── input (N5: pin, then stop/tick, then district label/zone) ───────────
 
 func _gui_input(event: InputEvent) -> void:
-	var tap_pos: Vector2
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		tap_pos = event.position
-	elif event is InputEventScreenTouch and event.pressed:
-		tap_pos = event.position
-	else:
+	if event is InputEventScreenTouch:
+		_on_screen_touch(event)
+	elif event is InputEventScreenDrag:
+		_on_screen_drag(event)
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		_on_mouse_button(event)
+
+
+# Touch-down never taps immediately (that was the bug — see class comment):
+# it only ever records the touch and, for a first finger, marks it as a tap
+# *candidate*. Whether it actually becomes a tap is decided on release in
+# _on_screen_touch's pressed=false branch, once we know the gesture never
+# moved and no second finger joined.
+func _on_screen_touch(event: InputEventScreenTouch) -> void:
+	if event.pressed:
+		_touches[event.index] = event.position
+		if _touches.size() == 1:
+			_tap_index = event.index
+			_tap_start_pos = event.position
+		elif _touches.size() == 2:
+			_tap_index = -100  # a second finger landing rules out a tap
+			_start_pinch()
 		return
-	# event.position arrives in this Control's local (zoomed) space; every
-	# tap target below (_pins, MapHitTest) is keyed on the same logical map
-	# px the drawing data uses, so it's converted back before any of them
-	# see it.
-	_handle_tap(MapZoom.to_logical(tap_pos, zoom_level))
+
+	var was_tap := (
+		_tap_index == event.index
+		and event.position.distance_to(_tap_start_pos) <= TAP_MOVE_TOLERANCE
+	)
+	_touches.erase(event.index)
+	if _touches.size() < 2:
+		_pinch_start_distance = -1.0
+	if was_tap:
+		_tap_index = -100
+		# event.position arrives in this Control's local (zoomed) space;
+		# every tap target below (_pins, MapHitTest) is keyed on the same
+		# logical map px the drawing data uses, so it's converted back
+		# before any of them see it.
+		_handle_tap(MapZoom.to_logical(event.position, zoom_level))
+
+
+func _on_screen_drag(event: InputEventScreenDrag) -> void:
+	if not _touches.has(event.index):
+		return
+	_touches[event.index] = event.position
+
+	if event.index == _tap_index and event.position.distance_to(_tap_start_pos) > TAP_MOVE_TOLERANCE:
+		_tap_index = -100  # moved too far to still resolve as a tap on release
+
+	if _touches.size() == 2:
+		_update_pinch()
+
+
+func _start_pinch() -> void:
+	var positions: Array = _touches.values()
+	_pinch_start_distance = maxf(positions[0].distance_to(positions[1]), 1.0)
+	_pinch_start_zoom = zoom_level
+
+
+# Scales zoom_level by how much the distance between the two touch points
+# has changed since the pinch started, re-basing continuously (rather than
+# only at pinch-start) so a finger lifting and a new one landing mid-gesture
+# doesn't cause a jump. accept_event() here specifically (not on every drag)
+# stops the ScrollContainer's own two-finger pan from also fighting the
+# pinch for the same gesture; a single-finger pan is left alone so the
+# ScrollContainer's native scrolling still works.
+func _update_pinch() -> void:
+	if _pinch_start_distance <= 0.0:
+		_start_pinch()
+		return
+	var positions: Array = _touches.values()
+	var distance: float = positions[0].distance_to(positions[1])
+	_set_zoom(MapZoom.clamp_zoom(_pinch_start_zoom * (distance / _pinch_start_distance)))
+	accept_event()
+
+
+# Desktop/browser-testing path (no touchscreen): a click that doesn't move
+# is a tap, same tolerance and same release-driven logic as touch.
+func _on_mouse_button(event: InputEventMouseButton) -> void:
+	if event.pressed:
+		_tap_index = -1
+		_tap_start_pos = event.position
+		return
+
+	if _tap_index == -1 and event.position.distance_to(_tap_start_pos) <= TAP_MOVE_TOLERANCE:
+		_handle_tap(MapZoom.to_logical(event.position, zoom_level))
+	_tap_index = -100
 
 
 func _handle_tap(tap_pos: Vector2) -> void:

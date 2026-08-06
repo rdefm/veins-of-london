@@ -1,7 +1,7 @@
 extends "res://tests/test_base.gd"
 
-# MapZoom — pure zoom-level clamping and screen->logical conversion for the
-# Network diagram's zoom in/out controls.
+# MapZoom — pure zoom-level clamping and screen->logical conversion backing
+# the Network diagram's pinch-to-zoom (see MapCanvas._update_pinch).
 
 
 func run() -> void:
@@ -15,22 +15,6 @@ func run() -> void:
 
 	run_case("clamp_zoom_ceils_at_max", func():
 		assert_almost_eq(MapZoom.clamp_zoom(5.0), MapZoom.MAX, 0.0001)
-	)
-
-	run_case("zoomed_in_adds_one_step", func():
-		assert_almost_eq(MapZoom.zoomed_in(0.5), 0.5 + MapZoom.STEP, 0.0001)
-	)
-
-	run_case("zoomed_in_clamps_at_max", func():
-		assert_almost_eq(MapZoom.zoomed_in(MapZoom.MAX), MapZoom.MAX, 0.0001)
-	)
-
-	run_case("zoomed_out_subtracts_one_step", func():
-		assert_almost_eq(MapZoom.zoomed_out(0.5), 0.5 - MapZoom.STEP, 0.0001)
-	)
-
-	run_case("zoomed_out_clamps_at_min", func():
-		assert_almost_eq(MapZoom.zoomed_out(MapZoom.MIN), MapZoom.MIN, 0.0001)
 	)
 
 	run_case("to_logical_divides_by_zoom", func():

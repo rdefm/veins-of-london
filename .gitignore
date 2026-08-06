@@ -18,3 +18,8 @@ Godot_v4.4-stable_linux.x86_64
 # Scratch/debug output
 scratch_*.log
 scratch_*.png
+
+# Local export builds (playtest artifacts) — includes a self-signed TLS
+# keypair for local HTTPS serving (Godot's Web export requires a secure
+# context), never for committing.
+/build/

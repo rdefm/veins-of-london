@@ -101,16 +101,26 @@ func _build_diagram_layer() -> Control:
 	controls.map_canvas = map_canvas
 	content.add_child(controls)
 
-	content.add_child(_build_zoom_row(map_canvas))
-
 	# N3: "map canvas is 3x the 390 column, inside a pan-capable Camera2D/
-	# ScrollContainer; pinch-zoom is a stretch goal, pan is required." A
-	# plain ScrollContainer gives free two-axis pan/drag for both mouse and
-	# touch with no extra wiring, and MapCanvas's custom_minimum_size — set
-	# from data/map_layout.json's mapSize * zoom_level, kept current by
-	# MapCanvas._apply_zoom() on every zoom change — is exactly what keeps
-	# that scrollable area's extents matching what's actually drawn.
-	var scroll := ScrollContainer.new()
+	# ScrollContainer; pinch-zoom is a stretch goal, pan is required."
+	# TouchScrollContainer (not a bare ScrollContainer — see its own class
+	# comment) is what actually makes single-finger pan work here: vanilla
+	# ScrollContainer has no touch-drag-to-scroll at all, found via
+	# on-device playtest (swiping did nothing; only the rendered scrollbar
+	# thumb responded to drag). MapCanvas's custom_minimum_size — set from
+	# data/map_layout.json's mapSize * zoom_level, kept current by
+	# MapCanvas._apply_zoom() on every zoom change — is what keeps this
+	# scrollable area's extents matching what's actually drawn. Zoom itself
+	# is driven by a real two-finger pinch on MapCanvas (see its
+	# _gui_input) rather than a button row here — an earlier +/- button
+	# version got replaced after on-device playtest found it overlapped
+	# MapControls' filter chips (MapControls wasn't reporting a real
+	# minimum size to this VBoxContainer — see its own _get_minimum_size()
+	# fix — so the next sibling row always landed on top of it) and a
+	# pinch is the expected mobile gesture anyway. MapCanvas only
+	# accept_event()s during that active pinch, so a single finger's drag
+	# still bubbles up to this TouchScrollContainer and pans normally.
+	var scroll := TouchScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
@@ -118,46 +128,6 @@ func _build_diagram_layer() -> Control:
 	content.add_child(scroll)
 
 	return layer
-
-
-# N3 only requires pan ("pinch-zoom is a stretch goal") — a plain
-# ScrollContainer at 1:1 gave that, but playtest screenshots showed it's not
-# usable on a real phone width: mapSize is 1170x1560 (3x the 390 column), so
-# almost the whole diagram sat off-screen and had to be pieced together by
-# scrolling. +/- buttons cover the stretch goal without needing a pinch
-# gesture, which can't be exercised or verified headless anyway. Button
-# state is refreshed inline after each press rather than by rebuilding the
-# row, since only the disabled flags at MapZoom's MIN/MAX ends change.
-#
-# `buttons` is a Dictionary, not two plain locals: GDScript lambdas capture
-# outer locals by value at the *lambda's own creation* time, not live, so a
-# `refresh` closure created before the "in" button was assigned would keep
-# seeing null forever even after the assignment (caught by a runtime smoke
-# test, not the type checker). A Dictionary's captured "value" is a
-# reference to the same object, so filling in `buttons["in"]` after the
-# fact is visible to every closure that already captured `_buttons`.
-func _build_zoom_row(map_canvas: MapCanvas) -> Control:
-	var row := UI.hbox(8)
-	var buttons := {}
-
-	var refresh := func():
-		buttons["out"].disabled = map_canvas.zoom_level <= MapZoom.MIN
-		buttons["in"].disabled = map_canvas.zoom_level >= MapZoom.MAX
-
-	buttons["out"] = UI.button("− Zoom out", func():
-		map_canvas.zoom_out()
-		refresh.call()
-	)
-	row.add_child(buttons["out"])
-
-	buttons["in"] = UI.button("+ Zoom in", func():
-		map_canvas.zoom_in()
-		refresh.call()
-	)
-	row.add_child(buttons["in"])
-
-	refresh.call()
-	return row
 
 
 # ── district panel ──────────────────────────────────────────────────
@@ -250,7 +220,14 @@ func _build_site_sheet(site_id: String) -> void:
 	var scroll := UI.scroll_container()
 	card.add_child(scroll)
 
+	# Anchors are ignored for a ScrollContainer's child, and without
+	# SIZE_EXPAND_FILL it shrinks to its content's minimum width instead of
+	# the sheet's — the same failure mode UI.screen_body()'s own comment
+	# documents (a word-wrapped Label's minimum width collapses near 0,
+	# breaking mid-word), and the same fix bag_drawer.gd needed for its ore
+	# rows.
 	var content := UI.vbox(8)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(content)
 
 	var ore: Dictionary = GameData.ORE_TYPES[site["oreType"]]
