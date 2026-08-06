@@ -28,6 +28,22 @@ extends Control
 # this file only gathers the already-computed stop/layout data and asks it
 # where the tap landed, then dispatches straight to MapNav, same as pins
 # already dispatch straight to Nav/Events.
+#
+# Post-T15 fix: the diagram is drawn at mapSize (1170x1560, N3's "3x the 390
+# column") and was previously sized 1:1 inside its ScrollContainer, so on a
+# real phone width almost the whole canvas sat off-screen and had to be
+# scrolled to piece together — reported unusable from playtest screenshots.
+# zoom_level scales what's actually drawn: _ready()/_set_zoom() resize this
+# Control's own `size` to mapSize * zoom_level (not CanvasItem `scale`,
+# which ScrollContainer's scroll-range calculation ignores — sizing `size`
+# itself keeps the scrollbars honest about the zoomed content's true
+# extent), draw_set_transform() scales this node's own immediate-mode
+# _draw() calls to match, and the three child Node2D layers get the same
+# factor on their own `scale` (Node2D.scale, unlike Control.scale here, is a
+# real transform their child draws already respect). Zoom math (clamping,
+# step, screen->logical conversion for hit-testing) lives in
+# systems/map_zoom.gd, pure and unit-tested, same split as the rest of this
+# file's system helpers.
 
 const PAPER_COLOUR := Color(0.941176, 0.925490, 0.886275)      # --paper #f0ece2
 const RIVER_COLOUR := Color(0.831373, 0.811765, 0.768627, 0.6)  # #d4cfc4 @ 60%
@@ -63,6 +79,9 @@ const DOTTED_RING_SEGMENTS := 12
 const DOTTED_RING_DASH_FRACTION := 0.5
 
 var filter_mode: String = "ownership"
+var zoom_level: float = MapZoom.DEFAULT
+
+var _map_size: Vector2
 
 var _halo_layer: Node2D
 var _pins_layer: Node2D
@@ -93,8 +112,7 @@ var _here_position: Vector2
 
 func _ready() -> void:
 	var map_size: Array = GameData.MAP_LAYOUT["mapSize"]
-	custom_minimum_size = Vector2(map_size[0], map_size[1])
-	size = custom_minimum_size
+	_map_size = Vector2(map_size[0], map_size[1])
 
 	_paper_tile = PaperTexture.generate_tile_texture()
 	_ore_font_covers_symbols = OreGlyphs.font_covers_all_symbols(ThemeDB.fallback_font)
@@ -115,8 +133,41 @@ func _ready() -> void:
 	add_child(_labels_layer)
 	_labels_layer.draw.connect(_draw_labels.bind(_labels_layer))
 
+	_apply_zoom()
+
 	EventBus.state_changed.connect(_rebuild)
 	_rebuild()
+
+
+# ── zoom ─────────────────────────────────────────────────────────────────
+
+func zoom_in() -> void:
+	_set_zoom(MapZoom.zoomed_in(zoom_level))
+
+
+func zoom_out() -> void:
+	_set_zoom(MapZoom.zoomed_out(zoom_level))
+
+
+func _set_zoom(new_zoom: float) -> void:
+	if is_equal_approx(new_zoom, zoom_level):
+		return
+	zoom_level = new_zoom
+	_apply_zoom()
+	queue_redraw()
+	_pins_layer.queue_redraw()
+	_labels_layer.queue_redraw()
+
+
+# Resizes this Control to the zoomed pixel size (see the T15-follow-up
+# comment at the top of this file for why `size`, not CanvasItem `scale`)
+# and matches the three child Node2D layers' own real `scale` to it.
+func _apply_zoom() -> void:
+	custom_minimum_size = _map_size * zoom_level
+	size = custom_minimum_size
+	_halo_layer.scale = Vector2(zoom_level, zoom_level)
+	_pins_layer.scale = Vector2(zoom_level, zoom_level)
+	_labels_layer.scale = Vector2(zoom_level, zoom_level)
 
 
 func _rebuild() -> void:
@@ -157,6 +208,12 @@ func _partition_stops() -> void:
 
 
 func _draw() -> void:
+	# Every draw_* call below still uses the logical map px this Control's
+	# stops/layout data is keyed on (VEIN_STOP_RADIUS, tick marks, etc. are
+	# all logical-px constants too) — this single transform is what scales
+	# all of it to fit `size` at the current zoom_level, so none of that
+	# drawing code needs to know zoom exists.
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2(zoom_level, zoom_level))
 	_draw_paper()
 	_draw_zones()
 	_draw_river()
@@ -171,7 +228,7 @@ func _draw_paper() -> void:
 	# tiled across the full background, standing in for the real 1536x2048
 	# aged-cream PNG per N6's own "procedural noise ... placeholder
 	# acceptable" allowance.
-	draw_texture_rect(_paper_tile, Rect2(Vector2.ZERO, size), true)
+	draw_texture_rect(_paper_tile, Rect2(Vector2.ZERO, _map_size), true)
 
 
 func _draw_zones() -> void:
@@ -449,7 +506,11 @@ func _gui_input(event: InputEvent) -> void:
 		tap_pos = event.position
 	else:
 		return
-	_handle_tap(tap_pos)
+	# event.position arrives in this Control's local (zoomed) space; every
+	# tap target below (_pins, MapHitTest) is keyed on the same logical map
+	# px the drawing data uses, so it's converted back before any of them
+	# see it.
+	_handle_tap(MapZoom.to_logical(tap_pos, zoom_level))
 
 
 func _handle_tap(tap_pos: Vector2) -> void:
