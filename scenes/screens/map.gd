@@ -1,20 +1,34 @@
 class_name MapScreen
 extends Control
 
-# M1-LONDON.md D4's plain-list Map tab: district list -> district panel ->
-# site/vein sheet. The interaction contract here (district panel fields,
-# site/vein sheet fields/actions) is what M1.5's diagram renderer reuses
-# unchanged — only this file's top-level district-selection UI gets
-# replaced there.
+# M1.5 ticket 15: swaps M1's plain district-list top-level Map tab view
+# (docs/M1-LONDON.md D4) for the real Network diagram (MapCanvas +
+# MapControls' filter chip row) — the district panel and site/vein sheet
+# below are unchanged from M1 and reused verbatim; only how you reach them
+# changes (tapping a stop/tick or a district label/zone on the diagram,
+# handled by MapCanvas itself, per M1.5 N5, instead of a "View"/"Open" list
+# row here).
+#
+# _diagram_layer is built once in _ready() and never torn down: MapCanvas
+# already rebuilds its own drawing from GameState.state on every
+# state_changed (see map_canvas.gd), so recreating it here on every refresh
+# would just discard scroll position for no benefit. _refresh() only
+# toggles which of _diagram_layer / _district_scroll is visible, based on
+# whether a district is selected.
 
 const SHEET_HEIGHT := 480.0
 
 var _content: VBoxContainer
+var _district_scroll: ScrollContainer
+var _diagram_layer: Control
 var _sheet_layer: Control
 
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
+
+	_diagram_layer = _build_diagram_layer()
+	add_child(_diagram_layer)
 
 	# M1-LONDON D6's archie_cultivation used to auto-fire here on first
 	# Map-tab visit after archiePartnerSeen. M1.5 T13 replaces that with a
@@ -23,6 +37,13 @@ func _ready() -> void:
 	# an event awaits at an address" for any future pin-triggered event,
 	# not just this one.
 	_content = UI.screen_body(self)
+	# UI.screen_body() returns the innermost VBoxContainer; its grandparent
+	# is the ScrollContainer it built (content -> margin -> ScrollContainer)
+	# — kept here so _refresh() can hide the whole district-panel scroll
+	# view (not just empty its content) while the diagram is showing,
+	# otherwise its full-rect ScrollContainer sits on top of the diagram
+	# and eats every tap.
+	_district_scroll = _content.get_parent().get_parent() as ScrollContainer
 
 	_sheet_layer = Control.new()
 	UI.anchor_full_rect(_sheet_layer)
@@ -43,41 +64,57 @@ func _refresh() -> void:
 	var selected_district = nav.get("selectedDistrict")
 	var selected_site_id = nav.get("selectedSiteId")
 
-	if selected_district == null:
-		_build_district_list()
-	else:
+	_diagram_layer.visible = selected_district == null
+	_district_scroll.visible = selected_district != null
+
+	if selected_district != null:
 		_build_district_panel(selected_district)
 
 	if selected_site_id != null:
 		_build_site_sheet(selected_site_id)
 
 
-# ── district list ───────────────────────────────────────────────────
+# ── diagram (top-level Network view) ─────────────────────────────────
 
-func _build_district_list() -> void:
-	_content.add_child(UI.back_button("home"))
-	_content.add_child(UI.heading("The Network"))
-	_content.add_child(UI.muted_label("Tap a district to prospect, travel, or work a site."))
+func _build_diagram_layer() -> Control:
+	var layer := VBoxContainer.new()
+	UI.anchor_full_rect(layer)
 
-	for district_id in GameData.DISTRICTS.keys():
-		_content.add_child(_build_district_row(district_id))
+	var margin := MarginContainer.new()
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_theme_constant_override("margin_left", 16)
+	margin.add_theme_constant_override("margin_right", 16)
+	margin.add_theme_constant_override("margin_top", 72)  # room below the top bar (TopBar.BAR_HEIGHT + 16)
+	margin.add_theme_constant_override("margin_bottom", 80)  # room above the nav bar
+	layer.add_child(margin)
 
+	var content := UI.vbox(8)
+	margin.add_child(content)
 
-func _build_district_row(district_id: String) -> Control:
-	var district: Dictionary = GameData.DISTRICTS[district_id]
-	var here: bool = GameState.state["world"]["currentDistrict"] == district_id
+	content.add_child(UI.back_button("home"))
+	content.add_child(UI.heading("The Network"))
+	content.add_child(UI.muted_label("Tap a stop to work a site. Tap a district to prospect or travel."))
 
-	var c := UI.card()
-	c["content"].add_child(UI.heading(district["name"] + (" 📍" if here else ""), 16))
-	c["content"].add_child(UI.label(district["blurb"]))
+	var map_canvas := MapCanvas.new()
 
-	var indicators := Districts.derived_indicators(district_id)
-	if not indicators.is_empty():
-		c["content"].add_child(UI.muted_label(" · ".join(indicators)))
+	var controls := MapControls.new()
+	controls.map_canvas = map_canvas
+	content.add_child(controls)
 
-	c["content"].add_child(UI.muted_label(Districts.ownership_summary(district_id)))
-	c["content"].add_child(UI.button("Open %s" % district["name"], func(): MapNav.select_district(district_id)))
-	return c["panel"]
+	# N3: "map canvas is 3x the 390 column, inside a pan-capable Camera2D/
+	# ScrollContainer; pinch-zoom is a stretch goal, pan is required." A
+	# plain ScrollContainer gives free two-axis pan/drag for both mouse and
+	# touch with no extra wiring, and MapCanvas's fixed custom_minimum_size
+	# (set from data.map_layout.json's mapSize in its own _ready) is exactly
+	# what makes that scrollable area's extents correct.
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.add_child(map_canvas)
+	content.add_child(scroll)
+
+	return layer
 
 
 # ── district panel ──────────────────────────────────────────────────

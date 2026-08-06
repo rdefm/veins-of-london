@@ -22,7 +22,7 @@ func run() -> void:
 	# assertion is the signal to revisit whether OreGlyphs' vector
 	# fallback is still needed.
 	run_case("bundled_font_does_not_cover_any_ore_symbol", func():
-		assert_true(not OreGlyphs.font_covers_all_symbols(ThemeDB.fallback_font), "if this now passes, the engine's bundled font gained coverage - see systems/ore_glyphs.gd")
+		assert_true(not OreGlyphs.font_covers_all_symbols(ThemeDB.fallback_font), "if this now passes, the engine's bundled font gained coverage - see scenes/components/ore_glyphs.gd")
 	)
 
 	run_case("every_ore_type_has_a_non_empty_symbol", func():

@@ -23,26 +23,6 @@ static func is_valid_kind(kind: String) -> bool:
 	return KINDS.has(kind)
 
 
-static func draw(target: CanvasItem, kind: String, center: Vector2, colour: Color, scale: float = 1.0) -> void:
-	match kind:
-		"home":
-			draw_home(target, center, colour, scale)
-		"pin":
-			draw_pin(target, center, colour, scale)
-		"padlock":
-			draw_padlock(target, center, colour, scale)
-		"market":
-			draw_market(target, center, colour, scale)
-		"phone":
-			draw_phone(target, center, colour, scale)
-		"bag":
-			draw_bag(target, center, colour, scale)
-		"legend":
-			draw_legend(target, center, colour, scale)
-		"news":
-			draw_news(target, center, colour, scale)
-
-
 # Classic teardrop marker (circle "head" + triangular point down to `pos`)
 # — the generic points-of-interest glyph every map pin (home/contact/
 # market alike) sits on. Moved here from map_canvas.gd's original T13

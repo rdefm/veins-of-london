@@ -18,9 +18,16 @@ extends Control
 # "not saved, not in GameState"), pushed in via set_filter() by
 # scenes/components/map_controls.gd's chip row. All the filter maths
 # themselves live in systems/map_style.gd (pure, unit-tested); this file
-# only asks it what to draw. Pin tap handling lives here too (_gui_input),
-# since pins are this ticket's own tap targets — stop/zone tap targets are
-# ticket 15's job, once this Control is wired into the actual Map tab.
+# only asks it what to draw.
+#
+# T15: this Control is now the Map tab's top-level view (scenes/screens/
+# map.gd), so _gui_input handles all three tap targets N5 asks for — pin
+# (T13), stop/tick, and district label/zone — in that priority order (most
+# specific target first). Stop and district hit-testing geometry lives in
+# systems/map_hit_test.gd (pure, unit-tested), same split as map_style.gd;
+# this file only gathers the already-computed stop/layout data and asks it
+# where the tap landed, then dispatches straight to MapNav, same as pins
+# already dispatch straight to Nav/Events.
 
 const PAPER_COLOUR := Color(0.941176, 0.925490, 0.886275)      # --paper #f0ece2
 const RIVER_COLOUR := Color(0.831373, 0.811765, 0.768627, 0.6)  # #d4cfc4 @ 60%
@@ -63,7 +70,7 @@ var _labels_layer: Node2D
 var _halos: Dictionary = {}  # veinId -> ChargeHalo
 
 # T14 asset production: a small tiled placeholder for N6's paper texture
-# (see systems/paper_texture.gd), and whether the bundled engine font
+# (see scenes/components/paper_texture.gd), and whether the bundled engine font
 # actually covers the 5 ore symbols — checked once here rather than per
 # stop-draw, since Font.has_char() involves the same font-data lookup
 # whether cached or not, and this project has no dynamic font swapping.
@@ -160,7 +167,7 @@ func _draw() -> void:
 # ── paper / zones / river ───────────────────────────────────────────────
 
 func _draw_paper() -> void:
-	# N6 asset 1 (see systems/paper_texture.gd) — a small noise tile drawn
+	# N6 asset 1 (see scenes/components/paper_texture.gd) — a small noise tile drawn
 	# tiled across the full background, standing in for the real 1536x2048
 	# aged-cream PNG per N6's own "procedural noise ... placeholder
 	# acceptable" allowance.
@@ -175,7 +182,7 @@ func _draw_zones() -> void:
 			continue
 		var colour: Color = Color(GameData.FACTIONS[faction_id]["colour"])
 		colour.a = ZONE_ALPHA
-		var polygon := _to_vector2_array(GameData.MAP_LAYOUT["districts"][district_id]["zonePolygon"])
+		var polygon := MapHitTest.to_vector2_array(GameData.MAP_LAYOUT["districts"][district_id]["zonePolygon"])
 		draw_colored_polygon(polygon, colour)
 
 
@@ -288,7 +295,7 @@ func _draw_tick_mark(pos: Vector2, colour: Color) -> void:
 
 
 # N6 asset 3: the bundled engine font has no glyph for any of the 5 ore
-# symbols (see systems/ore_glyphs.gd) — drawing ore["symbol"] as text
+# symbols (see scenes/components/ore_glyphs.gd) — drawing ore["symbol"] as text
 # renders blank tofu, so this falls back to OreGlyphs' hand-drawn vector
 # glyphs whenever the font check (cached in _ready(), see
 # _ore_font_covers_symbols) fails, and only uses the real text glyph if a
@@ -432,14 +439,7 @@ func _faded(colour: Color, alpha_mult: float) -> Color:
 	return c
 
 
-func _to_vector2_array(points: Array) -> PackedVector2Array:
-	var result := PackedVector2Array()
-	for p in points:
-		result.append(Vector2(p[0], p[1]))
-	return result
-
-
-# ── input (T13: pin taps only — stop/zone taps are ticket 15's job) ──────
+# ── input (N5: pin, then stop/tick, then district label/zone) ───────────
 
 func _gui_input(event: InputEvent) -> void:
 	var tap_pos: Vector2
@@ -457,6 +457,15 @@ func _handle_tap(tap_pos: Vector2) -> void:
 		if tap_pos.distance_to(pin["position"]) <= PIN_TAP_RADIUS:
 			_activate_pin(pin)
 			return
+
+	var site_id = MapHitTest.stop_site_at(tap_pos, _vein_stops + _npc_stops + _unclaimed_stops)
+	if site_id != null:
+		MapNav.select_site(site_id)
+		return
+
+	var district_id = MapHitTest.district_at(tap_pos, GameData.MAP_LAYOUT["districts"])
+	if district_id != null:
+		MapNav.select_district(district_id)
 
 
 # N2/N5: home -> HQ, contact -> starts its event, market -> padlocked (no
