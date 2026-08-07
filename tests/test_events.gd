@@ -134,8 +134,7 @@ func run() -> void:
 		assert_eq(site["oreType"], "time")
 		assert_eq(site["bonuses"], [])
 		assert_true(site["claimed"])
-		assert_true(not site["npcClaimed"])
-		assert_eq(site["npcClaimedDay"], null)
+		assert_eq(site["factionVein"], null)
 		assert_true(not site["hasNaturalVein"])
 		assert_eq(site["discoveredDay"], world_day)
 
@@ -439,7 +438,7 @@ func run() -> void:
 		assert_eq(granted_site["tier"], "fair", "granted site: fair tier")
 		assert_eq(granted_site["bonuses"], [], "granted site: no bonuses")
 		assert_true(granted_site["claimed"], "granted site: claimed")
-		assert_true(not granted_site["npcClaimed"], "granted site: not npcClaimed")
+		assert_eq(granted_site["factionVein"], null, "granted site: not faction-claimed")
 		assert_eq(granted["siteId"], granted_site["id"], "granted vein: siteId links back to the granted site")
 
 		# 5b. Cultivating tutorial (D6) — real play starts this by tapping its

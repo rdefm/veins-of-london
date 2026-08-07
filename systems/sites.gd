@@ -176,7 +176,7 @@ static func prospect(district_id: String) -> Dictionary:
 static func _unclaimed_sites_by_tier(district_id: String, want_best: bool) -> Array:
 	var unclaimed: Array = []
 	for site in sites_in_district(district_id):
-		if not site["claimed"] and not site["npcClaimed"]:
+		if not site["claimed"] and site["factionVein"] == null:
 			unclaimed.append(site)
 
 	unclaimed.sort_custom(func(a, b):
@@ -222,8 +222,7 @@ static func _create_site(district_id: String) -> Dictionary:
 		"bonuses": bonus_roll["bonuses"],
 		"discoveredDay": GameState.state["world"]["day"],
 		"claimed": false,
-		"npcClaimed": false,
-		"npcClaimedDay": null,
+		"factionVein": null,
 		"hasNaturalVein": bonus_roll["hasNaturalVein"],
 	}
 	GameState.state["world"]["sites"].append(site)
@@ -244,7 +243,7 @@ static func attempt_seed(site_id: String) -> Dictionary:
 	var site = find_site(site_id)
 	if site == null:
 		return { "ok": false, "reason": "Site not found." }
-	if site["claimed"] or site["npcClaimed"]:
+	if site["claimed"] or site["factionVein"] != null:
 		return { "ok": false, "reason": "Site is already claimed." }
 	if site["tier"] == "barren":
 		return { "ok": false, "reason": "Barren sites can't be seeded." }
@@ -309,44 +308,52 @@ static func best_unclaimed_site(district_id: String) -> Variant:
 	return sorted[0] if not sorted.is_empty() else null
 
 
-# rival_prospector's "refuse to pay" outcome: NPC-claims the district's best
-# unclaimed site outright (no roll — this is a deterministic consequence,
-# not the daily-tick's probabilistic NPC-claiming). A no-op if the district
-# has no unclaimed site to claim.
+# rival_prospector's "refuse to pay" outcome: faction-claims the district's
+# best unclaimed site outright, instant vein and all (no roll on WHETHER it
+# happens — this is a deterministic consequence, not the daily-tick's
+# probabilistic claiming; WHICH faction claims it still goes through the
+# same weighted pick_claimant() the daily tick uses). A no-op if the
+# district has no unclaimed site to claim.
 static func npc_claim_best_unclaimed_site(district_id: String) -> void:
 	var site = best_unclaimed_site(district_id)
 	if site == null:
 		return
-	site["npcClaimed"] = true
-	site["npcClaimedDay"] = GameState.state["world"]["day"]
+	var faction_id := Factions.pick_claimant(district_id)
+	site["factionVein"] = Factions.create_faction_vein(faction_id, site)
 
 
 # Called from time_system.gd's daily_tick, step ⑤b. Each unclaimed,
-# non-barren site may attract an NPC claim; older, richer sites are likelier.
+# non-barren site may attract a faction claim; older, richer sites are
+# likelier. faction-vein-ownership T01: the claimant is now always one of
+# the 5 canonical factions (systems/factions.gd's pick_claimant()), not an
+# anonymous flag, and claiming instantly seeds a real vein — no separate
+# "claimed land, not yet seeded" step.
 static func roll_npc_claims() -> void:
 	var day: int = GameState.state["world"]["day"]
 	for site in GameState.state["world"]["sites"]:
-		if site["claimed"] or site["npcClaimed"] or site["tier"] == "barren":
+		if site["claimed"] or site["factionVein"] != null or site["tier"] == "barren":
 			continue
 		var age_days: int = day - site["discoveredDay"]
 		if Rng.chance(npc_claim_chance(site["tier"], age_days)):
-			site["npcClaimed"] = true
-			site["npcClaimedDay"] = day
+			var faction_id := Factions.pick_claimant(site["district"])
+			site["factionVein"] = Factions.create_faction_vein(faction_id, site)
 			var district_name: String = GameData.DISTRICTS[site["district"]]["name"]
-			Notify.push("Someone's moved onto the %s site in %s." % [site["tier"], district_name])
+			var faction_name: String = GameData.FACTIONS[faction_id]["shortName"]
+			Notify.push("%s have moved onto the %s site in %s." % [faction_name, site["tier"], district_name])
 
 
 # Called from time_system.gd's daily_tick, step ⑤c (runs immediately after
-# ⑤b). Per adr/0002: on hit the site is deleted outright, not reverted to
-# unclaimed — this frees a siteCap slot for a genuinely fresh prospect,
-# and deliberately rules out "wait out the good NPC-claimed site".
+# ⑤b). Per adr/0002: on hit the site (and its faction vein, embedded on
+# it — nothing orphaned) is deleted outright, not reverted to unclaimed —
+# this frees a siteCap slot for a genuinely fresh prospect, and
+# deliberately rules out "wait out the good faction-claimed site".
 static func roll_npc_abandonment() -> void:
 	var day: int = GameState.state["world"]["day"]
 	var abandoned_ids: Array = []
 	for site in GameState.state["world"]["sites"]:
-		if not site["npcClaimed"]:
+		if site["factionVein"] == null:
 			continue
-		var age_days: int = day - site["npcClaimedDay"]
+		var age_days: int = day - site["factionVein"]["claimedOnDay"]
 		if Rng.chance(npc_abandonment_chance(age_days)):
 			abandoned_ids.append(site["id"])
 			var district_name: String = GameData.DISTRICTS[site["district"]]["name"]

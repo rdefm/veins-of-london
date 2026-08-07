@@ -116,6 +116,15 @@ var _ore_font_covers_symbols: bool
 # Stops partitioned by kind (computed once per rebuild, shared by
 # _draw_lines/_draw_stops/_rebuild_halos instead of each re-walking +
 # re-matching GameData.DISTRICTS' full stop set).
+#
+# faction-vein-ownership T01: MapLayout.build_stop_items() now emits real
+# faction-owned "vein" stops (owner = a faction id) alongside player ones
+# (owner = "player") — both are real veins with level/security/etc. Full
+# multi-faction line/colour rendering is Chunk 2's job (PRD: "feeds Chunk 2
+# (Map rendering)"), not built yet; until then, non-player "vein" stops are
+# routed into _npc_stops below and drawn with the same anonymous grey-dot
+# placeholder the old npcClaimed stops used, rather than being misdrawn as
+# part of the player's own amber line.
 var _vein_stops: Array = []
 var _npc_stops: Array = []
 var _unclaimed_stops: Array = []
@@ -219,9 +228,10 @@ func _partition_stops() -> void:
 		for stop in stops_by_district[district_id]:
 			match stop["kind"]:
 				"vein":
-					_vein_stops.append(stop)
-				"npc":
-					_npc_stops.append(stop)
+					if stop.get("owner") == "player":
+						_vein_stops.append(stop)
+					else:
+						_npc_stops.append(stop)
 				"unclaimed":
 					_unclaimed_stops.append(stop)
 
@@ -284,8 +294,10 @@ func _draw_lines() -> void:
 	var player_line := MapRouting.build_line(MapLayout.home_anchor(), player_stops, river)
 	_draw_route(player_line, _faded(MapStyle.line_colour(filter_mode, PLAYER_COLOUR), alpha))
 
-	# NPC-claimed stops are unaffiliated — each draws its own short stub,
-	# never joined into a shared line (N2).
+	# Non-player veins (faction-owned or, before T01, anonymous NPC claims)
+	# each draw their own short stub, never joined into a shared line —
+	# real per-faction lines are Chunk 2, not built yet (see _npc_stops'
+	# doc comment above).
 	var npc_colour := MapStyle.line_colour(filter_mode, NPC_COLOUR)
 	for stop in _npc_stops:
 		_draw_route(MapRouting.terminus_stub(stop["position"]), _faded(npc_colour, alpha))

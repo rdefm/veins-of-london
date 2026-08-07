@@ -193,8 +193,8 @@ func _build_site_row(site: Dictionary) -> Control:
 func _site_claim_state_text(site: Dictionary) -> String:
 	if site["claimed"]:
 		return "Yours"
-	if site["npcClaimed"]:
-		return "Claimed by someone else"
+	if site["factionVein"] != null:
+		return "Claimed by %s" % GameData.FACTIONS[site["factionVein"]["factionId"]]["shortName"]
 	return "Unclaimed"
 
 
@@ -240,8 +240,9 @@ func _build_site_sheet(site_id: String) -> void:
 	if site["hasNaturalVein"] and not site["claimed"]:
 		content.add_child(UI.muted_label("A natural vein runs here — claiming grants a free bonus vein."))
 
-	if site["npcClaimed"]:
-		content.add_child(UI.muted_label("Someone's already working this site. Nothing to do here (for now)."))
+	if site["factionVein"] != null:
+		var faction_name: String = GameData.FACTIONS[site["factionVein"]["factionId"]]["name"]
+		content.add_child(UI.muted_label("%s territory. Nothing to do here (for now)." % faction_name))
 	elif site["claimed"]:
 		_build_claimed_site_content(content, site)
 	elif site["tier"] == "barren":

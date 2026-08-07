@@ -7,7 +7,9 @@
     "industries": ["sourcing", "trading"],
     "description": "A decentralised network of vein finders and small traders. No hierarchy — or at least, no admitted hierarchy. Strong in East and South London. They find and protect veins collaboratively, share yields, and move ore through trusted contacts. Low entry bar, low ceiling.",
     "colour": "#3a7a52",
-    "joinRelation": 20
+    "joinRelation": 20,
+    "securityBias": -2,
+    "resourceLevel": 1
   },
   "firm": {
     "id": "firm",
@@ -17,7 +19,9 @@
     "industries": ["raiding", "trading"],
     "description": "A well-established crew with roots going back further than anyone admits. Operate across South and West London. Specialise in acquiring high-value veins by force and reselling refined product at premium rates. Professional, ruthless, not interested in small operators — unless you show promise.",
     "colour": "#9b2335",
-    "joinRelation": 35
+    "joinRelation": 35,
+    "securityBias": 1,
+    "resourceLevel": 2
   },
   "guild": {
     "id": "guild",
@@ -27,7 +31,9 @@
     "industries": ["crafting", "trading"],
     "description": "Formal, ancient, and deeply unimpressed by everyone. The Guild controls the majority of high-end crafting knowledge in London. James is a member, though he'd describe his relationship with them as 'complicated'. Joining requires demonstrated crafting ability and a sponsor.",
     "colour": "#7b68ee",
-    "joinRelation": 40
+    "joinRelation": 40,
+    "securityBias": 1,
+    "resourceLevel": 2
   },
   "network": {
     "id": "network",
@@ -37,7 +43,9 @@
     "industries": ["trading", "influence"],
     "description": "No one's quite sure who runs The Network or what they actually want. They surface occasionally to broker information — who has what vein, who is selling, what the barometer is doing. They seem to know things before they happen. They are interested in you, which should be flattering and is mostly unsettling.",
     "colour": "#c8873a",
-    "joinRelation": 30
+    "joinRelation": 30,
+    "securityBias": -1,
+    "resourceLevel": 2
   },
   "conclave": {
     "id": "conclave",
@@ -47,6 +55,8 @@
     "industries": ["influence", "sourcing", "crafting"],
     "description": "Old enough to have advised governments. New enough to use WhatsApp. The Conclave operates at the intersection of orichalchum and institutional power — they shape economic and political conditions that affect everyone else. Joining requires high standing, rare resources, and the willingness to do things that don't appear on any list.",
     "colour": "#2a8fc4",
-    "joinRelation": 60
+    "joinRelation": 60,
+    "securityBias": 3,
+    "resourceLevel": 3
   }
 }

@@ -18,11 +18,11 @@ static func _find_seed_for(max_tries: int, fn: Callable) -> int:
 	return -1
 
 
-static func _make_site(id: String, district: String, tier: String, discovered_day: int, claimed: bool = false, npc_claimed: bool = false, ore_type: String = "time") -> Dictionary:
+static func _make_site(id: String, district: String, tier: String, discovered_day: int, claimed: bool = false, faction_claimed: bool = false, ore_type: String = "time") -> Dictionary:
 	return {
 		"id": id, "district": district, "tier": tier, "oreType": ore_type,
 		"bonuses": [], "discoveredDay": discovered_day,
-		"claimed": claimed, "npcClaimed": npc_claimed, "npcClaimedDay": null,
+		"claimed": claimed, "factionVein": { "id": "fv_dummy", "factionId": "collective", "oreType": ore_type, "level": 1, "devBar": 0, "security": "none", "claimedOnDay": discovered_day } if faction_claimed else null,
 		"hasNaturalVein": false,
 	}
 
@@ -99,8 +99,8 @@ func run() -> void:
 			_make_site("rich1", "camden", "rich", 1),
 		]
 		Events.apply_effects([{ "op": "npc_claim_best_unclaimed_site" }])
-		assert_true(Sites.find_site("rich1")["npcClaimed"], "the higher-tier site should be claimed")
-		assert_true(not Sites.find_site("poor1")["npcClaimed"], "the lower-tier site is untouched")
+		assert_true(Sites.find_site("rich1")["factionVein"] != null, "the higher-tier site should be claimed")
+		assert_eq(Sites.find_site("poor1")["factionVein"], null, "the lower-tier site is untouched")
 	)
 
 	run_case("npc_claim_best_unclaimed_site_op_is_a_no_op_with_nothing_unclaimed", func():
@@ -398,11 +398,11 @@ func run() -> void:
 		var choice_index := _play_to_choice("rival_prospector")
 		Events.choose(0)  # Pay them off
 		assert_eq(GameState.state["player"]["cash"], 40 - 100)
-		assert_true(not Sites.find_site("s1")["npcClaimed"])
+		assert_eq(Sites.find_site("s1")["factionVein"], null)
 		_finish_after_choice("rival_prospector", choice_index)
 	)
 
-	run_case("rival_prospector_let_them_have_it_npc_claims_the_best_unclaimed_site", func():
+	run_case("rival_prospector_let_them_have_it_faction_claims_the_best_unclaimed_site", func():
 		GameState.reset()
 		GameState.state["world"]["currentDistrict"] = "camden"
 		GameState.state["world"]["sites"] = [
@@ -412,8 +412,8 @@ func run() -> void:
 		var choice_index := _play_to_choice("rival_prospector")
 		Events.choose(1)  # Let them have it
 		assert_eq(GameState.state["player"]["cash"], 40, "no payment on this branch")
-		assert_true(Sites.find_site("rich1")["npcClaimed"])
-		assert_true(not Sites.find_site("poor1")["npcClaimed"])
+		assert_true(Sites.find_site("rich1")["factionVein"] != null)
+		assert_eq(Sites.find_site("poor1")["factionVein"], null)
 		_finish_after_choice("rival_prospector", choice_index)
 	)
 

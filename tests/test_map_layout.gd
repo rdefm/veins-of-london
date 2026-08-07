@@ -8,13 +8,12 @@ extends "res://tests/test_base.gd"
 
 
 func _unclaimed(id: String, district: String) -> Dictionary:
-	return { "id": id, "district": district, "tier": "poor", "oreType": "physics", "bonuses": [], "discoveredDay": 1, "claimed": false, "npcClaimed": false, "npcClaimedDay": null, "hasNaturalVein": false }
+	return { "id": id, "district": district, "tier": "poor", "oreType": "physics", "bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null, "hasNaturalVein": false }
 
 
-func _npc_claimed(id: String, district: String) -> Dictionary:
+func _faction_claimed(id: String, district: String, faction_id: String = "collective") -> Dictionary:
 	var s := _unclaimed(id, district)
-	s["npcClaimed"] = true
-	s["npcClaimedDay"] = 1
+	s["factionVein"] = { "id": "fv_" + id, "factionId": faction_id, "oreType": "physics", "level": 1, "devBar": 0, "security": "none", "claimedOnDay": 1 }
 	return s
 
 
@@ -32,11 +31,12 @@ func run() -> void:
 		assert_eq(items[0]["vein"], null)
 	)
 
-	run_case("build_stop_items_npc_claimed_site_is_one_npc_stop", func():
-		var items := MapLayout.build_stop_items([_npc_claimed("s1", "camden")], [])
+	run_case("build_stop_items_faction_claimed_site_is_one_vein_stop_owned_by_the_faction", func():
+		var items := MapLayout.build_stop_items([_faction_claimed("s1", "camden", "firm")], [])
 		assert_eq(items.size(), 1)
-		assert_eq(items[0]["kind"], "npc")
-		assert_eq(items[0]["vein"], null)
+		assert_eq(items[0]["kind"], "vein")
+		assert_eq(items[0]["owner"], "firm")
+		assert_eq(items[0]["vein"]["factionId"], "firm")
 	)
 
 	run_case("build_stop_items_claimed_site_with_one_vein_is_one_vein_stop", func():
@@ -45,6 +45,7 @@ func run() -> void:
 		var items := MapLayout.build_stop_items([site], [vein])
 		assert_eq(items.size(), 1)
 		assert_eq(items[0]["kind"], "vein")
+		assert_eq(items[0]["owner"], "player")
 		assert_eq(items[0]["vein"]["id"], "v1")
 	)
 
@@ -70,7 +71,7 @@ func run() -> void:
 	run_case("build_stop_items_preserves_discovery_order_across_mixed_claim_states", func():
 		var sites := [
 			_unclaimed("s1", "camden"),
-			_npc_claimed("s2", "camden"),
+			_faction_claimed("s2", "camden"),
 			_claimed("s3", "camden"),
 		]
 		var veins := [{ "id": "v3", "siteId": "s3" }]

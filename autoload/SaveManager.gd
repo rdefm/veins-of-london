@@ -198,7 +198,10 @@ func _restore_int_types(state: Dictionary) -> void:
 		_int_key(world, "archieChatUnlockDay")
 		for site in world.get("sites", []):
 			_int_key(site, "discoveredDay")
-			_int_key(site, "npcClaimedDay")
+			if site.get("factionVein") != null:
+				var faction_vein: Dictionary = site["factionVein"]
+				for key in ["level", "devBar", "chargeBlocks", "claimedOnDay"]:
+					_int_key(faction_vein, key)
 		for recent in world.get("recentEvents", []):
 			_int_key(recent, "day")
 

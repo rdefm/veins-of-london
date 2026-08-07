@@ -313,7 +313,7 @@ func _validate_factions(factions: Dictionary, errors: Array[String]) -> void:
 		if not factions.has(key):
 			errors.append("factions: missing faction '%s'" % key)
 			continue
-		_require_keys(factions[key], ["id", "name", "shortName", "tagline", "industries", "description", "colour", "joinRelation"], "factions.%s" % key, errors)
+		_require_keys(factions[key], ["id", "name", "shortName", "tagline", "industries", "description", "colour", "joinRelation", "securityBias", "resourceLevel"], "factions.%s" % key, errors)
 
 
 const CANONICAL_DISTRICT_IDS: Array[String] = [

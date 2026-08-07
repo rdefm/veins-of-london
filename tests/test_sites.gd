@@ -16,13 +16,17 @@ static func _find_seed_for(max_tries: int, fn: Callable) -> int:
 	return -1
 
 
-static func _make_site(id: String, district: String, tier: String, discovered_day: int, claimed: bool = false, npc_claimed: bool = false, ore_type: String = "time", bonuses: Array = [], has_natural_vein: bool = false) -> Dictionary:
+static func _make_site(id: String, district: String, tier: String, discovered_day: int, claimed: bool = false, faction_claimed: bool = false, ore_type: String = "time", bonuses: Array = [], has_natural_vein: bool = false) -> Dictionary:
 	return {
 		"id": id, "district": district, "tier": tier, "oreType": ore_type,
 		"bonuses": bonuses, "discoveredDay": discovered_day,
-		"claimed": claimed, "npcClaimed": npc_claimed, "npcClaimedDay": null,
+		"claimed": claimed, "factionVein": _dummy_faction_vein() if faction_claimed else null,
 		"hasNaturalVein": has_natural_vein,
 	}
+
+
+static func _dummy_faction_vein() -> Dictionary:
+	return { "id": "fv_dummy", "factionId": "collective", "oreType": "time", "level": 1, "devBar": 0, "security": "none", "claimedOnDay": 1 }
 
 
 func run() -> void:
@@ -160,8 +164,7 @@ func run() -> void:
 		var site: Dictionary = sites[0]
 		assert_eq(site["district"], "shoreditch", "site district matches")
 		assert_eq(site["claimed"], false, "new site starts unclaimed")
-		assert_eq(site["npcClaimed"], false, "new site starts not NPC-claimed")
-		assert_eq(site["npcClaimedDay"], null, "npcClaimedDay starts null")
+		assert_eq(site["factionVein"], null, "new site starts unclaimed by any faction")
 		assert_true(GameData.SITE_TIER_WEIGHTS.has(site["tier"]), "tier should be one of the canonical tiers")
 		assert_eq(GameState.state["player"]["cultivatingXP"], GameData.SITE_PROSPECT_XP[site["tier"]], "prospect XP matches the rolled tier")
 	)
@@ -240,7 +243,7 @@ func run() -> void:
 		assert_true(ids.has("newer_poor"), "newer site of the same tier should survive")
 	)
 
-	run_case("prospect_reroll_no_op_when_every_site_is_claimed_or_npc_claimed", func():
+	run_case("prospect_reroll_no_op_when_every_site_is_claimed_or_faction_claimed", func():
 		GameState.reset()
 		var player_claimed := _make_site("player_claimed", "hampstead", "poor", 1, true, false)
 		var npc_claimed := _make_site("npc_claimed", "hampstead", "barren", 1, false, true)
@@ -429,10 +432,10 @@ func run() -> void:
 			GameState.state["world"]["day"] = 50
 			Rng.set_seed(seed)
 			Sites.roll_npc_claims()
-			assert_eq(Sites.find_site("s1")["npcClaimed"], false, "barren is never NPC-claimed (seed %d)" % seed)
+			assert_eq(Sites.find_site("s1")["factionVein"], null, "barren is never faction-claimed (seed %d)" % seed)
 	)
 
-	run_case("roll_npc_claims_skips_already_claimed_or_npc_claimed_sites", func():
+	run_case("roll_npc_claims_skips_already_claimed_or_faction_claimed_sites", func():
 		GameState.reset()
 		var player_claimed := _make_site("player_claimed", "shoreditch", "saturated", 1, true, false)
 		var npc_claimed := _make_site("npc_claimed", "shoreditch", "saturated", 1, false, true)
@@ -440,24 +443,32 @@ func run() -> void:
 		GameState.state["world"]["day"] = 50
 		Rng.set_seed(1)
 		Sites.roll_npc_claims()
-		assert_eq(Sites.find_site("player_claimed")["npcClaimed"], false, "player-claimed sites are never touched")
-		assert_eq(Sites.find_site("npc_claimed")["npcClaimedDay"], null, "already NPC-claimed sites are untouched (npcClaimedDay stays as set)")
+		assert_eq(Sites.find_site("player_claimed")["factionVein"], null, "player-claimed sites are never touched")
+		assert_eq(Sites.find_site("npc_claimed")["factionVein"]["id"], "fv_dummy", "already faction-claimed sites are untouched (their vein stays as set)")
 	)
 
-	run_case("roll_npc_claims_hit_sets_npcClaimed_and_notifies", func():
+	run_case("roll_npc_claims_hit_names_a_faction_and_seeds_an_instant_vein", func():
 		var seed := _find_seed_for(500, func():
 			GameState.reset()
 			var site := _make_site("s1", "camden", "saturated", 1)
 			GameState.state["world"]["sites"] = [site]
 			GameState.state["world"]["day"] = 30
 			Sites.roll_npc_claims()
-			return Sites.find_site("s1")["npcClaimed"]
+			return Sites.find_site("s1")["factionVein"] != null
 		)
-		assert_true(seed != -1, "should find an NPC-claim hit within 500 tries at saturated + high age")
+		assert_true(seed != -1, "should find a faction-claim hit within 500 tries at saturated + high age")
 
 		var site: Dictionary = Sites.find_site("s1")
-		assert_eq(site["npcClaimedDay"], 30, "npcClaimedDay set to the current day")
+		var vein: Dictionary = site["factionVein"]
+		assert_true(GameData.FACTIONS.has(vein["factionId"]), "the claimant should be one of the 5 canonical factions")
+		assert_eq(vein["oreType"], "time", "faction vein inherits the site's ore type")
+		assert_eq(vein["level"], 1, "faction vein starts at level 1")
+		assert_eq(vein["claimedOnDay"], 30, "claimedOnDay set to the current day")
+		assert_true(GameData.VEIN_SECURITY.has(vein["security"]), "security tier should be one of the canonical tiers")
+
 		var last: Dictionary = GameState.state["notifications"][-1]
+		var faction_name: String = GameData.FACTIONS[vein["factionId"]]["shortName"]
+		assert_true(last["text"].contains(faction_name), "notification names the claiming faction")
 		assert_true(last["text"].contains("saturated site in Camden"), "notification names the tier and district")
 	)
 
@@ -473,11 +484,11 @@ func run() -> void:
 			assert_eq(GameState.state["world"]["sites"].size(), 2, "neither unclaimed nor player-claimed sites are ever abandoned (seed %d)" % seed)
 	)
 
-	run_case("roll_npc_abandonment_hit_deletes_the_site_outright_and_notifies", func():
+	run_case("roll_npc_abandonment_hit_deletes_the_site_and_its_faction_vein_outright_and_notifies", func():
 		var seed := _find_seed_for(500, func():
 			GameState.reset()
 			var site := _make_site("s1", "battersea", "rich", 1, false, true)
-			site["npcClaimedDay"] = 1
+			site["factionVein"]["claimedOnDay"] = 1
 			GameState.state["world"]["sites"] = [site]
 			GameState.state["world"]["day"] = 200
 			Sites.roll_npc_abandonment()
@@ -485,7 +496,7 @@ func run() -> void:
 		)
 		assert_true(seed != -1, "should find an abandonment hit within 500 tries at high age")
 
-		assert_eq(GameState.state["world"]["sites"], [], "the site is removed outright, not reverted to unclaimed")
+		assert_eq(GameState.state["world"]["sites"], [], "the site (and its embedded faction vein) is removed outright, not reverted to unclaimed")
 		var last: Dictionary = GameState.state["notifications"][-1]
 		assert_true(last["text"].contains("rich site in Battersea"), "notification names the tier and district")
 		assert_true(last["text"].contains("gone quiet"), "notification matches the D2 abandonment copy")
@@ -507,7 +518,7 @@ func run() -> void:
 		var sites: Array = [_make_site("player_claimed", district_id, "fair", 1, true, false)]
 		for i in range(site_cap - 1):
 			var s := _make_site("npc_claimed_%d" % i, district_id, "poor", 1, false, true)
-			s["npcClaimedDay"] = 1
+			s["factionVein"]["claimedOnDay"] = 1
 			sites.append(s)
 		GameState.state["world"]["sites"] = sites
 

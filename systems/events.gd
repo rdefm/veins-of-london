@@ -275,8 +275,7 @@ static func _grant_vein_with_site(vein_template: Dictionary) -> void:
 		"bonuses": hospitability["bonuses"],
 		"discoveredDay": day,
 		"claimed": true,
-		"npcClaimed": false,
-		"npcClaimedDay": null,
+		"factionVein": null,
 		"hasNaturalVein": false,
 	}
 	GameState.state["world"]["sites"].append(site)

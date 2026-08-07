@@ -31,11 +31,14 @@ static func _find_seed_for(max_tries: int, fn: Callable) -> int:
 # Same shape as test_sites.gd's/test_district_events.gd's own _make_site —
 # kept here rather than shared across files since GDScript test files are
 # standalone scripts with no import mechanism between them.
-static func _make_site(id: String, district: String, tier: String, claimed: bool, npc_claimed: bool, npc_claimed_day: Variant = null) -> Dictionary:
+static func _make_site(id: String, district: String, tier: String, claimed: bool, faction_claimed: bool, faction_claimed_day: int = 1) -> Dictionary:
+	var faction_vein: Variant = null
+	if faction_claimed:
+		faction_vein = { "id": "fv_" + id, "factionId": "collective", "oreType": "time", "level": 1, "devBar": 0, "security": "none", "claimedOnDay": faction_claimed_day }
 	return {
 		"id": id, "district": district, "tier": tier, "oreType": "time",
-		"bonuses": [], "discoveredDay": 1, "claimed": claimed, "npcClaimed": npc_claimed,
-		"npcClaimedDay": npc_claimed_day, "hasNaturalVein": false,
+		"bonuses": [], "discoveredDay": 1, "claimed": claimed, "factionVein": faction_vein,
+		"hasNaturalVein": false,
 	}
 
 

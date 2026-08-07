@@ -122,14 +122,14 @@ func run() -> void:
 			GameState.reset()
 			var site := {
 				"id": "s1", "district": "shoreditch", "tier": "saturated", "oreType": "time",
-				"bonuses": [], "discoveredDay": 1, "claimed": false, "npcClaimed": false,
-				"npcClaimedDay": null, "hasNaturalVein": false,
+				"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
+				"hasNaturalVein": false,
 			}
 			GameState.state["world"]["sites"] = [site]
 			GameState.state["world"]["day"] = 40
 			Rng.set_seed(seed)
 			TimeSystem.daily_tick()
-			if Sites.find_site("s1")["npcClaimed"]:
+			if Sites.find_site("s1")["factionVein"] != null:
 				hit = true
 				break
 		assert_true(hit, "daily_tick should reach step 5b (Sites.roll_npc_claims) within 300 tries")
@@ -141,8 +141,9 @@ func run() -> void:
 			GameState.reset()
 			var site := {
 				"id": "s1", "district": "shoreditch", "tier": "rich", "oreType": "time",
-				"bonuses": [], "discoveredDay": 1, "claimed": false, "npcClaimed": true,
-				"npcClaimedDay": 1, "hasNaturalVein": false,
+				"bonuses": [], "discoveredDay": 1, "claimed": false,
+				"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "time", "level": 1, "devBar": 0, "security": "none", "claimedOnDay": 1 },
+				"hasNaturalVein": false,
 			}
 			GameState.state["world"]["sites"] = [site]
 			GameState.state["world"]["day"] = 200

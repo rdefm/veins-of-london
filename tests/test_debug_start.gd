@@ -72,5 +72,5 @@ func run() -> void:
 		assert_eq(by_district["whitechapel"]["tier"], "saturated", "whitechapel site is saturated")
 		for site in sites:
 			assert_true(not site["claimed"], "debug sites start unclaimed")
-			assert_true(not site["npcClaimed"], "debug sites start unclaimed")
+			assert_eq(site["factionVein"], null, "debug sites start unclaimed by any faction")
 	)

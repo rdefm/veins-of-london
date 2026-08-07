@@ -92,8 +92,7 @@ static func _debug_site(district: String, tier: String, ore_type: String, bonuse
 		"bonuses": bonuses,
 		"discoveredDay": GameState.state["world"]["day"],
 		"claimed": false,
-		"npcClaimed": false,
-		"npcClaimedDay": null,
+		"factionVein": null,
 		"hasNaturalVein": false,
 	}
 

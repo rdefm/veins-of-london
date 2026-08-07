@@ -6,28 +6,35 @@ extends RefCounted
 # positions for scenes/components/map_canvas.gd. Read-only — never mutates
 # GameState, same discipline as systems/districts.gd.
 #
-# A "stop" is not 1:1 with a site: an unclaimed or NPC-claimed site is one
-# stop, but a claimed site can carry two veins (a saturated site's bonus
-# natural vein, D2) — that's exactly why map_layout.json's stopSlots buffer
-# is siteCap+2, not siteCap+1. Stops occupy slots in discovery order: sites
-# in state.world.sites' array order (append order = discovery order), and
-# within a claimed site, its veins in state.player.veins' array order.
+# A "stop" is not 1:1 with a site: an unclaimed site is one stop, but a
+# player-claimed site can carry two veins (a saturated site's bonus natural
+# vein, D2) — that's exactly why map_layout.json's stopSlots buffer is
+# siteCap+2, not siteCap+1. A faction-claimed site's vein is embedded
+# directly on the site (faction-vein-ownership T01 — no natural-vein bonus
+# for faction claims, so always exactly one stop). Stops occupy slots in
+# discovery order: sites in state.world.sites' array order (append order =
+# discovery order), and within a player-claimed site, its veins in
+# state.player.veins' array order.
 
 
 # Pure: turns a district's sites + the full player veins list into ordered
 # stop items (no positions yet). Kept separate from assign_slots() so tests
 # can exercise discovery-order occupancy without touching GameData/GameState.
+# "vein" stops carry an "owner" key ("player" or a faction id) — N2's
+# rendering grammar draws both the same way (circle, owner colour), just
+# coloured differently; Chunk 2 (map rendering) is what actually wires that
+# colouring up.
 static func build_stop_items(sites: Array, veins: Array) -> Array:
 	var items: Array = []
 	for site in sites:
-		if site.get("npcClaimed", false):
-			items.append({ "kind": "npc", "site": site, "vein": null })
+		if site.get("factionVein") != null:
+			items.append({ "kind": "vein", "site": site, "vein": site["factionVein"], "owner": site["factionVein"]["factionId"] })
 		elif site.get("claimed", false):
 			for vein in veins:
 				if vein.get("siteId") == site["id"]:
-					items.append({ "kind": "vein", "site": site, "vein": vein })
+					items.append({ "kind": "vein", "site": site, "vein": vein, "owner": "player" })
 		else:
-			items.append({ "kind": "unclaimed", "site": site, "vein": null })
+			items.append({ "kind": "unclaimed", "site": site, "vein": null, "owner": null })
 	return items
 
 

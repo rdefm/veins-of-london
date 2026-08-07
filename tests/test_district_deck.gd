@@ -154,8 +154,8 @@ func run() -> void:
 		})
 		GameState.state["world"]["sites"] = [{
 			"id": "s1", "district": "camden", "tier": "fair", "oreType": "physics",
-			"bonuses": [], "discoveredDay": 1, "claimed": false, "npcClaimed": false,
-			"npcClaimedDay": null, "hasNaturalVein": false,
+			"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
+			"hasNaturalVein": false,
 		}]
 
 		assert_eq(DistrictDeck.eligible_entries("camden").size(), 1, "camden now has an unclaimed site — eligible")
