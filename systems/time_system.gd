@@ -47,8 +47,9 @@ static func do_rest() -> void:
 
 
 # Exact step order per R§3.1, extended by M1-LONDON.md D2 / adr/0002
-# (steps ⑤b/⑤c) — do not reorder. Steps for systems that don't exist yet
-# are stubs; wire the real call in when that task lands.
+# (steps ⑤b/⑤c) and faction-vein-ownership T02 (step ⑤d) — do not reorder.
+# Steps for systems that don't exist yet are stubs; wire the real call in
+# when that task lands.
 static func daily_tick() -> void:
 	Barometer.tick()                     # ① barometer
 	Home.roll_daily_raid()               # ② home raid
@@ -57,6 +58,7 @@ static func daily_tick() -> void:
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	Sites.roll_npc_claims()              # ⑤b NPC site-claiming (M1-LONDON.md D2)
 	Sites.roll_npc_abandonment()         # ⑤c NPC abandonment (adr/0002), runs right after ⑤b
+	Sites.roll_faction_vein_growth()     # ⑤d faction vein daily growth (faction-vein-ownership T02), runs right after ⑤c
 	Rooms.process_lab()                  # ⑥ rooms (lab, then veinStation)
 	Rooms.process_vein_station()
 	Devices.reset_daily_charges()        # ⑦ device charge reset

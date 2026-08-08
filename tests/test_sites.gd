@@ -29,6 +29,23 @@ static func _dummy_faction_vein() -> Dictionary:
 	return { "id": "fv_dummy", "factionId": "collective", "oreType": "time", "level": 1, "devBar": 0, "security": "none", "claimedOnDay": 1 }
 
 
+static func _faction_vein(level: int, dev_bar: int, claimed_on_day: int) -> Dictionary:
+	return {
+		"id": "fv_test", "factionId": "collective", "oreType": "time", "level": level,
+		"levelLabel": GameData.VEIN_LEVELS[str(level)]["label"], "devBar": dev_bar,
+		"security": "none", "claimedOnDay": claimed_on_day,
+		"hospitability": { "tier": "fair", "bonuses": [] },
+	}
+
+
+static func _site_with_faction_vein(vein: Dictionary) -> Dictionary:
+	return {
+		"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
+		"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
+		"hasNaturalVein": false,
+	}
+
+
 func run() -> void:
 	# ── tier weight math ────────────────────────────────────────────
 
@@ -500,6 +517,81 @@ func run() -> void:
 		var last: Dictionary = GameState.state["notifications"][-1]
 		assert_true(last["text"].contains("rich site in Battersea"), "notification names the tier and district")
 		assert_true(last["text"].contains("gone quiet"), "notification matches the D2 abandonment copy")
+	)
+
+	# ── faction vein daily growth (faction-vein-ownership T02) ──────
+
+	run_case("roll_faction_vein_growth_success_advances_devBar", func():
+		var hit_seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["world"]["sites"] = [_site_with_faction_vein(_faction_vein(1, 0, 1))]
+			GameState.state["world"]["day"] = 5
+			Sites.roll_faction_vein_growth()
+			return Sites.find_site("s1")["factionVein"]["devBar"] > 0
+		)
+		assert_true(hit_seed != -1, "should find a success roll within 200 tries at skill-1's 30% chance")
+
+		var vein: Dictionary = Sites.find_site("s1")["factionVein"]
+		assert_eq(vein["devBar"], Cultivating.get_bar_gain(1), "devBar advances by the skill-floor-1 bar gain")
+		assert_eq(vein["level"], 1, "not enough devBar yet to level up (2 < devBarMax 8)")
+	)
+
+	run_case("roll_faction_vein_growth_failure_is_a_no_op", func():
+		var miss_seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["world"]["sites"] = [_site_with_faction_vein(_faction_vein(1, 3, 1))]
+			GameState.state["world"]["day"] = 5
+			Sites.roll_faction_vein_growth()
+			return Sites.find_site("s1")["factionVein"]["devBar"] == 3
+		)
+		assert_true(miss_seed != -1, "should find a failure roll within 200 tries at skill-1's 70% miss chance")
+		assert_eq(Sites.find_site("s1")["factionVein"]["level"], 1, "failure never levels the vein")
+	)
+
+	run_case("roll_faction_vein_growth_success_levels_up_at_devBarMax", func():
+		var hit_seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["world"]["sites"] = [_site_with_faction_vein(_faction_vein(1, 7, 1))]
+			GameState.state["world"]["day"] = 5
+			Sites.roll_faction_vein_growth()
+			return Sites.find_site("s1")["factionVein"]["level"] == 2
+		)
+		assert_true(hit_seed != -1, "should find a level-up hit within 200 tries (7 + barGain 2 = 9 >= devBarMax 8)")
+
+		var vein: Dictionary = Sites.find_site("s1")["factionVein"]
+		assert_eq(vein["devBar"], 0, "devBar resets to 0 on level-up, same as the player cultivate() path")
+		assert_eq(vein["levelLabel"], "Minor", "levelLabel updates to the Lv2 label")
+	)
+
+	run_case("roll_faction_vein_growth_at_max_level_and_devBarMax_does_not_overflow_or_error", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [_site_with_faction_vein(_faction_vein(5, 9999, 1))]
+		GameState.state["world"]["day"] = 5
+		Rng.set_seed(1)
+		Sites.roll_faction_vein_growth()
+
+		var vein: Dictionary = Sites.find_site("s1")["factionVein"]
+		assert_eq(vein["level"], 5, "level 5 is the hard cap without a maxLevel bonus — no error, no further level-up")
+		assert_true(vein["devBar"] >= 9999, "devBar keeps accumulating past devBarMax at the level cap, same as the uncapped player path — no crash")
+	)
+
+	run_case("roll_faction_vein_growth_skips_a_vein_claimed_this_same_tick", func():
+		for seed in range(30):
+			GameState.reset()
+			GameState.state["world"]["sites"] = [_site_with_faction_vein(_faction_vein(1, 0, 5))]
+			GameState.state["world"]["day"] = 5
+			Rng.set_seed(seed)
+			Sites.roll_faction_vein_growth()
+			assert_eq(Sites.find_site("s1")["factionVein"]["devBar"], 0, "a vein claimed this same tick (claimedOnDay == day) never grows the same day (seed %d)" % seed)
+	)
+
+	run_case("roll_faction_vein_growth_ignores_unclaimed_sites", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [_make_site("s1", "shoreditch", "fair", 1)]
+		GameState.state["world"]["day"] = 5
+		Rng.set_seed(1)
+		Sites.roll_faction_vein_growth()
+		assert_eq(Sites.find_site("s1")["factionVein"], null, "an unclaimed site has no factionVein to grow — no crash")
 	)
 
 	# ── soak: siteCap never permanently locks out prospecting ───────

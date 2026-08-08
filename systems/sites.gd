@@ -362,3 +362,35 @@ static func roll_npc_abandonment() -> void:
 	if not abandoned_ids.is_empty():
 		var sites: Array = GameState.state["world"]["sites"]
 		GameState.state["world"]["sites"] = sites.filter(func(s): return not abandoned_ids.has(s["id"]))
+
+
+# ── faction vein daily growth (faction-vein-ownership T02) ─────────────
+
+# Called from time_system.gd's daily_tick, step ⑤d (runs immediately after
+# ⑤c abandonment). Each surviving faction vein rolls one virtual cultivate
+# attempt — Cultivating.get_cult_chance()/get_bar_gain() at skill floor 1
+# (factions have no skill stat), the same formulas and vein_levels.json
+# thresholds the player's own Cultivating.cultivate() uses. Success
+# advances devBar and may level the vein up; failure is a no-op. This is
+# an explicit placeholder pace per the PRD — the real cultivator-staffing
+# growth model is Chunk 1b.
+#
+# Ordering: runs after ⑤c so a vein abandoned this same tick is already
+# gone and never rolls growth, and skips any vein with claimedOnDay >=
+# today (freshly seeded by ⑤b this same tick — claimedOnDay is set from
+# world.day, which is already incremented by the time daily_tick() runs)
+# so a brand-new vein doesn't get a second devBar gain on the day it's
+# created.
+static func roll_faction_vein_growth() -> void:
+	var day: int = GameState.state["world"]["day"]
+	var skill := 1  # factions have no skill stat — floor per the PRD
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein == null or vein["claimedOnDay"] >= day:
+			continue
+		if not Rng.chance(Cultivating.get_cult_chance(skill)):
+			continue
+		var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
+		vein["devBar"] = vein["devBar"] + Cultivating.get_bar_gain(skill)
+		if vein["level"] < Cultivating.get_level_cap(vein) and vein["devBar"] >= level_data["devBarMax"]:
+			Cultivating.level_up_vein(vein)

@@ -155,6 +155,27 @@ func run() -> void:
 		assert_true(hit, "daily_tick should reach step 5c (Sites.roll_npc_abandonment) within 300 tries")
 	)
 
+	run_case("daily_tick_wires_in_faction_vein_growth_step_right_after_abandonment_step", func():
+		var hit := false
+		for seed in range(300):
+			GameState.reset()
+			var site := {
+				"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
+				"bonuses": [], "discoveredDay": 1, "claimed": false,
+				"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "time", "level": 1, "levelLabel": "Trace", "devBar": 0, "security": "none", "claimedOnDay": 1, "hospitability": { "tier": "fair", "bonuses": [] } },
+				"hasNaturalVein": false,
+			}
+			GameState.state["world"]["sites"] = [site]
+			GameState.state["world"]["day"] = 5
+			Rng.set_seed(seed)
+			TimeSystem.daily_tick()
+			var found_site: Variant = Sites.find_site("s1")
+			if found_site != null and found_site["factionVein"]["devBar"] > 0:
+				hit = true
+				break
+		assert_true(hit, "daily_tick should reach step 5d (Sites.roll_faction_vein_growth) within 300 tries")
+	)
+
 	run_case("stub_daily_tick_steps_do_not_crash", func():
 		GameState.reset()
 		# Just confirms daily_tick runs end to end with the T04/T05/T06/T09
