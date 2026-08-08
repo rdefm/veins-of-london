@@ -67,6 +67,25 @@ static func queue_charge(district_id: String, vein_id: String) -> void:
 	})
 
 
+# Ticket 04: a vein being harvested (Cultivating.harvest_full/
+# harvest_cautious, the moment charged flips true -> false). Same "no owner
+# to carry, always the player's own vein" shape as queue_charge, and the
+# same reason it's absent from pending_vein_ids() below: the vein isn't
+# hidden from the ordinary static draw pre-event -- _rebuild_halos() already
+# drops the vein's ChargeHalo the instant charged flips false (same
+# state_changed emit the harvest call fires), so by the time this event
+# reaches the front of the queue the halo is already gone; the event just
+# plays a one-shot collapse on top of where it used to be. Same no-self-emit
+# convention as queue_charge -- both harvest calls already emit once at the
+# end of the whole action.
+static func queue_drain(district_id: String, vein_id: String) -> void:
+	GameState.state["mapEvents"]["queue"].append({
+		"type": "drain",
+		"district": district_id,
+		"veinId": vein_id,
+	})
+
+
 static func has_pending() -> bool:
 	return not GameState.state["mapEvents"]["queue"].is_empty()
 

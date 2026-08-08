@@ -88,6 +88,27 @@ func run() -> void:
 		assert_eq(MapEvents.pending_vein_ids(), ["v1"], "charge events have no reason to be in pending_vein_ids")
 	)
 
+	# ── drain (ticket 04) ────────────────────────────────────────────────
+
+	run_case("queue_drain_appends_a_drain_event_with_district_and_vein_id", func():
+		GameState.reset()
+		MapEvents.queue_drain("shoreditch", "v1")
+		var event = MapEvents.current()
+		assert_eq(event["type"], "drain")
+		assert_eq(event["district"], "shoreditch")
+		assert_eq(event["veinId"], "v1")
+	)
+
+	run_case("pending_vein_ids_does_not_pick_up_drain_events", func():
+		GameState.reset()
+		MapEvents.queue_seed_claim("shoreditch", "v1", "player")
+		MapEvents.queue_drain("shoreditch", "v2")
+		# Same reasoning as "charge" above -- a "drain" event never hides its
+		# vein from the ordinary static draw, only "seed_claim" vein ids
+		# belong in this list.
+		assert_eq(MapEvents.pending_vein_ids(), ["v1"], "drain events have no reason to be in pending_vein_ids")
+	)
+
 	# ── begin_playback: drains exactly once per Map-tab visit ─────────────
 
 	run_case("begin_playback_returns_false_when_the_queue_is_empty", func():

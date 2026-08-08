@@ -104,6 +104,11 @@ static func process_vein_station() -> void:
 			player["orichalchum"][ore_type] = player["orichalchum"].get(ore_type, 0) + yld
 			vein["charged"] = false
 			vein["chargeBlocks"] = 0
+			# map-animations ticket 04: this is the veinStation contact's own
+			# auto-harvest path (Cultivating.harvest_cautious/harvest_full
+			# aren't called here), but it's the same true -> false transition
+			# their own queue_drain calls key on, so it gets the same event.
+			MapEvents.queue_drain(vein["district"], vein["id"])
 			total_harvested += yld
 			harvest_breakdown[ore_type] = harvest_breakdown.get(ore_type, 0) + yld
 			Contacts.award_contact_xp(contact_id, "cultivating", 15)

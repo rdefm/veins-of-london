@@ -316,6 +316,8 @@ func _play_event(event: Dictionary) -> void:
 			await _play_seed_claim_ring(stop, event)
 		"charge":
 			await _play_charge_burst(stop, event)
+		"drain":
+			await _play_vein_drain(stop, event)
 
 
 # The event's stop (position + resolved site/vein data), resolved live (not
@@ -323,9 +325,9 @@ func _play_event(event: Dictionary) -> void:
 # assigned stop slot — MapEvents' own doc comment is explicit that the queue
 # only carries district+siteId/veinId for exactly this reason. "discover"
 # events key on siteId (MapLayout stops an unclaimed site by its own id);
-# "seed_claim" and "charge" events key on veinId (MapLayout.build_stop_items
-# keys a claimed stop by the vein's id, not the site's — a claimed site can
-# carry more than one vein, e.g. D2's natural-vein bonus).
+# "seed_claim", "charge", and "drain" events key on veinId (MapLayout.
+# build_stop_items keys a claimed stop by the vein's id, not the site's — a
+# claimed site can carry more than one vein, e.g. D2's natural-vein bonus).
 func _resolve_event_stop(event: Dictionary) -> Variant:
 	var target_id: String = event["siteId"] if event["type"] == "discover" else event["veinId"]
 	for stop in MapLayout.assign_slots(event["district"]):
@@ -427,6 +429,30 @@ func _play_charge_burst(stop: Dictionary, event: Dictionary) -> void:
 	_active_tween = burst.tween
 	await burst.tween.finished
 	burst.queue_free()
+
+
+# Ticket 04: a vein being harvested — the halo visibly collapses inward and
+# fades out, the reverse shape of _play_charge_burst above, marking the
+# moment it stops rather than the halo just disappearing. Same "doesn't need
+# to end in a particular static draw state" reasoning as _play_charge_burst:
+# the vein was never hidden from the ordinary draw (see MapEvents.
+# queue_drain's own comment) — _rebuild_halos() already dropped the real
+# ChargeHalo the instant charged flipped false, so this is purely a one-shot
+# overlay in _playback_layer that starts where that halo left off and ends
+# with nothing on screen, matching _rebuild_halos()'s own rest state for an
+# uncharged vein (none) rather than an instant disappearance.
+func _play_vein_drain(stop: Dictionary, event: Dictionary) -> void:
+	var vein: Variant = stop["vein"]
+	if vein == null:
+		return  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to collapse
+
+	var collapse := DrainCollapse.new()
+	collapse.position = stop["position"]
+	_playback_layer.add_child(collapse)
+	collapse.start(EVENT_VISUAL_DURATION)
+	_active_tween = collapse.tween
+	await collapse.tween.finished
+	collapse.queue_free()
 
 
 # Tap-to-skip (N5's delta for this ticket): fast-forwards whichever tween is
@@ -1021,6 +1047,41 @@ class ChargeBurst:
 	const END_RADIUS := ChargeHalo.RADIUS * 1.6
 	const START_ALPHA := 0.9
 	const COLOUR := Color(1.0, 0.909804, 0.694118)  # bright warm gold, brighter than ChargeHalo's amber
+
+	var tween: Tween
+	var _radius := START_RADIUS
+	var _alpha := START_ALPHA
+
+	func start(duration: float) -> void:
+		tween = create_tween()
+		tween.tween_method(_set_radius, START_RADIUS, END_RADIUS, duration)
+		tween.parallel().tween_method(_set_alpha, START_ALPHA, 0.0, duration)
+
+	func _set_radius(r: float) -> void:
+		_radius = r
+		queue_redraw()
+
+	func _set_alpha(a: float) -> void:
+		_alpha = a
+		queue_redraw()
+
+	func _draw() -> void:
+		if _alpha > 0.0:
+			draw_circle(Vector2.ZERO, _radius, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
+
+
+# Map-animations ticket 04's drain visual: the reverse shape of ChargeBurst
+# above — starts at ChargeHalo's own resting size/alpha (RADIUS, 0.5 amber,
+# same COLOUR) and collapses inward to nothing, rather than expanding out
+# from nothing. One-shot, Tween-driven, same custom_step() fast-forward
+# reason as every other event visual in this file.
+class DrainCollapse:
+	extends Node2D
+
+	const START_RADIUS := ChargeHalo.RADIUS
+	const END_RADIUS := 0.0
+	const START_ALPHA := 0.5
+	const COLOUR := ChargeHalo.COLOUR
 
 	var tween: Tween
 	var _radius := START_RADIUS

@@ -195,6 +195,11 @@ static func harvest_cautious(vein_id: String) -> Dictionary:
 
 	vein["charged"] = false
 	vein["chargeBlocks"] = 0
+	# map-animations ticket 04: the entry guard above already requires
+	# vein["charged"] == true to reach this point, so setting it false here
+	# is always the true -> false transition -- no was_charged flag needed,
+	# unlike recharge_veins() which loops every vein every tick.
+	MapEvents.queue_drain(vein["district"], vein["id"])
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "amount": amount, "oreType": ore_type, "veinId": vein_id }
@@ -222,6 +227,11 @@ static func harvest_full(vein_id: String) -> Dictionary:
 	vein["charged"] = false
 	vein["chargeBlocks"] = 0
 	vein["devBar"] = vein["devBar"] - level_data["devBarHarvestCost"]
+	# map-animations ticket 04: see harvest_cautious's own comment -- the
+	# entry guard above guarantees this is always the true -> false
+	# transition. Queued before the possible level-down/deletion below so
+	# district/id are read from the still-live vein dict.
+	MapEvents.queue_drain(vein["district"], vein["id"])
 
 	var levelled_down := false
 	if vein["devBar"] <= 0:

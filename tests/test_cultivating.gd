@@ -251,6 +251,62 @@ func run() -> void:
 		assert_eq(vein["charged"], false, "vein discharges after harvest")
 	)
 
+	# ── map-animations ticket 04: drain event queuing ───────────────────
+
+	run_case("harvest_cautious_queues_a_drain_event_on_the_true_to_false_transition", func():
+		GameState.reset()
+		var vein := {
+			"id": "cautious_drain_vein", "oreType": "fate", "level": 1, "levelLabel": "Trace",
+			"devBar": 5, "charged": true, "chargeBlocks": 0, "security": "none",
+			"location": "Vallance Rd, by the bus stop", "claimedOnDay": 1, "district": "shoreditch",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		Rng.set_seed(1)
+		Cultivating.harvest_cautious("cautious_drain_vein")
+		assert_true(MapEvents.has_pending(), "a drain event is queued on the true -> false transition")
+		var event = MapEvents.current()
+		assert_eq(event["type"], "drain")
+		assert_eq(event["district"], "shoreditch")
+		assert_eq(event["veinId"], "cautious_drain_vein")
+	)
+
+	run_case("harvest_full_queues_a_drain_event_on_the_true_to_false_transition", func():
+		GameState.reset()
+		var vein := {
+			"id": "full_drain_vein", "oreType": "physics", "level": 3, "levelLabel": "Modest",
+			"devBar": 20, "charged": true, "chargeBlocks": 0, "security": "none",
+			"location": "Roman Rd, in the car park", "claimedOnDay": 1, "district": "shoreditch",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		Rng.set_seed(1)
+		Cultivating.harvest_full("full_drain_vein")
+		assert_true(MapEvents.has_pending(), "a drain event is queued on the true -> false transition")
+		var event = MapEvents.current()
+		assert_eq(event["type"], "drain")
+		assert_eq(event["district"], "shoreditch")
+		assert_eq(event["veinId"], "full_drain_vein")
+	)
+
+	run_case("harvest_full_still_queues_a_drain_event_when_the_harvest_deletes_the_vein", func():
+		GameState.reset()
+		var vein := {
+			"id": "doomed_drain_vein", "oreType": "life", "level": 1, "levelLabel": "Trace",
+			"devBar": 1, "charged": true, "chargeBlocks": 0, "security": "none",
+			"location": "Brick Lane, near the off-licence", "claimedOnDay": 1, "district": "shoreditch",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		Rng.set_seed(1)
+		var result := Cultivating.harvest_full("doomed_drain_vein")
+		assert_true(result["levelledDown"], "devBar 1 - devBarHarvestCost 2 <= 0 should trigger a level-down")
+		assert_eq(GameState.state["player"]["veins"], [], "a level-1 vein that levels down should be deleted")
+		var event = MapEvents.current()
+		assert_eq(event["type"], "drain", "drain still queues even though the vein itself was deleted this call")
+		assert_eq(event["veinId"], "doomed_drain_vein")
+	)
+
 	run_case("harvest_blocked_when_not_charged", func():
 		GameState.reset()
 		var vein := {
