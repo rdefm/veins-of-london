@@ -12,7 +12,7 @@ func run() -> void:
 		assert_eq(p["cultivatingSkill"], 2, "cultivating skill")
 
 		for ore_type in GameData.ORE_TYPES.keys():
-			assert_eq(p["orichalchum"][ore_type], 20, "20 units of %s" % ore_type)
+			assert_eq(p["orichalchum"][ore_type], 100, "100 units of %s -- enough headroom to seed (40/type) more than once" % ore_type)
 
 		assert_eq(p["inventory"], { "timePearl": 5, "enhancementPowder": 3, "rewind": 1 }, "consumables")
 
@@ -64,13 +64,40 @@ func run() -> void:
 		assert_eq(s["currentScreen"], "home", "debug start should land on the home screen")
 
 		var sites: Array = s["world"]["sites"]
-		assert_eq(sites.size(), 2, "exactly 2 discovered sites")
-		var by_district := {}
+		assert_eq(sites.size(), 5, "3 claimed shoreditch sites (one per debug vein) + 2 discovered unclaimed sites")
+
+		var unclaimed_by_district := {}
+		var claimed_sites: Array = []
 		for site in sites:
-			by_district[site["district"]] = site
-		assert_eq(by_district["greenwich"]["tier"], "rich", "greenwich site is rich")
-		assert_eq(by_district["whitechapel"]["tier"], "saturated", "whitechapel site is saturated")
-		for site in sites:
-			assert_true(not site["claimed"], "debug sites start unclaimed")
+			if site["claimed"]:
+				claimed_sites.append(site)
+			else:
+				unclaimed_by_district[site["district"]] = site
+		assert_eq(unclaimed_by_district["greenwich"]["tier"], "rich", "greenwich site is rich")
+		assert_eq(unclaimed_by_district["whitechapel"]["tier"], "saturated", "whitechapel site is saturated")
+		for site in unclaimed_by_district.values():
 			assert_eq(site["factionVein"], null, "debug sites start unclaimed by any faction")
+
+		# map-animations ticket 04 follow-up: each debug vein is linked to
+		# its own claimed shoreditch site via siteId -- otherwise MapLayout.
+		# build_stop_items never turns it into a Map stop (see debug_start.gd's
+		# own comment), so it could never be tapped, harvested from the Map,
+		# or targeted by a queued map event (charge/drain).
+		assert_eq(claimed_sites.size(), 3, "one claimed site per debug vein")
+		var claimed_site_ids := {}
+		for site in claimed_sites:
+			assert_eq(site["district"], "shoreditch", "claimed debug sites live in shoreditch")
+			assert_eq(site["factionVein"], null, "claimed debug sites aren't faction-owned")
+			claimed_site_ids[site["id"]] = site
+		for v in p["veins"]:
+			assert_true(claimed_site_ids.has(v["siteId"]), "%s vein's siteId resolves to one of the claimed sites" % v["oreType"])
+			assert_eq(claimed_site_ids[v["siteId"]]["oreType"], v["oreType"], "linked site's oreType matches the vein's own oreType")
+
+		var stops := MapLayout.build_stop_items(Sites.sites_in_district("shoreditch"), p["veins"])
+		var vein_stop_ids := []
+		for stop in stops:
+			if stop["kind"] == "vein":
+				vein_stop_ids.append(stop["vein"]["id"])
+		for v in p["veins"]:
+			assert_true(vein_stop_ids.has(v["id"]), "%s debug vein renders as a Map stop" % v["oreType"])
 	)
