@@ -3,6 +3,6 @@
   "cards": [
     { "type": "narration", "label": null, "speaker": null, "text": "A fox crosses your path at the exact midpoint between two streetlights, pauses to look at you with total lack of interest, and continues on business you'll never be briefed on. London's real nightshift clocks on. You're not on the rota." }
   ],
-  "on_complete": [],
+  "on_complete": [{ "op": "set_screen", "screen": "map" }],
   "deck": { "district": "any", "weight": 1, "excludeIfFlag": null, "barometerState": null }
 }

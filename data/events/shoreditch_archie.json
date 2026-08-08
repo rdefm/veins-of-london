@@ -6,6 +6,6 @@
     { "type": "speaker", "label": null, "speaker": "You", "text": "\"Comforting.\"" },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"I do try.\" He nods once, like that's the whole conversation, and drifts back into whatever he was doing before he clocked you." }
   ],
-  "on_complete": [{ "op": "relation", "contact": "archie", "value": 2 }],
+  "on_complete": [{ "op": "relation", "contact": "archie", "value": 2 }, { "op": "set_screen", "screen": "map" }],
   "deck": { "district": "any", "weight": 1, "excludeIfFlag": null, "barometerState": null }
 }

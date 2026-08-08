@@ -5,6 +5,6 @@
     { "type": "speaker", "label": null, "speaker": "Dogwalker", "text": "\"You're doing the ore thing, aren't you. Everyone up here can tell. Here — Wellington dug this up under an oak. Waste on me, not on him.\"" },
     { "type": "resolution", "label": null, "speaker": null, "text": "She's gone before you can ask which dog is Wellington. All four look equally capable of digging up the past." }
   ],
-  "on_complete": [{ "op": "add_ore", "type": "life", "qty": 2 }],
+  "on_complete": [{ "op": "add_ore", "type": "life", "qty": 2 }, { "op": "set_screen", "screen": "map" }],
   "deck": { "district": "hampstead", "weight": 1, "excludeIfFlag": null, "barometerState": null }
 }

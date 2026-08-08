@@ -5,6 +5,6 @@
     { "type": "narration", "label": null, "speaker": null, "text": "You've heard the stories — fate-types collect near omens the way flies collect near anything else. You have no idea if this counts. The pigeon, notably, does not clarify." },
     { "type": "resolution", "label": null, "speaker": null, "text": "It flies off eventually, satisfied or bored, impossible to say which. You feel, absurdly, like your next piece of luck has already been decided somewhere above you." }
   ],
-  "on_complete": [{ "op": "set_flag", "flag": "luckyOmen", "value": true }],
+  "on_complete": [{ "op": "set_flag", "flag": "luckyOmen", "value": true }, { "op": "set_screen", "screen": "map" }],
   "deck": { "district": "any", "weight": 1, "excludeIfFlag": null, "barometerState": null }
 }

@@ -5,6 +5,6 @@
     { "type": "narration", "label": null, "speaker": null, "text": "By the time you think to look back properly, he's gone, and the space he was standing in has already been filled by three tourists and a Deliveroo rider, as if London itself hurried to paper over the gap." },
     { "type": "resolution", "label": null, "speaker": null, "text": "You add it to a growing list of things about the City you're choosing not to think about too hard." }
   ],
-  "on_complete": [{ "op": "set_flag", "flag": "conclaveNoticed", "value": true }],
+  "on_complete": [{ "op": "set_flag", "flag": "conclaveNoticed", "value": true }, { "op": "set_screen", "screen": "map" }],
   "deck": { "district": "city", "weight": 1, "excludeIfFlag": "conclaveNoticed", "barometerState": null }
 }

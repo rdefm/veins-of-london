@@ -24,6 +24,6 @@
     },
     { "type": "resolution", "label": null, "speaker": null, "text": "Whether or not he was lying, Greenwich feels marginally more interesting than it did five minutes ago." }
   ],
-  "on_complete": [],
+  "on_complete": [{ "op": "set_screen", "screen": "map" }],
   "deck": { "district": "greenwich", "weight": 1, "excludeIfFlag": null, "barometerState": null }
 }

@@ -20,6 +20,6 @@
     },
     { "type": "resolution", "label": null, "speaker": null, "text": "London rewards neither generosity nor spite. It just carries on." }
   ],
-  "on_complete": [],
+  "on_complete": [{ "op": "set_screen", "screen": "map" }],
   "deck": { "district": "any", "weight": 1, "excludeIfFlag": null, "barometerState": null, "requireUnclaimedSiteInDistrict": true }
 }

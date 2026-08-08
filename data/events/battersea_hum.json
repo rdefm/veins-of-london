@@ -4,6 +4,6 @@
     { "type": "narration", "label": "Battersea", "speaker": null, "text": "The old power station hasn't generated anything since before your parents were your age, and it still hums, very faintly, like a tooth that's been pulled but hasn't told the nerve yet." },
     { "type": "resolution", "label": null, "speaker": null, "text": "You put your hand flat against the brick for exactly as long as feels socially acceptable to touch a decommissioned building, and come away with a faint charge of physics-type static in your palm." }
   ],
-  "on_complete": [{ "op": "add_ore", "type": "physics", "qty": 1 }],
+  "on_complete": [{ "op": "add_ore", "type": "physics", "qty": 1 }, { "op": "set_screen", "screen": "map" }],
   "deck": { "district": "battersea", "weight": 1, "excludeIfFlag": null, "barometerState": null }
 }

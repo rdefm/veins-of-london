@@ -19,6 +19,6 @@
     },
     { "type": "resolution", "label": null, "speaker": null, "text": "Either way, you get where you're going. King's Cross remains, structurally, on its way somewhere else." }
   ],
-  "on_complete": [],
+  "on_complete": [{ "op": "set_screen", "screen": "map" }],
   "deck": { "district": "kingscross", "weight": 1, "excludeIfFlag": null, "barometerState": null }
 }

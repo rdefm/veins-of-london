@@ -3,6 +3,6 @@
   "cards": [
     { "type": "narration", "label": null, "speaker": null, "text": "It starts raining the specific, personal way London rain does — not weather so much as a verdict. Nobody around you reacts; rain is not news here. You're soaked by the time you find shelter, mildly impressed at how quickly the city returns to pretending it didn't just do that." }
   ],
-  "on_complete": [],
+  "on_complete": [{ "op": "set_screen", "screen": "map" }],
   "deck": { "district": "any", "weight": 1, "excludeIfFlag": null, "barometerState": null }
 }

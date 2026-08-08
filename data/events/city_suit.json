@@ -23,6 +23,6 @@
     },
     { "type": "resolution", "label": null, "speaker": null, "text": "He's gone by the time you check your phone. Some men are only ever passing through." }
   ],
-  "on_complete": [],
+  "on_complete": [{ "op": "set_screen", "screen": "map" }],
   "deck": { "district": "city", "weight": 1, "excludeIfFlag": null, "barometerState": null }
 }
