@@ -9,8 +9,8 @@ Execute tasks **in order**. Each task = one commit. A task is done when its Acce
 ## T00 — Repo, engine bootstrap, test harness
 - Godot 4.4 project: `project.godot` (portrait 390×844 base, `canvas_items` stretch, `expand` aspect), folder skeleton per CLAUDE.md architecture + `tests/`, `scripts/`, `data/`, `reference/`.
 - Copy the prototype HTML into `reference/london-orichalchum.html` (read-only prose quarry).
-- `scripts/setup_godot.sh`: if no `godot` on PATH, download `Godot_v4.4-stable_linux.x86_64.zip` from the official godotengine GitHub release, unzip to `.godot-bin/`, chmod +x, symlink `./godot`. Idempotent.
-- `scripts/check_all.sh`: runs `--check-only` over every `.gd` file, exits non-zero on any failure.
+- `scripts/setup_godot.sh`: if no `godot` on PATH, download the official godotengine GitHub release for the host OS (Linux or Windows), unzip to `.godot-bin/`, and wire up `./godot` (a real symlink on Linux; a small exec-wrapper script on Windows, since Godot's win64 console binary refuses to run under any name but its own). Idempotent.
+- `scripts/check_all.sh`: runs `scripts/check_runner.gd` (a `-s` SceneTree script, so autoloads resolve) over every `.gd` file, exits non-zero on any failure. Also takes explicit paths for single/multi-file checks: `godot --headless -s scripts/check_runner.gd -- path/to/file.gd`.
 - Test harness (no external framework): `tests/test_runner.gd` extends `SceneTree`; discovers `tests/test_*.gd`; each test file extends a tiny `tests/test_base.gd` providing `assert_eq(a,b,msg)`, `assert_true`, `assert_almost_eq(a,b,eps)`, `run_case(name, fn)`; runner prints `PASS/FAIL` per case and exits non-zero on any failure. `scripts/run_tests.sh` = `godot --headless -s tests/test_runner.gd`.
 - Seeded RNG helper for tests: systems must take randomness ONLY from `Rng.gd` autoload wrapping a `RandomNumberGenerator` with `set_seed(n)` — this is what makes probabilistic systems testable. Add `Rng.randi_range`, `Rng.randf`, `Rng.chance(p)`, `Rng.rand_from(array)`.
 **Acceptance:** `setup_godot.sh` then `run_tests.sh` passes with one trivial test on a clean machine with no Godot preinstalled.

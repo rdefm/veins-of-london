@@ -43,9 +43,9 @@ Target is **Godot 4.4 stable**. You have been trained on a lot of Godot 3 code. 
 
 **After writing or editing ANY .gd file, immediately run:**
 ```
-godot --headless --check-only --script path/to/file.gd
+godot --headless -s scripts/check_runner.gd -- path/to/file.gd
 ```
-(or `scripts/check_all.sh` to sweep the project). A parse error you don't catch compounds into ten.
+(or `scripts/check_all.sh` to sweep the whole project). Don't use `godot --check-only --script path/to/file.gd` — it never boots the SceneTree, so autoload identifiers (`GameData`, `GameState`, ...) never resolve and it false-positives on any file that references one; `check_runner.gd` boots normally first, so autoloads resolve for real. A parse error you don't catch compounds into ten.
 
 ## Architecture — one-way data flow (non-negotiable)
 

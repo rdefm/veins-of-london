@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Runs `godot --check-only` over every .gd file in the project.
-# Exits non-zero if any file fails to parse. Does not use `set -e` in the
-# main loop deliberately, so every file gets checked and every failure
-# gets reported in one pass instead of stopping at the first one.
-set -uo pipefail
+# Syntax-checks every .gd file in the project via scripts/check_runner.gd
+# (a -s SceneTree script, so autoloads register normally -- see that file's
+# header comment for why the old per-file `--check-only --script X` loop
+# false-positived on every autoload-referencing file). Exits non-zero if
+# any file fails to load.
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -18,22 +19,4 @@ else
 fi
 
 cd "$PROJECT_DIR"
-
-fail=0
-count=0
-while IFS= read -r -d '' f; do
-	count=$((count + 1))
-	if ! "$GODOT_BIN" --headless --check-only --script "$f" 2>&1; then
-		echo "FAILED: $f"
-		fail=1
-	fi
-done < <(find . -name "*.gd" -not -path "./.godot-bin/*" -not -path "./.godot/*" -print0)
-
-echo ""
-echo "Checked $count file(s)."
-if [ "$fail" -ne 0 ]; then
-	echo "check_all: FAILED"
-else
-	echo "check_all: all clean"
-fi
-exit $fail
+"$GODOT_BIN" --headless -s scripts/check_runner.gd
