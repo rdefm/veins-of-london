@@ -94,6 +94,17 @@ static func muted_label(text: String) -> Label:
 	return l
 
 
+# A label tinted with an arbitrary colour (e.g. a faction's data/factions.json
+# "colour" hex string) — the swatch-via-font-colour approach the faction
+# vein sheet (faction-vein-ownership T04) uses instead of a separate colour
+# chip, since every faction colour is dark/saturated enough to stay legible
+# as text on the panel's near-white background (theme/main_theme.tres).
+static func tinted_label(text: String, colour: Color) -> Label:
+	var l := label(text)
+	l.add_theme_color_override("font_color", colour)
+	return l
+
+
 static func button(text: String, callback: Callable) -> Button:
 	var b := Button.new()
 	b.text = text

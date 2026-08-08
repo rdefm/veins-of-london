@@ -241,8 +241,7 @@ func _build_site_sheet(site_id: String) -> void:
 		content.add_child(UI.muted_label("A natural vein runs here — claiming grants a free bonus vein."))
 
 	if site["factionVein"] != null:
-		var faction_name: String = GameData.FACTIONS[site["factionVein"]["factionId"]]["name"]
-		content.add_child(UI.muted_label("%s territory. Nothing to do here (for now)." % faction_name))
+		_build_faction_vein_content(content, site["factionVein"])
 	elif site["claimed"]:
 		_build_claimed_site_content(content, site)
 	elif site["tier"] == "barren":
@@ -251,6 +250,22 @@ func _build_site_sheet(site_id: String) -> void:
 		content.add_child(_build_seed_row(site))
 
 	content.add_child(UI.button("Close", func(): MapNav.close_site_sheet()))
+
+
+# faction-vein-ownership T04: read-only faction ownership display. No
+# cultivate/charge (not the player's vein) and no raid button (Chunk 6 isn't
+# built yet) — deliberately just facts, no relation-flavoured text or
+# raid-difficulty hinting (PRD: "kept plain for now").
+func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary) -> void:
+	var faction: Dictionary = GameData.FACTIONS[vein["factionId"]]
+	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
+	var security: Dictionary = GameData.VEIN_SECURITY[vein["security"]]
+
+	var c := UI.card()
+	c["content"].add_child(UI.tinted_label(faction["name"], Color(faction["colour"])))
+	c["content"].add_child(UI.muted_label("%s %s — Lv%d %s" % [ore["symbol"], ore["name"], vein["level"], vein["levelLabel"]]))
+	c["content"].add_child(UI.muted_label("🔒 %s" % security["label"]))
+	content.add_child(c["panel"])
 
 
 func _build_claimed_site_content(content: VBoxContainer, site: Dictionary) -> void:
