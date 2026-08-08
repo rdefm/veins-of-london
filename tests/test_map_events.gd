@@ -34,6 +34,39 @@ func run() -> void:
 		assert_eq(MapEvents.pending_site_ids(), ["s1", "s2"])
 	)
 
+	# ── seed_claim (ticket 02) ──────────────────────────────────────────
+
+	run_case("queue_seed_claim_appends_a_seed_claim_event_with_district_vein_id_and_owner", func():
+		GameState.reset()
+		MapEvents.queue_seed_claim("shoreditch", "v1", "player")
+		var event = MapEvents.current()
+		assert_eq(event["type"], "seed_claim")
+		assert_eq(event["district"], "shoreditch")
+		assert_eq(event["veinId"], "v1")
+		assert_eq(event["owner"], "player")
+	)
+
+	run_case("queue_seed_claim_owner_can_be_a_faction_id", func():
+		GameState.reset()
+		MapEvents.queue_seed_claim("camden", "v2", "firm")
+		assert_eq(MapEvents.current()["owner"], "firm")
+	)
+
+	run_case("pending_vein_ids_lists_every_queued_vein_in_order", func():
+		GameState.reset()
+		MapEvents.queue_seed_claim("shoreditch", "v1", "player")
+		MapEvents.queue_seed_claim("camden", "v2", "firm")
+		assert_eq(MapEvents.pending_vein_ids(), ["v1", "v2"])
+	)
+
+	run_case("pending_site_ids_and_pending_vein_ids_only_pick_up_their_own_event_type", func():
+		GameState.reset()
+		MapEvents.queue_discover("shoreditch", "s1")
+		MapEvents.queue_seed_claim("camden", "v1", "player")
+		assert_eq(MapEvents.pending_site_ids(), ["s1"], "seed_claim events have no siteId to collect")
+		assert_eq(MapEvents.pending_vein_ids(), ["v1"], "discover events have no veinId to collect")
+	)
+
 	# ── begin_playback: drains exactly once per Map-tab visit ─────────────
 
 	run_case("begin_playback_returns_false_when_the_queue_is_empty", func():

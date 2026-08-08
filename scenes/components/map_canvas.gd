@@ -72,6 +72,7 @@ const LINE_WIDTH := 6.0
 const VEIN_STOP_RADIUS := 7.0
 const VEIN_STOP_STROKE := 2.5
 const FACTION_STOP_RADIUS := 5.0
+const FACTION_STOP_STROKE := 2.0
 const TICK_LENGTH := 12.0
 const TICK_WIDTH := 3.0
 const BADGE_OFFSET := 10.0
@@ -138,11 +139,12 @@ var _ore_font_covers_symbols: bool
 # into their own routed line per faction (_draw_lines, via
 # MapLayout.group_by_faction + MapRouting.build_line from each faction's
 # MapLayout.faction_first_presence_anchor()) and their own faction-coloured
-# dot (_draw_stops) — the old single grey anonymous-NPC stub/dot is gone.
-# Full vein-style stop rendering (ore symbol, level/security badges) for
-# faction stops is still deferred to Chunk 3 (map filters/visuals PRD); until
-# then they draw as a plain coloured dot, same shape as before, just no
-# longer anonymous grey.
+# ring (_draw_stops/_draw_faction_stop) — the old single grey anonymous-NPC
+# stub/dot is gone. map-animations ticket 02 gave faction stops a real
+# paper+ring render (matching player stops' ring) so a faction's claim-tick
+# has something for its seed/claim animation to sweep into; ore symbol and
+# level/security badges are still deferred to Chunk 3 (map filters/visuals
+# PRD).
 var _vein_stops: Array = []
 var _faction_stops: Dictionary = {}  # faction id -> Array of that faction's owned vein stops
 var _unclaimed_stops: Array = []
@@ -299,34 +301,41 @@ func _play_queue() -> void:
 
 
 func _play_event(event: Dictionary) -> void:
-	var pos: Variant = _resolve_event_position(event)
-	if pos == null:
-		return  # site no longer resolvable (edge case) -- nothing to animate, just advance past it
+	var stop: Variant = _resolve_event_stop(event)
+	if stop == null:
+		return  # site/vein no longer resolvable (edge case) -- nothing to animate, just advance past it
 
-	await pan_to(pos)
+	await pan_to(stop["position"])
 	if _skip_requested:
 		return
 
 	match event["type"]:
 		"discover":
-			await _play_discover_ripple(pos, event)
+			await _play_discover_ripple(stop["position"], event)
+		"seed_claim":
+			await _play_seed_claim_ring(stop, event)
 
 
-# The event's site position, resolved live (not stored on the queue entry
-# itself) so it always reflects the site's *current* assigned stop slot —
-# MapEvents' own doc comment is explicit that the queue only carries
-# district+siteId for exactly this reason.
-func _resolve_event_position(event: Dictionary) -> Variant:
+# The event's stop (position + resolved site/vein data), resolved live (not
+# stored on the queue entry itself) so it always reflects the *current*
+# assigned stop slot — MapEvents' own doc comment is explicit that the queue
+# only carries district+siteId/veinId for exactly this reason. "discover"
+# events key on siteId (MapLayout stops an unclaimed site by its own id);
+# "seed_claim" events key on veinId (MapLayout.build_stop_items keys a
+# claimed stop by the vein's id, not the site's — a claimed site can carry
+# more than one vein, e.g. D2's natural-vein bonus).
+func _resolve_event_stop(event: Dictionary) -> Variant:
+	var target_id: String = event["siteId"] if event["type"] == "discover" else event["veinId"]
 	for stop in MapLayout.assign_slots(event["district"]):
-		if stop["id"] == event["siteId"]:
-			return stop["position"]
+		if stop["id"] == target_id:
+			return stop
 	return null
 
 
 func _play_discover_ripple(pos: Vector2, event: Dictionary) -> void:
 	var site: Variant = Sites.find_site(event["siteId"])
 	if site == null:
-		return  # site no longer resolvable (edge case, see _resolve_event_position) -- nothing to pop in
+		return  # site no longer resolvable (edge case, see _resolve_event_stop) -- nothing to pop in
 
 	var ripple := DiscoverRipple.new()
 	ripple.map_canvas = self
@@ -345,6 +354,52 @@ func _play_discover_ripple(pos: Vector2, event: Dictionary) -> void:
 	_active_tween = ripple.tween
 	await ripple.tween.finished
 	ripple.queue_free()
+
+
+# The (owner colour, stop radius, ring base width) triple that identifies
+# "is this a player vein stop or a faction one" — _draw_vein_stop/
+# _draw_faction_stop each already know their own identity at the call site,
+# but _play_seed_claim_ring below only has a runtime owner string, so it
+# needs this looked up rather than hardcoded twice.
+func _stop_render_params(owner: String) -> Dictionary:
+	if owner == "player":
+		return { "colour": PLAYER_COLOUR, "radius": VEIN_STOP_RADIUS, "width": VEIN_STOP_STROKE }
+	return {
+		"colour": Color(GameData.FACTIONS[owner]["colour"]),
+		"radius": FACTION_STOP_RADIUS,
+		"width": FACTION_STOP_STROKE,
+	}
+
+
+# Ticket 02: a vein appearing on the map (player seed via Sites.attempt_seed,
+# or a faction's claim-tick via Sites.roll_npc_claims/
+# npc_claim_best_unclaimed_site) — the stop's coloured ring draws itself in
+# progressively, 0 -> TAU, instead of appearing at full circumference
+# instantly. _vein_ring_style() below computes the exact colour/width the
+# ordinary static draw (_draw_vein_stop/_draw_faction_stop) would use for
+# this vein, so the ring's end state is byte-for-byte identical to what the
+# permanent draw shows the instant this node is freed and MapEvents.advance()
+# reveals it — same "no visible jump" discipline as DiscoverRipple.
+func _play_seed_claim_ring(stop: Dictionary, event: Dictionary) -> void:
+	var vein: Variant = stop["vein"]
+	if vein == null:
+		return  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to draw
+
+	var params := _stop_render_params(event["owner"])
+	var alpha := MapStyle.stop_alpha(filter_mode, false)  # a brand-new vein is never charged
+	var style := _vein_ring_style(vein, params["colour"], params["width"])
+
+	var ring := SeedClaimRing.new()
+	ring.position = stop["position"]
+	ring.radius = params["radius"]
+	ring.fill_colour = _faded(PAPER_COLOUR, alpha)
+	ring.ring_colour = _faded(style["colour"], alpha)
+	ring.ring_width = style["width"]
+	_playback_layer.add_child(ring)
+	ring.start(EVENT_VISUAL_DURATION)
+	_active_tween = ring.tween
+	await ring.tween.finished
+	ring.queue_free()
 
 
 # Tap-to-skip (N5's delta for this ticket): fast-forwards whichever tween is
@@ -383,29 +438,34 @@ func _partition_stops() -> void:
 	_vein_stops = []
 	_unclaimed_stops = []
 
-	# Map-animations ticket 01: a site with a still-queued "discover" event
+	# Map-animations ticket 01/02: a site/vein with a still-queued map event
 	# (current or waiting its turn) stays out of the ordinary static draw
 	# entirely — it only appears via the playback loop's own visual, then
 	# permanently once MapEvents.advance() pops it off the queue and this
-	# rebuild runs again. Only ever populated with unclaimed siteIds today
-	# (the only event type this ticket builds).
-	var pending_ids: Array = MapEvents.pending_site_ids()
+	# rebuild runs again. pending_site_ids -> "discover" (unclaimed) stops,
+	# pending_vein_ids -> "seed_claim" (player or faction vein) stops.
+	var pending_site_ids: Array = MapEvents.pending_site_ids()
+	var pending_vein_ids: Array = MapEvents.pending_vein_ids()
 
 	var stops_by_district := MapLayout.assign_all_slots()
 	var all_stops: Array = []
 	for district_id in stops_by_district.keys():
 		all_stops.append_array(stops_by_district[district_id])
 
+	var visible_vein_stops: Array = []
 	for stop in all_stops:
 		match stop["kind"]:
 			"vein":
+				if pending_vein_ids.has(stop["id"]):
+					continue
+				visible_vein_stops.append(stop)
 				if stop.get("owner") == "player":
 					_vein_stops.append(stop)
 			"unclaimed":
-				if not pending_ids.has(stop["id"]):
+				if not pending_site_ids.has(stop["id"]):
 					_unclaimed_stops.append(stop)
 
-	_faction_stops = MapLayout.group_by_faction(all_stops)
+	_faction_stops = MapLayout.group_by_faction(visible_vein_stops)
 
 
 func _draw() -> void:
@@ -502,6 +562,28 @@ func _draw_stops() -> void:
 		_draw_unclaimed_stop(stop)
 
 
+# Ring colour/width for a vein stop, player- or faction-owned — pulled out
+# of _draw_vein_stop/_draw_faction_stop so the seed/claim animation
+# (MapCanvas._play_seed_claim_ring, ticket 02) computes its end-state style
+# from the exact same MapStyle calls rather than a parallel formula that
+# could drift from the permanent static draw.
+func _vein_ring_style(vein: Dictionary, owner_colour: Color, base_width: float) -> Dictionary:
+	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
+	var level: int = vein.get("level", 1)
+	return {
+		"colour": MapStyle.vein_ring_colour(filter_mode, owner_colour, Color(ore["colour"]), level),
+		"width": MapStyle.vein_ring_width(filter_mode, level, base_width),
+	}
+
+
+# The paper-fill circle + full-circumference ring both _draw_vein_stop and
+# _draw_faction_stop draw at rest — same shape SeedClaimRing._draw() sweeps
+# in progressively, just always at ring_end_angle TAU here.
+func _draw_ring_stop(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int) -> void:
+	draw_circle(pos, radius, _faded(PAPER_COLOUR, alpha))
+	draw_arc(pos, radius, 0, TAU, segments, _faded(style["colour"], alpha), style["width"], true)
+
+
 func _draw_vein_stop(stop: Dictionary) -> void:
 	var pos: Vector2 = stop["position"]
 	var vein: Dictionary = stop["vein"]
@@ -511,11 +593,9 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 	var security: String = vein.get("security", "none")
 
 	var alpha := MapStyle.stop_alpha(filter_mode, charged)
-	var ring_colour := MapStyle.vein_ring_colour(filter_mode, PLAYER_COLOUR, Color(ore["colour"]), level)
-	var ring_width := MapStyle.vein_ring_width(filter_mode, level, VEIN_STOP_STROKE)
+	var style := _vein_ring_style(vein, PLAYER_COLOUR, VEIN_STOP_STROKE)
 
-	draw_circle(pos, VEIN_STOP_RADIUS, _faded(PAPER_COLOUR, alpha))
-	draw_arc(pos, VEIN_STOP_RADIUS, 0, TAU, 32, _faded(ring_colour, alpha), ring_width, true)
+	_draw_ring_stop(pos, VEIN_STOP_RADIUS, alpha, style, 32)
 	_draw_ore_symbol(pos, vein["oreType"], ore, alpha)
 
 	var level_scale := MapStyle.badge_scale(filter_mode, "level")
@@ -539,10 +619,19 @@ func _blocks_until_charged(vein: Dictionary) -> int:
 	return maxi(recharge_blocks - vein.get("chargeBlocks", 0), 0)
 
 
+# Map-animations ticket 02: faction stops now draw a paper-fill + coloured
+# ring, same as player vein stops (VEIN_STOP_RADIUS's smaller sibling), so a
+# faction's claim-tick has a real ring for its seed/claim animation to sweep
+# into. Ore symbol / level & security badges stay the plain-dot era's
+# deferred scope (see this file's class comment) — not added here.
 func _draw_faction_stop(stop: Dictionary) -> void:
+	var pos: Vector2 = stop["position"]
+	var vein: Dictionary = stop["vein"]
 	var faction_colour := Color(GameData.FACTIONS[stop["owner"]]["colour"])
 	var alpha := MapStyle.stop_alpha(filter_mode, false)
-	draw_circle(stop["position"], FACTION_STOP_RADIUS, _faded(faction_colour, alpha))
+	var style := _vein_ring_style(vein, faction_colour, FACTION_STOP_STROKE)
+
+	_draw_ring_stop(pos, FACTION_STOP_RADIUS, alpha, style, 24)
 
 
 func _draw_unclaimed_stop(stop: Dictionary) -> void:
@@ -961,3 +1050,39 @@ class DiscoverRipple:
 				map_canvas._draw_tick_mark(Vector2(6, 0), RING_COLOUR, self)
 			map_canvas._draw_ore_symbol(Vector2(16, 0), ore_type, ore, 1.0, self)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+# Map-animations ticket 02's seed/claim visual: the stop's coloured ring
+# draws itself in progressively, like a loading-spinner filling from 0 to
+# 360 degrees, reusing the same draw_arc primitive the static vein/faction
+# ring already draws with (see MapCanvas._draw_vein_stop/_draw_faction_stop).
+# One-shot, Tween-driven (not _process) for the same custom_step()
+# fast-forward reason as DiscoverRipple above. radius/fill_colour/
+# ring_colour/ring_width are computed once by MapCanvas._play_seed_claim_ring
+# via _vein_ring_style() — the exact same MapStyle calls the static draw
+# makes — so the swept-in ring's end state is byte-for-byte identical to the
+# permanent render, not a reimplementation that could drift.
+class SeedClaimRing:
+	extends Node2D
+
+	# Set by MapCanvas._play_seed_claim_ring() before start() is called.
+	var radius: float
+	var fill_colour: Color
+	var ring_colour: Color
+	var ring_width: float
+
+	var tween: Tween
+	var _sweep_end := 0.0
+
+	func start(duration: float) -> void:
+		tween = create_tween()
+		tween.tween_method(_set_sweep_end, 0.0, TAU, duration)
+
+	func _set_sweep_end(a: float) -> void:
+		_sweep_end = a
+		queue_redraw()
+
+	func _draw() -> void:
+		draw_circle(Vector2.ZERO, radius, fill_colour)
+		if _sweep_end > 0.0:
+			draw_arc(Vector2.ZERO, radius, 0, _sweep_end, 32, ring_colour, ring_width, true)

@@ -373,6 +373,12 @@ func run() -> void:
 		assert_eq(vein["siteId"], "s1", "vein references its site")
 		assert_eq(vein["hospitability"], { "tier": "fair", "bonuses": ["yield"] }, "vein carries the site's tier + bonuses")
 		assert_eq(GameState.state["modal"]["type"], "seed_result", "opens the seed_result modal")
+
+		var event = MapEvents.current()
+		assert_eq(event["type"], "seed_claim", "a successful seed queues a map-animations seed/claim event (ticket 02)")
+		assert_eq(event["district"], "shoreditch")
+		assert_eq(event["veinId"], vein["id"])
+		assert_eq(event["owner"], "player")
 	)
 
 	run_case("attempt_seed_failure_leaves_site_unclaimed_but_still_spends_ore", func():
@@ -425,6 +431,8 @@ func run() -> void:
 		assert_eq(natural_vein["level"], 1, "natural vein starts at level 1")
 		assert_eq(natural_vein["oreType"], "life", "natural vein matches the site's ore type")
 		assert_true(natural_vein["location"].contains(","), "natural vein gets its own freshly-generated 'street, suffix' location")
+
+		assert_eq(MapEvents.pending_vein_ids(), [veins[0]["id"], natural_vein["id"]], "both the seeded vein and the natural-vein bonus queue their own seed/claim event")
 	)
 
 	run_case("attempt_seed_hospitability_is_not_aliased_across_site_and_veins", func():
@@ -518,6 +526,12 @@ func run() -> void:
 		var faction_name: String = GameData.FACTIONS[vein["factionId"]]["shortName"]
 		assert_true(last["text"].contains(faction_name), "notification names the claiming faction")
 		assert_true(last["text"].contains("saturated site in Camden"), "notification names the tier and district")
+
+		var event = MapEvents.current()
+		assert_eq(event["type"], "seed_claim", "the claim-tick queues a map-animations seed/claim event (ticket 02)")
+		assert_eq(event["district"], "camden")
+		assert_eq(event["veinId"], vein["id"])
+		assert_eq(event["owner"], vein["factionId"])
 	)
 
 	run_case("roll_npc_abandonment_ignores_unclaimed_and_player_claimed_sites", func():

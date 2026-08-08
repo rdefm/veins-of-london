@@ -101,6 +101,13 @@ func run() -> void:
 		Events.apply_effects([{ "op": "npc_claim_best_unclaimed_site" }])
 		assert_true(Sites.find_site("rich1")["factionVein"] != null, "the higher-tier site should be claimed")
 		assert_eq(Sites.find_site("poor1")["factionVein"], null, "the lower-tier site is untouched")
+
+		var vein: Dictionary = Sites.find_site("rich1")["factionVein"]
+		var event = MapEvents.current()
+		assert_eq(event["type"], "seed_claim", "the instant claim queues a map-animations seed/claim event (ticket 02)")
+		assert_eq(event["district"], "camden")
+		assert_eq(event["veinId"], vein["id"])
+		assert_eq(event["owner"], vein["factionId"])
 	)
 
 	run_case("npc_claim_best_unclaimed_site_op_is_a_no_op_with_nothing_unclaimed", func():

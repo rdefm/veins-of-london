@@ -31,6 +31,22 @@ static func queue_discover(district_id: String, site_id: String) -> void:
 	})
 
 
+# Ticket 02: a vein appearing on the map, either the player seeding a site
+# (Sites.attempt_seed) or a faction's claim-tick naming an instant vein
+# (Sites.roll_npc_claims / Sites.npc_claim_best_unclaimed_site). owner is
+# "player" or a faction id — MapCanvas uses it to pick the ring's colour and
+# whether to draw the full vein-stop treatment or the (post-ticket-02)
+# faction-stop ring. Same no-self-emit convention as queue_discover() above:
+# every caller already emits once at the end of its own wrapping action.
+static func queue_seed_claim(district_id: String, vein_id: String, owner: String) -> void:
+	GameState.state["mapEvents"]["queue"].append({
+		"type": "seed_claim",
+		"district": district_id,
+		"veinId": vein_id,
+		"owner": owner,
+	})
+
+
 static func has_pending() -> bool:
 	return not GameState.state["mapEvents"]["queue"].is_empty()
 
@@ -46,15 +62,27 @@ static func current() -> Variant:
 	return queue[0] if not queue.is_empty() else null
 
 
-# Site ids still hidden from the ordinary static draw: the currently
-# playing event and everything still queued behind it. Only ever contains
-# "discover" siteIds today (the only event type ticket 01 builds), so
-# MapCanvas only needs to consult this for unclaimed stops.
-static func pending_site_ids() -> Array:
+static func _pending_ids(event_type: String, id_field: String) -> Array:
 	var ids: Array = []
 	for event in GameState.state["mapEvents"]["queue"]:
-		ids.append(event["siteId"])
+		if event["type"] == event_type:
+			ids.append(event[id_field])
 	return ids
+
+
+# Site ids still hidden from the ordinary static draw: the currently
+# playing event and everything still queued behind it, restricted to
+# "discover" events (the only type with a siteId) — MapCanvas consults this
+# for unclaimed stops.
+static func pending_site_ids() -> Array:
+	return _pending_ids("discover", "siteId")
+
+
+# Ticket 02's counterpart to pending_site_ids() above: vein ids still hidden
+# from the ordinary static draw because their "seed_claim" appear-on-the-map
+# event hasn't played yet — MapCanvas consults this for vein/faction stops.
+static func pending_vein_ids() -> Array:
+	return _pending_ids("seed_claim", "veinId")
 
 
 # Starts a drain. Returns false (no-op) if a drain is already underway or
