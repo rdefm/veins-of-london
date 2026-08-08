@@ -105,12 +105,10 @@ var _pins_layer: Node2D
 var _labels_layer: Node2D
 var _halos: Dictionary = {}  # veinId -> ChargeHalo
 
-# T14 asset production: a small tiled placeholder for N6's paper texture
-# (see scenes/components/paper_texture.gd), and whether the bundled engine font
-# actually covers the 5 ore symbols — checked once here rather than per
-# stop-draw, since Font.has_char() involves the same font-data lookup
-# whether cached or not, and this project has no dynamic font swapping.
-var _paper_tile: ImageTexture
+# T14 asset production: whether the bundled engine font actually covers the
+# 5 ore symbols — checked once here rather than per stop-draw, since
+# Font.has_char() involves the same font-data lookup whether cached or not,
+# and this project has no dynamic font swapping.
 var _ore_font_covers_symbols: bool
 
 # Stops partitioned by kind (computed once per rebuild, shared by
@@ -150,7 +148,6 @@ func _ready() -> void:
 	var map_size: Array = GameData.MAP_LAYOUT["mapSize"]
 	_map_size = Vector2(map_size[0], map_size[1])
 
-	_paper_tile = PaperTexture.generate_tile_texture()
 	_ore_font_covers_symbols = OreGlyphs.font_covers_all_symbols(ThemeDB.fallback_font)
 
 	_halo_layer = Node2D.new()
@@ -253,11 +250,11 @@ func _draw() -> void:
 # ── paper / zones / river ───────────────────────────────────────────────
 
 func _draw_paper() -> void:
-	# N6 asset 1 (see scenes/components/paper_texture.gd) — a small noise tile drawn
-	# tiled across the full background, standing in for the real 1536x2048
-	# aged-cream PNG per N6's own "procedural noise ... placeholder
-	# acceptable" allowance.
-	draw_texture_rect(_paper_tile, Rect2(Vector2.ZERO, _map_size), true)
+	# Chunk 3 visual pivot: flat fill, replacing the tiled aged-paper noise
+	# texture (N6 asset 1) — the diagram is moving toward a generic modern
+	# phone transit-app look rather than a hand-drawn parchment map. Colour
+	# unchanged for now; full palette redesign is a later Chunk 3 ticket.
+	draw_rect(Rect2(Vector2.ZERO, _map_size), PAPER_COLOUR)
 
 
 func _draw_zones() -> void:
