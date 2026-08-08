@@ -96,3 +96,17 @@ func run() -> void:
 		var home: Array = GameData.MAP_LAYOUT["homeAnchor"]
 		assert_eq(Vector2(home[0], home[1]), _anchor("shoreditch"), "shoreditch is home base -- homeAnchor must track its retiled anchor")
 	)
+
+	run_case("every_labelAnchor_sits_inside_its_own_hexagon_not_a_neighbours", func():
+		# Regression: the pre-retiling labelAnchor offset (anchor.y - 132) was
+		# tuned for the old spread-out layout, which had a gap above each hex
+		# for the label to float in. Edge-to-edge tiling closed that gap, so
+		# the same offset landed inside whichever hex now sits directly above
+		# (e.g. city's label inside camden's hex) -- caught by checking each
+		# labelAnchor falls in exactly its own district's zonePolygon.
+		var districts_layout: Dictionary = GameData.MAP_LAYOUT["districts"]
+		for district_id in districts_layout.keys():
+			var label: Array = districts_layout[district_id]["labelAnchor"]
+			var label_pos := Vector2(label[0], label[1])
+			assert_eq(MapHitTest.district_at(label_pos, districts_layout), district_id, "%s labelAnchor %s does not fall inside its own hexagon" % [district_id, label_pos])
+	)
