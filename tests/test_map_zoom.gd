@@ -32,3 +32,39 @@ func run() -> void:
 	run_case("default_zoom_is_within_min_and_max", func():
 		assert_true(MapZoom.DEFAULT >= MapZoom.MIN and MapZoom.DEFAULT <= MapZoom.MAX)
 	)
+
+	run_case("event_zoom_is_within_min_and_max", func():
+		assert_true(MapZoom.EVENT_ZOOM >= MapZoom.MIN and MapZoom.EVENT_ZOOM <= MapZoom.MAX)
+	)
+
+	# ── scroll_target (pan-to-point, map-animations ticket 01) ────────────
+
+	run_case("scroll_target_centres_the_point_when_there_is_room_to_spare", func():
+		var target := MapZoom.scroll_target(Vector2(500, 500), 1.0, Vector2(200, 200), Vector2(2000, 2000))
+		assert_almost_eq(target.x, 400.0, 0.0001)  # 500 - 200/2
+		assert_almost_eq(target.y, 400.0, 0.0001)
+	)
+
+	run_case("scroll_target_clamps_to_zero_near_the_top_left_edge", func():
+		var target := MapZoom.scroll_target(Vector2(10, 10), 1.0, Vector2(200, 200), Vector2(2000, 2000))
+		assert_almost_eq(target.x, 0.0, 0.0001)
+		assert_almost_eq(target.y, 0.0, 0.0001)
+	)
+
+	run_case("scroll_target_clamps_to_max_scroll_near_the_bottom_right_edge", func():
+		var target := MapZoom.scroll_target(Vector2(1990, 1990), 1.0, Vector2(200, 200), Vector2(2000, 2000))
+		assert_almost_eq(target.x, 1800.0, 0.0001)  # 2000 - 200
+		assert_almost_eq(target.y, 1800.0, 0.0001)
+	)
+
+	run_case("scroll_target_applies_zoom_to_the_point_before_centring", func():
+		var target := MapZoom.scroll_target(Vector2(500, 500), 0.5, Vector2(100, 100), Vector2(1000, 1000))
+		assert_almost_eq(target.x, 200.0, 0.0001)  # 500*0.5 - 100/2
+		assert_almost_eq(target.y, 200.0, 0.0001)
+	)
+
+	run_case("scroll_target_clamps_to_zero_when_content_is_smaller_than_the_viewport", func():
+		var target := MapZoom.scroll_target(Vector2(50, 50), 1.0, Vector2(400, 400), Vector2(200, 200))
+		assert_almost_eq(target.x, 0.0, 0.0001)
+		assert_almost_eq(target.y, 0.0, 0.0001)
+	)

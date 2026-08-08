@@ -226,6 +226,7 @@ static func _create_site(district_id: String) -> Dictionary:
 		"hasNaturalVein": bonus_roll["hasNaturalVein"],
 	}
 	GameState.state["world"]["sites"].append(site)
+	MapEvents.queue_discover(district_id, site["id"])
 	Cultivating.award_xp(GameData.SITE_PROSPECT_XP[tier])
 	return site
 

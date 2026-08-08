@@ -276,6 +276,37 @@ func run() -> void:
 		assert_eq(ids, ["player_claimed", "npc_claimed"], "both sites untouched — neither is a valid reroll target")
 	)
 
+	# ── prospect() queues a discover map event (map-animations ticket 01) ──
+
+	run_case("prospect_below_siteCap_queues_a_discover_event_for_the_new_site", func():
+		GameState.reset()
+		Rng.set_seed(3)
+		var result := Sites.prospect("shoreditch")
+		var site: Dictionary = result["site"]
+		assert_true(MapEvents.has_pending(), "a fresh discovery is queued, not drawn instantly")
+		var event = MapEvents.current()
+		assert_eq(event["type"], "discover")
+		assert_eq(event["district"], "shoreditch")
+		assert_eq(event["siteId"], site["id"])
+	)
+
+	run_case("prospect_reroll_at_siteCap_queues_a_discover_event_for_the_rerolled_site", func():
+		GameState.reset()
+		var poor := _make_site("poor_site", "hampstead", "poor", 1)
+		var fair := _make_site("fair_site", "hampstead", "fair", 1)
+		GameState.state["world"]["sites"] = [poor, fair]
+		Rng.set_seed(4)
+		var result := Sites.prospect("hampstead")
+		var site: Dictionary = result["site"]
+		assert_eq(MapEvents.pending_site_ids(), [site["id"]], "the fresh reroll site is queued, the surviving site is not")
+	)
+
+	run_case("prospect_refused_outright_queues_nothing", func():
+		GameState.reset()
+		Sites.prospect("soho")
+		assert_true(not MapEvents.has_pending(), "soho has no siteCap — nothing was created to queue")
+	)
+
 	# ── attempt_seed() ──────────────────────────────────────────────
 
 	run_case("attempt_seed_fails_for_unknown_site", func():

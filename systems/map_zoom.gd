@@ -13,6 +13,11 @@ const MIN := 0.35
 const MAX := 1.0
 const DEFAULT := 0.5
 
+# Map-animations ticket 01: the zoom level a programmatic pan-to-point
+# animates to, so a queued event's ripple reads clearly on a phone screen
+# rather than at the zoomed-out-to-see-everything DEFAULT.
+const EVENT_ZOOM := 0.8
+
 
 static func clamp_zoom(zoom: float) -> float:
 	return clampf(zoom, MIN, MAX)
@@ -20,3 +25,19 @@ static func clamp_zoom(zoom: float) -> float:
 
 static func to_logical(screen_pos: Vector2, zoom: float) -> Vector2:
 	return screen_pos / zoom
+
+
+# Map-animations ticket 01: the scroll offset (top-left of the viewport, in
+# the same zoomed px a ScrollContainer's scroll_horizontal/scroll_vertical
+# use) that centres `point` (logical map px) inside a `viewport_size`
+# viewport at `zoom`, clamped so the viewport never scrolls past the zoomed
+# content's edges — same clamping a ScrollContainer would apply natively,
+# done here so MapCanvas.pan_to() can tween straight to a valid target
+# rather than fighting the container's own clamp mid-animation. `content_size`
+# is the already-zoomed content size (mapSize * zoom), not passed as zoom
+# again, so callers animating zoom and scroll together can pass the
+# in-progress zoomed size at each step.
+static func scroll_target(point: Vector2, zoom: float, viewport_size: Vector2, content_size: Vector2) -> Vector2:
+	var centred := point * zoom - viewport_size / 2.0
+	var max_scroll := (content_size - viewport_size).max(Vector2.ZERO)
+	return centred.clamp(Vector2.ZERO, max_scroll)

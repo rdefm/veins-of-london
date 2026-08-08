@@ -58,6 +58,7 @@ static func assign_positions(items: Array, slots: Array) -> Array:
 			"kind": item["kind"],
 			"site": item["site"],
 			"vein": item["vein"],
+			"owner": item.get("owner"),
 		})
 	return result
 
@@ -96,6 +97,27 @@ static func river_path() -> Array:
 	var result: Array = []
 	for p in points:
 		result.append(Vector2(p[0], p[1]))
+	return result
+
+
+# multi-faction-line-routing (ticket 03): groups already-positioned "vein"
+# stops (assign_slots'/assign_all_slots' output, flattened across
+# districts) by owning faction id — the player's own stops and any
+# "unclaimed" stops are excluded. scenes/components/map_canvas.gd uses this
+# to build one MapRouting.build_line() per faction instead of the old
+# single undifferentiated NPC stub. Pure — no GameState/GameData reads,
+# same discipline as the rest of this module.
+static func group_by_faction(stops: Array) -> Dictionary:
+	var result: Dictionary = {}
+	for stop in stops:
+		if stop["kind"] != "vein":
+			continue
+		var owner: String = stop.get("owner", "")
+		if owner == "" or owner == "player":
+			continue
+		if not result.has(owner):
+			result[owner] = []
+		result[owner].append(stop)
 	return result
 
 

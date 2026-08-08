@@ -42,7 +42,7 @@
     "tagline": "Information is the resource.",
     "industries": ["trading", "influence"],
     "description": "No one's quite sure who runs The Network or what they actually want. They surface occasionally to broker information — who has what vein, who is selling, what the barometer is doing. They seem to know things before they happen. They are interested in you, which should be flattering and is mostly unsettling.",
-    "colour": "#c8873a",
+    "colour": "#1f9e96",
     "joinRelation": 30,
     "securityBias": -1,
     "resourceLevel": 2

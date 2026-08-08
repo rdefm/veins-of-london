@@ -63,7 +63,6 @@ const MUTED_COLOUR := Color(0.541176, 0.541176, 0.541176)       # --muted #8a8a8
 const INK_COLOUR := Color(0.101961, 0.101961, 0.101961)         # --ink #1a1a1a
 const SLATE_COLOUR := Color(0.290196, 0.337255, 0.407843)       # --slate #4a5568
 const PLAYER_COLOUR := Color(0.784314, 0.529412, 0.227451)      # amber #c8873a
-const NPC_COLOUR := Color(0.541176, 0.541176, 0.541176)         # grey #8a8a8a
 const WARDED_COLOUR := Color(0.482353, 0.407843, 0.933333)      # #7b68ee
 const GUARDED_COLOUR := Color(0.227451, 0.478431, 0.321569)     # --success #3a7a52
 
@@ -72,7 +71,7 @@ const RIVER_WIDTH := 14.0
 const LINE_WIDTH := 6.0
 const VEIN_STOP_RADIUS := 7.0
 const VEIN_STOP_STROKE := 2.5
-const NPC_STOP_RADIUS := 5.0
+const FACTION_STOP_RADIUS := 5.0
 const TICK_LENGTH := 12.0
 const TICK_WIDTH := 3.0
 const BADGE_OFFSET := 10.0
@@ -101,9 +100,27 @@ var zoom_level: float = MapZoom.DEFAULT
 var _map_size: Vector2
 
 var _halo_layer: Node2D
+var _playback_layer: Node2D
 var _pins_layer: Node2D
 var _labels_layer: Node2D
 var _halos: Dictionary = {}  # veinId -> ChargeHalo
+
+# ── map event playback (M1.5 animations ticket 01) ────────────────────────
+# EVENT_VISUAL_DURATION is the single pacing knob the loop below reads for
+# an event's ring-pulse + tick-pop-in (ticket 06 retunes this without
+# touching the loop itself); it excludes the camera pan, which is its own
+# fixed, snappier PAN_DURATION so panning never feels sluggish regardless of
+# how slow/fast the visual pacing is tuned.
+const EVENT_VISUAL_DURATION := 1.5
+const PAN_DURATION := 0.4
+const RIPPLE_DURATION_FRACTION := 0.7
+
+# The tween currently in flight for the event being played (pan, then the
+# event's own visual) — _skip_current() fast-forwards whichever one this
+# points at so a tap-skip resolves the `await` blocking _play_event()
+# immediately instead of waiting out its natural duration.
+var _active_tween: Tween = null
+var _skip_requested := false
 
 # T14 asset production: whether the bundled engine font actually covers the
 # 5 ore symbols — checked once here rather than per stop-draw, since
@@ -115,16 +132,19 @@ var _ore_font_covers_symbols: bool
 # _draw_lines/_draw_stops/_rebuild_halos instead of each re-walking +
 # re-matching GameData.DISTRICTS' full stop set).
 #
-# faction-vein-ownership T01: MapLayout.build_stop_items() now emits real
+# faction-vein-ownership T01 gave MapLayout.build_stop_items() real
 # faction-owned "vein" stops (owner = a faction id) alongside player ones
-# (owner = "player") — both are real veins with level/security/etc. Full
-# multi-faction line/colour rendering is Chunk 2's job (PRD: "feeds Chunk 2
-# (Map rendering)"), not built yet; until then, non-player "vein" stops are
-# routed into _npc_stops below and drawn with the same anonymous grey-dot
-# placeholder the old npcClaimed stops used, rather than being misdrawn as
-# part of the player's own amber line.
+# (owner = "player"). multi-faction-line-routing (ticket 03) wires those
+# into their own routed line per faction (_draw_lines, via
+# MapLayout.group_by_faction + MapRouting.build_line from each faction's
+# MapLayout.faction_first_presence_anchor()) and their own faction-coloured
+# dot (_draw_stops) — the old single grey anonymous-NPC stub/dot is gone.
+# Full vein-style stop rendering (ore symbol, level/security badges) for
+# faction stops is still deferred to Chunk 3 (map filters/visuals PRD); until
+# then they draw as a plain coloured dot, same shape as before, just no
+# longer anonymous grey.
 var _vein_stops: Array = []
-var _npc_stops: Array = []
+var _faction_stops: Dictionary = {}  # faction id -> Array of that faction's owned vein stops
 var _unclaimed_stops: Array = []
 
 # Tappable pins (T13) — home/contact/market, computed each rebuild by
@@ -166,6 +186,11 @@ func _ready() -> void:
 	_halo_layer = Node2D.new()
 	add_child(_halo_layer)
 
+	# Holds the currently-playing event's visual (DiscoverRipple etc.) — sits
+	# with the halos in N3's draw order ("...badges/halos -> pins -> labels").
+	_playback_layer = Node2D.new()
+	add_child(_playback_layer)
+
 	# A child CanvasItem always renders on top of its parent's own _draw()
 	# output, regardless of when in _draw() a call happens — the same
 	# reason lines aren't child Line2Ds (see _draw_route). N3's order past
@@ -184,6 +209,15 @@ func _ready() -> void:
 	EventBus.state_changed.connect(_rebuild)
 	_rebuild()
 
+	# Main.gd tears down and recreates the whole Map screen (and therefore
+	# this Control) on every navigation to "map" (scenes/Main.gd
+	# _show_screen), so this _ready() firing exactly once IS "visiting the
+	# Map tab" — no separate screen_changed listener needed. MapEvents.
+	# begin_playback() is still the source of truth for "exactly once"
+	# (see its own doc comment); this is just where a visit is detected.
+	if MapEvents.begin_playback():
+		_play_queue()
+
 
 # ── zoom ─────────────────────────────────────────────────────────────────
 
@@ -195,17 +229,123 @@ func _set_zoom(new_zoom: float) -> void:
 	queue_redraw()
 	_pins_layer.queue_redraw()
 	_labels_layer.queue_redraw()
+	_playback_layer.queue_redraw()
 
 
 # Resizes this Control to the zoomed pixel size (see the T15-follow-up
 # comment at the top of this file for why `size`, not CanvasItem `scale`)
-# and matches the three child Node2D layers' own real `scale` to it.
+# and matches the four child Node2D layers' own real `scale` to it.
 func _apply_zoom() -> void:
 	custom_minimum_size = _map_size * zoom_level
 	size = custom_minimum_size
 	_halo_layer.scale = Vector2(zoom_level, zoom_level)
+	_playback_layer.scale = Vector2(zoom_level, zoom_level)
 	_pins_layer.scale = Vector2(zoom_level, zoom_level)
 	_labels_layer.scale = Vector2(zoom_level, zoom_level)
+
+
+# Map-animations ticket 01: programmatic pan+zoom to a logical map-px point,
+# tweening both this Control's own zoom (reusing _set_zoom, same as pinch)
+# and the wrapping ScrollContainer's scroll offset (scenes/screens/map.gd
+# always parents this Control directly under one — see _build_diagram_layer
+# — so get_parent() is safe here) to MapZoom.scroll_target()'s answer at the
+# target zoom. `await`-able: the playback loop awaits this before starting
+# an event's own visual, and _skip_current() fast-forwards whatever tween is
+# currently assigned to _active_tween (this one, or the event visual's) to
+# resolve that await immediately on a tap-skip.
+func pan_to(point: Vector2, target_zoom: float = MapZoom.EVENT_ZOOM, duration: float = PAN_DURATION) -> void:
+	var scroll := get_parent() as ScrollContainer
+	var viewport_size: Vector2 = scroll.size if scroll else size
+	var target_scroll := MapZoom.scroll_target(point, target_zoom, viewport_size, _map_size * target_zoom)
+	var start_scroll := Vector2(scroll.scroll_horizontal, scroll.scroll_vertical) if scroll else Vector2.ZERO
+
+	var tween := create_tween()
+	_active_tween = tween
+	tween.tween_method(_set_zoom, zoom_level, target_zoom, duration)
+	if scroll:
+		tween.parallel().tween_method(_apply_scroll.bind(scroll), start_scroll, target_scroll, duration)
+	await tween.finished
+
+
+func _apply_scroll(v: Vector2, scroll: ScrollContainer) -> void:
+	scroll.scroll_horizontal = int(v.x)
+	scroll.scroll_vertical = int(v.y)
+
+
+# ── map event playback (M1.5 animations ticket 01) ────────────────────────
+# Drains state.mapEvents.queue (MapEvents, pure data) sequentially: pan to
+# the event's location, play its visual, advance — repeat until empty.
+# _ready() only calls this once MapEvents.begin_playback() has actually
+# claimed the drain (see its call site above), so this never runs
+# concurrently with itself.
+
+func _play_queue() -> void:
+	while MapEvents.has_pending():
+		_skip_requested = false
+		await _play_event(MapEvents.current())
+		_active_tween = null
+		MapEvents.advance()
+
+
+func _play_event(event: Dictionary) -> void:
+	var pos: Variant = _resolve_event_position(event)
+	if pos == null:
+		return  # site no longer resolvable (edge case) -- nothing to animate, just advance past it
+
+	await pan_to(pos)
+	if _skip_requested:
+		return
+
+	match event["type"]:
+		"discover":
+			await _play_discover_ripple(pos, event)
+
+
+# The event's site position, resolved live (not stored on the queue entry
+# itself) so it always reflects the site's *current* assigned stop slot —
+# MapEvents' own doc comment is explicit that the queue only carries
+# district+siteId for exactly this reason.
+func _resolve_event_position(event: Dictionary) -> Variant:
+	for stop in MapLayout.assign_slots(event["district"]):
+		if stop["id"] == event["siteId"]:
+			return stop["position"]
+	return null
+
+
+func _play_discover_ripple(pos: Vector2, event: Dictionary) -> void:
+	var site: Variant = Sites.find_site(event["siteId"])
+	if site == null:
+		return  # site no longer resolvable (edge case, see _resolve_event_position) -- nothing to pop in
+
+	var ripple := DiscoverRipple.new()
+	ripple.map_canvas = self
+	ripple.ore_type = site["oreType"]
+	ripple.double_tick = site["tier"] in ["rich", "saturated"]
+	ripple.position = pos
+	_playback_layer.add_child(ripple)
+	# start() builds the tween synchronously and returns immediately (no
+	# await inside it), so _active_tween is assigned before anything can
+	# call _skip_current() mid-animation — awaiting the tween directly here
+	# (rather than through another async wrapper) keeps that ordering exact.
+	ripple.start(
+		EVENT_VISUAL_DURATION * RIPPLE_DURATION_FRACTION,
+		EVENT_VISUAL_DURATION * (1.0 - RIPPLE_DURATION_FRACTION)
+	)
+	_active_tween = ripple.tween
+	await ripple.tween.finished
+	ripple.queue_free()
+
+
+# Tap-to-skip (N5's delta for this ticket): fast-forwards whichever tween is
+# currently in flight straight to completion — a huge custom_step() runs
+# every remaining step in one go, so it lands exactly on that tween's own
+# end state (spec: "snaps it to its end state") — and _skip_requested tells
+# _play_event() to stop chaining any further phases of *this* event, so
+# _play_queue() moves on to the next queued event immediately.
+func _skip_current() -> void:
+	_skip_requested = true
+	if _active_tween != null and _active_tween.is_valid():
+		_active_tween.custom_step(999999.0)
 
 
 func _rebuild() -> void:
@@ -230,20 +370,31 @@ func set_filter(mode: String) -> void:
 
 func _partition_stops() -> void:
 	_vein_stops = []
-	_npc_stops = []
 	_unclaimed_stops = []
 
+	# Map-animations ticket 01: a site with a still-queued "discover" event
+	# (current or waiting its turn) stays out of the ordinary static draw
+	# entirely — it only appears via the playback loop's own visual, then
+	# permanently once MapEvents.advance() pops it off the queue and this
+	# rebuild runs again. Only ever populated with unclaimed siteIds today
+	# (the only event type this ticket builds).
+	var pending_ids: Array = MapEvents.pending_site_ids()
+
 	var stops_by_district := MapLayout.assign_all_slots()
+	var all_stops: Array = []
 	for district_id in stops_by_district.keys():
-		for stop in stops_by_district[district_id]:
-			match stop["kind"]:
-				"vein":
-					if stop.get("owner") == "player":
-						_vein_stops.append(stop)
-					else:
-						_npc_stops.append(stop)
-				"unclaimed":
+		all_stops.append_array(stops_by_district[district_id])
+
+	for stop in all_stops:
+		match stop["kind"]:
+			"vein":
+				if stop.get("owner") == "player":
+					_vein_stops.append(stop)
+			"unclaimed":
+				if not pending_ids.has(stop["id"]):
 					_unclaimed_stops.append(stop)
+
+	_faction_stops = MapLayout.group_by_faction(all_stops)
 
 
 func _draw() -> void:
@@ -295,22 +446,29 @@ func _draw_river() -> void:
 
 func _draw_lines() -> void:
 	var river := MapLayout.river_path()
+	var alpha := MapStyle.line_alpha(filter_mode)
+
 	var player_stops: Array = []
 	for stop in _vein_stops:
 		player_stops.append({ "id": stop["id"], "pos": stop["position"] })
-
-	var alpha := MapStyle.line_alpha(filter_mode)
-
 	var player_line := MapRouting.build_line(MapLayout.home_anchor(), player_stops, river)
 	_draw_route(player_line, _faded(MapStyle.line_colour(filter_mode, PLAYER_COLOUR), alpha))
 
-	# Non-player veins (faction-owned or, before T01, anonymous NPC claims)
-	# each draw their own short stub, never joined into a shared line —
-	# real per-faction lines are Chunk 2, not built yet (see _npc_stops'
-	# doc comment above).
-	var npc_colour := MapStyle.line_colour(filter_mode, NPC_COLOUR)
-	for stop in _npc_stops:
-		_draw_route(MapRouting.terminus_stub(stop["position"]), _faded(npc_colour, alpha))
+	# Each faction's own owned stops get joined into that faction's own
+	# routed line (same nearest-neighbour + elbow logic as the player's
+	# line above), starting from its first-presence district anchor — a
+	# faction with exactly one stop falls out of build_line() as a terminus
+	# stub, same as the player would with one vein.
+	for faction_id in _faction_stops.keys():
+		var anchor = MapLayout.faction_first_presence_anchor(faction_id)
+		if anchor == null:
+			continue  # data error (see MapLayout.faction_first_presence_anchor) -- skip rather than crash
+		var stops: Array = []
+		for stop in _faction_stops[faction_id]:
+			stops.append({ "id": stop["id"], "pos": stop["position"] })
+		var faction_colour := Color(GameData.FACTIONS[faction_id]["colour"])
+		var line := MapRouting.build_line(anchor, stops, river)
+		_draw_route(line, _faded(MapStyle.line_colour(filter_mode, faction_colour), alpha))
 
 
 func _draw_route(points: PackedVector2Array, colour: Color) -> void:
@@ -326,8 +484,9 @@ func _draw_route(points: PackedVector2Array, colour: Color) -> void:
 func _draw_stops() -> void:
 	for stop in _vein_stops:
 		_draw_vein_stop(stop)
-	for stop in _npc_stops:
-		_draw_npc_stop(stop)
+	for faction_id in _faction_stops.keys():
+		for stop in _faction_stops[faction_id]:
+			_draw_faction_stop(stop)
 	for stop in _unclaimed_stops:
 		_draw_unclaimed_stop(stop)
 
@@ -369,9 +528,10 @@ func _blocks_until_charged(vein: Dictionary) -> int:
 	return maxi(recharge_blocks - vein.get("chargeBlocks", 0), 0)
 
 
-func _draw_npc_stop(stop: Dictionary) -> void:
+func _draw_faction_stop(stop: Dictionary) -> void:
+	var faction_colour := Color(GameData.FACTIONS[stop["owner"]]["colour"])
 	var alpha := MapStyle.stop_alpha(filter_mode, false)
-	draw_circle(stop["position"], NPC_STOP_RADIUS, _faded(NPC_COLOUR, alpha))
+	draw_circle(stop["position"], FACTION_STOP_RADIUS, _faded(faction_colour, alpha))
 
 
 func _draw_unclaimed_stop(stop: Dictionary) -> void:
@@ -387,9 +547,14 @@ func _draw_unclaimed_stop(stop: Dictionary) -> void:
 	_draw_ore_symbol(pos + Vector2(16, 0), site["oreType"], ore, alpha)
 
 
-func _draw_tick_mark(pos: Vector2, colour: Color) -> void:
+
+# `target` defaults to self so every existing call site (drawing from this
+# Control's own _draw()) is unaffected; DiscoverRipple passes itself
+# explicitly so its pop-in reuses this exact geometry instead of
+# reimplementing it (same idiom as _draw_centered_text below).
+func _draw_tick_mark(pos: Vector2, colour: Color, target: CanvasItem = self) -> void:
 	var rect := Rect2(pos - Vector2(TICK_WIDTH / 2.0, TICK_LENGTH / 2.0), Vector2(TICK_WIDTH, TICK_LENGTH))
-	draw_rect(rect, colour, true)
+	target.draw_rect(rect, colour, true)
 
 
 # N6 asset 3: the bundled engine font has no glyph for any of the 5 ore
@@ -397,13 +562,14 @@ func _draw_tick_mark(pos: Vector2, colour: Color) -> void:
 # renders blank tofu, so this falls back to OreGlyphs' hand-drawn vector
 # glyphs whenever the font check (cached in _ready(), see
 # _ore_font_covers_symbols) fails, and only uses the real text glyph if a
-# future engine/font change ever starts covering them.
-func _draw_ore_symbol(pos: Vector2, ore_type: String, ore: Dictionary, alpha: float) -> void:
+# future engine/font change ever starts covering them. `target` — see
+# _draw_tick_mark just above.
+func _draw_ore_symbol(pos: Vector2, ore_type: String, ore: Dictionary, alpha: float, target: CanvasItem = self) -> void:
 	var colour := _faded(Color(ore["colour"]), alpha)
 	if _ore_font_covers_symbols:
-		_draw_centered_text(pos, ore["symbol"], 11, colour)
+		_draw_centered_text(pos, ore["symbol"], 11, colour, target)
 	else:
-		OreGlyphs.draw(self, pos, ore_type, colour)
+		OreGlyphs.draw(target, pos, ore_type, colour)
 
 
 # ── badges ───────────────────────────────────────────────────────────────
@@ -629,12 +795,23 @@ func _on_mouse_button(event: InputEventMouseButton) -> void:
 
 
 func _handle_tap(tap_pos: Vector2) -> void:
+	# Map-animations ticket 01: any tap during a queued-event drain skips the
+	# event currently playing rather than hitting whatever pin/stop/district
+	# happens to sit under it — the diagram isn't interactive again until
+	# the queue finishes.
+	if MapEvents.is_playing():
+		_skip_current()
+		return
+
 	for pin in _pins:
 		if tap_pos.distance_to(pin["position"]) <= PIN_TAP_RADIUS:
 			_activate_pin(pin)
 			return
 
-	var site_id = MapHitTest.stop_site_at(tap_pos, _vein_stops + _npc_stops + _unclaimed_stops)
+	var all_faction_stops: Array = []
+	for faction_id in _faction_stops.keys():
+		all_faction_stops.append_array(_faction_stops[faction_id])
+	var site_id = MapHitTest.stop_site_at(tap_pos, _vein_stops + all_faction_stops + _unclaimed_stops)
 	if site_id != null:
 		MapNav.select_site(site_id)
 		return
@@ -700,3 +877,76 @@ class ChargeHalo:
 		var scale_factor := lerpf(1.0, 1.3, progress)
 		var alpha := lerpf(0.5, 0.0, progress)
 		draw_circle(Vector2.ZERO, RADIUS * scale_factor, Color(COLOUR.r, COLOUR.g, COLOUR.b, alpha))
+
+
+# Map-animations ticket 01's discover visual: "a soft ring pulses outward
+# once from the site, then the unclaimed tick-mark glyph pops in at its
+# centre." One-shot (unlike ChargeHalo's own loop), driven by a Tween
+# (not _process) specifically so MapCanvas._skip_current() can fast-forward
+# it via custom_step() -- see that method's own comment. start()'s radius/
+# colour/tick geometry deliberately mirrors _draw_unclaimed_stop's/
+# _draw_tick_mark's real static values, so the moment this node is freed and
+# MapEvents.advance() reveals the permanent tick, nothing visibly jumps.
+class DiscoverRipple:
+	extends Node2D
+
+	const RING_START_RADIUS := MapCanvas.VEIN_STOP_RADIUS
+	const RING_END_RADIUS := MapCanvas.TICK_LENGTH * 2.0
+	const RING_START_ALPHA := 0.6
+	const RING_COLOUR := MapCanvas.MUTED_COLOUR
+
+	# Set by MapCanvas._play_discover_ripple() before start() is called.
+	# map_canvas lets the pop-in phase call straight back into
+	# _draw_tick_mark()/_draw_ore_symbol() — the exact same draw calls
+	# _draw_unclaimed_stop() makes at rest — instead of reimplementing that
+	# geometry here a second time; ore_type/double_tick are the two bits of
+	# a site's rendering that aren't derivable from position alone (a
+	# rich/saturated site's double tick, same as _draw_unclaimed_stop's own
+	# `site["tier"] in ["rich", "saturated"]` check), needed so the pop-in
+	# matches what the permanent static draw shows the instant this node is
+	# freed and MapEvents.advance() reveals it — no visible jump.
+	var map_canvas: MapCanvas
+	var ore_type: String
+	var double_tick: bool
+
+	var tween: Tween
+	var _ring_radius := RING_START_RADIUS
+	var _ring_alpha := 0.0
+	var _tick_scale := 0.0
+
+	func start(ring_duration: float, pop_duration: float) -> void:
+		_ring_alpha = RING_START_ALPHA
+		tween = create_tween()
+		tween.tween_method(_set_ring_radius, RING_START_RADIUS, RING_END_RADIUS, ring_duration)
+		tween.parallel().tween_method(_set_ring_alpha, RING_START_ALPHA, 0.0, ring_duration)
+		tween.tween_method(_set_tick_scale, 0.0, 1.0, pop_duration)
+
+	func _set_ring_radius(r: float) -> void:
+		_ring_radius = r
+		queue_redraw()
+
+	func _set_ring_alpha(a: float) -> void:
+		_ring_alpha = a
+		queue_redraw()
+
+	func _set_tick_scale(s: float) -> void:
+		_tick_scale = s
+		queue_redraw()
+
+	func _draw() -> void:
+		if _ring_alpha > 0.0:
+			draw_arc(Vector2.ZERO, _ring_radius, 0, TAU, 32, Color(RING_COLOUR.r, RING_COLOUR.g, RING_COLOUR.b, _ring_alpha), 2.0, true)
+		if _tick_scale > 0.0:
+			# The whole tick(s)+symbol cluster scales in together as one
+			# glyph, same offsets _draw_unclaimed_stop uses (Vector2(6, 0)
+			# for the second tick, Vector2(16, 0) for the ore symbol) but
+			# relative to this node's own origin (already positioned at the
+			# site, see MapCanvas._play_discover_ripple) rather than a
+			# passed-in absolute pos.
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2(_tick_scale, _tick_scale))
+			var ore: Dictionary = GameData.ORE_TYPES[ore_type]
+			map_canvas._draw_tick_mark(Vector2.ZERO, RING_COLOUR, self)
+			if double_tick:
+				map_canvas._draw_tick_mark(Vector2(6, 0), RING_COLOUR, self)
+			map_canvas._draw_ore_symbol(Vector2(16, 0), ore_type, ore, 1.0, self)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
