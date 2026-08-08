@@ -1,0 +1,17 @@
+# 03 — Multi-faction line routing, colouring, and debug fixtures
+
+**What to build:** Every non-player vein stop gets joined into its owning faction's own routed line, coloured per that faction's `factions.json` colour, using the same nearest-neighbour + elbow routing `MapRouting` already applies to the player's line, starting from `MapLayout.faction_first_presence_anchor()` (an existing unused stub this wires up — no new routing algorithm). The old single grey "unaffiliated NPC" stub concept retires: every non-player stop already belongs to a real faction (Chunk 1 retired anonymous claims), so there's no more anonymous grey-dot rendering path. `debug_start.gd` is extended (same pattern as its 2 existing debug unclaimed sites) to seed a handful of example faction-owned veins spanning 2-3 factions, with multiple stops for at least one faction, so a debug-started game exercises a real multi-stop elbow-routed faction line immediately rather than only single-stop termini stubs.
+
+This ticket also fixes a colour collision the PRD didn't anticipate: **The Network** faction's `factions.json` colour (`#c8873a`) is currently byte-identical to `PLAYER_COLOUR`, which would make the player's own line indistinguishable from The Network's line once both render as real routed lines on the same map. Give The Network a distinct colour in `factions.json` as part of this ticket — pick a value visually distinct from all 5 current faction colours, `PLAYER_COLOUR`, and the other named UI colours already in `map_canvas.gd` (exact hex left to the implementer, this is a content tweak, not a mechanic).
+
+**Blocked by:** None — can start immediately. (Routing is computed live from current stop positions on every redraw, so this doesn't depend on ticket 01's hex geometry changes landing first or in any particular order.)
+
+**Status:** ready-for-agent
+
+- [ ] Non-player vein stops are grouped by owning faction id (not drawn as a single undifferentiated grey stub) and each faction's stops are joined into one routed line via `MapRouting.build_line(MapLayout.faction_first_presence_anchor(faction_id), ...)`, reusing the same elbow/river-avoidance logic already used for the player's line.
+- [ ] Each faction's line draws in that faction's `factions.json` colour, not the old `NPC_COLOUR` grey.
+- [ ] A faction with exactly one owned stop gets a terminus stub (matching `MapRouting.build_line`'s existing single-stop behaviour) — not an error, not a missing line.
+- [ ] `factions.json`'s "network" faction colour is changed to a value distinct from every other faction's colour and from `PLAYER_COLOUR`.
+- [ ] `debug_start.gd` seeds example faction-owned veins (via `Factions.create_faction_vein()`, same as the real claim-roll path) spanning 2-3 factions, with multiple stops for at least one faction, so a debug-started game shows a real multi-stop elbow-routed faction line without waiting on daily-tick rolls.
+- [ ] Filter-mode styling (`MapStyle`) still applies correctly to faction lines (alpha/colour treatment per filter mode), same as it already does for the player's line today.
+- [ ] Tests cover: stops group correctly by faction id, each faction's line routes from its correct first-presence anchor, and a single-stop faction still renders (stub, not a crash).

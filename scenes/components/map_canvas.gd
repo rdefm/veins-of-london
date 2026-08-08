@@ -145,6 +145,19 @@ var _pinch_start_zoom: float = 1.0
 
 
 func _ready() -> void:
+	# Control's default mouse_filter is STOP, which — found via a real
+	# push_input() propagation test, not just calling _gui_input() directly
+	# (that bypasses mouse_filter/bubbling entirely and can't catch this) —
+	# silently swallows every touch/mouse event here before it can ever
+	# reach the wrapping TouchScrollContainer's own _gui_input, regardless
+	# of whether this class calls accept_event(). PASS still lets this
+	# Control receive the event first (tap/pinch handling is unaffected);
+	# it just also continues bubbling up afterward, same as the
+	# accept_event() during an active pinch already assumed was the only
+	# thing standing between a single-finger drag and the ScrollContainer
+	# above it.
+	mouse_filter = Control.MOUSE_FILTER_PASS
+
 	var map_size: Array = GameData.MAP_LAYOUT["mapSize"]
 	_map_size = Vector2(map_size[0], map_size[1])
 

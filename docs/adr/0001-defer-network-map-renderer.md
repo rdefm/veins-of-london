@@ -1,0 +1,7 @@
+# Defer the Network Map renderer out of M1
+
+`plans/M1-LONDON.md`'s D4 bundled two different things under one heading: the economy-loop UI shell (5-tab nav rebuild, HQ/Phone merge, BagDrawer + inline-cost-label infrastructure, the Ticker) and the actual Beck-style octilinear diagram renderer (routing algorithm, glyph grammar, 5 filter modes, paper/icon asset production). The renderer is the only part of the whole M1 plan that is expensive, hard to reverse once built, and can only be verified by on-device visual QA — everything else in M1 (districts, prospecting, seeding, hospitability, NPC claims, event deck, tutorial) is headlessly testable per this repo's workflow. Gating the entire economy loop's "done" status on the renderer's on-device correctness (original exit criteria 4–5) meant a late rendering bug could block shipping the loop itself.
+
+**Decision:** the Network Map renderer (D4.1–D4.4, D4.6 — routing, glyph grammar, filters, assets) moves to its own milestone. The nav restructure, HQ/Phone merge, BagDrawer (D4.7), and the Ticker (D4.8) stay in M1, but the "Map" tab ships in M1 as a plain list (district list → district panel with blurb/indicators/Prospect/Travel → site/vein bottom sheet — i.e. D4.5's interactions minus the canvas glyph grammar). The follow-on milestone's job is narrowly to replace that placeholder list with the real diagram against the same tap targets and sheets.
+
+**Status:** accepted (2026-07-30, during `/grill-with-docs` session on `plans/M1-LONDON.md`).
