@@ -110,3 +110,33 @@ func run() -> void:
 		MapEvents.advance()
 		assert_true(not MapEvents.begin_playback(), "nothing queued — an empty-queue visit changes nothing")
 	)
+
+	# ── abandon_playback: recovering from MapCanvas being torn down mid-drain ──
+
+	run_case("abandon_playback_clears_playing_without_touching_the_queue", func():
+		GameState.reset()
+		MapEvents.queue_discover("shoreditch", "s1")
+		MapEvents.queue_discover("camden", "s2")
+		MapEvents.begin_playback()
+		MapEvents.abandon_playback()
+		assert_true(not MapEvents.is_playing())
+		assert_eq(MapEvents.pending_site_ids(), ["s1", "s2"], "the queue itself is untouched — nothing was skipped or lost")
+	)
+
+	run_case("a_visit_after_an_abandoned_drain_resumes_the_same_unplayed_event", func():
+		GameState.reset()
+		MapEvents.queue_discover("shoreditch", "s1")
+		# e.g. a district-deck event fired mid-prospect and navigated away
+		# from "map" while MapCanvas was still panning/animating s1 — see
+		# MapCanvas._exit_tree().
+		MapEvents.begin_playback()
+		MapEvents.abandon_playback()
+		assert_true(MapEvents.begin_playback(), "a later visit can start a fresh drain — not stuck forever")
+		assert_eq(MapEvents.current()["siteId"], "s1", "resumes/replays the same event that got cut off, not skipped")
+	)
+
+	run_case("abandon_playback_is_a_no_op_when_nothing_was_playing", func():
+		GameState.reset()
+		MapEvents.abandon_playback()
+		assert_true(not MapEvents.is_playing())
+	)

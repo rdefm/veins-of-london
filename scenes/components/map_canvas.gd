@@ -219,6 +219,17 @@ func _ready() -> void:
 		_play_queue()
 
 
+# This Control (and therefore _play_queue()'s coroutine, if one is running)
+# can be torn down mid-drain by Main.gd's _show_screen — e.g. a district-
+# deck event firing mid-prospect and navigating to "event" while an event's
+# pan/ripple tween is still in flight. See MapEvents.abandon_playback()'s
+# own comment for why leaving "playing" stuck true in that case would
+# permanently break every future tap on this screen.
+func _exit_tree() -> void:
+	if MapEvents.is_playing():
+		MapEvents.abandon_playback()
+
+
 # ── zoom ─────────────────────────────────────────────────────────────────
 
 func _set_zoom(new_zoom: float) -> void:

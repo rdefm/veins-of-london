@@ -79,3 +79,20 @@ static func advance() -> bool:
 		GameState.state["mapEvents"]["playing"] = false
 	EventBus.state_changed.emit()
 	return not queue.is_empty()
+
+
+# Called from MapCanvas._exit_tree(): the Node driving playback can be torn
+# down mid-drain — e.g. a district-deck event (systems/district_deck.gd)
+# fires mid-prospect and Nav.go_to("event")s away from "map" while the
+# current event's pan/ripple tween is still in flight, freeing the whole Map
+# screen out from under the coroutine that was awaiting it, with no chance
+# to ever reach advance(). Left alone, "playing" would stay stuck true
+# forever — and since MapCanvas._handle_tap() checks is_playing() first,
+# every future tap on any later Map visit would silently route into
+# _skip_current() with nothing left to skip, permanently locking out normal
+# district/stop taps (drag-to-pan still works — that's the wrapping
+# ScrollContainer, untouched by any of this). Only clears the guard, not the
+# queue, so has_pending()/current() still point at the same unplayed event —
+# the next visit's begin_playback() succeeds again and simply replays it.
+static func abandon_playback() -> void:
+	GameState.state["mapEvents"]["playing"] = false
