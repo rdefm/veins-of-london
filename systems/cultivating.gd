@@ -232,14 +232,21 @@ static func harvest_full(vein_id: String) -> Dictionary:
 	return { "ok": true, "amount": amount, "oreType": ore_type, "veinId": vein_id, "levelledDown": levelled_down }
 
 
-# Called from time_system.gd's daily_tick, step ④.
+# Called from time_system.gd's daily_tick, step ④. map-animations ticket 03:
+# queues a "charge" map event on the false -> true transition only — a vein
+# that was already charged coming into this tick (chargeBlocks already at or
+# past its threshold, so the block below is a no-op for it) must not requeue
+# every subsequent day it just sits there charged.
 static func recharge_veins() -> void:
 	for vein in GameState.state["player"]["veins"]:
 		var recharge_blocks: int = get_effective_recharge_blocks(vein)
+		var was_charged: bool = vein["charged"]
 		if vein["chargeBlocks"] < recharge_blocks:
 			vein["chargeBlocks"] += 1
 		if vein["chargeBlocks"] >= recharge_blocks:
 			vein["charged"] = true
+		if vein["charged"] and not was_charged:
+			MapEvents.queue_charge(vein["district"], vein["id"])
 	EventBus.state_changed.emit()
 
 

@@ -320,6 +320,56 @@ func run() -> void:
 		assert_eq(Cultivating.get_effective_recharge_blocks(deep_both), 1, "floors at 1, never lower, even fully stacked")
 	)
 
+	# ── map-animations ticket 03: charge event queuing ─────────────────
+
+	run_case("recharge_veins_queues_a_charge_event_on_the_false_to_true_transition", func():
+		GameState.reset()
+		var vein := {
+			"id": "recharge_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 1, "charged": false, "chargeBlocks": 3, "security": "none",
+			"location": "Hackney Rd, under the railway arch", "claimedOnDay": 1, "district": "shoreditch",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		# Lv1 rechargeBlocks is 4; chargeBlocks 3 -> 4 flips charged true this tick
+		Cultivating.recharge_veins()
+		assert_true(MapEvents.has_pending(), "a charge event is queued on the false -> true transition")
+		var event = MapEvents.current()
+		assert_eq(event["type"], "charge")
+		assert_eq(event["district"], "shoreditch")
+		assert_eq(event["veinId"], "recharge_vein")
+	)
+
+	run_case("recharge_veins_does_not_queue_when_a_vein_is_still_charging", func():
+		GameState.reset()
+		var vein := {
+			"id": "still_charging", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 1, "charged": false, "chargeBlocks": 0, "security": "none",
+			"location": "Hackney Rd, under the railway arch", "claimedOnDay": 1, "district": "shoreditch",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		# Lv1 rechargeBlocks is 4; chargeBlocks 0 -> 1 stays uncharged
+		Cultivating.recharge_veins()
+		assert_true(not MapEvents.has_pending(), "no event queued while a vein hasn't reached its recharge threshold")
+	)
+
+	run_case("recharge_veins_does_not_requeue_a_vein_that_stays_charged", func():
+		GameState.reset()
+		var vein := {
+			"id": "already_charged", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 1, "charged": true, "chargeBlocks": 4, "security": "none",
+			"location": "Hackney Rd, under the railway arch", "claimedOnDay": 1, "district": "shoreditch",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		# Already charged and at the threshold coming into this tick -- the
+		# block below is a no-op for it, so it must not requeue every day
+		# it just sits there charged.
+		Cultivating.recharge_veins()
+		assert_true(not MapEvents.has_pending(), "no requeue on a tick where the vein was already charged")
+	)
+
 	run_case("recharge_veins_charges_faster_with_recharge_bonus_and_kingscross_stacked", func():
 		GameState.reset()
 		var boosted_vein := {

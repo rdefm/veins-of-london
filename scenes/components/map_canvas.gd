@@ -314,6 +314,8 @@ func _play_event(event: Dictionary) -> void:
 			await _play_discover_ripple(stop["position"], event)
 		"seed_claim":
 			await _play_seed_claim_ring(stop, event)
+		"charge":
+			await _play_charge_burst(stop, event)
 
 
 # The event's stop (position + resolved site/vein data), resolved live (not
@@ -321,9 +323,9 @@ func _play_event(event: Dictionary) -> void:
 # assigned stop slot — MapEvents' own doc comment is explicit that the queue
 # only carries district+siteId/veinId for exactly this reason. "discover"
 # events key on siteId (MapLayout stops an unclaimed site by its own id);
-# "seed_claim" events key on veinId (MapLayout.build_stop_items keys a
-# claimed stop by the vein's id, not the site's — a claimed site can carry
-# more than one vein, e.g. D2's natural-vein bonus).
+# "seed_claim" and "charge" events key on veinId (MapLayout.build_stop_items
+# keys a claimed stop by the vein's id, not the site's — a claimed site can
+# carry more than one vein, e.g. D2's natural-vein bonus).
 func _resolve_event_stop(event: Dictionary) -> Variant:
 	var target_id: String = event["siteId"] if event["type"] == "discover" else event["veinId"]
 	for stop in MapLayout.assign_slots(event["district"]):
@@ -400,6 +402,31 @@ func _play_seed_claim_ring(stop: Dictionary, event: Dictionary) -> void:
 	_active_tween = ring.tween
 	await ring.tween.finished
 	ring.queue_free()
+
+
+# Ticket 03: a vein finishing its recharge — a brighter one-shot burst/flash
+# at the stop, visually distinct from (and preceding) ChargeHalo's own
+# steady-state pulse. Unlike _play_discover_ripple/_play_seed_claim_ring,
+# this doesn't need to end in a particular static draw state: the vein was
+# never hidden from the ordinary draw in the first place (see MapEvents.
+# queue_charge's own comment — pending_vein_ids() deliberately excludes
+# "charge" events), so _rebuild_halos() already put the real ChargeHalo up
+# the moment charged flipped true, independent of this event ever reaching
+# the front of the queue. This burst just plays a brighter flash on top of
+# it in _playback_layer (added after _halo_layer, so it renders above the
+# halo) and frees itself, leaving the halo exactly as it already was.
+func _play_charge_burst(stop: Dictionary, event: Dictionary) -> void:
+	var vein: Variant = stop["vein"]
+	if vein == null:
+		return  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to burst
+
+	var burst := ChargeBurst.new()
+	burst.position = stop["position"]
+	_playback_layer.add_child(burst)
+	burst.start(EVENT_VISUAL_DURATION)
+	_active_tween = burst.tween
+	await burst.tween.finished
+	burst.queue_free()
 
 
 # Tap-to-skip (N5's delta for this ticket): fast-forwards whichever tween is
@@ -977,6 +1004,44 @@ class ChargeHalo:
 		var scale_factor := lerpf(1.0, 1.3, progress)
 		var alpha := lerpf(0.5, 0.0, progress)
 		draw_circle(Vector2.ZERO, RADIUS * scale_factor, Color(COLOUR.r, COLOUR.g, COLOUR.b, alpha))
+
+
+# Map-animations ticket 03's charge visual: a brighter one-shot burst that
+# expands and fades once, then is gone (see MapCanvas._play_charge_burst).
+# Deliberately not just a single fast lap of ChargeHalo's own curve — START_
+# ALPHA/COLOUR sit well above ChargeHalo's (0.5 amber) so the burst reads as
+# a distinct brighter flash preceding the steady-state loop, per the ticket's
+# "visually distinct from... the steady-state ChargeHalo pulse". One-shot,
+# Tween-driven (not _process), same custom_step() fast-forward reason as
+# DiscoverRipple/SeedClaimRing above.
+class ChargeBurst:
+	extends Node2D
+
+	const START_RADIUS := 4.0
+	const END_RADIUS := ChargeHalo.RADIUS * 1.6
+	const START_ALPHA := 0.9
+	const COLOUR := Color(1.0, 0.909804, 0.694118)  # bright warm gold, brighter than ChargeHalo's amber
+
+	var tween: Tween
+	var _radius := START_RADIUS
+	var _alpha := START_ALPHA
+
+	func start(duration: float) -> void:
+		tween = create_tween()
+		tween.tween_method(_set_radius, START_RADIUS, END_RADIUS, duration)
+		tween.parallel().tween_method(_set_alpha, START_ALPHA, 0.0, duration)
+
+	func _set_radius(r: float) -> void:
+		_radius = r
+		queue_redraw()
+
+	func _set_alpha(a: float) -> void:
+		_alpha = a
+		queue_redraw()
+
+	func _draw() -> void:
+		if _alpha > 0.0:
+			draw_circle(Vector2.ZERO, _radius, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
 
 
 # Map-animations ticket 01's discover visual: "a soft ring pulses outward

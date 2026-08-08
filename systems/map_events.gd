@@ -47,6 +47,26 @@ static func queue_seed_claim(district_id: String, vein_id: String, owner: String
 	})
 
 
+# Ticket 03: a vein finishing its recharge (Cultivating.recharge_veins,
+# the tick a vein's chargeBlocks reaches its threshold and charged flips
+# false -> true). Always the player's own vein (only player veins recharge),
+# so unlike queue_seed_claim there's no owner to carry. Deliberately NOT
+# folded into pending_vein_ids() below: a "charge" event doesn't hide its
+# vein from the ordinary static draw the way "discover"/"seed_claim" do —
+# _rebuild_halos() already puts the vein's ChargeHalo up the instant
+# charged flips true (same state_changed emit recharge_veins() fires), so
+# by the time this event reaches the front of the queue the halo is already
+# showing; the event just adds a one-shot burst on top of it. Same no-self-
+# emit convention as queue_discover/queue_seed_claim above — Cultivating.
+# recharge_veins() already emits once at the end of the whole tick.
+static func queue_charge(district_id: String, vein_id: String) -> void:
+	GameState.state["mapEvents"]["queue"].append({
+		"type": "charge",
+		"district": district_id,
+		"veinId": vein_id,
+	})
+
+
 static func has_pending() -> bool:
 	return not GameState.state["mapEvents"]["queue"].is_empty()
 
