@@ -64,19 +64,46 @@ func run() -> void:
 		assert_eq(s["currentScreen"], "home", "debug start should land on the home screen")
 
 		var sites: Array = s["world"]["sites"]
-		assert_eq(sites.size(), 5, "3 claimed shoreditch sites (one per debug vein) + 2 discovered unclaimed sites")
+		assert_eq(sites.size(), 9, "3 claimed shoreditch sites + 2 discovered unclaimed sites + 4 faction-owned sites")
 
 		var unclaimed_by_district := {}
 		var claimed_sites: Array = []
+		var faction_sites: Array = []
 		for site in sites:
 			if site["claimed"]:
 				claimed_sites.append(site)
+			elif site["factionVein"] != null:
+				faction_sites.append(site)
 			else:
 				unclaimed_by_district[site["district"]] = site
 		assert_eq(unclaimed_by_district["greenwich"]["tier"], "rich", "greenwich site is rich")
 		assert_eq(unclaimed_by_district["whitechapel"]["tier"], "saturated", "whitechapel site is saturated")
 		for site in unclaimed_by_district.values():
 			assert_eq(site["factionVein"], null, "debug sites start unclaimed by any faction")
+
+		# multi-faction-line-routing (Chunk 2, ticket 03): faction-owned debug
+		# fixtures so a debug-started game already shows real routed faction
+		# lines on the Map tab (camden's 2 firm sites -> a multi-stop line;
+		# kingscross/city each cover one more faction -> single-stop stubs).
+		assert_eq(faction_sites.size(), 4, "4 faction-owned debug sites")
+		var faction_site_ids_by_faction := {}
+		for site in faction_sites:
+			assert_eq(site["claimed"], false, "faction-owned sites are never also player-claimed")
+			var faction_id: String = site["factionVein"]["factionId"]
+			if not faction_site_ids_by_faction.has(faction_id):
+				faction_site_ids_by_faction[faction_id] = []
+			faction_site_ids_by_faction[faction_id].append(site["id"])
+		assert_eq(faction_site_ids_by_faction.keys().size(), 3, "3 factions represented across the debug faction sites")
+		assert_eq(faction_site_ids_by_faction["firm"].size(), 2, "firm has 2 stops -- a real multi-stop elbow-routed line")
+		assert_eq(faction_site_ids_by_faction["network"].size(), 1, "network gets a single-stop stub")
+		assert_eq(faction_site_ids_by_faction["conclave"].size(), 1, "conclave gets a single-stop stub")
+
+		var visible_stops: Array = []
+		for site in faction_sites:
+			visible_stops.append_array(MapLayout.build_stop_items([site], []))
+		var grouped := MapLayout.group_by_faction(visible_stops)
+		assert_eq(grouped.keys().size(), 3, "the debug faction sites resolve into 3 real routable faction groups")
+		assert_eq(grouped["firm"].size(), 2)
 
 		# map-animations ticket 04 follow-up: each debug vein is linked to
 		# its own claimed shoreditch site via siteId -- otherwise MapLayout.

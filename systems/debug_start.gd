@@ -51,12 +51,33 @@ static func apply() -> void:
 	# saturated (whitechapel) — so a debug-started game has something to
 	# seed/claim on the Map tab immediately. oreType/bonuses are fixed
 	# (not rolled) to keep debug start deterministic like everything else here.
+	#
+	# multi-faction-line-routing (Chunk 2, ticket 03): faction-owned sites in
+	# camden/kingscross/city so a debug-started game shows real routed
+	# faction lines on the Map tab immediately, not just single-stop
+	# termini stubs — camden's 2 firm sites exercise a multi-stop
+	# elbow-routed faction line; kingscross/city each cover one more faction
+	# with a single-stop stub, matching the real claim-roll path
+	# (Factions.create_faction_vein()) rather than hand-building factionVein.
+	var camden_firm_physics_site := _debug_site("camden", "fair", "physics", [])
+	var camden_firm_emotion_site := _debug_site("camden", "fair", "emotion", [])
+	var kingscross_network_site := _debug_site("kingscross", "fair", "fate", [])
+	var city_conclave_site := _debug_site("city", "fair", "life", [])
+	camden_firm_physics_site["factionVein"] = Factions.create_faction_vein("firm", camden_firm_physics_site)
+	camden_firm_emotion_site["factionVein"] = Factions.create_faction_vein("firm", camden_firm_emotion_site)
+	kingscross_network_site["factionVein"] = Factions.create_faction_vein("network", kingscross_network_site)
+	city_conclave_site["factionVein"] = Factions.create_faction_vein("conclave", city_conclave_site)
+
 	state["world"]["sites"] = [
 		shoreditch_time_site,
 		shoreditch_physics_site,
 		shoreditch_life_site,
 		_debug_site("greenwich", "rich", "time", ["yield"]),
 		_debug_site("whitechapel", "saturated", "emotion", ["recharge", "maxLevel", "yield"]),
+		camden_firm_physics_site,
+		camden_firm_emotion_site,
+		kingscross_network_site,
+		city_conclave_site,
 	]
 
 	var flags: Dictionary = state["flags"]

@@ -166,3 +166,28 @@ func run() -> void:
 	run_case("faction_first_presence_anchor_null_when_no_district_has_that_faction", func():
 		assert_eq(MapLayout.faction_first_presence_anchor("not_a_real_faction"), null)
 	)
+
+	run_case("group_by_faction_groups_vein_stops_by_owner_in_input_order", func():
+		var stops := [
+			{ "id": "v1", "kind": "vein", "owner": "firm" },
+			{ "id": "v2", "kind": "vein", "owner": "guild" },
+			{ "id": "v3", "kind": "vein", "owner": "firm" },
+		]
+		var grouped := MapLayout.group_by_faction(stops)
+		assert_eq(grouped.keys(), ["firm", "guild"], "one key per distinct faction owner, first-seen order")
+		assert_eq(grouped["firm"].size(), 2, "both firm-owned stops land in the same group")
+		assert_eq(grouped["firm"][0]["id"], "v1")
+		assert_eq(grouped["firm"][1]["id"], "v3", "a faction's stops keep their input (discovery) order")
+		assert_eq(grouped["guild"].size(), 1)
+		assert_eq(grouped["guild"][0]["id"], "v2")
+	)
+
+	run_case("group_by_faction_excludes_player_owned_and_unclaimed_stops", func():
+		var stops := [
+			{ "id": "p1", "kind": "vein", "owner": "player" },
+			{ "id": "u1", "kind": "unclaimed", "owner": null },
+			{ "id": "v1", "kind": "vein", "owner": "firm" },
+		]
+		var grouped := MapLayout.group_by_faction(stops)
+		assert_eq(grouped.keys(), ["firm"], "player-owned and unclaimed stops never form a faction group")
+	)
