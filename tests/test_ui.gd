@@ -28,26 +28,23 @@ func run() -> void:
 		assert_eq(UI.format_cost_label(cost, holdings), "£5 (have £5)", "no label means no leading dash")
 	)
 
-	# ── block_cost_suffix / format_block_cost_label (D3) ────────────
+	# ── block_cost_suffix / format_block_cost_label (D3 — travel is free,
+	# faction-resource-economy ticket 05: no more travel surcharge or suffix) ──
 
-	run_case("block_cost_suffix_no_travel_singular_block", func():
-		assert_eq(UI.block_cost_suffix(0, 1), "1 block", "no travel needed, singular unit")
+	run_case("block_cost_suffix_singular_block", func():
+		assert_eq(UI.block_cost_suffix(1), "1 block", "singular unit")
 	)
 
-	run_case("block_cost_suffix_with_travel_matches_the_D4_worked_example", func():
-		assert_eq(UI.block_cost_suffix(1, 1), "2 blocks (travel)", "1 travel + 1 action = 2 blocks, plural, travel-flagged")
+	run_case("block_cost_suffix_plural_blocks", func():
+		assert_eq(UI.block_cost_suffix(2), "2 blocks", "plural unit")
 	)
 
-	run_case("block_cost_suffix_zero_action_blocks_still_flags_travel", func():
-		assert_eq(UI.block_cost_suffix(1, 0), "1 block (travel)", "travel alone, singular unit, still flagged")
+	run_case("format_block_cost_label_matches_the_action_cost_with_no_travel_suffix", func():
+		assert_eq(UI.format_block_cost_label("Harvest", 1), "Harvest — 1 block", "no travel surcharge — same cost regardless of district")
 	)
 
-	run_case("format_block_cost_label_matches_the_D4_harvest_example", func():
-		assert_eq(UI.format_block_cost_label("Harvest", 1, 1), "Harvest — 2 blocks (travel)", "matches M1-LONDON.md D4's worked example verbatim")
-	)
-
-	run_case("format_block_cost_label_no_travel_needed", func():
-		assert_eq(UI.format_block_cost_label("Prospect", 0, 1), "Prospect — 1 block", "current district needs no travel suffix")
+	run_case("format_block_cost_label_default_action_blocks_is_one", func():
+		assert_eq(UI.format_block_cost_label("Prospect"), "Prospect — 1 block", "default action cost is 1 block")
 	)
 
 	# Bugfixes ticket 05: a Button's minimum_size grows to fit its full text

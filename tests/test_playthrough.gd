@@ -214,9 +214,10 @@ func run() -> void:
 
 	# M1-LONDON-T08 (ticket 11), M1 exit criterion 1's action chain: prospect
 	# -> seed -> cultivate -> harvest -> sell, across 3 distinct districts
-	# (greenwich/camden/hampstead — reachable only by paying D3's travel
-	# block, unlike shoreditch/whitechapel which the tutorial already leaves
-	# you in/near), gated behind archie_cultivation exactly as real play
+	# (greenwich/camden/hampstead — not the district the tutorial already
+	# leaves you in/near, unlike shoreditch/whitechapel; D3: acting there
+	# costs no more than acting at home, faction-resource-economy ticket 05),
+	# gated behind archie_cultivation exactly as real play
 	# routes through it. This drives systems/sites.gd's D2 actions directly
 	# rather than through scenes/screens/map.gd — matching every other test
 	# in this suite (none drive the scene tree; UI wiring is this project's
@@ -235,11 +236,11 @@ func run() -> void:
 
 		for district_id in ["greenwich", "camden", "hampstead"]:
 			# --- prospect: find a non-barren (seedable) site ---
-			# (D3's travel-costs-a-block bookkeeping is test_sites.gd/test_
-			# travel.gd's job — a multi-action, multi-district loop like this
-			# one can cross a day boundary at any step, which resets
-			# currentDistrict to shoreditch per D3, so re-asserting block
-			# counts or currentDistrict here would just be flaky.)
+			# (D3's currentDistrict bookkeeping is test_sites.gd/test_travel.gd's
+			# job — a multi-action, multi-district loop like this one can cross
+			# a day boundary at any step, which resets currentDistrict to
+			# shoreditch per D3, so re-asserting block counts or currentDistrict
+			# here would just be flaky.)
 			# found_site is a one-element holder, not a plain local: _find_seed_for's
 			# Callable can't hand a value back through its bool return, but an
 			# Array is a reference type, so mutating its contents (never

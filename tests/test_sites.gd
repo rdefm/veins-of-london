@@ -186,20 +186,28 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cultivatingXP"], GameData.SITE_PROSPECT_XP[site["tier"]], "prospect XP matches the rolled tier")
 	)
 
-	run_case("prospect_travels_first_when_targeting_a_different_district", func():
+	run_case("prospect_in_a_different_district_costs_the_same_1_block_no_travel_surcharge", func():
 		GameState.reset()
 		Rng.set_seed(1)
 		var result := Sites.prospect("camden")
 		assert_true(result["ok"], "should succeed with a full day's blocks")
-		assert_eq(GameState.state["world"]["currentDistrict"], "camden", "travel updates currentDistrict")
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 2, "1 travel block + 1 prospect block")
+		assert_eq(GameState.state["world"]["currentDistrict"], "camden", "acting there updates currentDistrict")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "D3: no travel surcharge — just the 1 prospect block")
 	)
 
-	run_case("prospect_blocked_with_only_1_block_left_for_a_different_district", func():
+	run_case("prospect_in_a_different_district_succeeds_with_only_1_block_left", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1]
+		Rng.set_seed(1)
 		var result := Sites.prospect("camden")
-		assert_true(not result["ok"], "travel(1) + prospect(1) needs 2 blocks, only 1 remains")
+		assert_true(result["ok"], "D3: no travel surcharge — prospect(1) alone fits in the 1 remaining block")
+	)
+
+	run_case("prospect_in_a_different_district_blocked_when_time_exhausted", func():
+		GameState.reset()
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+		var result := Sites.prospect("camden")
+		assert_true(not result["ok"], "no blocks left for the prospect action itself")
 		assert_eq(GameState.state["world"]["sites"], [], "no site created when blocked")
 	)
 
@@ -406,7 +414,7 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["veins"], [], "no vein created on failure")
 	)
 
-	run_case("attempt_seed_travels_first_when_the_site_is_in_a_different_district", func():
+	run_case("attempt_seed_in_a_different_district_costs_the_same_1_block_no_travel_surcharge", func():
 		GameState.reset()
 		var site := _make_site("s1", "camden", "fair", 1, false, false, "physics")
 		GameState.state["world"]["sites"] = [site]
@@ -414,8 +422,8 @@ func run() -> void:
 		Rng.set_seed(1)
 		var result := Sites.attempt_seed("s1")
 		assert_true(result["ok"], "should succeed with a full day's blocks")
-		assert_eq(GameState.state["world"]["currentDistrict"], "camden", "travel updates currentDistrict")
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 2, "1 travel block + 1 seed block")
+		assert_eq(GameState.state["world"]["currentDistrict"], "camden", "acting there updates currentDistrict")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "D3: no travel surcharge — just the 1 seed block")
 	)
 
 	run_case("attempt_seed_natural_vein_grants_a_second_free_lv1_vein", func():

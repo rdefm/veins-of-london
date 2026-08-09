@@ -37,7 +37,7 @@ Site dict (lives in `state.world.sites` array):
 
 **Site claim states (see `CONTEXT.md`):** a site is exactly one of three states — **unclaimed** (`claimed == false AND factionVein == null`), **player-claimed** (`claimed == true`), or **faction-claimed** (`factionVein != null`, `claimed` stays `false`). Only unclaimed sites are seedable or reroll-eligible. Faction-claimed sites are untouchable by the player in M1 (reclaiming one is M2 combat content) — they leave that state only via NPC abandonment (below).
 
-**Prospect action** (Veins screen and Map screen; costs 1 block + travel rule): only in the current district; blocked if district `siteCap` reached, counting sites in ALL three states — instead: re-roll — delete the district's worst **unclaimed** site (faction-claimed and player-claimed sites are never reroll targets) and roll a new one in its place; "worst" = lowest tier index among unclaimed sites, oldest breaks ties.
+**Prospect action** (Veins screen and Map screen; costs 1 block, D3): in any district; blocked if district `siteCap` reached, counting sites in ALL three states — instead: re-roll — delete the district's worst **unclaimed** site (faction-claimed and player-claimed sites are never reroll targets) and roll a new one in its place; "worst" = lowest tier index among unclaimed sites, oldest breaks ties.
 
 Tier roll — base weights, then modifiers, then normalise:
 
@@ -68,7 +68,7 @@ Prospecting awards cultivating XP: 10 (barren/poor), 15 (fair), 25 (rich), 40 (s
 
 ## D3 — Travel (the one rule)
 
-`state.world.currentDistrict`. Every district-located action (prospect, seed, cultivate, harvest, sell) targeting a district ≠ current: first consume 1 time block as travel (sets currentDistrict), THEN the action costs its normal block — both gated on time remaining (need 2 blocks; show the cost in the button label: "Harvest (2 blocks — travel)"). Waking up (daily tick / rest) resets currentDistrict to "shoreditch" (home). Selling uses the district you are in at sale time (priceMod + dangerMod on the mug roll: `getEffectiveMugChance(0.20 + dangerMod)`).
+`state.world.currentDistrict`. Acting on a district-located action (prospect, seed, cultivate, harvest) sets currentDistrict to that action's district as a free side effect — there is no travel surcharge; every districted action costs the same block count regardless of whether it targets the current district or a different one (show the cost in the button label as just the action's own cost: "Harvest — 1 block"). The standalone Map tab "Travel" button switches currentDistrict for free (0 blocks) and, like prospecting, rolls for a D5 district event on completion. Waking up (daily tick / rest) resets currentDistrict to "shoreditch" (home). Selling uses the district you are in at sale time (priceMod + dangerMod on the mug roll: `getEffectiveMugChance(0.20 + dangerMod)`).
 
 ## D4 — Nav shell, HQ/Phone/Bag/You, and the Map tab (M1 scope)
 
@@ -86,7 +86,7 @@ Prospecting awards cultivating XP: 10 (barren/poor), 15 (fair), 25 (rich), 40 (s
 ### Map tab (M1 — plain list, superseded by the real diagram in M1.5)
 - A scrollable list of the 9 districts: name, one-line blurb, derived indicators ("Prices +15%", "Rough"), an ownership summary ("2 of 3 sites yours").
 - Tap a district row → **district panel**: blurb, derived indicators, Prospect and Travel buttons, list of its sites (each row: tier, ore, claim state).
-- Tap a site/vein row → **site/vein sheet** (bottom sheet): tier, ore, bonuses, level, dev bar, charge state, security; actions Cultivate / Harvest (cautious·full) / Seed / Upgrade security — labels show true block cost per D3 ("Harvest — 2 blocks (travel)").
+- Tap a site/vein row → **site/vein sheet** (bottom sheet): tier, ore, bonuses, level, dev bar, charge state, security; actions Cultivate / Harvest (cautious·full) / Seed / Upgrade security — labels show the action's block cost per D3, flat regardless of district ("Harvest — 1 block").
 - This is the exact interaction contract M1.5 renders against — it swaps only the Map tab's top-level presentation (list → diagram); district panel and site/vein sheet are unchanged.
 
 ### D4.4 Global bag drawer + inline counts (anti-friction rules)

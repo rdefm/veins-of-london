@@ -132,7 +132,7 @@ func run() -> void:
 		assert_eq(vein["level"], 5, "level 5 is the hard cap in M0 (no hospitability maxLevel bonus)")
 	)
 
-	run_case("cultivate_in_a_different_district_consumes_a_travel_block_first", func():
+	run_case("cultivate_in_a_different_district_costs_the_same_1_block_no_travel_surcharge", func():
 		GameState.reset()
 		GameState.state["player"]["cultivatingSkill"] = 5
 		var vein := {
@@ -145,11 +145,11 @@ func run() -> void:
 		Rng.set_seed(1)
 		var result := Cultivating.cultivate("away_vein")
 		assert_true(result["ok"], "should succeed with a full day's blocks available")
-		assert_eq(GameState.state["world"]["currentDistrict"], "camden", "travelling to the vein's district updates currentDistrict")
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 2, "1 travel block + 1 cultivate block")
+		assert_eq(GameState.state["world"]["currentDistrict"], "camden", "acting in the vein's district updates currentDistrict")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "D3: no travel surcharge — just the 1 cultivate block")
 	)
 
-	run_case("cultivate_in_a_different_district_blocked_with_only_1_block_left", func():
+	run_case("cultivate_in_a_different_district_succeeds_with_only_1_block_left", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1]
 		var vein := {
@@ -160,8 +160,23 @@ func run() -> void:
 		}
 		GameState.state["player"]["veins"] = [vein]
 		var result := Cultivating.cultivate("away_vein2")
-		assert_true(not result["ok"], "travel(1) + cultivate(1) needs 2 blocks, only 1 remains")
-		assert_eq(GameState.state["world"]["timeBlocksDone"], [0, 1], "no block spent when blocked")
+		assert_true(result["ok"], "D3: no travel surcharge — cultivate(1) alone fits in the 1 remaining block")
+		assert_eq(GameState.state["world"]["currentDistrict"], "camden", "currentDistrict updates")
+	)
+
+	run_case("cultivate_in_a_different_district_blocked_when_time_exhausted", func():
+		GameState.reset()
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+		var vein := {
+			"id": "away_vein3", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "camden",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		var result := Cultivating.cultivate("away_vein3")
+		assert_true(not result["ok"], "no blocks left for the cultivate action itself")
+		assert_eq(GameState.state["world"]["timeBlocksDone"], [0, 1, 2], "no block spent when blocked")
 		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "currentDistrict unchanged when blocked")
 	)
 
@@ -180,7 +195,7 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "no travel needed, 1 block total")
 	)
 
-	run_case("harvest_cautious_in_a_different_district_consumes_a_travel_block_first", func():
+	run_case("harvest_cautious_in_a_different_district_costs_the_same_1_block_no_travel_surcharge", func():
 		GameState.reset()
 		var vein := {
 			"id": "away_harvest_vein", "oreType": "fate", "level": 1, "levelLabel": "Trace",
@@ -192,8 +207,8 @@ func run() -> void:
 		Rng.set_seed(1)
 		var result := Cultivating.harvest_cautious("away_harvest_vein")
 		assert_true(result["ok"], "should succeed with a full day's blocks available")
-		assert_eq(GameState.state["world"]["currentDistrict"], "greenwich", "travel updates currentDistrict")
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 2, "1 travel block + 1 harvest block")
+		assert_eq(GameState.state["world"]["currentDistrict"], "greenwich", "acting there updates currentDistrict")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "D3: no travel surcharge — just the 1 harvest block")
 	)
 
 	run_case("harvest_full_drains_devBar_and_triggers_level_down_at_or_below_0", func():

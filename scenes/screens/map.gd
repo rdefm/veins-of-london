@@ -200,16 +200,16 @@ func _build_district_actions(district_id: String) -> Control:
 		# M1-LONDON D7: prospecting locked until the cultivating tutorial (D6).
 		row.add_child(UI.expand_fill(UI.muted_label("Prospecting — see Archie first")))
 	else:
-		var prospect_button := UI.button(UI.format_block_cost_label("Prospect", Travel.blocks_needed(district_id), 1), func(): Sites.prospect(district_id))
+		var prospect_button := UI.button(UI.format_block_cost_label("Prospect", 1), func(): Sites.prospect(district_id))
 		prospect_button.disabled = not Travel.can_afford(district_id, 1)
 		row.add_child(prospect_button)
 
 	if GameState.state["world"]["currentDistrict"] == district_id:
 		row.add_child(UI.expand_fill(UI.muted_label("Travel (already here)")))
 	else:
-		var travel_button := UI.button(UI.format_block_cost_label("Travel", Travel.blocks_needed(district_id), 0), func(): Travel.travel_to(district_id))
-		travel_button.disabled = not Travel.can_afford(district_id, 0)
-		row.add_child(travel_button)
+		# D3: travel is free (faction-resource-economy ticket 05) — no block
+		# cost to show, so this is a plain button, not a cost-labelled one.
+		row.add_child(UI.button("Travel", func(): Travel.travel_to(district_id)))
 
 	return row
 
@@ -336,7 +336,7 @@ func _build_seed_row(site: Dictionary) -> Control:
 	var site_id: String = site["id"]
 
 	var cost := { "label": "Seed", "resource": ore_type, "amount": GameData.SEED_ORE_COST }
-	var label_text := "%s · %s" % [UI.format_cost_label(cost, player["orichalchum"]), UI.block_cost_suffix(Travel.blocks_needed(district), 1)]
+	var label_text := "%s · %s" % [UI.format_cost_label(cost, player["orichalchum"]), UI.block_cost_suffix(1)]
 
 	var have: int = player["orichalchum"].get(ore_type, 0)
 	var b := UI.button(label_text, func(): Sites.attempt_seed(site_id))
@@ -368,23 +368,22 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	else:
 		c["content"].add_child(UI.muted_label("Development: Max level"))
 
-	var travel_blocks: int = Travel.blocks_needed(district)
 	# UI.hflow, not UI.hbox: a charged vein shows all three buttons at once,
 	# which overflows a narrow phone's width in a plain HBoxContainer
 	# (bugfixes ticket 05) — flow-wrapping keeps every button fully on-screen
 	# and tappable instead of clipped past the right edge.
 	var actions := UI.hflow()
 
-	var cultivate_button := UI.button(UI.format_block_cost_label("Cultivate", travel_blocks, 1), func(): Cultivating.cultivate(vein_id))
+	var cultivate_button := UI.button(UI.format_block_cost_label("Cultivate", 1), func(): Cultivating.cultivate(vein_id))
 	cultivate_button.disabled = not Travel.can_afford(district, 1)
 	actions.add_child(cultivate_button)
 
 	if vein["charged"]:
-		var cautious_button := UI.button(UI.format_block_cost_label("Harvest (cautious)", travel_blocks, 1), func(): Cultivating.harvest_cautious(vein_id))
+		var cautious_button := UI.button(UI.format_block_cost_label("Harvest (cautious)", 1), func(): Cultivating.harvest_cautious(vein_id))
 		cautious_button.disabled = not Travel.can_afford(district, 1)
 		actions.add_child(cautious_button)
 
-		var full_button := UI.button(UI.format_block_cost_label("Harvest (full)", travel_blocks, 1), func(): Cultivating.harvest_full(vein_id))
+		var full_button := UI.button(UI.format_block_cost_label("Harvest (full)", 1), func(): Cultivating.harvest_full(vein_id))
 		full_button.disabled = not Travel.can_afford(district, 1)
 		actions.add_child(full_button)
 
