@@ -7,7 +7,26 @@ extends Control
 
 var _dim: ColorRect
 var _card: PanelContainer
+var _scroll: ScrollContainer
 var _card_content: VBoxContainer
+
+# Root cause of "cultivate/seed shows a blank white modal, nothing tappable"
+# (bugfixes ticket 06): _card is a shrink-to-fit PanelContainer (UI.anchor_
+# center — its rect clamps up to its own minimum size, per Control's normal
+# anchor/offset/minimum-size resolution), sized by its one child, _scroll.
+# But a ScrollContainer deliberately reports ZERO minimum size on any axis
+# where scrolling isn't disabled (that's what lets it scroll instead of
+# forcing its parent bigger) — vertical_scroll_mode was left at its default
+# (enabled), so _card's computed minimum height was always 0 regardless of
+# how much content _card_content held. The card rect was really there
+# (330 wide) but zero-tall: invisible and untappable, on every modal, every
+# time — not just seed/cultivate, just first hit there because those are
+# the earliest modals a fresh playthrough reaches. Fixed by capping
+# _scroll's own minimum height to whatever _card_content actually needs (so
+# short results like this one size the card to fit, like PanelContainer
+# always should have), falling back to MAX_CARD_HEIGHT and real scrolling
+# only for content taller than that (sell_menu, network_reference).
+const MAX_CARD_HEIGHT := 620.0
 
 
 func _ready() -> void:
@@ -24,9 +43,9 @@ func _ready() -> void:
 	UI.anchor_center(_card)
 	add_child(_card)
 
-	var scroll := UI.scroll_container()
-	scroll.custom_minimum_size = Vector2(330, 0)
-	_card.add_child(scroll)
+	_scroll = UI.scroll_container()
+	_scroll.custom_minimum_size = Vector2(330, 0)
+	_card.add_child(_scroll)
 
 	# Anchors are ignored for a ScrollContainer's child, and without
 	# SIZE_EXPAND_FILL it shrinks to its content's minimum width instead of
@@ -35,7 +54,7 @@ func _ready() -> void:
 	# breaking mid-word), and the same fix bag_drawer.gd needed.
 	_card_content = UI.vbox(8)
 	_card_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_card_content)
+	_scroll.add_child(_card_content)
 
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
@@ -51,6 +70,22 @@ func _refresh() -> void:
 		child.queue_free()
 
 	_build_modal_content(modal)
+
+	# One pass now (covers every unwrapped/single-line label immediately, so
+	# there's never a fully blank frame) and one deferred (a freshly-added
+	# autowrapping Label can't know its own wrapped height until a layout
+	# pass has actually handed it _card_content's real width — same chicken-
+	# and-egg UI.screen_body()'s own comments describe — so the first pass
+	# can undercount a wrapped line and needs the deferred correction).
+	_size_card_to_content()
+	_size_card_to_content.call_deferred()
+
+
+func _size_card_to_content() -> void:
+	if _card_content.get_child_count() == 0:
+		return
+	var content_height: float = _card_content.get_combined_minimum_size().y
+	_scroll.custom_minimum_size.y = minf(content_height, MAX_CARD_HEIGHT)
 
 
 func _build_modal_content(modal: Dictionary) -> void:
