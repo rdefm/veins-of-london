@@ -38,6 +38,22 @@ static func anchor_bottom_wide(control: Control) -> void:
 	control.offset_right = 0
 
 
+# Full rect, clipped to the gap between the persistent TopBar and NavBar
+# (both visible on any screen not in Main.gd's NAV_HIDDEN_SCREENS /
+# TOP_BAR_HIDDEN_SCREENS lists). For a screen with its own bespoke layout
+# (scroll region + a separately pinned action bar) where UI.screen_body()'s
+# single-scroll skeleton doesn't fit — screen_body() solves the same
+# clearance problem for the common case via margins instead of offsets.
+# Anything anchored via bare anchor_full_rect() instead of this ends up
+# with content flush against the screen edges, invisible/unreachable under
+# whichever bar is drawn on top (scenes/screens/sms_archie.gd's/
+# sms_archie_2.gd's Continue button did exactly this — bugfixes ticket 07).
+static func anchor_below_bars(control: Control) -> void:
+	anchor_full_rect(control)
+	control.offset_top = TopBar.BAR_HEIGHT
+	control.offset_bottom = -NavBar.BAR_HEIGHT
+
+
 # Centres a shrink-to-fit control (one sized by its children, e.g. a
 # PanelContainer or VBoxContainer) regardless of parent-size timing: zero
 # offsets pin the control's anchor point at the parent's centre, and

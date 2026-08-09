@@ -9,6 +9,7 @@ extends Control
 const THREAD_ID := "archie_2"
 const NEXT_EVENT_ID := "buyer"
 
+var _root: VBoxContainer
 var _messages_box: VBoxContainer
 var _action_bar: VBoxContainer
 var _messages: Array
@@ -16,16 +17,26 @@ var _revealed := 0
 
 
 func _ready() -> void:
-	UI.anchor_full_rect(self)
 	_messages = GameData.SMS_THREADS[THREAD_ID]
+	_build_layout()
+	_reveal_next()
 
-	var root := UI.vbox(0)
-	UI.anchor_full_rect(root)
-	add_child(root)
+
+# Split out from _ready() so tests can build (and inspect) the layout
+# without touching get_tree()/get_viewport() — _reveal_next() below does,
+# via its await, and this project's test convention (see
+# tests/test_map_canvas.gd/test_map_controls.gd) keeps tree-touching code
+# out of anything a test calls directly.
+func _build_layout() -> void:
+	UI.anchor_full_rect(self)
+
+	_root = UI.vbox(0)
+	UI.anchor_below_bars(_root)
+	add_child(_root)
 
 	var scroll := UI.scroll_container()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_child(scroll)
+	_root.add_child(scroll)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 16)
@@ -38,9 +49,7 @@ func _ready() -> void:
 	margin.add_child(_messages_box)
 
 	_action_bar = UI.vbox(8)
-	root.add_child(_action_bar)
-
-	_reveal_next()
+	_root.add_child(_action_bar)
 
 
 func _reveal_next() -> void:
