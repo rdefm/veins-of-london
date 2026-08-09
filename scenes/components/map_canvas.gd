@@ -96,6 +96,10 @@ const DOTTED_RING_DASH_FRACTION := 0.5
 const TAP_MOVE_TOLERANCE := 16.0
 
 var filter_mode: String = "ownership"
+# map-filters ticket 04: UI-local, same treatment as filter_mode itself
+# (never written to GameState) -- only meaningful while filter_mode ==
+# "faction"; "" means faction mode is active but nothing's been picked yet.
+var selected_faction_id: String = ""
 var zoom_level: float = MapZoom.DEFAULT
 
 var _map_size: Vector2
@@ -410,7 +414,7 @@ func _play_seed_claim_ring(stop: Dictionary, event: Dictionary) -> void:
 		return  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to draw
 
 	var params := _stop_render_params(event["owner"])
-	var alpha := MapStyle.stop_alpha(filter_mode, false)  # a brand-new vein is never charged
+	var alpha := MapStyle.stop_alpha(filter_mode, false, selected_faction_id, event["owner"])  # a brand-new vein is never charged
 	var style := _vein_ring_style(vein, params["colour"], params["width"])
 
 	var ring := SeedClaimRing.new()
@@ -452,7 +456,7 @@ func _play_line_growth(stop: Dictionary, event: Dictionary) -> void:
 		return  # data error (see MapLayout.faction_first_presence_anchor) -- nothing to grow onto
 
 	var params := _stop_render_params(owner)
-	var alpha := MapStyle.line_alpha(filter_mode)
+	var alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, owner)
 	var old_stops := _line_owner_stops(owner)
 	var new_stop := { "id": stop["id"], "pos": stop["position"] }
 	var segment := MapRouting.grow_segment(anchor, old_stops, new_stop, MapLayout.river_path())
@@ -554,11 +558,28 @@ func _rebuild() -> void:
 # UI-local re-styling state (N4) — never written to GameState. Redraws
 # both this Control (lines/stops/badges) and the labels layer isn't
 # affected, but queue_redraw() on self is enough since filter styling
-# never touches pins or labels.
+# never touches pins or labels. Switching to any mode other than "faction"
+# (including back into "faction" itself, e.g. re-opening the drawer's
+# Faction row before picking one) clears selected_faction_id -- ticket 04:
+# "clearing back to 'all' works", same as MapStyle.is_faction_isolated
+# treating a "" selection as nothing isolated.
 func set_filter(mode: String) -> void:
 	if not MapStyle.is_valid_filter(mode):
 		return
 	filter_mode = mode
+	selected_faction_id = ""
+	queue_redraw()
+
+
+# map-filters ticket 04: picking a faction from the drawer's sub-picker.
+# Sets filter_mode to "faction" as a side effect (the ticket's picker is
+# reached FROM the Faction row, but a direct call here shouldn't require a
+# separate set_filter("faction") first).
+func set_faction_filter(faction_id: String) -> void:
+	if not GameData.FACTIONS.has(faction_id):
+		return
+	filter_mode = "faction"
+	selected_faction_id = faction_id
 	queue_redraw()
 
 
@@ -685,7 +706,6 @@ func _draw_river() -> void:
 
 func _draw_lines() -> void:
 	var river := MapLayout.river_path()
-	var alpha := MapStyle.line_alpha(filter_mode)
 
 	# Ticket 05: the routed line reads from _line_vein_stops/_line_faction_
 	# stops, not _vein_stops/_faction_stops (used for rings) — a stop whose
@@ -696,7 +716,8 @@ func _draw_lines() -> void:
 	for stop in _line_vein_stops:
 		player_stops.append({ "id": stop["id"], "pos": stop["position"] })
 	var player_line := MapRouting.build_line(MapLayout.home_anchor(), player_stops, river)
-	_draw_route(player_line, _faded(MapStyle.line_colour(filter_mode, PLAYER_COLOUR), alpha))
+	var player_alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, "player")
+	_draw_route(player_line, _faded(MapStyle.line_colour(filter_mode, PLAYER_COLOUR), player_alpha))
 
 	# Each faction's own owned stops get joined into that faction's own
 	# routed line (same nearest-neighbour + elbow logic as the player's
@@ -712,7 +733,8 @@ func _draw_lines() -> void:
 			stops.append({ "id": stop["id"], "pos": stop["position"] })
 		var faction_colour := Color(GameData.FACTIONS[faction_id]["colour"])
 		var line := MapRouting.build_line(anchor, stops, river)
-		_draw_route(line, _faded(MapStyle.line_colour(filter_mode, faction_colour), alpha))
+		var faction_alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, faction_id)
+		_draw_route(line, _faded(MapStyle.line_colour(filter_mode, faction_colour), faction_alpha))
 
 
 func _draw_route(points: PackedVector2Array, colour: Color) -> void:
@@ -765,7 +787,7 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 	var charged: bool = vein.get("charged", false)
 	var security: String = vein.get("security", "none")
 
-	var alpha := MapStyle.stop_alpha(filter_mode, charged)
+	var alpha := MapStyle.stop_alpha(filter_mode, charged, selected_faction_id, "player")
 	var style := _vein_ring_style(vein, PLAYER_COLOUR, VEIN_STOP_STROKE)
 
 	_draw_ring_stop(pos, VEIN_STOP_RADIUS, alpha, style, 32)
@@ -801,7 +823,7 @@ func _draw_faction_stop(stop: Dictionary) -> void:
 	var pos: Vector2 = stop["position"]
 	var vein: Dictionary = stop["vein"]
 	var faction_colour := Color(GameData.FACTIONS[stop["owner"]]["colour"])
-	var alpha := MapStyle.stop_alpha(filter_mode, false)
+	var alpha := MapStyle.stop_alpha(filter_mode, false, selected_faction_id, stop["owner"])
 	var style := _vein_ring_style(vein, faction_colour, FACTION_STOP_STROKE)
 
 	_draw_ring_stop(pos, FACTION_STOP_RADIUS, alpha, style, 24)
@@ -812,7 +834,11 @@ func _draw_unclaimed_stop(stop: Dictionary) -> void:
 	var site: Dictionary = stop["site"]
 	var ore: Dictionary = GameData.ORE_TYPES[site["oreType"]]
 	var double_tick: bool = site["tier"] in ["rich", "saturated"]
-	var alpha := MapStyle.stop_alpha(filter_mode, false)
+	# Unclaimed sites have no owner, so "" is passed explicitly (rather than
+	# relying on the default) -- it can never equal a real selected_faction_id,
+	# which is exactly the point: an unclaimed tick always fades under
+	# faction isolate, same as "NPC-claimed, unclaimed ticks" in the ticket.
+	var alpha := MapStyle.stop_alpha(filter_mode, false, selected_faction_id, "")
 
 	_draw_tick_mark(pos, _faded(MUTED_COLOUR, alpha))
 	if double_tick:

@@ -1,8 +1,9 @@
 class_name MapStyle
 extends RefCounted
 
-# M1.5 N4: pure re-styling math for the 5 filter chip modes (Ownership ·
-# Type · Strength · Charge · Security). Consumes already-resolved values
+# M1.5 N4: pure re-styling math for the filter chip modes (Ownership ·
+# Type · Strength · Charge · Security, plus map-filters ticket 04's Faction
+# isolate). Consumes already-resolved values
 # (an ore colour, an owner colour, a vein's level/security/charge state)
 # and returns colours/widths/scales/booleans — never touches GameState or
 # GameData itself, same purity discipline as systems/map_routing.gd.
@@ -12,7 +13,7 @@ extends RefCounted
 # what tapping it does, which is exactly why nothing here returns
 # "hidden" or touches tap targets.
 
-const FILTER_MODES: Array[String] = ["ownership", "type", "strength", "charge", "security"]
+const FILTER_MODES: Array[String] = ["ownership", "type", "strength", "charge", "security", "faction"]
 
 const MUTED_COLOUR := Color(0.541176, 0.541176, 0.541176)   # --muted #8a8a8a
 const INK_COLOUR := Color(0.101961, 0.101961, 0.101961)     # --ink #1a1a1a
@@ -33,19 +34,42 @@ static func line_colour(filter_mode: String, owner_colour: Color) -> Color:
 	return owner_colour
 
 
+# Faction: "picking a faction dims everything else and highlights just that
+# faction's line and owned stops" -- an owner is "player", a faction id, or
+# "" for an unclaimed/NPC element with no owner at all. selected_faction_id
+# "" means faction mode is active but nothing's been picked yet (e.g. the
+# drawer's "Faction" row was opened without a pick), in which case nothing
+# is isolated -- every owner reads at full alpha, same as ownership.
+static func is_faction_isolated(filter_mode: String, selected_faction_id: String) -> bool:
+	return filter_mode == "faction" and selected_faction_id != ""
+
+
 # Charge: a line/stub is never itself "charged" — it fades uniformly
 # whenever this filter is active, same as any other non-charged element
-# ("everything uncharged drops to 35% alpha").
-static func line_alpha(filter_mode: String) -> float:
-	return CHARGE_FADE_ALPHA if filter_mode == "charge" else 1.0
+# ("everything uncharged drops to 35% alpha"). Faction: reuses the same
+# CHARGE_FADE_ALPHA value (per the ticket -- "rather than inventing a new
+# fade value") for every line whose owner isn't the isolated faction;
+# selected_faction_id/owner default to "" so every pre-existing call site
+# (none of which pass them) is unaffected.
+static func line_alpha(filter_mode: String, selected_faction_id: String = "", owner: String = "") -> float:
+	if filter_mode == "charge":
+		return CHARGE_FADE_ALPHA
+	if is_faction_isolated(filter_mode, selected_faction_id):
+		return 1.0 if owner == selected_faction_id else CHARGE_FADE_ALPHA
+	return 1.0
 
 
 # Charge: per-stop alpha — full for a charged vein, faded otherwise.
 # NPC/unclaimed stops are never "charged", so callers always pass false
-# for them and get the same fade as an uncharged vein.
-static func stop_alpha(filter_mode: String, charged: bool) -> float:
-	if filter_mode == "charge" and not charged:
-		return CHARGE_FADE_ALPHA
+# for them and get the same fade as an uncharged vein. Faction: same
+# isolate/fade split as line_alpha above, keyed on the stop's own owner
+# ("player", a faction id, or "" for an unclaimed tick) rather than charge
+# state -- default params keep every pre-existing call site unaffected.
+static func stop_alpha(filter_mode: String, charged: bool, selected_faction_id: String = "", owner: String = "") -> float:
+	if filter_mode == "charge":
+		return 1.0 if charged else CHARGE_FADE_ALPHA
+	if is_faction_isolated(filter_mode, selected_faction_id):
+		return 1.0 if owner == selected_faction_id else CHARGE_FADE_ALPHA
 	return 1.0
 
 

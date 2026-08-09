@@ -133,3 +133,63 @@ func run() -> void:
 
 		canvas.free()
 	)
+
+	# map-filters ticket 04: set_filter()/set_faction_filter() are plain
+	# field setters, safe to exercise directly for the same reason as the
+	# pacing cases above -- neither touches get_tree()/get_viewport(). The
+	# re-styling maths itself (who fades, who stays full alpha) is
+	# MapStyle's own job and is covered in tests/test_map_style.gd; this
+	# file only checks MapCanvas wires filter_mode/selected_faction_id
+	# correctly.
+	run_case("fresh_canvas_has_no_faction_selected", func():
+		var canvas := MapCanvas.new()
+		assert_eq(canvas.filter_mode, "ownership", "default filter on a fresh load is ownership")
+		assert_eq(canvas.selected_faction_id, "", "no faction is pre-selected on a fresh load")
+		canvas.free()
+	)
+
+	run_case("set_faction_filter_switches_mode_to_faction_and_records_the_selection", func():
+		var canvas := MapCanvas.new()
+
+		canvas.set_faction_filter("firm")
+
+		assert_eq(canvas.filter_mode, "faction", "picking a faction switches the top-level mode, even without a prior set_filter(\"faction\") call")
+		assert_eq(canvas.selected_faction_id, "firm")
+
+		canvas.free()
+	)
+
+	run_case("set_faction_filter_ignores_an_unknown_faction_id", func():
+		var canvas := MapCanvas.new()
+
+		canvas.set_faction_filter("not_a_real_faction")
+
+		assert_eq(canvas.filter_mode, "ownership", "an invalid faction id leaves filter_mode unchanged")
+		assert_eq(canvas.selected_faction_id, "", "an invalid faction id leaves selected_faction_id unchanged")
+
+		canvas.free()
+	)
+
+	run_case("set_filter_clears_a_stale_faction_selection", func():
+		var canvas := MapCanvas.new()
+		canvas.set_faction_filter("guild")
+
+		canvas.set_filter("charge")
+
+		assert_eq(canvas.filter_mode, "charge")
+		assert_eq(canvas.selected_faction_id, "", "switching to any other top-level mode drops the faction selection -- ticket 04's 'clearing back to all works'")
+
+		canvas.free()
+	)
+
+	run_case("re_entering_faction_mode_via_set_filter_clears_the_previous_selection", func():
+		var canvas := MapCanvas.new()
+		canvas.set_faction_filter("network")
+
+		canvas.set_filter("faction")
+
+		assert_eq(canvas.filter_mode, "faction")
+		assert_eq(canvas.selected_faction_id, "", "re-opening Faction mode via set_filter (rather than picking a faction) starts with nothing isolated")
+
+		canvas.free()
+	)

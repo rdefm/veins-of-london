@@ -78,8 +78,39 @@ func run() -> void:
 		assert_true(not MapStyle.show_danger_ring("ownership", "none"), "the danger ring is security-filter-only, regardless of security state")
 	)
 
-	run_case("is_valid_filter_matches_the_5_canonical_modes_only", func():
+	run_case("is_valid_filter_matches_the_6_canonical_modes_only", func():
 		for mode in MapStyle.FILTER_MODES:
 			assert_true(MapStyle.is_valid_filter(mode))
 		assert_true(not MapStyle.is_valid_filter("bogus"))
+	)
+
+	# ── faction isolate (map-filters ticket 04) ─────────────────────────────
+	run_case("faction_mode_with_no_selection_isolates_nothing", func():
+		assert_true(not MapStyle.is_faction_isolated("faction", ""), "opening Faction mode without picking one isolates nobody")
+		assert_eq(MapStyle.line_alpha("faction", "", "player"), 1.0)
+		assert_eq(MapStyle.line_alpha("faction", "", "firm"), 1.0)
+		assert_eq(MapStyle.stop_alpha("faction", false, "", "player"), 1.0)
+	)
+
+	run_case("faction_mode_isolates_the_selected_faction_only", func():
+		assert_true(MapStyle.is_faction_isolated("faction", "firm"))
+		assert_true(not MapStyle.is_faction_isolated("ownership", "firm"), "isolation is faction-mode-only, regardless of a stale selection")
+
+		assert_eq(MapStyle.line_alpha("faction", "firm", "firm"), 1.0, "the selected faction's own line stays full alpha")
+		assert_eq(MapStyle.line_alpha("faction", "firm", "player"), MapStyle.CHARGE_FADE_ALPHA, "the player's own line fades like anything else not selected")
+		assert_eq(MapStyle.line_alpha("faction", "firm", "guild"), MapStyle.CHARGE_FADE_ALPHA, "an unselected faction's line fades too")
+
+		assert_eq(MapStyle.stop_alpha("faction", true, "firm", "firm"), 1.0, "the selected faction's owned stop stays full alpha, charged or not")
+		assert_eq(MapStyle.stop_alpha("faction", false, "firm", "firm"), 1.0)
+		assert_eq(MapStyle.stop_alpha("faction", false, "firm", "player"), MapStyle.CHARGE_FADE_ALPHA, "the player's own vein fades under another faction's isolate")
+		assert_eq(MapStyle.stop_alpha("faction", true, "firm", "player"), MapStyle.CHARGE_FADE_ALPHA, "even a charged player vein fades -- charge-mode's own alpha rule doesn't leak into faction mode")
+		assert_eq(MapStyle.stop_alpha("faction", false, "firm", ""), MapStyle.CHARGE_FADE_ALPHA, "an unclaimed tick (no owner) fades -- it can never be 'the selected faction'")
+
+		assert_eq(MapStyle.line_alpha("faction", "firm", "player"), MapStyle.line_alpha("charge"), "faction isolate reuses Charge's own fade value rather than a new one")
+	)
+
+	run_case("switching_away_from_faction_mode_restores_normal_styling", func():
+		assert_eq(MapStyle.line_alpha("ownership", "firm", "player"), 1.0, "a stale selected_faction_id has no effect once filter_mode isn't 'faction'")
+		assert_eq(MapStyle.stop_alpha("charge", false, "firm", "player"), MapStyle.CHARGE_FADE_ALPHA, "charge mode's own rule applies untouched, ignoring the stale faction selection")
+		assert_eq(MapStyle.line_colour("ownership", MapStyle.MUTED_COLOUR), MapStyle.MUTED_COLOUR, "ownership's plain pass-through colour is unaffected by faction mode ever having been active")
 	)
