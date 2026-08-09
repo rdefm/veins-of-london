@@ -325,3 +325,43 @@ func run() -> void:
 		assert_eq(rich_vein["security"], "basic", "the higher-value vein is upgraded first")
 		assert_eq(cheap_vein["security"], "none", "funds only covered one upgrade, so the lower-value vein is left untouched")
 	)
+
+	# ── faction-territory-rivalry T01: relation matrix ──────────────────
+
+	run_case("faction_relations_seeded_neutral_for_every_ordered_pair", func():
+		GameState.reset()
+		var ids: Array = GameData.FACTIONS.keys()
+		for a in ids:
+			for b in ids:
+				if a != b:
+					assert_eq(Factions.get_relation(a, b), 0, "%s->%s should seed neutral" % [a, b])
+	)
+
+	run_case("get_relation_self_vs_self_is_a_documented_no_op", func():
+		GameState.reset()
+		assert_eq(Factions.get_relation("collective", "collective"), 0, "self-vs-self reads as 0, not an error")
+		Factions.adjust_relation("collective", "collective", 50)
+		assert_eq(Factions.get_relation("collective", "collective"), 0, "self-vs-self adjust is a no-op")
+	)
+
+	run_case("adjust_relation_round_trips_and_is_directional", func():
+		GameState.reset()
+		Factions.adjust_relation("collective", "firm", -15)
+		assert_eq(Factions.get_relation("collective", "firm"), -15, "adjustment applied")
+		assert_eq(Factions.get_relation("firm", "collective"), 0, "the reverse direction is untouched")
+
+		Factions.adjust_relation("collective", "firm", 5)
+		assert_eq(Factions.get_relation("collective", "firm"), -10, "adjustments accumulate")
+	)
+
+	run_case("faction_relations_survive_deep_copy_and_save_load_round_trip", func():
+		GameState.reset()
+		Factions.adjust_relation("guild", "network", 7)
+		var copy: Dictionary = GameState.deep_copy(GameState.state)
+		assert_eq(copy["factionRelations"]["guild"]["network"], 7, "deep_copy preserves the matrix")
+
+		# mutate the original after copying to prove it's a real deep copy,
+		# not a shared reference
+		Factions.adjust_relation("guild", "network", 100)
+		assert_eq(copy["factionRelations"]["guild"]["network"], 7, "copy is independent of later mutation")
+	)

@@ -37,6 +37,25 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_mutate_load_round_trips_factionRelations_as_ints", func():
+		GameState.reset()
+		Factions.adjust_relation("collective", "firm", -12)
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["factionRelations"]["collective"]["firm"] = 0
+
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		var restored: Variant = GameState.state["factionRelations"]["collective"]["firm"]
+		assert_eq(restored, -12, "relation value should be restored")
+		assert_eq(typeof(restored), TYPE_INT, "JSON round-trip should restore int, not float")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("save_mutate_load_round_trips_sites_with_int_fields_intact", func():
 		GameState.reset()
 		GameState.state["world"]["sites"].append({

@@ -58,6 +58,14 @@ func new_game_state() -> Dictionary:
 
 		"factions": _new_factions_state(),
 
+		# faction-territory-rivalry T01: a separate, internal-only matrix of
+		# every faction's relation *toward* every other faction (directional
+		# -- state.factionRelations[a][b] is a's relation toward b, and need
+		# not equal state.factionRelations[b][a]). Distinct from
+		# state.factions[id].relation above, which is the player-facing
+		# player<->faction stat and is never read/written by this matrix.
+		"factionRelations": _new_faction_relations_state(),
+
 		"barometer": {
 			"economic": "stable", "social": "stable", "political": "stable",
 			"progress": {},
@@ -111,6 +119,26 @@ func _new_factions_state() -> Dictionary:
 			"resources": GameData.FACTIONS[faction_id].get("startingResources", 0),
 		}
 	return factions
+
+
+# faction-territory-rivalry T01: seeds every ordered pair of the 5 canonical
+# factions to a neutral baseline (0). The PRD leaves the exact seed values as
+# an open question and only tickets 03/04 (rivalry odds + resolution) ever
+# read or write this matrix, so a flat neutral start is the simplest
+# defensible choice here -- it makes the day-1 rivalry odds this matrix will
+# eventually feed into depend purely on resource/security disparity (ticket
+# 03's other two inputs), not on an arbitrary industries-overlap guess this
+# ticket has no gameplay evidence to justify. Every relationship still drifts
+# from here per ticket 04's "grudges compound" feedback loop.
+func _new_faction_relations_state() -> Dictionary:
+	var relations := {}
+	for a in GameData.FACTIONS.keys():
+		var row := {}
+		for b in GameData.FACTIONS.keys():
+			if b != a:
+				row[b] = 0
+		relations[a] = row
+	return relations
 
 
 func _new_contacts_state() -> Dictionary:

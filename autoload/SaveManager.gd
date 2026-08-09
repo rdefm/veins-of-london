@@ -214,6 +214,10 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(faction, "relation")
 			_int_key(faction, "resources")
 
+	if state.has("factionRelations"):
+		for row in state["factionRelations"].values():
+			_int_dict_values(row)
+
 	if state.has("contacts"):
 		for contact in state["contacts"].values():
 			for key in ["relation", "recruitThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP"]:

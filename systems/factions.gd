@@ -248,3 +248,25 @@ static func apply_security_upgrades() -> void:
 			continue
 		faction_state["resources"] -= best_cost
 		best_vein["security"] = best_next_id
+
+
+# ── faction-territory-rivalry T01: faction-to-faction relation matrix ──
+# Directional get/adjust over state.factionRelations (GameState._new_
+# faction_relations_state()) -- a's relation *toward* b, distinct from the
+# player-facing state.factions[id].relation this file's join logic above
+# uses. Nothing reads or writes this matrix yet; tickets 03/04 (rivalry odds
+# + resolution) are the first consumers.
+
+# self-vs-self is a documented no-op / always-0 read rather than an error --
+# callers (ticket 03's odds calc) can pass matching attacker/defender ids
+# without a special case of their own.
+static func get_relation(faction_a: String, faction_b: String) -> int:
+	if faction_a == faction_b:
+		return 0
+	return GameState.state["factionRelations"][faction_a][faction_b]
+
+
+static func adjust_relation(faction_a: String, faction_b: String, delta: int) -> void:
+	if faction_a == faction_b:
+		return
+	GameState.state["factionRelations"][faction_a][faction_b] += delta
