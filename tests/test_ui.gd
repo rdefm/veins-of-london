@@ -49,3 +49,14 @@ func run() -> void:
 	run_case("format_block_cost_label_no_travel_needed", func():
 		assert_eq(UI.format_block_cost_label("Prospect", 0, 1), "Prospect — 1 block", "current district needs no travel suffix")
 	)
+
+	# Bugfixes ticket 05: a Button's minimum_size grows to fit its full text
+	# by default, so one long dynamic label (e.g. a cost string built from a
+	# huge cash balance) can force a whole card/sheet wider than the screen.
+	# Every UI.button() must clip instead of demanding that width.
+	run_case("button_clips_text_instead_of_growing_its_minimum_size", func():
+		var b := UI.button("Upgrade to Basic Lock — £20 (have £1000000)", func(): pass)
+		assert_true(b.clip_text, "clip_text must be on so a long label can't force its container wider than the screen")
+		assert_eq(b.text_overrun_behavior, TextServer.OVERRUN_TRIM_ELLIPSIS, "clipped text should ellipsize, not cut off mid-character")
+		b.free()
+	)

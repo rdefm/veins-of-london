@@ -131,6 +131,17 @@ static func tinted_label(text: String, colour: Color) -> Label:
 static func button(text: String, callback: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
+	# A Button's minimum_size grows to fit its full text by default, so one
+	# long dynamic label (e.g. a cost string built from the player's cash)
+	# can force every container up its parent chain wider than the screen --
+	# none of which scroll horizontally, so the excess just overflows past
+	# the right edge (bugfixes ticket 05: a debug £1,000,000 balance blew up
+	# the site sheet's security-upgrade button this way, dragging the charge
+	# bar, dev bar, and action row wide along with it even after those got
+	# their own overflow fix). clip_text lets the surrounding layout's width
+	# win instead.
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.pressed.connect(callback)
 	return b
 
