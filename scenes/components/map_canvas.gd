@@ -69,13 +69,26 @@ const GUARDED_COLOUR := Color(0.227451, 0.478431, 0.321569)     # --success #3a7
 const ZONE_ALPHA := 0.08
 const RIVER_WIDTH := 14.0
 const LINE_WIDTH := 6.0
-const VEIN_STOP_RADIUS := 7.0
-const VEIN_STOP_STROKE := 2.5
-const FACTION_STOP_RADIUS := 5.0
-const FACTION_STOP_STROKE := 2.0
+# bugfixes ticket 02: player/faction stop icons enlarged (was 7.0/5.0) so
+# they're legible and tappable on-device; ratio between the two kept the
+# same as before. MapHitTest.STOP_TAP_RADIUS grew alongside it so the tap
+# target keeps pace — stopSlots in data/map_layout.json are spaced
+# ~45-60px apart, comfortably clear of overlap at these sizes.
+const VEIN_STOP_RADIUS := 10.0
+const VEIN_STOP_STROKE := 3.0
+const FACTION_STOP_RADIUS := 7.0
+const FACTION_STOP_STROKE := 2.5
 const TICK_LENGTH := 12.0
 const TICK_WIDTH := 3.0
-const BADGE_OFFSET := 10.0
+
+# The pre-enlargement vein-stop radius and the growth factor from it to
+# VEIN_STOP_RADIUS above — applied uniformly to every glyph drawn on/around
+# a vein stop (ore symbol via _draw_ore_symbol's enlarge param, level badge,
+# security padlock) and to BADGE_OFFSET itself, so all of them grow in
+# lockstep with the ring instead of each guessing its own multiplier.
+const BASE_VEIN_STOP_RADIUS := 7.0
+const STOP_ICON_GROWTH := VEIN_STOP_RADIUS / BASE_VEIN_STOP_RADIUS
+const BADGE_OFFSET := 10.0 * STOP_ICON_GROWTH
 
 # Clock-position unit vectors (y-down screen space): direction(theta) =
 # (sin(theta), -cos(theta)) for theta = hour * 30deg clockwise from 12
@@ -791,7 +804,7 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 	var style := _vein_ring_style(vein, PLAYER_COLOUR, VEIN_STOP_STROKE)
 
 	_draw_ring_stop(pos, VEIN_STOP_RADIUS, alpha, style, 32)
-	_draw_ore_symbol(pos, vein["oreType"], ore, alpha)
+	_draw_ore_symbol(pos, vein["oreType"], ore, alpha, self, STOP_ICON_GROWTH)
 
 	var level_scale := MapStyle.badge_scale(filter_mode, "level")
 	var countdown = MapStyle.countdown_label(filter_mode, charged, _blocks_until_charged(vein))
@@ -863,23 +876,23 @@ func _draw_tick_mark(pos: Vector2, colour: Color, target: CanvasItem = self) -> 
 # _ore_font_covers_symbols) fails, and only uses the real text glyph if a
 # future engine/font change ever starts covering them. `target` — see
 # _draw_tick_mark just above.
-func _draw_ore_symbol(pos: Vector2, ore_type: String, ore: Dictionary, alpha: float, target: CanvasItem = self) -> void:
+func _draw_ore_symbol(pos: Vector2, ore_type: String, ore: Dictionary, alpha: float, target: CanvasItem = self, enlarge: float = 1.0) -> void:
 	var colour := _faded(Color(ore["colour"]), alpha)
 	if _ore_font_covers_symbols:
-		_draw_centered_text(pos, ore["symbol"], 11, colour, target)
+		_draw_centered_text(pos, ore["symbol"], int(11 * enlarge), colour, target)
 	else:
-		OreGlyphs.draw(target, pos, ore_type, colour)
+		OreGlyphs.draw(target, pos, ore_type, colour, 5.5 * enlarge)
 
 
 # ── badges ───────────────────────────────────────────────────────────────
 
 func _draw_level_badge(pos: Vector2, level: int, enlarge: float, alpha: float, override_text: Variant = null) -> void:
 	var badge_pos := pos + CLOCK_4 * BADGE_OFFSET
-	var radius := 6.0 * enlarge
+	var radius := 6.0 * STOP_ICON_GROWTH * enlarge
 	draw_circle(badge_pos, radius, _faded(PAPER_COLOUR, alpha))
 	draw_arc(badge_pos, radius, 0, TAU, 16, _faded(INK_COLOUR, alpha), 1.0, true)
 	var text: String = override_text if override_text != null else str(level)
-	_draw_centered_text(badge_pos, text, int(9 * enlarge), _faded(INK_COLOUR, alpha))
+	_draw_centered_text(badge_pos, text, int(9 * STOP_ICON_GROWTH * enlarge), _faded(INK_COLOUR, alpha))
 
 
 func _draw_security_padlock(pos: Vector2, security: String, enlarge: float, alpha: float) -> void:
@@ -892,7 +905,7 @@ func _draw_security_padlock(pos: Vector2, security: String, enlarge: float, alph
 		colour = GUARDED_COLOUR
 
 	var badge_pos := pos + CLOCK_8 * BADGE_OFFSET
-	Icons.draw_padlock(self, badge_pos, _faded(colour, alpha), enlarge)
+	Icons.draw_padlock(self, badge_pos, _faded(colour, alpha), STOP_ICON_GROWTH * enlarge)
 
 
 func _draw_dotted_ring(pos: Vector2, radius: float, colour: Color) -> void:

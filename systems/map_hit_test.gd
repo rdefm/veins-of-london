@@ -9,7 +9,11 @@ extends RefCounted
 # list); this module covers the two tap targets ticket 15 adds: a stop/tick
 # on the diagram, and a district's label or zone.
 
-const STOP_TAP_RADIUS := 20.0
+# bugfixes ticket 02: grown alongside map_canvas.gd's VEIN_STOP_RADIUS/
+# FACTION_STOP_RADIUS enlargement (see that file's own comment for the
+# before/after values and the stopSlots-spacing headroom check) so the tap
+# target keeps pace with the bigger visible icon.
+const STOP_TAP_RADIUS := 26.0
 const LABEL_TAP_RADIUS := 24.0
 
 
