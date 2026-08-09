@@ -1,0 +1,7 @@
+- Map tab opens focused on shoreditch
+- make all 'station' icons for veins bigger
+- instead of having to tap 'close' on a modal overlay on the map tab, tapping back on the map closes it too
+- tap on a district, the text to the right of the prospect block shows one letter per line, which means the propsect block takes up loads of space. Fix
+- Tapping on an owned vein: the options extend beyond the right edge of the screen. Adjust so it all fits on the screen
+- When I try to cultivate an existing vein or seed a new vein, I get a white overlay modal with 0 text. I can't tap anything.
+- playing a new start, the text chain with Archie ends. There's no option to close the conversation or proceed to the next event. Bottom left of screen says "Stick close for now - Archie" so I can't even open the map or other menus
