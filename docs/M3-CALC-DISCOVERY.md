@@ -378,7 +378,7 @@ A discovered effect *is* a recipe. Building a second system next to `recipes.jso
 1. `ingredient: "time"` (singular string) → `ingredients: {"time": 5}` (dict). Touches `systems/crafting.gd`, `systems/devices.gd`, `systems/rooms.gd` (lab), `scenes/screens/hq.gd`, and `REFERENCE.md` §1.3. Mechanically neutral for existing recipes.
 2. `baseCalcCost` is superseded by `ingredients` and the skill-scaling in `calc_cost()` needs re-expressing per-ingredient.
 
-Existing `timePearl` / `enhancementPowder` / `rewind` get `discovery: null` and `taughtBy` set — they are tutorial-taught and never appear as bench discoveries. **Their cells must therefore be authored as genuinely empty**, or the census will over-count.
+Existing `timePearl` / `enhancementPowder` / `rewind` get real `discovery` cells like everything else (per §12.1), plus `taughtBy` marking them as tutorial grants. Because the tutorial always teaches them before the bench is reachable, those three cells are simply already `Found` on the player's first visit — which conveniently seeds the found list and demonstrates the origin line before the player has discovered anything themselves.
 
 ### 9.3 Type set key
 
@@ -436,8 +436,21 @@ Authoring rules for whoever fills the cells:
 | Channel | In scope | Notes |
 |---|---|---|
 | **Experimentation** | Yes | This document. |
-| **Taught by NPCs** | Yes | James scenes and faction storylines grant effects outright, and grant approaches. A taught effect marks its cell `Found` directly and decrements nothing from the census. |
+| **Taught by NPCs** | Yes | James scenes and faction storylines grant effects and approaches. See §12.1 — taught effects are not a separate class of thing. |
 | **Bought fragments** | **No** | Deferred with the Soho marketplace (M4). When it lands, the recommendation is that fragments reveal a *cell location* ("someone's notes say: life and time, under heat") rather than the effect — folding purchase into the mini-game instead of bypassing it. |
+
+### 12.1 There is no such thing as a "taught-only" effect
+
+**Every effect lives in a real cell and is reachable by experimentation, including ones an NPC is scheduled to teach.** Teaching is a shortcut, never the sole route.
+
+Consequences, all deliberate:
+
+- **The census counts everything.** A pairing holding an effect James teaches at relation 80 reports it from the player's first probe. That is the honest answer to "is there more in here", and the player who goes and finds it themselves has beaten James to it — which is a much better feeling than being handed it later.
+- **Teaching marks the cell `Found` directly**, with no experiment, no ore and no block.
+- **A taught effect the player already discovered must not be a dud reward.** The scene should notice. Recommended fallback, in order: teach a different undiscovered effect from that NPC's pool → if none, grant the NPC's approach instead → if none, convert to crafting XP and a relation bump, with a line acknowledging it ("*You already had it. James is visibly annoyed, then visibly proud, then annoyed again.*"). Never silently grant nothing.
+- **This is a content-authoring constraint.** Any event that grants an effect needs the collision branch written. Cheapest way to keep that manageable is a single shared `Bench.grant_effect(id)` returning an enum the event prose switches on, rather than per-event bespoke handling.
+
+The one asymmetry worth allowing: an NPC's effect may sit behind an approach the NPC themselves teaches, making the discovery route *technically* open but practically unlikely. That's good design tension, not a violation — the census still tells the truth.
 
 ---
 
@@ -469,7 +482,7 @@ Authoring rules for whoever fills the cells:
 1. **The effect list.** Blocking for the spec, not for this document.
 2. **In-fiction name.** "The Bench" is a placeholder. It wants a name Archie would use.
 3. **Approach names and count.** The §4 roster is invented. Six rows may be one too many on the pairing panel; five is probably right.
-4. **Does a *taught* effect count against the census before it's taught?** If James is going to hand over Failsafe at relation 80, does `time+life` show `3 present` from day one, including an effect the bench can never find? Recommendation: **yes, count it** — the census promise is "how many exist", and a player who probes every approach and comes up one short has learned something true about the world. But it risks reading as a bug.
+4. ~~Does a taught effect count against the census before it's taught?~~ **Resolved: yes, and it is fully discoverable before the NPC teaches it.** Promoted to §12.1.
 5. **Should Inert cells ever revive?** Currently permanent. A late-game device that "re-reads" a spent cell is a tempting content lever, and also a straight betrayal of §3's contract. Recommendation: never.
 6. **Wayfinding cost of never listing the pairings.** With no index, a player who wants to find everything must remember which of 15 pairings they've worked. Bench notes (§8.5) is the mitigation, but it only lists pairings already touched — there is deliberately no way to see *untouched* ones. Watch this in playtest: if players report feeling lost rather than curious, the cheapest fix is a line on bench notes ("you've worked 6 pairings") without ever naming the other nine.
 7. **Does the found list on bench home include taught effects?** Recommendation: yes, with their origin line reading "from James" instead of a pairing and approach. One shelf for everything you know how to make.
@@ -490,7 +503,7 @@ Dependency-sorted, roughly one commit each:
 8. Confirm card + result card + animation.
 9. Bench notes screen: state, rendering, prose table.
 9. Effect content pass (blocked on §15.1).
-10. Taught-effect grants wired into events and faction rewards.
+10. `Bench.grant_effect()` + collision branches wired into events and faction rewards (§12.1).
 11. Balance pass against the §7 provisional numbers.
 
 ---
