@@ -365,3 +365,84 @@ func run() -> void:
 		Factions.adjust_relation("guild", "network", 100)
 		assert_eq(copy["factionRelations"]["guild"]["network"], 7, "copy is independent of later mutation")
 	)
+
+	# ── faction-territory-rivalry T02: roll_rivalry_attempts ────────────
+
+	run_case("roll_rivalry_attempts_raiding_faction_initiates_markedly_more_often", func():
+		# Every faction holds one rival-owned vein it could target (firm's own
+		# vein is excluded from its own eligible-target pool), so every
+		# faction is equally *eligible* -- only INDUSTRY_AGGRESSION (firm has
+		# "raiding") should separate their initiation counts.
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			_site_with_vein("s_collective", _faction_vein_of(2, "life", 0, "collective")),
+			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+			_site_with_vein("s_guild", _faction_vein_of(2, "time", 0, "guild")),
+			_site_with_vein("s_network", _faction_vein_of(2, "emotion", 0, "network")),
+			_site_with_vein("s_conclave", _faction_vein_of(2, "fate", 0, "conclave")),
+		]
+
+		var firm_count := 0
+		var collective_count := 0
+		for seed in range(500):
+			Rng.set_seed(seed)
+			var attempts: Array = Factions.roll_rivalry_attempts()
+			for attempt in attempts:
+				if attempt["attackerId"] == "firm":
+					firm_count += 1
+				elif attempt["attackerId"] == "collective":
+					collective_count += 1
+
+		assert_true(firm_count > collective_count * 2, "firm (raiding industry) should initiate markedly more often than collective (no raiding industry) -- got firm %d vs collective %d" % [firm_count, collective_count])
+	)
+
+	run_case("roll_rivalry_attempts_faction_with_no_eligible_target_never_initiates", func():
+		# Only guild holds a vein (its own) -- no other faction owns a rival
+		# vein for guild to target, so guild must never appear as an attacker,
+		# no matter how many seeds are rolled.
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			_site_with_vein("s_guild", _faction_vein_of(1, "time", 0, "guild")),
+		]
+
+		for seed in range(500):
+			Rng.set_seed(seed)
+			var attempts: Array = Factions.roll_rivalry_attempts()
+			for attempt in attempts:
+				assert_true(attempt["attackerId"] != "guild", "guild has no rival-held vein to target and should never initiate (seed %d)" % seed)
+	)
+
+	run_case("roll_rivalry_attempts_records_only_reference_real_rival_owned_veins", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			_site_with_vein("s_collective", _faction_vein_of(2, "life", 0, "collective")),
+			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+			_site_with_vein("s_guild", _faction_vein_of(2, "time", 0, "guild")),
+			_site_with_vein("s_network", _faction_vein_of(2, "emotion", 0, "network")),
+			_site_with_vein("s_conclave", _faction_vein_of(2, "fate", 0, "conclave")),
+		]
+		var sites_by_id := {}
+		for site in GameState.state["world"]["sites"]:
+			sites_by_id[site["id"]] = site
+
+		for seed in range(200):
+			Rng.set_seed(seed)
+			var attempts: Array = Factions.roll_rivalry_attempts()
+			for attempt in attempts:
+				assert_true(attempt["attackerId"] != attempt["defenderId"], "an attacker never targets its own vein (seed %d)" % seed)
+				assert_true(sites_by_id.has(attempt["veinSiteId"]), "veinSiteId must reference a real site (seed %d)" % seed)
+				var site: Dictionary = sites_by_id[attempt["veinSiteId"]]
+				assert_eq(site["factionVein"]["factionId"], attempt["defenderId"], "defenderId must match the targeted vein's actual owner (seed %d)" % seed)
+	)
+
+	run_case("roll_rivalry_attempts_is_a_pure_computation_no_state_mutation", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			_site_with_vein("s_collective", _faction_vein_of(2, "life", 0, "collective")),
+			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+		]
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		Rng.set_seed(1)
+		Factions.roll_rivalry_attempts()
+		assert_eq(GameState.state, before, "roll_rivalry_attempts must not mutate state")
+	)

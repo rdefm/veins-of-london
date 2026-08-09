@@ -121,17 +121,28 @@ static func _security_opulence(faction_id: String, ore_type: String) -> float:
 
 static func _weighted_security_roll(weights: Dictionary) -> String:
 	var order: Array = Cultivating.VEIN_SECURITY_ORDER
-	var total: float = 0.0
+	var weight_list: Array[float] = []
 	for tier in order:
-		total += weights[tier]
+		weight_list.append(weights[tier])
+	return order[_weighted_pick_index(weight_list)]
+
+
+# Shared cumulative-weighted-roll: index i is chosen with probability
+# weights[i] / sum(weights). Used both by the security-tier roll above and
+# by the rivalry target-vein pick below -- same algorithm, two different
+# callers each mapping the returned index back to their own domain object.
+static func _weighted_pick_index(weights: Array[float]) -> int:
+	var total: float = 0.0
+	for w in weights:
+		total += w
 
 	var roll: float = Rng.randf() * total
 	var cumulative: float = 0.0
-	for tier in order:
-		cumulative += weights[tier]
+	for i in range(weights.size()):
+		cumulative += weights[i]
 		if roll < cumulative:
-			return tier
-	return order[-1]
+			return i
+	return weights.size() - 1
 
 
 # ── faction-resource-economy T02: daily passive/industry income ───────
@@ -270,3 +281,89 @@ static func adjust_relation(faction_a: String, faction_b: String, delta: int) ->
 	if faction_a == faction_b:
 		return
 	GameState.state["factionRelations"][faction_a][faction_b] += delta
+
+
+# ── faction-territory-rivalry T02: rivalry initiation roll ─────────────
+# Pure computation, called by nobody yet (ticket 04 wires it into
+# daily_tick()) -- returns this tick's list of {attackerId, defenderId,
+# veinSiteId} attempt records. Odds of an attempt *succeeding* (relation
+# matrix, resource/security disparity) are ticket 03's job; this ticket
+# only decides who throws a punch and at what, not whether it lands.
+
+# A distinct aggression-weighting table from INDUSTRY_INCOME above --
+# reuses the same `industries` field per the PRD's "no new per-faction
+# aggression stat" constraint, but income-per-industry and
+# fight-initiation-per-industry are different axes, so this is its own
+# const rather than derived from INDUSTRY_INCOME. "raiding" (the Firm's
+# flavour industry) dominates by a wide margin; the other four industries
+# get a small non-zero trickle so a faction can still occasionally throw
+# a punch even without a raiding-flavoured industry, per the PRD's "mostly
+# get targeted rather than targeting others" (mostly, not never).
+const INDUSTRY_AGGRESSION: Dictionary = {
+	"raiding": 0.35,
+	"influence": 0.05,
+	"crafting": 0.03,
+	"trading": 0.02,
+	"sourcing": 0.02,
+}
+
+# Every faction has some baseline chance of throwing a punch even on pure
+# industry-trickle alone (see above) -- this is the floor under that,
+# small enough that INDUSTRY_AGGRESSION's spread still dominates who
+# initiates markedly more often.
+const BASE_INITIATION_CHANCE := 0.05
+
+
+# One roll per faction per tick: does this faction attempt a rivalry move
+# today, and if so, against whom? A faction with zero rival-held veins is
+# never eligible regardless of its aggression weight -- there's nothing to
+# throw a punch at.
+static func roll_rivalry_attempts() -> Array:
+	var attempts := []
+	for faction_id in GameData.FACTIONS.keys():
+		var candidates: Array = _eligible_rival_veins(faction_id)
+		if candidates.is_empty():
+			continue
+		if not Rng.chance(_initiation_chance(faction_id)):
+			continue
+		var target: Dictionary = _pick_target_vein(candidates)
+		attempts.append({
+			"attackerId": faction_id,
+			"defenderId": target["vein"]["factionId"],
+			"veinSiteId": target["site"]["id"],
+		})
+	return attempts
+
+
+static func _initiation_chance(faction_id: String) -> float:
+	var industries: Array = GameData.FACTIONS[faction_id].get("industries", [])
+	var aggression := 0.0
+	for industry in industries:
+		aggression += INDUSTRY_AGGRESSION.get(industry, 0.0)
+	return BASE_INITIATION_CHANCE + aggression
+
+
+# Every {site, vein} pair currently held by a *different* faction than
+# faction_id -- the pool a faction's attempt this tick could possibly
+# target.
+static func _eligible_rival_veins(faction_id: String) -> Array:
+	var candidates := []
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site.get("factionVein")
+		if vein == null or vein["factionId"] == faction_id:
+			continue
+		candidates.append({ "site": site, "vein": vein })
+	return candidates
+
+
+# Target-vein heuristic (implementer's call per the ticket): weighted by
+# vein value (basePrice * level), the same value metric
+# apply_security_upgrades() already uses above -- an attacker is more
+# likely to go after a rival's crown jewel than its scraps, not a uniform
+# pick among however many rival veins happen to exist.
+static func _pick_target_vein(candidates: Array) -> Dictionary:
+	var weight_list: Array[float] = []
+	for candidate in candidates:
+		var vein: Dictionary = candidate["vein"]
+		weight_list.append(GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * vein["level"])
+	return candidates[_weighted_pick_index(weight_list)]
