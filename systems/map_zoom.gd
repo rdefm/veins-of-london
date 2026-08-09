@@ -11,7 +11,11 @@ extends RefCounted
 
 const MIN := 0.35
 const MAX := 1.0
-const DEFAULT := 0.5
+
+# Map-filters ticket 02: was 0.5 (zoomed-to-fit-everything); bumped toward
+# EVENT_ZOOM so the map opens already showing roughly 2-3 districts' worth
+# of detail instead of the whole Network at once.
+const DEFAULT := 0.65
 
 # Map-animations ticket 01: the zoom level a programmatic pan-to-point
 # animates to, so a queued event's ripple reads clearly on a phone screen

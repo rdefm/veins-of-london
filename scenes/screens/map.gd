@@ -91,9 +91,12 @@ func _build_diagram_layer() -> Control:
 	var content := UI.vbox(8)
 	margin.add_child(content)
 
+	content.add_child(_build_top_bar())
+	# Map-filters ticket 02: the old header's "‹ Back" button (every other
+	# tab screen's convention — see hq.gd/phone.gd/etc.) doesn't fit the new
+	# top bar's fixed hamburger/title/bag layout, so it moves here, just
+	# below it, rather than disappearing.
 	content.add_child(UI.back_button("home"))
-	content.add_child(UI.heading("The Network"))
-	content.add_child(UI.muted_label("Tap a stop to work a site. Tap a district to prospect or travel."))
 
 	var map_canvas := MapCanvas.new()
 
@@ -128,6 +131,27 @@ func _build_diagram_layer() -> Control:
 	content.add_child(scroll)
 
 	return layer
+
+
+# Map-filters ticket 02: hamburger (left) / "The Network" title (centre) /
+# bag icon (right), replacing the old back-button/heading/hint stack. Plain
+# HBoxContainer, not a separately-anchored bar — it sits in the same content
+# flow the old header rows did, below the app-wide TopBar the margin above
+# already reserves room for. The hamburger is a stub: ticket 03 wires it to
+# the filter drawer that replaces MapControls' chip row.
+func _build_top_bar() -> Control:
+	var row := UI.hbox(8)
+
+	row.add_child(UI.button("☰", func(): pass))
+
+	var title := UI.heading("The Network")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(title)
+
+	row.add_child(UI.button("🎒", func(): Bag.open()))
+
+	return row
 
 
 # ── district panel ──────────────────────────────────────────────────
