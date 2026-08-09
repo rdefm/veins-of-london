@@ -33,11 +33,11 @@ func run() -> void:
 		assert_true(MapZoom.DEFAULT >= MapZoom.MIN and MapZoom.DEFAULT <= MapZoom.MAX)
 	)
 
-	# Map-filters ticket 02: DEFAULT moved from the old zoomed-to-fit 0.5
-	# toward EVENT_ZOOM (0.8), so the map opens moderately zoomed in rather
-	# than showing the whole Network at once.
-	run_case("default_zoom_moved_toward_event_zoom_from_the_old_zoomed_to_fit_value", func():
-		assert_true(MapZoom.DEFAULT > 0.5 and MapZoom.DEFAULT < MapZoom.EVENT_ZOOM)
+	# Map-filters ticket 02: DEFAULT moved from the old zoomed-to-fit 0.5,
+	# past EVENT_ZOOM (0.8), so the map opens well zoomed in rather than
+	# showing the whole Network at once.
+	run_case("default_zoom_moved_well_past_the_old_zoomed_to_fit_value", func():
+		assert_true(MapZoom.DEFAULT > 0.5 and MapZoom.DEFAULT >= MapZoom.EVENT_ZOOM)
 	)
 
 	run_case("event_zoom_is_within_min_and_max", func():
