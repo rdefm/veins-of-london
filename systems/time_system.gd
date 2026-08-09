@@ -48,7 +48,7 @@ static func do_rest() -> void:
 
 # Exact step order per R§3.1, extended by M1-LONDON.md D2 / adr/0002
 # (steps ⑤b/⑤c), faction-vein-ownership T02 (step ⑤d), and
-# faction-resource-economy T02/T03 (steps ⑤e/⑤f) — do not reorder.
+# faction-resource-economy T02/T03/T04 (steps ⑤e/⑤f/⑤g) — do not reorder.
 # Steps for systems that don't exist yet are stubs; wire the real call in
 # when that task lands.
 static func daily_tick() -> void:
@@ -62,6 +62,7 @@ static func daily_tick() -> void:
 	Sites.roll_faction_vein_growth()     # ⑤d faction vein daily growth (faction-vein-ownership T02), runs right after ⑤c
 	Factions.apply_passive_income()      # ⑤e faction passive/industry income (faction-resource-economy T02), runs right after ⑤d — no ordering dependency on ⑤b-⑤d (industries-only, no site/vein reads)
 	Factions.apply_vein_income()         # ⑤f faction vein-derived income (faction-resource-economy T03), runs right after ⑤e — after ⑤c/⑤d so an abandoned vein doesn't earn and a same-tick-claimed vein reuses ⑤d's claimedOnDay skip
+	Factions.apply_security_upgrades()   # ⑤g faction security-upgrade spend (faction-resource-economy T04), runs right after ⑤f so a tick's vein income is already banked and spendable the same day it's earned
 	Rooms.process_lab()                  # ⑥ rooms (lab, then veinStation)
 	Rooms.process_vein_station()
 	Devices.reset_daily_charges()        # ⑦ device charge reset

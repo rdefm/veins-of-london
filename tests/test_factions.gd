@@ -250,3 +250,78 @@ func run() -> void:
 		var after: int = GameState.state["factions"]["collective"]["resources"]
 		assert_eq(after, before, "a vein claimed this same tick doesn't earn income before it's had a full day to produce")
 	)
+
+	# ── faction-resource-economy T04: dynamic-balance security roll + apply_security_upgrades ──
+
+	run_case("roll_security_tier_responds_to_current_balance_not_static_resourceLevel", func():
+		# collective's static resourceLevel (1, data/factions.json) and
+		# securityBias (-2) alone would never move this roll -- inflating its
+		# live balance must, since _security_opulence() now reads
+		# state.factions.collective.resources instead of the placeholder.
+		GameState.reset()
+		GameState.state["factions"]["collective"]["resources"] = 5000
+		var expensive_tiers := 0
+		for seed in range(200):
+			Rng.set_seed(seed)
+			var tier := Factions.roll_security_tier("collective", "time")
+			if tier == "warded" or tier == "guarded":
+				expensive_tiers += 1
+		assert_true(expensive_tiers > 100, "an inflated live balance should push a naturally low-opulence faction toward warded/guarded (got %d/200)" % expensive_tiers)
+	)
+
+	run_case("apply_security_upgrades_upgrades_an_affordable_eligible_vein_and_charges_its_cost", func():
+		GameState.reset()
+		var vein := _faction_vein_of(1, "physics", 0, "collective")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		GameState.state["factions"]["collective"]["resources"] = 1000
+
+		Factions.apply_security_upgrades()
+
+		assert_eq(vein["security"], "basic", "affordable eligible vein is upgraded one tier")
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 1000 - GameData.VEIN_SECURITY["basic"]["cost"], "balance drops by exactly the tier's cost")
+	)
+
+	run_case("apply_security_upgrades_is_a_no_op_when_balance_cant_afford_the_upgrade", func():
+		GameState.reset()
+		var vein := _faction_vein_of(1, "physics", 0, "collective")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		GameState.state["factions"]["collective"]["resources"] = 5  # below basic's cost of 20
+
+		Factions.apply_security_upgrades()
+
+		assert_eq(vein["security"], "none", "vein stays at its current tier when the faction can't afford the next one")
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 5, "an unaffordable tick is a no-op, not an error -- balance is untouched")
+	)
+
+	run_case("apply_security_upgrades_never_targets_a_vein_already_at_guarded", func():
+		GameState.reset()
+		var vein := _faction_vein_of(1, "physics", 0, "collective")
+		vein["security"] = "guarded"
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		GameState.state["factions"]["collective"]["resources"] = 100000
+		var before: int = GameState.state["factions"]["collective"]["resources"]
+
+		Factions.apply_security_upgrades()
+
+		assert_eq(vein["security"], "guarded", "a vein already at the top of the ladder is never a target")
+		assert_eq(GameState.state["factions"]["collective"]["resources"], before, "nothing eligible to spend on, so balance is unchanged")
+	)
+
+	run_case("apply_security_upgrades_prioritises_the_highest_value_eligible_vein", func():
+		# Both veins cost the same to upgrade (none -> basic, £20) but the
+		# faction can only afford one upgrade this tick -- the documented
+		# priority rule picks the higher basePrice*level vein (fate, 90) over
+		# the lower one (physics, 55).
+		GameState.reset()
+		var cheap_vein := _faction_vein_of(1, "physics", 0, "collective")
+		cheap_vein["id"] = "cheap_v"
+		var rich_vein := _faction_vein_of(1, "fate", 0, "collective")
+		rich_vein["id"] = "rich_v"
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", cheap_vein), _site_with_vein("s2", rich_vein)]
+		GameState.state["factions"]["collective"]["resources"] = GameData.VEIN_SECURITY["basic"]["cost"]
+
+		Factions.apply_security_upgrades()
+
+		assert_eq(rich_vein["security"], "basic", "the higher-value vein is upgraded first")
+		assert_eq(cheap_vein["security"], "none", "funds only covered one upgrade, so the lower-value vein is left untouched")
+	)

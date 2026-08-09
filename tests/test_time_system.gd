@@ -203,6 +203,21 @@ func run() -> void:
 		assert_true(after - before > passive_only, "daily_tick should reach step 5f (Factions.apply_vein_income) on top of passive income")
 	)
 
+	run_case("daily_tick_wires_in_faction_security_upgrade_step_right_after_vein_income_step", func():
+		GameState.reset()
+		var site := {
+			"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "fate",
+			"bonuses": [], "discoveredDay": 1, "claimed": false,
+			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "fate", "level": 5, "levelLabel": "Lode", "devBar": 0, "security": "none", "claimedOnDay": 5, "hospitability": { "tier": "fair", "bonuses": [] } },
+			"hasNaturalVein": false,
+		}
+		GameState.state["world"]["sites"] = [site]
+		GameState.state["world"]["day"] = 5
+		GameState.state["factions"]["collective"]["resources"] = 100000  # affordability guaranteed regardless of this tick's income
+		TimeSystem.daily_tick()
+		assert_eq(site["factionVein"]["security"], "basic", "daily_tick should reach step 5g (Factions.apply_security_upgrades) and upgrade the affordable eligible vein")
+	)
+
 	run_case("stub_daily_tick_steps_do_not_crash", func():
 		GameState.reset()
 		# Just confirms daily_tick runs end to end with the T04/T05/T06/T09

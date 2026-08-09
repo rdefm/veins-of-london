@@ -76,13 +76,9 @@ static func create_faction_vein(faction_id: String, site: Dictionary) -> Diction
 
 # Security-tier distribution consulting the 3 inputs the PRD calls out:
 # faction flavour bias, vein value (ore basePrice), and faction resource
-# level. All three collapse into one signed "opulence" tilt applied to
+# balance. All three collapse into one signed "opulence" tilt applied to
 # SECURITY_BASE_WEIGHTS — positive shifts weight toward warded/guarded,
 # negative toward none/basic. Exact table left to the implementer.
-#
-# resourceLevel (data/factions.json) is an explicit PLACEHOLDER per the
-# ticket: the real dynamic faction-resource stat is Chunk 1b
-# (faction-resource-economy), not built yet.
 static func roll_security_tier(faction_id: String, ore_type: String) -> String:
 	var weights: Dictionary = SECURITY_BASE_WEIGHTS.duplicate()
 	var opulence := _security_opulence(faction_id, ore_type)
@@ -97,13 +93,30 @@ static func roll_security_tier(faction_id: String, ore_type: String) -> String:
 
 # ore basePrice (R§1.1) ranges ~55-90; centred on the roster's ~72
 # midpoint so an average-value ore contributes ~0 tilt either way.
+#
+# Resource input is the faction's real dynamic balance (state.factions[id]
+# .resources, faction-resource-economy T01) rather than the static
+# resourceLevel placeholder — a faction that's spent itself poor on
+# security upgrades (see apply_security_upgrades() below) now genuinely
+# rolls toward cheaper tiers on its next claim, and a faction sitting on a
+# fat balance rolls toward pricier ones. RESOURCE_OPULENCE_BASELINE is the
+# mean of the 5 factions' startingResources (data/factions.json:
+# (200+500+900+500+1200)/5 = 660), so an average-balance faction
+# contributes ~0 tilt, mirroring value_tilt's centring above.
+# RESOURCE_OPULENCE_DIVISOR is tuned so the starting-balance spread
+# (200-1200) produces a tilt magnitude comparable to value_tilt's.
+const RESOURCE_OPULENCE_BASELINE := 660.0
+const RESOURCE_OPULENCE_DIVISOR := 360.0
+
+
 static func _security_opulence(faction_id: String, ore_type: String) -> float:
 	var faction: Dictionary = GameData.FACTIONS[faction_id]
 	var flavour_bias: float = faction.get("securityBias", 0.0)
-	var resource_level: float = faction.get("resourceLevel", 1.0)
+	var balance: float = GameState.state["factions"][faction_id]["resources"]
+	var resource_tilt: float = (balance - RESOURCE_OPULENCE_BASELINE) / RESOURCE_OPULENCE_DIVISOR
 	var ore_value: float = GameData.ORE_TYPES.get(ore_type, {}).get("basePrice", 72.0)
 	var value_tilt: float = (ore_value - 72.0) / 15.0
-	return flavour_bias + value_tilt + (resource_level - 1.0)
+	return flavour_bias + value_tilt + resource_tilt
 
 
 static func _weighted_security_roll(weights: Dictionary) -> String:
@@ -186,3 +199,52 @@ static func apply_vein_income() -> void:
 		var base_price: int = GameData.ORE_TYPES[vein["oreType"]]["basePrice"]
 		var income: int = GameState.round_epsilon(base_price * vein["level"] / VEIN_INCOME_DIVISOR)
 		GameState.state["factions"][vein["factionId"]]["resources"] += income
+
+
+# ── faction-resource-economy T04: daily security-upgrade spend ─────────
+# The only spend category in this PRD's near-term scope: a faction with
+# money to spare quietly hardens one of its held veins each tick, reusing
+# Cultivating.next_security_tier_id() / GameData.VEIN_SECURITY's cost
+# table — same ladder and prices the player's own upgrade_vein_security()
+# uses, just funded from the faction's ledger instead of player cash.
+#
+# Priority rule (left open by the PRD): one upgrade per faction per tick,
+# targeting its highest-value held vein (basePrice * level -- the same
+# value metric apply_vein_income() scales income on) among veins that are
+# both below max security and affordable this tick. A faction protects
+# its crown jewel first rather than spreading upgrades thin across many
+# veins at once. A faction with no eligible vein, or that can't afford
+# its cheapest eligible upgrade, is a no-op, not an error.
+#
+# Called from time_system.gd's daily_tick, step ⑤g (runs immediately
+# after ⑤f vein income), so a tick's vein income is already banked and
+# spendable the same day it's earned.
+static func apply_security_upgrades() -> void:
+	for faction_id in GameState.state["factions"].keys():
+		var faction_state: Dictionary = GameState.state["factions"][faction_id]
+		var best_vein: Variant = null
+		var best_next_id: String = ""
+		var best_cost: int = 0
+		var best_value: float = -1.0
+
+		for site in GameState.state["world"]["sites"]:
+			var vein: Variant = site["factionVein"]
+			if vein == null or vein["factionId"] != faction_id:
+				continue
+			var next_id: Variant = Cultivating.next_security_tier_id(vein["security"])
+			if next_id == null:
+				continue
+			var cost: int = GameData.VEIN_SECURITY[next_id]["cost"]
+			if faction_state["resources"] < cost:
+				continue
+			var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * vein["level"]
+			if value > best_value:
+				best_value = value
+				best_vein = vein
+				best_next_id = next_id
+				best_cost = cost
+
+		if best_vein == null:
+			continue
+		faction_state["resources"] -= best_cost
+		best_vein["security"] = best_next_id
