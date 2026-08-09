@@ -57,7 +57,7 @@ extends Control
 # waits for touch-UP and only fires if the release stayed within
 # TAP_MOVE_TOLERANCE of the press and no second finger ever joined.
 
-const PAPER_COLOUR := Color(0.941176, 0.925490, 0.886275)      # --paper #f0ece2
+const PAPER_COLOUR := Color(1.0, 1.0, 1.0)                     # #ffffff, see _draw_paper() for why
 const RIVER_COLOUR := Color(0.831373, 0.811765, 0.768627, 0.6)  # #d4cfc4 @ 60%
 const MUTED_COLOUR := Color(0.541176, 0.541176, 0.541176)       # --muted #8a8a8a
 const INK_COLOUR := Color(0.101961, 0.101961, 0.101961)         # --ink #1a1a1a
@@ -637,8 +637,26 @@ func _draw() -> void:
 func _draw_paper() -> void:
 	# Chunk 3 visual pivot: flat fill, replacing the tiled aged-paper noise
 	# texture (N6 asset 1) — the diagram is moving toward a generic modern
-	# phone transit-app look rather than a hand-drawn parchment map. Colour
-	# unchanged for now; full palette redesign is a later Chunk 3 ticket.
+	# phone transit-app look rather than a hand-drawn parchment map.
+	#
+	# filters-01 (background & glyph contrast pass): the aged-cream --paper
+	# #f0ece2 token (REFERENCE.md's app-wide palette, otherwise unused as an
+	# actual background anywhere in the port so far) put several of N2's
+	# fixed glyph/ore colours below a 3:1 contrast ratio against it — worst
+	# case player amber at ~2.55:1 — which a WCAG-style check can't fix
+	# without either repainting the map's own amber/faction/ore-brand colours
+	# (out of this ticket's scope — those are shared tokens, e.g. event.gd's
+	# AMBER_COLOR, factions.json, REFERENCE.md's ore table) or maxing out
+	# background lightness. Confirmed by the human over #f0ece2's remaining
+	# off-white alternatives (all still short of 3:1 for amber): full white
+	# is the only value that clears 3:1 for every checked colour — amber,
+	# muted grey, all 5 ore hues, all 5 faction hues, ink/slate/danger/
+	# warded/guarded — and amber only just, landing at ~3.0. So the ticket's
+	# "off-white" framing lands here as literal white rather than a paler
+	# cream; still reads as this pivot's "classic tube-map" look. Human
+	# should re-eyeball zone-fill tint, the danger dotted ring, and all 5
+	# filter modes on-device — none of those are touched by this diff, but
+	# their shared colour constants passed the same check.
 	draw_rect(Rect2(Vector2.ZERO, _map_size), PAPER_COLOUR)
 
 
