@@ -3,7 +3,7 @@ extends Control
 
 # M1.5 ticket 15: swaps M1's plain district-list top-level Map tab view
 # (docs/M1-LONDON.md D4) for the real Network diagram (MapCanvas +
-# MapControls' filter chip row) — the district panel and site/vein sheet
+# MapControls' filter drawer) — the district panel and site/vein sheet
 # below are unchanged from M1 and reused verbatim; only how you reach them
 # changes (tapping a stop/tick or a district label/zone on the diagram,
 # handled by MapCanvas itself, per M1.5 N5, instead of a "View"/"Open" list
@@ -15,12 +15,19 @@ extends Control
 # would just discard scroll position for no benefit. _refresh() only
 # toggles which of _diagram_layer / _district_scroll is visible, based on
 # whether a district is selected.
+#
+# Map-filters ticket 02: the app-wide TopBar (cash/day/bag) is hidden on
+# this screen (Main.gd's TOP_BAR_HIDDEN_SCREENS) so the diagram gets the
+# full screen above the NavBar — this screen's own top bar (hamburger/
+# title/bag, _build_top_bar()) replaces it, and its bag button calls the
+# same Bag.open() the global one did, so nothing is lost.
 
 const SHEET_HEIGHT := 480.0
 
 var _content: VBoxContainer
 var _district_scroll: ScrollContainer
 var _diagram_layer: Control
+var _map_controls: MapControls
 var _sheet_layer: Control
 
 
@@ -29,6 +36,12 @@ func _ready() -> void:
 
 	_diagram_layer = _build_diagram_layer()
 	add_child(_diagram_layer)
+	# _map_controls (the filter drawer) is a full-rect overlay, not a row
+	# inside _diagram_layer's VBoxContainer — see map_controls.gd's header
+	# comment for why. Built inside _build_diagram_layer() (that's where
+	# map_canvas, which it needs a reference to, is created) but added to
+	# the tree here so it draws above the whole diagram, not just its margin.
+	add_child(_map_controls)
 
 	# M1-LONDON D6's archie_cultivation used to auto-fire here on first
 	# Map-tab visit after archiePartnerSeen. M1.5 T13 replaces that with a
@@ -84,25 +97,21 @@ func _build_diagram_layer() -> Control:
 	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 72)  # room below the top bar (TopBar.BAR_HEIGHT + 16)
+	# The global TopBar is hidden on this screen (see class comment above),
+	# so this only needs a small top inset, not room for it.
+	margin.add_theme_constant_override("margin_top", 8)
 	margin.add_theme_constant_override("margin_bottom", 80)  # room above the nav bar
 	layer.add_child(margin)
 
 	var content := UI.vbox(8)
 	margin.add_child(content)
 
-	content.add_child(_build_top_bar())
-	# Map-filters ticket 02: the old header's "‹ Back" button (every other
-	# tab screen's convention — see hq.gd/phone.gd/etc.) doesn't fit the new
-	# top bar's fixed hamburger/title/bag layout, so it moves here, just
-	# below it, rather than disappearing.
-	content.add_child(UI.back_button("home"))
-
 	var map_canvas := MapCanvas.new()
 
-	var controls := MapControls.new()
-	controls.map_canvas = map_canvas
-	content.add_child(controls)
+	_map_controls = MapControls.new()
+	_map_controls.map_canvas = map_canvas
+
+	content.add_child(_build_top_bar())
 
 	# N3: "map canvas is 3x the 390 column, inside a pan-capable Camera2D/
 	# ScrollContainer; pinch-zoom is a stretch goal, pan is required."
@@ -116,11 +125,9 @@ func _build_diagram_layer() -> Control:
 	# scrollable area's extents matching what's actually drawn. Zoom itself
 	# is driven by a real two-finger pinch on MapCanvas (see its
 	# _gui_input) rather than a button row here — an earlier +/- button
-	# version got replaced after on-device playtest found it overlapped
-	# MapControls' filter chips (MapControls wasn't reporting a real
-	# minimum size to this VBoxContainer — see its own _get_minimum_size()
-	# fix — so the next sibling row always landed on top of it) and a
-	# pinch is the expected mobile gesture anyway. MapCanvas only
+	# version got replaced after on-device playtest found it overlapped the
+	# old inline filter chip row (map_controls.gd, since replaced by ticket
+	# 03's drawer) and a pinch is the expected mobile gesture anyway. MapCanvas only
 	# accept_event()s during that active pinch, so a single finger's drag
 	# still bubbles up to this TouchScrollContainer and pans normally.
 	var scroll := TouchScrollContainer.new()
@@ -133,16 +140,17 @@ func _build_diagram_layer() -> Control:
 	return layer
 
 
-# Map-filters ticket 02: hamburger (left) / "The Network" title (centre) /
-# bag icon (right), replacing the old back-button/heading/hint stack. Plain
-# HBoxContainer, not a separately-anchored bar — it sits in the same content
-# flow the old header rows did, below the app-wide TopBar the margin above
-# already reserves room for. The hamburger is a stub: ticket 03 wires it to
-# the filter drawer that replaces MapControls' chip row.
+# Map-filters ticket 02/03: hamburger (left) / "The Network" title (centre)
+# / bag icon (right), replacing the old back-button/heading/hint stack and
+# the global TopBar this screen hides. Plain HBoxContainer, not a
+# separately-anchored bar — it sits in the same content flow the old header
+# rows did. Hamburger opens _map_controls' filter drawer; bag calls the same
+# Bag.open() the global TopBar's bag button used, since that bar is hidden
+# here.
 func _build_top_bar() -> Control:
 	var row := UI.hbox(8)
 
-	row.add_child(UI.button("☰", func(): pass))
+	row.add_child(UI.button("☰", func(): _map_controls.toggle()))
 
 	var title := UI.heading("The Network")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL

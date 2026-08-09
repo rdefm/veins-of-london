@@ -25,18 +25,19 @@ Chunk 2 (district shapes) locks in dropping the aged-paper texture for a flat, c
 - Picking a faction dims everything else and highlights just that faction's line + owned stops — same alpha-fade pattern the existing filter modes already use (e.g. Charge mode dims uncharged stops to 35%).
 - The existing 5 filter modes (Ownership/Type/Strength/Charge/Security) are unchanged in behaviour — this is additive.
 
-### Entry chrome (resolved 2026-08-09, reference: tube-map app screenshots)
+### Entry chrome (resolved 2026-08-09, reference: tube-map app screenshots; amended 2026-08-09 after on-device testing)
 
 - The Map tab's in-page header (today: back button, "The Network" heading, muted hint) is replaced by a local top bar: **hamburger (left) / "The Network" title (centre) / bag icon (right)**. This is Map-screen-local chrome, distinct from the app-wide `TopBar` (cash/day/bag) that persists on every other screen.
 - Tapping the hamburger opens a drawer that replaces the filter chip row entirely: all 6 filter modes as a list (radio-style, one active), plus the pacing toggle (deliberate/quick) and the legend ("?" → Network Reference modal) grouped below, matching the reference screenshot's sectioned list (Map modes, then other actions).
 - The map now opens at a moderate zoomed-in default (`MapZoom.DEFAULT`, currently `0.5`) rather than the zoomed-to-fit-everything view — exact value picked during implementation, between today's `0.5` and the existing `MapZoom.EVENT_ZOOM` (`0.8`).
+- **Amendment (on-device feedback, 2026-08-09):** the Map tab is now full-screen chrome — the app-wide `TopBar` is hidden on this screen (its bag button's job is covered by the local top bar's own bag icon), and the old header's back button is dropped entirely rather than relocated (Home is still reachable via every other tab's own back button). Only the local hamburger/title/bag bar and the 5-tab `NavBar` remain visible on Map. This supersedes the "no changes to the app-wide TopBar" line under "Explicitly out of scope" below.
 
 ## Explicitly out of scope for this pass
 
 - No changes to the existing 5 filter modes' own logic.
 - No legend modal *content* changes (it still opens from the drawer now, not the old "?" chip, but its rows are unchanged) or district-label/typography changes.
 - No app-wide theme system (light/dark) — the map's background is a one-off fixed choice, not tied to a broader theme feature.
-- No changes to the app-wide `TopBar` (cash/day/bag) or `NavBar` (5 bottom tabs) — both stay exactly as they are on every screen including Map.
+- `NavBar` (5 bottom tabs) stays exactly as it is on every screen including Map. The app-wide `TopBar` no longer applies to Map specifically — see the Entry chrome amendment above.
 
 ## Resolved (was open questions)
 

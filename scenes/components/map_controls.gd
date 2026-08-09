@@ -1,40 +1,26 @@
 class_name MapControls
 extends Control
 
-# M1.5 N4/N5: the filter chip row (Ownership · Type · Strength · Charge ·
-# Security) + the legend ("?") button that sits above the MapCanvas
-# diagram. Filter mode is UI-local state (N4: "not saved, not in
-# GameState") — it lives here, not on MapCanvas or GameState, and is
-# pushed into MapCanvas via set_filter() whenever a chip is pressed.
+# M1.5 N4/N5's filter chip row + legend ("?") button, replaced by
+# map-filters ticket 03 with a hamburger-triggered drawer (spec.md's
+# resolved "Entry chrome": "Tapping the hamburger opens a drawer that
+# replaces the filter chip row entirely"). Filter mode is UI-local state
+# (N4: "not saved, not in GameState") — it lives here, not on MapCanvas or
+# GameState, and is pushed into MapCanvas via set_filter() whenever a list
+# row is picked. Same treatment for the pacing toggle (map-animations
+# ticket 06) via set_pacing(). Whether the drawer itself is open is the same
+# kind of UI-local ephemera — not worth plumbing through GameState/Nav
+# system functions the way real game state changes are (R§2's one-way flow
+# is about the pure, saved/rewindable state tree; this is scroll-position-
+# grade UI chrome, same class of thing filter_mode/pacing_mode already are).
 #
-# Map-animations ticket 06: the pacing toggle (deliberate/quick map-event
-# playback) is the other player-facing toggle this row hosts, same "UI-local,
-# not in GameState" treatment as filter_mode, pushed into MapCanvas via
-# set_pacing() whenever the chip is tapped.
-#
-# Caller sets `map_canvas` before adding this to the tree. Ticket 15 is
-# what actually drops this + MapCanvas into the Map tab; until then this
-# Control isn't reachable from any screen (same situation ticket 12 left
-# MapCanvas in).
-#
-# _get_minimum_size() below matters because map.gd adds this Control as a
-# direct child of a VBoxContainer: a plain Control (this one) never
-# auto-reports its children's size to a Container parent the way another
-# Container would, so without the override the VBoxContainer sizes this row
-# at (width, 0) and the next sibling row lands directly on top of the chips
-# (found via on-device playtest, not headless — nothing here fails a
-# check-only pass or a test). It only reports HEIGHT, not _chip_row's full
-# combined width: 5 filter chips + the "?" button don't fit a phone's width,
-# and reporting that combined width would force this whole column to
-# overflow the screen horizontally (also found via on-device playtest — the
-# fix for that overflow is _scroll below, not a wider report here). Instead
-# this Control takes whatever width its VBoxContainer parent offers
-# (default SIZE_FILL), and _scroll — a horizontal-only TouchScrollContainer
-# filling this Control's rect — lets the wider chip row scroll sideways
-# within it. anchor_full_rect(_scroll) is what lets it actually fill
-# whatever rect the VBoxContainer ends up giving this Control based on that
-# reported height — anchors are only ignored for a Container's direct
-# children, and _scroll's parent is this plain Control, not a Container.
+# Caller sets `map_canvas` before adding this to the tree, then calls
+# open()/close()/toggle() from wherever the hamburger button lives
+# (scenes/screens/map.gd). This Control is a full-rect overlay (like
+# map.gd's own site/vein sheet, or BagDrawer/ModalLayer) added as a sibling
+# of the diagram, not a row inside its VBoxContainer — the whole point of
+# ticket 03 is MapCanvas reclaims the vertical space the old inline chip row
+# used, so this can't sit in that flow the way the old row did.
 
 const FILTER_LABELS := {
 	"ownership": "Ownership",
@@ -49,47 +35,98 @@ const PACING_LABELS := {
 	"quick": "Pace: Quick",
 }
 
+const DRAWER_WIDTH := 260.0
+
 var map_canvas: MapCanvas
 
 var _filter_mode: String = "ownership"
 var _pacing_mode: String = "deliberate"
-var _chip_row: HBoxContainer
-var _scroll: TouchScrollContainer
+var _is_open: bool = false
+
+var _dim: ColorRect
+var _panel: PanelContainer
+var _list: VBoxContainer
 
 
 func _ready() -> void:
-	UI.anchor_top_wide(self)
-	size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UI.anchor_full_rect(self)
+	# Ignored while closed so taps fall through to MapCanvas underneath —
+	# only the dim/panel children (added below) ever set MOUSE_FILTER_STOP,
+	# and only once open() shows them. Same pattern map.gd's own
+	# _sheet_layer uses for its site/vein sheet.
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	_scroll = TouchScrollContainer.new()
-	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	UI.anchor_full_rect(_scroll)
-	add_child(_scroll)
+	_dim = ColorRect.new()
+	_dim.color = Color(0, 0, 0, 0.5)
+	UI.anchor_full_rect(_dim)
+	_dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_dim.visible = false
+	# Ticket 03: "dismissible (tap outside ... )" — without this, STOP just
+	# swallows the tap silently, which reads as a dead/broken control rather
+	# than a way to close the drawer.
+	_dim.gui_input.connect(_on_dim_gui_input)
+	add_child(_dim)
 
-	_chip_row = UI.hbox(6)
-	_scroll.add_child(_chip_row)
+	_panel = PanelContainer.new()
+	_panel.anchor_left = 0
+	_panel.anchor_top = 0
+	_panel.anchor_right = 0
+	_panel.anchor_bottom = 1
+	_panel.offset_left = 0
+	_panel.offset_top = 0
+	_panel.offset_right = DRAWER_WIDTH
+	_panel.offset_bottom = 0
+	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	_panel.visible = false
+	add_child(_panel)
+
+	var scroll := UI.scroll_container()
+	_panel.add_child(scroll)
+
+	_list = UI.vbox(8)
+	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_list)
+
 	_rebuild()
 
 
-func _get_minimum_size() -> Vector2:
-	if _chip_row == null:
-		return Vector2.ZERO
-	return Vector2(0, _chip_row.get_combined_minimum_size().y)
+func open() -> void:
+	_set_open(true)
+
+
+func close() -> void:
+	_set_open(false)
+
+
+func toggle() -> void:
+	_set_open(not _is_open)
+
+
+func _set_open(value: bool) -> void:
+	_is_open = value
+	_dim.visible = value
+	_panel.visible = value
+
+
+func _on_dim_gui_input(event: InputEvent) -> void:
+	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
+		close()
 
 
 func _rebuild() -> void:
-	for child in _chip_row.get_children():
+	for child in _list.get_children():
 		child.queue_free()
 
+	_list.add_child(UI.heading("Filters", 14))
 	for mode in MapStyle.FILTER_MODES:
 		var b := UI.button(FILTER_LABELS[mode], func(): _select_filter(mode))
 		b.disabled = mode == _filter_mode
-		_chip_row.add_child(b)
+		_list.add_child(b)
 
-	_chip_row.add_child(UI.button(PACING_LABELS[_pacing_mode], _toggle_pacing))
-	_chip_row.add_child(UI.button("?", func(): Modal.open("network_reference")))
-	update_minimum_size()
+	_list.add_child(UI.heading("Other", 14))
+	_list.add_child(UI.button(PACING_LABELS[_pacing_mode], _toggle_pacing))
+	_list.add_child(UI.button("? Legend", func(): _open_legend()))
+	_list.add_child(UI.button("Close", close))
 
 
 func _select_filter(mode: String) -> void:
@@ -97,6 +134,7 @@ func _select_filter(mode: String) -> void:
 	if map_canvas != null:
 		map_canvas.set_filter(mode)
 	_rebuild()
+	close()
 
 
 func _toggle_pacing() -> void:
@@ -105,3 +143,9 @@ func _toggle_pacing() -> void:
 	if map_canvas != null:
 		map_canvas.set_pacing(_pacing_mode)
 	_rebuild()
+	close()
+
+
+func _open_legend() -> void:
+	Modal.open("network_reference")
+	close()

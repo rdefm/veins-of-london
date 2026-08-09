@@ -41,7 +41,11 @@ const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat"]
 # D4's persistent top bar is up on every screen except the two with no game
 # session to show cash/day/blocks for — unlike NAV_HIDDEN_SCREENS, it stays
 # visible through event/combat so the bag button keeps working there (D4.4).
-const TOP_BAR_HIDDEN_SCREENS := ["title", "intro"]
+# Map-filters ticket 02 adds a third exception: the Network diagram wants
+# the full screen above the NavBar, and has its own local top bar (hamburger/
+# title/bag, map.gd's _build_top_bar()) whose bag button already covers what
+# the global one did there.
+const TOP_BAR_HIDDEN_SCREENS := ["title", "intro", "map"]
 
 var screen_container: Control
 var nav_bar: Control
