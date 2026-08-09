@@ -119,3 +119,34 @@ static func _weighted_security_roll(weights: Dictionary) -> String:
 		if roll < cumulative:
 			return tier
 	return order[-1]
+
+
+# ── faction-resource-economy T02: daily passive/industry income ───────
+# Fixed £/day value per industry (data/factions.json's `industries` lists),
+# independent of vein count — this is what distinguishes it from T03's
+# vein-derived income. Values are the implementer's call (ticket leaves the
+# exact formula open); tiered so summing a faction's industries reproduces
+# T01's baseline tiering (Collective scrappiest, Guild/Conclave richest)
+# without just copying startingResources: "trading"/"sourcing" (universal
+# grunt work) sit at the bottom, "raiding" (Firm) mid, "influence"
+# (Network/Conclave's institutional leverage) and "crafting" (Guild's
+# high-end contracts, per its flavour text) sit at the top.
+const INDUSTRY_INCOME: Dictionary = {
+	"sourcing": 6,
+	"trading": 8,
+	"raiding": 10,
+	"influence": 16,
+	"crafting": 18,
+}
+
+
+# Runs every daily tick for every faction, regardless of vein count (a
+# faction holding zero veins still earns this). See time_system.gd's
+# daily_tick() for step ordering.
+static func apply_passive_income() -> void:
+	for faction_id in GameState.state["factions"].keys():
+		var industries: Array = GameData.FACTIONS[faction_id].get("industries", [])
+		var income := 0
+		for industry in industries:
+			income += INDUSTRY_INCOME.get(industry, 0)
+		GameState.state["factions"][faction_id]["resources"] += income

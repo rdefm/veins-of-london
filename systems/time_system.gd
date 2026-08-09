@@ -59,6 +59,7 @@ static func daily_tick() -> void:
 	Sites.roll_npc_claims()              # ⑤b NPC site-claiming (M1-LONDON.md D2)
 	Sites.roll_npc_abandonment()         # ⑤c NPC abandonment (adr/0002), runs right after ⑤b
 	Sites.roll_faction_vein_growth()     # ⑤d faction vein daily growth (faction-vein-ownership T02), runs right after ⑤c
+	Factions.apply_passive_income()      # ⑤e faction passive/industry income (faction-resource-economy T02), runs right after ⑤d — no ordering dependency on ⑤b-⑤d (industries-only, no site/vein reads); reserves ⑤f for T03's vein-derived income
 	Rooms.process_lab()                  # ⑥ rooms (lab, then veinStation)
 	Rooms.process_vein_station()
 	Devices.reset_daily_charges()        # ⑦ device charge reset

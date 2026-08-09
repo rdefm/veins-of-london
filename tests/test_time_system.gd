@@ -176,6 +176,14 @@ func run() -> void:
 		assert_true(hit, "daily_tick should reach step 5d (Sites.roll_faction_vein_growth) within 300 tries")
 	)
 
+	run_case("daily_tick_wires_in_faction_passive_income_step_right_after_vein_growth_step", func():
+		GameState.reset()
+		var before: int = GameState.state["factions"]["collective"]["resources"]
+		TimeSystem.daily_tick()
+		var after: int = GameState.state["factions"]["collective"]["resources"]
+		assert_true(after > before, "daily_tick should reach step 5e (Factions.apply_passive_income)")
+	)
+
 	run_case("stub_daily_tick_steps_do_not_crash", func():
 		GameState.reset()
 		# Just confirms daily_tick runs end to end with the T04/T05/T06/T09

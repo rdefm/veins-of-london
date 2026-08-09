@@ -114,3 +114,37 @@ func run() -> void:
 				expensive_tiers += 1
 		assert_true(expensive_tiers > 100, "a high-opulence faction/ore pairing should roll warded/guarded well above the 30%% base rate (got %d/200)" % expensive_tiers)
 	)
+
+	# ── faction-resource-economy T02: apply_passive_income ──────────────
+
+	run_case("apply_passive_income_increases_every_factions_balance", func():
+		GameState.reset()
+		var before := {}
+		for faction_id in GameData.FACTIONS.keys():
+			before[faction_id] = GameState.state["factions"][faction_id]["resources"]
+
+		Factions.apply_passive_income()
+
+		for faction_id in GameData.FACTIONS.keys():
+			var after: int = GameState.state["factions"][faction_id]["resources"]
+			assert_true(after > before[faction_id], "%s's balance should grow from passive income" % faction_id)
+	)
+
+	run_case("apply_passive_income_differs_across_factions_per_industries", func():
+		GameState.reset()
+		Factions.apply_passive_income()
+		var conclave_income: int = GameState.state["factions"]["conclave"]["resources"] - GameData.FACTIONS["conclave"]["startingResources"]
+		var guild_income: int = GameState.state["factions"]["guild"]["resources"] - GameData.FACTIONS["guild"]["startingResources"]
+		var collective_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
+		assert_true(conclave_income > collective_income, "conclave (richer-reading) should out-earn collective (scrappier)")
+		assert_true(guild_income > collective_income, "guild (richer-reading) should out-earn collective (scrappier)")
+	)
+
+	run_case("apply_passive_income_applies_regardless_of_vein_count", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = []  # no faction holds any vein
+		var before: int = GameState.state["factions"]["collective"]["resources"]
+		Factions.apply_passive_income()
+		var after: int = GameState.state["factions"]["collective"]["resources"]
+		assert_true(after > before, "a faction with zero veins still earns passive income")
+	)
