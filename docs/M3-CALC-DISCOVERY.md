@@ -29,7 +29,7 @@ Everything in §3 exists to solve that sentence.
 
 ### 2.1 A cell
 
-The entire system is a grid of cells. A cell is:
+The entire system is a grid of cells — **as a data model only; the player never sees a grid** (§8.0). A cell is:
 
 ```
 cell = (type set) × (approach)
@@ -54,15 +54,17 @@ This is the heart of the feature. **The bench never lies to the player and never
 
 ### 3.1 Cell states
 
-Every cell is in exactly one of five states, and its state is always visible on the grid:
+Every cell is in exactly one of five states, and its state is always stated plainly on the pairing panel (§8.3) whenever the player is looking at that pairing:
 
-| State | Glyph | Meaning | Can you act on it? |
+The left column is the internal enum. The right-hand column is roughly how the pairing panel says it — **in words, never as a glyph legend** (§8.3).
+
+| State | Meaning | Can you act on it? | Reads as |
 |---|---|---|---|
-| **Untried** | `·` | Never probed. | Yes — this is the game. |
-| **Inert** | `✗` | Probed; there is genuinely nothing here. Permanent. | No. Warned and blocked. |
-| **Hot** | `○` | Probed; **there is something here** and you failed to bring it out. | Yes — retry, with pity (§3.4). |
-| **Found** | `✦` | Effect discovered and craftable. | Yes — refine (§5). |
-| **Unavailable** | `—` | You have not learned this approach. | No — but it counts in the census (§3.3). |
+| **Untried** | Never probed. | Yes — this is the game. | *(nothing at all — a bare approach name)* |
+| **Inert** | Probed; there is genuinely nothing here. Permanent. | No. Dimmed and untappable. | "nothing in it, and never was" |
+| **Hot** | Probed; **there is something here** and you failed to bring it out. | Yes — retry, with pity (§3.4). | "something nearly took" |
+| **Found** | Effect discovered and craftable. | Yes — refine (§5). | "✚ Healing Burst · refine to II" |
+| **Unavailable** | You have not learned this approach. | No — but it counts in the census (§3.3). | "needs a Lab" |
 
 The crucial pair is Inert vs Hot. A probe **always resolves the truth of the cell**:
 
@@ -82,13 +84,13 @@ This was an explicit call: skill paces discovery through probability, not throug
 
 The first probe of any type set (whatever its outcome) **surveys the set** and permanently reveals how many effects it contains — counting effects sitting behind approaches the player has not learned yet.
 
-```
-⧖+✦  TIME · LIFE        3 present · 1 known
-```
+This is the answer to "is there anything left to find here?" It is answered, forever, for the price of a single experiment. It also does the drip-feed work: knowing a pairing holds three things when you've only ever pulled one out tells the player something waits behind a technique they don't have — a wanting, not a frustration.
 
-This is the answer to "is there anything left to find here?" It is answered, forever, for the price of a single experiment. It also does the drip-feed work: seeing `3 present · 1 known` with only two approaches learned tells the player something waits behind a technique they don't have — a wanting, not a frustration.
+**Voice.** In play the census speaks prose, not statistics:
 
-A set with nothing in it surveys to `barren` and the player never touches it again.
+> *You've had one thing out of this pairing. There is more in it — something you haven't the technique for yet.*
+
+The exact numbers are available on the bench notes screen (§8.5) for anyone who wants to plan. Mystery by default, precision on demand. The guarantee is identical either way; only the register changes. A set with nothing in it surveys to barren and says so flatly.
 
 ### 3.4 Pity
 
@@ -138,21 +140,21 @@ Refinement is only available on `Found` cells. It is **not** a fallback for Iner
 ## 6. The loop
 
 ```
-HQ → Bench
+HQ → Bench                        found effects · run an experiment · notes
   ↓
-Pick 1 or 2 calc types            (the 5 glyphs; tap one, or tap two to pair)
+Pick 1 or 2 calc types            list of 5 type rows, tap to select
   ↓
-Set panel: census line + approach grid
+Pairing panel                     prose census + your approaches, state marked
   ↓
-Pick an approach                  (Inert rows blocked with a reason; Unavailable rows greyed)
+Pick an approach                  spent rows untappable; unlearned rows show their source
   ↓
 Confirm: ore cost · 1 time block · odds shown
   ↓
 [animation]
   ↓
-Result card:  ✦ FOUND  |  ○ something is here  |  ✗ inert  |  ✦ refined to II
+Result:  found · something nearly took · inert · refined to II
   ↓
-Note appended to the set's bench notebook
+Note appended to that pairing's bench notes
 ```
 
 Roughly three experiments a day if the player does nothing else — the bench competes with the rest of the day, which is pillar 1 working as intended.
@@ -183,55 +185,157 @@ Roughly three experiments a day if the player does nothing else — the bench co
 
 Lives in **HQ**, as a third card alongside the workbench and gym (`scenes/screens/hq.gd`). Candidate in-fiction name: **the Bench**. Recipes stay under the workbench; the bench is where recipes come *from*.
 
-### 8.1 Type selection — a deviation from `VISION.md` §9a
+### 8.0 The governing rule: no grid, and no menu of things you haven't done
 
-`VISION.md` §9a specifies "a horizontal row of the 5 type icons; between each pair of adjacent icons sits a link icon." **That only reaches 4 of the 10 pairs.** Recommended replacement: **tap-to-select, up to two.** Tap `⧖` to work a single type; tap `⧖` then `✦` to work the pair. Tap again to deselect. This reaches all 10 pairs, works one-handed, needs no drag gesture, and is a smaller control than a link row.
+**The 15 type sets are never enumerated anywhere in the UI.** Not as a matrix, not as a list, not as a collection tracker. The player assembles a pairing from a type picker each time they sit down, and that pairing's state only exists on screen while they're inside it.
 
-`VISION.md` §9a should be patched to match when this is specced.
+This costs a little wayfinding and buys the thing the feature is for: the player is *poking at something*, not completing a table. Every screen below is a vertical stack of `UI.card()` rows in a `ScrollContainer` — identical construction to HQ, Map and Phone. Nothing here needs a new widget.
 
-### 8.2 The set panel
+The one place the space is laid out in full is the bench notes screen (§8.5), which the player opts into and which is framed as *their own record* rather than the game's checklist.
+
+### 8.1 Bench home
+
+Reached from HQ. Lists what you have, never what you lack.
 
 ```
-⧖+✦  TIME · LIFE                    3 present · 1 known
+┌──────────────────────────────────┐
+│ The Bench                        │
+│ Two burners, a vice, and a lot   │
+│ of ruined saucers.               │
+│                                  │
+│ Approaches: heat, grinding       │
+├──────────────────────────────────┤
+│ FOUND                            │
+│  ✚ Healing Burst           II    │
+│    time · life, under heat       │
+│  ↯ Blast                         │
+│    physics, under compression    │
+├──────────────────────────────────┤
+│      [ Run an experiment ]       │
+│      [ Bench notes ]             │
+└──────────────────────────────────┘
+```
 
-  heat          ✦  Healing Burst          refine → II
-  grinding      ✗  inert
-  compression   ○  something nearly took
-  calcining     ·  untried
-  distilling    —  distilling not learned
-  quenching     —  quenching not learned
+- The found list is the player's trophy shelf and their route back to refining — tapping an effect goes straight to its pairing panel.
+- Approaches known are listed here, and only here, as a plain sentence. Their unlock sources live on the pairing panel where they're actionable.
+- With nothing found yet the card carries a single line of encouragement and the button. No empty-state list of 15 pairings.
 
-                                        [ bench notes ]
+### 8.2 Type picker — a deviation from `VISION.md` §9a
+
+`VISION.md` §9a specifies "a horizontal row of the 5 type icons; between each pair of adjacent icons sits a link icon." **That only reaches 4 of the 10 pairs**, and an icon row with interstitial link targets is a fiddly hit-test on a phone. Replaced with a **list of 5 rows, tap to select, maximum two**:
+
+```
+┌──────────────────────────────────┐
+│ What are you working with?       │
+│ Pick one, or two to combine.     │
+├──────────────────────────────────┤
+│  ⧖  Time                    24   │
+│  ↯  Physics                  8   │
+│  ✦  Life          selected  31   │
+│  ⚄  Fate                     0   │
+│  ❋  Emotion                 12   │
+├──────────────────────────────────┤
+│  ⧖ · ✦   time and life           │
+│           [ Continue ]           │
+└──────────────────────────────────┘
+```
+
+- Right column is ore held, because an experiment costs ore and a player with 0 Fate should see that before they commit to a route.
+- Selection is a toggle; tapping a third type replaces the older selection rather than erroring.
+- Rows carry **no census, no progress, no state**. This screen must stay a plain list of materials — the moment it grows status columns it becomes the enumeration this design is avoiding.
+- `VISION.md` §9a gets patched to match when this is specced.
+
+### 8.3 Pairing panel — the one place state is fully visible
+
+Having assembled a pairing, the player sees everything known about *that pairing only*. Approach rows carry their state inline: no hunting, no wasted taps, no hover-only information.
+
+```
+┌──────────────────────────────────┐
+│ ⧖ · ✦   Time and Life            │
+│                                  │
+│ You've had one thing out of this │
+│ pairing. There is more in it —   │
+│ something you haven't the        │
+│ technique for yet.               │
+├──────────────────────────────────┤
+│  Heat                            │
+│    ✚ Healing Burst · refine to II│
+│                                  │
+│  Grinding                        │
+│    nothing in it, and never was  │
+│                                  │
+│  Compression                     │
+│    something nearly took         │
+│                                  │
+│  Calcining                       │
+│                                  │
+│  Distilling                      │
+│    needs a Lab                   │
+├──────────────────────────────────┤
+│      [ Notes on this pairing ]   │
+└──────────────────────────────────┘
 ```
 
 Rules:
-- State glyph and a plain-English state on every row. No hover-only information — this is a phone.
-- Inert rows are **not tappable**. Tapping shows the reason, does not open a confirm.
-- The census line is the first thing under the header, because it is the answer to the player's main question.
-- Unavailable rows are shown, not hidden. Knowing what you're missing is the drip.
+- Every state is written in words. No glyph legend to learn, no colour-only encoding (accessibility, `VISION.md` M7).
+- **Spent rows are dimmed and untappable.** This is the warning made structural — the player cannot repeat a dead experiment even if they want to.
+- **Untried rows are blank below the name.** Absence of a subtitle is the cleanest possible "nothing known yet", and it keeps the panel from reading as a filled-in form.
+- **Unlearned approaches show their source** ("needs a Lab", "James might know"), which turns a locked row into a goal and quietly sells home rooms. This is the drip doing its job.
+- The prose census sits directly under the header, because it is the answer to the player's main question.
+- Scoping the full state view to a single pairing is the compromise that makes this work: six rows of honest status is a workbench, ninety is a spreadsheet.
 
-### 8.3 The confirm card
+### 8.4 Confirm and result
 
-Cost, block warning, current odds as a percentage, and for a refinement the current and next tier. Odds are shown honestly, including the pity bonus baked in — the player should be able to watch the number climb on a Hot cell across returns. That climbing number is the pity mechanic made visible without ever exposing a counter.
+Confirm card: ore cost (`UI.format_cost_label`), the block cost (`UI.format_block_cost_label`), and current odds as a percentage. For a refinement, current and next tier.
 
-### 8.4 Bench notes
+Odds are shown **with the pity bonus already baked in**, so a player returning to a near-miss watches the number climb across visits. That climbing number is the pity mechanic made visible without ever exposing a counter — and it is the strongest possible argument to come back.
 
-A per-set scrollable log, appended one line per experiment, persisted in state:
+One shared animation, outcome-agnostic until it resolves so the result can't be read early. Target 1.2–1.8s, skippable on tap. Discovery gets a distinct reveal; inert should land flat and a little sad.
+
+Result card, one line of prose per outcome:
+
+| Outcome | Register |
+|---|---|
+| Found | The beat the whole feature exists for. Name, symbol, what it does, and that it's craftable now. |
+| Refined | Quieter. Old value → new value, plainly. |
+| Nearly took | A lure, not a consolation. Says outright that something is there. |
+| Inert | Flat. Not funny, not cruel. It just isn't in there. |
+
+### 8.5 Bench notes — the only full-space view, and it's the player's
+
+An opt-in screen, framed as the player's own journal rather than the game's completion tracker. This is where numbers are allowed.
 
 ```
-TIME · LIFE — bench notes
-
- d4   heat         inert. nothing in it at all.
- d6   compression  something nearly took, then didn't.
- d7   compression  something nearly took, then didn't.
- d9   heat         ✦ HEALING BURST
+┌──────────────────────────────────┐
+│ Bench notes                      │
+├──────────────────────────────────┤
+│ TIME · LIFE          3 · 1 found │
+│  d4  heat        nothing in it   │
+│  d6  compression nearly took     │
+│  d7  compression nearly took     │
+│  d9  heat        ✚ HEALING BURST │
+├──────────────────────────────────┤
+│ PHYSICS              2 · 1 found │
+│  d11 compression ↯ BLAST         │
+└──────────────────────────────────┘
 ```
 
-Cheap to build, extremely on-tone for a text-forward game, and it makes a run of failures read as fieldwork rather than as bad luck. Bounded (last ~20 per set) to keep the state tree small.
+- **Only pairings the player has actually touched appear.** The unexplored 15 are still never listed. The notes grow as a record of where you've been, not a menu of where you haven't.
+- Numeric census here (`3 · 1 found`) per the "precision on demand" call.
+- Entries are bounded at ~20 per pairing, oldest dropped.
+- Prose is generated at render time from stored enums (§10), never stored as strings.
 
-### 8.5 The animation
+Cheap to build, exactly on-tone for a text-forward game, and it makes a run of failures read as fieldwork rather than as bad luck.
 
-One shared bench animation, outcome-agnostic until it resolves, so the player cannot read the result early. Target 1.2–1.8s, skippable on tap. Discovery gets a distinct reveal; Inert should land flat and a little sad.
+### 8.6 Navigation state
+
+Follows the existing `mapNav` / `phoneNav` convention — pure data, no node references:
+
+```
+state.benchNav: { view: "home", types: [], approach: null }
+```
+
+`view` ∈ `home | picker | pairing | notes`. Back behaviour mirrors the Map tab's drill-down.
 
 ---
 
@@ -274,7 +378,7 @@ A discovered effect *is* a recipe. Building a second system next to `recipes.jso
 1. `ingredient: "time"` (singular string) → `ingredients: {"time": 5}` (dict). Touches `systems/crafting.gd`, `systems/devices.gd`, `systems/rooms.gd` (lab), `scenes/screens/hq.gd`, and `REFERENCE.md` §1.3. Mechanically neutral for existing recipes.
 2. `baseCalcCost` is superseded by `ingredients` and the skill-scaling in `calc_cost()` needs re-expressing per-ingredient.
 
-Existing `timePearl` / `enhancementPowder` / `rewind` get `discovery: null` and `taughtBy` set — they are tutorial-taught and never appear on the bench grid. **Their cells must therefore be authored as genuinely empty**, or the census will over-count.
+Existing `timePearl` / `enhancementPowder` / `rewind` get `discovery: null` and `taughtBy` set — they are tutorial-taught and never appear as bench discoveries. **Their cells must therefore be authored as genuinely empty**, or the census will over-count.
 
 ### 9.3 Type set key
 
@@ -299,8 +403,15 @@ player.bench: {
 }
 ```
 
+Plus navigation at the top level of `state`, alongside `mapNav` and `phoneNav` (§8.6):
+
+```
+state.benchNav: { view: "home", types: [], approach: null }
+```
+
 Notes:
 - Cells are written lazily — absent key means `untried`. Keeps the save small and the default trivial.
+- `benchNav` is transient view state and resets on load, exactly like `mapNav`.
 - `notes` arrays bounded at ~20 per set; oldest dropped.
 - Note entries store an `outcome` enum, not prose. **Prose is generated at render time from data** so it can be rewritten without a save migration. This matters.
 - Everything here survives snapshot/Rewind unchanged because it is plain data. Worth an explicit test: Rewind must not un-discover an effect.
@@ -313,7 +424,7 @@ Notes:
 
 Note the §10 collision: Healing Burst and Failsafe are both listed as time + life, but a cell holds one effect, so they must sit on different **approaches** within that set. That's the schema working as intended, and it is a good illustration — one pair, two approaches, two very different effects.
 
-Authoring rules for whoever fills the grid:
+Authoring rules for whoever fills the cells:
 - Every set needs a deliberate effect count, including zero. A barren set is a design decision recorded in data, not an accident of omission.
 - Spread effects across approaches so early-approach players find *something* in most sets, and late approaches feel like they unlock a layer rather than a scattering.
 - Prefer a set's effects to share a theme. `time+life` reading as "the medical pair" is worth more than mechanical spread.
@@ -344,6 +455,7 @@ Authoring rules for whoever fills the grid:
 ## 14. Explicitly out of scope
 
 - The ratio axis (§2.2).
+- **Any screen that enumerates the 15 type sets** (§8.0). Not as a grid, not as a list, not as a completion tracker. This is a standing constraint on the feature, not a phase-one cut.
 - Triple-type sets. The schema tolerates them (`types` is an array); the launch roster and the UI do not.
 - Minor Incidents on failure. Considered and dropped — with honest feedback the tension already sits in the Hot/Inert reveal, and injury on top of a spent block is punitive.
 - Bought recipe fragments (M4).
@@ -356,9 +468,11 @@ Authoring rules for whoever fills the grid:
 
 1. **The effect list.** Blocking for the spec, not for this document.
 2. **In-fiction name.** "The Bench" is a placeholder. It wants a name Archie would use.
-3. **Approach names and count.** The §4 roster is invented. Six may be one too many for the phone grid; five is probably right.
+3. **Approach names and count.** The §4 roster is invented. Six rows may be one too many on the pairing panel; five is probably right.
 4. **Does a *taught* effect count against the census before it's taught?** If James is going to hand over Failsafe at relation 80, does `time+life` show `3 present` from day one, including an effect the bench can never find? Recommendation: **yes, count it** — the census promise is "how many exist", and a player who probes every approach and comes up one short has learned something true about the world. But it risks reading as a bug.
 5. **Should Inert cells ever revive?** Currently permanent. A late-game device that "re-reads" a spent cell is a tempting content lever, and also a straight betrayal of §3's contract. Recommendation: never.
+6. **Wayfinding cost of never listing the pairings.** With no index, a player who wants to find everything must remember which of 15 pairings they've worked. Bench notes (§8.5) is the mitigation, but it only lists pairings already touched — there is deliberately no way to see *untouched* ones. Watch this in playtest: if players report feeling lost rather than curious, the cheapest fix is a line on bench notes ("you've worked 6 pairings") without ever naming the other nine.
+7. **Does the found list on bench home include taught effects?** Recommendation: yes, with their origin line reading "from James" instead of a pairing and approach. One shelf for everything you know how to make.
 
 ---
 
@@ -371,9 +485,10 @@ Dependency-sorted, roughly one commit each:
 3. `player.bench` state shape, defaults, save round-trip, snapshot test.
 4. `systems/bench.gd` — set keys, cell state resolution, census, probe roll, pity.
 5. Refinement: tiers, cost and odds curves, `refineStep` application.
-6. Bench card in HQ: type selection, set panel, approach grid.
-7. Confirm card + result card + animation.
-8. Bench notes: state, rendering, prose table.
+6. `state.benchNav` + bench home card in HQ (found list, entry buttons).
+7. Type picker screen and pairing panel with inline approach states.
+8. Confirm card + result card + animation.
+9. Bench notes screen: state, rendering, prose table.
 9. Effect content pass (blocked on §15.1).
 10. Taught-effect grants wired into events and faction rewards.
 11. Balance pass against the §7 provisional numbers.
