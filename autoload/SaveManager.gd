@@ -212,6 +212,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("factions"):
 		for faction in state["factions"].values():
 			_int_key(faction, "relation")
+			_int_key(faction, "resources")
 
 	if state.has("contacts"):
 		for contact in state["contacts"].values():

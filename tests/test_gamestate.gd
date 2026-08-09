@@ -37,7 +37,9 @@ func run() -> void:
 		assert_eq(s["home"]["lastRaidDay"], 0, "home.lastRaidDay")
 
 		for faction_id in ["collective", "firm", "guild", "network", "conclave"]:
-			assert_eq(s["factions"][faction_id], { "relation": 0, "joined": false }, "factions.%s" % faction_id)
+			assert_eq(s["factions"][faction_id]["relation"], 0, "factions.%s.relation" % faction_id)
+			assert_eq(s["factions"][faction_id]["joined"], false, "factions.%s.joined" % faction_id)
+			assert_eq(s["factions"][faction_id]["resources"], GameData.FACTIONS[faction_id]["startingResources"], "factions.%s.resources seeded from data/factions.json" % faction_id)
 
 		assert_eq(s["barometer"]["economic"], "stable", "barometer.economic")
 		assert_eq(s["barometer"]["social"], "stable", "barometer.social")
@@ -93,6 +95,56 @@ func run() -> void:
 		assert_eq(GameState.round_epsilon(computed), 104, "round_epsilon should round 103.4999...9 up to 104")
 		assert_eq(GameState.round_epsilon(10.0), 10, "round_epsilon should not perturb a clean integer value")
 		assert_eq(GameState.round_epsilon(10.4), 10, "round_epsilon should still round down when nowhere near a boundary")
+	)
+
+	# ── faction-resource-economy T01: state.factions[id].resources ──
+
+	run_case("faction_resources_seed_with_differentiated_baselines_per_flavour_text", func():
+		GameState.reset()
+		var f: Dictionary = GameState.state["factions"]
+
+		assert_eq(f["collective"]["resources"], 200, "Collective seeds scrappiest")
+		assert_eq(f["firm"]["resources"], 500, "Firm seeds mid-tier")
+		assert_eq(f["network"]["resources"], 500, "Network seeds mid-tier")
+		assert_eq(f["guild"]["resources"], 900, "Guild seeds rich, above Firm/Network")
+		assert_eq(f["conclave"]["resources"], 1200, "Conclave seeds richest")
+
+		assert_true(f["collective"]["resources"] < f["firm"]["resources"], "Collective reads scrappier than Firm")
+		assert_true(f["firm"]["resources"] < f["guild"]["resources"], "Guild reads richer than Firm (unlike resourceLevel, which ties them at 2)")
+		assert_true(f["guild"]["resources"] <= f["conclave"]["resources"], "Guild and Conclave are both in the rich tier")
+
+		for faction_id in f.keys():
+			assert_eq(typeof(f[faction_id]["resources"]), TYPE_INT, "resources.%s is a plain int primitive" % faction_id)
+	)
+
+	run_case("faction_resources_round_trip_through_save_load", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["resources"] = 1337
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		var save_result := SaveManager.save_to_slot(92)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["factions"]["guild"]["resources"] = 0
+		var load_result := SaveManager.load_from_slot(92)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		assert_eq(GameState.state["factions"]["guild"]["resources"], 1337, "resources should be restored")
+		assert_eq(GameState.state, original, "the full state tree should deep-equal what was saved")
+
+		SaveManager.delete_slot(92)
+	)
+
+	run_case("faction_resources_round_trip_through_snapshot_restore", func():
+		GameState.reset()
+		GameState.state["factions"]["conclave"]["resources"] = 4242
+		var stack: Array = []
+		Snapshots.push("event", stack, GameState.state)
+
+		GameState.state["factions"]["conclave"]["resources"] = 0
+		var restored: Dictionary = Snapshots.oldest(stack)
+		assert_eq(restored["factions"]["conclave"]["resources"], 4242, "snapshot retains the resources value taken at push time")
+		assert_eq(GameState.state["factions"]["conclave"]["resources"], 0, "restoring from the snapshot copy must not be aliased to live state")
 	)
 
 	run_case("reset_produces_a_fresh_independent_tree", func():

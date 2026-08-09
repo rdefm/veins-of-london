@@ -9,7 +9,8 @@
     "colour": "#3a7a52",
     "joinRelation": 20,
     "securityBias": -2,
-    "resourceLevel": 1
+    "resourceLevel": 1,
+    "startingResources": 200
   },
   "firm": {
     "id": "firm",
@@ -21,7 +22,8 @@
     "colour": "#9b2335",
     "joinRelation": 35,
     "securityBias": 1,
-    "resourceLevel": 2
+    "resourceLevel": 2,
+    "startingResources": 500
   },
   "guild": {
     "id": "guild",
@@ -33,7 +35,8 @@
     "colour": "#7b68ee",
     "joinRelation": 40,
     "securityBias": 1,
-    "resourceLevel": 2
+    "resourceLevel": 2,
+    "startingResources": 900
   },
   "network": {
     "id": "network",
@@ -45,7 +48,8 @@
     "colour": "#1f9e96",
     "joinRelation": 30,
     "securityBias": -1,
-    "resourceLevel": 2
+    "resourceLevel": 2,
+    "startingResources": 500
   },
   "conclave": {
     "id": "conclave",
@@ -57,6 +61,7 @@
     "colour": "#2a8fc4",
     "joinRelation": 60,
     "securityBias": 3,
-    "resourceLevel": 3
+    "resourceLevel": 3,
+    "startingResources": 1200
   }
 }

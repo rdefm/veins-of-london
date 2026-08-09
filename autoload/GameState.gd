@@ -98,7 +98,18 @@ func new_game_state() -> Dictionary:
 func _new_factions_state() -> Dictionary:
 	var factions := {}
 	for faction_id in GameData.FACTIONS.keys():
-		factions[faction_id] = { "relation": 0, "joined": false }
+		factions[faction_id] = {
+			"relation": 0,
+			"joined": false,
+			# faction-resource-economy T01: a real ledger balance (income/spend
+			# land in later tickets — this only seeds the baseline), distinct
+			# from data/factions.json's existing `resourceLevel` (a security-roll
+			# opulence input, Factions._security_opulence()). resourceLevel ties
+			# Guild to Firm/Network at 2, which doesn't read "Guild richer" per
+			# its flavour text, so `startingResources` is its own tiered field:
+			# Collective scrappiest, Firm/Network mid, Guild/Conclave richest.
+			"resources": GameData.FACTIONS[faction_id].get("startingResources", 0),
+		}
 	return factions
 
 
