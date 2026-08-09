@@ -19,10 +19,14 @@ static func apply() -> void:
 
 	player["cash"] = 1000000
 	player["craftingSkill"] = 3
-	player["cultivatingSkill"] = 2
+	# Maxed (not just raised) so Sites.seed_success_chance's clamp is what
+	# actually caps prospecting odds in debug play, not the skill curve --
+	# Cultivating.get_cult_chance(5) alone is 0.78; only rich/saturated
+	# tier's +0.20/+0.35 seedTierMod pushes that up to the 0.95 ceiling.
+	player["cultivatingSkill"] = 5
 
 	for ore_type in GameData.ORE_TYPES.keys():
-		player["orichalchum"][ore_type] = 100
+		player["orichalchum"][ore_type] = 50
 
 	player["inventory"] = { "timePearl": 5, "enhancementPowder": 3, "rewind": 1 }
 

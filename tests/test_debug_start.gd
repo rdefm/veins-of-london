@@ -9,10 +9,10 @@ func run() -> void:
 
 		assert_eq(p["cash"], 1000000, "cash")
 		assert_eq(p["craftingSkill"], 3, "crafting skill")
-		assert_eq(p["cultivatingSkill"], 2, "cultivating skill")
+		assert_eq(p["cultivatingSkill"], 5, "cultivating skill maxed so debug prospecting sits at the seed_success_chance ceiling")
 
 		for ore_type in GameData.ORE_TYPES.keys():
-			assert_eq(p["orichalchum"][ore_type], 100, "100 units of %s -- enough headroom to seed (40/type) more than once" % ore_type)
+			assert_eq(p["orichalchum"][ore_type], 50, "50 units of %s -- enough for one seed attempt (40/type)" % ore_type)
 
 		assert_eq(p["inventory"], { "timePearl": 5, "enhancementPowder": 3, "rewind": 1 }, "consumables")
 
