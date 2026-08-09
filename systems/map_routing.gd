@@ -124,3 +124,61 @@ static func build_line(start: Vector2, stops: Array, river_path: Array = []) -> 
 		points.append(segment[1])
 		points.append(segment[2])
 	return points
+
+
+# map-animations ticket 05: how many leading points two polylines share
+# (exact match). nearest_neighbour_order() is a deterministic greedy walk,
+# so re-running it with one extra stop added reproduces every earlier pick
+# exactly until the step where the new stop first out-competes whatever
+# would otherwise have been picked next — grow_segment() below uses this to
+# find precisely where a new stop's line diverges from the existing one.
+static func common_prefix_length(a: PackedVector2Array, b: PackedVector2Array) -> int:
+	var n := mini(a.size(), b.size())
+	var i := 0
+	while i < n and a[i] == b[i]:
+		i += 1
+	return i
+
+
+# map-animations ticket 05: the polyline segment that "grows in" when one
+# more stop (`new_stop`) joins an owner's existing line (`old_stops`) — not
+# a parallel straight-line approximation, but the actual tail of
+# build_line()'s own recomputed output once the new stop is included, so a
+# caller animating this segment is *guaranteed* to end in exactly the shape
+# the static draw already produces at rest (never a visible shape-jump on
+# hand-off). Degenerates cleanly when `old_stops` is empty (the owner's
+# very first stop): common_prefix_length is then always 0, so the "grown"
+# segment is simply the new line in full (e.g. N3's terminus stub) rather
+# than a synthetic segment reaching back to `anchor` — build_line() never
+# actually connects a single-stop owner's stub to the anchor either, so
+# growing "from the anchor" here would itself have been a shape mismatch.
+static func grow_segment(anchor: Vector2, old_stops: Array, new_stop: Dictionary, river_path: Array = []) -> PackedVector2Array:
+	var old_line := build_line(anchor, old_stops, river_path)
+	var new_stops := old_stops.duplicate()
+	new_stops.append(new_stop)
+	var new_line := build_line(anchor, new_stops, river_path)
+
+	var prefix := common_prefix_length(old_line, new_line)
+	var segment := PackedVector2Array()
+
+	# build_line() special-cases a single-stop owner as a terminus stub
+	# rather than a path from the anchor, so when a second stop is appended
+	# after it in walk order, the old stub's points share nothing with the
+	# new elbow-chain's points even though the walk itself didn't reorder --
+	# common_prefix_length reads that as "no shared prefix" when it's really
+	# the same 1-stop-to-2-stop topology jump the static draw itself makes.
+	# Bridge it explicitly by starting the grown segment at the old stub's
+	# own rendered endpoint instead of jumping straight to the new line's
+	# first point. Only applies when the old stop is still walked first in
+	# the new order (a genuine append) -- a reorder (the new stop sorts
+	# nearer) gets no such bridge, since nothing of the old stub survives
+	# into the new walk at all.
+	if prefix == 0 and old_stops.size() == 1 and not old_line.is_empty():
+		var new_order := nearest_neighbour_order(anchor, new_stops)
+		if new_order[0]["id"] == old_stops[0]["id"]:
+			segment.append(old_line[old_line.size() - 1])
+
+	var start_index := maxi(prefix - 1, 0)
+	for i in range(start_index, new_line.size()):
+		segment.append(new_line[i])
+	return segment

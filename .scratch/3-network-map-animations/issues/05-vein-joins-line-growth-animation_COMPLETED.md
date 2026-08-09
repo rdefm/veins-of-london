@@ -2,7 +2,7 @@
 
 **What to build:** When a vein stop joins its owner's line — a new player vein extending the player's own routed line, or a new faction vein extending that faction's routed line — a "join-line" map event is queued using the pipeline from ticket 01. During playback, the camera pans to the new stop and the connecting line segment visibly grows from the nearest existing point on that owner's line to the new stop, over the event's duration — not a snap to the final routed shape. This is the direct answer to the original animation ask: the connection process itself is shown, not just the end state.
 
-**Blocked by:** 01 — Map event queue, playback engine, camera pan-to-point (tracer bullet: discover ripple). **Also externally blocked by Chunk 2 (`network-map-districts`)**, which is not yet built: today `map_canvas.gd` only routes and draws a real line for the player (`MapRouting.build_line` + `MapLayout.home_anchor()`); non-player veins are drawn as unconnected grey stubs (`_npc_stops`, see `_draw_lines`' own comment), so there is no faction line to grow a segment onto yet. Do not start this ticket until Chunk 2 lands multi-faction line routing (`MapLayout.faction_first_presence_anchor()` wired up, per-faction lines drawn and coloured).
+**Blocked by:** 01 — Map event queue, playback engine, camera pan-to-point (tracer bullet: discover ripple). Was also externally blocked by Chunk 2 (`network-map-districts`) ticket 03 (multi-faction line routing) — that has now landed (`MapLayout.faction_first_presence_anchor()` wired up, `MapLayout.group_by_faction()` + `map_canvas.gd`'s `_draw_lines()` drawing real per-faction routed lines, coloured), so both blockers are clear.
 
 **Status:** ready-for-agent
 

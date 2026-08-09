@@ -108,6 +108,12 @@ func run() -> void:
 		assert_eq(event["district"], "camden")
 		assert_eq(event["veinId"], vein["id"])
 		assert_eq(event["owner"], vein["factionId"])
+
+		var queue: Array = GameState.state["mapEvents"]["queue"]
+		assert_eq(queue.size(), 2, "the seed_claim ring is followed by its own join_line event (ticket 05)")
+		assert_eq(queue[1]["type"], "join_line")
+		assert_eq(queue[1]["veinId"], vein["id"])
+		assert_eq(queue[1]["owner"], vein["factionId"])
 	)
 
 	run_case("npc_claim_best_unclaimed_site_op_is_a_no_op_with_nothing_unclaimed", func():

@@ -273,6 +273,7 @@ static func attempt_seed(site_id: String) -> Dictionary:
 		var vein := Cultivating.make_vein(ore_type, Cultivating.get_bar_gain(skill), district, site_id, hospitability)
 		player["veins"].append(vein)
 		MapEvents.queue_seed_claim(district, vein["id"], "player")
+		MapEvents.queue_join_line(district, vein["id"], "player")
 
 		# D2: claiming a hasNaturalVein site instantly grants a free Lv1
 		# vein of the site's oreType — charged:false, devBar 0 (not
@@ -283,6 +284,7 @@ static func attempt_seed(site_id: String) -> Dictionary:
 			player["veins"].append(natural_vein)
 			natural_vein_id = natural_vein["id"]
 			MapEvents.queue_seed_claim(district, natural_vein_id, "player")
+			MapEvents.queue_join_line(district, natural_vein_id, "player")
 
 		Cultivating.award_xp(30)
 		Modal.open("seed_result", { "success": true, "oreType": ore_type, "siteId": site_id })
@@ -324,6 +326,7 @@ static func npc_claim_best_unclaimed_site(district_id: String) -> void:
 	var faction_id := Factions.pick_claimant(district_id)
 	site["factionVein"] = Factions.create_faction_vein(faction_id, site)
 	MapEvents.queue_seed_claim(district_id, site["factionVein"]["id"], faction_id)
+	MapEvents.queue_join_line(district_id, site["factionVein"]["id"], faction_id)
 
 
 # Called from time_system.gd's daily_tick, step ⑤b. Each unclaimed,
@@ -342,6 +345,7 @@ static func roll_npc_claims() -> void:
 			var faction_id := Factions.pick_claimant(site["district"])
 			site["factionVein"] = Factions.create_faction_vein(faction_id, site)
 			MapEvents.queue_seed_claim(site["district"], site["factionVein"]["id"], faction_id)
+			MapEvents.queue_join_line(site["district"], site["factionVein"]["id"], faction_id)
 			var district_name: String = GameData.DISTRICTS[site["district"]]["name"]
 			var faction_name: String = GameData.FACTIONS[faction_id]["shortName"]
 			Notify.push("%s have moved onto the %s site in %s." % [faction_name, site["tier"], district_name])

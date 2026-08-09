@@ -86,6 +86,30 @@ static func queue_drain(district_id: String, vein_id: String) -> void:
 	})
 
 
+# Ticket 05: a vein stop joining its owner's routed line — queued right
+# after queue_seed_claim for the same vein (player seed via
+# Sites.attempt_seed, or a faction's claim-tick via Sites.roll_npc_claims/
+# npc_claim_best_unclaimed_site), so playback shows the ring draw in first,
+# then the connecting line segment grow onto it. Same shape as
+# queue_seed_claim, deliberately: the grown segment itself is computed live
+# at playback time (MapCanvas._play_line_growth, via
+# MapRouting.grow_segment()) from whatever the owner's line currently looks
+# like, the same way _resolve_event_stop() resolves every other event's
+# position live rather than snapshotting geometry into the queue — the
+# vein's own owner-line membership already stays hidden from the ordinary
+# static draw for as long as this event is queued (pending_join_line_vein_
+# ids() below), so "current state" and "state as it stood when queued"
+# never actually diverge. Same no-self-emit convention as queue_seed_claim
+# — every caller already emits once at the end of its own wrapping action.
+static func queue_join_line(district_id: String, vein_id: String, owner: String) -> void:
+	GameState.state["mapEvents"]["queue"].append({
+		"type": "join_line",
+		"district": district_id,
+		"veinId": vein_id,
+		"owner": owner,
+	})
+
+
 static func has_pending() -> bool:
 	return not GameState.state["mapEvents"]["queue"].is_empty()
 
@@ -122,6 +146,17 @@ static func pending_site_ids() -> Array:
 # event hasn't played yet — MapCanvas consults this for vein/faction stops.
 static func pending_vein_ids() -> Array:
 	return _pending_ids("seed_claim", "veinId")
+
+
+# Ticket 05's counterpart to pending_vein_ids() above: vein ids still hidden
+# from the owner's routed LINE (not the stop's ring — that's pending_vein_ids
+# above) because their "join_line" grow-the-segment event hasn't played yet.
+# MapCanvas consults this separately from pending_vein_ids so a stop's ring
+# can appear (once its seed_claim event resolves) before its line segment
+# does (once its later join_line event also resolves) — the two events play
+# back to back, but the ring and the line-inclusion unhide independently.
+static func pending_join_line_vein_ids() -> Array:
+	return _pending_ids("join_line", "veinId")
 
 
 # Starts a drain. Returns false (no-op) if a drain is already underway or

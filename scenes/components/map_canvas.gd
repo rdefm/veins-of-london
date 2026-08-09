@@ -149,6 +149,15 @@ var _vein_stops: Array = []
 var _faction_stops: Dictionary = {}  # faction id -> Array of that faction's owned vein stops
 var _unclaimed_stops: Array = []
 
+# map-animations ticket 05: _draw_lines' own view of the above, further
+# excluding any vein whose "join_line" event (MapEvents.
+# pending_join_line_vein_ids()) hasn't played yet — a stop's ring can appear
+# (its earlier seed_claim event resolves first) before its line segment does,
+# so the routed line can't just reuse _vein_stops/_faction_stops directly the
+# way it did pre-ticket-05. Same shape as their un-suffixed counterparts.
+var _line_vein_stops: Array = []
+var _line_faction_stops: Dictionary = {}
+
 # Tappable pins (T13) — home/contact/market, computed each rebuild by
 # _rebuild_pins(). The "you are here" ring isn't a tap target (N2/N5 give
 # it no action), so it's tracked separately.
@@ -318,6 +327,8 @@ func _play_event(event: Dictionary) -> void:
 			await _play_charge_burst(stop, event)
 		"drain":
 			await _play_vein_drain(stop, event)
+		"join_line":
+			await _play_line_growth(stop, event)
 
 
 # The event's stop (position + resolved site/vein data), resolved live (not
@@ -406,6 +417,61 @@ func _play_seed_claim_ring(stop: Dictionary, event: Dictionary) -> void:
 	ring.queue_free()
 
 
+# Ticket 05: the connecting line segment grows onto the owner's existing
+# line. The segment itself is computed live, right now, via MapRouting.
+# grow_segment() — the actual tail of a fresh MapRouting.build_line() call
+# with this stop included, diffed against the same call without it — never
+# a parallel straight-line approximation, so the grown segment's own end
+# state is *exactly* what _draw_lines' real recomputed route already
+# produces once this event resolves, not just an approximation that lands
+# near it. Same "must end in a particular static draw state" case as
+# _play_seed_claim_ring: this vein is kept out of _draw_lines' owner-line
+# computation for as long as this event stays queued (_line_vein_stops/
+# _line_faction_stops, via MapEvents.pending_join_line_vein_ids()), so the
+# grown segment — using the exact same MapStyle.line_colour/line_alpha
+# calls _draw_lines makes — is what first shows this stop connected at all;
+# nothing jumps when this node is freed and MapEvents.advance() hands off
+# to the real route.
+func _play_line_growth(stop: Dictionary, event: Dictionary) -> void:
+	var vein: Variant = stop["vein"]
+	if vein == null:
+		return  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to grow
+
+	var owner: String = event["owner"]
+	var anchor: Variant = MapLayout.home_anchor() if owner == "player" else MapLayout.faction_first_presence_anchor(owner)
+	if anchor == null:
+		return  # data error (see MapLayout.faction_first_presence_anchor) -- nothing to grow onto
+
+	var params := _stop_render_params(owner)
+	var alpha := MapStyle.line_alpha(filter_mode)
+	var old_stops := _line_owner_stops(owner)
+	var new_stop := { "id": stop["id"], "pos": stop["position"] }
+	var segment := MapRouting.grow_segment(anchor, old_stops, new_stop, MapLayout.river_path())
+
+	var growth := LineGrowth.new()
+	growth.points = segment
+	growth.line_colour = _faded(MapStyle.line_colour(filter_mode, params["colour"]), alpha)
+	_playback_layer.add_child(growth)
+	growth.start(EVENT_VISUAL_DURATION)
+	_active_tween = growth.tween
+	await growth.tween.finished
+	growth.queue_free()
+
+
+# The current { "id", "pos" } stops _draw_lines would feed MapRouting.
+# build_line() for `owner` right now — i.e. excluding this same still-
+# pending join_line vein (and any other owner stop whose own join_line
+# event hasn't played yet), the "line as it stands before this join" that
+# _play_line_growth above grows onto. Mirrors _draw_lines' own player_stops/
+# faction stops[...] conversion exactly, just for one owner at a time.
+func _line_owner_stops(owner: String) -> Array:
+	var source: Array = _line_vein_stops if owner == "player" else _line_faction_stops.get(owner, [])
+	var result: Array = []
+	for s in source:
+		result.append({ "id": s["id"], "pos": s["position"] })
+	return result
+
+
 # Ticket 03: a vein finishing its recharge — a brighter one-shot burst/flash
 # at the stop, visually distinct from (and preceding) ChargeHalo's own
 # steady-state pulse. Unlike _play_discover_ripple/_play_seed_claim_ring,
@@ -490,6 +556,7 @@ func set_filter(mode: String) -> void:
 func _partition_stops() -> void:
 	_vein_stops = []
 	_unclaimed_stops = []
+	_line_vein_stops = []
 
 	# Map-animations ticket 01/02: a site/vein with a still-queued map event
 	# (current or waiting its turn) stays out of the ordinary static draw
@@ -499,6 +566,9 @@ func _partition_stops() -> void:
 	# pending_vein_ids -> "seed_claim" (player or faction vein) stops.
 	var pending_site_ids: Array = MapEvents.pending_site_ids()
 	var pending_vein_ids: Array = MapEvents.pending_vein_ids()
+	# Ticket 05: a further, independent exclusion for the routed LINE only
+	# (not the ring) — see _line_vein_stops/_line_faction_stops' own comment.
+	var pending_join_line_ids: Array = MapEvents.pending_join_line_vein_ids()
 
 	var stops_by_district := MapLayout.assign_all_slots()
 	var all_stops: Array = []
@@ -506,6 +576,7 @@ func _partition_stops() -> void:
 		all_stops.append_array(stops_by_district[district_id])
 
 	var visible_vein_stops: Array = []
+	var line_vein_stops: Array = []
 	for stop in all_stops:
 		match stop["kind"]:
 			"vein":
@@ -514,11 +585,16 @@ func _partition_stops() -> void:
 				visible_vein_stops.append(stop)
 				if stop.get("owner") == "player":
 					_vein_stops.append(stop)
+				if not pending_join_line_ids.has(stop["id"]):
+					line_vein_stops.append(stop)
+					if stop.get("owner") == "player":
+						_line_vein_stops.append(stop)
 			"unclaimed":
 				if not pending_site_ids.has(stop["id"]):
 					_unclaimed_stops.append(stop)
 
 	_faction_stops = MapLayout.group_by_faction(visible_vein_stops)
+	_line_faction_stops = MapLayout.group_by_faction(line_vein_stops)
 
 
 func _draw() -> void:
@@ -572,8 +648,13 @@ func _draw_lines() -> void:
 	var river := MapLayout.river_path()
 	var alpha := MapStyle.line_alpha(filter_mode)
 
+	# Ticket 05: the routed line reads from _line_vein_stops/_line_faction_
+	# stops, not _vein_stops/_faction_stops (used for rings) — a stop whose
+	# join_line event hasn't played yet stays out of its owner's line entirely
+	# so MapCanvas._play_line_growth's grown segment is the first thing that
+	# ever shows it connected.
 	var player_stops: Array = []
-	for stop in _vein_stops:
+	for stop in _line_vein_stops:
 		player_stops.append({ "id": stop["id"], "pos": stop["position"] })
 	var player_line := MapRouting.build_line(MapLayout.home_anchor(), player_stops, river)
 	_draw_route(player_line, _faded(MapStyle.line_colour(filter_mode, PLAYER_COLOUR), alpha))
@@ -583,12 +664,12 @@ func _draw_lines() -> void:
 	# line above), starting from its first-presence district anchor — a
 	# faction with exactly one stop falls out of build_line() as a terminus
 	# stub, same as the player would with one vein.
-	for faction_id in _faction_stops.keys():
+	for faction_id in _line_faction_stops.keys():
 		var anchor = MapLayout.faction_first_presence_anchor(faction_id)
 		if anchor == null:
 			continue  # data error (see MapLayout.faction_first_presence_anchor) -- skip rather than crash
 		var stops: Array = []
-		for stop in _faction_stops[faction_id]:
+		for stop in _line_faction_stops[faction_id]:
 			stops.append({ "id": stop["id"], "pos": stop["position"] })
 		var faction_colour := Color(GameData.FACTIONS[faction_id]["colour"])
 		var line := MapRouting.build_line(anchor, stops, river)
@@ -1212,3 +1293,70 @@ class SeedClaimRing:
 		draw_circle(Vector2.ZERO, radius, fill_colour)
 		if _sweep_end > 0.0:
 			draw_arc(Vector2.ZERO, radius, 0, _sweep_end, 32, ring_colour, ring_width, true)
+
+
+# Map-animations ticket 05's join-line visual: `points` (set by MapCanvas.
+# _play_line_growth() via MapRouting.grow_segment()) is the *actual* tail of
+# MapRouting.build_line()'s own recomputed output, elbow geometry included —
+# not a straight-line stand-in — so this progressively reveals it by
+# cumulative arc length rather than lerping a single point, and its own end
+# state (all of `points` visible) is byte-for-byte what the static draw
+# already produces at rest. Same round-cap illusion _draw_route uses (a
+# circle at each visible point, MapCanvas.LINE_WIDTH), and the same
+# custom_step() fast-forward reason as every other event visual in this
+# file (positioned at Vector2.ZERO, unlike the other visuals, since it draws
+# absolute map-space points rather than one centred point).
+class LineGrowth:
+	extends Node2D
+
+	# Set by MapCanvas._play_line_growth() before start() is called.
+	var points: PackedVector2Array
+	var line_colour: Color
+
+	var tween: Tween
+	var _reveal := 0.0  # 0..1 fraction of `points`' cumulative length shown
+
+	func start(duration: float) -> void:
+		tween = create_tween()
+		tween.tween_method(_set_reveal, 0.0, 1.0, duration)
+
+	func _set_reveal(t: float) -> void:
+		_reveal = t
+		queue_redraw()
+
+	func _draw() -> void:
+		var visible := _visible_points()
+		if visible.size() < 2:
+			return
+		draw_polyline(visible, line_colour, MapCanvas.LINE_WIDTH, true)
+		for p in visible:
+			draw_circle(p, MapCanvas.LINE_WIDTH / 2.0, line_colour)
+
+	# `points`, truncated to the fraction of its own cumulative length
+	# `_reveal` currently covers -- the segment straddling that cutoff is
+	# itself linearly interpolated so the reveal grows smoothly rather than
+	# jumping vertex to vertex.
+	func _visible_points() -> PackedVector2Array:
+		if points.size() < 2 or _reveal >= 1.0:
+			return points
+
+		var seg_lengths := PackedFloat32Array()
+		var total := 0.0
+		for i in range(points.size() - 1):
+			var l := points[i].distance_to(points[i + 1])
+			seg_lengths.append(l)
+			total += l
+
+		var target := total * _reveal
+		var result := PackedVector2Array([points[0]])
+		var covered := 0.0
+		for i in range(seg_lengths.size()):
+			var l: float = seg_lengths[i]
+			if is_zero_approx(l) or covered + l <= target:
+				result.append(points[i + 1])
+				covered += l
+			else:
+				var frac: float = (target - covered) / l
+				result.append(points[i].lerp(points[i + 1], frac))
+				break
+		return result

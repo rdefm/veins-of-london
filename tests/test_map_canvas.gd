@@ -61,3 +61,39 @@ func run() -> void:
 		assert_eq(style["width"], MapCanvas.FACTION_STOP_STROKE, "level 1 + ownership mode: width is just the faction base stroke")
 		canvas.free()
 	)
+
+	# map-animations ticket 05: _partition_stops() is another pure-ish seam
+	# safe to call directly (only reads GameState/GameData via MapEvents/
+	# MapLayout, never touches get_tree()/get_viewport()) — this is what
+	# proves a pending join_line event hides a stop from the routed LINE
+	# (_line_vein_stops) while still letting its ring show (_vein_stops),
+	# and that the exclusion lifts once the event resolves.
+	run_case("partition_stops_hides_a_pending_join_line_vein_from_the_line_but_not_the_ring", func():
+		GameState.reset()
+		var site := { "id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false }
+		GameState.state["world"]["sites"] = [site]
+		GameState.state["player"]["veins"] = [{ "id": "v1", "siteId": "s1" }]
+		MapEvents.queue_join_line("shoreditch", "v1", "player")
+
+		var canvas := MapCanvas.new()
+		canvas._partition_stops()
+
+		var ring_ids := []
+		for stop in canvas._vein_stops:
+			ring_ids.append(stop["id"])
+		assert_true(ring_ids.has("v1"), "no seed_claim event is queued here, so the ring is already visible")
+
+		var line_ids := []
+		for stop in canvas._line_vein_stops:
+			line_ids.append(stop["id"])
+		assert_true(not line_ids.has("v1"), "the routed line excludes it until its own join_line event plays")
+
+		MapEvents.advance()
+		canvas._partition_stops()
+		var line_ids_after := []
+		for stop in canvas._line_vein_stops:
+			line_ids_after.append(stop["id"])
+		assert_true(line_ids_after.has("v1"), "once join_line resolves, the line includes it exactly like any other stop")
+
+		canvas.free()
+	)

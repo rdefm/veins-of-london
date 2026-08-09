@@ -137,3 +137,63 @@ func run() -> void:
 		# not 6 (the shared joint between segments isn't duplicated).
 		assert_eq(line.size(), 5, "consecutive elbow segments share their joint point")
 	)
+
+	# ── common_prefix_length / grow_segment (map-animations ticket 05) ────
+
+	run_case("common_prefix_length_counts_matching_leading_points", func():
+		var a := PackedVector2Array([Vector2(0, 0), Vector2(1, 1), Vector2(2, 2)])
+		var b := PackedVector2Array([Vector2(0, 0), Vector2(1, 1), Vector2(9, 9)])
+		assert_eq(MapRouting.common_prefix_length(a, b), 2)
+	)
+
+	run_case("common_prefix_length_is_the_shorter_arrays_size_when_it_is_a_prefix_of_the_other", func():
+		var a := PackedVector2Array([Vector2(0, 0), Vector2(1, 1)])
+		var b := PackedVector2Array([Vector2(0, 0), Vector2(1, 1), Vector2(2, 2)])
+		assert_eq(MapRouting.common_prefix_length(a, b), 2)
+	)
+
+	run_case("common_prefix_length_zero_for_empty_or_wholly_different_arrays", func():
+		assert_eq(MapRouting.common_prefix_length(PackedVector2Array(), PackedVector2Array([Vector2(1, 1)])), 0)
+		assert_eq(MapRouting.common_prefix_length(PackedVector2Array([Vector2(5, 5)]), PackedVector2Array([Vector2(1, 1)])), 0)
+	)
+
+	run_case("grow_segment_returns_the_full_new_line_when_the_owner_has_no_existing_stops", func():
+		var new_stop := { "id": "only", "pos": Vector2(100, 100) }
+		var segment := MapRouting.grow_segment(Vector2(0, 0), [], new_stop)
+		var expected := MapRouting.build_line(Vector2(0, 0), [new_stop])
+		assert_eq(segment, expected, "no old line to diverge from -- the grown segment is the whole (single-stop) line, not a segment reaching back to the anchor")
+	)
+
+	run_case("grow_segment_is_the_new_tail_when_the_new_stop_is_appended_to_the_existing_walk", func():
+		var old_stops := [{ "id": "a", "pos": Vector2(10, 0) }]
+		var new_stop := { "id": "b", "pos": Vector2(100, 0) }
+		var start := Vector2(0, 0)
+
+		var old_line := MapRouting.build_line(start, old_stops)
+		var new_line := MapRouting.build_line(start, [old_stops[0], new_stop])
+		var segment := MapRouting.grow_segment(start, old_stops, new_stop)
+
+		assert_eq(segment[0], old_line[old_line.size() - 1], "the grown segment starts exactly where the existing (still statically drawn) line already ends")
+		assert_eq(segment[segment.size() - 1], new_line[new_line.size() - 1], "the grown segment ends exactly where the recomputed full line ends")
+	)
+
+	run_case("grow_segment_reconstructs_the_full_new_line_exactly_even_when_the_new_stop_reorders_the_whole_walk", func():
+		# The new stop sits nearer the start than the existing stop does, so
+		# nearest_neighbour_order() visits it FIRST once it's added -- a full
+		# reorder, not a tail append. This is exactly the case a naive
+		# "straight line to the new stop's own position" animation would get
+		# wrong (see ticket 05's own review): grow_segment must still produce
+		# something that, prepended with the untouched prefix of the old
+		# line, reconstructs the new line exactly.
+		var old_stops := [{ "id": "far", "pos": Vector2(200, 0) }]
+		var new_stop := { "id": "near", "pos": Vector2(10, 0) }
+		var start := Vector2(0, 0)
+
+		var old_line := MapRouting.build_line(start, old_stops)
+		var new_line := MapRouting.build_line(start, [old_stops[0], new_stop])
+		var prefix := MapRouting.common_prefix_length(old_line, new_line)
+		assert_eq(prefix, 0, "the new stop is visited first once added -- nothing of the old walk survives as a shared prefix")
+
+		var segment := MapRouting.grow_segment(start, old_stops, new_stop)
+		assert_eq(segment, new_line, "with no shared prefix, the whole new line is what 'grows in' -- still exactly matching build_line's own output")
+	)

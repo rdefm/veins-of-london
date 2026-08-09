@@ -379,6 +379,13 @@ func run() -> void:
 		assert_eq(event["district"], "shoreditch")
 		assert_eq(event["veinId"], vein["id"])
 		assert_eq(event["owner"], "player")
+
+		var queue: Array = GameState.state["mapEvents"]["queue"]
+		assert_eq(queue.size(), 2, "the seed_claim ring is followed by its own join_line event (ticket 05)")
+		assert_eq(queue[1]["type"], "join_line")
+		assert_eq(queue[1]["district"], "shoreditch")
+		assert_eq(queue[1]["veinId"], vein["id"])
+		assert_eq(queue[1]["owner"], "player")
 	)
 
 	run_case("attempt_seed_failure_leaves_site_unclaimed_but_still_spends_ore", func():
@@ -433,6 +440,7 @@ func run() -> void:
 		assert_true(natural_vein["location"].contains(","), "natural vein gets its own freshly-generated 'street, suffix' location")
 
 		assert_eq(MapEvents.pending_vein_ids(), [veins[0]["id"], natural_vein["id"]], "both the seeded vein and the natural-vein bonus queue their own seed/claim event")
+		assert_eq(MapEvents.pending_join_line_vein_ids(), [veins[0]["id"], natural_vein["id"]], "both also queue their own join_line event (ticket 05), same order")
 	)
 
 	run_case("attempt_seed_hospitability_is_not_aliased_across_site_and_veins", func():
@@ -532,6 +540,12 @@ func run() -> void:
 		assert_eq(event["district"], "camden")
 		assert_eq(event["veinId"], vein["id"])
 		assert_eq(event["owner"], vein["factionId"])
+
+		var queue: Array = GameState.state["mapEvents"]["queue"]
+		assert_eq(queue.size(), 2, "the seed_claim ring is followed by its own join_line event (ticket 05)")
+		assert_eq(queue[1]["type"], "join_line")
+		assert_eq(queue[1]["veinId"], vein["id"])
+		assert_eq(queue[1]["owner"], vein["factionId"])
 	)
 
 	run_case("roll_npc_abandonment_ignores_unclaimed_and_player_claimed_sites", func():

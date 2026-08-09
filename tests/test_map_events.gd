@@ -6,6 +6,22 @@ extends "res://tests/test_base.gd"
 # covers the pure-data queue/playback state machine it drives itself with.
 
 
+func _unclaimed_site(id: String, district: String, ore_type: String = "time") -> Dictionary:
+	return { "id": id, "district": district, "tier": "fair", "oreType": ore_type, "bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null, "hasNaturalVein": false }
+
+
+func _claimed_site(id: String, district: String, ore_type: String = "time") -> Dictionary:
+	var s := _unclaimed_site(id, district, ore_type)
+	s["claimed"] = true
+	return s
+
+
+func _faction_claimed_site(id: String, district: String, faction_id: String, ore_type: String = "physics") -> Dictionary:
+	var s := _unclaimed_site(id, district, ore_type)
+	s["factionVein"] = { "id": "fv_" + id, "factionId": faction_id, "oreType": ore_type, "level": 1, "devBar": 0, "security": "none", "claimedOnDay": 1 }
+	return s
+
+
 func run() -> void:
 	run_case("queue_discover_appends_a_discover_event_with_district_and_site_id", func():
 		GameState.reset()
@@ -107,6 +123,56 @@ func run() -> void:
 		# vein from the ordinary static draw, only "seed_claim" vein ids
 		# belong in this list.
 		assert_eq(MapEvents.pending_vein_ids(), ["v1"], "drain events have no reason to be in pending_vein_ids")
+	)
+
+	# ── join_line (ticket 05) ────────────────────────────────────────────
+
+	run_case("queue_join_line_appends_a_join_line_event_with_district_vein_id_and_owner", func():
+		GameState.reset()
+		var site := _claimed_site("s1", "shoreditch")
+		GameState.state["world"]["sites"] = [site]
+		GameState.state["player"]["veins"] = [{ "id": "v1", "siteId": "s1" }]
+
+		MapEvents.queue_join_line("shoreditch", "v1", "player")
+		var event = MapEvents.current()
+		assert_eq(event["type"], "join_line")
+		assert_eq(event["district"], "shoreditch")
+		assert_eq(event["veinId"], "v1")
+		assert_eq(event["owner"], "player")
+	)
+
+	run_case("queue_join_line_owner_can_be_a_faction_id", func():
+		GameState.reset()
+		var site := _faction_claimed_site("s1", "camden", "firm")
+		GameState.state["world"]["sites"] = [site]
+
+		MapEvents.queue_join_line("camden", site["factionVein"]["id"], "firm")
+		assert_eq(MapEvents.current()["owner"], "firm")
+	)
+
+	run_case("pending_join_line_vein_ids_lists_every_queued_join_line_vein_in_order", func():
+		GameState.reset()
+		MapEvents.queue_join_line("shoreditch", "v1", "player")
+		MapEvents.queue_join_line("camden", "v2", "firm")
+		assert_eq(MapEvents.pending_join_line_vein_ids(), ["v1", "v2"])
+	)
+
+	run_case("pending_join_line_vein_ids_does_not_pick_up_seed_claim_charge_or_drain_events", func():
+		GameState.reset()
+		MapEvents.queue_seed_claim("shoreditch", "v1", "player")
+		MapEvents.queue_charge("shoreditch", "v2")
+		MapEvents.queue_drain("shoreditch", "v3")
+		assert_eq(MapEvents.pending_join_line_vein_ids(), [])
+	)
+
+	run_case("pending_vein_ids_does_not_pick_up_join_line_events", func():
+		GameState.reset()
+		MapEvents.queue_seed_claim("shoreditch", "v1", "player")
+		MapEvents.queue_join_line("shoreditch", "v2", "player")
+		# join_line hides the vein from the routed LINE only (pending_join_
+		# line_vein_ids), not from the ring (pending_vein_ids) -- only
+		# seed_claim vein ids belong in this list.
+		assert_eq(MapEvents.pending_vein_ids(), ["v1"])
 	)
 
 	# ── begin_playback: drains exactly once per Map-tab visit ─────────────
