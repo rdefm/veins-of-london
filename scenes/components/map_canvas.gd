@@ -107,14 +107,23 @@ var _labels_layer: Node2D
 var _halos: Dictionary = {}  # veinId -> ChargeHalo
 
 # ── map event playback (M1.5 animations ticket 01) ────────────────────────
-# EVENT_VISUAL_DURATION is the single pacing knob the loop below reads for
-# an event's ring-pulse + tick-pop-in (ticket 06 retunes this without
-# touching the loop itself); it excludes the camera pan, which is its own
-# fixed, snappier PAN_DURATION so panning never feels sluggish regardless of
-# how slow/fast the visual pacing is tuned.
-const EVENT_VISUAL_DURATION := 1.5
+# event_visual_duration is the single pacing knob the loop below reads for
+# an event's ring-pulse + tick-pop-in; it excludes the camera pan, which is
+# its own fixed, snappier PAN_DURATION so panning never feels sluggish
+# regardless of how slow/fast the visual pacing is tuned.
+#
+# Ticket 06: pacing is a player-facing toggle, UI-local state exactly like
+# filter_mode above (never written to GameState, never persisted) — pushed
+# in via set_pacing() by map_controls.gd, same shape as set_filter(). Default
+# on a fresh MapCanvas is "deliberate".
+const PACING_MODES: PackedStringArray = ["deliberate", "quick"]
+const DELIBERATE_DURATION := 1.5
+const QUICK_DURATION := 0.35
 const PAN_DURATION := 0.4
 const RIPPLE_DURATION_FRACTION := 0.7
+
+var pacing_mode: String = "deliberate"
+var event_visual_duration: float = DELIBERATE_DURATION
 
 # The tween currently in flight for the event being played (pan, then the
 # event's own visual) — _skip_current() fast-forwards whichever one this
@@ -363,8 +372,8 @@ func _play_discover_ripple(pos: Vector2, event: Dictionary) -> void:
 	# call _skip_current() mid-animation — awaiting the tween directly here
 	# (rather than through another async wrapper) keeps that ordering exact.
 	ripple.start(
-		EVENT_VISUAL_DURATION * RIPPLE_DURATION_FRACTION,
-		EVENT_VISUAL_DURATION * (1.0 - RIPPLE_DURATION_FRACTION)
+		event_visual_duration * RIPPLE_DURATION_FRACTION,
+		event_visual_duration * (1.0 - RIPPLE_DURATION_FRACTION)
 	)
 	_active_tween = ripple.tween
 	await ripple.tween.finished
@@ -411,7 +420,7 @@ func _play_seed_claim_ring(stop: Dictionary, event: Dictionary) -> void:
 	ring.ring_colour = _faded(style["colour"], alpha)
 	ring.ring_width = style["width"]
 	_playback_layer.add_child(ring)
-	ring.start(EVENT_VISUAL_DURATION)
+	ring.start(event_visual_duration)
 	_active_tween = ring.tween
 	await ring.tween.finished
 	ring.queue_free()
@@ -452,7 +461,7 @@ func _play_line_growth(stop: Dictionary, event: Dictionary) -> void:
 	growth.points = segment
 	growth.line_colour = _faded(MapStyle.line_colour(filter_mode, params["colour"]), alpha)
 	_playback_layer.add_child(growth)
-	growth.start(EVENT_VISUAL_DURATION)
+	growth.start(event_visual_duration)
 	_active_tween = growth.tween
 	await growth.tween.finished
 	growth.queue_free()
@@ -491,7 +500,7 @@ func _play_charge_burst(stop: Dictionary, event: Dictionary) -> void:
 	var burst := ChargeBurst.new()
 	burst.position = stop["position"]
 	_playback_layer.add_child(burst)
-	burst.start(EVENT_VISUAL_DURATION)
+	burst.start(event_visual_duration)
 	_active_tween = burst.tween
 	await burst.tween.finished
 	burst.queue_free()
@@ -515,7 +524,7 @@ func _play_vein_drain(stop: Dictionary, event: Dictionary) -> void:
 	var collapse := DrainCollapse.new()
 	collapse.position = stop["position"]
 	_playback_layer.add_child(collapse)
-	collapse.start(EVENT_VISUAL_DURATION)
+	collapse.start(event_visual_duration)
 	_active_tween = collapse.tween
 	await collapse.tween.finished
 	collapse.queue_free()
@@ -551,6 +560,18 @@ func set_filter(mode: String) -> void:
 		return
 	filter_mode = mode
 	queue_redraw()
+
+
+# Ticket 06: UI-local pacing preference (never written to GameState), same
+# treatment as set_filter() above. Takes effect on the next event the
+# playback loop plays — event_visual_duration is only read at the top of
+# each _play_*() visual, never mid-tween, so switching this while an event
+# is already animating doesn't retroactively rescale it.
+func set_pacing(mode: String) -> void:
+	if not PACING_MODES.has(mode):
+		return
+	pacing_mode = mode
+	event_visual_duration = QUICK_DURATION if mode == "quick" else DELIBERATE_DURATION
 
 
 func _partition_stops() -> void:

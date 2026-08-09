@@ -97,3 +97,39 @@ func run() -> void:
 
 		canvas.free()
 	)
+
+	# Map-animations ticket 06: set_pacing() and event_visual_duration are
+	# plain fields/a setter, safe to exercise directly on a fresh MapCanvas.new()
+	# for the same reason as the cases above -- neither touches get_tree()/
+	# get_viewport().
+	run_case("fresh_canvas_defaults_to_deliberate_pacing", func():
+		var canvas := MapCanvas.new()
+		assert_eq(canvas.pacing_mode, "deliberate", "default pacing on a fresh load is deliberate")
+		assert_eq(canvas.event_visual_duration, MapCanvas.DELIBERATE_DURATION, "default duration is the deliberate constant")
+		canvas.free()
+	)
+
+	run_case("set_pacing_quick_switches_the_duration_the_playback_engine_reads", func():
+		var canvas := MapCanvas.new()
+
+		canvas.set_pacing("quick")
+		assert_eq(canvas.pacing_mode, "quick", "pacing_mode reflects the toggle")
+		assert_eq(canvas.event_visual_duration, MapCanvas.QUICK_DURATION, "event_visual_duration switches to the quick constant")
+
+		canvas.set_pacing("deliberate")
+		assert_eq(canvas.pacing_mode, "deliberate", "switching back updates pacing_mode again")
+		assert_eq(canvas.event_visual_duration, MapCanvas.DELIBERATE_DURATION, "event_visual_duration switches back to the deliberate constant")
+
+		canvas.free()
+	)
+
+	run_case("set_pacing_ignores_an_unknown_mode", func():
+		var canvas := MapCanvas.new()
+
+		canvas.set_pacing("blazing")
+
+		assert_eq(canvas.pacing_mode, "deliberate", "an invalid mode leaves pacing_mode unchanged")
+		assert_eq(canvas.event_visual_duration, MapCanvas.DELIBERATE_DURATION, "an invalid mode leaves the duration unchanged")
+
+		canvas.free()
+	)
