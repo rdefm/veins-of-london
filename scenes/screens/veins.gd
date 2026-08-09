@@ -51,7 +51,11 @@ func _build_vein_card(vein: Dictionary) -> Control:
 	if vein["level"] < 5:
 		c["content"].add_child(UI.bar(vein["devBar"], level_data["devBarMax"]))
 
-	var actions := UI.hbox()
+	# UI.hflow, not UI.hbox: a charged vein shows all three buttons at once,
+	# which overflows a narrow phone's width in a plain HBoxContainer
+	# (bugfixes ticket 05) — flow-wrapping keeps every button fully on-screen
+	# and tappable instead of clipped past the right edge.
+	var actions := UI.hflow()
 	var vein_id: String = vein["id"]
 	actions.add_child(UI.button("Cultivate", func(): Cultivating.cultivate(vein_id)))
 	if vein["charged"]:

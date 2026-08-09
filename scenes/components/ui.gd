@@ -65,6 +65,19 @@ static func hbox(sep: int = 8) -> HBoxContainer:
 	return box
 
 
+# Like hbox(), but wraps overflowing children onto additional lines instead
+# of forcing them into one row that runs past the container's right edge
+# (bugfixes ticket 05: the site sheet's charged-vein action row — Cultivate
+# + Harvest cautious + Harvest full together are wider than a narrow phone
+# screen). HFlowContainer uses separate h/v separation theme constants
+# rather than HBoxContainer's single "separation".
+static func hflow(sep: int = 8) -> HFlowContainer:
+	var box := HFlowContainer.new()
+	box.add_theme_constant_override("h_separation", sep)
+	box.add_theme_constant_override("v_separation", sep)
+	return box
+
+
 # A themed "card" panel (uses the Panel style from main_theme.tres) with
 # a VBoxContainer inside it, ready for content.
 static func card() -> Dictionary:

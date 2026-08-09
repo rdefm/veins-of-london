@@ -78,3 +78,49 @@ func run() -> void:
 
 		screen.free()
 	)
+
+	# Bugfixes ticket 05: a charged, owned vein shows all three action
+	# buttons (Cultivate, Harvest cautious, Harvest full) at once, which
+	# overflowed a narrow phone's width when they sat in a plain
+	# HBoxContainer. The row must be an HFlowContainer instead, so overflow
+	# wraps onto another line rather than clipping past the screen edge.
+	run_case("charged_vein_action_row_wraps_instead_of_a_fixed_hbox", func():
+		GameState.reset()
+		var level_data: Dictionary = GameData.VEIN_LEVELS["1"]
+		var vein := {
+			"id": "v1", "oreType": "time", "level": 1, "levelLabel": level_data["label"],
+			"devBar": 0, "charged": true, "chargeBlocks": level_data["rechargeBlocks"],
+			"security": "none", "location": "Test Alley", "claimedOnDay": 1,
+			"district": "shoreditch", "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
+		}
+
+		var screen := MapScreen.new()
+		var card: Control = screen._build_vein_action_card(vein)
+		var actions: Control = card.find_children("", "HFlowContainer", true, false)[0]
+
+		assert_true(actions is HFlowContainer, "action row must wrap instead of a fixed-width HBoxContainer")
+		assert_eq(actions.get_child_count(), 3, "Cultivate + Harvest (cautious) + Harvest (full) all present when charged")
+
+		card.free()
+		screen.free()
+	)
+
+	run_case("uncharged_vein_action_row_has_only_cultivate", func():
+		GameState.reset()
+		var level_data: Dictionary = GameData.VEIN_LEVELS["1"]
+		var vein := {
+			"id": "v1", "oreType": "time", "level": 1, "levelLabel": level_data["label"],
+			"devBar": 0, "charged": false, "chargeBlocks": 0,
+			"security": "none", "location": "Test Alley", "claimedOnDay": 1,
+			"district": "shoreditch", "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
+		}
+
+		var screen := MapScreen.new()
+		var card: Control = screen._build_vein_action_card(vein)
+		var actions: Control = card.find_children("", "HFlowContainer", true, false)[0]
+
+		assert_eq(actions.get_child_count(), 1, "only Cultivate present when uncharged")
+
+		card.free()
+		screen.free()
+	)

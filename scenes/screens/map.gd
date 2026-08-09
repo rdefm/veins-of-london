@@ -369,7 +369,11 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 		c["content"].add_child(UI.muted_label("Development: Max level"))
 
 	var travel_blocks: int = Travel.blocks_needed(district)
-	var actions := UI.hbox()
+	# UI.hflow, not UI.hbox: a charged vein shows all three buttons at once,
+	# which overflows a narrow phone's width in a plain HBoxContainer
+	# (bugfixes ticket 05) — flow-wrapping keeps every button fully on-screen
+	# and tappable instead of clipped past the right edge.
+	var actions := UI.hflow()
 
 	var cultivate_button := UI.button(UI.format_block_cost_label("Cultivate", travel_blocks, 1), func(): Cultivating.cultivate(vein_id))
 	cultivate_button.disabled = not Travel.can_afford(district, 1)
