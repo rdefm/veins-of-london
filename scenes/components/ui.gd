@@ -94,6 +94,16 @@ static func muted_label(text: String) -> Label:
 	return l
 
 
+# Flags a control SIZE_EXPAND_FILL before returning it, for the common
+# one-liner `row.add_child(UI.expand_fill(UI.label(...)))` inside an
+# HBoxContainer — see checklist_row()'s comment below for why a wrapping
+# Label needs this in a horizontal row (collapses to one character per
+# line otherwise).
+static func expand_fill(control: Control) -> Control:
+	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return control
+
+
 # A label tinted with an arbitrary colour (e.g. a faction's data/factions.json
 # "colour" hex string) — the swatch-via-font-colour approach the faction
 # vein sheet (faction-vein-ownership T04) uses instead of a separate colour

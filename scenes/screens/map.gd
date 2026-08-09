@@ -192,17 +192,20 @@ func _build_district_actions(district_id: String) -> Control:
 
 	var site_cap: int = district.get("siteCap", 0)
 	if site_cap <= 0:
-		row.add_child(UI.muted_label("No prospecting here"))
+		# UI.expand_fill needed: a Label inside an HBoxContainer without it
+		# collapses to one character per line instead of wrapping normally
+		# (see UI.checklist_row()'s comment for why).
+		row.add_child(UI.expand_fill(UI.muted_label("No prospecting here")))
 	elif not GameState.state["flags"]["cultivationTutorialSeen"]:
 		# M1-LONDON D7: prospecting locked until the cultivating tutorial (D6).
-		row.add_child(UI.muted_label("Prospecting — see Archie first"))
+		row.add_child(UI.expand_fill(UI.muted_label("Prospecting — see Archie first")))
 	else:
 		var prospect_button := UI.button(UI.format_block_cost_label("Prospect", Travel.blocks_needed(district_id), 1), func(): Sites.prospect(district_id))
 		prospect_button.disabled = not Travel.can_afford(district_id, 1)
 		row.add_child(prospect_button)
 
 	if GameState.state["world"]["currentDistrict"] == district_id:
-		row.add_child(UI.muted_label("Travel (already here)"))
+		row.add_child(UI.expand_fill(UI.muted_label("Travel (already here)")))
 	else:
 		var travel_button := UI.button(UI.format_block_cost_label("Travel", Travel.blocks_needed(district_id), 0), func(): Travel.travel_to(district_id))
 		travel_button.disabled = not Travel.can_afford(district_id, 0)
