@@ -150,3 +150,39 @@ static func apply_passive_income() -> void:
 		for industry in industries:
 			income += INDUSTRY_INCOME.get(industry, 0)
 		GameState.state["factions"][faction_id]["resources"] += income
+
+
+# ── faction-resource-economy T03: daily vein-derived income ────────────
+# Same shape as the player's cultivate-then-sell loop (Economy.execute_sale):
+# ore value (basePrice) converts into resources, just automated and without
+# the player's mugging/district-price-mod mechanics (player-facing friction
+# that doesn't apply to a faction's internal books). Faction veins have no
+# charge/harvest cycle of their own (out of scope per the ticket), so this
+# is a periodic trickle rather than a discrete harvest: every surviving
+# faction vein converts a slice of its value into resources each daily
+# tick, scaling with ore basePrice and vein level (higher level / pricier
+# ore -> more income). VEIN_INCOME_DIVISOR is tuned so a fresh Lv1 vein of
+# a mid-range ore (basePrice ~72, the roster's 55-90 range midpoint --
+# same reference point _security_opulence() uses above) nets ~£5/day --
+# modest next to a single INDUSTRY_INCOME entry -- while a Lv5 vein of the priciest ore
+# (fate, basePrice 90) nets ~£30/day, a clear differentiator visible over
+# a few days of play.
+const VEIN_INCOME_DIVISOR := 15.0
+
+
+# Called from time_system.gd's daily_tick, step ⑤f (runs immediately after
+# ⑤e passive income). Ordering: running after ⑤c (abandonment) means a
+# vein abandoned this same tick is already gone from state.world.sites and
+# never earns income the tick it's lost. Reuses ⑤d's claimedOnDay >= day
+# skip so a vein claimed this same tick doesn't earn income before it's
+# had a full day to produce -- one consistent "brand-new today" exemption
+# shared with growth, not a second bespoke rule.
+static func apply_vein_income() -> void:
+	var day: int = GameState.state["world"]["day"]
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein == null or vein["claimedOnDay"] >= day:
+			continue
+		var base_price: int = GameData.ORE_TYPES[vein["oreType"]]["basePrice"]
+		var income: int = GameState.round_epsilon(base_price * vein["level"] / VEIN_INCOME_DIVISOR)
+		GameState.state["factions"][vein["factionId"]]["resources"] += income

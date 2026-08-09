@@ -1,6 +1,23 @@
 extends "res://tests/test_base.gd"
 
 
+static func _faction_vein_of(level: int, ore_type: String, claimed_on_day: int, faction_id: String = "collective") -> Dictionary:
+	return {
+		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "level": level,
+		"levelLabel": GameData.VEIN_LEVELS[str(level)]["label"], "devBar": 0,
+		"security": "none", "claimedOnDay": claimed_on_day,
+		"hospitability": { "tier": "fair", "bonuses": [] },
+	}
+
+
+static func _site_with_vein(id: String, vein: Dictionary) -> Dictionary:
+	return {
+		"id": id, "district": "shoreditch", "tier": "fair", "oreType": vein["oreType"],
+		"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
+		"hasNaturalVein": false,
+	}
+
+
 func run() -> void:
 	run_case("can_join_requires_relation_and_not_already_joined", func():
 		GameState.reset()
@@ -147,4 +164,89 @@ func run() -> void:
 		Factions.apply_passive_income()
 		var after: int = GameState.state["factions"]["collective"]["resources"]
 		assert_true(after > before, "a faction with zero veins still earns passive income")
+	)
+
+	# ── faction-resource-economy T03: apply_vein_income ─────────────────
+
+	run_case("apply_vein_income_zero_veins_earns_zero", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = []
+		var before: int = GameState.state["factions"]["collective"]["resources"]
+		Factions.apply_vein_income()
+		var after: int = GameState.state["factions"]["collective"]["resources"]
+		assert_eq(after, before, "a faction with zero veins earns nothing from vein-derived income")
+	)
+
+	run_case("apply_vein_income_high_value_ore_out_earns_low_value_ore", func():
+		# Two different factions, one Lv1 vein each, same tick: isolates the
+		# ore-value axis from the faction-identity axis (no passive-income
+		# noise since only apply_vein_income runs here).
+		GameState.reset()
+		var cheap_vein := _faction_vein_of(1, "physics", 0, "guild")  # basePrice 55
+		var rich_vein := _faction_vein_of(1, "fate", 0, "firm")       # basePrice 90
+		GameState.state["world"]["sites"] = [
+			_site_with_vein("cheap_site", cheap_vein),
+			_site_with_vein("rich_site", rich_vein),
+		]
+		Factions.apply_vein_income()
+		var guild_income: int = GameState.state["factions"]["guild"]["resources"] - GameData.FACTIONS["guild"]["startingResources"]
+		var firm_income: int = GameState.state["factions"]["firm"]["resources"] - GameData.FACTIONS["firm"]["startingResources"]
+		assert_true(firm_income > guild_income, "a faction holding a higher-value-ore vein earns more vein-derived income than one holding a lower-value-ore vein")
+	)
+
+	run_case("apply_vein_income_matches_the_documented_basePrice_times_level_formula", func():
+		GameState.reset()
+		var cheap_vein := _faction_vein_of(1, "physics", 0)   # basePrice 55
+		var rich_vein := _faction_vein_of(1, "fate", 0)       # basePrice 90 (both collective, distinct site ids)
+		GameState.state["world"]["sites"] = [
+			_site_with_vein("cheap_site", cheap_vein),
+			_site_with_vein("rich_site", rich_vein),
+		]
+		Factions.apply_vein_income()
+		var collective_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
+		assert_eq(collective_income, GameState.round_epsilon(55.0 * 1 / Factions.VEIN_INCOME_DIVISOR) + GameState.round_epsilon(90.0 * 1 / Factions.VEIN_INCOME_DIVISOR), "income sums both veins' basePrice-scaled contributions")
+	)
+
+	run_case("apply_vein_income_scales_with_vein_level", func():
+		GameState.reset()
+		var lv1_vein := _faction_vein_of(1, "time", 0)
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", lv1_vein)]
+		Factions.apply_vein_income()
+		var lv1_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
+
+		GameState.reset()
+		var lv5_vein := _faction_vein_of(5, "time", 0)
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", lv5_vein)]
+		Factions.apply_vein_income()
+		var lv5_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
+
+		assert_true(lv5_income > lv1_income, "a higher-level vein earns more vein-derived income")
+	)
+
+	run_case("apply_vein_income_more_veins_out_earns_fewer_veins", func():
+		GameState.reset()
+		var one_vein := _faction_vein_of(2, "life", 0)
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", one_vein)]
+		Factions.apply_vein_income()
+		var one_vein_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
+
+		GameState.reset()
+		var vein_a := _faction_vein_of(2, "life", 0)
+		var vein_b := _faction_vein_of(2, "life", 0)
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein_a), _site_with_vein("s2", vein_b)]
+		Factions.apply_vein_income()
+		var two_vein_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
+
+		assert_true(two_vein_income > one_vein_income, "a faction holding more veins earns more vein-derived income than one holding fewer")
+	)
+
+	run_case("apply_vein_income_skips_a_vein_claimed_this_same_tick", func():
+		GameState.reset()
+		var today: int = GameState.state["world"]["day"]
+		var fresh_vein := _faction_vein_of(1, "fate", today)  # claimedOnDay == today
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", fresh_vein)]
+		var before: int = GameState.state["factions"]["collective"]["resources"]
+		Factions.apply_vein_income()
+		var after: int = GameState.state["factions"]["collective"]["resources"]
+		assert_eq(after, before, "a vein claimed this same tick doesn't earn income before it's had a full day to produce")
 	)
