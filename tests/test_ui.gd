@@ -57,3 +57,33 @@ func run() -> void:
 		assert_eq(b.text_overrun_behavior, TextServer.OVERRUN_TRIM_ELLIPSIS, "clipped text should ellipsize, not cut off mid-character")
 		b.free()
 	)
+
+	# Bugfixes ticket 08: clip_text (above) drops ALL of a button's text-driven
+	# minimum width, not just the overflow past some cap — so a button placed
+	# directly in a plain HBoxContainer (which sizes a non-expand child to
+	# exactly its minimum size) collapsed to just its style padding, with zero
+	# room left for the label to draw into. It read as fully blank rather than
+	# ellipsized. UI.button() must reserve real width for its own text so this
+	# can't happen regardless of which container it ends up in.
+	run_case("button_reserves_real_width_for_its_text_not_just_padding", func():
+		var b := UI.button("Travel", func(): pass)
+		var style: StyleBox = preload("res://theme/main_theme.tres").get_stylebox("normal", "Button")
+		var padding_only: float = style.get_minimum_size().x
+		# get_combined_minimum_size() -- not custom_minimum_size directly -- is
+		# what a HBoxContainer actually reads to size a non-expand child, so
+		# this is the literal value that collapsed to padding-only before the fix.
+		assert_true(b.get_combined_minimum_size().x > padding_only, "a short label must get room beyond bare padding, or it renders blank inside a bare HBoxContainer")
+		b.free()
+	)
+
+	run_case("button_text_width_reservation_is_capped_for_long_labels", func():
+		var b := UI.button("Upgrade to Basic Lock — £20 (have £1000000)", func(): pass)
+		assert_true(b.custom_minimum_size.x <= UI.MAX_BUTTON_TEXT_WIDTH, "the width reserved for text must stay capped, or a huge dynamic label (bugfixes ticket 05) blows its container out again")
+		b.free()
+	)
+
+	run_case("short_button_label_is_not_needlessly_capped", func():
+		var b := UI.button("Travel", func(): pass)
+		assert_true(b.custom_minimum_size.x < UI.MAX_BUTTON_TEXT_WIDTH, "an ordinary short label should get its own natural width, not be stretched out to the cap")
+		b.free()
+	)

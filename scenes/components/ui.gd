@@ -144,6 +144,17 @@ static func tinted_label(text: String, colour: Color) -> Label:
 	return l
 
 
+# Cap on the text-driven minimum width UI.button() will reserve (see below)
+# -- bugfixes ticket 05's £1,000,000-balance blowout is still possible for
+# any button whose text is genuinely this long; capping it, rather than
+# letting clip_text drop the contribution to zero (bugfixes ticket 08's
+# blank-button regression), keeps ordinary labels fully readable while still
+# bounding the pathological case.
+const MAX_BUTTON_TEXT_WIDTH := 220.0
+
+const _THEME: Theme = preload("res://theme/main_theme.tres")
+
+
 static func button(text: String, callback: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
@@ -159,6 +170,31 @@ static func button(text: String, callback: Callable) -> Button:
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.pressed.connect(callback)
+
+	# clip_text (above) makes Button.get_minimum_size() drop the text's width
+	# contribution entirely, leaving only the style's content-margin padding.
+	# That's invisible inside a plain HBoxContainer (bugfixes ticket 08):
+	# a HBoxContainer gives a non-expand child exactly its minimum size, so
+	# with no text-driven width left the button collapses to its padding
+	# alone -- zero space remains for the label to draw into, so it reads as
+	# fully blank rather than clipped-with-"...". Reserving the button's own
+	# (capped) natural text width as custom_minimum_size restores real room
+	# for the glyphs while still bounding runaway dynamic labels via the cap.
+	# Fixing this once here (rather than per call site) covers every UI.hbox()
+	# + UI.button() row in the project without needing to touch each one --
+	# audited: combat.gd, event.gd, hq.gd, inventory.gd, map.gd, modal_layer.gd,
+	# phone.gd, top_bar.gd, veins.gd, you.gd all build button rows this way.
+	var style := _THEME.get_stylebox("normal", "Button")
+	# main_theme.tres doesn't override Button's font, so it inherits the
+	# engine's default -- get_font() returns null in that case, hence the
+	# fallback (querying the theme first, rather than assuming the fallback
+	# directly, keeps this correct if a themed Button font is ever added).
+	var font: Font = _THEME.get_font("font", "Button")
+	if font == null:
+		font = ThemeDB.fallback_font
+	var text_width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, _THEME.default_font_size).x
+	b.custom_minimum_size.x = minf(text_width + style.get_minimum_size().x, MAX_BUTTON_TEXT_WIDTH)
+
 	return b
 
 

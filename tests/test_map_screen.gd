@@ -105,6 +105,36 @@ func run() -> void:
 		screen.free()
 	)
 
+	# Bugfixes ticket 08: the district panel's Prospect and Travel buttons sit
+	# in a plain UI.hbox() (not UI.hflow() / expand-filled), the exact shape
+	# that collapsed to blank text once UI.button() started using clip_text
+	# (ticket 05) — an HBoxContainer gives a non-expand child exactly its
+	# minimum size, and clip_text drops that button's minimum size down to
+	# just its style padding, leaving zero width for the label to draw into.
+	run_case("district_actions_prospect_and_travel_buttons_reserve_visible_text_width", func():
+		GameState.reset()
+		GameState.state["flags"]["cultivationTutorialSeen"] = true
+		GameState.state["world"]["currentDistrict"] = "shoreditch"  # not camden, so Travel renders as a real button, not the "already here" label
+
+		var screen := MapScreen.new()
+		var row: Control = screen._build_district_actions("camden")  # camden has siteCap 4 in data/districts.json
+
+		var style: StyleBox = preload("res://theme/main_theme.tres").get_stylebox("normal", "Button")
+		var padding_only: float = style.get_minimum_size().x
+		var button_count := 0
+		for child in row.get_children():
+			if child is Button:
+				button_count += 1
+				# get_combined_minimum_size() -- not custom_minimum_size directly
+				# -- is what row (a plain HBoxContainer) actually reads to size
+				# this non-expand child.
+				assert_true(child.get_combined_minimum_size().x > padding_only, "%s button must reserve room beyond bare padding, or its label renders blank" % child.text)
+		assert_eq(button_count, 2, "expected both Prospect and Travel as real buttons")
+
+		row.free()
+		screen.free()
+	)
+
 	run_case("uncharged_vein_action_row_has_only_cultivate", func():
 		GameState.reset()
 		var level_data: Dictionary = GameData.VEIN_LEVELS["1"]
