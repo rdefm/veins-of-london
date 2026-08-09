@@ -241,6 +241,10 @@ func _build_site_sheet(site_id: String) -> void:
 	dim.color = Color(0, 0, 0, 0.5)
 	UI.anchor_full_rect(dim)
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Bugfixes ticket 03: tap-outside-to-close, same pattern as
+	# map_controls.gd's filter drawer — without this, STOP just swallows the
+	# tap silently, which reads as broken rather than a way to close the sheet.
+	dim.gui_input.connect(_on_sheet_dim_gui_input)
 	_sheet_layer.add_child(dim)
 
 	var card := PanelContainer.new()
@@ -282,6 +286,11 @@ func _build_site_sheet(site_id: String) -> void:
 		content.add_child(_build_seed_row(site))
 
 	content.add_child(UI.button("Close", func(): MapNav.close_site_sheet()))
+
+
+func _on_sheet_dim_gui_input(event: InputEvent) -> void:
+	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
+		MapNav.close_site_sheet()
 
 
 # faction-vein-ownership T04: read-only faction ownership display. No
