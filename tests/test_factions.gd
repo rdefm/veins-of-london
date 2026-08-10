@@ -1,11 +1,11 @@
 extends "res://tests/test_base.gd"
 
 
-static func _faction_vein_of(level: int, ore_type: String, claimed_on_day: int, faction_id: String = "collective") -> Dictionary:
+static func _faction_vein_of(level: int, ore_type: String, claimed_on_day: int, faction_id: String = "collective", security: String = "none") -> Dictionary:
 	return {
 		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "level": level,
 		"levelLabel": GameData.VEIN_LEVELS[str(level)]["label"], "devBar": 0,
-		"security": "none", "claimedOnDay": claimed_on_day,
+		"security": security, "claimedOnDay": claimed_on_day,
 		"hospitability": { "tier": "fair", "bonuses": [] },
 	}
 
@@ -445,4 +445,130 @@ func run() -> void:
 		Rng.set_seed(1)
 		Factions.roll_rivalry_attempts()
 		assert_eq(GameState.state, before, "roll_rivalry_attempts must not mutate state")
+	)
+
+	# ── faction-territory-rivalry T03: rivalry odds calculation ─────────
+
+	run_case("rivalry_success_chance_increases_with_attacker_resource_advantage", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+		]
+		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
+		GameState.state["factions"]["firm"]["resources"] = 500
+
+		GameState.state["factions"]["collective"]["resources"] = 0
+		var chance_poor_attacker: float = Factions.rivalry_success_chance(attempt)
+
+		GameState.state["factions"]["collective"]["resources"] = 5000
+		var chance_rich_attacker: float = Factions.rivalry_success_chance(attempt)
+
+		assert_true(chance_rich_attacker > chance_poor_attacker, "a richer attacker vs. the same defender should have higher odds (got %f vs %f)" % [chance_rich_attacker, chance_poor_attacker])
+	)
+
+	run_case("rivalry_success_chance_decreases_with_defender_resource_advantage", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+		]
+		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
+		GameState.state["factions"]["collective"]["resources"] = 500
+
+		GameState.state["factions"]["firm"]["resources"] = 0
+		var chance_poor_defender: float = Factions.rivalry_success_chance(attempt)
+
+		GameState.state["factions"]["firm"]["resources"] = 5000
+		var chance_rich_defender: float = Factions.rivalry_success_chance(attempt)
+
+		assert_true(chance_poor_defender > chance_rich_defender, "a poorer defender should be easier to hit than a richer one (got %f vs %f)" % [chance_poor_defender, chance_rich_defender])
+	)
+
+	run_case("rivalry_success_chance_decreases_with_higher_raidResist", func():
+		GameState.reset()
+		var vein := _faction_vein_of(2, "physics", 0, "firm", "none")
+		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
+
+		vein["security"] = "none"
+		var chance_unsecured: float = Factions.rivalry_success_chance(attempt)
+
+		vein["security"] = "guarded"
+		var chance_guarded: float = Factions.rivalry_success_chance(attempt)
+
+		assert_true(chance_unsecured > chance_guarded, "an unsecured vein should be easier to take than a guarded one (got %f vs %f)" % [chance_unsecured, chance_guarded])
+	)
+
+	run_case("rivalry_success_chance_increases_with_worse_defender_relation_toward_attacker", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+		]
+		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
+
+		var chance_neutral: float = Factions.rivalry_success_chance(attempt)
+
+		Factions.adjust_relation("firm", "collective", -80)
+		var chance_grudge: float = Factions.rivalry_success_chance(attempt)
+
+		assert_true(chance_grudge > chance_neutral, "a defender with a worse existing relation toward the attacker should be more exposed (got %f vs %f)" % [chance_grudge, chance_neutral])
+	)
+
+	run_case("rivalry_success_chance_is_zero_when_the_target_site_no_longer_exists", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = []
+		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_vanished" }
+		assert_eq(Factions.rivalry_success_chance(attempt), 0.0, "an attempt targeting an already-vanished site is unwinnable, not a crash")
+	)
+
+	run_case("rivalry_success_chance_clamps_to_the_0_1_range_at_extreme_inputs", func():
+		GameState.reset()
+		var vein := _faction_vein_of(2, "physics", 0, "firm", "none")
+		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
+
+		GameState.state["factions"]["collective"]["resources"] = 1000000
+		GameState.state["factions"]["firm"]["resources"] = 0
+		Factions.adjust_relation("firm", "collective", -1000000)
+		assert_eq(Factions.rivalry_success_chance(attempt), 1.0, "extreme attacker advantage + max grudge must clamp at 1.0, not overflow above it")
+
+		GameState.reset()
+		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		vein["security"] = "guarded"
+		GameState.state["factions"]["collective"]["resources"] = 0
+		GameState.state["factions"]["firm"]["resources"] = 1000000
+		Factions.adjust_relation("firm", "collective", 1000000)
+		assert_eq(Factions.rivalry_success_chance(attempt), 0.0, "extreme defender advantage + max goodwill must clamp at 0.0, not go negative")
+	)
+
+	run_case("roll_rivalry_odds_returns_the_attempt_annotated_with_a_success_outcome_matching_the_computed_chance", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+		]
+		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
+
+		Rng.set_seed(1)
+		var chance: float = Factions.rivalry_success_chance(attempt)
+		Rng.set_seed(1)
+		var expected_roll: bool = Rng.chance(chance)
+
+		Rng.set_seed(1)
+		var outcome: Dictionary = Factions.roll_rivalry_odds(attempt)
+
+		assert_eq(outcome["attackerId"], "collective", "outcome preserves the attempt's attackerId")
+		assert_eq(outcome["defenderId"], "firm", "outcome preserves the attempt's defenderId")
+		assert_eq(outcome["veinSiteId"], "s_firm", "outcome preserves the attempt's veinSiteId")
+		assert_eq(outcome["success"], expected_roll, "outcome's success flag is the chance rolled through Rng.chance")
+	)
+
+	run_case("roll_rivalry_odds_is_a_pure_computation_no_state_mutation", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+		]
+		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		Rng.set_seed(1)
+		Factions.roll_rivalry_odds(attempt)
+		assert_eq(GameState.state, before, "roll_rivalry_odds must not mutate state")
 	)

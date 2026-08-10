@@ -367,3 +367,86 @@ static func _pick_target_vein(candidates: Array) -> Dictionary:
 		var vein: Dictionary = candidate["vein"]
 		weight_list.append(GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * vein["level"])
 	return candidates[_weighted_pick_index(weight_list)]
+
+
+# ── faction-territory-rivalry T03: rivalry odds calculation ────────────
+# Pure computation, called by nobody yet (ticket 04 wires it into the
+# same daily-tick step that calls roll_rivalry_attempts()) -- scores one
+# T02 attempt record and rolls whether it succeeds. No state mutation:
+# ownership transfer and the relation-feedback write both belong to
+# ticket 04.
+
+# Base chance before any tilt -- a coin-flip baseline that the three
+# inputs below push up or down. Exact formula is the PRD's explicit open
+# question; this collapses all three into one additive tilt around 0.5,
+# the same "signed tilt on a baseline" shape _security_opulence() already
+# uses above, just applied to a probability instead of tier weights.
+const RIVALRY_BASE_CHANCE := 0.5
+
+# attacker_resources - defender_resources normalises against the roster's
+# startingResources spread (200-1200, faction-resource-economy T01 / the
+# same 660-centre RESOURCE_OPULENCE_BASELINE above draws from) -- the
+# largest plausible starting gap is ~1000, so dividing by 1000 keeps a
+# realistic early-game disparity's tilt within roughly +/-1 before the
+# weight below scales it down further.
+const RIVALRY_RESOURCE_DIVISOR := 1000.0
+const RIVALRY_RESOURCE_WEIGHT := 0.25
+
+# raidResist's ceiling is "guarded" (55, data/vein_security.json) -- dividing
+# by that ceiling normalises the whole tier ladder to [0, 1] before the
+# weight scales it down, so "guarded" alone can't single-handedly swing
+# the whole probability range.
+const RIVALRY_RAID_RESIST_DIVISOR := 55.0
+const RIVALRY_RAID_RESIST_WEIGHT := 0.25
+
+# Relation drift (ticket 04's feedback write) is unbounded over a long
+# save, unlike the other two inputs' natural ceilings -- 100 is picked so
+# a handful of ticket-04 grudge writes meaningfully move the odds without
+# a single bad tick alone maxing out the tilt.
+const RIVALRY_RELATION_DIVISOR := 100.0
+const RIVALRY_RELATION_WEIGHT := 0.25
+
+
+# Success chance for one T02 attempt record. Direction of each input
+# (documented per the ticket's explicit requirement):
+# - attacker_resources - defender_resources: higher attacker / lower
+#   defender resources -> higher chance (richer attacker, poorer defender).
+# - raidResist: higher -> lower chance (better-secured vein resists more).
+# - relation: this reads the *defender's* relation toward the *attacker*
+#   (get_relation(defenderId, attackerId), not the reverse) -- ticket 04's
+#   resolution worsens exactly this direction when the defender loses, so
+#   a defender that already has a bad relation toward this attacker is
+#   more exposed to them again, compounding the grudge as the PRD
+#   describes rather than reading a direction ticket 04 never writes to.
+#   Worse (more negative) relation -> higher chance.
+# Clamped to [0, 1] regardless of how extreme the three inputs are. If the
+# target vein has already vanished since the attempt was recorded (e.g. a
+# same-tick rivalry resolution elsewhere already claimed it -- ticket 04's
+# concern, not this function's), find_site() returns null per its own
+# documented Variant contract; that attempt is unwinnable, so this reads
+# as chance 0 rather than indexing into a null site.
+static func rivalry_success_chance(attempt: Dictionary) -> float:
+	var attacker_resources: int = GameState.state["factions"][attempt["attackerId"]]["resources"]
+	var defender_resources: int = GameState.state["factions"][attempt["defenderId"]]["resources"]
+	var resource_tilt: float = float(attacker_resources - defender_resources) / RIVALRY_RESOURCE_DIVISOR * RIVALRY_RESOURCE_WEIGHT
+
+	var site: Variant = Sites.find_site(attempt["veinSiteId"])
+	if site == null:
+		return 0.0
+	var raid_resist: int = GameData.VEIN_SECURITY[site["factionVein"]["security"]]["raidResist"]
+	var security_tilt: float = -(float(raid_resist) / RIVALRY_RAID_RESIST_DIVISOR) * RIVALRY_RAID_RESIST_WEIGHT
+
+	var relation: int = get_relation(attempt["defenderId"], attempt["attackerId"])
+	var relation_tilt: float = -(float(relation) / RIVALRY_RELATION_DIVISOR) * RIVALRY_RELATION_WEIGHT
+
+	var chance: float = RIVALRY_BASE_CHANCE + resource_tilt + security_tilt + relation_tilt
+	return clampf(chance, 0.0, 1.0)
+
+
+# Rolls the chance above and returns the attempt record annotated with its
+# resolved "success" outcome. Still pure computation -- ownership transfer
+# and the relation-feedback write are ticket 04's job, not this function's.
+static func roll_rivalry_odds(attempt: Dictionary) -> Dictionary:
+	var outcome: Dictionary = attempt.duplicate()
+	outcome["success"] = Rng.chance(rivalry_success_chance(attempt))
+	return outcome
