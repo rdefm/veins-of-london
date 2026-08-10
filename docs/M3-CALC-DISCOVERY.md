@@ -267,8 +267,6 @@ Having assembled a pairing, the player sees everything known about *that pairing
 │  Compression                     │
 │    something nearly took         │
 │                                  │
-│  Calcining                       │
-│                                  │
 │  Distilling                      │
 │    needs a Lab                   │
 ├──────────────────────────────────┤
@@ -348,9 +346,7 @@ state.benchNav: { view: "home", types: [], approach: null }
   "heat":        { "name": "Heat",        "symbol": "△", "source": {"type":"start"} },
   "grinding":    { "name": "Grinding",    "symbol": "◇", "source": {"type":"start"} },
   "compression": { "name": "Compression", "symbol": "▽", "source": {"type":"room","id":"workshop"} },
-  "calcining":   { "name": "Calcining",   "symbol": "◈", "source": {"type":"contact","id":"james"} },
-  "distilling":  { "name": "Distilling",  "symbol": "○", "source": {"type":"room","id":"lab"} },
-  "quenching":   { "name": "Quenching",   "symbol": "◉", "source": {"type":"faction","id":"guild"} }
+  "distilling":  { "name": "Distilling",  "symbol": "○", "source": {"type":"room","id":"lab"} }
 }
 ```
 
@@ -373,10 +369,10 @@ A discovered effect *is* a recipe. Building a second system next to `recipes.jso
 }
 ```
 
-**Two migrations this forces, both needing human sign-off before spec:**
+**Two migrations this forces, both signed off:**
 
-1. `ingredient: "time"` (singular string) → `ingredients: {"time": 5}` (dict). Touches `systems/crafting.gd`, `systems/devices.gd`, `systems/rooms.gd` (lab), `scenes/screens/hq.gd`, and `REFERENCE.md` §1.3. Mechanically neutral for existing recipes.
-2. `baseCalcCost` is superseded by `ingredients` and the skill-scaling in `calc_cost()` needs re-expressing per-ingredient.
+1. **Signed off.** `ingredient: "time"` (singular string) → `ingredients: {"time": 5}` (dict). Touches `systems/crafting.gd`, `systems/devices.gd`, `systems/rooms.gd` (lab), `scenes/screens/hq.gd`, and `REFERENCE.md` §1.3. Mechanically neutral for existing recipes.
+2. **Signed off.** `baseCalcCost` is superseded by `ingredients` and the skill-scaling in `calc_cost()` needs re-expressing per-ingredient.
 
 Existing `timePearl` / `enhancementPowder` / `rewind` get real `discovery` cells like everything else (per §12.1), plus `taughtBy` marking them as tutorial grants. Because the tutorial always teaches them before the bench is reachable, those three cells are simply already `Found` on the player's first visit — which conveniently seeds the found list and demonstrates the origin line before the player has discovered anything themselves.
 
@@ -443,7 +439,7 @@ Initial roster supplied in `docs/calc-effects.txt` (13 effects, 5 canonical type
 
 Result: Heat/Grinding (starter approaches) cover 7 of 14 effects across life, physics, time, fate, and time+life — an early player finds something in most sets. Compression and Distilling (room-gated) cover the rest, in rising order of unlock difficulty per §4.
 
-No effect collides on (type-set, approach) — checked per type-set: life {Heat, Grinding}, physics {Grinding, Heat, Compression}, time {Heat, Distilling, Compression}, fate {Grinding}, emotion {Distilling}, time+life {Heat, Distilling, Grinding}, time+physics {Compression}. This leaves 8 of 15 type-sets barren at launch (deliberate per the authoring rule below) — within the "15–30 of 90 cells filled" launch target in §2.1.
+No effect collides on (type-set, approach) — checked per type-set: life {Heat, Grinding}, physics {Grinding, Heat, Compression}, time {Heat, Distilling, Compression}, fate {Grinding}, emotion {Distilling}, time+life {Heat, Distilling, Grinding}, time+physics {Compression}. This leaves 8 of 15 type-sets barren at launch (deliberate per the authoring rule below) — matches the cell budget in §2.1 (60 cells, 14 filled).
 
 Authoring rules for whoever fills further cells:
 - Every set needs a deliberate effect count, including zero. A barren set is a design decision recorded in data, not an accident of omission.
@@ -514,7 +510,7 @@ The one asymmetry worth allowing: an NPC's effect may sit behind an approach the
 
 Dependency-sorted, roughly one commit each:
 
-1. `data/approaches.json` + approach unlock resolution (rooms, contacts, start).
+1. `data/approaches.json` + approach unlock resolution (rooms, contacts, start). Includes renaming the `lab` home room to "Improved Lab" in `REFERENCE.md` §1.x and rooms data (§4).
 2. Recipe schema migration: `ingredient` → `ingredients`, `calc_cost` per-ingredient. Existing behaviour unchanged, tests green.
 3. `player.bench` state shape, defaults, save round-trip, snapshot test.
 4. `systems/bench.gd` — set keys, cell state resolution, census, probe roll, pity.
@@ -523,9 +519,9 @@ Dependency-sorted, roughly one commit each:
 7. Type picker screen and pairing panel with inline approach states.
 8. Confirm card + result card + animation.
 9. Bench notes screen: state, rendering, prose table.
-9. Effect content pass (blocked on §15.1).
-10. `Bench.grant_effect()` + collision branches wired into events and faction rewards (§12.1).
-11. Balance pass against the §7 provisional numbers.
+10. Effect content pass — populate `data/recipes.json` with the §11 catalogue and cell assignments.
+11. `Bench.grant_effect()` + collision branches wired into events and faction rewards (§12.1).
+12. Balance pass against the §7 provisional numbers.
 
 ---
 
