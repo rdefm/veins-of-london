@@ -195,8 +195,6 @@ static func _apply_one(effect: Dictionary) -> void:
 			inventory[effect["item"]] = inventory.get(effect["item"], 0) + effect["qty"]
 		"relation":
 			Contacts.award_relation(effect["contact"], effect["value"])
-		"grant_vein":
-			_grant_vein(effect["vein"])
 		"grant_vein_with_site":
 			_grant_vein_with_site(effect["vein"])
 		"set_screen":
@@ -259,15 +257,6 @@ static func _set_path(path: String, value: Variant) -> void:
 	for i in range(parts.size() - 1):
 		current = current[parts[i]]
 	current[parts[parts.size() - 1]] = value
-
-
-static func _grant_vein(vein_template: Dictionary) -> void:
-	var level: int = vein_template["level"]
-	var vein: Dictionary = GameState.deep_copy(vein_template)
-	vein["id"] = Cultivating.make_vein_id()
-	vein["levelLabel"] = GameData.VEIN_LEVELS[str(level)]["label"]
-	vein["claimedOnDay"] = GameState.state["world"]["day"]
-	GameState.state["player"]["veins"].append(vein)
 
 
 # M1-LONDON D7: the home-raid debrief's granted vein needs a matching
@@ -362,7 +351,7 @@ static func _event_caught(effect: Dictionary) -> bool:
 # vein-raiding ticket 02: pure op-dispatch shims into Raiding, mirroring the
 # "relation" op's dispatch into Contacts.award_relation() above. `effect`
 # names its target by `site_id` (Sites.find_site()) rather than embedding a
-# vein template inline the way grant_vein does, since the target here is an
+# vein template inline the way grant_vein_with_site does, since the target here is an
 # existing runtime faction-owned vein, not static event content. Both are a
 # silent no-op if the site has no factionVein -- same defensive shape
 # Raiding.claim_vein()/loot_vein() already use, so a stale or bad site_id

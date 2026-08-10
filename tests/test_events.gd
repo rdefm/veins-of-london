@@ -97,7 +97,6 @@ func run() -> void:
 				{ "op": "add_ore", "type": "time", "qty": 5 },
 				{ "op": "add_item", "item": "timePearl", "qty": 2 },
 				{ "op": "relation", "contact": "archie", "value": 3 },
-				{ "op": "grant_vein", "vein": { "oreType": "fate", "level": 2, "devBar": 1, "charged": true, "chargeBlocks": 0, "security": "none", "location": "Test St, nowhere", "district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] } } },
 				{ "op": "notify", "text": "Test notification" },
 				{ "op": "set_stage", "value": "free" },
 				{ "op": "set_screen", "screen": "home" },
@@ -120,13 +119,6 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["inventory"]["timePearl"], 2, "add_item")
 		assert_eq(GameState.state["contacts"]["archie"]["relation"], archie_relation_before + 3, "relation")
 
-		assert_eq(GameState.state["player"]["veins"].size(), 1, "grant_vein appends a vein")
-		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(vein["oreType"], "fate", "grant_vein carries the template fields")
-		assert_eq(vein["levelLabel"], GameData.VEIN_LEVELS["2"]["label"], "grant_vein derives levelLabel from level")
-		assert_eq(vein["claimedOnDay"], world_day, "grant_vein derives claimedOnDay from world.day")
-		assert_true(String(vein["id"]).length() > 0, "grant_vein derives a fresh id")
-
 		var found_notif := false
 		for n in GameState.state["notifications"]:
 			if n["text"] == "Test notification":
@@ -134,6 +126,28 @@ func run() -> void:
 		assert_true(found_notif, "notify")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "free", "set_stage")
 		assert_eq(GameState.state["currentScreen"], "home", "set_screen")
+
+		GameData.EVENTS = original_events
+	)
+
+	# ── grant_vein retired (vein-raiding ticket 09) ─────────────────────
+
+	run_case("grant_vein_is_no_longer_a_valid_effect_op", func():
+		assert_true(not GameData.VALID_EFFECT_OPS.has("grant_vein"), "grant_vein must not be in the effect-op vocabulary")
+
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_grant_vein_retired"] = {
+			"id": "test_grant_vein_retired",
+			"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
+			"on_complete": [
+				{ "op": "grant_vein", "vein": { "oreType": "fate", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Test St, nowhere", "district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] } } },
+			],
+		}
+
+		var errors := GameData.validate_tables(GameData.snapshot())
+		var relevant := errors.filter(func(e): return e.begins_with("events.test_grant_vein_retired"))
+		assert_true(relevant.size() > 0, "an event referencing grant_vein should fail validation")
 
 		GameData.EVENTS = original_events
 	)

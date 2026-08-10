@@ -46,3 +46,24 @@ func run() -> void:
 		card.free()
 		screen.free()
 	)
+
+	# vein-raiding ticket 09: seeding is only reachable via an unclaimed
+	# site's Sites.attempt_seed() flow now — the Veins screen's standalone
+	# "Seed a new vein" card (Cultivating.seed()'s only UI entry point) is
+	# gone, so no code path here can create a site-less vein.
+	run_case("no_standalone_seed_action_on_the_veins_screen", func():
+		GameState.reset()
+
+		var screen := VeinsScreen.new()
+		screen._ready()
+
+		var headings: Array = screen._content.find_children("", "Label", true, false)
+		var has_seed_heading := false
+		for h in headings:
+			if String(h.text).contains("Seed a new vein"):
+				has_seed_heading = true
+
+		assert_true(not has_seed_heading, "no 'Seed a new vein' card should remain on the Veins screen")
+
+		screen.free()
+	)

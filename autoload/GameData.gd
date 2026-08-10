@@ -507,7 +507,7 @@ func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, erro
 
 const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "resolution", "craft", "choice"]
 const VALID_EFFECT_OPS: Array[String] = [
-	"set_flag", "add", "add_ore", "add_item", "relation", "grant_vein",
+	"set_flag", "add", "add_ore", "add_item", "relation",
 	"set_screen", "notify", "set_stage", "start_home_raid_combat",
 	# M1-LONDON D5 district-event ops (systems/events.gd):
 	"chance", "start_street_mugging", "npc_claim_best_unclaimed_site", "lose_time_block",
@@ -657,7 +657,7 @@ func _load_json(path: String) -> Dictionary:
 
 # JSON has no int type — JSON.parse_string() returns every number as a
 # float, including whole numbers like 10 or 80. Every downstream table
-# (contacts defaults, event effect templates like grant_vein, etc.) gets
+# (contacts defaults, event effect templates like grant_vein_with_site, etc.) gets
 # read into GameState's pure state tree, where int vs. float is load-
 # bearing (deep-equality save/load checks, and dict lookups that str()
 # a vein level to key into VEIN_LEVELS — "1.0" isn't "1"). Rather than
