@@ -380,4 +380,4 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 		return
 
 	var vein: Dictionary = site["factionVein"]
-	Combat.start_raid(vein["id"], vein["level"], effect.get("guards", 1), effect.get("template", ""), "event_raid")
+	Combat.start_raid(vein["id"], vein["level"], effect.get("guards", 1), effect.get("template", ""), Combat.CONTEXT_EVENT_RAID)

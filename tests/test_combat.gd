@@ -11,11 +11,11 @@ static func _find_seed_for(max_tries: int, fn: Callable) -> int:
 	return -1
 
 
-func _fresh_combat(context: String = "mugging") -> void:
+func _fresh_combat(context: String = Combat.CONTEXT_MUGGING) -> void:
 	GameState.reset()
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": null,
-		"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "veinId": null, "isMugging": context == "mugging" },
+		"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "veinId": null, "isMugging": context == Combat.CONTEXT_MUGGING },
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [],
 	}
@@ -223,7 +223,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["orichalchum"] = { "time": 10, "physics": 7, "life": 20 }
 		GameState.state["combat"] = {
-			"active": true, "context": "home_raid", "veinId": null,
+			"active": true, "context": Combat.CONTEXT_HOME_RAID, "veinId": null,
 			"enemy": { "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "veinId": null, "isMugging": false },
 			"log": [], "outcome": "loss", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [],
@@ -244,7 +244,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["orichalchum"] = { "time": 10 }
 		GameState.state["combat"] = {
-			"active": true, "context": "home_raid", "veinId": null,
+			"active": true, "context": Combat.CONTEXT_HOME_RAID, "veinId": null,
 			"enemy": { "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "veinId": null, "isMugging": false },
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [],
@@ -258,7 +258,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["currentScreen"] = "combat"
 		GameState.state["combat"]["active"] = true
-		GameState.state["combat"]["context"] = "mugging"
+		GameState.state["combat"]["context"] = Combat.CONTEXT_MUGGING
 		GameState.state["combat"]["outcome"] = "win"
 		Combat.exit_combat()
 		assert_eq(GameState.state["currentScreen"], "combat", "mugging-win exit should leave the screen alone (sale_result modal handles it)")
@@ -266,13 +266,13 @@ func run() -> void:
 
 	run_case("exit_combat_raid_win_routes_to_inventory_else_home", func():
 		GameState.reset()
-		GameState.state["combat"]["context"] = "raid"
+		GameState.state["combat"]["context"] = Combat.CONTEXT_RAID
 		GameState.state["combat"]["outcome"] = "win"
 		Combat.exit_combat()
 		assert_eq(GameState.state["currentScreen"], "inventory", "a raid win should route to inventory")
 
 		GameState.reset()
-		GameState.state["combat"]["context"] = "mugging"
+		GameState.state["combat"]["context"] = Combat.CONTEXT_MUGGING
 		GameState.state["combat"]["outcome"] = "loss"
 		Combat.exit_combat()
 		assert_eq(GameState.state["currentScreen"], "home", "anything else should route home")
@@ -283,7 +283,7 @@ func run() -> void:
 	run_case("exit_combat_event_raid_win_resumes_the_still_active_event", func():
 		GameState.reset()
 		Events.start_event("intro")
-		GameState.state["combat"]["context"] = "event_raid"
+		GameState.state["combat"]["context"] = Combat.CONTEXT_EVENT_RAID
 		GameState.state["combat"]["outcome"] = "win"
 		Combat.exit_combat()
 		assert_eq(GameState.state["currentScreen"], "event", "a win should resume the event screen")
@@ -293,7 +293,7 @@ func run() -> void:
 	run_case("exit_combat_event_raid_loss_ends_the_event_and_goes_home", func():
 		GameState.reset()
 		Events.start_event("intro")
-		GameState.state["combat"]["context"] = "event_raid"
+		GameState.state["combat"]["context"] = Combat.CONTEXT_EVENT_RAID
 		GameState.state["combat"]["outcome"] = "loss"
 		Combat.exit_combat()
 		assert_eq(GameState.state["currentScreen"], "home", "a loss should route home, same as a losing plain raid")
@@ -306,7 +306,7 @@ func run() -> void:
 		GameState.reset()
 		Combat.start_defend_vein("v1", 2)
 		assert_true(GameState.state["combat"]["active"], "defend combat should start")
-		assert_eq(GameState.state["combat"]["context"], "defend_vein")
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_DEFEND_VEIN)
 		assert_eq(GameState.state["combat"]["veinId"], "v1")
 		assert_eq(GameState.state["currentScreen"], "combat")
 	)
@@ -317,7 +317,7 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [{ "id": "s_player", "district": "shoreditch", "tier": "fair", "oreType": "time", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false }]
 		GameState.state["world"]["activeDefendRaid"] = { "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }
-		GameState.state["combat"]["context"] = "defend_vein"
+		GameState.state["combat"]["context"] = Combat.CONTEXT_DEFEND_VEIN
 		GameState.state["combat"]["outcome"] = "win"
 
 		Combat.exit_combat()
@@ -335,7 +335,7 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [{ "id": "s_player", "district": "shoreditch", "tier": "fair", "oreType": "physics", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false }]
 		GameState.state["world"]["activeDefendRaid"] = { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
-		GameState.state["combat"]["context"] = "defend_vein"
+		GameState.state["combat"]["context"] = Combat.CONTEXT_DEFEND_VEIN
 		GameState.state["combat"]["outcome"] = "loss"
 
 		Combat.exit_combat()
@@ -353,7 +353,7 @@ func run() -> void:
 	)
 
 	run_case("onWin_muggingWon_pays_pendingSaleCut", func():
-		_fresh_combat("mugging")
+		_fresh_combat(Combat.CONTEXT_MUGGING)
 		GameState.state["combat"]["onWin"] = "muggingWon"
 		GameState.state["combat"]["enemy"]["hp"] = 1
 		GameState.state["player"]["cash"] = 100
@@ -387,4 +387,49 @@ func run() -> void:
 		var range := Combat.get_attack_range()
 		assert_eq(range["min"], 5, "bare player attackMin")
 		assert_eq(range["max"], 12, "bare player attackMax")
+	)
+
+	# ── hygiene-03: canonical context constants/validation ──────────────
+
+	run_case("every_start_helper_stores_its_canonical_context_constant", func():
+		GameState.reset()
+		Combat.start_mugging()
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_MUGGING)
+
+		GameState.reset()
+		Combat.start_street_mugging()
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_EVENT_MUGGING)
+
+		GameState.reset()
+		Combat.start_home_raid_combat()
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_RAID)
+
+		GameState.reset()
+		Combat.start_raid("v1", 1)
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_RAID, "start_raid's default context")
+
+		GameState.reset()
+		Combat.start_raid("v1", 1, 1, "", Combat.CONTEXT_EVENT_RAID)
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_EVENT_RAID)
+
+		GameState.reset()
+		Combat.start_defend_vein("v1", 2)
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_DEFEND_VEIN)
+	)
+
+	run_case("is_canonical_context_accepts_every_named_constant", func():
+		for context in Combat.CANONICAL_CONTEXTS:
+			assert_true(Combat.is_canonical_context(context), "%s should be canonical" % context)
+	)
+
+	run_case("is_canonical_context_rejects_a_typo_or_empty_string", func():
+		assert_true(not Combat.is_canonical_context("raidd"), "a typo'd context should not validate")
+		assert_true(not Combat.is_canonical_context(""), "an empty context should not validate")
+	)
+
+	run_case("start_combat_with_an_unrecognized_context_still_starts_but_stores_it_verbatim", func():
+		GameState.reset()
+		Combat.start_raid("v1", 1, 1, "", "raidd")
+		assert_true(GameState.state["combat"]["active"], "combat should still start -- this ticket is call-site/validation hygiene, not new blocking behaviour")
+		assert_eq(GameState.state["combat"]["context"], "raidd", "the bad context is stored verbatim; _start_combat() push_errors loudly instead of silently defaulting it")
 	)

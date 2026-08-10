@@ -3,11 +3,31 @@ extends RefCounted
 
 # Turn-based combat per R§3.7, plus rewind per R§3.9. Static funcs only.
 
+# Canonical combat.context vocabulary (hygiene-03). Named constants replace
+# the bare literals every call site used to spell out, so a typo becomes a
+# push_error in _start_combat() instead of a silent mis-route in
+# exit_combat()'s default fallback.
+const CONTEXT_RAID: String = "raid"
+const CONTEXT_MUGGING: String = "mugging"
+const CONTEXT_EVENT_MUGGING: String = "event_mugging"
+const CONTEXT_HOME_RAID: String = "home_raid"
+const CONTEXT_EVENT_RAID: String = "event_raid"
+const CONTEXT_DEFEND_VEIN: String = "defend_vein"
+
+const CANONICAL_CONTEXTS: Array[String] = [
+	CONTEXT_RAID, CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING,
+	CONTEXT_HOME_RAID, CONTEXT_EVENT_RAID, CONTEXT_DEFEND_VEIN,
+]
+
 # Contexts that are a mugging in flavour (no vein at stake, "they leg it" on
 # a win) rather than a raid — shared by the win-line/label logic here and
 # in scenes/screens/combat.gd so a third mugging-flavoured context (should
 # one ever exist) is one edit, not three.
-const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = ["mugging", "event_mugging"]
+const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = [CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING]
+
+
+static func is_canonical_context(context: String) -> bool:
+	return CANONICAL_CONTEXTS.has(context)
 
 
 static func generate_mugger() -> Dictionary:
@@ -66,7 +86,7 @@ static func get_attack_range() -> Dictionary:
 
 static func start_mugging() -> void:
 	var enemy := generate_mugger()
-	_start_combat("mugging", null, enemy,
+	_start_combat(CONTEXT_MUGGING, null, enemy,
 		["%s step out of nowhere. They want what you're carrying." % enemy["name"]],
 		"muggingWon")
 
@@ -78,7 +98,7 @@ static func start_mugging() -> void:
 # still-active event screen rather than to the sale flow or home.
 static func start_street_mugging() -> void:
 	var enemy := generate_mugger()
-	_start_combat("event_mugging", null, enemy,
+	_start_combat(CONTEXT_EVENT_MUGGING, null, enemy,
 		["%s want a word. This is about to get physical." % enemy["name"]],
 		"")
 
@@ -91,7 +111,7 @@ static func start_home_raid_combat() -> void:
 		"attackMin": raider["attackMin"], "attackMax": raider["attackMax"],
 		"veinId": null, "isMugging": false,
 	}
-	_start_combat("home_raid", null, enemy,
+	_start_combat(CONTEXT_HOME_RAID, null, enemy,
 		["They're in the flat. You've got the crowbar. This is happening."],
 		"homeRaidWon")
 
@@ -101,7 +121,7 @@ static func start_home_raid_combat() -> void:
 # branch), which passes context "event_raid" so exit_combat() below knows to
 # resume the still-active event on a win instead of routing to inventory --
 # every other caller keeps the original "raid" context and its behaviour.
-static func start_raid(vein_id: String, vein_level: int, guards: int = 1, template_key: String = "", context: String = "raid") -> void:
+static func start_raid(vein_id: String, vein_level: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID) -> void:
 	var enemy := generate_raid_enemy(vein_id, vein_level, guards, template_key)
 	_start_combat(context, vein_id, enemy,
 		["%s steps out to meet you." % enemy["name"]],
@@ -120,12 +140,14 @@ static func start_defend_vein(vein_id: String, vein_level: int) -> void:
 	var enemy := generate_raid_enemy(vein_id, vein_level)
 	# PROSE-REVIEW: new combat intro line, drafted against CONTENT-GUIDE.md's
 	# tone bible (dry, administrative, one line).
-	_start_combat("defend_vein", vein_id, enemy,
+	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemy,
 		["The alarm wasn't lying. %s is already there." % enemy["name"]],
 		"")
 
 
 static func _start_combat(context: String, vein_id, enemy: Dictionary, log_lines: Array, on_win: String) -> void:
+	if not is_canonical_context(context):
+		push_error("Combat: unrecognized context '%s' — not in CANONICAL_CONTEXTS, exit_combat() will mis-route it." % context)
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": vein_id, "enemy": enemy,
 		"log": log_lines, "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
@@ -417,21 +439,21 @@ static func exit_combat() -> Dictionary:
 	var context: String = combat["context"]
 
 	GameState.state["combat"] = {
-		"active": false, "context": "raid", "veinId": null, "enemy": null, "log": [],
+		"active": false, "context": CONTEXT_RAID, "veinId": null, "enemy": null, "log": [],
 		"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
 	}
 	SaveManager.autosave()  # R§6: autosave on combat exit
 
-	if context == "mugging" and outcome == "win":
+	if context == CONTEXT_MUGGING and outcome == "win":
 		return _exit_mugging_win()
-	if context == "event_mugging":
+	if context == CONTEXT_EVENT_MUGGING:
 		return _exit_event_mugging()
-	if context == "home_raid":
+	if context == CONTEXT_HOME_RAID:
 		return _exit_home_raid(outcome)
-	if context == "event_raid":
+	if context == CONTEXT_EVENT_RAID:
 		return _exit_event_raid(outcome)
-	if context == "defend_vein":
+	if context == CONTEXT_DEFEND_VEIN:
 		return _exit_defend_vein(outcome)
 	return _exit_default(outcome, context)
 
@@ -487,7 +509,7 @@ static func _exit_defend_vein(outcome) -> Dictionary:
 
 
 static func _exit_default(outcome, context: String) -> Dictionary:
-	var next_screen: String = "inventory" if (outcome == "win" and context == "raid") else "home"
+	var next_screen: String = "inventory" if (outcome == "win" and context == CONTEXT_RAID) else "home"
 	GameState.state["currentScreen"] = next_screen
 	EventBus.screen_changed.emit(next_screen)
 	return { "nextScreen": next_screen }

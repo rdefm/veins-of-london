@@ -358,7 +358,7 @@ func run() -> void:
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
 		Events.apply_effects([{ "op": "start_raid_combat", "site_id": "s1" }])
 		assert_true(GameState.state["combat"]["active"], "combat should be launched")
-		assert_eq(GameState.state["combat"]["context"], "event_raid")
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_EVENT_RAID)
 		assert_eq(GameState.state["combat"]["veinId"], "fv_test")
 	)
 
@@ -388,7 +388,7 @@ func run() -> void:
 			Events.advance()
 		assert_eq(GameState.state["event"], null, "event should clear")
 		assert_true(GameState.state["combat"]["active"], "start_home_raid_combat should launch combat")
-		assert_eq(GameState.state["combat"]["context"], "home_raid")
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_RAID)
 	)
 
 	run_case("rewind_restores_full_state_without_corruption", func():
@@ -492,7 +492,7 @@ func run() -> void:
 		for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
 			Events.advance()
 		assert_true(GameState.state["combat"]["active"], "home_raid_intro: combat started")
-		assert_eq(GameState.state["combat"]["context"], "home_raid")
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_RAID)
 
 		# Force a deterministic win.
 		GameState.state["combat"]["enemy"]["hp"] = 1
