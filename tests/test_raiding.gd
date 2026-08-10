@@ -551,6 +551,90 @@ func run() -> void:
 		assert_eq(faction_veins[0]["security"], "guarded", "security carries over")
 	)
 
+	# ── map-visibility-for-direction-b-vein-losses T08 ────────────────────
+
+	run_case("resolve_raid_outcome_success_queues_a_seed_claim_map_event_for_the_attacker", func():
+		GameState.reset()
+		var vein := _player_vein_of(3, "physics", "warded", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		Raiding.resolve_raid_outcome(outcome)
+
+		var event: Dictionary = MapEvents.current()
+		assert_eq(event["type"], "seed_claim", "a raid loss queues the same event type/shape as a faction vein claim")
+		assert_eq(event["district"], "camden", "event references the vein's district")
+		assert_eq(event["veinId"], "pv_test", "event references the vein that changed hands")
+		assert_eq(event["owner"], "firm", "event's owner is the attacking faction, the vein's new owner")
+	)
+
+	run_case("resolve_raid_outcome_failure_queues_no_map_event", func():
+		GameState.reset()
+		var vein := _player_vein_of(1, "time", "none")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		var outcome := { "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": false }
+		Raiding.resolve_raid_outcome(outcome)
+
+		assert_true(not MapEvents.has_pending(), "a failed raid must not queue a map event")
+	)
+
+	run_case("resolve_defend_outcome_loss_queues_the_same_seed_claim_map_event_as_the_off_screen_path", func():
+		GameState.reset()
+		var vein := _player_vein_of(2, "life", "guarded", "shoreditch")
+		vein["alarmUpgrades"] = ["alarm"]
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		GameState.state["world"]["activeDefendRaid"] = outcome
+
+		Raiding.resolve_defend_outcome(false)
+
+		var event: Dictionary = MapEvents.current()
+		assert_eq(event["type"], "seed_claim", "a lost defend encounter queues the same event type/shape as the off-screen loss path")
+		assert_eq(event["district"], "shoreditch", "event references the vein's district")
+		assert_eq(event["veinId"], "pv_test", "event references the vein that changed hands")
+		assert_eq(event["owner"], "firm", "event's owner is the attacking faction, the vein's new owner")
+	)
+
+	run_case("resolve_defend_outcome_win_queues_no_map_event", func():
+		GameState.reset()
+		var vein := _player_vein_of(2, "life", "guarded", "shoreditch")
+		vein["alarmUpgrades"] = ["alarm"]
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		GameState.state["world"]["activeDefendRaid"] = outcome
+
+		Raiding.resolve_defend_outcome(true)
+
+		assert_true(not MapEvents.has_pending(), "a won defend encounter leaves the vein untouched, so no map event should queue")
+	)
+
+	run_case("resolve_raid_outcome_success_for_a_free_floating_vein_queues_an_event_the_map_cannot_yet_resolve", func():
+		GameState.reset()
+		var vein := _player_vein_of(2, "life", "guarded", "camden")
+		vein["siteId"] = null
+		GameState.state["player"]["veins"] = [vein]
+
+		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": null, "success": true }
+		Raiding.resolve_raid_outcome(outcome)
+
+		# The event still queues (this ticket's job is only to queue it
+		# unconditionally, per resolve_raid_outcome()'s doc comment) -- but a
+		# free-floating vein has no site, so MapLayout never surfaces it as a
+		# stop, and playback silently skips it (tested at the MapCanvas layer
+		# elsewhere, not here). This test just pins that queuing doesn't
+		# require a site to exist.
+		var event: Dictionary = MapEvents.current()
+		assert_eq(event["type"], "seed_claim")
+		assert_eq(event["district"], "camden")
+		assert_eq(event["veinId"], "pv_test")
+		assert_eq(event["owner"], "firm")
+	)
+
 	run_case("resolve_raid_outcome_pushes_a_notification_only_on_success", func():
 		GameState.reset()
 		var vein := _player_vein_of(1, "time", "none")

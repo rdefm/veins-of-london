@@ -351,6 +351,19 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 #     the PRD, background world-state changes to the player's own stuff
 #     are surfaced, the same convention Sites.roll_npc_claims()/
 #     roll_npc_abandonment() already use for other background changes.
+#   - queues a map-animations-ticket-02-shaped "seed_claim" event (map-
+#     visibility-for-direction-b-vein-losses T08), referencing the vein's
+#     district/id and the attacker as owner -- same reuse Direction A's
+#     claim_vein() and Chunk 6's resolve_rivalry_outcome() already
+#     established, and the single choke point both Direction B loss paths
+#     (this ticket's off-screen default and ticket 07's lost defend-
+#     encounter, via resolve_defend_outcome() below) share, so one call
+#     here covers both. Queued unconditionally, including the free-
+#     floating branch: MapLayout never surfaces a siteId-less vein as a
+#     stop (see the comment block above), so MapCanvas's playback resolves
+#     no stop for it and silently skips the event -- the same "vein no
+#     longer resolvable" edge case every other queue_seed_claim caller
+#     already tolerates -- rather than this function special-casing it.
 # Re-checks the vein's live presence in player.veins (rather than trusting
 # the attempt batch's stale snapshot) before touching anything, so a vein
 # that's vanished between the roll and the resolve (e.g. levelled down to
@@ -378,6 +391,8 @@ static func resolve_raid_outcome(outcome: Dictionary) -> void:
 	var player: Dictionary = GameState.state["player"]
 	var vein_id: String = outcome["veinId"]
 	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
+
+	MapEvents.queue_seed_claim(vein["district"], vein_id, outcome["attackerId"])
 
 	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
