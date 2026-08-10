@@ -101,6 +101,10 @@ static func make_vein(ore_type: String, dev_bar: int, district: String, site_id:
 		"charged": false,
 		"chargeBlocks": 0,
 		"security": "none",
+		# vein-raiding ticket 05: array of purchased alarm-upgrade ids, mirroring
+		# state.home["security"]'s shape — independent of the "security" tier
+		# ladder above, per the PRD ("alarm/cameras" is a separate purchase).
+		"alarmUpgrades": [],
 		"location": generate_location_name(district),
 		"claimedOnDay": GameState.state["world"]["day"],
 		"district": district,
@@ -327,6 +331,38 @@ static func upgrade_vein_security(vein_id: String) -> Dictionary:
 	player["cash"] -= cost
 	vein["security"] = next_id
 	Notify.push("Installed %s on your %s vein." % [next_data["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]])
+	EventBus.state_changed.emit()
+	SaveManager.autosave()  # R§6: autosave on purchase
+	return { "ok": true }
+
+
+# ── vein alarm (vein-raiding ticket 05) ─────────────────────────────────
+
+const ALARM_UPGRADE_ID := "alarm"
+
+# Cash-only, no block, idempotent guard against re-buying — same shape and
+# reasoning as Home.add_security, which this mirrors. Independent of
+# upgrade_vein_security above: a vein's "security" tier and its
+# "alarmUpgrades" array are two separate purchases (PRD: "alarm/cameras" is
+# not folded into the security ladder). GameData.VEIN_ALARM has only the one
+# "alarm" entry today, but the array shape matches home["security"]'s.
+static func add_alarm(vein_id: String) -> Dictionary:
+	var vein = find_vein(vein_id)
+	if vein == null:
+		return { "ok": false, "reason": "Vein not found." }
+
+	if vein["alarmUpgrades"].has(ALARM_UPGRADE_ID):
+		return { "ok": false, "reason": "Already installed." }
+
+	var upgrade_data: Dictionary = GameData.VEIN_ALARM[ALARM_UPGRADE_ID]
+	var cost: int = upgrade_data["cost"]
+	var player: Dictionary = GameState.state["player"]
+	if player["cash"] < cost:
+		return { "ok": false, "reason": "Not enough cash." }
+
+	player["cash"] -= cost
+	vein["alarmUpgrades"].append(ALARM_UPGRADE_ID)
+	Notify.push("Installed %s on your %s vein." % [upgrade_data["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]])
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }

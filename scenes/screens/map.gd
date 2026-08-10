@@ -398,6 +398,7 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 
 	c["content"].add_child(actions)
 	c["content"].add_child(_build_security_row(vein))
+	c["content"].add_child(_build_alarm_row(vein))
 
 	return c["panel"]
 
@@ -414,4 +415,20 @@ func _build_security_row(vein: Dictionary) -> Control:
 
 	var b := UI.button(UI.format_cost_label(cost, { "cash": player["cash"] }), func(): Cultivating.upgrade_vein_security(vein_id))
 	b.disabled = player["cash"] < next_data["cost"]
+	return b
+
+
+# vein-raiding ticket 05: independent of _build_security_row above — the
+# alarm upgrade isn't part of the security tier ladder, per the PRD.
+func _build_alarm_row(vein: Dictionary) -> Control:
+	var alarm_data: Dictionary = GameData.VEIN_ALARM[Cultivating.ALARM_UPGRADE_ID]
+	if vein["alarmUpgrades"].has(Cultivating.ALARM_UPGRADE_ID):
+		return UI.muted_label("%s: installed" % alarm_data["label"])
+
+	var player: Dictionary = GameState.state["player"]
+	var cost := { "label": "Install %s" % alarm_data["label"], "resource": "cash", "amount": alarm_data["cost"] }
+	var vein_id: String = vein["id"]
+
+	var b := UI.button(UI.format_cost_label(cost, { "cash": player["cash"] }), func(): Cultivating.add_alarm(vein_id))
+	b.disabled = player["cash"] < alarm_data["cost"]
 	return b

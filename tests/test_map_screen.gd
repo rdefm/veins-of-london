@@ -101,7 +101,7 @@ func run() -> void:
 		var vein := {
 			"id": "v1", "oreType": "time", "level": 1, "levelLabel": level_data["label"],
 			"devBar": 0, "charged": true, "chargeBlocks": level_data["rechargeBlocks"],
-			"security": "none", "location": "Test Alley", "claimedOnDay": 1,
+			"security": "none", "alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
 			"district": "shoreditch", "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
 		}
 
@@ -152,7 +152,7 @@ func run() -> void:
 		var vein := {
 			"id": "v1", "oreType": "time", "level": 1, "levelLabel": level_data["label"],
 			"devBar": 0, "charged": false, "chargeBlocks": 0,
-			"security": "none", "location": "Test Alley", "claimedOnDay": 1,
+			"security": "none", "alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
 			"district": "shoreditch", "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
 		}
 

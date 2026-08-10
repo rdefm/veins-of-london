@@ -555,6 +555,84 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "currentDistrict unchanged — no travel triggered")
 	)
 
+	# ── vein alarm (vein-raiding ticket 05) ─────────────
+
+	run_case("fresh_vein_has_no_alarm_upgrade_by_default", func():
+		var vein := Cultivating.make_vein("time", 0, "shoreditch", null, { "tier": "fair", "bonuses": [] })
+		assert_eq(vein["alarmUpgrades"], [], "a freshly made vein starts with no alarm upgrades")
+	)
+
+	run_case("add_alarm_deducts_cash_and_records_the_upgrade", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 1000
+		var vein := {
+			"id": "alarm_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"alarmUpgrades": [], "location": "Test St, nowhere", "claimedOnDay": 1,
+			"district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		var result := Cultivating.add_alarm("alarm_vein")
+		assert_true(result["ok"], "should succeed with enough cash")
+		assert_eq(vein["alarmUpgrades"], ["alarm"], "alarm upgrade id recorded on the vein")
+		assert_eq(GameState.state["player"]["cash"], 1000 - GameData.VEIN_ALARM["alarm"]["cost"], "cash deducted by the alarm upgrade's cost")
+	)
+
+	run_case("add_alarm_refuses_without_enough_cash", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 0
+		var vein := {
+			"id": "poor_alarm_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"alarmUpgrades": [], "location": "Test St, nowhere", "claimedOnDay": 1,
+			"district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		var result := Cultivating.add_alarm("poor_alarm_vein")
+		assert_true(not result["ok"], "should refuse without enough cash")
+		assert_eq(vein["alarmUpgrades"], [], "no upgrade recorded when refused")
+		assert_eq(GameState.state["player"]["cash"], 0, "no cash spent when refused")
+	)
+
+	run_case("add_alarm_is_idempotent_re_purchasing_is_blocked", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		var vein := {
+			"id": "alarmed_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"alarmUpgrades": ["alarm"], "location": "Test St, nowhere", "claimedOnDay": 1,
+			"district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		var cash_before: int = GameState.state["player"]["cash"]
+		var result := Cultivating.add_alarm("alarmed_vein")
+		assert_true(not result["ok"], "already-installed alarm upgrade should refuse re-purchase")
+		assert_eq(vein["alarmUpgrades"], ["alarm"], "alarmUpgrades unchanged, not duplicated")
+		assert_eq(GameState.state["player"]["cash"], cash_before, "no cash spent on a blocked re-purchase")
+	)
+
+	run_case("add_alarm_is_not_districted_no_block_or_travel_spent", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 1000
+		var vein := {
+			"id": "away_alarm_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
+			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"alarmUpgrades": [], "location": "Test St, nowhere", "claimedOnDay": 1,
+			"district": "camden", "hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		GameState.state["player"]["veins"] = [vein]
+		var result := Cultivating.add_alarm("away_alarm_vein")
+		assert_true(result["ok"], "should succeed even though the vein is in a district the player isn't currently in")
+		assert_eq(GameState.state["world"]["timeBlocksDone"], [], "alarm upgrades aren't in D3's districted-action list — no block spent")
+		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "currentDistrict unchanged — no travel triggered")
+	)
+
+	run_case("add_alarm_refuses_for_unknown_vein", func():
+		GameState.reset()
+		var result := Cultivating.add_alarm("does_not_exist")
+		assert_true(not result["ok"], "should refuse when the vein id doesn't exist")
+	)
+
 	run_case("location_name_uses_the_verbatim_street_and_suffix_arrays", func():
 		Rng.set_seed(42)
 		var location := Cultivating.generate_location_name()

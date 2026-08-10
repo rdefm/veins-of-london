@@ -21,6 +21,12 @@ var ITEMS: Dictionary = {}
 
 var VEIN_SECURITY: Dictionary = {}
 
+# vein-raiding ticket 05: the "alarm/cameras" upgrade — independent of
+# VEIN_SECURITY's tier ladder above, per the PRD. Purchased ids land in a
+# vein's own "alarmUpgrades" array (Cultivating.make_vein), mirroring how
+# HOME_SECURITY's ids land in state.home["security"].
+var VEIN_ALARM: Dictionary = {}
+
 # vein-raiding ticket 01/02: third skill, same progression shape as
 # CULTIVATING_XP_LEVELS/CRAFTING_XP_LEVELS above. Its own file (rather than
 # folded into vein_security.json) since it's not tier-keyed content.
@@ -119,6 +125,7 @@ func load_all() -> void:
 
 	ITEMS = _load_json("res://data/items.json")
 	VEIN_SECURITY = _load_json("res://data/vein_security.json")
+	VEIN_ALARM = _load_json("res://data/vein_alarm.json")
 
 	STEALTH_XP_LEVELS = _load_json("res://data/stealth.json").get("stealthXpLevels", [])
 
@@ -190,6 +197,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_devices(t.get("devices", {}), t.get("recipes", {}), t.get("ore_types", {}), errors)
 	_validate_items(t.get("items", {}), errors)
 	_validate_vein_security(t.get("vein_security", {}), errors)
+	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
 	_validate_stealth(t.get("stealth_xp_levels", []), errors)
 	_validate_home(t.get("home_tier_order", []), t.get("home_tiers", {}), t.get("home_security", {}), t.get("home_rooms", {}), errors)
 	_validate_factions(t.get("factions", {}), errors)
@@ -217,6 +225,7 @@ func snapshot() -> Dictionary:
 		"devices": DEVICES,
 		"items": ITEMS,
 		"vein_security": VEIN_SECURITY,
+		"vein_alarm": VEIN_ALARM,
 		"stealth_xp_levels": STEALTH_XP_LEVELS,
 		"home_tier_order": HOME_TIER_ORDER,
 		"home_tiers": HOME_TIERS,
@@ -303,6 +312,13 @@ func _validate_vein_security(security: Dictionary, errors: Array[String]) -> voi
 			errors.append("vein_security: missing tier '%s'" % key)
 			continue
 		_require_keys(security[key], ["label", "raidResist", "cost"], "vein_security.%s" % key, errors)
+
+
+func _validate_vein_alarm(alarm: Dictionary, errors: Array[String]) -> void:
+	if not alarm.has("alarm"):
+		errors.append("vein_alarm: missing upgrade 'alarm'")
+		return
+	_require_keys(alarm["alarm"], ["id", "label", "cost", "description"], "vein_alarm.alarm", errors)
 
 
 func _validate_stealth(xp_levels: Array, errors: Array[String]) -> void:

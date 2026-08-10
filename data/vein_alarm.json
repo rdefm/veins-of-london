@@ -1,0 +1,8 @@
+{
+  "alarm": {
+    "id": "alarm",
+    "label": "Alarm/CCTV",
+    "cost": 200,
+    "description": "Wires the vein for a silent alarm and cameras. If it's raided, you'll get word in time to go and defend it."
+  }
+}

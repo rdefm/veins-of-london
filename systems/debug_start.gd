@@ -157,6 +157,7 @@ static func _debug_vein(ore_type: String, level: int, site_id: String) -> Dictio
 		"charged": true,
 		"chargeBlocks": recharge_blocks,
 		"security": "none",
+		"alarmUpgrades": [],
 		"location": Cultivating.generate_location_name(),
 		"claimedOnDay": 1,
 		"district": "shoreditch",
