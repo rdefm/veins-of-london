@@ -296,19 +296,28 @@ func _on_sheet_dim_gui_input(event: InputEvent) -> void:
 		MapNav.close_site_sheet()
 
 
-# faction-vein-ownership T04: read-only faction ownership display. No
-# cultivate/charge (not the player's vein) and no raid button (Chunk 6 isn't
-# built yet) — deliberately just facts, no relation-flavoured text or
-# raid-difficulty hinting (PRD: "kept plain for now").
+# faction-vein-ownership T04: read-only faction ownership display —
+# deliberately just facts, no relation-flavoured text or raid-difficulty
+# hinting (PRD: "kept plain for now"). No cultivate/charge here (not the
+# player's vein). vein-raiding ticket 03 adds the Raid action below, gated
+# the same travel/time-block way every other districted action is
+# (Travel.can_afford), handing off to the district event-card engine via
+# Raiding.begin_raid() rather than a bespoke raid screen.
 func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary) -> void:
 	var faction: Dictionary = GameData.FACTIONS[vein["factionId"]]
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 	var security: Dictionary = GameData.VEIN_SECURITY[vein["security"]]
+	var district: String = vein["district"]
 
 	var c := UI.card()
 	c["content"].add_child(UI.tinted_label(faction["name"], Color(faction["colour"])))
 	c["content"].add_child(UI.muted_label("%s %s — Lv%d %s" % [ore["symbol"], ore["name"], vein["level"], vein["levelLabel"]]))
 	c["content"].add_child(UI.muted_label("🔒 %s" % security["label"]))
+
+	var raid_button := UI.button(UI.format_block_cost_label("Raid", 1), func(): Raiding.begin_raid(vein))
+	raid_button.disabled = not Travel.can_afford(district, 1)
+	c["content"].add_child(raid_button)
+
 	content.add_child(c["panel"])
 
 

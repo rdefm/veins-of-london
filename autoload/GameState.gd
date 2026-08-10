@@ -100,6 +100,11 @@ func new_game_state() -> Dictionary:
 			"greenwichTipOff": false, "luckyOmen": false, "conclaveNoticed": false, "oddities": 0,
 			# M1-LONDON D6 — cultivating tutorial.
 			"cultivationTutorialSeen": false,
+			# vein-raiding ticket 03: set by the raid event's stealth_check
+			# on_success/on_caught branches, read by the loot_raid_vein op's
+			# _event_caught() fallback (systems/events.gd) so the shared
+			# claim/loot card knows which path got the player there.
+			"raidCaught": false,
 		},
 	}
 

@@ -68,6 +68,13 @@ const EVENT_IDS: Array[String] = [
 	# M1-LONDON D6 — cultivating tutorial, triggered by scenes/screens/map.gd
 	# on the first Map-tab visit after archiePartnerSeen.
 	"archie_cultivation",
+	# vein-raiding ticket 03: the Raid button's one representative event card
+	# (systems/raiding.gd's begin_raid()) — directly triggered, like
+	# home_raid_intro above, not part of any district's weighted event deck.
+	# Named plainly rather than after any one faction/district/ore, since it
+	# actually targets whichever real site's Raid button was pressed (see
+	# events.gd's _event_site_id()), not a single fixed combination.
+	"vein_raid",
 ]
 
 # M1-LONDON D5's district event deck roster. Loaded into the same EVENTS
@@ -492,6 +499,9 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# granted vein with a matching claimed site (home-raid debrief);
 	# tutorial_cultivate forces one free successful cultivate (archie_cultivation).
 	"grant_vein_with_site", "tutorial_cultivate",
+	# vein-raiding ticket 02/03 ops (systems/events.gd): stealth_check/
+	# start_raid_combat/claim_raid_vein/loot_raid_vein.
+	"stealth_check", "start_raid_combat", "claim_raid_vein", "loot_raid_vein",
 ]
 
 
@@ -566,6 +576,14 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 			_require_keys(effect, ["p", "on_success", "on_fail"], context, errors)
 			_validate_effect_list(effect.get("on_success", []), "%s.chance.on_success" % context, errors)
 			_validate_effect_list(effect.get("on_fail", []), "%s.chance.on_fail" % context, errors)
+		# vein-raiding ticket 03: stealth_check branches into on_success/
+		# on_caught the same way "chance" branches into on_success/on_fail --
+		# recursed here for the same reason, so a bad op buried inside either
+		# branch doesn't sail through unnoticed.
+		if effect["op"] == "stealth_check":
+			_require_keys(effect, ["on_success", "on_caught"], context, errors)
+			_validate_effect_list(effect.get("on_success", []), "%s.stealth_check.on_success" % context, errors)
+			_validate_effect_list(effect.get("on_caught", []), "%s.stealth_check.on_caught" % context, errors)
 
 
 # M1-LONDON D5's deck filter metadata: district (or "any"), weight,

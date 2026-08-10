@@ -12,8 +12,13 @@ extends RefCounted
 # cardIndex, snapshots, choiceResults }.
 
 
-static func start_event(event_id: String) -> void:
-	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {} }
+# context (vein-raiding ticket 03): a raid's target site_id is only known
+# at Raid-button-press time (a real site's runtime-generated id, never a
+# static literal an event's own JSON could hardcode) -- carried here and
+# read back by the raid ops' _event_site_id() below. Every other caller
+# omits it; state.event.context is just {} for them, same as always.
+static func start_event(event_id: String, context: Dictionary = {}) -> void:
+	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "context": context }
 	Nav.go_to("event")
 
 
@@ -221,9 +226,9 @@ static func _apply_one(effect: Dictionary) -> void:
 		"start_raid_combat":
 			_start_raid_combat(effect)
 		"claim_raid_vein":
-			Raiding.claim_vein(effect["site_id"])
+			Raiding.claim_vein(_event_site_id(effect))
 		"loot_raid_vein":
-			Raiding.loot_vein(effect["site_id"], effect.get("caught", false))
+			Raiding.loot_vein(_event_site_id(effect), _event_caught(effect))
 
 
 # Generic path+value combine: adds when both the existing value and the
@@ -324,6 +329,36 @@ static func _find_tutorial_cultivation_vein() -> Variant:
 	return null
 
 
+# vein-raiding ticket 03: a raid's target site_id is a real, runtime-
+# generated site (Sites.make_site_id()), never a value static event JSON
+# could hardcode -- Raiding.begin_raid() passes it as start_event()'s
+# context instead. Effects that supply a literal "site_id" (ticket 02's own
+# direct apply_effects() tests) still take that literal; only the authored
+# raid card, which omits it, falls back to the active event's context.
+static func _event_site_id(effect: Dictionary) -> String:
+	if effect.has("site_id"):
+		return effect["site_id"]
+	var event_state: Variant = GameState.state.get("event")
+	if event_state == null:
+		return ""
+	return event_state.get("context", {}).get("site_id", "")
+
+
+# vein-raiding ticket 03: "caught" drives loot_raid_vein's relation hit, but
+# the authored raid card's clean-stealth and caught-then-combat-win paths
+# both resume at the same shared claim/loot card (exit_combat()'s event_raid
+# case resumes cardIndex as-is, so there's exactly one "next card" either
+# way) -- flags.raidCaught, set by the stealth_check branch that ran
+# earlier in this same event via the plain "set_flag" op, is what tells the
+# shared card which path got it here. Effects that supply a literal
+# "caught" (ticket 02's own direct apply_effects() tests) still take that
+# literal.
+static func _event_caught(effect: Dictionary) -> bool:
+	if effect.has("caught"):
+		return effect["caught"]
+	return GameState.state["flags"].get("raidCaught", false)
+
+
 # vein-raiding ticket 02: pure op-dispatch shims into Raiding, mirroring the
 # "relation" op's dispatch into Contacts.award_relation() above. `effect`
 # names its target by `site_id` (Sites.find_site()) rather than embedding a
@@ -333,7 +368,7 @@ static func _find_tutorial_cultivation_vein() -> Variant:
 # Raiding.claim_vein()/loot_vein() already use, so a stale or bad site_id
 # never crashes an event mid-flight.
 static func _stealth_check(effect: Dictionary) -> void:
-	var site: Variant = Sites.find_site(effect["site_id"])
+	var site: Variant = Sites.find_site(_event_site_id(effect))
 	if site == null or site["factionVein"] == null:
 		return
 
@@ -351,7 +386,7 @@ static func _stealth_check(effect: Dictionary) -> void:
 # card's call (per-vein flavour), defaulting to a single guard on the
 # catch-all enemy template.
 static func _start_raid_combat(effect: Dictionary) -> void:
-	var site: Variant = Sites.find_site(effect["site_id"])
+	var site: Variant = Sites.find_site(_event_site_id(effect))
 	if site == null or site["factionVein"] == null:
 		return
 

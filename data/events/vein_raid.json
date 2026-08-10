@@ -1,0 +1,63 @@
+{
+  "id": "vein_raid",
+  "cards": [
+    { "type": "tension", "label": "Night work", "speaker": null, "text": "Whoever's sitting on this vein hasn't put a name to it, but the ground still belongs to someone. You case the approach twice. No obvious watchers. That's not the same as no watchers." },
+    {
+      "type": "choice", "label": null, "speaker": null, "text": "One way in. You commit or you don't.",
+      "choices": [
+        {
+          "label": "Go slow",
+          "effects": [
+            {
+              "op": "stealth_check", "consumable_bonus": 0.05,
+              "on_success": [
+                { "op": "set_flag", "flag": "raidCaught", "value": false },
+                { "op": "notify", "text": "No alarms. You're in clean." }
+              ],
+              "on_caught": [
+                { "op": "set_flag", "flag": "raidCaught", "value": true },
+                { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
+                { "op": "start_raid_combat", "guards": 1, "template": "veinGuard" }
+              ]
+            }
+          ],
+          "result_text": "You take it slow — weight off every floorboard, timing the dark between passes."
+        },
+        {
+          "label": "Go fast",
+          "effects": [
+            {
+              "op": "stealth_check", "consumable_bonus": -0.05,
+              "on_success": [
+                { "op": "set_flag", "flag": "raidCaught", "value": false },
+                { "op": "notify", "text": "No alarms. You're in clean." }
+              ],
+              "on_caught": [
+                { "op": "set_flag", "flag": "raidCaught", "value": true },
+                { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
+                { "op": "start_raid_combat", "guards": 1, "template": "veinGuard" }
+              ]
+            }
+          ],
+          "result_text": "You go in fast. Hesitation is what gets people caught, or so you tell yourself."
+        }
+      ]
+    },
+    {
+      "type": "choice", "label": null, "speaker": null, "text": "The vein's yours to deal with, however you got here.",
+      "choices": [
+        {
+          "label": "Claim it",
+          "effects": [{ "op": "claim_raid_vein" }],
+          "result_text": "You take it outright. Word gets round fast — it always does — and the relationship with whoever ran this patch takes the hit that comes with being seen to do it."
+        },
+        {
+          "label": "Loot and leave",
+          "effects": [{ "op": "loot_raid_vein" }],
+          "result_text": "You take what you can carry and leave the rest where it stands. Someone else's problem, still."
+        }
+      ]
+    }
+  ],
+  "on_complete": [{ "op": "set_screen", "screen": "map" }]
+}

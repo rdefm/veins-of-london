@@ -8,6 +8,17 @@ extends "res://tests/test_base.gd"
 # MapNav.close_site_sheet(), it doesn't touch the node itself at all.
 
 
+# vein-raiding ticket 03: scans a built subtree for buttons whose label
+# starts with `text` -- used to assert the Raid action's presence/absence/
+# gating without depending on its exact block-cost-suffixed label text.
+static func _buttons_labelled(root: Node, text: String) -> Array:
+	var found: Array = []
+	for b in root.find_children("", "Button", true, false):
+		if (b as Button).text.begins_with(text):
+			found.append(b)
+	return found
+
+
 func run() -> void:
 	run_case("tapping_the_dim_closes_the_site_sheet", func():
 		GameState.reset()
@@ -152,5 +163,69 @@ func run() -> void:
 		assert_eq(actions.get_child_count(), 1, "only Cultivate present when uncharged")
 
 		card.free()
+		screen.free()
+	)
+
+	# ── vein-raiding ticket 03: the Raid action ──────────────────────────
+
+	run_case("raid_button_present_and_enabled_on_a_faction_vein_site_with_blocks_remaining", func():
+		GameState.reset()
+		var faction_vein := {
+			"id": "fv1", "factionId": "firm", "oreType": "physics", "level": 1,
+			"levelLabel": GameData.VEIN_LEVELS["1"]["label"], "devBar": 0,
+			"charged": false, "chargeBlocks": 0, "security": "warded",
+			"location": "Test Alley", "claimedOnDay": 1, "district": "camden",
+			"siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
+		}
+
+		var screen := MapScreen.new()
+		var content := UI.vbox()
+		screen._build_faction_vein_content(content, faction_vein)
+
+		var raid_buttons := _buttons_labelled(content, "Raid")
+		assert_eq(raid_buttons.size(), 1, "exactly one Raid button on a faction-vein site")
+		assert_true(not (raid_buttons[0] as Button).disabled, "should be enabled with a full day's blocks available")
+
+		content.free()
+		screen.free()
+	)
+
+	run_case("raid_button_disabled_when_time_exhausted", func():
+		GameState.reset()
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+		var faction_vein := {
+			"id": "fv1", "factionId": "firm", "oreType": "physics", "level": 1,
+			"levelLabel": GameData.VEIN_LEVELS["1"]["label"], "devBar": 0,
+			"charged": false, "chargeBlocks": 0, "security": "warded",
+			"location": "Test Alley", "claimedOnDay": 1, "district": "camden",
+			"siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
+		}
+
+		var screen := MapScreen.new()
+		var content := UI.vbox()
+		screen._build_faction_vein_content(content, faction_vein)
+
+		var raid_buttons := _buttons_labelled(content, "Raid")
+		assert_true((raid_buttons[0] as Button).disabled, "should be disabled with no blocks left today")
+
+		content.free()
+		screen.free()
+	)
+
+	run_case("raid_button_absent_on_a_site_with_no_factionVein", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [{
+			"id": "s1", "district": "camden", "tier": "fair", "oreType": "time",
+			"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
+			"hasNaturalVein": false,
+		}]
+		MapNav.select_district("camden")
+		MapNav.select_site("s1")
+
+		var screen := MapScreen.new()
+		screen._ready()
+
+		assert_eq(_buttons_labelled(screen._sheet_layer, "Raid").size(), 0, "no Raid action on a non-faction-vein site sheet")
+
 		screen.free()
 	)

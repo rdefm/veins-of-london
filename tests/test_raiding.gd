@@ -174,3 +174,156 @@ func run() -> void:
 		Raiding.loot_vein("s1", true)
 		assert_eq(GameState.state["player"]["orichalchum"].get("time", 0), ore_before, "no ore should be granted")
 	)
+
+	# ── begin_raid: the Raid button's entry point (ticket 03) ────────────
+
+	run_case("begin_raid_spends_a_time_block_and_starts_the_raid_event_with_the_site_id_in_context", func():
+		GameState.reset()
+		var vein := _faction_vein_of(2, "physics", "warded", "firm")
+		GameState.state["world"]["sites"] = [_site_with_vein(vein["siteId"], vein)]
+
+		var result := Raiding.begin_raid(vein)
+
+		assert_true(result["ok"], "should succeed with a full day's blocks available")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "raiding spends exactly 1 block, like every other districted action")
+		assert_eq(GameState.state["event"]["eventId"], Raiding.RAID_EVENT_ID, "the Raid button starts the raid event")
+		assert_eq(GameState.state["event"]["context"]["site_id"], vein["siteId"], "the pressed vein's own site id is carried into the event's context")
+	)
+
+	run_case("begin_raid_blocked_when_time_exhausted", func():
+		GameState.reset()
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+		var vein := _faction_vein_of(1, "time", "none")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+
+		var result := Raiding.begin_raid(vein)
+
+		assert_true(not result["ok"], "no blocks left for the raid action itself")
+		assert_eq(GameState.state["event"], null, "no event should start when blocked")
+	)
+
+	# ── vein_raid (ticket 03): the authored raid event's branch
+	# structure, driven for real through Events.start_event/advance/choose.
+	# For a guaranteed clean success, stealthSkill is pushed to a large
+	# positive value so stealth_success_chance() clamps to exactly 1.0 (safe
+	# -- award_stealth_xp()'s level-up loop just never fires, since
+	# stealthSkill already exceeds every real level). For a guaranteed
+	# catch, a level-5/guarded/"fate" vein (the priciest ore) plus the
+	# "Go fast" choice's -0.05 bonus lands the formula at exactly 0.55 + 0
+	# (default stealthSkill 1) - 0.35 (guarded raidResist=55) - 0.15 (maxed
+	# value) - 0.05 = 0.0 -- deliberately not pushing stealthSkill negative
+	# for this, since award_stealth_xp() indexes GameData.STEALTH_XP_LEVELS
+	# at stealthSkill+1 and a large negative value overruns it. Combat
+	# outcome is set directly and resolved via Combat.exit_combat(), the
+	# same technique test_combat.gd's own event_raid tests use, rather than
+	# playing out real combat rounds.
+
+	run_case("raid_event_clean_stealth_success_reaches_the_claim_loot_choice", func():
+		GameState.reset()
+		var vein := _faction_vein_of(1, "time", "none", "firm")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		GameState.state["player"]["stealthSkill"] = 1000  # saturates stealth_success_chance to 1.0
+
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		Events.advance()  # tension card -> attempt choice
+		Events.choose(0)  # "Go slow"
+
+		assert_true(not GameState.state["combat"]["active"], "a clean stealth success should never launch combat")
+		assert_eq(GameState.state["flags"]["raidCaught"], false, "clean success should record raidCaught false")
+
+		Events.advance()  # -> claim/loot choice
+		assert_true(Events.is_awaiting_choice(), "should land on the claim/loot choice card")
+		assert_eq(Events.current_card()["choices"].size(), 2, "Claim + Loot")
+	)
+
+	run_case("raid_event_caught_then_combat_win_reaches_the_claim_loot_choice", func():
+		GameState.reset()
+		var vein := _faction_vein_of(5, "fate", "guarded", "firm")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		Events.advance()
+		Events.choose(1)  # "Go fast" -- floors stealth_success_chance to exactly 0.0 for this vein
+
+		assert_true(GameState.state["combat"]["active"], "being caught should launch combat")
+		assert_eq(GameState.state["combat"]["context"], "event_raid")
+		assert_eq(GameState.state["flags"]["raidCaught"], true, "getting caught should record raidCaught true")
+
+		GameState.state["combat"]["outcome"] = "win"
+		Combat.exit_combat()
+		assert_true(GameState.state["event"] != null, "a combat win should resume the still-active raid event")
+
+		Events.advance()  # -> claim/loot choice
+		assert_true(Events.is_awaiting_choice(), "should land on the same claim/loot choice card the clean path reaches")
+	)
+
+	run_case("raid_event_caught_then_combat_loss_fails_the_raid_with_no_claim_loot_offered", func():
+		GameState.reset()
+		var vein := _faction_vein_of(5, "fate", "guarded", "firm")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		Events.advance()
+		Events.choose(1)  # "Go fast" -- guaranteed catch, see comment above
+
+		GameState.state["combat"]["outcome"] = "loss"
+		Combat.exit_combat()
+
+		assert_eq(GameState.state["event"], null, "a losing raid should end the event outright, no claim/loot offered")
+		assert_eq(GameState.state["currentScreen"], "home", "same destination a losing plain raid already uses")
+
+		var site: Dictionary = GameState.state["world"]["sites"][0]
+		assert_true(site["factionVein"] != null, "the vein stays with the faction on a failed raid")
+	)
+
+	run_case("raid_event_loot_after_a_caught_win_applies_the_moderate_relation_hit", func():
+		GameState.reset()
+		var vein := _faction_vein_of(5, "fate", "guarded", "firm")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		GameState.state["factions"]["firm"]["relation"] = 50
+
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		Events.advance()
+		Events.choose(1)  # "Go fast" -- guaranteed catch, see comment above
+		GameState.state["combat"]["outcome"] = "win"
+		Combat.exit_combat()
+		Events.advance()  # -> claim/loot choice
+		Events.choose(1)  # "Loot and leave"
+
+		assert_eq(GameState.state["factions"]["firm"]["relation"], 50 + Raiding.LOOT_RELATION_HIT, "looting after being caught should apply the moderate relation hit")
+		var site: Dictionary = GameState.state["world"]["sites"][0]
+		assert_true(site["factionVein"] != null, "loot should leave ownership with the faction")
+	)
+
+	run_case("raid_event_clean_stealth_and_loot_leaves_relation_untouched", func():
+		GameState.reset()
+		var vein := _faction_vein_of(1, "time", "none", "network")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		GameState.state["player"]["stealthSkill"] = 1000
+		GameState.state["factions"]["network"]["relation"] = 30
+
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		Events.advance()
+		Events.choose(0)
+		Events.advance()
+		Events.choose(1)  # "Loot and leave"
+
+		assert_eq(GameState.state["factions"]["network"]["relation"], 30, "a fully clean stealth-and-loot should leave relation untouched")
+	)
+
+	run_case("raid_event_claim_transfers_ownership_via_the_event's_site_id_context", func():
+		GameState.reset()
+		var vein := _faction_vein_of(1, "time", "none", "guild")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		GameState.state["player"]["stealthSkill"] = 1000
+
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		Events.advance()
+		Events.choose(0)
+		Events.advance()
+		Events.choose(0)  # "Claim it"
+
+		var site: Dictionary = GameState.state["world"]["sites"][0]
+		assert_eq(site["factionVein"], null, "claim should transfer ownership")
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "the vein should be appended to player.veins")
+	)

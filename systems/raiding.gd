@@ -132,3 +132,32 @@ static func loot_vein(site_id: String, caught: bool) -> void:
 		Factions.adjust_player_relation(vein["factionId"], LOOT_RELATION_HIT)
 
 	EventBus.state_changed.emit()
+
+
+# ── raid entry point (ticket 03) ────────────────────────────────────────
+
+# The one representative raid event card authored for this ticket (tracer
+# bullet, not a content pass -- per the PRD's own open question, more cards
+# per faction/district/ore-type circumstance are a later content pass). It
+# targets whichever real site's Raid button was pressed via start_event()'s
+# context, not a literal baked into its own JSON (see events.gd's
+# _event_site_id()) -- so this single card already works against any real
+# faction-owned vein, whatever its actual faction/district/ore turn out to be.
+# Its prose is deliberately faction/district-neutral for the same reason
+# (no hardcoded name that could mismatch the real vein it's run against).
+const RAID_EVENT_ID := "vein_raid"
+
+
+# Called by the faction-vein site sheet's Raid button (scenes/screens/map.gd)
+# with that site's factionVein dict. Same travel/time-block gating shape
+# every other districted action uses (Cultivating.cultivate() etc.) --
+# ensure_district() first, then spend the block -- before handing off to the
+# event engine.
+static func begin_raid(vein: Dictionary) -> Dictionary:
+	var travel := Travel.ensure_district(vein["district"], 1)
+	if not travel["ok"]:
+		return travel
+
+	TimeSystem.advance_time_block()
+	Events.start_event(RAID_EVENT_ID, { "site_id": vein["siteId"] })
+	return { "ok": true }
