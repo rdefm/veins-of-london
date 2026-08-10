@@ -44,6 +44,18 @@ func run() -> void:
 		assert_true(not result["ok"], "relation 0 < conclave's joinRelation 60")
 	)
 
+	# ── vein-raiding ticket 02: adjust_player_relation ──────────────────
+
+	run_case("adjust_player_relation_moves_the_player_facing_relation_field", func():
+		GameState.reset()
+		GameState.state["factions"]["firm"]["relation"] = 10
+		Factions.adjust_player_relation("firm", -40)
+		assert_eq(GameState.state["factions"]["firm"]["relation"], -30, "relation should move by exactly the delta")
+
+		Factions.adjust_player_relation("firm", 5)
+		assert_eq(GameState.state["factions"]["firm"]["relation"], -25, "a second adjustment should stack")
+	)
+
 	# ── faction-vein-ownership T01: pick_claimant / create_faction_vein / roll_security_tier ──
 
 	run_case("pick_claimant_heavily_favours_the_presence_faction", func():

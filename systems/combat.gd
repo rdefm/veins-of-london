@@ -96,10 +96,14 @@ static func start_home_raid_combat() -> void:
 		"homeRaidWon")
 
 
-# Debug-only in M0 (see generate_raid_enemy).
-static func start_raid(vein_id: String, vein_level: int, guards: int = 1, template_key: String = "") -> void:
+# Debug-only in M0 (see generate_raid_enemy). vein-raiding ticket 02: also
+# called by events.gd's "start_raid_combat" op (a raid event card's "caught"
+# branch), which passes context "event_raid" so exit_combat() below knows to
+# resume the still-active event on a win instead of routing to inventory --
+# every other caller keeps the original "raid" context and its behaviour.
+static func start_raid(vein_id: String, vein_level: int, guards: int = 1, template_key: String = "", context: String = "raid") -> void:
 	var enemy := generate_raid_enemy(vein_id, vein_level, guards, template_key)
-	_start_combat("raid", vein_id, enemy,
+	_start_combat(context, vein_id, enemy,
 		["%s steps out to meet you." % enemy["name"]],
 		"raidWon")
 
@@ -385,9 +389,10 @@ static func _raid_won() -> void:
 # Tears down combat state and routes to the next screen. Per R§3.7's exit
 # dispatch: mugging-win leaves the screen alone (sale_result modal is
 # already showing); home_raid routes into the matching debrief event
-# (R§3.8, wired by M0-T13's Events.start_event); otherwise inventory on a
-# raid win, home in every other case (loss/fled/mugging-loss-that-somehow-
-# exits).
+# (R§3.8, wired by M0-T13's Events.start_event); event_raid (vein-raiding
+# ticket 02) resumes the still-active event on a win, ends it on a loss;
+# otherwise inventory on a raid win, home in every other case (loss/fled/
+# mugging-loss-that-somehow-exits).
 static func exit_combat() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	var outcome = combat["outcome"]
@@ -415,6 +420,25 @@ static func exit_combat() -> Dictionary:
 		var debrief_id: String = "home_raid_debrief_win" if outcome == "win" else "home_raid_debrief_loss"
 		Events.start_event(debrief_id)
 		return { "nextScreen": "event" }
+
+	# event_raid (vein-raiding ticket 02): a raid event card's "caught"
+	# branch, via start_raid(..., "event_raid"). A win resumes the still-
+	# active event -- same event_mugging shape above -- so Continue moves on
+	# to whatever card the event authors next (ticket 03: the claim/loot
+	# choice), still on cardIndex from before combat interrupted it. A loss
+	# fails the raid outright: existing combat-loss handling (HP/consequences)
+	# already applied during combat itself, no new punishment here -- the
+	# event is simply cleared (there's no claim/loot to offer) and the player
+	# goes home, the same destination a losing plain "raid" already uses.
+	if context == "event_raid":
+		if outcome == "win":
+			GameState.state["currentScreen"] = "event"
+			EventBus.screen_changed.emit("event")
+			return { "nextScreen": "event" }
+		GameState.state["event"] = null
+		GameState.state["currentScreen"] = "home"
+		EventBus.screen_changed.emit("home")
+		return { "nextScreen": "home" }
 
 	var next_screen: String = "inventory" if (outcome == "win" and context == "raid") else "home"
 	GameState.state["currentScreen"] = next_screen

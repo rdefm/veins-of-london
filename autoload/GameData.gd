@@ -21,6 +21,11 @@ var ITEMS: Dictionary = {}
 
 var VEIN_SECURITY: Dictionary = {}
 
+# vein-raiding ticket 01/02: third skill, same progression shape as
+# CULTIVATING_XP_LEVELS/CRAFTING_XP_LEVELS above. Its own file (rather than
+# folded into vein_security.json) since it's not tier-keyed content.
+var STEALTH_XP_LEVELS: Array = []
+
 var HOME_TIER_ORDER: Array = []
 var HOME_TIERS: Dictionary = {}
 var HOME_SECURITY: Dictionary = {}
@@ -108,6 +113,8 @@ func load_all() -> void:
 	ITEMS = _load_json("res://data/items.json")
 	VEIN_SECURITY = _load_json("res://data/vein_security.json")
 
+	STEALTH_XP_LEVELS = _load_json("res://data/stealth.json").get("stealthXpLevels", [])
+
 	var home := _load_json("res://data/home.json")
 	HOME_TIER_ORDER = home.get("tierOrder", [])
 	HOME_TIERS = home.get("tiers", {})
@@ -176,6 +183,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_devices(t.get("devices", {}), t.get("recipes", {}), t.get("ore_types", {}), errors)
 	_validate_items(t.get("items", {}), errors)
 	_validate_vein_security(t.get("vein_security", {}), errors)
+	_validate_stealth(t.get("stealth_xp_levels", []), errors)
 	_validate_home(t.get("home_tier_order", []), t.get("home_tiers", {}), t.get("home_security", {}), t.get("home_rooms", {}), errors)
 	_validate_factions(t.get("factions", {}), errors)
 	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
@@ -202,6 +210,7 @@ func snapshot() -> Dictionary:
 		"devices": DEVICES,
 		"items": ITEMS,
 		"vein_security": VEIN_SECURITY,
+		"stealth_xp_levels": STEALTH_XP_LEVELS,
 		"home_tier_order": HOME_TIER_ORDER,
 		"home_tiers": HOME_TIERS,
 		"home_security": HOME_SECURITY,
@@ -287,6 +296,11 @@ func _validate_vein_security(security: Dictionary, errors: Array[String]) -> voi
 			errors.append("vein_security: missing tier '%s'" % key)
 			continue
 		_require_keys(security[key], ["label", "raidResist", "cost"], "vein_security.%s" % key, errors)
+
+
+func _validate_stealth(xp_levels: Array, errors: Array[String]) -> void:
+	if xp_levels.size() != 6:
+		errors.append("stealthXpLevels: expected 6 entries (index=level, 0..5), got %d" % xp_levels.size())
 
 
 func _validate_home(tier_order: Array, tiers: Dictionary, security: Dictionary, rooms: Dictionary, errors: Array[String]) -> void:

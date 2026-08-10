@@ -278,6 +278,28 @@ func run() -> void:
 		assert_eq(GameState.state["currentScreen"], "home", "anything else should route home")
 	)
 
+	# ── vein-raiding ticket 02: event_raid exit routing ─────────────────
+
+	run_case("exit_combat_event_raid_win_resumes_the_still_active_event", func():
+		GameState.reset()
+		Events.start_event("intro")
+		GameState.state["combat"]["context"] = "event_raid"
+		GameState.state["combat"]["outcome"] = "win"
+		Combat.exit_combat()
+		assert_eq(GameState.state["currentScreen"], "event", "a win should resume the event screen")
+		assert_true(GameState.state["event"] != null, "the event should still be active, unresolved cardIndex intact, for its next authored card")
+	)
+
+	run_case("exit_combat_event_raid_loss_ends_the_event_and_goes_home", func():
+		GameState.reset()
+		Events.start_event("intro")
+		GameState.state["combat"]["context"] = "event_raid"
+		GameState.state["combat"]["outcome"] = "loss"
+		Combat.exit_combat()
+		assert_eq(GameState.state["currentScreen"], "home", "a loss should route home, same as a losing plain raid")
+		assert_eq(GameState.state["event"], null, "the failed raid's event should be cleared, not left dangling")
+	)
+
 	run_case("onWin_muggingWon_pays_pendingSaleCut", func():
 		_fresh_combat("mugging")
 		GameState.state["combat"]["onWin"] = "muggingWon"

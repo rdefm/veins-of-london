@@ -23,6 +23,18 @@ static func join(faction_id: String) -> Dictionary:
 	return { "ok": true }
 
 
+# vein-raiding ticket 02: the player-facing counterpart to
+# faction-territory-rivalry T01's adjust_relation(a, b) above -- that one is
+# faction-toward-faction (state.factionRelations), this one is player-toward-
+# faction (state.factions[id].relation), the same field can_join() reads.
+# Previously only hand-mutated directly (systems/debug_start.gd) or via the
+# contact-only "relation" event op (Contacts.award_relation) -- this is the
+# first generic adjuster for it, used by Raiding's claim/loot relation hits.
+static func adjust_player_relation(faction_id: String, delta: int) -> void:
+	GameState.state["factions"][faction_id]["relation"] += delta
+	EventBus.state_changed.emit()
+
+
 # ── faction vein ownership (faction-vein-ownership T01) ────────────────
 # Reuses systems/sites.gd's existing daily-tick claim roll: instead of
 # flipping an anonymous npcClaimed flag, that roll now names one of the 5

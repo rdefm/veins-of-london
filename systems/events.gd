@@ -216,6 +216,14 @@ static func _apply_one(effect: Dictionary) -> void:
 				TimeSystem.advance_time_block()
 		"tutorial_cultivate":
 			_tutorial_cultivate()
+		"stealth_check":
+			_stealth_check(effect)
+		"start_raid_combat":
+			_start_raid_combat(effect)
+		"claim_raid_vein":
+			Raiding.claim_vein(effect["site_id"])
+		"loot_raid_vein":
+			Raiding.loot_vein(effect["site_id"], effect.get("caught", false))
 
 
 # Generic path+value combine: adds when both the existing value and the
@@ -314,3 +322,38 @@ static func _find_tutorial_cultivation_vein() -> Variant:
 		if vein["district"] == "whitechapel" and vein["oreType"] == "time":
 			return vein
 	return null
+
+
+# vein-raiding ticket 02: pure op-dispatch shims into Raiding, mirroring the
+# "relation" op's dispatch into Contacts.award_relation() above. `effect`
+# names its target by `site_id` (Sites.find_site()) rather than embedding a
+# vein template inline the way grant_vein does, since the target here is an
+# existing runtime faction-owned vein, not static event content. Both are a
+# silent no-op if the site has no factionVein -- same defensive shape
+# Raiding.claim_vein()/loot_vein() already use, so a stale or bad site_id
+# never crashes an event mid-flight.
+static func _stealth_check(effect: Dictionary) -> void:
+	var site: Variant = Sites.find_site(effect["site_id"])
+	if site == null or site["factionVein"] == null:
+		return
+
+	var consumable_bonus: float = effect.get("consumable_bonus", 0.0)
+	var success: bool = Raiding.resolve_stealth_check(site["factionVein"], consumable_bonus)
+	if success:
+		apply_effects(effect.get("on_success", []))
+	else:
+		apply_effects(effect.get("on_caught", []))
+
+
+# Branches into Combat.start_raid() with context "event_raid" (see
+# systems/combat.gd's exit_combat()) so a win resumes this same event rather
+# than routing to inventory. `guards`/`template` are the authoring event
+# card's call (per-vein flavour), defaulting to a single guard on the
+# catch-all enemy template.
+static func _start_raid_combat(effect: Dictionary) -> void:
+	var site: Variant = Sites.find_site(effect["site_id"])
+	if site == null or site["factionVein"] == null:
+		return
+
+	var vein: Dictionary = site["factionVein"]
+	Combat.start_raid(vein["id"], vein["level"], effect.get("guards", 1), effect.get("template", ""), "event_raid")

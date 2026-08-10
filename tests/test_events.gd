@@ -25,6 +25,26 @@ func _install_choice_event() -> Dictionary:
 	return original_events
 
 
+# vein-raiding ticket 02: fixtures for a faction-owned site, mirroring
+# test_factions.gd's own _faction_vein_of/_site_with_vein helpers.
+static func _faction_vein_of(level: int, ore_type: String, security: String = "none", faction_id: String = "collective") -> Dictionary:
+	return {
+		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "level": level,
+		"levelLabel": GameData.VEIN_LEVELS[str(level)]["label"], "devBar": 0,
+		"charged": false, "chargeBlocks": 0, "security": security,
+		"location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch",
+		"siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
+	}
+
+
+static func _site_with_vein(id: String, vein: Dictionary) -> Dictionary:
+	return {
+		"id": id, "district": "shoreditch", "tier": "fair", "oreType": vein["oreType"],
+		"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
+		"hasNaturalVein": false,
+	}
+
+
 func run() -> void:
 	run_case("schema_all_9_event_files_and_sms_threads_validate", func():
 		var errors := GameData.validate_tables(GameData.snapshot())
@@ -290,6 +310,61 @@ func run() -> void:
 		assert_true(Events.is_awaiting_choice(), "rewind should un-resolve the choice card")
 
 		GameData.EVENTS = original_events
+	)
+
+	# ── vein-raiding ticket 02: stealth_check / start_raid_combat /
+	# claim_raid_vein / loot_raid_vein ops ───────────────────────────────
+
+	run_case("stealth_check_op_branches_into_on_success_with_a_saturated_bonus", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", _faction_vein_of(1, "time"))]
+		Events.apply_effects([{
+			"op": "stealth_check", "site_id": "s1", "consumable_bonus": 5.0,
+			"on_success": [{ "op": "set_flag", "flag": "stealthOutcome", "value": "success" }],
+			"on_caught": [{ "op": "set_flag", "flag": "stealthOutcome", "value": "caught" }],
+		}])
+		assert_eq(GameState.state["flags"]["stealthOutcome"], "success", "a saturated bonus should always succeed")
+		assert_true(GameState.state["player"]["stealthXP"] > 0, "the check should award stealth XP")
+	)
+
+	run_case("stealth_check_op_branches_into_on_caught_with_a_floored_bonus", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", _faction_vein_of(5, "fate", "guarded"))]
+		Events.apply_effects([{
+			"op": "stealth_check", "site_id": "s1", "consumable_bonus": -5.0,
+			"on_success": [{ "op": "set_flag", "flag": "stealthOutcome", "value": "success" }],
+			"on_caught": [{ "op": "set_flag", "flag": "stealthOutcome", "value": "caught" }],
+		}])
+		assert_eq(GameState.state["flags"]["stealthOutcome"], "caught", "a floored bonus should always be caught")
+	)
+
+	run_case("start_raid_combat_op_launches_combat_with_event_raid_context", func():
+		GameState.reset()
+		var vein := _faction_vein_of(2, "physics", "warded")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		Events.apply_effects([{ "op": "start_raid_combat", "site_id": "s1" }])
+		assert_true(GameState.state["combat"]["active"], "combat should be launched")
+		assert_eq(GameState.state["combat"]["context"], "event_raid")
+		assert_eq(GameState.state["combat"]["veinId"], "fv_test")
+	)
+
+	run_case("claim_raid_vein_op_transfers_ownership", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", _faction_vein_of(1, "time"))]
+		Events.apply_effects([{ "op": "claim_raid_vein", "site_id": "s1" }])
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "the vein should transfer to the player")
+		assert_eq(GameState.state["world"]["sites"][0]["factionVein"], null, "the site should no longer be faction-owned")
+	)
+
+	run_case("loot_raid_vein_op_grants_ore_without_transferring_ownership", func():
+		GameState.reset()
+		var vein := _faction_vein_of(1, "life")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var ore_before: int = GameState.state["player"]["orichalchum"].get("life", 0)
+		Events.apply_effects([{ "op": "loot_raid_vein", "site_id": "s1", "caught": true }])
+		assert_true(GameState.state["player"]["orichalchum"]["life"] > ore_before, "loot should grant ore")
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "ownership should not transfer")
+		assert_true(GameState.state["world"]["sites"][0]["factionVein"] != null, "the site should still be faction-owned")
 	)
 
 	run_case("start_home_raid_combat_op_launches_home_raid_combat", func():
