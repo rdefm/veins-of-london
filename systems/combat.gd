@@ -409,7 +409,8 @@ static func _raid_won() -> void:
 # (R§3.8, wired by M0-T13's Events.start_event); event_raid (vein-raiding
 # ticket 02) resumes the still-active event on a win, ends it on a loss;
 # otherwise inventory on a raid win, home in every other case (loss/fled/
-# mugging-loss-that-somehow-exits).
+# mugging-loss-that-somehow-exits). Each branch below is a private helper
+# (hygiene ticket 02) -- this func just tears down shared state and dispatches.
 static func exit_combat() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	var outcome = combat["outcome"]
@@ -423,50 +424,69 @@ static func exit_combat() -> Dictionary:
 	SaveManager.autosave()  # R§6: autosave on combat exit
 
 	if context == "mugging" and outcome == "win":
-		return { "nextScreen": null }
-
-	# event_mugging (D5): state.event is still active regardless of outcome
-	# — route back to the event screen so its scripted cards can resume.
+		return _exit_mugging_win()
 	if context == "event_mugging":
+		return _exit_event_mugging()
+	if context == "home_raid":
+		return _exit_home_raid(outcome)
+	if context == "event_raid":
+		return _exit_event_raid(outcome)
+	if context == "defend_vein":
+		return _exit_defend_vein(outcome)
+	return _exit_default(outcome, context)
+
+
+static func _exit_mugging_win() -> Dictionary:
+	return { "nextScreen": null }
+
+
+# event_mugging (D5): state.event is still active regardless of outcome
+# — route back to the event screen so its scripted cards can resume.
+static func _exit_event_mugging() -> Dictionary:
+	GameState.state["currentScreen"] = "event"
+	EventBus.screen_changed.emit("event")
+	return { "nextScreen": "event" }
+
+
+static func _exit_home_raid(outcome) -> Dictionary:
+	_after_home_raid_combat(outcome)
+	var debrief_id: String = "home_raid_debrief_win" if outcome == "win" else "home_raid_debrief_loss"
+	Events.start_event(debrief_id)
+	return { "nextScreen": "event" }
+
+
+# event_raid (vein-raiding ticket 02): a raid event card's "caught"
+# branch, via start_raid(..., "event_raid"). A win resumes the still-
+# active event -- same event_mugging shape above -- so Continue moves on
+# to whatever card the event authors next (ticket 03: the claim/loot
+# choice), still on cardIndex from before combat interrupted it. A loss
+# fails the raid outright: existing combat-loss handling (HP/consequences)
+# already applied during combat itself, no new punishment here -- the
+# event is simply cleared (there's no claim/loot to offer) and the player
+# goes home, the same destination a losing plain "raid" already uses.
+static func _exit_event_raid(outcome) -> Dictionary:
+	if outcome == "win":
 		GameState.state["currentScreen"] = "event"
 		EventBus.screen_changed.emit("event")
 		return { "nextScreen": "event" }
+	GameState.state["event"] = null
+	GameState.state["currentScreen"] = "home"
+	EventBus.screen_changed.emit("home")
+	return { "nextScreen": "home" }
 
-	if context == "home_raid":
-		_after_home_raid_combat(outcome)
-		var debrief_id: String = "home_raid_debrief_win" if outcome == "win" else "home_raid_debrief_loss"
-		Events.start_event(debrief_id)
-		return { "nextScreen": "event" }
 
-	# event_raid (vein-raiding ticket 02): a raid event card's "caught"
-	# branch, via start_raid(..., "event_raid"). A win resumes the still-
-	# active event -- same event_mugging shape above -- so Continue moves on
-	# to whatever card the event authors next (ticket 03: the claim/loot
-	# choice), still on cardIndex from before combat interrupted it. A loss
-	# fails the raid outright: existing combat-loss handling (HP/consequences)
-	# already applied during combat itself, no new punishment here -- the
-	# event is simply cleared (there's no claim/loot to offer) and the player
-	# goes home, the same destination a losing plain "raid" already uses.
-	if context == "event_raid":
-		if outcome == "win":
-			GameState.state["currentScreen"] = "event"
-			EventBus.screen_changed.emit("event")
-			return { "nextScreen": "event" }
-		GameState.state["event"] = null
-		GameState.state["currentScreen"] = "home"
-		EventBus.screen_changed.emit("home")
-		return { "nextScreen": "home" }
+# defend_vein (vein-raiding ticket 07): Raiding owns the win/loss
+# consequence (nothing on a win, the same whole-vein-loss transfer as the
+# no-alarm path on a loss) -- this just tells it which happened, then
+# routes home either way, same as every other non-raid context below.
+static func _exit_defend_vein(outcome) -> Dictionary:
+	Raiding.resolve_defend_outcome(outcome == "win")
+	GameState.state["currentScreen"] = "home"
+	EventBus.screen_changed.emit("home")
+	return { "nextScreen": "home" }
 
-	# defend_vein (vein-raiding ticket 07): Raiding owns the win/loss
-	# consequence (nothing on a win, the same whole-vein-loss transfer as the
-	# no-alarm path on a loss) -- this just tells it which happened, then
-	# routes home either way, same as every other non-raid context below.
-	if context == "defend_vein":
-		Raiding.resolve_defend_outcome(outcome == "win")
-		GameState.state["currentScreen"] = "home"
-		EventBus.screen_changed.emit("home")
-		return { "nextScreen": "home" }
 
+static func _exit_default(outcome, context: String) -> Dictionary:
 	var next_screen: String = "inventory" if (outcome == "win" and context == "raid") else "home"
 	GameState.state["currentScreen"] = next_screen
 	EventBus.screen_changed.emit(next_screen)
