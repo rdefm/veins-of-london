@@ -45,6 +45,7 @@ var MAP_LAYOUT: Dictionary = {}
 
 var SITE_TIER_ORDER: Array = []
 var SITE_TIER_WEIGHTS: Dictionary = {}
+var SITE_AT_CAP_TIER_WEIGHTS: Dictionary = {}
 var SITE_PROSPECT_XP: Dictionary = {}
 var SITE_SEED_TIER_MOD: Dictionary = {}
 var SITE_DISCOVERY_BONUS_POOL: Array = []
@@ -144,6 +145,7 @@ func load_all() -> void:
 	var sites := _load_json("res://data/sites.json")
 	SITE_TIER_ORDER = sites.get("tierOrder", [])
 	SITE_TIER_WEIGHTS = sites.get("tierWeights", {})
+	SITE_AT_CAP_TIER_WEIGHTS = sites.get("atCapTierWeights", {})
 	SITE_PROSPECT_XP = sites.get("prospectXp", {})
 	SITE_SEED_TIER_MOD = sites.get("seedTierMod", {})
 	SITE_DISCOVERY_BONUS_POOL = sites.get("discoveryBonusPool", [])
@@ -203,7 +205,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_factions(t.get("factions", {}), errors)
 	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
 	_validate_map_layout(t.get("map_layout", {}), t.get("districts", {}), errors)
-	_validate_sites(t.get("site_tier_order", []), t.get("site_tier_weights", {}), t.get("site_prospect_xp", {}), t.get("site_seed_tier_mod", {}), t.get("site_discovery_bonus_pool", []), errors)
+	_validate_sites(t.get("site_tier_order", []), t.get("site_tier_weights", {}), t.get("site_at_cap_tier_weights", {}), t.get("site_prospect_xp", {}), t.get("site_seed_tier_mod", {}), t.get("site_discovery_bonus_pool", []), errors)
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), errors)
 	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
@@ -236,6 +238,7 @@ func snapshot() -> Dictionary:
 		"map_layout": MAP_LAYOUT,
 		"site_tier_order": SITE_TIER_ORDER,
 		"site_tier_weights": SITE_TIER_WEIGHTS,
+		"site_at_cap_tier_weights": SITE_AT_CAP_TIER_WEIGHTS,
 		"site_prospect_xp": SITE_PROSPECT_XP,
 		"site_seed_tier_mod": SITE_SEED_TIER_MOD,
 		"site_discovery_bonus_pool": SITE_DISCOVERY_BONUS_POOL,
@@ -440,12 +443,14 @@ const CANONICAL_SITE_TIERS: Array[String] = ["barren", "poor", "fair", "rich", "
 const CANONICAL_SITE_BONUSES: Array[String] = ["recharge", "maxLevel", "yield"]
 
 
-func _validate_sites(tier_order: Array, tier_weights: Dictionary, prospect_xp: Dictionary, seed_tier_mod: Dictionary, discovery_bonus_pool: Array, errors: Array[String]) -> void:
+func _validate_sites(tier_order: Array, tier_weights: Dictionary, at_cap_tier_weights: Dictionary, prospect_xp: Dictionary, seed_tier_mod: Dictionary, discovery_bonus_pool: Array, errors: Array[String]) -> void:
 	if tier_order != CANONICAL_SITE_TIERS:
 		errors.append("sites: tierOrder must be exactly %s, got %s" % [CANONICAL_SITE_TIERS, tier_order])
 	for tier in CANONICAL_SITE_TIERS:
 		if not tier_weights.has(tier):
 			errors.append("sites: tierWeights missing tier '%s'" % tier)
+		if not at_cap_tier_weights.has(tier):
+			errors.append("sites: atCapTierWeights missing tier '%s'" % tier)
 		if not prospect_xp.has(tier):
 			errors.append("sites: prospectXp missing tier '%s'" % tier)
 	for tier in ["poor", "fair", "rich", "saturated"]:

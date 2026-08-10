@@ -95,6 +95,48 @@ func run() -> void:
 			assert_eq(Sites.roll_tier_from_weights(weights), "saturated", "only nonzero-weight tier should ever be picked")
 	)
 
+	# ── at-cap tier weights (vein-raiding ticket 10) ─────────────────
+
+	run_case("compute_at_cap_tier_weights_matches_the_atCapTierWeights_table", func():
+		var w := Sites.compute_at_cap_tier_weights()
+		assert_eq(w["barren"], 40.0, "at-cap barren weight from data/sites.json")
+		assert_eq(w["poor"], 45.0, "at-cap poor weight from data/sites.json")
+		assert_eq(w["fair"], 10.0, "at-cap fair weight from data/sites.json")
+		assert_eq(w["rich"], 4.0, "at-cap rich weight from data/sites.json")
+		assert_eq(w["saturated"], 1.0, "at-cap saturated weight from data/sites.json")
+	)
+
+	run_case("roll_tier_at_cap_rolls_poor_or_barren_markedly_more_often_than_below_cap", func():
+		var at_cap_poor_or_barren := 0
+		var below_cap_poor_or_barren := 0
+		for seed in range(300):
+			Rng.set_seed(seed)
+			var tier := Sites.roll_tier_at_cap()
+			if tier == "poor" or tier == "barren":
+				at_cap_poor_or_barren += 1
+		for seed in range(300):
+			GameState.reset()
+			Rng.set_seed(seed)
+			var tier := Sites.roll_tier("hampstead")
+			if tier == "poor" or tier == "barren":
+				below_cap_poor_or_barren += 1
+		# at-cap table: (40+45)/100 = 85% poor/barren; below-cap base table:
+		# (20+30)/100 = 50% poor/barren -- at-cap should clear that by a wide,
+		# unambiguous margin over 300 draws.
+		assert_true(at_cap_poor_or_barren > below_cap_poor_or_barren + 60, "at-cap (%d/300) should skew poor/barren far more than below-cap (%d/300)" % [at_cap_poor_or_barren, below_cap_poor_or_barren])
+	)
+
+	run_case("roll_tier_at_cap_can_still_occasionally_roll_a_better_tier", func():
+		var saw_rich_or_saturated := false
+		for seed in range(300):
+			Rng.set_seed(seed)
+			var tier := Sites.roll_tier_at_cap()
+			if tier == "rich" or tier == "saturated":
+				saw_rich_or_saturated = true
+				break
+		assert_true(saw_rich_or_saturated, "rich/saturated must still be reachable at cap, just rare -- not a hard floor")
+	)
+
 	# ── ore-bias rolls ──────────────────────────────────────────────
 
 	run_case("compute_ore_probs_uniform_bias_splits_evenly", func():
@@ -266,6 +308,29 @@ func run() -> void:
 			ids.append(s["id"])
 		assert_true(not ids.has("older_poor"), "oldest site of the tied-worst tier should be the reroll target")
 		assert_true(ids.has("newer_poor"), "newer site of the same tier should survive")
+	)
+
+	run_case("prospect_at_cap_rolls_poor_or_barren_markedly_more_often_than_below_cap_same_district_skill", func():
+		var at_cap_poor_or_barren := 0
+		var below_cap_poor_or_barren := 0
+		for seed in range(200):
+			GameState.reset()
+			var target := _make_site("reroll_target", "hampstead", "fair", 1)
+			var filler := _make_site("filler_claimed", "hampstead", "fair", 1, true, false)
+			GameState.state["world"]["sites"] = [target, filler]
+			Rng.set_seed(seed)
+			var result := Sites.prospect("hampstead")
+			var tier: String = result["site"]["tier"]
+			if tier == "poor" or tier == "barren":
+				at_cap_poor_or_barren += 1
+		for seed in range(200):
+			GameState.reset()
+			Rng.set_seed(seed)
+			var result := Sites.prospect("hampstead")
+			var tier: String = result["site"]["tier"]
+			if tier == "poor" or tier == "barren":
+				below_cap_poor_or_barren += 1
+		assert_true(at_cap_poor_or_barren > below_cap_poor_or_barren + 40, "at-cap reroll (%d/200) should skew poor/barren far more than a fresh below-cap prospect (%d/200) for the same district and skill" % [at_cap_poor_or_barren, below_cap_poor_or_barren])
 	)
 
 	run_case("prospect_reroll_no_op_when_every_site_is_claimed_or_faction_claimed", func():

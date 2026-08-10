@@ -36,14 +36,22 @@ static func sites_in_district(district_id: String) -> Array:
 
 # ── tier roll (D2: base weights, then modifiers, then normalise) ──────
 
+# Shared by compute_tier_weights() and compute_at_cap_tier_weights(): floats
+# out a tier-keyed weight table (GameData.SITE_TIER_WEIGHTS or
+# GameData.SITE_AT_CAP_TIER_WEIGHTS) in GameData.SITE_TIER_ORDER's key order.
+static func _tier_weights_from_table(table: Dictionary) -> Dictionary:
+	var w: Dictionary = {}
+	for tier in GameData.SITE_TIER_ORDER:
+		w[tier] = float(table[tier])
+	return w
+
+
 # Pure function: base weights + siteQualityMod (rich +q, poor -q floor 0)
 # + cultivating skill (rich +2*(skill-1), saturated +1*(skill-1),
 # barren -3*(skill-1) floor 5). Kept separate from GameState reads so
 # tests can hit the floors directly without faking a whole district.
 static func compute_tier_weights(site_quality_mod: float, skill: int) -> Dictionary:
-	var w: Dictionary = {}
-	for tier in GameData.SITE_TIER_ORDER:
-		w[tier] = float(GameData.SITE_TIER_WEIGHTS[tier])
+	var w := _tier_weights_from_table(GameData.SITE_TIER_WEIGHTS)
 
 	var q: int = GameState.round_epsilon(site_quality_mod * 100.0)
 	w["rich"] += q
@@ -84,6 +92,23 @@ static func roll_tier(district_id: String) -> String:
 		GameState.state["flags"]["greenwichTipOff"] = false
 
 	return roll_tier_from_weights(weights)
+
+
+# vein-raiding ticket 10: once a district is at siteCap, the site being
+# rolled is replacing land that's already been picked over, so it draws
+# from GameData.SITE_AT_CAP_TIER_WEIGHTS (data/sites.json) instead of the
+# below-cap table above -- a fixed, heavily poor/barren-weighted table with
+# no siteQualityMod, skill, or Greenwich-tip-off inputs (those describe the
+# district's underlying land, not its "picked-over" state). Same
+# "mostly-the-expected-outcome, occasionally not" shape as
+# Factions.pick_claimant's presence-vs-rival-encroachment split: rich/
+# saturated stay reachable, just rare.
+static func compute_at_cap_tier_weights() -> Dictionary:
+	return _tier_weights_from_table(GameData.SITE_AT_CAP_TIER_WEIGHTS)
+
+
+static func roll_tier_at_cap() -> String:
+	return roll_tier_from_weights(compute_at_cap_tier_weights())
 
 
 # ── ore type roll (per district oreBias) ──────────────────────────────
@@ -218,11 +243,11 @@ static func _reroll_worst_unclaimed(district_id: String) -> Variant:
 	var worst_id: String = worst["id"]
 	var sites: Array = GameState.state["world"]["sites"]
 	GameState.state["world"]["sites"] = sites.filter(func(s): return s["id"] != worst_id)
-	return _create_site(district_id)
+	return _create_site(district_id, true)
 
 
-static func _create_site(district_id: String) -> Dictionary:
-	var tier := roll_tier(district_id)
+static func _create_site(district_id: String, at_cap: bool = false) -> Dictionary:
+	var tier := roll_tier_at_cap() if at_cap else roll_tier(district_id)
 	var ore_type := roll_ore_type(district_id)
 	var bonus_roll := roll_discovery_bonuses(tier)
 

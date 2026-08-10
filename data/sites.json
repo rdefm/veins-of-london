@@ -1,6 +1,7 @@
 {
   "tierOrder": ["barren", "poor", "fair", "rich", "saturated"],
   "tierWeights": { "barren": 20, "poor": 30, "fair": 32, "rich": 14, "saturated": 4 },
+  "atCapTierWeights": { "barren": 40, "poor": 45, "fair": 10, "rich": 4, "saturated": 1 },
   "prospectXp": { "barren": 10, "poor": 10, "fair": 15, "rich": 25, "saturated": 40 },
   "seedTierMod": { "poor": -0.15, "fair": 0.0, "rich": 0.20, "saturated": 0.35 },
   "discoveryBonusPool": ["recharge", "maxLevel", "yield"],

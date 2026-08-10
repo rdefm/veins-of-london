@@ -143,6 +143,7 @@ func run() -> void:
 		assert_almost_eq(GameData.DISTRICTS["city"]["priceMod"], 0.15, 0.0001, "city priceMod")
 		assert_eq(GameData.DISTRICTS["soho"]["siteCap"], 0, "soho has no sites (marketplace, no prospecting)")
 		assert_eq(GameData.SITE_TIER_WEIGHTS["fair"], 32, "site tier base weight: fair")
+		assert_eq(GameData.SITE_AT_CAP_TIER_WEIGHTS["poor"], 45, "site at-cap tier weight: poor")
 		assert_eq(GameData.SITE_PROSPECT_XP["saturated"], 40, "prospect XP: saturated")
 		assert_almost_eq(GameData.SITE_SEED_TIER_MOD["rich"], 0.20, 0.0001, "seed tierMod: rich")
 		assert_eq(GameData.SITE_DISCOVERY_BONUS_POOL.size(), 3, "3 discovery bonus types")
