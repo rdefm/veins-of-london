@@ -26,6 +26,8 @@ func run() -> void:
 		assert_eq(s["player"]["equipment"], { "weapon": null, "device": null }, "player.equipment")
 		assert_eq(s["player"]["craftingSkill"], 1, "player.craftingSkill")
 		assert_eq(s["player"]["cultivatingSkill"], 1, "player.cultivatingSkill")
+		assert_eq(s["player"]["stealthSkill"], 1, "player.stealthSkill")
+		assert_eq(s["player"]["stealthXP"], 0, "player.stealthXP")
 
 		assert_eq(s["world"]["day"], 1, "world.day")
 		assert_eq(s["world"]["timeBlock"], 0, "world.timeBlock")

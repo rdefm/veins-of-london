@@ -81,6 +81,34 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_mutate_load_round_trips_stealth_skill_for_player_and_contact", func():
+		GameState.reset()
+		GameState.state["player"]["stealthSkill"] = 3
+		GameState.state["player"]["stealthXP"] = 45
+		GameState.state["contacts"]["archie"]["stealthSkill"] = 2
+		GameState.state["contacts"]["archie"]["stealthXP"] = 30
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["player"]["stealthSkill"] = 1
+		GameState.state["player"]["stealthXP"] = 0
+		GameState.state["contacts"]["archie"]["stealthSkill"] = 1
+		GameState.state["contacts"]["archie"]["stealthXP"] = 0
+
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		assert_eq(GameState.state["player"]["stealthSkill"], 3, "player.stealthSkill should be restored")
+		assert_eq(GameState.state["player"]["stealthXP"], 45, "player.stealthXP should be restored")
+		assert_eq(typeof(GameState.state["player"]["stealthXP"]), TYPE_INT, "player.stealthXP should be restored as int, not float")
+		assert_eq(GameState.state["contacts"]["archie"]["stealthSkill"], 2, "contact.stealthSkill should be restored")
+		assert_eq(GameState.state["contacts"]["archie"]["stealthXP"], 30, "contact.stealthXP should be restored")
+		assert_eq(typeof(GameState.state["contacts"]["archie"]["stealthXP"]), TYPE_INT, "contact.stealthXP should be restored as int, not float")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("slot_exists_and_delete_slot", func():
 		SaveManager.delete_slot(TEST_SLOT)
 		assert_true(not SaveManager.slot_exists(TEST_SLOT), "should not exist before saving")

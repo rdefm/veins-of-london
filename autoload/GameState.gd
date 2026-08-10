@@ -44,6 +44,7 @@ func new_game_state() -> Dictionary:
 			"devicesCompleted": [],
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
+			"stealthSkill": 1, "stealthXP": 0,
 		},
 
 		"world": {
@@ -152,6 +153,7 @@ func _new_contacts_state() -> Dictionary:
 			"recruitThreshold": defaults.get("recruitThreshold", 0),
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
+			"stealthSkill": 1, "stealthXP": 0,
 			"assignedRoom": null,
 		}
 	return contacts

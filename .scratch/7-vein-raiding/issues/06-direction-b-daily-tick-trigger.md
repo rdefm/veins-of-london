@@ -1,0 +1,15 @@
+# 06 — Direction B: daily-tick raid trigger + off-screen resolution
+
+**What to build:** A new `daily_tick()` step (`systems/time_system.gd`, slotting into the existing ⑤b-⑤h step-order chain per its documented convention) that rolls, for each of the player's own veins, whether a faction raids it — same cadence family as the existing NPC-claim roll (`Sites.roll_npc_claims`), not a player-interrupting encounter by default. Trigger chance is driven by: the player's relation with the owning-district's faction (`state.factions[id].relation` — the player-facing field, low relation = more likely, distinct from Chunk 6's internal faction-to-faction matrix), the vein's district's `dangerMod` (`data/districts.json`), and the vein's own `raidResist` (reduces the chance, same field Direction A's ticket 02 reads from the other side). Structure this as a standalone pure roll function plus a separate resolution function, mirroring Chunk 6's `roll_rivalry_attempts()`/`roll_rivalry_odds()`/`resolve_rivalry_outcome()` split (tickets 02-04 there). This ticket implements the **no-alarm / default path only**: on a successful raid, the vein converts to the attacking faction's ownership outright (whole-vein loss, symmetric with Direction A's claim outcome — `oreType`/`level`/`security` carry over unchanged), and unlike Chunk 6's silent rivalry resolution, the player gets a `Notify`/Ticker push afterward, per the PRD ("consistent with how the game already surfaces background world-state changes like NPC claims/abandonment"). Which faction attacks which vein when the player has veins across multiple districts/factions is this ticket's call to resolve sensibly (e.g. weighted toward the faction with worst relation to the vein's district) — document it in code.
+
+**Blocked by:** None — can start immediately (does not depend on ticket 05; the alarm branch-off point is ticket 07's job)
+
+**Status:** ready-for-agent
+
+- [ ] New daily-tick step rolls a raid attempt per player vein, chance driven by player↔faction relation (low = more likely), the vein's district `dangerMod`, and the vein's `raidResist`
+- [ ] Attacking-faction selection when multiple factions could plausibly raid is documented in code
+- [ ] A successful roll transfers the vein from `player.veins` to the attacking faction's ownership (whole-vein loss, `oreType`/`level`/`security` carried over) — this ticket's default/no-alarm path; ticket 07 layers the alarm branch on top
+- [ ] Player receives a `Notify`/Ticker push after a successful raid resolves (unlike Chunk 6's silent rivalry roll)
+- [ ] A failed roll leaves all state untouched, no notification
+- [ ] Tests cover: low player-faction relation increases trigger chance; higher `raidResist` decreases it; a successful raid moves the vein out of `player.veins` and into the correct faction's owned sites with fields intact; a failed roll changes nothing; a notification is pushed only on success
+- [ ] `godot --headless -s scripts/check_runner.gd -- path/to/file.gd` clean on every touched file; `scripts/run_tests.sh` passes

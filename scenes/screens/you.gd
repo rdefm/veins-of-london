@@ -63,6 +63,7 @@ func _build_skills_card() -> Control:
 	c["content"].add_child(UI.heading("Skills", 14))
 	c["content"].add_child(UI.label("Crafting: Lv%d (%d XP)" % [player["craftingSkill"], player["craftingXP"]]))
 	c["content"].add_child(UI.label("Cultivating: Lv%d (%d XP)" % [player["cultivatingSkill"], player["cultivatingXP"]]))
+	c["content"].add_child(UI.label("Stealth: Lv%d (%d XP)" % [player["stealthSkill"], player["stealthXP"]]))
 	return c["panel"]
 
 
