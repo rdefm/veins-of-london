@@ -23,6 +23,26 @@ static func _site_with_vein(id: String, vein: Dictionary) -> Dictionary:
 	}
 
 
+# ── Direction B fixtures (ticket 06): a player-owned, site-tied vein ──────
+
+static func _player_vein_of(level: int, ore_type: String, security: String = "none", district: String = "shoreditch", site_id: String = "s_player") -> Dictionary:
+	return {
+		"id": "pv_test", "oreType": ore_type, "level": level,
+		"levelLabel": GameData.VEIN_LEVELS[str(level)]["label"], "devBar": 0,
+		"charged": false, "chargeBlocks": 0, "security": security, "alarmUpgrades": [],
+		"location": "Test St, nowhere", "claimedOnDay": 0, "district": district,
+		"siteId": site_id, "hospitability": { "tier": "fair", "bonuses": [] },
+	}
+
+
+static func _player_site_with_vein(id: String, vein: Dictionary) -> Dictionary:
+	return {
+		"id": id, "district": vein["district"], "tier": "fair", "oreType": vein["oreType"],
+		"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+		"hasNaturalVein": false,
+	}
+
+
 func run() -> void:
 	# ── stealth_success_chance direction ────────────────────────────────
 
@@ -352,4 +372,224 @@ func run() -> void:
 		var site: Dictionary = GameState.state["world"]["sites"][0]
 		assert_eq(site["factionVein"], null, "claim should transfer ownership")
 		assert_eq(GameState.state["player"]["veins"].size(), 1, "the vein should be appended to player.veins")
+	)
+
+	# ── Direction B: raid_success_chance (ticket 06) ──────────────────────
+
+	run_case("raid_success_chance_increases_as_relation_worsens", func():
+		GameState.reset()
+		var vein := _player_vein_of(2, "time", "none")
+		GameState.state["factions"]["collective"]["relation"] = 50
+		var chance_good_relation := Raiding.raid_success_chance("collective", vein)
+		GameState.state["factions"]["collective"]["relation"] = -50
+		var chance_bad_relation := Raiding.raid_success_chance("collective", vein)
+		assert_true(chance_bad_relation > chance_good_relation, "worse player relation should raise the raid chance (got %f vs %f)" % [chance_bad_relation, chance_good_relation])
+	)
+
+	run_case("raid_success_chance_decreases_with_higher_raidResist", func():
+		GameState.reset()
+		var unsecured := _player_vein_of(2, "time", "none")
+		var guarded := _player_vein_of(2, "time", "guarded")
+		var chance_unsecured := Raiding.raid_success_chance("collective", unsecured)
+		var chance_guarded := Raiding.raid_success_chance("collective", guarded)
+		assert_true(chance_unsecured > chance_guarded, "a guarded vein should be harder to raid than an unsecured one (got %f vs %f)" % [chance_unsecured, chance_guarded])
+	)
+
+	run_case("raid_success_chance_increases_with_higher_dangerMod", func():
+		GameState.reset()
+		var safe_vein := _player_vein_of(2, "time", "none", "hampstead")  # dangerMod -0.05
+		var rough_vein := _player_vein_of(2, "time", "none", "camden")   # dangerMod +0.10
+		var chance_safe := Raiding.raid_success_chance("collective", safe_vein)
+		var chance_rough := Raiding.raid_success_chance("collective", rough_vein)
+		assert_true(chance_rough > chance_safe, "a rougher district should raise the raid chance (got %f vs %f)" % [chance_rough, chance_safe])
+	)
+
+	run_case("raid_success_chance_clamps_to_the_0_1_range_at_extreme_inputs", func():
+		GameState.reset()
+		var vein := _player_vein_of(1, "time", "guarded", "hampstead")
+
+		GameState.state["factions"]["collective"]["relation"] = 100000
+		assert_eq(Raiding.raid_success_chance("collective", vein), 0.0, "extreme good relation + guarded security must clamp at 0.0, not go negative")
+
+		GameState.state["factions"]["collective"]["relation"] = -100000
+		assert_eq(Raiding.raid_success_chance("collective", vein), 1.0, "extreme bad relation must clamp at 1.0, not overflow above it")
+	)
+
+	# ── Direction B: roll_raid_attempts (ticket 06) ───────────────────────
+
+	run_case("roll_raid_attempts_includes_free_floating_veins_with_no_site", func():
+		GameState.reset()
+		var floating_vein := _player_vein_of(1, "time", "none")
+		floating_vein["siteId"] = null
+		GameState.state["player"]["veins"] = [floating_vein]
+
+		var attempts := Raiding.roll_raid_attempts()
+		assert_eq(attempts.size(), 1, "a free-floating vein is still raid-eligible")
+		assert_eq(attempts[0]["siteId"], null, "the attempt records the vein's null siteId for resolve_raid_outcome to branch on")
+	)
+
+	run_case("roll_raid_attempts_excludes_veins_whose_site_no_longer_exists", func():
+		GameState.reset()
+		var vein := _player_vein_of(1, "time", "none")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = []
+
+		var attempts := Raiding.roll_raid_attempts()
+		assert_eq(attempts.size(), 0, "a vein whose site record is gone is not raid-eligible")
+	)
+
+	run_case("roll_raid_attempts_uses_the_districts_presence_faction_as_attacker", func():
+		GameState.reset()
+		var vein := _player_vein_of(1, "time", "none", "shoreditch")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		var attempts := Raiding.roll_raid_attempts()
+		assert_eq(attempts.size(), 1, "one eligible vein produces one attempt")
+		assert_eq(attempts[0]["attackerId"], "collective", "shoreditch's factionPresence is collective")
+		assert_eq(attempts[0]["veinId"], "pv_test")
+		assert_eq(attempts[0]["siteId"], "s_player")
+	)
+
+	run_case("roll_raid_attempts_falls_back_to_the_worst_relation_faction_when_the_district_has_no_presence", func():
+		GameState.reset()
+		var vein := _player_vein_of(1, "time", "none", "hampstead")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		for faction_id in GameData.FACTIONS.keys():
+			GameState.state["factions"][faction_id]["relation"] = 60
+		GameState.state["factions"]["firm"]["relation"] = -90
+
+		# The fallback pick is weighted, not deterministic -- run many seeds
+		# and confirm firm (the worst-relation faction by a wide margin) is
+		# picked markedly more often than an evenly-liked rival, the same
+		# statistical style Factions.roll_rivalry_attempts()'s own weighted-
+		# pick test uses.
+		var firm_count := 0
+		var collective_count := 0
+		for seed in range(500):
+			Rng.set_seed(seed)
+			var attempts: Array = Raiding.roll_raid_attempts()
+			if attempts[0]["attackerId"] == "firm":
+				firm_count += 1
+			elif attempts[0]["attackerId"] == "collective":
+				collective_count += 1
+
+		assert_true(firm_count > collective_count * 2, "hampstead has no factionPresence, so the fallback should weight sharply toward the worst-relation faction -- got firm %d vs collective %d" % [firm_count, collective_count])
+	)
+
+	run_case("roll_raid_attempts_is_a_pure_computation_no_state_mutation", func():
+		GameState.reset()
+		var vein := _player_vein_of(1, "time", "none")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+
+		Raiding.roll_raid_attempts()
+
+		assert_eq(GameState.state, before, "roll_raid_attempts must not mutate state")
+	)
+
+	# ── Direction B: roll_raid_odds (ticket 06) ───────────────────────────
+
+	run_case("roll_raid_odds_is_a_pure_computation_no_state_mutation", func():
+		GameState.reset()
+		var vein := _player_vein_of(1, "time", "none")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		var attempt := { "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player" }
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+
+		Raiding.roll_raid_odds(attempt)
+
+		assert_eq(GameState.state, before, "roll_raid_odds must not mutate state")
+	)
+
+	run_case("roll_raid_odds_success_is_false_when_the_target_vein_no_longer_exists", func():
+		GameState.reset()
+		var attempt := { "attackerId": "collective", "veinId": "gone", "siteId": "s_player" }
+		var outcome := Raiding.roll_raid_odds(attempt)
+		assert_eq(outcome["success"], false, "an attempt targeting an already-vanished vein is unwinnable, not a crash")
+	)
+
+	# ── Direction B: resolve_raid_outcome (ticket 06) ─────────────────────
+
+	run_case("resolve_raid_outcome_success_transfers_the_vein_from_player_to_the_attacking_faction", func():
+		GameState.reset()
+		var vein := _player_vein_of(3, "physics", "warded", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		Raiding.resolve_raid_outcome(outcome)
+
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "the vein leaves player.veins")
+		var site: Dictionary = Sites.find_site("s_player")
+		assert_true(site["factionVein"] != null, "the site should now carry a factionVein")
+		assert_true(not site["claimed"], "the site should no longer be marked player-claimed")
+		assert_eq(site["factionVein"]["factionId"], "firm", "ownership goes to the attacking faction")
+		assert_eq(site["factionVein"]["oreType"], "physics", "oreType carries over")
+		assert_eq(site["factionVein"]["level"], 3, "level carries over")
+		assert_eq(site["factionVein"]["security"], "warded", "security carries over")
+	)
+
+	run_case("resolve_raid_outcome_success_transfers_a_free_floating_vein_into_the_factions_veins_list", func():
+		GameState.reset()
+		var vein := _player_vein_of(2, "life", "guarded", "camden")
+		vein["siteId"] = null
+		GameState.state["player"]["veins"] = [vein]
+
+		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": null, "success": true }
+		Raiding.resolve_raid_outcome(outcome)
+
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "the vein leaves player.veins")
+		var faction_veins: Array = GameState.state["factions"]["firm"]["veins"]
+		assert_eq(faction_veins.size(), 1, "a free-floating vein transfers into the attacking faction's veins list")
+		assert_eq(faction_veins[0]["factionId"], "firm", "ownership goes to the attacking faction")
+		assert_eq(faction_veins[0]["oreType"], "life", "oreType carries over")
+		assert_eq(faction_veins[0]["level"], 2, "level carries over")
+		assert_eq(faction_veins[0]["security"], "guarded", "security carries over")
+	)
+
+	run_case("resolve_raid_outcome_pushes_a_notification_only_on_success", func():
+		GameState.reset()
+		var vein := _player_vein_of(1, "time", "none")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		var failure := { "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": false }
+		Raiding.resolve_raid_outcome(failure)
+		assert_eq(GameState.state["notifications"].size(), 0, "a failed raid should push no notification")
+
+		var success := { "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		Raiding.resolve_raid_outcome(success)
+		assert_eq(GameState.state["notifications"].size(), 1, "a successful raid should push exactly one notification")
+	)
+
+	run_case("resolve_raid_outcome_failure_changes_nothing", func():
+		GameState.reset()
+		var vein := _player_vein_of(1, "time", "none")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+
+		var outcome := { "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": false }
+		Raiding.resolve_raid_outcome(outcome)
+
+		assert_eq(GameState.state, before, "a failed raid must leave state untouched")
+	)
+
+	run_case("resolve_raid_outcome_success_is_a_no_op_when_the_vein_already_vanished", func():
+		GameState.reset()
+		var vein := _player_vein_of(1, "time", "none")
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		# vein deliberately not added to player.veins -- simulates it having
+		# already been removed by something else earlier this same tick.
+
+		var outcome := { "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		Raiding.resolve_raid_outcome(outcome)
+
+		assert_eq(GameState.state["notifications"].size(), 0, "no notification for a vein that no longer exists")
+		var site: Dictionary = Sites.find_site("s_player")
+		assert_eq(site["factionVein"], null, "no faction vein should be created out of nothing")
 	)

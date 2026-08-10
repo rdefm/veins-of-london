@@ -136,14 +136,17 @@ static func _weighted_security_roll(weights: Dictionary) -> String:
 	var weight_list: Array[float] = []
 	for tier in order:
 		weight_list.append(weights[tier])
-	return order[_weighted_pick_index(weight_list)]
+	return order[weighted_pick_index(weight_list)]
 
 
 # Shared cumulative-weighted-roll: index i is chosen with probability
-# weights[i] / sum(weights). Used both by the security-tier roll above and
-# by the rivalry target-vein pick below -- same algorithm, two different
-# callers each mapping the returned index back to their own domain object.
-static func _weighted_pick_index(weights: Array[float]) -> int:
+# weights[i] / sum(weights). Used by the security-tier roll above, the
+# rivalry target-vein pick below, and (vein-raiding ticket 06)
+# Raiding._pick_worst_relation_faction()'s Direction-B attacker fallback --
+# same algorithm, three different callers each mapping the returned index
+# back to their own domain object. Public (no leading underscore) for that
+# cross-file reuse.
+static func weighted_pick_index(weights: Array[float]) -> int:
 	var total: float = 0.0
 	for w in weights:
 		total += w
@@ -378,7 +381,7 @@ static func _pick_target_vein(candidates: Array) -> Dictionary:
 	for candidate in candidates:
 		var vein: Dictionary = candidate["vein"]
 		weight_list.append(GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * vein["level"])
-	return candidates[_weighted_pick_index(weight_list)]
+	return candidates[weighted_pick_index(weight_list)]
 
 
 # ── faction-territory-rivalry T03: rivalry odds calculation ────────────

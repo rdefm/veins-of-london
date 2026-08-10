@@ -55,6 +55,11 @@ static func do_rest() -> void:
 # vein changes hands, and after ⑤d (faction vein growth) so a same-tick
 # freshly-claimed vein is a legitimate rivalry target/target-owner by the
 # time ⑤h runs, same as it already is for ⑤e-⑤g's income/spend reads.
+# vein-raiding T06 adds step ⑤i, right after ⑤h: a faction raiding one of
+# the player's own veins is independent of the ⑤e-⑤h faction-economy chain
+# (it reads/writes player.veins and a target site, not faction resources),
+# so ordering relative to ⑤h doesn't matter causally -- placed last per
+# landing order, same as ⑤h was appended after ⑤g.
 # Steps for systems that don't exist yet are stubs; wire the real call in
 # when that task lands.
 static func daily_tick() -> void:
@@ -70,6 +75,7 @@ static func daily_tick() -> void:
 	Factions.apply_vein_income()         # ⑤f faction vein-derived income (faction-resource-economy T03), runs right after ⑤e — after ⑤c/⑤d so an abandoned vein doesn't earn and a same-tick-claimed vein reuses ⑤d's claimedOnDay skip
 	Factions.apply_security_upgrades()   # ⑤g faction security-upgrade spend (faction-resource-economy T04), runs right after ⑤f so a tick's vein income is already banked and spendable the same day it's earned
 	Factions.apply_rivalry_resolution()  # ⑤h faction-territory-rivalry attempt roll + resolution (faction-territory-rivalry T04), runs right after ⑤g so a tick's income/spend is already settled before any vein changes hands
+	Raiding.apply_raid_resolution()      # ⑤i Direction-B raid attempt roll + resolution (vein-raiding T06), runs right after ⑤h
 	Rooms.process_lab()                  # ⑥ rooms (lab, then veinStation)
 	Rooms.process_vein_station()
 	Devices.reset_daily_charges()        # ⑦ device charge reset

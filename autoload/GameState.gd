@@ -123,6 +123,18 @@ func _new_factions_state() -> Dictionary:
 			# its flavour text, so `startingResources` is its own tiered field:
 			# Collective scrappiest, Firm/Network mid, Guild/Conclave richest.
 			"resources": GameData.FACTIONS[faction_id].get("startingResources", 0),
+			# vein-raiding ticket 06: veins a faction owns that aren't tied to
+			# any state.world.sites entry -- the only such case today is a
+			# Direction-B raid against a free-floating player vein (made via
+			# Cultivating.seed(), siteId null). Every *other* faction vein
+			# anywhere in the codebase still lives on site["factionVein"]
+			# (Direction A's claim/loot, Chunk 6's rivalry, faction passive/
+			# vein income, security upgrades, and the Network Map all only
+			# ever scan state.world.sites) -- a vein landing here is not yet
+			# reachable by any of those, a known, deliberately narrow gap left
+			# for a follow-up ticket rather than this one redesigning five
+			# other systems' site-only scans.
+			"veins": [],
 		}
 	return factions
 

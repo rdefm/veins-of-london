@@ -173,3 +173,218 @@ static func begin_raid(vein: Dictionary) -> Dictionary:
 	TimeSystem.advance_time_block()
 	Events.start_event(RAID_EVENT_ID, { "site_id": vein["siteId"] })
 	return { "ok": true }
+
+
+# ── Direction B: daily-tick raid trigger (ticket 06) ────────────────────
+# The mirror of Direction A above: instead of the player raiding a
+# faction's vein, a faction raids one of the player's own. Called from
+# systems/time_system.gd's daily_tick() (step 5i, right after Chunk 6's
+# rivalry resolution). Same attempts/odds/resolve split Chunk 6's rivalry
+# code uses (roll_rivalry_attempts()/roll_rivalry_odds()/
+# resolve_rivalry_outcome(), systems/factions.gd) -- a pure roll that
+# decides who's attempted against what, a pure odds calc + roll, then a
+# resolution step that's the only one allowed to mutate state or push a
+# Notify.
+#
+# This ticket implements the no-alarm / default (off-screen) path only --
+# ticket 07 layers an alarm branch-off on top, before resolve_raid_outcome
+# would otherwise run.
+#
+# Eligible targets: every player vein, site-tied or free-floating
+# (Cultivating.seed(), siteId null) alike -- the ticket's "each of the
+# player's own veins" is read literally. A site-tied vein transfers into
+# that site's factionVein, the existing faction-ownership home every other
+# system (Direction A, Chunk 6 rivalry, faction passive/vein income,
+# security upgrades, the Network Map) already reads -- this also preserves
+# the PRD's promised loop ("a vein taken this way can later be raided back
+# via Direction A", which requires vein["siteId"], see begin_raid() above).
+# A free-floating vein has no site to attach to, so it transfers into the
+# new state.factions[id].veins list instead (GameState._new_factions_state()) --
+# a deliberately minimal addition, symmetric to player.veins, that exists
+# solely so Direction B has somewhere real to put it. It is NOT yet
+# reachable by Direction A's raid-back loop, Chunk 6's rivalry, the faction
+# economy, or the Network Map -- all of those still only scan
+# state.world.sites, and wiring a floating faction vein into five other
+# already-shipped systems is out of this ticket's scope. A known gap for a
+# follow-up ticket, not an oversight.
+
+
+# Baseline "no dice rolled yet" chance before the three tilts below --
+# deliberately low next to Chunk 6's RIVALRY_BASE_CHANCE (0.5): that chance
+# only fires after a coarse per-faction initiation roll already filtered
+# down to a handful of attempts a tick, whereas this rolls once per player
+# vein, every tick, with no such pre-filter (same shape as
+# Sites.npc_claim_chance()'s low per-site daily base).
+const RAID_BASE_CHANCE := 0.05
+
+# relation ranges roughly -100 (a couple of Direction-A claim hits) to +60
+# (joinRelation's ceiling, data/factions.json) -- 100 keeps a realistic
+# swing's tilt within roughly +/-1 before the weight below scales it down,
+# same normalise-then-weight shape Factions.rivalry_success_chance() uses
+# for its own relation term.
+const RAID_RELATION_DIVISOR := 100.0
+const RAID_RELATION_WEIGHT := 0.20
+
+# dangerMod (data/districts.json) ranges -0.05..+0.10 -- small enough that
+# a direct (unnormalised) weight keeps its tilt modest next to the other
+# two inputs, same as how Economy/Districts consume dangerMod directly
+# elsewhere rather than normalising it against a ceiling.
+const RAID_DANGER_WEIGHT := 0.5
+
+# raidResist's ceiling is "guarded" (55, data/vein_security.json) -- same
+# normalise-against-the-ceiling shape Factions.rivalry_success_chance() and
+# stealth_success_chance() above both already use for this exact field.
+const RAID_RAID_RESIST_DIVISOR := 55.0
+const RAID_RAID_RESIST_WEIGHT := 0.20
+
+
+# Attacking-faction selection (the ticket's explicit "resolve sensibly"
+# call): a vein's own district's factionPresence (data/districts.json) is
+# the natural attacker -- it's already who the chance formula below reads
+# relation from, so the faction driving whether a raid happens is also the
+# one throwing the punch. A district with no presence (e.g. Hampstead)
+# falls back to the ticket's own suggested heuristic -- weighted toward
+# whichever faction currently has the worst (lowest) relation with the
+# player, since a faction that already resents the player is the
+# sensible one to imagine showing up uninvited. Each vein resolves its
+# attacker independently off its own district, so a player with veins
+# across multiple districts/factions just gets one sensible per-vein
+# answer with no cross-vein coordination needed.
+static func _attacking_faction(vein: Dictionary) -> String:
+	var district: Dictionary = GameData.DISTRICTS.get(vein["district"], {})
+	var presence: String = district.get("factionPresence", "")
+	if presence != "" and GameData.FACTIONS.has(presence):
+		return presence
+	return _pick_worst_relation_faction()
+
+
+# Baseline high enough that every faction's weight stays positive across
+# the realistic relation range (joinRelation tops out at 60) while still
+# scaling up sharply as relation drops through 0 and negative -- the worse
+# the relation, the heavier the weight.
+const FALLBACK_ATTACKER_RELATION_BASELINE := 100.0
+
+
+static func _pick_worst_relation_faction() -> String:
+	var faction_ids: Array = GameData.FACTIONS.keys()
+	var weight_list: Array[float] = []
+	for faction_id in faction_ids:
+		var relation: int = GameState.state["factions"][faction_id]["relation"]
+		weight_list.append(maxf(1.0, FALLBACK_ATTACKER_RELATION_BASELINE - relation))
+	return faction_ids[Factions.weighted_pick_index(weight_list)]
+
+
+# One attempt record per eligible player vein -- every player vein is a
+# candidate every tick (no coarse initiation pre-filter, unlike Chunk 6's
+# rivalry attempts); raid_success_chance()/roll_raid_odds() below are what
+# actually decide whether anything happens. A site-tied vein whose site has
+# since vanished is skipped (defensive only -- sites don't currently get
+# deleted mid-tick before this step runs, but the check costs nothing); a
+# free-floating vein (siteId null) is always eligible, see resolve_raid_
+# outcome()'s two-branch transfer below. Pure -- no Rng beyond the attacker
+# pick's fallback weighting, no state mutation.
+static func roll_raid_attempts() -> Array:
+	var attempts := []
+	for vein in GameState.state["player"]["veins"]:
+		var site_id: Variant = vein.get("siteId")
+		if site_id != null and Sites.find_site(site_id) == null:
+			continue
+		attempts.append({
+			"attackerId": _attacking_faction(vein),
+			"veinId": vein["id"],
+			"siteId": site_id,
+		})
+	return attempts
+
+
+# Pure computation, mirroring Factions.rivalry_success_chance()'s shape: a
+# low baseline pushed by three signed tilts, clamped to [0, 1].
+# - relation (attacker's player-facing relation, state.factions[id]
+#   .relation): lower -> higher chance.
+# - dangerMod (the vein's district): higher -> higher chance.
+# - raidResist (the vein's own security tier): higher -> lower chance.
+static func raid_success_chance(attacker_id: String, vein: Dictionary) -> float:
+	var relation: int = GameState.state["factions"][attacker_id]["relation"]
+	var relation_tilt: float = -(float(relation) / RAID_RELATION_DIVISOR) * RAID_RELATION_WEIGHT
+
+	var district: Dictionary = GameData.DISTRICTS.get(vein["district"], {})
+	var danger_mod: float = district.get("dangerMod", 0.0)
+	var danger_tilt: float = danger_mod * RAID_DANGER_WEIGHT
+
+	var raid_resist: int = GameData.VEIN_SECURITY[vein["security"]]["raidResist"]
+	var resist_tilt: float = -(float(raid_resist) / RAID_RAID_RESIST_DIVISOR) * RAID_RAID_RESIST_WEIGHT
+
+	var chance: float = RAID_BASE_CHANCE + relation_tilt + danger_tilt + resist_tilt
+	return clampf(chance, 0.0, 1.0)
+
+
+# Rolls the chance above and returns the attempt record annotated with its
+# resolved "success" outcome. Still pure computation -- ownership transfer
+# and the Notify push are resolve_raid_outcome()'s job, not this
+# function's. If the target vein has already vanished since the attempt
+# was recorded, this reads as chance 0 rather than indexing into a null
+# vein, same defensive shape Factions.rivalry_success_chance() uses for its
+# own vanished-target case.
+static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
+	var outcome: Dictionary = attempt.duplicate()
+	var vein: Variant = Cultivating.find_vein(attempt["veinId"])
+	outcome["success"] = false if vein == null else Rng.chance(raid_success_chance(attempt["attackerId"], vein))
+	return outcome
+
+
+# Applies one already-rolled outcome. A failed attempt is a documented
+# no-op -- no ownership change, no notification. A successful attempt:
+#   - removes the vein from player.veins and reassigns it (oreType/level/
+#     security carried over unchanged, matching Chunk 6's resolve_rivalry_
+#     outcome() and Direction A's claim_vein()) to the attacking faction.
+#     Two destinations depending on the vein's shape (see the ticket-06
+#     comment block above for the full rationale):
+#       - site-tied (siteId set): into that site's factionVein, flipping the
+#         site back to faction-owned -- the exact mirror image of Sites.
+#         attempt_seed()'s claimed=true/factionVein=null transition, and
+#         what lets a vein taken this way later be raided back via
+#         Direction A (begin_raid() requires vein["siteId"]).
+#       - free-floating (siteId null): appended to state.factions[id]
+#         .veins -- not yet reachable by any other system (see above), but
+#         the vein is still genuinely faction-owned, not destroyed.
+#   - pushes a Notify, unlike Chunk 6's silent rivalry resolution -- per
+#     the PRD, background world-state changes to the player's own stuff
+#     are surfaced, the same convention Sites.roll_npc_claims()/
+#     roll_npc_abandonment() already use for other background changes.
+# Re-checks the vein's live presence in player.veins (rather than trusting
+# the attempt batch's stale snapshot) before touching anything, so a vein
+# that's vanished between the roll and the resolve (e.g. levelled down to
+# nothing elsewhere this same tick) is silently skipped, not crashed on.
+static func resolve_raid_outcome(outcome: Dictionary) -> void:
+	if not outcome["success"]:
+		return
+
+	var vein: Variant = Cultivating.find_vein(outcome["veinId"])
+	if vein == null:
+		return
+
+	var faction_vein: Dictionary = GameState.deep_copy(vein)
+	faction_vein["factionId"] = outcome["attackerId"]
+
+	if outcome["siteId"] != null:
+		var site: Variant = Sites.find_site(outcome["siteId"])
+		if site == null or site["factionVein"] != null:
+			return
+		site["factionVein"] = faction_vein
+		site["claimed"] = false
+	else:
+		GameState.state["factions"][outcome["attackerId"]]["veins"].append(faction_vein)
+
+	var player: Dictionary = GameState.state["player"]
+	var vein_id: String = outcome["veinId"]
+	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
+
+	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
+	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
+	Notify.push("%s raided your vein in %s. It's theirs now." % [faction_name, district_name])
+
+
+# Called from time_system.gd's daily_tick, step 5i.
+static func apply_raid_resolution() -> void:
+	for attempt in roll_raid_attempts():
+		resolve_raid_outcome(roll_raid_odds(attempt))

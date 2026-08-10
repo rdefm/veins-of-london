@@ -243,6 +243,35 @@ func run() -> void:
 		assert_true(hit, "daily_tick should reach step 5h (Factions.apply_rivalry_resolution) within 500 tries")
 	)
 
+	run_case("daily_tick_wires_in_direction_b_raid_resolution_step_right_after_rivalry_resolution_step", func():
+		# A hated, unsecured, rough-district player vein facing a faction it's
+		# burned relation with -- run many seeds and confirm daily_tick
+		# eventually reaches step 5i and flips the vein to that faction.
+		var hit := false
+		for seed in range(500):
+			GameState.reset()
+			var vein := {
+				"id": "pv1", "oreType": "fate", "level": 1, "levelLabel": "Trace", "devBar": 0,
+				"charged": false, "chargeBlocks": 0, "security": "none", "alarmUpgrades": [],
+				"location": "Test St, nowhere", "claimedOnDay": 0, "district": "camden",
+				"siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
+			}
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [{
+				"id": "s1", "district": "camden", "tier": "fair", "oreType": "fate",
+				"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+				"hasNaturalVein": false,
+			}]
+			GameState.state["factions"]["firm"]["relation"] = -200  # camden's factionPresence
+			Rng.set_seed(seed)
+			TimeSystem.daily_tick()
+			var site: Variant = Sites.find_site("s1")
+			if site != null and site["factionVein"] != null and site["factionVein"]["factionId"] == "firm":
+				hit = true
+				break
+		assert_true(hit, "daily_tick should reach step 5i (Raiding.apply_raid_resolution) within 500 tries")
+	)
+
 	run_case("stub_daily_tick_steps_do_not_crash", func():
 		GameState.reset()
 		# Just confirms daily_tick runs end to end with the T04/T05/T06/T09
