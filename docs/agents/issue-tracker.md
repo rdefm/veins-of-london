@@ -22,7 +22,9 @@ Read the file at the referenced path. The user will normally pass the path or th
 
 ## Completion
 
-The five canonical triage roles (see `triage-labels.md`) are pre-work routing only — none of them mean "done." When a ticket's work lands and is committed, mark it done by renaming the file, appending `_COMPLETED` to the end of the filename, before the `.md` extension — e.g. `01-districts-data-travel-rule.md` → `01-districts-data-travel-rule_COMPLETED.md`. This renamed-file signal replaces a `Status: done` line; use `Status: wontfix` on the (unrenamed) file instead if a ticket is abandoned rather than completed. The file stays in the same directory — only the filename changes, never move it elsewhere or delete it. Git history is the audit trail; `ls .scratch/<feature-slug>/issues/` should always reflect the current backlog, with `_COMPLETED` tickets visibly closed out in place rather than removed.
+The five canonical triage roles (see `triage-labels.md`) are pre-work routing only — none of them mean "done." When a ticket's work lands, mark it done by renaming the file, appending `_COMPLETED` to the end of the filename, before the `.md` extension — e.g. `01-districts-data-travel-rule.md` → `01-districts-data-travel-rule_COMPLETED.md`. This renamed-file signal replaces a `Status: done` line; use `Status: wontfix` on the (unrenamed) file instead if a ticket is abandoned rather than completed. The file stays in the same directory — only the filename changes, never move it elsewhere or delete it. Git history is the audit trail; `ls .scratch/<feature-slug>/issues/` should always reflect the current backlog, with `_COMPLETED` tickets visibly closed out in place rather than removed.
+
+**Commit as one.** Rename the file in the same commit as the implementation it closes out — stage the rename alongside the code changes, one commit, not a separate "mark ticket completed" commit afterward. Two commits per ticket was the old pattern (see git history before this note); it's needless commit overhead for a rename that has no reason to stand alone.
 
 ## Wayfinding operations
 
