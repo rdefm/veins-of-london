@@ -135,6 +135,32 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["veins"].size(), 0, "no vein should be granted")
 	)
 
+	# ── claim_vein: map visibility (direction-a-map-visibility T04) ────────
+
+	run_case("claim_vein_queues_a_seed_claim_map_event_owned_by_the_player", func():
+		GameState.reset()
+		var vein := _faction_vein_of(2, "emotion", "warded", "network")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+
+		Raiding.claim_vein("s1")
+
+		var event: Dictionary = MapEvents.current()
+		assert_eq(event["type"], "seed_claim", "a raid claim queues the same event type/shape as a faction vein claim")
+		assert_eq(event["district"], "shoreditch", "event references the vein's district")
+		assert_eq(event["veinId"], "fv_test", "event references the vein that changed hands")
+		assert_eq(event["owner"], "player", "event's owner is the player, the vein's new owner")
+	)
+
+	run_case("claim_vein_no_op_does_not_queue_a_map_event", func():
+		GameState.reset()
+		var site: Dictionary = _site_with_vein("s1", _faction_vein_of(1, "time"))
+		site["factionVein"] = null
+		GameState.state["world"]["sites"] = [site]
+
+		Raiding.claim_vein("s1")
+		assert_true(not MapEvents.has_pending(), "a no-op claim must not queue a map event")
+	)
+
 	# ── loot_vein ───────────────────────────────────────────────────────
 
 	run_case("loot_vein_grants_ore_and_leaves_ownership_with_the_faction", func():

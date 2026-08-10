@@ -94,6 +94,15 @@ const LOOT_ORE_QTY := 8
 # severe relation hit, regardless of caught/clean (claiming is visible on the
 # map either way). No-op if the site has no factionVein (bad site_id, or
 # already transferred elsewhere -- e.g. a same-tick rivalry resolution).
+#
+# direction-a-map-visibility T04: also queues a map-animations-ticket-02-
+# shaped "seed_claim" event (district/vein id, owner "player") -- the same
+# reuse Factions.resolve_rivalry_outcome() established for rivalry-driven
+# transfers (map-visibility-for-rivalry-ownership-changes T05), just with the
+# player as the new owner instead of a rival faction. MapCanvas's existing
+# ring-draw-in playback doesn't care whether the vein is new or just changed
+# hands, since it resolves the vein's *current* owner live rather than off a
+# snapshot -- no new trigger-specific code needed on the playback side.
 static func claim_vein(site_id: String) -> void:
 	var site: Variant = Sites.find_site(site_id)
 	if site == null or site["factionVein"] == null:
@@ -101,6 +110,8 @@ static func claim_vein(site_id: String) -> void:
 
 	var faction_vein: Dictionary = site["factionVein"]
 	var faction_id: String = faction_vein["factionId"]
+	var vein_id: String = faction_vein["id"]
+	var district: String = site["district"]
 
 	var player_vein: Dictionary = GameState.deep_copy(faction_vein)
 	player_vein.erase("factionId")
@@ -110,6 +121,7 @@ static func claim_vein(site_id: String) -> void:
 	site["factionVein"] = null
 
 	Factions.adjust_player_relation(faction_id, CLAIM_RELATION_HIT)
+	MapEvents.queue_seed_claim(district, vein_id, "player")
 	EventBus.state_changed.emit()
 
 
