@@ -213,9 +213,6 @@ func _restore_int_types(state: Dictionary) -> void:
 		for faction in state["factions"].values():
 			_int_key(faction, "relation")
 			_int_key(faction, "resources")
-			for vein in faction.get("veins", []):
-				for key in ["level", "devBar", "chargeBlocks", "claimedOnDay"]:
-					_int_key(vein, key)
 
 	if state.has("factionRelations"):
 		for row in state["factionRelations"].values():

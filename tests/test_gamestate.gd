@@ -42,7 +42,6 @@ func run() -> void:
 			assert_eq(s["factions"][faction_id]["relation"], 0, "factions.%s.relation" % faction_id)
 			assert_eq(s["factions"][faction_id]["joined"], false, "factions.%s.joined" % faction_id)
 			assert_eq(s["factions"][faction_id]["resources"], GameData.FACTIONS[faction_id]["startingResources"], "factions.%s.resources seeded from data/factions.json" % faction_id)
-			assert_eq(s["factions"][faction_id]["veins"], [], "factions.%s.veins" % faction_id)
 
 		assert_eq(s["barometer"]["economic"], "stable", "barometer.economic")
 		assert_eq(s["barometer"]["social"], "stable", "barometer.social")

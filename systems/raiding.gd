@@ -190,23 +190,16 @@ static func begin_raid(vein: Dictionary) -> Dictionary:
 # ticket 07 layers an alarm branch-off on top, before resolve_raid_outcome
 # would otherwise run.
 #
-# Eligible targets: every player vein, site-tied or free-floating
-# (Cultivating.seed(), siteId null) alike -- the ticket's "each of the
-# player's own veins" is read literally. A site-tied vein transfers into
-# that site's factionVein, the existing faction-ownership home every other
-# system (Direction A, Chunk 6 rivalry, faction passive/vein income,
-# security upgrades, the Network Map) already reads -- this also preserves
-# the PRD's promised loop ("a vein taken this way can later be raided back
-# via Direction A", which requires vein["siteId"], see begin_raid() above).
-# A free-floating vein has no site to attach to, so it transfers into the
-# new state.factions[id].veins list instead (GameState._new_factions_state()) --
-# a deliberately minimal addition, symmetric to player.veins, that exists
-# solely so Direction B has somewhere real to put it. It is NOT yet
-# reachable by Direction A's raid-back loop, Chunk 6's rivalry, the faction
-# economy, or the Network Map -- all of those still only scan
-# state.world.sites, and wiring a floating faction vein into five other
-# already-shipped systems is out of this ticket's scope. A known gap for a
-# follow-up ticket, not an oversight.
+# Eligible targets: every player vein with a siteId resolving to a live
+# state.world.sites entry -- transfers into that site's factionVein, the
+# existing faction-ownership home every other system (Direction A, Chunk 6
+# rivalry, faction passive/vein income, security upgrades, the Network Map)
+# already reads, and preserves the PRD's promised loop ("a vein taken this
+# way can later be raided back via Direction A", which requires
+# vein["siteId"], see begin_raid() above). Ticket 09 closed off every path
+# that could create a free-floating player vein, so that case no longer
+# needs handling here (ticket 11 retired the state.factions[id].veins
+# scaffolding ticket 06 originally added for it).
 
 
 # Baseline "no dice rolled yet" chance before the three tilts below --
@@ -277,17 +270,22 @@ static func _pick_worst_relation_faction() -> String:
 # One attempt record per eligible player vein -- every player vein is a
 # candidate every tick (no coarse initiation pre-filter, unlike Chunk 6's
 # rivalry attempts); raid_success_chance()/roll_raid_odds() below are what
-# actually decide whether anything happens. A site-tied vein whose site has
-# since vanished is skipped (defensive only -- sites don't currently get
-# deleted mid-tick before this step runs, but the check costs nothing); a
-# free-floating vein (siteId null) is always eligible, see resolve_raid_
-# outcome()'s two-branch transfer below. Pure -- no Rng beyond the attacker
-# pick's fallback weighting, no state mutation.
+# actually decide whether anything happens. A vein whose site has since
+# vanished is skipped (defensive only -- sites don't currently get deleted
+# mid-tick before this step runs, but the check costs nothing). A null
+# siteId is also skipped, not just excluded by the site lookup above it --
+# ticket 09 stops any *new* floating vein from being created, but ticket
+# 11's own text leaves pre-existing ones (older saves, or any vein made
+# before ticket 09 landed) unmigrated and explicitly out of scope, so one
+# can still legitimately be sitting in player.veins with siteId null.
+# Reading `Variant` here rather than casting straight to String keeps that
+# case a skip, not a crash. Pure -- no Rng beyond the attacker pick's
+# fallback weighting, no state mutation.
 static func roll_raid_attempts() -> Array:
 	var attempts := []
 	for vein in GameState.state["player"]["veins"]:
 		var site_id: Variant = vein.get("siteId")
-		if site_id != null and Sites.find_site(site_id) == null:
+		if site_id == null or Sites.find_site(site_id) == null:
 			continue
 		attempts.append({
 			"attackerId": _attacking_faction(vein),
@@ -336,17 +334,11 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 # no-op -- no ownership change, no notification. A successful attempt:
 #   - removes the vein from player.veins and reassigns it (oreType/level/
 #     security carried over unchanged, matching Chunk 6's resolve_rivalry_
-#     outcome() and Direction A's claim_vein()) to the attacking faction.
-#     Two destinations depending on the vein's shape (see the ticket-06
-#     comment block above for the full rationale):
-#       - site-tied (siteId set): into that site's factionVein, flipping the
-#         site back to faction-owned -- the exact mirror image of Sites.
-#         attempt_seed()'s claimed=true/factionVein=null transition, and
-#         what lets a vein taken this way later be raided back via
-#         Direction A (begin_raid() requires vein["siteId"]).
-#       - free-floating (siteId null): appended to state.factions[id]
-#         .veins -- not yet reachable by any other system (see above), but
-#         the vein is still genuinely faction-owned, not destroyed.
+#     outcome() and Direction A's claim_vein()) into the site's factionVein,
+#     flipping the site back to faction-owned -- the exact mirror image of
+#     Sites.attempt_seed()'s claimed=true/factionVein=null transition, and
+#     what lets a vein taken this way later be raided back via Direction A
+#     (begin_raid() requires vein["siteId"]).
 #   - pushes a Notify, unlike Chunk 6's silent rivalry resolution -- per
 #     the PRD, background world-state changes to the player's own stuff
 #     are surfaced, the same convention Sites.roll_npc_claims()/
@@ -358,12 +350,7 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 #     established, and the single choke point both Direction B loss paths
 #     (this ticket's off-screen default and ticket 07's lost defend-
 #     encounter, via resolve_defend_outcome() below) share, so one call
-#     here covers both. Queued unconditionally, including the free-
-#     floating branch: MapLayout never surfaces a siteId-less vein as a
-#     stop (see the comment block above), so MapCanvas's playback resolves
-#     no stop for it and silently skips the event -- the same "vein no
-#     longer resolvable" edge case every other queue_seed_claim caller
-#     already tolerates -- rather than this function special-casing it.
+#     here covers both.
 # Re-checks the vein's live presence in player.veins (rather than trusting
 # the attempt batch's stale snapshot) before touching anything, so a vein
 # that's vanished between the roll and the resolve (e.g. levelled down to
@@ -376,17 +363,14 @@ static func resolve_raid_outcome(outcome: Dictionary) -> void:
 	if vein == null:
 		return
 
+	var site: Variant = Sites.find_site(outcome["siteId"])
+	if site == null or site["factionVein"] != null:
+		return
+
 	var faction_vein: Dictionary = GameState.deep_copy(vein)
 	faction_vein["factionId"] = outcome["attackerId"]
-
-	if outcome["siteId"] != null:
-		var site: Variant = Sites.find_site(outcome["siteId"])
-		if site == null or site["factionVein"] != null:
-			return
-		site["factionVein"] = faction_vein
-		site["claimed"] = false
-	else:
-		GameState.state["factions"][outcome["attackerId"]]["veins"].append(faction_vein)
+	site["factionVein"] = faction_vein
+	site["claimed"] = false
 
 	var player: Dictionary = GameState.state["player"]
 	var vein_id: String = outcome["veinId"]
