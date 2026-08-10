@@ -486,6 +486,14 @@ static func apply_rivalry_resolution() -> void:
 #     direction T03's rivalry_success_chance() reads, so a defender that
 #     keeps losing to the same rival keeps getting more exposed to them,
 #     compounding as the PRD describes.
+#   - queues a map-animations-ticket-02-shaped "seed_claim" event (map-
+#     visibility-for-rivalry-ownership-changes T05) referencing the vein's
+#     district/id and the attacker as owner -- MapCanvas's existing ring-
+#     draw-in playback (built for a brand-new vein appearing) doesn't care
+#     whether the vein is new or just changed hands, since it reads the
+#     vein's *current* factionId live via MapLayout at playback time; this
+#     is the only place a rivalry-driven ownership change becomes visible
+#     to the player at all (see the Silent note below).
 # Same-tick double-processing guard: roll_rivalry_attempts() snapshots the
 # board once per tick, so two attempts in the same batch can name the same
 # target vein (e.g. two different attackers happened to roll the same
@@ -493,10 +501,11 @@ static func apply_rivalry_resolution() -> void:
 # this outcome's recorded defenderId -- rather than trusting the batch's
 # stale copy -- means a vein that already changed hands earlier this same
 # tick no longer matches its outcome's defenderId, so this silently skips
-# it instead of transferring it a second time or crediting the wrong
-# defender's relation hit.
+# it instead of transferring it a second time, crediting the wrong
+# defender's relation hit, or queuing a second map event for a vein whose
+# first transfer this tick is still waiting to play back.
 # Silent per the PRD: no Notify/Ticker push on either outcome -- the player
-# only discovers changes by looking at the map (ticket 05).
+# only discovers changes by looking at the map (this ticket's queued event).
 static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 	if not outcome["success"]:
 		return
@@ -510,3 +519,4 @@ static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 
 	vein["factionId"] = outcome["attackerId"]
 	adjust_relation(outcome["defenderId"], outcome["attackerId"], RIVALRY_RELATION_PENALTY)
+	MapEvents.queue_seed_claim(site["district"], vein["id"], outcome["attackerId"])

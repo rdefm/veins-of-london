@@ -38,6 +38,12 @@ static func queue_discover(district_id: String, site_id: String) -> void:
 # whether to draw the full vein-stop treatment or the (post-ticket-02)
 # faction-stop ring. Same no-self-emit convention as queue_discover() above:
 # every caller already emits once at the end of its own wrapping action.
+#
+# map-visibility-for-rivalry-ownership-changes T05: also queued by
+# Factions.resolve_rivalry_outcome() when a rivalry attempt succeeds — an
+# *existing* vein changing hands, not a brand-new one appearing, but the
+# same event shape and the same ring-draw-in playback apply either way,
+# since playback resolves the vein's owner live rather than off a snapshot.
 static func queue_seed_claim(district_id: String, vein_id: String, owner: String) -> void:
 	GameState.state["mapEvents"]["queue"].append({
 		"type": "seed_claim",

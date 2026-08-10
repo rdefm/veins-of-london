@@ -593,6 +593,34 @@ func run() -> void:
 		assert_true(relation_after < relation_before, "a successful attempt should worsen the defender's relation toward the attacker (got %d -> %d)" % [relation_before, relation_after])
 	)
 
+	# ── map-visibility-for-rivalry-ownership-changes T05 ────────────────
+
+	run_case("resolve_rivalry_outcome_success_queues_a_seed_claim_map_event_for_the_new_owner", func():
+		GameState.reset()
+		var vein := _faction_vein_of(3, "fate", 0, "firm", "warded")
+		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+
+		var outcome := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm", "success": true }
+		Factions.resolve_rivalry_outcome(outcome)
+
+		var event: Dictionary = MapEvents.current()
+		assert_eq(event["type"], "seed_claim", "a rivalry-driven transfer queues the same event type/shape as a faction vein claim")
+		assert_eq(event["district"], "shoreditch", "event references the vein's district")
+		assert_eq(event["veinId"], "fv_test", "event references the vein that changed hands")
+		assert_eq(event["owner"], "collective", "event's owner is the attacker, the vein's new owner")
+	)
+
+	run_case("resolve_rivalry_outcome_failure_queues_no_map_event", func():
+		GameState.reset()
+		var vein := _faction_vein_of(3, "fate", 0, "firm", "warded")
+		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+
+		var outcome := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm", "success": false }
+		Factions.resolve_rivalry_outcome(outcome)
+
+		assert_true(not MapEvents.has_pending(), "a failed attempt must not queue a map event")
+	)
+
 	run_case("resolve_rivalry_outcome_failure_changes_nothing", func():
 		GameState.reset()
 		var vein := _faction_vein_of(3, "fate", 0, "firm", "warded")
@@ -622,6 +650,29 @@ func run() -> void:
 
 		assert_eq(vein["factionId"], "collective", "the vein must not be re-transferred to a second attacker once it's already changed hands this tick")
 		assert_eq(Factions.get_relation("firm", "network"), relation_firm_to_network_before, "a skipped double-process must not also write a stale relation penalty")
+		assert_eq(GameState.state["mapEvents"]["queue"].size(), 1, "a skipped double-process must not also queue a second map event for the same vein")
+	)
+
+	run_case("resolve_rivalry_outcome_multiple_distinct_veins_each_queue_their_own_event_in_order", func():
+		GameState.reset()
+		var vein_a := _faction_vein_of(3, "fate", 0, "firm", "warded")
+		var vein_b := _faction_vein_of(2, "life", 0, "guild", "none")
+		GameState.state["world"]["sites"] = [
+			_site_with_vein("s_firm", vein_a),
+			_site_with_vein("s_guild", vein_b),
+		]
+
+		var first := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm", "success": true }
+		var second := { "attackerId": "network", "defenderId": "guild", "veinSiteId": "s_guild", "success": true }
+		Factions.resolve_rivalry_outcome(first)
+		Factions.resolve_rivalry_outcome(second)
+
+		var queue: Array = GameState.state["mapEvents"]["queue"]
+		assert_eq(queue.size(), 2, "each distinct vein's transfer this tick queues its own event")
+		assert_eq(queue[0]["veinId"], vein_a["id"], "the first transfer's event stays first in the queue")
+		assert_eq(queue[0]["owner"], "collective", "the first transfer's event names its own attacker")
+		assert_eq(queue[1]["veinId"], vein_b["id"], "the second transfer's event follows, ready to play back sequentially")
+		assert_eq(queue[1]["owner"], "network", "the second transfer's event names its own attacker")
 	)
 
 	run_case("apply_rivalry_resolution_transfers_ownership_across_many_ticks", func():
