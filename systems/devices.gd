@@ -92,13 +92,11 @@ static func activate(device_id: String) -> Dictionary:
 		return { "ok": false, "reason": "No charges left today." }
 
 	device["chargesUsedToday"] += 1
-	device["xp"] += 10
-	var max_level: int = GameData.DEVICE_XP_LEVELS.size() - 1
-	while device["level"] < max_level and device["xp"] >= GameData.DEVICE_XP_LEVELS[device["level"] + 1]:
-		device["level"] += 1
+	var on_level_up := func():
 		device["chargesPerDay"] += 1
 		var dt: Dictionary = GameData.DEVICES[device["type"]]
 		Notify.push("%s levelled up — now %d charges per day." % [dt["name"], device["chargesPerDay"]])
+	Progression.award_xp(device, "xp", "level", GameData.DEVICE_XP_LEVELS, 10, on_level_up)
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "type": device["type"] }

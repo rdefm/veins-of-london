@@ -57,11 +57,8 @@ const STEALTH_XP_CAUGHT := 7
 
 static func award_stealth_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
-	player["stealthXP"] = player["stealthXP"] + amount
-	var max_level: int = GameData.STEALTH_XP_LEVELS.size() - 1
-	while player["stealthSkill"] < max_level and player["stealthXP"] >= GameData.STEALTH_XP_LEVELS[player["stealthSkill"] + 1]:
-		player["stealthSkill"] += 1
-		Notify.push("Stealth skill up — now level %d." % player["stealthSkill"])
+	var on_level_up := func(): Notify.push("Stealth skill up — now level %d." % player["stealthSkill"])
+	Progression.award_xp(player, "stealthXP", "stealthSkill", GameData.STEALTH_XP_LEVELS, amount, on_level_up)
 
 
 # Rolls the check against the current player and awards stealth XP either

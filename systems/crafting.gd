@@ -61,7 +61,4 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 # awardCraftingXP (unlike awardCultivatingXP) never calls pushNotification.
 static func award_crafting_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
-	player["craftingXP"] = player["craftingXP"] + amount
-	var max_level: int = GameData.CRAFTING_XP_LEVELS.size() - 1
-	while player["craftingSkill"] < max_level and player["craftingXP"] >= GameData.CRAFTING_XP_LEVELS[player["craftingSkill"] + 1]:
-		player["craftingSkill"] += 1
+	Progression.award_xp(player, "craftingXP", "craftingSkill", GameData.CRAFTING_XP_LEVELS, amount)

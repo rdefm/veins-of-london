@@ -115,11 +115,8 @@ static func make_vein(ore_type: String, dev_bar: int, district: String, site_id:
 
 static func award_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
-	player["cultivatingXP"] = player["cultivatingXP"] + amount
-	var max_level: int = GameData.CULTIVATING_XP_LEVELS.size() - 1
-	while player["cultivatingSkill"] < max_level and player["cultivatingXP"] >= GameData.CULTIVATING_XP_LEVELS[player["cultivatingSkill"] + 1]:
-		player["cultivatingSkill"] += 1
-		Notify.push("Cultivating skill up — now level %d." % player["cultivatingSkill"])
+	var on_level_up := func(): Notify.push("Cultivating skill up — now level %d." % player["cultivatingSkill"])
+	Progression.award_xp(player, "cultivatingXP", "cultivatingSkill", GameData.CULTIVATING_XP_LEVELS, amount, on_level_up)
 
 
 static func seed(ore_type: String) -> Dictionary:
