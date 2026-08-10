@@ -1,4 +1,4 @@
-# M3 — Calc Effect Discovery ("The Bench")
+# M3 — Calc Effect Discovery ("The Lab")
 
 **Status: vision document.** Not a spec. Every number below is PROVISIONAL and marked as such; numbers are promoted to `docs/REFERENCE.md` only when this becomes a spec, and `REFERENCE.md` is canon the moment they land there. No code should be written against this file.
 
@@ -36,11 +36,11 @@ cell = (type set) × (approach)
 ```
 
 - **Type set** — one of the 5 single types, or one of the 10 unordered pairs. 15 sets.
-- **Approach** — a physical technique (heat, grinding, compression, …). Roughly 5–6 in the launch roster.
+- **Approach** — a physical technique (heat, grinding, compression, distilling). 4 in the launch roster (§4).
 
 **A cell holds at most one effect.** This invariant is what makes the whole UI honest and is not negotiable — it is what lets a cell be marked spent, and it is what gives refinement (§5) an unambiguous home.
 
-15 sets × ~6 approaches = **~90 cells**, of which perhaps 15–30 hold anything at launch. There is deliberate headroom: new effects are added by filling empty cells, with no schema change and no rework.
+15 sets × 4 approaches = **60 cells**, of which 14 hold an effect at launch (§11). There is deliberate headroom: new effects are added by filling empty cells, with no schema change and no rework — including by later widening the approach roster (§4).
 
 ### 2.2 Rejected: the ratio axis
 
@@ -111,11 +111,11 @@ Approaches are the content valve. Learning one re-opens every set the player tho
 | Heat | Known from the start | The obvious one. Everyone starts here. |
 | Grinding | Known from the start | Cheap, crude, surprisingly productive. |
 | Compression | `workshop` room (tier: flat) | First real gate; ties the bench to the property ladder. |
-| Calcining | Taught — James | Story-paced. James is insufferable about it. |
-| Distilling | `lab` room (tier: compound) | Late. Opens a swathe of previously-inert-looking sets. |
-| Quenching | Taught — faction storyline reward | One of the 3-event storyline rewards in `VISION.md` §14. |
+| Distilling | `lab` room (tier: compound) — **rename this room "Improved Lab"** to disambiguate from the bench's in-fiction name (§8), see note below | Late. Opens a swathe of previously-inert-looking sets. |
 
-Sources are the two channels chosen for approaches: **home rooms/devices** and **taught by contacts**. A device that enables an approach is explicitly allowed by the schema (`source: {type:"device", id:"..."}`) but none ships in the launch roster.
+Calcining and Quenching (taught-by-contact / faction-reward sourced) are **cut from the launch roster**. All 4 launch approaches are start-or-room sourced; no approach is currently taught by an NPC or faction. This is a launch-content choice, not a schema limit — `source: {type:"contact"|"faction"|"device", id:"..."}` is still valid per the schema and can be used by a future approach.
+
+**Cross-doc note:** the home room named `lab` (REFERENCE.md §1.x, cost 15000, tier compound) needs renaming to **"Improved Lab"** so it reads distinctly from the bench's in-fiction name "The Lab" (§8). This is a REFERENCE.md + rooms-data edit, out of scope for this document — flagging so it isn't lost before spec.
 
 When a new approach is learned, the bench pushes a notification and every surveyed set whose census still shows unknowns should visibly refresh. This moment is the feature's second-best beat after a discovery and deserves the juice budget.
 
@@ -140,7 +140,7 @@ Refinement is only available on `Found` cells. It is **not** a fallback for Iner
 ## 6. The loop
 
 ```
-HQ → Bench                        found effects · run an experiment · notes
+HQ → The Lab                      found effects · run an experiment · notes
   ↓
 Pick 1 or 2 calc types            list of 5 type rows, tap to select
   ↓
@@ -183,7 +183,7 @@ Roughly three experiments a day if the player does nothing else — the bench co
 
 ## 8. UI
 
-Lives in **HQ**, as a third card alongside the workbench and gym (`scenes/screens/hq.gd`). Candidate in-fiction name: **the Bench**. Recipes stay under the workbench; the bench is where recipes come *from*.
+Lives in **HQ**, as a third card alongside the workbench and gym (`scenes/screens/hq.gd`). In-fiction name: **the Lab**. Recipes stay under the workbench; the Lab is where recipes come *from*. (Elsewhere in this document, "the bench" / "bench-" prefixed terms — `benchNav`, `player.bench`, "bench notes" — are the internal/code names and are unaffected by this in-fiction rename.)
 
 ### 8.0 The governing rule: no grid, and no menu of things you haven't done
 
@@ -199,7 +199,7 @@ Reached from HQ. Lists what you have, never what you lack.
 
 ```
 ┌──────────────────────────────────┐
-│ The Bench                        │
+│ The Lab                          │
 │ Two burners, a vice, and a lot   │
 │ of ruined saucers.               │
 │                                  │
@@ -422,27 +422,28 @@ Notes:
 
 Initial roster supplied in `docs/calc-effects.txt` (13 effects, 5 canonical types, no void/elemental). Three type-sets host more than one effect — `physics`, `time`, and `time+life` — so each effect within a shared set needs a distinct approach, per the one-effect-per-cell invariant (§2.1).
 
-**DRAFT cell assignment — needs human confirm/edit before spec:**
+**Cell assignment, confirmed:**
 
 | Effect | Type-set | Approach | Why this approach |
 |---|---|---|---|
 | Healing Salve | life | Heat | rendering a salve is a heat process |
 | Enhancement Powder | life | Grinding | it's a powder |
 | Blast | physics | Grinding | crude, blunt kinetic force |
-| Shield | physics | Compression | absorbing/compressing kinetic energy |
-| Black Hole | physics | Quenching | powerful, faction-tier reward |
-| Rewind | time | Calcining | "very resource intensive, hard to make" — taught, story-paced |
+| Shield | physics | Heat | forged/tempered defensive plating |
+| Black Hole | physics | Compression | a gravity well is the ultimate compression |
+| Rewind | time | Heat | hourglass form, glass blown under heat |
 | Prophet's Breath | time | Distilling | inhaled vapor, thematically distilled |
+| Time Pearl | time | Compression | tutorial-granted (§9.2); folded in so it can be refined |
 | Be a Lady | fate | Grinding | only fate effect; no strong technical theme |
-| Pan's Prank | emotion | Calcining | taught by James fits its morally-grey flavour |
+| Pan's Prank | emotion | Distilling | mind-altering vapor |
 | Healing Burst | time+life | Heat | starter combat elixir |
 | Failsafe | time+life | Distilling | "very expensive and difficult to make" — late gate |
 | Rejuvenation | time+life | Grinding | bulk-produced luxury sale good |
 | Wormhole | time+physics | Compression | "bends spacetime" — space literally compressed |
 
-Result: Heat/Grinding (starter approaches) cover 6 of 13 effects across life, physics, fate, and time+life — an early player finds something in most sets. Compression, Calcining, Distilling and Quenching each gate 1–2 effects, in rising order of approach-unlock difficulty per §4.
+Result: Heat/Grinding (starter approaches) cover 7 of 14 effects across life, physics, time, fate, and time+life — an early player finds something in most sets. Compression and Distilling (room-gated) cover the rest, in rising order of unlock difficulty per §4.
 
-No effect collides on (type-set, approach). This leaves 4 of 13 effects (Rewind, Prophet's Breath, Failsafe, Black Hole) behind non-starter approaches, and 9 of 15 type-sets barren at launch (deliberate per the authoring rule below) — within the "15–30 of 90 cells filled" launch target in §2.1.
+No effect collides on (type-set, approach) — checked per type-set: life {Heat, Grinding}, physics {Grinding, Heat, Compression}, time {Heat, Distilling, Compression}, fate {Grinding}, emotion {Distilling}, time+life {Heat, Distilling, Grinding}, time+physics {Compression}. This leaves 8 of 15 type-sets barren at launch (deliberate per the authoring rule below) — within the "15–30 of 90 cells filled" launch target in §2.1.
 
 Authoring rules for whoever fills further cells:
 - Every set needs a deliberate effect count, including zero. A barren set is a design decision recorded in data, not an accident of omission.
@@ -500,8 +501,8 @@ The one asymmetry worth allowing: an NPC's effect may sit behind an approach the
 ## 15. Open questions for the human
 
 1. ~~The effect list.~~ **Resolved: initial roster of 13 effects supplied in `docs/calc-effects.txt`.** Cell (type-set × approach) assignment drafted in §11.
-2. **In-fiction name.** "The Bench" is a placeholder. It wants a name Archie would use.
-3. **Approach names and count.** The §4 roster is invented. Six rows may be one too many on the pairing panel; five is probably right.
+2. ~~In-fiction name.~~ **Resolved: "The Lab."** Note: the existing home room `lab` (REFERENCE.md, cost 15000, tier compound) must be renamed **"Improved Lab"** to disambiguate — flagged as a cross-doc follow-up in §4.
+3. ~~Approach names and count.~~ **Resolved: 4 — heat, grinding, compression, distilling.** Calcining and Quenching cut from launch (§4).
 4. ~~Does a taught effect count against the census before it's taught?~~ **Resolved: yes, and it is fully discoverable before the NPC teaches it.** Promoted to §12.1.
 5. ~~Should Inert cells ever revive?~~ **Resolved: yes, but only via a content-patch migration, never an in-fiction device.** If a later content update adds an effect to a specific type-set+approach cell, that update ships a migration clearing the `Inert` tag on any existing save that had already probed that exact cell — reverting it to `Untried`, not silently granting `Found`. No "re-read" device or mechanic; revival is a patch-only lever, decided per-update, not a player action.
 6. **Wayfinding cost of never listing the pairings.** With no index, a player who wants to find everything must remember which of 15 pairings they've worked. Bench notes (§8.5) is the mitigation, but it only lists pairings already touched — there is deliberately no way to see *untouched* ones. Watch this in playtest: if players report feeling lost rather than curious, the cheapest fix is a line on bench notes ("you've worked 6 pairings") without ever naming the other nine.
