@@ -450,3 +450,63 @@ static func roll_rivalry_odds(attempt: Dictionary) -> Dictionary:
 	var outcome: Dictionary = attempt.duplicate()
 	outcome["success"] = Rng.chance(rivalry_success_chance(attempt))
 	return outcome
+
+
+# ── faction-territory-rivalry T04: rivalry resolution + daily-tick wiring ──
+# Called from time_system.gd's daily_tick, step ⑤h (runs immediately after
+# ⑤g security upgrades -- the last step of the faction-economy chain, so a
+# rivalry's ownership change this tick sees the day's income/spend already
+# settled). Runs T02's roll_rivalry_attempts() to get this tick's batch of
+# attempts, scores + rolls each one through T03's roll_rivalry_odds(), and
+# applies resolve_rivalry_outcome() below to each result.
+
+# Relation-feedback magnitude on a successful attempt (the PRD leaves the
+# exact number open) -- comparable in scale to the deliberate ticket-03 test
+# grudge (-80) without being so large a single loss saturates
+# RIVALRY_RELATION_DIVISOR's normalisation on its own; it takes a handful of
+# repeated losses to the same rival to meaningfully compound the odds,
+# matching the PRD's "grudges compound" framing rather than a one-shot
+# swing.
+const RIVALRY_RELATION_PENALTY := -15
+
+
+static func apply_rivalry_resolution() -> void:
+	for attempt in roll_rivalry_attempts():
+		resolve_rivalry_outcome(roll_rivalry_odds(attempt))
+
+
+# Applies one already-rolled T03 outcome. A failed attempt is a documented
+# no-op -- no ownership change, no relation write. A successful attempt:
+#   - reassigns the target vein's factionId from defender to attacker;
+#     oreType/level/security carry over unchanged (not reset), matching
+#     Chunk 1's existing claim/growth code, which never resets those fields
+#     on an ownership change either.
+#   - worsens the defender's relation *toward the attacker* (get_relation's
+#     directional a-toward-b sense) by RIVALRY_RELATION_PENALTY -- the same
+#     direction T03's rivalry_success_chance() reads, so a defender that
+#     keeps losing to the same rival keeps getting more exposed to them,
+#     compounding as the PRD describes.
+# Same-tick double-processing guard: roll_rivalry_attempts() snapshots the
+# board once per tick, so two attempts in the same batch can name the same
+# target vein (e.g. two different attackers happened to roll the same
+# rival's crown jewel). Re-checking the site's *current* factionId against
+# this outcome's recorded defenderId -- rather than trusting the batch's
+# stale copy -- means a vein that already changed hands earlier this same
+# tick no longer matches its outcome's defenderId, so this silently skips
+# it instead of transferring it a second time or crediting the wrong
+# defender's relation hit.
+# Silent per the PRD: no Notify/Ticker push on either outcome -- the player
+# only discovers changes by looking at the map (ticket 05).
+static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
+	if not outcome["success"]:
+		return
+
+	var site: Variant = Sites.find_site(outcome["veinSiteId"])
+	if site == null:
+		return
+	var vein: Variant = site["factionVein"]
+	if vein == null or vein["factionId"] != outcome["defenderId"]:
+		return
+
+	vein["factionId"] = outcome["attackerId"]
+	adjust_relation(outcome["defenderId"], outcome["attackerId"], RIVALRY_RELATION_PENALTY)

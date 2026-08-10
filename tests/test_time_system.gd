@@ -218,6 +218,31 @@ func run() -> void:
 		assert_eq(site["factionVein"]["security"], "basic", "daily_tick should reach step 5g (Factions.apply_security_upgrades) and upgrade the affordable eligible vein")
 	)
 
+	run_case("daily_tick_wires_in_rivalry_resolution_step_right_after_security_upgrade_step", func():
+		# A rich, unsecured collective-owned vein facing a well-resourced Firm
+		# (raiding industry, good odds) -- run many seeds and confirm daily_tick
+		# eventually reaches step 5h and flips ownership.
+		var hit := false
+		for seed in range(500):
+			GameState.reset()
+			var site := {
+				"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "fate",
+				"bonuses": [], "discoveredDay": 1, "claimed": false,
+				"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "fate", "level": 3, "levelLabel": "Seam", "devBar": 0, "security": "none", "claimedOnDay": 999, "hospitability": { "tier": "fair", "bonuses": [] } },
+				"hasNaturalVein": false,
+			}
+			GameState.state["world"]["sites"] = [site]
+			GameState.state["world"]["day"] = 999
+			GameState.state["factions"]["firm"]["resources"] = 5000
+			GameState.state["factions"]["collective"]["resources"] = 0
+			Rng.set_seed(seed)
+			TimeSystem.daily_tick()
+			if Sites.find_site("s1")["factionVein"]["factionId"] == "firm":
+				hit = true
+				break
+		assert_true(hit, "daily_tick should reach step 5h (Factions.apply_rivalry_resolution) within 500 tries")
+	)
+
 	run_case("stub_daily_tick_steps_do_not_crash", func():
 		GameState.reset()
 		# Just confirms daily_tick runs end to end with the T04/T05/T06/T09

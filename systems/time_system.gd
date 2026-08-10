@@ -49,6 +49,12 @@ static func do_rest() -> void:
 # Exact step order per R§3.1, extended by M1-LONDON.md D2 / adr/0002
 # (steps ⑤b/⑤c), faction-vein-ownership T02 (step ⑤d), and
 # faction-resource-economy T02/T03/T04 (steps ⑤e/⑤f/⑤g) — do not reorder.
+# faction-territory-rivalry T04 adds step ⑤h, running last in the chain: it
+# runs after ⑤g (security upgrades) so a rivalry resolving this tick sees
+# the day's income already earned and spend already committed before any
+# vein changes hands, and after ⑤d (faction vein growth) so a same-tick
+# freshly-claimed vein is a legitimate rivalry target/target-owner by the
+# time ⑤h runs, same as it already is for ⑤e-⑤g's income/spend reads.
 # Steps for systems that don't exist yet are stubs; wire the real call in
 # when that task lands.
 static func daily_tick() -> void:
@@ -63,6 +69,7 @@ static func daily_tick() -> void:
 	Factions.apply_passive_income()      # ⑤e faction passive/industry income (faction-resource-economy T02), runs right after ⑤d — no ordering dependency on ⑤b-⑤d (industries-only, no site/vein reads)
 	Factions.apply_vein_income()         # ⑤f faction vein-derived income (faction-resource-economy T03), runs right after ⑤e — after ⑤c/⑤d so an abandoned vein doesn't earn and a same-tick-claimed vein reuses ⑤d's claimedOnDay skip
 	Factions.apply_security_upgrades()   # ⑤g faction security-upgrade spend (faction-resource-economy T04), runs right after ⑤f so a tick's vein income is already banked and spendable the same day it's earned
+	Factions.apply_rivalry_resolution()  # ⑤h faction-territory-rivalry attempt roll + resolution (faction-territory-rivalry T04), runs right after ⑤g so a tick's income/spend is already settled before any vein changes hands
 	Rooms.process_lab()                  # ⑥ rooms (lab, then veinStation)
 	Rooms.process_vein_station()
 	Devices.reset_daily_charges()        # ⑦ device charge reset

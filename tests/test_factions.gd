@@ -572,3 +572,74 @@ func run() -> void:
 		Factions.roll_rivalry_odds(attempt)
 		assert_eq(GameState.state, before, "roll_rivalry_odds must not mutate state")
 	)
+
+	# ── faction-territory-rivalry T04: rivalry resolution + tick wiring ──
+
+	run_case("resolve_rivalry_outcome_success_transfers_ownership_and_worsens_relation", func():
+		GameState.reset()
+		var vein := _faction_vein_of(3, "fate", 0, "firm", "warded")
+		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var relation_before: int = Factions.get_relation("firm", "collective")
+
+		var outcome := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm", "success": true }
+		Factions.resolve_rivalry_outcome(outcome)
+
+		assert_eq(vein["factionId"], "collective", "successful attempt reassigns the vein to the attacker")
+		assert_eq(vein["oreType"], "fate", "oreType carries over unchanged")
+		assert_eq(vein["level"], 3, "level carries over unchanged")
+		assert_eq(vein["security"], "warded", "security carries over unchanged")
+
+		var relation_after: int = Factions.get_relation("firm", "collective")
+		assert_true(relation_after < relation_before, "a successful attempt should worsen the defender's relation toward the attacker (got %d -> %d)" % [relation_before, relation_after])
+	)
+
+	run_case("resolve_rivalry_outcome_failure_changes_nothing", func():
+		GameState.reset()
+		var vein := _faction_vein_of(3, "fate", 0, "firm", "warded")
+		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+
+		var outcome := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm", "success": false }
+		Factions.resolve_rivalry_outcome(outcome)
+
+		assert_eq(GameState.state, before, "a failed attempt must leave state untouched")
+	)
+
+	run_case("resolve_rivalry_outcome_does_not_double_process_a_vein_that_already_changed_hands_this_tick", func():
+		GameState.reset()
+		var vein := _faction_vein_of(3, "fate", 0, "firm", "warded")
+		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+
+		var first := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm", "success": true }
+		Factions.resolve_rivalry_outcome(first)
+		assert_eq(vein["factionId"], "collective", "first attempt this tick flips the vein to collective")
+		var relation_firm_to_network_before: int = Factions.get_relation("firm", "network")
+
+		# A second attempt in the same tick's batch was recorded against the
+		# vein's stale owner (firm) before the first attempt resolved.
+		var second := { "attackerId": "network", "defenderId": "firm", "veinSiteId": "s_firm", "success": true }
+		Factions.resolve_rivalry_outcome(second)
+
+		assert_eq(vein["factionId"], "collective", "the vein must not be re-transferred to a second attacker once it's already changed hands this tick")
+		assert_eq(Factions.get_relation("firm", "network"), relation_firm_to_network_before, "a skipped double-process must not also write a stale relation penalty")
+	)
+
+	run_case("apply_rivalry_resolution_transfers_ownership_across_many_ticks", func():
+		# Two rival-owned veins so every faction has something to target and
+		# a raiding-heavy attacker (Firm) has good odds against a poorly
+		# resourced, unsecured defender -- run many seeds and confirm the
+		# whole roll -> odds -> resolve chain eventually flips a vein.
+		var hit := false
+		for seed in range(500):
+			GameState.reset()
+			var firm_vein := _faction_vein_of(3, "fate", 0, "collective", "none")
+			GameState.state["world"]["sites"] = [_site_with_vein("s1", firm_vein)]
+			GameState.state["factions"]["firm"]["resources"] = 5000
+			GameState.state["factions"]["collective"]["resources"] = 0
+			Rng.set_seed(seed)
+			Factions.apply_rivalry_resolution()
+			if firm_vein["factionId"] == "firm":
+				hit = true
+				break
+		assert_true(hit, "apply_rivalry_resolution should eventually flip an under-resourced, unsecured vein to a rich raiding attacker within 500 tries")
+	)
