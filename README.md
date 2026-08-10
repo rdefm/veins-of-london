@@ -2,17 +2,24 @@
 
 ## Mobile export (Android)
 
-`export_presets.cfg` has an "Android" debug preset (`build/vein.apk`, arm64-v8a, non-Gradle build) already checked in. It was hand-authored against the Godot 4.4 export-preset schema — this sandbox has no network access to `godotengine/godot`'s GitHub releases (blocked by the session's GitHub source scope), so neither the Godot editor nor export templates were reachable here to generate or verify it. Treat it as a starting point, not a verified artifact.
+`export_presets.cfg` has an "Android" debug preset (`build/vein.apk`, arm64-v8a, non-Gradle build), verified working: `godot --headless --export-debug Android build/vein.apk` produces an installable, offline-playable APK (no network calls anywhere in the codebase, so it needs nothing beyond what's bundled).
 
-**HUMAN-ACTION — building the APK:**
+**One-time machine setup** (per-machine, not per-checkout):
 
-1. Install the Godot 4.4 Android export templates. Easiest path: open the project in the Godot 4.4 editor once (Editor → Manage Export Templates → Download and Install), or download `Godot_v4.4-stable_export_templates.tpz` from the [godotengine/godot 4.4-stable release](https://github.com/godotengine/godot/releases/tag/4.4-stable) and install it via the same dialog.
-2. Confirm the Android SDK / build tools Godot needs are installed (Editor → Editor Settings → Export → Android — `adb`, `jarsigner`, and either the Gradle build tools or a debug keystore, depending on the preset's `gradle_build/use_gradle_build` setting).
-3. Open the project in the editor once and check Project → Export → "Android" — this both confirms `export_presets.cfg` parsed correctly and lets you fix anything the hand-authored version got wrong (package name, SDK versions, icons) before building.
-4. From the project root:
-   ```
-   godot --headless --export-debug Android build/vein.apk
-   ```
-5. Install/test: `adb install build/vein.apk`, or sideload onto a device.
+1. Android SDK: `platform-tools` + `build-tools;34.0.0`, installed via the `cmdline-tools` `sdkmanager` (full Android Studio not required).
+2. A JDK — Godot's `sdkmanager` needs **17+** (an old JRE 8 will fail with `UnsupportedClassVersionError`); Temurin 17 works.
+3. Godot 4.4 Android export templates (`android_debug.apk`, `android_release.apk`) in `%APPDATA%\Godot\export_templates\4.4.stable\` — from the editor's Manage Export Templates dialog, or the `Godot_v4.4-stable_export_templates.tpz` on the [godotengine/godot 4.4-stable release](https://github.com/godotengine/godot/releases/tag/4.4-stable).
+4. A debug keystore, and Editor Settings → Export → Android pointed at all three (`android_sdk_path`, `java_sdk_path`, `debug_keystore`).
 
-`scripts/setup_godot.sh` gets you the headless Godot *binary* for steps 4+; it does not install export templates or the Android SDK — those are step 1-2, and need the full editor or manual template installation.
+**Gotcha:** the export fails with `Cannot export project with preset "Android" due to configuration errors:` and **no further detail** if `project.godot` is missing `rendering/textures/vram_compression/import_etc2_astc=true` — a Godot engine bug (`has_valid_project_configuration` sets `valid=false` without ever appending error text for this one check). Normally the editor sets this the first time you click through its "enable ETC2/ASTC?" prompt when adding a mobile export preset; since this preset was hand-authored, that never happened. It's set in `project.godot` now — if it ever reverts, that silent failure is why.
+
+**Building + installing:**
+
+```
+godot --headless --export-debug Android build/vein.apk
+adb install build/vein.apk
+```
+
+Or skip `adb`: copy `build/vein.apk` to the phone (cloud drive, USB, email) and tap it to sideload — enable "install unknown apps" for whatever app opens it.
+
+`scripts/setup_godot.sh` gets you the headless Godot *binary*; it does not install export templates or the Android SDK.

@@ -1,0 +1,22 @@
+﻿Orichalchum types
+- Time
+- Physics
+- Life/bio
+- Fate/luck
+- Emotion
+
+Orichalchum effects
+-Enhancement powder (life). Enhances physical attributes (strength: do more damage in combat. Speed: higher chance to run away, more attacks per round of combat. Endurance; makes skin harder, you take less damage)
+-Blast (physics). Blast of kinetic force. Does damage, makes it easier to escape if you run on next turned, small chance to disarm opponent
+-healing salve (life). Slightly accelerates natural healing outside combat (faster hp recovery)
+-healing burst (time and life): small elixirs that can speed up recovery from light wounds. Faster than just healing from life consumables, so can be used in battle. Doesn't heal as much as healing salve.
+-shield (physics). Absorbs kinetic energy from moving objects, essentially stealing their momentum and preventing them moving towards the centre of the shield. In combat, requires calc to activate, and switches off after 2 turns. If it absorbs an attack during those turns, it absorbs the energy and 'recharges', adding +1 turn before the shield deactivates.
+-black hole (physics). Creates a small tear that pulls all objects towards it within a small radius, similar to a black hole. Prevents enemies attacking you while active. On higher strengths, also does damage by pulling people/objects together with violent force
+-Rewind (time). Shaped like hourglass. When activated it 'rewinds' time a few seconds; only the person who activated it retains knowledge of it, allowing them to choose a different path. VERY resource intensive, and hard to make. Let's player undo 1-2 turns in battle, and gives them much higher evade and attack for next 1-2 turns. Also factor in item option in events, so player can choose to rewind back a card?
+- Be a lady (fate). Fate can be fickle; this makes it less so. For one action, massively boost the probability of a successful outcome. During a fight, increases your chance to hit, chance to evade, and ensures you do your max damage for one turn. Outside combat, can be used during events, or in general (eg activate this then cultivate a vein, increases chance of success).
+- Prophet's breath (time). Inhaled via inhaler, let's user see a few seconds into the future. In battle, gives you higher chance to evade attacks for 1-2 turns (depending on strength of item). In events, instead of seeing % success chance, it rolls for all options and tells you if it would succeed or not.
+- Failsafe (time and life). If a bearer dies, this activates and reminds time 1-2 turns, or restarts the event if died during an event. Very expensive and difficult to make.
+- Pan's prank (emotion). When activated, triggers a specified emotion in those around the user, influencing their decisions, actions, and even abilities. Extremely powerful versions have been used to influence masses of people, causing panicked stampedes, rage induced berserker armies, and more. When created, volume and skill determine how many items can affect. User chooses emotion type, and this determines impact (eg rage: violent decisions higher strength. Panic; more likely to run, choose de escalating options. Confidence: increases probability of successful outcomes)
+- Wormhole (time and physics). Bends spacetime to connect two points, allowing you to effectively teleport. Allows instant travel across map, instant escape from a fight, instant transport back to HW if you get an alert that it's being raided
+- Rejuvenation (time and life). Reverses the effects of aging slightly, prolonging life and restoring youthfulness. Has no effect in-game but sells for a very good price.
+
