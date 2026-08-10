@@ -108,6 +108,23 @@ static func start_raid(vein_id: String, vein_level: int, guards: int = 1, templa
 		"raidWon")
 
 
+# vein-raiding ticket 07: the alarm-upgrade defend encounter. Called by
+# Raiding.maybe_trigger_defend() once the player travels into the target
+# vein's district within the pending window. Reuses generate_raid_enemy()
+# (same raid-guard enemy shape start_raid() above uses) rather than a bespoke
+# enemy, per the ticket's "reusing Combat's start/outcome-handling machinery,
+# no bespoke combat system". onWin is "" -- a win leaves the vein exactly as
+# it was (nothing to dispatch); a loss is handled by
+# Raiding.resolve_defend_outcome() from exit_combat() below, not here.
+static func start_defend_vein(vein_id: String, vein_level: int) -> void:
+	var enemy := generate_raid_enemy(vein_id, vein_level)
+	# PROSE-REVIEW: new combat intro line, drafted against CONTENT-GUIDE.md's
+	# tone bible (dry, administrative, one line).
+	_start_combat("defend_vein", vein_id, enemy,
+		["The alarm wasn't lying. %s is already there." % enemy["name"]],
+		"")
+
+
 static func _start_combat(context: String, vein_id, enemy: Dictionary, log_lines: Array, on_win: String) -> void:
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": vein_id, "enemy": enemy,
@@ -436,6 +453,16 @@ static func exit_combat() -> Dictionary:
 			EventBus.screen_changed.emit("event")
 			return { "nextScreen": "event" }
 		GameState.state["event"] = null
+		GameState.state["currentScreen"] = "home"
+		EventBus.screen_changed.emit("home")
+		return { "nextScreen": "home" }
+
+	# defend_vein (vein-raiding ticket 07): Raiding owns the win/loss
+	# consequence (nothing on a win, the same whole-vein-loss transfer as the
+	# no-alarm path on a loss) -- this just tells it which happened, then
+	# routes home either way, same as every other non-raid context below.
+	if context == "defend_vein":
+		Raiding.resolve_defend_outcome(outcome == "win")
 		GameState.state["currentScreen"] = "home"
 		EventBus.screen_changed.emit("home")
 		return { "nextScreen": "home" }

@@ -49,5 +49,11 @@ static func travel_to(district: String) -> Dictionary:
 
 	GameState.state["world"]["currentDistrict"] = district
 	EventBus.state_changed.emit()
+	# vein-raiding ticket 07 — checked first: a pending alarm-defend raid
+	# targeting this district takes the screen over like any combat start, so
+	# the district deck's own roll below must be skipped this beat, not
+	# stacked on top of it.
+	if Raiding.maybe_trigger_defend(district):
+		return { "ok": true }
 	DistrictDeck.maybe_trigger(district)  # D5 — must stay last; see maybe_trigger()'s doc comment
 	return { "ok": true }

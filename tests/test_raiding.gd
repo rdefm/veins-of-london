@@ -593,3 +593,158 @@ func run() -> void:
 		var site: Dictionary = Sites.find_site("s_player")
 		assert_eq(site["factionVein"], null, "no faction vein should be created out of nothing")
 	)
+
+	# ── Direction B: alarm defend encounter (ticket 07) ───────────────────
+
+	run_case("apply_raid_resolution_queues_an_alarmed_vein_instead_of_resolving_immediately", func():
+		# camden's factionPresence is firm; a heavily negative relation plus
+		# camden's +0.10 dangerMod and no security pushes the chance up, but
+		# it's still a roll -- run many seeds and confirm at least one hit,
+		# same style as the ticket-06 daily-tick test above.
+		var hit := false
+		for seed in range(500):
+			GameState.reset()
+			var vein := _player_vein_of(1, "fate", "none", "camden")
+			vein["alarmUpgrades"] = ["alarm"]
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+			GameState.state["factions"]["firm"]["relation"] = -200
+			Rng.set_seed(seed)
+			Raiding.apply_raid_resolution()
+			if GameState.state["world"]["pendingDefendRaids"].size() == 1:
+				hit = true
+				assert_eq(GameState.state["player"]["veins"].size(), 1, "an alarmed vein raid attempt should not auto-resolve immediately")
+				var site: Dictionary = Sites.find_site("s_player")
+				assert_eq(site["factionVein"], null, "the site should not flip to faction-owned yet either")
+				assert_eq(GameState.state["world"]["pendingDefendRaids"][0]["veinId"], "pv_test")
+				assert_eq(GameState.state["world"]["pendingDefendRaids"][0]["attackerId"], "firm")
+				assert_eq(GameState.state["notifications"].size(), 1, "the player should be alerted")
+				break
+		assert_true(hit, "should reach a successful alarmed-vein raid attempt within 500 seeds")
+	)
+
+	run_case("apply_raid_resolution_still_resolves_a_non_alarmed_vein_immediately", func():
+		var hit := false
+		for seed in range(500):
+			GameState.reset()
+			var vein := _player_vein_of(1, "fate", "none", "camden")
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+			GameState.state["factions"]["firm"]["relation"] = -200
+			Rng.set_seed(seed)
+			Raiding.apply_raid_resolution()
+			var site: Variant = Sites.find_site("s_player")
+			if site != null and site["factionVein"] != null:
+				hit = true
+				assert_eq(GameState.state["world"]["pendingDefendRaids"], [], "no alarm upgrade means no defend window at all")
+				break
+		assert_true(hit, "should reach a successful non-alarmed raid attempt within 500 seeds")
+	)
+
+	run_case("apply_raid_resolution_expires_a_pending_defend_raid_that_missed_its_window", func():
+		GameState.reset()
+		var vein := _player_vein_of(2, "life", "guarded", "shoreditch")
+		vein["alarmUpgrades"] = ["alarm"]
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+
+		Raiding.apply_raid_resolution()
+
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "missing the window should fall through to the off-screen auto-resolve")
+		var site: Dictionary = Sites.find_site("s_player")
+		assert_true(site["factionVein"] != null, "ownership should transfer, same as ticket 06's default path")
+		assert_eq(site["factionVein"]["factionId"], "collective")
+		assert_eq(site["factionVein"]["oreType"], "life", "oreType carries over")
+		assert_eq(site["factionVein"]["level"], 2, "level carries over")
+		assert_eq(site["factionVein"]["security"], "guarded", "security carries over")
+		assert_eq(GameState.state["world"]["pendingDefendRaids"], [], "the expired entry should be cleared")
+	)
+
+	run_case("maybe_trigger_defend_starts_combat_and_pops_the_matching_pending_entry", func():
+		GameState.reset()
+		var vein := _player_vein_of(2, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		GameState.state["world"]["pendingDefendRaids"] = [outcome]
+
+		var triggered: bool = Raiding.maybe_trigger_defend("camden")
+
+		assert_true(triggered, "a matching pending defend raid should trigger")
+		assert_true(GameState.state["combat"]["active"], "defend combat should start")
+		assert_eq(GameState.state["combat"]["context"], "defend_vein")
+		assert_eq(GameState.state["combat"]["veinId"], "pv_test")
+		assert_eq(GameState.state["world"]["pendingDefendRaids"], [], "the triggered entry should be popped")
+		assert_eq(GameState.state["world"]["activeDefendRaid"], outcome, "the popped outcome should be stashed for exit_combat to resolve later")
+	)
+
+	run_case("maybe_trigger_defend_is_a_no_op_for_a_district_with_no_matching_pending_raid", func():
+		GameState.reset()
+		var vein := _player_vein_of(2, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+
+		var triggered: bool = Raiding.maybe_trigger_defend("shoreditch")
+
+		assert_true(not triggered, "a different district should not trigger")
+		assert_true(not GameState.state["combat"]["active"], "no combat should start")
+		assert_eq(GameState.state["world"]["pendingDefendRaids"].size(), 1, "the pending entry should stay queued")
+	)
+
+	run_case("maybe_trigger_defend_is_a_no_op_with_no_pending_raids_at_all", func():
+		GameState.reset()
+		var triggered: bool = Raiding.maybe_trigger_defend("camden")
+		assert_true(not triggered, "no pending raids means no defend trigger")
+		assert_true(not GameState.state["combat"]["active"])
+	)
+
+	# ── Direction B: travel arrival wiring (ticket 07) ────────────────────
+
+	run_case("travel_to_triggers_the_defend_encounter_for_a_pending_alarmed_vein", func():
+		GameState.reset()
+		var vein := _player_vein_of(1, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+
+		var result := Travel.travel_to("camden")
+
+		assert_true(result["ok"])
+		assert_true(GameState.state["combat"]["active"], "travelling into the pending district should start the defend combat")
+		assert_eq(GameState.state["combat"]["context"], "defend_vein")
+		assert_eq(GameState.state["world"]["pendingDefendRaids"], [], "the pending entry should be consumed")
+	)
+
+	run_case("travel_to_with_no_pending_defend_raid_behaves_exactly_as_before", func():
+		GameState.reset()
+		var result := Travel.travel_to("camden")
+		assert_true(result["ok"])
+		assert_true(not GameState.state["combat"]["active"], "no pending raid means no combat")
+		assert_eq(GameState.state["world"]["currentDistrict"], "camden")
+	)
+
+	# prospect() spends the day's own block via TimeSystem.advance_time_block(),
+	# which -- when this is the day's last block -- rolls the day over and
+	# runs daily_tick() synchronously, including Raiding.apply_raid_resolution()'s
+	# own expiry of stale pending defend raids. If maybe_trigger_defend() were
+	# checked after advance_time_block() (as it originally was), that same-call
+	# expiry would silently resolve (and lose) the vein the player is in the
+	# act of arriving to defend, before the defend check ever got a turn --
+	# so this must run before advance_time_block(), and this test pins that.
+	run_case("prospect_on_the_days_last_block_still_triggers_the_defend_encounter_instead_of_losing_the_race_to_daily_ticks_own_expiry", func():
+		GameState.reset()
+		GameState.state["world"]["timeBlocksDone"] = [0, 1]  # 1 block left -- prospecting is the day's last block
+		var vein := _player_vein_of(1, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+
+		var result := Sites.prospect("camden")
+
+		assert_true(result["ok"])
+		assert_true(GameState.state["combat"]["active"], "arriving on the day's last block should still start the defend combat")
+		assert_eq(GameState.state["combat"]["context"], "defend_vein")
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "the vein must not be auto-resolved out from under an in-time arrival")
+	)

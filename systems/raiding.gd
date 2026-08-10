@@ -384,7 +384,84 @@ static func resolve_raid_outcome(outcome: Dictionary) -> void:
 	Notify.push("%s raided your vein in %s. It's theirs now." % [faction_name, district_name])
 
 
-# Called from time_system.gd's daily_tick, step 5i.
+# Called from time_system.gd's daily_tick, step 5i. Runs the previous tick's
+# still-pending alarm-defend raids first (ticket 07 -- a player who never
+# travelled to defend one loses it exactly as the no-alarm path would), then
+# rolls this tick's fresh attempts: a success against an alarmed vein queues
+# for the player to go defend instead of resolving here; every other success
+# resolves immediately, unchanged from ticket 06.
 static func apply_raid_resolution() -> void:
+	_expire_pending_defend_raids()
+
 	for attempt in roll_raid_attempts():
-		resolve_raid_outcome(roll_raid_odds(attempt))
+		var outcome := roll_raid_odds(attempt)
+		if not outcome["success"]:
+			continue
+		var vein: Variant = Cultivating.find_vein(outcome["veinId"])
+		if vein != null and vein["alarmUpgrades"].has(Cultivating.ALARM_UPGRADE_ID):
+			_queue_defend_raid(outcome, vein)
+		else:
+			resolve_raid_outcome(outcome)
+
+
+# ── Direction B: alarm defend encounter (ticket 07) ─────────────────────
+# Layers the alarm upgrade (ticket 05) onto the raid trigger above as the one
+# case with player agency. A successful attempt against an alarmed vein
+# doesn't resolve here -- it queues in state.world.pendingDefendRaids and
+# alerts the player, giving them the rest of the current day (until the next
+# daily_tick, the same "no separate countdown system" the PRD calls for) to
+# travel to the vein's district and fight it out. maybe_trigger_defend()
+# below is the arrival-side hook (called from Travel.travel_to()/
+# Sites.prospect(), the same two chokepoints DistrictDeck.maybe_trigger()
+# already uses for "player just arrived in this district" side effects);
+# _expire_pending_defend_raids() is the fallthrough side, resolving anything
+# still unclaimed at the top of the next tick via the exact same
+# resolve_raid_outcome() ticket 06 already uses, so a missed window plays out
+# identically to the no-alarm path.
+static func _queue_defend_raid(outcome: Dictionary, vein: Dictionary) -> void:
+	GameState.state["world"]["pendingDefendRaids"].append(outcome)
+	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
+	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
+	# PROSE-REVIEW: new notification copy, drafted against CONTENT-GUIDE.md's
+	# tone bible (dry, administrative, one line).
+	Notify.push("Alarm's gone off — %s are closing in on your vein in %s. Get there today to defend it." % [faction_name, district_name])
+
+
+static func _expire_pending_defend_raids() -> void:
+	var world: Dictionary = GameState.state["world"]
+	var pending: Array = world["pendingDefendRaids"]
+	world["pendingDefendRaids"] = []
+	for outcome in pending:
+		resolve_raid_outcome(outcome)
+
+
+# Called from Travel.travel_to()/Sites.prospect() once the player's arrival
+# in district_id is otherwise resolved -- same shape/placement as
+# DistrictDeck.maybe_trigger(), and deliberately checked first: a defend
+# encounter takes the screen over exactly like combat always does, so the
+# district-deck's own flavour roll must not also fire the same beat. Returns
+# true when a defend combat started, so callers know to skip that roll.
+static func maybe_trigger_defend(district_id: String) -> bool:
+	var pending: Array = GameState.state["world"]["pendingDefendRaids"]
+	for i in range(pending.size()):
+		var outcome: Dictionary = pending[i]
+		var vein: Variant = Cultivating.find_vein(outcome["veinId"])
+		if vein != null and vein["district"] == district_id:
+			pending.remove_at(i)
+			GameState.state["world"]["activeDefendRaid"] = outcome
+			Combat.start_defend_vein(outcome["veinId"], vein["level"])
+			return true
+	return false
+
+
+# Called by Combat.exit_combat()'s "defend_vein" branch. A win leaves the
+# vein untouched -- ownership was never moved, so there's nothing to do, and
+# the PRD explicitly wants no separate win notification. A loss reuses
+# resolve_raid_outcome() so the transfer and its Notify text are identical to
+# every other whole-vein-loss path in this file.
+static func resolve_defend_outcome(won: bool) -> void:
+	var outcome: Variant = GameState.state["world"]["activeDefendRaid"]
+	GameState.state["world"]["activeDefendRaid"] = null
+	if won or outcome == null:
+		return
+	resolve_raid_outcome(outcome)

@@ -24,6 +24,8 @@ func _refresh() -> void:
 		context_label = "Home Raid"
 	elif combat["context"] == "raid":
 		context_label = "Raid"
+	elif combat["context"] == "defend_vein":
+		context_label = "Defend"
 
 	_content.add_child(UI.heading(context_label))
 	_content.add_child(UI.heading(enemy["name"] if enemy != null else "Combat", 16))

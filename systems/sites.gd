@@ -157,6 +157,18 @@ static func prospect(district_id: String) -> Dictionary:
 	if not travel["ok"]:
 		return travel
 
+	# vein-raiding ticket 07 — checked before advance_time_block(), not
+	# after: advance_time_block() can itself trigger daily_tick() (whenever
+	# this is the day's last block), which would expire this same pending
+	# defend raid via Raiding._expire_pending_defend_raids() before the
+	# post-action check below ever ran, so a player arriving on their last
+	# block of the day would silently lose the encounter to the very tick
+	# their arrival was supposed to pre-empt. Checking here, before any of
+	# prospect()'s own effects land, means arriving is unconditionally
+	# enough -- same as combat always taking the screen over immediately.
+	if Raiding.maybe_trigger_defend(district_id):
+		return { "ok": true, "district": district_id, "site": null }
+
 	TimeSystem.advance_time_block()
 
 	var site: Variant

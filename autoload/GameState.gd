@@ -53,6 +53,22 @@ func new_game_state() -> Dictionary:
 			"currentDistrict": "shoreditch",
 			"sites": [],
 			"recentEvents": [],  # D5: [{id, day}] — district-deck no-repeat-within-5-days tracking
+			# vein-raiding ticket 07: a successful Direction-B raid attempt
+			# against an alarmed vein queues here instead of resolving
+			# immediately (Raiding._queue_defend_raid) -- each entry is an
+			# outcome dict shaped { attackerId, veinId, siteId, success: true },
+			# the same shape resolve_raid_outcome() already consumes. Cleared
+			# and re-resolved off-screen (ticket 06's default path) at the
+			# start of the next daily_tick's raid-resolution step
+			# (Raiding._expire_pending_defend_raids) if the player never
+			# travelled to the vein's district in the meantime.
+			"pendingDefendRaids": [],
+			# The one pending entry (above) currently being fought as a
+			# "defend_vein" combat, popped off pendingDefendRaids by
+			# Raiding.maybe_trigger_defend() when the player travels into its
+			# district. Combat.exit_combat() reads this to resolve a loss via
+			# Raiding.resolve_defend_outcome(), then clears it back to null.
+			"activeDefendRaid": null,
 		},
 
 		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0 },
