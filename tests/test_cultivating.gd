@@ -580,3 +580,44 @@ func run() -> void:
 		assert_true(Cultivating.LOCATION_STREETS.has(parts[0]), "street should come from the verbatim HTML array")
 		assert_true(Cultivating.LOCATION_SUFFIXES.has(parts[1]), "suffix should come from the verbatim HTML array")
 	)
+
+	# ── map-interaction-model ticket 01: level badge progress ring ──────
+
+	run_case("dev_fraction_is_devBar_over_devBarMax_for_the_current_level", func():
+		# Lv1 devBarMax is 8 (data/vein_levels.json).
+		var vein := { "level": 1, "devBar": 2, "hospitability": { "tier": "fair", "bonuses": [] } }
+		assert_eq(Cultivating.dev_fraction(vein), 0.25, "2/8 devBar should be a quarter full")
+	)
+
+	run_case("dev_fraction_clamps_to_1_if_devBar_somehow_exceeds_devBarMax", func():
+		var vein := { "level": 1, "devBar": 999, "hospitability": { "tier": "fair", "bonuses": [] } }
+		assert_eq(Cultivating.dev_fraction(vein), 1.0, "fraction should never exceed 1.0")
+	)
+
+	run_case("dev_fraction_is_full_at_effective_max_level_even_though_devBarMax_is_9999", func():
+		# Lv5 (the hard cap without a bonus) has devBarMax 9999 in the data —
+		# a maxed vein must read as "topped out" (ring full), not a sliver.
+		var capped := { "level": 5, "devBar": 3, "hospitability": { "tier": "fair", "bonuses": [] } }
+		assert_eq(Cultivating.dev_fraction(capped), 1.0, "Lv5 with no maxLevel bonus is already at the effective cap -> full ring")
+	)
+
+	run_case("dev_fraction_at_lv5_with_maxLevel_bonus_uses_the_real_devBarMax_not_full", func():
+		# Same Lv5, but the maxLevel bonus raises the effective cap to 6, so
+		# Lv5 here is NOT yet the effective max — fraction should be real.
+		var boosted := { "level": 5, "devBar": 3, "hospitability": { "tier": "saturated", "bonuses": ["maxLevel"] } }
+		assert_eq(Cultivating.dev_fraction(boosted), 3.0 / 9999.0, "Lv5 with the maxLevel bonus isn't the effective cap (6 is) -> real fraction against devBarMax 9999")
+	)
+
+	run_case("dev_fraction_is_full_at_lv6_with_maxLevel_bonus", func():
+		var boosted := { "level": 6, "devBar": 3, "hospitability": { "tier": "saturated", "bonuses": ["maxLevel"] } }
+		assert_eq(Cultivating.dev_fraction(boosted), 1.0, "Lv6 is the effective cap with the maxLevel bonus -> full ring")
+	)
+
+	run_case("is_at_max_level_matches_get_level_cap", func():
+		var plain_lv5 := { "level": 5, "hospitability": { "tier": "fair", "bonuses": [] } }
+		var plain_lv4 := { "level": 4, "hospitability": { "tier": "fair", "bonuses": [] } }
+		var boosted_lv5 := { "level": 5, "hospitability": { "tier": "saturated", "bonuses": ["maxLevel"] } }
+		assert_true(Cultivating.is_at_max_level(plain_lv5), "Lv5 with no bonus is at the cap")
+		assert_true(not Cultivating.is_at_max_level(plain_lv4), "Lv4 with no bonus is not at the cap")
+		assert_true(not Cultivating.is_at_max_level(boosted_lv5), "Lv5 with the maxLevel bonus is not yet at the raised cap of 6")
+	)

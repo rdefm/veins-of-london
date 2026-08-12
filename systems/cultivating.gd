@@ -60,6 +60,23 @@ static func get_level_cap(vein: Dictionary) -> int:
 	return 6 if bonuses.has("maxLevel") else LEVEL_CAP
 
 
+static func is_at_max_level(vein: Dictionary) -> bool:
+	return vein["level"] >= get_level_cap(vein)
+
+
+# map-interaction-model ticket 01: fill fraction for the level badge's
+# progress ring. A maxed vein reads as "topped out" (ring full), not "one
+# harvest away" — its devBarMax is 9999 (data/vein_levels.json), a tiny
+# sliver against real devBar values, so max level is special-cased to 1.0
+# rather than computed from that placeholder ceiling.
+static func dev_fraction(vein: Dictionary) -> float:
+	if is_at_max_level(vein):
+		return 1.0
+	var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
+	var dev_bar_max: int = level_data["devBarMax"]
+	return clampf(float(vein["devBar"]) / float(dev_bar_max), 0.0, 1.0)
+
+
 # "recharge" hospitability bonus: -1 (min 1), stacks with the King's
 # Cross district special (also -1, min 1 overall).
 static func get_effective_recharge_blocks(vein: Dictionary) -> int:

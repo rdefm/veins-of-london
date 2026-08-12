@@ -808,10 +808,11 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 
 	var level_scale := MapStyle.badge_scale(filter_mode, "level")
 	var countdown = MapStyle.countdown_label(filter_mode, charged, _blocks_until_charged(vein))
+	var dev_fraction := Cultivating.dev_fraction(vein)
 	if countdown != null:
-		_draw_level_badge(pos, level, level_scale, alpha, countdown)
+		_draw_level_badge(pos, level, level_scale, alpha, dev_fraction, countdown)
 	else:
-		_draw_level_badge(pos, level, level_scale, alpha)
+		_draw_level_badge(pos, level, level_scale, alpha, dev_fraction)
 
 	var security_scale := MapStyle.badge_scale(filter_mode, "security")
 	_draw_security_padlock(pos, security, security_scale, alpha)
@@ -886,11 +887,28 @@ func _draw_ore_symbol(pos: Vector2, ore_type: String, ore: Dictionary, alpha: fl
 
 # ── badges ───────────────────────────────────────────────────────────────
 
-func _draw_level_badge(pos: Vector2, level: int, enlarge: float, alpha: float, override_text: Variant = null) -> void:
+# map-interaction-model ticket 01: the outline is now a thick progress arc
+# (Cultivating.dev_fraction — devBar/devBarMax for the vein's current level,
+# forced to 1.0/full at effective max level) instead of a plain thin
+# full-circle outline. ring_width is a fraction of radius rather than an
+# absolute px value so it scales in lockstep with the badge itself at every
+# zoom level and filter-mode enlarge factor (both already just scale radius
+# — see badge_scale()/the whole-canvas draw_set_transform in _draw()) —
+# never a hairline sliver at min zoom or a solid blob swallowing the level
+# number at max zoom/enlarge.
+const LEVEL_RING_WIDTH_FRACTION := 0.4
+
+func _draw_level_badge(pos: Vector2, level: int, enlarge: float, alpha: float, fill_fraction: float, override_text: Variant = null) -> void:
 	var badge_pos := pos + CLOCK_4 * BADGE_OFFSET
 	var radius := 6.0 * STOP_ICON_GROWTH * enlarge
 	draw_circle(badge_pos, radius, _faded(PAPER_COLOUR, alpha))
-	draw_arc(badge_pos, radius, 0, TAU, 16, _faded(INK_COLOUR, alpha), 1.0, true)
+	# Faint full-circumference track under the progress arc so a fresh Lv1
+	# vein (fill_fraction 0) still reads as a ring, not a bare disc.
+	draw_arc(badge_pos, radius, 0, TAU, 16, _faded(INK_COLOUR, alpha * 0.35), 1.0, true)
+	if fill_fraction > 0.0:
+		var ring_width := radius * LEVEL_RING_WIDTH_FRACTION
+		var end_angle := -PI / 2.0 + TAU * clampf(fill_fraction, 0.0, 1.0)
+		draw_arc(badge_pos, radius, -PI / 2.0, end_angle, 24, _faded(PLAYER_COLOUR, alpha), ring_width, true)
 	var text: String = override_text if override_text != null else str(level)
 	_draw_centered_text(badge_pos, text, int(9 * STOP_ICON_GROWTH * enlarge), _faded(INK_COLOUR, alpha))
 

@@ -364,9 +364,9 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 	var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
 	var security: Dictionary = GameData.VEIN_SECURITY[vein["security"]]
-	var level_cap: int = Cultivating.get_level_cap(vein)
 	var district: String = vein["district"]
 	var vein_id: String = vein["id"]
+	var at_max_level := Cultivating.is_at_max_level(vein)
 
 	c["content"].add_child(UI.heading("%s %s — Lv%d %s" % [ore["symbol"], ore["name"], vein["level"], vein["levelLabel"]], 14))
 	c["content"].add_child(UI.muted_label(vein["location"]))
@@ -377,11 +377,11 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	c["content"].add_child(UI.muted_label("Charge: %s" % charge_label))
 	c["content"].add_child(UI.bar(recharge_blocks if vein["charged"] else vein["chargeBlocks"], recharge_blocks))
 
-	if vein["level"] < level_cap:
+	if at_max_level:
+		c["content"].add_child(UI.muted_label("Development: Max level"))
+	else:
 		c["content"].add_child(UI.muted_label("Development: %d/%d" % [vein["devBar"], level_data["devBarMax"]]))
 		c["content"].add_child(UI.bar(vein["devBar"], level_data["devBarMax"]))
-	else:
-		c["content"].add_child(UI.muted_label("Development: Max level"))
 
 	# UI.hflow, not UI.hbox: a charged vein shows all three buttons at once,
 	# which overflows a narrow phone's width in a plain HBoxContainer
@@ -389,8 +389,9 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	# and tappable instead of clipped past the right edge.
 	var actions := UI.hflow()
 
-	var cultivate_button := UI.button(UI.format_block_cost_label("Cultivate", 1), func(): Cultivating.cultivate(vein_id))
-	cultivate_button.disabled = not Travel.can_afford(district, 1)
+	var cultivate_label := "Vein at max level" if at_max_level else UI.format_block_cost_label("Cultivate", 1)
+	var cultivate_button := UI.button(cultivate_label, func(): Cultivating.cultivate(vein_id))
+	cultivate_button.disabled = at_max_level or not Travel.can_afford(district, 1)
 	actions.add_child(cultivate_button)
 
 	if vein["charged"]:
