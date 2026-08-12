@@ -200,6 +200,17 @@ func run() -> void:
 	# adversarial ordering that swallowed the tap pre-fix -- mouse-down
 	# before touch-down, mouse-up before touch-up -- and proves the fix: an
 	# emulated event (device == -1) is now inert either way it's interleaved.
+	#
+	# 10-map-interaction-model ticket 03: a district tap no longer sets
+	# mapNav.selectedDistrict directly (that only happens now via the bubble's
+	# View Veins option -- see tests/test_district_bubble.gd) -- it kicks off
+	# MapCanvas._open_district_bubble()'s pan_to() instead, which is Node/Tween-
+	# side and untested here for the same reason as the rest of this file's
+	# playback machinery (see this file's class comment). What's still provable
+	# synchronously, with no scene tree or tween processing needed, is that the
+	# tap resolved to the district branch at all (_active_tween gets assigned
+	# before pan_to()'s first await) rather than being swallowed by the emulated
+	# mouse twin, and that the old direct-nav side effect no longer fires.
 	run_case("emulated_mouse_event_paired_with_a_real_touch_does_not_swallow_the_tap", func():
 		GameState.reset()
 		var anchor: Array = GameData.MAP_LAYOUT["districts"]["hampstead"]["labelAnchor"]
@@ -235,7 +246,8 @@ func run() -> void:
 		touch_up.position = local_pos
 		canvas._gui_input(touch_up)
 
-		assert_eq(GameState.state["mapNav"]["selectedDistrict"], "hampstead", "the real touch must still resolve as a tap despite its emulated mouse twin")
+		assert_true(canvas._active_tween != null, "the real touch must still resolve as a district tap (pan_to() kicked off) despite its emulated mouse twin")
+		assert_eq(GameState.state["mapNav"]["selectedDistrict"], null, "ticket 03: a district tap no longer swaps in the full-screen panel directly")
 
 		canvas.free()
 	)
@@ -322,7 +334,10 @@ func run() -> void:
 		up.device = 0
 		canvas._gui_input(up)
 
-		assert_eq(GameState.state["mapNav"]["selectedDistrict"], "hampstead", "a genuine (non-emulated) mouse click is the desktop/browser testing path and must keep working")
+		# ticket 03: see the emulated-mouse case above for why this checks
+		# _active_tween instead of the old direct mapNav.selectedDistrict write.
+		assert_true(canvas._active_tween != null, "a genuine (non-emulated) mouse click is the desktop/browser testing path and must still resolve as a district tap")
+		assert_eq(GameState.state["mapNav"]["selectedDistrict"], null)
 
 		canvas.free()
 	)

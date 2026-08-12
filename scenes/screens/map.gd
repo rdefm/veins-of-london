@@ -30,6 +30,18 @@ var _diagram_layer: Control
 var _map_controls: MapControls
 var _sheet_layer: Control
 
+# Ticket 03: the district bubble overlay -- same "sibling over whatever it
+# should float above" shape as _sheet_layer, added last (see _ready()) so it
+# draws above the diagram, the filter drawer, and everything else. _map_canvas
+# needs to be kept (unlike _build_diagram_layer()'s previous local-only var)
+# so _ready() can connect its district_tapped signal and the bubble's
+# Prospect handler can call back into it for the result animation.
+# _bubble_district_id tracks which district the currently-open bubble belongs
+# to, read by _on_bubble_option_selected once the option is picked.
+var _map_canvas: MapCanvas
+var _bubble: MapBubble
+var _bubble_district_id: String = ""
+
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -62,6 +74,14 @@ func _ready() -> void:
 	UI.anchor_full_rect(_sheet_layer)
 	_sheet_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_sheet_layer)
+
+	# Ticket 03: added last so it draws above _sheet_layer's own site sheet
+	# too -- the two are never open at once in practice (a district tap
+	# closes/never opens a site sheet), but topmost is the safe default for
+	# a popup either way.
+	_bubble = MapBubble.new()
+	_bubble.option_selected.connect(_on_bubble_option_selected)
+	add_child(_bubble)
 
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
@@ -106,10 +126,14 @@ func _build_diagram_layer() -> Control:
 	var content := UI.vbox(8)
 	margin.add_child(content)
 
-	var map_canvas := MapCanvas.new()
+	_map_canvas = MapCanvas.new()
+	# Ticket 03: fires once a district tap's pan finishes (see
+	# MapCanvas._open_district_bubble's own comment) -- this is where the
+	# bubble actually gets shown.
+	_map_canvas.district_tapped.connect(_on_district_tapped)
 
 	_map_controls = MapControls.new()
-	_map_controls.map_canvas = map_canvas
+	_map_controls.map_canvas = _map_canvas
 
 	content.add_child(_build_top_bar())
 
@@ -134,7 +158,7 @@ func _build_diagram_layer() -> Control:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	scroll.add_child(map_canvas)
+	scroll.add_child(_map_canvas)
 	content.add_child(scroll)
 
 	return layer
@@ -166,6 +190,68 @@ func _build_top_bar() -> Control:
 	row.add_child(UI.icon_button(Icons.draw_bag, func(): Bag.open()))
 
 	return row
+
+
+# ── district bubble (ticket 03) ─────────────────────────────────────
+
+# Converts _map_canvas's own local (already-zoomed) anchor into _bubble's
+# local space via global_position -- both are plain, unscaled Controls
+# sitting in this same screen's tree, so a straight global_position
+# subtraction is enough (same idiom MapZoom.to_logical()'s screen-space
+# conversions rely on elsewhere in this feature).
+func _on_district_tapped(district_id: String, canvas_anchor: Vector2) -> void:
+	_bubble_district_id = district_id
+	var anchor: Vector2 = _map_canvas.global_position + canvas_anchor - _bubble.global_position
+	_bubble.open(anchor, _build_district_bubble_options(district_id))
+
+
+# DistrictBubble.district_options() (systems/district_bubble.gd) owns the
+# disabled/reason gating rules -- this only turns that pure data into the
+# label text MapBubble.open() expects, same split _build_district_actions
+# already draws between gating and its own button label formatting.
+#
+# The Prospect label always carries its cost suffix, disabled or not --
+# _build_district_actions' own real button (its siteCap/tutorial branches
+# swap in a muted label instead of a button, so this only compares against
+# its Travel.can_afford-disabled case) keeps the same "Prospect — 1 block"
+# text either way and only toggles Button.disabled; dropping the suffix
+# specifically while disabled would read as a different, cheaper action
+# rather than the same one you currently can't afford.
+func _build_district_bubble_options(district_id: String) -> Array:
+	var result: Array = []
+	for opt in DistrictBubble.district_options(district_id):
+		var label := UI.format_block_cost_label("Prospect", 1) if opt["id"] == DistrictBubble.PROSPECT_ID else "View Veins"
+		result.append({
+			"id": opt["id"],
+			"label": label,
+			"disabled": opt["disabled"],
+			"reason": opt["reason"],
+		})
+	return result
+
+
+# MapBubble already closed itself before emitting this (see its own
+# _select()), so Prospect's inline result animation never fights the popup
+# for the screen. View Veins' MapNav.select_district() call (inside
+# DistrictBubble.apply_option) triggers _refresh() via the usual
+# EventBus.state_changed round-trip, same as every other state-changing
+# button on this screen.
+#
+# tests/test_map_screen.gd covers the view_veins branch directly (no Node
+# access needed -- it's a straight DistrictBubble.apply_option() call). The
+# prospect branch's _map_canvas.play_prospect_result() call isn't covered
+# the same way: _map_canvas is only ever assigned inside _ready(), and even
+# after that its own _playback_layer only exists once ITS _ready() has
+# cascaded too (which a manually-invoked, never-added-to-a-live-tree
+# screen._ready() doesn't trigger) -- Node/Tween-side, same "isn't exercised
+# here" split test_map_events.gd's own comment documents for the rest of
+# this feature's animation code. DistrictBubble.apply_option()'s own tests
+# (tests/test_district_bubble.gd) already cover that this branch really
+# does call Sites.prospect() and report its ok/fail correctly.
+func _on_bubble_option_selected(option_id: String) -> void:
+	var result := DistrictBubble.apply_option(option_id, _bubble_district_id)
+	if option_id == DistrictBubble.PROSPECT_ID:
+		_map_canvas.play_prospect_result(_bubble_district_id, result["ok"])
 
 
 # ── district panel ──────────────────────────────────────────────────

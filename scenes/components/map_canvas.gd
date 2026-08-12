@@ -57,6 +57,15 @@ extends Control
 # waits for touch-UP and only fires if the release stayed within
 # TAP_MOVE_TOLERANCE of the press and no second finger ever joined.
 
+# 10-map-interaction-model ticket 03: fired once a district tap's pan_to()
+# finishes, telling scenes/screens/map.gd (which owns the MapBubble overlay,
+# same "sibling over whatever it should float above" reasoning ticket 02's
+# own header comment gives for that component) where to anchor it. `anchor`
+# is a point in this Control's own local (already-zoomed) space -- the
+# listener converts it via global_position, same idiom map.gd's _sheet_layer
+# already uses for its own full-rect overlay.
+signal district_tapped(district_id: String, anchor: Vector2)
+
 const PAPER_COLOUR := Color(1.0, 1.0, 1.0)                     # #ffffff, see _draw_paper() for why
 const RIVER_COLOUR := Color(0.831373, 0.811765, 0.768627, 0.6)  # #d4cfc4 @ 60%
 const MUTED_COLOUR := Color(0.541176, 0.541176, 0.541176)       # --muted #8a8a8a
@@ -138,6 +147,13 @@ const DELIBERATE_DURATION := 1.5
 const QUICK_DURATION := 0.35
 const PAN_DURATION := 0.4
 const RIPPLE_DURATION_FRACTION := 0.7
+
+# Ticket 03: the district bubble's inline Prospect result animation
+# (ProspectPulse/ProspectShake below) -- independent of event_visual_duration/
+# pacing_mode, which only govern the MapEvents playback queue's own visuals;
+# this is a synchronous bubble-action result, not a queued event, so it isn't
+# part of that skip/pacing system.
+const PROSPECT_RESULT_DURATION := 0.6
 
 var pacing_mode: String = "deliberate"
 var event_visual_duration: float = DELIBERATE_DURATION
@@ -1176,7 +1192,40 @@ func _handle_tap(tap_pos: Vector2) -> void:
 
 	var district_id = MapHitTest.district_at(tap_pos, GameData.MAP_LAYOUT["districts"])
 	if district_id != null:
-		MapNav.select_district(district_id)
+		_open_district_bubble(district_id)
+
+
+# Ticket 03: replaces the old immediate MapNav.select_district(district_id)
+# (which swapped the whole diagram out for the full-screen district list
+# panel) -- now a tap pans/focuses the diagram to the district's anchor
+# first, then hands off to map.gd's district_tapped listener to show the
+# anchored bubble (Prospect/View Veins) with the diagram still visible
+# behind it. Fire-and-forget from _handle_tap's point of view: the await
+# below only delays the signal, not the caller.
+func _open_district_bubble(district_id: String) -> void:
+	var point := MapLayout.district_anchor(district_id)
+	await pan_to(point)
+	district_tapped.emit(district_id, point * zoom_level)
+
+
+# Ticket 03: the district bubble's Prospect option runs Sites.prospect()
+# inline (map.gd calls DistrictBubble.apply_option(), then this) -- `ok`
+# picks which of the two one-shot tween visuals below plays at the
+# district's anchor, matching the ticket's "distinct tween animation on
+# success vs. fail." Neither is part of the MapEvents playback queue (no
+# _active_tween/skip wiring), so map.gd doesn't need to await this.
+func play_prospect_result(district_id: String, ok: bool) -> void:
+	var pos := MapLayout.district_anchor(district_id)
+	if ok:
+		var pulse := ProspectPulse.new()
+		pulse.position = pos
+		_playback_layer.add_child(pulse)
+		pulse.start(PROSPECT_RESULT_DURATION)
+	else:
+		var shake := ProspectShake.new()
+		shake.position = pos
+		_playback_layer.add_child(shake)
+		shake.start(PROSPECT_RESULT_DURATION)
 
 
 # N2/N5: home -> HQ, contact -> starts its event, market -> padlocked (no
@@ -1308,6 +1357,88 @@ class DrainCollapse:
 	func _draw() -> void:
 		if _alpha > 0.0:
 			draw_circle(Vector2.ZERO, _radius, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
+
+
+# Ticket 03's district bubble Prospect success visual: a bright ring expands
+# and fades once at the district's anchor -- same expand+fade shape as
+# ChargeBurst above, recoloured to MapCanvas.GUARDED_COLOUR (the --success
+# tint already used elsewhere on this diagram, e.g. the guarded-security
+# padlock) so it reads as a distinct "this worked" flash rather than a charge
+# event. Self-frees on its own tween's completion -- unlike the MapEvents
+# playback visuals above, map.gd's bubble handler doesn't await this (it
+# isn't part of that queued, skippable system), so nothing else ever frees it.
+class ProspectPulse:
+	extends Node2D
+
+	const START_RADIUS := 4.0
+	const END_RADIUS := ChargeHalo.RADIUS * 1.4
+	const START_ALPHA := 0.9
+	const COLOUR := MapCanvas.GUARDED_COLOUR
+
+	var _radius := START_RADIUS
+	var _alpha := START_ALPHA
+
+	func start(duration: float) -> void:
+		var tween := create_tween()
+		tween.tween_method(_set_radius, START_RADIUS, END_RADIUS, duration)
+		tween.parallel().tween_method(_set_alpha, START_ALPHA, 0.0, duration)
+		tween.finished.connect(queue_free)
+
+	func _set_radius(r: float) -> void:
+		_radius = r
+		queue_redraw()
+
+	func _set_alpha(a: float) -> void:
+		_alpha = a
+		queue_redraw()
+
+	func _draw() -> void:
+		if _alpha > 0.0:
+			draw_circle(Vector2.ZERO, _radius, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
+
+
+# Ticket 03's district bubble Prospect fail visual: a side-to-side shake that
+# fades out, recoloured to MapStyle.DANGER_COLOUR (the --danger tint the
+# vein-security dotted ring already uses) -- visually distinct from
+# ProspectPulse's outward expansion per the ticket's "distinct... success vs.
+# fail" requirement. Two independent tweens (not one with .parallel()): the
+# shake itself is three sequential legs (0 -> +AMPLITUDE -> -AMPLITUDE -> 0),
+# and .parallel() only pairs a step with the one immediately before it, so a
+# single tween can't run one long fade alongside all three legs at once.
+# Self-frees the same way ProspectPulse does.
+class ProspectShake:
+	extends Node2D
+
+	const AMPLITUDE := 8.0
+	const RADIUS := 10.0
+	const START_ALPHA := 0.9
+	const COLOUR := MapStyle.DANGER_COLOUR
+
+	var _offset_x := 0.0
+	var _alpha := START_ALPHA
+
+	func start(duration: float) -> void:
+		var leg := duration / 4.0
+		var shake := create_tween()
+		shake.tween_method(_set_offset, 0.0, AMPLITUDE, leg)
+		shake.tween_method(_set_offset, AMPLITUDE, -AMPLITUDE, leg * 2.0)
+		shake.tween_method(_set_offset, -AMPLITUDE, 0.0, leg)
+
+		var fade := create_tween()
+		fade.tween_method(_set_alpha, START_ALPHA, 0.0, duration)
+		fade.finished.connect(queue_free)
+
+	func _set_offset(x: float) -> void:
+		_offset_x = x
+		queue_redraw()
+
+	func _set_alpha(a: float) -> void:
+		_alpha = a
+		queue_redraw()
+
+	func _draw() -> void:
+		if _alpha > 0.0:
+			draw_circle(Vector2(_offset_x, 0.0), RADIUS, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
 
 
 # Map-animations ticket 01's discover visual: "a soft ring pulses outward

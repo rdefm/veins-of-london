@@ -251,3 +251,75 @@ func run() -> void:
 
 		screen.free()
 	)
+
+	# 10-map-interaction-model ticket 03: _build_district_bubble_options()
+	# turns DistrictBubble.district_options() (systems/district_bubble.gd,
+	# tested on its own in tests/test_district_bubble.gd) into the label/
+	# disabled/reason dicts MapBubble.open() expects -- same
+	# gating-logic-vs-label-formatting split _build_district_actions already
+	# draws, and the same "call the pure builder directly on a fresh
+	# MapScreen.new()" pattern the district_actions_prospect_and_travel_...
+	# case above uses (this doesn't touch _map_canvas/_bubble at all, so it
+	# doesn't need _ready()).
+	run_case("district_bubble_options_prospect_keeps_its_cost_label_even_when_disabled", func():
+		GameState.reset()
+		# fresh reset: cultivationTutorialSeen is false, so shoreditch's
+		# Prospect option is disabled by the tutorial gate -- exactly the
+		# case that regressed (label used to drop its cost suffix here).
+		var screen := MapScreen.new()
+
+		var options := screen._build_district_bubble_options("shoreditch")
+
+		assert_eq(options[0]["id"], DistrictBubble.PROSPECT_ID)
+		assert_true(options[0]["disabled"])
+		assert_eq(options[0]["label"], UI.format_block_cost_label("Prospect", 1), "disabled Prospect still reads as the same 1-block action, not a different unlabelled one")
+		assert_eq(options[0]["reason"], "Prospecting — see Archie first")
+
+		screen.free()
+	)
+
+	run_case("district_bubble_options_prospect_enabled_has_no_reason_and_the_same_cost_label", func():
+		GameState.reset()
+		GameState.state["flags"]["cultivationTutorialSeen"] = true
+		var screen := MapScreen.new()
+
+		var options := screen._build_district_bubble_options("shoreditch")
+
+		assert_true(not options[0]["disabled"])
+		assert_eq(options[0]["label"], UI.format_block_cost_label("Prospect", 1))
+		assert_eq(options[0]["reason"], "")
+
+		screen.free()
+	)
+
+	run_case("district_bubble_options_view_veins_is_always_enabled_and_labelled", func():
+		GameState.reset()
+		var screen := MapScreen.new()
+
+		var options := screen._build_district_bubble_options("soho")  # prospect blocked here (siteCap 0)
+
+		assert_eq(options[1]["id"], DistrictBubble.VIEW_VEINS_ID)
+		assert_eq(options[1]["label"], "View Veins")
+		assert_true(not options[1]["disabled"])
+
+		screen.free()
+	)
+
+	# _on_bubble_option_selected's view_veins branch only ever calls
+	# DistrictBubble.apply_option() -> MapNav.select_district() -- no
+	# _map_canvas/_bubble access -- so it's safe to call directly on a fresh,
+	# never-_ready()'d screen. The prospect branch (_map_canvas.
+	# play_prospect_result()) is Node/Tween-side and deliberately not covered
+	# here -- see this function's own comment in scenes/screens/map.gd.
+	run_case("on_bubble_option_selected_view_veins_dispatches_through_MapNav", func():
+		GameState.reset()
+		var screen := MapScreen.new()
+		screen._bubble_district_id = "hampstead"
+
+		screen._on_bubble_option_selected(DistrictBubble.VIEW_VEINS_ID)
+
+		assert_eq(GameState.state["mapNav"]["selectedDistrict"], "hampstead")
+
+		screen.free()
+	)
+
