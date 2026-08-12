@@ -20,8 +20,15 @@ const ORE_COST_PER_TYPE := 3
 const XP_FOUND := 40
 const XP_HOT := 12
 const XP_INERT := 6
+const XP_REFINE := 30
 
 const NOTES_CAP := 20
+
+const REFINE_ORE_PER_TYPE := 3
+const REFINE_BASE_CHANCE := 0.55
+const REFINE_SKILL_BONUS := 0.10
+const REFINE_TIER_PENALTY := 0.15
+const REFINE_CHANCE_FLOOR := 0.08
 
 
 # Canonical type-set key: alphabetically sorted, "+"-joined. Every
@@ -117,6 +124,94 @@ static func discovery_cost(types: Array) -> Dictionary:
 static func discovery_chance(types: Array, approach: String, skill: int) -> float:
 	var pity: float = get_cell(types, approach)["misses"] * PITY_PER_MISS
 	return minf(DISCOVERY_CHANCE_CAP, DISCOVERY_BASE_CHANCE + (skill - 1) * DISCOVERY_SKILL_BONUS + Home.get_workshop_bonus() + pity)
+
+
+# The tier a refinement attempt is pushing toward -- 1 on a freshly found
+# cell (refine == 0), 2 on its next successful refinement, and so on,
+# uncapped (M3 §5).
+static func refine_tier_target(types: Array, approach: String) -> int:
+	return get_cell(types, approach)["refine"] + 1
+
+
+static func refine_cost(types: Array, approach: String) -> Dictionary:
+	var n := refine_tier_target(types, approach)
+	var costs := {}
+	for ore_type in types:
+		costs[ore_type] = REFINE_ORE_PER_TYPE * (n + 1)
+	return costs
+
+
+# Odds fall with each tier but never hit the floor (M3 §7). Refinement has
+# no pity channel -- only tier and skill move this number.
+static func refine_chance(types: Array, approach: String, skill: int) -> float:
+	var n := refine_tier_target(types, approach)
+	return maxf(REFINE_CHANCE_FLOOR, REFINE_BASE_CHANCE + (skill - 1) * REFINE_SKILL_BONUS - REFINE_TIER_PENALTY * (n - 1))
+
+
+# The current value of a refineStep-targeted recipe field, derived from the
+# recipe's authored base value plus the cell's refine tier (state) -- never
+# by mutating GameData.RECIPES, which is boot-time content and isn't part
+# of the snapshotted state tree. Deriving it this way is what makes refine
+# progress survive Rewind and an app close/reopen (M3 §10, spec stories
+# 47-48) for free: the tier count is the only thing that needs to persist.
+static func refined_value(recipe_key: String, types: Array, approach: String) -> Variant:
+	var r: Dictionary = GameData.RECIPES[recipe_key]
+	var step: Dictionary = r["refineStep"]
+	var field: String = step["field"]
+	var tier: int = get_cell(types, approach)["refine"]
+	return r[field] + step["add"] * tier
+
+
+static func _refine_block_reason(types: Array, approach: String) -> String:
+	if not Approaches.is_known(approach):
+		return "You haven't the technique for that yet."
+	var state: String = cell_state(types, approach)
+	if state != "found":
+		return "Nothing here to refine."
+	var costs := refine_cost(types, approach)
+	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
+	for ore_type in costs:
+		if orichalchum.get(ore_type, 0) < costs[ore_type]:
+			return "Not enough calc."
+	return ""
+
+
+static func can_refine(types: Array, approach: String) -> bool:
+	return _refine_block_reason(types, approach) == ""
+
+
+# Re-experiments an already-found effect to push it toward its next tier.
+# Ore and a time block are spent regardless of outcome (M3 §7's "ore
+# deduction: always"); on success the cell's refine tier increments, which
+# is the entirety of "applying" refineStep -- refined_value() reads it back
+# out. Inert and never-found cells are never reachable here (M3 §5).
+static func refine(types: Array, approach: String) -> Dictionary:
+	var reason := _refine_block_reason(types, approach)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+
+	TimeSystem.advance_time_block()
+
+	var player: Dictionary = GameState.state["player"]
+	var costs := refine_cost(types, approach)
+	for ore_type in costs:
+		player["orichalchum"][ore_type] = maxi(0, player["orichalchum"].get(ore_type, 0) - costs[ore_type])
+
+	var skill: int = player["craftingSkill"]
+	var chance := refine_chance(types, approach, skill)
+	var outcome: String
+
+	if Rng.chance(chance):
+		outcome = "refined"
+		_set_cell(types, approach, { "refine": refine_tier_target(types, approach) })
+		Crafting.award_crafting_xp(XP_REFINE)
+	else:
+		outcome = "refine_failed"
+
+	_append_note(types, approach, outcome)
+	EventBus.state_changed.emit()
+
+	return { "ok": true, "outcome": outcome }
 
 
 static func _probe_block_reason(types: Array, approach: String) -> String:

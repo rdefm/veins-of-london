@@ -189,6 +189,178 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "an experiment costs one time block")
 	)
 
+	run_case("refine_is_blocked_on_an_inert_cell", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		# No recipe assigned to this cell -- probing resolves it inert.
+		Bench.probe(["life", "time"], "heat")
+		assert_eq(Bench.cell_state(["life", "time"], "heat"), "inert")
+
+		var ore_before: int = GameState.state["player"]["orichalchum"]["time"]
+		var result := Bench.refine(["life", "time"], "heat")
+		assert_true(not result["ok"], "refinement on an inert cell must refuse")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], ore_before, "a blocked refine must not deduct ore")
+	)
+
+	run_case("refine_is_blocked_on_a_never_found_untried_cell", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		assert_eq(Bench.cell_state(["life", "time"], "heat"), "untried")
+		var result := Bench.refine(["life", "time"], "heat")
+		assert_true(not result["ok"], "refinement on an untried cell must refuse")
+	)
+
+	run_case("refine_is_blocked_on_a_hot_cell", func():
+		GameData.RECIPES["_testBenchEffect"] = { "discovery": { "types": ["life", "time"], "approach": "heat" } }
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "hot", "misses": 1, "refine": 0 }
+		var result := Bench.refine(["life", "time"], "heat")
+		assert_true(not result["ok"], "refinement on a hot (not-yet-found) cell must refuse")
+		GameData.RECIPES.erase("_testBenchEffect")
+	)
+
+	run_case("refine_is_blocked_on_an_unlearned_approach", func():
+		GameData.RECIPES["_testBenchEffect"] = { "discovery": { "types": ["time"], "approach": "distilling" } }
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["bench"]["cells"]["time|distilling"] = { "state": "found", "misses": 0, "refine": 0 }
+		var result := Bench.refine(["time"], "distilling")
+		assert_true(not result["ok"], "distilling is not known by default (needs the lab room)")
+		assert_eq(Bench.get_cell(["time"], "distilling")["refine"], 0, "a blocked refine must not advance the tier")
+		GameData.RECIPES.erase("_testBenchEffect")
+	)
+
+	run_case("refine_cost_rises_by_tier", func():
+		GameState.reset()
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+		var tier1_cost := Bench.refine_cost(["life", "time"], "heat")
+		assert_eq(tier1_cost["time"], 6, "tier 1: 3 * (1 + 1)")
+
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+		var tier3_cost := Bench.refine_cost(["life", "time"], "heat")
+		assert_eq(tier3_cost["time"], 12, "tier 3: 3 * (3 + 1), cost keeps rising with tier")
+	)
+
+	run_case("refine_chance_falls_by_tier_but_never_hits_zero", func():
+		GameState.reset()
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+		var tier1_chance := Bench.refine_chance(["life", "time"], "heat", 1)
+		assert_almost_eq(tier1_chance, 0.55, 0.0001, "tier 1 has no penalty yet")
+
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 99 }
+		var deep_tier_chance := Bench.refine_chance(["life", "time"], "heat", 1)
+		assert_almost_eq(deep_tier_chance, 0.08, 0.0001, "odds floor at 8%, never zero, however deep the tier")
+	)
+
+	run_case("refine_tiers_are_uncapped", func():
+		GameState.reset()
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 500 }
+		assert_eq(Bench.refine_tier_target(["life", "time"], "heat"), 501, "no ceiling on how far a cell can be pushed")
+	)
+
+	run_case("refine_success_increments_the_cells_refine_tier_and_awards_xp", func():
+		GameData.RECIPES["_testBenchEffect"] = {
+			"discovery": { "types": ["life", "time"], "approach": "heat" },
+			"effectPower": 8,
+			"refineStep": { "field": "effectPower", "add": 3 },
+		}
+		var seed := -1
+		for candidate in range(500):
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			GameState.state["player"]["orichalchum"]["life"] = 100
+			GameState.state["player"]["craftingSkill"] = 5
+			GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+			Rng.set_seed(candidate)
+			var result := Bench.refine(["life", "time"], "heat")
+			if result.get("outcome") == "refined":
+				seed = candidate
+				break
+		assert_true(seed != -1, "should find a refine-success roll within 500 tries")
+		assert_eq(Bench.get_cell(["life", "time"], "heat")["refine"], 1, "a successful refine increments the tier")
+		assert_eq(GameState.state["player"]["craftingXP"], 30, "success awards XP_REFINE")
+		GameData.RECIPES.erase("_testBenchEffect")
+	)
+
+	run_case("refine_failure_leaves_the_tier_and_found_state_unchanged", func():
+		GameData.RECIPES["_testBenchEffect"] = {
+			"discovery": { "types": ["life", "time"], "approach": "heat" },
+			"effectPower": 8,
+			"refineStep": { "field": "effectPower", "add": 3 },
+		}
+		var seed := -1
+		for candidate in range(500):
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			GameState.state["player"]["orichalchum"]["life"] = 100
+			GameState.state["player"]["craftingSkill"] = 1
+			GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+			Rng.set_seed(candidate)
+			var result := Bench.refine(["life", "time"], "heat")
+			if result.get("outcome") == "refine_failed":
+				seed = candidate
+				break
+		assert_true(seed != -1, "should find a refine-failure roll within 500 tries")
+		assert_eq(Bench.get_cell(["life", "time"], "heat")["state"], "found", "a failed refine never regresses a found cell")
+		assert_eq(Bench.get_cell(["life", "time"], "heat")["refine"], 2, "a failed refine does not advance the tier")
+		GameData.RECIPES.erase("_testBenchEffect")
+	)
+
+	run_case("refine_ore_is_always_deducted_regardless_of_outcome", func():
+		GameData.RECIPES["_testBenchEffect"] = { "discovery": { "types": ["life", "time"], "approach": "heat" } }
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+		Rng.set_seed(1)
+		Bench.refine(["life", "time"], "heat")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 94, "6 ore deducted for tier-1 refinement regardless of hit/miss")
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 94, "6 ore deducted for tier-1 refinement regardless of hit/miss")
+		GameData.RECIPES.erase("_testBenchEffect")
+	)
+
+	run_case("refine_advances_a_time_block", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 0)
+		Bench.refine(["life", "time"], "heat")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "a refinement attempt costs one time block")
+	)
+
+	run_case("refine_blocked_without_enough_ore_deducts_nothing", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 1
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+		var result := Bench.refine(["life", "time"], "heat")
+		assert_true(not result["ok"], "insufficient ore on any one type should refuse the whole refinement")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 1, "no deduction when blocked")
+		assert_eq(Bench.get_cell(["life", "time"], "heat")["refine"], 0, "a blocked refine must not advance the tier")
+	)
+
+	run_case("refined_value_computes_the_target_field_from_base_plus_tier_step_without_mutating_recipe_data", func():
+		GameState.reset()
+		GameData.RECIPES["_testBenchEffect"] = {
+			"discovery": { "types": ["life", "time"], "approach": "heat" },
+			"effectPower": 8,
+			"refineStep": { "field": "effectPower", "add": 3 },
+		}
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+		assert_eq(Bench.refined_value("_testBenchEffect", ["life", "time"], "heat"), 8, "tier 0 (freshly found) reads the base value")
+
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 3 }
+		assert_eq(Bench.refined_value("_testBenchEffect", ["life", "time"], "heat"), 17, "base 8 + 3 tiers * add 3 = 17")
+		assert_eq(GameData.RECIPES["_testBenchEffect"]["effectPower"], 8, "the underlying recipe data is never mutated -- the value is derived from state each time")
+		GameData.RECIPES.erase("_testBenchEffect")
+	)
+
 	run_case("notes_are_capped_at_20_per_pairing_oldest_dropped", func():
 		GameState.reset()
 		for i in range(25):
