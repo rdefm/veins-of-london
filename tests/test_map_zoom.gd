@@ -17,6 +17,14 @@ func run() -> void:
 		assert_almost_eq(MapZoom.clamp_zoom(5.0), MapZoom.MAX, 0.0001)
 	)
 
+	# Bugfixes ticket 10: MAX was 1.0, leaving almost no zoom-in headroom
+	# above DEFAULT (0.85) for reading closely-packed station clusters.
+	# Assert the headroom itself, not the literal MAX, so this stays
+	# meaningful if either constant gets retuned on-device.
+	run_case("max_zoom_gives_real_headroom_above_default_for_reading_clusters", func():
+		assert_true(MapZoom.MAX - MapZoom.DEFAULT >= 0.75)
+	)
+
 	run_case("to_logical_divides_by_zoom", func():
 		var logical := MapZoom.to_logical(Vector2(100, 200), 0.5)
 		assert_almost_eq(logical.x, 200.0, 0.0001)

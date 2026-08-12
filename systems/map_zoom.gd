@@ -10,12 +10,16 @@ extends RefCounted
 # map px MapHitTest and the pin list are keyed on.
 
 const MIN := 0.35
-const MAX := 1.0
+
+# Bugfixes ticket 10: was 1.0, leaving almost no zoom-in headroom above
+# DEFAULT (0.85) to read closely-packed station clusters. Roughly doubled;
+# exact value may still get tuned on-device.
+const MAX := 1.75
 
 # Map-filters ticket 02: was 0.5 (zoomed-to-fit-everything), bumped to 0.65,
 # then further per on-device feedback ("zoom in even more by default") to
-# 0.85 — past EVENT_ZOOM, close to MAX — so the map opens showing much
-# closer district-level detail instead of the whole Network at once.
+# 0.85 — past EVENT_ZOOM — so the map opens showing much closer
+# district-level detail instead of the whole Network at once.
 const DEFAULT := 0.85
 
 # Map-animations ticket 01: the zoom level a programmatic pan-to-point
