@@ -11,9 +11,13 @@ static func craft_chance(recipe_key: String, skill: int) -> float:
 	return min(0.95, r["baseSuccess"] + (skill - 1) * 0.13 + Home.get_workshop_bonus())
 
 
-static func calc_cost(recipe_key: String, skill: int) -> int:
+static func calc_cost(recipe_key: String, skill: int) -> Dictionary:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
-	return maxi(1, GameState.round_epsilon(r["baseCalcCost"] - (skill - 1) * 0.8))
+	var costs := {}
+	for ingredient in r["ingredients"]:
+		var base: int = r["ingredients"][ingredient]
+		costs[ingredient] = maxi(1, GameState.round_epsilon(base - (skill - 1) * 0.8))
+	return costs
 
 
 static func effect_power(recipe_key: String, skill: int) -> Variant:
@@ -23,12 +27,13 @@ static func effect_power(recipe_key: String, skill: int) -> Variant:
 
 
 static func can_craft(recipe_key: String) -> bool:
-	var r: Dictionary = GameData.RECIPES[recipe_key]
 	var skill: int = GameState.state["player"]["craftingSkill"]
-	var cost: int = calc_cost(recipe_key, skill)
-	var ingredient: String = r["ingredient"]
-	var have: int = GameState.state["player"]["orichalchum"].get(ingredient, 0)
-	return have >= cost
+	var costs: Dictionary = calc_cost(recipe_key, skill)
+	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
+	for ingredient in costs:
+		if orichalchum.get(ingredient, 0) < costs[ingredient]:
+			return false
+	return true
 
 
 static func attempt_craft(recipe_key: String) -> Dictionary:
@@ -38,11 +43,11 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	var skill: int = player["craftingSkill"]
-	var cost: int = calc_cost(recipe_key, skill)
-	var ingredient: String = r["ingredient"]
+	var costs: Dictionary = calc_cost(recipe_key, skill)
 
 	# Deducted regardless of outcome.
-	player["orichalchum"][ingredient] = maxi(0, player["orichalchum"].get(ingredient, 0) - cost)
+	for ingredient in costs:
+		player["orichalchum"][ingredient] = maxi(0, player["orichalchum"].get(ingredient, 0) - costs[ingredient])
 
 	var success: bool = Rng.chance(craft_chance(recipe_key, skill))
 	if success:

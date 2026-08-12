@@ -37,11 +37,13 @@ Other cultivating constants: `SEED_ORE_COST = 40`. `CULTIVATING_XP_LEVELS = [0, 
 
 ### 1.3 `data/recipes.json`
 
-| key | name | symbol | ingredient | baseSuccess | baseCalcCost | effectPower (index=skill 0–5) | xpReward | eventUsable |
-|---|---|---|---|---|---|---|---|---|
-| timePearl | Time Pearl | ⧖ | time | 0.40 | 5 | [0,1,1,2,2,3] (frozen turns) | 20 | false |
-| enhancementPowder | Enhancement Powder | ↯ | life | 0.35 | 6 | [0,1,1,2,2,3] (see combat §3.8) | 25 | false |
-| rewind | Rewind | ⟲ | time | 0.40 | 6 | [0,2,2,2,2,2] (turns rewound) | 35 | true |
+Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one key per required ore type, cost computed per-key (§3.5). Existing recipes are all single-ingredient (one-key dicts); nothing in the schema requires that.
+
+| key | name | symbol | ingredients (oreType: baseCalcCost) | baseSuccess | effectPower (index=skill 0–5) | xpReward | eventUsable |
+|---|---|---|---|---|---|---|---|
+| timePearl | Time Pearl | ⧖ | {time: 5} | 0.40 | [0,1,1,2,2,3] (frozen turns) | 20 | false |
+| enhancementPowder | Enhancement Powder | ↯ | {life: 6} | 0.35 | [0,1,1,2,2,3] (see combat §3.8) | 25 | false |
+| rewind | Rewind | ⟲ | {time: 6} | 0.40 | [0,2,2,2,2,2] (turns rewound) | 35 | true |
 
 Descriptions (verbatim):
 - timePearl: "Throw at your feet. Freezes enemy for N turns. Elegant, if you ignore what it actually is."
@@ -299,10 +301,10 @@ Tab bar (`NavBar`) hidden on `title, intro, event, combat` (unchanged from M0). 
 
 ### 3.5 Crafting & devices
 - `craftChance(r) = min(0.95, r.baseSuccess + (skill−1) * 0.13 + workshopBonus)`.
-- `calcCost(r) = max(1, round(r.baseCalcCost − (skill−1) * 0.8))`.
+- `calcCost(r) = { oreType: max(1, round(baseCalcCost − (skill−1) * 0.8)) for oreType, baseCalcCost in r.ingredients }` — computed independently per ingredient key.
 - `effectPower(r) = r.effectPower[skill]`.
-- **attemptCraft:** requires cost in the ingredient type; deduct ALWAYS; success → +1 item, full XP; fail → `floor(xp/3)`. Result modal.
-- **Devices:** build cost per attempt = `2 × calcCost(recipe)` of the device's calcType. Start at progress 10. Each attempt: deduct cost, award `floor(recipeXP/2)` crafting XP, then success (same craftChance) → progress +5 (at ≥100: completed instance `{level:1, xp:0, chargesPerDay:1, chargesUsedToday:0, lastResetDay:day}`); fail → progress −2.5 (at ≤0: device breaks, notification). Device XP: +10 per activation; level-ups per DEVICE_XP_LEVELS grant +1 chargesPerDay.
+- **attemptCraft:** requires cost in each ingredient type; deduct ALL ingredients ALWAYS; success → +1 item, full XP; fail → `floor(xp/3)`. Result modal.
+- **Devices:** build cost per attempt = `2 × calcCost(recipe)[device.calcType]` — the device's calcType selects one entry from the recipe's per-ingredient cost dict. Start at progress 10. Each attempt: deduct cost, award `floor(recipeXP/2)` crafting XP, then success (same craftChance) → progress +5 (at ≥100: completed instance `{level:1, xp:0, chargesPerDay:1, chargesUsedToday:0, lastResetDay:day}`); fail → progress −2.5 (at ≤0: device breaks, notification). Device XP: +10 per activation; level-ups per DEVICE_XP_LEVELS grant +1 chargesPerDay.
 - **Device activation in combat:** freeze → `frozenTurns += effectPower(timePearl at player skill)`; motion → `motionTurns += 2`, `motionPower = effectPower(enhancementPowder)`; rewind → per §3.9.
 
 ### 3.6 Selling (Archie lane)

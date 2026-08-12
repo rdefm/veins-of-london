@@ -20,7 +20,7 @@ func run() -> void:
 
 	run_case("corrupt_fixture_bad_cross_reference_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		corrupted["recipes"]["enhancementPowder"]["ingredient"] = "energy"
+		corrupted["recipes"]["enhancementPowder"]["ingredients"] = { "energy": 6 }
 		var errors := GameData.validate_tables(corrupted)
 		var found := false
 		for e in errors:
@@ -128,7 +128,7 @@ func run() -> void:
 		assert_eq(GameData.ORE_TYPES["fate"]["basePrice"], 90, "fate basePrice")
 		assert_eq(GameData.ORE_TYPES["emotion"]["symbol"], "❋", "emotion symbol")
 		assert_eq(GameData.HOME_TIERS["townhouse"]["maxRooms"], 3, "townhouse maxRooms")
-		assert_eq(GameData.RECIPES["enhancementPowder"]["ingredient"], "life", "enhancementPowder ingredient")
+		assert_true(GameData.RECIPES["enhancementPowder"]["ingredients"].has("life"), "enhancementPowder ingredients")
 		assert_eq(GameData.VEIN_LEVELS["5"]["devBarMax"], 9999, "Lode devBarMax")
 		assert_eq(GameData.VEIN_SECURITY["guarded"]["raidResist"], 55, "guarded raidResist")
 		assert_eq(GameData.FACTIONS["conclave"]["joinRelation"], 60, "conclave joinRelation")

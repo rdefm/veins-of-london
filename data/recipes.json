@@ -3,9 +3,8 @@
     "timePearl": {
       "name": "Time Pearl",
       "symbol": "⧖",
-      "ingredient": "time",
+      "ingredients": { "time": 5 },
       "baseSuccess": 0.40,
-      "baseCalcCost": 5,
       "effectPower": [0, 1, 1, 2, 2, 3],
       "xpReward": 20,
       "eventUsable": false,
@@ -14,9 +13,8 @@
     "enhancementPowder": {
       "name": "Enhancement Powder",
       "symbol": "↯",
-      "ingredient": "life",
+      "ingredients": { "life": 6 },
       "baseSuccess": 0.35,
-      "baseCalcCost": 6,
       "effectPower": [0, 1, 1, 2, 2, 3],
       "xpReward": 25,
       "eventUsable": false,
@@ -25,9 +23,8 @@
     "rewind": {
       "name": "Rewind",
       "symbol": "⟲",
-      "ingredient": "time",
+      "ingredients": { "time": 6 },
       "baseSuccess": 0.40,
-      "baseCalcCost": 6,
       "effectPower": [0, 2, 2, 2, 2, 2],
       "xpReward": 35,
       "eventUsable": true,

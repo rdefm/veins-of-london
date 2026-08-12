@@ -293,9 +293,14 @@ func _validate_vein_levels(levels: Dictionary, xp_levels: Array, errors: Array[S
 func _validate_recipes(recipes: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:
 	for key in recipes.keys():
 		var entry = recipes[key]
-		_require_keys(entry, ["name", "symbol", "ingredient", "baseSuccess", "baseCalcCost", "effectPower", "xpReward", "eventUsable", "description"], "recipes.%s" % key, errors)
-		if entry.has("ingredient") and not ore_types.has(entry["ingredient"]):
-			errors.append("recipes.%s: ingredient '%s' is not a known ore type" % [key, entry["ingredient"]])
+		_require_keys(entry, ["name", "symbol", "ingredients", "baseSuccess", "effectPower", "xpReward", "eventUsable", "description"], "recipes.%s" % key, errors)
+		if entry.has("ingredients"):
+			var ingredients: Dictionary = entry["ingredients"]
+			if ingredients.is_empty():
+				errors.append("recipes.%s: ingredients must have at least one entry" % key)
+			for ingredient_key in ingredients.keys():
+				if not ore_types.has(ingredient_key):
+					errors.append("recipes.%s: ingredient '%s' is not a known ore type" % [key, ingredient_key])
 		if entry.has("effectPower") and entry["effectPower"].size() != 6:
 			errors.append("recipes.%s: effectPower must have 6 entries (index=skill 0..5)" % key)
 

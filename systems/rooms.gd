@@ -55,14 +55,18 @@ static func process_lab() -> void:
 
 		var r: Dictionary = GameData.RECIPES[recipe_key]
 		var skill: int = c.get("craftingSkill", 1)
-		var cost: int = Crafting.calc_cost(recipe_key, skill)
-		var ingredient: String = r["ingredient"]
+		var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
 
 		while player["inventory"].get(recipe_key, 0) < target:
-			var have: int = player["orichalchum"].get(ingredient, 0)
-			if have < cost:
+			var can_afford := true
+			for ingredient in costs:
+				if player["orichalchum"].get(ingredient, 0) < costs[ingredient]:
+					can_afford = false
+					break
+			if not can_afford:
 				break
-			player["orichalchum"][ingredient] = have - cost
+			for ingredient in costs:
+				player["orichalchum"][ingredient] = player["orichalchum"].get(ingredient, 0) - costs[ingredient]
 			var success: bool = Rng.chance(Crafting.craft_chance(recipe_key, skill))
 			if success:
 				player["inventory"][recipe_key] = player["inventory"].get(recipe_key, 0) + 1

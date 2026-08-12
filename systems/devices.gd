@@ -7,7 +7,8 @@ extends RefCounted
 
 static func get_device_calc_cost(device_key: String, skill: int) -> int:
 	var dt: Dictionary = GameData.DEVICES[device_key]
-	return Crafting.calc_cost(dt["recipeKey"], skill) * 2
+	var costs: Dictionary = Crafting.calc_cost(dt["recipeKey"], skill)
+	return costs.get(dt["calcType"], 0) * 2
 
 
 static func can_build_device(device_key: String) -> bool:

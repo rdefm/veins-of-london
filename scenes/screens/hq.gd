@@ -261,20 +261,20 @@ func _build_recipe_card(recipe_key: String) -> Control:
 	var player: Dictionary = GameState.state["player"]
 	var skill: int = player["craftingSkill"]
 	var r: Dictionary = GameData.RECIPES[recipe_key]
-	var cost: int = Crafting.calc_cost(recipe_key, skill)
+	var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
 	var chance: float = Crafting.craft_chance(recipe_key, skill)
 	var power = Crafting.effect_power(recipe_key, skill)
 	var can_make: bool = Crafting.can_craft(recipe_key)
 	var stock: int = player["inventory"].get(recipe_key, 0)
-	var ingredient: String = r["ingredient"]
-	var have: int = player["orichalchum"].get(ingredient, 0)
-	var ore: Dictionary = GameData.ORE_TYPES[ingredient]
 
 	var c := UI.card()
 	c["content"].add_child(UI.heading("%s %s" % [r["symbol"], r["name"]], 15))
 	c["content"].add_child(UI.label("Can craft" if can_make else "Missing calc"))
 	c["content"].add_child(UI.muted_label(r["description"]))
-	c["content"].add_child(UI.label("Ingredient: %s %s — %d/%d" % [ore["symbol"], ore["name"], have, cost]))
+	for ingredient in costs:
+		var have: int = player["orichalchum"].get(ingredient, 0)
+		var ore: Dictionary = GameData.ORE_TYPES[ingredient]
+		c["content"].add_child(UI.label("Ingredient: %s %s — %d/%d" % [ore["symbol"], ore["name"], have, costs[ingredient]]))
 	c["content"].add_child(UI.label("Success: %d%%   Effect: %s   Stock: %d" % [int(round(chance * 100)), str(power), stock]))
 
 	var b := UI.button("Craft one", func(): Crafting.attempt_craft(recipe_key))
