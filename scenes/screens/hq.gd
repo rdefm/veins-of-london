@@ -36,14 +36,14 @@ func _refresh() -> void:
 	var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
 
 	_content.add_child(UI.heading(tier["name"]))
-	_content.add_child(UI.muted_label("Raid risk: %d%% · %d/%d security slots · %d/%d room slots" % [raid_pct, home["security"].size(), tier["maxSecuritySlots"], home["rooms"].size(), tier["maxRooms"]]))
+	_content.add_child(UI.muted_label("Raid risk: %d%% · %d/%d security installed · %d/%d room slots" % [raid_pct, home["security"].size(), GameData.HOME_SECURITY.size(), home["rooms"].size(), tier["maxRooms"]]))
 	_content.add_child(UI.label(tier["description"]))
 	_content.add_child(UI.muted_label("Daily cost: £%d · Tier %d/6" % [tier["dailyCost"], tier["tier"]]))
 
 	_content.add_child(_build_upgrade_card())
 	_content.add_child(_build_stored_ore_card())
 
-	_content.add_child(UI.heading("Security (%d/%d)" % [home["security"].size(), tier["maxSecuritySlots"]], 14))
+	_content.add_child(UI.heading("Security (%d/%d)" % [home["security"].size(), GameData.HOME_SECURITY.size()], 14))
 	for security_id in GameData.HOME_SECURITY.keys():
 		_content.add_child(_build_security_row(security_id))
 
@@ -124,22 +124,26 @@ func _build_stored_ore_card() -> Control:
 
 func _build_security_row(security_id: String) -> Control:
 	var home: Dictionary = GameState.state["home"]
-	var tier: Dictionary = GameData.HOME_TIERS[home["tier"]]
 	var sec: Dictionary = GameData.HOME_SECURITY[security_id]
 	var installed: bool = home["security"].has(security_id)
-	var full: bool = home["security"].size() >= tier["maxSecuritySlots"] and not installed
+	var order: Array = GameData.HOME_TIER_ORDER
+	var available: bool = order.find(home["tier"]) >= order.find(sec["minTier"])
 
 	var discount: float = 0.7 if GameState.state["flags"]["securityContactUnlocked"] else 1.0
 	var adj_cost: int = GameState.round_epsilon(sec["cost"] * discount)
 
 	var c := UI.card()
-	c["content"].add_child(UI.label(("✅ " if installed else "") + sec["name"]))
-	c["content"].add_child(UI.muted_label(sec["description"]))
+	var prefix := "✅ " if installed else ("🔒 " if not available else "")
+	c["content"].add_child(UI.label(prefix + sec["name"]))
+	var desc: String = sec["description"]
+	if not available:
+		desc += " Requires %s." % GameData.HOME_TIERS[sec["minTier"]]["name"]
+	c["content"].add_child(UI.muted_label(desc))
 
 	if installed:
 		c["content"].add_child(UI.muted_label("Installed"))
-	elif full:
-		c["content"].add_child(UI.muted_label("Slots full"))
+	elif not available:
+		c["content"].add_child(UI.muted_label("Locked"))
 	else:
 		var b := UI.button("£%d" % adj_cost, func(): Home.add_security(security_id))
 		b.disabled = GameState.state["player"]["cash"] < adj_cost

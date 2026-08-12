@@ -76,29 +76,29 @@ Descriptions (verbatim):
 
 ### 1.7 `data/home.json`
 
-**Tiers** (order matters — it is the upgrade ladder):
+**Tiers** (order matters — it is the upgrade ladder). `maxSecuritySlots` no longer exists — security is gated by each upgrade's `minTier` instead (below), not by a count cap:
 
-| id | name | tier | upgradeCost | dailyCost | raidBaseChance | maxSecuritySlots | maxRooms |
-|---|---|---|---|---|---|---|---|
-| bedsit | Bedsit | 1 | 0 | 50 | 0.08 | 1 | 0 |
-| flat | Flat | 2 | 1200 | 80 | 0.06 | 2 | 1 |
-| townhouse | Townhouse | 3 | 4000 | 150 | 0.04 | 3 | 3 |
-| safehouse | Safehouse | 4 | 12000 | 300 | 0.02 | 4 | 5 |
-| compound | Compound | 5 | 40000 | 600 | 0.01 | 5 | 8 |
-| mansion | Mansion & Grounds | 6 | 150000 | 1500 | 0.005 | 6 | 12 |
+| id | name | tier | upgradeCost | dailyCost | raidBaseChance | maxRooms |
+|---|---|---|---|---|---|---|
+| bedsit | Bedsit | 1 | 0 | 50 | 0.08 | 0 |
+| flat | Flat | 2 | 1200 | 80 | 0.06 | 1 |
+| townhouse | Townhouse | 3 | 4000 | 150 | 0.04 | 3 |
+| safehouse | Safehouse | 4 | 12000 | 300 | 0.02 | 5 |
+| compound | Compound | 5 | 40000 | 600 | 0.01 | 8 |
+| mansion | Mansion & Grounds | 6 | 150000 | 1500 | 0.005 | 12 |
 
 Tier descriptions: extract verbatim from HTML const `HOME_TIERS`.
 
-**Security upgrades** (each installable once; cost ×0.7 rounded when flag `securityContactUnlocked` is true):
+**Security upgrades** (each installable once, gated by `minTier` — not a count cap: a player who has reached the required tier and can afford it may install it regardless of how many others are already installed; cost ×0.7 rounded when flag `securityContactUnlocked` is true):
 
-| id | name | cost | raidReduction |
-|---|---|---|---|
-| lock | Reinforced Lock | 80 | 0.02 |
-| cameras | CCTV | 250 | 0.03 |
-| reinforcedDoor | Reinforced Door | 600 | 0.04 |
-| alarm | Alarm System | 400 | 0.03 |
-| guard | Hired Guard | 1200 | 0.05 |
-| ward | Orichalchum Ward | 2000 | 0.06 |
+| id | name | cost | raidReduction | minTier |
+|---|---|---|---|---|
+| lock | Reinforced Lock | 80 | 0.02 | bedsit |
+| cameras | CCTV | 250 | 0.03 | flat |
+| alarm | Alarm System | 400 | 0.03 | flat |
+| reinforcedDoor | Reinforced Door | 600 | 0.04 | townhouse |
+| ward | Orichalchum Ward | 2000 | 0.06 | safehouse |
+| guard | Hired Guard | 1200 | 0.05 | compound |
 
 **Rooms:**
 

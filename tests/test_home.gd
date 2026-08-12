@@ -108,14 +108,25 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 5000 - 1200, "upgradeCost deducted")
 	)
 
-	run_case("add_security_enforces_slot_cap", func():
+	run_case("add_security_enforces_minTier", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100000
-		# bedsit has 1 security slot
-		var first := Home.add_security("lock")
-		assert_true(first["ok"], "first security install should succeed")
-		var second := Home.add_security("cameras")
-		assert_true(not second["ok"], "bedsit only has 1 security slot")
+		# bedsit tier: lock's minTier is bedsit, guard's minTier is compound
+		var lock_result := Home.add_security("lock")
+		assert_true(lock_result["ok"], "bedsit-tier player should be able to install lock")
+		var guard_result := Home.add_security("guard")
+		assert_true(not guard_result["ok"], "bedsit-tier player should not be able to install guard (requires compound)")
+		assert_eq(GameState.state["home"]["security"], ["lock"], "guard should not have been added")
+	)
+
+	run_case("add_security_no_count_cap_at_top_tier", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "compound"
+		for security_id in GameData.HOME_SECURITY.keys():
+			var result := Home.add_security(security_id)
+			assert_true(result["ok"], "compound-tier player should be able to install %s with no count-based block" % security_id)
+		assert_eq(GameState.state["home"]["security"].size(), GameData.HOME_SECURITY.size(), "all security upgrades should be installed")
 	)
 
 	run_case("add_security_applies_securityContactUnlocked_discount", func():

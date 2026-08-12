@@ -88,11 +88,13 @@ static func add_security(security_id: String) -> Dictionary:
 	if home["security"].has(security_id):
 		return { "ok": false, "reason": "Already installed." }
 
-	var tier_data: Dictionary = GameData.HOME_TIERS[home["tier"]]
-	if home["security"].size() >= tier_data["maxSecuritySlots"]:
-		return { "ok": false, "reason": "No security slots free." }
-
 	var security_data: Dictionary = GameData.HOME_SECURITY[security_id]
+	var order: Array = GameData.HOME_TIER_ORDER
+	var current_index: int = order.find(home["tier"])
+	var min_index: int = order.find(security_data["minTier"])
+	if current_index < min_index:
+		return { "ok": false, "reason": "Requires %s or better." % GameData.HOME_TIERS[security_data["minTier"]]["name"] }
+
 	var cost: int = security_data["cost"]
 	if GameState.state["flags"]["securityContactUnlocked"]:
 		cost = GameState.round_epsilon(cost * 0.7)

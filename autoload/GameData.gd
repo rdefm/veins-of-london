@@ -336,10 +336,13 @@ func _validate_home(tier_order: Array, tiers: Dictionary, security: Dictionary, 
 		if not tiers.has(id):
 			errors.append("home: tierOrder references unknown tier '%s'" % id)
 	for key in tiers.keys():
-		_require_keys(tiers[key], ["id", "name", "tier", "upgradeCost", "dailyCost", "raidBaseChance", "maxSecuritySlots", "maxRooms", "description"], "home.tiers.%s" % key, errors)
+		_require_keys(tiers[key], ["id", "name", "tier", "upgradeCost", "dailyCost", "raidBaseChance", "maxRooms", "description"], "home.tiers.%s" % key, errors)
 
 	for key in security.keys():
-		_require_keys(security[key], ["id", "name", "cost", "raidReduction", "description"], "home.security.%s" % key, errors)
+		var sec_entry: Dictionary = security[key]
+		_require_keys(sec_entry, ["id", "name", "cost", "raidReduction", "minTier", "description"], "home.security.%s" % key, errors)
+		if sec_entry.has("minTier") and not tiers.has(sec_entry["minTier"]):
+			errors.append("home.security.%s: minTier '%s' is not a known home tier" % [key, sec_entry["minTier"]])
 
 	for key in rooms.keys():
 		var entry = rooms[key]
