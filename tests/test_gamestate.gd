@@ -28,6 +28,8 @@ func run() -> void:
 		assert_eq(s["player"]["cultivatingSkill"], 1, "player.cultivatingSkill")
 		assert_eq(s["player"]["stealthSkill"], 1, "player.stealthSkill")
 		assert_eq(s["player"]["stealthXP"], 0, "player.stealthXP")
+		assert_eq(s["player"]["bench"], { "surveyed": {}, "cells": {}, "notes": {} }, "player.bench starts empty")
+		assert_eq(s["benchNav"], { "view": "home", "types": [], "approach": null }, "benchNav")
 
 		assert_eq(s["world"]["day"], 1, "world.day")
 		assert_eq(s["world"]["timeBlock"], 0, "world.timeBlock")

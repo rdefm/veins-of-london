@@ -109,6 +109,34 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_mutate_load_round_trips_player_bench", func():
+		GameState.reset()
+		var bench: Dictionary = GameState.state["player"]["bench"]
+		bench["surveyed"]["life+time"] = 3
+		bench["cells"]["life+time|heat"] = { "state": "found", "misses": 2, "refine": 1 }
+		bench["cells"]["life+time|compression"] = { "state": "hot", "misses": 3, "refine": 0 }
+		bench["notes"]["life+time"] = [{ "day": 9, "approach": "heat", "outcome": "found" }]
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["player"]["bench"] = { "surveyed": {}, "cells": {}, "notes": {} }
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		var restored: Dictionary = GameState.state["player"]["bench"]
+		assert_eq(restored["surveyed"]["life+time"], 3, "surveyed count should be restored")
+		assert_eq(typeof(restored["surveyed"]["life+time"]), TYPE_INT, "surveyed count should be restored as int, not float")
+		assert_eq(restored["cells"]["life+time|heat"]["state"], "found", "found cell state should be restored")
+		assert_eq(typeof(restored["cells"]["life+time|heat"]["misses"]), TYPE_INT, "cell misses should be restored as int, not float")
+		assert_eq(typeof(restored["cells"]["life+time|heat"]["refine"]), TYPE_INT, "cell refine should be restored as int, not float")
+		assert_eq(typeof(restored["notes"]["life+time"][0]["day"]), TYPE_INT, "note day should be restored as int, not float")
+		assert_eq(GameState.state, original, "the full state tree (including player.bench) should deep-equal what was saved")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("slot_exists_and_delete_slot", func():
 		SaveManager.delete_slot(TEST_SLOT)
 		assert_true(not SaveManager.slot_exists(TEST_SLOT), "should not exist before saving")

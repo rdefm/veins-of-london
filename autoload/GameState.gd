@@ -27,6 +27,9 @@ func new_game_state() -> Dictionary:
 		"mapNav": { "selectedDistrict": null, "selectedSiteId": null },
 		"mapEvents": { "queue": [], "playing": false },
 		"phoneNav": { "app": "home", "selectedAxis": null },
+		# calc-discovery ticket 03: transient Lab nav, same convention as
+		# mapNav/phoneNav — resets on load, not meaningfully persisted.
+		"benchNav": { "view": "home", "types": [], "approach": null },
 		"notifications": [],
 		"sellState": {},
 		"event": null,
@@ -45,6 +48,13 @@ func new_game_state() -> Dictionary:
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
 			"stealthSkill": 1, "stealthXP": 0,
+			# calc-discovery ticket 03: the Lab's pure-data state. Known
+			# approaches are NOT stored here — Approaches.get_known() (ticket
+			# 01) already resolves that live from data/approaches.json + owned
+			# home rooms, so caching it here would be a second, syncable-out-
+			# of-date source of truth. Cells are written lazily; an absent key
+			# means "untried" (systems/bench.gd, ticket 04).
+			"bench": { "surveyed": {}, "cells": {}, "notes": {} },
 		},
 
 		"world": {

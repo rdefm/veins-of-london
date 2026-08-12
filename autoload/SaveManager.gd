@@ -182,6 +182,15 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(player, key)
 		_int_dict_values(player.get("orichalchum", {}))
 		_int_dict_values(player.get("inventory", {}))
+		if player.has("bench"):
+			var bench: Dictionary = player["bench"]
+			_int_dict_values(bench.get("surveyed", {}))
+			for cell in bench.get("cells", {}).values():
+				_int_key(cell, "misses")
+				_int_key(cell, "refine")
+			for note_list in bench.get("notes", {}).values():
+				for note in note_list:
+					_int_key(note, "day")
 		for vein in player.get("veins", []):
 			for key in ["level", "devBar", "chargeBlocks", "claimedOnDay"]:
 				_int_key(vein, key)
