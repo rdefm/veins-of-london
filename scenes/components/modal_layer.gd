@@ -37,6 +37,10 @@ func _ready() -> void:
 	_dim.color = Color(0, 0, 0, 0.5)
 	UI.anchor_full_rect(_dim)
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Ticket 12: without this, STOP just swallows the tap silently, leaving
+	# scrolling to an explicit Close/Cancel/Decline button as the only way
+	# out. Same pattern as map_controls.gd's filter drawer.
+	_dim.gui_input.connect(_on_dim_gui_input)
 	add_child(_dim)
 
 	_card = PanelContainer.new()
@@ -58,6 +62,35 @@ func _ready() -> void:
 
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
+
+
+func _on_dim_gui_input(event: InputEvent) -> void:
+	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
+		_dismiss_modal()
+
+
+# Ticket 12: tapping outside must run the same side effect as the modal's
+# own Close/Cancel/Decline button, not a bare Modal.close() that leaves
+# state half-applied — sell_menu's sellState selections, james_job_offer's
+# job-decline bookkeeping, and sale_result's return-to-home nav all need
+# that. Every other modal's own close button is a bare Modal.close() with no
+# side effect (checked against the full match in _build_modal_content()
+# above), so they fall through to the default. james_job_offer's Accept
+# isn't included here: it's a positive action, not the modal's dismiss path,
+# so outside-tap must not run it.
+func _dismiss_modal() -> void:
+	var modal = GameState.state["modal"]
+	if modal == null:
+		return
+	match modal.get("type", ""):
+		"sell_menu":
+			_on_sell_menu_cancel()
+		"james_job_offer":
+			_on_job_decline()
+		"sale_result":
+			_on_sale_result_close()
+		_:
+			Modal.close()
 
 
 func _refresh() -> void:

@@ -31,6 +31,10 @@ func _ready() -> void:
 	_dim.color = Color(0, 0, 0, 0.5)
 	UI.anchor_full_rect(_dim)
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Ticket 12: without this, STOP just swallows the tap silently, leaving
+	# scrolling to the explicit Close button as the only way out. Same
+	# pattern as map_controls.gd's filter drawer.
+	_dim.gui_input.connect(_on_dim_gui_input)
 	add_child(_dim)
 
 	var card := PanelContainer.new()
@@ -54,6 +58,11 @@ func _ready() -> void:
 
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
+
+
+func _on_dim_gui_input(event: InputEvent) -> void:
+	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
+		Bag.close()
 
 
 func _refresh() -> void:
