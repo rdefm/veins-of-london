@@ -66,6 +66,16 @@ extends Control
 # already uses for its own full-rect overlay.
 signal district_tapped(district_id: String, anchor: Vector2)
 
+# Ticket 04: same shape as district_tapped above, fired once a station
+# (site/vein stop) tap's pan_to() finishes. `stop` is the whole matched entry
+# from _vein_stops/_faction_stops/_unclaimed_stops (MapHitTest.stop_at's
+# return, systems/map_layout.gd's assign_positions shape) rather than just a
+# site id — map.gd's bubble needs the specific vein a "vein" stop carries
+# (for Cultivate/Harvest) as well as the site (for Manage), and a site alone
+# can't recover which of its (possibly two, via a natural-vein bonus site)
+# veins was actually tapped.
+signal station_tapped(stop: Dictionary, anchor: Vector2)
+
 const PAPER_COLOUR := Color(1.0, 1.0, 1.0)                     # #ffffff, see _draw_paper() for why
 const RIVER_COLOUR := Color(0.831373, 0.811765, 0.768627, 0.6)  # #d4cfc4 @ 60%
 const MUTED_COLOUR := Color(0.541176, 0.541176, 0.541176)       # --muted #8a8a8a
@@ -148,12 +158,13 @@ const QUICK_DURATION := 0.35
 const PAN_DURATION := 0.4
 const RIPPLE_DURATION_FRACTION := 0.7
 
-# Ticket 03: the district bubble's inline Prospect result animation
-# (ProspectPulse/ProspectShake below) -- independent of event_visual_duration/
-# pacing_mode, which only govern the MapEvents playback queue's own visuals;
-# this is a synchronous bubble-action result, not a queued event, so it isn't
-# part of that skip/pacing system.
-const PROSPECT_RESULT_DURATION := 0.6
+# Ticket 03/04: the district bubble's inline Prospect result animation, and
+# ticket 04's station bubble Cultivate/Harvest result animation
+# (ActionResultPulse/ActionResultShake below, shared by all three) --
+# independent of event_visual_duration/pacing_mode, which only govern the
+# MapEvents playback queue's own visuals; these are synchronous bubble-action
+# results, not queued events, so they aren't part of that skip/pacing system.
+const ACTION_RESULT_DURATION := 0.6
 
 var pacing_mode: String = "deliberate"
 var event_visual_duration: float = DELIBERATE_DURATION
@@ -1185,9 +1196,9 @@ func _handle_tap(tap_pos: Vector2) -> void:
 	var all_faction_stops: Array = []
 	for faction_id in _faction_stops.keys():
 		all_faction_stops.append_array(_faction_stops[faction_id])
-	var site_id = MapHitTest.stop_site_at(tap_pos, _vein_stops + all_faction_stops + _unclaimed_stops)
-	if site_id != null:
-		MapNav.select_site(site_id)
+	var stop = MapHitTest.stop_at(tap_pos, _vein_stops + all_faction_stops + _unclaimed_stops)
+	if stop != null:
+		_open_station_bubble(stop)
 		return
 
 	var district_id = MapHitTest.district_at(tap_pos, GameData.MAP_LAYOUT["districts"])
@@ -1208,24 +1219,46 @@ func _open_district_bubble(district_id: String) -> void:
 	district_tapped.emit(district_id, point * zoom_level)
 
 
+# Ticket 04: same shape as _open_district_bubble above, but for a station
+# (site/vein) stop -- replaces the old immediate MapNav.select_site(site_id)
+# (which swapped the whole diagram out for the bottom sheet) with a pan to
+# the stop's own position first, then map.gd's station_tapped listener shows
+# the anchored bubble (Cultivate/Harvest/Manage, or just Manage for a
+# faction-claimed/unclaimed stop) with the diagram still visible behind it.
+func _open_station_bubble(stop: Dictionary) -> void:
+	var point: Vector2 = stop["position"]
+	await pan_to(point)
+	station_tapped.emit(stop, point * zoom_level)
+
+
 # Ticket 03: the district bubble's Prospect option runs Sites.prospect()
 # inline (map.gd calls DistrictBubble.apply_option(), then this) -- `ok`
-# picks which of the two one-shot tween visuals below plays at the
-# district's anchor, matching the ticket's "distinct tween animation on
-# success vs. fail." Neither is part of the MapEvents playback queue (no
-# _active_tween/skip wiring), so map.gd doesn't need to await this.
+# picks which of the two one-shot tween visuals play_action_result() below
+# plays at the district's anchor, matching the ticket's "distinct tween
+# animation on success vs. fail." Neither is part of the MapEvents playback
+# queue (no _active_tween/skip wiring), so map.gd doesn't need to await this.
 func play_prospect_result(district_id: String, ok: bool) -> void:
-	var pos := MapLayout.district_anchor(district_id)
+	play_action_result(MapLayout.district_anchor(district_id), ok)
+
+
+# Ticket 04: the station bubble's Cultivate (success vs. fail, same
+# distinction Prospect above needs) and Harvest (always a success -- it's
+# only ever offered while the vein is charged, so there's no fail state to
+# distinguish) results both reuse this rather than each growing their own
+# copy of play_prospect_result's dispatch -- same generic "this bubble
+# action worked / didn't" flash at a given logical-map point, just no longer
+# tied to a district's own fixed anchor helper.
+func play_action_result(pos: Vector2, ok: bool) -> void:
 	if ok:
-		var pulse := ProspectPulse.new()
+		var pulse := ActionResultPulse.new()
 		pulse.position = pos
 		_playback_layer.add_child(pulse)
-		pulse.start(PROSPECT_RESULT_DURATION)
+		pulse.start(ACTION_RESULT_DURATION)
 	else:
-		var shake := ProspectShake.new()
+		var shake := ActionResultShake.new()
 		shake.position = pos
 		_playback_layer.add_child(shake)
-		shake.start(PROSPECT_RESULT_DURATION)
+		shake.start(ACTION_RESULT_DURATION)
 
 
 # N2/N5: home -> HQ, contact -> starts its event, market -> padlocked (no
@@ -1359,15 +1392,17 @@ class DrainCollapse:
 			draw_circle(Vector2.ZERO, _radius, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
 
 
-# Ticket 03's district bubble Prospect success visual: a bright ring expands
-# and fades once at the district's anchor -- same expand+fade shape as
-# ChargeBurst above, recoloured to MapCanvas.GUARDED_COLOUR (the --success
-# tint already used elsewhere on this diagram, e.g. the guarded-security
-# padlock) so it reads as a distinct "this worked" flash rather than a charge
-# event. Self-frees on its own tween's completion -- unlike the MapEvents
-# playback visuals above, map.gd's bubble handler doesn't await this (it
-# isn't part of that queued, skippable system), so nothing else ever frees it.
-class ProspectPulse:
+# Ticket 03's district bubble Prospect success visual (and ticket 04's
+# station bubble Cultivate/Harvest success visual, all via
+# play_action_result() above): a bright ring expands and fades once at the
+# action's anchor -- same expand+fade shape as ChargeBurst above, recoloured
+# to MapCanvas.GUARDED_COLOUR (the --success tint already used elsewhere on
+# this diagram, e.g. the guarded-security padlock) so it reads as a distinct
+# "this worked" flash rather than a charge event. Self-frees on its own
+# tween's completion -- unlike the MapEvents playback visuals above, map.gd's
+# bubble handler doesn't await this (it isn't part of that queued, skippable
+# system), so nothing else ever frees it.
+class ActionResultPulse:
 	extends Node2D
 
 	const START_RADIUS := 4.0
@@ -1397,16 +1432,18 @@ class ProspectPulse:
 			draw_circle(Vector2.ZERO, _radius, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
 
 
-# Ticket 03's district bubble Prospect fail visual: a side-to-side shake that
-# fades out, recoloured to MapStyle.DANGER_COLOUR (the --danger tint the
-# vein-security dotted ring already uses) -- visually distinct from
-# ProspectPulse's outward expansion per the ticket's "distinct... success vs.
-# fail" requirement. Two independent tweens (not one with .parallel()): the
-# shake itself is three sequential legs (0 -> +AMPLITUDE -> -AMPLITUDE -> 0),
-# and .parallel() only pairs a step with the one immediately before it, so a
-# single tween can't run one long fade alongside all three legs at once.
-# Self-frees the same way ProspectPulse does.
-class ProspectShake:
+# Ticket 03's district bubble Prospect fail visual (and ticket 04's station
+# bubble Cultivate fail visual, both via play_action_result() above): a
+# side-to-side shake that fades out, recoloured to MapStyle.DANGER_COLOUR
+# (the --danger tint the vein-security dotted ring already uses) --
+# visually distinct from ActionResultPulse's outward expansion per the
+# ticket's "distinct... success vs. fail" requirement. Two independent
+# tweens (not one with .parallel()): the shake itself is three sequential
+# legs (0 -> +AMPLITUDE -> -AMPLITUDE -> 0), and .parallel() only pairs a
+# step with the one immediately before it, so a single tween can't run one
+# long fade alongside all three legs at once. Self-frees the same way
+# ActionResultPulse does.
+class ActionResultShake:
 	extends Node2D
 
 	const AMPLITUDE := 8.0

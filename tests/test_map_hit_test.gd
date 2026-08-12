@@ -1,8 +1,8 @@
 extends "res://tests/test_base.gd"
 
 # MapHitTest — pure tap-hit-testing math for the Network diagram (ticket 15):
-# stop_site_at (stop/tick taps -> site id) and district_at (label/zone taps
-# -> district id).
+# stop_at (stop/tick taps -> the whole matched stop) and district_at
+# (label/zone taps -> district id).
 
 
 func _stop(id: String, pos: Vector2, site_id: String) -> Dictionary:
@@ -10,30 +10,28 @@ func _stop(id: String, pos: Vector2, site_id: String) -> Dictionary:
 
 
 func run() -> void:
-	run_case("stop_site_at_returns_site_id_within_tap_radius", func():
+	# 10-map-interaction-model ticket 04: stop_at() returns the whole matched
+	# stop (not just its site id, as its predecessor stop_site_at did) so the
+	# station bubble can see which specific vein was tapped.
+	run_case("stop_at_returns_the_whole_matched_stop_within_tap_radius", func():
 		var stops := [_stop("v1", Vector2(100, 100), "site1")]
-		assert_eq(MapHitTest.stop_site_at(Vector2(105, 100), stops), "site1")
+		var stop = MapHitTest.stop_at(Vector2(105, 100), stops)
+		assert_eq(stop["id"], "v1")
+		assert_eq(stop["site"]["id"], "site1")
 	)
 
-	run_case("stop_site_at_uses_site_id_not_the_stop_id", func():
-		# A vein stop's own "id" is the vein's id, not the site's — the
-		# site/vein sheet keys on site id (MapNav.select_site).
-		var stops := [_stop("vein_id_should_be_ignored", Vector2(0, 0), "the_site_id")]
-		assert_eq(MapHitTest.stop_site_at(Vector2.ZERO, stops), "the_site_id")
-	)
-
-	run_case("stop_site_at_null_outside_every_stops_radius", func():
+	run_case("stop_at_null_outside_every_stops_radius", func():
 		var stops := [_stop("v1", Vector2(100, 100), "site1")]
-		assert_eq(MapHitTest.stop_site_at(Vector2(1000, 1000), stops), null)
+		assert_eq(MapHitTest.stop_at(Vector2(1000, 1000), stops), null)
 	)
 
-	run_case("stop_site_at_null_for_empty_stops", func():
-		assert_eq(MapHitTest.stop_site_at(Vector2(100, 100), []), null)
+	run_case("stop_at_null_for_empty_stops", func():
+		assert_eq(MapHitTest.stop_at(Vector2(100, 100), []), null)
 	)
 
-	run_case("stop_site_at_picks_the_first_matching_stop_in_order", func():
+	run_case("stop_at_picks_the_first_matching_stop_in_order", func():
 		var stops := [_stop("v1", Vector2(100, 100), "first"), _stop("v2", Vector2(100, 100), "second")]
-		assert_eq(MapHitTest.stop_site_at(Vector2(100, 100), stops), "first")
+		assert_eq(MapHitTest.stop_at(Vector2(100, 100), stops)["id"], "v1")
 	)
 
 	var districts_layout := {

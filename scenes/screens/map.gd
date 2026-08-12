@@ -24,6 +24,12 @@ extends Control
 
 const SHEET_HEIGHT := 480.0
 
+# Ticket 04: _bubble_mode values -- named consts rather than bare string
+# literals so a typo in either would fail loudly instead of just falling
+# through _on_bubble_option_selected's district branch by default.
+const BUBBLE_MODE_DISTRICT := "district"
+const BUBBLE_MODE_STATION := "station"
+
 var _content: VBoxContainer
 var _district_scroll: ScrollContainer
 var _diagram_layer: Control
@@ -38,9 +44,18 @@ var _sheet_layer: Control
 # Prospect handler can call back into it for the result animation.
 # _bubble_district_id tracks which district the currently-open bubble belongs
 # to, read by _on_bubble_option_selected once the option is picked.
+#
+# Ticket 04: the same single _bubble now also serves station (site/vein)
+# taps, which need a different id to act on (a whole stop, not just a
+# district id) -- _bubble_mode picks which of _bubble_district_id/
+# _bubble_stop is live for the bubble currently open, since MapBubble's own
+# option_selected signal carries only the tapped option's id, not which kind
+# of bubble it came from.
 var _map_canvas: MapCanvas
 var _bubble: MapBubble
 var _bubble_district_id: String = ""
+var _bubble_mode: String = ""
+var _bubble_stop: Dictionary = {}
 
 
 func _ready() -> void:
@@ -131,6 +146,9 @@ func _build_diagram_layer() -> Control:
 	# MapCanvas._open_district_bubble's own comment) -- this is where the
 	# bubble actually gets shown.
 	_map_canvas.district_tapped.connect(_on_district_tapped)
+	# Ticket 04: same, for a station (site/vein) tap's pan
+	# (MapCanvas._open_station_bubble).
+	_map_canvas.station_tapped.connect(_on_station_tapped)
 
 	_map_controls = MapControls.new()
 	_map_controls.map_canvas = _map_canvas
@@ -200,6 +218,7 @@ func _build_top_bar() -> Control:
 # subtraction is enough (same idiom MapZoom.to_logical()'s screen-space
 # conversions rely on elsewhere in this feature).
 func _on_district_tapped(district_id: String, canvas_anchor: Vector2) -> void:
+	_bubble_mode = BUBBLE_MODE_DISTRICT
 	_bubble_district_id = district_id
 	var anchor: Vector2 = _map_canvas.global_position + canvas_anchor - _bubble.global_position
 	_bubble.open(anchor, _build_district_bubble_options(district_id))
@@ -248,10 +267,99 @@ func _build_district_bubble_options(district_id: String) -> Array:
 # this feature's animation code. DistrictBubble.apply_option()'s own tests
 # (tests/test_district_bubble.gd) already cover that this branch really
 # does call Sites.prospect() and report its ok/fail correctly.
+#
+# Ticket 04: branches on _bubble_mode (set by whichever of _on_district_tapped/
+# _on_station_tapped opened the bubble currently closing) since MapBubble's
+# own option_selected signal carries only the tapped option's id -- the two
+# bubbles' option ids don't collide today, but branching on the actual mode
+# rather than trying to disambiguate ids keeps that true by construction
+# instead of by accident.
 func _on_bubble_option_selected(option_id: String) -> void:
+	if _bubble_mode == BUBBLE_MODE_STATION:
+		_on_station_bubble_option_selected(option_id)
+		return
+
 	var result := DistrictBubble.apply_option(option_id, _bubble_district_id)
 	if option_id == DistrictBubble.PROSPECT_ID:
 		_map_canvas.play_prospect_result(_bubble_district_id, result["ok"])
+
+
+# ── station bubble (ticket 04) ──────────────────────────────────────
+
+# Same anchor-conversion idiom as _on_district_tapped above.
+func _on_station_tapped(stop: Dictionary, canvas_anchor: Vector2) -> void:
+	_bubble_mode = BUBBLE_MODE_STATION
+	_bubble_stop = stop
+	var anchor: Vector2 = _map_canvas.global_position + canvas_anchor - _bubble.global_position
+	_bubble.open(anchor, _build_station_bubble_options(stop))
+
+
+# StationBubble.station_options() (systems/station_bubble.gd) owns the
+# disabled/reason gating rules -- this only turns that pure data into the
+# label text MapBubble.open() expects, same split _build_vein_action_card
+# already draws between gating and its own button label formatting.
+func _build_station_bubble_options(stop: Dictionary) -> Array:
+	var result: Array = []
+	for opt in StationBubble.station_options(stop):
+		result.append({
+			"id": opt["id"],
+			"label": _station_option_label(opt["id"], stop),
+			"disabled": opt["disabled"],
+			"reason": opt["reason"],
+		})
+	return result
+
+
+# Cultivate keeps its cost suffix even while disabled by the at-max-level
+# gate, exactly like the district bubble's Prospect label -- see
+# _build_district_bubble_options' own comment for why (dropping it would
+# read as a cheaper action, not the same one currently blocked). At max
+# level specifically, _build_vein_action_card's own real button swaps in
+# "Vein at max level" instead, which this matches.
+func _station_option_label(option_id: String, stop: Dictionary) -> String:
+	match option_id:
+		StationBubble.CULTIVATE_ID:
+			if Cultivating.is_at_max_level(stop["vein"]):
+				return "Vein at max level"
+			return UI.format_block_cost_label("Cultivate", 1)
+		StationBubble.HARVEST_CAUTIOUS_ID:
+			return UI.format_block_cost_label("Harvest (cautious)", 1)
+		StationBubble.HARVEST_FULL_ID:
+			return UI.format_block_cost_label("Harvest (full)", 1)
+		StationBubble.MANAGE_ID:
+			return "Manage"
+		_:
+			return ""
+
+
+# Cultivate and both Harvest options play their inline result animation at
+# the stop's own logical position (already known from _bubble_stop, no
+# re-lookup needed) -- Cultivate's distinct pulse/shake per result["ok"]
+# (StationBubble.apply_option's own comment explains why that's the roll's
+# "success", not cultivate()'s always-true "ok" key); Harvest always the
+# success pulse, since it's only ever offered while charged and so can't
+# fail through this path (StationBubble.station_options' gating). Harvest
+# DOES also queue a MapEvents "drain" event as a side effect of the same
+# Cultivating.harvest_cautious/full() call (see queue_drain's own comment),
+# but MapCanvas only ever drains that queue once per Map-tab visit, right in
+# its own _ready() (see its own comment) -- a harvest triggered from a bubble
+# opened during THIS same visit doesn't get picked back up until the next
+# visit, so this tween is the only animation the player actually sees for it
+# right now, not a duplicate of one already playing.
+#
+# Manage's MapNav.select_site() call triggers _refresh() via the usual
+# EventBus.state_changed round-trip, opening the site sheet -- same as View
+# Veins does for the district bubble.
+#
+# Not covered by tests/test_map_screen.gd for the same Node/Tween-side reason
+# _on_bubble_option_selected's own comment gives for the district bubble's
+# prospect branch: StationBubble.apply_option()'s own tests
+# (tests/test_station_bubble.gd) already cover that each branch calls the
+# right Cultivating system function and reports ok/fail correctly.
+func _on_station_bubble_option_selected(option_id: String) -> void:
+	var result := StationBubble.apply_option(option_id, _bubble_stop)
+	if option_id != StationBubble.MANAGE_ID:
+		_map_canvas.play_action_result(_bubble_stop["position"], result["ok"])
 
 
 # ── district panel ──────────────────────────────────────────────────

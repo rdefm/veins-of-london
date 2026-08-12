@@ -323,3 +323,86 @@ func run() -> void:
 		screen.free()
 	)
 
+	# ── station bubble (ticket 04) ───────────────────────────────────────
+
+	# _build_station_bubble_options() turns StationBubble.station_options()
+	# (systems/station_bubble.gd, tested on its own in
+	# tests/test_station_bubble.gd) into the label/disabled/reason dicts
+	# MapBubble.open() expects -- same gating-logic-vs-label-formatting split
+	# _build_district_bubble_options already draws, and the same "call the
+	# pure builder directly on a fresh MapScreen.new()" pattern its own tests
+	# above use.
+	run_case("station_bubble_options_cultivate_keeps_its_cost_label_even_when_no_blocks_remain", func():
+		GameState.reset()
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+		var vein := {
+			"id": "v1", "district": "shoreditch", "oreType": "time", "level": 1,
+			"charged": false, "chargeBlocks": 0, "siteId": "s1",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		var stop := { "kind": "vein", "vein": vein, "owner": "player", "site": { "id": "s1" } }
+		var screen := MapScreen.new()
+
+		var options := screen._build_station_bubble_options(stop)
+
+		assert_eq(options[0]["id"], StationBubble.CULTIVATE_ID)
+		assert_true(options[0]["disabled"])
+		assert_eq(options[0]["label"], UI.format_block_cost_label("Cultivate", 1), "disabled Cultivate still reads as the same 1-block action, not a different unlabelled one")
+		assert_eq(options[0]["reason"], "No blocks left today.")
+
+		screen.free()
+	)
+
+	run_case("station_bubble_options_cultivate_label_swaps_to_max_level_at_the_level_cap", func():
+		GameState.reset()
+		var vein := {
+			"id": "v1", "district": "shoreditch", "oreType": "time", "level": 5,  # LEVEL_CAP
+			"charged": false, "chargeBlocks": 0, "siteId": "s1",
+			"hospitability": { "tier": "fair", "bonuses": [] },
+		}
+		var stop := { "kind": "vein", "vein": vein, "owner": "player", "site": { "id": "s1" } }
+		var screen := MapScreen.new()
+
+		var options := screen._build_station_bubble_options(stop)
+
+		assert_eq(options[0]["label"], "Vein at max level", "matches _build_vein_action_card's own real-button label at the cap")
+		assert_true(options[0]["disabled"])
+
+		screen.free()
+	)
+
+	run_case("station_bubble_options_manage_is_always_labelled_manage", func():
+		GameState.reset()
+		var stop := { "kind": "unclaimed", "vein": null, "owner": null, "site": { "id": "s1" } }
+		var screen := MapScreen.new()
+
+		var options := screen._build_station_bubble_options(stop)
+
+		assert_eq(options.size(), 1, "an unclaimed site only offers Manage")
+		assert_eq(options[0]["id"], StationBubble.MANAGE_ID)
+		assert_eq(options[0]["label"], "Manage")
+		assert_true(not options[0]["disabled"])
+
+		screen.free()
+	)
+
+	# _on_bubble_option_selected's station/manage branch only ever calls
+	# StationBubble.apply_option() -> MapNav.select_site() -- no _map_canvas/
+	# _bubble access -- so it's safe to call directly on a fresh, never-
+	# _ready()'d screen, same as the district bubble's view_veins case above.
+	# The cultivate branch (_map_canvas.play_action_result()) is Node/Tween-
+	# side and deliberately not covered here -- see
+	# _on_station_bubble_option_selected's own comment in scenes/screens/map.gd.
+	run_case("on_bubble_option_selected_routes_manage_through_StationBubble_when_in_station_mode", func():
+		GameState.reset()
+		var screen := MapScreen.new()
+		screen._bubble_mode = MapScreen.BUBBLE_MODE_STATION
+		screen._bubble_stop = { "kind": "unclaimed", "vein": null, "owner": null, "site": { "id": "s9" } }
+
+		screen._on_bubble_option_selected(StationBubble.MANAGE_ID)
+
+		assert_eq(GameState.state["mapNav"]["selectedSiteId"], "s9")
+
+		screen.free()
+	)
+

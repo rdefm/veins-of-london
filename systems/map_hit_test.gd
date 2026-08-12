@@ -18,15 +18,18 @@ const LABEL_TAP_RADIUS := 24.0
 
 
 # stops: any of MapCanvas's _vein_stops/_npc_stops/_unclaimed_stops arrays
-# (or their concatenation) — each a Dictionary with "position" (Vector2)
-# and "site" (Dictionary with "id"). Returns the tapped stop's site id, or
-# null. A vein stop's own "id" is its vein id (see MapLayout.assign_positions),
-# not its site id, which is why this reads stop["site"]["id"] rather than
-# stop["id"] — the site/vein sheet (MapNav.select_site) keys on site id.
-static func stop_site_at(tap_pos: Vector2, stops: Array) -> Variant:
+# (or their concatenation) — each a Dictionary with "position" (Vector2),
+# "kind", "site", "vein", and "owner" (see MapLayout.assign_positions).
+# Returns the whole tapped stop, or null. 10-map-interaction-model ticket 04
+# replaced this function's original site-id-only return (stop_site_at) with
+# the whole stop: the station bubble's Cultivate/Harvest options dispatch on
+# the specific vein a "vein" stop carries, not just its site, and a site id
+# alone can't recover which of its (possibly two, via a natural-vein bonus
+# site) veins was actually tapped.
+static func stop_at(tap_pos: Vector2, stops: Array) -> Variant:
 	for stop in stops:
 		if tap_pos.distance_to(stop["position"]) <= STOP_TAP_RADIUS:
-			return stop["site"]["id"]
+			return stop
 	return null
 
 

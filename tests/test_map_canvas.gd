@@ -257,6 +257,12 @@ func run() -> void:
 	# districts, in that priority order (see this file's class comment), so
 	# a station tap exercises a different, earlier branch than a district tap
 	# and the ticket's own acceptance checks call the two out separately.
+	#
+	# 10-map-interaction-model ticket 04: same update ticket 03 made to the
+	# district case above -- a station tap no longer sets
+	# mapNav.selectedSiteId directly (that only happens now via the bubble's
+	# Manage option -- see tests/test_station_bubble.gd), it kicks off
+	# MapCanvas._open_station_bubble()'s pan_to() instead.
 	run_case("emulated_mouse_event_paired_with_a_real_touch_does_not_swallow_a_station_tap", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = [{
@@ -307,7 +313,8 @@ func run() -> void:
 		touch_up.position = local_pos
 		canvas._gui_input(touch_up)
 
-		assert_eq(GameState.state["mapNav"]["selectedSiteId"], "s1", "the real touch must still resolve as a station tap despite its emulated mouse twin")
+		assert_true(canvas._active_tween != null, "the real touch must still resolve as a station tap (pan_to() kicked off) despite its emulated mouse twin")
+		assert_eq(GameState.state["mapNav"]["selectedSiteId"], null, "ticket 04: a station tap no longer opens the bottom sheet directly")
 
 		canvas.free()
 	)
