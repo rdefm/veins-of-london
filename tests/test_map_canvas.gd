@@ -193,3 +193,136 @@ func run() -> void:
 
 		canvas.free()
 	)
+
+	# Bugfixes ticket 11: see MapCanvas._gui_input()'s own comment for the
+	# root cause (real touch + Godot's emulate_mouse_from_touch racing over
+	# shared _tap_index/_tap_start_pos state). This reproduces the exact
+	# adversarial ordering that swallowed the tap pre-fix -- mouse-down
+	# before touch-down, mouse-up before touch-up -- and proves the fix: an
+	# emulated event (device == -1) is now inert either way it's interleaved.
+	run_case("emulated_mouse_event_paired_with_a_real_touch_does_not_swallow_the_tap", func():
+		GameState.reset()
+		var anchor: Array = GameData.MAP_LAYOUT["districts"]["hampstead"]["labelAnchor"]
+		var logical := Vector2(anchor[0], anchor[1])
+		assert_eq(MapHitTest.district_at(logical, GameData.MAP_LAYOUT["districts"]), "hampstead", "test fixture: labelAnchor must actually land inside its own district's zone")
+
+		var canvas := MapCanvas.new()
+		var local_pos := logical * canvas.zoom_level
+
+		var mouse_down := InputEventMouseButton.new()
+		mouse_down.button_index = MOUSE_BUTTON_LEFT
+		mouse_down.pressed = true
+		mouse_down.position = local_pos
+		mouse_down.device = -1
+		canvas._gui_input(mouse_down)
+
+		var touch_down := InputEventScreenTouch.new()
+		touch_down.index = 0
+		touch_down.pressed = true
+		touch_down.position = local_pos
+		canvas._gui_input(touch_down)
+
+		var mouse_up := InputEventMouseButton.new()
+		mouse_up.button_index = MOUSE_BUTTON_LEFT
+		mouse_up.pressed = false
+		mouse_up.position = local_pos
+		mouse_up.device = -1
+		canvas._gui_input(mouse_up)
+
+		var touch_up := InputEventScreenTouch.new()
+		touch_up.index = 0
+		touch_up.pressed = false
+		touch_up.position = local_pos
+		canvas._gui_input(touch_up)
+
+		assert_eq(GameState.state["mapNav"]["selectedDistrict"], "hampstead", "the real touch must still resolve as a tap despite its emulated mouse twin")
+
+		canvas.free()
+	)
+
+	# Same interleaving as the district case above, but against a station
+	# (vein stop) -- MapCanvas._handle_tap checks pins, then stops, then
+	# districts, in that priority order (see this file's class comment), so
+	# a station tap exercises a different, earlier branch than a district tap
+	# and the ticket's own acceptance checks call the two out separately.
+	run_case("emulated_mouse_event_paired_with_a_real_touch_does_not_swallow_a_station_tap", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [{
+			"id": "s1", "district": "hampstead", "tier": "fair", "oreType": "time",
+			"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+			"hasNaturalVein": false,
+		}]
+		GameState.state["player"]["veins"] = [{
+			"id": "v1", "siteId": "s1", "oreType": "time", "level": 1, "levelLabel": "Trickle",
+			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
+			"district": "hampstead",
+		}]
+
+		var canvas := MapCanvas.new()
+		# _vein_stops/_faction_stops/_unclaimed_stops are normally filled by
+		# _rebuild() (called from _ready(), which this direct-call style
+		# never runs -- see this file's class comment) -- _partition_stops()
+		# is the same pure seam tests/test_map_canvas.gd's join_line case
+		# above already calls directly for the same reason.
+		canvas._partition_stops()
+		var logical: Vector2 = canvas._vein_stops[0]["position"]
+		var local_pos := logical * canvas.zoom_level
+
+		var mouse_down := InputEventMouseButton.new()
+		mouse_down.button_index = MOUSE_BUTTON_LEFT
+		mouse_down.pressed = true
+		mouse_down.position = local_pos
+		mouse_down.device = -1
+		canvas._gui_input(mouse_down)
+
+		var touch_down := InputEventScreenTouch.new()
+		touch_down.index = 0
+		touch_down.pressed = true
+		touch_down.position = local_pos
+		canvas._gui_input(touch_down)
+
+		var mouse_up := InputEventMouseButton.new()
+		mouse_up.button_index = MOUSE_BUTTON_LEFT
+		mouse_up.pressed = false
+		mouse_up.position = local_pos
+		mouse_up.device = -1
+		canvas._gui_input(mouse_up)
+
+		var touch_up := InputEventScreenTouch.new()
+		touch_up.index = 0
+		touch_up.pressed = false
+		touch_up.position = local_pos
+		canvas._gui_input(touch_up)
+
+		assert_eq(GameState.state["mapNav"]["selectedSiteId"], "s1", "the real touch must still resolve as a station tap despite its emulated mouse twin")
+
+		canvas.free()
+	)
+
+	run_case("a_real_desktop_mouse_click_still_works_unpaired_with_any_touch", func():
+		GameState.reset()
+		var anchor: Array = GameData.MAP_LAYOUT["districts"]["hampstead"]["labelAnchor"]
+		var logical := Vector2(anchor[0], anchor[1])
+
+		var canvas := MapCanvas.new()
+		var local_pos := logical * canvas.zoom_level
+
+		var down := InputEventMouseButton.new()
+		down.button_index = MOUSE_BUTTON_LEFT
+		down.pressed = true
+		down.position = local_pos
+		down.device = 0
+		canvas._gui_input(down)
+
+		var up := InputEventMouseButton.new()
+		up.button_index = MOUSE_BUTTON_LEFT
+		up.pressed = false
+		up.position = local_pos
+		up.device = 0
+		canvas._gui_input(up)
+
+		assert_eq(GameState.state["mapNav"]["selectedDistrict"], "hampstead", "a genuine (non-emulated) mouse click is the desktop/browser testing path and must keep working")
+
+		canvas.free()
+	)

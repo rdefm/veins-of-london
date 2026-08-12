@@ -1017,12 +1017,40 @@ func _faded(colour: Color, alpha_mult: float) -> Color:
 
 # ── input (N5: pin, then stop/tick, then district label/zone) ───────────
 
+# Bugfixes ticket 11's root cause: real InputEventScreenTouch and Godot's own
+# emulate_mouse_from_touch (project default, on for every touch platform —
+# see input_devices/pointing/emulate_mouse_from_touch in project.godot,
+# untouched here) both fire for the exact same physical tap. The synthesized
+# InputEventMouseButton is delivered right alongside the real touch event,
+# so _on_screen_touch and _on_mouse_button below — which share _tap_index/
+# _tap_start_pos, on the assumption that only ONE of them drives a given
+# gesture — stomp on each other's state. Depending on delivery order this
+# can cancel the tap out entirely: e.g. mouse-down before touch-down
+# overwrites _tap_index from the touch's real index to -1's mouse sentinel,
+# then mouse-up's own release finds _tap_index no longer -1 (touch-down
+# already moved it on) and skips, but leaves _tap_index reset to -100 before
+# touch-up ever runs, so touch-up's own was_tap check (_tap_index ==
+# event.index) also fails — both handlers decline the tap and it's silently
+# swallowed, deterministically, on every touch. Confirmed via a real
+# push_input() propagation test feeding both event streams through a live
+# Viewport (calling _gui_input()/the handlers directly can't catch this,
+# same reasoning as the mouse_filter fix above) — a bare InputEventScreenTouch
+# tap alone always worked; pairing it with its own emulated
+# InputEventMouseButton reproduced "does nothing" every time.
+#
+# The synthesized event is always identifiable: emulated-from-touch mouse
+# events carry device == -1 (Godot's own convention — a real mouse's device
+# id is never negative), so it's dropped here before it can touch any tap
+# state, leaving the real InputEventScreenTouch as this gesture's only
+# driver. _on_mouse_button stays exactly as it was for genuine desktop/
+# browser mouse testing (real device id, never -1), which never pairs with a
+# touch event and is unaffected by this guard.
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		_on_screen_touch(event)
 	elif event is InputEventScreenDrag:
 		_on_screen_drag(event)
-	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.device != -1:
 		_on_mouse_button(event)
 
 
