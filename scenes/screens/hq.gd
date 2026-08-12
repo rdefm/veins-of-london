@@ -52,6 +52,7 @@ func _refresh() -> void:
 		_content.add_child(_build_room_row(room_id))
 
 	_content.add_child(_build_gym_card())
+	_content.add_child(_build_lab_card())
 
 	_content.add_child(_build_workbench_card())
 	_content.add_child(UI.heading("Recipes", 14))
@@ -252,6 +253,23 @@ func _build_gym_card() -> Control:
 		c["content"].add_child(UI.muted_label("Home Gym built. Training programmes arrive in a future update."))
 	else:
 		c["content"].add_child(UI.muted_label("Build a Home Gym to claim this space. Training programmes arrive in a future update."))
+	return c["panel"]
+
+
+# PROSE-REVIEW: new flavour text, tone bible per docs/CONTENT-GUIDE.md.
+# calc-discovery ticket 06: third HQ card, in-fiction-named "The Lab",
+# alongside the workbench and gym cards above. Opens the dedicated "lab"
+# screen (state.benchNav-driven, scenes/screens/lab.gd) via BenchNav.go_home()
+# + Nav.go_to("lab") so the Lab always opens on its home view, regardless
+# of whatever sub-view the player last left it on.
+func _build_lab_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("The Lab", 14))
+	c["content"].add_child(UI.muted_label("Combine calc and technique, see what's underneath. Ore's spent either way."))
+	c["content"].add_child(UI.button("Open", func():
+		BenchNav.go_home()
+		Nav.go_to("lab")
+	))
 	return c["panel"]
 
 

@@ -72,13 +72,20 @@ static func _set_cell(types: Array, approach: String, updates: Dictionary) -> vo
 static func _recipes_in_set(types: Array) -> Array[String]:
 	var key := type_set_key(types)
 	var matches: Array[String] = []
-	for recipe_key in GameData.RECIPES:
-		var discovery: Dictionary = GameData.RECIPES[recipe_key].get("discovery", {})
-		if discovery.is_empty():
-			continue
-		if type_set_key(discovery["types"]) == key:
+	for recipe_key in _lab_reachable_recipe_keys():
+		if type_set_key(GameData.RECIPES[recipe_key]["discovery"]["types"]) == key:
 			matches.append(recipe_key)
 	return matches
+
+
+# Recipe keys with a non-empty `discovery` field -- shared by every Bench
+# query that scans the whole catalogue for Lab-reachable recipes.
+static func _lab_reachable_recipe_keys() -> Array[String]:
+	var keys: Array[String] = []
+	for recipe_key in GameData.RECIPES:
+		if not GameData.RECIPES[recipe_key].get("discovery", {}).is_empty():
+			keys.append(recipe_key)
+	return keys
 
 
 # The recipe key occupying this exact cell, or "" if the cell is empty.
@@ -93,6 +100,18 @@ static func find_recipe_for_cell(types: Array, approach: String) -> String:
 
 static func census_count(types: Array) -> int:
 	return _recipes_in_set(types).size()
+
+
+# Recipe keys whose cell is currently "found" -- the Lab home screen's
+# trophy-shelf list (M3 UI structure, calc-discovery ticket 06). Order
+# follows GameData.RECIPES's own key order.
+static func found_recipe_keys() -> Array[String]:
+	var found: Array[String] = []
+	for recipe_key in _lab_reachable_recipe_keys():
+		var discovery: Dictionary = GameData.RECIPES[recipe_key]["discovery"]
+		if cell_state(discovery["types"], discovery["approach"]) == "found":
+			found.append(recipe_key)
+	return found
 
 
 static func is_surveyed(types: Array) -> bool:

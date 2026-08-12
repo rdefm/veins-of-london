@@ -32,6 +32,12 @@ const SCREEN_SCRIPTS := {
 	"phone": preload("res://scenes/screens/phone.gd"),
 	"bag": preload("res://scenes/screens/inventory.gd"),
 	"you": preload("res://scenes/screens/you.gd"),
+
+	# calc-discovery ticket 06: the Lab, reached from HQ's third card. Its
+	# own internal drill-down (home/picker/pairing/notes) is state.benchNav-
+	# driven inside lab.gd, same pattern as phoneNav inside phone.gd -- it
+	# isn't one of the 5 NavBar tabs, same as "bag" reusing inventory.gd.
+	"lab": preload("res://scenes/screens/lab.gd"),
 }
 
 # R§2.2: "Global bottom nav ... hidden on title, intro, event, combat".
