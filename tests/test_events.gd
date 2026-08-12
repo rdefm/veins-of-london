@@ -1,6 +1,13 @@
 extends "res://tests/test_base.gd"
 
 
+func _has_notification(text: String) -> bool:
+	for n in GameState.state["notifications"]:
+		if n["text"] == text:
+			return true
+	return false
+
+
 # M1-LONDON D5's `choices` card type — installed as a synthetic event so
 # these tests don't depend on ticket 09's real content. Returns the
 # original GameData.EVENTS so callers can restore it afterward.
@@ -391,6 +398,15 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_RAID)
 	)
 
+	run_case("home_raid_debrief_loss_unlocks_hq_and_fires_workbench_notification", func():
+		GameState.reset()
+		Events.start_event("home_raid_debrief_loss")
+		for i in range(GameData.EVENTS["home_raid_debrief_loss"]["cards"].size()):
+			Events.advance()
+		assert_true(GameState.state["flags"]["homeUnlocked"], "debrief_loss: homeUnlocked")
+		assert_true(_has_notification("HQ's workbench is open now."), "debrief_loss: HQ nudge notification")
+	)
+
 	run_case("rewind_restores_full_state_without_corruption", func():
 		GameState.reset()
 		GameState.state["player"]["inventory"]["rewind"] = 1
@@ -470,7 +486,8 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["james"]["relation"], 10, "james_meeting: james relation +10")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "archie_craft_chat", "james_meeting: stage")
 		assert_eq(GameState.state["world"]["archieChatUnlockDay"], day + 1, "james_meeting: archieChatUnlockDay = day+1")
-		assert_eq(GameState.state["currentScreen"], "hq", "james_meeting: -> hq")
+		assert_eq(GameState.state["currentScreen"], "home", "james_meeting: -> home, no longer hq")
+		assert_true(not _has_notification("Crafting unlocked. Try the workbench in HQ."), "james_meeting: no longer fires the HQ notification")
 
 		# 4. Archie falafel chat
 		var ore_before: int = GameState.state["player"]["orichalchum"].get("time", 0)
@@ -519,6 +536,7 @@ func run() -> void:
 		assert_eq(granted["level"], 1, "granted vein: Lv1")
 		assert_eq(granted["district"], "whitechapel", "granted vein: whitechapel")
 		assert_eq(GameState.state["currentScreen"], "home", "debrief: -> home")
+		assert_true(_has_notification("HQ's workbench is open now."), "debrief: HQ nudge notification")
 
 		# D7: the granted vein comes with a matching claimed site.
 		assert_eq(GameState.state["world"]["sites"].size(), 1, "debrief: creates exactly one site")

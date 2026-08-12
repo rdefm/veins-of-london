@@ -34,7 +34,6 @@
     { "op": "relation", "contact": "james", "value": 10 },
     { "op": "set_stage", "value": "archie_craft_chat" },
     { "op": "add", "path": "world.archieChatUnlockDay", "value": 1 },
-    { "op": "notify", "text": "Crafting unlocked. Try the workbench in HQ." },
-    { "op": "set_screen", "screen": "hq" }
+    { "op": "set_screen", "screen": "home" }
   ]
 }
