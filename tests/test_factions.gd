@@ -18,6 +18,15 @@ static func _site_with_vein(id: String, vein: Dictionary) -> Dictionary:
 	}
 
 
+static func _day_one_faction_veins(faction_id: String) -> Array:
+	var result := []
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein != null and vein["factionId"] == faction_id:
+			result.append({ "site": site, "vein": vein })
+	return result
+
+
 func run() -> void:
 	run_case("can_join_requires_relation_and_not_already_joined", func():
 		GameState.reset()
@@ -705,4 +714,94 @@ func run() -> void:
 				hit = true
 				break
 		assert_true(hit, "apply_rivalry_resolution should eventually flip an under-resourced, unsecured vein to a rich raiding attacker within 500 tries")
+	)
+
+	# ── faction-starting-veins T01: seed_day_one_veins() ────────────────
+
+	run_case("seed_day_one_veins_produces_the_exact_per_faction_counts_districts_and_levels", func():
+		GameState.reset()
+		Rng.set_seed(1)
+		Factions.seed_day_one_veins()
+
+		var collective := _day_one_faction_veins("collective")
+		assert_eq(collective.size(), 8, "collective: 8 starting veins")
+		var collective_shoreditch := collective.filter(func(e): return e["site"]["district"] == "shoreditch")
+		var collective_whitechapel := collective.filter(func(e): return e["site"]["district"] == "whitechapel")
+		assert_eq(collective_shoreditch.size(), 4, "collective: 4/4 shoreditch/whitechapel split")
+		assert_eq(collective_whitechapel.size(), 4, "collective: 4/4 shoreditch/whitechapel split")
+		var collective_levels: Array = collective.map(func(e): return e["vein"]["level"])
+		assert_eq(collective_levels, [3, 1, 3, 3, 1, 2, 1, 3], "collective levels are the hardcoded fixed roll, in placement order")
+
+		var firm := _day_one_faction_veins("firm")
+		assert_eq(firm.size(), 4, "firm: 4 starting veins")
+		assert_eq(firm.filter(func(e): return e["site"]["district"] == "camden").size(), 2, "firm: 2/2 camden/battersea split")
+		assert_eq(firm.filter(func(e): return e["site"]["district"] == "battersea").size(), 2, "firm: 2/2 camden/battersea split")
+		assert_eq(firm.map(func(e): return e["vein"]["level"]), [3, 3, 3, 2], "firm levels are the hardcoded fixed roll")
+
+		var guild := _day_one_faction_veins("guild")
+		assert_eq(guild.size(), 7, "guild: 7 starting veins (5 ranged + 2 fixed)")
+		for e in guild:
+			assert_eq(e["site"]["district"], "greenwich", "every guild starting vein is in greenwich")
+		assert_eq(guild.map(func(e): return e["vein"]["level"]), [2, 2, 3, 3, 2, 4, 4], "guild levels: 5 fixed-roll @2-3 then 2 fixed @Lv4")
+
+		var network := _day_one_faction_veins("network")
+		assert_eq(network.size(), 4, "network: 4 starting veins")
+		for e in network:
+			assert_eq(e["site"]["district"], "kingscross", "every network starting vein is in king's cross")
+		assert_eq(network.map(func(e): return e["vein"]["level"]), [4, 4, 3, 4], "network levels are the hardcoded fixed roll")
+
+		var conclave := _day_one_faction_veins("conclave")
+		assert_eq(conclave.size(), 7, "conclave: 7 starting veins (4 ranged + 3 fixed)")
+		for e in conclave:
+			assert_eq(e["site"]["district"], "city", "every conclave starting vein is in the city")
+		assert_eq(conclave.map(func(e): return e["vein"]["level"]), [3, 3, 2, 4, 5, 5, 5], "conclave levels: 4 fixed-roll @2-4 then 3 fixed @Lv5")
+	)
+
+	run_case("seed_day_one_veins_levels_are_identical_across_seeds_but_tier_ore_security_still_vary", func():
+		GameState.reset()
+		Rng.set_seed(1)
+		Factions.seed_day_one_veins()
+		var run_a: Array = GameState.deep_copy(GameState.state["world"]["sites"])
+
+		GameState.reset()
+		Rng.set_seed(2)
+		Factions.seed_day_one_veins()
+		var run_b: Array = GameState.deep_copy(GameState.state["world"]["sites"])
+
+		assert_eq(run_a.size(), run_b.size(), "same total starting-vein count regardless of seed")
+
+		var levels_a: Array = run_a.map(func(s): return s["factionVein"]["level"])
+		var levels_b: Array = run_b.map(func(s): return s["factionVein"]["level"])
+		assert_eq(levels_a, levels_b, "levels are hardcoded constants — identical across every new game")
+
+		var procedural_differs := false
+		for i in run_a.size():
+			var va: Dictionary = run_a[i]["factionVein"]
+			var vb: Dictionary = run_b[i]["factionVein"]
+			if run_a[i]["tier"] != run_b[i]["tier"] or va["oreType"] != vb["oreType"] or va["security"] != vb["security"]:
+				procedural_differs = true
+				break
+		assert_true(procedural_differs, "tier/oreType/security must still be rolled fresh per game, not accidentally hardcoded too")
+	)
+
+	run_case("seed_day_one_veins_bumps_siteCap_by_exactly_the_placed_count_per_district", func():
+		# siteCap is bumped, not spent: data/districts.json's static siteCap
+		# already includes the day-1 roster's per-district placement count
+		# (base + placed), so this checks the loaded data reflects that —
+		# not a runtime mutation, since the rosters (and therefore the bump)
+		# are fixed constants.
+		assert_eq(GameData.DISTRICTS["shoreditch"]["siteCap"], 7, "shoreditch: base 3 + collective's 4")
+		assert_eq(GameData.DISTRICTS["whitechapel"]["siteCap"], 7, "whitechapel: base 3 + collective's 4")
+		assert_eq(GameData.DISTRICTS["camden"]["siteCap"], 6, "camden: base 4 + firm's 2")
+		assert_eq(GameData.DISTRICTS["battersea"]["siteCap"], 5, "battersea: base 3 + firm's 2")
+		assert_eq(GameData.DISTRICTS["greenwich"]["siteCap"], 10, "greenwich: base 3 + guild's 7")
+		assert_eq(GameData.DISTRICTS["kingscross"]["siteCap"], 7, "kingscross: base 3 + network's 4")
+		assert_eq(GameData.DISTRICTS["city"]["siteCap"], 9, "city: base 2 + conclave's 7")
+
+		GameState.reset()
+		Rng.set_seed(3)
+		Factions.seed_day_one_veins()
+		for district_id in ["shoreditch", "whitechapel", "camden", "battersea", "greenwich", "kingscross", "city"]:
+			var site_cap: int = GameData.DISTRICTS[district_id]["siteCap"]
+			assert_true(Sites.sites_in_district(district_id).size() <= site_cap, "%s: starting veins alone must never exceed the bumped siteCap" % district_id)
 	)

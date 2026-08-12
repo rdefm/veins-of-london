@@ -28,6 +28,7 @@ func _ready() -> void:
 
 func _on_new_game_pressed() -> void:
 	GameState.reset()
+	Factions.seed_day_one_veins()
 	Events.start_event("intro")
 
 

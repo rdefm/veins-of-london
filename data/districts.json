@@ -6,7 +6,7 @@
     "siteQualityMod": 0.00,
     "dangerMod": 0.00,
     "priceMod": 0.00,
-    "siteCap": 3,
+    "siteCap": 7,
     "special": "home base",
     "factionPresence": "collective",
     "blurb": "Home turf. Rents keep going up and nobody knows why."
@@ -18,7 +18,7 @@
     "siteQualityMod": -0.05,
     "dangerMod": -0.05,
     "priceMod": 0.15,
-    "siteCap": 2,
+    "siteCap": 9,
     "special": "",
     "factionPresence": "conclave",
     "blurb": "Every building is a bank, a firm, or both, and something older underneath."
@@ -30,7 +30,7 @@
     "siteQualityMod": 0.05,
     "dangerMod": 0.00,
     "priceMod": 0.00,
-    "siteCap": 3,
+    "siteCap": 10,
     "special": "",
     "factionPresence": "guild",
     "blurb": "The Meridian runs through it, which the locals will mention unprompted."
@@ -42,7 +42,7 @@
     "siteQualityMod": 0.05,
     "dangerMod": 0.10,
     "priceMod": -0.05,
-    "siteCap": 4,
+    "siteCap": 6,
     "special": "",
     "factionPresence": "firm",
     "blurb": "Markets, market stalls, and men who are technically also a market stall."
@@ -54,7 +54,7 @@
     "siteQualityMod": 0.00,
     "dangerMod": 0.05,
     "priceMod": 0.00,
-    "siteCap": 3,
+    "siteCap": 7,
     "special": "veins here: rechargeBlocks -1 (min 1)",
     "factionPresence": "network",
     "blurb": "Everything in King's Cross is on its way somewhere else. Even the veins recharge faster."
@@ -66,7 +66,7 @@
     "siteQualityMod": 0.05,
     "dangerMod": 0.00,
     "priceMod": 0.00,
-    "siteCap": 3,
+    "siteCap": 5,
     "special": "",
     "factionPresence": "firm",
     "blurb": "The power station stopped generating decades ago. Something still hums."
@@ -90,7 +90,7 @@
     "siteQualityMod": 0.10,
     "dangerMod": 0.10,
     "priceMod": 0.00,
-    "siteCap": 3,
+    "siteCap": 7,
     "special": "vein NPC-raid chance ×1.5 (when vein raids land, M2)",
     "factionPresence": "collective",
     "blurb": "The oldest grief in London, still paying rent to the newest landlords."

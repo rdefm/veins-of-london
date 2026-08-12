@@ -535,3 +535,86 @@ static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 	vein["factionId"] = outcome["attackerId"]
 	adjust_relation(outcome["defenderId"], outcome["attackerId"], RIVALRY_RELATION_PENALTY)
 	MapEvents.queue_seed_claim(site["district"], vein["id"], outcome["attackerId"])
+
+
+# ── faction day-1 starting veins (faction-starting-veins T01) ─────────
+# New-game-only seeding so the other 5 factions don't feel absent for the
+# first stretch of a fresh game while the daily NPC-claim tick (above)
+# slowly climbs from zero. Reuses that exact same site+vein mechanism
+# (Sites' tier/ore/bonus rolls, create_faction_vein()'s security roll) —
+# the only thing day-1 does differently is fabricate a brand-new site from
+# scratch per starting vein (there's nothing in state.world.sites yet to
+# attach an NPC claim to) and force the vein's level to a fixed roster
+# value afterward instead of leaving it at create_faction_vein()'s default
+# Lv1.
+#
+# Per-faction level lists are fixed constants, not re-rolled per game
+# (spec.md's explicit "every new game gets the same level distribution"
+# decision) — each entry below was rolled once, uniformly at random within
+# the roster's stated range, and hardcoded here. Guild's and Conclave's
+# ranged sub-groups (levels 2-3 and 2-4 respectively) got the same
+# one-time-roll treatment as Collective/Firm/Network's fully-open ranges;
+# only their extra fixed-level veins (Guild's 2 @ Lv4, Conclave's 3 @ Lv5)
+# needed no roll at all.
+#
+# District counts here are exactly what data/districts.json's siteCap bump
+# (spec.md's "siteCap is bumped, not spent") accounts for: shoreditch +4,
+# whitechapel +4, camden +2, battersea +2, greenwich +7, kingscross +4,
+# city +7 — every district below appears in exactly that many starting
+# veins.
+const DAY_ONE_ROSTER: Dictionary = {
+	"collective": [
+		{ "district": "shoreditch", "levels": [3, 1, 3, 3] },
+		{ "district": "whitechapel", "levels": [1, 2, 1, 3] },
+	],
+	"firm": [
+		{ "district": "camden", "levels": [3, 3] },
+		{ "district": "battersea", "levels": [3, 2] },
+	],
+	"guild": [
+		{ "district": "greenwich", "levels": [2, 2, 3, 3, 2, 4, 4] },
+	],
+	"network": [
+		{ "district": "kingscross", "levels": [4, 4, 3, 4] },
+	],
+	"conclave": [
+		{ "district": "city", "levels": [3, 3, 2, 4, 5, 5, 5] },
+	],
+}
+
+
+# Called once by a real "New Game" flow (scenes/screens/title.gd,
+# scenes/screens/you.gd), always right after GameState.reset() — never
+# folded into reset() itself, since 37 test files call GameState.reset()
+# expecting the bare pure-state constructor with an empty world.sites, not
+# a game's worth of pre-placed faction veins. debug_start.gd's own
+# GameState.reset() call is likewise left alone; it overwrites
+# state.world.sites wholesale immediately after with its own hand-built
+# debug set, so day-1 seeding there would just be discarded anyway.
+static func seed_day_one_veins() -> void:
+	for faction_id in DAY_ONE_ROSTER.keys():
+		for group in DAY_ONE_ROSTER[faction_id]:
+			var district_id: String = group["district"]
+			for level in group["levels"]:
+				_seed_day_one_vein(faction_id, district_id, level)
+	EventBus.state_changed.emit()
+
+
+# Everything about the site (tier, oreType, bonuses) and the vein's
+# security tier is rolled exactly as a normal NPC claim would produce
+# ("everything else stays procedural" per spec.md) — only the vein's level
+# is forced afterward. No MapEvents queueing and no Notify/XP: these veins
+# exist from the moment the game starts, so there is nothing to animate or
+# award XP for (the daily-tick NPC-claim path's queue_seed_claim/Notify
+# calls are for a claim happening *during* play, which this isn't).
+static func _seed_day_one_vein(faction_id: String, district_id: String, level: int) -> void:
+	var tier := Sites.roll_tier(district_id)
+	var site := Sites.roll_new_site(district_id, tier)
+
+	var vein := create_faction_vein(faction_id, site)
+	vein["level"] = level
+	vein["levelLabel"] = GameData.VEIN_LEVELS[str(level)]["label"]
+	vein["devBar"] = 0  # discard create_faction_vein()'s Lv1 devBar gain — same reset level_up_vein() does on every level change
+	site["factionVein"] = vein
+
+	GameState.state["world"]["sites"].append(site)

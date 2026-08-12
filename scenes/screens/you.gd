@@ -176,4 +176,5 @@ func _on_import_pressed() -> void:
 
 func _on_new_game_pressed() -> void:
 	GameState.reset()
+	Factions.seed_day_one_veins()
 	Nav.go_to("intro")

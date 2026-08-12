@@ -248,10 +248,24 @@ static func _reroll_worst_unclaimed(district_id: String) -> Variant:
 
 static func _create_site(district_id: String, at_cap: bool = false) -> Dictionary:
 	var tier := roll_tier_at_cap() if at_cap else roll_tier(district_id)
+	var site := roll_new_site(district_id, tier)
+	GameState.state["world"]["sites"].append(site)
+	MapEvents.queue_discover(district_id, site["id"])
+	Cultivating.award_xp(GameData.SITE_PROSPECT_XP[tier])
+	return site
+
+
+# Pure dict construction, split out of _create_site() so
+# faction-starting-veins T01's day-1 seeding (systems/factions.gd's
+# _seed_day_one_vein()) can fabricate a from-scratch site with the exact
+# same tier/ore/bonus procedural generation a real prospect would use,
+# without also pulling in _create_site()'s player-action side effects
+# (append to state, queue a discover animation, award prospect XP) that
+# don't apply to a site that's existed since before the game started.
+static func roll_new_site(district_id: String, tier: String) -> Dictionary:
 	var ore_type := roll_ore_type(district_id)
 	var bonus_roll := roll_discovery_bonuses(tier)
-
-	var site := {
+	return {
 		"id": make_site_id(),
 		"district": district_id,
 		"tier": tier,
@@ -262,10 +276,6 @@ static func _create_site(district_id: String, at_cap: bool = false) -> Dictionar
 		"factionVein": null,
 		"hasNaturalVein": bonus_roll["hasNaturalVein"],
 	}
-	GameState.state["world"]["sites"].append(site)
-	MapEvents.queue_discover(district_id, site["id"])
-	Cultivating.award_xp(GameData.SITE_PROSPECT_XP[tier])
-	return site
 
 
 # ── seeding revamp ──────────────────────────────────────────────────────

@@ -150,7 +150,7 @@ func run() -> void:
 		GameState.state["world"]["currentDistrict"] = "shoreditch"  # not camden, so Travel renders as a real button, not the "already here" label
 
 		var screen := MapScreen.new()
-		var row: Control = screen._build_district_actions("camden")  # camden has siteCap 4 in data/districts.json
+		var row: Control = screen._build_district_actions("camden")  # camden has siteCap 6 in data/districts.json
 
 		var style: StyleBox = preload("res://theme/main_theme.tres").get_stylebox("normal", "Button")
 		var padding_only: float = style.get_minimum_size().x

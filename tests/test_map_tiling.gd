@@ -55,10 +55,14 @@ func run() -> void:
 				assert_true(dist >= NEIGHBOUR_DISTANCE - DIST_EPS, "%s and %s overlap (dist=%s, min=%s)" % [ids[i], ids[j], dist, NEIGHBOUR_DISTANCE])
 	)
 
-	run_case("every_district_keeps_its_original_stopSlots_count", func():
+	# Counts below are post faction-starting-veins T01's siteCap bump (that
+	# ticket grew most districts' stopSlots to keep the siteCap+2 buffer
+	# GameData validates at boot) -- this still guards the same thing it
+	# always did: nobody accidentally drops a district's stopSlots count.
+	run_case("every_district_keeps_its_expected_stopSlots_count", func():
 		var expected_counts := {
-			"hampstead": 4, "kingscross": 5, "camden": 6, "shoreditch": 5,
-			"city": 4, "soho": 2, "whitechapel": 5, "battersea": 5, "greenwich": 5,
+			"hampstead": 4, "kingscross": 9, "camden": 8, "shoreditch": 9,
+			"city": 11, "soho": 2, "whitechapel": 9, "battersea": 7, "greenwich": 12,
 		}
 		for district_id in expected_counts.keys():
 			var slots: Array = GameData.MAP_LAYOUT["districts"][district_id]["stopSlots"]

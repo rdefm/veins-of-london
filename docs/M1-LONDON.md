@@ -14,15 +14,17 @@ Same rules of engagement as M0. New data is canonical HERE (this doc extends REF
 
 | id | name | oreBias | siteQualityMod | dangerMod | priceMod | siteCap | special | factionPresence |
 |---|---|---|---|---|---|---|---|---|
-| shoreditch | Shoreditch | {} (uniform) | 0.00 | 0.00 | 0.00 | 3 | home base | collective |
-| city | The City | {fate:0.6} | −0.05 | −0.05 | +0.15 | 2 | — | conclave |
-| greenwich | Greenwich | {time:0.6} | +0.05 | 0.00 | 0.00 | 3 | — | guild |
-| camden | Camden | {physics:0.6} | +0.05 | +0.10 | −0.05 | 4 | — | firm |
-| kingscross | King's Cross | {time:0.3, physics:0.3} | 0.00 | +0.05 | 0.00 | 3 | veins here: rechargeBlocks −1 (min 1) | network |
-| battersea | Battersea | {physics:0.6} | +0.05 | 0.00 | 0.00 | 3 | — | firm |
+| shoreditch | Shoreditch | {} (uniform) | 0.00 | 0.00 | 0.00 | 7 | home base | collective |
+| city | The City | {fate:0.6} | −0.05 | −0.05 | +0.15 | 9 | — | conclave |
+| greenwich | Greenwich | {time:0.6} | +0.05 | 0.00 | 0.00 | 10 | — | guild |
+| camden | Camden | {physics:0.6} | +0.05 | +0.10 | −0.05 | 6 | — | firm |
+| kingscross | King's Cross | {time:0.3, physics:0.3} | 0.00 | +0.05 | 0.00 | 7 | veins here: rechargeBlocks −1 (min 1) | network |
+| battersea | Battersea | {physics:0.6} | +0.05 | 0.00 | 0.00 | 5 | — | firm |
 | hampstead | Hampstead | {life:0.6} | +0.10 | −0.05 | +0.05 | 2 | — | — |
-| whitechapel | Whitechapel | {emotion:0.6} | +0.10 | +0.10 | 0.00 | 3 | vein NPC-raid chance ×1.5 (when vein raids land, M2) | collective |
+| whitechapel | Whitechapel | {emotion:0.6} | +0.10 | +0.10 | 0.00 | 7 | vein NPC-raid chance ×1.5 (when vein raids land, M2) | collective |
 | soho | Soho | — | — | −0.05 | +0.10 | 0 | marketplace (M4); no veins, no prospecting | network |
+
+`siteCap` above already includes the day-1 faction-vein bump (D2, below) — shoreditch/whitechapel/camden/battersea/greenwich/kingscross/city are each `base + starting-veins-placed-there`; hampstead/soho have no faction presence to seed and keep their original base values.
 
 oreBias semantics: listed weights are the probability of that type; remainder split uniformly among the other types (uniform = 0.2 each).
 
@@ -65,6 +67,18 @@ Prospecting awards cultivating XP: 10 (barren/poor), 15 (fair), 25 (rich), 40 (s
 **NPC site-claiming (daily tick, step ⑤b):** each unclaimed site: `p = 0.03 + 0.02 × tierIndex + 0.01 × ageDays` (tierIndex: poor 0, fair 1, rich 2, saturated 3; barren never claimed; ageDays = day − discoveredDay), cap 0.25. Claimed → one of the 5 canonical factions is picked (`Factions.pick_claimant()`, heavily weighted toward the district's `factionPresence`) and instantly seeded a real Lv1 vein (`site.factionVein`, oreType from the site, security tier rolled from faction flavour/vein value/faction resource level — see faction-vein-ownership T01), notification "<Faction> have moved onto the <tier> site in <district>." Faction-claimed sites remain visible on the map; taking one back is M2 combat content — in M1 they persist until NPC abandonment fires (below).
 
 **NPC abandonment (daily tick, new step ⑤c, runs right after ⑤b):** each faction-claimed site: `p = 0.05 + 0.01 × ageDaysSinceClaim` (`ageDaysSinceClaim = day − site.factionVein.claimedOnDay`), cap 0.15, flat across tiers (richer claims are not stickier). On hit: **delete the site (and its embedded faction vein) outright** (not a reversion — the plot is gone, not dormant; this is deliberate so "wait out the good faction-claimed site" is never a viable strategy). This frees a `siteCap` slot; the district's next prospect rolls a brand-new site from scratch, not the old one reappearing. Notification: *"Word is the outfit running the <tier> site in <district> got sloppy. The plot's gone quiet — worth a fresh prospect."* (draft, tone-bible register, PROSE-REVIEW).
+
+**Day-1 faction vein rosters (`Factions.seed_day_one_veins()`, `.scratch/8-faction-starting-veins/`):** a fresh game doesn't start every faction at zero — new-game init (title screen and You-screen "New Game", right after `GameState.reset()`; NOT folded into `reset()` itself, and NOT run by `DebugStart`, which builds its own hand-picked site list) pre-places a starting roster of faction-claimed sites+veins via this same `factionVein`/site mechanism, one district-home faction at a time:
+
+| faction | count | district(s) | levels |
+|---|---|---|---|
+| Collective | 8 | Shoreditch (4) / Whitechapel (4) | 1–3, fixed roll |
+| Firm | 4 | Camden (2) / Battersea (2) | 2–3, fixed roll |
+| Guild | 7 | Greenwich | 5 @ 2–3 (fixed roll) + 2 @ Lv4 |
+| Network | 4 | King's Cross | 3–4, fixed roll |
+| Conclave | 7 | City | 4 @ 2–4 (fixed roll) + 3 @ Lv5 |
+
+"Fixed roll" = each vein's level was rolled once, uniformly at random within the stated range, and the resulting values are hardcoded constants (`Factions.DAY_ONE_ROSTER`) — every new game gets the same level distribution, not a fresh roll per playthrough. Everything else about each starting vein (site tier, oreType, discovery bonuses, security tier) is rolled fresh each new game using the exact same procedural logic a normal prospect/NPC-claim would use — only the level is forced. The ongoing daily NPC-claim tick (⑤b above) and its probability curve are completely unchanged by this; it is a new-game-init-only addition. `data/districts.json`'s `siteCap` for every district that receives starting veins is bumped by exactly that count (base + placed, not spent from the base) so normal prospecting capacity is unaffected — see the D1 table's siteCap column and footnote above. `data/map_layout.json`'s per-district `stopSlots` were extended to keep the `siteCap + 2` buffer GameData validates at boot.
 
 ## D3 — Travel (the one rule)
 

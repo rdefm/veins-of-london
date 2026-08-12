@@ -34,8 +34,8 @@ static func apply() -> void:
 	player["items"] = [{ "id": crowbar_id, "type": "crowbar" }]
 	player["equipment"]["weapon"] = crowbar_id
 
-	# Each debug vein gets its own claimed site in shoreditch (siteCap 3, so
-	# exactly fills it) so MapLayout.build_stop_items — which only turns a
+	# Each debug vein gets its own claimed site in shoreditch so
+	# MapLayout.build_stop_items — which only turns a
 	# vein into a Map stop when it's tied to a claimed site the vein's own
 	# siteId points at — actually renders these on the Map tab. Without this
 	# linkage the 3 veins existed in player.veins but could never appear as
