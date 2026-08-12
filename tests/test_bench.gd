@@ -141,6 +141,20 @@ func run() -> void:
 		assert_eq(Bench.get_surveyed_count(["life", "time"]), 0, "a barren set surveys flatly to zero")
 	)
 
+	run_case("found_count_in_set_counts_only_cells_actually_found", func():
+		GameState.reset()
+		GameData.RECIPES["_testBenchHeat"] = { "discovery": { "types": ["life", "time"], "approach": "heat" } }
+		GameData.RECIPES["_testBenchGrinding"] = { "discovery": { "types": ["life", "time"], "approach": "grinding" } }
+		assert_eq(Bench.found_count_in_set(["life", "time"]), 0, "nothing found yet")
+
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+		GameState.state["player"]["bench"]["cells"]["life+time|grinding"] = { "state": "hot", "misses": 1, "refine": 0 }
+		assert_eq(Bench.found_count_in_set(["life", "time"]), 1, "only the found cell counts, not a hot one")
+
+		GameData.RECIPES.erase("_testBenchHeat")
+		GameData.RECIPES.erase("_testBenchGrinding")
+	)
+
 	run_case("ore_is_always_deducted_regardless_of_outcome", func():
 		# Empty cell -> inert.
 		GameState.reset()

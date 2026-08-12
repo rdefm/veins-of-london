@@ -102,16 +102,29 @@ static func census_count(types: Array) -> int:
 	return _recipes_in_set(types).size()
 
 
-# Recipe keys whose cell is currently "found" -- the Lab home screen's
-# trophy-shelf list (M3 UI structure, calc-discovery ticket 06). Order
-# follows GameData.RECIPES's own key order.
-static func found_recipe_keys() -> Array[String]:
+# Shared by found_recipe_keys() and found_count_in_set() below -- filters
+# any recipe-key list down to the ones whose cell is currently "found".
+static func _found_among(recipe_keys: Array[String]) -> Array[String]:
 	var found: Array[String] = []
-	for recipe_key in _lab_reachable_recipe_keys():
+	for recipe_key in recipe_keys:
 		var discovery: Dictionary = GameData.RECIPES[recipe_key]["discovery"]
 		if cell_state(discovery["types"], discovery["approach"]) == "found":
 			found.append(recipe_key)
 	return found
+
+
+# Recipe keys whose cell is currently "found" -- the Lab home screen's
+# trophy-shelf list (M3 UI structure, calc-discovery ticket 06). Order
+# follows GameData.RECIPES's own key order.
+static func found_recipe_keys() -> Array[String]:
+	return _found_among(_lab_reachable_recipe_keys())
+
+
+# How many of a specific type set's effects are currently "found" -- the
+# pairing panel's census sentence (calc-discovery ticket 07) needs this
+# alongside census_count() to say "N of M", not just the total.
+static func found_count_in_set(types: Array) -> int:
+	return _found_among(_recipes_in_set(types)).size()
 
 
 static func is_surveyed(types: Array) -> bool:
