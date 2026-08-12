@@ -226,9 +226,7 @@ static func icon_button(draw_icon: Callable, callback: Callable) -> Button:
 	b.custom_minimum_size = Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE)
 	b.pressed.connect(callback)
 
-	var glyph := _IconGlyph.new()
-	glyph.draw_icon = draw_icon
-	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var glyph := icon_glyph_control(draw_icon, ICON_GLYPH_SCALE)
 	anchor_full_rect(glyph)
 	b.add_child(glyph)
 
@@ -236,15 +234,26 @@ static func icon_button(draw_icon: Callable, callback: Callable) -> Button:
 
 
 # Draws its bound Icons.draw_* glyph centred in whatever rect it's given —
-# mouse_filter is IGNORE (set by icon_button above) so taps pass through
-# to the parent Button rather than being consumed here.
+# mouse_filter is IGNORE so taps pass through to whatever button/control it's
+# nested in rather than being consumed here. Factored out of icon_button()
+# above so map_bubble.gd's icon+label option rows (10-map-interaction-model
+# ticket 02) can reuse the same glyph-drawing leaf instead of redeclaring it.
+static func icon_glyph_control(draw_icon: Callable, glyph_scale: float = ICON_GLYPH_SCALE) -> Control:
+	var glyph := _IconGlyph.new()
+	glyph.draw_icon = draw_icon
+	glyph.glyph_scale = glyph_scale
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return glyph
+
+
 class _IconGlyph extends Control:
 	var draw_icon: Callable
+	var glyph_scale: float = ICON_GLYPH_SCALE
 
 	func _draw() -> void:
 		if draw_icon.is_valid():
 			var colour: Color = get_theme_color("font_color", "Button")
-			draw_icon.call(self, size / 2.0, colour, ICON_GLYPH_SCALE)
+			draw_icon.call(self, size / 2.0, colour, glyph_scale)
 
 
 static func back_button(target_screen: String) -> Button:
