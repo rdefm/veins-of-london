@@ -98,6 +98,15 @@ static func hflow(sep: int = 8) -> HFlowContainer:
 # a VBoxContainer inside it, ready for content.
 static func card() -> Dictionary:
 	var panel := PanelContainer.new()
+	# PanelContainer defaults to MOUSE_FILTER_STOP (unlike plain Container
+	# subclasses, which default to PASS) -- a bare card swallows a drag
+	# gesture before it ever reaches an ancestor TouchScrollContainer's
+	# _gui_input(), so scrolling only worked if a finger landed in the
+	# narrow gaps between cards (bugfixes ticket 16). Cards are non-
+	# interactive wrappers; PASS lets the drag bubble up while still
+	# leaving any interactive leaf inside (a real Button, STOP by default)
+	# free to consume its own taps first.
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	var content := vbox(6)
 	panel.add_child(content)
 	return { "panel": panel, "content": content }
@@ -300,6 +309,11 @@ static func bar(value: float, max_value: float) -> ProgressBar:
 	b.value = value
 	b.show_percentage = false
 	b.custom_minimum_size = Vector2(0, 8)
+	# ProgressBar defaults to MOUSE_FILTER_STOP same as PanelContainer above
+	# -- it's a read-only display, not a control the player drags, so it
+	# shouldn't be able to swallow a scroll drag that starts on top of it
+	# (bugfixes ticket 16 audit).
+	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	return b
 
 

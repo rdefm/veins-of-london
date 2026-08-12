@@ -110,3 +110,40 @@ func run() -> void:
 
 		b.free()
 	)
+
+	# Bugfixes ticket 16: PanelContainer defaults to MOUSE_FILTER_STOP, unlike
+	# plain Container subclasses (PASS by default) -- a card built with the
+	# engine default swallows a drag gesture before it reaches an ancestor
+	# TouchScrollContainer's _gui_input(), so scrolling only worked from the
+	# narrow gaps between cards, not from on top of one.
+	run_case("card_panel_passes_input_through_instead_of_stopping_it", func():
+		var c := UI.card()
+		assert_eq(c["panel"].mouse_filter, Control.MOUSE_FILTER_PASS, "a card must not swallow a drag that starts on top of it, or scrolling only works in the gaps between cards")
+		c["panel"].free()
+	)
+
+	# Same audit, applied to UI.bar(): ProgressBar also defaults to STOP, and
+	# it's a read-only display no player ever taps -- it shouldn't be able to
+	# block a scroll drag either.
+	run_case("bar_passes_input_through_instead_of_stopping_it", func():
+		var b := UI.bar(5, 10)
+		assert_eq(b.mouse_filter, Control.MOUSE_FILTER_PASS, "a progress bar must not swallow a drag that starts on top of it")
+		b.free()
+	)
+
+	# Ticket 16's third checklist item: a card switching to PASS must not
+	# regress a real Button placed inside it -- the button itself still
+	# needs to default to STOP (interactive leaves are unaffected by their
+	# non-interactive ancestor's filter) and still fire its own callback.
+	run_case("a_button_inside_a_pass_filtered_card_still_captures_its_own_tap", func():
+		var pressed := [false]
+		var c := UI.card()
+		var b := UI.button("Go", func(): pressed[0] = true)
+		c["content"].add_child(b)
+
+		assert_eq(b.mouse_filter, Control.MOUSE_FILTER_STOP, "a button inside a card must keep capturing its own taps, unaffected by the card's now-PASS filter")
+		b.pressed.emit()
+		assert_true(pressed[0], "a button nested in a card must still fire its callback")
+
+		c["panel"].free()
+	)
