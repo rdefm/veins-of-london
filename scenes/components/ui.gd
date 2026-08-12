@@ -198,6 +198,46 @@ static func button(text: String, callback: Callable) -> Button:
 	return b
 
 
+# Fixed square touch target for an Icons (icons.gd) vector glyph, no text
+# label — bugfixes ticket 13: map.gd's top-bar hamburger/bag buttons used
+# bare "☰"/"🎒" glyphs, which render as nothing on the exported build's
+# font, unlike UI.button()'s glyph+text rows (combat.gd, top_bar.gd) which
+# stay legible because the text carries the button even if the glyph
+# doesn't render. `draw_icon` is one of Icons' `draw_*(target, center,
+# colour, scale)` static funcs, e.g. `Icons.draw_bag`.
+const ICON_BUTTON_SIZE := 40.0
+# The Icons draw_* funcs' own `scale` param is tuned so 1.0 matches their
+# original ~64px map-pin/legend-modal usage (icons.gd N6 asset 2's spec
+# size); a 40px button reads that same glyph as slightly cramped, so this
+# scales it back up to fill the touch target properly.
+const ICON_GLYPH_SCALE := 1.4
+
+static func icon_button(draw_icon: Callable, callback: Callable) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE)
+	b.pressed.connect(callback)
+
+	var glyph := _IconGlyph.new()
+	glyph.draw_icon = draw_icon
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	anchor_full_rect(glyph)
+	b.add_child(glyph)
+
+	return b
+
+
+# Draws its bound Icons.draw_* glyph centred in whatever rect it's given —
+# mouse_filter is IGNORE (set by icon_button above) so taps pass through
+# to the parent Button rather than being consumed here.
+class _IconGlyph extends Control:
+	var draw_icon: Callable
+
+	func _draw() -> void:
+		if draw_icon.is_valid():
+			var colour: Color = get_theme_color("font_color", "Button")
+			draw_icon.call(self, size / 2.0, colour, ICON_GLYPH_SCALE)
+
+
 static func back_button(target_screen: String) -> Button:
 	return button("‹ Back", func(): Nav.go_to(target_screen))
 

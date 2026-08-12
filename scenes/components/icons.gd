@@ -5,9 +5,15 @@ extends RefCounted
 # legend/news). No icon pack or AI image generation is available in this
 # environment, and N6 explicitly allows drawing them as `_draw()` polygons
 # instead of bitmap art — every draw_* here is a small single-colour,
-# tintable vector shape. KINDS is the exhaustive, spec-fixed set: N6 says
-# "no additional/commissioned art introduced beyond this list," so nothing
-# is added here beyond these 8 and nothing here invents a 9th.
+# tintable vector shape. KINDS was originally the exhaustive, spec-fixed
+# set N6 defined ("no additional/commissioned art introduced beyond this
+# list"). Bugfixes ticket 13 adds a 9th, `hamburger`: the Map tab's top-bar
+# menu button used the "☰" text glyph, which — like every other non-ASCII
+# glyph in this project (see the "✉" pin comment in map_canvas.gd and the
+# old "⌂" home glyph this file already replaced) — renders as nothing on
+# the exported build's font. That's a real on-device bug, not a redesign,
+# so the ticket treats it as an approved, deliberate exception to "exactly
+# 8, nothing added" rather than scope creep.
 #
 # Every draw_* takes the CanvasItem currently mid-_draw() (the same
 # target-param idiom map_canvas.gd already used for its pin/padlock
@@ -16,7 +22,7 @@ extends RefCounted
 # draw_pin returns the marker head's centre so callers can layer another
 # glyph on top of it, same contract the original pin-marker code had.
 
-const KINDS := ["home", "pin", "padlock", "market", "phone", "bag", "legend", "news"]
+const KINDS := ["home", "pin", "padlock", "market", "phone", "bag", "legend", "news", "hamburger"]
 
 
 static func is_valid_kind(kind: String) -> bool:
@@ -90,9 +96,11 @@ static func draw_phone(target: CanvasItem, center: Vector2, colour: Color, scale
 	target.draw_rect(Rect2(center + Vector2(-s * 0.2, s * 0.7), Vector2(s * 0.4, s * 0.15)), colour, true)
 
 
-# Bag silhouette (rectangular body + arched handle). Produced per N6 but
-# not wired into the Bag nav tab / TopBar bag button in this ticket, same
-# reason as draw_phone above.
+# Bag silhouette (rectangular body + arched handle). Produced per N6;
+# wired into map.gd's top-bar bag button by bugfixes ticket 13 (its "🎒"
+# text glyph rendered as nothing on-device). The global TopBar's own bag
+# button (top_bar.gd) pairs "🎒" with a visible "Bag" label, so it's
+# unaffected by that bug and left as-is.
 static func draw_bag(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
 	var s := 5.0 * scale
 	target.draw_rect(Rect2(center + Vector2(-s, -s * 0.4), Vector2(s * 2, s * 1.6)), colour, false, 1.5 * scale)
@@ -121,3 +129,14 @@ static func draw_news(target: CanvasItem, center: Vector2, colour: Color, scale:
 	for i in 3:
 		var y := -s * 0.4 + i * (s * 0.5)
 		target.draw_line(center + Vector2(-s * 0.6, y), center + Vector2(s * 0.6, y), colour, 1.2 * scale)
+
+
+# Three stacked horizontal bars — bugfixes ticket 13's 9th icon, replacing
+# the map top bar's "☰" (U+2630) text glyph. Same visual language as
+# draw_news' headline bars, just evenly spaced and full-width since this
+# one has to read as a menu button on its own, not sit inside a frame.
+static func draw_hamburger(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	var s := 6.0 * scale
+	for i in 3:
+		var y := -s * 0.7 + i * (s * 0.7)
+		target.draw_line(center + Vector2(-s, y), center + Vector2(s, y), colour, 1.5 * scale)

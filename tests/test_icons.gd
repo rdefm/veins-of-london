@@ -8,8 +8,11 @@ extends "res://tests/test_base.gd"
 
 
 func run() -> void:
-	run_case("kinds_match_n6s_8_icons_exactly", func():
-		var expected := ["home", "pin", "padlock", "market", "phone", "bag", "legend", "news"]
+	# Bugfixes ticket 13 added a 9th icon, "hamburger" — an approved
+	# exception to N6's original "exactly 8, nothing added" (see icons.gd's
+	# header comment and docs/M1.5-NETWORK-MAP.md's N6 asset list).
+	run_case("kinds_match_n6s_8_icons_plus_ticket_13s_hamburger", func():
+		var expected := ["home", "pin", "padlock", "market", "phone", "bag", "legend", "news", "hamburger"]
 		assert_eq(Icons.KINDS.size(), expected.size())
 		for kind in expected:
 			assert_true(Icons.KINDS.has(kind), kind)
@@ -18,6 +21,6 @@ func run() -> void:
 	run_case("is_valid_kind_matches_kinds_only", func():
 		for kind in Icons.KINDS:
 			assert_true(Icons.is_valid_kind(kind), kind)
-		assert_true(not Icons.is_valid_kind("envelope"), "no 9th icon per N6")
+		assert_true(not Icons.is_valid_kind("envelope"), "still no 10th icon — the ✉ map pin glyph gap is a separate, already-flagged follow-up")
 		assert_true(not Icons.is_valid_kind(""))
 	)

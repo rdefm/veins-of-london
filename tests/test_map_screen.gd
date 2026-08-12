@@ -90,6 +90,28 @@ func run() -> void:
 		screen.free()
 	)
 
+	# Bugfixes ticket 13: the hamburger/bag top-bar buttons used to be plain
+	# "☰"/"🎒" Button text, invisible on-device because non-ASCII glyphs
+	# don't render in the exported build's font. _build_top_bar() doesn't
+	# touch _map_controls/GameState until a button is actually pressed
+	# (each callback just closes over `self`), so it's safe to call
+	# directly on a fresh, un-_ready()'d screen -- same reasoning
+	# test_icons.gd gives for not exercising draw_* itself: this only
+	# checks the built structure, not the click behaviour.
+	run_case("top_bar_hamburger_and_bag_buttons_carry_no_glyph_text", func():
+		var screen := MapScreen.new()
+		var row := screen._build_top_bar()
+
+		var buttons := row.find_children("", "Button", true, false)
+		assert_eq(buttons.size(), 2, "hamburger + bag, nothing else in the top bar is a Button")
+		for b in buttons:
+			assert_eq((b as Button).text, "", "an icon button must not fall back to a raw emoji/unicode glyph as its text")
+			assert_eq((b as Button).get_child_count(), 1, "each icon button should carry exactly its drawn Icons glyph as a child")
+
+		row.free()
+		screen.free()
+	)
+
 	# Bugfixes ticket 05: a charged, owned vein shows all three action
 	# buttons (Cultivate, Harvest cautious, Harvest full) at once, which
 	# overflowed a narrow phone's width when they sat in a plain

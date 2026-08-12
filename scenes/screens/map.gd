@@ -147,17 +147,23 @@ func _build_diagram_layer() -> Control:
 # rows did. Hamburger opens _map_controls' filter drawer; bag calls the same
 # Bag.open() the global TopBar's bag button used, since that bar is hidden
 # here.
+#
+# Bugfixes ticket 13: both were plain "☰"/"🎒" text glyphs, invisible (but
+# still tappable) on-device because non-ASCII glyphs don't render in the
+# exported build's font — same gap icons.gd's draw_home/draw_pin already
+# worked around elsewhere. UI.icon_button() draws the Icons vector glyph
+# instead, same as those.
 func _build_top_bar() -> Control:
 	var row := UI.hbox(8)
 
-	row.add_child(UI.button("☰", func(): _map_controls.toggle()))
+	row.add_child(UI.icon_button(Icons.draw_hamburger, func(): _map_controls.toggle()))
 
 	var title := UI.heading("The Network")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	row.add_child(title)
 
-	row.add_child(UI.button("🎒", func(): Bag.open()))
+	row.add_child(UI.icon_button(Icons.draw_bag, func(): Bag.open()))
 
 	return row
 

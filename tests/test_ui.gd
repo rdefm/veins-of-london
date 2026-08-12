@@ -87,3 +87,26 @@ func run() -> void:
 		assert_true(b.custom_minimum_size.x < UI.MAX_BUTTON_TEXT_WIDTH, "an ordinary short label should get its own natural width, not be stretched out to the cap")
 		b.free()
 	)
+
+	# Bugfixes ticket 13: icon-only buttons (map.gd's hamburger/bag) can't
+	# fall back to Button.text the way UI.button() rows do -- there's no
+	# text to fall back to, that's the whole bug this replaces. So the
+	# glyph has to be a real drawn child, and a fixed touch target size
+	# (rather than the text-derived width UI.button() computes) since
+	# there's no text to measure.
+	run_case("icon_button_has_no_text_and_a_fixed_touch_target", func():
+		# GDScript lambdas capture outer locals by value, not reference, so
+		# a plain `var pressed := false` mutated inside the callback would
+		# never be visible out here -- an Array's contents, not the local
+		# itself, are what has to be captured to observe the callback firing.
+		var pressed := [false]
+		var b := UI.icon_button(Icons.draw_bag, func(): pressed[0] = true)
+		assert_eq(b.text, "", "an icon button must never carry a raw emoji/unicode glyph as Button.text")
+		assert_eq(b.custom_minimum_size, Vector2(UI.ICON_BUTTON_SIZE, UI.ICON_BUTTON_SIZE), "fixed square touch target, since there's no text to size it from")
+		assert_eq(b.get_child_count(), 1, "the drawn glyph must be a real child, or nothing shows at all")
+
+		b.pressed.emit()
+		assert_true(pressed[0], "the button must still fire its callback like any other button")
+
+		b.free()
+	)

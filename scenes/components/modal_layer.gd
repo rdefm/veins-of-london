@@ -256,10 +256,14 @@ func _build_sell_row(label_text: String, key: String, qty: int, max_qty: int) ->
 	# Same fix as UI.message_bubble()/checklist_row(): a non-expand
 	# autowrapping Label's minimum size collapses to ~1px, so without this
 	# it renders as a 1px-wide column with the text overflowing across the
-	# "−"/qty/"+" controls that follow it in this row.
+	# "-"/qty/"+" controls that follow it in this row.
 	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text_label)
-	row.add_child(UI.button("−", func(): Economy.adjust_sell_qty(key, -1, max_qty)))
+	# Bugfixes ticket 13: this was "−" (U+2212 MINUS SIGN), the same
+	# invisible-non-ASCII-glyph bug as the map top bar's "☰"/"🎒", and
+	# unlike its "+" sibling it had no fallback text to keep the button
+	# legible. ASCII "-" renders correctly.
+	row.add_child(UI.button("-", func(): Economy.adjust_sell_qty(key, -1, max_qty)))
 	var qty_label := UI.label(str(qty))
 	qty_label.autowrap_mode = TextServer.AUTOWRAP_OFF  # compact number, same fix as the checkbox glyph above
 	row.add_child(qty_label)
