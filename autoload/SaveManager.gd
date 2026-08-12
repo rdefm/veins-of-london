@@ -196,6 +196,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		_int_key(world, "day")
 		_int_key(world, "timeBlock")
 		_int_key(world, "archieChatUnlockDay")
+		_int_array_values(world.get("timeBlocksDone", []))
 		for site in world.get("sites", []):
 			_int_key(site, "discoveredDay")
 			if site.get("factionVein") != null:
@@ -306,3 +307,9 @@ func _int_dict_values(dict: Dictionary) -> void:
 	for key in dict.keys():
 		if typeof(dict[key]) == TYPE_FLOAT:
 			dict[key] = int(dict[key])
+
+
+func _int_array_values(arr: Array) -> void:
+	for i in range(arr.size()):
+		if typeof(arr[i]) == TYPE_FLOAT:
+			arr[i] = int(arr[i])

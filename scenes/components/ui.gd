@@ -183,7 +183,7 @@ static func button(text: String, callback: Callable) -> Button:
 	# Fixing this once here (rather than per call site) covers every UI.hbox()
 	# + UI.button() row in the project without needing to touch each one --
 	# audited: combat.gd, event.gd, hq.gd, inventory.gd, map.gd, modal_layer.gd,
-	# phone.gd, top_bar.gd, veins.gd, you.gd all build button rows this way.
+	# phone.gd, top_bar.gd, you.gd all build button rows this way.
 	var style := _THEME.get_stylebox("normal", "Button")
 	# main_theme.tres doesn't override Button's font, so it inherits the
 	# engine's default -- get_font() returns null in that case, hence the

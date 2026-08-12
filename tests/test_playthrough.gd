@@ -126,17 +126,35 @@ func run() -> void:
 		# --- Tutorial (as T13), through M1's archie_cultivation ---
 		_play_through_tutorial_and_unlock_prospecting()
 
-		# --- Seed a vein (M0-style free-floating seed()), cultivate to Lv2, harvest ---
+		# --- Prospect + seed a vein via Sites.attempt_seed(), cultivate to Lv2, harvest ---
 		GameState.state["player"]["orichalchum"]["time"] += 100
-		var veins_before: int = GameState.state["player"]["veins"].size()
+		var district_id: String = GameState.state["world"]["currentDistrict"]
+		var found_site: Array = []
+		var prospect_seed := _find_seed_for(500, func():
+			var result := Sites.prospect(district_id)
+			if not result["ok"] or result["site"] == null:
+				return false
+			if result["site"]["tier"] == "barren":
+				return false
+			found_site.clear()
+			found_site.append(result["site"])
+			return true
+		)
+		assert_true(prospect_seed != -1, "should find a non-barren prospect roll")
+		var site_id: String = found_site[0]["id"]
+		_drive_active_event_to_completion()  # D5: prospect can draw a district event
+		_assert_invariants("post-prospect")
+
 		var seed_seed := _find_seed_for(300, func():
-			return Cultivating.seed("time").get("success", false)
+			return Sites.attempt_seed(site_id).get("success", false)
 		)
 		assert_true(seed_seed != -1, "should find a successful seed roll")
-		assert_eq(GameState.state["player"]["veins"].size(), veins_before + 1, "seeding should add a vein")
+		assert_true(Sites.find_site(site_id)["claimed"], "seeding should claim the site")
 		_assert_invariants("post-seed")
 
-		var new_vein: Dictionary = GameState.state["player"]["veins"][veins_before]
+		var seeded_veins: Array = GameState.state["player"]["veins"].filter(func(v): return v["siteId"] == site_id)
+		assert_true(seeded_veins.size() >= 1, "seeding should create a vein tied to the site")
+		var new_vein: Dictionary = seeded_veins[0]
 		var vein_id: String = new_vein["id"]
 		# Push it right up to the Lv1->Lv2 threshold directly (formula
 		# correctness is test_cultivating.gd's job), then force one

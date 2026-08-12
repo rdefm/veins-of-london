@@ -9,7 +9,6 @@ const SCREEN_SCRIPTS := {
 	"title": preload("res://scenes/screens/title.gd"),
 	"intro": preload("res://scenes/screens/placeholder.gd"),
 	"home": preload("res://scenes/screens/home.gd"),
-	"veins": preload("res://scenes/screens/veins.gd"),
 	"inventory": preload("res://scenes/screens/inventory.gd"),
 	"contacts": preload("res://scenes/screens/contacts.gd"),
 	"sms_archie": preload("res://scenes/screens/sms_archie.gd"),

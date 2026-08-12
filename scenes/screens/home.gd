@@ -86,7 +86,6 @@ func _build_actions_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Actions", 14))
 	c["content"].add_child(UI.button("Rest", _on_rest_pressed))
-	c["content"].add_child(UI.button("Veins", func(): Nav.go_to("veins")))
 	c["content"].add_child(UI.button("Inventory", func(): Nav.go_to("inventory")))
 	return c["panel"]
 

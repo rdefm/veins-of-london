@@ -15,67 +15,6 @@ static func _find_seed_for(max_tries: int, fn: Callable) -> int:
 
 
 func run() -> void:
-	run_case("seed_deducts_40_ore_always_regardless_of_outcome", func():
-		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 100
-		Cultivating.seed("time")
-		assert_true(GameState.state["player"]["orichalchum"]["time"] == 60, "40 ore deducted after one seed attempt")
-	)
-
-	run_case("seed_blocked_below_40_ore_no_side_effects", func():
-		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 39
-		var day_before: int = GameState.state["world"]["day"]
-		var result := Cultivating.seed("time")
-		assert_true(not result["ok"], "should refuse with < 40 ore")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 39, "no ore deducted when blocked")
-		assert_eq(GameState.state["world"]["day"], day_before, "no block spent when blocked")
-	)
-
-	run_case("seed_blocked_when_time_exhausted_no_side_effects", func():
-		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 100
-		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var result := Cultivating.seed("time")
-		assert_true(not result["ok"], "should refuse when time is exhausted")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 100, "no ore deducted when blocked")
-	)
-
-	run_case("successful_seed_creates_lv1_vein_with_devBar_1_plus_skill", func():
-		var seed := _find_seed_for(200, func():
-			GameState.reset()
-			GameState.state["player"]["orichalchum"]["time"] = 100
-			GameState.state["player"]["cultivatingSkill"] = 3
-			var result := Cultivating.seed("time")
-			return result.get("success", false)
-		)
-		assert_true(seed != -1, "should find a successful seed roll within 200 tries")
-		var veins: Array = GameState.state["player"]["veins"]
-		assert_eq(veins.size(), 1, "exactly one vein created")
-		var vein: Dictionary = veins[0]
-		assert_eq(vein["level"], 1, "new vein starts at level 1")
-		assert_eq(vein["devBar"], 1 + 3, "devBar = 1 + skill (skill 3)")
-		assert_eq(vein["charged"], false, "new vein starts uncharged")
-		assert_eq(vein["security"], "none", "new vein starts unsecured")
-		assert_eq(vein["oreType"], "time", "vein ore type matches seeded type")
-		assert_true(vein["location"].contains(","), "location should be 'street, suffix'")
-		assert_eq(GameState.state["modal"]["type"], "seed_result", "seed should open the seed_result modal")
-		assert_eq(GameState.state["modal"]["data"]["success"], true, "modal data reflects the outcome")
-	)
-
-	run_case("failed_seed_still_opens_seed_result_modal", func():
-		var seed := _find_seed_for(200, func():
-			GameState.reset()
-			GameState.state["player"]["orichalchum"]["time"] = 100
-			GameState.state["player"]["cultivatingSkill"] = 1
-			var result := Cultivating.seed("time")
-			return not result.get("success", true)
-		)
-		assert_true(seed != -1, "should find a failed seed roll within 200 tries")
-		assert_eq(GameState.state["modal"]["type"], "seed_result", "failure should still open the modal")
-		assert_eq(GameState.state["modal"]["data"]["success"], false, "modal data reflects the failure")
-	)
-
 	run_case("xp_thresholds_level_the_skill_at_exactly_80", func():
 		GameState.reset()
 		GameState.state["player"]["cultivatingSkill"] = 1

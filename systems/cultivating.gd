@@ -84,9 +84,11 @@ static func apply_yield_bonus(vein: Dictionary, rolled: int) -> int:
 
 
 # Shared vein-dict constructor for every place that creates a fresh Lv1
-# vein (M0's free-floating seed() below, and systems/sites.gd's
-# attempt_seed()). site_id is null for M0-style seeding, which isn't
-# tied to a state.world.sites entry. hospitability is deep-copied — a
+# vein — systems/sites.gd's attempt_seed(), systems/factions.gd's
+# create_faction_vein(), and systems/events.gd's tutorial debrief. All three
+# always pass a real site_id; the free-floating M0 seed() that used to pass
+# null here (creating a vein invisible on the map) was deleted (bugfixes
+# ticket 15). hospitability is deep-copied — a
 # site's seeded vein and its natural-vein bonus (D2) both derive their
 # hospitability from the same site dict, and state purity requires every
 # vein to own an independent copy, never share an Array/Dictionary
@@ -117,31 +119,6 @@ static func award_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
 	var on_level_up := func(): Notify.push("Cultivating skill up — now level %d." % player["cultivatingSkill"])
 	Progression.award_xp(player, "cultivatingXP", "cultivatingSkill", GameData.CULTIVATING_XP_LEVELS, amount, on_level_up)
-
-
-static func seed(ore_type: String) -> Dictionary:
-	var player: Dictionary = GameState.state["player"]
-	var have: int = player["orichalchum"].get(ore_type, 0)
-	if have < GameData.SEED_ORE_COST or TimeSystem.is_time_exhausted():
-		return { "ok": false, "reason": "Not enough calc, or no blocks left today." }
-
-	TimeSystem.advance_time_block()
-	player["orichalchum"][ore_type] = have - GameData.SEED_ORE_COST
-
-	var skill: int = player["cultivatingSkill"]
-	var success: bool = Rng.chance(get_cult_chance(skill))
-
-	if success:
-		var district: String = GameState.state["world"]["currentDistrict"]
-		var vein := make_vein(ore_type, get_bar_gain(skill), district, null, { "tier": "fair", "bonuses": [] })
-		player["veins"].append(vein)
-		award_xp(30)
-		Modal.open("seed_result", { "success": true, "oreType": ore_type })
-		return { "ok": true, "success": true, "oreType": ore_type, "veinId": vein["id"] }
-	else:
-		award_xp(5)
-		Modal.open("seed_result", { "success": false, "oreType": ore_type })
-		return { "ok": true, "success": false, "oreType": ore_type }
 
 
 static func cultivate(vein_id: String) -> Dictionary:
