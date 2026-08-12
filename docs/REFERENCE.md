@@ -110,7 +110,7 @@ Tier descriptions: extract verbatim from HTML const `HOME_TIERS`.
 | safeRoom | Safe Room | 2000 | townhouse | storage | 0.5 |
 | ops | Operations Room | 5000 | safehouse | faction | 1 |
 | veinStation | Vein Cultivation Station | 8000 | safehouse | passive | 1 |
-| lab | Lab | 15000 | compound | crafting | 0.12 |
+| lab | Improved Lab | 15000 | compound | crafting | 0.12 |
 
 Descriptions: extract verbatim from HTML consts `HOME_SECURITY` / `HOME_ROOMS`.
 

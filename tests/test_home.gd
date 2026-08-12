@@ -174,3 +174,34 @@ func run() -> void:
 		var bonus := Home.get_workshop_bonus()
 		assert_almost_eq(bonus, 0.16, 0.0001, "workshop 0.08 + library 0.08")
 	)
+
+	run_case("known_approaches_always_include_start_approaches_with_no_rooms", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"] = []
+		var known := Approaches.get_known()
+		assert_true(known.has("heat"), "heat is start-known")
+		assert_true(known.has("grinding"), "grinding is start-known")
+		assert_true(not known.has("compression"), "compression requires workshop, not owned")
+		assert_true(not known.has("distilling"), "distilling requires lab, not owned")
+	)
+
+	run_case("known_approaches_unlock_via_room_ownership", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"] = ["workshop"]
+		var known := Approaches.get_known()
+		assert_true(known.has("compression"), "workshop owned -> compression known")
+		assert_true(not known.has("distilling"), "lab not owned -> distilling still locked")
+
+		GameState.state["home"]["rooms"] = ["workshop", "lab"]
+		known = Approaches.get_known()
+		assert_true(known.has("compression"), "workshop still owned -> compression known")
+		assert_true(known.has("distilling"), "lab owned -> distilling known")
+	)
+
+	run_case("is_known_matches_get_known", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"] = ["lab"]
+		assert_true(Approaches.is_known("heat"), "heat always known")
+		assert_true(Approaches.is_known("distilling"), "lab owned -> distilling known")
+		assert_true(not Approaches.is_known("compression"), "workshop not owned -> compression locked")
+	)

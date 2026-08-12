@@ -37,6 +37,8 @@ var HOME_TIERS: Dictionary = {}
 var HOME_SECURITY: Dictionary = {}
 var HOME_ROOMS: Dictionary = {}
 
+var APPROACHES: Dictionary = {}
+
 var FACTIONS: Dictionary = {}
 
 var DISTRICTS: Dictionary = {}
@@ -136,6 +138,8 @@ func load_all() -> void:
 	HOME_SECURITY = home.get("security", {})
 	HOME_ROOMS = home.get("rooms", {})
 
+	APPROACHES = _load_json("res://data/approaches.json")
+
 	FACTIONS = _load_json("res://data/factions.json")
 
 	DISTRICTS = _load_json("res://data/districts.json")
@@ -202,6 +206,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
 	_validate_stealth(t.get("stealth_xp_levels", []), errors)
 	_validate_home(t.get("home_tier_order", []), t.get("home_tiers", {}), t.get("home_security", {}), t.get("home_rooms", {}), errors)
+	_validate_approaches(t.get("approaches", {}), t.get("home_rooms", {}), errors)
 	_validate_factions(t.get("factions", {}), errors)
 	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
 	_validate_map_layout(t.get("map_layout", {}), t.get("districts", {}), errors)
@@ -233,6 +238,7 @@ func snapshot() -> Dictionary:
 		"home_tiers": HOME_TIERS,
 		"home_security": HOME_SECURITY,
 		"home_rooms": HOME_ROOMS,
+		"approaches": APPROACHES,
 		"factions": FACTIONS,
 		"districts": DISTRICTS,
 		"map_layout": MAP_LAYOUT,
@@ -349,6 +355,31 @@ func _validate_home(tier_order: Array, tiers: Dictionary, security: Dictionary, 
 		_require_keys(entry, ["id", "name", "cost", "minTier", "bonus", "bonusValue", "description"], "home.rooms.%s" % key, errors)
 		if entry.has("minTier") and not tiers.has(entry["minTier"]):
 			errors.append("home.rooms.%s: minTier '%s' is not a known home tier" % [key, entry["minTier"]])
+
+
+const VALID_APPROACH_SOURCE_TYPES: Array[String] = ["start", "room", "contact", "faction", "device"]
+
+
+func _validate_approaches(approaches: Dictionary, rooms: Dictionary, errors: Array[String]) -> void:
+	for key in ["heat", "grinding", "compression", "distilling"]:
+		if not approaches.has(key):
+			errors.append("approaches: missing canonical approach '%s'" % key)
+
+	for key in approaches.keys():
+		var entry = approaches[key]
+		_require_keys(entry, ["name", "symbol", "source"], "approaches.%s" % key, errors)
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var source = entry.get("source")
+		if typeof(source) != TYPE_DICTIONARY:
+			errors.append("approaches.%s: source must be an object" % key)
+			continue
+		var source_type = source.get("type")
+		if not VALID_APPROACH_SOURCE_TYPES.has(source_type):
+			errors.append("approaches.%s: unknown source type '%s'" % [key, source_type])
+		elif source_type == "room":
+			if not rooms.is_empty() and not rooms.has(source.get("id")):
+				errors.append("approaches.%s: source.id '%s' is not a known home room" % [key, source.get("id")])
 
 
 func _validate_factions(factions: Dictionary, errors: Array[String]) -> void:

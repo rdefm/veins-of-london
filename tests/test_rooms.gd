@@ -140,3 +140,12 @@ func run() -> void:
 		Rooms.toggle_vein_station_vein("v1")
 		assert_eq(GameState.state["veinStationVeins"], [], "second toggle removes")
 	)
+
+	run_case("lab_room_lookup_by_id_still_resolves_after_display_name_rename", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "lab")
+		assert_eq(Contacts.get_contact_in_room("lab"), "archie", "room id 'lab' still resolves after its display name became 'Improved Lab'")
+		assert_eq(GameData.HOME_ROOMS["lab"]["id"], "lab", "internal id unchanged")
+		assert_eq(GameData.HOME_ROOMS["lab"]["name"], "Improved Lab", "display name updated to disambiguate from the bench's 'The Lab'")
+	)
