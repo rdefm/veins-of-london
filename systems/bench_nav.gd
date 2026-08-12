@@ -9,12 +9,17 @@ extends RefCounted
 # calc-discovery ticket 06 only needed home <-> picker/notes stub round-
 # trips to prove the wiring; ticket 07 adds the real picker (select_type)
 # and pairing panel (open_pairing/open_pairing_for_types/back_to_picker)
-# entry points on top of the same shape. Bench notes (ticket 09) still
-# just stubs through open_notes().
+# entry points on top of the same shape. Ticket 08 adds confirm/resolving/
+# result (open_confirm/show_resolving/reveal_result) -- the actual probe/
+# refine mutation happens in a screen button handler via Bench.probe()/
+# refine(), which returns the outcome dict that show_resolving() stores;
+# these three functions only ever move benchNav's view forward and hold
+# that already-decided result until the (skippable) animation reveals it.
+# Bench notes (ticket 09) still just stubs through open_notes().
 
 
 static func go_home() -> void:
-	GameState.state["benchNav"] = { "view": "home", "types": [], "approach": null }
+	GameState.state["benchNav"] = { "view": "home", "types": [], "approach": null, "result": null }
 	EventBus.state_changed.emit()
 
 
@@ -65,4 +70,37 @@ static func open_pairing_for_types(types: Array) -> void:
 # without losing it, same as the Map tab's drill-down.
 static func back_to_picker() -> void:
 	GameState.state["benchNav"]["view"] = "picker"
+	EventBus.state_changed.emit()
+
+
+# Reached by tapping an actionable approach row on the pairing panel
+# (ticket 08, M3 §8.4). types is already sitting in benchNav from the
+# picker/pairing step -- this only records which approach within that
+# pairing is being confirmed.
+static func open_confirm(approach: String) -> void:
+	GameState.state["benchNav"]["approach"] = approach
+	GameState.state["benchNav"]["view"] = "confirm"
+	EventBus.state_changed.emit()
+
+
+# Called once, from the confirm screen's Confirm button, with the dict
+# Bench.probe()/refine() already returned -- the mutation (ore, time block,
+# cell state, note) is done by the time this runs; this only stashes the
+# already-decided outcome so the (skippable) animation can hide it for a
+# beat before reveal_result() below shows it. Storing the result in state
+# rather than a screen-local var is what makes an app close/reopen mid-
+# animation safe (spec story 48): resuming re-renders whatever benchNav
+# says, it never re-runs the probe.
+static func show_resolving(result: Dictionary) -> void:
+	GameState.state["benchNav"]["result"] = result
+	GameState.state["benchNav"]["view"] = "resolving"
+	EventBus.state_changed.emit()
+
+
+# The resolving screen's Skip button, and also its Timer's timeout target
+# -- same call either way, so skipping the animation and letting it finish
+# are indistinguishable to the state layer (M3 §8.4: skippable, no early
+# tell either path).
+static func reveal_result() -> void:
+	GameState.state["benchNav"]["view"] = "result"
 	EventBus.state_changed.emit()

@@ -309,3 +309,207 @@ func run() -> void:
 		GameData.RECIPES.erase("_testBenchEffect")
 		screen.free()
 	)
+
+	# ── ticket 08: confirm / resolving / result ──────────────────────────
+
+	run_case("pairing_panel_tapping_an_untried_approach_row_opens_the_confirm_screen", func():
+		GameState.reset()
+		BenchNav.open_pairing_for_types(["life", "time"])
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		_find_button(screen, "Heat").pressed.emit()
+
+		assert_eq(GameState.state["benchNav"]["view"], "confirm", "tapping an untried row must open the confirm screen")
+		assert_eq(GameState.state["benchNav"]["approach"], "heat")
+
+		screen.free()
+	)
+
+	run_case("confirm_screen_shows_pity_inclusive_odds_and_cost_and_block_cost_for_a_probe", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 50
+		GameState.state["player"]["orichalchum"]["life"] = 50
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "hot", "misses": 3, "refine": 0 }
+		BenchNav.open_pairing_for_types(["life", "time"])
+		BenchNav.open_confirm("heat")
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var labels := _label_texts(screen)
+		assert_true(labels.has("3 time (have 50)"), "ore cost per type must render via UI.format_cost_label")
+		assert_true(labels.has("3 life (have 50)"))
+		assert_true(labels.has("Run experiment — 1 block"), "block cost must render via UI.format_block_cost_label")
+
+		var expected_chance := Bench.discovery_chance(["life", "time"], "heat", GameState.state["player"]["craftingSkill"])
+		assert_true(labels.has("Odds: %d%%" % int(round(expected_chance * 100))), "odds shown must already include the pity bonus from the 3 recorded misses")
+
+		screen.free()
+	)
+
+	run_case("confirm_screen_shows_refine_cost_odds_and_tier_progression_for_a_found_cell", func():
+		GameState.reset()
+		GameData.RECIPES["_testBenchEffect"] = {
+			"name": "Test Effect", "symbol": "☾", "description": "Does a thing, allegedly.",
+			"discovery": { "types": ["life", "time"], "approach": "heat" },
+			"effectPower": 8, "refineStep": { "field": "effectPower", "add": 3 },
+		}
+		GameState.state["player"]["orichalchum"]["time"] = 50
+		GameState.state["player"]["orichalchum"]["life"] = 50
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+		BenchNav.open_pairing_for_types(["life", "time"])
+		BenchNav.open_confirm("heat")
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var labels := _label_texts(screen)
+		assert_true(labels.has("6 time (have 50)"), "tier-1 refine cost is 3 * (1 + 1) per type")
+		assert_true(labels.has("Refine — 1 block"))
+		assert_true(labels.has("Tier 0 → 1"), "confirm shows current and next tier for a refinement")
+
+		var expected_chance := Bench.refine_chance(["life", "time"], "heat", GameState.state["player"]["craftingSkill"])
+		assert_true(labels.has("Odds: %d%%" % int(round(expected_chance * 100))))
+
+		GameData.RECIPES.erase("_testBenchEffect")
+		screen.free()
+	)
+
+	run_case("confirm_button_runs_the_probe_exactly_once_then_moves_to_resolving_with_the_result_stored", func():
+		GameData.RECIPES["_testBenchEffect"] = { "discovery": { "types": ["life", "time"], "approach": "heat" } }
+
+		# Find a success-roll seed cheaply (direct Bench.probe(), no screen)
+		# before spinning up a LabScreen to test the button wiring itself.
+		var seed := -1
+		for candidate in range(500):
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			GameState.state["player"]["orichalchum"]["life"] = 100
+			GameState.state["player"]["craftingSkill"] = 5
+			Rng.set_seed(candidate)
+			if Bench.probe(["life", "time"], "heat").get("outcome") == "found":
+				seed = candidate
+				break
+		assert_true(seed != -1, "should find a discovery-success roll within 500 tries")
+
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		GameState.state["player"]["craftingSkill"] = 5
+		BenchNav.open_pairing_for_types(["life", "time"])
+		BenchNav.open_confirm("heat")
+		Rng.set_seed(seed)
+
+		var screen := LabScreen.new()
+		screen._ready()
+		_find_button(screen, "Run experiment").pressed.emit()
+
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 97, "confirming must deduct ore exactly once")
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 97)
+		assert_eq(GameState.state["benchNav"]["view"], "resolving", "confirming moves to the resolving (animation) view")
+		assert_eq(GameState.state["benchNav"]["result"]["outcome"], "found", "the already-decided outcome is stashed for the reveal")
+		assert_eq(GameState.state["player"]["bench"]["notes"]["life+time"].size(), 1, "exactly one note entry, not duplicated")
+
+		screen.free()
+		GameData.RECIPES.erase("_testBenchEffect")
+	)
+
+	run_case("resolving_screen_skip_button_reveals_the_result", func():
+		GameState.reset()
+		BenchNav.open_pairing_for_types(["life", "time"])
+		BenchNav.open_confirm("heat")
+		BenchNav.show_resolving({ "ok": true, "outcome": "inert", "recipeKey": "" })
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var skip_button := _find_button(screen, "Skip")
+		assert_true(skip_button != null, "resolving view must offer a Skip button")
+		skip_button.pressed.emit()
+
+		assert_eq(GameState.state["benchNav"]["view"], "result", "Skip must reveal the result immediately")
+
+		screen.free()
+	)
+
+	run_case("result_screen_renders_the_found_outcome_with_symbol_name_description_and_craftable_now", func():
+		GameState.reset()
+		GameData.RECIPES["_testBenchEffect"] = {
+			"name": "Test Effect", "symbol": "☾", "description": "Does a thing, allegedly.",
+			"discovery": { "types": ["life", "time"], "approach": "heat" },
+		}
+		BenchNav.open_pairing_for_types(["life", "time"])
+		BenchNav.open_confirm("heat")
+		BenchNav.show_resolving({ "ok": true, "outcome": "found", "recipeKey": "_testBenchEffect" })
+		BenchNav.reveal_result()
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var labels := _label_texts(screen)
+		assert_true(labels.has("Found it."))
+		assert_true(labels.has("☾ Test Effect. Does a thing, allegedly. Craftable now."))
+
+		GameData.RECIPES.erase("_testBenchEffect")
+		screen.free()
+	)
+
+	run_case("result_screen_renders_the_hot_outcome_as_a_lure_not_a_consolation", func():
+		GameState.reset()
+		BenchNav.open_pairing_for_types(["life", "time"])
+		BenchNav.open_confirm("heat")
+		BenchNav.show_resolving({ "ok": true, "outcome": "hot", "recipeKey": "_testBenchEffect" })
+		BenchNav.reveal_result()
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var labels := _label_texts(screen)
+		assert_true(labels.has("Something's there."))
+		assert_true(labels.has("Something's in there. It didn't come out this time."))
+
+		screen.free()
+	)
+
+	run_case("result_screen_renders_the_inert_outcome_flatly", func():
+		GameState.reset()
+		BenchNav.open_pairing_for_types(["life", "time"])
+		BenchNav.open_confirm("heat")
+		BenchNav.show_resolving({ "ok": true, "outcome": "inert", "recipeKey": "" })
+		BenchNav.reveal_result()
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var labels := _label_texts(screen)
+		assert_true(labels.has("Inert."))
+		assert_true(labels.has("Nothing in it. Never was."))
+
+		screen.free()
+	)
+
+	run_case("result_screen_renders_the_refined_outcome_with_old_value_arrow_new_value", func():
+		GameState.reset()
+		GameData.RECIPES["_testBenchEffect"] = {
+			"name": "Test Effect", "symbol": "☾", "description": "Does a thing, allegedly.",
+			"discovery": { "types": ["life", "time"], "approach": "heat" },
+			"effectPower": 8, "refineStep": { "field": "effectPower", "add": 3 },
+		}
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 1 }
+		BenchNav.open_pairing_for_types(["life", "time"])
+		BenchNav.open_confirm("heat")
+		BenchNav.show_resolving({ "ok": true, "outcome": "refined" })
+		BenchNav.reveal_result()
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var labels := _label_texts(screen)
+		assert_true(labels.has("Refined."))
+		assert_true(labels.has("Test Effect, tier 1 now. 8 → 11."), "old value (tier 0 = base 8) -> new value (tier 1 = 11), plainly")
+
+		GameData.RECIPES.erase("_testBenchEffect")
+		screen.free()
+	)

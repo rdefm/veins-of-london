@@ -375,6 +375,47 @@ func run() -> void:
 		GameData.RECIPES.erase("_testBenchEffect")
 	)
 
+	# ── ticket 08: app close/reopen mid-flow (spec story 48) ─────────────
+	#
+	# probe()/refine() mutate GameState synchronously and exactly once, at
+	# Confirm-tap time -- the confirm/resolving/result screens (scenes/
+	# screens/lab.gd) only ever navigate benchNav afterward, never re-call
+	# Bench. So "resume correctly" reduces to: a save/load round trip after
+	# a probe must not itself alter player.bench in any way. Slot 93 --
+	# tests/test_gamestate.gd uses 92, tests/test_savemanager.gd uses 91.
+	const RESUME_TEST_SLOT := 93
+
+	run_case("resuming_after_a_save_load_round_trip_mid_flow_does_not_double_charge_ore_or_duplicate_a_note", func():
+		GameData.RECIPES["_testBenchEffect"] = { "discovery": { "types": ["life", "time"], "approach": "heat" } }
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		Rng.set_seed(1)
+
+		Bench.probe(["life", "time"], "heat")
+		var ore_after_probe: int = GameState.state["player"]["orichalchum"]["time"]
+		var notes_after_probe: int = GameState.state["player"]["bench"]["notes"]["life+time"].size()
+		var cell_after_probe: Dictionary = Bench.get_cell(["life", "time"], "heat")
+
+		var save_result := SaveManager.save_to_slot(RESUME_TEST_SLOT)
+		assert_true(save_result["ok"])
+
+		# Simulate the app actually having closed: reset in-memory state
+		# (a fresh boot would start from new_game_state()) before loading
+		# back, same as SaveManager.load_from_slot would meet on a real
+		# cold start.
+		GameState.reset()
+		var load_result := SaveManager.load_from_slot(RESUME_TEST_SLOT)
+		assert_true(load_result["ok"])
+
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], ore_after_probe, "resuming must not deduct ore a second time")
+		assert_eq(GameState.state["player"]["bench"]["notes"]["life+time"].size(), notes_after_probe, "resuming must not duplicate the note entry")
+		assert_eq(Bench.get_cell(["life", "time"], "heat"), cell_after_probe, "resuming must not lose or alter the cell's resolved state")
+
+		SaveManager.delete_slot(RESUME_TEST_SLOT)
+		GameData.RECIPES.erase("_testBenchEffect")
+	)
+
 	run_case("notes_are_capped_at_20_per_pairing_oldest_dropped", func():
 		GameState.reset()
 		for i in range(25):

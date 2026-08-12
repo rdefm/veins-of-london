@@ -26,6 +26,12 @@ func _refresh() -> void:
 			_build_picker()
 		"pairing":
 			_build_pairing()
+		"confirm":
+			_build_confirm()
+		"resolving":
+			_build_resolving()
+		"result":
+			_build_result()
 		"notes":
 			_build_stub("Bench notes")
 		_:
@@ -129,8 +135,8 @@ func _picker_selection_summary(selected: Array) -> String:
 # Everything known about this one pairing, in words. Approach rows carry
 # their state inline: found/hot/inert show it, untried shows nothing below
 # the name, and an unlearned approach shows where to get it instead of a
-# lock icon. Tapping an actionable row (untried/hot/found) is wired for
-# real in ticket 08 -- here it's a no-op past navigating.
+# lock icon. Tapping an actionable row (untried/hot/found) opens the
+# confirm screen (ticket 08) for that approach.
 
 func _build_pairing() -> void:
 	var types: Array = GameState.state["benchNav"]["types"]
@@ -177,7 +183,7 @@ func _build_approach_row(types: Array, approach_id: String) -> Control:
 		c["content"].add_child(UI.muted_label("nothing in it, and never was"))
 		return c["panel"]
 
-	c["content"].add_child(UI.button(name, func(): pass))
+	c["content"].add_child(UI.button(name, func(): BenchNav.open_confirm(approach_id)))
 	match state:
 		"hot":
 			c["content"].add_child(UI.label("something nearly took"))
@@ -190,6 +196,132 @@ func _build_approach_row(types: Array, approach_id: String) -> Control:
 			pass  # untried: no subtitle at all
 
 	return c["panel"]
+
+
+# ── confirm / resolving / result (ticket 08, M3 §8.4) ────────────────
+#
+# Reached by tapping an actionable approach row above. Confirming always
+# spends ore and a time block, resolved instantly and unconditionally by
+# Bench.probe()/refine() -- the outcome is already decided the moment
+# Confirm is tapped. What follows is a cosmetic delay (the "animation")
+# before that outcome is revealed, so the result can't be read early. This
+# split is also what makes an app close/reopen mid-flow safe (spec story
+# 48): the mutation already happened by the time benchNav ever reaches
+# "resolving" or "result", and resuming into either view only re-renders
+# state.benchNav — it never re-runs the probe, so there is no path to a
+# double charge or a duplicate note.
+
+const ANIMATION_SECONDS := 1.5
+
+
+func _build_confirm() -> void:
+	var nav: Dictionary = GameState.state["benchNav"]
+	var types: Array = nav["types"]
+	var approach: String = nav["approach"]
+	var player: Dictionary = GameState.state["player"]
+	var skill: int = player["craftingSkill"]
+	var is_refine := Bench.cell_state(types, approach) == "found"
+
+	_content.add_child(UI.button("‹ Back", func(): BenchNav.open_pairing()))
+	_content.add_child(UI.heading(GameData.APPROACHES[approach]["name"]))
+
+	var costs: Dictionary = Bench.refine_cost(types, approach) if is_refine else Bench.discovery_cost(types)
+	for ore_type in costs:
+		var cost := { "resource": ore_type, "amount": costs[ore_type] }
+		_content.add_child(UI.label(UI.format_cost_label(cost, player["orichalchum"])))
+
+	var action_label := "Refine" if is_refine else "Run experiment"
+	_content.add_child(UI.label(UI.format_block_cost_label(action_label, 1)))
+
+	var chance: float = Bench.refine_chance(types, approach, skill) if is_refine else Bench.discovery_chance(types, approach, skill)
+	_content.add_child(UI.label("Odds: %d%%" % int(round(chance * 100))))
+
+	if is_refine:
+		var tier := Bench.refine_tier_target(types, approach)
+		_content.add_child(UI.label("Tier %d → %d" % [tier - 1, tier]))
+
+	var reason := Bench.refine_block_reason(types, approach) if is_refine else Bench.probe_block_reason(types, approach)
+	var confirm_button := UI.button(action_label, func():
+		var result: Dictionary = Bench.refine(types, approach) if is_refine else Bench.probe(types, approach)
+		BenchNav.show_resolving(result)
+	)
+	confirm_button.disabled = reason != ""
+	_content.add_child(confirm_button)
+	if reason != "":
+		_content.add_child(UI.muted_label(reason))
+
+
+# Outcome-agnostic on purpose: no branch here may depend on benchNav.result,
+# or the animation would tell the player the answer before the reveal.
+# Skip and the Timer's timeout both call the same BenchNav.reveal_result().
+func _build_resolving() -> void:
+	_content.add_child(UI.heading("Working the bench..."))
+	_content.add_child(UI.muted_label("Two burners and a lot of noise. Give it a second."))
+	_content.add_child(UI.button("Skip", func(): BenchNav.reveal_result()))
+
+	var timer := Timer.new()
+	timer.wait_time = ANIMATION_SECONDS
+	timer.one_shot = true
+	timer.timeout.connect(func(): BenchNav.reveal_result())
+	_content.add_child(timer)
+	timer.start()
+
+
+func _build_result() -> void:
+	var nav: Dictionary = GameState.state["benchNav"]
+	var types: Array = nav["types"]
+	var approach: String = nav["approach"]
+	var result: Dictionary = nav.get("result", {})
+	if result == null:
+		result = {}
+
+	_content.add_child(UI.heading(_result_heading(result.get("outcome", ""))))
+	_content.add_child(UI.label(_result_prose(result, types, approach)))
+	_content.add_child(UI.button("Done", func(): BenchNav.open_pairing()))
+
+
+# PROSE-REVIEW: new result-outcome prose, tone bible per docs/CONTENT-GUIDE.md
+# (calc-discovery ticket 08). Register per M3 §8.4: found is the payoff line
+# (name, symbol, what it does — reuses the recipe's own authored
+# description), hot is a lure and says plainly something's there, inert
+# lands flat, refined is quieter (old value -> new value).
+func _result_heading(outcome: String) -> String:
+	match outcome:
+		"found":
+			return "Found it."
+		"hot":
+			return "Something's there."
+		"inert":
+			return "Inert."
+		"refined":
+			return "Refined."
+		"refine_failed":
+			return "No better this time."
+		_:
+			return ""
+
+
+func _result_prose(result: Dictionary, types: Array, approach: String) -> String:
+	match result.get("outcome", ""):
+		"found":
+			var r: Dictionary = GameData.RECIPES[result["recipeKey"]]
+			return "%s %s. %s Craftable now." % [r["symbol"], r["name"], r["description"]]
+		"hot":
+			return "Something's in there. It didn't come out this time."
+		"inert":
+			return "Nothing in it. Never was."
+		"refined":
+			var recipe_key := Bench.find_recipe_for_cell(types, approach)
+			var r: Dictionary = GameData.RECIPES[recipe_key]
+			var new_tier: int = Bench.get_cell(types, approach)["refine"]
+			var new_value: Variant = Bench.refined_value(recipe_key, types, approach)
+			var old_value: Variant = Bench.value_at_refine_tier(recipe_key, new_tier - 1)
+			return "%s, tier %d now. %s → %s." % [r["name"], new_tier, str(old_value), str(new_value)]
+		"refine_failed":
+			var tier: int = Bench.get_cell(types, approach)["refine"]
+			return "No improvement this time. Still tier %d." % tier
+		_:
+			return ""
 
 
 # ── stub: bench notes (ticket 09) ────────────────────────────────────

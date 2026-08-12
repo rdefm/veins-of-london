@@ -180,21 +180,32 @@ static func refine_chance(types: Array, approach: String, skill: int) -> float:
 	return maxf(REFINE_CHANCE_FLOOR, REFINE_BASE_CHANCE + (skill - 1) * REFINE_SKILL_BONUS - REFINE_TIER_PENALTY * (n - 1))
 
 
-# The current value of a refineStep-targeted recipe field, derived from the
-# recipe's authored base value plus the cell's refine tier (state) -- never
-# by mutating GameData.RECIPES, which is boot-time content and isn't part
-# of the snapshotted state tree. Deriving it this way is what makes refine
-# progress survive Rewind and an app close/reopen (M3 §10, spec stories
-# 47-48) for free: the tier count is the only thing that needs to persist.
-static func refined_value(recipe_key: String, types: Array, approach: String) -> Variant:
+# The value a refineStep-targeted recipe field takes on at an arbitrary
+# tier -- derived from the recipe's authored base value, never by mutating
+# GameData.RECIPES (boot-time content, not part of the snapshotted state
+# tree). Split out from refined_value() below so the result screen (ticket
+# 08) can show "old value -> new value" for a just-applied tier by asking
+# for tier-1 and tier separately.
+static func value_at_refine_tier(recipe_key: String, tier: int) -> Variant:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	var step: Dictionary = r["refineStep"]
 	var field: String = step["field"]
-	var tier: int = get_cell(types, approach)["refine"]
 	return r[field] + step["add"] * tier
 
 
-static func _refine_block_reason(types: Array, approach: String) -> String:
+# The current value of a refineStep-targeted recipe field. Deriving it this
+# way is what makes refine progress survive Rewind and an app close/reopen
+# (M3 §10, spec stories 47-48) for free: the tier count is the only thing
+# that needs to persist.
+static func refined_value(recipe_key: String, types: Array, approach: String) -> Variant:
+	var tier: int = get_cell(types, approach)["refine"]
+	return value_at_refine_tier(recipe_key, tier)
+
+
+# Public (not `_`-prefixed): the confirm screen (ticket 08) shows this
+# exact reason text next to a disabled Confirm button, same "reason, not
+# apology" convention as every other cost-gated action (CONTENT-GUIDE §4).
+static func refine_block_reason(types: Array, approach: String) -> String:
 	if not Approaches.is_known(approach):
 		return "You haven't the technique for that yet."
 	var state: String = cell_state(types, approach)
@@ -209,7 +220,7 @@ static func _refine_block_reason(types: Array, approach: String) -> String:
 
 
 static func can_refine(types: Array, approach: String) -> bool:
-	return _refine_block_reason(types, approach) == ""
+	return refine_block_reason(types, approach) == ""
 
 
 # Re-experiments an already-found effect to push it toward its next tier.
@@ -218,7 +229,7 @@ static func can_refine(types: Array, approach: String) -> bool:
 # is the entirety of "applying" refineStep -- refined_value() reads it back
 # out. Inert and never-found cells are never reachable here (M3 §5).
 static func refine(types: Array, approach: String) -> Dictionary:
-	var reason := _refine_block_reason(types, approach)
+	var reason := refine_block_reason(types, approach)
 	if reason != "":
 		return { "ok": false, "reason": reason }
 
@@ -246,7 +257,8 @@ static func refine(types: Array, approach: String) -> Dictionary:
 	return { "ok": true, "outcome": outcome }
 
 
-static func _probe_block_reason(types: Array, approach: String) -> String:
+# Public for the same reason as refine_block_reason() above.
+static func probe_block_reason(types: Array, approach: String) -> String:
 	if not Approaches.is_known(approach):
 		return "You haven't the technique for that yet."
 	var state: String = cell_state(types, approach)
@@ -263,7 +275,7 @@ static func _probe_block_reason(types: Array, approach: String) -> String:
 
 
 static func can_probe(types: Array, approach: String) -> bool:
-	return _probe_block_reason(types, approach) == ""
+	return probe_block_reason(types, approach) == ""
 
 
 static func _append_note(types: Array, approach: String, outcome: String) -> void:
@@ -282,7 +294,7 @@ static func _append_note(types: Array, approach: String, outcome: String) -> voi
 # and XP is awarded on every attempt that isn't blocked, regardless of
 # outcome (M3 §7's "ore deduction: always" plus the discovery-XP rows).
 static func probe(types: Array, approach: String) -> Dictionary:
-	var reason := _probe_block_reason(types, approach)
+	var reason := probe_block_reason(types, approach)
 	if reason != "":
 		return { "ok": false, "reason": reason }
 

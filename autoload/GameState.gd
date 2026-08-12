@@ -29,7 +29,7 @@ func new_game_state() -> Dictionary:
 		"phoneNav": { "app": "home", "selectedAxis": null },
 		# calc-discovery ticket 03: transient Lab nav, same convention as
 		# mapNav/phoneNav — resets on load, not meaningfully persisted.
-		"benchNav": { "view": "home", "types": [], "approach": null },
+		"benchNav": { "view": "home", "types": [], "approach": null, "result": null },
 		"notifications": [],
 		"sellState": {},
 		"event": null,
