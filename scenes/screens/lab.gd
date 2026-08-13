@@ -5,7 +5,7 @@ extends Control
 # state.benchNav drives which of home/picker/pairing/notes is shown, same
 # pattern as state.phoneNav for the Phone tab (scenes/screens/phone.gd).
 # calc-discovery ticket 06 built the home view; ticket 07 adds the real
-# picker and pairing panel below. Bench notes (ticket 09) is still a stub.
+# picker and pairing panel below. Ticket 09 adds bench notes.
 
 var _content: VBoxContainer
 
@@ -33,7 +33,7 @@ func _refresh() -> void:
 		"result":
 			_build_result()
 		"notes":
-			_build_stub("Bench notes")
+			_build_notes()
 		_:
 			_build_home()
 
@@ -324,9 +324,53 @@ func _result_prose(result: Dictionary, types: Array, approach: String) -> String
 			return ""
 
 
-# ── stub: bench notes (ticket 09) ────────────────────────────────────
+# ── bench notes (ticket 09, M3 §8.5) ─────────────────────────────────
+#
+# The one opt-in, full-detail view of the player's Lab history (spec story
+# 41): only pairings the player has actually touched appear here --
+# Bench.touched_type_sets() is the sole source of which pairings that is,
+# so this screen never decodes player.bench's key encoding itself, same as
+# every other Bench-derived fact on this screen goes through a getter. An
+# untouched pairing never appears, keeping the standing "never a matrix of
+# the 15 pairings" constraint (M3 §8.0) true here too. Each card's history
+# list is rendered straight off the stored day/approach/outcome entries --
+# already capped at Bench.NOTES_CAP, oldest dropped, by the same append --
+# so this screen never trims or reorders anything, only renders what's there.
 
-func _build_stub(title: String) -> void:
+func _build_notes() -> void:
 	_content.add_child(UI.button("‹ Back", func(): BenchNav.go_home()))
-	_content.add_child(UI.heading(title))
-	_content.add_child(UI.muted_label("Coming soon."))
+	_content.add_child(UI.heading("Bench notes"))
+
+	var touched := Bench.touched_type_sets()
+	if touched.is_empty():
+		_content.add_child(UI.muted_label("Nothing recorded yet."))  # PROSE-REVIEW: new empty-state line, tone bible per docs/CONTENT-GUIDE.md.
+		return
+
+	for types in touched:
+		_content.add_child(_build_notes_card(types))
+
+
+func _build_notes_card(types: Array) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading(_picker_selection_summary(types), 15))
+	c["content"].add_child(UI.label(_notes_census_label(types)))
+	for entry in Bench.notes_for(types):
+		c["content"].add_child(UI.muted_label(_history_line(entry)))
+	return c["panel"]
+
+
+# Every pairing with a notes entry has already been surveyed on its first
+# probe (Bench.probe() calls Bench._survey() unconditionally), so unlike
+# the pairing panel's census sentence this never needs a "not yet
+# surveyed" branch -- it's the exact numeric count spec story 22 asks for.
+func _notes_census_label(types: Array) -> String:
+	return "%d/%d" % [Bench.found_count_in_set(types), Bench.get_surveyed_count(types)]
+
+
+# PROSE-REVIEW: new history-line template, tone bible per docs/CONTENT-GUIDE.md.
+# Reuses _result_heading()'s outcome words (already reviewed under ticket 08)
+# rather than inventing a second vocabulary for the same five outcomes --
+# only the day/approach framing around it is new.
+func _history_line(entry: Dictionary) -> String:
+	var approach_name: String = GameData.APPROACHES[entry["approach"]]["name"]
+	return "Day %d — %s: %s" % [entry["day"], approach_name, _result_heading(entry["outcome"])]

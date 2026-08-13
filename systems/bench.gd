@@ -278,6 +278,38 @@ static func can_probe(types: Array, approach: String) -> bool:
 	return probe_block_reason(types, approach) == ""
 
 
+# Type sets the player has touched -- probed or refined at least once.
+# Bench notes' listing source (calc-discovery ticket 09, spec story 41).
+# Unions notes' and cells' keys rather than trusting notes alone: today
+# probe()/refine() always write both together, but the state schema
+# describes touched pairings as living in "notes/cells", and a future
+# direct cell write (e.g. an NPC-taught grant_effect, ticket 11) should
+# still surface here even if it never appends a note. Sorted so render
+# order is deterministic across calls.
+static func touched_type_sets() -> Array:
+	var bench: Dictionary = GameState.state["player"]["bench"]
+	var keys: Dictionary = {}
+	for key in bench["notes"].keys():
+		keys[key] = true
+	for cell_key in bench["cells"].keys():
+		keys[cell_key.split("|")[0]] = true
+
+	var sorted_keys: Array = keys.keys()
+	sorted_keys.sort()
+
+	var sets: Array = []
+	for key in sorted_keys:
+		sets.append(Array(key.split("+")))  # split() returns PackedStringArray; callers expect a plain Array
+	return sets
+
+
+# The stored note entries for a type set, oldest first, already capped at
+# NOTES_CAP by _append_note() below -- an untouched set returns [].
+static func notes_for(types: Array) -> Array:
+	var bench: Dictionary = GameState.state["player"]["bench"]
+	return bench["notes"].get(type_set_key(types), [])
+
+
 static func _append_note(types: Array, approach: String, outcome: String) -> void:
 	var bench: Dictionary = GameState.state["player"]["bench"]
 	var key := type_set_key(types)

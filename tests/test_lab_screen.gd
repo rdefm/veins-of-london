@@ -490,6 +490,103 @@ func run() -> void:
 		screen.free()
 	)
 
+	# ── ticket 09: bench notes screen ─────────────────────────────────────
+
+	run_case("bench_notes_only_lists_touched_pairings", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		Bench.probe(["life", "time"], "heat")  # touches "life+time"; "fate" is left untouched
+
+		BenchNav.open_notes()
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var labels := _label_texts(screen)
+		assert_true(labels.has("Life and Time"), "a touched pairing's card must appear")
+		assert_true(not labels.has("Fate"), "an untouched pairing must never appear on bench notes")
+
+		screen.free()
+	)
+
+	run_case("bench_notes_says_so_plainly_when_nothing_has_been_touched_yet", func():
+		GameState.reset()
+		BenchNav.open_notes()
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		assert_true(_label_texts(screen).has("Nothing recorded yet."), "an empty bench-notes screen must say so plainly")
+
+		screen.free()
+	)
+
+	run_case("bench_notes_shows_the_exact_numeric_census_count_for_a_touched_pairing", func():
+		GameState.reset()
+		GameData.RECIPES["_testBenchHeat"] = { "discovery": { "types": ["life", "time"], "approach": "heat" } }
+		GameData.RECIPES["_testBenchGrinding"] = { "discovery": { "types": ["life", "time"], "approach": "grinding" } }
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		Bench.probe(["life", "time"], "heat")  # surveys the pairing to 2 total
+		GameState.state["player"]["bench"]["cells"]["life+time|heat"]["state"] = "found"
+
+		BenchNav.open_notes()
+		var screen := LabScreen.new()
+		screen._ready()
+
+		assert_true(_label_texts(screen).has("1/2"), "exact found/total numeric count must render, per ticket 04's reveal data")
+
+		GameData.RECIPES.erase("_testBenchHeat")
+		GameData.RECIPES.erase("_testBenchGrinding")
+		screen.free()
+	)
+
+	run_case("bench_notes_renders_correct_prose_per_stored_outcome_enum", func():
+		GameState.reset()
+		GameState.state["player"]["bench"]["notes"]["life+time"] = [
+			{ "day": 3, "approach": "heat", "outcome": "inert" },
+			{ "day": 5, "approach": "grinding", "outcome": "hot" },
+			{ "day": 7, "approach": "heat", "outcome": "found" },
+			{ "day": 9, "approach": "heat", "outcome": "refined" },
+			{ "day": 11, "approach": "heat", "outcome": "refine_failed" },
+		]
+
+		BenchNav.open_notes()
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var labels := _label_texts(screen)
+		assert_true(labels.has("Day 3 — Heat: Inert."), "prose is generated at render time from the stored outcome enum, not stored as prose")
+		assert_true(labels.has("Day 5 — Grinding: Something's there."))
+		assert_true(labels.has("Day 7 — Heat: Found it."))
+		assert_true(labels.has("Day 9 — Heat: Refined."))
+		assert_true(labels.has("Day 11 — Heat: No better this time."))
+
+		screen.free()
+	)
+
+	run_case("bench_notes_respects_the_20_entry_cap_and_renders_only_what_is_stored", func():
+		GameState.reset()
+		for i in range(25):
+			GameState.state["world"]["day"] = i
+			Bench._append_note(["life", "time"], "heat", "hot")
+
+		BenchNav.open_notes()
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var history_lines: Array[String] = []
+		for text in _label_texts(screen):
+			if text.begins_with("Day "):
+				history_lines.append(text)
+
+		assert_eq(history_lines.size(), 20, "the screen renders exactly what's in state -- already capped at 20 by Bench._append_note()")
+		assert_true(history_lines.has("Day 5 — Heat: Something's there."), "the oldest 5 entries (days 0-4) were already dropped in state")
+		assert_true(not history_lines.has("Day 0 — Heat: Something's there."))
+
+		screen.free()
+	)
+
 	run_case("result_screen_renders_the_refined_outcome_with_old_value_arrow_new_value", func():
 		GameState.reset()
 		GameData.RECIPES["_testBenchEffect"] = {

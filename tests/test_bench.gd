@@ -426,3 +426,38 @@ func run() -> void:
 		assert_eq(notes[0]["day"], 5, "the oldest 5 entries (days 0-4) should have been dropped")
 		assert_eq(notes[19]["day"], 24, "the most recent entry is retained")
 	)
+
+	# ── ticket 09: bench notes' listing source ───────────────────────────
+
+	run_case("touched_type_sets_lists_only_pairings_with_a_note_sorted_by_key", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		GameState.state["player"]["orichalchum"]["fate"] = 100
+		Bench.probe(["life", "time"], "heat")
+		Bench.probe(["fate"], "heat")
+
+		assert_eq(Bench.touched_type_sets(), [["fate"], ["life", "time"]], "only touched pairings appear, sorted by key")
+	)
+
+	run_case("touched_type_sets_is_empty_for_a_fresh_game", func():
+		GameState.reset()
+		assert_eq(Bench.touched_type_sets(), [], "nothing touched yet on a fresh game")
+	)
+
+	run_case("touched_type_sets_surfaces_a_pairing_whose_cell_was_written_without_a_note", func():
+		GameState.reset()
+		GameState.state["player"]["bench"]["cells"]["fate|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+		assert_eq(Bench.touched_type_sets(), [["fate"]], "a direct cell write (e.g. a future NPC grant, ticket 11) must surface here even without a note entry")
+	)
+
+	run_case("notes_for_returns_the_stored_entries_for_a_touched_pairing_and_empty_for_an_untouched_one", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		Bench.probe(["life", "time"], "heat")
+
+		assert_eq(Bench.notes_for(["life", "time"]).size(), 1)
+		assert_eq(Bench.notes_for(["time", "life"]).size(), 1, "input order does not matter, same as every other Bench lookup")
+		assert_eq(Bench.notes_for(["physics"]), [], "an untouched pairing returns an empty array")
+	)
