@@ -127,3 +127,62 @@ func run() -> void:
 		assert_true(GameState.state["player"]["craftingSkill"] > 1, "sanity: xp should have levelled the skill")
 		assert_eq(GameState.state["notifications"], [], "crafting xp/level-up never notifies, unlike cultivating")
 	)
+
+	# ── calc-discovery ticket 10: refine tier wired into effect_power() ───
+
+	run_case("effect_power_at_refine_tier_zero_matches_the_plain_skill_indexed_value", func():
+		GameState.reset()
+		GameData.RECIPES["_testRefinable"] = {
+			"name": "Test Refinable", "symbol": "?",
+			"ingredients": { "fate": 1 },
+			"discovery": { "types": ["fate", "physics"], "approach": "heat" },
+			"baseSuccess": 1.0,
+			"effectPower": [0, 5, 6, 7, 8, 9],
+			"refineStep": { "field": "effectPower", "add": 3 },
+			"xpReward": 10, "eventUsable": false, "description": "",
+		}
+		assert_eq(Crafting.effect_power("_testRefinable", 3), 7, "tier 0 (unrefined, absent cell) reads the plain skill-indexed value (effectPower[3] = 7) -- regression check against the pre-Lab behaviour")
+		GameData.RECIPES.erase("_testRefinable")
+	)
+
+	run_case("effect_power_at_refine_tier_gt_zero_adds_the_refine_bonus_on_top_of_the_skill_indexed_value", func():
+		GameState.reset()
+		GameData.RECIPES["_testRefinable"] = {
+			"name": "Test Refinable", "symbol": "?",
+			"ingredients": { "fate": 1 },
+			"discovery": { "types": ["fate", "physics"], "approach": "heat" },
+			"baseSuccess": 1.0,
+			"effectPower": [0, 5, 6, 7, 8, 9],
+			"refineStep": { "field": "effectPower", "add": 3 },
+			"xpReward": 10, "eventUsable": false, "description": "",
+		}
+		GameState.state["player"]["bench"]["cells"]["fate+physics|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+		assert_eq(Crafting.effect_power("_testRefinable", 3), 7 + 3 * 2, "tier 2 stacks refineStep.add * tier on top of the skill-indexed base (effectPower[3] = 7), not a replacement of it")
+		GameData.RECIPES.erase("_testRefinable")
+	)
+
+	run_case("attempt_craft_at_a_refined_tier_grants_the_refined_potency_not_the_base_value", func():
+		GameData.RECIPES["_testRefinable"] = {
+			"name": "Test Refinable", "symbol": "?",
+			"ingredients": { "fate": 1 },
+			"discovery": { "types": ["fate", "physics"], "approach": "heat" },
+			"baseSuccess": 0.90,
+			"effectPower": [0, 5, 6, 7, 8, 9],
+			"refineStep": { "field": "effectPower", "add": 3 },
+			"xpReward": 10, "eventUsable": false, "description": "",
+		}
+		var seed := -1
+		for candidate in range(200):
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["fate"] = 100
+			GameState.state["player"]["craftingSkill"] = 3
+			GameState.state["player"]["bench"]["cells"]["fate+physics|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+			Rng.set_seed(candidate)
+			var result := Crafting.attempt_craft("_testRefinable")
+			if result.get("success", false):
+				seed = candidate
+				assert_eq(result["power"], 13, "7 (skill 3 base, effectPower[3]) + 3*2 (refine tier 2 bonus) = 13")
+				break
+		assert_true(seed != -1, "should find a successful craft roll within 200 tries")
+		GameData.RECIPES.erase("_testRefinable")
+	)

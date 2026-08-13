@@ -1,0 +1,4 @@
+- app opens in landscape, I can't change it.
+- Map tab default zoom should be more zoomed in. Also, I tap on a vein or district, it zooms out before showing me the mini modal; it should maintain the current zoom set by the user.
+- Other factions; debug start, on the map tab i can see one vein apiece for the network and the Conclave, and 2 for the firm. They should have more when they start; are they not showing on the map? I get notifications that a faction seeded a new vein but it doesn't appear on the map 
+- I seed a new vein, it doesn't appear in the map for a few turns. Should be visible as soon as I seed it. If I go to another tab then back to map, and animations show but don't always show all veins or sites; animations should show even if I stay on the map tab.

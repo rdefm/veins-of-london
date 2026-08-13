@@ -20,8 +20,20 @@ static func calc_cost(recipe_key: String, skill: int) -> Dictionary:
 	return costs
 
 
+# calc-discovery ticket 10: a Lab-discovered recipe refined past tier 0
+# stacks its refineStep bonus on top of the normal skill-indexed value --
+# only for a refineStep that actually targets effectPower (the schema
+# tolerates other target fields for effects with no live consumer yet, and
+# those aren't effect_power()'s concern). Bench.get_cell() is the single
+# source of truth for a cell's tier; nothing here ever mutates GameData.
 static func effect_power(recipe_key: String, skill: int) -> Variant:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
+	var discovery: Dictionary = r.get("discovery", {})
+	var refine_step: Dictionary = r.get("refineStep", {})
+	if not discovery.is_empty() and refine_step.get("field") == "effectPower":
+		var tier: int = Bench.get_cell(discovery["types"], discovery["approach"])["refine"]
+		if tier > 0:
+			return Bench.refined_value(recipe_key, discovery["types"], discovery["approach"], skill)
 	var powers: Array = r["effectPower"]
 	return powers[skill]
 

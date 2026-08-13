@@ -44,13 +44,23 @@ static func cell_key(types: Array, approach: String) -> String:
 	return "%s|%s" % [type_set_key(types), approach]
 
 
-static func _default_cell() -> Dictionary:
-	return { "state": "untried", "misses": 0, "refine": 0 }
+# A cell with no persisted entry defaults to "untried" -- except a cell
+# occupied by a taughtBy recipe (calc-discovery ticket 10, M3 §9.2: the
+# tutorial always teaches timePearl/enhancementPowder/rewind before the
+# bench is reachable), which defaults straight to "found" instead. This
+# needs no cells-dict write to be true, so it survives GameState.reset()
+# and a fresh save with zero extra state.
+static func _default_cell(types: Array, approach: String) -> Dictionary:
+	var state := "untried"
+	var recipe_key := find_recipe_for_cell(types, approach)
+	if recipe_key != "" and not GameData.RECIPES[recipe_key].get("taughtBy", "").is_empty():
+		state = "found"
+	return { "state": state, "misses": 0, "refine": 0 }
 
 
 static func get_cell(types: Array, approach: String) -> Dictionary:
 	var cells: Dictionary = GameState.state["player"]["bench"]["cells"]
-	return cells.get(cell_key(types, approach), _default_cell())
+	return cells.get(cell_key(types, approach), _default_cell(types, approach))
 
 
 static func cell_state(types: Array, approach: String) -> String:
@@ -60,7 +70,7 @@ static func cell_state(types: Array, approach: String) -> String:
 static func _set_cell(types: Array, approach: String, updates: Dictionary) -> void:
 	var cells: Dictionary = GameState.state["player"]["bench"]["cells"]
 	var key := cell_key(types, approach)
-	var cell: Dictionary = cells.get(key, _default_cell()).duplicate()
+	var cell: Dictionary = cells.get(key, _default_cell(types, approach)).duplicate()
 	for field in updates:
 		cell[field] = updates[field]
 	cells[key] = cell
@@ -186,20 +196,33 @@ static func refine_chance(types: Array, approach: String, skill: int) -> float:
 # tree). Split out from refined_value() below so the result screen (ticket
 # 08) can show "old value -> new value" for a just-applied tier by asking
 # for tier-1 and tier separately.
-static func value_at_refine_tier(recipe_key: String, tier: int) -> Variant:
+#
+# calc-discovery ticket 10: the targeted field can be either a scalar (a
+# Lab-only effect authored with a flat base value) or the pre-existing
+# skill-indexed array convention every crafted recipe's effectPower uses
+# (systems/crafting.gd's effect_power()) -- refinement stacks as a flat
+# bonus on top of that per-skill base rather than replacing it, so a
+# refined tutorial recipe (timePearl/enhancementPowder/rewind) keeps
+# scaling with crafting skill exactly as before. `skill` is only actually
+# read when the field is an Array, but it's a required param anyway (not
+# defaulted) so an Array-field caller can't silently fall back to skill 1.
+static func value_at_refine_tier(recipe_key: String, tier: int, skill: int) -> Variant:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	var step: Dictionary = r["refineStep"]
 	var field: String = step["field"]
-	return r[field] + step["add"] * tier
+	var base: Variant = r[field]
+	if base is Array:
+		base = base[skill]
+	return base + step["add"] * tier
 
 
 # The current value of a refineStep-targeted recipe field. Deriving it this
 # way is what makes refine progress survive Rewind and an app close/reopen
 # (M3 §10, spec stories 47-48) for free: the tier count is the only thing
 # that needs to persist.
-static func refined_value(recipe_key: String, types: Array, approach: String) -> Variant:
+static func refined_value(recipe_key: String, types: Array, approach: String, skill: int) -> Variant:
 	var tier: int = get_cell(types, approach)["refine"]
-	return value_at_refine_tier(recipe_key, tier)
+	return value_at_refine_tier(recipe_key, tier, skill)
 
 
 # Public (not `_`-prefixed): the confirm screen (ticket 08) shows this

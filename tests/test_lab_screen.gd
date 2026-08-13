@@ -35,6 +35,22 @@ static func _find_button(root: Node, text: String) -> Button:
 	return null
 
 
+# calc-discovery ticket 10: the found list can now hold several cards on a
+# fresh game (the taughtBy tutorial recipes), so "the first Button labelled
+# X" is no longer specific enough to reach one particular card. Every card
+# is a flat UI.card() -> content VBoxContainer of [heading, description,
+# button] (scenes/components/ui.gd), so a button and the heading Label
+# beside it always share a direct parent -- this scopes the search to the
+# card whose heading is `label_text`.
+static func _find_button_in_card(root: Node, label_text: String, button_text: String) -> Button:
+	for l in root.find_children("", "Label", true, false):
+		if (l as Label).text == label_text:
+			for sibling in l.get_parent().get_children():
+				if sibling is Button and (sibling as Button).text == button_text:
+					return sibling
+	return null
+
+
 func run() -> void:
 	run_case("lab_home_shows_the_known_approaches_sentence_for_a_fresh_game", func():
 		GameState.reset()
@@ -49,6 +65,15 @@ func run() -> void:
 
 	run_case("lab_home_found_list_is_honest_when_nothing_is_found_yet", func():
 		GameState.reset()
+		# calc-discovery ticket 10: the tutorial always teaches timePearl/
+		# enhancementPowder/rewind before the bench is reachable, so a truly
+		# fresh save already has 3 found effects -- force their cells back
+		# to untried here to exercise the found list's empty-state branch
+		# in isolation.
+		for recipe_key in ["timePearl", "enhancementPowder", "rewind"]:
+			var discovery: Dictionary = GameData.RECIPES[recipe_key]["discovery"]
+			var key := Bench.cell_key(discovery["types"], discovery["approach"])
+			GameState.state["player"]["bench"]["cells"][key] = { "state": "untried", "misses": 0, "refine": 0 }
 
 		var screen := LabScreen.new()
 		screen._ready()
@@ -213,16 +238,19 @@ func run() -> void:
 
 	run_case("pairing_panel_not_yet_surveyed_reads_distinctly_from_barren", func():
 		GameState.reset()
-		BenchNav.open_pairing_for_types(["life", "time"])
+		# fate+physics has no authored effect at any approach (calc-discovery
+		# ticket 10) -- genuinely barren, unlike life+time which now holds
+		# real content.
+		BenchNav.open_pairing_for_types(["fate", "physics"])
 
 		var screen := LabScreen.new()
 		screen._ready()
 		assert_true(_label_texts(screen).has("Not yet surveyed."), "no probe has been made on this pairing yet")
 		screen.free()
 
-		GameState.state["player"]["orichalchum"]["time"] = 100
-		GameState.state["player"]["orichalchum"]["life"] = 100
-		Bench.probe(["life", "time"], "heat")  # no recipe registered here -> resolves inert, surveys to 0
+		GameState.state["player"]["orichalchum"]["fate"] = 100
+		GameState.state["player"]["orichalchum"]["physics"] = 100
+		Bench.probe(["fate", "physics"], "heat")  # no recipe registered here -> resolves inert, surveys to 0
 
 		var screen2 := LabScreen.new()
 		screen2._ready()
@@ -233,16 +261,20 @@ func run() -> void:
 	run_case("pairing_panel_known_approach_rows_render_found_hot_inert_and_untried_state_text", func():
 		GameState.reset()
 		GameState.state["home"]["rooms"] = ["workshop", "lab"]  # compression + distilling now known
+		# fate+physics has no authored effect at any approach (calc-discovery
+		# ticket 10) -- genuinely barren, unlike life+time which now holds
+		# real content on heat/grinding/distilling and would collide with
+		# this test's own synthetic recipe.
 		GameData.RECIPES["_testPairingFound"] = {
 			"name": "Test Found Effect", "symbol": "☾", "description": "Does a thing, allegedly.",
-			"discovery": { "types": ["life", "time"], "approach": "heat" },
+			"discovery": { "types": ["fate", "physics"], "approach": "heat" },
 		}
-		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
-		GameState.state["player"]["bench"]["cells"]["life+time|grinding"] = { "state": "hot", "misses": 2, "refine": 0 }
-		GameState.state["player"]["bench"]["cells"]["life+time|compression"] = { "state": "inert", "misses": 0, "refine": 0 }
+		GameState.state["player"]["bench"]["cells"]["fate+physics|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+		GameState.state["player"]["bench"]["cells"]["fate+physics|grinding"] = { "state": "hot", "misses": 2, "refine": 0 }
+		GameState.state["player"]["bench"]["cells"]["fate+physics|compression"] = { "state": "inert", "misses": 0, "refine": 0 }
 		# distilling is left absent -> untried
 
-		BenchNav.open_pairing_for_types(["life", "time"])
+		BenchNav.open_pairing_for_types(["fate", "physics"])
 		var screen := LabScreen.new()
 		screen._ready()
 
@@ -299,7 +331,7 @@ func run() -> void:
 		var screen := LabScreen.new()
 		screen._ready()
 
-		var view_button := _find_button(screen, "View")
+		var view_button := _find_button_in_card(screen, "☾ Test Effect", "View")
 		assert_true(view_button != null)
 		view_button.pressed.emit()
 
@@ -523,12 +555,15 @@ func run() -> void:
 
 	run_case("bench_notes_shows_the_exact_numeric_census_count_for_a_touched_pairing", func():
 		GameState.reset()
-		GameData.RECIPES["_testBenchHeat"] = { "discovery": { "types": ["life", "time"], "approach": "heat" } }
-		GameData.RECIPES["_testBenchGrinding"] = { "discovery": { "types": ["life", "time"], "approach": "grinding" } }
-		GameState.state["player"]["orichalchum"]["time"] = 100
-		GameState.state["player"]["orichalchum"]["life"] = 100
-		Bench.probe(["life", "time"], "heat")  # surveys the pairing to 2 total
-		GameState.state["player"]["bench"]["cells"]["life+time|heat"]["state"] = "found"
+		# fate+physics has no authored effect at any approach (calc-discovery
+		# ticket 10) -- genuinely barren, unlike life+time which now holds 3
+		# real effects and would inflate the census past the expected 2.
+		GameData.RECIPES["_testBenchHeat"] = { "discovery": { "types": ["fate", "physics"], "approach": "heat" } }
+		GameData.RECIPES["_testBenchGrinding"] = { "discovery": { "types": ["fate", "physics"], "approach": "grinding" } }
+		GameState.state["player"]["orichalchum"]["fate"] = 100
+		GameState.state["player"]["orichalchum"]["physics"] = 100
+		Bench.probe(["fate", "physics"], "heat")  # surveys the pairing to 2 total
+		GameState.state["player"]["bench"]["cells"]["fate+physics|heat"]["state"] = "found"
 
 		BenchNav.open_notes()
 		var screen := LabScreen.new()
@@ -589,13 +624,17 @@ func run() -> void:
 
 	run_case("result_screen_renders_the_refined_outcome_with_old_value_arrow_new_value", func():
 		GameState.reset()
+		# fate+physics has no authored effect at any approach (calc-discovery
+		# ticket 10) -- genuinely barren, unlike life+time/heat which now
+		# holds the real Healing Burst recipe and would win the cell lookup
+		# instead of this test's own synthetic recipe.
 		GameData.RECIPES["_testBenchEffect"] = {
 			"name": "Test Effect", "symbol": "☾", "description": "Does a thing, allegedly.",
-			"discovery": { "types": ["life", "time"], "approach": "heat" },
+			"discovery": { "types": ["fate", "physics"], "approach": "heat" },
 			"effectPower": 8, "refineStep": { "field": "effectPower", "add": 3 },
 		}
-		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 1 }
-		BenchNav.open_pairing_for_types(["life", "time"])
+		GameState.state["player"]["bench"]["cells"]["fate+physics|heat"] = { "state": "found", "misses": 0, "refine": 1 }
+		BenchNav.open_pairing_for_types(["fate", "physics"])
 		BenchNav.open_confirm("heat")
 		BenchNav.show_resolving({ "ok": true, "outcome": "refined" })
 		BenchNav.reveal_result()

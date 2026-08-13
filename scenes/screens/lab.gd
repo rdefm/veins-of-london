@@ -313,9 +313,10 @@ func _result_prose(result: Dictionary, types: Array, approach: String) -> String
 		"refined":
 			var recipe_key := Bench.find_recipe_for_cell(types, approach)
 			var r: Dictionary = GameData.RECIPES[recipe_key]
+			var skill: int = GameState.state["player"]["craftingSkill"]
 			var new_tier: int = Bench.get_cell(types, approach)["refine"]
-			var new_value: Variant = Bench.refined_value(recipe_key, types, approach)
-			var old_value: Variant = Bench.value_at_refine_tier(recipe_key, new_tier - 1)
+			var new_value: Variant = Bench.refined_value(recipe_key, types, approach, skill)
+			var old_value: Variant = Bench.value_at_refine_tier(recipe_key, new_tier - 1, skill)
 			return "%s, tier %d now. %s → %s." % [r["name"], new_tier, str(old_value), str(new_value)]
 		"refine_failed":
 			var tier: int = Bench.get_cell(types, approach)["refine"]

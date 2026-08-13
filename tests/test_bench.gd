@@ -19,28 +19,30 @@ func run() -> void:
 
 	run_case("probe_on_an_empty_cell_resolves_to_inert_with_no_roll", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 100
-		GameState.state["player"]["orichalchum"]["life"] = 100
-		# No recipe is assigned to this cell: deliberately barren.
-		var result := Bench.probe(["life", "time"], "heat")
+		GameState.state["player"]["orichalchum"]["fate"] = 100
+		GameState.state["player"]["orichalchum"]["physics"] = 100
+		# fate+physics has no authored effect at any approach (calc-discovery
+		# ticket 10's cell assignment) -- deliberately barren, unlike
+		# life+time which now holds real content on several approaches.
+		var result := Bench.probe(["fate", "physics"], "heat")
 		assert_true(result["ok"])
 		assert_eq(result["outcome"], "inert", "an empty cell always resolves to inert")
-		assert_eq(Bench.cell_state(["life", "time"], "heat"), "inert")
+		assert_eq(Bench.cell_state(["fate", "physics"], "heat"), "inert")
 		assert_eq(GameState.state["player"]["craftingXP"], 6, "inert still awards XP_INERT")
 	)
 
 	run_case("probing_an_inert_cell_is_blocked_and_the_cell_never_leaves_inert", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 100
-		GameState.state["player"]["orichalchum"]["life"] = 100
-		Bench.probe(["life", "time"], "heat")
-		assert_eq(Bench.cell_state(["life", "time"], "heat"), "inert")
+		GameState.state["player"]["orichalchum"]["fate"] = 100
+		GameState.state["player"]["orichalchum"]["physics"] = 100
+		Bench.probe(["fate", "physics"], "heat")
+		assert_eq(Bench.cell_state(["fate", "physics"], "heat"), "inert")
 
-		var ore_before: int = GameState.state["player"]["orichalchum"]["time"]
-		var result := Bench.probe(["life", "time"], "heat")
+		var ore_before: int = GameState.state["player"]["orichalchum"]["fate"]
+		var result := Bench.probe(["fate", "physics"], "heat")
 		assert_true(not result["ok"], "a probe against an inert cell must refuse")
-		assert_eq(Bench.cell_state(["life", "time"], "heat"), "inert", "inert is permanent — no probe can move it out")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], ore_before, "a blocked probe must not deduct ore")
+		assert_eq(Bench.cell_state(["fate", "physics"], "heat"), "inert", "inert is permanent — no probe can move it out")
+		assert_eq(GameState.state["player"]["orichalchum"]["fate"], ore_before, "a blocked probe must not deduct ore")
 	)
 
 	run_case("probe_hit_on_an_occupied_cell_resolves_to_found", func():
@@ -99,18 +101,18 @@ func run() -> void:
 
 	run_case("census_reveals_total_effect_count_including_unlearned_approaches_on_first_probe", func():
 		GameState.reset()
-		GameData.RECIPES["_testBenchHeat"] = { "discovery": { "types": ["life", "time"], "approach": "heat" } }
-		GameData.RECIPES["_testBenchDistilling"] = { "discovery": { "types": ["time", "life"], "approach": "distilling" } }
-		GameState.state["player"]["orichalchum"]["time"] = 100
-		GameState.state["player"]["orichalchum"]["life"] = 100
+		GameData.RECIPES["_testBenchHeat"] = { "discovery": { "types": ["fate", "physics"], "approach": "heat" } }
+		GameData.RECIPES["_testBenchDistilling"] = { "discovery": { "types": ["physics", "fate"], "approach": "distilling" } }
+		GameState.state["player"]["orichalchum"]["fate"] = 100
+		GameState.state["player"]["orichalchum"]["physics"] = 100
 
-		assert_true(not Bench.is_surveyed(["life", "time"]), "sanity: unsurveyed before any probe")
+		assert_true(not Bench.is_surveyed(["fate", "physics"]), "sanity: unsurveyed before any probe")
 		assert_true(not Approaches.is_known("distilling"), "sanity: distilling is not learned by default")
 
-		Bench.probe(["life", "time"], "heat")
+		Bench.probe(["fate", "physics"], "heat")
 
-		assert_true(Bench.is_surveyed(["life", "time"]), "the pairing's first probe should survey it")
-		assert_eq(Bench.get_surveyed_count(["life", "time"]), 2, "census counts both effects, including the one behind an unlearned approach")
+		assert_true(Bench.is_surveyed(["fate", "physics"]), "the pairing's first probe should survey it")
+		assert_eq(Bench.get_surveyed_count(["fate", "physics"]), 2, "census counts both effects, including the one behind an unlearned approach")
 
 		GameData.RECIPES.erase("_testBenchHeat")
 		GameData.RECIPES.erase("_testBenchDistilling")
@@ -118,16 +120,16 @@ func run() -> void:
 
 	run_case("census_survey_is_written_once_and_does_not_change_on_later_probes", func():
 		GameState.reset()
-		GameData.RECIPES["_testBenchHeat"] = { "discovery": { "types": ["life", "time"], "approach": "heat" } }
-		GameState.state["player"]["orichalchum"]["time"] = 100
-		GameState.state["player"]["orichalchum"]["life"] = 100
+		GameData.RECIPES["_testBenchHeat"] = { "discovery": { "types": ["fate", "physics"], "approach": "heat" } }
+		GameState.state["player"]["orichalchum"]["fate"] = 100
+		GameState.state["player"]["orichalchum"]["physics"] = 100
 
-		Bench.probe(["life", "time"], "heat")
-		assert_eq(Bench.get_surveyed_count(["life", "time"]), 1)
+		Bench.probe(["fate", "physics"], "heat")
+		assert_eq(Bench.get_surveyed_count(["fate", "physics"]), 1)
 
-		GameData.RECIPES["_testBenchGrinding"] = { "discovery": { "types": ["life", "time"], "approach": "grinding" } }
-		Bench.probe(["life", "time"], "grinding")
-		assert_eq(Bench.get_surveyed_count(["life", "time"]), 1, "the survey count is fixed permanently at the first probe, not recomputed")
+		GameData.RECIPES["_testBenchGrinding"] = { "discovery": { "types": ["fate", "physics"], "approach": "grinding" } }
+		Bench.probe(["fate", "physics"], "grinding")
+		assert_eq(Bench.get_surveyed_count(["fate", "physics"]), 1, "the survey count is fixed permanently at the first probe, not recomputed")
 
 		GameData.RECIPES.erase("_testBenchHeat")
 		GameData.RECIPES.erase("_testBenchGrinding")
@@ -135,21 +137,21 @@ func run() -> void:
 
 	run_case("census_of_a_barren_set_surveys_to_zero", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 100
-		GameState.state["player"]["orichalchum"]["life"] = 100
-		Bench.probe(["life", "time"], "heat")
-		assert_eq(Bench.get_surveyed_count(["life", "time"]), 0, "a barren set surveys flatly to zero")
+		GameState.state["player"]["orichalchum"]["fate"] = 100
+		GameState.state["player"]["orichalchum"]["physics"] = 100
+		Bench.probe(["fate", "physics"], "heat")
+		assert_eq(Bench.get_surveyed_count(["fate", "physics"]), 0, "a barren set surveys flatly to zero")
 	)
 
 	run_case("found_count_in_set_counts_only_cells_actually_found", func():
 		GameState.reset()
-		GameData.RECIPES["_testBenchHeat"] = { "discovery": { "types": ["life", "time"], "approach": "heat" } }
-		GameData.RECIPES["_testBenchGrinding"] = { "discovery": { "types": ["life", "time"], "approach": "grinding" } }
-		assert_eq(Bench.found_count_in_set(["life", "time"]), 0, "nothing found yet")
+		GameData.RECIPES["_testBenchHeat"] = { "discovery": { "types": ["fate", "physics"], "approach": "heat" } }
+		GameData.RECIPES["_testBenchGrinding"] = { "discovery": { "types": ["fate", "physics"], "approach": "grinding" } }
+		assert_eq(Bench.found_count_in_set(["fate", "physics"]), 0, "nothing found yet")
 
-		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
-		GameState.state["player"]["bench"]["cells"]["life+time|grinding"] = { "state": "hot", "misses": 1, "refine": 0 }
-		assert_eq(Bench.found_count_in_set(["life", "time"]), 1, "only the found cell counts, not a hot one")
+		GameState.state["player"]["bench"]["cells"]["fate+physics|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+		GameState.state["player"]["bench"]["cells"]["fate+physics|grinding"] = { "state": "hot", "misses": 1, "refine": 0 }
+		assert_eq(Bench.found_count_in_set(["fate", "physics"]), 1, "only the found cell counts, not a hot one")
 
 		GameData.RECIPES.erase("_testBenchHeat")
 		GameData.RECIPES.erase("_testBenchGrinding")
@@ -205,16 +207,16 @@ func run() -> void:
 
 	run_case("refine_is_blocked_on_an_inert_cell", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 100
-		GameState.state["player"]["orichalchum"]["life"] = 100
+		GameState.state["player"]["orichalchum"]["fate"] = 100
+		GameState.state["player"]["orichalchum"]["physics"] = 100
 		# No recipe assigned to this cell -- probing resolves it inert.
-		Bench.probe(["life", "time"], "heat")
-		assert_eq(Bench.cell_state(["life", "time"], "heat"), "inert")
+		Bench.probe(["fate", "physics"], "heat")
+		assert_eq(Bench.cell_state(["fate", "physics"], "heat"), "inert")
 
-		var ore_before: int = GameState.state["player"]["orichalchum"]["time"]
-		var result := Bench.refine(["life", "time"], "heat")
+		var ore_before: int = GameState.state["player"]["orichalchum"]["fate"]
+		var result := Bench.refine(["fate", "physics"], "heat")
 		assert_true(not result["ok"], "refinement on an inert cell must refuse")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], ore_before, "a blocked refine must not deduct ore")
+		assert_eq(GameState.state["player"]["orichalchum"]["fate"], ore_before, "a blocked refine must not deduct ore")
 	)
 
 	run_case("refine_is_blocked_on_a_never_found_untried_cell", func():
@@ -367,10 +369,10 @@ func run() -> void:
 			"refineStep": { "field": "effectPower", "add": 3 },
 		}
 		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
-		assert_eq(Bench.refined_value("_testBenchEffect", ["life", "time"], "heat"), 8, "tier 0 (freshly found) reads the base value")
+		assert_eq(Bench.refined_value("_testBenchEffect", ["life", "time"], "heat", 1), 8, "tier 0 (freshly found) reads the base value")
 
 		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 3 }
-		assert_eq(Bench.refined_value("_testBenchEffect", ["life", "time"], "heat"), 17, "base 8 + 3 tiers * add 3 = 17")
+		assert_eq(Bench.refined_value("_testBenchEffect", ["life", "time"], "heat", 1), 17, "base 8 + 3 tiers * add 3 = 17")
 		assert_eq(GameData.RECIPES["_testBenchEffect"]["effectPower"], 8, "the underlying recipe data is never mutated -- the value is derived from state each time")
 		GameData.RECIPES.erase("_testBenchEffect")
 	)
@@ -460,4 +462,43 @@ func run() -> void:
 		assert_eq(Bench.notes_for(["life", "time"]).size(), 1)
 		assert_eq(Bench.notes_for(["time", "life"]).size(), 1, "input order does not matter, same as every other Bench lookup")
 		assert_eq(Bench.notes_for(["physics"]), [], "an untouched pairing returns an empty array")
+	)
+
+	# ── ticket 10: content-integrity checks on the real catalogue ────────
+
+	run_case("every_authored_discovery_cell_resolves_to_a_valid_types_and_approach_combination", func():
+		for recipe_key in GameData.RECIPES:
+			var discovery: Dictionary = GameData.RECIPES[recipe_key].get("discovery", {})
+			if discovery.is_empty():
+				continue
+			var types: Array = discovery["types"]
+			assert_true(types.size() == 1 or types.size() == 2, "%s: discovery.types must be a single type or a pair, got %d" % [recipe_key, types.size()])
+			for t in types:
+				assert_true(GameData.ORE_TYPES.has(t), "%s: discovery type '%s' is not a known ore type" % [recipe_key, t])
+			if types.size() == 2:
+				assert_true(types[0] != types[1], "%s: a pair cannot repeat the same type twice" % recipe_key)
+			assert_true(GameData.APPROACHES.has(discovery["approach"]), "%s: discovery approach '%s' is not a known approach" % [recipe_key, discovery["approach"]])
+	)
+
+	run_case("no_two_authored_recipes_collide_on_the_same_cell", func():
+		# M3 §2.1: a cell holds at most one effect. Every recipe's discovery
+		# cell key must be unique across the whole catalogue.
+		var seen: Dictionary = {}
+		for recipe_key in GameData.RECIPES:
+			var discovery: Dictionary = GameData.RECIPES[recipe_key].get("discovery", {})
+			if discovery.is_empty():
+				continue
+			var key := Bench.cell_key(discovery["types"], discovery["approach"])
+			assert_true(not seen.has(key), "cell '%s' is claimed by both '%s' and '%s'" % [key, seen.get(key, ""), recipe_key])
+			seen[key] = recipe_key
+	)
+
+	run_case("the_three_tutorial_recipes_start_found_on_a_fresh_players_bench", func():
+		GameState.reset()
+		for recipe_key in ["timePearl", "enhancementPowder", "rewind"]:
+			var discovery: Dictionary = GameData.RECIPES[recipe_key]["discovery"]
+			assert_eq(Bench.cell_state(discovery["types"], discovery["approach"]), "found", "%s should start found via its taughtBy tutorial grant" % recipe_key)
+		assert_true(Bench.found_recipe_keys().has("timePearl"))
+		assert_true(Bench.found_recipe_keys().has("enhancementPowder"))
+		assert_true(Bench.found_recipe_keys().has("rewind"))
 	)
