@@ -62,6 +62,12 @@ var current_screen_node: Control = null
 
 
 func _ready() -> void:
+	# Godot's Android export template hardcodes screenOrientation="landscape"
+	# in the manifest regardless of the project's handheld orientation
+	# setting (confirmed in export_templates' android_source.zip) -- force
+	# portrait explicitly at boot rather than relying on that setting alone.
+	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_PORTRAIT)
+
 	UI.anchor_full_rect(self)
 
 	screen_container = Control.new()
