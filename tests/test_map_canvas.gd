@@ -348,3 +348,40 @@ func run() -> void:
 
 		canvas.free()
 	)
+
+	# Bugfixes ticket 17: pan_to() used to default target_zoom to
+	# MapZoom.EVENT_ZOOM (0.8), snapping the camera away from whatever
+	# pinch-zoom the player had set on every tap-to-open. It now defaults to
+	# the canvas's own current zoom_level, so a tap only pans, never re-zooms.
+	run_case("tapping_a_district_at_a_non_default_zoom_preserves_that_zoom", func():
+		GameState.reset()
+		var anchor: Array = GameData.MAP_LAYOUT["districts"]["hampstead"]["labelAnchor"]
+		var logical := Vector2(anchor[0], anchor[1])
+
+		var canvas := MapCanvas.new()
+		canvas.zoom_level = MapZoom.MAX  # distinct from both DEFAULT (0.85) and EVENT_ZOOM (0.8)
+		var local_pos := logical * canvas.zoom_level
+
+		var down := InputEventMouseButton.new()
+		down.button_index = MOUSE_BUTTON_LEFT
+		down.pressed = true
+		down.position = local_pos
+		down.device = 0
+		canvas._gui_input(down)
+
+		var up := InputEventMouseButton.new()
+		up.button_index = MOUSE_BUTTON_LEFT
+		up.pressed = false
+		up.position = local_pos
+		up.device = 0
+		canvas._gui_input(up)
+
+		assert_true(canvas._active_tween != null, "district tap must still kick off pan_to()'s tween")
+		# Force the in-flight pan_to() tween straight to its end state (same
+		# custom_step() escape hatch _skip_current() uses) instead of
+		# awaiting real time in a headless test.
+		canvas._active_tween.custom_step(999999.0)
+		assert_true(is_equal_approx(canvas.zoom_level, MapZoom.MAX), "tap-to-open must not reset zoom away from the player's current zoom")
+
+		canvas.free()
+	)

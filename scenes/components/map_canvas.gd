@@ -328,15 +328,23 @@ func _apply_zoom() -> void:
 # an event's own visual, and _skip_current() fast-forwards whatever tween is
 # currently assigned to _active_tween (this one, or the event visual's) to
 # resolve that await immediately on a tap-skip.
-func pan_to(point: Vector2, target_zoom: float = MapZoom.EVENT_ZOOM, duration: float = PAN_DURATION) -> void:
+#
+# Bugfixes ticket 17: target_zoom can't default to `zoom_level` directly
+# (GDScript default args must be constant), so -1.0 is the "unset" sentinel —
+# a real target_zoom is always >= MapZoom.MIN (0.35). No explicit zoom means
+# "pan without changing zoom" (tap-to-open a district/station bubble); pass
+# MapZoom.EVENT_ZOOM explicitly for the one caller that legitimately wants a
+# forced zoom on open (_play_event's queued-event playback).
+func pan_to(point: Vector2, target_zoom: float = -1.0, duration: float = PAN_DURATION) -> void:
+	var resolved_zoom := target_zoom if target_zoom >= 0.0 else zoom_level
 	var scroll := get_parent() as ScrollContainer
 	var viewport_size: Vector2 = scroll.size if scroll else size
-	var target_scroll := MapZoom.scroll_target(point, target_zoom, viewport_size, _map_size * target_zoom)
+	var target_scroll := MapZoom.scroll_target(point, resolved_zoom, viewport_size, _map_size * resolved_zoom)
 	var start_scroll := Vector2(scroll.scroll_horizontal, scroll.scroll_vertical) if scroll else Vector2.ZERO
 
 	var tween := create_tween()
 	_active_tween = tween
-	tween.tween_method(_set_zoom, zoom_level, target_zoom, duration)
+	tween.tween_method(_set_zoom, zoom_level, resolved_zoom, duration)
 	if scroll:
 		tween.parallel().tween_method(_apply_scroll.bind(scroll), start_scroll, target_scroll, duration)
 	await tween.finished
@@ -367,7 +375,10 @@ func _play_event(event: Dictionary) -> void:
 	if stop == null:
 		return  # site/vein no longer resolvable (edge case) -- nothing to animate, just advance past it
 
-	await pan_to(stop["position"])
+	# Ticket 17: explicit EVENT_ZOOM -- queued-event playback (unlike a tap-to-
+	# open) legitimately wants a forced close-up zoom so the visual reads
+	# clearly regardless of whatever zoom the player left the map at.
+	await pan_to(stop["position"], MapZoom.EVENT_ZOOM)
 	if _skip_requested:
 		return
 
