@@ -84,6 +84,15 @@ static func apply() -> void:
 		city_conclave_site,
 	]
 
+	# ticket 18: seed_day_one_veins() appends directly to
+	# state["world"]["sites"], so it must run after the wholesale
+	# reassignment above, not before, or its output would be discarded.
+	# This gives a debug-started game both the hand-built demo fixture above
+	# (deliberately exercising multi-stop elbow-routed faction lines) and
+	# the full per-faction day-one roster a real New Game gets, so debug
+	# play isn't under-representing faction presence on the Map tab.
+	Factions.seed_day_one_veins()
+
 	var flags: Dictionary = state["flags"]
 	for key in flags.keys():
 		match typeof(flags[key]):

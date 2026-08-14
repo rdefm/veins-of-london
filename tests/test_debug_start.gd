@@ -64,7 +64,12 @@ func run() -> void:
 		assert_eq(s["currentScreen"], "home", "debug start should land on the home screen")
 
 		var sites: Array = s["world"]["sites"]
-		assert_eq(sites.size(), 9, "3 claimed shoreditch sites + 2 discovered unclaimed sites + 4 faction-owned sites")
+		# ticket 18: DebugStart.apply() now also calls Factions.seed_day_one_veins()
+		# after its own hand-built fixture, so a debug-started game carries the
+		# same 30 real day-one faction sites (collective 8, firm 4, guild 7,
+		# network 4, conclave 7) a real New Game gets, on top of the 9
+		# hand-built fixture sites.
+		assert_eq(sites.size(), 9 + 30, "3 claimed shoreditch sites + 2 discovered unclaimed sites + 4 hand-built faction sites + 30 real day-one faction sites")
 
 		var unclaimed_by_district := {}
 		var claimed_sites: Array = []
@@ -85,7 +90,9 @@ func run() -> void:
 		# fixtures so a debug-started game already shows real routed faction
 		# lines on the Map tab (camden's 2 firm sites -> a multi-stop line;
 		# kingscross/city each cover one more faction -> single-stop stubs).
-		assert_eq(faction_sites.size(), 4, "4 faction-owned debug sites")
+		# ticket 18: plus the real day-one roster from Factions.seed_day_one_veins()
+		# (collective 8, firm 4, guild 7, network 4, conclave 7 = 30 more).
+		assert_eq(faction_sites.size(), 4 + 30, "4 hand-built faction sites + 30 real day-one faction sites")
 		var faction_site_ids_by_faction := {}
 		for site in faction_sites:
 			assert_eq(site["claimed"], false, "faction-owned sites are never also player-claimed")
@@ -93,17 +100,30 @@ func run() -> void:
 			if not faction_site_ids_by_faction.has(faction_id):
 				faction_site_ids_by_faction[faction_id] = []
 			faction_site_ids_by_faction[faction_id].append(site["id"])
-		assert_eq(faction_site_ids_by_faction.keys().size(), 3, "3 factions represented across the debug faction sites")
-		assert_eq(faction_site_ids_by_faction["firm"].size(), 2, "firm has 2 stops -- a real multi-stop elbow-routed line")
-		assert_eq(faction_site_ids_by_faction["network"].size(), 1, "network gets a single-stop stub")
-		assert_eq(faction_site_ids_by_faction["conclave"].size(), 1, "conclave gets a single-stop stub")
+		assert_eq(faction_site_ids_by_faction.keys().size(), 5, "all 5 factions represented once the real day-one roster is included")
+		assert_eq(faction_site_ids_by_faction["firm"].size(), 2 + 4, "firm: 2 hand-built (multi-stop elbow-routed line) + 4 real day-one")
+		assert_eq(faction_site_ids_by_faction["network"].size(), 1 + 4, "network: 1 hand-built stub + 4 real day-one")
+		assert_eq(faction_site_ids_by_faction["conclave"].size(), 1 + 7, "conclave: 1 hand-built stub + 7 real day-one")
+		assert_eq(faction_site_ids_by_faction["collective"].size(), 8, "collective: real day-one roster only, no hand-built fixture")
+		assert_eq(faction_site_ids_by_faction["guild"].size(), 7, "guild: real day-one roster only, no hand-built fixture")
 
 		var visible_stops: Array = []
 		for site in faction_sites:
 			visible_stops.append_array(MapLayout.build_stop_items([site], []))
 		var grouped := MapLayout.group_by_faction(visible_stops)
-		assert_eq(grouped.keys().size(), 3, "the debug faction sites resolve into 3 real routable faction groups")
-		assert_eq(grouped["firm"].size(), 2)
+		assert_eq(grouped.keys().size(), 5, "the faction sites resolve into 5 real routable faction groups")
+		assert_eq(grouped["firm"].size(), 6)
+
+		# ticket 18: the hand-built fixture's districts (shoreditch, greenwich,
+		# whitechapel, camden, kingscross, city) all overlap with districts the
+		# real day-one roster also seeds -- verify the combined site count
+		# never overflows the district's siteCap (which already accounts for
+		# the real roster's own placement count, per Factions.seed_day_one_veins's
+		# own "siteCap is bumped, not spent" comment).
+		for district_id in ["shoreditch", "whitechapel", "camden", "kingscross", "city", "greenwich", "battersea"]:
+			var site_cap: int = GameData.DISTRICTS[district_id]["siteCap"]
+			var actual: int = Sites.sites_in_district(district_id).size()
+			assert_true(actual <= site_cap, "%s: %d sites must not exceed siteCap %d" % [district_id, actual, site_cap])
 
 		# map-animations ticket 04 follow-up: each debug vein is linked to
 		# its own claimed shoreditch site via siteId -- otherwise MapLayout.
