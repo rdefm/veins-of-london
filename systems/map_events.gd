@@ -8,12 +8,19 @@ extends RefCounted
 # scenes/components/map_canvas.gd — this file only tracks which event is
 # "current" and lets that Node-side code drive it forward.
 #
-# "playing" is a belt-and-suspenders guard, not the real reason a Map-tab
-# visit only drains once — scenes/Main.gd tears down and recreates the whole
-# Map screen (and therefore MapCanvas) on every navigation to "map" (see its
-# _show_screen), so a fresh MapCanvas._ready() firing exactly once per visit
-# already gives that guarantee. The flag exists so "exactly once" is also
-# expressed and unit-testable at this pure-data layer, independent of Node
+# "playing" is the real guard against a double drain, not just a belt-and-
+# suspenders one. It was originally redundant with scenes/Main.gd tearing
+# down and recreating the whole Map screen (and therefore MapCanvas) on every
+# navigation to "map" (see its _show_screen) — a fresh MapCanvas._ready()
+# firing exactly once per visit already gave "exactly once" for free. But
+# bugfixes ticket 19 found that a vein can also be queued (queue_seed_claim)
+# while the same MapCanvas instance is still alive — a Seed/Cultivate/Harvest
+# bubble action, or a daily-tick roll, taken without ever leaving the Map tab
+# — with no later _ready() firing to catch it. MapCanvas now re-attempts
+# begin_playback() on every state_changed it sees (its own
+# _maybe_start_playback()), so this flag is what actually keeps that from
+# starting a second concurrent drain, or restarting one that's already
+# finished. Also unit-testable at this pure-data layer, independent of Node
 # lifecycle the headless test suite can't exercise.
 
 

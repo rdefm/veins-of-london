@@ -385,3 +385,89 @@ func run() -> void:
 
 		canvas.free()
 	)
+
+	# Bugfixes ticket 19: a vein queued via MapEvents.queue_seed_claim while
+	# the Map tab is already the active screen (a Seed/Cultivate/Harvest
+	# bubble action, or a daily-tick roll fired from a map-visible action) used
+	# to have nothing left to trigger its playback -- only a fresh
+	# MapCanvas._ready() (leaving and re-entering the tab) ever called
+	# MapEvents.begin_playback(). canvas._ready() is called directly as a
+	# plain method here, same established pattern as tests/test_map_controls.gd
+	# and tests/test_lab_screen.gd -- this file's own class comment already
+	# established _ready() touches nothing beyond GameState/GameData and its
+	# own children, none of which need a live SceneTree.
+	run_case("queuing_a_vein_while_the_map_tab_is_already_active_starts_its_playback_immediately", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [{
+			"id": "s1", "district": "hampstead", "tier": "fair", "oreType": "time",
+			"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+			"hasNaturalVein": false,
+		}]
+		GameState.state["player"]["veins"] = [{
+			"id": "v1", "siteId": "s1", "oreType": "time", "level": 1, "levelLabel": "Trickle",
+			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
+			"district": "hampstead",
+		}]
+
+		var canvas := MapCanvas.new()
+		canvas._ready()
+		assert_true(not MapEvents.is_playing(), "nothing was queued at the moment the tab was entered")
+
+		# Simulate the wrapping action (Sites.attempt_seed / Sites.
+		# roll_npc_claims / Factions.resolve_rivalry_outcome) queuing the vein
+		# and then emitting once at the end of its own action, per
+		# MapEvents.queue_seed_claim's own doc comment -- no Map screen
+		# teardown/re-navigation happens in between.
+		MapEvents.queue_seed_claim("hampstead", "v1", "player")
+		EventBus.state_changed.emit()
+
+		assert_true(MapEvents.is_playing(), "playback starts the moment the vein is queued, with no fresh tab visit required")
+		assert_eq(MapEvents.current()["veinId"], "v1")
+		assert_true(canvas._active_tween != null, "the queued event's pan_to() kicked off immediately")
+
+		canvas.free()
+	)
+
+	# Same scenario, but proves a *second* vein queued later on the same
+	# still-active tab (e.g. a second Harvest bubble action a few turns after
+	# the first) also gets its own playback -- not silently dropped just
+	# because this MapCanvas instance's one-time _ready() drain already ran.
+	run_case("a_second_vein_queued_after_the_first_finished_playing_also_gets_its_own_playback", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			{ "id": "s1", "district": "hampstead", "tier": "fair", "oreType": "time", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false },
+			{ "id": "s2", "district": "hampstead", "tier": "fair", "oreType": "life", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false },
+		]
+		GameState.state["player"]["veins"] = [
+			{ "id": "v1", "siteId": "s1", "oreType": "time", "level": 1, "levelLabel": "Trickle", "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1, "district": "hampstead" },
+			{ "id": "v2", "siteId": "s2", "oreType": "life", "level": 1, "levelLabel": "Trickle", "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "alarmUpgrades": [], "location": "Test Court", "claimedOnDay": 1, "district": "hampstead" },
+		]
+
+		var canvas := MapCanvas.new()
+		canvas._ready()
+
+		MapEvents.queue_seed_claim("hampstead", "v1", "player")
+		EventBus.state_changed.emit()
+		assert_true(MapEvents.is_playing(), "v1's playback started")
+
+		# Simulate v1's queued event finishing its playback -- MapEvents.
+		# advance() is exactly what MapCanvas._play_queue() calls once an
+		# event's own animation completes (or a tap-skip fast-forwards it),
+		# and (like the real drain loop) it already emits state_changed
+		# itself. Driving the real Tween-timed animation to completion isn't
+		# reliable in a headless test (Tween callback/finished resumption
+		# isn't synchronous with custom_step() outside a running main loop),
+		# so this drives the same pure-data transition the drain loop itself
+		# would produce, without depending on Tween internals.
+		MapEvents.advance()
+		assert_true(not MapEvents.is_playing(), "v1's event finished draining -- back to idle before v2 is queued")
+
+		MapEvents.queue_seed_claim("hampstead", "v2", "player")
+		EventBus.state_changed.emit()
+
+		assert_true(MapEvents.is_playing(), "a later vein queued on the same still-active tab still gets its own playback")
+		assert_eq(MapEvents.current()["veinId"], "v2", "not dropped, and not still stuck on v1")
+
+		canvas.free()
+	)

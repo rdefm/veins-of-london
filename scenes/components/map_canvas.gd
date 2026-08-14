@@ -273,14 +273,15 @@ func _ready() -> void:
 	EventBus.state_changed.connect(_rebuild)
 	_rebuild()
 
-	# Main.gd tears down and recreates the whole Map screen (and therefore
-	# this Control) on every navigation to "map" (scenes/Main.gd
-	# _show_screen), so this _ready() firing exactly once IS "visiting the
-	# Map tab" — no separate screen_changed listener needed. MapEvents.
-	# begin_playback() is still the source of truth for "exactly once"
-	# (see its own doc comment); this is just where a visit is detected.
-	if MapEvents.begin_playback():
-		_play_queue()
+	# Bugfixes ticket 19: a vein queued (MapEvents.queue_seed_claim) while
+	# this Control is already alive — e.g. a Seed/Cultivate/Harvest bubble
+	# action, or a daily-tick roll, taken without ever leaving the Map tab —
+	# has no later _ready() firing to catch it, so playback also has to be
+	# attempted on every ordinary redraw, not just this first one. See
+	# _maybe_start_playback()'s own comment for why re-attempting it on every
+	# state_changed is safe.
+	EventBus.state_changed.connect(_maybe_start_playback)
+	_maybe_start_playback()
 
 
 # This Control (and therefore _play_queue()'s coroutine, if one is running)
@@ -357,10 +358,32 @@ func _apply_scroll(v: Vector2, scroll: ScrollContainer) -> void:
 
 # ── map event playback (M1.5 animations ticket 01) ────────────────────────
 # Drains state.mapEvents.queue (MapEvents, pure data) sequentially: pan to
-# the event's location, play its visual, advance — repeat until empty.
-# _ready() only calls this once MapEvents.begin_playback() has actually
-# claimed the drain (see its call site above), so this never runs
-# concurrently with itself.
+# the event's location, play its visual, advance — repeat until empty. Only
+# ever called from _maybe_start_playback() below, which only calls it once
+# MapEvents.begin_playback() has actually claimed the drain, so this never
+# runs concurrently with itself.
+
+# Bugfixes ticket 19: the single entry point for starting a drain, called
+# both once from _ready() (the "just navigated onto the Map tab" case) and
+# on every subsequent state_changed (the "queued a vein without ever leaving
+# the tab" case — a Seed/Cultivate/Harvest bubble action, or a daily-tick
+# roll fired from a map-visible action). MapEvents.begin_playback() is what
+# makes calling this on every single state_changed safe rather than
+# wasteful: it's a no-op whenever nothing is queued, and a no-op whenever a
+# drain is already underway (including the drain this very call is about to
+# start — begin_playback() sets "playing" true *before* it emits
+# state_changed, so the state_changed this triggers, arriving back here
+# re-entrantly through the same connection, sees "playing" already true and
+# declines). advance() emitting state_changed after each event pops off is
+# what covers "stay on the tab across several time-advancing actions" —
+# every one of those emits re-attempts this, so a fresh vein queued mid-drain
+# is picked up by the still-running _play_queue() while loop, and a fresh
+# vein queued right after the previous drain finished gets a new loop of its
+# own instead of sitting invisible until the player leaves and re-enters.
+func _maybe_start_playback() -> void:
+	if MapEvents.begin_playback():
+		_play_queue()
+
 
 func _play_queue() -> void:
 	while MapEvents.has_pending():
