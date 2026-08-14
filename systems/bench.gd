@@ -30,6 +30,8 @@ const REFINE_SKILL_BONUS := 0.10
 const REFINE_TIER_PENALTY := 0.15
 const REFINE_CHANCE_FLOOR := 0.08
 
+enum GrantResult { GRANTED, ALREADY_KNOWN }
+
 
 # Canonical type-set key: alphabetically sorted, "+"-joined. Every
 # cell/census/notes lookup goes through this helper so the key can never
@@ -299,6 +301,41 @@ static func probe_block_reason(types: Array, approach: String) -> String:
 
 static func can_probe(types: Array, approach: String) -> bool:
 	return probe_block_reason(types, approach) == ""
+
+
+# The single shared entry point NPC/faction content calls to teach an
+# effect directly -- instantly, no ore or time cost (M3 §12.1: taught
+# effects are not a separate class of thing, just a free shortcut to a
+# cell that was always reachable by experimentation). On a not-yet-found
+# cell this mirrors a probe() success -- survey on first touch, XP_FOUND
+# award, state_changed emission -- minus the cost and minus a notes entry:
+# a grant is a cell write with no experiment behind it, and
+# touched_type_sets() below is already built to surface a cell-only touch
+# with no note (see its comment).
+#
+# On an already-found cell it mutates nothing and returns ALREADY_KNOWN so
+# the calling event prose can acknowledge the collision instead of
+# silently granting nothing. §12.1's fallback chain from there (teach a
+# different effect from the NPC's pool -> grant the NPC's approach -> XP
+# + relation bump) is content-ticket work built on repeated calls to this
+# primitive -- Bench only ever touches player.bench here, never an NPC, an
+# approach grant (Approaches has no such mechanism today), or a faction
+# relation.
+static func grant_effect(recipe_key: String) -> GrantResult:
+	var discovery: Dictionary = GameData.RECIPES[recipe_key]["discovery"]
+	var types: Array = discovery["types"]
+	var approach: String = discovery["approach"]
+
+	if cell_state(types, approach) == "found":
+		return GrantResult.ALREADY_KNOWN
+
+	if not is_surveyed(types):
+		_survey(types)
+	_set_cell(types, approach, { "state": "found" })
+	Crafting.award_crafting_xp(XP_FOUND)
+	EventBus.state_changed.emit()
+
+	return GrantResult.GRANTED
 
 
 # Type sets the player has touched -- probed or refined at least once.

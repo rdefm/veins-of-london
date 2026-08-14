@@ -493,6 +493,82 @@ func run() -> void:
 			seen[key] = recipe_key
 	)
 
+	# ── ticket 11: Bench.grant_effect() + collision contract ────────────
+
+	run_case("grant_effect_on_a_fresh_cell_marks_it_found_free_of_ore_and_time_and_returns_granted", func():
+		GameData.RECIPES["_testBenchGrant"] = { "discovery": { "types": ["life", "time"], "approach": "heat" } }
+		GameState.reset()
+		var ore_before: int = GameState.state["player"]["orichalchum"].get("time", 0)
+		var blocks_before: int = GameState.state["world"]["timeBlocksDone"].size()
+
+		var result := Bench.grant_effect("_testBenchGrant")
+
+		assert_eq(result, Bench.GrantResult.GRANTED, "an unfound effect is granted")
+		assert_eq(Bench.cell_state(["life", "time"], "heat"), "found", "the cell is marked found")
+		assert_eq(GameState.state["player"]["orichalchum"].get("time", 0), ore_before, "grant_effect never deducts ore")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), blocks_before, "grant_effect never advances a time block")
+		assert_eq(GameState.state["player"]["craftingXP"], Bench.XP_FOUND, "granting awards XP_FOUND, exactly like an experiment success")
+		GameData.RECIPES.erase("_testBenchGrant")
+	)
+
+	run_case("grant_effect_surveys_the_pairing_on_first_touch_same_as_a_probe_would", func():
+		# fate+physics has no authored effect at any approach in the real
+		# catalogue (calc-discovery ticket 10) -- deliberately barren, so a
+		# single test recipe here gives a clean census count of 1 to check.
+		GameData.RECIPES["_testBenchGrant"] = { "discovery": { "types": ["fate", "physics"], "approach": "heat" } }
+		GameState.reset()
+		assert_true(not Bench.is_surveyed(["fate", "physics"]), "sanity: unsurveyed before any touch")
+
+		Bench.grant_effect("_testBenchGrant")
+
+		assert_true(Bench.is_surveyed(["fate", "physics"]), "granting surveys the pairing, same as probe() does")
+		assert_eq(Bench.get_surveyed_count(["fate", "physics"]), 1, "census count is locked in from the real catalogue")
+		GameData.RECIPES.erase("_testBenchGrant")
+	)
+
+	run_case("grant_effect_on_an_already_found_cell_mutates_nothing_and_returns_already_known", func():
+		GameData.RECIPES["_testBenchGrant"] = { "discovery": { "types": ["fate", "physics"], "approach": "heat" } }
+		GameState.reset()
+		GameState.state["player"]["bench"]["cells"]["fate+physics|heat"] = { "state": "found", "misses": 0, "refine": 0 }
+		var ore_before: int = GameState.state["player"]["orichalchum"].get("fate", 0)
+		var xp_before: int = GameState.state["player"]["craftingXP"]
+		var blocks_before: int = GameState.state["world"]["timeBlocksDone"].size()
+
+		var result := Bench.grant_effect("_testBenchGrant")
+
+		assert_eq(result, Bench.GrantResult.ALREADY_KNOWN, "an already-found effect reports the collision instead of silently granting nothing")
+		assert_eq(Bench.cell_state(["fate", "physics"], "heat"), "found", "the cell's state is untouched")
+		assert_eq(GameState.state["player"]["orichalchum"].get("fate", 0), ore_before, "no ore is deducted on collision")
+		assert_eq(GameState.state["player"]["craftingXP"], xp_before, "no XP is awarded on collision -- that fallback belongs to the calling content")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), blocks_before, "no time block is spent on collision")
+		GameData.RECIPES.erase("_testBenchGrant")
+	)
+
+	run_case("grant_effect_on_an_already_found_cell_the_player_discovered_themselves_still_returns_already_known", func():
+		GameData.RECIPES["_testBenchEffect"] = { "discovery": { "types": ["life", "time"], "approach": "heat" } }
+		var seed := -1
+		for candidate in range(500):
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			GameState.state["player"]["orichalchum"]["life"] = 100
+			GameState.state["player"]["craftingSkill"] = 5
+			Rng.set_seed(candidate)
+			var probe_result := Bench.probe(["life", "time"], "heat")
+			if probe_result.get("outcome") == "found":
+				seed = candidate
+				break
+		assert_true(seed != -1, "should find a discovery-success roll within 500 tries")
+
+		var ore_before: int = GameState.state["player"]["orichalchum"]["time"]
+		var blocks_before: int = GameState.state["world"]["timeBlocksDone"].size()
+		var result := Bench.grant_effect("_testBenchEffect")
+
+		assert_eq(result, Bench.GrantResult.ALREADY_KNOWN, "self-discovering it first still collides the same way as a prior grant")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], ore_before, "no ore deducted on collision")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), blocks_before, "no time block is spent on collision")
+		GameData.RECIPES.erase("_testBenchEffect")
+	)
+
 	run_case("the_three_tutorial_recipes_start_found_on_a_fresh_players_bench", func():
 		GameState.reset()
 		for recipe_key in ["timePearl", "enhancementPowder", "rewind"]:
