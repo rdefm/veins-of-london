@@ -6,9 +6,13 @@ extends RefCounted
 # pairs; a cell is written lazily into player.bench.cells the first time it
 # is probed -- an absent key means "untried" (see GameState.new_game_state).
 #
-# Formulas below are the PROVISIONAL constants from M3-CALC-DISCOVERY.md
-# §7, implemented as specified per calc-discovery ticket 04. Promote to
-# REFERENCE.md, not here, when the doc is specced.
+# Formulas below are the constants from M3-CALC-DISCOVERY.md §7, implemented
+# per calc-discovery ticket 04. Promote to REFERENCE.md, not here, when the
+# doc is specced.
+#
+# Ticket 12 balance pass: XP_FOUND raised 40->50. §7's own "above a craft
+# (20-35)" rationale predates ticket 10's real catalogue, which tops out at
+# 45 (failsafe) -- the old value let a hard craft outXP a discovery.
 
 const DISCOVERY_BASE_CHANCE := 0.35
 const DISCOVERY_SKILL_BONUS := 0.12
@@ -17,7 +21,7 @@ const PITY_PER_MISS := 0.12
 
 const ORE_COST_PER_TYPE := 3
 
-const XP_FOUND := 40
+const XP_FOUND := 50
 const XP_HOT := 12
 const XP_INERT := 6
 const XP_REFINE := 30

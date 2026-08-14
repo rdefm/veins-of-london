@@ -60,7 +60,7 @@ func run() -> void:
 				break
 		assert_true(seed != -1, "should find a discovery-success roll within 500 tries")
 		assert_eq(Bench.cell_state(["life", "time"], "heat"), "found")
-		assert_eq(GameState.state["player"]["craftingXP"], 40, "success awards XP_FOUND")
+		assert_eq(GameState.state["player"]["craftingXP"], 50, "success awards XP_FOUND")
 		GameData.RECIPES.erase("_testBenchEffect")
 	)
 

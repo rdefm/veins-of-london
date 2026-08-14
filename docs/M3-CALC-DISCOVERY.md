@@ -173,7 +173,7 @@ Roughly three experiments a day if the player does nothing else — the bench co
 | Discovery chance | `min(0.90, 0.35 + (skill − 1) × 0.12 + workshopBonus + pity)` | Mirrors the shape of `craftChance` (R§3.5) so it reads as the same game. |
 | Pity | `+0.12` per prior miss on that cell, no cap | Guarantees convergence within a handful of returns even at skill 1. |
 | Refinement chance, tier *n* | `max(0.08, 0.55 + (skill − 1) × 0.10 − 0.15 × (n − 1))` | Floors at 8% — always possible, rarely worth it. |
-| XP — discovery success | 40 | Above a craft (20–35): discovery is the harder act. |
+| XP — discovery success | 50 | Above a craft (real ceiling is 45, `failsafe`, per the ticket-10 catalogue — the original 20–35 estimate predates it): discovery is the harder act. Raised from 40 in calc-discovery ticket 12's balance pass, which found 40 no longer cleared that ceiling. |
 | XP — Hot (near miss) | 12 | Failure still teaches. |
 | XP — Inert | 6 | You learned something, just not much. |
 | XP — refinement success | 30 | |
