@@ -174,6 +174,8 @@ Vein-raid guard templates: Territorial Scrapper {hpBase:20, atk 3–8} · Vein G
 Home-raid raider (fixed): hp 35, atk 6–14, name "The raider".
 Muggers: generated, see §3.7.
 
+**Enemy capability surface** (calc-effect-wiring-01): every template may optionally carry `weapon: {min, max}` (an attack-bonus range added to attackMin/attackMax) and `ability: <string id>` (wrapped at construction into `{id, lockedTurns}` — `lockedTurns > 0` means the ability is locked out). Every template also carries `evadeChance` (0.0–1.0), rolled per hit against the player's attack — `Combat._enemy_capabilities_from_template()` is the single place these are assembled from a raw template dict. All templates above are pre-capability-surface and set `evadeChance: 0` explicitly to preserve existing combat math. **Default for any newly-authored template that omits `evadeChance`: 20%.** `Combat.disarm_enemy(enemy, turns)` strips `weapon` outright and sets `ability.lockedTurns = turns`; the lock ticks down once per player-attack turn (§3.7).
+
 ### 1.11 Misc constants
 `TIME_BLOCKS = ["Morning","Afternoon","Evening"]` · `ARCHIE_ORE_GOAL = 10` · contacts: archie {startRelation:10, unlocked:true, recruitThreshold:80}, james {startRelation:0, unlocked:false, recruitThreshold:100} · James job trust→qty bands: relation ≤1 → 1–3; ≤3 → 3–6; else 5–10; payPerItem = CONSUMABLE_PRICES[recipe].
 
@@ -330,8 +332,8 @@ Tab bar (`NavBar`) hidden on `title, intro, event, combat` (unchanged from M0). 
 - Muggers: `count = rand(1,3)`; hp `28 × count`; atk `4 + 2(count−1)` to `10 + 3(count−1)`; name "A mugger" / "N muggers".
 - Vein-raid enemy (attacking an NPC-claimed vein): template scaled `hp = round(hpBase × (1 + (veinLevel−1)×0.3) × guards)`, atkMax `+ (veinLevel−1)`. (Reachable in M0 only via debug; keep functions.)
 - `getAttackRange()` = player atk + equipped weapon bonus.
-- **Player attack turn:** push combat snapshot first (§3.9). Attacks this turn: 1, or with motionTurns > 0: `motionPower ≥ 3 ? 3 : 2` (log line). Each hit: `dmg = rand(atkMin, atkMax)`; enemy hp −= dmg; log "You attack — X damage. Enemy: h/H HP." Enemy at 0 → outcome "win", dispatch onWin. After attacks: motionTurns −= 1 if active (log expiry at 0); frozenTurns > 0 → −1 (log expiry at 0) and enemy skips; else enemy attacks.
-- **Enemy attack:** if evadeTurns > 0: decrement; `chance(evadeChance)` → miss (log), return. Else `dmg = rand(enemy atk)`; player hp −= dmg; at 0 → outcome "loss", log, revive `hp = round(hpMax * 0.3)`.
+- **Player attack turn:** push combat snapshot first (§3.9). Attacks this turn: 1, or with motionTurns > 0: `motionPower ≥ 3 ? 3 : 2` (log line). Each hit: first `chance(enemy.evadeChance)` (§1.10) → enemy dodges, no damage, log, next hit; else `dmg = rand(atkMin, atkMax)`; enemy hp −= dmg; log "You attack — X damage. Enemy: h/H HP." Enemy at 0 → outcome "win", dispatch onWin. After attacks: motionTurns −= 1 if active (log expiry at 0); enemy.ability.lockedTurns −= 1 if locked (log at 0, "back online" — see `Combat.disarm_enemy`, §1.10); frozenTurns > 0 → −1 (log expiry at 0) and enemy skips; else enemy attacks.
+- **Enemy attack:** if evadeTurns > 0: decrement; `chance(evadeChance)` → miss (log), return. Else `dmg = rand(enemy atk range)`, where enemy atk range is atkMin/atkMax plus the enemy's equipped `weapon` bonus if any (§1.10); player hp −= dmg; at 0 → outcome "loss", log, revive `hp = round(hpMax * 0.3)`.
 - **Flee:** `chance(0.65)` → outcome "fled"; else enemy gets a free attack.
 - **Use Time Pearl:** blocked if frozenTurns > 0 ("Already frozen. Save the pearl."); consume; `frozenTurns = effectPower`.
 - **Use Enhancement Powder:** blocked if motionTurns > 0; consume; `motionPower = effectPower`; `motionTurns = power ≥ 3 ? 2 : 1`.

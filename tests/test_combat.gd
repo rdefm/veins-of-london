@@ -15,7 +15,7 @@ func _fresh_combat(context: String = Combat.CONTEXT_MUGGING) -> void:
 	GameState.reset()
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": null,
-		"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "veinId": null, "isMugging": context == Combat.CONTEXT_MUGGING },
+		"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "veinId": null, "isMugging": context == Combat.CONTEXT_MUGGING, "weapon": null, "ability": null, "evadeChance": 0.0 },
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [],
 	}
@@ -432,4 +432,147 @@ func run() -> void:
 		Combat.start_raid("v1", 1, 1, "", "raidd")
 		assert_true(GameState.state["combat"]["active"], "combat should still start -- this ticket is call-site/validation hygiene, not new blocking behaviour")
 		assert_eq(GameState.state["combat"]["context"], "raidd", "the bad context is stored verbatim; _start_combat() push_errors loudly instead of silently defaulting it")
+	)
+
+	# ── calc-effect-wiring-01: enemy combat capabilities ─────────────────
+
+	run_case("player_attack_zero_evade_chance_always_hits", func():
+		_fresh_combat()
+		GameState.state["combat"]["enemy"]["evadeChance"] = 0.0
+		var hp_before: int = GameState.state["combat"]["enemy"]["hp"]
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_true(GameState.state["combat"]["enemy"]["hp"] < hp_before, "0% evade should never dodge -- damage always lands")
+		var dodged := false
+		for line in GameState.state["combat"]["log"]:
+			if line.contains("dodges"):
+				dodged = true
+		assert_true(not dodged, "no dodge log line at 0% evade")
+	)
+
+	run_case("player_attack_guaranteed_evade_chance_always_misses", func():
+		_fresh_combat()
+		GameState.state["combat"]["enemy"]["evadeChance"] = 1.0
+		var hp_before: int = GameState.state["combat"]["enemy"]["hp"]
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_eq(GameState.state["combat"]["enemy"]["hp"], hp_before, "100% evade should always dodge -- no damage lands")
+		var dodged := false
+		for line in GameState.state["combat"]["log"]:
+			if line.contains("dodges") and line.contains("no damage"):
+				dodged = true
+		assert_true(dodged, "should log the dodge line")
+	)
+
+	run_case("player_attack_nonzero_evade_chance_can_go_either_way_across_seeds", func():
+		var hit_seed := _find_seed_for(200, func():
+			_fresh_combat()
+			GameState.state["combat"]["enemy"]["evadeChance"] = 0.5
+			var hp_before: int = GameState.state["combat"]["enemy"]["hp"]
+			Combat.player_attack()
+			return GameState.state["combat"]["enemy"]["hp"] < hp_before
+		)
+		assert_true(hit_seed != -1, "should find a landed-hit roll within 200 tries at 50% evade")
+
+		var miss_seed := _find_seed_for(200, func():
+			_fresh_combat()
+			GameState.state["combat"]["enemy"]["evadeChance"] = 0.5
+			var hp_before: int = GameState.state["combat"]["enemy"]["hp"]
+			Combat.player_attack()
+			return GameState.state["combat"]["enemy"]["hp"] == hp_before
+		)
+		assert_true(miss_seed != -1, "should find a dodged-miss roll within 200 tries at 50% evade")
+	)
+
+	run_case("disarm_enemy_strips_weapon_bonus_and_locks_ability", func():
+		_fresh_combat()
+		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		enemy["weapon"] = { "min": 3, "max": 6 }
+		enemy["ability"] = { "id": "test_ability", "lockedTurns": 0 }
+
+		Combat.disarm_enemy(enemy, 2)
+
+		assert_eq(enemy["weapon"], null, "weapon bonus should be stripped")
+		assert_eq(enemy["ability"]["lockedTurns"], 2, "ability should be locked for the given number of turns")
+		assert_true(Combat.is_ability_locked(enemy), "is_ability_locked should report true while lockedTurns > 0")
+	)
+
+	run_case("disarm_enemy_weapon_strip_removes_the_attack_bonus_from_enemy_damage", func():
+		_fresh_combat()
+		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		enemy["attackMin"] = 5
+		enemy["attackMax"] = 5
+		enemy["weapon"] = { "min": 20, "max": 20 }
+		var before := Combat.get_enemy_attack_range(enemy)
+		assert_eq(before["min"], 25, "weapon bonus should apply before disarm")
+
+		Combat.disarm_enemy(enemy, 1)
+
+		var after := Combat.get_enemy_attack_range(enemy)
+		assert_eq(after["min"], 5, "weapon bonus should be gone after disarm")
+		assert_eq(after["max"], 5, "weapon bonus should be gone after disarm")
+	)
+
+	run_case("disarmed_ability_lock_expires_after_n_player_turns_and_logs_it", func():
+		_fresh_combat()
+		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		enemy["ability"] = { "id": "test_ability", "lockedTurns": 0 }
+		Combat.disarm_enemy(enemy, 2)
+		assert_true(Combat.is_ability_locked(enemy), "should start locked")
+
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_eq(enemy["ability"]["lockedTurns"], 1, "one player turn should tick the lock down by 1")
+		assert_true(Combat.is_ability_locked(enemy), "still locked with 1 turn left")
+
+		Combat.player_attack()
+		assert_eq(enemy["ability"]["lockedTurns"], 0, "second player turn should exhaust the lock")
+		assert_true(not Combat.is_ability_locked(enemy), "no longer locked once lockedTurns hits 0")
+		var found := false
+		for line in GameState.state["combat"]["log"]:
+			if line.contains("back online"):
+				found = true
+		assert_true(found, "expiry should log the ability-restored line")
+	)
+
+	run_case("disarm_enemy_with_no_ability_is_a_no_op_for_the_ability_field", func():
+		_fresh_combat()
+		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		assert_eq(enemy["ability"], null, "sanity: fixture enemy has no ability")
+		Combat.disarm_enemy(enemy, 3)
+		assert_eq(enemy["ability"], null, "disarm should not fabricate an ability where none existed")
+		assert_true(not Combat.is_ability_locked(enemy), "no ability -> never locked")
+	)
+
+	run_case("existing_raid_guard_templates_default_to_zero_evade_chance", func():
+		GameState.reset()
+		for key in GameData.ENEMY_RAID_GUARDS.keys():
+			var enemy := Combat.generate_raid_enemy("v1", 1, 1, key)
+			assert_eq(enemy["evadeChance"], 0.0, "%s should default to 0%% evade (existing template, preserves current combat math)" % key)
+			assert_eq(enemy["weapon"], null, "%s should have no weapon by default" % key)
+			assert_eq(enemy["ability"], null, "%s should have no ability by default" % key)
+	)
+
+	run_case("home_raid_raider_template_defaults_to_zero_evade_chance", func():
+		GameState.reset()
+		Combat.start_home_raid_combat()
+		assert_eq(GameState.state["combat"]["enemy"]["evadeChance"], 0.0, "homeRaidRaider should default to 0% evade")
+	)
+
+	run_case("procedural_mugger_defaults_to_zero_evade_chance", func():
+		for seed in range(10):
+			Rng.set_seed(seed)
+			var enemy := Combat.generate_mugger()
+			assert_eq(enemy["evadeChance"], 0.0, "procedurally generated muggers should default to 0% evade")
+			assert_eq(enemy["weapon"], null, "muggers should have no weapon by default")
+			assert_eq(enemy["ability"], null, "muggers should have no ability by default")
+	)
+
+	run_case("raid_enemy_template_without_an_explicit_evadeChance_defaults_to_20_percent", func():
+		# Exercises Combat's capability-assembly helper directly against a
+		# template dict, rather than mutating the shared GameData.ENEMY_RAID_GUARDS
+		# singleton (which would leak on an assertion failure mid-case).
+		var template := { "name": "New Guard", "hpBase": 20, "attackMin": 3, "attackMax": 8 }
+		var capabilities := Combat._enemy_capabilities_from_template(template)
+		assert_almost_eq(capabilities["evadeChance"], 0.2, 0.0001, "a newly-authored template that omits evadeChance should default to 20%")
 	)

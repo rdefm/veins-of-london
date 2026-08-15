@@ -41,6 +41,26 @@ static func generate_mugger() -> Dictionary:
 		"attackMax": 10 + 3 * (count - 1),
 		"veinId": null,
 		"isMugging": true,
+		"weapon": null,
+		"ability": null,
+		"evadeChance": 0.0,
+	}
+
+
+# calc-effect-wiring-01: builds the {weapon, ability, evadeChance} capability
+# fields shared by every enemy-construction path, from a raw template dict
+# (JSON template or the hand-authored homeRaidRaider dict). evadeChance
+# defaults to 20% when a template omits the key entirely — the documented
+# default for any newly-authored enemy template (existing templates all
+# specify 0 explicitly in data/enemies.json to preserve current combat math).
+static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionary:
+	var ability = null
+	if template.has("ability"):
+		ability = { "id": template["ability"], "lockedTurns": 0 }
+	return {
+		"weapon": template.get("weapon"),
+		"ability": ability,
+		"evadeChance": template.get("evadeChance", 0.2),
 	}
 
 
@@ -57,7 +77,7 @@ static func generate_raid_enemy(vein_id, vein_level: int, guards: int = 1, templ
 	var hp_scale: float = 1.0 + (vein_level - 1) * 0.3
 	var hp: int = GameState.round_epsilon(template["hpBase"] * hp_scale * guard_count)
 	var name: String = template["name"] if guard_count <= 1 else "%d× %s" % [guard_count, template["name"]]
-	return {
+	var enemy := {
 		"name": name,
 		"hp": hp,
 		"hpMax": hp,
@@ -66,6 +86,8 @@ static func generate_raid_enemy(vein_id, vein_level: int, guards: int = 1, templ
 		"veinId": vein_id,
 		"isMugging": false,
 	}
+	enemy.merge(_enemy_capabilities_from_template(template))
+	return enemy
 
 
 static func get_attack_range() -> Dictionary:
@@ -82,6 +104,32 @@ static func get_attack_range() -> Dictionary:
 					max_atk += def["attackBonus"]["max"]
 				break
 	return { "min": min_atk, "max": max_atk }
+
+
+# Mirrors get_attack_range() for the enemy side: base attack + equipped
+# weapon bonus, if any (calc-effect-wiring-01 — the weapon disarm strips).
+static func get_enemy_attack_range(enemy: Dictionary) -> Dictionary:
+	var min_atk: int = enemy["attackMin"]
+	var max_atk: int = enemy["attackMax"]
+	var weapon = enemy.get("weapon")
+	if weapon != null:
+		min_atk += weapon["min"]
+		max_atk += weapon["max"]
+	return { "min": min_atk, "max": max_atk }
+
+
+static func is_ability_locked(enemy: Dictionary) -> bool:
+	var ability = enemy.get("ability")
+	return ability != null and ability.get("lockedTurns", 0) > 0
+
+
+# calc-effect-wiring-01 foundation for calc-effect-wiring-02's Blast: strips
+# the enemy's weapon bonus outright and locks any ability out for `turns`
+# player-attack turns (ticked down and re-announced in player_attack()).
+static func disarm_enemy(enemy: Dictionary, turns: int) -> void:
+	enemy["weapon"] = null
+	if enemy.get("ability") != null:
+		enemy["ability"]["lockedTurns"] = turns
 
 
 static func start_mugging() -> void:
@@ -111,6 +159,7 @@ static func start_home_raid_combat() -> void:
 		"attackMin": raider["attackMin"], "attackMax": raider["attackMax"],
 		"veinId": null, "isMugging": false,
 	}
+	enemy.merge(_enemy_capabilities_from_template(raider))
 	_start_combat(CONTEXT_HOME_RAID, null, enemy,
 		["They're in the flat. You've got the crowbar. This is happening."],
 		"homeRaidWon")
@@ -193,11 +242,14 @@ static func player_attack() -> Dictionary:
 	for i in range(attack_count):
 		if enemy["hp"] <= 0:
 			break
+		var hit_label: String = " (hit %d)" % (i + 1) if attack_count > 1 else ""
+		if Rng.chance(enemy.get("evadeChance", 0.0)):
+			combat["log"].append("%s dodges%s — no damage." % [enemy["name"], hit_label])
+			continue
 		var atk := get_attack_range()
 		var dmg: int = Rng.randi_range(atk["min"], atk["max"])
 		enemy["hp"] = maxi(0, enemy["hp"] - dmg)
 		var frozen_note: String = " (enemy frozen)" if combat["frozenTurns"] > 0 else ""
-		var hit_label: String = " (hit %d)" % (i + 1) if attack_count > 1 else ""
 		combat["log"].append("You attack%s — %d damage%s. Enemy: %d/%d HP." % [hit_label, dmg, frozen_note, enemy["hp"], enemy["hpMax"]])
 		if enemy["hp"] <= 0:
 			combat["outcome"] = "win"
@@ -210,6 +262,11 @@ static func player_attack() -> Dictionary:
 		combat["motionTurns"] -= 1
 		if combat["motionTurns"] == 0:
 			combat["log"].append("The powder wears off. Back to normal speed.")
+
+	if is_ability_locked(enemy):
+		enemy["ability"]["lockedTurns"] -= 1
+		if enemy["ability"]["lockedTurns"] == 0:
+			combat["log"].append("%s's ability is back online." % enemy["name"])
 
 	if combat["frozenTurns"] > 0:
 		combat["frozenTurns"] -= 1
@@ -240,7 +297,8 @@ static func enemy_attack() -> void:
 			combat["log"].append("%s swings — you're not there. %s" % [enemy["name"], evade_note])
 			return
 
-	var dmg: int = Rng.randi_range(enemy["attackMin"], enemy["attackMax"])
+	var atk := get_enemy_attack_range(enemy)
+	var dmg: int = Rng.randi_range(atk["min"], atk["max"])
 	var player: Dictionary = GameState.state["player"]
 	player["hp"] = maxi(0, player["hp"] - dmg)
 	combat["log"].append("%s hits you for %d. You: %d/%d HP." % [enemy["name"], dmg, player["hp"], player["hpMax"]])

@@ -1,13 +1,15 @@
 {
+  "_comment": "Enemy capability surface (weapon/ability/evadeChance) is documented in docs/REFERENCE.md §1.10 — the templates below predate it and set evadeChance: 0 explicitly to preserve existing combat math.",
   "raidGuards": {
-    "territorialScrapper": { "name": "Territorial Scrapper", "hpBase": 20, "attackMin": 3, "attackMax": 8 },
-    "veinGuard":            { "name": "Vein Guard",            "hpBase": 30, "attackMin": 4, "attackMax": 10 },
-    "orichalchumDealer":    { "name": "Orichalchum Dealer",    "hpBase": 25, "attackMin": 5, "attackMax": 12 }
+    "territorialScrapper": { "name": "Territorial Scrapper", "hpBase": 20, "attackMin": 3, "attackMax": 8, "evadeChance": 0 },
+    "veinGuard":            { "name": "Vein Guard",            "hpBase": 30, "attackMin": 4, "attackMax": 10, "evadeChance": 0 },
+    "orichalchumDealer":    { "name": "Orichalchum Dealer",    "hpBase": 25, "attackMin": 5, "attackMax": 12, "evadeChance": 0 }
   },
   "homeRaidRaider": {
     "name": "The raider",
     "hp": 35,
     "attackMin": 6,
-    "attackMax": 14
+    "attackMax": 14,
+    "evadeChance": 0
   }
 }
