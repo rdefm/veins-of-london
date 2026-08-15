@@ -388,7 +388,10 @@ func _build_district_panel(district_id: String) -> void:
 
 func _build_district_actions(district_id: String) -> Control:
 	var district: Dictionary = GameData.DISTRICTS[district_id]
-	var row := UI.hbox()
+	# hflow, not hbox: a wormhole-holding player can see three buttons here
+	# (Prospect/Travel/Wormhole) at once, same overflow risk the vein action
+	# card's own switch to hflow already documents (bugfixes ticket 05).
+	var row := UI.hflow()
 
 	var site_cap: int = district.get("siteCap", 0)
 	if site_cap <= 0:
@@ -410,6 +413,12 @@ func _build_district_actions(district_id: String) -> Control:
 		# D3: travel is free (faction-resource-economy ticket 05) — no block
 		# cost to show, so this is a plain button, not a cost-labelled one.
 		row.add_child(UI.button("Travel", func(): Travel.travel_to(district_id)))
+
+		# calc-effect-wiring-03: wormhole's trigger-free travel option,
+		# shown alongside plain Travel whenever the player holds one.
+		# PROSE-REVIEW: new button label, drafted against CONTENT-GUIDE.md's tone bible.
+		if GameState.state["player"]["inventory"].get("wormhole", 0) > 0:
+			row.add_child(UI.button("⊗ Wormhole", func(): Travel.travel_via_wormhole(district_id)))
 
 	return row
 

@@ -321,6 +321,8 @@ static func enemy_attack() -> void:
 	player["hp"] = maxi(0, player["hp"] - dmg)
 	combat["log"].append("%s hits you for %d%s. You: %d/%d HP." % [enemy["name"], dmg, shield_note, player["hp"], player["hpMax"]])
 	if player["hp"] <= 0:
+		if _try_failsafe(combat, player):
+			return
 		combat["outcome"] = "loss"
 		combat["log"].append("You're done. You come round somewhere unpleasant.")
 		player["hp"] = GameState.round_epsilon(player["hpMax"] * 0.3)
@@ -489,6 +491,50 @@ static func _maybe_win_from_direct_damage(combat: Dictionary, enemy: Dictionary)
 	_dispatch_on_win()
 
 
+# calc-effect-wiring-03: Prophet's Breath grants the same evadeTurns/
+# evadeChance fields Rewind grants (§3.9) -- sharing the fields means
+# activating this while Rewind's grant is still active (or vice versa)
+# simply overwrites both to the new activation's values, no stacking or
+# reconciliation, per the ticket.
+static func use_prophets_breath() -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or combat["outcome"] != null:
+		return { "ok": false, "reason": "Combat not active." }
+	var player: Dictionary = GameState.state["player"]
+	if player["inventory"].get("prophetsBreath", 0) <= 0:
+		return { "ok": false, "reason": "No prophet's breath." }
+
+	player["inventory"]["prophetsBreath"] -= 1
+	var power = Crafting.effect_power("prophetsBreath", player["craftingSkill"])
+	combat["evadeTurns"] = power
+	combat["evadeChance"] = 0.50
+	# PROSE-REVIEW: new prophet's-breath activation log line, drafted against CONTENT-GUIDE.md's tone bible.
+	combat["log"].append("You take a lungful. For a few seconds, you can see it coming.")
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# calc-effect-wiring-03: Wormhole's combat half -- guarantees flee()'s
+# escape outright rather than boosting its roll (contrast Blast's
+# blastFleeBoost, which still rolls at a raised chance). Bypasses both the
+# 0.65 roll and the enemy's free-attack-on-failed-flee entirely, per the
+# ticket. The map-travel half lives in Travel.travel_via_wormhole().
+static func use_wormhole() -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or combat["outcome"] != null:
+		return { "ok": false, "reason": "Combat not active." }
+	var player: Dictionary = GameState.state["player"]
+	if player["inventory"].get("wormhole", 0) <= 0:
+		return { "ok": false, "reason": "No wormhole." }
+
+	player["inventory"]["wormhole"] -= 1
+	combat["outcome"] = "fled"
+	# PROSE-REVIEW: new guaranteed-flee log line, drafted against CONTENT-GUIDE.md's tone bible.
+	combat["log"].append("You fold the space between you and gone. Clean exit -- no parting shot.")
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
 # Equipped non-rewind device (freeze/motion effect). Rewind devices are
 # used via combat_rewind(), not this.
 static func use_device() -> Dictionary:
@@ -550,6 +596,18 @@ static func combat_rewind() -> Dictionary:
 	else:
 		Devices.activate(rewind_device["id"])
 
+	_restore_from_snapshot(combat, player)
+
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# calc-effect-wiring-03: the actual snapshot-restore mechanics, shared by
+# combat_rewind() (above -- consumes a rewind consumable/device) and
+# _try_failsafe() (below -- consumes failsafe instead). Neither the
+# rewind-availability guard nor the resource deduction lives here; each
+# caller owns its own.
+static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> void:
 	var snap: Dictionary = Snapshots.oldest(combat["snapshots"])
 	Snapshots.clear(combat["snapshots"])
 
@@ -565,8 +623,26 @@ static func combat_rewind() -> Dictionary:
 	combat["evadeTurns"] = 2
 	combat["evadeChance"] = 0.50
 
-	EventBus.state_changed.emit()
-	return { "ok": true }
+
+# calc-effect-wiring-03: checked from enemy_attack() the moment the
+# player's hp would hit 0, before the "loss" outcome resolves -- a
+# separate resource from Rewind, tried first and automatically (no manual
+# Use action exists for failsafe). Requires a snapshot to restore to, same
+# as combat_rewind()'s own guard; with none available (e.g. hp hits 0 on a
+# failed flee before any player_attack() has ever pushed one), failsafe
+# can't do anything and the loss proceeds normally even with failsafe in
+# stock.
+static func _try_failsafe(combat: Dictionary, player: Dictionary) -> bool:
+	if player["inventory"].get("failsafe", 0) <= 0:
+		return false
+	if combat["snapshots"].is_empty():
+		return false
+
+	player["inventory"]["failsafe"] -= 1
+	_restore_from_snapshot(combat, player)
+	# PROSE-REVIEW: new failsafe auto-trigger log line, drafted against CONTENT-GUIDE.md's tone bible.
+	combat["log"].append("⚑ Failsafe fires. Death, reversed -- administratively.")
+	return true
 
 
 static func _find_equipped_rewind_device_with_charge() -> Variant:

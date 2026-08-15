@@ -743,3 +743,147 @@ func run() -> void:
 		Combat.use_black_hole()
 		assert_eq(GameState.state["combat"]["outcome"], "win", "lethal black hole damage should win the fight")
 	)
+
+	# ── calc-effect-wiring-03: reactive and escape consumables ───────────
+
+	run_case("use_prophets_breath_sets_evadeTurns_from_effect_power_and_50_percent_chance", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["prophetsBreath"] = 2
+		GameState.state["player"]["craftingSkill"] = 1
+		var result := Combat.use_prophets_breath()
+		assert_true(result["ok"], "should succeed with prophet's breath in hand")
+		# prophetsBreath effectPower ([0,1,1,2,2,3]) at skill 1 = 1
+		assert_eq(GameState.state["combat"]["evadeTurns"], 1, "evadeTurns should be set from effectPower")
+		assert_almost_eq(GameState.state["combat"]["evadeChance"], 0.50, 0.0001, "evadeChance should be 50%, same as Rewind's grant")
+		assert_eq(GameState.state["player"]["inventory"]["prophetsBreath"], 1, "one prophet's breath consumed")
+	)
+
+	run_case("use_prophets_breath_fails_with_none_in_inventory", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["prophetsBreath"] = 0
+		var result := Combat.use_prophets_breath()
+		assert_true(not result["ok"], "should fail with no prophet's breath")
+	)
+
+	run_case("use_prophets_breath_overwrites_an_existing_evade_grant_rather_than_stacking", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["prophetsBreath"] = 1
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["combat"]["evadeTurns"] = 5
+		GameState.state["combat"]["evadeChance"] = 0.9
+		Combat.use_prophets_breath()
+		# prophetsBreath effectPower ([0,1,1,2,2,3]) at skill 1 = 1
+		assert_eq(GameState.state["combat"]["evadeTurns"], 1, "should overwrite, not add to, an existing evade grant")
+		assert_almost_eq(GameState.state["combat"]["evadeChance"], 0.50, 0.0001, "should overwrite evadeChance too")
+	)
+
+	run_case("use_wormhole_flee_guarantees_the_outcome_and_consumes_one", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["wormhole"] = 1
+		var result := Combat.use_wormhole()
+		assert_true(result["ok"], "should succeed with a wormhole in hand")
+		assert_eq(GameState.state["combat"]["outcome"], "fled", "wormhole should guarantee a flee outright")
+		assert_eq(GameState.state["player"]["inventory"]["wormhole"], 0, "one wormhole consumed")
+	)
+
+	run_case("use_wormhole_flee_never_gives_the_enemy_a_free_attack", func():
+		# use_wormhole() bypasses flee()'s roll (and its free-attack-on-fail
+		# consequence) entirely -- no Rng call at all, so this holds
+		# unconditionally rather than needing a seed search.
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["wormhole"] = 1
+		GameState.state["combat"]["enemy"]["attackMin"] = 50
+		GameState.state["combat"]["enemy"]["attackMax"] = 50
+		var hp_before: int = GameState.state["player"]["hp"]
+		Combat.use_wormhole()
+		assert_eq(GameState.state["player"]["hp"], hp_before, "wormhole flee must never let the enemy get a parting shot in")
+	)
+
+	run_case("use_wormhole_fails_with_none_in_inventory", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["wormhole"] = 0
+		var result := Combat.use_wormhole()
+		assert_true(not result["ok"], "should fail with no wormhole")
+	)
+
+	run_case("failsafe_auto_triggers_before_the_loss_outcome_when_hp_would_hit_0", func():
+		_fresh_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		GameState.state["player"]["hp"] = 100
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["player"]["inventory"]["failsafe"] = 1
+		combat["enemy"]["attackMin"] = 500
+		combat["enemy"]["attackMax"] = 500
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
+
+		Rng.set_seed(1)
+		Combat.enemy_attack()
+
+		assert_eq(GameState.state["player"]["inventory"]["failsafe"], 0, "the failsafe should be auto-consumed")
+		assert_eq(GameState.state["player"]["hp"], 90, "should restore the snapshot's playerHp, not the 30%-hpMax revive")
+		assert_eq(combat["outcome"], null, "the loss outcome must never resolve when failsafe catches it")
+		assert_eq(combat["snapshots"], [], "the snapshot stack should be cleared, same as a manual rewind")
+		var found := false
+		for line in combat["log"]:
+			if line.contains("Failsafe fires"):
+				found = true
+		assert_true(found, "should log the failsafe auto-trigger line")
+	)
+
+	run_case("failsafe_does_not_trigger_with_no_snapshot_to_restore_to", func():
+		_fresh_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		GameState.state["player"]["hp"] = 100
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["player"]["inventory"]["failsafe"] = 1
+		combat["enemy"]["attackMin"] = 500
+		combat["enemy"]["attackMax"] = 500
+
+		Rng.set_seed(1)
+		Combat.enemy_attack()
+
+		assert_eq(GameState.state["player"]["inventory"]["failsafe"], 1, "failsafe should not be spent with nothing to restore to")
+		assert_eq(combat["outcome"], "loss", "the loss should resolve normally")
+		assert_eq(GameState.state["player"]["hp"], 30, "should revive at 30% hpMax, the normal loss path")
+	)
+
+	run_case("failsafe_is_tried_before_a_manually_held_rewind_consumable_or_device", func():
+		# Both a rewind consumable and failsafe are in stock -- failsafe
+		# should fire (its own inventory count drops), leaving the rewind
+		# consumable untouched, since failsafe is checked automatically
+		# before the player ever gets a chance to manually spend Rewind.
+		_fresh_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		GameState.state["player"]["hp"] = 100
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["player"]["inventory"]["failsafe"] = 1
+		GameState.state["player"]["inventory"]["rewind"] = 1
+		combat["enemy"]["attackMin"] = 500
+		combat["enemy"]["attackMax"] = 500
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
+
+		Rng.set_seed(1)
+		Combat.enemy_attack()
+
+		assert_eq(GameState.state["player"]["inventory"]["failsafe"], 0, "failsafe should be spent")
+		assert_eq(GameState.state["player"]["inventory"]["rewind"], 1, "the rewind consumable should be left untouched")
+	)
+
+	run_case("failsafe_auto_triggers_inside_an_event_raid_context_too", func():
+		# vein-raiding's event-embedded-raid case (event_raid context) uses
+		# the same enemy_attack() path -- failsafe must not be context-gated.
+		_fresh_combat(Combat.CONTEXT_EVENT_RAID)
+		var combat: Dictionary = GameState.state["combat"]
+		GameState.state["player"]["hp"] = 100
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["player"]["inventory"]["failsafe"] = 1
+		combat["enemy"]["attackMin"] = 500
+		combat["enemy"]["attackMax"] = 500
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
+
+		Rng.set_seed(1)
+		Combat.enemy_attack()
+
+		assert_eq(combat["outcome"], null, "failsafe should catch the loss inside an event_raid context too")
+		assert_eq(GameState.state["player"]["inventory"]["failsafe"], 0, "the failsafe should be auto-consumed")
+	)

@@ -43,12 +43,19 @@ static func ensure_district(district: String, action_cost: int = 1) -> Dictionar
 # the only way to pop into a district and roll for its event deck without
 # also prospecting. Refuses a no-op trip to the district the player is
 # already in rather than silently succeeding for free.
-static func travel_to(district: String) -> Dictionary:
+#
+# skip_triggers (calc-effect-wiring-03): lets travel_via_wormhole() below
+# reuse this same path for its currentDistrict/emit bookkeeping and "already
+# there" guard, rather than duplicating them, while skipping the two rolls
+# that follow -- every other call site omits it and gets the normal rolls.
+static func travel_to(district: String, skip_triggers: bool = false) -> Dictionary:
 	if GameState.state["world"]["currentDistrict"] == district:
 		return { "ok": false, "reason": "Already there." }
 
 	GameState.state["world"]["currentDistrict"] = district
 	EventBus.state_changed.emit()
+	if skip_triggers:
+		return { "ok": true }
 	# vein-raiding ticket 07 — checked first: a pending alarm-defend raid
 	# targeting this district takes the screen over like any combat start, so
 	# the district deck's own roll below must be skipped this beat, not
@@ -56,4 +63,26 @@ static func travel_to(district: String) -> Dictionary:
 	if Raiding.maybe_trigger_defend(district):
 		return { "ok": true }
 	DistrictDeck.maybe_trigger(district)  # D5 — must stay last; see maybe_trigger()'s doc comment
+	return { "ok": true }
+
+
+# calc-effect-wiring-03: wormhole's map-travel half (partial scope -- the
+# raid-alert/instant-HQ-escape clause is out of scope, see the follow-up
+# spec). Calls travel_to() with skip_triggers=true so arriving via wormhole
+# never rolls Raiding.maybe_trigger_defend() or DistrictDeck.maybe_trigger()
+# -- zero chance of any arrival encounter, which normal (already-free)
+# travel can't offer. The "already there" guard is checked here too, before
+# spending the item, so a blocked no-op trip never costs a wormhole (travel_to()'s
+# own guard would otherwise catch it only after the deduction below).
+static func travel_via_wormhole(district: String) -> Dictionary:
+	var player: Dictionary = GameState.state["player"]
+	if player["inventory"].get("wormhole", 0) <= 0:
+		return { "ok": false, "reason": "No wormhole." }
+	if GameState.state["world"]["currentDistrict"] == district:
+		return { "ok": false, "reason": "Already there." }
+
+	player["inventory"]["wormhole"] -= 1
+	travel_to(district, true)
+	# PROSE-REVIEW: new wormhole-travel confirmation line, drafted against CONTENT-GUIDE.md's tone bible.
+	Notify.push("Space folds. You're just... there. No detours.")
 	return { "ok": true }

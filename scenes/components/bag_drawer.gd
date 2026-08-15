@@ -17,12 +17,15 @@ extends Control
 
 const DRAWER_HEIGHT := 420.0
 
-# calc-effect-wiring-02: extended with the five newly-wired effects. Still a
+# calc-effect-wiring-02/03: extended with the newly-wired effects. Still a
 # curated list, not every GameData.RECIPES key (unlike inventory.gd's tab,
 # which now iterates all of them) -- this summary only covers consumables
-# with a real, usable effect; sale-only/not-yet-wired recipes (rejuvenation,
-# prophetsBreath, etc.) stay off it.
-const CONSUMABLE_KEYS := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "blast", "shield", "blackHole", "healingBurst"]
+# with a real, usable effect reachable from THIS drawer; sale-only/not-yet-
+# wired recipes (rejuvenation, etc.) stay off it. failsafe is deliberately
+# absent too -- it's wired (calc-effect-wiring-03) but has no manual Use
+# action, so it belongs only on inventory.gd's tab, which lists every
+# in-stock recipe regardless of whether it has a button here.
+const CONSUMABLE_KEYS := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole"]
 
 var _dim: ColorRect
 var _content: VBoxContainer
@@ -152,6 +155,16 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 	if player["inventory"].get("healingBurst", 0) > 0:
 		_content.add_child(UI.button("✚ Healing Burst (%d) — instant heal" % player["inventory"]["healingBurst"], _on_use_healing_burst))
 
+	# calc-effect-wiring-03: prophetsBreath/wormhole (combat evade buff /
+	# guaranteed flee). failsafe has no button here -- see CONSUMABLE_KEYS'
+	# comment.
+	# PROSE-REVIEW: new button labels below, drafted against CONTENT-GUIDE.md's tone bible.
+	if player["inventory"].get("prophetsBreath", 0) > 0:
+		_content.add_child(UI.button("≋ Prophet's Breath (%d) — evade buff" % player["inventory"]["prophetsBreath"], _on_use_prophets_breath))
+
+	if player["inventory"].get("wormhole", 0) > 0:
+		_content.add_child(UI.button("⊗ Wormhole (%d) — guaranteed flee" % player["inventory"]["wormhole"], _on_use_wormhole))
+
 	var snap_count: int = combat["snapshots"].size()
 	if player["inventory"]["rewind"] > 0:
 		var rewind_label := "(%d turn(s) back · +50%% evade x2 turns)" % snap_count if snap_count > 0 else "(nothing to undo yet)"
@@ -202,6 +215,16 @@ func _on_use_black_hole() -> void:
 func _on_use_healing_burst() -> void:
 	Bag.close()
 	Consumables.use_healing_burst()
+
+
+func _on_use_prophets_breath() -> void:
+	Bag.close()
+	Combat.use_prophets_breath()
+
+
+func _on_use_wormhole() -> void:
+	Bag.close()
+	Combat.use_wormhole()
 
 
 func _on_use_device() -> void:

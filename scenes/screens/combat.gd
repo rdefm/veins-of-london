@@ -75,12 +75,15 @@ func _build_action_bar() -> Control:
 	row.add_child(UI.button("🏃 Run", func(): Combat.flee()))
 
 	var player: Dictionary = GameState.state["player"]
-	# calc-effect-wiring-02: blast/shield/blackHole/healingBurst added to the
-	# same "has anything to use" check that gates the Item button.
+	# calc-effect-wiring-02/03: blast/shield/blackHole/healingBurst, then
+	# prophetsBreath/wormhole, added to the same "has anything to use" check
+	# that gates the Item button. failsafe is deliberately absent -- it has
+	# no manual Use action (see bag_drawer.gd's CONSUMABLE_KEYS comment).
 	var has_items: bool = (
 		player["inventory"]["timePearl"] > 0 or player["inventory"]["enhancementPowder"] > 0 or player["inventory"]["rewind"] > 0
 		or player["inventory"].get("blast", 0) > 0 or player["inventory"].get("shield", 0) > 0
 		or player["inventory"].get("blackHole", 0) > 0 or player["inventory"].get("healingBurst", 0) > 0
+		or player["inventory"].get("prophetsBreath", 0) > 0 or player["inventory"].get("wormhole", 0) > 0
 		or player["equipment"]["device"] != null
 	)
 	var item_button := UI.button("🎒 Item", func(): Bag.open())
