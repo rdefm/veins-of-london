@@ -17,7 +17,12 @@ extends Control
 
 const DRAWER_HEIGHT := 420.0
 
-const CONSUMABLE_KEYS := ["timePearl", "enhancementPowder", "rewind"]
+# calc-effect-wiring-02: extended with the five newly-wired effects. Still a
+# curated list, not every GameData.RECIPES key (unlike inventory.gd's tab,
+# which now iterates all of them) -- this summary only covers consumables
+# with a real, usable effect; sale-only/not-yet-wired recipes (rejuvenation,
+# prophetsBreath, etc.) stay off it.
+const CONSUMABLE_KEYS := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "blast", "shield", "blackHole", "healingBurst"]
 
 var _dim: ColorRect
 var _content: VBoxContainer
@@ -131,6 +136,22 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 	if player["inventory"]["enhancementPowder"] > 0:
 		_content.add_child(UI.button("↯ Enhancement Powder (%d) — extra attacks" % player["inventory"]["enhancementPowder"], _on_use_enhancement_powder))
 
+	# calc-effect-wiring-02: blast/shield/blackHole/healingBurst.
+	# PROSE-REVIEW: new button labels below, drafted against CONTENT-GUIDE.md's tone bible.
+	if player["inventory"].get("blast", 0) > 0:
+		_content.add_child(UI.button("☄ Blast (%d) — damage, flee boost, chance to disarm" % player["inventory"]["blast"], _on_use_blast))
+
+	if player["inventory"].get("shield", 0) > 0:
+		var shield_button := UI.button("⛨ Shield (%d) — absorb incoming damage" % player["inventory"]["shield"], _on_use_shield)
+		shield_button.disabled = player["shieldPool"] > 0
+		_content.add_child(shield_button)
+
+	if player["inventory"].get("blackHole", 0) > 0:
+		_content.add_child(UI.button("⊙ Black Hole (%d) — damage and freeze" % player["inventory"]["blackHole"], _on_use_black_hole))
+
+	if player["inventory"].get("healingBurst", 0) > 0:
+		_content.add_child(UI.button("✚ Healing Burst (%d) — instant heal" % player["inventory"]["healingBurst"], _on_use_healing_burst))
+
 	var snap_count: int = combat["snapshots"].size()
 	if player["inventory"]["rewind"] > 0:
 		var rewind_label := "(%d turn(s) back · +50%% evade x2 turns)" % snap_count if snap_count > 0 else "(nothing to undo yet)"
@@ -161,6 +182,26 @@ func _on_use_time_pearl() -> void:
 func _on_use_enhancement_powder() -> void:
 	Bag.close()
 	Combat.use_enhancement_powder()
+
+
+func _on_use_blast() -> void:
+	Bag.close()
+	Combat.use_blast()
+
+
+func _on_use_shield() -> void:
+	Bag.close()
+	Combat.use_shield()
+
+
+func _on_use_black_hole() -> void:
+	Bag.close()
+	Combat.use_black_hole()
+
+
+func _on_use_healing_burst() -> void:
+	Bag.close()
+	Consumables.use_healing_burst()
 
 
 func _on_use_device() -> void:

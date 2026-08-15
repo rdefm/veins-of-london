@@ -58,11 +58,27 @@ func _build_ore_tab() -> void:
 		_content.add_child(UI.muted_label("No orichalchum in stock. Get searching."))
 
 
+# calc-effect-wiring-02: iterates every recipe key rather than a hardcoded
+# list, so newly-wired effects (and any future ones) show up here without
+# another edit. Recipes with no live consumer yet still show up as long as
+# the player holds any (e.g. failsafe, prophetsBreath) -- they just get no
+# Use button, same as combat-only recipes on this out-of-combat tab.
+const OUT_OF_COMBAT_USE_KEYS := ["healingSalve", "healingBurst"]
+
+
 func _build_consumables_tab() -> void:
-	var inventory: Dictionary = GameState.state["player"]["inventory"]
-	var skill: int = GameState.state["player"]["craftingSkill"]
+	var player: Dictionary = GameState.state["player"]
+	var inventory: Dictionary = player["inventory"]
+	var skill: int = player["craftingSkill"]
+
+	# A used-up salve still has a running HoT even once its card (below)
+	# stops showing at qty 0, so surface it here regardless of stock.
+	# PROSE-REVIEW: new active-salve status label, drafted against CONTENT-GUIDE.md's tone bible.
+	if player["healingSalveDaysLeft"] > 0:
+		_content.add_child(UI.muted_label("♥ Healing Salve active — %d HP/day, %d day(s) left" % [player["healingSalveDailyAmount"], player["healingSalveDaysLeft"]]))
+
 	var any_item := false
-	for recipe_key in ["timePearl", "enhancementPowder", "rewind"]:
+	for recipe_key in GameData.RECIPES.keys():
 		var qty: int = inventory.get(recipe_key, 0)
 		if qty <= 0:
 			continue
@@ -73,9 +89,20 @@ func _build_consumables_tab() -> void:
 		c["content"].add_child(UI.label("%s %s ×%d" % [recipe["symbol"], recipe["name"], qty]))
 		c["content"].add_child(UI.muted_label(recipe["description"]))
 		c["content"].add_child(UI.muted_label("Effect power at Lv%d: %s" % [skill, str(power)]))
+		if OUT_OF_COMBAT_USE_KEYS.has(recipe_key):
+			var captured_key: String = recipe_key
+			c["content"].add_child(UI.button("Use", func(): _use_consumable(captured_key)))
 		_content.add_child(c["panel"])
 	if not any_item:
 		_content.add_child(UI.muted_label("No consumables. Craft some to get started."))
+
+
+func _use_consumable(recipe_key: String) -> void:
+	match recipe_key:
+		"healingSalve":
+			Consumables.use_healing_salve()
+		"healingBurst":
+			Consumables.use_healing_burst()
 
 
 func _build_equipment_tab() -> void:

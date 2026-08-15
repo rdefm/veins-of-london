@@ -576,3 +576,170 @@ func run() -> void:
 		var capabilities := Combat._enemy_capabilities_from_template(template)
 		assert_almost_eq(capabilities["evadeChance"], 0.2, 0.0001, "a newly-authored template that omits evadeChance should default to 20%")
 	)
+
+	# ── calc-effect-wiring-02: combat-pattern consumables ────────────────
+
+	run_case("use_blast_deals_immediate_damage_and_grants_a_flee_boost", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["blast"] = 2
+		GameState.state["player"]["craftingSkill"] = 1
+		var hp_before: int = GameState.state["combat"]["enemy"]["hp"]
+		var result := Combat.use_blast()
+		assert_true(result["ok"], "should succeed with a blast in hand")
+		# blast effectPower at skill 1 = 6
+		assert_eq(GameState.state["combat"]["enemy"]["hp"], hp_before - 6, "should deal effectPower damage immediately")
+		assert_eq(GameState.state["player"]["inventory"]["blast"], 1, "one blast consumed")
+		assert_eq(GameState.state["combat"]["blastFleeBoost"], true, "should grant a one-use flee boost")
+	)
+
+	run_case("use_blast_fails_with_none_in_inventory", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["blast"] = 0
+		var result := Combat.use_blast()
+		assert_true(not result["ok"], "should fail with no blast")
+	)
+
+	run_case("use_blast_can_defeat_the_enemy_outright", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["blast"] = 1
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["combat"]["enemy"]["hp"] = 3
+		Combat.use_blast()
+		assert_eq(GameState.state["combat"]["outcome"], "win", "lethal blast damage should win the fight")
+	)
+
+	run_case("blast_flee_boost_raises_flee_chance_to_90_percent_and_clears_after_one_attempt", func():
+		var boosted_flee_seed := _find_seed_for(50, func():
+			_fresh_combat()
+			GameState.state["combat"]["blastFleeBoost"] = true
+			var result := Combat.flee()
+			return result.get("outcome", "") == "fled"
+		)
+		assert_true(boosted_flee_seed != -1, "a 90% boosted flee chance should fled within 50 tries")
+
+		_fresh_combat()
+		GameState.state["combat"]["blastFleeBoost"] = true
+		Rng.set_seed(boosted_flee_seed)
+		Combat.flee()
+		assert_eq(GameState.state["combat"]["blastFleeBoost"], false, "the boost should clear after the one attempt regardless of outcome")
+	)
+
+	run_case("blast_flee_boost_clears_even_on_a_failed_flee_attempt", func():
+		var failed_flee_seed := _find_seed_for(200, func():
+			_fresh_combat()
+			GameState.state["combat"]["blastFleeBoost"] = true
+			var result := Combat.flee()
+			return result.get("outcome", "") != "fled"
+		)
+		assert_true(failed_flee_seed != -1, "should find a failed boosted-flee roll within 200 tries")
+
+		_fresh_combat()
+		GameState.state["combat"]["blastFleeBoost"] = true
+		Rng.set_seed(failed_flee_seed)
+		Combat.flee()
+		assert_eq(GameState.state["combat"]["blastFleeBoost"], false, "the boost should still clear on a failed attempt")
+	)
+
+	run_case("blast_can_disarm_the_enemy_on_its_small_chance", func():
+		var disarm_seed := _find_seed_for(500, func():
+			_fresh_combat()
+			GameState.state["player"]["inventory"]["blast"] = 1
+			var enemy: Dictionary = GameState.state["combat"]["enemy"]
+			enemy["weapon"] = { "min": 3, "max": 6 }
+			enemy["ability"] = { "id": "test_ability", "lockedTurns": 0 }
+			Combat.use_blast()
+			return Combat.is_ability_locked(enemy)
+		)
+		assert_true(disarm_seed != -1, "blast's 15% disarm chance should land within 500 tries")
+
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["blast"] = 1
+		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		enemy["weapon"] = { "min": 3, "max": 6 }
+		enemy["ability"] = { "id": "test_ability", "lockedTurns": 0 }
+		Rng.set_seed(disarm_seed)
+		Combat.use_blast()
+		assert_eq(enemy["weapon"], null, "a landed disarm should also strip the weapon bonus")
+	)
+
+	run_case("use_shield_sets_shieldPool_from_effect_power", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["shield"] = 2
+		GameState.state["player"]["craftingSkill"] = 1
+		var result := Combat.use_shield()
+		assert_true(result["ok"], "should succeed with a shield in hand")
+		# shield effectPower at skill 1 = 4
+		assert_eq(GameState.state["player"]["shieldPool"], 4, "shieldPool should be set from effectPower")
+		assert_eq(GameState.state["player"]["inventory"]["shield"], 1, "one shield consumed")
+	)
+
+	run_case("use_shield_blocked_while_a_pool_is_still_active", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["shield"] = 2
+		GameState.state["player"]["shieldPool"] = 3
+		var result := Combat.use_shield()
+		assert_true(not result["ok"], "a second shield should be blocked while one is active")
+		assert_eq(GameState.state["player"]["inventory"]["shield"], 2, "no shield consumed when blocked")
+		assert_eq(GameState.state["player"]["shieldPool"], 3, "existing pool untouched")
+	)
+
+	run_case("use_shield_fails_with_none_in_inventory", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["shield"] = 0
+		var result := Combat.use_shield()
+		assert_true(not result["ok"], "should fail with no shield")
+	)
+
+	run_case("shield_absorbs_damage_1_to_1_when_damage_does_not_exceed_the_pool", func():
+		_fresh_combat()
+		GameState.state["player"]["shieldPool"] = 20
+		GameState.state["player"]["hp"] = 100
+		GameState.state["combat"]["enemy"]["attackMin"] = 10
+		GameState.state["combat"]["enemy"]["attackMax"] = 10
+		Rng.set_seed(1)
+		Combat.enemy_attack()
+		assert_eq(GameState.state["player"]["hp"], 100, "10 dmg <= 20 pool -> player takes 0")
+		assert_eq(GameState.state["player"]["shieldPool"], 10, "pool should drain by the full damage amount")
+	)
+
+	run_case("shield_overflow_drains_the_pool_and_passes_the_remainder_through", func():
+		_fresh_combat()
+		GameState.state["player"]["shieldPool"] = 5
+		GameState.state["player"]["hp"] = 100
+		GameState.state["combat"]["enemy"]["attackMin"] = 12
+		GameState.state["combat"]["enemy"]["attackMax"] = 12
+		Rng.set_seed(1)
+		Combat.enemy_attack()
+		assert_eq(GameState.state["player"]["hp"], 93, "12 dmg - 5 pool = 7 damage taken")
+		assert_eq(GameState.state["player"]["shieldPool"], 0, "pool should be fully drained")
+	)
+
+	run_case("use_black_hole_deals_immediate_damage_and_adds_to_frozenTurns", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["blackHole"] = 2
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["combat"]["frozenTurns"] = 1
+		var hp_before: int = GameState.state["combat"]["enemy"]["hp"]
+		var result := Combat.use_black_hole()
+		assert_true(result["ok"], "should succeed with a black hole in hand")
+		# blackHole effectPower at skill 1 = 8 -> freeze = 1 + floor(8/8) = 2
+		assert_eq(GameState.state["combat"]["enemy"]["hp"], hp_before - 8, "should deal effectPower damage immediately")
+		assert_eq(GameState.state["combat"]["frozenTurns"], 3, "should add to the existing frozenTurns, not replace it (1 prior + 2 new)")
+		assert_eq(GameState.state["player"]["inventory"]["blackHole"], 1, "one black hole consumed")
+	)
+
+	run_case("use_black_hole_fails_with_none_in_inventory", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["blackHole"] = 0
+		var result := Combat.use_black_hole()
+		assert_true(not result["ok"], "should fail with no black hole")
+	)
+
+	run_case("use_black_hole_can_defeat_the_enemy_outright", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["blackHole"] = 1
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["combat"]["enemy"]["hp"] = 3
+		Combat.use_black_hole()
+		assert_eq(GameState.state["combat"]["outcome"], "win", "lethal black hole damage should win the fight")
+	)

@@ -204,6 +204,8 @@ state = {
     orichalchum: {},          # { oreType: int }
     veins: [],                # vein dicts, §2.1
     inventory: { timePearl: 0, enhancementPowder: 0, rewind: 0 },
+    shieldPool: 0,             # calc-effect-wiring-02: Shield's absorption pool, §3.7
+    healingSalveDaysLeft: 0, healingSalveDailyAmount: 0,  # calc-effect-wiring-02: Healing Salve HoT, §3.1/§3.7
     equipment: { weapon: null, device: null },
     items: [],                # [{ id:String, type:String }]
     devicesInProgress: [],    # [{ id, type, progress:float }]
@@ -333,10 +335,15 @@ Tab bar (`NavBar`) hidden on `title, intro, event, combat` (unchanged from M0). 
 - Vein-raid enemy (attacking an NPC-claimed vein): template scaled `hp = round(hpBase × (1 + (veinLevel−1)×0.3) × guards)`, atkMax `+ (veinLevel−1)`. (Reachable in M0 only via debug; keep functions.)
 - `getAttackRange()` = player atk + equipped weapon bonus.
 - **Player attack turn:** push combat snapshot first (§3.9). Attacks this turn: 1, or with motionTurns > 0: `motionPower ≥ 3 ? 3 : 2` (log line). Each hit: first `chance(enemy.evadeChance)` (§1.10) → enemy dodges, no damage, log, next hit; else `dmg = rand(atkMin, atkMax)`; enemy hp −= dmg; log "You attack — X damage. Enemy: h/H HP." Enemy at 0 → outcome "win", dispatch onWin. After attacks: motionTurns −= 1 if active (log expiry at 0); enemy.ability.lockedTurns −= 1 if locked (log at 0, "back online" — see `Combat.disarm_enemy`, §1.10); frozenTurns > 0 → −1 (log expiry at 0) and enemy skips; else enemy attacks.
-- **Enemy attack:** if evadeTurns > 0: decrement; `chance(evadeChance)` → miss (log), return. Else `dmg = rand(enemy atk range)`, where enemy atk range is atkMin/atkMax plus the enemy's equipped `weapon` bonus if any (§1.10); player hp −= dmg; at 0 → outcome "loss", log, revive `hp = round(hpMax * 0.3)`.
-- **Flee:** `chance(0.65)` → outcome "fled"; else enemy gets a free attack.
+- **Enemy attack:** if evadeTurns > 0: decrement; `chance(evadeChance)` → miss (log), return. Else `dmg = rand(enemy atk range)`, where enemy atk range is atkMin/atkMax plus the enemy's equipped `weapon` bonus if any (§1.10); if `player.shieldPool > 0` (calc-effect-wiring-02), absorb 1:1 first (`absorbed = min(dmg, shieldPool)`, `shieldPool -= absorbed`, `dmg -= absorbed`) before applying the remainder; player hp −= dmg; at 0 → outcome "loss", log, revive `hp = round(hpMax * 0.3)`.
+- **Flee:** `chance(0.65)` → outcome "fled"; else enemy gets a free attack. calc-effect-wiring-02: Blast's flee boost (below) raises this to `chance(0.90)` for exactly one attempt, then clears regardless of outcome.
 - **Use Time Pearl:** blocked if frozenTurns > 0 ("Already frozen. Save the pearl."); consume; `frozenTurns = effectPower`.
 - **Use Enhancement Powder:** blocked if motionTurns > 0; consume; `motionPower = effectPower`; `motionTurns = power ≥ 3 ? 2 : 1`.
+- **Use Blast** (calc-effect-wiring-02): consume; deal `effectPower(skill)` damage to the enemy immediately (can win the fight outright); grant a one-use flee boost (see Flee, above); 15% chance to call `Combat.disarm_enemy(enemy, 2)` (§1.10).
+- **Use Shield** (calc-effect-wiring-02): blocked if `player.shieldPool > 0` ("Shield's already up. Save it."); consume; `player.shieldPool = effectPower(skill)` — no turn cap, drained by enemy attacks above.
+- **Use Black Hole** (calc-effect-wiring-02): consume; deal `effectPower(skill)` damage to the enemy immediately (can win the fight outright); `frozenTurns += 1 + floor(effectPower(skill) / 8)` — always additive, no reuse guard, stacks with Time Pearl or a prior Black Hole.
+- **Use Healing Burst** (`Consumables.use_healing_burst()`, calc-effect-wiring-02): usable in or out of combat; consume; `hp = min(hp + effectPower(skill), hpMax)`; result line goes to the combat log if a fight is active, else a Notify push.
+- **Use Healing Salve** (`Consumables.use_healing_salve()`, calc-effect-wiring-02, out-of-combat only): consume; `healingSalveDaysLeft = 2`, `healingSalveDailyAmount = effectPower(skill)` — reusing while already active refreshes both rather than stacking. Ticked in `TimeSystem.daily_tick()` (§3.1): while `daysLeft > 0`, heal `dailyAmount` HP (capped at hpMax) and decrement `daysLeft`.
 - **onWin dispatch:** "muggingWon" → pay `pendingSaleCut`, sale result modal. "raidWon" → transfer vein to player. Exit combat: mugging-win keeps the sale modal; context "home_raid" → debrief flow; else → inventory (raid win) / home.
 
 ### 3.8 Home-raid event chain

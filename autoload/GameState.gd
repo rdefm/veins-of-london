@@ -38,6 +38,13 @@ func new_game_state() -> Dictionary:
 			"cash": 40,
 			"hp": 100, "hpMax": 100,
 			"attackMin": 5, "attackMax": 12,
+			# calc-effect-wiring-02: Shield's absorption pool (no turn cap --
+			# drains on incoming damage until it's gone) and Healing Salve's
+			# 2-day heal-over-time timer, both outside the combat dict since
+			# they persist across combat's teardown-and-rebuild in
+			# Combat.exit_combat().
+			"shieldPool": 0,
+			"healingSalveDaysLeft": 0, "healingSalveDailyAmount": 0,
 			"orichalchum": {},
 			"veins": [],
 			"inventory": { "timePearl": 0, "enhancementPowder": 0, "rewind": 0 },

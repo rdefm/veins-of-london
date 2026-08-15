@@ -272,6 +272,39 @@ func run() -> void:
 		assert_true(hit, "daily_tick should reach step 5i (Raiding.apply_raid_resolution) within 500 tries")
 	)
 
+	# ── calc-effect-wiring-02: healing salve HoT ────────────────────────
+
+	run_case("healing_salve_ticks_daily_amount_and_decrements_days_left", func():
+		GameState.reset()
+		GameState.state["player"]["hp"] = 50
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["player"]["healingSalveDaysLeft"] = 2
+		GameState.state["player"]["healingSalveDailyAmount"] = 5
+		TimeSystem.daily_tick()
+		assert_eq(GameState.state["player"]["hp"], 55, "should heal by the daily amount")
+		assert_eq(GameState.state["player"]["healingSalveDaysLeft"], 1, "daysLeft should decrement by 1")
+	)
+
+	run_case("healing_salve_stops_once_days_left_hits_zero", func():
+		GameState.reset()
+		GameState.state["player"]["hp"] = 50
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["player"]["healingSalveDaysLeft"] = 0
+		GameState.state["player"]["healingSalveDailyAmount"] = 5
+		TimeSystem.daily_tick()
+		assert_eq(GameState.state["player"]["hp"], 50, "no salve active -> no heal")
+	)
+
+	run_case("healing_salve_heal_is_capped_at_hpMax", func():
+		GameState.reset()
+		GameState.state["player"]["hp"] = 98
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["player"]["healingSalveDaysLeft"] = 1
+		GameState.state["player"]["healingSalveDailyAmount"] = 5
+		TimeSystem.daily_tick()
+		assert_eq(GameState.state["player"]["hp"], 100, "heal caps at hpMax, not 98+5=103")
+	)
+
 	run_case("stub_daily_tick_steps_do_not_crash", func():
 		GameState.reset()
 		# Just confirms daily_tick runs end to end with the T04/T05/T06/T09

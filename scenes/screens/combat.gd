@@ -53,6 +53,9 @@ func _build_player_card(player: Dictionary, combat: Dictionary) -> Control:
 	if combat["motionTurns"] > 0:
 		var attacks := 3 if combat["motionPower"] >= 3 else 2
 		c["content"].add_child(UI.muted_label("↯ Motion — %d turn(s) · %d× attacks" % [combat["motionTurns"], attacks]))
+	if player["shieldPool"] > 0:
+		# PROSE-REVIEW: new shield-status label, drafted against CONTENT-GUIDE.md's tone bible.
+		c["content"].add_child(UI.muted_label("⛨ Shield — %d absorption left" % player["shieldPool"]))
 	return c["panel"]
 
 
@@ -72,7 +75,14 @@ func _build_action_bar() -> Control:
 	row.add_child(UI.button("🏃 Run", func(): Combat.flee()))
 
 	var player: Dictionary = GameState.state["player"]
-	var has_items: bool = player["inventory"]["timePearl"] > 0 or player["inventory"]["enhancementPowder"] > 0 or player["inventory"]["rewind"] > 0 or player["equipment"]["device"] != null
+	# calc-effect-wiring-02: blast/shield/blackHole/healingBurst added to the
+	# same "has anything to use" check that gates the Item button.
+	var has_items: bool = (
+		player["inventory"]["timePearl"] > 0 or player["inventory"]["enhancementPowder"] > 0 or player["inventory"]["rewind"] > 0
+		or player["inventory"].get("blast", 0) > 0 or player["inventory"].get("shield", 0) > 0
+		or player["inventory"].get("blackHole", 0) > 0 or player["inventory"].get("healingBurst", 0) > 0
+		or player["equipment"]["device"] != null
+	)
 	var item_button := UI.button("🎒 Item", func(): Bag.open())
 	item_button.disabled = not has_items
 	row.add_child(item_button)

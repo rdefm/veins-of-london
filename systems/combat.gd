@@ -25,6 +25,12 @@ const CANONICAL_CONTEXTS: Array[String] = [
 # one ever exist) is one edit, not three.
 const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = [CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING]
 
+# calc-effect-wiring-02 combat-pattern consumables. Percentages/turns are
+# placeholders per the ticket ("tune as needed"), not final balance.
+const BLAST_FLEE_BOOST_CHANCE := 0.90
+const BLAST_DISARM_CHANCE := 0.15
+const BLAST_DISARM_TURNS := 2
+
 
 static func is_canonical_context(context: String) -> bool:
 	return CANONICAL_CONTEXTS.has(context)
@@ -300,8 +306,20 @@ static func enemy_attack() -> void:
 	var atk := get_enemy_attack_range(enemy)
 	var dmg: int = Rng.randi_range(atk["min"], atk["max"])
 	var player: Dictionary = GameState.state["player"]
+
+	# calc-effect-wiring-02: Shield absorbs 1:1 out of player.shieldPool
+	# before HP takes anything -- dmg <= pool drains the pool for zero
+	# damage, dmg > pool empties the pool and passes the remainder through.
+	var shield_note := ""
+	if player["shieldPool"] > 0:
+		var absorbed: int = mini(dmg, player["shieldPool"])
+		player["shieldPool"] -= absorbed
+		dmg -= absorbed
+		if absorbed > 0:
+			shield_note = " (%d absorbed by shield)" % absorbed
+
 	player["hp"] = maxi(0, player["hp"] - dmg)
-	combat["log"].append("%s hits you for %d. You: %d/%d HP." % [enemy["name"], dmg, player["hp"], player["hpMax"]])
+	combat["log"].append("%s hits you for %d%s. You: %d/%d HP." % [enemy["name"], dmg, shield_note, player["hp"], player["hpMax"]])
 	if player["hp"] <= 0:
 		combat["outcome"] = "loss"
 		combat["log"].append("You're done. You come round somewhere unpleasant.")
@@ -313,7 +331,16 @@ static func flee() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 
-	if Rng.chance(0.65):
+	# calc-effect-wiring-02: Blast's one-use flee boost. Not part of the
+	# canonical combat-dict shape (see use_blast()) -- read defensively and
+	# cleared here regardless of the roll's outcome ("for one use, then
+	# clear" per the ticket), so it never survives past the next attempt.
+	var flee_chance := 0.65
+	if combat.get("blastFleeBoost", false):
+		flee_chance = BLAST_FLEE_BOOST_CHANCE
+		combat["blastFleeBoost"] = false
+
+	if Rng.chance(flee_chance):
 		combat["outcome"] = "fled"
 		combat["log"].append("You back off sharpish. Probably the right call.")
 	else:
@@ -364,6 +391,102 @@ static func use_enhancement_powder() -> Dictionary:
 	combat["log"].append("You rub the powder in. The world slows slightly around you. You feel very fast.")
 	EventBus.state_changed.emit()
 	return { "ok": true }
+
+
+# calc-effect-wiring-02: immediate damage, a one-use boost to the next
+# flee() roll (cleared there regardless of outcome), and a small chance to
+# disarm the enemy via ticket 01's Combat.disarm_enemy(). Free action, same
+# shape as use_time_pearl/use_enhancement_powder above -- doesn't consume
+# the turn that triggers enemy_attack().
+static func use_blast() -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or combat["outcome"] != null:
+		return { "ok": false, "reason": "Combat not active." }
+	var player: Dictionary = GameState.state["player"]
+	if player["inventory"].get("blast", 0) <= 0:
+		return { "ok": false, "reason": "No blast." }
+
+	player["inventory"]["blast"] -= 1
+	var power = Crafting.effect_power("blast", player["craftingSkill"])
+	var enemy: Dictionary = combat["enemy"]
+	enemy["hp"] = maxi(0, enemy["hp"] - power)
+	# PROSE-REVIEW: new blast result-log line, drafted against CONTENT-GUIDE.md's tone bible.
+	combat["log"].append("You let off a blast — %d damage. Enemy: %d/%d HP." % [power, enemy["hp"], enemy["hpMax"]])
+	combat["blastFleeBoost"] = true
+
+	if Rng.chance(BLAST_DISARM_CHANCE):
+		disarm_enemy(enemy, BLAST_DISARM_TURNS)
+		# PROSE-REVIEW: new disarm-on-blast log line.
+		combat["log"].append("The shove knocks their weapon loose.")
+
+	_maybe_win_from_direct_damage(combat, enemy)
+
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# calc-effect-wiring-02: sets player.shieldPool, drained 1:1 by
+# enemy_attack() above. Blocked while a pool is still active -- same
+# "already active" guard shape as use_time_pearl()'s frozenTurns check.
+static func use_shield() -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or combat["outcome"] != null:
+		return { "ok": false, "reason": "Combat not active." }
+	var player: Dictionary = GameState.state["player"]
+	if player["inventory"].get("shield", 0) <= 0:
+		return { "ok": false, "reason": "No shield." }
+	if player["shieldPool"] > 0:
+		# PROSE-REVIEW: new "shield already active" block line.
+		combat["log"].append("Shield's already up. Save it.")
+		EventBus.state_changed.emit()
+		return { "ok": false, "reason": "Shield already active." }
+
+	player["inventory"]["shield"] -= 1
+	var power = Crafting.effect_power("shield", player["craftingSkill"])
+	player["shieldPool"] = power
+	# PROSE-REVIEW: new shield-activation log line.
+	combat["log"].append("A shimmer folds around you. Shield up — %d absorption." % power)
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# calc-effect-wiring-02: immediate damage plus frozenTurns, always additive
+# regardless of source (stacks with Time Pearl or a prior Black Hole) --
+# no reuse guard. Turn count derives from effectPower rather than a new
+# recipe schema field, per the ticket.
+static func use_black_hole() -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or combat["outcome"] != null:
+		return { "ok": false, "reason": "Combat not active." }
+	var player: Dictionary = GameState.state["player"]
+	if player["inventory"].get("blackHole", 0) <= 0:
+		return { "ok": false, "reason": "No black hole." }
+
+	player["inventory"]["blackHole"] -= 1
+	var power = Crafting.effect_power("blackHole", player["craftingSkill"])
+	var enemy: Dictionary = combat["enemy"]
+	enemy["hp"] = maxi(0, enemy["hp"] - power)
+	var freeze_turns: int = 1 + int(floor(float(power) / 8.0))
+	combat["frozenTurns"] += freeze_turns
+	# PROSE-REVIEW: new black hole result-log line, drafted against CONTENT-GUIDE.md's tone bible.
+	combat["log"].append("You drop a black hole — %d damage, and the wreckage folds in on itself. Enemy frozen %d turn(s)." % [power, freeze_turns])
+
+	_maybe_win_from_direct_damage(combat, enemy)
+
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# calc-effect-wiring-02: shared by use_blast/use_black_hole -- both deal
+# immediate damage outside the normal player_attack() turn and can win the
+# fight outright on the spot, same win-log/dispatch shape player_attack()
+# already uses for its own lethal hit.
+static func _maybe_win_from_direct_damage(combat: Dictionary, enemy: Dictionary) -> void:
+	if enemy["hp"] > 0:
+		return
+	combat["outcome"] = "win"
+	combat["log"].append("They leg it. Good call on their part." if NON_LETHAL_MUGGING_CONTEXTS.has(combat["context"]) else "They go down. Vein is yours.")
+	_dispatch_on_win()
 
 
 # Equipped non-rewind device (freeze/motion effect). Rewind devices are

@@ -66,6 +66,7 @@ static func daily_tick() -> void:
 	Barometer.tick()                     # ① barometer
 	Home.roll_daily_raid()               # ② home raid
 	_apply_living_costs()                # ③ living costs
+	_apply_healing_salve_tick()          # ③b Healing Salve HoT (calc-effect-wiring-02), runs right after living costs
 	Cultivating.recharge_veins()         # ④ vein recharge
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	Sites.roll_npc_claims()              # ⑤b NPC site-claiming (M1-LONDON.md D2)
@@ -93,6 +94,19 @@ static func _apply_living_costs() -> void:
 	if player["cash"] == 0:
 		text += " You are flat broke."
 	Notify.push(text)
+
+
+static func _apply_healing_salve_tick() -> void:
+	var player: Dictionary = GameState.state["player"]
+	if player["healingSalveDaysLeft"] <= 0:
+		return
+
+	var healed: int = mini(player["healingSalveDailyAmount"], player["hpMax"] - player["hp"])
+	player["hp"] += healed
+	player["healingSalveDaysLeft"] -= 1
+	if healed > 0:
+		# PROSE-REVIEW: new daily-tick salve notification, drafted against CONTENT-GUIDE.md's tone bible.
+		Notify.push("The salve does its work. +%d HP." % healed)
 
 
 static func _apply_tutorial_day_triggers() -> void:

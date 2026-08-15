@@ -28,7 +28,13 @@ static func apply() -> void:
 	for ore_type in GameData.ORE_TYPES.keys():
 		player["orichalchum"][ore_type] = 50
 
-	player["inventory"] = { "timePearl": 5, "enhancementPowder": 3, "rewind": 1 }
+	player["inventory"] = {
+		"timePearl": 5, "enhancementPowder": 3, "rewind": 1,
+		# calc-effect-wiring-02: a handful of each newly-wired consumable so
+		# the debug start actually exercises the new inventory/combat Use
+		# buttons without a lab detour.
+		"healingSalve": 2, "blast": 3, "shield": 2, "blackHole": 2, "healingBurst": 3,
+	}
 
 	var crowbar_id := "item_" + str(Time.get_ticks_usec())
 	player["items"] = [{ "id": crowbar_id, "type": "crowbar" }]

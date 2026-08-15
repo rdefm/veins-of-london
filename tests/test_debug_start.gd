@@ -14,7 +14,10 @@ func run() -> void:
 		for ore_type in GameData.ORE_TYPES.keys():
 			assert_eq(p["orichalchum"][ore_type], 50, "50 units of %s -- enough for one seed attempt (40/type)" % ore_type)
 
-		assert_eq(p["inventory"], { "timePearl": 5, "enhancementPowder": 3, "rewind": 1 }, "consumables")
+		assert_eq(p["inventory"], {
+			"timePearl": 5, "enhancementPowder": 3, "rewind": 1,
+			"healingSalve": 2, "blast": 3, "shield": 2, "blackHole": 2, "healingBurst": 3,
+		}, "consumables")
 
 		assert_eq(p["items"].size(), 1, "one item (the crowbar)")
 		assert_eq(p["items"][0]["type"], "crowbar", "item is a crowbar")
