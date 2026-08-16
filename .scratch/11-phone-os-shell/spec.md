@@ -1,7 +1,8 @@
 # Spec — Phone-as-OS shell: app grid, dock, and the retirement of the You tab
 
-**Status:** Grilled and agreed with Richard, 2026-08-16. Two items marked
-**BLOCKED — needs human sign-off** below must be answered before their tickets start.
+**Status:** Grilled and agreed with Richard, 2026-08-16. No open questions — Rest and
+the home-raid trigger both move to HQ (see below). Final app roster and icon art are
+deliberately deferred, not blocked.
 
 ## Why
 
@@ -141,20 +142,27 @@ Four screen ids go away: **`you`**, **`bag`**, **`inventory`**, **`home`**.
   affordance, not `UI.back_button("home")`. Drill-downs inside an app (e.g. Ticker →
   axis detail) keep their own in-app back.
 
-### BLOCKED — needs human sign-off before the retirement ticket starts
+### Rest and the home-raid trigger move to HQ
 
-Retiring `home` orphans two things that exist nowhere else. Do not guess; get an answer.
+Retiring `home` orphans two things that exist nowhere else. **Both move to HQ**
+(decided with Richard, 2026-08-16) — doctrinally correct, since HQ is where base
+actions belong ("things that happen at your bench go in HQ").
 
 1. **Rest.** `home.gd:88` holds the only `TimeSystem.do_rest()` button in the game — the
-   only way to end a day and heal. Recommendation: move it to **HQ**, which is
-   doctrinally where base actions belong ("things that happen at your bench go in HQ")
-   and is where you'd actually sleep.
+   only way to end a day and heal. It becomes an HQ action. HQ is where you'd actually
+   sleep, so this reads better than it did on the old flat home screen.
 2. **The home-raid trigger.** `home.gd:18` fires `home_raid_intro` from the screen's
    `_ready()`, implementing R§3.8's documented "on next visit to home screen, launch"
-   contract. Retiring the screen changes that mechanic's trigger. Recommendation: move
-   the check to **HQ's `_ready()`** — a raid on your property firing when you next visit
-   your property is closer to the fiction than firing when you next unlock your phone.
-   Either way `REFERENCE.md` §3.8's wording must be amended to match.
+   contract. The check moves to **HQ's `_ready()`**, following the same one-shot pattern:
+   check the flags *before* building the screen's UI and return early if the event
+   starts, since starting it navigates away and frees the node. A raid on your property
+   firing when you next visit your property is closer to the fiction than firing when
+   you next unlock your phone. `REFERENCE.md` §3.8's wording is amended to match
+   ("on next visit to HQ") — canon amendment 5 below.
+
+Note for the implementer: HQ's `_ready()` now carries a pre-build event check it did not
+have before. Follow `home.gd:13–20`'s comment and structure exactly — it documents why
+the check must come before `_refresh()` is connected.
 
 Also audit the rest of `home.gd` before deleting it: its to-do card is already duplicated
 by the Notes app, its Save & Load button becomes the Save/Load app, and its Inventory
@@ -176,7 +184,8 @@ redesign canon unilaterally, so these are tracked as an explicit first ticket:
    (reputation M2, affinities M3, Fieldcraft M2) is redesignated to the Profile app.
 4. **`M1-LONDON.md` D4.4** — "Read-only everywhere, EXCEPT..." no longer holds. Amend to:
    full management outside combat and events; read-only plus Use buttons inside them.
-5. **`REFERENCE.md` §3.8** — home-raid trigger wording, per the blocked item above.
+5. **`REFERENCE.md` §3.8** — home-raid trigger wording: "on next visit to home screen,
+   launch" becomes "on next visit to HQ, launch", per the section above.
 
 ## Constraints for implementers
 
@@ -215,8 +224,7 @@ redesign canon unilaterally, so these are tracked as an explicit first ticket:
 
 Dependency-sorted. A fresh chat should expand each into `.scratch/11-phone-os-shell/issues/`.
 
-- **01 — Canon amendments.** All five doc edits above. Blocked by the two sign-off items
-  only insofar as amendment 5 needs them; do 1–4 first if the answer is outstanding.
+- **01 — Canon amendments.** All five doc edits above. Blocked by nothing.
 - **02 — App icon asset contract + app tile component.** Asset path/size/naming
   convention, tintable single-colour requirement, `Texture2D` loading with a text
   fallback when a file is absent, and a reusable tile (icon + label + badge dot + locked
@@ -235,6 +243,9 @@ Dependency-sorted. A fresh chat should expand each into `.scratch/11-phone-os-sh
 - **09 — Notifications app.** Log viewer. Blocked by 03 and 08.
 - **10 — Bag drawer promotion.** Full management outside combat/events; gated inside
   them; scrollable sheet.
-- **11 — Screen retirement and routing cleanup.** Delete `you`/`bag`/`inventory`/`home`;
-  reroute every call site; retired-id save migration; relocate Rest and the home-raid
-  trigger. Blocked by 04, 06, 07, 10, and by both sign-off items.
+- **11 — Relocate Rest and the home-raid trigger to HQ.** Must land *before* the
+  retirement ticket deletes `home`, so the game never has a window with no way to rest.
+  Ships with tests covering the relocated one-shot raid trigger. Blocked by nothing.
+- **12 — Screen retirement and routing cleanup.** Delete `you`/`bag`/`inventory`/`home`;
+  reroute every call site; retired-id save migration; final audit of `home.gd` for
+  anything else load-bearing. Blocked by 04, 06, 07, 10, 11.
