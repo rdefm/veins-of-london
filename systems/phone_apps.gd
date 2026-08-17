@@ -7,14 +7,14 @@ extends RefCounted
 # which apps happen to be unlocked, so a slot never reflows when something
 # unlocks (spec story 8).
 #
-# Six apps exist today (ticket 09 adds Save/Load). Notifications and any
-# lock-gated app (e.g. Map, if it ever joins the grid) land with their own
-# tickets and the spec's separate "final app roster" ticket (Out of Scope:
-# "final app roster ... decided in a later ticket"). Every entry's locked
-# Callable is a constant false for that reason -- the lock mechanism itself
-# is proven by tests/test_phone_apps.gd exercising build_tile_configs()
-# against a synthetic locked entry, independent of today's real
-# (all-unlocked) roster.
+# Seven apps exist today (ticket 09 added Save/Load, ticket 10 added
+# Notifications). Any lock-gated app (e.g. Map, if it ever joins the grid)
+# lands with its own ticket and the spec's separate "final app roster"
+# ticket (Out of Scope: "final app roster ... decided in a later ticket").
+# Every entry's locked Callable is a constant false for that reason -- the
+# lock mechanism itself is proven by tests/test_phone_apps.gd exercising
+# build_tile_configs() against a synthetic locked entry, independent of
+# today's real (all-unlocked) roster.
 #
 # icon art is looked up from id via AppTile's ticket-02 asset contract
 # (res://assets/icons/apps/<id>.png) -- id doubles as the icon reference,
@@ -29,6 +29,7 @@ static func apps() -> Array[Dictionary]:
 		{ "id": "ticker", "label": "The Ticker", "locked": unlocked },
 		{ "id": "profile", "label": "Profile", "locked": unlocked },
 		{ "id": "saveload", "label": "Save/Load", "locked": unlocked },
+		{ "id": "notifications", "label": "Notifications", "locked": unlocked },
 	]
 
 

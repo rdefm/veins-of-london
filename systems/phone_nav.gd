@@ -7,7 +7,7 @@ extends RefCounted
 # GameState.state (R§2), so navigating it is a state mutation that has to
 # go through a system function, same reasoning as Nav.go_to/MapNav.
 
-const APPS: Array[String] = ["messages", "notes", "factions", "ticker", "profile", "saveload"]
+const APPS: Array[String] = ["messages", "notes", "factions", "ticker", "profile", "saveload", "notifications"]
 
 
 static func open_app(app_id: String) -> void:

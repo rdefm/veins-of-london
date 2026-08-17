@@ -45,6 +45,8 @@ func _refresh() -> void:
 			_build_profile()
 		"saveload":
 			_build_save_load()
+		"notifications":
+			_build_notifications()
 		_:
 			_build_home()
 
@@ -464,3 +466,30 @@ func _on_confirm_new_game_pressed() -> void:
 	GameState.reset()
 	Factions.seed_day_one_veins()
 	Nav.go_to("intro")
+
+
+# ── Notifications (11-phone-os-shell ticket 10) ──────────────────────
+# Browses the full persistent log ticket 04's Notify.push()/dismiss() built
+# (GameState.state["notifications"], capped at Notify.LOG_CAP). Read-only --
+# no dismiss/action control here; `seen` only ever gets flipped by tapping a
+# live toast (notification_toast.gd), never from this app. Rendered newest
+# first, which for an append-only, cap-evicting-from-the-front array just
+# means walking it back to front.
+
+func _build_notifications() -> void:
+	_content.add_child(_phone_back_button())
+	_content.add_child(UI.heading("Notifications"))
+
+	var notifications: Array = GameState.state["notifications"]
+	if notifications.is_empty():
+		_content.add_child(UI.muted_label("Nothing yet."))
+	else:
+		for i in range(notifications.size() - 1, -1, -1):
+			_content.add_child(_build_notification_row(notifications[i]))
+
+
+func _build_notification_row(notification: Dictionary) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.label(notification["text"]))
+	c["content"].add_child(UI.muted_label("Day %d" % notification["day"]))
+	return c["panel"]
