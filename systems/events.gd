@@ -198,7 +198,14 @@ static func _apply_one(effect: Dictionary) -> void:
 		"grant_vein_with_site":
 			_grant_vein_with_site(effect["vein"])
 		"set_screen":
-			Nav.go_to(effect["screen"])
+			# Ticket 12: content authored "home" as the landing screen before
+			# that screen was retired -- data/events/*.json now targets "phone"
+			# instead, which needs phoneNav reset to its home view too, same as
+			# every other route-to-phone-home call site.
+			if effect["screen"] == "phone":
+				PhoneNav.route_home()
+			else:
+				Nav.go_to(effect["screen"])
 		"notify":
 			Notify.push(effect["text"])
 		"set_stage":

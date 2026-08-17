@@ -64,9 +64,9 @@ func run() -> void:
 		layer.free()
 	)
 
-	run_case("tap_outside_sale_result_navigates_home_same_as_back_to_it", func():
+	run_case("tap_outside_sale_result_navigates_to_phone_home_same_as_back_to_it", func():
 		GameState.reset()
-		Nav.go_to("home_2")
+		Nav.go_to("hq")
 		Modal.open("sale_result", { "mugged": false, "earned": 40 })
 
 		var layer := ModalLayer.new()
@@ -74,7 +74,8 @@ func run() -> void:
 		layer._on_dim_gui_input(_synthetic_tap())
 
 		assert_eq(GameState.state["modal"], null, "outside tap closes sale_result")
-		assert_eq(GameState.state["currentScreen"], "home", "outside tap navs home, same as tapping Back to it")
+		assert_eq(GameState.state["currentScreen"], "phone", "outside tap navs to phone home, same as tapping Back to it")
+		assert_eq(GameState.state["phoneNav"]["app"], "home", "should land on the grid itself, not whatever app was last open")
 
 		layer.free()
 	)

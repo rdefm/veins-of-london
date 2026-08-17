@@ -260,6 +260,14 @@ static func back_button(target_screen: String) -> Button:
 	return button("‹ Back", func(): Nav.go_to(target_screen))
 
 
+# Ticket 12: the generic back-to-home affordance, for any screen whose only
+# "home" used to be the retired home screen (hq/contacts/factions). Routes
+# to the phone app grid via PhoneNav.route_home(), which also resets
+# phoneNav.app to "home" so it doesn't land mid-app on whatever was last open.
+static func back_to_home_button() -> Button:
+	return button("‹ Back", func(): PhoneNav.route_home())
+
+
 # SMS chat-bubble row (sms_archie.gd / sms_archie_2.gd): a card-styled
 # bubble, right-aligned for from_player. The label needs an explicit
 # custom_minimum_size.x — an HBoxContainer row's non-expand child (the

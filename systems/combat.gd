@@ -687,9 +687,11 @@ static func _raid_won() -> void:
 # already showing); home_raid routes into the matching debrief event
 # (R§3.8, wired by M0-T13's Events.start_event); event_raid (vein-raiding
 # ticket 02) resumes the still-active event on a win, ends it on a loss;
-# otherwise inventory on a raid win, home in every other case (loss/fled/
-# mugging-loss-that-somehow-exits). Each branch below is a private helper
-# (hygiene ticket 02) -- this func just tears down shared state and dispatches.
+# otherwise phone home in every case (loss/fled/mugging-loss-that-somehow-
+# exits), with the bag drawer opened over it on a raid win (ticket 12: the
+# old inventory screen that used to show the loot is retired). Each branch
+# below is a private helper (hygiene ticket 02) -- this func just tears down
+# shared state and dispatches.
 static func exit_combat() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	var outcome = combat["outcome"]
@@ -733,6 +735,21 @@ static func _exit_event_mugging() -> Dictionary:
 	return { "nextScreen": "event" }
 
 
+# Ticket 12: the home screen is retired -- every "route home" destination
+# below is now the phone app grid, landing on its home view regardless of
+# whatever app was last open. Deliberately hand-rolled rather than calling
+# PhoneNav.route_home() (the shared helper every other retired-`home`
+# call site uses): exit_combat() already guarantees one state_changed
+# emit itself before dispatching here, matching the sibling handlers
+# above/below that set currentScreen + emit screen_changed directly
+# instead of going through Nav.go_to -- route_home() would fire a second,
+# redundant state_changed on top of that.
+static func _route_phone_home() -> void:
+	GameState.state["currentScreen"] = "phone"
+	EventBus.screen_changed.emit("phone")
+	PhoneNav.go_home()
+
+
 static func _exit_home_raid(outcome) -> Dictionary:
 	_after_home_raid_combat(outcome)
 	var debrief_id: String = "home_raid_debrief_win" if outcome == "win" else "home_raid_debrief_loss"
@@ -755,9 +772,8 @@ static func _exit_event_raid(outcome) -> Dictionary:
 		EventBus.screen_changed.emit("event")
 		return { "nextScreen": "event" }
 	GameState.state["event"] = null
-	GameState.state["currentScreen"] = "home"
-	EventBus.screen_changed.emit("home")
-	return { "nextScreen": "home" }
+	_route_phone_home()
+	return { "nextScreen": "phone" }
 
 
 # defend_vein (vein-raiding ticket 07): Raiding owns the win/loss
@@ -766,16 +782,19 @@ static func _exit_event_raid(outcome) -> Dictionary:
 # routes home either way, same as every other non-raid context below.
 static func _exit_defend_vein(outcome) -> Dictionary:
 	Raiding.resolve_defend_outcome(outcome == "win")
-	GameState.state["currentScreen"] = "home"
-	EventBus.screen_changed.emit("home")
-	return { "nextScreen": "home" }
+	_route_phone_home()
+	return { "nextScreen": "phone" }
 
 
+# A raid win used to route to the standalone inventory screen so the loot
+# was immediately visible (R§3.7); that screen is retired (ticket 12), so a
+# win now opens the bag drawer over the phone home grid instead -- same
+# loot visibility, new location.
 static func _exit_default(outcome, context: String) -> Dictionary:
-	var next_screen: String = "inventory" if (outcome == "win" and context == CONTEXT_RAID) else "home"
-	GameState.state["currentScreen"] = next_screen
-	EventBus.screen_changed.emit(next_screen)
-	return { "nextScreen": next_screen }
+	_route_phone_home()
+	if outcome == "win" and context == CONTEXT_RAID:
+		Bag.open()
+	return { "nextScreen": "phone" }
 
 
 # R§3.8: on loss, carried orichalchum is halved (floor). Previously also

@@ -316,7 +316,7 @@ func run() -> void:
 		Combat.exit_combat()
 
 		assert_eq(GameState.state["event"], null, "a losing raid should end the event outright, no claim/loot offered")
-		assert_eq(GameState.state["currentScreen"], "home", "same destination a losing plain raid already uses")
+		assert_eq(GameState.state["currentScreen"], "phone", "same destination a losing plain raid already uses")
 
 		var site: Dictionary = GameState.state["world"]["sites"][0]
 		assert_true(site["factionVein"] != null, "the vein stays with the faction on a failed raid")

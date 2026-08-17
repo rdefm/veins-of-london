@@ -222,6 +222,43 @@ func run() -> void:
 		assert_true(filled.has("factions") and filled.has("contacts"), "all top-level keys should be present after backfill")
 	)
 
+	run_case("loading_a_save_with_a_retired_currentScreen_lands_on_phone_home", func():
+		for retired_id in ["home", "you", "bag", "inventory"]:
+			GameState.reset()
+			GameState.state["currentScreen"] = retired_id
+			GameState.state["phoneNav"]["app"] = "messages"
+			GameState.state["phoneNav"]["selectedAxis"] = "economic"
+			GameState.state["phoneNav"]["confirmingNewGame"] = true
+			var save_result := SaveManager.save_to_slot(TEST_SLOT)
+			assert_true(save_result["ok"], "save_to_slot should succeed")
+
+			GameState.reset()
+			var load_result := SaveManager.load_from_slot(TEST_SLOT)
+			assert_true(load_result["ok"], "load_from_slot should succeed")
+
+			assert_eq(GameState.state["currentScreen"], "phone", "%s should remap to phone on load" % retired_id)
+			assert_eq(GameState.state["phoneNav"]["app"], "home", "phoneNav should reset to the grid, not whatever app was last open")
+			assert_eq(GameState.state["phoneNav"]["selectedAxis"], null, "phoneNav.selectedAxis should reset")
+			assert_eq(GameState.state["phoneNav"]["confirmingNewGame"], false, "phoneNav.confirmingNewGame should reset")
+
+			SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("loading_a_save_with_a_live_currentScreen_leaves_it_untouched", func():
+		GameState.reset()
+		GameState.state["currentScreen"] = "hq"
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.reset()
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		assert_eq(GameState.state["currentScreen"], "hq", "a non-retired screen id should pass through unchanged")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("autosave_rotates_across_3_slots_then_overwrites_the_oldest", func():
 		for i in range(SaveManager.AUTOSAVE_COUNT):
 			if FileAccess.file_exists(SaveManager.autosave_path(i)):

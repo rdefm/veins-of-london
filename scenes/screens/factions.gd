@@ -15,7 +15,7 @@ func _refresh() -> void:
 	for child in _content.get_children():
 		child.queue_free()
 
-	_content.add_child(UI.back_button("home"))
+	_content.add_child(UI.back_to_home_button())
 	_content.add_child(UI.heading("Factions"))
 	_content.add_child(UI.muted_label("Build relations. Join. Use rooms."))
 

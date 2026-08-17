@@ -18,6 +18,6 @@
     { "op": "add", "path": "player.cash", "value": 40 },
     { "op": "set_flag", "flag": "buyerEventSeen", "value": true },
     { "op": "set_stage", "value": "sms_archie" },
-    { "op": "set_screen", "screen": "home" }
+    { "op": "set_screen", "screen": "phone" }
   ]
 }

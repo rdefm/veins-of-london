@@ -201,7 +201,7 @@ func _build_sale_result(data: Dictionary) -> void:
 
 func _on_sale_result_close() -> void:
 	Modal.close()
-	Nav.go_to("home")
+	PhoneNav.route_home()
 
 
 func _build_sell_menu() -> void:

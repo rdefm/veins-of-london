@@ -31,6 +31,15 @@ const MANAGEMENT_DRAWER_HEIGHT := 700.0
 # in-stock recipe regardless of whether it has a button here.
 const CONSUMABLE_KEYS := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole"]
 
+# Ticket 12: the two strictly-out-of-combat effects (healingSalve is a 2-day
+# heal-over-time; healingBurst is instant but also legal outside a fight) --
+# ported from the deleted inventory.gd's OUT_OF_COMBAT_USE_KEYS, since that
+# screen was the only place either had a manual Use control. Only shown in
+# management mode (outside combat and outside an itemHooks event card), same
+# gate as equip/device management -- these are self-service actions, not
+# combat-legal item hooks.
+const OUT_OF_COMBAT_USE_KEYS := ["healingSalve", "healingBurst"]
+
 var _dim: ColorRect
 var _card: PanelContainer
 var _content: VBoxContainer
@@ -107,7 +116,13 @@ func _refresh() -> void:
 		var qty: int = player["inventory"].get(recipe_key, 0)
 		_content.add_child(UI.label("%s %s: %d" % [recipe["symbol"], recipe["name"], qty]))
 
+	# A used-up salve still has a running HoT even once its stock hits 0 --
+	# ported from inventory.gd, same unconditional-on-days-left visibility.
+	if player["healingSalveDaysLeft"] > 0:
+		_content.add_child(UI.muted_label("♥ Healing Salve active — %d HP/day, %d day(s) left" % [player["healingSalveDailyAmount"], player["healingSalveDaysLeft"]]))
+
 	if management:
+		_add_out_of_combat_use_buttons(player)
 		_build_weapon_management(player)
 		_build_device_management(player)
 	else:
@@ -139,6 +154,22 @@ func _is_management_mode() -> bool:
 		if not hooks.is_empty():
 			return false
 	return true
+
+
+# Ported from inventory.gd's OUT_OF_COMBAT_USE_KEYS section — the only two
+# recipes with a legal manual Use outside combat. healingBurst reuses
+# _on_use_healing_burst below (same Consumables call combat's button makes);
+# healingSalve gets its own handler since combat never offered it a button.
+func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
+	if player["inventory"].get("healingSalve", 0) > 0:
+		_content.add_child(UI.button("♥ Healing Salve (%d) — 2-day heal-over-time" % player["inventory"]["healingSalve"], _on_use_healing_salve))
+	if player["inventory"].get("healingBurst", 0) > 0:
+		_content.add_child(UI.button("✚ Healing Burst (%d) — instant heal" % player["inventory"]["healingBurst"], _on_use_healing_burst))
+
+
+func _on_use_healing_salve() -> void:
+	Bag.close()
+	Consumables.use_healing_salve()
 
 
 # Ported from inventory.gd's _build_equipment_tab weapon half — same

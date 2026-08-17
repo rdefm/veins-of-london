@@ -20,6 +20,6 @@
   "on_complete": [
     { "op": "set_flag", "flag": "metArchie", "value": true },
     { "op": "set_stage", "value": "buyer_event" },
-    { "op": "set_screen", "screen": "home" }
+    { "op": "set_screen", "screen": "phone" }
   ]
 }

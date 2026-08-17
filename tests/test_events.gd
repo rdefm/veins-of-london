@@ -137,6 +137,54 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	# Ticket 12: set_screen targeting "phone" specifically must also reset
+	# phoneNav to its home view (same as every other route-to-phone-home
+	# call site) -- a plain set_screen to anything else must leave phoneNav
+	# alone.
+	run_case("set_screen_to_phone_also_resets_phoneNav_to_home", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "messages"
+		GameState.state["phoneNav"]["selectedAxis"] = "economic"
+		GameState.state["phoneNav"]["confirmingNewGame"] = true
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_set_screen_phone"] = {
+			"id": "test_set_screen_phone",
+			"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
+			"on_complete": [{ "op": "set_screen", "screen": "phone" }],
+		}
+
+		Events.start_event("test_set_screen_phone")
+		Events.advance()
+
+		assert_eq(GameState.state["currentScreen"], "phone", "set_screen should navigate to phone")
+		assert_eq(GameState.state["phoneNav"]["app"], "home", "targeting phone should reset phoneNav to the grid")
+		assert_eq(GameState.state["phoneNav"]["selectedAxis"], null, "phoneNav.selectedAxis should reset")
+		assert_eq(GameState.state["phoneNav"]["confirmingNewGame"], false, "phoneNav.confirmingNewGame should reset")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("set_screen_to_a_non_phone_target_leaves_phoneNav_untouched", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "messages"
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_set_screen_hq"] = {
+			"id": "test_set_screen_hq",
+			"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
+			"on_complete": [{ "op": "set_screen", "screen": "hq" }],
+		}
+
+		Events.start_event("test_set_screen_hq")
+		Events.advance()
+
+		assert_eq(GameState.state["currentScreen"], "hq", "set_screen should navigate to hq")
+		assert_eq(GameState.state["phoneNav"]["app"], "messages", "a non-phone target must not touch phoneNav")
+
+		GameData.EVENTS = original_events
+	)
+
 	# ── grant_vein retired (vein-raiding ticket 09) ─────────────────────
 
 	run_case("grant_vein_is_no_longer_a_valid_effect_op", func():
@@ -463,7 +511,7 @@ func run() -> void:
 			Events.advance()
 		assert_true(GameState.state["flags"]["metArchie"], "intro: metArchie")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "buyer_event", "intro: stage")
-		assert_eq(GameState.state["currentScreen"], "home", "intro: -> home")
+		assert_eq(GameState.state["currentScreen"], "phone", "intro: -> phone home")
 
 		# 2. Buyer event
 		var cash_before: int = GameState.state["player"]["cash"]
@@ -486,7 +534,7 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["james"]["relation"], 10, "james_meeting: james relation +10")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "archie_craft_chat", "james_meeting: stage")
 		assert_eq(GameState.state["world"]["archieChatUnlockDay"], day + 1, "james_meeting: archieChatUnlockDay = day+1")
-		assert_eq(GameState.state["currentScreen"], "home", "james_meeting: -> home, no longer hq")
+		assert_eq(GameState.state["currentScreen"], "phone", "james_meeting: -> phone home, no longer hq")
 		assert_true(not _has_notification("Crafting unlocked. Try the workbench in HQ."), "james_meeting: no longer fires the HQ notification")
 
 		# 4. Archie falafel chat
@@ -535,7 +583,7 @@ func run() -> void:
 		assert_eq(granted["oreType"], "time", "granted vein: time-type")
 		assert_eq(granted["level"], 1, "granted vein: Lv1")
 		assert_eq(granted["district"], "whitechapel", "granted vein: whitechapel")
-		assert_eq(GameState.state["currentScreen"], "home", "debrief: -> home")
+		assert_eq(GameState.state["currentScreen"], "phone", "debrief: -> phone home")
 		assert_true(_has_notification("HQ's workbench is open now."), "debrief: HQ nudge notification")
 
 		# D7: the granted vein comes with a matching claimed site.

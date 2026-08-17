@@ -77,6 +77,25 @@ func run() -> void:
 		hq.free()
 	)
 
+	run_case("hq_back_button_routes_to_phone_home_not_the_retired_home_screen", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["currentScreen"] = "hq"
+		PhoneNav.open_app("messages")
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		var back_button := _find_button(hq, "‹ Back")
+		assert_true(back_button != null, "HQ must render a generic back button")
+		back_button.pressed.emit()
+
+		assert_eq(GameState.state["currentScreen"], "phone", "the generic back affordance should route to the phone app grid, not the retired home screen")
+		assert_eq(GameState.state["phoneNav"]["app"], "home", "should land on the grid itself, not whatever app was last open")
+
+		hq.free()
+	)
+
 	run_case("hq_rest_button_produces_identical_effects_to_TimeSystem_do_rest", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true

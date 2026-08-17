@@ -133,7 +133,7 @@ static func apply() -> void:
 	barometer["political"] = "war"
 	Barometer.ensure_progress()
 
-	Nav.go_to("home")
+	PhoneNav.route_home()
 	EventBus.state_changed.emit()
 
 

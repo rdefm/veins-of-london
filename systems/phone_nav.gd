@@ -24,6 +24,19 @@ static func go_home() -> void:
 	EventBus.state_changed.emit()
 
 
+# Ticket 12: the shared "route to phone home" idiom every retired-screen
+# (home/you/bag/inventory) call site needs -- always navigate to the phone
+# screen AND land on its home view, regardless of whatever app was last
+# open. nav_bar.gd's own Phone-tab button doesn't use this: it has to skip
+# the go_to() call (and the re-render that comes with it) when already
+# sitting on the phone screen, an optimization ticket 11's spec asks for
+# ("no re-navigation, no flicker") that doesn't apply here, since every
+# other call site is always routing in from somewhere else.
+static func route_home() -> void:
+	Nav.go_to("phone")
+	go_home()
+
+
 static func select_axis(section: String) -> void:
 	GameState.state["phoneNav"]["app"] = "ticker"
 	GameState.state["phoneNav"]["selectedAxis"] = section

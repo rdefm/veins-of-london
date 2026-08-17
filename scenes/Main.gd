@@ -8,8 +8,6 @@ extends Control
 const SCREEN_SCRIPTS := {
 	"title": preload("res://scenes/screens/title.gd"),
 	"intro": preload("res://scenes/screens/placeholder.gd"),
-	"home": preload("res://scenes/screens/home.gd"),
-	"inventory": preload("res://scenes/screens/inventory.gd"),
 	"contacts": preload("res://scenes/screens/contacts.gd"),
 	"sms_archie": preload("res://scenes/screens/sms_archie.gd"),
 	"sms_archie_2": preload("res://scenes/screens/sms_archie_2.gd"),
@@ -17,27 +15,36 @@ const SCREEN_SCRIPTS := {
 	"combat": preload("res://scenes/screens/combat.gd"),
 	"event": preload("res://scenes/screens/event.gd"),
 
-	# D4's 5-tab nav (map/hq/phone/bag/you). bag reuses the already-complete
-	# inventory screen (D4: "Bag — full inventory management"). map is
-	# ticket 04's district list -> district panel -> site/vein sheet. hq is
-	# ticket 06's merge of the old M0 property + crafting screens (both
-	# deleted). phone is ticket 07's PhoneScreen (contact list/SMS/James
-	# jobs/notes/faction directory/Ticker, state.phoneNav-driven) — the old
-	# M0 `world`/`barometer` screens it replaces are deleted (no
-	# SCREEN_SCRIPTS entry, no remaining Nav.go_to call sites). you is
-	# ticket 07's YouScreen, merging the old M0 `stats`/`save` screens
-	# (also deleted) — save-slot UI's new home per D4.
+	# D4's nav bar, collapsed to a 3-slot dock (Phone/Map/HQ) by ticket 11.
+	# map is ticket 04's district list -> district panel -> site/vein sheet.
+	# hq is ticket 06's merge of the old M0 property + crafting screens
+	# (both deleted). phone is ticket 07's PhoneScreen (contact list/SMS/
+	# James jobs/notes/faction directory/Ticker/Profile/Save-Load/
+	# Notifications, state.phoneNav-driven) — the old M0 `world`/
+	# `barometer` screens it replaces are deleted. Ticket 12 retires the
+	# standalone `home`/`you`/`bag`/`inventory` screens entirely — the bag
+	# drawer (ticket 05) and phone's Profile/Save-Load apps (08/09) had
+	# already absorbed everything they carried — so none of the four have
+	# a SCREEN_SCRIPTS entry or a remaining Nav.go_to call site.
 	"map": preload("res://scenes/screens/map.gd"),
 	"hq": preload("res://scenes/screens/hq.gd"),
 	"phone": preload("res://scenes/screens/phone.gd"),
-	"bag": preload("res://scenes/screens/inventory.gd"),
-	"you": preload("res://scenes/screens/you.gd"),
 
 	# calc-discovery ticket 06: the Lab, reached from HQ's third card. Its
 	# own internal drill-down (home/picker/pairing/notes) is state.benchNav-
-	# driven inside lab.gd, same pattern as phoneNav inside phone.gd -- it
-	# isn't one of the 5 NavBar tabs, same as "bag" reusing inventory.gd.
+	# driven inside lab.gd, same pattern as phoneNav inside phone.gd.
 	"lab": preload("res://scenes/screens/lab.gd"),
+}
+
+# Ticket 12: home/you/bag/inventory are retired screen ids, fully absorbed
+# into the phone app grid + bag drawer (see the SCREEN_SCRIPTS comment
+# above). A stale currentScreen carrying one of these -- an old save
+# (SaveManager migrates the persisted value too, but this is the last-line
+# fallback) or any other stray reference -- must land on the phone app
+# grid, not fall through to the "unknown id" title fallback below, which
+# stays reserved for ids that were never valid at all.
+const RETIRED_SCREEN_IDS := {
+	"home": "phone", "you": "phone", "bag": "phone", "inventory": "phone",
 }
 
 # R§2.2: "Global bottom nav ... hidden on title, intro, event, combat".
@@ -100,15 +107,25 @@ func _on_screen_changed(screen_id: String) -> void:
 	_show_screen(screen_id)
 
 
+# Split out from _show_screen so tests can drive the retired-id/unknown-id
+# fallback logic without booting the full Main scene tree (same reasoning
+# phone.gd's _build_app_grid split documents for its own testability).
+static func resolve_screen_id(screen_id: String) -> String:
+	var mapped: String = RETIRED_SCREEN_IDS.get(screen_id, screen_id)
+	if SCREEN_SCRIPTS.has(mapped):
+		return mapped
+	return "title"
+
+
 func _show_screen(screen_id: String) -> void:
 	if current_screen_node != null:
 		current_screen_node.queue_free()
 		current_screen_node = null
 
-	var script: GDScript = SCREEN_SCRIPTS.get(screen_id, SCREEN_SCRIPTS["title"])
-	current_screen_node = script.new()
+	var resolved_id: String = resolve_screen_id(screen_id)
+	current_screen_node = SCREEN_SCRIPTS[resolved_id].new()
 	UI.anchor_full_rect(current_screen_node)
 	screen_container.add_child(current_screen_node)
 
-	nav_bar.visible = not NAV_HIDDEN_SCREENS.has(screen_id)
-	top_bar.visible = not TOP_BAR_HIDDEN_SCREENS.has(screen_id)
+	nav_bar.visible = not NAV_HIDDEN_SCREENS.has(resolved_id)
+	top_bar.visible = not TOP_BAR_HIDDEN_SCREENS.has(resolved_id)

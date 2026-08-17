@@ -119,9 +119,33 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	var migrated := migrate(raw)
 	var filled := backfill_defaults(migrated)
 	_restore_int_types(filled)
+	_remap_retired_screen_id(filled)
 	GameState.state = filled
 	EventBus.state_changed.emit()
 	return { "ok": true }
+
+
+# Ticket 12: home/you/bag/inventory are retired screen ids -- not tied to
+# any particular saveVersion (they were only just deleted, so every save
+# ever written could carry one), which is why this lives here rather than
+# in the version-keyed migrate() table above. An old save with one of these
+# in currentScreen must land on the phone app grid on load, not soft-lock.
+# Main.gd's resolve_screen_id() fallback covers the same case defensively
+# on the render side; this is the persisted-state side, and additionally
+# resets phoneNav to its home view (a screen-render function must not
+# mutate state, so resolve_screen_id() deliberately leaves phoneNav alone).
+const RETIRED_CURRENT_SCREENS := ["home", "you", "bag", "inventory"]
+
+
+func _remap_retired_screen_id(save: Dictionary) -> void:
+	if not RETIRED_CURRENT_SCREENS.has(save.get("currentScreen", "")):
+		return
+	save["currentScreen"] = "phone"
+	var phone_nav: Dictionary = save.get("phoneNav", {})
+	phone_nav["app"] = "home"
+	phone_nav["selectedAxis"] = null
+	phone_nav["confirmingNewGame"] = false
+	save["phoneNav"] = phone_nav
 
 
 # Version-keyed migration function table. Currently identity for v1 —

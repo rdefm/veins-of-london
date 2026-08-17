@@ -264,18 +264,22 @@ func run() -> void:
 		assert_eq(GameState.state["currentScreen"], "combat", "mugging-win exit should leave the screen alone (sale_result modal handles it)")
 	)
 
-	run_case("exit_combat_raid_win_routes_to_inventory_else_home", func():
+	run_case("exit_combat_raid_win_routes_to_phone_home_with_the_bag_drawer_open", func():
 		GameState.reset()
 		GameState.state["combat"]["context"] = Combat.CONTEXT_RAID
 		GameState.state["combat"]["outcome"] = "win"
 		Combat.exit_combat()
-		assert_eq(GameState.state["currentScreen"], "inventory", "a raid win should route to inventory")
+		assert_eq(GameState.state["currentScreen"], "phone", "a raid win should route to the phone app grid")
+		assert_eq(GameState.state["phoneNav"]["app"], "home", "should land on the grid itself, not whatever app was last open")
+		assert_eq(GameState.state["bagDrawerOpen"], true, "a raid win should open the bag drawer over phone home to show the loot")
 
 		GameState.reset()
 		GameState.state["combat"]["context"] = Combat.CONTEXT_MUGGING
 		GameState.state["combat"]["outcome"] = "loss"
 		Combat.exit_combat()
-		assert_eq(GameState.state["currentScreen"], "home", "anything else should route home")
+		assert_eq(GameState.state["currentScreen"], "phone", "anything else should route to phone home")
+		assert_eq(GameState.state["phoneNav"]["app"], "home", "should land on the grid itself")
+		assert_eq(GameState.state["bagDrawerOpen"], false, "no bag drawer outside a raid win")
 	)
 
 	# ── vein-raiding ticket 02: event_raid exit routing ─────────────────
@@ -296,7 +300,7 @@ func run() -> void:
 		GameState.state["combat"]["context"] = Combat.CONTEXT_EVENT_RAID
 		GameState.state["combat"]["outcome"] = "loss"
 		Combat.exit_combat()
-		assert_eq(GameState.state["currentScreen"], "home", "a loss should route home, same as a losing plain raid")
+		assert_eq(GameState.state["currentScreen"], "phone", "a loss should route to phone home, same as a losing plain raid")
 		assert_eq(GameState.state["event"], null, "the failed raid's event should be cleared, not left dangling")
 	)
 
@@ -322,7 +326,7 @@ func run() -> void:
 
 		Combat.exit_combat()
 
-		assert_eq(GameState.state["currentScreen"], "home", "should route home either way")
+		assert_eq(GameState.state["currentScreen"], "phone", "should route to phone home either way")
 		assert_eq(GameState.state["player"]["veins"].size(), 1, "a defend win leaves the vein with the player")
 		assert_eq(GameState.state["world"]["sites"][0]["factionVein"], null, "the site should stay player-claimed, not flip to faction-owned")
 		assert_eq(GameState.state["world"]["activeDefendRaid"], null, "activeDefendRaid should be cleared either way")
@@ -340,7 +344,7 @@ func run() -> void:
 
 		Combat.exit_combat()
 
-		assert_eq(GameState.state["currentScreen"], "home")
+		assert_eq(GameState.state["currentScreen"], "phone")
 		assert_eq(GameState.state["player"]["veins"].size(), 0, "the vein leaves player.veins on a defend loss")
 		var site: Dictionary = GameState.state["world"]["sites"][0]
 		assert_true(site["factionVein"] != null, "ownership transfers to the attacking faction, same as the no-alarm path")

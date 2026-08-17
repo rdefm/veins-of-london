@@ -21,6 +21,6 @@
     { "op": "relation", "contact": "archie", "value": 5 },
     { "op": "add_ore", "type": "time", "qty": 20 },
     { "op": "set_flag", "flag": "homeRaidEventPending", "value": true },
-    { "op": "set_screen", "screen": "home" }
+    { "op": "set_screen", "screen": "phone" }
   ]
 }

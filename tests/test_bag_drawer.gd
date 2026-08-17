@@ -208,6 +208,94 @@ func run() -> void:
 		drawer.free()
 	)
 
+	run_case("healing_salve_and_healing_burst_get_use_buttons_outside_combat_and_events", func():
+		GameState.reset()
+		Bag.open()
+		var player: Dictionary = GameState.state["player"]
+		player["inventory"]["healingSalve"] = 1
+		player["inventory"]["healingBurst"] = 1
+
+		var drawer := BagDrawer.new()
+		drawer._ready()
+
+		assert_true(_find_button(drawer, "♥ Healing Salve (1) — 2-day heal-over-time") != null, "healingSalve should get a Use button outside combat/events")
+		assert_true(_find_button(drawer, "✚ Healing Burst (1) — instant heal") != null, "healingBurst should get a Use button outside combat/events")
+
+		drawer.free()
+	)
+
+	run_case("healing_salve_and_healing_burst_use_buttons_hidden_during_combat", func():
+		GameState.reset()
+		Bag.open()
+		GameState.state["combat"]["active"] = true
+		var player: Dictionary = GameState.state["player"]
+		player["inventory"]["healingSalve"] = 1
+		player["inventory"]["healingBurst"] = 1
+
+		var drawer := BagDrawer.new()
+		drawer._ready()
+
+		assert_true(_find_button(drawer, "♥ Healing Salve (1) — 2-day heal-over-time") == null, "no out-of-combat healingSalve Use button during combat")
+
+		drawer.free()
+	)
+
+	run_case("healing_salve_and_healing_burst_use_buttons_hidden_during_an_item_hook_event_card", func():
+		GameState.reset()
+		Bag.open()
+		var player: Dictionary = GameState.state["player"]
+		player["inventory"]["healingSalve"] = 1
+		var original_events := _install_item_hook_event()
+
+		var drawer := BagDrawer.new()
+		drawer._ready()
+
+		assert_true(_find_button(drawer, "♥ Healing Salve (1) — 2-day heal-over-time") == null, "no out-of-combat healingSalve Use button while the current event card carries itemHooks")
+
+		drawer.free()
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	run_case("healing_salve_use_button_calls_through_to_consumables_system", func():
+		GameState.reset()
+		Bag.open()
+		var player: Dictionary = GameState.state["player"]
+		player["inventory"]["healingSalve"] = 1
+		player["craftingSkill"] = 3
+
+		var drawer := BagDrawer.new()
+		drawer._ready()
+
+		Rng.set_seed(1)
+		var button := _find_button(drawer, "♥ Healing Salve (1) — 2-day heal-over-time")
+		button.pressed.emit()
+
+		assert_eq(GameState.state["player"]["inventory"]["healingSalve"], 0, "pressing Use should consume the item via Consumables.use_healing_salve()")
+		assert_eq(GameState.state["player"]["healingSalveDaysLeft"], 2, "use_healing_salve() should start the 2-day HoT")
+		assert_eq(GameState.state["bagDrawerOpen"], false, "using an item from the drawer should close it, same as combat's Use buttons")
+
+		drawer.free()
+	)
+
+	run_case("active_healing_salve_hot_status_stays_visible_outside_combat_after_the_last_salve_is_used", func():
+		GameState.reset()
+		Bag.open()
+		var player: Dictionary = GameState.state["player"]
+		player["inventory"]["healingSalve"] = 0
+		player["healingSalveDaysLeft"] = 1
+		player["healingSalveDailyAmount"] = 5
+
+		var drawer := BagDrawer.new()
+		drawer._ready()
+
+		var joined := "\n".join(_label_texts(drawer))
+		assert_true(joined.contains("Healing Salve active"), "an active HoT should stay visible even once stock (qty 0) stops offering a Use button")
+		assert_true(_find_button(drawer, "♥ Healing Salve (0) — 2-day heal-over-time") == null, "no Use button once stock is 0")
+
+		drawer.free()
+	)
+
 	run_case("weapon_and_device_cards_stay_drag_to_scroll_safe", func():
 		GameState.reset()
 		Bag.open()

@@ -52,3 +52,20 @@ func run() -> void:
 		assert_eq(GameState.state["phoneNav"]["app"], "ticker", "should remain on the ticker app")
 		assert_eq(GameState.state["phoneNav"]["selectedAxis"], null, "selectedAxis should clear")
 	)
+
+	# Ticket 12: route_home() is the shared "route to phone home" helper
+	# every retired-`home`-screen call site uses (unlike nav_bar.gd's own
+	# Phone-tab button, which has its own no-op-when-already-home path).
+	run_case("route_home_navigates_to_phone_and_resets_phoneNav_to_home", func():
+		GameState.reset()
+		Nav.go_to("hq")
+		PhoneNav.select_axis("social")
+		PhoneNav.arm_new_game_confirm()
+
+		PhoneNav.route_home()
+
+		assert_eq(GameState.state["currentScreen"], "phone", "route_home should navigate to the phone screen")
+		assert_eq(GameState.state["phoneNav"]["app"], "home", "route_home should land on the app grid")
+		assert_eq(GameState.state["phoneNav"]["selectedAxis"], null, "route_home should clear selectedAxis")
+		assert_eq(GameState.state["phoneNav"]["confirmingNewGame"], false, "route_home should clear confirmingNewGame")
+	)

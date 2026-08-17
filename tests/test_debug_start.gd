@@ -64,7 +64,8 @@ func run() -> void:
 		assert_eq(s["barometer"]["political"], "war", "barometer political")
 		assert_eq(s["barometer"]["progress"]["economic"]["boom"], 100, "progress should be initialised to match the forced active state")
 
-		assert_eq(s["currentScreen"], "home", "debug start should land on the home screen")
+		assert_eq(s["currentScreen"], "phone", "debug start should land on the phone app grid")
+		assert_eq(s["phoneNav"]["app"], "home", "should land on the grid itself, not whatever app was last open")
 
 		var sites: Array = s["world"]["sites"]
 		# ticket 18: DebugStart.apply() now also calls Factions.seed_day_one_veins()

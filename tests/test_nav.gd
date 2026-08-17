@@ -10,9 +10,9 @@ func run() -> void:
 		var received := [""]
 		var on_screen := func(screen: String): received[0] = screen
 		EventBus.screen_changed.connect(on_screen)
-		Nav.go_to("inventory")
+		Nav.go_to("hq")
 		EventBus.screen_changed.disconnect(on_screen)
 
-		assert_eq(GameState.state["currentScreen"], "inventory", "currentScreen should update")
-		assert_eq(received[0], "inventory", "screen_changed should carry the new screen id")
+		assert_eq(GameState.state["currentScreen"], "hq", "currentScreen should update")
+		assert_eq(received[0], "hq", "screen_changed should carry the new screen id")
 	)
