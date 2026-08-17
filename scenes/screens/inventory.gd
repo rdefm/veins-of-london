@@ -119,7 +119,9 @@ func _build_equipment_tab() -> void:
 			var is_equipped: bool = player["equipment"]["weapon"] == item["id"]
 			var item_id: String = item["id"]
 			var c := UI.card()
-			c["content"].add_child(UI.label("%s %s%s" % [def["symbol"], def["name"], " (equipped)" if is_equipped else ""]))
+			# items.json's schema (REFERENCE.md §1.5) has no "symbol" field,
+			# unlike ore/recipes/devices -- def["name"] alone, matching canon.
+			c["content"].add_child(UI.label("%s%s" % [def["name"], " (equipped)" if is_equipped else ""]))
 			c["content"].add_child(UI.muted_label(def["description"]))
 			c["content"].add_child(UI.muted_label("+%d–%d attack" % [def["attackBonus"]["min"], def["attackBonus"]["max"]]))
 			if is_equipped:

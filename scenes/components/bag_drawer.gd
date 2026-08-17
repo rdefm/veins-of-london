@@ -7,15 +7,19 @@ extends Control
 # ModalLayer, just anchored to the bottom and keyed off a different state
 # field so it can be open independently of state.modal.
 #
-# Read-only everywhere except combat, where it shows the legal Use buttons
-# and replaces the old "combat_items" modal (ported from modal_layer.gd's
-# former _build_combat_items). itemHooks (event cards with legal item uses)
-# don't exist yet in the event framework (M1-LONDON.md D5/ticket 08) — no
-# event has one to test against — so that half of D4.4 is deferred until
-# events actually carry hooks; combat is the only non-read-only context for
-# now.
+# 05-bag-drawer-promotion: full management (equip/unequip weapon+device,
+# device start/build-attempt/abandon — ported straight from inventory.gd's
+# equipment tab) outside combat/item-hook events. Inside them it falls back
+# to read-only contents plus the legal Use buttons — combat's version
+# replaces the old "combat_items" modal (ported from modal_layer.gd's former
+# _build_combat_items). itemHooks (event cards with legal item uses) don't
+# exist yet in the event framework (M1-LONDON.md D5/ticket 08) — no event
+# has one, or a Use-button system to go with it — so the itemHooks half of
+# the gate only ever hides management controls for now; it never has
+# anything to show in their place.
 
 const DRAWER_HEIGHT := 420.0
+const MANAGEMENT_DRAWER_HEIGHT := 700.0
 
 # calc-effect-wiring-02/03: extended with the newly-wired effects. Still a
 # curated list, not every GameData.RECIPES key (unlike inventory.gd's tab,
@@ -28,6 +32,7 @@ const DRAWER_HEIGHT := 420.0
 const CONSUMABLE_KEYS := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole"]
 
 var _dim: ColorRect
+var _card: PanelContainer
 var _content: VBoxContainer
 
 
@@ -45,14 +50,14 @@ func _ready() -> void:
 	_dim.gui_input.connect(_on_dim_gui_input)
 	add_child(_dim)
 
-	var card := PanelContainer.new()
-	UI.anchor_bottom_wide(card)
-	card.offset_top = -DRAWER_HEIGHT
-	card.offset_bottom = 0
-	add_child(card)
+	_card = PanelContainer.new()
+	UI.anchor_bottom_wide(_card)
+	_card.offset_top = -DRAWER_HEIGHT
+	_card.offset_bottom = 0
+	add_child(_card)
 
 	var scroll := UI.scroll_container()
-	card.add_child(scroll)
+	_card.add_child(scroll)
 
 	# Anchors are ignored for a ScrollContainer's child, and without
 	# SIZE_EXPAND_FILL it shrinks to its content's minimum width instead of
@@ -84,6 +89,9 @@ func _refresh() -> void:
 
 	var player: Dictionary = GameState.state["player"]
 	var combat: Dictionary = GameState.state["combat"]
+	var management: bool = _is_management_mode()
+
+	_card.offset_top = -(MANAGEMENT_DRAWER_HEIGHT if management else DRAWER_HEIGHT)
 
 	_content.add_child(UI.heading("Bag"))
 
@@ -99,15 +107,121 @@ func _refresh() -> void:
 		var qty: int = player["inventory"].get(recipe_key, 0)
 		_content.add_child(UI.label("%s %s: %d" % [recipe["symbol"], recipe["name"], qty]))
 
-	_content.add_child(UI.heading("Equipped", 14))
-	_content.add_child(_build_equipped_weapon_label(player))
-	_content.add_child(_build_equipped_device_label(player))
+	if management:
+		_build_weapon_management(player)
+		_build_device_management(player)
+	else:
+		_content.add_child(UI.heading("Equipped", 14))
+		_content.add_child(_build_equipped_weapon_label(player))
+		_content.add_child(_build_equipped_device_label(player))
 
 	if combat["active"]:
 		_content.add_child(UI.heading("Use an item", 14))
 		_add_combat_use_buttons(player, combat)
 
 	_content.add_child(UI.button("Close", func(): Bag.close()))
+
+
+# Full management (equip/unequip, device lifecycle) is only safe outside
+# combat and outside an event card carrying itemHooks — both are contexts
+# where re-optimizing a loadout for free would be an exploit. itemHooks
+# doesn't exist on any authored card yet (see class comment), so this half
+# of the check is always false today, same as bag_drawer's original D4.4
+# comment already documented — it's here so the gate is correct the moment
+# ticket 08's event content lands, without another edit to this file.
+func _is_management_mode() -> bool:
+	if GameState.state["combat"]["active"]:
+		return false
+	var event_state: Variant = GameState.state.get("event")
+	if event_state != null:
+		var card: Dictionary = Events.current_card()
+		var hooks: Array = card.get("itemHooks", [])
+		if not hooks.is_empty():
+			return false
+	return true
+
+
+# Ported from inventory.gd's _build_equipment_tab weapon half — same
+# equip/unequip logic, Equipment system calls unchanged.
+func _build_weapon_management(player: Dictionary) -> void:
+	_content.add_child(UI.heading("Weapon", 14))
+	if player["items"].is_empty():
+		_content.add_child(UI.muted_label("No weapons yet."))
+		return
+
+	for item in player["items"]:
+		var def: Dictionary = GameData.ITEMS.get(item["type"], {})
+		if def.is_empty():
+			continue
+		var is_equipped: bool = player["equipment"]["weapon"] == item["id"]
+		var item_id: String = item["id"]
+		var c := UI.card()
+		# items.json's schema (REFERENCE.md §1.5: key/name/slot/attackBonus/
+		# description) has no "symbol" field, unlike ore/recipes/devices --
+		# def["name"] alone, matching that canon schema.
+		c["content"].add_child(UI.label("%s%s" % [def["name"], " (equipped)" if is_equipped else ""]))
+		c["content"].add_child(UI.muted_label(def["description"]))
+		c["content"].add_child(UI.muted_label("+%d–%d attack" % [def["attackBonus"]["min"], def["attackBonus"]["max"]]))
+		if is_equipped:
+			c["content"].add_child(UI.button("Unequip", func(): Equipment.unequip_weapon()))
+		else:
+			c["content"].add_child(UI.button("Equip", func(): Equipment.equip_weapon(item_id)))
+		_content.add_child(c["panel"])
+
+
+# Ported from inventory.gd's _build_equipment_tab device half — equipped
+# device summary + unequip, other completed devices' equip buttons,
+# in-progress devices' build-attempt/abandon, and the start-new-device row.
+func _build_device_management(player: Dictionary) -> void:
+	_content.add_child(UI.heading("Device", 14))
+	var equipped_device_id = player["equipment"]["device"]
+	var equipped_device = null
+	for d in player["devicesCompleted"]:
+		if d["id"] == equipped_device_id:
+			equipped_device = d
+			break
+
+	if equipped_device != null:
+		var dt: Dictionary = GameData.DEVICES[equipped_device["type"]]
+		var c := UI.card()
+		c["content"].add_child(UI.label("%s %s (equipped) — Lv%d" % [dt["symbol"], dt["name"], equipped_device["level"]]))
+		c["content"].add_child(UI.muted_label("%d/%d charges today" % [equipped_device["chargesPerDay"] - equipped_device["chargesUsedToday"], equipped_device["chargesPerDay"]]))
+		c["content"].add_child(UI.button("Unequip", func(): Devices.unequip_device()))
+		_content.add_child(c["panel"])
+	else:
+		_content.add_child(UI.muted_label("No device equipped."))
+
+	for d in player["devicesCompleted"]:
+		if d["id"] == equipped_device_id:
+			continue
+		var dt: Dictionary = GameData.DEVICES[d["type"]]
+		var device_id: String = d["id"]
+		var c := UI.card()
+		c["content"].add_child(UI.label("%s %s — Lv%d" % [dt["symbol"], dt["name"], d["level"]]))
+		c["content"].add_child(UI.button("Equip", func(): Devices.equip_device(device_id)))
+		_content.add_child(c["panel"])
+
+	if not player["devicesInProgress"].is_empty():
+		_content.add_child(UI.heading("Devices in progress", 14))
+		for d in player["devicesInProgress"]:
+			var dt: Dictionary = GameData.DEVICES[d["type"]]
+			var device_id: String = d["id"]
+			var c := UI.card()
+			c["content"].add_child(UI.label("%s %s — %d%%" % [dt["symbol"], dt["name"], int(d["progress"])]))
+			c["content"].add_child(UI.bar(d["progress"], 100.0))
+			var actions := UI.hbox()
+			actions.add_child(UI.button("Build attempt", func(): Devices.attempt_device_build(device_id)))
+			actions.add_child(UI.button("Abandon", func(): Devices.abandon_device(device_id)))
+			c["content"].add_child(actions)
+			_content.add_child(c["panel"])
+
+	_content.add_child(UI.heading("Start a new device", 14))
+	var start_row := UI.hbox()
+	for device_key in GameData.DEVICES.keys():
+		var dt: Dictionary = GameData.DEVICES[device_key]
+		var captured_key: String = device_key
+		start_row.add_child(UI.button("%s %s" % [dt["symbol"], dt["name"]], func(): Devices.start_device(captured_key)))
+	_content.add_child(start_row)
 
 
 func _build_equipped_weapon_label(player: Dictionary) -> Control:
