@@ -15,6 +15,16 @@ var _content: VBoxContainer
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
+
+	# 11-phone-os-shell-06: mirrors home.gd's _ready() check — checked once
+	# per visit, before building the normal HQ UI or connecting _refresh,
+	# since starting the event navigates away and this node is about to be
+	# freed by Main.gd's screen swap.
+	var flags: Dictionary = GameState.state["flags"]
+	if flags["homeRaidEventPending"] and not flags["homeRaidEventSeen"]:
+		Events.start_event("home_raid_intro")
+		return
+
 	_content = UI.screen_body(self)
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
@@ -25,6 +35,7 @@ func _refresh() -> void:
 		child.queue_free()
 
 	_content.add_child(UI.back_button("home"))
+	_content.add_child(_build_actions_card())
 
 	if not GameState.state["flags"]["homeUnlocked"]:
 		_content.add_child(UI.heading("Locked"))
@@ -77,6 +88,19 @@ func _refresh() -> void:
 		_content.add_child(_build_device_start_row(device_key))
 	if not any_unlocked:
 		_content.add_child(UI.muted_label("No device types unlocked yet."))
+
+
+# Rendered even while HQ is otherwise locked (see _refresh() below) — Rest
+# must always be reachable here, never gated behind homeUnlocked.
+func _build_actions_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Actions", 14))
+	c["content"].add_child(UI.button("Rest", _on_rest_pressed))
+	return c["panel"]
+
+
+func _on_rest_pressed() -> void:
+	TimeSystem.do_rest()
 
 
 # ── property: tier upgrade / stored ore / security / rooms ──────────
