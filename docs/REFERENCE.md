@@ -193,7 +193,7 @@ state = {
   bagDrawerOpen: false,        # M1 D4.4; the global BagDrawer bottom sheet, independent of `modal`
   inventoryTab: "ore",
   mapNav: { selectedDistrict: null, selectedSiteId: null },  # M1 D4; Map tab drill-down (list -> district panel -> site/vein sheet)
-  notifications: [],          # [{ id:String, text:String }]
+  notifications: [],          # [{ id:String, text:String, seen:bool, day:int }] — capped at 50, oldest evicted; dismiss() only flips seen, never deletes (11-phone-os-shell ticket 04)
   sellState: {},              # sell-menu qty selections, transient
   event: null,                # M0-T13 event runner state: { eventId, cardIndex, snapshots:[] } | null
 

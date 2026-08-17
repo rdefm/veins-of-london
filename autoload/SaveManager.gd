@@ -168,6 +168,8 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 func _restore_int_types(state: Dictionary) -> void:
 	_int_key(state, "pendingSaleCut")
 	_int_dict_values(state.get("labThresholds", {}))
+	for notification in state.get("notifications", []):
+		_int_key(notification, "day")
 
 	if state.has("meta"):
 		_int_key(state["meta"], "saveVersion")
