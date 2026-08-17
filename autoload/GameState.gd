@@ -26,7 +26,7 @@ func new_game_state() -> Dictionary:
 		"inventoryTab": "ore",
 		"mapNav": { "selectedDistrict": null, "selectedSiteId": null },
 		"mapEvents": { "queue": [], "playing": false },
-		"phoneNav": { "app": "home", "selectedAxis": null },
+		"phoneNav": { "app": "home", "selectedAxis": null, "confirmingNewGame": false },
 		# calc-discovery ticket 03: transient Lab nav, same convention as
 		# mapNav/phoneNav — resets on load, not meaningfully persisted.
 		"benchNav": { "view": "home", "types": [], "approach": null, "result": null },
