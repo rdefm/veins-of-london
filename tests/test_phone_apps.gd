@@ -7,11 +7,11 @@ extends "res://tests/test_base.gd"
 
 
 func run() -> void:
-	run_case("apps_lists_the_four_existing_apps_in_a_fixed_order", func():
+	run_case("apps_lists_the_five_existing_apps_in_a_fixed_order", func():
 		var ids: Array[String] = []
 		for app in PhoneApps.apps():
 			ids.append(app["id"])
-		assert_eq(ids, ["messages", "notes", "factions", "ticker"], "grid slot order comes straight from the registry order")
+		assert_eq(ids, ["messages", "notes", "factions", "ticker", "profile"], "grid slot order comes straight from the registry order")
 	)
 
 	run_case("todays_roster_is_entirely_unlocked", func():

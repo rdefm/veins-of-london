@@ -7,12 +7,12 @@ extends RefCounted
 # which apps happen to be unlocked, so a slot never reflows when something
 # unlocks (spec story 8).
 #
-# Only the four apps that exist today are listed. Profile/Notifications/
-# Save-Load and any lock-gated app (e.g. Map, if it ever joins the grid)
-# land with their own tickets and the spec's separate "final app roster"
-# ticket (Out of Scope: "final app roster ... decided in a later ticket").
-# Every entry's locked Callable is a constant false for that reason -- the
-# lock mechanism itself is proven by tests/test_phone_apps.gd exercising
+# Only the five apps that exist today are listed. Notifications/Save-Load
+# and any lock-gated app (e.g. Map, if it ever joins the grid) land with
+# their own tickets and the spec's separate "final app roster" ticket
+# (Out of Scope: "final app roster ... decided in a later ticket"). Every
+# entry's locked Callable is a constant false for that reason -- the lock
+# mechanism itself is proven by tests/test_phone_apps.gd exercising
 # build_tile_configs() against a synthetic locked entry, independent of
 # today's real (all-unlocked) roster.
 #
@@ -27,6 +27,7 @@ static func apps() -> Array[Dictionary]:
 		{ "id": "notes", "label": "Notes", "locked": unlocked },
 		{ "id": "factions", "label": "Factions", "locked": unlocked },
 		{ "id": "ticker", "label": "The Ticker", "locked": unlocked },
+		{ "id": "profile", "label": "Profile", "locked": unlocked },
 	]
 
 

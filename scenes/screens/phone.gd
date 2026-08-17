@@ -39,6 +39,8 @@ func _refresh() -> void:
 				_build_ticker()
 			else:
 				_build_axis_detail(nav["selectedAxis"])
+		"profile":
+			_build_profile()
 		_:
 			_build_home()
 
@@ -280,3 +282,73 @@ func _build_influence_actions_card(section: String) -> Control:
 		c["content"].add_child(UI.muted_label("None for this axis yet."))
 
 	return c["panel"]
+
+
+# ── Profile (11-phone-os-shell ticket 08) ────────────────────────────
+# Absorbs the You tab's genuinely homeless content -- HP/bar, attack
+# range, the three skills + XP, and a read-only equipped weapon/device
+# summary (spec story 15) -- copied over from you.gd's
+# _build_stats_card/_build_skills_card/_build_equipment_card and its
+# _equipped_weapon_label/_equipped_device_label helpers. Deliberately
+# excludes cash/day (status bar already shows them, story 16) and the old
+# Ops card's veins-held/ore-in-stock summary (bag drawer + HQ's
+# stored-ore view already cover it, story 17). This is You's designated
+# future landing spot for reputation (M2), affinities (M3), and Fieldcraft
+# (M2) content per the spec's Implementation Decisions.
+
+func _build_profile() -> void:
+	_content.add_child(_phone_back_button())
+	_content.add_child(UI.heading("Profile"))
+
+	_content.add_child(_build_profile_stats_card())
+	_content.add_child(_build_profile_skills_card())
+	_content.add_child(_build_profile_equipment_card())
+
+
+func _build_profile_stats_card() -> Control:
+	var player: Dictionary = GameState.state["player"]
+	var atk := Combat.get_attack_range()
+
+	var c := UI.card()
+	c["content"].add_child(UI.label("HP: %d / %d" % [player["hp"], player["hpMax"]]))
+	c["content"].add_child(UI.bar(player["hp"], player["hpMax"]))
+	c["content"].add_child(UI.label("Attack: %d–%d" % [atk["min"], atk["max"]]))
+	return c["panel"]
+
+
+func _build_profile_skills_card() -> Control:
+	var player: Dictionary = GameState.state["player"]
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Skills", 14))
+	c["content"].add_child(UI.label("Crafting: Lv%d (%d XP)" % [player["craftingSkill"], player["craftingXP"]]))
+	c["content"].add_child(UI.label("Cultivating: Lv%d (%d XP)" % [player["cultivatingSkill"], player["cultivatingXP"]]))
+	c["content"].add_child(UI.label("Stealth: Lv%d (%d XP)" % [player["stealthSkill"], player["stealthXP"]]))
+	return c["panel"]
+
+
+func _build_profile_equipment_card() -> Control:
+	var player: Dictionary = GameState.state["player"]
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Equipment", 14))
+	c["content"].add_child(_equipped_weapon_label(player))
+	c["content"].add_child(_equipped_device_label(player))
+	return c["panel"]
+
+
+func _equipped_weapon_label(player: Dictionary) -> Control:
+	var weapon_id: Variant = player["equipment"]["weapon"]
+	for item in player["items"]:
+		if item["id"] == weapon_id:
+			var def: Dictionary = GameData.ITEMS.get(item["type"], {})
+			return UI.label("%s %s (equipped)" % [def.get("symbol", ""), def.get("name", "")])
+	return UI.muted_label("Weapon: none equipped")
+
+
+func _equipped_device_label(player: Dictionary) -> Control:
+	var device_id: Variant = player["equipment"]["device"]
+	for device in player["devicesCompleted"]:
+		if device["id"] == device_id:
+			var dt: Dictionary = GameData.DEVICES[device["type"]]
+			var charges_left: int = device["chargesPerDay"] - device["chargesUsedToday"]
+			return UI.label("%s %s (equipped) — %d/%d charges" % [dt["symbol"], dt["name"], charges_left, device["chargesPerDay"]])
+	return UI.muted_label("Device: none equipped")
