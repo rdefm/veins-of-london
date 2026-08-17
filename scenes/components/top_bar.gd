@@ -5,8 +5,27 @@ extends Control
 # Main.gd shows this on every screen except title/intro — unlike NavBar,
 # which also hides during event/combat, this one stays up there too, so the
 # bag button keeps working mid-event and mid-combat per D4.4.
+#
+# Restyled (phone-os-shell ticket 03) to read as subdued system chrome
+# rather than a floating game HUD: thinner (was 56px), a flat edge-to-edge
+# strip with a hairline bottom border instead of no background at all,
+# smaller muted-grey text, and a flat icon-only bag button — same
+# UI.icon_button(Icons.draw_bag, ...) helper map.gd's local top bar uses
+# (bugfixes ticket 13), plus flat=true here for the subdued look — instead
+# of an orange "🎒 Bag" text pill. Same data, same visibility rules, same
+# actions — visual pass only, per the ticket's explicit no-behavior-change
+# scope.
 
-const BAR_HEIGHT := 56.0
+const BAR_HEIGHT := 40.0
+
+# _BORDER_COLOR matches theme/main_theme.tres's StyleBoxFlat_panel border;
+# _TEXT_COLOR matches UI.muted_label()'s font_color override. Restated here
+# rather than shared because neither is exposed as a named constant on UI
+# or the theme resource today.
+const _BG_COLOR := Color(0.909804, 0.894118, 0.85098, 1)
+const _BORDER_COLOR := Color(0.831373, 0.811765, 0.768627, 1)
+const _TEXT_COLOR := Color(0.541176, 0.541176, 0.541176, 1)
+const _FONT_SIZE := 13
 
 var _day_label: Label
 var _cash_label: Label
@@ -16,15 +35,22 @@ func _ready() -> void:
 	UI.anchor_top_wide(self)
 	offset_bottom = BAR_HEIGHT
 
+	var bg := Panel.new()
+	UI.anchor_full_rect(bg)
+	var style := StyleBoxFlat.new()
+	style.bg_color = _BG_COLOR
+	style.border_width_bottom = 1
+	style.border_color = _BORDER_COLOR
+	bg.add_theme_stylebox_override("panel", style)
+	add_child(bg)
+
 	var margin := MarginContainer.new()
 	UI.anchor_full_rect(margin)
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
 	add_child(margin)
 
-	var row := UI.hbox(12)
+	var row := UI.hbox(8)
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(row)
 
@@ -39,6 +65,7 @@ func _ready() -> void:
 	# of fighting the container over minimum size.
 	_day_label = UI.label("")
 	_day_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_style_status_text(_day_label)
 	row.add_child(_day_label)
 
 	var spacer := Control.new()
@@ -47,12 +74,25 @@ func _ready() -> void:
 
 	_cash_label = UI.label("")
 	_cash_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_style_status_text(_cash_label)
 	row.add_child(_cash_label)
 
-	row.add_child(UI.button("🎒 Bag", func(): Bag.open()))
+	var bag_button := UI.icon_button(Icons.draw_bag, func(): Bag.open())
+	bag_button.flat = true
+	row.add_child(bag_button)
 
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
+
+
+# Shrinks each status label to its own text-driven minimum height (rather
+# than the default FILL, which would stretch it to the row's full height
+# and draw the text pinned at the top) so it sits vertically centred
+# against the bag button, which fills the row at its own fixed 40px size.
+func _style_status_text(l: Label) -> void:
+	l.add_theme_font_size_override("font_size", _FONT_SIZE)
+	l.add_theme_color_override("font_color", _TEXT_COLOR)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 
 func _refresh() -> void:

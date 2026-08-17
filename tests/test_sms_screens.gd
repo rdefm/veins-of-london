@@ -4,7 +4,7 @@ extends "res://tests/test_base.gd"
 # earliest screens in a genuinely-fresh new game that aren't in Main.gd's
 # NAV_HIDDEN_SCREENS) built their root VBoxContainer with a plain
 # UI.anchor_full_rect(), leaving no room for the persistent NavBar (64px,
-# scenes/components/nav_bar.gd) or TopBar (56px, scenes/components/top_bar.gd)
+# scenes/components/nav_bar.gd) or TopBar (scenes/components/top_bar.gd)
 # that Main.gd draws on top of every screen. The action bar holding the
 # "Continue ->" button ended up pinned flush to the screen's bottom edge —
 # directly underneath the NavBar, which (being added as a later sibling)

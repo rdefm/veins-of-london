@@ -393,7 +393,7 @@ static func screen_body(root: Control) -> VBoxContainer:
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 72)  # room below the top bar (TopBar.BAR_HEIGHT + 16)
+	margin.add_theme_constant_override("margin_top", int(TopBar.BAR_HEIGHT) + 16)  # room below the top bar
 	margin.add_theme_constant_override("margin_bottom", 80)  # room above the nav bar
 	sc.add_child(margin)
 
