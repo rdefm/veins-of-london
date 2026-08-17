@@ -53,9 +53,30 @@ var _fallback_label: Label
 var _lock_overlay: _LockOverlay
 var _badge: _BadgeDot
 var _name_label: Label
+var _built := false
 
 
 func _ready() -> void:
+	_ensure_built()
+
+
+# A caller that instantiates + add_child()s + configure()s an AppTile in
+# the same synchronous stretch (11-phone-os-shell ticket 07's app grid does
+# exactly this in a loop) can run ahead of the engine's own NOTIFICATION_READY
+# dispatch for the new child -- that dispatch is only guaranteed synchronous
+# once the parent is inside a SceneTree that's actively processing frames,
+# which is true in real gameplay but not in a headless test that only ever
+# calls a screen's _ready() directly rather than adding it to a live tree
+# (see tests/test_phone_home_grid.gd's header comment for the verified
+# engine behaviour behind this). Guarding configure() with the same builder
+# _ready() uses makes the component correct either way, and idempotent: in
+# the normal case _ready() has already run by the time configure() is
+# called, so this is a no-op _built check, not a double-build.
+func _ensure_built() -> void:
+	if _built:
+		return
+	_built = true
+
 	custom_minimum_size = Vector2(76, 92)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	gui_input.connect(_on_gui_input)
@@ -119,6 +140,7 @@ func _ready() -> void:
 # asset-contract lookup; lets a caller supply pre-loaded art, and lets tests
 # exercise the normal-render path without a real icon file on disk) }.
 func configure(data: Dictionary) -> void:
+	_ensure_built()
 	_app_id = data.get("id", "")
 	var label_text: String = data.get("label", _app_id)
 	var locked: bool = data.get("locked", false)

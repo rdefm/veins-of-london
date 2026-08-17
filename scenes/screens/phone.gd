@@ -47,24 +47,52 @@ func _phone_back_button() -> Control:
 	return UI.button("‹ Back", func(): PhoneNav.go_home())
 
 
-# ── home launcher ────────────────────────────────────────────────────
+# ── home launcher (11-phone-os-shell ticket 07: the app grid) ────────
+# Reskin of the old flat card list (ticket 02's AppTile + ticket 07's
+# PhoneApps registry replace the emoji-titled cards this used to be --
+# emoji render as blank tofu on the exported build, spec Problem
+# Statement). Grid slots come straight from PhoneApps.apps(), in that
+# fixed order, so a tile never reflows when it unlocks (spec story 8).
+
+const GRID_COLUMNS := 3
 
 func _build_home() -> void:
-	_content.add_child(UI.back_button("home"))
 	_content.add_child(UI.heading("Phone"))
-
-	_content.add_child(_build_app_tile("💬 Messages", "Archie, James, and whatever they want this time.", "messages", _has_pending_messages()))
-	_content.add_child(_build_app_tile("🗒 Notes", "Things to do.", "notes", false))
-	_content.add_child(_build_app_tile("🤝 Factions", "Who's who, and what they think of you.", "factions", false))
-	_content.add_child(_build_app_tile("📰 The Ticker", "London, in three headlines.", "ticker", _has_ticker_rumblings()))
+	_content.add_child(_build_app_grid(PhoneApps.apps()))
 
 
-func _build_app_tile(title: String, subtitle: String, app_id: String, has_badge: bool) -> Control:
-	var c := UI.card()
-	c["content"].add_child(UI.heading(title + (" •" if has_badge else ""), 15))
-	c["content"].add_child(UI.muted_label(subtitle))
-	c["content"].add_child(UI.button("Open", func(): PhoneNav.open_app(app_id)))
-	return c["panel"]
+# Split out from _build_home() so tests can drive it with a synthetic
+# roster (a locked entry, a lock-state flip) without needing PhoneApps'
+# real, currently all-unlocked roster to contain one -- same "component
+# testable against injected data" split PhoneApps.build_tile_configs()
+# itself uses.
+func _build_app_grid(apps_list: Array[Dictionary]) -> Control:
+	var grid := GridContainer.new()
+	grid.columns = GRID_COLUMNS
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+
+	for config in PhoneApps.build_tile_configs(apps_list, _badge_for):
+		var tile := AppTile.new()
+		grid.add_child(tile)
+		tile.configure(config)
+		tile.tile_pressed.connect(_on_app_tile_pressed)
+
+	return grid
+
+
+func _on_app_tile_pressed(app_id: String) -> void:
+	PhoneNav.open_app(app_id)
+
+
+func _badge_for(app_id: String) -> bool:
+	match app_id:
+		"messages":
+			return _has_pending_messages()
+		"ticker":
+			return _has_ticker_rumblings()
+		_:
+			return false
 
 
 func _has_pending_messages() -> bool:
