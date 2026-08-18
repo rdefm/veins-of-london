@@ -553,12 +553,13 @@ func run() -> void:
 	)
 
 	run_case("npc_abandonment_chance_flat_across_tiers_and_age_curve", func():
-		assert_almost_eq(Sites.npc_abandonment_chance(0), 0.05, 0.0001, "age 0: 0.05")
-		assert_almost_eq(Sites.npc_abandonment_chance(5), 0.10, 0.0001, "age 5: 0.05 + 0.05")
+		assert_almost_eq(Sites.npc_abandonment_chance(0), 0.02, 0.0001, "age 0: 0.02")
+		assert_almost_eq(Sites.npc_abandonment_chance(5), 0.045, 0.0001, "age 5: 0.02 + 0.025")
 	)
 
-	run_case("npc_abandonment_chance_caps_at_0_15", func():
-		assert_almost_eq(Sites.npc_abandonment_chance(100), 0.15, 0.0001, "caps at 0.15 even at huge age")
+	run_case("npc_abandonment_chance_caps_at_0_08", func():
+		assert_almost_eq(Sites.npc_abandonment_chance(12), 0.08, 0.0001, "reaches cap at age 12")
+		assert_almost_eq(Sites.npc_abandonment_chance(100), 0.08, 0.0001, "caps at 0.08 even at huge age")
 	)
 
 	run_case("roll_npc_claims_never_claims_a_barren_site", func():

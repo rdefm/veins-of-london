@@ -350,7 +350,7 @@ static func npc_claim_chance(tier: String, age_days: int) -> float:
 
 
 static func npc_abandonment_chance(age_days_since_npc_claim: int) -> float:
-	return clampf(0.05 + 0.01 * age_days_since_npc_claim, 0.0, 0.15)
+	return clampf(0.02 + 0.005 * age_days_since_npc_claim, 0.0, 0.08)
 
 
 # rival_prospector (M1-LONDON D5 #13): the district's best (highest-tier,
