@@ -12,6 +12,14 @@ const ASSIGNABLE_ROOMS := ["lab", "veinStation"]
 
 var _content: VBoxContainer
 
+# Bugfixes ticket 24: Rooms/Security are collapsible now (UI.collapsible_section),
+# collapsed by default so they don't compete with the actionable cards above
+# them. _refresh() rebuilds _content from scratch on every EventBus.state_changed,
+# so the section nodes themselves can't remember their own expand state --
+# these instance vars are what actually persists it across a refresh.
+var _security_expanded: bool = false
+var _rooms_expanded: bool = false
+
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -51,20 +59,11 @@ func _refresh() -> void:
 	_content.add_child(UI.label(tier["description"]))
 	_content.add_child(UI.muted_label("Daily cost: £%d · Tier %d/6" % [tier["dailyCost"], tier["tier"]]))
 
-	_content.add_child(_build_upgrade_card())
-	_content.add_child(_build_stored_ore_card())
-
-	_content.add_child(UI.heading("Security (%d/%d)" % [home["security"].size(), GameData.HOME_SECURITY.size()], 14))
-	for security_id in GameData.HOME_SECURITY.keys():
-		_content.add_child(_build_security_row(security_id))
-
-	_content.add_child(UI.heading("Rooms (%d/%d)" % [home["rooms"].size(), tier["maxRooms"]], 14))
-	for room_id in GameData.HOME_ROOMS.keys():
-		_content.add_child(_build_room_row(room_id))
-
-	_content.add_child(_build_gym_card())
+	# Actionable first — bugfixes ticket 24: Lab/workbench/recipes/devices
+	# are what a player actually taps on a normal visit; the passive
+	# property lists (Security/Rooms) below used to sit above them and push
+	# them off-screen.
 	_content.add_child(_build_lab_card())
-
 	_content.add_child(_build_workbench_card())
 	_content.add_child(UI.heading("Recipes", 14))
 	for recipe_key in GameData.RECIPES.keys():
@@ -88,6 +87,14 @@ func _refresh() -> void:
 		_content.add_child(_build_device_start_row(device_key))
 	if not any_unlocked:
 		_content.add_child(UI.muted_label("No device types unlocked yet."))
+
+	# Property — passive reference info, collapsible and pushed below the
+	# actionable cards above.
+	_content.add_child(_build_upgrade_card())
+	_content.add_child(_build_stored_ore_card())
+	_content.add_child(_build_security_section())
+	_content.add_child(_build_rooms_section())
+	_content.add_child(_build_gym_card())
 
 
 # Rendered even while HQ is otherwise locked (see _refresh() below) — Rest
@@ -147,6 +154,26 @@ func _build_stored_ore_card() -> Control:
 	return c["panel"]
 
 
+# Bugfixes ticket 24: Rooms/Security were bare UI.heading() + flat row loops
+# straight into _content; both now go through this shared collapsible-list
+# shape (UI.collapsible_section() + one row per id) so the passive,
+# reference-only lists don't compete for screen space with the actionable
+# cards above them. `expanded`/`on_toggle` are what let a caller's own
+# instance var (_security_expanded / _rooms_expanded, declared up top)
+# survive the _refresh() rebuild, since the section node itself can't.
+func _build_collapsible_list_section(title_prefix: String, count: int, total: int, expanded: bool, on_toggle: Callable, ids: Array, row_builder: Callable) -> Control:
+	var title := "%s (%d/%d)" % [title_prefix, count, total]
+	var section := UI.collapsible_section(title, expanded, on_toggle)
+	for id in ids:
+		section["content"].add_child(row_builder.call(id))
+	return section["panel"]
+
+
+func _build_security_section() -> Control:
+	var home: Dictionary = GameState.state["home"]
+	return _build_collapsible_list_section("Security", home["security"].size(), GameData.HOME_SECURITY.size(), _security_expanded, func(v): _security_expanded = v, GameData.HOME_SECURITY.keys(), _build_security_row)
+
+
 func _build_security_row(security_id: String) -> Control:
 	var home: Dictionary = GameState.state["home"]
 	var sec: Dictionary = GameData.HOME_SECURITY[security_id]
@@ -175,6 +202,12 @@ func _build_security_row(security_id: String) -> Control:
 		c["content"].add_child(b)
 
 	return c["panel"]
+
+
+func _build_rooms_section() -> Control:
+	var home: Dictionary = GameState.state["home"]
+	var tier: Dictionary = GameData.HOME_TIERS[home["tier"]]
+	return _build_collapsible_list_section("Rooms", home["rooms"].size(), tier["maxRooms"], _rooms_expanded, func(v): _rooms_expanded = v, GameData.HOME_ROOMS.keys(), _build_room_row)
 
 
 func _build_room_row(room_id: String) -> Control:

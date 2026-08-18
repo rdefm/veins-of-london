@@ -112,6 +112,55 @@ static func card() -> Dictionary:
 	return { "panel": panel, "content": content }
 
 
+# Accordion-style collapsible section: a header button showing `title` plus
+# an expand/collapse chevron, toggling a content VBoxContainer's visibility.
+# Same { "panel", "content" } return shape as card() so call sites read the
+# same way. Bugfixes ticket 24: HQ's Rooms/Security lists needed this so
+# they'd stop pushing HQ's actionable cards (Lab, Recipes, workbench) down
+# the screen.
+#
+# `expanded` sets the section's initial state. `on_toggle`, if given, fires
+# with the new expanded bool on every tap -- a screen's _refresh() rebuilds
+# and frees this node from scratch each time (see HqScreen), so the section
+# itself can't remember its own state across a refresh; a caller wanting the
+# collapse state to persist within the session has to store it externally
+# (an instance var) and hand the updated value back in as `expanded` next
+# call.
+#
+# Built as a bare Button rather than via button() above -- that helper caps
+# and reserves a text-driven minimum width for buttons meant to sit as
+# non-expand children in an HBoxContainer row (see its own comment); a
+# section header instead sits alone in a VBoxContainer, whose cross-axis
+# (horizontal) fill already stretches a plain child to the full container
+# width regardless of minimum size, so none of that machinery is needed here.
+static func collapsible_section(title: String, expanded: bool, on_toggle: Callable = Callable()) -> Dictionary:
+	var section := vbox(6)
+
+	var content := vbox(6)
+	content.visible = expanded
+
+	var header := Button.new()
+	header.clip_text = true
+	header.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	header.text = _accordion_header_text(title, expanded)
+	header.pressed.connect(func():
+		content.visible = not content.visible
+		header.text = _accordion_header_text(title, content.visible)
+		if on_toggle.is_valid():
+			on_toggle.call(content.visible)
+	)
+
+	section.add_child(header)
+	section.add_child(content)
+
+	return { "panel": section, "content": content }
+
+
+static func _accordion_header_text(title: String, expanded: bool) -> String:
+	return "%s %s" % [title, "▾" if expanded else "▸"]
+
+
 static func heading(text: String, size: int = 20) -> Label:
 	var label := Label.new()
 	label.text = text

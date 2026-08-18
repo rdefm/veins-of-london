@@ -165,3 +165,60 @@ func run() -> void:
 		assert_eq(UI.safe_area_bottom_inset(), UI.safe_area_insets()["bottom"], "bottom helper must read the same value as the dict")
 		assert_eq(UI.safe_area_top_inset(), UI.safe_area_insets()["top"], "top helper must read the same value as the dict")
 	)
+
+	# Bugfixes ticket 24: collapsible_section() -- HQ's Rooms/Security accordion primitive.
+
+	run_case("collapsible_section_honours_the_initial_expanded_state", func():
+		var collapsed := UI.collapsible_section("Security (2/6)", false)
+		assert_true(not collapsed["content"].visible, "expanded:false must start with content hidden")
+
+		var expanded := UI.collapsible_section("Security (2/6)", true)
+		assert_true(expanded["content"].visible, "expanded:true must start with content shown")
+
+		collapsed["panel"].free()
+		expanded["panel"].free()
+	)
+
+	run_case("collapsible_section_header_shows_a_chevron_matching_its_state", func():
+		var collapsed := UI.collapsible_section("Rooms (1/4)", false)
+		var expanded := UI.collapsible_section("Rooms (1/4)", true)
+
+		var collapsed_header := collapsed["panel"].get_child(0) as Button
+		var expanded_header := expanded["panel"].get_child(0) as Button
+		assert_eq(collapsed_header.text, "Rooms (1/4) ▸", "collapsed header must show the closed chevron")
+		assert_eq(expanded_header.text, "Rooms (1/4) ▾", "expanded header must show the open chevron")
+
+		collapsed["panel"].free()
+		expanded["panel"].free()
+	)
+
+	run_case("tapping_the_header_toggles_content_visibility_and_the_chevron", func():
+		var section := UI.collapsible_section("Security (2/6)", false)
+		var header := section["panel"].get_child(0) as Button
+
+		header.pressed.emit()
+		assert_true(section["content"].visible, "a tap on a collapsed header must expand it")
+		assert_eq(header.text, "Security (2/6) ▾", "chevron must flip to open on expand")
+
+		header.pressed.emit()
+		assert_true(not section["content"].visible, "a second tap must collapse it again")
+		assert_eq(header.text, "Security (2/6) ▸", "chevron must flip back to closed on collapse")
+
+		section["panel"].free()
+	)
+
+	run_case("tapping_the_header_fires_on_toggle_with_the_new_state", func():
+		# Array, not a bare bool -- see icon_button test above for why a
+		# lambda-captured local can't be mutated directly from the callback.
+		var seen := []
+		var section := UI.collapsible_section("Rooms (1/4)", false, func(v): seen.append(v))
+		var header := section["panel"].get_child(0) as Button
+
+		header.pressed.emit()
+		assert_eq(seen, [true], "on_toggle must fire with the section's new (now expanded) state")
+
+		header.pressed.emit()
+		assert_eq(seen, [true, false], "on_toggle must fire again with the new (now collapsed) state")
+
+		section["panel"].free()
+	)
