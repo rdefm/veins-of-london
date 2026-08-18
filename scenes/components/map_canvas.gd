@@ -1190,13 +1190,42 @@ func _start_pinch() -> void:
 # stops the ScrollContainer's own two-finger pan from also fighting the
 # pinch for the same gesture; a single-finger pan is left alone so the
 # ScrollContainer's native scrolling still works.
+#
+# Bugfixes ticket 23: _set_zoom() alone resizes this Control (see
+# _apply_zoom) with no compensating scroll, so the content only ever grows
+# from its top-left — the pinch midpoint drifted toward whatever's in that
+# corner instead of staying under the fingers. Fix: read the midpoint (this
+# Control's local space, same "zoomed content px" to_logical() already
+# assumes elsewhere in this file) and its position relative to the
+# ScrollContainer's current scroll offset (its `anchor`) BEFORE changing
+# zoom_level, then hand both to MapZoom.scroll_target() AFTER — same
+# pan-to-point maths pan_to() already tweens through, just applied
+# immediately each pinch frame instead of animated, and anchored on the
+# pinch point's own screen position instead of scroll_target()'s default
+# viewport-centre anchor.
 func _update_pinch() -> void:
 	if _pinch_start_distance <= 0.0:
 		_start_pinch()
 		return
 	var positions: Array = _touches.values()
 	var distance: float = positions[0].distance_to(positions[1])
-	_set_zoom(MapZoom.clamp_zoom(_pinch_start_zoom * (distance / _pinch_start_distance)))
+	var midpoint: Vector2 = (positions[0] + positions[1]) / 2.0
+	var new_zoom := MapZoom.clamp_zoom(_pinch_start_zoom * (distance / _pinch_start_distance))
+
+	var scroll := get_parent() as ScrollContainer
+	var logical_point := MapZoom.to_logical(midpoint, zoom_level)
+	var anchor := midpoint
+	if scroll:
+		anchor = midpoint - Vector2(scroll.scroll_horizontal, scroll.scroll_vertical)
+
+	_set_zoom(new_zoom)
+
+	if scroll:
+		var viewport_size: Vector2 = scroll.size
+		var content_size := _map_size * zoom_level
+		var target_scroll := MapZoom.scroll_target(logical_point, zoom_level, viewport_size, content_size, anchor)
+		_apply_scroll(target_scroll, scroll)
+
 	accept_event()
 
 

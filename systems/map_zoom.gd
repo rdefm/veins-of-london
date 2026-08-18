@@ -38,15 +38,23 @@ static func to_logical(screen_pos: Vector2, zoom: float) -> Vector2:
 
 # Map-animations ticket 01: the scroll offset (top-left of the viewport, in
 # the same zoomed px a ScrollContainer's scroll_horizontal/scroll_vertical
-# use) that centres `point` (logical map px) inside a `viewport_size`
-# viewport at `zoom`, clamped so the viewport never scrolls past the zoomed
-# content's edges — same clamping a ScrollContainer would apply natively,
-# done here so MapCanvas.pan_to() can tween straight to a valid target
-# rather than fighting the container's own clamp mid-animation. `content_size`
-# is the already-zoomed content size (mapSize * zoom), not passed as zoom
-# again, so callers animating zoom and scroll together can pass the
-# in-progress zoomed size at each step.
-static func scroll_target(point: Vector2, zoom: float, viewport_size: Vector2, content_size: Vector2) -> Vector2:
-	var centred := point * zoom - viewport_size / 2.0
+# use) that places `point` (logical map px) at `anchor` (viewport-relative
+# px) inside a `viewport_size` viewport at `zoom`, clamped so the viewport
+# never scrolls past the zoomed content's edges — same clamping a
+# ScrollContainer would apply natively, done here so MapCanvas.pan_to() can
+# tween straight to a valid target rather than fighting the container's own
+# clamp mid-animation. `content_size` is the already-zoomed content size
+# (mapSize * zoom), not passed as zoom again, so callers animating zoom and
+# scroll together can pass the in-progress zoomed size at each step.
+#
+# `anchor` defaults (sentinel -1,-1, same idiom as pan_to()'s target_zoom)
+# to the viewport's centre — pan_to()'s original "centre on this point"
+# behaviour, unchanged for that caller. Bugfixes ticket 23: pinch-zoom needs
+# `point` to stay under the fingers, not jump to viewport centre, so
+# MapCanvas._update_pinch passes the pinch midpoint's own current
+# viewport-relative position as `anchor` instead.
+static func scroll_target(point: Vector2, zoom: float, viewport_size: Vector2, content_size: Vector2, anchor: Vector2 = Vector2(-1.0, -1.0)) -> Vector2:
+	var resolved_anchor := anchor if anchor.x >= 0.0 and anchor.y >= 0.0 else viewport_size / 2.0
+	var positioned := point * zoom - resolved_anchor
 	var max_scroll := (content_size - viewport_size).max(Vector2.ZERO)
-	return centred.clamp(Vector2.ZERO, max_scroll)
+	return positioned.clamp(Vector2.ZERO, max_scroll)
