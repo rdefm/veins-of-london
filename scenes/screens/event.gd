@@ -41,8 +41,13 @@ func _ready() -> void:
 	_action_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_action_bar.offset_left = 16
 	_action_bar.offset_right = -16
-	_action_bar.offset_top = -56
-	_action_bar.offset_bottom = -8
+	# Bugfixes ticket 20: -8 alone pins this directly under the OS gesture-
+	# nav bar on a notched/gesture-nav device, where Continue/Rewind/choice
+	# buttons land underneath it and are untappable -- lift the whole bar
+	# clear of that inset while keeping its own 48px height fixed.
+	var bottom_inset := UI.safe_area_bottom_inset()
+	_action_bar.offset_top = -56 - bottom_inset
+	_action_bar.offset_bottom = -8 - bottom_inset
 	add_child(_action_bar)
 
 	EventBus.state_changed.connect(_refresh)

@@ -147,3 +147,21 @@ func run() -> void:
 
 		c["panel"].free()
 	)
+
+	# Bugfixes ticket 20: no headless run ever opens a real window
+	# (DisplayServer.window_get_size() reports (0, 0) here, same as
+	# check_runner.gd), so the only behaviour this rig can pin down is the
+	# safe zero-inset fallback -- the nonzero on-device case is human QA per
+	# the ticket.
+	run_case("safe_area_insets_is_zero_with_no_window_open", func():
+		var insets := UI.safe_area_insets()
+		assert_eq(insets["top"], 0.0, "no window open means no safe-area data to scale")
+		assert_eq(insets["bottom"], 0.0, "no window open means no safe-area data to scale")
+		assert_eq(insets["left"], 0.0, "no window open means no safe-area data to scale")
+		assert_eq(insets["right"], 0.0, "no window open means no safe-area data to scale")
+	)
+
+	run_case("safe_area_bottom_and_top_inset_helpers_match_the_dict", func():
+		assert_eq(UI.safe_area_bottom_inset(), UI.safe_area_insets()["bottom"], "bottom helper must read the same value as the dict")
+		assert_eq(UI.safe_area_top_inset(), UI.safe_area_insets()["top"], "top helper must read the same value as the dict")
+	)

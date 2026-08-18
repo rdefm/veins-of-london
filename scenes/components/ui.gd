@@ -373,6 +373,50 @@ static func format_block_cost_label(action_label: String, action_blocks: int = 1
 	return "%s — %s" % [action_label, block_cost_suffix(action_blocks)]
 
 
+# OS safe-area/gesture-inset (bugfixes ticket 20 — the notched/gesture-nav
+# device this exists for has no headless test rig, so this is verified by
+# the zero-inset desktop/headless behaviour here and human on-device QA per
+# the ticket). DisplayServer.get_display_safe_area() reports the unobstructed
+# region in physical screen pixels, but every offset_* in this file is in
+# canvas coordinates -- project.godot's canvas_items/expand stretch mode
+# means those two spaces are NOT 1:1, so the raw DisplayServer rect can't be
+# used as an offset directly without first scaling it down by how much the
+# stretch mode is enlarging canvas units relative to real pixels.
+# window_get_size() reports (0, 0) with no window open (every headless run,
+# including tests/check_runner.gd) -- the early-out there is what keeps this
+# safe against a division by zero rather than a device-only concern.
+static func safe_area_insets() -> Dictionary:
+	var zero := { "top": 0.0, "bottom": 0.0, "left": 0.0, "right": 0.0 }
+
+	var window_size := DisplayServer.window_get_size()
+	if window_size.x <= 0 or window_size.y <= 0:
+		return zero
+
+	var loop := Engine.get_main_loop()
+	if loop == null or not (loop is SceneTree):
+		return zero
+	var canvas_size: Vector2 = (loop as SceneTree).root.get_visible_rect().size
+
+	var scale_x: float = canvas_size.x / float(window_size.x)
+	var scale_y: float = canvas_size.y / float(window_size.y)
+
+	var safe_area := DisplayServer.get_display_safe_area()
+	return {
+		"top": safe_area.position.y * scale_y,
+		"bottom": (window_size.y - safe_area.position.y - safe_area.size.y) * scale_y,
+		"left": safe_area.position.x * scale_x,
+		"right": (window_size.x - safe_area.position.x - safe_area.size.x) * scale_x,
+	}
+
+
+static func safe_area_bottom_inset() -> float:
+	return safe_area_insets()["bottom"]
+
+
+static func safe_area_top_inset() -> float:
+	return safe_area_insets()["top"]
+
+
 # TouchScrollContainer, not a bare ScrollContainer — see its own class
 # comment: vanilla ScrollContainer has no touch/finger drag-to-scroll, only
 # this subclass's manual handling gives every screen built through this
