@@ -133,8 +133,13 @@ func _build_diagram_layer() -> Control:
 	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_right", 16)
 	# The global TopBar is hidden on this screen (see class comment above),
-	# so this only needs a small top inset, not room for it.
-	margin.add_theme_constant_override("margin_top", 8)
+	# so this only needs a small top inset, not room for it -- but this
+	# screen's own top bar (_build_top_bar(), below) is now the only thing
+	# standing between the hamburger/title/bag row and a notch/front-camera
+	# cutout, so bugfixes ticket 21 adds the same safe-area top inset the
+	# global TopBar gets (top_bar.gd) on top of the normal 8px breathing
+	# room, rather than letting it sit flush under the cutout.
+	margin.add_theme_constant_override("margin_top", 8 + int(UI.safe_area_top_inset()))
 	margin.add_theme_constant_override("margin_bottom", 80)  # room above the nav bar
 	layer.add_child(margin)
 

@@ -33,7 +33,15 @@ var _cash_label: Label
 
 func _ready() -> void:
 	UI.anchor_top_wide(self)
-	offset_bottom = BAR_HEIGHT
+	# Bugfixes ticket 21: flush against offset_top = 0 sits directly under
+	# the OS notch/front-camera cutout on some devices, hiding money/time/
+	# bag behind it. Shift the whole bar down by the safe-area top inset
+	# (zero on desktop/headless) while keeping its own height fixed at
+	# BAR_HEIGHT — UI.top_bar_clearance() is what every screen that clears
+	# "below the TopBar" now uses instead of the bare constant, so nothing
+	# ends up hidden under the bar's new, lower position.
+	offset_top = UI.safe_area_top_inset()
+	offset_bottom = UI.top_bar_clearance()
 
 	var bg := Panel.new()
 	UI.anchor_full_rect(bg)

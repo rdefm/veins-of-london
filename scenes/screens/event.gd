@@ -19,7 +19,7 @@ func _ready() -> void:
 	UI.anchor_full_rect(self)
 
 	_scroll = UI.scroll_container()
-	_scroll.offset_top = TopBar.BAR_HEIGHT  # clears the persistent top bar — visible mid-event per D4.4
+	_scroll.offset_top = UI.top_bar_clearance()  # clears the persistent top bar (incl. its notch inset) — visible mid-event per D4.4
 	_scroll.offset_bottom = -64
 	add_child(_scroll)
 

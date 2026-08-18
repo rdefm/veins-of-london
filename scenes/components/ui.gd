@@ -50,7 +50,7 @@ static func anchor_bottom_wide(control: Control) -> void:
 # sms_archie_2.gd's Continue button did exactly this — bugfixes ticket 07).
 static func anchor_below_bars(control: Control) -> void:
 	anchor_full_rect(control)
-	control.offset_top = TopBar.BAR_HEIGHT
+	control.offset_top = top_bar_clearance()
 	control.offset_bottom = -NavBar.BAR_HEIGHT
 
 
@@ -417,6 +417,17 @@ static func safe_area_top_inset() -> float:
 	return safe_area_insets()["top"]
 
 
+# Bugfixes ticket 21: TopBar itself shifts down by safe_area_top_inset() to
+# clear a notch/front-camera cutout (see top_bar.gd), which grows its total
+# footprint from BAR_HEIGHT to BAR_HEIGHT + inset. Every screen that clears
+# "below the persistent TopBar" by the bare constant needs the same inset
+# added, or the bar's now-lower bottom edge overlaps the top strip of
+# whatever content assumed the old, shorter footprint. Zero on
+# desktop/headless (no window), same as the insets it wraps.
+static func top_bar_clearance() -> float:
+	return TopBar.BAR_HEIGHT + safe_area_top_inset()
+
+
 # TouchScrollContainer, not a bare ScrollContainer — see its own class
 # comment: vanilla ScrollContainer has no touch/finger drag-to-scroll, only
 # this subclass's manual handling gives every screen built through this
@@ -445,7 +456,7 @@ static func screen_body(root: Control) -> VBoxContainer:
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", int(TopBar.BAR_HEIGHT) + 16)  # room below the top bar
+	margin.add_theme_constant_override("margin_top", int(top_bar_clearance()) + 16)  # room below the top bar
 	margin.add_theme_constant_override("margin_bottom", 80)  # room above the nav bar
 	sc.add_child(margin)
 
