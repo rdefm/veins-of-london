@@ -1,0 +1,13 @@
+- playing a new game, i can get to the "Something woke you up" event, but there's no way to continue the event. Looks like there may be a button hidden behind the menu tabs at the bottom that I can't tap on
+- other factions lose their veins too quickly and too often. 
+- pinch to zoom; zooms into upper left corner of map, rather than where I'm pinching
+- top of screen shows money, time, bag button. Some of this is hidden underneath the front camera on my phone 
+- hq tab: make the Rooms, Security submenus collapsible. Also make actions that can be taken (is Lab) separate, and at the top. Make the lab have 2 sections; one for crafting, one for experimenting (the current lab function)
+- add a key into the map to show the factions. Make it look like London underground map, with the key in the corner (maybe top left where there is space and the map currently opens to)
+- add a marketplace where calc (and related goods) can be bought and sold. It's hosted by the Guild, and is only available once you become a member. We'll add a questline to build relationship enough to become a member. Prices are based on the ticker effects (eg ore prices up or down). Buying adds an additional 15% to base price, selling takes 15% off base price. As you increase relationship with the guild, these get closer to the true price (rewarding building relationship with guild).
+- jobs from James: change it so player can't ask for them. Small random chance of James messaging offering a job, (type 1) where player spends a time block and gets paid, and (type 2) small chance of him asking you to make X of a certain item by Y days. Chance of type 1 goes up to 100% when player's money is very low (£100 or less). Payment for type 1 job is £300. 
+- guild questline: FLESH OUT WHEN I CAN SEE WHERE CURRENT QUESTLINE ENDS
+- Black Hole effect; flavour text says this affects whoever deployed it; it shouldn't. Ensure this text is removed, and game mechanics doesn't include the player when deployed.
+- I saved a game. When I reload it, none of the factions have their veins anymore. Confirm that (non player) faction veins are included in save files.
+- add a 'load game' button upon the game initially loading, alongside 'new game' and 'debug start'
+- unclaimed veins should appear as stops that aren't connected to any line. When they're claimed the line connects. Also, all stops (even other factions') should have the vein type in the middle of the circle 
