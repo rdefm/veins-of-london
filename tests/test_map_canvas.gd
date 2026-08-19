@@ -10,6 +10,34 @@ extends "res://tests/test_base.gd"
 # _draw_faction_stop draw at rest, rather than a parallel formula that could
 # drift from it. MapCanvas.new() is safe to call this on directly: it never
 # touches get_tree()/get_viewport(), only `filter_mode` and GameData.
+#
+# Ticket 35: the immediate-mode draw_* calls themselves (draw_circle/
+# draw_arc/draw_colored_polygon/...) are now also exercised, via
+# tests/support/draw_spy.gd — a headless recording double that stands in
+# for the `target: Object` params ticket 34's spike retyped from
+# `CanvasItem` (shadowing a native CanvasItem method is a hard GDScript
+# compile error, so a plain RefCounted double is what fills that seam; see
+# ticket 34's `## Answer`). This proves _draw_ring_stop/_draw_interchange_
+# ring/_draw_ore_symbol actually draw the shape/position/radius ticket 27's
+# own acceptance checklist asked for, not just that the style dict feeding
+# them is correct. Still out of scope, same as the paragraph above: the
+# Node/Tween-driven playback visuals (DiscoverRipple, SeedClaimRing, ...) —
+# this only proves the *static* draw path (_draw_vein_stop/_draw_faction_
+# stop/_draw_unclaimed_stop and the shared helpers under them), not their
+# pop-in animations.
+#
+# _draw_vein_stop/_draw_faction_stop/_draw_unclaimed_stop themselves take no
+# `target` param (ticket 34 left this as ticket 35's call) — they always
+# draw via _draw_ring_stop/_draw_ore_symbol/etc.'s own `target` default of
+# `self`, the real Control. Threading a `target` through them would also
+# require retyping _draw_level_badge/_draw_security_padlock/_draw_dotted_
+# ring (called unconditionally by _draw_vein_stop, hardcoded to `self`
+# throughout) — outside ticket 34's scoped retype list. So the cases below
+# call the already-retyped lower-level helpers directly, with the exact
+# pos/style/alpha/segments each public function would itself compute
+# (_vein_ring_style()/_unclaimed_ring_style()/MapStyle.stop_alpha() are
+# already covered above/in tests/test_map_style.gd) — reproducing each
+# stop kind's real draw call graph without the badge/padlock detour.
 
 
 static func _vein(ore_type: String, level: int) -> Dictionary:
@@ -89,6 +117,126 @@ func run() -> void:
 		var type_style: Dictionary = canvas._unclaimed_ring_style("fate")
 		assert_eq(type_style["colour"], Color(GameData.ORE_TYPES["fate"]["colour"]), "N4: Type mode recolours every stop ring by ore type, unclaimed sites included")
 		assert_eq(type_style["width"], MapCanvas.UNCLAIMED_STOP_STROKE, "type mode: width still fixed -- recolouring doesn't touch it")
+
+		canvas.free()
+	)
+
+	# Ticket 35: proves _draw_vein_stop's own draw call graph (via the two
+	# helpers it calls, _draw_ring_stop and _draw_ore_symbol -- see this
+	# file's class comment for why the public function itself isn't called
+	# directly) actually draws a ring at VEIN_STOP_RADIUS centred on the
+	# stop's position, and an ore glyph also centred on it -- closing ticket
+	# 27's "and centered" gap, which _vein_ring_style()'s style-dict coverage
+	# above never could (a style dict has no position in it at all).
+	#
+	# oreType "fate" is picked deliberately: _ore_font_covers_symbols is only
+	# ever computed in _ready() (see that field's own comment), which a bare
+	# MapCanvas.new() here never runs -- same "never touches get_tree()" case
+	# as every other run_case() in this file -- so it sits at its uninitialised
+	# default, false. _draw_ore_symbol's live path under that default is
+	# OreGlyphs.draw() (which also happens to be the real, computed answer on
+	# a live canvas -- see tests/test_ore_glyphs.gd's bundled_font_does_not_
+	# cover_any_ore_symbol case -- so this isn't testing a path production
+	# never takes, just not exercising the _ready()-time check itself). And
+	# "fate" -> OreGlyphs._draw_die5's centre pip (the offset (0,0) dot) is
+	# the one glyph draw call in the whole OreGlyphs shape set whose
+	# recorded position argument is the *exact*, unmodified centre point
+	# passed in, rather than a centre-plus-offset -- the cleanest possible
+	# proof this ticket's "closes ticket 27's centering gap" bullet asks for.
+	run_case("draw_vein_stop_helpers_draw_a_ring_at_its_radius_and_a_glyph_centred_on_the_stops_position", func():
+		var canvas := MapCanvas.new()
+		canvas.filter_mode = "ownership"
+		var pos := Vector2(123.0, 45.0)
+		var vein := _vein("fate", 2)
+		var ore: Dictionary = GameData.ORE_TYPES["fate"]
+		var alpha := MapStyle.stop_alpha("ownership", false, "", "player")
+		var style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+
+		var ring_spy := DrawSpy.new()
+		canvas._draw_ring_stop(pos, MapCanvas.VEIN_STOP_RADIUS, alpha, style, 32, ring_spy)
+		var rings: Array = ring_spy.calls_matching("draw_arc")
+		assert_true(rings.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS), "the ring arc is centred on the stop's own position, at VEIN_STOP_RADIUS")
+
+		var glyph_spy := DrawSpy.new()
+		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy, MapCanvas.STOP_ICON_GROWTH)
+		var glyph_circles: Array = glyph_spy.calls_matching("draw_circle")
+		assert_true(glyph_circles.any(func(c): return c["args"][0] == pos), "the die5 ore glyph's centre pip lands exactly on the stop's position -- ticket 27's 'and centered' gap")
+
+		canvas.free()
+	)
+
+	# Same proof as above for a faction-owned vein stop -- FACTION_STOP_
+	# RADIUS instead of VEIN_STOP_RADIUS, and _draw_ore_symbol called the
+	# way _draw_faction_stop itself calls it (no explicit target/enlarge --
+	# both default, matching a real _draw_faction_stop call site exactly
+	# except for target, which is threaded in as the spy instead of self).
+	run_case("draw_faction_stop_helpers_draw_a_ring_at_its_radius_and_a_glyph_centred_on_the_stops_position", func():
+		var canvas := MapCanvas.new()
+		canvas.filter_mode = "ownership"
+		var pos := Vector2(200.0, 10.0)
+		var vein := _vein("fate", 1)
+		var ore: Dictionary = GameData.ORE_TYPES["fate"]
+		var faction_colour := Color(GameData.FACTIONS["firm"]["colour"])
+		var alpha := MapStyle.stop_alpha("ownership", false, "", "firm")
+		var style: Dictionary = canvas._vein_ring_style(vein, faction_colour, MapCanvas.FACTION_STOP_STROKE)
+
+		var ring_spy := DrawSpy.new()
+		canvas._draw_ring_stop(pos, MapCanvas.FACTION_STOP_RADIUS, alpha, style, 24, ring_spy)
+		var rings: Array = ring_spy.calls_matching("draw_arc")
+		assert_true(rings.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.FACTION_STOP_RADIUS), "the ring arc is centred on the stop's own position, at FACTION_STOP_RADIUS")
+
+		var glyph_spy := DrawSpy.new()
+		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy)
+		var glyph_circles: Array = glyph_spy.calls_matching("draw_circle")
+		assert_true(glyph_circles.any(func(c): return c["args"][0] == pos), "the die5 ore glyph's centre pip lands exactly on the stop's position -- ticket 27's 'and centered' gap")
+
+		canvas.free()
+	)
+
+	# Same proof as above for an unclaimed site stop -- UNCLAIMED_STOP_
+	# RADIUS/_unclaimed_ring_style() instead of the vein-owner path.
+	run_case("draw_unclaimed_stop_helpers_draw_a_ring_at_its_radius_and_a_glyph_centred_on_the_stops_position", func():
+		var canvas := MapCanvas.new()
+		canvas.filter_mode = "ownership"
+		var pos := Vector2(60.0, 300.0)
+		var ore: Dictionary = GameData.ORE_TYPES["fate"]
+		var alpha := MapStyle.stop_alpha("ownership", false, "", "")
+		var style: Dictionary = canvas._unclaimed_ring_style("fate")
+
+		var ring_spy := DrawSpy.new()
+		canvas._draw_ring_stop(pos, MapCanvas.UNCLAIMED_STOP_RADIUS, alpha, style, 24, ring_spy)
+		var rings: Array = ring_spy.calls_matching("draw_arc")
+		assert_true(rings.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.UNCLAIMED_STOP_RADIUS), "the ring arc is centred on the stop's own position, at UNCLAIMED_STOP_RADIUS")
+
+		var glyph_spy := DrawSpy.new()
+		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy)
+		var glyph_circles: Array = glyph_spy.calls_matching("draw_circle")
+		assert_true(glyph_circles.any(func(c): return c["args"][0] == pos), "the die5 ore glyph's centre pip lands exactly on the stop's position -- ticket 27's 'and centered' gap")
+
+		canvas.free()
+	)
+
+	# Ticket 27's rich/saturated "double tick" -- previously zero coverage of
+	# any kind, per ticket 35's own checklist. _draw_unclaimed_stop calls
+	# both _draw_ring_stop and _draw_interchange_ring into the same target
+	# when double_ring is true (site tier in ["rich", "saturated"]), so this
+	# reproduces that pair of calls directly and checks both rings land at
+	# the radii a real tube-map interchange marker would use: the base
+	# UNCLAIMED_STOP_RADIUS, and a second one INTERCHANGE_RING_GAP further out.
+	run_case("unclaimed_stop_interchange_ring_records_two_rings_a_gap_apart_for_rich_saturated_sites", func():
+		var canvas := MapCanvas.new()
+		canvas.filter_mode = "ownership"
+		var pos := Vector2(80.0, 90.0)
+		var alpha := MapStyle.stop_alpha("ownership", false, "", "")
+		var style: Dictionary = canvas._unclaimed_ring_style("time")
+
+		var spy := DrawSpy.new()
+		canvas._draw_ring_stop(pos, MapCanvas.UNCLAIMED_STOP_RADIUS, alpha, style, 24, spy)
+		canvas._draw_interchange_ring(pos, MapCanvas.UNCLAIMED_STOP_RADIUS, alpha, style, 24, spy)
+
+		var arcs: Array = spy.calls_matching("draw_arc")
+		assert_true(arcs.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.UNCLAIMED_STOP_RADIUS), "inner ring at the base unclaimed radius")
+		assert_true(arcs.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.UNCLAIMED_STOP_RADIUS + MapCanvas.INTERCHANGE_RING_GAP), "outer interchange ring, INTERCHANGE_RING_GAP further out -- rich/saturated sites only")
 
 		canvas.free()
 	)

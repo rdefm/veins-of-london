@@ -37,7 +37,7 @@ static func font_covers_all_symbols(font: Font) -> bool:
 	return true
 
 
-static func draw(target: CanvasItem, center: Vector2, ore_type: String, colour: Color, radius: float = 5.5) -> void:
+static func draw(target: Object, center: Vector2, ore_type: String, colour: Color, radius: float = 5.5) -> void:
 	match SHAPES.get(ore_type, ""):
 		"hourglass":
 			_draw_hourglass(target, center, colour, radius)
@@ -52,13 +52,13 @@ static func draw(target: CanvasItem, center: Vector2, ore_type: String, colour: 
 
 
 # time (⧖ hourglass): two triangles meeting at a waist.
-static func _draw_hourglass(target: CanvasItem, c: Vector2, colour: Color, r: float) -> void:
+static func _draw_hourglass(target: Object, c: Vector2, colour: Color, r: float) -> void:
 	target.draw_colored_polygon(PackedVector2Array([c + Vector2(-r, -r), c + Vector2(r, -r), c]), colour)
 	target.draw_colored_polygon(PackedVector2Array([c + Vector2(-r, r), c + Vector2(r, r), c]), colour)
 
 
 # physics (↯ double-stroke arrow): a zigzag lightning bolt.
-static func _draw_bolt(target: CanvasItem, c: Vector2, colour: Color, r: float) -> void:
+static func _draw_bolt(target: Object, c: Vector2, colour: Color, r: float) -> void:
 	target.draw_colored_polygon(PackedVector2Array([
 		c + Vector2(0.2, -1.0) * r, c + Vector2(-0.6, 0.1) * r, c + Vector2(0.0, 0.1) * r,
 		c + Vector2(-0.2, 1.0) * r, c + Vector2(0.6, -0.1) * r, c + Vector2(0.0, -0.1) * r,
@@ -66,7 +66,7 @@ static func _draw_bolt(target: CanvasItem, c: Vector2, colour: Color, r: float) 
 
 
 # life (✦ four-pointed star): alternating outer/inner radius octagon.
-static func _draw_star4(target: CanvasItem, c: Vector2, colour: Color, r: float) -> void:
+static func _draw_star4(target: Object, c: Vector2, colour: Color, r: float) -> void:
 	var pts := PackedVector2Array()
 	for i in 8:
 		var ang := TAU * i / 8.0
@@ -76,7 +76,7 @@ static func _draw_star4(target: CanvasItem, c: Vector2, colour: Color, r: float)
 
 
 # fate (⚄ die face 5): square frame + 4 corner pips + 1 centre pip.
-static func _draw_die5(target: CanvasItem, c: Vector2, colour: Color, r: float) -> void:
+static func _draw_die5(target: Object, c: Vector2, colour: Color, r: float) -> void:
 	var half := r * 0.85
 	target.draw_rect(Rect2(c - Vector2(half, half), Vector2(half, half) * 2.0), colour, false, 1.2)
 	var dot_r := r * 0.16
@@ -86,7 +86,7 @@ static func _draw_die5(target: CanvasItem, c: Vector2, colour: Color, r: float) 
 
 
 # emotion (❋ eight-spoked propeller asterisk): 4 lines through the centre.
-static func _draw_asterisk8(target: CanvasItem, c: Vector2, colour: Color, r: float) -> void:
+static func _draw_asterisk8(target: Object, c: Vector2, colour: Color, r: float) -> void:
 	for i in 4:
 		var ang := PI / 4.0 * i
 		var d := Vector2(cos(ang), sin(ang)) * r

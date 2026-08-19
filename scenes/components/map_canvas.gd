@@ -863,7 +863,7 @@ func _vein_ring_style(vein: Dictionary, owner_colour: Color, base_width: float) 
 # Control's own _draw()) is unaffected; DiscoverRipple's pop-in phase passes
 # itself so an unclaimed site's ring/glyph pop-in reuses this exact geometry
 # instead of reimplementing it.
-func _draw_ring_stop(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int, target: CanvasItem = self) -> void:
+func _draw_ring_stop(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int, target: Object = self) -> void:
 	target.draw_circle(pos, radius, _faded(PAPER_COLOUR, alpha))
 	target.draw_arc(pos, radius, 0, TAU, segments, _faded(style["colour"], alpha), style["width"], true)
 
@@ -871,7 +871,7 @@ func _draw_ring_stop(pos: Vector2, radius: float, alpha: float, style: Dictionar
 # Ticket 27: a rich/saturated unclaimed site's second, outer ring (see
 # INTERCHANGE_RING_GAP above) — factored out so DiscoverRipple's pop-in can
 # reuse the identical geometry rather than reimplementing it.
-func _draw_interchange_ring(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int, target: CanvasItem = self) -> void:
+func _draw_interchange_ring(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int, target: Object = self) -> void:
 	target.draw_arc(pos, radius + INTERCHANGE_RING_GAP, 0, TAU, segments, _faded(style["colour"], alpha), style["width"], true)
 
 
@@ -986,7 +986,7 @@ func _unclaimed_ring_style(ore_type: String) -> Dictionary:
 # is unaffected; DiscoverRipple passes itself explicitly so its pop-in
 # reuses this exact geometry instead of reimplementing it (same idiom as
 # _draw_ring_stop/_draw_centered_text).
-func _draw_ore_symbol(pos: Vector2, ore_type: String, ore: Dictionary, alpha: float, target: CanvasItem = self, enlarge: float = 1.0) -> void:
+func _draw_ore_symbol(pos: Vector2, ore_type: String, ore: Dictionary, alpha: float, target: Object = self, enlarge: float = 1.0) -> void:
 	var colour := _faded(Color(ore["colour"]), alpha)
 	if _ore_font_covers_symbols:
 		_draw_centered_text(pos, ore["symbol"], int(11 * enlarge), colour, target)
@@ -1129,7 +1129,7 @@ func _draw_labels(target: CanvasItem) -> void:
 # `target` defaults to self so every existing call site (drawing from this
 # Control's own _draw()) is unaffected; _pins_layer's draw handler passes
 # itself explicitly, same idiom as _draw_labels above.
-func _draw_centered_text(pos: Vector2, text: String, font_size: int, colour: Color, target: CanvasItem = self) -> void:
+func _draw_centered_text(pos: Vector2, text: String, font_size: int, colour: Color, target: Object = self) -> void:
 	var font := ThemeDB.fallback_font
 	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
 	var baseline := pos + Vector2(-text_size.x / 2.0, text_size.y * 0.35)

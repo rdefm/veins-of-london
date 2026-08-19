@@ -33,7 +33,7 @@ static func is_valid_kind(kind: String) -> bool:
 # — the generic points-of-interest glyph every map pin (home/contact/
 # market alike) sits on. Moved here from map_canvas.gd's original T13
 # _draw_pin_marker_shape, unchanged.
-static func draw_pin(target: CanvasItem, pos: Vector2, colour: Color, scale: float = 1.0) -> Vector2:
+static func draw_pin(target: Object, pos: Vector2, colour: Color, scale: float = 1.0) -> Vector2:
 	var head_radius := 9.0 * scale
 	var head := pos + Vector2(0, -head_radius * 1.6)
 	target.draw_colored_polygon(PackedVector2Array([
@@ -65,7 +65,7 @@ static func draw_home(target: CanvasItem, center: Vector2, colour: Color, scale:
 
 # Shared by the vein-stop security badge and the (locked) market pin.
 # Moved here from map_canvas.gd's original _draw_padlock_shape, unchanged.
-static func draw_padlock(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+static func draw_padlock(target: Object, center: Vector2, colour: Color, scale: float = 1.0) -> void:
 	var body := Rect2(center + Vector2(-3, -1) * scale, Vector2(6, 5) * scale)
 	target.draw_rect(body, colour, true)
 	target.draw_arc(center + Vector2(0, -1) * scale, 3.0 * scale, PI, TAU, 8, colour, 1.5 * scale, true)
