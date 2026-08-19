@@ -48,6 +48,39 @@ func run() -> void:
 		tile.free()
 	)
 
+	run_case("the_background_frame_renders_regardless_of_icon_art_presence", func():
+		var with_art := AppTile.new()
+		with_art._ready()
+		with_art.configure({ "id": "messages", "label": "Messages", "icon": PlaceholderTexture2D.new() })
+
+		assert_true(is_instance_valid(with_art._background), "a background node exists even with real icon art")
+		assert_true(with_art._background.visible, "the background is visible when icon art is present")
+
+		with_art.free()
+
+		var without_art := AppTile.new()
+		without_art._ready()
+		without_art.configure({ "id": "does_not_exist_yet", "label": "Coming Soon" })
+
+		assert_true(is_instance_valid(without_art._background), "a background node exists even without real icon art")
+		assert_true(without_art._background.visible, "the background is visible when falling back to text")
+
+		without_art.free()
+	)
+
+	run_case("the_background_frame_tints_locked_the_same_as_the_rest_of_the_tile", func():
+		var tile := AppTile.new()
+		tile._ready()
+
+		tile.configure({ "id": "map", "label": "Map", "locked": true })
+		assert_eq(tile._background.modulate, AppTile.LOCKED_TINT, "the background greys out to the locked tint")
+
+		tile.configure({ "id": "map", "label": "Map", "locked": false })
+		assert_eq(tile._background.modulate, AppTile.NORMAL_TINT, "the background returns to full colour when unlocked")
+
+		tile.free()
+	)
+
 	run_case("a_locked_tile_shows_the_padlock_overlay_and_greys_out", func():
 		var tile := AppTile.new()
 		tile._ready()

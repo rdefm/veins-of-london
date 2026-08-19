@@ -30,6 +30,7 @@ extends Control
 const ICON_DIR := "res://assets/icons/apps/"
 const FRAME_SIZE := 56.0
 const BADGE_SIZE := 12.0
+const FRAME_CORNER_RADIUS := 14
 
 # --muted #8a8a8a — same grey UI.muted_label()/map_canvas.gd's MUTED_COLOUR
 # use, reused here so "locked" reads as the same disabled-grey the rest of
@@ -37,6 +38,14 @@ const BADGE_SIZE := 12.0
 const LOCKED_TINT := Color(0.541176, 0.541176, 0.541176, 1)
 const NORMAL_TINT := Color(1, 1, 1, 1)
 const BADGE_COLOUR := Color(0.784314, 0.227451, 0.227451, 1)
+
+# Ticket 36: the placeholder frame every app icon (real art or text
+# fallback) sits inside, so a bare label reads as "an app tile" rather than
+# floating text. Same chrome colours top_bar.gd's _BG_COLOR/_BORDER_COLOR
+# already use elsewhere for subdued system-UI surfaces, reused here rather
+# than inventing a new pair.
+const FRAME_BG_COLOUR := Color(0.909804, 0.894118, 0.85098, 1)
+const FRAME_BORDER_COLOUR := Color(0.831373, 0.811765, 0.768627, 1)
 
 # Emits on any tap, locked or not — this component only renders the lock
 # state, it doesn't decide navigation policy (e.g. "tapping a locked tile
@@ -48,6 +57,7 @@ signal tile_pressed(app_id: String)
 
 var _app_id: String = ""
 var _frame: Control
+var _background: Panel
 var _icon_rect: TextureRect
 var _fallback_label: Label
 var _lock_overlay: _LockOverlay
@@ -97,6 +107,28 @@ func _ensure_built() -> void:
 	_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(_frame)
 
+	# Ticket 36: a permanent background shape, present whether or not real
+	# icon art has landed at the asset-contract path — not conditional on
+	# load_icon()'s return value. Added first so it sits behind the icon/
+	# fallback-label/lock-overlay/badge, which are all mouse-ignoring and
+	# transparent outside their own glyph.
+	_background = Panel.new()
+	UI.anchor_full_rect(_background)
+	_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var frame_style := StyleBoxFlat.new()
+	frame_style.bg_color = FRAME_BG_COLOUR
+	frame_style.border_width_left = 1
+	frame_style.border_width_top = 1
+	frame_style.border_width_right = 1
+	frame_style.border_width_bottom = 1
+	frame_style.border_color = FRAME_BORDER_COLOUR
+	frame_style.corner_radius_top_left = FRAME_CORNER_RADIUS
+	frame_style.corner_radius_top_right = FRAME_CORNER_RADIUS
+	frame_style.corner_radius_bottom_right = FRAME_CORNER_RADIUS
+	frame_style.corner_radius_bottom_left = FRAME_CORNER_RADIUS
+	_background.add_theme_stylebox_override("panel", frame_style)
+	_frame.add_child(_background)
+
 	_icon_rect = TextureRect.new()
 	UI.anchor_full_rect(_icon_rect)
 	_icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -122,6 +154,13 @@ func _ensure_built() -> void:
 
 	_badge = _BadgeDot.new()
 	_badge.size = Vector2(BADGE_SIZE, BADGE_SIZE)
+	# Ticket 36: kept at its pre-existing corner position rather than moved
+	# for the new rounded background. Checked against FRAME_CORNER_RADIUS —
+	# the badge (centre ~(53.6, 2.4), r=6) sits astride the corner's cut arc
+	# (centre (42, 14), r=14): part rests on the visible rounded background,
+	# part hangs off it, same proportion as before this ticket when it hung
+	# off the corner over nothing at all. That's the ordinary "badge peeking
+	# off the icon's corner" treatment, not a new awkward overlap.
 	_badge.position = Vector2(FRAME_SIZE - BADGE_SIZE * 0.7, -BADGE_SIZE * 0.3)
 	_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_badge.visible = false
@@ -163,6 +202,7 @@ func configure(data: Dictionary) -> void:
 	_badge.visible = badge
 
 	var tint := LOCKED_TINT if locked else NORMAL_TINT
+	_background.modulate = tint
 	_icon_rect.modulate = tint
 	_fallback_label.modulate = tint
 	_name_label.modulate = tint
