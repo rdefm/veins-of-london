@@ -194,6 +194,9 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_dict_values(state.get("labThresholds", {}))
 	for notification in state.get("notifications", []):
 		_int_key(notification, "day")
+	for bank_entry in state.get("bankLog", []):
+		_int_key(bank_entry, "amount")
+		_int_key(bank_entry, "day")
 
 	if state.has("meta"):
 		_int_key(state["meta"], "saveVersion")

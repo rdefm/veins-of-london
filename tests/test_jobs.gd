@@ -162,6 +162,11 @@ func run() -> void:
 		assert_eq(GameState.state["flags"]["jamesJobActive"], false, "jobActive flag cleared")
 		assert_eq(GameState.state["flags"]["jamesJobAccepted"], false, "jobAccepted flag cleared")
 		assert_eq(GameState.state["modal"]["type"], "james_job_complete", "a successful fulfil should open james_job_complete")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 1, "a fulfilled flat-pay job records one bank transaction")
+		assert_eq(bank_log[0]["amount"], Jobs.FLAT_PAY_AMOUNT, "the recorded amount matches the flat pay")
+		assert_eq(bank_log[0]["label"], "James job", "the recorded label names the job")
 	)
 
 	run_case("fulfil_flat_pay_job_fails_when_no_time_blocks_left", func():
@@ -202,6 +207,11 @@ func run() -> void:
 		assert_eq(GameState.state["flags"]["jamesJobActive"], false, "jobActive flag cleared")
 		assert_eq(GameState.state["flags"]["jamesJobAccepted"], false, "jobAccepted flag cleared")
 		assert_eq(GameState.state["modal"]["type"], "james_job_complete", "a successful fulfil should open james_job_complete")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 1, "a fulfilled craft job records one bank transaction")
+		assert_eq(bank_log[0]["amount"], job["totalPay"], "the recorded amount matches totalPay")
+		assert_eq(bank_log[0]["label"], "James job", "the recorded label names the job")
 	)
 
 	run_case("fulfil_craft_job_fails_with_insufficient_inventory", func():

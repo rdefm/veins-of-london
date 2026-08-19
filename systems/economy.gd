@@ -69,6 +69,7 @@ static func execute_sale(items: Array) -> Dictionary:
 		return { "ok": true, "mugged": true, "gross": gross }
 	else:
 		player["cash"] += player_cut
+		Bank.record(player_cut, "Archie sale")
 		Modal.open("sale_result", { "earned": player_cut, "gross": gross, "mugged": false })
 		return { "ok": true, "mugged": false, "earned": player_cut, "gross": gross }
 
@@ -79,6 +80,7 @@ static func complete_mugged_sale() -> Dictionary:
 	GameState.state["pendingSaleCut"] = 0
 	if earned > 0:
 		GameState.state["player"]["cash"] += earned
+		Bank.record(earned, "Archie sale (contested)")
 	Modal.open("sale_result", { "earned": earned, "gross": earned * 2, "mugged": true })
 	return { "earned": earned, "gross": earned * 2, "mugged": true }
 
@@ -175,6 +177,7 @@ static func execute_guild_purchase(items: Array) -> Dictionary:
 		return { "ok": false, "reason": "Not enough cash." }
 
 	player["cash"] -= total_cost
+	Bank.record(-total_cost, "Guild purchase")
 	for item in items:
 		var kind: String = item["kind"]
 		var item_type: String = item["type"]
@@ -210,5 +213,6 @@ static func execute_guild_sale(items: Array) -> Dictionary:
 			player["inventory"][item_type] = maxi(0, player["inventory"].get(item_type, 0) - qty)
 
 	player["cash"] += total_earned
+	Bank.record(total_earned, "Guild sale")
 	EventBus.state_changed.emit()
 	return { "ok": true, "earned": total_earned }

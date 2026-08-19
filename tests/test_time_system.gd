@@ -62,6 +62,11 @@ func run() -> void:
 		TimeSystem.daily_tick()
 		# DAILY_COST = round(50 * (1 + 0.30)) = 65
 		assert_eq(GameState.state["player"]["cash"], 1000 - 65, "inflation's +0.30 dailyCost should apply")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 1, "living costs record one bank transaction")
+		assert_eq(bank_log[0]["amount"], -65, "the recorded amount matches the inflation-adjusted daily cost")
+		assert_eq(bank_log[0]["label"], "Living costs", "the recorded label names the deduction")
 	)
 
 	run_case("daily_cost_notification_flags_flat_broke", func():
@@ -71,6 +76,9 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 0, "cash floors at 0")
 		var last: Dictionary = GameState.state["notifications"][GameState.state["notifications"].size() - 1]
 		assert_true(last["text"].contains("flat broke"), "should flag flat broke once cash hits 0")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log[0]["amount"], -10, "the recorded amount is what was actually deducted (10), not the nominal daily cost (50), since cash floored at 0")
 	)
 
 	run_case("buyer_event_tutorial_trigger_fires_on_day_2", func():

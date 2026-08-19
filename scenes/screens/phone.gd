@@ -47,6 +47,8 @@ func _refresh() -> void:
 			_build_save_load()
 		"notifications":
 			_build_notifications()
+		"bank":
+			_build_bank()
 		_:
 			_build_home()
 
@@ -492,4 +494,40 @@ func _build_notification_row(notification: Dictionary) -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.label(notification["text"]))
 	c["content"].add_child(UI.muted_label("Day %d" % notification["day"]))
+	return c["panel"]
+
+
+# ── Reynard's (bugfixes-38) ──────────────────────────────────────────
+# Display-only: a balance readout plus the full transaction log
+# systems/bank.gd's Bank.record() builds (GameState.state["bankLog"],
+# capped at Bank.LOG_CAP). Read-only, newest first -- same layout
+# convention _build_notifications() above uses for its own log. No new
+# banking mechanics (interest, loans, transfers) per the ticket.
+
+func _build_bank() -> void:
+	_content.add_child(_phone_back_button())
+	_content.add_child(UI.heading("Reynard's"))
+	_content.add_child(_build_balance_card())
+
+	var log: Array = GameState.state["bankLog"]
+	if log.is_empty():
+		_content.add_child(UI.muted_label("No transactions yet."))
+	else:
+		for i in range(log.size() - 1, -1, -1):
+			_content.add_child(_build_bank_transaction_row(log[i]))
+
+
+func _build_balance_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.muted_label("BALANCE"))
+	c["content"].add_child(UI.label("£%d" % GameState.state["player"]["cash"]))
+	return c["panel"]
+
+
+func _build_bank_transaction_row(entry: Dictionary) -> Control:
+	var c := UI.card()
+	var amount: int = entry["amount"]
+	var amount_text: String = "+£%d" % amount if amount >= 0 else "-£%d" % -amount
+	c["content"].add_child(UI.label("%s — %s" % [entry["label"], amount_text]))
+	c["content"].add_child(UI.muted_label("Day %d" % entry["day"]))
 	return c["panel"]

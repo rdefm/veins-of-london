@@ -30,6 +30,11 @@ static func apps() -> Array[Dictionary]:
 		{ "id": "profile", "label": "Profile", "locked": unlocked },
 		{ "id": "saveload", "label": "Save/Load", "locked": unlocked },
 		{ "id": "notifications", "label": "Notifications", "locked": unlocked },
+		# bugfixes-38: display-only cash balance + transaction log, branded
+		# in-fiction as "Reynard's" (human-picked from the ticket's PROSE-
+		# REVIEW candidates) -- the tile label doubles as the in-app heading,
+		# same convention "ticker"/"The Ticker" already uses.
+		{ "id": "bank", "label": "Reynard's", "locked": unlocked },
 	]
 
 

@@ -106,6 +106,10 @@ func run() -> void:
 		assert_true(result["ok"], "flat costs 1200, should succeed with 5000 cash")
 		assert_eq(GameState.state["home"]["tier"], "flat", "tier advances to flat")
 		assert_eq(GameState.state["player"]["cash"], 5000 - 1200, "upgradeCost deducted")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 1, "the failed attempt records nothing, only the successful upgrade records a bank transaction")
+		assert_eq(bank_log[0]["amount"], -1200, "the recorded amount matches the upgrade cost")
 	)
 
 	run_case("add_security_enforces_minTier", func():
@@ -137,6 +141,9 @@ func run() -> void:
 		Home.add_security("ward")
 		# ward costs 2000, discounted 2000*0.7 = 1400
 		assert_eq(GameState.state["player"]["cash"], 100000 - 1400, "securityContactUnlocked should apply the 0.7x discount")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log[bank_log.size() - 1]["amount"], -1400, "the recorded amount matches the discounted cost, not the sticker cost")
 	)
 
 	run_case("add_room_enforces_minTier", func():
@@ -165,6 +172,10 @@ func run() -> void:
 		Home.add_room("homeGym")
 		assert_eq(GameState.state["player"]["hpMax"], 110, "homeGym grants +10 hpMax immediately")
 		assert_eq(GameState.state["player"]["hp"], 105, "hp also gains 10 (95+10), within the new 110 cap")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 1, "building a room records one bank transaction")
+		assert_eq(bank_log[0]["amount"], -GameData.HOME_ROOMS["homeGym"]["cost"], "the recorded amount matches the room's cost")
 	)
 
 	run_case("workshop_bonus_sums_installed_crafting_rooms", func():

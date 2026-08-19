@@ -74,6 +74,7 @@ static func upgrade_tier() -> Dictionary:
 		return { "ok": false, "reason": "Not enough cash." }
 
 	player["cash"] -= cost
+	Bank.record(-cost, "HQ upgrade: %s" % next_tier["name"])
 	home["tier"] = next_tier_id
 	Notify.push("Moved up to %s." % next_tier["name"])
 	EventBus.state_changed.emit()
@@ -103,6 +104,7 @@ static func add_security(security_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Not enough cash." }
 
 	player["cash"] -= cost
+	Bank.record(-cost, "HQ security: %s" % security_data["name"])
 	home["security"].append(security_id)
 	Notify.push("Installed %s." % security_data["name"])
 	EventBus.state_changed.emit()
@@ -133,6 +135,7 @@ static func add_room(room_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Not enough cash." }
 
 	player["cash"] -= cost
+	Bank.record(-cost, "HQ room: %s" % room_data["name"])
 	home["rooms"].append(room_id)
 
 	if room_data["bonus"] == "body":

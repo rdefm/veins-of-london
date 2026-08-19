@@ -154,6 +154,7 @@ static func _manual_action(section: String, state_id: String, direction: String)
 		return { "ok": false, "reason": "On cooldown." }
 
 	player["cash"] -= MANUAL_ACTION_COST
+	Bank.record(-MANUAL_ACTION_COST, "Ticker %s: %s" % [direction.capitalize(), section.capitalize()])
 	var day: int = GameState.state["world"]["day"]
 	GameState.state["barometer"]["cooldowns"][section][state_id][direction] = day
 

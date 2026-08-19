@@ -36,6 +36,11 @@ func new_game_state() -> Dictionary:
 		# landing unchanged; Crafting is reached via the new section tab.
 		"benchNav": { "view": "home", "types": [], "approach": null, "result": null },
 		"notifications": [],
+		# bugfixes-38: Reynard's transaction log -- every direct player.cash
+		# mutation across the codebase logs here via systems/bank.gd's
+		# Bank.record(), same append-and-evict-from-front shape as
+		# `notifications` above (Bank.LOG_CAP mirrors Notify.LOG_CAP).
+		"bankLog": [],
 		"sellState": {},
 		"event": null,
 

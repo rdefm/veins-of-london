@@ -56,6 +56,28 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_mutate_load_round_trips_bankLog_with_int_fields_intact", func():
+		GameState.reset()
+		Bank.record(-50, "Living costs")
+		Bank.record(300, "Archie sale")
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["bankLog"] = []
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		var log: Array = GameState.state["bankLog"]
+		assert_eq(log.size(), 2, "bankLog should be restored")
+		assert_eq(typeof(log[0]["amount"]), TYPE_INT, "amount should be restored as int, not float")
+		assert_eq(typeof(log[0]["day"]), TYPE_INT, "day should be restored as int, not float")
+		assert_eq(GameState.state, original, "the full state tree (including bankLog) should deep-equal what was saved")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("save_mutate_load_round_trips_sites_with_int_fields_intact", func():
 		GameState.reset()
 		GameState.state["world"]["sites"].append({

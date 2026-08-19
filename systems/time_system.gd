@@ -90,7 +90,15 @@ static func _apply_living_costs() -> void:
 	var player: Dictionary = GameState.state["player"]
 	var fx: Dictionary = Barometer.get_merged_effects()
 	var daily_cost: int = GameState.round_epsilon(DAILY_COST_BASE * (1.0 + fx.get("dailyCost", 0.0)))
-	player["cash"] = maxi(0, player["cash"] - daily_cost)
+	var cash_before: int = player["cash"]
+	player["cash"] = maxi(0, cash_before - daily_cost)
+	# The floor-at-0 clamp means a broke player's actual deduction can be
+	# less than daily_cost -- log what was really taken, not the nominal
+	# cost, so the ledger stays accurate (bugfixes-38: "a complete, accurate
+	# record from turn one, not a partial one").
+	var actual_deducted: int = cash_before - player["cash"]
+	if actual_deducted > 0:
+		Bank.record(-actual_deducted, "Living costs")
 
 	var text := "Day %d: -£%d living costs." % [GameState.state["world"]["day"], daily_cost]
 	if player["cash"] == 0:

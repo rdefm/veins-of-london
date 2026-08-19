@@ -31,6 +31,11 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 40 + 90, "playerCut = floor(180*0.5) = 90, added to starting cash 40")
 		assert_eq(GameState.state["modal"]["type"], "sale_result", "a non-mugged sale should open the sale_result modal")
 		assert_eq(GameState.state["modal"]["data"]["mugged"], false, "modal data reflects the non-mugged outcome")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 1, "a non-mugged sale records one bank transaction")
+		assert_eq(bank_log[0]["amount"], 90, "the recorded amount matches the player cut")
+		assert_eq(bank_log[0]["label"], "Archie sale", "the recorded label names the sale")
 	)
 
 	run_case("gross_math_applies_barometer_premiums", func():
@@ -144,6 +149,10 @@ func run() -> void:
 		assert_eq(result["gross"], 180, "gross for display is earned * 2, per the prototype")
 		assert_eq(GameState.state["modal"]["type"], "sale_result", "muggingWon should open the sale_result modal")
 		assert_eq(GameState.state["modal"]["data"]["mugged"], true, "modal data reflects the mugged outcome")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 1, "the deferred mugging payout records one bank transaction")
+		assert_eq(bank_log[0]["amount"], 90, "the recorded amount matches the deferred payout")
 	)
 
 	run_case("adjust_sell_qty_clamps_between_0_and_max", func():
@@ -240,6 +249,11 @@ func run() -> void:
 		# price per unit 69 (see full-spread test above), qty 3 -> cost 207
 		assert_eq(GameState.state["player"]["cash"], 1000 - 207, "cash reduced by total cost")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 3, "ore added to inventory")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 1, "a Guild purchase records one bank transaction")
+		assert_eq(bank_log[0]["amount"], -207, "the recorded amount is negative, matching the spend")
+		assert_eq(bank_log[0]["label"], "Guild purchase", "the recorded label names the purchase")
 	)
 
 	run_case("guild_sale_credits_cash_and_removes_inventory", func():
@@ -252,4 +266,9 @@ func run() -> void:
 		# price per unit 51 (see full-spread sell test above), qty 2 -> earned 102
 		assert_eq(GameState.state["player"]["cash"], 100 + 102, "cash increased by total earned")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 3, "ore removed from inventory")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 1, "a Guild sale records one bank transaction")
+		assert_eq(bank_log[0]["amount"], 102, "the recorded amount matches total earned")
+		assert_eq(bank_log[0]["label"], "Guild sale", "the recorded label names the sale")
 	)

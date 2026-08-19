@@ -320,6 +320,7 @@ static func upgrade_vein_security(vein_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Not enough cash." }
 
 	player["cash"] -= cost
+	Bank.record(-cost, "Vein security: %s" % next_data["label"])
 	vein["security"] = next_id
 	Notify.push("Installed %s on your %s vein." % [next_data["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]])
 	EventBus.state_changed.emit()
@@ -352,6 +353,7 @@ static func add_alarm(vein_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Not enough cash." }
 
 	player["cash"] -= cost
+	Bank.record(-cost, "Vein alarm: %s" % upgrade_data["label"])
 	vein["alarmUpgrades"].append(ALARM_UPGRADE_ID)
 	Notify.push("Installed %s on your %s vein." % [upgrade_data["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]])
 	EventBus.state_changed.emit()

@@ -96,6 +96,10 @@ func run() -> void:
 		assert_true(result["ok"], "push should succeed with enough cash and no cooldown")
 		assert_eq(GameState.state["player"]["cash"], 3000, "push costs £2000")
 		assert_eq(GameState.state["barometer"]["progress"]["economic"]["boom"], 20, "push adds +20 progress")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 1, "the push records one bank transaction")
+		assert_eq(bank_log[0]["amount"], -Barometer.MANUAL_ACTION_COST, "the recorded amount matches the manual action cost")
 	)
 
 	run_case("manual_push_respects_cooldown", func():

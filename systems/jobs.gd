@@ -136,6 +136,7 @@ static func _fulfil_flat_pay_job(job: Dictionary) -> Dictionary:
 	# job at a time" guard would otherwise still see this (already-paid-out)
 	# job as active and starve the new day's fresh offer roll.
 	GameState.state["player"]["cash"] += job["pay"]
+	Bank.record(job["pay"], "James job")
 	Contacts.award_relation("james", 5)
 	GameState.state["flags"]["jamesJobActive"] = false
 	GameState.state["flags"]["jamesJobAccepted"] = false
@@ -155,6 +156,7 @@ static func _fulfil_craft_job(job: Dictionary) -> Dictionary:
 
 	inventory[job["recipeKey"]] = have - job["qty"]
 	GameState.state["player"]["cash"] += job["totalPay"]
+	Bank.record(job["totalPay"], "James job")
 	Contacts.award_relation("james", 5)
 	GameState.state["flags"]["jamesJobActive"] = false
 	GameState.state["flags"]["jamesJobAccepted"] = false

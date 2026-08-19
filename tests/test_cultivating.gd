@@ -446,6 +446,10 @@ func run() -> void:
 		assert_true(result["ok"], "should succeed with enough cash")
 		assert_eq(vein["security"], "basic", "security advances to the next tier")
 		assert_eq(GameState.state["player"]["cash"], 100 - GameData.VEIN_SECURITY["basic"]["cost"], "cash deducted by the tier's cost")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 1, "the security upgrade records one bank transaction")
+		assert_eq(bank_log[0]["amount"], -GameData.VEIN_SECURITY["basic"]["cost"], "the recorded amount matches the tier's cost")
 	)
 
 	run_case("upgrade_vein_security_refuses_without_enough_cash", func():
@@ -515,6 +519,10 @@ func run() -> void:
 		assert_true(result["ok"], "should succeed with enough cash")
 		assert_eq(vein["alarmUpgrades"], ["alarm"], "alarm upgrade id recorded on the vein")
 		assert_eq(GameState.state["player"]["cash"], 1000 - GameData.VEIN_ALARM["alarm"]["cost"], "cash deducted by the alarm upgrade's cost")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 1, "the alarm upgrade records one bank transaction")
+		assert_eq(bank_log[0]["amount"], -GameData.VEIN_ALARM["alarm"]["cost"], "the recorded amount matches the alarm's cost")
 	)
 
 	run_case("add_alarm_refuses_without_enough_cash", func():
