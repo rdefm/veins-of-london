@@ -32,7 +32,7 @@ func run() -> void:
 		var ids: Array[String] = []
 		for t in tiles:
 			ids.append(t._app_id)
-		assert_eq(ids, ["messages", "notes", "factions", "ticker", "profile", "saveload", "notifications", "bank"], "grid renders the registry's apps, in registry order")
+		assert_eq(ids, ["messages", "notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "vfl"], "grid renders the registry's apps, in registry order")
 
 		phone.free()
 	)
@@ -48,15 +48,17 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("none_of_todays_apps_render_locked", func():
+	run_case("none_of_todays_apps_render_locked_except_vfl_before_archies_partner_scene", func():
 		GameState.reset()
 
 		var phone := PhoneScreen.new()
 		phone._ready()
 
 		for t in _find_tiles(phone):
-			assert_true(not t._lock_overlay.visible, "%s should not render locked -- today's roster is all-unlocked" % t._app_id)
-			assert_eq(t._name_label.modulate, AppTile.NORMAL_TINT, "%s label should be full colour" % t._app_id)
+			var expected_locked: bool = t._app_id == "vfl"
+			assert_eq(t._lock_overlay.visible, expected_locked, "%s lock render state" % t._app_id)
+			var expected_tint := AppTile.LOCKED_TINT if expected_locked else AppTile.NORMAL_TINT
+			assert_eq(t._name_label.modulate, expected_tint, "%s label tint" % t._app_id)
 
 		phone.free()
 	)
@@ -203,6 +205,59 @@ func run() -> void:
 		notes_tile._on_gui_input(event)
 
 		assert_eq(GameState.state["phoneNav"]["app"], "notes", "tapping a tile routes through PhoneNav.open_app, same as before this ticket")
+
+		phone.free()
+	)
+
+	# bugfixes-39: the vfl tile is a cosmetic rebrand of the dock's own Map
+	# entry point, not a real PhoneNav app -- these two cases prove it
+	# bypasses PhoneNav.open_app() entirely in both lock states.
+	run_case("tapping_the_locked_vfl_tile_pushes_the_dock_lock_toast_and_does_not_navigate", func():
+		GameState.reset()
+		GameState.state["currentScreen"] = "phone"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var vfl_tile: AppTile = null
+		for t in _find_tiles(phone):
+			if t._app_id == "vfl":
+				vfl_tile = t
+		assert_true(vfl_tile != null, "vfl tile must exist")
+
+		var event := InputEventScreenTouch.new()
+		event.pressed = true
+		vfl_tile._on_gui_input(event)
+
+		assert_eq(GameState.state["currentScreen"], "phone", "a locked vfl tap never navigates")
+		assert_eq(GameState.state["phoneNav"]["app"], "home", "a locked vfl tap never opens a PhoneNav app either")
+		var notifications: Array = GameState.state["notifications"]
+		assert_eq(notifications.size(), 1, "a toast notification is pushed instead of navigating")
+		assert_eq(notifications[0]["text"], NavBar.LOCKED_MAP_LABEL, "the toast carries the same lock hint text the dock's Map slot shows")
+
+		phone.free()
+	)
+
+	run_case("tapping_the_unlocked_vfl_tile_navigates_straight_to_map_without_touching_phoneNav", func():
+		GameState.reset()
+		GameState.state["flags"]["archiePartnerSeen"] = true
+		GameState.state["currentScreen"] = "phone"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var vfl_tile: AppTile = null
+		for t in _find_tiles(phone):
+			if t._app_id == "vfl":
+				vfl_tile = t
+		assert_true(vfl_tile != null, "vfl tile must exist")
+
+		var event := InputEventScreenTouch.new()
+		event.pressed = true
+		vfl_tile._on_gui_input(event)
+
+		assert_eq(GameState.state["currentScreen"], "map", "an unlocked vfl tap navigates straight to the Map screen")
+		assert_eq(GameState.state["phoneNav"]["app"], "home", "navigating to Map never routes through PhoneNav.open_app -- phoneNav.app is untouched")
 
 		phone.free()
 	)

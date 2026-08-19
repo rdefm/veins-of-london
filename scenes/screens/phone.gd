@@ -91,8 +91,23 @@ func _build_app_grid(apps_list: Array[Dictionary]) -> Control:
 	return grid
 
 
+# bugfixes-39: "vfl" is a cosmetic rebrand of the dock's own Map entry
+# point, not a real PhoneNav app -- it never opens within the phone shell,
+# it jumps straight to the Map screen (or shows the dock's own lock toast
+# and stays put), same special case NavBar._on_tile_pressed() already
+# makes for its own Map slot.
 func _on_app_tile_pressed(app_id: String) -> void:
+	if app_id == "vfl":
+		if _vfl_locked():
+			Notify.push(NavBar.LOCKED_MAP_LABEL)
+		else:
+			Nav.go_to("map")
+		return
 	PhoneNav.open_app(app_id)
+
+
+func _vfl_locked() -> bool:
+	return not GameState.state["flags"]["archiePartnerSeen"]
 
 
 func _badge_for(app_id: String) -> bool:

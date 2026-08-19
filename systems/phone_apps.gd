@@ -35,6 +35,19 @@ static func apps() -> Array[Dictionary]:
 		# REVIEW candidates) -- the tile label doubles as the in-app heading,
 		# same convention "ticker"/"The Ticker" already uses.
 		{ "id": "bank", "label": "Reynard's", "locked": unlocked },
+		# bugfixes-39: cosmetic rebrand of the dock's Map entry point, not a
+		# real app -- tapping it navigates straight to Nav.go_to("map")
+		# (scenes/screens/phone.gd's _on_app_tile_pressed special-cases
+		# "vfl" the same way NavBar._on_tile_pressed special-cases its own
+		# Map slot) rather than opening as a PhoneNav app, so this tile has
+		# no in-app heading to double as. "VfL" is the fictional transit
+		# authority's brand initialism (parodying TfL); PROSE-REVIEW: the
+		# spelled-out full name for flavour text/tooltips elsewhere is
+		# pending human sign-off, candidate "Veins for London" per the
+		# ticket. Locked predicate mirrors NavBar._map_locked() exactly --
+		# same flag, same source of truth, since this dock lock is enforced
+		# at the UI layer only and Nav.go_to("map") itself has no gate.
+		{ "id": "vfl", "label": "VfL", "locked": func(): return not GameState.state["flags"]["archiePartnerSeen"] },
 	]
 
 

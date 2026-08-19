@@ -7,17 +7,31 @@ extends "res://tests/test_base.gd"
 
 
 func run() -> void:
-	run_case("apps_lists_the_eight_existing_apps_in_a_fixed_order", func():
+	run_case("apps_lists_the_nine_existing_apps_in_a_fixed_order", func():
 		var ids: Array[String] = []
 		for app in PhoneApps.apps():
 			ids.append(app["id"])
-		assert_eq(ids, ["messages", "notes", "factions", "ticker", "profile", "saveload", "notifications", "bank"], "grid slot order comes straight from the registry order")
+		assert_eq(ids, ["messages", "notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "vfl"], "grid slot order comes straight from the registry order")
 	)
 
-	run_case("todays_roster_is_entirely_unlocked", func():
+	run_case("todays_roster_is_entirely_unlocked_except_vfl", func():
+		GameState.reset()
 		for app in PhoneApps.apps():
 			var locked_check: Callable = app["locked"]
-			assert_true(not locked_check.call(), "no shipped app is lock-gated yet (%s)" % app["id"])
+			var expected_locked: bool = app["id"] == "vfl"
+			assert_eq(locked_check.call(), expected_locked, "lock state for %s" % app["id"])
+	)
+
+	run_case("vfl_locked_predicate_mirrors_archiePartnerSeen", func():
+		GameState.reset()
+		var vfl_locked: Callable
+		for app in PhoneApps.apps():
+			if app["id"] == "vfl":
+				vfl_locked = app["locked"]
+		assert_true(vfl_locked.call(), "vfl starts locked before archiePartnerSeen")
+
+		GameState.state["flags"]["archiePartnerSeen"] = true
+		assert_true(not vfl_locked.call(), "vfl unlocks once archiePartnerSeen is true")
 	)
 
 	run_case("build_tile_configs_reflects_each_apps_locked_predicate", func():
