@@ -62,6 +62,37 @@ func run() -> void:
 		canvas.free()
 	)
 
+	# Ticket 27: unclaimed sites moved from a tick mark to the same paper-
+	# fill-circle-+-ring shape as claimed stops (human sign-off — see the
+	# ticket), with the ore glyph centred instead of offset. Immediate-mode
+	# draw_circle/draw_arc calls themselves aren't exercised here, same
+	# convention as the rest of this file/tests/test_icons.gd/tests/
+	# test_ore_glyphs.gd -- what IS a pure, unit-testable seam is
+	# _unclaimed_ring_style(), which _draw_unclaimed_stop() (and
+	# DiscoverRipple's pop-in, which calls the same function rather than
+	# hand-building an equivalent dict) both read their ring colour/width
+	# from. N4's Type mode applies here same as any vein ("stop rings
+	# recolour by ore type") -- an unclaimed site has its own oreType same
+	# as a vein does, so nothing exempts it; Strength mode has no real
+	# level to key off, so it (and every other mode) stays muted, and width
+	# never thickens in any mode.
+	run_case("unclaimed_ring_style_recolours_by_ore_type_in_type_mode_but_stays_muted_and_fixed_width_otherwise", func():
+		var canvas := MapCanvas.new()
+
+		for mode in ["ownership", "strength", "charge", "security"]:
+			canvas.filter_mode = mode
+			var style: Dictionary = canvas._unclaimed_ring_style("fate")
+			assert_eq(style["colour"], MapCanvas.MUTED_COLOUR, mode + ": unclaimed ring colour stays muted -- no owner, and no level for strength mode to key off")
+			assert_eq(style["width"], MapCanvas.UNCLAIMED_STOP_STROKE, mode + ": unclaimed ring width never thickens -- no level for strength mode to key off")
+
+		canvas.filter_mode = "type"
+		var type_style: Dictionary = canvas._unclaimed_ring_style("fate")
+		assert_eq(type_style["colour"], Color(GameData.ORE_TYPES["fate"]["colour"]), "N4: Type mode recolours every stop ring by ore type, unclaimed sites included")
+		assert_eq(type_style["width"], MapCanvas.UNCLAIMED_STOP_STROKE, "type mode: width still fixed -- recolouring doesn't touch it")
+
+		canvas.free()
+	)
+
 	# map-animations ticket 05: _partition_stops() is another pure-ish seam
 	# safe to call directly (only reads GameState/GameData via MapEvents/
 	# MapLayout, never touches get_tree()/get_viewport()) — this is what

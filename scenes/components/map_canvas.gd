@@ -97,8 +97,19 @@ const VEIN_STOP_RADIUS := 10.0
 const VEIN_STOP_STROKE := 3.0
 const FACTION_STOP_RADIUS := 7.0
 const FACTION_STOP_STROKE := 2.5
-const TICK_LENGTH := 12.0
-const TICK_WIDTH := 3.0
+# Ticket 27: unclaimed sites used to render as a perpendicular tick mark,
+# not a ring — human sign-off on that ticket moved them to the same
+# paper-fill-circle-+-ring shape every other stop uses ("look like
+# underground stops, just not connected to any line"), sized/stroked like
+# the other non-player tier (FACTION_STOP_RADIUS/STROKE) rather than a new
+# magic number.
+const UNCLAIMED_STOP_RADIUS := FACTION_STOP_RADIUS
+const UNCLAIMED_STOP_STROKE := FACTION_STOP_STROKE
+# A rich/saturated site's old "double tick" (interchange styling, per
+# docs/M1.5-NETWORK-MAP.md N2) translates to a second concentric ring at
+# this gap outside the first, the same way a real tube diagram marks an
+# interchange station with a double ring.
+const INTERCHANGE_RING_GAP := 3.0
 
 # The pre-enlargement vein-stop radius and the growth factor from it to
 # VEIN_STOP_RADIUS above — applied uniformly to every glyph drawn on/around
@@ -442,7 +453,7 @@ func _play_discover_ripple(pos: Vector2, event: Dictionary) -> void:
 	var ripple := DiscoverRipple.new()
 	ripple.map_canvas = self
 	ripple.ore_type = site["oreType"]
-	ripple.double_tick = site["tier"] in ["rich", "saturated"]
+	ripple.double_ring = site["tier"] in ["rich", "saturated"]
 	ripple.position = pos
 	_playback_layer.add_child(ripple)
 	# start() builds the tween synchronously and returns immediately (no
@@ -845,12 +856,23 @@ func _vein_ring_style(vein: Dictionary, owner_colour: Color, base_width: float) 
 	}
 
 
-# The paper-fill circle + full-circumference ring both _draw_vein_stop and
-# _draw_faction_stop draw at rest — same shape SeedClaimRing._draw() sweeps
-# in progressively, just always at ring_end_angle TAU here.
-func _draw_ring_stop(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int) -> void:
-	draw_circle(pos, radius, _faded(PAPER_COLOUR, alpha))
-	draw_arc(pos, radius, 0, TAU, segments, _faded(style["colour"], alpha), style["width"], true)
+# The paper-fill circle + full-circumference ring every stop (vein, faction,
+# and — since ticket 27 — unclaimed) draws at rest — same shape SeedClaimRing.
+# _draw() sweeps in progressively, just always at ring_end_angle TAU here.
+# `target` defaults to self so every existing call site (drawing from this
+# Control's own _draw()) is unaffected; DiscoverRipple's pop-in phase passes
+# itself so an unclaimed site's ring/glyph pop-in reuses this exact geometry
+# instead of reimplementing it.
+func _draw_ring_stop(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int, target: CanvasItem = self) -> void:
+	target.draw_circle(pos, radius, _faded(PAPER_COLOUR, alpha))
+	target.draw_arc(pos, radius, 0, TAU, segments, _faded(style["colour"], alpha), style["width"], true)
+
+
+# Ticket 27: a rich/saturated unclaimed site's second, outer ring (see
+# INTERCHANGE_RING_GAP above) — factored out so DiscoverRipple's pop-in can
+# reuse the identical geometry rather than reimplementing it.
+func _draw_interchange_ring(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int, target: CanvasItem = self) -> void:
+	target.draw_arc(pos, radius + INTERCHANGE_RING_GAP, 0, TAU, segments, _faded(style["colour"], alpha), style["width"], true)
 
 
 func _draw_vein_stop(stop: Dictionary) -> void:
@@ -892,43 +914,66 @@ func _blocks_until_charged(vein: Dictionary) -> int:
 # Map-animations ticket 02: faction stops now draw a paper-fill + coloured
 # ring, same as player vein stops (VEIN_STOP_RADIUS's smaller sibling), so a
 # faction's claim-tick has a real ring for its seed/claim animation to sweep
-# into. Ore symbol / level & security badges stay the plain-dot era's
-# deferred scope (see this file's class comment) — not added here.
+# into. Ticket 27 added the centred ore glyph, matching the player-stop
+# treatment (was explicitly deferred before — see this ticket for why).
+# Level & security badges stay deferred — out of ticket 27's scope.
 func _draw_faction_stop(stop: Dictionary) -> void:
 	var pos: Vector2 = stop["position"]
 	var vein: Dictionary = stop["vein"]
+	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 	var faction_colour := Color(GameData.FACTIONS[stop["owner"]]["colour"])
 	var alpha := MapStyle.stop_alpha(filter_mode, false, selected_faction_id, stop["owner"])
 	var style := _vein_ring_style(vein, faction_colour, FACTION_STOP_STROKE)
 
 	_draw_ring_stop(pos, FACTION_STOP_RADIUS, alpha, style, 24)
+	_draw_ore_symbol(pos, vein["oreType"], ore, alpha)
 
 
+# Ticket 27: unclaimed sites used to draw as a tick mark with an offset ore
+# glyph beside it; human sign-off on that ticket moved them to the same
+# paper-fill-circle-+-ring shape every other stop uses, with the glyph
+# centred — "look like underground stops, they just shouldn't be connected
+# to any faction's lines" (the "no line" part was already correct before
+# this ticket, via _partition_stops()/MapEvents.queue_join_line — unaffected
+# here).
 func _draw_unclaimed_stop(stop: Dictionary) -> void:
 	var pos: Vector2 = stop["position"]
 	var site: Dictionary = stop["site"]
 	var ore: Dictionary = GameData.ORE_TYPES[site["oreType"]]
-	var double_tick: bool = site["tier"] in ["rich", "saturated"]
+	var double_ring: bool = site["tier"] in ["rich", "saturated"]
 	# Unclaimed sites have no owner, so "" is passed explicitly (rather than
 	# relying on the default) -- it can never equal a real selected_faction_id,
-	# which is exactly the point: an unclaimed tick always fades under
+	# which is exactly the point: an unclaimed stop always fades under
 	# faction isolate, same as "NPC-claimed, unclaimed ticks" in the ticket.
 	var alpha := MapStyle.stop_alpha(filter_mode, false, selected_faction_id, "")
+	var style := _unclaimed_ring_style(site["oreType"])
 
-	_draw_tick_mark(pos, _faded(MUTED_COLOUR, alpha))
-	if double_tick:
-		_draw_tick_mark(pos + Vector2(6, 0), _faded(MUTED_COLOUR, alpha))
-	_draw_ore_symbol(pos + Vector2(16, 0), site["oreType"], ore, alpha)
+	_draw_ring_stop(pos, UNCLAIMED_STOP_RADIUS, alpha, style, 24)
+	if double_ring:
+		_draw_interchange_ring(pos, UNCLAIMED_STOP_RADIUS, alpha, style, 24)
+	_draw_ore_symbol(pos, site["oreType"], ore, alpha)
 
 
+# The pure seam _draw_unclaimed_stop (and DiscoverRipple's pop-in, which
+# calls this directly rather than hand-building an equivalent dict, so the
+# two can never drift) reads its ring colour/width from — analogous to
+# _vein_ring_style() above, kept unit-testable the same way (tests/
+# test_map_canvas.gd) without needing a live _draw() call. N4's Type mode
+# ("stop rings recolour by ore type") applies here same as any vein — an
+# unclaimed site carries its own oreType, so nothing stops it — via the same
+# MapStyle.vein_ring_colour() call _vein_ring_style() itself uses, level
+# pinned to 1 (Strength mode's only use of level: collapses its muted->ink
+# lerp to pure MUTED_COLOUR, i.e. a no-op, since a site has no real level to
+# report). Width is deliberately NOT run through MapStyle.vein_ring_width()
+# — Strength mode's ring-thickens-by-level re-styling has no level to key
+# off here, so width stays fixed at UNCLAIMED_STOP_STROKE in every mode.
+func _unclaimed_ring_style(ore_type: String) -> Dictionary:
+	var ore_colour := Color(GameData.ORE_TYPES[ore_type]["colour"])
+	return {
+		"colour": MapStyle.vein_ring_colour(filter_mode, MUTED_COLOUR, ore_colour, 1),
+		"width": UNCLAIMED_STOP_STROKE,
+	}
 
-# `target` defaults to self so every existing call site (drawing from this
-# Control's own _draw()) is unaffected; DiscoverRipple passes itself
-# explicitly so its pop-in reuses this exact geometry instead of
-# reimplementing it (same idiom as _draw_centered_text below).
-func _draw_tick_mark(pos: Vector2, colour: Color, target: CanvasItem = self) -> void:
-	var rect := Rect2(pos - Vector2(TICK_WIDTH / 2.0, TICK_LENGTH / 2.0), Vector2(TICK_WIDTH, TICK_LENGTH))
-	target.draw_rect(rect, colour, true)
 
 
 # N6 asset 3: the bundled engine font has no glyph for any of the 5 ore
@@ -936,8 +981,11 @@ func _draw_tick_mark(pos: Vector2, colour: Color, target: CanvasItem = self) -> 
 # renders blank tofu, so this falls back to OreGlyphs' hand-drawn vector
 # glyphs whenever the font check (cached in _ready(), see
 # _ore_font_covers_symbols) fails, and only uses the real text glyph if a
-# future engine/font change ever starts covering them. `target` — see
-# _draw_tick_mark just above.
+# future engine/font change ever starts covering them. `target` defaults to
+# self so every existing call site (drawing from this Control's own _draw())
+# is unaffected; DiscoverRipple passes itself explicitly so its pop-in
+# reuses this exact geometry instead of reimplementing it (same idiom as
+# _draw_ring_stop/_draw_centered_text).
 func _draw_ore_symbol(pos: Vector2, ore_type: String, ore: Dictionary, alpha: float, target: CanvasItem = self, enlarge: float = 1.0) -> void:
 	var colour := _faded(Color(ore["colour"]), alpha)
 	if _ore_font_covers_symbols:
@@ -1542,46 +1590,54 @@ class ActionResultShake:
 
 
 # Map-animations ticket 01's discover visual: "a soft ring pulses outward
-# once from the site, then the unclaimed tick-mark glyph pops in at its
-# centre." One-shot (unlike ChargeHalo's own loop), driven by a Tween
-# (not _process) specifically so MapCanvas._skip_current() can fast-forward
-# it via custom_step() -- see that method's own comment. start()'s radius/
-# colour/tick geometry deliberately mirrors _draw_unclaimed_stop's/
-# _draw_tick_mark's real static values, so the moment this node is freed and
-# MapEvents.advance() reveals the permanent tick, nothing visibly jumps.
+# once from the site, then the unclaimed stop's ring + centred glyph pop in
+# at its centre" (ticket 27 moved the resting shape from a tick mark to a
+# ring, see that ticket). One-shot (unlike ChargeHalo's own loop), driven by
+# a Tween (not _process) specifically so MapCanvas._skip_current() can
+# fast-forward it via custom_step() -- see that method's own comment.
+# start()'s radius/colour/ring geometry deliberately mirrors
+# _draw_unclaimed_stop's real static values, so the moment this node is
+# freed and MapEvents.advance() reveals the permanent stop, nothing visibly
+# jumps.
 class DiscoverRipple:
 	extends Node2D
 
 	const RING_START_RADIUS := MapCanvas.VEIN_STOP_RADIUS
-	const RING_END_RADIUS := MapCanvas.TICK_LENGTH * 2.0
+	# Ticket 27: just an outward ping distance, unrelated to any stop's own
+	# resting geometry (same as RING_START_RADIUS above, which starts the
+	# ping at the *player* stop's radius despite this being an unclaimed-
+	# site event) — previously expressed via the now-retired tick geometry
+	# (TICK_LENGTH * 2), kept at roughly the same visual scale here.
+	const RING_END_RADIUS := MapCanvas.UNCLAIMED_STOP_RADIUS * 3.0
 	const RING_START_ALPHA := 0.6
 	const RING_COLOUR := MapCanvas.MUTED_COLOUR
 
 	# Set by MapCanvas._play_discover_ripple() before start() is called.
 	# map_canvas lets the pop-in phase call straight back into
-	# _draw_tick_mark()/_draw_ore_symbol() — the exact same draw calls
-	# _draw_unclaimed_stop() makes at rest — instead of reimplementing that
-	# geometry here a second time; ore_type/double_tick are the two bits of
-	# a site's rendering that aren't derivable from position alone (a
-	# rich/saturated site's double tick, same as _draw_unclaimed_stop's own
-	# `site["tier"] in ["rich", "saturated"]` check), needed so the pop-in
-	# matches what the permanent static draw shows the instant this node is
-	# freed and MapEvents.advance() reveals it — no visible jump.
+	# _draw_ring_stop()/_draw_interchange_ring()/_draw_ore_symbol() — the
+	# exact same draw calls _draw_unclaimed_stop() makes at rest — instead
+	# of reimplementing that geometry here a second time; ore_type/
+	# double_ring are the two bits of a site's rendering that aren't
+	# derivable from position alone (a rich/saturated site's second ring,
+	# same as _draw_unclaimed_stop's own `site["tier"] in ["rich",
+	# "saturated"]` check), needed so the pop-in matches what the permanent
+	# static draw shows the instant this node is freed and MapEvents.
+	# advance() reveals it — no visible jump.
 	var map_canvas: MapCanvas
 	var ore_type: String
-	var double_tick: bool
+	var double_ring: bool
 
 	var tween: Tween
 	var _ring_radius := RING_START_RADIUS
 	var _ring_alpha := 0.0
-	var _tick_scale := 0.0
+	var _glyph_scale := 0.0
 
 	func start(ring_duration: float, pop_duration: float) -> void:
 		_ring_alpha = RING_START_ALPHA
 		tween = create_tween()
 		tween.tween_method(_set_ring_radius, RING_START_RADIUS, RING_END_RADIUS, ring_duration)
 		tween.parallel().tween_method(_set_ring_alpha, RING_START_ALPHA, 0.0, ring_duration)
-		tween.tween_method(_set_tick_scale, 0.0, 1.0, pop_duration)
+		tween.tween_method(_set_glyph_scale, 0.0, 1.0, pop_duration)
 
 	func _set_ring_radius(r: float) -> void:
 		_ring_radius = r
@@ -1591,26 +1647,28 @@ class DiscoverRipple:
 		_ring_alpha = a
 		queue_redraw()
 
-	func _set_tick_scale(s: float) -> void:
-		_tick_scale = s
+	func _set_glyph_scale(s: float) -> void:
+		_glyph_scale = s
 		queue_redraw()
 
 	func _draw() -> void:
 		if _ring_alpha > 0.0:
 			draw_arc(Vector2.ZERO, _ring_radius, 0, TAU, 32, Color(RING_COLOUR.r, RING_COLOUR.g, RING_COLOUR.b, _ring_alpha), 2.0, true)
-		if _tick_scale > 0.0:
-			# The whole tick(s)+symbol cluster scales in together as one
-			# glyph, same offsets _draw_unclaimed_stop uses (Vector2(6, 0)
-			# for the second tick, Vector2(16, 0) for the ore symbol) but
-			# relative to this node's own origin (already positioned at the
-			# site, see MapCanvas._play_discover_ripple) rather than a
-			# passed-in absolute pos.
-			draw_set_transform(Vector2.ZERO, 0.0, Vector2(_tick_scale, _tick_scale))
+		if _glyph_scale > 0.0:
+			# The whole stop (ring(s) + centred glyph) scales in together as
+			# one cluster, relative to this node's own origin (already
+			# positioned at the site, see MapCanvas._play_discover_ripple).
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2(_glyph_scale, _glyph_scale))
 			var ore: Dictionary = GameData.ORE_TYPES[ore_type]
-			map_canvas._draw_tick_mark(Vector2.ZERO, RING_COLOUR, self)
-			if double_tick:
-				map_canvas._draw_tick_mark(Vector2(6, 0), RING_COLOUR, self)
-			map_canvas._draw_ore_symbol(Vector2(16, 0), ore_type, ore, 1.0, self)
+			# _unclaimed_ring_style() (not a hand-built dict) so this pop-in
+			# can never drift from the resting draw's own colour/width —
+			# including whichever filter re-styling (e.g. Type mode's
+			# ore-colour recolour) is active the moment this plays.
+			var style := map_canvas._unclaimed_ring_style(ore_type)
+			map_canvas._draw_ring_stop(Vector2.ZERO, MapCanvas.UNCLAIMED_STOP_RADIUS, 1.0, style, 24, self)
+			if double_ring:
+				map_canvas._draw_interchange_ring(Vector2.ZERO, MapCanvas.UNCLAIMED_STOP_RADIUS, 1.0, style, 24, self)
+			map_canvas._draw_ore_symbol(Vector2.ZERO, ore_type, ore, 1.0, self)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
