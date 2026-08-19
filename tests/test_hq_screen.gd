@@ -104,6 +104,22 @@ func run() -> void:
 		hq.free()
 	)
 
+	# ── bugfixes ticket 25: Workbench/Recipes moved out to the Lab screen ──
+
+	run_case("hq_no_longer_renders_workbench_or_recipes_inline_that_moved_to_the_lab_screen", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_true(_direct_child_index_containing(hq._content, "Workbench") == -1, "Workbench card must no longer render inline on HQ")
+		assert_true(_direct_child_index_containing(hq._content, "Recipes") == -1, "Recipes heading must no longer render inline on HQ")
+		assert_true(_direct_child_index_containing(hq._content, "The Lab") != -1, "the Lab card is still HQ's single entry point for both")
+
+		hq.free()
+	)
+
 	run_case("hq_back_button_routes_to_phone_home_not_the_retired_home_screen", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
@@ -155,22 +171,18 @@ func run() -> void:
 		hq._ready()
 
 		var lab_index := _direct_child_index_containing(hq._content, "The Lab")
-		var workbench_index := _direct_child_index_containing(hq._content, "Workbench")
-		var recipes_index := _direct_child_index_containing(hq._content, "Recipes")
 		var devices_progress_index := _direct_child_index_containing(hq._content, "Devices in progress")
 		var devices_start_index := _direct_child_index_containing(hq._content, "Start a new device")
 		var security_index := _direct_child_index_containing(hq._content, "Security (")
 		var rooms_index := _direct_child_index_containing(hq._content, "Rooms (")
 
 		assert_true(lab_index != -1, "sanity: the Lab card must render")
-		assert_true(workbench_index != -1, "sanity: the Workbench card must render")
-		assert_true(recipes_index != -1, "sanity: the Recipes heading must render")
 		assert_true(devices_progress_index != -1, "sanity: the Devices in progress heading must render")
 		assert_true(devices_start_index != -1, "sanity: the Start a new device heading must render")
 		assert_true(security_index != -1, "sanity: the Security section must render")
 		assert_true(rooms_index != -1, "sanity: the Rooms section must render")
 
-		for actionable_index in [lab_index, workbench_index, recipes_index, devices_progress_index, devices_start_index]:
+		for actionable_index in [lab_index, devices_progress_index, devices_start_index]:
 			assert_true(actionable_index < security_index, "actionable HQ content must render above the Security section")
 			assert_true(actionable_index < rooms_index, "actionable HQ content must render above the Rooms section")
 

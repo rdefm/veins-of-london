@@ -3,11 +3,11 @@ extends Control
 
 # M1-LONDON D4's HQ tab: "the property AS the interface." Merges the old
 # M0 property screen (tier/security/rooms/stored ore) and crafting screen
-# (recipes/devices, now called the workbench) into one screen, plus new
-# assigned-contact UI for the lab/veinStation rooms that never had any UI
-# before (systems/contacts.gd's assign_to_room was previously unreachable).
+# (devices only — bugfixes ticket 25 moved recipes/workbench out to the
+# Lab screen's Crafting section) into one screen, plus new assigned-contact
+# UI for the lab/veinStation rooms that never had any UI before
+# (systems/contacts.gd's assign_to_room was previously unreachable).
 
-const WORKBENCH_ROOMS := ["workshop", "library", "lab"]
 const ASSIGNABLE_ROOMS := ["lab", "veinStation"]
 
 var _content: VBoxContainer
@@ -62,12 +62,10 @@ func _refresh() -> void:
 	# Actionable first — bugfixes ticket 24: Lab/workbench/recipes/devices
 	# are what a player actually taps on a normal visit; the passive
 	# property lists (Security/Rooms) below used to sit above them and push
-	# them off-screen.
+	# them off-screen. Bugfixes ticket 25: Workbench/Recipes moved out to
+	# the Lab screen's own Crafting section — the Lab card below is now the
+	# only entry point for both crafting and experimenting.
 	_content.add_child(_build_lab_card())
-	_content.add_child(_build_workbench_card())
-	_content.add_child(UI.heading("Recipes", 14))
-	for recipe_key in GameData.RECIPES.keys():
-		_content.add_child(_build_recipe_card(recipe_key))
 
 	_content.add_child(UI.heading("Devices in progress", 14))
 	var player: Dictionary = GameState.state["player"]
@@ -269,37 +267,7 @@ func _build_room_contact_row(room_id: String) -> Control:
 	return box
 
 
-# ── workbench / gym ───────────────────────────────────────────────────
-
-func _build_workbench_card() -> Control:
-	var home: Dictionary = GameState.state["home"]
-	var installed: Array[String] = []
-	for room_id in WORKBENCH_ROOMS:
-		if home["rooms"].has(room_id):
-			installed.append(GameData.HOME_ROOMS[room_id]["name"])
-
-	var c := UI.card()
-	c["content"].add_child(UI.heading("Workbench", 16))
-	c["content"].add_child(UI.muted_label(_workbench_flavor_text(installed.size())))
-	if not installed.is_empty():
-		c["content"].add_child(UI.muted_label("Fitted with: %s" % ", ".join(installed)))
-	var bonus: float = Home.get_workshop_bonus()
-	c["content"].add_child(UI.label("Crafting success bonus: +%d%%" % int(round(bonus * 100))))
-	return c["panel"]
-
-
-# PROSE-REVIEW: new flavour text, tone bible per docs/CONTENT-GUIDE.md.
-func _workbench_flavor_text(room_count: int) -> String:
-	match room_count:
-		0:
-			return "A table, a vice, and whatever's left over from last time. It works. Barely."
-		1:
-			return "Proper tools now. Recipes go smoother."
-		2:
-			return "Workshop and library both stocked — clean space, sharper results."
-		_:
-			return "A professional setup, top to bottom. This is as good as crafting gets."
-
+# ── gym ─────────────────────────────────────────────────────────────
 
 # PROSE-REVIEW: new flavour text, tone bible per docs/CONTENT-GUIDE.md.
 func _build_gym_card() -> Control:
@@ -315,14 +283,16 @@ func _build_gym_card() -> Control:
 
 # PROSE-REVIEW: new flavour text, tone bible per docs/CONTENT-GUIDE.md.
 # calc-discovery ticket 06: third HQ card, in-fiction-named "The Lab",
-# alongside the workbench and gym cards above. Opens the dedicated "lab"
-# screen (state.benchNav-driven, scenes/screens/lab.gd) via BenchNav.go_home()
-# + Nav.go_to("lab") so the Lab always opens on its home view, regardless
-# of whatever sub-view the player last left it on.
+# alongside the gym card above. Bugfixes ticket 25: this is now the single
+# entry point for both crafting (moved out of HQ) and experimenting — opens
+# the dedicated "lab" screen (state.benchNav-driven, scenes/screens/lab.gd)
+# via BenchNav.go_home() + Nav.go_to("lab"), unchanged from before ticket 25:
+# the Lab still always opens on Experimenting's home view (its longstanding
+# default); Crafting is one tap away via the new section tab.
 func _build_lab_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("The Lab", 14))
-	c["content"].add_child(UI.muted_label("Combine calc and technique, see what's underneath. Ore's spent either way."))
+	c["content"].add_child(UI.muted_label("Craft what you know, or combine calc and technique to see what's underneath. Ore's spent either way."))
 	c["content"].add_child(UI.button("Open", func():
 		BenchNav.go_home()
 		Nav.go_to("lab")
@@ -330,34 +300,7 @@ func _build_lab_card() -> Control:
 	return c["panel"]
 
 
-# ── crafting: recipes / devices ──────────────────────────────────────
-
-func _build_recipe_card(recipe_key: String) -> Control:
-	var player: Dictionary = GameState.state["player"]
-	var skill: int = player["craftingSkill"]
-	var r: Dictionary = GameData.RECIPES[recipe_key]
-	var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
-	var chance: float = Crafting.craft_chance(recipe_key, skill)
-	var power = Crafting.effect_power(recipe_key, skill)
-	var can_make: bool = Crafting.can_craft(recipe_key)
-	var stock: int = player["inventory"].get(recipe_key, 0)
-
-	var c := UI.card()
-	c["content"].add_child(UI.heading("%s %s" % [r["symbol"], r["name"]], 15))
-	c["content"].add_child(UI.label("Can craft" if can_make else "Missing calc"))
-	c["content"].add_child(UI.muted_label(r["description"]))
-	for ingredient in costs:
-		var have: int = player["orichalchum"].get(ingredient, 0)
-		var ore: Dictionary = GameData.ORE_TYPES[ingredient]
-		c["content"].add_child(UI.label("Ingredient: %s %s — %d/%d" % [ore["symbol"], ore["name"], have, costs[ingredient]]))
-	c["content"].add_child(UI.label("Success: %d%%   Effect: %s   Stock: %d" % [int(round(chance * 100)), str(power), stock]))
-
-	var b := UI.button("Craft one", func(): Crafting.attempt_craft(recipe_key))
-	b.disabled = not can_make
-	c["content"].add_child(b)
-
-	return c["panel"]
-
+# ── devices ────────────────────────────────────────────────────────────
 
 func _build_device_progress_card(device: Dictionary) -> Control:
 	var dt: Dictionary = GameData.DEVICES[device["type"]]

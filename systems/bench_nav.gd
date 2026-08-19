@@ -16,10 +16,26 @@ extends RefCounted
 # these three functions only ever move benchNav's view forward and hold
 # that already-decided result until the (skippable) animation reveals it.
 # Bench notes (ticket 09) still just stubs through open_notes().
+#
+# Bugfixes ticket 25: the Lab merged with HQ's old Recipes/Workbench cards
+# into one screen with two sections, Crafting and Experimenting, switched
+# via a tab pair that only appears at each section's own landing view
+# (Crafting's flat list, Experimenting's home -- see lab.gd's
+# _build_lab_chrome()). "crafting" is just one more legal benchNav.view
+# value alongside home/picker/pairing/... -- open_section() is the only
+# new entry point this needed; go_home() is untouched.
 
 
 static func go_home() -> void:
 	GameState.state["benchNav"] = { "view": "home", "types": [], "approach": null, "result": null }
+	EventBus.state_changed.emit()
+
+
+# The Lab screen's section-tab target — jumps straight to either section's
+# landing view (Crafting's flat list, or Experimenting's own home),
+# regardless of whatever sub-view/selection was previously in progress.
+static func open_section(section_id: String) -> void:
+	GameState.state["benchNav"]["view"] = "crafting" if section_id == "crafting" else "home"
 	EventBus.state_changed.emit()
 
 

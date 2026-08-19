@@ -2,10 +2,17 @@ class_name LabScreen
 extends Control
 
 # HQ's third card (M3-CALC-DISCOVERY.md UI structure): the Lab.
-# state.benchNav drives which of home/picker/pairing/notes is shown, same
+# Bugfixes ticket 25 merged HQ's old inline Recipes/Workbench cards in
+# here too, so the Lab is now two sections under one screen: Crafting
+# (today's HQ Recipes/Workbench, moved verbatim) and Experimenting (the
+# calc-discovery flow below, unchanged). Both are just values of
+# state.benchNav.view -- "crafting" is one more legal view alongside the
+# existing home/picker/pairing/confirm/resolving/result/notes, same
 # pattern as state.phoneNav for the Phone tab (scenes/screens/phone.gd).
 # calc-discovery ticket 06 built the home view; ticket 07 adds the real
 # picker and pairing panel below. Ticket 09 adds bench notes.
+
+const WORKBENCH_ROOMS := ["workshop", "library", "lab"]
 
 var _content: VBoxContainer
 
@@ -22,6 +29,8 @@ func _refresh() -> void:
 		child.queue_free()
 
 	match GameState.state["benchNav"]["view"]:
+		"crafting":
+			_build_crafting_section()
 		"picker":
 			_build_picker()
 		"pairing":
@@ -38,11 +47,117 @@ func _refresh() -> void:
 			_build_home()
 
 
-# ── home: found effects + known approaches ──────────────────────────
+# ── section switcher ─────────────────────────────────────────────────
+#
+# Bugfixes ticket 25: the section tabs only appear at each section's own
+# landing view -- Crafting's flat list, Experimenting's home -- exactly
+# where HQ's old Lab card used to drop the player (unchanged: still
+# Experimenting's home by default, see BenchNav.go_home()). Once inside
+# Experimenting's own drill-down (picker/pairing/confirm/notes/...) it
+# keeps exactly the single local "‹ Back" it always had (ticket acceptance:
+# "unchanged in behavior"), same one-back-button-per-view convention
+# phone.gd's app screens already use -- no second, differently-targeted
+# "‹ Back" stacked on top of it.
+#
+# The inactive section's name is a tappable Button, the active one renders
+# as an inert Label naming itself current, in words, same "state written
+# in words, not a glyph" convention the type picker's row text already
+# uses (BenchNav.select_type's ticket 07 comment).
 
-func _build_home() -> void:
+func _build_lab_chrome() -> void:
 	_content.add_child(UI.back_button("hq"))
 	_content.add_child(UI.heading("The Lab"))
+	_content.add_child(_build_section_tabs())
+
+
+# PROSE-REVIEW: new UI strings, tone bible per docs/CONTENT-GUIDE.md.
+func _build_section_tabs() -> Control:
+	var active_section := "crafting" if GameState.state["benchNav"]["view"] == "crafting" else "experimenting"
+	var row := UI.hbox()
+	row.add_child(_build_section_tab("Crafting", "crafting", active_section))
+	row.add_child(_build_section_tab("Experimenting", "experimenting", active_section))
+	return row
+
+
+func _build_section_tab(label_text: String, section_id: String, active_section: String) -> Control:
+	if section_id == active_section:
+		return UI.label("%s (current)" % label_text)
+	return UI.button(label_text, func(): BenchNav.open_section(section_id))
+
+
+# ── crafting: recipes / workbench (moved from hq.gd, ticket 25) ──────
+
+func _build_crafting_section() -> void:
+	_build_lab_chrome()
+	_content.add_child(_build_workbench_card())
+	_content.add_child(UI.heading("Recipes", 14))
+	for recipe_key in GameData.RECIPES.keys():
+		_content.add_child(_build_recipe_card(recipe_key))
+
+
+func _build_workbench_card() -> Control:
+	var home: Dictionary = GameState.state["home"]
+	var installed: Array[String] = []
+	for room_id in WORKBENCH_ROOMS:
+		if home["rooms"].has(room_id):
+			installed.append(GameData.HOME_ROOMS[room_id]["name"])
+
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Workbench", 16))
+	c["content"].add_child(UI.muted_label(_workbench_flavor_text(installed.size())))
+	if not installed.is_empty():
+		c["content"].add_child(UI.muted_label("Fitted with: %s" % ", ".join(installed)))
+	var bonus: float = Home.get_workshop_bonus()
+	c["content"].add_child(UI.label("Crafting success bonus: +%d%%" % int(round(bonus * 100))))
+	return c["panel"]
+
+
+# PROSE-REVIEW: flavour text, tone bible per docs/CONTENT-GUIDE.md (moved
+# from hq.gd unchanged, ticket 25).
+func _workbench_flavor_text(room_count: int) -> String:
+	match room_count:
+		0:
+			return "A table, a vice, and whatever's left over from last time. It works. Barely."
+		1:
+			return "Proper tools now. Recipes go smoother."
+		2:
+			return "Workshop and library both stocked — clean space, sharper results."
+		_:
+			return "A professional setup, top to bottom. This is as good as crafting gets."
+
+
+func _build_recipe_card(recipe_key: String) -> Control:
+	var player: Dictionary = GameState.state["player"]
+	var skill: int = player["craftingSkill"]
+	var r: Dictionary = GameData.RECIPES[recipe_key]
+	var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
+	var chance: float = Crafting.craft_chance(recipe_key, skill)
+	var power = Crafting.effect_power(recipe_key, skill)
+	var can_make: bool = Crafting.can_craft(recipe_key)
+	var stock: int = player["inventory"].get(recipe_key, 0)
+
+	var c := UI.card()
+	c["content"].add_child(UI.heading("%s %s" % [r["symbol"], r["name"]], 15))
+	c["content"].add_child(UI.label("Can craft" if can_make else "Missing calc"))
+	c["content"].add_child(UI.muted_label(r["description"]))
+	for ingredient in costs:
+		var have: int = player["orichalchum"].get(ingredient, 0)
+		var ore: Dictionary = GameData.ORE_TYPES[ingredient]
+		c["content"].add_child(UI.label("Ingredient: %s %s — %d/%d" % [ore["symbol"], ore["name"], have, costs[ingredient]]))
+	c["content"].add_child(UI.label("Success: %d%%   Effect: %s   Stock: %d" % [int(round(chance * 100)), str(power), stock]))
+
+	var b := UI.button("Craft one", func(): Crafting.attempt_craft(recipe_key))
+	b.disabled = not can_make
+	c["content"].add_child(b)
+
+	return c["panel"]
+
+
+# ── experimenting: calc-discovery flow (unchanged, ticket 25 reframe) ─
+# home: found effects + known approaches
+
+func _build_home() -> void:
+	_build_lab_chrome()
 	_content.add_child(UI.label(_known_approaches_sentence()))
 
 	_content.add_child(UI.heading("Found", 14))

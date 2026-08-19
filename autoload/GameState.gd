@@ -29,6 +29,11 @@ func new_game_state() -> Dictionary:
 		"phoneNav": { "app": "home", "selectedAxis": null, "confirmingNewGame": false },
 		# calc-discovery ticket 03: transient Lab nav, same convention as
 		# mapNav/phoneNav — resets on load, not meaningfully persisted.
+		# Bugfixes ticket 25: "crafting" joined "home"/"picker"/"pairing"/...
+		# as one more legal top-level view -- the combined Lab screen's
+		# Crafting section (HQ's old Recipes/Workbench cards). Defaulting
+		# to "home" (Experimenting) keeps the Lab's existing default
+		# landing unchanged; Crafting is reached via the new section tab.
 		"benchNav": { "view": "home", "types": [], "approach": null, "result": null },
 		"notifications": [],
 		"sellState": {},

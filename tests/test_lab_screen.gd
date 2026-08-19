@@ -141,6 +141,12 @@ func run() -> void:
 		screen.free()
 	)
 
+	# Bugfixes ticket 25: HQ's Open button still calls BenchNav.go_home(),
+	# unchanged -- the Lab keeps landing on Experimenting's home view by
+	# default, same as before ticket 25. Crafting (the other section) is
+	# reached in-screen via the new section tab (see
+	# lab_section_tabs_switch_between_crafting_and_experimenting below),
+	# not by a different HQ entry point.
 	run_case("hq_lab_card_opens_the_lab_screen_on_its_home_view", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
@@ -156,9 +162,68 @@ func run() -> void:
 		lab_card_button.pressed.emit()
 
 		assert_eq(GameState.state["currentScreen"], "lab", "Open must navigate to the lab screen")
-		assert_eq(GameState.state["benchNav"]["view"], "home", "opening the Lab from HQ must always land on its home view")
+		assert_eq(GameState.state["benchNav"]["view"], "home", "opening the Lab from HQ must always land on its (Experimenting) home view")
 
 		hq.free()
+	)
+
+
+	# ── bugfixes ticket 25: Crafting section (moved from hq.gd) ──────────
+
+	run_case("lab_crafting_section_carries_over_workbench_and_recipes_from_hq", func():
+		GameState.reset()
+		BenchNav.open_section("crafting")
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var labels := _label_texts(screen)
+		assert_true(labels.has("Workbench"), "Workbench card must render in the Crafting section")
+		assert_true(labels.has("Recipes"), "Recipes heading must render in the Crafting section")
+		assert_true(_button_texts(screen).has("Craft one"), "a recipe's Craft one button must still be reachable")
+
+		screen.free()
+	)
+
+
+	run_case("lab_section_tabs_switch_between_crafting_and_experimenting", func():
+		GameState.reset()
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		assert_true(_label_texts(screen).has("Experimenting (current)"), "Experimenting is the default section")
+		assert_true(_button_texts(screen).has("Crafting"), "Crafting must be reachable as a tab")
+
+		_find_button(screen, "Crafting").pressed.emit()
+
+		assert_eq(GameState.state["benchNav"]["view"], "crafting")
+		assert_true(_label_texts(screen).has("Crafting (current)"), "tapping the tab switches the active section")
+		assert_true(_button_texts(screen).has("Experimenting"), "Experimenting is now the tappable tab back the other way")
+
+		_find_button(screen, "Experimenting").pressed.emit()
+
+		assert_eq(GameState.state["benchNav"]["view"], "home", "switching back to Experimenting lands on its home view")
+		assert_true(_label_texts(screen).has("The Lab"), "Experimenting's home view rendered")
+
+		screen.free()
+	)
+
+
+	run_case("lab_crafting_section_has_no_back_button_duplicate_when_deep_in_experimenting", func():
+		GameState.reset()
+		BenchNav.open_picker()
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var back_buttons := 0
+		for text in _button_texts(screen):
+			if text == "‹ Back":
+				back_buttons += 1
+		assert_eq(back_buttons, 1, "a deep Experimenting view must keep exactly its own single local back button, not a second one from the Lab's own chrome")
+
+		screen.free()
 	)
 
 	# ── ticket 07: type picker ───────────────────────────────────────────
