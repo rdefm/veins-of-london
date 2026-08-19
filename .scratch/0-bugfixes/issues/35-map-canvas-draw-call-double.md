@@ -6,7 +6,7 @@ Build a lightweight recording test double that can stand in for the `target: Can
 
 **Blocked by:** 34 (spike decides whether any production `target: CanvasItem` params need retyping, and if so, which — do not guess this here)
 
-**Status:** needs-info (blocked; move to ready-for-agent once 34 resolves)
+**Status:** ready-for-agent (34 resolved — see ticket 34's `## Answer`: shadowing fails, retype `target` on `_draw_ring_stop`/`_draw_interchange_ring`/`_draw_ore_symbol`/`_draw_centered_text` in `map_canvas.gd`, `draw_padlock`/`draw_pin` in `icons.gd`, and `draw`/`_draw_hourglass`/`_draw_bolt`/`_draw_star4`/`_draw_die5`/`_draw_asterisk8` in `ore_glyphs.gd`)
 
 - [ ] A recording test double at `tests/support/draw_spy.gd` implements, at minimum, recording versions of every draw method the call graph above actually uses: `draw_circle`, `draw_arc`, `draw_rect`, `draw_colored_polygon`, `draw_line`, `draw_string`. Each call is recorded as `{ "method": <name>, "args": [...] }` appended to an ordered `calls: Array`, fully headless (no GPU/viewport dependency — same discipline as `scripts/check_runner.gd`/`scripts/run_tests.sh`). Shape it per ticket 34's answer: either `extends CanvasItem`/`Node2D` with these methods shadowed (if 34 found that works), or a plain `RefCounted`/`Object` accepted only at the specific `target` params ticket 34 named for retyping.
 - [ ] A helper on the double (e.g. `calls_matching(method: String) -> Array`) or equivalent makes assertions readable — tests should be able to write something like: `assert_true(spy.calls_matching("draw_circle").any(func(c): return c["args"][0] == stop["position"]))` rather than hand-walking the raw array each time.
