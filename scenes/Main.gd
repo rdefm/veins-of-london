@@ -34,6 +34,11 @@ const SCREEN_SCRIPTS := {
 	# own internal drill-down (home/picker/pairing/notes) is state.benchNav-
 	# driven inside lab.gd, same pattern as phoneNav inside phone.gd.
 	"lab": preload("res://scenes/screens/lab.gd"),
+
+	# bugfixes-29: the Guild marketplace, reached from the Guild's faction
+	# card (ContactCards.build_faction_card) on both the standalone
+	# `factions` screen and Phone's Factions app.
+	"guild_marketplace": preload("res://scenes/screens/guild_marketplace.gd"),
 }
 
 # Ticket 12: home/you/bag/inventory are retired screen ids, fully absorbed

@@ -112,6 +112,13 @@ static func build_faction_card(faction_id: String) -> Control:
 	c["content"].add_child(UI.label("Relation: %d / %d" % [rel, f["joinRelation"]]))
 	c["content"].add_child(UI.bar(rel, f["joinRelation"]))
 
+	# bugfixes-29: always shown, not just for members -- the marketplace
+	# screen itself is what shows the locked state for non-members, so a
+	# non-member can still find and tap into it rather than the button
+	# simply not existing.
+	if faction_id == "guild":
+		c["content"].add_child(UI.button("Guild Marketplace", func(): Nav.go_to("guild_marketplace")))
+
 	if state["joined"]:
 		var member_label := UI.button("✅ Member", func(): pass)
 		member_label.disabled = true
