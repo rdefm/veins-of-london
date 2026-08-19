@@ -406,3 +406,26 @@ func run() -> void:
 		screen.free()
 	)
 
+	# ── faction legend (ticket 26) ────────────────────────────────────────
+
+	run_case("diagram_layer_carries_a_persistent_faction_legend_listing_every_faction", func():
+		GameState.reset()
+		var screen := MapScreen.new()
+		screen._ready()
+
+		assert_true(screen._map_legend != null, "the diagram layer builds a MapLegend")
+
+		# MapLegend, like MapCanvas/MapControls/MapBubble, only builds its own
+		# children once ITS _ready() runs -- the engine fires that
+		# automatically once MapScreen enters a live tree, but this test's
+		# whole point is calling screen._ready() directly on a never-added
+		# screen, which doesn't cascade into any child's own _ready(). Called
+		# explicitly here, same as tests/test_map_controls.gd/
+		# test_map_bubble.gd already do for their own standalone components.
+		screen._map_legend._ready()
+
+		assert_eq(screen._map_legend._rows.get_child_count(), GameData.FACTIONS.size(), "one row per faction, same source of truth as the faction-filter picker")
+
+		screen.free()
+	)
+

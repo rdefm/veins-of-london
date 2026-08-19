@@ -52,6 +52,7 @@ var _sheet_layer: Control
 # option_selected signal carries only the tapped option's id, not which kind
 # of bubble it came from.
 var _map_canvas: MapCanvas
+var _map_legend: MapLegend
 var _bubble: MapBubble
 var _bubble_district_id: String = ""
 var _bubble_mode: String = ""
@@ -177,12 +178,28 @@ func _build_diagram_layer() -> Control:
 	# 03's drawer) and a pinch is the expected mobile gesture anyway. MapCanvas only
 	# accept_event()s during that active pinch, so a single finger's drag
 	# still bubbles up to this TouchScrollContainer and pans normally.
+	# Ticket 26: diagram_area wraps scroll (rather than adding scroll straight
+	# into content below) so _map_legend can sit as its sibling, anchored to
+	# diagram_area's own top-left corner -- which already starts right below
+	# the top bar row above, so the legend never has to duplicate that row's
+	# height to avoid overlapping the hamburger/title/bag. A plain Control,
+	# not a Container -- diagram_area's own size_flags_vertical still gets
+	# read by `content` (a VBoxContainer) the same way scroll's used to, but
+	# scroll itself needs an explicit anchor_full_rect now that its immediate
+	# parent no longer lays it out via Container rules.
+	var diagram_area := Control.new()
+	diagram_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.add_child(diagram_area)
+
 	var scroll := TouchScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	UI.anchor_full_rect(scroll)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	scroll.add_child(_map_canvas)
-	content.add_child(scroll)
+	diagram_area.add_child(scroll)
+
+	_map_legend = MapLegend.new()
+	diagram_area.add_child(_map_legend)
 
 	return layer
 
