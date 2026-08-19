@@ -44,6 +44,53 @@ func run() -> void:
 		nav.free()
 	)
 
+	run_case("the_bar_renders_a_background_panel_behind_the_tiles", func():
+		GameState.reset()
+		var nav := NavBar.new()
+		nav._ready()
+
+		var bg: Panel = null
+		for child in nav.get_children():
+			if child is Panel:
+				bg = child
+				break
+		assert_true(bg != null, "ticket 37: NavBar has its own background Panel, distinct from the tiles' own frames")
+		assert_true(bg.visible, "the bar background is visible")
+
+		nav.free()
+	)
+
+	run_case("hq_tile_highlights_active_when_currentScreen_is_hq", func():
+		GameState.reset()
+		GameState.state["currentScreen"] = "hq"
+		var nav := NavBar.new()
+		nav._ready()
+
+		var hq_tile: AppTile = nav._tiles["hq"]
+		var phone_tile: AppTile = nav._tiles["phone"]
+		assert_eq(hq_tile._frame_style.bg_color, AppTile.ACTIVE_BG_COLOUR, "HQ tile highlights as active while on the hq screen")
+		assert_eq(phone_tile._frame_style.bg_color, AppTile.FRAME_BG_COLOUR, "Phone tile is not active while on the hq screen")
+
+		nav.free()
+	)
+
+	run_case("phone_tile_highlights_active_only_on_the_app_grid_not_inside_an_open_app", func():
+		GameState.reset()
+		GameState.state["currentScreen"] = "phone"
+		GameState.state["phoneNav"]["app"] = "home"
+		var nav := NavBar.new()
+		nav._ready()
+
+		var phone_tile: AppTile = nav._tiles["phone"]
+		assert_eq(phone_tile._frame_style.bg_color, AppTile.ACTIVE_BG_COLOUR, "Phone tile highlights as active while parked on the app grid")
+
+		GameState.state["phoneNav"]["app"] = "notes"
+		EventBus.state_changed.emit()
+		assert_eq(phone_tile._frame_style.bg_color, AppTile.FRAME_BG_COLOUR, "Phone tile stops highlighting once an app is open, even though currentScreen is still phone")
+
+		nav.free()
+	)
+
 	run_case("map_slot_renders_locked_before_archie_is_met", func():
 		GameState.reset()
 		var nav := NavBar.new()
@@ -86,6 +133,24 @@ func run() -> void:
 
 		var map_tile: AppTile = nav._tiles["map"]
 		assert_true(not map_tile._lock_overlay.visible, "Map renders unlocked once archiePartnerSeen is true")
+
+		nav.free()
+	)
+
+	run_case("locked_map_still_renders_its_padlock_alongside_the_new_bar_chrome", func():
+		GameState.reset()
+		var nav := NavBar.new()
+		nav._ready()
+
+		var bg: Panel = null
+		for child in nav.get_children():
+			if child is Panel:
+				bg = child
+				break
+		var map_tile: AppTile = nav._tiles["map"]
+		assert_true(bg != null and bg.visible, "the bar background still renders with a locked Map slot present")
+		assert_true(map_tile._lock_overlay.visible, "Map's padlock still renders unaffected by the bar chrome")
+		assert_eq(map_tile._frame_style.bg_color, AppTile.FRAME_BG_COLOUR, "a locked Map slot is never also shown as the active tab")
 
 		nav.free()
 	)

@@ -47,6 +47,17 @@ const BADGE_COLOUR := Color(0.784314, 0.227451, 0.227451, 1)
 const FRAME_BG_COLOUR := Color(0.909804, 0.894118, 0.85098, 1)
 const FRAME_BORDER_COLOUR := Color(0.831373, 0.811765, 0.768627, 1)
 
+# Ticket 37: dock active-tab highlight -- a filled background tint on the
+# active tile's frame, using theme/main_theme.tres's own button accent
+# (StyleBoxFlat_btn_normal) rather than a new colour language. ACTIVE_BG is
+# FRAME_BG_COLOUR mixed 40% toward that accent (a warm tan, distinct from
+# both the neutral cream frame and the grey LOCKED_TINT); ACTIVE_BORDER is
+# the accent at full strength, with a thicker border width to read as a
+# stronger, "current" outline.
+const ACTIVE_BG_COLOUR := Color(0.870588, 0.717647, 0.535294, 1)
+const ACTIVE_BORDER_COLOUR := Color(0.784314, 0.529412, 0.227451, 1)
+const ACTIVE_BORDER_WIDTH := 2
+
 # Emits on any tap, locked or not — this component only renders the lock
 # state, it doesn't decide navigation policy (e.g. "tapping a locked tile
 # shows a tooltip/toast instead of navigating" per the 11-phone-os-shell
@@ -58,6 +69,7 @@ signal tile_pressed(app_id: String)
 var _app_id: String = ""
 var _frame: Control
 var _background: Panel
+var _frame_style: StyleBoxFlat
 var _icon_rect: TextureRect
 var _fallback_label: Label
 var _lock_overlay: _LockOverlay
@@ -115,18 +127,18 @@ func _ensure_built() -> void:
 	_background = Panel.new()
 	UI.anchor_full_rect(_background)
 	_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var frame_style := StyleBoxFlat.new()
-	frame_style.bg_color = FRAME_BG_COLOUR
-	frame_style.border_width_left = 1
-	frame_style.border_width_top = 1
-	frame_style.border_width_right = 1
-	frame_style.border_width_bottom = 1
-	frame_style.border_color = FRAME_BORDER_COLOUR
-	frame_style.corner_radius_top_left = FRAME_CORNER_RADIUS
-	frame_style.corner_radius_top_right = FRAME_CORNER_RADIUS
-	frame_style.corner_radius_bottom_right = FRAME_CORNER_RADIUS
-	frame_style.corner_radius_bottom_left = FRAME_CORNER_RADIUS
-	_background.add_theme_stylebox_override("panel", frame_style)
+	_frame_style = StyleBoxFlat.new()
+	_frame_style.bg_color = FRAME_BG_COLOUR
+	_frame_style.border_width_left = 1
+	_frame_style.border_width_top = 1
+	_frame_style.border_width_right = 1
+	_frame_style.border_width_bottom = 1
+	_frame_style.border_color = FRAME_BORDER_COLOUR
+	_frame_style.corner_radius_top_left = FRAME_CORNER_RADIUS
+	_frame_style.corner_radius_top_right = FRAME_CORNER_RADIUS
+	_frame_style.corner_radius_bottom_right = FRAME_CORNER_RADIUS
+	_frame_style.corner_radius_bottom_left = FRAME_CORNER_RADIUS
+	_background.add_theme_stylebox_override("panel", _frame_style)
 	_frame.add_child(_background)
 
 	_icon_rect = TextureRect.new()
@@ -175,15 +187,19 @@ func _ensure_built() -> void:
 
 
 # `data`: { id: String, label: String, locked: bool (default false),
-# badge: bool (default false), icon: Texture2D (optional — overrides the
-# asset-contract lookup; lets a caller supply pre-loaded art, and lets tests
-# exercise the normal-render path without a real icon file on disk) }.
+# badge: bool (default false), active: bool (default false — ticket 37's
+# dock-tab highlight; a caller outside the dock that never sets this gets
+# the tile's ordinary unhighlighted frame), icon: Texture2D (optional —
+# overrides the asset-contract lookup; lets a caller supply pre-loaded art,
+# and lets tests exercise the normal-render path without a real icon file
+# on disk) }.
 func configure(data: Dictionary) -> void:
 	_ensure_built()
 	_app_id = data.get("id", "")
 	var label_text: String = data.get("label", _app_id)
 	var locked: bool = data.get("locked", false)
 	var badge: bool = data.get("badge", false)
+	var active: bool = data.get("active", false)
 	var icon_override: Texture2D = data.get("icon")
 
 	_name_label.text = label_text
@@ -200,6 +216,18 @@ func configure(data: Dictionary) -> void:
 
 	_lock_overlay.visible = locked
 	_badge.visible = badge
+
+	# Ticket 37: active takes the frame's own bg_color/border_color/width,
+	# not modulate -- modulate (below) only multiplies brightness, which
+	# can't shift the neutral cream frame toward the accent hue the way a
+	# direct stylebox colour swap can.
+	_frame_style.bg_color = ACTIVE_BG_COLOUR if active else FRAME_BG_COLOUR
+	_frame_style.border_color = ACTIVE_BORDER_COLOUR if active else FRAME_BORDER_COLOUR
+	var border_width := ACTIVE_BORDER_WIDTH if active else 1
+	_frame_style.border_width_left = border_width
+	_frame_style.border_width_top = border_width
+	_frame_style.border_width_right = border_width
+	_frame_style.border_width_bottom = border_width
 
 	var tint := LOCKED_TINT if locked else NORMAL_TINT
 	_background.modulate = tint

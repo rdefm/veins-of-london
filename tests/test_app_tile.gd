@@ -172,15 +172,52 @@ func run() -> void:
 		tile.free()
 	)
 
+	run_case("an_active_tile_highlights_its_frame_style_distinct_from_the_default", func():
+		var tile := AppTile.new()
+		tile._ready()
+
+		tile.configure({ "id": "map", "label": "Map", "active": true })
+
+		assert_eq(tile._frame_style.bg_color, AppTile.ACTIVE_BG_COLOUR, "the active tile's frame fills with the accent tint")
+		assert_eq(tile._frame_style.border_color, AppTile.ACTIVE_BORDER_COLOUR, "the active tile's frame border switches to the accent colour")
+		assert_eq(tile._frame_style.border_width_left, AppTile.ACTIVE_BORDER_WIDTH, "the active tile's border thickens to read as the current tab")
+
+		tile.free()
+	)
+
+	run_case("an_inactive_tile_keeps_the_default_frame_style", func():
+		var tile := AppTile.new()
+		tile._ready()
+
+		tile.configure({ "id": "map", "label": "Map", "active": false })
+
+		assert_eq(tile._frame_style.bg_color, AppTile.FRAME_BG_COLOUR, "an inactive tile keeps the ordinary frame background")
+		assert_eq(tile._frame_style.border_color, AppTile.FRAME_BORDER_COLOUR, "an inactive tile keeps the ordinary frame border")
+
+		tile.free()
+	)
+
+	run_case("active_defaults_to_false_when_omitted", func():
+		var tile := AppTile.new()
+		tile._ready()
+
+		tile.configure({ "id": "map", "label": "Map" })
+
+		assert_eq(tile._frame_style.bg_color, AppTile.FRAME_BG_COLOUR, "no active flag means the default, unhighlighted frame")
+
+		tile.free()
+	)
+
 	run_case("reconfigure_replaces_the_previous_state_rather_than_accumulating_it", func():
 		var tile := AppTile.new()
 		tile._ready()
 
-		tile.configure({ "id": "messages", "label": "Messages", "locked": true, "badge": true })
-		tile.configure({ "id": "notes", "label": "Notes", "locked": false, "badge": false })
+		tile.configure({ "id": "messages", "label": "Messages", "locked": true, "badge": true, "active": true })
+		tile.configure({ "id": "notes", "label": "Notes", "locked": false, "badge": false, "active": false })
 
 		assert_true(not tile._lock_overlay.visible, "locked state from the first configure() doesn't linger")
 		assert_true(not tile._badge.visible, "badge state from the first configure() doesn't linger")
+		assert_eq(tile._frame_style.bg_color, AppTile.FRAME_BG_COLOUR, "active state from the first configure() doesn't linger")
 		assert_eq(tile._name_label.text, "Notes", "the label reflects the latest configure() call")
 
 		tile.free()
