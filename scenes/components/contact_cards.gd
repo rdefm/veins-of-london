@@ -91,9 +91,12 @@ static func build_james_card() -> Control:
 		var job_active: bool = flags["jamesJobActive"] and GameState.state["jamesJob"] != null
 		if job_active:
 			var job: Dictionary = GameState.state["jamesJob"]
-			c["content"].add_child(UI.button("📦 Deliver job: %d× %s %s" % [job["qty"], job["symbol"], job["recipeName"]], func(): Jobs.fulfil_job()))
-		else:
-			c["content"].add_child(UI.button("📋 Ask James for work", func(): Jobs.offer_job()))
+			if not flags["jamesJobAccepted"]:
+				c["content"].add_child(UI.button("📋 James has work for you", func(): Modal.open("james_job_offer", { "job": job })))
+			elif job["type"] == "flatPay":
+				c["content"].add_child(UI.button("💷 Do the job (£%d)" % job["pay"], func(): Jobs.fulfil_job()))
+			else:
+				c["content"].add_child(UI.button("📦 Deliver job: %d× %s %s" % [job["qty"], job["symbol"], job["recipeName"]], func(): Jobs.fulfil_job()))
 
 	c["content"].add_child(build_recruit_row("james"))
 

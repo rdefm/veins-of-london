@@ -131,7 +131,7 @@ func new_game_state() -> Dictionary:
 			"canSellConsumables": false, "consSoldCount": 0,
 			"archieMotionPending": false, "archieMotionEventSeen": false,
 			"jamesMotionEventSeen": false, "enhancementUnlocked": false,
-			"jamesJobActive": false,
+			"jamesJobActive": false, "jamesJobAccepted": false,
 			"homeRaidEventPending": false, "homeRaidEventSeen": false, "homeRaidWon": false,
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,
 			# M1-LONDON D5 — district event one-shot flags/counters.

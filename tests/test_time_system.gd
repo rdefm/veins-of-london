@@ -272,6 +272,33 @@ func run() -> void:
 		assert_true(hit, "daily_tick should reach step 5i (Raiding.apply_raid_resolution) within 500 tries")
 	)
 
+	# ── bugfixes-30: James job proactive daily offer + deadline expiry ──
+
+	run_case("daily_tick_wires_in_james_job_offer_roll_step", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = Jobs.FLAT_PAY_LOW_CASH_THRESHOLD  # guarantees a 100% flatPay roll
+		TimeSystem.daily_tick()
+		assert_eq(GameState.state["flags"]["jamesJobActive"], true, "daily_tick should reach the James job offer roll step")
+		assert_eq(GameState.state["jamesJob"]["type"], "flatPay", "low cash should always roll the flatPay job")
+	)
+
+	run_case("daily_tick_wires_in_james_job_expiry_step_before_the_offer_roll", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 10
+		GameState.state["player"]["cash"] = Jobs.FLAT_PAY_LOW_CASH_THRESHOLD + 1000  # keep the offer roll from being forced to 100%
+		var job := Jobs.generate_james_job()
+		job["byDay"] = 9  # already overdue as of day 10
+		GameState.state["jamesJob"] = job
+		GameState.state["flags"]["jamesJobActive"] = true
+		GameState.state["flags"]["jamesJobAccepted"] = true
+		var relation_before: int = GameState.state["contacts"]["james"]["relation"]
+
+		Rng.set_seed(1)
+		TimeSystem.daily_tick()
+
+		assert_eq(GameState.state["contacts"]["james"]["relation"], relation_before + Jobs.MISSED_DEADLINE_RELATION_PENALTY, "daily_tick should reach the James job expiry step and dock relation for the missed deadline")
+	)
+
 	# ── calc-effect-wiring-02: healing salve HoT ────────────────────────
 
 	run_case("healing_salve_ticks_daily_amount_and_decrements_days_left", func():

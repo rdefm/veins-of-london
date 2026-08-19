@@ -273,7 +273,7 @@ func _restore_int_types(state: Dictionary) -> void:
 
 	if state.get("jamesJob") != null:
 		var job: Dictionary = state["jamesJob"]
-		for key in ["qty", "payPerItem", "totalPay"]:
+		for key in ["qty", "payPerItem", "totalPay", "byDay", "pay"]:
 			_int_key(job, key)
 
 	# state.event.snapshots holds full-state copies (see systems/events.gd);
@@ -329,7 +329,7 @@ func _restore_modal_int_types(modal: Dictionary) -> void:
 			_int_key(data, "have")
 			if data.get("job") != null:
 				var job: Dictionary = data["job"]
-				for key in ["qty", "payPerItem", "totalPay"]:
+				for key in ["qty", "payPerItem", "totalPay", "byDay", "pay"]:
 					_int_key(job, key)
 
 

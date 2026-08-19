@@ -48,7 +48,7 @@ func run() -> void:
 
 	run_case("tap_outside_james_job_offer_declines_the_job_same_as_decline", func():
 		GameState.reset()
-		var job := { "recipeKey": "timePearl", "recipeName": "Time Pearl", "symbol": "⧖", "qty": 2, "payPerItem": 10, "totalPay": 20 }
+		var job := { "type": "craft", "recipeKey": "timePearl", "recipeName": "Time Pearl", "symbol": "⧖", "qty": 2, "payPerItem": 10, "totalPay": 20, "byDay": 10 }
 		GameState.state["jamesJob"] = job
 		GameState.state["flags"]["jamesJobActive"] = true
 		Modal.open("james_job_offer", { "job": job })

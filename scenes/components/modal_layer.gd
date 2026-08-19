@@ -274,8 +274,13 @@ func _build_sell_row(label_text: String, key: String, qty: int, max_qty: int) ->
 func _build_james_job_offer(data: Dictionary) -> void:
 	var job: Dictionary = data["job"]
 	_card_content.add_child(UI.heading("Job from James"))
-	_card_content.add_child(UI.label("\"I need %d %s. Standard rate. Don't take too long about it.\"" % [job["qty"], job["recipeName"]]))
-	_card_content.add_child(UI.label("%s %s ×%d — £%d/ea — total £%d" % [job["symbol"], job["recipeName"], job["qty"], job["payPerItem"], job["totalPay"]]))
+	if job["type"] == "flatPay":
+		# PROSE-REVIEW: new flatPay offer copy, drafted against CONTENT-GUIDE.md's tone bible.
+		_card_content.add_child(UI.label("\"Need an extra pair of hands for an afternoon. Pays well.\""))
+		_card_content.add_child(UI.label("Costs 1 time block — £%d flat." % job["pay"]))
+	else:
+		_card_content.add_child(UI.label("\"I need %d %s. Standard rate. Don't take too long about it.\"" % [job["qty"], job["recipeName"]]))
+		_card_content.add_child(UI.label("%s %s ×%d — £%d/ea — total £%d — needed by day %d" % [job["symbol"], job["recipeName"], job["qty"], job["payPerItem"], job["totalPay"], job["byDay"]]))
 	_card_content.add_child(UI.button("Accept", _on_job_accept))
 	_card_content.add_child(UI.button("Decline", _on_job_decline))
 

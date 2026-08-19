@@ -179,6 +179,11 @@ Muggers: generated, see §3.7.
 ### 1.11 Misc constants
 `TIME_BLOCKS = ["Morning","Afternoon","Evening"]` · `ARCHIE_ORE_GOAL = 10` · contacts: archie {startRelation:10, unlocked:true, recruitThreshold:80}, james {startRelation:0, unlocked:false, recruitThreshold:100} · James job trust→qty bands: relation ≤1 → 1–3; ≤3 → 3–6; else 5–10; payPerItem = CONSUMABLE_PRICES[recipe].
 
+**James job daily offer roll** (bugfixes-30, human-confirmed): on the daily tick, when no James job is active, roll sequentially — type-1 first, type-2 only if type-1 misses:
+- **Type-1 (flat pay):** `{recipeKey/qty}`-less job, pay `£300` flat for spending one time block. Offer chance = 100% if `player.cash <= 100`, else a 15% baseline.
+- **Type-2 (craft):** if type-1's roll misses, roll again at a flat 15% baseline (not cash-scaled). On hit, `Jobs.generate_james_job()` as before, plus `byDay = day + qty * 2` (2 days per unit ordered).
+- Missing a type-2 job's `byDay` deadline (checked in `daily_tick()`): job expires (jamesJobActive/jamesJob/jamesJobAccepted clear), james relation −5, Notify. Declining a job explicitly never costs relation — only a missed deadline does.
+
 ---
 
 ## 2. STATE SCHEMA
@@ -246,7 +251,7 @@ state = {
             outcome:null, frozenTurns:0, motionTurns:0, motionPower:0,
             evadeTurns:0, evadeChance:0.0, onWin:null, snapshots:[] },
 
-  jamesJob: null,             # { recipeKey, recipeName, symbol, qty, payPerItem, totalPay } | null
+  jamesJob: null,             # { type:"craft", recipeKey, recipeName, symbol, qty, payPerItem, totalPay, byDay } | { type:"flatPay", pay } | null
   pendingSaleCut: 0,
   labThresholds: {},          # { recipeKey: int }
   veinStationVeins: [],       # [veinId]
@@ -258,7 +263,7 @@ state = {
     canSellConsumables: false, consSoldCount: 0,
     archieMotionPending: false, archieMotionEventSeen: false,
     jamesMotionEventSeen: false, enhancementUnlocked: false,
-    jamesJobActive: false,
+    jamesJobActive: false, jamesJobAccepted: false,
     homeRaidEventPending: false, homeRaidEventSeen: false, homeRaidWon: false,
     archiePartnerSeen: false, homeUnlocked: false, securityContactUnlocked: false,
   },
@@ -358,7 +363,7 @@ Trigger: `homeRaidEventPending` true → on next visit to HQ, launch. Flow: intr
 - `awardRelation(id, n)`. Recruit at threshold: sets recruited, notification, assignable to rooms (one contact per room; assigning vacates).
 - **Lab (daily):** contact in lab crafts each unlocked recipe up to `labThresholds[recipe]` inventory target, using the CONTACT's skill in the §3.5 formulas (workshopBonus included), consuming player ore, awarding contact XP (full/⅓).
 - **veinStation (daily):** for each marked vein: if charged → cautious harvest into player ore, +15 contact cultivating XP; else cultivate roll with contact skill (success devBar += 1+skill, level-up check, +20 XP; fail +8 XP). Summary notification.
-- **James jobs** (unlocked by jamesMotionEventSeen): one active at a time. Generate per §1.11 (recipe pool: timePearl, + enhancementPowder if unlocked). Fulfil: requires qty in inventory; deduct, pay totalPay, james relation +5, clear job.
+- **James jobs** (unlocked by jamesMotionEventSeen): one active at a time, offered proactively by the daily-tick roll (§1.11) rather than player-requested — no "ask for work" action exists. Type-1 (flatPay): accept, then fulfil consumes one time block and pays `pay` flat, james relation +5. Type-2 (craft, recipe pool: timePearl, + enhancementPowder if unlocked, per §1.11's trust bands): fulfil requires qty in inventory; deduct, pay totalPay, james relation +5, clear job. Both: `jamesJobAccepted` tracks accept vs. still-just-offered, separately from `jamesJobActive`.
 
 ### 3.11 Tutorial flow (as actually implemented — the merged flow)
 1. **Intro event** (INTRO_CARDS). Complete → `metArchie = true`, stage "buyer_event", → home.

@@ -65,6 +65,8 @@ static func do_rest() -> void:
 static func daily_tick() -> void:
 	Barometer.tick()                     # ① barometer
 	Home.roll_daily_raid()               # ② home raid
+	Jobs.expire_overdue_job()            # ②b James job deadline expiry (bugfixes-30), runs before the fresh roll below so an expired slot can be re-offered the same day
+	Jobs.roll_daily_offer()              # ②c James job proactive daily offer roll (bugfixes-30), no ordering dependency on any other step
 	_apply_living_costs()                # ③ living costs
 	_apply_healing_salve_tick()          # ③b Healing Salve HoT (calc-effect-wiring-02), runs right after living costs
 	Cultivating.recharge_veins()         # ④ vein recharge
