@@ -123,9 +123,18 @@ func _show_screen(screen_id: String) -> void:
 		current_screen_node = null
 
 	var resolved_id: String = resolve_screen_id(screen_id)
-	current_screen_node = SCREEN_SCRIPTS[resolved_id].new()
-	UI.anchor_full_rect(current_screen_node)
-	screen_container.add_child(current_screen_node)
+	var screen_node: Control = SCREEN_SCRIPTS[resolved_id].new()
+	current_screen_node = screen_node
+	UI.anchor_full_rect(screen_node)
+	screen_container.add_child(screen_node)  # may re-enter _show_screen synchronously (e.g. hq.gd's _ready() redirecting straight into an event)
+
+	# If a nested _show_screen already ran during that add_child (a screen's
+	# _ready() navigating elsewhere, per above), current_screen_node no longer
+	# points at screen_node -- the nested call already set nav_bar/top_bar for
+	# the real final screen, and finishing with this call's now-stale
+	# resolved_id would clobber that with the wrong screen's visibility.
+	if current_screen_node != screen_node:
+		return
 
 	nav_bar.visible = not NAV_HIDDEN_SCREENS.has(resolved_id)
 	top_bar.visible = not TOP_BAR_HIDDEN_SCREENS.has(resolved_id)
