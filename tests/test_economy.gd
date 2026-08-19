@@ -178,3 +178,78 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["inventory"]["timePearl"], 3, "consumable deducted")
 		assert_eq(GameState.state["sellState"], {}, "sellState cleared after selling")
 	)
+
+	# ── Guild marketplace (bugfixes-28) ─────────────────────────────────
+
+	run_case("guild_buy_price_above_ticker_base_at_full_spread", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 40  # join threshold -> full 15% spread
+		var price := Economy.get_guild_buy_price("ore", "time")
+		assert_eq(price, 69, "time basePrice 60, stable barometer -> 60 * 1.15 = 69")
+	)
+
+	run_case("guild_sell_price_below_ticker_base_at_full_spread", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 40
+		var price := Economy.get_guild_sell_price("ore", "time")
+		assert_eq(price, 51, "60 * 0.85 = 51")
+	)
+
+	run_case("guild_spread_clamps_at_max_below_join_threshold", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 0
+		assert_eq(Economy.get_guild_spread(), Economy.GUILD_SPREAD_MAX, "spread never exceeds 15%, even below the join threshold")
+	)
+
+	run_case("guild_spread_narrows_as_relation_increases_then_flattens_at_zero", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 40
+		var full_price := Economy.get_guild_buy_price("ore", "time")
+
+		GameState.state["factions"]["guild"]["relation"] = 65  # halfway to 90 -> spread 7.5%
+		var narrowed_price := Economy.get_guild_buy_price("ore", "time")
+
+		GameState.state["factions"]["guild"]["relation"] = 90
+		var zero_spread_price := Economy.get_guild_buy_price("ore", "time")
+
+		GameState.state["factions"]["guild"]["relation"] = 200
+		var beyond_zero_price := Economy.get_guild_buy_price("ore", "time")
+
+		assert_true(narrowed_price < full_price, "spread should narrow as relation climbs above the join threshold")
+		assert_true(zero_spread_price < narrowed_price, "spread keeps narrowing toward relation 90")
+		assert_eq(zero_spread_price, 60, "at relation 90 the spread is 0%, buy price == effective base price")
+		assert_eq(beyond_zero_price, 60, "spread stays flat at 0% past relation 90, never negative")
+	)
+
+	run_case("guild_purchase_rejects_insufficient_cash", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 40
+		GameState.state["player"]["cash"] = 10
+		var result := Economy.execute_guild_purchase([{ "kind": "ore", "type": "time", "qty": 5 }])
+		assert_true(not result["ok"], "purchase should be rejected when cost exceeds cash")
+		assert_eq(GameState.state["player"]["cash"], 10, "cash unchanged on rejected purchase")
+		assert_eq(GameState.state["player"]["orichalchum"].get("time", 0), 0, "inventory unchanged on rejected purchase")
+	)
+
+	run_case("guild_purchase_deducts_cash_and_adds_inventory", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 40
+		GameState.state["player"]["cash"] = 1000
+		var result := Economy.execute_guild_purchase([{ "kind": "ore", "type": "time", "qty": 3 }])
+		assert_true(result["ok"], "purchase should succeed when cash covers cost")
+		# price per unit 69 (see full-spread test above), qty 3 -> cost 207
+		assert_eq(GameState.state["player"]["cash"], 1000 - 207, "cash reduced by total cost")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 3, "ore added to inventory")
+	)
+
+	run_case("guild_sale_credits_cash_and_removes_inventory", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 40
+		GameState.state["player"]["cash"] = 100
+		GameState.state["player"]["orichalchum"]["time"] = 5
+		var result := Economy.execute_guild_sale([{ "kind": "ore", "type": "time", "qty": 2 }])
+		assert_true(result["ok"], "sale should succeed")
+		# price per unit 51 (see full-spread sell test above), qty 2 -> earned 102
+		assert_eq(GameState.state["player"]["cash"], 100 + 102, "cash increased by total earned")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 3, "ore removed from inventory")
+	)
