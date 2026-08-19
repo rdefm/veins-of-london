@@ -748,6 +748,21 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["outcome"], "win", "lethal black hole damage should win the fight")
 	)
 
+	run_case("use_black_hole_never_damages_or_freezes_the_player", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["blackHole"] = 1
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["combat"]["enemy"]["attackMin"] = 10
+		GameState.state["combat"]["enemy"]["attackMax"] = 10
+		var hp_before: int = GameState.state["player"]["hp"]
+		Combat.use_black_hole()
+		assert_eq(GameState.state["player"]["hp"], hp_before, "black hole should never reduce the player's own HP")
+		# frozenTurns freezes the enemy's turn (see enemy_attack's early return), not the player's;
+		# drive an enemy turn directly to prove it's suppressed rather than just reading the flag
+		Combat.enemy_attack()
+		assert_eq(GameState.state["player"]["hp"], hp_before, "enemy's frozen turn should not land an attack on the player")
+	)
+
 	# ── calc-effect-wiring-03: reactive and escape consumables ───────────
 
 	run_case("use_prophets_breath_sets_evadeTurns_from_effect_power_and_50_percent_chance", func():

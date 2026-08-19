@@ -85,7 +85,7 @@
       "refineStep": { "field": "effectPower", "add": 2 },
       "xpReward": 35,
       "eventUsable": false,
-      "description": "A localised gravity fault, contained mostly to the size of a dinner plate. Everything nearby gets pulled toward the middle, including the person who deployed it."
+      "description": "A localised gravity fault, contained mostly to the size of a dinner plate. Everything nearby gets pulled toward the middle — you keep your distance and let it do the work."
     },
     "prophetsBreath": {
       "name": "Prophet's Breath",
