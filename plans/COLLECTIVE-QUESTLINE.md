@@ -81,7 +81,7 @@ secrets kept via filing, wonder leaking through the mundane. See
 Three new Collective characters, each a different answer to the arc's question —
 *how much do we change in order to survive?*
 
-### A — "Not at all"
+### 4.1 A — "Not at all"
 **Function:** mentor, ideologue, **the leak.**
 
 - Finds the player in Arc 1 when the player and Archie are struggling. Teaches
@@ -114,7 +114,7 @@ reveal — a Firm raid that arrived too accurate, a Firm claim on a site only th
 people knew about, a loss that beat the odds. Telegraphed loudly, noticed
 quietly. A player keeping notes should be able to catch it.
 
-### B — "Completely"
+### 4.2 B — "Completely"
 **Function:** fixer, escalation engine, **the door to the Network.**
 
 - Moves ore, finds buyers, knows people. The practical one.
@@ -130,7 +130,7 @@ quietly. A player keeping notes should be able to catch it.
 Ambition, not malice. B's ending is a genuinely good outcome for everyone in it
 except the thing they were trying to save.
 
-### C — "I just want to go home"
+### 4.3 C — "I just want to go home"
 **Function:** the stakes.
 
 - Has a shop, a kid, a life the calc quietly pays for. **The person the whole
@@ -143,7 +143,7 @@ except the thing they were trying to save.
 about principles; C is the person the principles are supposedly in aid of. Any
 climax that does not make C's position matter has missed the point.
 
-### Archie — the door, not a slot
+### 4.4 Archie — the door, not a slot
 Existing canon (`docs/CONTENT-GUIDE.md` §3): cockney, blunt, bitingly funny,
 generous in deed not word, time-allergic, magic is stock to shift.
 
@@ -165,15 +165,102 @@ Therefore:
 - When the player chooses **B's future**, **Archie is delighted.** His approval
   is the most unsettling beat in the questline and should be played completely
   straight — warm, pleased, no irony, no wink.
-- **A and Archie should dislike each other from Arc 1**, politely and without
-  explanation. The player should read it as temperament. It is not temperament.
+- **A and Archie dislike each other from Arc 1.** The player is given a false but
+  complete explanation for it (§4.5) and should stop wondering. It is not
+  temperament and it is not the tenner.
 
 Archie's Arc 3 function is barometer: he says the quiet thing about what the
 player has built, **once**, and then changes the subject. One dry line. He does
 not bring it up again. (`docs/CONTENT-GUIDE.md` §3 rule 2: one line per threat,
 never two.)
 
-### The Network handler
+### 4.5 The Archie / A decoy
+
+The antagonism between Archie and A is real and ideological, and is revealed as
+such in Arc 3. Before then the player gets a **decoy** — a false but complete
+explanation they will accept and stop interrogating. An unexplained dislike makes
+players suspicious; a mundane explanation makes them file it and move on.
+
+The decoy is a **disputed debt**, and it is not decoration: it is the Arc 3
+reveal rehearsed at small stakes.
+
+**Archie**, when A comes up, is reluctant. If the player pries, he produces
+**the exact amount and the exact date**, and the view that A has been wriggling
+out of it for years. Tag line, delivered as a joke Archie knows is not a reason:
+
+> "Also, he's Crystal Palace. Obviously untrustworthy."
+
+**A**, unprompted, mentions that he and Archie go way back — and speaks as a man
+who settled up **ages ago**. No amount, no date. Mild warmth about it.
+
+**Neither is lying.** The asymmetry is the point:
+
+| | Thinks in | Recalls | Player concludes |
+|---|---|---|---|
+| Archie | transactions, which clear | amount and date | he's probably right |
+| A | relationships, where itemising is gauche | the *feeling* of having settled | he believes it |
+
+So **A is a man who sincerely believes things that are not true, when believing
+them is more comfortable.** That is the exact psychology of the Arc 3 betrayal —
+A will not experience the leak as treachery either. The twist's fair-play setup
+is planted in Arc 1 disguised as a joke about a tenner.
+
+**Football notes.** West Ham (East, Archie) versus Crystal Palace (South, A) is
+deliberately **not** a real rivalry. Millwall would have been — genuine history,
+genuine violence — and would have made the antagonism read as dangerous rather
+than petty. Low stakes are required here. **A never mentions football back**:
+doesn't engage, doesn't know, isn't interested. Funnier, and quietly the thing
+about A that grates.
+
+### 4.6 The fandom layer — encoding without banter
+
+Star Wars (Archie) and Star Trek (A) are not arbitrary: the Federation is a
+post-scarcity mutual-aid society with no money between members; Han Solo is a
+smuggler with debts who does the right thing and then invoices you. The fandoms
+**encode the two ideologies**. That is the whole reason they are here.
+
+**Rule: keep the encoding, cut the banter.** The moment two Londoners start doing
+Star Wars versus Trek bits, the scene dies on `docs/CONTENT-GUIDE.md` §3 rule 4.
+No back-and-forth, no running gag, no catchphrase.
+
+**Archie — one unremarked prop.** A Millennium Falcon keyring on his keys. Noted
+in **one clause of one Arc 1 description**. Never joked about, never explained,
+never mentioned by another character. Optional quiet callback: it is on the desk
+in the new office if the player picks B's Formalise ending.
+
+**A — one line, said twice.** A is **Spock, not Kirk** — the one who reasons from
+principle to a conclusion nobody else wants. Kirk is a maverick captain who leads
+from the front, which is B, or arguably Archie. A gets exactly one quotation, and
+it is:
+
+> "The needs of the many outweigh the needs of the few."
+
+- **Arc 1:** said about sharing yields. A mild geeky throwaway. Archie rolls his
+  eyes. The player files it under *A is a bit of a nerd*.
+- **Arc 3:** said again. Same words, no emphasis, no acknowledgement that it is a
+  repeat. It is now the justification for feeding the Firm — and it always was.
+
+**Explicitly rejected:** A opening calls with "Kirk to Enterprise" or any similar
+hail. It is a catchphrase (skipped by Arc 2), it makes A jolly (and A must carry
+enough gravity for the Arc 3 accusation to land), and it is the most direct
+camera-wink available.
+
+### 4.7 Staging the decoy
+
+Do not land the keyring, the football and the debt in the same scene — three
+pieces of business about one relationship becomes a comedy set piece, which this
+game does not do.
+
+| Beat | Where | Trigger |
+|---|---|---|
+| Falcon keyring | Arc 1, one clause of one description | Ambient |
+| The debt (amount, date) | Arc 1 | **Player pries** — must be player-initiated |
+| "Obviously untrustworthy" | Same scene as the debt | Tag on the above |
+| A's version ("ages ago") | Arc 1, a later scene | Unprompted, in passing |
+| "The needs of the many" (1) | Arc 1 | About sharing yields |
+| "The needs of the many" (2) | Arc 3 | Defending the leak |
+
+### 4.8 The Network handler
 **Function:** the price of knowing things. Introduced in Arc 2 by B.
 
 Consistent with `data/factions.json`: *"Information is the resource"*, *"They are
@@ -303,8 +390,10 @@ Per `docs/CONTENT-GUIDE.md` §3, and worth restating for this arc specifically:
    relief. The player should notice on their own, weeks later.
 5. **The handler is polite.** Always. No leaning on anyone. The invoice does the
    work.
-6. **A's dislike of Archie, and Archie's of A, is never explained** until it
-   doesn't need to be.
+6. **A's dislike of Archie, and Archie's of A, is explained falsely** (§4.5) and
+   never truthfully until Arc 3, where it doesn't need to be.
+7. **No fandom banter.** The Star Wars / Star Trek layer is encoding, not
+   material (§4.6). One prop, one line said twice. No exchanges about it.
 
 All new prose from this document ships flagged `PROSE-REVIEW:` per the project
 constitution. Sample lines in §4 are illustrative drafts, not approved copy.
