@@ -228,10 +228,7 @@ in **one clause of one Arc 1 description**. Never joked about, never explained,
 never mentioned by another character. Optional quiet callback: it is on the desk
 in the new office if the player picks B's Formalise ending.
 
-**A — one line, said twice.** A is **Spock, not Kirk** — the one who reasons from
-principle to a conclusion nobody else wants. Kirk is a maverick captain who leads
-from the front, which is B, or arguably Archie. A gets exactly one quotation, and
-it is:
+**A — one line, said twice.** A gets exactly one quotation, and it is:
 
 > "The needs of the many outweigh the needs of the few."
 
@@ -240,10 +237,9 @@ it is:
 - **Arc 3:** said again. Same words, no emphasis, no acknowledgement that it is a
   repeat. It is now the justification for feeding the Firm — and it always was.
 
-**Explicitly rejected:** A opening calls with "Kirk to Enterprise" or any similar
-hail. It is a catchphrase (skipped by Arc 2), it makes A jolly (and A must carry
-enough gravity for the Arc 3 accusation to land), and it is the most direct
-camera-wink available.
+**No other Trek material.** No hails, no catchphrases, no second quotation. A
+must carry enough gravity for the Arc 3 accusation to land, and a character who
+does bits on the phone cannot. One line, twice, and nothing else.
 
 ### 4.7 Staging the decoy
 
