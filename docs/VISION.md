@@ -15,7 +15,7 @@
 
 Every feature decision gets tested against these four, in priority order. With the feature list growing, the pillars are now the scope filter — anything that fails them waits for post-1.0.
 
-1. **The Business Is the Game.** Every system feeds the economy loop: prospect → seed → cultivate → harvest → craft → sell → upgrade. Combat, story, and exploration exist to make the economy tastier, never to compete with it. If a feature doesn't create an economic decision, it doesn't ship.
+1. **The Business Is the Game.** Every system feeds the economy loop: prospect → seed → cultivate → prune → craft → sell → upgrade. Combat, story, and exploration exist to make the economy tastier, never to compete with it. If a feature doesn't create an economic decision, it doesn't ship.
 2. **London Is a Place, Not a Label — and an Old One.** The map is the connective tissue. Veins have addresses, districts have character and ore biases, travel costs time, so geography creates routing decisions. The player should develop opinions about Camden. And the past is under the pavement: the trade predates the Tube, the Romans, and possibly the Thames — ancient secrets surface through prospecting oddities, Conclave ledgers, and the fact that there is genuinely a Temple of Mithras under a bank's headquarters.
 3. **Everything Is Priced.** Time blocks, cash, ore, relations, information, even your own biology (affinities) — all currencies, all scarce. Violence has an invoice: every fight opens with pay, talk, or intimidate. The mugger has an hourly rate.
 4. **Menace and Comedy, Equal Partners.** Danger is sincere — violence has consequences, and the player should sometimes be genuinely worried. The humour is dry, observational coping, never whimsy: the narrator jokes the way Londoners joke at a delayed funeral. Magic is a mundane trade commodity with VAT implications; the people enforcing its oldest rules are quietly terrifying. If a line winks at the camera, it dies; if a threat can't hurt you, it doesn't ship.
@@ -24,7 +24,7 @@ Every feature decision gets tested against these four, in priority order. With t
 
 **The fantasy:** a small-time operator becoming a kingpin in a trade nobody admits exists. Ranked priorities: (1) running the business, (2) discovering hidden London, (3) tactical use of crafted consumables, (4) story and characters.
 
-- **Session loop (5–15 min):** check notifications → spend the day's 3 time blocks (travel, cultivate, harvest, craft, prospect, trade, socialise) → handle the day's event or threat → end day → daily tick (costs, recharges, raids, barometer, market refresh).
+- **Session loop (5–15 min):** check notifications → spend the day's 3 time blocks (travel, cultivate, prune, craft, prospect, trade, socialise) → handle the day's event or threat → end day → daily tick (costs, vein drift, raids, barometer, market refresh).
 - **Mid loop (hours):** level veins and skills, discover recipes and combinations, upgrade home, build faction relations, expand districts, build devices.
 - **Macro loop (full game):** bedsit → mansion; one borrowed vein → a district-spanning operation; nobody → the person the factions call first. Culminates in the Deep Vein endgame (§15). Threaded through all of it: the growth arc (§3b).
 
@@ -108,7 +108,7 @@ London divides into **9 districts** on one stylised hand-drawn map — an occult
 | **The City** | fate | Institutionalised gambling with better tailoring. Best prices, worst people. |
 | **Greenwich** | time | The meridian runs through it. Nobody at the Observatory has noticed. |
 | **Camden** | physics | Loud, kinetic, high mugging rate, cheap sites. |
-| **King's Cross** | time / physics | Transit hub. Fast recharge rates district-wide. |
+| **King's Cross** | time / physics | Transit hub. Extra drift district-wide (the vigour bonus, for free). |
 | **Battersea** | physics | The power station hums at a frequency estate agents don't mention. |
 | **Hampstead** | life | The Heath is basically a life-ore farm with dog walkers. |
 | **Whitechapel** | emotion | Old grief soaked into the brick. Rich sites, high raid risk. |
@@ -118,7 +118,7 @@ London divides into **9 districts** on one stylised hand-drawn map — an occult
 
 ### Travel — one rule
 
-**Acting in a district you're not currently in costs +1 time block** (the travel), then the action costs its normal block. You always wake at home; returning to rest is free. That single rule generates the daily routing puzzle — *"harvest Greenwich then trek to Camden, or stay east and craft?"* — with no pathfinding, no adjacency graph, no travel screen. Barometer states and faction control render visibly on the map (police icons, market stalls, faction tags).
+**Acting in a district you're not currently in costs +1 time block** (the travel), then the action costs its normal block. You always wake at home; returning to rest is free. That single rule generates the daily routing puzzle — *"prune Greenwich then trek to Camden, or stay east and craft?"* — with no pathfinding, no adjacency graph, no travel screen. Barometer states and faction control render visibly on the map (police icons, market stalls, faction tags).
 
 ## 7. Prospecting & Sites
 
@@ -135,20 +135,20 @@ SITE = { id, district, tier, oreBias, discoveredDay, claimed: false }
 | **Barren** | — | — | Can't seed. "It's a Pret." |
 | **Poor** | −15% | none | Cheap fallback. |
 | **Fair** | baseline | none | Current-game equivalent. |
-| **Rich** | +20% | ONE of: −1 recharge block · +1 max level · +15% yield | Bonus rolled at discovery, visible before seeding. |
-| **Saturated** | +35% | ALL THREE | ~5% of Saturated discoveries contain a **natural Lv1 vein**, free and already alive. |
+| **Rich** | +20% | ONE of: vigour (+1 rightward/−1 leftward drift) · wildCeiling (+20 growth ceiling) · +15% yield | Bonus rolled at discovery, visible before seeding. |
+| **Saturated** | +35% | ALL THREE | ~5% of Saturated discoveries contain a **natural vein at `growth = seedGrowth`**, free and already alive. |
 
 **Pressure valves:** unclaimed sites can be NPC-claimed in the daily tick (chance scales with quality and age); each district caps concurrent sites (2–4); prospecting a full district re-rolls its worst unclaimed site. Site quality is visible *before* paying the 40-ore seed cost — prospecting is buying information, which is the point.
 
-**Vein object change:** add `hospitability: {tier, bonuses[]}`, read as modifiers by the existing seed/recharge/yield/level functions.
+**Vein object change:** add `hospitability: {tier, bonuses[]}`, read as modifiers by the existing seed/cultivate/prune/drift functions.
 
 ## 8. Veins, Cultivating & Raids
 
-Core loop unchanged (it works): seed → cultivate to fill dev bar → level up (Lv1–5) → harvest cautious (small, safe) or full (big, drains dev bar) → dev bar at zero decays the vein. Additions:
+Core loop unchanged (it works): seed → cultivate to push growth up → prune (light or hard) to pull calc out → left alone, growth drifts back toward whichever wall it was leaning on, and a vein spent to 0 for too long can collapse and vanish (vein-growth-state PRD). Additions:
 
-- Veins live at **sites** with map positions and district-derived properties; recharge modified by hospitability and district.
+- Veins live at **sites** with map positions and district-derived properties; drift rate modified by hospitability and district.
 - **A tutorial event teaching cultivation** joins the tutorial chain — slotted right after the Archie falafel chat, using Archie's transferred time vein as the teaching prop.
-- **NPC raids on player veins** (M2): daily roll per vein vs its security tier; success steals charged ore proportional to security resistance and pings a map notification. This creates the demand side of vein-security spending.
+- **NPC raids on player veins** (M2): daily roll per vein vs its security tier; success steals stored ore proportional to security resistance and pings a map notification. This creates the demand side of vein-security spending.
 - **Home raids** (exists; formalised M2): daily roll vs home tier + installed security; raiders trigger the intent-combat system; losses hit `storedOre`, mitigated by safeRoom/storage rooms.
 - **Passive cultivating** (M5): a recruited contact assigned to the `veinStation` room auto-spends blocks on your lowest-dev vein.
 
@@ -368,7 +368,7 @@ Port the HTML prototype to Godot at feature parity, plus the four engine foundat
 ## M1 — London Exists *(4–6 weeks)*
 **Scope:** ore roster migration (5 new types, save migration #1); map screen + 9 districts; travel rule; prospecting + sites + hospitability; seeding revamp; NPC site-claiming; district event-card deck (small, ~15 cards); cultivating tutorial event; tutorial chain migrated onto the event framework; commission the map illustration this milestone.
 **Playable result:** the full economy loop played across a living map.
-**Exit criteria:** a new player can prospect → seed → cultivate → harvest → sell entirely via the map; routing decisions demonstrably matter (playtesters mention travel trade-offs unprompted).
+**Exit criteria:** a new player can prospect → seed → cultivate → prune → sell entirely via the map; routing decisions demonstrably matter (playtesters mention travel trade-offs unprompted).
 
 ## M2 — Everything Wants Your Ore *(4–5 weeks)*
 **Scope:** negotiation opener (talk/bribe/intimidate + reputation stat); intent-telegraph combat, **built enemy-count-agnostic** (content ships 1v1); enemy template system + 6–8 enemy types across threat tiers T1–T3; **Fieldcraft skill** (XP from fights/negotiations/escapes, capped bonuses, first maneuver unlock); conditioning (HP growth via gym); NPC raids on veins; home raids formalised onto the new combat; first consumable wave (Blast, Enhancement Powder ×2, Shield, Healing Salve, Healing Burst); evade stat.

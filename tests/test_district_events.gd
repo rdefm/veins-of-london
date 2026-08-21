@@ -22,7 +22,7 @@ static func _make_site(id: String, district: String, tier: String, discovered_da
 	return {
 		"id": id, "district": district, "tier": tier, "oreType": ore_type,
 		"bonuses": [], "discoveredDay": discovered_day,
-		"claimed": claimed, "factionVein": { "id": "fv_dummy", "factionId": "collective", "oreType": ore_type, "level": 1, "devBar": 0, "security": "none", "claimedOnDay": discovered_day } if faction_claimed else null,
+		"claimed": claimed, "factionVein": { "id": "fv_dummy", "factionId": "collective", "oreType": ore_type, "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": discovered_day } if faction_claimed else null,
 		"hasNaturalVein": false,
 	}
 

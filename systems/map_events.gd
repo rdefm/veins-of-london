@@ -60,18 +60,20 @@ static func queue_seed_claim(district_id: String, vein_id: String, owner: String
 	})
 
 
-# Ticket 03: a vein finishing its recharge (Cultivating.recharge_veins,
-# the tick a vein's chargeBlocks reaches its threshold and charged flips
-# false -> true). Always the player's own vein (only player veins recharge),
-# so unlike queue_seed_claim there's no owner to carry. Deliberately NOT
+# Ticket 03, repurposed by vein-growth-state ticket 07: a vein's growth
+# crossing into the "wild" band or reaching the ceiling (Cultivating.
+# _queue_growth_events -- see its own comment for the exact transitions).
+# Always the player's own vein (only player veins get this burst), so
+# unlike queue_seed_claim there's no owner to carry. Deliberately NOT
 # folded into pending_vein_ids() below: a "charge" event doesn't hide its
 # vein from the ordinary static draw the way "discover"/"seed_claim" do —
-# _rebuild_halos() already puts the vein's ChargeHalo up the instant
-# charged flips true (same state_changed emit recharge_veins() fires), so
-# by the time this event reaches the front of the queue the halo is already
-# showing; the event just adds a one-shot burst on top of it. Same no-self-
-# emit convention as queue_discover/queue_seed_claim above — Cultivating.
-# recharge_veins() already emits once at the end of the whole tick.
+# _rebuild_halos() already puts the vein's ChargeHalo up the instant it
+# enters the wild/rampant band (same state_changed emit that transition
+# fires), so by the time this event reaches the front of the queue the halo
+# is already showing; the event just adds a one-shot burst on top of it.
+# Same no-self-emit convention as queue_discover/queue_seed_claim above —
+# Cultivating.drift_veins()/cultivate()/prune() already emit once at the end
+# of the whole action.
 static func queue_charge(district_id: String, vein_id: String) -> void:
 	GameState.state["mapEvents"]["queue"].append({
 		"type": "charge",
@@ -80,17 +82,18 @@ static func queue_charge(district_id: String, vein_id: String) -> void:
 	})
 
 
-# Ticket 04: a vein being harvested (Cultivating.harvest_full/
-# harvest_cautious, the moment charged flips true -> false). Same "no owner
-# to carry, always the player's own vein" shape as queue_charge, and the
-# same reason it's absent from pending_vein_ids() below: the vein isn't
-# hidden from the ordinary static draw pre-event -- _rebuild_halos() already
-# drops the vein's ChargeHalo the instant charged flips false (same
-# state_changed emit the harvest call fires), so by the time this event
+# Ticket 04, repurposed by vein-growth-state ticket 07: a vein's growth
+# draining back down to/through neutral (Cultivating._queue_growth_events --
+# see its own comment for the exact transition). Same "no owner to carry,
+# always the player's own vein" shape as queue_charge, and the same reason
+# it's absent from pending_vein_ids() below: the vein isn't hidden from the
+# ordinary static draw pre-event -- _rebuild_halos() already drops the
+# vein's ChargeHalo the instant it leaves the wild/rampant band (same
+# state_changed emit that transition fires), so by the time this event
 # reaches the front of the queue the halo is already gone; the event just
 # plays a one-shot collapse on top of where it used to be. Same no-self-emit
-# convention as queue_charge -- both harvest calls already emit once at the
-# end of the whole action.
+# convention as queue_charge -- drift_veins()/prune() already emit once at
+# the end of the whole action.
 static func queue_drain(district_id: String, vein_id: String) -> void:
 	GameState.state["mapEvents"]["queue"].append({
 		"type": "drain",

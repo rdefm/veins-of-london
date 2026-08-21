@@ -564,10 +564,9 @@ func run() -> void:
 			"hasNaturalVein": false,
 		}]
 		GameState.state["player"]["veins"] = [{
-			"id": "v1", "siteId": "s1", "oreType": "time", "level": 1, "levelLabel": "Trickle",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"id": "v1", "siteId": "s1", "oreType": "time", "growth": 20, "security": "none",
 			"alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
-			"district": "hampstead",
+			"district": "hampstead", "hospitability": { "tier": "fair", "bonuses": [] },
 		}]
 
 		var canvas := MapCanvas.new()

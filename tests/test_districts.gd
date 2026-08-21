@@ -49,7 +49,7 @@ func run() -> void:
 		GameState.reset()
 		var unclaimed := { "id": "s1", "district": "camden", "tier": "poor", "oreType": "physics", "bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null, "hasNaturalVein": false }
 		var yours := { "id": "s2", "district": "camden", "tier": "fair", "oreType": "physics", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false }
-		var npc := { "id": "s3", "district": "camden", "tier": "rich", "oreType": "physics", "bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": { "id": "fv1", "factionId": "collective", "oreType": "physics", "level": 1, "devBar": 0, "security": "none", "claimedOnDay": 2 }, "hasNaturalVein": false }
+		var npc := { "id": "s3", "district": "camden", "tier": "rich", "oreType": "physics", "bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": { "id": "fv1", "factionId": "collective", "oreType": "physics", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 2 }, "hasNaturalVein": false }
 		GameState.state["world"]["sites"] = [unclaimed, yours, npc]
 		assert_eq(Districts.ownership_summary("camden"), "1 of 3 sites yours", "denominator counts all three claim states, numerator only player-claimed")
 	)

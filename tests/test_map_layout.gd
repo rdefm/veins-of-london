@@ -13,7 +13,7 @@ func _unclaimed(id: String, district: String) -> Dictionary:
 
 func _faction_claimed(id: String, district: String, faction_id: String = "collective") -> Dictionary:
 	var s := _unclaimed(id, district)
-	s["factionVein"] = { "id": "fv_" + id, "factionId": faction_id, "oreType": "physics", "level": 1, "devBar": 0, "security": "none", "claimedOnDay": 1 }
+	s["factionVein"] = { "id": "fv_" + id, "factionId": faction_id, "oreType": "physics", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 1 }
 	return s
 
 

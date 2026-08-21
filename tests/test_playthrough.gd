@@ -34,7 +34,7 @@ static func _find_seed_for(max_tries: int, fn: Callable) -> int:
 static func _make_site(id: String, district: String, tier: String, claimed: bool, faction_claimed: bool, faction_claimed_day: int = 1) -> Dictionary:
 	var faction_vein: Variant = null
 	if faction_claimed:
-		faction_vein = { "id": "fv_" + id, "factionId": "collective", "oreType": "time", "level": 1, "devBar": 0, "security": "none", "claimedOnDay": faction_claimed_day }
+		faction_vein = { "id": "fv_" + id, "factionId": "collective", "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": faction_claimed_day }
 	return {
 		"id": id, "district": district, "tier": tier, "oreType": "time",
 		"bonuses": [], "discoveredDay": 1, "claimed": claimed, "factionVein": faction_vein,
@@ -329,6 +329,95 @@ func run() -> void:
 			assert_true(sell_seed != -1, "%s: should find a non-mugged sale roll within 500 tries" % district_id)
 			assert_true(GameState.state["player"]["cash"] >= cash_before, "%s: a non-mugged sale should never reduce cash" % district_id)
 			_assert_invariants("%s: post-sell" % district_id)
+
+		# --- neglect arm (spec §11 item 11): a vein left entirely alone (no
+		# cultivate/prune) should drift down through the left-hand bands,
+		# bottom out at growth 0, and eventually be removed by the collapse
+		# roll (Cultivating.collapse_vein, spec §2.5) -- reverting its site to
+		# unclaimed rather than deleting it (distinct from NPC-abandonment's
+		# delete, adr/0002) and leaving that site genuinely seedable again.
+		# Drives this through Cultivating.drift_veins() directly rather than
+		# TimeSystem.daily_tick(): daily_tick's own NPC-claim roll (step ⑤b)
+		# runs immediately after drift/collapse (step ④) within the same
+		# tick, so driving the vein to collapse via daily_tick would race an
+		# NPC claim onto the site the instant it reverts to unclaimed -- a
+		# real but unrelated mechanic already soak-tested elsewhere in this
+		# file (m1_20_seed_soak...). drift_veins() is the exact function
+		# daily_tick calls for growth/collapse, so this still exercises the
+		# real system entry point.
+		for ore_type in GameData.ORE_TYPES.keys():
+			GameState.state["player"]["orichalchum"][ore_type] = GameState.state["player"]["orichalchum"].get(ore_type, 0) + 300
+
+		var neglect_district := "battersea"
+		var neglect_site: Array = []
+		var neglect_prospect_seed := _find_seed_for(500, func():
+			var result := Sites.prospect(neglect_district)
+			if not result["ok"] or result["site"] == null:
+				return false
+			if result["site"]["tier"] == "barren":
+				return false
+			neglect_site.clear()
+			neglect_site.append(result["site"])
+			return true
+		)
+		assert_true(neglect_prospect_seed != -1, "neglect arm: should find a non-barren prospect roll within 500 tries")
+		var neglect_site_id: String = neglect_site[0]["id"]
+		_drive_active_event_to_completion()
+		_assert_invariants("neglect: post-prospect")
+
+		var neglect_seed_seed := _find_seed_for(500, func():
+			return Sites.attempt_seed(neglect_site_id).get("success", false)
+		)
+		assert_true(neglect_seed_seed != -1, "neglect arm: should find a successful seed roll within 500 tries")
+		var neglect_vein_id: String = GameState.state["player"]["veins"].filter(func(v): return v["siteId"] == neglect_site_id)[0]["id"]
+		assert_eq(Cultivating.find_vein(neglect_vein_id)["growth"], GameData.VEIN_GROWTH["seedGrowth"], "neglect arm: freshly seeded vein starts at seedGrowth")
+		_assert_invariants("neglect: post-seed")
+
+		# Phase 1: left alone, drift it all the way down to growth 0. A seed
+		# search (not a bare loop) because the very tick growth first clamps
+		# to 0 also carries that tick's collapse roll (spec §2.5 -- no grace
+		# period), so an unlucky same-day hit skips straight past the
+		# "bottomed but still there" state this phase wants to witness; that
+		# outcome is still spec-correct, just not what phase 1 is proving, so
+		# retry with a fresh seed rather than accept it here.
+		var bottom_seed := _find_seed_for(300, func():
+			for i in range(60):
+				Cultivating.drift_veins()
+				var v: Variant = Cultivating.find_vein(neglect_vein_id)
+				if v == null:
+					return false
+				if v["growth"] == 0:
+					return true
+			return false
+		)
+		assert_true(bottom_seed != -1, "neglect arm: an untouched vein should drift down to growth 0 within 60 days")
+		assert_eq(Cultivating.find_vein(neglect_vein_id)["growth"], 0, "neglect arm: bottomed-out vein sits at exactly 0, not negative")
+		_assert_invariants("neglect: post-bottom-out")
+
+		# Phase 2: sitting at 0, the collapse roll (15%/day) should
+		# eventually remove it -- P(never in 50 days) ~= 0.85^50, and this
+		# itself is retried across up to 100 seeds, so failure here would
+		# mean the roll isn't firing at all, not bad luck.
+		var collapse_seed := _find_seed_for(100, func():
+			for i in range(50):
+				Cultivating.drift_veins()
+				if Cultivating.find_vein(neglect_vein_id) == null:
+					return true
+			return false
+		)
+		assert_true(collapse_seed != -1, "neglect arm: a vein pinned at 0 should eventually be removed by the collapse roll")
+		_assert_invariants("neglect: post-collapse")
+
+		var reverted_site: Variant = Sites.find_site(neglect_site_id)
+		assert_true(reverted_site != null, "neglect arm: the site itself survives removal -- it reverts, it isn't deleted")
+		assert_eq(reverted_site["claimed"], false, "neglect arm: the site should revert to unclaimed on removal, distinct from NPC-abandonment's delete")
+
+		var reseed_seed := _find_seed_for(500, func():
+			return Sites.attempt_seed(neglect_site_id).get("success", false)
+		)
+		assert_true(reseed_seed != -1, "neglect arm: the reverted site should be seedable again within 500 tries")
+		assert_true(Sites.find_site(neglect_site_id)["claimed"], "neglect arm: re-seeding should re-claim the site")
+		_assert_invariants("neglect: post-reseed")
 	)
 
 	# M1-LONDON-T08 (ticket 11), M1 exit criterion 4: siteCap + NPC-claim/

@@ -18,8 +18,8 @@ extends RefCounted
 # ("player", a faction id, or null).
 
 const CULTIVATE_ID := "cultivate"
-const HARVEST_CAUTIOUS_ID := "harvest_cautious"
-const HARVEST_FULL_ID := "harvest_full"
+const PRUNE_LIGHT_ID := "prune_light"
+const PRUNE_HARD_ID := "prune_hard"
 const MANAGE_ID := "manage"
 
 
@@ -52,8 +52,8 @@ static func _player_vein_options(vein: Dictionary) -> Array:
 
 	var options: Array = [
 		{ "id": CULTIVATE_ID, "disabled": cultivate_disabled, "reason": cultivate_reason },
-		_prune_option(vein, HARVEST_CAUTIOUS_ID, GameData.VEIN_GROWTH["pruneLightDepth"], district),
-		_prune_option(vein, HARVEST_FULL_ID, GameData.VEIN_GROWTH["pruneHardDepth"], district),
+		_prune_option(vein, PRUNE_LIGHT_ID, GameData.VEIN_GROWTH["pruneLightDepth"], district),
+		_prune_option(vein, PRUNE_HARD_ID, GameData.VEIN_GROWTH["pruneHardDepth"], district),
 		{ "id": MANAGE_ID, "disabled": false, "reason": "" },
 	]
 	return options
@@ -97,10 +97,10 @@ static func apply_option(option_id: String, stop: Dictionary) -> Dictionary:
 		CULTIVATE_ID:
 			var result := Cultivating.cultivate(stop["vein"]["id"])
 			return { "ok": result.get("success", result.get("ok", false)) }
-		HARVEST_CAUTIOUS_ID:
+		PRUNE_LIGHT_ID:
 			var result := Cultivating.prune(stop["vein"]["id"], GameData.VEIN_GROWTH["pruneLightDepth"])
 			return { "ok": result.get("ok", false) }
-		HARVEST_FULL_ID:
+		PRUNE_HARD_ID:
 			var result := Cultivating.prune(stop["vein"]["id"], GameData.VEIN_GROWTH["pruneHardDepth"])
 			return { "ok": result.get("ok", false) }
 		MANAGE_ID:

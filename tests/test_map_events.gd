@@ -18,7 +18,7 @@ func _claimed_site(id: String, district: String, ore_type: String = "time") -> D
 
 func _faction_claimed_site(id: String, district: String, faction_id: String, ore_type: String = "physics") -> Dictionary:
 	var s := _unclaimed_site(id, district, ore_type)
-	s["factionVein"] = { "id": "fv_" + id, "factionId": faction_id, "oreType": ore_type, "level": 1, "devBar": 0, "security": "none", "claimedOnDay": 1 }
+	s["factionVein"] = { "id": "fv_" + id, "factionId": faction_id, "oreType": ore_type, "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 1 }
 	return s
 
 

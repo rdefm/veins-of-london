@@ -195,7 +195,7 @@ func run() -> void:
 			"id": "test_grant_vein_retired",
 			"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
 			"on_complete": [
-				{ "op": "grant_vein", "vein": { "oreType": "fate", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Test St, nowhere", "district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] } } },
+				{ "op": "grant_vein", "vein": { "oreType": "fate", "growth": 20, "rampantDays": 0, "security": "none", "location": "Test St, nowhere", "district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] } } },
 			],
 		}
 
@@ -212,7 +212,7 @@ func run() -> void:
 		GameState.reset()
 		var world_day: int = GameState.state["world"]["day"]
 		Events.apply_effects([
-			{ "op": "grant_vein_with_site", "vein": { "oreType": "time", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
+			{ "op": "grant_vein_with_site", "vein": { "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
 		])
 
 		assert_eq(GameState.state["world"]["sites"].size(), 1, "creates exactly one site")
@@ -235,7 +235,7 @@ func run() -> void:
 	run_case("grant_vein_with_site_derives_site_tier_and_bonuses_from_hospitability", func():
 		GameState.reset()
 		Events.apply_effects([
-			{ "op": "grant_vein_with_site", "vein": { "oreType": "physics", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Test St, nowhere", "district": "camden", "hospitability": { "tier": "rich", "bonuses": ["yield"] } } },
+			{ "op": "grant_vein_with_site", "vein": { "oreType": "physics", "growth": 20, "rampantDays": 0, "security": "none", "location": "Test St, nowhere", "district": "camden", "hospitability": { "tier": "rich", "bonuses": ["yield"] } } },
 		])
 		var site: Dictionary = GameState.state["world"]["sites"][0]
 		assert_eq(site["tier"], "rich")

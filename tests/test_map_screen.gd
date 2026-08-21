@@ -480,10 +480,10 @@ func run() -> void:
 
 		var options := screen._build_station_bubble_options(stop)
 
-		assert_eq(options[1]["id"], StationBubble.HARVEST_CAUTIOUS_ID)
+		assert_eq(options[1]["id"], StationBubble.PRUNE_LIGHT_ID)
 		assert_true(options[1]["label"].contains("ore"), "the label must show the projected yield before the player commits a block")
 		assert_true(not options[1]["disabled"])
-		assert_eq(options[2]["id"], StationBubble.HARVEST_FULL_ID)
+		assert_eq(options[2]["id"], StationBubble.PRUNE_HARD_ID)
 		assert_true(options[2]["label"].contains("ore"))
 		assert_true(not options[2]["disabled"])
 

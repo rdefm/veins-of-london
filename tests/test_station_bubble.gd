@@ -44,7 +44,7 @@ func run() -> void:
 		var options := StationBubble.station_options(stop)
 
 		var ids := options.map(func(o): return o["id"])
-		assert_eq(ids, [StationBubble.CULTIVATE_ID, StationBubble.HARVEST_CAUTIOUS_ID, StationBubble.HARVEST_FULL_ID, StationBubble.MANAGE_ID], "Prune is never hidden, per ticket 08 -- only ever disabled with a reason")
+		assert_eq(ids, [StationBubble.CULTIVATE_ID, StationBubble.PRUNE_LIGHT_ID, StationBubble.PRUNE_HARD_ID, StationBubble.MANAGE_ID], "Prune is never hidden, per ticket 08 -- only ever disabled with a reason")
 	)
 
 	run_case("station_options_disables_both_prune_actions_with_a_reason_when_projected_yield_is_zero", func():
@@ -169,23 +169,23 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["veins"][0]["growth"], 20, "a reported failure must leave growth untouched")
 	)
 
-	run_case("apply_option_harvest_cautious_forwards_to_Cultivating_prune_light", func():
+	run_case("apply_option_prune_light_forwards_to_Cultivating_prune_light", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [_player_vein({ "growth": 70, "oreType": "time" })]
 		var stop := _vein_stop(GameState.state["player"]["veins"][0], "player")
 
-		var result := StationBubble.apply_option(StationBubble.HARVEST_CAUTIOUS_ID, stop)
+		var result := StationBubble.apply_option(StationBubble.PRUNE_LIGHT_ID, stop)
 
 		assert_true(result["ok"])
 		assert_eq(GameState.state["player"]["veins"][0]["growth"], 55, "a real prune(light, -15) call must cut growth by 15")
 	)
 
-	run_case("apply_option_harvest_full_forwards_to_Cultivating_prune_hard", func():
+	run_case("apply_option_prune_hard_forwards_to_Cultivating_prune_hard", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [_player_vein({ "growth": 70, "oreType": "time" })]
 		var stop := _vein_stop(GameState.state["player"]["veins"][0], "player")
 
-		var result := StationBubble.apply_option(StationBubble.HARVEST_FULL_ID, stop)
+		var result := StationBubble.apply_option(StationBubble.PRUNE_HARD_ID, stop)
 
 		assert_true(result["ok"])
 		assert_eq(GameState.state["player"]["veins"][0]["growth"], 30, "a real prune(hard, -40) call must cut growth by 40")

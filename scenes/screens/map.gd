@@ -362,9 +362,9 @@ func _station_option_label(option_id: String, stop: Dictionary) -> String:
 			if vein["growth"] >= Cultivating.ceiling(vein):
 				return "Vein at ceiling"
 			return UI.format_block_cost_label("Cultivate", 1)
-		StationBubble.HARVEST_CAUTIOUS_ID:
+		StationBubble.PRUNE_LIGHT_ID:
 			return _prune_option_label("Prune (light)", stop["vein"], GameData.VEIN_GROWTH["pruneLightDepth"])
-		StationBubble.HARVEST_FULL_ID:
+		StationBubble.PRUNE_HARD_ID:
 			return _prune_option_label("Prune (hard)", stop["vein"], GameData.VEIN_GROWTH["pruneHardDepth"])
 		StationBubble.MANAGE_ID:
 			return _manage_option_label(stop)
@@ -397,17 +397,18 @@ func _manage_option_label(stop: Dictionary) -> String:
 	return "Manage — %s, %s" % [band["label"], Cultivating.days_to_wall_text(vein)]
 
 
-# Cultivate and both Harvest options play their inline result animation at
+# Cultivate and both Prune options play their inline result animation at
 # the stop's own logical position (already known from _bubble_stop, no
 # re-lookup needed) -- Cultivate's distinct pulse/shake per result["ok"]
 # (StationBubble.apply_option's own comment explains why that's the roll's
-# "success", not cultivate()'s always-true "ok" key); Harvest always the
-# success pulse, since it's only ever offered while charged and so can't
-# fail through this path (StationBubble.station_options' gating). Harvest
-# DOES also queue a MapEvents "drain" event as a side effect of the same
-# Cultivating.harvest_cautious/full() call (see queue_drain's own comment),
+# "success", not cultivate()'s always-true "ok" key); Prune always the
+# success pulse, since it's only ever offered once Cultivating.prune_gate()
+# has already cleared it and so can't fail through this path (StationBubble.
+# station_options' gating). Pruning DOES also queue a MapEvents "drain"
+# event as a side effect of the same Cultivating.prune() call whenever it
+# drains the vein back to/through neutral (see queue_drain's own comment),
 # but MapCanvas only ever drains that queue once per Map-tab visit, right in
-# its own _ready() (see its own comment) -- a harvest triggered from a bubble
+# its own _ready() (see its own comment) -- a prune triggered from a bubble
 # opened during THIS same visit doesn't get picked back up until the next
 # visit, so this tween is the only animation the player actually sees for it
 # right now, not a duplicate of one already playing.

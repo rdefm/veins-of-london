@@ -499,7 +499,7 @@ func _play_seed_claim_ring(stop: Dictionary, event: Dictionary) -> void:
 		return  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to draw
 
 	var params := _stop_render_params(event["owner"])
-	var alpha := MapStyle.stop_alpha(filter_mode, false, selected_faction_id, event["owner"])  # a brand-new vein is never charged
+	var alpha := MapStyle.stop_alpha(filter_mode, false, selected_faction_id, event["owner"])  # a brand-new vein is never in a risk band
 	var style := _vein_ring_style(vein, params["colour"], params["width"])
 
 	var ring := SeedClaimRing.new()

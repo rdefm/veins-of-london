@@ -83,9 +83,9 @@ static func hbox(sep: int = 8) -> HBoxContainer:
 
 # Like hbox(), but wraps overflowing children onto additional lines instead
 # of forcing them into one row that runs past the container's right edge
-# (bugfixes ticket 05: the site sheet's charged-vein action row — Cultivate
-# + Harvest cautious + Harvest full together are wider than a narrow phone
-# screen). HFlowContainer uses separate h/v separation theme constants
+# (bugfixes ticket 05: the site sheet's vein action row — Cultivate + Prune
+# (light) + Prune (hard) together are wider than a narrow phone screen).
+# HFlowContainer uses separate h/v separation theme constants
 # rather than HBoxContainer's single "separation".
 static func hflow(sep: int = 8) -> HFlowContainer:
 	var box := HFlowContainer.new()
