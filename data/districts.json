@@ -55,9 +55,9 @@
     "dangerMod": 0.05,
     "priceMod": 0.00,
     "siteCap": 7,
-    "special": "veins here: rechargeBlocks -1 (min 1)",
+    "special": "veins here: +1 rightward drift, -1 leftward drift (min 0)",
     "factionPresence": "network",
-    "blurb": "Everything in King's Cross is on its way somewhere else. Even the veins recharge faster."
+    "blurb": "Everything in King's Cross is on its way somewhere else. Even the veins grow faster."
   },
   "battersea": {
     "id": "battersea",

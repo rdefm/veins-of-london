@@ -56,6 +56,37 @@ static func band_drift(growth: int) -> int:
 	return _band_for_growth(growth)["drift"]
 
 
+# spec §7b: the "vigour" hospitability bonus and the King's Cross district
+# special are the same effect (+1 rightward drift / -1 leftward, min 0) and
+# stack additively — a King's Cross vein on vigour land gets both.
+static func vigour_stacks(vein: Dictionary) -> int:
+	var stacks := 0
+	var bonuses: Array = vein.get("hospitability", {}).get("bonuses", [])
+	if bonuses.has("vigour"):
+		stacks += 1
+	if vein.get("district") == "kingscross":
+		stacks += 1
+	return stacks
+
+
+# band_drift(growth) plus the vigour/King's Cross bonus above, signed by
+# which side of neutral growth sits on: +stacks rightward, -stacks leftward
+# (floored at 0 — vigour can slow a decline to a stop but never reverse it
+# outright). At neutral itself there is no direction for the bonus to apply
+# to, so it's a no-op there, same as band_drift.
+static func effective_drift(growth: int, vein: Dictionary) -> int:
+	var base: int = band_drift(growth)
+	var stacks: int = vigour_stacks(vein)
+	if stacks == 0:
+		return base
+	var neutral: int = GameData.VEIN_GROWTH["neutral"]
+	if growth > neutral:
+		return base + stacks
+	elif growth < neutral:
+		return maxi(0, base - stacks)
+	return base
+
+
 # Tolerates a growth value above 100 (a wildCeiling vein) — the "rampant"
 # band's max is deliberately open-ended (data/vein_growth.json).
 static func _band_for_growth(growth: int) -> Dictionary:
@@ -96,7 +127,7 @@ static func days_to_wall(vein: Dictionary) -> int:
 	var target: int = ceiling(vein) if growth > neutral else 0
 	var days := 0
 	while growth != target and days < 1000:
-		var delta: int = band_drift(growth)
+		var delta: int = effective_drift(growth, vein)
 		if delta == 0:
 			break
 		if growth > neutral:
@@ -321,7 +352,7 @@ static func _drift_one(vein: Dictionary) -> void:
 	var vein_ceiling: int = ceiling(vein)
 
 	if growth != neutral:
-		var delta: int = band_drift(growth)
+		var delta: int = effective_drift(growth, vein)
 		var direction: int = 1 if growth > neutral else -1
 		vein["growth"] = clampi(growth + delta * direction, 0, vein_ceiling)
 

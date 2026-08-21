@@ -86,7 +86,7 @@ static func apply() -> void:
 		shoreditch_physics_site,
 		shoreditch_life_site,
 		_debug_site("greenwich", "rich", "time", ["yield"]),
-		_debug_site("whitechapel", "saturated", "emotion", ["recharge", "maxLevel", "yield"]),
+		_debug_site("whitechapel", "saturated", "emotion", ["vigour", "wildCeiling", "yield"]),
 		camden_firm_physics_site,
 		camden_firm_emotion_site,
 		kingscross_network_site,

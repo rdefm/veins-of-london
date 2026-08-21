@@ -493,7 +493,7 @@ func run() -> void:
 	run_case("attempt_seed_natural_vein_grants_a_second_free_lv1_vein", func():
 		var seed := _find_seed_for(200, func():
 			GameState.reset()
-			var site := _make_site("s1", "shoreditch", "saturated", 1, false, false, "life", ["recharge", "maxLevel", "yield"], true)
+			var site := _make_site("s1", "shoreditch", "saturated", 1, false, false, "life", ["vigour", "wildCeiling", "yield"], true)
 			GameState.state["world"]["sites"] = [site]
 			GameState.state["player"]["orichalchum"]["life"] = 100
 			GameState.state["player"]["cultivatingSkill"] = 5
@@ -516,7 +516,7 @@ func run() -> void:
 	run_case("attempt_seed_hospitability_is_not_aliased_across_site_and_veins", func():
 		var seed := _find_seed_for(200, func():
 			GameState.reset()
-			var site := _make_site("s1", "shoreditch", "saturated", 1, false, false, "life", ["recharge", "maxLevel", "yield"], true)
+			var site := _make_site("s1", "shoreditch", "saturated", 1, false, false, "life", ["vigour", "wildCeiling", "yield"], true)
 			GameState.state["world"]["sites"] = [site]
 			GameState.state["player"]["orichalchum"]["life"] = 100
 			GameState.state["player"]["cultivatingSkill"] = 5
@@ -531,8 +531,8 @@ func run() -> void:
 		var natural_bonuses: Array = veins[1]["hospitability"]["bonuses"]
 
 		seeded_bonuses.append("mutated")
-		assert_eq(site["bonuses"], ["recharge", "maxLevel", "yield"], "mutating the seeded vein's bonuses must not leak back into the site")
-		assert_eq(natural_bonuses, ["recharge", "maxLevel", "yield"], "mutating the seeded vein's bonuses must not leak into the sibling natural vein")
+		assert_eq(site["bonuses"], ["vigour", "wildCeiling", "yield"], "mutating the seeded vein's bonuses must not leak back into the site")
+		assert_eq(natural_bonuses, ["vigour", "wildCeiling", "yield"], "mutating the seeded vein's bonuses must not leak into the sibling natural vein")
 	)
 
 	# ── NPC claim / abandonment curves (adr/0002) ────────────────────

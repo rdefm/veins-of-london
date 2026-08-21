@@ -18,7 +18,7 @@ Same rules of engagement as M0. New data is canonical HERE (this doc extends REF
 | city | The City | {fate:0.6} | −0.05 | −0.05 | +0.15 | 9 | — | conclave |
 | greenwich | Greenwich | {time:0.6} | +0.05 | 0.00 | 0.00 | 10 | — | guild |
 | camden | Camden | {physics:0.6} | +0.05 | +0.10 | −0.05 | 6 | — | firm |
-| kingscross | King's Cross | {time:0.3, physics:0.3} | 0.00 | +0.05 | 0.00 | 7 | veins here: rechargeBlocks −1 (min 1) | network |
+| kingscross | King's Cross | {time:0.3, physics:0.3} | 0.00 | +0.05 | 0.00 | 7 | veins here: +1 rightward drift, −1 leftward drift (min 0) | network |
 | battersea | Battersea | {physics:0.6} | +0.05 | 0.00 | 0.00 | 5 | — | firm |
 | hampstead | Hampstead | {life:0.6} | +0.10 | −0.05 | +0.05 | 2 | — | — |
 | whitechapel | Whitechapel | {emotion:0.6} | +0.10 | +0.10 | 0.00 | 7 | vein NPC-raid chance ×1.5 (when vein raids land, M2) | collective |
@@ -53,16 +53,18 @@ Tier roll — base weights, then modifiers, then normalise:
 
 Modifiers: `q = round(siteQualityMod × 100)` → rich += q, poor −= q (floor 0). Cultivating skill: rich += 2×(skill−1), saturated += 1×(skill−1), barren −= 3×(skill−1) (floor 5).
 
-oreType: roll per district oreBias. Bonuses at discovery: rich → ONE of `["recharge","maxLevel","yield"]` uniformly; saturated → all three, plus `chance(0.05)` → `hasNaturalVein = true` (claiming instantly grants a free Lv1 vein of the site's oreType, charged:false, devBar 0, its own freshly-generated `location` distinct from the seeded vein's). Everything about a site (tier, ore, bonuses) is visible before seeding — prospecting is buying information.
+oreType: roll per district oreBias. Bonuses at discovery: rich → ONE of `["vigour","wildCeiling","yield"]` uniformly; saturated → all three, plus `chance(0.05)` → `hasNaturalVein = true` (claiming instantly grants a free second vein of the site's oreType, starting at `growth = seedGrowth` (20) same as any fresh vein, its own freshly-generated `location` distinct from the seeded vein's). Everything about a site (tier, ore, bonuses) is visible before seeding — prospecting is buying information.
 
 Prospecting awards cultivating XP: 10 (barren/poor), 15 (fair), 25 (rich), 40 (saturated).
 
 **Seeding revamp:** `attemptSeed(siteId)` replaces free-floating seeding. Requires: current district == site district, site unclaimed (see claim states above — faction-claimed sites are NOT seedable), tier != barren, 40 ore of the SITE's oreType. Success chance = `cultChance + tierMod` where tierMod: poor −0.15, fair 0, rich +0.20, saturated +0.35 (clamp 0.05–0.95). On success: site.claimed = true; vein created with `district`, `siteId`, `hospitability = {tier, bonuses}`, location generated with district-appropriate street names (extend the generator: per-district street array, 4–6 real street names each — draft, PROSE-REVIEW not needed for street names). On failure: ore lost, site remains (may be faction-claimed later).
 
-**Hospitability application (read by existing systems):**
-- `"recharge"`: vein's effective rechargeBlocks −1 (min 1); stacks with King's Cross special.
-- `"maxLevel"`: level cap 6 for this vein (VEIN_LEVELS["6"] already shipped in M0 data).
-- `"yield"`: applied to the ROLLED result, not the level table's range bounds — roll `rand(yieldCautious)` or `rand(yieldFull)` as normal, then `finalYield = max(rolledYield + 1, round(rolledYield * 1.15))`. This guarantees every harvest on a "yield" vein nets at least +1 over what the base roll would have given, even at low vein levels where 1.15× on a small integer would otherwise round away to nothing.
+**Hospitability application (read by existing systems, per vein-growth-state ticket 05):**
+- `"vigour"`: +1 to this vein's rightward drift, −1 to its leftward drift (min 0); stacks with the King's Cross district special, which is the same effect (`Cultivating.vigour_stacks`/`effective_drift`).
+- `"wildCeiling"`: raises this vein's growth ceiling from 100 to 120 (`Cultivating.ceiling`).
+- `"yield"`: applied to the ROLLED prune result, not the growth table's range bounds — roll the prune yield as normal, then `finalYield = max(rolledYield + 1, round(rolledYield * 1.15))`. This guarantees every prune on a "yield" vein nets at least +1 over what the base roll would have given, even where 1.15× on a small integer would otherwise round away to nothing.
+
+Terroir tier also drives yield directly: `terroirYieldMult` (poor 0.6 / fair 1.0 / rich 1.6 / saturated 2.4) multiplies every prune's rolled yield — see `data/vein_growth.json` and `CONTEXT.md`'s Terroir entry. This is the mid/late-game progression now that growth itself is never permanent.
 
 **NPC site-claiming (daily tick, step ⑤b):** each unclaimed site: `p = 0.03 + 0.02 × tierIndex + 0.01 × ageDays` (tierIndex: poor 0, fair 1, rich 2, saturated 3; barren never claimed; ageDays = day − discoveredDay), cap 0.25. Claimed → one of the 5 canonical factions is picked (`Factions.pick_claimant()`, heavily weighted toward the district's `factionPresence`) and instantly seeded a real Lv1 vein (`site.factionVein`, oreType from the site, security tier rolled from faction flavour/vein value/faction resource level — see faction-vein-ownership T01), notification "<Faction> have moved onto the <tier> site in <district>." Faction-claimed sites remain visible on the map; taking one back is M2 combat content — in M1 they persist until NPC abandonment fires (below).
 

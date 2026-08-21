@@ -72,6 +72,44 @@ func run() -> void:
 		assert_eq(Cultivating.band_drift(100), 0, "rampant: pinned")
 	)
 
+	# ── vigour / King's Cross drift bonus (spec §7b) ───────────────────
+
+	run_case("vigour_bonus_adds_1_rightward_and_subtracts_1_leftward_min_0", func():
+		GameState.reset()
+		var right := _vein(60, "shoreditch", ["vigour"])  # taking band, base drift 1
+		var left := _vein(40, "shoreditch", ["vigour"])   # thinning band, base drift 1
+		GameState.state["player"]["veins"] = [right, left]
+		Cultivating.drift_veins()
+		assert_eq(right["growth"], 62, "vigour: base drift 1 + 1 = 2 rightward")
+		assert_eq(left["growth"], 40, "vigour: base drift 1 - 1 = 0 leftward, floored — the vein holds")
+	)
+
+	run_case("kingscross_special_grants_the_same_plus1_minus1_effect_as_vigour", func():
+		GameState.reset()
+		var right := _vein(60, "kingscross")
+		var left := _vein(40, "kingscross")
+		GameState.state["player"]["veins"] = [right, left]
+		Cultivating.drift_veins()
+		assert_eq(right["growth"], 62, "King's Cross alone: base drift 1 + 1 = 2 rightward")
+		assert_eq(left["growth"], 40, "King's Cross alone: base drift 1 - 1 = 0 leftward, floored")
+	)
+
+	run_case("vigour_bonus_and_kingscross_special_stack_additively", func():
+		GameState.reset()
+		var vein := _vein(60, "kingscross", ["vigour"])  # taking band, base drift 1
+		GameState.state["player"]["veins"] = [vein]
+		Cultivating.drift_veins()
+		assert_eq(vein["growth"], 63, "vigour + King's Cross stack: base drift 1 + 2 = 3 rightward")
+	)
+
+	run_case("stacked_vigour_and_kingscross_floor_a_base_2_leftward_drift_at_0", func():
+		GameState.reset()
+		var vein := _vein(20, "kingscross", ["vigour"])  # sparse band, base drift 2
+		GameState.state["player"]["veins"] = [vein]
+		Cultivating.drift_veins()
+		assert_eq(vein["growth"], 20, "2 stacks arrest a base-2 leftward drift entirely, not past 0")
+	)
+
 	# ── drift (spec §2.3, §11 items 1-2) ──────────────────────────────
 
 	run_case("drift_is_symmetric_and_sided", func():
@@ -524,6 +562,12 @@ func run() -> void:
 			manual["growth"] = mini(Cultivating.ceiling(manual), manual["growth"] + delta)
 			days += 1
 		assert_eq(Cultivating.days_to_wall(vein), days, "days_to_wall should match a manual day-by-day simulation")
+	)
+
+	run_case("days_to_wall_reflects_the_vigour_bonus", func():
+		var plain := _vein(60)
+		var vigorous := _vein(60, "shoreditch", ["vigour"])
+		assert_true(Cultivating.days_to_wall(vigorous) < Cultivating.days_to_wall(plain), "vigour should shorten the days-to-wall projection")
 	)
 
 	# ── M1 hospitability bonuses (terroir yield mult) ──────────────────

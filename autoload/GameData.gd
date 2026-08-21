@@ -509,7 +509,7 @@ func _validate_map_layout(layout: Dictionary, districts: Dictionary, errors: Arr
 
 
 const CANONICAL_SITE_TIERS: Array[String] = ["barren", "poor", "fair", "rich", "saturated"]
-const CANONICAL_SITE_BONUSES: Array[String] = ["recharge", "maxLevel", "yield"]
+const CANONICAL_SITE_BONUSES: Array[String] = ["vigour", "wildCeiling", "yield"]
 
 
 func _validate_sites(tier_order: Array, tier_weights: Dictionary, at_cap_tier_weights: Dictionary, prospect_xp: Dictionary, seed_tier_mod: Dictionary, discovery_bonus_pool: Array, errors: Array[String]) -> void:
