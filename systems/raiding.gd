@@ -40,7 +40,7 @@ static func stealth_success_chance(stealth_skill: int, vein: Dictionary, consuma
 	var raid_resist: int = GameData.VEIN_SECURITY[vein["security"]]["raidResist"]
 	var resist_tilt: float = -(float(raid_resist) / STEALTH_RAID_RESIST_DIVISOR) * STEALTH_RAID_RESIST_WEIGHT
 
-	var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * vein["level"]
+	var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.value_tier(vein)
 	var value_tilt: float = -(value / STEALTH_VALUE_DIVISOR) * STEALTH_VALUE_WEIGHT
 
 	var chance: float = STEALTH_BASE_CHANCE + skill_tilt + resist_tilt + value_tilt + consumable_bonus
@@ -445,7 +445,7 @@ static func maybe_trigger_defend(district_id: String) -> bool:
 		if vein != null and vein["district"] == district_id:
 			pending.remove_at(i)
 			GameState.state["world"]["activeDefendRaid"] = outcome
-			Combat.start_defend_vein(outcome["veinId"], vein["level"])
+			Combat.start_defend_vein(outcome["veinId"], Cultivating.value_tier(vein))
 			return true
 	return false
 

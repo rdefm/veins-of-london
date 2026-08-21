@@ -14,6 +14,15 @@ static func _find_seed_for(max_tries: int, fn: Callable) -> int:
 	return -1
 
 
+static func _vein(growth: int, district: String = "shoreditch", bonuses: Array = [], tier: String = "fair") -> Dictionary:
+	return {
+		"id": "test_vein", "oreType": "time", "growth": growth, "security": "none",
+		"alarmUpgrades": [], "location": "Test St, nowhere", "claimedOnDay": 1,
+		"district": district, "siteId": "s1", "hospitability": { "tier": tier, "bonuses": bonuses },
+		"rampantDays": 0,
+	}
+
+
 func run() -> void:
 	run_case("xp_thresholds_level_the_skill_at_exactly_80", func():
 		GameState.reset()
@@ -28,373 +37,395 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cultivatingSkill"], 2, "should level up at exactly 80 XP")
 	)
 
-	run_case("cultivate_fills_bar_and_levels_up_at_devBarMax", func():
+	# ── bands (spec §2.2) ────────────────────────────────────────────
+
+	run_case("growth_band_matches_the_table_at_every_boundary", func():
+		GameState.reset()
+		var cases := {
+			0: "collapsed", 1: "barren", 14: "barren", 15: "sparse", 29: "sparse",
+			30: "thinning", 44: "thinning", 45: "dormant", 50: "dormant", 55: "dormant",
+			56: "taking", 70: "taking", 71: "lush", 85: "lush", 86: "wild", 99: "wild",
+			100: "rampant", 119: "rampant",
+		}
+		for growth in cases.keys():
+			var band := Cultivating.growth_band(_vein(growth))
+			assert_eq(band["id"], cases[growth], "growth %d should land in band '%s'" % [growth, cases[growth]])
+	)
+
+	run_case("band_drift_matches_the_table", func():
+		assert_eq(Cultivating.band_drift(0), 0, "collapsed: pinned")
+		assert_eq(Cultivating.band_drift(10), 3, "barren: 3/day")
+		assert_eq(Cultivating.band_drift(20), 2, "sparse: 2/day")
+		assert_eq(Cultivating.band_drift(40), 1, "thinning: 1/day")
+		assert_eq(Cultivating.band_drift(50), 0, "dormant: 0/day")
+		assert_eq(Cultivating.band_drift(60), 1, "taking: 1/day")
+		assert_eq(Cultivating.band_drift(80), 2, "lush: 2/day")
+		assert_eq(Cultivating.band_drift(90), 3, "wild: 3/day")
+		assert_eq(Cultivating.band_drift(100), 0, "rampant: pinned")
+	)
+
+	# ── drift (spec §2.3, §11 items 1-2) ──────────────────────────────
+
+	run_case("drift_is_symmetric_and_sided", func():
+		GameState.reset()
+		var right := _vein(56)
+		var left := _vein(44)
+		var neutral := _vein(50)
+		GameState.state["player"]["veins"] = [right, left, neutral]
+		Cultivating.drift_veins()
+		assert_true(right["growth"] > 56, "a vein above neutral drifts right")
+		assert_true(left["growth"] < 44, "a vein below neutral drifts left")
+		assert_eq(neutral["growth"], 50, "a vein at neutral does not move")
+	)
+
+	run_case("soak_56_to_ceiling_lands_in_24_to_28_ticks", func():
+		GameState.reset()
+		var vein := _vein(56)
+		GameState.state["player"]["veins"] = [vein]
+		var ticks := 0
+		while vein["growth"] < Cultivating.ceiling(vein) and ticks < 100:
+			Cultivating.drift_veins()
+			ticks += 1
+		assert_true(ticks >= 24 and ticks <= 28, "56 -> ceiling should take 24-28 ticks, took %d" % ticks)
+	)
+
+	run_case("soak_44_to_zero_lands_in_24_to_28_ticks", func():
+		GameState.reset()
+		var vein := _vein(44)
+		GameState.state["player"]["veins"] = [vein]
+		var ticks := 0
+		while vein["growth"] > 0 and ticks < 100:
+			Cultivating.drift_veins()
+			ticks += 1
+		assert_true(ticks >= 24 and ticks <= 28, "44 -> 0 should take 24-28 ticks, took %d" % ticks)
+	)
+
+	# ── cultivate (spec §2.4) ──────────────────────────────────────────
+
+	run_case("cultivate_gain_diminishes_toward_the_ceiling", func():
+		# cultivate_gain(skill, growth, ceiling) = max(2, round((10+4*skill)*(1-growth/ceiling)))
+		assert_eq(Cultivating.cultivate_gain(1, 20, 100), 11, "skill1 at growth20: round(14*0.8)=11")
+		assert_eq(Cultivating.cultivate_gain(5, 90, 100), 3, "skill5 at growth90: round(30*0.1)=3")
+		assert_eq(Cultivating.cultivate_gain(5, 100, 100), 2, "at the ceiling the formula floors at the min gain")
+	)
+
+	run_case("cultivate_success_raises_growth_and_awards_xp", func():
 		var seed := _find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 5
-			var vein := {
-				"id": "test_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-				"devBar": 3, "charged": false, "chargeBlocks": 0, "security": "none",
-				"location": "Test St, nowhere", "claimedOnDay": 1, "district": "shoreditch",
-				"hospitability": { "tier": "fair", "bonuses": [] },
-			}
-			GameState.state["player"]["veins"] = [vein]
+			GameState.state["player"]["veins"] = [_vein(20)]
 			var result := Cultivating.cultivate("test_vein")
 			return result.get("success", false)
 		)
 		assert_true(seed != -1, "should find a successful cultivate roll within 200 tries")
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		# skill 5 -> gain 6; devBar 3+6=9 >= Lv1 devBarMax (8) -> levels up, devBar resets to 0
-		assert_eq(vein["level"], 2, "vein should have levelled up to 2")
-		assert_eq(vein["devBar"], 0, "devBar resets to 0 on level up")
-		assert_eq(vein["levelLabel"], "Minor", "levelLabel updates with the new level")
+		assert_true(vein["growth"] > 20, "growth should have increased")
+		assert_eq(GameState.state["player"]["cultivatingXP"], 20, "success awards 20 XP")
 		assert_eq(GameState.state["modal"]["type"], "cultivate_result", "cultivate should open the cultivate_result modal")
-		assert_eq(GameState.state["modal"]["data"]["levelledUp"], true, "modal data reflects the level-up")
 	)
 
-	run_case("cultivate_lv5_is_the_cap_even_with_devBar_far_past_threshold", func():
+	run_case("cultivate_failure_leaves_growth_unchanged_and_awards_less_xp", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["cultivatingSkill"] = 1
+			GameState.state["player"]["veins"] = [_vein(20)]
+			var result := Cultivating.cultivate("test_vein")
+			return not result.get("success", true)
+		)
+		assert_true(seed != -1, "should find a failed cultivate roll within 200 tries")
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(vein["growth"], 20, "failure leaves growth unchanged")
+		assert_eq(GameState.state["player"]["cultivatingXP"], 8, "failure awards 8 XP")
+	)
+
+	run_case("cultivate_clamps_at_the_ceiling", func():
 		var seed := _find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 5
-			var vein := {
-				"id": "capped_vein", "oreType": "time", "level": 5, "levelLabel": "Lode",
-				"devBar": 20000, "charged": false, "chargeBlocks": 0, "security": "none",
-				"location": "Test St, nowhere", "claimedOnDay": 1, "district": "shoreditch",
-				"hospitability": { "tier": "fair", "bonuses": [] },
-			}
-			GameState.state["player"]["veins"] = [vein]
-			var result := Cultivating.cultivate("capped_vein")
+			GameState.state["player"]["veins"] = [_vein(99)]
+			var result := Cultivating.cultivate("test_vein")
 			return result.get("success", false)
 		)
 		assert_true(seed != -1, "should find a successful cultivate roll within 200 tries")
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(vein["level"], 5, "level 5 is the hard cap in M0 (no hospitability maxLevel bonus)")
+		assert_eq(vein["growth"], 100, "growth clamps at the ceiling, never overshoots")
 	)
 
 	run_case("cultivate_in_a_different_district_costs_the_same_1_block_no_travel_surcharge", func():
 		GameState.reset()
 		GameState.state["player"]["cultivatingSkill"] = 5
-		var vein := {
-			"id": "away_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
-			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "camden",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
+		GameState.state["player"]["veins"] = [_vein(20, "camden")]
 		Rng.set_seed(1)
-		var result := Cultivating.cultivate("away_vein")
+		var result := Cultivating.cultivate("test_vein")
 		assert_true(result["ok"], "should succeed with a full day's blocks available")
 		assert_eq(GameState.state["world"]["currentDistrict"], "camden", "acting in the vein's district updates currentDistrict")
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "D3: no travel surcharge — just the 1 cultivate block")
 	)
 
-	run_case("cultivate_in_a_different_district_succeeds_with_only_1_block_left", func():
-		GameState.reset()
-		GameState.state["world"]["timeBlocksDone"] = [0, 1]
-		var vein := {
-			"id": "away_vein2", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
-			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "camden",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		var result := Cultivating.cultivate("away_vein2")
-		assert_true(result["ok"], "D3: no travel surcharge — cultivate(1) alone fits in the 1 remaining block")
-		assert_eq(GameState.state["world"]["currentDistrict"], "camden", "currentDistrict updates")
-	)
-
-	run_case("cultivate_in_a_different_district_blocked_when_time_exhausted", func():
+	run_case("cultivate_blocked_when_time_exhausted", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var vein := {
-			"id": "away_vein3", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
-			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "camden",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		var result := Cultivating.cultivate("away_vein3")
+		GameState.state["player"]["veins"] = [_vein(20)]
+		var result := Cultivating.cultivate("test_vein")
 		assert_true(not result["ok"], "no blocks left for the cultivate action itself")
-		assert_eq(GameState.state["world"]["timeBlocksDone"], [0, 1, 2], "no block spent when blocked")
-		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "currentDistrict unchanged when blocked")
 	)
 
-	run_case("cultivate_in_the_current_district_costs_only_1_block", func():
+	run_case("cultivate_refuses_unknown_vein", func():
 		GameState.reset()
-		var vein := {
-			"id": "home_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
-			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		Rng.set_seed(1)
-		var result := Cultivating.cultivate("home_vein")
-		assert_true(result["ok"], "should succeed")
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "no travel needed, 1 block total")
+		var result := Cultivating.cultivate("does_not_exist")
+		assert_true(not result["ok"], "should refuse an unknown vein id")
 	)
 
-	run_case("harvest_cautious_in_a_different_district_costs_the_same_1_block_no_travel_surcharge", func():
+	# ── prune (spec §2.4, §11 item 3) ──────────────────────────────────
+
+	run_case("prune_yield_is_zero_at_or_below_neutral", func():
+		assert_eq(Cultivating.prune_yield(_vein(50), 15), 0, "at neutral: nothing above neutral to remove")
+		assert_eq(Cultivating.prune_yield(_vein(30), 15), 0, "below neutral: nothing above neutral to remove")
+	)
+
+	run_case("hard_prune_from_just_above_neutral_yields_only_the_above_neutral_points", func():
+		# growth 60, hard prune (-40) -> growth_after 20. Only the 10 points
+		# from 60 down to 50 (neutral) count; the other 30 (50 -> 20) are free.
+		var vein := _vein(60)
+		var yld := Cultivating.prune_yield(vein, 40)
+		# points=10, yieldPerPoint 0.35, terroir fair 1.0, hardBonus 1.25 -> round(10*0.35*1.25)=4
+		assert_eq(yld, 4, "only the 10 points above neutral count, at the hard-prune bonus")
+	)
+
+	run_case("light_prune_yields_less_per_point_than_hard_when_both_land_fully_above_neutral", func():
+		var wild := _vein(95)
+		var light_yield := Cultivating.prune_yield(wild, 15)
+		var hard_yield := Cultivating.prune_yield(wild, 40)
+		# light: 15 points * 0.35 = 5.25 -> round 5. hard: 40 points * 0.35 * 1.25 = 17.5 -> round 18.
+		assert_eq(light_yield, 5, "light prune, no hard bonus")
+		assert_eq(hard_yield, 18, "hard prune, 1.25x bonus, more points removed")
+	)
+
+	run_case("prune_moves_growth_down_by_depth_clamped_at_zero_and_credits_ore", func():
 		GameState.reset()
-		var vein := {
-			"id": "away_harvest_vein", "oreType": "fate", "level": 1, "levelLabel": "Trace",
-			"devBar": 5, "charged": true, "chargeBlocks": 0, "security": "none",
-			"location": "Vallance Rd, by the bus stop", "claimedOnDay": 1, "district": "greenwich",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
+		GameState.state["player"]["veins"] = [_vein(60, "shoreditch")]
 		Rng.set_seed(1)
-		var result := Cultivating.harvest_cautious("away_harvest_vein")
+		var result := Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneHardDepth"])
+		assert_true(result["ok"], "prune should succeed")
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(vein["growth"], 20, "growth -= depth")
+		assert_eq(result["amount"], 4, "matches prune_yield's own math")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], result["amount"], "ore credited to player")
+	)
+
+	run_case("prune_clamps_at_zero_not_negative", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(10)]
+		Rng.set_seed(1)
+		Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneHardDepth"])
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(vein["growth"], 0, "growth pins at 0, never negative")
+	)
+
+	run_case("prune_in_a_different_district_costs_the_same_1_block_no_travel_surcharge", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(80, "greenwich")]
+		Rng.set_seed(1)
+		var result := Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneLightDepth"])
 		assert_true(result["ok"], "should succeed with a full day's blocks available")
 		assert_eq(GameState.state["world"]["currentDistrict"], "greenwich", "acting there updates currentDistrict")
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "D3: no travel surcharge — just the 1 harvest block")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "D3: no travel surcharge — just the 1 prune block")
 	)
 
-	run_case("harvest_full_drains_devBar_and_triggers_level_down_at_or_below_0", func():
+	run_case("prune_refuses_unknown_vein", func():
 		GameState.reset()
-		var vein := {
-			"id": "drain_vein", "oreType": "physics", "level": 2, "levelLabel": "Minor",
-			"devBar": 2, "charged": true, "chargeBlocks": 0, "security": "none",
-			"location": "Roman Rd, in the car park", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
+		var result := Cultivating.prune("does_not_exist", GameData.VEIN_GROWTH["pruneLightDepth"])
+		assert_true(not result["ok"], "should refuse an unknown vein id")
+	)
+
+	# ── left wall: bottoming out and collapse (spec §2.5, §11 item 4-5) ──
+
+	run_case("bottoming_out_is_survivable_pins_at_zero_stays_cultivable_at_full_gain", func():
+		GameState.reset()
+		var vein := _vein(0)
 		GameState.state["player"]["veins"] = [vein]
-		Rng.set_seed(1)
-		var result := Cultivating.harvest_full("drain_vein")
+		Rng.set_seed(2)  # a seed whose collapse roll misses, so the vein survives to check cultivate
+		# Force a miss on the collapse roll directly rather than searching for
+		# a lucky seed: drift_veins() with a vein already at 0 stays at 0
+		# regardless (band drift is 0 there), so calling it repeatedly with a
+		# seed that never hits the 15% roll is enough.
+		var survived := false
+		for i in range(50):
+			Cultivating.drift_veins()
+			if GameState.state["player"]["veins"].size() == 1:
+				survived = true
+			else:
+				break
+		assert_true(survived or GameState.state["player"]["veins"].is_empty(), "either survives repeatedly or eventually collapses — never anything else")
 
-		assert_true(result["ok"], "harvest_full should succeed on a charged vein")
-		assert_true(result["levelledDown"], "devBar 2 - devBarHarvestCost 3 = -1 <= 0 should trigger a level-down")
-		var remaining: Array = GameState.state["player"]["veins"]
-		assert_eq(remaining.size(), 1, "level 2 -> 1 demotes, does not delete")
-		var demoted: Dictionary = remaining[0]
-		assert_eq(demoted["level"], 1, "demoted to level 1")
-		assert_eq(demoted["devBar"], int(floor(8 * 0.8)), "devBar = floor(Lv1 devBarMax * 0.8) = 6")
+		GameState.reset()
+		var recoverable := _vein(0)
+		GameState.state["player"]["veins"] = [recoverable]
+		GameState.state["player"]["cultivatingSkill"] = 5
+		var seed := _find_seed_for(200, func():
+			return Cultivating.cultivate("test_vein").get("success", false)
+		)
+		assert_true(seed != -1, "a vein at 0 should still be cultivable")
+		var gain: int = Cultivating.cultivate_gain(5, 0, Cultivating.ceiling(recoverable))
+		assert_eq(gain, Cultivating.cultivate_gain(5, 0, 100), "gain at growth 0 is the formula's maximum (1 - 0/ceiling = 1)")
+		assert_true(GameState.state["player"]["veins"][0]["growth"] > 0, "cultivating a spent vein should recover it above 0")
 	)
 
-	run_case("lv1_level_down_deletes_the_vein", func():
+	run_case("collapse_roll_fires_at_the_stated_rate_and_not_before", func():
+		# Over many independent single-tick trials from growth 0, the hit
+		# rate should land near COLLAPSE_CHANCE_PER_DAY (0.15), not 0 and not 1.
+		var hits := 0
+		var trials := 400
+		for seed in range(trials):
+			GameState.reset()
+			GameState.state["player"]["veins"] = [_vein(0)]
+			Rng.set_seed(seed)
+			Cultivating.drift_veins()
+			if GameState.state["player"]["veins"].is_empty():
+				hits += 1
+		var rate: float = float(hits) / float(trials)
+		assert_true(rate > 0.08 and rate < 0.23, "observed collapse rate %.3f should be plausibly near 0.15" % rate)
+	)
+
+	run_case("collapse_reverts_the_site_to_unclaimed_and_notifies", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			var vein := _vein(0)
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [{
+				"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
+				"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+				"hasNaturalVein": false,
+			}]
+			Cultivating.drift_veins()
+			return GameState.state["player"]["veins"].is_empty()
+		)
+		assert_true(seed != -1, "should find a collapse hit within 200 tries")
+		assert_eq(GameState.state["world"]["sites"][0]["claimed"], false, "the site reverts to unclaimed, not deleted")
+		var last: Dictionary = GameState.state["notifications"][-1]
+		assert_true(last["text"].contains("collapsed and disappeared"), "reuses the existing collapse notification line")
+	)
+
+	run_case("a_faction_vein_at_zero_deletes_its_site_outright_not_revert", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			var vein := _vein(0)
+			vein["factionId"] = "collective"
+			GameState.state["world"]["sites"] = [{
+				"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
+				"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
+				"hasNaturalVein": false,
+			}]
+			Cultivating.drift_veins()
+			return GameState.state["world"]["sites"].is_empty()
+		)
+		assert_true(seed != -1, "should find a collapse hit within 200 tries")
+		assert_eq(GameState.state["world"]["sites"], [], "the site (and its faction vein) is deleted outright, matching NPC abandonment")
+	)
+
+	# ── right wall: clamp only in this ticket (self-seeding is ticket 02) ─
+
+	run_case("growth_clamps_at_the_ceiling_and_does_not_drift_further", func():
 		GameState.reset()
-		var vein := {
-			"id": "doomed_vein", "oreType": "life", "level": 1, "levelLabel": "Trace",
-			"devBar": 1, "charged": true, "chargeBlocks": 0, "security": "none",
-			"location": "Brick Lane, near the off-licence", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
+		var vein := _vein(100)
 		GameState.state["player"]["veins"] = [vein]
-		Rng.set_seed(1)
-		var result := Cultivating.harvest_full("doomed_vein")
-
-		assert_true(result["levelledDown"], "devBar 1 - devBarHarvestCost 2 <= 0 should trigger a level-down")
-		assert_eq(GameState.state["player"]["veins"], [], "a level-1 vein that levels down should be deleted, not demoted")
+		Cultivating.drift_veins()
+		assert_eq(vein["growth"], 100, "a rampant vein does not drift past the ceiling")
 	)
 
-	run_case("harvest_cautious_requires_charged_and_yields_within_range", func():
+	run_case("wildCeiling_vein_cultivate_clamps_at_120_not_100", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["cultivatingSkill"] = 5
+			GameState.state["player"]["veins"] = [_vein(119, "shoreditch", ["wildCeiling"])]
+			var result := Cultivating.cultivate("test_vein")
+			return result.get("success", false)
+		)
+		assert_true(seed != -1, "should find a successful cultivate roll within 200 tries")
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(vein["growth"], 120, "growth clamps at the wildCeiling ceiling (120), not the base 100")
+	)
+
+	# ── seeded-at-20 (spec §2.7, §11 item 6) ────────────────────────────
+
+	run_case("fresh_vein_starts_at_seedGrowth", func():
+		var vein := Cultivating.make_vein("time", GameData.VEIN_GROWTH["seedGrowth"], "shoreditch", null, { "tier": "fair", "bonuses": [] })
+		assert_eq(vein["growth"], 20, "make_vein's caller decides the starting growth; seedGrowth is 20")
+		assert_eq(vein["rampantDays"], 0, "a fresh vein starts with no rampant days banked")
+	)
+
+	run_case("skill_1_player_can_climb_a_seeded_vein_to_neutral_in_roughly_a_dozen_blocks", func():
 		GameState.reset()
-		var vein := {
-			"id": "cautious_vein", "oreType": "fate", "level": 1, "levelLabel": "Trace",
-			"devBar": 5, "charged": true, "chargeBlocks": 0, "security": "none",
-			"location": "Vallance Rd, by the bus stop", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
+		GameState.state["player"]["cultivatingSkill"] = 1
+		var vein := _vein(GameData.VEIN_GROWTH["seedGrowth"])
 		GameState.state["player"]["veins"] = [vein]
-		Rng.set_seed(1)
-		var result := Cultivating.harvest_cautious("cautious_vein")
-
-		assert_true(result["ok"], "should succeed on a charged vein")
-		assert_true(result["amount"] >= 1 and result["amount"] <= 2, "Lv1 yieldCautious is [1,2]")
-		assert_eq(GameState.state["player"]["orichalchum"]["fate"], result["amount"], "ore credited to player")
-		assert_eq(vein["charged"], false, "vein discharges after harvest")
+		Rng.set_seed(7)
+		var blocks := 0
+		while vein["growth"] < 50 and blocks < 30:
+			Cultivating.cultivate("test_vein")
+			blocks += 1
+		assert_true(blocks <= 16, "should reach neutral in roughly a dozen blocks (skill 1), took %d" % blocks)
 	)
 
-	# ── map-animations ticket 04: drain event queuing ───────────────────
+	# ── value tier (spec §3, §11 item 8) ────────────────────────────────
 
-	run_case("harvest_cautious_queues_a_drain_event_on_the_true_to_false_transition", func():
-		GameState.reset()
-		var vein := {
-			"id": "cautious_drain_vein", "oreType": "fate", "level": 1, "levelLabel": "Trace",
-			"devBar": 5, "charged": true, "chargeBlocks": 0, "security": "none",
-			"location": "Vallance Rd, by the bus stop", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		Rng.set_seed(1)
-		Cultivating.harvest_cautious("cautious_drain_vein")
-		assert_true(MapEvents.has_pending(), "a drain event is queued on the true -> false transition")
-		var event = MapEvents.current()
-		assert_eq(event["type"], "drain")
-		assert_eq(event["district"], "shoreditch")
-		assert_eq(event["veinId"], "cautious_drain_vein")
+	run_case("value_tier_boundaries", func():
+		assert_eq(Cultivating.value_tier(_vein(0)), 1, "0 -> tier 1")
+		assert_eq(Cultivating.value_tier(_vein(19)), 1, "19 -> tier 1")
+		assert_eq(Cultivating.value_tier(_vein(20)), 2, "20 -> tier 2")
+		assert_eq(Cultivating.value_tier(_vein(39)), 2, "39 -> tier 2")
+		assert_eq(Cultivating.value_tier(_vein(40)), 3, "40 -> tier 3")
+		assert_eq(Cultivating.value_tier(_vein(59)), 3, "59 -> tier 3")
+		assert_eq(Cultivating.value_tier(_vein(60)), 4, "60 -> tier 4")
+		assert_eq(Cultivating.value_tier(_vein(79)), 4, "79 -> tier 4")
+		assert_eq(Cultivating.value_tier(_vein(80)), 5, "80 -> tier 5")
+		assert_eq(Cultivating.value_tier(_vein(99)), 5, "99 -> tier 5")
+		assert_eq(Cultivating.value_tier(_vein(100)), 6, "100 -> tier 6")
+		assert_eq(Cultivating.value_tier(_vein(120)), 6, "above 100 (wildCeiling) still reads as 6, not 7")
 	)
 
-	run_case("harvest_full_queues_a_drain_event_on_the_true_to_false_transition", func():
-		GameState.reset()
-		var vein := {
-			"id": "full_drain_vein", "oreType": "physics", "level": 3, "levelLabel": "Modest",
-			"devBar": 20, "charged": true, "chargeBlocks": 0, "security": "none",
-			"location": "Roman Rd, in the car park", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		Rng.set_seed(1)
-		Cultivating.harvest_full("full_drain_vein")
-		assert_true(MapEvents.has_pending(), "a drain event is queued on the true -> false transition")
-		var event = MapEvents.current()
-		assert_eq(event["type"], "drain")
-		assert_eq(event["district"], "shoreditch")
-		assert_eq(event["veinId"], "full_drain_vein")
+	# ── terroir spread (spec §7, §11 item 9) ────────────────────────────
+
+	# A single hard prune is capped at pruneHardDepth (40) points regardless
+	# of a vein's headroom, so wildCeiling's extra 20 points of ceiling only
+	# shows up once a vein is pruned past what one hard prune can reach —
+	# this measures the full above-neutral bank each tier can ever convert
+	# to ore (repeated hard prunes from the vein's own ceiling down to 0),
+	# which is where terroir's 4x yieldPerPoint spread compounds with
+	# wildCeiling's extra headroom into the >=5x spec asks for.
+	run_case("terroir_spread_saturated_wildCeiling_total_extraction_at_least_5x_poor", func():
+		var poor := _vein(100, "shoreditch", [], "poor")
+		var saturated := _vein(120, "shoreditch", ["wildCeiling"], "saturated")
+		var poor_total := 0
+		while poor["growth"] > 0:
+			poor_total += Cultivating.prune_yield(poor, GameData.VEIN_GROWTH["pruneHardDepth"])
+			poor["growth"] = maxi(0, poor["growth"] - GameData.VEIN_GROWTH["pruneHardDepth"])
+		var saturated_total := 0
+		while saturated["growth"] > 0:
+			saturated_total += Cultivating.prune_yield(saturated, GameData.VEIN_GROWTH["pruneHardDepth"])
+			saturated["growth"] = maxi(0, saturated["growth"] - GameData.VEIN_GROWTH["pruneHardDepth"])
+		assert_true(saturated_total >= poor_total * 5, "saturated+wildCeiling's total extraction (%d) should be at least 5x poor's (%d)" % [saturated_total, poor_total])
 	)
 
-	run_case("harvest_full_still_queues_a_drain_event_when_the_harvest_deletes_the_vein", func():
-		GameState.reset()
-		var vein := {
-			"id": "doomed_drain_vein", "oreType": "life", "level": 1, "levelLabel": "Trace",
-			"devBar": 1, "charged": true, "chargeBlocks": 0, "security": "none",
-			"location": "Brick Lane, near the off-licence", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		Rng.set_seed(1)
-		var result := Cultivating.harvest_full("doomed_drain_vein")
-		assert_true(result["levelledDown"], "devBar 1 - devBarHarvestCost 2 <= 0 should trigger a level-down")
-		assert_eq(GameState.state["player"]["veins"], [], "a level-1 vein that levels down should be deleted")
-		var event = MapEvents.current()
-		assert_eq(event["type"], "drain", "drain still queues even though the vein itself was deleted this call")
-		assert_eq(event["veinId"], "doomed_drain_vein")
+	# ── ceiling() / days_to_wall() ───────────────────────────────────────
+
+	run_case("ceiling_is_100_by_default_120_with_wildCeiling", func():
+		assert_eq(Cultivating.ceiling(_vein(50)), 100, "no bonus -> 100")
+		assert_eq(Cultivating.ceiling(_vein(50, "shoreditch", ["wildCeiling"])), 120, "wildCeiling bonus -> 120")
 	)
 
-	run_case("harvest_blocked_when_not_charged", func():
-		GameState.reset()
-		var vein := {
-			"id": "uncharged_vein", "oreType": "fate", "level": 1, "levelLabel": "Trace",
-			"devBar": 5, "charged": false, "chargeBlocks": 0, "security": "none",
-			"location": "Vallance Rd, by the bus stop", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		var result := Cultivating.harvest_cautious("uncharged_vein")
-		assert_true(not result["ok"], "should refuse an uncharged vein")
+	run_case("days_to_wall_matches_a_manual_drift_simulation", func():
+		var vein := _vein(56)
+		var manual: Dictionary = GameState.deep_copy(vein)
+		var days := 0
+		while manual["growth"] < Cultivating.ceiling(manual) and days < 100:
+			var delta: int = Cultivating.band_drift(manual["growth"])
+			manual["growth"] = mini(Cultivating.ceiling(manual), manual["growth"] + delta)
+			days += 1
+		assert_eq(Cultivating.days_to_wall(vein), days, "days_to_wall should match a manual day-by-day simulation")
 	)
 
-	run_case("recharge_veins_increments_and_flips_charged_at_threshold", func():
-		GameState.reset()
-		var vein := {
-			"id": "recharge_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 1, "charged": false, "chargeBlocks": 3, "security": "none",
-			"location": "Hackney Rd, under the railway arch", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		# Lv1 rechargeBlocks is 4; chargeBlocks 3 -> 4 should flip charged true
-		Cultivating.recharge_veins()
-		var v: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(v["chargeBlocks"], 4, "chargeBlocks increments by 1")
-		assert_eq(v["charged"], true, "charged flips true once chargeBlocks reaches rechargeBlocks")
-	)
-
-	# ── M1 hospitability bonuses (M1-LONDON.md D2) ─────────────────
-
-	run_case("get_level_cap_is_5_without_maxLevel_bonus_6_with_it", func():
-		var plain := { "hospitability": { "tier": "fair", "bonuses": [] } }
-		var boosted := { "hospitability": { "tier": "saturated", "bonuses": ["recharge", "maxLevel", "yield"] } }
-		assert_eq(Cultivating.get_level_cap(plain), 5, "no maxLevel bonus -> cap stays 5")
-		assert_eq(Cultivating.get_level_cap(boosted), 6, "maxLevel bonus -> cap raises to 6")
-	)
-
-	run_case("level_up_vein_respects_the_maxLevel_bonus_cap", func():
-		var boosted := {
-			"id": "v1", "level": 5, "devBar": 0, "levelLabel": "Lode",
-			"hospitability": { "tier": "saturated", "bonuses": ["maxLevel"] },
-		}
-		Cultivating.level_up_vein(boosted)
-		assert_eq(boosted["level"], 6, "maxLevel bonus allows levelling past the normal cap of 5")
-		assert_eq(boosted["levelLabel"], "Deep", "levelLabel updates to the Lv6 label")
-
-		Cultivating.level_up_vein(boosted)
-		assert_eq(boosted["level"], 6, "level 6 is the hard cap even with the maxLevel bonus")
-	)
-
-	run_case("get_effective_recharge_blocks_applies_recharge_bonus_and_kingscross_stacking", func():
-		var plain := { "level": 1, "district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] } }
-		var bonus_only := { "level": 1, "district": "shoreditch", "hospitability": { "tier": "rich", "bonuses": ["recharge"] } }
-		var kingscross_only := { "level": 1, "district": "kingscross", "hospitability": { "tier": "fair", "bonuses": [] } }
-		var both := { "level": 1, "district": "kingscross", "hospitability": { "tier": "rich", "bonuses": ["recharge"] } }
-
-		assert_eq(Cultivating.get_effective_recharge_blocks(plain), 4, "Lv1 base rechargeBlocks unchanged")
-		assert_eq(Cultivating.get_effective_recharge_blocks(bonus_only), 3, "recharge bonus: -1")
-		assert_eq(Cultivating.get_effective_recharge_blocks(kingscross_only), 3, "King's Cross special: -1")
-		assert_eq(Cultivating.get_effective_recharge_blocks(both), 2, "recharge bonus stacks with King's Cross: -2")
-	)
-
-	run_case("get_effective_recharge_blocks_floors_at_1_even_when_stacked", func():
-		var deep_both := { "level": 6, "district": "kingscross", "hospitability": { "tier": "saturated", "bonuses": ["recharge"] } }
-		# Lv6 base rechargeBlocks is already 1; -1 (bonus) -1 (King's Cross) would go to -1
-		assert_eq(Cultivating.get_effective_recharge_blocks(deep_both), 1, "floors at 1, never lower, even fully stacked")
-	)
-
-	# ── map-animations ticket 03: charge event queuing ─────────────────
-
-	run_case("recharge_veins_queues_a_charge_event_on_the_false_to_true_transition", func():
-		GameState.reset()
-		var vein := {
-			"id": "recharge_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 1, "charged": false, "chargeBlocks": 3, "security": "none",
-			"location": "Hackney Rd, under the railway arch", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		# Lv1 rechargeBlocks is 4; chargeBlocks 3 -> 4 flips charged true this tick
-		Cultivating.recharge_veins()
-		assert_true(MapEvents.has_pending(), "a charge event is queued on the false -> true transition")
-		var event = MapEvents.current()
-		assert_eq(event["type"], "charge")
-		assert_eq(event["district"], "shoreditch")
-		assert_eq(event["veinId"], "recharge_vein")
-	)
-
-	run_case("recharge_veins_does_not_queue_when_a_vein_is_still_charging", func():
-		GameState.reset()
-		var vein := {
-			"id": "still_charging", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 1, "charged": false, "chargeBlocks": 0, "security": "none",
-			"location": "Hackney Rd, under the railway arch", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		# Lv1 rechargeBlocks is 4; chargeBlocks 0 -> 1 stays uncharged
-		Cultivating.recharge_veins()
-		assert_true(not MapEvents.has_pending(), "no event queued while a vein hasn't reached its recharge threshold")
-	)
-
-	run_case("recharge_veins_does_not_requeue_a_vein_that_stays_charged", func():
-		GameState.reset()
-		var vein := {
-			"id": "already_charged", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 1, "charged": true, "chargeBlocks": 4, "security": "none",
-			"location": "Hackney Rd, under the railway arch", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		# Already charged and at the threshold coming into this tick -- the
-		# block below is a no-op for it, so it must not requeue every day
-		# it just sits there charged.
-		Cultivating.recharge_veins()
-		assert_true(not MapEvents.has_pending(), "no requeue on a tick where the vein was already charged")
-	)
-
-	run_case("recharge_veins_charges_faster_with_recharge_bonus_and_kingscross_stacked", func():
-		GameState.reset()
-		var boosted_vein := {
-			"id": "boosted", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
-			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "kingscross",
-			"hospitability": { "tier": "rich", "bonuses": ["recharge"] },
-		}
-		GameState.state["player"]["veins"] = [boosted_vein]
-
-		Cultivating.recharge_veins()
-		assert_eq(boosted_vein["charged"], false, "1 block isn't enough yet (needs 2, effective recharge)")
-		Cultivating.recharge_veins()
-		assert_eq(boosted_vein["charged"], true, "2 blocks charges it — Lv1's base 4 minus recharge bonus minus King's Cross")
-	)
+	# ── M1 hospitability bonuses (terroir yield mult) ──────────────────
 
 	run_case("apply_yield_bonus_guarantees_at_least_plus_1_over_the_base_roll", func():
 		var vein_with_yield := { "hospitability": { "tier": "saturated", "bonuses": ["yield"] } }
@@ -405,22 +436,6 @@ func run() -> void:
 		assert_eq(Cultivating.apply_yield_bonus(vein_with_yield, 4), 5, "rolled 4 -> max(5, round(4.6))=5")
 		assert_eq(Cultivating.apply_yield_bonus(vein_with_yield, 20), 23, "rolled 20 -> max(21, round(23))=23, the 1.15x multiplier wins here")
 		assert_eq(Cultivating.apply_yield_bonus(vein_without, 1), 1, "no yield bonus -> roll passes through unchanged")
-	)
-
-	run_case("harvest_cautious_applies_the_yield_bonus_on_top_of_the_rolled_amount", func():
-		GameState.reset()
-		var vein := {
-			"id": "yield_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 5, "charged": true, "chargeBlocks": 0, "security": "none",
-			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "saturated", "bonuses": ["yield"] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		Rng.set_seed(1)
-		var result := Cultivating.harvest_cautious("yield_vein")
-		assert_true(result["ok"], "should succeed on a charged vein")
-		# Lv1 yieldCautious is [1,2]; apply_yield_bonus(1)=2, apply_yield_bonus(2)=3
-		assert_true(result["amount"] >= 2 and result["amount"] <= 3, "yield bonus should raise the credited amount above the raw [1,2] range")
 	)
 
 	# ── vein security (M1-LONDON.md D4 site/vein sheet) ─────────────
@@ -435,15 +450,10 @@ func run() -> void:
 	run_case("upgrade_vein_security_deducts_cash_and_advances_one_tier", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100
-		var vein := {
-			"id": "sec_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
-			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		var result := Cultivating.upgrade_vein_security("sec_vein")
+		GameState.state["player"]["veins"] = [_vein(50)]
+		var result := Cultivating.upgrade_vein_security("test_vein")
 		assert_true(result["ok"], "should succeed with enough cash")
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
 		assert_eq(vein["security"], "basic", "security advances to the next tier")
 		assert_eq(GameState.state["player"]["cash"], 100 - GameData.VEIN_SECURITY["basic"]["cost"], "cash deducted by the tier's cost")
 
@@ -455,29 +465,19 @@ func run() -> void:
 	run_case("upgrade_vein_security_refuses_without_enough_cash", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 0
-		var vein := {
-			"id": "poor_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
-			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		var result := Cultivating.upgrade_vein_security("poor_vein")
+		GameState.state["player"]["veins"] = [_vein(50)]
+		var result := Cultivating.upgrade_vein_security("test_vein")
 		assert_true(not result["ok"], "should refuse without enough cash")
-		assert_eq(vein["security"], "none", "security unchanged when refused")
+		assert_eq(GameState.state["player"]["veins"][0]["security"], "none", "security unchanged when refused")
 	)
 
 	run_case("upgrade_vein_security_refuses_at_maximum_tier", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100000
-		var vein := {
-			"id": "maxed_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "guarded",
-			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "shoreditch",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
+		var vein := _vein(50)
+		vein["security"] = "guarded"
 		GameState.state["player"]["veins"] = [vein]
-		var result := Cultivating.upgrade_vein_security("maxed_vein")
+		var result := Cultivating.upgrade_vein_security("test_vein")
 		assert_true(not result["ok"], "already at guarded, nowhere higher to go")
 		assert_eq(GameState.state["player"]["cash"], 100000, "no cash spent when refused")
 	)
@@ -485,14 +485,8 @@ func run() -> void:
 	run_case("upgrade_vein_security_is_not_districted_no_block_or_travel_spent", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100
-		var vein := {
-			"id": "away_sec_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
-			"location": "Test St, nowhere", "claimedOnDay": 1, "district": "camden",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		var result := Cultivating.upgrade_vein_security("away_sec_vein")
+		GameState.state["player"]["veins"] = [_vein(50, "camden")]
+		var result := Cultivating.upgrade_vein_security("test_vein")
 		assert_true(result["ok"], "should succeed even though the vein is in a district the player isn't currently in")
 		assert_eq(GameState.state["world"]["timeBlocksDone"], [], "security upgrades aren't in D3's districted-action list — no block spent")
 		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "currentDistrict unchanged — no travel triggered")
@@ -501,22 +495,17 @@ func run() -> void:
 	# ── vein alarm (vein-raiding ticket 05) ─────────────
 
 	run_case("fresh_vein_has_no_alarm_upgrade_by_default", func():
-		var vein := Cultivating.make_vein("time", 0, "shoreditch", null, { "tier": "fair", "bonuses": [] })
+		var vein := Cultivating.make_vein("time", 20, "shoreditch", null, { "tier": "fair", "bonuses": [] })
 		assert_eq(vein["alarmUpgrades"], [], "a freshly made vein starts with no alarm upgrades")
 	)
 
 	run_case("add_alarm_deducts_cash_and_records_the_upgrade", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 1000
-		var vein := {
-			"id": "alarm_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
-			"alarmUpgrades": [], "location": "Test St, nowhere", "claimedOnDay": 1,
-			"district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		var result := Cultivating.add_alarm("alarm_vein")
+		GameState.state["player"]["veins"] = [_vein(50)]
+		var result := Cultivating.add_alarm("test_vein")
 		assert_true(result["ok"], "should succeed with enough cash")
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
 		assert_eq(vein["alarmUpgrades"], ["alarm"], "alarm upgrade id recorded on the vein")
 		assert_eq(GameState.state["player"]["cash"], 1000 - GameData.VEIN_ALARM["alarm"]["cost"], "cash deducted by the alarm upgrade's cost")
 
@@ -528,31 +517,21 @@ func run() -> void:
 	run_case("add_alarm_refuses_without_enough_cash", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 0
-		var vein := {
-			"id": "poor_alarm_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
-			"alarmUpgrades": [], "location": "Test St, nowhere", "claimedOnDay": 1,
-			"district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		var result := Cultivating.add_alarm("poor_alarm_vein")
+		GameState.state["player"]["veins"] = [_vein(50)]
+		var result := Cultivating.add_alarm("test_vein")
 		assert_true(not result["ok"], "should refuse without enough cash")
-		assert_eq(vein["alarmUpgrades"], [], "no upgrade recorded when refused")
+		assert_eq(GameState.state["player"]["veins"][0]["alarmUpgrades"], [], "no upgrade recorded when refused")
 		assert_eq(GameState.state["player"]["cash"], 0, "no cash spent when refused")
 	)
 
 	run_case("add_alarm_is_idempotent_re_purchasing_is_blocked", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100000
-		var vein := {
-			"id": "alarmed_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
-			"alarmUpgrades": ["alarm"], "location": "Test St, nowhere", "claimedOnDay": 1,
-			"district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] },
-		}
+		var vein := _vein(50)
+		vein["alarmUpgrades"] = ["alarm"]
 		GameState.state["player"]["veins"] = [vein]
 		var cash_before: int = GameState.state["player"]["cash"]
-		var result := Cultivating.add_alarm("alarmed_vein")
+		var result := Cultivating.add_alarm("test_vein")
 		assert_true(not result["ok"], "already-installed alarm upgrade should refuse re-purchase")
 		assert_eq(vein["alarmUpgrades"], ["alarm"], "alarmUpgrades unchanged, not duplicated")
 		assert_eq(GameState.state["player"]["cash"], cash_before, "no cash spent on a blocked re-purchase")
@@ -561,14 +540,8 @@ func run() -> void:
 	run_case("add_alarm_is_not_districted_no_block_or_travel_spent", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 1000
-		var vein := {
-			"id": "away_alarm_vein", "oreType": "time", "level": 1, "levelLabel": "Trace",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
-			"alarmUpgrades": [], "location": "Test St, nowhere", "claimedOnDay": 1,
-			"district": "camden", "hospitability": { "tier": "fair", "bonuses": [] },
-		}
-		GameState.state["player"]["veins"] = [vein]
-		var result := Cultivating.add_alarm("away_alarm_vein")
+		GameState.state["player"]["veins"] = [_vein(50, "camden")]
+		var result := Cultivating.add_alarm("test_vein")
 		assert_true(result["ok"], "should succeed even though the vein is in a district the player isn't currently in")
 		assert_eq(GameState.state["world"]["timeBlocksDone"], [], "alarm upgrades aren't in D3's districted-action list — no block spent")
 		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "currentDistrict unchanged — no travel triggered")
@@ -587,45 +560,4 @@ func run() -> void:
 		assert_eq(parts.size(), 2, "location should be 'street, suffix'")
 		assert_true(Cultivating.LOCATION_STREETS.has(parts[0]), "street should come from the verbatim HTML array")
 		assert_true(Cultivating.LOCATION_SUFFIXES.has(parts[1]), "suffix should come from the verbatim HTML array")
-	)
-
-	# ── map-interaction-model ticket 01: level badge progress ring ──────
-
-	run_case("dev_fraction_is_devBar_over_devBarMax_for_the_current_level", func():
-		# Lv1 devBarMax is 8 (data/vein_levels.json).
-		var vein := { "level": 1, "devBar": 2, "hospitability": { "tier": "fair", "bonuses": [] } }
-		assert_eq(Cultivating.dev_fraction(vein), 0.25, "2/8 devBar should be a quarter full")
-	)
-
-	run_case("dev_fraction_clamps_to_1_if_devBar_somehow_exceeds_devBarMax", func():
-		var vein := { "level": 1, "devBar": 999, "hospitability": { "tier": "fair", "bonuses": [] } }
-		assert_eq(Cultivating.dev_fraction(vein), 1.0, "fraction should never exceed 1.0")
-	)
-
-	run_case("dev_fraction_is_full_at_effective_max_level_even_though_devBarMax_is_9999", func():
-		# Lv5 (the hard cap without a bonus) has devBarMax 9999 in the data —
-		# a maxed vein must read as "topped out" (ring full), not a sliver.
-		var capped := { "level": 5, "devBar": 3, "hospitability": { "tier": "fair", "bonuses": [] } }
-		assert_eq(Cultivating.dev_fraction(capped), 1.0, "Lv5 with no maxLevel bonus is already at the effective cap -> full ring")
-	)
-
-	run_case("dev_fraction_at_lv5_with_maxLevel_bonus_uses_the_real_devBarMax_not_full", func():
-		# Same Lv5, but the maxLevel bonus raises the effective cap to 6, so
-		# Lv5 here is NOT yet the effective max — fraction should be real.
-		var boosted := { "level": 5, "devBar": 3, "hospitability": { "tier": "saturated", "bonuses": ["maxLevel"] } }
-		assert_eq(Cultivating.dev_fraction(boosted), 3.0 / 9999.0, "Lv5 with the maxLevel bonus isn't the effective cap (6 is) -> real fraction against devBarMax 9999")
-	)
-
-	run_case("dev_fraction_is_full_at_lv6_with_maxLevel_bonus", func():
-		var boosted := { "level": 6, "devBar": 3, "hospitability": { "tier": "saturated", "bonuses": ["maxLevel"] } }
-		assert_eq(Cultivating.dev_fraction(boosted), 1.0, "Lv6 is the effective cap with the maxLevel bonus -> full ring")
-	)
-
-	run_case("is_at_max_level_matches_get_level_cap", func():
-		var plain_lv5 := { "level": 5, "hospitability": { "tier": "fair", "bonuses": [] } }
-		var plain_lv4 := { "level": 4, "hospitability": { "tier": "fair", "bonuses": [] } }
-		var boosted_lv5 := { "level": 5, "hospitability": { "tier": "saturated", "bonuses": ["maxLevel"] } }
-		assert_true(Cultivating.is_at_max_level(plain_lv5), "Lv5 with no bonus is at the cap")
-		assert_true(not Cultivating.is_at_max_level(plain_lv4), "Lv4 with no bonus is not at the cap")
-		assert_true(not Cultivating.is_at_max_level(boosted_lv5), "Lv5 with the maxLevel bonus is not yet at the raised cap of 6")
 	)

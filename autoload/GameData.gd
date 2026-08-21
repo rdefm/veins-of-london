@@ -6,7 +6,7 @@ extends Node
 
 var ORE_TYPES: Dictionary = {}
 
-var VEIN_LEVELS: Dictionary = {}
+var VEIN_GROWTH: Dictionary = {}
 var SEED_ORE_COST: int = 0
 var CULTIVATING_XP_LEVELS: Array = []
 
@@ -112,10 +112,9 @@ func _ready() -> void:
 func load_all() -> void:
 	ORE_TYPES = _load_json("res://data/ore_types.json")
 
-	var vein_levels := _load_json("res://data/vein_levels.json")
-	VEIN_LEVELS = vein_levels.get("levels", {})
-	SEED_ORE_COST = vein_levels.get("seedOreCost", 0)
-	CULTIVATING_XP_LEVELS = vein_levels.get("cultivatingXpLevels", [])
+	VEIN_GROWTH = _load_json("res://data/vein_growth.json")
+	SEED_ORE_COST = VEIN_GROWTH.get("seedOreCost", 0)
+	CULTIVATING_XP_LEVELS = VEIN_GROWTH.get("cultivatingXpLevels", [])
 
 	var recipes := _load_json("res://data/recipes.json")
 	RECIPES = recipes.get("recipes", {})
@@ -198,7 +197,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	var errors: Array[String] = []
 
 	_validate_ore_types(t.get("ore_types", {}), errors)
-	_validate_vein_levels(t.get("vein_levels", {}), t.get("cultivating_xp_levels", []), errors)
+	_validate_vein_growth(t.get("vein_growth", {}), t.get("cultivating_xp_levels", []), errors)
 	_validate_recipes(t.get("recipes", {}), t.get("ore_types", {}), errors)
 	_validate_devices(t.get("devices", {}), t.get("recipes", {}), t.get("ore_types", {}), errors)
 	_validate_items(t.get("items", {}), errors)
@@ -226,7 +225,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 func snapshot() -> Dictionary:
 	return {
 		"ore_types": ORE_TYPES,
-		"vein_levels": VEIN_LEVELS,
+		"vein_growth": VEIN_GROWTH,
 		"cultivating_xp_levels": CULTIVATING_XP_LEVELS,
 		"recipes": RECIPES,
 		"devices": DEVICES,
@@ -275,19 +274,50 @@ func _validate_ore_types(ore_types: Dictionary, errors: Array[String]) -> void:
 		_require_keys(ore_types[key], ["name", "symbol", "colour", "basePrice", "flavorText"], "ore_types.%s" % key, errors)
 
 
-func _validate_vein_levels(levels: Dictionary, xp_levels: Array, errors: Array[String]) -> void:
-	for lvl in ["1", "2", "3", "4", "5"]:
-		if not levels.has(lvl):
-			errors.append("vein_levels: missing level '%s'" % lvl)
-			continue
-		var entry = levels[lvl]
-		_require_keys(entry, ["label", "yieldCautious", "yieldFull", "rechargeBlocks", "devBarMax", "devBarHarvestCost"], "vein_levels.%s" % lvl, errors)
-		if entry.has("yieldCautious") and entry["yieldCautious"].size() != 2:
-			errors.append("vein_levels.%s: yieldCautious must be [min,max]" % lvl)
-		if entry.has("yieldFull") and entry["yieldFull"].size() != 2:
-			errors.append("vein_levels.%s: yieldFull must be [min,max]" % lvl)
+func _validate_vein_growth(vein_growth: Dictionary, xp_levels: Array, errors: Array[String]) -> void:
+	_require_keys(vein_growth, [
+		"neutral", "ceiling", "wildCeilingBonus", "bands", "yieldPerPoint", "hardPruneBonus",
+		"pruneLightDepth", "pruneHardDepth", "cultivateBase", "cultivatePerSkill", "cultivateMinGain",
+		"collapseChancePerDay", "seedGrowth", "rampantSeedDays", "selfSeedGrowth", "terroirYieldMult",
+	], "vein_growth", errors)
+
 	if xp_levels.size() != 6:
 		errors.append("cultivatingXpLevels: expected 6 entries (index=level, 0..5), got %d" % xp_levels.size())
+
+	if not vein_growth.has("bands"):
+		return
+	var neutral: int = vein_growth.get("neutral", 50)
+	var bands: Array = vein_growth["bands"]
+	var sorted_bands: Array = bands.duplicate()
+	sorted_bands.sort_custom(func(a, b): return a["min"] < b["min"])
+
+	if sorted_bands.is_empty():
+		errors.append("vein_growth.bands: must not be empty")
+		return
+	if sorted_bands[0]["min"] != 0:
+		errors.append("vein_growth.bands: must start at growth 0")
+
+	for i in range(sorted_bands.size()):
+		_require_keys(sorted_bands[i], ["id", "min", "max", "label", "drift"], "vein_growth.bands[%d]" % i, errors)
+		if i > 0 and sorted_bands[i - 1]["max"] + 1 != sorted_bands[i]["min"]:
+			errors.append("vein_growth.bands: gap or overlap between '%s' and '%s'" % [sorted_bands[i - 1].get("id"), sorted_bands[i].get("id")])
+
+	if sorted_bands[-1]["max"] < 100:
+		errors.append("vein_growth.bands: must cover through growth 100")
+
+	# Exactly one non-pinned ("resting") band should sit at drift 0 and
+	# straddle neutral (dormant) — collapsed/rampant are pinned walls, not
+	# resting bands, even though they also carry drift 0.
+	var resting_zero_drift := 0
+	for band in sorted_bands:
+		if band.get("id") == "collapsed":
+			continue
+		if band["min"] == 0 or band["min"] >= vein_growth.get("ceiling", 100):
+			continue
+		if band["drift"] == 0 and band["min"] <= neutral and neutral <= band["max"]:
+			resting_zero_drift += 1
+	if resting_zero_drift != 1:
+		errors.append("vein_growth.bands: expected exactly one drift:0 band straddling neutral (dormant), found %d" % resting_zero_drift)
 
 
 func _validate_recipes(recipes: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:
@@ -704,7 +734,7 @@ func _load_json(path: String) -> Dictionary:
 # (contacts defaults, event effect templates like grant_vein_with_site, etc.) gets
 # read into GameState's pure state tree, where int vs. float is load-
 # bearing (deep-equality save/load checks, and dict lookups that str()
-# a vein level to key into VEIN_LEVELS — "1.0" isn't "1"). Rather than
+# a growth band's id to key into VEIN_GROWTH — "1.0" isn't "1"). Rather than
 # casting at every consumption site, normalize once here: any float with
 # no fractional part becomes int. Safe against the current data/*.json —
 # every genuinely-fractional field (baseSuccess: 0.35, raidBaseChance:

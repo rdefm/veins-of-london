@@ -69,7 +69,7 @@ static func daily_tick() -> void:
 	Jobs.roll_daily_offer()              # ②c James job proactive daily offer roll (bugfixes-30), no ordering dependency on any other step
 	_apply_living_costs()                # ③ living costs
 	_apply_healing_salve_tick()          # ③b Healing Salve HoT (calc-effect-wiring-02), runs right after living costs
-	Cultivating.recharge_veins()         # ④ vein recharge
+	Cultivating.drift_veins()             # ④ vein growth drift (player + faction veins)
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	Sites.roll_npc_claims()              # ⑤b NPC site-claiming (M1-LONDON.md D2)
 	Sites.roll_npc_abandonment()         # ⑤c NPC abandonment (adr/0002), runs right after ⑤b

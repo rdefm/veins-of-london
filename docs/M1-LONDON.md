@@ -159,7 +159,7 @@ T1 districts data + travel rule (+tests: 2-block costing, wake-at-home, price/da
 ## M1 exit criteria
 
 1. New player path: prospect → seed → cultivate → harvest → sell entirely via the Map tab (district list → district panel → site/vein sheet), tutorial-gated.
-2. Travel visibly costs blocks and the 2-block labels are correct everywhere.
+2. ~~Travel visibly costs blocks and the 2-block labels are correct everywhere.~~ Superseded by faction-resource-economy ticket 05: `Travel.blocks_needed()` returns 0 and travel itself is free — acting in a district you aren't in costs exactly the same as acting in the one you are. See D3.
 3. Site quality is always visible pre-seed; at least one playtest session where the human reports a routing trade-off decision unprompted.
 4. NPC-claim and NPC-abandonment curves behave correctly under soak: no district ever permanently locks out prospecting, and an abandoned site's slot reliably rerolls fresh on the district's next prospect.
 5. Soak test green; all prose flagged PROSE-REVIEW has been reviewed.

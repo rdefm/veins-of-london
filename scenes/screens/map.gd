@@ -341,13 +341,14 @@ func _build_station_bubble_options(stop: Dictionary) -> Array:
 func _station_option_label(option_id: String, stop: Dictionary) -> String:
 	match option_id:
 		StationBubble.CULTIVATE_ID:
-			if Cultivating.is_at_max_level(stop["vein"]):
-				return "Vein at max level"
+			var vein: Dictionary = stop["vein"]
+			if vein["growth"] >= Cultivating.ceiling(vein):
+				return "Vein at ceiling"
 			return UI.format_block_cost_label("Cultivate", 1)
 		StationBubble.HARVEST_CAUTIOUS_ID:
-			return UI.format_block_cost_label("Harvest (cautious)", 1)
+			return UI.format_block_cost_label("Prune (light)", 1)
 		StationBubble.HARVEST_FULL_ID:
-			return UI.format_block_cost_label("Harvest (full)", 1)
+			return UI.format_block_cost_label("Prune (hard)", 1)
 		StationBubble.MANAGE_ID:
 			return "Manage"
 		_:
@@ -540,9 +541,11 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary) -> vo
 	var security: Dictionary = GameData.VEIN_SECURITY[vein["security"]]
 	var district: String = vein["district"]
 
+	var band: Dictionary = Cultivating.growth_band(vein)
+
 	var c := UI.card()
 	c["content"].add_child(UI.tinted_label(faction["name"], Color(faction["colour"])))
-	c["content"].add_child(UI.muted_label("%s %s — Lv%d %s" % [ore["symbol"], ore["name"], vein["level"], vein["levelLabel"]]))
+	c["content"].add_child(UI.muted_label("%s %s — %s" % [ore["symbol"], ore["name"], band["label"]]))
 	c["content"].add_child(UI.muted_label("🔒 %s" % security["label"]))
 
 	var raid_button := UI.button(UI.format_block_cost_label("Raid", 1), func(): Raiding.begin_raid(vein))
@@ -587,46 +590,43 @@ func _build_seed_row(site: Dictionary) -> Control:
 func _build_vein_action_card(vein: Dictionary) -> Control:
 	var c := UI.card()
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
-	var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
+	var band: Dictionary = Cultivating.growth_band(vein)
 	var security: Dictionary = GameData.VEIN_SECURITY[vein["security"]]
 	var district: String = vein["district"]
 	var vein_id: String = vein["id"]
-	var at_max_level := Cultivating.is_at_max_level(vein)
+	var vein_ceiling: int = Cultivating.ceiling(vein)
+	var at_ceiling: bool = vein["growth"] >= vein_ceiling
 
-	c["content"].add_child(UI.heading("%s %s — Lv%d %s" % [ore["symbol"], ore["name"], vein["level"], vein["levelLabel"]], 14))
+	c["content"].add_child(UI.heading("%s %s — %s" % [ore["symbol"], ore["name"], band["label"]], 14))
 	c["content"].add_child(UI.muted_label(vein["location"]))
-	c["content"].add_child(UI.label(("✅ Ready to harvest" if vein["charged"] else "⏳ Charging") + "   🔒 " + security["label"]))
+	c["content"].add_child(UI.label("🔒 %s" % security["label"]))
 
-	var recharge_blocks: int = Cultivating.get_effective_recharge_blocks(vein)
-	var charge_label := "Full" if vein["charged"] else "%d/%d blocks" % [vein["chargeBlocks"], recharge_blocks]
-	c["content"].add_child(UI.muted_label("Charge: %s" % charge_label))
-	c["content"].add_child(UI.bar(recharge_blocks if vein["charged"] else vein["chargeBlocks"], recharge_blocks))
+	c["content"].add_child(UI.muted_label("Growth: %d/%d" % [vein["growth"], vein_ceiling]))
+	c["content"].add_child(UI.bar(vein["growth"], vein_ceiling))
 
-	if at_max_level:
-		c["content"].add_child(UI.muted_label("Development: Max level"))
-	else:
-		c["content"].add_child(UI.muted_label("Development: %d/%d" % [vein["devBar"], level_data["devBarMax"]]))
-		c["content"].add_child(UI.bar(vein["devBar"], level_data["devBarMax"]))
-
-	# UI.hflow, not UI.hbox: a charged vein shows all three buttons at once,
+	# UI.hflow, not UI.hbox: a wild vein shows all three buttons at once,
 	# which overflows a narrow phone's width in a plain HBoxContainer
 	# (bugfixes ticket 05) — flow-wrapping keeps every button fully on-screen
 	# and tappable instead of clipped past the right edge.
 	var actions := UI.hflow()
 
-	var cultivate_label := "Vein at max level" if at_max_level else UI.format_block_cost_label("Cultivate", 1)
+	var cultivate_label := "Vein at ceiling" if at_ceiling else UI.format_block_cost_label("Cultivate", 1)
 	var cultivate_button := UI.button(cultivate_label, func(): Cultivating.cultivate(vein_id))
-	cultivate_button.disabled = at_max_level or not Travel.can_afford(district, 1)
+	cultivate_button.disabled = at_ceiling or not Travel.can_afford(district, 1)
 	actions.add_child(cultivate_button)
 
-	if vein["charged"]:
-		var cautious_button := UI.button(UI.format_block_cost_label("Harvest (cautious)", 1), func(): Cultivating.harvest_cautious(vein_id))
-		cautious_button.disabled = not Travel.can_afford(district, 1)
-		actions.add_child(cautious_button)
+	# vein-growth-state spec §2.4: pruning at or below neutral yields
+	# nothing, so it's never worth a block — not offered here at all.
+	# ticket 08 upgrades this to "shown but disabled with the projected
+	# yield surfaced", per the spec's own requirement.
+	if vein["growth"] > GameData.VEIN_GROWTH["neutral"]:
+		var light_button := UI.button(UI.format_block_cost_label("Prune (light)", 1), func(): Cultivating.prune(vein_id, GameData.VEIN_GROWTH["pruneLightDepth"]))
+		light_button.disabled = not Travel.can_afford(district, 1)
+		actions.add_child(light_button)
 
-		var full_button := UI.button(UI.format_block_cost_label("Harvest (full)", 1), func(): Cultivating.harvest_full(vein_id))
-		full_button.disabled = not Travel.can_afford(district, 1)
-		actions.add_child(full_button)
+		var hard_button := UI.button(UI.format_block_cost_label("Prune (hard)", 1), func(): Cultivating.prune(vein_id, GameData.VEIN_GROWTH["pruneHardDepth"]))
+		hard_button.disabled = not Travel.can_afford(district, 1)
+		actions.add_child(hard_button)
 
 	c["content"].add_child(actions)
 	c["content"].add_child(_build_security_row(vein))

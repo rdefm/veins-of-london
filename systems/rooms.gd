@@ -82,60 +82,13 @@ static func process_lab() -> void:
 
 
 # Called from time_system.gd's daily_tick, step ⑥ (veinStation half).
+#
+# vein-growth-state ticket 06 rebuilds this room's assigned-contact
+# behaviour around a per-vein growth target ("hold-at-target": prune down
+# toward the target above it, cultivate up toward it below it). The old
+# "harvest if charged, else cultivate" behaviour above no longer has
+# meaning under the growth model (no charged/devBar left on a vein), so
+# it's removed rather than patched — assigned veins are inert until ticket
+# 06 lands state.veinStationTargets and the real hold-at-target pass.
 static func process_vein_station() -> void:
-	var contact_id = Contacts.get_contact_in_room("veinStation")
-	if contact_id == null:
-		return
-
-	var c: Dictionary = GameState.state["contacts"][contact_id]
-	var vein_ids: Array = GameState.state["veinStationVeins"]
-	var player: Dictionary = GameState.state["player"]
-
-	var total_harvested := 0
-	var total_cultivated := 0
-	var harvest_breakdown: Dictionary = {}
-
-	for vein_id in vein_ids:
-		var vein = Cultivating.find_vein(vein_id)
-		if vein == null:
-			continue
-		var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
-
-		if vein["charged"]:
-			var yield_range: Array = level_data["yieldCautious"]
-			var yld: int = Rng.randi_range(yield_range[0], yield_range[1])
-			var ore_type: String = vein["oreType"]
-			player["orichalchum"][ore_type] = player["orichalchum"].get(ore_type, 0) + yld
-			vein["charged"] = false
-			vein["chargeBlocks"] = 0
-			# map-animations ticket 04: this is the veinStation contact's own
-			# auto-harvest path (Cultivating.harvest_cautious/harvest_full
-			# aren't called here), but it's the same true -> false transition
-			# their own queue_drain calls key on, so it gets the same event.
-			MapEvents.queue_drain(vein["district"], vein["id"])
-			total_harvested += yld
-			harvest_breakdown[ore_type] = harvest_breakdown.get(ore_type, 0) + yld
-			Contacts.award_contact_xp(contact_id, "cultivating", 15)
-		else:
-			var skill: int = c.get("cultivatingSkill", 1)
-			var chance: float = min(0.90, 0.30 + (skill - 1) * 0.12)
-			if Rng.chance(chance):
-				vein["devBar"] = vein["devBar"] + (1 + skill)
-				if vein["devBar"] >= level_data["devBarMax"] and vein["level"] < 5:
-					Cultivating.level_up_vein(vein)
-				Contacts.award_contact_xp(contact_id, "cultivating", 20)
-				total_cultivated += 1
-			else:
-				Contacts.award_contact_xp(contact_id, "cultivating", 8)
-
-	if total_harvested > 0 or total_cultivated > 0:
-		var msgs: Array[String] = []
-		if total_harvested > 0:
-			var parts: Array[String] = []
-			for ore_type in harvest_breakdown.keys():
-				parts.append("%d %s" % [harvest_breakdown[ore_type], GameData.ORE_TYPES[ore_type]["name"]])
-			msgs.append("harvested %s" % ", ".join(parts))
-		if total_cultivated > 0:
-			var plural: String = "" if total_cultivated == 1 else "s"
-			msgs.append("cultivated %d vein%s" % [total_cultivated, plural])
-		Notify.push("Vein Station (%s): %s." % [Contacts.display_name(contact_id), "; ".join(msgs)])
+	pass

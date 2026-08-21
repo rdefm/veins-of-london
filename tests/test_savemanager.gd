@@ -11,10 +11,9 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["cash"] = 12345
 		GameState.state["player"]["veins"].append({
-			"id": "v1", "oreType": "time", "level": 3, "levelLabel": "Moderate",
-			"devBar": 7, "charged": true, "chargeBlocks": 2, "security": "basic",
-			"location": "Brick Lane, near the off-licence", "claimedOnDay": 4,
-			"district": "shoreditch", "hospitability": { "tier": "fair", "bonuses": [] },
+			"id": "v1", "oreType": "time", "growth": 65, "rampantDays": 2, "security": "basic",
+			"alarmUpgrades": [], "location": "Brick Lane, near the off-licence", "claimedOnDay": 4,
+			"district": "shoreditch", "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
 		})
 		GameState.state["world"]["day"] = 9
 		var original: Dictionary = GameState.deep_copy(GameState.state)
@@ -83,7 +82,7 @@ func run() -> void:
 		GameState.state["world"]["sites"].append({
 			"id": "s1", "district": "hampstead", "tier": "rich", "oreType": "life",
 			"bonuses": ["yield"], "discoveredDay": 3, "claimed": false,
-			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "life", "level": 1, "devBar": 0, "security": "none", "claimedOnDay": 5 },
+			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "life", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 5 },
 			"hasNaturalVein": false,
 		})
 		var original: Dictionary = GameState.deep_copy(GameState.state)
@@ -217,16 +216,27 @@ func run() -> void:
 		assert_true(not result["ok"], "garbage input should fail cleanly, not crash")
 	)
 
-	run_case("migrate_is_identity_for_v1", func():
+	run_case("loading_a_v1_save_is_rejected_with_a_clear_message", func():
 		var save := { "meta": { "saveVersion": 1 }, "player": { "cash": 55 } }
-		var migrated := SaveManager.migrate(save)
-		assert_eq(migrated, save, "v1 migration should be a no-op")
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(not result["ok"], "a v1 save must not half-load under the growth-model schema")
+		assert_true(result["reason"].contains("older version"), "the rejection reason should be clear about why")
 	)
 
-	run_case("migrate_defaults_to_current_version_when_meta_missing", func():
-		var save := { "player": { "cash": 55 } }
-		var migrated := SaveManager.migrate(save)
-		assert_eq(migrated, save, "a save with no meta.saveVersion should be treated as the current version and pass through unchanged")
+	run_case("loading_a_save_with_no_meta_saveVersion_is_treated_as_current_and_succeeds", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save.erase("meta")
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(result["ok"], "a save with no meta.saveVersion at all should be treated as the current version")
+	)
+
+	run_case("loading_a_save_at_the_current_version_succeeds", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		assert_eq(save["meta"]["saveVersion"], SaveManager.SAVE_VERSION, "a fresh game state should stamp the current save version")
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(result["ok"], "a save at the current version should load")
 	)
 
 	run_case("backfill_fills_missing_top_level_keys_from_defaults", func():

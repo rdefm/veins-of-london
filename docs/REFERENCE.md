@@ -19,21 +19,38 @@ The new five-type roster (replaces old time/energy/life/void/motion — see §7 
 | fate | Fate Orichalchum | ⚄ | #b08d2e | 90 | Feels lucky in the hand. Statistically, it isn't. |
 | emotion | Emotion Orichalchum | ❋ | #9b4a7a | 65 | Holding it, you feel briefly understood. It wears off. |
 
-### 1.2 `data/vein_levels.json`
-Keys are strings "1".."6". Level 6 exists ONLY via the M1 Rich/Saturated "+1 max level" hospitability bonus; normal cap is 5.
+### 1.2 `data/vein_growth.json`
+vein-growth-state PRD: a vein has one signed axis, `growth: int` (0..ceiling, default ceiling 100, neutral 50), replacing the old `devBar`/`level`/`charged`/`chargeBlocks` quartet entirely. Left alone, growth drifts daily toward whichever wall it was last left leaning, accelerating with distance from neutral; the player pushes it back with Cultivate (right) or Prune (left).
 
-| lvl | label | yieldCautious | yieldFull | rechargeBlocks | devBarMax | devBarHarvestCost |
-|---|---|---|---|---|---|---|
-| 1 | Trace | [1,2] | [3,5] | 4 | 8 | 2 |
-| 2 | Minor | [2,4] | [6,10] | 3 | 16 | 3 |
-| 3 | Moderate | [4,7] | [10,16] | 3 | 24 | 4 |
-| 4 | Rich | [7,12] | [16,24] | 2 | 36 | 5 |
-| 5 | Lode | [12,20] | [24,40] | 2 | 9999 | 6 |
-| 6 | Deep | [18,28] | [36,60] | 1 | 9999 | 8 |
+Bands (symmetric around neutral; `drift` is the daily movement while a vein sits in that band):
 
-There is NO vein lifespan/expiry mechanic. (The prototype referenced `lifespanDays` but never defined it; it never fired. Officially dropped — veins die only via dev-bar decay, §3.4.)
+| band id | growth range | label | drift/day |
+|---|---|---|---|
+| collapsed | 0 | Spent | 0 (pinned; see below) |
+| barren | 1–14 | Barren | 3 (leftward) |
+| sparse | 15–29 | Sparse | 2 (leftward) |
+| thinning | 30–44 | Thinning | 1 (leftward) |
+| dormant | 45–55 | Dormant | 0 |
+| taking | 56–70 | Taking | 1 (rightward) |
+| lush | 71–85 | Lush | 2 (rightward) |
+| wild | 86–99 | Wild | 3 (rightward) |
+| rampant | 100 (ceiling) | Rampant | 0 (clamped) |
 
-Other cultivating constants: `SEED_ORE_COST = 40`. `CULTIVATING_XP_LEVELS = [0, 0, 80, 220, 500, 1000]` (index = level; max level 5).
+Other constants (`data/vein_growth.json`): `yieldPerPoint: 0.35`, `hardPruneBonus: 1.25`, `pruneLightDepth: 15`, `pruneHardDepth: 40`, `cultivateBase: 10`, `cultivatePerSkill: 4`, `cultivateMinGain: 2`, `collapseChancePerDay: 0.15`, `seedGrowth: 20`, `rampantSeedDays: 5`, `selfSeedGrowth: 60`, `wildCeilingBonus: 20`, `terroirYieldMult: { poor: 0.6, fair: 1.0, rich: 1.6, saturated: 2.4 }`.
+
+**Cultivate** (`Cultivating.cultivate`): success roll unchanged (`cultChance = min(0.90, 0.30 + (skill-1)*0.12)`); on success, `growth += cultivate_gain(skill, growth, ceiling)` where `cultivate_gain = max(cultivateMinGain, round((cultivateBase + cultivatePerSkill*skill) * (1 - growth/ceiling)))` — diminishing toward the ceiling on purpose.
+
+**Prune** (`Cultivating.prune(vein_id, depth)`, light -15 / hard -40): yield counts only growth points removed from above neutral — `points = max(0, growth_before-50) - max(0, growth_after-50)`, `yield = round(points * yieldPerPoint * terroir_yield_mult(vein) * hardBonus)` (hardBonus 1.25 for a hard prune, 1.0 for light), then `apply_yield_bonus`. Pruning at or below neutral always yields 0.
+
+**Left wall**: `growth` pins at 0 (never negative); each daily tick, `chance(collapseChancePerDay)` removes the vein — a player vein's site reverts to unclaimed (re-seedable); a faction vein's site is deleted outright, matching NPC-abandonment semantics.
+
+**Right wall**: `growth` clamps at `ceiling(vein)` (100, or 120 with the `wildCeiling` hospitability bonus). A vein sitting at the ceiling accrues `rampantDays` and self-seeds a new vein nearby after `rampantSeedDays` (5) days at the ceiling — see vein-growth-state ticket 02.
+
+**Value tier** (`Cultivating.value_tier(vein)`, 1..6, `= min(6, 1 + floor(growth/20))`) is the single seam that replaces the old 1–5 `level` everywhere magnitude mattered (raid stealth odds, faction raid targeting, faction vein income, rivalry weighting, combat scaling, the map's Strength filter).
+
+There is NO vein lifespan/expiry mechanic beyond the collapse roll above.
+
+Other cultivating constants (also `data/vein_growth.json`, colocated since their old home `vein_levels.json` no longer exists): `SEED_ORE_COST = 40`. `CULTIVATING_XP_LEVELS = [0, 0, 80, 220, 500, 1000]` (index = cultivating skill level).
 
 ### 1.3 `data/recipes.json`
 
@@ -277,11 +294,13 @@ state = {
 
 ### 2.1 Vein dict
 ```
-{ id, oreType, level:int, levelLabel, devBar:int, charged:bool, chargeBlocks:int,
-  security:"none", location:String, claimedOnDay:int,
-  district:String,                  # M1
-  hospitability: {tier:String, bonuses:[String]} }   # M1; M0 default {tier:"fair", bonuses:[]}
+{ id, oreType, growth:int, security:"none", alarmUpgrades:[String],
+  location:String, claimedOnDay:int,
+  district:String,
+  hospitability: {tier:String, bonuses:[String]},   # M1; M0 default {tier:"fair", bonuses:[]}
+  rampantDays:int }                 # vein-growth-state; consecutive daily ticks spent at the ceiling
 ```
+`growth` (0..ceiling(vein), neutral 50) replaces the old `devBar`/`level`/`levelLabel`/`charged`/`chargeBlocks` quartet entirely — see §1.2. A faction vein (`site.factionVein`) carries the same fields plus `factionId`.
 
 ### 2.2 Screens
 M0 roster (original): `title, intro, home, veins, inventory, crafting, contacts, sms_archie, sms_archie_2, world, property, factions, barometer, stats, save, combat, event` (M0-T13 replaces the per-event screens with one generic `event` screen driven by `state.event`). Later M1 tickets (04 Map, 06 HQ, 07 Phone) redistribute their content into the D4 tabs below and retire the ones D4 says to delete. **Ticket 06 (HQ merge) is done:** `property` and `crafting` are deleted (no `SCREEN_SCRIPTS` entry, no remaining `Nav.go_to` call sites) — their functionality lives under `hq`. **Ticket 07 (Phone reskin + Ticker) is done:** `world`, `barometer`, `stats`, `save` are all deleted — `world`/`barometer` (the latter unreachable already; nothing linked to it once `world` was gone) live on as `phone`'s Ticker app, `stats`/`save` (also unreachable — no `Nav.go_to` call site) live on merged into `you`. `veins, contacts, factions` remain wired into the tutorial-era `home` flow (event `set_screen` effects still target `contacts`) and are still slated for retirement by ticket 10 (tutorial gating) — Phone's own contact list/faction directory (below) are new, parallel content for the post-tutorial nav shell, not a redirect of those screens' nav paths. (Ticket 11, phone-as-OS-shell, further retires `you`, `bag`, and `inventory` — see below.)
@@ -298,7 +317,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - 3 blocks/day. `advanceTimeBlock()`: append current block to `timeBlocksDone`, increment `timeBlock`; if `timeBlock >= 3` → `day += 1`, `timeBlock = 0`, `timeBlocksDone = []`, run `daily_tick()`.
 - `isTimeExhausted()` = `timeBlocksDone.size() >= 3`.
 - **Rest:** consume all remaining blocks, roll to next day (runs daily_tick), then heal `round(hpMax * 0.2)` capped at hpMax. Notification: "Rested. Day N. +X HP."
-- **daily_tick order (exact):** ① tick barometer ② roll home raid ③ living costs: `DAILY_COST = round(50 * (1 + fx.dailyCost))`, `cash = max(0, cash − DAILY_COST)`, notification (append " You are flat broke." if cash hits 0) ④ vein recharge: for each vein, if `chargeBlocks < rechargeBlocks(level)` then `chargeBlocks += 1`; if `chargeBlocks >= rechargeBlocks` then `charged = true` ⑤ tutorial day-triggers (day ≥ 2 & stage "buyer_event" & !buyerEventSeen → notification "Archie texted. He's lined up the new buyer. Check Contacts."; stage "archie_craft_chat" & day ≥ archieChatUnlockDay → notification "Archie wants to meet up. Check Contacts.") ⑥ process lab room, then veinStation room, if installed ⑦ reset device charges (chargesUsedToday = 0 where lastResetDay < day).
+- **daily_tick order (exact):** ① tick barometer ② roll home raid ③ living costs: `DAILY_COST = round(50 * (1 + fx.dailyCost))`, `cash = max(0, cash − DAILY_COST)`, notification (append " You are flat broke." if cash hits 0) ④ vein growth drift (`Cultivating.drift_veins()`, vein-growth-state §2.3): for each player vein and each faction vein, `delta = band_drift(growth)`, `direction = +1 if growth>50, -1 if growth<50, 0 if dormant`, `growth = clamp(growth + delta*direction, 0, ceiling(vein))`; a vein pinned at 0 then rolls `collapseChancePerDay` (0.15) to be removed (site reverts to unclaimed for a player vein, deleted outright for a faction vein) ⑤ tutorial day-triggers (day ≥ 2 & stage "buyer_event" & !buyerEventSeen → notification "Archie texted. He's lined up the new buyer. Check Contacts."; stage "archie_craft_chat" & day ≥ archieChatUnlockDay → notification "Archie wants to meet up. Check Contacts.") ⑥ process lab room, then veinStation room, if installed ⑦ reset device charges (chargesUsedToday = 0 where lastResetDay < day).
 
 ### 3.2 Barometer
 - Progress model: per section, per state, an integer 0–100. Init: active state = 100, others 0. Cooldowns: per section+state, `{push:day, pull:day}`.
@@ -313,13 +332,14 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - Raid roll (in daily tick): skip if `day − lastRaidDay < 3`; on hit set `lastRaidDay = day`; if carried ore total is 0, nothing; else lose `floor(qty * ratio)` per type from `player.orichalchum`, ratio 0.50 (0.25 with safeRoom). Notification with units lost.
 - Upgrades/rooms: enforce cash, slot caps, minTier by tier order. Room `body` bonus applies immediately: `hpMax += 10`, `hp = min(hp + 10, hpMax)`. `workshopBonus` = Σ bonusValue of installed rooms with bonus == "crafting".
 
-### 3.4 Cultivating & harvest
-- `cultChance = min(0.90, 0.30 + (skill−1) * 0.12)` · `barGain = 1 + skill`.
-- **Seed(oreType):** requires ore ≥ 40 and time not exhausted. Spend 1 block, deduct 40 ore ALWAYS. `chance(cultChance)` → new Lv1 vein (devBar = barGain, uncharged, security none, random location, claimedOnDay = today, district = currentDistrict) + 30 XP; fail → 5 XP. Result modal either way.
-- **Cultivate(vein):** 1 block. Success → devBar += barGain, +20 XP; if level < cap and devBar ≥ devBarMax → level up (level+1, devBar = 0). Fail → +8 XP. (Level cap is 5, or 6 if hospitability bonuses include "maxLevel" — M1.)
-- **Level down:** at Lv1 → vein removed, notification "…collapsed and disappeared."; else level −1, `devBar = floor(newLevel.devBarMax * 0.8)`, notification.
-- **Harvest cautious:** requires charged; 1 block; gain `rand(yieldCautious)`; `charged=false, chargeBlocks=0`.
-- **Harvest full:** as above with `yieldFull`, then `devBar −= devBarHarvestCost`; if devBar ≤ 0 → level down.
+### 3.4 Cultivating & pruning
+- `cultChance = min(0.90, 0.30 + (skill−1) * 0.12)` (unchanged by vein-growth-state).
+- **Seed(siteId):** requires ore ≥ 40 (of the site's ore type) and time not exhausted. Spend 1 block, deduct 40 ore ALWAYS. `chance(seedSuccessChance)` → new vein at `growth = seedGrowth` (20), security none, random location, claimedOnDay = today, district = currentDistrict) + 30 XP; fail → 5 XP. Result modal either way. A `hasNaturalVein` site's claim instantly grants a second free vein of the site's ore type, also at `growth = 20`.
+- **Cultivate(vein):** 1 block. `chance(cultChance)` → success: `growth += cultivate_gain(skill, growth, ceiling(vein))` where `cultivate_gain = max(2, round((10 + 4*skill) * (1 − growth/ceiling)))`, clamped to `[0, ceiling(vein)]`, +20 XP. Fail → no change, +8 XP. Result modal either way.
+- **Prune(vein, depth):** 1 block. `depth` is `pruneLightDepth` (15) or `pruneHardDepth` (40). `points = max(0, growth_before−50) − max(0, growth_after−50)` where `growth_after = max(0, growth_before − depth)`; `yield = round(points * yieldPerPoint(0.35) * terroirYieldMult(vein.hospitability.tier) * hardBonus)` (hardBonus 1.25 for a hard prune, 1.0 for light), then `apply_yield_bonus`. Pruning at or below neutral (50) always yields 0. No cultivating XP awarded (matches the harvest schedule this replaces).
+- **Left wall (collapse):** `growth` pins at 0. Each daily tick a vein sits at 0, `chance(collapseChancePerDay)` (0.15) removes it: a player vein's site reverts to unclaimed; a faction vein's site is deleted outright (matches NPC abandonment). Still cultivable at the maximum gain while pinned at 0.
+- **Right wall (rampant/self-seed):** `growth` clamps at `ceiling(vein)`. `rampantDays` increments each daily tick spent at the ceiling; at `rampantSeedDays` (5), claims an unclaimed site in the same district for a new player vein at `growth = selfSeedGrowth` (60) — see vein-growth-state ticket 02. Faction veins never self-seed.
+- `value_tier(vein) = min(6, 1 + floor(growth/20))` — the 1–6 magnitude that replaces the old 1–5 `level` everywhere a vein's value/strength matters.
 - XP level-up loop: while skill < 5 and XP ≥ table[skill+1] → skill += 1 (notification for cultivating).
 
 ### 3.5 Crafting & devices
@@ -385,12 +405,12 @@ Trigger: `homeRaidEventPending` true → on next visit to HQ, launch. Flow: intr
 ---
 
 ## 5. DEBUG START (title screen button)
-£1,000,000; all flags of §2 set complete/true (stage "free"); 3 veins: time Lv3, physics Lv1, life Lv5, devBars at 50% of level max, all charged; 20 units of each of the 5 ore types; 5 timePearl, 3 enhancementPowder, 1 rewind; crafting skill 3, cultivating 2; townhouse + workshop + homeGym + lock + cameras; archie relation 60, james relation 40 (both unlocked); guild joined, collective 25, firm 15; barometer economic=boom, social=stable, political=war; crowbar owned and equipped; `homeRaidEventPending = true`.
+£1,000,000; all flags of §2 set complete/true (stage "free"); 3 veins covering the growth model's distinct visual states — one `collapsed` (growth 0), one `dormant` (growth 50), one `rampant` (growth 100) — so every band is inspectable immediately without waiting out drift (vein-growth-state ticket 10 lands the exact values); 20 units of each of the 5 ore types; 5 timePearl, 3 enhancementPowder, 1 rewind; crafting skill 3, cultivating 2; townhouse + workshop + homeGym + lock + cameras; archie relation 60, james relation 40 (both unlocked); guild joined, collective 25, firm 15; barometer economic=boom, social=stable, political=war; crowbar owned and equipped; `homeRaidEventPending = true`.
 
 ---
 
 ## 6. SAVE FORMAT
-JSON of the whole `state` tree. `meta.saveVersion` starts at 1 (this project starts on the new ore roster — there is no migration #1). `SaveManager`: 3 manual slots + 3 rotating autosaves (written on: daily tick, combat exit, event completion, any purchase), plus export/import as a JSON string shown in a copyable text box. Loading runs `migrate(save)` — a version-keyed function table, currently identity for v1 — then validates required top-level keys and fills missing keys from defaults.
+JSON of the whole `state` tree. `meta.saveVersion` is 2 (bumped from 1 by vein-growth-state — the vein dict shape changed, and save-breaking was accepted rather than writing a migrator). `SaveManager`: 3 manual slots + 3 rotating autosaves (written on: daily tick, combat exit, event completion, any purchase), plus export/import as a JSON string shown in a copyable text box. Loading checks `meta.saveVersion` against the current `SAVE_VERSION` and rejects a mismatch outright with a clear reason (no half-load, no migrator); a save with no `meta.saveVersion` at all is treated as the current version. A version match then validates required top-level keys and fills missing keys from defaults.
 
 ---
 

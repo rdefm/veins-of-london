@@ -3,9 +3,8 @@ extends "res://tests/test_base.gd"
 
 static func _faction_vein_of(level: int, ore_type: String, claimed_on_day: int, faction_id: String = "collective", security: String = "none") -> Dictionary:
 	return {
-		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "level": level,
-		"levelLabel": GameData.VEIN_LEVELS[str(level)]["label"], "devBar": 0,
-		"security": security, "claimedOnDay": claimed_on_day,
+		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "growth": 20 * level - 10,
+		"rampantDays": 0, "security": security, "claimedOnDay": claimed_on_day,
 		"hospitability": { "tier": "fair", "bonuses": [] },
 	}
 
@@ -117,8 +116,7 @@ func run() -> void:
 
 		assert_eq(vein["factionId"], "firm")
 		assert_eq(vein["oreType"], "physics", "vein inherits the site's ore type")
-		assert_eq(vein["level"], 1, "instant claim is always Lv1")
-		assert_eq(vein["devBar"], Cultivating.get_bar_gain(1), "devBar uses the skill-floor-1 Lv1 seed convention (factions have no skill stat)")
+		assert_eq(vein["growth"], GameData.VEIN_GROWTH["seedGrowth"], "instant claim starts at seedGrowth")
 		assert_eq(vein["siteId"], "s1")
 		assert_eq(vein["district"], "camden")
 		assert_eq(vein["hospitability"], { "tier": "fair", "bonuses": ["yield"] }, "vein carries the site's tier + bonuses")

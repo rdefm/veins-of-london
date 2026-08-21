@@ -891,7 +891,8 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 
 	var level_scale := MapStyle.badge_scale(filter_mode, "level")
 	var countdown = MapStyle.countdown_label(filter_mode, charged, _blocks_until_charged(vein))
-	var dev_fraction := Cultivating.dev_fraction(vein)
+	var vein_ceiling: int = Cultivating.ceiling(vein)
+	var dev_fraction := 1.0 if vein["growth"] >= vein_ceiling else float(vein["growth"]) / float(vein_ceiling)
 	if countdown != null:
 		_draw_level_badge(pos, level, level_scale, alpha, dev_fraction, countdown)
 	else:
@@ -905,10 +906,7 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 
 
 func _blocks_until_charged(vein: Dictionary) -> int:
-	if vein.get("charged", false):
-		return 0
-	var recharge_blocks := Cultivating.get_effective_recharge_blocks(vein)
-	return maxi(recharge_blocks - vein.get("chargeBlocks", 0), 0)
+	return maxi(Cultivating.days_to_wall(vein), 0)
 
 
 # Map-animations ticket 02: faction stops now draw a paper-fill + coloured

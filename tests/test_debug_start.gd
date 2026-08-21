@@ -27,14 +27,12 @@ func run() -> void:
 		var by_type := {}
 		for v in p["veins"]:
 			by_type[v["oreType"]] = v
-		assert_eq(by_type["time"]["level"], 3, "time vein Lv3")
-		assert_eq(by_type["physics"]["level"], 1, "physics vein Lv1")
-		assert_eq(by_type["life"]["level"], 5, "life vein Lv5")
-		for ore_type in ["time", "physics", "life"]:
-			var v: Dictionary = by_type[ore_type]
-			assert_true(v["charged"], "%s vein should be charged" % ore_type)
-			var level_data: Dictionary = GameData.VEIN_LEVELS[str(v["level"])]
-			assert_eq(v["devBar"], GameState.round_epsilon(level_data["devBarMax"] * 0.5), "%s vein devBar at 50%% of level max" % ore_type)
+		assert_eq(by_type["time"]["growth"], 0, "time vein is collapsed (growth 0)")
+		assert_eq(by_type["physics"]["growth"], 50, "physics vein is dormant (growth 50)")
+		assert_eq(by_type["life"]["growth"], 100, "life vein is rampant (growth 100)")
+		assert_eq(Cultivating.growth_band(by_type["time"])["id"], "collapsed", "time vein reads as the collapsed band")
+		assert_eq(Cultivating.growth_band(by_type["physics"])["id"], "dormant", "physics vein reads as the dormant band")
+		assert_eq(Cultivating.growth_band(by_type["life"])["id"], "rampant", "life vein reads as the rampant band")
 
 		var flags: Dictionary = s["flags"]
 		assert_eq(flags["tutorialStage"], "free", "tutorialStage")

@@ -26,14 +26,13 @@ static func _make_site(id: String, district: String, tier: String, discovered_da
 
 
 static func _dummy_faction_vein() -> Dictionary:
-	return { "id": "fv_dummy", "factionId": "collective", "oreType": "time", "level": 1, "devBar": 0, "security": "none", "claimedOnDay": 1 }
+	return { "id": "fv_dummy", "factionId": "collective", "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 1 }
 
 
-static func _faction_vein(level: int, dev_bar: int, claimed_on_day: int) -> Dictionary:
+static func _faction_vein(growth: int, claimed_on_day: int) -> Dictionary:
 	return {
-		"id": "fv_test", "factionId": "collective", "oreType": "time", "level": level,
-		"levelLabel": GameData.VEIN_LEVELS[str(level)]["label"], "devBar": dev_bar,
-		"security": "none", "claimedOnDay": claimed_on_day,
+		"id": "fv_test", "factionId": "collective", "oreType": "time", "growth": growth,
+		"rampantDays": 0, "security": "none", "claimedOnDay": claimed_on_day,
 		"hospitability": { "tier": "fair", "bonuses": [] },
 	}
 
@@ -506,9 +505,7 @@ func run() -> void:
 		var veins: Array = GameState.state["player"]["veins"]
 		assert_eq(veins.size(), 2, "natural vein grants a second vein alongside the seeded one")
 		var natural_vein: Dictionary = veins[1]
-		assert_eq(natural_vein["devBar"], 0, "natural vein starts at devBar 0, not barGain")
-		assert_eq(natural_vein["charged"], false, "natural vein starts uncharged")
-		assert_eq(natural_vein["level"], 1, "natural vein starts at level 1")
+		assert_eq(natural_vein["growth"], GameData.VEIN_GROWTH["seedGrowth"], "natural vein starts at seedGrowth, same as any fresh vein")
 		assert_eq(natural_vein["oreType"], "life", "natural vein matches the site's ore type")
 		assert_true(natural_vein["location"].contains(","), "natural vein gets its own freshly-generated 'street, suffix' location")
 
@@ -600,7 +597,7 @@ func run() -> void:
 		var vein: Dictionary = site["factionVein"]
 		assert_true(GameData.FACTIONS.has(vein["factionId"]), "the claimant should be one of the 5 canonical factions")
 		assert_eq(vein["oreType"], "time", "faction vein inherits the site's ore type")
-		assert_eq(vein["level"], 1, "faction vein starts at level 1")
+		assert_eq(vein["growth"], GameData.VEIN_GROWTH["seedGrowth"], "faction vein starts at seedGrowth")
 		assert_eq(vein["claimedOnDay"], 30, "claimedOnDay set to the current day")
 		assert_true(GameData.VEIN_SECURITY.has(vein["security"]), "security tier should be one of the canonical tiers")
 
@@ -652,70 +649,21 @@ func run() -> void:
 		assert_true(last["text"].contains("gone quiet"), "notification matches the D2 abandonment copy")
 	)
 
-	# ── faction vein daily growth (faction-vein-ownership T02) ──────
+	# ── faction vein daily growth (vein-growth-state ticket 01/04) ──────
+	# Faction-vein growth now moves via Cultivating.drift_veins() (the same
+	# daily_tick step every vein drifts on — see test_time_system.gd).
+	# roll_faction_vein_growth() is left as a landing point for
+	# vein-growth-state ticket 04's prune-back-at-growth-85 behaviour and is
+	# a no-op until that lands.
 
-	run_case("roll_faction_vein_growth_success_advances_devBar", func():
-		var hit_seed := _find_seed_for(200, func():
-			GameState.reset()
-			GameState.state["world"]["sites"] = [_site_with_faction_vein(_faction_vein(1, 0, 1))]
-			GameState.state["world"]["day"] = 5
-			Sites.roll_faction_vein_growth()
-			return Sites.find_site("s1")["factionVein"]["devBar"] > 0
-		)
-		assert_true(hit_seed != -1, "should find a success roll within 200 tries at skill-1's 30% chance")
-
-		var vein: Dictionary = Sites.find_site("s1")["factionVein"]
-		assert_eq(vein["devBar"], Cultivating.get_bar_gain(1), "devBar advances by the skill-floor-1 bar gain")
-		assert_eq(vein["level"], 1, "not enough devBar yet to level up (2 < devBarMax 8)")
-	)
-
-	run_case("roll_faction_vein_growth_failure_is_a_no_op", func():
-		var miss_seed := _find_seed_for(200, func():
-			GameState.reset()
-			GameState.state["world"]["sites"] = [_site_with_faction_vein(_faction_vein(1, 3, 1))]
-			GameState.state["world"]["day"] = 5
-			Sites.roll_faction_vein_growth()
-			return Sites.find_site("s1")["factionVein"]["devBar"] == 3
-		)
-		assert_true(miss_seed != -1, "should find a failure roll within 200 tries at skill-1's 70% miss chance")
-		assert_eq(Sites.find_site("s1")["factionVein"]["level"], 1, "failure never levels the vein")
-	)
-
-	run_case("roll_faction_vein_growth_success_levels_up_at_devBarMax", func():
-		var hit_seed := _find_seed_for(200, func():
-			GameState.reset()
-			GameState.state["world"]["sites"] = [_site_with_faction_vein(_faction_vein(1, 7, 1))]
-			GameState.state["world"]["day"] = 5
-			Sites.roll_faction_vein_growth()
-			return Sites.find_site("s1")["factionVein"]["level"] == 2
-		)
-		assert_true(hit_seed != -1, "should find a level-up hit within 200 tries (7 + barGain 2 = 9 >= devBarMax 8)")
-
-		var vein: Dictionary = Sites.find_site("s1")["factionVein"]
-		assert_eq(vein["devBar"], 0, "devBar resets to 0 on level-up, same as the player cultivate() path")
-		assert_eq(vein["levelLabel"], "Minor", "levelLabel updates to the Lv2 label")
-	)
-
-	run_case("roll_faction_vein_growth_at_max_level_and_devBarMax_does_not_overflow_or_error", func():
+	run_case("roll_faction_vein_growth_is_currently_a_safe_no_op", func():
 		GameState.reset()
-		GameState.state["world"]["sites"] = [_site_with_faction_vein(_faction_vein(5, 9999, 1))]
+		var vein := _faction_vein(90, 1)
+		GameState.state["world"]["sites"] = [_site_with_faction_vein(vein)]
 		GameState.state["world"]["day"] = 5
 		Rng.set_seed(1)
 		Sites.roll_faction_vein_growth()
-
-		var vein: Dictionary = Sites.find_site("s1")["factionVein"]
-		assert_eq(vein["level"], 5, "level 5 is the hard cap without a maxLevel bonus — no error, no further level-up")
-		assert_true(vein["devBar"] >= 9999, "devBar keeps accumulating past devBarMax at the level cap, same as the uncapped player path — no crash")
-	)
-
-	run_case("roll_faction_vein_growth_skips_a_vein_claimed_this_same_tick", func():
-		for seed in range(30):
-			GameState.reset()
-			GameState.state["world"]["sites"] = [_site_with_faction_vein(_faction_vein(1, 0, 5))]
-			GameState.state["world"]["day"] = 5
-			Rng.set_seed(seed)
-			Sites.roll_faction_vein_growth()
-			assert_eq(Sites.find_site("s1")["factionVein"]["devBar"], 0, "a vein claimed this same tick (claimedOnDay == day) never grows the same day (seed %d)" % seed)
+		assert_eq(Sites.find_site("s1")["factionVein"]["growth"], 90, "not yet implemented (ticket 04) — growth is untouched")
 	)
 
 	run_case("roll_faction_vein_growth_ignores_unclaimed_sites", func():

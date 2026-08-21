@@ -8,7 +8,7 @@ func run() -> void:
 	run_case("new_game_state_matches_schema_defaults", func():
 		var s := GameState.new_game_state()
 
-		assert_eq(s["meta"]["saveVersion"], 1, "meta.saveVersion")
+		assert_eq(s["meta"]["saveVersion"], SaveManager.SAVE_VERSION, "meta.saveVersion")
 		assert_eq(s["currentScreen"], "title", "currentScreen")
 		assert_eq(s["modal"], null, "modal")
 		assert_eq(s["inventoryTab"], "ore", "inventoryTab")

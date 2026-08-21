@@ -150,7 +150,7 @@ func run() -> void:
 			var site := {
 				"id": "s1", "district": "shoreditch", "tier": "rich", "oreType": "time",
 				"bonuses": [], "discoveredDay": 1, "claimed": false,
-				"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "time", "level": 1, "devBar": 0, "security": "none", "claimedOnDay": 1 },
+				"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 1, "hospitability": { "tier": "fair", "bonuses": [] } },
 				"hasNaturalVein": false,
 			}
 			GameState.state["world"]["sites"] = [site]
@@ -163,25 +163,24 @@ func run() -> void:
 		assert_true(hit, "daily_tick should reach step 5c (Sites.roll_npc_abandonment) within 300 tries")
 	)
 
-	run_case("daily_tick_wires_in_faction_vein_growth_step_right_after_abandonment_step", func():
-		var hit := false
-		for seed in range(300):
-			GameState.reset()
-			var site := {
-				"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
-				"bonuses": [], "discoveredDay": 1, "claimed": false,
-				"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "time", "level": 1, "levelLabel": "Trace", "devBar": 0, "security": "none", "claimedOnDay": 1, "hospitability": { "tier": "fair", "bonuses": [] } },
-				"hasNaturalVein": false,
-			}
-			GameState.state["world"]["sites"] = [site]
-			GameState.state["world"]["day"] = 5
-			Rng.set_seed(seed)
-			TimeSystem.daily_tick()
-			var found_site: Variant = Sites.find_site("s1")
-			if found_site != null and found_site["factionVein"]["devBar"] > 0:
-				hit = true
-				break
-		assert_true(hit, "daily_tick should reach step 5d (Sites.roll_faction_vein_growth) within 300 tries")
+	# vein-growth-state ticket 01: faction-vein movement now happens at step
+	# ④ (Cultivating.drift_veins(), the same pass every vein drifts on), not
+	# step ⑤d — Sites.roll_faction_vein_growth() is a no-op placeholder
+	# until vein-growth-state ticket 04 lands its prune-back-at-85 body.
+	run_case("daily_tick_drifts_a_faction_vein_at_step_4_and_still_reaches_step_5d_without_crashing", func():
+		GameState.reset()
+		var site := {
+			"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
+			"bonuses": [], "discoveredDay": 1, "claimed": false,
+			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "time", "growth": 56, "rampantDays": 0, "security": "none", "claimedOnDay": 1, "hospitability": { "tier": "fair", "bonuses": [] } },
+			"hasNaturalVein": false,
+		}
+		GameState.state["world"]["sites"] = [site]
+		GameState.state["world"]["day"] = 5
+		TimeSystem.daily_tick()
+		var found_site: Variant = Sites.find_site("s1")
+		assert_true(found_site != null, "the site should survive an ordinary tick")
+		assert_true(found_site["factionVein"]["growth"] > 56, "the faction vein should have drifted right at step 4")
 	)
 
 	run_case("daily_tick_wires_in_faction_passive_income_step_right_after_vein_growth_step", func():
@@ -197,7 +196,7 @@ func run() -> void:
 		var site := {
 			"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "fate",
 			"bonuses": [], "discoveredDay": 1, "claimed": false,
-			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "fate", "level": 5, "levelLabel": "Lode", "devBar": 0, "security": "none", "claimedOnDay": 1, "hospitability": { "tier": "fair", "bonuses": [] } },
+			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "fate", "growth": 100, "rampantDays": 0, "security": "none", "claimedOnDay": 1, "hospitability": { "tier": "fair", "bonuses": [] } },
 			"hasNaturalVein": false,
 		}
 		GameState.state["world"]["sites"] = [site]
@@ -216,7 +215,7 @@ func run() -> void:
 		var site := {
 			"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "fate",
 			"bonuses": [], "discoveredDay": 1, "claimed": false,
-			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "fate", "level": 5, "levelLabel": "Lode", "devBar": 0, "security": "none", "claimedOnDay": 5, "hospitability": { "tier": "fair", "bonuses": [] } },
+			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "fate", "growth": 100, "rampantDays": 0, "security": "none", "claimedOnDay": 5, "hospitability": { "tier": "fair", "bonuses": [] } },
 			"hasNaturalVein": false,
 		}
 		GameState.state["world"]["sites"] = [site]
@@ -236,7 +235,7 @@ func run() -> void:
 			var site := {
 				"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "fate",
 				"bonuses": [], "discoveredDay": 1, "claimed": false,
-				"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "fate", "level": 3, "levelLabel": "Seam", "devBar": 0, "security": "none", "claimedOnDay": 999, "hospitability": { "tier": "fair", "bonuses": [] } },
+				"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "fate", "growth": 50, "rampantDays": 0, "security": "none", "claimedOnDay": 999, "hospitability": { "tier": "fair", "bonuses": [] } },
 				"hasNaturalVein": false,
 			}
 			GameState.state["world"]["sites"] = [site]
@@ -259,8 +258,8 @@ func run() -> void:
 		for seed in range(500):
 			GameState.reset()
 			var vein := {
-				"id": "pv1", "oreType": "fate", "level": 1, "levelLabel": "Trace", "devBar": 0,
-				"charged": false, "chargeBlocks": 0, "security": "none", "alarmUpgrades": [],
+				"id": "pv1", "oreType": "fate", "growth": 50, "rampantDays": 0,
+				"security": "none", "alarmUpgrades": [],
 				"location": "Test St, nowhere", "claimedOnDay": 0, "district": "camden",
 				"siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
 			}

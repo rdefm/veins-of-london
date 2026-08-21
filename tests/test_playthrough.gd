@@ -156,22 +156,20 @@ func run() -> void:
 		assert_true(seeded_veins.size() >= 1, "seeding should create a vein tied to the site")
 		var new_vein: Dictionary = seeded_veins[0]
 		var vein_id: String = new_vein["id"]
-		# Push it right up to the Lv1->Lv2 threshold directly (formula
-		# correctness is test_cultivating.gd's job), then force one
-		# successful cultivate roll to cross it.
-		new_vein["devBar"] = GameData.VEIN_LEVELS["1"]["devBarMax"] - 1
+		# Force one successful cultivate roll (formula correctness is
+		# test_cultivating.gd's job).
 		var cult_seed := _find_seed_for(300, func():
 			return Cultivating.cultivate(vein_id).get("success", false)
 		)
 		assert_true(cult_seed != -1, "should find a successful cultivate roll")
 		var vein_after_cult: Dictionary = Cultivating.find_vein(vein_id)
-		assert_eq(vein_after_cult["level"], 2, "vein should have reached Lv2")
+		assert_true(vein_after_cult["growth"] > GameData.VEIN_GROWTH["seedGrowth"], "a successful cultivate should raise growth above the seed value")
 		_assert_invariants("post-cultivate")
 
-		vein_after_cult["charged"] = true
-		var harvest_result := Cultivating.harvest_cautious(vein_id)
-		assert_true(harvest_result["ok"], "harvest should succeed once charged")
-		_assert_invariants("post-harvest")
+		vein_after_cult["growth"] = 80
+		var prune_result := Cultivating.prune(vein_id, GameData.VEIN_GROWTH["pruneLightDepth"])
+		assert_true(prune_result["ok"], "prune should succeed on a wild vein")
+		_assert_invariants("post-prune")
 
 		# --- Craft pearls ---
 		GameState.state["player"]["orichalchum"]["time"] += 100
@@ -309,17 +307,17 @@ func run() -> void:
 			assert_true(cult_seed != -1, "%s: should find a successful cultivate roll within 500 tries" % district_id)
 			_assert_invariants("%s: post-cultivate" % district_id)
 
-			# --- harvest: charge it directly (recharge-block math is
-			# test_cultivating.gd's job), then harvest cautiously ---
-			var harvest_vein: Dictionary = Cultivating.find_vein(vein_id)
-			harvest_vein["charged"] = true
-			var harvest_result := Cultivating.harvest_cautious(vein_id)
-			assert_true(harvest_result["ok"], "%s: harvest should succeed once charged" % district_id)
-			assert_true(GameState.state["player"]["orichalchum"][harvest_result["oreType"]] > 0, "%s: harvest should grant ore" % district_id)
-			_assert_invariants("%s: post-harvest" % district_id)
+			# --- prune: push it above neutral directly (drift/band math is
+			# test_cultivating.gd's job), then prune it ---
+			var prune_vein: Dictionary = Cultivating.find_vein(vein_id)
+			prune_vein["growth"] = 80
+			var prune_result := Cultivating.prune(vein_id, GameData.VEIN_GROWTH["pruneLightDepth"])
+			assert_true(prune_result["ok"], "%s: prune should succeed above neutral" % district_id)
+			assert_true(GameState.state["player"]["orichalchum"][prune_result["oreType"]] > 0, "%s: prune should grant ore" % district_id)
+			_assert_invariants("%s: post-prune" % district_id)
 
 			# --- sell: in the district we're standing in (D3) ---
-			var ore_type: String = harvest_result["oreType"]
+			var ore_type: String = prune_result["oreType"]
 			var cash_before: int = GameState.state["player"]["cash"]
 			var sell_seed := _find_seed_for(500, func():
 				var have: int = GameState.state["player"]["orichalchum"].get(ore_type, 0)

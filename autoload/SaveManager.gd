@@ -5,7 +5,7 @@ extends Node
 # advance (on completion), and every successful cash purchase (home
 # upgrade/security/room, barometer manual push/pull) — M0-T14 wiring.
 
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 const SLOT_COUNT := 3
 const AUTOSAVE_COUNT := 3
 const SAVES_DIR := "user://saves/"
@@ -116,8 +116,11 @@ func _load_json_into_state(path: String) -> Dictionary:
 
 
 func _load_save_dict(raw: Dictionary) -> Dictionary:
-	var migrated := migrate(raw)
-	var filled := backfill_defaults(migrated)
+	var version_check := _check_save_version(raw)
+	if not version_check["ok"]:
+		return version_check
+
+	var filled := backfill_defaults(raw)
 	_restore_int_types(filled)
 	_remap_retired_screen_id(filled)
 	GameState.state = filled
@@ -148,20 +151,18 @@ func _remap_retired_screen_id(save: Dictionary) -> void:
 	save["phoneNav"] = phone_nav
 
 
-# Version-keyed migration function table. Currently identity for v1 —
-# this project starts on the new ore roster, so there is no migration #1
-# (R§6). Dispatches on meta.saveVersion, defaulting to the current
-# version if absent.
-func migrate(save: Dictionary) -> Dictionary:
+# vein-growth-state spec §11: save-breaking is accepted for the growth-model
+# rewrite — no migrator. A save whose meta.saveVersion doesn't match the
+# current SAVE_VERSION is rejected outright with a clear reason, rather than
+# half-loading a v1 save's now-meaningless devBar/level/charged vein fields.
+# A save with no meta.saveVersion at all is treated as the current version
+# (matches new_game_state()'s own default) rather than rejected.
+func _check_save_version(save: Dictionary) -> Dictionary:
 	var meta: Dictionary = save.get("meta", {})
 	var version: int = meta.get("saveVersion", SAVE_VERSION)
-	var migrators := {
-		1: func(s: Dictionary) -> Dictionary: return s,
-	}
-	if not migrators.has(version):
-		return save
-	var migrator: Callable = migrators[version]
-	return migrator.call(save)
+	if version != SAVE_VERSION:
+		return { "ok": false, "reason": "This save is from an older version of the game (v%d) and can't be loaded. Start a new game." % version }
+	return { "ok": true }
 
 
 # Fills any missing TOP-LEVEL keys from a fresh new_game_state() (R§6:
@@ -221,7 +222,7 @@ func _restore_int_types(state: Dictionary) -> void:
 				for note in note_list:
 					_int_key(note, "day")
 		for vein in player.get("veins", []):
-			for key in ["level", "devBar", "chargeBlocks", "claimedOnDay"]:
+			for key in ["growth", "rampantDays", "claimedOnDay"]:
 				_int_key(vein, key)
 		for device in player.get("devicesCompleted", []):
 			for key in ["level", "xp", "chargesPerDay", "chargesUsedToday", "lastResetDay"]:
@@ -239,7 +240,7 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(site, "discoveredDay")
 			if site.get("factionVein") != null:
 				var faction_vein: Dictionary = site["factionVein"]
-				for key in ["level", "devBar", "chargeBlocks", "claimedOnDay"]:
+				for key in ["growth", "rampantDays", "claimedOnDay"]:
 					_int_key(faction_vein, key)
 		for recent in world.get("recentEvents", []):
 			_int_key(recent, "day")

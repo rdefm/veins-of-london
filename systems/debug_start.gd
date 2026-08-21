@@ -51,10 +51,13 @@ static func apply() -> void:
 	var shoreditch_physics_site := _debug_claimed_site("shoreditch", "physics")
 	var shoreditch_life_site := _debug_claimed_site("shoreditch", "life")
 
+	# vein-growth-state: one per distinct visual state (collapsed, dormant,
+	# rampant) so every band is inspectable immediately without waiting
+	# out drift (docs/REFERENCE.md §5).
 	player["veins"] = [
-		_debug_vein("time", 3, shoreditch_time_site["id"]),
-		_debug_vein("physics", 1, shoreditch_physics_site["id"]),
-		_debug_vein("life", 5, shoreditch_life_site["id"]),
+		_debug_vein("time", 0, shoreditch_time_site["id"]),
+		_debug_vein("physics", 50, shoreditch_physics_site["id"]),
+		_debug_vein("life", 100, shoreditch_life_site["id"]),
 	]
 
 	# M1-LONDON D7: 2 discovered, unclaimed sites — one rich (greenwich), one
@@ -160,17 +163,11 @@ static func _debug_claimed_site(district: String, ore_type: String) -> Dictionar
 	return site
 
 
-static func _debug_vein(ore_type: String, level: int, site_id: String) -> Dictionary:
-	var level_data: Dictionary = GameData.VEIN_LEVELS[str(level)]
-	var recharge_blocks: int = level_data["rechargeBlocks"]
+static func _debug_vein(ore_type: String, growth: int, site_id: String) -> Dictionary:
 	return {
 		"id": Cultivating.make_vein_id(),
 		"oreType": ore_type,
-		"level": level,
-		"levelLabel": level_data["label"],
-		"devBar": GameState.round_epsilon(level_data["devBarMax"] * 0.5),
-		"charged": true,
-		"chargeBlocks": recharge_blocks,
+		"growth": growth,
 		"security": "none",
 		"alarmUpgrades": [],
 		"location": Cultivating.generate_location_name(),
@@ -178,4 +175,5 @@ static func _debug_vein(ore_type: String, level: int, site_id: String) -> Dictio
 		"district": "shoreditch",
 		"siteId": site_id,
 		"hospitability": { "tier": "fair", "bonuses": [] },
+		"rampantDays": 0,
 	}

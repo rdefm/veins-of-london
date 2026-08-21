@@ -11,7 +11,7 @@
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Fair. Look — this has made me think. We've been doing well together. You've been reliable, which in this line of work is genuinely rare. I think we should make it proper.\"" },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Official partners. Means I look out for you, you look out for me. And it means I can call in a favour — got a bloke who does security installs. Good gear, reasonable price, he doesn't ask questions. I'll have him round.\"" },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Also — and this is me being straight with you — you need to move. This place is done. Save up, find somewhere better. Nicer area, proper security, somewhere people can't just walk into at three in the morning.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"And — the vein. I said I'd transfer it. Consider it done. Time vein, Whitechapel, level one. It needs work before it'll produce anything, but it's yours. Cultivate it up, harvest what you can, make pearls. I'll handle the buyers.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"And — the vein. I said I'd transfer it. Consider it done. Time vein, Whitechapel. It needs work before it'll produce anything, but it's yours. Cultivate it up, prune what you can, make pearls. I'll handle the buyers.\"" },
     { "type": "resolution", "label": null, "speaker": null, "text": "He finishes his coffee and leaves before you can thank him, which is probably how he prefers it. You check your phone. There's a pin location. The vein." }
   ],
   "on_complete": [
@@ -21,7 +21,7 @@
     { "op": "set_flag", "flag": "homeUnlocked", "value": true },
     { "op": "set_flag", "flag": "securityContactUnlocked", "value": true },
     { "op": "relation", "contact": "archie", "value": 10 },
-    { "op": "grant_vein_with_site", "vein": { "oreType": "time", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "alarmUpgrades": [], "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
+    { "op": "grant_vein_with_site", "vein": { "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "alarmUpgrades": [], "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
     { "op": "notify", "text": "HQ's workbench is open now." },
     { "op": "set_screen", "screen": "phone" }
   ]

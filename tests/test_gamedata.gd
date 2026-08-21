@@ -124,12 +124,52 @@ func run() -> void:
 		assert_true(found, "an event pin pointing at an unknown district should be flagged")
 	)
 
+	run_case("corrupt_fixture_vein_growth_band_gap_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		# Leave a gap between thinning (max 44) and dormant (min was 45).
+		for band in corrupted["vein_growth"]["bands"]:
+			if band["id"] == "dormant":
+				band["min"] = 46
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("gap or overlap"):
+				found = true
+		assert_true(found, "a gap between bands should fail validation")
+	)
+
+	run_case("corrupt_fixture_vein_growth_bands_not_covering_100_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["vein_growth"]["bands"] = corrupted["vein_growth"]["bands"].filter(func(b): return b["id"] != "rampant")
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("cover through growth 100"):
+				found = true
+		assert_true(found, "bands that stop short of growth 100 should fail validation")
+	)
+
+	run_case("corrupt_fixture_vein_growth_no_dormant_band_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		for band in corrupted["vein_growth"]["bands"]:
+			if band["id"] == "dormant":
+				band["drift"] = 1  # no longer a resting band at all
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("exactly one drift:0 band straddling neutral"):
+				found = true
+		assert_true(found, "losing the one resting (drift:0) band straddling neutral should fail validation")
+	)
+
 	run_case("spot_check_values", func():
 		assert_eq(GameData.ORE_TYPES["fate"]["basePrice"], 90, "fate basePrice")
 		assert_eq(GameData.ORE_TYPES["emotion"]["symbol"], "❋", "emotion symbol")
 		assert_eq(GameData.HOME_TIERS["townhouse"]["maxRooms"], 3, "townhouse maxRooms")
 		assert_true(GameData.RECIPES["enhancementPowder"]["ingredients"].has("life"), "enhancementPowder ingredients")
-		assert_eq(GameData.VEIN_LEVELS["5"]["devBarMax"], 9999, "Lode devBarMax")
+		assert_eq(GameData.VEIN_GROWTH["neutral"], 50, "vein_growth neutral")
+		assert_eq(GameData.VEIN_GROWTH["ceiling"], 100, "vein_growth ceiling")
+		assert_eq(GameData.VEIN_GROWTH["seedGrowth"], 20, "vein_growth seedGrowth")
 		assert_eq(GameData.VEIN_SECURITY["guarded"]["raidResist"], 55, "guarded raidResist")
 		assert_eq(GameData.FACTIONS["conclave"]["joinRelation"], 60, "conclave joinRelation")
 		assert_almost_eq(GameData.BAROMETER_STATES["economic"]["crisis"]["effects"]["fatePremium"], 0.5, 0.0001, "crisis fatePremium (migrated from void)")

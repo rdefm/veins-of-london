@@ -1,0 +1,30 @@
+{
+  "neutral": 50,
+  "ceiling": 100,
+  "wildCeilingBonus": 20,
+  "bands": [
+    { "id": "collapsed","min": 0,   "max": 0,   "label": "Spent",    "drift": 0 },
+    { "id": "barren",   "min": 1,   "max": 14,  "label": "Barren",   "drift": 3 },
+    { "id": "sparse",   "min": 15,  "max": 29,  "label": "Sparse",   "drift": 2 },
+    { "id": "thinning", "min": 30,  "max": 44,  "label": "Thinning", "drift": 1 },
+    { "id": "dormant",  "min": 45,  "max": 55,  "label": "Dormant",  "drift": 0 },
+    { "id": "taking",   "min": 56,  "max": 70,  "label": "Taking",   "drift": 1 },
+    { "id": "lush",     "min": 71,  "max": 85,  "label": "Lush",     "drift": 2 },
+    { "id": "wild",     "min": 86,  "max": 99,  "label": "Wild",     "drift": 3 },
+    { "id": "rampant",  "min": 100, "max": 9999,"label": "Rampant",  "drift": 0 }
+  ],
+  "yieldPerPoint": 0.35,
+  "hardPruneBonus": 1.25,
+  "pruneLightDepth": 15,
+  "pruneHardDepth": 40,
+  "cultivateBase": 10,
+  "cultivatePerSkill": 4,
+  "cultivateMinGain": 2,
+  "collapseChancePerDay": 0.15,
+  "seedGrowth": 20,
+  "rampantSeedDays": 5,
+  "selfSeedGrowth": 60,
+  "terroirYieldMult": { "poor": 0.6, "fair": 1.0, "rich": 1.6, "saturated": 2.4 },
+  "seedOreCost": 40,
+  "cultivatingXpLevels": [0, 0, 80, 220, 500, 1000]
+}

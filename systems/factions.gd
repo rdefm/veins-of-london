@@ -80,7 +80,7 @@ static func pick_claimant(district_id: String) -> String:
 # stat). Security is rolled fresh — see roll_security_tier().
 static func create_faction_vein(faction_id: String, site: Dictionary) -> Dictionary:
 	var hospitability := { "tier": site["tier"], "bonuses": site["bonuses"] }
-	var vein := Cultivating.make_vein(site["oreType"], Cultivating.get_bar_gain(1), site["district"], site["id"], hospitability)
+	var vein := Cultivating.make_vein(site["oreType"], GameData.VEIN_GROWTH["seedGrowth"], site["district"], site["id"], hospitability)
 	vein["factionId"] = faction_id
 	vein["security"] = roll_security_tier(faction_id, site["oreType"])
 	return vein
@@ -223,7 +223,7 @@ static func apply_vein_income() -> void:
 		if vein == null or vein["claimedOnDay"] >= day:
 			continue
 		var base_price: int = GameData.ORE_TYPES[vein["oreType"]]["basePrice"]
-		var income: int = GameState.round_epsilon(base_price * vein["level"] / VEIN_INCOME_DIVISOR)
+		var income: int = GameState.round_epsilon(base_price * Cultivating.value_tier(vein) / VEIN_INCOME_DIVISOR)
 		GameState.state["factions"][vein["factionId"]]["resources"] += income
 
 
@@ -263,7 +263,7 @@ static func apply_security_upgrades() -> void:
 			var cost: int = GameData.VEIN_SECURITY[next_id]["cost"]
 			if faction_state["resources"] < cost:
 				continue
-			var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * vein["level"]
+			var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.value_tier(vein)
 			if value > best_value:
 				best_value = value
 				best_vein = vein
@@ -380,7 +380,7 @@ static func _pick_target_vein(candidates: Array) -> Dictionary:
 	var weight_list: Array[float] = []
 	for candidate in candidates:
 		var vein: Dictionary = candidate["vein"]
-		weight_list.append(GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * vein["level"])
+		weight_list.append(GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.value_tier(vein))
 	return candidates[weighted_pick_index(weight_list)]
 
 
@@ -602,8 +602,11 @@ static func seed_day_one_veins() -> void:
 
 # Everything about the site (tier, oreType, bonuses) and the vein's
 # security tier is rolled exactly as a normal NPC claim would produce
-# ("everything else stays procedural" per spec.md) — only the vein's level
-# is forced afterward. No MapEvents queueing and no Notify/XP: these veins
+# ("everything else stays procedural" per spec.md) — only the vein's growth
+# is forced afterward, via vein-growth-state spec §5's level->growth
+# mapping (growth = 20n - 10, so Lv1 -> 10, Lv3 -> 50, Lv5 -> 90),
+# preserving the day-one rosters' intended relative strength now that
+# levels are gone. No MapEvents queueing and no Notify/XP: these veins
 # exist from the moment the game starts, so there is nothing to animate or
 # award XP for (the daily-tick NPC-claim path's queue_seed_claim/Notify
 # calls are for a claim happening *during* play, which this isn't).
@@ -612,9 +615,7 @@ static func _seed_day_one_vein(faction_id: String, district_id: String, level: i
 	var site := Sites.roll_new_site(district_id, tier)
 
 	var vein := create_faction_vein(faction_id, site)
-	vein["level"] = level
-	vein["levelLabel"] = GameData.VEIN_LEVELS[str(level)]["label"]
-	vein["devBar"] = 0  # discard create_faction_vein()'s Lv1 devBar gain — same reset level_up_vein() does on every level change
+	vein["growth"] = 20 * level - 10
 	site["factionVein"] = vein
 
 	GameState.state["world"]["sites"].append(site)

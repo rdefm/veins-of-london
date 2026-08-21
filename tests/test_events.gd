@@ -36,9 +36,8 @@ func _install_choice_event() -> Dictionary:
 # test_factions.gd's own _faction_vein_of/_site_with_vein helpers.
 static func _faction_vein_of(level: int, ore_type: String, security: String = "none", faction_id: String = "collective") -> Dictionary:
 	return {
-		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "level": level,
-		"levelLabel": GameData.VEIN_LEVELS[str(level)]["label"], "devBar": 0,
-		"charged": false, "chargeBlocks": 0, "security": security,
+		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "growth": 20 * level - 10,
+		"rampantDays": 0, "security": security,
 		"location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch",
 		"siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
 	}
@@ -245,31 +244,29 @@ func run() -> void:
 
 	# ── tutorial_cultivate (D6) ───────────────────────────────────────────
 
-	run_case("tutorial_cultivate_adds_barGain_devBar_to_the_whitechapel_time_vein", func():
+	run_case("tutorial_cultivate_adds_gain_to_the_whitechapel_time_vein", func():
 		GameState.reset()
 		GameState.state["player"]["cultivatingSkill"] = 1
 		Events.apply_effects([
-			{ "op": "grant_vein_with_site", "vein": { "oreType": "time", "level": 1, "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
+			{ "op": "grant_vein_with_site", "vein": { "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
 		])
 		Events.apply_effects([{ "op": "tutorial_cultivate" }])
 
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(vein["devBar"], Cultivating.get_bar_gain(1), "devBar increases by barGain, no roll involved")
-		assert_eq(vein["level"], 1, "not enough to level up yet at Lv1 devBarMax")
+		var expected_gain: int = Cultivating.cultivate_gain(1, 20, Cultivating.ceiling(vein))
+		assert_eq(vein["growth"], 20 + expected_gain, "growth increases by cultivate_gain, no roll involved")
 	)
 
-	run_case("tutorial_cultivate_levels_up_the_vein_when_the_gain_crosses_devBarMax", func():
+	run_case("tutorial_cultivate_can_push_growth_up_from_any_starting_point", func():
 		GameState.reset()
-		GameState.state["player"]["cultivatingSkill"] = 2  # bar_gain = 3
-		# Lv1 devBarMax is 8 (data/vein_levels.json); start 5 in so +3 lands exactly on it.
+		GameState.state["player"]["cultivatingSkill"] = 2
 		Events.apply_effects([
-			{ "op": "grant_vein_with_site", "vein": { "oreType": "time", "level": 1, "devBar": 5, "charged": false, "chargeBlocks": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
+			{ "op": "grant_vein_with_site", "vein": { "oreType": "time", "growth": 60, "rampantDays": 0, "security": "none", "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
 		])
 		Events.apply_effects([{ "op": "tutorial_cultivate" }])
 
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(vein["level"], 2, "should level up once devBar crosses Lv1's devBarMax")
-		assert_eq(vein["devBar"], 0, "levelling up resets devBar")
+		assert_true(vein["growth"] > 60, "tutorial_cultivate should raise growth above its starting point")
 	)
 
 	run_case("tutorial_cultivate_is_a_no_op_with_no_matching_vein", func():
@@ -581,7 +578,7 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["veins"].size(), veins_before + 1, "debrief: grants a vein")
 		var granted: Dictionary = GameState.state["player"]["veins"][veins_before]
 		assert_eq(granted["oreType"], "time", "granted vein: time-type")
-		assert_eq(granted["level"], 1, "granted vein: Lv1")
+		assert_eq(granted["growth"], GameData.VEIN_GROWTH["seedGrowth"], "granted vein: seedGrowth")
 		assert_eq(granted["district"], "whitechapel", "granted vein: whitechapel")
 		assert_eq(GameState.state["currentScreen"], "phone", "debrief: -> phone home")
 		assert_true(_has_notification("HQ's workbench is open now."), "debrief: HQ nudge notification")
@@ -601,13 +598,14 @@ func run() -> void:
 		# directly here since this test has no screen tree.
 		assert_true(GameState.state["flags"]["archiePartnerSeen"] and not GameState.state["flags"]["cultivationTutorialSeen"])
 		var archie_relation_before_cultivation: int = GameState.state["contacts"]["archie"]["relation"]
-		var dev_bar_before: int = granted["devBar"]
+		var growth_before: int = granted["growth"]
+		var expected_gain: int = Cultivating.cultivate_gain(GameState.state["player"]["cultivatingSkill"], growth_before, Cultivating.ceiling(granted))
 		Events.start_event("archie_cultivation")
 		for i in range(GameData.EVENTS["archie_cultivation"]["cards"].size()):
 			Events.advance()
 		assert_true(GameState.state["flags"]["cultivationTutorialSeen"], "archie_cultivation: cultivationTutorialSeen")
 		assert_eq(GameState.state["contacts"]["archie"]["relation"], archie_relation_before_cultivation + 2, "archie_cultivation: archie relation +2")
-		assert_eq(granted["devBar"], dev_bar_before + Cultivating.get_bar_gain(GameState.state["player"]["cultivatingSkill"]), "archie_cultivation: tutorial_cultivate added barGain devBar")
+		assert_eq(granted["growth"], growth_before + expected_gain, "archie_cultivation: tutorial_cultivate added cultivate_gain growth")
 		assert_eq(GameState.state["currentScreen"], "map", "archie_cultivation: -> map")
 
 		# 6. Post-tutorial motion events

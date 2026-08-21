@@ -289,12 +289,11 @@ static func _grant_vein_with_site(vein_template: Dictionary) -> void:
 	}
 	GameState.state["world"]["sites"].append(site)
 
-	var level: int = vein_template["level"]
 	var vein: Dictionary = GameState.deep_copy(vein_template)
 	vein["id"] = Cultivating.make_vein_id()
-	vein["levelLabel"] = GameData.VEIN_LEVELS[str(level)]["label"]
 	vein["claimedOnDay"] = day
 	vein["siteId"] = site["id"]
+	vein["rampantDays"] = 0
 	GameState.state["player"]["veins"].append(vein)
 
 
@@ -310,12 +309,9 @@ static func _tutorial_cultivate() -> void:
 		return
 
 	var skill: int = GameState.state["player"]["cultivatingSkill"]
-	var gain: int = Cultivating.get_bar_gain(skill)
-	var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
-	vein["devBar"] = vein["devBar"] + gain
-
-	if vein["level"] < Cultivating.get_level_cap(vein) and vein["devBar"] >= level_data["devBarMax"]:
-		Cultivating.level_up_vein(vein)
+	var vein_ceiling: int = Cultivating.ceiling(vein)
+	var gain: int = Cultivating.cultivate_gain(skill, vein["growth"], vein_ceiling)
+	vein["growth"] = clampi(vein["growth"] + gain, 0, vein_ceiling)
 
 
 static func _find_tutorial_cultivation_vein() -> Variant:
@@ -387,4 +383,4 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 		return
 
 	var vein: Dictionary = site["factionVein"]
-	Combat.start_raid(vein["id"], vein["level"], effect.get("guards", 1), effect.get("template", ""), Combat.CONTEXT_EVENT_RAID)
+	Combat.start_raid(vein["id"], Cultivating.value_tier(vein), effect.get("guards", 1), effect.get("template", ""), Combat.CONTEXT_EVENT_RAID)

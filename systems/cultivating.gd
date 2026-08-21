@@ -1,9 +1,7 @@
 class_name Cultivating
 extends RefCounted
 
-# Seed/cultivate/harvest per R§3.4. Static funcs only.
-
-const LEVEL_CAP := 5
+# Growth/cultivate/prune per vein-growth-state spec.md §2-3. Static funcs only.
 
 # data/vein_security.json's upgrade ladder (R§1.6). The file's key order
 # already matches this, but that's an implicit JSON-insertion-order
@@ -48,49 +46,68 @@ static func get_cult_chance(skill: int) -> float:
 	return min(0.90, 0.30 + (skill - 1) * 0.12)
 
 
-static func get_bar_gain(skill: int) -> int:
-	return 1 + skill
+# ── growth bands (vein-growth-state spec.md §2.2) ───────────────────────
+
+static func growth_band(vein: Dictionary) -> Dictionary:
+	return _band_for_growth(vein["growth"])
 
 
-# M1 hospitability bonuses (M1-LONDON.md D2), read from vein.hospitability.
-# M0 veins default to { tier: "fair", bonuses: [] } — no bonus, no change
-# in behaviour.
-static func get_level_cap(vein: Dictionary) -> int:
+static func band_drift(growth: int) -> int:
+	return _band_for_growth(growth)["drift"]
+
+
+# Tolerates a growth value above 100 (a wildCeiling vein) — the "rampant"
+# band's max is deliberately open-ended (data/vein_growth.json).
+static func _band_for_growth(growth: int) -> Dictionary:
+	for band in GameData.VEIN_GROWTH["bands"]:
+		if growth >= band["min"] and growth <= band["max"]:
+			return band
+	return GameData.VEIN_GROWTH["bands"][-1]
+
+
+# spec §3: growth 0-19 -> 1, 20-39 -> 2, ..., 100+ -> 6 (a wildCeiling vein
+# past 100 still reads as 6, not 7 — "1..6" is a hard ceiling, not a
+# straight extrapolation of the formula).
+static func value_tier(vein: Dictionary) -> int:
+	return mini(6, 1 + int(floor(float(vein["growth"]) / 20.0)))
+
+
+# 100, or 120 with the wildCeiling hospitability bonus (terroir-amplification
+# ticket 05 is what actually grants that bonus — this just has to accept a
+# vein that already carries it).
+static func ceiling(vein: Dictionary) -> int:
+	var base: int = GameData.VEIN_GROWTH["ceiling"]
 	var bonuses: Array = vein.get("hospitability", {}).get("bonuses", [])
-	return 6 if bonuses.has("maxLevel") else LEVEL_CAP
+	if bonuses.has("wildCeiling"):
+		return base + GameData.VEIN_GROWTH["wildCeilingBonus"]
+	return base
 
 
-static func is_at_max_level(vein: Dictionary) -> bool:
-	return vein["level"] >= get_level_cap(vein)
+# Simulates daily drift (the same step-shape _drift_one() below applies)
+# until the vein reaches whichever wall it's currently leaning toward.
+# A vein sitting exactly at neutral isn't drifting toward either wall —
+# -1 is the "not applicable" sentinel for that case.
+static func days_to_wall(vein: Dictionary) -> int:
+	var neutral: int = GameData.VEIN_GROWTH["neutral"]
+	var growth: int = vein["growth"]
+	if growth == neutral:
+		return -1
+
+	var target: int = ceiling(vein) if growth > neutral else 0
+	var days := 0
+	while growth != target and days < 1000:
+		var delta: int = band_drift(growth)
+		if delta == 0:
+			break
+		if growth > neutral:
+			growth = mini(target, growth + delta)
+		else:
+			growth = maxi(target, growth - delta)
+		days += 1
+	return days
 
 
-# map-interaction-model ticket 01: fill fraction for the level badge's
-# progress ring. A maxed vein reads as "topped out" (ring full), not "one
-# harvest away" — its devBarMax is 9999 (data/vein_levels.json), a tiny
-# sliver against real devBar values, so max level is special-cased to 1.0
-# rather than computed from that placeholder ceiling.
-static func dev_fraction(vein: Dictionary) -> float:
-	if is_at_max_level(vein):
-		return 1.0
-	var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
-	var dev_bar_max: int = level_data["devBarMax"]
-	return clampf(float(vein["devBar"]) / float(dev_bar_max), 0.0, 1.0)
-
-
-# "recharge" hospitability bonus: -1 (min 1), stacks with the King's
-# Cross district special (also -1, min 1 overall).
-static func get_effective_recharge_blocks(vein: Dictionary) -> int:
-	var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
-	var blocks: int = level_data["rechargeBlocks"]
-	var bonuses: Array = vein.get("hospitability", {}).get("bonuses", [])
-	if bonuses.has("recharge"):
-		blocks -= 1
-	if vein.get("district") == "kingscross":
-		blocks -= 1
-	return maxi(1, blocks)
-
-
-# "yield" hospitability bonus applies to the ROLLED result, not the level
+# "yield" hospitability bonus applies to the ROLLED result, not the growth
 # table's range: finalYield = max(rolled+1, round(rolled*1.15)) — guarantees
 # +1 over the base roll even where 1.15x a small integer would round away.
 static func apply_yield_bonus(vein: Dictionary, rolled: int) -> int:
@@ -100,25 +117,26 @@ static func apply_yield_bonus(vein: Dictionary, rolled: int) -> int:
 	return maxi(rolled + 1, GameState.round_epsilon(rolled * 1.15))
 
 
-# Shared vein-dict constructor for every place that creates a fresh Lv1
-# vein — systems/sites.gd's attempt_seed(), systems/factions.gd's
-# create_faction_vein(), and systems/events.gd's tutorial debrief. All three
-# always pass a real site_id; the free-floating M0 seed() that used to pass
-# null here (creating a vein invisible on the map) was deleted (bugfixes
-# ticket 15). hospitability is deep-copied — a
-# site's seeded vein and its natural-vein bonus (D2) both derive their
-# hospitability from the same site dict, and state purity requires every
-# vein to own an independent copy, never share an Array/Dictionary
-# reference with the site or with each other.
-static func make_vein(ore_type: String, dev_bar: int, district: String, site_id: Variant, hospitability: Dictionary) -> Dictionary:
+# spec §7a: tier drives ore yield directly (poor 0.6 / fair 1.0 / rich 1.6 /
+# saturated 2.4 — data/vein_growth.json's terroirYieldMult).
+static func terroir_yield_mult(vein: Dictionary) -> float:
+	var tier: String = vein.get("hospitability", {}).get("tier", "fair")
+	return GameData.VEIN_GROWTH["terroirYieldMult"].get(tier, 1.0)
+
+
+# Shared vein-dict constructor for every place that creates a fresh
+# vein — systems/sites.gd's attempt_seed()/natural-vein grant,
+# systems/factions.gd's create_faction_vein(), and systems/events.gd's
+# tutorial debrief. hospitability is deep-copied — a site's seeded vein and
+# its natural-vein bonus (D2) both derive their hospitability from the same
+# site dict, and state purity requires every vein to own an independent
+# copy, never share an Array/Dictionary reference with the site or with
+# each other.
+static func make_vein(ore_type: String, growth: int, district: String, site_id: Variant, hospitability: Dictionary) -> Dictionary:
 	return {
 		"id": make_vein_id(),
 		"oreType": ore_type,
-		"level": 1,
-		"levelLabel": GameData.VEIN_LEVELS["1"]["label"],
-		"devBar": dev_bar,
-		"charged": false,
-		"chargeBlocks": 0,
+		"growth": growth,
 		"security": "none",
 		# vein-raiding ticket 05: array of purchased alarm-upgrade ids, mirroring
 		# state.home["security"]'s shape — independent of the "security" tier
@@ -129,6 +147,10 @@ static func make_vein(ore_type: String, dev_bar: int, district: String, site_id:
 		"district": district,
 		"siteId": site_id,
 		"hospitability": GameState.deep_copy(hospitability),
+		# vein-growth-state spec §2.6: consecutive daily ticks spent at the
+		# ceiling. Drives self-seeding (ticket 02); 0 for any vein not at the
+		# ceiling.
+		"rampantDays": 0,
 	}
 
 
@@ -136,6 +158,15 @@ static func award_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
 	var on_level_up := func(): Notify.push("Cultivating skill up — now level %d." % player["cultivatingSkill"])
 	Progression.award_xp(player, "cultivatingXP", "cultivatingSkill", GameData.CULTIVATING_XP_LEVELS, amount, on_level_up)
+
+
+# spec §2.4: diminishing toward the right on purpose — cultivating is at its
+# most efficient as rescue on the barren side, least efficient as a
+# shortcut to the ceiling.
+static func cultivate_gain(skill: int, growth: int, vein_ceiling: int) -> int:
+	var vg: Dictionary = GameData.VEIN_GROWTH
+	var raw: float = (vg["cultivateBase"] + vg["cultivatePerSkill"] * skill) * (1.0 - float(growth) / float(vein_ceiling))
+	return maxi(vg["cultivateMinGain"], GameState.round_epsilon(raw))
 
 
 static func cultivate(vein_id: String) -> Dictionary:
@@ -154,25 +185,42 @@ static func cultivate(vein_id: String) -> Dictionary:
 	var success: bool = Rng.chance(get_cult_chance(skill))
 
 	if success:
-		var gain: int = get_bar_gain(skill)
-		var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
-		vein["devBar"] = vein["devBar"] + gain
+		var vein_ceiling: int = ceiling(vein)
+		var gain: int = cultivate_gain(skill, vein["growth"], vein_ceiling)
+		vein["growth"] = clampi(vein["growth"] + gain, 0, vein_ceiling)
+		if vein["growth"] < vein_ceiling:
+			vein["rampantDays"] = 0
 		award_xp(20)
-		var levelled_up: bool = vein["level"] < get_level_cap(vein) and vein["devBar"] >= level_data["devBarMax"]
-		if levelled_up:
-			level_up_vein(vein)
-		Modal.open("cultivate_result", { "success": true, "gain": gain, "veinId": vein_id, "levelledUp": levelled_up, "newLevel": vein["level"], "newLabel": vein["levelLabel"] })
-		return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "levelledUp": levelled_up, "newLevel": vein["level"], "newLabel": vein["levelLabel"] }
+		Modal.open("cultivate_result", { "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] })
+		return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] }
 	else:
 		award_xp(8)
 		Modal.open("cultivate_result", { "success": false, "veinId": vein_id })
 		return { "ok": true, "success": false, "veinId": vein_id }
 
 
-static func harvest_cautious(vein_id: String) -> Dictionary:
+# spec §2.4: yield counts only the growth points removed from above neutral.
+# Pruning at or below neutral always yields 0 — the UI must show this
+# projection before the player spends a block on it.
+static func prune_yield(vein: Dictionary, depth: int) -> int:
+	var vg: Dictionary = GameData.VEIN_GROWTH
+	var neutral: int = vg["neutral"]
+	var growth_before: int = vein["growth"]
+	var growth_after: int = maxi(0, growth_before - depth)
+	var points: int = maxi(0, growth_before - neutral) - maxi(0, growth_after - neutral)
+	var hard_bonus: float = vg["hardPruneBonus"] if depth == vg["pruneHardDepth"] else 1.0
+	var rolled: int = GameState.round_epsilon(points * vg["yieldPerPoint"] * terroir_yield_mult(vein) * hard_bonus)
+	return apply_yield_bonus(vein, rolled)
+
+
+# Replaces harvest_cautious()/harvest_full() — depth is the caller's choice
+# of GameData.VEIN_GROWTH's pruneLightDepth (-15) or pruneHardDepth (-40).
+# No cultivating XP awarded, matching the harvest schedule this replaces
+# (only cultivate() awards cultivating XP).
+static func prune(vein_id: String, depth: int) -> Dictionary:
 	var vein = find_vein(vein_id)
-	if vein == null or not vein["charged"]:
-		return { "ok": false, "reason": "Vein isn't charged." }
+	if vein == null:
+		return { "ok": false, "reason": "Vein not found." }
 
 	var travel := Travel.ensure_district(vein["district"])
 	if not travel["ok"]:
@@ -180,103 +228,80 @@ static func harvest_cautious(vein_id: String) -> Dictionary:
 
 	TimeSystem.advance_time_block()
 
-	var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
-	var yield_range: Array = level_data["yieldCautious"]
-	var amount: int = apply_yield_bonus(vein, Rng.randi_range(yield_range[0], yield_range[1]))
+	var amount: int = prune_yield(vein, depth)
+	vein["growth"] = maxi(0, vein["growth"] - depth)
+	vein["rampantDays"] = 0
 
 	var player: Dictionary = GameState.state["player"]
 	var ore_type: String = vein["oreType"]
 	player["orichalchum"][ore_type] = player["orichalchum"].get(ore_type, 0) + amount
 
-	vein["charged"] = false
-	vein["chargeBlocks"] = 0
-	# map-animations ticket 04: the entry guard above already requires
-	# vein["charged"] == true to reach this point, so setting it false here
-	# is always the true -> false transition -- no was_charged flag needed,
-	# unlike recharge_veins() which loops every vein every tick.
-	MapEvents.queue_drain(vein["district"], vein["id"])
-
 	EventBus.state_changed.emit()
-	return { "ok": true, "amount": amount, "oreType": ore_type, "veinId": vein_id }
+	return { "ok": true, "amount": amount, "oreType": ore_type, "veinId": vein_id, "growth": vein["growth"] }
 
 
-static func harvest_full(vein_id: String) -> Dictionary:
-	var vein = find_vein(vein_id)
-	if vein == null or not vein["charged"]:
-		return { "ok": false, "reason": "Vein isn't charged." }
-
-	var travel := Travel.ensure_district(vein["district"])
-	if not travel["ok"]:
-		return travel
-
-	TimeSystem.advance_time_block()
-
-	var level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
-	var yield_range: Array = level_data["yieldFull"]
-	var amount: int = apply_yield_bonus(vein, Rng.randi_range(yield_range[0], yield_range[1]))
-
-	var player: Dictionary = GameState.state["player"]
-	var ore_type: String = vein["oreType"]
-	player["orichalchum"][ore_type] = player["orichalchum"].get(ore_type, 0) + amount
-
-	vein["charged"] = false
-	vein["chargeBlocks"] = 0
-	vein["devBar"] = vein["devBar"] - level_data["devBarHarvestCost"]
-	# map-animations ticket 04: see harvest_cautious's own comment -- the
-	# entry guard above guarantees this is always the true -> false
-	# transition. Queued before the possible level-down/deletion below so
-	# district/id are read from the still-live vein dict.
-	MapEvents.queue_drain(vein["district"], vein["id"])
-
-	var levelled_down := false
-	if vein["devBar"] <= 0:
-		levelled_down = true
-		_level_down_vein(vein)
-
-	EventBus.state_changed.emit()
-	return { "ok": true, "amount": amount, "oreType": ore_type, "veinId": vein_id, "levelledDown": levelled_down }
-
-
-# Called from time_system.gd's daily_tick, step ④. map-animations ticket 03:
-# queues a "charge" map event on the false -> true transition only — a vein
-# that was already charged coming into this tick (chargeBlocks already at or
-# past its threshold, so the block below is a no-op for it) must not requeue
-# every subsequent day it just sits there charged.
-static func recharge_veins() -> void:
+# Called from time_system.gd's daily_tick, step ④. Replaces recharge_veins()
+# at the same position — one pass over player veins, then faction veins.
+# Order within this step (spec §10): drift, then the collapse roll.
+# Self-seeding (ticket 02) runs after this, in the same daily_tick step.
+static func drift_veins() -> void:
 	for vein in GameState.state["player"]["veins"]:
-		var recharge_blocks: int = get_effective_recharge_blocks(vein)
-		var was_charged: bool = vein["charged"]
-		if vein["chargeBlocks"] < recharge_blocks:
-			vein["chargeBlocks"] += 1
-		if vein["chargeBlocks"] >= recharge_blocks:
-			vein["charged"] = true
-		if vein["charged"] and not was_charged:
-			MapEvents.queue_charge(vein["district"], vein["id"])
+		_drift_one(vein)
+	for vein in GameState.state["player"]["veins"].duplicate():
+		collapse_vein(vein)
+
+	for site in GameState.state["world"]["sites"]:
+		if site["factionVein"] != null:
+			_drift_one(site["factionVein"])
+	for site in GameState.state["world"]["sites"].duplicate():
+		if site["factionVein"] != null:
+			collapse_vein(site["factionVein"])
+
 	EventBus.state_changed.emit()
 
 
-static func level_up_vein(vein: Dictionary) -> void:
-	if vein["level"] >= get_level_cap(vein):
+# spec §2.3's drift formula, verbatim. Right-wall clamping falls out of the
+# ceiling clamp for free (the "rampant" band's drift is 0, and growth can
+# never exceed ceiling(vein)); left-wall pinning at 0 likewise falls out of
+# the "collapsed" band's drift being 0, clamped at a floor of 0.
+static func _drift_one(vein: Dictionary) -> void:
+	var neutral: int = GameData.VEIN_GROWTH["neutral"]
+	var growth: int = vein["growth"]
+	if growth == neutral:
 		return
-	vein["level"] += 1
-	vein["levelLabel"] = GameData.VEIN_LEVELS[str(vein["level"])]["label"]
-	vein["devBar"] = 0
+	var delta: int = band_drift(growth)
+	var direction: int = 1 if growth > neutral else -1
+	vein["growth"] = clampi(growth + delta * direction, 0, ceiling(vein))
 
 
-static func _level_down_vein(vein: Dictionary) -> void:
-	var location_street: String = String(vein["location"]).split(",")[0]
-	if vein["level"] <= 1:
+# spec §2.5: a vein pinned at 0 rolls a COLLAPSE_CHANCE_PER_DAY chance each
+# tick it sits there (not just the tick it crosses down to 0) to be removed
+# for good. Branches by owner on landing: a player vein's site reverts to
+# unclaimed and is re-seedable; a faction vein's site is deleted outright,
+# matching NPC-abandonment semantics (M1-LONDON.md D2 ⑤c) rather than the
+# player's revert-to-unclaimed.
+static func collapse_vein(vein: Dictionary) -> void:
+	if vein["growth"] > 0:
+		return
+	if not Rng.chance(GameData.VEIN_GROWTH["collapseChancePerDay"]):
+		return
+
+	var site_id: Variant = vein.get("siteId")
+	var site: Variant = Sites.find_site(site_id) if site_id != null else null
+
+	if vein.has("factionId"):
+		if site != null:
+			var sites: Array = GameState.state["world"]["sites"]
+			GameState.state["world"]["sites"] = sites.filter(func(s2): return s2["id"] != site_id)
+	else:
 		var player: Dictionary = GameState.state["player"]
-		var ore_name: String = GameData.ORE_TYPES[vein["oreType"]]["name"]
 		var vein_id: String = vein["id"]
 		player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
+		if site != null:
+			site["claimed"] = false
+		var location_street: String = String(vein["location"]).split(",")[0]
+		var ore_name: String = GameData.ORE_TYPES[vein["oreType"]]["name"]
 		Notify.push("Your %s vein on %s collapsed and disappeared." % [ore_name, location_street])
-	else:
-		vein["level"] -= 1
-		vein["levelLabel"] = GameData.VEIN_LEVELS[str(vein["level"])]["label"]
-		var new_level_data: Dictionary = GameData.VEIN_LEVELS[str(vein["level"])]
-		vein["devBar"] = int(floor(new_level_data["devBarMax"] * 0.8))
-		Notify.push("A vein on %s dropped to level %d." % [location_street, vein["level"]])
 
 
 static func find_vein(vein_id: String) -> Variant:

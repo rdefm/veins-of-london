@@ -19,7 +19,7 @@ func reset() -> void:
 
 func new_game_state() -> Dictionary:
 	return {
-		"meta": { "saveVersion": 1 },
+		"meta": { "saveVersion": SaveManager.SAVE_VERSION },
 		"currentScreen": "title",
 		"modal": null,
 		"bagDrawerOpen": false,

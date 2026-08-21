@@ -39,12 +39,12 @@ static func station_options(stop: Dictionary) -> Array:
 # pure navigation option (opens the sheet), never blocked.
 static func _player_vein_options(vein: Dictionary) -> Array:
 	var district: String = vein["district"]
-	var at_max := Cultivating.is_at_max_level(vein)
+	var at_ceiling: bool = vein["growth"] >= Cultivating.ceiling(vein)
 
 	var cultivate_disabled := true
 	var cultivate_reason := ""
-	if at_max:
-		cultivate_reason = "Vein at max level"
+	if at_ceiling:
+		cultivate_reason = "Vein at ceiling"
 	elif not Travel.can_afford(district, 1):
 		cultivate_reason = "No blocks left today."
 	else:
@@ -54,11 +54,15 @@ static func _player_vein_options(vein: Dictionary) -> Array:
 		{ "id": CULTIVATE_ID, "disabled": cultivate_disabled, "reason": cultivate_reason },
 	]
 
-	if vein["charged"]:
-		var harvest_disabled := not Travel.can_afford(district, 1)
-		var harvest_reason := "No blocks left today." if harvest_disabled else ""
-		options.append({ "id": HARVEST_CAUTIOUS_ID, "disabled": harvest_disabled, "reason": harvest_reason })
-		options.append({ "id": HARVEST_FULL_ID, "disabled": harvest_disabled, "reason": harvest_reason })
+	# vein-growth-state spec §2.4: pruning at or below neutral yields
+	# nothing, so it's never worth a block — not offered here at all.
+	# ticket 08 upgrades this to "shown but disabled with the reason", per
+	# the sheet's own treatment.
+	if vein["growth"] > GameData.VEIN_GROWTH["neutral"]:
+		var prune_disabled := not Travel.can_afford(district, 1)
+		var prune_reason := "No blocks left today." if prune_disabled else ""
+		options.append({ "id": HARVEST_CAUTIOUS_ID, "disabled": prune_disabled, "reason": prune_reason })
+		options.append({ "id": HARVEST_FULL_ID, "disabled": prune_disabled, "reason": prune_reason })
 
 	options.append({ "id": MANAGE_ID, "disabled": false, "reason": "" })
 	return options
@@ -90,10 +94,10 @@ static func apply_option(option_id: String, stop: Dictionary) -> Dictionary:
 			var result := Cultivating.cultivate(stop["vein"]["id"])
 			return { "ok": result.get("success", result.get("ok", false)) }
 		HARVEST_CAUTIOUS_ID:
-			var result := Cultivating.harvest_cautious(stop["vein"]["id"])
+			var result := Cultivating.prune(stop["vein"]["id"], GameData.VEIN_GROWTH["pruneLightDepth"])
 			return { "ok": result.get("ok", false) }
 		HARVEST_FULL_ID:
-			var result := Cultivating.harvest_full(stop["vein"]["id"])
+			var result := Cultivating.prune(stop["vein"]["id"], GameData.VEIN_GROWTH["pruneHardDepth"])
 			return { "ok": result.get("ok", false) }
 		MANAGE_ID:
 			MapNav.select_site(stop["site"]["id"])
