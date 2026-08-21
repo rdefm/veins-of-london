@@ -207,14 +207,23 @@ static func prospect(district_id: String) -> Dictionary:
 	return { "ok": true, "district": district_id, "site": site }
 
 
-# Shared by _worst_unclaimed_site() and best_unclaimed_site(): every truly-
-# unclaimed site in the district, sorted tier-first (direction per
-# want_best), oldest-breaks-ties either way. Callers just take index 0.
-static func _unclaimed_sites_by_tier(district_id: String, want_best: bool) -> Array:
+# Every truly-unclaimed site in the district (not player-claimed, no
+# factionVein) — the predicate shared by _unclaimed_sites_by_tier() below
+# and Cultivating.self_seed() (vein-growth-state ticket 02, spec §2.6),
+# which just needs the filter, not the tier sort.
+static func unclaimed_sites_in_district(district_id: String) -> Array:
 	var unclaimed: Array = []
 	for site in sites_in_district(district_id):
 		if not site["claimed"] and site["factionVein"] == null:
 			unclaimed.append(site)
+	return unclaimed
+
+
+# Shared by _worst_unclaimed_site() and best_unclaimed_site(): every truly-
+# unclaimed site in the district, sorted tier-first (direction per
+# want_best), oldest-breaks-ties either way. Callers just take index 0.
+static func _unclaimed_sites_by_tier(district_id: String, want_best: bool) -> Array:
+	var unclaimed: Array = unclaimed_sites_in_district(district_id)
 
 	unclaimed.sort_custom(func(a, b):
 		var tier_a: int = GameData.SITE_TIER_ORDER.find(a["tier"])

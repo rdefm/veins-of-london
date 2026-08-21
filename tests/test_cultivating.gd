@@ -23,6 +23,14 @@ static func _vein(growth: int, district: String = "shoreditch", bonuses: Array =
 	}
 
 
+static func _site(id: String, district: String = "shoreditch", claimed: bool = false, ore_type: String = "physics") -> Dictionary:
+	return {
+		"id": id, "district": district, "tier": "fair", "oreType": ore_type,
+		"bonuses": [], "discoveredDay": 1, "claimed": claimed, "factionVein": null,
+		"hasNaturalVein": false,
+	}
+
+
 func run() -> void:
 	run_case("xp_thresholds_level_the_skill_at_exactly_80", func():
 		GameState.reset()
@@ -323,7 +331,7 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["sites"], [], "the site (and its faction vein) is deleted outright, matching NPC abandonment")
 	)
 
-	# ── right wall: clamp only in this ticket (self-seeding is ticket 02) ─
+	# ── right wall: clamp (ticket 01) + self-seeding (ticket 02, spec §2.6) ─
 
 	run_case("growth_clamps_at_the_ceiling_and_does_not_drift_further", func():
 		GameState.reset()
@@ -331,6 +339,99 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [vein]
 		Cultivating.drift_veins()
 		assert_eq(vein["growth"], 100, "a rampant vein does not drift past the ceiling")
+	)
+
+	run_case("rampantDays_increments_each_tick_at_the_ceiling_and_resets_below_it", func():
+		GameState.reset()
+		var vein := _vein(100)
+		GameState.state["player"]["veins"] = [vein]
+		Cultivating.drift_veins()
+		assert_eq(vein["rampantDays"], 1, "a tick spent pinned at the ceiling banks a rampant day")
+		Cultivating.drift_veins()
+		assert_eq(vein["rampantDays"], 2, "consecutive ceiling ticks keep incrementing")
+
+		vein["growth"] = 90
+		Cultivating.drift_veins()
+		assert_eq(vein["rampantDays"], 0, "dropping below the ceiling by any means resets the counter")
+	)
+
+	run_case("self_seed_fires_at_exactly_5_rampant_days_and_claims_an_unclaimed_site_in_district", func():
+		GameState.reset()
+		var vein := _vein(100)
+		vein["rampantDays"] = 3
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [
+			_site("s1", "shoreditch", true),   # the parent vein's own site
+			_site("s2", "shoreditch", false),  # the only unclaimed site in-district
+			_site("s3", "camden", false),      # unclaimed but in the wrong district
+		]
+
+		Cultivating.drift_veins()
+		assert_eq(vein["rampantDays"], 4, "3->4 rampant days should not yet self-seed -- fires at exactly 5")
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "no vein spawned before the threshold")
+
+		Cultivating.drift_veins()
+		assert_eq(vein["rampantDays"], 0, "hitting the threshold resets the parent's counter")
+		assert_eq(GameState.state["player"]["veins"].size(), 2, "a new player vein was spawned")
+		assert_eq(Sites.find_site("s2")["claimed"], true, "the only in-district unclaimed site was claimed")
+		assert_eq(Sites.find_site("s3")["claimed"], false, "an out-of-district unclaimed site is never touched")
+
+		var new_vein: Dictionary = GameState.state["player"]["veins"][1]
+		assert_eq(new_vein["siteId"], "s2", "the new vein sits on the claimed site")
+		assert_eq(new_vein["growth"], 60, "self-seeded veins start at selfSeedGrowth (60), not seedGrowth")
+		assert_eq(new_vein["oreType"], "physics", "ore type comes from the claimed site")
+		assert_eq(new_vein["district"], "shoreditch", "same district as the parent")
+
+		var last: Dictionary = GameState.state["notifications"][-1]
+		assert_true(last["text"].length() > 0, "self-seeding notifies the player")
+	)
+
+	run_case("self_seed_does_not_breach_siteCap_because_it_claims_an_existing_site", func():
+		GameState.reset()
+		var vein := _vein(100)
+		vein["rampantDays"] = 5
+		GameState.state["player"]["veins"] = [vein]
+		var sites := [_site("s1", "shoreditch", true), _site("s2", "shoreditch", false)]
+		GameState.state["world"]["sites"] = sites
+		var site_count_before: int = GameState.state["world"]["sites"].size()
+
+		Cultivating.drift_veins()
+
+		assert_eq(GameState.state["world"]["sites"].size(), site_count_before, "self-seeding claims an existing site rather than rolling a new one -- siteCap is untouched")
+	)
+
+	run_case("self_seed_no_ops_and_keeps_its_counter_when_no_unclaimed_site_exists", func():
+		GameState.reset()
+		var vein := _vein(100)
+		vein["rampantDays"] = 5
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_site("s1", "shoreditch", true)]  # only the parent's own site -- nothing unclaimed
+
+		Cultivating.drift_veins()
+
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "no site to seed into -- no new vein")
+		assert_eq(vein["rampantDays"], 5, "a failed attempt does not lose the banked counter")
+
+		Cultivating.drift_veins()
+		assert_eq(vein["rampantDays"], 5, "retries and still holds at the threshold on the next tick")
+	)
+
+	run_case("faction_veins_never_self_seed_even_at_5_rampant_days", func():
+		GameState.reset()
+		var faction_vein := _vein(100)
+		faction_vein["rampantDays"] = 5
+		faction_vein["factionId"] = "collective"
+		GameState.state["world"]["sites"] = [
+			{ "id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
+			  "bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": faction_vein,
+			  "hasNaturalVein": false },
+			_site("s2", "shoreditch", false),
+		]
+
+		Cultivating.drift_veins()
+
+		assert_eq(Sites.find_site("s2")["claimed"], false, "a rampant faction vein never self-seeds")
+		assert_true(GameState.state["player"]["veins"].is_empty(), "no player vein was spawned by a faction vein's rampant days")
 	)
 
 	run_case("wildCeiling_vein_cultivate_clamps_at_120_not_100", func():

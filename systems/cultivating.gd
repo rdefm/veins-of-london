@@ -242,13 +242,16 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 
 # Called from time_system.gd's daily_tick, step ④. Replaces recharge_veins()
 # at the same position — one pass over player veins, then faction veins.
-# Order within this step (spec §10): drift, then the collapse roll.
-# Self-seeding (ticket 02) runs after this, in the same daily_tick step.
+# Order within this step (spec §10): drift, then the collapse roll, then
+# self-seed -- self_seed() only ever runs over player veins (faction veins
+# never self-seed, §2.6/§5; their expansion is the daily NPC-claim roll).
 static func drift_veins() -> void:
 	for vein in GameState.state["player"]["veins"]:
 		_drift_one(vein)
 	for vein in GameState.state["player"]["veins"].duplicate():
 		collapse_vein(vein)
+	for vein in GameState.state["player"]["veins"].duplicate():
+		self_seed(vein)
 
 	for site in GameState.state["world"]["sites"]:
 		if site["factionVein"] != null:
@@ -260,18 +263,72 @@ static func drift_veins() -> void:
 	EventBus.state_changed.emit()
 
 
+# spec §2.6: a player vein that's sat at its ceiling for RAMPANT_SEED_DAYS
+# consecutive ticks spawns a fresh player vein on a uniformly-random
+# unclaimed site in the same district -- the reward for holding a wild
+# posture instead of pruning/cashing out. Claims an existing site (no new
+# site is rolled), so siteCap is untouched; it does compete with the
+# player's own prospecting for the district's unclaimed sites, which is
+# intentional (spec §2.6), not a bug to guard against.
+static func self_seed(vein: Dictionary) -> void:
+	if vein["rampantDays"] < GameData.VEIN_GROWTH["rampantSeedDays"]:
+		return
+
+	var district: String = vein["district"]
+	var unclaimed: Array = Sites.unclaimed_sites_in_district(district)
+
+	# No unclaimed site in-district to seed into: rampantDays holds at the
+	# threshold and retries next tick (spec §2.6 point 3) -- the counter is
+	# not touched on a failed attempt.
+	if unclaimed.is_empty():
+		return
+
+	var site: Dictionary = Rng.rand_from(unclaimed)
+	site["claimed"] = true
+
+	var hospitability := { "tier": site["tier"], "bonuses": site["bonuses"] }
+	var new_vein := make_vein(site["oreType"], GameData.VEIN_GROWTH["selfSeedGrowth"], district, site["id"], hospitability)
+	GameState.state["player"]["veins"].append(new_vein)
+	MapEvents.queue_seed_claim(district, new_vein["id"], "player")
+	MapEvents.queue_join_line(district, new_vein["id"], "player")
+
+	vein["rampantDays"] = 0
+
+	# PROSE-REVIEW: draft against CONTENT-GUIDE.md §3 -- one dry sentence,
+	# concrete nouns, no wink.
+	var parent_ore: String = GameData.ORE_TYPES[vein["oreType"]]["name"]
+	var parent_street: String = String(vein["location"]).split(",")[0]
+	var new_ore: String = GameData.ORE_TYPES[new_vein["oreType"]]["name"]
+	Notify.push("Your %s vein on %s has run wild long enough to seed a new %s vein elsewhere in the district." % [parent_ore, parent_street, new_ore])
+
+
 # spec §2.3's drift formula, verbatim. Right-wall clamping falls out of the
 # ceiling clamp for free (the "rampant" band's drift is 0, and growth can
 # never exceed ceiling(vein)); left-wall pinning at 0 likewise falls out of
 # the "collapsed" band's drift being 0, clamped at a floor of 0.
+#
+# Also carries rampantDays (§2.6): +1 each tick the vein ends this drift at
+# its ceiling, reset to 0 any other tick -- "drops below the ceiling by any
+# means" covers prune/cultivate too, but those already zero it themselves at
+# the moment they act, so this is the only place drift's own effect on the
+# counter needs handling. Capped at rampantSeedDays: once self_seed (which
+# runs later in the same drift_veins() pass) starts finding no unclaimed
+# site to claim, the counter must hold at the threshold and keep retrying
+# every tick (§2.6 point 3), not run off to 6, 7, 8... uncapped.
 static func _drift_one(vein: Dictionary) -> void:
 	var neutral: int = GameData.VEIN_GROWTH["neutral"]
 	var growth: int = vein["growth"]
-	if growth == neutral:
-		return
-	var delta: int = band_drift(growth)
-	var direction: int = 1 if growth > neutral else -1
-	vein["growth"] = clampi(growth + delta * direction, 0, ceiling(vein))
+	var vein_ceiling: int = ceiling(vein)
+
+	if growth != neutral:
+		var delta: int = band_drift(growth)
+		var direction: int = 1 if growth > neutral else -1
+		vein["growth"] = clampi(growth + delta * direction, 0, vein_ceiling)
+
+	if vein["growth"] >= vein_ceiling:
+		vein["rampantDays"] = mini(vein["rampantDays"] + 1, GameData.VEIN_GROWTH["rampantSeedDays"])
+	else:
+		vein["rampantDays"] = 0
 
 
 # spec §2.5: a vein pinned at 0 rolls a COLLAPSE_CHANCE_PER_DAY chance each
