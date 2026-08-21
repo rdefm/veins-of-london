@@ -317,7 +317,7 @@ func run() -> void:
 
 	run_case("exit_combat_defend_vein_win_leaves_the_vein_alone_and_routes_home", func():
 		GameState.reset()
-		var vein := { "id": "pv_test", "oreType": "time", "level": 1, "levelLabel": "Trace", "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "alarmUpgrades": ["alarm"], "location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch", "siteId": "s_player", "hospitability": { "tier": "fair", "bonuses": [] } }
+		var vein := { "id": "pv_test", "oreType": "time", "growth": 10, "security": "none", "alarmUpgrades": ["alarm"], "location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch", "siteId": "s_player", "hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0 }
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [{ "id": "s_player", "district": "shoreditch", "tier": "fair", "oreType": "time", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false }]
 		GameState.state["world"]["activeDefendRaid"] = { "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }
@@ -335,7 +335,7 @@ func run() -> void:
 
 	run_case("exit_combat_defend_vein_loss_transfers_the_vein_exactly_like_the_no_alarm_path", func():
 		GameState.reset()
-		var vein := { "id": "pv_test", "oreType": "physics", "level": 3, "levelLabel": "Vein", "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "warded", "alarmUpgrades": ["alarm"], "location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch", "siteId": "s_player", "hospitability": { "tier": "fair", "bonuses": [] } }
+		var vein := { "id": "pv_test", "oreType": "physics", "growth": 50, "security": "warded", "alarmUpgrades": ["alarm"], "location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch", "siteId": "s_player", "hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0 }
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [{ "id": "s_player", "district": "shoreditch", "tier": "fair", "oreType": "physics", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false }]
 		GameState.state["world"]["activeDefendRaid"] = { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
@@ -350,7 +350,7 @@ func run() -> void:
 		assert_true(site["factionVein"] != null, "ownership transfers to the attacking faction, same as the no-alarm path")
 		assert_eq(site["factionVein"]["factionId"], "firm")
 		assert_eq(site["factionVein"]["oreType"], "physics", "oreType carries over")
-		assert_eq(site["factionVein"]["level"], 3, "level carries over")
+		assert_eq(site["factionVein"]["growth"], 50, "growth carries over")
 		assert_eq(site["factionVein"]["security"], "warded", "security carries over")
 		assert_eq(GameState.state["world"]["activeDefendRaid"], null, "activeDefendRaid should be cleared")
 		assert_eq(GameState.state["notifications"].size(), 1, "a loss should still notify, same as the off-screen path")

@@ -199,13 +199,13 @@ static func apply_passive_income() -> void:
 # charge/harvest cycle of their own (out of scope per the ticket), so this
 # is a periodic trickle rather than a discrete harvest: every surviving
 # faction vein converts a slice of its value into resources each daily
-# tick, scaling with ore basePrice and vein level (higher level / pricier
-# ore -> more income). VEIN_INCOME_DIVISOR is tuned so a fresh Lv1 vein of
+# tick, scaling with ore basePrice and vein value_tier (higher tier / pricier
+# ore -> more income). VEIN_INCOME_DIVISOR is tuned so a fresh tier-1 vein of
 # a mid-range ore (basePrice ~72, the roster's 55-90 range midpoint --
 # same reference point _security_opulence() uses above) nets ~£5/day --
-# modest next to a single INDUSTRY_INCOME entry -- while a Lv5 vein of the priciest ore
-# (fate, basePrice 90) nets ~£30/day, a clear differentiator visible over
-# a few days of play.
+# modest next to a single INDUSTRY_INCOME entry -- while a tier-5 vein of the
+# priciest ore (fate, basePrice 90) nets ~£30/day, a clear differentiator
+# visible over a few days of play.
 const VEIN_INCOME_DIVISOR := 15.0
 
 
@@ -235,7 +235,7 @@ static func apply_vein_income() -> void:
 # uses, just funded from the faction's ledger instead of player cash.
 #
 # Priority rule (left open by the PRD): one upgrade per faction per tick,
-# targeting its highest-value held vein (basePrice * level -- the same
+# targeting its highest-value held vein (basePrice * value_tier -- the same
 # value metric apply_vein_income() scales income on) among veins that are
 # both below max security and affordable this tick. A faction protects
 # its crown jewel first rather than spreading upgrades thin across many
@@ -372,7 +372,7 @@ static func _eligible_rival_veins(faction_id: String) -> Array:
 
 
 # Target-vein heuristic (implementer's call per the ticket): weighted by
-# vein value (basePrice * level), the same value metric
+# vein value (basePrice * value_tier), the same value metric
 # apply_security_upgrades() already uses above -- an attacker is more
 # likely to go after a rival's crown jewel than its scraps, not a uniform
 # pick among however many rival veins happen to exist.
@@ -493,7 +493,7 @@ static func apply_rivalry_resolution() -> void:
 # Applies one already-rolled T03 outcome. A failed attempt is a documented
 # no-op -- no ownership change, no relation write. A successful attempt:
 #   - reassigns the target vein's factionId from defender to attacker;
-#     oreType/level/security carry over unchanged (not reset), matching
+#     oreType/growth/security carry over unchanged (not reset), matching
 #     Chunk 1's existing claim/growth code, which never resets those fields
 #     on an ownership change either.
 #   - worsens the defender's relation *toward the attacker* (get_relation's

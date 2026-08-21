@@ -5,13 +5,13 @@ extends "res://tests/test_base.gd"
 # -- that's ticket 03).
 
 
-static func _faction_vein_of(level: int, ore_type: String, security: String = "none", faction_id: String = "collective") -> Dictionary:
+static func _faction_vein_of(growth: int, ore_type: String, security: String = "none", faction_id: String = "collective") -> Dictionary:
 	return {
-		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "level": level,
-		"levelLabel": GameData.VEIN_LEVELS[str(level)]["label"], "devBar": 0,
-		"charged": false, "chargeBlocks": 0, "security": security,
+		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "growth": growth,
+		"security": security, "alarmUpgrades": [],
 		"location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch",
 		"siteId": "s_test", "hospitability": { "tier": "fair", "bonuses": [] },
+		"rampantDays": 0,
 	}
 
 
@@ -25,13 +25,13 @@ static func _site_with_vein(id: String, vein: Dictionary) -> Dictionary:
 
 # ── Direction B fixtures (ticket 06): a player-owned, site-tied vein ──────
 
-static func _player_vein_of(level: int, ore_type: String, security: String = "none", district: String = "shoreditch", site_id: String = "s_player") -> Dictionary:
+static func _player_vein_of(growth: int, ore_type: String, security: String = "none", district: String = "shoreditch", site_id: String = "s_player") -> Dictionary:
 	return {
-		"id": "pv_test", "oreType": ore_type, "level": level,
-		"levelLabel": GameData.VEIN_LEVELS[str(level)]["label"], "devBar": 0,
-		"charged": false, "chargeBlocks": 0, "security": security, "alarmUpgrades": [],
+		"id": "pv_test", "oreType": ore_type, "growth": growth,
+		"security": security, "alarmUpgrades": [],
 		"location": "Test St, nowhere", "claimedOnDay": 0, "district": district,
 		"siteId": site_id, "hospitability": { "tier": "fair", "bonuses": [] },
+		"rampantDays": 0,
 	}
 
 
@@ -47,37 +47,37 @@ func run() -> void:
 	# ── stealth_success_chance direction ────────────────────────────────
 
 	run_case("stealth_success_chance_increases_with_stealthSkill", func():
-		var vein := _faction_vein_of(2, "time", "warded")
+		var vein := _faction_vein_of(30, "time", "warded")
 		var low_skill := Raiding.stealth_success_chance(1, vein, 0.0)
 		var high_skill := Raiding.stealth_success_chance(5, vein, 0.0)
 		assert_true(high_skill > low_skill, "higher stealthSkill should raise the chance (got %f vs %f)" % [high_skill, low_skill])
 	)
 
 	run_case("stealth_success_chance_decreases_with_raidResist", func():
-		var unsecured := _faction_vein_of(2, "time", "none")
-		var guarded := _faction_vein_of(2, "time", "guarded")
+		var unsecured := _faction_vein_of(30, "time", "none")
+		var guarded := _faction_vein_of(30, "time", "guarded")
 		var chance_unsecured := Raiding.stealth_success_chance(1, unsecured, 0.0)
 		var chance_guarded := Raiding.stealth_success_chance(1, guarded, 0.0)
 		assert_true(chance_unsecured > chance_guarded, "an unsecured vein should be easier to sneak past than a guarded one (got %f vs %f)" % [chance_unsecured, chance_guarded])
 	)
 
 	run_case("stealth_success_chance_decreases_with_vein_value", func():
-		var cheap := _faction_vein_of(1, "time", "none")
-		var rich := _faction_vein_of(5, "fate", "none")
+		var cheap := _faction_vein_of(10, "time", "none")
+		var rich := _faction_vein_of(90, "fate", "none")
 		var chance_cheap := Raiding.stealth_success_chance(1, cheap, 0.0)
 		var chance_rich := Raiding.stealth_success_chance(1, rich, 0.0)
 		assert_true(chance_cheap > chance_rich, "a low-value vein should be easier to sneak than a high-value one (got %f vs %f)" % [chance_cheap, chance_rich])
 	)
 
 	run_case("stealth_success_chance_increases_with_consumable_bonus", func():
-		var vein := _faction_vein_of(2, "time", "warded")
+		var vein := _faction_vein_of(30, "time", "warded")
 		var no_bonus := Raiding.stealth_success_chance(1, vein, 0.0)
 		var with_bonus := Raiding.stealth_success_chance(1, vein, 0.2)
 		assert_true(with_bonus > no_bonus, "a consumable bonus should raise the chance (got %f vs %f)" % [with_bonus, no_bonus])
 	)
 
 	run_case("stealth_success_chance_clamped_to_0_1", func():
-		var vein := _faction_vein_of(5, "fate", "guarded")
+		var vein := _faction_vein_of(90, "fate", "guarded")
 		var floored := Raiding.stealth_success_chance(1, vein, -5.0)
 		var ceilinged := Raiding.stealth_success_chance(1, vein, 5.0)
 		assert_eq(floored, 0.0, "an extreme negative bonus should clamp to 0")
@@ -88,7 +88,7 @@ func run() -> void:
 
 	run_case("resolve_stealth_check_awards_full_xp_on_a_guaranteed_success", func():
 		GameState.reset()
-		var vein := _faction_vein_of(1, "time", "none")
+		var vein := _faction_vein_of(10, "time", "none")
 		var xp_before: int = GameState.state["player"]["stealthXP"]
 		var success: bool = Raiding.resolve_stealth_check(vein, 5.0)  # bonus saturates chance to 1.0
 		assert_true(success, "a saturated chance should always succeed")
@@ -97,7 +97,7 @@ func run() -> void:
 
 	run_case("resolve_stealth_check_awards_reduced_xp_on_a_guaranteed_catch", func():
 		GameState.reset()
-		var vein := _faction_vein_of(5, "fate", "guarded")
+		var vein := _faction_vein_of(90, "fate", "guarded")
 		var xp_before: int = GameState.state["player"]["stealthXP"]
 		var success: bool = Raiding.resolve_stealth_check(vein, -5.0)  # bonus floors chance to 0.0
 		assert_true(not success, "a floored chance should always be caught")
@@ -107,16 +107,16 @@ func run() -> void:
 	run_case("resolve_stealth_check_levels_up_stealthSkill_once_xp_crosses_the_threshold", func():
 		GameState.reset()
 		GameState.state["player"]["stealthXP"] = GameData.STEALTH_XP_LEVELS[2] - Raiding.STEALTH_XP_SUCCESS
-		var vein := _faction_vein_of(1, "time", "none")
+		var vein := _faction_vein_of(10, "time", "none")
 		Raiding.resolve_stealth_check(vein, 5.0)
 		assert_eq(GameState.state["player"]["stealthSkill"], 2, "crossing the Lv2 threshold should level stealthSkill up")
 	)
 
 	# ── claim_vein ────────────────────────────────────────────────────────
 
-	run_case("claim_vein_transfers_ownership_carrying_oreType_level_security", func():
+	run_case("claim_vein_transfers_ownership_carrying_oreType_growth_security", func():
 		GameState.reset()
-		var vein := _faction_vein_of(3, "physics", "warded", "guild")
+		var vein := _faction_vein_of(50, "physics", "warded", "guild")
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
 		GameState.state["factions"]["guild"]["relation"] = 20
 
@@ -129,14 +129,14 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["veins"].size(), 1, "the vein should be appended to player.veins")
 		var player_vein: Dictionary = GameState.state["player"]["veins"][0]
 		assert_eq(player_vein["oreType"], "physics", "oreType carries over")
-		assert_eq(player_vein["level"], 3, "level carries over")
+		assert_eq(player_vein["growth"], 50, "growth carries over")
 		assert_eq(player_vein["security"], "warded", "security carries over")
 		assert_true(not player_vein.has("factionId"), "the player vein shape has no factionId key")
 	)
 
 	run_case("claim_vein_always_applies_the_severe_relation_hit", func():
 		GameState.reset()
-		var vein := _faction_vein_of(1, "time", "none", "firm")
+		var vein := _faction_vein_of(10, "time", "none", "firm")
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
 		GameState.state["factions"]["firm"]["relation"] = 50
 
@@ -147,7 +147,7 @@ func run() -> void:
 
 	run_case("claim_vein_is_a_no_op_when_the_site_has_no_factionVein", func():
 		GameState.reset()
-		var site: Dictionary = _site_with_vein("s1", _faction_vein_of(1, "time"))
+		var site: Dictionary = _site_with_vein("s1", _faction_vein_of(10, "time"))
 		site["factionVein"] = null
 		GameState.state["world"]["sites"] = [site]
 
@@ -159,7 +159,7 @@ func run() -> void:
 
 	run_case("claim_vein_queues_a_seed_claim_map_event_owned_by_the_player", func():
 		GameState.reset()
-		var vein := _faction_vein_of(2, "emotion", "warded", "network")
+		var vein := _faction_vein_of(30, "emotion", "warded", "network")
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
 
 		Raiding.claim_vein("s1")
@@ -173,7 +173,7 @@ func run() -> void:
 
 	run_case("claim_vein_no_op_does_not_queue_a_map_event", func():
 		GameState.reset()
-		var site: Dictionary = _site_with_vein("s1", _faction_vein_of(1, "time"))
+		var site: Dictionary = _site_with_vein("s1", _faction_vein_of(10, "time"))
 		site["factionVein"] = null
 		GameState.state["world"]["sites"] = [site]
 
@@ -185,7 +185,7 @@ func run() -> void:
 
 	run_case("loot_vein_grants_ore_and_leaves_ownership_with_the_faction", func():
 		GameState.reset()
-		var vein := _faction_vein_of(2, "life", "none", "network")
+		var vein := _faction_vein_of(30, "life", "none", "network")
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
 		var ore_before: int = GameState.state["player"]["orichalchum"].get("life", 0)
 
@@ -199,7 +199,7 @@ func run() -> void:
 
 	run_case("loot_vein_applies_the_moderate_relation_hit_only_when_caught", func():
 		GameState.reset()
-		var vein_a := _faction_vein_of(1, "time", "none", "conclave")
+		var vein_a := _faction_vein_of(10, "time", "none", "conclave")
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein_a)]
 		GameState.state["factions"]["conclave"]["relation"] = 30
 
@@ -212,7 +212,7 @@ func run() -> void:
 
 	run_case("loot_vein_is_a_no_op_when_the_site_has_no_factionVein", func():
 		GameState.reset()
-		var site: Dictionary = _site_with_vein("s1", _faction_vein_of(1, "time"))
+		var site: Dictionary = _site_with_vein("s1", _faction_vein_of(10, "time"))
 		site["factionVein"] = null
 		GameState.state["world"]["sites"] = [site]
 		var ore_before: int = GameState.state["player"]["orichalchum"].get("time", 0)
@@ -225,7 +225,7 @@ func run() -> void:
 
 	run_case("begin_raid_spends_a_time_block_and_starts_the_raid_event_with_the_site_id_in_context", func():
 		GameState.reset()
-		var vein := _faction_vein_of(2, "physics", "warded", "firm")
+		var vein := _faction_vein_of(30, "physics", "warded", "firm")
 		GameState.state["world"]["sites"] = [_site_with_vein(vein["siteId"], vein)]
 
 		var result := Raiding.begin_raid(vein)
@@ -239,7 +239,7 @@ func run() -> void:
 	run_case("begin_raid_blocked_when_time_exhausted", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var vein := _faction_vein_of(1, "time", "none")
+		var vein := _faction_vein_of(10, "time", "none")
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
 
 		var result := Raiding.begin_raid(vein)
@@ -254,7 +254,7 @@ func run() -> void:
 	# positive value so stealth_success_chance() clamps to exactly 1.0 (safe
 	# -- award_stealth_xp()'s level-up loop just never fires, since
 	# stealthSkill already exceeds every real level). For a guaranteed
-	# catch, a level-5/guarded/"fate" vein (the priciest ore) plus the
+	# catch, a value-tier-5 (growth 90)/guarded/"fate" vein (the priciest ore) plus the
 	# "Go fast" choice's -0.05 bonus lands the formula at exactly 0.55 + 0
 	# (default stealthSkill 1) - 0.35 (guarded raidResist=55) - 0.15 (maxed
 	# value) - 0.05 = 0.0 -- deliberately not pushing stealthSkill negative
@@ -266,7 +266,7 @@ func run() -> void:
 
 	run_case("raid_event_clean_stealth_success_reaches_the_claim_loot_choice", func():
 		GameState.reset()
-		var vein := _faction_vein_of(1, "time", "none", "firm")
+		var vein := _faction_vein_of(10, "time", "none", "firm")
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
 		GameState.state["player"]["stealthSkill"] = 1000  # saturates stealth_success_chance to 1.0
 
@@ -284,7 +284,7 @@ func run() -> void:
 
 	run_case("raid_event_caught_then_combat_win_reaches_the_claim_loot_choice", func():
 		GameState.reset()
-		var vein := _faction_vein_of(5, "fate", "guarded", "firm")
+		var vein := _faction_vein_of(90, "fate", "guarded", "firm")
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
 
 		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
@@ -305,7 +305,7 @@ func run() -> void:
 
 	run_case("raid_event_caught_then_combat_loss_fails_the_raid_with_no_claim_loot_offered", func():
 		GameState.reset()
-		var vein := _faction_vein_of(5, "fate", "guarded", "firm")
+		var vein := _faction_vein_of(90, "fate", "guarded", "firm")
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
 
 		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
@@ -324,7 +324,7 @@ func run() -> void:
 
 	run_case("raid_event_loot_after_a_caught_win_applies_the_moderate_relation_hit", func():
 		GameState.reset()
-		var vein := _faction_vein_of(5, "fate", "guarded", "firm")
+		var vein := _faction_vein_of(90, "fate", "guarded", "firm")
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
 		GameState.state["factions"]["firm"]["relation"] = 50
 
@@ -343,7 +343,7 @@ func run() -> void:
 
 	run_case("raid_event_clean_stealth_and_loot_leaves_relation_untouched", func():
 		GameState.reset()
-		var vein := _faction_vein_of(1, "time", "none", "network")
+		var vein := _faction_vein_of(10, "time", "none", "network")
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
 		GameState.state["player"]["stealthSkill"] = 1000
 		GameState.state["factions"]["network"]["relation"] = 30
@@ -359,7 +359,7 @@ func run() -> void:
 
 	run_case("raid_event_claim_transfers_ownership_via_the_event's_site_id_context", func():
 		GameState.reset()
-		var vein := _faction_vein_of(1, "time", "none", "guild")
+		var vein := _faction_vein_of(10, "time", "none", "guild")
 		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
 		GameState.state["player"]["stealthSkill"] = 1000
 
@@ -378,7 +378,7 @@ func run() -> void:
 
 	run_case("raid_success_chance_increases_as_relation_worsens", func():
 		GameState.reset()
-		var vein := _player_vein_of(2, "time", "none")
+		var vein := _player_vein_of(30, "time", "none")
 		GameState.state["factions"]["collective"]["relation"] = 50
 		var chance_good_relation := Raiding.raid_success_chance("collective", vein)
 		GameState.state["factions"]["collective"]["relation"] = -50
@@ -388,8 +388,8 @@ func run() -> void:
 
 	run_case("raid_success_chance_decreases_with_higher_raidResist", func():
 		GameState.reset()
-		var unsecured := _player_vein_of(2, "time", "none")
-		var guarded := _player_vein_of(2, "time", "guarded")
+		var unsecured := _player_vein_of(30, "time", "none")
+		var guarded := _player_vein_of(30, "time", "guarded")
 		var chance_unsecured := Raiding.raid_success_chance("collective", unsecured)
 		var chance_guarded := Raiding.raid_success_chance("collective", guarded)
 		assert_true(chance_unsecured > chance_guarded, "a guarded vein should be harder to raid than an unsecured one (got %f vs %f)" % [chance_unsecured, chance_guarded])
@@ -397,16 +397,25 @@ func run() -> void:
 
 	run_case("raid_success_chance_increases_with_higher_dangerMod", func():
 		GameState.reset()
-		var safe_vein := _player_vein_of(2, "time", "none", "hampstead")  # dangerMod -0.05
-		var rough_vein := _player_vein_of(2, "time", "none", "camden")   # dangerMod +0.10
+		var safe_vein := _player_vein_of(30, "time", "none", "hampstead")  # dangerMod -0.05
+		var rough_vein := _player_vein_of(30, "time", "none", "camden")   # dangerMod +0.10
 		var chance_safe := Raiding.raid_success_chance("collective", safe_vein)
 		var chance_rough := Raiding.raid_success_chance("collective", rough_vein)
 		assert_true(chance_rough > chance_safe, "a rougher district should raise the raid chance (got %f vs %f)" % [chance_rough, chance_safe])
 	)
 
+	run_case("raid_success_chance_increases_with_higher_growth", func():
+		GameState.reset()
+		var sparse_vein := _player_vein_of(10, "time", "none")
+		var wild_vein := _player_vein_of(99, "time", "none")
+		var chance_sparse := Raiding.raid_success_chance("collective", sparse_vein)
+		var chance_wild := Raiding.raid_success_chance("collective", wild_vein)
+		assert_true(chance_wild > chance_sparse, "a near-ceiling vein should be a more attractive raid target than a sparse one (got %f vs %f)" % [chance_wild, chance_sparse])
+	)
+
 	run_case("raid_success_chance_clamps_to_the_0_1_range_at_extreme_inputs", func():
 		GameState.reset()
-		var vein := _player_vein_of(1, "time", "guarded", "hampstead")
+		var vein := _player_vein_of(10, "time", "guarded", "hampstead")
 
 		GameState.state["factions"]["collective"]["relation"] = 100000
 		assert_eq(Raiding.raid_success_chance("collective", vein), 0.0, "extreme good relation + guarded security must clamp at 0.0, not go negative")
@@ -419,7 +428,7 @@ func run() -> void:
 
 	run_case("roll_raid_attempts_excludes_veins_whose_site_no_longer_exists", func():
 		GameState.reset()
-		var vein := _player_vein_of(1, "time", "none")
+		var vein := _player_vein_of(10, "time", "none")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = []
 
@@ -434,7 +443,7 @@ func run() -> void:
 		# vein made before ticket 09 landed) unmigrated and explicitly out of
 		# scope -- so a null siteId must still be handled gracefully here,
 		# not crash the daily tick.
-		var floating_vein := _player_vein_of(1, "time", "none")
+		var floating_vein := _player_vein_of(10, "time", "none")
 		floating_vein["siteId"] = null
 		GameState.state["player"]["veins"] = [floating_vein]
 
@@ -444,7 +453,7 @@ func run() -> void:
 
 	run_case("roll_raid_attempts_uses_the_districts_presence_faction_as_attacker", func():
 		GameState.reset()
-		var vein := _player_vein_of(1, "time", "none", "shoreditch")
+		var vein := _player_vein_of(10, "time", "none", "shoreditch")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 
@@ -457,7 +466,7 @@ func run() -> void:
 
 	run_case("roll_raid_attempts_falls_back_to_the_worst_relation_faction_when_the_district_has_no_presence", func():
 		GameState.reset()
-		var vein := _player_vein_of(1, "time", "none", "hampstead")
+		var vein := _player_vein_of(10, "time", "none", "hampstead")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		for faction_id in GameData.FACTIONS.keys():
@@ -484,7 +493,7 @@ func run() -> void:
 
 	run_case("roll_raid_attempts_is_a_pure_computation_no_state_mutation", func():
 		GameState.reset()
-		var vein := _player_vein_of(1, "time", "none")
+		var vein := _player_vein_of(10, "time", "none")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		var before: Dictionary = GameState.deep_copy(GameState.state)
@@ -498,7 +507,7 @@ func run() -> void:
 
 	run_case("roll_raid_odds_is_a_pure_computation_no_state_mutation", func():
 		GameState.reset()
-		var vein := _player_vein_of(1, "time", "none")
+		var vein := _player_vein_of(10, "time", "none")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		var attempt := { "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player" }
@@ -520,7 +529,7 @@ func run() -> void:
 
 	run_case("resolve_raid_outcome_success_transfers_the_vein_from_player_to_the_attacking_faction", func():
 		GameState.reset()
-		var vein := _player_vein_of(3, "physics", "warded", "camden")
+		var vein := _player_vein_of(50, "physics", "warded", "camden")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 
@@ -533,7 +542,7 @@ func run() -> void:
 		assert_true(not site["claimed"], "the site should no longer be marked player-claimed")
 		assert_eq(site["factionVein"]["factionId"], "firm", "ownership goes to the attacking faction")
 		assert_eq(site["factionVein"]["oreType"], "physics", "oreType carries over")
-		assert_eq(site["factionVein"]["level"], 3, "level carries over")
+		assert_eq(site["factionVein"]["growth"], 50, "growth carries over")
 		assert_eq(site["factionVein"]["security"], "warded", "security carries over")
 	)
 
@@ -541,7 +550,7 @@ func run() -> void:
 
 	run_case("resolve_raid_outcome_success_queues_a_seed_claim_map_event_for_the_attacker", func():
 		GameState.reset()
-		var vein := _player_vein_of(3, "physics", "warded", "camden")
+		var vein := _player_vein_of(50, "physics", "warded", "camden")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 
@@ -557,7 +566,7 @@ func run() -> void:
 
 	run_case("resolve_raid_outcome_failure_queues_no_map_event", func():
 		GameState.reset()
-		var vein := _player_vein_of(1, "time", "none")
+		var vein := _player_vein_of(10, "time", "none")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 
@@ -569,7 +578,7 @@ func run() -> void:
 
 	run_case("resolve_defend_outcome_loss_queues_the_same_seed_claim_map_event_as_the_off_screen_path", func():
 		GameState.reset()
-		var vein := _player_vein_of(2, "life", "guarded", "shoreditch")
+		var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
 		vein["alarmUpgrades"] = ["alarm"]
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
@@ -587,7 +596,7 @@ func run() -> void:
 
 	run_case("resolve_defend_outcome_win_queues_no_map_event", func():
 		GameState.reset()
-		var vein := _player_vein_of(2, "life", "guarded", "shoreditch")
+		var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
 		vein["alarmUpgrades"] = ["alarm"]
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
@@ -601,7 +610,7 @@ func run() -> void:
 
 	run_case("resolve_raid_outcome_pushes_a_notification_only_on_success", func():
 		GameState.reset()
-		var vein := _player_vein_of(1, "time", "none")
+		var vein := _player_vein_of(10, "time", "none")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 
@@ -616,7 +625,7 @@ func run() -> void:
 
 	run_case("resolve_raid_outcome_failure_changes_nothing", func():
 		GameState.reset()
-		var vein := _player_vein_of(1, "time", "none")
+		var vein := _player_vein_of(10, "time", "none")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		var before: Dictionary = GameState.deep_copy(GameState.state)
@@ -629,7 +638,7 @@ func run() -> void:
 
 	run_case("resolve_raid_outcome_success_is_a_no_op_when_the_vein_already_vanished", func():
 		GameState.reset()
-		var vein := _player_vein_of(1, "time", "none")
+		var vein := _player_vein_of(10, "time", "none")
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		# vein deliberately not added to player.veins -- simulates it having
 		# already been removed by something else earlier this same tick.
@@ -652,7 +661,7 @@ func run() -> void:
 		var hit := false
 		for seed in range(500):
 			GameState.reset()
-			var vein := _player_vein_of(1, "fate", "none", "camden")
+			var vein := _player_vein_of(10, "fate", "none", "camden")
 			vein["alarmUpgrades"] = ["alarm"]
 			GameState.state["player"]["veins"] = [vein]
 			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
@@ -675,7 +684,7 @@ func run() -> void:
 		var hit := false
 		for seed in range(500):
 			GameState.reset()
-			var vein := _player_vein_of(1, "fate", "none", "camden")
+			var vein := _player_vein_of(10, "fate", "none", "camden")
 			GameState.state["player"]["veins"] = [vein]
 			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 			GameState.state["factions"]["firm"]["relation"] = -200
@@ -691,7 +700,7 @@ func run() -> void:
 
 	run_case("apply_raid_resolution_expires_a_pending_defend_raid_that_missed_its_window", func():
 		GameState.reset()
-		var vein := _player_vein_of(2, "life", "guarded", "shoreditch")
+		var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
 		vein["alarmUpgrades"] = ["alarm"]
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
@@ -704,14 +713,14 @@ func run() -> void:
 		assert_true(site["factionVein"] != null, "ownership should transfer, same as ticket 06's default path")
 		assert_eq(site["factionVein"]["factionId"], "collective")
 		assert_eq(site["factionVein"]["oreType"], "life", "oreType carries over")
-		assert_eq(site["factionVein"]["level"], 2, "level carries over")
+		assert_eq(site["factionVein"]["growth"], 30, "growth carries over")
 		assert_eq(site["factionVein"]["security"], "guarded", "security carries over")
 		assert_eq(GameState.state["world"]["pendingDefendRaids"], [], "the expired entry should be cleared")
 	)
 
 	run_case("maybe_trigger_defend_starts_combat_and_pops_the_matching_pending_entry", func():
 		GameState.reset()
-		var vein := _player_vein_of(2, "time", "none", "camden")
+		var vein := _player_vein_of(30, "time", "none", "camden")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
@@ -729,7 +738,7 @@ func run() -> void:
 
 	run_case("maybe_trigger_defend_is_a_no_op_for_a_district_with_no_matching_pending_raid", func():
 		GameState.reset()
-		var vein := _player_vein_of(2, "time", "none", "camden")
+		var vein := _player_vein_of(30, "time", "none", "camden")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
@@ -752,7 +761,7 @@ func run() -> void:
 
 	run_case("travel_to_triggers_the_defend_encounter_for_a_pending_alarmed_vein", func():
 		GameState.reset()
-		var vein := _player_vein_of(1, "time", "none", "camden")
+		var vein := _player_vein_of(10, "time", "none", "camden")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
@@ -784,7 +793,7 @@ func run() -> void:
 	run_case("prospect_on_the_days_last_block_still_triggers_the_defend_encounter_instead_of_losing_the_race_to_daily_ticks_own_expiry", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1]  # 1 block left -- prospecting is the day's last block
-		var vein := _player_vein_of(1, "time", "none", "camden")
+		var vein := _player_vein_of(10, "time", "none", "camden")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]

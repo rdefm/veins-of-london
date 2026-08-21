@@ -71,16 +71,19 @@ static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionar
 
 
 # Debug-only in M0 — R§3.7: "reachable in M0 only via debug; keep functions."
-# M0 has no NPC-claimed-vein storage, so callers must supply level/guards
-# directly rather than a real vein.
-static func generate_raid_enemy(vein_id, vein_level: int, guards: int = 1, template_key: String = "") -> Dictionary:
+# M0 has no NPC-claimed-vein storage, so callers must supply a value tier/
+# guards directly rather than a real vein.
+# vein-growth-state ticket 03 §3: this parameter used to be a 1-5 vein
+# "level" — it's a Cultivating.value_tier() (1-6) now, same shape, no
+# formula change, just a name that no longer lies about what it holds.
+static func generate_raid_enemy(vein_id, value_tier: int, guards: int = 1, template_key: String = "") -> Dictionary:
 	var templates: Dictionary = GameData.ENEMY_RAID_GUARDS
 	var key: String = template_key
 	if key == "" or not templates.has(key):
 		key = Rng.rand_from(templates.keys())
 	var template: Dictionary = templates[key]
 	var guard_count: int = maxi(1, guards)
-	var hp_scale: float = 1.0 + (vein_level - 1) * 0.3
+	var hp_scale: float = 1.0 + (value_tier - 1) * 0.3
 	var hp: int = GameState.round_epsilon(template["hpBase"] * hp_scale * guard_count)
 	var name: String = template["name"] if guard_count <= 1 else "%d× %s" % [guard_count, template["name"]]
 	var enemy := {
@@ -88,7 +91,7 @@ static func generate_raid_enemy(vein_id, vein_level: int, guards: int = 1, templ
 		"hp": hp,
 		"hpMax": hp,
 		"attackMin": template["attackMin"],
-		"attackMax": template["attackMax"] + (vein_level - 1),
+		"attackMax": template["attackMax"] + (value_tier - 1),
 		"veinId": vein_id,
 		"isMugging": false,
 	}
@@ -176,8 +179,8 @@ static func start_home_raid_combat() -> void:
 # branch), which passes context "event_raid" so exit_combat() below knows to
 # resume the still-active event on a win instead of routing to inventory --
 # every other caller keeps the original "raid" context and its behaviour.
-static func start_raid(vein_id: String, vein_level: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID) -> void:
-	var enemy := generate_raid_enemy(vein_id, vein_level, guards, template_key)
+static func start_raid(vein_id: String, value_tier: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID) -> void:
+	var enemy := generate_raid_enemy(vein_id, value_tier, guards, template_key)
 	_start_combat(context, vein_id, enemy,
 		["%s steps out to meet you." % enemy["name"]],
 		"raidWon")
@@ -191,8 +194,8 @@ static func start_raid(vein_id: String, vein_level: int, guards: int = 1, templa
 # no bespoke combat system". onWin is "" -- a win leaves the vein exactly as
 # it was (nothing to dispatch); a loss is handled by
 # Raiding.resolve_defend_outcome() from exit_combat() below, not here.
-static func start_defend_vein(vein_id: String, vein_level: int) -> void:
-	var enemy := generate_raid_enemy(vein_id, vein_level)
+static func start_defend_vein(vein_id: String, value_tier: int) -> void:
+	var enemy := generate_raid_enemy(vein_id, value_tier)
 	# PROSE-REVIEW: new combat intro line, drafted against CONTENT-GUIDE.md's
 	# tone bible (dry, administrative, one line).
 	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemy,

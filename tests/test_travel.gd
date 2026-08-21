@@ -173,11 +173,11 @@ func run() -> void:
 	run_case("travel_via_wormhole_skips_a_pending_defend_raid_arrival_the_same_district_would_otherwise_trigger", func():
 		GameState.reset()
 		var vein := {
-			"id": "pv_test", "oreType": "time", "level": 2,
-			"levelLabel": GameData.VEIN_LEVELS["2"]["label"], "devBar": 0,
-			"charged": false, "chargeBlocks": 0, "security": "none", "alarmUpgrades": [],
+			"id": "pv_test", "oreType": "time", "growth": 30,
+			"security": "none", "alarmUpgrades": [],
 			"location": "Test St, nowhere", "claimedOnDay": 0, "district": "camden",
 			"siteId": "s_player", "hospitability": { "tier": "fair", "bonuses": [] },
+			"rampantDays": 0,
 		}
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [{

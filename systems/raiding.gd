@@ -19,17 +19,19 @@ extends RefCounted
 # the target vein's security tier (raidResist, normalised against its
 # ceiling -- "guarded" = 55, data/vein_security.json -- the same
 # normalisation Factions.rivalry_success_chance() uses for the same field)
-# and by the vein's value (basePrice * level, the same value metric
-# Factions._pick_target_vein()/apply_security_upgrades() already use
-# elsewhere) -- a richer, better-defended vein is harder to walk into clean.
+# and by the vein's value (basePrice * Cultivating.value_tier(vein), the
+# same value metric Factions._pick_target_vein()/apply_security_upgrades()
+# already use elsewhere) -- a richer, better-defended vein is harder to
+# walk into clean.
 const STEALTH_BASE_CHANCE := 0.55
 const STEALTH_SKILL_WEIGHT := 0.05
 const STEALTH_RAID_RESIST_DIVISOR := 55.0
 const STEALTH_RAID_RESIST_WEIGHT := 0.35
-# basePrice (~55-90) * level (1-5, LEVEL_CAP) tops out around 450 for a
-# maxed-out high-value vein -- dividing by that keeps the tilt within
-# roughly [-1, 0] before the weight scales it down, same shape as the
-# raidResist normalisation above.
+# basePrice (~55-90) * value_tier (1-6, vein-growth-state ticket 03) tops
+# out around 450-540 for a maxed-out high-value vein -- dividing by 450
+# keeps the tilt within roughly [-1.2, 0] before the weight scales it down,
+# same shape as the raidResist normalisation above (still clamped to [0, 1]
+# by the function's return, so the tier-6 overshoot is harmless).
 const STEALTH_VALUE_DIVISOR := 450.0
 const STEALTH_VALUE_WEIGHT := 0.15
 
@@ -83,8 +85,8 @@ const LOOT_ORE_QTY := 8
 
 
 # Converts a still-faction-owned site's vein to player ownership. Carries
-# every field over unchanged (oreType/level/security explicitly, per the
-# ticket, but also devBar/location/hospitability/etc.) -- the same
+# every field over unchanged (oreType/growth/security explicitly, per the
+# ticket, but also location/hospitability/etc.) -- the same
 # "ownership changes hands, nothing about the vein itself resets" convention
 # Factions.resolve_rivalry_outcome() already established for faction-to-
 # faction transfers, just crossing from faction to player instead. Always a
@@ -227,6 +229,13 @@ const RAID_DANGER_WEIGHT := 0.5
 const RAID_RAID_RESIST_DIVISOR := 55.0
 const RAID_RAID_RESIST_WEIGHT := 0.20
 
+# vein-growth-state ticket 03 §3: continuous "wild attracts raids" tilt --
+# growth/Cultivating.ceiling(vein) ranges 0..1, since growth is always
+# clamped to that same vein's own ceiling (Cultivating._drift_one(),
+# cultivate()). Magnitude deliberately in line with RAID_RELATION_WEIGHT and
+# RAID_RAID_RESIST_WEIGHT above -- significant but not dominant.
+const RAID_GROWTH_WEIGHT := 0.15
+
 
 # Attacking-faction selection (the ticket's explicit "resolve sensibly"
 # call): a vein's own district's factionPresence (data/districts.json) is
@@ -293,11 +302,13 @@ static func roll_raid_attempts() -> Array:
 
 
 # Pure computation, mirroring Factions.rivalry_success_chance()'s shape: a
-# low baseline pushed by three signed tilts, clamped to [0, 1].
+# low baseline pushed by four signed tilts, clamped to [0, 1].
 # - relation (attacker's player-facing relation, state.factions[id]
 #   .relation): lower -> higher chance.
 # - dangerMod (the vein's district): higher -> higher chance.
 # - raidResist (the vein's own security tier): higher -> lower chance.
+# - growth (normalised against the vein's own ceiling): higher -> higher
+#   chance -- the vein-growth-state ticket 03 §3 "wild attracts raids" tilt.
 static func raid_success_chance(attacker_id: String, vein: Dictionary) -> float:
 	var relation: int = GameState.state["factions"][attacker_id]["relation"]
 	var relation_tilt: float = -(float(relation) / RAID_RELATION_DIVISOR) * RAID_RELATION_WEIGHT
@@ -309,7 +320,9 @@ static func raid_success_chance(attacker_id: String, vein: Dictionary) -> float:
 	var raid_resist: int = GameData.VEIN_SECURITY[vein["security"]]["raidResist"]
 	var resist_tilt: float = -(float(raid_resist) / RAID_RAID_RESIST_DIVISOR) * RAID_RAID_RESIST_WEIGHT
 
-	var chance: float = RAID_BASE_CHANCE + relation_tilt + danger_tilt + resist_tilt
+	var growth_tilt: float = RAID_GROWTH_WEIGHT * (float(vein["growth"]) / Cultivating.ceiling(vein))
+
+	var chance: float = RAID_BASE_CHANCE + relation_tilt + danger_tilt + resist_tilt + growth_tilt
 	return clampf(chance, 0.0, 1.0)
 
 
@@ -329,7 +342,7 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 
 # Applies one already-rolled outcome. A failed attempt is a documented
 # no-op -- no ownership change, no notification. A successful attempt:
-#   - removes the vein from player.veins and reassigns it (oreType/level/
+#   - removes the vein from player.veins and reassigns it (oreType/growth/
 #     security carried over unchanged, matching Chunk 6's resolve_rivalry_
 #     outcome() and Direction A's claim_vein()) into the site's factionVein,
 #     flipping the site back to faction-owned -- the exact mirror image of
