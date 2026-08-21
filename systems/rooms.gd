@@ -21,13 +21,36 @@ static func adjust_lab_threshold(recipe_key: String, delta: int) -> void:
 	EventBus.state_changed.emit()
 
 
+# vein-growth-state spec §6.1: default target on assignment is 70.
+const VEIN_STATION_DEFAULT_TARGET := 70
+
+# spec §6.1: the +/-5 dead zone around a vein's target inside which the
+# assigned contact leaves it alone.
+const VEIN_STATION_HOLD_BAND := 5
+
+
 static func toggle_vein_station_vein(vein_id: String) -> void:
 	var list: Array = GameState.state["veinStationVeins"]
+	var targets: Dictionary = GameState.state["veinStationTargets"]
 	var idx: int = list.find(vein_id)
 	if idx >= 0:
 		list.remove_at(idx)
+		targets.erase(vein_id)
 	else:
 		list.append(vein_id)
+		targets[vein_id] = VEIN_STATION_DEFAULT_TARGET
+	EventBus.state_changed.emit()
+
+
+# Read-modify via a system function per spec §6.1/ticket 06 -- screens never
+# mutate state.veinStationTargets directly. Clamped to the vein's own
+# ceiling (100, or 120 with the wildCeiling bonus) since a target above it
+# could never be reached.
+static func set_vein_station_target(vein_id: String, target: int) -> void:
+	var vein = Cultivating.find_vein(vein_id)
+	if vein == null:
+		return
+	GameState.state["veinStationTargets"][vein_id] = clampi(target, 0, Cultivating.ceiling(vein))
 	EventBus.state_changed.emit()
 
 
@@ -83,12 +106,72 @@ static func process_lab() -> void:
 
 # Called from time_system.gd's daily_tick, step ⑥ (veinStation half).
 #
-# vein-growth-state ticket 06 rebuilds this room's assigned-contact
-# behaviour around a per-vein growth target ("hold-at-target": prune down
-# toward the target above it, cultivate up toward it below it). The old
-# "harvest if charged, else cultivate" behaviour above no longer has
-# meaning under the growth model (no charged/devBar left on a vein), so
-# it's removed rather than patched — assigned veins are inert until ticket
-# 06 lands state.veinStationTargets and the real hold-at-target pass.
+# vein-growth-state spec §6.1, "hold-at-target": per assigned vein, a
+# contact prunes down toward the target if growth has drifted more than
+# VEIN_STATION_HOLD_BAND above it, or rolls one cultivate attempt at their
+# own cultivatingSkill if it's drifted the same amount below it. Otherwise
+# left alone. Mirrors process_lab()'s shape (assigned-contact lookup, ore
+# straight into player.orichalchum, one summary notification) but drives
+# Cultivating's prune-yield/cultivate-gain math directly rather than
+# routing through Cultivating.prune()/cultivate() -- those spend a time
+# block and require Travel.ensure_district, neither of which applies to a
+# contact working from home on a daily tick.
 static func process_vein_station() -> void:
-	pass
+	var contact_id = Contacts.get_contact_in_room("veinStation")
+	if contact_id == null:
+		return
+
+	var c: Dictionary = GameState.state["contacts"][contact_id]
+	var targets: Dictionary = GameState.state["veinStationTargets"]
+	var player: Dictionary = GameState.state["player"]
+
+	# Same notification shape the pre-growth-model version of this function
+	# used (ore-type breakdown for the yield clause, a plain count for the
+	# cultivate clause, failures tracked for XP only and never surfaced in
+	# the message) -- ticket 06 asks for "as today", just with prune/
+	# cultivate language replacing harvest/cultivate.
+	var prune_breakdown: Dictionary = {}
+	var total_cultivated := 0
+
+	for vein_id in GameState.state["veinStationVeins"]:
+		var vein = Cultivating.find_vein(vein_id)
+		if vein == null:
+			continue
+
+		var target: int = targets.get(vein_id, VEIN_STATION_DEFAULT_TARGET)
+		var growth: int = vein["growth"]
+
+		if growth > target + VEIN_STATION_HOLD_BAND:
+			var depth: int = growth - target
+			var amount: int = Cultivating.prune_yield(vein, depth)
+			vein["growth"] = maxi(0, growth - depth)
+			vein["rampantDays"] = 0
+			var ore_type: String = vein["oreType"]
+			player["orichalchum"][ore_type] = player["orichalchum"].get(ore_type, 0) + amount
+			prune_breakdown[ore_type] = prune_breakdown.get(ore_type, 0) + amount
+			Contacts.award_contact_xp(contact_id, "cultivating", 15)
+		elif growth < target - VEIN_STATION_HOLD_BAND:
+			var skill: int = c.get("cultivatingSkill", 1)
+			var success: bool = Rng.chance(Cultivating.get_cult_chance(skill))
+			if success:
+				var vein_ceiling: int = Cultivating.ceiling(vein)
+				var gain: int = Cultivating.cultivate_gain(skill, growth, vein_ceiling)
+				vein["growth"] = clampi(growth + gain, 0, vein_ceiling)
+				if vein["growth"] < vein_ceiling:
+					vein["rampantDays"] = 0
+				Contacts.award_contact_xp(contact_id, "cultivating", 20)
+				total_cultivated += 1
+			else:
+				Contacts.award_contact_xp(contact_id, "cultivating", 8)
+
+	var msgs: Array = []
+	if not prune_breakdown.is_empty():
+		var parts: Array = []
+		for ore_type in prune_breakdown:
+			parts.append("%d %s" % [prune_breakdown[ore_type], GameData.ORE_TYPES[ore_type]["name"]])
+		msgs.append("pruned %s" % ", ".join(parts))
+	if total_cultivated > 0:
+		var plural: String = "" if total_cultivated == 1 else "s"
+		msgs.append("cultivated %d vein%s" % [total_cultivated, plural])
+	if not msgs.is_empty():
+		Notify.push("Vein Station (%s): %s." % [Contacts.display_name(contact_id), "; ".join(msgs)])

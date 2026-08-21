@@ -128,6 +128,9 @@ func new_game_state() -> Dictionary:
 		"pendingSaleCut": 0,
 		"labThresholds": {},
 		"veinStationVeins": [],
+		# vein-growth-state ticket 06: plain dict of primitives, purity-safe.
+		# Companion to veinStationVeins above -- { veinId: int growth target }.
+		"veinStationTargets": {},
 
 		"flags": {
 			"tutorialStage": "intro",

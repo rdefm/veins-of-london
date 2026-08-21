@@ -273,6 +273,7 @@ state = {
   pendingSaleCut: 0,
   labThresholds: {},          # { recipeKey: int }
   veinStationVeins: [],       # [veinId]
+  veinStationTargets: {},     # { veinId: int growth target }, default 70 on assignment
 
   flags: {
     tutorialStage: "intro",   # intro|buyer_event|sms_archie|meet_james|archie_craft_chat|free
@@ -383,7 +384,7 @@ Trigger: `homeRaidEventPending` true → on next visit to HQ, launch. Flow: intr
 ### 3.10 Contacts, rooms, jobs
 - `awardRelation(id, n)`. Recruit at threshold: sets recruited, notification, assignable to rooms (one contact per room; assigning vacates).
 - **Lab (daily):** contact in lab crafts each unlocked recipe up to `labThresholds[recipe]` inventory target, using the CONTACT's skill in the §3.5 formulas (workshopBonus included), consuming player ore, awarding contact XP (full/⅓).
-- **veinStation (daily):** for each marked vein: if charged → cautious harvest into player ore, +15 contact cultivating XP; else cultivate roll with contact skill (success devBar += 1+skill, level-up check, +20 XP; fail +8 XP). Summary notification.
+- **veinStation (daily, hold-at-target — vein-growth-state §6.1):** each vein in `veinStationVeins` holds a companion target in `veinStationTargets[veinId]` (default 70 on assignment). Per marked vein: if `growth > target + 5` → contact prunes down to the target (§2.4 yield formula, ore into player ore, +15 contact cultivating XP); if `growth < target - 5` → one cultivate roll at the contact's own skill (success +20 XP, fail +8 XP); otherwise no-op. Summary notification.
 - **James jobs** (unlocked by jamesMotionEventSeen): one active at a time, offered proactively by the daily-tick roll (§1.11) rather than player-requested — no "ask for work" action exists. Type-1 (flatPay): accept, then fulfil consumes one time block and pays `pay` flat, james relation +5. Type-2 (craft, recipe pool: timePearl, + enhancementPowder if unlocked, per §1.11's trust bands): fulfil requires qty in inventory; deduct, pay totalPay, james relation +5, clear job. Both: `jamesJobAccepted` tracks accept vs. still-just-offered, separately from `jamesJobActive`.
 
 ### 3.11 Tutorial flow (as actually implemented — the merged flow)

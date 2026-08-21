@@ -631,8 +631,41 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	c["content"].add_child(actions)
 	c["content"].add_child(_build_security_row(vein))
 	c["content"].add_child(_build_alarm_row(vein))
+	var vein_station_row: Variant = _build_vein_station_row(vein)
+	if vein_station_row != null:
+		c["content"].add_child(vein_station_row)
 
 	return c["panel"]
+
+
+# vein-growth-state ticket 06: per-vein Vein Station assignment/target
+# control lives on the vein sheet, alongside security/alarm above -- the
+# vein sheet is the existing "wherever assignment currently happens" per-vein
+# management surface (HQ's room row only assigns the *contact*, not which
+# veins they work). Null (no row at all) until the room is actually built,
+# same gating _build_room_contact_row uses at the HQ end.
+func _build_vein_station_row(vein: Dictionary) -> Variant:
+	if not GameState.state["home"]["rooms"].has("veinStation"):
+		return null
+
+	var vein_id: String = vein["id"]
+	var assigned: bool = GameState.state["veinStationVeins"].has(vein_id)
+
+	var box := UI.vbox(4)
+	if not assigned:
+		box.add_child(UI.button("Assign to Vein Station", func(): Rooms.toggle_vein_station_vein(vein_id)))
+		return box
+
+	var target: int = GameState.state["veinStationTargets"].get(vein_id, Rooms.VEIN_STATION_DEFAULT_TARGET)
+	box.add_child(UI.muted_label("Vein Station target: %d" % target))
+
+	var row := UI.hbox()
+	row.add_child(UI.button("-5", func(): Rooms.set_vein_station_target(vein_id, target - 5)))
+	row.add_child(UI.button("+5", func(): Rooms.set_vein_station_target(vein_id, target + 5)))
+	row.add_child(UI.button("Unassign", func(): Rooms.toggle_vein_station_vein(vein_id)))
+	box.add_child(row)
+
+	return box
 
 
 func _build_security_row(vein: Dictionary) -> Control:

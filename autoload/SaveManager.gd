@@ -193,6 +193,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 func _restore_int_types(state: Dictionary) -> void:
 	_int_key(state, "pendingSaleCut")
 	_int_dict_values(state.get("labThresholds", {}))
+	_int_dict_values(state.get("veinStationTargets", {}))
 	for notification in state.get("notifications", []):
 		_int_key(notification, "day")
 	for bank_entry in state.get("bankLog", []):
