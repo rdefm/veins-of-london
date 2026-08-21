@@ -2,6 +2,8 @@
 
 **Status:** Draft, from a design session (2026-08-21). Approved in conversation by the human; open items are listed in §12 and must be confirmed before the tickets that depend on them are worked.
 
+**Written against `ui-redesign`**, not `main` — that branch is ~40 commits ahead and is the live development line. The vein/cultivating/raiding/faction systems are identical on both, but the nav shell and the map's stop grammar have both moved there; §6.2 and §8.1 are written against the newer code.
+
 **Scope of authority:** this document is canonical for the mechanics it defines. Where it conflicts with `docs/REFERENCE.md` or `docs/M1-LONDON.md`, **this document wins** and those documents must be updated in the same ticket that lands the conflicting code (per the project constitution: code and docs must not diverge).
 
 ---
@@ -56,7 +58,7 @@ Bands exist so that risk, prose, UI and drift can all key off one shared vocabul
 
 | band id | growth range | label | drift/day |
 |---|---|---|---|
-| `collapsed` | 0 | — (vein is removed) | — |
+| `collapsed` | 0 | Spent | 0 (pinned; see §2.5) |
 | `barren` | 1–14 | Barren | 3 (leftward) |
 | `sparse` | 15–29 | Sparse | 2 (leftward) |
 | `thinning` | 30–44 | Thinning | 1 (leftward) |
@@ -67,6 +69,8 @@ Bands exist so that risk, prose, UI and drift can all key off one shared vocabul
 | `rampant` | 100 (ceiling) | Rampant | 0 (clamped; see §2.6) |
 
 Band labels are player-facing prose and are **PROSE-REVIEW** material — draft, to be signed off.
+
+`collapsed` is a real, persistent state, not an instant death — a vein pins at 0 and rolls to disappear each day (§2.5). It is still cultivable, and cultivating is at its most efficient there, so a bottomed-out vein is a rescue job rather than a loss.
 
 The `dormant` band is a deliberate affordance: a vein pruned back to neutral does not drift at all. It yields nothing, but it is safe and can be left indefinitely. That is the player's answer to "I have more veins than blocks" and is what stops this system becoming a treadmill. Do not remove it as a "simplification."
 
@@ -93,10 +97,12 @@ All three cost **1 block** and route through `Travel.ensure_district(district)` 
 **Cultivate** — pushes right. Unchanged success roll: `cultChance = min(0.90, 0.30 + (skill − 1) × 0.12)`. On success `growth += cultivate_gain`, award 20 XP; on failure no change, award 8 XP. Result modal either way, as today.
 
 ```
-cultivate_gain(skill, growth, ceiling) = max(2, round((4 + 2 * skill) * (1 - growth / ceiling)))
+cultivate_gain(skill, growth, ceiling) = max(2, round((10 + 4 * skill) * (1 - growth / ceiling)))
 ```
 
 Diminishing toward the right on purpose: cultivating is at its most efficient as **rescue** on the barren side and at its least efficient as a shortcut to the ceiling. This is what stops a high-skill player block-spamming a vein straight to Rampant.
+
+**These constants are set by the start-at-20 decision (§2.7), not chosen freely.** A freshly seeded vein sits in `sparse`, drifting left at 2/day, and a skill-1 player only succeeds 30% of the time. At an earlier draft's `4 + 2 × skill`, a new vein gained an expected 1.5 growth per block against 0.67 lost to drift — climbing 20 → 50 would have taken ~36 blocks, twelve in-game days of doing nothing else, which makes seeding feel like a punishment at the exact moment the player has just spent 40 ore on it. At `10 + 4 × skill` the same climb is ~11 blocks (≈4 days), while the top end still degrades correctly (skill 5 at growth 90 gains 3). If the band table or `cultChance` is ever retuned, re-derive these two numbers rather than carrying them forward.
 
 **Prune (light)** — `growth -= 15`. **Prune (hard)** — `growth -= 40`. Both clamp at 0. Together they replace `harvest_cautious` and `harvest_full`, which are deleted.
 
@@ -118,15 +124,25 @@ Consequences, all intended:
 
 Pruning awards cultivating XP on the same schedule harvesting does today.
 
-### 2.5 The left wall — collapse
+### 2.5 The left wall — bottoming out, then collapse
 
-`growth` reaching **0** removes the vein. There is no level ladder to step down; collapse is the only left-wall outcome.
+`growth` reaching **0** does *not* remove the vein. It pins there — drift cannot push it below 0 — and the vein enters the `collapsed` band, where it is worthless but alive:
+
+- It yields nothing to a prune (§2.4 already guarantees this).
+- It is still cultivable, at the **maximum** gain the formula produces (`1 - 0/ceiling = 1`). Rescuing a spent vein is the most block-efficient cultivating in the game.
+- Each daily tick, `chance(COLLAPSE_CHANCE_PER_DAY)` with `COLLAPSE_CHANCE_PER_DAY = 0.15` removes it for good.
+
+A vein at 0 therefore survives ~6.7 days on average (median ~4), with no guaranteed grace period — it might vanish tomorrow, it might last a fortnight. That uncertainty is the point: it makes a bottomed-out vein something the player wants to deal with *now* rather than a deadline they can schedule around.
+
+On the removal roll landing:
 
 - Remove the vein from `player.veins` (or clear `site.factionVein` for a faction vein).
 - **Its site reverts to unclaimed** — `site.claimed = false`, `factionVein` stays null. The site survives and is seedable again.
 - Notification, reusing the existing collapse line: *"Your <ore> vein on <street> collapsed and disappeared."*
 
-Note this deliberately differs from **NPC abandonment** (`M1-LONDON.md` D2 ⑤c), which deletes the site outright. That asymmetry is intentional and must be preserved: an abandoned faction plot is gone; a vein you starved leaves the land behind.
+While a vein sits at 0 but has not yet been removed, the UI must say so plainly — this is a state the player can still act on, and it must never look like a vein that is merely doing badly. See §8.4.
+
+Note the reverts-to-unclaimed behaviour deliberately differs from **NPC abandonment** (`M1-LONDON.md` D2 ⑤c), which deletes the site outright. That asymmetry is intentional and must be preserved: an abandoned faction plot is gone; a vein you starved leaves the land behind.
 
 ### 2.6 The right wall — Rampant, and self-seeding
 
@@ -143,6 +159,14 @@ Self-seeding claims an existing site, so `siteCap` is unaffected and needs no ne
 `rampantDays` resets to 0 the moment `growth` drops below the ceiling by any means.
 
 **Faction veins do not self-seed.** Faction expansion is already handled by the daily NPC-claim roll; letting faction veins self-seed as well would flood the map. See §5.
+
+### 2.7 Starting growth
+
+A newly seeded vein starts at **`growth = 20`** (`sparse`). It is deliberately *not* immediately productive: pruning it yields nothing, and it is drifting left at 2/day, so it reaches 0 in roughly 8 days if ignored — then lingers at 0 under the §2.5 roll.
+
+The intent is that a fresh vein is an investment that must be worked up, not a tap that starts running the moment you pay for it. The player has ~8 days of slack plus a stochastic tail, which is enough to be forgiving and short enough to teach the mechanic on the first vein they ever seed.
+
+This applies to every creation path: `Sites.attempt_seed()`, the `hasNaturalVein` grant, the tutorial's granted vein, and `Cultivating.make_vein()`'s default. Self-seeded veins (§2.6) are the one exception — they start at 60, because they are a reward for a sustained risky posture rather than a fresh investment.
 
 ---
 
@@ -184,6 +208,7 @@ added to the existing `RAID_BASE_CHANCE + relation + danger + raidResist` stack.
   "ceiling": 100,
   "wildCeilingBonus": 20,
   "bands": [
+    { "id": "collapsed","min": 0,   "max": 0,   "label": "Spent",    "drift": 0 },
     { "id": "barren",   "min": 1,   "max": 14,  "label": "Barren",   "drift": 3 },
     { "id": "sparse",   "min": 15,  "max": 29,  "label": "Sparse",   "drift": 2 },
     { "id": "thinning", "min": 30,  "max": 44,  "label": "Thinning", "drift": 1 },
@@ -197,16 +222,18 @@ added to the existing `RAID_BASE_CHANCE + relation + danger + raidResist` stack.
   "hardPruneBonus": 1.25,
   "pruneLightDepth": 15,
   "pruneHardDepth": 40,
-  "cultivateBase": 4,
-  "cultivatePerSkill": 2,
+  "cultivateBase": 10,
+  "cultivatePerSkill": 4,
   "cultivateMinGain": 2,
+  "collapseChancePerDay": 0.15,
+  "seedGrowth": 20,
   "rampantSeedDays": 5,
   "selfSeedGrowth": 60,
   "terroirYieldMult": { "poor": 0.6, "fair": 1.0, "rich": 1.6, "saturated": 2.4 }
 }
 ```
 
-Band lookup must tolerate a growth value above 100 (a `wildCeiling` vein) — hence `rampant`'s open-ended max. `GameData` validation should assert the bands are contiguous, cover 1..100, and that exactly one band has `drift: 0` on each side of neutral.
+Band lookup must tolerate a growth value above 100 (a `wildCeiling` vein) — hence `rampant`'s open-ended max. `GameData` validation should assert the bands are contiguous, cover 0..100, and that exactly one band has `drift: 0` on each side of neutral (plus `collapsed`, which is pinned rather than dormant).
 
 **Edit** `data/sites.json` — `discoveryBonusPool` becomes `["vigour", "wildCeiling", "yield"]` (see §7).
 
@@ -242,7 +269,7 @@ This is what makes the Vein Station room genuinely load-bearing: it is the playe
 
 A list view of every player vein, with inline management.
 
-- **Placement:** recommended under the **HQ** tab, alongside the Vein Station room — it is an operations-management view and the five nav tabs are fixed. Implementer's call if a better home is obvious in the code; document the reasoning either way.
+- **Placement:** recommended as a new **Phone app** ("Veins"), added to `PhoneNav.APPS` alongside `profile`/`notifications`/`bank`. On `ui-redesign` the phone *is* the player's management surface — `home`/`you`/`bag`/`inventory` were retired into it by the phone-OS-shell work — and a portfolio list is exactly what a player would go to the phone for. HQ, alongside the Vein Station room, is the reasonable alternative if the implementer finds the phone grid is already full. Document the reasoning either way.
 - **Per row:** district, ore type, terroir tier, the growth bar with its band label, days-until-wall, security tier, and Vein Station assignment/target if any.
 - **Sort/filter** at minimum by band, so "what needs me this week" is one tap.
 - **Inline actions:** Cultivate / Prune (light) / Prune (hard) / Manage, each routing through the **same** `Cultivating` functions and therefore the same `Travel.ensure_district` call as the Map-tab sheet. The list is a convenience layer over the existing rules, never a bypass — screens do not mutate state, and there is no second code path for acting on a vein.
@@ -276,13 +303,16 @@ The renames are proposed because `recharge` and `maxLevel` name mechanics that w
 
 ### 8.1 Stop glyph grammar
 
-Current vein stop: white circle (r=10) → amber `#c8873a` ring (3px) → ore glyph centred → level badge at 4 o'clock (number + `devBar` progress arc) → security padlock at 8 o'clock.
+Current player vein stop: white circle (r=10) → amber `#c8873a` ring (3px) → ore glyph centred → level badge at 4 o'clock (number + `devBar` progress arc) → security padlock at 8 o'clock.
+
+**Constraint added by `ui-redesign` ticket 27:** unclaimed site stops are no longer tick marks. They are now paper-fill circle + ring stops like everything else, and a **rich/saturated** site draws a *second concentric outer ring* at `INTERCHANGE_RING_GAP = 3.0` — the Beck-diagram interchange-station idiom. So on the current diagram, **an outer concentric ring already means "high tier land."** An earlier draft of this PRD proposed an outer dashed ring as the overgrown cue; that would now be ambiguous against tier, and is dropped. The grammar below resolves it instead by giving tier and growth separate channels.
 
 Changes:
 
 - **The ring becomes the growth gauge.** The existing uniform ring stays as a faint track; growth is overdrawn on it as an arc starting at **12 o'clock** — **clockwise** for `growth > 50`, **anticlockwise** for `growth < 50` — with arc length proportional to distance from neutral, reaching at most 6 o'clock at either wall. A dormant vein shows only the track. One glyph answers both "which side" and "how far."
-- **Risk-band cue.** In the outer bands the stop also gets an outer ring: `wild`/`rampant` → a ragged, unevenly-spaced dashed amber ring a few px clear of the stop (shaggy, untended); `barren`/`sparse` → the growth arc itself renders thin, faded and broken by gaps. This is what makes "which veins need me" readable across the whole diagram without zooming. `_draw_dotted_ring()` already exists and is the starting point.
-- **The 4 o'clock badge becomes the terroir mark** — the site's tier, since the level number it used to hold no longer exists. The stop then reads *terroir (permanent) · growth (the arc) · security (the padlock)*: three facts, three slots, no overlap.
+- **The risk cue lives on the arc itself, not on a second ring.** In the outer bands the arc changes *texture*, so it never competes with the tier ring: `wild`/`rampant` → the arc renders noticeably thicker with a ragged/serrated outer edge (shaggy, untended); `barren`/`sparse` → thin, faded, and broken by gaps (failing); `collapsed` → the arc is gone entirely and the *track* itself renders broken and faded, so a spent vein reads as a husk rather than as a vein doing badly. This keeps "which veins need me" legible across the whole diagram without zooming.
+- **Terroir moves to the interchange ring, matching ticket 27.** A player vein on rich/saturated land draws the same second concentric outer ring an unclaimed rich/saturated site draws, so one visual idiom means one thing everywhere on the diagram. This is a better home for terroir than the badge slot, and it means **the 4 o'clock badge is dropped entirely** rather than repurposed — the old level number has no successor and the stop gets simpler.
+- The stop then reads *terroir (the outer ring) · growth (the arc, including its texture) · security (the padlock)*: three facts, three channels, no overlap.
 - `Cultivating.dev_fraction()` is deleted along with the arc it fed.
 
 ### 8.2 Filters
@@ -306,6 +336,8 @@ Both must fire on the transition only, never on every tick a vein sits in a band
 
 `scenes/screens/map.gd`'s site/vein sheet, `systems/station_bubble.gd`'s option list, and `scenes/components/ui.gd`'s action row all currently branch on `charged`. They become: growth bar + band label + days-to-wall + projected prune yield; actions Cultivate / Prune (light) / Prune (hard) / Upgrade security / Alarm. Prune buttons are shown always but disabled with the reason surfaced when the projected yield is 0 (i.e. at or below neutral) — the player should be able to see *why* an action isn't worth taking, not just find it missing.
 
+A vein in the `collapsed` band (growth 0) needs its own explicit treatment everywhere it appears — sheet, bubble, vein list and map: it must say the vein is spent and may be lost any day, and it must foreground Cultivate as the rescue. This is the one state where the player can still act but will lose the vein if they don't, and it must never be mistaken for a vein that is merely doing badly.
+
 ---
 
 ## 9. Travel
@@ -328,14 +360,14 @@ Everything a ticket-writer needs to enumerate the work. Nothing here is optional
 | file | change |
 |---|---|
 | `systems/cultivating.gd` | Core rewrite. Delete `harvest_cautious`, `harvest_full`, `recharge_veins`, `level_up_vein`, `_level_down_vein`, `dev_fraction`, `get_level_cap`, `is_at_max_level`, `get_effective_recharge_blocks`, `LEVEL_CAP`. Add `growth_band`, `band_drift`, `drift_veins`, `prune(vein_id, depth)`, `prune_yield`, `cultivate_gain`, `value_tier`, `ceiling`, `days_to_wall`, `collapse_vein`, `self_seed`. Rewrite `make_vein`, `cultivate`. Keep `generate_location_name`, `get_cult_chance`, `apply_yield_bonus`, `award_xp`, `find_vein`, `make_vein_id`, and both security/alarm sections untouched. |
-| `systems/time_system.gd` | `daily_tick` step ④ calls `Cultivating.drift_veins()` instead of `recharge_veins()`. Faction-vein drift and the self-seed pass run in the same step. |
+| `systems/time_system.gd` | `daily_tick` step ④ calls `Cultivating.drift_veins()` instead of `recharge_veins()`. Faction-vein drift, the §2.5 collapse roll, and the self-seed pass all run in the same step — order within the step: drift, then collapse roll, then self-seed. |
 | `systems/rooms.gd` | Vein Station rewritten to hold-at-target (§6.1). |
-| `systems/sites.gd` | `attempt_seed` creates a vein at a starting growth (recommend 60, so a fresh vein is already productive and drifting right — confirm in §12). `roll_faction_vein_growth` per §5. Natural-vein grant (`hasNaturalVein`) gets a starting growth. Collapse must revert the site to unclaimed (§2.5). |
+| `systems/sites.gd` | `attempt_seed` creates a vein at `seedGrowth` = 20 (§2.7). `roll_faction_vein_growth` per §5. Natural-vein grant (`hasNaturalVein`) starts at 20 too. The §2.5 removal roll must revert the site to unclaimed. |
 | `systems/factions.gd` | `create_faction_vein` growth instead of level; `DAY_ONE_ROSTER` re-expressed (§5); income, `_pick_target_vein` and rivalry weighting re-pointed at `value_tier`. |
 | `systems/raiding.gd` | `stealth_success_chance` value term → `value_tier`; Direction-B chance gains `RAID_GROWTH_WEIGHT` (§3); `Combat.start_defend_vein` scaling arg → `value_tier`. |
 | `systems/events.gd` | `grant_vein` / `grant_vein_with_site` ops take `growth`; `tutorial_cultivate` op re-pointed; `start_raid` scaling arg → `value_tier`. |
 | `systems/combat.gd` | `generate_raid_enemy`'s `veinLevel` parameter is now a value tier — same 1–6 range, no formula change, but rename the parameter so it doesn't lie. |
-| `systems/debug_start.gd` | Debug save's three veins get growth values instead of levels/charge (recommend one per side plus one at the ceiling, so all three visual states are inspectable immediately). |
+| `systems/debug_start.gd` | Debug save's three veins get growth values instead of levels/charge. Recommend one at 0 (`collapsed`), one dormant, one at the ceiling, so every distinct visual state is inspectable immediately without waiting out drift. |
 | `systems/map_style.gd` | Merge `strength`+`charge` into `growth` (§8.2); `countdown_label` → days-to-wall. |
 | `systems/map_events.gd` | Re-trigger burst/drain on band transitions (§8.3). |
 | `systems/station_bubble.gd` | Option list branches on projected yield, not `charged`. |
@@ -343,6 +375,8 @@ Everything a ticket-writer needs to enumerate the work. Nothing here is optional
 **Screens / components**
 
 `scenes/screens/map.gd` (vein sheet), `scenes/components/map_canvas.gd` (stop glyph, badges, filter plumbing, animations), `scenes/components/ui.gd` (action row), plus the **new vein list** (§6.2) and its Vein Station target UI.
+
+Note `map_canvas.gd` has moved substantially on `ui-redesign` (ticket 27's unclaimed-stop rework, `_draw_ring_stop`/`_draw_interchange_ring` now taking a `target` for the ripple animations). Read it fresh; do not work from `main`'s copy. Adding the vein list as a phone app also touches `systems/phone_nav.gd` (`APPS`) and `scenes/screens/phone.gd`.
 
 **Autoloads**
 
@@ -370,31 +404,34 @@ Per §4.
 New coverage that must exist, beyond porting what is there:
 
 1. **Drift is symmetric and sided** — a vein at 56 drifts right, at 44 drifts left, at 50 does not move.
-2. **The 26-day pacing figure** — a seeded soak from 56, untouched, reaches the ceiling in 24–28 ticks; likewise 44 → collapse. This is the design's core promise and must be asserted, not assumed.
+2. **The 26-day pacing figure** — a seeded soak from 56, untouched, reaches the ceiling in 24–28 ticks; likewise 44 → growth 0. This is the design's core promise and must be asserted, not assumed.
 3. **Prune yields nothing at or below neutral**, and a hard prune from just above neutral yields only the above-neutral points.
-4. **Collapse reverts its site to unclaimed and the site is re-seedable** — distinct from NPC abandonment's delete.
-5. **Self-seeding** fires at exactly 5 rampant days, claims an unclaimed site in the same district, does not breach `siteCap`, and no-ops (without losing its counter) when no unclaimed site exists.
-6. **`value_tier` boundaries** at 19/20, 99/100, and above 100 for a `wildCeiling` vein.
-7. **Terroir spread** — a saturated+`wildCeiling` vein's maximum single-prune yield is at least 5× a poor vein's, asserting §7 actually landed.
-8. **Vein Station hold-at-target** converges: a vein at 95 with target 70 is pruned down; one at 40 with target 70 is cultivated up; one at 70 is left alone.
-9. **`test_playthrough.gd`** extended: prospect → seed → cultivate → prune across ≥3 districts, plus a neglect arm that verifies a vein left alone for 30 days has collapsed and its site is seedable again.
+4. **Bottoming out is survivable** — a vein driven to 0 pins there rather than vanishing, stays cultivable at full gain, and is recoverable by cultivating it back above 0.
+5. **The collapse roll** — at growth 0 a vein is removed on a 0.15 daily roll and not before; seeded soak, its removal lands within a plausible window rather than on a fixed day. On removal, its site reverts to unclaimed and is re-seedable — distinct from NPC abandonment's delete.
+6. **A freshly seeded vein starts at 20** on every creation path (seed, natural vein, tutorial grant), and a skill-1 player can climb it to neutral in roughly a dozen blocks — the §2.4 arithmetic, asserted, so a future retune of `cultChance` or the band table can't silently reintroduce the twelve-day version.
+7. **Self-seeding** fires at exactly 5 rampant days, claims an unclaimed site in the same district, does not breach `siteCap`, and no-ops (without losing its counter) when no unclaimed site exists.
+8. **`value_tier` boundaries** at 19/20, 99/100, and above 100 for a `wildCeiling` vein.
+9. **Terroir spread** — a saturated+`wildCeiling` vein's maximum single-prune yield is at least 5× a poor vein's, asserting §7 actually landed.
+10. **Vein Station hold-at-target** converges: a vein at 95 with target 70 is pruned down; one at 40 with target 70 is cultivated up; one at 70 is left alone.
+11. **`test_playthrough.gd`** extended: prospect → seed → cultivate → prune across ≥3 districts, plus a neglect arm that verifies a vein left alone long enough bottoms out, is eventually removed by the roll, and leaves a seedable site behind.
 
 ---
 
 ## 12. Decisions taken, and the ones still open
 
-**Taken in session, do not relitigate:** one axis, not two; drift keyed on which side of neutral the vein sits; collapse at the left wall with the site reverting to unclaimed; growth replaces levels entirely; self-seeding at the right wall; terroir amplified to carry progression; daily drift cadence; the discovery bonuses re-pointed to drift and ceiling; save-breaking accepted; the map glyph grammar in §8.1.
+**Taken in session, do not relitigate:** one axis, not two; drift keyed on which side of neutral the vein sits; growth replaces levels entirely; a vein pinning at 0 and being removed on a 15%/day roll rather than instantly; a freshly seeded vein starting at 20; the site reverting to unclaimed on removal; self-seeding at the right wall; terroir amplified to carry progression; daily drift cadence; the discovery bonuses re-pointed to drift and ceiling; save-breaking accepted; the map glyph grammar in §8.1.
 
 **Open — confirm before the dependent ticket lands:**
 
 1. **Bonus key renames** (`recharge` → `vigour`, `maxLevel` → `wildCeiling`). Recommended, since both keys name deleted mechanics, but renaming data keys is the human's call per the constitution.
-2. **Starting growth for a newly seeded vein.** Recommend **60** — immediately productive and drifting right, so a new vein feels alive rather than inert. Alternative is 50 (dormant, fully player-driven).
+2. **The revised cultivate constants** (`cultivateBase` 10, `cultivatePerSkill` 4, §2.4). These are a *derived consequence* of starting seeded veins at 20 — at the original values a new vein took twelve in-game days to reach neutral at skill 1. The arithmetic is in §2.4; worth a second opinion on the resulting skill-5 numbers, which make a high-skill player's cultivate quite strong in the mid bands (15 points per success at neutral).
 3. **Faction vein collapse semantics** (§5) — delete the site outright, matching NPC abandonment, or revert to unclaimed, matching the player? Recommend delete-outright for consistency with the existing abandonment rule.
 4. **Vein list placement** (§6.2) — HQ tab recommended.
 5. **Band labels** (§2.2) and all new notification prose — PROSE-REVIEW, needs a tone-bible pass and human sign-off.
 
 **Watch items for the balance pass** (not blockers, but the first things to check on device):
 
+- **The 15%/day collapse roll may read as arbitrary.** Its virtue is that the player can't schedule around it; its risk is that losing a vein to a die roll feels unfair rather than tense, especially if it fires on the first day. If playtesting says so, the fix is a short guaranteed grace period (2–3 days at 0 before the roll starts), not a lower chance — a lower chance just makes spent veins linger as clutter.
 - **Self-seeding may be too generous.** It is free veins for doing nothing, counterweighted only by raid exposure and by consuming the district's unclaimed sites. If a player can chain-seed a district from one Rampant vein, raise `RAMPANT_SEED_DAYS` or gate it behind a roll.
 - **The dormant band may be too safe.** If parking everything at 50 becomes the dominant strategy, the fix is to make holding land cost something (upkeep, faction attention), not to remove the band.
 - **Cultivate may be too weak on the right.** If pushing a Lush vein to Rampant by hand is never worth a block, the ceiling is decorative for anyone not willing to wait 26 days.
