@@ -62,6 +62,17 @@ func run() -> void:
 		assert_eq(options[1]["reason"], "")
 	)
 
+	# vein-growth-state ticket 09: "List view" joins Prospect/View Veins as a
+	# third, always-enabled bubble option.
+	run_case("district_options_always_offers_list_view_enabled_regardless_of_prospect_gating", func():
+		GameState.reset()
+		var options := DistrictBubble.district_options("soho")  # prospect blocked here
+
+		assert_eq(options[2]["id"], DistrictBubble.LIST_ID)
+		assert_true(not options[2]["disabled"], "opening the vein list has no gating condition")
+		assert_eq(options[2]["reason"], "")
+	)
+
 	run_case("apply_option_prospect_forwards_to_Sites_prospect_and_reports_ok_true_on_success", func():
 		GameState.reset()
 		Rng.set_seed(3)
@@ -98,4 +109,15 @@ func run() -> void:
 
 		assert_true(not result["ok"])
 		assert_eq(GameState.state["mapNav"]["selectedDistrict"], null, "an unrecognised option doesn't fall through to any real action")
+	)
+
+	run_case("apply_option_list_view_opens_the_vein_list_scoped_to_the_district_via_VeinListNav", func():
+		GameState.reset()
+
+		var result := DistrictBubble.apply_option(DistrictBubble.LIST_ID, "hampstead")
+
+		assert_true(result["ok"])
+		assert_eq(GameState.state["veinListNav"]["districtId"], "hampstead")
+		assert_eq(GameState.state["veinListNav"]["originScreen"], "map")
+		assert_eq(GameState.state["currentScreen"], "vein_list")
 	)

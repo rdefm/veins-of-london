@@ -30,6 +30,12 @@ const SCREEN_SCRIPTS := {
 	"hq": preload("res://scenes/screens/hq.gd"),
 	"phone": preload("res://scenes/screens/phone.gd"),
 
+	# vein-growth-state ticket 09: the vein-portfolio list (spec §6.2), reached
+	# from the Map tab's district bubble ("List view") and HQ's Vein Station
+	# room ("View all veins") -- state.veinListNav-driven, same convention as
+	# map/hq/phone's own nav-state dicts above.
+	"vein_list": preload("res://scenes/screens/vein_list.gd"),
+
 	# calc-discovery ticket 06: the Lab, reached from HQ's third card. Its
 	# own internal drill-down (home/picker/pairing/notes) is state.benchNav-
 	# driven inside lab.gd, same pattern as phoneNav inside phone.gd.

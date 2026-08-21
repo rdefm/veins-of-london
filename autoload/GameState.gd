@@ -25,6 +25,14 @@ func new_game_state() -> Dictionary:
 		"bagDrawerOpen": false,
 		"inventoryTab": "ore",
 		"mapNav": { "selectedDistrict": null, "selectedSiteId": null },
+		# vein-growth-state ticket 09 (spec §6.2): transient nav state for the
+		# vein list screen, same "resets on load, not meaningfully persisted"
+		# convention as mapNav/phoneNav/benchNav below. districtId null scopes
+		# the list to every district (HQ's Vein Station entry point); a
+		# district id scopes it to just that one (the district bubble's own
+		# "List view" option). originScreen is which of those two opened it,
+		# so the list's own Back button returns there.
+		"veinListNav": { "districtId": null, "bandFilter": null, "originScreen": "map" },
 		"mapEvents": { "queue": [], "playing": false },
 		"phoneNav": { "app": "home", "selectedAxis": null, "confirmingNewGame": false },
 		# calc-discovery ticket 03: transient Lab nav, same convention as

@@ -261,14 +261,25 @@ func _on_district_tapped(district_id: String, canvas_anchor: Vector2) -> void:
 func _build_district_bubble_options(district_id: String) -> Array:
 	var result: Array = []
 	for opt in DistrictBubble.district_options(district_id):
-		var label := UI.format_block_cost_label("Prospect", 1) if opt["id"] == DistrictBubble.PROSPECT_ID else "View Veins"
 		result.append({
 			"id": opt["id"],
-			"label": label,
+			"label": _district_bubble_option_label(opt["id"]),
 			"disabled": opt["disabled"],
 			"reason": opt["reason"],
 		})
 	return result
+
+
+# vein-growth-state ticket 09: "List view" joins Prospect/View Veins as a
+# third, always-enabled bubble option.
+func _district_bubble_option_label(option_id: String) -> String:
+	match option_id:
+		DistrictBubble.PROSPECT_ID:
+			return UI.format_block_cost_label("Prospect", 1)
+		DistrictBubble.LIST_ID:
+			return "List view"
+		_:
+			return "View Veins"
 
 
 # MapBubble already closed itself before emitting this (see its own
@@ -374,7 +385,8 @@ func _prune_option_label(action_label: String, vein: Dictionary, depth: int) -> 
 # collapsed vein gets its own plain-risk phrasing rather than a days-to-wall
 # figure — it isn't drifting toward a wall, it's rolling a daily chance to
 # vanish outright (Cultivating.collapse_vein) — echoing the sheet's own
-# COLLAPSED_VEIN_WARNING vocabulary ("may ... any day") for continuity.
+# Cultivating.COLLAPSED_VEIN_WARNING vocabulary ("may ... any day") for
+# continuity.
 func _manage_option_label(stop: Dictionary) -> String:
 	if stop["kind"] != "vein" or stop.get("owner") != "player":
 		return "Manage"
@@ -382,20 +394,7 @@ func _manage_option_label(stop: Dictionary) -> String:
 	var band: Dictionary = Cultivating.growth_band(vein)
 	if band["id"] == "collapsed":
 		return "Manage — %s, may vanish any day" % band["label"]
-	return "Manage — %s, %s" % [band["label"], _days_to_wall_text(vein)]
-
-
-# Shared by the site sheet and the station bubble's Manage label. Cultivating.
-# days_to_wall()'s -1 sentinel means "sitting exactly at neutral, not
-# drifting toward either wall" (dormant band) -- everything else is a plain,
-# concrete day count per CONTENT-GUIDE.md §4 ("concrete numbers").
-func _days_to_wall_text(vein: Dictionary) -> String:
-	var days: int = Cultivating.days_to_wall(vein)
-	if days < 0:
-		return "stable — holding at neutral"
-	if vein["growth"] > GameData.VEIN_GROWTH["neutral"]:
-		return "%d days to ceiling" % days
-	return "%d days to empty" % days
+	return "Manage — %s, %s" % [band["label"], Cultivating.days_to_wall_text(vein)]
 
 
 # Cultivate and both Harvest options play their inline result animation at
@@ -630,16 +629,6 @@ func _build_seed_row(site: Dictionary) -> Control:
 	return b
 
 
-# vein-growth-state spec §2.5/§8.4: a vein pinned at growth 0 is alive but
-# rolls a daily chance (Cultivating.collapse_vein) to be removed for good —
-# it must read as a rescue-in-progress, never as merely "doing badly" (the
-# same band a heavily-pruned-but-recoverable vein can pass through on its
-# way elsewhere). PROSE-REVIEW: drafted against CONTENT-GUIDE.md §3 (dry,
-# concrete, no wink); "collapse and disappear" echoes collapse_vein()'s own
-# notification line for vocabulary continuity.
-const COLLAPSED_VEIN_WARNING := "Spent. Could collapse and disappear any day — cultivate it to save it."
-
-
 func _build_vein_action_card(vein: Dictionary) -> Control:
 	var c := UI.card()
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
@@ -664,9 +653,9 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	# is the same red the map's own collapsed-track/danger-ring cues use, so
 	# this reads as the same signal wherever the player meets it).
 	if collapsed:
-		c["content"].add_child(UI.tinted_label(COLLAPSED_VEIN_WARNING, MapStyle.DANGER_COLOUR))
+		c["content"].add_child(UI.tinted_label(Cultivating.COLLAPSED_VEIN_WARNING, MapStyle.DANGER_COLOUR))
 	else:
-		c["content"].add_child(UI.muted_label(_days_to_wall_text(vein)))
+		c["content"].add_child(UI.muted_label(Cultivating.days_to_wall_text(vein)))
 
 	# UI.hflow, not UI.hbox: a wild vein shows all three buttons at once,
 	# which overflows a narrow phone's width in a plain HBoxContainer
@@ -719,15 +708,15 @@ func _build_vein_station_row(vein: Dictionary) -> Variant:
 		return null
 
 	var vein_id: String = vein["id"]
-	var assigned: bool = GameState.state["veinStationVeins"].has(vein_id)
+	var station_text: Variant = Rooms.vein_station_target_text(vein_id)
 
 	var box := UI.vbox(4)
-	if not assigned:
+	if station_text == null:
 		box.add_child(UI.button("Assign to Vein Station", func(): Rooms.toggle_vein_station_vein(vein_id)))
 		return box
 
 	var target: int = GameState.state["veinStationTargets"].get(vein_id, Rooms.VEIN_STATION_DEFAULT_TARGET)
-	box.add_child(UI.muted_label("Vein Station target: %d" % target))
+	box.add_child(UI.muted_label(String(station_text)))
 
 	var row := UI.hbox()
 	row.add_child(UI.button("-5", func(): Rooms.set_vein_station_target(vein_id, target - 5)))

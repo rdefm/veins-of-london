@@ -246,3 +246,30 @@ func run() -> void:
 
 		hq.free()
 	)
+
+	# vein-growth-state ticket 09 (spec §6.2): HQ's own entry point into the
+	# vein list, once the Vein Station room is installed -- the district
+	# bubble's "List view" (tests/test_district_bubble.gd,
+	# tests/test_map_screen.gd) is the other entry point.
+	run_case("hq_installed_vein_station_room_exposes_a_view_all_veins_button_that_opens_the_list_unfiltered", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["rooms"].append("veinStation")
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		_find_button_starting_with(hq, "Rooms (").pressed.emit()
+		hq._refresh()
+
+		var view_all_button := _find_button(hq, "View all veins")
+		assert_true(view_all_button != null, "an installed Vein Station room must expose a way into the unfiltered vein list")
+
+		view_all_button.pressed.emit()
+
+		assert_eq(GameState.state["veinListNav"]["districtId"], null, "HQ's entry point is unfiltered -- every district")
+		assert_eq(GameState.state["veinListNav"]["originScreen"], "hq", "the list's own Back button must return to HQ, not the Map tab")
+		assert_eq(GameState.state["currentScreen"], "vein_list")
+
+		hq.free()
+	)

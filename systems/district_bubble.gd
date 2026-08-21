@@ -14,6 +14,11 @@ extends RefCounted
 
 const PROSPECT_ID := "prospect"
 const VIEW_VEINS_ID := "view_veins"
+# vein-growth-state ticket 09: "List view" -- opens the vein list (systems/
+# vein_list.gd, scenes/screens/vein_list.gd) scoped to this district, the
+# district-bubble half of the ticket's two entry points (the other is HQ's
+# Vein Station room, wired up in scenes/screens/hq.gd).
+const LIST_ID := "list_view"
 
 
 # { id, disabled, reason } per option, in display order -- label text is the
@@ -38,6 +43,7 @@ static func district_options(district_id: String) -> Array:
 	return [
 		{ "id": PROSPECT_ID, "disabled": prospect_disabled, "reason": prospect_reason },
 		{ "id": VIEW_VEINS_ID, "disabled": false, "reason": "" },
+		{ "id": LIST_ID, "disabled": false, "reason": "" },
 	]
 
 
@@ -53,6 +59,10 @@ static func apply_option(option_id: String, district_id: String) -> Dictionary:
 			return { "ok": result.get("ok", false) }
 		VIEW_VEINS_ID:
 			MapNav.select_district(district_id)
+			return { "ok": true }
+		LIST_ID:
+			VeinListNav.open_for_district(district_id)
+			Nav.go_to("vein_list")
 			return { "ok": true }
 		_:
 			return { "ok": false }

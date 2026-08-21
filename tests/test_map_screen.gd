@@ -382,6 +382,38 @@ func run() -> void:
 		screen.free()
 	)
 
+	# vein-growth-state ticket 09: "List view" joins Prospect/View Veins as a
+	# third bubble option.
+	run_case("district_bubble_options_list_view_is_always_enabled_and_labelled", func():
+		GameState.reset()
+		var screen := MapScreen.new()
+
+		var options := screen._build_district_bubble_options("soho")  # prospect blocked here (siteCap 0)
+
+		assert_eq(options[2]["id"], DistrictBubble.LIST_ID)
+		assert_eq(options[2]["label"], "List view")
+		assert_true(not options[2]["disabled"])
+
+		screen.free()
+	)
+
+	# Same "only ever calls DistrictBubble.apply_option()" shape as the
+	# view_veins case below -- LIST_ID's Nav.go_to("vein_list") is a plain
+	# state mutation, no _map_canvas/_bubble access, so this is also safe on a
+	# fresh, never-_ready()'d screen.
+	run_case("on_bubble_option_selected_list_view_dispatches_through_VeinListNav_and_Nav", func():
+		GameState.reset()
+		var screen := MapScreen.new()
+		screen._bubble_district_id = "hampstead"
+
+		screen._on_bubble_option_selected(DistrictBubble.LIST_ID)
+
+		assert_eq(GameState.state["veinListNav"]["districtId"], "hampstead")
+		assert_eq(GameState.state["currentScreen"], "vein_list")
+
+		screen.free()
+	)
+
 	# _on_bubble_option_selected's view_veins branch only ever calls
 	# DistrictBubble.apply_option() -> MapNav.select_district() -- no
 	# _map_canvas/_bubble access -- so it's safe to call directly on a fresh,

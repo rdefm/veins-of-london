@@ -54,6 +54,18 @@ static func set_vein_station_target(vein_id: String, target: int) -> void:
 	EventBus.state_changed.emit()
 
 
+# vein-growth-state ticket 09: the read-only "Vein Station target: N" summary
+# shared by the map sheet's own assignment row (scenes/screens/map.gd) and
+# the vein list (scenes/screens/vein_list.gd) -- null when the vein isn't
+# assigned at all, so both callers can decide what (if anything) to render
+# without duplicating the veinStationVeins/veinStationTargets lookup.
+static func vein_station_target_text(vein_id: String) -> Variant:
+	if not GameState.state["veinStationVeins"].has(vein_id):
+		return null
+	var target: int = GameState.state["veinStationTargets"].get(vein_id, VEIN_STATION_DEFAULT_TARGET)
+	return "Vein Station target: %d" % target
+
+
 # Called from time_system.gd's daily_tick, step ⑥ (lab half).
 static func process_lab() -> void:
 	var contact_id = Contacts.get_contact_in_room("lab")

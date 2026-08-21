@@ -229,6 +229,8 @@ func _build_room_row(room_id: String) -> Control:
 		c["content"].add_child(UI.muted_label("Installed"))
 		if ASSIGNABLE_ROOMS.has(room_id):
 			c["content"].add_child(_build_room_contact_row(room_id))
+		if room_id == "veinStation":
+			c["content"].add_child(_build_vein_station_list_row())
 	elif not available:
 		c["content"].add_child(UI.muted_label("Locked"))
 	elif full:
@@ -265,6 +267,18 @@ func _build_room_contact_row(room_id: String) -> Control:
 		box.add_child(row)
 
 	return box
+
+
+# vein-growth-state ticket 09 (spec §6.2): HQ's own entry point into the vein
+# list, unfiltered -- the district bubble's "List view" (systems/
+# district_bubble.gd's LIST_ID) is the other. VeinListNav.open_all() sets
+# state.veinListNav.originScreen to "hq" so the list's Back button returns
+# here rather than the Map tab.
+func _build_vein_station_list_row() -> Control:
+	return UI.button("View all veins", func():
+		VeinListNav.open_all()
+		Nav.go_to("vein_list")
+	)
 
 
 # ── gym ─────────────────────────────────────────────────────────────

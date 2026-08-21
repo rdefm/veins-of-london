@@ -114,6 +114,17 @@ static func ceiling(vein: Dictionary) -> int:
 	return base
 
 
+# vein-growth-state ticket 08/09: the collapsed-band warning and the
+# days-to-wall summary line are shared by every surface a vein appears on
+# (map sheet, station bubble Manage label, vein list) — kept here, once,
+# rather than duplicated per screen, since spec §5 requires this wording to
+# never drift ("must never be mistaken for a vein that is merely doing
+# badly"). PROSE-REVIEW: drafted against CONTENT-GUIDE.md §3 (dry, concrete,
+# no wink); "collapse and disappear" echoes collapse_vein()'s own
+# notification line for vocabulary continuity.
+const COLLAPSED_VEIN_WARNING := "Spent. Could collapse and disappear any day — cultivate it to save it."
+
+
 # Simulates daily drift (the same step-shape _drift_one() below applies)
 # until the vein reaches whichever wall it's currently leaning toward.
 # A vein sitting exactly at neutral isn't drifting toward either wall —
@@ -136,6 +147,20 @@ static func days_to_wall(vein: Dictionary) -> int:
 			growth = maxi(target, growth - delta)
 		days += 1
 	return days
+
+
+# Formats days_to_wall()'s int into the concrete, plain-numbers phrasing
+# CONTENT-GUIDE.md §4 wants ("concrete numbers") — shared by the map sheet,
+# the station bubble's Manage label, and the vein list (see
+# COLLAPSED_VEIN_WARNING's own comment above for why this lives here once
+# instead of once per screen).
+static func days_to_wall_text(vein: Dictionary) -> String:
+	var days: int = days_to_wall(vein)
+	if days < 0:
+		return "stable — holding at neutral"
+	if vein["growth"] > GameData.VEIN_GROWTH["neutral"]:
+		return "%d days to ceiling" % days
+	return "%d days to empty" % days
 
 
 # "yield" hospitability bonus applies to the ROLLED result, not the growth
