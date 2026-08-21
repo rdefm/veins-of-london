@@ -73,14 +73,15 @@ static func pick_claimant(district_id: String) -> String:
 	return presence
 
 
-# Instant Lv1 vein for a claiming faction (D2-equivalent "claim = instant
+# Instant vein for a claiming faction (D2-equivalent "claim = instant
 # vein", no unseeded intermediate state): oreType/district/hospitability
-# inherited from the site, devBar per the same skill-floor-1 convention
-# ticket 02's daily virtual-cultivate rolls use (factions have no skill
-# stat). Security is rolled fresh — see roll_security_tier().
-static func create_faction_vein(faction_id: String, site: Dictionary) -> Dictionary:
+# inherited from the site; growth is the caller's call — a fresh NPC claim
+# passes GameData.VEIN_GROWTH["seedGrowth"] (Sites' claim rolls), while
+# day-one roster seeding (below) passes its own fixed starting growth.
+# Security is rolled fresh — see roll_security_tier().
+static func create_faction_vein(faction_id: String, site: Dictionary, growth: int) -> Dictionary:
 	var hospitability := { "tier": site["tier"], "bonuses": site["bonuses"] }
-	var vein := Cultivating.make_vein(site["oreType"], GameData.VEIN_GROWTH["seedGrowth"], site["district"], site["id"], hospitability)
+	var vein := Cultivating.make_vein(site["oreType"], growth, site["district"], site["id"], hospitability)
 	vein["factionId"] = faction_id
 	vein["security"] = roll_security_tier(faction_id, site["oreType"])
 	return vein
@@ -544,18 +545,20 @@ static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 # (Sites' tier/ore/bonus rolls, create_faction_vein()'s security roll) —
 # the only thing day-1 does differently is fabricate a brand-new site from
 # scratch per starting vein (there's nothing in state.world.sites yet to
-# attach an NPC claim to) and force the vein's level to a fixed roster
-# value afterward instead of leaving it at create_faction_vein()'s default
-# Lv1.
+# attach an NPC claim to) and pass create_faction_vein() a fixed roster
+# growth instead of the fresh-claim seedGrowth default.
 #
-# Per-faction level lists are fixed constants, not re-rolled per game
+# Per-faction growth lists are fixed constants, not re-rolled per game
 # (spec.md's explicit "every new game gets the same level distribution"
 # decision) — each entry below was rolled once, uniformly at random within
-# the roster's stated range, and hardcoded here. Guild's and Conclave's
-# ranged sub-groups (levels 2-3 and 2-4 respectively) got the same
-# one-time-roll treatment as Collective/Firm/Network's fully-open ranges;
-# only their extra fixed-level veins (Guild's 2 @ Lv4, Conclave's 3 @ Lv5)
-# needed no roll at all.
+# the roster's stated 1-5 level range, then re-expressed as a starting
+# `growth` via vein-growth-state spec §5's `growth = 20n - 10` mapping
+# (Lv1->10, Lv2->30, Lv3->50, Lv4->70, Lv5->90), preserving the rosters'
+# intended relative strength now that levels are gone. Guild's and
+# Conclave's ranged sub-groups (levels 2-3 and 2-4 respectively) got the
+# same one-time-roll treatment as Collective/Firm/Network's fully-open
+# ranges; only their extra fixed-level veins (Guild's 2 @ Lv4, Conclave's
+# 3 @ Lv5) needed no roll at all.
 #
 # District counts here are exactly what data/districts.json's siteCap bump
 # (spec.md's "siteCap is bumped, not spent") accounts for: shoreditch +4,
@@ -564,21 +567,21 @@ static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 # veins.
 const DAY_ONE_ROSTER: Dictionary = {
 	"collective": [
-		{ "district": "shoreditch", "levels": [3, 1, 3, 3] },
-		{ "district": "whitechapel", "levels": [1, 2, 1, 3] },
+		{ "district": "shoreditch", "growths": [50, 10, 50, 50] },
+		{ "district": "whitechapel", "growths": [10, 30, 10, 50] },
 	],
 	"firm": [
-		{ "district": "camden", "levels": [3, 3] },
-		{ "district": "battersea", "levels": [3, 2] },
+		{ "district": "camden", "growths": [50, 50] },
+		{ "district": "battersea", "growths": [50, 30] },
 	],
 	"guild": [
-		{ "district": "greenwich", "levels": [2, 2, 3, 3, 2, 4, 4] },
+		{ "district": "greenwich", "growths": [30, 30, 50, 50, 30, 70, 70] },
 	],
 	"network": [
-		{ "district": "kingscross", "levels": [4, 4, 3, 4] },
+		{ "district": "kingscross", "growths": [70, 70, 50, 70] },
 	],
 	"conclave": [
-		{ "district": "city", "levels": [3, 3, 2, 4, 5, 5, 5] },
+		{ "district": "city", "growths": [50, 50, 30, 70, 90, 90, 90] },
 	],
 }
 
@@ -595,27 +598,24 @@ static func seed_day_one_veins() -> void:
 	for faction_id in DAY_ONE_ROSTER.keys():
 		for group in DAY_ONE_ROSTER[faction_id]:
 			var district_id: String = group["district"]
-			for level in group["levels"]:
-				_seed_day_one_vein(faction_id, district_id, level)
+			for growth in group["growths"]:
+				_seed_day_one_vein(faction_id, district_id, growth)
 	EventBus.state_changed.emit()
 
 
 # Everything about the site (tier, oreType, bonuses) and the vein's
 # security tier is rolled exactly as a normal NPC claim would produce
 # ("everything else stays procedural" per spec.md) — only the vein's growth
-# is forced afterward, via vein-growth-state spec §5's level->growth
-# mapping (growth = 20n - 10, so Lv1 -> 10, Lv3 -> 50, Lv5 -> 90),
-# preserving the day-one rosters' intended relative strength now that
-# levels are gone. No MapEvents queueing and no Notify/XP: these veins
-# exist from the moment the game starts, so there is nothing to animate or
-# award XP for (the daily-tick NPC-claim path's queue_seed_claim/Notify
-# calls are for a claim happening *during* play, which this isn't).
-static func _seed_day_one_vein(faction_id: String, district_id: String, level: int) -> void:
+# is the roster's fixed starting value. No MapEvents queueing and no
+# Notify/XP: these veins exist from the moment the game starts, so there is
+# nothing to animate or award XP for (the daily-tick NPC-claim path's
+# queue_seed_claim/Notify calls are for a claim happening *during* play,
+# which this isn't).
+static func _seed_day_one_vein(faction_id: String, district_id: String, growth: int) -> void:
 	var tier := Sites.roll_tier(district_id)
 	var site := Sites.roll_new_site(district_id, tier)
 
-	var vein := create_faction_vein(faction_id, site)
-	vein["growth"] = 20 * level - 10
+	var vein := create_faction_vein(faction_id, site, growth)
 	site["factionVein"] = vein
 
 	GameState.state["world"]["sites"].append(site)

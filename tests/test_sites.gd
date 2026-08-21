@@ -650,20 +650,49 @@ func run() -> void:
 	)
 
 	# ── faction vein daily growth (vein-growth-state ticket 01/04) ──────
-	# Faction-vein growth now moves via Cultivating.drift_veins() (the same
+	# Faction-vein growth moves via Cultivating.drift_veins() (the same
 	# daily_tick step every vein drifts on — see test_time_system.gd).
-	# roll_faction_vein_growth() is left as a landing point for
-	# vein-growth-state ticket 04's prune-back-at-growth-85 behaviour and is
-	# a no-op until that lands.
+	# roll_faction_vein_growth() only handles the prune-back-at-growth-85
+	# behaviour: without it, every faction vein eventually parks at the
+	# ceiling.
 
-	run_case("roll_faction_vein_growth_is_currently_a_safe_no_op", func():
-		GameState.reset()
-		var vein := _faction_vein(90, 1)
-		GameState.state["world"]["sites"] = [_site_with_faction_vein(vein)]
-		GameState.state["world"]["day"] = 5
-		Rng.set_seed(1)
-		Sites.roll_faction_vein_growth()
-		assert_eq(Sites.find_site("s1")["factionVein"]["growth"], 90, "not yet implemented (ticket 04) — growth is untouched")
+	run_case("roll_faction_vein_growth_never_fires_below_the_85_threshold", func():
+		for seed in range(100):
+			GameState.reset()
+			var vein := _faction_vein(84, 1)
+			GameState.state["world"]["sites"] = [_site_with_faction_vein(vein)]
+			GameState.state["world"]["day"] = 5
+			Rng.set_seed(seed)
+			Sites.roll_faction_vein_growth()
+			assert_eq(Sites.find_site("s1")["factionVein"]["growth"], 84, "growth 84 is below the prune-back threshold — never pruned (seed %d)" % seed)
+	)
+
+	run_case("roll_faction_vein_growth_prunes_a_growth_85_plus_vein_back_to_55_when_it_fires", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			var vein := _faction_vein(90, 1)
+			GameState.state["world"]["sites"] = [_site_with_faction_vein(vein)]
+			GameState.state["world"]["day"] = 5
+			Sites.roll_faction_vein_growth()
+			return Sites.find_site("s1")["factionVein"]["growth"] == 55
+		)
+		assert_true(seed != -1, "should find a prune-back hit within 200 tries at growth 90")
+	)
+
+	run_case("roll_faction_vein_growth_fires_at_roughly_40_percent_of_the_time_once_eligible", func():
+		var hits := 0
+		var trials := 500
+		for seed in range(trials):
+			GameState.reset()
+			var vein := _faction_vein(90, 1)
+			GameState.state["world"]["sites"] = [_site_with_faction_vein(vein)]
+			GameState.state["world"]["day"] = 5
+			Rng.set_seed(seed)
+			Sites.roll_faction_vein_growth()
+			if Sites.find_site("s1")["factionVein"]["growth"] == 55:
+				hits += 1
+		var rate: float = float(hits) / trials
+		assert_true(rate > 0.30 and rate < 0.50, "prune-back should fire ~40%% of the time once growth>=85 (got %.2f over %d trials)" % [rate, trials])
 	)
 
 	run_case("roll_faction_vein_growth_ignores_unclaimed_sites", func():

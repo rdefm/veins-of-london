@@ -381,7 +381,7 @@ static func npc_claim_best_unclaimed_site(district_id: String) -> void:
 	if site == null:
 		return
 	var faction_id := Factions.pick_claimant(district_id)
-	site["factionVein"] = Factions.create_faction_vein(faction_id, site)
+	site["factionVein"] = Factions.create_faction_vein(faction_id, site, GameData.VEIN_GROWTH["seedGrowth"])
 	MapEvents.queue_seed_claim(district_id, site["factionVein"]["id"], faction_id)
 	MapEvents.queue_join_line(district_id, site["factionVein"]["id"], faction_id)
 
@@ -400,7 +400,7 @@ static func roll_npc_claims() -> void:
 		var age_days: int = day - site["discoveredDay"]
 		if Rng.chance(npc_claim_chance(site["tier"], age_days)):
 			var faction_id := Factions.pick_claimant(site["district"])
-			site["factionVein"] = Factions.create_faction_vein(faction_id, site)
+			site["factionVein"] = Factions.create_faction_vein(faction_id, site, GameData.VEIN_GROWTH["seedGrowth"])
 			MapEvents.queue_seed_claim(site["district"], site["factionVein"]["id"], faction_id)
 			MapEvents.queue_join_line(site["district"], site["factionVein"]["id"], faction_id)
 			var district_name: String = GameData.DISTRICTS[site["district"]]["name"]
@@ -430,16 +430,24 @@ static func roll_npc_abandonment() -> void:
 		GameState.state["world"]["sites"] = sites.filter(func(s): return not abandoned_ids.has(s["id"]))
 
 
-# ── faction vein daily growth (faction-vein-ownership T02) ─────────────
+# ── faction vein daily growth (faction-vein-ownership T02, vein-growth-state T04) ──
 
 # Called from time_system.gd's daily_tick, step ⑤d (runs immediately after
 # ⑤c abandonment). Under the growth model (vein-growth-state spec §5),
 # faction veins drift on the same daily_tick step ④ pass every other vein
-# does (Cultivating.drift_veins()) — this step no longer needs to move
-# growth itself. It's left as an explicit no-op landing point, not deleted
-# outright, because vein-growth-state ticket 04 lands its replacement body
-# here: at growth >= 85, a 40% chance the faction prunes itself back to
-# ~55 (off-screen world simulation, no ore granted), so faction veins don't
-# all park at the ceiling within a month.
+# does (Cultivating.drift_veins()), so this step no longer moves growth
+# itself — it only prunes back veins that drifted all the way to the
+# ceiling, off-screen (no ore granted to anyone): without this, every
+# faction vein on the map would park at the ceiling within a month.
+const FACTION_PRUNE_BACK_THRESHOLD := 85
+const FACTION_PRUNE_BACK_CHANCE := 0.40
+const FACTION_PRUNE_BACK_TARGET := 55
+
+
 static func roll_faction_vein_growth() -> void:
-	pass
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein == null or vein["growth"] < FACTION_PRUNE_BACK_THRESHOLD:
+			continue
+		if Rng.chance(FACTION_PRUNE_BACK_CHANCE):
+			vein["growth"] = FACTION_PRUNE_BACK_TARGET

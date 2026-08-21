@@ -108,15 +108,15 @@ func run() -> void:
 		assert_true(distinct_picks.size() > 1, "the no-presence fallback must not always pick the same fixed faction")
 	)
 
-	run_case("create_faction_vein_populates_an_instant_lv1_vein_with_a_security_tier", func():
+	run_case("create_faction_vein_populates_an_instant_vein_with_a_security_tier", func():
 		GameState.reset()
 		var site := { "id": "s1", "district": "camden", "tier": "fair", "oreType": "physics", "bonuses": ["yield"] }
 		Rng.set_seed(3)
-		var vein := Factions.create_faction_vein("firm", site)
+		var vein := Factions.create_faction_vein("firm", site, GameData.VEIN_GROWTH["seedGrowth"])
 
 		assert_eq(vein["factionId"], "firm")
 		assert_eq(vein["oreType"], "physics", "vein inherits the site's ore type")
-		assert_eq(vein["growth"], GameData.VEIN_GROWTH["seedGrowth"], "instant claim starts at seedGrowth")
+		assert_eq(vein["growth"], GameData.VEIN_GROWTH["seedGrowth"], "growth is whatever the caller passed in")
 		assert_eq(vein["siteId"], "s1")
 		assert_eq(vein["district"], "camden")
 		assert_eq(vein["hospitability"], { "tier": "fair", "bonuses": ["yield"] }, "vein carries the site's tier + bonuses")
@@ -605,7 +605,7 @@ func run() -> void:
 
 		assert_eq(vein["factionId"], "collective", "successful attempt reassigns the vein to the attacker")
 		assert_eq(vein["oreType"], "fate", "oreType carries over unchanged")
-		assert_eq(vein["level"], 3, "level carries over unchanged")
+		assert_eq(vein["growth"], 50, "growth carries over unchanged")
 		assert_eq(vein["security"], "warded", "security carries over unchanged")
 
 		var relation_after: int = Factions.get_relation("firm", "collective")
@@ -716,7 +716,7 @@ func run() -> void:
 
 	# ── faction-starting-veins T01: seed_day_one_veins() ────────────────
 
-	run_case("seed_day_one_veins_produces_the_exact_per_faction_counts_districts_and_levels", func():
+	run_case("seed_day_one_veins_produces_the_exact_per_faction_counts_districts_and_growths", func():
 		GameState.reset()
 		Rng.set_seed(1)
 		Factions.seed_day_one_veins()
@@ -727,35 +727,35 @@ func run() -> void:
 		var collective_whitechapel := collective.filter(func(e): return e["site"]["district"] == "whitechapel")
 		assert_eq(collective_shoreditch.size(), 4, "collective: 4/4 shoreditch/whitechapel split")
 		assert_eq(collective_whitechapel.size(), 4, "collective: 4/4 shoreditch/whitechapel split")
-		var collective_levels: Array = collective.map(func(e): return e["vein"]["level"])
-		assert_eq(collective_levels, [3, 1, 3, 3, 1, 2, 1, 3], "collective levels are the hardcoded fixed roll, in placement order")
+		var collective_growths: Array = collective.map(func(e): return e["vein"]["growth"])
+		assert_eq(collective_growths, [50, 10, 50, 50, 10, 30, 10, 50], "collective growths are the hardcoded fixed roll (20n-10), in placement order")
 
 		var firm := _day_one_faction_veins("firm")
 		assert_eq(firm.size(), 4, "firm: 4 starting veins")
 		assert_eq(firm.filter(func(e): return e["site"]["district"] == "camden").size(), 2, "firm: 2/2 camden/battersea split")
 		assert_eq(firm.filter(func(e): return e["site"]["district"] == "battersea").size(), 2, "firm: 2/2 camden/battersea split")
-		assert_eq(firm.map(func(e): return e["vein"]["level"]), [3, 3, 3, 2], "firm levels are the hardcoded fixed roll")
+		assert_eq(firm.map(func(e): return e["vein"]["growth"]), [50, 50, 50, 30], "firm growths are the hardcoded fixed roll (20n-10)")
 
 		var guild := _day_one_faction_veins("guild")
 		assert_eq(guild.size(), 7, "guild: 7 starting veins (5 ranged + 2 fixed)")
 		for e in guild:
 			assert_eq(e["site"]["district"], "greenwich", "every guild starting vein is in greenwich")
-		assert_eq(guild.map(func(e): return e["vein"]["level"]), [2, 2, 3, 3, 2, 4, 4], "guild levels: 5 fixed-roll @2-3 then 2 fixed @Lv4")
+		assert_eq(guild.map(func(e): return e["vein"]["growth"]), [30, 30, 50, 50, 30, 70, 70], "guild growths: 5 fixed-roll @Lv2-3 then 2 fixed @Lv4, all via 20n-10")
 
 		var network := _day_one_faction_veins("network")
 		assert_eq(network.size(), 4, "network: 4 starting veins")
 		for e in network:
 			assert_eq(e["site"]["district"], "kingscross", "every network starting vein is in king's cross")
-		assert_eq(network.map(func(e): return e["vein"]["level"]), [4, 4, 3, 4], "network levels are the hardcoded fixed roll")
+		assert_eq(network.map(func(e): return e["vein"]["growth"]), [70, 70, 50, 70], "network growths are the hardcoded fixed roll (20n-10)")
 
 		var conclave := _day_one_faction_veins("conclave")
 		assert_eq(conclave.size(), 7, "conclave: 7 starting veins (4 ranged + 3 fixed)")
 		for e in conclave:
 			assert_eq(e["site"]["district"], "city", "every conclave starting vein is in the city")
-		assert_eq(conclave.map(func(e): return e["vein"]["level"]), [3, 3, 2, 4, 5, 5, 5], "conclave levels: 4 fixed-roll @2-4 then 3 fixed @Lv5")
+		assert_eq(conclave.map(func(e): return e["vein"]["growth"]), [50, 50, 30, 70, 90, 90, 90], "conclave growths: 4 fixed-roll @Lv2-4 then 3 fixed @Lv5, all via 20n-10")
 	)
 
-	run_case("seed_day_one_veins_levels_are_identical_across_seeds_but_tier_ore_security_still_vary", func():
+	run_case("seed_day_one_veins_growths_are_identical_across_seeds_but_tier_ore_security_still_vary", func():
 		GameState.reset()
 		Rng.set_seed(1)
 		Factions.seed_day_one_veins()
@@ -768,9 +768,9 @@ func run() -> void:
 
 		assert_eq(run_a.size(), run_b.size(), "same total starting-vein count regardless of seed")
 
-		var levels_a: Array = run_a.map(func(s): return s["factionVein"]["level"])
-		var levels_b: Array = run_b.map(func(s): return s["factionVein"]["level"])
-		assert_eq(levels_a, levels_b, "levels are hardcoded constants — identical across every new game")
+		var growths_a: Array = run_a.map(func(s): return s["factionVein"]["growth"])
+		var growths_b: Array = run_b.map(func(s): return s["factionVein"]["growth"])
+		assert_eq(growths_a, growths_b, "growths are hardcoded constants — identical across every new game")
 
 		var procedural_differs := false
 		for i in run_a.size():

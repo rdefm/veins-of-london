@@ -76,10 +76,10 @@ static func apply() -> void:
 	var camden_firm_emotion_site := _debug_site("camden", "fair", "emotion", [])
 	var kingscross_network_site := _debug_site("kingscross", "fair", "fate", [])
 	var city_conclave_site := _debug_site("city", "fair", "life", [])
-	camden_firm_physics_site["factionVein"] = Factions.create_faction_vein("firm", camden_firm_physics_site)
-	camden_firm_emotion_site["factionVein"] = Factions.create_faction_vein("firm", camden_firm_emotion_site)
-	kingscross_network_site["factionVein"] = Factions.create_faction_vein("network", kingscross_network_site)
-	city_conclave_site["factionVein"] = Factions.create_faction_vein("conclave", city_conclave_site)
+	camden_firm_physics_site["factionVein"] = Factions.create_faction_vein("firm", camden_firm_physics_site, GameData.VEIN_GROWTH["seedGrowth"])
+	camden_firm_emotion_site["factionVein"] = Factions.create_faction_vein("firm", camden_firm_emotion_site, GameData.VEIN_GROWTH["seedGrowth"])
+	kingscross_network_site["factionVein"] = Factions.create_faction_vein("network", kingscross_network_site, GameData.VEIN_GROWTH["seedGrowth"])
+	city_conclave_site["factionVein"] = Factions.create_faction_vein("conclave", city_conclave_site, GameData.VEIN_GROWTH["seedGrowth"])
 
 	state["world"]["sites"] = [
 		shoreditch_time_site,
