@@ -19,6 +19,33 @@ static func _buttons_labelled(root: Node, text: String) -> Array:
 	return found
 
 
+# vein-growth-state ticket 08: fixtures rewritten from the old level/
+# charged/devBar vein shape to the growth model (Cultivating.make_vein()'s
+# shape).
+static func _player_vein(overrides: Dictionary = {}) -> Dictionary:
+	var vein := {
+		"id": "v1", "oreType": "time", "growth": 20, "security": "none",
+		"alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
+		"district": "shoreditch", "siteId": "s1", "rampantDays": 0,
+		"hospitability": { "tier": "fair", "bonuses": [] },
+	}
+	for key in overrides:
+		vein[key] = overrides[key]
+	return vein
+
+
+static func _faction_vein(overrides: Dictionary = {}) -> Dictionary:
+	var vein := {
+		"id": "fv1", "factionId": "firm", "oreType": "physics", "growth": 20,
+		"security": "warded", "alarmUpgrades": [], "location": "Test Alley",
+		"claimedOnDay": 1, "district": "camden", "siteId": "s1", "rampantDays": 0,
+		"hospitability": { "tier": "fair", "bonuses": [] },
+	}
+	for key in overrides:
+		vein[key] = overrides[key]
+	return vein
+
+
 func run() -> void:
 	run_case("tapping_the_dim_closes_the_site_sheet", func():
 		GameState.reset()
@@ -112,27 +139,23 @@ func run() -> void:
 		screen.free()
 	)
 
-	# Bugfixes ticket 05: a charged, owned vein shows all three action
-	# buttons (Cultivate, Harvest cautious, Harvest full) at once, which
-	# overflowed a narrow phone's width when they sat in a plain
-	# HBoxContainer. The row must be an HFlowContainer instead, so overflow
-	# wraps onto another line rather than clipping past the screen edge.
-	run_case("charged_vein_action_row_wraps_instead_of_a_fixed_hbox", func():
+	# Bugfixes ticket 05: three action buttons (Cultivate, Prune light, Prune
+	# hard) at once overflowed a narrow phone's width when they sat in a
+	# plain HBoxContainer. The row must be an HFlowContainer instead, so
+	# overflow wraps onto another line rather than clipping past the screen
+	# edge. vein-growth-state ticket 08: all three are ALWAYS present now
+	# (Prune is disabled-with-reason, never hidden, per the spec) -- so this
+	# no longer needs a "charged" vein, just any vein.
+	run_case("vein_action_row_wraps_instead_of_a_fixed_hbox", func():
 		GameState.reset()
-		var level_data: Dictionary = GameData.VEIN_LEVELS["1"]
-		var vein := {
-			"id": "v1", "oreType": "time", "level": 1, "levelLabel": level_data["label"],
-			"devBar": 0, "charged": true, "chargeBlocks": level_data["rechargeBlocks"],
-			"security": "none", "alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
-			"district": "shoreditch", "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
-		}
+		var vein := _player_vein({ "growth": 90 })
 
 		var screen := MapScreen.new()
 		var card: Control = screen._build_vein_action_card(vein)
 		var actions: Control = card.find_children("", "HFlowContainer", true, false)[0]
 
 		assert_true(actions is HFlowContainer, "action row must wrap instead of a fixed-width HBoxContainer")
-		assert_eq(actions.get_child_count(), 3, "Cultivate + Harvest (cautious) + Harvest (full) all present when charged")
+		assert_eq(actions.get_child_count(), 3, "Cultivate + Prune (light) + Prune (hard) all present")
 
 		card.free()
 		screen.free()
@@ -168,21 +191,87 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("uncharged_vein_action_row_has_only_cultivate", func():
+	# vein-growth-state ticket 08: Prune is always shown (never hidden) even
+	# when its projected yield is 0 -- disabled, with the reason surfaced via
+	# UI.action_button's button-plus-muted-reason-line shape, so the player
+	# sees *why*, not just a missing button.
+	run_case("prune_buttons_stay_present_but_disabled_with_a_reason_when_projected_yield_is_zero", func():
 		GameState.reset()
-		var level_data: Dictionary = GameData.VEIN_LEVELS["1"]
-		var vein := {
-			"id": "v1", "oreType": "time", "level": 1, "levelLabel": level_data["label"],
-			"devBar": 0, "charged": false, "chargeBlocks": 0,
-			"security": "none", "alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
-			"district": "shoreditch", "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
-		}
+		var vein := _player_vein({ "growth": 40 })  # thinning band, below neutral: nothing to prune
 
 		var screen := MapScreen.new()
 		var card: Control = screen._build_vein_action_card(vein)
 		var actions: Control = card.find_children("", "HFlowContainer", true, false)[0]
 
-		assert_eq(actions.get_child_count(), 1, "only Cultivate present when uncharged")
+		assert_eq(actions.get_child_count(), 3, "Cultivate + Prune (light) + Prune (hard) still all present")
+
+		var light_row: Control = actions.get_child(1)
+		var hard_row: Control = actions.get_child(2)
+		var light_button: Button = light_row.get_child(0)
+		var hard_button: Button = hard_row.get_child(0)
+
+		assert_true(light_button.disabled, "Prune (light) must be disabled when it would yield nothing")
+		assert_true(hard_button.disabled, "Prune (hard) must be disabled when it would yield nothing")
+
+		var light_reason: Label = light_row.get_child(1)
+		var hard_reason: Label = hard_row.get_child(1)
+		assert_eq(light_reason.text, "Nothing to take at or below neutral.")
+		assert_eq(hard_reason.text, "Nothing to take at or below neutral.")
+
+		card.free()
+		screen.free()
+	)
+
+	run_case("prune_button_labels_surface_the_projected_yield_and_stay_enabled_above_neutral", func():
+		GameState.reset()
+		var vein := _player_vein({ "growth": 90 })  # wild band, well above neutral
+
+		var screen := MapScreen.new()
+		var card: Control = screen._build_vein_action_card(vein)
+		var actions: Control = card.find_children("", "HFlowContainer", true, false)[0]
+
+		var light_button: Button = (actions.get_child(1) as Control).get_child(0)
+		var hard_button: Button = (actions.get_child(2) as Control).get_child(0)
+
+		assert_true(not light_button.disabled)
+		assert_true(not hard_button.disabled)
+		assert_true(light_button.text.contains("ore"), "the label must show the projected yield before the player commits a block")
+		assert_true(hard_button.text.contains("ore"))
+
+		card.free()
+		screen.free()
+	)
+
+	run_case("collapsed_vein_gets_the_danger_warning_and_keeps_cultivate_enabled_as_the_rescue", func():
+		GameState.reset()
+		var vein := _player_vein({ "growth": 0 })
+
+		var screen := MapScreen.new()
+		var card: Control = screen._build_vein_action_card(vein)
+
+		var labels := card.find_children("", "Label", true, false)
+		var texts: Array = labels.map(func(l): return (l as Label).text)
+		assert_true(texts.any(func(t: String): return t.contains("Spent")), "a collapsed vein must plainly say it's spent, not just look like a doing-badly vein")
+		assert_true(texts.any(func(t: String): return t.contains("any day")), "the warning must convey it may be lost at any time, not on a schedule")
+
+		var cultivate_buttons := _buttons_labelled(card, "Cultivate")
+		assert_eq(cultivate_buttons.size(), 1)
+		assert_true(not (cultivate_buttons[0] as Button).disabled, "Cultivate is the rescue action and must stay enabled at growth 0")
+
+		card.free()
+		screen.free()
+	)
+
+	run_case("vein_action_card_shows_a_days_to_wall_figure_for_a_drifting_vein", func():
+		GameState.reset()
+		var vein := _player_vein({ "growth": 90 })
+
+		var screen := MapScreen.new()
+		var card: Control = screen._build_vein_action_card(vein)
+
+		var labels := card.find_children("", "Label", true, false)
+		var texts: Array = labels.map(func(l): return (l as Label).text)
+		assert_true(texts.any(func(t: String): return t.contains("days to ceiling")), "growth summary must include a concrete days-to-wall figure")
 
 		card.free()
 		screen.free()
@@ -192,13 +281,7 @@ func run() -> void:
 
 	run_case("raid_button_present_and_enabled_on_a_faction_vein_site_with_blocks_remaining", func():
 		GameState.reset()
-		var faction_vein := {
-			"id": "fv1", "factionId": "firm", "oreType": "physics", "level": 1,
-			"levelLabel": GameData.VEIN_LEVELS["1"]["label"], "devBar": 0,
-			"charged": false, "chargeBlocks": 0, "security": "warded",
-			"location": "Test Alley", "claimedOnDay": 1, "district": "camden",
-			"siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
-		}
+		var faction_vein := _faction_vein()
 
 		var screen := MapScreen.new()
 		var content := UI.vbox()
@@ -215,13 +298,7 @@ func run() -> void:
 	run_case("raid_button_disabled_when_time_exhausted", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var faction_vein := {
-			"id": "fv1", "factionId": "firm", "oreType": "physics", "level": 1,
-			"levelLabel": GameData.VEIN_LEVELS["1"]["label"], "devBar": 0,
-			"charged": false, "chargeBlocks": 0, "security": "warded",
-			"location": "Test Alley", "claimedOnDay": 1, "district": "camden",
-			"siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
-		}
+		var faction_vein := _faction_vein()
 
 		var screen := MapScreen.new()
 		var content := UI.vbox()
@@ -335,11 +412,7 @@ func run() -> void:
 	run_case("station_bubble_options_cultivate_keeps_its_cost_label_even_when_no_blocks_remain", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var vein := {
-			"id": "v1", "district": "shoreditch", "oreType": "time", "level": 1,
-			"charged": false, "chargeBlocks": 0, "siteId": "s1",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
+		var vein := _player_vein()
 		var stop := { "kind": "vein", "vein": vein, "owner": "player", "site": { "id": "s1" } }
 		var screen := MapScreen.new()
 
@@ -353,20 +426,64 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("station_bubble_options_cultivate_label_swaps_to_max_level_at_the_level_cap", func():
+	run_case("station_bubble_options_cultivate_label_swaps_to_vein_at_ceiling_at_the_ceiling", func():
 		GameState.reset()
-		var vein := {
-			"id": "v1", "district": "shoreditch", "oreType": "time", "level": 5,  # LEVEL_CAP
-			"charged": false, "chargeBlocks": 0, "siteId": "s1",
-			"hospitability": { "tier": "fair", "bonuses": [] },
-		}
+		var vein := _player_vein({ "growth": 100 })  # fair tier, no wildCeiling bonus -- ceiling is 100
 		var stop := { "kind": "vein", "vein": vein, "owner": "player", "site": { "id": "s1" } }
 		var screen := MapScreen.new()
 
 		var options := screen._build_station_bubble_options(stop)
 
-		assert_eq(options[0]["label"], "Vein at max level", "matches _build_vein_action_card's own real-button label at the cap")
+		assert_eq(options[0]["label"], "Vein at ceiling", "matches _build_vein_action_card's own real-button label at the ceiling")
 		assert_true(options[0]["disabled"])
+
+		screen.free()
+	)
+
+	run_case("station_bubble_options_prune_labels_surface_the_projected_yield", func():
+		GameState.reset()
+		var vein := _player_vein({ "growth": 90 })
+		var stop := { "kind": "vein", "vein": vein, "owner": "player", "site": { "id": "s1" } }
+		var screen := MapScreen.new()
+
+		var options := screen._build_station_bubble_options(stop)
+
+		assert_eq(options[1]["id"], StationBubble.HARVEST_CAUTIOUS_ID)
+		assert_true(options[1]["label"].contains("ore"), "the label must show the projected yield before the player commits a block")
+		assert_true(not options[1]["disabled"])
+		assert_eq(options[2]["id"], StationBubble.HARVEST_FULL_ID)
+		assert_true(options[2]["label"].contains("ore"))
+		assert_true(not options[2]["disabled"])
+
+		screen.free()
+	)
+
+	run_case("station_bubble_options_manage_label_shows_band_and_days_to_wall_for_a_player_vein", func():
+		GameState.reset()
+		var vein := _player_vein({ "growth": 90 })  # wild band
+		var stop := { "kind": "vein", "vein": vein, "owner": "player", "site": { "id": "s1" } }
+		var screen := MapScreen.new()
+
+		var options := screen._build_station_bubble_options(stop)
+
+		var manage: Dictionary = options[options.size() - 1]
+		assert_eq(manage["id"], StationBubble.MANAGE_ID)
+		assert_true(manage["label"].begins_with("Manage — Wild"), "Manage must surface the bubble's own growth summary since it has no bar to draw one")
+		assert_true(manage["label"].contains("days to ceiling"))
+
+		screen.free()
+	)
+
+	run_case("station_bubble_options_manage_label_warns_plainly_for_a_collapsed_vein", func():
+		GameState.reset()
+		var vein := _player_vein({ "growth": 0 })
+		var stop := { "kind": "vein", "vein": vein, "owner": "player", "site": { "id": "s1" } }
+		var screen := MapScreen.new()
+
+		var options := screen._build_station_bubble_options(stop)
+
+		var manage: Dictionary = options[options.size() - 1]
+		assert_true(manage["label"].contains("any day"), "a collapsed vein's bubble must say plainly it may vanish, not read as merely doing badly")
 
 		screen.free()
 	)

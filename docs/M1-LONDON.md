@@ -102,7 +102,7 @@ Terroir tier also drives yield directly: `terroirYieldMult` (poor 0.6 / fair 1.0
 ### Map tab (M1 — plain list, superseded by the real diagram in M1.5)
 - A scrollable list of the 9 districts: name, one-line blurb, derived indicators ("Prices +15%", "Rough"), an ownership summary ("2 of 3 sites yours").
 - Tap a district row → **district panel**: blurb, derived indicators, Prospect and Travel buttons, list of its sites (each row: tier, ore, claim state).
-- Tap a site/vein row → **site/vein sheet** (bottom sheet): tier, ore, bonuses, level, dev bar, charge state, security; actions Cultivate / Harvest (cautious·full) / Seed / Upgrade security — labels show the action's block cost per D3, flat regardless of district ("Harvest — 1 block").
+- Tap a site/vein row → **site/vein sheet** (bottom sheet): tier, ore, bonuses, growth bar + band label + days-to-wall, security; actions Cultivate / Prune (light·hard) / Seed / Upgrade security — Prune always shown, disabled with a reason when its projected yield is 0; labels show the action's block cost per D3, flat regardless of district ("Prune (light) — 1 block").
 - This is the exact interaction contract M1.5 renders against — it swaps only the Map tab's top-level presentation (list → diagram); district panel and site/vein sheet are unchanged.
 
 ### D4.4 Global bag drawer + inline counts (anti-friction rules)

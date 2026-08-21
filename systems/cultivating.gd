@@ -246,6 +246,19 @@ static func prune_yield(vein: Dictionary, depth: int) -> int:
 	return apply_yield_bonus(vein, rolled)
 
 
+# vein-growth-state ticket 08: the shared "always offered, disabled with a
+# reason" rule for a Prune button/option -- both the site sheet (map.gd's
+# _build_prune_button) and the station bubble (station_bubble.gd's
+# _prune_option) need the exact same gate, so it's computed once here rather
+# than kept as two independently-maintained copies of the same two branches.
+static func prune_gate(vein: Dictionary, depth: int, district: String) -> Dictionary:
+	if prune_yield(vein, depth) <= 0:
+		return { "disabled": true, "reason": "Nothing to take at or below neutral." }
+	if not Travel.can_afford(district, 1):
+		return { "disabled": true, "reason": "No blocks left today." }
+	return { "disabled": false, "reason": "" }
+
+
 # Replaces harvest_cautious()/harvest_full() — depth is the caller's choice
 # of GameData.VEIN_GROWTH's pruneLightDepth (-15) or pruneHardDepth (-40).
 # No cultivating XP awarded, matching the harvest schedule this replaces

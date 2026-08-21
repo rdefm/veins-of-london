@@ -256,6 +256,23 @@ static func button(text: String, callback: Callable) -> Button:
 	return b
 
 
+# vein-growth-state ticket 08: the site sheet's own version of MapBubble.
+# _build_option_row's "always shown, disabled with a muted reason line
+# underneath" pattern — a real inline action button rather than a bubble
+# row, for cases (Prune light/hard) that must never just disappear: the
+# player has to be able to see *why* an action isn't worth taking, not find
+# it missing. `disabled`/`reason` are the caller's job to compute (systems/
+# never touches this file); this only renders the shared shape.
+static func action_button(text: String, callback: Callable, disabled: bool = false, reason: String = "") -> Control:
+	var row := vbox(2)
+	var b := button(text, callback)
+	b.disabled = disabled
+	row.add_child(b)
+	if disabled and reason != "":
+		row.add_child(muted_label(reason))
+	return row
+
+
 # Fixed square touch target for an Icons (icons.gd) vector glyph, no text
 # label — bugfixes ticket 13: map.gd's top-bar hamburger/bag buttons used
 # bare "☰"/"🎒" glyphs, which render as nothing on the exported build's

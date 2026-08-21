@@ -31,12 +31,12 @@ static func station_options(stop: Dictionary) -> Array:
 	return [{ "id": MANAGE_ID, "disabled": false, "reason": "" }]
 
 
-# Cultivate/Harvest gating mirrors scenes/screens/map.gd's existing
-# _build_vein_action_card row exactly (at_max_level and Travel.can_afford
-# gates, Harvest only offered while charged) so a vein tapped on the diagram
-# sees identical rules to the full-screen sheet, just surfaced as bubble
-# options instead. Manage is always offered last, unconditionally — it's a
-# pure navigation option (opens the sheet), never blocked.
+# Cultivate/Prune gating mirrors scenes/screens/map.gd's existing
+# _build_vein_action_card row exactly (at-ceiling and Travel.can_afford
+# gates, both Prune depths always offered per ticket 08) so a vein tapped on
+# the diagram sees identical rules to the full-screen sheet, just surfaced
+# as bubble options instead. Manage is always offered last, unconditionally
+# — it's a pure navigation option (opens the sheet), never blocked.
 static func _player_vein_options(vein: Dictionary) -> Array:
 	var district: String = vein["district"]
 	var at_ceiling: bool = vein["growth"] >= Cultivating.ceiling(vein)
@@ -52,32 +52,36 @@ static func _player_vein_options(vein: Dictionary) -> Array:
 
 	var options: Array = [
 		{ "id": CULTIVATE_ID, "disabled": cultivate_disabled, "reason": cultivate_reason },
+		_prune_option(vein, HARVEST_CAUTIOUS_ID, GameData.VEIN_GROWTH["pruneLightDepth"], district),
+		_prune_option(vein, HARVEST_FULL_ID, GameData.VEIN_GROWTH["pruneHardDepth"], district),
+		{ "id": MANAGE_ID, "disabled": false, "reason": "" },
 	]
-
-	# vein-growth-state spec §2.4: pruning at or below neutral yields
-	# nothing, so it's never worth a block — not offered here at all.
-	# ticket 08 upgrades this to "shown but disabled with the reason", per
-	# the sheet's own treatment.
-	if vein["growth"] > GameData.VEIN_GROWTH["neutral"]:
-		var prune_disabled := not Travel.can_afford(district, 1)
-		var prune_reason := "No blocks left today." if prune_disabled else ""
-		options.append({ "id": HARVEST_CAUTIOUS_ID, "disabled": prune_disabled, "reason": prune_reason })
-		options.append({ "id": HARVEST_FULL_ID, "disabled": prune_disabled, "reason": prune_reason })
-
-	options.append({ "id": MANAGE_ID, "disabled": false, "reason": "" })
 	return options
 
 
+# vein-growth-state ticket 08: always offered, never hidden — gated by
+# Cultivating.prune_gate() (shared with map.gd's own inline Prune button, so
+# the two surfaces can't drift apart on this rule) rather than a growth >
+# neutral heuristic, since the two depths' cuts land differently: a vein
+# just above neutral can still net a light prune a point or two while a
+# hard prune's deeper cut (or vice versa, once terroir/hard-bonus rounding
+# is in play) lands entirely at/below neutral. Each depth is therefore
+# checked on its own projection, never a single shared comparison.
+static func _prune_option(vein: Dictionary, id: String, depth: int, district: String) -> Dictionary:
+	var gate: Dictionary = Cultivating.prune_gate(vein, depth, district)
+	return { "id": id, "disabled": gate["disabled"], "reason": gate["reason"] }
+
+
 # Dispatches a tapped bubble option to the same system calls the full-screen
-# site sheet already uses (Cultivating.cultivate/harvest_* / MapNav.select_site),
+# site sheet already uses (Cultivating.cultivate/prune / MapNav.select_site),
 # and reports whether it counts as a success for MapCanvas.play_action_result()'s
 # tween. Manage's `ok` is always true (opening the sheet has no fail state) —
-# same as DistrictBubble.apply_option()'s View Veins branch. Harvest's `ok` is
-# just its own "ok" key, always true once dispatched here: harvest never
-# rolls to succeed or fail (it's only ever offered while charged, gated the
-# same way station_options() gates it), so "the action ran" and "it worked"
-# are the same thing there — map.gd's tween always plays the success pulse
-# for it as a result.
+# same as DistrictBubble.apply_option()'s View Veins branch. Prune's `ok` is
+# just its own "ok" key, always true once dispatched here: pruning never
+# rolls to succeed or fail (it's only ever offered here once _prune_option's
+# gating lets the button through), so "the action ran" and "it worked" are
+# the same thing there — map.gd's tween always plays the success pulse for
+# it as a result.
 #
 # Cultivate is the one branch where `ok` deliberately isn't Cultivating.
 # cultivate()'s own "ok" key: that key only means "the action was allowed to

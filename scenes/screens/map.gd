@@ -332,12 +332,18 @@ func _build_station_bubble_options(stop: Dictionary) -> Array:
 	return result
 
 
-# Cultivate keeps its cost suffix even while disabled by the at-max-level
+# Cultivate keeps its cost suffix even while disabled by the at-ceiling
 # gate, exactly like the district bubble's Prospect label -- see
 # _build_district_bubble_options' own comment for why (dropping it would
-# read as a cheaper action, not the same one currently blocked). At max
-# level specifically, _build_vein_action_card's own real button swaps in
-# "Vein at max level" instead, which this matches.
+# read as a cheaper action, not the same one currently blocked). At the
+# ceiling specifically, _build_vein_action_card's own real button swaps in
+# "Vein at ceiling" instead, which this matches.
+#
+# Ticket 08: Prune's label always carries its projected yield (Cultivating.
+# prune_yield) so the player sees what a tap is worth *before* pressing it,
+# same as _build_prune_button's own label on the full-screen sheet -- this
+# is shown whether or not the button ends up disabled (StationBubble's own
+# gating owns disabled/reason; this only formats the text).
 func _station_option_label(option_id: String, stop: Dictionary) -> String:
 	match option_id:
 		StationBubble.CULTIVATE_ID:
@@ -346,13 +352,50 @@ func _station_option_label(option_id: String, stop: Dictionary) -> String:
 				return "Vein at ceiling"
 			return UI.format_block_cost_label("Cultivate", 1)
 		StationBubble.HARVEST_CAUTIOUS_ID:
-			return UI.format_block_cost_label("Prune (light)", 1)
+			return _prune_option_label("Prune (light)", stop["vein"], GameData.VEIN_GROWTH["pruneLightDepth"])
 		StationBubble.HARVEST_FULL_ID:
-			return UI.format_block_cost_label("Prune (hard)", 1)
+			return _prune_option_label("Prune (hard)", stop["vein"], GameData.VEIN_GROWTH["pruneHardDepth"])
 		StationBubble.MANAGE_ID:
-			return "Manage"
+			return _manage_option_label(stop)
 		_:
 			return ""
+
+
+func _prune_option_label(action_label: String, vein: Dictionary, depth: int) -> String:
+	var projected: int = Cultivating.prune_yield(vein, depth)
+	return "%s · %d ore" % [UI.format_block_cost_label(action_label, 1), projected]
+
+
+# Ticket 08: the bubble's own "growth bar + band label + days-to-wall" —
+# there's no room in a MapBubble row for a real bar (systems/map_bubble.gd
+# only renders a label + optional disabled reason, and this feature's own
+# change inventory doesn't touch it), so Manage (always enabled, so its
+# reason line never renders) is where that summary text lives instead. A
+# collapsed vein gets its own plain-risk phrasing rather than a days-to-wall
+# figure — it isn't drifting toward a wall, it's rolling a daily chance to
+# vanish outright (Cultivating.collapse_vein) — echoing the sheet's own
+# COLLAPSED_VEIN_WARNING vocabulary ("may ... any day") for continuity.
+func _manage_option_label(stop: Dictionary) -> String:
+	if stop["kind"] != "vein" or stop.get("owner") != "player":
+		return "Manage"
+	var vein: Dictionary = stop["vein"]
+	var band: Dictionary = Cultivating.growth_band(vein)
+	if band["id"] == "collapsed":
+		return "Manage — %s, may vanish any day" % band["label"]
+	return "Manage — %s, %s" % [band["label"], _days_to_wall_text(vein)]
+
+
+# Shared by the site sheet and the station bubble's Manage label. Cultivating.
+# days_to_wall()'s -1 sentinel means "sitting exactly at neutral, not
+# drifting toward either wall" (dormant band) -- everything else is a plain,
+# concrete day count per CONTENT-GUIDE.md §4 ("concrete numbers").
+func _days_to_wall_text(vein: Dictionary) -> String:
+	var days: int = Cultivating.days_to_wall(vein)
+	if days < 0:
+		return "stable — holding at neutral"
+	if vein["growth"] > GameData.VEIN_GROWTH["neutral"]:
+		return "%d days to ceiling" % days
+	return "%d days to empty" % days
 
 
 # Cultivate and both Harvest options play their inline result animation at
@@ -587,6 +630,16 @@ func _build_seed_row(site: Dictionary) -> Control:
 	return b
 
 
+# vein-growth-state spec §2.5/§8.4: a vein pinned at growth 0 is alive but
+# rolls a daily chance (Cultivating.collapse_vein) to be removed for good —
+# it must read as a rescue-in-progress, never as merely "doing badly" (the
+# same band a heavily-pruned-but-recoverable vein can pass through on its
+# way elsewhere). PROSE-REVIEW: drafted against CONTENT-GUIDE.md §3 (dry,
+# concrete, no wink); "collapse and disappear" echoes collapse_vein()'s own
+# notification line for vocabulary continuity.
+const COLLAPSED_VEIN_WARNING := "Spent. Could collapse and disappear any day — cultivate it to save it."
+
+
 func _build_vein_action_card(vein: Dictionary) -> Control:
 	var c := UI.card()
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
@@ -596,6 +649,7 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	var vein_id: String = vein["id"]
 	var vein_ceiling: int = Cultivating.ceiling(vein)
 	var at_ceiling: bool = vein["growth"] >= vein_ceiling
+	var collapsed: bool = band["id"] == "collapsed"
 
 	c["content"].add_child(UI.heading("%s %s — %s" % [ore["symbol"], ore["name"], band["label"]], 14))
 	c["content"].add_child(UI.muted_label(vein["location"]))
@@ -603,6 +657,16 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 
 	c["content"].add_child(UI.muted_label("Growth: %d/%d" % [vein["growth"], vein_ceiling]))
 	c["content"].add_child(UI.bar(vein["growth"], vein_ceiling))
+
+	# Collapsed gets the danger-coloured warning instead of the ordinary
+	# days-to-wall line -- it isn't drifting toward a wall to count down to,
+	# it's rolling a daily chance to vanish outright (MapStyle.DANGER_COLOUR
+	# is the same red the map's own collapsed-track/danger-ring cues use, so
+	# this reads as the same signal wherever the player meets it).
+	if collapsed:
+		c["content"].add_child(UI.tinted_label(COLLAPSED_VEIN_WARNING, MapStyle.DANGER_COLOUR))
+	else:
+		c["content"].add_child(UI.muted_label(_days_to_wall_text(vein)))
 
 	# UI.hflow, not UI.hbox: a wild vein shows all three buttons at once,
 	# which overflows a narrow phone's width in a plain HBoxContainer
@@ -615,18 +679,8 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	cultivate_button.disabled = at_ceiling or not Travel.can_afford(district, 1)
 	actions.add_child(cultivate_button)
 
-	# vein-growth-state spec §2.4: pruning at or below neutral yields
-	# nothing, so it's never worth a block — not offered here at all.
-	# ticket 08 upgrades this to "shown but disabled with the projected
-	# yield surfaced", per the spec's own requirement.
-	if vein["growth"] > GameData.VEIN_GROWTH["neutral"]:
-		var light_button := UI.button(UI.format_block_cost_label("Prune (light)", 1), func(): Cultivating.prune(vein_id, GameData.VEIN_GROWTH["pruneLightDepth"]))
-		light_button.disabled = not Travel.can_afford(district, 1)
-		actions.add_child(light_button)
-
-		var hard_button := UI.button(UI.format_block_cost_label("Prune (hard)", 1), func(): Cultivating.prune(vein_id, GameData.VEIN_GROWTH["pruneHardDepth"]))
-		hard_button.disabled = not Travel.can_afford(district, 1)
-		actions.add_child(hard_button)
+	actions.add_child(_build_prune_button("Prune (light)", vein, GameData.VEIN_GROWTH["pruneLightDepth"], district))
+	actions.add_child(_build_prune_button("Prune (hard)", vein, GameData.VEIN_GROWTH["pruneHardDepth"], district))
 
 	c["content"].add_child(actions)
 	c["content"].add_child(_build_security_row(vein))
@@ -636,6 +690,22 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 		c["content"].add_child(vein_station_row)
 
 	return c["panel"]
+
+
+# vein-growth-state spec §2.4/§8.4: Prune is always shown, never hidden —
+# unlike the old "not offered at all below neutral" behaviour, disabled (when
+# the projected yield is 0, or blocks are exhausted) now comes with a reason
+# the player can read before they'd have pressed it, via UI.action_button's
+# shared "button + muted reason line" shape (systems/map_bubble.gd's own
+# _build_option_row pattern, reused here for a real inline button). The
+# disabled/reason gate itself is Cultivating.prune_gate() -- shared with
+# station_bubble.gd's own Prune options so the sheet and the bubble can't
+# drift apart on the same rule.
+func _build_prune_button(action_label: String, vein: Dictionary, depth: int, district: String) -> Control:
+	var vein_id: String = vein["id"]
+	var label_text := _prune_option_label(action_label, vein, depth)
+	var gate: Dictionary = Cultivating.prune_gate(vein, depth, district)
+	return UI.action_button(label_text, func(): Cultivating.prune(vein_id, depth), gate["disabled"], gate["reason"])
 
 
 # vein-growth-state ticket 06: per-vein Vein Station assignment/target
