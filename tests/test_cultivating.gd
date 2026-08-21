@@ -393,6 +393,122 @@ func run() -> void:
 		assert_eq(vein["rampantDays"], 0, "dropping below the ceiling by any means resets the counter")
 	)
 
+	# ── growth transition map events (vein-growth-state ticket 07) ──────
+
+	run_case("drift_fires_a_charge_burst_the_tick_a_vein_drifts_into_wild", func():
+		GameState.reset()
+		var vein := _vein(84)  # lush; lush's own drift (2) crosses the 86 wild threshold in one tick
+		GameState.state["player"]["veins"] = [vein]
+
+		Cultivating.drift_veins()
+
+		assert_eq(vein["growth"], 86, "lush drifts by 2/day")
+		assert_true(MapEvents.has_pending(), "crossing into wild queues a burst")
+		var event = MapEvents.current()
+		assert_eq(event["type"], "charge")
+		assert_eq(event["district"], "shoreditch")
+		assert_eq(event["veinId"], "test_vein")
+	)
+
+	run_case("drift_fires_a_charge_burst_reaching_the_ceiling_even_from_within_wild_already", func():
+		GameState.reset()
+		var vein := _vein(99)  # already wild -- "entered wild" alone wouldn't fire again
+		GameState.state["player"]["veins"] = [vein]
+
+		Cultivating.drift_veins()
+
+		assert_eq(vein["growth"], 100, "wild drifts by 3/day, clamped at the ceiling")
+		assert_true(MapEvents.has_pending(), "reaching the ceiling queues a burst on its own, independent of the wild-entry check")
+		assert_eq(MapEvents.current()["type"], "charge")
+	)
+
+	run_case("drift_does_not_refire_a_charge_burst_while_a_vein_merely_sits_in_wild", func():
+		GameState.reset()
+		var vein := _vein(84)
+		GameState.state["player"]["veins"] = [vein]
+
+		Cultivating.drift_veins()
+		assert_true(MapEvents.has_pending(), "entering wild fired once")
+		MapEvents.advance()
+		assert_true(not MapEvents.has_pending())
+
+		Cultivating.drift_veins()
+		assert_eq(vein["growth"], 89, "still drifting rightward within wild")
+		assert_true(not MapEvents.has_pending(), "sitting inside wild a second tick does not requeue a burst")
+	)
+
+	run_case("prune_fires_a_drain_when_it_pulls_growth_down_through_neutral", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(60, "camden")]
+		Rng.set_seed(1)
+
+		Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneHardDepth"])
+
+		assert_true(MapEvents.has_pending(), "crossing down through neutral (60 -> 20) queues a drain")
+		var event = MapEvents.current()
+		assert_eq(event["type"], "drain")
+		assert_eq(event["district"], "camden")
+		assert_eq(event["veinId"], "test_vein")
+	)
+
+	# A vein already sitting exactly at neutral (the dormant band's own
+	# midpoint) that gets pruned further down has still "crossed below
+	# neutral" -- growth_before >= neutral, not strictly >, is what this
+	# edge case needs.
+	run_case("prune_fires_a_drain_when_growth_starts_exactly_at_neutral", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(50)]
+		Rng.set_seed(1)
+
+		Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneLightDepth"])
+
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(vein["growth"], 35)
+		assert_true(MapEvents.has_pending(), "growth was already at neutral (50), and this prune moved it below (35)")
+		assert_eq(MapEvents.current()["type"], "drain")
+	)
+
+	run_case("prune_does_not_fire_a_drain_when_growth_stays_above_neutral", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(90)]
+		Rng.set_seed(1)
+
+		Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneLightDepth"])
+
+		assert_true(not MapEvents.has_pending(), "growth 90 -> 75 never reaches neutral -- no drain")
+	)
+
+	run_case("cultivate_fires_a_charge_burst_when_a_success_pushes_growth_into_wild", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["cultivatingSkill"] = 6
+			GameState.state["player"]["veins"] = [_vein(80)]  # lush; a skill-6 success gain (7) crosses into wild (87)
+			var result := Cultivating.cultivate("test_vein")
+			return result.get("success", false)
+		)
+		assert_true(seed != -1, "should find a successful cultivate roll within 200 tries")
+
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(vein["growth"], 87, "confirms the gain actually crossed into wild")
+		assert_true(MapEvents.has_pending(), "cultivate can trigger the same burst drift does, mid-action")
+		assert_eq(MapEvents.current()["type"], "charge")
+	)
+
+	run_case("cultivate_never_fires_a_drain_even_when_a_success_crosses_neutral_upward", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["cultivatingSkill"] = 6
+			GameState.state["player"]["veins"] = [_vein(40)]  # thinning, below neutral
+			var result := Cultivating.cultivate("test_vein")
+			return result.get("success", false)
+		)
+		assert_true(seed != -1, "should find a successful cultivate roll within 200 tries")
+
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(vein["growth"], 60, "growth 40 -> 60 crosses neutral upward, into 'taking'")
+		assert_true(not MapEvents.has_pending(), "drain is a downward-only crossing -- Cultivate, which only ever increases growth, never fires it")
+	)
+
 	run_case("self_seed_fires_at_exactly_5_rampant_days_and_claims_an_unclaimed_site_in_district", func():
 		GameState.reset()
 		var vein := _vein(100)

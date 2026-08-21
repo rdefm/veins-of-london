@@ -217,10 +217,12 @@ static func cultivate(vein_id: String) -> Dictionary:
 
 	if success:
 		var vein_ceiling: int = ceiling(vein)
+		var growth_before: int = vein["growth"]
 		var gain: int = cultivate_gain(skill, vein["growth"], vein_ceiling)
 		vein["growth"] = clampi(vein["growth"] + gain, 0, vein_ceiling)
 		if vein["growth"] < vein_ceiling:
 			vein["rampantDays"] = 0
+		_queue_growth_events(vein, growth_before)
 		award_xp(20)
 		Modal.open("cultivate_result", { "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] })
 		return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] }
@@ -260,8 +262,10 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 	TimeSystem.advance_time_block()
 
 	var amount: int = prune_yield(vein, depth)
+	var growth_before: int = vein["growth"]
 	vein["growth"] = maxi(0, vein["growth"] - depth)
 	vein["rampantDays"] = 0
+	_queue_growth_events(vein, growth_before)
 
 	var player: Dictionary = GameState.state["player"]
 	var ore_type: String = vein["oreType"]
@@ -360,6 +364,46 @@ static func _drift_one(vein: Dictionary) -> void:
 		vein["rampantDays"] = mini(vein["rampantDays"] + 1, GameData.VEIN_GROWTH["rampantSeedDays"])
 	else:
 		vein["rampantDays"] = 0
+
+	_queue_growth_events(vein, growth)
+
+
+# vein-growth-state ticket 07: fires the map's burst/drain animations
+# (MapEvents.queue_charge/queue_drain, unchanged since map-animations
+# tickets 03/04) on the specific growth transitions the map's growth-gauge
+# glyph cares about, using the same was_charged-style before/after guard
+# the old recharge_veins() used -- never re-fires while a vein merely sits
+# in a band. Called from every place growth actually changes: _drift_one
+# above (the daily tick) for band-boundary crossings passive drift alone can
+# produce, and cultivate()/prune() for neutral-line crossings, which
+# passive drift can never cause on its own (drift always moves growth away
+# from neutral, per _drift_one's own direction formula) -- only Prune can
+# push a vein down across it. Burst and drain are mutually exclusive by
+# construction: burst only ever fires on a growth INCREASE (entering wild,
+# reaching the ceiling), drain only ever fires on a growth DECREASE
+# (dropping back to/through neutral), so the same call never queues both.
+static func _queue_growth_events(vein: Dictionary, growth_before: int) -> void:
+	var growth_after: int = vein["growth"]
+	if growth_before == growth_after:
+		return
+
+	var vein_ceiling: int = ceiling(vein)
+	var was_wild: bool = _band_for_growth(growth_before)["id"] == "wild"
+	var now_wild: bool = _band_for_growth(growth_after)["id"] == "wild"
+	var reached_ceiling: bool = growth_before < vein_ceiling and growth_after >= vein_ceiling
+	if (now_wild and not was_wild) or reached_ceiling:
+		MapEvents.queue_charge(vein["district"], vein["id"])
+
+	# Both bounds inclusive, not growth_before > neutral: a vein already
+	# sitting exactly at neutral (the dormant band's own midpoint) that gets
+	# pruned further down has still "crossed below neutral" just as much as
+	# one that started above it -- growth_before >= neutral (not >) is what
+	# makes that edge case fire too, symmetric with growth_after <= neutral
+	# already covering a vein landing exactly on neutral from above.
+	var neutral: int = GameData.VEIN_GROWTH["neutral"]
+	var drained_to_neutral: bool = growth_before >= neutral and growth_after <= neutral
+	if drained_to_neutral:
+		MapEvents.queue_drain(vein["district"], vein["id"])
 
 
 # spec §2.5: a vein pinned at 0 rolls a COLLAPSE_CHANCE_PER_DAY chance each

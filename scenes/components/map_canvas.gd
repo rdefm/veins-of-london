@@ -570,17 +570,21 @@ func _line_owner_stops(owner: String) -> Array:
 	return result
 
 
-# Ticket 03: a vein finishing its recharge — a brighter one-shot burst/flash
-# at the stop, visually distinct from (and preceding) ChargeHalo's own
-# steady-state pulse. Unlike _play_discover_ripple/_play_seed_claim_ring,
-# this doesn't need to end in a particular static draw state: the vein was
-# never hidden from the ordinary draw in the first place (see MapEvents.
-# queue_charge's own comment — pending_vein_ids() deliberately excludes
-# "charge" events), so _rebuild_halos() already put the real ChargeHalo up
-# the moment charged flipped true, independent of this event ever reaching
-# the front of the queue. This burst just plays a brighter flash on top of
-# it in _playback_layer (added after _halo_layer, so it renders above the
-# halo) and frees itself, leaving the halo exactly as it already was.
+# Ticket 03 (retriggered by vein-growth-state ticket 07 on entering the
+# wild/rampant bands or reaching the ceiling — see Cultivating.
+# _queue_growth_events): a brighter one-shot burst/flash at the stop,
+# visually distinct from (and preceding) ChargeHalo's own steady-state
+# pulse. Unlike _play_discover_ripple/_play_seed_claim_ring, this doesn't
+# need to end in a particular static draw state: the vein was never hidden
+# from the ordinary draw in the first place (see MapEvents.queue_charge's
+# own comment — pending_vein_ids() deliberately excludes "charge" events),
+# and _rebuild_halos() recomputes ChargeHalo visibility from the vein's
+# current (already-updated) growth band on every state_changed — it's
+# already showing the instant growth enters wild/rampant, independent of
+# this event ever reaching the front of the queue. This burst just plays a
+# brighter flash on top of it in _playback_layer (added after _halo_layer,
+# so it renders above the halo) and frees itself, leaving the halo exactly
+# as it already was.
 func _play_charge_burst(stop: Dictionary, event: Dictionary) -> void:
 	var vein: Variant = stop["vein"]
 	if vein == null:
@@ -595,16 +599,19 @@ func _play_charge_burst(stop: Dictionary, event: Dictionary) -> void:
 	burst.queue_free()
 
 
-# Ticket 04: a vein being harvested — the halo visibly collapses inward and
-# fades out, the reverse shape of _play_charge_burst above, marking the
-# moment it stops rather than the halo just disappearing. Same "doesn't need
-# to end in a particular static draw state" reasoning as _play_charge_burst:
-# the vein was never hidden from the ordinary draw (see MapEvents.
-# queue_drain's own comment) — _rebuild_halos() already dropped the real
-# ChargeHalo the instant charged flipped false, so this is purely a one-shot
-# overlay in _playback_layer that starts where that halo left off and ends
-# with nothing on screen, matching _rebuild_halos()'s own rest state for an
-# uncharged vein (none) rather than an instant disappearance.
+# Ticket 04 (retriggered by vein-growth-state ticket 07 on draining back
+# down to/through neutral — see Cultivating._queue_growth_events): the halo
+# visibly collapses inward and fades out, the reverse shape of
+# _play_charge_burst above, marking the moment growth fell back to neutral
+# rather than the halo just disappearing. Same "doesn't need to end in a
+# particular static draw state" reasoning as _play_charge_burst: the vein
+# was never hidden from the ordinary draw (see MapEvents.queue_drain's own
+# comment), and _rebuild_halos() always reflects the vein's current growth
+# band, not a snapshot from when this event was queued — the halo may well
+# have already dropped earlier in the same drift/prune step (leaving wild/
+# rampant happens at a higher growth than reaching neutral), so this is
+# purely a one-shot overlay in _playback_layer marking the neutral crossing
+# itself, not literally "the moment the halo turns off".
 func _play_vein_drain(stop: Dictionary, event: Dictionary) -> void:
 	var vein: Variant = stop["vein"]
 	if vein == null:
@@ -846,23 +853,28 @@ func _draw_stops() -> void:
 # of _draw_vein_stop/_draw_faction_stop so the seed/claim animation
 # (MapCanvas._play_seed_claim_ring, ticket 02) computes its end-state style
 # from the exact same MapStyle calls rather than a parallel formula that
-# could drift from the permanent static draw.
+# could drift from the permanent static draw. Ticket 07: keyed on
+# Cultivating.value_tier(vein) (1-6) now, not the retired 1-6 `level` field.
 func _vein_ring_style(vein: Dictionary, owner_colour: Color, base_width: float) -> Dictionary:
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
-	var level: int = vein.get("level", 1)
+	var tier: int = Cultivating.value_tier(vein)
 	return {
-		"colour": MapStyle.vein_ring_colour(filter_mode, owner_colour, Color(ore["colour"]), level),
-		"width": MapStyle.vein_ring_width(filter_mode, level, base_width),
+		"colour": MapStyle.vein_ring_colour(filter_mode, owner_colour, Color(ore["colour"]), tier),
+		"width": MapStyle.vein_ring_width(filter_mode, tier, base_width),
 	}
 
 
-# The paper-fill circle + full-circumference ring every stop (vein, faction,
-# and — since ticket 27 — unclaimed) draws at rest — same shape SeedClaimRing.
-# _draw() sweeps in progressively, just always at ring_end_angle TAU here.
-# `target` defaults to self so every existing call site (drawing from this
-# Control's own _draw()) is unaffected; DiscoverRipple's pop-in phase passes
-# itself so an unclaimed site's ring/glyph pop-in reuses this exact geometry
-# instead of reimplementing it.
+# The paper-fill circle + full-circumference ring an unclaimed stop draws at
+# rest (and, before ticket 07, every vein/faction stop too) — same shape
+# SeedClaimRing._draw() sweeps in progressively, just always at
+# ring_end_angle TAU here. `target` defaults to self so every existing call
+# site (drawing from this Control's own _draw()) is unaffected;
+# DiscoverRipple's pop-in phase passes itself so an unclaimed site's
+# ring/glyph pop-in reuses this exact geometry instead of reimplementing it.
+# Ticket 07: vein/faction stops now draw their ring via _draw_growth_track/
+# _draw_growth_arc below instead — a growth gauge, not a plain styled ring —
+# but this stays exactly as it was for the one caller that still wants a
+# plain styled ring: unclaimed sites, which have no growth to gauge.
 func _draw_ring_stop(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int, target: Object = self) -> void:
 	target.draw_circle(pos, radius, _faded(PAPER_COLOUR, alpha))
 	target.draw_arc(pos, radius, 0, TAU, segments, _faded(style["colour"], alpha), style["width"], true)
@@ -870,43 +882,156 @@ func _draw_ring_stop(pos: Vector2, radius: float, alpha: float, style: Dictionar
 
 # Ticket 27: a rich/saturated unclaimed site's second, outer ring (see
 # INTERCHANGE_RING_GAP above) — factored out so DiscoverRipple's pop-in can
-# reuse the identical geometry rather than reimplementing it.
+# reuse the identical geometry rather than reimplementing it. Ticket 07:
+# also reused directly by _draw_terroir_ring below for a rich/saturated
+# vein's own terroir ring — same geometry, different caller.
 func _draw_interchange_ring(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int, target: Object = self) -> void:
 	target.draw_arc(pos, radius + INTERCHANGE_RING_GAP, 0, TAU, segments, _faded(style["colour"], alpha), style["width"], true)
 
 
+# ── growth gauge (vein-growth-state ticket 07) ───────────────────────────
+# The growth gauge replaces the old uniform-coloured ring AND the old
+# per-vein progress arc (_draw_level_badge's dev_fraction ring, deleted
+# alongside it) with one glyph on a vein/faction stop: a faint,
+# always-visible full-circumference track (this func) plus a coloured arc
+# overdrawn on top (_draw_growth_arc) showing which wall growth is heading
+# toward and how close it is. `broken` is true only for a collapsed vein
+# (growth 0) — "arc gone entirely, track itself broken and faded".
+const GROWTH_TRACK_COLOUR := MUTED_COLOUR
+const GROWTH_TRACK_ALPHA := 0.35
+const GROWTH_TRACK_WIDTH := 1.5
+const COLLAPSED_TRACK_ALPHA_SCALE := 0.5
+const COLLAPSED_TRACK_GAP_SEGMENTS := 8
+const COLLAPSED_TRACK_GAP_FRACTION := 0.5
+
+func _draw_growth_track(pos: Vector2, radius: float, alpha: float, broken: bool, segments: int, target: Object = self) -> void:
+	target.draw_circle(pos, radius, _faded(PAPER_COLOUR, alpha))
+	var track_alpha := alpha * GROWTH_TRACK_ALPHA * (COLLAPSED_TRACK_ALPHA_SCALE if broken else 1.0)
+	var track_colour := _faded(GROWTH_TRACK_COLOUR, track_alpha)
+	if broken:
+		for i in COLLAPSED_TRACK_GAP_SEGMENTS:
+			var a0 := TAU * i / COLLAPSED_TRACK_GAP_SEGMENTS
+			var a1 := a0 + TAU / COLLAPSED_TRACK_GAP_SEGMENTS * COLLAPSED_TRACK_GAP_FRACTION
+			target.draw_arc(pos, radius, a0, a1, 4, track_colour, GROWTH_TRACK_WIDTH, true)
+	else:
+		target.draw_arc(pos, radius, 0, TAU, segments, track_colour, GROWTH_TRACK_WIDTH, true)
+
+
+# The arc itself — direction/length maths and per-band texture kind both
+# come from MapStyle (pure, unit-tested); this just carries out whichever
+# texture MapStyle.arc_texture() names. Draws nothing for dormant/collapsed
+# (MapStyle.growth_arc_angles returns null for both — "Dormant vein shows
+# only the track"; a collapsed vein's track itself is the broken one above).
+func _draw_growth_arc(pos: Vector2, radius: float, alpha: float, vein: Dictionary, band_id: String, style: Dictionary, target: Object = self) -> void:
+	var angles = MapStyle.growth_arc_angles(vein["growth"], GameData.VEIN_GROWTH["neutral"], Cultivating.ceiling(vein), band_id)
+	if angles == null:
+		return
+
+	var width: float = style["width"] * MapStyle.arc_width_scale(band_id)
+	var colour := _faded(style["colour"], alpha * MapStyle.arc_alpha_scale(band_id))
+	match MapStyle.arc_texture(band_id):
+		"serrated":
+			target.draw_arc(pos, radius, angles["start"], angles["end"], 32, colour, width, true)
+			_draw_arc_serration(pos, radius, angles["start"], angles["end"], colour, target)
+		"gapped":
+			_draw_gapped_arc(pos, radius, angles["start"], angles["end"], width, colour, target)
+		_:
+			target.draw_arc(pos, radius, angles["start"], angles["end"], 32, colour, width, true)
+
+
+# wild/rampant's "thicker, ragged/serrated outer edge" — short radial ticks
+# at intervals along the arc's own span, straddling its outer edge.
+const RISK_ARC_SERRATION_COUNT := 7
+const RISK_ARC_SERRATION_LENGTH := 3.0
+
+func _draw_arc_serration(pos: Vector2, radius: float, start_angle: float, end_angle: float, colour: Color, target: Object = self) -> void:
+	var span := end_angle - start_angle
+	for i in RISK_ARC_SERRATION_COUNT:
+		var t: float = float(i) / float(RISK_ARC_SERRATION_COUNT - 1)
+		var a := start_angle + span * t
+		var dir := Vector2(cos(a), sin(a))
+		target.draw_line(pos + dir * (radius - RISK_ARC_SERRATION_LENGTH), pos + dir * (radius + RISK_ARC_SERRATION_LENGTH), colour, 1.5)
+
+
+# barren/sparse's "thin, faded, gapped" — the arc's own span broken into a
+# handful of short dashes rather than one continuous stroke.
+const RISK_ARC_GAP_SEGMENTS := 5
+const RISK_ARC_GAP_FRACTION := 0.55
+
+func _draw_gapped_arc(pos: Vector2, radius: float, start_angle: float, end_angle: float, width: float, colour: Color, target: Object = self) -> void:
+	var span := end_angle - start_angle
+	var segment_span := span / float(RISK_ARC_GAP_SEGMENTS)
+	for i in RISK_ARC_GAP_SEGMENTS:
+		var a0 := start_angle + segment_span * i
+		var a1 := a0 + segment_span * RISK_ARC_GAP_FRACTION
+		target.draw_arc(pos, radius, a0, a1, 4, colour, width, true)
+
+
+# Ticket 07: terroir moves off the old 4 o'clock level badge and onto the
+# interchange ring — a player/faction vein on rich/saturated land draws the
+# exact same second concentric ring an unclaimed rich/saturated site draws
+# (_draw_interchange_ring above), just styled with the vein's own filter-
+# mode-aware ring style instead of _unclaimed_ring_style's muted one.
+func _draw_terroir_ring(pos: Vector2, radius: float, alpha: float, style: Dictionary, vein: Dictionary, segments: int, target: Object = self) -> void:
+	var tier: String = vein.get("hospitability", {}).get("tier", "fair")
+	if tier == "rich" or tier == "saturated":
+		_draw_interchange_ring(pos, radius, alpha, style, segments, target)
+
+
+# The Growth filter's per-stop days-to-wall label ("6↑"/"4↓") — takes the
+# same 4 o'clock clock position the old level badge used to occupy, but
+# only while that filter is active (see _draw_vein_stop's own gating); no
+# progress ring behind it since the growth arc on the stop itself already
+# carries that information.
+func _draw_growth_countdown(pos: Vector2, label: String, alpha: float, target: Object = self) -> void:
+	var badge_pos := pos + CLOCK_4 * BADGE_OFFSET
+	var radius := 6.0 * STOP_ICON_GROWTH
+	target.draw_circle(badge_pos, radius, _faded(PAPER_COLOUR, alpha))
+	_draw_centered_text(badge_pos, label, int(9 * STOP_ICON_GROWTH), _faded(INK_COLOUR, alpha), target)
+
+
+# Ticket 07: the ring is a growth gauge now, not a level badge + charge
+# halo -- see _draw_growth_track/_draw_growth_arc below for the track/arc
+# split, and MapStyle's own "growth gauge" section for the pure maths
+# behind them. The 4 o'clock level badge is dropped entirely (not
+# repurposed); the Growth filter's days-to-wall label takes that clock
+# position instead, but only while that filter is active.
 func _draw_vein_stop(stop: Dictionary) -> void:
 	var pos: Vector2 = stop["position"]
 	var vein: Dictionary = stop["vein"]
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
-	var level: int = vein.get("level", 1)
-	var charged: bool = vein.get("charged", false)
 	var security: String = vein.get("security", "none")
+	var band_id: String = Cultivating.growth_band(vein)["id"]
 
-	var alpha := MapStyle.stop_alpha(filter_mode, charged, selected_faction_id, "player")
+	var alpha := MapStyle.stop_alpha(filter_mode, MapStyle.is_risk_band(band_id), selected_faction_id, "player")
 	var style := _vein_ring_style(vein, PLAYER_COLOUR, VEIN_STOP_STROKE)
 
-	_draw_ring_stop(pos, VEIN_STOP_RADIUS, alpha, style, 32)
+	_draw_growth_track(pos, VEIN_STOP_RADIUS, alpha, band_id == "collapsed", 32)
+	_draw_growth_arc(pos, VEIN_STOP_RADIUS, alpha, vein, band_id, style)
+	_draw_terroir_ring(pos, VEIN_STOP_RADIUS, alpha, style, vein, 32)
 	_draw_ore_symbol(pos, vein["oreType"], ore, alpha, self, STOP_ICON_GROWTH)
 
-	var level_scale := MapStyle.badge_scale(filter_mode, "level")
-	var countdown = MapStyle.countdown_label(filter_mode, charged, _blocks_until_charged(vein))
-	var vein_ceiling: int = Cultivating.ceiling(vein)
-	var dev_fraction := 1.0 if vein["growth"] >= vein_ceiling else float(vein["growth"]) / float(vein_ceiling)
-	if countdown != null:
-		_draw_level_badge(pos, level, level_scale, alpha, dev_fraction, countdown)
-	else:
-		_draw_level_badge(pos, level, level_scale, alpha, dev_fraction)
+	if filter_mode == "growth":
+		var label = MapStyle.countdown_label(filter_mode, maxi(Cultivating.days_to_wall(vein), 0), _growth_direction(vein))
+		if label != null:
+			_draw_growth_countdown(pos, label, alpha)
 
-	var security_scale := MapStyle.badge_scale(filter_mode, "security")
+	var security_scale := MapStyle.badge_scale(filter_mode)
 	_draw_security_padlock(pos, security, security_scale, alpha)
 
 	if MapStyle.show_danger_ring(filter_mode, security):
 		_draw_dotted_ring(pos, VEIN_STOP_RADIUS + 3.0, MapStyle.DANGER_COLOUR)
 
 
-func _blocks_until_charged(vein: Dictionary) -> int:
-	return maxi(Cultivating.days_to_wall(vein), 0)
+# +1 growth is drifting toward the ceiling, -1 toward zero, 0 at neutral
+# (nothing to count down -- MapStyle.countdown_label returns null for this).
+func _growth_direction(vein: Dictionary) -> int:
+	var neutral: int = GameData.VEIN_GROWTH["neutral"]
+	if vein["growth"] > neutral:
+		return 1
+	elif vein["growth"] < neutral:
+		return -1
+	return 0
 
 
 # Map-animations ticket 02: faction stops now draw a paper-fill + coloured
@@ -914,16 +1039,20 @@ func _blocks_until_charged(vein: Dictionary) -> int:
 # faction's claim-tick has a real ring for its seed/claim animation to sweep
 # into. Ticket 27 added the centred ore glyph, matching the player-stop
 # treatment (was explicitly deferred before — see this ticket for why).
-# Level & security badges stay deferred — out of ticket 27's scope.
+# Ticket 07: faction veins drift/cultivate the same growth model player
+# veins do, so they get the same growth gauge/terroir ring treatment here.
 func _draw_faction_stop(stop: Dictionary) -> void:
 	var pos: Vector2 = stop["position"]
 	var vein: Dictionary = stop["vein"]
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 	var faction_colour := Color(GameData.FACTIONS[stop["owner"]]["colour"])
-	var alpha := MapStyle.stop_alpha(filter_mode, false, selected_faction_id, stop["owner"])
+	var band_id: String = Cultivating.growth_band(vein)["id"]
+	var alpha := MapStyle.stop_alpha(filter_mode, MapStyle.is_risk_band(band_id), selected_faction_id, stop["owner"])
 	var style := _vein_ring_style(vein, faction_colour, FACTION_STOP_STROKE)
 
-	_draw_ring_stop(pos, FACTION_STOP_RADIUS, alpha, style, 24)
+	_draw_growth_track(pos, FACTION_STOP_RADIUS, alpha, band_id == "collapsed", 24)
+	_draw_growth_arc(pos, FACTION_STOP_RADIUS, alpha, vein, band_id, style)
+	_draw_terroir_ring(pos, FACTION_STOP_RADIUS, alpha, style, vein, 24)
 	_draw_ore_symbol(pos, vein["oreType"], ore, alpha)
 
 
@@ -959,12 +1088,15 @@ func _draw_unclaimed_stop(stop: Dictionary) -> void:
 # test_map_canvas.gd) without needing a live _draw() call. N4's Type mode
 # ("stop rings recolour by ore type") applies here same as any vein — an
 # unclaimed site carries its own oreType, so nothing stops it — via the same
-# MapStyle.vein_ring_colour() call _vein_ring_style() itself uses, level
-# pinned to 1 (Strength mode's only use of level: collapses its muted->ink
-# lerp to pure MUTED_COLOUR, i.e. a no-op, since a site has no real level to
-# report). Width is deliberately NOT run through MapStyle.vein_ring_width()
-# — Strength mode's ring-thickens-by-level re-styling has no level to key
-# off here, so width stays fixed at UNCLAIMED_STOP_STROKE in every mode.
+# MapStyle.vein_ring_colour() call _vein_ring_style() itself uses, tier
+# pinned to 1 (Growth mode's only use of tier: collapses its muted->ink
+# lerp to pure MUTED_COLOUR, i.e. a no-op, since a site has no real value
+# tier to report). Width is deliberately NOT run through MapStyle.
+# vein_ring_width() — Growth mode's ring-thickens-by-tier re-styling has no
+# tier to key off here, so width stays fixed at UNCLAIMED_STOP_STROKE in
+# every mode. Unclaimed sites also have no growth to gauge, so unlike a
+# vein stop they keep the plain, always-styled ring _draw_ring_stop draws —
+# no faint track/arc split, no terroir ring beyond the double_ring above.
 func _unclaimed_ring_style(ore_type: String) -> Dictionary:
 	var ore_colour := Color(GameData.ORE_TYPES[ore_type]["colour"])
 	return {
@@ -994,31 +1126,13 @@ func _draw_ore_symbol(pos: Vector2, ore_type: String, ore: Dictionary, alpha: fl
 
 # ── badges ───────────────────────────────────────────────────────────────
 
-# map-interaction-model ticket 01: the outline is now a thick progress arc
-# (Cultivating.dev_fraction — devBar/devBarMax for the vein's current level,
-# forced to 1.0/full at effective max level) instead of a plain thin
-# full-circle outline. ring_width is a fraction of radius rather than an
-# absolute px value so it scales in lockstep with the badge itself at every
-# zoom level and filter-mode enlarge factor (both already just scale radius
-# — see badge_scale()/the whole-canvas draw_set_transform in _draw()) —
-# never a hairline sliver at min zoom or a solid blob swallowing the level
-# number at max zoom/enlarge.
-const LEVEL_RING_WIDTH_FRACTION := 0.4
-
-func _draw_level_badge(pos: Vector2, level: int, enlarge: float, alpha: float, fill_fraction: float, override_text: Variant = null) -> void:
-	var badge_pos := pos + CLOCK_4 * BADGE_OFFSET
-	var radius := 6.0 * STOP_ICON_GROWTH * enlarge
-	draw_circle(badge_pos, radius, _faded(PAPER_COLOUR, alpha))
-	# Faint full-circumference track under the progress arc so a fresh Lv1
-	# vein (fill_fraction 0) still reads as a ring, not a bare disc.
-	draw_arc(badge_pos, radius, 0, TAU, 16, _faded(INK_COLOUR, alpha * 0.35), 1.0, true)
-	if fill_fraction > 0.0:
-		var ring_width := radius * LEVEL_RING_WIDTH_FRACTION
-		var end_angle := -PI / 2.0 + TAU * clampf(fill_fraction, 0.0, 1.0)
-		draw_arc(badge_pos, radius, -PI / 2.0, end_angle, 24, _faded(PLAYER_COLOUR, alpha), ring_width, true)
-	var text: String = override_text if override_text != null else str(level)
-	_draw_centered_text(badge_pos, text, int(9 * STOP_ICON_GROWTH * enlarge), _faded(INK_COLOUR, alpha))
-
+# Ticket 07: the old level badge (a dev_fraction progress ring + numeral,
+# dev_fraction computed locally in _draw_vein_stop — confirmed no
+# Cultivating.dev_fraction() survives anywhere per the ticket's checklist)
+# that used to sit here is gone entirely. The growth gauge
+# (_draw_growth_track/_draw_growth_arc above) carries that information on
+# the stop's ring now; the security padlock below is the only badge left
+# at a fixed clock position.
 
 func _draw_security_padlock(pos: Vector2, security: String, enlarge: float, alpha: float) -> void:
 	if security == "none":
@@ -1384,10 +1498,17 @@ func _activate_pin(pin: Dictionary) -> void:
 
 # ── charge halos (N2: soft amber halo, scale 1.0->1.3 / alpha 0.5->0, 1.2s loop) ──
 
+# Ticket 07: keyed on the vein's growth band now — the old `charged` flag
+# it used to read is gone along with the rest of the pre-growth-model vein
+# quartet. wild/rampant is the growth-model's nearest equivalent to "ready
+# to harvest" (a vein sitting at or near its ceiling), and matches
+# Cultivating._queue_growth_events' own burst-trigger bands, so a fresh
+# ChargeBurst always plays against a halo that's genuinely showing.
 func _rebuild_halos() -> void:
 	var needed: Dictionary = {}  # veinId -> Vector2
 	for stop in _vein_stops:
-		if stop["vein"].get("charged", false):
+		var band_id: String = Cultivating.growth_band(stop["vein"])["id"]
+		if band_id == "wild" or band_id == "rampant":
 			needed[stop["id"]] = stop["position"]
 
 	for vein_id in _halos.keys().duplicate():

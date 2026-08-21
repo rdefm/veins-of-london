@@ -17,31 +17,35 @@ extends "res://tests/test_base.gd"
 # for the `target: Object` params ticket 34's spike retyped from
 # `CanvasItem` (shadowing a native CanvasItem method is a hard GDScript
 # compile error, so a plain RefCounted double is what fills that seam; see
-# ticket 34's `## Answer`). This proves _draw_ring_stop/_draw_interchange_
-# ring/_draw_ore_symbol actually draw the shape/position/radius ticket 27's
-# own acceptance checklist asked for, not just that the style dict feeding
-# them is correct. Still out of scope, same as the paragraph above: the
-# Node/Tween-driven playback visuals (DiscoverRipple, SeedClaimRing, ...) —
-# this only proves the *static* draw path (_draw_vein_stop/_draw_faction_
-# stop/_draw_unclaimed_stop and the shared helpers under them), not their
-# pop-in animations.
+# ticket 34's `## Answer`). This proves the low-level draw helpers actually
+# draw the shape/position/radius ticket 27's own acceptance checklist asked
+# for, not just that the style dict feeding them is correct. Still out of
+# scope, same as the paragraph above: the Node/Tween-driven playback
+# visuals (DiscoverRipple, SeedClaimRing, ...) — this only proves the
+# *static* draw path (_draw_vein_stop/_draw_faction_stop/_draw_unclaimed_
+# stop and the shared helpers under them), not their pop-in animations.
+#
+# vein-growth-state ticket 07: a vein/faction stop's ring is a growth gauge
+# now (_draw_growth_track + _draw_growth_arc), not the plain styled ring
+# _draw_ring_stop draws — that stays exactly as it was, but only unclaimed
+# stops (which have no growth to gauge) still call it directly.
 #
 # _draw_vein_stop/_draw_faction_stop/_draw_unclaimed_stop themselves take no
 # `target` param (ticket 34 left this as ticket 35's call) — they always
-# draw via _draw_ring_stop/_draw_ore_symbol/etc.'s own `target` default of
-# `self`, the real Control. Threading a `target` through them would also
-# require retyping _draw_level_badge/_draw_security_padlock/_draw_dotted_
-# ring (called unconditionally by _draw_vein_stop, hardcoded to `self`
-# throughout) — outside ticket 34's scoped retype list. So the cases below
-# call the already-retyped lower-level helpers directly, with the exact
-# pos/style/alpha/segments each public function would itself compute
-# (_vein_ring_style()/_unclaimed_ring_style()/MapStyle.stop_alpha() are
-# already covered above/in tests/test_map_style.gd) — reproducing each
-# stop kind's real draw call graph without the badge/padlock detour.
+# draw via their own helpers' `target` default of `self`, the real Control.
+# Threading a `target` through them would also require retyping
+# _draw_security_padlock/_draw_dotted_ring (called unconditionally by
+# _draw_vein_stop, hardcoded to `self` throughout) — outside ticket 34's
+# scoped retype list. So the cases below call the already-retyped
+# lower-level helpers directly, with the exact pos/style/alpha/segments
+# each public function would itself compute (_vein_ring_style()/
+# _unclaimed_ring_style()/MapStyle.stop_alpha() are already covered above/
+# in tests/test_map_style.gd) — reproducing each stop kind's real draw call
+# graph without the padlock detour.
 
 
-static func _vein(ore_type: String, level: int) -> Dictionary:
-	return { "oreType": ore_type, "level": level }
+static func _vein(ore_type: String, growth: int) -> Dictionary:
+	return { "oreType": ore_type, "growth": growth, "hospitability": { "tier": "fair", "bonuses": [] } }
 
 
 func run() -> void:
@@ -51,42 +55,44 @@ func run() -> void:
 	run_case("vein_ring_style_matches_MapStyle_directly_in_ownership_mode", func():
 		var canvas := MapCanvas.new()
 		canvas.filter_mode = "ownership"
-		var vein := _vein("time", 3)
+		var vein := _vein("time", 45)  # tier 3
+		var tier := Cultivating.value_tier(vein)
 
 		var style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
 
-		var expected_colour := MapStyle.vein_ring_colour("ownership", MapCanvas.PLAYER_COLOUR, Color(GameData.ORE_TYPES["time"]["colour"]), 3)
-		var expected_width := MapStyle.vein_ring_width("ownership", 3, MapCanvas.VEIN_STOP_STROKE)
+		var expected_colour := MapStyle.vein_ring_colour("ownership", MapCanvas.PLAYER_COLOUR, Color(GameData.ORE_TYPES["time"]["colour"]), tier)
+		var expected_width := MapStyle.vein_ring_width("ownership", tier, MapCanvas.VEIN_STOP_STROKE)
 		assert_eq(style["colour"], expected_colour, "ownership mode: ring colour is the owner colour, same as the static draw")
 		assert_eq(style["width"], expected_width, "ownership mode: ring width is the base stroke, same as the static draw")
 		canvas.free()
 	)
 
-	run_case("vein_ring_style_matches_MapStyle_directly_in_type_and_strength_modes", func():
+	run_case("vein_ring_style_matches_MapStyle_directly_in_type_and_growth_modes", func():
 		var canvas := MapCanvas.new()
-		var vein := _vein("fate", 5)
+		var vein := _vein("fate", 85)  # tier 5
+		var tier := Cultivating.value_tier(vein)
 
 		canvas.filter_mode = "type"
 		var type_style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
 		assert_eq(type_style["colour"], Color(GameData.ORE_TYPES["fate"]["colour"]), "type mode: ring recolours by ore, same as the static draw")
 
-		canvas.filter_mode = "strength"
-		var strength_style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
-		var expected_width := MapStyle.vein_ring_width("strength", 5, MapCanvas.VEIN_STOP_STROKE)
-		assert_eq(strength_style["width"], expected_width, "strength mode: ring thickens by level, same as the static draw")
+		canvas.filter_mode = "growth"
+		var growth_style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		var expected_width := MapStyle.vein_ring_width("growth", tier, MapCanvas.VEIN_STOP_STROKE)
+		assert_eq(growth_style["width"], expected_width, "growth mode: ring thickens by value_tier, same as the static draw")
 		canvas.free()
 	)
 
 	run_case("vein_ring_style_works_with_a_faction_owner_colour_and_the_faction_base_width", func():
 		var canvas := MapCanvas.new()
 		canvas.filter_mode = "ownership"
-		var vein := _vein("physics", 1)
+		var vein := _vein("physics", 5)  # tier 1
 		var faction_colour := Color(GameData.FACTIONS["firm"]["colour"])
 
 		var style: Dictionary = canvas._vein_ring_style(vein, faction_colour, MapCanvas.FACTION_STOP_STROKE)
 
 		assert_eq(style["colour"], faction_colour, "ownership mode: faction ring colour is the faction's own colour")
-		assert_eq(style["width"], MapCanvas.FACTION_STOP_STROKE, "level 1 + ownership mode: width is just the faction base stroke")
+		assert_eq(style["width"], MapCanvas.FACTION_STOP_STROKE, "tier 1 + ownership mode: width is just the faction base stroke")
 		canvas.free()
 	)
 
@@ -101,17 +107,17 @@ func run() -> void:
 	# hand-building an equivalent dict) both read their ring colour/width
 	# from. N4's Type mode applies here same as any vein ("stop rings
 	# recolour by ore type") -- an unclaimed site has its own oreType same
-	# as a vein does, so nothing exempts it; Strength mode has no real
-	# level to key off, so it (and every other mode) stays muted, and width
+	# as a vein does, so nothing exempts it; Growth mode has no real value
+	# tier to key off, so it (and every other mode) stays muted, and width
 	# never thickens in any mode.
 	run_case("unclaimed_ring_style_recolours_by_ore_type_in_type_mode_but_stays_muted_and_fixed_width_otherwise", func():
 		var canvas := MapCanvas.new()
 
-		for mode in ["ownership", "strength", "charge", "security"]:
+		for mode in ["ownership", "growth", "security"]:
 			canvas.filter_mode = mode
 			var style: Dictionary = canvas._unclaimed_ring_style("fate")
-			assert_eq(style["colour"], MapCanvas.MUTED_COLOUR, mode + ": unclaimed ring colour stays muted -- no owner, and no level for strength mode to key off")
-			assert_eq(style["width"], MapCanvas.UNCLAIMED_STOP_STROKE, mode + ": unclaimed ring width never thickens -- no level for strength mode to key off")
+			assert_eq(style["colour"], MapCanvas.MUTED_COLOUR, mode + ": unclaimed ring colour stays muted -- no owner, and no value tier for growth mode to key off")
+			assert_eq(style["width"], MapCanvas.UNCLAIMED_STOP_STROKE, mode + ": unclaimed ring width never thickens -- no value tier for growth mode to key off")
 
 		canvas.filter_mode = "type"
 		var type_style: Dictionary = canvas._unclaimed_ring_style("fate")
@@ -121,13 +127,14 @@ func run() -> void:
 		canvas.free()
 	)
 
-	# Ticket 35: proves _draw_vein_stop's own draw call graph (via the two
-	# helpers it calls, _draw_ring_stop and _draw_ore_symbol -- see this
-	# file's class comment for why the public function itself isn't called
-	# directly) actually draws a ring at VEIN_STOP_RADIUS centred on the
-	# stop's position, and an ore glyph also centred on it -- closing ticket
-	# 27's "and centered" gap, which _vein_ring_style()'s style-dict coverage
-	# above never could (a style dict has no position in it at all).
+	# Ticket 35 (updated by vein-growth-state ticket 07 — a vein/faction
+	# stop's ring is now a growth gauge, _draw_growth_track/_draw_growth_arc,
+	# not the plain _draw_ring_stop unclaimed stops still use): proves
+	# _draw_vein_stop's own draw call graph actually draws a track at
+	# VEIN_STOP_RADIUS centred on the stop's position, and an ore glyph also
+	# centred on it -- closing ticket 27's "and centered" gap, which
+	# _vein_ring_style()'s style-dict coverage above never could (a style
+	# dict has no position in it at all).
 	#
 	# oreType "fate" is picked deliberately: _ore_font_covers_symbols is only
 	# ever computed in _ready() (see that field's own comment), which a bare
@@ -143,19 +150,18 @@ func run() -> void:
 	# recorded position argument is the *exact*, unmodified centre point
 	# passed in, rather than a centre-plus-offset -- the cleanest possible
 	# proof this ticket's "closes ticket 27's centering gap" bullet asks for.
-	run_case("draw_vein_stop_helpers_draw_a_ring_at_its_radius_and_a_glyph_centred_on_the_stops_position", func():
+	run_case("draw_vein_stop_helpers_draw_a_track_at_its_radius_and_a_glyph_centred_on_the_stops_position", func():
 		var canvas := MapCanvas.new()
 		canvas.filter_mode = "ownership"
 		var pos := Vector2(123.0, 45.0)
-		var vein := _vein("fate", 2)
+		var vein := _vein("fate", 45)  # dormant -- no arc, isolates the track's own geometry
 		var ore: Dictionary = GameData.ORE_TYPES["fate"]
 		var alpha := MapStyle.stop_alpha("ownership", false, "", "player")
-		var style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
 
-		var ring_spy := DrawSpy.new()
-		canvas._draw_ring_stop(pos, MapCanvas.VEIN_STOP_RADIUS, alpha, style, 32, ring_spy)
-		var rings: Array = ring_spy.calls_matching("draw_arc")
-		assert_true(rings.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS), "the ring arc is centred on the stop's own position, at VEIN_STOP_RADIUS")
+		var track_spy := DrawSpy.new()
+		canvas._draw_growth_track(pos, MapCanvas.VEIN_STOP_RADIUS, alpha, false, 32, track_spy)
+		var tracks: Array = track_spy.calls_matching("draw_arc")
+		assert_true(tracks.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS), "the track ring is centred on the stop's own position, at VEIN_STOP_RADIUS")
 
 		var glyph_spy := DrawSpy.new()
 		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy, MapCanvas.STOP_ICON_GROWTH)
@@ -170,25 +176,133 @@ func run() -> void:
 	# way _draw_faction_stop itself calls it (no explicit target/enlarge --
 	# both default, matching a real _draw_faction_stop call site exactly
 	# except for target, which is threaded in as the spy instead of self).
-	run_case("draw_faction_stop_helpers_draw_a_ring_at_its_radius_and_a_glyph_centred_on_the_stops_position", func():
+	run_case("draw_faction_stop_helpers_draw_a_track_at_its_radius_and_a_glyph_centred_on_the_stops_position", func():
 		var canvas := MapCanvas.new()
 		canvas.filter_mode = "ownership"
 		var pos := Vector2(200.0, 10.0)
-		var vein := _vein("fate", 1)
+		var vein := _vein("fate", 45)  # dormant -- no arc, isolates the track's own geometry
 		var ore: Dictionary = GameData.ORE_TYPES["fate"]
-		var faction_colour := Color(GameData.FACTIONS["firm"]["colour"])
 		var alpha := MapStyle.stop_alpha("ownership", false, "", "firm")
-		var style: Dictionary = canvas._vein_ring_style(vein, faction_colour, MapCanvas.FACTION_STOP_STROKE)
 
-		var ring_spy := DrawSpy.new()
-		canvas._draw_ring_stop(pos, MapCanvas.FACTION_STOP_RADIUS, alpha, style, 24, ring_spy)
-		var rings: Array = ring_spy.calls_matching("draw_arc")
-		assert_true(rings.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.FACTION_STOP_RADIUS), "the ring arc is centred on the stop's own position, at FACTION_STOP_RADIUS")
+		var track_spy := DrawSpy.new()
+		canvas._draw_growth_track(pos, MapCanvas.FACTION_STOP_RADIUS, alpha, false, 24, track_spy)
+		var tracks: Array = track_spy.calls_matching("draw_arc")
+		assert_true(tracks.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.FACTION_STOP_RADIUS), "the track ring is centred on the stop's own position, at FACTION_STOP_RADIUS")
 
 		var glyph_spy := DrawSpy.new()
 		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy)
 		var glyph_circles: Array = glyph_spy.calls_matching("draw_circle")
 		assert_true(glyph_circles.any(func(c): return c["args"][0] == pos), "the die5 ore glyph's centre pip lands exactly on the stop's position -- ticket 27's 'and centered' gap")
+
+		canvas.free()
+	)
+
+	# ── growth gauge draw call graph (vein-growth-state ticket 07) ───────
+
+	run_case("draw_growth_track_draws_paper_and_a_full_ring_for_an_ordinary_vein", func():
+		var canvas := MapCanvas.new()
+		var pos := Vector2(123.0, 45.0)
+
+		var spy := DrawSpy.new()
+		canvas._draw_growth_track(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, false, 32, spy)
+
+		assert_true(spy.calls_matching("draw_circle").any(func(c): return c["args"][0] == pos), "paper fill centred on the stop")
+		var arcs: Array = spy.calls_matching("draw_arc")
+		assert_true(arcs.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS and is_equal_approx(c["args"][3] - c["args"][2], TAU)), "an ordinary (non-collapsed) track is one full-circumference ring")
+
+		canvas.free()
+	)
+
+	# "arc gone entirely, track itself broken and faded" -- a collapsed
+	# vein's track is several short dashes, not one continuous ring.
+	run_case("draw_growth_track_breaks_into_dashes_for_a_collapsed_vein", func():
+		var canvas := MapCanvas.new()
+		var pos := Vector2(1.0, 2.0)
+
+		var spy := DrawSpy.new()
+		canvas._draw_growth_track(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, true, 32, spy)
+
+		var arcs: Array = spy.calls_matching("draw_arc")
+		assert_eq(arcs.size(), MapCanvas.COLLAPSED_TRACK_GAP_SEGMENTS, "broken into COLLAPSED_TRACK_GAP_SEGMENTS dashes")
+		var full_segment := TAU / MapCanvas.COLLAPSED_TRACK_GAP_SEGMENTS
+		for a in arcs:
+			assert_true(a["args"][3] - a["args"][2] < full_segment, "each dash is shorter than its full segment -- there are real gaps")
+
+		canvas.free()
+	)
+
+	run_case("draw_growth_arc_sweeps_clockwise_and_thickens_serrates_a_wild_vein", func():
+		var canvas := MapCanvas.new()
+		var pos := Vector2(10.0, 10.0)
+		var vein := _vein("time", 90)  # wild band, above neutral
+		var style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+
+		var spy := DrawSpy.new()
+		canvas._draw_growth_arc(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, vein, "wild", style, spy)
+
+		var arcs: Array = spy.calls_matching("draw_arc")
+		assert_eq(arcs.size(), 1, "wild draws one continuous (thickened) arc stroke")
+		var arc: Dictionary = arcs[0]
+		assert_almost_eq(arc["args"][2], -PI / 2.0, 0.0001, "starts at 12 o'clock")
+		assert_true(arc["args"][3] > arc["args"][2], "sweeps clockwise -- growth 90 is above neutral")
+		assert_almost_eq(arc["args"][6], style["width"] * 2.0, 0.0001, "wild/rampant thickens the arc")
+
+		assert_true(spy.calls_matching("draw_line").size() > 0, "wild also draws the serrated-edge ticks")
+
+		canvas.free()
+	)
+
+	run_case("draw_growth_arc_sweeps_anticlockwise_and_gaps_a_barren_vein", func():
+		var canvas := MapCanvas.new()
+		var pos := Vector2(10.0, 10.0)
+		var vein := _vein("time", 10)  # barren band, below neutral
+		var style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+
+		var spy := DrawSpy.new()
+		canvas._draw_growth_arc(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, vein, "barren", style, spy)
+
+		var arcs: Array = spy.calls_matching("draw_arc")
+		assert_eq(arcs.size(), MapCanvas.RISK_ARC_GAP_SEGMENTS, "barren/sparse breaks the arc into dashes")
+		for a in arcs:
+			assert_true(a["args"][2] <= -PI / 2.0 + 0.0001, "the whole gapped span sits on the anticlockwise (below-neutral) side")
+		assert_true(spy.calls_matching("draw_line").is_empty(), "barren gaps rather than serrates -- no ticks")
+
+		canvas.free()
+	)
+
+	run_case("draw_growth_arc_draws_nothing_for_dormant_or_collapsed_bands", func():
+		var canvas := MapCanvas.new()
+		var pos := Vector2(0.0, 0.0)
+		var style: Dictionary = canvas._vein_ring_style(_vein("time", 50), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+
+		var dormant_spy := DrawSpy.new()
+		canvas._draw_growth_arc(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, _vein("time", 50), "dormant", style, dormant_spy)
+		assert_true(dormant_spy.calls.is_empty(), "a dormant vein shows only the track -- no arc")
+
+		var collapsed_spy := DrawSpy.new()
+		canvas._draw_growth_arc(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, _vein("time", 0), "collapsed", style, collapsed_spy)
+		assert_true(collapsed_spy.calls.is_empty(), "a collapsed vein draws no arc either -- see _draw_growth_track's own broken track")
+
+		canvas.free()
+	)
+
+	# Ticket 07: terroir moves off the old level badge and onto the same
+	# interchange-ring shape an unclaimed rich/saturated site already draws.
+	run_case("draw_terroir_ring_only_for_rich_or_saturated_hospitability", func():
+		var canvas := MapCanvas.new()
+		var pos := Vector2(5.0, 5.0)
+		var style: Dictionary = canvas._vein_ring_style(_vein("time", 50), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+
+		var fair_spy := DrawSpy.new()
+		canvas._draw_terroir_ring(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, style, _vein("time", 50), 32, fair_spy)
+		assert_true(fair_spy.calls.is_empty(), "fair (the default) terroir draws no interchange ring")
+
+		var rich_vein := _vein("time", 50)
+		rich_vein["hospitability"]["tier"] = "rich"
+		var rich_spy := DrawSpy.new()
+		canvas._draw_terroir_ring(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, style, rich_vein, 32, rich_spy)
+		var arcs: Array = rich_spy.calls_matching("draw_arc")
+		assert_true(arcs.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS + MapCanvas.INTERCHANGE_RING_GAP), "rich terroir draws the second concentric ring, INTERCHANGE_RING_GAP further out -- same shape an unclaimed interchange site draws")
 
 		canvas.free()
 	)
@@ -353,9 +467,9 @@ func run() -> void:
 		var canvas := MapCanvas.new()
 		canvas.set_faction_filter("guild")
 
-		canvas.set_filter("charge")
+		canvas.set_filter("growth")
 
-		assert_eq(canvas.filter_mode, "charge")
+		assert_eq(canvas.filter_mode, "growth")
 		assert_eq(canvas.selected_faction_id, "", "switching to any other top-level mode drops the faction selection -- ticket 04's 'clearing back to all works'")
 
 		canvas.free()
@@ -583,10 +697,9 @@ func run() -> void:
 			"hasNaturalVein": false,
 		}]
 		GameState.state["player"]["veins"] = [{
-			"id": "v1", "siteId": "s1", "oreType": "time", "level": 1, "levelLabel": "Trickle",
-			"devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none",
+			"id": "v1", "siteId": "s1", "oreType": "time", "growth": 20, "security": "none",
 			"alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
-			"district": "hampstead",
+			"district": "hampstead", "hospitability": { "tier": "fair", "bonuses": [] },
 		}]
 
 		var canvas := MapCanvas.new()
@@ -619,8 +732,8 @@ func run() -> void:
 			{ "id": "s2", "district": "hampstead", "tier": "fair", "oreType": "life", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false },
 		]
 		GameState.state["player"]["veins"] = [
-			{ "id": "v1", "siteId": "s1", "oreType": "time", "level": 1, "levelLabel": "Trickle", "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1, "district": "hampstead" },
-			{ "id": "v2", "siteId": "s2", "oreType": "life", "level": 1, "levelLabel": "Trickle", "devBar": 0, "charged": false, "chargeBlocks": 0, "security": "none", "alarmUpgrades": [], "location": "Test Court", "claimedOnDay": 1, "district": "hampstead" },
+			{ "id": "v1", "siteId": "s1", "oreType": "time", "growth": 20, "security": "none", "alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1, "district": "hampstead", "hospitability": { "tier": "fair", "bonuses": [] } },
+			{ "id": "v2", "siteId": "s2", "oreType": "life", "growth": 20, "security": "none", "alarmUpgrades": [], "location": "Test Court", "claimedOnDay": 1, "district": "hampstead", "hospitability": { "tier": "fair", "bonuses": [] } },
 		]
 
 		var canvas := MapCanvas.new()

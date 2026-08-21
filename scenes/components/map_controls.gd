@@ -25,8 +25,7 @@ extends Control
 const FILTER_LABELS := {
 	"ownership": "Ownership",
 	"type": "Type",
-	"strength": "Strength",
-	"charge": "Charge",
+	"growth": "Growth",
 	"security": "Security",
 }
 

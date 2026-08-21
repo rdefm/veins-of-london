@@ -92,15 +92,15 @@ func run() -> void:
 		controls.map_canvas = canvas
 		controls._ready()
 
-		controls._select_filter("charge")
+		controls._select_filter("growth")
 		controls._select_faction("network")
 		assert_eq(controls._filter_mode, "faction")
 
 		controls._clear_faction_filter()
 
-		assert_eq(controls._filter_mode, "charge", "clear/all restores whatever top-level mode was active before Faction was entered")
+		assert_eq(controls._filter_mode, "growth", "clear/all restores whatever top-level mode was active before Faction was entered")
 		assert_eq(controls._selected_faction_id, "", "no faction stays highlighted after clearing")
-		assert_eq(canvas.filter_mode, "charge")
+		assert_eq(canvas.filter_mode, "growth")
 		assert_eq(canvas.selected_faction_id, "")
 
 		controls.free()
