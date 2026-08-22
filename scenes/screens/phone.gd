@@ -355,10 +355,27 @@ func _build_profile_skills_card() -> Control:
 	var player: Dictionary = GameState.state["player"]
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Skills", 14))
-	c["content"].add_child(UI.label("Crafting: Lv%d (%d XP)" % [player["craftingSkill"], player["craftingXP"]]))
-	c["content"].add_child(UI.label("Cultivating: Lv%d (%d XP)" % [player["cultivatingSkill"], player["cultivatingXP"]]))
-	c["content"].add_child(UI.label("Stealth: Lv%d (%d XP)" % [player["stealthSkill"], player["stealthXP"]]))
+	_add_skill_row(c["content"], "Crafting", player["craftingSkill"], player["craftingXP"], GameData.CRAFTING_XP_LEVELS)
+	_add_skill_row(c["content"], "Cultivating", player["cultivatingSkill"], player["cultivatingXP"], GameData.CULTIVATING_XP_LEVELS)
+	_add_skill_row(c["content"], "Stealth", player["stealthSkill"], player["stealthXP"], GameData.STEALTH_XP_LEVELS)
 	return c["panel"]
+
+
+# `levels` is indexed by skill level (level 1's threshold at levels[1], per
+# Progression.award_xp), so the bar fills from this level's threshold toward
+# the next one rather than from 0 -- a level 3 skill sitting just above its
+# levels[3] floor should read as an empty bar, not a nearly-full one against
+# the 0..levels[max] range. Max level has no next threshold to aim for, so it
+# just shows full/capped.
+func _add_skill_row(content: Node, label: String, level: int, xp: int, levels: Array) -> void:
+	content.add_child(UI.label("%s: Lv%d (%d XP)" % [label, level, xp]))
+	var max_level: int = levels.size() - 1
+	if level >= max_level:
+		content.add_child(UI.bar(1, 1))
+	else:
+		var this_threshold: int = levels[level]
+		var next_threshold: int = levels[level + 1]
+		content.add_child(UI.bar(xp - this_threshold, next_threshold - this_threshold))
 
 
 func _build_profile_equipment_card() -> Control:

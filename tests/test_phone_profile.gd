@@ -55,6 +55,62 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("profile_shows_a_zero_progress_bar_per_skill_for_a_fresh_game", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "profile"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		# HP bar + 3 skill bars -- a fresh player is level 1 with 0 XP, so
+		# each skill bar's range is [levels[1], levels[2]] = [0, 80] at 0 XP.
+		var bars := phone.find_children("", "ProgressBar", true, false)
+		assert_eq(bars.size(), 4, "HP bar plus one bar per skill")
+
+		var skill_bars: Array = bars.slice(1)
+		for b in skill_bars:
+			assert_eq((b as ProgressBar).value, 0.0, "a fresh Lv1/0XP skill sits at the bottom of its bar")
+			assert_eq((b as ProgressBar).max_value, 80.0, "levels[2] - levels[1] = 80 - 0 for crafting/cultivating/stealth")
+
+		phone.free()
+	)
+
+	run_case("profile_skill_bar_fills_toward_next_level_not_from_zero_xp", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		player["craftingSkill"] = 2
+		player["craftingXP"] = GameData.CRAFTING_XP_LEVELS[2] + 40
+		GameState.state["phoneNav"]["app"] = "profile"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var bars := phone.find_children("", "ProgressBar", true, false)
+		var crafting_bar := bars[1] as ProgressBar
+		assert_eq(crafting_bar.value, 40.0, "progress is measured from this level's threshold, not from 0 XP")
+		assert_eq(crafting_bar.max_value, float(GameData.CRAFTING_XP_LEVELS[3] - GameData.CRAFTING_XP_LEVELS[2]), "range spans this level's threshold to the next")
+
+		phone.free()
+	)
+
+	run_case("profile_skill_bar_shows_full_at_max_level_instead_of_erroring", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		var max_level: int = GameData.STEALTH_XP_LEVELS.size() - 1
+		player["stealthSkill"] = max_level
+		player["stealthXP"] = GameData.STEALTH_XP_LEVELS[max_level]
+		GameState.state["phoneNav"]["app"] = "profile"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var bars := phone.find_children("", "ProgressBar", true, false)
+		var stealth_bar := bars[3] as ProgressBar
+		assert_eq(stealth_bar.value, stealth_bar.max_value, "a max-level skill with no next threshold shows a full bar")
+
+		phone.free()
+	)
+
 	run_case("profile_shows_none_equipped_for_a_fresh_game_with_no_weapon_or_device", func():
 		GameState.reset()
 		GameState.state["phoneNav"]["app"] = "profile"
