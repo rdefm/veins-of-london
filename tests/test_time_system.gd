@@ -33,7 +33,9 @@ func run() -> void:
 		GameState.state["player"]["hp"] = 50
 		GameState.state["player"]["hpMax"] = 100
 		TimeSystem.do_rest()
-		assert_eq(GameState.state["player"]["hp"], 70, "50 + round(100*0.2) = 70")
+		# do_rest's daily_tick also fires passive regen (bugfixes-42): 50 + round(100*0.05) = 55,
+		# then the rest heal itself: 55 + round(100*0.2) = 75.
+		assert_eq(GameState.state["player"]["hp"], 75, "50 + passive regen 5 + rest heal 20 = 75")
 	)
 
 	run_case("rest_heal_is_capped_at_hp_max", func():
@@ -315,7 +317,8 @@ func run() -> void:
 		GameState.state["player"]["healingSalveDaysLeft"] = 2
 		GameState.state["player"]["healingSalveDailyAmount"] = 5
 		TimeSystem.daily_tick()
-		assert_eq(GameState.state["player"]["hp"], 55, "should heal by the daily amount")
+		# 50 + salve 5 + passive regen round(100*0.05)=5 (bugfixes-42, stacks with the salve) = 60.
+		assert_eq(GameState.state["player"]["hp"], 60, "should heal by the daily amount, plus passive regen stacking on top")
 		assert_eq(GameState.state["player"]["healingSalveDaysLeft"], 1, "daysLeft should decrement by 1")
 	)
 
@@ -326,7 +329,8 @@ func run() -> void:
 		GameState.state["player"]["healingSalveDaysLeft"] = 0
 		GameState.state["player"]["healingSalveDailyAmount"] = 5
 		TimeSystem.daily_tick()
-		assert_eq(GameState.state["player"]["hp"], 50, "no salve active -> no heal")
+		# no salve heal, but passive regen (bugfixes-42) still fires unconditionally: 50 + 5 = 55.
+		assert_eq(GameState.state["player"]["hp"], 55, "no salve active -> no salve heal, but passive regen still applies")
 	)
 
 	run_case("healing_salve_heal_is_capped_at_hpMax", func():
@@ -337,6 +341,47 @@ func run() -> void:
 		GameState.state["player"]["healingSalveDailyAmount"] = 5
 		TimeSystem.daily_tick()
 		assert_eq(GameState.state["player"]["hp"], 100, "heal caps at hpMax, not 98+5=103")
+	)
+
+	# ── bugfixes-42: passive HP regen ───────────────────────────────────
+
+	run_case("passive_regen_heals_5_percent_of_hp_max_unconditionally", func():
+		GameState.reset()
+		GameState.state["player"]["hp"] = 50
+		GameState.state["player"]["hpMax"] = 100
+		TimeSystem.daily_tick()
+		assert_eq(GameState.state["player"]["hp"], 55, "50 + round(100*0.05) = 55")
+	)
+
+	run_case("passive_regen_caps_at_hp_max", func():
+		GameState.reset()
+		GameState.state["player"]["hp"] = 98
+		GameState.state["player"]["hpMax"] = 100
+		TimeSystem.daily_tick()
+		assert_eq(GameState.state["player"]["hp"], 100, "heal caps at hpMax, not 98+5=103")
+	)
+
+	run_case("passive_regen_skips_notification_when_already_at_full_hp", func():
+		GameState.reset()
+		GameState.state["player"]["hp"] = GameState.state["player"]["hpMax"]
+		TimeSystem.daily_tick()
+		var found := false
+		for n in GameState.state["notifications"]:
+			if n["text"].contains("rest easy"):
+				found = true
+		assert_true(not found, "no passive regen notification when already at full HP")
+	)
+
+	run_case("passive_regen_stacks_with_an_active_healing_salve_tick_on_the_same_day", func():
+		GameState.reset()
+		GameState.state["player"]["hp"] = 50
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["player"]["healingSalveDaysLeft"] = 1
+		GameState.state["player"]["healingSalveDailyAmount"] = 5
+		TimeSystem.daily_tick()
+		# salve heal 5 (50->55) then passive regen round(100*0.05)=5 (55->60) -- both apply, neither replaces the other.
+		assert_eq(GameState.state["player"]["hp"], 60, "salve heal and passive regen should both apply the same day")
+		assert_eq(GameState.state["player"]["healingSalveDaysLeft"], 0, "salve daysLeft should still decrement independently")
 	)
 
 	run_case("stub_daily_tick_steps_do_not_crash", func():

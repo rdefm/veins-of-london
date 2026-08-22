@@ -156,7 +156,9 @@ func run() -> void:
 
 		assert_eq(GameState.state["world"]["day"], 4, "resting from HQ must advance the day, same as TimeSystem.do_rest()")
 		assert_eq(GameState.state["world"]["timeBlock"], 0, "resting from HQ must reset the time block")
-		assert_eq(GameState.state["player"]["hp"], 70, "50 + round(100*0.2) = 70, same heal formula as today")
+		# do_rest's daily_tick also fires passive regen (bugfixes-42): 50 + round(100*0.05) = 55,
+		# then the rest heal itself: 55 + round(100*0.2) = 75.
+		assert_eq(GameState.state["player"]["hp"], 75, "50 + passive regen 5 + rest heal 20 = 75, same as TimeSystem.do_rest()")
 
 		hq.free()
 	)

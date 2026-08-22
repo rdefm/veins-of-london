@@ -6,6 +6,7 @@ extends RefCounted
 const BLOCKS_PER_DAY := 3
 const DAILY_COST_BASE := 50.0
 const REST_HEAL_FRACTION := 0.2
+const PASSIVE_REGEN_FRACTION := 0.05
 
 
 static func advance_time_block() -> void:
@@ -49,6 +50,9 @@ static func do_rest() -> void:
 # Exact step order per R§3.1, extended by M1-LONDON.md D2 / adr/0002
 # (steps ⑤b/⑤c), faction-vein-ownership T02 (step ⑤d), and
 # faction-resource-economy T02/T03/T04 (steps ⑤e/⑤f/⑤g) — do not reorder.
+# bugfixes-42 adds step ③c, right after ③b (Healing Salve HoT): always-on
+# passive HP regen, independent of and stacking with both Rest and the
+# Salve HoT rather than replacing either.
 # faction-territory-rivalry T04 adds step ⑤h, running last in the chain: it
 # runs after ⑤g (security upgrades) so a rivalry resolving this tick sees
 # the day's income already earned and spend already committed before any
@@ -69,6 +73,7 @@ static func daily_tick() -> void:
 	Jobs.roll_daily_offer()              # ②c James job proactive daily offer roll (bugfixes-30), no ordering dependency on any other step
 	_apply_living_costs()                # ③ living costs
 	_apply_healing_salve_tick()          # ③b Healing Salve HoT (calc-effect-wiring-02), runs right after living costs
+	_apply_passive_regen()               # ③c passive HP regen (bugfixes-42), runs right after the Salve HoT, stacks with it
 	Cultivating.drift_veins()             # ④ vein growth drift (player + faction veins)
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	Sites.roll_npc_claims()              # ⑤b NPC site-claiming (M1-LONDON.md D2)
@@ -117,6 +122,19 @@ static func _apply_healing_salve_tick() -> void:
 	if healed > 0:
 		# PROSE-REVIEW: new daily-tick salve notification, drafted against CONTENT-GUIDE.md's tone bible.
 		Notify.push("The salve does its work. +%d HP." % healed)
+
+
+# Always-on passive regen, unconditional (no flag/room gate), stacking with
+# both Rest and the Healing Salve HoT rather than replacing either.
+static func _apply_passive_regen() -> void:
+	var player: Dictionary = GameState.state["player"]
+	var heal: int = mini(GameState.round_epsilon(player["hpMax"] * PASSIVE_REGEN_FRACTION), player["hpMax"] - player["hp"])
+	if heal <= 0:
+		return
+
+	player["hp"] += heal
+	# PROSE-REVIEW: new daily-tick passive-regen notification, drafted against CONTENT-GUIDE.md's tone bible.
+	Notify.push("You rest easy. +%d HP." % heal)
 
 
 static func _apply_tutorial_day_triggers() -> void:
