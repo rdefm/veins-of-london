@@ -24,6 +24,17 @@ extends Control
 
 const SHEET_HEIGHT := 480.0
 
+# TOP_ROW_MARGIN is the breathing room above _build_top_bar()'s row
+# (bugfixes ticket 21's safe-area inset lives on top of it).
+# top_row_clearance() is the distance from the screen's top edge to the
+# bottom of that row -- what anything else (bugfixes ticket 62's
+# NotificationToast) needs to clear it, the same way UI.top_bar_clearance()
+# does for the global TopBar.
+const TOP_ROW_MARGIN := 8.0
+
+static func top_row_clearance() -> float:
+	return TOP_ROW_MARGIN + UI.ICON_BUTTON_SIZE + UI.safe_area_top_inset()
+
 # Ticket 04: _bubble_mode values -- named consts rather than bare string
 # literals so a typo in either would fail loudly instead of just falling
 # through _on_bubble_option_selected's district branch by default.
@@ -149,7 +160,7 @@ func _build_diagram_layer() -> Control:
 	# cutout, so bugfixes ticket 21 adds the same safe-area top inset the
 	# global TopBar gets (top_bar.gd) on top of the normal 8px breathing
 	# room, rather than letting it sit flush under the cutout.
-	margin.add_theme_constant_override("margin_top", 8 + int(UI.safe_area_top_inset()))
+	margin.add_theme_constant_override("margin_top", int(TOP_ROW_MARGIN) + int(UI.safe_area_top_inset()))
 	margin.add_theme_constant_override("margin_bottom", 80)  # room above the nav bar
 	layer.add_child(margin)
 

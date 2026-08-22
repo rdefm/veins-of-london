@@ -128,6 +128,20 @@ static func resolve_screen_id(screen_id: String) -> String:
 	return "title"
 
 
+# Bugfixes ticket 62: how far NotificationToast needs to sit below the
+# screen's top edge to clear whatever top bar is actually showing. Lives
+# here rather than in the toast itself because TOP_BAR_HIDDEN_SCREENS
+# above is the one place that already knows which screens hide the global
+# bar and why -- of those, only "map" has its own replacement top row
+# (map.gd's _build_top_bar()) that a toast could still overlap; title/intro
+# have no game session and no bar-shaped content there at all, so the
+# (unused) global-bar clearance is harmless for them.
+static func toast_top_clearance(screen_id: String) -> float:
+	if resolve_screen_id(screen_id) == "map":
+		return MapScreen.top_row_clearance()
+	return UI.top_bar_clearance()
+
+
 func _show_screen(screen_id: String) -> void:
 	if current_screen_node != null:
 		current_screen_node.queue_free()

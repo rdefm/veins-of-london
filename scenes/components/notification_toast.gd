@@ -15,6 +15,8 @@ const FADE_SECONDS := 4.0
 const FADE_IN_SECONDS := 0.15
 const FADE_OUT_SECONDS := 0.3
 
+const MainScript := preload("res://scenes/Main.gd")
+
 var _entries_container: VBoxContainer
 var _visible_ids: Array[String] = []
 var _rows: Dictionary = {}  # id:String -> Control
@@ -26,7 +28,6 @@ func _ready() -> void:
 
 	_entries_container = VBoxContainer.new()
 	UI.anchor_top_wide(_entries_container)
-	_entries_container.offset_top = UI.top_bar_clearance()  # clears the persistent top bar (incl. its notch inset)
 	_entries_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_entries_container)
 
@@ -41,6 +42,16 @@ func _ready() -> void:
 # since Combat always emits it around both) naturally drains the queue
 # again the moment combat ends, with no dedicated signal needed.
 func _refresh() -> void:
+	# Screen-aware clearance (bugfixes ticket 62): fixed UI.top_bar_clearance()
+	# assumes the global 40px TopBar, which undershoots "map"'s own top row
+	# once that bar is hidden there (Main.TOP_BAR_HIDDEN_SCREENS) and leaves
+	# the toast's first entry overlapping it. Main.toast_top_clearance() owns
+	# the per-screen answer, next to the bar-visibility rules it's derived
+	# from. Re-derived every refresh, not just _ready(), so navigating
+	# onto/off of "map" (state_changed fires on every Nav.go_to) keeps it
+	# correct.
+	_entries_container.offset_top = MainScript.toast_top_clearance(GameState.state["currentScreen"])
+
 	if GameState.state["combat"]["active"]:
 		_clear_all_rows()
 		return
@@ -76,6 +87,10 @@ func _add_row(notification: Dictionary) -> void:
 	var id: String = notification["id"]
 	var entry := Button.new()
 	entry.text = notification["text"]
+	# Button is single-line/clip by default -- a long notification string
+	# would run off the visible width instead of reflowing (bugfixes
+	# ticket 62) without this.
+	entry.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	entry.mouse_filter = Control.MOUSE_FILTER_STOP
 	entry.pressed.connect(func(): Notify.dismiss(id))
 	_entries_container.add_child(entry)

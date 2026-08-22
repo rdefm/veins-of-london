@@ -82,6 +82,61 @@ func run() -> void:
 		toast.free()
 	)
 
+	run_case("a_toast_entry_autowraps_instead_of_clipping_a_long_line", func():
+		GameState.reset()
+		var a := Notify.push("A very long notification line that should wrap onto multiple lines instead of clipping off the visible edge of the screen.")
+
+		var toast := NotificationToast.new()
+		toast._ready()
+
+		var entry: Button = toast._rows[a["id"]]
+		assert_eq(entry.autowrap_mode, TextServer.AUTOWRAP_WORD_SMART, "long toast text wraps instead of clipping")
+
+		toast.free()
+	)
+
+	run_case("toast_clears_the_persistent_top_bar_by_default", func():
+		GameState.reset()
+		Notify.push("Hello.")
+
+		var toast := NotificationToast.new()
+		toast._ready()
+
+		assert_eq(toast._entries_container.offset_top, UI.top_bar_clearance(), "off the map screen, the toast clears the global 40px TopBar")
+
+		toast.free()
+	)
+
+	run_case("toast_clears_the_map_screens_own_shorter_top_row_instead_of_the_hidden_global_bar", func():
+		GameState.reset()
+		GameState.state["currentScreen"] = "map"
+		Notify.push("Hello.")
+
+		var toast := NotificationToast.new()
+		toast._ready()
+
+		assert_eq(toast._entries_container.offset_top, MapScreen.top_row_clearance(), "on map, the toast clears MapScreen's own top row")
+		assert_true(toast._entries_container.offset_top > UI.top_bar_clearance(), "map's own top row (8px margin + 40px icon row) sits lower than the hidden global 40px TopBar would have -- the old fixed offset undershot it and overlapped")
+
+		toast.free()
+	)
+
+	run_case("toast_offset_updates_when_navigating_onto_the_map_screen", func():
+		GameState.reset()
+		Notify.push("Hello.")
+
+		var toast := NotificationToast.new()
+		toast._ready()
+		assert_eq(toast._entries_container.offset_top, UI.top_bar_clearance(), "sanity: starts off-map")
+
+		GameState.state["currentScreen"] = "map"
+		EventBus.state_changed.emit()
+
+		assert_eq(toast._entries_container.offset_top, MapScreen.top_row_clearance(), "navigating onto map re-derives the offset on the next refresh")
+
+		toast.free()
+	)
+
 	run_case("toasts_are_fully_suppressed_while_combat_is_active", func():
 		GameState.reset()
 		GameState.state["combat"]["active"] = true
