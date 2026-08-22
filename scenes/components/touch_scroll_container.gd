@@ -25,16 +25,42 @@ extends ScrollContainer
 
 var _drag_index := -100  # touch index, or -1 for the mouse; -100 = no active drag
 var _last_position: Vector2
+var _touches: Dictionary[int, Vector2] = {}  # touch index -> current position, every active touch
 
-
+# Bugfixes ticket 48: MapCanvas.mouse_filter is PASS (see its own _ready()
+# comment), which bubbles every touch event up here regardless of whether
+# MapCanvas called accept_event() during its own two-finger pinch handling —
+# that accept_event() call was found to be inert. Without this, a pinch's
+# first-landed finger (already tracked as a single-finger drag from before
+# the second finger joined) kept driving _apply_drag() on every frame
+# throughout the whole pinch, fighting MapCanvas's own anchor-preserving
+# pinch scroll for the same scroll_horizontal/scroll_vertical and producing
+# exactly the "jumps around all over the map" pinch-zoom jitter that ticket
+# reported (worse at speed: bigger per-event deltas from this stray
+# incremental scroll). Fix: track every active touch here too, and end this
+# container's own drag the moment a second finger joins, so a pinch is left
+# entirely to MapCanvas until back down to one finger.
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		if event.pressed:
-			if _drag_index == -100:
+			_touches[event.index] = event.position
+			if _touches.size() >= 2:
+				_end_drag()
+			elif _drag_index == -100:
 				_start_drag(event.index, event.position)
-		elif event.index == _drag_index:
-			_end_drag()
+		else:
+			_touches.erase(event.index)
+			if event.index == _drag_index:
+				_end_drag()
+			elif _touches.size() == 1 and _drag_index == -100:
+				# A pinch just ended with one finger still down and moving --
+				# resume single-finger drag-to-scroll from its current
+				# position instead of stranding panning until the next fresh
+				# touch-down.
+				var remaining_index: int = _touches.keys()[0]
+				_start_drag(remaining_index, _touches[remaining_index])
 	elif event is InputEventScreenDrag:
+		_touches[event.index] = event.position
 		if event.index == _drag_index:
 			_apply_drag(event.position)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
