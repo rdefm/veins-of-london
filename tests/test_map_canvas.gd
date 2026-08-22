@@ -802,3 +802,73 @@ func run() -> void:
 
 		canvas.free()
 	)
+
+	# Bugfixes ticket 49: the Guild Marketplace pin is additive to its
+	# existing route (contact_cards.gd's faction card button, untouched by
+	# this ticket) -- this only proves the new map-side path. Positioned at
+	# the Guild's own faction-presence district (data-driven, same anchor
+	# multi-faction-line-routing already uses for a faction's line start)
+	# rather than a hardcoded district id.
+	run_case("rebuild_pins_includes_a_guild_marketplace_pin_at_the_guilds_district", func():
+		GameState.reset()
+		var canvas := MapCanvas.new()
+		canvas._rebuild_pins()
+
+		var found: Variant = null
+		for pin in canvas._pins:
+			if pin["kind"] == "guild_marketplace":
+				found = pin
+		assert_true(found != null, "a guild_marketplace pin should always be present")
+		assert_eq(found["position"], MapLayout.faction_first_presence_anchor("guild"), "pinned at the Guild's own presence district")
+
+		canvas.free()
+	)
+
+	run_case("activating_the_guild_marketplace_pin_opens_the_guild_marketplace_screen", func():
+		GameState.reset()
+		var canvas := MapCanvas.new()
+		canvas._activate_pin({ "kind": "guild_marketplace" })
+		assert_eq(GameState.state["currentScreen"], "guild_marketplace", "tapping the pin should route to the existing GuildMarketplaceScreen")
+		canvas.free()
+	)
+
+	# Ticket 49's acceptance check: quest/contact pins and the Guild
+	# Marketplace pin must each be visually distinct from ordinary vein
+	# stops (a plain circle -- see _draw_vein_stop/_draw_faction_stop
+	# above) and from each other, not just by colour. Both draw onto
+	# Icons.draw_pin's teardrop marker (already circle-distinct from a
+	# vein stop), so what's checked here is that they layer genuinely
+	# different icon glyphs (phone vs. bag -- different draw_rect/draw_arc
+	# call shapes) in different colours, not the old text-glyph approach
+	# (which rendered as an invisible tofu box, see _draw_contact_pin's own
+	# comment) and not the same glyph as each other.
+	run_case("contact_pin_draws_a_phone_glyph_not_text_and_in_warded_colour", func():
+		var canvas := MapCanvas.new()
+		var pos := Vector2(50.0, 60.0)
+		var spy := DrawSpy.new()
+		canvas._draw_contact_pin(spy, pos)
+
+		assert_true(spy.calls_matching("draw_string").is_empty(), "no text glyph -- the old ✉ tofu box is gone")
+		assert_true(not spy.calls_matching("draw_rect").is_empty(), "Icons.draw_phone draws its body/nub as rects")
+
+		var teardrop: Array = spy.calls_matching("draw_colored_polygon")
+		assert_true(teardrop.any(func(c): return c["args"][1] == MapCanvas.WARDED_COLOUR), "teardrop marker in WARDED_COLOUR")
+
+		canvas.free()
+	)
+
+	run_case("guild_marketplace_pin_draws_a_bag_glyph_in_guarded_colour_distinct_from_home_and_contact", func():
+		var canvas := MapCanvas.new()
+		var pos := Vector2(50.0, 60.0)
+		var spy := DrawSpy.new()
+		canvas._draw_guild_marketplace_pin(spy, pos)
+
+		assert_true(spy.calls_matching("draw_string").is_empty(), "no text glyph")
+		assert_true(not spy.calls_matching("draw_rect").is_empty(), "Icons.draw_bag draws its body as a rect")
+		assert_true(not spy.calls_matching("draw_arc").is_empty(), "Icons.draw_bag draws its handle as an arc")
+
+		var teardrop: Array = spy.calls_matching("draw_colored_polygon")
+		assert_true(teardrop.any(func(c): return c["args"][1] == MapCanvas.GUARDED_COLOUR), "teardrop marker in GUARDED_COLOUR -- distinct from home (amber) and contact (purple)")
+
+		canvas.free()
+	)

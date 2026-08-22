@@ -1162,8 +1162,10 @@ func _draw_dotted_ring(pos: Vector2, radius: float, colour: Color) -> void:
 # ── pins (N2/N4/N5) ───────────────────────────────────────────────────────
 
 # home (always) + contact pins (MapPins, flag-gated) + the Soho market
-# (always, padlocked) — plus the "you are here" ring on currentDistrict,
-# tracked separately since it isn't a tap target.
+# (always, padlocked) + the Guild Marketplace (bugfixes ticket 49, always —
+# GuildMarketplaceScreen itself renders the locked state for non-members, so
+# the pin doesn't need its own membership gate) — plus the "you are here"
+# ring on currentDistrict, tracked separately since it isn't a tap target.
 func _rebuild_pins() -> void:
 	_pins = []
 	_pins.append({ "kind": "home", "position": MapLayout.home_anchor() })
@@ -1176,6 +1178,15 @@ func _rebuild_pins() -> void:
 		})
 
 	_pins.append({ "kind": "market", "position": MapLayout.district_anchor("soho") })
+
+	# Ticket 49: additive to the Guild Marketplace's existing route (the
+	# faction card button, contact_cards.gd) — this is a second way in, not
+	# a replacement. Positioned at the Guild's own presence district rather
+	# than a hardcoded id, same data-driven anchor multi-faction-line-
+	# routing's _draw_lines already uses for a faction's line start.
+	var guild_anchor: Variant = MapLayout.faction_first_presence_anchor("guild")
+	if guild_anchor != null:
+		_pins.append({ "kind": "guild_marketplace", "position": guild_anchor })
 
 	_here_position = MapLayout.district_anchor(GameState.state["world"]["currentDistrict"])
 
@@ -1190,16 +1201,11 @@ func _draw_pins_layer(target: CanvasItem) -> void:
 			"home":
 				_draw_home_pin(target, pin["position"])
 			"contact":
-				# "✉" (U+2709) has the same tofu problem the ore symbols
-				# and the old "⌂" home glyph had — confirmed the same way
-				# (font.has_char() is false on the bundled engine font).
-				# Not fixed here: "envelope"/"message" isn't one of N6's 8
-				# icons, and N6 says no art beyond that list — flagged for
-				# a follow-up decision (reuse an existing icon, e.g.
-				# "phone," or add a 9th asset) rather than guessed here.
-				_draw_pin_marker(target, pin["position"], WARDED_COLOUR, "✉")
+				_draw_contact_pin(target, pin["position"])
 			"market":
 				_draw_market_pin(target, pin["position"])
+			"guild_marketplace":
+				_draw_guild_marketplace_pin(target, pin["position"])
 
 
 # The generic teardrop marker (circle "head" + triangular point) every pin
@@ -1212,10 +1218,17 @@ func _draw_home_pin(target: CanvasItem, pos: Vector2) -> void:
 	Icons.draw_home(target, head, PLAYER_COLOUR, 0.5)
 
 
-func _draw_pin_marker(target: CanvasItem, pos: Vector2, colour: Color, glyph: String) -> void:
-	var head := Icons.draw_pin(target, pos, colour)
+# Ticket 49: was a "✉" (U+2709) text glyph, which has the same tofu problem
+# the ore symbols and the old "⌂" home glyph had (font.has_char() false on
+# the bundled engine font) — so a quest/contact pin used to render as a
+# blank purple teardrop, indistinguishable from any other pin at a glance
+# except by colour. Icons.draw_phone is one of N6's fixed 8 vector icons
+# (no new art), and reads as "a contact to go see" — the follow-up this
+# ticket's predecessor comment flagged as the likely fix.
+func _draw_contact_pin(target: Object, pos: Vector2) -> void:
+	var head := Icons.draw_pin(target, pos, WARDED_COLOUR)
 	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, PAPER_COLOUR)
-	_draw_centered_text(head, glyph, 10, colour, target)
+	Icons.draw_phone(target, head, WARDED_COLOUR, 0.5)
 
 
 func _draw_market_pin(target: CanvasItem, pos: Vector2) -> void:
@@ -1224,6 +1237,18 @@ func _draw_market_pin(target: CanvasItem, pos: Vector2) -> void:
 	# (T14) for M4's unlock but isn't drawn here on purpose.
 	var head := Icons.draw_pin(target, pos, MUTED_COLOUR)
 	Icons.draw_padlock(target, head, PAPER_COLOUR, 1.3)
+
+
+# Ticket 49: the Guild Marketplace's own pin — GUARDED_COLOUR (green,
+# unused by any other pin so far: home is amber, contact is purple, the
+# locked Soho market is grey) + Icons.draw_bag (a goods/trading glyph,
+# deliberately not Icons.draw_market — that one's reserved for the Soho
+# pin's own M4 unlock, and reusing it here would make two differently-
+# purposed pins converge on the same glyph the moment that unlocks).
+func _draw_guild_marketplace_pin(target: Object, pos: Vector2) -> void:
+	var head := Icons.draw_pin(target, pos, GUARDED_COLOUR)
+	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, PAPER_COLOUR)
+	Icons.draw_bag(target, head, GUARDED_COLOUR, 0.5)
 
 
 # ── labels ───────────────────────────────────────────────────────────────
@@ -1499,6 +1524,8 @@ func _activate_pin(pin: Dictionary) -> void:
 			Events.start_event(pin["eventId"])
 		"market":
 			pass
+		"guild_marketplace":
+			Nav.go_to("guild_marketplace")
 
 
 # ── charge halos (N2: soft amber halo, scale 1.0->1.3 / alpha 0.5->0, 1.2s loop) ──

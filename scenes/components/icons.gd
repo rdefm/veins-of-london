@@ -90,7 +90,7 @@ static func draw_market(target: CanvasItem, center: Vector2, colour: Color, scal
 # but not wired into the Phone nav tab in this ticket — that tab lives in
 # nav_bar.gd, an M1 screen this M1.5 ticket doesn't touch (ADR 0001: M1.5
 # owns the Network Map renderer only).
-static func draw_phone(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+static func draw_phone(target: Object, center: Vector2, colour: Color, scale: float = 1.0) -> void:
 	var s := 5.0 * scale
 	target.draw_rect(Rect2(center - Vector2(s * 0.55, s), Vector2(s * 1.1, s * 2.0)), colour, false, 1.5 * scale)
 	target.draw_rect(Rect2(center + Vector2(-s * 0.2, s * 0.7), Vector2(s * 0.4, s * 0.15)), colour, true)
@@ -101,7 +101,7 @@ static func draw_phone(target: CanvasItem, center: Vector2, colour: Color, scale
 # text glyph rendered as nothing on-device). The global TopBar's own bag
 # button (top_bar.gd) pairs "🎒" with a visible "Bag" label, so it's
 # unaffected by that bug and left as-is.
-static func draw_bag(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+static func draw_bag(target: Object, center: Vector2, colour: Color, scale: float = 1.0) -> void:
 	var s := 5.0 * scale
 	target.draw_rect(Rect2(center + Vector2(-s, -s * 0.4), Vector2(s * 2, s * 1.6)), colour, false, 1.5 * scale)
 	target.draw_arc(center + Vector2(0, -s * 0.4), s * 0.6, PI, TAU, 8, colour, 1.5 * scale, true)
