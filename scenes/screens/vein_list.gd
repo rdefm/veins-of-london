@@ -139,6 +139,9 @@ func _build_action_button(vein: Dictionary, gate: Dictionary) -> Control:
 			return _build_prune_button("Prune (light)", vein, GameData.VEIN_GROWTH["pruneLightDepth"], gate)
 		VeinList.PRUNE_HARD_ID:
 			return _build_prune_button("Prune (hard)", vein, GameData.VEIN_GROWTH["pruneHardDepth"], gate)
+		VeinList.SELL_ID:
+			var price: int = VeinTrade.quote(vein)
+			return UI.button("Sell — £%d" % price, func(): VeinList.apply_option(option_id, vein_id))
 		_:  # MANAGE_ID
 			return UI.button("Manage", func(): VeinList.apply_option(option_id, vein_id))
 

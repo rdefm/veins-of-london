@@ -219,6 +219,10 @@ func new_game_state() -> Dictionary:
 			# _event_caught() fallback (systems/events.gd) so the shared
 			# claim/loot card knows which path got the player there.
 			"raidCaught": false,
+			# collective1-05, spec §5.6/§10.2: flips true once (ticket 12's S9
+			# scene), never false again -- gates VeinList's Sell option
+			# (systems/vein_list.gd) on permanently for every vein from then on.
+			"veinSaleUnlocked": false,
 		},
 	}
 

@@ -312,7 +312,6 @@ func run() -> void:
 	)
 
 	# ── boundary wiring: refresh() is actually called at all 5 sites ─────
-	# (VeinTrade.sell_to_faction() is ticket 05, not wired yet)
 
 	run_case("prospect_calls_objectives_refresh", func():
 		GameState.reset()
@@ -393,6 +392,19 @@ func run() -> void:
 		GameState.state["player"]["orichalchum"]["time"] = 5
 		Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 2 }])
 		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "Economy.execute_faction_sale() should trigger a refresh")
+		GameData.OBJECTIVES = original
+	)
+
+	run_case("vein_sale_completion_calls_objectives_refresh", func():
+		GameState.reset()
+		var original := _install_objectives({
+			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }),
+		})
+		GameState.state["flags"]["testActive"] = true
+		GameState.state["world"]["sites"] = [_site("s1", "time", "fair", true)]
+		GameState.state["player"]["veins"] = [_vein("test_vein", 20)]
+		VeinTrade.sell_to_faction("test_vein", "collective")
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "VeinTrade.sell_to_faction() should trigger a refresh")
 		GameData.OBJECTIVES = original
 	)
 

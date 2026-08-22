@@ -11,6 +11,7 @@ const CULTIVATE_ID := "cultivate"
 const PRUNE_LIGHT_ID := "prune_light"
 const PRUNE_HARD_ID := "prune_hard"
 const MANAGE_ID := "manage"
+const SELL_ID := "sell"
 
 
 # Every player vein, optionally scoped to one district (null -- the HQ Vein
@@ -51,12 +52,20 @@ static func actions_for(vein: Dictionary) -> Array:
 	var light_gate: Dictionary = Cultivating.prune_gate(vein, GameData.VEIN_GROWTH["pruneLightDepth"], district)
 	var hard_gate: Dictionary = Cultivating.prune_gate(vein, GameData.VEIN_GROWTH["pruneHardDepth"], district)
 
-	return [
+	var actions := [
 		{ "id": CULTIVATE_ID, "disabled": cultivate_disabled, "reason": cultivate_reason },
 		{ "id": PRUNE_LIGHT_ID, "disabled": light_gate["disabled"], "reason": light_gate["reason"] },
 		{ "id": PRUNE_HARD_ID, "disabled": hard_gate["disabled"], "reason": hard_gate["reason"] },
 		{ "id": MANAGE_ID, "disabled": false, "reason": "" },
 	]
+
+	# collective1-05, spec §5.6: absent entirely until flags.veinSaleUnlocked
+	# flips true (ticket 12's S9 scene) -- once it does, every vein gets it,
+	# permanently, unconditionally enabled (no block cost, no per-vein gate).
+	if GameState.state["flags"].get("veinSaleUnlocked", false):
+		actions.append({ "id": SELL_ID, "disabled": false, "reason": "" })
+
+	return actions
 
 
 # Dispatches to the same Cultivating functions (and therefore the same
@@ -82,6 +91,16 @@ static func apply_option(option_id: String, vein_id: String) -> Dictionary:
 				return { "ok": false }
 			MapNav.select_site(vein["siteId"])
 			Nav.go_to("map")
+			return { "ok": true }
+		SELL_ID:
+			var vein: Variant = Cultivating.find_vein(vein_id)
+			if vein == null:
+				return { "ok": false }
+			# Quote, then confirm (spec §5.6 guard: "losing a vein must never
+			# be one tap") -- this only opens the confirmation modal; the
+			# actual VeinTrade.sell_to_faction() call happens from the
+			# modal's Confirm button (scenes/components/modal_layer.gd).
+			Modal.open("sell_vein_quote", { "veinId": vein_id, "price": VeinTrade.quote(vein), "factionId": VeinTrade.SELL_FACTION_ID })
 			return { "ok": true }
 		_:
 			return { "ok": false }

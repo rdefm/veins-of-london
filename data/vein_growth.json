@@ -26,5 +26,6 @@
   "selfSeedGrowth": 60,
   "terroirYieldMult": { "poor": 0.6, "fair": 1.0, "rich": 1.6, "saturated": 2.4 },
   "seedOreCost": 40,
-  "cultivatingXpLevels": [0, 0, 80, 220, 500, 1000]
+  "cultivatingXpLevels": [0, 0, 80, 220, 500, 1000],
+  "veinSaleBaseUnits": 35
 }

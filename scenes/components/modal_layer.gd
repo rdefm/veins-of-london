@@ -146,6 +146,8 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_james_job_complete(data)
 		"network_reference":
 			_build_network_reference()
+		"sell_vein_quote":
+			_build_sell_vein_quote(data)
 		_:
 			_card_content.add_child(UI.heading(type_id))
 			_card_content.add_child(UI.label("…"))
@@ -381,15 +383,45 @@ func _legend_row(glyph_label: String, description: String) -> Control:
 	return row
 
 
+# collective1-05, spec §5.6's guard: "Quote, then confirm... losing a vein
+# must never be one tap." This is the first per-action-type confirm modal
+# the "Deferred" note at the bottom of this file anticipated (modal.type =
+# "sell_vein_quote", data = { veinId, price, factionId } -- systems/
+# vein_list.gd's apply_option(SELL_ID, ...) is the only thing that opens
+# it). Cancel is a bare Modal.close() with no side effect to unwind (unlike
+# sell_menu's sellState), so _dismiss_modal()'s match above needs no entry
+# for it -- the default case already covers it correctly.
+# PROSE-REVIEW: new copy, drafted against CONTENT-GUIDE.md's tone bible.
+func _build_sell_vein_quote(data: Dictionary) -> void:
+	var vein_id: String = data["veinId"]
+	var price: int = data["price"]
+	var vein: Variant = Cultivating.find_vein(vein_id)
+	if vein == null:
+		Modal.close()
+		return
+	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
+
+	_card_content.add_child(UI.heading("Sell this vein?"))
+	_card_content.add_child(UI.label("%s %s vein — £%d." % [ore["symbol"], ore["name"], price]))
+	_card_content.add_child(UI.muted_label("It stops being yours. Someone else's line, someone else's cut, from here on."))
+	_card_content.add_child(UI.button("Confirm sale", func(): _on_sell_vein_confirm(vein_id)))
+	_card_content.add_child(UI.button("Cancel", func(): Modal.close()))
+
+
+func _on_sell_vein_confirm(vein_id: String) -> void:
+	VeinTrade.sell_to_faction(vein_id, VeinTrade.SELL_FACTION_ID)
+	Modal.close()
+
+
 # Item-use during combat used to be a modal here ("combat_items"); D4.4's
 # BagDrawer (scenes/components/bag_drawer.gd) replaces it — combat.gd's
 # "Item" button now opens that instead of a modal.
 
-# Deferred: room_detail (manage/assign a built room) and generic confirm
-# dialogs. Confirm specifically needs its own design pass — state.modal.
-# data can't hold a Callable (state purity, R§2), so a reusable "confirm
-# with an arbitrary callback" modal isn't possible under this schema; it
-# needs a per-action-type dispatch (e.g. modal.type = "confirm_abandon_
-# device", data = {deviceId}) the same way every other modal here works.
-# No destructive action currently routes through this screen without a
-# confirm step, so nothing is blocked on it — noted for a follow-up pass.
+# Deferred: room_detail (manage/assign a built room) and a *generic*
+# confirm dialog. state.modal.data can't hold a Callable (state purity,
+# R§2), so a reusable "confirm with an arbitrary callback" modal still
+# isn't possible under this schema. collective1-05's _build_sell_vein_quote
+# above is the first per-action-type confirm built on that same dispatch
+# shape (modal.type = "sell_vein_quote", data = {veinId, price, factionId})
+# — any future destructive action needing a confirm step follows the same
+# pattern rather than waiting on a generic solution.
