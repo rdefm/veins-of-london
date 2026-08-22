@@ -6,6 +6,10 @@ extends RefCounted
 const PLAYER_CUT_RATIO := 0.5
 const MUG_BASE_CHANCE := 0.20
 
+# bugfixes-63: relation for selling through Archie, smaller than James's
+# +5/job since sales happen far more often.
+const ARCHIE_SALE_RELATION_GAIN := 2
+
 # Guild marketplace spread (bugfixes-28): ±15% at the Guild join threshold
 # (state.factions.guild.relation == GameData.FACTIONS.guild.joinRelation),
 # narrowing linearly to 0% by relation 90, then flat. Human-confirmed curve —
@@ -56,6 +60,8 @@ static func execute_sale(items: Array) -> Dictionary:
 		if not flags["archieMotionEventSeen"] and not flags["archieMotionPending"] and flags["consSoldCount"] >= 1:
 			flags["archieMotionPending"] = true
 			Notify.push("Archie texted. Check Contacts.")
+
+	Contacts.award_relation("archie", ARCHIE_SALE_RELATION_GAIN)
 
 	var player_cut: int = int(floor(gross * PLAYER_CUT_RATIO))
 	var mugged: bool = Rng.chance(Barometer.get_effective_mug_chance(MUG_BASE_CHANCE + danger_mod))

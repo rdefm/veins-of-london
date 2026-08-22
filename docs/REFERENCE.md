@@ -378,6 +378,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - Sell menu covers ore (all 5 types, at effective price) and consumables at CONSUMABLE_PRICES (gated by `canSellConsumables`).
 - `gross` = Σ price×qty; deduct goods; player cut = `floor(gross * 0.5)`.
 - Consumables-sold counter: first ever consumable sale (and !archieMotionEventSeen) → set `archieMotionPending = true` + notification "Archie texted. Check Contacts."
+- Every completed sale (ore or consumable, mugged or not): archie relation +2 (`ARCHIE_SALE_RELATION_GAIN`, bugfixes-63) — smaller than James's +5/job since sales happen far more often.
 - Mugging roll: `chance(getEffectiveMugChance(0.20))` → stash cut in `pendingSaleCut`, start mugging combat; on win, pay out cut and show sale result (mugged:true). No mug → pay immediately, sale result modal.
 
 ### 3.7 Combat (M0 port — pre-intent system)

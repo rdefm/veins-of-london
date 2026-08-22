@@ -38,6 +38,26 @@ func run() -> void:
 		assert_eq(bank_log[0]["label"], "Archie sale", "the recorded label names the sale")
 	)
 
+	run_case("sale_via_archie_increases_his_relation_by_2", func():
+		GameState.reset()
+		var starting_relation: int = GameState.state["contacts"]["archie"]["relation"]
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
+		assert_eq(GameState.state["contacts"]["archie"]["relation"], starting_relation + 2, "Archie's relation should tick up by ARCHIE_SALE_RELATION_GAIN per sale")
+	)
+
+	run_case("mugged_sale_via_archie_still_increases_his_relation", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 10
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
+			return result.get("mugged", false)
+		)
+		assert_true(seed != -1, "should find a mugged roll within 200 tries")
+		# archie startRelation 10 (R§1.11) + ARCHIE_SALE_RELATION_GAIN 2 = 12
+		assert_eq(GameState.state["contacts"]["archie"]["relation"], 12, "relation gain should not depend on the mugging outcome")
+	)
+
 	run_case("gross_math_applies_barometer_premiums", func():
 		var seed := _find_seed_for(200, func():
 			GameState.reset()
