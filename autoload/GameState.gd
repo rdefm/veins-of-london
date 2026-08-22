@@ -38,7 +38,10 @@ func new_game_state() -> Dictionary:
 		# pace survives close/reopen and save/load — see MapEvents.
 		# pacing_mode()/set_pacing_mode().
 		"mapEvents": { "queue": [], "playing": false, "pacingMode": MapEvents.DEFAULT_PACING_MODE },
-		"phoneNav": { "app": "home", "selectedAxis": null, "confirmingNewGame": false },
+		# collective1-03: selectedContactId drills into a single conversation
+		# the same way selectedAxis drills into a single Ticker axis below --
+		# null means "show the conversation list."
+		"phoneNav": { "app": "home", "selectedAxis": null, "selectedContactId": null, "confirmingNewGame": false },
 		# 53-map-auto-focus-and-zoom-persistence: unlike mapNav/phoneNav/
 		# benchNav above/below, this DOES survive save/load (see
 		# SaveManager._restore_int_types() for scrollX/scrollY) -- the
@@ -167,6 +170,15 @@ func new_game_state() -> Dictionary:
 			"progress": {},
 			"cooldowns": {},
 		},
+
+		# collective1-03: state.messages[<contactId>] = [{ from: "them"|
+		# "player", text, day, read }], capped at Messages.CAP (see
+		# systems/messages.gd), same append-and-evict-from-front convention
+		# as notifications/bankLog above. pendingMessages is the generic
+		# runtime-delivery road (spec §5.3) -- entries removed once their
+		# action-bar button is tapped.
+		"messages": {},
+		"pendingMessages": [],
 
 		"contacts": _new_contacts_state(),
 

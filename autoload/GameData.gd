@@ -618,6 +618,12 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# vein-raiding ticket 02/03 ops (systems/events.gd): stealth_check/
 	# start_raid_combat/claim_raid_vein/loot_raid_vein.
 	"stealth_check", "start_raid_combat", "claim_raid_vein", "loot_raid_vein",
+	# collective1-03 ops (systems/events.gd, systems/messages.gd):
+	# unlock_contact flips contacts.<id>.unlocked; push_message appends a
+	# plain unread text to a conversation (no follow-up action -- for that,
+	# systems call Messages.queue_pending() directly, the same road
+	# systems/raiding.gd already uses to hand runtime context to an event).
+	"unlock_contact", "push_message",
 ]
 
 

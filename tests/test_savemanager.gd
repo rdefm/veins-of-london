@@ -77,6 +77,30 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_mutate_load_round_trips_messages_with_day_int_intact", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		Messages.append("des", "them", "Hello.")
+		Messages.queue_pending("des", "col_a1_des_report", "Something for you.")
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["messages"] = {}
+		GameState.state["pendingMessages"] = []
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		var thread: Array = GameState.state["messages"]["des"]
+		assert_eq(thread.size(), 2, "messages should be restored")
+		assert_eq(typeof(thread[0]["day"]), TYPE_INT, "message day should be restored as int, not float")
+		assert_eq(GameState.state["pendingMessages"].size(), 1, "pendingMessages should be restored")
+		assert_eq(GameState.state, original, "the full state tree (including messages/pendingMessages) should deep-equal what was saved")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("save_mutate_load_round_trips_sites_with_int_fields_intact", func():
 		GameState.reset()
 		GameState.state["world"]["sites"].append({
@@ -309,6 +333,9 @@ func run() -> void:
 		assert_eq(filled["flags"], defaults["flags"], "a missing top-level key should be backfilled from defaults")
 		assert_eq(filled["combat"], defaults["combat"], "a missing top-level key should be backfilled from defaults")
 		assert_true(filled.has("factions") and filled.has("contacts"), "all top-level keys should be present after backfill")
+		# collective1-03
+		assert_eq(filled["messages"], {}, "an old save missing 'messages' should backfill to {}")
+		assert_eq(filled["pendingMessages"], [], "an old save missing 'pendingMessages' should backfill to []")
 	)
 
 	run_case("loading_a_save_with_a_retired_currentScreen_lands_on_phone_home", func():

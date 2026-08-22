@@ -206,6 +206,10 @@ func _restore_int_types(state: Dictionary) -> void:
 	for bank_entry in state.get("bankLog", []):
 		_int_key(bank_entry, "amount")
 		_int_key(bank_entry, "day")
+	# collective1-03
+	for thread in state.get("messages", {}).values():
+		for msg in thread:
+			_int_key(msg, "day")
 
 	if state.has("meta"):
 		_int_key(state["meta"], "saveVersion")

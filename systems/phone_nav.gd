@@ -13,6 +13,7 @@ const APPS: Array[String] = ["messages", "notes", "factions", "ticker", "profile
 static func open_app(app_id: String) -> void:
 	GameState.state["phoneNav"]["app"] = app_id
 	GameState.state["phoneNav"]["selectedAxis"] = null
+	GameState.state["phoneNav"]["selectedContactId"] = null
 	GameState.state["phoneNav"]["confirmingNewGame"] = false
 	EventBus.state_changed.emit()
 
@@ -20,6 +21,7 @@ static func open_app(app_id: String) -> void:
 static func go_home() -> void:
 	GameState.state["phoneNav"]["app"] = "home"
 	GameState.state["phoneNav"]["selectedAxis"] = null
+	GameState.state["phoneNav"]["selectedContactId"] = null
 	GameState.state["phoneNav"]["confirmingNewGame"] = false
 	EventBus.state_changed.emit()
 
@@ -45,6 +47,23 @@ static func select_axis(section: String) -> void:
 
 static func back_to_ticker() -> void:
 	GameState.state["phoneNav"]["selectedAxis"] = null
+	EventBus.state_changed.emit()
+
+
+# collective1-03: drills into a single conversation, same "selectedX drives
+# a sub-view within one app" pattern as select_axis()/back_to_ticker()
+# above. Marking the conversation read is a state.messages mutation, not
+# nav bookkeeping -- Messages.mark_read() does that here rather than
+# leaving it to the screen (screens never mutate state directly).
+static func select_conversation(contact_id: String) -> void:
+	GameState.state["phoneNav"]["app"] = "messages"
+	GameState.state["phoneNav"]["selectedContactId"] = contact_id
+	Messages.mark_read(contact_id)
+	EventBus.state_changed.emit()
+
+
+static func back_to_messages() -> void:
+	GameState.state["phoneNav"]["selectedContactId"] = null
 	EventBus.state_changed.emit()
 
 

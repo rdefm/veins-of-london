@@ -15,6 +15,32 @@ var _content: VBoxContainer
 var _export_box: TextEdit
 var _import_box: TextEdit
 
+# collective1-03: screen-local presentation cache for the Messages app's
+# staged reveal -- contactId -> "already rendered instantly up to this
+# index." Not game state (same "reveal counter is screen-local
+# presentation state" reasoning as sms_archie.gd's own _revealed), so a
+# save/load or an unrelated state_changed refresh never needs to touch it.
+# Set once per conversation-open in _open_conversation() (before
+# PhoneNav.select_conversation() marks everything read, since that's the
+# only moment "how many were unread" is still knowable), and bumped to the
+# thread's full length the first time _build_conversation() consumes it —
+# so a stray _refresh() mid-reveal (some unrelated state_changed firing
+# while the player is reading) just renders the rest instantly instead of
+# restarting the animation.
+var _reveal_from_index: Dictionary = {}
+
+# collective1-03: a single conversation needs a genuinely pinned-at-bottom
+# action bar (spec §5.2), which UI.screen_body()'s single-scroll skeleton
+# (every other app's _content lives inside one ScrollContainer) can't give
+# it -- see UI.anchor_below_bars()'s own doc comment: "a screen with its
+# own bespoke layout (scroll region + a separately pinned action bar) where
+# UI.screen_body()'s single-scroll skeleton doesn't fit." Built fresh as a
+# sibling of _content's scroll container (same bespoke-layout shape as
+# sms_archie.gd) only while a conversation is open; _content's own scroll
+# container is hidden underneath it for that one view so it can't still
+# catch touch/drag input behind the pinned action bar.
+var _conversation_root: Control = null
+
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -27,6 +53,10 @@ func _ready() -> void:
 func _refresh() -> void:
 	for child in _content.get_children():
 		child.queue_free()
+	if _conversation_root != null:
+		_conversation_root.queue_free()
+		_conversation_root = null
+	_content.get_parent().visible = true
 
 	var nav: Dictionary = GameState.state["phoneNav"]
 	match nav["app"]:
@@ -133,6 +163,9 @@ func _badge_for(app_id: String) -> bool:
 
 
 func _has_pending_messages() -> bool:
+	if Messages.has_any_unread():
+		return true
+
 	var f: Dictionary = GameState.state["flags"]
 	var world: Dictionary = GameState.state["world"]
 	if f["archieMotionPending"] and not f["archieMotionEventSeen"]:
@@ -155,17 +188,131 @@ func _has_ticker_rumblings() -> bool:
 	return false
 
 
-# ── messages (contact list + SMS threads + James jobs) ──────────────
-# Reskin of the old M0 `contacts` screen's content (same flag-gated
-# tutorial triggers, same system calls) under the Phone shell.
+# ── messages (collective1-03: real Messages app) ─────────────────────
+# Conversation list + per-contact conversation screen with a pinned action
+# bar, per spec §5.2. Archie/James are NOT part of this -- they keep their
+# existing bespoke SMS screens, reached via the tutorial-era `contacts`
+# screen (Nav.go_to("contacts") from archie_motion/james_motion's
+# on_complete), untouched by this app. See systems/messages.gd's
+# LEGACY_CONTACT_IDS for the exclusion this list itself enforces.
 
 func _build_messages() -> void:
+	var selected_contact_id = GameState.state["phoneNav"].get("selectedContactId")
+	if selected_contact_id != null:
+		_build_conversation(selected_contact_id)
+	else:
+		_build_conversation_list()
+
+
+func _build_conversation_list() -> void:
 	_content.add_child(_phone_back_button())
 	_content.add_child(UI.heading("Messages"))
 
-	_content.add_child(ContactCards.build_archie_card())
-	if GameState.state["contacts"]["james"]["unlocked"]:
-		_content.add_child(ContactCards.build_james_card())
+	var contact_ids := Messages.conversation_contact_ids()
+	if contact_ids.is_empty():
+		_content.add_child(UI.muted_label("No conversations yet."))
+	for contact_id in contact_ids:
+		_content.add_child(_build_conversation_row(contact_id))
+
+
+func _build_conversation_row(contact_id: String) -> Control:
+	var thread: Array = GameState.state["messages"].get(contact_id, [])
+	var name_line := Contacts.display_name(contact_id)
+	if Messages.has_unread(contact_id):
+		name_line += " ●"
+
+	var c := UI.card()
+	c["content"].add_child(UI.heading(name_line, 15))
+	if not thread.is_empty():
+		c["content"].add_child(UI.muted_label(thread[thread.size() - 1]["text"]))
+	c["content"].add_child(UI.button("Open →", _open_conversation.bind(contact_id)))
+	return c["panel"]
+
+
+# Captures "how many messages were already read before this open" while
+# that's still knowable -- PhoneNav.select_conversation() marks the whole
+# thread read as part of navigating in, so this has to run first.
+func _open_conversation(contact_id: String) -> void:
+	var thread: Array = GameState.state["messages"].get(contact_id, [])
+	var unread := 0
+	for msg in thread:
+		if not msg["read"]:
+			unread += 1
+	_reveal_from_index[contact_id] = maxi(thread.size() - unread, 0)
+	PhoneNav.select_conversation(contact_id)
+
+
+func _build_conversation(contact_id: String) -> void:
+	_content.get_parent().visible = false
+
+	_conversation_root = UI.vbox(0)
+	UI.anchor_below_bars(_conversation_root)
+	add_child(_conversation_root)
+
+	var header := UI.hbox()
+	header.add_child(UI.button("‹ Back", func(): PhoneNav.back_to_messages()))
+	header.add_child(UI.heading(Contacts.display_name(contact_id)))
+	_conversation_root.add_child(header)
+
+	var scroll := UI.scroll_container()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_conversation_root.add_child(scroll)
+
+	var margin := MarginContainer.new()
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.add_theme_constant_override("margin_left", 16)
+	margin.add_theme_constant_override("margin_right", 16)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	scroll.add_child(margin)
+
+	var box := UI.vbox(8)
+	margin.add_child(box)
+
+	var thread: Array = GameState.state["messages"].get(contact_id, [])
+	var reveal_from: int = mini(_reveal_from_index.get(contact_id, thread.size()), thread.size())
+	for i in range(reveal_from):
+		box.add_child(UI.message_bubble(thread[i]["text"], thread[i]["from"] == "player"))
+
+	_conversation_root.add_child(_build_action_bar(contact_id))
+
+	if reveal_from < thread.size():
+		_reveal_from_index[contact_id] = thread.size()
+		_reveal_remaining(box, thread, reveal_from)
+
+
+# Staged reveal for newly-arrived messages only -- same 0.6/0.9s
+# alternating-delay presentation as sms_archie.gd's _reveal_next(). Guards
+# against the box having been freed by a stray _refresh() (some unrelated
+# state_changed firing while the player is mid-reveal) rather than
+# assuming this is the only thing that can happen between awaits.
+func _reveal_remaining(box: VBoxContainer, thread: Array, start_index: int) -> void:
+	for i in range(start_index, thread.size()):
+		if not is_instance_valid(box):
+			return
+		box.add_child(UI.message_bubble(thread[i]["text"], thread[i]["from"] == "player"))
+		var delay: float = 0.9 if (i - start_index) % 2 == 0 else 0.6
+		await get_tree().create_timer(delay).timeout
+
+
+# Trade stays a modal (spec §5.2: "one trade UI in the game, not two") --
+# ContactCards.build_sell_action() already opens sell_menu with the right
+# locked/enabled state, so every conversation's action bar reuses it
+# rather than building a second entry point. pendingMessages entries for
+# this contact each surface as their own button; tapping one resolves the
+# entry and hands its payload to Events.start_event() as context, the same
+# road systems/raiding.gd uses for a raid's runtime site_id.
+func _build_action_bar(contact_id: String) -> Control:
+	var bar := UI.vbox(8)
+	bar.add_child(ContactCards.build_sell_action())
+	for entry in Messages.pending_for(contact_id):
+		bar.add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
+	return bar
+
+
+func _on_pending_action_pressed(entry: Dictionary) -> void:
+	Messages.resolve_pending(entry["id"])
+	Events.start_event(entry["kind"], entry["payload"])
 
 
 # ── notes (to-do list) ────────────────────────────────────────────────

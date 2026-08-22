@@ -89,6 +89,19 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("badge_for_reflects_an_unread_message_in_the_new_Messages_app", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		Messages.append("des", "them", "Got something for you.")
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		assert_true(phone._badge_for("messages"), "messages badge follows Messages.has_any_unread()")
+
+		phone.free()
+	)
+
 	run_case("badge_for_reflects_the_real_ticker_rumblings_predicate", func():
 		GameState.reset()
 		Barometer.ensure_progress()

@@ -234,6 +234,10 @@ static func _apply_one(effect: Dictionary) -> void:
 			Raiding.claim_vein(_event_site_id(effect))
 		"loot_raid_vein":
 			Raiding.loot_vein(_event_site_id(effect), _event_caught(effect))
+		"unlock_contact":
+			GameState.state["contacts"][effect["contact"]]["unlocked"] = true
+		"push_message":
+			Messages.append(effect["contact"], "them", effect["text"])
 
 
 # Generic path+value combine: adds when both the existing value and the
