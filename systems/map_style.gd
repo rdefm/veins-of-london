@@ -119,14 +119,15 @@ static func show_danger_ring(filter_mode: String, security: String) -> bool:
 
 
 # Growth: the per-stop days-to-wall label ("6↑"/"4↓") that replaces the old
-# per-stop charge countdown ("2⏳") — only shown under the Growth filter,
-# and only for a vein actually drifting toward a wall (direction 0, a vein
+# per-stop charge countdown ("2⏳") — ticket 46 made it always-on, every
+# filter, not just Growth (readable "at a glance" without switching), and
+# only for a vein actually drifting toward a wall (direction 0, a vein
 # sitting exactly at neutral, has nothing to count down). Direction is
 # already-resolved by the caller (MapCanvas, from the vein's own growth vs.
 # GameData.VEIN_GROWTH's neutral) rather than looked up here, keeping this
 # function's inputs plain primitives like every other seam in this file.
-static func countdown_label(filter_mode: String, days_remaining: int, direction: int) -> Variant:
-	if filter_mode != "growth" or direction == 0 or days_remaining < 0:
+static func countdown_label(days_remaining: int, direction: int) -> Variant:
+	if direction == 0 or days_remaining < 0:
 		return null
 	var arrow := "↑" if direction > 0 else "↓"
 	return "%d%s" % [days_remaining, arrow]

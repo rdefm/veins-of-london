@@ -6,7 +6,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] The days-to-wall/band badge (`map_canvas.gd:986-990`, `map_style.gd:128-132`) renders on every vein stop regardless of active map filter, not just under Growth.
-- [ ] Confirm it doesn't visually clash/overlap with other filter-specific glyphs when a different filter is active — adjust layering/positioning if needed.
-- [ ] Existing map-canvas draw tests updated/extended to cover badge rendering outside the Growth filter.
+- [x] The days-to-wall/band badge (`map_canvas.gd:986-990`, `map_style.gd:128-132`) renders on every vein stop regardless of active map filter, not just under Growth.
+- [x] Confirm it doesn't visually clash/overlap with other filter-specific glyphs when a different filter is active — adjust layering/positioning if needed.
+- [x] Existing map-canvas draw tests updated/extended to cover badge rendering outside the Growth filter.
 - [ ] Manual check noted for the human: switch through all map filters and confirm the growth badge stays visible on every vein stop.

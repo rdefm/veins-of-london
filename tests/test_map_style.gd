@@ -17,7 +17,6 @@ func run() -> void:
 		assert_eq(MapStyle.vein_ring_width("ownership", 6, 2.5), 2.5)
 		assert_eq(MapStyle.badge_scale("ownership"), 1.0)
 		assert_true(not MapStyle.show_danger_ring("ownership", "none"), "danger ring is a security-filter-only thing")
-		assert_eq(MapStyle.countdown_label("ownership", 2, 1), null)
 	)
 
 	# ── type ─────────────────────────────────────────────────────────────
@@ -51,15 +50,19 @@ func run() -> void:
 		assert_eq(MapStyle.badge_scale("growth"), 1.0, "growth mode doesn't enlarge the security padlock -- the old level-badge enlarge is gone with the badge itself")
 	)
 
-	run_case("growth_fades_everything_outside_the_risk_bands_and_shows_a_days_to_wall_label", func():
+	run_case("growth_fades_everything_outside_the_risk_bands", func():
 		assert_eq(MapStyle.line_alpha("growth"), MapStyle.CHARGE_FADE_ALPHA, "lines are never individually 'at risk' -- always fade under this filter")
 		assert_eq(MapStyle.stop_alpha("growth", true), 1.0, "a vein in a risk band stays full colour")
 		assert_eq(MapStyle.stop_alpha("growth", false), MapStyle.CHARGE_FADE_ALPHA, "a vein outside the risk bands (or any npc/unclaimed stop) fades")
+	)
 
-		assert_eq(MapStyle.countdown_label("growth", 6, 1), "6↑", "drifting toward the ceiling")
-		assert_eq(MapStyle.countdown_label("growth", 4, -1), "4↓", "drifting toward zero")
-		assert_eq(MapStyle.countdown_label("growth", 0, 0), null, "a vein sitting exactly at neutral has no wall to count down to")
-		assert_eq(MapStyle.countdown_label("ownership", 6, 1), null, "the days-to-wall label is growth-filter-only")
+	# Ticket 46: the days-to-wall label is no longer filter-gated -- it has
+	# no filter_mode parameter at all now, so it can't vary by mode.
+	run_case("countdown_label_is_always_on_regardless_of_filter", func():
+		assert_eq(MapStyle.countdown_label(6, 1), "6↑", "drifting toward the ceiling")
+		assert_eq(MapStyle.countdown_label(4, -1), "4↓", "drifting toward zero")
+		assert_eq(MapStyle.countdown_label(0, 0), null, "a vein sitting exactly at neutral has no wall to count down to")
+		assert_eq(MapStyle.countdown_label(-1, 1), null, "a negative days-remaining (already at the wall) has nothing left to count")
 	)
 
 	run_case("non_growth_filters_never_fade_stops_or_lines", func():

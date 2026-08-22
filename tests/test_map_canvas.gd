@@ -307,6 +307,46 @@ func run() -> void:
 		canvas.free()
 	)
 
+	# Ticket 46: the days-to-wall badge itself, drawn via _draw_growth_
+	# countdown -- always-on now (no filter_mode param anywhere in its call
+	# graph), proven directly since it already takes a `target` param.
+	run_case("draw_growth_countdown_draws_a_paper_badge_and_label_at_4_oclock", func():
+		var canvas := MapCanvas.new()
+		var pos := Vector2(40.0, 70.0)
+
+		var spy := DrawSpy.new()
+		canvas._draw_growth_countdown(pos, "6↑", 1.0, spy)
+
+		var expected_pos := pos + MapCanvas.CLOCK_4 * MapCanvas.BADGE_OFFSET
+		var circles: Array = spy.calls_matching("draw_circle")
+		assert_true(circles.any(func(c): return c["args"][0].is_equal_approx(expected_pos)), "the paper backing sits at the 4 o'clock badge offset, same clock position the old level badge used")
+
+		var strings: Array = spy.calls_matching("draw_string")
+		assert_true(strings.any(func(c): return c["args"][2] == "6↑"), "the label text itself is drawn")
+
+		canvas.free()
+	)
+
+	# Ticket 46's own acceptance check: the badge no longer depends on
+	# filter_mode at all -- MapCanvas always computes+draws it in
+	# _draw_vein_stop's call graph regardless of which chip is active. This
+	# is exercised at the MapStyle seam (tests/test_map_style.gd's
+	# countdown_label_is_always_on_regardless_of_filter); this case proves
+	# MapCanvas's own draw call graph doesn't reintroduce a filter_mode
+	# gate around the _draw_growth_countdown call site.
+	run_case("draw_growth_countdown_has_no_filter_mode_parameter", func():
+		var canvas := MapCanvas.new()
+		var pos := Vector2(0.0, 0.0)
+
+		for mode in MapStyle.FILTER_MODES:
+			canvas.filter_mode = mode
+			var spy := DrawSpy.new()
+			canvas._draw_growth_countdown(pos, "3↓", 1.0, spy)
+			assert_true(spy.calls_matching("draw_circle").size() > 0, mode + ": badge draws under every filter mode, unconditionally")
+
+		canvas.free()
+	)
+
 	# Same proof as above for an unclaimed site stop -- UNCLAIMED_STOP_
 	# RADIUS/_unclaimed_ring_style() instead of the vein-owner path.
 	run_case("draw_unclaimed_stop_helpers_draw_a_ring_at_its_radius_and_a_glyph_centred_on_the_stops_position", func():

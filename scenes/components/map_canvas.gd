@@ -978,9 +978,12 @@ func _draw_terroir_ring(pos: Vector2, radius: float, alpha: float, style: Dictio
 		_draw_interchange_ring(pos, radius, alpha, style, segments, target)
 
 
-# The Growth filter's per-stop days-to-wall label ("6↑"/"4↓") — takes the
-# same 4 o'clock clock position the old level badge used to occupy, but
-# only while that filter is active (see _draw_vein_stop's own gating); no
+# The per-stop days-to-wall label ("6↑"/"4↓") — takes the same 4 o'clock
+# clock position the old level badge used to occupy. Ticket 46: always-on
+# regardless of active filter (was Growth-only), drawn last in
+# _draw_vein_stop's own call graph so its solid paper backing stays on top
+# of the security filter's danger ring, the only other glyph whose own
+# radius (VEIN_STOP_RADIUS + 3) reaches into this badge's footprint. No
 # progress ring behind it since the growth arc on the stop itself already
 # carries that information.
 func _draw_growth_countdown(pos: Vector2, label: String, alpha: float, target: Object = self) -> void:
@@ -994,8 +997,11 @@ func _draw_growth_countdown(pos: Vector2, label: String, alpha: float, target: O
 # halo -- see _draw_growth_track/_draw_growth_arc below for the track/arc
 # split, and MapStyle's own "growth gauge" section for the pure maths
 # behind them. The 4 o'clock level badge is dropped entirely (not
-# repurposed); the Growth filter's days-to-wall label takes that clock
-# position instead, but only while that filter is active.
+# repurposed); the days-to-wall label takes that clock position instead.
+# Ticket 46: that label is always-on now, so it's drawn last -- after the
+# security padlock/danger ring -- so its solid paper backing wins the
+# layering fight against the danger ring when Security filter + always-on
+# badge coincide (see _draw_growth_countdown's own comment).
 func _draw_vein_stop(stop: Dictionary) -> void:
 	var pos: Vector2 = stop["position"]
 	var vein: Dictionary = stop["vein"]
@@ -1011,16 +1017,15 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 	_draw_terroir_ring(pos, VEIN_STOP_RADIUS, alpha, style, vein, 32)
 	_draw_ore_symbol(pos, vein["oreType"], ore, alpha, self, STOP_ICON_GROWTH)
 
-	if filter_mode == "growth":
-		var label = MapStyle.countdown_label(filter_mode, maxi(Cultivating.days_to_wall(vein), 0), _growth_direction(vein))
-		if label != null:
-			_draw_growth_countdown(pos, label, alpha)
-
 	var security_scale := MapStyle.badge_scale(filter_mode)
 	_draw_security_padlock(pos, security, security_scale, alpha)
 
 	if MapStyle.show_danger_ring(filter_mode, security):
 		_draw_dotted_ring(pos, VEIN_STOP_RADIUS + 3.0, MapStyle.DANGER_COLOUR)
+
+	var label = MapStyle.countdown_label(maxi(Cultivating.days_to_wall(vein), 0), _growth_direction(vein))
+	if label != null:
+		_draw_growth_countdown(pos, label, alpha)
 
 
 # +1 growth is drifting toward the ceiling, -1 toward zero, 0 at neutral
