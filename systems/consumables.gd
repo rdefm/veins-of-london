@@ -21,7 +21,7 @@ static func use_healing_salve() -> Dictionary:
 	player["healingSalveDaysLeft"] = 2
 	player["healingSalveDailyAmount"] = power
 	# PROSE-REVIEW: new salve-activation notification, drafted against CONTENT-GUIDE.md's tone bible.
-	Notify.push("Salve applied. Healing %s HP a day for 2 days." % str(power))
+	Notify.push("Salve applied. Healing %s HP a day for 2 days." % str(power), Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
@@ -43,7 +43,7 @@ static func use_healing_burst() -> Dictionary:
 	if combat["active"]:
 		combat["log"].append(line)
 	else:
-		Notify.push(line)
+		Notify.push(line, Notify.CATEGORY_SUCCESS)
 
 	EventBus.state_changed.emit()
 	return { "ok": true }

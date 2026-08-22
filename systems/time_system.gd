@@ -43,7 +43,7 @@ static func do_rest() -> void:
 	player["hp"] = mini(old_hp + heal, player["hpMax"])
 	var actual_heal: int = player["hp"] - old_hp
 
-	Notify.push("Rested. Day %d. +%d HP." % [world["day"], actual_heal])
+	Notify.push("Rested. Day %d. +%d HP." % [world["day"], actual_heal], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 
 
@@ -106,9 +106,11 @@ static func _apply_living_costs() -> void:
 		Bank.record(-actual_deducted, "Living costs")
 
 	var text := "Day %d: -£%d living costs." % [GameState.state["world"]["day"], daily_cost]
+	var category := Notify.CATEGORY_INFO
 	if player["cash"] == 0:
 		text += " You are flat broke."
-	Notify.push(text)
+		category = Notify.CATEGORY_WARNING
+	Notify.push(text, category)
 
 
 static func _apply_healing_salve_tick() -> void:
@@ -121,7 +123,7 @@ static func _apply_healing_salve_tick() -> void:
 	player["healingSalveDaysLeft"] -= 1
 	if healed > 0:
 		# PROSE-REVIEW: new daily-tick salve notification, drafted against CONTENT-GUIDE.md's tone bible.
-		Notify.push("The salve does its work. +%d HP." % healed)
+		Notify.push("The salve does its work. +%d HP." % healed, Notify.CATEGORY_SUCCESS)
 
 
 # Always-on passive regen, unconditional (no flag/room gate), stacking with
@@ -134,7 +136,7 @@ static func _apply_passive_regen() -> void:
 
 	player["hp"] += heal
 	# PROSE-REVIEW: new daily-tick passive-regen notification, drafted against CONTENT-GUIDE.md's tone bible.
-	Notify.push("You rest easy. +%d HP." % heal)
+	Notify.push("You rest easy. +%d HP." % heal, Notify.CATEGORY_SUCCESS)
 
 
 static func _apply_tutorial_day_triggers() -> void:

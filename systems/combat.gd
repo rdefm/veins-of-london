@@ -945,4 +945,4 @@ static func _after_home_raid_combat(outcome) -> void:
 		lost += take
 
 	if lost > 0:
-		Notify.push("The raider took %d units of ore before fleeing." % lost)
+		Notify.push("The raider took %d units of ore before fleeing." % lost, Notify.CATEGORY_DANGER)

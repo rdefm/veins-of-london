@@ -212,7 +212,7 @@ static func make_vein(ore_type: String, growth: int, district: String, site_id: 
 
 static func award_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
-	var on_level_up := func(): Notify.push("Cultivating skill up — now level %d." % player["cultivatingSkill"])
+	var on_level_up := func(): Notify.push("Cultivating skill up — now level %d." % player["cultivatingSkill"], Notify.CATEGORY_SUCCESS)
 	Progression.award_xp(player, "cultivatingXP", "cultivatingSkill", GameData.CULTIVATING_XP_LEVELS, amount, on_level_up)
 
 
@@ -472,7 +472,7 @@ static func collapse_vein(vein: Dictionary) -> void:
 			site["claimed"] = false
 		var location_street: String = String(vein["location"]).split(",")[0]
 		var ore_name: String = GameData.ORE_TYPES[vein["oreType"]]["name"]
-		Notify.push("Your %s vein on %s collapsed and disappeared." % [ore_name, location_street])
+		Notify.push("Your %s vein on %s collapsed and disappeared." % [ore_name, location_street], Notify.CATEGORY_WARNING)
 
 
 static func find_vein(vein_id: String) -> Variant:
@@ -518,7 +518,7 @@ static func upgrade_vein_security(vein_id: String) -> Dictionary:
 	player["cash"] -= cost
 	Bank.record(-cost, "Vein security: %s" % next_data["label"])
 	vein["security"] = next_id
-	Notify.push("Installed %s on your %s vein." % [next_data["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]])
+	Notify.push("Installed %s on your %s vein." % [next_data["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
@@ -551,7 +551,7 @@ static func add_alarm(vein_id: String) -> Dictionary:
 	player["cash"] -= cost
 	Bank.record(-cost, "Vein alarm: %s" % upgrade_data["label"])
 	vein["alarmUpgrades"].append(ALARM_UPGRADE_ID)
-	Notify.push("Installed %s on your %s vein." % [upgrade_data["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]])
+	Notify.push("Installed %s on your %s vein." % [upgrade_data["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }

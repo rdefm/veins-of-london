@@ -96,7 +96,7 @@ static func activate(device_id: String) -> Dictionary:
 	var on_level_up := func():
 		device["chargesPerDay"] += 1
 		var dt: Dictionary = GameData.DEVICES[device["type"]]
-		Notify.push("%s levelled up — now %d charges per day." % [dt["name"], device["chargesPerDay"]])
+		Notify.push("%s levelled up — now %d charges per day." % [dt["name"], device["chargesPerDay"]], Notify.CATEGORY_SUCCESS)
 	Progression.award_xp(device, "xp", "level", GameData.DEVICE_XP_LEVELS, 10, on_level_up)
 
 	EventBus.state_changed.emit()
@@ -128,14 +128,14 @@ static func _complete_device(device: Dictionary) -> void:
 	}
 	player["devicesCompleted"].append(completed)
 	var dt: Dictionary = GameData.DEVICES[device["type"]]
-	Notify.push("%s complete. Check your equipment." % dt["name"])
+	Notify.push("%s complete. Check your equipment." % dt["name"], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 
 
 static func _break_device(device_id: String) -> void:
 	var player: Dictionary = GameState.state["player"]
 	player["devicesInProgress"] = player["devicesInProgress"].filter(func(d): return d["id"] != device_id)
-	Notify.push("Device collapsed. The calc dispersed. You'll need to start again.")
+	Notify.push("Device collapsed. The calc dispersed. You'll need to start again.", Notify.CATEGORY_DANGER)
 	EventBus.state_changed.emit()
 
 

@@ -26,7 +26,7 @@ static func recruit(contact_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Cannot recruit yet." }
 	var c: Dictionary = GameState.state["contacts"][contact_id]
 	c["recruited"] = true
-	Notify.push("%s is now working with you. Assign them to a room via HQ." % display_name(contact_id))
+	Notify.push("%s is now working with you. Assign them to a room via HQ." % display_name(contact_id), Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
@@ -65,7 +65,7 @@ static func award_contact_xp(contact_id: String, skill: String, amount: int) -> 
 	var max_level: int = levels.size() - 1
 	while c[skill_key] < max_level and c[xp_key] >= levels[c[skill_key] + 1]:
 		c[skill_key] += 1
-		Notify.push("%s's %s skill reached level %d." % [display_name(contact_id), skill, c[skill_key]])
+		Notify.push("%s's %s skill reached level %d." % [display_name(contact_id), skill, c[skill_key]], Notify.CATEGORY_SUCCESS)
 
 
 # 44-archie-combat-ally: recruited is the only gate -- "defending shared

@@ -405,7 +405,7 @@ static func roll_npc_claims() -> void:
 			MapEvents.queue_join_line(site["district"], site["factionVein"]["id"], faction_id)
 			var district_name: String = GameData.DISTRICTS[site["district"]]["name"]
 			var faction_name: String = GameData.FACTIONS[faction_id]["shortName"]
-			Notify.push("%s have moved onto the %s site in %s." % [faction_name, site["tier"], district_name])
+			Notify.push("%s have moved onto the %s site in %s." % [faction_name, site["tier"], district_name], Notify.CATEGORY_WARNING)
 
 
 # Called from time_system.gd's daily_tick, step ⑤c (runs immediately after

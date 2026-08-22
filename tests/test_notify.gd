@@ -13,6 +13,33 @@ func run() -> void:
 		assert_eq(n["day"], 4, "the notification records the current world day")
 	)
 
+	run_case("push_defaults_to_info_category_when_omitted", func():
+		GameState.reset()
+		var n := Notify.push("No category passed.")
+		assert_eq(n["category"], "info", "an unspecified category defaults to info")
+		assert_eq(GameState.state["notifications"][0]["category"], "info", "the default category is stored, not just returned")
+	)
+
+	run_case("push_stores_and_returns_the_given_category", func():
+		GameState.reset()
+		var a := Notify.push("Craft succeeded.", Notify.CATEGORY_SUCCESS)
+		var b := Notify.push("Low on cash.", Notify.CATEGORY_WARNING)
+		var c := Notify.push("Home raided.", Notify.CATEGORY_DANGER)
+
+		assert_eq(a["category"], "success", "success category returned")
+		assert_eq(b["category"], "warning", "warning category returned")
+		assert_eq(c["category"], "danger", "danger category returned")
+		assert_eq(GameState.state["notifications"][0]["category"], "success", "success category retrievable from state")
+		assert_eq(GameState.state["notifications"][1]["category"], "warning", "warning category retrievable from state")
+		assert_eq(GameState.state["notifications"][2]["category"], "danger", "danger category retrievable from state")
+	)
+
+	run_case("push_falls_back_to_info_for_an_unrecognised_category", func():
+		GameState.reset()
+		var n := Notify.push("Bogus category.", "not-a-real-category")
+		assert_eq(n["category"], "info", "an invalid category falls back to info rather than storing garbage")
+	)
+
 	run_case("push_emits_notification_pushed_and_state_changed", func():
 		GameState.reset()
 		# Arrays, not plain vars: GDScript lambdas capture outer locals by

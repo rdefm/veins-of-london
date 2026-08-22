@@ -59,7 +59,7 @@ const STEALTH_XP_CAUGHT := 7
 
 static func award_stealth_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
-	var on_level_up := func(): Notify.push("Stealth skill up — now level %d." % player["stealthSkill"])
+	var on_level_up := func(): Notify.push("Stealth skill up — now level %d." % player["stealthSkill"], Notify.CATEGORY_SUCCESS)
 	Progression.award_xp(player, "stealthXP", "stealthSkill", GameData.STEALTH_XP_LEVELS, amount, on_level_up)
 
 
@@ -400,9 +400,9 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 	# PROSE-REVIEW: missed_defend branch is new copy (ticket 43), drafted
 	# against CONTENT-GUIDE.md's tone bible.
 	if missed_defend:
-		Notify.push("Too late — %s took your vein in %s while the alarm was still ringing." % [faction_name, district_name])
+		Notify.push("Too late — %s took your vein in %s while the alarm was still ringing." % [faction_name, district_name], Notify.CATEGORY_DANGER)
 	else:
-		Notify.push("%s raided your vein in %s. It's theirs now." % [faction_name, district_name])
+		Notify.push("%s raided your vein in %s. It's theirs now." % [faction_name, district_name], Notify.CATEGORY_DANGER)
 
 
 # Called from time_system.gd's daily_tick, step 5i. Runs the previous tick's
@@ -445,7 +445,7 @@ static func _queue_defend_raid(outcome: Dictionary, vein: Dictionary) -> void:
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
 	# PROSE-REVIEW: new notification copy, drafted against CONTENT-GUIDE.md's
 	# tone bible (dry, administrative, one line).
-	Notify.push("Alarm's gone off — %s are closing in on your vein in %s. Get there today to defend it." % [faction_name, district_name])
+	Notify.push("Alarm's gone off — %s are closing in on your vein in %s. Get there today to defend it." % [faction_name, district_name], Notify.CATEGORY_WARNING)
 
 
 # Passes missed_defend=true -- see resolve_raid_outcome() above (ticket 43).

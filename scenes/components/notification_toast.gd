@@ -15,6 +15,19 @@ const FADE_SECONDS := 4.0
 const FADE_IN_SECONDS := 0.15
 const FADE_OUT_SECONDS := 0.3
 
+# Category taxonomy colours (bugfixes ticket 61) — same palette event.gd's
+# card styling and map_canvas.gd's overlays already draw from (REFERENCE.md
+# §"visual language": --amber #c8873a, --slate #4a5568, --success #3a7a52,
+# --danger #9b2335). No canonical --info exists there; --slate reads as the
+# neutral/informational tone elsewhere (map_canvas.gd district labels), so
+# it's reused here rather than inventing a new hue.
+const _CATEGORY_COLOURS := {
+	"info": Color(0.290196, 0.337255, 0.407843, 1),     # --slate #4a5568
+	"success": Color(0.227451, 0.478431, 0.321569, 1),  # --success #3a7a52
+	"warning": Color(0.784314, 0.529412, 0.227451, 1),  # --amber #c8873a
+	"danger": Color(0.607843, 0.137255, 0.207843, 1),   # --danger #9b2335
+}
+
 const MainScript := preload("res://scenes/Main.gd")
 
 var _entries_container: VBoxContainer
@@ -93,6 +106,7 @@ func _add_row(notification: Dictionary) -> void:
 	entry.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	entry.mouse_filter = Control.MOUSE_FILTER_STOP
 	entry.pressed.connect(func(): Notify.dismiss(id))
+	_style_row(entry, notification.get("category", "info"))
 	_entries_container.add_child(entry)
 	_rows[id] = entry
 
@@ -114,6 +128,36 @@ func _add_row(notification: Dictionary) -> void:
 		entry.modulate.a = 0.0
 		var fade_in := entry.create_tween()
 		fade_in.tween_property(entry, "modulate:a", 1.0, FADE_IN_SECONDS)
+
+
+# Card-style left-border stripe (event.gd's tension/craft card treatment) in
+# the category's colour, plus a matching font tint, applied to every button
+# state so the colour reads whether the toast is idle or mid-tap — a plain
+# font_color override alone (map_controls.gd's faction-button pattern) would
+# still leave every toast the same shape/background, which is exactly the
+# "indistinguishable, easy to mis-tap" complaint this ticket exists to fix.
+func _style_row(entry: Button, category: String) -> void:
+	var colour: Color = _CATEGORY_COLOURS.get(category, _CATEGORY_COLOURS["info"])
+
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(0.980392, 0.972549, 0.952941, 1)
+	box.border_width_left = 4
+	box.border_color = colour
+	box.corner_radius_top_left = 6
+	box.corner_radius_top_right = 6
+	box.corner_radius_bottom_right = 6
+	box.corner_radius_bottom_left = 6
+	box.content_margin_left = 12.0
+	box.content_margin_top = 10.0
+	box.content_margin_right = 12.0
+	box.content_margin_bottom = 10.0
+
+	for state in ["normal", "hover", "pressed", "focus"]:
+		entry.add_theme_stylebox_override(state, box)
+	entry.add_theme_color_override("font_color", colour)
+	entry.add_theme_color_override("font_hover_color", colour)
+	entry.add_theme_color_override("font_pressed_color", colour)
+	entry.add_theme_color_override("font_focus_color", colour)
 
 
 # animate: false for combat suppression (_clear_all_rows) — combat.active

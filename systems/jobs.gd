@@ -181,4 +181,4 @@ static func expire_overdue_job() -> void:
 	GameState.state["jamesJob"] = null
 	Contacts.award_relation("james", MISSED_DEADLINE_RELATION_PENALTY)
 	# PROSE-REVIEW: new missed-deadline notification, drafted against CONTENT-GUIDE.md's tone bible.
-	Notify.push("James gave up waiting on his %s order. Not impressed." % job["recipeName"])
+	Notify.push("James gave up waiting on his %s order. Not impressed." % job["recipeName"], Notify.CATEGORY_WARNING)

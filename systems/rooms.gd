@@ -113,7 +113,7 @@ static func process_lab() -> void:
 
 	if total_attempts > 0:
 		var plural: String = "" if total_attempts == 1 else "s"
-		Notify.push("Lab (%s): %d crafted from %d attempt%s." % [Contacts.display_name(contact_id), total_successes, total_attempts, plural])
+		Notify.push("Lab (%s): %d crafted from %d attempt%s." % [Contacts.display_name(contact_id), total_successes, total_attempts, plural], Notify.CATEGORY_SUCCESS)
 
 
 # Called from time_system.gd's daily_tick, step ⑥ (veinStation half).
@@ -186,4 +186,4 @@ static func process_vein_station() -> void:
 		var plural: String = "" if total_cultivated == 1 else "s"
 		msgs.append("cultivated %d vein%s" % [total_cultivated, plural])
 	if not msgs.is_empty():
-		Notify.push("Vein Station (%s): %s." % [Contacts.display_name(contact_id), "; ".join(msgs)])
+		Notify.push("Vein Station (%s): %s." % [Contacts.display_name(contact_id), "; ".join(msgs)], Notify.CATEGORY_SUCCESS)

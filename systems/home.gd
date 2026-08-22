@@ -54,7 +54,7 @@ static func roll_daily_raid() -> void:
 	for ore_type in lost.keys():
 		parts.append("%d %s" % [lost[ore_type], ore_type])
 	var summary: String = ", ".join(parts) if not parts.is_empty() else "nothing"
-	Notify.push("Home raided. Lost %s." % summary)
+	Notify.push("Home raided. Lost %s." % summary, Notify.CATEGORY_DANGER)
 	EventBus.state_changed.emit()
 
 
@@ -76,7 +76,7 @@ static func upgrade_tier() -> Dictionary:
 	player["cash"] -= cost
 	Bank.record(-cost, "HQ upgrade: %s" % next_tier["name"])
 	home["tier"] = next_tier_id
-	Notify.push("Moved up to %s." % next_tier["name"])
+	Notify.push("Moved up to %s." % next_tier["name"], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
@@ -106,7 +106,7 @@ static func add_security(security_id: String) -> Dictionary:
 	player["cash"] -= cost
 	Bank.record(-cost, "HQ security: %s" % security_data["name"])
 	home["security"].append(security_id)
-	Notify.push("Installed %s." % security_data["name"])
+	Notify.push("Installed %s." % security_data["name"], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
@@ -143,7 +143,7 @@ static func add_room(room_id: String) -> Dictionary:
 		player["hpMax"] += bonus_value
 		player["hp"] = mini(player["hp"] + bonus_value, player["hpMax"])
 
-	Notify.push("Built %s." % room_data["name"])
+	Notify.push("Built %s." % room_data["name"], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
