@@ -28,9 +28,23 @@ extends Control
 # _ready()/configure() touches get_tree()/get_viewport() or reads state.
 
 const ICON_DIR := "res://assets/icons/apps/"
+const TILE_SIZE := Vector2(76, 92)
 const FRAME_SIZE := 56.0
 const BADGE_SIZE := 12.0
+const NAME_FONT_SIZE := 12
+const FALLBACK_FONT_SIZE := 10
 const FRAME_CORNER_RADIUS := 14
+
+# bugfixes-60: the phone home grid wants a visibly bigger icon+label tile
+# than the dock (nav_bar.gd) does -- the dock is a fixed BAR_HEIGHT=64
+# strip that can't grow, so this is a per-instance opt-in (constructor arg,
+# not a size bump to the shared constants above) rather than a global
+# change that would also inflate the 3 dock tiles past their bar.
+const LARGE_TILE_SIZE := Vector2(100, 122)
+const LARGE_FRAME_SIZE := 76.0
+const LARGE_BADGE_SIZE := 16.0
+const LARGE_NAME_FONT_SIZE := 15
+const LARGE_FALLBACK_FONT_SIZE := 13
 
 # --muted #8a8a8a — same grey UI.muted_label()/map_canvas.gd's MUTED_COLOUR
 # use, reused here so "locked" reads as the same disabled-grey the rest of
@@ -76,6 +90,16 @@ var _lock_overlay: _LockOverlay
 var _badge: _BadgeDot
 var _name_label: Label
 var _built := false
+var _large: bool = false
+
+
+# `large`: opt into the bugfixes-60 phone-home-grid sizing (see the
+# LARGE_* constants above) instead of the dock's default footprint. Read
+# in _ensure_built(), so this must be set here, at construction, not after
+# add_child() -- see that function's own comment for why a caller can't
+# rely on a window between .new() and _ready() to set it later.
+func _init(large: bool = false) -> void:
+	_large = large
 
 
 func _ready() -> void:
@@ -99,7 +123,12 @@ func _ensure_built() -> void:
 		return
 	_built = true
 
-	custom_minimum_size = Vector2(76, 92)
+	var frame_size := LARGE_FRAME_SIZE if _large else FRAME_SIZE
+	var badge_size := LARGE_BADGE_SIZE if _large else BADGE_SIZE
+	var name_font_size := LARGE_NAME_FONT_SIZE if _large else NAME_FONT_SIZE
+	var fallback_font_size := LARGE_FALLBACK_FONT_SIZE if _large else FALLBACK_FONT_SIZE
+
+	custom_minimum_size = LARGE_TILE_SIZE if _large else TILE_SIZE
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	gui_input.connect(_on_gui_input)
 
@@ -110,7 +139,7 @@ func _ensure_built() -> void:
 	add_child(column)
 
 	_frame = Control.new()
-	_frame.custom_minimum_size = Vector2(FRAME_SIZE, FRAME_SIZE)
+	_frame.custom_minimum_size = Vector2(frame_size, frame_size)
 	# SHRINK_CENTER, not the container default (FILL): a VBoxContainer
 	# stretches a FILL child to the container's full cross-axis width, which
 	# would grow _frame past FRAME_SIZE inside a grid cell wider than 56px
@@ -153,7 +182,7 @@ func _ensure_built() -> void:
 	_fallback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_fallback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_fallback_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_fallback_label.add_theme_font_size_override("font_size", 10)
+	_fallback_label.add_theme_font_size_override("font_size", fallback_font_size)
 	_fallback_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_fallback_label.visible = false
 	_frame.add_child(_fallback_label)
@@ -165,7 +194,7 @@ func _ensure_built() -> void:
 	_frame.add_child(_lock_overlay)
 
 	_badge = _BadgeDot.new()
-	_badge.size = Vector2(BADGE_SIZE, BADGE_SIZE)
+	_badge.size = Vector2(badge_size, badge_size)
 	# Ticket 36: kept at its pre-existing corner position rather than moved
 	# for the new rounded background. Checked against FRAME_CORNER_RADIUS —
 	# the badge (centre ~(53.6, 2.4), r=6) sits astride the corner's cut arc
@@ -173,7 +202,7 @@ func _ensure_built() -> void:
 	# part hangs off it, same proportion as before this ticket when it hung
 	# off the corner over nothing at all. That's the ordinary "badge peeking
 	# off the icon's corner" treatment, not a new awkward overlap.
-	_badge.position = Vector2(FRAME_SIZE - BADGE_SIZE * 0.7, -BADGE_SIZE * 0.3)
+	_badge.position = Vector2(frame_size - badge_size * 0.7, -badge_size * 0.3)
 	_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_badge.visible = false
 	_frame.add_child(_badge)
@@ -181,7 +210,7 @@ func _ensure_built() -> void:
 	_name_label = UI.label("")
 	_name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_name_label.add_theme_font_size_override("font_size", 12)
+	_name_label.add_theme_font_size_override("font_size", name_font_size)
 	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(_name_label)
 

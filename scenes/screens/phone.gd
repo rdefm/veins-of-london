@@ -83,12 +83,24 @@ func _build_app_grid(apps_list: Array[Dictionary]) -> Control:
 	grid.add_theme_constant_override("v_separation", 8)
 
 	for config in PhoneApps.build_tile_configs(apps_list, _badge_for):
-		var tile := AppTile.new()
+		var tile := AppTile.new(true)
 		grid.add_child(tile)
 		tile.configure(config)
 		tile.tile_pressed.connect(_on_app_tile_pressed)
 
-	return grid
+	# bugfixes-60: a bare GridContainer defaults to SIZE_FILL, so
+	# screen_body()'s full-width VBoxContainer stretches it to the screen
+	# width -- but GridContainer has no alignment property of its own, so it
+	# just packs its columns against the left edge of that stretched rect,
+	# leaving the unused width sitting on the right. A CenterContainer
+	# wrapper takes the FILL instead and centers the grid (which sizes to
+	# its own minimum, unaffected) within it. Holds at any tile count since
+	# GRID_COLUMNS is fixed -- the grid's width never depends on how many
+	# rows of tiles (locked or not) it's holding.
+	var wrapper := CenterContainer.new()
+	wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrapper.add_child(grid)
+	return wrapper
 
 
 # bugfixes-39: "vfl" is a cosmetic rebrand of the dock's own Map entry
