@@ -7,18 +7,18 @@ extends "res://tests/test_base.gd"
 # natural-vein bonus, D2).
 
 
-func _unclaimed(id: String, district: String) -> Dictionary:
-	return { "id": id, "district": district, "tier": "poor", "oreType": "physics", "bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null, "hasNaturalVein": false }
+func _unclaimed(id: String, district: String, slot_index: int = 0) -> Dictionary:
+	return { "id": id, "district": district, "tier": "poor", "oreType": "physics", "bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null, "hasNaturalVein": false, "slotIndex": slot_index }
 
 
-func _faction_claimed(id: String, district: String, faction_id: String = "collective") -> Dictionary:
-	var s := _unclaimed(id, district)
+func _faction_claimed(id: String, district: String, faction_id: String = "collective", slot_index: int = 0) -> Dictionary:
+	var s := _unclaimed(id, district, slot_index)
 	s["factionVein"] = { "id": "fv_" + id, "factionId": faction_id, "oreType": "physics", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 1 }
 	return s
 
 
-func _claimed(id: String, district: String) -> Dictionary:
-	var s := _unclaimed(id, district)
+func _claimed(id: String, district: String, slot_index: int = 0) -> Dictionary:
+	var s := _unclaimed(id, district, slot_index)
 	s["claimed"] = true
 	return s
 
@@ -52,13 +52,18 @@ func run() -> void:
 	run_case("build_stop_items_claimed_site_with_two_veins_is_two_vein_stops", func():
 		# Saturated site's natural-vein bonus (D2): a claimed site can carry a
 		# second vein. Both occupy their own stop, in player.veins array order.
-		var site := _claimed("s1", "camden")
+		var site := _claimed("s1", "camden", 3)
 		var seeded_vein := { "id": "v_seeded", "siteId": "s1" }
-		var natural_vein := { "id": "v_natural", "siteId": "s1" }
+		# 52-map-vein-line-position-drift: only the *extra* (natural) vein
+		# carries its own stamped slotIndex — the seeded vein has none and
+		# falls back to the site's own slot, same as a single-vein claim.
+		var natural_vein := { "id": "v_natural", "siteId": "s1", "slotIndex": 7 }
 		var items := MapLayout.build_stop_items([site], [seeded_vein, natural_vein])
 		assert_eq(items.size(), 2, "one claimed site with 2 veins -> 2 stops, not 1")
 		assert_eq(items[0]["vein"]["id"], "v_seeded")
+		assert_eq(items[0]["slotIndex"], 3, "the seeded vein reuses the site's own stamped slot")
 		assert_eq(items[1]["vein"]["id"], "v_natural")
+		assert_eq(items[1]["slotIndex"], 7, "the natural-vein bonus keeps its own separately-stamped slot")
 	)
 
 	run_case("build_stop_items_ignores_veins_belonging_to_other_sites", func():
@@ -70,9 +75,9 @@ func run() -> void:
 
 	run_case("build_stop_items_preserves_discovery_order_across_mixed_claim_states", func():
 		var sites := [
-			_unclaimed("s1", "camden"),
-			_faction_claimed("s2", "camden"),
-			_claimed("s3", "camden"),
+			_unclaimed("s1", "camden", 0),
+			_faction_claimed("s2", "camden", "collective", 1),
+			_claimed("s3", "camden", 2),
 		]
 		var veins := [{ "id": "v3", "siteId": "s3" }]
 		var items := MapLayout.build_stop_items(sites, veins)
@@ -82,10 +87,10 @@ func run() -> void:
 		assert_eq(ids, ["s1", "s2", "s3"], "stop items follow the sites array's (discovery) order")
 	)
 
-	run_case("assign_positions_maps_items_onto_slots_in_order", func():
+	run_case("assign_positions_maps_items_onto_slots_by_their_own_stamped_slotIndex", func():
 		var items := [
-			{ "kind": "unclaimed", "site": { "id": "a" }, "vein": null },
-			{ "kind": "npc", "site": { "id": "b" }, "vein": null },
+			{ "kind": "unclaimed", "site": { "id": "a" }, "vein": null, "slotIndex": 0 },
+			{ "kind": "npc", "site": { "id": "b" }, "vein": null, "slotIndex": 1 },
 		]
 		var slots := [[10, 20], [30, 40], [50, 60]]
 		var assigned := MapLayout.assign_positions(items, slots)
@@ -94,13 +99,31 @@ func run() -> void:
 		assert_eq(assigned[1]["position"], Vector2(30, 40))
 	)
 
+	run_case("assign_positions_keys_off_slotIndex_not_array_position", func():
+		# 52-map-vein-line-position-drift: an item earlier in the input array
+		# can carry a *higher* slotIndex than one after it (e.g. once an
+		# earlier-discovered site has been removed and a later one hasn't) --
+		# the returned position must follow the stamped slotIndex, not the
+		# item's position in `items`.
+		var items := [
+			{ "kind": "unclaimed", "site": { "id": "a" }, "vein": null, "slotIndex": 2 },
+			{ "kind": "unclaimed", "site": { "id": "b" }, "vein": null, "slotIndex": 0 },
+		]
+		var slots := [[10, 20], [30, 40], [50, 60]]
+		var assigned := MapLayout.assign_positions(items, slots)
+		assert_eq(assigned[0]["position"], Vector2(50, 60), "slotIndex 2 lands on the 3rd slot regardless of array position")
+		assert_eq(assigned[1]["position"], Vector2(10, 20), "slotIndex 0 lands on the 1st slot regardless of array position")
+	)
+
 	run_case("assign_positions_clamps_overflow_onto_the_last_slot", func():
 		# Defensive only — map_layout.json's siteCap+2 buffer (GameData-validated)
-		# means real data should never actually hit this path.
+		# means real data should never actually hit this path under normal
+		# churn; slotIndex never being reused/reclaimed means it's still
+		# reachable given enough removals over a long session.
 		var items := [
-			{ "kind": "unclaimed", "site": { "id": "a" }, "vein": null },
-			{ "kind": "unclaimed", "site": { "id": "b" }, "vein": null },
-			{ "kind": "unclaimed", "site": { "id": "c" }, "vein": null },
+			{ "kind": "unclaimed", "site": { "id": "a" }, "vein": null, "slotIndex": 0 },
+			{ "kind": "unclaimed", "site": { "id": "b" }, "vein": null, "slotIndex": 5 },
+			{ "kind": "unclaimed", "site": { "id": "c" }, "vein": null, "slotIndex": 9 },
 		]
 		var slots := [[10, 20]]
 		var assigned := MapLayout.assign_positions(items, slots)
@@ -110,14 +133,14 @@ func run() -> void:
 	)
 
 	run_case("assign_positions_empty_slots_yields_no_stops", func():
-		var items := [{ "id": "a", "kind": "unclaimed", "site": {}, "vein": null }]
+		var items := [{ "id": "a", "kind": "unclaimed", "site": {}, "vein": null, "slotIndex": 0 }]
 		assert_eq(MapLayout.assign_positions(items, []), [])
 	)
 
 	run_case("assign_positions_id_is_vein_id_for_vein_stops_and_site_id_otherwise", func():
 		var items := [
-			{ "id": "ignored", "kind": "vein", "site": { "id": "site1" }, "vein": { "id": "vein1" } },
-			{ "id": "ignored", "kind": "unclaimed", "site": { "id": "site2" }, "vein": null },
+			{ "id": "ignored", "kind": "vein", "site": { "id": "site1" }, "vein": { "id": "vein1" }, "slotIndex": 0 },
+			{ "id": "ignored", "kind": "unclaimed", "site": { "id": "site2" }, "vein": null, "slotIndex": 1 },
 		]
 		var assigned := MapLayout.assign_positions(items, [[0, 0], [1, 1]])
 		assert_eq(assigned[0]["id"], "vein1")
@@ -126,8 +149,8 @@ func run() -> void:
 
 	run_case("assign_slots_reads_real_layout_and_state_in_discovery_order", func():
 		GameState.reset()
-		var unclaimed := _unclaimed("s1", "camden")
-		var claimed_site := _claimed("s2", "camden")
+		var unclaimed := _unclaimed("s1", "camden", 0)
+		var claimed_site := _claimed("s2", "camden", 1)
 		GameState.state["world"]["sites"] = [unclaimed, claimed_site]
 		GameState.state["player"]["veins"] = [{ "id": "v1", "siteId": "s2" }]
 
@@ -141,6 +164,128 @@ func run() -> void:
 		assert_eq(assigned[1]["id"], "v1", "claimed site's stop id is the vein's id, not the site's")
 		assert_eq(assigned[1]["kind"], "vein")
 		assert_eq(assigned[1]["position"], Vector2(slots[1][0], slots[1][1]))
+
+		GameState.reset()
+	)
+
+	# ── 52-map-vein-line-position-drift regression coverage ────────────────
+	# A stop's slot must stay fixed once assigned, across rebuilds/
+	# re-renders, unless *that* stop's own underlying data genuinely
+	# changes — an unrelated stop being discovered, claimed, or removed
+	# elsewhere in the same district must never move it.
+
+	run_case("assign_slots_rebuild_with_no_state_change_is_byte_identical", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [_unclaimed("s1", "camden", 0), _claimed("s2", "camden", 1)]
+		GameState.state["player"]["veins"] = [{ "id": "v1", "siteId": "s2" }]
+
+		var first := MapLayout.assign_slots("camden")
+		var second := MapLayout.assign_slots("camden")
+		assert_eq(second, first, "re-running assign_slots against unchanged state must reproduce the exact same output")
+
+		GameState.reset()
+	)
+
+	run_case("assign_slots_stop_position_is_stable_when_an_earlier_site_is_removed", func():
+		# The routine, frequent trigger in real play: NPC abandonment, a
+		# prospect reroll, or a faction vein collapsing all delete a site
+		# from state.world.sites outright (systems/sites.gd's
+		# roll_npc_abandonment/_reroll_worst_unclaimed, systems/
+		# cultivating.gd's collapse_vein). Before the fix, deleting s1 would
+		# shift s3 from array position 2 down to 1, moving it onto s2's old
+		# slot on the very next render.
+		GameState.reset()
+		var s1 := _unclaimed("s1", "camden", 0)
+		var s2 := _unclaimed("s2", "camden", 1)
+		var s3 := _unclaimed("s3", "camden", 2)
+		GameState.state["world"]["sites"] = [s1, s2, s3]
+
+		var before := MapLayout.assign_slots("camden")
+		var s3_before: Vector2 = before[2]["position"]
+
+		GameState.state["world"]["sites"] = [s2, s3]  # s1 removed, matching a real filter()-based delete
+		var after := MapLayout.assign_slots("camden")
+		var s3_after: Vector2
+		for stop in after:
+			if stop["id"] == "s3":
+				s3_after = stop["position"]
+		assert_eq(s3_after, s3_before, "s3's slot must not move just because an unrelated, earlier site was removed")
+
+		GameState.reset()
+	)
+
+	run_case("assign_slots_stop_position_is_stable_when_a_saturated_sites_natural_vein_lands", func():
+		# The other named candidate: Sites.attempt_seed() turns a claimed
+		# site with hasNaturalVein into TWO stops instead of one the moment
+		# it's claimed. Before the fix, that extra stop landing on an
+		# earlier site would shift every later site's flattened index (and
+		# therefore its slot) by one.
+		GameState.reset()
+		var s1 := _claimed("s1", "camden", 0)
+		var s2 := _claimed("s2", "camden", 1)
+		GameState.state["world"]["sites"] = [s1, s2]
+		GameState.state["player"]["veins"] = [{ "id": "v1", "siteId": "s1" }, { "id": "v2", "siteId": "s2" }]
+
+		var before := MapLayout.assign_slots("camden")
+		var v2_before: Vector2
+		for stop in before:
+			if stop["id"] == "v2":
+				v2_before = stop["position"]
+
+		# s1 turns out to have a natural vein bonus; the new vein is
+		# appended after v2 in player.veins array order (append order),
+		# same as Sites.attempt_seed() would produce, and stamped with the
+		# next slotIndex (Sites.next_slot_index()'s contract).
+		GameState.state["player"]["veins"].append({ "id": "v1_natural", "siteId": "s1", "slotIndex": 2 })
+
+		var after := MapLayout.assign_slots("camden")
+		var v2_after: Vector2
+		var natural_found := false
+		for stop in after:
+			if stop["id"] == "v2":
+				v2_after = stop["position"]
+			if stop["id"] == "v1_natural":
+				natural_found = true
+		assert_eq(v2_after, v2_before, "v2's slot must not move just because an unrelated, earlier site grew a second stop")
+		assert_true(natural_found, "the natural-vein bonus stop should still appear")
+
+		GameState.reset()
+	)
+
+	run_case("build_line_output_for_unaffected_veins_is_stable_when_an_earlier_site_is_removed", func():
+		# Ticket 52's checklist explicitly names the routed *line*, not just
+		# a stop's own position -- MapRouting.build_line() is a pure
+		# function of the {id, pos} pairs MapLayout hands it, so once those
+		# positions are stable (the tests above), the polyline it produces
+		# for the same set of stops must be byte-identical too.
+		GameState.reset()
+		var s0 := _unclaimed("s0", "camden", 0)
+		var s1 := _claimed("s1", "camden", 1)
+		var s2 := _claimed("s2", "camden", 2)
+		var s3 := _claimed("s3", "camden", 3)
+		GameState.state["world"]["sites"] = [s0, s1, s2, s3]
+		GameState.state["player"]["veins"] = [
+			{ "id": "v1", "siteId": "s1" },
+			{ "id": "v2", "siteId": "s2" },
+			{ "id": "v3", "siteId": "s3" },
+		]
+
+		var home := MapLayout.home_anchor()
+		var stops_before: Array = []
+		for stop in MapLayout.assign_slots("camden"):
+			if stop["kind"] == "vein":
+				stops_before.append({ "id": stop["id"], "pos": stop["position"] })
+		var line_before := MapRouting.build_line(home, stops_before)
+
+		GameState.state["world"]["sites"] = [s1, s2, s3]  # s0 removed, matching a real filter()-based delete
+		var stops_after: Array = []
+		for stop in MapLayout.assign_slots("camden"):
+			if stop["kind"] == "vein":
+				stops_after.append({ "id": stop["id"], "pos": stop["position"] })
+		var line_after := MapRouting.build_line(home, stops_after)
+
+		assert_eq(stops_after, stops_before, "v1/v2/v3's ids and positions must be unaffected by s0's removal")
+		assert_eq(line_after, line_before, "the routed line through unaffected veins must be byte-identical")
 
 		GameState.reset()
 	)

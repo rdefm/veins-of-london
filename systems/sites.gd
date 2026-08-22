@@ -19,6 +19,22 @@ static func make_site_id() -> String:
 	return "s" + str(Time.get_ticks_usec()) + str(Rng.randi_range(1000, 999999))
 
 
+# 52-map-vein-line-position-drift: the stable, permanent slot a stop keeps
+# for as long as it lives, stamped once at creation onto the site (or, for
+# a saturated site's extra natural-vein stop, onto the vein itself — see
+# attempt_seed() below) rather than derived from where that stop currently
+# sits in state.world.sites/player.veins. Backed by a per-district counter
+# in state.world.mapSlotCounters that only ever counts up: a removed
+# stop's slot is never reclaimed, trading the odd overflow (already
+# handled defensively by MapLayout.assign_positions' last-slot clamp) for
+# every still-live stop's position genuinely never moving underneath it.
+static func next_slot_index(district_id: String) -> int:
+	var counters: Dictionary = GameState.state["world"]["mapSlotCounters"]
+	var next_index: int = counters.get(district_id, 0)
+	counters[district_id] = next_index + 1
+	return next_index
+
+
 static func find_site(site_id: String) -> Variant:
 	for site in GameState.state["world"]["sites"]:
 		if site["id"] == site_id:
@@ -284,6 +300,7 @@ static func roll_new_site(district_id: String, tier: String) -> Dictionary:
 		"claimed": false,
 		"factionVein": null,
 		"hasNaturalVein": bonus_roll["hasNaturalVein"],
+		"slotIndex": next_slot_index(district_id),
 	}
 
 
@@ -338,6 +355,12 @@ static func attempt_seed(site_id: String) -> Dictionary:
 		var natural_vein_id: Variant = null
 		if site["hasNaturalVein"]:
 			var natural_vein := Cultivating.make_vein(ore_type, GameData.VEIN_GROWTH["seedGrowth"], district, site_id, hospitability)
+			# 52-map-vein-line-position-drift: this is the second stop landing
+			# on an already-positioned site (the first vein above reuses the
+			# site's own slotIndex) -- it needs its own permanent slot, not a
+			# position derived from where it lands in player.veins, or every
+			# stop after it would visibly shift the moment this fires.
+			natural_vein["slotIndex"] = next_slot_index(district)
 			player["veins"].append(natural_vein)
 			natural_vein_id = natural_vein["id"]
 			MapEvents.queue_seed_claim(district, natural_vein_id, "player")

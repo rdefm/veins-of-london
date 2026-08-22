@@ -5,7 +5,7 @@ extends Node
 # advance (on completion), and every successful cash purchase (home
 # upgrade/security/room, barometer manual push/pull) — M0-T14 wiring.
 
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 const SLOT_COUNT := 3
 const AUTOSAVE_COUNT := 3
 const SAVES_DIR := "user://saves/"
@@ -157,6 +157,13 @@ func _remap_retired_screen_id(save: Dictionary) -> void:
 # half-loading a v1 save's now-meaningless devBar/level/charged vein fields.
 # A save with no meta.saveVersion at all is treated as the current version
 # (matches new_game_state()'s own default) rather than rejected.
+#
+# 52-map-vein-line-position-drift bumped v2 -> v3 the same way: every site
+# (and a saturated site's extra natural-vein stop) now carries a stamped
+# slotIndex MapLayout.assign_positions() depends on -- a v2 save has none,
+# and there's no way to reconstruct historical discovery order after the
+# fact, so it's rejected rather than half-loaded with sites that fall back
+# to whatever slotIndex 0 means.
 func _check_save_version(save: Dictionary) -> Dictionary:
 	var meta: Dictionary = save.get("meta", {})
 	var version: int = meta.get("saveVersion", SAVE_VERSION)
@@ -223,7 +230,7 @@ func _restore_int_types(state: Dictionary) -> void:
 				for note in note_list:
 					_int_key(note, "day")
 		for vein in player.get("veins", []):
-			for key in ["growth", "rampantDays", "claimedOnDay"]:
+			for key in ["growth", "rampantDays", "claimedOnDay", "slotIndex"]:
 				_int_key(vein, key)
 		for device in player.get("devicesCompleted", []):
 			for key in ["level", "xp", "chargesPerDay", "chargesUsedToday", "lastResetDay"]:
@@ -239,12 +246,14 @@ func _restore_int_types(state: Dictionary) -> void:
 		_int_array_values(world.get("timeBlocksDone", []))
 		for site in world.get("sites", []):
 			_int_key(site, "discoveredDay")
+			_int_key(site, "slotIndex")
 			if site.get("factionVein") != null:
 				var faction_vein: Dictionary = site["factionVein"]
 				for key in ["growth", "rampantDays", "claimedOnDay"]:
 					_int_key(faction_vein, key)
 		for recent in world.get("recentEvents", []):
 			_int_key(recent, "day")
+		_int_dict_values(world.get("mapSlotCounters", {}))
 
 	if state.has("home"):
 		var home: Dictionary = state["home"]

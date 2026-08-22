@@ -24,33 +24,52 @@ extends RefCounted
 # rendering grammar draws both the same way (circle, owner colour), just
 # coloured differently; Chunk 2 (map rendering) is what actually wires that
 # colouring up.
+#
+# 52-map-vein-line-position-drift: every item also carries the "slotIndex"
+# assign_positions() now keys off of, instead of the item's position in
+# this returned array. A site's own stamped slotIndex (Sites.
+# next_slot_index(), set once at creation) covers the unclaimed/faction/
+# first-player-vein case; a claimed site's *second* player vein (the
+# saturated-site natural-vein bonus) carries its own stamped slotIndex
+# (set at Sites.attempt_seed() time) rather than reusing the site's, since
+# it's a genuinely separate stop needing its own permanent slot. Read via
+# .get(...,0) rather than a bare [] lookup: plenty of test fixtures across
+# the suite hand-build minimal site/vein dicts to exercise other systems
+# entirely (never routed through Sites.roll_new_site()/attempt_seed()), and
+# this must degrade to "everyone piles on slot 0" for them rather than
+# crash — real gameplay sites always carry a real stamped value.
 static func build_stop_items(sites: Array, veins: Array) -> Array:
 	var items: Array = []
 	for site in sites:
 		if site.get("factionVein") != null:
-			items.append({ "kind": "vein", "site": site, "vein": site["factionVein"], "owner": site["factionVein"]["factionId"] })
+			items.append({ "kind": "vein", "site": site, "vein": site["factionVein"], "owner": site["factionVein"]["factionId"], "slotIndex": site.get("slotIndex", 0) })
 		elif site.get("claimed", false):
 			for vein in veins:
 				if vein.get("siteId") == site["id"]:
-					items.append({ "kind": "vein", "site": site, "vein": vein, "owner": "player" })
+					var slot_index: int = vein.get("slotIndex", site.get("slotIndex", 0))
+					items.append({ "kind": "vein", "site": site, "vein": vein, "owner": "player", "slotIndex": slot_index })
 		else:
-			items.append({ "kind": "unclaimed", "site": site, "vein": null, "owner": null })
+			items.append({ "kind": "unclaimed", "site": site, "vein": null, "owner": null, "slotIndex": site.get("slotIndex", 0) })
 	return items
 
 
-# Pure: assigns each stop item to a slot position in order, clamping any
-# overflow onto the last slot (defensive only — map_layout.json's siteCap+2
-# buffer means this should never actually trigger against real data;
-# GameData validates that buffer at boot).
+# Pure: maps each stop item onto its slot's position, keyed by the item's
+# own stamped "slotIndex" (52-map-vein-line-position-drift) rather than its
+# position in `items` — a stop's slot must stay fixed for its whole life
+# regardless of what gets discovered, claimed, or removed elsewhere in the
+# same district. Clamps any slotIndex beyond the slot list onto the last
+# slot (defensive: map_layout.json's siteCap+2 buffer covers normal churn,
+# GameData validates that buffer at boot, but slotIndex never gets reused
+# once a stop is removed, so heavy churn over a long session can still run
+# past it).
 static func assign_positions(items: Array, slots: Array) -> Array:
 	var result: Array = []
 	if slots.is_empty():
 		return result
 
-	for i in items.size():
-		var slot_index: int = mini(i, slots.size() - 1)
+	for item in items:
+		var slot_index: int = mini(item["slotIndex"], slots.size() - 1)
 		var slot = slots[slot_index]
-		var item: Dictionary = items[i]
 		var id: String = item["vein"]["id"] if item["kind"] == "vein" else item["site"]["id"]
 		result.append({
 			"id": id,

@@ -124,6 +124,21 @@ func new_game_state() -> Dictionary:
 			# district. Combat.exit_combat() reads this to resolve a loss via
 			# Raiding.resolve_defend_outcome(), then clears it back to null.
 			"activeDefendRaid": null,
+			# 52-map-vein-line-position-drift: per-district monotonic counter,
+			# Sites.next_slot_index()'s backing store. Each site (and each
+			# claimed site's extra natural-vein stop) is stamped with a
+			# slotIndex the moment it's created and keeps it for life --
+			# MapLayout.assign_positions() keys off that stamped value rather
+			# than a stop's current position in state.world.sites, which is
+			# what let an unrelated site's removal (NPC abandonment, a
+			# prospect reroll, a faction vein collapsing) or insertion (a
+			# saturated site's natural-vein bonus landing) silently reflow
+			# every later stop's slot. Never decremented/reused on removal --
+			# the stopSlots siteCap+2 budget already accepted from
+			# assign_positions' pre-existing overflow clamp that slots can run
+			# out under enough churn; this trades that same slack for
+			# never moving a stop that hasn't itself changed.
+			"mapSlotCounters": {},
 		},
 
 		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0 },

@@ -286,6 +286,7 @@ static func _grant_vein_with_site(vein_template: Dictionary) -> void:
 		"claimed": true,
 		"factionVein": null,
 		"hasNaturalVein": false,
+		"slotIndex": Sites.next_slot_index(vein_template["district"]),
 	}
 	GameState.state["world"]["sites"].append(site)
 

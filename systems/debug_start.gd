@@ -156,6 +156,7 @@ static func _debug_site(district: String, tier: String, ore_type: String, bonuse
 		"claimed": false,
 		"factionVein": null,
 		"hasNaturalVein": false,
+		"slotIndex": Sites.next_slot_index(district),
 	}
 
 
