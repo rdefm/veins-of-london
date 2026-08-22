@@ -122,16 +122,18 @@ func run() -> void:
 		assert_eq(gates[0]["reason"], "No blocks left today.")
 	)
 
-	run_case("actions_for_disables_both_prune_actions_with_a_reason_when_projected_yield_is_zero", func():
+	# ticket 41: pruning at/below neutral is no longer disabled -- it
+	# correctly yields 0 ore, but the player may still spend the block.
+	run_case("actions_for_keeps_both_prune_actions_enabled_when_projected_yield_is_zero", func():
 		GameState.reset()
 		var vein := _player_vein({ "growth": 40 })  # below neutral: nothing above neutral to take
 
 		var gates := VeinList.actions_for(vein)
 
-		assert_true(gates[1]["disabled"])
-		assert_eq(gates[1]["reason"], "Nothing to take at or below neutral.")
-		assert_true(gates[2]["disabled"])
-		assert_eq(gates[2]["reason"], "Nothing to take at or below neutral.")
+		assert_true(not gates[1]["disabled"])
+		assert_eq(gates[1]["reason"], "")
+		assert_true(not gates[2]["disabled"])
+		assert_eq(gates[2]["reason"], "")
 	)
 
 	run_case("actions_for_enables_both_prune_actions_when_projected_yield_is_positive", func():
@@ -190,7 +192,7 @@ func run() -> void:
 		var result := VeinList.apply_option(VeinList.PRUNE_LIGHT_ID, "v1")
 
 		assert_true(result["ok"])
-		assert_eq(GameState.state["player"]["veins"][0]["growth"], 55, "a real prune(light, -15) call must cut growth by 15")
+		assert_eq(GameState.state["player"]["veins"][0]["growth"], 61, "a real prune(light, -9) call must cut growth by 9")
 	)
 
 	run_case("apply_option_prune_hard_forwards_to_Cultivating_prune_hard_depth", func():
@@ -200,7 +202,7 @@ func run() -> void:
 		var result := VeinList.apply_option(VeinList.PRUNE_HARD_ID, "v1")
 
 		assert_true(result["ok"])
-		assert_eq(GameState.state["player"]["veins"][0]["growth"], 30, "a real prune(hard, -40) call must cut growth by 40")
+		assert_eq(GameState.state["player"]["veins"][0]["growth"], 46, "a real prune(hard, -24) call must cut growth by 24")
 	)
 
 	run_case("apply_option_manage_selects_the_site_via_MapNav_and_switches_to_the_Map_tab", func():

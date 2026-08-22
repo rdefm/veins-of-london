@@ -47,16 +47,18 @@ func run() -> void:
 		assert_eq(ids, [StationBubble.CULTIVATE_ID, StationBubble.PRUNE_LIGHT_ID, StationBubble.PRUNE_HARD_ID, StationBubble.MANAGE_ID], "Prune is never hidden, per ticket 08 -- only ever disabled with a reason")
 	)
 
-	run_case("station_options_disables_both_prune_actions_with_a_reason_when_projected_yield_is_zero", func():
+	# ticket 41: pruning at/below neutral is no longer disabled -- it
+	# correctly yields 0 ore, but the player may still spend the block.
+	run_case("station_options_keeps_both_prune_actions_enabled_when_projected_yield_is_zero", func():
 		GameState.reset()
 		var stop := _vein_stop(_player_vein({ "growth": 40 }), "player")  # below neutral: nothing above neutral to take
 
 		var options := StationBubble.station_options(stop)
 
-		assert_true(options[1]["disabled"])
-		assert_eq(options[1]["reason"], "Nothing to take at or below neutral.")
-		assert_true(options[2]["disabled"])
-		assert_eq(options[2]["reason"], "Nothing to take at or below neutral.")
+		assert_true(not options[1]["disabled"])
+		assert_eq(options[1]["reason"], "")
+		assert_true(not options[2]["disabled"])
+		assert_eq(options[2]["reason"], "")
 	)
 
 	run_case("station_options_enables_both_prune_actions_when_projected_yield_is_positive", func():
@@ -177,7 +179,7 @@ func run() -> void:
 		var result := StationBubble.apply_option(StationBubble.PRUNE_LIGHT_ID, stop)
 
 		assert_true(result["ok"])
-		assert_eq(GameState.state["player"]["veins"][0]["growth"], 55, "a real prune(light, -15) call must cut growth by 15")
+		assert_eq(GameState.state["player"]["veins"][0]["growth"], 61, "a real prune(light, -9) call must cut growth by 9")
 	)
 
 	run_case("apply_option_prune_hard_forwards_to_Cultivating_prune_hard", func():
@@ -188,7 +190,7 @@ func run() -> void:
 		var result := StationBubble.apply_option(StationBubble.PRUNE_HARD_ID, stop)
 
 		assert_true(result["ok"])
-		assert_eq(GameState.state["player"]["veins"][0]["growth"], 30, "a real prune(hard, -40) call must cut growth by 40")
+		assert_eq(GameState.state["player"]["veins"][0]["growth"], 46, "a real prune(hard, -24) call must cut growth by 24")
 	)
 
 	run_case("apply_option_manage_selects_the_site_via_MapNav_and_always_reports_ok", func():

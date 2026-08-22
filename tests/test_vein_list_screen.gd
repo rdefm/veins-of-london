@@ -229,7 +229,9 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("prune_buttons_in_the_list_stay_present_but_disabled_with_a_reason_when_projected_yield_is_zero", func():
+	# ticket 41: pruning at/below neutral is no longer disabled -- it
+	# correctly yields 0 ore, but the player may still spend the block.
+	run_case("prune_buttons_in_the_list_stay_present_and_enabled_when_projected_yield_is_zero", func():
 		GameState.reset()
 		var vein := _player_vein({ "growth": 40 })  # thinning band, below neutral
 
@@ -238,10 +240,8 @@ func run() -> void:
 
 		var light_row: Control = actions.get_child(1)
 		var hard_row: Control = actions.get_child(2)
-		assert_true((light_row.get_child(0) as Button).disabled)
-		assert_true((hard_row.get_child(0) as Button).disabled)
-		assert_eq((light_row.get_child(1) as Label).text, "Nothing to take at or below neutral.")
-		assert_eq((hard_row.get_child(1) as Label).text, "Nothing to take at or below neutral.")
+		assert_true(not (light_row.get_child(0) as Button).disabled)
+		assert_true(not (hard_row.get_child(0) as Button).disabled)
 
 		actions.free()
 		screen.free()
@@ -280,7 +280,7 @@ func run() -> void:
 
 		light_button.pressed.emit()
 
-		assert_eq(GameState.state["player"]["veins"][0]["growth"], 55, "a real prune(light, -15) call must cut growth by 15, matching the map sheet's own button")
+		assert_eq(GameState.state["player"]["veins"][0]["growth"], 61, "a real prune(light, -9) call must cut growth by 9, matching the map sheet's own button")
 
 		actions.free()
 		screen.free()

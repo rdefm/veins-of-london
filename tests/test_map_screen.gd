@@ -191,11 +191,11 @@ func run() -> void:
 		screen.free()
 	)
 
-	# vein-growth-state ticket 08: Prune is always shown (never hidden) even
-	# when its projected yield is 0 -- disabled, with the reason surfaced via
-	# UI.action_button's button-plus-muted-reason-line shape, so the player
-	# sees *why*, not just a missing button.
-	run_case("prune_buttons_stay_present_but_disabled_with_a_reason_when_projected_yield_is_zero", func():
+	# ticket 41: Prune is always shown (never hidden) and is no longer
+	# disabled just because its projected yield is 0 -- the player may still
+	# choose to spend the block on a neutral/below-neutral vein (it correctly
+	# yields 0 ore). Only time-block affordability can disable it now.
+	run_case("prune_buttons_stay_present_and_enabled_even_when_projected_yield_is_zero", func():
 		GameState.reset()
 		var vein := _player_vein({ "growth": 40 })  # thinning band, below neutral: nothing to prune
 
@@ -210,13 +210,8 @@ func run() -> void:
 		var light_button: Button = light_row.get_child(0)
 		var hard_button: Button = hard_row.get_child(0)
 
-		assert_true(light_button.disabled, "Prune (light) must be disabled when it would yield nothing")
-		assert_true(hard_button.disabled, "Prune (hard) must be disabled when it would yield nothing")
-
-		var light_reason: Label = light_row.get_child(1)
-		var hard_reason: Label = hard_row.get_child(1)
-		assert_eq(light_reason.text, "Nothing to take at or below neutral.")
-		assert_eq(hard_reason.text, "Nothing to take at or below neutral.")
+		assert_true(not light_button.disabled, "Prune (light) stays enabled even though it would yield nothing")
+		assert_true(not hard_button.disabled, "Prune (hard) stays enabled even though it would yield nothing")
 
 		card.free()
 		screen.free()

@@ -149,10 +149,10 @@ func run() -> void:
 	# ── cultivate (spec §2.4) ──────────────────────────────────────────
 
 	run_case("cultivate_gain_diminishes_toward_the_ceiling", func():
-		# cultivate_gain(skill, growth, ceiling) = max(2, round((10+4*skill)*(1-growth/ceiling)))
-		assert_eq(Cultivating.cultivate_gain(1, 20, 100), 11, "skill1 at growth20: round(14*0.8)=11")
-		assert_eq(Cultivating.cultivate_gain(5, 90, 100), 3, "skill5 at growth90: round(30*0.1)=3")
-		assert_eq(Cultivating.cultivate_gain(5, 100, 100), 2, "at the ceiling the formula floors at the min gain")
+		# cultivate_gain(skill, growth, ceiling) = max(1, round((6+2*skill)*(1-growth/ceiling)))
+		assert_eq(Cultivating.cultivate_gain(1, 20, 100), 6, "skill1 at growth20: round(8*0.8)=6")
+		assert_eq(Cultivating.cultivate_gain(5, 90, 100), 2, "skill5 at growth90: round(16*0.1)=2")
+		assert_eq(Cultivating.cultivate_gain(5, 100, 100), 1, "at the ceiling the formula floors at the min gain")
 	)
 
 	run_case("cultivate_success_raises_growth_and_awards_xp", func():
@@ -229,22 +229,62 @@ func run() -> void:
 		assert_eq(Cultivating.prune_yield(_vein(30), 15), 0, "below neutral: nothing above neutral to remove")
 	)
 
+	# ticket 41: prune_gate() no longer disables on a zero-yield projection --
+	# pruning at/below neutral still correctly yields 0 ore, but the player
+	# may choose to spend the block anyway. Only time-block affordability
+	# (the existing Travel.can_afford check) gates the button now.
+	run_case("prune_gate_is_not_disabled_by_a_zero_yield_projection", func():
+		GameState.reset()
+		var vein := _vein(30)  # below neutral: prune_yield here is 0
+		assert_eq(Cultivating.prune_yield(vein, GameData.VEIN_GROWTH["pruneLightDepth"]), 0, "sanity: this vein really does project a zero yield")
+
+		var gate := Cultivating.prune_gate(vein, GameData.VEIN_GROWTH["pruneLightDepth"], "shoreditch")
+		assert_true(not gate["disabled"], "a zero-yield projection no longer disables the prune action")
+		assert_eq(gate["reason"], "")
+	)
+
+	run_case("prune_gate_still_disables_when_no_blocks_remain_regardless_of_yield", func():
+		GameState.reset()
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+		var vein := _vein(90)  # comfortably above neutral -- would yield ore
+
+		var gate := Cultivating.prune_gate(vein, GameData.VEIN_GROWTH["pruneLightDepth"], "shoreditch")
+		assert_true(gate["disabled"])
+		assert_eq(gate["reason"], "No blocks left today.")
+	)
+
+	# Confirms the ticket's manual-check claim end to end: pruning a
+	# neutral/low-growth vein is now a real, successful action -- it yields
+	# 0 ore and moves growth down by depth, with no error.
+	run_case("pruning_a_zero_yield_vein_succeeds_and_yields_no_ore", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(30, "shoreditch")]
+		Rng.set_seed(1)
+
+		var result := Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneLightDepth"])
+
+		assert_true(result["ok"], "pruning a zero-yield vein should still succeed")
+		assert_eq(result["amount"], 0, "yields 0 ore, exactly as prune_yield projected")
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(vein["growth"], 30 - GameData.VEIN_GROWTH["pruneLightDepth"], "growth still moves down by depth even at zero yield")
+	)
+
 	run_case("hard_prune_from_just_above_neutral_yields_only_the_above_neutral_points", func():
-		# growth 60, hard prune (-40) -> growth_after 20. Only the 10 points
-		# from 60 down to 50 (neutral) count; the other 30 (50 -> 20) are free.
+		# growth 60, hard prune (-24) -> growth_after 36. Only the 10 points
+		# from 60 down to 50 (neutral) count; the other 14 (50 -> 36) are free.
 		var vein := _vein(60)
-		var yld := Cultivating.prune_yield(vein, 40)
+		var yld := Cultivating.prune_yield(vein, GameData.VEIN_GROWTH["pruneHardDepth"])
 		# points=10, yieldPerPoint 0.35, terroir fair 1.0, hardBonus 1.25 -> round(10*0.35*1.25)=4
 		assert_eq(yld, 4, "only the 10 points above neutral count, at the hard-prune bonus")
 	)
 
 	run_case("light_prune_yields_less_per_point_than_hard_when_both_land_fully_above_neutral", func():
 		var wild := _vein(95)
-		var light_yield := Cultivating.prune_yield(wild, 15)
-		var hard_yield := Cultivating.prune_yield(wild, 40)
-		# light: 15 points * 0.35 = 5.25 -> round 5. hard: 40 points * 0.35 * 1.25 = 17.5 -> round 18.
-		assert_eq(light_yield, 5, "light prune, no hard bonus")
-		assert_eq(hard_yield, 18, "hard prune, 1.25x bonus, more points removed")
+		var light_yield := Cultivating.prune_yield(wild, GameData.VEIN_GROWTH["pruneLightDepth"])
+		var hard_yield := Cultivating.prune_yield(wild, GameData.VEIN_GROWTH["pruneHardDepth"])
+		# light: 9 points * 0.35 = 3.15 -> round 3. hard: 24 points * 0.35 * 1.25 = 10.5 -> round 11.
+		assert_eq(light_yield, 3, "light prune, no hard bonus")
+		assert_eq(hard_yield, 11, "hard prune, 1.25x bonus, more points removed")
 	)
 
 	run_case("prune_moves_growth_down_by_depth_clamped_at_zero_and_credits_ore", func():
@@ -254,7 +294,7 @@ func run() -> void:
 		var result := Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneHardDepth"])
 		assert_true(result["ok"], "prune should succeed")
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(vein["growth"], 20, "growth -= depth")
+		assert_eq(vein["growth"], 36, "growth -= depth")
 		assert_eq(result["amount"], 4, "matches prune_yield's own math")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], result["amount"], "ore credited to player")
 	)
@@ -444,7 +484,7 @@ func run() -> void:
 
 		Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneHardDepth"])
 
-		assert_true(MapEvents.has_pending(), "crossing down through neutral (60 -> 20) queues a drain")
+		assert_true(MapEvents.has_pending(), "crossing down through neutral (60 -> 36) queues a drain")
 		var event = MapEvents.current()
 		assert_eq(event["type"], "drain")
 		assert_eq(event["district"], "camden")
@@ -463,8 +503,8 @@ func run() -> void:
 		Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneLightDepth"])
 
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(vein["growth"], 35)
-		assert_true(MapEvents.has_pending(), "growth was already at neutral (50), and this prune moved it below (35)")
+		assert_eq(vein["growth"], 41)
+		assert_true(MapEvents.has_pending(), "growth was already at neutral (50), and this prune moved it below (41)")
 		assert_eq(MapEvents.current()["type"], "drain")
 	)
 
@@ -475,14 +515,14 @@ func run() -> void:
 
 		Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneLightDepth"])
 
-		assert_true(not MapEvents.has_pending(), "growth 90 -> 75 never reaches neutral -- no drain")
+		assert_true(not MapEvents.has_pending(), "growth 90 -> 81 never reaches neutral -- no drain")
 	)
 
 	run_case("cultivate_fires_a_charge_burst_when_a_success_pushes_growth_into_wild", func():
 		var seed := _find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 6
-			GameState.state["player"]["veins"] = [_vein(80)]  # lush; a skill-6 success gain (7) crosses into wild (87)
+			GameState.state["player"]["veins"] = [_vein(84)]  # lush; a skill-6 success gain (3) crosses into wild (87)
 			var result := Cultivating.cultivate("test_vein")
 			return result.get("success", false)
 		)
@@ -505,7 +545,7 @@ func run() -> void:
 		assert_true(seed != -1, "should find a successful cultivate roll within 200 tries")
 
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(vein["growth"], 60, "growth 40 -> 60 crosses neutral upward, into 'taking'")
+		assert_eq(vein["growth"], 51, "growth 40 -> 51 crosses neutral upward, into 'dormant'")
 		assert_true(not MapEvents.has_pending(), "drain is a downward-only crossing -- Cultivate, which only ever increases growth, never fires it")
 	)
 
@@ -609,17 +649,20 @@ func run() -> void:
 		assert_eq(vein["rampantDays"], 0, "a fresh vein starts with no rampant days banked")
 	)
 
-	run_case("skill_1_player_can_climb_a_seeded_vein_to_neutral_in_roughly_a_dozen_blocks", func():
+	run_case("skill_1_player_can_climb_a_seeded_vein_to_neutral_in_roughly_two_dozen_blocks", func():
+		# Ticket 41's gentler cultivateBase/PerSkill roughly doubles the
+		# successes needed to close the same 20->50 gap, so the block count
+		# this takes roughly doubles too (was "a dozen", now "two dozen").
 		GameState.reset()
 		GameState.state["player"]["cultivatingSkill"] = 1
 		var vein := _vein(GameData.VEIN_GROWTH["seedGrowth"])
 		GameState.state["player"]["veins"] = [vein]
 		Rng.set_seed(7)
 		var blocks := 0
-		while vein["growth"] < 50 and blocks < 30:
+		while vein["growth"] < 50 and blocks < 40:
 			Cultivating.cultivate("test_vein")
 			blocks += 1
-		assert_true(blocks <= 16, "should reach neutral in roughly a dozen blocks (skill 1), took %d" % blocks)
+		assert_true(blocks <= 25, "should reach neutral in roughly two dozen blocks (skill 1), took %d" % blocks)
 	)
 
 	# ── value tier (spec §3, §11 item 8) ────────────────────────────────
@@ -641,7 +684,7 @@ func run() -> void:
 
 	# ── terroir spread (spec §7, §11 item 9) ────────────────────────────
 
-	# A single hard prune is capped at pruneHardDepth (40) points regardless
+	# A single hard prune is capped at pruneHardDepth (24) points regardless
 	# of a vein's headroom, so wildCeiling's extra 20 points of ceiling only
 	# shows up once a vein is pruned past what one hard prune can reach —
 	# this measures the full above-neutral bank each tier can ever convert
