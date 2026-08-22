@@ -202,8 +202,8 @@ func _build_diagram_layer() -> Control:
 
 	var scroll := TouchScrollContainer.new()
 	UI.anchor_full_rect(scroll)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	scroll.add_child(_map_canvas)
 	diagram_area.add_child(scroll)
 

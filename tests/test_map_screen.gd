@@ -586,6 +586,27 @@ func run() -> void:
 		screen.free()
 	)
 
+	# ── scroll container (ticket 47) ──────────────────────────────────────
+
+	# TouchScrollContainer's scroll_mode was SCROLL_MODE_AUTO, which draws
+	# native scrollbars whenever the diagram exceeds the viewport (any zoom
+	# above fit-to-screen). SHOW_NEVER hides the bars while leaving
+	# scrolling/panning itself untouched.
+	run_case("diagram_layer_scroll_container_hides_scrollbars_but_keeps_scrolling_enabled", func():
+		var screen := MapScreen.new()
+		var layer := screen._build_diagram_layer()
+
+		var scrolls := layer.find_children("", "TouchScrollContainer", true, false)
+		assert_eq(scrolls.size(), 1, "the diagram layer wraps MapCanvas in exactly one TouchScrollContainer")
+		var scroll: ScrollContainer = scrolls[0]
+
+		assert_eq(scroll.horizontal_scroll_mode, ScrollContainer.SCROLL_MODE_SHOW_NEVER, "no horizontal scrollbar should render")
+		assert_eq(scroll.vertical_scroll_mode, ScrollContainer.SCROLL_MODE_SHOW_NEVER, "no vertical scrollbar should render")
+
+		layer.free()
+		screen.free()
+	)
+
 	# ── faction legend (ticket 26) ────────────────────────────────────────
 
 	run_case("diagram_layer_carries_a_persistent_faction_legend_listing_every_faction", func():
