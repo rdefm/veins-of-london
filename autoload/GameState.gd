@@ -151,6 +151,10 @@ func new_game_state() -> Dictionary:
 			# out under enough churn; this trades that same slack for
 			# never moving a stop that hasn't itself changed.
 			"mapSlotCounters": {},
+			# collective1-06: relation-accrual daily-cap tracker, keyed by lane
+			# id ("collective", "archie") -> relation points already awarded
+			# today. RelationAccrual.reset_daily_caps() clears it on daily_tick.
+			"relationAwardedToday": {},
 		},
 
 		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0 },
@@ -250,6 +254,13 @@ func _new_factions_state() -> Dictionary:
 			# collective1-06) -- this is unit/transaction-denominated and
 			# exists purely for objective evaluation.
 			"oreSold": {},
+			# collective1-06, spec §8.4: the accumulating £-denominated
+			# counter RelationAccrual converts into relation points, carrying
+			# any remainder below the lane's rate across trades. Present on
+			# every faction for schema uniformity; only "collective" has a
+			# configured rate in Act 1 (RelationAccrual.LANES), so it's the
+			# only one that ever moves.
+			"tradeProgress": 0,
 		}
 	return factions
 
@@ -310,6 +321,12 @@ func _new_contacts_state() -> Dictionary:
 			"combatHealAmount": defaults.get("combatHealAmount", 0),
 			"koCooldownDays": defaults.get("koCooldownDays", 0),
 			"koCooldownUntilDay": null,
+			# collective1-06, spec §8.4: same £-denominated accrual counter as
+			# state.factions[id].tradeProgress above, but for Archie -- he has
+			# no faction, he *is* the lane, so his accumulator lives here.
+			# Present on every contact for schema uniformity; only "archie"
+			# has a configured rate (RelationAccrual.LANES).
+			"tradeProgress": 0,
 		}
 	return contacts
 

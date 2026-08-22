@@ -5,10 +5,6 @@ extends RefCounted
 
 const MUG_BASE_CHANCE := 0.20
 
-# bugfixes-63: relation for selling through Archie, smaller than James's
-# +5/job since sales happen far more often.
-const ARCHIE_SALE_RELATION_GAIN := 2
-
 # collective1-01 (R§3.6 amendment): Archie's cut used to be a flat 0.5
 # (PLAYER_CUT_RATIO). Now relation-scaled 0.60->0.85 linear across his
 # relation 10->80, flat outside — see get_archie_cut_ratio() below.
@@ -84,9 +80,18 @@ static func execute_sale(items: Array) -> Dictionary:
 			flags["archieMotionPending"] = true
 			Notify.push("Archie texted. Check Contacts.")
 
-	Contacts.award_relation("archie", ARCHIE_SALE_RELATION_GAIN)
-
 	var player_cut: int = int(floor(gross * get_archie_cut_ratio()))
+
+	# collective1-06, spec §8.4: replaces the old flat per-sale relation
+	# award (bugfixes-63) -- a flat award became farmable once collective1-01
+	# made Archie's cut ratio scale with relation (split a sale into enough
+	# tiny transactions and the ratio ratchets up for free). Accrues on
+	# gross, independent of the mugging roll below (relation reflects trade
+	# that happened, not what actually landed in pocket) -- and deliberately
+	# *after* player_cut is computed, so a single sale big enough to cross a
+	# relation point this same call still gets its own cut at the relation it
+	# started with, not the one it just bumped itself to.
+	RelationAccrual.accrue_archie(gross)
 	var mugged: bool = Rng.chance(Barometer.get_effective_mug_chance(MUG_BASE_CHANCE + danger_mod))
 
 	if mugged:
@@ -292,6 +297,9 @@ static func execute_faction_sale(faction_id: String, items: Array) -> Dictionary
 
 	player["cash"] += total_earned
 	Bank.record(total_earned, "%s sale" % faction_id.capitalize())
+	# collective1-06, spec §8.4: trade feeds the meter that owns the lane --
+	# a no-op for factions RelationAccrual.LANES doesn't configure a rate for.
+	RelationAccrual.accrue_faction(faction_id, total_earned)
 	Objectives.refresh()  # collective1-02: boundary — faction lane completion
 	EventBus.state_changed.emit()
 	return { "ok": true, "earned": total_earned }

@@ -169,30 +169,32 @@ func run() -> void:
 	# ── Economy: pigeon_omen's luckyOmen consumption (D5 #11) ────────────
 
 	run_case("lucky_omen_consumed_on_next_sale_and_can_apply_a_10pct_bump", func():
-		# collective1-01: execute_sale awards ARCHIE_SALE_RELATION_GAIN (+2)
-		# *before* computing the cut, so Archie's startRelation 10 becomes 12
-		# by cut time -> ratio 0.60 + 0.25*(12-10)/70 = 0.6071428571.
+		# collective1-06: execute_sale no longer awards an immediate flat
+		# relation bump before computing the cut (that per-transaction award
+		# was replaced by RelationAccrual's £-denominated accumulator, which
+		# doesn't move the same transaction's own cut) -- the ratio is Archie's
+		# startRelation 10, flat at 0.60 (relation <= ARCHIE_CUT_RELATION_MIN).
 		var seed := _find_seed_for(500, func():
 			GameState.reset()
 			GameState.state["flags"]["luckyOmen"] = true
 			GameState.state["player"]["orichalchum"]["time"] = 10
 			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
-			return not result.get("mugged", true) and GameState.state["player"]["cash"] > 40 + 109
+			return not result.get("mugged", true) and GameState.state["player"]["cash"] > 40 + 108
 		)
 		assert_true(seed != -1, "should find a seed where the omen hits and the sale isn't mugged, within 500 tries")
 		assert_true(not GameState.state["flags"]["luckyOmen"], "the flag is consumed regardless of the coin flip")
-		# time basePrice 60 * 1.10 = 66/unit, qty 3 -> gross 198, cut floor(198*0.6071428571) = 120
-		assert_eq(GameState.state["player"]["cash"], 40 + 120, "the +10% bump should be reflected in the payout")
+		# time basePrice 60 * 1.10 = 66/unit, qty 3 -> gross 198, cut floor(198*0.60) = 118
+		assert_eq(GameState.state["player"]["cash"], 40 + 118, "the +10% bump should be reflected in the payout")
 	)
 
 	run_case("lucky_omen_consumed_even_when_the_coin_flip_misses", func():
-		# No-bump gross 180 at post-award relation 12 -> cut floor(180*0.6071428571) = 109.
+		# No-bump gross 180 at relation 10 (flat 0.60x, see the bump case above) -> cut floor(180*0.60) = 108.
 		var seed := _find_seed_for(500, func():
 			GameState.reset()
 			GameState.state["flags"]["luckyOmen"] = true
 			GameState.state["player"]["orichalchum"]["time"] = 10
 			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
-			return not result.get("mugged", true) and GameState.state["player"]["cash"] == 40 + 109
+			return not result.get("mugged", true) and GameState.state["player"]["cash"] == 40 + 108
 		)
 		assert_true(seed != -1, "should find a seed where the omen misses, within 500 tries")
 		assert_true(not GameState.state["flags"]["luckyOmen"], "the flag is consumed even on a miss")

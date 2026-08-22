@@ -27,29 +27,54 @@ func run() -> void:
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
 		# time basePrice 60, barometer stable -> effective price 60, gross = 180.
-		# execute_sale awards ARCHIE_SALE_RELATION_GAIN (+2) *before* computing
-		# the cut, so the ratio uses relation 12 (startRelation 10 + 2), not 10:
-		# 0.60 + 0.25*(12-10)/70 = 0.6071428571; floor(180*that) = 109.
+		# collective1-06: execute_sale accrues Archie's tradeProgress via
+		# RelationAccrual instead of an immediate flat relation award, so the
+		# cut ratio uses the sale's pre-existing relation (startRelation 10,
+		# flat at 0.60 since relation <= ARCHIE_CUT_RELATION_MIN); floor(180*0.60) = 108.
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "3 ore deducted")
-		assert_eq(GameState.state["player"]["cash"], 40 + 109, "playerCut reflects the cut ratio at post-award relation 12, added to starting cash 40")
+		assert_eq(GameState.state["player"]["cash"], 40 + 108, "playerCut reflects the cut ratio at relation 10, added to starting cash 40")
 		assert_eq(GameState.state["modal"]["type"], "sale_result", "a non-mugged sale should open the sale_result modal")
 		assert_eq(GameState.state["modal"]["data"]["mugged"], false, "modal data reflects the non-mugged outcome")
 
 		var bank_log: Array = GameState.state["bankLog"]
 		assert_eq(bank_log.size(), 1, "a non-mugged sale records one bank transaction")
-		assert_eq(bank_log[0]["amount"], 109, "the recorded amount matches the player cut")
+		assert_eq(bank_log[0]["amount"], 108, "the recorded amount matches the player cut")
 		assert_eq(bank_log[0]["label"], "Archie sale", "the recorded label names the sale")
 	)
 
-	run_case("sale_via_archie_increases_his_relation_by_2", func():
+	# collective1-06, spec §8.4: the old flat ARCHIE_SALE_RELATION_GAIN-per-sale
+	# award was replaced by RelationAccrual's £-denominated accumulator (see
+	# tests/test_relation_accrual.gd for the rate/cap/remainder behavior) --
+	# these two cases now just confirm execute_sale feeds tradeProgress on
+	# gross, not relation directly, and does so regardless of the mugging roll.
+	run_case("sale_via_archie_feeds_his_tradeProgress_meter_not_relation_directly", func():
 		GameState.reset()
 		var starting_relation: int = GameState.state["contacts"]["archie"]["relation"]
 		GameState.state["player"]["orichalchum"]["time"] = 10
 		Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
-		assert_eq(GameState.state["contacts"]["archie"]["relation"], starting_relation + 2, "Archie's relation should tick up by ARCHIE_SALE_RELATION_GAIN per sale")
+		assert_eq(GameState.state["contacts"]["archie"]["tradeProgress"], 180, "gross value (3 * £60) banked into tradeProgress")
+		assert_eq(GameState.state["contacts"]["archie"]["relation"], starting_relation, "£180 is below the £1,000 rate -- no relation point yet")
 	)
 
-	run_case("mugged_sale_via_archie_still_increases_his_relation", func():
+	run_case("a_single_sale_crossing_the_1000_rate_still_prices_its_own_cut_at_the_relation_it_started_with", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 20
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 17 }])
+			return not result["mugged"]
+		)
+		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
+		# gross = 17*60 = 1020 -- crosses the £1,000 rate in this one call, so
+		# Archie's relation moves 10 -> 11 *during* execute_sale. RelationAccrual
+		# runs after player_cut is computed (systems/economy.gd), so this sale's
+		# own cut must still price at the relation it started with (10, flat
+		# 0.60x) -- floor(1020*0.60) = 612 -- not the relation it ends on
+		# (11, ratio 0.6035714286 -> would floor to 615 if the ordering were wrong).
+		assert_eq(GameState.state["contacts"]["archie"]["relation"], 11, "the £1,020 sale crosses one relation point")
+		assert_eq(GameState.state["player"]["cash"], 40 + 612, "the cut used the pre-sale relation, not the relation this same sale just bumped itself to")
+	)
+
+	run_case("mugged_sale_via_archie_still_feeds_tradeProgress", func():
 		var seed := _find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["orichalchum"]["time"] = 10
@@ -57,8 +82,7 @@ func run() -> void:
 			return result.get("mugged", false)
 		)
 		assert_true(seed != -1, "should find a mugged roll within 200 tries")
-		# archie startRelation 10 (R§1.11) + ARCHIE_SALE_RELATION_GAIN 2 = 12
-		assert_eq(GameState.state["contacts"]["archie"]["relation"], 12, "relation gain should not depend on the mugging outcome")
+		assert_eq(GameState.state["contacts"]["archie"]["tradeProgress"], 180, "tradeProgress accrual should not depend on the mugging outcome")
 	)
 
 	run_case("gross_math_applies_barometer_premiums", func():
@@ -71,8 +95,8 @@ func run() -> void:
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
 		# effective fate price under crisis = round_epsilon(90*(1-0.35+0.5)) = 104; gross = 208
-		# post-award relation 12 -> cut ratio 0.6071428571 (see gross_math_basic_ore_sale)
-		assert_eq(GameState.state["player"]["cash"], 40 + 126, "playerCut reflects the barometer-adjusted price")
+		# relation 10 -> cut ratio flat 0.60 (see gross_math_basic_ore_sale); floor(208*0.60) = 124
+		assert_eq(GameState.state["player"]["cash"], 40 + 124, "playerCut reflects the barometer-adjusted price")
 	)
 
 	run_case("gross_math_applies_district_priceMod", func():
@@ -85,8 +109,8 @@ func run() -> void:
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
 		# fate basePrice 90, stable barometer -> 90; city priceMod +0.15 -> round_epsilon(90*1.15) = 104; gross = 208
-		# post-award relation 12 -> cut ratio 0.6071428571 (see gross_math_basic_ore_sale)
-		assert_eq(GameState.state["player"]["cash"], 40 + 126, "playerCut reflects the district priceMod")
+		# relation 10 -> cut ratio flat 0.60 (see gross_math_basic_ore_sale); floor(208*0.60) = 124
+		assert_eq(GameState.state["player"]["cash"], 40 + 124, "playerCut reflects the district priceMod")
 	)
 
 	run_case("consumable_price_also_gets_district_priceMod", func():
@@ -98,10 +122,9 @@ func run() -> void:
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		# timePearl 120 * (1 - 0.05) = round_epsilon(114) = 114; post-award
-		# relation 12 -> cut ratio 0.6071428571 (see gross_math_basic_ore_sale);
-		# cut = floor(114*0.6071428571) = 69
-		assert_eq(GameState.state["player"]["cash"], 40 + 69, "consumable sale price also carries the district priceMod")
+		# timePearl 120 * (1 - 0.05) = round_epsilon(114) = 114; relation 10 ->
+		# cut ratio flat 0.60 (see gross_math_basic_ore_sale); cut = floor(114*0.60) = 68
+		assert_eq(GameState.state["player"]["cash"], 40 + 68, "consumable sale price also carries the district priceMod")
 	)
 
 	run_case("dangerMod_can_tip_a_non_mugging_roll_into_a_mugging", func():
@@ -156,8 +179,8 @@ func run() -> void:
 		)
 		assert_true(seed != -1, "should find a mugged roll within 200 tries")
 		assert_eq(GameState.state["player"]["cash"], 40, "cash should NOT increase yet — payout is deferred")
-		# post-award relation 12 -> cut ratio 0.6071428571 (see gross_math_basic_ore_sale)
-		assert_eq(GameState.state["pendingSaleCut"], 109, "pendingSaleCut holds floor(180*0.6071428571) = 109 until muggingWon")
+		# relation 10 -> cut ratio flat 0.60 (see gross_math_basic_ore_sale)
+		assert_eq(GameState.state["pendingSaleCut"], 108, "pendingSaleCut holds floor(180*0.60) = 108 until muggingWon")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "goods are still deducted even when mugged")
 	)
 
@@ -205,10 +228,9 @@ func run() -> void:
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		# gross = 3*60 (time) + 2*120 (timePearl, tier 0 -> 1.0x) = 420; post-award
-		# relation 12 -> cut ratio 0.6071428571 (see gross_math_basic_ore_sale);
-		# cut = floor(420*0.6071428571) = 254
-		assert_eq(GameState.state["player"]["cash"], 40 + 254, "sale proceeds from both ore and consumable lines")
+		# gross = 3*60 (time) + 2*120 (timePearl, tier 0 -> 1.0x) = 420; relation 10 ->
+		# cut ratio flat 0.60 (see gross_math_basic_ore_sale); cut = floor(420*0.60) = 252
+		assert_eq(GameState.state["player"]["cash"], 40 + 252, "sale proceeds from both ore and consumable lines")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "ore deducted")
 		assert_eq(Crafting.inventory_qty("timePearl"), 3, "consumable deducted")
 		assert_eq(GameState.state["sellState"], {}, "sellState cleared after selling")
@@ -230,17 +252,16 @@ func run() -> void:
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		# timePearl 120 * quality_price_multiplier(1) 1.0 = 120; post-award
-		# relation 12 -> cut ratio 0.6071428571 (see gross_math_basic_ore_sale);
-		# cut = floor(120*0.6071428571) = 72
+		# timePearl 120 * quality_price_multiplier(1) 1.0 = 120; relation 10 ->
+		# cut ratio flat 0.60 (see gross_math_basic_ore_sale); cut = floor(120*0.60) = 72
 		assert_eq(GameState.state["player"]["cash"], 40 + 72, "tier 1 sells at the base price")
 
 		GameState.reset()
 		GameState.state["player"]["inventory"]["timePearl"] = { "5": 1 }
 		Rng.set_seed(seed)
 		Economy.execute_sale([{ "kind": "consumable", "type": "timePearl", "tier": 5, "qty": 1 }])
-		# timePearl 120 * quality_price_multiplier(5) 2.0 = 240; cut = floor(240*0.6071428571) = 145
-		assert_eq(GameState.state["player"]["cash"], 40 + 145, "tier 5 sells for double the tier-1 price, same base item")
+		# timePearl 120 * quality_price_multiplier(5) 2.0 = 240; cut = floor(240*0.60) = 144
+		assert_eq(GameState.state["player"]["cash"], 40 + 144, "tier 5 sells for double the tier-1 price, same base item")
 	)
 
 	run_case("execute_sale_removes_stock_from_the_exact_tier_sold_leaving_other_tiers_untouched", func():
@@ -261,10 +282,9 @@ func run() -> void:
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		# gross = 2*120 (tier 1, 1.0x) + 1*240 (tier 5, 2.0x) = 480; post-award
-		# relation 12 -> cut ratio 0.6071428571 (see gross_math_basic_ore_sale);
-		# cut = floor(480*0.6071428571) = 291
-		assert_eq(GameState.state["player"]["cash"], 40 + 291, "each tier line sells at its own tier-scaled price")
+		# gross = 2*120 (tier 1, 1.0x) + 1*240 (tier 5, 2.0x) = 480; relation 10 ->
+		# cut ratio flat 0.60 (see gross_math_basic_ore_sale); cut = floor(480*0.60) = 288
+		assert_eq(GameState.state["player"]["cash"], 40 + 288, "each tier line sells at its own tier-scaled price")
 		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "1": 3, "5": 4 }, "each tier's stock is drawn down independently")
 	)
 

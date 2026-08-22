@@ -60,6 +60,12 @@ static func sell_to_faction(vein_id: String, faction_id: String) -> Dictionary:
 
 	MapEvents.queue_seed_claim(site["district"], faction_vein["id"], faction_id)
 
+	# collective1-06, spec §8.4: a vein sale's price counts toward the
+	# selling faction's tradeProgress exactly like any other trade -- a
+	# no-op at price 0 (ticket 14's Hakim handback) and for factions
+	# RelationAccrual.LANES doesn't configure a rate for.
+	RelationAccrual.accrue_faction(faction_id, price)
+
 	Objectives.refresh()  # collective1-05: boundary — vein sale completion
 	EventBus.state_changed.emit()
 	return { "ok": true, "price": price, "factionId": faction_id }

@@ -67,6 +67,7 @@ static func do_rest() -> void:
 # Steps for systems that don't exist yet are stubs; wire the real call in
 # when that task lands.
 static func daily_tick() -> void:
+	RelationAccrual.reset_daily_caps()   # collective1-06: relation-accrual daily cap reset, no ordering dependency on any other step
 	Barometer.tick()                     # ① barometer
 	Home.roll_daily_raid()               # ② home raid
 	Jobs.expire_overdue_job()            # ②b James job deadline expiry (bugfixes-30), runs before the fresh roll below so an expired slot can be re-offered the same day

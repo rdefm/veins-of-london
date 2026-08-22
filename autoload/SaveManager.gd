@@ -258,6 +258,8 @@ func _restore_int_types(state: Dictionary) -> void:
 		for recent in world.get("recentEvents", []):
 			_int_key(recent, "day")
 		_int_dict_values(world.get("mapSlotCounters", {}))
+		# collective1-06
+		_int_dict_values(world.get("relationAwardedToday", {}))
 
 	if state.has("home"):
 		var home: Dictionary = state["home"]
@@ -275,6 +277,8 @@ func _restore_int_types(state: Dictionary) -> void:
 		for faction in state["factions"].values():
 			_int_key(faction, "relation")
 			_int_key(faction, "resources")
+			# collective1-06
+			_int_key(faction, "tradeProgress")
 			# collective1-02
 			for ore_entry in faction.get("oreSold", {}).values():
 				_int_key(ore_entry, "units")
@@ -287,7 +291,8 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("contacts"):
 		for contact in state["contacts"].values():
 			for key in ["relation", "recruitThreshold", "raidAssistThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "stealthSkill", "stealthXP",
-					"combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatStashMax", "combatStash", "combatHealAmount", "koCooldownDays", "koCooldownUntilDay"]:
+					"combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatStashMax", "combatStash", "combatHealAmount", "koCooldownDays", "koCooldownUntilDay",
+					"tradeProgress"]:
 				_int_key(contact, key)
 
 	if state.has("barometer"):
