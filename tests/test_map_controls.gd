@@ -118,3 +118,25 @@ func run() -> void:
 
 		controls.free()
 	)
+
+	# bugfixes-50: pacing is persisted now (MapEvents/GameState), unlike
+	# filter_mode -- _ready() mirrors whatever map_canvas already read back
+	# from state (see map_canvas.gd's own _ready()) into this drawer's label
+	# state, so the drawer opens on the real current choice instead of always
+	# showing the hardcoded default.
+	run_case("ready_mirrors_map_canvas_persisted_pacing_into_the_drawer_label_state", func():
+		GameState.reset()
+		MapEvents.set_pacing_mode("sequential")
+
+		var canvas := MapCanvas.new()
+		canvas._ready()  # picks up "sequential" from GameState, same as a real Map screen visit
+
+		var controls := MapControls.new()
+		controls.map_canvas = canvas
+		controls._ready()
+
+		assert_eq(controls._pacing_mode, "sequential", "the drawer's own mirror matches whatever map_canvas already read back from state")
+
+		controls.free()
+		canvas.free()
+	)

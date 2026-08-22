@@ -7,12 +7,16 @@ extends Control
 # replaces the filter chip row entirely"). Filter mode is UI-local state
 # (N4: "not saved, not in GameState") — it lives here, not on MapCanvas or
 # GameState, and is pushed into MapCanvas via set_filter() whenever a list
-# row is picked. Same treatment for the pacing toggle (map-animations
-# ticket 06) via set_pacing(). Whether the drawer itself is open is the same
-# kind of UI-local ephemera — not worth plumbing through GameState/Nav
-# system functions the way real game state changes are (R§2's one-way flow
-# is about the pure, saved/rewindable state tree; this is scroll-position-
-# grade UI chrome, same class of thing filter_mode/pacing_mode already are).
+# row is picked. The pacing toggle (map-animations ticket 06) is pushed the
+# same way via set_pacing(), but bugfixes-50 makes pacing itself persisted
+# (GameState, via MapEvents) — _pacing_mode below is just this drawer's own
+# mirror, synced from map_canvas.pacing_mode in _ready() so the label shown
+# on open matches whatever's actually saved rather than always starting on
+# the default. Whether the drawer itself is open is the same kind of
+# UI-local ephemera — not worth plumbing through GameState/Nav system
+# functions the way real game state changes are (R§2's one-way flow is
+# about the pure, saved/rewindable state tree; that's still true of
+# filter_mode and of this drawer's own open/closed flag).
 #
 # Caller sets `map_canvas` before adding this to the tree, then calls
 # open()/close()/toggle() from wherever the hamburger button lives
@@ -34,8 +38,8 @@ const FILTER_LABELS := {
 # of applying immediately, so it's built by _build_faction_rows() instead.
 
 const PACING_LABELS := {
-	"deliberate": "Pace: Deliberate",
-	"quick": "Pace: Quick",
+	"sequential": "Pace: Sequential",
+	"simultaneous": "Pace: Simultaneous",
 }
 
 const DRAWER_WIDTH := 260.0
@@ -51,7 +55,7 @@ var _filter_mode: String = "ownership"
 var _last_non_faction_filter: String = "ownership"
 var _selected_faction_id: String = ""
 var _faction_picker_open: bool = false
-var _pacing_mode: String = "deliberate"
+var _pacing_mode: String = MapEvents.DEFAULT_PACING_MODE
 var _is_open: bool = false
 
 var _dim: ColorRect
@@ -97,6 +101,14 @@ func _ready() -> void:
 	_list = UI.vbox(8)
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_list)
+
+	# bugfixes-50: map_canvas is assigned and already _ready() (map.gd
+	# constructs/adds it before this Control — see this file's own class
+	# comment) by the time this runs, so its pacing_mode already reflects
+	# whatever was persisted -- mirror it here rather than always opening
+	# on the default label.
+	if map_canvas != null:
+		_pacing_mode = map_canvas.pacing_mode
 
 	_rebuild()
 
@@ -217,8 +229,8 @@ func _clear_faction_filter() -> void:
 
 
 func _toggle_pacing() -> void:
-	var idx := MapCanvas.PACING_MODES.find(_pacing_mode)
-	_pacing_mode = MapCanvas.PACING_MODES[(idx + 1) % MapCanvas.PACING_MODES.size()]
+	var idx := MapEvents.PACING_MODES.find(_pacing_mode)
+	_pacing_mode = MapEvents.PACING_MODES[(idx + 1) % MapEvents.PACING_MODES.size()]
 	if map_canvas != null:
 		map_canvas.set_pacing(_pacing_mode)
 	_rebuild()

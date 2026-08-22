@@ -33,7 +33,11 @@ func new_game_state() -> Dictionary:
 		# "List view" option). originScreen is which of those two opened it,
 		# so the list's own Back button returns there.
 		"veinListNav": { "districtId": null, "bandFilter": null, "originScreen": "map" },
-		"mapEvents": { "queue": [], "playing": false },
+		# bugfixes-50: pacingMode joined queue/playing here (moved off a
+		# MapCanvas-local instance var) so the player's chosen event-playback
+		# pace survives close/reopen and save/load — see MapEvents.
+		# pacing_mode()/set_pacing_mode().
+		"mapEvents": { "queue": [], "playing": false, "pacingMode": MapEvents.DEFAULT_PACING_MODE },
 		"phoneNav": { "app": "home", "selectedAxis": null, "confirmingNewGame": false },
 		# calc-discovery ticket 03: transient Lab nav, same convention as
 		# mapNav/phoneNav — resets on load, not meaningfully persisted.

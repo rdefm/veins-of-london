@@ -126,6 +126,52 @@ static func queue_join_line(district_id: String, vein_id: String, owner: String)
 	})
 
 
+# Ticket 06 (renamed by bugfixes-50 from "quick"/"deliberate" — see
+# map_canvas.gd's own PACING_MODES-adjacent duration constants for why the
+# rename): the two playback speeds MapCanvas's drain loop supports.
+# "sequential" is the original one-event-at-a-time drain, unchanged;
+# "simultaneous" plays every event currently queued at once instead
+# (MapCanvas._play_batch()). The valid-mode list and the persisted value
+# both live here rather than on MapCanvas itself, same "systems own the
+# GameState-backed schema, scene components own visual-only constants"
+# split GameState.gd's own SaveManager.SAVE_VERSION reference already
+# established.
+const PACING_MODES: PackedStringArray = ["sequential", "simultaneous"]
+const DEFAULT_PACING_MODE := "simultaneous"
+
+
+# UI-local no more: bugfixes-50 moves pacing off MapCanvas's own instance
+# var (previously reset every time the Map screen was recreated) into
+# GameState.state, so it survives close/reopen and save/load like the rest
+# of the state tree. MapCanvas reads this once in _ready(), map_controls.gd
+# mirrors it into its own drawer-label state the same moment.
+# .get() with a default, not [] — SaveManager.backfill_defaults() only fills
+# missing TOP-LEVEL keys (a save that already has "mapEvents" from before
+# this field existed keeps that dict as-is, pacingMode and all), so an
+# older-in-this-same-SAVE_VERSION save loaded post-upgrade would otherwise
+# read back null here instead of a real mode string.
+static func pacing_mode() -> String:
+	return GameState.state["mapEvents"].get("pacingMode", DEFAULT_PACING_MODE)
+
+
+static func set_pacing_mode(mode: String) -> void:
+	if not PACING_MODES.has(mode):
+		return
+	GameState.state["mapEvents"]["pacingMode"] = mode
+	EventBus.state_changed.emit()
+
+
+# A shallow copy of the queue as it stands right now — MapCanvas._play_batch()
+# snapshots it before starting a "simultaneous" batch's concurrent tweens, so
+# events appended behind the batch mid-play (bugfixes ticket 19's "queued
+# while the tab is already active" case) aren't accidentally swept into a
+# batch that's already animating; the batch commits to animating exactly the
+# events it snapshotted, then pops exactly that many off the front once
+# they've all finished.
+static func queue_snapshot() -> Array:
+	return GameState.state["mapEvents"]["queue"].duplicate()
+
+
 static func has_pending() -> bool:
 	return not GameState.state["mapEvents"]["queue"].is_empty()
 
@@ -209,8 +255,23 @@ static func advance() -> bool:
 # every future tap on any later Map visit would silently route into
 # _skip_current() with nothing left to skip, permanently locking out normal
 # district/stop taps (drag-to-pan still works — that's the wrapping
-# ScrollContainer, untouched by any of this). Only clears the guard, not the
-# queue, so has_pending()/current() still point at the same unplayed event —
-# the next visit's begin_playback() succeeds again and simply replays it.
+# ScrollContainer, untouched by any of this).
+#
+# bugfixes-50: used to clear only the "playing" guard, leaving the queue
+# itself untouched — has_pending()/current() still pointed at the same
+# unplayed event, so the next visit's begin_playback() replayed it from the
+# start (confirmed as the "only sometimes / inconsistent" replay bug: it
+# only reproduced when the Map screen happened to get torn down mid-tween).
+# Now pops that in-flight event off the front too, the same "consumed" shape
+# advance() already gives a natural completion or a tap-skip — the ordinary
+# redraw reveals it permanently instead of replaying its animation, and
+# begin_playback() on the next visit resumes with whatever's queued behind
+# it. Only pops when something was actually playing: a stray call with
+# nothing in flight (the no-op case below) must not eat an event that was
+# still legitimately waiting its turn.
 static func abandon_playback() -> void:
+	if GameState.state["mapEvents"]["playing"]:
+		var queue: Array = GameState.state["mapEvents"]["queue"]
+		if not queue.is_empty():
+			queue.pop_front()
 	GameState.state["mapEvents"]["playing"] = false

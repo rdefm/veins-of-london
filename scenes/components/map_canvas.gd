@@ -76,6 +76,17 @@ signal district_tapped(district_id: String, anchor: Vector2)
 # veins was actually tapped.
 signal station_tapped(stop: Dictionary, anchor: Vector2)
 
+# bugfixes-50: private join signal for "simultaneous" pacing's _play_batch()
+# — every tween in a batch connects here via a decrementing counter, so the
+# batch's own await resolves exactly once, the instant the last one finishes,
+# regardless of how many finish in the same engine frame (a real risk here,
+# since every tween in a batch shares the same duration and starts in the
+# same call). Awaiting each Tween's own "finished" signal one at a time in a
+# for loop can't give that guarantee -- if two tweens finish within the same
+# frame, the second's signal may already have fired before the loop gets
+# around to awaiting it, hanging forever.
+signal _batch_finished
+
 const PAPER_COLOUR := Color(1.0, 1.0, 1.0)                     # #ffffff, see _draw_paper() for why
 const RIVER_COLOUR := Color(0.831373, 0.811765, 0.768627, 0.6)  # #d4cfc4 @ 60%
 const MUTED_COLOUR := Color(0.541176, 0.541176, 0.541176)       # --muted #8a8a8a
@@ -159,13 +170,20 @@ var _halos: Dictionary = {}  # veinId -> ChargeHalo
 # its own fixed, snappier PAN_DURATION so panning never feels sluggish
 # regardless of how slow/fast the visual pacing is tuned.
 #
-# Ticket 06: pacing is a player-facing toggle, UI-local state exactly like
-# filter_mode above (never written to GameState, never persisted) — pushed
-# in via set_pacing() by map_controls.gd, same shape as set_filter(). Default
-# on a fresh MapCanvas is "deliberate".
-const PACING_MODES: PackedStringArray = ["deliberate", "quick"]
-const DELIBERATE_DURATION := 1.5
-const QUICK_DURATION := 0.35
+# Ticket 06: pacing is a player-facing toggle, pushed in via set_pacing() by
+# map_controls.gd. bugfixes-50: renamed ("quick" -> "sequential",
+# "deliberate" -> "simultaneous") and moved off a UI-local-only var — the
+# valid-mode list and the persisted value now live on MapEvents (systems
+# layer, same GameState-backed treatment as the queue itself); this file
+# keeps only the two modes' visual duration mapping, which is timing/render
+# detail with nothing to persist. set_pacing() writes through to
+# MapEvents.set_pacing_mode() and _ready() reads it back via MapEvents.
+# pacing_mode(), so the field default below ("simultaneous") is only ever
+# actually seen by a bare MapCanvas.new() that skips _ready() (the test
+# suite's established pattern for exercising fields/setters without a live
+# SceneTree) — a real Map screen visit always overwrites it from state.
+const SEQUENTIAL_DURATION := 0.35
+const SIMULTANEOUS_DURATION := 1.5
 const PAN_DURATION := 0.4
 const RIPPLE_DURATION_FRACTION := 0.7
 
@@ -177,14 +195,20 @@ const RIPPLE_DURATION_FRACTION := 0.7
 # results, not queued events, so they aren't part of that skip/pacing system.
 const ACTION_RESULT_DURATION := 0.6
 
-var pacing_mode: String = "deliberate"
-var event_visual_duration: float = DELIBERATE_DURATION
+var pacing_mode: String = MapEvents.DEFAULT_PACING_MODE
+var event_visual_duration: float = SIMULTANEOUS_DURATION
 
 # The tween currently in flight for the event being played (pan, then the
 # event's own visual) — _skip_current() fast-forwards whichever one this
 # points at so a tap-skip resolves the `await` blocking _play_event()
-# immediately instead of waiting out its natural duration.
+# immediately instead of waiting out its natural duration. "sequential"
+# pacing is the only mode that ever populates this.
 var _active_tween: Tween = null
+# bugfixes-50: "simultaneous" pacing's counterpart to _active_tween above —
+# every tween in the currently-playing batch, so a tap-skip mid-batch can
+# fast-forward all of them at once (see _skip_current()). Empty outside a
+# "simultaneous" batch.
+var _active_tweens: Array = []
 var _skip_requested := false
 
 # T14 asset production: whether the bundled engine font actually covers the
@@ -280,6 +304,12 @@ func _ready() -> void:
 	_labels_layer.draw.connect(_draw_labels.bind(_labels_layer))
 
 	_apply_zoom()
+
+	# bugfixes-50: read the persisted pacing choice back on every fresh Map
+	# screen visit -- _apply_pacing() only touches the two local fields
+	# below, no GameState write, so this doesn't retrigger set_pacing()'s
+	# own persist-and-emit.
+	_apply_pacing(MapEvents.pacing_mode())
 
 	EventBus.state_changed.connect(_rebuild)
 	_rebuild()
@@ -396,12 +426,24 @@ func _maybe_start_playback() -> void:
 		_play_queue()
 
 
+# bugfixes-50: "simultaneous" pacing drains the whole queue snapshot as one
+# concurrent batch instead of one event at a time -- see _play_batch()'s own
+# comment for why (no per-event pan, since a shared camera shot can't
+# meaningfully chase N different map locations at once -- human call:
+# no forced pan/zoom in this mode at all, camera stays wherever the player
+# left it).
 func _play_queue() -> void:
 	while MapEvents.has_pending():
 		_skip_requested = false
-		await _play_event(MapEvents.current())
-		_active_tween = null
-		MapEvents.advance()
+		if pacing_mode == "simultaneous":
+			var batch: Array = MapEvents.queue_snapshot()
+			await _play_batch(batch)
+			for i in batch.size():
+				MapEvents.advance()
+		else:
+			await _play_event(MapEvents.current())
+			_active_tween = null
+			MapEvents.advance()
 
 
 func _play_event(event: Dictionary) -> void:
@@ -416,17 +458,67 @@ func _play_event(event: Dictionary) -> void:
 	if _skip_requested:
 		return
 
+	var tween: Variant = _start_event_visual(event, stop)
+	if tween == null:
+		return
+	_active_tween = tween
+	await tween.finished
+
+
+# bugfixes-50: every queued event this batch commits to (MapEvents.
+# queue_snapshot() at the call site) gets its visual built and started here,
+# all before anything is awaited -- create_tween() interpolates across
+# subsequent engine frames, never synchronously, so nothing in a batch can
+# possibly finish mid-loop and race the _batch_finished hookup below. Each
+# tween's own "finished" then decrements a shared counter; the last one to
+# fire emits _batch_finished, which is what this function actually awaits --
+# not each tween's own signal in turn, which (per _batch_finished's own
+# comment) can't safely rule out two tweens finishing the same frame.
+func _play_batch(events: Array) -> void:
+	_active_tweens = []
+	for event in events:
+		var stop: Variant = _resolve_event_stop(event)
+		if stop == null:
+			continue  # site/vein no longer resolvable (edge case) -- nothing to animate
+		var tween: Variant = _start_event_visual(event, stop)
+		if tween != null:
+			_active_tweens.append(tween)
+
+	if _active_tweens.is_empty():
+		return
+
+	var remaining := _active_tweens.size()
+	for tween in _active_tweens:
+		tween.finished.connect(func():
+			remaining -= 1
+			if remaining == 0:
+				_batch_finished.emit()
+		)
+	await _batch_finished
+	_active_tweens = []
+
+
+# The shared dispatch _play_event() (sequential) and _play_batch()
+# (simultaneous) both build on: constructs the event-type's visual node,
+# starts its tween, and returns it (or null if the underlying site/vein
+# isn't resolvable any more -- same edge case _resolve_event_stop's callers
+# already guard). Each visual frees itself off its own tween's "finished"
+# rather than leaving cleanup to whichever caller happens to await it, so
+# both the single-tween sequential await and the batch's counter-based join
+# above tear down identically.
+func _start_event_visual(event: Dictionary, stop: Dictionary) -> Variant:
 	match event["type"]:
 		"discover":
-			await _play_discover_ripple(stop["position"], event)
+			return _start_discover_ripple(stop["position"], event)
 		"seed_claim":
-			await _play_seed_claim_ring(stop, event)
+			return _start_seed_claim_ring(stop, event)
 		"charge":
-			await _play_charge_burst(stop, event)
+			return _start_charge_burst(stop, event)
 		"drain":
-			await _play_vein_drain(stop, event)
+			return _start_vein_drain(stop, event)
 		"join_line":
-			await _play_line_growth(stop, event)
+			return _start_line_growth(stop, event)
+	return null
 
 
 # The event's stop (position + resolved site/vein data), resolved live (not
@@ -445,10 +537,15 @@ func _resolve_event_stop(event: Dictionary) -> Variant:
 	return null
 
 
-func _play_discover_ripple(pos: Vector2, event: Dictionary) -> void:
+# Returns the started tween, or null if the underlying site no longer
+# resolves (edge case, see _resolve_event_stop) -- nothing to pop in. Frees
+# the ripple node off its own tween's "finished" rather than leaving that to
+# the caller, so this behaves the same whether _play_event() awaits it alone
+# or _play_batch() awaits it as part of a concurrent group.
+func _start_discover_ripple(pos: Vector2, event: Dictionary) -> Variant:
 	var site: Variant = Sites.find_site(event["siteId"])
 	if site == null:
-		return  # site no longer resolvable (edge case, see _resolve_event_stop) -- nothing to pop in
+		return null
 
 	var ripple := DiscoverRipple.new()
 	ripple.map_canvas = self
@@ -457,22 +554,21 @@ func _play_discover_ripple(pos: Vector2, event: Dictionary) -> void:
 	ripple.position = pos
 	_playback_layer.add_child(ripple)
 	# start() builds the tween synchronously and returns immediately (no
-	# await inside it), so _active_tween is assigned before anything can
-	# call _skip_current() mid-animation — awaiting the tween directly here
-	# (rather than through another async wrapper) keeps that ordering exact.
+	# await inside it), so the tween exists and is playing before this
+	# function returns -- required for _play_batch() to collect every
+	# batch member's tween up front, before awaiting any of them.
 	ripple.start(
 		event_visual_duration * RIPPLE_DURATION_FRACTION,
 		event_visual_duration * (1.0 - RIPPLE_DURATION_FRACTION)
 	)
-	_active_tween = ripple.tween
-	await ripple.tween.finished
-	ripple.queue_free()
+	ripple.tween.finished.connect(ripple.queue_free)
+	return ripple.tween
 
 
 # The (owner colour, stop radius, ring base width) triple that identifies
 # "is this a player vein stop or a faction one" — _draw_vein_stop/
 # _draw_faction_stop each already know their own identity at the call site,
-# but _play_seed_claim_ring below only has a runtime owner string, so it
+# but _start_seed_claim_ring below only has a runtime owner string, so it
 # needs this looked up rather than hardcoded twice.
 func _stop_render_params(owner: String) -> Dictionary:
 	if owner == "player":
@@ -493,10 +589,10 @@ func _stop_render_params(owner: String) -> Dictionary:
 # this vein, so the ring's end state is byte-for-byte identical to what the
 # permanent draw shows the instant this node is freed and MapEvents.advance()
 # reveals it — same "no visible jump" discipline as DiscoverRipple.
-func _play_seed_claim_ring(stop: Dictionary, event: Dictionary) -> void:
+func _start_seed_claim_ring(stop: Dictionary, event: Dictionary) -> Variant:
 	var vein: Variant = stop["vein"]
 	if vein == null:
-		return  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to draw
+		return null  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to draw
 
 	var params := _stop_render_params(event["owner"])
 	var alpha := MapStyle.stop_alpha(filter_mode, false, selected_faction_id, event["owner"])  # a brand-new vein is never in a risk band
@@ -510,9 +606,8 @@ func _play_seed_claim_ring(stop: Dictionary, event: Dictionary) -> void:
 	ring.ring_width = style["width"]
 	_playback_layer.add_child(ring)
 	ring.start(event_visual_duration)
-	_active_tween = ring.tween
-	await ring.tween.finished
-	ring.queue_free()
+	ring.tween.finished.connect(ring.queue_free)
+	return ring.tween
 
 
 # Ticket 05: the connecting line segment grows onto the owner's existing
@@ -523,22 +618,22 @@ func _play_seed_claim_ring(stop: Dictionary, event: Dictionary) -> void:
 # state is *exactly* what _draw_lines' real recomputed route already
 # produces once this event resolves, not just an approximation that lands
 # near it. Same "must end in a particular static draw state" case as
-# _play_seed_claim_ring: this vein is kept out of _draw_lines' owner-line
+# _start_seed_claim_ring: this vein is kept out of _draw_lines' owner-line
 # computation for as long as this event stays queued (_line_vein_stops/
 # _line_faction_stops, via MapEvents.pending_join_line_vein_ids()), so the
 # grown segment — using the exact same MapStyle.line_colour/line_alpha
 # calls _draw_lines makes — is what first shows this stop connected at all;
 # nothing jumps when this node is freed and MapEvents.advance() hands off
 # to the real route.
-func _play_line_growth(stop: Dictionary, event: Dictionary) -> void:
+func _start_line_growth(stop: Dictionary, event: Dictionary) -> Variant:
 	var vein: Variant = stop["vein"]
 	if vein == null:
-		return  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to grow
+		return null  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to grow
 
 	var owner: String = event["owner"]
 	var anchor: Variant = MapLayout.home_anchor() if owner == "player" else MapLayout.faction_first_presence_anchor(owner)
 	if anchor == null:
-		return  # data error (see MapLayout.faction_first_presence_anchor) -- nothing to grow onto
+		return null  # data error (see MapLayout.faction_first_presence_anchor) -- nothing to grow onto
 
 	var params := _stop_render_params(owner)
 	var alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, owner)
@@ -551,16 +646,15 @@ func _play_line_growth(stop: Dictionary, event: Dictionary) -> void:
 	growth.line_colour = _faded(MapStyle.line_colour(filter_mode, params["colour"]), alpha)
 	_playback_layer.add_child(growth)
 	growth.start(event_visual_duration)
-	_active_tween = growth.tween
-	await growth.tween.finished
-	growth.queue_free()
+	growth.tween.finished.connect(growth.queue_free)
+	return growth.tween
 
 
 # The current { "id", "pos" } stops _draw_lines would feed MapRouting.
 # build_line() for `owner` right now — i.e. excluding this same still-
 # pending join_line vein (and any other owner stop whose own join_line
 # event hasn't played yet), the "line as it stands before this join" that
-# _play_line_growth above grows onto. Mirrors _draw_lines' own player_stops/
+# _start_line_growth above grows onto. Mirrors _draw_lines' own player_stops/
 # faction stops[...] conversion exactly, just for one owner at a time.
 func _line_owner_stops(owner: String) -> Array:
 	var source: Array = _line_vein_stops if owner == "player" else _line_faction_stops.get(owner, [])
@@ -574,7 +668,7 @@ func _line_owner_stops(owner: String) -> Array:
 # wild/rampant bands or reaching the ceiling — see Cultivating.
 # _queue_growth_events): a brighter one-shot burst/flash at the stop,
 # visually distinct from (and preceding) ChargeHalo's own steady-state
-# pulse. Unlike _play_discover_ripple/_play_seed_claim_ring, this doesn't
+# pulse. Unlike _start_discover_ripple/_start_seed_claim_ring, this doesn't
 # need to end in a particular static draw state: the vein was never hidden
 # from the ordinary draw in the first place (see MapEvents.queue_charge's
 # own comment — pending_vein_ids() deliberately excludes "charge" events),
@@ -585,26 +679,25 @@ func _line_owner_stops(owner: String) -> Array:
 # brighter flash on top of it in _playback_layer (added after _halo_layer,
 # so it renders above the halo) and frees itself, leaving the halo exactly
 # as it already was.
-func _play_charge_burst(stop: Dictionary, event: Dictionary) -> void:
+func _start_charge_burst(stop: Dictionary, event: Dictionary) -> Variant:
 	var vein: Variant = stop["vein"]
 	if vein == null:
-		return  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to burst
+		return null  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to burst
 
 	var burst := ChargeBurst.new()
 	burst.position = stop["position"]
 	_playback_layer.add_child(burst)
 	burst.start(event_visual_duration)
-	_active_tween = burst.tween
-	await burst.tween.finished
-	burst.queue_free()
+	burst.tween.finished.connect(burst.queue_free)
+	return burst.tween
 
 
 # Ticket 04 (retriggered by vein-growth-state ticket 07 on draining back
 # down to/through neutral — see Cultivating._queue_growth_events): the halo
 # visibly collapses inward and fades out, the reverse shape of
-# _play_charge_burst above, marking the moment growth fell back to neutral
+# _start_charge_burst above, marking the moment growth fell back to neutral
 # rather than the halo just disappearing. Same "doesn't need to end in a
-# particular static draw state" reasoning as _play_charge_burst: the vein
+# particular static draw state" reasoning as _start_charge_burst: the vein
 # was never hidden from the ordinary draw (see MapEvents.queue_drain's own
 # comment), and _rebuild_halos() always reflects the vein's current growth
 # band, not a snapshot from when this event was queued — the halo may well
@@ -612,18 +705,17 @@ func _play_charge_burst(stop: Dictionary, event: Dictionary) -> void:
 # rampant happens at a higher growth than reaching neutral), so this is
 # purely a one-shot overlay in _playback_layer marking the neutral crossing
 # itself, not literally "the moment the halo turns off".
-func _play_vein_drain(stop: Dictionary, event: Dictionary) -> void:
+func _start_vein_drain(stop: Dictionary, event: Dictionary) -> Variant:
 	var vein: Variant = stop["vein"]
 	if vein == null:
-		return  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to collapse
+		return null  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to collapse
 
 	var collapse := DrainCollapse.new()
 	collapse.position = stop["position"]
 	_playback_layer.add_child(collapse)
 	collapse.start(event_visual_duration)
-	_active_tween = collapse.tween
-	await collapse.tween.finished
-	collapse.queue_free()
+	collapse.tween.finished.connect(collapse.queue_free)
+	return collapse.tween
 
 
 # Tap-to-skip (N5's delta for this ticket): fast-forwards whichever tween is
@@ -632,10 +724,19 @@ func _play_vein_drain(stop: Dictionary, event: Dictionary) -> void:
 # end state (spec: "snaps it to its end state") — and _skip_requested tells
 # _play_event() to stop chaining any further phases of *this* event, so
 # _play_queue() moves on to the next queued event immediately.
+#
+# bugfixes-50: "simultaneous" pacing has no single _active_tween (see its own
+# comment) -- fast-forwarding every tween in _active_tweens instead completes
+# the whole batch at once. Each one firing "finished" here (still
+# synchronously, within this same call) is exactly what resolves _play_batch()'s
+# counter down to zero and emits _batch_finished, same as a natural finish.
 func _skip_current() -> void:
 	_skip_requested = true
 	if _active_tween != null and _active_tween.is_valid():
 		_active_tween.custom_step(999999.0)
+	for tween in _active_tweens:
+		if tween != null and tween.is_valid():
+			tween.custom_step(999999.0)
 
 
 func _rebuild() -> void:
@@ -675,16 +776,25 @@ func set_faction_filter(faction_id: String) -> void:
 	queue_redraw()
 
 
-# Ticket 06: UI-local pacing preference (never written to GameState), same
-# treatment as set_filter() above. Takes effect on the next event the
-# playback loop plays — event_visual_duration is only read at the top of
-# each _play_*() visual, never mid-tween, so switching this while an event
-# is already animating doesn't retroactively rescale it.
+# Ticket 06, persisted by bugfixes-50: pushes the pick through to
+# MapEvents.set_pacing_mode() (GameState + emit) and applies it locally.
+# Takes effect on the next event the playback loop plays —
+# event_visual_duration is only read at the top of each _start_*() visual,
+# never mid-tween, so switching this while an event is already animating
+# doesn't retroactively rescale it.
 func set_pacing(mode: String) -> void:
-	if not PACING_MODES.has(mode):
+	if not MapEvents.PACING_MODES.has(mode):
 		return
+	MapEvents.set_pacing_mode(mode)
+	_apply_pacing(mode)
+
+
+# The GameState-write-free half of set_pacing() above -- _ready() calls this
+# directly (via MapEvents.pacing_mode()) to apply a persisted choice without
+# re-persisting/re-emitting it right back.
+func _apply_pacing(mode: String) -> void:
 	pacing_mode = mode
-	event_visual_duration = QUICK_DURATION if mode == "quick" else DELIBERATE_DURATION
+	event_visual_duration = SEQUENTIAL_DURATION if mode == "sequential" else SIMULTANEOUS_DURATION
 
 
 func _partition_stops() -> void:
@@ -802,7 +912,7 @@ func _draw_lines() -> void:
 	# Ticket 05: the routed line reads from _line_vein_stops/_line_faction_
 	# stops, not _vein_stops/_faction_stops (used for rings) — a stop whose
 	# join_line event hasn't played yet stays out of its owner's line entirely
-	# so MapCanvas._play_line_growth's grown segment is the first thing that
+	# so MapCanvas._start_line_growth's grown segment is the first thing that
 	# ever shows it connected.
 	var player_stops: Array = []
 	for stop in _line_vein_stops:
@@ -851,7 +961,7 @@ func _draw_stops() -> void:
 
 # Ring colour/width for a vein stop, player- or faction-owned — pulled out
 # of _draw_vein_stop/_draw_faction_stop so the seed/claim animation
-# (MapCanvas._play_seed_claim_ring, ticket 02) computes its end-state style
+# (MapCanvas._start_seed_claim_ring, ticket 02) computes its end-state style
 # from the exact same MapStyle calls rather than a parallel formula that
 # could drift from the permanent static draw. Ticket 07: keyed on
 # Cultivating.value_tier(vein) (1-6) now, not the retired 1-6 `level` field.
@@ -1582,7 +1692,7 @@ class ChargeHalo:
 
 
 # Map-animations ticket 03's charge visual: a brighter one-shot burst that
-# expands and fades once, then is gone (see MapCanvas._play_charge_burst).
+# expands and fades once, then is gone (see MapCanvas._start_charge_burst).
 # Deliberately not just a single fast lap of ChargeHalo's own curve — START_
 # ALPHA/COLOUR sit well above ChargeHalo's (0.5 amber) so the burst reads as
 # a distinct brighter flash preceding the steady-state loop, per the ticket's
@@ -1763,7 +1873,7 @@ class DiscoverRipple:
 	const RING_START_ALPHA := 0.6
 	const RING_COLOUR := MapCanvas.MUTED_COLOUR
 
-	# Set by MapCanvas._play_discover_ripple() before start() is called.
+	# Set by MapCanvas._start_discover_ripple() before start() is called.
 	# map_canvas lets the pop-in phase call straight back into
 	# _draw_ring_stop()/_draw_interchange_ring()/_draw_ore_symbol() — the
 	# exact same draw calls _draw_unclaimed_stop() makes at rest — instead
@@ -1808,7 +1918,7 @@ class DiscoverRipple:
 		if _glyph_scale > 0.0:
 			# The whole stop (ring(s) + centred glyph) scales in together as
 			# one cluster, relative to this node's own origin (already
-			# positioned at the site, see MapCanvas._play_discover_ripple).
+			# positioned at the site, see MapCanvas._start_discover_ripple).
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2(_glyph_scale, _glyph_scale))
 			var ore: Dictionary = GameData.ORE_TYPES[ore_type]
 			# _unclaimed_ring_style() (not a hand-built dict) so this pop-in
@@ -1829,14 +1939,14 @@ class DiscoverRipple:
 # ring already draws with (see MapCanvas._draw_vein_stop/_draw_faction_stop).
 # One-shot, Tween-driven (not _process) for the same custom_step()
 # fast-forward reason as DiscoverRipple above. radius/fill_colour/
-# ring_colour/ring_width are computed once by MapCanvas._play_seed_claim_ring
+# ring_colour/ring_width are computed once by MapCanvas._start_seed_claim_ring
 # via _vein_ring_style() — the exact same MapStyle calls the static draw
 # makes — so the swept-in ring's end state is byte-for-byte identical to the
 # permanent render, not a reimplementation that could drift.
 class SeedClaimRing:
 	extends Node2D
 
-	# Set by MapCanvas._play_seed_claim_ring() before start() is called.
+	# Set by MapCanvas._start_seed_claim_ring() before start() is called.
 	var radius: float
 	var fill_colour: Color
 	var ring_colour: Color
@@ -1860,7 +1970,7 @@ class SeedClaimRing:
 
 
 # Map-animations ticket 05's join-line visual: `points` (set by MapCanvas.
-# _play_line_growth() via MapRouting.grow_segment()) is the *actual* tail of
+# _start_line_growth() via MapRouting.grow_segment()) is the *actual* tail of
 # MapRouting.build_line()'s own recomputed output, elbow geometry included —
 # not a straight-line stand-in — so this progressively reveals it by
 # cumulative arc length rather than lerping a single point, and its own end
@@ -1873,7 +1983,7 @@ class SeedClaimRing:
 class LineGrowth:
 	extends Node2D
 
-	# Set by MapCanvas._play_line_growth() before start() is called.
+	# Set by MapCanvas._start_line_growth() before start() is called.
 	var points: PackedVector2Array
 	var line_colour: Color
 

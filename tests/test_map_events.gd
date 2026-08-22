@@ -253,31 +253,96 @@ func run() -> void:
 	)
 
 	# ── abandon_playback: recovering from MapCanvas being torn down mid-drain ──
+	# bugfixes-50: the in-flight event no longer replays from the start on
+	# the next visit — abandon_playback() now pops it off the queue (same
+	# "consumed" shape a natural completion or tap-skip already gives it),
+	# so only whatever's still queued *behind* it survives.
 
-	run_case("abandon_playback_clears_playing_without_touching_the_queue", func():
+	run_case("abandon_playback_pops_the_in_flight_event_so_it_does_not_replay", func():
 		GameState.reset()
 		MapEvents.queue_discover("shoreditch", "s1")
 		MapEvents.queue_discover("camden", "s2")
 		MapEvents.begin_playback()
 		MapEvents.abandon_playback()
 		assert_true(not MapEvents.is_playing())
-		assert_eq(MapEvents.pending_site_ids(), ["s1", "s2"], "the queue itself is untouched — nothing was skipped or lost")
+		assert_eq(MapEvents.pending_site_ids(), ["s2"], "the interrupted event (s1) is consumed; s2 still awaits its turn")
 	)
 
-	run_case("a_visit_after_an_abandoned_drain_resumes_the_same_unplayed_event", func():
+	run_case("a_visit_after_an_abandoned_drain_moves_on_to_the_next_event_instead_of_replaying", func():
 		GameState.reset()
 		MapEvents.queue_discover("shoreditch", "s1")
+		MapEvents.queue_discover("camden", "s2")
 		# e.g. a district-deck event fired mid-prospect and navigated away
 		# from "map" while MapCanvas was still panning/animating s1 — see
 		# MapCanvas._exit_tree().
 		MapEvents.begin_playback()
 		MapEvents.abandon_playback()
 		assert_true(MapEvents.begin_playback(), "a later visit can start a fresh drain — not stuck forever")
-		assert_eq(MapEvents.current()["siteId"], "s1", "resumes/replays the same event that got cut off, not skipped")
+		assert_eq(MapEvents.current()["siteId"], "s2", "resumes on the next queued event, not a replay of the one that got cut off")
+	)
+
+	run_case("abandon_playback_after_the_last_queued_event_leaves_nothing_to_resume", func():
+		GameState.reset()
+		MapEvents.queue_discover("shoreditch", "s1")
+		MapEvents.begin_playback()
+		MapEvents.abandon_playback()
+		assert_true(not MapEvents.has_pending(), "the only queued event was the interrupted one — nothing left")
+		assert_true(not MapEvents.begin_playback(), "an empty queue — nothing replays")
 	)
 
 	run_case("abandon_playback_is_a_no_op_when_nothing_was_playing", func():
 		GameState.reset()
+		MapEvents.queue_discover("shoreditch", "s1")
 		MapEvents.abandon_playback()
 		assert_true(not MapEvents.is_playing())
+		assert_eq(MapEvents.pending_site_ids(), ["s1"], "nothing was in flight — a queued-but-unstarted event must not be eaten")
+	)
+
+	# ── pacing_mode/set_pacing_mode: bugfixes-50's persisted playback pace ──
+
+	run_case("pacing_mode_defaults_to_simultaneous_on_a_fresh_game", func():
+		GameState.reset()
+		assert_eq(MapEvents.pacing_mode(), "simultaneous")
+	)
+
+	run_case("set_pacing_mode_persists_the_chosen_mode", func():
+		GameState.reset()
+		MapEvents.set_pacing_mode("sequential")
+		assert_eq(MapEvents.pacing_mode(), "sequential")
+	)
+
+	run_case("set_pacing_mode_ignores_an_unknown_mode", func():
+		GameState.reset()
+		MapEvents.set_pacing_mode("blazing")
+		assert_eq(MapEvents.pacing_mode(), "simultaneous", "an invalid mode leaves the persisted default unchanged")
+	)
+
+	run_case("pacing_mode_survives_a_save_load_round_trip", func():
+		GameState.reset()
+		MapEvents.set_pacing_mode("sequential")
+		var exported := SaveManager.export_string()
+		GameState.reset()
+		assert_eq(MapEvents.pacing_mode(), "simultaneous", "sanity check -- reset() really did drop back to the default")
+		SaveManager.import_string(exported)
+		assert_eq(MapEvents.pacing_mode(), "sequential", "the chosen pacing mode survives export/import (save/load) round-trip")
+	)
+
+	# ── queue_snapshot: bugfixes-50's "simultaneous" batch support ─────────
+
+	run_case("queue_snapshot_returns_a_copy_of_the_queue_in_order", func():
+		GameState.reset()
+		MapEvents.queue_discover("shoreditch", "s1")
+		MapEvents.queue_seed_claim("camden", "v1", "player")
+		var snapshot := MapEvents.queue_snapshot()
+		assert_eq(snapshot.size(), 2)
+		assert_eq(snapshot[0]["siteId"], "s1")
+		assert_eq(snapshot[1]["veinId"], "v1")
+	)
+
+	run_case("queue_snapshot_is_a_copy_not_a_live_reference", func():
+		GameState.reset()
+		MapEvents.queue_discover("shoreditch", "s1")
+		var snapshot := MapEvents.queue_snapshot()
+		MapEvents.queue_discover("camden", "s2")
+		assert_eq(snapshot.size(), 1, "later queue_discover calls must not retroactively grow an already-taken snapshot")
 	)

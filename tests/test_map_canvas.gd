@@ -434,24 +434,29 @@ func run() -> void:
 	# Map-animations ticket 06: set_pacing() and event_visual_duration are
 	# plain fields/a setter, safe to exercise directly on a fresh MapCanvas.new()
 	# for the same reason as the cases above -- neither touches get_tree()/
-	# get_viewport().
-	run_case("fresh_canvas_defaults_to_deliberate_pacing", func():
+	# get_viewport(). bugfixes-50 renamed the modes ("quick" -> "sequential",
+	# "deliberate" -> "simultaneous") and persists the choice via MapEvents
+	# (see the _ready()-reads-persisted-state case further below, which is
+	# the one that actually exercises persistence -- these field/setter
+	# cases don't call _ready(), so they only ever see the hardcoded default).
+	run_case("fresh_canvas_defaults_to_simultaneous_pacing", func():
 		var canvas := MapCanvas.new()
-		assert_eq(canvas.pacing_mode, "deliberate", "default pacing on a fresh load is deliberate")
-		assert_eq(canvas.event_visual_duration, MapCanvas.DELIBERATE_DURATION, "default duration is the deliberate constant")
+		assert_eq(canvas.pacing_mode, "simultaneous", "default pacing on a fresh load is simultaneous")
+		assert_eq(canvas.event_visual_duration, MapCanvas.SIMULTANEOUS_DURATION, "default duration is the simultaneous constant")
 		canvas.free()
 	)
 
-	run_case("set_pacing_quick_switches_the_duration_the_playback_engine_reads", func():
+	run_case("set_pacing_sequential_switches_the_duration_the_playback_engine_reads", func():
+		GameState.reset()
 		var canvas := MapCanvas.new()
 
-		canvas.set_pacing("quick")
-		assert_eq(canvas.pacing_mode, "quick", "pacing_mode reflects the toggle")
-		assert_eq(canvas.event_visual_duration, MapCanvas.QUICK_DURATION, "event_visual_duration switches to the quick constant")
+		canvas.set_pacing("sequential")
+		assert_eq(canvas.pacing_mode, "sequential", "pacing_mode reflects the toggle")
+		assert_eq(canvas.event_visual_duration, MapCanvas.SEQUENTIAL_DURATION, "event_visual_duration switches to the sequential constant")
 
-		canvas.set_pacing("deliberate")
-		assert_eq(canvas.pacing_mode, "deliberate", "switching back updates pacing_mode again")
-		assert_eq(canvas.event_visual_duration, MapCanvas.DELIBERATE_DURATION, "event_visual_duration switches back to the deliberate constant")
+		canvas.set_pacing("simultaneous")
+		assert_eq(canvas.pacing_mode, "simultaneous", "switching back updates pacing_mode again")
+		assert_eq(canvas.event_visual_duration, MapCanvas.SIMULTANEOUS_DURATION, "event_visual_duration switches back to the simultaneous constant")
 
 		canvas.free()
 	)
@@ -461,8 +466,39 @@ func run() -> void:
 
 		canvas.set_pacing("blazing")
 
-		assert_eq(canvas.pacing_mode, "deliberate", "an invalid mode leaves pacing_mode unchanged")
-		assert_eq(canvas.event_visual_duration, MapCanvas.DELIBERATE_DURATION, "an invalid mode leaves the duration unchanged")
+		assert_eq(canvas.pacing_mode, "simultaneous", "an invalid mode leaves pacing_mode unchanged")
+		assert_eq(canvas.event_visual_duration, MapCanvas.SIMULTANEOUS_DURATION, "an invalid mode leaves the duration unchanged")
+
+		canvas.free()
+	)
+
+	# bugfixes-50: set_pacing() writes through to MapEvents (GameState), and
+	# _ready() reads it back -- this is what "persisted, read back on map
+	# screen creation" actually means end to end.
+	run_case("set_pacing_persists_to_game_state", func():
+		GameState.reset()
+		var canvas := MapCanvas.new()
+
+		canvas.set_pacing("sequential")
+
+		assert_eq(MapEvents.pacing_mode(), "sequential", "set_pacing() writes through to MapEvents/GameState, not just the local field")
+
+		canvas.free()
+	)
+
+	run_case("ready_reads_a_persisted_pacing_mode_back_from_game_state", func():
+		GameState.reset()
+		MapEvents.set_pacing_mode("sequential")
+
+		var canvas := MapCanvas.new()
+		# canvas._ready() called directly as a plain method -- established
+		# pattern (see the queuing_a_vein_while_the_map_tab_is_already_active
+		# case further below): _ready() touches nothing beyond GameState/
+		# GameData and its own children, none of which need a live SceneTree.
+		canvas._ready()
+
+		assert_eq(canvas.pacing_mode, "sequential", "a fresh Map screen visit picks up whatever pacing was persisted from a previous one")
+		assert_eq(canvas.event_visual_duration, MapCanvas.SEQUENTIAL_DURATION)
 
 		canvas.free()
 	)
@@ -743,6 +779,13 @@ func run() -> void:
 
 		var canvas := MapCanvas.new()
 		canvas._ready()
+		# bugfixes-50: pinned to "sequential" -- this case is about pan_to()
+		# kicking off _active_tween specifically (the per-event forced pan),
+		# which only "sequential" pacing does; "simultaneous" (now the
+		# persisted default GameState.reset() lands on) skips panning
+		# entirely and drives _active_tweens instead (see the dedicated
+		# "simultaneous" batch cases below).
+		canvas.set_pacing("sequential")
 		assert_true(not MapEvents.is_playing(), "nothing was queued at the moment the tab was entered")
 
 		# Simulate the wrapping action (Sites.attempt_seed / Sites.
@@ -799,6 +842,59 @@ func run() -> void:
 
 		assert_true(MapEvents.is_playing(), "a later vein queued on the same still-active tab still gets its own playback")
 		assert_eq(MapEvents.current()["veinId"], "v2", "not dropped, and not still stuck on v1")
+
+		canvas.free()
+	)
+
+	# bugfixes-50: "simultaneous" pacing (the persisted default) drains the
+	# whole queue snapshot as one concurrent batch instead of pan-then-play
+	# one event at a time. Real Tween completion timing isn't reliable to
+	# drive in a headless test (see the comment a few cases up), so this
+	# stays scoped to what IS reliably observable synchronously: every
+	# queued event's visual starts together (not just the first), and the
+	# queue itself isn't touched until the whole batch resolves.
+	run_case("simultaneous_pacing_starts_every_queued_event_concurrently_not_one_at_a_time", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			{ "id": "s1", "district": "hampstead", "tier": "fair", "oreType": "time", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false },
+			{ "id": "s2", "district": "hampstead", "tier": "fair", "oreType": "life", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false },
+		]
+		GameState.state["player"]["veins"] = [
+			{ "id": "v1", "siteId": "s1", "oreType": "time", "growth": 20, "security": "none", "alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1, "district": "hampstead", "hospitability": { "tier": "fair", "bonuses": [] } },
+			{ "id": "v2", "siteId": "s2", "oreType": "life", "growth": 20, "security": "none", "alarmUpgrades": [], "location": "Test Court", "claimedOnDay": 1, "district": "hampstead", "hospitability": { "tier": "fair", "bonuses": [] } },
+		]
+
+		MapEvents.queue_seed_claim("hampstead", "v1", "player")
+		MapEvents.queue_seed_claim("hampstead", "v2", "player")
+
+		var canvas := MapCanvas.new()
+		canvas._ready()  # default pacing is "simultaneous" -- see fresh_canvas_defaults_to_simultaneous_pacing
+
+		assert_true(MapEvents.is_playing(), "begin_playback() claims the drain the moment _ready() sees a non-empty queue")
+		assert_eq(canvas._active_tweens.size(), 2, "both queued events' tweens started together, not just v1's")
+		assert_true(canvas._active_tween == null, "simultaneous pacing never does the per-event forced pan_to(), so the single-tween field stays unused")
+		assert_eq(MapEvents.current()["veinId"], "v1", "the queue itself is untouched mid-batch -- nothing pops until the whole batch resolves")
+
+		canvas.free()
+	)
+
+	run_case("simultaneous_pacing_skips_the_forced_per_event_pan", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			{ "id": "s1", "district": "hampstead", "tier": "fair", "oreType": "time", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false },
+		]
+		GameState.state["player"]["veins"] = [
+			{ "id": "v1", "siteId": "s1", "oreType": "time", "growth": 20, "security": "none", "alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1, "district": "hampstead", "hospitability": { "tier": "fair", "bonuses": [] } },
+		]
+
+		var canvas := MapCanvas.new()
+		canvas.zoom_level = MapZoom.MAX  # distinct from MapZoom.EVENT_ZOOM -- a forced pan would change this
+		canvas._ready()
+
+		MapEvents.queue_seed_claim("hampstead", "v1", "player")
+		EventBus.state_changed.emit()
+
+		assert_true(is_equal_approx(canvas.zoom_level, MapZoom.MAX), "human call: no forced pan/zoom in simultaneous mode -- the camera stays wherever the player left it")
 
 		canvas.free()
 	)
