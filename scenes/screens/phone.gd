@@ -182,6 +182,16 @@ func _build_notes() -> void:
 		c["content"].add_child(UI.checklist_row(item["text"], item["done"]))
 	_content.add_child(c["panel"])
 
+	# collective1-02: below the tutorial chain, only while at least one
+	# Collective objective is active and Act 1 hasn't completed.
+	var collective_items := Todo.get_collective_items()
+	if not collective_items.is_empty():
+		_content.add_child(UI.heading("Collective", 14))
+		var cc := UI.card()
+		for item in collective_items:
+			cc["content"].add_child(UI.checklist_row("%s — %s" % [item["title"], item["detail"]], item["done"]))
+		_content.add_child(cc["panel"])
+
 
 # ── factions (directory) ─────────────────────────────────────────────
 # Reskin of the old M0 `factions` screen's content under the Phone shell —

@@ -41,3 +41,26 @@ static func get_items() -> Array[Dictionary]:
 	if items.size() > 4:
 		items = items.slice(items.size() - 4, items.size())
 	return items
+
+
+# collective1-02, spec.md §5.1/§11: the Collective section — live objective
+# state (title, detail, done) rather than another hardcoded flag chain.
+# Empty once Act 1 completes (colA1Complete) even if some objectives are
+# still nominally "active"/complete in state — the section as a whole
+# disappears, not item-by-item.
+static func get_collective_items() -> Array[Dictionary]:
+	var items: Array[Dictionary] = []
+	if GameState.state["flags"].get("colA1Complete", false):
+		return items
+
+	var runtime: Dictionary = GameState.state["objectives"]
+	for id in GameData.OBJECTIVES.keys():
+		if not runtime.get(id, {}).get("active", false):
+			continue
+		var def: Dictionary = GameData.OBJECTIVES[id]
+		items.append({
+			"title": def["title"],
+			"detail": def["detail"],
+			"done": runtime[id].get("complete", false),
+		})
+	return items

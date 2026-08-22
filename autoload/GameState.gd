@@ -56,6 +56,15 @@ func new_game_state() -> Dictionary:
 		# to "home" (Experimenting) keeps the Lab's existing default
 		# landing unchanged; Crafting is reached via the new section tab.
 		"benchNav": { "view": "home", "types": [], "approach": null, "result": null },
+		# collective1-02: state.objectives[<id>] = { active, complete, progress
+		# }, keyed by data/objectives.json ids -- systems/objectives.gd's
+		# Objectives.refresh() is the only writer. progress is per-evaluator-
+		# type free-form scratch (activatedDay always; traded_with_faction
+		# also stashes a baseline snapshot of factions.<id>.oreSold at the
+		# moment the objective activates, so its qty/minTransactions params
+		# count only trade that happens during the objective's active
+		# window, not from before the player ever met that thread's contact).
+		"objectives": {},
 		"notifications": [],
 		# bugfixes-38: Reynard's transaction log -- every direct player.cash
 		# mutation across the codebase logs here via systems/bank.gd's
@@ -216,6 +225,15 @@ func _new_factions_state() -> Dictionary:
 			# its flavour text, so `startingResources` is its own tiered field:
 			# Collective scrappiest, Firm/Network mid, Guild/Conclave richest.
 			"resources": GameData.FACTIONS[faction_id].get("startingResources", 0),
+			# collective1-02: lifetime cumulative ore sold TO this faction by
+			# the player through Economy.execute_faction_sale(), keyed by ore
+			# type -- { "<oreType>": { "units": int, "transactions": int } }.
+			# Absent ore types read as zero (Objectives' traded_with_faction
+			# evaluator uses .get() defaults). Not the same thing as
+			# tradeProgress (relation-accrual's £-denominated counter,
+			# collective1-06) -- this is unit/transaction-denominated and
+			# exists purely for objective evaluation.
+			"oreSold": {},
 		}
 	return factions
 

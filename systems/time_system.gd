@@ -87,6 +87,7 @@ static func daily_tick() -> void:
 	Rooms.process_lab()                  # ⑥ rooms (lab, then veinStation)
 	Rooms.process_vein_station()
 	Devices.reset_daily_charges()        # ⑦ device charge reset
+	Objectives.refresh()                 # ⑧ collective1-02: objectives boundary
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])
 	SaveManager.autosave()               # R§6: autosave on every daily tick
 

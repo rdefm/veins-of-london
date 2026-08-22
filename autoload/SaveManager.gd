@@ -271,6 +271,10 @@ func _restore_int_types(state: Dictionary) -> void:
 		for faction in state["factions"].values():
 			_int_key(faction, "relation")
 			_int_key(faction, "resources")
+			# collective1-02
+			for ore_entry in faction.get("oreSold", {}).values():
+				_int_key(ore_entry, "units")
+				_int_key(ore_entry, "transactions")
 
 	if state.has("factionRelations"):
 		for row in state["factionRelations"].values():
@@ -293,6 +297,17 @@ func _restore_int_types(state: Dictionary) -> void:
 
 	if state.has("combat"):
 		_restore_combat_int_types(state["combat"])
+
+	# collective1-02: state.objectives[*].progress is a free-form bag
+	# (systems/objectives.gd) -- only its two known numeric shapes need
+	# restoring (activatedDay, and traded_with_faction's baseline snapshot).
+	if state.has("objectives"):
+		for objective in state["objectives"].values():
+			var progress: Dictionary = objective.get("progress", {})
+			_int_key(progress, "activatedDay")
+			if progress.has("baseline"):
+				_int_key(progress["baseline"], "units")
+				_int_key(progress["baseline"], "transactions")
 
 	if state.get("jamesJob") != null:
 		var job: Dictionary = state["jamesJob"]

@@ -99,6 +99,7 @@ static func execute_sale(items: Array) -> Dictionary:
 	else:
 		player["cash"] += player_cut
 		Bank.record(player_cut, "Archie sale")
+		Objectives.refresh()  # collective1-02: boundary — Archie lane completion
 		Modal.open("sale_result", { "earned": player_cut, "gross": gross, "mugged": false })
 		return { "ok": true, "mugged": false, "earned": player_cut, "gross": gross }
 
@@ -110,6 +111,7 @@ static func complete_mugged_sale() -> Dictionary:
 	if earned > 0:
 		GameState.state["player"]["cash"] += earned
 		Bank.record(earned, "Archie sale (contested)")
+	Objectives.refresh()  # collective1-02: boundary — Archie lane completion
 	Modal.open("sale_result", { "earned": earned, "gross": earned * 2, "mugged": true })
 	return { "earned": earned, "gross": earned * 2, "mugged": true }
 
@@ -263,6 +265,8 @@ static func execute_faction_sale(faction_id: String, items: Array) -> Dictionary
 		return { "ok": false, "reason": "Nothing to sell." }
 
 	var player: Dictionary = GameState.state["player"]
+	var faction: Dictionary = GameState.state["factions"][faction_id]
+	var ore_sold: Dictionary = faction["oreSold"]
 	var total_earned := 0
 	for item in items:
 		var kind: String = item["kind"]
@@ -272,6 +276,14 @@ static func execute_faction_sale(faction_id: String, items: Array) -> Dictionary
 		total_earned += price_per_unit * qty
 		if kind == "ore":
 			player["orichalchum"][item_type] = maxi(0, player["orichalchum"].get(item_type, 0) - qty)
+			# collective1-02: lifetime cumulative sold-to-this-faction bookkeeping
+			# — Objectives' traded_with_faction evaluator's data source (see
+			# systems/objectives.gd). One transaction increment per ore type
+			# actually present in this call's items, not per unit.
+			var entry: Dictionary = ore_sold.get(item_type, { "units": 0, "transactions": 0 })
+			entry["units"] += qty
+			entry["transactions"] += 1
+			ore_sold[item_type] = entry
 		else:
 			# A faction lane's flat price doesn't vary by tier (only Archie's
 			# execute_sale does, ticket 64) -- lowest-tier-first consumption
@@ -280,5 +292,6 @@ static func execute_faction_sale(faction_id: String, items: Array) -> Dictionary
 
 	player["cash"] += total_earned
 	Bank.record(total_earned, "%s sale" % faction_id.capitalize())
+	Objectives.refresh()  # collective1-02: boundary — faction lane completion
 	EventBus.state_changed.emit()
 	return { "ok": true, "earned": total_earned }

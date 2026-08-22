@@ -58,6 +58,51 @@ func run() -> void:
 		assert_true(not errors.is_empty(), "removing the collective's trade lane config should fail validation")
 	)
 
+	# ── collective1-02: data/objectives.json ────────────────────────────
+
+	run_case("corrupt_fixture_objective_unknown_type_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["objectives"]["_test"] = {
+			"id": "_test", "title": "t", "detail": "d", "type": "not_a_real_type",
+			"params": {}, "activateFlag": "f1", "completeFlag": "f2",
+		}
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("not_a_real_type"):
+				found = true
+		assert_true(found, "an objective with an unknown evaluator type should be flagged")
+	)
+
+	run_case("corrupt_fixture_objective_missing_param_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["objectives"]["_test"] = {
+			"id": "_test", "title": "t", "detail": "d", "type": "vein_growth_above",
+			"params": {}, "activateFlag": "f1", "completeFlag": "f2",
+		}
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("missing param 'threshold'"):
+				found = true
+		assert_true(found, "an objective missing a required param for its type should be flagged")
+	)
+
+	run_case("corrupt_fixture_objective_unknown_faction_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["objectives"]["_test"] = {
+			"id": "_test", "title": "t", "detail": "d", "type": "traded_with_faction",
+			"params": { "factionId": "not_a_real_faction", "oreType": "emotion", "qty": 1, "minTransactions": 1 },
+			"activateFlag": "f1", "completeFlag": "f2",
+		}
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("not_a_real_faction"):
+				found = true
+		assert_true(found, "an objective referencing an unknown faction should be flagged")
+	)
+
 	run_case("corrupt_fixture_missing_district_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
 		corrupted["districts"].erase("soho")

@@ -72,6 +72,11 @@ var JAMES_JOB_TRUST_BANDS: Array = []
 var EVENTS: Dictionary = {}
 var SMS_THREADS: Dictionary = {}
 
+# collective1-02: data/objectives.json, keyed by objective id. Empty until a
+# thread ticket (08/11/12/13) authors real Act 1 entries -- see
+# systems/objectives.gd.
+var OBJECTIVES: Dictionary = {}
+
 # M0-T13's full tutorial event roster (R§3.11, R§3.8). JAMES_CRAFT_CARDS
 # from the HTML is deliberately excluded — dead/unreachable content.
 const EVENT_IDS: Array[String] = [
@@ -182,6 +187,8 @@ func load_all() -> void:
 
 	SMS_THREADS = _load_json("res://data/sms.json")
 
+	OBJECTIVES = _load_json("res://data/objectives.json")
+
 	loaded = true
 
 
@@ -221,6 +228,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
 	_validate_sms(t.get("sms_threads", {}), errors)
+	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), errors)
 
 	return errors
 
@@ -263,6 +271,7 @@ func snapshot() -> Dictionary:
 		"contacts_defaults": CONTACTS_DEFAULTS,
 		"events": EVENTS,
 		"sms_threads": SMS_THREADS,
+		"objectives": OBJECTIVES,
 	}
 
 
@@ -714,6 +723,66 @@ func _validate_sms(threads: Dictionary, errors: Array[String]) -> void:
 			_require_keys(msg, ["from", "text"], "sms.%s" % expected_id, errors)
 			if msg.has("from") and not ["player", "archie"].has(msg["from"]):
 				errors.append("sms.%s: unknown sender '%s'" % [expected_id, msg["from"]])
+
+
+# collective1-02: data/objectives.json — Objectives.refresh()'s four
+# canonical evaluator types (systems/objectives.gd), each with its own fixed
+# param schema.
+const OBJECTIVE_TYPES: Array[String] = [
+	"sites_discovered_matching", "traded_with_faction", "vein_sold_to_faction", "vein_growth_above",
+]
+const OBJECTIVE_TYPE_PARAMS: Dictionary = {
+	"sites_discovered_matching": ["requireEachOreType", "minTier", "unclaimed"],
+	"traded_with_faction": ["factionId", "oreType", "qty", "minTransactions"],
+	"vein_sold_to_faction": ["factionId", "oreType"],
+	"vein_growth_above": ["veinIdStatePath", "threshold"],
+}
+
+
+func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_types: Dictionary, site_tier_order: Array, errors: Array[String]) -> void:
+	for key in objectives.keys():
+		var entry = objectives[key]
+		_require_keys(entry, ["id", "title", "detail", "type", "params", "activateFlag", "completeFlag"], "objectives.%s" % key, errors)
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		if entry.get("id") != key:
+			errors.append("objectives.%s: id field '%s' does not match key" % [key, entry.get("id")])
+		if entry.has("activateFlag") and typeof(entry["activateFlag"]) != TYPE_STRING:
+			errors.append("objectives.%s: activateFlag must be a string" % key)
+		if entry.has("completeFlag") and typeof(entry["completeFlag"]) != TYPE_STRING:
+			errors.append("objectives.%s: completeFlag must be a string" % key)
+
+		var obj_type = entry.get("type")
+		if not OBJECTIVE_TYPES.has(obj_type):
+			errors.append("objectives.%s: unknown type '%s'" % [key, obj_type])
+			continue
+
+		var params = entry.get("params")
+		if typeof(params) != TYPE_DICTIONARY:
+			errors.append("objectives.%s: params must be an object" % key)
+			continue
+		for required_param in OBJECTIVE_TYPE_PARAMS[obj_type]:
+			if not params.has(required_param):
+				errors.append("objectives.%s: type '%s' missing param '%s'" % [key, obj_type, required_param])
+
+		match obj_type:
+			"sites_discovered_matching":
+				for ore_key in params.get("requireEachOreType", []):
+					if not ore_types.is_empty() and not ore_types.has(ore_key):
+						errors.append("objectives.%s: requireEachOreType '%s' is not a known ore type" % [key, ore_key])
+				var min_tier = params.get("minTier")
+				if not site_tier_order.is_empty() and not site_tier_order.has(min_tier):
+					errors.append("objectives.%s: minTier '%s' is not a known site tier" % [key, min_tier])
+			"traded_with_faction", "vein_sold_to_faction":
+				var faction_id = params.get("factionId")
+				if not factions.is_empty() and not factions.has(faction_id):
+					errors.append("objectives.%s: factionId '%s' is not a known faction" % [key, faction_id])
+				var ore_key = params.get("oreType")
+				if not ore_types.is_empty() and not ore_types.has(ore_key):
+					errors.append("objectives.%s: oreType '%s' is not a known ore type" % [key, ore_key])
+			"vein_growth_above":
+				if typeof(params.get("veinIdStatePath")) != TYPE_STRING:
+					errors.append("objectives.%s: veinIdStatePath must be a string" % key)
 
 
 func _require_keys(entry: Dictionary, keys: Array, context: String, errors: Array[String]) -> void:

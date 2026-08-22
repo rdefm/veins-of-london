@@ -249,10 +249,12 @@ static func cultivate(vein_id: String) -> Dictionary:
 			vein["rampantDays"] = 0
 		_queue_growth_events(vein, growth_before)
 		award_xp(20)
+		Objectives.refresh()  # collective1-02: boundary
 		Modal.open("cultivate_result", { "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] })
 		return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] }
 	else:
 		award_xp(8)
+		Objectives.refresh()  # collective1-02: boundary
 		Modal.open("cultivate_result", { "success": false, "veinId": vein_id })
 		return { "ok": true, "success": false, "veinId": vein_id }
 
@@ -310,6 +312,7 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 	var ore_type: String = vein["oreType"]
 	player["orichalchum"][ore_type] = player["orichalchum"].get(ore_type, 0) + amount
 
+	Objectives.refresh()  # collective1-02: boundary
 	EventBus.state_changed.emit()
 	return { "ok": true, "amount": amount, "oreType": ore_type, "veinId": vein_id, "growth": vein["growth"] }
 

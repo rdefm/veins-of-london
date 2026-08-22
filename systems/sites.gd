@@ -218,6 +218,7 @@ static func prospect(district_id: String) -> Dictionary:
 	else:
 		site = _create_site(district_id)
 
+	Objectives.refresh()  # collective1-02: boundary — after the site is created
 	EventBus.state_changed.emit()
 	DistrictDeck.maybe_trigger(district_id)  # D5 — must stay last; see maybe_trigger()'s doc comment
 	return { "ok": true, "district": district_id, "site": site }
