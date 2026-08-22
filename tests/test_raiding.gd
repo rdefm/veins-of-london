@@ -716,6 +716,32 @@ func run() -> void:
 		assert_eq(site["factionVein"]["growth"], 30, "growth carries over")
 		assert_eq(site["factionVein"]["security"], "guarded", "security carries over")
 		assert_eq(GameState.state["world"]["pendingDefendRaids"], [], "the expired entry should be cleared")
+		assert_eq(GameState.state["notifications"].size(), 1, "a missed defend window should still notify exactly once")
+		var text: String = GameState.state["notifications"][0]["text"]
+		assert_true(text.contains("Too late") or text.contains("alarm"), "the missed-window notification should be distinct copy, not the plain raid-loss line")
+	)
+
+	# ticket 43: the expiry notification must read differently from the plain
+	# no-alarm loss line, so the player can tell "you had a chance and lost
+	# it" apart from "you never had a chance" -- same outcome, different text.
+	run_case("expired_defend_window_notification_reads_differently_from_a_plain_no_alarm_loss", func():
+		GameState.reset()
+		var alarmed_vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+		alarmed_vein["alarmUpgrades"] = ["alarm"]
+		GameState.state["player"]["veins"] = [alarmed_vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", alarmed_vein)]
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+		Raiding._expire_pending_defend_raids()
+		var missed_text: String = GameState.state["notifications"][0]["text"]
+
+		GameState.reset()
+		var plain_vein := _player_vein_of(10, "time", "none")
+		GameState.state["player"]["veins"] = [plain_vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", plain_vein)]
+		Raiding.resolve_raid_outcome({ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true })
+		var plain_text: String = GameState.state["notifications"][0]["text"]
+
+		assert_true(missed_text != plain_text, "missed-window copy must differ from the plain no-alarm loss copy")
 	)
 
 	run_case("maybe_trigger_defend_starts_combat_and_pops_the_matching_pending_entry", func():

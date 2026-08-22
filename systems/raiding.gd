@@ -365,7 +365,11 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 # the attempt batch's stale snapshot) before touching anything, so a vein
 # that's vanished between the roll and the resolve (e.g. levelled down to
 # nothing elsewhere this same tick) is silently skipped, not crashed on.
-static func resolve_raid_outcome(outcome: Dictionary) -> void:
+#
+# `missed_defend` (ticket 43): set only by _expire_pending_defend_raids()
+# below, for the one caller whose copy needs to say "you had a window and
+# missed it" rather than the plain no-alarm loss text.
+static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = false) -> void:
 	if not outcome["success"]:
 		return
 
@@ -390,7 +394,12 @@ static func resolve_raid_outcome(outcome: Dictionary) -> void:
 
 	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
-	Notify.push("%s raided your vein in %s. It's theirs now." % [faction_name, district_name])
+	# PROSE-REVIEW: missed_defend branch is new copy (ticket 43), drafted
+	# against CONTENT-GUIDE.md's tone bible.
+	if missed_defend:
+		Notify.push("Too late — %s took your vein in %s while the alarm was still ringing." % [faction_name, district_name])
+	else:
+		Notify.push("%s raided your vein in %s. It's theirs now." % [faction_name, district_name])
 
 
 # Called from time_system.gd's daily_tick, step 5i. Runs the previous tick's
@@ -436,12 +445,13 @@ static func _queue_defend_raid(outcome: Dictionary, vein: Dictionary) -> void:
 	Notify.push("Alarm's gone off — %s are closing in on your vein in %s. Get there today to defend it." % [faction_name, district_name])
 
 
+# Passes missed_defend=true -- see resolve_raid_outcome() above (ticket 43).
 static func _expire_pending_defend_raids() -> void:
 	var world: Dictionary = GameState.state["world"]
 	var pending: Array = world["pendingDefendRaids"]
 	world["pendingDefendRaids"] = []
 	for outcome in pending:
-		resolve_raid_outcome(outcome)
+		resolve_raid_outcome(outcome, true)
 
 
 # Called from Travel.travel_to()/Sites.prospect() once the player's arrival
