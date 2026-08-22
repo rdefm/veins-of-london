@@ -184,11 +184,31 @@ static func start_home_raid_combat() -> void:
 # branch), which passes context "event_raid" so exit_combat() below knows to
 # resume the still-active event on a win instead of routing to inventory --
 # every other caller keeps the original "raid" context and its behaviour.
-static func start_raid(vein_id: String, value_tier: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID) -> void:
+static func start_raid(vein_id: String, value_tier: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID, ally_ids: Array = []) -> void:
 	var enemy := generate_raid_enemy(vein_id, value_tier, guards, template_key)
-	_start_combat(context, vein_id, enemy,
-		["%s steps out to meet you." % enemy["name"]],
-		"raidWon")
+	var log_lines := ["%s steps out to meet you." % enemy["name"]]
+	var allies := _gather_raid_allies(ally_ids, log_lines)
+	_start_combat(context, vein_id, enemy, log_lines, "raidWon", allies)
+
+
+# 45-archie-raid-assist: unlike _gather_defend_allies' auto-join-everyone
+# (defending needs no offer/decline step), bringing an ally on a raid is the
+# player's explicit choice made at the Raid button (map.gd) -- ally_ids is
+# that choice, threaded here via Raiding.begin_raid() -> the vein_raid
+# event's context -> events.gd's _start_raid_combat(). Re-validated against
+# can_join_combat() here (not just the raid-initiation UI's own
+# Contacts.can_assist_raid() check) since a time block or two passes between
+# pressing Raid and combat actually starting -- relation/KO-cooldown/recruit
+# state could have moved in that window.
+static func _gather_raid_allies(ally_ids: Array, log_lines: Array) -> Array:
+	var allies: Array = []
+	for contact_id in ally_ids:
+		if Contacts.can_join_combat(contact_id):
+			allies.append(Contacts.build_combat_ally(contact_id))
+			# PROSE-REVIEW: new ally-join log line, drafted against
+			# CONTENT-GUIDE.md's tone bible.
+			log_lines.append("%s comes in behind you." % Contacts.display_name(contact_id))
+	return allies
 
 
 # vein-raiding ticket 07: the alarm-upgrade defend encounter. Called by

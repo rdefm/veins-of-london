@@ -336,6 +336,20 @@ static func _event_site_id(effect: Dictionary) -> String:
 	return event_state.get("context", {}).get("site_id", "")
 
 
+# 45-archie-raid-assist: mirrors _event_site_id() above -- the raid-assist
+# ally list (currently ever just ["archie"], or []) is only known at
+# Raid-button-press time (Raiding.begin_raid()'s caller reads it off the map
+# sheet's toggle), so it's carried the same way through start_event()'s
+# context rather than baked into the authored vein_raid card's own JSON.
+static func _event_ally_ids(effect: Dictionary) -> Array:
+	if effect.has("ally_ids"):
+		return effect["ally_ids"]
+	var event_state: Variant = GameState.state.get("event")
+	if event_state == null:
+		return []
+	return event_state.get("context", {}).get("ally_ids", [])
+
+
 # vein-raiding ticket 03: "caught" drives loot_raid_vein's relation hit, but
 # the authored raid card's clean-stealth and caught-then-combat-win paths
 # both resume at the same shared claim/loot card (exit_combat()'s event_raid
@@ -383,4 +397,4 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 		return
 
 	var vein: Dictionary = site["factionVein"]
-	Combat.start_raid(vein["id"], Cultivating.value_tier(vein), effect.get("guards", 1), effect.get("template", ""), Combat.CONTEXT_EVENT_RAID)
+	Combat.start_raid(vein["id"], Cultivating.value_tier(vein), effect.get("guards", 1), effect.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect))

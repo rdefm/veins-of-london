@@ -248,6 +248,28 @@ func run() -> void:
 		assert_eq(GameState.state["event"], null, "no event should start when blocked")
 	)
 
+	# ── 45-archie-raid-assist ────────────────────────────────────────────
+
+	run_case("begin_raid_carries_ally_ids_into_the_event_context", func():
+		GameState.reset()
+		var vein := _faction_vein_of(30, "physics", "warded", "firm")
+		GameState.state["world"]["sites"] = [_site_with_vein(vein["siteId"], vein)]
+
+		Raiding.begin_raid(vein, ["archie"])
+
+		assert_eq(GameState.state["event"]["context"]["ally_ids"], ["archie"], "the map sheet's chosen allies ride along in the event context")
+	)
+
+	run_case("begin_raid_defaults_to_no_allies", func():
+		GameState.reset()
+		var vein := _faction_vein_of(30, "physics", "warded", "firm")
+		GameState.state["world"]["sites"] = [_site_with_vein(vein["siteId"], vein)]
+
+		Raiding.begin_raid(vein)
+
+		assert_eq(GameState.state["event"]["context"]["ally_ids"], [], "no ally chosen -- empty by default")
+	)
+
 	# ── vein_raid (ticket 03): the authored raid event's branch
 	# structure, driven for real through Events.start_event/advance/choose.
 	# For a guaranteed clean success, stealthSkill is pushed to a large
@@ -301,6 +323,22 @@ func run() -> void:
 
 		Events.advance()  # -> claim/loot choice
 		assert_true(Events.is_awaiting_choice(), "should land on the same claim/loot choice card the clean path reaches")
+	)
+
+	run_case("raid_event_caught_with_archie_brought_along_joins_him_in_the_resulting_combat", func():
+		GameState.reset()
+		var vein := _faction_vein_of(90, "fate", "guarded", "firm")
+		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		GameState.state["contacts"]["archie"]["recruited"] = true
+
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1", "ally_ids": ["archie"] })
+		Events.advance()
+		Events.choose(1)  # "Go fast" -- guaranteed catch, see comment above
+
+		assert_true(GameState.state["combat"]["active"], "being caught should launch combat")
+		var allies: Array = GameState.state["combat"]["allies"]
+		assert_eq(allies.size(), 1, "archie was brought along and is eligible -- joins the raid combat")
+		assert_eq(allies[0]["contactId"], "archie")
 	)
 
 	run_case("raid_event_caught_then_combat_loss_fails_the_raid_with_no_claim_loot_offered", func():

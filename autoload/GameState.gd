@@ -219,6 +219,15 @@ func _new_contacts_state() -> Dictionary:
 			"unlocked": defaults.get("unlocked", false),
 			"recruited": false,
 			"recruitThreshold": defaults.get("recruitThreshold", 0),
+			# 45-archie-raid-assist: a second, higher relation gate on top of
+			# recruitThreshold -- can_assist_raid() reads relation against this
+			# rather than recruitThreshold, so a contact can be recruited (and
+			# combat-eligible via can_join_combat()) well before they're
+			# trusted enough to be asked along on an offensive raid. Defaults
+			# to 0 for any contact whose constants.json entry omits it
+			# (james, for now) -- harmless since can_join_combat()'s own
+			# combatHpMax gate already excludes them from ever joining a fight.
+			"raidAssistThreshold": defaults.get("raidAssistThreshold", 0),
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
 			"stealthSkill": 1, "stealthXP": 0,

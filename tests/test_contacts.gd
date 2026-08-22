@@ -144,3 +144,35 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["archie"]["combatHp"], 50)
 		assert_eq(GameState.state["contacts"]["archie"]["combatStash"], 2)
 	)
+
+	# ── 45-archie-raid-assist ────────────────────────────────────────────
+
+	run_case("can_assist_raid_requires_relation_at_or_above_the_raid_assist_threshold", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["contacts"]["archie"]["relation"] = 49
+		assert_true(not Contacts.can_assist_raid("archie"), "relation 49 < raidAssistThreshold 50")
+
+		GameState.state["contacts"]["archie"]["relation"] = 50
+		assert_true(Contacts.can_assist_raid("archie"), "relation meets the threshold exactly")
+	)
+
+	run_case("can_assist_raid_still_requires_can_join_combats_own_gates", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["relation"] = 100
+		assert_true(not Contacts.can_assist_raid("archie"), "high relation alone isn't enough -- not recruited yet")
+
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		assert_true(Contacts.can_assist_raid("archie"), "recruited and relation met")
+
+		GameState.state["world"]["day"] = 5
+		GameState.state["contacts"]["archie"]["koCooldownUntilDay"] = 7
+		assert_true(not Contacts.can_assist_raid("archie"), "still on KO cooldown, regardless of relation")
+	)
+
+	run_case("can_assist_raid_is_false_for_a_contact_with_no_raid_assist_threshold_defined", func():
+		GameState.reset()
+		GameState.state["contacts"]["james"]["recruited"] = true
+		GameState.state["contacts"]["james"]["relation"] = 1000
+		assert_true(not Contacts.can_assist_raid("james"), "james has no combat kit -- can_join_combat excludes him regardless")
+	)

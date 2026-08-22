@@ -58,6 +58,15 @@ var _bubble_district_id: String = ""
 var _bubble_mode: String = ""
 var _bubble_stop: Dictionary = {}
 
+# 45-archie-raid-assist: the faction-vein sheet's "Bring Archie" toggle is
+# screen-local UI state, not GameState (a raid isn't committed until the Raid
+# button itself is pressed) -- same "instance var the screen owns, reset on
+# rebuild" shape _bubble_district_id/_bubble_mode above already use. Keyed to
+# _raid_bring_archie_site_id so a stale true from one faction vein's sheet
+# never leaks into a different site's sheet after _refresh() rebuilds it.
+var _raid_bring_archie: bool = false
+var _raid_bring_archie_site_id: String = ""
+
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -555,7 +564,7 @@ func _build_site_sheet(site_id: String) -> void:
 		content.add_child(UI.muted_label("A natural vein runs here — claiming grants a free bonus vein."))
 
 	if site["factionVein"] != null:
-		_build_faction_vein_content(content, site["factionVein"])
+		_build_faction_vein_content(content, site["factionVein"], site_id)
 	elif site["claimed"]:
 		_build_claimed_site_content(content, site)
 	elif site["tier"] == "barren":
@@ -578,11 +587,22 @@ func _on_sheet_dim_gui_input(event: InputEvent) -> void:
 # the same travel/time-block way every other districted action is
 # (Travel.can_afford), handing off to the district event-card engine via
 # Raiding.begin_raid() rather than a bespoke raid screen.
-func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary) -> void:
+#
+# 45-archie-raid-assist: a "Bring Archie" toggle sits above the Raid button,
+# shown only once Contacts.can_assist_raid("archie") passes (recruited,
+# relation >= raidAssistThreshold, and not currently KO'd/kit-less via
+# can_join_combat) -- an ineligible Archie isn't worth a disabled row per the
+# ticket's own "visible/enabled only when" phrasing, same "just don't show
+# it" convention the seed row's own gated actions use elsewhere in this file.
+func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_id: String) -> void:
 	var faction: Dictionary = GameData.FACTIONS[vein["factionId"]]
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 	var security: Dictionary = GameData.VEIN_SECURITY[vein["security"]]
 	var district: String = vein["district"]
+
+	if _raid_bring_archie_site_id != site_id:
+		_raid_bring_archie_site_id = site_id
+		_raid_bring_archie = false
 
 	var band: Dictionary = Cultivating.growth_band(vein)
 
@@ -591,11 +611,37 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary) -> vo
 	c["content"].add_child(UI.muted_label("%s %s — %s" % [ore["symbol"], ore["name"], band["label"]]))
 	c["content"].add_child(UI.muted_label("🔒 %s" % security["label"]))
 
-	var raid_button := UI.button(UI.format_block_cost_label("Raid", 1), func(): Raiding.begin_raid(vein))
+	if Contacts.can_assist_raid("archie"):
+		# Bare Button (not UI.button()) -- same reason UI.gd's own
+		# collapsible_section header is bare: this needs to reference its own
+		# node from inside its pressed callback to update its label, and a
+		# GDScript lambda captures a local var by value at construction time,
+		# so `archie_toggle` must already hold the real node before
+		# .pressed.connect() runs, not be assigned in the same statement as
+		# the callback that closes over it.
+		var archie_toggle := Button.new()
+		archie_toggle.clip_text = true
+		archie_toggle.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		archie_toggle.text = _archie_raid_toggle_label()
+		archie_toggle.pressed.connect(func():
+			_raid_bring_archie = not _raid_bring_archie
+			archie_toggle.text = _archie_raid_toggle_label()
+		)
+		c["content"].add_child(archie_toggle)
+
+	var raid_button := UI.button(UI.format_block_cost_label("Raid", 1), func():
+		Raiding.begin_raid(vein, ["archie"] if _raid_bring_archie else [])
+	)
 	raid_button.disabled = not Travel.can_afford(district, 1)
 	c["content"].add_child(raid_button)
 
 	content.add_child(c["panel"])
+
+
+# PROSE-REVIEW: new UI button-label strings, drafted against
+# CONTENT-GUIDE.md's tone bible.
+func _archie_raid_toggle_label() -> String:
+	return "✓ Archie's coming" if _raid_bring_archie else "Bring Archie"
 
 
 func _build_claimed_site_content(content: VBoxContainer, site: Dictionary) -> void:

@@ -261,7 +261,7 @@ func _restore_int_types(state: Dictionary) -> void:
 
 	if state.has("contacts"):
 		for contact in state["contacts"].values():
-			for key in ["relation", "recruitThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "stealthSkill", "stealthXP",
+			for key in ["relation", "recruitThreshold", "raidAssistThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "stealthSkill", "stealthXP",
 					"combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatStashMax", "combatStash", "combatHealAmount", "koCooldownDays", "koCooldownUntilDay"]:
 				_int_key(contact, key)
 

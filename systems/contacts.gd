@@ -135,6 +135,22 @@ static func replenish_after_combat(allies: Array) -> void:
 		c["combatStash"] = c["combatStashMax"]
 
 
+# 45-archie-raid-assist: a raid is offensive (the player's choice, into
+# someone else's vein), unlike defend's auto-join -- the ticket's higher bar
+# (raidAssistThreshold, separate from can_join_combat's no-relation-check) is
+# layered on top of can_join_combat()'s own recruited/combat-kit/cooldown
+# gates, not a replacement for them, so a KO'd or kit-less contact still
+# can't be brought along just because relation is high enough.
+static func can_assist_raid(contact_id: String) -> bool:
+	var contacts: Dictionary = GameState.state["contacts"]
+	if not contacts.has(contact_id):
+		return false
+	var c: Dictionary = contacts[contact_id]
+	if c["relation"] < c["raidAssistThreshold"]:
+		return false
+	return can_join_combat(contact_id)
+
+
 static func display_name(contact_id: String) -> String:
 	match contact_id:
 		"archie":

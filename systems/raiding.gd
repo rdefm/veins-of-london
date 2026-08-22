@@ -163,14 +163,17 @@ const RAID_EVENT_ID := "vein_raid"
 # with that site's factionVein dict. Same travel/time-block gating shape
 # every other districted action uses (Cultivating.cultivate() etc.) --
 # ensure_district() first, then spend the block -- before handing off to the
-# event engine.
-static func begin_raid(vein: Dictionary) -> Dictionary:
+# event engine. `ally_ids` (45-archie-raid-assist) is the raid-initiation
+# UI's own choice of who's coming along, carried into the event's context so
+# Combat.start_raid() (via events.gd's _start_raid_combat()) can gather them
+# once the vein_raid event's combat card actually fires.
+static func begin_raid(vein: Dictionary, ally_ids: Array = []) -> Dictionary:
 	var travel := Travel.ensure_district(vein["district"], 1)
 	if not travel["ok"]:
 		return travel
 
 	TimeSystem.advance_time_block()
-	Events.start_event(RAID_EVENT_ID, { "site_id": vein["siteId"] })
+	Events.start_event(RAID_EVENT_ID, { "site_id": vein["siteId"], "ally_ids": ally_ids })
 	return { "ok": true }
 
 

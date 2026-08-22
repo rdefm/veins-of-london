@@ -933,6 +933,37 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["allies"], [], "not recruited -- no allies")
 	)
 
+	# ── 45-archie-raid-assist ────────────────────────────────────────────
+
+	run_case("start_raid_with_archie_in_ally_ids_adds_him_as_an_ally", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Combat.start_raid("v1", 1, 1, "", Combat.CONTEXT_RAID, ["archie"])
+		var allies: Array = GameState.state["combat"]["allies"]
+		assert_eq(allies.size(), 1, "archie should join as the one ally")
+		assert_eq(allies[0]["contactId"], "archie")
+		var found := false
+		for line in GameState.state["combat"]["log"]:
+			if line.contains("Archie comes in behind you"):
+				found = true
+		assert_true(found, "should log archie joining a raid")
+	)
+
+	run_case("start_raid_with_no_ally_ids_has_no_allies", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Combat.start_raid("v1", 1)
+		assert_eq(GameState.state["combat"]["allies"], [], "default ally_ids is empty -- unaffected raid start")
+	)
+
+	run_case("start_raid_re_validates_ally_ids_against_can_join_combat", func():
+		GameState.reset()
+		# archie not recruited -- eligible in the UI at press time is not
+		# trusted blindly; start_raid() re-checks itself (see its own comment).
+		Combat.start_raid("v1", 1, 1, "", Combat.CONTEXT_RAID, ["archie"])
+		assert_eq(GameState.state["combat"]["allies"], [], "not recruited -- ally_ids entry is dropped, not force-joined")
+	)
+
 	run_case("ally_attacks_the_enemy_alongside_the_player_each_turn", func():
 		GameState.reset()
 		GameState.state["player"]["attackMin"] = 0

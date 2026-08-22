@@ -280,7 +280,7 @@ func run() -> void:
 
 		var screen := MapScreen.new()
 		var content := UI.vbox()
-		screen._build_faction_vein_content(content, faction_vein)
+		screen._build_faction_vein_content(content, faction_vein, faction_vein["siteId"])
 
 		var raid_buttons := _buttons_labelled(content, "Raid")
 		assert_eq(raid_buttons.size(), 1, "exactly one Raid button on a faction-vein site")
@@ -297,10 +297,46 @@ func run() -> void:
 
 		var screen := MapScreen.new()
 		var content := UI.vbox()
-		screen._build_faction_vein_content(content, faction_vein)
+		screen._build_faction_vein_content(content, faction_vein, faction_vein["siteId"])
 
 		var raid_buttons := _buttons_labelled(content, "Raid")
 		assert_true((raid_buttons[0] as Button).disabled, "should be disabled with no blocks left today")
+
+		content.free()
+		screen.free()
+	)
+
+	# ── 45-archie-raid-assist ────────────────────────────────────────────
+
+	run_case("bring_archie_toggle_hidden_when_archie_ineligible", func():
+		GameState.reset()
+		var faction_vein := _faction_vein()
+
+		var screen := MapScreen.new()
+		var content := UI.vbox()
+		screen._build_faction_vein_content(content, faction_vein, faction_vein["siteId"])
+
+		assert_eq(_buttons_labelled(content, "Bring Archie").size(), 0, "not recruited, relation below threshold -- no toggle offered")
+
+		content.free()
+		screen.free()
+	)
+
+	run_case("bring_archie_toggle_shown_once_eligible_and_flips_the_raid_choice_on_tap", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["contacts"]["archie"]["relation"] = 50
+		var faction_vein := _faction_vein()
+
+		var screen := MapScreen.new()
+		var content := UI.vbox()
+		screen._build_faction_vein_content(content, faction_vein, faction_vein["siteId"])
+
+		var toggles := _buttons_labelled(content, "Bring Archie")
+		assert_eq(toggles.size(), 1, "eligible -- toggle offered")
+
+		(toggles[0] as Button).pressed.emit()
+		assert_eq(_buttons_labelled(content, "✓ Archie's coming").size(), 1, "tapping should flip the label to the chosen state")
 
 		content.free()
 		screen.free()
