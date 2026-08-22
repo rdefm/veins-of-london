@@ -132,6 +132,8 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_cultivate_result(data)
 		"craft_result":
 			_build_craft_result(data)
+		"craft_batch_result":
+			_build_craft_batch_result(data)
 		"sell_menu":
 			_build_sell_menu()
 		"sale_result":
@@ -185,6 +187,33 @@ func _build_craft_result(data: Dictionary) -> void:
 		_card_content.add_child(UI.label("You made a %s. Effect power: %s. The calc cost was worth it." % [r.get("name", ""), str(power)]))
 	else:
 		_card_content.add_child(UI.label("The calc dispersed. Nothing to show for it."))
+	_card_content.add_child(UI.button("Got it", func(): Modal.close()))
+
+
+# Ticket 57: overwrites craft_result's single-outcome modal once the batch
+# finishes (Crafting.attempt_craft_batch). Every attempt is listed
+# individually per the ticket's acceptance check -- not just an aggregate
+# count -- since each was independently rolled, not one pooled chance.
+# PROSE-REVIEW: new UI strings, tone bible per docs/CONTENT-GUIDE.md.
+func _build_craft_batch_result(data: Dictionary) -> void:
+	var recipe_key: String = data.get("recipeKey", "")
+	var r: Dictionary = GameData.RECIPES.get(recipe_key, {})
+	var requested: int = data.get("requested", 0)
+	var completed: int = data.get("completed", 0)
+	var successes: int = data.get("successes", 0)
+	var attempts: Array = data.get("attempts", [])
+
+	_card_content.add_child(UI.heading("Batch: %s" % r.get("name", "")))
+	if completed < requested:
+		_card_content.add_child(UI.label("Ran out of calc after %d of the %d you asked for." % [completed, requested]))
+	_card_content.add_child(UI.label("%d/%d succeeded." % [successes, completed]))
+	for i in range(attempts.size()):
+		var attempt: Dictionary = attempts[i]
+		var success: bool = attempt.get("success", false)
+		var line := "%d. %s" % [i + 1, "✅ Success" if success else "❌ Failed"]
+		if success:
+			line += " — effect power %s" % str(attempt.get("power", 0))
+		_card_content.add_child(UI.label(line))
 	_card_content.add_child(UI.button("Got it", func(): Modal.close()))
 
 

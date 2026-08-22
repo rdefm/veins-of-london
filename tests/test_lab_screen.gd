@@ -180,7 +180,7 @@ func run() -> void:
 		var labels := _label_texts(screen)
 		assert_true(labels.has("Workbench"), "Workbench card must render in the Crafting section")
 		assert_true(labels.has("Recipes"), "Recipes heading must render in the Crafting section")
-		assert_true(_button_texts(screen).has("Craft one"), "a recipe's Craft one button must still be reachable")
+		assert_true(_button_texts(screen).has("Craft ×1"), "a recipe's Craft button must still be reachable (bugfixes-57: now batch-quantity labelled)")
 
 		screen.free()
 	)

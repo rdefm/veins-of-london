@@ -50,6 +50,11 @@ func new_game_state() -> Dictionary:
 		# `notifications` above (Bank.LOG_CAP mirrors Notify.LOG_CAP).
 		"bankLog": [],
 		"sellState": {},
+		# bugfixes-57: the Lab's crafting batch-quantity picker, keyed by
+		# recipe key -> selected batch size. Same "transient, resets on
+		# load, not meaningfully persisted" convention as sellState above --
+		# not restored by SaveManager, matching sellState's own precedent.
+		"craftQty": {},
 		"event": null,
 
 		"player": {

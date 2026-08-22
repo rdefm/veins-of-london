@@ -161,6 +161,66 @@ func run() -> void:
 		GameData.RECIPES.erase("_testRefinable")
 	)
 
+	# ── bugfixes ticket 57: batch craft +/- qty and attempt_craft_batch ───
+
+	run_case("get_craft_qty_defaults_to_one_and_adjust_craft_qty_increments", func():
+		GameState.reset()
+		assert_eq(Crafting.get_craft_qty("timePearl"), 1, "an unselected recipe defaults to a batch of 1")
+		Crafting.adjust_craft_qty("timePearl", 1)
+		Crafting.adjust_craft_qty("timePearl", 1)
+		assert_eq(Crafting.get_craft_qty("timePearl"), 3, "each + tap increments by 1")
+	)
+
+	run_case("adjust_craft_qty_clamps_between_one_and_max_batch_qty", func():
+		GameState.reset()
+		Crafting.adjust_craft_qty("timePearl", -5)
+		assert_eq(Crafting.get_craft_qty("timePearl"), 1, "a batch of zero (or fewer) makes no sense -- floor of 1")
+		Crafting.adjust_craft_qty("timePearl", 1000)
+		assert_eq(Crafting.get_craft_qty("timePearl"), Crafting.MAX_BATCH_QTY, "quantity is capped, not unbounded")
+	)
+
+	run_case("attempt_craft_batch_rolls_each_attempt_independently_not_a_pooled_chance", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["craftingSkill"] = 1
+		Rng.set_seed(1)
+		var result := Crafting.attempt_craft_batch("timePearl", 5)
+		assert_eq(result["requested"], 5, "requested reflects what was asked")
+		assert_eq(result["completed"], 5, "100 calc affords 5 attempts at 5 calc each")
+		assert_eq(result["attempts"].size(), 5, "one reported entry per attempt")
+
+		var successes := 0
+		for attempt in result["attempts"]:
+			if attempt["success"]:
+				successes += 1
+		assert_eq(result["successes"], successes, "reported success count matches the per-attempt breakdown")
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"], successes, "inventory grew by exactly the successful attempts -- proves each was rolled on its own, not one pooled chance for the whole batch")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 100 - 5 * 5, "ingredient deducted once per attempt, 5 attempts x 5 calc")
+	)
+
+	run_case("attempt_craft_batch_stops_early_when_ingredients_run_out_partway_through", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 17  # enough for 3 crafts at 5 calc each, short of a 4th
+		GameState.state["player"]["craftingSkill"] = 1
+		Rng.set_seed(2)
+		var result := Crafting.attempt_craft_batch("timePearl", 5)
+		assert_eq(result["ok"], true, "a partial batch is still a successful call, not an error")
+		assert_eq(result["requested"], 5, "still reports what was originally requested")
+		assert_eq(result["completed"], 3, "stops after the 3rd attempt, unable to afford a 4th")
+		assert_eq(result["attempts"].size(), 3, "only the attempts that actually ran are reported")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 2, "3 x 5 calc deducted, 2 left over -- not enough for another attempt")
+	)
+
+	run_case("attempt_craft_batch_opens_a_batch_result_modal_with_the_full_breakdown", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["craftingSkill"] = 1
+		Rng.set_seed(3)
+		Crafting.attempt_craft_batch("timePearl", 2)
+		assert_eq(GameState.state["modal"]["type"], "craft_batch_result", "batch overwrites the last attempt's single-result modal with its own breakdown")
+		assert_eq(GameState.state["modal"]["data"]["attempts"].size(), 2, "modal data carries every attempt, not just an aggregate")
+	)
+
 	run_case("attempt_craft_at_a_refined_tier_grants_the_refined_potency_not_the_base_value", func():
 		GameData.RECIPES["_testRefinable"] = {
 			"name": "Test Refinable", "symbol": "?",

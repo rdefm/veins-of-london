@@ -327,6 +327,12 @@ func _restore_modal_int_types(modal: Dictionary) -> void:
 	match modal.get("type"):
 		"craft_result":
 			_int_key(data, "power")
+		"craft_batch_result":
+			_int_key(data, "requested")
+			_int_key(data, "completed")
+			_int_key(data, "successes")
+			for attempt in data.get("attempts", []):
+				_int_key(attempt, "power")
 		"cultivate_result":
 			_int_key(data, "gain")
 			_int_key(data, "newLevel")

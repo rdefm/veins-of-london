@@ -5,6 +5,12 @@ extends RefCounted
 # gated (matches the HTML prototype: attemptCraft never calls
 # advanceTimeBlock — only seed/cultivate/harvest are).
 
+# bugfixes-57: the Lab's batch-craft quantity picker is a UI convenience,
+# not a game balance knob -- capped generously just to keep the state
+# tree and the +/- stepper sane, same reasoning as Economy.adjust_sell_qty's
+# max_qty clamp.
+const MAX_BATCH_QTY := 99
+
 
 static func craft_chance(recipe_key: String, skill: int) -> float:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
@@ -72,6 +78,52 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 		award_crafting_xp(int(floor(float(r["xpReward"]) / 3.0)))
 		Modal.open("craft_result", { "success": false, "recipeKey": recipe_key, "power": 0 })
 		return { "ok": true, "success": false, "recipeKey": recipe_key, "power": 0 }
+
+
+# bugfixes-57: state.craftQty is keyed by recipeKey, transient like
+# state.sellState (GameState.gd). int() guards against a stored float --
+# craftQty is never restored across a save/load round trip (matching
+# sellState's own precedent), so a raw JSON int would otherwise come back
+# as a float and break range() in attempt_craft_batch below.
+static func get_craft_qty(recipe_key: String) -> int:
+	return int(GameState.state["craftQty"].get(recipe_key, 1))
+
+
+static func adjust_craft_qty(recipe_key: String, delta: int) -> void:
+	var current: int = get_craft_qty(recipe_key)
+	GameState.state["craftQty"][recipe_key] = clampi(current + delta, 1, MAX_BATCH_QTY)
+	EventBus.state_changed.emit()
+
+
+# Ticket 57: loops attempt_craft() `quantity` times -- no change to
+# attempt_craft() itself, so each attempt is still independently rolled
+# and deducted (not one pooled success chance). Stops early rather than
+# erroring the moment can_craft() would refuse the next attempt (attempt_
+# craft's own { ok: false } refusal), so running out of calc partway
+# through a batch just yields a short `attempts` list. Overwrites the
+# last attempt's single-result modal with one batch-shaped modal carrying
+# the full per-attempt breakdown.
+static func attempt_craft_batch(recipe_key: String, quantity: int) -> Dictionary:
+	var attempts: Array[Dictionary] = []
+	var successes := 0
+	for i in range(quantity):
+		var result := attempt_craft(recipe_key)
+		if not result["ok"]:
+			break
+		attempts.append(result)
+		if result["success"]:
+			successes += 1
+
+	var batch := {
+		"ok": true,
+		"recipeKey": recipe_key,
+		"requested": quantity,
+		"completed": attempts.size(),
+		"successes": successes,
+		"attempts": attempts,
+	}
+	Modal.open("craft_batch_result", batch)
+	return batch
 
 
 # No skill-up notification here — matches the HTML prototype, where

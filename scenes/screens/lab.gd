@@ -146,11 +146,28 @@ func _build_recipe_card(recipe_key: String) -> Control:
 		c["content"].add_child(UI.label("Ingredient: %s %s — %d/%d" % [ore["symbol"], ore["name"], have, costs[ingredient]]))
 	c["content"].add_child(UI.label("Success: %d%%   Effect: %s   Stock: %d" % [int(round(chance * 100)), str(power), stock]))
 
-	var b := UI.button("Craft one", func(): Crafting.attempt_craft(recipe_key))
+	var qty: int = Crafting.get_craft_qty(recipe_key)
+	c["content"].add_child(_build_craft_qty_row(recipe_key, qty))
+
+	var b := UI.button("Craft ×%d" % qty, func(): Crafting.attempt_craft_batch(recipe_key, qty))
 	b.disabled = not can_make
 	c["content"].add_child(b)
 
 	return c["panel"]
+
+
+# Ticket 57: batch-quantity stepper, same "-"/qty/"+" row shape as
+# modal_layer.gd's sell-menu rows (_build_sell_row) -- including the same
+# ASCII "-" fix (bugfixes ticket 13: U+2212 MINUS SIGN doesn't render).
+func _build_craft_qty_row(recipe_key: String, qty: int) -> Control:
+	var row := UI.hbox()
+	row.add_child(UI.label("Batch:"))
+	row.add_child(UI.button("-", func(): Crafting.adjust_craft_qty(recipe_key, -1)))
+	var qty_label := UI.label(str(qty))
+	qty_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	row.add_child(qty_label)
+	row.add_child(UI.button("+", func(): Crafting.adjust_craft_qty(recipe_key, 1)))
+	return row
 
 
 # ── experimenting: calc-discovery flow (unchanged, ticket 25 reframe) ─
