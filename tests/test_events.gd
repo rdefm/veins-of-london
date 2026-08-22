@@ -122,7 +122,7 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["james"]["unlocked"], true, "add: non-numeric target assigns outright")
 		assert_eq(GameState.state["world"]["archieChatUnlockDay"], world_day + 1, "add: null world.archieChatUnlockDay means 'today + value'")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 5, "add_ore")
-		assert_eq(GameState.state["player"]["inventory"]["timePearl"], 2, "add_item")
+		assert_eq(Crafting.inventory_qty("timePearl"), 2, "add_item")
 		assert_eq(GameState.state["contacts"]["archie"]["relation"], archie_relation_before + 3, "relation")
 
 		var found_notif := false
@@ -361,7 +361,7 @@ func run() -> void:
 	run_case("rewind_undoes_a_choice_pick", func():
 		GameState.reset()
 		var original_events := _install_choice_event()
-		GameState.state["player"]["inventory"]["rewind"] = 1
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
 
 		Events.start_event("test_choice_event")
 		Events.advance()  # -> choice card
@@ -454,7 +454,7 @@ func run() -> void:
 
 	run_case("rewind_restores_full_state_without_corruption", func():
 		GameState.reset()
-		GameState.state["player"]["inventory"]["rewind"] = 1
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
 		Events.start_event("intro")
 		var snapshot_before: Dictionary = GameState.deep_copy(GameState.state)
 		Events.advance()
@@ -463,10 +463,11 @@ func run() -> void:
 		var result := Events.rewind()
 		assert_true(result["ok"], "rewind should succeed with a rewind consumable in hand")
 		assert_eq(GameState.state["event"]["cardIndex"], 0, "cardIndex restored to 0")
-		assert_eq(GameState.state["player"]["inventory"]["rewind"], 0, "the rewind consumable should be spent")
+		assert_eq(Crafting.inventory_qty("rewind"), 0, "the rewind consumable should be spent")
 
 		var expected: Dictionary = GameState.deep_copy(snapshot_before)
-		expected["player"]["inventory"]["rewind"] = 0
+		# Crafting.inventory_remove() erases a bucket once it empties out.
+		expected["player"]["inventory"]["rewind"] = {}
 		expected.erase("notifications")  # rewind pushes its own "time unspools" notification
 		var actual: Dictionary = GameState.deep_copy(GameState.state)
 		actual.erase("notifications")
@@ -475,7 +476,7 @@ func run() -> void:
 
 	run_case("rewind_pops_one_frame_at_a_time", func():
 		GameState.reset()
-		GameState.state["player"]["inventory"]["rewind"] = 2
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 2 }
 		Events.start_event("intro")
 		Events.advance()  # -> card 1
 		Events.advance()  # -> card 2
@@ -524,7 +525,7 @@ func run() -> void:
 		Events.start_event("james_meeting")
 		for i in range(GameData.EVENTS["james_meeting"]["cards"].size()):
 			Events.advance()
-		assert_eq(GameState.state["player"]["inventory"]["timePearl"], 2, "james_meeting: +2 timePearl")
+		assert_eq(Crafting.inventory_qty("timePearl"), 2, "james_meeting: +2 timePearl")
 		assert_true(GameState.state["flags"]["metJames"], "james_meeting: metJames")
 		assert_true(GameState.state["flags"]["craftingUnlocked"], "james_meeting: craftingUnlocked")
 		assert_true(GameState.state["contacts"]["james"]["unlocked"], "james_meeting: james unlocked")

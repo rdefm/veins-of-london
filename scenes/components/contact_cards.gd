@@ -50,7 +50,7 @@ static func build_sell_action() -> Control:
 		if qty > 0:
 			has_ore = true
 			break
-	var has_consumables: bool = flags["canSellConsumables"] and (player["inventory"]["timePearl"] > 0 or player["inventory"]["enhancementPowder"] > 0)
+	var has_consumables: bool = flags["canSellConsumables"] and (Crafting.inventory_qty("timePearl") > 0 or Crafting.inventory_qty("enhancementPowder") > 0)
 	var has_sellable: bool = has_ore or has_consumables
 
 	var b := UI.button("💰 Find a buyer" if has_sellable else "💰 Find a buyer (nothing to sell)", func(): Modal.open("sell_menu"))

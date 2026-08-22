@@ -148,13 +148,12 @@ static func _fulfil_flat_pay_job(job: Dictionary) -> Dictionary:
 
 
 static func _fulfil_craft_job(job: Dictionary) -> Dictionary:
-	var inventory: Dictionary = GameState.state["player"]["inventory"]
-	var have: int = inventory.get(job["recipeKey"], 0)
+	var have: int = Crafting.inventory_qty(job["recipeKey"])
 	if have < job["qty"]:
 		Modal.open("james_job_short", { "job": job, "have": have })
 		return { "ok": false, "reason": "Not enough on hand.", "have": have, "need": job["qty"] }
 
-	inventory[job["recipeKey"]] = have - job["qty"]
+	Crafting.inventory_remove(job["recipeKey"], job["qty"])
 	GameState.state["player"]["cash"] += job["totalPay"]
 	Bank.record(job["totalPay"], "James job")
 	Contacts.award_relation("james", 5)

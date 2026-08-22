@@ -212,8 +212,8 @@ func run() -> void:
 		GameState.reset()
 		Bag.open()
 		var player: Dictionary = GameState.state["player"]
-		player["inventory"]["healingSalve"] = 1
-		player["inventory"]["healingBurst"] = 1
+		player["inventory"]["healingSalve"] = { "1": 1 }
+		player["inventory"]["healingBurst"] = { "1": 1 }
 
 		var drawer := BagDrawer.new()
 		drawer._ready()
@@ -229,8 +229,8 @@ func run() -> void:
 		Bag.open()
 		GameState.state["combat"]["active"] = true
 		var player: Dictionary = GameState.state["player"]
-		player["inventory"]["healingSalve"] = 1
-		player["inventory"]["healingBurst"] = 1
+		player["inventory"]["healingSalve"] = { "1": 1 }
+		player["inventory"]["healingBurst"] = { "1": 1 }
 
 		var drawer := BagDrawer.new()
 		drawer._ready()
@@ -244,7 +244,7 @@ func run() -> void:
 		GameState.reset()
 		Bag.open()
 		var player: Dictionary = GameState.state["player"]
-		player["inventory"]["healingSalve"] = 1
+		player["inventory"]["healingSalve"] = { "1": 1 }
 		var original_events := _install_item_hook_event()
 
 		var drawer := BagDrawer.new()
@@ -261,7 +261,7 @@ func run() -> void:
 		GameState.reset()
 		Bag.open()
 		var player: Dictionary = GameState.state["player"]
-		player["inventory"]["healingSalve"] = 1
+		player["inventory"]["healingSalve"] = { "1": 1 }
 		player["craftingSkill"] = 3
 
 		var drawer := BagDrawer.new()
@@ -271,7 +271,7 @@ func run() -> void:
 		var button := _find_button(drawer, "♥ Healing Salve (1) — 2-day heal-over-time")
 		button.pressed.emit()
 
-		assert_eq(GameState.state["player"]["inventory"]["healingSalve"], 0, "pressing Use should consume the item via Consumables.use_healing_salve()")
+		assert_eq(Crafting.inventory_qty("healingSalve"), 0, "pressing Use should consume the item via Consumables.use_healing_salve()")
 		assert_eq(GameState.state["player"]["healingSalveDaysLeft"], 2, "use_healing_salve() should start the 2-day HoT")
 		assert_eq(GameState.state["bagDrawerOpen"], false, "using an item from the drawer should close it, same as combat's Use buttons")
 
@@ -282,7 +282,7 @@ func run() -> void:
 		GameState.reset()
 		Bag.open()
 		var player: Dictionary = GameState.state["player"]
-		player["inventory"]["healingSalve"] = 0
+		player["inventory"]["healingSalve"] = { "1": 0 }
 		player["healingSalveDaysLeft"] = 1
 		player["healingSalveDailyAmount"] = 5
 

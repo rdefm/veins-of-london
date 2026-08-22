@@ -492,7 +492,7 @@ func _build_district_actions(district_id: String) -> Control:
 		# calc-effect-wiring-03: wormhole's trigger-free travel option,
 		# shown alongside plain Travel whenever the player holds one.
 		# PROSE-REVIEW: new button label, drafted against CONTENT-GUIDE.md's tone bible.
-		if GameState.state["player"]["inventory"].get("wormhole", 0) > 0:
+		if Crafting.inventory_qty("wormhole") > 0:
 			row.add_child(UI.button("⊗ Wormhole", func(): Travel.travel_via_wormhole(district_id)))
 
 	return row

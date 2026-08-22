@@ -17,6 +17,18 @@ const ARCHIE_SALE_RELATION_GAIN := 2
 const GUILD_SPREAD_MAX := 0.15
 const GUILD_SPREAD_ZERO_RELATION := 90
 
+# bugfixes-64: a crafted consumable's quality tier (Crafting.quality_tier)
+# scales its Archie sale price -- linear, +25% per tier over 1, doubling at
+# tier 5. Human-confirmed curve — no REFERENCE.md precedent, see
+# .scratch/0-bugfixes/issues/64. Tier 0 (untiered/legacy stock — see
+# Crafting's "Inventory" section) prices the same as tier 1: no bonus, no
+# penalty, since its quality is genuinely unknown.
+const QUALITY_PRICE_STEP := 0.25
+
+
+static func quality_price_multiplier(tier: int) -> float:
+	return 1.0 + QUALITY_PRICE_STEP * float(maxi(tier, 1) - 1)
+
 
 # items: [{ kind:"ore"|"consumable", type:String, qty:int }, ...]
 static func execute_sale(items: Array) -> Dictionary:
@@ -50,10 +62,11 @@ static func execute_sale(items: Array) -> Dictionary:
 			gross += price_per_unit * qty
 			player["orichalchum"][item_type] = maxi(0, player["orichalchum"].get(item_type, 0) - qty)
 		elif kind == "consumable":
-			var price_per_unit: int = GameState.round_epsilon(GameData.CONSUMABLE_PRICES.get(item_type, 30) * (1.0 + price_mod))
+			var tier: int = item.get("tier", 0)
+			var price_per_unit: int = GameState.round_epsilon(GameData.CONSUMABLE_PRICES.get(item_type, 30) * quality_price_multiplier(tier) * (1.0 + price_mod))
 			gross += price_per_unit * qty
 			cons_sold += qty
-			player["inventory"][item_type] = maxi(0, player["inventory"].get(item_type, 0) - qty)
+			Crafting.inventory_remove_from_tier(item_type, tier, qty)
 
 	if cons_sold > 0:
 		flags["consSoldCount"] = flags["consSoldCount"] + cons_sold
@@ -107,7 +120,9 @@ static func clear_sell_state() -> void:
 
 
 # Builds the items array from sellState + current stock (ore_<type> /
-# con_<recipeKey> keys, matching the HTML's doSell()), then sells it.
+# con_<recipeKey>_<tier> keys, matching the HTML's doSell() for ore --
+# consumables gained a tier segment in ticket 64 since price now depends on
+# it), then sells it.
 static func sell_from_sell_state() -> Dictionary:
 	var sell_state: Dictionary = GameState.state["sellState"]
 	var items: Array = []
@@ -118,9 +133,11 @@ static func sell_from_sell_state() -> Dictionary:
 			items.append({ "kind": "ore", "type": ore_type, "qty": qty })
 
 	for recipe_key in GameData.CONSUMABLE_PRICES.keys():
-		var qty: int = sell_state.get("con_%s" % recipe_key, 0)
-		if qty > 0:
-			items.append({ "kind": "consumable", "type": recipe_key, "qty": qty })
+		var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
+		for tier_key in buckets.keys():
+			var qty: int = sell_state.get("con_%s_%s" % [recipe_key, tier_key], 0)
+			if qty > 0:
+				items.append({ "kind": "consumable", "type": recipe_key, "tier": int(tier_key), "qty": qty })
 
 	clear_sell_state()
 	return execute_sale(items)
@@ -191,7 +208,9 @@ static func execute_guild_purchase(items: Array) -> Dictionary:
 		if kind == "ore":
 			player["orichalchum"][item_type] = player["orichalchum"].get(item_type, 0) + qty
 		else:
-			player["inventory"][item_type] = player["inventory"].get(item_type, 0) + qty
+			# ticket 64: store-bought stock wasn't crafted at any skill/refine
+			# tier -- files under the same "0" untiered bucket as legacy saves.
+			Crafting.inventory_add(item_type, 0, qty)
 
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
@@ -216,7 +235,9 @@ static func execute_guild_sale(items: Array) -> Dictionary:
 		if kind == "ore":
 			player["orichalchum"][item_type] = maxi(0, player["orichalchum"].get(item_type, 0) - qty)
 		else:
-			player["inventory"][item_type] = maxi(0, player["inventory"].get(item_type, 0) - qty)
+			# Guild's flat price doesn't vary by tier (only Archie's execute_
+			# sale does, ticket 64) -- lowest-tier-first consumption is fine.
+			Crafting.inventory_remove(item_type, qty)
 
 	player["cash"] += total_earned
 	Bank.record(total_earned, "Guild sale")

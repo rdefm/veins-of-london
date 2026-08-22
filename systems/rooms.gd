@@ -92,7 +92,7 @@ static func process_lab() -> void:
 		var skill: int = c.get("craftingSkill", 1)
 		var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
 
-		while player["inventory"].get(recipe_key, 0) < target:
+		while Crafting.inventory_qty(recipe_key) < target:
 			var can_afford := true
 			for ingredient in costs:
 				if player["orichalchum"].get(ingredient, 0) < costs[ingredient]:
@@ -104,7 +104,7 @@ static func process_lab() -> void:
 				player["orichalchum"][ingredient] = player["orichalchum"].get(ingredient, 0) - costs[ingredient]
 			var success: bool = Rng.chance(Crafting.craft_chance(recipe_key, skill))
 			if success:
-				player["inventory"][recipe_key] = player["inventory"].get(recipe_key, 0) + 1
+				Crafting.inventory_add(recipe_key, Crafting.quality_tier(recipe_key, skill))
 				Contacts.award_contact_xp(contact_id, "crafting", r["xpReward"])
 				total_successes += 1
 			else:

@@ -212,7 +212,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		for key in ["cash", "hp", "hpMax", "attackMin", "attackMax", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "stealthSkill", "stealthXP", "shieldPool", "healingSalveDaysLeft", "healingSalveDailyAmount"]:
 			_int_key(player, key)
 		_int_dict_values(player.get("orichalchum", {}))
-		_int_dict_values(player.get("inventory", {}))
+		_migrate_inventory(player.get("inventory", {}))
 		if player.has("bench"):
 			var bench: Dictionary = player["bench"]
 			_int_dict_values(bench.get("surveyed", {}))
@@ -360,6 +360,21 @@ func _restore_modal_int_types(modal: Dictionary) -> void:
 func _int_key(dict: Dictionary, key: String) -> void:
 	if dict.has(key) and typeof(dict[key]) == TYPE_FLOAT:
 		dict[key] = int(dict[key])
+
+
+# ticket 64: player.inventory[recipeKey] moved from a flat count to a
+# tier-bucketed { "<tier>": count } dict. A save from before this ticket
+# has the old bare-number shape per recipe -- migrate each into the "0"
+# (untiered/legacy — quality unknown) bucket rather than rejecting the
+# save or crashing on it. A save already in the new shape just gets its
+# bucket counts int-ified, same as every other numeric field here.
+func _migrate_inventory(inventory: Dictionary) -> void:
+	for recipe_key in inventory.keys():
+		var value = inventory[recipe_key]
+		if value is Dictionary:
+			_int_dict_values(value)
+		else:
+			inventory[recipe_key] = { "0": int(value) }
 
 
 func _int_dict_values(dict: Dictionary) -> void:

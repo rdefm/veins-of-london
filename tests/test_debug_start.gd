@@ -14,9 +14,11 @@ func run() -> void:
 		for ore_type in GameData.ORE_TYPES.keys():
 			assert_eq(p["orichalchum"][ore_type], 50, "50 units of %s -- enough for one seed attempt (40/type)" % ore_type)
 
+		# ticket 64: seeded at tier == craftingSkill (3, above) via
+		# Crafting.inventory_add -- tier-bucketed, not a flat count.
 		assert_eq(p["inventory"], {
-			"timePearl": 5, "enhancementPowder": 3, "rewind": 1,
-			"healingSalve": 2, "blast": 3, "shield": 2, "blackHole": 2, "healingBurst": 3,
+			"timePearl": { "3": 5 }, "enhancementPowder": { "3": 3 }, "rewind": { "3": 1 },
+			"healingSalve": { "3": 2 }, "blast": { "3": 3 }, "shield": { "3": 2 }, "blackHole": { "3": 2 }, "healingBurst": { "3": 3 },
 		}, "consumables")
 
 		assert_eq(p["items"].size(), 1, "one item (the crowbar)")

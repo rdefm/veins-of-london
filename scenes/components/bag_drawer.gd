@@ -113,7 +113,7 @@ func _refresh() -> void:
 	_content.add_child(UI.heading("Consumables", 14))
 	for recipe_key in CONSUMABLE_KEYS:
 		var recipe: Dictionary = GameData.RECIPES[recipe_key]
-		var qty: int = player["inventory"].get(recipe_key, 0)
+		var qty: int = Crafting.inventory_qty(recipe_key)
 		_content.add_child(UI.label("%s %s: %d" % [recipe["symbol"], recipe["name"], qty]))
 
 	# A used-up salve still has a running HoT even once its stock hits 0 --
@@ -161,10 +161,10 @@ func _is_management_mode() -> bool:
 # _on_use_healing_burst below (same Consumables call combat's button makes);
 # healingSalve gets its own handler since combat never offered it a button.
 func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
-	if player["inventory"].get("healingSalve", 0) > 0:
-		_content.add_child(UI.button("♥ Healing Salve (%d) — 2-day heal-over-time" % player["inventory"]["healingSalve"], _on_use_healing_salve))
-	if player["inventory"].get("healingBurst", 0) > 0:
-		_content.add_child(UI.button("✚ Healing Burst (%d) — instant heal" % player["inventory"]["healingBurst"], _on_use_healing_burst))
+	if Crafting.inventory_qty("healingSalve") > 0:
+		_content.add_child(UI.button("♥ Healing Salve (%d) — 2-day heal-over-time" % Crafting.inventory_qty("healingSalve"), _on_use_healing_salve))
+	if Crafting.inventory_qty("healingBurst") > 0:
+		_content.add_child(UI.button("✚ Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
 
 
 func _on_use_healing_salve() -> void:
@@ -278,42 +278,42 @@ func _build_equipped_device_label(player: Dictionary) -> Control:
 # logic, Bag.close() instead of Modal.close() since this drawer replaces
 # that modal (D4.4).
 func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
-	if player["inventory"]["timePearl"] > 0:
-		_content.add_child(UI.button("⧖ Time Pearl (%d) — freeze enemy" % player["inventory"]["timePearl"], _on_use_time_pearl))
+	if Crafting.inventory_qty("timePearl") > 0:
+		_content.add_child(UI.button("⧖ Time Pearl (%d) — freeze enemy" % Crafting.inventory_qty("timePearl"), _on_use_time_pearl))
 
-	if player["inventory"]["enhancementPowder"] > 0:
-		_content.add_child(UI.button("↯ Enhancement Powder (%d) — extra attacks" % player["inventory"]["enhancementPowder"], _on_use_enhancement_powder))
+	if Crafting.inventory_qty("enhancementPowder") > 0:
+		_content.add_child(UI.button("↯ Enhancement Powder (%d) — extra attacks" % Crafting.inventory_qty("enhancementPowder"), _on_use_enhancement_powder))
 
 	# calc-effect-wiring-02: blast/shield/blackHole/healingBurst.
 	# PROSE-REVIEW: new button labels below, drafted against CONTENT-GUIDE.md's tone bible.
-	if player["inventory"].get("blast", 0) > 0:
-		_content.add_child(UI.button("☄ Blast (%d) — damage, flee boost, chance to disarm" % player["inventory"]["blast"], _on_use_blast))
+	if Crafting.inventory_qty("blast") > 0:
+		_content.add_child(UI.button("☄ Blast (%d) — damage, flee boost, chance to disarm" % Crafting.inventory_qty("blast"), _on_use_blast))
 
-	if player["inventory"].get("shield", 0) > 0:
-		var shield_button := UI.button("⛨ Shield (%d) — absorb incoming damage" % player["inventory"]["shield"], _on_use_shield)
+	if Crafting.inventory_qty("shield") > 0:
+		var shield_button := UI.button("⛨ Shield (%d) — absorb incoming damage" % Crafting.inventory_qty("shield"), _on_use_shield)
 		shield_button.disabled = player["shieldPool"] > 0
 		_content.add_child(shield_button)
 
-	if player["inventory"].get("blackHole", 0) > 0:
-		_content.add_child(UI.button("⊙ Black Hole (%d) — damage and freeze" % player["inventory"]["blackHole"], _on_use_black_hole))
+	if Crafting.inventory_qty("blackHole") > 0:
+		_content.add_child(UI.button("⊙ Black Hole (%d) — damage and freeze" % Crafting.inventory_qty("blackHole"), _on_use_black_hole))
 
-	if player["inventory"].get("healingBurst", 0) > 0:
-		_content.add_child(UI.button("✚ Healing Burst (%d) — instant heal" % player["inventory"]["healingBurst"], _on_use_healing_burst))
+	if Crafting.inventory_qty("healingBurst") > 0:
+		_content.add_child(UI.button("✚ Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
 
 	# calc-effect-wiring-03: prophetsBreath/wormhole (combat evade buff /
 	# guaranteed flee). failsafe has no button here -- see CONSUMABLE_KEYS'
 	# comment.
 	# PROSE-REVIEW: new button labels below, drafted against CONTENT-GUIDE.md's tone bible.
-	if player["inventory"].get("prophetsBreath", 0) > 0:
-		_content.add_child(UI.button("≋ Prophet's Breath (%d) — evade buff" % player["inventory"]["prophetsBreath"], _on_use_prophets_breath))
+	if Crafting.inventory_qty("prophetsBreath") > 0:
+		_content.add_child(UI.button("≋ Prophet's Breath (%d) — evade buff" % Crafting.inventory_qty("prophetsBreath"), _on_use_prophets_breath))
 
-	if player["inventory"].get("wormhole", 0) > 0:
-		_content.add_child(UI.button("⊗ Wormhole (%d) — guaranteed flee" % player["inventory"]["wormhole"], _on_use_wormhole))
+	if Crafting.inventory_qty("wormhole") > 0:
+		_content.add_child(UI.button("⊗ Wormhole (%d) — guaranteed flee" % Crafting.inventory_qty("wormhole"), _on_use_wormhole))
 
 	var snap_count: int = combat["snapshots"].size()
-	if player["inventory"]["rewind"] > 0:
+	if Crafting.inventory_qty("rewind") > 0:
 		var rewind_label := "(%d turn(s) back · +50%% evade x2 turns)" % snap_count if snap_count > 0 else "(nothing to undo yet)"
-		var rewind_button := UI.button("⟲ Rewind (%d) — %s" % [player["inventory"]["rewind"], rewind_label], func(): Combat.combat_rewind())
+		var rewind_button := UI.button("⟲ Rewind (%d) — %s" % [Crafting.inventory_qty("rewind"), rewind_label], func(): Combat.combat_rewind())
 		rewind_button.disabled = snap_count == 0
 		_content.add_child(rewind_button)
 

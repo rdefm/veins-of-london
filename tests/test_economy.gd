@@ -92,7 +92,7 @@ func run() -> void:
 		var seed := _find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["world"]["currentDistrict"] = "camden"  # priceMod -0.05
-			GameState.state["player"]["inventory"]["timePearl"] = 5
+			GameState.state["player"]["inventory"]["timePearl"] = { "0": 5 }
 			var result := Economy.execute_sale([{ "kind": "consumable", "type": "timePearl", "qty": 1 }])
 			return not result["mugged"]
 		)
@@ -123,7 +123,7 @@ func run() -> void:
 
 	run_case("consumable_sale_flips_archieMotionPending_exactly_once", func():
 		GameState.reset()
-		GameState.state["player"]["inventory"]["timePearl"] = 5
+		GameState.state["player"]["inventory"]["timePearl"] = { "0": 5 }
 
 		var first := Economy.execute_sale([{ "kind": "consumable", "type": "timePearl", "qty": 1 }])
 		assert_true(GameState.state["flags"]["archieMotionPending"], "first consumable sale should set the pending flag")
@@ -139,7 +139,7 @@ func run() -> void:
 	run_case("consumable_sale_does_not_flip_pending_once_archieMotionEventSeen", func():
 		GameState.reset()
 		GameState.state["flags"]["archieMotionEventSeen"] = true
-		GameState.state["player"]["inventory"]["timePearl"] = 5
+		GameState.state["player"]["inventory"]["timePearl"] = { "0": 5 }
 		Economy.execute_sale([{ "kind": "consumable", "type": "timePearl", "qty": 1 }])
 		assert_true(not GameState.state["flags"]["archieMotionPending"], "should not re-trigger once the motion event has already been seen")
 	)
@@ -194,18 +194,68 @@ func run() -> void:
 		var seed := _find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["orichalchum"]["time"] = 10
-			GameState.state["player"]["inventory"]["timePearl"] = 5
+			GameState.state["player"]["inventory"]["timePearl"] = { "0": 5 }
 			Economy.adjust_sell_qty("ore_time", 3, 10)
-			Economy.adjust_sell_qty("con_timePearl", 2, 5)
+			Economy.adjust_sell_qty("con_timePearl_0", 2, 5)
 			var result := Economy.sell_from_sell_state()
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		# gross = 3*60 (time) + 2*120 (timePearl) = 420; cut = floor(420*0.5) = 210
+		# gross = 3*60 (time) + 2*120 (timePearl, tier 0 -> 1.0x) = 420; cut = floor(420*0.5) = 210
 		assert_eq(GameState.state["player"]["cash"], 40 + 210, "sale proceeds from both ore and consumable lines")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "ore deducted")
-		assert_eq(GameState.state["player"]["inventory"]["timePearl"], 3, "consumable deducted")
+		assert_eq(Crafting.inventory_qty("timePearl"), 3, "consumable deducted")
 		assert_eq(GameState.state["sellState"], {}, "sellState cleared after selling")
+	)
+
+	# ── ticket 64: quality tier scales a consumable's sale price ─────────
+
+	run_case("quality_price_multiplier_matches_the_confirmed_curve", func():
+		assert_almost_eq(Economy.quality_price_multiplier(0), 1.0, 0.0001, "tier 0 (untiered/legacy) prices the same as tier 1 -- no bonus, no penalty")
+		assert_almost_eq(Economy.quality_price_multiplier(1), 1.0, 0.0001, "tier 1: no bonus")
+		assert_almost_eq(Economy.quality_price_multiplier(5), 2.0, 0.0001, "tier 5: +25%/tier over 1, doubling at the top skill tier")
+	)
+
+	run_case("selling_different_tiers_of_the_same_consumable_yields_different_prices", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
+			var result := Economy.execute_sale([{ "kind": "consumable", "type": "timePearl", "tier": 1, "qty": 1 }])
+			return not result["mugged"]
+		)
+		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
+		# timePearl 120 * quality_price_multiplier(1) 1.0 = 120; cut = floor(120*0.5) = 60
+		assert_eq(GameState.state["player"]["cash"], 40 + 60, "tier 1 sells at the base price")
+
+		GameState.reset()
+		GameState.state["player"]["inventory"]["timePearl"] = { "5": 1 }
+		Rng.set_seed(seed)
+		Economy.execute_sale([{ "kind": "consumable", "type": "timePearl", "tier": 5, "qty": 1 }])
+		# timePearl 120 * quality_price_multiplier(5) 2.0 = 240; cut = floor(240*0.5) = 120
+		assert_eq(GameState.state["player"]["cash"], 40 + 120, "tier 5 sells for double the tier-1 price, same base item")
+	)
+
+	run_case("execute_sale_removes_stock_from_the_exact_tier_sold_leaving_other_tiers_untouched", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["timePearl"] = { "1": 3, "5": 2 }
+		Rng.set_seed(1)  # outcome (mugged or not) doesn't matter -- both branches deduct the same way
+		Economy.execute_sale([{ "kind": "consumable", "type": "timePearl", "tier": 1, "qty": 2 }])
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "1": 1, "5": 2 }, "only the sold tier's bucket is drawn down")
+	)
+
+	run_case("sell_from_sell_state_offers_each_tier_of_a_consumable_as_its_own_sellable_line", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["inventory"]["timePearl"] = { "1": 5, "5": 5 }
+			Economy.adjust_sell_qty("con_timePearl_1", 2, 5)
+			Economy.adjust_sell_qty("con_timePearl_5", 1, 5)
+			var result := Economy.sell_from_sell_state()
+			return not result["mugged"]
+		)
+		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
+		# gross = 2*120 (tier 1, 1.0x) + 1*240 (tier 5, 2.0x) = 480; cut = floor(480*0.5) = 240
+		assert_eq(GameState.state["player"]["cash"], 40 + 240, "each tier line sells at its own tier-scaled price")
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "1": 3, "5": 4 }, "each tier's stock is drawn down independently")
 	)
 
 	# ── Guild marketplace (bugfixes-28) ─────────────────────────────────

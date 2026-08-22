@@ -96,10 +96,10 @@ func _build_action_bar() -> Control:
 	# that gates the Item button. failsafe is deliberately absent -- it has
 	# no manual Use action (see bag_drawer.gd's CONSUMABLE_KEYS comment).
 	var has_items: bool = (
-		player["inventory"]["timePearl"] > 0 or player["inventory"]["enhancementPowder"] > 0 or player["inventory"]["rewind"] > 0
-		or player["inventory"].get("blast", 0) > 0 or player["inventory"].get("shield", 0) > 0
-		or player["inventory"].get("blackHole", 0) > 0 or player["inventory"].get("healingBurst", 0) > 0
-		or player["inventory"].get("prophetsBreath", 0) > 0 or player["inventory"].get("wormhole", 0) > 0
+		Crafting.inventory_qty("timePearl") > 0 or Crafting.inventory_qty("enhancementPowder") > 0 or Crafting.inventory_qty("rewind") > 0
+		or Crafting.inventory_qty("blast") > 0 or Crafting.inventory_qty("shield") > 0
+		or Crafting.inventory_qty("blackHole") > 0 or Crafting.inventory_qty("healingBurst") > 0
+		or Crafting.inventory_qty("prophetsBreath") > 0 or Crafting.inventory_qty("wormhole") > 0
 		or player["equipment"]["device"] != null
 	)
 	var item_button := UI.button("🎒 Item", func(): Bag.open())

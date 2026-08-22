@@ -73,8 +73,7 @@ static func can_rewind() -> bool:
 	var event_state = GameState.state["event"]
 	if event_state == null or event_state["snapshots"].is_empty():
 		return false
-	var player: Dictionary = GameState.state["player"]
-	return player["inventory"]["rewind"] > 0 or _find_equipped_rewind_device_with_charge() != null
+	return Crafting.inventory_qty("rewind") > 0 or _find_equipped_rewind_device_with_charge() != null
 
 
 # Continue: snapshots full state, then either reveals the next card or
@@ -137,8 +136,7 @@ static func rewind() -> Dictionary:
 		return { "ok": false, "reason": "No rewind available." }
 
 	var event_state: Dictionary = GameState.state["event"]
-	var player: Dictionary = GameState.state["player"]
-	var has_consumable: bool = player["inventory"]["rewind"] > 0
+	var has_consumable: bool = Crafting.inventory_qty("rewind") > 0
 	var device = _find_equipped_rewind_device_with_charge()
 	var device_id = device["id"] if device != null else null
 
@@ -150,7 +148,7 @@ static func rewind() -> Dictionary:
 	GameState.state["event"]["snapshots"] = stack
 
 	if has_consumable:
-		GameState.state["player"]["inventory"]["rewind"] -= 1
+		Crafting.inventory_remove("rewind", 1)
 	else:
 		Devices.activate(device_id)
 
@@ -191,8 +189,10 @@ static func _apply_one(effect: Dictionary) -> void:
 			var ore: Dictionary = GameState.state["player"]["orichalchum"]
 			ore[effect["type"]] = ore.get(effect["type"], 0) + effect["qty"]
 		"add_item":
-			var inventory: Dictionary = GameState.state["player"]["inventory"]
-			inventory[effect["item"]] = inventory.get(effect["item"], 0) + effect["qty"]
+			# ticket 64: an event-granted item wasn't crafted at any skill/
+			# refine tier -- files under the "0" untiered bucket, same as a
+			# Guild purchase (Economy.execute_guild_purchase).
+			Crafting.inventory_add(effect["item"], 0, effect["qty"])
 		"relation":
 			Contacts.award_relation(effect["contact"], effect["value"])
 		"grant_vein_with_site":

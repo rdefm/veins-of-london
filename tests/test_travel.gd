@@ -100,16 +100,16 @@ func run() -> void:
 
 	run_case("travel_via_wormhole_moves_districts_and_consumes_one", func():
 		GameState.reset()
-		GameState.state["player"]["inventory"]["wormhole"] = 2
+		GameState.state["player"]["inventory"]["wormhole"] = { "1": 2 }
 		var result := Travel.travel_via_wormhole("camden")
 		assert_true(result["ok"], "should succeed with a wormhole in hand")
 		assert_eq(GameState.state["world"]["currentDistrict"], "camden", "currentDistrict updates")
-		assert_eq(GameState.state["player"]["inventory"]["wormhole"], 1, "one wormhole consumed")
+		assert_eq(Crafting.inventory_qty("wormhole"), 1, "one wormhole consumed")
 	)
 
 	run_case("travel_via_wormhole_fails_with_none_in_inventory", func():
 		GameState.reset()
-		GameState.state["player"]["inventory"]["wormhole"] = 0
+		GameState.state["player"]["inventory"]["wormhole"] = { "1": 0 }
 		var result := Travel.travel_via_wormhole("camden")
 		assert_true(not result["ok"], "should fail with no wormhole")
 		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "currentDistrict unchanged")
@@ -117,15 +117,15 @@ func run() -> void:
 
 	run_case("travel_via_wormhole_refuses_a_no_op_trip_to_the_current_district", func():
 		GameState.reset()
-		GameState.state["player"]["inventory"]["wormhole"] = 1
+		GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
 		var result := Travel.travel_via_wormhole("shoreditch")
 		assert_true(not result["ok"], "travelling to where you already are should refuse, same as travel_to()")
-		assert_eq(GameState.state["player"]["inventory"]["wormhole"], 1, "no wormhole consumed when blocked")
+		assert_eq(Crafting.inventory_qty("wormhole"), 1, "no wormhole consumed when blocked")
 	)
 
 	run_case("travel_via_wormhole_succeeds_even_with_no_blocks_remaining", func():
 		GameState.reset()
-		GameState.state["player"]["inventory"]["wormhole"] = 1
+		GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
 		var result := Travel.travel_via_wormhole("camden")
 		assert_true(result["ok"], "wormhole travel is free, same as plain travel")
@@ -160,7 +160,7 @@ func run() -> void:
 				break
 		assert_true(seed != -1, "should find a triggering seed within 200 tries")
 
-		GameState.state["player"]["inventory"]["wormhole"] = 1
+		GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
 		Rng.set_seed(seed)
 		Travel.travel_via_wormhole("camden")
 
@@ -187,7 +187,7 @@ func run() -> void:
 		}]
 		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
 		GameState.state["world"]["pendingDefendRaids"] = [outcome]
-		GameState.state["player"]["inventory"]["wormhole"] = 1
+		GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
 
 		var result := Travel.travel_via_wormhole("camden")
 

@@ -182,6 +182,39 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	# ── ticket 64: legacy flat-int inventory migration ───────────────────
+
+	run_case("loading_a_pre_ticket_64_save_migrates_flat_int_inventory_into_the_0_bucket", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		# Pre-ticket-64 shape: player.inventory[recipeKey] was a bare count,
+		# not a { tier: count } dict. JSON round-trips every number as a
+		# float, same as every other int field this suite exercises.
+		legacy["player"]["inventory"] = { "timePearl": 5.0, "enhancementPowder": 0.0, "rewind": 2.0 }
+
+		var result := SaveManager.import_string(JSON.stringify(legacy))
+		assert_true(result["ok"], "a legacy flat-int inventory should load without crashing")
+
+		var inventory: Dictionary = GameState.state["player"]["inventory"]
+		assert_eq(inventory["timePearl"], { "0": 5 }, "a legacy count migrates into the untiered '0' bucket, as an int not a float")
+		assert_eq(inventory["enhancementPowder"], { "0": 0 }, "a zero legacy count still migrates to a (empty-valued) '0' bucket rather than being dropped")
+		assert_eq(inventory["rewind"], { "0": 2 }, "each recipe key migrates independently")
+		assert_eq(Crafting.inventory_qty("timePearl"), 5, "the migrated stock is usable through the normal inventory_qty API")
+	)
+
+	run_case("loading_a_save_already_in_the_tiered_inventory_shape_leaves_it_untouched_besides_int_ifying", func():
+		GameState.reset()
+		var current: Dictionary = GameState.deep_copy(GameState.state)
+		current["player"]["inventory"] = { "timePearl": { "1": 3.0, "3": 2.0 }, "enhancementPowder": {}, "rewind": {} }
+
+		var result := SaveManager.import_string(JSON.stringify(current))
+		assert_true(result["ok"], "a save already in the tier-bucketed shape should load normally")
+
+		var inventory: Dictionary = GameState.state["player"]["inventory"]
+		assert_eq(inventory["timePearl"], { "1": 3, "3": 2 }, "bucket counts restore as ints, tiers untouched")
+		assert_eq(Crafting.inventory_qty("timePearl"), 5, "inventory_qty sums both buckets")
+	)
+
 	run_case("slot_exists_and_delete_slot", func():
 		SaveManager.delete_slot(TEST_SLOT)
 		assert_true(not SaveManager.slot_exists(TEST_SLOT), "should not exist before saving")

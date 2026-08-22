@@ -8,7 +8,7 @@ func run() -> void:
 		GameState.state["flags"]["craftingUnlocked"] = true
 		GameState.state["player"]["orichalchum"]["time"] = 1000
 		Rooms.process_lab()
-		assert_eq(GameState.state["player"]["inventory"]["timePearl"], 0, "no contact in the lab -> nothing happens")
+		assert_eq(Crafting.inventory_qty("timePearl"), 0, "no contact in the lab -> nothing happens")
 	)
 
 	run_case("process_lab_stops_exactly_when_ore_runs_out", func():
@@ -40,7 +40,7 @@ func run() -> void:
 		GameState.state["player"]["orichalchum"]["time"] = 10000  # ore never the bottleneck here
 		Rng.set_seed(7)
 		Rooms.process_lab()
-		assert_eq(GameState.state["player"]["inventory"]["timePearl"], 2, "should stop exactly at the threshold, never overshoot")
+		assert_eq(Crafting.inventory_qty("timePearl"), 2, "should stop exactly at the threshold, never overshoot")
 	)
 
 	run_case("process_lab_skips_recipes_not_yet_unlocked", func():
@@ -53,8 +53,8 @@ func run() -> void:
 		GameState.state["labThresholds"]["enhancementPowder"] = 5
 		GameState.state["player"]["orichalchum"] = { "time": 1000, "life": 1000 }
 		Rooms.process_lab()
-		assert_eq(GameState.state["player"]["inventory"]["timePearl"], 0, "timePearl gated by craftingUnlocked")
-		assert_eq(GameState.state["player"]["inventory"]["enhancementPowder"], 0, "enhancementPowder gated by enhancementUnlocked")
+		assert_eq(Crafting.inventory_qty("timePearl"), 0, "timePearl gated by craftingUnlocked")
+		assert_eq(Crafting.inventory_qty("enhancementPowder"), 0, "enhancementPowder gated by enhancementUnlocked")
 	)
 
 	# vein-growth-state ticket 06, spec §11 item 10: "a vein at 95 with target

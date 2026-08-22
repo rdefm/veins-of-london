@@ -480,14 +480,14 @@ static func use_time_pearl() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
-	if player["inventory"]["timePearl"] <= 0:
+	if Crafting.inventory_qty("timePearl") <= 0:
 		return { "ok": false, "reason": "No time pearls." }
 	if combat["frozenTurns"] > 0:
 		combat["log"].append("Already frozen. Save the pearl.")
 		EventBus.state_changed.emit()
 		return { "ok": false, "reason": "Already frozen." }
 
-	player["inventory"]["timePearl"] -= 1
+	Crafting.inventory_remove("timePearl", 1)
 	var power = Crafting.effect_power("timePearl", player["craftingSkill"])
 	combat["frozenTurns"] += power
 	var turn_word: String = "turn" if power == 1 else "turns"
@@ -501,14 +501,14 @@ static func use_enhancement_powder() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
-	if player["inventory"]["enhancementPowder"] <= 0:
+	if Crafting.inventory_qty("enhancementPowder") <= 0:
 		return { "ok": false, "reason": "No enhancement powder." }
 	if combat["motionTurns"] > 0:
 		combat["log"].append("Already moving fast. Wait for it to wear off.")
 		EventBus.state_changed.emit()
 		return { "ok": false, "reason": "Already moving fast." }
 
-	player["inventory"]["enhancementPowder"] -= 1
+	Crafting.inventory_remove("enhancementPowder", 1)
 	var power = Crafting.effect_power("enhancementPowder", player["craftingSkill"])
 	combat["motionPower"] = power
 	combat["motionTurns"] = 2 if power >= 3 else 1
@@ -527,10 +527,10 @@ static func use_blast() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
-	if player["inventory"].get("blast", 0) <= 0:
+	if Crafting.inventory_qty("blast") <= 0:
 		return { "ok": false, "reason": "No blast." }
 
-	player["inventory"]["blast"] -= 1
+	Crafting.inventory_remove("blast", 1)
 	var power = Crafting.effect_power("blast", player["craftingSkill"])
 	var enemy: Dictionary = combat["enemy"]
 	enemy["hp"] = maxi(0, enemy["hp"] - power)
@@ -557,7 +557,7 @@ static func use_shield() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
-	if player["inventory"].get("shield", 0) <= 0:
+	if Crafting.inventory_qty("shield") <= 0:
 		return { "ok": false, "reason": "No shield." }
 	if player["shieldPool"] > 0:
 		# PROSE-REVIEW: new "shield already active" block line.
@@ -565,7 +565,7 @@ static func use_shield() -> Dictionary:
 		EventBus.state_changed.emit()
 		return { "ok": false, "reason": "Shield already active." }
 
-	player["inventory"]["shield"] -= 1
+	Crafting.inventory_remove("shield", 1)
 	var power = Crafting.effect_power("shield", player["craftingSkill"])
 	player["shieldPool"] = power
 	# PROSE-REVIEW: new shield-activation log line.
@@ -583,10 +583,10 @@ static func use_black_hole() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
-	if player["inventory"].get("blackHole", 0) <= 0:
+	if Crafting.inventory_qty("blackHole") <= 0:
 		return { "ok": false, "reason": "No black hole." }
 
-	player["inventory"]["blackHole"] -= 1
+	Crafting.inventory_remove("blackHole", 1)
 	var power = Crafting.effect_power("blackHole", player["craftingSkill"])
 	var enemy: Dictionary = combat["enemy"]
 	enemy["hp"] = maxi(0, enemy["hp"] - power)
@@ -623,10 +623,10 @@ static func use_prophets_breath() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
-	if player["inventory"].get("prophetsBreath", 0) <= 0:
+	if Crafting.inventory_qty("prophetsBreath") <= 0:
 		return { "ok": false, "reason": "No prophet's breath." }
 
-	player["inventory"]["prophetsBreath"] -= 1
+	Crafting.inventory_remove("prophetsBreath", 1)
 	var power = Crafting.effect_power("prophetsBreath", player["craftingSkill"])
 	combat["evadeTurns"] = power
 	combat["evadeChance"] = 0.50
@@ -645,11 +645,10 @@ static func use_wormhole() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
-	var player: Dictionary = GameState.state["player"]
-	if player["inventory"].get("wormhole", 0) <= 0:
+	if Crafting.inventory_qty("wormhole") <= 0:
 		return { "ok": false, "reason": "No wormhole." }
 
-	player["inventory"]["wormhole"] -= 1
+	Crafting.inventory_remove("wormhole", 1)
 	combat["outcome"] = "fled"
 	# PROSE-REVIEW: new guaranteed-flee log line, drafted against CONTENT-GUIDE.md's tone bible.
 	combat["log"].append("You fold the space between you and gone. Clean exit -- no parting shot.")
@@ -706,7 +705,7 @@ static func combat_rewind() -> Dictionary:
 		return { "ok": false, "reason": "Nothing to rewind." }
 
 	var player: Dictionary = GameState.state["player"]
-	var has_consumable: bool = player["inventory"]["rewind"] > 0
+	var has_consumable: bool = Crafting.inventory_qty("rewind") > 0
 	var rewind_device = _find_equipped_rewind_device_with_charge()
 	var has_device: bool = rewind_device != null
 
@@ -714,7 +713,7 @@ static func combat_rewind() -> Dictionary:
 		return { "ok": false, "reason": "No rewind available." }
 
 	if has_consumable:
-		player["inventory"]["rewind"] -= 1
+		Crafting.inventory_remove("rewind", 1)
 	else:
 		Devices.activate(rewind_device["id"])
 
@@ -755,12 +754,12 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 # can't do anything and the loss proceeds normally even with failsafe in
 # stock.
 static func _try_failsafe(combat: Dictionary, player: Dictionary) -> bool:
-	if player["inventory"].get("failsafe", 0) <= 0:
+	if Crafting.inventory_qty("failsafe") <= 0:
 		return false
 	if combat["snapshots"].is_empty():
 		return false
 
-	player["inventory"]["failsafe"] -= 1
+	Crafting.inventory_remove("failsafe", 1)
 	_restore_from_snapshot(combat, player)
 	# PROSE-REVIEW: new failsafe auto-trigger log line, drafted against CONTENT-GUIDE.md's tone bible.
 	combat["log"].append("⚑ Failsafe fires. Death, reversed -- administratively.")

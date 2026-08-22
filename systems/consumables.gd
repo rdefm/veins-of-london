@@ -13,10 +13,10 @@ extends RefCounted
 # active resets the timer to 2 days at the new activation's daily amount.
 static func use_healing_salve() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	if player["inventory"].get("healingSalve", 0) <= 0:
+	if Crafting.inventory_qty("healingSalve") <= 0:
 		return { "ok": false, "reason": "No healing salve." }
 
-	player["inventory"]["healingSalve"] -= 1
+	Crafting.inventory_remove("healingSalve", 1)
 	var power = Crafting.effect_power("healingSalve", player["craftingSkill"])
 	player["healingSalveDaysLeft"] = 2
 	player["healingSalveDailyAmount"] = power
@@ -28,10 +28,10 @@ static func use_healing_salve() -> Dictionary:
 
 static func use_healing_burst() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	if player["inventory"].get("healingBurst", 0) <= 0:
+	if Crafting.inventory_qty("healingBurst") <= 0:
 		return { "ok": false, "reason": "No healing burst." }
 
-	player["inventory"]["healingBurst"] -= 1
+	Crafting.inventory_remove("healingBurst", 1)
 	var power = Crafting.effect_power("healingBurst", player["craftingSkill"])
 	var old_hp: int = player["hp"]
 	player["hp"] = mini(player["hp"] + power, player["hpMax"])

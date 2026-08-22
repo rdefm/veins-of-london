@@ -75,13 +75,12 @@ static func travel_to(district: String, skip_triggers: bool = false) -> Dictiona
 # spending the item, so a blocked no-op trip never costs a wormhole (travel_to()'s
 # own guard would otherwise catch it only after the deduction below).
 static func travel_via_wormhole(district: String) -> Dictionary:
-	var player: Dictionary = GameState.state["player"]
-	if player["inventory"].get("wormhole", 0) <= 0:
+	if Crafting.inventory_qty("wormhole") <= 0:
 		return { "ok": false, "reason": "No wormhole." }
 	if GameState.state["world"]["currentDistrict"] == district:
 		return { "ok": false, "reason": "Already there." }
 
-	player["inventory"]["wormhole"] -= 1
+	Crafting.inventory_remove("wormhole", 1)
 	travel_to(district, true)
 	# PROSE-REVIEW: new wormhole-travel confirmation line, drafted against CONTENT-GUIDE.md's tone bible.
 	Notify.push("Space folds. You're just... there. No detours.")

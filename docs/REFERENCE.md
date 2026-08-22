@@ -229,7 +229,7 @@ state = {
     attackMin: 5, attackMax: 12,
     orichalchum: {},          # { oreType: int }
     veins: [],                # vein dicts, §2.1
-    inventory: { timePearl: 0, enhancementPowder: 0, rewind: 0 },
+    inventory: { timePearl: {}, enhancementPowder: {}, rewind: {} },  # bugfixes-64: { recipeKey: { "<tier>": count } } — tier-bucketed, not a flat count. Tier keys are stringified ints; tier "0" means "no known quality" (a migrated pre-64 save, a Guild purchase, or an event add_item grant — none crafted at a specific skill/refine tier). Crafting.inventory_qty/_add/_remove/_remove_from_tier are the only sanctioned readers/writers — see §3.5.
     shieldPool: 0,             # calc-effect-wiring-02: Shield's absorption pool, §3.7
     healingSalveDaysLeft: 0, healingSalveDailyAmount: 0,  # calc-effect-wiring-02: Healing Salve HoT, §3.1/§3.7
     equipment: { weapon: null, device: null },
@@ -370,12 +370,16 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - `craftChance(r) = min(0.95, r.baseSuccess + (skill−1) * 0.13 + workshopBonus)`.
 - `calcCost(r) = { oreType: max(1, round(baseCalcCost − (skill−1) * 0.8)) for oreType, baseCalcCost in r.ingredients }` — computed independently per ingredient key.
 - `effectPower(r) = r.effectPower[skill]`.
-- **attemptCraft:** requires cost in each ingredient type; deduct ALL ingredients ALWAYS; success → +1 item, full XP; fail → `floor(xp/3)`. Result modal.
+- **qualityTier(r, skill)** (bugfixes-64): the tier a craft at this moment would file its inventory unit under — mirrors `effectPower`'s own refine branch. A recipe refined past Bench tier 0 (`refineStep.field == "effectPower"` and `Bench.get_cell(...).refine > 0`) reports that refine tier; everything else reports `skill` itself. Not capped — a refine tier can climb past 5.
+- **attemptCraft:** requires cost in each ingredient type; deduct ALL ingredients ALWAYS; success → `Crafting.inventory_add(recipeKey, qualityTier(r, skill))` (+1 unit filed under that tier's bucket, §2), full XP; fail → `floor(xp/3)`. Result modal.
 - **Devices:** build cost per attempt = `2 × calcCost(recipe)[device.calcType]` — the device's calcType selects one entry from the recipe's per-ingredient cost dict. Start at progress 10. Each attempt: deduct cost, award `floor(recipeXP/2)` crafting XP, then success (same craftChance) → progress +5 (at ≥100: completed instance `{level:1, xp:0, chargesPerDay:1, chargesUsedToday:0, lastResetDay:day}`); fail → progress −2.5 (at ≤0: device breaks, notification). Device XP: +10 per activation; level-ups per DEVICE_XP_LEVELS grant +1 chargesPerDay.
 - **Device activation in combat:** freeze → `frozenTurns += effectPower(timePearl at player skill)`; motion → `motionTurns += 2`, `motionPower = effectPower(enhancementPowder)`; rewind → per §3.9.
+- **Spending a consumable outside a sale** (combat item use, travel's Wormhole, event Rewind, a James craft-job fulfilment, a Guild sale) draws from the lowest tier bucket first, via `Crafting.inventory_remove` — every such use is indifferent to which specific unit it spends, since `effectPower` is recomputed from the *current* skill at use-time, not the tier the spent unit was crafted at. This keeps higher-quality stock on hand for a §3.6 sale, where tier does matter.
 
 ### 3.6 Selling (Archie lane)
-- Sell menu covers ore (all 5 types, at effective price) and consumables at CONSUMABLE_PRICES (gated by `canSellConsumables`).
+- Sell menu covers ore (all 5 types, at effective price) and consumables at CONSUMABLE_PRICES (gated by `canSellConsumables`) — one sell row per (recipe, tier-in-stock) since ticket 64, not one row per recipe.
+- **qualityPriceMultiplier(tier)** (bugfixes-64, human-confirmed curve, no prior REFERENCE.md precedent — see `.scratch/0-bugfixes/issues/64`): `1.0 + 0.25 * (max(tier, 1) − 1)`. Tier 1 → 1.0×, tier 5 → 2.0× (linear, doubling at the top skill tier); tier 0 (untiered/legacy stock) prices the same as tier 1 — no bonus, no penalty, since its quality is genuinely unknown.
+- A sold consumable's `price = round_epsilon(CONSUMABLE_PRICES[recipeKey] * qualityPriceMultiplier(tier))`, then the existing `* (1 + priceMod)` district/omen modifiers apply on top. Selling draws down that exact tier's bucket (`Crafting.inventory_remove_from_tier`), not a generic lowest-first policy.
 - `gross` = Σ price×qty; deduct goods; player cut = `floor(gross * 0.5)`.
 - Consumables-sold counter: first ever consumable sale (and !archieMotionEventSeen) → set `archieMotionPending = true` + notification "Archie texted. Check Contacts."
 - Every completed sale (ore or consumable, mugged or not): archie relation +2 (`ARCHIE_SALE_RELATION_GAIN`, bugfixes-63) — smaller than James's +5/job since sales happen far more often.

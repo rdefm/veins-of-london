@@ -83,7 +83,9 @@ func new_game_state() -> Dictionary:
 			"healingSalveDaysLeft": 0, "healingSalveDailyAmount": 0,
 			"orichalchum": {},
 			"veins": [],
-			"inventory": { "timePearl": 0, "enhancementPowder": 0, "rewind": 0 },
+			# ticket 64: quantity per quality tier, not a flat count -- see
+			# Crafting's "Inventory" section. Empty buckets == zero stock.
+			"inventory": { "timePearl": {}, "enhancementPowder": {}, "rewind": {} },
 			"equipment": { "weapon": null, "device": null },
 			"items": [],
 			"devicesInProgress": [],

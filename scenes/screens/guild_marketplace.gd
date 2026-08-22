@@ -72,7 +72,7 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 		var recipe: Dictionary = GameData.RECIPES[item_type]
 		name = recipe["name"]
 		symbol = recipe["symbol"]
-		have = player["inventory"].get(item_type, 0)
+		have = Crafting.inventory_qty(item_type)
 
 	var buy_price := Economy.get_guild_buy_price(kind, item_type)
 	var sell_price := Economy.get_guild_sell_price(kind, item_type)

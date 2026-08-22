@@ -99,7 +99,7 @@ func run() -> void:
 				seed = candidate
 				break
 		assert_true(seed != -1, "should find a successful craft roll within 200 tries")
-		assert_eq(GameState.state["player"]["inventory"]["timePearl"], 1, "successful craft grants +1 item")
+		assert_eq(Crafting.inventory_qty("timePearl"), 1, "successful craft grants +1 item")
 		assert_eq(GameState.state["player"]["craftingXP"], 20, "success grants full xpReward (20 for timePearl)")
 		assert_eq(GameState.state["modal"]["type"], "craft_result", "attempt_craft should open the craft_result modal")
 		assert_eq(GameState.state["modal"]["data"]["success"], true, "modal data reflects the outcome")
@@ -117,7 +117,7 @@ func run() -> void:
 				seed = candidate
 				break
 		assert_true(seed != -1, "should find a failed craft roll within 200 tries")
-		assert_eq(GameState.state["player"]["inventory"]["timePearl"], 0, "failed craft grants no item")
+		assert_eq(Crafting.inventory_qty("timePearl"), 0, "failed craft grants no item")
 		assert_eq(GameState.state["player"]["craftingXP"], 6, "failure grants floor(20/3) = 6 xp")
 	)
 
@@ -194,7 +194,7 @@ func run() -> void:
 			if attempt["success"]:
 				successes += 1
 		assert_eq(result["successes"], successes, "reported success count matches the per-attempt breakdown")
-		assert_eq(GameState.state["player"]["inventory"]["timePearl"], successes, "inventory grew by exactly the successful attempts -- proves each was rolled on its own, not one pooled chance for the whole batch")
+		assert_eq(Crafting.inventory_qty("timePearl"), successes, "inventory grew by exactly the successful attempts -- proves each was rolled on its own, not one pooled chance for the whole batch")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 100 - 5 * 5, "ingredient deducted once per attempt, 5 attempts x 5 calc")
 	)
 
@@ -244,5 +244,64 @@ func run() -> void:
 				assert_eq(result["power"], 13, "7 (skill 3 base, effectPower[3]) + 3*2 (refine tier 2 bonus) = 13")
 				break
 		assert_true(seed != -1, "should find a successful craft roll within 200 tries")
+		GameData.RECIPES.erase("_testRefinable")
+	)
+
+	# ── ticket 64: tier-bucketed inventory ───────────────────────────────
+
+	run_case("crafting_at_different_skill_levels_files_into_different_tier_buckets", func():
+		var seed_lo := -1
+		for candidate in range(200):
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			GameState.state["player"]["craftingSkill"] = 1
+			Rng.set_seed(candidate)
+			if Crafting.attempt_craft("timePearl").get("success", false):
+				seed_lo = candidate
+				break
+		assert_true(seed_lo != -1, "should find a successful skill-1 craft within 200 tries")
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "1": 1 }, "a skill-1 craft files into the tier-1 bucket")
+
+		var seed_hi := -1
+		for candidate in range(200):
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			GameState.state["player"]["craftingSkill"] = 5
+			Rng.set_seed(candidate)
+			if Crafting.attempt_craft("timePearl").get("success", false):
+				seed_hi = candidate
+				break
+		assert_true(seed_hi != -1, "should find a successful skill-5 craft within 200 tries")
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "5": 1 }, "a skill-5 craft files into a separate tier-5 bucket, distinct from tier 1")
+
+		# Craft one of each in the same game -- proves they stack in separate
+		# buckets rather than one overwriting or merging with the other.
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["craftingSkill"] = 1
+		Rng.set_seed(seed_lo)
+		Crafting.attempt_craft("timePearl")
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["craftingSkill"] = 5
+		Rng.set_seed(seed_hi)
+		Crafting.attempt_craft("timePearl")
+		assert_eq(GameState.state["player"]["inventory"]["timePearl"], { "1": 1, "5": 1 }, "distinct tiers accumulate in separate buckets, not merged")
+		assert_eq(Crafting.inventory_qty("timePearl"), 2, "inventory_qty sums across every tier bucket")
+	)
+
+	run_case("quality_tier_at_a_refined_tier_reports_the_refine_tier_not_the_skill", func():
+		GameState.reset()
+		GameData.RECIPES["_testRefinable"] = {
+			"name": "Test Refinable", "symbol": "?",
+			"ingredients": { "fate": 1 },
+			"discovery": { "types": ["fate", "physics"], "approach": "heat" },
+			"baseSuccess": 1.0,
+			"effectPower": [0, 5, 6, 7, 8, 9],
+			"refineStep": { "field": "effectPower", "add": 3 },
+			"xpReward": 10, "eventUsable": false, "description": "",
+		}
+		assert_eq(Crafting.quality_tier("_testRefinable", 3), 3, "tier 0 (unrefined) reports the skill index, same as effect_power()'s own fallback")
+		GameState.state["player"]["bench"]["cells"]["fate+physics|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+		assert_eq(Crafting.quality_tier("_testRefinable", 3), 2, "refined past tier 0 reports the Bench refine tier instead of the skill index")
 		GameData.RECIPES.erase("_testRefinable")
 	)

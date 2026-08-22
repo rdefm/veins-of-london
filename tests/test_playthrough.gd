@@ -177,7 +177,7 @@ func run() -> void:
 			return Crafting.attempt_craft("timePearl").get("success", false)
 		)
 		assert_true(craft_seed != -1, "should find a successful craft roll")
-		assert_true(GameState.state["player"]["inventory"]["timePearl"] > 0, "a successful craft should grant at least one pearl")
+		assert_true(Crafting.inventory_qty("timePearl") > 0, "a successful craft should grant at least one pearl")
 		_assert_invariants("post-craft")
 
 		# --- Sell: force both a mugged and a non-mugged branch ---

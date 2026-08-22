@@ -193,14 +193,14 @@ func run() -> void:
 		GameState.state["jamesJob"] = job
 		GameState.state["flags"]["jamesJobActive"] = true
 		GameState.state["flags"]["jamesJobAccepted"] = true
-		GameState.state["player"]["inventory"][job["recipeKey"]] = job["qty"] + 10
+		Crafting.inventory_add(job["recipeKey"], 1, job["qty"] + 10)
 		var cash_before: int = GameState.state["player"]["cash"]
 		var relation_before: int = GameState.state["contacts"]["james"]["relation"]
 
 		var result := Jobs.fulfil_job()
 
 		assert_true(result["ok"], "should succeed with enough inventory")
-		assert_eq(GameState.state["player"]["inventory"][job["recipeKey"]], 10, "qty deducted, 10 remain")
+		assert_eq(Crafting.inventory_qty(job["recipeKey"]), 10, "qty deducted, 10 remain")
 		assert_eq(GameState.state["player"]["cash"], cash_before + job["totalPay"], "cash increases by totalPay")
 		assert_eq(GameState.state["contacts"]["james"]["relation"], relation_before + 5, "james relation +5")
 		assert_eq(GameState.state["jamesJob"], null, "job cleared")
@@ -220,7 +220,7 @@ func run() -> void:
 		GameState.state["jamesJob"] = job
 		GameState.state["flags"]["jamesJobActive"] = true
 		GameState.state["flags"]["jamesJobAccepted"] = true
-		GameState.state["player"]["inventory"][job["recipeKey"]] = 0
+		# no inventory_add call -- recipeKey defaults to zero stock
 
 		var result := Jobs.fulfil_job()
 

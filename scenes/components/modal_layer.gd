@@ -252,17 +252,27 @@ func _build_sell_menu() -> void:
 		gross += ore["basePrice"] * qty
 		_card_content.add_child(_build_sell_row("%s %s (£%d/u, have %d)" % [ore["symbol"], ore["name"], ore["basePrice"], have], key, qty, have))
 
+	# ticket 64: one sell row per (recipe, tier) with stock -- price now
+	# scales by quality tier (Economy.quality_price_multiplier), so tiers of
+	# the same consumable are no longer fungible at sale time.
 	if GameState.state["flags"]["canSellConsumables"]:
 		for recipe_key in GameData.CONSUMABLE_PRICES.keys():
-			var have: int = player["inventory"].get(recipe_key, 0)
-			if have <= 0:
-				continue
+			var buckets: Dictionary = player["inventory"].get(recipe_key, {})
 			var recipe: Dictionary = GameData.RECIPES[recipe_key]
-			var price: int = GameData.CONSUMABLE_PRICES[recipe_key]
-			var key := "con_%s" % recipe_key
-			var qty: int = sell_state.get(key, 0)
-			gross += price * qty
-			_card_content.add_child(_build_sell_row("%s %s (£%d/ea, have %d)" % [recipe["symbol"], recipe["name"], price, have], key, qty, have))
+			var base_price: int = GameData.CONSUMABLE_PRICES[recipe_key]
+			var tier_keys: Array = buckets.keys()
+			tier_keys.sort_custom(func(a, b): return int(a) < int(b))
+			for tier_key in tier_keys:
+				var have: int = buckets[tier_key]
+				if have <= 0:
+					continue
+				var tier: int = int(tier_key)
+				var price: int = GameState.round_epsilon(base_price * Economy.quality_price_multiplier(tier))
+				var key := "con_%s_%s" % [recipe_key, tier_key]
+				var qty: int = sell_state.get(key, 0)
+				gross += price * qty
+				var tier_label := "untiered" if tier <= 0 else "tier %d" % tier
+				_card_content.add_child(_build_sell_row("%s %s (%s, £%d/ea, have %d)" % [recipe["symbol"], recipe["name"], tier_label, price, have], key, qty, have))
 
 	var player_cut: int = int(floor(gross * Economy.PLAYER_CUT_RATIO))
 	_card_content.add_child(UI.label("Your cut (50%%): £%d" % player_cut))

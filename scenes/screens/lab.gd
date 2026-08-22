@@ -134,7 +134,7 @@ func _build_recipe_card(recipe_key: String) -> Control:
 	var chance: float = Crafting.craft_chance(recipe_key, skill)
 	var power = Crafting.effect_power(recipe_key, skill)
 	var can_make: bool = Crafting.can_craft(recipe_key)
-	var stock: int = player["inventory"].get(recipe_key, 0)
+	var stock: int = Crafting.inventory_qty(recipe_key)
 
 	var c := UI.card()
 	c["content"].add_child(UI.heading("%s %s" % [r["symbol"], r["name"]], 15))
