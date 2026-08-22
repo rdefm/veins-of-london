@@ -69,6 +69,48 @@ func run() -> void:
 		assert_eq(path[1], Vector2(60, 0), "diag-first crosses, diag-last doesn't -> picks diag-last")
 	)
 
+	run_case("elbow_path_switches_orientation_to_avoid_another_owners_stop", func():
+		# diag-first's first leg (0,0)->(40,40) (see the river test above)
+		# passes exactly through (20,20) -- put another owner's stop there so
+		# the naive diag-first elbow would visually overlap it. diag-last's
+		# corner (60,0) never comes near (20,20) on either leg, so it should
+		# be picked instead, matching the river-avoidance pattern exactly.
+		var obstacle_stops := [{ "pos": Vector2(20, 20), "radius": 10.0 }]
+		var path := MapRouting.elbow_path(Vector2(0, 0), Vector2(100, 40), [], obstacle_stops)
+		assert_eq(path[1], Vector2(60, 0), "diag-first overlaps the obstacle stop, diag-last doesn't -> picks diag-last")
+	)
+
+	run_case("elbow_path_ignores_stops_outside_the_avoidance_radius", func():
+		# (25,20) sits just off diag-first's first leg (0,0)->(40,40) -- close
+		# enough to matter with a generous radius, but a tight 1px radius
+		# doesn't reach it, so diag-first should stay untouched.
+		var narrow_stop := [{ "pos": Vector2(25, 20), "radius": 1.0 }]
+		var path := MapRouting.elbow_path(Vector2(0, 0), Vector2(100, 40), [], narrow_stop)
+		assert_eq(path[1], Vector2(40, 40), "obstacle stop's own radius doesn't reach either leg -> no orientation change")
+	)
+
+	run_case("elbow_path_defaults_to_diag_first_when_no_leg_nears_the_obstacle_stop", func():
+		var obstacle_stops := [{ "pos": Vector2(500, 500), "radius": 10.0 }]
+		var path := MapRouting.elbow_path(Vector2(0, 0), Vector2(100, 40), [], obstacle_stops)
+		assert_eq(path[1], Vector2(40, 40), "obstacle stop nowhere near either orientation -> stays diag-first")
+	)
+
+	run_case("build_line_routes_around_another_owners_stop", func():
+		# build_line only elbow-connects stops to each other (ordered[i] ->
+		# ordered[i+1]) -- `start` merely seeds the nearest-neighbour walk, it
+		# is never itself an endpoint of the drawn path (see the multi-stop
+		# test above: 3 stops -> only 2 elbow segments, not 3). So the
+		# obstacle here must sit on the leg between the two STOPS, and `start`
+		# just needs to be nearer s1 so nearest_neighbour_order visits it first.
+		var stops := [
+			{ "id": "s1", "pos": Vector2(0, 0) },
+			{ "id": "s2", "pos": Vector2(100, 40) },
+		]
+		var obstacle_stops := [{ "pos": Vector2(20, 20), "radius": 10.0 }]
+		var line := MapRouting.build_line(Vector2(-10, -10), stops, [], obstacle_stops)
+		assert_eq(line[1], Vector2(60, 0), "build_line threads obstacle_stops into its elbow_path calls")
+	)
+
 	run_case("segments_intersect_true_for_crossing_segments", func():
 		assert_true(MapRouting.segments_intersect(Vector2(0, 0), Vector2(10, 10), Vector2(0, 10), Vector2(10, 0)), "an X crossing should intersect")
 	)

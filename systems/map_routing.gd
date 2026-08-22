@@ -31,22 +31,28 @@ static func elbow_corner_diag_last(from: Vector2, to: Vector2) -> Vector2:
 
 
 # The full two-segment path (3 points: start, corner, end). Picks whichever
-# orientation avoids crossing river_path "where trivially possible" (N3);
-# if both or neither cross, prefers diag-first — keeps output deterministic
-# given the same inputs.
-static func elbow_path(from: Vector2, to: Vector2, river_path: Array = []) -> PackedVector2Array:
+# orientation avoids crossing river_path AND obstacle_stops "where trivially
+# possible" (N3, extended by ticket 51 for cross-faction stop avoidance); if
+# both or neither cross, prefers diag-first — keeps output deterministic
+# given the same inputs. obstacle_stops is an Array of { "pos": Vector2,
+# "radius": float } — stops another owner's line must not visually overlap.
+static func elbow_path(from: Vector2, to: Vector2, river_path: Array = [], obstacle_stops: Array = []) -> PackedVector2Array:
 	var corner_first := elbow_corner_diag_first(from, to)
-	if river_path.size() < 2:
+	if river_path.size() < 2 and obstacle_stops.is_empty():
 		return PackedVector2Array([from, corner_first, to])
 
-	if not _elbow_crosses_river(from, corner_first, to, river_path):
+	if not _elbow_crosses(from, corner_first, to, river_path, obstacle_stops):
 		return PackedVector2Array([from, corner_first, to])
 
 	var corner_last := elbow_corner_diag_last(from, to)
-	if not _elbow_crosses_river(from, corner_last, to, river_path):
+	if not _elbow_crosses(from, corner_last, to, river_path, obstacle_stops):
 		return PackedVector2Array([from, corner_last, to])
 
 	return PackedVector2Array([from, corner_first, to])
+
+
+static func _elbow_crosses(a: Vector2, corner: Vector2, b: Vector2, river_path: Array, obstacle_stops: Array) -> bool:
+	return _elbow_crosses_river(a, corner, b, river_path) or _elbow_crosses_stops(a, corner, b, obstacle_stops)
 
 
 static func _elbow_crosses_river(a: Vector2, corner: Vector2, b: Vector2, river_path: Array) -> bool:
@@ -58,6 +64,29 @@ static func _segment_crosses_polyline(a: Vector2, b: Vector2, polyline: Array) -
 		if segments_intersect(a, b, polyline[i], polyline[i + 1]):
 			return true
 	return false
+
+
+# Ticket 51: unlike the river (a polyline crossing is a hard line), a stop is
+# a filled circle on the rendered map — "crosses" here means the leg passes
+# within the stop's own drawn radius, not just an exact geometric crossing.
+static func _elbow_crosses_stops(a: Vector2, corner: Vector2, b: Vector2, obstacle_stops: Array) -> bool:
+	for stop in obstacle_stops:
+		if _segment_crosses_stop(a, corner, stop) or _segment_crosses_stop(corner, b, stop):
+			return true
+	return false
+
+
+static func _segment_crosses_stop(a: Vector2, b: Vector2, stop: Dictionary) -> bool:
+	return _point_segment_distance(stop["pos"], a, b) <= stop.get("radius", 0.0)
+
+
+static func _point_segment_distance(p: Vector2, a: Vector2, b: Vector2) -> float:
+	var ab := b - a
+	var len_sq := ab.length_squared()
+	if len_sq == 0.0:
+		return p.distance_to(a)
+	var t := clampf((p - a).dot(ab) / len_sq, 0.0, 1.0)
+	return p.distance_to(a + ab * t)
 
 
 # Standard segment-intersection test via orientation cross products.
@@ -108,7 +137,7 @@ static func nearest_neighbour_order(start: Vector2, stops: Array) -> Array:
 # elbow-connect each consecutive pair into one continuous polyline (ready
 # for draw_polyline). A single-stop owner gets a terminus stub instead of
 # an elbow (N3). Empty input -> empty output (no line drawn).
-static func build_line(start: Vector2, stops: Array, river_path: Array = []) -> PackedVector2Array:
+static func build_line(start: Vector2, stops: Array, river_path: Array = [], obstacle_stops: Array = []) -> PackedVector2Array:
 	if stops.is_empty():
 		return PackedVector2Array()
 
@@ -118,7 +147,7 @@ static func build_line(start: Vector2, stops: Array, river_path: Array = []) -> 
 
 	var points := PackedVector2Array()
 	for i in range(ordered.size() - 1):
-		var segment := elbow_path(ordered[i]["pos"], ordered[i + 1]["pos"], river_path)
+		var segment := elbow_path(ordered[i]["pos"], ordered[i + 1]["pos"], river_path, obstacle_stops)
 		if points.is_empty():
 			points.append(segment[0])
 		points.append(segment[1])
@@ -152,11 +181,11 @@ static func common_prefix_length(a: PackedVector2Array, b: PackedVector2Array) -
 # than a synthetic segment reaching back to `anchor` — build_line() never
 # actually connects a single-stop owner's stub to the anchor either, so
 # growing "from the anchor" here would itself have been a shape mismatch.
-static func grow_segment(anchor: Vector2, old_stops: Array, new_stop: Dictionary, river_path: Array = []) -> PackedVector2Array:
-	var old_line := build_line(anchor, old_stops, river_path)
+static func grow_segment(anchor: Vector2, old_stops: Array, new_stop: Dictionary, river_path: Array = [], obstacle_stops: Array = []) -> PackedVector2Array:
+	var old_line := build_line(anchor, old_stops, river_path, obstacle_stops)
 	var new_stops := old_stops.duplicate()
 	new_stops.append(new_stop)
-	var new_line := build_line(anchor, new_stops, river_path)
+	var new_line := build_line(anchor, new_stops, river_path, obstacle_stops)
 
 	var prefix := common_prefix_length(old_line, new_line)
 	var segment := PackedVector2Array()

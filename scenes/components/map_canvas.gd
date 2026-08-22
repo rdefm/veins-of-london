@@ -691,7 +691,7 @@ func _start_line_growth(stop: Dictionary, event: Dictionary) -> Variant:
 	var alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, owner)
 	var old_stops := _line_owner_stops(owner)
 	var new_stop := { "id": stop["id"], "pos": stop["position"] }
-	var segment := MapRouting.grow_segment(anchor, old_stops, new_stop, MapLayout.river_path())
+	var segment := MapRouting.grow_segment(anchor, old_stops, new_stop, MapLayout.river_path(), _other_owner_obstacle_stops(owner))
 
 	var growth := LineGrowth.new()
 	growth.points = segment
@@ -713,6 +713,27 @@ func _line_owner_stops(owner: String) -> Array:
 	var result: Array = []
 	for s in source:
 		result.append({ "id": s["id"], "pos": s["position"] })
+	return result
+
+
+# Ticket 51: the { "pos", "radius" } obstacle set MapRouting.build_line()/
+# grow_segment() check `owner`'s elbow legs against to avoid visually
+# overlapping another owner's stops -- every other owner's currently-drawn
+# line stops (same _line_vein_stops/_line_faction_stops source _draw_lines
+# itself reads, so a stop mid-join_line-event is excluded exactly as
+# _draw_lines would exclude it). Shared by _draw_lines and _start_line_growth
+# so the grown segment is guaranteed to avoid exactly what the static draw
+# would avoid -- same "no visible jump" discipline as _line_owner_stops above.
+func _other_owner_obstacle_stops(owner: String) -> Array:
+	var result: Array = []
+	if owner != "player":
+		for s in _line_vein_stops:
+			result.append({ "pos": s["position"], "radius": VEIN_STOP_RADIUS })
+	for faction_id in _line_faction_stops.keys():
+		if faction_id == owner:
+			continue
+		for s in _line_faction_stops[faction_id]:
+			result.append({ "pos": s["position"], "radius": FACTION_STOP_RADIUS })
 	return result
 
 
@@ -969,7 +990,7 @@ func _draw_lines() -> void:
 	var player_stops: Array = []
 	for stop in _line_vein_stops:
 		player_stops.append({ "id": stop["id"], "pos": stop["position"] })
-	var player_line := MapRouting.build_line(MapLayout.home_anchor(), player_stops, river)
+	var player_line := MapRouting.build_line(MapLayout.home_anchor(), player_stops, river, _other_owner_obstacle_stops("player"))
 	var player_alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, "player")
 	_draw_route(player_line, _faded(MapStyle.line_colour(filter_mode, PLAYER_COLOUR), player_alpha))
 
@@ -986,7 +1007,7 @@ func _draw_lines() -> void:
 		for stop in _line_faction_stops[faction_id]:
 			stops.append({ "id": stop["id"], "pos": stop["position"] })
 		var faction_colour := Color(GameData.FACTIONS[faction_id]["colour"])
-		var line := MapRouting.build_line(anchor, stops, river)
+		var line := MapRouting.build_line(anchor, stops, river, _other_owner_obstacle_stops(faction_id))
 		var faction_alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, faction_id)
 		_draw_route(line, _faded(MapStyle.line_colour(filter_mode, faction_colour), faction_alpha))
 
