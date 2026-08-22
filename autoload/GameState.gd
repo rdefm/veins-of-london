@@ -39,6 +39,15 @@ func new_game_state() -> Dictionary:
 		# pacing_mode()/set_pacing_mode().
 		"mapEvents": { "queue": [], "playing": false, "pacingMode": MapEvents.DEFAULT_PACING_MODE },
 		"phoneNav": { "app": "home", "selectedAxis": null, "confirmingNewGame": false },
+		# 53-map-auto-focus-and-zoom-persistence: unlike mapNav/phoneNav/
+		# benchNav above/below, this DOES survive save/load (see
+		# SaveManager._restore_int_types() for scrollX/scrollY) -- the
+		# whole point is that the camera the player left the Network map
+		# at is still there next time, on this save or a reloaded one.
+		# everOpened gates MapCanvas._apply_initial_view()'s one-shot
+		# auto-focus (see systems/map_view.gd): false only for a save
+		# that has genuinely never had its map opened yet.
+		"mapView": { "everOpened": false, "zoom": MapZoom.DEFAULT, "scrollX": 0, "scrollY": 0 },
 		# calc-discovery ticket 03: transient Lab nav, same convention as
 		# mapNav/phoneNav — resets on load, not meaningfully persisted.
 		# Bugfixes ticket 25: "crafting" joined "home"/"picker"/"pairing"/...

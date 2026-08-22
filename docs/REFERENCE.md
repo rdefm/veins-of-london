@@ -215,6 +215,7 @@ state = {
   bagDrawerOpen: false,        # M1 D4.4; the global BagDrawer bottom sheet, independent of `modal`
   inventoryTab: "ore",
   mapNav: { selectedDistrict: null, selectedSiteId: null },  # M1 D4; Map tab drill-down (list -> district panel -> site/vein sheet)
+  mapView: { everOpened: false, zoom: 0.85, scrollX: 0, scrollY: 0 },  # 53-map-auto-focus-and-zoom-persistence; Network map camera. Unlike mapNav above, DOES survive save/load (SaveManager._restore_int_types() restores scrollX/scrollY as ints; zoom stays float). everOpened false only until the map's first-ever open, which auto-focuses on the player's veins then marks it done; every later open restores zoom/scrollX/scrollY exactly.
   veinListNav: { districtId: null, bandFilter: null, originScreen: "map" },  # vein-growth-state ticket 09 (§6.2); vein list scope/filter/return-screen
   notifications: [],          # [{ id:String, text:String, seen:bool, day:int }] — capped at 50, oldest evicted; dismiss() only flips seen, never deletes (11-phone-os-shell ticket 04)
   bankLog: [],                # [{ id:String, amount:int, label:String, day:int }] — capped at 50 (Bank.LOG_CAP), oldest evicted; every direct player.cash mutation calls Bank.record() alongside itself (bugfixes-38, systems/bank.gd), same append-and-evict-from-front shape as `notifications` above. Display only, no dismiss.

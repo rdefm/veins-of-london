@@ -503,6 +503,99 @@ func run() -> void:
 		canvas.free()
 	)
 
+	# ── initial view (53-map-auto-focus-and-zoom-persistence) ────────────
+	# _ready() called directly as a plain method, same established pattern as
+	# the pacing cases above -- _apply_initial_view() touches nothing beyond
+	# GameState/GameData, MapView, and MapZoom.fit_view(), none of which need
+	# a live SceneTree. get_parent() is null in this construction style (no
+	# real ScrollContainer parent), so _apply_initial_view()'s own viewport_
+	# size fallback (same "scroll.size if scroll else size" idiom pan_to()
+	# uses) reads this Control's own `size`, already set by the earlier
+	# _apply_zoom() call in _ready() to _map_size * MapZoom.DEFAULT -- a
+	# fixed, GameData-derived quantity, not a real device viewport, but
+	# deterministic enough to cross-check MapZoom.fit_view() against directly
+	# (same "recompute the expected value from the same pure seam" pattern
+	# the _vein_ring_style cases above use against MapStyle).
+
+	run_case("ready_falls_back_to_the_home_anchor_at_default_zoom_when_theres_nothing_to_fit_yet", func():
+		GameState.reset()  # no veins at all -- a fresh save's genuine first map visit
+
+		var canvas := MapCanvas.new()
+		canvas._ready()
+
+		assert_almost_eq(canvas.zoom_level, MapZoom.DEFAULT, 0.0001, "nothing to fit -- fit_view's empty-positions branch always lands on DEFAULT")
+		assert_true(MapView.has_opened_before(), "the first-ever open must mark itself done")
+
+		canvas.free()
+	)
+
+	run_case("ready_auto_focuses_on_the_players_veins_on_the_very_first_map_open", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [{
+			"id": "s1", "district": "hampstead", "tier": "fair", "oreType": "time",
+			"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+			"hasNaturalVein": false,
+		}]
+		GameState.state["player"]["veins"] = [{
+			"id": "v1", "siteId": "s1", "oreType": "time", "growth": 20, "security": "none",
+			"alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
+			"district": "hampstead", "hospitability": { "tier": "fair", "bonuses": [] },
+		}]
+
+		var canvas := MapCanvas.new()
+		canvas._ready()
+
+		var map_size: Array = GameData.MAP_LAYOUT["mapSize"]
+		var map_size_v := Vector2(map_size[0], map_size[1])
+		var expected_viewport := map_size_v * MapZoom.DEFAULT
+		var positions: Array = []
+		for stop in canvas._vein_stops:
+			positions.append(stop["position"])
+		var expected := MapZoom.fit_view(positions, expected_viewport, map_size_v, MapLayout.home_anchor())
+
+		assert_almost_eq(canvas.zoom_level, expected["zoom"], 0.0001, "the very first open computes its zoom from MapZoom.fit_view() over the player's own vein stops")
+		assert_true(MapView.has_opened_before(), "the first-ever open must mark itself done")
+
+		canvas.free()
+	)
+
+	run_case("ready_restores_a_persisted_camera_on_every_later_open_ignoring_auto_focus", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [{
+			"id": "s1", "district": "hampstead", "tier": "fair", "oreType": "time",
+			"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+			"hasNaturalVein": false,
+		}]
+		GameState.state["player"]["veins"] = [{
+			"id": "v1", "siteId": "s1", "oreType": "time", "growth": 20, "security": "none",
+			"alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
+			"district": "hampstead", "hospitability": { "tier": "fair", "bonuses": [] },
+		}]
+		MapView.mark_opened()
+		MapView.save_view(1.3, Vector2(50, 60))
+
+		var canvas := MapCanvas.new()
+		canvas._ready()
+
+		assert_almost_eq(canvas.zoom_level, 1.3, 0.0001, "a later visit restores exactly the persisted zoom, ignoring the veins entirely")
+
+		canvas.free()
+	)
+
+	run_case("exit_tree_persists_the_final_zoom_and_scroll", func():
+		GameState.reset()
+		var canvas := MapCanvas.new()
+		canvas._ready()
+		canvas.zoom_level = 1.4  # simulate the player having pinch-zoomed during this visit
+
+		canvas._exit_tree()
+
+		assert_almost_eq(MapView.zoom(), 1.4, 0.0001, "_exit_tree() should persist whatever zoom the player left the view at")
+		assert_eq(MapView.scroll(), Vector2.ZERO, "no real ScrollContainer parent in this construction style, so scroll persists as the documented zero fallback")
+
+		canvas.free()
+	)
+
 	# map-filters ticket 04: set_filter()/set_faction_filter() are plain
 	# field setters, safe to exercise directly for the same reason as the
 	# pacing cases above -- neither touches get_tree()/get_viewport(). The
@@ -886,9 +979,18 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [
 			{ "id": "v1", "siteId": "s1", "oreType": "time", "growth": 20, "security": "none", "alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1, "district": "hampstead", "hospitability": { "tier": "fair", "bonuses": [] } },
 		]
+		# 53-map-auto-focus-and-zoom-persistence: without this, _ready() would
+		# treat this GameState.reset() as a genuine first-ever map open and
+		# auto-focus zoom_level away from MAX -- irrelevant to what this case
+		# actually checks (that simultaneous pacing itself does no forced
+		# pan). Persisting MAX (not just marking opened) means _ready()'s own
+		# restore-from-MapView branch is what sets zoom_level to MAX, so the
+		# separate pre-_ready() assignment the old fixture used is redundant
+		# now and dropped.
+		MapView.mark_opened()
+		MapView.save_view(MapZoom.MAX, Vector2.ZERO)
 
 		var canvas := MapCanvas.new()
-		canvas.zoom_level = MapZoom.MAX  # distinct from MapZoom.EVENT_ZOOM -- a forced pan would change this
 		canvas._ready()
 
 		MapEvents.queue_seed_claim("hampstead", "v1", "player")

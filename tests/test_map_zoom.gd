@@ -140,3 +140,46 @@ func run() -> void:
 		assert_almost_eq(viewport_relative_after.x, anchor.x, 0.0001)
 		assert_almost_eq(viewport_relative_after.y, anchor.y, 0.0001)
 	)
+
+	# ── fit_view (53-map-auto-focus-and-zoom-persistence: first-ever open) ──
+
+	run_case("fit_view_uses_the_fallback_point_at_default_zoom_when_there_are_no_positions", func():
+		var view := MapZoom.fit_view([], Vector2(400, 400), Vector2(4000, 4000), Vector2(1000, 1000))
+
+		assert_almost_eq(view["zoom"], MapZoom.DEFAULT, 0.0001, "no veins yet -- nothing to fit around, so DEFAULT")
+		var expected_scroll := MapZoom.scroll_target(Vector2(1000, 1000), MapZoom.DEFAULT, Vector2(400, 400), Vector2(4000, 4000) * MapZoom.DEFAULT)
+		assert_eq(view["scroll"], expected_scroll, "centres the fallback point at DEFAULT zoom, same maths scroll_target itself uses")
+	)
+
+	run_case("fit_view_centres_on_a_single_vein_at_default_zoom", func():
+		var view := MapZoom.fit_view([Vector2(500, 500)], Vector2(400, 400), Vector2(4000, 4000), Vector2(0, 0))
+
+		assert_almost_eq(view["zoom"], MapZoom.DEFAULT, 0.0001, "a single point has no spread to fit -- zoom stays at DEFAULT, not maxed out")
+		var expected_scroll := MapZoom.scroll_target(Vector2(500, 500), MapZoom.DEFAULT, Vector2(400, 400), Vector2(4000, 4000) * MapZoom.DEFAULT)
+		assert_eq(view["scroll"], expected_scroll, "centred on the one vein")
+	)
+
+	run_case("fit_view_zooms_out_below_default_to_fit_a_wide_spread_of_veins", func():
+		# A spread far wider than the viewport at DEFAULT zoom forces zoom
+		# down so every vein stays framed.
+		var positions := [Vector2(0, 500), Vector2(5000, 500)]
+		var view := MapZoom.fit_view(positions, Vector2(400, 400), Vector2(8000, 8000), Vector2(0, 0))
+
+		assert_true(view["zoom"] < MapZoom.DEFAULT, "a spread this wide at DEFAULT zoom would blow past the viewport -- must zoom out to fit it")
+		assert_true(view["zoom"] >= MapZoom.MIN, "still clamped to the legal zoom range")
+	)
+
+	run_case("fit_view_never_zooms_in_past_default_for_a_tight_cluster", func():
+		var positions := [Vector2(1000, 1000), Vector2(1005, 1002)]  # a few px apart
+		var view := MapZoom.fit_view(positions, Vector2(400, 400), Vector2(4000, 4000), Vector2(0, 0))
+
+		assert_almost_eq(view["zoom"], MapZoom.DEFAULT, 0.0001, "frame the veins, not zoom in as far as possible on a tight cluster")
+	)
+
+	run_case("fit_view_centres_the_bounding_box_midpoint_not_either_vein", func():
+		var positions := [Vector2(200, 200), Vector2(600, 600)]
+		var view := MapZoom.fit_view(positions, Vector2(1000, 1000), Vector2(4000, 4000), Vector2(0, 0))
+
+		var expected_scroll := MapZoom.scroll_target(Vector2(400, 400), view["zoom"], Vector2(1000, 1000), Vector2(4000, 4000) * view["zoom"])
+		assert_eq(view["scroll"], expected_scroll, "scroll centres the bounding box's own midpoint, (200,600)")
+	)

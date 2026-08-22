@@ -262,6 +262,13 @@ var _tap_start_pos: Vector2
 var _pinch_start_distance: float = -1.0
 var _pinch_start_zoom: float = 1.0
 
+# 53-map-auto-focus-and-zoom-persistence: cached in _apply_initial_view()
+# (get_parent() as ScrollContainer, same idiom pan_to() uses live) so
+# _exit_tree() has a reliable reference to read the final scroll position
+# from without depending on get_parent() still resolving correctly mid-
+# teardown.
+var _scroll_container: ScrollContainer
+
 
 func _ready() -> void:
 	# Control's default mouse_filter is STOP, which — found via a real
@@ -314,6 +321,13 @@ func _ready() -> void:
 	EventBus.state_changed.connect(_rebuild)
 	_rebuild()
 
+	# 53-map-auto-focus-and-zoom-persistence: restores the persisted camera
+	# (or, on the very first map open in this save, auto-focuses on the
+	# player's veins) before playback starts below -- doing this after would
+	# yank the scroll/zoom out from under an already-started queued event's
+	# forced pan_to() tween.
+	_apply_initial_view()
+
 	# Bugfixes ticket 19: a vein queued (MapEvents.queue_seed_claim) while
 	# this Control is already alive — e.g. a Seed/Cultivate/Harvest bubble
 	# action, or a daily-tick roll, taken without ever leaving the Map tab —
@@ -331,9 +345,19 @@ func _ready() -> void:
 # pan/ripple tween is still in flight. See MapEvents.abandon_playback()'s
 # own comment for why leaving "playing" stuck true in that case would
 # permanently break every future tap on this screen.
+#
+# 53-map-auto-focus-and-zoom-persistence: also the one place camera state
+# gets persisted -- MapCanvas is torn down and rebuilt on every navigation
+# away from "map" (see map_events.gd's own header comment), so there's no
+# other "closing the map" moment to hook. _scroll_container is read here
+# rather than a fresh get_parent() cast, matching what _apply_initial_view()
+# resolved it to on the way in.
 func _exit_tree() -> void:
 	if MapEvents.is_playing():
 		MapEvents.abandon_playback()
+
+	var scroll_position := Vector2(_scroll_container.scroll_horizontal, _scroll_container.scroll_vertical) if _scroll_container else Vector2.ZERO
+	MapView.save_view(zoom_level, scroll_position)
 
 
 # ── zoom ─────────────────────────────────────────────────────────────────
@@ -359,6 +383,34 @@ func _apply_zoom() -> void:
 	_playback_layer.scale = Vector2(zoom_level, zoom_level)
 	_pins_layer.scale = Vector2(zoom_level, zoom_level)
 	_labels_layer.scale = Vector2(zoom_level, zoom_level)
+
+
+# 53-map-auto-focus-and-zoom-persistence: called once from _ready(), after
+# _rebuild() has populated _vein_stops (the fit-view branch needs it) and
+# before playback ever gets a chance to start its own forced pan_to() (see
+# _ready()'s own comment for why the ordering matters). Every visit after the
+# very first restores exactly what MapView.save_view() last persisted (this
+# Control's own _exit_tree(), on whatever previous visit closed); the very
+# first visit in a save (MapView.has_opened_before() false) instead centers/
+# zooms to frame the player's own veins via MapZoom.fit_view(), then marks
+# first-open done so no later visit re-triggers it.
+func _apply_initial_view() -> void:
+	_scroll_container = get_parent() as ScrollContainer
+	var viewport_size: Vector2 = _scroll_container.size if _scroll_container else size
+
+	var view: Dictionary
+	if MapView.has_opened_before():
+		view = { "zoom": MapView.zoom(), "scroll": MapView.scroll() }
+	else:
+		var positions: Array = []
+		for stop in _vein_stops:
+			positions.append(stop["position"])
+		view = MapZoom.fit_view(positions, viewport_size, _map_size, MapLayout.home_anchor())
+		MapView.mark_opened()
+
+	_set_zoom(view["zoom"])
+	if _scroll_container:
+		_apply_scroll(view["scroll"], _scroll_container)
 
 
 # Map-animations ticket 01: programmatic pan+zoom to a logical map-px point,

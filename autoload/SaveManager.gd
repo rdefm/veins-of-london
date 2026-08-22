@@ -187,9 +187,9 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 # calls (barometer.gd, combat.gd) require int arguments, and formatting
 # like "£%d" % cash would misbehave. Restore ints in place, per R§2's
 # schema, immediately after backfill so every top-level key is guaranteed
-# present. The two genuinely-float fields in the whole schema —
-# combat.evadeChance and devicesInProgress[].progress — are deliberately
-# left untouched.
+# present. The three genuinely-float fields in the whole schema —
+# combat.evadeChance, devicesInProgress[].progress, and mapView.zoom —
+# are deliberately left untouched.
 func _restore_int_types(state: Dictionary) -> void:
 	_int_key(state, "pendingSaleCut")
 	_int_dict_values(state.get("labThresholds", {}))
@@ -249,6 +249,14 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("home"):
 		var home: Dictionary = state["home"]
 		_int_key(home, "lastRaidDay")
+
+	if state.has("mapView"):
+		var map_view: Dictionary = state["mapView"]
+		_int_key(map_view, "scrollX")
+		_int_key(map_view, "scrollY")
+		# mapView.zoom is a genuine float (MapZoom.MIN..MAX) -- intentionally
+		# left untouched, same as combat.evadeChance/devicesInProgress[].
+		# progress above.
 
 	if state.has("factions"):
 		for faction in state["factions"].values():

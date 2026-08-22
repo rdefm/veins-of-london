@@ -158,6 +158,30 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_mutate_load_round_trips_mapView_with_scroll_as_ints_and_zoom_as_float", func():
+		GameState.reset()
+		MapView.mark_opened()
+		MapView.save_view(1.15, Vector2(345, 678))
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.reset()
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		assert_true(MapView.has_opened_before(), "everOpened should be restored")
+		assert_almost_eq(MapView.zoom(), 1.15, 0.0001, "zoom should be restored")
+		assert_eq(MapView.scroll(), Vector2(345, 678), "scroll should be restored")
+		assert_eq(typeof(GameState.state["mapView"]["scrollX"]), TYPE_INT, "scrollX should be restored as int, not float")
+		assert_eq(typeof(GameState.state["mapView"]["scrollY"]), TYPE_INT, "scrollY should be restored as int, not float")
+		assert_eq(typeof(GameState.state["mapView"]["zoom"]), TYPE_FLOAT, "zoom should stay a float, not get int-cast like scrollX/scrollY")
+		assert_eq(GameState.state, original, "the full state tree (including mapView) should deep-equal what was saved")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("slot_exists_and_delete_slot", func():
 		SaveManager.delete_slot(TEST_SLOT)
 		assert_true(not SaveManager.slot_exists(TEST_SLOT), "should not exist before saving")
