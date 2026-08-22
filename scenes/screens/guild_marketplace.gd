@@ -1,9 +1,11 @@
 class_name GuildMarketplaceScreen
 extends Control
 
-# bugfixes-29: trading UI for economy.gd's Guild lane (bugfixes-28's
-# get_guild_buy_price()/get_guild_sell_price()/execute_guild_purchase()/
-# execute_guild_sale()). Reached from the guild's faction card
+# bugfixes-29: trading UI for economy.gd's Guild lane (bugfixes-28,
+# generalized to a per-faction lane by collective1-01 —
+# get_faction_buy_price()/get_faction_sell_price()/execute_faction_purchase()/
+# execute_faction_sale(), called here with faction_id "guild"). Reached from
+# the guild's faction card
 # (ContactCards.build_faction_card, always shown so a non-member can find
 # out the Guild exists) -- membership itself is checked here, not at the
 # entry point, so a non-member always lands on the locked state rather than
@@ -74,8 +76,8 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 		symbol = recipe["symbol"]
 		have = Crafting.inventory_qty(item_type)
 
-	var buy_price := Economy.get_guild_buy_price(kind, item_type)
-	var sell_price := Economy.get_guild_sell_price(kind, item_type)
+	var buy_price := Economy.get_faction_buy_price("guild", kind, item_type)
+	var sell_price := Economy.get_faction_sell_price("guild", kind, item_type)
 
 	var c := UI.card()
 	c["content"].add_child(UI.heading("%s %s" % [symbol, name], 15))
@@ -84,13 +86,13 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 	var row := UI.hbox()
 
 	var buy_button := UI.button("Buy 1 (£%d)" % buy_price, func():
-		Economy.execute_guild_purchase([{ "kind": kind, "type": item_type, "qty": 1 }])
+		Economy.execute_faction_purchase("guild", [{ "kind": kind, "type": item_type, "qty": 1 }])
 	)
 	buy_button.disabled = player["cash"] < buy_price
 	row.add_child(buy_button)
 
 	var sell_button := UI.button("Sell 1 (£%d)" % sell_price, func():
-		Economy.execute_guild_sale([{ "kind": kind, "type": item_type, "qty": 1 }])
+		Economy.execute_faction_sale("guild", [{ "kind": kind, "type": item_type, "qty": 1 }])
 	)
 	sell_button.disabled = have <= 0
 	row.add_child(sell_button)

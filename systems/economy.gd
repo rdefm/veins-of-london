@@ -3,19 +3,19 @@ extends RefCounted
 
 # Selling (Archie lane) per R§3.6. Static funcs only.
 
-const PLAYER_CUT_RATIO := 0.5
 const MUG_BASE_CHANCE := 0.20
 
 # bugfixes-63: relation for selling through Archie, smaller than James's
 # +5/job since sales happen far more often.
 const ARCHIE_SALE_RELATION_GAIN := 2
 
-# Guild marketplace spread (bugfixes-28): ±15% at the Guild join threshold
-# (state.factions.guild.relation == GameData.FACTIONS.guild.joinRelation),
-# narrowing linearly to 0% by relation 90, then flat. Human-confirmed curve —
-# no REFERENCE.md precedent for this, see .scratch/0-bugfixes/issues/28.
-const GUILD_SPREAD_MAX := 0.15
-const GUILD_SPREAD_ZERO_RELATION := 90
+# collective1-01 (R§3.6 amendment): Archie's cut used to be a flat 0.5
+# (PLAYER_CUT_RATIO). Now relation-scaled 0.60->0.85 linear across his
+# relation 10->80, flat outside — see get_archie_cut_ratio() below.
+const ARCHIE_CUT_RATIO_MIN := 0.60
+const ARCHIE_CUT_RATIO_MAX := 0.85
+const ARCHIE_CUT_RELATION_MIN := 10
+const ARCHIE_CUT_RELATION_MAX := 80
 
 # bugfixes-64: a crafted consumable's quality tier (Crafting.quality_tier)
 # scales its Archie sale price -- linear, +25% per tier over 1, doubling at
@@ -28,6 +28,16 @@ const QUALITY_PRICE_STEP := 0.25
 
 static func quality_price_multiplier(tier: int) -> float:
 	return 1.0 + QUALITY_PRICE_STEP * float(maxi(tier, 1) - 1)
+
+
+static func get_archie_cut_ratio() -> float:
+	var relation: int = GameState.state["contacts"]["archie"]["relation"]
+	if relation <= ARCHIE_CUT_RELATION_MIN:
+		return ARCHIE_CUT_RATIO_MIN
+	if relation >= ARCHIE_CUT_RELATION_MAX:
+		return ARCHIE_CUT_RATIO_MAX
+	var span := float(ARCHIE_CUT_RELATION_MAX - ARCHIE_CUT_RELATION_MIN)
+	return ARCHIE_CUT_RATIO_MIN + (ARCHIE_CUT_RATIO_MAX - ARCHIE_CUT_RATIO_MIN) * float(relation - ARCHIE_CUT_RELATION_MIN) / span
 
 
 # items: [{ kind:"ore"|"consumable", type:String, qty:int }, ...]
@@ -76,7 +86,7 @@ static func execute_sale(items: Array) -> Dictionary:
 
 	Contacts.award_relation("archie", ARCHIE_SALE_RELATION_GAIN)
 
-	var player_cut: int = int(floor(gross * PLAYER_CUT_RATIO))
+	var player_cut: int = int(floor(gross * get_archie_cut_ratio()))
 	var mugged: bool = Rng.chance(Barometer.get_effective_mug_chance(MUG_BASE_CHANCE + danger_mod))
 
 	if mugged:
@@ -143,64 +153,92 @@ static func sell_from_sell_state() -> Dictionary:
 	return execute_sale(items)
 
 
-# ── Guild marketplace (bugfixes-28) ─────────────────────────────────────
+# ── Faction trade lanes (bugfixes-28, generalized by collective1-01) ────
 # A separate pricing/transaction lane from the Archie sell flow above: no
-# mugging risk, no district price_mod/danger_mod, no player-cut split — the
-# Guild trades at ticker-effective base price plus/minus a relation-narrowed
-# spread. Screen/gating work is bugfixes-29.
+# player-cut split — a faction trades at ticker-effective base price
+# plus/minus a relation-narrowed spread, configured per faction_id in
+# data/faction_trade.json (GameData.FACTION_TRADE). The Guild was the
+# original (and, until the Collective, only) caller — GUILD_SPREAD_MAX/
+# GUILD_SPREAD_ZERO_RELATION are now that data file's guild row. Screen/
+# gating work for the Guild is bugfixes-29.
 
-static func get_guild_spread() -> float:
-	var relation: int = GameState.state["factions"]["guild"]["relation"]
-	var anchor: int = GameData.FACTIONS["guild"]["joinRelation"]
+static func _faction_spread(faction_id: String, max_key: String, min_key: String) -> float:
+	var config: Dictionary = GameData.FACTION_TRADE[faction_id]
+	var anchor: int = config["anchorRelation"]
+	var zero_relation: int = config["zeroRelation"]
+	var spread_max: float = config[max_key]
+	var spread_min: float = config[min_key]
+	var relation: int = GameState.state["factions"][faction_id]["relation"]
 	if relation <= anchor:
-		return GUILD_SPREAD_MAX
-	if relation >= GUILD_SPREAD_ZERO_RELATION:
-		return 0.0
-	var span := float(GUILD_SPREAD_ZERO_RELATION - anchor)
-	return GUILD_SPREAD_MAX * float(GUILD_SPREAD_ZERO_RELATION - relation) / span
+		return spread_max
+	if relation >= zero_relation:
+		return spread_min
+	var span := float(zero_relation - anchor)
+	return spread_min + (spread_max - spread_min) * float(zero_relation - relation) / span
 
 
-static func _guild_base_price(kind: String, item_type: String) -> int:
+# Decoupled from get_faction_buy_spread (collective1-01 spec.md §8.1): the
+# Collective's sell spread is wide (0.45->0.05) while its buy spread stays
+# modest (0.15->0.05) — the Guild's row uses identical max/min for both,
+# reproducing its old symmetric spread exactly.
+static func get_faction_sell_spread(faction_id: String) -> float:
+	return _faction_spread(faction_id, "sellSpreadMax", "sellSpreadMin")
+
+
+static func get_faction_buy_spread(faction_id: String) -> float:
+	return _faction_spread(faction_id, "buySpreadMax", "buySpreadMin")
+
+
+static func _faction_base_price(kind: String, item_type: String) -> int:
 	if kind == "ore":
 		return GameData.ORE_TYPES[item_type]["basePrice"]
 	return GameData.CONSUMABLE_PRICES.get(item_type, 30)
 
 
-static func _guild_effective_price(kind: String, item_type: String) -> int:
-	var base_price := _guild_base_price(kind, item_type)
+static func _faction_effective_price(faction_id: String, kind: String, item_type: String) -> int:
+	var base_price := _faction_base_price(kind, item_type)
+	var price: int
 	if kind == "ore":
-		return Barometer.get_effective_ore_price(item_type, base_price)
-	return base_price
+		price = Barometer.get_effective_ore_price(item_type, base_price)
+	else:
+		price = base_price
+
+	var config: Dictionary = GameData.FACTION_TRADE[faction_id]
+	if config.get("applyDistrictPriceMod", false):
+		var district: Dictionary = GameData.DISTRICTS.get(GameState.state["world"]["currentDistrict"], {})
+		var price_mod: float = district.get("priceMod", 0.0)
+		price = GameState.round_epsilon(price * (1.0 + price_mod))
+	return price
 
 
-static func get_guild_buy_price(kind: String, item_type: String) -> int:
-	var effective := _guild_effective_price(kind, item_type)
-	return GameState.round_epsilon(effective * (1.0 + get_guild_spread()))
+static func get_faction_buy_price(faction_id: String, kind: String, item_type: String) -> int:
+	var effective := _faction_effective_price(faction_id, kind, item_type)
+	return GameState.round_epsilon(effective * (1.0 + get_faction_buy_spread(faction_id)))
 
 
-static func get_guild_sell_price(kind: String, item_type: String) -> int:
-	var effective := _guild_effective_price(kind, item_type)
-	return GameState.round_epsilon(effective * (1.0 - get_guild_spread()))
+static func get_faction_sell_price(faction_id: String, kind: String, item_type: String) -> int:
+	var effective := _faction_effective_price(faction_id, kind, item_type)
+	return GameState.round_epsilon(effective * (1.0 - get_faction_sell_spread(faction_id)))
 
 
 # items: [{ kind:"ore"|"consumable", type:String, qty:int }, ...]. All-or-
 # nothing: rejects the whole purchase if total cost exceeds cash, mirroring
 # execute_sale's shape (deducts cash, adds inventory on success).
-static func execute_guild_purchase(items: Array) -> Dictionary:
+static func execute_faction_purchase(faction_id: String, items: Array) -> Dictionary:
 	if items.is_empty():
 		return { "ok": false, "reason": "Nothing to buy." }
 
 	var player: Dictionary = GameState.state["player"]
 	var total_cost := 0
 	for item in items:
-		var price_per_unit := get_guild_buy_price(item["kind"], item["type"])
+		var price_per_unit := get_faction_buy_price(faction_id, item["kind"], item["type"])
 		total_cost += price_per_unit * int(item["qty"])
 
 	if player["cash"] < total_cost:
 		return { "ok": false, "reason": "Not enough cash." }
 
 	player["cash"] -= total_cost
-	Bank.record(-total_cost, "Guild purchase")
+	Bank.record(-total_cost, "%s purchase" % faction_id.capitalize())
 	for item in items:
 		var kind: String = item["kind"]
 		var item_type: String = item["type"]
@@ -217,10 +255,10 @@ static func execute_guild_purchase(items: Array) -> Dictionary:
 	return { "ok": true, "cost": total_cost }
 
 
-# Symmetric counterpart to execute_guild_purchase — straight sale at the
-# Guild's spread-narrowed price, no mugging/cut (that's the Archie lane's
+# Symmetric counterpart to execute_faction_purchase — straight sale at the
+# faction's spread-narrowed price, no mugging/cut (that's the Archie lane's
 # execute_sale, unrelated to this one).
-static func execute_guild_sale(items: Array) -> Dictionary:
+static func execute_faction_sale(faction_id: String, items: Array) -> Dictionary:
 	if items.is_empty():
 		return { "ok": false, "reason": "Nothing to sell." }
 
@@ -230,16 +268,17 @@ static func execute_guild_sale(items: Array) -> Dictionary:
 		var kind: String = item["kind"]
 		var item_type: String = item["type"]
 		var qty: int = item["qty"]
-		var price_per_unit := get_guild_sell_price(kind, item_type)
+		var price_per_unit := get_faction_sell_price(faction_id, kind, item_type)
 		total_earned += price_per_unit * qty
 		if kind == "ore":
 			player["orichalchum"][item_type] = maxi(0, player["orichalchum"].get(item_type, 0) - qty)
 		else:
-			# Guild's flat price doesn't vary by tier (only Archie's execute_
-			# sale does, ticket 64) -- lowest-tier-first consumption is fine.
+			# A faction lane's flat price doesn't vary by tier (only Archie's
+			# execute_sale does, ticket 64) -- lowest-tier-first consumption
+			# is fine.
 			Crafting.inventory_remove(item_type, qty)
 
 	player["cash"] += total_earned
-	Bank.record(total_earned, "Guild sale")
+	Bank.record(total_earned, "%s sale" % faction_id.capitalize())
 	EventBus.state_changed.emit()
 	return { "ok": true, "earned": total_earned }

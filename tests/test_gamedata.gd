@@ -51,6 +51,13 @@ func run() -> void:
 		assert_true(found, "a faction barometer pref pointing at a nonexistent state should be flagged")
 	)
 
+	run_case("corrupt_fixture_missing_faction_trade_lane_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["faction_trade"].erase("collective")
+		var errors := GameData.validate_tables(corrupted)
+		assert_true(not errors.is_empty(), "removing the collective's trade lane config should fail validation")
+	)
+
 	run_case("corrupt_fixture_missing_district_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
 		corrupted["districts"].erase("soho")
@@ -172,6 +179,9 @@ func run() -> void:
 		assert_eq(GameData.VEIN_GROWTH["seedGrowth"], 20, "vein_growth seedGrowth")
 		assert_eq(GameData.VEIN_SECURITY["guarded"]["raidResist"], 55, "guarded raidResist")
 		assert_eq(GameData.FACTIONS["conclave"]["joinRelation"], 60, "conclave joinRelation")
+		assert_eq(GameData.FACTION_TRADE["collective"]["sellSpreadMax"], 0.45, "collective sellSpreadMax (§8.1)")
+		assert_eq(GameData.FACTION_TRADE["collective"]["anchorRelation"], 0, "collective trade lane anchors at relation 0, not joinRelation")
+		assert_eq(GameData.FACTION_TRADE["guild"]["anchorRelation"], 40, "guild trade lane still anchors at its joinRelation")
 		assert_almost_eq(GameData.BAROMETER_STATES["economic"]["crisis"]["effects"]["fatePremium"], 0.5, 0.0001, "crisis fatePremium (migrated from void)")
 		assert_eq(GameData.DEVICES["enhancementDevice"]["recipeKey"], "enhancementPowder", "enhancementDevice recipeKey")
 		assert_eq(GameData.CONSUMABLE_PRICES["timePearl"], 120, "timePearl consumable price")

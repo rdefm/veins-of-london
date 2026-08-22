@@ -191,7 +191,7 @@ static func _apply_one(effect: Dictionary) -> void:
 		"add_item":
 			# ticket 64: an event-granted item wasn't crafted at any skill/
 			# refine tier -- files under the "0" untiered bucket, same as a
-			# Guild purchase (Economy.execute_guild_purchase).
+			# Guild purchase (Economy.execute_faction_purchase).
 			Crafting.inventory_add(effect["item"], 0, effect["qty"])
 		"relation":
 			Contacts.award_relation(effect["contact"], effect["value"])

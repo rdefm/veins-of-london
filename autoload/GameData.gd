@@ -41,6 +41,10 @@ var APPROACHES: Dictionary = {}
 
 var FACTIONS: Dictionary = {}
 
+# collective1-01: per-faction trade lane config (Economy.get_faction_*),
+# replacing the formerly-hardcoded GUILD_SPREAD_MAX/GUILD_SPREAD_ZERO_RELATION.
+var FACTION_TRADE: Dictionary = {}
+
 var DISTRICTS: Dictionary = {}
 
 var MAP_LAYOUT: Dictionary = {}
@@ -140,6 +144,7 @@ func load_all() -> void:
 	APPROACHES = _load_json("res://data/approaches.json")
 
 	FACTIONS = _load_json("res://data/factions.json")
+	FACTION_TRADE = _load_json("res://data/faction_trade.json")
 
 	DISTRICTS = _load_json("res://data/districts.json")
 
@@ -207,6 +212,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_home(t.get("home_tier_order", []), t.get("home_tiers", {}), t.get("home_security", {}), t.get("home_rooms", {}), errors)
 	_validate_approaches(t.get("approaches", {}), t.get("home_rooms", {}), errors)
 	_validate_factions(t.get("factions", {}), errors)
+	_validate_faction_trade(t.get("faction_trade", {}), errors)
 	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
 	_validate_map_layout(t.get("map_layout", {}), t.get("districts", {}), errors)
 	_validate_sites(t.get("site_tier_order", []), t.get("site_tier_weights", {}), t.get("site_at_cap_tier_weights", {}), t.get("site_prospect_xp", {}), t.get("site_seed_tier_mod", {}), t.get("site_discovery_bonus_pool", []), errors)
@@ -239,6 +245,7 @@ func snapshot() -> Dictionary:
 		"home_rooms": HOME_ROOMS,
 		"approaches": APPROACHES,
 		"factions": FACTIONS,
+		"faction_trade": FACTION_TRADE,
 		"districts": DISTRICTS,
 		"map_layout": MAP_LAYOUT,
 		"site_tier_order": SITE_TIER_ORDER,
@@ -423,6 +430,16 @@ func _validate_factions(factions: Dictionary, errors: Array[String]) -> void:
 			errors.append("factions: missing faction '%s'" % key)
 			continue
 		_require_keys(factions[key], ["id", "name", "shortName", "tagline", "industries", "description", "colour", "joinRelation", "securityBias", "resourceLevel"], "factions.%s" % key, errors)
+
+
+# collective1-01: every faction with a trade lane (Economy.get_faction_*)
+# needs a row here. Only guild and collective have one so far.
+func _validate_faction_trade(faction_trade: Dictionary, errors: Array[String]) -> void:
+	for key in ["guild", "collective"]:
+		if not faction_trade.has(key):
+			errors.append("faction_trade: missing faction '%s'" % key)
+			continue
+		_require_keys(faction_trade[key], ["anchorRelation", "zeroRelation", "sellSpreadMax", "sellSpreadMin", "buySpreadMax", "buySpreadMin", "memberOnly", "applyDistrictPriceMod", "mugRisk"], "faction_trade.%s" % key, errors)
 
 
 const CANONICAL_DISTRICT_IDS: Array[String] = [

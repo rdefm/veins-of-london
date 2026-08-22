@@ -1,0 +1,4 @@
+{
+  "guild":      { "anchorRelation": 40, "zeroRelation": 90, "sellSpreadMax": 0.15, "sellSpreadMin": 0.0,  "buySpreadMax": 0.15, "buySpreadMin": 0.0,  "memberOnly": true,  "applyDistrictPriceMod": false, "mugRisk": false },
+  "collective": { "anchorRelation": 0,  "zeroRelation": 90, "sellSpreadMax": 0.45, "sellSpreadMin": 0.05, "buySpreadMax": 0.15, "buySpreadMin": 0.05, "memberOnly": false, "applyDistrictPriceMod": false, "mugRisk": false }
+}

@@ -274,8 +274,9 @@ func _build_sell_menu() -> void:
 				var tier_label := "untiered" if tier <= 0 else "tier %d" % tier
 				_card_content.add_child(_build_sell_row("%s %s (%s, £%d/ea, have %d)" % [recipe["symbol"], recipe["name"], tier_label, price, have], key, qty, have))
 
-	var player_cut: int = int(floor(gross * Economy.PLAYER_CUT_RATIO))
-	_card_content.add_child(UI.label("Your cut (50%%): £%d" % player_cut))
+	var cut_ratio := Economy.get_archie_cut_ratio()
+	var player_cut: int = int(floor(gross * cut_ratio))
+	_card_content.add_child(UI.label("Your cut (%d%%): £%d" % [int(round(cut_ratio * 100)), player_cut]))
 	_card_content.add_child(UI.muted_label("20% chance of mugging"))
 
 	var go_button := UI.button("Go — find a buyer", func(): Economy.sell_from_sell_state())
