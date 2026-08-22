@@ -31,6 +31,12 @@ func _refresh() -> void:
 	_content.add_child(UI.heading(enemy["name"] if enemy != null else "Combat", 16))
 
 	_content.add_child(_build_player_card(player, combat))
+	# 44-archie-combat-ally: koed allies stay in combat["allies"] (so
+	# knock_out()'s cooldown has something to key off), so filter them out
+	# of the card list here rather than at the state layer.
+	for ally in combat["allies"]:
+		if not ally["koed"]:
+			_content.add_child(_build_ally_card(ally))
 	if enemy != null:
 		_content.add_child(_build_enemy_card(enemy, combat))
 
@@ -56,6 +62,16 @@ func _build_player_card(player: Dictionary, combat: Dictionary) -> Control:
 	if player["shieldPool"] > 0:
 		# PROSE-REVIEW: new shield-status label, drafted against CONTENT-GUIDE.md's tone bible.
 		c["content"].add_child(UI.muted_label("⛨ Shield — %d absorption left" % player["shieldPool"]))
+	return c["panel"]
+
+
+# 44-archie-combat-ally: same shape as the player/enemy cards above, minus
+# the motion/shield status rows (allies carry no such state in M0).
+func _build_ally_card(ally: Dictionary) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading(ally["name"], 14))
+	c["content"].add_child(UI.label("%d / %d HP" % [ally["hp"], ally["hpMax"]]))
+	c["content"].add_child(UI.bar(ally["hp"], ally["hpMax"]))
 	return c["panel"]
 
 

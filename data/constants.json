@@ -2,7 +2,9 @@
   "timeBlocks": ["Morning", "Afternoon", "Evening"],
   "archieOreGoal": 10,
   "contacts": {
-    "archie": { "startRelation": 10, "unlocked": true,  "recruitThreshold": 80 },
+    "archie": { "startRelation": 10, "unlocked": true,  "recruitThreshold": 80,
+                "combatHpMax": 50, "combatAttackMin": 4, "combatAttackMax": 9,
+                "combatStashMax": 2, "combatHealAmount": 15, "koCooldownDays": 2 },
     "james":  { "startRelation": 0,  "unlocked": false, "recruitThreshold": 100 }
   },
   "jamesJobTrustBands": [

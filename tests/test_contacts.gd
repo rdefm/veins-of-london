@@ -81,3 +81,66 @@ func run() -> void:
 		assert_eq(Contacts.display_name("archie"), "Archie", "archie display name")
 		assert_eq(Contacts.display_name("james"), "James", "james display name")
 	)
+
+	# ── 44-archie-combat-ally ────────────────────────────────────────────
+
+	run_case("can_join_combat_requires_recruited_and_a_combat_kit", func():
+		GameState.reset()
+		assert_true(not Contacts.can_join_combat("archie"), "not recruited yet")
+
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		assert_true(Contacts.can_join_combat("archie"), "recruited with a combat kit")
+
+		# james has no combat kit defined in constants.json yet (combatHpMax 0)
+		GameState.state["contacts"]["james"]["recruited"] = true
+		assert_true(not Contacts.can_join_combat("james"), "recruited but no combat kit -- never eligible")
+	)
+
+	run_case("can_join_combat_needs_no_relation_threshold_once_recruited", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["contacts"]["archie"]["relation"] = 0
+		assert_true(Contacts.can_join_combat("archie"), "joining a defense fight needs no relation threshold, unlike can_recruit")
+	)
+
+	run_case("can_join_combat_blocks_while_on_ko_cooldown_then_reopens", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["world"]["day"] = 5
+		GameState.state["contacts"]["archie"]["koCooldownUntilDay"] = 7
+		assert_true(not Contacts.can_join_combat("archie"), "still on cooldown")
+
+		GameState.state["world"]["day"] = 7
+		assert_true(Contacts.can_join_combat("archie"), "available again once the day reaches the cooldown day")
+	)
+
+	run_case("build_combat_ally_snapshots_the_contacts_current_combat_kit", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["combatHp"] = 30
+		GameState.state["contacts"]["archie"]["combatStash"] = 1
+		var ally := Contacts.build_combat_ally("archie")
+		assert_eq(ally["contactId"], "archie")
+		assert_eq(ally["name"], "Archie")
+		assert_eq(ally["hp"], 30, "current combatHp, not combatHpMax")
+		assert_eq(ally["hpMax"], 50)
+		assert_eq(ally["attackMin"], 4)
+		assert_eq(ally["attackMax"], 9)
+		assert_eq(ally["stash"], 1)
+		assert_eq(ally["healAmount"], 15)
+		assert_true(not ally["koed"], "joins alive")
+	)
+
+	run_case("knock_out_sets_a_cooldown_relative_to_the_current_day", func():
+		GameState.reset()
+		Contacts.knock_out("archie", 10)
+		assert_eq(GameState.state["contacts"]["archie"]["koCooldownUntilDay"], 12, "10 + koCooldownDays(2)")
+	)
+
+	run_case("replenish_after_combat_tops_up_hp_and_stash_for_every_ally_that_fought", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["combatHp"] = 5
+		GameState.state["contacts"]["archie"]["combatStash"] = 0
+		Contacts.replenish_after_combat([{ "contactId": "archie" }])
+		assert_eq(GameState.state["contacts"]["archie"]["combatHp"], 50)
+		assert_eq(GameState.state["contacts"]["archie"]["combatStash"], 2)
+	)

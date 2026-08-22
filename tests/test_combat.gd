@@ -18,6 +18,7 @@ func _fresh_combat(context: String = Combat.CONTEXT_MUGGING) -> void:
 		"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "veinId": null, "isMugging": context == Combat.CONTEXT_MUGGING, "weapon": null, "ability": null, "evadeChance": 0.0 },
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [],
+		"allies": [],
 	}
 
 
@@ -227,6 +228,7 @@ func run() -> void:
 			"enemy": { "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "veinId": null, "isMugging": false },
 			"log": [], "outcome": "loss", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [],
+			"allies": [],
 		}
 		var result := Combat.exit_combat()
 
@@ -248,6 +250,7 @@ func run() -> void:
 			"enemy": { "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "veinId": null, "isMugging": false },
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [],
+			"allies": [],
 		}
 		Combat.exit_combat()
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 10, "a win should not halve carried ore")
@@ -905,4 +908,118 @@ func run() -> void:
 
 		assert_eq(combat["outcome"], null, "failsafe should catch the loss inside an event_raid context too")
 		assert_eq(GameState.state["player"]["inventory"]["failsafe"], 0, "the failsafe should be auto-consumed")
+	)
+
+	# ── 44-archie-combat-ally ────────────────────────────────────────────
+
+	run_case("start_defend_vein_with_archie_recruited_adds_him_as_an_ally", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Combat.start_defend_vein("v1", 2)
+		var allies: Array = GameState.state["combat"]["allies"]
+		assert_eq(allies.size(), 1, "archie should join as the one ally")
+		assert_eq(allies[0]["contactId"], "archie")
+		assert_eq(allies[0]["hp"], allies[0]["hpMax"], "should join at full hp")
+		var found := false
+		for line in GameState.state["combat"]["log"]:
+			if line.contains("Archie peels off"):
+				found = true
+		assert_true(found, "should log archie joining")
+	)
+
+	run_case("start_defend_vein_without_archie_recruited_has_no_allies", func():
+		GameState.reset()
+		Combat.start_defend_vein("v1", 2)
+		assert_eq(GameState.state["combat"]["allies"], [], "not recruited -- no allies")
+	)
+
+	run_case("ally_attacks_the_enemy_alongside_the_player_each_turn", func():
+		GameState.reset()
+		GameState.state["player"]["attackMin"] = 0
+		GameState.state["player"]["attackMax"] = 0
+		GameState.state["combat"] = {
+			"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
+			"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "veinId": "v1", "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0 },
+			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 50, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 0, "healAmount": 15, "koed": false }],
+		}
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_eq(GameState.state["combat"]["enemy"]["hp"], 95, "ally's fixed 5-damage hit should land alongside the player's own zeroed attack")
+		var found := false
+		for line in GameState.state["combat"]["log"]:
+			if line.begins_with("Archie hits"):
+				found = true
+		assert_true(found, "ally attack should be logged")
+	)
+
+	run_case("ally_heals_from_stash_instead_of_attacking_below_the_threshold_and_it_depletes", func():
+		GameState.reset()
+		GameState.state["player"]["attackMin"] = 0
+		GameState.state["player"]["attackMax"] = 0
+		GameState.state["combat"] = {
+			"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
+			"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "veinId": "v1", "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0 },
+			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 10, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 1, "healAmount": 15, "koed": false }],
+		}
+		Rng.set_seed(1)
+		Combat.player_attack()
+		var ally: Dictionary = GameState.state["combat"]["allies"][0]
+		assert_eq(ally["hp"], 25, "10 + healAmount(15), below hpMax")
+		assert_eq(ally["stash"], 0, "the heal charge should be spent")
+		assert_eq(GameState.state["combat"]["enemy"]["hp"], 100, "healing should replace the ally's attack this turn, not stack with it")
+		var found := false
+		for line in GameState.state["combat"]["log"]:
+			if line.contains("patches themselves up"):
+				found = true
+		assert_true(found, "should log the self-heal")
+	)
+
+	run_case("enemy_can_target_an_ally_and_ko_removes_them_without_ending_the_fight", func():
+		var ko_seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["contacts"]["archie"]["recruited"] = true
+			GameState.state["world"]["day"] = 5
+			GameState.state["combat"] = {
+				"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
+				"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 999, "attackMax": 999, "veinId": "v1", "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0 },
+				"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+				"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+				"allies": [Contacts.build_combat_ally("archie")],
+			}
+			Combat.enemy_attack()
+			return GameState.state["combat"]["allies"][0]["koed"]
+		)
+		assert_true(ko_seed != -1, "should find a seed where the enemy targets and KOs the ally within 200 tries")
+
+		assert_eq(GameState.state["combat"]["active"], true, "the fight itself should not end")
+		assert_eq(GameState.state["combat"]["outcome"], null, "an ally KO is not a loss outcome")
+		assert_eq(GameState.state["contacts"]["archie"]["koCooldownUntilDay"], 7, "5 (current day) + koCooldownDays(2)")
+		var found := false
+		for line in GameState.state["combat"]["log"]:
+			if line.contains("knocked out of the fight"):
+				found = true
+		assert_true(found, "should log the KO")
+	)
+
+	run_case("exit_combat_replenishes_ally_hp_and_stash_but_leaves_the_ko_cooldown_alone", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["contacts"]["archie"]["koCooldownUntilDay"] = 9
+		GameState.state["combat"] = {
+			"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
+			"enemy": { "name": "Test Enemy", "hp": 0, "hpMax": 100, "attackMin": 0, "attackMax": 0, "veinId": "v1", "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0 },
+			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 12, "hpMax": 50, "attackMin": 4, "attackMax": 9, "stash": 0, "healAmount": 15, "koed": false }],
+		}
+
+		Combat.exit_combat()
+
+		assert_eq(GameState.state["contacts"]["archie"]["combatHp"], 50, "ally hp should be topped back up to hpMax on combat exit")
+		assert_eq(GameState.state["contacts"]["archie"]["combatStash"], 2, "ally stash should replenish to combatStashMax on combat exit")
+		assert_eq(GameState.state["contacts"]["archie"]["koCooldownUntilDay"], 9, "replenish should not touch an existing KO cooldown")
 	)

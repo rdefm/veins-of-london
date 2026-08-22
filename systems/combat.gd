@@ -31,6 +31,11 @@ const BLAST_FLEE_BOOST_CHANCE := 0.90
 const BLAST_DISARM_CHANCE := 0.15
 const BLAST_DISARM_TURNS := 2
 
+# 44-archie-combat-ally: below this fraction of hpMax, an ally spends their
+# turn on their own stash instead of attacking (self-preservation over
+# damage, since they have no player to hand a Healing Burst to).
+const ALLY_HEAL_THRESHOLD_FRACTION := 0.4
+
 
 static func is_canonical_context(context: String) -> bool:
 	return CANONICAL_CONTEXTS.has(context)
@@ -198,18 +203,34 @@ static func start_defend_vein(vein_id: String, value_tier: int) -> void:
 	var enemy := generate_raid_enemy(vein_id, value_tier)
 	# PROSE-REVIEW: new combat intro line, drafted against CONTENT-GUIDE.md's
 	# tone bible (dry, administrative, one line).
-	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemy,
-		["The alarm wasn't lying. %s is already there." % enemy["name"]],
-		"")
+	var log_lines := ["The alarm wasn't lying. %s is already there." % enemy["name"]]
+	var allies := _gather_defend_allies(log_lines)
+	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemy, log_lines, "", allies)
 
 
-static func _start_combat(context: String, vein_id, enemy: Dictionary, log_lines: Array, on_win: String) -> void:
+# 44-archie-combat-ally: vein-defense fights only -- every recruited contact
+# with a combat kit joins automatically (no offer/decline step; per the
+# ticket, defending shared interests doesn't need much trust or a choice).
+# Generic over contact_id, so a future second recruit plugs in unmodified.
+static func _gather_defend_allies(log_lines: Array) -> Array:
+	var allies: Array = []
+	for contact_id in GameState.state["contacts"].keys():
+		if Contacts.can_join_combat(contact_id):
+			allies.append(Contacts.build_combat_ally(contact_id))
+			# PROSE-REVIEW: new ally-join log line, drafted against
+			# CONTENT-GUIDE.md's tone bible.
+			log_lines.append("%s peels off to help cover the vein." % Contacts.display_name(contact_id))
+	return allies
+
+
+static func _start_combat(context: String, vein_id, enemy: Dictionary, log_lines: Array, on_win: String, allies: Array = []) -> void:
 	if not is_canonical_context(context):
 		push_error("Combat: unrecognized context '%s' — not in CANONICAL_CONTEXTS, exit_combat() will mis-route it." % context)
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": vein_id, "enemy": enemy,
 		"log": log_lines, "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": on_win, "snapshots": [],
+		"allies": allies,
 	}
 	GameState.state["currentScreen"] = "combat"
 	EventBus.screen_changed.emit("combat")
@@ -260,12 +281,20 @@ static func player_attack() -> Dictionary:
 		enemy["hp"] = maxi(0, enemy["hp"] - dmg)
 		var frozen_note: String = " (enemy frozen)" if combat["frozenTurns"] > 0 else ""
 		combat["log"].append("You attack%s — %d damage%s. Enemy: %d/%d HP." % [hit_label, dmg, frozen_note, enemy["hp"], enemy["hpMax"]])
-		if enemy["hp"] <= 0:
-			combat["outcome"] = "win"
-			combat["log"].append("They leg it. Good call on their part." if NON_LETHAL_MUGGING_CONTEXTS.has(combat["context"]) else "They go down. Vein is yours.")
-			_dispatch_on_win()
+		_maybe_win_from_direct_damage(combat, enemy)
+		if combat["outcome"] == "win":
 			EventBus.state_changed.emit()
 			return { "ok": true, "outcome": "win" }
+
+	# 44-archie-combat-ally: allies act after the player's own attacks this
+	# turn, and can finish the fight themselves -- same shared win-check
+	# calc-effect-wiring-02's Blast/Black Hole already use for their own
+	# direct-damage outside this loop.
+	_allies_act(combat, enemy)
+	_maybe_win_from_direct_damage(combat, enemy)
+	if combat["outcome"] == "win":
+		EventBus.state_changed.emit()
+		return { "ok": true, "outcome": "win" }
 
 	if combat["motionTurns"] > 0:
 		combat["motionTurns"] -= 1
@@ -288,13 +317,65 @@ static func player_attack() -> Dictionary:
 	return { "ok": true, "outcome": combat["outcome"] }
 
 
+# 44-archie-combat-ally: each ally still standing either patches themselves
+# up (below the heal threshold, with stash left) or attacks the enemy --
+# same evade/damage shape as the player's own attack, just against the
+# shared enemy target. Runs after the player's own attacks each turn, once
+# per ally, skipping the rest once the enemy is already dead.
+static func _allies_act(combat: Dictionary, enemy: Dictionary) -> void:
+	for ally in combat["allies"]:
+		if ally["koed"] or enemy["hp"] <= 0:
+			continue
+
+		if ally["hp"] < ally["hpMax"] * ALLY_HEAL_THRESHOLD_FRACTION and ally["stash"] > 0:
+			ally["stash"] -= 1
+			ally["hp"] = mini(ally["hpMax"], ally["hp"] + ally["healAmount"])
+			# PROSE-REVIEW: new ally self-heal log line, drafted against
+			# CONTENT-GUIDE.md's tone bible.
+			combat["log"].append("%s patches themselves up. %s: %d/%d HP." % [ally["name"], ally["name"], ally["hp"], ally["hpMax"]])
+			continue
+
+		if Rng.chance(enemy.get("evadeChance", 0.0)):
+			# PROSE-REVIEW: new ally-miss log line.
+			combat["log"].append("%s swings at %s — they dodge." % [ally["name"], enemy["name"]])
+			continue
+
+		var dmg: int = Rng.randi_range(ally["attackMin"], ally["attackMax"])
+		enemy["hp"] = maxi(0, enemy["hp"] - dmg)
+		# PROSE-REVIEW: new ally-attack log line.
+		combat["log"].append("%s hits %s for %d. Enemy: %d/%d HP." % [ally["name"], enemy["name"], dmg, enemy["hp"], enemy["hpMax"]])
+
+
+# 44-archie-combat-ally: the enemy's single attack now targets the player or
+# one alive ally, uniform-random over whoever's still standing -- an ally
+# absent from combat.allies (every non-defend-vein context) leaves this
+# identical to the pre-ticket player-only behaviour.
+static func _pick_enemy_target(combat: Dictionary) -> Variant:
+	var alive_allies: Array = []
+	for ally in combat["allies"]:
+		if not ally["koed"]:
+			alive_allies.append(ally)
+	if alive_allies.is_empty():
+		return null
+	var candidates: Array = [null]
+	candidates.append_array(alive_allies)
+	return candidates[Rng.randi_range(0, candidates.size() - 1)]
+
+
 static func enemy_attack() -> void:
 	var combat: Dictionary = GameState.state["combat"]
 	if combat["outcome"] != null or combat["frozenTurns"] > 0:
 		return
 
 	var enemy: Dictionary = combat["enemy"]
+	var target = _pick_enemy_target(combat)
+	if target == null:
+		_enemy_attack_player(combat, enemy)
+	else:
+		_enemy_attack_ally(combat, enemy, target)
 
+
+static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary) -> void:
 	if combat["evadeTurns"] > 0:
 		combat["evadeTurns"] -= 1
 		if Rng.chance(combat["evadeChance"]):
@@ -329,6 +410,24 @@ static func enemy_attack() -> void:
 		combat["outcome"] = "loss"
 		combat["log"].append("You're done. You come round somewhere unpleasant.")
 		player["hp"] = GameState.round_epsilon(player["hpMax"] * 0.3)
+
+
+# 44-archie-combat-ally: no shield/evade/failsafe -- those are player-only
+# resources. KO sets the `koed` flag Combat's own loops already check
+# everywhere, and starts the contact's real (persistent) cooldown via
+# Contacts.knock_out().
+static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dictionary) -> void:
+	var atk := get_enemy_attack_range(enemy)
+	var dmg: int = Rng.randi_range(atk["min"], atk["max"])
+	ally["hp"] = maxi(0, ally["hp"] - dmg)
+	# PROSE-REVIEW: new enemy-hits-ally log line, drafted against
+	# CONTENT-GUIDE.md's tone bible.
+	combat["log"].append("%s hits %s for %d. %s: %d/%d HP." % [enemy["name"], ally["name"], dmg, ally["name"], ally["hp"], ally["hpMax"]])
+	if ally["hp"] <= 0:
+		ally["koed"] = true
+		# PROSE-REVIEW: new ally-KO log line.
+		combat["log"].append("%s is knocked out of the fight." % ally["name"])
+		Contacts.knock_out(ally["contactId"], GameState.state["world"]["day"])
 
 
 static func flee() -> Dictionary:
@@ -700,10 +799,16 @@ static func exit_combat() -> Dictionary:
 	var outcome = combat["outcome"]
 	var context: String = combat["context"]
 
+	# 44-archie-combat-ally: hand any allies' ending hp/stash back to
+	# persistent contact state before the combat dict (and its allies array)
+	# is torn down below.
+	Contacts.replenish_after_combat(combat["allies"])
+
 	GameState.state["combat"] = {
 		"active": false, "context": CONTEXT_RAID, "veinId": null, "enemy": null, "log": [],
 		"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
+		"allies": [],
 	}
 	SaveManager.autosave()  # R§6: autosave on combat exit
 	# The per-context handlers below only emit screen_changed (some don't

@@ -261,7 +261,8 @@ func _restore_int_types(state: Dictionary) -> void:
 
 	if state.has("contacts"):
 		for contact in state["contacts"].values():
-			for key in ["relation", "recruitThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "stealthSkill", "stealthXP"]:
+			for key in ["relation", "recruitThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "stealthSkill", "stealthXP",
+					"combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatStashMax", "combatStash", "combatHealAmount", "koCooldownDays", "koCooldownUntilDay"]:
 				_int_key(contact, key)
 
 	if state.has("barometer"):
@@ -310,6 +311,10 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 	for snap in combat.get("snapshots", []):
 		for key in ["playerHp", "enemyHp", "frozenTurns", "motionTurns", "motionPower", "evadeTurns"]:
 			_int_key(snap, key)
+	# 44-archie-combat-ally: allies[] entries (Contacts.build_combat_ally)
+	for ally in combat.get("allies", []):
+		for key in ["hp", "hpMax", "attackMin", "attackMax", "stash", "healAmount"]:
+			_int_key(ally, key)
 
 
 # state.modal.data's shape depends on modal.type (systems/crafting.gd,

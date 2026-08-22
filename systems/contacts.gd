@@ -68,6 +68,73 @@ static func award_contact_xp(contact_id: String, skill: String, amount: int) -> 
 		Notify.push("%s's %s skill reached level %d." % [display_name(contact_id), skill, c[skill_key]])
 
 
+# 44-archie-combat-ally: recruited is the only gate -- "defending shared
+# interests doesn't need much trust" per the human, so no relation check
+# here (unlike can_recruit's threshold). combatHpMax > 0 excludes any
+# contact whose constants.json entry never defined a combat kit (james, for
+# now) from ever being offered, without hardcoding contact_id == "archie".
+static func can_join_combat(contact_id: String) -> bool:
+	var contacts: Dictionary = GameState.state["contacts"]
+	if not contacts.has(contact_id):
+		return false
+	var c: Dictionary = contacts[contact_id]
+	if not c["recruited"] or c["combatHpMax"] <= 0:
+		return false
+	var cooldown_until = c["koCooldownUntilDay"]
+	if cooldown_until != null and GameState.state["world"]["day"] < cooldown_until:
+		return false
+	return true
+
+
+# The general ally-combat shape systems/combat.gd's allies array holds --
+# a snapshot of the contact's current combat kit at the moment they join a
+# fight. contactId round-trips back to this contact's persistent state at
+# knock_out()/replenish_after_combat() below.
+static func build_combat_ally(contact_id: String) -> Dictionary:
+	var c: Dictionary = GameState.state["contacts"][contact_id]
+	return {
+		"contactId": contact_id,
+		"name": display_name(contact_id),
+		"hp": c["combatHp"],
+		"hpMax": c["combatHpMax"],
+		"attackMin": c["combatAttackMin"],
+		"attackMax": c["combatAttackMax"],
+		"stash": c["combatStash"],
+		"healAmount": c["combatHealAmount"],
+		"koed": false,
+	}
+
+
+# Called by Combat when an ally's hp hits 0 mid-fight -- removes them from
+# that fight (systems/combat.gd checks the `koed` flag it set on the ally
+# dict itself) and starts a cooldown before they're eligible again, per the
+# ticket's "real stakes without permadeath".
+static func knock_out(contact_id: String, current_day: int) -> void:
+	var contacts: Dictionary = GameState.state["contacts"]
+	if not contacts.has(contact_id):
+		return
+	var c: Dictionary = contacts[contact_id]
+	c["koCooldownUntilDay"] = current_day + c["koCooldownDays"]
+	EventBus.state_changed.emit()
+
+
+# Called from Combat.exit_combat() once a fight involving allies ends --
+# "replenishes between fights" (the ticket leaves the exact trigger open;
+# fight-end is the simplest one, and matches the HP pool only ever mattering
+# as within-fight stakes, not lasting attrition). Does NOT clear
+# koCooldownUntilDay -- a knocked-out ally stays unavailable for the
+# cooldown regardless of this replenish.
+static func replenish_after_combat(allies: Array) -> void:
+	var contacts: Dictionary = GameState.state["contacts"]
+	for ally in allies:
+		var contact_id: String = ally["contactId"]
+		if not contacts.has(contact_id):
+			continue
+		var c: Dictionary = contacts[contact_id]
+		c["combatHp"] = c["combatHpMax"]
+		c["combatStash"] = c["combatStashMax"]
+
+
 static func display_name(contact_id: String) -> String:
 	match contact_id:
 		"archie":

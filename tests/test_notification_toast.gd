@@ -129,6 +129,7 @@ func run() -> void:
 			"enemy": { "name": "Test Enemy", "hp": 0, "hpMax": 100, "attackMin": 5, "attackMax": 5, "veinId": null, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0 },
 			"log": [], "outcome": "loss", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
+			"allies": [],
 		}
 		var a := Notify.push("Held 1.")
 		var b := Notify.push("Held 2.")

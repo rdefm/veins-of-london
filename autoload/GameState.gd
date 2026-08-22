@@ -130,6 +130,10 @@ func new_game_state() -> Dictionary:
 			"active": false, "context": "raid", "veinId": null, "enemy": null, "log": [],
 			"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
+			# 44-archie-combat-ally: allies fighting alongside the player this
+			# combat, general-shaped (see Contacts.build_combat_ally) — empty
+			# outside vein-defense fights.
+			"allies": [],
 		},
 
 		"jamesJob": null,
@@ -205,6 +209,11 @@ func _new_contacts_state() -> Dictionary:
 	var contacts := {}
 	for contact_id in GameData.CONTACTS_DEFAULTS.keys():
 		var defaults: Dictionary = GameData.CONTACTS_DEFAULTS[contact_id]
+		# combat* fields (44-archie-combat-ally): a generic ally-combat block
+		# every contact carries, not an archie-only schema addition — a
+		# contact whose constants.json entry omits them (james, for now)
+		# gets combatHpMax 0, which Contacts.can_join_combat() reads as
+		# "this contact has no combat kit, never eligible to join a fight".
 		contacts[contact_id] = {
 			"relation": defaults.get("startRelation", 0),
 			"unlocked": defaults.get("unlocked", false),
@@ -214,6 +223,15 @@ func _new_contacts_state() -> Dictionary:
 			"cultivatingSkill": 1, "cultivatingXP": 0,
 			"stealthSkill": 1, "stealthXP": 0,
 			"assignedRoom": null,
+			"combatHpMax": defaults.get("combatHpMax", 0),
+			"combatHp": defaults.get("combatHpMax", 0),
+			"combatAttackMin": defaults.get("combatAttackMin", 0),
+			"combatAttackMax": defaults.get("combatAttackMax", 0),
+			"combatStashMax": defaults.get("combatStashMax", 0),
+			"combatStash": defaults.get("combatStashMax", 0),
+			"combatHealAmount": defaults.get("combatHealAmount", 0),
+			"koCooldownDays": defaults.get("koCooldownDays", 0),
+			"koCooldownUntilDay": null,
 		}
 	return contacts
 
