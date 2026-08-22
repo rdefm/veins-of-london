@@ -59,34 +59,28 @@ func run() -> void:
 		assert_eq(completed_list[0]["chargesPerDay"], 1, "completed instance starts with 1 charge/day")
 	)
 
-	run_case("device_breaks_at_progress_0_or_below", func():
+	run_case("failed_build_attempts_never_decrease_progress_or_break_the_device", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 100000
-		GameState.state["player"]["craftingSkill"] = 1  # low craftChance (0.40), fewer retries to find a fail
+		GameState.state["player"]["craftingSkill"] = 1  # low craftChance (0.40), plenty of fails to observe
 		var start := Devices.start_device("timeDevice")
 		var device_id: String = start["id"]
 
 		var fails := 0
-		var broken := false
 		var seed := 0
-		while fails < 4 and seed < 2000:
-			var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+		while fails < 10 and seed < 2000:
+			var progress_before: float = GameState.state["player"]["devicesInProgress"][0]["progress"]
 			Rng.set_seed(seed)
 			var result := Devices.attempt_device_build(device_id)
 			seed += 1
 			if not result.get("success", true):
 				fails += 1
-				if result.get("broken", false):
-					broken = true
-					break
-			else:
-				GameState.state = snapshot
-				GameState.state["player"]["orichalchum"]["time"] = 100000
+				assert_eq(GameState.state["player"]["devicesInProgress"].size(), 1, "a failed attempt should never destroy the device")
+				var progress_after: float = GameState.state["player"]["devicesInProgress"][0]["progress"]
+				assert_eq(progress_after, progress_before, "a failed attempt should leave progress exactly unchanged")
 
-		assert_eq(fails, 4, "10 -> 0 in steps of -2.5 takes exactly 4 failures")
-		assert_true(broken, "device should break once progress reaches 0")
-		assert_eq(GameState.state["player"]["devicesInProgress"], [], "broken device is removed")
-		assert_eq(GameState.state["player"]["devicesCompleted"], [], "a broken device never completes")
+		assert_eq(fails, 10, "collected 10 failed attempts to exercise the no-op failure path")
+		assert_eq(GameState.state["player"]["devicesInProgress"].size(), 1, "device survives repeated failures, never destroyed")
 	)
 
 	run_case("activate_gates_on_available_charges", func():

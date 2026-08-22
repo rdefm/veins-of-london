@@ -235,7 +235,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		for device in player.get("devicesCompleted", []):
 			for key in ["level", "xp", "chargesPerDay", "chargesUsedToday", "lastResetDay"]:
 				_int_key(device, key)
-		# devicesInProgress[].progress is a float (10.0, ±5.0/±2.5 deltas —
+		# devicesInProgress[].progress is a float (10.0, +5.0 on success —
 		# see systems/devices.gd) — intentionally not touched here.
 
 	if state.has("world"):

@@ -55,15 +55,10 @@ static func attempt_device_build(device_id: String) -> Dictionary:
 		device["progress"] = min(100.0, device["progress"] + 5.0)
 		if device["progress"] >= 100.0:
 			_complete_device(device)
-			return { "ok": true, "success": true, "completed": true, "broken": false }
-	else:
-		device["progress"] = max(0.0, device["progress"] - 2.5)
-		if device["progress"] <= 0.0:
-			_break_device(device["id"])
-			return { "ok": true, "success": false, "completed": false, "broken": true }
+			return { "ok": true, "success": true, "completed": true }
 
 	EventBus.state_changed.emit()
-	return { "ok": true, "success": success, "completed": false, "broken": false }
+	return { "ok": true, "success": success, "completed": false }
 
 
 static func abandon_device(device_id: String) -> void:
@@ -129,13 +124,6 @@ static func _complete_device(device: Dictionary) -> void:
 	player["devicesCompleted"].append(completed)
 	var dt: Dictionary = GameData.DEVICES[device["type"]]
 	Notify.push("%s complete. Check your equipment." % dt["name"], Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
-
-
-static func _break_device(device_id: String) -> void:
-	var player: Dictionary = GameState.state["player"]
-	player["devicesInProgress"] = player["devicesInProgress"].filter(func(d): return d["id"] != device_id)
-	Notify.push("Device collapsed. The calc dispersed. You'll need to start again.", Notify.CATEGORY_DANGER)
 	EventBus.state_changed.emit()
 
 
