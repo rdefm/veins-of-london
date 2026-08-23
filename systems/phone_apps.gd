@@ -35,6 +35,18 @@ static func apps() -> Array[Dictionary]:
 		# REVIEW candidates) -- the tile label doubles as the in-app heading,
 		# same convention "ticker"/"The Ticker" already uses.
 		{ "id": "bank", "label": "Reynard's", "locked": unlocked },
+		# bugfixes-78: restores the only entry point into the standalone
+		# `contacts` screen (Archie/James's bespoke SMS threads + James's
+		# job offers) -- the ticket-11 dock restructure and ticket-07
+		# phone grid replaced the old card-list navigation without
+		# carrying one forward, leaving contacts.gd unreachable from a
+		# live game (its only inbound navigation was archie_motion.json/
+		# james_motion.json's own on_complete, which points back at
+		# itself). Unlocked from game start, same as every other non-vfl
+		# tile -- metArchie flips true immediately post-intro, before the
+		# grid is ever shown, and contacts.gd has no flag gate on
+		# rendering Archie's card (only James's card is conditional).
+		{ "id": "contacts", "label": "Contacts", "locked": unlocked },
 		# bugfixes-39: cosmetic rebrand of the dock's Map entry point, not a
 		# real app -- tapping it navigates straight to Nav.go_to("map")
 		# (scenes/screens/phone.gd's _on_app_tile_pressed special-cases

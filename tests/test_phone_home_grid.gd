@@ -32,7 +32,7 @@ func run() -> void:
 		var ids: Array[String] = []
 		for t in tiles:
 			ids.append(t._app_id)
-		assert_eq(ids, ["messages", "notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "vfl"], "grid renders the registry's apps, in registry order")
+		assert_eq(ids, ["messages", "notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "contacts", "vfl"], "grid renders the registry's apps, in registry order")
 
 		phone.free()
 	)
@@ -271,6 +271,50 @@ func run() -> void:
 
 		assert_eq(GameState.state["currentScreen"], "map", "an unlocked vfl tap navigates straight to the Map screen")
 		assert_eq(GameState.state["phoneNav"]["app"], "home", "navigating to Map never routes through PhoneNav.open_app -- phoneNav.app is untouched")
+
+		phone.free()
+	)
+
+	# bugfixes-78: restores the phone grid's only entry point into the
+	# standalone `contacts` screen. Unlocked from game start (unlike vfl),
+	# and -- same reasoning as vfl above -- contacts.gd is a standalone
+	# SCREEN_SCRIPTS entry, not a phoneNav.app, so tapping it must bypass
+	# PhoneNav.open_app() and call Nav.go_to("contacts") directly.
+	run_case("contacts_tile_is_present_and_unlocked_from_game_start", func():
+		GameState.reset()
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var contacts_tile: AppTile = null
+		for t in _find_tiles(phone):
+			if t._app_id == "contacts":
+				contacts_tile = t
+		assert_true(contacts_tile != null, "contacts tile must exist in the grid")
+		assert_true(not contacts_tile._lock_overlay.visible, "contacts tile renders unlocked from game start")
+
+		phone.free()
+	)
+
+	run_case("tapping_the_contacts_tile_navigates_straight_to_the_contacts_screen_without_touching_phoneNav", func():
+		GameState.reset()
+		GameState.state["currentScreen"] = "phone"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var contacts_tile: AppTile = null
+		for t in _find_tiles(phone):
+			if t._app_id == "contacts":
+				contacts_tile = t
+		assert_true(contacts_tile != null, "contacts tile must exist")
+
+		var event := InputEventScreenTouch.new()
+		event.pressed = true
+		contacts_tile._on_gui_input(event)
+
+		assert_eq(GameState.state["currentScreen"], "contacts", "tapping the contacts tile navigates straight to the contacts screen")
+		assert_eq(GameState.state["phoneNav"]["app"], "home", "navigating to contacts never routes through PhoneNav.open_app -- phoneNav.app is untouched")
 
 		phone.free()
 	)

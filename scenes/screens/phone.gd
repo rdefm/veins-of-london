@@ -145,6 +145,13 @@ func _on_app_tile_pressed(app_id: String) -> void:
 		else:
 			Nav.go_to("map")
 		return
+	# bugfixes-78: contacts.gd is a standalone SCREEN_SCRIPTS entry (Main.gd),
+	# not a phoneNav.app -- it doesn't fit the PhoneNav.open_app() path every
+	# other tile uses, same reasoning "vfl" above jumps straight to Nav.go_to
+	# instead.
+	if app_id == "contacts":
+		Nav.go_to("contacts")
+		return
 	PhoneNav.open_app(app_id)
 
 
