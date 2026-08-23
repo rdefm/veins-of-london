@@ -83,19 +83,46 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 	c["content"].add_child(UI.heading("%s %s" % [symbol, name], 15))
 	c["content"].add_child(UI.label("Buy £%d/u · Sell £%d/u · Have %d" % [buy_price, sell_price, have]))
 
+	# Ticket 66: one shared qty stepper per row, feeding both the Buy and
+	# Sell buttons below -- buy_max_qty/sell_max_qty are each direction's
+	# own ceiling (affordability / stock), the stepper's own max is the
+	# larger of the two so neither direction is stuck unable to reach its
+	# own ceiling, and each button disables independently against its own
+	# ceiling rather than the shared stepper max.
+	var buy_max_qty := Economy.get_faction_buy_max_qty("guild", kind, item_type)
+	var sell_max_qty := have
+	var stepper_max := maxi(buy_max_qty, sell_max_qty)
+	var qty: int = clampi(Economy.get_marketplace_qty("guild", kind, item_type), 1, maxi(stepper_max, 1))
+
+	c["content"].add_child(_build_qty_stepper_row(kind, item_type, qty, stepper_max))
+
 	var row := UI.hbox()
 
-	var buy_button := UI.button("Buy 1 (£%d)" % buy_price, func():
-		Economy.execute_faction_purchase("guild", [{ "kind": kind, "type": item_type, "qty": 1 }])
+	var buy_total := qty * buy_price
+	var buy_button := UI.button("Buy ×%d (£%d)" % [qty, buy_total], func():
+		Economy.execute_faction_purchase("guild", [{ "kind": kind, "type": item_type, "qty": qty }])
 	)
-	buy_button.disabled = player["cash"] < buy_price
+	buy_button.disabled = qty > buy_max_qty
 	row.add_child(buy_button)
 
-	var sell_button := UI.button("Sell 1 (£%d)" % sell_price, func():
-		Economy.execute_faction_sale("guild", [{ "kind": kind, "type": item_type, "qty": 1 }])
+	var sell_total := qty * sell_price
+	var sell_button := UI.button("Sell ×%d (£%d)" % [qty, sell_total], func():
+		Economy.execute_faction_sale("guild", [{ "kind": kind, "type": item_type, "qty": qty }])
 	)
-	sell_button.disabled = have <= 0
+	sell_button.disabled = qty > sell_max_qty
 	row.add_child(sell_button)
 
 	c["content"].add_child(row)
 	return c["panel"]
+
+
+# Ticket 66: same "-"/qty/"+" row shape as lab.gd's _build_craft_qty_row and
+# modal_layer.gd's _build_sell_row -- including the same ASCII "-" fix
+# (bugfixes ticket 13: U+2212 MINUS SIGN doesn't render).
+func _build_qty_stepper_row(kind: String, item_type: String, qty: int, max_qty: int) -> Control:
+	var row := UI.hbox()
+	row.add_child(UI.label("Qty:"))
+	row.add_child(UI.button("-", func(): Economy.adjust_marketplace_qty("guild", kind, item_type, -1, max_qty)))
+	row.add_child(UI.label(str(qty)))
+	row.add_child(UI.button("+", func(): Economy.adjust_marketplace_qty("guild", kind, item_type, 1, max_qty)))
+	return row

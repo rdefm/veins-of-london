@@ -145,6 +145,30 @@ static func clear_sell_state() -> void:
 	EventBus.state_changed.emit()
 
 
+# bugfixes-66: state.marketplaceQty backs the Guild marketplace's per-row
+# Buy/Sell ×N stepper -- one shared qty per row (not a separate buy/sell
+# cart entry like sellState above), floored at 1 rather than sellState's
+# floor of 0, since a row's Buy/Sell buttons always act on a positive qty.
+# max_qty is the larger of the row's buy-side (affordability) and sell-side
+# (stock) ceilings, computed by the caller -- the buttons themselves disable
+# independently when qty exceeds their own direction's ceiling.
+static func get_marketplace_qty(faction_id: String, kind: String, item_type: String) -> int:
+	var key := "%s_%s_%s" % [faction_id, kind, item_type]
+	return int(GameState.state["marketplaceQty"].get(key, 1))
+
+
+static func adjust_marketplace_qty(faction_id: String, kind: String, item_type: String, delta: int, max_qty: int) -> void:
+	var key := "%s_%s_%s" % [faction_id, kind, item_type]
+	# The stored qty can go stale between renders -- a buy/sell on this row
+	# shrinks max_qty without touching the stored value, and the screen only
+	# clamps it for display, not in state. Re-clamp the stored value against
+	# today's max_qty before applying delta, so a tap always moves the
+	# number the player is actually looking at, never a step behind it.
+	var current: int = clampi(get_marketplace_qty(faction_id, kind, item_type), 1, maxi(max_qty, 1))
+	GameState.state["marketplaceQty"][key] = clampi(current + delta, 1, maxi(max_qty, 1))
+	EventBus.state_changed.emit()
+
+
 # Builds the items array from sellState + current stock (ore_<type> /
 # con_<recipeKey>_<tier> keys, matching the HTML's doSell() for ore --
 # consumables gained a tier segment in ticket 64 since price now depends on
@@ -235,6 +259,17 @@ static func get_faction_buy_price(faction_id: String, kind: String, item_type: S
 static func get_faction_sell_price(faction_id: String, kind: String, item_type: String) -> int:
 	var effective := _faction_effective_price(faction_id, kind, item_type)
 	return GameState.round_epsilon(effective * (1.0 - get_faction_sell_spread(faction_id)))
+
+
+# bugfixes-66: the Guild marketplace's per-row qty stepper needs a buy-side
+# affordability ceiling (how many units of this row the player's current
+# cash actually covers) -- a formula, not a raw state field like the
+# sell-side ceiling (just player.orichalchum/inventory stock), so it lives
+# here rather than inline in the screen.
+static func get_faction_buy_max_qty(faction_id: String, kind: String, item_type: String) -> int:
+	var price := get_faction_buy_price(faction_id, kind, item_type)
+	var cash: int = GameState.state["player"]["cash"]
+	return int(floor(float(cash) / float(maxi(price, 1))))
 
 
 # items: [{ kind:"ore"|"consumable", type:String, qty:int }, ...]. All-or-

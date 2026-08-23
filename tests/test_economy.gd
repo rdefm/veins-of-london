@@ -221,6 +221,57 @@ func run() -> void:
 		assert_eq(GameState.state["sellState"], {}, "should be empty after clearing")
 	)
 
+	# bugfixes-66: marketplaceQty backs the Guild marketplace's per-row qty
+	# stepper -- unlike sellState above, it floors at 1, not 0.
+	run_case("get_marketplace_qty_defaults_to_one", func():
+		GameState.reset()
+		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 1, "unset row defaults to qty 1")
+	)
+
+	run_case("adjust_marketplace_qty_clamps_between_1_and_max", func():
+		GameState.reset()
+		Economy.adjust_marketplace_qty("guild", "ore", "time", 5, 3)
+		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 3, "should clamp at max_qty")
+		Economy.adjust_marketplace_qty("guild", "ore", "time", -10, 3)
+		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 1, "should clamp at 1, not 0 or negative")
+	)
+
+	run_case("adjust_marketplace_qty_keys_are_scoped_per_faction_kind_and_item", func():
+		GameState.reset()
+		Economy.adjust_marketplace_qty("guild", "ore", "time", 2, 10)
+		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 3, "time row bumped to 3")
+		assert_eq(Economy.get_marketplace_qty("guild", "ore", "physics"), 1, "a different item's row is untouched")
+		assert_eq(Economy.get_marketplace_qty("guild", "consumable", "time"), 1, "a different kind sharing the same item id is untouched")
+	)
+
+	# A stale stored qty (from before a buy/sell shrank the ceiling) must
+	# re-clamp against today's max_qty on the very next tap, not lag a step
+	# behind what's displayed.
+	run_case("adjust_marketplace_qty_reclamps_a_stale_stored_value_before_applying_delta", func():
+		GameState.reset()
+		Economy.adjust_marketplace_qty("guild", "ore", "time", 9, 999)  # stored raw qty is now 10
+		Economy.adjust_marketplace_qty("guild", "ore", "time", -1, 7)  # ceiling has since shrunk to 7
+		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 6, "should clamp the stale 10 down to 7 first, then apply -1, not compute 10-1=9 clamped to 7")
+	)
+
+	run_case("get_faction_buy_max_qty_floors_cash_over_price", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["joined"] = true
+		GameState.state["factions"]["guild"]["relation"] = 40
+		GameState.state["player"]["cash"] = 150
+		# time buy price £69/u (same figures as the guild marketplace screen
+		# tests) -> floor(150/69) = 2.
+		assert_eq(Economy.get_faction_buy_max_qty("guild", "ore", "time"), 2, "floors to whole affordable units")
+	)
+
+	run_case("get_faction_buy_max_qty_is_zero_when_cash_cant_cover_even_one", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["joined"] = true
+		GameState.state["factions"]["guild"]["relation"] = 40
+		GameState.state["player"]["cash"] = 0
+		assert_eq(Economy.get_faction_buy_max_qty("guild", "ore", "time"), 0, "no cash means zero affordable units")
+	)
+
 	run_case("sell_from_sell_state_builds_items_and_clears_afterward", func():
 		var seed := _find_seed_for(200, func():
 			GameState.reset()

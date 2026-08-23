@@ -80,6 +80,11 @@ func new_game_state() -> Dictionary:
 		# load, not meaningfully persisted" convention as sellState above --
 		# not restored by SaveManager, matching sellState's own precedent.
 		"craftQty": {},
+		# bugfixes-66: faction marketplace row qty steppers (Guild
+		# marketplace's Buy/Sell ×N controls), keyed "<factionId>_<kind>_
+		# <itemType>" -> selected qty. Same transient, not-restored-on-load
+		# convention as sellState/craftQty above.
+		"marketplaceQty": {},
 		"event": null,
 
 		"player": {

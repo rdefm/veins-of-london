@@ -230,6 +230,7 @@ state = {
   bankLog: [],                # [{ id:String, amount:int, label:String, day:int }] — capped at 50 (Bank.LOG_CAP), oldest evicted; every direct player.cash mutation calls Bank.record() alongside itself (bugfixes-38, systems/bank.gd), same append-and-evict-from-front shape as `notifications` above. Display only, no dismiss.
   sellState: {},              # sell-menu qty selections, transient
   craftQty: {},                # bugfixes-57: Lab batch-craft qty selections, keyed by recipeKey, transient (not restored on load, same as sellState)
+  marketplaceQty: {},          # bugfixes-66: faction marketplace row qty steppers, keyed "<factionId>_<kind>_<itemType>", transient (not restored on load, same as sellState/craftQty)
   event: null,                # M0-T13 event runner state: { eventId, cardIndex, snapshots:[] } | null
 
   player: {
