@@ -428,6 +428,22 @@ Trigger: `homeRaidEventPending` true → on next visit to HQ, launch. Flow: intr
 6. Post-tutorial: first consumable sale → `archieMotionPending` → **Archie motion event** (ARCHIE_MOTION_CARDS; sets archieMotionEventSeen) → **James motion event** (JAMES_MOTION_CARDS; sets jamesMotionEventSeen, `enhancementUnlocked`, james relation +1). James jobs then available on the contacts screen.
 - Home-screen to-do list: port `getTodoItems()` logic verbatim (flag-driven checklist, show last 4).
 
+### 3.12 Vein raiding: faction raid outcomes against a player vein (Direction B)
+`Raiding.resolve_raid_outcome()` (`systems/raiding.gd`), the resolution step for a faction raid that succeeds against a player-owned vein, rolls between two outcomes instead of an automatic takeover:
+- **Claim** — full takeover, unchanged from before: the vein transfers into the attacking faction's `site.factionVein` (carrying `oreType`/`growth`/`security` unchanged), leaves `player.veins`, and queues a map `seed_claim` event. Notification: `"<Faction> raided your vein in <District>. It's theirs now."` (or, if the alarm window was missed: `"Too late — <Faction> took your vein in <District> while the alarm was still ringing."`).
+- **Loot** — the common case: the vein stays player-owned, pruned by `RAID_LOOT_PRUNE_DEPTH` (9, matching `pruneLightDepth`, floored at 0 growth) and the player's own `orichalchum` stash of the vein's ore type docked `RAID_LOOT_ORE_QTY` (8, matching Direction A's own `LOOT_ORE_QTY`), clamped to whatever's actually on hand — it can never go negative. No relation hit, no map event (ownership never changes). Notification: `"<Faction> raided your vein in <District>, pruning it and getting away with <N> units of ore. It's still yours."` (missed-alarm variant reads distinctly too).
+
+**Claim odds by terroir tier** (`Raiding.CLAIM_CHANCE_BY_TERROIR`, keyed off the vein's own `hospitability.tier` — **draft only, needs balance sign-off**, linear interpolation between the PRD's poor/saturated endpoints):
+
+| tier | claim chance |
+|---|---|
+| poor | 5% |
+| fair | 28% |
+| rich | 52% |
+| saturated | 75% |
+
+The roll happens once, at `Raiding.roll_raid_odds()` time (alongside the existing success roll) — a successful attempt is annotated `outcomeType: "claim"|"loot"` via `Rng.chance(Raiding.claim_chance(vein))`, and that annotation rides unchanged through the alarm-defend queue/expiry machinery (`systems/raiding.gd`'s `_queue_defend_raid`/`_expire_pending_defend_raids`/`resolve_defend_outcome`) to `resolve_raid_outcome()`.
+
 ---
 
 ## 4. DESIGN TOKENS (Godot Theme)

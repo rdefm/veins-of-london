@@ -329,9 +329,41 @@ static func raid_success_chance(attacker_id: String, vein: Dictionary) -> float:
 	return clampf(chance, 0.0, 1.0)
 
 
+# ── claim-vs-loot split (ticket 70) ─────────────────────────────────────
+# A successful raid against a player vein used to be an automatic takeover.
+# Now it rolls between the same two outcomes Direction A's own raiding
+# already distinguishes: loot (prune + ore theft, vein stays player-owned)
+# as the common case, claim (full takeover) as the rarer one -- scaling up
+# with the vein's own terroir tier, so losing a rich/saturated vein outright
+# is a real but occasional risk rather than the default result of any
+# successful raid. Draft values only (PRD's explicit open call), needs
+# balance sign-off -- linear interpolation between the PRD's poor (5%) and
+# saturated (75%) endpoints across the 4 terroir tiers.
+const CLAIM_CHANCE_BY_TERROIR := {
+	"poor": 0.05,
+	"fair": 0.28,
+	"rich": 0.52,
+	"saturated": 0.75,
+}
+
+
+static func claim_chance(vein: Dictionary) -> float:
+	var tier: String = vein.get("hospitability", {}).get("tier", "fair")
+	return CLAIM_CHANCE_BY_TERROIR.get(tier, CLAIM_CHANCE_BY_TERROIR["fair"])
+
+
+# Draft only (needs balance sign-off), in the same spirit as Direction A's
+# own LOOT_ORE_QTY (8) and pruneLightDepth (9, data/vein_growth.json) -- a
+# loss to loot never bites harder than the player's own worst prune or
+# Direction A's own loot payoff.
+const RAID_LOOT_ORE_QTY := 8
+const RAID_LOOT_PRUNE_DEPTH := 9
+
+
 # Rolls the chance above and returns the attempt record annotated with its
-# resolved "success" outcome. Still pure computation -- ownership transfer
-# and the Notify push are resolve_raid_outcome()'s job, not this
+# resolved "success" outcome, plus (only when successful) an "outcomeType"
+# ("claim"/"loot") rolled against claim_chance(). Still pure computation --
+# mutation and the Notify push are resolve_raid_outcome()'s job, not this
 # function's. If the target vein has already vanished since the attempt
 # was recorded, this reads as chance 0 rather than indexing into a null
 # vein, same defensive shape Factions.rivalry_success_chance() uses for its
@@ -339,7 +371,12 @@ static func raid_success_chance(attacker_id: String, vein: Dictionary) -> float:
 static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 	var outcome: Dictionary = attempt.duplicate()
 	var vein: Variant = Cultivating.find_vein(attempt["veinId"])
-	outcome["success"] = false if vein == null else Rng.chance(raid_success_chance(attempt["attackerId"], vein))
+	if vein == null:
+		outcome["success"] = false
+		return outcome
+	outcome["success"] = Rng.chance(raid_success_chance(attempt["attackerId"], vein))
+	if outcome["success"]:
+		outcome["outcomeType"] = "claim" if Rng.chance(claim_chance(vein)) else "loot"
 	return outcome
 
 
@@ -372,6 +409,11 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 # `missed_defend` (ticket 43): set only by _expire_pending_defend_raids()
 # below, for the one caller whose copy needs to say "you had a window and
 # missed it" rather than the plain no-alarm loss text.
+#
+# `outcome["outcomeType"]` (ticket 70): "claim" (default, when the key is
+# absent -- keeps every outcome dict hand-built without it, elsewhere in
+# this file's own tests included, behaving exactly as the pre-ticket-70
+# always-a-takeover path did) or "loot", rolled by roll_raid_odds() above.
 static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = false) -> void:
 	if not outcome["success"]:
 		return
@@ -382,6 +424,13 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 
 	var site: Variant = Sites.find_site(outcome["siteId"])
 	if site == null or site["factionVein"] != null:
+		return
+
+	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
+	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
+
+	if outcome.get("outcomeType", "claim") == "loot":
+		_apply_raid_loot(vein, faction_name, district_name, missed_defend)
 		return
 
 	var faction_vein: Dictionary = GameState.deep_copy(vein)
@@ -395,14 +444,42 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 
 	MapEvents.queue_seed_claim(vein["district"], vein_id, outcome["attackerId"])
 
-	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
-	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
 	# PROSE-REVIEW: missed_defend branch is new copy (ticket 43), drafted
 	# against CONTENT-GUIDE.md's tone bible.
 	if missed_defend:
 		Notify.push("Too late — %s took your vein in %s while the alarm was still ringing." % [faction_name, district_name], Notify.CATEGORY_DANGER)
 	else:
 		Notify.push("%s raided your vein in %s. It's theirs now." % [faction_name, district_name], Notify.CATEGORY_DANGER)
+
+
+# Direction B loot outcome (ticket 70): the common-case result of a
+# successful raid -- the vein stays player-owned, just pruned
+# (RAID_LOOT_PRUNE_DEPTH) and short a flat quantity of the player's own
+# stash of its ore type (RAID_LOOT_ORE_QTY), clamped to what's actually on
+# hand -- unlike Direction A's loot_vein() (which materialises ore into the
+# player's stash from a faction that never tracked real stock), this steals
+# from a real one, so it can never go negative. No relation hit (resolve_
+# raid_outcome's claim branch above never applied one either -- this is a
+# faction acting against the player, not the reverse) and no map event (the
+# vein never changes hands, so there's nothing for the map to register).
+#
+# PROSE-REVIEW: new notification copy (ticket 70), drafted against
+# CONTENT-GUIDE.md's tone bible -- one dry line, concrete ore count, and
+# distinct from both the claim branch's "It's theirs now." and the missed-
+# defend claim copy so the player can always tell which of the four
+# claim/loot × on-time/missed combinations just happened.
+static func _apply_raid_loot(vein: Dictionary, faction_name: String, district_name: String, missed_defend: bool) -> void:
+	vein["growth"] = maxi(0, vein["growth"] - RAID_LOOT_PRUNE_DEPTH)
+
+	var ore_type: String = vein["oreType"]
+	var ore: Dictionary = GameState.state["player"]["orichalchum"]
+	var stolen: int = mini(RAID_LOOT_ORE_QTY, ore.get(ore_type, 0))
+	ore[ore_type] = ore.get(ore_type, 0) - stolen
+
+	if missed_defend:
+		Notify.push("Too late — %s pruned your vein in %s and got away with %d units of ore while the alarm was still ringing. It's still yours." % [faction_name, district_name, stolen], Notify.CATEGORY_DANGER)
+	else:
+		Notify.push("%s raided your vein in %s, pruning it and getting away with %d units of ore. It's still yours." % [faction_name, district_name, stolen], Notify.CATEGORY_DANGER)
 
 
 # Called from time_system.gd's daily_tick, step 5i. Runs the previous tick's

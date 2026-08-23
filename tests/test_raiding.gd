@@ -584,6 +584,81 @@ func run() -> void:
 		assert_eq(site["factionVein"]["security"], "warded", "security carries over")
 	)
 
+	# ── Direction B: claim-vs-loot split (ticket 70) ──────────────────────
+
+	run_case("claim_chance_increases_monotonically_with_terroir_tier", func():
+		var poor_vein := _player_vein_of(30, "time")
+		poor_vein["hospitability"]["tier"] = "poor"
+		var poor := Raiding.claim_chance(poor_vein)
+		var fair_vein := _player_vein_of(30, "time")
+		fair_vein["hospitability"]["tier"] = "fair"
+		var rich_vein := _player_vein_of(30, "time")
+		rich_vein["hospitability"]["tier"] = "rich"
+		var saturated_vein := _player_vein_of(30, "time")
+		saturated_vein["hospitability"]["tier"] = "saturated"
+
+		var fair := Raiding.claim_chance(fair_vein)
+		var rich := Raiding.claim_chance(rich_vein)
+		var saturated := Raiding.claim_chance(saturated_vein)
+
+		assert_true(poor < fair, "poor terroir should have the lowest claim chance")
+		assert_true(fair < rich, "claim chance should keep climbing through fair -> rich")
+		assert_true(rich < saturated, "claim chance should keep climbing through rich -> saturated")
+		assert_eq(saturated, 0.75, "saturated terroir is the draft's 75% ceiling")
+		assert_eq(poor, 0.05, "poor terroir is the draft's 5% floor")
+	)
+
+	run_case("roll_raid_odds_only_rolls_outcomeType_on_a_successful_attempt", func():
+		GameState.reset()
+		var vein := _player_vein_of(10, "time", "guarded", "hampstead")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["factions"]["collective"]["relation"] = 100000  # floors raid_success_chance to 0.0
+
+		var attempt := { "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player" }
+		var outcome := Raiding.roll_raid_odds(attempt)
+
+		assert_eq(outcome["success"], false, "sanity: this attempt is guaranteed to fail")
+		assert_true(not outcome.has("outcomeType"), "a failed attempt should carry no outcomeType -- nothing consumes it")
+	)
+
+	run_case("roll_raid_odds_claim_frequency_trends_with_terroir_tier", func():
+		# Same statistical style the existing weighted-pick test above uses:
+		# a guaranteed-success attempt (relation floored) rolled across many
+		# seeds, counting how often "claim" comes back for a poor-terroir vein
+		# vs. a saturated-terroir one -- the saturated vein should claim far
+		# more often, per the PRD's terroir-scaled odds.
+		var poor_claims := 0
+		var saturated_claims := 0
+		for seed in range(500):
+			GameState.reset()
+			var poor_vein := _player_vein_of(10, "time", "none")
+			poor_vein["hospitability"]["tier"] = "poor"
+			GameState.state["player"]["veins"] = [poor_vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", poor_vein)]
+			GameState.state["factions"]["collective"]["relation"] = -100000  # ceils raid_success_chance to 1.0
+			Rng.set_seed(seed)
+			var poor_outcome := Raiding.roll_raid_odds({ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player" })
+			if poor_outcome["outcomeType"] == "claim":
+				poor_claims += 1
+
+			GameState.reset()
+			var saturated_vein := _player_vein_of(10, "time", "none")
+			saturated_vein["hospitability"]["tier"] = "saturated"
+			GameState.state["player"]["veins"] = [saturated_vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", saturated_vein)]
+			GameState.state["factions"]["collective"]["relation"] = -100000
+			Rng.set_seed(seed)
+			var saturated_outcome := Raiding.roll_raid_odds({ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player" })
+			if saturated_outcome["outcomeType"] == "claim":
+				saturated_claims += 1
+
+		assert_true(saturated_claims > poor_claims * 3, "a saturated vein should claim far more often than a poor one across 500 seeds -- got poor %d vs saturated %d" % [poor_claims, saturated_claims])
+		assert_true(poor_claims < 250, "poor terroir's low draft odds should keep claims well under half of 500 rolls -- got %d" % poor_claims)
+		assert_true(saturated_claims > 0, "saturated terroir's 75% draft odds should produce at least some claims across 500 rolls")
+
+	)
+
 	# ── map-visibility-for-direction-b-vein-losses T08 ────────────────────
 
 	run_case("resolve_raid_outcome_success_queues_a_seed_claim_map_event_for_the_attacker", func():
@@ -687,6 +762,100 @@ func run() -> void:
 		assert_eq(GameState.state["notifications"].size(), 0, "no notification for a vein that no longer exists")
 		var site: Dictionary = Sites.find_site("s_player")
 		assert_eq(site["factionVein"], null, "no faction vein should be created out of nothing")
+	)
+
+	# ── Direction B: resolve_raid_outcome loot branch (ticket 70) ─────────
+
+	run_case("resolve_raid_outcome_loot_leaves_the_vein_with_the_player_pruned_and_ore_docked", func():
+		GameState.reset()
+		var vein := _player_vein_of(60, "physics", "warded", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["player"]["orichalchum"]["physics"] = 50
+
+		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot" }
+		Raiding.resolve_raid_outcome(outcome)
+
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "the vein stays with the player")
+		var player_vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(player_vein["growth"], 60 - Raiding.RAID_LOOT_PRUNE_DEPTH, "the vein is pruned by RAID_LOOT_PRUNE_DEPTH")
+		assert_eq(GameState.state["player"]["orichalchum"]["physics"], 50 - Raiding.RAID_LOOT_ORE_QTY, "the vein's ore type is docked RAID_LOOT_ORE_QTY from the player's own stash")
+
+		var site: Dictionary = Sites.find_site("s_player")
+		assert_eq(site["factionVein"], null, "the site stays player-claimed, no ownership change")
+		assert_true(site["claimed"], "site.claimed is untouched by a loot outcome")
+	)
+
+	run_case("resolve_raid_outcome_loot_clamps_the_ore_theft_to_what_the_player_actually_has", func():
+		GameState.reset()
+		var vein := _player_vein_of(60, "fate", "none", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["player"]["orichalchum"]["fate"] = 3  # less than RAID_LOOT_ORE_QTY
+
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot" })
+
+		assert_eq(GameState.state["player"]["orichalchum"]["fate"], 0, "ore theft should clamp at 0, never go negative")
+	)
+
+	run_case("resolve_raid_outcome_loot_prune_floors_at_0_growth", func():
+		GameState.reset()
+		var vein := _player_vein_of(3, "time", "none", "camden")  # less than RAID_LOOT_PRUNE_DEPTH
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot" })
+
+		assert_eq(GameState.state["player"]["veins"][0]["growth"], 0, "growth should floor at 0, never go negative")
+	)
+
+	run_case("resolve_raid_outcome_claim_and_loot_push_distinctly_worded_notifications", func():
+		GameState.reset()
+		var claim_vein := _player_vein_of(30, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [claim_vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", claim_vein)]
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "claim" })
+		var claim_text: String = GameState.state["notifications"][0]["text"]
+
+		GameState.reset()
+		var loot_vein := _player_vein_of(30, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [loot_vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", loot_vein)]
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot" })
+		var loot_text: String = GameState.state["notifications"][0]["text"]
+
+		assert_true(claim_text != loot_text, "claim and loot notifications must read differently")
+		assert_true(loot_text.contains("still yours"), "the loot notification should make clear the vein was not lost")
+	)
+
+	run_case("resolve_raid_outcome_missed_defend_loot_reads_differently_from_missed_defend_claim", func():
+		GameState.reset()
+		var claim_vein := _player_vein_of(30, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [claim_vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", claim_vein)]
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "claim" }, true)
+		var missed_claim_text: String = GameState.state["notifications"][0]["text"]
+
+		GameState.reset()
+		var loot_vein := _player_vein_of(30, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [loot_vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", loot_vein)]
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot" }, true)
+		var missed_loot_text: String = GameState.state["notifications"][0]["text"]
+
+		assert_true(missed_claim_text != missed_loot_text, "missed-defend claim and loot notifications must read differently")
+		assert_true(missed_loot_text.contains("still yours"), "the missed-defend loot notification should still make clear the vein was not lost")
+	)
+
+	run_case("resolve_raid_outcome_missing_outcomeType_defaults_to_claim", func():
+		GameState.reset()
+		var vein := _player_vein_of(50, "physics", "warded", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true })
+
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "an outcome with no outcomeType key should still resolve as a full claim, unchanged from before ticket 70")
 	)
 
 	# ── Direction B: alarm defend encounter (ticket 07) ───────────────────
