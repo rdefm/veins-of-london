@@ -25,10 +25,11 @@ extends "res://tests/test_base.gd"
 # *static* draw path (_draw_vein_stop/_draw_faction_stop/_draw_unclaimed_
 # stop and the shared helpers under them), not their pop-in animations.
 #
-# vein-growth-state ticket 07: a vein/faction stop's ring is a growth gauge
-# now (_draw_growth_track + _draw_growth_arc), not the plain styled ring
-# _draw_ring_stop draws — that stays exactly as it was, but only unclaimed
-# stops (which have no growth to gauge) still call it directly.
+# vein-growth-state ticket 07 / bugfixes ticket 77: a vein/faction stop's
+# ring is a radial growth fill now (_draw_growth_fill), not the plain
+# styled ring _draw_ring_stop draws — that stays exactly as it was, but
+# only unclaimed stops (which have no growth to gauge) still call it
+# directly.
 #
 # _draw_vein_stop/_draw_faction_stop/_draw_unclaimed_stop themselves take no
 # `target` param (ticket 34 left this as ticket 35's call) — they always
@@ -127,14 +128,14 @@ func run() -> void:
 		canvas.free()
 	)
 
-	# Ticket 35 (updated by vein-growth-state ticket 07 — a vein/faction
-	# stop's ring is now a growth gauge, _draw_growth_track/_draw_growth_arc,
-	# not the plain _draw_ring_stop unclaimed stops still use): proves
-	# _draw_vein_stop's own draw call graph actually draws a track at
-	# VEIN_STOP_RADIUS centred on the stop's position, and an ore glyph also
-	# centred on it -- closing ticket 27's "and centered" gap, which
-	# _vein_ring_style()'s style-dict coverage above never could (a style
-	# dict has no position in it at all).
+	# Ticket 35 (updated by vein-growth-state ticket 07 / bugfixes ticket 77
+	# — a vein/faction stop's ring is now a radial growth fill,
+	# _draw_growth_fill, not the plain _draw_ring_stop unclaimed stops still
+	# use): proves _draw_vein_stop's own draw call graph actually draws a
+	# fill at VEIN_STOP_RADIUS centred on the stop's position, and an ore
+	# glyph also centred on it -- closing ticket 27's "and centered" gap,
+	# which _vein_ring_style()'s style-dict coverage above never could (a
+	# style dict has no position in it at all).
 	#
 	# oreType "fate" is picked deliberately: _ore_font_covers_symbols is only
 	# ever computed in _ready() (see that field's own comment), which a bare
@@ -150,18 +151,18 @@ func run() -> void:
 	# recorded position argument is the *exact*, unmodified centre point
 	# passed in, rather than a centre-plus-offset -- the cleanest possible
 	# proof this ticket's "closes ticket 27's centering gap" bullet asks for.
-	run_case("draw_vein_stop_helpers_draw_a_track_at_its_radius_and_a_glyph_centred_on_the_stops_position", func():
+	run_case("draw_vein_stop_helpers_draw_a_fill_at_its_radius_and_a_glyph_centred_on_the_stops_position", func():
 		var canvas := MapCanvas.new()
 		canvas.filter_mode = "ownership"
 		var pos := Vector2(123.0, 45.0)
-		var vein := _vein("fate", 45)  # dormant -- no arc, isolates the track's own geometry
+		var vein := _vein("fate", 45)  # isolates the fill's own geometry
 		var ore: Dictionary = GameData.ORE_TYPES["fate"]
 		var alpha := MapStyle.stop_alpha("ownership", false, "", "player")
 
-		var track_spy := DrawSpy.new()
-		canvas._draw_growth_track(pos, MapCanvas.VEIN_STOP_RADIUS, alpha, false, 32, track_spy)
-		var tracks: Array = track_spy.calls_matching("draw_arc")
-		assert_true(tracks.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS), "the track ring is centred on the stop's own position, at VEIN_STOP_RADIUS")
+		var fill_spy := DrawSpy.new()
+		canvas._draw_growth_fill(pos, MapCanvas.VEIN_STOP_RADIUS, alpha, 0.45, MapCanvas.PLAYER_COLOUR, 32, fill_spy)
+		var outlines: Array = fill_spy.calls_matching("draw_arc")
+		assert_true(outlines.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS), "the fill's outline ring is centred on the stop's own position, at VEIN_STOP_RADIUS")
 
 		var glyph_spy := DrawSpy.new()
 		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy, MapCanvas.STOP_ICON_GROWTH)
@@ -176,18 +177,19 @@ func run() -> void:
 	# way _draw_faction_stop itself calls it (no explicit target/enlarge --
 	# both default, matching a real _draw_faction_stop call site exactly
 	# except for target, which is threaded in as the spy instead of self).
-	run_case("draw_faction_stop_helpers_draw_a_track_at_its_radius_and_a_glyph_centred_on_the_stops_position", func():
+	run_case("draw_faction_stop_helpers_draw_a_fill_at_its_radius_and_a_glyph_centred_on_the_stops_position", func():
 		var canvas := MapCanvas.new()
 		canvas.filter_mode = "ownership"
 		var pos := Vector2(200.0, 10.0)
-		var vein := _vein("fate", 45)  # dormant -- no arc, isolates the track's own geometry
+		var vein := _vein("fate", 45)  # isolates the fill's own geometry
 		var ore: Dictionary = GameData.ORE_TYPES["fate"]
 		var alpha := MapStyle.stop_alpha("ownership", false, "", "firm")
+		var faction_colour := Color(GameData.FACTIONS["firm"]["colour"])
 
-		var track_spy := DrawSpy.new()
-		canvas._draw_growth_track(pos, MapCanvas.FACTION_STOP_RADIUS, alpha, false, 24, track_spy)
-		var tracks: Array = track_spy.calls_matching("draw_arc")
-		assert_true(tracks.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.FACTION_STOP_RADIUS), "the track ring is centred on the stop's own position, at FACTION_STOP_RADIUS")
+		var fill_spy := DrawSpy.new()
+		canvas._draw_growth_fill(pos, MapCanvas.FACTION_STOP_RADIUS, alpha, 0.45, faction_colour, 24, fill_spy)
+		var outlines: Array = fill_spy.calls_matching("draw_arc")
+		assert_true(outlines.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.FACTION_STOP_RADIUS), "the fill's outline ring is centred on the stop's own position, at FACTION_STOP_RADIUS")
 
 		var glyph_spy := DrawSpy.new()
 		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy)
@@ -197,91 +199,61 @@ func run() -> void:
 		canvas.free()
 	)
 
-	# ── growth gauge draw call graph (vein-growth-state ticket 07) ───────
+	# ── growth fill draw call graph (bugfixes ticket 77) ─────────────────
 
-	run_case("draw_growth_track_draws_paper_and_a_full_ring_for_an_ordinary_vein", func():
+	run_case("draw_growth_fill_draws_paper_then_a_pie_wedge_then_a_full_outline_ring", func():
 		var canvas := MapCanvas.new()
 		var pos := Vector2(123.0, 45.0)
 
 		var spy := DrawSpy.new()
-		canvas._draw_growth_track(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, false, 32, spy)
+		canvas._draw_growth_fill(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, 0.5, MapCanvas.PLAYER_COLOUR, 32, spy)
 
 		assert_true(spy.calls_matching("draw_circle").any(func(c): return c["args"][0] == pos), "paper fill centred on the stop")
-		var arcs: Array = spy.calls_matching("draw_arc")
-		assert_true(arcs.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS and is_equal_approx(c["args"][3] - c["args"][2], TAU)), "an ordinary (non-collapsed) track is one full-circumference ring")
+
+		var wedges: Array = spy.calls_matching("draw_colored_polygon")
+		assert_eq(wedges.size(), 1, "a partially-filled vein draws exactly one wedge")
+		assert_eq(wedges[0]["args"][0][0], pos, "the wedge fan starts at the stop's own centre")
+		assert_eq(wedges[0]["args"][1], MapCanvas.PLAYER_COLOUR, "the wedge is drawn flat in the owner colour, not scaled/gradiented")
+
+		var outlines: Array = spy.calls_matching("draw_arc")
+		assert_true(outlines.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS and is_equal_approx(c["args"][3] - c["args"][2], TAU)), "a full-circumference outline ring always draws, regardless of fill level")
 
 		canvas.free()
 	)
 
-	# "arc gone entirely, track itself broken and faded" -- a collapsed
-	# vein's track is several short dashes, not one continuous ring.
-	run_case("draw_growth_track_breaks_into_dashes_for_a_collapsed_vein", func():
+	# Ticket 77's own acceptance check: "renders correctly at growth 0
+	# (empty)... without visual glitches" -- no wedge at all, just the paper
+	# base and the outline ring, so the stop's extent still reads.
+	run_case("draw_growth_fill_draws_no_wedge_at_zero_fraction", func():
 		var canvas := MapCanvas.new()
 		var pos := Vector2(1.0, 2.0)
 
 		var spy := DrawSpy.new()
-		canvas._draw_growth_track(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, true, 32, spy)
+		canvas._draw_growth_fill(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, 0.0, MapCanvas.PLAYER_COLOUR, 32, spy)
 
-		var arcs: Array = spy.calls_matching("draw_arc")
-		assert_eq(arcs.size(), MapCanvas.COLLAPSED_TRACK_GAP_SEGMENTS, "broken into COLLAPSED_TRACK_GAP_SEGMENTS dashes")
-		var full_segment := TAU / MapCanvas.COLLAPSED_TRACK_GAP_SEGMENTS
-		for a in arcs:
-			assert_true(a["args"][3] - a["args"][2] < full_segment, "each dash is shorter than its full segment -- there are real gaps")
+		assert_true(spy.calls_matching("draw_colored_polygon").is_empty(), "growth 0 -- no wedge, just the paper base and outline")
+		assert_true(spy.calls_matching("draw_circle").any(func(c): return c["args"][0] == pos), "the paper base still draws so the stop stays visible")
+		var outlines: Array = spy.calls_matching("draw_arc")
+		assert_true(outlines.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS), "the outline ring still draws so the stop's extent still reads")
 
 		canvas.free()
 	)
 
-	run_case("draw_growth_arc_sweeps_clockwise_and_thickens_serrates_a_wild_vein", func():
+	# "renders correctly... at/above ceiling (full) without visual glitches"
+	# -- the wedge fan wraps a complete circle rather than leaving a seam.
+	run_case("draw_growth_fill_draws_a_full_wedge_at_a_fraction_of_one", func():
 		var canvas := MapCanvas.new()
-		var pos := Vector2(10.0, 10.0)
-		var vein := _vein("time", 90)  # wild band, above neutral
-		var style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		var pos := Vector2(5.0, 5.0)
 
 		var spy := DrawSpy.new()
-		canvas._draw_growth_arc(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, vein, "wild", style, spy)
+		canvas._draw_growth_fill(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, 1.0, MapCanvas.PLAYER_COLOUR, 32, spy)
 
-		var arcs: Array = spy.calls_matching("draw_arc")
-		assert_eq(arcs.size(), 1, "wild draws one continuous (thickened) arc stroke")
-		var arc: Dictionary = arcs[0]
-		assert_almost_eq(arc["args"][2], -PI / 2.0, 0.0001, "starts at 12 o'clock")
-		assert_true(arc["args"][3] > arc["args"][2], "sweeps clockwise -- growth 90 is above neutral")
-		assert_almost_eq(arc["args"][6], style["width"] * 2.0, 0.0001, "wild/rampant thickens the arc")
-
-		assert_true(spy.calls_matching("draw_line").size() > 0, "wild also draws the serrated-edge ticks")
-
-		canvas.free()
-	)
-
-	run_case("draw_growth_arc_sweeps_anticlockwise_and_gaps_a_barren_vein", func():
-		var canvas := MapCanvas.new()
-		var pos := Vector2(10.0, 10.0)
-		var vein := _vein("time", 10)  # barren band, below neutral
-		var style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
-
-		var spy := DrawSpy.new()
-		canvas._draw_growth_arc(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, vein, "barren", style, spy)
-
-		var arcs: Array = spy.calls_matching("draw_arc")
-		assert_eq(arcs.size(), MapCanvas.RISK_ARC_GAP_SEGMENTS, "barren/sparse breaks the arc into dashes")
-		for a in arcs:
-			assert_true(a["args"][2] <= -PI / 2.0 + 0.0001, "the whole gapped span sits on the anticlockwise (below-neutral) side")
-		assert_true(spy.calls_matching("draw_line").is_empty(), "barren gaps rather than serrates -- no ticks")
-
-		canvas.free()
-	)
-
-	run_case("draw_growth_arc_draws_nothing_for_dormant_or_collapsed_bands", func():
-		var canvas := MapCanvas.new()
-		var pos := Vector2(0.0, 0.0)
-		var style: Dictionary = canvas._vein_ring_style(_vein("time", 50), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
-
-		var dormant_spy := DrawSpy.new()
-		canvas._draw_growth_arc(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, _vein("time", 50), "dormant", style, dormant_spy)
-		assert_true(dormant_spy.calls.is_empty(), "a dormant vein shows only the track -- no arc")
-
-		var collapsed_spy := DrawSpy.new()
-		canvas._draw_growth_arc(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, _vein("time", 0), "collapsed", style, collapsed_spy)
-		assert_true(collapsed_spy.calls.is_empty(), "a collapsed vein draws no arc either -- see _draw_growth_track's own broken track")
+		var wedges: Array = spy.calls_matching("draw_colored_polygon")
+		assert_eq(wedges.size(), 1, "a fully-filled vein still draws exactly one wedge")
+		var fan: PackedVector2Array = wedges[0]["args"][0]
+		var first_rim := fan[1]
+		var last_rim := fan[fan.size() - 1]
+		assert_true(first_rim.is_equal_approx(last_rim), "a full fraction wraps the fan back to its own starting rim point -- a closed disc, no gap")
 
 		canvas.free()
 	)
@@ -307,45 +279,12 @@ func run() -> void:
 		canvas.free()
 	)
 
-	# Ticket 46: the days-to-wall badge itself, drawn via _draw_growth_
-	# countdown -- always-on now (no filter_mode param anywhere in its call
-	# graph), proven directly since it already takes a `target` param.
-	run_case("draw_growth_countdown_draws_a_paper_badge_and_label_at_4_oclock", func():
-		var canvas := MapCanvas.new()
-		var pos := Vector2(40.0, 70.0)
-
-		var spy := DrawSpy.new()
-		canvas._draw_growth_countdown(pos, "6↑", 1.0, spy)
-
-		var expected_pos := pos + MapCanvas.CLOCK_4 * MapCanvas.BADGE_OFFSET
-		var circles: Array = spy.calls_matching("draw_circle")
-		assert_true(circles.any(func(c): return c["args"][0].is_equal_approx(expected_pos)), "the paper backing sits at the 4 o'clock badge offset, same clock position the old level badge used")
-
-		var strings: Array = spy.calls_matching("draw_string")
-		assert_true(strings.any(func(c): return c["args"][2] == "6↑"), "the label text itself is drawn")
-
-		canvas.free()
-	)
-
-	# Ticket 46's own acceptance check: the badge no longer depends on
-	# filter_mode at all -- MapCanvas always computes+draws it in
-	# _draw_vein_stop's call graph regardless of which chip is active. This
-	# is exercised at the MapStyle seam (tests/test_map_style.gd's
-	# countdown_label_is_always_on_regardless_of_filter); this case proves
-	# MapCanvas's own draw call graph doesn't reintroduce a filter_mode
-	# gate around the _draw_growth_countdown call site.
-	run_case("draw_growth_countdown_has_no_filter_mode_parameter", func():
-		var canvas := MapCanvas.new()
-		var pos := Vector2(0.0, 0.0)
-
-		for mode in MapStyle.FILTER_MODES:
-			canvas.filter_mode = mode
-			var spy := DrawSpy.new()
-			canvas._draw_growth_countdown(pos, "3↓", 1.0, spy)
-			assert_true(spy.calls_matching("draw_circle").size() > 0, mode + ": badge draws under every filter mode, unconditionally")
-
-		canvas.free()
-	)
+	# Ticket 77's own acceptance check: the days-to-wall badge (and the
+	# CLOCK_4 clock position it used to occupy) is gone entirely -- there is
+	# no MapCanvas draw call graph left that produces it. _draw_vein_stop's
+	# own call graph is proven end to end via the real _draw() path in the
+	# tap-target cases further below, which build real vein stops and never
+	# see a stray 4 o'clock badge circle.
 
 	# Same proof as above for an unclaimed site stop -- UNCLAIMED_STOP_
 	# RADIUS/_unclaimed_ring_style() instead of the vein-owner path.

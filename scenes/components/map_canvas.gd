@@ -124,17 +124,17 @@ const INTERCHANGE_RING_GAP := 3.0
 
 # The pre-enlargement vein-stop radius and the growth factor from it to
 # VEIN_STOP_RADIUS above — applied uniformly to every glyph drawn on/around
-# a vein stop (ore symbol via _draw_ore_symbol's enlarge param, level badge,
-# security padlock) and to BADGE_OFFSET itself, so all of them grow in
-# lockstep with the ring instead of each guessing its own multiplier.
+# a vein stop (ore symbol via _draw_ore_symbol's enlarge param, security
+# padlock) and to BADGE_OFFSET itself, so all of them grow in lockstep with
+# the ring instead of each guessing its own multiplier.
 const BASE_VEIN_STOP_RADIUS := 7.0
 const STOP_ICON_GROWTH := VEIN_STOP_RADIUS / BASE_VEIN_STOP_RADIUS
 const BADGE_OFFSET := 10.0 * STOP_ICON_GROWTH
 
 # Clock-position unit vectors (y-down screen space): direction(theta) =
 # (sin(theta), -cos(theta)) for theta = hour * 30deg clockwise from 12
-# o'clock. N2: level badge at 4 o'clock, security padlock at 8 o'clock.
-const CLOCK_4 := Vector2(0.8660254, 0.5)
+# o'clock. N2: security padlock at 8 o'clock (the old 4 o'clock level/
+# countdown badge is gone -- see bugfixes ticket 77).
 const CLOCK_8 := Vector2(-0.8660254, 0.5)
 
 # ── pins (N2 "PINS = points of interest") ────────────────────────────────
@@ -1058,10 +1058,10 @@ func _vein_ring_style(vein: Dictionary, owner_colour: Color, base_width: float) 
 # site (drawing from this Control's own _draw()) is unaffected;
 # DiscoverRipple's pop-in phase passes itself so an unclaimed site's
 # ring/glyph pop-in reuses this exact geometry instead of reimplementing it.
-# Ticket 07: vein/faction stops now draw their ring via _draw_growth_track/
-# _draw_growth_arc below instead — a growth gauge, not a plain styled ring —
-# but this stays exactly as it was for the one caller that still wants a
-# plain styled ring: unclaimed sites, which have no growth to gauge.
+# Ticket 07/77: vein/faction stops now draw a radial growth fill via
+# _draw_growth_fill below instead — but this stays exactly as it was for
+# the one caller that still wants a plain styled ring: unclaimed sites,
+# which have no growth to gauge.
 func _draw_ring_stop(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int, target: Object = self) -> void:
 	target.draw_circle(pos, radius, _faded(PAPER_COLOUR, alpha))
 	target.draw_arc(pos, radius, 0, TAU, segments, _faded(style["colour"], alpha), style["width"], true)
@@ -1076,82 +1076,37 @@ func _draw_interchange_ring(pos: Vector2, radius: float, alpha: float, style: Di
 	target.draw_arc(pos, radius + INTERCHANGE_RING_GAP, 0, TAU, segments, _faded(style["colour"], alpha), style["width"], true)
 
 
-# ── growth gauge (vein-growth-state ticket 07) ───────────────────────────
-# The growth gauge replaces the old uniform-coloured ring AND the old
-# per-vein progress arc (_draw_level_badge's dev_fraction ring, deleted
-# alongside it) with one glyph on a vein/faction stop: a faint,
-# always-visible full-circumference track (this func) plus a coloured arc
-# overdrawn on top (_draw_growth_arc) showing which wall growth is heading
-# toward and how close it is. `broken` is true only for a collapsed vein
-# (growth 0) — "arc gone entirely, track itself broken and faded".
-const GROWTH_TRACK_COLOUR := MUTED_COLOUR
-const GROWTH_TRACK_ALPHA := 0.35
-const GROWTH_TRACK_WIDTH := 1.5
-const COLLAPSED_TRACK_ALPHA_SCALE := 0.5
-const COLLAPSED_TRACK_GAP_SEGMENTS := 8
-const COLLAPSED_TRACK_GAP_FRACTION := 0.5
+# ── growth fill (bugfixes ticket 77) ─────────────────────────────────────
+# Replaces the old growth-gauge track+arc (per-band texture: serrated/
+# gapped/plain) and the 4 o'clock days-to-wall badge with one glyph behind
+# the ore icon: a radial fill proportional to MapStyle.growth_fill_fraction
+# (growth/ceiling(vein)) in the stop's own ring style colour (owner colour
+# under Ownership, the same filter-aware colour _vein_ring_style already
+# feeds the ring elsewhere -- flat, no per-band scaling or texture, per the
+# ticket's "not gradiented by growth level"). Drawn as a filled pie wedge
+# (a fan of triangles from the stop's centre, same technique
+# draw_colored_polygon is already used for elsewhere in this file, e.g. the
+# pin teardrop) rather than a stroked arc, so growth 0 is a bare paper disc
+# and the ceiling is a solid one. A thin outline at fixed width (not
+# filter-scaled -- there's no ring width to thicken now that the whole disc
+# fills, only the wedge's own colour varies) keeps the stop's full extent
+# visible even at growth 0, when the wedge itself draws nothing.
+const GROWTH_FILL_OUTLINE_WIDTH := 1.5
 
-func _draw_growth_track(pos: Vector2, radius: float, alpha: float, broken: bool, segments: int, target: Object = self) -> void:
+func _draw_growth_fill(pos: Vector2, radius: float, alpha: float, fraction: float, colour: Color, segments: int, target: Object = self) -> void:
 	target.draw_circle(pos, radius, _faded(PAPER_COLOUR, alpha))
-	var track_alpha := alpha * GROWTH_TRACK_ALPHA * (COLLAPSED_TRACK_ALPHA_SCALE if broken else 1.0)
-	var track_colour := _faded(GROWTH_TRACK_COLOUR, track_alpha)
-	if broken:
-		for i in COLLAPSED_TRACK_GAP_SEGMENTS:
-			var a0 := TAU * i / COLLAPSED_TRACK_GAP_SEGMENTS
-			var a1 := a0 + TAU / COLLAPSED_TRACK_GAP_SEGMENTS * COLLAPSED_TRACK_GAP_FRACTION
-			target.draw_arc(pos, radius, a0, a1, 4, track_colour, GROWTH_TRACK_WIDTH, true)
-	else:
-		target.draw_arc(pos, radius, 0, TAU, segments, track_colour, GROWTH_TRACK_WIDTH, true)
-
-
-# The arc itself — direction/length maths and per-band texture kind both
-# come from MapStyle (pure, unit-tested); this just carries out whichever
-# texture MapStyle.arc_texture() names. Draws nothing for dormant/collapsed
-# (MapStyle.growth_arc_angles returns null for both — "Dormant vein shows
-# only the track"; a collapsed vein's track itself is the broken one above).
-func _draw_growth_arc(pos: Vector2, radius: float, alpha: float, vein: Dictionary, band_id: String, style: Dictionary, target: Object = self) -> void:
-	var angles = MapStyle.growth_arc_angles(vein["growth"], GameData.VEIN_GROWTH["neutral"], Cultivating.ceiling(vein), band_id)
-	if angles == null:
-		return
-
-	var width: float = style["width"] * MapStyle.arc_width_scale(band_id)
-	var colour := _faded(style["colour"], alpha * MapStyle.arc_alpha_scale(band_id))
-	match MapStyle.arc_texture(band_id):
-		"serrated":
-			target.draw_arc(pos, radius, angles["start"], angles["end"], 32, colour, width, true)
-			_draw_arc_serration(pos, radius, angles["start"], angles["end"], colour, target)
-		"gapped":
-			_draw_gapped_arc(pos, radius, angles["start"], angles["end"], width, colour, target)
-		_:
-			target.draw_arc(pos, radius, angles["start"], angles["end"], 32, colour, width, true)
-
-
-# wild/rampant's "thicker, ragged/serrated outer edge" — short radial ticks
-# at intervals along the arc's own span, straddling its outer edge.
-const RISK_ARC_SERRATION_COUNT := 7
-const RISK_ARC_SERRATION_LENGTH := 3.0
-
-func _draw_arc_serration(pos: Vector2, radius: float, start_angle: float, end_angle: float, colour: Color, target: Object = self) -> void:
-	var span := end_angle - start_angle
-	for i in RISK_ARC_SERRATION_COUNT:
-		var t: float = float(i) / float(RISK_ARC_SERRATION_COUNT - 1)
-		var a := start_angle + span * t
-		var dir := Vector2(cos(a), sin(a))
-		target.draw_line(pos + dir * (radius - RISK_ARC_SERRATION_LENGTH), pos + dir * (radius + RISK_ARC_SERRATION_LENGTH), colour, 1.5)
-
-
-# barren/sparse's "thin, faded, gapped" — the arc's own span broken into a
-# handful of short dashes rather than one continuous stroke.
-const RISK_ARC_GAP_SEGMENTS := 5
-const RISK_ARC_GAP_FRACTION := 0.55
-
-func _draw_gapped_arc(pos: Vector2, radius: float, start_angle: float, end_angle: float, width: float, colour: Color, target: Object = self) -> void:
-	var span := end_angle - start_angle
-	var segment_span := span / float(RISK_ARC_GAP_SEGMENTS)
-	for i in RISK_ARC_GAP_SEGMENTS:
-		var a0 := start_angle + segment_span * i
-		var a1 := a0 + segment_span * RISK_ARC_GAP_FRACTION
-		target.draw_arc(pos, radius, a0, a1, 4, colour, width, true)
+	var filled_colour := _faded(colour, alpha)
+	var clamped: float = clampf(fraction, 0.0, 1.0)
+	if clamped > 0.0:
+		var steps: int = maxi(1, int(ceil(segments * clamped)))
+		var points := PackedVector2Array()
+		points.append(pos)
+		for i in steps + 1:
+			var t: float = clamped * float(i) / float(steps)
+			var angle: float = -PI / 2.0 + t * TAU
+			points.append(pos + Vector2(cos(angle), sin(angle)) * radius)
+		target.draw_colored_polygon(points, filled_colour)
+	target.draw_arc(pos, radius, 0, TAU, segments, filled_colour, GROWTH_FILL_OUTLINE_WIDTH, true)
 
 
 # Ticket 07: terroir moves off the old 4 o'clock level badge and onto the
@@ -1165,30 +1120,13 @@ func _draw_terroir_ring(pos: Vector2, radius: float, alpha: float, style: Dictio
 		_draw_interchange_ring(pos, radius, alpha, style, segments, target)
 
 
-# The per-stop days-to-wall label ("6↑"/"4↓") — takes the same 4 o'clock
-# clock position the old level badge used to occupy. Ticket 46: always-on
-# regardless of active filter (was Growth-only), drawn last in
-# _draw_vein_stop's own call graph so its solid paper backing stays on top
-# of the security filter's danger ring, the only other glyph whose own
-# radius (VEIN_STOP_RADIUS + 3) reaches into this badge's footprint. No
-# progress ring behind it since the growth arc on the stop itself already
-# carries that information.
-func _draw_growth_countdown(pos: Vector2, label: String, alpha: float, target: Object = self) -> void:
-	var badge_pos := pos + CLOCK_4 * BADGE_OFFSET
-	var radius := 6.0 * STOP_ICON_GROWTH
-	target.draw_circle(badge_pos, radius, _faded(PAPER_COLOUR, alpha))
-	_draw_centered_text(badge_pos, label, int(9 * STOP_ICON_GROWTH), _faded(INK_COLOUR, alpha), target)
-
-
-# Ticket 07: the ring is a growth gauge now, not a level badge + charge
-# halo -- see _draw_growth_track/_draw_growth_arc below for the track/arc
-# split, and MapStyle's own "growth gauge" section for the pure maths
-# behind them. The 4 o'clock level badge is dropped entirely (not
-# repurposed); the days-to-wall label takes that clock position instead.
-# Ticket 46: that label is always-on now, so it's drawn last -- after the
-# security padlock/danger ring -- so its solid paper backing wins the
-# layering fight against the danger ring when Security filter + always-on
-# badge coincide (see _draw_growth_countdown's own comment).
+# Ticket 77: the ring is a radial fill meter now, not a growth-gauge arc +
+# 4 o'clock days-to-wall badge -- see _draw_growth_fill above for the fill
+# maths, and MapStyle.growth_fill_fraction for the pure fraction it fills
+# to. The days-to-wall information (badge, MapStyle.countdown_label,
+# _growth_direction) is dropped entirely, not relocated -- the site sheet's
+# own raw "Growth: X/Y" text/bar (scenes/screens/vein_list.gd) stays the
+# detailed view for that.
 func _draw_vein_stop(stop: Dictionary) -> void:
 	var pos: Vector2 = stop["position"]
 	var vein: Dictionary = stop["vein"]
@@ -1198,9 +1136,9 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 
 	var alpha := MapStyle.stop_alpha(filter_mode, MapStyle.is_risk_band(band_id), selected_faction_id, "player")
 	var style := _vein_ring_style(vein, PLAYER_COLOUR, VEIN_STOP_STROKE)
+	var fraction := MapStyle.growth_fill_fraction(vein["growth"], Cultivating.ceiling(vein))
 
-	_draw_growth_track(pos, VEIN_STOP_RADIUS, alpha, band_id == "collapsed", 32)
-	_draw_growth_arc(pos, VEIN_STOP_RADIUS, alpha, vein, band_id, style)
+	_draw_growth_fill(pos, VEIN_STOP_RADIUS, alpha, fraction, style["colour"], 32)
 	_draw_terroir_ring(pos, VEIN_STOP_RADIUS, alpha, style, vein, 32)
 	_draw_ore_symbol(pos, vein["oreType"], ore, alpha, self, STOP_ICON_GROWTH)
 
@@ -1210,21 +1148,6 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 	if MapStyle.show_danger_ring(filter_mode, security):
 		_draw_dotted_ring(pos, VEIN_STOP_RADIUS + 3.0, MapStyle.DANGER_COLOUR)
 
-	var label = MapStyle.countdown_label(maxi(Cultivating.days_to_wall(vein), 0), _growth_direction(vein))
-	if label != null:
-		_draw_growth_countdown(pos, label, alpha)
-
-
-# +1 growth is drifting toward the ceiling, -1 toward zero, 0 at neutral
-# (nothing to count down -- MapStyle.countdown_label returns null for this).
-func _growth_direction(vein: Dictionary) -> int:
-	var neutral: int = GameData.VEIN_GROWTH["neutral"]
-	if vein["growth"] > neutral:
-		return 1
-	elif vein["growth"] < neutral:
-		return -1
-	return 0
-
 
 # Map-animations ticket 02: faction stops now draw a paper-fill + coloured
 # ring, same as player vein stops (VEIN_STOP_RADIUS's smaller sibling), so a
@@ -1232,7 +1155,8 @@ func _growth_direction(vein: Dictionary) -> int:
 # into. Ticket 27 added the centred ore glyph, matching the player-stop
 # treatment (was explicitly deferred before — see this ticket for why).
 # Ticket 07: faction veins drift/cultivate the same growth model player
-# veins do, so they get the same growth gauge/terroir ring treatment here.
+# veins do. Ticket 77: same radial fill treatment as a player vein stop,
+# just in the faction's own colour and at FACTION_STOP_RADIUS.
 func _draw_faction_stop(stop: Dictionary) -> void:
 	var pos: Vector2 = stop["position"]
 	var vein: Dictionary = stop["vein"]
@@ -1241,9 +1165,9 @@ func _draw_faction_stop(stop: Dictionary) -> void:
 	var band_id: String = Cultivating.growth_band(vein)["id"]
 	var alpha := MapStyle.stop_alpha(filter_mode, MapStyle.is_risk_band(band_id), selected_faction_id, stop["owner"])
 	var style := _vein_ring_style(vein, faction_colour, FACTION_STOP_STROKE)
+	var fraction := MapStyle.growth_fill_fraction(vein["growth"], Cultivating.ceiling(vein))
 
-	_draw_growth_track(pos, FACTION_STOP_RADIUS, alpha, band_id == "collapsed", 24)
-	_draw_growth_arc(pos, FACTION_STOP_RADIUS, alpha, vein, band_id, style)
+	_draw_growth_fill(pos, FACTION_STOP_RADIUS, alpha, fraction, style["colour"], 24)
 	_draw_terroir_ring(pos, FACTION_STOP_RADIUS, alpha, style, vein, 24)
 	_draw_ore_symbol(pos, vein["oreType"], ore, alpha)
 
@@ -1321,10 +1245,11 @@ func _draw_ore_symbol(pos: Vector2, ore_type: String, ore: Dictionary, alpha: fl
 # Ticket 07: the old level badge (a dev_fraction progress ring + numeral,
 # dev_fraction computed locally in _draw_vein_stop — confirmed no
 # Cultivating.dev_fraction() survives anywhere per the ticket's checklist)
-# that used to sit here is gone entirely. The growth gauge
-# (_draw_growth_track/_draw_growth_arc above) carries that information on
-# the stop's ring now; the security padlock below is the only badge left
-# at a fixed clock position.
+# that used to sit here is gone entirely. Ticket 77 also dropped its
+# successor, the 4 o'clock days-to-wall badge. The radial growth fill
+# (_draw_growth_fill above) carries that information on the stop itself
+# now; the security padlock below is the only badge left at a fixed clock
+# position.
 
 func _draw_security_padlock(pos: Vector2, security: String, enlarge: float, alpha: float) -> void:
 	if security == "none":

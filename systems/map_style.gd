@@ -17,8 +17,13 @@ extends RefCounted
 # systems/cultivating.gd), replaced by `growth`/`value_tier`/growth bands.
 # Growth mode fades everything outside the "risk" bands, ramps ring colour/
 # width by value_tier (same ramp shape Strength used, just keyed on the new
-# 1-6 magnitude), and the growth-gauge arc/track maths below are what
-# replaced the old per-vein progress ring and level/countdown badges.
+# 1-6 magnitude).
+#
+# bugfixes ticket 77: the growth-gauge arc/per-band-texture/countdown-badge
+# maths that used to live at the bottom of this file (growth_arc_angles,
+# arc_texture, arc_width_scale, arc_alpha_scale, countdown_label) are gone —
+# replaced by growth_fill_fraction() below, the one pure seam behind
+# MapCanvas's radial fill meter.
 
 const FILTER_MODES: Array[String] = ["ownership", "type", "growth", "security", "faction"]
 
@@ -118,35 +123,6 @@ static func show_danger_ring(filter_mode: String, security: String) -> bool:
 	return filter_mode == "security" and security == "none"
 
 
-# Growth: the per-stop days-to-wall label ("6↑"/"4↓") that replaces the old
-# per-stop charge countdown ("2⏳") — ticket 46 made it always-on, every
-# filter, not just Growth (readable "at a glance" without switching), and
-# only for a vein actually drifting toward a wall (direction 0, a vein
-# sitting exactly at neutral, has nothing to count down). Direction is
-# already-resolved by the caller (MapCanvas, from the vein's own growth vs.
-# GameData.VEIN_GROWTH's neutral) rather than looked up here, keeping this
-# function's inputs plain primitives like every other seam in this file.
-static func countdown_label(days_remaining: int, direction: int) -> Variant:
-	if direction == 0 or days_remaining < 0:
-		return null
-	var arrow := "↑" if direction > 0 else "↓"
-	return "%d%s" % [days_remaining, arrow]
-
-
-# ── growth gauge (vein-growth-state ticket 07) ───────────────────────────
-# The stop ring becomes a growth gauge: a faint full-circumference track
-# (drawn by MapCanvas, no maths needed here) plus this arc overdrawn on top,
-# swept from 12 o'clock -- clockwise (toward 3-6 o'clock) for growth above
-# neutral, anticlockwise (toward 9-6 o'clock) for growth below it -- with
-# length proportional to distance from neutral, capped at a half-circle (6
-# o'clock) at either wall.
-
-# A vein exactly at neutral (dormant band) or fully spent (collapsed) draws
-# no arc at all -- "Dormant vein shows only the track" (ticket 07); a
-# collapsed vein's track itself is rendered broken/faded instead, entirely
-# by MapCanvas (see its own _draw_growth_track), not by anything here.
-const NO_ARC_BANDS: Array[String] = ["dormant", "collapsed"]
-
 const RISK_BANDS: Array[String] = ["barren", "sparse", "wild", "rampant", "collapsed"]
 
 
@@ -154,45 +130,11 @@ static func is_risk_band(band_id: String) -> bool:
 	return RISK_BANDS.has(band_id)
 
 
-# Returns null for the two no-arc bands above; otherwise {"start":float,
-# "end":float} in Godot's draw_arc angle convention (0 = 3 o'clock,
-# increasing = clockwise in this y-down screen space, so -PI/2 = 12
-# o'clock) with start <= end always, regardless of which side of neutral
-# the sweep falls on.
-static func growth_arc_angles(growth: int, neutral: int, ceiling: int, band_id: String) -> Variant:
-	if NO_ARC_BANDS.has(band_id):
-		return null
-	var twelve := -PI / 2.0
-	if growth > neutral:
-		var fraction: float = clampf(float(growth - neutral) / float(ceiling - neutral), 0.0, 1.0)
-		return { "start": twelve, "end": twelve + fraction * PI }
-	var fraction: float = clampf(float(neutral - growth) / float(neutral), 0.0, 1.0)
-	return { "start": twelve - fraction * PI, "end": twelve }
-
-
-# Risk cue lives on the arc's own texture, not a second ring: "serrated"
-# (wild/rampant) draws thicker with a ragged outer edge; "gapped" (barren/
-# sparse) draws thin, faded, broken into dashes; "plain" (thinning/taking/
-# lush) is an ordinary continuous arc at the ring's own colour/width.
-# Dormant/collapsed never reach this -- growth_arc_angles() above already
-# returns null for them, so MapCanvas never asks for a texture.
-static func arc_texture(band_id: String) -> String:
-	if band_id == "wild" or band_id == "rampant":
-		return "serrated"
-	if band_id == "barren" or band_id == "sparse":
-		return "gapped"
-	return "plain"
-
-
-static func arc_width_scale(band_id: String) -> float:
-	if band_id == "wild" or band_id == "rampant":
-		return 2.0
-	if band_id == "barren" or band_id == "sparse":
-		return 0.5
-	return 1.0
-
-
-static func arc_alpha_scale(band_id: String) -> float:
-	if band_id == "barren" or band_id == "sparse":
-		return 0.6
-	return 1.0
+# ── growth fill (bugfixes ticket 77) ─────────────────────────────────────
+# The radial fill meter's one pure seam: how full a vein's stop reads,
+# 0.0 (growth 0, empty) to 1.0 (growth at/above ceiling(vein), full) --
+# flat proportional fill, no per-band scaling or texture. ceiling is always
+# > 0 (Cultivating.ceiling's default 100, or 120 with wildCeiling), so no
+# divide-by-zero guard is needed.
+static func growth_fill_fraction(growth: int, ceiling: int) -> float:
+	return clampf(float(growth) / float(ceiling), 0.0, 1.0)

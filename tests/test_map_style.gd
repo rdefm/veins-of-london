@@ -56,15 +56,6 @@ func run() -> void:
 		assert_eq(MapStyle.stop_alpha("growth", false), MapStyle.CHARGE_FADE_ALPHA, "a vein outside the risk bands (or any npc/unclaimed stop) fades")
 	)
 
-	# Ticket 46: the days-to-wall label is no longer filter-gated -- it has
-	# no filter_mode parameter at all now, so it can't vary by mode.
-	run_case("countdown_label_is_always_on_regardless_of_filter", func():
-		assert_eq(MapStyle.countdown_label(6, 1), "6↑", "drifting toward the ceiling")
-		assert_eq(MapStyle.countdown_label(4, -1), "4↓", "drifting toward zero")
-		assert_eq(MapStyle.countdown_label(0, 0), null, "a vein sitting exactly at neutral has no wall to count down to")
-		assert_eq(MapStyle.countdown_label(-1, 1), null, "a negative days-remaining (already at the wall) has nothing left to count")
-	)
-
 	run_case("non_growth_filters_never_fade_stops_or_lines", func():
 		for mode in ["ownership", "type", "security"]:
 			assert_eq(MapStyle.line_alpha(mode), 1.0, mode)
@@ -127,56 +118,19 @@ func run() -> void:
 		assert_eq(MapStyle.line_colour("ownership", MapStyle.MUTED_COLOUR), MapStyle.MUTED_COLOUR, "ownership's plain pass-through colour is unaffected by faction mode ever having been active")
 	)
 
-	# ── growth gauge maths (vein-growth-state ticket 07) ─────────────────
-	run_case("growth_arc_angles_is_null_for_dormant_and_collapsed", func():
-		assert_eq(MapStyle.growth_arc_angles(50, 50, 100, "dormant"), null, "growth exactly at neutral -- track only")
-		assert_eq(MapStyle.growth_arc_angles(0, 50, 100, "collapsed"), null, "a spent vein -- track only, and broken (MapCanvas's own job)")
+	# ── growth fill maths (bugfixes ticket 77) ───────────────────────────
+	run_case("growth_fill_fraction_is_zero_at_growth_zero_and_one_at_the_ceiling", func():
+		assert_eq(MapStyle.growth_fill_fraction(0, 100), 0.0, "empty vein -- no fill")
+		assert_eq(MapStyle.growth_fill_fraction(100, 100), 1.0, "at the ceiling -- full")
+		assert_eq(MapStyle.growth_fill_fraction(50, 100), 0.5, "halfway to the ceiling -- half full")
 	)
 
-	run_case("growth_arc_angles_sweeps_clockwise_from_12_oclock_above_neutral", func():
-		var twelve := -PI / 2.0
-		var at_wall: Dictionary = MapStyle.growth_arc_angles(100, 50, 100, "rampant")
-		assert_almost_eq(at_wall["start"], twelve, 0.0001, "always starts at 12 o'clock")
-		assert_almost_eq(at_wall["end"], twelve + PI, 0.0001, "at the ceiling the arc reaches a full half-circle, 6 o'clock")
-
-		var halfway: Dictionary = MapStyle.growth_arc_angles(75, 50, 100, "lush")
-		assert_almost_eq(halfway["end"], twelve + PI * 0.5, 0.0001, "halfway to the ceiling (75 of 50..100) is a quarter-circle sweep")
+	run_case("growth_fill_fraction_uses_the_veins_own_ceiling", func():
+		assert_eq(MapStyle.growth_fill_fraction(120, 120), 1.0, "a wildCeiling vein's own 120 ceiling, not the default 100, is what fills it")
+		assert_eq(MapStyle.growth_fill_fraction(60, 120), 0.5, "halfway to a 120 ceiling")
 	)
 
-	run_case("growth_arc_angles_sweeps_anticlockwise_from_12_oclock_below_neutral", func():
-		var twelve := -PI / 2.0
-		var at_wall: Dictionary = MapStyle.growth_arc_angles(0, 50, 100, "barren")
-		assert_almost_eq(at_wall["start"], twelve - PI, 0.0001, "pinned at 0, the arc reaches the full half-circle on the other side")
-		assert_almost_eq(at_wall["end"], twelve, 0.0001, "always ends at 12 o'clock on the left side")
-
-		var halfway: Dictionary = MapStyle.growth_arc_angles(25, 50, 100, "sparse")
-		assert_almost_eq(halfway["start"], twelve - PI * 0.5, 0.0001, "halfway to 0 (25 of 50..0) is a quarter-circle sweep")
-	)
-
-	run_case("growth_arc_angles_clamps_a_wildCeiling_vein_at_its_own_120_ceiling", func():
-		var twelve := -PI / 2.0
-		var over: Dictionary = MapStyle.growth_arc_angles(120, 50, 120, "rampant")
-		assert_almost_eq(over["end"], twelve + PI, 0.0001, "a wildCeiling vein's own ceiling (120), not the default 100, is what caps the sweep")
-	)
-
-	run_case("arc_texture_matches_band_to_serrated_gapped_or_plain", func():
-		assert_eq(MapStyle.arc_texture("wild"), "serrated")
-		assert_eq(MapStyle.arc_texture("rampant"), "serrated")
-		assert_eq(MapStyle.arc_texture("barren"), "gapped")
-		assert_eq(MapStyle.arc_texture("sparse"), "gapped")
-		for band_id in ["thinning", "taking", "lush"]:
-			assert_eq(MapStyle.arc_texture(band_id), "plain", band_id)
-	)
-
-	run_case("arc_width_and_alpha_scale_match_the_texture_rules", func():
-		assert_eq(MapStyle.arc_width_scale("wild"), 2.0, "wild/rampant thicken")
-		assert_eq(MapStyle.arc_width_scale("rampant"), 2.0)
-		assert_eq(MapStyle.arc_width_scale("barren"), 0.5, "barren/sparse thin")
-		assert_eq(MapStyle.arc_width_scale("sparse"), 0.5)
-		assert_eq(MapStyle.arc_width_scale("lush"), 1.0, "no scaling outside the risk textures")
-
-		assert_eq(MapStyle.arc_alpha_scale("barren"), 0.6, "barren/sparse fade")
-		assert_eq(MapStyle.arc_alpha_scale("sparse"), 0.6)
-		assert_eq(MapStyle.arc_alpha_scale("wild"), 1.0, "wild/rampant don't fade, only thicken/serrate")
-		assert_eq(MapStyle.arc_alpha_scale("lush"), 1.0)
+	run_case("growth_fill_fraction_clamps_rather_than_overflowing_or_going_negative", func():
+		assert_eq(MapStyle.growth_fill_fraction(150, 100), 1.0, "growth above ceiling still reads as full, not overfull")
+		assert_eq(MapStyle.growth_fill_fraction(-10, 100), 0.0, "growth can't actually go negative, but the fraction still clamps defensively")
 	)
