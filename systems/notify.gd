@@ -24,12 +24,19 @@ const CATEGORY_DANGER := "danger"
 const VALID_CATEGORIES: Array[String] = [CATEGORY_INFO, CATEGORY_SUCCESS, CATEGORY_WARNING, CATEGORY_DANGER]
 
 
-static func push(text: String, category: String = CATEGORY_INFO) -> Dictionary:
+# `meta` (75-vein-raid-defend-button): optional extra pure-data fields
+# merged onto the entry -- e.g. `{"veinId": ...}` on the alarm-raid warning,
+# so the Notifications app (phone.gd's _build_notification_row()) can render
+# a Defend button on that specific entry without a separate lookup table.
+# Every existing caller omits it and is unaffected.
+static func push(text: String, category: String = CATEGORY_INFO, meta: Dictionary = {}) -> Dictionary:
 	if not VALID_CATEGORIES.has(category):
 		category = CATEGORY_INFO
 	var id := str(Time.get_ticks_usec()) + str(Rng.randi_range(1000, 999999))
 	var day: int = GameState.state["world"]["day"]
 	var notification := { "id": id, "text": text, "seen": false, "day": day, "category": category }
+	for key in meta:
+		notification[key] = meta[key]
 	var notifications: Array = GameState.state["notifications"]
 	notifications.append(notification)
 	while notifications.size() > LOG_CAP:

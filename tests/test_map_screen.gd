@@ -272,6 +272,70 @@ func run() -> void:
 		screen.free()
 	)
 
+	# ── 75-vein-raid-defend-button: the vein's own Defend action ─────────
+
+	run_case("defend_button_shown_on_a_vein_with_a_pending_defend_raid", func():
+		GameState.reset()
+		var vein := _player_vein()
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": vein["id"], "siteId": vein["siteId"], "success": true }]
+
+		var screen := MapScreen.new()
+		var card: Control = screen._build_vein_action_card(vein)
+
+		var defend_buttons := _buttons_labelled(card, "Defend")
+		assert_eq(defend_buttons.size(), 1, "a pending defend raid must show exactly one Defend button")
+		assert_true(not (defend_buttons[0] as Button).disabled, "Defend must be enabled -- no travel/time-block gating")
+
+		card.free()
+		screen.free()
+	)
+
+	run_case("defend_button_absent_when_no_pending_defend_raid", func():
+		GameState.reset()
+		var vein := _player_vein()
+
+		var screen := MapScreen.new()
+		var card: Control = screen._build_vein_action_card(vein)
+
+		assert_eq(_buttons_labelled(card, "Defend").size(), 0, "no pending raid means no Defend button")
+
+		card.free()
+		screen.free()
+	)
+
+	run_case("defend_button_ignores_a_pending_raid_queued_for_a_different_vein", func():
+		GameState.reset()
+		var vein := _player_vein()
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "some_other_vein", "siteId": "s_other", "success": true }]
+
+		var screen := MapScreen.new()
+		var card: Control = screen._build_vein_action_card(vein)
+
+		assert_eq(_buttons_labelled(card, "Defend").size(), 0, "a different vein's pending raid must not show a Defend button here")
+
+		card.free()
+		screen.free()
+	)
+
+	run_case("defend_button_tap_triggers_the_defend_combat_immediately", func():
+		GameState.reset()
+		var vein := _player_vein()
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [{ "id": vein["siteId"], "district": vein["district"], "tier": "fair", "oreType": vein["oreType"], "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false }]
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": vein["id"], "siteId": vein["siteId"], "success": true }]
+
+		var screen := MapScreen.new()
+		var card: Control = screen._build_vein_action_card(vein)
+		var defend_button: Button = _buttons_labelled(card, "Defend")[0]
+		defend_button.pressed.emit()
+
+		assert_true(GameState.state["combat"]["active"], "tapping Defend should start combat immediately")
+		assert_eq(GameState.state["combat"]["context"], "defend_vein")
+
+		card.free()
+		screen.free()
+	)
+
 	# ── vein-raiding ticket 03: the Raid action ──────────────────────────
 
 	run_case("raid_button_present_and_enabled_on_a_faction_vein_site_with_blocks_remaining", func():

@@ -673,11 +673,22 @@ func _on_confirm_new_game_pressed() -> void:
 
 # ── Notifications (11-phone-os-shell ticket 10) ──────────────────────
 # Browses the full persistent log ticket 04's Notify.push()/dismiss() built
-# (GameState.state["notifications"], capped at Notify.LOG_CAP). Read-only --
-# no dismiss/action control here; `seen` only ever gets flipped by tapping a
-# live toast (notification_toast.gd), never from this app. Rendered newest
-# first, which for an append-only, cap-evicting-from-the-front array just
-# means walking it back to front.
+# (GameState.state["notifications"], capped at Notify.LOG_CAP). Mostly
+# read-only -- no dismiss control here; `seen` only ever gets flipped by
+# tapping a live toast (notification_toast.gd), never from this app. Rendered
+# newest first, which for an append-only, cap-evicting-from-the-front array
+# just means walking it back to front.
+#
+# 75-vein-raid-defend-button: the one exception is a pending alarm-raid
+# warning (Raiding._queue_defend_raid()'s push carries a `veinId`) -- its row
+# gets its own Defend button, the notification-side twin of the vein's own
+# Defend button on the site sheet (map.gd's _build_vein_action_card()), so
+# the player can jump straight into the fight from here too, no travel
+# required. Raiding.is_defend_notification_pending() gates it off again once
+# the raid resolves or expires -- scoped to this exact notification, not just
+# the vein, so an old already-resolved warning for the same vein (the log is
+# capped, not cleared) doesn't reactivate its button once that vein is raided
+# again later.
 
 func _build_notifications() -> void:
 	_content.add_child(_phone_back_button())
@@ -695,6 +706,11 @@ func _build_notification_row(notification: Dictionary) -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.label(notification["text"]))
 	c["content"].add_child(UI.muted_label("Day %d" % notification["day"]))
+
+	var vein_id: Variant = notification.get("veinId")
+	if vein_id != null and Raiding.is_defend_notification_pending(notification["id"]):
+		c["content"].add_child(UI.button("Defend", func(): Raiding.trigger_defend(vein_id)))
+
 	return c["panel"]
 
 

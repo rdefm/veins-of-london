@@ -574,7 +574,18 @@ static func _queue_defend_raid(outcome: Dictionary, vein: Dictionary) -> void:
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
 	# PROSE-REVIEW: new notification copy, drafted against CONTENT-GUIDE.md's
 	# tone bible (dry, administrative, one line).
-	Notify.push("Alarm's gone off — %s are closing in on your vein in %s. Get there today to defend it." % [faction_name, district_name], Notify.CATEGORY_WARNING)
+	# 75-vein-raid-defend-button: veinId meta lets phone.gd's Notifications
+	# app render a Defend button on this exact entry. The notification's own
+	# id is stashed back onto the queued outcome (a Dictionary, so this
+	# mutates the same entry already sitting in pendingDefendRaids) so
+	# is_defend_notification_pending() below can scope the button to THIS
+	# raid occurrence specifically -- matching on veinId alone would
+	# resurrect the button on an old, already-resolved warning for the same
+	# vein once it's raided again later, since the notification log
+	# (Notify.LOG_CAP = 50) keeps old entries around rather than clearing
+	# them.
+	var notification := Notify.push("Alarm's gone off — %s are closing in on your vein in %s. Get there today to defend it." % [faction_name, district_name], Notify.CATEGORY_WARNING, { "veinId": vein["id"] })
+	outcome["notificationId"] = notification["id"]
 
 
 # Passes missed_defend=true -- see resolve_raid_outcome() above (ticket 43).
@@ -603,6 +614,73 @@ static func maybe_trigger_defend(district_id: String) -> bool:
 			Combat.start_defend_vein(outcome["veinId"], Cultivating.value_tier(vein))
 			return true
 	return false
+
+
+# 75-vein-raid-defend-button: index into pendingDefendRaids of the entry
+# queued for vein_id, or -1. Shared by has_pending_defend() and
+# trigger_defend() below so the "which entry matches this vein" scan exists
+# in exactly one place.
+static func _pending_defend_index(vein_id: String) -> int:
+	var pending: Array = GameState.state["world"]["pendingDefendRaids"]
+	for i in range(pending.size()):
+		if pending[i]["veinId"] == vein_id:
+			return i
+	return -1
+
+
+# 75-vein-raid-defend-button: does vein_id have a raid queued in
+# state.world.pendingDefendRaids right now? Used by the vein's own Defend
+# button (map.gd's _build_vein_action_card()) to decide whether to show the
+# button at all -- once the raid resolves (won, lost, or expired via
+# _expire_pending_defend_raids()), this goes false and the button stops
+# rendering on its own, no extra bookkeeping needed. The site sheet always
+# reflects the vein's live state, so matching on vein_id alone is correct
+# here (contrast is_defend_notification_pending() below, which needs to
+# scope to one specific historical notification instead).
+static func has_pending_defend(vein_id: String) -> bool:
+	return _pending_defend_index(vein_id) != -1
+
+
+# 75-vein-raid-defend-button: is the exact raid that notification_id's entry
+# warned about still pending? Used by the raid-warning notification's own
+# Defend button (phone.gd's _build_notification_row()) instead of
+# has_pending_defend() -- the Notifications log isn't cleared, only capped
+# (Notify.LOG_CAP), so an old, already-resolved warning for a vein can still
+# be sitting in the log when that same vein gets raided again later; matching
+# on veinId alone would incorrectly reactivate that old entry's button too.
+# _queue_defend_raid() stashes the notification's own id onto the queued
+# outcome for exactly this lookup.
+static func is_defend_notification_pending(notification_id: String) -> bool:
+	for outcome in GameState.state["world"]["pendingDefendRaids"]:
+		if outcome.get("notificationId") == notification_id:
+			return true
+	return false
+
+
+# 75-vein-raid-defend-button: the explicit-trigger sibling of
+# maybe_trigger_defend() above -- same pop-and-start shape, but keyed on
+# vein_id instead of district_id since there's no arrival to key off. The
+# player presses Defend from wherever they currently are (the vein's site
+# sheet, or the raid-warning notification in the Phone's Notifications app)
+# and the fight starts immediately, no travel time or cost; the
+# arrival-triggered path above is untouched and still works as an
+# alternative way into the same fight. Re-checks the queue itself (rather
+# than trusting the has_pending_defend()/is_defend_notification_pending() the
+# button used to decide whether to render) in case the window closed between
+# render and tap -- e.g. the player left the sheet open across a daily_tick.
+static func trigger_defend(vein_id: String) -> bool:
+	var i := _pending_defend_index(vein_id)
+	if i == -1:
+		return false
+	var vein: Variant = Cultivating.find_vein(vein_id)
+	if vein == null:
+		return false
+	var pending: Array = GameState.state["world"]["pendingDefendRaids"]
+	var outcome: Dictionary = pending[i]
+	pending.remove_at(i)
+	GameState.state["world"]["activeDefendRaid"] = outcome
+	Combat.start_defend_vein(vein_id, Cultivating.value_tier(vein))
+	return true
 
 
 # Called by Combat.exit_combat()'s "defend_vein" branch. A win leaves the

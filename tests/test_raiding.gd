@@ -1170,3 +1170,114 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["context"], "defend_vein")
 		assert_eq(GameState.state["player"]["veins"].size(), 1, "the vein must not be auto-resolved out from under an in-time arrival")
 	)
+
+	# ── 75-vein-raid-defend-button: explicit trigger_defend()/has_pending_defend() ──
+
+	run_case("has_pending_defend_true_for_a_vein_with_a_queued_raid", func():
+		GameState.reset()
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+		assert_true(Raiding.has_pending_defend("pv_test"))
+	)
+
+	run_case("has_pending_defend_false_with_no_matching_or_no_pending_raids", func():
+		GameState.reset()
+		assert_true(not Raiding.has_pending_defend("pv_test"), "nothing queued at all")
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "some_other_vein", "siteId": "s_player", "success": true }]
+		assert_true(not Raiding.has_pending_defend("pv_test"), "a different vein's queued raid should not match")
+	)
+
+	run_case("trigger_defend_starts_combat_immediately_regardless_of_current_district", func():
+		GameState.reset()
+		var vein := _player_vein_of(30, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["world"]["currentDistrict"] = "shoreditch"  # player is nowhere near camden
+		var outcome := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		GameState.state["world"]["pendingDefendRaids"] = [outcome]
+
+		var triggered: bool = Raiding.trigger_defend("pv_test")
+
+		assert_true(triggered, "the explicit trigger should fire with no travel required")
+		assert_true(GameState.state["combat"]["active"], "defend combat should start")
+		assert_eq(GameState.state["combat"]["context"], "defend_vein")
+		assert_eq(GameState.state["combat"]["veinId"], "pv_test")
+		assert_eq(GameState.state["world"]["pendingDefendRaids"], [], "the triggered entry should be popped")
+		assert_eq(GameState.state["world"]["activeDefendRaid"], outcome, "the popped outcome should be stashed for exit_combat to resolve later")
+		assert_eq(GameState.state["world"]["currentDistrict"], "shoreditch", "no travel should have occurred")
+	)
+
+	run_case("trigger_defend_is_a_no_op_for_a_vein_with_no_pending_raid", func():
+		GameState.reset()
+		var triggered: bool = Raiding.trigger_defend("pv_test")
+		assert_true(not triggered)
+		assert_true(not GameState.state["combat"]["active"])
+	)
+
+	run_case("trigger_defend_leaves_other_pending_raids_queued", func():
+		GameState.reset()
+		var vein := _player_vein_of(30, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		var mine := { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		var other := { "attackerId": "collective", "veinId": "some_other_vein", "siteId": "s_other", "success": true }
+		GameState.state["world"]["pendingDefendRaids"] = [other, mine]
+
+		var triggered: bool = Raiding.trigger_defend("pv_test")
+
+		assert_true(triggered)
+		assert_eq(GameState.state["world"]["pendingDefendRaids"], [other], "only the matching entry should be popped")
+	)
+
+	run_case("queue_defend_raid_notification_carries_the_veinId_for_the_notifications_app_defend_button", func():
+		GameState.reset()
+		var vein := _player_vein_of(10, "time", "none", "camden")
+		vein["alarmUpgrades"] = [Cultivating.ALARM_UPGRADE_ID]
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		Raiding._queue_defend_raid({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }, vein)
+
+		var notification: Dictionary = GameState.state["notifications"][0]
+		assert_eq(notification.get("veinId"), "pv_test", "the alarm-raid warning notification must carry the veinId so its Defend button knows which raid to trigger")
+		assert_true(Raiding.is_defend_notification_pending(notification["id"]), "the queued outcome must be stamped with this notification's id")
+	)
+
+	run_case("is_defend_notification_pending_false_once_the_raid_resolves", func():
+		GameState.reset()
+		var vein := _player_vein_of(10, "time", "none", "camden")
+		vein["alarmUpgrades"] = [Cultivating.ALARM_UPGRADE_ID]
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		Raiding._queue_defend_raid({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }, vein)
+		var notification_id: String = GameState.state["notifications"][0]["id"]
+		assert_true(Raiding.is_defend_notification_pending(notification_id), "sanity: pending right after queuing")
+
+		Raiding.trigger_defend("pv_test")
+
+		assert_true(not Raiding.is_defend_notification_pending(notification_id), "once the raid is popped/resolved, its notification's Defend button must stop showing")
+	)
+
+	# Regression pin for a bug the spec review caught: matching a
+	# notification's Defend button on veinId alone (rather than the specific
+	# raid it warned about) would reactivate an old, already-resolved warning
+	# for the same vein once that vein gets raided again later, since the
+	# notification log is capped (Notify.LOG_CAP) rather than cleared.
+	run_case("is_defend_notification_pending_does_not_reactivate_an_old_resolved_warning_when_the_same_vein_is_raided_again", func():
+		GameState.reset()
+		# Direct state setup (not two real _queue_defend_raid() calls) --
+		# Notify.push()'s id is ticks_usec+rand with no counter, so two
+		# pushes executed back to back in a test (no real wall-clock time
+		# passing between them) can land on the same id purely by
+		# coincidence, which isn't the thing this test is pinning. What
+		# matters is is_defend_notification_pending()'s own scoping logic,
+		# tested here with two explicit, guaranteed-distinct ids.
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "notificationId": "n_old" }]
+		assert_true(Raiding.is_defend_notification_pending("n_old"), "sanity: pending right after queuing")
+
+		# The old raid resolves/pops, and a fresh one lands on the same vein.
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true, "notificationId": "n_new" }]
+
+		assert_true(Raiding.is_defend_notification_pending("n_new"), "the fresh warning's own Defend button should show")
+		assert_true(not Raiding.is_defend_notification_pending("n_old"), "the old, already-resolved warning must not reactivate its Defend button just because the vein has a new pending raid")
+	)

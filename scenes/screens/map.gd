@@ -700,6 +700,20 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	c["content"].add_child(UI.muted_label(vein["location"]))
 	c["content"].add_child(UI.label("🔒 %s" % Cultivating.security_label(vein)))
 
+	# 75-vein-raid-defend-button: previously the defend fight only ever
+	# auto-triggered on arrival in this district (Raiding.maybe_trigger_
+	# defend(), via Travel.travel_to()/Sites.prospect()) -- an alarmed vein
+	# raided while the player was elsewhere had no way to act on the
+	# warning notification except an automatic loss at the next daily_tick.
+	# This button calls Raiding.trigger_defend() directly, no travel
+	# required; "just don't show it" when nothing's pending, same
+	# convention the Bring Archie toggle above uses.
+	if Raiding.has_pending_defend(vein_id):
+		# PROSE-REVIEW: new UI copy, drafted against CONTENT-GUIDE.md's tone
+		# bible.
+		c["content"].add_child(UI.tinted_label("Under raid — defend now or lose it at the next tick.", MapStyle.DANGER_COLOUR))
+		c["content"].add_child(UI.button("Defend", func(): Raiding.trigger_defend(vein_id)))
+
 	c["content"].add_child(UI.muted_label("Growth: %d/%d" % [vein["growth"], vein_ceiling]))
 	c["content"].add_child(UI.bar(vein["growth"], vein_ceiling))
 

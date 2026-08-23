@@ -14,6 +14,20 @@ static func _label_texts(root: Node) -> Array[String]:
 	return texts
 
 
+# 75-vein-raid-defend-button fixture: a player-owned, alarmed, site-tied
+# vein -- the shape Raiding._queue_defend_raid()/trigger_defend() need.
+static func _player_vein_with_pending_raid() -> Dictionary:
+	var vein := {
+		"id": "pv_test", "oreType": "time", "growth": 30, "security": "none",
+		"alarmUpgrades": [Cultivating.ALARM_UPGRADE_ID], "location": "Test Alley",
+		"claimedOnDay": 1, "district": "shoreditch", "siteId": "s_player",
+		"rampantDays": 0, "hospitability": { "tier": "fair", "bonuses": [] },
+	}
+	GameState.state["player"]["veins"] = [vein]
+	GameState.state["world"]["sites"] = [{ "id": "s_player", "district": "shoreditch", "tier": "fair", "oreType": "time", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false }]
+	return vein
+
+
 func run() -> void:
 	run_case("notifications_shows_the_full_log_newest_first", func():
 		GameState.reset()
@@ -72,6 +86,10 @@ func run() -> void:
 		phone.free()
 	)
 
+	# 75-vein-raid-defend-button: an ordinary notification (no veinId meta,
+	# or a veinId with nothing pending) still exposes no action buttons -- the
+	# Defend button only ever appears on the specific alarm-raid warning
+	# entry, tested separately below.
 	run_case("notifications_entries_are_read_only_with_no_action_buttons", func():
 		GameState.reset()
 		Notify.push("Only one.")
@@ -115,6 +133,95 @@ func run() -> void:
 		notifications_tile._on_gui_input(event)
 
 		assert_eq(GameState.state["phoneNav"]["app"], "notifications", "tapping the Notifications tile opens the Notifications app via PhoneNav")
+
+		phone.free()
+	)
+
+	# ── 75-vein-raid-defend-button: the notification's own Defend button ──
+
+	run_case("notification_with_a_pending_defend_raid_shows_its_own_defend_button", func():
+		GameState.reset()
+		var vein := _player_vein_with_pending_raid()
+		Raiding._queue_defend_raid({ "attackerId": "firm", "veinId": vein["id"], "siteId": vein["siteId"], "success": true }, vein)
+		GameState.state["phoneNav"]["app"] = "notifications"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var defend_buttons: Array = []
+		for b in phone.find_children("", "Button", true, false):
+			if (b as Button).text == "Defend":
+				defend_buttons.append(b)
+		assert_eq(defend_buttons.size(), 1, "the alarm-raid warning notification must show exactly one Defend button")
+
+		phone.free()
+	)
+
+	run_case("notification_defend_button_absent_once_the_raid_is_no_longer_pending", func():
+		GameState.reset()
+		var vein := _player_vein_with_pending_raid()
+		Raiding._queue_defend_raid({ "attackerId": "firm", "veinId": vein["id"], "siteId": vein["siteId"], "success": true }, vein)
+		GameState.state["world"]["pendingDefendRaids"] = []  # resolved/expired since the notification was pushed
+		GameState.state["phoneNav"]["app"] = "notifications"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		for b in phone.find_children("", "Button", true, false):
+			assert_eq((b as Button).text, "‹ Back", "an old notification for a raid that's no longer pending must not show a Defend button")
+
+		phone.free()
+	)
+
+	run_case("notification_defend_button_tap_triggers_the_defend_combat_immediately", func():
+		GameState.reset()
+		var vein := _player_vein_with_pending_raid()
+		Raiding._queue_defend_raid({ "attackerId": "firm", "veinId": vein["id"], "siteId": vein["siteId"], "success": true }, vein)
+		GameState.state["phoneNav"]["app"] = "notifications"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var defend_button: Button = null
+		for b in phone.find_children("", "Button", true, false):
+			if (b as Button).text == "Defend":
+				defend_button = b
+		assert_true(defend_button != null)
+		defend_button.pressed.emit()
+
+		assert_true(GameState.state["combat"]["active"], "tapping the notification's Defend button should start combat immediately")
+		assert_eq(GameState.state["combat"]["context"], "defend_vein")
+		assert_eq(GameState.state["world"]["pendingDefendRaids"], [], "the triggered raid should be popped from the queue")
+
+		phone.free()
+	)
+
+	# Regression pin: matching a notification's Defend button on veinId alone
+	# would resurrect the button on an old, already-resolved warning once the
+	# same vein is raided again later (the log is capped, not cleared).
+	# Notifications/pendingDefendRaids set up directly (not via two real
+	# _queue_defend_raid() calls) with explicit, guaranteed-distinct ids --
+	# Notify.push()'s id is ticks_usec+rand with no counter, so two pushes
+	# with no real wall-clock time between them could otherwise coincide,
+	# which isn't the thing being pinned here.
+	run_case("old_resolved_notification_for_a_vein_does_not_show_defend_once_the_same_vein_is_raided_again", func():
+		GameState.reset()
+		var vein := _player_vein_with_pending_raid()
+		GameState.state["notifications"] = [
+			{ "id": "n_old", "text": "Old warning.", "seen": true, "day": 1, "category": "warning", "veinId": vein["id"] },
+			{ "id": "n_new", "text": "New warning.", "seen": false, "day": 2, "category": "warning", "veinId": vein["id"] },
+		]
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": vein["id"], "siteId": vein["siteId"], "success": true, "notificationId": "n_new" }]
+		GameState.state["phoneNav"]["app"] = "notifications"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var defend_buttons: Array = []
+		for b in phone.find_children("", "Button", true, false):
+			if (b as Button).text == "Defend":
+				defend_buttons.append(b)
+		assert_eq(defend_buttons.size(), 1, "only the fresh warning's Defend button should show -- the old, resolved one must not reactivate")
 
 		phone.free()
 	)
