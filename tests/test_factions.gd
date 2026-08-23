@@ -517,6 +517,23 @@ func run() -> void:
 		assert_true(chance_unsecured > chance_guarded, "an unsecured vein should be easier to take than a guarded one (got %f vs %f)" % [chance_unsecured, chance_guarded])
 	)
 
+	# 72-stackable-guards-vein-defense: faction-rivalry odds keep falling as
+	# extra guards stack past "guarded" -- no ceiling at the old fixed max.
+	run_case("rivalry_success_chance_keeps_decreasing_as_extra_guards_stack_past_guarded", func():
+		GameState.reset()
+		var vein := _faction_vein_of(2, "physics", 0, "firm", "guarded")
+		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
+
+		var chance_guarded: float = Factions.rivalry_success_chance(attempt)
+
+		vein["extraGuards"] = 10
+		var chance_stacked: float = Factions.rivalry_success_chance(attempt)
+
+		assert_true(chance_guarded > chance_stacked, "extra guards on top of guarded should keep lowering the rivalry chance (got %f vs %f)" % [chance_guarded, chance_stacked])
+		assert_almost_eq(chance_stacked, 0.0, 0.0001, "enough stacked guards clamps the chance at the floor, not negative")
+	)
+
 	run_case("rivalry_success_chance_increases_with_worse_defender_relation_toward_attacker", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = [

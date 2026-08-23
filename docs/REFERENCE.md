@@ -106,6 +106,13 @@ Descriptions (verbatim):
 | warded | Ward Rune | 35 | 60 |
 | guarded | Hired Guard | 55 | 120 |
 
+**Stackable guards past "guarded"** (72-stackable-guards-vein-defense): the 4-tier ladder above is no longer a hard cap. Once a vein reaches `guarded`, the vein sheet's security button becomes a repeatable **"+1 Guard"** purchase (same button, same handler — `Cultivating.upgrade_vein_security()`) that keeps installing on top of it, with no upper limit. Each vein tracks its count on `vein.extraGuards` (int, default 0; older vein dicts without the key read as 0 via `.get()`).
+
+- **Cost** (`Cultivating.extra_guard_cost(extra_guards_owned)`, draft — needs balance sign-off): continues the base ladder's own delta progression. The ladder's per-tier deltas step up by +20 each rung (0→20→40→60 into basic/warded/guarded); the nth extra guard (n = 1, 2, 3, ...) keeps that same arithmetic-delta progression (+80, +100, +120, ...), giving the closed form `cost(n) = 10*(n+3)*(n+4)` — 200, 300, 420, 560, ... for `extra_guards_owned` = 0, 1, 2, 3.
+- **Raid resistance** (`Cultivating.vein_raid_resist(vein)`, used everywhere a vein's `raidResist` is read instead of indexing `data/vein_security.json` directly): `base tier raidResist + extraGuards × 20`. The flat +20 per guard matches "guarded"'s own marginal contribution over "warded" (55−35). Unlike cost, this doesn't escalate — only cost does, per the ticket.
+- Every raid-odds formula that reads a vein's defensive strength — `Raiding.stealth_success_chance()`, `Raiding.raid_success_chance()`, `Factions.rivalry_success_chance()` — divides `vein_raid_resist()` by the same 55.0 anchor (the base ladder's own top rung) it always has, then clamps the resulting chance to [0, 1]. That anchor is now a scaling reference point, not a hard ceiling: extra guards keep pushing the divided term (and the tilt it feeds) further, and the clamp — not a capped `raidResist` value — is what keeps the final chance in range.
+- Faction-owned veins never buy extra guards (`Factions.apply_security_upgrades()`, the faction AI's own security spend, still stops at `guarded` — `Cultivating.next_security_tier_id("guarded")` is still `null`). Stacking is a player-only purchase via the vein sheet's UI button.
+
 ### 1.7 `data/home.json`
 
 **Tiers** (order matters — it is the upgrade ladder). `maxSecuritySlots` no longer exists — security is gated by each upgrade's `minTier` instead (below), not by a count cap:

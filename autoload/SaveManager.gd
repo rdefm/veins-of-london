@@ -234,7 +234,7 @@ func _restore_int_types(state: Dictionary) -> void:
 				for note in note_list:
 					_int_key(note, "day")
 		for vein in player.get("veins", []):
-			for key in ["growth", "rampantDays", "claimedOnDay", "slotIndex"]:
+			for key in ["growth", "rampantDays", "claimedOnDay", "slotIndex", "extraGuards"]:
 				_int_key(vein, key)
 		for device in player.get("devicesCompleted", []):
 			for key in ["level", "xp", "chargesPerDay", "chargesUsedToday", "lastResetDay"]:
@@ -253,7 +253,7 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(site, "slotIndex")
 			if site.get("factionVein") != null:
 				var faction_vein: Dictionary = site["factionVein"]
-				for key in ["growth", "rampantDays", "claimedOnDay"]:
+				for key in ["growth", "rampantDays", "claimedOnDay", "extraGuards"]:
 					_int_key(faction_vein, key)
 		for recent in world.get("recentEvents", []):
 			_int_key(recent, "day")

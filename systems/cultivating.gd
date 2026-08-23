@@ -207,6 +207,11 @@ static func make_vein(ore_type: String, growth: int, district: String, site_id: 
 		# ceiling. Drives self-seeding (ticket 02); 0 for any vein not at the
 		# ceiling.
 		"rampantDays": 0,
+		# 72-stackable-guards: extra Hired Guards bought on top of "guarded",
+		# the ladder's own top tier — see next_security_upgrade() below.
+		# Reads everywhere else use vein.get("extraGuards", 0) so older
+		# hand-built vein dicts (tests, debug_start.gd) don't need updating.
+		"extraGuards": 0,
 	}
 
 
@@ -491,7 +496,12 @@ static func make_vein_id() -> String:
 
 # ── vein security (M1-LONDON.md D4: site/vein sheet's "Upgrade security") ──
 
-# Null once at "guarded" — the top of the ladder.
+# Null once at "guarded" — the top of the fixed tier ladder. Past that,
+# 72-stackable-guards-vein-defense's uncapped "+1 Guard" purchase
+# (extra_guard_cost()/next_security_upgrade() below) takes over — this
+# function itself is unchanged, still just the 4-tier ladder walk, and
+# faction AI's own upgrade path (Factions.apply_security_upgrades()) still
+# stops here deliberately: only the player's UI button stacks guards.
 static func next_security_tier_id(current: String) -> Variant:
 	var idx: int = VEIN_SECURITY_ORDER.find(current)
 	if idx == -1 or idx >= VEIN_SECURITY_ORDER.size() - 1:
@@ -499,29 +509,90 @@ static func next_security_tier_id(current: String) -> Variant:
 	return VEIN_SECURITY_ORDER[idx + 1]
 
 
+# 72-stackable-guards-vein-defense: cost of the next guard bought on top of
+# "guarded", given how many extra guards a vein already has. Draft only
+# (ticket's explicit "needs balance sign-off" call) — continues the ladder's
+# own cost curve rather than inventing a new shape: data/vein_security.json's
+# deltas (none->basic +20, basic->warded +40, warded->guarded +60) already
+# step up by +20 a tier, so the nth extra guard (n=1,2,3...) keeps that same
+# arithmetic progression of deltas (+80, +100, +120...), giving the closed
+# form cost(n) = 10*(n+3)*(n+4) -- 200, 300, 420, 560, ... for
+# extra_guards_owned = 0, 1, 2, 3.
+static func extra_guard_cost(extra_guards_owned: int) -> int:
+	var n: int = extra_guards_owned + 1
+	return 10 * (n + 3) * (n + 4)
+
+
+# 72-stackable-guards-vein-defense: flat raid-resist added per extra guard.
+# Matches "guarded"'s own marginal contribution over "warded" (55-35=20,
+# data/vein_security.json) -- each additional Hired Guard keeps contributing
+# at that same established rate rather than escalating (only cost escalates,
+# per the ticket).
+const EXTRA_GUARD_RAID_RESIST := 20
+
+
+# Every raid-odds formula (Raiding.stealth_success_chance/raid_success_
+# chance, Factions.rivalry_success_chance) reads a vein's defensive strength
+# through here rather than indexing GameData.VEIN_SECURITY directly, so none
+# of them need their own uncapped-value handling -- extraGuards defaults to
+# 0 via .get() for any vein that predates this ticket (old saves, hand-built
+# test fixtures), reading identically to before.
+static func vein_raid_resist(vein: Dictionary) -> int:
+	var base: int = GameData.VEIN_SECURITY[vein["security"]]["raidResist"]
+	return base + vein.get("extraGuards", 0) * EXTRA_GUARD_RAID_RESIST
+
+
+# Display label for a vein's security row/sheet -- the tier label, plus a
+# "+N" suffix once extra guards are stacked on top (e.g. "Hired Guard +2").
+static func security_label(vein: Dictionary) -> String:
+	var base: String = GameData.VEIN_SECURITY[vein["security"]]["label"]
+	var extra: int = vein.get("extraGuards", 0)
+	if extra > 0:
+		return "%s +%d" % [base, extra]
+	return base
+
+
+# What upgrade_vein_security() below would buy next, for the UI button and
+# the purchase itself to share -- never null now that "guarded" rolls into
+# the uncapped "+1 Guard" purchase instead of topping out. tierId is the
+# next ladder rung's id while one remains, else null (guard-stack purchase).
+static func next_security_upgrade(vein: Dictionary) -> Dictionary:
+	var next_id = next_security_tier_id(vein["security"])
+	if next_id != null:
+		var data: Dictionary = GameData.VEIN_SECURITY[next_id]
+		return { "tierId": next_id, "label": data["label"], "cost": data["cost"] }
+	return { "tierId": null, "label": "+1 Guard", "cost": extra_guard_cost(vein.get("extraGuards", 0)) }
+
+
 # Cash-only, no block: D3's travel rule enumerates exactly five districted
 # actions (prospect, seed, cultivate, harvest, sell) and security upgrades
 # aren't one of them — same reasoning as Home.add_security, which this
-# mirrors.
+# mirrors. 72-stackable-guards-vein-defense: no longer refuses at "guarded"
+# — next_security_upgrade() always has something to sell, so the only
+# refusal left is "can't afford it".
 static func upgrade_vein_security(vein_id: String) -> Dictionary:
 	var vein = find_vein(vein_id)
 	if vein == null:
 		return { "ok": false, "reason": "Vein not found." }
 
-	var next_id = next_security_tier_id(vein["security"])
-	if next_id == null:
-		return { "ok": false, "reason": "Already at maximum security." }
-
-	var next_data: Dictionary = GameData.VEIN_SECURITY[next_id]
-	var cost: int = next_data["cost"]
+	var upgrade: Dictionary = next_security_upgrade(vein)
+	var cost: int = upgrade["cost"]
 	var player: Dictionary = GameState.state["player"]
 	if player["cash"] < cost:
 		return { "ok": false, "reason": "Not enough cash." }
 
 	player["cash"] -= cost
-	Bank.record(-cost, "Vein security: %s" % next_data["label"])
-	vein["security"] = next_id
-	Notify.push("Installed %s on your %s vein." % [next_data["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]], Notify.CATEGORY_SUCCESS)
+	Bank.record(-cost, "Vein security: %s" % upgrade["label"])
+
+	if upgrade["tierId"] != null:
+		vein["security"] = upgrade["tierId"]
+		Notify.push("Installed %s on your %s vein." % [upgrade["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]], Notify.CATEGORY_SUCCESS)
+	else:
+		vein["extraGuards"] = vein.get("extraGuards", 0) + 1
+		# PROSE-REVIEW: new notification copy (ticket 72), drafted against
+		# CONTENT-GUIDE.md's tone bible.
+		Notify.push("Hired another guard for your %s vein — %d guards on watch now." % [GameData.ORE_TYPES[vein["oreType"]]["name"], vein["extraGuards"]], Notify.CATEGORY_SUCCESS)
+
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }

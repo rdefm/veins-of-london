@@ -408,10 +408,14 @@ const RIVALRY_BASE_CHANCE := 0.5
 const RIVALRY_RESOURCE_DIVISOR := 1000.0
 const RIVALRY_RESOURCE_WEIGHT := 0.25
 
-# raidResist's ceiling is "guarded" (55, data/vein_security.json) -- dividing
-# by that ceiling normalises the whole tier ladder to [0, 1] before the
-# weight scales it down, so "guarded" alone can't single-handedly swing
-# the whole probability range.
+# raidResist's normalisation anchor is "guarded" (55, data/vein_security.
+# json) -- dividing by that anchor keeps the base tier ladder within [0, 1]
+# before the weight scales it down, so "guarded" alone can't single-handedly
+# swing the whole probability range. Not a hard ceiling: 72-stackable-
+# guards-vein-defense lets Cultivating.vein_raid_resist() run past 55 via
+# extraGuards, and the divide-then-clamp shape already scales correctly past
+# that point -- more guards keeps pushing the tilt further negative, clamped
+# at the chance floor of 0.0 by this function's own clampf below.
 const RIVALRY_RAID_RESIST_DIVISOR := 55.0
 const RIVALRY_RAID_RESIST_WEIGHT := 0.25
 
@@ -449,7 +453,7 @@ static func rivalry_success_chance(attempt: Dictionary) -> float:
 	var site: Variant = Sites.find_site(attempt["veinSiteId"])
 	if site == null:
 		return 0.0
-	var raid_resist: int = GameData.VEIN_SECURITY[site["factionVein"]["security"]]["raidResist"]
+	var raid_resist: int = Cultivating.vein_raid_resist(site["factionVein"])
 	var security_tilt: float = -(float(raid_resist) / RIVALRY_RAID_RESIST_DIVISOR) * RIVALRY_RAID_RESIST_WEIGHT
 
 	var relation: int = get_relation(attempt["defenderId"], attempt["attackerId"])

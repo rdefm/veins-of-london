@@ -182,4 +182,5 @@ static func _debug_vein(ore_type: String, growth: int, site_id: String) -> Dicti
 		"siteId": site_id,
 		"hospitability": { "tier": "fair", "bonuses": [] },
 		"rampantDays": 0,
+		"extraGuards": 0,
 	}

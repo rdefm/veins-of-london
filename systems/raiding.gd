@@ -16,11 +16,16 @@ extends RefCounted
 # PRD), documented here the same way Factions.roll_rivalry_odds()'s
 # similarly-open weighting is: a coin-flip-ish baseline, pushed up by
 # stealthSkill and any consumable bonus the event card grants, pushed down by
-# the target vein's security tier (raidResist, normalised against its
-# ceiling -- "guarded" = 55, data/vein_security.json -- the same
-# normalisation Factions.rivalry_success_chance() uses for the same field)
-# and by the vein's value (basePrice * Cultivating.value_tier(vein), the
-# same value metric Factions._pick_target_vein()/apply_security_upgrades()
+# the target vein's security tier (raidResist, via Cultivating.
+# vein_raid_resist() -- normalised against the base ladder's own top rung
+# ("guarded" = 55, data/vein_security.json) as a scaling anchor, not a hard
+# ceiling: 72-stackable-guards-vein-defense's uncapped extra-guard stacking
+# means this can now run past 55, which the divide-then-clamp shape already
+# handles correctly -- more guards keeps pushing the tilt further negative,
+# clamped at the chance floor of 0.0 rather than assuming 55 is the max --
+# same normalisation Factions.rivalry_success_chance() uses for the same
+# field) and by the vein's value (basePrice * Cultivating.value_tier(vein),
+# the same value metric Factions._pick_target_vein()/apply_security_upgrades()
 # already use elsewhere) -- a richer, better-defended vein is harder to
 # walk into clean.
 const STEALTH_BASE_CHANCE := 0.55
@@ -39,7 +44,7 @@ const STEALTH_VALUE_WEIGHT := 0.15
 static func stealth_success_chance(stealth_skill: int, vein: Dictionary, consumable_bonus: float) -> float:
 	var skill_tilt: float = (stealth_skill - 1) * STEALTH_SKILL_WEIGHT
 
-	var raid_resist: int = GameData.VEIN_SECURITY[vein["security"]]["raidResist"]
+	var raid_resist: int = Cultivating.vein_raid_resist(vein)
 	var resist_tilt: float = -(float(raid_resist) / STEALTH_RAID_RESIST_DIVISOR) * STEALTH_RAID_RESIST_WEIGHT
 
 	var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.value_tier(vein)
@@ -226,8 +231,12 @@ const RAID_RELATION_WEIGHT := 0.20
 # elsewhere rather than normalising it against a ceiling.
 const RAID_DANGER_WEIGHT := 0.5
 
-# raidResist's ceiling is "guarded" (55, data/vein_security.json) -- same
-# normalise-against-the-ceiling shape Factions.rivalry_success_chance() and
+# raidResist's normalisation anchor is "guarded"'s own base (55, data/
+# vein_security.json), not a hard ceiling -- 72-stackable-guards-vein-defense
+# lets Cultivating.vein_raid_resist() run past that via extraGuards, and the
+# divide-then-clamp shape already scales correctly past 55 (see
+# stealth_success_chance()'s comment above for the same point) -- same
+# normalise-against-the-anchor shape Factions.rivalry_success_chance() and
 # stealth_success_chance() above both already use for this exact field.
 const RAID_RAID_RESIST_DIVISOR := 55.0
 const RAID_RAID_RESIST_WEIGHT := 0.20
@@ -356,7 +365,7 @@ static func raid_success_chance(attacker_id: String, vein: Dictionary) -> float:
 	var danger_mod: float = district.get("dangerMod", 0.0)
 	var danger_tilt: float = danger_mod * RAID_DANGER_WEIGHT
 
-	var raid_resist: int = GameData.VEIN_SECURITY[vein["security"]]["raidResist"]
+	var raid_resist: int = Cultivating.vein_raid_resist(vein)
 	var resist_tilt: float = -(float(raid_resist) / RAID_RAID_RESIST_DIVISOR) * RAID_RAID_RESIST_WEIGHT
 
 	var growth_tilt: float = RAID_GROWTH_WEIGHT * (float(vein["growth"]) / Cultivating.ceiling(vein))

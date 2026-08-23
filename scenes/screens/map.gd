@@ -608,7 +608,6 @@ func _on_sheet_dim_gui_input(event: InputEvent) -> void:
 func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_id: String) -> void:
 	var faction: Dictionary = GameData.FACTIONS[vein["factionId"]]
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
-	var security: Dictionary = GameData.VEIN_SECURITY[vein["security"]]
 	var district: String = vein["district"]
 
 	if _raid_bring_archie_site_id != site_id:
@@ -620,7 +619,7 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_
 	var c := UI.card()
 	c["content"].add_child(UI.tinted_label(faction["name"], Color(faction["colour"])))
 	c["content"].add_child(UI.muted_label("%s %s — %s" % [ore["symbol"], ore["name"], band["label"]]))
-	c["content"].add_child(UI.muted_label("🔒 %s" % security["label"]))
+	c["content"].add_child(UI.muted_label("🔒 %s" % Cultivating.security_label(vein)))
 
 	if Contacts.can_assist_raid("archie"):
 		# Bare Button (not UI.button()) -- same reason UI.gd's own
@@ -691,7 +690,6 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	var c := UI.card()
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 	var band: Dictionary = Cultivating.growth_band(vein)
-	var security: Dictionary = GameData.VEIN_SECURITY[vein["security"]]
 	var district: String = vein["district"]
 	var vein_id: String = vein["id"]
 	var vein_ceiling: int = Cultivating.ceiling(vein)
@@ -700,7 +698,7 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 
 	c["content"].add_child(UI.heading("%s %s — %s" % [ore["symbol"], ore["name"], band["label"]], 14))
 	c["content"].add_child(UI.muted_label(vein["location"]))
-	c["content"].add_child(UI.label("🔒 %s" % security["label"]))
+	c["content"].add_child(UI.label("🔒 %s" % Cultivating.security_label(vein)))
 
 	c["content"].add_child(UI.muted_label("Growth: %d/%d" % [vein["growth"], vein_ceiling]))
 	c["content"].add_child(UI.bar(vein["growth"], vein_ceiling))
@@ -785,18 +783,21 @@ func _build_vein_station_row(vein: Dictionary) -> Variant:
 	return box
 
 
+# 72-stackable-guards-vein-defense: same button, same handler, every time --
+# once the ladder tops out at "guarded" this keeps firing (Cultivating.
+# next_security_upgrade() never returns null), just buying an uncapped
+# "+1 Guard" instead of the next ladder rung, per the ticket's explicit
+# "same UI element, not a separate menu entry".
 func _build_security_row(vein: Dictionary) -> Control:
-	var next_id = Cultivating.next_security_tier_id(vein["security"])
-	if next_id == null:
-		return UI.muted_label("Security: maximum (%s)" % GameData.VEIN_SECURITY[vein["security"]]["label"])
-
-	var next_data: Dictionary = GameData.VEIN_SECURITY[next_id]
+	var upgrade: Dictionary = Cultivating.next_security_upgrade(vein)
 	var player: Dictionary = GameState.state["player"]
-	var cost := { "label": "Upgrade to %s" % next_data["label"], "resource": "cash", "amount": next_data["cost"] }
 	var vein_id: String = vein["id"]
 
+	var label: String = upgrade["label"] if upgrade["tierId"] == null else "Upgrade to %s" % upgrade["label"]
+	var cost := { "label": label, "resource": "cash", "amount": upgrade["cost"] }
+
 	var b := UI.button(UI.format_cost_label(cost, { "cash": player["cash"] }), func(): Cultivating.upgrade_vein_security(vein_id))
-	b.disabled = player["cash"] < next_data["cost"]
+	b.disabled = player["cash"] < upgrade["cost"]
 	return b
 
 

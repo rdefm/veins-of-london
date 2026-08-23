@@ -79,12 +79,11 @@ func _build_vein_row(vein: Dictionary) -> Control:
 	var district: Dictionary = GameData.DISTRICTS[vein["district"]]
 	var tier: String = vein.get("hospitability", {}).get("tier", "fair")
 	var band: Dictionary = Cultivating.growth_band(vein)
-	var security: Dictionary = GameData.VEIN_SECURITY[vein["security"]]
 	var vein_ceiling: int = Cultivating.ceiling(vein)
 	var collapsed: bool = band["id"] == "collapsed"
 
 	c["content"].add_child(UI.heading("%s — %s %s" % [district["name"], ore["symbol"], ore["name"]], 14))
-	c["content"].add_child(UI.muted_label("%s terroir · 🔒 %s" % [String(tier).capitalize(), security["label"]]))
+	c["content"].add_child(UI.muted_label("%s terroir · 🔒 %s" % [String(tier).capitalize(), Cultivating.security_label(vein)]))
 
 	c["content"].add_child(UI.muted_label("Growth: %d/%d — %s" % [vein["growth"], vein_ceiling, band["label"]]))
 	c["content"].add_child(UI.bar(vein["growth"], vein_ceiling))

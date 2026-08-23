@@ -61,6 +61,18 @@ func run() -> void:
 		assert_true(chance_unsecured > chance_guarded, "an unsecured vein should be easier to sneak past than a guarded one (got %f vs %f)" % [chance_unsecured, chance_guarded])
 	)
 
+	# 72-stackable-guards-vein-defense: stacking extra guards past "guarded"
+	# keeps reducing the odds -- no ceiling at the old fixed max.
+	run_case("stealth_success_chance_keeps_decreasing_as_extra_guards_stack_past_guarded", func():
+		var guarded := _faction_vein_of(30, "time", "guarded")
+		var stacked := _faction_vein_of(30, "time", "guarded")
+		stacked["extraGuards"] = 10
+		var chance_guarded := Raiding.stealth_success_chance(1, guarded, 0.0)
+		var chance_stacked := Raiding.stealth_success_chance(1, stacked, 0.0)
+		assert_true(chance_guarded > chance_stacked, "extra guards on top of guarded should keep lowering the odds (got %f vs %f)" % [chance_guarded, chance_stacked])
+		assert_almost_eq(chance_stacked, 0.0, 0.0001, "enough stacked guards clamps the chance at the floor, not negative")
+	)
+
 	run_case("stealth_success_chance_decreases_with_vein_value", func():
 		var cheap := _faction_vein_of(10, "time", "none")
 		var rich := _faction_vein_of(90, "fate", "none")
@@ -431,6 +443,28 @@ func run() -> void:
 		var chance_unsecured := Raiding.raid_success_chance("collective", unsecured)
 		var chance_guarded := Raiding.raid_success_chance("collective", guarded)
 		assert_true(chance_unsecured > chance_guarded, "a guarded vein should be harder to raid than an unsecured one (got %f vs %f)" % [chance_unsecured, chance_guarded])
+	)
+
+	# 72-stackable-guards-vein-defense: faction-raids-player odds keep falling
+	# as extra guards stack past "guarded" -- no ceiling at the old fixed max.
+	# relation pinned very negative first so "guarded" alone isn't already
+	# clamped at the chance floor (masking any further decrease).
+	run_case("raid_success_chance_keeps_decreasing_as_extra_guards_stack_past_guarded", func():
+		GameState.reset()
+		GameState.state["factions"]["collective"]["relation"] = -100
+		var guarded := _player_vein_of(30, "time", "guarded")
+		var one_extra := _player_vein_of(30, "time", "guarded")
+		one_extra["extraGuards"] = 1
+		var many_extra := _player_vein_of(30, "time", "guarded")
+		many_extra["extraGuards"] = 10
+
+		var chance_guarded := Raiding.raid_success_chance("collective", guarded)
+		var chance_one_extra := Raiding.raid_success_chance("collective", one_extra)
+		var chance_many_extra := Raiding.raid_success_chance("collective", many_extra)
+
+		assert_true(chance_guarded > chance_one_extra, "one extra guard should already lower the raid chance further (got %f vs %f)" % [chance_guarded, chance_one_extra])
+		assert_true(chance_one_extra > 0.0, "sanity: guarded-alone isn't already clamped at the floor, so this decrease is real")
+		assert_almost_eq(chance_many_extra, 0.0, 0.0001, "enough stacked guards clamps the chance at the floor, not negative")
 	)
 
 	run_case("raid_success_chance_increases_with_higher_dangerMod", func():

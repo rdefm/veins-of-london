@@ -775,15 +775,71 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["veins"][0]["security"], "none", "security unchanged when refused")
 	)
 
-	run_case("upgrade_vein_security_refuses_at_maximum_tier", func():
+	# ── 72-stackable-guards-vein-defense: repeatable "+1 Guard" past guarded ──
+
+	run_case("extra_guard_cost_escalates_continuing_the_ladders_own_delta_progression", func():
+		assert_eq(Cultivating.extra_guard_cost(0), 200, "first extra guard: 10*4*5")
+		assert_eq(Cultivating.extra_guard_cost(1), 300, "second extra guard: 10*5*6")
+		assert_eq(Cultivating.extra_guard_cost(2), 420, "third extra guard: 10*6*7 -- escalating, not flat")
+	)
+
+	run_case("vein_raid_resist_adds_a_flat_bonus_per_extra_guard_with_no_ceiling", func():
+		var vein := _vein(50)
+		vein["security"] = "guarded"
+		assert_eq(Cultivating.vein_raid_resist(vein), 55, "guarded alone, no extra guards: base raidResist only")
+		vein["extraGuards"] = 3
+		assert_eq(Cultivating.vein_raid_resist(vein), 55 + 3 * 20, "3 extra guards keep adding, unbounded")
+		vein["extraGuards"] = 50
+		assert_eq(Cultivating.vein_raid_resist(vein), 55 + 50 * 20, "still no ceiling at a very high guard count")
+	)
+
+	run_case("vein_raid_resist_defaults_extraGuards_to_zero_for_older_vein_dicts", func():
+		var vein := _vein(50)  # _vein() doesn't set extraGuards
+		assert_true(not vein.has("extraGuards"), "sanity: the fixture really omits the field")
+		assert_eq(Cultivating.vein_raid_resist(vein), 0, "missing extraGuards reads as 0, same as before this ticket")
+	)
+
+	run_case("upgrade_vein_security_past_guarded_buys_an_escalating_stack_of_guards_instead_of_refusing", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100000
 		var vein := _vein(50)
 		vein["security"] = "guarded"
 		GameState.state["player"]["veins"] = [vein]
+
+		var result1 := Cultivating.upgrade_vein_security("test_vein")
+		assert_true(result1["ok"], "guarded is no longer a hard ceiling -- the button keeps working")
+		var live_vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(live_vein["security"], "guarded", "tier itself stays put -- guards stack on top, not a new tier")
+		assert_eq(live_vein["extraGuards"], 1, "first extra guard purchased")
+		assert_eq(GameState.state["player"]["cash"], 100000 - 200, "charged the first extra guard's cost (200)")
+
+		var result2 := Cultivating.upgrade_vein_security("test_vein")
+		assert_true(result2["ok"], "buying a second extra guard also succeeds")
+		assert_eq(live_vein["extraGuards"], 2, "second extra guard purchased")
+		assert_eq(GameState.state["player"]["cash"], 100000 - 200 - 300, "the second guard costs more than the first (escalating curve)")
+
+		var bank_log: Array = GameState.state["bankLog"]
+		assert_eq(bank_log.size(), 2, "each guard purchase records its own bank transaction")
+	)
+
+	run_case("upgrade_vein_security_still_refuses_a_guard_stack_purchase_without_enough_cash", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 50  # below the first extra guard's cost (200)
+		var vein := _vein(50)
+		vein["security"] = "guarded"
+		GameState.state["player"]["veins"] = [vein]
 		var result := Cultivating.upgrade_vein_security("test_vein")
-		assert_true(not result["ok"], "already at guarded, nowhere higher to go")
-		assert_eq(GameState.state["player"]["cash"], 100000, "no cash spent when refused")
+		assert_true(not result["ok"], "can't afford the first extra guard")
+		assert_eq(GameState.state["player"]["veins"][0].get("extraGuards", 0), 0, "no guard granted when refused")
+		assert_eq(GameState.state["player"]["cash"], 50, "no cash spent when refused")
+	)
+
+	run_case("security_label_appends_extra_guard_count_only_once_stacking_has_started", func():
+		var vein := _vein(50)
+		vein["security"] = "guarded"
+		assert_eq(Cultivating.security_label(vein), "Hired Guard", "no +N suffix with zero extra guards")
+		vein["extraGuards"] = 4
+		assert_eq(Cultivating.security_label(vein), "Hired Guard +4", "suffix appears once guards are stacked")
 	)
 
 	run_case("upgrade_vein_security_is_not_districted_no_block_or_travel_spent", func():
