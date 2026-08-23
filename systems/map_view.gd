@@ -1,14 +1,16 @@
 class_name MapView
 extends RefCounted
 
-# 53-map-auto-focus-and-zoom-persistence: state.mapView persists the Network
-# map's camera (zoom + scroll) across navigations. MapCanvas is torn down and
-# recreated on every visit to the Map tab (see map_events.gd's own header
-# comment for why), so without this every visit would silently reset to
-# MapZoom.DEFAULT and a top-left scroll instead of picking up where the
-# player left off. The very first map open in a save is the one exception:
-# MapCanvas._apply_initial_view() centers/zooms to frame the player's veins
-# instead (via MapZoom.fit_view()) — this file only tracks whether that's
+# 67-map-camera-remembers-last-position (formerly 53-map-auto-focus-and-zoom-
+# persistence): state.mapView persists the Network map's camera (zoom +
+# scroll) across navigations. MapCanvas is torn down and recreated on every
+# visit to the Map tab (see map_events.gd's own header comment for why), so
+# without this every visit would silently reset to MapZoom.DEFAULT and a
+# top-left scroll instead of picking up where the player left off. The very
+# first map open in a save is the one exception: MapCanvas._apply_initial_view()
+# centers on the player's single starting vein at DEFAULT zoom instead (no
+# bounding-box auto-framing — ticket 53's version of that reportedly didn't
+# reliably land on the player's veins) — this file only tracks whether that's
 # already happened (has_opened_before()/mark_opened()) and stores whatever
 # camera state MapCanvas hands it on teardown (save_view(), called from
 # MapCanvas._exit_tree()).

@@ -503,33 +503,34 @@ func run() -> void:
 		canvas.free()
 	)
 
-	# ── initial view (53-map-auto-focus-and-zoom-persistence) ────────────
+	# ── initial view (67-map-camera-remembers-last-position, formerly
+	# 53-map-auto-focus-and-zoom-persistence) ─────────────────────────────
 	# _ready() called directly as a plain method, same established pattern as
 	# the pacing cases above -- _apply_initial_view() touches nothing beyond
-	# GameState/GameData, MapView, and MapZoom.fit_view(), none of which need
-	# a live SceneTree. get_parent() is null in this construction style (no
-	# real ScrollContainer parent), so _apply_initial_view()'s own viewport_
-	# size fallback (same "scroll.size if scroll else size" idiom pan_to()
-	# uses) reads this Control's own `size`, already set by the earlier
-	# _apply_zoom() call in _ready() to _map_size * MapZoom.DEFAULT -- a
-	# fixed, GameData-derived quantity, not a real device viewport, but
-	# deterministic enough to cross-check MapZoom.fit_view() against directly
-	# (same "recompute the expected value from the same pure seam" pattern
-	# the _vein_ring_style cases above use against MapStyle).
+	# GameState/GameData, MapView, and MapZoom.scroll_target(), none of which
+	# need a live SceneTree. get_parent() is null in this construction style
+	# (no real ScrollContainer parent), so _apply_initial_view()'s own
+	# viewport_size fallback (same "scroll.size if scroll else size" idiom
+	# pan_to() uses) reads this Control's own `size`, already set by the
+	# earlier _apply_zoom() call in _ready() to _map_size * MapZoom.DEFAULT --
+	# a fixed, GameData-derived quantity, not a real device viewport, but
+	# deterministic enough to cross-check MapZoom.scroll_target() against
+	# directly (same "recompute the expected value from the same pure seam"
+	# pattern the _vein_ring_style cases above use against MapStyle).
 
-	run_case("ready_falls_back_to_the_home_anchor_at_default_zoom_when_theres_nothing_to_fit_yet", func():
+	run_case("ready_falls_back_to_the_home_anchor_at_default_zoom_when_there_are_no_veins_yet", func():
 		GameState.reset()  # no veins at all -- a fresh save's genuine first map visit
 
 		var canvas := MapCanvas.new()
 		canvas._ready()
 
-		assert_almost_eq(canvas.zoom_level, MapZoom.DEFAULT, 0.0001, "nothing to fit -- fit_view's empty-positions branch always lands on DEFAULT")
+		assert_almost_eq(canvas.zoom_level, MapZoom.DEFAULT, 0.0001, "no starting vein yet -- falls back to home_anchor() at DEFAULT")
 		assert_true(MapView.has_opened_before(), "the first-ever open must mark itself done")
 
 		canvas.free()
 	)
 
-	run_case("ready_auto_focuses_on_the_players_veins_on_the_very_first_map_open", func():
+	run_case("ready_centres_on_the_players_starting_vein_at_default_zoom_on_the_very_first_map_open", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = [{
 			"id": "s1", "district": "hampstead", "tier": "fair", "oreType": "time",
@@ -545,16 +546,48 @@ func run() -> void:
 		var canvas := MapCanvas.new()
 		canvas._ready()
 
-		var map_size: Array = GameData.MAP_LAYOUT["mapSize"]
-		var map_size_v := Vector2(map_size[0], map_size[1])
-		var expected_viewport := map_size_v * MapZoom.DEFAULT
-		var positions: Array = []
-		for stop in canvas._vein_stops:
-			positions.append(stop["position"])
-		var expected := MapZoom.fit_view(positions, expected_viewport, map_size_v, MapLayout.home_anchor())
-
-		assert_almost_eq(canvas.zoom_level, expected["zoom"], 0.0001, "the very first open computes its zoom from MapZoom.fit_view() over the player's own vein stops")
+		assert_almost_eq(canvas.zoom_level, MapZoom.DEFAULT, 0.0001, "the very first open always lands at plain DEFAULT zoom")
 		assert_true(MapView.has_opened_before(), "the first-ever open must mark itself done")
+
+		canvas.free()
+	)
+
+	# Regression guard for the ticket-53 bug this ticket replaces: a wide
+	# spread of starting veins used to zoom the camera *out* below DEFAULT to
+	# fit all of them in a bounding box. That auto-framing is gone entirely --
+	# the very first open now always lands at plain DEFAULT zoom, centred on
+	# just the first vein, no matter how far apart any others are.
+	run_case("ready_does_not_zoom_out_to_fit_multiple_widely_spread_veins_on_first_open", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			{
+				"id": "s1", "district": "hampstead", "tier": "fair", "oreType": "time",
+				"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+				"hasNaturalVein": false,
+			},
+			{
+				"id": "s2", "district": "soho", "tier": "fair", "oreType": "life",
+				"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+				"hasNaturalVein": false,
+			},
+		]
+		GameState.state["player"]["veins"] = [
+			{
+				"id": "v1", "siteId": "s1", "oreType": "time", "growth": 20, "security": "none",
+				"alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
+				"district": "hampstead", "hospitability": { "tier": "fair", "bonuses": [] },
+			},
+			{
+				"id": "v2", "siteId": "s2", "oreType": "life", "growth": 20, "security": "none",
+				"alarmUpgrades": [], "location": "Test Court", "claimedOnDay": 1,
+				"district": "soho", "hospitability": { "tier": "fair", "bonuses": [] },
+			},
+		]
+
+		var canvas := MapCanvas.new()
+		canvas._ready()
+
+		assert_almost_eq(canvas.zoom_level, MapZoom.DEFAULT, 0.0001, "no bounding-box fit -- DEFAULT regardless of how spread out the veins are")
 
 		canvas.free()
 	)
