@@ -146,11 +146,19 @@ static func disarm_enemy(enemy: Dictionary, turns: int) -> void:
 		enemy["ability"]["lockedTurns"] = turns
 
 
+# 68-archie-fights-when-mugged-via-archie-sale: this is the mugging that
+# fires out of Economy.execute_sale()'s Archie lane (its only caller) --
+# his own deal going wrong -- so he always fights here, bypassing
+# Contacts.can_join_combat()'s recruited/kit/KO-cooldown gate entirely
+# rather than being subject to it like every other ally-join site.
 static func start_mugging() -> void:
 	var enemy := generate_mugger()
-	_start_combat(CONTEXT_MUGGING, null, enemy,
-		["%s step out of nowhere. They want what you're carrying." % enemy["name"]],
-		"muggingWon")
+	var log_lines := ["%s step out of nowhere. They want what you're carrying." % enemy["name"]]
+	# PROSE-REVIEW: new ally-join log line, drafted against
+	# CONTENT-GUIDE.md's tone bible.
+	log_lines.append("Archie's deal, Archie's problem -- he wades in.")
+	_start_combat(CONTEXT_MUGGING, null, enemy, log_lines, "muggingWon",
+		[Contacts.build_combat_ally("archie")])
 
 
 # District-event-triggered street mugging (M1-LONDON D5, e.g.

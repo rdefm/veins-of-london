@@ -933,6 +933,44 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["allies"], [], "not recruited -- no allies")
 	)
 
+	# ── 68-archie-fights-when-mugged-via-archie-sale ─────────────────────
+
+	run_case("start_mugging_always_adds_archie_even_when_not_recruited", func():
+		GameState.reset()
+		assert_true(not GameState.state["contacts"]["archie"]["recruited"], "sanity: not recruited by default")
+		Combat.start_mugging()
+		var allies: Array = GameState.state["combat"]["allies"]
+		assert_eq(allies.size(), 1, "archie should join regardless of the recruited gate")
+		assert_eq(allies[0]["contactId"], "archie")
+	)
+
+	run_case("start_mugging_always_adds_archie_even_on_ko_cooldown", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["contacts"]["archie"]["koCooldownUntilDay"] = GameState.state["world"]["day"] + 5
+		assert_true(not Contacts.can_join_combat("archie"), "sanity: gate would normally exclude him")
+		Combat.start_mugging()
+		var allies: Array = GameState.state["combat"]["allies"]
+		assert_eq(allies.size(), 1, "archie should join despite the KO-cooldown gate")
+		assert_eq(allies[0]["contactId"], "archie")
+	)
+
+	run_case("start_mugging_logs_archie_joining", func():
+		GameState.reset()
+		Combat.start_mugging()
+		var found := false
+		for line in GameState.state["combat"]["log"]:
+			if line.contains("Archie"):
+				found = true
+		assert_true(found, "should log archie joining the mugging")
+	)
+
+	run_case("start_street_mugging_does_not_add_archie", func():
+		GameState.reset()
+		Combat.start_street_mugging()
+		assert_eq(GameState.state["combat"]["allies"], [], "event_mugging is outside the Archie-sale flow -- unaffected")
+	)
+
 	# ── 45-archie-raid-assist ────────────────────────────────────────────
 
 	run_case("start_raid_with_archie_in_ally_ids_adds_him_as_an_ally", func():
