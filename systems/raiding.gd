@@ -276,6 +276,39 @@ static func _pick_worst_relation_faction() -> String:
 	return faction_ids[Factions.weighted_pick_index(weight_list)]
 
 
+# ── per-faction raid/conquer eligibility thresholds (ticket 71) ───────────
+# Data fields on data/factions.json (`raidThreshold`, `conquerThreshold`),
+# not hardcoded per-faction branches -- same "data drives behaviour" rule
+# every other faction-keyed lookup in this file already follows. Both are
+# relation thresholds a faction must be *strictly below* to act -- the
+# Collective's confirmed rule ("zero raid attempts while relation >= -30")
+# is `raidThreshold: -30`, so `relation < threshold` is the eligibility
+# test, not `<=`. `conquerThreshold` defaults to `raidThreshold` (draft
+# proposal, factions.json) when a faction's data omits it, meaning claim
+# stays gated by nothing beyond ticket 70's own terroir odds once a raid is
+# already happening at all.
+static func _faction_raid_threshold(faction_id: String) -> int:
+	return GameData.FACTIONS[faction_id]["raidThreshold"]
+
+
+static func _faction_conquer_threshold(faction_id: String) -> int:
+	var faction: Dictionary = GameData.FACTIONS[faction_id]
+	return faction.get("conquerThreshold", faction["raidThreshold"])
+
+
+static func _relation_below(faction_id: String, threshold: int) -> bool:
+	var relation: int = GameState.state["factions"][faction_id]["relation"]
+	return relation < threshold
+
+
+static func _faction_will_attempt_raids(faction_id: String) -> bool:
+	return _relation_below(faction_id, _faction_raid_threshold(faction_id))
+
+
+static func _faction_may_conquer(faction_id: String) -> bool:
+	return _relation_below(faction_id, _faction_conquer_threshold(faction_id))
+
+
 # One attempt record per eligible player vein -- every player vein is a
 # candidate every tick (no coarse initiation pre-filter, unlike Chunk 6's
 # rivalry attempts); raid_success_chance()/roll_raid_odds() below are what
@@ -296,8 +329,11 @@ static func roll_raid_attempts() -> Array:
 		var site_id: Variant = vein.get("siteId")
 		if site_id == null or Sites.find_site(site_id) == null:
 			continue
+		var attacker_id: String = _attacking_faction(vein)
+		if not _faction_will_attempt_raids(attacker_id):
+			continue
 		attempts.append({
-			"attackerId": _attacking_faction(vein),
+			"attackerId": attacker_id,
 			"veinId": vein["id"],
 			"siteId": site_id,
 		})
@@ -368,6 +404,12 @@ const RAID_LOOT_PRUNE_DEPTH := 9
 # was recorded, this reads as chance 0 rather than indexing into a null
 # vein, same defensive shape Factions.rivalry_success_chance() uses for its
 # own vanished-target case.
+#
+# ticket 71: the claim_chance() roll only runs at all when the attacker's
+# current relation clears its own conquerThreshold (_faction_may_conquer())
+# -- below that, a successful raid is capped at "loot" regardless of what
+# claim_chance()'s terroir odds would otherwise say, same as if the roll had
+# simply come up loot every time.
 static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 	var outcome: Dictionary = attempt.duplicate()
 	var vein: Variant = Cultivating.find_vein(attempt["veinId"])
@@ -376,7 +418,8 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 		return outcome
 	outcome["success"] = Rng.chance(raid_success_chance(attempt["attackerId"], vein))
 	if outcome["success"]:
-		outcome["outcomeType"] = "claim" if Rng.chance(claim_chance(vein)) else "loot"
+		var may_conquer: bool = _faction_may_conquer(attempt["attackerId"])
+		outcome["outcomeType"] = "claim" if (may_conquer and Rng.chance(claim_chance(vein))) else "loot"
 	return outcome
 
 

@@ -149,13 +149,15 @@ Descriptions: extract verbatim from HTML consts `HOME_SECURITY` / `HOME_ROOMS`.
 ### 1.8 `data/factions.json`
 Five factions; copy `name`, `shortName`, `tagline`, `industries`, `description`, `colour` verbatim from HTML const `FACTIONS`. Mechanical fields:
 
-| id | joinRelation |
-|---|---|
-| collective | 20 |
-| firm | 35 |
-| guild | 40 |
-| network | 30 |
-| conclave | 60 |
+| id | joinRelation | raidThreshold | conquerThreshold |
+|---|---|---|---|
+| collective | 20 | -30 | -30 |
+| firm | 35 | -40 | -40 |
+| guild | 40 | -45 | -45 |
+| network | 30 | -40 | -40 |
+| conclave | 60 | -60 | -60 |
+
+**Raid/conquer eligibility thresholds** (71-per-faction-raid-claim-thresholds — **draft, needs balance sign-off**): a faction only attempts a raid against a player vein (`Raiding.roll_raid_attempts()`, §3.12) when `state.factions[id].relation < raidThreshold`; at or above its own `raidThreshold`, zero raid attempts occur (loot or claim) for that faction. Confirmed for the Collective: `-30`. `conquerThreshold` is the same test (`relation < conquerThreshold`) gating the claim branch of ticket 70's claim/loot split (`Raiding.roll_raid_odds()`) — below it, a successful raid still rolls claim vs. loot by terroir tier as normal; at or above it (but still below `raidThreshold`, so a raid is happening at all), a successful raid is capped at loot regardless of terroir odds. Every faction's draft `conquerThreshold` equals its `raidThreshold`, so this adds no extra gate beyond ticket 70's own terroir odds under the current numbers — the field exists so the human can tighten it later per faction without a code change. Rationale for the draft spread: poorer, less established factions (lower `resourceLevel`/`startingResources`) raid more readily; wealthier/more established ones are more patient and need a more hostile relation before raiding at all.
 
 **Faction barometer preferences** (`FACTION_BAROMETER_PREFS`, daily nudges — see §3.2):
 
@@ -429,6 +431,8 @@ Trigger: `homeRaidEventPending` true → on next visit to HQ, launch. Flow: intr
 - Home-screen to-do list: port `getTodoItems()` logic verbatim (flag-driven checklist, show last 4).
 
 ### 3.12 Vein raiding: faction raid outcomes against a player vein (Direction B)
+Before any of this runs, `Raiding.roll_raid_attempts()` gates whether the attacking faction attempts a raid at all, and `Raiding.roll_raid_odds()` gates whether it's willing to claim vs. loot-only — both per-faction `raidThreshold`/`conquerThreshold` relation checks, see §1.8.
+
 `Raiding.resolve_raid_outcome()` (`systems/raiding.gd`), the resolution step for a faction raid that succeeds against a player-owned vein, rolls between two outcomes instead of an automatic takeover:
 - **Claim** — full takeover, unchanged from before: the vein transfers into the attacking faction's `site.factionVein` (carrying `oreType`/`growth`/`security` unchanged), leaves `player.veins`, and queues a map `seed_claim` event. Notification: `"<Faction> raided your vein in <District>. It's theirs now."` (or, if the alarm window was missed: `"Too late — <Faction> took your vein in <District> while the alarm was still ringing."`).
 - **Loot** — the common case: the vein stays player-owned, pruned by `RAID_LOOT_PRUNE_DEPTH` (9, matching `pruneLightDepth`, floored at 0 growth) and the player's own `orichalchum` stash of the vein's ore type docked `RAID_LOOT_ORE_QTY` (8, matching Direction A's own `LOOT_ORE_QTY`), clamped to whatever's actually on hand — it can never go negative. No relation hit, no map event (ownership never changes). Notification: `"<Faction> raided your vein in <District>, pruning it and getting away with <N> units of ore. It's still yours."` (missed-alarm variant reads distinctly too).

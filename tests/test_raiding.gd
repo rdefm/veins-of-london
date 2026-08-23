@@ -494,6 +494,8 @@ func run() -> void:
 		var vein := _player_vein_of(10, "time", "none", "shoreditch")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		# ticket 71: collective only attempts raids below its own raidThreshold.
+		GameState.state["factions"]["collective"]["relation"] = -50
 
 		var attempts := Raiding.roll_raid_attempts()
 		assert_eq(attempts.size(), 1, "one eligible vein produces one attempt")
@@ -539,6 +541,102 @@ func run() -> void:
 		Raiding.roll_raid_attempts()
 
 		assert_eq(GameState.state, before, "roll_raid_attempts must not mutate state")
+	)
+
+	# ── per-faction raid/conquer eligibility thresholds (ticket 71) ───────
+
+	run_case("roll_raid_attempts_produces_zero_attempts_for_a_faction_at_or_above_its_raid_threshold", func():
+		GameState.reset()
+		var vein := _player_vein_of(10, "time", "none", "shoreditch")  # shoreditch's presence is collective
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		for relation in [-30, 0, 60]:
+			GameState.state["factions"]["collective"]["relation"] = relation
+			var attempts := Raiding.roll_raid_attempts()
+			assert_eq(attempts.size(), 0, "collective relation %d (>= raidThreshold -30) should produce zero raid attempts" % relation)
+	)
+
+	run_case("roll_raid_attempts_produces_an_attempt_for_a_faction_below_its_raid_threshold", func():
+		GameState.reset()
+		var vein := _player_vein_of(10, "time", "none", "shoreditch")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["factions"]["collective"]["relation"] = -31
+
+		var attempts := Raiding.roll_raid_attempts()
+		assert_eq(attempts.size(), 1, "collective relation -31 (below raidThreshold -30) should be raid-eligible")
+		assert_eq(attempts[0]["attackerId"], "collective")
+	)
+
+	run_case("each_factions_own_raid_threshold_gates_its_attempts_independently", func():
+		var district_by_faction := {
+			"collective": "shoreditch",
+			"firm": "camden",
+			"guild": "greenwich",
+			"network": "kingscross",
+			"conclave": "city",
+		}
+		for faction_id in district_by_faction.keys():
+			GameState.reset()
+			for other_id in GameData.FACTIONS.keys():
+				GameState.state["factions"][other_id]["relation"] = 60
+			var threshold: int = GameData.FACTIONS[faction_id]["raidThreshold"]
+			var district: String = district_by_faction[faction_id]
+			var vein := _player_vein_of(10, "time", "none", district)
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+			GameState.state["factions"][faction_id]["relation"] = threshold
+			assert_eq(Raiding.roll_raid_attempts().size(), 0, "%s at its own raidThreshold (%d) should produce zero attempts" % [faction_id, threshold])
+
+			GameState.state["factions"][faction_id]["relation"] = threshold - 1
+			assert_eq(Raiding.roll_raid_attempts().size(), 1, "%s just below its own raidThreshold (%d) should be raid-eligible" % [faction_id, threshold])
+	)
+
+	run_case("roll_raid_odds_forces_loot_when_the_attacker_has_not_cleared_its_conquer_threshold", func():
+		GameState.reset()
+		var vein := _player_vein_of(10, "time", "none", "shoreditch")
+		vein["hospitability"]["tier"] = "saturated"  # 75% claim chance if conquest were allowed at all
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		# Collective's conquerThreshold defaults to its raidThreshold (-30,
+		# data/factions.json draft) -- pinning relation exactly at that
+		# boundary (not below it) means raid_success_chance is still non-zero
+		# (relation feeds it continuously, no hard gate there) but the claim
+		# roll must never fire.
+		GameState.state["factions"]["collective"]["relation"] = -30
+
+		var claims := 0
+		var successes := 0
+		for seed in range(500):
+			Rng.set_seed(seed)
+			var outcome := Raiding.roll_raid_odds({ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player" })
+			if outcome["success"]:
+				successes += 1
+				if outcome["outcomeType"] == "claim":
+					claims += 1
+
+		assert_true(successes > 0, "sanity: some of these 500 seeds should have succeeded")
+		assert_eq(claims, 0, "an attacker sitting right at its conquerThreshold should never claim, even at 75%% terroir odds -- got %d claims out of %d successes" % [claims, successes])
+	)
+
+	run_case("roll_raid_odds_allows_claims_once_the_attacker_clears_its_conquer_threshold", func():
+		GameState.reset()
+		var vein := _player_vein_of(10, "time", "none", "shoreditch")
+		vein["hospitability"]["tier"] = "saturated"
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["factions"]["collective"]["relation"] = -100000  # ceils raid_success_chance to 1.0, clears conquerThreshold too
+
+		var claims := 0
+		for seed in range(200):
+			Rng.set_seed(seed)
+			var outcome := Raiding.roll_raid_odds({ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player" })
+			if outcome["outcomeType"] == "claim":
+				claims += 1
+
+		assert_true(claims > 0, "an attacker well below its conquerThreshold should be able to claim a saturated-terroir vein at least sometimes across 200 rolls")
 	)
 
 	# ── Direction B: roll_raid_odds (ticket 06) ───────────────────────────
