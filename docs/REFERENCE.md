@@ -151,13 +151,13 @@ Five factions; copy `name`, `shortName`, `tagline`, `industries`, `description`,
 
 | id | joinRelation | raidThreshold | conquerThreshold |
 |---|---|---|---|
-| collective | 20 | -30 | -30 |
-| firm | 35 | -40 | -40 |
-| guild | 40 | -45 | -45 |
-| network | 30 | -40 | -40 |
-| conclave | 60 | -60 | -60 |
+| collective | 20 | -40 | -40 |
+| firm | 35 | 0 | 0 |
+| guild | 40 | -30 | -30 |
+| network | 30 | -20 | -20 |
+| conclave | 60 | -20 | -20 |
 
-**Raid/conquer eligibility thresholds** (71-per-faction-raid-claim-thresholds — **draft, needs balance sign-off**): a faction only attempts a raid against a player vein (`Raiding.roll_raid_attempts()`, §3.12) when `state.factions[id].relation < raidThreshold`; at or above its own `raidThreshold`, zero raid attempts occur (loot or claim) for that faction. Confirmed for the Collective: `-30`. `conquerThreshold` is the same test (`relation < conquerThreshold`) gating the claim branch of ticket 70's claim/loot split (`Raiding.roll_raid_odds()`) — below it, a successful raid still rolls claim vs. loot by terroir tier as normal; at or above it (but still below `raidThreshold`, so a raid is happening at all), a successful raid is capped at loot regardless of terroir odds. Every faction's draft `conquerThreshold` equals its `raidThreshold`, so this adds no extra gate beyond ticket 70's own terroir odds under the current numbers — the field exists so the human can tighten it later per faction without a code change. Rationale for the draft spread: poorer, less established factions (lower `resourceLevel`/`startingResources`) raid more readily; wealthier/more established ones are more patient and need a more hostile relation before raiding at all.
+**Raid/conquer eligibility thresholds** (71-per-faction-raid-claim-thresholds — human-confirmed): a faction only attempts a raid against a player vein (`Raiding.roll_raid_attempts()`, §3.12) when `state.factions[id].relation < raidThreshold`; at or above its own `raidThreshold`, zero raid attempts occur (loot or claim) for that faction. `conquerThreshold` is the same test (`relation < conquerThreshold`) gating the claim branch of ticket 70's claim/loot split (`Raiding.roll_raid_odds()`) — below it, a successful raid still rolls claim vs. loot by terroir tier as normal; at or above it (but still below `raidThreshold`, so a raid is happening at all), a successful raid is capped at loot regardless of terroir odds. Every faction's `conquerThreshold` equals its `raidThreshold`, so this adds no extra gate beyond ticket 70's own terroir odds. Firm's `raidThreshold` of `0` means they'll raid at any negative relation at all — the most trigger-happy of the five; Collective, at `-40`, is the most patient.
 
 **Faction barometer preferences** (`FACTION_BAROMETER_PREFS`, daily nudges — see §3.2):
 

@@ -11,8 +11,8 @@
     "securityBias": -2,
     "resourceLevel": 1,
     "startingResources": 200,
-    "raidThreshold": -30,
-    "conquerThreshold": -30
+    "raidThreshold": -40,
+    "conquerThreshold": -40
   },
   "firm": {
     "id": "firm",
@@ -26,8 +26,8 @@
     "securityBias": 1,
     "resourceLevel": 2,
     "startingResources": 500,
-    "raidThreshold": -40,
-    "conquerThreshold": -40
+    "raidThreshold": 0,
+    "conquerThreshold": 0
   },
   "guild": {
     "id": "guild",
@@ -41,8 +41,8 @@
     "securityBias": 1,
     "resourceLevel": 2,
     "startingResources": 900,
-    "raidThreshold": -45,
-    "conquerThreshold": -45
+    "raidThreshold": -30,
+    "conquerThreshold": -30
   },
   "network": {
     "id": "network",
@@ -56,8 +56,8 @@
     "securityBias": -1,
     "resourceLevel": 2,
     "startingResources": 500,
-    "raidThreshold": -40,
-    "conquerThreshold": -40
+    "raidThreshold": -20,
+    "conquerThreshold": -20
   },
   "conclave": {
     "id": "conclave",
@@ -71,7 +71,7 @@
     "securityBias": 3,
     "resourceLevel": 3,
     "startingResources": 1200,
-    "raidThreshold": -60,
-    "conquerThreshold": -60
+    "raidThreshold": -20,
+    "conquerThreshold": -20
   }
 }

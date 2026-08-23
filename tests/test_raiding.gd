@@ -551,10 +551,10 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 
-		for relation in [-30, 0, 60]:
+		for relation in [-40, 0, 60]:
 			GameState.state["factions"]["collective"]["relation"] = relation
 			var attempts := Raiding.roll_raid_attempts()
-			assert_eq(attempts.size(), 0, "collective relation %d (>= raidThreshold -30) should produce zero raid attempts" % relation)
+			assert_eq(attempts.size(), 0, "collective relation %d (>= raidThreshold -40) should produce zero raid attempts" % relation)
 	)
 
 	run_case("roll_raid_attempts_produces_an_attempt_for_a_faction_below_its_raid_threshold", func():
@@ -562,10 +562,10 @@ func run() -> void:
 		var vein := _player_vein_of(10, "time", "none", "shoreditch")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
-		GameState.state["factions"]["collective"]["relation"] = -31
+		GameState.state["factions"]["collective"]["relation"] = -41
 
 		var attempts := Raiding.roll_raid_attempts()
-		assert_eq(attempts.size(), 1, "collective relation -31 (below raidThreshold -30) should be raid-eligible")
+		assert_eq(attempts.size(), 1, "collective relation -41 (below raidThreshold -40) should be raid-eligible")
 		assert_eq(attempts[0]["attackerId"], "collective")
 	)
 
@@ -600,12 +600,12 @@ func run() -> void:
 		vein["hospitability"]["tier"] = "saturated"  # 75% claim chance if conquest were allowed at all
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
-		# Collective's conquerThreshold defaults to its raidThreshold (-30,
-		# data/factions.json draft) -- pinning relation exactly at that
-		# boundary (not below it) means raid_success_chance is still non-zero
+		# Collective's conquerThreshold defaults to its raidThreshold (-40,
+		# data/factions.json) -- pinning relation exactly at that boundary
+		# (not below it) means raid_success_chance is still non-zero
 		# (relation feeds it continuously, no hard gate there) but the claim
 		# roll must never fire.
-		GameState.state["factions"]["collective"]["relation"] = -30
+		GameState.state["factions"]["collective"]["relation"] = -40
 
 		var claims := 0
 		var successes := 0
