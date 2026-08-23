@@ -1008,6 +1008,19 @@ still count toward the next point. Daily caps reset on `daily_tick`.
 **Vein sales count** toward `tradeProgress` at their sale price like any other
 trade.
 
+**Archie's pre-existing flat `ARCHIE_SALE_RELATION_GAIN` (+2 relation per
+completed sale, mugged or not — bugfixes-63, R§3.6) stays, on top of this
+accumulator, by explicit human decision.** It predates this ticket and isn't
+the farm this rule is closing — it's a fixed, small, per-sale bump uncoupled
+from sale size, not a rate that scales with how a sale is sliced. Ticket 06
+(relation-accrual) briefly removed it on the reasoning that any per-transaction
+award is the exact shape of farm this section forbids; that removal was
+reverted on review. Keep both: `execute_sale` awards the flat +2 *before*
+computing the cut (so the cut ratio reflects it, same as always), then accrues
+`tradeProgress` on `gross` *after* the cut is computed (so a single large sale
+crossing the £1,000 rate doesn't inflate its own cut on top of the flat
+award's — see `systems/economy.gd`'s `execute_sale`).
+
 ### 8.5 Thread awards, and why the gate opens on favours
 
 | Beat | Award |

@@ -71,6 +71,14 @@ func _ready() -> void:
 	# line down the screen (seen in human QA on-device). These are compact
 	# single-line status text, not paragraphs — turn wrapping off instead
 	# of fighting the container over minimum size.
+	#
+	# UI.label() (bugfixes ticket 65) now reserves its own natural
+	# single-line width by default so most callers don't need this override
+	# any more, but that reservation is computed once, from the text passed
+	# to UI.label() at construction time -- these two are built with "" and
+	# have their real text assigned in _refresh() below on every state
+	# change, so the reservation would still be sized for the empty string.
+	# This explicit override stays for that reason.
 	_day_label = UI.label("")
 	_day_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_style_status_text(_day_label)

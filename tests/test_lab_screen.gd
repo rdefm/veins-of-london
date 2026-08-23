@@ -35,6 +35,13 @@ static func _find_button(root: Node, text: String) -> Button:
 	return null
 
 
+static func _find_label(root: Node, text: String) -> Label:
+	for l in root.find_children("", "Label", true, false):
+		if (l as Label).text == text:
+			return l
+	return null
+
+
 # calc-discovery ticket 10: the found list can now hold several cards on a
 # fresh game (the taughtBy tutorial recipes), so "the first Button labelled
 # X" is no longer specific enough to reach one particular card. Every card
@@ -186,6 +193,25 @@ func run() -> void:
 	)
 
 
+	# Bugfixes ticket 65: "Batch:" sits in the same non-expand HBoxContainer
+	# row as the "-"/qty/"+" stepper controls -- a word-wrapping Label's
+	# near-zero minimum size collapsed it to a sliver and wrapped the rest
+	# one character per line down the screen.
+	run_case("lab_batch_label_does_not_collapse_to_a_vertical_sliver", func():
+		GameState.reset()
+		BenchNav.open_section("crafting")
+
+		var screen := LabScreen.new()
+		screen._ready()
+
+		var batch_label := _find_label(screen, "Batch:")
+		assert_true(batch_label != null, "the Batch: label must render in the Crafting section")
+		assert_true(batch_label.get_combined_minimum_size().x > 10.0, "Batch: must keep real single-line width, not collapse to a vertical sliver")
+
+		screen.free()
+	)
+
+
 	run_case("lab_section_tabs_switch_between_crafting_and_experimenting", func():
 		GameState.reset()
 
@@ -194,6 +220,10 @@ func run() -> void:
 
 		assert_true(_label_texts(screen).has("Experimenting (current)"), "Experimenting is the default section")
 		assert_true(_button_texts(screen).has("Crafting"), "Crafting must be reachable as a tab")
+		# Bugfixes ticket 65: the active tab's "(current)" Label sits in the
+		# same non-expand HBoxContainer row as the inactive tab's Button --
+		# without a real reserved width it collapsed to a vertical sliver.
+		assert_true(_find_label(screen, "Experimenting (current)").get_combined_minimum_size().x > 10.0, "the active tab label must keep real single-line width, not collapse to a vertical sliver")
 
 		_find_button(screen, "Crafting").pressed.emit()
 

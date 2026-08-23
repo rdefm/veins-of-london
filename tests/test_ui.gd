@@ -88,6 +88,48 @@ func run() -> void:
 		b.free()
 	)
 
+	# Bugfixes ticket 65: a word-wrapping Label's own minimum size is
+	# near-zero by design (it's based on the longest unbreakable fragment,
+	# not the full text), so a UI.label() dropped straight into a
+	# non-expand HBoxContainer slot -- e.g. the Lab's "Batch:" label or the
+	# section-tab's active "(current)" label -- collapsed to a sliver and
+	# wrapped the rest of its text one character per line. UI.label() must
+	# reserve real single-line width for itself the same way UI.button()
+	# already reserves its own text-driven minimum width above.
+	run_case("label_reserves_real_width_for_its_text_not_just_a_sliver", func():
+		var l := UI.label("Batch:")
+		# get_combined_minimum_size() -- not custom_minimum_size directly --
+		# is what an HBoxContainer actually reads to size a non-expand
+		# child, same reasoning the button test above uses.
+		assert_true(l.get_combined_minimum_size().x > 10.0, "a short label must get real single-line width, or it collapses to a sliver inside a bare HBoxContainer")
+		l.free()
+	)
+
+	run_case("label_text_width_reservation_is_capped_for_long_labels", func():
+		var l := UI.label("A very long sentence of prose that would otherwise force its container far wider than any phone screen could show")
+		assert_true(l.custom_minimum_size.x <= UI.MAX_LABEL_TEXT_WIDTH, "the width reserved for a label's text must stay capped, or a long sentence blows its container out")
+		l.free()
+	)
+
+	run_case("short_label_is_not_needlessly_capped", func():
+		var l := UI.label("Hi")
+		assert_true(l.custom_minimum_size.x < UI.MAX_LABEL_TEXT_WIDTH, "an ordinary short label should get its own natural width, not be stretched out to the cap")
+		l.free()
+	)
+
+	# A label built with empty text and populated later via `.text = ...` on
+	# a long-lived node (top_bar.gd's day/cash labels) can't benefit from a
+	# reservation computed once at construction time -- this is exactly why
+	# that call site keeps its own explicit autowrap_mode = OFF rather than
+	# relying on the shared default alone.
+	run_case("label_width_reservation_is_fixed_at_construction_time_only", func():
+		var l := UI.label("")
+		assert_eq(l.custom_minimum_size.x, 0.0, "an empty-text label reserves no width at construction")
+		l.text = "Day 1 · Morning (0/3)"
+		assert_eq(l.custom_minimum_size.x, 0.0, "changing .text afterward does not retroactively widen the reservation")
+		l.free()
+	)
+
 	# Bugfixes ticket 13: icon-only buttons (map.gd's hamburger/bag) can't
 	# fall back to Button.text the way UI.button() rows do -- there's no
 	# text to fall back to, that's the whole bug this replaces. So the

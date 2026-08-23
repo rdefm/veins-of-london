@@ -167,7 +167,6 @@ func _build_icon_label_button(label_text: String, draw_icon: Callable, callback:
 	inner.add_child(glyph)
 
 	var text_label := UI.label(label_text)
-	text_label.autowrap_mode = TextServer.AUTOWRAP_OFF  # a short option label, not wrapping body text
 	text_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(text_label)
 

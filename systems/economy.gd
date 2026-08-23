@@ -5,6 +5,12 @@ extends RefCounted
 
 const MUG_BASE_CHANCE := 0.20
 
+# bugfixes-63: relation for selling through Archie, smaller than James's
+# +5/job since sales happen far more often. Kept alongside, not replaced by,
+# RelationAccrual's £-denominated tradeProgress accumulator (collective1-06,
+# spec.md §8.4, human decision) -- see execute_sale below for how the two combine.
+const ARCHIE_SALE_RELATION_GAIN := 2
+
 # collective1-01 (R§3.6 amendment): Archie's cut used to be a flat 0.5
 # (PLAYER_CUT_RATIO). Now relation-scaled 0.60->0.85 linear across his
 # relation 10->80, flat outside — see get_archie_cut_ratio() below.
@@ -80,17 +86,20 @@ static func execute_sale(items: Array) -> Dictionary:
 			flags["archieMotionPending"] = true
 			Notify.push("Archie texted. Check Contacts.")
 
+	# bugfixes-63: flat award, before the cut ratio below so this same sale's
+	# cut reflects it (unchanged behavior since bugfixes-63).
+	Contacts.award_relation("archie", ARCHIE_SALE_RELATION_GAIN)
+
 	var player_cut: int = int(floor(gross * get_archie_cut_ratio()))
 
-	# collective1-06, spec §8.4: replaces the old flat per-sale relation
-	# award (bugfixes-63) -- a flat award became farmable once collective1-01
-	# made Archie's cut ratio scale with relation (split a sale into enough
-	# tiny transactions and the ratio ratchets up for free). Accrues on
-	# gross, independent of the mugging roll below (relation reflects trade
-	# that happened, not what actually landed in pocket) -- and deliberately
-	# *after* player_cut is computed, so a single sale big enough to cross a
-	# relation point this same call still gets its own cut at the relation it
-	# started with, not the one it just bumped itself to.
+	# collective1-06, spec §8.4: the separate tradeProgress accumulator, on
+	# top of the flat award above, not instead of it (human decision — see
+	# spec.md §8.4's addendum). Accrues on gross, independent of the mugging
+	# roll below (relation reflects trade that happened, not what actually
+	# landed in pocket) -- and deliberately *after* player_cut is computed, so
+	# a single sale big enough to cross a tradeProgress relation point this
+	# same call still gets its own cut at the relation it had after the flat
+	# award, not the one this accumulator just bumped it to on top of that.
 	RelationAccrual.accrue_archie(gross)
 	var mugged: bool = Rng.chance(Barometer.get_effective_mug_chance(MUG_BASE_CHANCE + danger_mod))
 

@@ -168,10 +168,51 @@ static func heading(text: String, size: int = 20) -> Label:
 	return label
 
 
+# Cap on the text-driven minimum width UI.label() will reserve -- same
+# reasoning as MAX_BUTTON_TEXT_WIDTH below, but tuned separately since a
+# label's natural content (e.g. a long sentence of prose) is a different
+# shape than a button's (bugfixes ticket 65).
+const MAX_LABEL_TEXT_WIDTH := 220.0
+
+# A word-wrapping Label's own minimum size is near-zero by design -- it's
+# based on the longest unbreakable fragment, not the full text -- so a
+# label added as a non-EXPAND child of an HBoxContainer (which sizes such a
+# child to exactly its minimum size) got squeezed down to a sliver and
+# wrapped the rest of its text one character per line. This was patched
+# ad hoc, over and over, at individual call sites (top_bar.gd's day/cash
+# labels, ui.gd's own checklist_row checkbox glyph, lab.gd's/
+# modal_layer.gd's qty steppers, map_bubble.gd's option rows) by turning
+# autowrap off entirely for that one label -- and still recurred anywhere
+# nobody had patched it yet (bugfixes ticket 65: the Lab's "Batch:" label,
+# the Crafting/Experimenting section-tab's active "(current)" label).
+#
+# Fixed here instead, the same way UI.button() already reserves its own
+# (capped) natural text width as custom_minimum_size so it can't collapse
+# to just its padding: every label now reserves its own natural single-line
+# width, capped at MAX_LABEL_TEXT_WIDTH. That's a floor, not a fixed size --
+# a label handed real width by its parent (the common case: this project's
+# screen_body() VBoxContainer stretches a non-expand child to the full
+# screen width on its cross axis regardless of this floor) still wraps
+# normally across that width. Only a label squeezed into a narrow
+# non-expand HBox slot actually falls back to this floor, and now renders
+# on however many lines that floor takes instead of collapsing to one
+# character per line.
+#
+# This only helps for text fixed at construction time. A label built with
+# placeholder text and then mutated in place afterward (top_bar.gd's
+# _day_label/_cash_label, refreshed via .text = ... on a long-lived node
+# rather than rebuilt from scratch) still needs its own explicit
+# autowrap_mode = OFF, since this reservation isn't recomputed on a later
+# text change.
 static func label(text: String) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var font: Font = _THEME.get_font("font", "Label")
+	if font == null:
+		font = ThemeDB.fallback_font
+	var text_width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, _THEME.default_font_size).x
+	l.custom_minimum_size.x = minf(text_width, MAX_LABEL_TEXT_WIDTH)
 	return l
 
 
@@ -366,16 +407,7 @@ static func message_bubble(text: String, from_player: bool) -> Control:
 # comment documents, seen in human QA on-device for this exact row).
 static func checklist_row(text: String, done: bool) -> Control:
 	var row := hbox(6)
-	# label() turns on autowrap for every label it builds, including this
-	# one-glyph checkbox — an autowrapping Label's minimum size collapses to
-	# its longest unbreakable fragment, not its full content (same failure
-	# mode top_bar.gd's _day_label/_cash_label comment documents), so
-	# without this it renders as a ~1px column with the glyph overflowing
-	# across the text label that follows it in this row. This is compact,
-	# unwrappable single-glyph content, so turn wrapping off entirely
-	# rather than guess a fixed pixel width.
 	var check_label := label("☑" if done else "☐")
-	check_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	row.add_child(check_label)
 	var text_label := label(text)
 	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL

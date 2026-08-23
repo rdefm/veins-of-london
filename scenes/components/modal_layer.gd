@@ -306,9 +306,7 @@ func _build_sell_row(label_text: String, key: String, qty: int, max_qty: int) ->
 	# unlike its "+" sibling it had no fallback text to keep the button
 	# legible. ASCII "-" renders correctly.
 	row.add_child(UI.button("-", func(): Economy.adjust_sell_qty(key, -1, max_qty)))
-	var qty_label := UI.label(str(qty))
-	qty_label.autowrap_mode = TextServer.AUTOWRAP_OFF  # compact number, same fix as the checkbox glyph above
-	row.add_child(qty_label)
+	row.add_child(UI.label(str(qty)))
 	row.add_child(UI.button("+", func(): Economy.adjust_sell_qty(key, 1, max_qty)))
 	return row
 

@@ -163,9 +163,7 @@ func _build_craft_qty_row(recipe_key: String, qty: int) -> Control:
 	var row := UI.hbox()
 	row.add_child(UI.label("Batch:"))
 	row.add_child(UI.button("-", func(): Crafting.adjust_craft_qty(recipe_key, -1)))
-	var qty_label := UI.label(str(qty))
-	qty_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	row.add_child(qty_label)
+	row.add_child(UI.label(str(qty)))
 	row.add_child(UI.button("+", func(): Crafting.adjust_craft_qty(recipe_key, 1)))
 	return row
 
