@@ -227,6 +227,19 @@ func new_game_state() -> Dictionary:
 			# scene), never false again -- gates VeinList's Sell option
 			# (systems/vein_list.gd) on permanently for every vein from then on.
 			"veinSaleUnlocked": false,
+			# collective1-07, spec §5.5/§10.2: pre-join lane gate -- Des,
+			# Nadia and Hakim's Trade action-bar entry (ContactCards.
+			# build_trade_action) reads this, not faction membership.
+			"collectiveLaneUnlocked": false,
+		},
+
+		# collective1-07, spec §10.1: barkCursors backs Collective._next_bark()'s
+		# no-repeat-until-exhausted draw per vendor (contactId -> next index
+		# into data/collective_barks.json's array for that contact). Later
+		# tickets extend this dict (hakimVeinId, hakimIntelLastDay) rather than
+		# each carving out their own top-level state key.
+		"collective": {
+			"barkCursors": {},
 		},
 	}
 
@@ -299,6 +312,14 @@ func _new_contacts_state() -> Dictionary:
 			"unlocked": defaults.get("unlocked", false),
 			"recruited": false,
 			"recruitThreshold": defaults.get("recruitThreshold", 0),
+			# collective1-07, spec §7.1/§9.3: defaults true so archie/james
+			# (whose constants.json entries now set it explicitly, but any
+			# future contact that omits it) render their existing recruit row
+			# unchanged -- false suppresses the row entirely (not shown-disabled)
+			# for des/nadia/hakim, and gates Contacts.can_recruit() itself so
+			# there's no back door to recruiting a "not recruitable, ever"
+			# contact even without a UI button for it.
+			"recruitable": defaults.get("recruitable", true),
 			# 45-archie-raid-assist: a second, higher relation gate on top of
 			# recruitThreshold -- can_assist_raid() reads relation against this
 			# rather than recruitThreshold, so a contact can be recruited (and

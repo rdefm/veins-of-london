@@ -24,6 +24,14 @@ func run() -> void:
 		assert_true(not Contacts.can_recruit("james"), "not unlocked yet, regardless of relation")
 	)
 
+	# collective1-07, spec §7.1: Des/Nadia/Hakim are never recruitable, even
+	# once unlocked with a met (zero) relation threshold.
+	run_case("can_recruit_is_false_when_recruitable_is_false_even_with_threshold_met", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "recruited": false, "relation": 0, "recruitThreshold": 0, "recruitable": false }
+		assert_true(not Contacts.can_recruit("des"), "recruitable:false blocks recruiting regardless of relation/threshold")
+	)
+
 	run_case("recruit_sets_recruited_and_notifies", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["relation"] = 80

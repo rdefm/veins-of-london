@@ -338,6 +338,22 @@ func run() -> void:
 		assert_eq(filled["pendingMessages"], [], "an old save missing 'pendingMessages' should backfill to []")
 	)
 
+	# collective1-07: "contacts" is a top-level key that has existed since
+	# M0, so a save from before des/nadia/hakim existed has it present but
+	# missing the three new ids -- the shallow top-level fill above never
+	# fires for it, so this needs its own per-id backfill.
+	run_case("backfill_seeds_new_contact_ids_into_an_old_saves_existing_contacts_dict", func():
+		var incomplete := {
+			"contacts": { "archie": { "relation": 55, "recruited": true } },  # pre-collective1-07 save
+		}
+		var filled := SaveManager.backfill_defaults(incomplete)
+		var defaults := GameState.new_game_state()
+
+		assert_eq(filled["contacts"]["archie"], { "relation": 55, "recruited": true }, "an existing contact's data must survive untouched")
+		for contact_id in ["des", "nadia", "hakim"]:
+			assert_eq(filled["contacts"][contact_id], defaults["contacts"][contact_id], "%s should be seeded from defaults, same as a missing top-level key" % contact_id)
+	)
+
 	run_case("loading_a_save_with_a_retired_currentScreen_lands_on_phone_home", func():
 		for retired_id in ["home", "you", "bag", "inventory"]:
 			GameState.reset()

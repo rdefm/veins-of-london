@@ -51,6 +51,41 @@ func run() -> void:
 		assert_true(found, "a faction barometer pref pointing at a nonexistent state should be flagged")
 	)
 
+	# ── collective1-07: contacts.recruitable / data/collective_barks.json ──
+
+	run_case("corrupt_fixture_contact_missing_recruitable_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["contacts_defaults"]["des"].erase("recruitable")
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("constants.contacts.des") and e.contains("recruitable"):
+				found = true
+		assert_true(found, "a contact missing recruitable should be flagged")
+	)
+
+	run_case("corrupt_fixture_missing_collective_bark_vendor_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["collective_barks"].erase("nadia")
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("collective_barks") and e.contains("nadia"):
+				found = true
+		assert_true(found, "removing a vendor's bark pool entirely should fail validation")
+	)
+
+	run_case("corrupt_fixture_collective_bark_pool_too_short_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["collective_barks"]["hakim"] = ["one line only"]
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("collective_barks.hakim") and e.contains("at least 6"):
+				found = true
+		assert_true(found, "a bark pool under 6 lines should fail validation")
+	)
+
 	run_case("corrupt_fixture_missing_faction_trade_lane_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
 		corrupted["faction_trade"].erase("collective")
@@ -247,4 +282,13 @@ func run() -> void:
 		assert_eq(GameData.MAP_LAYOUT["districts"].size(), 9, "map_layout has 9 districts")
 		assert_eq(GameData.MAP_LAYOUT["districts"]["camden"]["stopSlots"].size(), 8, "camden siteCap 6 -> 8 stopSlots")
 		assert_eq(GameData.MAP_LAYOUT["districts"]["soho"]["stopSlots"].size(), 2, "soho siteCap 0 -> 2 stopSlots")
+
+		# collective1-07, spec §9.3/§9.5
+		assert_true(GameData.CONTACTS_DEFAULTS["archie"]["recruitable"], "archie stays recruitable")
+		assert_true(GameData.CONTACTS_DEFAULTS["james"]["recruitable"], "james stays recruitable")
+		for key in ["des", "nadia", "hakim"]:
+			assert_true(not GameData.CONTACTS_DEFAULTS[key]["recruitable"], "%s is never recruitable" % key)
+			assert_eq(GameData.CONTACTS_DEFAULTS[key]["startRelation"], 0, "%s starts at relation 0" % key)
+			assert_true(not GameData.CONTACTS_DEFAULTS[key]["unlocked"], "%s starts locked" % key)
+			assert_true(GameData.COLLECTIVE_BARKS[key].size() >= 6, "%s has at least 6 bark lines" % key)
 	)

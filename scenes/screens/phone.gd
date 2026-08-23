@@ -296,15 +296,19 @@ func _reveal_remaining(box: VBoxContainer, thread: Array, start_index: int) -> v
 
 
 # Trade stays a modal (spec §5.2: "one trade UI in the game, not two") --
-# ContactCards.build_sell_action() already opens sell_menu with the right
-# locked/enabled state, so every conversation's action bar reuses it
-# rather than building a second entry point. pendingMessages entries for
-# this contact each surface as their own button; tapping one resolves the
-# entry and hands its payload to Events.start_event() as context, the same
-# road systems/raiding.gd uses for a raid's runtime site_id.
+# ContactCards.build_trade_action() opens sell_menu routed through the
+# Collective faction lane with the right locked/enabled state (collective1-07,
+# spec §7.2), so every conversation's action bar reuses it rather than
+# building a second entry point. Every contact reaching this screen is a
+# Collective door by construction -- Archie/James stay on their own bespoke
+# SMS screens (Messages.LEGACY_CONTACT_IDS) and never hit this function.
+# pendingMessages entries for this contact each surface as their own button;
+# tapping one resolves the entry and hands its payload to Events.start_event()
+# as context, the same road systems/raiding.gd uses for a raid's runtime
+# site_id.
 func _build_action_bar(contact_id: String) -> Control:
 	var bar := UI.vbox(8)
-	bar.add_child(ContactCards.build_sell_action())
+	bar.add_child(ContactCards.build_trade_action(contact_id))
 	for entry in Messages.pending_for(contact_id):
 		bar.add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
 	return bar

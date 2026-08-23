@@ -31,7 +31,9 @@ static func build_archie_card() -> Control:
 		c["content"].add_child(UI.button("💬 Message Archie — set up James meeting", func(): Nav.go_to("sms_archie")))
 
 	c["content"].add_child(build_sell_action())
-	c["content"].add_child(build_recruit_row("archie"))
+	var recruit_row := build_recruit_row("archie")
+	if recruit_row != null:
+		c["content"].add_child(recruit_row)
 
 	return c["panel"]
 
@@ -58,9 +60,32 @@ static func build_sell_action() -> Control:
 	return b
 
 
+# collective1-07, spec §5.5/§7.2: the cosmetic trade door Des, Nadia and
+# Hakim each offer in their action bar -- identical terms and relation award
+# regardless of which of the three opens it, since all three route through
+# the same faction lane (Economy.execute_faction_sale("collective", ...))
+# and the same bark pool draw (systems/collective.gd). Locked (shown-
+# disabled, same pattern as build_sell_action() above) until S1 sets
+# flags.collectiveLaneUnlocked -- unlike the recruit row, the lane itself is
+# fine to show locked rather than suppressed; the player knows it's coming.
+static func build_trade_action(contact_id: String) -> Control:
+	if not GameState.state["flags"].get("collectiveLaneUnlocked", false):
+		var locked := UI.button("🤝 Trade (not unlocked yet)", func(): pass)
+		locked.disabled = true
+		return locked
+
+	return UI.button("🤝 Trade", func(): Modal.open("sell_menu", { "factionId": "collective", "contactId": contact_id }))
+
+
 static func build_recruit_row(contact_id: String) -> Control:
 	var c: Dictionary = GameState.state["contacts"][contact_id]
 	var display_name: String = Contacts.display_name(contact_id)
+
+	# collective1-07, spec §7.1: Des/Nadia/Hakim's recruit row must not be
+	# shown at all -- not shown-disabled -- so callers get null back and are
+	# expected to skip adding it, rather than a locked/disabled button.
+	if not c.get("recruitable", true):
+		return null
 
 	if c["recruited"]:
 		var done_button := UI.button("✅ %s recruited" % display_name, func(): pass)
@@ -98,7 +123,9 @@ static func build_james_card() -> Control:
 			else:
 				c["content"].add_child(UI.button("📦 Deliver job: %d× %s %s" % [job["qty"], job["symbol"], job["recipeName"]], func(): Jobs.fulfil_job()))
 
-	c["content"].add_child(build_recruit_row("james"))
+	var recruit_row := build_recruit_row("james")
+	if recruit_row != null:
+		c["content"].add_child(recruit_row)
 
 	return c["panel"]
 

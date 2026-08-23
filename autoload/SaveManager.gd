@@ -183,7 +183,24 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	for key in defaults.keys():
 		if not result.has(key):
 			result[key] = defaults[key]
+	_backfill_new_contacts(result, defaults)
 	return result
+
+
+# collective1-07: "contacts" has existed as a top-level key since M0
+# (archie/james), so the shallow fill above never fires for it -- but this
+# ticket is the first time a *new contact id* (des/nadia/hakim) has ever
+# been added after release. Deliberately narrower than the "intentionally
+# shallow" rule above: this seeds only missing contact ids wholesale from
+# defaults, same as a missing top-level key would be, never touching an
+# id the save already has (archie/james's own progress is untouched).
+func _backfill_new_contacts(result: Dictionary, defaults: Dictionary) -> void:
+	if not result.has("contacts"):
+		return
+	var contacts: Dictionary = result["contacts"]
+	for contact_id in defaults["contacts"].keys():
+		if not contacts.has(contact_id):
+			contacts[contact_id] = defaults["contacts"][contact_id]
 
 
 # JSON has no int/float distinction, so every number in a just-parsed save
@@ -210,6 +227,8 @@ func _restore_int_types(state: Dictionary) -> void:
 	for thread in state.get("messages", {}).values():
 		for msg in thread:
 			_int_key(msg, "day")
+	# collective1-07
+	_int_dict_values(state.get("collective", {}).get("barkCursors", {}))
 
 	if state.has("meta"):
 		_int_key(state["meta"], "saveVersion")

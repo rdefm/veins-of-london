@@ -276,7 +276,7 @@ EVENT = { id, trigger, cards:[{ speaker, text, choices:[{label, checks, effects,
 
 ## 14. Contacts, Factions & Storylines
 
-**Contacts** (Archie, James, +1–2 new by 1.0) keep the relation → recruit arc. Recruited contacts become assignable assets: home rooms, passive cultivating, combat muscle, device sales channels.
+**Contacts** (Archie, James, +1–2 new by 1.0 — deliberately exceeded by the Collective's Act 1, collective1-07: Des, Nadia and Hakim are three real contacts because the Collective *is* its people and its trading lane runs through all three, `.scratch/collective-act1/spec.md` §3.5) keep the relation → recruit arc, except where a contact's own storyline says otherwise: Des and Hakim are never recruitable, and Nadia only becomes so after Act 3. Recruited contacts become assignable assets: home rooms, passive cultivating, combat muscle, device sales channels.
 
 **Factions (5):** collective, firm, guild, network, conclave. Each gets by 1.0:
 - **Map presence** — 1–2 districts tagged theirs; price/danger modifiers there scale with your relation.

@@ -235,7 +235,19 @@ func _on_sale_result_close() -> void:
 	PhoneNav.route_home()
 
 
+# collective1-07: modal.data carries an optional { factionId, contactId }
+# context -- absent (Archie's ContactCards.build_sell_action() still calls
+# Modal.open("sell_menu") with no data) means the original Archie-lane menu
+# below, unchanged. Present, it's one of the three Collective doors
+# (ContactCards.build_trade_action()) and routes to _build_faction_sell_menu.
 func _build_sell_menu() -> void:
+	var modal: Dictionary = GameState.state["modal"]
+	var data: Dictionary = modal.get("data", {})
+	var faction_id: String = data.get("factionId", "")
+	if faction_id != "":
+		_build_faction_sell_menu(faction_id, data.get("contactId", ""))
+		return
+
 	var player: Dictionary = GameState.state["player"]
 	var sell_state: Dictionary = GameState.state["sellState"]
 
@@ -290,6 +302,56 @@ func _build_sell_menu() -> void:
 func _on_sell_menu_cancel() -> void:
 	Economy.clear_sell_state()
 	Modal.close()
+
+
+# collective1-07, spec §5.5/§8.1: straight sale at the faction's spread-
+# narrowed price -- no cut, no mugging (unlike the Archie-lane menu above).
+# Same sellState cart and the same _build_sell_row() qty steppers; only the
+# price source and the Go action differ.
+func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
+	var player: Dictionary = GameState.state["player"]
+	var sell_state: Dictionary = GameState.state["sellState"]
+	var faction_name: String = GameData.FACTIONS[faction_id]["name"]
+
+	_card_content.add_child(UI.heading("Trade with %s" % faction_name))
+	_card_content.add_child(UI.muted_label("Straight sale. No cut, no risk of a mugging."))
+
+	var gross := 0
+
+	for ore_type in GameData.ORE_TYPES.keys():
+		var have: int = player["orichalchum"].get(ore_type, 0)
+		if have <= 0:
+			continue
+		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
+		var key := "ore_%s" % ore_type
+		var qty: int = sell_state.get(key, 0)
+		var price := Economy.get_faction_sell_price(faction_id, "ore", ore_type)
+		gross += price * qty
+		_card_content.add_child(_build_sell_row("%s %s (£%d/u, have %d)" % [ore["symbol"], ore["name"], price, have], key, qty, have))
+
+	if GameState.state["flags"]["canSellConsumables"]:
+		for recipe_key in GameData.CONSUMABLE_PRICES.keys():
+			var buckets: Dictionary = player["inventory"].get(recipe_key, {})
+			var recipe: Dictionary = GameData.RECIPES[recipe_key]
+			var price := Economy.get_faction_sell_price(faction_id, "consumable", recipe_key)
+			var tier_keys: Array = buckets.keys()
+			tier_keys.sort_custom(func(a, b): return int(a) < int(b))
+			for tier_key in tier_keys:
+				var have: int = buckets[tier_key]
+				if have <= 0:
+					continue
+				var key := "con_%s_%s" % [recipe_key, tier_key]
+				var qty: int = sell_state.get(key, 0)
+				gross += price * qty
+				var tier_label := "untiered" if int(tier_key) <= 0 else "tier %d" % int(tier_key)
+				_card_content.add_child(_build_sell_row("%s %s (%s, £%d/ea, have %d)" % [recipe["symbol"], recipe["name"], tier_label, price, have], key, qty, have))
+
+	_card_content.add_child(UI.label("You'll get: £%d" % gross))
+
+	var go_button := UI.button("Go — trade", func(): Collective.complete_trade(contact_id))
+	go_button.disabled = gross == 0
+	_card_content.add_child(go_button)
+	_card_content.add_child(UI.button("Cancel", _on_sell_menu_cancel))
 
 
 func _build_sell_row(label_text: String, key: String, qty: int, max_qty: int) -> Control:

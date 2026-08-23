@@ -459,8 +459,13 @@ Unresolved. None block starting on the spine.
 5. **Does the Arc 2 log gate the futures or only flavour them?** Gating is more
    honest — a heavily militarised run arguably cannot credibly pick Disperse — but
    costs the player a climax option they may have been aiming at for hours.
-6. **Which contacts get real relation tracks.** Three new named characters exceeds
-   the "+1–2 new contacts by 1.0" budget. Likely one or two get contact entries;
-   the rest are event-only voices with no meter.
+6. ~~**Which contacts get real relation tracks.**~~ **Closed by
+   `.scratch/collective-act1/spec.md` §3/§8.4 (collective1-07):** all three —
+   Des, Nadia and Hakim — get real contact entries, exceeding the "+1–2 new
+   contacts by 1.0" budget by explicit human decision (VISION §14 amended).
+   None of the three gets a *personal* trickle from trade, though: §8.4's "the
+   meter that owns the lane" rule means Collective trade feeds
+   `state.factions.collective.relation` directly, and a contact's own
+   relation only moves when a story beat says it does.
 7. **The Collective's endgame stance** (VISION §15) under each of the three
    futures.

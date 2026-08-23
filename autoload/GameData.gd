@@ -72,6 +72,11 @@ var JAMES_JOB_TRUST_BANDS: Array = []
 var EVENTS: Dictionary = {}
 var SMS_THREADS: Dictionary = {}
 
+# collective1-07, spec §9.5: per-vendor flavour lines drawn on completing a
+# Collective trade (systems/collective.gd) -- cosmetic only, the three doors
+# trade at identical terms. Keyed by contact id.
+var COLLECTIVE_BARKS: Dictionary = {}
+
 # collective1-02: data/objectives.json, keyed by objective id. Empty until a
 # thread ticket (08/11/12/13) authors real Act 1 entries -- see
 # systems/objectives.gd.
@@ -189,6 +194,8 @@ func load_all() -> void:
 
 	OBJECTIVES = _load_json("res://data/objectives.json")
 
+	COLLECTIVE_BARKS = _load_json("res://data/collective_barks.json")
+
 	loaded = true
 
 
@@ -229,6 +236,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
 	_validate_sms(t.get("sms_threads", {}), errors)
 	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), errors)
+	_validate_collective_barks(t.get("collective_barks", {}), errors)
 
 	return errors
 
@@ -272,6 +280,7 @@ func snapshot() -> Dictionary:
 		"events": EVENTS,
 		"sms_threads": SMS_THREADS,
 		"objectives": OBJECTIVES,
+		"collective_barks": COLLECTIVE_BARKS,
 	}
 
 
@@ -598,11 +607,27 @@ func _validate_enemies(raid_guards: Dictionary, home_raid_raider: Dictionary, er
 func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, errors: Array[String]) -> void:
 	if time_blocks.size() != 3:
 		errors.append("constants: timeBlocks must have exactly 3 entries, got %d" % time_blocks.size())
-	for key in ["archie", "james"]:
+	# collective1-07, spec §9.3: des/nadia/hakim join archie/james as real
+	# contacts, all five now carrying recruitable (§7.1 -- the row that reads
+	# it is ContactCards.build_recruit_row()).
+	for key in ["archie", "james", "des", "nadia", "hakim"]:
 		if not contacts_defaults.has(key):
 			errors.append("constants: contacts is missing '%s'" % key)
 			continue
-		_require_keys(contacts_defaults[key], ["startRelation", "unlocked", "recruitThreshold"], "constants.contacts.%s" % key, errors)
+		_require_keys(contacts_defaults[key], ["startRelation", "unlocked", "recruitThreshold", "recruitable"], "constants.contacts.%s" % key, errors)
+
+
+# collective1-07, spec §9.5: cosmetic-only flavour lines, minimum 6 per
+# vendor so no-repeat-until-exhausted (Collective._next_bark) has room to
+# cycle before wrapping.
+func _validate_collective_barks(barks: Dictionary, errors: Array[String]) -> void:
+	for key in ["des", "nadia", "hakim"]:
+		if not barks.has(key):
+			errors.append("collective_barks: missing vendor '%s'" % key)
+			continue
+		var lines: Array = barks[key]
+		if lines.size() < 6:
+			errors.append("collective_barks.%s: needs at least 6 lines, got %d" % [key, lines.size()])
 
 
 const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "resolution", "craft", "choice"]

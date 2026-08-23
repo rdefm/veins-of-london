@@ -462,6 +462,30 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 100 + 33, "cash increased by the Collective's own sell price")
 	)
 
+	# ── collective1-07: sell_to_faction_from_sell_state (the sell_menu cart, ─
+	# routed to a faction lane rather than Archie's execute_sale) ───────────
+
+	run_case("sell_to_faction_from_sell_state_prices_via_the_faction_lane_and_clears_afterward", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Economy.adjust_sell_qty("ore_time", 3, 10)
+
+		var result := Economy.sell_to_faction_from_sell_state("collective")
+
+		assert_true(result["ok"], "sale should succeed")
+		# time basePrice 60, relation 0 -> sell spread 0.45 -> price 33/unit
+		assert_eq(result["earned"], 99, "3 units at the collective's relation-0 sell price, no cut")
+		assert_eq(GameState.state["player"]["cash"], 40 + 99, "cash credited at the faction price")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "ore deducted")
+		assert_eq(GameState.state["sellState"], {}, "sellState cleared after selling")
+	)
+
+	run_case("sell_to_faction_from_sell_state_rejects_an_empty_cart", func():
+		GameState.reset()
+		var result := Economy.sell_to_faction_from_sell_state("collective")
+		assert_true(not result["ok"], "nothing selected should be a no-op, same as sell_from_sell_state")
+	)
+
 	# ── Archie's relation-scaled cut (collective1-01 spec.md §8.2, R§3.6 amendment) ─
 
 	run_case("archie_cut_ratio_matches_the_confirmed_curve_at_10_40_80", func():

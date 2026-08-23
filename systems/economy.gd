@@ -312,3 +312,31 @@ static func execute_faction_sale(faction_id: String, items: Array) -> Dictionary
 	Objectives.refresh()  # collective1-02: boundary — faction lane completion
 	EventBus.state_changed.emit()
 	return { "ok": true, "earned": total_earned }
+
+
+# collective1-07: the faction-lane counterpart to sell_from_sell_state() --
+# same sellState cart (state.sellState is transient and always empty when a
+# fresh sell_menu opens, since every dismiss path clears it), same item-
+# building, but priced and settled through execute_faction_sale() rather
+# than Archie's cut-and-mugging execute_sale(). No tier segment on the
+# built items: a faction lane's price doesn't vary by tier (only Archie's
+# execute_sale does), so summing every tier bucket's selection into one
+# per-recipe item is correct here.
+static func sell_to_faction_from_sell_state(faction_id: String) -> Dictionary:
+	var sell_state: Dictionary = GameState.state["sellState"]
+	var items: Array = []
+
+	for ore_type in GameData.ORE_TYPES.keys():
+		var qty: int = sell_state.get("ore_%s" % ore_type, 0)
+		if qty > 0:
+			items.append({ "kind": "ore", "type": ore_type, "qty": qty })
+
+	for recipe_key in GameData.CONSUMABLE_PRICES.keys():
+		var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
+		for tier_key in buckets.keys():
+			var qty: int = sell_state.get("con_%s_%s" % [recipe_key, tier_key], 0)
+			if qty > 0:
+				items.append({ "kind": "consumable", "type": recipe_key, "qty": qty })
+
+	clear_sell_state()
+	return execute_faction_sale(faction_id, items)

@@ -18,6 +18,12 @@ static func can_recruit(contact_id: String) -> bool:
 	if not contacts.has(contact_id):
 		return false
 	var c: Dictionary = contacts[contact_id]
+	# collective1-07, spec §7.1: Des/Nadia/Hakim are "not recruitable, in Act
+	# 1 or later" -- gated here too, not just at the UI (ContactCards.
+	# build_recruit_row()), so there's no back door via a recruitThreshold of
+	# 0 (met the instant they unlock).
+	if not c.get("recruitable", true):
+		return false
 	return c["unlocked"] and not c["recruited"] and c["relation"] >= c["recruitThreshold"]
 
 

@@ -99,7 +99,7 @@ func run() -> void:
 		assert_true(texts.has("On my way."), "player's own message renders too")
 
 		var button_texts := _button_texts(phone)
-		assert_true(button_texts.has("💰 Find a buyer (not unlocked yet)"), "Trade action bar entry reuses ContactCards.build_sell_action()")
+		assert_true(button_texts.has("🤝 Trade (not unlocked yet)"), "Trade action bar entry reuses ContactCards.build_trade_action() (collective1-07)")
 
 		phone.free()
 	)

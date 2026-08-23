@@ -17,6 +17,20 @@ func _synthetic_tap() -> InputEventScreenTouch:
 	return event
 
 
+static func _label_texts(root: Node) -> Array[String]:
+	var texts: Array[String] = []
+	for l in root.find_children("", "Label", true, false):
+		texts.append((l as Label).text)
+	return texts
+
+
+static func _find_button(root: Node, text: String) -> Button:
+	for b in root.find_children("", "Button", true, false):
+		if (b as Button).text == text:
+			return b
+	return null
+
+
 func run() -> void:
 	run_case("tap_outside_a_no_side_effect_modal_just_closes_it", func():
 		GameState.reset()
@@ -76,6 +90,46 @@ func run() -> void:
 		assert_eq(GameState.state["modal"], null, "outside tap closes sale_result")
 		assert_eq(GameState.state["currentScreen"], "phone", "outside tap navs to phone home, same as tapping Back to it")
 		assert_eq(GameState.state["phoneNav"]["app"], "home", "should land on the grid itself, not whatever app was last open")
+
+		layer.free()
+	)
+
+	# ── collective1-07: sell_menu's faction-lane branch ───────────────────
+
+	run_case("faction_sell_menu_prices_via_the_faction_lane_not_archies_cut", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Economy.adjust_sell_qty("ore_time", 3, 10)
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("Trade with The Collective"), "heading names the faction, not 'Find a buyer'")
+		# time basePrice 60, collective relation 0 -> sell spread 0.45 -> 33/unit -> 3*33=99
+		assert_true(_label_texts(layer).has("You'll get: £99"), "gross reflects the collective's price, not archie's basePrice/cut split")
+
+		layer.free()
+	)
+
+	run_case("faction_sell_menu_go_button_sells_appends_a_bark_and_opens_sale_result", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Economy.adjust_sell_qty("ore_time", 2, 10)
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var go_button := _find_button(layer, "Go — trade")
+		assert_true(go_button != null, "faction sell menu has a Go button")
+		go_button.pressed.emit()
+
+		assert_eq(GameState.state["player"]["cash"], 40 + 66, "2 units at 33/unit credited, no cut")
+		assert_eq(GameState.state["messages"]["des"].size(), 1, "completing the trade appends a bark to des's conversation")
+		assert_eq(GameState.state["modal"]["type"], "sale_result", "sale_result reused for the faction lane, same as Archie's")
 
 		layer.free()
 	)
