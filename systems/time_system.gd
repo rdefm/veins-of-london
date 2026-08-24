@@ -47,23 +47,29 @@ static func do_rest() -> void:
 	EventBus.state_changed.emit()
 
 
-# Exact step order per R§3.1, extended by M1-LONDON.md D2 / adr/0002
-# (steps ⑤b/⑤c), faction-vein-ownership T02 (step ⑤d), and
-# faction-resource-economy T02/T03/T04 (steps ⑤e/⑤f/⑤g) — do not reorder.
+# Exact step order per R§3.1, extended by M1-LONDON.md D2 (step ⑤b),
+# faction-vein-ownership T02 (step ⑤c), and faction-resource-economy
+# T02/T03/T04 (steps ⑤d/⑤e/⑤f) — do not reorder.
 # bugfixes-42 adds step ③c, right after ③b (Healing Salve HoT): always-on
 # passive HP regen, independent of and stacking with both Rest and the
 # Salve HoT rather than replacing either.
-# faction-territory-rivalry T04 adds step ⑤h, running last in the chain: it
-# runs after ⑤g (security upgrades) so a rivalry resolving this tick sees
+# faction-territory-rivalry T04 adds step ⑤g, running last in the chain: it
+# runs after ⑤f (security upgrades) so a rivalry resolving this tick sees
 # the day's income already earned and spend already committed before any
-# vein changes hands, and after ⑤d (faction vein growth) so a same-tick
+# vein changes hands, and after ⑤c (faction vein growth) so a same-tick
 # freshly-claimed vein is a legitimate rivalry target/target-owner by the
-# time ⑤h runs, same as it already is for ⑤e-⑤g's income/spend reads.
-# vein-raiding T06 adds step ⑤i, right after ⑤h: a faction raiding one of
-# the player's own veins is independent of the ⑤e-⑤h faction-economy chain
+# time ⑤g runs, same as it already is for ⑤d-⑤f's income/spend reads.
+# vein-raiding T06 adds step ⑤h, right after ⑤g: a faction raiding one of
+# the player's own veins is independent of the ⑤d-⑤g faction-economy chain
 # (it reads/writes player.veins and a target site, not faction resources),
-# so ordering relative to ⑤h doesn't matter causally -- placed last per
-# landing order, same as ⑤h was appended after ⑤g.
+# so ordering relative to ⑤g doesn't matter causally -- placed last per
+# landing order, same as ⑤g was appended after ⑤f.
+# bugfixes-40 removed the old step ⑤c, NPC-abandonment (adr/0002's
+# independent daily kill roll for faction-claimed sites, stacked on top of
+# the growth-collapse-at-zero roll every vein already faces) — faction
+# veins now only die via Cultivating.drift_veins()'s own collapse roll at
+# step ④, same as player veins. Every step from the old ⑤d onward shifted
+# up one letter to close the gap; see adr/0004.
 # Steps for systems that don't exist yet are stubs; wire the real call in
 # when that task lands.
 static func daily_tick() -> void:
@@ -75,16 +81,15 @@ static func daily_tick() -> void:
 	_apply_living_costs()                # ③ living costs
 	_apply_healing_salve_tick()          # ③b Healing Salve HoT (calc-effect-wiring-02), runs right after living costs
 	_apply_passive_regen()               # ③c passive HP regen (bugfixes-42), runs right after the Salve HoT, stacks with it
-	Cultivating.drift_veins()             # ④ vein growth drift (player + faction veins)
+	Cultivating.drift_veins()             # ④ vein growth drift (player + faction veins) — also where a faction vein's collapse-at-zero death rolls, since bugfixes-40
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	Sites.roll_npc_claims()              # ⑤b NPC site-claiming (M1-LONDON.md D2)
-	Sites.roll_npc_abandonment()         # ⑤c NPC abandonment (adr/0002), runs right after ⑤b
-	Sites.roll_faction_vein_growth()     # ⑤d faction vein daily growth (faction-vein-ownership T02), runs right after ⑤c
-	Factions.apply_passive_income()      # ⑤e faction passive/industry income (faction-resource-economy T02), runs right after ⑤d — no ordering dependency on ⑤b-⑤d (industries-only, no site/vein reads)
-	Factions.apply_vein_income()         # ⑤f faction vein-derived income (faction-resource-economy T03), runs right after ⑤e — after ⑤c/⑤d so an abandoned vein doesn't earn and a same-tick-claimed vein reuses ⑤d's claimedOnDay skip
-	Factions.apply_security_upgrades()   # ⑤g faction security-upgrade spend (faction-resource-economy T04), runs right after ⑤f so a tick's vein income is already banked and spendable the same day it's earned
-	Factions.apply_rivalry_resolution()  # ⑤h faction-territory-rivalry attempt roll + resolution (faction-territory-rivalry T04), runs right after ⑤g so a tick's income/spend is already settled before any vein changes hands
-	Raiding.apply_raid_resolution()      # ⑤i Direction-B raid attempt roll + resolution (vein-raiding T06), runs right after ⑤h
+	Sites.roll_faction_vein_growth()     # ⑤c faction vein daily growth (faction-vein-ownership T02), runs right after ⑤b
+	Factions.apply_passive_income()      # ⑤d faction passive/industry income (faction-resource-economy T02), runs right after ⑤c — no ordering dependency on ⑤b/⑤c (industries-only, no site/vein reads)
+	Factions.apply_vein_income()         # ⑤e faction vein-derived income (faction-resource-economy T03), runs right after ⑤d — after ⑤c so a same-tick-claimed vein reuses ⑤c's claimedOnDay skip
+	Factions.apply_security_upgrades()   # ⑤f faction security-upgrade spend (faction-resource-economy T04), runs right after ⑤e so a tick's vein income is already banked and spendable the same day it's earned
+	Factions.apply_rivalry_resolution()  # ⑤g faction-territory-rivalry attempt roll + resolution (faction-territory-rivalry T04), runs right after ⑤f so a tick's income/spend is already settled before any vein changes hands
+	Raiding.apply_raid_resolution()      # ⑤h Direction-B raid attempt roll + resolution (vein-raiding T06), runs right after ⑤g
 	Rooms.process_lab()                  # ⑥ rooms (lab, then veinStation)
 	Rooms.process_vein_station()
 	Devices.reset_daily_charges()        # ⑦ device charge reset

@@ -443,8 +443,8 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 #     (begin_raid() requires vein["siteId"]).
 #   - pushes a Notify, unlike Chunk 6's silent rivalry resolution -- per
 #     the PRD, background world-state changes to the player's own stuff
-#     are surfaced, the same convention Sites.roll_npc_claims()/
-#     roll_npc_abandonment() already use for other background changes.
+#     are surfaced, the same convention Sites.roll_npc_claims() already
+#     uses for other background changes.
 #   - queues a map-animations-ticket-02-shaped "seed_claim" event (map-
 #     visibility-for-direction-b-vein-losses T08), referencing the vein's
 #     district/id and the attacker as owner -- same reuse Direction A's

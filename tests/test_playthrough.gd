@@ -11,11 +11,13 @@ extends "res://tests/test_base.gd"
 # prospect -> seed -> cultivate -> harvest -> sell via systems/sites.gd,
 # across >=3 districts, gated behind the same archie_cultivation tutorial
 # beat real play routes through — plus a 20-seed soak proving siteCap/
-# NPC-claim/NPC-abandonment (adr/0002) never permanently locks a district
-# out of prospecting and that district-deck draws (D5) resolve, choice
-# cards and all, without crashing. Formula-level coverage for all of that
-# stays in test_sites.gd/test_district_deck.gd/test_district_events.gd —
-# this file is integration-level only.
+# NPC-claim (adr/0002) plus faction-vein growth-collapse (bugfixes-40
+# removed the old separate NPC-abandonment roll; adr/0004) never
+# permanently locks a district out of prospecting and that district-deck
+# draws (D5) resolve, choice cards and all, without crashing.
+# Formula-level coverage for all of that stays in
+# test_sites.gd/test_district_deck.gd/test_district_events.gd — this file
+# is integration-level only.
 
 
 static func _find_seed_for(max_tries: int, fn: Callable) -> int:
@@ -34,7 +36,7 @@ static func _find_seed_for(max_tries: int, fn: Callable) -> int:
 static func _make_site(id: String, district: String, tier: String, claimed: bool, faction_claimed: bool, faction_claimed_day: int = 1) -> Dictionary:
 	var faction_vein: Variant = null
 	if faction_claimed:
-		faction_vein = { "id": "fv_" + id, "factionId": "collective", "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": faction_claimed_day }
+		faction_vein = { "id": "fv_" + id, "factionId": "collective", "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": faction_claimed_day, "siteId": id, "hospitability": { "tier": "fair", "bonuses": [] } }
 	return {
 		"id": id, "district": district, "tier": tier, "oreType": "time",
 		"bonuses": [], "discoveredDay": 1, "claimed": claimed, "factionVein": faction_vein,
@@ -334,8 +336,9 @@ func run() -> void:
 		# cultivate/prune) should drift down through the left-hand bands,
 		# bottom out at growth 0, and eventually be removed by the collapse
 		# roll (Cultivating.collapse_vein, spec §2.5) -- reverting its site to
-		# unclaimed rather than deleting it (distinct from NPC-abandonment's
-		# delete, adr/0002) and leaving that site genuinely seedable again.
+		# unclaimed rather than deleting it outright the way a faction vein's
+		# own collapse does (same roll, branches by owner) -- leaving that
+		# site genuinely seedable again.
 		# Drives this through Cultivating.drift_veins() directly rather than
 		# TimeSystem.daily_tick(): daily_tick's own NPC-claim roll (step ⑤b)
 		# runs immediately after drift/collapse (step ④) within the same
@@ -410,7 +413,7 @@ func run() -> void:
 
 		var reverted_site: Variant = Sites.find_site(neglect_site_id)
 		assert_true(reverted_site != null, "neglect arm: the site itself survives removal -- it reverts, it isn't deleted")
-		assert_eq(reverted_site["claimed"], false, "neglect arm: the site should revert to unclaimed on removal, distinct from NPC-abandonment's delete")
+		assert_eq(reverted_site["claimed"], false, "neglect arm: the site should revert to unclaimed on removal (a faction vein's collapse deletes its site outright instead)")
 
 		var reseed_seed := _find_seed_for(500, func():
 			return Sites.attempt_seed(neglect_site_id).get("success", false)
@@ -420,12 +423,14 @@ func run() -> void:
 		_assert_invariants("neglect: post-reseed")
 	)
 
-	# M1-LONDON-T08 (ticket 11), M1 exit criterion 4: siteCap + NPC-claim/
-	# NPC-abandonment (D2, adr/0002) never permanently lock a district out of
-	# prospecting, and district-deck draws (D5) — real content, not synthetic
-	# test entries — resolve without crashing, across 20 seeds. The curve
-	# math itself (probabilities, caps, floors) is test_sites.gd's job; this
-	# is the integration proof that the whole loop holds up under repetition.
+	# M1-LONDON-T08 (ticket 11), M1 exit criterion 4: siteCap + NPC-claim
+	# (D2, adr/0002) plus faction-vein growth-collapse (bugfixes-40/adr/0004
+	# — the death path that replaced NPC-abandonment) never permanently lock
+	# a district out of prospecting, and district-deck draws (D5) — real
+	# content, not synthetic test entries — resolve without crashing, across
+	# 20 seeds. The curve math itself (probabilities, caps, floors) is
+	# test_sites.gd's job; this is the integration proof that the whole loop
+	# holds up under repetition.
 	run_case("m1_20_seed_soak_no_permanent_district_lockout_and_event_draws_dont_crash", func():
 		var districts: Array[String] = ["greenwich", "camden", "hampstead", "battersea"]
 		var events_driven := 0
@@ -441,6 +446,10 @@ func run() -> void:
 			# district-deck draw also gets exercised): one permanent player-
 			# claim plus every remaining siteCap slot NPC-claimed, so the
 			# district starts fully maxed-out and locked to fresh prospecting.
+			# Freeing a slot now drives entirely through Cultivating.
+			# drift_veins() (step ④'s growth-collapse roll, same path a player
+			# vein uses) since bugfixes-40 removed the separate NPC-
+			# abandonment roll this soak used to drive through directly.
 			var site_cap: int = GameData.DISTRICTS[district_id]["siteCap"]
 			var sites: Array = [_make_site("soak_player_claimed", district_id, "fair", true, false)]
 			for i in range(site_cap - 1):
@@ -451,14 +460,14 @@ func run() -> void:
 			var ever_freed := false
 			for day in range(2, 150):
 				GameState.state["world"]["day"] = day
+				Cultivating.drift_veins()
 				Sites.roll_npc_claims()
-				Sites.roll_npc_abandonment()
 				var count: int = Sites.sites_in_district(district_id).size()
 				assert_true(count <= site_cap, "seed %d, %s: siteCap must never be exceeded (day %d)" % [seed, district_id, day])
 				assert_true(Sites.find_site("soak_player_claimed") != null, "seed %d, %s: the player-claimed slot is permanent (day %d)" % [seed, district_id, day])
 				if count < site_cap:
 					ever_freed = true
-			assert_true(ever_freed, "seed %d, %s: NPC abandonment should free a slot within the simulated window" % [seed, district_id])
+			assert_true(ever_freed, "seed %d, %s: faction-vein growth-collapse should free a slot within the simulated window" % [seed, district_id])
 			_assert_invariants("seed %d, %s: post-aging" % [seed, district_id])
 
 			# The freed slot(s) should let prospecting create genuinely new

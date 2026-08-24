@@ -406,7 +406,53 @@ func run() -> void:
 			return GameState.state["world"]["sites"].is_empty()
 		)
 		assert_true(seed != -1, "should find a collapse hit within 200 tries")
-		assert_eq(GameState.state["world"]["sites"], [], "the site (and its faction vein) is deleted outright, matching NPC abandonment")
+		assert_eq(GameState.state["world"]["sites"], [], "the site (and its faction vein) is deleted outright")
+	)
+
+	# bugfixes-40: NPC-abandonment (adr/0002's independent daily kill roll
+	# for faction-claimed sites, stacked on top of this same collapse roll)
+	# is gone -- a faction vein now has exactly one way to die. Part 1 is
+	# fully deterministic (no RNG at all): collapse_vein() only ever rolls
+	# once growth==0, and drift/band math is pure, so a fresh NPC claim
+	# (seedGrowth 20, below neutral) decays on a fixed schedule -- no
+	# independent roll can cut that walk short anymore.
+	run_case("faction_vein_survives_the_full_deterministic_decay_to_zero_with_no_independent_death_roll", func():
+		GameState.reset()
+		var vein := _vein(20)
+		vein["factionId"] = "collective"
+		GameState.state["world"]["sites"] = [{
+			"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
+			"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
+			"hasNaturalVein": false,
+		}]
+		# 20 -> 18 -> 16 -> 14 -> 11 -> 8 -> 5 -> 2: seven ticks, still > 0.
+		for day in range(7):
+			Cultivating.drift_veins()
+			assert_eq(GameState.state["world"]["sites"].size(), 1, "day %d: vein should survive while growth is still above 0" % day)
+			assert_true(GameState.state["world"]["sites"][0]["factionVein"]["growth"] > 0, "day %d: growth still positive" % day)
+		Cultivating.drift_veins()  # day 8: 2 - 3 clamps to exactly 0
+		assert_eq(GameState.state["world"]["sites"][0]["factionVein"]["growth"], 0, "growth should have decayed to exactly 0 via drift alone, on schedule")
+	)
+
+	# Part 2: once pinned at 0, it still dies -- via the one death path left
+	# (collapseChancePerDay, the same roll a player vein's site faces).
+	run_case("faction_vein_pinned_at_zero_still_eventually_collapses_absent_abandonment", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			var vein := _vein(0)
+			vein["factionId"] = "collective"
+			GameState.state["world"]["sites"] = [{
+				"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
+				"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
+				"hasNaturalVein": false,
+			}]
+			for i in range(50):
+				Cultivating.drift_veins()
+				if GameState.state["world"]["sites"].is_empty():
+					return true
+			return false
+		)
+		assert_true(seed != -1, "a faction vein pinned at 0 should eventually collapse within 50 days")
 	)
 
 	# ── right wall: clamp (ticket 01) + self-seeding (ticket 02, spec §2.6) ─

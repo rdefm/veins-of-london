@@ -210,13 +210,15 @@ static func apply_passive_income() -> void:
 const VEIN_INCOME_DIVISOR := 15.0
 
 
-# Called from time_system.gd's daily_tick, step ⑤f (runs immediately after
-# ⑤e passive income). Ordering: running after ⑤c (abandonment) means a
-# vein abandoned this same tick is already gone from state.world.sites and
-# never earns income the tick it's lost. Reuses ⑤d's claimedOnDay >= day
-# skip so a vein claimed this same tick doesn't earn income before it's
-# had a full day to produce -- one consistent "brand-new today" exemption
-# shared with growth, not a second bespoke rule.
+# Called from time_system.gd's daily_tick, step ⑤e (runs immediately after
+# ⑤d passive income). Reuses ⑤c's claimedOnDay >= day skip so a vein
+# claimed this same tick doesn't earn income before it's had a full day to
+# produce -- one consistent "brand-new today" exemption shared with
+# growth, not a second bespoke rule. (Pre-bugfixes-40 this comment also
+# noted running after the old ⑤c NPC-abandonment step so an abandoned vein
+# wouldn't earn income the tick it was lost -- that step no longer exists;
+# a faction vein now only leaves state.world.sites via collapse_vein() at
+# step ④, well before this step runs.)
 static func apply_vein_income() -> void:
 	var day: int = GameState.state["world"]["day"]
 	for site in GameState.state["world"]["sites"]:
@@ -243,8 +245,8 @@ static func apply_vein_income() -> void:
 # veins at once. A faction with no eligible vein, or that can't afford
 # its cheapest eligible upgrade, is a no-op, not an error.
 #
-# Called from time_system.gd's daily_tick, step ⑤g (runs immediately
-# after ⑤f vein income), so a tick's vein income is already banked and
+# Called from time_system.gd's daily_tick, step ⑤f (runs immediately
+# after ⑤e vein income), so a tick's vein income is already banked and
 # spendable the same day it's earned.
 static func apply_security_upgrades() -> void:
 	for faction_id in GameState.state["factions"].keys():
@@ -473,8 +475,8 @@ static func roll_rivalry_odds(attempt: Dictionary) -> Dictionary:
 
 
 # ── faction-territory-rivalry T04: rivalry resolution + daily-tick wiring ──
-# Called from time_system.gd's daily_tick, step ⑤h (runs immediately after
-# ⑤g security upgrades -- the last step of the faction-economy chain, so a
+# Called from time_system.gd's daily_tick, step ⑤g (runs immediately after
+# ⑤f security upgrades -- the last step of the faction-economy chain, so a
 # rivalry's ownership change this tick sees the day's income/spend already
 # settled). Runs T02's roll_rivalry_attempts() to get this tick's batch of
 # attempts, scores + rolls each one through T03's roll_rivalry_odds(), and

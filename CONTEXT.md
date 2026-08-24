@@ -13,7 +13,7 @@ A site with `claimed == false AND factionVein == null`. Only unclaimed sites are
 _Avoid_: using "unclaimed" loosely to also mean faction-claimed — they are a distinct third state, not a variant of unclaimed.
 
 **Faction-claimed** (site state):
-A site a named faction (`collective`/`firm`/`guild`/`network`/`conclave`) has taken (`factionVein != null`, a real vein object); `claimed` stays `false`. Untouchable by the player in M1 — not seedable, not reroll-eligible. Can only leave this state via NPC abandonment (deleted outright, not reverted) or, in M2+, player reclaim-by-combat. Formerly an anonymous `npcClaimed` boolean with no identity or vein — retired by faction-vein-ownership T01 (`.scratch/faction-vein-ownership/`); every non-player claim now names a real faction end to end.
+A site a named faction (`collective`/`firm`/`guild`/`network`/`conclave`) has taken (`factionVein != null`, a real vein object); `claimed` stays `false`. Untouchable by the player in M1 — not seedable, not reroll-eligible. Can only leave this state via the faction vein's own growth-collapse-at-zero (deleted outright, not reverted — same roll a player vein's site faces, see `Cultivating.collapse_vein()`) or, in M2+, player reclaim-by-combat. (A separate independent daily-kill roll, NPC-abandonment, existed here until bugfixes-73/adr/0004 removed it — collapse-at-zero is now the only way in.) Formerly an anonymous `npcClaimed` boolean with no identity or vein — retired by faction-vein-ownership T01 (`.scratch/faction-vein-ownership/`); every non-player claim now names a real faction end to end.
 _Avoid_: "unclaimed" (see above), "NPC-claimed" (retired term), "lost" as a state name (it's a UI/flavour word, not the field name)
 
 **siteCap**:

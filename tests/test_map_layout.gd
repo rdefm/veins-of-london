@@ -187,10 +187,9 @@ func run() -> void:
 	)
 
 	run_case("assign_slots_stop_position_is_stable_when_an_earlier_site_is_removed", func():
-		# The routine, frequent trigger in real play: NPC abandonment, a
-		# prospect reroll, or a faction vein collapsing all delete a site
-		# from state.world.sites outright (systems/sites.gd's
-		# roll_npc_abandonment/_reroll_worst_unclaimed, systems/
+		# The routine, frequent trigger in real play: a prospect reroll or a
+		# faction vein collapsing both delete a site from state.world.sites
+		# outright (systems/sites.gd's _reroll_worst_unclaimed, systems/
 		# cultivating.gd's collapse_vein). Before the fix, deleting s1 would
 		# shift s3 from array position 2 down to 1, moving it onto s2's old
 		# slot on the very next render.

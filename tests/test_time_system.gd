@@ -145,31 +145,11 @@ func run() -> void:
 		assert_true(hit, "daily_tick should reach step 5b (Sites.roll_npc_claims) within 300 tries")
 	)
 
-	run_case("daily_tick_wires_in_npc_abandonment_step_right_after_claim_step", func():
-		var hit := false
-		for seed in range(300):
-			GameState.reset()
-			var site := {
-				"id": "s1", "district": "shoreditch", "tier": "rich", "oreType": "time",
-				"bonuses": [], "discoveredDay": 1, "claimed": false,
-				"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 1, "hospitability": { "tier": "fair", "bonuses": [] } },
-				"hasNaturalVein": false,
-			}
-			GameState.state["world"]["sites"] = [site]
-			GameState.state["world"]["day"] = 200
-			Rng.set_seed(seed)
-			TimeSystem.daily_tick()
-			if Sites.find_site("s1") == null:
-				hit = true
-				break
-		assert_true(hit, "daily_tick should reach step 5c (Sites.roll_npc_abandonment) within 300 tries")
-	)
-
 	# vein-growth-state ticket 01: faction-vein movement now happens at step
 	# ④ (Cultivating.drift_veins(), the same pass every vein drifts on), not
-	# step ⑤d — Sites.roll_faction_vein_growth() is a no-op placeholder
+	# step ⑤c — Sites.roll_faction_vein_growth() is a no-op placeholder
 	# until vein-growth-state ticket 04 lands its prune-back-at-85 body.
-	run_case("daily_tick_drifts_a_faction_vein_at_step_4_and_still_reaches_step_5d_without_crashing", func():
+	run_case("daily_tick_drifts_a_faction_vein_at_step_4_and_still_reaches_step_5c_without_crashing", func():
 		GameState.reset()
 		var site := {
 			"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
@@ -190,15 +170,22 @@ func run() -> void:
 		var before: int = GameState.state["factions"]["collective"]["resources"]
 		TimeSystem.daily_tick()
 		var after: int = GameState.state["factions"]["collective"]["resources"]
-		assert_true(after > before, "daily_tick should reach step 5e (Factions.apply_passive_income)")
+		assert_true(after > before, "daily_tick should reach step 5d (Factions.apply_passive_income)")
 	)
 
 	run_case("daily_tick_wires_in_faction_vein_income_step_right_after_passive_income_step", func():
 		GameState.reset()
+		# growth 70, not 100: below FACTION_PRUNE_BACK_THRESHOLD (85), so
+		# step ⑤c's prune-back roll never fires here -- this test doesn't
+		# seed Rng, so leaving growth at 100 (crossing that threshold) made
+		# the resulting value_tier, and therefore the income delta this test
+		# asserts on, depend on whatever Rng state happened to carry in from
+		# every earlier-run test in the suite. 70 still yields a solidly
+		# positive vein income (value_tier 4) with no such roll involved.
 		var site := {
 			"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "fate",
 			"bonuses": [], "discoveredDay": 1, "claimed": false,
-			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "fate", "growth": 100, "rampantDays": 0, "security": "none", "claimedOnDay": 1, "hospitability": { "tier": "fair", "bonuses": [] } },
+			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "fate", "growth": 70, "rampantDays": 0, "security": "none", "claimedOnDay": 1, "hospitability": { "tier": "fair", "bonuses": [] } },
 			"hasNaturalVein": false,
 		}
 		GameState.state["world"]["sites"] = [site]
@@ -209,7 +196,7 @@ func run() -> void:
 		var passive_only: int = 0
 		for industry in GameData.FACTIONS["collective"].get("industries", []):
 			passive_only += Factions.INDUSTRY_INCOME.get(industry, 0)
-		assert_true(after - before > passive_only, "daily_tick should reach step 5f (Factions.apply_vein_income) on top of passive income")
+		assert_true(after - before > passive_only, "daily_tick should reach step 5e (Factions.apply_vein_income) on top of passive income")
 	)
 
 	run_case("daily_tick_wires_in_faction_security_upgrade_step_right_after_vein_income_step", func():
@@ -224,13 +211,13 @@ func run() -> void:
 		GameState.state["world"]["day"] = 5
 		GameState.state["factions"]["collective"]["resources"] = 100000  # affordability guaranteed regardless of this tick's income
 		TimeSystem.daily_tick()
-		assert_eq(site["factionVein"]["security"], "basic", "daily_tick should reach step 5g (Factions.apply_security_upgrades) and upgrade the affordable eligible vein")
+		assert_eq(site["factionVein"]["security"], "basic", "daily_tick should reach step 5f (Factions.apply_security_upgrades) and upgrade the affordable eligible vein")
 	)
 
 	run_case("daily_tick_wires_in_rivalry_resolution_step_right_after_security_upgrade_step", func():
 		# A rich, unsecured collective-owned vein facing a well-resourced Firm
 		# (raiding industry, good odds) -- run many seeds and confirm daily_tick
-		# eventually reaches step 5h and flips ownership.
+		# eventually reaches step 5g and flips ownership.
 		var hit := false
 		for seed in range(500):
 			GameState.reset()
@@ -249,13 +236,13 @@ func run() -> void:
 			if Sites.find_site("s1")["factionVein"]["factionId"] == "firm":
 				hit = true
 				break
-		assert_true(hit, "daily_tick should reach step 5h (Factions.apply_rivalry_resolution) within 500 tries")
+		assert_true(hit, "daily_tick should reach step 5g (Factions.apply_rivalry_resolution) within 500 tries")
 	)
 
 	run_case("daily_tick_wires_in_direction_b_raid_resolution_step_right_after_rivalry_resolution_step", func():
 		# A hated, unsecured, rough-district player vein facing a faction it's
 		# burned relation with -- run many seeds and confirm daily_tick
-		# eventually reaches step 5i and flips the vein to that faction.
+		# eventually reaches step 5h and flips the vein to that faction.
 		var hit := false
 		for seed in range(500):
 			GameState.reset()
@@ -278,7 +265,7 @@ func run() -> void:
 			if site != null and site["factionVein"] != null and site["factionVein"]["factionId"] == "firm":
 				hit = true
 				break
-		assert_true(hit, "daily_tick should reach step 5i (Raiding.apply_raid_resolution) within 500 tries")
+		assert_true(hit, "daily_tick should reach step 5h (Raiding.apply_raid_resolution) within 500 tries")
 	)
 
 	# ── bugfixes-30: James job proactive daily offer + deadline expiry ──

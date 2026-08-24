@@ -147,8 +147,8 @@ func new_game_state() -> Dictionary:
 			# slotIndex the moment it's created and keeps it for life --
 			# MapLayout.assign_positions() keys off that stamped value rather
 			# than a stop's current position in state.world.sites, which is
-			# what let an unrelated site's removal (NPC abandonment, a
-			# prospect reroll, a faction vein collapsing) or insertion (a
+			# what let an unrelated site's removal (a prospect reroll, a
+			# faction vein collapsing) or insertion (a
 			# saturated site's natural-vein bonus landing) silently reflow
 			# every later stop's slot. Never decremented/reused on removal --
 			# the stopSlots siteCap+2 budget already accepted from

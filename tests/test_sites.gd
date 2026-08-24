@@ -20,13 +20,17 @@ static func _make_site(id: String, district: String, tier: String, discovered_da
 	return {
 		"id": id, "district": district, "tier": tier, "oreType": ore_type,
 		"bonuses": bonuses, "discoveredDay": discovered_day,
-		"claimed": claimed, "factionVein": _dummy_faction_vein() if faction_claimed else null,
+		"claimed": claimed, "factionVein": _dummy_faction_vein(id) if faction_claimed else null,
 		"hasNaturalVein": has_natural_vein,
 	}
 
 
-static func _dummy_faction_vein() -> Dictionary:
-	return { "id": "fv_dummy", "factionId": "collective", "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 1 }
+# siteId matches the owning site's id (real faction veins, via
+# Cultivating.make_vein(), always carry it) -- collapse_vein()'s faction
+# branch needs it to find and delete the right site, so a dummy vein
+# missing it would silently survive its own collapse roll forever.
+static func _dummy_faction_vein(site_id: String = "s1") -> Dictionary:
+	return { "id": "fv_dummy", "factionId": "collective", "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 1, "siteId": site_id, "hospitability": { "tier": "fair", "bonuses": [] } }
 
 
 static func _faction_vein(growth: int, claimed_on_day: int) -> Dictionary:
@@ -535,28 +539,18 @@ func run() -> void:
 		assert_eq(natural_bonuses, ["vigour", "wildCeiling", "yield"], "mutating the seeded vein's bonuses must not leak into the sibling natural vein")
 	)
 
-	# ── NPC claim / abandonment curves (adr/0002) ────────────────────
+	# ── NPC claim curve (adr/0002, retuned by bugfixes-73/adr/0004) ──
 
 	run_case("npc_claim_chance_tier_index_and_age_curve", func():
-		assert_almost_eq(Sites.npc_claim_chance("poor", 0), 0.03, 0.0001, "poor tierIndex 0, age 0: 0.03")
-		assert_almost_eq(Sites.npc_claim_chance("fair", 0), 0.05, 0.0001, "fair tierIndex 1: 0.03 + 0.02")
-		assert_almost_eq(Sites.npc_claim_chance("rich", 0), 0.07, 0.0001, "rich tierIndex 2: 0.03 + 0.04")
-		assert_almost_eq(Sites.npc_claim_chance("saturated", 0), 0.09, 0.0001, "saturated tierIndex 3: 0.03 + 0.06")
-		assert_almost_eq(Sites.npc_claim_chance("poor", 10), 0.13, 0.0001, "ageDays adds 0.01 each")
+		assert_almost_eq(Sites.npc_claim_chance("poor", 0), 0.02, 0.0001, "poor tierIndex 0, age 0: 0.02")
+		assert_almost_eq(Sites.npc_claim_chance("fair", 0), 0.03, 0.0001, "fair tierIndex 1: 0.02 + 0.01")
+		assert_almost_eq(Sites.npc_claim_chance("rich", 0), 0.04, 0.0001, "rich tierIndex 2: 0.02 + 0.02")
+		assert_almost_eq(Sites.npc_claim_chance("saturated", 0), 0.05, 0.0001, "saturated tierIndex 3: 0.02 + 0.03")
+		assert_almost_eq(Sites.npc_claim_chance("poor", 10), 0.07, 0.0001, "ageDays adds 0.005 each")
 	)
 
-	run_case("npc_claim_chance_caps_at_0_25", func():
-		assert_almost_eq(Sites.npc_claim_chance("saturated", 100), 0.25, 0.0001, "caps at 0.25 even at huge age")
-	)
-
-	run_case("npc_abandonment_chance_flat_across_tiers_and_age_curve", func():
-		assert_almost_eq(Sites.npc_abandonment_chance(0), 0.02, 0.0001, "age 0: 0.02")
-		assert_almost_eq(Sites.npc_abandonment_chance(5), 0.045, 0.0001, "age 5: 0.02 + 0.025")
-	)
-
-	run_case("npc_abandonment_chance_caps_at_0_08", func():
-		assert_almost_eq(Sites.npc_abandonment_chance(12), 0.08, 0.0001, "reaches cap at age 12")
-		assert_almost_eq(Sites.npc_abandonment_chance(100), 0.08, 0.0001, "caps at 0.08 even at huge age")
+	run_case("npc_claim_chance_caps_at_0_15", func():
+		assert_almost_eq(Sites.npc_claim_chance("saturated", 100), 0.15, 0.0001, "caps at 0.15 even at huge age")
 	)
 
 	run_case("roll_npc_claims_never_claims_a_barren_site", func():
@@ -619,36 +613,6 @@ func run() -> void:
 		assert_eq(queue[1]["owner"], vein["factionId"])
 	)
 
-	run_case("roll_npc_abandonment_ignores_unclaimed_and_player_claimed_sites", func():
-		for seed in range(30):
-			GameState.reset()
-			var unclaimed := _make_site("unclaimed", "shoreditch", "fair", 1)
-			var player_claimed := _make_site("player_claimed", "shoreditch", "fair", 1, true, false)
-			GameState.state["world"]["sites"] = [unclaimed, player_claimed]
-			GameState.state["world"]["day"] = 200
-			Rng.set_seed(seed)
-			Sites.roll_npc_abandonment()
-			assert_eq(GameState.state["world"]["sites"].size(), 2, "neither unclaimed nor player-claimed sites are ever abandoned (seed %d)" % seed)
-	)
-
-	run_case("roll_npc_abandonment_hit_deletes_the_site_and_its_faction_vein_outright_and_notifies", func():
-		var seed := _find_seed_for(500, func():
-			GameState.reset()
-			var site := _make_site("s1", "battersea", "rich", 1, false, true)
-			site["factionVein"]["claimedOnDay"] = 1
-			GameState.state["world"]["sites"] = [site]
-			GameState.state["world"]["day"] = 200
-			Sites.roll_npc_abandonment()
-			return Sites.find_site("s1") == null
-		)
-		assert_true(seed != -1, "should find an abandonment hit within 500 tries at high age")
-
-		assert_eq(GameState.state["world"]["sites"], [], "the site (and its embedded faction vein) is removed outright, not reverted to unclaimed")
-		var last: Dictionary = GameState.state["notifications"][-1]
-		assert_true(last["text"].contains("rich site in Battersea"), "notification names the tier and district")
-		assert_true(last["text"].contains("gone quiet"), "notification matches the D2 abandonment copy")
-	)
-
 	# ── faction vein daily growth (vein-growth-state ticket 01/04) ──────
 	# Faction-vein growth moves via Cultivating.drift_veins() (the same
 	# daily_tick step every vein drifts on — see test_time_system.gd).
@@ -667,14 +631,14 @@ func run() -> void:
 			assert_eq(Sites.find_site("s1")["factionVein"]["growth"], 84, "growth 84 is below the prune-back threshold — never pruned (seed %d)" % seed)
 	)
 
-	run_case("roll_faction_vein_growth_prunes_a_growth_85_plus_vein_back_to_55_when_it_fires", func():
+	run_case("roll_faction_vein_growth_prunes_a_growth_85_plus_vein_back_to_40_when_it_fires", func():
 		var seed := _find_seed_for(200, func():
 			GameState.reset()
 			var vein := _faction_vein(90, 1)
 			GameState.state["world"]["sites"] = [_site_with_faction_vein(vein)]
 			GameState.state["world"]["day"] = 5
 			Sites.roll_faction_vein_growth()
-			return Sites.find_site("s1")["factionVein"]["growth"] == 55
+			return Sites.find_site("s1")["factionVein"]["growth"] == 40
 		)
 		assert_true(seed != -1, "should find a prune-back hit within 200 tries at growth 90")
 	)
@@ -689,7 +653,7 @@ func run() -> void:
 			GameState.state["world"]["day"] = 5
 			Rng.set_seed(seed)
 			Sites.roll_faction_vein_growth()
-			if Sites.find_site("s1")["factionVein"]["growth"] == 55:
+			if Sites.find_site("s1")["factionVein"]["growth"] == 40:
 				hits += 1
 		var rate: float = float(hits) / trials
 		assert_true(rate > 0.30 and rate < 0.50, "prune-back should fire ~40%% of the time once growth>=85 (got %.2f over %d trials)" % [rate, trials])
@@ -709,8 +673,11 @@ func run() -> void:
 	# adr/0002's motivating scenario, verbatim: "a district could... end up
 	# permanently locked once its siteCap slots filled with a MIX of
 	# player- and NPC-claims" — the player-claimed slot is permanent and
-	# never reroll-eligible, so the only way out is NPC abandonment
-	# freeing the other slots.
+	# never reroll-eligible, so the only way out is a faction vein's own
+	# growth-collapse-at-zero roll freeing the other slots. Pre-bugfixes-40
+	# this drove through the (now-removed) NPC-abandonment step directly;
+	# it now drives through Cultivating.drift_veins() (step ④, the same
+	# collapse path a player vein uses), same as real play.
 	run_case("soak_mixed_player_and_npc_claims_never_permanently_lock_a_maxed_district", func():
 		GameState.reset()
 		var district_id := "camden"
@@ -728,15 +695,15 @@ func run() -> void:
 		var ever_freed := false
 		for day in range(2, 302):
 			GameState.state["world"]["day"] = day
+			Cultivating.drift_veins()
 			Sites.roll_npc_claims()
-			Sites.roll_npc_abandonment()
 			var count: int = Sites.sites_in_district(district_id).size()
 			assert_true(count <= site_cap, "siteCap must never be exceeded (day %d)" % day)
-			assert_true(Sites.find_site("player_claimed") != null, "the player-claimed slot is permanent — abandonment never touches it (day %d)" % day)
+			assert_true(Sites.find_site("player_claimed") != null, "the player-claimed slot is permanent — collapse never touches it (day %d)" % day)
 			if count < site_cap:
 				ever_freed = true
 
-		assert_true(ever_freed, "NPC abandonment should free the NPC-claimed slot(s) within 300 days, even with a permanently unfreeable player-claimed site also occupying siteCap")
+		assert_true(ever_freed, "faction-vein collapse should free the NPC-claim slot(s) within 300 days, even with a permanently unfreeable player-claimed site also occupying siteCap")
 
 		var count_before: int = Sites.sites_in_district(district_id).size()
 		var result := Sites.prospect(district_id)

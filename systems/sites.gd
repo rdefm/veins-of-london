@@ -14,6 +14,24 @@ extends RefCounted
 # excluded entirely by the caller — it is never claimed.
 const NPC_CLAIM_TIER_INDEX: Dictionary = { "poor": 0, "fair": 1, "rich": 2, "saturated": 3 }
 
+# bugfixes-73: retuned down from the original adr/0002 curve (base 0.03,
+# tier step 0.02, age step 0.01, cap 0.25) now that bugfixes-40 has removed
+# NPC-abandonment — the independent daily death roll that used to cut a
+# claimed vein's life short well before its growth ever finished decaying
+# to 0 (see collapse_vein()'s left-wall roll, the only death path left).
+# Removing that early-death pressure roughly doubles a freshly-claimed
+# vein's expected survival (~10 days -> ~14 days, by the drift math: seed-
+# growth 20 decays to 0 in a deterministic 8 daily-tick steps, then rolls
+# collapseChancePerDay (0.15) each day it sits there, expectation ~6.7
+# days). Halving the tier/age sensitivity and cutting the base/cap by
+# roughly a third keeps the claim rate roughly proportional to the new,
+# slower turnover instead of also compounding it — needs balance sign-off
+# once played, not derived from a hard target vein count.
+const NPC_CLAIM_BASE := 0.02
+const NPC_CLAIM_TIER_STEP := 0.01
+const NPC_CLAIM_AGE_STEP := 0.005
+const NPC_CLAIM_CAP := 0.15
+
 
 static func make_site_id() -> String:
 	return "s" + str(Time.get_ticks_usec()) + str(Rng.randi_range(1000, 999999))
@@ -376,15 +394,16 @@ static func attempt_seed(site_id: String) -> Dictionary:
 		return { "ok": true, "success": false, "siteId": site_id }
 
 
-# ── NPC site-claiming & abandonment (daily tick, D2 + adr/0002) ────────
+# ── NPC site-claiming (daily tick, D2 + adr/0002, retuned by bugfixes-73) ──
+# adr/0002's second death mechanic, NPC-abandonment (an independent daily
+# chance that deleted a faction-claimed site outright, stacked on top of
+# the growth-collapse-at-zero roll every vein already faces), was removed
+# by bugfixes-40 — see adr/0004. Faction veins now only die via
+# Cultivating.collapse_vein(), the same left-wall roll player veins use.
 
 static func npc_claim_chance(tier: String, age_days: int) -> float:
 	var tier_index: int = NPC_CLAIM_TIER_INDEX.get(tier, 0)
-	return clampf(0.03 + 0.02 * tier_index + 0.01 * age_days, 0.0, 0.25)
-
-
-static func npc_abandonment_chance(age_days_since_npc_claim: int) -> float:
-	return clampf(0.02 + 0.005 * age_days_since_npc_claim, 0.0, 0.08)
+	return clampf(NPC_CLAIM_BASE + NPC_CLAIM_TIER_STEP * tier_index + NPC_CLAIM_AGE_STEP * age_days, 0.0, NPC_CLAIM_CAP)
 
 
 # rival_prospector (M1-LONDON D5 #13): the district's best (highest-tier,
@@ -432,40 +451,33 @@ static func roll_npc_claims() -> void:
 			Notify.push("%s have moved onto the %s site in %s." % [faction_name, site["tier"], district_name], Notify.CATEGORY_WARNING)
 
 
-# Called from time_system.gd's daily_tick, step ⑤c (runs immediately after
-# ⑤b). Per adr/0002: on hit the site (and its faction vein, embedded on
-# it — nothing orphaned) is deleted outright, not reverted to unclaimed —
-# this frees a siteCap slot for a genuinely fresh prospect, and
-# deliberately rules out "wait out the good faction-claimed site".
-static func roll_npc_abandonment() -> void:
-	var day: int = GameState.state["world"]["day"]
-	var abandoned_ids: Array = []
-	for site in GameState.state["world"]["sites"]:
-		if site["factionVein"] == null:
-			continue
-		var age_days: int = day - site["factionVein"]["claimedOnDay"]
-		if Rng.chance(npc_abandonment_chance(age_days)):
-			abandoned_ids.append(site["id"])
-			var district_name: String = GameData.DISTRICTS[site["district"]]["name"]
-			Notify.push("Word is the outfit running the %s site in %s got sloppy. The plot's gone quiet — worth a fresh prospect." % [site["tier"], district_name])
-
-	if not abandoned_ids.is_empty():
-		var sites: Array = GameState.state["world"]["sites"]
-		GameState.state["world"]["sites"] = sites.filter(func(s): return not abandoned_ids.has(s["id"]))
-
-
 # ── faction vein daily growth (faction-vein-ownership T02, vein-growth-state T04) ──
 
-# Called from time_system.gd's daily_tick, step ⑤d (runs immediately after
-# ⑤c abandonment). Under the growth model (vein-growth-state spec §5),
+# Called from time_system.gd's daily_tick, step ⑤c (runs immediately after
+# ⑤b claims — bugfixes-40 removed the abandonment step that used to sit
+# between them). Under the growth model (vein-growth-state spec §5),
 # faction veins drift on the same daily_tick step ④ pass every other vein
 # does (Cultivating.drift_veins()), so this step no longer moves growth
 # itself — it only prunes back veins that drifted all the way to the
 # ceiling, off-screen (no ore granted to anyone): without this, every
 # faction vein on the map would park at the ceiling within a month.
+#
+# bugfixes-73: TARGET moved from 55 to 40. 55 sits inside the "dormant"
+# band (45-55, drift 0 — data/vein_growth.json), which was harmless while
+# NPC-abandonment gave every faction vein a second, independent way to
+# die; once that's removed (bugfixes-40), a vein reset to 55 would never
+# drift again (direction only flips at neutral, and dormant's own drift is
+# 0) — a de facto immortal vein, silently accumulating without bound over
+# a long game. 40 sits in "thinning" (30-44, drift 1 leftward), so a
+# prune-backed vein resumes its walk toward 0 and eventually rolls
+# collapse_vein()'s left-wall chance same as any other vein, closing the
+# loop that makes a steady state possible at all. THRESHOLD/CHANCE are
+# unrelated to that bug (they only gate how often a ceiling-parked vein
+# gets pruned at all) and are left as-is — needs balance sign-off once
+# played, not derived from a hard target vein count.
 const FACTION_PRUNE_BACK_THRESHOLD := 85
 const FACTION_PRUNE_BACK_CHANCE := 0.40
-const FACTION_PRUNE_BACK_TARGET := 55
+const FACTION_PRUNE_BACK_TARGET := 40
 
 
 static func roll_faction_vein_growth() -> void:

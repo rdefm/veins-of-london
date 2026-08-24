@@ -456,9 +456,11 @@ static func _queue_growth_events(vein: Dictionary, growth_before: int) -> void:
 # spec §2.5: a vein pinned at 0 rolls a COLLAPSE_CHANCE_PER_DAY chance each
 # tick it sits there (not just the tick it crosses down to 0) to be removed
 # for good. Branches by owner on landing: a player vein's site reverts to
-# unclaimed and is re-seedable; a faction vein's site is deleted outright,
-# matching NPC-abandonment semantics (M1-LONDON.md D2 ⑤c) rather than the
-# player's revert-to-unclaimed.
+# unclaimed and is re-seedable; a faction vein's site is deleted outright
+# instead. Since bugfixes-40 removed NPC-abandonment (adr/0002's separate,
+# independent daily kill roll for faction-claimed sites), this is now the
+# ONLY way a faction vein dies -- same left-wall roll a player vein faces,
+# no second roll stacked on top.
 static func collapse_vein(vein: Dictionary) -> void:
 	if vein["growth"] > 0:
 		return
