@@ -1,0 +1,13 @@
+{
+  "id": "col_a1_nadia_done",
+  "cards": [
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"Right. That's mine now.\" She counts out the money in a way that suggests she has counted out a great deal of money in her life. \"And that's three days a fortnight back.\"" },
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"You'll get offers, by the way. People who want to buy ground off you cheap because you're new. Don't take them. Ask me first, I'll tell you what it's worth, and I'll tell you straight even when I'm the one buying.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "You believe her, and you notice that you believe her, and you file that away." },
+    { "type": "resolution", "label": null, "speaker": null, "text": "You have sold a vein. There's more money in your account than there was and slightly less London that belongs to you, and it is not immediately obvious which of those is the good news." }
+  ],
+  "on_complete": [
+    { "op": "faction_relation", "faction": "collective", "value": 8 },
+    { "op": "set_flag", "flag": "colA1NadiaThreadDone", "value": true }
+  ]
+}

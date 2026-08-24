@@ -67,5 +67,9 @@ static func sell_to_faction(vein_id: String, faction_id: String) -> Dictionary:
 	RelationAccrual.accrue_faction(faction_id, price)
 
 	Objectives.refresh()  # collective1-05: boundary — vein sale completion
+	# collective1-12, spec §6.10: content-specific hook, same shape Sites.
+	# prospect() uses for Collective.maybe_trigger_weather_beat() -- this
+	# generic sale lane stays ignorant of which faction/objective it is.
+	Collective.maybe_trigger_nadia_vein_done()
 	EventBus.state_changed.emit()
 	return { "ok": true, "price": price, "factionId": faction_id }

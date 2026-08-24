@@ -73,3 +73,25 @@ static func maybe_trigger_weather_beat(new_site: Variant) -> bool:
 		return true
 
 	return false
+
+
+# collective1-12, spec §6.10: S10 (col_a1_nadia_done) fires automatically the
+# moment col_a1_nadia_vein's qualifying sale completes, not from an action
+# bar -- called from VeinTrade.sell_to_faction() after Objectives.refresh(),
+# same self-contained flags/objective inspection shape
+# maybe_trigger_weather_beat() above uses (the generic caller hands over no
+# state of its own to check). colA1NadiaThreadDone -- this event's own
+# on_complete flag -- is what stops it firing again on a later, unrelated
+# sale once col_a1_nadia_vein is complete: starting the event immediately
+# navigates off whatever screen could call sell_to_faction() again, so in
+# practice this can't re-enter before the player has played it through (or
+# abandoned it), and once they have, this guard is permanent.
+static func maybe_trigger_nadia_vein_done() -> bool:
+	if GameState.state["flags"].get("colA1NadiaThreadDone", false):
+		return false
+	var objective: Dictionary = GameState.state["objectives"].get("col_a1_nadia_vein", {})
+	if not objective.get("complete", false):
+		return false
+
+	Events.start_event("col_a1_nadia_done")
+	return true

@@ -25,5 +25,14 @@
     "params": { "factionId": "collective", "oreType": "emotion", "qty": 30, "minTransactions": 3 },
     "activateFlag": "colA1NadiaMet",
     "completeFlag": "colA1NadiaSupplied"
+  },
+  "col_a1_nadia_vein": {
+    "id": "col_a1_nadia_vein",
+    "title": "Sell Nadia an emotion vein",
+    "detail": "Seed one, grow it up a bit, then sell it to the Collective.",
+    "type": "vein_sold_to_faction",
+    "params": { "factionId": "collective", "oreType": "emotion" },
+    "activateFlag": "colA1NadiaAskSeen",
+    "completeFlag": "colA1NadiaVeinSold"
   }
 }

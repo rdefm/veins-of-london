@@ -330,6 +330,10 @@ func _build_action_bar(contact_id: String) -> Control:
 		var meet_action := ContactCards.build_nadia_meet_action()
 		if meet_action != null:
 			bar.add_child(meet_action)
+		# collective1-12, spec §6.9/§7.2: Nadia's "ask" story action, same slot.
+		var vein_ask_action := ContactCards.build_nadia_vein_ask_action()
+		if vein_ask_action != null:
+			bar.add_child(vein_ask_action)
 	for entry in Messages.pending_for(contact_id):
 		bar.add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
 	bar.add_child(ContactCards.build_trade_action(contact_id))

@@ -120,6 +120,20 @@ static func build_nadia_meet_action() -> Control:
 	return UI.button("Go and see Nadia", func(): Events.start_event("col_a1_nadia_meet"))
 
 
+# collective1-12, spec §6.9/§7.2: Nadia's "ask" story action -- same
+# "vanish, don't disable" shape build_des_report_action()/build_nadia_meet_
+# action() above use, but gated on colA1NadiaSupplied (col_a1_nadia_supply's
+# completeFlag) rather than a static unlock, and vanishes once colA1Nadia
+# AskSeen (this event's own on_complete flag) is set rather than a separate
+# thread-done flag -- S10 (col_a1_nadia_done) is what actually closes the
+# thread, and it fires automatically off the qualifying sale, not from here.
+static func build_nadia_vein_ask_action() -> Control:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA1NadiaSupplied", false) or flags.get("colA1NadiaAskSeen", false):
+		return null
+	return UI.button("Nadia has an idea", func(): Events.start_event("col_a1_nadia_vein"))
+
+
 static func build_recruit_row(contact_id: String) -> Control:
 	var c: Dictionary = GameState.state["contacts"][contact_id]
 	var display_name: String = Contacts.display_name(contact_id)

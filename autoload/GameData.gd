@@ -118,6 +118,16 @@ const EVENT_IDS: Array[String] = [
 	# button, ContactCards.build_nadia_meet_action(), not a pendingMessages
 	# entry), available from S4 (nadia unlocks at col_a1_hub) until played.
 	"col_a1_nadia_meet",
+	# collective1-12, spec.md §6.9: Nadia's ask -- seed her a vein instead of
+	# loose ore, delivered the same action-bar-button way as col_a1_des_report/
+	# col_a1_nadia_meet (ContactCards.build_nadia_vein_ask_action()), gated on
+	# colA1NadiaSupplied until played.
+	"col_a1_nadia_vein",
+	# collective1-12, spec.md §6.10: Nadia's thread resolution -- fires
+	# automatically from VeinTrade.sell_to_faction() completing the
+	# qualifying sale (systems/collective.gd's
+	# maybe_trigger_nadia_vein_done()), never from an action bar.
+	"col_a1_nadia_done",
 ]
 
 # M1-LONDON D5's district event deck roster. Loaded into the same EVENTS
