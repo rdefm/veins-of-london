@@ -16,5 +16,14 @@
     "params": { "veinIdStatePath": "collective.hakimVeinId", "threshold": 60 },
     "activateFlag": "colA1HubReached",
     "completeFlag": "colA1HakimRescued"
+  },
+  "col_a1_nadia_supply": {
+    "id": "col_a1_nadia_supply",
+    "title": "Fill Nadia's standing order",
+    "detail": "Thirty units of emotion calc, sold through the Collective, over at least three trades.",
+    "type": "traded_with_faction",
+    "params": { "factionId": "collective", "oreType": "emotion", "qty": 30, "minTransactions": 3 },
+    "activateFlag": "colA1NadiaMet",
+    "completeFlag": "colA1NadiaSupplied"
   }
 }

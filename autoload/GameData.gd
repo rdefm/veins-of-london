@@ -113,6 +113,11 @@ const EVENT_IDS: Array[String] = [
 	# colA1DesSitesFound flips silently off the objectives engine rather than
 	# an authored text arriving.
 	"col_a1_des_report",
+	# collective1-11, spec.md §6.8: Nadia's introduction -- "Go and see Nadia",
+	# delivered the same way as col_a1_des_report above (a real action-bar
+	# button, ContactCards.build_nadia_meet_action(), not a pendingMessages
+	# entry), available from S4 (nadia unlocks at col_a1_hub) until played.
+	"col_a1_nadia_meet",
 ]
 
 # M1-LONDON D5's district event deck roster. Loaded into the same EVENTS

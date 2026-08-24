@@ -105,6 +105,21 @@ static func build_des_report_action() -> Control:
 	return UI.button("Tell Des about the ground", func(): Events.start_event("col_a1_des_report"))
 
 
+# collective1-11, spec §6.8/§7.2: Nadia's own conditional action bar button
+# -- same "vanish once played" shape build_des_report_action() above uses,
+# but gated on colA1NadiaMet itself (the event's own on_complete flag)
+# rather than a separate objective-completion flag, since S8 has no
+# prerequisite objective of its own to wait on -- it's reachable the moment
+# Nadia unlocks (S4, col_a1_hub). colA1NadiaMet doubles as col_a1_nadia_
+# supply's activateFlag (data/objectives.json), the same one-flag-does-both
+# shape colA1DesThreadActive/colA1HubReached already use for the other two
+# S4 objectives.
+static func build_nadia_meet_action() -> Control:
+	if GameState.state["flags"].get("colA1NadiaMet", false):
+		return null
+	return UI.button("Go and see Nadia", func(): Events.start_event("col_a1_nadia_meet"))
+
+
 static func build_recruit_row(contact_id: String) -> Control:
 	var c: Dictionary = GameState.state["contacts"][contact_id]
 	var display_name: String = Contacts.display_name(contact_id)
