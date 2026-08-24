@@ -256,6 +256,11 @@ static func _apply_one(effect: Dictionary) -> void:
 		# state, so Events.rewind() restores it like anything else.
 		"log_method":
 			GameState.state["methodLog"][effect["key"]] = effect["value"]
+		# collective1-10, spec §6.7/§10.3: S7's on_complete -- seeds a
+		# named faction the two sites recorded on the named objective's
+		# progress (see Objectives._eval_sites_discovered_matching()).
+		"faction_seed_reported_sites":
+			_faction_seed_reported_sites(effect["objective"], effect["faction"])
 
 
 # Generic path+value combine: adds when both the existing value and the
@@ -421,3 +426,22 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 
 	var vein: Dictionary = site["factionVein"]
 	Combat.start_raid(vein["id"], Cultivating.value_tier(vein), effect.get("guards", 1), effect.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect))
+
+
+# collective1-10, spec §6.7/§10.3: seeds `faction_id` a faction vein on each
+# site recorded in `objective_id`'s progress["matchedSiteIds"] (Objectives.
+# _eval_sites_discovered_matching() stamps those in the moment the objective
+# completes, and never touches them again), via Sites.seed_faction_vein() --
+# the same instant-vein shape Sites.npc_claim_best_unclaimed_site() uses for
+# an NPC claim. A site that's since been claimed (player or another faction)
+# between the objective completing and the player tapping "Tell Des about
+# the ground" is silently skipped rather than overwritten -- same defensive
+# shape _stealth_check()/_start_raid_combat() use for a stale site_id.
+static func _faction_seed_reported_sites(objective_id: String, faction_id: String) -> void:
+	var progress: Dictionary = GameState.state["objectives"][objective_id]["progress"]
+	var matched: Dictionary = progress.get("matchedSiteIds", {})
+	for site_id in matched.values():
+		var site: Variant = Sites.find_site(site_id)
+		if site == null or site["claimed"] or site["factionVein"] != null:
+			continue
+		Sites.seed_faction_vein(site, faction_id)

@@ -91,6 +91,20 @@ static func build_trade_action(contact_id: String) -> Control:
 	return UI.button("🤝 Trade", func(): Modal.open("sell_menu", { "factionId": "collective", "contactId": contact_id }))
 
 
+# collective1-10, spec §6.7/§7.2: Des's own conditional action bar button --
+# distinct from the generic pendingMessages "Continue →" loop
+# (phone.gd's _build_action_bar) because colA1DesSitesFound flips silently
+# off the objectives engine (Objectives.refresh(), called at Sites.prospect())
+# rather than an authored text arriving, so there's no pendingMessages entry
+# to hang a button off. Returns null once colA1DesThreadDone is set, same
+# "vanish, don't disable" shape build_recruit_row() uses below.
+static func build_des_report_action() -> Control:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA1DesSitesFound", false) or flags.get("colA1DesThreadDone", false):
+		return null
+	return UI.button("Tell Des about the ground", func(): Events.start_event("col_a1_des_report"))
+
+
 static func build_recruit_row(contact_id: String) -> Control:
 	var c: Dictionary = GameState.state["contacts"][contact_id]
 	var display_name: String = Contacts.display_name(contact_id)

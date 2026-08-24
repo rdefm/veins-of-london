@@ -315,9 +315,18 @@ func _reveal_remaining(box: VBoxContainer, thread: Array, start_index: int) -> v
 # site_id.
 func _build_action_bar(contact_id: String) -> Control:
 	var bar := UI.vbox(8)
-	bar.add_child(ContactCards.build_trade_action(contact_id))
+	# collective1-10, spec §7.2: "Story actions (conditional)" are listed
+	# ahead of "Standing actions" in the contact action-bar order -- Des's
+	# own flag-gated "Tell Des about the ground" button and the generic
+	# pendingMessages continues (S4's delivery road) are both story actions,
+	# so both come before Trade below.
+	if contact_id == "des":
+		var report_action := ContactCards.build_des_report_action()
+		if report_action != null:
+			bar.add_child(report_action)
 	for entry in Messages.pending_for(contact_id):
 		bar.add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
+	bar.add_child(ContactCards.build_trade_action(contact_id))
 	return bar
 
 

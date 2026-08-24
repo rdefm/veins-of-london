@@ -418,6 +418,19 @@ static func best_unclaimed_site(district_id: String) -> Variant:
 	return sorted[0] if not sorted.is_empty() else null
 
 
+# collective1-10: the "instant faction vein" shape shared by NPC claiming
+# (npc_claim_best_unclaimed_site/roll_npc_claims below) and col_a1_des_
+# report's on_complete (systems/events.gd's _faction_seed_reported_sites) --
+# create the vein at seedGrowth, attach it to the site, queue its seed_claim
+# + join_line map events. Callers own the "should this site even get a
+# vein" gating (unclaimed check, faction pick, etc.); this just does the
+# seed itself.
+static func seed_faction_vein(site: Dictionary, faction_id: String) -> void:
+	site["factionVein"] = Factions.create_faction_vein(faction_id, site, GameData.VEIN_GROWTH["seedGrowth"])
+	MapEvents.queue_seed_claim(site["district"], site["factionVein"]["id"], faction_id)
+	MapEvents.queue_join_line(site["district"], site["factionVein"]["id"], faction_id)
+
+
 # rival_prospector's "refuse to pay" outcome: faction-claims the district's
 # best unclaimed site outright, instant vein and all (no roll on WHETHER it
 # happens — this is a deterministic consequence, not the daily-tick's
@@ -429,9 +442,7 @@ static func npc_claim_best_unclaimed_site(district_id: String) -> void:
 	if site == null:
 		return
 	var faction_id := Factions.pick_claimant(district_id)
-	site["factionVein"] = Factions.create_faction_vein(faction_id, site, GameData.VEIN_GROWTH["seedGrowth"])
-	MapEvents.queue_seed_claim(district_id, site["factionVein"]["id"], faction_id)
-	MapEvents.queue_join_line(district_id, site["factionVein"]["id"], faction_id)
+	seed_faction_vein(site, faction_id)
 
 
 # Called from time_system.gd's daily_tick, step ⑤b. Each unclaimed,
@@ -448,9 +459,7 @@ static func roll_npc_claims() -> void:
 		var age_days: int = day - site["discoveredDay"]
 		if Rng.chance(npc_claim_chance(site["tier"], age_days)):
 			var faction_id := Factions.pick_claimant(site["district"])
-			site["factionVein"] = Factions.create_faction_vein(faction_id, site, GameData.VEIN_GROWTH["seedGrowth"])
-			MapEvents.queue_seed_claim(site["district"], site["factionVein"]["id"], faction_id)
-			MapEvents.queue_join_line(site["district"], site["factionVein"]["id"], faction_id)
+			seed_faction_vein(site, faction_id)
 			var district_name: String = GameData.DISTRICTS[site["district"]]["name"]
 			var faction_name: String = GameData.FACTIONS[faction_id]["shortName"]
 			Notify.push("%s have moved onto the %s site in %s." % [faction_name, site["tier"], district_name], Notify.CATEGORY_WARNING)

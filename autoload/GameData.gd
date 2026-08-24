@@ -107,6 +107,12 @@ const EVENT_IDS: Array[String] = [
 	# systems/collective.gd's maybe_trigger_weather_beat()), not part of any
 	# district's weighted event deck, hence EVENT_IDS not DISTRICT_EVENT_IDS.
 	"col_a1_firm_skirmish", "col_a1_firm_intimidation",
+	# collective1-10, spec.md §6.7: Des's thread resolution -- "Tell Des about
+	# the ground", delivered as a real action-bar button (ContactCards.
+	# build_des_report_action()), not a pendingMessages entry, since
+	# colA1DesSitesFound flips silently off the objectives engine rather than
+	# an authored text arriving.
+	"col_a1_des_report",
 ]
 
 # M1-LONDON D5's district event deck roster. Loaded into the same EVENTS
@@ -667,6 +673,10 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# collective1-09 op (systems/events.gd): log_method writes
 	# state.methodLog[key] = value (spec §5.7/§10.3) -- S6's choice card.
 	"log_method",
+	# collective1-10 op (systems/events.gd): faction_seed_reported_sites
+	# seeds a faction vein on each site recorded in a named objective's
+	# progress (spec §6.7/§10.3) -- S7's on_complete.
+	"faction_seed_reported_sites",
 ]
 
 

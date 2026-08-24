@@ -1,0 +1,124 @@
+extends "res://tests/test_base.gd"
+
+# collective1-10, spec.md §6.7/§6.14/§10.3: S7 (col_a1_des_report), Des's
+# thread resolution. Drives the real event JSON card-by-card, same idiom
+# tests/test_col_a1_tuition.gd uses for S1-S4, plus the action-bar button
+# (ContactCards.build_des_report_action(), wired into phone.gd's
+# _build_action_bar) that's this scene's non-pendingMessages delivery.
+
+
+func _play_event(event_id: String) -> void:
+	Events.start_event(event_id)
+	for i in range(GameData.EVENTS[event_id]["cards"].size()):
+		Events.advance()
+
+
+func _site(id: String, ore_type: String, tier: String) -> Dictionary:
+	return {
+		"id": id, "district": "shoreditch", "tier": tier, "oreType": ore_type,
+		"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
+		"hasNaturalVein": false,
+	}
+
+
+# Puts col_a1_des_sites through Phase-2 setup and completion: activates it
+# via its own activateFlag, plants a matching fate + physics site, then
+# refreshes so Objectives stamps colA1DesSitesFound and the matched site ids.
+func _complete_des_sites_objective() -> void:
+	GameState.state["flags"]["colA1DesThreadActive"] = true
+	GameState.state["world"]["sites"].append(_site("s_fate", "fate", "fair"))
+	GameState.state["world"]["sites"].append(_site("s_physics", "physics", "fair"))
+	Objectives.refresh()
+
+
+func run() -> void:
+	# ── delivery: the action-bar button, not a pendingMessages entry ───────
+
+	run_case("build_des_report_action_is_null_before_colA1DesSitesFound", func():
+		GameState.reset()
+		assert_true(ContactCards.build_des_report_action() == null)
+	)
+
+	run_case("build_des_report_action_surfaces_once_colA1DesSitesFound_and_starts_the_event", func():
+		GameState.reset()
+		_complete_des_sites_objective()
+		assert_true(GameState.state["flags"]["colA1DesSitesFound"], "objective completion should set the flag")
+
+		var b := ContactCards.build_des_report_action() as Button
+		assert_true(b != null)
+		assert_eq(b.text, "Tell Des about the ground")
+
+		b.pressed.emit()
+		assert_eq(GameState.state["event"]["eventId"], "col_a1_des_report")
+	)
+
+	run_case("build_des_report_action_is_null_again_once_colA1DesThreadDone", func():
+		GameState.reset()
+		_complete_des_sites_objective()
+		GameState.state["flags"]["colA1DesThreadDone"] = true
+		assert_true(ContactCards.build_des_report_action() == null)
+	)
+
+	# ── §6.14: the "ages ago" line sits between cards 2 and 3, nowhere else ──
+
+	run_case("ages_ago_line_is_inserted_between_cards_2_and_3_and_said_by_des", func():
+		var cards: Array = GameData.EVENTS["col_a1_des_report"]["cards"]
+		assert_eq(cards[1]["speaker"], "Des", "card 2: the fate/physics line")
+		assert_true(cards[2]["text"].contains("ages ago"), "card 3 (inserted): the ages-ago line")
+		assert_eq(cards[2]["speaker"], "Des")
+		assert_eq(cards[3]["type"], "narration", "card 4: 'you ask who', unchanged position relative to the insertion")
+		assert_true(not cards[3]["text"].contains("ages ago"))
+	)
+
+	# ── §14.3: card 4 ("nobody's ever raided...") reads as a paperwork joke ──
+
+	run_case("card_4_is_the_nobody_s_ever_raided_line", func():
+		var cards: Array = GameData.EVENTS["col_a1_des_report"]["cards"]
+		assert_true(cards[4]["text"].contains("Nobody's ever raided a vein they didn't know about"))
+	)
+
+	# ── on_complete: faction_seed_reported_sites + relation + thread flag ──
+
+	run_case("on_complete_seeds_collective_veins_on_both_reported_sites", func():
+		GameState.reset()
+		_complete_des_sites_objective()
+		var matched: Dictionary = GameState.state["objectives"]["col_a1_des_sites"]["progress"]["matchedSiteIds"]
+		assert_eq(matched, { "fate": "s_fate", "physics": "s_physics" })
+
+		_play_event("col_a1_des_report")
+
+		var fate_site: Dictionary = Sites.find_site("s_fate")
+		var physics_site: Dictionary = Sites.find_site("s_physics")
+		assert_true(fate_site["factionVein"] != null, "fate site should now carry a faction vein")
+		assert_true(physics_site["factionVein"] != null, "physics site should now carry a faction vein")
+		assert_eq(fate_site["factionVein"]["factionId"], "collective")
+		assert_eq(physics_site["factionVein"]["factionId"], "collective")
+		assert_eq(fate_site["factionVein"]["growth"], GameData.VEIN_GROWTH["seedGrowth"])
+		assert_eq(physics_site["factionVein"]["growth"], GameData.VEIN_GROWTH["seedGrowth"])
+
+		var vein_ids: Array = [fate_site["factionVein"]["id"], physics_site["factionVein"]["id"]]
+		assert_eq(MapEvents.pending_vein_ids(), vein_ids, "both seeds queue their seed_claim map event")
+		assert_eq(MapEvents.pending_join_line_vein_ids(), vein_ids, "both also queue their join_line map event")
+	)
+
+	run_case("on_complete_awards_8_collective_relation_and_sets_the_thread_done_flag", func():
+		GameState.reset()
+		_complete_des_sites_objective()
+		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
+
+		_play_event("col_a1_des_report")
+
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 8)
+		assert_true(GameState.state["flags"]["colA1DesThreadDone"])
+	)
+
+	run_case("on_complete_skips_a_reported_site_that_has_since_been_claimed", func():
+		GameState.reset()
+		_complete_des_sites_objective()
+		Sites.find_site("s_fate")["claimed"] = true
+
+		_play_event("col_a1_des_report")
+
+		assert_eq(Sites.find_site("s_fate")["factionVein"], null, "already-claimed site is left alone, not overwritten")
+		assert_true(Sites.find_site("s_physics")["factionVein"] != null, "the other reported site still gets seeded")
+	)

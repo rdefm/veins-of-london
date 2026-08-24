@@ -62,7 +62,7 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 	var params: Dictionary = def.get("params", {})
 	match def["type"]:
 		TYPE_SITES_DISCOVERED_MATCHING:
-			return _eval_sites_discovered_matching(params)
+			return _eval_sites_discovered_matching(params, progress)
 		TYPE_TRADED_WITH_FACTION:
 			return _eval_traded_with_faction(params, progress)
 		TYPE_VEIN_SOLD_TO_FACTION:
@@ -77,17 +77,29 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 # named ore type, at least one site in state.world.sites at or above minTier
 # (sites.json's tierOrder), and, if unclaimed, neither player-claimed nor
 # faction-owned.
-static func _eval_sites_discovered_matching(params: Dictionary) -> bool:
+#
+# collective1-10, spec §6.7/§10.3: also stamps the matched site ids into
+# progress["matchedSiteIds"] (ore_type -> site_id) the moment every required
+# type has a match -- only written on the call that returns true, and a
+# complete objective is never re-evaluated (see _refresh_one's guard), so
+# this freezes at exactly "the sites that satisfied the objective", for
+# col_a1_des_report's faction_seed_reported_sites op to seed later even if
+# the player prospects or claims more ground in between.
+static func _eval_sites_discovered_matching(params: Dictionary, progress: Dictionary) -> bool:
 	var require_each: Array = params.get("requireEachOreType", [])
+	var matched: Dictionary = {}
 
 	for ore_type in require_each:
-		var found := false
+		var found_id: Variant = null
 		for site in GameState.state["world"]["sites"]:
 			if site_matches_discovery_params(site, ore_type, params):
-				found = true
+				found_id = site["id"]
 				break
-		if not found:
+		if found_id == null:
 			return false
+		matched[ore_type] = found_id
+
+	progress["matchedSiteIds"] = matched
 	return true
 
 

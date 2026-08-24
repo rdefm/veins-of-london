@@ -139,6 +139,30 @@ func run() -> void:
 		GameData.OBJECTIVES = original
 	)
 
+	# collective1-10, spec §6.7/§10.3: the matched site ids get stamped into
+	# progress the moment the objective completes, for col_a1_des_report's
+	# faction_seed_reported_sites op to read back later.
+	run_case("sites_discovered_matching_stamps_matched_site_ids_into_progress_on_completion", func():
+		GameState.reset()
+		var original := _install_objectives({
+			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": ["fate", "physics"], "minTier": "fair", "unclaimed": true }),
+		})
+		GameState.state["flags"]["testActive"] = true
+
+		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["progress"].get("matchedSiteIds", {}), {}, "not yet complete -- nothing stamped")
+
+		GameState.state["world"]["sites"].append(_site("s2", "physics", "rich"))
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["progress"]["matchedSiteIds"], { "fate": "s1", "physics": "s2" }, "the matching site id per required ore type")
+
+		GameState.state["world"]["sites"].append(_site("s3", "fate", "rich"))
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["progress"]["matchedSiteIds"], { "fate": "s1", "physics": "s2" }, "already complete -- frozen, not re-evaluated against s3")
+		GameData.OBJECTIVES = original
+	)
+
 	# ── traded_with_faction ──────────────────────────────────────────────
 
 	run_case("traded_with_faction_requires_both_cumulative_units_and_distinct_transaction_count", func():
