@@ -445,6 +445,14 @@ Two consequences:
   there is a good design in either direction, and the flagship feature interacting
   with the game's moral ledger is a feature, not a bug.
 
+**Resolved by `.scratch/collective-act1/spec.md` §5.7 (collective1-09):** Rewind
+erases the log. It is ordinary state (`state.methodLog`), restored by
+`Events.rewind()` like everything else — Rewind is a consumable with a price tag
+and a crafting cost, and a ledger that kept the receipt anyway would betray a
+mechanic the player paid for. In fiction the world genuinely reset, nobody else
+saw it, and nothing happened. A neutral counter of rewinds used at choice points
+remains deferred, not decided, for Arc 2.
+
 ---
 
 ## 9. Open questions

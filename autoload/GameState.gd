@@ -188,6 +188,12 @@ func new_game_state() -> Dictionary:
 		# action-bar button is tapped.
 		"messages": {},
 		"pendingMessages": [],
+		# collective1-09, spec §5.7: a flat dict of pure-data counters --
+		# Act 1 writes exactly one key (methodLog.firmFirstContact, S6's
+		# choice card). Ordinary state: Events.rewind() restores it like
+		# anything else, which is the deliberate decision closing
+		# plans/COLLECTIVE-QUESTLINE.md §8.3 -- Rewind erases the log.
+		"methodLog": {},
 
 		"contacts": _new_contacts_state(),
 

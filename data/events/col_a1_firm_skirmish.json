@@ -1,0 +1,12 @@
+{
+  "id": "col_a1_firm_skirmish",
+  "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "You come round the corner into the end of something. Four people, one of them on the floor, and the specific quiet that happens after shouting rather than before it." },
+    { "type": "narration", "label": null, "speaker": null, "text": "Two of them are wearing the kind of coats that cost money. They are not hurrying. One is writing something down." },
+    { "type": "narration", "label": null, "speaker": null, "text": "By the time you've decided whether to do anything, there are two people and one of them is being helped into a car by the other. Nobody looks at you. It has been arranged that there is nothing to look at." },
+    { "type": "resolution", "label": null, "speaker": null, "text": "You ask Des about it later. He says \"Firm,\" the way you'd say \"rain,\" and asks whether you found anything." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "colA1SkirmishSeen", "value": true }
+  ]
+}

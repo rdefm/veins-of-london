@@ -79,23 +79,37 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 # faction-owned.
 static func _eval_sites_discovered_matching(params: Dictionary) -> bool:
 	var require_each: Array = params.get("requireEachOreType", [])
-	var tier_order: Array = GameData.SITE_TIER_ORDER
-	var min_index: int = tier_order.find(params.get("minTier"))
-	var require_unclaimed: bool = params.get("unclaimed", false)
 
 	for ore_type in require_each:
 		var found := false
 		for site in GameState.state["world"]["sites"]:
-			if site["oreType"] != ore_type:
-				continue
-			if tier_order.find(site["tier"]) < min_index:
-				continue
-			if require_unclaimed and (site["claimed"] or site["factionVein"] != null):
-				continue
-			found = true
-			break
+			if site_matches_discovery_params(site, ore_type, params):
+				found = true
+				break
 		if not found:
 			return false
+	return true
+
+
+# collective1-09, spec §6.5/§6.6: the tier/unclaimed half of
+# sites_discovered_matching's per-site check, pulled out so systems/
+# collective.gd's weather-beat trigger can ask "does this one freshly-
+# prospected site individually satisfy col_a1_des_sites' criteria" without
+# duplicating the tier/unclaimed logic _eval_sites_discovered_matching's
+# per-ore-type loop above already has. `ore_type` is passed explicitly
+# (not read off requireEachOreType) so this stays a same-type check either
+# way: the loop above calls it once per required type with that type, and a
+# caller checking "is this specific site's own ore type one of the required
+# ones and does it otherwise qualify" passes the site's own oreType.
+static func site_matches_discovery_params(site: Dictionary, ore_type: String, params: Dictionary) -> bool:
+	if site["oreType"] != ore_type:
+		return false
+	var tier_order: Array = GameData.SITE_TIER_ORDER
+	var min_index: int = tier_order.find(params.get("minTier"))
+	if tier_order.find(site["tier"]) < min_index:
+		return false
+	if params.get("unclaimed", false) and (site["claimed"] or site["factionVein"] != null):
+		return false
 	return true
 
 

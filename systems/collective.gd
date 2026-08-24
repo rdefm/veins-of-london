@@ -34,3 +34,42 @@ static func _next_bark(contact_id: String) -> String:
 		index = 0
 	cursors[contact_id] = index + 1
 	return lines[index]
+
+
+# collective1-09, spec §6.5/§6.6/§10.4: Des's two location-agnostic "Firm as
+# weather" beats. Called from Sites.prospect() in place of
+# DistrictDeck.maybe_trigger() -- checked first, and this whole function is
+# Rng-free (a pure flags/site check), so when it fires the deck's own
+# seeded roll is never touched at all that action: a genuine early return,
+# not a discarded draw (§10.4's "must be asserted by a test").
+#
+# `new_site` is the site this same Sites.prospect() call just created (null
+# on an at-cap reroll with nothing eligible) -- "qualifying" means it
+# individually satisfies col_a1_des_sites' per-site criteria (ore type,
+# tier, unclaimed; see Objectives.site_matches_discovery_params()), not
+# that the objective as a whole is complete. colA1SkirmishSeen/
+# colA1IntimidationSeen double as the "how many qualifying completions have
+# we had" counter: neither seen yet -> this one fires S5; S5 already seen,
+# S6 not yet -> this one fires S6; both seen -> no more weather beats.
+static func maybe_trigger_weather_beat(new_site: Variant) -> bool:
+	if not GameState.state["flags"].get("colA1DesThreadActive", false):
+		return false
+	if new_site == null:
+		return false
+
+	var params: Dictionary = GameData.OBJECTIVES["col_a1_des_sites"]["params"]
+	var ore_type: String = new_site["oreType"]
+	if not params.get("requireEachOreType", []).has(ore_type):
+		return false
+	if not Objectives.site_matches_discovery_params(new_site, ore_type, params):
+		return false
+
+	if not GameState.state["flags"].get("colA1SkirmishSeen", false):
+		Events.start_event("col_a1_firm_skirmish")
+		return true
+
+	if not GameState.state["flags"].get("colA1IntimidationSeen", false):
+		Events.start_event("col_a1_firm_intimidation")
+		return true
+
+	return false

@@ -251,6 +251,11 @@ static func _apply_one(effect: Dictionary) -> void:
 		# already added for Raiding's claim/loot relation hits.
 		"faction_relation":
 			Factions.adjust_player_relation(effect["faction"], effect["value"])
+		# collective1-09, spec §5.7/§10.3: writes state.methodLog[key] =
+		# value -- S6's choice card is the only Act 1 caller. Ordinary
+		# state, so Events.rewind() restores it like anything else.
+		"log_method":
+			GameState.state["methodLog"][effect["key"]] = effect["value"]
 
 
 # Generic path+value combine: adds when both the existing value and the

@@ -102,6 +102,11 @@ const EVENT_IDS: Array[String] = [
 	# tuition chain (col_a1_intro through col_a1_hub). Later Act 1 tickets
 	# append their own ids here as they land.
 	"col_a1_intro", "col_a1_prospecting", "col_a1_seeding", "col_a1_hub",
+	# collective1-09, spec.md §6.5/§6.6: Des's two location-agnostic "Firm as
+	# weather" beats -- direct-triggered from Sites.prospect() (see
+	# systems/collective.gd's maybe_trigger_weather_beat()), not part of any
+	# district's weighted event deck, hence EVENT_IDS not DISTRICT_EVENT_IDS.
+	"col_a1_firm_skirmish", "col_a1_firm_intimidation",
 ]
 
 # M1-LONDON D5's district event deck roster. Loaded into the same EVENTS
@@ -659,6 +664,9 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# is the "relation" op's faction-facing twin (Factions.adjust_player_relation,
 	# vein-raiding ticket 02).
 	"queue_pending_message", "faction_relation",
+	# collective1-09 op (systems/events.gd): log_method writes
+	# state.methodLog[key] = value (spec §5.7/§10.3) -- S6's choice card.
+	"log_method",
 ]
 
 

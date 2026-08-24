@@ -238,7 +238,12 @@ static func prospect(district_id: String) -> Dictionary:
 
 	Objectives.refresh()  # collective1-02: boundary — after the site is created
 	EventBus.state_changed.emit()
-	DistrictDeck.maybe_trigger(district_id)  # D5 — must stay last; see maybe_trigger()'s doc comment
+	# collective1-09, spec §10.4: the story beat is checked first, and — since
+	# it's Rng-free — a genuine early return that never touches the deck's own
+	# seeded roll when it fires. DistrictDeck.maybe_trigger() must stay the
+	# last thing either branch does; see its own doc comment.
+	if not Collective.maybe_trigger_weather_beat(site):
+		DistrictDeck.maybe_trigger(district_id)
 	return { "ok": true, "district": district_id, "site": site }
 
 
