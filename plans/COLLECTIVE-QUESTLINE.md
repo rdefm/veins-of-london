@@ -276,6 +276,13 @@ distinct from the Conclave's liveried understatement (VISION §14).
 
 ### Arc 1 — Gift (spine gate: relation ~25)
 
+**Superseded (collective1-08): this brainstorm section is no longer the build
+spec.** `.scratch/collective-act1/spec.md` §4 and §6 are canonical for Act 1's
+structure and content — cast names (Des/Nadia/Hakim for A/B/C), the exact
+scene beats, and the engine (objectives, Messages app, faction trade lane)
+Act 1 was built to prove. Kept below for the arc's original brainstorm intent
+and thesis, which the spec still honours.
+
 The player and Archie are struggling. **A** finds them.
 
 - A teaches **prospecting and seeding** — mechanically real tuition, not a

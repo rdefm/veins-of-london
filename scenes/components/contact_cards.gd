@@ -30,12 +30,26 @@ static func build_archie_card() -> Control:
 	if flags["tutorialStage"] == "sms_archie":
 		c["content"].add_child(UI.button("💬 Message Archie — set up James meeting", func(): Nav.go_to("sms_archie")))
 
+	# collective1-08, spec §6.1: S1 (col_a1_intro) is delivered as an Archie
+	# text via the real pendingMessages road (Messages.queue_pending, from
+	# archie_cultivation.json's on_complete) so the Messages app still badges
+	# per spec §5.3 -- but Archie himself stays off the new Messages app
+	# (§5.2), so the action this pending entry unlocks has to surface here,
+	# on his existing Contacts card, mirroring the flag-driven buttons above.
+	for entry in Messages.pending_for("archie"):
+		c["content"].add_child(UI.button("💬 Archie texted — come to the lock-up", _on_archie_pending_pressed.bind(entry)))
+
 	c["content"].add_child(build_sell_action())
 	var recruit_row := build_recruit_row("archie")
 	if recruit_row != null:
 		c["content"].add_child(recruit_row)
 
 	return c["panel"]
+
+
+static func _on_archie_pending_pressed(entry: Dictionary) -> void:
+	Messages.resolve_pending(entry["id"])
+	Events.start_event(entry["kind"], entry["payload"])
 
 
 static func build_sell_action() -> Control:

@@ -1,1 +1,20 @@
-{}
+{
+  "col_a1_des_sites": {
+    "id": "col_a1_des_sites",
+    "title": "Find ground for the Collective",
+    "detail": "One fate, one physics. Fair quality or better. Leave them unclaimed.",
+    "type": "sites_discovered_matching",
+    "params": { "requireEachOreType": ["fate", "physics"], "minTier": "fair", "unclaimed": true },
+    "activateFlag": "colA1DesThreadActive",
+    "completeFlag": "colA1DesSitesFound"
+  },
+  "col_a1_hakim_rescue": {
+    "id": "col_a1_hakim_rescue",
+    "title": "Bring Hakim's vein back",
+    "detail": "It's been neglected for years. Cultivate it back up past neutral.",
+    "type": "vein_growth_above",
+    "params": { "veinIdStatePath": "collective.hakimVeinId", "threshold": 60 },
+    "activateFlag": "colA1HubReached",
+    "completeFlag": "colA1HakimRescued"
+  }
+}

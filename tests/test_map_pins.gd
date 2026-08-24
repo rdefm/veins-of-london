@@ -4,6 +4,10 @@ extends "res://tests/test_base.gd"
 # the real archie_cultivation event data (the only pin-bearing event as of
 # T13) rather than a synthetic fixture, since GameData.EVENTS is loaded
 # once at boot and isn't swappable per-test.
+#
+# collective1-08 adds two more real pin-bearing events (col_a1_prospecting,
+# col_a1_seeding); their own gating is exercised against the real event
+# data in tests/test_col_a1_tuition.gd instead of duplicated here.
 
 
 func run() -> void:

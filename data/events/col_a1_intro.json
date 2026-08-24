@@ -1,0 +1,23 @@
+{
+  "id": "col_a1_intro",
+  "cards": [
+    { "type": "narration", "label": "Shoreditch", "speaker": null, "text": "The lock-up smells of damp cardboard and, distantly, of something that isn't cardboard. Archie is standing outside it with the expression of a man who has already had this conversation in his head and did not enjoy it." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"One vein. That's what you've got. One vein, which I gave you, which I'm now going to hear about for the rest of my life.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"One vein isn't a business, it's a hobby with rent. You want more, you have to go and find ground, and seed it, and I can't teach you that because I've never done it. I shift stock. I don't dig.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "He fishes his keys out — a fat bunch, a Millennium Falcon keyring worn smooth at the edges — and lets you both into the lock-up." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"So I called a bloke. He's good. He's the best I know at it, actually.\" A pause exactly long enough to be noticeable. \"He'll teach you. Then he'll go home.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "The man who comes in is in his forties, unhurried, with a canvas bag over one shoulder and the air of somebody who has never once been late but has often waited. He looks genuinely pleased to be here, which nobody else in this story has managed." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Desmond. Des. You're the one with the Whitechapel time vein.\" He says it like a fact he's glad about rather than one he's checking." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. He knows ground, I know buyers, and between us you might make rent. That's the arrangement.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "Archie does not offer Des tea. Des does not appear to expect any. There is a silence with some history in it, and then Archie remembers somewhere else he needs to be." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"He's all right, Archie. Bit of a transaction, but he's all right.\" He's already unpacking the bag. \"Right. Ground.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "You have a teacher. Neither of you has mentioned money, which is the first thing about today that will turn out to matter." }
+  ],
+  "on_complete": [
+    { "op": "unlock_contact", "contact": "des" },
+    { "op": "set_flag", "flag": "colA1DesMet", "value": true },
+    { "op": "set_flag", "flag": "collectiveLaneUnlocked", "value": true },
+    { "op": "faction_relation", "faction": "collective", "value": 3 },
+    { "op": "set_flag", "flag": "colA1Stage", "value": "tuition" }
+  ]
+}

@@ -20,6 +20,7 @@
     { "op": "tutorial_cultivate" },
     { "op": "relation", "contact": "archie", "value": 2 },
     { "op": "set_flag", "flag": "cultivationTutorialSeen", "value": true },
+    { "op": "queue_pending_message", "contact": "archie", "kind": "col_a1_intro", "text": "Come by the lock-up. Got someone you need to meet. Don't make a thing of it." },
     { "op": "set_screen", "screen": "map" }
   ]
 }

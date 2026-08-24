@@ -1,0 +1,23 @@
+{
+  "id": "col_a1_seeding",
+  "pin": {
+    "district": "shoreditch",
+    "showWhenFlagsTrue": ["colA1ProspectingTaught"],
+    "showWhenFlagsFalse": ["colA1SeedingTaught"]
+  },
+  "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "Des has a jar in his bag. In the jar is about forty units of somebody's physics calc, and he is holding it the way other people hold a thermos." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Finding a patch is half of it. A patch is just good ground. It doesn't do anything until you put something in it.\"" },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Forty units of the right type. Has to match what the ground wants — you can't put fate in a life patch and hope. Costs you a block, and it doesn't always take. Better ground takes more often, and you get better at it.\"" },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"When it takes, you've got a vein and the patch is yours. When it doesn't, you've lost the calc and the afternoon, and you have another go when you can afford one.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "He says the last part without any particular weight, as a man describing weather." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Which is why nobody round here seeds alone if they don't have to. If I've got forty spare and you've found ground, that's not me lending you anything. That's the ground getting used.\"" },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"The needs of the many outweigh the needs of the few.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "He does not appear to think he has said anything unusual, and moves straight on to the practical bit about matching types, which he has now explained twice." },
+    { "type": "resolution", "label": null, "speaker": null, "text": "You know how to seed a patch. You do not yet have forty units of anything spare, which is a different problem and, Des would say, a smaller one." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "colA1SeedingTaught", "value": true },
+    { "op": "queue_pending_message", "contact": "des", "kind": "col_a1_hub", "text": "When you've got a minute. Nothing urgent, but there are three things." }
+  ]
+}

@@ -238,6 +238,19 @@ static func _apply_one(effect: Dictionary) -> void:
 			GameState.state["contacts"][effect["contact"]]["unlocked"] = true
 		"push_message":
 			Messages.append(effect["contact"], "them", effect["text"])
+		# collective1-08: queue_pending_message is push_message's follow-up-
+		# action cousin -- a real Messages.queue_pending() call (unread text +
+		# a pendingMessages entry an action bar can surface), for authored
+		# content that wants a runtime "text arrives, tap it to start an
+		# event" beat rather than a plain notification-only line.
+		"queue_pending_message":
+			Messages.queue_pending(effect["contact"], effect["kind"], effect["text"], effect.get("payload", {}))
+		# collective1-08: the "relation" op above is contact-only
+		# (Contacts.award_relation) -- this is its faction-facing twin, over
+		# the same Factions.adjust_player_relation() vein-raiding ticket 02
+		# already added for Raiding's claim/loot relation hits.
+		"faction_relation":
+			Factions.adjust_player_relation(effect["faction"], effect["value"])
 
 
 # Generic path+value combine: adds when both the existing value and the

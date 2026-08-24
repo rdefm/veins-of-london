@@ -98,6 +98,10 @@ const EVENT_IDS: Array[String] = [
 	# actually targets whichever real site's Raid button was pressed (see
 	# events.gd's _event_site_id()), not a single fixed combination.
 	"vein_raid",
+	# collective1-08, spec.md §4/§6.1-6.4: Act 1 Phase 1 -- the mandatory
+	# tuition chain (col_a1_intro through col_a1_hub). Later Act 1 tickets
+	# append their own ids here as they land.
+	"col_a1_intro", "col_a1_prospecting", "col_a1_seeding", "col_a1_hub",
 ]
 
 # M1-LONDON D5's district event deck roster. Loaded into the same EVENTS
@@ -649,6 +653,12 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# systems call Messages.queue_pending() directly, the same road
 	# systems/raiding.gd already uses to hand runtime context to an event).
 	"unlock_contact", "push_message",
+	# collective1-08 ops (systems/events.gd): queue_pending_message is
+	# push_message's follow-up-action cousin, wired to Messages.queue_pending()
+	# so authored content can queue a real pendingMessages entry; faction_relation
+	# is the "relation" op's faction-facing twin (Factions.adjust_player_relation,
+	# vein-raiding ticket 02).
+	"queue_pending_message", "faction_relation",
 ]
 
 

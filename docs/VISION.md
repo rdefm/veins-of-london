@@ -268,7 +268,7 @@ EVENT = { id, trigger, cards:[{ speaker, text, choices:[{label, checks, effects,
 
 ## 13. Economy: Selling, Marketplace, Barometer, Jobs
 
-- **Selling lanes**, in order of unlock: Archie (50/50 split, mugging risk on the walk) → **Soho marketplace** (M4: better splits, fees, relation gates) → faction fronts (M5: best prices for members) → device commissions (M5).
+- **Selling lanes**, in order of unlock: Archie (50/50 split, mugging risk on the walk) → **Soho marketplace** (M4: better splits, fees, relation gates) → faction fronts (M5: best prices for members) → device commissions (M5). **Amendment (collective1-08, `.scratch/collective-act1/spec.md` §13):** the Collective's faction front is the exception — it unlocks in Act 1 (`flags.collectiveLaneUnlocked`, S1), pre-join, not at M5. The other four factions' fronts still arrive at M5 as originally scoped.
 - **The Soho Marketplace** (new screen, M4): daily-refreshed stock — buy ore at markup (patches supply gaps), consumables, equipment, device components, and overpriced recipe fragments. Sell anything without Archie's split but with market fees. All prices run through barometer effects, displayed as **effective vs base price with the reason** ("Fate: £82 ↑ — *the City's nervous*").
 - **Barometer:** existing 3-axis machine stays; the 4 influence actions become functional in M4 with real costs and cooldowns — and **`spreadRumours` and `engineerCrisis` cost emotion ore** (they are, canonically, industrial-scale Pan's Pranks). Late-game: manipulate states you've positioned for — crash a market you've stockpiled against.
 - **James jobs:** fixed-pay crafting contracts, no mugging risk — the safe-but-capped lane. M4 adds tiers and deadlines.

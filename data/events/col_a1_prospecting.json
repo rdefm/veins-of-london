@@ -1,0 +1,21 @@
+{
+  "id": "col_a1_prospecting",
+  "pin": {
+    "district": "shoreditch",
+    "showWhenFlagsTrue": ["colA1DesMet"],
+    "showWhenFlagsFalse": ["colA1ProspectingTaught"]
+  },
+  "cards": [
+    { "type": "narration", "label": "Shoreditch — a service yard behind a coffee place", "speaker": null, "text": "Des has brought you to the least interesting place in Shoreditch and is looking at it with open enthusiasm." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Everyone looks for the dramatic bit. Cracked stone, old church, that sort of thing. Mostly what you want is somewhere that's been left alone a long time and had something happen to it once.\"" },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Prospecting's a block of your day and a walk about. You'll turn up a patch or you won't. What you turn up depends on the ground round here and on how much of this you've done before — that's it, that's the whole system.\"" },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Patches come in grades. Poor, fair, rich, and once in a blue moon something that makes you sit down. Barren ones you leave; nothing takes in them.\"" },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Different parts of London run to different types. Round here it's whatever's going. Whitechapel's emotion, mostly. The City's fate, which tells you something about the City.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "He does not tell you which of these facts is the important one. You get the sense this is on purpose." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Go on. Have a look about. I'll be here.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "You spend an hour looking at brickwork with a seriousness that would embarrass you if anyone you knew walked past. Somewhere under all of it, London is doing what it does." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "colA1ProspectingTaught", "value": true }
+  ]
+}
