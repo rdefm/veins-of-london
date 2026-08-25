@@ -251,6 +251,11 @@ func new_game_state() -> Dictionary:
 		# each carving out their own top-level state key.
 		"collective": {
 			"barkCursors": {},
+			# collective1-13, spec §6.11/§10.3: the vein col_a1_hakim_meet's
+			# grant_contact_vein op hands the player, referenced by id both
+			# by col_a1_hakim_rescue's objective (veinIdStatePath) and by
+			# S12's thread-resolution event. null until S11 fires.
+			"hakimVeinId": null,
 		},
 	}
 

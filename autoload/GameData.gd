@@ -128,6 +128,11 @@ const EVENT_IDS: Array[String] = [
 	# qualifying sale (systems/collective.gd's
 	# maybe_trigger_nadia_vein_done()), never from an action bar.
 	"col_a1_nadia_done",
+	# collective1-13, spec.md §6.11: Hakim's introduction -- a Whitechapel
+	# map pin (MapPins.active_contact_pins(), gated on colA1HubReached /
+	# not colA1HakimMet), per spec's delivery choice rather than an
+	# action-bar button like Des/Nadia's threads.
+	"col_a1_hakim_meet",
 ]
 
 # M1-LONDON D5's district event deck roster. Loaded into the same EVENTS
@@ -692,6 +697,10 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# seeds a faction vein on each site recorded in a named objective's
 	# progress (spec §6.7/§10.3) -- S7's on_complete.
 	"faction_seed_reported_sites",
+	# collective1-13 op (systems/events.gd): grant_contact_vein is
+	# grant_vein_with_site's contact-handoff cousin -- also stores the new
+	# vein's id at a named state path (spec §6.11/§10.3) -- S11's on_complete.
+	"grant_contact_vein",
 ]
 
 

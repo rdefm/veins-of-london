@@ -184,6 +184,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 		if not result.has(key):
 			result[key] = defaults[key]
 	_backfill_new_contacts(result, defaults)
+	_backfill_new_collective_keys(result, defaults)
 	return result
 
 
@@ -201,6 +202,21 @@ func _backfill_new_contacts(result: Dictionary, defaults: Dictionary) -> void:
 	for contact_id in defaults["contacts"].keys():
 		if not contacts.has(contact_id):
 			contacts[contact_id] = defaults["contacts"][contact_id]
+
+
+# collective1-13: mirrors _backfill_new_contacts above -- "collective" has
+# existed as a top-level key since collective1-07, so the shallow fill in
+# backfill_defaults() never fires for it, but this ticket is the first time a
+# new key (hakimVeinId) has been added to it since. Seeds only missing keys,
+# same as a missing top-level key would be, never touching one the save
+# already has.
+func _backfill_new_collective_keys(result: Dictionary, defaults: Dictionary) -> void:
+	if not result.has("collective"):
+		return
+	var collective: Dictionary = result["collective"]
+	for key in defaults["collective"].keys():
+		if not collective.has(key):
+			collective[key] = defaults["collective"][key]
 
 
 # JSON has no int/float distinction, so every number in a just-parsed save

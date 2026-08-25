@@ -197,6 +197,13 @@ static func _apply_one(effect: Dictionary) -> void:
 			Contacts.award_relation(effect["contact"], effect["value"])
 		"grant_vein_with_site":
 			_grant_vein_with_site(effect["vein"])
+		# collective1-13, spec §6.11/§10.3: grant_vein_with_site's contact-
+		# handoff cousin -- same site+vein creation, but also records the new
+		# vein's id at a named state path (col_a1_hakim_meet's "collective.
+		# hakimVeinId") so a later objective (col_a1_hakim_rescue's
+		# veinIdStatePath) and thread-resolution event can find it again.
+		"grant_contact_vein":
+			_set_path(effect["statePath"], _grant_vein_with_site(effect["vein"]))
 		"set_screen":
 			# Ticket 12: content authored "home" as the landing screen before
 			# that screen was retired -- data/events/*.json now targets "phone"
@@ -299,7 +306,7 @@ static func _set_path(path: String, value: Variant) -> void:
 # derived from the vein template's own hospitability/oreType fields (same
 # fields Sites.attempt_seed() would have produced), so the two stay in sync
 # by construction rather than by two copies of "fair, no bonuses" agreeing.
-static func _grant_vein_with_site(vein_template: Dictionary) -> void:
+static func _grant_vein_with_site(vein_template: Dictionary) -> String:
 	var hospitability: Dictionary = vein_template.get("hospitability", { "tier": "fair", "bonuses": [] })
 	var day: int = GameState.state["world"]["day"]
 
@@ -323,6 +330,7 @@ static func _grant_vein_with_site(vein_template: Dictionary) -> void:
 	vein["siteId"] = site["id"]
 	vein["rampantDays"] = 0
 	GameState.state["player"]["veins"].append(vein)
+	return vein["id"]
 
 
 # M1-LONDON D6: archie_cultivation's closer — a forced, always-successful
