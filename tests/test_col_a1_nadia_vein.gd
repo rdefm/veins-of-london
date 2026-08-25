@@ -51,6 +51,11 @@ func run() -> void:
 
 		assert_true(GameState.state["flags"]["veinSaleUnlocked"])
 		assert_true(GameState.state["flags"]["colA1NadiaAskSeen"])
+		# Regression (bugfix: an on_complete missing a "set_screen" op leaves
+		# the EventScreen stuck on a dead Continue button, per tests/
+		# test_col_a1_tuition.gd's S1 comment): must navigate back to Nadia's
+		# conversation, where the action-bar button was tapped from.
+		assert_eq(GameState.state["currentScreen"], "phone")
 	)
 
 	run_case("on_complete_activates_col_a1_nadia_vein_objective", func():

@@ -110,6 +110,11 @@ func run() -> void:
 
 		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 8)
 		assert_true(GameState.state["flags"]["colA1DesThreadDone"])
+		# Regression (bugfix: an on_complete missing a "set_screen" op leaves
+		# the EventScreen stuck on a dead Continue button, per tests/
+		# test_col_a1_tuition.gd's S1 comment): must navigate back to Des's
+		# conversation, where the action-bar button was tapped from.
+		assert_eq(GameState.state["currentScreen"], "phone")
 	)
 
 	run_case("on_complete_skips_a_reported_site_that_has_since_been_claimed", func():

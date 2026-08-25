@@ -11,6 +11,7 @@
   "on_complete": [
     { "op": "faction_seed_reported_sites", "objective": "col_a1_des_sites", "faction": "collective" },
     { "op": "faction_relation", "faction": "collective", "value": 8 },
-    { "op": "set_flag", "flag": "colA1DesThreadDone", "value": true }
+    { "op": "set_flag", "flag": "colA1DesThreadDone", "value": true },
+    { "op": "set_screen", "screen": "phone" }
   ]
 }

@@ -16,6 +16,7 @@
     { "op": "set_flag", "flag": "colA1DesThreadActive", "value": true },
     { "op": "set_flag", "flag": "colA1HubReached", "value": true },
     { "op": "set_flag", "flag": "colA1Stage", "value": "hub" },
-    { "op": "set_flag", "flag": "colA1ArchiePryAvailable", "value": true }
+    { "op": "set_flag", "flag": "colA1ArchiePryAvailable", "value": true },
+    { "op": "set_screen", "screen": "phone" }
   ]
 }

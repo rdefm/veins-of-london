@@ -137,4 +137,9 @@ func run() -> void:
 
 		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 8)
 		assert_true(GameState.state["flags"]["colA1NadiaThreadDone"])
+		# Regression (bugfix: an on_complete missing a "set_screen" op leaves
+		# the EventScreen stuck on a dead Continue button, per tests/
+		# test_col_a1_tuition.gd's S1 comment): must navigate back to the vein
+		# list, where the qualifying sale that auto-fired this event happened.
+		assert_eq(GameState.state["currentScreen"], "vein_list")
 	)

@@ -157,6 +157,12 @@ const EVENT_IDS: Array[String] = [
 	# later via this short two-card event, per spec §6.15's "declining is not
 	# a failure state".
 	"col_a1_closer", "col_a1_deferred_join",
+	# collective1-17, spec.md §5.8/§6.16: Hakim's repeatable post-Act-1
+	# intel -- a Hakim pendingMessages text (systems/collective.gd's
+	# maybe_trigger_hakim_intel(), rolled from TimeSystem.daily_tick()),
+	# carrying the already-created site's id in its payload. Deliberately
+	# not "col_a1_"-prefixed: it keeps firing after the act ends.
+	"col_hakim_intel",
 ]
 
 # M1-LONDON D5's district event deck roster. Loaded into the same EVENTS
@@ -743,7 +749,37 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# the only remaining path to Factions.join(), since spec §8.6 suppresses
 	# the generic Join button for the Collective specifically.
 	"scripted_seed", "join_faction",
+	# collective1-17 ops (systems/events.gd), spec §6.16/§10.3: reveal_site
+	# queues the discover map event for the site named by the pending
+	# message's payload (or the event's own "site_id", same fallback
+	# _event_site_id() already gives raid ops); set_hakim_intel_day stamps
+	# state.collective.hakimIntelLastDay with today -- col_hakim_intel's
+	# on_complete.
+	"reveal_site", "set_hakim_intel_day",
 ]
+
+
+# Bugfixes ticket (col_a1_intro Continue softlock): screens only ever swap on
+# EventBus.screen_changed, fired by Nav.go_to() -- Events.advance() itself
+# never calls that when an event completes, so on_complete is the only place
+# left to do it. An event whose on_complete forgets a "set_screen" op leaves
+# the EventScreen node mounted forever with a Continue button that now
+# dereferences a null state.event: it visibly does nothing. The one
+# recognized exception is "start_home_raid_combat", which calls
+# GameState.state["currentScreen"] = "combat" itself (systems/combat.gd's
+# _start_combat) -- add an op here only once you've confirmed, the same way,
+# that it navigates on its own.
+const SELF_NAVIGATING_ON_COMPLETE_OPS: Array[String] = ["start_home_raid_combat"]
+
+
+func _on_complete_navigates(on_complete: Array) -> bool:
+	for effect in on_complete:
+		if typeof(effect) != TYPE_DICTIONARY:
+			continue
+		var op = effect.get("op")
+		if op == "set_screen" or SELF_NAVIGATING_ON_COMPLETE_OPS.has(op):
+			return true
+	return false
 
 
 func _validate_events(events: Dictionary, districts: Dictionary, errors: Array[String]) -> void:
@@ -765,6 +801,8 @@ func _validate_events(events: Dictionary, districts: Dictionary, errors: Array[S
 			if card.get("type") == "choice":
 				_validate_choice_card(card, "events.%s.cards" % key, errors)
 		_validate_effect_list(entry.get("on_complete", []), "events.%s.on_complete" % key, errors)
+		if not _on_complete_navigates(entry.get("on_complete", [])):
+			errors.append("events.%s: on_complete has no 'set_screen' op (and no self-navigating op like 'start_home_raid_combat') — Events.advance() never navigates on its own, so the EventScreen is left stuck on a dead Continue button once this event completes" % key)
 		if entry.has("deck"):
 			_validate_deck_entry(entry["deck"], "events.%s.deck" % key, errors)
 			if not DISTRICT_EVENT_IDS.has(key):

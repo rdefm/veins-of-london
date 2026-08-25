@@ -79,6 +79,10 @@ func run() -> void:
 		assert_true(GameState.state["flags"]["collectiveLaneUnlocked"])
 		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 3, "S1 awards +3 collective relation")
 		assert_eq(GameState.state["flags"]["colA1Stage"], "tuition")
+		# Regression (bugfix: col_a1_intro's Continue button did nothing once
+		# the event finished): on_complete must navigate off the event screen,
+		# not just leave state.event null with currentScreen still "event".
+		assert_eq(GameState.state["currentScreen"], "contacts", "S1 -> Archie's card, where the pending text was tapped from")
 	)
 
 	# ── S2/S3: map pins, teach-don't-require ────────────────────────────
@@ -116,6 +120,9 @@ func run() -> void:
 		_play_event("col_a1_prospecting")
 
 		assert_eq(GameState.state["world"]["sites"].size(), sites_before, "the tutorial teaches, it doesn't call Sites.prospect()")
+		# Regression: on_complete must navigate off the event screen (see S1's
+		# comment above).
+		assert_eq(GameState.state["currentScreen"], "map", "S2 -> the map pin it was tapped from")
 	)
 
 	run_case("col_a1_seeding_pin_is_gated_on_colA1ProspectingTaught_and_hides_once_taught", func():
@@ -154,6 +161,9 @@ func run() -> void:
 		assert_eq(pending[0]["kind"], "col_a1_hub")
 		var thread: Array = GameState.state["messages"]["des"]
 		assert_eq(thread[thread.size() - 1]["text"], "When you've got a minute. Nothing urgent, but there are three things.")
+		# Regression: on_complete must navigate off the event screen (see S1's
+		# comment above).
+		assert_eq(GameState.state["currentScreen"], "map", "S3 -> the map pin it was tapped from")
 	)
 
 	# ── S4: col_a1_hub ───────────────────────────────────────────────────
@@ -173,6 +183,9 @@ func run() -> void:
 		Objectives.refresh()
 		assert_true(GameState.state["objectives"]["col_a1_des_sites"]["active"], "S4 activates col_a1_des_sites")
 		assert_true(GameState.state["objectives"]["col_a1_hakim_rescue"]["active"], "S4 activates col_a1_hakim_rescue")
+		# Regression: on_complete must navigate off the event screen (see S1's
+		# comment above).
+		assert_eq(GameState.state["currentScreen"], "phone", "S4 -> Des's conversation, where the pending text was tapped from")
 	)
 
 	run_case("col_a1_hub_does_not_move_collective_relation_on_its_own", func():

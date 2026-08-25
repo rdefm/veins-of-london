@@ -51,6 +51,7 @@
   "on_complete": [
     { "op": "scripted_seed", "district": "whitechapel", "tier": "rich", "oreType": "life" },
     { "op": "set_flag", "flag": "colA1Stage", "value": "complete" },
-    { "op": "set_flag", "flag": "colA1Complete", "value": true }
+    { "op": "set_flag", "flag": "colA1Complete", "value": true },
+    { "op": "set_screen", "screen": "phone" }
   ]
 }

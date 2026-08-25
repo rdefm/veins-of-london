@@ -167,6 +167,11 @@ func run() -> void:
 		GameState.reset()
 		_play_event("col_a1_firm_skirmish")
 		assert_true(GameState.state["flags"]["colA1SkirmishSeen"])
+		# Regression (bugfix: an on_complete missing a "set_screen" op leaves
+		# the EventScreen stuck on a dead Continue button, per tests/
+		# test_col_a1_tuition.gd's S1 comment): must navigate back to the map,
+		# where Sites.prospect() triggered this beat.
+		assert_eq(GameState.state["currentScreen"], "map")
 	)
 
 	run_case("col_a1_firm_skirmish_moves_no_relation_and_no_site", func():
@@ -190,6 +195,9 @@ func run() -> void:
 		assert_true(not GameState.state["combat"]["active"])
 		_finish_after_choice("col_a1_firm_intimidation", choice_index)
 		assert_true(GameState.state["flags"]["colA1IntimidationSeen"])
+		# Regression: on_complete must navigate off the event screen (see S5's
+		# comment above).
+		assert_eq(GameState.state["currentScreen"], "map")
 	)
 
 	run_case("col_a1_firm_intimidation_hold_your_ground_logs_held_starts_no_combat", func():

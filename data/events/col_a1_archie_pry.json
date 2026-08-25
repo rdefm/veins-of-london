@@ -22,5 +22,5 @@
       ]
     }
   ],
-  "on_complete": []
+  "on_complete": [{ "op": "set_screen", "screen": "contacts" }]
 }

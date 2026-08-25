@@ -127,3 +127,79 @@ static func maybe_trigger_closer() -> bool:
 
 	Messages.queue_pending("hakim", "col_a1_closer", "Are you about? Nothing's wrong. Come to the shop.")
 	return true
+
+
+# collective1-17, spec §5.8/§6.16: Hakim's repeatable unprompted intel --
+# a free lead on unclaimed ground, the gift the Arc 2 handler later
+# replaces with an invoice. Called from TimeSystem.daily_tick(). Both
+# districts + tiers weighted per HAKIM_INTEL_TIERS below.
+const HAKIM_INTEL_CHANCE := 0.15
+const HAKIM_INTEL_MIN_GAP_DAYS := 3
+const HAKIM_INTEL_DISTRICTS: PackedStringArray = ["shoreditch", "whitechapel"]
+# "fair or better" per spec -- barren/poor excluded outright rather than
+# rolled and rerolled, so the 15% chance always spends exactly one Rng draw.
+const HAKIM_INTEL_TIERS: PackedStringArray = ["fair", "rich", "saturated"]
+
+
+static func maybe_trigger_hakim_intel() -> bool:
+	if not GameState.state["flags"].get("hakimIntelUnlocked", false):
+		return false
+	# Same double-queue guard maybe_trigger_closer() uses above: a text the
+	# player hasn't read yet shouldn't roll a second one, even though
+	# hakimIntelLastDay itself only advances on_complete (see its own
+	# comment in GameState.new_game_state()).
+	for entry in Messages.pending_for("hakim"):
+		if entry["kind"] == "col_hakim_intel":
+			return false
+
+	var day: int = GameState.state["world"]["day"]
+	var last_day: int = GameState.state["collective"]["hakimIntelLastDay"]
+	if day - last_day < HAKIM_INTEL_MIN_GAP_DAYS:
+		return false
+
+	var eligible_districts := _eligible_hakim_intel_districts()
+	if eligible_districts.is_empty():
+		return false
+
+	if not Rng.chance(HAKIM_INTEL_CHANCE):
+		return false
+
+	var district: String = Rng.rand_from(eligible_districts)
+	var tier := _roll_hakim_intel_tier()
+	var site := Sites.roll_new_site(district, tier)
+	GameState.state["world"]["sites"].append(site)
+
+	# PROSE-REVIEW: new SMS teaser drafted against CONTENT-GUIDE.md's tone
+	# bible -- deliberately shorter than the event's own opening card
+	# (spec §6.16), which the player reads a moment later.
+	Messages.queue_pending("hakim", "col_hakim_intel", "\"Oi. Got something for you. Don't get excited.\"", { "site_id": site["id"] })
+	return true
+
+
+# Districts still under siteCap, of the two Hakim's intel is scoped to --
+# spec §5.8: "suppressed if both Shoreditch and Whitechapel are at siteCap".
+static func _eligible_hakim_intel_districts() -> Array:
+	var eligible: Array = []
+	for district_id in HAKIM_INTEL_DISTRICTS:
+		var site_cap: int = GameData.DISTRICTS[district_id]["siteCap"]
+		if Sites.sites_in_district(district_id).size() < site_cap:
+			eligible.append(district_id)
+	return eligible
+
+
+# Weighted pick over HAKIM_INTEL_TIERS using the same GameData.SITE_TIER_
+# WEIGHTS table Sites.roll_tier() draws from, restricted to "fair or
+# better" -- mirrors Sites.roll_tier_from_weights()'s cumulative-weight
+# walk without needing every GameData.SITE_TIER_ORDER key present.
+static func _roll_hakim_intel_tier() -> String:
+	var total: float = 0.0
+	for tier in HAKIM_INTEL_TIERS:
+		total += GameData.SITE_TIER_WEIGHTS[tier]
+
+	var roll: float = Rng.randf() * total
+	var cumulative: float = 0.0
+	for tier in HAKIM_INTEL_TIERS:
+		cumulative += GameData.SITE_TIER_WEIGHTS[tier]
+		if roll < cumulative:
+			return tier
+	return HAKIM_INTEL_TIERS[-1]

@@ -24,6 +24,7 @@
     { "type": "resolution", "label": null, "speaker": null, "text": "Thirty units of emotion calc, no deadline, no paperwork, and a woman who has been doing this since before you were born treating it as entirely routine." }
   ],
   "on_complete": [
-    { "op": "set_flag", "flag": "colA1NadiaMet", "value": true }
+    { "op": "set_flag", "flag": "colA1NadiaMet", "value": true },
+    { "op": "set_screen", "screen": "phone" }
   ]
 }

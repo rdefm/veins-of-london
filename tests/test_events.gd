@@ -63,6 +63,64 @@ func run() -> void:
 		assert_true(GameData.SMS_THREADS.has("archie_2"), "missing SMS thread archie_2")
 	)
 
+	# Bugfixes ticket (col_a1_intro Continue softlock): screens only swap on
+	# EventBus.screen_changed, fired by Nav.go_to() -- Events.advance() never
+	# calls that on its own, so on_complete is the only place left to
+	# navigate away once an event finishes. An event that forgets a
+	# "set_screen" op (or a self-navigating op like "start_home_raid_combat")
+	# leaves the EventScreen mounted forever with a Continue button that now
+	# dereferences a null state.event: it visibly does nothing. This is a
+	# future-facing guard -- any event authored from now on that forgets to
+	# navigate away fails schema validation immediately, the same way
+	# grant_vein_is_no_longer_a_valid_effect_op below catches a retired op.
+	run_case("schema_validation_flags_an_event_whose_on_complete_never_navigates_away", func():
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_stuck_on_complete"] = {
+			"id": "test_stuck_on_complete",
+			"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
+			"on_complete": [{ "op": "set_flag", "flag": "someFlag", "value": true }],
+		}
+
+		var errors := GameData.validate_tables(GameData.snapshot())
+		var relevant := errors.filter(func(e): return e.begins_with("events.test_stuck_on_complete"))
+		assert_true(relevant.size() > 0, "an on_complete with no set_screen (and no self-navigating op) should fail validation")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("schema_validation_accepts_an_on_complete_ending_in_set_screen", func():
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_navigates_fine"] = {
+			"id": "test_navigates_fine",
+			"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
+			"on_complete": [{ "op": "set_flag", "flag": "someFlag", "value": true }, { "op": "set_screen", "screen": "map" }],
+		}
+
+		var errors := GameData.validate_tables(GameData.snapshot())
+		var relevant := errors.filter(func(e): return e.begins_with("events.test_navigates_fine"))
+		assert_eq(relevant, [], "an on_complete ending in set_screen should validate cleanly")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("schema_validation_accepts_an_on_complete_that_only_launches_home_raid_combat", func():
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_combat_navigates_itself"] = {
+			"id": "test_combat_navigates_itself",
+			"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
+			"on_complete": [{ "op": "start_home_raid_combat" }],
+		}
+
+		var errors := GameData.validate_tables(GameData.snapshot())
+		var relevant := errors.filter(func(e): return e.begins_with("events.test_combat_navigates_itself"))
+		assert_eq(relevant, [], "start_home_raid_combat navigates itself (systems/combat.gd's _start_combat) -- no separate set_screen needed")
+
+		GameData.EVENTS = original_events
+	)
+
 	run_case("start_event_sets_state_and_screen", func():
 		GameState.reset()
 		Events.start_event("intro")

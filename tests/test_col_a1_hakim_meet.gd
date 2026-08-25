@@ -114,6 +114,12 @@ func run() -> void:
 		var site: Variant = Sites.find_site(vein["siteId"])
 		assert_true(site != null, "grant_contact_vein backs the vein with a real site, same as grant_vein_with_site")
 		assert_eq(site["tier"], "fair")
+
+		# Regression (bugfix: an on_complete missing a "set_screen" op leaves
+		# the EventScreen stuck on a dead Continue button, per tests/
+		# test_col_a1_tuition.gd's S1 comment): must navigate back to the map,
+		# where the Whitechapel pin was tapped from.
+		assert_eq(GameState.state["currentScreen"], "map")
 	)
 
 	run_case("on_complete_moves_no_relation", func():

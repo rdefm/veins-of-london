@@ -91,8 +91,18 @@ static func advance() -> void:
 	var event_state: Dictionary = GameState.state["event"]
 	if is_last_card():
 		var on_complete: Array = _event_def().get("on_complete", [])
+		# collective1-17: state.event is nulled BEFORE on_complete runs (not
+		# after -- see the comment on this deliberately, a state_changed emit
+		# mid-on_complete must never find a live event.gd EventScreen still
+		# rendering a tappable Continue for an on_complete that hasn't
+		# finished), so an on_complete op that needs the delivery context
+		# (col_hakim_intel's "reveal_site", reading the pendingMessages
+		# payload's site_id) can't fall back to GameState.state["event"]
+		# .context the way a live choice-card effect can -- it has to be
+		# handed the context explicitly instead.
+		var context: Dictionary = event_state.get("context", {})
 		GameState.state["event"] = null
-		apply_effects(on_complete)
+		apply_effects(on_complete, context)
 		# collective1-16, spec §6.15/§10.4: the closer's three prerequisite
 		# flags are each set by a different event's own on_complete
 		# (col_a1_des_report/col_a1_nadia_done/col_a1_hakim_done) -- this is
@@ -180,13 +190,13 @@ static func _find_equipped_rewind_device_with_charge() -> Variant:
 
 # ── effect ops ──────────────────────────────────────────────────────────
 
-static func apply_effects(effects: Array) -> void:
+static func apply_effects(effects: Array, context: Dictionary = {}) -> void:
 	for effect in effects:
-		_apply_one(effect)
+		_apply_one(effect, context)
 	EventBus.state_changed.emit()
 
 
-static func _apply_one(effect: Dictionary) -> void:
+static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 	match effect["op"]:
 		"set_flag":
 			GameState.state["flags"][effect["flag"]] = effect["value"]
@@ -228,9 +238,9 @@ static func _apply_one(effect: Dictionary) -> void:
 			Combat.start_home_raid_combat()
 		"chance":
 			if Rng.chance(effect["p"]):
-				apply_effects(effect.get("on_success", []))
+				apply_effects(effect.get("on_success", []), context)
 			else:
-				apply_effects(effect.get("on_fail", []))
+				apply_effects(effect.get("on_fail", []), context)
 		"start_street_mugging":
 			Combat.start_street_mugging()
 		"npc_claim_best_unclaimed_site":
@@ -306,6 +316,18 @@ static func _apply_one(effect: Dictionary) -> void:
 		# button for that faction.
 		"join_faction":
 			Factions.join(effect["faction"])
+		# collective1-17, spec §6.16/§10.3: col_hakim_intel's on_complete --
+		# the site was already created at roll time (Collective.
+		# maybe_trigger_hakim_intel()); this just queues its discover map
+		# event, same as a fresh player prospect would, reusing
+		# _event_site_id()'s payload/context fallback rather than a literal
+		# "site_id" in the JSON. state.event is already null by the time
+		# on_complete runs (see advance()'s own comment), so the fallback
+		# reads advance()'s explicitly-threaded context, not live event state.
+		"reveal_site":
+			_reveal_site(_event_site_id(effect, context))
+		"set_hakim_intel_day":
+			GameState.state["collective"]["hakimIntelLastDay"] = GameState.state["world"]["day"]
 
 
 # Generic path+value combine: adds when both the existing value and the
@@ -429,13 +451,35 @@ static func _find_tutorial_cultivation_vein() -> Variant:
 # context instead. Effects that supply a literal "site_id" (ticket 02's own
 # direct apply_effects() tests) still take that literal; only the authored
 # raid card, which omits it, falls back to the active event's context.
-static func _event_site_id(effect: Dictionary) -> String:
+#
+# collective1-17: a live choice-card effect (raiding's own callers) still
+# reads GameState.state["event"].context, since state.event is still set
+# at that point. An on_complete effect (col_hakim_intel's "reveal_site")
+# can't -- state.event is already null by the time on_complete runs (see
+# advance()'s own comment) -- so it reads the explicitly-threaded
+# fallback_context (advance()'s captured copy of that same context)
+# instead.
+static func _event_site_id(effect: Dictionary, fallback_context: Dictionary = {}) -> String:
 	if effect.has("site_id"):
 		return effect["site_id"]
 	var event_state: Variant = GameState.state.get("event")
-	if event_state == null:
-		return ""
-	return event_state.get("context", {}).get("site_id", "")
+	if event_state != null:
+		var from_live_context: String = event_state.get("context", {}).get("site_id", "")
+		if from_live_context != "":
+			return from_live_context
+	return fallback_context.get("site_id", "")
+
+
+# collective1-17, spec §6.16/§10.3: col_hakim_intel's "reveal_site" op --
+# the site itself was already appended to state.world.sites at roll time
+# (Collective.maybe_trigger_hakim_intel()), so all that's left is queuing
+# its discover map event, same as Sites._create_site() does for a fresh
+# player prospect. A no-op if the site is somehow already gone.
+static func _reveal_site(site_id: String) -> void:
+	var site: Variant = Sites.find_site(site_id)
+	if site == null:
+		return
+	MapEvents.queue_discover(site["district"], site_id)
 
 
 # 45-archie-raid-assist: mirrors _event_site_id() above -- the raid-assist

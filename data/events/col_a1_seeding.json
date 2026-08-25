@@ -18,6 +18,7 @@
   ],
   "on_complete": [
     { "op": "set_flag", "flag": "colA1SeedingTaught", "value": true },
-    { "op": "queue_pending_message", "contact": "des", "kind": "col_a1_hub", "text": "When you've got a minute. Nothing urgent, but there are three things." }
+    { "op": "queue_pending_message", "contact": "des", "kind": "col_a1_hub", "text": "When you've got a minute. Nothing urgent, but there are three things." },
+    { "op": "set_screen", "screen": "map" }
   ]
 }

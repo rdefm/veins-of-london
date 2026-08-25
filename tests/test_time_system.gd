@@ -268,6 +268,23 @@ func run() -> void:
 		assert_true(hit, "daily_tick should reach step 5h (Raiding.apply_raid_resolution) within 500 tries")
 	)
 
+	run_case("daily_tick_wires_in_hakim_intel_step_right_after_raid_resolution_step", func():
+		# collective1-17: unlocked, well past the 3-day gap, both districts
+		# nowhere near siteCap -- run many seeds and confirm daily_tick
+		# eventually reaches step 5i and queues Hakim's text.
+		var hit := false
+		for seed in range(200):
+			GameState.reset()
+			GameState.state["flags"]["hakimIntelUnlocked"] = true
+			GameState.state["world"]["day"] = 20
+			Rng.set_seed(seed)
+			TimeSystem.daily_tick()
+			if not Messages.pending_for("hakim").is_empty():
+				hit = true
+				break
+		assert_true(hit, "daily_tick should reach step 5i (Collective.maybe_trigger_hakim_intel) within 200 tries")
+	)
+
 	# ── bugfixes-30: James job proactive daily offer + deadline expiry ──
 
 	run_case("daily_tick_wires_in_james_job_offer_roll_step", func():

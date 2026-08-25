@@ -245,6 +245,8 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(msg, "day")
 	# collective1-07
 	_int_dict_values(state.get("collective", {}).get("barkCursors", {}))
+	# collective1-17
+	_int_key(state.get("collective", {}), "hakimIntelLastDay")
 
 	if state.has("meta"):
 		_int_key(state["meta"], "saveVersion")

@@ -64,6 +64,10 @@ static func do_rest() -> void:
 # (it reads/writes player.veins and a target site, not faction resources),
 # so ordering relative to ⑤g doesn't matter causally -- placed last per
 # landing order, same as ⑤g was appended after ⑤f.
+# collective1-17 adds step ⑤i, right after ⑤h: Hakim's repeatable intel
+# roll only reads siteCap/site counts and Messages/collective state, no
+# ordering dependency on any other step -- placed last per landing order,
+# same as ⑤g/⑤h were.
 # bugfixes-40 removed the old step ⑤c, NPC-abandonment (adr/0002's
 # independent daily kill roll for faction-claimed sites, stacked on top of
 # the growth-collapse-at-zero roll every vein already faces) — faction
@@ -90,6 +94,7 @@ static func daily_tick() -> void:
 	Factions.apply_security_upgrades()   # ⑤f faction security-upgrade spend (faction-resource-economy T04), runs right after ⑤e so a tick's vein income is already banked and spendable the same day it's earned
 	Factions.apply_rivalry_resolution()  # ⑤g faction-territory-rivalry attempt roll + resolution (faction-territory-rivalry T04), runs right after ⑤f so a tick's income/spend is already settled before any vein changes hands
 	Raiding.apply_raid_resolution()      # ⑤h Direction-B raid attempt roll + resolution (vein-raiding T06), runs right after ⑤g
+	Collective.maybe_trigger_hakim_intel()  # ⑤i Hakim's repeatable intel roll (collective1-17), runs right after ⑤h
 	Rooms.process_lab()                  # ⑥ rooms (lab, then veinStation)
 	Rooms.process_vein_station()
 	Devices.reset_daily_charges()        # ⑦ device charge reset

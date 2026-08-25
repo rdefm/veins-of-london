@@ -256,6 +256,14 @@ func new_game_state() -> Dictionary:
 			# by col_a1_hakim_rescue's objective (veinIdStatePath) and by
 			# S12's thread-resolution event. null until S11 fires.
 			"hakimVeinId": null,
+			# collective1-17, spec §5.8/§10.1: last day (state.world.day) that
+			# col_hakim_intel's daily-tick roll actually completed -- the
+			# sentinel 0 means "never", so the first roll is eligible as soon
+			# as the 3-day minimum gap (day 1 + 3) has passed. Updated only by
+			# col_hakim_intel's own on_complete, not at roll time, so the
+			# 3-day gap is measured from when the player actually read the
+			# text, not from when Hakim happened to hear the tip.
+			"hakimIntelLastDay": 0,
 		},
 	}
 

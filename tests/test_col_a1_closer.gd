@@ -197,6 +197,12 @@ func run() -> void:
 			if site["district"] == "whitechapel" and site["tier"] == "rich" and site["oreType"] == "life" and site["claimed"]:
 				found_seed = true
 		assert_true(found_seed)
+
+		# Regression (bugfix: an on_complete missing a "set_screen" op leaves
+		# the EventScreen stuck on a dead Continue button, per tests/
+		# test_col_a1_tuition.gd's S1 comment): must navigate back to Hakim's
+		# conversation, where the pending closer text was tapped from.
+		assert_eq(GameState.state["currentScreen"], "phone")
 	)
 
 	# ── S14 played straight through: "Insist on paying" + "Not yet" ────────
@@ -266,6 +272,9 @@ func run() -> void:
 
 		assert_true(GameState.state["flags"]["colA1Joined"])
 		assert_true(GameState.state["factions"]["collective"]["joined"])
+		# Regression: on_complete must navigate off the event screen (see
+		# col_a1_closer's own comment above).
+		assert_eq(GameState.state["currentScreen"], "phone")
 	)
 
 	# ── content sanity (PROSE-REVIEW: card text is drafted, not approved) ──

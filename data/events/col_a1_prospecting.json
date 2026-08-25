@@ -16,6 +16,7 @@
     { "type": "resolution", "label": null, "speaker": null, "text": "You spend an hour looking at brickwork with a seriousness that would embarrass you if anyone you knew walked past. Somewhere under all of it, London is doing what it does." }
   ],
   "on_complete": [
-    { "op": "set_flag", "flag": "colA1ProspectingTaught", "value": true }
+    { "op": "set_flag", "flag": "colA1ProspectingTaught", "value": true },
+    { "op": "set_screen", "screen": "map" }
   ]
 }

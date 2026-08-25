@@ -7,5 +7,5 @@
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Also, he's Crystal Palace. Obviously untrustworthy.\" He says it in the specific tone of a man producing a joke because the real answer has run out." },
     { "type": "resolution", "label": null, "speaker": null, "text": "So that's what that is. A tenner's worth of grievance with six years of compound interest on it. You stop wondering about it, which is exactly what you were supposed to do." }
   ],
-  "on_complete": []
+  "on_complete": [{ "op": "set_screen", "screen": "contacts" }]
 }

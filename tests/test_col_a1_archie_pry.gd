@@ -70,6 +70,11 @@ func run() -> void:
 		Events.advance()  # Continue past the resolved (and last) choice card
 		assert_true(GameState.state["event"] == null, "the event ends here for Leave it -- cards 4-8 must never be reached")
 		assert_true(not GameState.state["flags"].get("colA1AskedAboutDebt", false))
+		# Regression (bugfix: an on_complete missing a "set_screen" op leaves
+		# the EventScreen stuck on a dead Continue button, per tests/
+		# test_col_a1_tuition.gd's S1 comment): must navigate back to
+		# Archie's card, where the action-bar button was tapped from.
+		assert_eq(GameState.state["currentScreen"], "contacts")
 	)
 
 	run_case("leave_it_leaves_the_action_bar_button_available_for_a_later_visit", func():
@@ -104,6 +109,9 @@ func run() -> void:
 
 		assert_true(GameState.state["event"] == null, "the debt event completes normally")
 		assert_true(GameState.state["flags"]["colA1AskedAboutDebt"])
+		# Regression: on_complete must navigate off the event screen (see the
+		# "Leave it" case above).
+		assert_eq(GameState.state["currentScreen"], "contacts")
 	)
 
 	run_case("push_hides_the_action_bar_button_once_the_debt_event_completes", func():

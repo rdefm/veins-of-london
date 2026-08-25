@@ -12,6 +12,7 @@
     { "op": "add", "path": "player.cash", "value": 120 },
     { "op": "faction_relation", "faction": "collective", "value": 8 },
     { "op": "set_flag", "flag": "colA1HakimThreadDone", "value": true },
-    { "op": "set_flag", "flag": "hakimIntelUnlocked", "value": true }
+    { "op": "set_flag", "flag": "hakimIntelUnlocked", "value": true },
+    { "op": "set_screen", "screen": "phone" }
   ]
 }
