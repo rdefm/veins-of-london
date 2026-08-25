@@ -324,6 +324,12 @@ func _build_action_bar(contact_id: String) -> Control:
 		var report_action := ContactCards.build_des_report_action()
 		if report_action != null:
 			bar.add_child(report_action)
+		# collective1-16, spec §6.15/§7.2: the deferred-join follow-up --
+		# permanent once colA1DeferredJoin is set, same slot the report
+		# button above occupies.
+		var ask_joining_action := ContactCards.build_ask_des_joining_action()
+		if ask_joining_action != null:
+			bar.add_child(ask_joining_action)
 	# collective1-11, spec §6.8/§7.2: Nadia's own "Go and see Nadia" story
 	# action, same slot Des's report button occupies above.
 	if contact_id == "nadia":

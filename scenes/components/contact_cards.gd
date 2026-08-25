@@ -169,6 +169,18 @@ static func build_hakim_done_action() -> Control:
 	return UI.button("Hand Hakim's vein back", func(): Events.start_event("col_a1_hakim_done"))
 
 
+# collective1-16, spec §6.15/§7.2/§8.6: the deferred-join follow-up -- S14's
+# "Not yet" leaves this a permanent action on Des's card (not "vanish, don't
+# disable" like the other story actions above; declining is not a failure
+# state and the offer explicitly doesn't expire) until colA1Joined lands via
+# the short col_a1_deferred_join event.
+static func build_ask_des_joining_action() -> Control:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA1DeferredJoin", false) or flags.get("colA1Joined", false):
+		return null
+	return UI.button("Ask Des about joining", func(): Events.start_event("col_a1_deferred_join"))
+
+
 static func build_recruit_row(contact_id: String) -> Control:
 	var c: Dictionary = GameState.state["contacts"][contact_id]
 	var display_name: String = Contacts.display_name(contact_id)
@@ -241,10 +253,17 @@ static func build_faction_card(faction_id: String) -> Control:
 	if faction_id == "guild":
 		c["content"].add_child(UI.button("Guild Marketplace", func(): Nav.go_to("guild_marketplace")))
 
+	# collective1-16, spec §8.6: the Collective has no generic Join
+	# affordance at all -- membership is granted only by S14's choice card
+	# (col_a1_closer) or its deferred-join follow-up (ContactCards.
+	# build_ask_des_joining_action()), never by a button on this card. The
+	# other four factions keep the button until their own storylines land.
 	if state["joined"]:
 		var member_label := UI.button("✅ Member", func(): pass)
 		member_label.disabled = true
 		c["content"].add_child(member_label)
+	elif faction_id == "collective":
+		pass
 	elif Factions.can_join(faction_id):
 		c["content"].add_child(UI.button("Join %s" % f["name"], func(): Factions.join(faction_id)))
 	else:

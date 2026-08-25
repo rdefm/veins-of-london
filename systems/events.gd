@@ -93,6 +93,13 @@ static func advance() -> void:
 		var on_complete: Array = _event_def().get("on_complete", [])
 		GameState.state["event"] = null
 		apply_effects(on_complete)
+		# collective1-16, spec §6.15/§10.4: the closer's three prerequisite
+		# flags are each set by a different event's own on_complete
+		# (col_a1_des_report/col_a1_nadia_done/col_a1_hakim_done) -- this is
+		# the one code path all three actually flow through, so the check
+		# lives here rather than duplicated at each of their three call
+		# sites. Harmless no-op for every other event's completion.
+		Collective.maybe_trigger_closer()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
 		event_state["cardIndex"] += 1
@@ -286,6 +293,19 @@ static func _apply_one(effect: Dictionary) -> void:
 		# above) hands off to the second immediately.
 		"start_event":
 			start_event(effect["event"])
+		# collective1-16, spec §6.15/§10.3: S14's on_complete seed -- creates
+		# the site+vein+claim directly (see _scripted_seed() below) rather
+		# than routing 40 ore through player.orichalchum and calling
+		# Sites.attempt_seed(), so the calc never touches inventory and the
+		# seed can't roll a failure.
+		"scripted_seed":
+			_scripted_seed(effect["district"], effect["tier"], effect["oreType"])
+		# collective1-16, spec §6.15/§8.6: S14's "I'm in" choice -- the only
+		# remaining path to Factions.join("collective"), now that
+		# ContactCards.build_faction_card() suppresses the generic Join
+		# button for that faction.
+		"join_faction":
+			Factions.join(effect["faction"])
 
 
 # Generic path+value combine: adds when both the existing value and the
@@ -318,6 +338,27 @@ static func _set_path(path: String, value: Variant) -> void:
 	current[parts[parts.size() - 1]] = value
 
 
+# Shared claimed-site dict shape between _grant_vein_with_site() and
+# _scripted_seed() below -- both fabricate a site from scratch (no
+# prospecting roll) and immediately claim it, appending to state.world.sites
+# and handing back the new site for its caller's vein to reference by id.
+static func _append_claimed_site(district: String, tier: String, ore_type: String, bonuses: Array) -> Dictionary:
+	var site: Dictionary = {
+		"id": Sites.make_site_id(),
+		"district": district,
+		"tier": tier,
+		"oreType": ore_type,
+		"bonuses": bonuses,
+		"discoveredDay": GameState.state["world"]["day"],
+		"claimed": true,
+		"factionVein": null,
+		"hasNaturalVein": false,
+		"slotIndex": Sites.next_slot_index(district),
+	}
+	GameState.state["world"]["sites"].append(site)
+	return site
+
+
 # M1-LONDON D7: the home-raid debrief's granted vein needs a matching
 # player-claimed site on state.world.sites, or the Map tab shows a
 # Whitechapel vein with no site backing it. Site tier/oreType/bonuses are
@@ -328,19 +369,7 @@ static func _grant_vein_with_site(vein_template: Dictionary) -> String:
 	var hospitability: Dictionary = vein_template.get("hospitability", { "tier": "fair", "bonuses": [] })
 	var day: int = GameState.state["world"]["day"]
 
-	var site: Dictionary = {
-		"id": Sites.make_site_id(),
-		"district": vein_template["district"],
-		"tier": hospitability["tier"],
-		"oreType": vein_template["oreType"],
-		"bonuses": hospitability["bonuses"],
-		"discoveredDay": day,
-		"claimed": true,
-		"factionVein": null,
-		"hasNaturalVein": false,
-		"slotIndex": Sites.next_slot_index(vein_template["district"]),
-	}
-	GameState.state["world"]["sites"].append(site)
+	var site: Dictionary = _append_claimed_site(vein_template["district"], hospitability["tier"], vein_template["oreType"], hospitability["bonuses"])
 
 	var vein: Dictionary = GameState.deep_copy(vein_template)
 	vein["id"] = Cultivating.make_vein_id()
@@ -349,6 +378,25 @@ static func _grant_vein_with_site(vein_template: Dictionary) -> String:
 	vein["rampantDays"] = 0
 	GameState.state["player"]["veins"].append(vein)
 	return vein["id"]
+
+
+# collective1-16, spec §6.15/§10.3: S14's guaranteed seed. Distinct from
+# _grant_vein_with_site() above (which copies a static vein template
+# untouched) -- this rolls no ore/skill/travel and doesn't queue a
+# Modal.open("seed_result") popup, because it isn't a player action to react
+# to: it fabricates the site fresh, at an explicit district/tier/oreType, and
+# claims it exactly as a successful Sites.attempt_seed() would (map events
+# included), so Whitechapel's own scripted rich life vein is guaranteed
+# present regardless of the district's siteCap -- the cap governs prospecting
+# discovery, not this scripted creation, per the ticket's explicit exception.
+static func _scripted_seed(district: String, tier: String, ore_type: String) -> void:
+	var site: Dictionary = _append_claimed_site(district, tier, ore_type, [])
+
+	var hospitability := { "tier": tier, "bonuses": [] }
+	var vein := Cultivating.make_vein(ore_type, GameData.VEIN_GROWTH["seedGrowth"], district, site["id"], hospitability)
+	GameState.state["player"]["veins"].append(vein)
+	MapEvents.queue_seed_claim(district, vein["id"], "player")
+	MapEvents.queue_join_line(district, vein["id"], "player")
 
 
 # M1-LONDON D6: archie_cultivation's closer — a forced, always-successful

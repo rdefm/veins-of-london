@@ -148,6 +148,15 @@ const EVENT_IDS: Array[String] = [
 	# "Leave it" branch must never see them and advance()'s cardIndex has no
 	# branching of its own.
 	"col_a1_archie_pry", "col_a1_archie_pry_debt",
+	# collective1-16, spec.md §6.15: S14, the act's closer -- delivered as a
+	# Hakim pendingMessages text (systems/collective.gd's
+	# maybe_trigger_closer()) once all three thread-done flags and the
+	# relation-25 gate are met. col_a1_deferred_join is its "Not yet" branch's
+	# follow-up: a permanent "Ask Des about joining" action-bar button
+	# (ContactCards.build_ask_des_joining_action()) that grants membership
+	# later via this short two-card event, per spec §6.15's "declining is not
+	# a failure state".
+	"col_a1_closer", "col_a1_deferred_join",
 ]
 
 # M1-LONDON D5's district event deck roster. Loaded into the same EVENTS
@@ -726,6 +735,14 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# debt-reveal cards without the "Leave it" branch ever seeing them, since
 	# advance()'s cardIndex has no branching of its own.
 	"start_event",
+	# collective1-16 ops (systems/events.gd), spec §6.15/§10.3: scripted_seed
+	# is S14's guaranteed-success seed -- creates a site (district/tier/
+	# oreType from the effect), a claimed vein on it at seedGrowth, and the
+	# matching map events, bypassing siteCap/ore-cost/travel entirely (used
+	# only by S14's on_complete). join_faction is S14's "I'm in" choice --
+	# the only remaining path to Factions.join(), since spec §8.6 suppresses
+	# the generic Join button for the Collective specifically.
+	"scripted_seed", "join_faction",
 ]
 
 

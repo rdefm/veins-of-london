@@ -95,3 +95,35 @@ static func maybe_trigger_nadia_vein_done() -> bool:
 
 	Events.start_event("col_a1_nadia_done")
 	return true
+
+
+# collective1-16, spec §6.15/§10.4: S14's delivery condition -- all three
+# thread-done flags plus the relation-25 gate, stated explicitly even though
+# the gate is guaranteed by the +27 favour total the three threads award
+# between them (spec §8.5), so the spine's "gate at 25" contract holds for
+# the other four factions that inherit this engine. Called from Events.
+# advance() right after any event's on_complete runs (see its own comment) --
+# the one code path all three thread-resolution events' on_complete
+# effects actually flow through. Guarded against re-queueing a duplicate
+# text: colA1Complete (this event's own on_complete flag) blocks it once
+# S14 has actually been played, and checking Hakim's existing pending
+# entries blocks it from double-queueing between the moment all three flags
+# land and the player actually opening the text.
+static func maybe_trigger_closer() -> bool:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA1DesThreadDone", false):
+		return false
+	if not flags.get("colA1NadiaThreadDone", false):
+		return false
+	if not flags.get("colA1HakimThreadDone", false):
+		return false
+	if flags.get("colA1Complete", false):
+		return false
+	if GameState.state["factions"]["collective"]["relation"] < 25:
+		return false
+	for entry in Messages.pending_for("hakim"):
+		if entry["kind"] == "col_a1_closer":
+			return false
+
+	Messages.queue_pending("hakim", "col_a1_closer", "Are you about? Nothing's wrong. Come to the shop.")
+	return true

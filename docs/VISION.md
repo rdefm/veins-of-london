@@ -283,7 +283,7 @@ EVENT = { id, trigger, cards:[{ speaker, text, choices:[{label, checks, effects,
 - **A 3-event storyline** at relation thresholds (25/50/80), each delivering a unique mechanical reward: a recipe, security discount, district intel, a buyer front, or a barometer-influence discount.
 - **A stance in the endgame.**
 
-Joining one faction locks its rivals' storylines at event 2 — a real choice with a visible cost.
+Joining one faction locks its rivals' storylines at event 2 — a real choice with a visible cost. **Amendment (collective1-16, `.scratch/collective-act1/spec.md` §8.6):** the Collective is exempt from this lock. It isn't a formal organisation, so there's nothing to be exclusive about — joining it doesn't gate the player out of engaging with or joining any other faction, which is what makes it the natural first faction rather than a trap. The other four factions still lock each other as originally scoped. (Deferred, not decided: whether joining another faction later locks *the Collective's* storyline — Arc 2's problem, since the Firm is Arc 2's antagonist.)
 
 **The Conclave is different.** It is the ancient layer made flesh: an order that has managed the orichalchum trade since before London had a name — Mithraists, then guild masters, now a discreet livery company in the City with exceptional lawyers and a two-thousand-year filing system. Conclave events are the game's lore channel: Plato's *Critias* wasn't allegory, it was a leaked minute, and the dialogue is unfinished because someone finished the author first (they deny this; they deny it very calmly). Their storyline threads directly into the endgame (§15), their agents are the T5 threat tier, and their tone is liveried understatement — the politest frightening people in the game.
 

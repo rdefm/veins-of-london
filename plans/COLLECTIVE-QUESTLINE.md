@@ -408,13 +408,21 @@ constitution. Sample lines in §4 are illustrative drafts, not approved copy.
 Three findings from the current codebase that shape how this gets built.
 
 ### 8.1 `joinRelation: 20` sits below the first spine gate
-`data/factions.json` sets the Collective's `joinRelation` to 20;
-`systems/factions.gd::can_join()` reads it directly. The Arc 1 gate is at ~25, so
-**a player can join the Collective before the questline's first event fires.**
 
-Resolve one of two ways: raise `joinRelation`, or make Arc 1 the content that
-carries the player to 20 in the first place. Do not leave it as is — a player who
-joins before meeting A makes Arc 1's introduction incoherent.
+**Resolved by `.scratch/collective-act1/spec.md` §8.6 (collective1-16):**
+`data/factions.json`'s `collective.joinRelation` is raised 20 → 25, so the
+data and the fiction agree exactly with Arc 1's gate. The generic Join button
+is also suppressed for the Collective specifically (`ContactCards.
+build_faction_card()`) — membership is granted only by S14's "I'm in" choice
+(`col_a1_closer`) or its deferred-join follow-up, never by relation crossing a
+threshold on its own. A player literally cannot join before meeting Des,
+Nadia and Hakim: the three thread-resolution favours alone total +27,
+already past the new 25 gate, and the closer itself is what offers
+membership.
+
+*(Original finding, superseded above: `systems/factions.gd::can_join()` read
+`joinRelation` directly at 20, below the Arc 1 gate of ~25, so a player could
+in principle join before the questline's first event fired.)*
 
 ### 8.2 Hardening the Collective is already implemented
 `systems/factions.gd::_security_opulence()` reads `securityBias` **statically**
@@ -459,11 +467,20 @@ remains deferred, not decided, for Arc 2.
 
 Unresolved. None block starting on the spine.
 
-1. **Names, ages, districts and voices for A, B and C.** A's voice is the hardest
-   and most important — see §4.
-2. **One mechanical reward per spine event.** VISION §14 requires it and names the
-   menu: a recipe, a security discount, district intel, a buyer front, or a
-   barometer-influence discount. Three of these need assigning to the three gates.
+1. ~~**Names, ages, districts and voices for A, B and C.**~~ **Closed by
+   `.scratch/collective-act1/spec.md` §3 (collective1-08 onward):** A, B and C
+   are Des, Nadia and Hakim — cast, voice and district are all spec.md §3's
+   canonical answer for Act 1.
+2. ~~**One mechanical reward per spine event.**~~ **Closed by
+   `.scratch/collective-act1/spec.md` §8.5 (collective1-16):** for Act 1's own
+   spine gate, the reward *is* the favour itself, not a discrete unlock —
+   the four thread beats (S1/S7/S10/S12) award +3/+8/+8/+8 relation, a
+   cumulative +27 that alone clears the 25 gate, verified end to end by this
+   ticket's closer test. A player who never trades with the Collective still
+   gets in on favours alone; trade only gets an efficient player there
+   sooner. Arc 2 and Arc 3's own gates (50/80) may still want a discrete
+   unlock from VISION §14's menu — undecided, and not this question's
+   concern.
 3. **What happens to A** — exile, death in combat, they leave on their own, or the
    player covers for them. Death is available (danger is sincere) but must be
    mundane per §7.3. Covering for them is the least explored and possibly the most

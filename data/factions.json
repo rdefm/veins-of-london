@@ -7,7 +7,7 @@
     "industries": ["sourcing", "trading"],
     "description": "A decentralised network of vein finders and small traders. No hierarchy — or at least, no admitted hierarchy. Strong in East and South London. They find and protect veins collaboratively, share yields, and move ore through trusted contacts. Low entry bar, low ceiling.",
     "colour": "#3a7a52",
-    "joinRelation": 20,
+    "joinRelation": 25,
     "securityBias": -2,
     "resourceLevel": 1,
     "startingResources": 200,

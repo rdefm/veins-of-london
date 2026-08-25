@@ -40,9 +40,10 @@ func run() -> void:
 
 	run_case("join_sets_joined_true", func():
 		GameState.reset()
-		GameState.state["factions"]["collective"]["relation"] = 20
+		# collective1-16, spec §8.6: collective.joinRelation raised 20 -> 25.
+		GameState.state["factions"]["collective"]["relation"] = 25
 		var result := Factions.join("collective")
-		assert_true(result["ok"], "collective joinRelation is 20")
+		assert_true(result["ok"], "collective joinRelation is 25")
 		assert_eq(GameState.state["factions"]["collective"]["joined"], true, "joined flag set")
 	)
 
