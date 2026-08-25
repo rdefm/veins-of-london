@@ -39,12 +39,34 @@ static func build_archie_card() -> Control:
 	for entry in Messages.pending_for("archie"):
 		c["content"].add_child(UI.button("💬 Archie texted — come to the lock-up", _on_archie_pending_pressed.bind(entry)))
 
+	var pry_action := build_archie_pry_action()
+	if pry_action != null:
+		c["content"].add_child(pry_action)
+
 	c["content"].add_child(build_sell_action())
 	var recruit_row := build_recruit_row("archie")
 	if recruit_row != null:
 		c["content"].add_child(recruit_row)
 
 	return c["panel"]
+
+
+# collective1-15, spec §6.13/§7.2: S13, the Archie/Des decoy -- "not a text,
+# the player has to go looking", so it surfaces as a plain button on
+# Archie's own card rather than through pendingMessages like the row above.
+# Available from colA1ArchiePryAvailable (set by S4, col_a1_hub) and
+# vanishes once colA1AskedAboutDebt is true (the explanation only needs
+# giving once) or colA1Complete (missable — gone once Act 1 ends). Choosing
+# "Leave it" leaves both flags false, so the button stays put for a later
+# visit -- same "vanish, don't disable" shape build_des_report_action() uses,
+# just gated on two flags instead of one.
+static func build_archie_pry_action() -> Control:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA1ArchiePryAvailable", false):
+		return null
+	if flags.get("colA1AskedAboutDebt", false) or flags.get("colA1Complete", false):
+		return null
+	return UI.button("Ask about Des", func(): Events.start_event("col_a1_archie_pry"))
 
 
 static func _on_archie_pending_pressed(entry: Dictionary) -> void:

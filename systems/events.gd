@@ -278,6 +278,14 @@ static func _apply_one(effect: Dictionary) -> void:
 		# an unrelated vein_sold_to_faction objective (e.g. col_a1_nadia_vein).
 		"sell_contact_vein_to_faction":
 			VeinTrade.sell_to_faction(GameState.read_path(effect["veinIdStatePath"]), effect["faction"], effect["price"])
+		# collective1-15, spec section 6.13: S13's "Push" choice must continue
+		# straight into the debt reveal (cards 4-8) without the "Leave it"
+		# branch ever seeing them. advance()'s cardIndex has no branching of
+		# its own, so the two lengths live as two separate events, and this
+		# op (fired from the choice's own effects, same timing as set_flag
+		# above) hands off to the second immediately.
+		"start_event":
+			start_event(effect["event"])
 
 
 # Generic path+value combine: adds when both the existing value and the

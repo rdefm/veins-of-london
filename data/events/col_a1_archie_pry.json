@@ -1,0 +1,26 @@
+{
+  "id": "col_a1_archie_pry",
+  "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "You mention Des. Archie's face does the thing it does, which is nothing at all, quite deliberately." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"He's good at ground. Best I know. Leave it there.\"" },
+    {
+      "type": "choice", "label": null, "speaker": null, "text": "He very obviously wants to leave it there.",
+      "choices": [
+        {
+          "label": "Leave it",
+          "effects": [],
+          "result_text": "You leave it. He looks briefly grateful and then annoyed with himself for looking grateful."
+        },
+        {
+          "label": "Push",
+          "effects": [
+            { "op": "set_flag", "flag": "colA1AskedAboutDebt", "value": true },
+            { "op": "start_event", "event": "col_a1_archie_pry_debt" }
+          ],
+          "result_text": ""
+        }
+      ]
+    }
+  ],
+  "on_complete": []
+}

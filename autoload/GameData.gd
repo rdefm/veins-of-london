@@ -139,6 +139,15 @@ const EVENT_IDS: Array[String] = [
 	# action()), gated on colA1HakimRescued (col_a1_hakim_rescue's
 	# completeFlag) until played.
 	"col_a1_hakim_done",
+	# collective1-15, spec.md §6.13: S13, the Archie/Des decoy -- player-pried
+	# only, delivered from Archie's existing contact card (ContactCards.
+	# build_archie_pry_action()), gated on colA1ArchiePryAvailable (set by S4)
+	# until colA1AskedAboutDebt or colA1Complete. col_a1_archie_pry_debt is
+	# its "Push"-only continuation (cards 4-8), chained via the new
+	# start_event op rather than living in the same cards array, since the
+	# "Leave it" branch must never see them and advance()'s cardIndex has no
+	# branching of its own.
+	"col_a1_archie_pry", "col_a1_archie_pry_debt",
 ]
 
 # M1-LONDON D5's district event deck roster. Loaded into the same EVENTS
@@ -712,6 +721,11 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# sell_to_faction() at a forced price (spec §6.12/§10.3) -- S12's
 	# on_complete, Hakim's handback.
 	"sell_contact_vein_to_faction",
+	# collective1-15 op (systems/events.gd): start_event chains straight into
+	# a second event -- S13's "Push" choice (spec §6.13) uses it to reach the
+	# debt-reveal cards without the "Leave it" branch ever seeing them, since
+	# advance()'s cardIndex has no branching of its own.
+	"start_event",
 ]
 
 
