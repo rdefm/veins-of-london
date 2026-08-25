@@ -120,6 +120,244 @@ func _drive_active_event_to_completion() -> void:
 	assert_true(GameState.state["event"] == null, "a triggered district event should resolve well within 50 steps")
 
 
+# collective1-18, spec.md §12.1: the Act 1 acceptance gate. Plays every
+# scene's real event JSON card-by-card (same idiom every tests/test_col_a1_
+# *.gd file already uses) up through S12 (col_a1_hakim_done) — the point
+# where Collective.maybe_trigger_closer() (called from Events.advance()
+# itself, see systems/collective.gd's comment) has just auto-queued S14 as a
+# pendingMessages entry for Hakim — and asserts every §10.2 flag that's
+# reachable by then. The two run_case()s below share this walk and diverge
+# only on how they play S14 itself (joining outright vs. deferring).
+#
+# Phase 2's threads are driven through the real systems the spec calls out
+# by name rather than shortcuts: Sites.prospect() (both for Des's two
+# weather beats, S5/S6, which pre-empt the district deck per spec §10.4, and
+# for the emotion site Nadia's vein sale needs), Economy sales (Collective.
+# complete_trade(), the real Trade-button code path, for the three £-lane
+# trades col_a1_nadia_supply needs), Cultivating.cultivate() (growing
+# Hakim's handed-over vein from seed to the rescue threshold), and
+# VeinTrade.sell_to_faction() (Nadia's vein sale, which also auto-starts
+# S10).
+func _play_collective_act1_through_all_three_threads() -> void:
+	GameState.reset()
+	_play_through_tutorial_and_unlock_prospecting()
+
+	# ── S1: col_a1_intro, delivered via archie_cultivation's own pendingMessages entry ──
+	var s1_pending: Array = Messages.pending_for("archie")
+	assert_eq(s1_pending.size(), 1, "archie_cultivation should have queued exactly one pending entry")
+	assert_eq(s1_pending[0]["kind"], "col_a1_intro")
+	Messages.resolve_pending(s1_pending[0]["id"])
+	Events.start_event("col_a1_intro")
+	for i in range(GameData.EVENTS["col_a1_intro"]["cards"].size()):
+		Events.advance()
+	assert_true(GameState.state["contacts"]["des"]["unlocked"])
+	assert_true(GameState.state["flags"]["colA1DesMet"])
+	assert_true(GameState.state["flags"]["collectiveLaneUnlocked"])
+	assert_eq(GameState.state["flags"]["colA1Stage"], "tuition")
+	_assert_invariants("post-S1")
+
+	# ── S2/S3: the prospecting/seeding tutorial (map-pin delivered; content driven directly) ──
+	Events.start_event("col_a1_prospecting")
+	for i in range(GameData.EVENTS["col_a1_prospecting"]["cards"].size()):
+		Events.advance()
+	assert_true(GameState.state["flags"]["colA1ProspectingTaught"])
+
+	Events.start_event("col_a1_seeding")
+	for i in range(GameData.EVENTS["col_a1_seeding"]["cards"].size()):
+		Events.advance()
+	assert_true(GameState.state["flags"]["colA1SeedingTaught"])
+	_assert_invariants("post-S2-S3")
+
+	# ── S4: col_a1_hub, delivered via Des's own pendingMessages entry from S3's on_complete ──
+	var s4_pending: Array = Messages.pending_for("des")
+	assert_eq(s4_pending.size(), 1)
+	assert_eq(s4_pending[0]["kind"], "col_a1_hub")
+	Messages.resolve_pending(s4_pending[0]["id"])
+	Events.start_event("col_a1_hub")
+	for i in range(GameData.EVENTS["col_a1_hub"]["cards"].size()):
+		Events.advance()
+	assert_true(GameState.state["contacts"]["nadia"]["unlocked"])
+	assert_true(GameState.state["contacts"]["hakim"]["unlocked"])
+	assert_eq(GameState.state["flags"]["colA1Stage"], "hub")
+	assert_true(GameState.state["flags"]["colA1HubReached"])
+	assert_true(GameState.state["flags"]["colA1DesThreadActive"])
+	assert_true(GameState.state["flags"]["colA1ArchiePryAvailable"])
+	Objectives.refresh()
+	assert_true(GameState.state["objectives"]["col_a1_des_sites"]["active"])
+	assert_true(GameState.state["objectives"]["col_a1_hakim_rescue"]["active"])
+	_assert_invariants("post-S4")
+
+	# ── S13: Archie's pry scene, "Push" branch — optional/missable, played here
+	# so this walk also proves colA1AskedAboutDebt, per §10.2's flag list. ──
+	Events.start_event("col_a1_archie_pry")
+	Events.advance()  # narration -> Archie
+	Events.advance()  # Archie -> choice
+	Events.choose(1)  # Push -> hands off immediately into col_a1_archie_pry_debt
+	while GameState.state["event"] != null:
+		Events.advance()
+	assert_true(GameState.state["flags"]["colA1AskedAboutDebt"])
+	_assert_invariants("post-S13")
+
+	# ── Des's thread: S5/S6 fire off real Sites.prospect() calls (spec §10.4) ──
+	var fate_seed := _find_seed_for(500, func():
+		var result := Sites.prospect("city")
+		var site: Variant = result.get("site")
+		return site != null and site["oreType"] == "fate" and GameData.SITE_TIER_ORDER.find(site["tier"]) >= GameData.SITE_TIER_ORDER.find("fair")
+	)
+	assert_true(fate_seed != -1, "should find a qualifying fate site in the City within 500 tries")
+	assert_eq(GameState.state["event"]["eventId"], "col_a1_firm_skirmish", "S5 should auto-fire on the first qualifying site")
+	_drive_active_event_to_completion()
+	assert_true(GameState.state["flags"]["colA1SkirmishSeen"])
+	_assert_invariants("post-S5")
+
+	var physics_seed := _find_seed_for(500, func():
+		var result := Sites.prospect("camden")
+		var site: Variant = result.get("site")
+		return site != null and site["oreType"] == "physics" and GameData.SITE_TIER_ORDER.find(site["tier"]) >= GameData.SITE_TIER_ORDER.find("fair")
+	)
+	assert_true(physics_seed != -1, "should find a qualifying physics site in Camden within 500 tries")
+	assert_eq(GameState.state["event"]["eventId"], "col_a1_firm_intimidation", "S6 should auto-fire on the second qualifying site")
+	_drive_active_event_to_completion()  # picks "Back off" (choice index 0)
+	assert_eq(GameState.state["methodLog"]["firmFirstContact"], "backed_off")
+	assert_true(GameState.state["flags"]["colA1IntimidationSeen"])
+	_assert_invariants("post-S6")
+
+	Objectives.refresh()
+	assert_true(GameState.state["flags"]["colA1DesSitesFound"], "both qualifying sites together should complete col_a1_des_sites")
+
+	Events.start_event("col_a1_des_report")
+	for i in range(GameData.EVENTS["col_a1_des_report"]["cards"].size()):
+		Events.advance()
+	assert_true(GameState.state["flags"]["colA1DesThreadDone"])
+	_assert_invariants("post-S7")
+
+	# ── Nadia's thread: real Economy sales, then a real VeinTrade.sell_to_faction() ──
+	Events.start_event("col_a1_nadia_meet")
+	_drive_active_event_to_completion()
+	assert_true(GameState.state["flags"]["colA1NadiaMet"])
+	Objectives.refresh()  # stamps col_a1_nadia_supply's baseline before any trades happen
+	assert_true(GameState.state["objectives"]["col_a1_nadia_supply"]["active"])
+
+	GameState.state["player"]["orichalchum"]["emotion"] = 60
+	for contact_id in ["des", "hakim", "nadia"]:
+		GameState.state["sellState"]["ore_emotion"] = 10
+		var trade_result := Collective.complete_trade(contact_id)
+		assert_true(trade_result["ok"])
+	assert_true(GameState.state["flags"]["colA1NadiaSupplied"], "3 trades of 10 emotion each, across all three Collective doors, should satisfy col_a1_nadia_supply")
+	_assert_invariants("post-nadia-supply")
+
+	Events.start_event("col_a1_nadia_vein")
+	for i in range(GameData.EVENTS["col_a1_nadia_vein"]["cards"].size()):
+		Events.advance()
+	assert_true(GameState.state["flags"]["veinSaleUnlocked"])
+	assert_true(GameState.state["flags"]["colA1NadiaAskSeen"])
+	Objectives.refresh()
+	assert_true(GameState.state["objectives"]["col_a1_nadia_vein"]["active"])
+
+	GameState.state["player"]["orichalchum"]["emotion"] += 300
+	var nadia_vein_site: Array = []
+	var nadia_prospect_seed := _find_seed_for(500, func():
+		var result := Sites.prospect("whitechapel")
+		var site: Variant = result.get("site")
+		if site == null or site["oreType"] != "emotion" or site["tier"] == "barren":
+			return false
+		nadia_vein_site.clear()
+		nadia_vein_site.append(site)
+		return true
+	)
+	assert_true(nadia_prospect_seed != -1, "should find an emotion site in Whitechapel within 500 tries")
+	var nadia_site_id: String = nadia_vein_site[0]["id"]
+	_drive_active_event_to_completion()
+	_assert_invariants("post-nadia-vein-prospect")
+
+	var nadia_vein_seed_roll := _find_seed_for(500, func():
+		return Sites.attempt_seed(nadia_site_id).get("success", false)
+	)
+	assert_true(nadia_vein_seed_roll != -1, "should find a successful seed roll within 500 tries")
+	var nadia_vein_id: String = GameState.state["player"]["veins"].filter(func(v): return v["siteId"] == nadia_site_id)[0]["id"]
+
+	var sell_result := VeinTrade.sell_to_faction(nadia_vein_id, "collective")
+	assert_true(sell_result["ok"])
+	assert_eq(GameState.state["event"]["eventId"], "col_a1_nadia_done", "the qualifying vein sale should auto-start S10")
+	_drive_active_event_to_completion()
+	assert_true(GameState.state["flags"]["colA1NadiaThreadDone"])
+	_assert_invariants("post-S10")
+
+	# ── Hakim's thread: a real Cultivating.cultivate() loop from seed to the rescue threshold ──
+	Events.start_event("col_a1_hakim_meet")
+	_drive_active_event_to_completion()
+	assert_true(GameState.state["flags"]["colA1HakimMet"])
+
+	var hakim_vein_id: String = GameState.state["collective"]["hakimVeinId"]
+	assert_true(hakim_vein_id != null and hakim_vein_id != "")
+	var threshold: int = GameData.OBJECTIVES["col_a1_hakim_rescue"]["params"]["threshold"]
+	var rescue_guard := 0
+	while Cultivating.find_vein(hakim_vein_id)["growth"] < threshold and rescue_guard < 20:
+		rescue_guard += 1
+		var cult_seed := _find_seed_for(500, func():
+			return Cultivating.cultivate(hakim_vein_id).get("success", false)
+		)
+		assert_true(cult_seed != -1, "should find a successful cultivate roll within 500 tries")
+	assert_true(Cultivating.find_vein(hakim_vein_id)["growth"] >= threshold, "Hakim's vein should reach the rescue threshold within 20 successful cultivates")
+	assert_true(GameState.state["flags"]["colA1HakimRescued"])
+	_assert_invariants("post-hakim-cultivate")
+
+	Events.start_event("col_a1_hakim_done")
+	for i in range(GameData.EVENTS["col_a1_hakim_done"]["cards"].size()):
+		Events.advance()
+	assert_true(GameState.state["flags"]["colA1HakimThreadDone"])
+	assert_true(GameState.state["flags"]["hakimIntelUnlocked"])
+	_assert_invariants("post-S12")
+
+	# ── Phase 3's gate: all three threads done + relation >= 25 (guaranteed by
+	# the +27 favour total alone, per spec §8.5) auto-queues S14 for Hakim,
+	# from inside col_a1_hakim_done's own advance() call (see systems/
+	# collective.gd's maybe_trigger_closer() comment) ──
+	assert_true(GameState.state["factions"]["collective"]["relation"] >= 25)
+	var closer_pending: Array = Messages.pending_for("hakim")
+	var found_closer := false
+	for entry in closer_pending:
+		if entry["kind"] == "col_a1_closer":
+			found_closer = true
+	assert_true(found_closer, "the closer should have auto-queued the instant all three threads completed")
+
+	# Every §10.2 flag reachable before S14 itself has landed.
+	var flags: Dictionary = GameState.state["flags"]
+	for flag_name in ["colA1DesMet", "colA1ProspectingTaught", "colA1SeedingTaught", "colA1HubReached",
+			"colA1DesThreadActive", "colA1DesSitesFound", "colA1DesThreadDone", "colA1SkirmishSeen",
+			"colA1IntimidationSeen", "colA1NadiaMet", "colA1NadiaSupplied", "colA1NadiaAskSeen",
+			"colA1NadiaThreadDone", "colA1HakimMet", "colA1HakimRescued", "colA1HakimThreadDone",
+			"colA1ArchiePryAvailable", "colA1AskedAboutDebt", "collectiveLaneUnlocked",
+			"veinSaleUnlocked", "hakimIntelUnlocked"]:
+		assert_true(flags.get(flag_name, false), "flag %s should have landed by the end of phase 2" % flag_name)
+	assert_true(not flags.get("colA1Complete", false), "S14 hasn't been played yet")
+
+
+# Resolves the one pendingMessages entry of the given kind for a contact --
+# both new S14 run_case()s below need this for the closer's own Hakim text.
+func _resolve_pending_by_kind(contact_id: String, kind: String) -> void:
+	for entry in Messages.pending_for(contact_id):
+		if entry["kind"] == kind:
+			Messages.resolve_pending(entry["id"])
+			return
+	assert_true(false, "no pending %s entry found for %s" % [kind, contact_id])
+
+
+# Same choice-driving idiom as tests/test_col_a1_closer.gd's own
+# _play_event_with_choices() -- not shared with it directly (per this file's
+# own _make_site comment: standalone test scripts have no import mechanism
+# between them), but at least not duplicated a second time within this file.
+func _play_event_with_choices(event_id: String, choices: Array) -> void:
+	Events.start_event(event_id)
+	var choice_i := 0
+	while GameState.state["event"] != null:
+		if Events.is_awaiting_choice():
+			Events.choose(choices[choice_i])
+			choice_i += 1
+		else:
+			Events.advance()
+
+
 func run() -> void:
 	run_case("full_playthrough_tutorial_economy_ticks_and_save_roundtrip", func():
 		GameState.reset()
@@ -527,4 +765,68 @@ func run() -> void:
 		assert_eq(GameState.state["event"], null, "the generic driver should resolve the choice-triggered combat and finish the event")
 		assert_true(not GameState.state["combat"]["active"], "combat should be torn down once resolved")
 		_assert_invariants("post-camden-shakedown-combat-branch")
+	)
+
+	# collective1-18, spec.md §12.1: the Act 1 acceptance gate, join-outright
+	# variant. Plays S14 with "Thank him" + "I'm in" and asserts every §10.2
+	# flag lands, including the ones only S14 itself can set.
+	run_case("collective_act1_full_playthrough_joins_the_collective_and_every_flag_lands", func():
+		_play_collective_act1_through_all_three_threads()
+
+		_resolve_pending_by_kind("hakim", "col_a1_closer")
+		_play_event_with_choices("col_a1_closer", [0, 0])  # "Thank him", then "I'm in"
+
+		assert_true(GameState.state["flags"]["colA1Complete"])
+		assert_eq(GameState.state["flags"]["colA1Stage"], "complete")
+		assert_true(GameState.state["flags"]["colA1Joined"])
+		assert_true(GameState.state["factions"]["collective"]["joined"])
+		assert_true(not GameState.state["flags"].get("colA1DeferredJoin", false), "joining outright must never set the deferred-join flag")
+		_assert_invariants("post-S14-joined")
+
+		# The full §10.2 flag list, this time including S14's own flags.
+		var flags: Dictionary = GameState.state["flags"]
+		for flag_name in ["colA1DesMet", "colA1ProspectingTaught", "colA1SeedingTaught", "colA1HubReached",
+				"colA1DesThreadActive", "colA1DesSitesFound", "colA1DesThreadDone", "colA1SkirmishSeen",
+				"colA1IntimidationSeen", "colA1NadiaMet", "colA1NadiaSupplied", "colA1NadiaAskSeen",
+				"colA1NadiaThreadDone", "colA1HakimMet", "colA1HakimRescued", "colA1HakimThreadDone",
+				"colA1ArchiePryAvailable", "colA1AskedAboutDebt", "colA1Complete", "colA1Joined",
+				"collectiveLaneUnlocked", "veinSaleUnlocked", "hakimIntelUnlocked"]:
+			assert_true(flags.get(flag_name, false), "flag %s should have landed" % flag_name)
+
+		assert_true(GameState.state["objectives"]["col_a1_des_sites"]["complete"])
+		assert_true(GameState.state["objectives"]["col_a1_nadia_supply"]["complete"])
+		assert_true(GameState.state["objectives"]["col_a1_nadia_vein"]["complete"])
+		assert_true(GameState.state["objectives"]["col_a1_hakim_rescue"]["complete"])
+	)
+
+	# collective1-18, spec.md §12.1/§6.15: the acceptance gate's second
+	# variant — declining membership at S14 ("Insist on paying" + "Not yet")
+	# must still leave the act complete and the deferred-join follow-up
+	# (col_a1_deferred_join, spec §6.15's closing note) must grant membership
+	# later, on the player's own initiative.
+	run_case("collective_act1_declining_at_S14_defers_membership_until_the_deferred_join_follow_up", func():
+		_play_collective_act1_through_all_three_threads()
+
+		_resolve_pending_by_kind("hakim", "col_a1_closer")
+		_play_event_with_choices("col_a1_closer", [1, 1])  # "Insist on paying", then "Not yet"
+
+		assert_true(GameState.state["flags"]["colA1Complete"], "declining still completes the act")
+		assert_eq(GameState.state["flags"]["colA1Stage"], "complete")
+		assert_true(GameState.state["flags"]["colA1DeferredJoin"])
+		assert_true(not GameState.state["flags"].get("colA1Joined", false), "declining must not join outright")
+		assert_true(not GameState.state["factions"]["collective"]["joined"])
+		_assert_invariants("post-S14-deferred")
+
+		# The deferred-join follow-up: reachable from Des's action bar
+		# (ContactCards.build_ask_des_joining_action(), per tests/
+		# test_col_a1_closer.gd) whenever colA1DeferredJoin is set — driven
+		# here as the event it starts, same idiom as every other thread-
+		# resolution scene in this walk.
+		Events.start_event("col_a1_deferred_join")
+		for i in range(GameData.EVENTS["col_a1_deferred_join"]["cards"].size()):
+			Events.advance()
+
+		assert_true(GameState.state["flags"]["colA1Joined"], "the deferred-join follow-up should grant membership later")
+		assert_true(GameState.state["factions"]["collective"]["joined"])
+		_assert_invariants("post-deferred-join")
 	)
