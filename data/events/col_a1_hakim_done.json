@@ -1,0 +1,17 @@
+{
+  "id": "col_a1_hakim_done",
+  "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "The yard looks exactly the same. The vein does not. It reads as taking, and rising." },
+    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"That's better than my uncle had it.\" He says this and then looks slightly stricken, as though he has been disloyal." },
+    { "type": "narration", "label": null, "speaker": null, "text": "He pays you. It is not very much and he has clearly thought about the amount, and there is no version of refusing it that isn't worse." },
+    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"Listen. I hear things. Not — I'm not anybody, I just stand here and people talk. If I hear about ground going, round here, I'll text you. That's not me paying you back, that's just — I'll text you.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "You have made a newsagent's yard marginally more productive. Somewhere in the calculation of what you have spent your week on, this is either the least or the most important thing, and it won't be clear which for some time." }
+  ],
+  "on_complete": [
+    { "op": "sell_contact_vein_to_faction", "veinIdStatePath": "collective.hakimVeinId", "faction": "collective", "price": 0 },
+    { "op": "add", "path": "player.cash", "value": 120 },
+    { "op": "faction_relation", "faction": "collective", "value": 8 },
+    { "op": "set_flag", "flag": "colA1HakimThreadDone", "value": true },
+    { "op": "set_flag", "flag": "hakimIntelUnlocked", "value": true }
+  ]
+}

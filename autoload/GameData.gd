@@ -133,6 +133,12 @@ const EVENT_IDS: Array[String] = [
 	# not colA1HakimMet), per spec's delivery choice rather than an
 	# action-bar button like Des/Nadia's threads.
 	"col_a1_hakim_meet",
+	# collective1-14, spec.md §6.12: Hakim's thread resolution -- handing the
+	# recovered vein back, delivered the same action-bar-button way as
+	# col_a1_des_report/col_a1_nadia_meet (ContactCards.build_hakim_done_
+	# action()), gated on colA1HakimRescued (col_a1_hakim_rescue's
+	# completeFlag) until played.
+	"col_a1_hakim_done",
 ]
 
 # M1-LONDON D5's district event deck roster. Loaded into the same EVENTS
@@ -701,6 +707,11 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# grant_vein_with_site's contact-handoff cousin -- also stores the new
 	# vein's id at a named state path (spec §6.11/§10.3) -- S11's on_complete.
 	"grant_contact_vein",
+	# collective1-14 op (systems/events.gd): sell_contact_vein_to_faction
+	# resolves a vein id from a named state path and reuses VeinTrade.
+	# sell_to_faction() at a forced price (spec §6.12/§10.3) -- S12's
+	# on_complete, Hakim's handback.
+	"sell_contact_vein_to_faction",
 ]
 
 

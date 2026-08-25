@@ -134,6 +134,19 @@ static func build_nadia_vein_ask_action() -> Control:
 	return UI.button("Nadia has an idea", func(): Events.start_event("col_a1_nadia_vein"))
 
 
+# collective1-14, spec §6.12/§7.2: Hakim's thread-resolution story action --
+# same "vanish, don't disable" shape build_des_report_action() above uses,
+# gated on colA1HakimRescued (col_a1_hakim_rescue's completeFlag, spec
+# §6.12's delivery) rather than a separate objective-completion flag, and
+# vanishing once colA1HakimThreadDone (this event's own on_complete flag)
+# is set, same as the other two thread-resolution actions.
+static func build_hakim_done_action() -> Control:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA1HakimRescued", false) or flags.get("colA1HakimThreadDone", false):
+		return null
+	return UI.button("Hand Hakim's vein back", func(): Events.start_event("col_a1_hakim_done"))
+
+
 static func build_recruit_row(contact_id: String) -> Control:
 	var c: Dictionary = GameState.state["contacts"][contact_id]
 	var display_name: String = Contacts.display_name(contact_id)

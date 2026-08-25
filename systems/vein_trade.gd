@@ -34,10 +34,16 @@ static func quote(vein: Dictionary) -> int:
 # from in the first place), growth is passed through unchanged. Stamps
 # `soldByPlayer` so Objectives' vein_sold_to_faction evaluator (systems/
 # objectives.gd) can tell a player sale apart from a natural NPC claim or a
-# rivalry capture landing the same faction on the same ore type. price=0 is
-# a valid, deliberate call (ticket 14's Hakim handback) -- no minimum-price
-# guard here; the caller decides what to charge.
-static func sell_to_faction(vein_id: String, faction_id: String) -> Dictionary:
+# rivalry capture landing the same faction on the same ore type.
+#
+# `price_override` (ticket 14, spec §6.12): non-null only for Hakim's
+# handback, which reuses this exact code path at a forced £0 rather than
+# a separate mechanism. A forced price also means the transfer is not a
+# genuine market sale, so `soldByPlayer` is left false for it -- otherwise
+# Hakim's emotion vein would silently satisfy col_a1_nadia_vein (factionId
+# + oreType is all that objective checks) and misfire col_a1_nadia_done
+# with Nadia's dialogue over a vein she never touched.
+static func sell_to_faction(vein_id: String, faction_id: String, price_override: Variant = null) -> Dictionary:
 	var vein: Variant = Cultivating.find_vein(vein_id)
 	if vein == null:
 		return { "ok": false, "reason": "No such vein." }
@@ -46,7 +52,8 @@ static func sell_to_faction(vein_id: String, faction_id: String) -> Dictionary:
 	if site == null:
 		return { "ok": false, "reason": "Site not found." }
 
-	var price: int = quote(vein)
+	var is_handback: bool = price_override != null
+	var price: int = price_override if is_handback else quote(vein)
 
 	var player: Dictionary = GameState.state["player"]
 	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
@@ -54,7 +61,7 @@ static func sell_to_faction(vein_id: String, faction_id: String) -> Dictionary:
 	Bank.record(price, "Sold vein to %s" % faction_id.capitalize())
 
 	var faction_vein: Dictionary = Factions.create_faction_vein(faction_id, site, vein["growth"])
-	faction_vein["soldByPlayer"] = true
+	faction_vein["soldByPlayer"] = not is_handback
 	site["claimed"] = false
 	site["factionVein"] = faction_vein
 

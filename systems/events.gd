@@ -268,6 +268,16 @@ static func _apply_one(effect: Dictionary) -> void:
 		# progress (see Objectives._eval_sites_discovered_matching()).
 		"faction_seed_reported_sites":
 			_faction_seed_reported_sites(effect["objective"], effect["faction"])
+		# collective1-14, spec §6.12/§10.3: S12's handback -- resolves a
+		# contact-granted vein's id (grant_contact_vein's statePath, e.g.
+		# col_a1_hakim_meet's "collective.hakimVeinId") and reuses
+		# VeinTrade.sell_to_faction() at a forced price, same "no separate
+		# mechanism" instruction as the ticket. See sell_to_faction()'s own
+		# comment for why a forced price also marks the transfer as not a
+		# real market sale (soldByPlayer false), keeping it from tripping
+		# an unrelated vein_sold_to_faction objective (e.g. col_a1_nadia_vein).
+		"sell_contact_vein_to_faction":
+			VeinTrade.sell_to_faction(GameState.read_path(effect["veinIdStatePath"]), effect["faction"], effect["price"])
 
 
 # Generic path+value combine: adds when both the existing value and the

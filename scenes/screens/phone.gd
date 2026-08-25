@@ -334,6 +334,12 @@ func _build_action_bar(contact_id: String) -> Control:
 		var vein_ask_action := ContactCards.build_nadia_vein_ask_action()
 		if vein_ask_action != null:
 			bar.add_child(vein_ask_action)
+	# collective1-14, spec §6.12/§7.2: Hakim's thread-resolution story action,
+	# same slot Des's report button and Nadia's two occupy above.
+	if contact_id == "hakim":
+		var hakim_done_action := ContactCards.build_hakim_done_action()
+		if hakim_done_action != null:
+			bar.add_child(hakim_done_action)
 	for entry in Messages.pending_for(contact_id):
 		bar.add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
 	bar.add_child(ContactCards.build_trade_action(contact_id))

@@ -179,6 +179,38 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["veins"].size(), 0, "the vein still transfers even at price 0")
 	)
 
+	run_case("sell_to_faction_price_override_forces_the_price_regardless_of_quote", func():
+		GameState.reset()
+		var vein := _seed_vein(85, "rich")  # quote() would price this well above 0
+		assert_true(VeinTrade.quote(vein) > 0)
+		var cash_before: int = GameState.state["player"]["cash"]
+
+		var result := VeinTrade.sell_to_faction("v1", "collective", 0)
+
+		assert_eq(result["price"], 0)
+		assert_eq(GameState.state["player"]["cash"], cash_before)
+	)
+
+	run_case("sell_to_faction_price_override_does_not_stamp_soldByPlayer", func():
+		GameState.reset()
+		_seed_vein(61, "fair")
+
+		VeinTrade.sell_to_faction("v1", "collective", 0)
+
+		var site: Variant = Sites.find_site("s1")
+		assert_true(not site["factionVein"]["soldByPlayer"], "a forced price marks a handback, not a market sale (ticket 14)")
+	)
+
+	run_case("sell_to_faction_without_a_price_override_still_stamps_soldByPlayer", func():
+		GameState.reset()
+		_seed_vein(50, "fair")
+
+		VeinTrade.sell_to_faction("v1", "collective")
+
+		var site: Variant = Sites.find_site("s1")
+		assert_true(site["factionVein"]["soldByPlayer"])
+	)
+
 	run_case("sell_to_faction_fails_for_an_unknown_vein_id", func():
 		GameState.reset()
 		_seed_vein(50, "fair")
