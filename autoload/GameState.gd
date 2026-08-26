@@ -44,9 +44,15 @@ func new_game_state() -> Dictionary:
 		# pacing_mode()/set_pacing_mode().
 		"mapEvents": { "queue": [], "playing": false, "pacingMode": MapEvents.DEFAULT_PACING_MODE },
 		# collective1-03: selectedContactId drills into a single conversation
-		# the same way selectedAxis drills into a single Ticker axis below --
-		# null means "show the conversation list."
-		"phoneNav": { "app": "home", "selectedAxis": null, "selectedContactId": null, "confirmingNewGame": false },
+		# the same way selectedAxis drills into a single Ticker axis below.
+		# 84-contacts-retire-messages-tile: there's no conversation-list view
+		# left for null to mean "show" instead -- a conversation is only ever
+		# opened via PhoneNav.select_conversation(), which always sets a real
+		# id. revealFromIndex is that same function's staged-reveal handoff to
+		# the phone screen (screen-local once consumed; see phone.gd's own
+		# _reveal_from_index comment) -- null here just means "no conversation
+		# opened yet."
+		"phoneNav": { "app": "home", "selectedAxis": null, "selectedContactId": null, "confirmingNewGame": false, "revealFromIndex": null },
 		# 53-map-auto-focus-and-zoom-persistence: unlike mapNav/phoneNav/
 		# benchNav above/below, this DOES survive save/load (see
 		# SaveManager._restore_int_types() for scrollX/scrollY) -- the

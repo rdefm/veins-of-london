@@ -55,15 +55,24 @@ static func back_to_ticker() -> void:
 # above. Marking the conversation read is a state.messages mutation, not
 # nav bookkeeping -- Messages.mark_read() does that here rather than
 # leaving it to the screen (screens never mutate state directly).
+#
+# 84-contacts-retire-messages-tile: this is now the ONLY way a conversation
+# is ever opened (the phone.gd conversation-list's own "Open ->" button is
+# gone; every contact's Messages button on their Contacts card calls
+# straight in here), including from Contacts, before the phone screen even
+# exists. So the "how many messages were already read before this open"
+# capture the staged-reveal presentation needs (collective1-03 spec §5.2)
+# has to happen here too -- computed and stashed in state.phoneNav before
+# mark_read() below erases the read/unread distinction it depends on --
+# rather than in the phone screen itself, which used to run this the
+# instant its own conversation-list row was tapped but can't count on
+# being mounted at all now.
 static func select_conversation(contact_id: String) -> void:
+	var thread: Array = GameState.state["messages"].get(contact_id, [])
 	GameState.state["phoneNav"]["app"] = "messages"
 	GameState.state["phoneNav"]["selectedContactId"] = contact_id
+	GameState.state["phoneNav"]["revealFromIndex"] = maxi(thread.size() - Messages.unread_count(contact_id), 0)
 	Messages.mark_read(contact_id)
-	EventBus.state_changed.emit()
-
-
-static func back_to_messages() -> void:
-	GameState.state["phoneNav"]["selectedContactId"] = null
 	EventBus.state_changed.emit()
 
 

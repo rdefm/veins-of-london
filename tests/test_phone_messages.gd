@@ -1,12 +1,17 @@
 extends "res://tests/test_base.gd"
 
-# collective1-03: screen-level tests for the Phone's Messages app
-# (conversation list + a single conversation's history/action bar),
-# same headless-scene pattern as tests/test_phone_bank.gd. The staged
-# reveal itself (get_tree().create_timer awaits) is explicitly not tested
-# headless (spec §12.3) -- these only exercise the instant-render/state
-# paths: which conversations list, what a row shows, what opening/tapping
-# an entry does to state.
+# collective1-03: screen-level tests for the Phone's Messages app (a single
+# conversation's history/action bar), same headless-scene pattern as
+# tests/test_phone_bank.gd. The staged reveal itself (get_tree().
+# create_timer awaits) is explicitly not tested headless (spec §12.3) --
+# these only exercise the instant-render/state paths: what a conversation
+# shows, what tapping its action bar does.
+#
+# 84-contacts-retire-messages-tile: the conversation-list view these used to
+# exercise (row rendering, "Open ->", the empty state, the top-level tile)
+# is gone -- Contacts is the only way in now (tests/test_contact_cards.gd
+# covers that button), so every case here opens its conversation the same
+# way that button does: PhoneNav.select_conversation() directly.
 
 
 static func _label_texts(root: Node) -> Array[String]:
@@ -31,71 +36,18 @@ static func _find_button(root: Node, text: String) -> Button:
 
 
 func run() -> void:
-	# 83-contacts-archie-james-sms-port: Archie and James are full members of
-	# the Messages app now -- their old bespoke SMS screens are gone.
-	run_case("conversation_list_includes_archie_and_james_once_unlocked", func():
-		GameState.reset()
-		GameState.state["contacts"]["james"]["unlocked"] = true
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
-		GameState.state["phoneNav"]["app"] = "messages"
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		var texts := _label_texts(phone)
-		assert_true(texts.has("Archie"), "archie appears in the new Messages app (unlocked from game start)")
-		assert_true(texts.has("James"), "james appears in the new Messages app once unlocked")
-		assert_true(texts.has("Des"), "a new-shape unlocked contact appears")
-
-		phone.free()
-	)
-
-	run_case("conversation_row_shows_an_unread_dot_and_the_latest_message_preview", func():
-		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
-		Messages.append("des", "them", "Got something for you.")
-		GameState.state["phoneNav"]["app"] = "messages"
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		var texts := _label_texts(phone)
-		assert_true(texts.has("Des ●"), "unread dot appended to the contact's name")
-		assert_true(texts.has("Got something for you."), "row shows the latest message as a preview")
-
-		phone.free()
-	)
-
-	run_case("empty_state_shown_when_no_conversations_are_unlocked_yet", func():
-		GameState.reset()
-		# archie is unlocked by default (data/constants.json) -- lock him out
-		# here so this case is a genuine zero-conversations state.
-		GameState.state["contacts"]["archie"]["unlocked"] = false
-		GameState.state["phoneNav"]["app"] = "messages"
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		assert_true(_label_texts(phone).has("No conversations yet."), "empty state message")
-
-		phone.free()
-	)
-
-	run_case("opening_a_conversation_marks_it_read_and_shows_its_history_and_trade_button", func():
+	run_case("selecting_a_conversation_marks_it_read_and_renders_its_history_and_trade_button", func():
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
 		Messages.append("des", "them", "Got something for you.")
 		Messages.append("des", "player", "On my way.")
-		GameState.state["phoneNav"]["app"] = "messages"
+
+		PhoneNav.select_conversation("des")
 
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var open_button := _find_button(phone, "Open →")
-		assert_true(open_button != null, "conversation list has an Open button")
-		open_button.pressed.emit()
-
-		assert_eq(GameState.state["phoneNav"]["selectedContactId"], "des", "opening navigates into the conversation")
+		assert_eq(GameState.state["phoneNav"]["selectedContactId"], "des", "select_conversation opens that contact's thread")
 		assert_true(not Messages.has_unread("des"), "opening marks the conversation read")
 
 		var texts := _label_texts(phone)
@@ -115,8 +67,7 @@ func run() -> void:
 	# card-only, out of this ticket's scope).
 	run_case("archie_conversation_action_bar_shows_his_own_sell_action_not_the_collective_trade_door", func():
 		GameState.reset()
-		GameState.state["phoneNav"]["app"] = "messages"
-		GameState.state["phoneNav"]["selectedContactId"] = "archie"
+		PhoneNav.select_conversation("archie")
 
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -131,8 +82,7 @@ func run() -> void:
 	run_case("james_conversation_action_bar_shows_neither_trade_nor_sell", func():
 		GameState.reset()
 		GameState.state["contacts"]["james"]["unlocked"] = true
-		GameState.state["phoneNav"]["app"] = "messages"
-		GameState.state["phoneNav"]["selectedContactId"] = "james"
+		PhoneNav.select_conversation("james")
 
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -144,11 +94,13 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("back_from_a_conversation_returns_to_the_list", func():
+	# 84-contacts-retire-messages-tile: back from a conversation has nowhere
+	# left to return to but the app grid -- the conversation-list it used to
+	# return to is gone.
+	run_case("back_from_a_conversation_returns_to_the_phone_home_grid", func():
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
-		GameState.state["phoneNav"]["app"] = "messages"
-		GameState.state["phoneNav"]["selectedContactId"] = "des"
+		PhoneNav.select_conversation("des")
 
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -157,6 +109,7 @@ func run() -> void:
 		assert_true(back_button != null, "conversation view has a Back button")
 		back_button.pressed.emit()
 
+		assert_eq(GameState.state["phoneNav"]["app"], "home", "back from a conversation lands on the app grid")
 		assert_eq(GameState.state["phoneNav"]["selectedContactId"], null, "back clears the drill-down")
 
 		phone.free()
@@ -166,8 +119,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
 		Messages.queue_pending("des", "col_a1_des_report", "Got something for you.", { "site_id": "s1" })
-		GameState.state["phoneNav"]["app"] = "messages"
-		GameState.state["phoneNav"]["selectedContactId"] = "des"
+		PhoneNav.select_conversation("des")
 
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -179,27 +131,6 @@ func run() -> void:
 		assert_eq(GameState.state["pendingMessages"].size(), 0, "the entry is removed once its action is taken")
 		assert_eq(GameState.state["event"]["eventId"], "col_a1_des_report", "tapping it starts the event")
 		assert_eq(GameState.state["event"]["context"], { "site_id": "s1" }, "the payload travels as the event's context")
-
-		phone.free()
-	)
-
-	run_case("messages_app_is_reachable_from_the_app_grid_via_the_messages_tile", func():
-		GameState.reset()
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		var messages_tile: AppTile = null
-		for t in phone.find_children("", "AppTile", true, false):
-			if (t as AppTile)._app_id == "messages":
-				messages_tile = t
-		assert_true(messages_tile != null, "the app grid must include a Messages tile")
-
-		var event := InputEventScreenTouch.new()
-		event.pressed = true
-		messages_tile._on_gui_input(event)
-
-		assert_eq(GameState.state["phoneNav"]["app"], "messages", "tapping the tile opens the messages app via PhoneNav")
 
 		phone.free()
 	)

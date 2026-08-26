@@ -53,6 +53,37 @@ func run() -> void:
 		assert_eq(GameState.state["phoneNav"]["selectedAxis"], null, "selectedAxis should clear")
 	)
 
+	# 84-contacts-retire-messages-tile: select_conversation() is now the only
+	# place a conversation is ever opened from, including from Contacts,
+	# before a phone screen even exists to capture this itself -- so the
+	# staged-reveal presentation's "how many were already read before this
+	# open" computation moved here (state.phoneNav.revealFromIndex),
+	# computed before mark_read() below erases the read/unread distinction.
+	run_case("select_conversation_computes_revealFromIndex_from_unread_count_before_marking_read", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		Messages.append("des", "them", "Old.")
+		Messages.mark_read("des")
+		Messages.append("des", "them", "New one.")
+		Messages.append("des", "them", "New two.")
+
+		PhoneNav.select_conversation("des")
+
+		assert_eq(GameState.state["phoneNav"]["revealFromIndex"], 1, "reveal index sits right before the 2 unread messages")
+		assert_true(not Messages.has_unread("des"), "select_conversation still marks the thread read")
+	)
+
+	run_case("select_conversation_sets_revealFromIndex_to_the_full_thread_when_nothing_is_unread", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		Messages.append("des", "them", "Old.")
+		Messages.mark_read("des")
+
+		PhoneNav.select_conversation("des")
+
+		assert_eq(GameState.state["phoneNav"]["revealFromIndex"], 1, "nothing unread -- the whole thread renders instantly")
+	)
+
 	# Ticket 12: route_home() is the shared "route to phone home" helper
 	# every retired-`home`-screen call site uses (unlike nav_bar.gd's own
 	# Phone-tab button, which has its own no-op-when-already-home path).

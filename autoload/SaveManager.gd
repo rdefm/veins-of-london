@@ -123,6 +123,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	var filled := backfill_defaults(raw)
 	_restore_int_types(filled)
 	_remap_retired_screen_id(filled)
+	_remap_retired_messages_list(filled)
 	GameState.state = filled
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -149,6 +150,23 @@ func _remap_retired_screen_id(save: Dictionary) -> void:
 	phone_nav["selectedAxis"] = null
 	phone_nav["confirmingNewGame"] = false
 	save["phoneNav"] = phone_nav
+
+
+# 84-contacts-retire-messages-tile: a save from before this ticket could
+# have phoneNav.app == "messages" with no selectedContactId set -- exactly
+# the state the retired conversation-list view itself used to leave sitting
+# in phoneNav (its own "no contact chosen yet" view). The Messages app has
+# no such view left to render; PhoneScreen._build_messages() now assumes
+# selectedContactId is always set (true for every save written by this
+# ticket onward, via PhoneNav.select_conversation()). Same "remap a retired
+# UI state back to the grid on load" reasoning as _remap_retired_screen_id()
+# above, just scoped to this one phoneNav combination rather than a whole
+# currentScreen value.
+func _remap_retired_messages_list(save: Dictionary) -> void:
+	var phone_nav: Dictionary = save.get("phoneNav", {})
+	if phone_nav.get("app") == "messages" and phone_nav.get("selectedContactId") == null:
+		phone_nav["app"] = "home"
+		save["phoneNav"] = phone_nav
 
 
 # vein-growth-state spec §11: save-breaking is accepted for the growth-model
@@ -309,6 +327,14 @@ func _restore_int_types(state: Dictionary) -> void:
 		# mapView.zoom is a genuine float (MapZoom.MIN..MAX) -- intentionally
 		# left untouched, same as combat.evadeChance/devicesInProgress[].
 		# progress above.
+
+	# 84-contacts-retire-messages-tile: null on a fresh/no-conversation-open
+	# state (see GameState.gd's phoneNav default) -- _int_key() is already a
+	# no-op on null (typeof() isn't TYPE_FLOAT), only firing when a save
+	# was captured mid-conversation and the JSON round-trip turned this into
+	# a float.
+	if state.has("phoneNav"):
+		_int_key(state["phoneNav"], "revealFromIndex")
 
 	if state.has("factions"):
 		for faction in state["factions"].values():

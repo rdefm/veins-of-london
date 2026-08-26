@@ -2,8 +2,11 @@ extends "res://tests/test_base.gd"
 
 # collective1-03: unit seams for systems/messages.gd (spec §12.2's
 # "pendingMessages / messages" row — append, unread, mark-read, 50-message
-# cap eviction), plus the conversation-list ordering/exclusion rule and the
-# push_message/unlock_contact effect ops (Events._apply_one()).
+# cap eviction), plus the push_message/unlock_contact effect ops
+# (Events._apply_one()). 84-contacts-retire-messages-tile: the conversation-
+# list ordering/exclusion rule this used to cover (conversation_contact_ids())
+# went with that view -- Contacts renders each contact's own card directly
+# now, gated on its own unlocked flag, not a shared sorted list.
 
 # Contacts default to only archie/james (data/constants.json) -- ticket 07
 # adds the real new-shape roster. A synthetic contact injected straight
@@ -109,45 +112,6 @@ func run() -> void:
 
 		assert_eq(GameState.state["pendingMessages"].size(), 1, "one entry removed")
 		assert_eq(GameState.state["pendingMessages"][0]["kind"], "event_b", "the other entry survives")
-	)
-
-	# 83-contacts-archie-james-sms-port: archie/james are full members of the
-	# conversation list now -- their old bespoke SMS screens are gone.
-	run_case("conversation_contact_ids_includes_archie_and_james_once_unlocked", func():
-		GameState.reset()
-		GameState.state["contacts"]["archie"]["unlocked"] = true
-		GameState.state["contacts"]["james"]["unlocked"] = true
-		_add_test_contact("des")
-
-		var ids := Messages.conversation_contact_ids()
-		assert_true(ids.has("archie"), "archie appears once unlocked")
-		assert_true(ids.has("james"), "james appears once unlocked")
-		assert_true(ids.has("des"), "a new-shape unlocked contact appears")
-	)
-
-	run_case("conversation_contact_ids_excludes_locked_contacts", func():
-		GameState.reset()
-		_add_test_contact("des", false)
-
-		assert_true(not Messages.conversation_contact_ids().has("des"), "locked contacts don't appear")
-	)
-
-	run_case("conversation_contact_ids_sorts_most_recent_activity_first", func():
-		GameState.reset()
-		# archie is unlocked by default (data/constants.json) -- lock him out
-		# here so he doesn't join the no-activity tail this case is scoped to.
-		GameState.state["contacts"]["archie"]["unlocked"] = false
-		_add_test_contact("des")
-		_add_test_contact("nadia")
-		_add_test_contact("hakim")
-
-		Messages.append("des", "them", "Old.")
-		GameState.state["world"]["day"] = 5
-		Messages.append("hakim", "them", "New.")
-		# nadia never gets a message -- should sort last.
-
-		var ids := Messages.conversation_contact_ids()
-		assert_eq(ids, ["hakim", "des", "nadia"], "most recent activity first, no-activity contacts last")
 	)
 
 	run_case("push_message_op_appends_an_unread_text_via_Events_apply_effects", func():

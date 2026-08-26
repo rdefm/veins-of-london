@@ -32,7 +32,7 @@ func run() -> void:
 		var ids: Array[String] = []
 		for t in tiles:
 			ids.append(t._app_id)
-		assert_eq(ids, ["messages", "notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "contacts", "vfl"], "grid renders the registry's apps, in registry order")
+		assert_eq(ids, ["notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "contacts", "vfl"], "grid renders the registry's apps, in registry order")
 
 		phone.free()
 	)
@@ -63,49 +63,6 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("badge_dot_visibility_on_the_rendered_tiles_matches_the_pending_predicates", func():
-		# 83-contacts-archie-james-sms-port: the sms_archie tutorialStage no
-		# longer drives the badge on its own -- a real pendingMessages entry
-		# does (queued by buyer.json's on_complete in real play). Queue one
-		# directly here rather than driving the whole buyer event.
-		GameState.reset()
-		Messages.queue_pending("archie", "james_meeting", "test")
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		for t in _find_tiles(phone):
-			var expected := t._app_id == "messages"
-			assert_eq(t._badge.visible, expected, "%s badge dot visibility" % t._app_id)
-
-		phone.free()
-	)
-
-	run_case("badge_for_reflects_the_real_pending_messages_predicate", func():
-		GameState.reset()
-		Messages.queue_pending("archie", "james_meeting", "test")
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		assert_true(phone._badge_for("messages"), "messages badge follows _has_pending_messages()")
-
-		phone.free()
-	)
-
-	run_case("badge_for_reflects_an_unread_message_in_the_new_Messages_app", func():
-		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
-		Messages.append("des", "them", "Got something for you.")
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		assert_true(phone._badge_for("messages"), "messages badge follows Messages.has_any_unread()")
-
-		phone.free()
-	)
-
 	run_case("badge_for_reflects_the_real_ticker_rumblings_predicate", func():
 		GameState.reset()
 		Barometer.ensure_progress()
@@ -123,13 +80,12 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("badge_for_is_false_for_both_wired_apps_on_a_fresh_game", func():
+	run_case("badge_for_is_false_for_the_wired_app_on_a_fresh_game", func():
 		GameState.reset()
 
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_true(not phone._badge_for("messages"), "no pending messages on a fresh game")
 		assert_true(not phone._badge_for("ticker"), "no rumblings on a fresh game")
 
 		phone.free()

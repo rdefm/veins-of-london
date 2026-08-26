@@ -217,11 +217,3 @@ func run() -> void:
 		assert_eq(GameState.state["event"]["eventId"], "james_motion", "pressing it resolves the pending entry and starts its event")
 		assert_true(Messages.pending_for("james").is_empty(), "the pending entry is resolved once acted on")
 	)
-
-	run_case("archie_and_james_join_the_conversation_contact_list_once_unlocked", func():
-		GameState.reset()
-		GameState.state["contacts"]["james"]["unlocked"] = true
-		var ids := Messages.conversation_contact_ids()
-		assert_true(ids.has("archie"), "archie is no longer excluded as a legacy contact")
-		assert_true(ids.has("james"), "james is no longer excluded as a legacy contact")
-	)

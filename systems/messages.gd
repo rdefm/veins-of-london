@@ -58,6 +58,17 @@ static func has_unread(contact_id: String) -> bool:
 	return false
 
 
+# 84-contacts-retire-messages-tile: PhoneNav.select_conversation() needs the
+# actual count (not just has_unread()'s bool) to work out how much of the
+# thread predates this open, for the staged-reveal presentation.
+static func unread_count(contact_id: String) -> int:
+	var count := 0
+	for msg in GameState.state["messages"].get(contact_id, []):
+		if not msg["read"]:
+			count += 1
+	return count
+
+
 static func has_any_unread() -> bool:
 	for contact_id in GameState.state["messages"].keys():
 		if has_unread(contact_id):
@@ -89,25 +100,3 @@ static func resolve_pending(id: String) -> void:
 			pending.remove_at(i)
 			EventBus.state_changed.emit()
 			return
-
-
-# Most-recent-activity-first list of contact ids the Messages app should
-# list: every unlocked contact, Archie/James included since 83-contacts-
-# archie-james-sms-port. "Contacts appear as they unlock" (spec §5.2) — a
-# contact with no messages yet (unlocked but nothing sent) sorts last, in
-# dictionary iteration order (data insertion order), which is deterministic.
-static func conversation_contact_ids() -> Array[String]:
-	var contacts: Dictionary = GameState.state["contacts"]
-	var ids: Array[String] = []
-	for contact_id in contacts.keys():
-		if contacts[contact_id]["unlocked"]:
-			ids.append(contact_id)
-	ids.sort_custom(func(a, b): return _last_activity_day(a) > _last_activity_day(b))
-	return ids
-
-
-static func _last_activity_day(contact_id: String) -> int:
-	var thread: Array = GameState.state["messages"].get(contact_id, [])
-	if thread.is_empty():
-		return -1
-	return thread[thread.size() - 1]["day"]

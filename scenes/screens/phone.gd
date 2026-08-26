@@ -21,13 +21,17 @@ var _import_box: TextEdit
 # presentation state" reasoning the old sms_archie.gd's own _revealed used,
 # before 83-contacts-archie-james-sms-port ported it here), so a save/load
 # or an unrelated state_changed refresh never needs to touch it.
-# Set once per conversation-open in _open_conversation() (before
-# PhoneNav.select_conversation() marks everything read, since that's the
-# only moment "how many were unread" is still knowable), and bumped to the
-# thread's full length the first time _build_conversation() consumes it —
-# so a stray _refresh() mid-reveal (some unrelated state_changed firing
-# while the player is reading) just renders the rest instantly instead of
-# restarting the animation.
+# 84-contacts-retire-messages-tile: the actual "how many were already read
+# before this open" computation now happens in PhoneNav.select_conversation()
+# itself (state.phoneNav.revealFromIndex) rather than here, since that's the
+# only place left a conversation is ever opened from and it can run before a
+# phone screen even exists (ContactCards.build_messages_button() opens a
+# conversation from the Contacts screen). _build_messages() imports that
+# value into this dict the first time it sees a given contactId, then this
+# is bumped to the thread's full length the first time _build_conversation()
+# consumes it -- so a stray _refresh() mid-reveal (some unrelated
+# state_changed firing while the player is reading) just renders the rest
+# instantly instead of restarting the animation, same as before.
 var _reveal_from_index: Dictionary = {}
 
 # collective1-03: a single conversation needs a genuinely pinned-at-bottom
@@ -162,27 +166,10 @@ func _vfl_locked() -> bool:
 
 func _badge_for(app_id: String) -> bool:
 	match app_id:
-		"messages":
-			return _has_pending_messages()
 		"ticker":
 			return _has_ticker_rumblings()
 		_:
 			return false
-
-
-func _has_pending_messages() -> bool:
-	if Messages.has_any_unread():
-		return true
-
-	# 83-contacts-archie-james-sms-port: every Archie/James SMS trigger this
-	# used to check by flag now arrives as a real unread message (Messages.
-	# append/queue_pending), so Messages.has_any_unread() above already
-	# covers them. James's job-offer flow is the one survivor -- it's not
-	# SMS content, and stays flag-driven.
-	var f: Dictionary = GameState.state["flags"]
-	if f["jamesMotionEventSeen"] and f["jamesJobActive"]:
-		return true
-	return false
 
 
 func _has_ticker_rumblings() -> bool:
@@ -193,56 +180,27 @@ func _has_ticker_rumblings() -> bool:
 
 
 # ── messages (collective1-03: real Messages app) ─────────────────────
-# Conversation list + per-contact conversation screen with a pinned action
-# bar, per spec §5.2. 83-contacts-archie-james-sms-port: Archie and James
-# are full members of this app now -- their old bespoke SMS screens are
-# gone, and their content flows through Messages.append()/queue_pending()
-# like everyone else's.
+# Per-contact conversation screen with a pinned action bar, per spec §5.2.
+# 83-contacts-archie-james-sms-port: Archie and James are full members of
+# this app now -- their old bespoke SMS screens are gone, and their
+# content flows through Messages.append()/queue_pending() like everyone
+# else's. 84-contacts-retire-messages-tile: the conversation-list view
+# that used to live here (and its own "open a conversation" step) is
+# gone -- this app is now reached exclusively via PhoneNav.select_
+# conversation(), always with a contact already chosen (ContactCards.
+# build_messages_button() on the contact's own Contacts card), so
+# selectedContactId is always set by the time this renders.
 
 func _build_messages() -> void:
-	var selected_contact_id = GameState.state["phoneNav"].get("selectedContactId")
-	if selected_contact_id != null:
-		_build_conversation(selected_contact_id)
-	else:
-		_build_conversation_list()
-
-
-func _build_conversation_list() -> void:
-	_content.add_child(_phone_back_button())
-	_content.add_child(UI.heading("Messages"))
-
-	var contact_ids := Messages.conversation_contact_ids()
-	if contact_ids.is_empty():
-		_content.add_child(UI.muted_label("No conversations yet."))
-	for contact_id in contact_ids:
-		_content.add_child(_build_conversation_row(contact_id))
-
-
-func _build_conversation_row(contact_id: String) -> Control:
-	var thread: Array = GameState.state["messages"].get(contact_id, [])
-	var name_line := Contacts.display_name(contact_id)
-	if Messages.has_unread(contact_id):
-		name_line += " ●"
-
-	var c := UI.card()
-	c["content"].add_child(UI.heading(name_line, 15))
-	if not thread.is_empty():
-		c["content"].add_child(UI.muted_label(thread[thread.size() - 1]["text"]))
-	c["content"].add_child(UI.button("Open →", _open_conversation.bind(contact_id)))
-	return c["panel"]
-
-
-# Captures "how many messages were already read before this open" while
-# that's still knowable -- PhoneNav.select_conversation() marks the whole
-# thread read as part of navigating in, so this has to run first.
-func _open_conversation(contact_id: String) -> void:
-	var thread: Array = GameState.state["messages"].get(contact_id, [])
-	var unread := 0
-	for msg in thread:
-		if not msg["read"]:
-			unread += 1
-	_reveal_from_index[contact_id] = maxi(thread.size() - unread, 0)
-	PhoneNav.select_conversation(contact_id)
+	var contact_id: String = GameState.state["phoneNav"]["selectedContactId"]
+	# Import PhoneNav.select_conversation()'s staged-reveal handoff into the
+	# screen-local cache the first time this contact's conversation renders
+	# on this screen instance -- once, same as the old _open_conversation()
+	# capture (see _reveal_from_index's own comment above).
+	if not _reveal_from_index.has(contact_id):
+		var reveal_from_index = GameState.state["phoneNav"].get("revealFromIndex")
+		_reveal_from_index[contact_id] = reveal_from_index if reveal_from_index != null else 0
+	_build_conversation(contact_id)
 
 
 func _build_conversation(contact_id: String) -> void:
@@ -253,7 +211,11 @@ func _build_conversation(contact_id: String) -> void:
 	add_child(_conversation_root)
 
 	var header := UI.hbox()
-	header.add_child(UI.button("‹ Back", func(): PhoneNav.back_to_messages()))
+	# 84-contacts-retire-messages-tile: back from a conversation goes to the
+	# phone home grid, same as every other app's back button (PhoneNav.
+	# back_to_messages()'s "return to the conversation list" behaviour has
+	# nowhere left to return to, since that list is gone).
+	header.add_child(_phone_back_button())
 	header.add_child(UI.heading(Contacts.display_name(contact_id)))
 	_conversation_root.add_child(header)
 

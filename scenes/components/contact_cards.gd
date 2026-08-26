@@ -167,11 +167,12 @@ static func build_ask_des_joining_action() -> Control:
 
 # 82-contacts-des-nadia-hakim-cards: opens the contact's existing conversation
 # thread -- the same generic renderer phone.gd's _build_conversation already
-# builds (Messages app), reused rather than rebuilt. Mirrors the Nav.go_to +
-# PhoneNav.select_conversation two-step phone.gd's own _open_conversation()
-# takes to reach a conversation, minus that function's reveal-index
-# bookkeeping (screen-local presentation cache for the staged-reveal
-# animation that doesn't apply here -- the phone screen isn't mounted yet).
+# builds (Messages app), reused rather than rebuilt. This is Nav.go_to +
+# PhoneNav.select_conversation, the same two-step every conversation opens
+# with now (84-contacts-retire-messages-tile: including the staged-reveal
+# handoff, since select_conversation() itself computes and stashes that --
+# see its own comment -- rather than the phone screen capturing it, so this
+# works even though the phone screen isn't mounted yet when this runs).
 static func build_messages_button(contact_id: String) -> Control:
 	var text := "💬 Messages"
 	if Messages.has_unread(contact_id):

@@ -23,7 +23,6 @@ extends RefCounted
 static func apps() -> Array[Dictionary]:
 	var unlocked := func(): return false
 	return [
-		{ "id": "messages", "label": "Messages", "locked": unlocked },
 		{ "id": "notes", "label": "Notes", "locked": unlocked },
 		{ "id": "factions", "label": "Factions", "locked": unlocked },
 		{ "id": "ticker", "label": "The Ticker", "locked": unlocked },
@@ -35,6 +34,12 @@ static func apps() -> Array[Dictionary]:
 		# REVIEW candidates) -- the tile label doubles as the in-app heading,
 		# same convention "ticker"/"The Ticker" already uses.
 		{ "id": "bank", "label": "Reynard's", "locked": unlocked },
+		# 84-contacts-retire-messages-tile: no top-level "messages" entry
+		# here any more -- every contact (Archie/James included, since
+		# 83-contacts-archie-james-sms-port) has its own thread reachable
+		# from the `contacts` tile below via ContactCards.build_messages_
+		# button(), so the conversation-list app this tile used to open is
+		# gone rather than duplicating what Contacts already does.
 		# bugfixes-78: restores the only entry point into the standalone
 		# `contacts` screen (Archie/James's bespoke SMS threads + James's
 		# job offers) -- the ticket-11 dock restructure and ticket-07
