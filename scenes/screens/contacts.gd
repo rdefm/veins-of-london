@@ -27,5 +27,18 @@ func _refresh() -> void:
 
 	_content.add_child(ContactCards.build_archie_card())
 
+	# 82-contacts-des-nadia-hakim-cards: unlocked-gated, same pattern as the
+	# James card below -- each unlocks separately over the Collective Act 1
+	# questline (col_a1_intro unlocks des; col_a1_hub unlocks nadia and hakim
+	# together), so a card only appears once its contact is actually reachable.
+	if GameState.state["contacts"]["des"]["unlocked"]:
+		_content.add_child(ContactCards.build_des_card())
+
+	if GameState.state["contacts"]["nadia"]["unlocked"]:
+		_content.add_child(ContactCards.build_nadia_card())
+
+	if GameState.state["contacts"]["hakim"]["unlocked"]:
+		_content.add_child(ContactCards.build_hakim_card())
+
 	if GameState.state["contacts"]["james"]["unlocked"]:
 		_content.add_child(ContactCards.build_james_card())

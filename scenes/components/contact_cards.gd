@@ -181,6 +181,37 @@ static func build_ask_des_joining_action() -> Control:
 	return UI.button("Ask Des about joining", func(): Events.start_event("col_a1_deferred_join"))
 
 
+# 82-contacts-des-nadia-hakim-cards: opens the contact's existing conversation
+# thread -- the same generic renderer phone.gd's _build_conversation already
+# builds (Messages app), reused rather than rebuilt. Mirrors the Nav.go_to +
+# PhoneNav.select_conversation two-step phone.gd's own _open_conversation()
+# takes to reach a conversation, minus that function's reveal-index
+# bookkeeping (screen-local presentation cache for the staged-reveal
+# animation that doesn't apply here -- the phone screen isn't mounted yet).
+static func build_messages_button(contact_id: String) -> Control:
+	var text := "💬 Messages"
+	if Messages.has_unread(contact_id):
+		text += " ●"
+	return UI.button(text, func():
+		Nav.go_to("phone")
+		PhoneNav.select_conversation(contact_id)
+	)
+
+
+# 82-contacts-des-nadia-hakim-cards: the generic pendingMessages continue --
+# same "story action" phone.gd's own _build_action_bar() comment classes
+# pendingMessages continues as (grouped with the flag-driven story actions,
+# ahead of Trade), and the same shape build_archie_card()'s own pending loop
+# above uses, just with the generic "Continue →" label phone.gd's action bar
+# uses instead of one-off flavour text -- Des/Nadia/Hakim's pendingMessages
+# entries vary in kind (col_a1_hub, col_a1_closer, col_hakim_intel, ...)
+# unlike Archie's single hardcoded S1 case, so there's no one flavour line to
+# hardcode here.
+static func _on_pending_action_pressed(entry: Dictionary) -> void:
+	Messages.resolve_pending(entry["id"])
+	Events.start_event(entry["kind"], entry["payload"])
+
+
 static func build_recruit_row(contact_id: String) -> Control:
 	var c: Dictionary = GameState.state["contacts"][contact_id]
 	var display_name: String = Contacts.display_name(contact_id)
@@ -228,6 +259,87 @@ static func build_james_card() -> Control:
 				c["content"].add_child(UI.button("📦 Deliver job: %d× %s %s" % [job["qty"], job["symbol"], job["recipeName"]], func(): Jobs.fulfil_job()))
 
 	var recruit_row := build_recruit_row("james")
+	if recruit_row != null:
+		c["content"].add_child(recruit_row)
+
+	return c["panel"]
+
+
+# 82-contacts-des-nadia-hakim-cards: gives Des, Nadia and Hakim their own
+# Contacts card, same recruit-row/standing-action/story-action pattern
+# build_archie_card()/build_james_card() above use -- step one of
+# consolidating messaging onto Contacts (spec: doesn't touch Archie/James's
+# bespoke SMS screens or remove the top-level Messages tile). Story actions
+# reuse the exact builders phone.gd's own _build_action_bar() already calls
+# for each contact's conversation-thread action bar, so the two surfaces
+# never drift. Card-line strings ("Prospector · Crystal Palace" etc.) are
+# collective-act1/spec.md §3.1-3.3's canonical "Card line" text.
+static func build_des_card() -> Control:
+	var des: Dictionary = GameState.state["contacts"]["des"]
+
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Des — Relation %d" % des["relation"], 15))
+	c["content"].add_child(UI.muted_label("Prospector · Crystal Palace"))
+
+	var report_action := build_des_report_action()
+	if report_action != null:
+		c["content"].add_child(report_action)
+	var ask_joining_action := build_ask_des_joining_action()
+	if ask_joining_action != null:
+		c["content"].add_child(ask_joining_action)
+	for entry in Messages.pending_for("des"):
+		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
+
+	c["content"].add_child(build_messages_button("des"))
+	c["content"].add_child(build_trade_action("des"))
+	var recruit_row := build_recruit_row("des")
+	if recruit_row != null:
+		c["content"].add_child(recruit_row)
+
+	return c["panel"]
+
+
+static func build_nadia_card() -> Control:
+	var nadia: Dictionary = GameState.state["contacts"]["nadia"]
+
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Nadia — Relation %d" % nadia["relation"], 15))
+	c["content"].add_child(UI.muted_label("Fixer · Hackney"))
+
+	var meet_action := build_nadia_meet_action()
+	if meet_action != null:
+		c["content"].add_child(meet_action)
+	var vein_ask_action := build_nadia_vein_ask_action()
+	if vein_ask_action != null:
+		c["content"].add_child(vein_ask_action)
+	for entry in Messages.pending_for("nadia"):
+		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
+
+	c["content"].add_child(build_messages_button("nadia"))
+	c["content"].add_child(build_trade_action("nadia"))
+	var recruit_row := build_recruit_row("nadia")
+	if recruit_row != null:
+		c["content"].add_child(recruit_row)
+
+	return c["panel"]
+
+
+static func build_hakim_card() -> Control:
+	var hakim: Dictionary = GameState.state["contacts"]["hakim"]
+
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Hakim — Relation %d" % hakim["relation"], 15))
+	c["content"].add_child(UI.muted_label("Newsagent · Whitechapel"))
+
+	var done_action := build_hakim_done_action()
+	if done_action != null:
+		c["content"].add_child(done_action)
+	for entry in Messages.pending_for("hakim"):
+		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
+
+	c["content"].add_child(build_messages_button("hakim"))
+	c["content"].add_child(build_trade_action("hakim"))
+	var recruit_row := build_recruit_row("hakim")
 	if recruit_row != null:
 		c["content"].add_child(recruit_row)
 
