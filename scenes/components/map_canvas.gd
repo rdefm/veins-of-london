@@ -374,6 +374,14 @@ func _ready() -> void:
 # own comment for why leaving "playing" stuck true in that case would
 # permanently break every future tap on this screen.
 #
+# 81-map-stuck-playback-flag: Nav.go_to()/Combat._start_combat() now call
+# abandon_playback() themselves, synchronously, before this Control's
+# eventual (deferred, via queue_free()) teardown ever reaches this — so by
+# the time this actually runs, is_playing() is normally already false and
+# this is a no-op. Left in as the fallback for any teardown that isn't a
+# navigation-away-from-map call at all (there's currently no such path, but
+# nothing enforces that every future one will remember the guard either).
+#
 # 53-map-auto-focus-and-zoom-persistence: also the one place camera state
 # gets persisted -- MapCanvas is torn down and rebuilt on every navigation
 # away from "map" (see map_events.gd's own header comment), so there's no

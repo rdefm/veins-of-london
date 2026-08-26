@@ -245,17 +245,31 @@ static func advance() -> bool:
 	return not queue.is_empty()
 
 
-# Called from MapCanvas._exit_tree(): the Node driving playback can be torn
-# down mid-drain — e.g. a district-deck event (systems/district_deck.gd)
-# fires mid-prospect and Nav.go_to("event")s away from "map" while the
-# current event's pan/ripple tween is still in flight, freeing the whole Map
-# screen out from under the coroutine that was awaiting it, with no chance
-# to ever reach advance(). Left alone, "playing" would stay stuck true
-# forever — and since MapCanvas._handle_tap() checks is_playing() first,
-# every future tap on any later Map visit would silently route into
-# _skip_current() with nothing left to skip, permanently locking out normal
-# district/stop taps (drag-to-pan still works — that's the wrapping
-# ScrollContainer, untouched by any of this).
+# Called from MapCanvas._exit_tree(), Nav.go_to(), and Combat._start_combat():
+# the Node driving playback can be torn down (or just navigated away from)
+# mid-drain — e.g. a district-deck event (systems/district_deck.gd) fires mid-
+# prospect and Nav.go_to("event")s away from "map", or Raiding.
+# maybe_trigger_defend() fires a defend combat the same way, both as the
+# synchronous last step of the exact same action that just queued the
+# animation still "playing" — while the current event's pan/ripple tween is
+# still in flight, freeing the whole Map screen out from under the coroutine
+# that was awaiting it, with no chance to ever reach advance(). Left alone,
+# "playing" would stay stuck true forever — and since MapCanvas._handle_tap()
+# checks is_playing() first, every future tap on any later Map visit would
+# silently route into _skip_current() with nothing left to skip, permanently
+# locking out normal district/stop taps (drag-to-pan still works — that's the
+# wrapping ScrollContainer, untouched by any of this).
+#
+# 81-map-stuck-playback-flag: MapCanvas._exit_tree() alone doesn't fire until
+# whatever's tearing the screen down actually frees the node (Main.gd's
+# _show_screen() defers that via queue_free()) — later than the same frame's
+# already-synchronous navigation call, and easy to miss for a screen-entry
+# chokepoint that (like Combat._start_combat()) bundles its own screen_changed
+# emit rather than going through Nav.go_to(). Nav.go_to() and
+# Combat._start_combat() now call this directly instead of relying solely on
+# that deferred teardown, so every navigation-away-from-map path clears the
+# guard the same way, not just the ones that happen to route through
+# MapCanvas's own Node lifecycle in time.
 #
 # bugfixes-50: used to clear only the "playing" guard, leaving the queue
 # itself untouched — has_pending()/current() still pointed at the same

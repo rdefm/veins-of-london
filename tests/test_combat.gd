@@ -318,6 +318,27 @@ func run() -> void:
 		assert_eq(GameState.state["currentScreen"], "combat")
 	)
 
+	# 81-map-stuck-playback-flag: _start_combat() sets currentScreen/emits
+	# screen_changed itself rather than going through Nav.go_to() (see its own
+	# comment), so it needs the same abandon-a-still-playing-map-queue
+	# treatment Nav.go_to() gets, tested the same "no live MapCanvas, simulate
+	# via begin_playback()" way tests/test_nav.gd's matching case does.
+	# Raiding.maybe_trigger_defend() -> start_defend_vein() is exactly this:
+	# the arrival-side defend hook, called synchronously from the same
+	# Sites.prospect()/Travel.travel_to() action that can queue a MapEvents
+	# animation right before it.
+	run_case("start_defend_vein_abandons_a_still_playing_map_animation_queue", func():
+		GameState.reset()
+		MapEvents.queue_discover("shoreditch", "s1")
+		MapEvents.queue_discover("camden", "s2")
+		MapEvents.begin_playback()
+
+		Combat.start_defend_vein("v1", 2)
+
+		assert_true(not MapEvents.is_playing(), "a defend combat starting mid-tween should clear the guard immediately")
+		assert_eq(MapEvents.pending_site_ids(), ["s2"], "the interrupted event (s1) is consumed; s2 still awaits its turn")
+	)
+
 	run_case("exit_combat_defend_vein_win_leaves_the_vein_alone_and_routes_home", func():
 		GameState.reset()
 		var vein := { "id": "pv_test", "oreType": "time", "growth": 10, "security": "none", "alarmUpgrades": ["alarm"], "location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch", "siteId": "s_player", "hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0 }

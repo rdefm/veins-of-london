@@ -1101,6 +1101,32 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["activeDefendRaid"], outcome, "the popped outcome should be stashed for exit_combat to resolve later")
 	)
 
+	# 81-map-stuck-playback-flag: maybe_trigger_defend() is the arrival-side
+	# hook Sites.prospect()/Travel.travel_to() call as one of their last steps
+	# (same chokepoint DistrictDeck.maybe_trigger() uses), so it's exactly as
+	# capable of firing mid-tween on a still-"playing" MapEvents animation as
+	# a district-deck event is -- via Combat.start_defend_vein() ->
+	# Combat._start_combat(), which now calls MapEvents.abandon_playback()
+	# itself (see its own comment). Real chain, not a Combat.start_defend_vein()
+	# stand-in -- tests/test_combat.gd's own case covers that narrower check.
+	run_case("maybe_trigger_defend_abandons_a_still_playing_map_animation_queue", func():
+		GameState.reset()
+		var vein := _player_vein_of(30, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+		MapEvents.queue_discover("shoreditch", "s_prior")
+		MapEvents.begin_playback()
+		assert_true(MapEvents.is_playing(), "a previous action's queued animation is mid-flight when this arrival fires")
+
+		var triggered: bool = Raiding.maybe_trigger_defend("camden")
+
+		assert_true(triggered, "a matching pending defend raid should trigger")
+		assert_eq(GameState.state["currentScreen"], "combat", "defend combat really started, via the real Raiding.maybe_trigger_defend() -> Combat.start_defend_vein() -> Combat._start_combat() chain")
+		assert_true(not MapEvents.is_playing(), "the interrupted animation's guard should recover to false, not stay stuck true -- MapCanvas._handle_tap() gates every tap on this")
+		assert_eq(MapEvents.pending_site_ids(), [], "the only queued event (s_prior) was the interrupted one -- nothing left to replay")
+	)
+
 	run_case("maybe_trigger_defend_is_a_no_op_for_a_district_with_no_matching_pending_raid", func():
 		GameState.reset()
 		var vein := _player_vein_of(30, "time", "none", "camden")

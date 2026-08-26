@@ -337,3 +337,51 @@ func run() -> void:
 
 		GameData.EVENTS = original_events
 	)
+
+	# ── 81-map-stuck-playback-flag: the real interruption chain ───────────
+	# Everything above drives DistrictDeck.maybe_trigger() in isolation. This
+	# exercises the actual synchronous call chain the ticket names as the
+	# prime suspect: Sites.prospect() queues its own "discover" MapEvents
+	# animation (systems/sites.gd's _create_site()), then — as the very last
+	# thing it does — calls DistrictDeck.maybe_trigger(), which (on a hit)
+	# calls Events.start_event() -> Nav.go_to("event"), navigating away from
+	# "map" mid-tween. Nav.go_to() now calls MapEvents.abandon_playback()
+	# itself (see its own comment) rather than relying solely on MapCanvas.
+	# _exit_tree()'s deferred teardown — this proves that fires for real,
+	# through Sites/DistrictDeck/Events/Nav exactly as a player would trigger
+	# it, not just via a direct MapEvents.begin_playback()/Nav.go_to() stand-in
+	# (tests/test_nav.gd's own case does that narrower check).
+	run_case("districtdeck_firing_mid_prospect_abandons_a_still_playing_map_animation_queue", func():
+		var original_events := _install_deck({
+			"e_trigger": { "district": "any", "weight": 1, "excludeIfFlag": null, "barometerState": null },
+		})
+
+		# A prior action's animation (an unrelated district's discover event)
+		# is still "playing" when this prospect fires -- same shape
+		# tests/test_nav.gd's case simulates, just reached via the real chain.
+		var seed := -1
+		for candidate in range(400):
+			GameState.reset()
+			MapEvents.queue_discover("camden", "s_prior")
+			MapEvents.begin_playback()
+			Rng.set_seed(candidate)
+			Sites.prospect("shoreditch")
+			if GameState.state["currentScreen"] == "event":
+				seed = candidate
+				break
+		assert_true(seed != -1, "should find a seed where prospect's own district-deck roll fires within 400 tries")
+
+		GameState.reset()
+		MapEvents.queue_discover("camden", "s_prior")
+		MapEvents.begin_playback()
+		assert_true(MapEvents.is_playing(), "a previous action's queued animation is mid-flight when this prospect fires")
+
+		Rng.set_seed(seed)
+		Sites.prospect("shoreditch")
+
+		assert_eq(GameState.state["currentScreen"], "event", "district-deck really fired mid-tween, via the real Sites.prospect() -> DistrictDeck.maybe_trigger() -> Events.start_event() -> Nav.go_to() chain")
+		assert_true(not MapEvents.is_playing(), "the interrupted animation's guard should recover to false, not stay stuck true -- MapCanvas._handle_tap() gates every tap on this")
+		assert_eq(MapEvents.pending_site_ids(), [GameState.state["world"]["sites"][0]["id"]], "s_prior (the interrupted event) is consumed; this prospect's own freshly-queued discover event survives, still awaiting its turn on the next Map visit")
+
+		GameData.EVENTS = original_events
+	)

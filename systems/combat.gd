@@ -263,6 +263,18 @@ static func _start_combat(context: String, vein_id, enemy: Dictionary, log_lines
 	GameState.state["currentScreen"] = "combat"
 	EventBus.screen_changed.emit("combat")
 	EventBus.state_changed.emit()
+	# 81-map-stuck-playback-flag: this is the sole combat-entry chokepoint,
+	# and it sets currentScreen/emits screen_changed itself rather than going
+	# through Nav.go_to() (bundling those two lines with state["combat"] setup
+	# above as one atomic update) -- so it needs the exact same
+	# abandon-after-both-emits treatment Nav.go_to() gives every other
+	# navigation-away-from-map, for the exact same reason: Raiding.
+	# maybe_trigger_defend() (the arrival-side hook for a pending vein-defend
+	# raid) can fire this synchronously, mid-Sites.prospect()/Travel.travel_to(),
+	# right after that same action queued a MapEvents animation still "playing"
+	# on the Map screen it's about to be torn out from under. See Nav.go_to()'s
+	# own comment for why this has to come after the emits, not before.
+	MapEvents.abandon_playback()
 
 
 static func push_combat_snapshot() -> void:
