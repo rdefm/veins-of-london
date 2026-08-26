@@ -1042,3 +1042,63 @@ func run() -> void:
 
 		canvas.free()
 	)
+
+	# Ticket 74: end-to-end proof that _apply_crossing_nudges (wired into
+	# _partition_stops -- see that function) actually resolves the "both
+	# elbow orientations still cross" case identically to the geometry
+	# tests/test_map_routing.gd exercises in isolation, using the real
+	# _other_owner_obstacle_stops/_other_owner_lines/_owner_anchor plumbing
+	# rather than calling MapRouting's pure functions directly. Injects
+	# _line_faction_stops/_line_vein_stops by hand (rather than routing
+	# through real GameState sites/veins + data/map_layout.json slots) so
+	# the crossing geometry is exact and independent of real map data --
+	# offset from the faction's own real first-presence anchor (so
+	# nearest_neighbour_order's walk direction is deterministic: the "near"
+	# stop is 1.4px from the anchor, unambiguously visited first) and kept
+	# to a small +/-100px range well clear of the real river polyline
+	# (data/map_layout.json's riverPath sits at y>=760; every district
+	# anchor sits well above that).
+	run_case("apply_crossing_nudges_moves_a_stop_that_survives_both_elbow_orientations", func():
+		GameState.reset()
+		var canvas := MapCanvas.new()
+
+		var faction_id: String = GameData.FACTIONS.keys()[0]
+		var anchor: Vector2 = MapLayout.faction_first_presence_anchor(faction_id)
+		var near := anchor + Vector2(1, 1)
+		var far := near + Vector2(100, 20)
+		var obstacle_pos := near + Vector2(90, 10)
+
+		canvas._line_faction_stops = {
+			faction_id: [
+				{ "id": "f1", "position": near, "kind": "vein", "site": {}, "vein": {}, "owner": faction_id },
+				{ "id": "f2", "position": far, "kind": "vein", "site": {}, "vein": {}, "owner": faction_id },
+			]
+		}
+		canvas._line_vein_stops = [
+			{ "id": "v1", "position": obstacle_pos, "kind": "vein", "site": {}, "vein": {}, "owner": "player" },
+		]
+
+		# Sanity check on the fixture itself, independent of MapCanvas: this
+		# is exactly the crossed_obstacles_finds_the_stop_that_survives_both_
+		# elbow_orientations geometry in tests/test_map_routing.gd, just
+		# translated by `near`.
+		var corner_first := MapRouting.elbow_corner_diag_first(near, far)
+		var corner_last := MapRouting.elbow_corner_diag_last(near, far)
+		var raw_obstacle := { "pos": obstacle_pos, "radius": MapCanvas.VEIN_STOP_RADIUS }
+		assert_true(not MapRouting.crossed_obstacles(near, corner_first, far, [raw_obstacle]).is_empty())
+		assert_true(not MapRouting.crossed_obstacles(near, corner_last, far, [raw_obstacle]).is_empty())
+
+		canvas._apply_crossing_nudges()
+
+		var nudged_pos: Vector2 = canvas._line_vein_stops[0]["position"]
+		assert_true(nudged_pos != obstacle_pos, "routing alone can't clear either orientation -- the obstacle's own rendered position had to move")
+
+		# Confirm the guarantee holds against the SAME elbow _draw_lines
+		# would actually build now (same anchor, same stops, same
+		# obstacle_stops helper) -- not just that *a* position changed.
+		var rebuilt_obstacle_stops := canvas._other_owner_obstacle_stops(faction_id)
+		var rebuilt_line := MapRouting.build_line(anchor, canvas._line_owner_stops(faction_id), MapLayout.river_path(), rebuilt_obstacle_stops, canvas._other_owner_lines(faction_id), MapCanvas.LINE_CLEARANCE)
+		assert_true(MapRouting.crossed_obstacles(rebuilt_line[0], rebuilt_line[1], rebuilt_line[2], rebuilt_obstacle_stops).is_empty(), "the faction's real routed line no longer crosses the nudged stop")
+
+		canvas.free()
+	)

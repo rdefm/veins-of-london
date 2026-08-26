@@ -99,6 +99,27 @@ const GUARDED_COLOUR := Color(0.227451, 0.478431, 0.321569)     # --success #3a7
 const ZONE_ALPHA := 0.08
 const RIVER_WIDTH := 14.0
 const LINE_WIDTH := 6.0
+# Ticket 74 (**needs visual sign-off**): the extra gap kept, beyond each
+# line's own LINE_WIDTH, between two different owners' lines running
+# close/parallel — best-effort (same "where trivially possible" discipline
+# as river/stop avoidance), not a hard guarantee like STOP_NUDGE_MAX_OFFSET
+# below. LINE_CLEARANCE is the resulting minimum centre-to-centre distance
+# MapRouting's elbow-orientation choice tries to keep between two different
+# owners' line segments.
+const LINE_MIN_VISUAL_GAP := 4.0
+const LINE_CLEARANCE := LINE_WIDTH + LINE_MIN_VISUAL_GAP
+# Ticket 74 (**needs visual sign-off**): the max distance a stop's rendered
+# position may shift, perpendicular to whichever line leg would otherwise
+# cross it, when neither elbow orientation (MapRouting.elbow_path's
+# diag-first/diag-last) can route around it. Chosen to comfortably dominate
+# the largest obstacle radius this map ever nudges against (VEIN_STOP_RADIUS
+# below, 10px) plus STOP_NUDGE_MARGIN, so MapRouting.nudge_position's push is
+# in practice never capped short of fully clearing the crossing — and it
+# stays well under the ~45-60px minimum spacing between a district's own
+# stop slots (see VEIN_STOP_RADIUS's own comment), so a nudge can never push
+# one stop's icon into another's slot.
+const STOP_NUDGE_MAX_OFFSET := 16.0
+const STOP_NUDGE_MARGIN := 2.0
 # bugfixes ticket 02: player/faction stop icons enlarged (was 7.0/5.0) so
 # they're legible and tappable on-device; ratio between the two kept the
 # same as before. MapHitTest.STOP_TAP_RADIUS grew alongside it so the tap
@@ -687,7 +708,7 @@ func _start_line_growth(stop: Dictionary, event: Dictionary) -> Variant:
 		return null  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to grow
 
 	var owner: String = event["owner"]
-	var anchor: Variant = MapLayout.home_anchor() if owner == "player" else MapLayout.faction_first_presence_anchor(owner)
+	var anchor: Variant = _owner_anchor(owner)
 	if anchor == null:
 		return null  # data error (see MapLayout.faction_first_presence_anchor) -- nothing to grow onto
 
@@ -695,7 +716,7 @@ func _start_line_growth(stop: Dictionary, event: Dictionary) -> Variant:
 	var alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, owner)
 	var old_stops := _line_owner_stops(owner)
 	var new_stop := { "id": stop["id"], "pos": stop["position"] }
-	var segment := MapRouting.grow_segment(anchor, old_stops, new_stop, MapLayout.river_path(), _other_owner_obstacle_stops(owner))
+	var segment := MapRouting.grow_segment(anchor, old_stops, new_stop, MapLayout.river_path(), _other_owner_obstacle_stops(owner), _other_owner_lines(owner), LINE_CLEARANCE)
 
 	var growth := LineGrowth.new()
 	growth.points = segment
@@ -728,17 +749,128 @@ func _line_owner_stops(owner: String) -> Array:
 # _draw_lines would exclude it). Shared by _draw_lines and _start_line_growth
 # so the grown segment is guaranteed to avoid exactly what the static draw
 # would avoid -- same "no visible jump" discipline as _line_owner_stops above.
+# Ticket 74: each obstacle also carries the stop's own "id" now, so
+# _apply_crossing_nudges can look the owning stop dict back up and actually
+# move it when routing alone can't clear it.
 func _other_owner_obstacle_stops(owner: String) -> Array:
 	var result: Array = []
 	if owner != "player":
 		for s in _line_vein_stops:
-			result.append({ "pos": s["position"], "radius": VEIN_STOP_RADIUS })
+			result.append({ "pos": s["position"], "radius": VEIN_STOP_RADIUS, "id": s["id"] })
 	for faction_id in _line_faction_stops.keys():
 		if faction_id == owner:
 			continue
 		for s in _line_faction_stops[faction_id]:
-			result.append({ "pos": s["position"], "radius": FACTION_STOP_RADIUS })
+			result.append({ "pos": s["position"], "radius": FACTION_STOP_RADIUS, "id": s["id"] })
 	return result
+
+
+# `owner`'s home/first-presence anchor — MapLayout.home_anchor() for the
+# player, MapLayout.faction_first_presence_anchor(owner) for anyone else.
+# Shared by every place that needs to seed a nearest-neighbour walk for one
+# owner's line (_start_line_growth, _base_line_for, _apply_crossing_nudges).
+func _owner_anchor(owner: String) -> Variant:
+	return MapLayout.home_anchor() if owner == "player" else MapLayout.faction_first_presence_anchor(owner)
+
+
+# Ticket 74: `owner`'s own line exactly as _draw_lines would build it right
+# now (ignoring line-to-line gap avoidance, which is what this feeds into —
+# see _other_owner_lines below), used as the "other owner's line" obstacle
+# every other owner's own build_line()/grow_segment() call tries to keep
+# LINE_CLEARANCE away from where trivially possible.
+func _base_line_for(owner: String) -> PackedVector2Array:
+	var anchor: Variant = _owner_anchor(owner)
+	if anchor == null:
+		return PackedVector2Array()
+	return MapRouting.build_line(anchor, _line_owner_stops(owner), MapLayout.river_path(), _other_owner_obstacle_stops(owner))
+
+
+# Ticket 74: every other owner's _base_line_for() polyline, for `owner`'s
+# own build_line()/grow_segment() call to keep LINE_CLEARANCE away from.
+# Deliberately built from each other owner's *un*-gap-adjusted line rather
+# than iterating to a fixed point -- best-effort, same as the rest of this
+# avoidance machinery, not a hard guarantee (see LINE_MIN_VISUAL_GAP).
+func _other_owner_lines(owner: String) -> Array:
+	var result: Array = []
+	var owners: Array = ["player"]
+	owners.append_array(_line_faction_stops.keys())
+	for other in owners:
+		if other == owner:
+			continue
+		var line := _base_line_for(other)
+		if line.size() >= 2:
+			result.append(line)
+	return result
+
+
+# Ticket 74: the elbow-orientation avoidance above (_other_owner_obstacle_
+# stops via _draw_lines/_start_line_growth) is still only "where trivially
+# possible" -- both diag-first and diag-last can still cross a non-owned
+# vein's icon (MapRouting.elbow_path's own documented fallback: if both
+# orientations cross, it deterministically picks diag-first anyway). "Never
+# visually crosses" has to be true of what's actually drawn though, and a
+# stop's icon and its own owner's line both read the same stop dict's
+# "position" -- so the fix has to move the stop itself, once, before
+# anything below reads it.
+#
+# Must recompute each owner's corner with the *exact* same obstacle_lines/
+# line_clearance _draw_lines/_start_line_growth themselves pass to
+# MapRouting.elbow_path -- otherwise this could evaluate crossings against a
+# diag-first-vs-diag-last orientation that line-spacing avoidance alone
+# would never actually draw, missing a real crossing on the orientation
+# that IS drawn (or "fixing" one that was never there).
+#
+# Mutates matched stop dicts in place rather than rebuilding _vein_stops/
+# _faction_stops/_line_vein_stops/_line_faction_stops: every one of those
+# arrays holds the *same* Dictionary reference per stop id, never a copy
+# (see MapLayout.build_stop_items/assign_positions), so one mutation here is
+# seen by the icon draw, the hit-test list, and every other owner's obstacle
+# list alike.
+#
+# Snaps rather than animates (ticket 74's own open question): unlike the
+# map-events queue's discrete discover/claim/charge/drain visuals, each a
+# one-off transition with its own playback slot, a nudge is recomputed
+# fresh from nothing but current stop geometry on every _partition_stops()
+# call -- there's no discrete "this just happened" moment to hang a tween
+# off, and the same obstacle nudges to the same spot every time the
+# crossing condition holds, so there's nothing that would visibly animate
+# between one rebuild and the next in the first place.
+func _apply_crossing_nudges() -> void:
+	var by_id: Dictionary = {}
+	for stop in _line_vein_stops:
+		by_id[stop["id"]] = stop
+	for faction_id in _line_faction_stops.keys():
+		for stop in _line_faction_stops[faction_id]:
+			by_id[stop["id"]] = stop
+
+	var river := MapLayout.river_path()
+	var owners: Array = ["player"]
+	owners.append_array(_line_faction_stops.keys())
+
+	for owner in owners:
+		var anchor: Variant = _owner_anchor(owner)
+		if anchor == null:
+			continue  # data error (see MapLayout.faction_first_presence_anchor) -- nothing to route, skip
+		var stops := _line_owner_stops(owner)
+		if stops.size() < 2:
+			continue  # a single-stop terminus stub (or no stops at all) never elbow-crosses anything
+		var obstacle_stops := _other_owner_obstacle_stops(owner)
+		if obstacle_stops.is_empty():
+			continue
+		var obstacle_lines := _other_owner_lines(owner)
+
+		var ordered := MapRouting.nearest_neighbour_order(anchor, stops)
+		for i in range(ordered.size() - 1):
+			var a: Vector2 = ordered[i]["pos"]
+			var b: Vector2 = ordered[i + 1]["pos"]
+			var corner: Vector2 = MapRouting.elbow_path(a, b, river, obstacle_stops, obstacle_lines, LINE_CLEARANCE)[1]
+			for obstacle in MapRouting.crossed_obstacles(a, corner, b, obstacle_stops):
+				var stop_dict: Variant = by_id.get(obstacle.get("id", ""))
+				if stop_dict == null:
+					continue
+				var new_pos := MapRouting.nudge_position(obstacle, a, corner, b, STOP_NUDGE_MARGIN, STOP_NUDGE_MAX_OFFSET)
+				stop_dict["position"] = new_pos
+				obstacle["pos"] = new_pos  # keeps this owner's remaining legs (and this owner's own obstacle_stops copy) consistent
 
 
 # Ticket 03 (retriggered by vein-growth-state ticket 07 on entering the
@@ -916,6 +1048,7 @@ func _partition_stops() -> void:
 
 	_faction_stops = MapLayout.group_by_faction(visible_vein_stops)
 	_line_faction_stops = MapLayout.group_by_faction(line_vein_stops)
+	_apply_crossing_nudges()
 
 
 func _draw() -> void:
@@ -994,7 +1127,7 @@ func _draw_lines() -> void:
 	var player_stops: Array = []
 	for stop in _line_vein_stops:
 		player_stops.append({ "id": stop["id"], "pos": stop["position"] })
-	var player_line := MapRouting.build_line(MapLayout.home_anchor(), player_stops, river, _other_owner_obstacle_stops("player"))
+	var player_line := MapRouting.build_line(MapLayout.home_anchor(), player_stops, river, _other_owner_obstacle_stops("player"), _other_owner_lines("player"), LINE_CLEARANCE)
 	var player_alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, "player")
 	_draw_route(player_line, _faded(MapStyle.line_colour(filter_mode, PLAYER_COLOUR), player_alpha))
 
@@ -1011,7 +1144,7 @@ func _draw_lines() -> void:
 		for stop in _line_faction_stops[faction_id]:
 			stops.append({ "id": stop["id"], "pos": stop["position"] })
 		var faction_colour := Color(GameData.FACTIONS[faction_id]["colour"])
-		var line := MapRouting.build_line(anchor, stops, river, _other_owner_obstacle_stops(faction_id))
+		var line := MapRouting.build_line(anchor, stops, river, _other_owner_obstacle_stops(faction_id), _other_owner_lines(faction_id), LINE_CLEARANCE)
 		var faction_alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, faction_id)
 		_draw_route(line, _faded(MapStyle.line_colour(filter_mode, faction_colour), faction_alpha))
 
