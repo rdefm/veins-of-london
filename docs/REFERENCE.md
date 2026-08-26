@@ -80,7 +80,7 @@ Descriptions (verbatim):
 - enhancementPowder: "Rub on skin before a fight. Life-type acceleration — you act faster than anyone can track."
 - rewind: "Shaped like an hourglass. Briefly unspools time — only you remember what happened. Difficult and expensive to produce."
 
-`CRAFTING_XP_LEVELS = [0, 0, 80, 220, 500, 1000]`. `CONSUMABLE_PRICES = { timePearl: 120, enhancementPowder: 150 }` (rewind is not sellable).
+`CRAFTING_XP_LEVELS = [0, 0, 80, 220, 500, 1000]`. `CONSUMABLE_PRICES` (ticket 80: all 14 craftable recipes are sellable) `= { timePearl: 120, enhancementPowder: 150, rewind: 210, healingSalve: 120, blast: 150, shield: 180, blackHole: 210, prophetsBreath: 180, beALady: 150, pansPrank: 180, healingBurst: 180, failsafe: 270, rejuvenation: 280, wormhole: 240 }`. **Needs balance sign-off** (ticket 80): the 12 new prices are `xpReward * 6` — the exact formula both pre-existing prices already satisfy (timePearl 20xp→120, enhancementPowder 25xp→150) — with one deliberate exception: `rejuvenation` (20xp, formula would give 120) is instead priced at 280, the highest of all 14, to honor its own flavor text ("Sells for more than anything else on this bench, which tells you who's buying it."). Flagging that override specifically, since it's the one price not derived from crafting cost/XP.
 
 ### 1.4 `data/devices.json`
 `DEVICE_XP_LEVELS = [0, 0, 50, 150, 400, 1000]` (level up = +1 charge/day).

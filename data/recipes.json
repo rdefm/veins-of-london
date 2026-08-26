@@ -175,6 +175,18 @@
   "craftingXpLevels": [0, 0, 80, 220, 500, 1000],
   "consumablePrices": {
     "timePearl": 120,
-    "enhancementPowder": 150
+    "enhancementPowder": 150,
+    "rewind": 210,
+    "healingSalve": 120,
+    "blast": 150,
+    "shield": 180,
+    "blackHole": 210,
+    "prophetsBreath": 180,
+    "beALady": 150,
+    "pansPrank": 180,
+    "healingBurst": 180,
+    "failsafe": 270,
+    "rejuvenation": 280,
+    "wormhole": 240
   }
 }

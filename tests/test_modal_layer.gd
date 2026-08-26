@@ -134,6 +134,33 @@ func run() -> void:
 		layer.free()
 	)
 
+	# Ticket 80: the Collective lane's sell_menu branch loops
+	# GameData.CONSUMABLE_PRICES.keys() the same as Archie's, so with stock of
+	# all 14 craftable recipes in hand, all 14 must render as sell rows.
+	run_case("faction_sell_menu_lists_all_fourteen_craftable_recipes_when_held", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["flags"]["canSellConsumables"] = true
+		for recipe_key in GameData.CONSUMABLE_PRICES.keys():
+			Crafting.inventory_add(recipe_key, 1, 1)
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_eq(GameData.CONSUMABLE_PRICES.size(), 14, "sanity: all 14 craftable recipes must have a sale price")
+		for recipe_key in GameData.RECIPES.keys():
+			var recipe: Dictionary = GameData.RECIPES[recipe_key]
+			var found := false
+			for text in _label_texts(layer):
+				if text.begins_with("%s %s (" % [recipe["symbol"], recipe["name"]]):
+					found = true
+					break
+			assert_true(found, "%s must render as a sell row" % recipe_key)
+
+		layer.free()
+	)
+
 	run_case("non_press_input_on_the_dim_does_not_close_the_modal", func():
 		GameState.reset()
 		Modal.open("seed_result", { "success": true, "oreType": "time" })

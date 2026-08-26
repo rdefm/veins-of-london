@@ -346,6 +346,27 @@ func run() -> void:
 		screen.free()
 	)
 
+	# Ticket 80: all 14 craftable recipes must have a CONSUMABLE_PRICES entry,
+	# so this loop (GameData.CONSUMABLE_PRICES.keys(), not a hardcoded list)
+	# renders a goods row for every one of them once the tutorial gate is open.
+	run_case("guild_marketplace_lists_all_fourteen_craftable_recipes_as_goods_rows", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["joined"] = true
+		GameState.state["factions"]["guild"]["relation"] = 40
+		GameState.state["flags"]["canSellConsumables"] = true
+
+		var screen := GuildMarketplaceScreen.new()
+		screen._ready()
+
+		assert_eq(GameData.CONSUMABLE_PRICES.size(), 14, "sanity: all 14 craftable recipes must have a sale price")
+		for recipe_key in GameData.RECIPES.keys():
+			var recipe: Dictionary = GameData.RECIPES[recipe_key]
+			var heading := "%s %s" % [recipe["symbol"], recipe["name"]]
+			assert_true(_find_label(screen, heading) != null, "%s must render as a goods row" % recipe_key)
+
+		screen.free()
+	)
+
 	run_case("guild_marketplace_back_button_routes_to_phone_home", func():
 		GameState.reset()
 		GameState.state["factions"]["guild"]["joined"] = true
