@@ -138,6 +138,36 @@ func run() -> void:
 		assert_true(found, "an objective referencing an unknown faction should be flagged")
 	)
 
+	# ticket 79: questline groups Notes-app sections (systems/todo.gd) --
+	# required on every objective, same as activateFlag/completeFlag.
+	run_case("corrupt_fixture_objective_missing_questline_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["objectives"]["_test"] = {
+			"id": "_test", "title": "t", "detail": "d", "type": "flag_true",
+			"params": {}, "activateFlag": "f1", "completeFlag": "f2",
+		}
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("_test") and e.contains("questline"):
+				found = true
+		assert_true(found, "an objective missing questline should be flagged")
+	)
+
+	run_case("corrupt_fixture_objective_null_activateFlag_is_allowed", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["objectives"]["_test"] = {
+			"id": "_test", "title": "t", "detail": "d", "type": "flag_true",
+			"params": {}, "activateFlag": null, "completeFlag": "f2", "questline": "tutorial",
+		}
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("_test"):
+				found = true
+		assert_true(not found, "activateFlag: null (always active) should not be flagged as invalid")
+	)
+
 	run_case("corrupt_fixture_missing_district_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
 		corrupted["districts"].erase("soho")

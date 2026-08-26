@@ -1,66 +1,83 @@
 class_name Todo
 extends RefCounted
 
-# The home-screen to-do list (R§3.11), extracted so both the tutorial-era
-# `home` screen and Phone's "Notes" app (M1-LONDON.md D4) can share the
-# same flag-driven checklist instead of maintaining two copies. Static
-# funcs only — pure read over GameState.state.
+# The Phone "Notes" app's checklist (R§3.11, M1-LONDON.md D4). Ticket 79:
+# both the tutorial's flag chain and the Collective's Act 1 threads are now
+# ordinary data/objectives.json entries (systems/objectives.gd), distinguished
+# only by their "questline" field -- Notes renders one section per active
+# questline off a single loop, rather than one hardcoded flag chain plus one
+# objective-backed card builder. Static funcs only -- pure read over
+# GameState.state; never calls Objectives.refresh() itself (that stays at
+# GameState.reset() and Events.apply_effects(), the boundaries that can
+# actually change a flag_true objective's state -- see objectives.gd's
+# refresh() doc), so this file has no state-mutating side effects for a
+# screen to trip over.
+
+const MAX_ITEMS_PER_SECTION := 4
+
+# Per-questline presentation: display label, and the flag that hides the
+# whole section once true -- Collective's colA1Complete precedent (a
+# distinct, later "epic complete" flag, not any one objective's own
+# completeFlag, so completed objectives get a real visible window before
+# the section vanishes). For the tutorial, archiePartnerSeen itself is
+# tut_archie_partner's completeFlag (there's no further tutorial-specific
+# milestone past it), so hiding on that same flag would make the section
+# vanish the instant its last item completes -- it would never render
+# checked. cultivationTutorialSeen is the next flag downstream (the
+# post-raid cultivation walkthrough, unmissable: it gates Prospect itself
+# -- see map.gd/district_bubble.gd), giving tut_archie_partner a real
+# window as a checked item before the section disappears, same shape as
+# Collective's closer-gated disappearance.
+const QUESTLINES := {
+	"tutorial": { "label": "Tutorial", "hideFlag": "cultivationTutorialSeen" },
+	"collective": { "label": "Collective", "hideFlag": "colA1Complete" },
+}
 
 
-# Ported from the HTML's getTodoItems() (same conditional chain, last 4
-# shown), with jamesCraftEventSeen mapped to craftingUnlocked — the R§2
-# flag covering the same tutorial milestone under the current schema.
-static func get_items() -> Array[Dictionary]:
-	var f: Dictionary = GameState.state["flags"]
-	var day: int = GameState.state["world"]["day"]
-	var items: Array[Dictionary] = []
-
-	items.append({ "done": f["metArchie"], "text": "Get back to Archie. He's sorting the new buyer." })
-
-	if f["metArchie"]:
-		items.append({
-			"done": f["buyerEventSeen"],
-			"text": "Wait for Archie's text — he's lining up the buyer." if day < 2 else "Back up Archie on the sale tonight. Check Contacts.",
-		})
-
-	if f["buyerEventSeen"]:
-		items.append({ "done": f["metJames"], "text": "Archie mentioned a contact called James. SMS him to set it up." })
-
-	if f["metJames"]:
-		items.append({ "done": f["craftingUnlocked"], "text": "Go back to James when he's ready. He'll teach you the basics." })
-
-	if f["craftingUnlocked"]:
-		items.append({ "done": f["archieCraftChatSeen"], "text": "Catch up with Archie about what James taught you." })
-
-	if f["archieCraftChatSeen"]:
-		items.append({ "done": f["homeRaidEventSeen"], "text": "You have calc now. The flat isn't as secure as you thought." })
-
-	if f["archiePartnerSeen"]:
-		items.append({ "done": false, "text": "Archie's time vein is yours. Cultivate it. Harvest. Make pearls. Archie sells them." })
-
-	if items.size() > 4:
-		items = items.slice(items.size() - 4, items.size())
-	return items
-
-
-# collective1-02, spec.md §5.1/§11: the Collective section — live objective
-# state (title, detail, done) rather than another hardcoded flag chain.
-# Empty once Act 1 completes (colA1Complete) even if some objectives are
-# still nominally "active"/complete in state — the section as a whole
-# disappears, not item-by-item.
-static func get_collective_items() -> Array[Dictionary]:
-	var items: Array[Dictionary] = []
-	if GameState.state["flags"].get("colA1Complete", false):
-		return items
-
+# Returns one entry per questline with at least one active, unhidden
+# objective: { "questline": String, "label": String, "items": [{ "title",
+# "detail", "done" }] }, ordered by QUESTLINES' declaration order, each
+# section's items ordered as data/objectives.json declares them (its chain
+# order, for the tutorial) and capped to the most recent MAX_ITEMS_PER_SECTION.
+static func get_active_questlines() -> Array[Dictionary]:
+	var flags: Dictionary = GameState.state["flags"]
 	var runtime: Dictionary = GameState.state["objectives"]
+	var items_by_questline: Dictionary = {}
+
 	for id in GameData.OBJECTIVES.keys():
+		var def: Dictionary = GameData.OBJECTIVES[id]
+		var questline: String = def["questline"]
+		var config: Dictionary = QUESTLINES.get(questline, {})
+		if flags.get(config.get("hideFlag"), false):
+			continue
 		if not runtime.get(id, {}).get("active", false):
 			continue
-		var def: Dictionary = GameData.OBJECTIVES[id]
+		var text := _display_text(def)
+		var items: Array = items_by_questline.get(questline, [])
 		items.append({
-			"title": def["title"],
-			"detail": def["detail"],
+			"title": text["title"],
+			"detail": text["detail"],
 			"done": runtime[id].get("complete", false),
 		})
-	return items
+		items_by_questline[questline] = items
+
+	var sections: Array[Dictionary] = []
+	for questline in QUESTLINES.keys():
+		var items: Array = items_by_questline.get(questline, [])
+		if items.is_empty():
+			continue
+		if items.size() > MAX_ITEMS_PER_SECTION:
+			items = items.slice(items.size() - MAX_ITEMS_PER_SECTION, items.size())
+		sections.append({ "questline": questline, "label": QUESTLINES[questline]["label"], "items": items })
+	return sections
+
+
+# tut_buyer_event is the one tutorial checkpoint whose wording depends on
+# more than its own flag: before day 2, Archie's text hasn't arrived yet,
+# so its authored title doesn't apply yet either (ported from the original
+# getTodoItems() chain). Generic (not id-keyed) so any future objective can
+# opt into the same day-gated-title shape via these two data fields.
+static func _display_text(def: Dictionary) -> Dictionary:
+	if def.has("earlyTitle") and GameState.state["world"]["day"] < def["earlyTitleBeforeDay"]:
+		return { "title": def["earlyTitle"], "detail": "" }
+	return { "title": def["title"], "detail": def.get("detail", "") }

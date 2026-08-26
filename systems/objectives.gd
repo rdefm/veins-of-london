@@ -2,28 +2,37 @@ class_name Objectives
 extends RefCounted
 
 # collective1-02, spec.md §5.1: objectives as data. A small typed evaluator
-# engine over data/objectives.json (GameData.OBJECTIVES) -- exactly four
-# evaluator types, evaluated explicitly at known action boundaries rather
-# than on every state_changed signal. Static funcs only, pure read/write over
-# GameState.state.objectives -- never touches cash/relation/inventory/etc.
-# Awards live in authored event content (on_complete), never here; this
-# system only ever flips complete/completeFlag.
+# engine over data/objectives.json (GameData.OBJECTIVES) -- five evaluator
+# types (ticket 79 added flag_true, for a purely flag-driven questline like
+# the tutorial chain), evaluated explicitly at known action boundaries
+# rather than on every state_changed signal. Static funcs only, pure
+# read/write over GameState.state.objectives -- never touches cash/
+# relation/inventory/etc. Awards live in authored event content
+# (on_complete), never here; this system only ever flips complete/
+# completeFlag.
 
 const TYPE_SITES_DISCOVERED_MATCHING := "sites_discovered_matching"
 const TYPE_TRADED_WITH_FACTION := "traded_with_faction"
 const TYPE_VEIN_SOLD_TO_FACTION := "vein_sold_to_faction"
 const TYPE_VEIN_GROWTH_ABOVE := "vein_growth_above"
+const TYPE_FLAG_TRUE := "flag_true"
 
 
-# The only entry point. Called explicitly (never via signal) at exactly 5
-# action boundaries per spec §5.1: Sites.prospect(), Economy sale completion
-# (both the Archie lane and the faction lane), VeinTrade.sell_to_faction(),
-# Cultivating.cultivate()/prune(), and TimeSystem.daily_tick(). Idempotent —
-# calling it twice in a row with no intervening state change produces the
-# same state.objectives result, since a complete objective is never
-# re-evaluated and an inactive one's progress is untouched until its
-# activateFlag flips true. Must never call anything that itself calls
-# refresh() (recursion guard, per spec).
+# The only entry point. Called explicitly (never via signal) at 7 action
+# boundaries: Sites.prospect(), Economy sale completion (both the Archie
+# lane and the faction lane), VeinTrade.sell_to_faction(), Cultivating.
+# cultivate()/prune(), TimeSystem.daily_tick() (spec §5.1's original 5),
+# plus two ticket 79 adds for the tutorial questline's flag_true objectives:
+# GameState.reset() (a fresh game boots straight into the first checkpoint,
+# whose activateFlag: null needs no flag to flip -- it must read active
+# before any other boundary has ever run) and Events.apply_effects() (every
+# tutorial checkpoint flag is set exclusively via an event's set_flag op,
+# same as several Collective flags already are). Idempotent — calling it
+# twice in a row with no intervening state change produces the same
+# state.objectives result, since a complete objective is never re-evaluated
+# and an inactive one's progress is untouched until its activateFlag flips
+# true. Must never call anything that itself calls refresh() (recursion
+# guard, per spec).
 static func refresh() -> void:
 	for id in GameData.OBJECTIVES.keys():
 		_refresh_one(id, GameData.OBJECTIVES[id])
@@ -34,7 +43,10 @@ static func _refresh_one(id: String, def: Dictionary) -> void:
 	var runtime: Dictionary = objectives.get(id, { "active": false, "complete": false, "progress": {} })
 
 	var was_active: bool = runtime["active"]
-	var now_active: bool = GameState.state["flags"].get(def["activateFlag"], false)
+	# ticket 79: activateFlag == null means "active from the start" -- no
+	# gating flag, used by the tutorial chain's first checkpoint.
+	var activate_flag: Variant = def["activateFlag"]
+	var now_active: bool = true if activate_flag == null else GameState.state["flags"].get(activate_flag, false)
 	runtime["active"] = now_active
 	if now_active and not was_active:
 		_mark_activated(def, runtime["progress"])
@@ -69,6 +81,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return _eval_vein_sold_to_faction(params, progress)
 		TYPE_VEIN_GROWTH_ABOVE:
 			return _eval_vein_growth_above(params)
+		TYPE_FLAG_TRUE:
+			return _eval_flag_true(def)
 		_:
 			return false
 
@@ -177,3 +191,13 @@ static func _eval_vein_growth_above(params: Dictionary) -> bool:
 	if vein == null:
 		return false
 	return vein["growth"] >= params["threshold"]
+
+
+# No params -- true once the objective's own completeFlag is true. Ticket
+# 79: the tutorial chain's shape -- each checkpoint's "done" state is just
+# its own named flag, set directly by an event's set_flag op, not derived
+# from any other game state -- so this evaluator is deliberately trivial,
+# unlike the other four which all inspect world/faction/vein state, and
+# needs no separate params.flag duplicating completeFlag.
+static func _eval_flag_true(def: Dictionary) -> bool:
+	return GameState.state["flags"].get(def["completeFlag"], false)

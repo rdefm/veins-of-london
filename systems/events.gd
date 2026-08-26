@@ -193,6 +193,14 @@ static func _find_equipped_rewind_device_with_charge() -> Variant:
 static func apply_effects(effects: Array, context: Dictionary = {}) -> void:
 	for effect in effects:
 		_apply_one(effect, context)
+	# ticket 79: boundary #6 -- every tutorial checkpoint flag (metArchie,
+	# buyerEventSeen, ...) is set exclusively via this function's set_flag
+	# op, same as several Collective flags already are, so this is where a
+	# flag-driven questline's objectives actually need to catch up, same as
+	# the 5 boundaries objectives.gd's own doc lists (Sites.prospect(),
+	# Economy sale completion, VeinTrade.sell_to_faction(), Cultivating.
+	# cultivate()/prune(), TimeSystem.daily_tick()).
+	Objectives.refresh()
 	EventBus.state_changed.emit()
 
 

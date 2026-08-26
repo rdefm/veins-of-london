@@ -15,6 +15,11 @@ func _ready() -> void:
 
 func reset() -> void:
 	state = new_game_state()
+	# ticket 79: a fresh game boots straight into the tutorial questline's
+	# first checkpoint (data/objectives.json's activateFlag: null case) --
+	# it must read as active before any of Objectives.refresh()'s other
+	# action-boundary callers has ever run.
+	Objectives.refresh()
 
 
 func new_game_state() -> Dictionary:

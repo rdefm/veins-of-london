@@ -77,9 +77,11 @@ var SMS_THREADS: Dictionary = {}
 # trade at identical terms. Keyed by contact id.
 var COLLECTIVE_BARKS: Dictionary = {}
 
-# collective1-02: data/objectives.json, keyed by objective id. Empty until a
-# thread ticket (08/11/12/13) authors real Act 1 entries -- see
-# systems/objectives.gd.
+# collective1-02: data/objectives.json, keyed by objective id -- see
+# systems/objectives.gd. Each entry's "questline" field (ticket 79) groups
+# it for systems/todo.gd's Notes-app rendering: the tutorial's flag chain
+# and Collective's Act 1 threads are both just objectives now, distinguished
+# only by which questline they belong to.
 var OBJECTIVES: Dictionary = {}
 
 # M0-T13's full tutorial event roster (R§3.11, R§3.8). JAMES_CRAFT_CARDS
@@ -888,32 +890,50 @@ func _validate_sms(threads: Dictionary, errors: Array[String]) -> void:
 				errors.append("sms.%s: unknown sender '%s'" % [expected_id, msg["from"]])
 
 
-# collective1-02: data/objectives.json — Objectives.refresh()'s four
-# canonical evaluator types (systems/objectives.gd), each with its own fixed
-# param schema.
+# collective1-02: data/objectives.json — Objectives.refresh()'s canonical
+# evaluator types (systems/objectives.gd), each with its own fixed param
+# schema. ticket 79 adds flag_true: no params at all, complete once the
+# objective's own completeFlag is true -- the shape a flag-driven
+# questline (the tutorial chain) needs, vs. the other four types which all
+# inspect world/faction/vein state.
 const OBJECTIVE_TYPES: Array[String] = [
-	"sites_discovered_matching", "traded_with_faction", "vein_sold_to_faction", "vein_growth_above",
+	"sites_discovered_matching", "traded_with_faction", "vein_sold_to_faction", "vein_growth_above", "flag_true",
 ]
 const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"sites_discovered_matching": ["requireEachOreType", "minTier", "unclaimed"],
 	"traded_with_faction": ["factionId", "oreType", "qty", "minTransactions"],
 	"vein_sold_to_faction": ["factionId", "oreType"],
 	"vein_growth_above": ["veinIdStatePath", "threshold"],
+	"flag_true": [],
 }
 
 
 func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_types: Dictionary, site_tier_order: Array, errors: Array[String]) -> void:
 	for key in objectives.keys():
 		var entry = objectives[key]
-		_require_keys(entry, ["id", "title", "detail", "type", "params", "activateFlag", "completeFlag"], "objectives.%s" % key, errors)
+		_require_keys(entry, ["id", "title", "detail", "type", "params", "activateFlag", "completeFlag", "questline"], "objectives.%s" % key, errors)
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		if entry.get("id") != key:
 			errors.append("objectives.%s: id field '%s' does not match key" % [key, entry.get("id")])
-		if entry.has("activateFlag") and typeof(entry["activateFlag"]) != TYPE_STRING:
-			errors.append("objectives.%s: activateFlag must be a string" % key)
+		# ticket 79: activateFlag may be null -- "active from game start, no
+		# gating flag" (the tutorial chain's first checkpoint). Every other
+		# objective still needs a real flag name.
+		if entry.has("activateFlag") and entry["activateFlag"] != null and typeof(entry["activateFlag"]) != TYPE_STRING:
+			errors.append("objectives.%s: activateFlag must be a string or null" % key)
 		if entry.has("completeFlag") and typeof(entry["completeFlag"]) != TYPE_STRING:
 			errors.append("objectives.%s: completeFlag must be a string" % key)
+		if entry.has("questline") and (typeof(entry["questline"]) != TYPE_STRING or entry["questline"].is_empty()):
+			errors.append("objectives.%s: questline must be a non-empty string" % key)
+		# ticket 79, systems/todo.gd's _display_text(): optional day-gated
+		# title override -- either both fields are present or neither is.
+		if entry.has("earlyTitle") != entry.has("earlyTitleBeforeDay"):
+			errors.append("objectives.%s: earlyTitle and earlyTitleBeforeDay must be set together" % key)
+		elif entry.has("earlyTitle"):
+			if typeof(entry["earlyTitle"]) != TYPE_STRING:
+				errors.append("objectives.%s: earlyTitle must be a string" % key)
+			if not (entry["earlyTitleBeforeDay"] is float or entry["earlyTitleBeforeDay"] is int):
+				errors.append("objectives.%s: earlyTitleBeforeDay must be a number" % key)
 
 		var obj_type = entry.get("type")
 		if not OBJECTIVE_TYPES.has(obj_type):

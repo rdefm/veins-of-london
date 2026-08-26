@@ -1,4 +1,76 @@
 {
+  "tut_meet_archie": {
+    "id": "tut_meet_archie",
+    "title": "Get back to Archie. He's sorting the new buyer.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": null,
+    "completeFlag": "metArchie",
+    "questline": "tutorial"
+  },
+  "tut_buyer_event": {
+    "id": "tut_buyer_event",
+    "title": "Back up Archie on the sale tonight. Check Contacts.",
+    "detail": "",
+    "earlyTitle": "Wait for Archie's text — he's lining up the buyer.",
+    "earlyTitleBeforeDay": 2,
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "metArchie",
+    "completeFlag": "buyerEventSeen",
+    "questline": "tutorial"
+  },
+  "tut_meet_james": {
+    "id": "tut_meet_james",
+    "title": "Archie mentioned a contact called James. SMS him to set it up.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "buyerEventSeen",
+    "completeFlag": "metJames",
+    "questline": "tutorial"
+  },
+  "tut_crafting_unlocked": {
+    "id": "tut_crafting_unlocked",
+    "title": "Go back to James when he's ready. He'll teach you the basics.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "metJames",
+    "completeFlag": "craftingUnlocked",
+    "questline": "tutorial"
+  },
+  "tut_archie_craft_chat": {
+    "id": "tut_archie_craft_chat",
+    "title": "Catch up with Archie about what James taught you.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "craftingUnlocked",
+    "completeFlag": "archieCraftChatSeen",
+    "questline": "tutorial"
+  },
+  "tut_home_raid": {
+    "id": "tut_home_raid",
+    "title": "You have calc now. The flat isn't as secure as you thought.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "archieCraftChatSeen",
+    "completeFlag": "homeRaidEventSeen",
+    "questline": "tutorial"
+  },
+  "tut_archie_partner": {
+    "id": "tut_archie_partner",
+    "title": "Archie's time vein is yours. Cultivate it. Harvest. Make pearls. Archie sells them.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "archiePartnerSeen",
+    "completeFlag": "archiePartnerSeen",
+    "questline": "tutorial"
+  },
   "col_a1_des_sites": {
     "id": "col_a1_des_sites",
     "title": "Find ground for the Collective",
@@ -6,7 +78,8 @@
     "type": "sites_discovered_matching",
     "params": { "requireEachOreType": ["fate", "physics"], "minTier": "fair", "unclaimed": true },
     "activateFlag": "colA1DesThreadActive",
-    "completeFlag": "colA1DesSitesFound"
+    "completeFlag": "colA1DesSitesFound",
+    "questline": "collective"
   },
   "col_a1_hakim_rescue": {
     "id": "col_a1_hakim_rescue",
@@ -15,7 +88,8 @@
     "type": "vein_growth_above",
     "params": { "veinIdStatePath": "collective.hakimVeinId", "threshold": 60 },
     "activateFlag": "colA1HubReached",
-    "completeFlag": "colA1HakimRescued"
+    "completeFlag": "colA1HakimRescued",
+    "questline": "collective"
   },
   "col_a1_nadia_supply": {
     "id": "col_a1_nadia_supply",
@@ -24,7 +98,8 @@
     "type": "traded_with_faction",
     "params": { "factionId": "collective", "oreType": "emotion", "qty": 30, "minTransactions": 3 },
     "activateFlag": "colA1NadiaMet",
-    "completeFlag": "colA1NadiaSupplied"
+    "completeFlag": "colA1NadiaSupplied",
+    "questline": "collective"
   },
   "col_a1_nadia_vein": {
     "id": "col_a1_nadia_vein",
@@ -33,6 +108,7 @@
     "type": "vein_sold_to_faction",
     "params": { "factionId": "collective", "oreType": "emotion" },
     "activateFlag": "colA1NadiaAskSeen",
-    "completeFlag": "colA1NadiaVeinSold"
+    "completeFlag": "colA1NadiaVeinSold",
+    "questline": "collective"
   }
 }

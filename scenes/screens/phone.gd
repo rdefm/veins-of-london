@@ -3,9 +3,9 @@ extends Control
 
 # M1-LONDON.md D4's Phone tab: a phone UI — contact list, SMS threads
 # (existing sms_archie/sms_archie_2 screens, launched the same way the old
-# `contacts` screen launched them), James job offers, the to-do list as a
-# "Notes" app (Todo.get_items(), shared with the tutorial-era `home`
-# screen), a faction directory, and D4.5's Ticker (the barometer as a news
+# `contacts` screen launched them), James job offers, a "Notes" app
+# (Todo.get_active_questlines() — one section per active questline, ticket
+# 79), a faction directory, and D4.5's Ticker (the barometer as a news
 # app). state.phoneNav drives which app is open, same pattern as
 # state.mapNav for the Map tab.
 
@@ -363,23 +363,22 @@ func _build_notes() -> void:
 	_content.add_child(_phone_back_button())
 	_content.add_child(UI.heading("Notes"))
 
-	var c := UI.card()
-	var items := Todo.get_items()
-	if items.is_empty():
-		c["content"].add_child(UI.muted_label("Nothing pressing."))
-	for item in items:
-		c["content"].add_child(UI.checklist_row(item["text"], item["done"]))
-	_content.add_child(c["panel"])
+	# ticket 79: one section per active questline (tutorial, Collective, any
+	# future one) off a single loop -- Todo.get_active_questlines() already
+	# grouped and capped the items; this just renders whatever it returns.
+	var sections := Todo.get_active_questlines()
+	if sections.is_empty():
+		var empty_card := UI.card()
+		empty_card["content"].add_child(UI.muted_label("Nothing pressing."))
+		_content.add_child(empty_card["panel"])
 
-	# collective1-02: below the tutorial chain, only while at least one
-	# Collective objective is active and Act 1 hasn't completed.
-	var collective_items := Todo.get_collective_items()
-	if not collective_items.is_empty():
-		_content.add_child(UI.heading("Collective", 14))
-		var cc := UI.card()
-		for item in collective_items:
-			cc["content"].add_child(UI.checklist_row("%s — %s" % [item["title"], item["detail"]], item["done"]))
-		_content.add_child(cc["panel"])
+	for section in sections:
+		_content.add_child(UI.heading(section["label"], 14))
+		var c := UI.card()
+		for item in section["items"]:
+			var text: String = item["title"] if item["detail"] == "" else "%s — %s" % [item["title"], item["detail"]]
+			c["content"].add_child(UI.checklist_row(text, item["done"]))
+		_content.add_child(c["panel"])
 
 
 # ── factions (directory) ─────────────────────────────────────────────
