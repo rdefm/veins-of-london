@@ -296,6 +296,34 @@ func run() -> void:
 		drawer.free()
 	)
 
+	run_case("device_built_to_completion_at_hq_appears_in_the_bag_drawer_equip_view", func():
+		GameState.reset()
+		GameState.state["player"]["craftingSkill"] = 10
+		GameState.state["player"]["orichalchum"]["time"] = 1000000
+
+		Devices.start_device("timeDevice")
+		var device_id: String = GameState.state["player"]["devicesInProgress"][0]["id"]
+
+		Rng.set_seed(1)
+		var guard := 0
+		while GameState.state["player"]["devicesInProgress"].size() > 0 and guard < 1000:
+			Devices.attempt_device_build(device_id)
+			guard += 1
+
+		assert_true(guard < 1000, "the device should reach 100% progress within a reasonable number of attempts")
+		assert_eq(GameState.state["player"]["devicesInProgress"], [], "the completed device should leave devicesInProgress")
+		assert_eq(GameState.state["player"]["devicesCompleted"].size(), 1, "the completed device should land in devicesCompleted")
+		assert_eq(GameState.state["combat"]["active"], false, "building a device end-to-end must not leave combat active stuck true")
+
+		Bag.open()
+		var drawer := BagDrawer.new()
+		drawer._ready()
+
+		assert_true(_find_button(drawer, "Equip") != null, "the newly completed device should offer an Equip button in the Bag drawer")
+
+		drawer.free()
+	)
+
 	run_case("weapon_and_device_cards_stay_drag_to_scroll_safe", func():
 		GameState.reset()
 		Bag.open()

@@ -451,6 +451,18 @@ func _apply_initial_view() -> void:
 	_set_zoom(view["zoom"])
 	if _scroll_container:
 		_apply_scroll(view["scroll"], _scroll_container)
+		# 86-map-camera-persistence-regression: _set_zoom above just resized
+		# this Control (_apply_zoom's custom_minimum_size/size write), but the
+		# wrapping ScrollContainer doesn't recompute its scroll range from that
+		# resize until its next sort pass, which is deferred, not synchronous.
+		# The _apply_scroll call just above therefore lands against the STALE
+		# (pre-resize) range and gets clamped back toward zero before the range
+		# ever catches up -- the deterministic (not intermittent) reset this
+		# ticket reports. Re-applying once more deferred, after that sort pass
+		# has run, is the correction -- same "apply now for the common case,
+		# once more deferred for the value layout hadn't caught up to yet"
+		# split MapBubble._reposition()/ModalLayer._refresh() already use.
+		_reapply_scroll_deferred.call_deferred(view["scroll"], _scroll_container)
 
 
 # Map-animations ticket 01: programmatic pan+zoom to a logical map-px point,
@@ -487,6 +499,24 @@ func pan_to(point: Vector2, target_zoom: float = -1.0, duration: float = PAN_DUR
 func _apply_scroll(v: Vector2, scroll: ScrollContainer) -> void:
 	scroll.scroll_horizontal = int(v.x)
 	scroll.scroll_vertical = int(v.y)
+
+
+# 86-map-camera-persistence-regression: the deferred half of
+# _apply_initial_view()'s scroll restore, above -- guarded because a queued
+# map event's playback (_maybe_start_playback(), called right after
+# _apply_initial_view() returns, still within the same _ready()) may have
+# already kicked off pan_to()'s own tween and assigned it to _active_tween
+# by the time this deferred call actually runs. _apply_initial_view()'s own
+# header comment explains why the initial view is restored BEFORE playback
+# starts in the first place -- restoring it AFTER would yank the camera out
+# from under an already-started forced pan. An unconditional deferred
+# re-apply reintroduces exactly that yank for the one visit where a map
+# event is already queued on open, so this backs off whenever _active_tween
+# is already claimed, leaving that tween as the sole authority over scroll.
+func _reapply_scroll_deferred(v: Vector2, scroll: ScrollContainer) -> void:
+	if _active_tween != null:
+		return
+	_apply_scroll(v, scroll)
 
 
 # ── map event playback (M1.5 animations ticket 01) ────────────────────────
