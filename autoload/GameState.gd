@@ -161,12 +161,21 @@ func new_game_state() -> Dictionary:
 			# what let an unrelated site's removal (a prospect reroll, a
 			# faction vein collapsing) or insertion (a
 			# saturated site's natural-vein bonus landing) silently reflow
-			# every later stop's slot. Never decremented/reused on removal --
-			# the stopSlots siteCap+2 budget already accepted from
-			# assign_positions' pre-existing overflow clamp that slots can run
-			# out under enough churn; this trades that same slack for
-			# never moving a stop that hasn't itself changed.
+			# every later stop's slot. 87-map-slot-index-recycling: this
+			# counter alone only ever mints new indices; mapSlotFreePool
+			# (below) is where a removed stop's slot goes so it can be handed
+			# back out here instead of growing this counter unboundedly.
 			"mapSlotCounters": {},
+			# 87-map-slot-index-recycling: per-district stack of slotIndex
+			# values freed by Sites.release_slot_index() when the stop that
+			# owned them stops existing (a site deleted outright, or a
+			# vein carrying its own stamped slotIndex -- the saturated-site
+			# natural-vein bonus -- removed from player.veins). Sites.
+			# next_slot_index() drains this before ever minting a fresh value
+			# off mapSlotCounters, so a district's live stop count -- not its
+			# lifetime churn -- is what the stopSlots siteCap+2 buffer has to
+			# cover.
+			"mapSlotFreePool": {},
 			# collective1-06: relation-accrual daily-cap tracker, keyed by lane
 			# id ("collective", "archie") -> relation points already awarded
 			# today. RelationAccrual.reset_daily_caps() clears it on daily_tick.

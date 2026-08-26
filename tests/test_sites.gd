@@ -383,6 +383,77 @@ func run() -> void:
 		assert_true(not MapEvents.has_pending(), "soho has no siteCap — nothing was created to queue")
 	)
 
+	# ── 87-map-slot-index-recycling: next_slot_index()/release_slot_index() ──
+
+	run_case("next_slot_index_mints_sequentially_when_nothing_has_been_freed", func():
+		GameState.reset()
+		assert_eq(Sites.next_slot_index("camden"), 0)
+		assert_eq(Sites.next_slot_index("camden"), 1)
+		assert_eq(Sites.next_slot_index("camden"), 2)
+	)
+
+	run_case("next_slot_index_hands_back_a_released_slot_before_minting_a_new_one", func():
+		GameState.reset()
+		Sites.next_slot_index("camden")  # 0
+		Sites.next_slot_index("camden")  # 1
+		Sites.release_slot_index("camden", 0)
+		assert_eq(Sites.next_slot_index("camden"), 0, "the freed slot is handed back out before the counter advances")
+		assert_eq(Sites.next_slot_index("camden"), 2, "once the free pool is drained, minting resumes from the counter")
+	)
+
+	run_case("next_slot_index_free_pools_are_kept_separate_per_district", func():
+		GameState.reset()
+		Sites.next_slot_index("camden")  # 0
+		Sites.release_slot_index("camden", 0)
+		assert_eq(Sites.next_slot_index("hampstead"), 0, "a different district's counter is untouched by camden's release")
+		assert_eq(Sites.next_slot_index("camden"), 0, "camden's own freed slot is still there waiting")
+	)
+
+	run_case("next_slot_index_recycles_freed_slots_so_heavy_churn_never_exceeds_the_old_fixed_buffer", func():
+		GameState.reset()
+		var district := "hampstead"  # siteCap 2 -> the old fixed buffer was siteCap+2 = 4 stopSlots
+		var buffer_size: int = GameData.MAP_LAYOUT["districts"][district]["stopSlots"].size()
+		assert_eq(buffer_size, 4, "sanity: hampstead's real map_layout.json buffer is 4 slots")
+
+		# Two permanently-live stops, then churn (free one, mint a replacement)
+		# many times past the old fixed buffer -- before this ticket, every
+		# churn past buffer_size would have run the counter straight past it,
+		# eventually clamping distinct stops onto the same last slot.
+		var live: Array = [Sites.next_slot_index(district), Sites.next_slot_index(district)]
+		for i in range(buffer_size * 5):
+			var freed: int = live.pop_front()
+			Sites.release_slot_index(district, freed)
+			var fresh: int = Sites.next_slot_index(district)
+			assert_true(fresh < buffer_size, "churn %d: recycled slot %d must stay inside the district's %d-slot buffer" % [i, fresh, buffer_size])
+			assert_true(not live.has(fresh), "churn %d: freshly allocated slot %d must not collide with a still-live slot %s" % [i, fresh, live])
+			live.append(fresh)
+
+		assert_true(live[0] != live[1], "the two permanently-live slots must never collide after heavy churn")
+	)
+
+	run_case("prospect_reroll_releases_the_deleted_sites_slot_for_reuse", func():
+		GameState.reset()
+		var a := Sites.roll_new_site("hampstead", "poor")
+		var b := Sites.roll_new_site("hampstead", "poor")
+		GameState.state["world"]["sites"] = [a, b]
+		Rng.set_seed(2)
+		Sites.prospect("hampstead")
+
+		var sites: Array = GameState.state["world"]["sites"]
+		assert_eq(sites.size(), 2, "site count stays at siteCap")
+		var new_site: Variant = null
+		var removed_slot: int = -1
+		for s in sites:
+			if s["id"] != a["id"] and s["id"] != b["id"]:
+				new_site = s
+		if a["id"] == sites[0]["id"] or a["id"] == sites[1]["id"]:
+			removed_slot = b["slotIndex"]
+		else:
+			removed_slot = a["slotIndex"]
+		assert_true(new_site != null, "the reroll should have created exactly one replacement site")
+		assert_eq(new_site["slotIndex"], removed_slot, "the rerolled site reuses the deleted site's freed slot, not a brand-new one")
+	)
+
 	# ── attempt_seed() ──────────────────────────────────────────────
 
 	run_case("attempt_seed_fails_for_unknown_site", func():

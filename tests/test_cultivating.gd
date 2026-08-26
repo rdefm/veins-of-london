@@ -409,6 +409,58 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["sites"], [], "the site (and its faction vein) is deleted outright")
 	)
 
+	# ── 87-map-slot-index-recycling ─────────────────────────────────────
+
+	run_case("collapse_vein_faction_branch_releases_the_deleted_sites_slot_for_reuse", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			var vein := _vein(0)
+			vein["factionId"] = "collective"
+			GameState.state["world"]["sites"] = [{
+				"id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
+				"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
+				"hasNaturalVein": false, "slotIndex": 5,
+			}]
+			Cultivating.drift_veins()
+			return GameState.state["world"]["sites"].is_empty()
+		)
+		assert_true(seed != -1, "should find a collapse hit within 200 tries")
+		assert_eq(Sites.next_slot_index("shoreditch"), 5, "the deleted site's slot must be recycled, not a fresh counter value")
+	)
+
+	run_case("collapse_vein_player_branch_releases_the_veins_own_slot_when_it_has_one", func():
+		# Only the saturated-site natural-vein bonus ever carries its own
+		# stamped slotIndex (Sites.attempt_seed()) -- simulated here by
+		# stamping it directly onto the fixture.
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			var vein := _vein(0)
+			vein["slotIndex"] = 9
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_site("s1", "shoreditch", true)]
+			Cultivating.drift_veins()
+			return GameState.state["player"]["veins"].is_empty()
+		)
+		assert_true(seed != -1, "should find a collapse hit within 200 tries")
+		assert_eq(Sites.next_slot_index("shoreditch"), 9, "the collapsed vein's own stamped slot must be recycled")
+	)
+
+	run_case("collapse_vein_player_branch_frees_nothing_extra_when_the_vein_reuses_its_sites_slot", func():
+		# An ordinary vein (no own slotIndex) reverts its site to unclaimed
+		# rather than deleting it -- the site keeps its slot, so nothing
+		# should land in the free pool at all.
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			var vein := _vein(0)
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_site("s1", "shoreditch", true)]
+			Cultivating.drift_veins()
+			return GameState.state["player"]["veins"].is_empty()
+		)
+		assert_true(seed != -1, "should find a collapse hit within 200 tries")
+		assert_eq(GameState.state["world"]["mapSlotFreePool"].get("shoreditch", []), [], "no slot should have been released")
+	)
+
 	# bugfixes-40: NPC-abandonment (adr/0002's independent daily kill roll
 	# for faction-claimed sites, stacked on top of this same collapse roll)
 	# is gone -- a faction vein now has exactly one way to die. Part 1 is

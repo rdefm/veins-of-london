@@ -493,6 +493,7 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 	var player: Dictionary = GameState.state["player"]
 	var vein_id: String = outcome["veinId"]
 	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
+	Sites.release_vein_slot(vein)
 
 	MapEvents.queue_seed_claim(vein["district"], vein_id, outcome["attackerId"])
 

@@ -716,6 +716,37 @@ func run() -> void:
 		assert_eq(site["factionVein"]["security"], "warded", "security carries over")
 	)
 
+	# ── 87-map-slot-index-recycling ───────────────────────────────────────
+
+	run_case("resolve_raid_outcome_claim_releases_the_veins_own_slot_when_it_has_one", func():
+		GameState.reset()
+		# Only the saturated-site natural-vein bonus ever carries its own
+		# stamped slotIndex (Sites.attempt_seed()) -- simulated here by
+		# stamping it directly onto the fixture.
+		var vein := _player_vein_of(50, "physics", "warded", "camden")
+		vein["slotIndex"] = 4
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true })
+
+		assert_eq(Sites.next_slot_index("camden"), 4, "the raided vein's own stamped slot must be recycled")
+	)
+
+	run_case("resolve_raid_outcome_claim_frees_nothing_extra_when_the_vein_reuses_its_sites_slot", func():
+		GameState.reset()
+		# An ordinary vein (no own slotIndex) hands the site off with a new
+		# factionVein rather than deleting it -- the site keeps its slot, so
+		# nothing should land in the free pool at all.
+		var vein := _player_vein_of(50, "physics", "warded", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true })
+
+		assert_eq(GameState.state["world"]["mapSlotFreePool"].get("camden", []), [], "no slot should have been released")
+	)
+
 	# ── Direction B: claim-vs-loot split (ticket 70) ──────────────────────
 
 	run_case("claim_chance_increases_monotonically_with_terroir_tier", func():

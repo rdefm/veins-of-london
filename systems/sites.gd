@@ -41,16 +41,49 @@ static func make_site_id() -> String:
 # for as long as it lives, stamped once at creation onto the site (or, for
 # a saturated site's extra natural-vein stop, onto the vein itself — see
 # attempt_seed() below) rather than derived from where that stop currently
-# sits in state.world.sites/player.veins. Backed by a per-district counter
-# in state.world.mapSlotCounters that only ever counts up: a removed
-# stop's slot is never reclaimed, trading the odd overflow (already
-# handled defensively by MapLayout.assign_positions' last-slot clamp) for
-# every still-live stop's position genuinely never moving underneath it.
+# sits in state.world.sites/player.veins. 87-map-slot-index-recycling:
+# drains state.world.mapSlotFreePool (release_slot_index()'s backing store)
+# before ever minting a fresh value off the per-district counter in
+# state.world.mapSlotCounters, so a removed stop's slot goes straight back
+# into circulation instead of counting up forever -- a still-live stop's
+# position never moves underneath it (same guarantee as before), but a
+# district's lifetime churn no longer has to fit inside its stopSlots
+# buffer, only its live stop count does.
 static func next_slot_index(district_id: String) -> int:
+	var free_pool: Dictionary = GameState.state["world"]["mapSlotFreePool"]
+	var freed: Array = free_pool.get(district_id, [])
+	if not freed.is_empty():
+		return freed.pop_back()
+
 	var counters: Dictionary = GameState.state["world"]["mapSlotCounters"]
 	var next_index: int = counters.get(district_id, 0)
 	counters[district_id] = next_index + 1
 	return next_index
+
+
+# 87-map-slot-index-recycling: the other half of next_slot_index() --
+# called by every removal path that ends a site's or a slotIndex-owning
+# vein's existence in a district (Sites._reroll_worst_unclaimed(),
+# Cultivating.collapse_vein()'s both branches, VeinTrade.sell_to_faction(),
+# Raiding.resolve_raid_outcome()'s claim branch), so the freed slot can be
+# handed back out by a later next_slot_index() call instead of leaving that
+# position permanently retired.
+static func release_slot_index(district_id: String, slot_index: int) -> void:
+	var free_pool: Dictionary = GameState.state["world"]["mapSlotFreePool"]
+	if not free_pool.has(district_id):
+		free_pool[district_id] = []
+	free_pool[district_id].append(slot_index)
+
+
+# 87-map-slot-index-recycling: shared by every removal path that takes a
+# vein out of state.player.veins while its site survives (collapse,
+# sale, raid). Only the saturated-site natural-vein bonus ever carries
+# its own stamped slotIndex (Sites.attempt_seed()) -- an ordinary vein
+# reuses its site's slot, which stays live for whatever occupies it next,
+# so there is nothing to free for it.
+static func release_vein_slot(vein: Dictionary) -> void:
+	if vein.has("slotIndex"):
+		release_slot_index(vein["district"], vein["slotIndex"])
 
 
 static func find_site(site_id: String) -> Variant:
@@ -292,6 +325,7 @@ static func _reroll_worst_unclaimed(district_id: String) -> Variant:
 	var worst_id: String = worst["id"]
 	var sites: Array = GameState.state["world"]["sites"]
 	GameState.state["world"]["sites"] = sites.filter(func(s): return s["id"] != worst_id)
+	release_slot_index(district_id, worst.get("slotIndex", 0))
 	return _create_site(district_id, true)
 
 

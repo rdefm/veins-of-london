@@ -474,12 +474,17 @@ static func collapse_vein(vein: Dictionary) -> void:
 		if site != null:
 			var sites: Array = GameState.state["world"]["sites"]
 			GameState.state["world"]["sites"] = sites.filter(func(s2): return s2["id"] != site_id)
+			# 87-map-slot-index-recycling: the site (and its only stop --
+			# faction veins never carry their own stamped slotIndex, see
+			# MapLayout.build_stop_items) is gone for good; free its slot.
+			Sites.release_slot_index(site["district"], site.get("slotIndex", 0))
 	else:
 		var player: Dictionary = GameState.state["player"]
 		var vein_id: String = vein["id"]
 		player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
 		if site != null:
 			site["claimed"] = false
+		Sites.release_vein_slot(vein)
 		var location_street: String = String(vein["location"]).split(",")[0]
 		var ore_name: String = GameData.ORE_TYPES[vein["oreType"]]["name"]
 		Notify.push("Your %s vein on %s collapsed and disappeared." % [ore_name, location_street], Notify.CATEGORY_WARNING)

@@ -211,6 +211,33 @@ func run() -> void:
 		assert_true(site["factionVein"]["soldByPlayer"])
 	)
 
+	# ── 87-map-slot-index-recycling ───────────────────────────────────────
+
+	run_case("sell_to_faction_releases_the_veins_own_slot_when_it_has_one", func():
+		GameState.reset()
+		# Only the saturated-site natural-vein bonus ever carries its own
+		# stamped slotIndex (Sites.attempt_seed()) -- simulated here by
+		# stamping it directly onto the fixture.
+		var vein := _seed_vein(50, "rich")
+		vein["slotIndex"] = 6
+
+		VeinTrade.sell_to_faction("v1", "collective")
+
+		assert_eq(Sites.next_slot_index("shoreditch"), 6, "the sold vein's own stamped slot must be recycled")
+	)
+
+	run_case("sell_to_faction_frees_nothing_extra_when_the_vein_reuses_its_sites_slot", func():
+		GameState.reset()
+		# An ordinary vein (no own slotIndex) hands the site off with a new
+		# factionVein rather than deleting it -- the site keeps its slot, so
+		# nothing should land in the free pool at all.
+		_seed_vein(50, "rich")
+
+		VeinTrade.sell_to_faction("v1", "collective")
+
+		assert_eq(GameState.state["world"]["mapSlotFreePool"].get("shoreditch", []), [], "no slot should have been released")
+	)
+
 	run_case("sell_to_faction_fails_for_an_unknown_vein_id", func():
 		GameState.reset()
 		_seed_vein(50, "fair")

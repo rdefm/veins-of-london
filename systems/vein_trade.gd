@@ -59,6 +59,7 @@ static func sell_to_faction(vein_id: String, faction_id: String, price_override:
 	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
 	player["cash"] += price
 	Bank.record(price, "Sold vein to %s" % faction_id.capitalize())
+	Sites.release_vein_slot(vein)
 
 	var faction_vein: Dictionary = Factions.create_faction_vein(faction_id, site, vein["growth"])
 	faction_vein["soldByPlayer"] = not is_handback

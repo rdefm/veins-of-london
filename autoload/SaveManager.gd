@@ -203,6 +203,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 			result[key] = defaults[key]
 	_backfill_new_contacts(result, defaults)
 	_backfill_new_collective_keys(result, defaults)
+	_backfill_new_world_keys(result, defaults)
 	return result
 
 
@@ -235,6 +236,21 @@ func _backfill_new_collective_keys(result: Dictionary, defaults: Dictionary) -> 
 	for key in defaults["collective"].keys():
 		if not collective.has(key):
 			collective[key] = defaults["collective"][key]
+
+
+# 87-map-slot-index-recycling: mirrors _backfill_new_contacts/
+# _backfill_new_collective_keys above -- "world" has existed as a top-level
+# key since M0, so the shallow fill in backfill_defaults() never fires for
+# it, but this ticket is the first time a new key (mapSlotFreePool) has
+# been added to it since. Seeds only missing keys, same as a missing
+# top-level key would be, never touching one the save already has.
+func _backfill_new_world_keys(result: Dictionary, defaults: Dictionary) -> void:
+	if not result.has("world"):
+		return
+	var world: Dictionary = result["world"]
+	for key in defaults["world"].keys():
+		if not world.has(key):
+			world[key] = defaults["world"][key]
 
 
 # JSON has no int/float distinction, so every number in a just-parsed save
@@ -313,6 +329,12 @@ func _restore_int_types(state: Dictionary) -> void:
 		for recent in world.get("recentEvents", []):
 			_int_key(recent, "day")
 		_int_dict_values(world.get("mapSlotCounters", {}))
+		# 87-map-slot-index-recycling: Dictionary<district_id, Array[int]>,
+		# not a flat Dictionary<String, int> -- _int_dict_values only
+		# int-ifies a dict's own values, so each district's freed-slot array
+		# needs its own _int_array_values pass.
+		for freed in world.get("mapSlotFreePool", {}).values():
+			_int_array_values(freed)
 		# collective1-06
 		_int_dict_values(world.get("relationAwardedToday", {}))
 

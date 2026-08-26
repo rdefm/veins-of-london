@@ -126,6 +126,27 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_mutate_load_round_trips_mapSlotFreePool_with_int_fields_intact", func():
+		GameState.reset()
+		Sites.next_slot_index("hampstead")
+		Sites.next_slot_index("hampstead")
+		Sites.release_slot_index("hampstead", 0)
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["world"]["mapSlotFreePool"] = {}
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		var freed: Array = GameState.state["world"]["mapSlotFreePool"]["hampstead"]
+		assert_eq(typeof(freed[0]), TYPE_INT, "a freed slotIndex should be restored as int, not float")
+		assert_eq(GameState.state, original, "the full state tree (including mapSlotFreePool) should deep-equal what was saved")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("save_mutate_load_round_trips_stealth_skill_for_player_and_contact", func():
 		GameState.reset()
 		GameState.state["player"]["stealthSkill"] = 3
@@ -352,6 +373,21 @@ func run() -> void:
 		assert_eq(filled["contacts"]["archie"], { "relation": 55, "recruited": true }, "an existing contact's data must survive untouched")
 		for contact_id in ["des", "nadia", "hakim"]:
 			assert_eq(filled["contacts"][contact_id], defaults["contacts"][contact_id], "%s should be seeded from defaults, same as a missing top-level key" % contact_id)
+	)
+
+	# 87-map-slot-index-recycling: "world" is a top-level key that has
+	# existed since M0, so a pre-ticket-87 save has it present but missing
+	# the new mapSlotFreePool key -- the shallow top-level fill above never
+	# fires for it, so this needs its own per-key backfill.
+	run_case("backfill_seeds_mapSlotFreePool_into_an_old_saves_existing_world_dict", func():
+		var incomplete := {
+			"world": { "day": 42, "mapSlotCounters": { "camden": 3 } },  # pre-ticket-87 save
+		}
+		var filled := SaveManager.backfill_defaults(incomplete)
+
+		assert_eq(filled["world"]["day"], 42, "existing world data must survive untouched")
+		assert_eq(filled["world"]["mapSlotCounters"], { "camden": 3 }, "existing world data must survive untouched")
+		assert_eq(filled["world"]["mapSlotFreePool"], {}, "the new key should be seeded from defaults, same as a missing top-level key")
 	)
 
 	run_case("loading_a_save_with_a_retired_currentScreen_lands_on_phone_home", func():
