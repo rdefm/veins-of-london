@@ -282,6 +282,13 @@ var _tap_start_pos: Vector2
 # <= 0 means "no pinch in progress"; set on the second finger landing.
 var _pinch_start_distance: float = -1.0
 var _pinch_start_zoom: float = 1.0
+# Ticket 76 (third pass at pinch drift): the logical map point anchored under
+# the pinch, captured ONCE per pinch segment (by _start_pinch, both on the
+# initial two-finger landing and again on a finger-swap re-init — see
+# _update_pinch's own comment) rather than re-derived from the live midpoint
+# on every drag frame. See _update_pinch for why re-deriving it every frame
+# was the actual drift source.
+var _pinch_anchor_logical: Vector2
 
 # 53-map-auto-focus-and-zoom-persistence: cached in _apply_initial_view()
 # (get_parent() as ScrollContainer, same idiom pan_to() uses live) so
@@ -1616,28 +1623,56 @@ func _start_pinch() -> void:
 	var positions: Array = _touches.values()
 	_pinch_start_distance = maxf(positions[0].distance_to(positions[1]), 1.0)
 	_pinch_start_zoom = zoom_level
+	var midpoint: Vector2 = (positions[0] + positions[1]) / 2.0
+	_pinch_anchor_logical = MapZoom.to_logical(midpoint, zoom_level)
 
 
 # Scales zoom_level by how much the distance between the two touch points
-# has changed since the pinch started, re-basing continuously (rather than
-# only at pinch-start) so a finger lifting and a new one landing mid-gesture
-# doesn't cause a jump. accept_event() here specifically (not on every drag)
-# stops the ScrollContainer's own two-finger pan from also fighting the
-# pinch for the same gesture; a single-finger pan is left alone so the
-# ScrollContainer's native scrolling still works.
+# has changed since the pinch started. accept_event() here specifically (not
+# on every drag) stops the ScrollContainer's own two-finger pan from also
+# fighting the pinch for the same gesture; a single-finger pan is left alone
+# so the ScrollContainer's native scrolling still works.
 #
 # Bugfixes ticket 23: _set_zoom() alone resizes this Control (see
 # _apply_zoom) with no compensating scroll, so the content only ever grows
 # from its top-left — the pinch midpoint drifted toward whatever's in that
-# corner instead of staying under the fingers. Fix: read the midpoint (this
-# Control's local space, same "zoomed content px" to_logical() already
-# assumes elsewhere in this file) and its position relative to the
-# ScrollContainer's current scroll offset (its `anchor`) BEFORE changing
-# zoom_level, then hand both to MapZoom.scroll_target() AFTER — same
-# pan-to-point maths pan_to() already tweens through, just applied
-# immediately each pinch frame instead of animated, and anchored on the
-# pinch point's own screen position instead of scroll_target()'s default
-# viewport-centre anchor.
+# corner instead of staying under the fingers. Fix: read the midpoint's
+# position relative to the ScrollContainer's current scroll offset (its
+# `anchor`) BEFORE changing zoom_level, then hand it, alongside the anchored
+# logical point, to MapZoom.scroll_target() AFTER — same pan-to-point maths
+# pan_to() already tweens through, just applied immediately each pinch frame
+# instead of animated, and anchored on the pinch point's own screen position
+# instead of scroll_target()'s default viewport-centre anchor.
+#
+# Ticket 76 (third pass at pinch drift): earlier versions of this function
+# re-derived the anchored LOGICAL point fresh from the live midpoint on every
+# single drag frame (`MapZoom.to_logical(midpoint, zoom_level)`, called right
+# here), intending only to avoid a jump when a finger lifts and a new one
+# lands mid-gesture. That per-frame re-derivation was the actual drift
+# source: real touch samples carry a few px of sensor jitter, and this
+# formula turns jitter in the midpoint into a *permanent* scroll shift
+# whenever it coincides with any nonzero frame-to-frame zoom change (i.e.
+# almost every drag frame of a real pinch, since the two-finger distance is
+# constantly changing) — see the algebra in this ticket's own investigation
+# notes: each frame effectively adds `midpoint * (zoom_ratio - 1)` onto the
+# previous scroll, an open-loop accumulation (a random walk) of correlated
+# noise from the very two raw samples that also drive the zoom ratio itself.
+# Slow, careful pinching doesn't remove that jitter — it just gives it more
+# frames to accumulate over, which is why the first two fix attempts (anchor
+# math, then a broader jitter pass) didn't fully resolve it.
+#
+# The fix: `_pinch_anchor_logical` is captured ONCE per pinch segment, by
+# _start_pinch() — on the initial two-finger landing, and again whenever a
+# finger lifts and a new one lands (_pinch_start_distance resets to -1 on a
+# lift, both on the immediate landing path in _on_screen_touch and via the
+# guard below), so a finger swap still re-bases the anchor exactly once,
+# preserving the "no jump on finger swap" behaviour this mechanism was
+# protecting. What no longer happens is re-sampling that anchor on every
+# ordinary frame in between — the screen-space `anchor` below still tracks
+# the live midpoint every frame (so the gesture still pans naturally as the
+# fingers move), but the LOGICAL point being pinned to it is fixed for the
+# whole segment, so midpoint jitter only ever contributes a direct,
+# proportional (not accumulated) nudge to scroll instead of an integrated one.
 func _update_pinch() -> void:
 	if _pinch_start_distance <= 0.0:
 		_start_pinch()
@@ -1648,7 +1683,6 @@ func _update_pinch() -> void:
 	var new_zoom := MapZoom.clamp_zoom(_pinch_start_zoom * (distance / _pinch_start_distance))
 
 	var scroll := get_parent() as ScrollContainer
-	var logical_point := MapZoom.to_logical(midpoint, zoom_level)
 	var anchor := midpoint
 	if scroll:
 		anchor = midpoint - Vector2(scroll.scroll_horizontal, scroll.scroll_vertical)
@@ -1658,7 +1692,7 @@ func _update_pinch() -> void:
 	if scroll:
 		var viewport_size: Vector2 = scroll.size
 		var content_size := _map_size * zoom_level
-		var target_scroll := MapZoom.scroll_target(logical_point, zoom_level, viewport_size, content_size, anchor)
+		var target_scroll := MapZoom.scroll_target(_pinch_anchor_logical, zoom_level, viewport_size, content_size, anchor)
 		_apply_scroll(target_scroll, scroll)
 
 	accept_event()

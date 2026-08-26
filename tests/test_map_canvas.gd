@@ -49,6 +49,47 @@ static func _vein(ore_type: String, growth: int) -> Dictionary:
 	return { "oreType": ore_type, "growth": growth, "hospitability": { "tier": "fair", "bonuses": [] } }
 
 
+# Ticket 76: two-finger pinch fixtures for the drift regression cases below —
+# built as real InputEventScreenTouch/Drag and dispatched via _gui_input,
+# same idiom the tap-interleaving cases elsewhere in this file already use.
+static func _touch(index: int, pressed: bool, pos: Vector2) -> InputEventScreenTouch:
+	var t := InputEventScreenTouch.new()
+	t.index = index
+	t.pressed = pressed
+	t.position = pos
+	return t
+
+
+static func _drag(index: int, pos: Vector2) -> InputEventScreenDrag:
+	var d := InputEventScreenDrag.new()
+	d.index = index
+	d.position = pos
+	return d
+
+
+# A pinch that actually changes zoom_level runs _set_zoom -> _apply_zoom,
+# which touches _halo_layer/_playback_layer/_pins_layer/_labels_layer --
+# real children _ready() creates, which this file's no-scene-tree
+# MapCanvas.new() style never runs (see this file's class comment). Only the
+# pinch cases below that let zoom actually change need these stubbed in --
+# plain field assignment, same "never touches get_tree()/get_viewport()"
+# discipline as the rest of this file: NOT added via add_child (canvas
+# itself is never in a tree either), so _free_zoom_layers below has to free
+# them itself rather than relying on canvas.free() cascading to real children.
+static func _stub_zoom_layers(canvas: MapCanvas) -> void:
+	canvas._halo_layer = Node2D.new()
+	canvas._playback_layer = Node2D.new()
+	canvas._pins_layer = Node2D.new()
+	canvas._labels_layer = Node2D.new()
+
+
+static func _free_zoom_layers(canvas: MapCanvas) -> void:
+	canvas._halo_layer.free()
+	canvas._playback_layer.free()
+	canvas._pins_layer.free()
+	canvas._labels_layer.free()
+
+
 func run() -> void:
 	# A fresh MapCanvas.new() per case, freed at the end of each — never
 	# added to the tree (this file only calls the one pure seam that never
@@ -1100,5 +1141,104 @@ func run() -> void:
 		var rebuilt_line := MapRouting.build_line(anchor, canvas._line_owner_stops(faction_id), MapLayout.river_path(), rebuilt_obstacle_stops, canvas._other_owner_lines(faction_id), MapCanvas.LINE_CLEARANCE)
 		assert_true(MapRouting.crossed_obstacles(rebuilt_line[0], rebuilt_line[1], rebuilt_line[2], rebuilt_obstacle_stops).is_empty(), "the faction's real routed line no longer crosses the nudged stop")
 
+		canvas.free()
+	)
+
+	# Ticket 76 (third pass at pinch drift): _start_pinch/_update_pinch don't
+	# need a real ScrollContainer parent to exercise the anchor bookkeeping —
+	# get_parent() resolves to null in this construction style (same
+	# no-scene-tree convention as the rest of this file), so _update_pinch's
+	# scroll-writing branch is skipped, but _pinch_anchor_logical and
+	# zoom_level are plain fields set unconditionally before that branch.
+	# Dispatched via _gui_input, same idiom the tap-interleaving cases above
+	# use, so this also exercises the real _on_screen_touch/_on_screen_drag
+	# dispatch rather than calling the private handlers directly.
+	run_case("start_pinch_captures_the_logical_point_under_the_landing_midpoint", func():
+		var canvas := MapCanvas.new()
+		canvas.zoom_level = 1.2
+
+		canvas._gui_input(_touch(0, true, Vector2(100, 200)))
+		canvas._gui_input(_touch(1, true, Vector2(140, 240)))
+
+		var expected_midpoint := Vector2(120, 220)
+		assert_eq(canvas._pinch_anchor_logical, MapZoom.to_logical(expected_midpoint, 1.2), "anchor is the logical point under the two-finger midpoint at the zoom the pinch started at")
+
+		canvas.free()
+	)
+
+	# The actual regression: root cause was _update_pinch re-deriving the
+	# anchored logical point fresh from the live midpoint on every drag frame,
+	# so any frame-to-frame asymmetry between the two fingers (touch-sensor
+	# jitter, or just uneven human motion) shifted the anchor and re-centred
+	# the map on it each frame -- see _update_pinch's own comment for the
+	# full mechanism. This drives several drag frames with deliberately
+	# uneven per-finger movement (finger 0 and finger 1 move by different,
+	# asymmetric amounts each frame -- never mirrored) and asserts
+	# _pinch_anchor_logical is bit-for-bit unchanged throughout: the anchor
+	# must be set once, at pinch start, never resampled mid-gesture.
+	run_case("uneven_finger_movement_across_multiple_drag_frames_never_reanchors_the_pinch", func():
+		var canvas := MapCanvas.new()
+		canvas.zoom_level = 1.0
+		_stub_zoom_layers(canvas)
+
+		canvas._gui_input(_touch(0, true, Vector2(100, 100)))
+		canvas._gui_input(_touch(1, true, Vector2(200, 100)))
+		var anchor_at_start: Vector2 = canvas._pinch_anchor_logical
+
+		# Each frame moves the two fingers by different amounts (asymmetric,
+		# the exact condition the ticket names) -- a slow, careful pinch
+		# still has this kind of per-finger noise on real hardware.
+		canvas._gui_input(_drag(0, Vector2(102, 101)))
+		assert_eq(canvas._pinch_anchor_logical, anchor_at_start, "finger 0 alone moving must not reanchor -- only two touches down at once trigger a (re)anchor")
+
+		canvas._gui_input(_drag(1, Vector2(199, 103)))
+		assert_eq(canvas._pinch_anchor_logical, anchor_at_start, "both fingers now moved, asymmetrically -- the anchor captured at pinch-start must still hold")
+
+		canvas._gui_input(_drag(0, Vector2(108, 97)))
+		canvas._gui_input(_drag(1, Vector2(193, 106)))
+		assert_eq(canvas._pinch_anchor_logical, anchor_at_start, "further uneven drag frames still don't touch the anchor -- this is what stops jitter from accumulating into visible drift")
+
+		_free_zoom_layers(canvas)
+		canvas.free()
+	)
+
+	# The mirror case: the anchor is INTENDED to reset, exactly once, when a
+	# finger lifts mid-gesture and a new one lands -- the behaviour this
+	# mechanism was protecting (see the ticket and _update_pinch's comment).
+	run_case("a_finger_swap_mid_gesture_reanchors_once_to_the_new_pair", func():
+		var canvas := MapCanvas.new()
+		canvas.zoom_level = 1.0
+
+		canvas._gui_input(_touch(0, true, Vector2(100, 100)))
+		canvas._gui_input(_touch(1, true, Vector2(200, 100)))
+		var anchor_before_swap: Vector2 = canvas._pinch_anchor_logical
+
+		canvas._gui_input(_touch(0, false, Vector2(100, 100)))  # finger 0 lifts
+		canvas._gui_input(_touch(2, true, Vector2(250, 140)))   # a new finger lands
+
+		var expected_new_midpoint := Vector2(225, 120)  # finger 1 (200,100) + new finger 2 (250,140)
+		assert_eq(canvas._pinch_anchor_logical, MapZoom.to_logical(expected_new_midpoint, canvas.zoom_level), "finger swap re-bases the anchor to the new pair's midpoint")
+		assert_true(canvas._pinch_anchor_logical != anchor_before_swap, "sanity: the new pair's midpoint actually differs from the old one in this fixture")
+
+		canvas.free()
+	)
+
+	# Confirms the fix didn't break ordinary pinch-zoom itself: zoom_level
+	# still tracks the ratio of current to pinch-start finger distance, same
+	# formula as before this ticket.
+	run_case("pinch_still_scales_zoom_level_by_the_finger_distance_ratio", func():
+		var canvas := MapCanvas.new()
+		canvas.zoom_level = 1.0
+		_stub_zoom_layers(canvas)
+
+		canvas._gui_input(_touch(0, true, Vector2(100, 100)))
+		canvas._gui_input(_touch(1, true, Vector2(200, 100)))  # start distance 100
+
+		canvas._gui_input(_drag(0, Vector2(50, 100)))
+		canvas._gui_input(_drag(1, Vector2(250, 100)))  # new distance 200 -- doubled
+
+		assert_almost_eq(canvas.zoom_level, MapZoom.clamp_zoom(2.0), 0.0001, "distance doubled since pinch-start -- zoom doubles (before clamping) from the pre-pinch zoom")
+
+		_free_zoom_layers(canvas)
 		canvas.free()
 	)
