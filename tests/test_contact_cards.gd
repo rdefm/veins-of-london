@@ -163,3 +163,65 @@ func run() -> void:
 
 		assert_true(not Messages.has_unread("des"), "opening the thread marks it read (PhoneNav.select_conversation)")
 	)
+
+	# ── 83-contacts-archie-james-sms-port ─────────────────────────────────
+
+	run_case("archie_and_james_cards_get_a_messages_button", func():
+		GameState.reset()
+		assert_true(_find_button(ContactCards.build_archie_card(), "💬 Messages") != null, "archie card has a Messages button")
+
+		GameState.state["contacts"]["james"]["unlocked"] = true
+		assert_true(_find_button(ContactCards.build_james_card(), "💬 Messages") != null, "james card has a Messages button")
+	)
+
+	run_case("archie_card_no_longer_surfaces_its_old_bespoke_sms_buttons", func():
+		GameState.reset()
+		GameState.state["flags"]["archieMotionPending"] = true
+		GameState.state["flags"]["tutorialStage"] = "sms_archie"
+		var texts := _button_texts(ContactCards.build_archie_card())
+		for text in texts:
+			assert_true(not text.begins_with("💬 Archie texted") and not text.begins_with("💬 Message Archie") and not text.begins_with("💬 Archie wants to meet"), "no bespoke flag-driven SMS button survives: %s" % text)
+	)
+
+	run_case("james_card_no_longer_surfaces_its_old_visit_james_button", func():
+		GameState.reset()
+		GameState.state["contacts"]["james"]["unlocked"] = true
+		GameState.state["flags"]["archieMotionEventSeen"] = true
+		var texts := _button_texts(ContactCards.build_james_card())
+		assert_true(not texts.has("💬 Visit James — ask about new recipes"), "the old flag-driven button is gone")
+	)
+
+	run_case("archie_card_surfaces_a_pending_message_as_a_generic_continue_button", func():
+		GameState.reset()
+		Messages.queue_pending("archie", "archie_motion", "good output. call me.")
+
+		var button := _find_button(ContactCards.build_archie_card(), "Continue →")
+		assert_true(button != null, "pendingMessages entries surface the same generic way build_des_card()'s loop does")
+
+		button.pressed.emit()
+
+		assert_eq(GameState.state["event"]["eventId"], "archie_motion", "pressing it resolves the pending entry and starts its event")
+		assert_true(Messages.pending_for("archie").is_empty(), "the pending entry is resolved once acted on")
+	)
+
+	run_case("james_card_surfaces_a_pending_message_as_a_generic_continue_button", func():
+		GameState.reset()
+		GameState.state["contacts"]["james"]["unlocked"] = true
+		Messages.queue_pending("james", "james_motion", "Overflow work, if you're capable of it. Come by.")
+
+		var button := _find_button(ContactCards.build_james_card(), "Continue →")
+		assert_true(button != null, "pendingMessages entries surface the same generic way on james's card")
+
+		button.pressed.emit()
+
+		assert_eq(GameState.state["event"]["eventId"], "james_motion", "pressing it resolves the pending entry and starts its event")
+		assert_true(Messages.pending_for("james").is_empty(), "the pending entry is resolved once acted on")
+	)
+
+	run_case("archie_and_james_join_the_conversation_contact_list_once_unlocked", func():
+		GameState.reset()
+		GameState.state["contacts"]["james"]["unlocked"] = true
+		var ids := Messages.conversation_contact_ids()
+		assert_true(ids.has("archie"), "archie is no longer excluded as a legacy contact")
+		assert_true(ids.has("james"), "james is no longer excluded as a legacy contact")
+	)

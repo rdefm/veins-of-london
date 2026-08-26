@@ -111,15 +111,17 @@ func run() -> void:
 		assert_eq(GameState.state["pendingMessages"][0]["kind"], "event_b", "the other entry survives")
 	)
 
-	run_case("conversation_contact_ids_excludes_archie_and_james", func():
+	# 83-contacts-archie-james-sms-port: archie/james are full members of the
+	# conversation list now -- their old bespoke SMS screens are gone.
+	run_case("conversation_contact_ids_includes_archie_and_james_once_unlocked", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["unlocked"] = true
 		GameState.state["contacts"]["james"]["unlocked"] = true
 		_add_test_contact("des")
 
 		var ids := Messages.conversation_contact_ids()
-		assert_true(not ids.has("archie"), "archie stays on his own SMS screen")
-		assert_true(not ids.has("james"), "james stays on his own SMS screen")
+		assert_true(ids.has("archie"), "archie appears once unlocked")
+		assert_true(ids.has("james"), "james appears once unlocked")
 		assert_true(ids.has("des"), "a new-shape unlocked contact appears")
 	)
 
@@ -132,6 +134,9 @@ func run() -> void:
 
 	run_case("conversation_contact_ids_sorts_most_recent_activity_first", func():
 		GameState.reset()
+		# archie is unlocked by default (data/constants.json) -- lock him out
+		# here so he doesn't join the no-activity tail this case is scoped to.
+		GameState.state["contacts"]["archie"]["unlocked"] = false
 		_add_test_contact("des")
 		_add_test_contact("nadia")
 		_add_test_contact("hakim")

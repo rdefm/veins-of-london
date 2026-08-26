@@ -157,13 +157,15 @@ func run() -> void:
 
 		var first := Economy.execute_sale([{ "kind": "consumable", "type": "timePearl", "qty": 1 }])
 		assert_true(GameState.state["flags"]["archieMotionPending"], "first consumable sale should set the pending flag")
-		var notif_count_after_first: int = GameState.state["notifications"].size()
+		# 83-contacts-archie-james-sms-port: the "Archie texted" beat is now a
+		# real pendingMessages entry, not a Notify banner.
+		assert_eq(Messages.pending_for("archie").size(), 1, "first sale queues exactly one pending entry")
+		assert_eq(Messages.pending_for("archie")[0]["kind"], "archie_motion", "the pending entry starts archie_motion")
 
 		Economy.execute_sale([{ "kind": "consumable", "type": "timePearl", "qty": 1 }])
-		var notif_count_after_second: int = GameState.state["notifications"].size()
 
 		assert_eq(GameState.state["flags"]["consSoldCount"], 2, "counter still accumulates both sales")
-		assert_eq(notif_count_after_second, notif_count_after_first, "second sale should not push another Archie-texted notification")
+		assert_eq(Messages.pending_for("archie").size(), 1, "second sale should not queue a duplicate pending entry")
 	)
 
 	run_case("consumable_sale_does_not_flip_pending_once_archieMotionEventSeen", func():

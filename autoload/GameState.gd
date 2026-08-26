@@ -226,6 +226,11 @@ func new_game_state() -> Dictionary:
 			"craftingUnlocked": false, "archieCraftChatSeen": false,
 			"canSellConsumables": false, "consSoldCount": 0,
 			"archieMotionPending": false, "archieMotionEventSeen": false,
+			# 83-contacts-archie-james-sms-port: idempotency guard for the
+			# day>=2/buyer_event day-tick trigger (TimeSystem._apply_tutorial_
+			# day_triggers) so the archie_2 SMS content queues exactly once,
+			# not on every day tick until the player acts.
+			"archieBuyerSmsQueued": false,
 			"jamesMotionEventSeen": false, "enhancementUnlocked": false,
 			"jamesJobActive": false, "jamesJobAccepted": false,
 			"homeRaidEventPending": false, "homeRaidEventSeen": false, "homeRaidWon": false,

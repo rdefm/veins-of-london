@@ -51,8 +51,12 @@ func run() -> void:
 		_play_event("archie_cultivation")
 
 		var card := ContactCards.build_archie_card()
-		var button := _find_button(card, "💬 Archie texted — come to the lock-up")
-		assert_true(button != null, "Archie's contacts card should surface the pending S1 text as a button")
+		# 83-contacts-archie-james-sms-port: Archie's card now surfaces every
+		# pendingMessages entry with the same generic "Continue →" label
+		# Des/Nadia/Hakim's cards use -- the actual S1 text lives in the
+		# message thread itself (previous test case), not the button.
+		var button := _find_button(card, "Continue →")
+		assert_true(button != null, "Archie's contacts card should surface the pending S1 entry as a button")
 
 		button.pressed.emit()
 
@@ -63,7 +67,7 @@ func run() -> void:
 	run_case("archie_card_shows_no_pending_button_before_archie_cultivation_fires", func():
 		GameState.reset()
 		var card := ContactCards.build_archie_card()
-		assert_true(_find_button(card, "💬 Archie texted — come to the lock-up") == null, "no pending entry yet -- no button")
+		assert_true(_find_button(card, "Continue →") == null, "no pending entry yet -- no button")
 	)
 
 	# ── S1: col_a1_intro ────────────────────────────────────────────────

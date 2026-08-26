@@ -70,7 +70,6 @@ var CONTACTS_DEFAULTS: Dictionary = {}
 var JAMES_JOB_TRUST_BANDS: Array = []
 
 var EVENTS: Dictionary = {}
-var SMS_THREADS: Dictionary = {}
 
 # collective1-07, spec §9.5: per-vendor flavour lines drawn on completing a
 # Collective trade (systems/collective.gd) -- cosmetic only, the three doors
@@ -257,8 +256,6 @@ func load_all() -> void:
 		if not event_def.is_empty():
 			EVENTS[event_id] = event_def
 
-	SMS_THREADS = _load_json("res://data/sms.json")
-
 	OBJECTIVES = _load_json("res://data/objectives.json")
 
 	COLLECTIVE_BARKS = _load_json("res://data/collective_barks.json")
@@ -301,7 +298,6 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
-	_validate_sms(t.get("sms_threads", {}), errors)
 	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), errors)
 	_validate_collective_barks(t.get("collective_barks", {}), errors)
 
@@ -345,7 +341,6 @@ func snapshot() -> Dictionary:
 		"time_blocks": TIME_BLOCKS,
 		"contacts_defaults": CONTACTS_DEFAULTS,
 		"events": EVENTS,
-		"sms_threads": SMS_THREADS,
 		"objectives": OBJECTIVES,
 		"collective_barks": COLLECTIVE_BARKS,
 	}
@@ -877,17 +872,6 @@ func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[Strin
 	var district: Variant = deck.get("district")
 	if district != "any" and not CANONICAL_DISTRICT_IDS.has(district):
 		errors.append("%s: district '%s' is neither 'any' nor a known district" % [context, district])
-
-
-func _validate_sms(threads: Dictionary, errors: Array[String]) -> void:
-	for expected_id in ["archie_1", "archie_2"]:
-		if not threads.has(expected_id):
-			errors.append("sms: missing thread '%s'" % expected_id)
-			continue
-		for msg in threads[expected_id]:
-			_require_keys(msg, ["from", "text"], "sms.%s" % expected_id, errors)
-			if msg.has("from") and not ["player", "archie"].has(msg["from"]):
-				errors.append("sms.%s: unknown sender '%s'" % [expected_id, msg["from"]])
 
 
 # collective1-02: data/objectives.json — Objectives.refresh()'s canonical

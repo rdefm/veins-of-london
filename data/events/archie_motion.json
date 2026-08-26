@@ -12,6 +12,7 @@
   ],
   "on_complete": [
     { "op": "set_flag", "flag": "archieMotionEventSeen", "value": true },
+    { "op": "queue_pending_message", "contact": "james", "kind": "james_motion", "text": "Overflow work, if you're capable of it. Come by." },
     { "op": "set_screen", "screen": "contacts" }
   ]
 }

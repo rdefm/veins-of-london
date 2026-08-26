@@ -52,15 +52,13 @@ static func _site_with_vein(id: String, vein: Dictionary) -> Dictionary:
 
 
 func run() -> void:
-	run_case("schema_all_9_event_files_and_sms_threads_validate", func():
+	run_case("schema_all_event_files_validate", func():
 		var errors := GameData.validate_tables(GameData.snapshot())
-		var relevant := errors.filter(func(e): return e.begins_with("events") or e.begins_with("sms"))
-		assert_eq(relevant, [], "event/sms tables should validate cleanly: %s" % str(relevant))
+		var relevant := errors.filter(func(e): return e.begins_with("events"))
+		assert_eq(relevant, [], "event tables should validate cleanly: %s" % str(relevant))
 
 		for expected_id in GameData.EVENT_IDS:
 			assert_true(GameData.EVENTS.has(expected_id), "missing event file '%s'" % expected_id)
-		assert_true(GameData.SMS_THREADS.has("archie_1"), "missing SMS thread archie_1")
-		assert_true(GameData.SMS_THREADS.has("archie_2"), "missing SMS thread archie_2")
 	)
 
 	# Bugfixes ticket (col_a1_intro Continue softlock): screens only swap on
@@ -577,6 +575,13 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], cash_before + 40, "buyer: cash +40")
 		assert_true(GameState.state["flags"]["buyerEventSeen"], "buyer: buyerEventSeen")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "sms_archie", "buyer: stage")
+		# 83-contacts-archie-james-sms-port: ARCHIE_SMS_1's content now lands
+		# in the generic message thread, ending in a pendingMessages entry
+		# that starts james_meeting on Continue.
+		var archie_thread_after_buyer: Array = GameState.state["messages"]["archie"]
+		assert_eq(archie_thread_after_buyer.size(), 3, "buyer: all 3 ARCHIE_SMS_1 lines pushed (2 push_message + the pending entry's own text)")
+		assert_eq(Messages.pending_for("archie").size(), 1, "buyer: one pending entry queued")
+		assert_eq(Messages.pending_for("archie")[0]["kind"], "james_meeting", "buyer: pending entry starts james_meeting")
 
 		# 3. James meeting (SMS thread 1 has no state effects of its own)
 		var day: int = GameState.state["world"]["day"]
@@ -592,6 +597,10 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["archieChatUnlockDay"], day + 1, "james_meeting: archieChatUnlockDay = day+1")
 		assert_eq(GameState.state["currentScreen"], "phone", "james_meeting: -> phone home, no longer hq")
 		assert_true(not _has_notification("Crafting unlocked. Try the workbench in HQ."), "james_meeting: no longer fires the HQ notification")
+		# 83-contacts-archie-james-sms-port: the archie_craft_chat trigger now
+		# arrives as a pendingMessages entry instead of a bare tutorialStage check.
+		var craft_chat_pending := Messages.pending_for("archie")
+		assert_true(craft_chat_pending.size() > 0 and craft_chat_pending.back()["kind"] == "archie_craft_chat", "james_meeting: queues the archie_craft_chat pending entry")
 
 		# 4. Archie falafel chat
 		var ore_before: int = GameState.state["player"]["orichalchum"].get("time", 0)
@@ -672,6 +681,10 @@ func run() -> void:
 		for i in range(GameData.EVENTS["archie_motion"]["cards"].size()):
 			Events.advance()
 		assert_true(GameState.state["flags"]["archieMotionEventSeen"], "archie_motion: seen")
+		# 83-contacts-archie-james-sms-port: the "visit James" trigger now
+		# arrives as a pendingMessages entry on James's own thread.
+		var james_motion_pending := Messages.pending_for("james")
+		assert_true(james_motion_pending.size() > 0 and james_motion_pending.back()["kind"] == "james_motion", "archie_motion: queues the james_motion pending entry")
 
 		var james_relation_before: int = GameState.state["contacts"]["james"]["relation"]
 		Events.start_event("james_motion")

@@ -81,6 +81,15 @@ func _play_through_tutorial_and_unlock_prospecting() -> void:
 		for i in range(GameData.EVENTS[event_id]["cards"].size()):
 			Events.advance()
 		_assert_invariants("post-%s" % event_id)
+		# 83-contacts-archie-james-sms-port: buyer.json/james_meeting.json's
+		# on_complete each queue the next beat as a real pendingMessages
+		# entry for archie (ARCHIE_SMS_1's Continue, then the
+		# archie_craft_chat trigger) -- real play resolves it via the card's
+		# own Continue tap before the next event starts; mirror that here so
+		# it doesn't sit unresolved and shadow archie_cultivation's own S1
+		# entry below.
+		for entry in Messages.pending_for("archie"):
+			Messages.resolve_pending(entry["id"])
 
 	Events.start_event("home_raid_intro")
 	for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):

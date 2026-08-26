@@ -18,11 +18,13 @@ extends RefCounted
 
 const CAP := 50
 
-# Archie/James stay on their existing bespoke SMS screens (scenes/screens/
-# sms_archie*.gd, reached via the tutorial-era "contacts" screen) and are
-# deliberately excluded from the new Messages app -- spec §5.2: "Migration
-# gets its own ticket once the new renderer has proven itself."
-const LEGACY_CONTACT_IDS: Array[String] = ["archie", "james"]
+# 83-contacts-archie-james-sms-port: Archie and James used to stay on their
+# own bespoke SMS screens (scenes/screens/sms_archie*.gd, deleted by this
+# ticket), deliberately excluded from the new Messages app -- spec §5.2:
+# "Migration gets its own ticket once the new renderer has proven itself."
+# That ticket is this one: their content now flows through append()/
+# queue_pending() like every other contact, so there's no exclusion list
+# left to keep.
 
 
 static func append(contact_id: String, from: String, text: String) -> void:
@@ -89,17 +91,15 @@ static func resolve_pending(id: String) -> void:
 			return
 
 
-# Most-recent-activity-first list of contact ids the new Messages app
-# should list: unlocked, and not one of the legacy SMS contacts above.
-# "Contacts appear as they unlock" (spec §5.2) — a contact with no
-# messages yet (unlocked but nothing sent) sorts last, in dictionary
-# iteration order (data insertion order), which is deterministic.
+# Most-recent-activity-first list of contact ids the Messages app should
+# list: every unlocked contact, Archie/James included since 83-contacts-
+# archie-james-sms-port. "Contacts appear as they unlock" (spec §5.2) — a
+# contact with no messages yet (unlocked but nothing sent) sorts last, in
+# dictionary iteration order (data insertion order), which is deterministic.
 static func conversation_contact_ids() -> Array[String]:
 	var contacts: Dictionary = GameState.state["contacts"]
 	var ids: Array[String] = []
 	for contact_id in contacts.keys():
-		if LEGACY_CONTACT_IDS.has(contact_id):
-			continue
 		if contacts[contact_id]["unlocked"]:
 			ids.append(contact_id)
 	ids.sort_custom(func(a, b): return _last_activity_day(a) > _last_activity_day(b))

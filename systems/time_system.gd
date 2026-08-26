@@ -157,7 +157,24 @@ static func _apply_tutorial_day_triggers() -> void:
 	var day: int = world["day"]
 
 	if day >= 2 and flags["tutorialStage"] == "buyer_event" and not flags["buyerEventSeen"]:
-		Notify.push("Archie texted. He's lined up the new buyer. Check Contacts.")
+		# 83-contacts-archie-james-sms-port: ARCHIE_SMS_2's content, queued
+		# exactly once (archieBuyerSmsQueued guards this still re-entering
+		# every day tick until buyerEventSeen). No separate Notify banner --
+		# same reasoning Economy.execute_sale's own archie_motion trigger
+		# comment gives: the queued text itself is the "Archie texted" beat
+		# (unread badge on the Messages tile/Archie's card), same as every
+		# other queue_pending_message caller (archie_cultivation.json's
+		# col_a1_intro, col_a1_seeding.json's col_a1_hub) never pairs one
+		# with a notify op. push_message's lines are the thread up to
+		# Archie's last one; that last line becomes the pendingMessages
+		# entry itself (kind "buyer").
+		if not flags["archieBuyerSmsQueued"]:
+			flags["archieBuyerSmsQueued"] = true
+			Messages.append("archie", "player", "Got some calc to move. You got a buyer?")
+			Messages.append("archie", "them", "Yeah give me a day or two. What type and how much?")
+			Messages.append("archie", "player", "Mixed. Maybe fifteen units.")
+			Messages.append("archie", "them", "Sorted. I'll bell you. Don't go anywhere daft in the meantime.")
+			Messages.queue_pending("archie", "buyer", "Actually — you free tonight? Got someone lined up already. Shoreditch. Easy job.")
 
 	var unlock_day = world["archieChatUnlockDay"]
 	if flags["tutorialStage"] == "archie_craft_chat" and unlock_day != null and day >= unlock_day:

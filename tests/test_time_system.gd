@@ -83,17 +83,17 @@ func run() -> void:
 		assert_eq(bank_log[0]["amount"], -10, "the recorded amount is what was actually deducted (10), not the nominal daily cost (50), since cash floored at 0")
 	)
 
+	# 83-contacts-archie-james-sms-port: the day>=2 "Archie texted" beat is
+	# now the real queued SMS content itself (Messages.has_any_unread()),
+	# not a separate Notify banner -- same as every other queue_pending_
+	# message caller (archie_cultivation.json's col_a1_intro, ...).
 	run_case("buyer_event_tutorial_trigger_fires_on_day_2", func():
 		GameState.reset()
 		GameState.state["flags"]["tutorialStage"] = "buyer_event"
 		GameState.state["flags"]["buyerEventSeen"] = false
 		GameState.state["world"]["day"] = 2
 		TimeSystem.daily_tick()
-		var found := false
-		for n in GameState.state["notifications"]:
-			if n["text"].contains("Archie texted"):
-				found = true
-		assert_true(found, "day >= 2 in buyer_event stage should notify")
+		assert_true(Messages.has_unread("archie"), "day >= 2 in buyer_event stage should queue the SMS content")
 	)
 
 	run_case("buyer_event_tutorial_trigger_does_not_fire_once_seen", func():
@@ -102,11 +102,29 @@ func run() -> void:
 		GameState.state["flags"]["buyerEventSeen"] = true
 		GameState.state["world"]["day"] = 2
 		TimeSystem.daily_tick()
-		var found := false
-		for n in GameState.state["notifications"]:
-			if n["text"].contains("Archie texted"):
-				found = true
-		assert_true(not found, "buyerEventSeen should suppress the reminder")
+		assert_true(not Messages.has_unread("archie"), "buyerEventSeen should suppress the reminder")
+	)
+
+	# 83-contacts-archie-james-sms-port: ARCHIE_SMS_2's content, ported off
+	# the old sms_archie_2.gd screen into the generic message thread.
+	run_case("buyer_event_day_trigger_queues_the_archie_2_sms_content_exactly_once", func():
+		GameState.reset()
+		GameState.state["flags"]["tutorialStage"] = "buyer_event"
+		GameState.state["flags"]["buyerEventSeen"] = false
+		GameState.state["world"]["day"] = 2
+
+		TimeSystem.daily_tick()
+		assert_eq(GameState.state["messages"]["archie"].size(), 5, "all 5 of ARCHIE_SMS_2's lines land in the thread (4 push_message + the pending entry's own text)")
+		assert_eq(Messages.pending_for("archie").size(), 1, "the 5th (final) line also becomes the pending Continue entry")
+		assert_eq(Messages.pending_for("archie")[0]["kind"], "buyer", "the pending entry starts the buyer event")
+		assert_true(GameState.state["flags"]["archieBuyerSmsQueued"], "idempotency guard is set")
+
+		# Another day tick under the same still-unresolved condition (player
+		# hasn't acted yet) must not queue a second copy of the thread.
+		GameState.state["world"]["day"] = 3
+		TimeSystem.daily_tick()
+		assert_eq(GameState.state["messages"]["archie"].size(), 5, "no duplicate lines queued on a later day tick")
+		assert_eq(Messages.pending_for("archie").size(), 1, "no duplicate pending entry queued on a later day tick")
 	)
 
 	run_case("day_rollover_resets_currentDistrict_to_shoreditch", func():

@@ -64,8 +64,12 @@ func run() -> void:
 	)
 
 	run_case("badge_dot_visibility_on_the_rendered_tiles_matches_the_pending_predicates", func():
+		# 83-contacts-archie-james-sms-port: the sms_archie tutorialStage no
+		# longer drives the badge on its own -- a real pendingMessages entry
+		# does (queued by buyer.json's on_complete in real play). Queue one
+		# directly here rather than driving the whole buyer event.
 		GameState.reset()
-		GameState.state["flags"]["tutorialStage"] = "sms_archie"
+		Messages.queue_pending("archie", "james_meeting", "test")
 
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -79,7 +83,7 @@ func run() -> void:
 
 	run_case("badge_for_reflects_the_real_pending_messages_predicate", func():
 		GameState.reset()
-		GameState.state["flags"]["tutorialStage"] = "sms_archie"
+		Messages.queue_pending("archie", "james_meeting", "test")
 
 		var phone := PhoneScreen.new()
 		phone._ready()

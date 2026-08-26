@@ -2,12 +2,12 @@ class_name PhoneScreen
 extends Control
 
 # M1-LONDON.md D4's Phone tab: a phone UI — contact list, SMS threads
-# (existing sms_archie/sms_archie_2 screens, launched the same way the old
-# `contacts` screen launched them), James job offers, a "Notes" app
-# (Todo.get_active_questlines() — one section per active questline, ticket
-# 79), a faction directory, and D4.5's Ticker (the barometer as a news
-# app). state.phoneNav drives which app is open, same pattern as
-# state.mapNav for the Map tab.
+# (83-contacts-archie-james-sms-port: including Archie's and James's, ported
+# off their old bespoke sms_archie/sms_archie_2 screens), James job offers,
+# a "Notes" app (Todo.get_active_questlines() — one section per active
+# questline, ticket 79), a faction directory, and D4.5's Ticker (the
+# barometer as a news app). state.phoneNav drives which app is open, same
+# pattern as state.mapNav for the Map tab.
 
 const SECTION_LABELS := { "economic": "Economic", "social": "Social", "political": "Political" }
 
@@ -18,8 +18,9 @@ var _import_box: TextEdit
 # collective1-03: screen-local presentation cache for the Messages app's
 # staged reveal -- contactId -> "already rendered instantly up to this
 # index." Not game state (same "reveal counter is screen-local
-# presentation state" reasoning as sms_archie.gd's own _revealed), so a
-# save/load or an unrelated state_changed refresh never needs to touch it.
+# presentation state" reasoning the old sms_archie.gd's own _revealed used,
+# before 83-contacts-archie-james-sms-port ported it here), so a save/load
+# or an unrelated state_changed refresh never needs to touch it.
 # Set once per conversation-open in _open_conversation() (before
 # PhoneNav.select_conversation() marks everything read, since that's the
 # only moment "how many were unread" is still knowable), and bumped to the
@@ -35,10 +36,10 @@ var _reveal_from_index: Dictionary = {}
 # it -- see UI.anchor_below_bars()'s own doc comment: "a screen with its
 # own bespoke layout (scroll region + a separately pinned action bar) where
 # UI.screen_body()'s single-scroll skeleton doesn't fit." Built fresh as a
-# sibling of _content's scroll container (same bespoke-layout shape as
-# sms_archie.gd) only while a conversation is open; _content's own scroll
-# container is hidden underneath it for that one view so it can't still
-# catch touch/drag input behind the pinned action bar.
+# sibling of _content's scroll container (same bespoke-layout shape the old
+# sms_archie.gd screen used) only while a conversation is open; _content's
+# own scroll container is hidden underneath it for that one view so it
+# can't still catch touch/drag input behind the pinned action bar.
 var _conversation_root: Control = null
 
 
@@ -173,16 +174,12 @@ func _has_pending_messages() -> bool:
 	if Messages.has_any_unread():
 		return true
 
+	# 83-contacts-archie-james-sms-port: every Archie/James SMS trigger this
+	# used to check by flag now arrives as a real unread message (Messages.
+	# append/queue_pending), so Messages.has_any_unread() above already
+	# covers them. James's job-offer flow is the one survivor -- it's not
+	# SMS content, and stays flag-driven.
 	var f: Dictionary = GameState.state["flags"]
-	var world: Dictionary = GameState.state["world"]
-	if f["archieMotionPending"] and not f["archieMotionEventSeen"]:
-		return true
-	if f["tutorialStage"] == "archie_craft_chat" and not f["archieCraftChatSeen"]:
-		return true
-	if f["tutorialStage"] == "buyer_event" and not f["buyerEventSeen"] and world["day"] >= 2:
-		return true
-	if f["tutorialStage"] == "sms_archie":
-		return true
 	if f["jamesMotionEventSeen"] and f["jamesJobActive"]:
 		return true
 	return false
@@ -197,11 +194,10 @@ func _has_ticker_rumblings() -> bool:
 
 # ── messages (collective1-03: real Messages app) ─────────────────────
 # Conversation list + per-contact conversation screen with a pinned action
-# bar, per spec §5.2. Archie/James are NOT part of this -- they keep their
-# existing bespoke SMS screens, reached via the tutorial-era `contacts`
-# screen (Nav.go_to("contacts") from archie_motion/james_motion's
-# on_complete), untouched by this app. See systems/messages.gd's
-# LEGACY_CONTACT_IDS for the exclusion this list itself enforces.
+# bar, per spec §5.2. 83-contacts-archie-james-sms-port: Archie and James
+# are full members of this app now -- their old bespoke SMS screens are
+# gone, and their content flows through Messages.append()/queue_pending()
+# like everyone else's.
 
 func _build_messages() -> void:
 	var selected_contact_id = GameState.state["phoneNav"].get("selectedContactId")
@@ -289,7 +285,8 @@ func _build_conversation(contact_id: String) -> void:
 
 
 # Staged reveal for newly-arrived messages only -- same 0.6/0.9s
-# alternating-delay presentation as sms_archie.gd's _reveal_next(). Guards
+# alternating-delay presentation the old sms_archie.gd screen's
+# _reveal_next() used. Guards
 # against the box having been freed by a stray _refresh() (some unrelated
 # state_changed firing while the player is mid-reveal) rather than
 # assuming this is the only thing that can happen between awaits.
@@ -306,13 +303,15 @@ func _reveal_remaining(box: VBoxContainer, thread: Array, start_index: int) -> v
 # ContactCards.build_trade_action() opens sell_menu routed through the
 # Collective faction lane with the right locked/enabled state (collective1-07,
 # spec §7.2), so every conversation's action bar reuses it rather than
-# building a second entry point. Every contact reaching this screen is a
-# Collective door by construction -- Archie/James stay on their own bespoke
-# SMS screens (Messages.LEGACY_CONTACT_IDS) and never hit this function.
-# pendingMessages entries for this contact each surface as their own button;
-# tapping one resolves the entry and hands its payload to Events.start_event()
-# as context, the same road systems/raiding.gd uses for a raid's runtime
-# site_id.
+# building a second entry point. 83-contacts-archie-james-sms-port: Archie
+# and James now reach this function too (their own conversation is a real
+# thread, not a bespoke screen), but neither is a Collective door -- Archie
+# gets his own build_sell_action() below instead, mirroring his Contacts
+# card; James gets neither (his job-offer flow stays card-only, out of this
+# ticket's scope). pendingMessages entries for this contact each surface as
+# their own button; tapping one resolves the entry and hands its payload to
+# Events.start_event() as context, the same road systems/raiding.gd uses for
+# a raid's runtime site_id.
 func _build_action_bar(contact_id: String) -> Control:
 	var bar := UI.vbox(8)
 	# collective1-10, spec §7.2: "Story actions (conditional)" are listed
@@ -320,6 +319,10 @@ func _build_action_bar(contact_id: String) -> Control:
 	# own flag-gated "Tell Des about the ground" button and the generic
 	# pendingMessages continues (S4's delivery road) are both story actions,
 	# so both come before Trade below.
+	if contact_id == "archie":
+		var pry_action := ContactCards.build_archie_pry_action()
+		if pry_action != null:
+			bar.add_child(pry_action)
 	if contact_id == "des":
 		var report_action := ContactCards.build_des_report_action()
 		if report_action != null:
@@ -348,7 +351,10 @@ func _build_action_bar(contact_id: String) -> Control:
 			bar.add_child(hakim_done_action)
 	for entry in Messages.pending_for(contact_id):
 		bar.add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
-	bar.add_child(ContactCards.build_trade_action(contact_id))
+	if contact_id == "archie":
+		bar.add_child(ContactCards.build_sell_action())
+	elif contact_id != "james":
+		bar.add_child(ContactCards.build_trade_action(contact_id))
 	return bar
 
 

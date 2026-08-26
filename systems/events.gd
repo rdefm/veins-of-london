@@ -269,7 +269,12 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"unlock_contact":
 			GameState.state["contacts"][effect["contact"]]["unlocked"] = true
 		"push_message":
-			Messages.append(effect["contact"], "them", effect["text"])
+			# 83-contacts-archie-james-sms-port: optional "from" lets an
+			# authored SMS thread (e.g. buyer.json's ported ARCHIE_SMS_1)
+			# replay its own outgoing "player" lines verbatim, not just the
+			# contact's incoming ones -- defaults to "them" for every
+			# existing caller that omits it.
+			Messages.append(effect["contact"], effect.get("from", "them"), effect["text"])
 		# collective1-08: queue_pending_message is push_message's follow-up-
 		# action cousin -- a real Messages.queue_pending() call (unread text +
 		# a pendingMessages entry an action bar can surface), for authored

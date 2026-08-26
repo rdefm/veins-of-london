@@ -84,7 +84,13 @@ static func execute_sale(items: Array) -> Dictionary:
 		flags["consSoldCount"] = flags["consSoldCount"] + cons_sold
 		if not flags["archieMotionEventSeen"] and not flags["archieMotionPending"] and flags["consSoldCount"] >= 1:
 			flags["archieMotionPending"] = true
-			Notify.push("Archie texted. Check Contacts.")
+			# 83-contacts-archie-james-sms-port: the SMS content itself (the
+			# quoted text is ARCHIE_MOTION_CARDS' own opening narration line)
+			# now carries the "Archie texted" beat, so it doesn't need a
+			# separate Notify banner on top -- same as every other pendingMessages
+			# trigger (archie_cultivation.json's col_a1_intro, col_a1_seeding.json's
+			# col_a1_hub) never pairs queue_pending_message with a notify op.
+			Messages.queue_pending("archie", "archie_motion", "good output. call me.")
 
 	# bugfixes-63: flat award, before the cut ratio below so this same sale's
 	# cut reflects it (unchanged behavior since bugfixes-63).

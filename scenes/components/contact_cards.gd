@@ -10,39 +10,28 @@ extends RefCounted
 
 
 static func build_archie_card() -> Control:
-	var flags: Dictionary = GameState.state["flags"]
-	var world: Dictionary = GameState.state["world"]
 	var archie: Dictionary = GameState.state["contacts"]["archie"]
 
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Archie — Relation %d" % archie["relation"], 15))
 	c["content"].add_child(UI.muted_label("Trader · Whitechapel"))
 
-	if flags["archieMotionPending"] and not flags["archieMotionEventSeen"]:
-		c["content"].add_child(UI.button("💬 Archie texted — diversify", func(): Events.start_event("archie_motion")))
-
-	if flags["tutorialStage"] == "archie_craft_chat" and not flags["archieCraftChatSeen"]:
-		c["content"].add_child(UI.button("💬 Archie wants to meet", func(): Events.start_event("archie_craft_chat")))
-
-	if flags["tutorialStage"] == "buyer_event" and not flags["buyerEventSeen"] and world["day"] >= 2:
-		c["content"].add_child(UI.button("💬 Archie texted — buyer tonight", func(): Nav.go_to("sms_archie_2")))
-
-	if flags["tutorialStage"] == "sms_archie":
-		c["content"].add_child(UI.button("💬 Message Archie — set up James meeting", func(): Nav.go_to("sms_archie")))
-
-	# collective1-08, spec §6.1: S1 (col_a1_intro) is delivered as an Archie
-	# text via the real pendingMessages road (Messages.queue_pending, from
-	# archie_cultivation.json's on_complete) so the Messages app still badges
-	# per spec §5.3 -- but Archie himself stays off the new Messages app
-	# (§5.2), so the action this pending entry unlocks has to surface here,
-	# on his existing Contacts card, mirroring the flag-driven buttons above.
-	for entry in Messages.pending_for("archie"):
-		c["content"].add_child(UI.button("💬 Archie texted — come to the lock-up", _on_archie_pending_pressed.bind(entry)))
-
 	var pry_action := build_archie_pry_action()
 	if pry_action != null:
 		c["content"].add_child(pry_action)
 
+	# 83-contacts-archie-james-sms-port: every Archie trigger that used to be
+	# a flag-gated card button or a bespoke sms_archie*.gd screen now arrives
+	# as a real pendingMessages entry (Economy.execute_sale for archie_motion,
+	# TimeSystem's day-tick for the ARCHIE_SMS_2 buyer beat, buyer.json/
+	# james_meeting.json's own on_complete for ARCHIE_SMS_1 and the
+	# archie_craft_chat beat) -- so one generic "Continue →" loop, same as
+	# build_des_card()/build_nadia_card()/build_hakim_card(), covers all of
+	# them instead of four bespoke branches.
+	for entry in Messages.pending_for("archie"):
+		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
+
+	c["content"].add_child(build_messages_button("archie"))
 	c["content"].add_child(build_sell_action())
 	var recruit_row := build_recruit_row("archie")
 	if recruit_row != null:
@@ -67,11 +56,6 @@ static func build_archie_pry_action() -> Control:
 	if flags.get("colA1AskedAboutDebt", false) or flags.get("colA1Complete", false):
 		return null
 	return UI.button("Ask about Des", func(): Events.start_event("col_a1_archie_pry"))
-
-
-static func _on_archie_pending_pressed(entry: Dictionary) -> void:
-	Messages.resolve_pending(entry["id"])
-	Events.start_event(entry["kind"], entry["payload"])
 
 
 static func build_sell_action() -> Control:
@@ -244,8 +228,16 @@ static func build_james_card() -> Control:
 	c["content"].add_child(UI.heading("James — Relation %d" % james["relation"], 15))
 	c["content"].add_child(UI.muted_label("Craftsman · Bermondsey"))
 
-	if flags["archieMotionEventSeen"] and not flags["jamesMotionEventSeen"]:
-		c["content"].add_child(UI.button("💬 Visit James — ask about new recipes", func(): Events.start_event("james_motion")))
+	# 83-contacts-archie-james-sms-port: the "visit James" trigger used to be
+	# a flag-gated card button (archieMotionEventSeen && !jamesMotionEventSeen);
+	# it now arrives as a real pendingMessages entry (archie_motion.json's
+	# on_complete queues it), so the generic Continue loop covers it -- same
+	# shape build_archie_card()'s own loop uses. James's job-offer flow below
+	# (📋/💷/📦) is a separate mechanic, not SMS content, and is untouched.
+	for entry in Messages.pending_for("james"):
+		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
+
+	c["content"].add_child(build_messages_button("james"))
 
 	if flags["jamesMotionEventSeen"]:
 		var job_active: bool = flags["jamesJobActive"] and GameState.state["jamesJob"] != null

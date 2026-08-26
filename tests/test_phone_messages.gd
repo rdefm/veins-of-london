@@ -31,9 +31,10 @@ static func _find_button(root: Node, text: String) -> Button:
 
 
 func run() -> void:
-	run_case("conversation_list_excludes_archie_and_james_even_when_unlocked", func():
+	# 83-contacts-archie-james-sms-port: Archie and James are full members of
+	# the Messages app now -- their old bespoke SMS screens are gone.
+	run_case("conversation_list_includes_archie_and_james_once_unlocked", func():
 		GameState.reset()
-		GameState.state["contacts"]["archie"]["unlocked"] = true
 		GameState.state["contacts"]["james"]["unlocked"] = true
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
 		GameState.state["phoneNav"]["app"] = "messages"
@@ -42,8 +43,8 @@ func run() -> void:
 		phone._ready()
 
 		var texts := _label_texts(phone)
-		assert_true(not texts.has("Archie"), "archie stays off the new Messages app")
-		assert_true(not texts.has("James"), "james stays off the new Messages app")
+		assert_true(texts.has("Archie"), "archie appears in the new Messages app (unlocked from game start)")
+		assert_true(texts.has("James"), "james appears in the new Messages app once unlocked")
 		assert_true(texts.has("Des"), "a new-shape unlocked contact appears")
 
 		phone.free()
@@ -67,6 +68,9 @@ func run() -> void:
 
 	run_case("empty_state_shown_when_no_conversations_are_unlocked_yet", func():
 		GameState.reset()
+		# archie is unlocked by default (data/constants.json) -- lock him out
+		# here so this case is a genuine zero-conversations state.
+		GameState.state["contacts"]["archie"]["unlocked"] = false
 		GameState.state["phoneNav"]["app"] = "messages"
 
 		var phone := PhoneScreen.new()
@@ -100,6 +104,42 @@ func run() -> void:
 
 		var button_texts := _button_texts(phone)
 		assert_true(button_texts.has("🤝 Trade (not unlocked yet)"), "Trade action bar entry reuses ContactCards.build_trade_action() (collective1-07)")
+
+		phone.free()
+	)
+
+	# 83-contacts-archie-james-sms-port: Archie/James aren't Collective doors
+	# -- their conversation action bar must not fall through to the generic
+	# build_trade_action() (the Collective faction lane). Archie keeps his
+	# own build_sell_action(); James gets neither (job-offer flow is
+	# card-only, out of this ticket's scope).
+	run_case("archie_conversation_action_bar_shows_his_own_sell_action_not_the_collective_trade_door", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "messages"
+		GameState.state["phoneNav"]["selectedContactId"] = "archie"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var button_texts := _button_texts(phone)
+		assert_true(not button_texts.has("🤝 Trade (not unlocked yet)") and not button_texts.has("🤝 Trade"), "archie's thread never shows the Collective Trade door")
+		assert_true(button_texts.has("💰 Find a buyer (not unlocked yet)"), "archie's thread shows his own sell action instead, same as his Contacts card")
+
+		phone.free()
+	)
+
+	run_case("james_conversation_action_bar_shows_neither_trade_nor_sell", func():
+		GameState.reset()
+		GameState.state["contacts"]["james"]["unlocked"] = true
+		GameState.state["phoneNav"]["app"] = "messages"
+		GameState.state["phoneNav"]["selectedContactId"] = "james"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var button_texts := _button_texts(phone)
+		assert_true(not button_texts.has("🤝 Trade (not unlocked yet)") and not button_texts.has("🤝 Trade"), "james's thread never shows the Collective Trade door")
+		assert_true(not button_texts.has("💰 Find a buyer (not unlocked yet)") and not button_texts.has("💰 Find a buyer"), "james's thread has no sell action of its own")
 
 		phone.free()
 	)

@@ -18,6 +18,9 @@
     { "op": "add", "path": "player.cash", "value": 40 },
     { "op": "set_flag", "flag": "buyerEventSeen", "value": true },
     { "op": "set_stage", "value": "sms_archie" },
+    { "op": "push_message", "contact": "archie", "from": "player", "text": "You mentioned a bloke called James. When can we sort that?" },
+    { "op": "push_message", "contact": "archie", "text": "Already arranged. Tomorrow — SE1 4YA, storage unit behind the Costcutter. Midday." },
+    { "op": "queue_pending_message", "contact": "archie", "kind": "james_meeting", "text": "Fair warning: James is the best craftsman I know and also the worst person I know. Don't take it personally. He's like that with everyone." },
     { "op": "set_screen", "screen": "phone" }
   ]
 }
