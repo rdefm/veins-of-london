@@ -19,8 +19,13 @@ extends RefCounted
 #   archetype. combat_turn_tick() gives a tier-5 Recharge Movement its
 #   in-combat regen. Neither is wired into combat.gd yet -- that's ticket
 #   07's cutover, same as daily_regen() above; every test here calls these
-#   functions directly, per the PRD's testing seam. Leveling (ticket 06)
-#   still owns Dial XP.
+#   functions directly, per the PRD's testing seam.
+# - ticket 06: Dial XP and leveling -- casting a loaded Complication awards
+#   XP (Progression.award_xp(), same table mechanism as the old
+#   DEVICE_XP_LEVELS). maxCharge and capacityMax grow every level (the
+#   primary curves); rechargeRate grows on a deliberately sparser curve.
+#   Movements never modify capacity, and levelling never touches which
+#   Movement is seated or its attunement.
 #
 # systems/devices.gd and data/devices.json stay live and untouched until
 # ticket 07's cutover -- this module doesn't call into them and they don't
@@ -228,7 +233,7 @@ static func seat_movement(inventory_index: int) -> Dictionary:
 	if previous != null:
 		inventory.append(previous)
 	dial["movement"] = incoming
-	_activate_charge_pool(dial, incoming)
+	_activate_charge_pool(dial)
 
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -433,10 +438,58 @@ static func _charge_stats_for(archetype: String, tier: int) -> Dictionary:
 	return { "maxCharge": maxi(1, GameState.round_epsilon(max_charge)), "rechargeRate": recharge_rate }
 
 
-static func _activate_charge_pool(dial: Dictionary, movement: Dictionary) -> void:
+# ── ticket 06: Dial XP and leveling ─────────────────────────────────────
+#
+# maxCharge/rechargeRate stay Movement-sized (_charge_stats_for() above) as
+# their base -- levelling adds an extra layer on top, read from these two
+# level-indexed curves (data/dial.json's "maxChargeBonusByLevel"/
+# "rechargeRateBonusByLevel", index=level 0..5, same shape as
+# capacityByLevel). maxCharge's curve grows every level (the PRD's "primary"
+# curve); rechargeRate's is deliberately sparser -- most entries 0, so most
+# level-ups leave it untouched. Both curves are 0 at level 1, so a
+# freshly-seeded/freshly-seated level-1 Dial is numerically identical to the
+# pre-ticket-06 Movement-only stats -- ticket 04's own tests all fix a
+# level-1 dial and stay green unmodified.
+
+
+static func max_charge_level_bonus(level: int) -> float:
+	var curve: Array = GameData.DIAL_MAX_CHARGE_BONUS_BY_LEVEL
+	var idx: int = clampi(level, 0, curve.size() - 1)
+	return curve[idx]
+
+
+static func recharge_rate_level_bonus(level: int) -> float:
+	var curve: Array = GameData.DIAL_RECHARGE_RATE_BONUS_BY_LEVEL
+	var idx: int = clampi(level, 0, curve.size() - 1)
+	return curve[idx]
+
+
+# Shared by _activate_charge_pool() (a reseat) and cast_complication()'s
+# on-level-up callback (a level-up with the same Movement still seated) --
+# both need maxCharge/rechargeRate recomputed from (seated Movement,
+# dial.level), just with different side effects around the call (a reseat
+# also zeroes currentCharge/combatRegenTurnCounter; a level-up touches
+# neither). A null dial["movement"] is a silent no-op -- an unseated Dial
+# stays inert regardless of level, matching ticket 01/04's inertness story.
+static func _apply_level_charge_bonus(dial: Dictionary) -> void:
+	var movement: Variant = dial["movement"]
+	if movement == null:
+		return
 	var stats: Dictionary = _charge_stats_for(movement["archetype"], movement["tier"])
-	dial["maxCharge"] = stats["maxCharge"]
-	dial["rechargeRate"] = stats["rechargeRate"]
+	var level: int = dial["level"]
+	dial["maxCharge"] = maxi(1, GameState.round_epsilon(float(stats["maxCharge"]) + max_charge_level_bonus(level)))
+	var recharge_rate: float = stats["rechargeRate"] + recharge_rate_level_bonus(level)
+	# User story 15's guaranteed-zero trait is re-asserted here, not just
+	# inherited from _charge_stats_for()'s own clamp -- otherwise Dial
+	# levelling's rechargeRate bonus would quietly undo tier-5 Capacitor's
+	# defining "must actively wind" commitment.
+	if movement["archetype"] == "capacitor" and movement["tier"] >= 5:
+		recharge_rate = 0.0
+	dial["rechargeRate"] = recharge_rate
+
+
+static func _activate_charge_pool(dial: Dictionary) -> void:
+	_apply_level_charge_bonus(dial)
 	dial["currentCharge"] = 0
 	dial["combatRegenTurnCounter"] = 0
 
@@ -554,6 +607,20 @@ static func cast_complication(index: int) -> Dictionary:
 	var amplified := _amplify_cast(base_power, dial["movement"])
 
 	dial["currentCharge"] -= 1
+
+	# ticket 06: mirrors Devices.activate()'s old device-activation XP award
+	# (same +10 amount, same Progression.award_xp() table mechanism) --
+	# levelling up grows capacityMax (ticket 03's level lookup, unconditional)
+	# and, if a Movement is currently seated, re-derives maxCharge/
+	# rechargeRate from that Movement's stats plus the new level's bonus
+	# curves (_apply_level_charge_bonus()). An unseated Dial just banks the
+	# level/capacity growth and stays inert on the charge side, same as
+	# ticket 01/04's inertness story.
+	var on_level_up := func():
+		dial["capacityMax"] = capacity_max(dial["level"])
+		_apply_level_charge_bonus(dial)
+		Notify.push("Your Dial has levelled up — now level %d." % dial["level"], Notify.CATEGORY_SUCCESS)
+	Progression.award_xp(dial, "xp", "level", GameData.DIAL_XP_LEVELS, 10, on_level_up)
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "recipeKey": recipe_key, "power": amplified["power"], "targets": amplified["targets"] }

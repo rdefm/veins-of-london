@@ -953,3 +953,131 @@ func run() -> void:
 			Dial.combat_turn_tick()
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], GameData.DIAL_RECHARGE_COMBAT_REGEN_AMOUNT, "in-combat regen should cap at maxCharge, not overshoot")
 	)
+
+	# ── ticket 06: Dial XP and leveling ──────────────────────────────────
+
+	run_case("cast_complication_awards_dial_xp_mirroring_the_old_device_activation_award", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["maxCharge"] = 10
+		dial["currentCharge"] = 5
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+
+		Dial.cast_complication(0)
+		assert_eq(GameState.state["player"]["dial"]["xp"], 10, "casting should award 10 Dial XP, mirroring the old device-activation XP award")
+	)
+
+	run_case("dial_level_2_at_50_xp_updates_capacityMax_and_maxCharge_from_the_level_2_lookup", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 1 }
+		var m: Dictionary = GameData.DIAL_MOVEMENTS["recharge"]
+		dial["capacityMax"] = GameData.DIAL_CAPACITY_BY_LEVEL[1]
+		dial["maxCharge"] = int(GameData.DIAL_BASE_MAX_CHARGE - m["downside"][1])
+		dial["rechargeRate"] = GameData.DIAL_BASE_RECHARGE_RATE + m["bonus"][1]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 1, "capacityCost": 1, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+
+		for i in range(5):
+			dial["currentCharge"] = 1
+			Dial.cast_complication(0)
+
+		assert_eq(dial["xp"], 50, "5 casts * 10 xp = 50")
+		assert_eq(dial["level"], 2, "50 xp crosses DIAL_XP_LEVELS[2]")
+		assert_eq(dial["capacityMax"], GameData.DIAL_CAPACITY_BY_LEVEL[2], "capacityMax should update to the level-2 lookup value")
+		var expected_max: int = int(GameData.DIAL_BASE_MAX_CHARGE - m["downside"][1] + GameData.DIAL_MAX_CHARGE_BONUS_BY_LEVEL[2])
+		assert_eq(dial["maxCharge"], expected_max, "maxCharge should be re-derived from the seated Movement's stats plus the level-2 bonus")
+		var found := false
+		for n in GameState.state["notifications"]:
+			if n["text"].contains("levelled up"):
+				found = true
+		assert_true(found, "levelling up should push a notification, mirroring Devices.activate()")
+	)
+
+	run_case("leveling_up_never_changes_the_seated_movement_or_its_attunement", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		var seated := { "archetype": "impact", "oreType": "physics", "tier": 2 }
+		dial["movement"] = seated
+		dial["capacityMax"] = GameData.DIAL_CAPACITY_BY_LEVEL[1]
+		var m: Dictionary = GameData.DIAL_MOVEMENTS["impact"]
+		dial["maxCharge"] = int(GameData.DIAL_BASE_MAX_CHARGE - m["downside"][2])
+		dial["rechargeRate"] = GameData.DIAL_BASE_RECHARGE_RATE
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 1, "capacityCost": 1, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+
+		for i in range(5):
+			dial["currentCharge"] = 1
+			Dial.cast_complication(0)
+
+		assert_eq(dial["level"], 2, "should have levelled up once within 5 casts")
+		assert_eq(dial["movement"], { "archetype": "impact", "oreType": "physics", "tier": 2 }, "levelling up must never change which Movement is seated or its attunement")
+	)
+
+	run_case("dial_xp_ladder_grows_maxCharge_and_capacityMax_on_the_primary_curve_and_rechargeRate_on_a_sparser_curve", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial_no_movement()
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "recharge", "oreType": "time", "tier": 1 }]
+		Dial.seat_movement(0)
+		GameState.state["player"]["dial"]["capacityMax"] = GameData.DIAL_CAPACITY_BY_LEVEL[1]
+		Crafting.inventory_add("blast", 1, 1)
+		Dial.load_complication("blast", 1)
+
+		var dial: Dictionary = GameState.state["player"]["dial"]
+		var seated_movement_before: Dictionary = dial["movement"].duplicate()
+		var levels_seen: Array = [dial["level"]]
+		var max_charge_by_level: Array = [dial["maxCharge"]]
+		var recharge_rate_by_level: Array = [dial["rechargeRate"]]
+		var capacity_by_level: Array = [dial["capacityMax"]]
+
+		var casts := 0
+		while dial["level"] < 5 and casts < 500:
+			dial["currentCharge"] = 1
+			Dial.cast_complication(0)
+			casts += 1
+			if dial["level"] != levels_seen[levels_seen.size() - 1]:
+				levels_seen.append(dial["level"])
+				max_charge_by_level.append(dial["maxCharge"])
+				recharge_rate_by_level.append(dial["rechargeRate"])
+				capacity_by_level.append(dial["capacityMax"])
+
+		assert_eq(dial["level"], 5, "should reach level 5 within 500 casts at 10 xp/cast")
+		assert_eq(dial["movement"], seated_movement_before, "levelling up must never change which Movement is seated or its attunement")
+
+		for i in range(1, capacity_by_level.size()):
+			assert_true(capacity_by_level[i] >= capacity_by_level[i - 1], "capacityMax should never shrink on a level-up")
+		assert_true(capacity_by_level[capacity_by_level.size() - 1] > capacity_by_level[0], "capacityMax should have grown by level 5")
+
+		for i in range(1, max_charge_by_level.size()):
+			assert_true(max_charge_by_level[i] >= max_charge_by_level[i - 1], "maxCharge should never shrink on a level-up")
+		assert_true(max_charge_by_level[max_charge_by_level.size() - 1] > max_charge_by_level[0], "maxCharge should have grown by level 5")
+
+		var recharge_increase_count := 0
+		for i in range(1, recharge_rate_by_level.size()):
+			if recharge_rate_by_level[i] > recharge_rate_by_level[i - 1]:
+				recharge_increase_count += 1
+		var max_charge_increase_count := 0
+		for i in range(1, max_charge_by_level.size()):
+			if max_charge_by_level[i] > max_charge_by_level[i - 1]:
+				max_charge_increase_count += 1
+		assert_true(recharge_increase_count < max_charge_increase_count, "rechargeRate should grow on a visibly sparser curve than maxCharge")
+	)
+
+	run_case("leveling_up_with_no_movement_seated_still_grows_capacityMax_but_stays_inert_on_charge", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["capacityMax"] = GameData.DIAL_CAPACITY_BY_LEVEL[1]
+		assert_eq(dial["movement"], null, "fixture starts with no Movement seated")
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 1, "capacityCost": 1, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+
+		for i in range(5):
+			dial["currentCharge"] = 1
+			Dial.cast_complication(0)
+
+		assert_eq(dial["level"], 2, "should have levelled up once within 5 casts")
+		assert_eq(dial["capacityMax"], GameData.DIAL_CAPACITY_BY_LEVEL[2], "capacityMax should grow from the level lookup even with no Movement seated")
+		assert_eq(dial["maxCharge"], 0, "an unseated Dial stays inert on the charge side regardless of level")
+		assert_eq(dial["rechargeRate"], 0, "an unseated Dial stays inert on the charge side regardless of level")
+	)

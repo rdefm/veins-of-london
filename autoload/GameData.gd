@@ -53,6 +53,18 @@ var DIAL_ATTUNEMENT_BONUS_BY_TIER: Array = []
 # seated.
 var DIAL_CAPACITY_BY_LEVEL: Array = []
 
+# dial-device ticket 06: data/dial.json's "xpLevels" -- Dial.cast_complication()'s
+# level-ladder table, same DEVICE_XP_LEVELS-style shape/mechanism (index=level
+# 0..5) reused via Progression.award_xp(). "maxChargeBonusByLevel" is the
+# primary per-level curve added on top of the seated Movement's own
+# archetype/tier charge stats (Dial._apply_level_charge_bonus());
+# "rechargeRateBonusByLevel" is the deliberately sparser curve -- most
+# entries 0, occasional bumps -- so levelling reads as "bigger reserve now,
+# refills faster as a rarer milestone."
+var DIAL_XP_LEVELS: Array = []
+var DIAL_MAX_CHARGE_BONUS_BY_LEVEL: Array = []
+var DIAL_RECHARGE_RATE_BONUS_BY_LEVEL: Array = []
+
 var ITEMS: Dictionary = {}
 
 var VEIN_SECURITY: Dictionary = {}
@@ -252,6 +264,9 @@ func load_all() -> void:
 	DIAL_MOVEMENTS = dial.get("movements", {})
 	DIAL_ATTUNEMENT_BONUS_BY_TIER = dial.get("attunementBonusByTier", [])
 	DIAL_CAPACITY_BY_LEVEL = dial.get("capacityByLevel", [])
+	DIAL_XP_LEVELS = dial.get("xpLevels", [])
+	DIAL_MAX_CHARGE_BONUS_BY_LEVEL = dial.get("maxChargeBonusByLevel", [])
+	DIAL_RECHARGE_RATE_BONUS_BY_LEVEL = dial.get("rechargeRateBonusByLevel", [])
 
 	ITEMS = _load_json("res://data/items.json")
 	VEIN_SECURITY = _load_json("res://data/vein_security.json")
@@ -331,7 +346,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_vein_growth(t.get("vein_growth", {}), t.get("cultivating_xp_levels", []), errors)
 	_validate_recipes(t.get("recipes", {}), t.get("ore_types", {}), errors)
 	_validate_devices(t.get("devices", {}), t.get("recipes", {}), t.get("ore_types", {}), errors)
-	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_base_max_charge", 0), t.get("dial_base_recharge_rate", 0.0), t.get("dial_recharge_combat_regen_turns", 0), t.get("dial_recharge_combat_regen_amount", 0), t.get("dial_hafts", {}), t.get("dial_movements", {}), t.get("dial_attunement_bonus_by_tier", []), t.get("dial_capacity_by_level", []), errors)
+	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_base_max_charge", 0), t.get("dial_base_recharge_rate", 0.0), t.get("dial_recharge_combat_regen_turns", 0), t.get("dial_recharge_combat_regen_amount", 0), t.get("dial_hafts", {}), t.get("dial_movements", {}), t.get("dial_attunement_bonus_by_tier", []), t.get("dial_capacity_by_level", []), t.get("dial_xp_levels", []), t.get("dial_max_charge_bonus_by_level", []), t.get("dial_recharge_rate_bonus_by_level", []), errors)
 	_validate_items(t.get("items", {}), errors)
 	_validate_vein_security(t.get("vein_security", {}), errors)
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
@@ -373,6 +388,9 @@ func snapshot() -> Dictionary:
 		"dial_movements": DIAL_MOVEMENTS,
 		"dial_attunement_bonus_by_tier": DIAL_ATTUNEMENT_BONUS_BY_TIER,
 		"dial_capacity_by_level": DIAL_CAPACITY_BY_LEVEL,
+		"dial_xp_levels": DIAL_XP_LEVELS,
+		"dial_max_charge_bonus_by_level": DIAL_MAX_CHARGE_BONUS_BY_LEVEL,
+		"dial_recharge_rate_bonus_by_level": DIAL_RECHARGE_RATE_BONUS_BY_LEVEL,
 		"items": ITEMS,
 		"vein_security": VEIN_SECURITY,
 		"vein_alarm": VEIN_ALARM,
@@ -506,7 +524,7 @@ func _validate_devices(devices: Dictionary, recipes: Dictionary, ore_types: Dict
 # ore type. Hafts are cosmetic-only (Implementation Decisions: "no stat
 # fields and no code path that reads a haft for anything but display") so
 # each only needs a display name, not the fuller schema recipes/devices use.
-func _validate_dial(seed_cost: Dictionary, seed_base_success: float, base_max_charge: int, base_recharge_rate: float, recharge_combat_regen_turns: int, recharge_combat_regen_amount: int, hafts: Dictionary, movements: Dictionary, attunement_bonus_by_tier: Array, capacity_by_level: Array, errors: Array[String]) -> void:
+func _validate_dial(seed_cost: Dictionary, seed_base_success: float, base_max_charge: int, base_recharge_rate: float, recharge_combat_regen_turns: int, recharge_combat_regen_amount: int, hafts: Dictionary, movements: Dictionary, attunement_bonus_by_tier: Array, capacity_by_level: Array, xp_levels: Array, max_charge_bonus_by_level: Array, recharge_rate_bonus_by_level: Array, errors: Array[String]) -> void:
 	for ore_key in CANONICAL_ORE_TYPES:
 		if not seed_cost.has(ore_key):
 			errors.append("dial.seedCost: missing canonical ore type '%s'" % ore_key)
@@ -561,6 +579,16 @@ func _validate_dial(seed_cost: Dictionary, seed_base_success: float, base_max_ch
 	# reads -- same index=level 0..5 shape as attunementBonusByTier above.
 	if capacity_by_level.size() != 6:
 		errors.append("dial.capacityByLevel: expected 6 entries (index=level 0..5), got %d" % capacity_by_level.size())
+
+	# dial-device ticket 06: the XP ladder (DEVICE_XP_LEVELS-style) and the
+	# two level-indexed charge-economy bonus curves it drives -- same
+	# index=level 0..5 shape as capacityByLevel above.
+	if xp_levels.size() != 6:
+		errors.append("dial.xpLevels: expected 6 entries (index=level 0..5), got %d" % xp_levels.size())
+	if max_charge_bonus_by_level.size() != 6:
+		errors.append("dial.maxChargeBonusByLevel: expected 6 entries (index=level 0..5), got %d" % max_charge_bonus_by_level.size())
+	if recharge_rate_bonus_by_level.size() != 6:
+		errors.append("dial.rechargeRateBonusByLevel: expected 6 entries (index=level 0..5), got %d" % recharge_rate_bonus_by_level.size())
 
 
 func _validate_items(items: Dictionary, errors: Array[String]) -> void:
