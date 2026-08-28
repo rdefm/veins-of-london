@@ -1,0 +1,12 @@
+{
+  "seedCost": { "time": 40, "physics": 40, "life": 80, "fate": 40, "emotion": 40 },
+  "seedBaseSuccess": 0.30,
+  "hafts": {
+    "collective_brolly": { "name": "Market Umbrella" },
+    "firm_baton": { "name": "Service Baton" },
+    "guild_cane": { "name": "Malacca Cane" },
+    "network_monopod": { "name": "Monopod" },
+    "conclave_crook": { "name": "Shepherd's Crook" },
+    "street_pole": { "name": "Scaffold Pole" }
+  }
+}

@@ -118,6 +118,15 @@ func new_game_state() -> Dictionary:
 			"items": [],
 			"devicesInProgress": [],
 			"devicesCompleted": [],
+			# dial-device ticket 01: replaces the equip/build state above per
+			# the PRD (docs/../.scratch/dial-device/spec.md), but doesn't
+			# delete it yet -- systems/devices.gd stays live until ticket 07's
+			# cutover. null until Dial.attempt_seed() succeeds; there is never
+			# a second Dial (Dial.attempt_seed() refuses outright once this is
+			# non-null). Shape while seeded: { level, xp, currentCharge,
+			# maxCharge, rechargeRate, capacityMax, movement, loadedComplications,
+			# haftId } -- see systems/dial.gd's _new_dial().
+			"dial": null,
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
 			"stealthSkill": 1, "stealthXP": 0,
@@ -267,6 +276,10 @@ func new_game_state() -> Dictionary:
 			# Nadia and Hakim's Trade action-bar entry (ContactCards.
 			# build_trade_action) reads this, not faction membership.
 			"collectiveLaneUnlocked": false,
+			# dial-device ticket 01: gates Dial.attempt_seed() -- this PRD only
+			# reads it, per Implementation Decisions "Gift gate". Set true only
+			# by the Collective Act 2 onboarding quest (out of scope here).
+			"dialGiftGranted": false,
 		},
 
 		# collective1-07, spec §10.1: barkCursors backs Collective._next_bark()'s

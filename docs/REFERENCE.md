@@ -82,7 +82,7 @@ Descriptions (verbatim):
 
 `CRAFTING_XP_LEVELS = [0, 0, 80, 220, 500, 1000]`. `CONSUMABLE_PRICES` (ticket 80: all 14 craftable recipes are sellable) `= { timePearl: 120, enhancementPowder: 150, rewind: 210, healingSalve: 120, blast: 150, shield: 180, blackHole: 210, prophetsBreath: 180, beALady: 150, pansPrank: 180, healingBurst: 180, failsafe: 270, rejuvenation: 280, wormhole: 240 }`. **Needs balance sign-off** (ticket 80): the 12 new prices are `xpReward * 6` — the exact formula both pre-existing prices already satisfy (timePearl 20xp→120, enhancementPowder 25xp→150) — with one deliberate exception: `rejuvenation` (20xp, formula would give 120) is instead priced at 280, the highest of all 14, to honor its own flavor text ("Sells for more than anything else on this bench, which tells you who's buying it."). Flagging that override specifically, since it's the one price not derived from crafting cost/XP.
 
-### 1.4 `data/devices.json`
+### 1.4 `data/devices.json` (legacy — retiring, see `data/dial.json` below)
 `DEVICE_XP_LEVELS = [0, 0, 50, 150, 400, 1000]` (level up = +1 charge/day).
 
 | key | name | symbol | calcType | recipeKey | effect | unlockFlag | eventUsable |
@@ -90,6 +90,20 @@ Descriptions (verbatim):
 | timeDevice | Time Device | ⧖ | time | timePearl | freeze | craftingUnlocked | false |
 | enhancementDevice | Enhancement Device | ↯ | life | enhancementPowder | motion | enhancementUnlocked | false |
 | rewindDevice | Rewind Device | ⟲ | time | rewind | rewind | craftingUnlocked | true |
+
+**Dial-device ticket 01: this table is being retired.** The single-slot device above is being replaced outright by **the Dial** (`.scratch/dial-device/spec.md`), one rare, lifetime-owned instrument seeded rather than built. `systems/devices.gd`/`data/devices.json` stay live and unchanged until dial-device ticket 07's cutover — `systems/combat.gd`'s device-casting call site and `systems/time_system.gd`'s daily_tick device-reset step still call into `devices.gd`, exactly as today, until then.
+
+#### `data/dial.json`
+Ticket 01 introduces `Dial.attempt_seed()`'s inputs — a one-shot, single-roll seeding attempt (same risk model as `Sites.attempt_seed`: pay the full cost, roll once, fail = cost gone, no partial progress). Placeholder shape, same undertuned-until-balance-pass status as every other number in this file:
+
+| field | value |
+|---|---|
+| seedCost | `{ time: 40, physics: 40, life: 80, fate: 40, emotion: 40 }` (mixed, life-weighted) |
+| seedBaseSuccess | 0.30 (the craftChance-style term's `baseSuccess` stand-in — seeding has no recipeKey to draw one from) |
+
+`Dial.seed_success_chance() = clamp(((min(0.95, seedBaseSuccess + (craftingSkill−1)×0.13 + workshopBonus)) + Cultivating.get_cult_chance(cultivatingSkill)) / 2, 0.05, 0.95)` — the average of a craftChance-style term and the existing `cultChance` formula, per the PRD's "both skill investments matter" decision. Gated on `flags.dialGiftGranted` (set only by the Collective Act 2 quest, out of scope here); refused outright once `player.dial` is already non-null.
+
+`hafts` — cosmetic-only display data (id → name), no stat fields, no code path reads one for anything but display (`PROSE-REVIEW`: display names are new, undrafted-by-a-human copy). `Dial.set_haft()` writes `player.dial.haftId` with no validation beyond "haft exists".
 
 ### 1.5 `data/items.json` (equippables)
 
@@ -242,10 +256,11 @@ state = {
     inventory: { timePearl: {}, enhancementPowder: {}, rewind: {} },  # bugfixes-64: { recipeKey: { "<tier>": count } } — tier-bucketed, not a flat count. Tier keys are stringified ints; tier "0" means "no known quality" (a migrated pre-64 save, a Guild purchase, or an event add_item grant — none crafted at a specific skill/refine tier). Crafting.inventory_qty/_add/_remove/_remove_from_tier are the only sanctioned readers/writers — see §3.5.
     shieldPool: 0,             # calc-effect-wiring-02: Shield's absorption pool, §3.7
     healingSalveDaysLeft: 0, healingSalveDailyAmount: 0,  # calc-effect-wiring-02: Healing Salve HoT, §3.1/§3.7
-    equipment: { weapon: null, device: null },
+    equipment: { weapon: null, device: null },  # device: legacy, see dial below (dial-device ticket 01)
     items: [],                # [{ id:String, type:String }]
-    devicesInProgress: [],    # [{ id, type, progress:float }]
-    devicesCompleted: [],     # [{ id, type, level, xp, chargesPerDay, chargesUsedToday, lastResetDay }]
+    devicesInProgress: [],    # [{ id, type, progress:float }] — legacy, retiring at dial-device ticket 07's cutover
+    devicesCompleted: [],     # [{ id, type, level, xp, chargesPerDay, chargesUsedToday, lastResetDay }] — legacy, retiring at dial-device ticket 07's cutover
+    dial: null,               # dial-device ticket 01: { level, xp, currentCharge, maxCharge, rechargeRate, capacityMax, movement, loadedComplications, haftId } | null — the Dial replacing equipment.device/devicesInProgress/devicesCompleted above (kept alongside, not deleted, until ticket 07). null until Dial.attempt_seed() succeeds; never a second one. A pre-Dial save backfills this key to null (SaveManager._backfill_new_player_keys) without touching the legacy fields above.
     craftingSkill: 1, craftingXP: 0,
     cultivatingSkill: 1, cultivatingXP: 0,
   },
@@ -317,6 +332,7 @@ state = {
     jamesJobActive: false, jamesJobAccepted: false,
     homeRaidEventPending: false, homeRaidEventSeen: false, homeRaidWon: false,
     archiePartnerSeen: false, homeUnlocked: false, securityContactUnlocked: false,
+    dialGiftGranted: false,   # dial-device ticket 01: gates Dial.attempt_seed(); set only by the Collective Act 2 quest (out of scope for this PRD)
   },
 }
 ```
@@ -386,8 +402,9 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - `effectPower(r) = r.effectPower[skill]`.
 - **qualityTier(r, skill)** (bugfixes-64): the tier a craft at this moment would file its inventory unit under — mirrors `effectPower`'s own refine branch. A recipe refined past Bench tier 0 (`refineStep.field == "effectPower"` and `Bench.get_cell(...).refine > 0`) reports that refine tier; everything else reports `skill` itself. Not capped — a refine tier can climb past 5.
 - **attemptCraft:** requires cost in each ingredient type; deduct ALL ingredients ALWAYS; success → `Crafting.inventory_add(recipeKey, qualityTier(r, skill))` (+1 unit filed under that tier's bucket, §2), full XP; fail → `floor(xp/3)`. Result modal.
-- **Devices:** build cost per attempt = `2 × calcCost(recipe)[device.calcType]` — the device's calcType selects one entry from the recipe's per-ingredient cost dict. Start at progress 10. Each attempt: deduct cost, award `floor(recipeXP/2)` crafting XP, then success (same craftChance) → progress +5 (at ≥100: completed instance `{level:1, xp:0, chargesPerDay:1, chargesUsedToday:0, lastResetDay:day}`); fail → no effect on progress. Devices cannot be destroyed by a failed build attempt. Device XP: +10 per activation; level-ups per DEVICE_XP_LEVELS grant +1 chargesPerDay.
-- **Device activation in combat:** freeze → `frozenTurns += effectPower(timePearl at player skill)`; motion → `motionTurns += 2`, `motionPower = effectPower(enhancementPowder)`; rewind → per §3.9.
+- **Devices (legacy, retiring — dial-device ticket 07 cuts this over to the Dial):** build cost per attempt = `2 × calcCost(recipe)[device.calcType]` — the device's calcType selects one entry from the recipe's per-ingredient cost dict. Start at progress 10. Each attempt: deduct cost, award `floor(recipeXP/2)` crafting XP, then success (same craftChance) → progress +5 (at ≥100: completed instance `{level:1, xp:0, chargesPerDay:1, chargesUsedToday:0, lastResetDay:day}`); fail → no effect on progress. Devices cannot be destroyed by a failed build attempt. Device XP: +10 per activation; level-ups per DEVICE_XP_LEVELS grant +1 chargesPerDay.
+- **Device activation in combat (legacy, retiring — same ticket-07 cutover as above):** freeze → `frozenTurns += effectPower(timePearl at player skill)`; motion → `motionTurns += 2`, `motionPower = effectPower(enhancementPowder)`; rewind → per §3.9.
+- **Dial seeding (dial-device ticket 01 — replaces the device build loop above once the ticket-07 cutover lands):** `Dial.attempt_seed(haftId)` — refused with no `flags.dialGiftGranted`, an unknown haft, insufficient mixed calc, or a non-null `player.dial` already present. Otherwise: deduct `data/dial.json`'s `seedCost` in full across all five ore types regardless of outcome, then one roll at `Dial.seed_success_chance()` (§1.4 above). Success sets `player.dial` to `{level:1, xp:0, currentCharge:0, maxCharge:0, rechargeRate:0, capacityMax:0, movement:null, loadedComplications:[], haftId}` — fully inert until a Movement is seated (later tickets). Failure leaves `player.dial` null, cost still spent.
 - **Spending a consumable outside a sale** (combat item use, travel's Wormhole, event Rewind, a James craft-job fulfilment, a Guild sale) draws from the lowest tier bucket first, via `Crafting.inventory_remove` — every such use is indifferent to which specific unit it spends, since `effectPower` is recomputed from the *current* skill at use-time, not the tier the spent unit was crafted at. This keeps higher-quality stock on hand for a §3.6 sale, where tier does matter.
 
 ### 3.6 Selling (Archie lane)

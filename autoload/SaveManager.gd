@@ -204,6 +204,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_contacts(result, defaults)
 	_backfill_new_collective_keys(result, defaults)
 	_backfill_new_world_keys(result, defaults)
+	_backfill_new_player_keys(result, defaults)
 	return result
 
 
@@ -251,6 +252,25 @@ func _backfill_new_world_keys(result: Dictionary, defaults: Dictionary) -> void:
 	for key in defaults["world"].keys():
 		if not world.has(key):
 			world[key] = defaults["world"][key]
+
+
+# dial-device ticket 01: mirrors _backfill_new_world_keys above -- "player"
+# has existed as a top-level key since M0, so the shallow fill in
+# backfill_defaults() never fires for it, but this ticket is the first time
+# a new key (dial) has been added since ticket 64's inventory reshape. A
+# pre-Dial save's devicesInProgress/devicesCompleted/equipment.device are
+# deliberately left untouched here -- they migrate into a null player.dial,
+# not a converted one, per the PRD (systems/devices.gd stays live until
+# ticket 07's cutover); craftingUnlocked/enhancementUnlocked live under
+# "flags", a separate top-level key this function doesn't touch, so they
+# survive automatically.
+func _backfill_new_player_keys(result: Dictionary, defaults: Dictionary) -> void:
+	if not result.has("player"):
+		return
+	var player: Dictionary = result["player"]
+	for key in defaults["player"].keys():
+		if not player.has(key):
+			player[key] = defaults["player"][key]
 
 
 # JSON has no int/float distinction, so every number in a just-parsed save
@@ -312,6 +332,13 @@ func _restore_int_types(state: Dictionary) -> void:
 				_int_key(device, key)
 		# devicesInProgress[].progress is a float (10.0, +5.0 on success —
 		# see systems/devices.gd) — intentionally not touched here.
+		if player.get("dial") != null:
+			var dial: Dictionary = player["dial"]
+			for key in ["level", "xp", "currentCharge", "maxCharge", "capacityMax"]:
+				_int_key(dial, key)
+			# rechargeRate is "possibly fractional" per the PRD (Implementation
+			# Decisions, "Charge model") — intentionally not touched here, same
+			# convention as combat.evadeChance/mapView.zoom above.
 
 	if state.has("world"):
 		var world: Dictionary = state["world"]

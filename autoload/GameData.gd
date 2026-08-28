@@ -17,6 +17,14 @@ var CONSUMABLE_PRICES: Dictionary = {}
 var DEVICE_XP_LEVELS: Array = []
 var DEVICES: Dictionary = {}
 
+# dial-device ticket 01: data/dial.json -- Dial.attempt_seed()'s cost/chance
+# inputs and the cosmetic haft whitelist. Does not replace DEVICES/
+# DEVICE_XP_LEVELS above yet -- systems/devices.gd stays live until ticket
+# 07's cutover.
+var DIAL_SEED_COST: Dictionary = {}
+var DIAL_SEED_BASE_SUCCESS: float = 0.0
+var DIAL_HAFTS: Dictionary = {}
+
 var ITEMS: Dictionary = {}
 
 var VEIN_SECURITY: Dictionary = {}
@@ -205,6 +213,11 @@ func load_all() -> void:
 	DEVICE_XP_LEVELS = devices.get("deviceXpLevels", [])
 	DEVICES = devices.get("devices", {})
 
+	var dial := _load_json("res://data/dial.json")
+	DIAL_SEED_COST = dial.get("seedCost", {})
+	DIAL_SEED_BASE_SUCCESS = dial.get("seedBaseSuccess", 0.0)
+	DIAL_HAFTS = dial.get("hafts", {})
+
 	ITEMS = _load_json("res://data/items.json")
 	VEIN_SECURITY = _load_json("res://data/vein_security.json")
 	VEIN_ALARM = _load_json("res://data/vein_alarm.json")
@@ -283,6 +296,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_vein_growth(t.get("vein_growth", {}), t.get("cultivating_xp_levels", []), errors)
 	_validate_recipes(t.get("recipes", {}), t.get("ore_types", {}), errors)
 	_validate_devices(t.get("devices", {}), t.get("recipes", {}), t.get("ore_types", {}), errors)
+	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_hafts", {}), errors)
 	_validate_items(t.get("items", {}), errors)
 	_validate_vein_security(t.get("vein_security", {}), errors)
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
@@ -314,6 +328,9 @@ func snapshot() -> Dictionary:
 		"cultivating_xp_levels": CULTIVATING_XP_LEVELS,
 		"recipes": RECIPES,
 		"devices": DEVICES,
+		"dial_seed_cost": DIAL_SEED_COST,
+		"dial_seed_base_success": DIAL_SEED_BASE_SUCCESS,
+		"dial_hafts": DIAL_HAFTS,
 		"items": ITEMS,
 		"vein_security": VEIN_SECURITY,
 		"vein_alarm": VEIN_ALARM,
@@ -430,6 +447,27 @@ func _validate_devices(devices: Dictionary, recipes: Dictionary, ore_types: Dict
 			errors.append("devices.%s: calcType '%s' is not a known ore type" % [key, entry["calcType"]])
 		if entry.has("recipeKey") and not recipes.is_empty() and not recipes.has(entry["recipeKey"]):
 			errors.append("devices.%s: recipeKey '%s' is not a known recipe" % [key, entry["recipeKey"]])
+
+
+# dial-device ticket 01: seedCost must cover every canonical ore type (the
+# PRD's "mixed five-ore-type cost" decision) -- unlike a recipe's
+# ingredients dict, a partial cost here would silently let seeding skip an
+# ore type. Hafts are cosmetic-only (Implementation Decisions: "no stat
+# fields and no code path that reads a haft for anything but display") so
+# each only needs a display name, not the fuller schema recipes/devices use.
+func _validate_dial(seed_cost: Dictionary, seed_base_success: float, hafts: Dictionary, errors: Array[String]) -> void:
+	for ore_key in CANONICAL_ORE_TYPES:
+		if not seed_cost.has(ore_key):
+			errors.append("dial.seedCost: missing canonical ore type '%s'" % ore_key)
+	for ore_key in seed_cost.keys():
+		if not CANONICAL_ORE_TYPES.has(ore_key):
+			errors.append("dial.seedCost: unexpected ore type '%s'" % ore_key)
+	if seed_base_success <= 0.0:
+		errors.append("dial: seedBaseSuccess must be > 0")
+	if hafts.is_empty():
+		errors.append("dial: hafts must not be empty")
+	for key in hafts.keys():
+		_require_keys(hafts[key], ["name"], "dial.hafts.%s" % key, errors)
 
 
 func _validate_items(items: Dictionary, errors: Array[String]) -> void:

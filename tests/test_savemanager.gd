@@ -390,6 +390,58 @@ func run() -> void:
 		assert_eq(filled["world"]["mapSlotFreePool"], {}, "the new key should be seeded from defaults, same as a missing top-level key")
 	)
 
+	# dial-device ticket 01: "player" is a top-level key that has existed
+	# since M0, so a pre-Dial save has it present but missing the new dial
+	# key -- the shallow top-level fill above never fires for it, same
+	# reasoning as the mapSlotFreePool case above.
+	run_case("backfill_seeds_dial_into_an_old_saves_existing_player_dict", func():
+		var incomplete := {
+			"player": {
+				"cash": 999,
+				"devicesInProgress": [{ "id": "d1", "type": "timeDevice", "progress": 40.0 }],
+				"devicesCompleted": [{ "id": "d2", "type": "rewindDevice", "level": 2, "xp": 60, "chargesPerDay": 2, "chargesUsedToday": 0, "lastResetDay": 3 }],
+				"equipment": { "weapon": "crowbar", "device": "d2" },
+			},
+			"flags": { "craftingUnlocked": true, "enhancementUnlocked": true },
+		}
+		var filled := SaveManager.backfill_defaults(incomplete)
+
+		assert_eq(filled["player"]["cash"], 999, "existing player data must survive untouched")
+		assert_eq(filled["player"]["dial"], null, "the new key should be seeded from defaults, same as a missing top-level key")
+		assert_eq(filled["player"]["devicesInProgress"], [{ "id": "d1", "type": "timeDevice", "progress": 40.0 }], "pre-Dial device progress must be left untouched, not converted")
+		assert_eq(filled["player"]["devicesCompleted"], [{ "id": "d2", "type": "rewindDevice", "level": 2, "xp": 60, "chargesPerDay": 2, "chargesUsedToday": 0, "lastResetDay": 3 }], "pre-Dial completed devices must be left untouched, not converted")
+		assert_eq(filled["player"]["equipment"], { "weapon": "crowbar", "device": "d2" }, "pre-Dial equipment.device must be left untouched, not converted")
+		assert_eq(filled["flags"]["craftingUnlocked"], true, "craftingUnlocked must survive the dial backfill untouched")
+		assert_eq(filled["flags"]["enhancementUnlocked"], true, "enhancementUnlocked must survive the dial backfill untouched")
+	)
+
+	# dial-device ticket 01, acceptance: a save with populated
+	# devicesInProgress/devicesCompleted/equipment.device and no player.dial
+	# loads without error into a null-Dial state, craftingUnlocked/
+	# enhancementUnlocked intact. Full import_string round trip (not just
+	# backfill_defaults) to exercise the real load path.
+	run_case("loading_a_pre_dial_save_migrates_into_a_null_dial_state_with_old_unlocks_intact", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["player"].erase("dial")
+		legacy["player"]["devicesInProgress"] = [{ "id": "d1", "type": "timeDevice", "progress": 40.0 }]
+		legacy["player"]["devicesCompleted"] = [{ "id": "d2", "type": "rewindDevice", "level": 2, "xp": 60, "chargesPerDay": 2, "chargesUsedToday": 0, "lastResetDay": 3 }]
+		legacy["player"]["equipment"] = { "weapon": "crowbar", "device": "d2" }
+		legacy["flags"]["craftingUnlocked"] = true
+		legacy["flags"]["enhancementUnlocked"] = true
+
+		var result := SaveManager.import_string(JSON.stringify(legacy))
+		assert_true(result["ok"], "a pre-Dial save should load without error")
+
+		var player: Dictionary = GameState.state["player"]
+		assert_eq(player["dial"], null, "a pre-Dial save should load into a null-Dial state")
+		assert_eq(player["devicesInProgress"], [{ "id": "d1", "type": "timeDevice", "progress": 40.0 }], "old device progress should survive the migration untouched")
+		assert_eq(player["devicesCompleted"][0]["id"], "d2", "old completed devices should survive the migration untouched")
+		assert_eq(player["equipment"], { "weapon": "crowbar", "device": "d2" }, "old equipment.device should survive the migration untouched")
+		assert_true(GameState.state["flags"]["craftingUnlocked"], "craftingUnlocked should stay true across the migration")
+		assert_true(GameState.state["flags"]["enhancementUnlocked"], "enhancementUnlocked should stay true across the migration")
+	)
+
 	run_case("loading_a_save_with_a_retired_currentScreen_lands_on_phone_home", func():
 		for retired_id in ["home", "you", "bag", "inventory"]:
 			GameState.reset()
