@@ -6,8 +6,13 @@ extends RefCounted
 # - ticket 01: state shape, gift gate, and seeding an inert Dial (no
 #   Movement, no charge, no regen).
 # - ticket 02: Movement crafting, seating/unseating, and the seated
-#   Movement's attunement bonus. Charge/capacity/casting/leveling (tickets
-#   03-06) still own everything the seeded/seated shape leaves at zero.
+#   Movement's attunement bonus.
+# - ticket 03: Complications -- load, unload, and the Dial-level capacity
+#   budget.
+# - ticket 04: the charge pool itself -- seating/unseating now activate/
+#   deactivate it, winding spends calc to fill it, and daily_regen() ticks
+#   it once a day (not yet wired into time_system.gd -- that's ticket 07's
+#   cutover). Casting/leveling (tickets 05-06) still own everything else.
 #
 # systems/devices.gd and data/devices.json stay live and untouched until
 # ticket 07's cutover -- this module doesn't call into them and they don't
@@ -87,6 +92,11 @@ static func _new_dial(haft_id: String) -> Dictionary:
 		"currentCharge": 0,
 		"maxCharge": 0,
 		"rechargeRate": 0,
+		# dial-device ticket 04: guards Dial.daily_regen() the same
+		# lastResetDay way Devices.reset_daily_charges() guards
+		# devicesCompleted -- set to the seeding day so a Dial seeded partway
+		# through today doesn't regen again before tomorrow.
+		"lastRegenDay": GameState.state["world"]["day"],
 		"capacityMax": capacity_max(1),
 		"movement": null,
 		"loadedComplications": [],
@@ -185,10 +195,10 @@ static func _new_movement(archetype: String, ore_type: String, tier: int) -> Dic
 
 # User story 7/9: seats the Movement at `inventory_index`, swapping out
 # (never destroying) whatever was seated before -- fully reversible in
-# both directions. Charge/regen fields are untouched here (ticket 01's
-# inert-Dial shape stays inert on the seat/unseat step itself; ticket 04
-# activates the charge pool from the newly-seated Movement's archetype/
-# tier).
+# both directions. Ticket 04's _activate_charge_pool() (below) sizes
+# maxCharge/rechargeRate from the newly-seated Movement's archetype/tier
+# and resets currentCharge to 0 -- a reseat is a different physical
+# mechanism, so it never inherits whatever reserve the previous one held.
 static func seat_movement(inventory_index: int) -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	if player["dial"] == null:
@@ -205,6 +215,7 @@ static func seat_movement(inventory_index: int) -> Dictionary:
 	if previous != null:
 		inventory.append(previous)
 	dial["movement"] = incoming
+	_activate_charge_pool(dial, incoming)
 
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -213,6 +224,8 @@ static func seat_movement(inventory_index: int) -> Dictionary:
 # User story 9: the seated Movement (if any) goes back to inventory intact,
 # not destroyed. A Dial with no Movement seated is a no-op refusal, not an
 # error -- matches every other "nothing to do" refusal shape in this file.
+# Ticket 04's _deactivate_charge_pool() (below) zeroes the charge pool back
+# to ticket 01's inert-Dial shape -- no attunement, no charge, no regen.
 static func unseat_movement() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	if player["dial"] == null:
@@ -223,6 +236,7 @@ static func unseat_movement() -> Dictionary:
 
 	player["movementInventory"].append(dial["movement"])
 	dial["movement"] = null
+	_deactivate_charge_pool(dial)
 
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -348,3 +362,140 @@ static func unload_complication(index: int) -> Dictionary:
 
 	EventBus.state_changed.emit()
 	return { "ok": true }
+
+
+# ── ticket 04: charge pool lifecycle, winding, and daily regen ─────────
+#
+# Charge only exists while a Movement is seated: seat_movement() above
+# calls _activate_charge_pool() to size maxCharge/rechargeRate from the
+# newly-seated Movement's archetype/tier (and starts currentCharge at 0);
+# unseat_movement() calls _deactivate_charge_pool() to zero all three back
+# to ticket 01's inert-Dial shape. Once seated, maxCharge/rechargeRate are
+# fixed until the next reseat -- winding and daily_regen() below only ever
+# move currentCharge between 0 and maxCharge, never those two stats.
+#
+# Per the design doc's "biases X up, Y down" framing (docs/device-plan-
+# spec.md's Movement archetypes section), each archetype's ticket-02
+# bonus/downside curve feeds exactly one charge-economy stat each: Recharge's
+# bonus raises rechargeRate, its downside lowers maxCharge; Capacitor's
+# bonus raises maxCharge, its downside lowers rechargeRate (floored at 0 --
+# User story 15 makes tier 5 an explicit, guaranteed zero, not merely a
+# numeric consequence of the curve, since a human could retune the curve
+# later without noticing it stopped reaching zero). Impact and Spread have
+# no charge-economy bonus at all -- their "bonus" curve is ticket 05's
+# effect-magnitude/extra-target territory -- so only their downside applies,
+# and only to maxCharge (the shared charge-economy cost of the "amplify
+# pair", per the design doc).
+
+
+static func _charge_stats_for(archetype: String, tier: int) -> Dictionary:
+	var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
+	var t: int = clampi(tier, 0, m["bonus"].size() - 1)
+	var bonus: float = m["bonus"][t]
+	var downside: float = m["downside"][t]
+
+	var max_charge: float = GameData.DIAL_BASE_MAX_CHARGE
+	var recharge_rate: float = GameData.DIAL_BASE_RECHARGE_RATE
+	match archetype:
+		"recharge":
+			recharge_rate += bonus
+			max_charge -= downside
+		"capacitor":
+			max_charge += bonus
+			recharge_rate -= downside
+		_:
+			max_charge -= downside
+
+	recharge_rate = maxf(0.0, recharge_rate)
+	if archetype == "capacitor" and t == 5:
+		recharge_rate = 0.0  # User story 15: tier-5 Capacitor's defining trait -- guaranteed, not just a consequence of the downside curve's numbers.
+
+	# maxCharge is the Collar's countable power-reserve pips (design doc
+	# §Charge model) -- an integer, unlike rechargeRate, which the PRD calls
+	# out as "possibly fractional". currentCharge (wind()/daily_regen(),
+	# below) is left free to hold that same fractional remainder between
+	# whole charges -- it's the pips filled, not the pip count -- so a
+	# fractional rechargeRate accumulates smoothly across days instead of
+	# being truncated away each tick.
+	return { "maxCharge": maxi(1, GameState.round_epsilon(max_charge)), "rechargeRate": recharge_rate }
+
+
+static func _activate_charge_pool(dial: Dictionary, movement: Dictionary) -> void:
+	var stats: Dictionary = _charge_stats_for(movement["archetype"], movement["tier"])
+	dial["maxCharge"] = stats["maxCharge"]
+	dial["rechargeRate"] = stats["rechargeRate"]
+	dial["currentCharge"] = 0
+
+
+static func _deactivate_charge_pool(dial: Dictionary) -> void:
+	dial["maxCharge"] = 0
+	dial["rechargeRate"] = 0
+	dial["currentCharge"] = 0
+
+
+# User story 30: a lookup keyed only by (archetype, tier) -- never by
+# dial.level or dial.maxCharge -- so levelling the Dial never makes winding
+# worse. Pure data read, no state access, same shape as
+# movement_craft_chance()/movement_calc_cost() above.
+static func winding_cost_per_charge(archetype: String, tier: int) -> int:
+	var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
+	var t: int = clampi(tier, 0, m["windingCostPerCharge"].size() - 1)
+	return m["windingCostPerCharge"][t]
+
+
+# User story 29: instant, no time-block cost, calc-only -- winding never
+# competes with the game's 3-blocks/day resource. `amount` (default 1) is
+# silently clamped to however much headroom is left under maxCharge, so a
+# request for more charge than the pool can hold never overspends calc for
+# charge that would just be discarded at the cap. Calc type is always the
+# seated Movement's attunement (User story 29); cost-per-charge comes only
+# from winding_cost_per_charge() above (User story 30).
+static func wind(amount: int = 1) -> Dictionary:
+	var player: Dictionary = GameState.state["player"]
+	if player["dial"] == null:
+		return { "ok": false, "reason": "No Dial." }
+	var dial: Dictionary = player["dial"]
+	if dial["movement"] == null:
+		return { "ok": false, "reason": "No Movement seated." }
+	if amount <= 0:
+		return { "ok": false, "reason": "Nothing to wind." }
+	if dial["currentCharge"] >= dial["maxCharge"]:
+		return { "ok": false, "reason": "Charge is already full." }
+
+	var headroom: int = int(ceil(dial["maxCharge"] - dial["currentCharge"]))
+	var actual_amount: int = mini(amount, headroom)
+
+	var movement: Dictionary = dial["movement"]
+	var cost_per_charge: int = winding_cost_per_charge(movement["archetype"], movement["tier"])
+	var total_cost: int = cost_per_charge * actual_amount
+	var ore_type: String = movement["oreType"]
+	var orichalchum: Dictionary = player["orichalchum"]
+	if orichalchum.get(ore_type, 0) < total_cost:
+		return { "ok": false, "reason": "Not enough calc." }
+
+	orichalchum[ore_type] -= total_cost
+	dial["currentCharge"] = minf(dial["maxCharge"], dial["currentCharge"] + actual_amount)
+
+	EventBus.state_changed.emit()
+	return { "ok": true, "chargeAdded": actual_amount, "calcSpent": total_cost }
+
+
+# User story 28: natural regen ticks once per day as part of the existing
+# daily cycle. Called from time_system.gd's daily_tick once ticket 07 wires
+# it in (replacing Devices.reset_daily_charges()'s step); until then nothing
+# calls this yet. Guarded the same lastRegenDay way
+# Devices.reset_daily_charges() guards devicesCompleted's lastResetDay, so
+# calling this more than once on the same day is a no-op -- including the
+# unconditional trailing emit, which mirrors reset_daily_charges()'s own
+# unconditional emit exactly (systems/devices.gd), not a mutation-gated one.
+# A null dial (no Dial seeded yet) is a silent no-op, not an error.
+static func daily_regen() -> void:
+	var player: Dictionary = GameState.state["player"]
+	if player["dial"] == null:
+		return
+	var dial: Dictionary = player["dial"]
+	var day: int = GameState.state["world"]["day"]
+	if dial["lastRegenDay"] < day:
+		dial["currentCharge"] = minf(dial["maxCharge"], dial["currentCharge"] + dial["rechargeRate"])
+		dial["lastRegenDay"] = day
+	EventBus.state_changed.emit()

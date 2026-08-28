@@ -18,7 +18,7 @@ static func _fund_seed_cost(multiplier: int = 1) -> void:
 # ticket 02 fixtures.
 
 static func _dial_no_movement() -> Dictionary:
-	return { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "haftId": HAFT_ID }
+	return { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "lastRegenDay": 1, "capacityMax": 0, "movement": null, "loadedComplications": [], "haftId": HAFT_ID }
 
 
 # Same shape as test_sites.gd/test_cultivating.gd's own _find_seed_for.
@@ -529,4 +529,207 @@ func run() -> void:
 		Dial.unload_complication(0)
 		var retried := Dial.load_complication("blast", 1)
 		assert_true(retried["ok"], "unloading should free enough capacity for the next load")
+	)
+
+	# ── ticket 04: charge pool activation/deactivation ───────────────────
+
+	run_case("seat_movement_activates_the_charge_pool_sized_by_archetype_and_tier", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial_no_movement()
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "recharge", "oreType": "time", "tier": 3 }]
+
+		Dial.seat_movement(0)
+		var dial: Dictionary = GameState.state["player"]["dial"]
+		var m: Dictionary = GameData.DIAL_MOVEMENTS["recharge"]
+		var expected_max: int = int(GameData.DIAL_BASE_MAX_CHARGE - m["downside"][3])
+		var expected_rate: float = GameData.DIAL_BASE_RECHARGE_RATE + m["bonus"][3]
+		assert_eq(dial["maxCharge"], expected_max, "Recharge's downside should lower maxCharge from the base")
+		assert_almost_eq(dial["rechargeRate"], expected_rate, 0.0001, "Recharge's bonus should raise rechargeRate from the base")
+		assert_eq(dial["currentCharge"], 0, "a freshly-activated charge pool starts empty")
+	)
+
+	run_case("seat_movement_biases_capacitor_toward_maxCharge_over_rechargeRate", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial_no_movement()
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "oreType": "physics", "tier": 3 }]
+
+		Dial.seat_movement(0)
+		var dial: Dictionary = GameState.state["player"]["dial"]
+		var m: Dictionary = GameData.DIAL_MOVEMENTS["capacitor"]
+		var expected_max: int = int(GameData.DIAL_BASE_MAX_CHARGE + m["bonus"][3])
+		var expected_rate: float = GameData.DIAL_BASE_RECHARGE_RATE - m["downside"][3]
+		assert_eq(dial["maxCharge"], expected_max, "Capacitor's bonus should raise maxCharge from the base")
+		assert_almost_eq(dial["rechargeRate"], expected_rate, 0.0001, "Capacitor's downside should lower rechargeRate from the base, below tier 5")
+	)
+
+	run_case("tier_5_capacitor_movement_sets_natural_rechargeRate_to_zero", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial_no_movement()
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "oreType": "physics", "tier": 5 }]
+
+		Dial.seat_movement(0)
+		assert_eq(GameState.state["player"]["dial"]["rechargeRate"], 0.0, "tier-5 Capacitor's defining trait: zero natural rechargeRate")
+		assert_true(GameState.state["player"]["dial"]["maxCharge"] > GameData.DIAL_BASE_MAX_CHARGE, "tier-5 Capacitor should still carry a much bigger reserve")
+	)
+
+	run_case("unseat_movement_deactivates_the_charge_pool", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "capacitor", "oreType": "physics", "tier": 5 }
+		dial["maxCharge"] = 52
+		dial["rechargeRate"] = 0
+		dial["currentCharge"] = 30
+		GameState.state["player"]["dial"] = dial
+
+		Dial.unseat_movement()
+		var d: Dictionary = GameState.state["player"]["dial"]
+		assert_eq(d["maxCharge"], 0, "unseating should zero maxCharge, matching ticket 01's inert-Dial story")
+		assert_eq(d["rechargeRate"], 0, "unseating should zero rechargeRate")
+		assert_eq(d["currentCharge"], 0, "unseating should zero currentCharge")
+	)
+
+	run_case("reseating_a_different_movement_starts_the_charge_pool_fresh_not_inheriting_the_previous_reserve", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 3 }
+		dial["maxCharge"] = 16
+		dial["rechargeRate"] = 2.7
+		dial["currentCharge"] = 12
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "oreType": "physics", "tier": 3 }]
+
+		Dial.seat_movement(0)
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 0, "reseating a different Movement should not carry over the previous reserve")
+	)
+
+	# ── ticket 04: winding ────────────────────────────────────────────────
+
+	run_case("wind_refuses_with_no_dial", func():
+		GameState.reset()
+		var result := Dial.wind(1)
+		assert_true(not result["ok"], "winding with no Dial should be refused")
+	)
+
+	run_case("wind_refuses_with_no_movement_seated", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial_no_movement()
+		var result := Dial.wind(1)
+		assert_true(not result["ok"], "winding with no Movement seated should be refused")
+	)
+
+	run_case("wind_adds_charge_and_spends_the_seated_movements_attuned_ore_type", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "recharge", "oreType": "life", "tier": 2 }
+		dial["maxCharge"] = 10
+		dial["currentCharge"] = 0
+		dial["rechargeRate"] = 1
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["orichalchum"]["life"] = 100
+
+		var cost: int = Dial.winding_cost_per_charge("recharge", 2)
+		var result := Dial.wind(1)
+		assert_true(result["ok"], "winding with enough calc and headroom should succeed")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 1, "winding should add exactly the requested charge")
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 100 - cost, "winding should spend the seated Movement's attuned ore type at its cost-per-charge")
+	)
+
+	run_case("wind_refuses_without_enough_calc", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "capacitor", "oreType": "emotion", "tier": 1 }
+		dial["maxCharge"] = 10
+		dial["currentCharge"] = 0
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["orichalchum"]["emotion"] = 0
+
+		var result := Dial.wind(1)
+		assert_true(not result["ok"], "winding without enough calc should be refused")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 0, "a refused wind must not add charge")
+	)
+
+	run_case("wind_refuses_when_charge_is_already_full", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 1 }
+		dial["maxCharge"] = 5
+		dial["currentCharge"] = 5
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["orichalchum"]["time"] = 1000
+
+		var result := Dial.wind(1)
+		assert_true(not result["ok"], "winding a full charge pool should be refused")
+	)
+
+	run_case("wind_has_no_time_block_cost", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 1 }
+		dial["maxCharge"] = 5
+		dial["currentCharge"] = 0
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["orichalchum"]["time"] = 1000
+		var blocks_before: Array = GameState.state["world"]["timeBlocksDone"].duplicate()
+
+		Dial.wind(1)
+		assert_eq(GameState.state["world"]["timeBlocksDone"], blocks_before, "winding must not consume a time block")
+	)
+
+	run_case("winding_cost_per_charge_is_independent_of_dial_level_and_maxCharge", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "impact", "oreType": "fate", "tier": 3 }
+		dial["level"] = 1
+		dial["capacityMax"] = 4
+		dial["maxCharge"] = 5
+		dial["currentCharge"] = 0
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["orichalchum"]["fate"] = 1000
+		Dial.wind(1)
+		var spent_low_level: int = 1000 - GameState.state["player"]["orichalchum"]["fate"]
+
+		GameState.reset()
+		dial = _dial_no_movement()
+		dial["movement"] = { "archetype": "impact", "oreType": "fate", "tier": 3 }
+		dial["level"] = 5
+		dial["capacityMax"] = 16
+		dial["maxCharge"] = 500  # a much bigger pool, simulating heavy dial-level growth
+		dial["currentCharge"] = 0
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["orichalchum"]["fate"] = 1000
+		Dial.wind(1)
+		var spent_high_level: int = 1000 - GameState.state["player"]["orichalchum"]["fate"]
+
+		assert_eq(spent_low_level, spent_high_level, "winding cost-per-charge must be unaffected by dial level/maxCharge at a fixed archetype/tier")
+	)
+
+	# ── ticket 04: daily regen ───────────────────────────────────────────
+
+	run_case("daily_regen_adds_rechargeRate_once_per_day_capped_at_maxCharge", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["maxCharge"] = 10
+		dial["currentCharge"] = 3
+		dial["rechargeRate"] = 4
+		dial["lastRegenDay"] = 1
+		GameState.state["player"]["dial"] = dial
+		GameState.state["world"]["day"] = 1
+
+		Dial.daily_regen()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 3, "regen must not apply again on the same day")
+
+		GameState.state["world"]["day"] = 2
+		Dial.daily_regen()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 7, "regen should add rechargeRate exactly once for the new day")
+
+		GameState.state["world"]["day"] = 3
+		GameState.state["player"]["dial"]["currentCharge"] = 9
+		Dial.daily_regen()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 10, "regen should cap at maxCharge, not overshoot")
+	)
+
+	run_case("daily_regen_is_a_no_op_with_no_dial", func():
+		GameState.reset()
+		Dial.daily_regen()
+		assert_eq(GameState.state["player"]["dial"], null, "no dial means nothing to regen")
 	)

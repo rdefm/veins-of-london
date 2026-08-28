@@ -124,8 +124,11 @@ func new_game_state() -> Dictionary:
 			# cutover. null until Dial.attempt_seed() succeeds; there is never
 			# a second Dial (Dial.attempt_seed() refuses outright once this is
 			# non-null). Shape while seeded: { level, xp, currentCharge,
-			# maxCharge, rechargeRate, capacityMax, movement, loadedComplications,
-			# haftId } -- see systems/dial.gd's _new_dial().
+			# maxCharge, rechargeRate, lastRegenDay, capacityMax, movement,
+			# loadedComplications, haftId } -- see systems/dial.gd's
+			# _new_dial(). lastRegenDay (ticket 04) guards Dial.daily_regen()
+			# the same lastResetDay way devicesCompleted entries are guarded
+			# below.
 			"dial": null,
 			# dial-device ticket 02: crafted-but-unseated Movements ({
 			# archetype, oreType, tier }, see Dial._new_movement()) -- a

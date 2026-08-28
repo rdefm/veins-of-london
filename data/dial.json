@@ -1,6 +1,8 @@
 {
   "seedCost": { "time": 40, "physics": 40, "life": 80, "fate": 40, "emotion": 40 },
   "seedBaseSuccess": 0.30,
+  "baseMaxCharge": 20,
+  "baseRechargeRate": 2.0,
   "hafts": {
     "collective_brolly": { "name": "Market Umbrella" },
     "firm_baton": { "name": "Service Baton" },
@@ -17,7 +19,8 @@
       "ingredientBase": 20,
       "xpReward": 30,
       "bonus": [0, 0.2, 0.4, 0.7, 1.1, 1.6],
-      "downside": [0, 1, 2, 4, 6, 9]
+      "downside": [0, 1, 2, 4, 6, 9],
+      "windingCostPerCharge": [0, 8, 7, 6, 5, 4]
     },
     "capacitor": {
       "name": "Capacitor Movement",
@@ -26,7 +29,8 @@
       "ingredientBase": 20,
       "xpReward": 30,
       "bonus": [0, 4, 8, 14, 22, 32],
-      "downside": [0, 0, 0, 1, 2, 4]
+      "downside": [0, 0, 0, 1, 2, 4],
+      "windingCostPerCharge": [0, 5, 4, 3, 2, 1]
     },
     "impact": {
       "name": "Impact Movement",
@@ -35,7 +39,8 @@
       "ingredientBase": 20,
       "xpReward": 30,
       "bonus": [0, 0.15, 0.3, 0.5, 0.8, 1.2],
-      "downside": [0, 2, 4, 7, 11, 16]
+      "downside": [0, 2, 4, 7, 11, 16],
+      "windingCostPerCharge": [0, 10, 9, 8, 7, 6]
     },
     "spread": {
       "name": "Spread Movement",
@@ -44,7 +49,8 @@
       "ingredientBase": 20,
       "xpReward": 30,
       "bonus": [0, 1, 1, 2, 2, 3],
-      "downside": [0, 1, 2, 3, 4, 6]
+      "downside": [0, 1, 2, 3, 4, 6],
+      "windingCostPerCharge": [0, 9, 8, 7, 6, 5]
     }
   },
   "attunementBonusByTier": [0, 0.02, 0.04, 0.07, 0.10, 0.15],

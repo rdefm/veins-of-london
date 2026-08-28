@@ -25,10 +25,18 @@ var DIAL_SEED_COST: Dictionary = {}
 var DIAL_SEED_BASE_SUCCESS: float = 0.0
 var DIAL_HAFTS: Dictionary = {}
 
+# dial-device ticket 04: the Dial-wide charge-pool baseline that Dial.
+# _charge_stats_for() starts from before applying the seated Movement's
+# per-archetype bonus/downside curve (below).
+var DIAL_BASE_MAX_CHARGE: int = 0
+var DIAL_BASE_RECHARGE_RATE: float = 0.0
+
 # dial-device ticket 02: data/dial.json's "movements" table (Dial.
 # attempt_craft_movement()'s per-archetype baseSuccess/ingredientBase/
 # xpReward plus its tier-indexed bonus/downside arrays) and the shared
-# tier-indexed attunement chance bonus (Dial.attunement_bonus()).
+# tier-indexed attunement chance bonus (Dial.attunement_bonus()). Ticket 04
+# adds each archetype's tier-indexed "windingCostPerCharge" array to this
+# same table (Dial.winding_cost_per_charge()).
 var DIAL_MOVEMENTS: Dictionary = {}
 var DIAL_ATTUNEMENT_BONUS_BY_TIER: Array = []
 
@@ -229,6 +237,8 @@ func load_all() -> void:
 	var dial := _load_json("res://data/dial.json")
 	DIAL_SEED_COST = dial.get("seedCost", {})
 	DIAL_SEED_BASE_SUCCESS = dial.get("seedBaseSuccess", 0.0)
+	DIAL_BASE_MAX_CHARGE = dial.get("baseMaxCharge", 0)
+	DIAL_BASE_RECHARGE_RATE = dial.get("baseRechargeRate", 0.0)
 	DIAL_HAFTS = dial.get("hafts", {})
 	DIAL_MOVEMENTS = dial.get("movements", {})
 	DIAL_ATTUNEMENT_BONUS_BY_TIER = dial.get("attunementBonusByTier", [])
@@ -312,7 +322,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_vein_growth(t.get("vein_growth", {}), t.get("cultivating_xp_levels", []), errors)
 	_validate_recipes(t.get("recipes", {}), t.get("ore_types", {}), errors)
 	_validate_devices(t.get("devices", {}), t.get("recipes", {}), t.get("ore_types", {}), errors)
-	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_hafts", {}), t.get("dial_movements", {}), t.get("dial_attunement_bonus_by_tier", []), t.get("dial_capacity_by_level", []), errors)
+	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_base_max_charge", 0), t.get("dial_base_recharge_rate", 0.0), t.get("dial_hafts", {}), t.get("dial_movements", {}), t.get("dial_attunement_bonus_by_tier", []), t.get("dial_capacity_by_level", []), errors)
 	_validate_items(t.get("items", {}), errors)
 	_validate_vein_security(t.get("vein_security", {}), errors)
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
@@ -346,6 +356,8 @@ func snapshot() -> Dictionary:
 		"devices": DEVICES,
 		"dial_seed_cost": DIAL_SEED_COST,
 		"dial_seed_base_success": DIAL_SEED_BASE_SUCCESS,
+		"dial_base_max_charge": DIAL_BASE_MAX_CHARGE,
+		"dial_base_recharge_rate": DIAL_BASE_RECHARGE_RATE,
 		"dial_hafts": DIAL_HAFTS,
 		"dial_movements": DIAL_MOVEMENTS,
 		"dial_attunement_bonus_by_tier": DIAL_ATTUNEMENT_BONUS_BY_TIER,
@@ -483,7 +495,7 @@ func _validate_devices(devices: Dictionary, recipes: Dictionary, ore_types: Dict
 # ore type. Hafts are cosmetic-only (Implementation Decisions: "no stat
 # fields and no code path that reads a haft for anything but display") so
 # each only needs a display name, not the fuller schema recipes/devices use.
-func _validate_dial(seed_cost: Dictionary, seed_base_success: float, hafts: Dictionary, movements: Dictionary, attunement_bonus_by_tier: Array, capacity_by_level: Array, errors: Array[String]) -> void:
+func _validate_dial(seed_cost: Dictionary, seed_base_success: float, base_max_charge: int, base_recharge_rate: float, hafts: Dictionary, movements: Dictionary, attunement_bonus_by_tier: Array, capacity_by_level: Array, errors: Array[String]) -> void:
 	for ore_key in CANONICAL_ORE_TYPES:
 		if not seed_cost.has(ore_key):
 			errors.append("dial.seedCost: missing canonical ore type '%s'" % ore_key)
@@ -492,6 +504,12 @@ func _validate_dial(seed_cost: Dictionary, seed_base_success: float, hafts: Dict
 			errors.append("dial.seedCost: unexpected ore type '%s'" % ore_key)
 	if seed_base_success <= 0.0:
 		errors.append("dial: seedBaseSuccess must be > 0")
+	# dial-device ticket 04: the charge-pool baseline Dial._charge_stats_for()
+	# starts from before applying the seated Movement's archetype/tier curve.
+	if base_max_charge <= 0:
+		errors.append("dial: baseMaxCharge must be > 0")
+	if base_recharge_rate <= 0.0:
+		errors.append("dial: baseRechargeRate must be > 0")
 	if hafts.is_empty():
 		errors.append("dial: hafts must not be empty")
 	for key in hafts.keys():
@@ -505,11 +523,15 @@ func _validate_dial(seed_cost: Dictionary, seed_base_success: float, hafts: Dict
 			errors.append("dial.movements: missing canonical archetype '%s'" % archetype)
 			continue
 		var entry: Dictionary = movements[archetype]
-		_require_keys(entry, ["name", "symbol", "baseSuccess", "ingredientBase", "xpReward", "bonus", "downside"], "dial.movements.%s" % archetype, errors)
+		_require_keys(entry, ["name", "symbol", "baseSuccess", "ingredientBase", "xpReward", "bonus", "downside", "windingCostPerCharge"], "dial.movements.%s" % archetype, errors)
 		if entry.has("bonus") and entry["bonus"].size() != 6:
 			errors.append("dial.movements.%s: bonus must have 6 entries (index=tier 0..5)" % archetype)
 		if entry.has("downside") and entry["downside"].size() != 6:
 			errors.append("dial.movements.%s: downside must have 6 entries (index=tier 0..5)" % archetype)
+		# dial-device ticket 04: Dial.winding_cost_per_charge()'s lookup --
+		# same tier-indexed shape as bonus/downside above.
+		if entry.has("windingCostPerCharge") and entry["windingCostPerCharge"].size() != 6:
+			errors.append("dial.movements.%s: windingCostPerCharge must have 6 entries (index=tier 0..5)" % archetype)
 	for key in movements.keys():
 		if not CANONICAL_MOVEMENT_ARCHETYPES.has(key):
 			errors.append("dial.movements: unexpected archetype '%s' (not in the PRD's v1 launch set)" % key)
