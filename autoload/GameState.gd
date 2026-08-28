@@ -114,21 +114,23 @@ func new_game_state() -> Dictionary:
 			# ticket 64: quantity per quality tier, not a flat count -- see
 			# Crafting's "Inventory" section. Empty buckets == zero stock.
 			"inventory": { "timePearl": {}, "enhancementPowder": {}, "rewind": {} },
-			"equipment": { "weapon": null, "device": null },
+			"equipment": { "weapon": null },
 			"items": [],
-			"devicesInProgress": [],
-			"devicesCompleted": [],
-			# dial-device ticket 01: replaces the equip/build state above per
-			# the PRD (docs/../.scratch/dial-device/spec.md), but doesn't
-			# delete it yet -- systems/devices.gd stays live until ticket 07's
-			# cutover. null until Dial.attempt_seed() succeeds; there is never
-			# a second Dial (Dial.attempt_seed() refuses outright once this is
+			# dial-device ticket 07: replaces the old single-slot device system
+			# (equipment.device, devicesInProgress, devicesCompleted -- retired
+			# outright per the PRD). A pre-Dial save that still carries those
+			# three keys keeps them as harmless orphan data (SaveManager.
+			# _backfill_new_player_keys only fills keys ABSENT from a loaded
+			# save; it never strips extras) -- nothing reads them any more, so
+			# they migrate in effect into this null "dial", per PRD user story
+			# 32. null until Dial.attempt_seed() succeeds; there is never a
+			# second Dial (Dial.attempt_seed() refuses outright once this is
 			# non-null). Shape while seeded: { level, xp, currentCharge,
-			# maxCharge, rechargeRate, lastRegenDay, capacityMax, movement,
-			# loadedComplications, haftId } -- see systems/dial.gd's
-			# _new_dial(). lastRegenDay (ticket 04) guards Dial.daily_regen()
-			# the same lastResetDay way devicesCompleted entries are guarded
-			# below.
+			# maxCharge, rechargeRate, lastRegenDay, combatRegenTurnCounter,
+			# capacityMax, movement, loadedComplications, haftId } -- see
+			# systems/dial.gd's _new_dial(). lastRegenDay (ticket 04) guards
+			# Dial.daily_regen() the same lastResetDay way the old
+			# devicesCompleted entries used to guard their own reset.
 			"dial": null,
 			# dial-device ticket 02: crafted-but-unseated Movements ({
 			# archetype, oreType, tier }, see Dial._new_movement()) -- a

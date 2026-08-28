@@ -7,9 +7,10 @@ extends Control
 # ModalLayer, just anchored to the bottom and keyed off a different state
 # field so it can be open independently of state.modal.
 #
-# 05-bag-drawer-promotion: full management (equip/unequip weapon+device,
-# device start/build-attempt/abandon — ported straight from inventory.gd's
-# equipment tab) outside combat/item-hook events. Inside them it falls back
+# 05-bag-drawer-promotion: full management (equip/unequip weapon, Dial
+# seat/unseat/wind/load/unload — ported straight from inventory.gd's
+# equipment tab, Dial half replaced at dial-device ticket 07) outside
+# combat/item-hook events. Inside them it falls back
 # to read-only contents plus the legal Use buttons — combat's version
 # replaces the old "combat_items" modal (ported from modal_layer.gd's former
 # _build_combat_items). itemHooks (event cards with legal item uses) don't
@@ -124,11 +125,11 @@ func _refresh() -> void:
 	if management:
 		_add_out_of_combat_use_buttons(player)
 		_build_weapon_management(player)
-		_build_device_management(player)
+		_build_dial_management(player)
 	else:
 		_content.add_child(UI.heading("Equipped", 14))
 		_content.add_child(_build_equipped_weapon_label(player))
-		_content.add_child(_build_equipped_device_label(player))
+		_content.add_child(_build_dial_summary_label(player))
 
 	if combat["active"]:
 		_content.add_child(UI.heading("Use an item", 14))
@@ -200,59 +201,81 @@ func _build_weapon_management(player: Dictionary) -> void:
 		_content.add_child(c["panel"])
 
 
-# Ported from inventory.gd's _build_equipment_tab device half — equipped
-# device summary + unequip, other completed devices' equip buttons,
-# in-progress devices' build-attempt/abandon, and the start-new-device row.
-func _build_device_management(player: Dictionary) -> void:
-	_content.add_child(UI.heading("Device", 14))
-	var equipped_device_id = player["equipment"]["device"]
-	var equipped_device = null
-	for d in player["devicesCompleted"]:
-		if d["id"] == equipped_device_id:
-			equipped_device = d
-			break
+# dial-device ticket 07 — replaces the old device equip/build management:
+# the Dial is a single lifetime-owned instrument, not a slot with spares, so
+# there's no equip/unequip list here any more, just seat/unseat the one
+# Movement, wind the charge pool, and load/unload Complications. Seeding a
+# fresh Dial and crafting new Movements are build-style actions and live in
+# hq.gd's Dial card instead, matching how the old device build loop lived in
+# HQ while equip lived here.
+func _build_dial_management(player: Dictionary) -> void:
+	_content.add_child(UI.heading("Dial", 14))
+	var dial: Variant = player["dial"]
+	if dial == null:
+		# PROSE-REVIEW: new copy, drafted against CONTENT-GUIDE.md's tone bible.
+		_content.add_child(UI.muted_label("No Dial. Seed one from HQ."))
+		return
 
-	if equipped_device != null:
-		var dt: Dictionary = GameData.DEVICES[equipped_device["type"]]
+	var haft_name: String = Dial.haft_name(dial)
+	_content.add_child(UI.label("Level %d — %s" % [dial["level"], haft_name]))
+	_content.add_child(UI.muted_label("Charge %d/%d · Capacity %d/%d" % [int(dial["currentCharge"]), dial["maxCharge"], Dial.capacity_used(dial), dial["capacityMax"]]))
+
+	var movement: Variant = dial["movement"]
+	if movement != null:
+		var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
 		var c := UI.card()
-		c["content"].add_child(UI.label("%s %s (equipped) — Lv%d" % [dt["symbol"], dt["name"], equipped_device["level"]]))
-		c["content"].add_child(UI.muted_label("%d/%d charges today" % [equipped_device["chargesPerDay"] - equipped_device["chargesUsedToday"], equipped_device["chargesPerDay"]]))
-		c["content"].add_child(UI.button("Unequip", func(): Devices.unequip_device()))
+		c["content"].add_child(UI.label("%s %s (seated) — attuned %s, tier %d" % [m["symbol"], m["name"], movement["oreType"], movement["tier"]]))
+		c["content"].add_child(UI.button("Unseat", func(): Dial.unseat_movement()))
+		var cost: int = Dial.winding_cost_per_charge(movement["archetype"], movement["tier"])
+		var have: int = player["orichalchum"].get(movement["oreType"], 0)
+		var wind_button := UI.button("Wind +1 (%d %s)" % [cost, GameData.ORE_TYPES[movement["oreType"]]["symbol"]], func(): Dial.wind(1))
+		wind_button.disabled = dial["currentCharge"] >= dial["maxCharge"] or have < cost
+		c["content"].add_child(wind_button)
 		_content.add_child(c["panel"])
 	else:
-		_content.add_child(UI.muted_label("No device equipped."))
+		# PROSE-REVIEW: new copy, drafted against CONTENT-GUIDE.md's tone bible.
+		_content.add_child(UI.muted_label("No Movement seated — the Dial is inert."))
 
-	for d in player["devicesCompleted"]:
-		if d["id"] == equipped_device_id:
-			continue
-		var dt: Dictionary = GameData.DEVICES[d["type"]]
-		var device_id: String = d["id"]
+	for i in range(player["movementInventory"].size()):
+		var inv_movement: Dictionary = player["movementInventory"][i]
+		var md: Dictionary = GameData.DIAL_MOVEMENTS[inv_movement["archetype"]]
+		var captured_index: int = i
 		var c := UI.card()
-		c["content"].add_child(UI.label("%s %s — Lv%d" % [dt["symbol"], dt["name"], d["level"]]))
-		c["content"].add_child(UI.button("Equip", func(): Devices.equip_device(device_id)))
+		c["content"].add_child(UI.label("%s %s — attuned %s, tier %d" % [md["symbol"], md["name"], inv_movement["oreType"], inv_movement["tier"]]))
+		c["content"].add_child(UI.button("Seat", func(): Dial.seat_movement(captured_index)))
 		_content.add_child(c["panel"])
 
-	if not player["devicesInProgress"].is_empty():
-		_content.add_child(UI.heading("Devices in progress", 14))
-		for d in player["devicesInProgress"]:
-			var dt: Dictionary = GameData.DEVICES[d["type"]]
-			var device_id: String = d["id"]
+	_content.add_child(UI.heading("Complications loaded", 14))
+	var loaded: Array = dial["loadedComplications"]
+	if loaded.is_empty():
+		_content.add_child(UI.muted_label("Nothing loaded."))
+	else:
+		for i in range(loaded.size()):
+			var entry: Dictionary = loaded[i]
+			var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
+			var captured_index: int = i
 			var c := UI.card()
-			c["content"].add_child(UI.label("%s %s — %d%%" % [dt["symbol"], dt["name"], int(d["progress"])]))
-			c["content"].add_child(UI.bar(d["progress"], 100.0))
-			var actions := UI.hbox()
-			actions.add_child(UI.button("Build attempt", func(): Devices.attempt_device_build(device_id)))
-			actions.add_child(UI.button("Abandon", func(): Devices.abandon_device(device_id)))
-			c["content"].add_child(actions)
+			c["content"].add_child(UI.label("%s %s — tier %d (cost %d)" % [recipe["symbol"], recipe["name"], entry["tier"], entry["capacityCost"]]))
+			c["content"].add_child(UI.button("Unload", func(): Dial.unload_complication(captured_index)))
 			_content.add_child(c["panel"])
 
-	_content.add_child(UI.heading("Start a new device", 14))
-	var start_row := UI.hbox()
-	for device_key in GameData.DEVICES.keys():
-		var dt: Dictionary = GameData.DEVICES[device_key]
-		var captured_key: String = device_key
-		start_row.add_child(UI.button("%s %s" % [dt["symbol"], dt["name"]], func(): Devices.start_device(captured_key)))
-	_content.add_child(start_row)
+	_content.add_child(UI.heading("Load a Complication", 14))
+	var any_loadable := false
+	for recipe_key in GameData.RECIPES.keys():
+		var recipe: Dictionary = GameData.RECIPES[recipe_key]
+		var buckets: Dictionary = player["inventory"].get(recipe_key, {})
+		for tier_key in buckets.keys():
+			if buckets[tier_key] <= 0:
+				continue
+			any_loadable = true
+			var captured_key: String = recipe_key
+			var captured_tier: int = int(tier_key)
+			var load_button := UI.button("%s %s tier %s (%d) — cost %d" % [recipe["symbol"], recipe["name"], tier_key, buckets[tier_key], recipe["capacityCost"]], func(): Dial.load_complication(captured_key, captured_tier))
+			load_button.disabled = Dial.capacity_used(dial) + int(recipe["capacityCost"]) > dial["capacityMax"]
+			_content.add_child(load_button)
+	if not any_loadable:
+		# PROSE-REVIEW: new copy, drafted against CONTENT-GUIDE.md's tone bible.
+		_content.add_child(UI.muted_label("Nothing in stock to load."))
 
 
 func _build_equipped_weapon_label(player: Dictionary) -> Control:
@@ -264,14 +287,18 @@ func _build_equipped_weapon_label(player: Dictionary) -> Control:
 	return UI.muted_label("Weapon: none equipped")
 
 
-func _build_equipped_device_label(player: Dictionary) -> Control:
-	var device_id = player["equipment"]["device"]
-	for device in player["devicesCompleted"]:
-		if device["id"] == device_id:
-			var dt: Dictionary = GameData.DEVICES[device["type"]]
-			var charges_left: int = device["chargesPerDay"] - device["chargesUsedToday"]
-			return UI.label("%s %s (equipped) — %d/%d charges" % [dt["symbol"], dt["name"], charges_left, device["chargesPerDay"]])
-	return UI.muted_label("Device: none equipped")
+# dial-device ticket 07: replaces _build_equipped_device_label -- the Dial
+# is lifetime-owned, not equipped/unequipped, so this is a read-only summary
+# rather than an "(equipped)" tag.
+func _build_dial_summary_label(player: Dictionary) -> Control:
+	var dial: Variant = player["dial"]
+	if dial == null:
+		return UI.muted_label("Dial: none")
+	var movement: Variant = dial["movement"]
+	if movement == null:
+		return UI.label("Dial: Lv%d — no Movement seated (inert)" % dial["level"])
+	var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
+	return UI.label("Dial: Lv%d — %s %s, charge %d/%d" % [dial["level"], m["symbol"], m["name"], int(dial["currentCharge"]), dial["maxCharge"]])
 
 
 # Ported from modal_layer.gd's former _build_combat_items — same legal-use
@@ -317,19 +344,21 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 		rewind_button.disabled = snap_count == 0
 		_content.add_child(rewind_button)
 
-	var device_id = player["equipment"]["device"]
-	if device_id != null:
-		var device = null
-		for d in player["devicesCompleted"]:
-			if d["id"] == device_id:
-				device = d
-				break
-		if device != null:
-			var dt: Dictionary = GameData.DEVICES[device["type"]]
-			var charges_left: int = device["chargesPerDay"] - device["chargesUsedToday"]
-			var device_button := UI.button("%s %s (%d/%d)" % [dt["symbol"], dt["name"], charges_left, device["chargesPerDay"]], _on_use_device)
-			device_button.disabled = charges_left <= 0
-			_content.add_child(device_button)
+	# dial-device ticket 07: one cast button per loaded Complication (except
+	# "rewind", which the Rewind button above already covers via
+	# Combat.combat_rewind()'s own consumable/Complication fallback).
+	var dial: Variant = player["dial"]
+	if dial != null:
+		var loaded: Array = dial["loadedComplications"]
+		for i in range(loaded.size()):
+			var entry: Dictionary = loaded[i]
+			if entry["recipeKey"] == "rewind":
+				continue
+			var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
+			var captured_index: int = i
+			var cast_button := UI.button("%s %s (charge %d/%d)" % [recipe["symbol"], recipe["name"], int(dial["currentCharge"]), dial["maxCharge"]], func(): _on_cast_complication(captured_index))
+			cast_button.disabled = dial["currentCharge"] < 1
+			_content.add_child(cast_button)
 
 
 func _on_use_time_pearl() -> void:
@@ -372,16 +401,6 @@ func _on_use_wormhole() -> void:
 	Combat.use_wormhole()
 
 
-func _on_use_device() -> void:
-	var player: Dictionary = GameState.state["player"]
-	var device_id = player["equipment"]["device"]
-	var dt: Dictionary = {}
-	for d in player["devicesCompleted"]:
-		if d["id"] == device_id:
-			dt = GameData.DEVICES[d["type"]]
-			break
+func _on_cast_complication(index: int) -> void:
 	Bag.close()
-	if dt.get("effect", "") == "rewind":
-		Combat.combat_rewind()
-	else:
-		Combat.use_device()
+	Combat.cast_complication(index)

@@ -406,6 +406,21 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["healingSalveDaysLeft"], 0, "salve daysLeft should still decrement independently")
 	)
 
+	# dial-device ticket 07: step ⑦ now calls Dial.daily_regen() in place of
+	# the old Devices.reset_daily_charges().
+	run_case("daily_tick_wires_in_dial_daily_regen_step", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		player["dial"] = {
+			"level": 1, "xp": 0, "currentCharge": 5, "maxCharge": 20, "rechargeRate": 2.0,
+			"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"] - 1,
+			"capacityMax": 4, "movement": { "archetype": "recharge", "oreType": "time", "tier": 1 },
+			"loadedComplications": [], "haftId": "collective_brolly",
+		}
+		TimeSystem.daily_tick()
+		assert_almost_eq(GameState.state["player"]["dial"]["currentCharge"], 7.0, 0.0001, "daily_tick should reach step 7 (Dial.daily_regen adding rechargeRate)")
+	)
+
 	run_case("stub_daily_tick_steps_do_not_crash", func():
 		GameState.reset()
 		# Just confirms daily_tick runs end to end with the T04/T05/T06/T09

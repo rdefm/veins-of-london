@@ -11,6 +11,20 @@ static func _find_seed_for(max_tries: int, fn: Callable) -> int:
 	return -1
 
 
+# dial-device ticket 07: a seeded, seated Dial with one Complication loaded
+# at the given charge -- callers assert against cast_complication()'s
+# guard/effect behaviour without going through the full seed/craft/load flow
+# tested directly in tests/test_dial.gd.
+func _dial_with_loaded(recipe_key: String, tier: int, charge: int) -> Dictionary:
+	return {
+		"level": 1, "xp": 0, "currentCharge": charge, "maxCharge": 20, "rechargeRate": 2.0,
+		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
+		"capacityMax": 4, "movement": { "archetype": "impact", "oreType": "time", "tier": 1 },
+		"loadedComplications": [{ "recipeKey": recipe_key, "tier": tier, "capacityCost": 1, "detent": 0 }],
+		"haftId": "collective_brolly",
+	}
+
+
 func _fresh_combat(context: String = Combat.CONTEXT_MUGGING) -> void:
 	GameState.reset()
 	GameState.state["combat"] = {
@@ -185,6 +199,110 @@ func run() -> void:
 		Combat.push_combat_snapshot()
 		var no_item := Combat.combat_rewind()
 		assert_true(not no_item["ok"], "a snapshot exists but no rewind consumable/device -> blocked")
+	)
+
+	# dial-device ticket 07: a loaded rewind Complication with charge stands
+	# in for the old equipped rewind device -- consumable is still preferred
+	# when both are available (untouched by this ticket, not re-asserted here).
+	run_case("rewind_falls_back_to_a_loaded_rewind_complication_when_no_consumable", func():
+		_fresh_combat()
+		Combat.push_combat_snapshot()
+		GameState.state["player"]["dial"] = _dial_with_loaded("rewind", 1, 3)
+
+		var result := Combat.combat_rewind()
+
+		assert_true(result["ok"], "rewind should succeed via a loaded rewind Complication with charge")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "casting the rewind Complication should spend one charge")
+		assert_eq(GameState.state["player"]["dial"]["loadedComplications"].size(), 1, "the rewind Complication stays loaded -- casting spends charge, not the unit")
+	)
+
+	run_case("rewind_does_not_fall_back_to_a_loaded_rewind_complication_with_no_charge", func():
+		_fresh_combat()
+		Combat.push_combat_snapshot()
+		GameState.state["player"]["dial"] = _dial_with_loaded("rewind", 1, 0)
+
+		var result := Combat.combat_rewind()
+
+		assert_true(not result["ok"], "a loaded rewind Complication with zero charge should not satisfy rewind availability")
+	)
+
+	# ── dial-device ticket 07: cast_complication() ──────────────────────────
+
+	run_case("cast_complication_casts_a_loaded_time_pearl_freezes_and_spends_charge", func():
+		_fresh_combat()
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["player"]["dial"] = _dial_with_loaded("timePearl", 1, 5)
+
+		var result := Combat.cast_complication(0)
+
+		assert_true(result["ok"], "casting a loaded timePearl Complication should succeed")
+		assert_true(GameState.state["combat"]["frozenTurns"] > 0, "casting timePearl should freeze the enemy")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 4, "casting should spend exactly one charge")
+		assert_eq(Crafting.inventory_qty("timePearl"), 0, "casting a loaded Complication must never touch regular inventory")
+	)
+
+	run_case("cast_complication_refuses_a_loaded_rewind_recipe", func():
+		_fresh_combat()
+		GameState.state["player"]["dial"] = _dial_with_loaded("rewind", 1, 5)
+
+		var result := Combat.cast_complication(0)
+
+		assert_true(not result["ok"], "cast_complication should refuse a loaded rewind unit -- use combat_rewind() instead")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 5, "a refused cast must not spend a charge")
+	)
+
+	run_case("cast_complication_refuses_already_frozen_without_spending_a_charge", func():
+		_fresh_combat()
+		GameState.state["combat"]["frozenTurns"] = 1
+		GameState.state["player"]["dial"] = _dial_with_loaded("timePearl", 1, 5)
+
+		var result := Combat.cast_complication(0)
+
+		assert_true(not result["ok"], "should refuse when already frozen, same guard order as use_time_pearl()")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 5, "a blocked cast must never cost a charge")
+	)
+
+	run_case("cast_complication_refuses_with_no_charge", func():
+		_fresh_combat()
+		GameState.state["player"]["dial"] = _dial_with_loaded("timePearl", 1, 0)
+
+		var result := Combat.cast_complication(0)
+
+		assert_true(not result["ok"], "casting with zero charge should be refused")
+	)
+
+	run_case("cast_complication_spread_movement_multiplies_full_power_by_targets_not_dilution", func():
+		_fresh_combat()
+		GameState.state["player"]["craftingSkill"] = 1
+		var dial := _dial_with_loaded("blast", 1, 5)
+		dial["movement"] = { "archetype": "spread", "oreType": "physics", "tier": 5 }
+		GameState.state["player"]["dial"] = dial
+		var base_power: int = Crafting.effect_power("blast", 1)
+		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		var hp_before: int = enemy["hp"]
+
+		var result := Combat.cast_complication(0)
+
+		assert_true(result["ok"], "casting a loaded blast Complication should succeed")
+		var targets: int = result["targets"]
+		assert_true(targets > 1, "a tier-5 Spread Movement should grant more than one target")
+		assert_eq(hp_before - enemy["hp"], base_power * targets, "each target should land at full, undiluted power")
+	)
+
+	# dial-device ticket 07: player_attack() ticks Dial.combat_turn_tick()
+	# once per player turn -- a tier-5 Recharge Movement regenerates charge
+	# passively in combat itself (PRD user story 14).
+	run_case("player_attack_ticks_dial_combat_turn_tick_for_tier5_recharge", func():
+		_fresh_combat()
+		var dial: Dictionary = _dial_with_loaded("timePearl", 1, 0)
+		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 5 }
+		dial["maxCharge"] = 20
+		GameState.state["player"]["dial"] = dial
+
+		for i in range(GameData.DIAL_RECHARGE_COMBAT_REGEN_TURNS):
+			Combat.player_attack()
+
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], GameData.DIAL_RECHARGE_COMBAT_REGEN_AMOUNT, "a tier-5 Recharge Movement should regenerate charge once per combat_turn_tick cadence during combat")
 	)
 
 	run_case("use_time_pearl_blocked_when_already_frozen", func():

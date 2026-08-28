@@ -11,25 +11,23 @@ extends RefCounted
 #   budget.
 # - ticket 04: the charge pool itself -- seating/unseating now activate/
 #   deactivate it, winding spends calc to fill it, and daily_regen() ticks
-#   it once a day (not yet wired into time_system.gd -- that's ticket 07's
-#   cutover).
+#   it once a day.
 # - ticket 05: casting a loaded Complication -- spends one charge (not the
 #   item), computes the base effect from Crafting.effect_power() at the
 #   loaded unit's tier, and amplifies it per the seated Movement's
 #   archetype. combat_turn_tick() gives a tier-5 Recharge Movement its
-#   in-combat regen. Neither is wired into combat.gd yet -- that's ticket
-#   07's cutover, same as daily_regen() above; every test here calls these
-#   functions directly, per the PRD's testing seam.
+#   in-combat regen.
 # - ticket 06: Dial XP and leveling -- casting a loaded Complication awards
 #   XP (Progression.award_xp(), same table mechanism as the old
 #   DEVICE_XP_LEVELS). maxCharge and capacityMax grow every level (the
 #   primary curves); rechargeRate grows on a deliberately sparser curve.
 #   Movements never modify capacity, and levelling never touches which
 #   Movement is seated or its attunement.
-#
-# systems/devices.gd and data/devices.json stay live and untouched until
-# ticket 07's cutover -- this module doesn't call into them and they don't
-# call into this one.
+# - ticket 07 (cutover): systems/devices.gd and data/devices.json are
+#   deleted outright. combat.gd's player_attack() calls combat_turn_tick()
+#   once per player turn; combat.gd's cast_complication() and combat_rewind()
+#   call cast_complication() above; time_system.gd's daily_tick calls
+#   daily_regen() in place of the old Devices.reset_daily_charges().
 
 
 static func seed_success_chance() -> float:
@@ -89,6 +87,28 @@ static func set_haft(haft_id: String) -> Dictionary:
 	player["dial"]["haftId"] = haft_id
 	EventBus.state_changed.emit()
 	return { "ok": true }
+
+
+# dial-device ticket 07: shared by hq.gd and bag_drawer.gd's Dial cards --
+# both rendered this same lookup independently before this ticket's cutover
+# gave the Dial its first UI surfaces.
+static func haft_name(dial: Dictionary) -> String:
+	return GameData.DIAL_HAFTS.get(dial["haftId"], {}).get("name", dial["haftId"])
+
+
+# dial-device ticket 07: shared by combat.gd's combat_rewind() and events.gd's
+# rewind() -- a loaded "rewind" Complication with at least one charge stands
+# in for the old equipped rewind device fallback (consumable is still
+# preferred by both callers when available). Returns -1 if none.
+static func find_loaded_rewind_complication_index() -> int:
+	var dial: Variant = GameState.state["player"]["dial"]
+	if dial == null or dial["currentCharge"] < 1:
+		return -1
+	var loaded: Array = dial["loadedComplications"]
+	for i in range(loaded.size()):
+		if loaded[i]["recipeKey"] == "rewind":
+			return i
+	return -1
 
 
 # Fully inert on the charge side: no Movement seated, zero charge/regen
@@ -549,13 +569,12 @@ static func wind(amount: int = 1) -> Dictionary:
 
 
 # User story 28: natural regen ticks once per day as part of the existing
-# daily cycle. Called from time_system.gd's daily_tick once ticket 07 wires
-# it in (replacing Devices.reset_daily_charges()'s step); until then nothing
-# calls this yet. Guarded the same lastRegenDay way
-# Devices.reset_daily_charges() guards devicesCompleted's lastResetDay, so
-# calling this more than once on the same day is a no-op -- including the
-# unconditional trailing emit, which mirrors reset_daily_charges()'s own
-# unconditional emit exactly (systems/devices.gd), not a mutation-gated one.
+# daily cycle. Called from time_system.gd's daily_tick (dial-device ticket
+# 07, replacing the old Devices.reset_daily_charges() step). Guarded the
+# same lastRegenDay way the old reset_daily_charges() guarded each device's
+# lastResetDay, so calling this more than once on the same day is a
+# no-op -- including the unconditional trailing emit, which mirrors that
+# old function's own unconditional emit exactly, not a mutation-gated one.
 # A null dial (no Dial seeded yet) is a silent no-op, not an error.
 static func daily_regen() -> void:
 	var player: Dictionary = GameState.state["player"]
@@ -657,12 +676,11 @@ static func _amplify_cast(base_power: Variant, movement: Variant) -> Dictionary:
 #
 # The only archetype whose top tier changes *when* charge regenerates
 # (design doc §Movement archetypes): every other Movement only recharges
-# between fights (daily_regen()) or via winding. Intended to be called once
-# per player combat turn once ticket 07 wires it into combat.gd's turn
-# loop (player_attack()) -- until then nothing calls this yet, same
-# not-yet-wired status as daily_regen() above. A null dial, no Movement, or
-# anything other than a tier-5 Recharge Movement seated is a silent no-op
-# with no state change and no emit, since there is nothing to tick.
+# between fights (daily_regen()) or via winding. Called once per player
+# combat turn from combat.gd's player_attack() (dial-device ticket 07). A
+# null dial, no Movement, or anything other than a tier-5 Recharge Movement
+# seated is a silent no-op with no state change and no emit, since there is
+# nothing to tick.
 static func combat_turn_tick() -> void:
 	var player: Dictionary = GameState.state["player"]
 	if player["dial"] == null:

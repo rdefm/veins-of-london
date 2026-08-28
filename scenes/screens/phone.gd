@@ -549,7 +549,7 @@ func _build_profile_equipment_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Equipment", 14))
 	c["content"].add_child(_equipped_weapon_label(player))
-	c["content"].add_child(_equipped_device_label(player))
+	c["content"].add_child(_dial_summary_label(player))
 	return c["panel"]
 
 
@@ -562,14 +562,19 @@ func _equipped_weapon_label(player: Dictionary) -> Control:
 	return UI.muted_label("Weapon: none equipped")
 
 
-func _equipped_device_label(player: Dictionary) -> Control:
-	var device_id: Variant = player["equipment"]["device"]
-	for device in player["devicesCompleted"]:
-		if device["id"] == device_id:
-			var dt: Dictionary = GameData.DEVICES[device["type"]]
-			var charges_left: int = device["chargesPerDay"] - device["chargesUsedToday"]
-			return UI.label("%s %s (equipped) — %d/%d charges" % [dt["symbol"], dt["name"], charges_left, device["chargesPerDay"]])
-	return UI.muted_label("Device: none equipped")
+# dial-device ticket 07: replaces _equipped_device_label -- the Dial is
+# lifetime-owned, not equipped/unequipped, so this is a read-only summary
+# rather than an "(equipped)" tag (same shape as bag_drawer.gd's own
+# duplicate of this label, ported the same way _equipped_weapon_label was).
+func _dial_summary_label(player: Dictionary) -> Control:
+	var dial: Variant = player["dial"]
+	if dial == null:
+		return UI.muted_label("Dial: none")
+	var movement: Variant = dial["movement"]
+	if movement == null:
+		return UI.label("Dial: Lv%d — no Movement seated (inert)" % dial["level"])
+	var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
+	return UI.label("Dial: Lv%d — %s %s, charge %d/%d" % [dial["level"], m["symbol"], m["name"], int(dial["currentCharge"]), dial["maxCharge"]])
 
 
 # ── Save/Load (11-phone-os-shell ticket 09) ──────────────────────────

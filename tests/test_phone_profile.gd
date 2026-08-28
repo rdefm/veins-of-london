@@ -111,7 +111,7 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("profile_shows_none_equipped_for_a_fresh_game_with_no_weapon_or_device", func():
+	run_case("profile_shows_none_equipped_for_a_fresh_game_with_no_weapon_or_dial", func():
 		GameState.reset()
 		GameState.state["phoneNav"]["app"] = "profile"
 
@@ -120,7 +120,7 @@ func run() -> void:
 
 		var texts := _label_texts(phone)
 		assert_true(texts.has("Weapon: none equipped"), "no weapon equipped on a fresh game")
-		assert_true(texts.has("Device: none equipped"), "no device equipped on a fresh game")
+		assert_true(texts.has("Dial: none"), "no Dial seeded on a fresh game")
 
 		phone.free()
 	)
@@ -143,19 +143,18 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("profile_shows_the_equipped_device_read_only_with_charges", func():
+	run_case("profile_shows_the_seated_dial_read_only", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
-		player["devicesCompleted"].append({ "id": "dev1", "type": "timeDevice", "chargesPerDay": 3, "chargesUsedToday": 1 })
-		player["equipment"]["device"] = "dev1"
+		player["dial"] = { "level": 2, "xp": 60, "currentCharge": 5, "maxCharge": 20, "rechargeRate": 2.0, "combatRegenTurnCounter": 0, "lastRegenDay": 0, "capacityMax": 6, "movement": { "archetype": "recharge", "oreType": "time", "tier": 2 }, "loadedComplications": [], "haftId": "collective_brolly" }
 		GameState.state["phoneNav"]["app"] = "profile"
 
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var dt: Dictionary = GameData.DEVICES["timeDevice"]
-		var expected := "%s %s (equipped) — %d/%d charges" % [dt["symbol"], dt["name"], 2, 3]
-		assert_true(_label_texts(phone).has(expected), "equipped device summary reads from GameData.DEVICES, including remaining charges")
+		var m: Dictionary = GameData.DIAL_MOVEMENTS["recharge"]
+		var expected := "Dial: Lv%d — %s %s, charge %d/%d" % [2, m["symbol"], m["name"], 5, 20]
+		assert_true(_label_texts(phone).has(expected), "seated Dial summary reads from GameData.DIAL_MOVEMENTS, including current/max charge")
 
 		phone.free()
 	)

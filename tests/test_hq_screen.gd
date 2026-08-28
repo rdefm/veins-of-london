@@ -173,18 +173,16 @@ func run() -> void:
 		hq._ready()
 
 		var lab_index := _direct_child_index_containing(hq._content, "The Lab")
-		var devices_progress_index := _direct_child_index_containing(hq._content, "Devices in progress")
-		var devices_start_index := _direct_child_index_containing(hq._content, "Start a new device")
+		var dial_index := _direct_child_index_containing(hq._content, "The Dial")
 		var security_index := _direct_child_index_containing(hq._content, "Security (")
 		var rooms_index := _direct_child_index_containing(hq._content, "Rooms (")
 
 		assert_true(lab_index != -1, "sanity: the Lab card must render")
-		assert_true(devices_progress_index != -1, "sanity: the Devices in progress heading must render")
-		assert_true(devices_start_index != -1, "sanity: the Start a new device heading must render")
+		assert_true(dial_index != -1, "sanity: the Dial heading must render")
 		assert_true(security_index != -1, "sanity: the Security section must render")
 		assert_true(rooms_index != -1, "sanity: the Rooms section must render")
 
-		for actionable_index in [lab_index, devices_progress_index, devices_start_index]:
+		for actionable_index in [lab_index, dial_index]:
 			assert_true(actionable_index < security_index, "actionable HQ content must render above the Security section")
 			assert_true(actionable_index < rooms_index, "actionable HQ content must render above the Rooms section")
 

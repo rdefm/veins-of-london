@@ -100,7 +100,7 @@ func _build_action_bar() -> Control:
 		or Crafting.inventory_qty("blast") > 0 or Crafting.inventory_qty("shield") > 0
 		or Crafting.inventory_qty("blackHole") > 0 or Crafting.inventory_qty("healingBurst") > 0
 		or Crafting.inventory_qty("prophetsBreath") > 0 or Crafting.inventory_qty("wormhole") > 0
-		or player["equipment"]["device"] != null
+		or (player["dial"] != null and not player["dial"]["loadedComplications"].is_empty())
 	)
 	var item_button := UI.button("🎒 Item", func(): Bag.open())
 	item_button.disabled = not has_items

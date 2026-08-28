@@ -73,7 +73,7 @@ static func can_rewind() -> bool:
 	var event_state = GameState.state["event"]
 	if event_state == null or event_state["snapshots"].is_empty():
 		return false
-	return Crafting.inventory_qty("rewind") > 0 or _find_equipped_rewind_device_with_charge() != null
+	return Crafting.inventory_qty("rewind") > 0 or Dial.find_loaded_rewind_complication_index() >= 0
 
 
 # Continue: snapshots full state, then either reveals the next card or
@@ -154,8 +154,7 @@ static func rewind() -> Dictionary:
 
 	var event_state: Dictionary = GameState.state["event"]
 	var has_consumable: bool = Crafting.inventory_qty("rewind") > 0
-	var device = _find_equipped_rewind_device_with_charge()
-	var device_id = device["id"] if device != null else null
+	var rewind_index: int = Dial.find_loaded_rewind_complication_index()
 
 	var stack: Array = event_state["snapshots"]
 	var snap: Dictionary = Snapshots.pop_newest(stack)
@@ -167,25 +166,11 @@ static func rewind() -> Dictionary:
 	if has_consumable:
 		Crafting.inventory_remove("rewind", 1)
 	else:
-		Devices.activate(device_id)
+		Dial.cast_complication(rewind_index)
 
 	Notify.push("⟲ Time unspools. The moment resets. Only you remember.")
 	EventBus.state_changed.emit()
 	return { "ok": true }
-
-
-static func _find_equipped_rewind_device_with_charge() -> Variant:
-	var player: Dictionary = GameState.state["player"]
-	var device_id = player["equipment"]["device"]
-	if device_id == null:
-		return null
-	for d in player["devicesCompleted"]:
-		if d["id"] == device_id:
-			var dt: Dictionary = GameData.DEVICES[d["type"]]
-			if dt["effect"] == "rewind" and d["chargesUsedToday"] < d["chargesPerDay"]:
-				return d
-			return null
-	return null
 
 
 # ── effect ops ──────────────────────────────────────────────────────────

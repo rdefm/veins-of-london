@@ -328,7 +328,7 @@ func run() -> void:
 		assert_eq(GameData.FACTION_TRADE["collective"]["anchorRelation"], 0, "collective trade lane anchors at relation 0, not joinRelation")
 		assert_eq(GameData.FACTION_TRADE["guild"]["anchorRelation"], 40, "guild trade lane still anchors at its joinRelation")
 		assert_almost_eq(GameData.BAROMETER_STATES["economic"]["crisis"]["effects"]["fatePremium"], 0.5, 0.0001, "crisis fatePremium (migrated from void)")
-		assert_eq(GameData.DEVICES["enhancementDevice"]["recipeKey"], "enhancementPowder", "enhancementDevice recipeKey")
+		assert_eq(GameData.DIAL_MOVEMENTS["capacitor"]["windingCostPerCharge"][1], 5, "capacitor Movement tier-1 windingCostPerCharge")
 		assert_eq(GameData.CONSUMABLE_PRICES["timePearl"], 120, "timePearl consumable price")
 		assert_eq(GameData.SEED_ORE_COST, 40, "SEED_ORE_COST")
 		assert_eq(GameData.ARCHIE_ORE_GOAL, 10, "ARCHIE_ORE_GOAL")

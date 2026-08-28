@@ -67,24 +67,8 @@ func _refresh() -> void:
 	# only entry point for both crafting and experimenting.
 	_content.add_child(_build_lab_card())
 
-	_content.add_child(UI.heading("Devices in progress", 14))
-	var player: Dictionary = GameState.state["player"]
-	if player["devicesInProgress"].is_empty():
-		_content.add_child(UI.muted_label("No devices in progress."))
-	else:
-		for device in player["devicesInProgress"]:
-			_content.add_child(_build_device_progress_card(device))
-
-	_content.add_child(UI.heading("Start a new device", 14))
-	var any_unlocked := false
-	for device_key in GameData.DEVICES.keys():
-		var dt: Dictionary = GameData.DEVICES[device_key]
-		if not GameState.state["flags"].get(dt["unlockFlag"], false):
-			continue
-		any_unlocked = true
-		_content.add_child(_build_device_start_row(device_key))
-	if not any_unlocked:
-		_content.add_child(UI.muted_label("No device types unlocked yet."))
+	_content.add_child(UI.heading("The Dial", 14))
+	_content.add_child(_build_dial_card())
 
 	# Property — passive reference info, collapsible and pushed below the
 	# actionable cards above.
@@ -314,43 +298,58 @@ func _build_lab_card() -> Control:
 	return c["panel"]
 
 
-# ── devices ────────────────────────────────────────────────────────────
+# ── the Dial (dial-device ticket 07 — replaces the old devices section) ──
+#
+# Seeding and Movement-crafting live here, HQ's "build" role for the old
+# devices section; seating/unseating a Movement, loading/unloading
+# Complications, and winding are equip-style actions and live in
+# bag_drawer.gd's management mode instead, matching how weapon equip has
+# always lived there rather than in HQ.
 
-func _build_device_progress_card(device: Dictionary) -> Control:
-	var dt: Dictionary = GameData.DEVICES[device["type"]]
-	var skill: int = GameState.state["player"]["craftingSkill"]
-	var cost: int = Devices.get_device_calc_cost(device["type"], skill)
-	var have: int = GameState.state["player"]["orichalchum"].get(dt["calcType"], 0)
-	var can_attempt: bool = have >= cost
-	var pct: int = int(round(device["progress"]))
-	var device_id: String = device["id"]
-
+func _build_dial_card() -> Control:
+	var player: Dictionary = GameState.state["player"]
+	var dial: Variant = player["dial"]
 	var c := UI.card()
-	c["content"].add_child(UI.heading("%s %s — %d%%" % [dt["symbol"], dt["name"], pct], 15))
-	c["content"].add_child(UI.bar(device["progress"], 100.0))
-	c["content"].add_child(UI.label("Cost per attempt: %d %s   You have: %d" % [cost, GameData.ORE_TYPES[dt["calcType"]]["symbol"], have]))
 
-	var actions := UI.hbox()
-	var attempt_button := UI.button("Attempt", func(): Devices.attempt_device_build(device_id))
-	attempt_button.disabled = not can_attempt
-	actions.add_child(attempt_button)
-	actions.add_child(UI.button("Abandon", func(): Devices.abandon_device(device_id)))
-	c["content"].add_child(actions)
+	if dial == null:
+		# PROSE-REVIEW: new Dial-seeding copy below, drafted against
+		# CONTENT-GUIDE.md's tone bible -- undrafted-by-a-human, same status
+		# as the haft display names (§1.4).
+		if GameState.state["flags"].get("dialGiftGranted", false):
+			c["content"].add_child(UI.label("You've been given something rare. It wants a name."))
+			c["content"].add_child(UI.muted_label(UI.format_cost_label(GameData.DIAL_SEED_COST, player["orichalchum"])))
+			for haft_id in GameData.DIAL_HAFTS.keys():
+				var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
+				var captured_haft_id: String = haft_id
+				c["content"].add_child(UI.button("Seed as \"%s\"" % haft["name"], func(): Dial.attempt_seed(captured_haft_id)))
+		else:
+			c["content"].add_child(UI.muted_label("No Dial. Nothing's offered you the gift yet."))
+		return c["panel"]
+
+	var haft_name: String = Dial.haft_name(dial)
+	c["content"].add_child(UI.heading("Level %d Dial — %s" % [dial["level"], haft_name], 15))
+	c["content"].add_child(UI.label("Charge: %d/%d (regen %s/day)" % [int(dial["currentCharge"]), dial["maxCharge"], str(dial["rechargeRate"])]))
+	c["content"].add_child(UI.bar(dial["currentCharge"], maxf(1.0, dial["maxCharge"])))
+	c["content"].add_child(UI.label("Capacity: %d/%d" % [Dial.capacity_used(dial), dial["capacityMax"]]))
+
+	_build_movement_crafting_section(c["content"], player)
 
 	return c["panel"]
 
 
-func _build_device_start_row(device_key: String) -> Control:
-	var dt: Dictionary = GameData.DEVICES[device_key]
-	var skill: int = GameState.state["player"]["craftingSkill"]
-	var cost: int = Devices.get_device_calc_cost(device_key, skill)
-	var have: int = GameState.state["player"]["orichalchum"].get(dt["calcType"], 0)
-
-	var c := UI.card()
-	c["content"].add_child(UI.label("%s %s" % [dt["symbol"], dt["name"]]))
-	c["content"].add_child(UI.muted_label("%d %s per attempt · have %d" % [cost, GameData.ORE_TYPES[dt["calcType"]]["name"], have]))
-	var b := UI.button("Begin", func(): Devices.start_device(device_key))
-	b.disabled = have < cost
-	c["content"].add_child(b)
-
-	return c["panel"]
+func _build_movement_crafting_section(content: VBoxContainer, player: Dictionary) -> void:
+	content.add_child(UI.heading("Craft a Movement", 13))
+	var skill: int = player["craftingSkill"]
+	for archetype in GameData.CANONICAL_MOVEMENT_ARCHETYPES:
+		var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
+		var cost: int = Dial.movement_calc_cost(archetype, skill)
+		content.add_child(UI.muted_label("%s %s — %d calc, chance %d%%" % [m["symbol"], m["name"], cost, int(round(Dial.movement_craft_chance(archetype, skill) * 100))]))
+		var row := UI.hbox()
+		for ore_type in GameData.ORE_TYPES.keys():
+			var have: int = player["orichalchum"].get(ore_type, 0)
+			var captured_archetype: String = archetype
+			var captured_ore: String = ore_type
+			var b := UI.button("%s" % GameData.ORE_TYPES[ore_type]["symbol"], func(): Dial.attempt_craft_movement(captured_archetype, captured_ore))
+			b.disabled = have < cost
+			row.add_child(b)
+		content.add_child(row)

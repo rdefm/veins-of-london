@@ -4,7 +4,7 @@ extends RefCounted
 # Daily processing for the lab and veinStation rooms per R§3.10. Static
 # funcs only.
 
-# R§1.3 has no unlockFlag column for recipes (unlike devices), but R§3.10
+# R§1.3 has no unlockFlag column for recipes, but R§3.10
 # says the lab crafts each "unlocked recipe" — this mirrors the HTML's
 # per-recipe checks with the R§7 rename applied (motionPowder ->
 # enhancementPowder, motionPowderUnlocked -> enhancementUnlocked).

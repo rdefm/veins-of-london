@@ -14,13 +14,9 @@ var RECIPES: Dictionary = {}
 var CRAFTING_XP_LEVELS: Array = []
 var CONSUMABLE_PRICES: Dictionary = {}
 
-var DEVICE_XP_LEVELS: Array = []
-var DEVICES: Dictionary = {}
-
-# dial-device ticket 01: data/dial.json -- Dial.attempt_seed()'s cost/chance
-# inputs and the cosmetic haft whitelist. Does not replace DEVICES/
-# DEVICE_XP_LEVELS above yet -- systems/devices.gd stays live until ticket
-# 07's cutover.
+# dial-device ticket 07: data/dial.json -- Dial.attempt_seed()'s cost/chance
+# inputs and the cosmetic haft whitelist. Replaces the old data/devices.json/
+# DEVICE_XP_LEVELS/DEVICES table, deleted at this ticket's cutover.
 var DIAL_SEED_COST: Dictionary = {}
 var DIAL_SEED_BASE_SUCCESS: float = 0.0
 var DIAL_HAFTS: Dictionary = {}
@@ -249,10 +245,6 @@ func load_all() -> void:
 	CRAFTING_XP_LEVELS = recipes.get("craftingXpLevels", [])
 	CONSUMABLE_PRICES = recipes.get("consumablePrices", {})
 
-	var devices := _load_json("res://data/devices.json")
-	DEVICE_XP_LEVELS = devices.get("deviceXpLevels", [])
-	DEVICES = devices.get("devices", {})
-
 	var dial := _load_json("res://data/dial.json")
 	DIAL_SEED_COST = dial.get("seedCost", {})
 	DIAL_SEED_BASE_SUCCESS = dial.get("seedBaseSuccess", 0.0)
@@ -345,7 +337,6 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_ore_types(t.get("ore_types", {}), errors)
 	_validate_vein_growth(t.get("vein_growth", {}), t.get("cultivating_xp_levels", []), errors)
 	_validate_recipes(t.get("recipes", {}), t.get("ore_types", {}), errors)
-	_validate_devices(t.get("devices", {}), t.get("recipes", {}), t.get("ore_types", {}), errors)
 	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_base_max_charge", 0), t.get("dial_base_recharge_rate", 0.0), t.get("dial_recharge_combat_regen_turns", 0), t.get("dial_recharge_combat_regen_amount", 0), t.get("dial_hafts", {}), t.get("dial_movements", {}), t.get("dial_attunement_bonus_by_tier", []), t.get("dial_capacity_by_level", []), t.get("dial_xp_levels", []), t.get("dial_max_charge_bonus_by_level", []), t.get("dial_recharge_rate_bonus_by_level", []), errors)
 	_validate_items(t.get("items", {}), errors)
 	_validate_vein_security(t.get("vein_security", {}), errors)
@@ -377,7 +368,6 @@ func snapshot() -> Dictionary:
 		"vein_growth": VEIN_GROWTH,
 		"cultivating_xp_levels": CULTIVATING_XP_LEVELS,
 		"recipes": RECIPES,
-		"devices": DEVICES,
 		"dial_seed_cost": DIAL_SEED_COST,
 		"dial_seed_base_success": DIAL_SEED_BASE_SUCCESS,
 		"dial_base_max_charge": DIAL_BASE_MAX_CHARGE,
@@ -508,22 +498,12 @@ func _validate_recipes(recipes: Dictionary, ore_types: Dictionary, errors: Array
 			errors.append("recipes.%s: capacityCost must be > 0" % key)
 
 
-func _validate_devices(devices: Dictionary, recipes: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:
-	for key in devices.keys():
-		var entry = devices[key]
-		_require_keys(entry, ["name", "symbol", "calcType", "recipeKey", "effect", "unlockFlag", "eventUsable"], "devices.%s" % key, errors)
-		if entry.has("calcType") and not ore_types.has(entry["calcType"]):
-			errors.append("devices.%s: calcType '%s' is not a known ore type" % [key, entry["calcType"]])
-		if entry.has("recipeKey") and not recipes.is_empty() and not recipes.has(entry["recipeKey"]):
-			errors.append("devices.%s: recipeKey '%s' is not a known recipe" % [key, entry["recipeKey"]])
-
-
 # dial-device ticket 01: seedCost must cover every canonical ore type (the
 # PRD's "mixed five-ore-type cost" decision) -- unlike a recipe's
 # ingredients dict, a partial cost here would silently let seeding skip an
 # ore type. Hafts are cosmetic-only (Implementation Decisions: "no stat
 # fields and no code path that reads a haft for anything but display") so
-# each only needs a display name, not the fuller schema recipes/devices use.
+# each only needs a display name, not the fuller schema recipes/movements use.
 func _validate_dial(seed_cost: Dictionary, seed_base_success: float, base_max_charge: int, base_recharge_rate: float, recharge_combat_regen_turns: int, recharge_combat_regen_amount: int, hafts: Dictionary, movements: Dictionary, attunement_bonus_by_tier: Array, capacity_by_level: Array, xp_levels: Array, max_charge_bonus_by_level: Array, recharge_rate_bonus_by_level: Array, errors: Array[String]) -> void:
 	for ore_key in CANONICAL_ORE_TYPES:
 		if not seed_cost.has(ore_key):

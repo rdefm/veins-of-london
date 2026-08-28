@@ -31,6 +31,12 @@ const BLAST_FLEE_BOOST_CHANCE := 0.90
 const BLAST_DISARM_CHANCE := 0.15
 const BLAST_DISARM_TURNS := 2
 
+# dial-device ticket 07: recipeKeys with a defined combat effect --
+# cast_complication() refuses to cast anything else loaded in the Dial
+# (rejuvenation/beALady/pansPrank/healingSalve have no in-combat mechanic;
+# rewind is cast via combat_rewind()'s own fallback, not this).
+const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole"]
+
 # 44-archie-combat-ally: below this fraction of hpMax, an ally spends their
 # turn on their own stash instead of attacking (self-preservation over
 # damage, since they have no player to hand a Healing Burst to).
@@ -301,6 +307,10 @@ static func player_attack() -> Dictionary:
 		return { "ok": false, "reason": "Combat not active." }
 
 	push_combat_snapshot()
+	# dial-device ticket 07: tier-5 Recharge Movement's in-combat regen ticks
+	# once per player turn (Dial.combat_turn_tick() is a silent no-op for
+	# every other Movement/no-Dial case).
+	Dial.combat_turn_tick()
 
 	var attack_count := 1
 	if combat["motionTurns"] > 0:
@@ -676,47 +686,109 @@ static func use_wormhole() -> Dictionary:
 	return { "ok": true }
 
 
-# Equipped non-rewind device (freeze/motion effect). Rewind devices are
-# used via combat_rewind(), not this.
-static func use_device() -> Dictionary:
+# dial-device ticket 07: replaces use_device() -- casts a loaded Complication
+# by its player.dial.loadedComplications index instead of activating a single
+# equipped device. "rewind" is refused here (same shape as use_device()'s old
+# rewind refusal) since it's cast via combat_rewind()'s own consumable/
+# Complication fallback instead, not this. Every "already active" guard below
+# runs BEFORE Dial.cast_complication() spends a charge, mirroring each
+# use_*()'s own guard order -- a blocked cast must never cost a charge.
+static func cast_complication(index: int) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 
 	var player: Dictionary = GameState.state["player"]
-	var device_id = player["equipment"]["device"]
-	if device_id == null:
-		return { "ok": false, "reason": "No device equipped." }
+	var dial: Variant = player["dial"]
+	if dial == null:
+		return { "ok": false, "reason": "No Dial." }
+	var loaded: Array = dial["loadedComplications"]
+	if index < 0 or index >= loaded.size():
+		return { "ok": false, "reason": "No such Complication." }
 
-	var device = null
-	for d in player["devicesCompleted"]:
-		if d["id"] == device_id:
-			device = d
-			break
-	if device == null:
-		return { "ok": false, "reason": "Device not found." }
+	var recipe_key: String = loaded[index]["recipeKey"]
+	if recipe_key == "rewind":
+		return { "ok": false, "reason": "Use Rewind for a rewind unit." }
+	if not COMBAT_COMPLICATION_RECIPES.has(recipe_key):
+		return { "ok": false, "reason": "No combat effect for that unit." }
 
-	var dt: Dictionary = GameData.DEVICES[device["type"]]
-	if dt["effect"] == "rewind":
-		return { "ok": false, "reason": "Use Rewind for a rewind device." }
+	if recipe_key == "timePearl" and combat["frozenTurns"] > 0:
+		# PROSE-REVIEW: new "already frozen" block line (Complication-flavoured
+		# variant of use_time_pearl()'s "Save the pearl."), drafted against
+		# CONTENT-GUIDE.md's tone bible.
+		combat["log"].append("Already frozen. Save the charge.")
+		EventBus.state_changed.emit()
+		return { "ok": false, "reason": "Already frozen." }
+	if recipe_key == "enhancementPowder" and combat["motionTurns"] > 0:
+		combat["log"].append("Already moving fast. Wait for it to wear off.")
+		EventBus.state_changed.emit()
+		return { "ok": false, "reason": "Already moving fast." }
+	if recipe_key == "shield" and player["shieldPool"] > 0:
+		combat["log"].append("Shield's already up. Save it.")
+		EventBus.state_changed.emit()
+		return { "ok": false, "reason": "Shield already active." }
 
-	var activation := Devices.activate(device_id)
-	if not activation["ok"]:
-		return activation
+	var cast: Dictionary = Dial.cast_complication(index)
+	if not cast["ok"]:
+		return cast
 
-	if dt["effect"] == "freeze":
-		var power = Crafting.effect_power("timePearl", player["craftingSkill"])
-		combat["frozenTurns"] += power
-		var turn_word: String = "turn" if power == 1 else "turns"
-		combat["log"].append("You activate the %s. Enemy frozen for %d %s." % [dt["name"], power, turn_word])
-	elif dt["effect"] == "motion":
-		var power = Crafting.effect_power("enhancementPowder", player["craftingSkill"])
-		combat["motionTurns"] += 2
-		combat["motionPower"] = power
-		combat["log"].append("You activate the %s. Movement accelerated." % dt["name"])
+	var power = cast["power"]
+	var targets: int = cast["targets"]
+	var recipe: Dictionary = GameData.RECIPES[recipe_key]
+	var enemy: Dictionary = combat["enemy"]
+
+	# targets > 1 (a tier-indexed Spread Movement) has no per-target dilution
+	# by design (PRD user story 16) -- with combat's single-enemy model,
+	# "hit every target at full power" collapses to repeating the effect at
+	# full, un-diluted power once per target against the one enemy present.
+	#
+	# PROSE-REVIEW: every "You trigger %s..." log line below is new,
+	# Complication-flavoured phrasing (the old device-activation lines read
+	# "You activate the %s...") drafted against CONTENT-GUIDE.md's tone bible.
+	match recipe_key:
+		"timePearl":
+			var total: int = int(power) * targets
+			combat["frozenTurns"] += total
+			var turn_word: String = "turn" if total == 1 else "turns"
+			combat["log"].append("You trigger %s. Enemy frozen for %d %s." % [recipe["name"], total, turn_word])
+		"enhancementPowder":
+			combat["motionPower"] = power
+			combat["motionTurns"] = 2 if power >= 3 else 1
+			combat["log"].append("You trigger %s. Movement accelerated." % recipe["name"])
+		"blast":
+			var dmg: int = int(power) * targets
+			enemy["hp"] = maxi(0, enemy["hp"] - dmg)
+			combat["log"].append("You trigger %s — %d damage. Enemy: %d/%d HP." % [recipe["name"], dmg, enemy["hp"], enemy["hpMax"]])
+			combat["blastFleeBoost"] = true
+			if Rng.chance(BLAST_DISARM_CHANCE):
+				disarm_enemy(enemy, BLAST_DISARM_TURNS)
+				combat["log"].append("The shove knocks their weapon loose.")
+			_maybe_win_from_direct_damage(combat, enemy)
+		"shield":
+			player["shieldPool"] += int(power) * targets
+			combat["log"].append("You trigger %s. Shield up — %d absorption." % [recipe["name"], player["shieldPool"]])
+		"blackHole":
+			var dmg: int = int(power) * targets
+			enemy["hp"] = maxi(0, enemy["hp"] - dmg)
+			var freeze_turns: int = (1 + int(floor(float(power) / 8.0))) * targets
+			combat["frozenTurns"] += freeze_turns
+			combat["log"].append("You trigger %s — %d damage, and the wreckage folds in on itself. Enemy frozen %d turn(s)." % [recipe["name"], dmg, freeze_turns])
+			_maybe_win_from_direct_damage(combat, enemy)
+		"healingBurst":
+			var old_hp: int = player["hp"]
+			player["hp"] = mini(player["hp"] + int(power) * targets, player["hpMax"])
+			var healed: int = player["hp"] - old_hp
+			combat["log"].append("You trigger %s — +%d HP. %d/%d HP." % [recipe["name"], healed, player["hp"], player["hpMax"]])
+		"prophetsBreath":
+			combat["evadeTurns"] = int(power) * targets
+			combat["evadeChance"] = 0.50
+			combat["log"].append("You trigger %s. For a few seconds, you can see it coming." % recipe["name"])
+		"wormhole":
+			combat["outcome"] = "fled"
+			combat["log"].append("You trigger %s. You fold the space between you and gone." % recipe["name"])
 
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return { "ok": true, "recipeKey": recipe_key, "power": power, "targets": targets }
 
 
 static func combat_rewind() -> Dictionary:
@@ -726,16 +798,16 @@ static func combat_rewind() -> Dictionary:
 
 	var player: Dictionary = GameState.state["player"]
 	var has_consumable: bool = Crafting.inventory_qty("rewind") > 0
-	var rewind_device = _find_equipped_rewind_device_with_charge()
-	var has_device: bool = rewind_device != null
+	var rewind_index: int = Dial.find_loaded_rewind_complication_index()
+	var has_complication: bool = rewind_index >= 0
 
-	if not has_consumable and not has_device:
+	if not has_consumable and not has_complication:
 		return { "ok": false, "reason": "No rewind available." }
 
 	if has_consumable:
 		Crafting.inventory_remove("rewind", 1)
 	else:
-		Devices.activate(rewind_device["id"])
+		Dial.cast_complication(rewind_index)
 
 	_restore_from_snapshot(combat, player)
 
@@ -785,19 +857,6 @@ static func _try_failsafe(combat: Dictionary, player: Dictionary) -> bool:
 	combat["log"].append("⚑ Failsafe fires. Death, reversed -- administratively.")
 	return true
 
-
-static func _find_equipped_rewind_device_with_charge() -> Variant:
-	var player: Dictionary = GameState.state["player"]
-	var device_id = player["equipment"]["device"]
-	if device_id == null:
-		return null
-	for d in player["devicesCompleted"]:
-		if d["id"] == device_id:
-			var dt: Dictionary = GameData.DEVICES[d["type"]]
-			if dt["effect"] == "rewind" and d["chargesUsedToday"] < d["chargesPerDay"]:
-				return d
-			return null
-	return null
 
 
 static func _dispatch_on_win() -> void:
