@@ -18,7 +18,7 @@ static func _fund_seed_cost(multiplier: int = 1) -> void:
 # ticket 02 fixtures.
 
 static func _dial_no_movement() -> Dictionary:
-	return { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "lastRegenDay": 1, "capacityMax": 0, "movement": null, "loadedComplications": [], "haftId": HAFT_ID }
+	return { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "combatRegenTurnCounter": 0, "lastRegenDay": 1, "capacityMax": 0, "movement": null, "loadedComplications": [], "haftId": HAFT_ID }
 
 
 # Same shape as test_sites.gd/test_cultivating.gd's own _find_seed_for.
@@ -732,4 +732,224 @@ func run() -> void:
 		GameState.reset()
 		Dial.daily_regen()
 		assert_eq(GameState.state["player"]["dial"], null, "no dial means nothing to regen")
+	)
+
+	# ── ticket 05: casting a loaded Complication ─────────────────────────
+
+	run_case("cast_complication_refuses_with_no_dial", func():
+		GameState.reset()
+		var result := Dial.cast_complication(0)
+		assert_true(not result["ok"], "casting with no Dial should be refused")
+	)
+
+	run_case("cast_complication_refuses_an_out_of_range_index", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial_no_movement()
+		var result := Dial.cast_complication(0)
+		assert_true(not result["ok"], "casting from an empty loadedComplications should be refused")
+	)
+
+	run_case("cast_complication_refuses_with_currentCharge_at_zero", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["maxCharge"] = 10
+		dial["currentCharge"] = 0
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+
+		var result := Dial.cast_complication(0)
+		assert_true(not result["ok"], "casting at 0 currentCharge should be refused")
+	)
+
+	run_case("cast_complication_spends_exactly_one_charge_and_does_not_touch_inventory", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["maxCharge"] = 10
+		dial["currentCharge"] = 5
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+
+		var result := Dial.cast_complication(0)
+		assert_true(result["ok"], "casting with charge available and a valid index should succeed")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 4, "casting should spend exactly one charge")
+		assert_eq(GameState.state["player"]["dial"]["loadedComplications"].size(), 1, "casting must not unload the Complication")
+		assert_eq(Crafting.inventory_qty("blast"), 0, "casting must never touch the regular tiered inventory")
+	)
+
+	run_case("cast_complication_effect_is_effect_power_at_the_loaded_tier_with_no_movement_seated", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["maxCharge"] = 10
+		dial["currentCharge"] = 5
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+
+		var result := Dial.cast_complication(0)
+		assert_eq(result["power"], Crafting.effect_power("blast", 4), "cast power should equal effect_power() at the loaded unit's own tier, unamplified with no Movement seated")
+		assert_eq(result["targets"], 1, "no Movement seated means a single, unextended target")
+	)
+
+	run_case("cast_complication_ignores_the_players_current_crafting_skill_and_uses_the_loaded_tier_instead", func():
+		GameState.reset()
+		GameState.state["player"]["craftingSkill"] = 1  # would give a much lower effect_power if read instead of the loaded tier
+		var dial := _dial_no_movement()
+		dial["maxCharge"] = 10
+		dial["currentCharge"] = 5
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 5, "capacityCost": 3, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+
+		var result := Dial.cast_complication(0)
+		assert_eq(result["power"], Crafting.effect_power("blast", 5), "cast power must come from the loaded tier, not the player's current crafting skill")
+	)
+
+	run_case("cast_complication_impact_movement_amplifies_power_by_its_tier_bonus", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["maxCharge"] = 10
+		dial["currentCharge"] = 5
+		dial["movement"] = { "archetype": "impact", "oreType": "physics", "tier": 5 }
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+
+		var result := Dial.cast_complication(0)
+		var base_power: int = Crafting.effect_power("blast", 4)
+		var expected: int = GameState.round_epsilon(float(base_power) * (1.0 + GameData.DIAL_MOVEMENTS["impact"]["bonus"][5]))
+		assert_eq(result["power"], expected, "an Impact Movement should multiply the base power by its tier-indexed bonus")
+		assert_eq(result["targets"], 1, "Impact never extends the target count")
+	)
+
+	run_case("cast_complication_spread_movement_hits_every_target_at_full_power_no_dilution", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["maxCharge"] = 10
+		dial["currentCharge"] = 5
+		dial["movement"] = { "archetype": "spread", "oreType": "physics", "tier": 3 }
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+
+		var result := Dial.cast_complication(0)
+		var base_power: int = Crafting.effect_power("blast", 4)
+		var expected_targets: int = 1 + int(GameData.DIAL_MOVEMENTS["spread"]["bonus"][3])
+		assert_eq(result["power"], base_power, "Spread must never dilute per-target power")
+		assert_eq(result["targets"], expected_targets, "Spread's tier-indexed bonus is an extra-target count on top of the normal single target")
+		assert_true(result["targets"] > 1, "a Spread cast at tier 3 should extend to more than one target")
+	)
+
+	run_case("cast_complication_recharge_or_capacitor_seated_leaves_the_cast_unamplified", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["maxCharge"] = 10
+		dial["currentCharge"] = 5
+		dial["movement"] = { "archetype": "capacitor", "oreType": "physics", "tier": 5 }
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+
+		var result := Dial.cast_complication(0)
+		assert_eq(result["power"], Crafting.effect_power("blast", 4), "Capacitor's bonus is charge economy, not effect magnitude -- casting under it is unamplified")
+		assert_eq(result["targets"], 1, "Capacitor never extends the target count")
+	)
+
+	# ── ticket 05: direct-throw regression (untouched by this whole PRD) ──
+
+	run_case("direct_throw_of_an_unloaded_consumable_still_destroys_the_unit_and_applies_no_amplification", func():
+		GameState.reset()
+		GameState.state["player"]["craftingSkill"] = 3
+		Crafting.inventory_add("blast", 3, 1)
+		GameState.state["combat"] = {
+			"active": true, "context": Combat.CONTEXT_MUGGING, "veinId": null,
+			"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "veinId": null, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0 },
+			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [],
+			"allies": [],
+		}
+		# A high-tier Impact Movement seated on the player's Dial must have
+		# zero effect on this path -- amplification is exclusive to
+		# Dial.cast_complication() (User story 23).
+		var dial := _dial_no_movement()
+		dial["capacityMax"] = 10
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "impact", "oreType": "physics", "tier": 5 }]
+		Dial.seat_movement(0)
+
+		Combat.use_blast()
+
+		var expected_power: int = Crafting.effect_power("blast", 3)
+		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		assert_eq(enemy["hp"], 100 - expected_power, "direct-thrown Blast must deal exactly its unamplified effect_power, ignoring the seated Impact Movement entirely")
+		assert_eq(Crafting.inventory_qty("blast"), 0, "throwing directly still destroys the unit, exactly as before this PRD")
+	)
+
+	# ── ticket 05: tier-5 Recharge Movement's in-combat regen ────────────
+
+	run_case("combat_turn_tick_is_a_no_op_with_no_dial", func():
+		GameState.reset()
+		Dial.combat_turn_tick()
+		assert_eq(GameState.state["player"]["dial"], null, "no dial means nothing to tick")
+	)
+
+	run_case("combat_turn_tick_is_a_no_op_with_no_movement_seated", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial_no_movement()
+		Dial.combat_turn_tick()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 0, "no Movement seated means nothing to tick")
+	)
+
+	run_case("combat_turn_tick_is_a_no_op_for_a_below_tier_5_recharge_movement", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 4 }
+		dial["maxCharge"] = 20
+		dial["currentCharge"] = 0
+		GameState.state["player"]["dial"] = dial
+
+		for i in range(GameData.DIAL_RECHARGE_COMBAT_REGEN_TURNS * 2):
+			Dial.combat_turn_tick()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 0, "only a tier-5 Recharge Movement gets in-combat regen")
+	)
+
+	run_case("combat_turn_tick_is_a_no_op_for_a_tier_5_non_recharge_movement", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "capacitor", "oreType": "physics", "tier": 5 }
+		dial["maxCharge"] = 20
+		dial["currentCharge"] = 0
+		GameState.state["player"]["dial"] = dial
+
+		for i in range(GameData.DIAL_RECHARGE_COMBAT_REGEN_TURNS * 2):
+			Dial.combat_turn_tick()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 0, "in-combat regen is exclusive to the Recharge archetype")
+	)
+
+	run_case("combat_turn_tick_regenerates_charge_every_n_turns_for_a_tier_5_recharge_movement", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 5 }
+		dial["maxCharge"] = 20
+		dial["currentCharge"] = 0
+		GameState.state["player"]["dial"] = dial
+
+		var turns: int = GameData.DIAL_RECHARGE_COMBAT_REGEN_TURNS
+		for i in range(turns - 1):
+			Dial.combat_turn_tick()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 0, "no regen tick until the full turn cadence has elapsed")
+
+		Dial.combat_turn_tick()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], GameData.DIAL_RECHARGE_COMBAT_REGEN_AMOUNT, "a full cadence of turns should add exactly one regen tick's worth of charge")
+
+		for i in range(turns - 1):
+			Dial.combat_turn_tick()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], GameData.DIAL_RECHARGE_COMBAT_REGEN_AMOUNT, "the counter should have reset after firing, not fire again early")
+	)
+
+	run_case("combat_turn_tick_caps_at_maxCharge", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 5 }
+		dial["maxCharge"] = GameData.DIAL_RECHARGE_COMBAT_REGEN_AMOUNT
+		dial["currentCharge"] = GameData.DIAL_RECHARGE_COMBAT_REGEN_AMOUNT
+		GameState.state["player"]["dial"] = dial
+
+		for i in range(GameData.DIAL_RECHARGE_COMBAT_REGEN_TURNS):
+			Dial.combat_turn_tick()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], GameData.DIAL_RECHARGE_COMBAT_REGEN_AMOUNT, "in-combat regen should cap at maxCharge, not overshoot")
 	)

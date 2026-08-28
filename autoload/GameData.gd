@@ -31,6 +31,13 @@ var DIAL_HAFTS: Dictionary = {}
 var DIAL_BASE_MAX_CHARGE: int = 0
 var DIAL_BASE_RECHARGE_RATE: float = 0.0
 
+# dial-device ticket 05: the tier-5 Recharge Movement's defining top-tier
+# trait -- Dial.combat_turn_tick() adds this amount every N player turns
+# while a tier-5 Recharge Movement is seated, independent of the daily
+# rechargeRate ticked by Dial.daily_regen().
+var DIAL_RECHARGE_COMBAT_REGEN_TURNS: int = 0
+var DIAL_RECHARGE_COMBAT_REGEN_AMOUNT: int = 0
+
 # dial-device ticket 02: data/dial.json's "movements" table (Dial.
 # attempt_craft_movement()'s per-archetype baseSuccess/ingredientBase/
 # xpReward plus its tier-indexed bonus/downside arrays) and the shared
@@ -239,6 +246,8 @@ func load_all() -> void:
 	DIAL_SEED_BASE_SUCCESS = dial.get("seedBaseSuccess", 0.0)
 	DIAL_BASE_MAX_CHARGE = dial.get("baseMaxCharge", 0)
 	DIAL_BASE_RECHARGE_RATE = dial.get("baseRechargeRate", 0.0)
+	DIAL_RECHARGE_COMBAT_REGEN_TURNS = dial.get("rechargeCombatRegenEveryTurns", 0)
+	DIAL_RECHARGE_COMBAT_REGEN_AMOUNT = dial.get("rechargeCombatRegenAmount", 0)
 	DIAL_HAFTS = dial.get("hafts", {})
 	DIAL_MOVEMENTS = dial.get("movements", {})
 	DIAL_ATTUNEMENT_BONUS_BY_TIER = dial.get("attunementBonusByTier", [])
@@ -322,7 +331,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_vein_growth(t.get("vein_growth", {}), t.get("cultivating_xp_levels", []), errors)
 	_validate_recipes(t.get("recipes", {}), t.get("ore_types", {}), errors)
 	_validate_devices(t.get("devices", {}), t.get("recipes", {}), t.get("ore_types", {}), errors)
-	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_base_max_charge", 0), t.get("dial_base_recharge_rate", 0.0), t.get("dial_hafts", {}), t.get("dial_movements", {}), t.get("dial_attunement_bonus_by_tier", []), t.get("dial_capacity_by_level", []), errors)
+	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_base_max_charge", 0), t.get("dial_base_recharge_rate", 0.0), t.get("dial_recharge_combat_regen_turns", 0), t.get("dial_recharge_combat_regen_amount", 0), t.get("dial_hafts", {}), t.get("dial_movements", {}), t.get("dial_attunement_bonus_by_tier", []), t.get("dial_capacity_by_level", []), errors)
 	_validate_items(t.get("items", {}), errors)
 	_validate_vein_security(t.get("vein_security", {}), errors)
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
@@ -358,6 +367,8 @@ func snapshot() -> Dictionary:
 		"dial_seed_base_success": DIAL_SEED_BASE_SUCCESS,
 		"dial_base_max_charge": DIAL_BASE_MAX_CHARGE,
 		"dial_base_recharge_rate": DIAL_BASE_RECHARGE_RATE,
+		"dial_recharge_combat_regen_turns": DIAL_RECHARGE_COMBAT_REGEN_TURNS,
+		"dial_recharge_combat_regen_amount": DIAL_RECHARGE_COMBAT_REGEN_AMOUNT,
 		"dial_hafts": DIAL_HAFTS,
 		"dial_movements": DIAL_MOVEMENTS,
 		"dial_attunement_bonus_by_tier": DIAL_ATTUNEMENT_BONUS_BY_TIER,
@@ -495,7 +506,7 @@ func _validate_devices(devices: Dictionary, recipes: Dictionary, ore_types: Dict
 # ore type. Hafts are cosmetic-only (Implementation Decisions: "no stat
 # fields and no code path that reads a haft for anything but display") so
 # each only needs a display name, not the fuller schema recipes/devices use.
-func _validate_dial(seed_cost: Dictionary, seed_base_success: float, base_max_charge: int, base_recharge_rate: float, hafts: Dictionary, movements: Dictionary, attunement_bonus_by_tier: Array, capacity_by_level: Array, errors: Array[String]) -> void:
+func _validate_dial(seed_cost: Dictionary, seed_base_success: float, base_max_charge: int, base_recharge_rate: float, recharge_combat_regen_turns: int, recharge_combat_regen_amount: int, hafts: Dictionary, movements: Dictionary, attunement_bonus_by_tier: Array, capacity_by_level: Array, errors: Array[String]) -> void:
 	for ore_key in CANONICAL_ORE_TYPES:
 		if not seed_cost.has(ore_key):
 			errors.append("dial.seedCost: missing canonical ore type '%s'" % ore_key)
@@ -510,6 +521,13 @@ func _validate_dial(seed_cost: Dictionary, seed_base_success: float, base_max_ch
 		errors.append("dial: baseMaxCharge must be > 0")
 	if base_recharge_rate <= 0.0:
 		errors.append("dial: baseRechargeRate must be > 0")
+	# dial-device ticket 05: Dial.combat_turn_tick()'s cadence/amount for the
+	# tier-5 Recharge Movement's in-combat regen -- same "must be positive"
+	# shape as the charge-pool baseline above.
+	if recharge_combat_regen_turns <= 0:
+		errors.append("dial: rechargeCombatRegenEveryTurns must be > 0")
+	if recharge_combat_regen_amount <= 0:
+		errors.append("dial: rechargeCombatRegenAmount must be > 0")
 	if hafts.is_empty():
 		errors.append("dial: hafts must not be empty")
 	for key in hafts.keys():

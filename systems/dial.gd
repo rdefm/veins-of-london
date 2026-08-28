@@ -12,7 +12,15 @@ extends RefCounted
 # - ticket 04: the charge pool itself -- seating/unseating now activate/
 #   deactivate it, winding spends calc to fill it, and daily_regen() ticks
 #   it once a day (not yet wired into time_system.gd -- that's ticket 07's
-#   cutover). Casting/leveling (tickets 05-06) still own everything else.
+#   cutover).
+# - ticket 05: casting a loaded Complication -- spends one charge (not the
+#   item), computes the base effect from Crafting.effect_power() at the
+#   loaded unit's tier, and amplifies it per the seated Movement's
+#   archetype. combat_turn_tick() gives a tier-5 Recharge Movement its
+#   in-combat regen. Neither is wired into combat.gd yet -- that's ticket
+#   07's cutover, same as daily_regen() above; every test here calls these
+#   functions directly, per the PRD's testing seam. Leveling (ticket 06)
+#   still owns Dial XP.
 #
 # systems/devices.gd and data/devices.json stay live and untouched until
 # ticket 07's cutover -- this module doesn't call into them and they don't
@@ -92,6 +100,11 @@ static func _new_dial(haft_id: String) -> Dictionary:
 		"currentCharge": 0,
 		"maxCharge": 0,
 		"rechargeRate": 0,
+		# dial-device ticket 05: Dial.combat_turn_tick()'s player-turn counter
+		# toward the tier-5 Recharge Movement's in-combat regen tick --
+		# reset alongside the rest of the charge pool on every (re)seat/
+		# unseat, same as currentCharge below.
+		"combatRegenTurnCounter": 0,
 		# dial-device ticket 04: guards Dial.daily_regen() the same
 		# lastResetDay way Devices.reset_daily_charges() guards
 		# devicesCompleted -- set to the seeding day so a Dial seeded partway
@@ -425,12 +438,14 @@ static func _activate_charge_pool(dial: Dictionary, movement: Dictionary) -> voi
 	dial["maxCharge"] = stats["maxCharge"]
 	dial["rechargeRate"] = stats["rechargeRate"]
 	dial["currentCharge"] = 0
+	dial["combatRegenTurnCounter"] = 0
 
 
 static func _deactivate_charge_pool(dial: Dictionary) -> void:
 	dial["maxCharge"] = 0
 	dial["rechargeRate"] = 0
 	dial["currentCharge"] = 0
+	dial["combatRegenTurnCounter"] = 0
 
 
 # User story 30: a lookup keyed only by (archetype, tier) -- never by
@@ -498,4 +513,101 @@ static func daily_regen() -> void:
 	if dial["lastRegenDay"] < day:
 		dial["currentCharge"] = minf(dial["maxCharge"], dial["currentCharge"] + dial["rechargeRate"])
 		dial["lastRegenDay"] = day
+	EventBus.state_changed.emit()
+
+
+# ── ticket 05: casting a loaded Complication ────────────────────────────
+#
+# Casting spends one charge from the pool ticket 04 built rather than
+# destroying the loaded unit -- loaded units already left the regular
+# tiered inventory at load time (ticket 03), so this never touches
+# player.inventory at all. Base effect is Crafting.effect_power() at the
+# tier the unit was *loaded* at (recorded on the loadedComplications entry,
+# ticket 03) -- deliberately not the player's *current* crafting skill,
+# unlike the direct-throw use_*() functions in combat.gd, which always
+# recompute from current skill. That divergence is the point: a
+# Complication is a specific crafted unit sitting in a specific detent, and
+# its effect shouldn't drift just because the player's skill moved on.
+#
+# Amplification reuses ticket 02's per-archetype "bonus" tier-indexed array
+# -- ticket 04 already claimed that array for Recharge/Capacitor's charge
+# economy, so per the PRD only Impact (a multiplicative boost to raw
+# power) and Spread (extra full-power targets, no dilution) read it here;
+# Recharge/Capacitor seated leaves power/targets at their unamplified
+# defaults, same as no Movement seated at all. Directly-thrown consumables
+# (combat.gd's use_blast()/use_time_pearl()/etc.) never call this function
+# and never amplify -- untouched regression surface, per the PRD.
+static func cast_complication(index: int) -> Dictionary:
+	var player: Dictionary = GameState.state["player"]
+	if player["dial"] == null:
+		return { "ok": false, "reason": "No Dial." }
+	var dial: Dictionary = player["dial"]
+	var loaded: Array = dial["loadedComplications"]
+	if index < 0 or index >= loaded.size():
+		return { "ok": false, "reason": "No such Complication." }
+	if dial["currentCharge"] < 1:
+		return { "ok": false, "reason": "Not enough charge." }
+
+	var entry: Dictionary = loaded[index]
+	var recipe_key: String = entry["recipeKey"]
+	var base_power = Crafting.effect_power(recipe_key, entry["tier"])
+	var amplified := _amplify_cast(base_power, dial["movement"])
+
+	dial["currentCharge"] -= 1
+
+	EventBus.state_changed.emit()
+	return { "ok": true, "recipeKey": recipe_key, "power": amplified["power"], "targets": amplified["targets"] }
+
+
+# Split out of cast_complication() so the archetype-specific math is a pure
+# function of (base_power, movement) -- easy to unit-test in isolation from
+# the charge-spend/refusal plumbing above.
+static func _amplify_cast(base_power: Variant, movement: Variant) -> Dictionary:
+	if movement == null:
+		return { "power": base_power, "targets": 1 }
+
+	var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
+	var t: int = clampi(movement["tier"], 0, m["bonus"].size() - 1)
+	match movement["archetype"]:
+		"impact":
+			# User story 26: a multiplicative boost to the crafted base
+			# power -- e.g. tier 5's bonus of 1.2 more than doubles it.
+			return { "power": GameState.round_epsilon(float(base_power) * (1.0 + m["bonus"][t])), "targets": 1 }
+		"spread":
+			# User story 16: every target gets the untouched base_power --
+			# the archetype's whole point is no per-target dilution -- and
+			# the tier-indexed bonus is an integer extra-target count on
+			# top of the normal single target.
+			return { "power": base_power, "targets": 1 + int(m["bonus"][t]) }
+		_:
+			# Recharge/Capacitor: their "bonus" array is ticket 04's charge
+			# economy, not effect magnitude -- casting under either is
+			# identical to casting with no Movement seated at all.
+			return { "power": base_power, "targets": 1 }
+
+
+# ── ticket 05: tier-5 Recharge Movement's in-combat regen ──────────────
+#
+# The only archetype whose top tier changes *when* charge regenerates
+# (design doc §Movement archetypes): every other Movement only recharges
+# between fights (daily_regen()) or via winding. Intended to be called once
+# per player combat turn once ticket 07 wires it into combat.gd's turn
+# loop (player_attack()) -- until then nothing calls this yet, same
+# not-yet-wired status as daily_regen() above. A null dial, no Movement, or
+# anything other than a tier-5 Recharge Movement seated is a silent no-op
+# with no state change and no emit, since there is nothing to tick.
+static func combat_turn_tick() -> void:
+	var player: Dictionary = GameState.state["player"]
+	if player["dial"] == null:
+		return
+	var dial: Dictionary = player["dial"]
+	var movement: Variant = dial["movement"]
+	if movement == null or movement["archetype"] != "recharge" or movement["tier"] < 5:
+		return
+
+	dial["combatRegenTurnCounter"] = dial.get("combatRegenTurnCounter", 0) + 1
+	if dial["combatRegenTurnCounter"] >= GameData.DIAL_RECHARGE_COMBAT_REGEN_TURNS:
+		dial["combatRegenTurnCounter"] = 0
+		dial["currentCharge"] = minf(dial["maxCharge"], dial["currentCharge"] + GameData.DIAL_RECHARGE_COMBAT_REGEN_AMOUNT)
+
 	EventBus.state_changed.emit()

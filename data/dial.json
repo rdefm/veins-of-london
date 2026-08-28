@@ -3,6 +3,8 @@
   "seedBaseSuccess": 0.30,
   "baseMaxCharge": 20,
   "baseRechargeRate": 2.0,
+  "rechargeCombatRegenEveryTurns": 3,
+  "rechargeCombatRegenAmount": 1,
   "hafts": {
     "collective_brolly": { "name": "Market Umbrella" },
     "firm_baton": { "name": "Service Baton" },
