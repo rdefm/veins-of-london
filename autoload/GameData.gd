@@ -32,6 +32,12 @@ var DIAL_HAFTS: Dictionary = {}
 var DIAL_MOVEMENTS: Dictionary = {}
 var DIAL_ATTUNEMENT_BONUS_BY_TIER: Array = []
 
+# dial-device ticket 03: data/dial.json's "capacityByLevel" -- the Dial-level
+# lookup table Dial.capacity_max() reads (index=level 0..5, mirrors every
+# other tier-indexed array here), independent of which Movement (if any) is
+# seated.
+var DIAL_CAPACITY_BY_LEVEL: Array = []
+
 var ITEMS: Dictionary = {}
 
 var VEIN_SECURITY: Dictionary = {}
@@ -226,6 +232,7 @@ func load_all() -> void:
 	DIAL_HAFTS = dial.get("hafts", {})
 	DIAL_MOVEMENTS = dial.get("movements", {})
 	DIAL_ATTUNEMENT_BONUS_BY_TIER = dial.get("attunementBonusByTier", [])
+	DIAL_CAPACITY_BY_LEVEL = dial.get("capacityByLevel", [])
 
 	ITEMS = _load_json("res://data/items.json")
 	VEIN_SECURITY = _load_json("res://data/vein_security.json")
@@ -305,7 +312,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_vein_growth(t.get("vein_growth", {}), t.get("cultivating_xp_levels", []), errors)
 	_validate_recipes(t.get("recipes", {}), t.get("ore_types", {}), errors)
 	_validate_devices(t.get("devices", {}), t.get("recipes", {}), t.get("ore_types", {}), errors)
-	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_hafts", {}), t.get("dial_movements", {}), t.get("dial_attunement_bonus_by_tier", []), errors)
+	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_hafts", {}), t.get("dial_movements", {}), t.get("dial_attunement_bonus_by_tier", []), t.get("dial_capacity_by_level", []), errors)
 	_validate_items(t.get("items", {}), errors)
 	_validate_vein_security(t.get("vein_security", {}), errors)
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
@@ -342,6 +349,7 @@ func snapshot() -> Dictionary:
 		"dial_hafts": DIAL_HAFTS,
 		"dial_movements": DIAL_MOVEMENTS,
 		"dial_attunement_bonus_by_tier": DIAL_ATTUNEMENT_BONUS_BY_TIER,
+		"dial_capacity_by_level": DIAL_CAPACITY_BY_LEVEL,
 		"items": ITEMS,
 		"vein_security": VEIN_SECURITY,
 		"vein_alarm": VEIN_ALARM,
@@ -443,7 +451,7 @@ func _validate_vein_growth(vein_growth: Dictionary, xp_levels: Array, errors: Ar
 func _validate_recipes(recipes: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:
 	for key in recipes.keys():
 		var entry = recipes[key]
-		_require_keys(entry, ["name", "symbol", "ingredients", "baseSuccess", "effectPower", "xpReward", "eventUsable", "description"], "recipes.%s" % key, errors)
+		_require_keys(entry, ["name", "symbol", "ingredients", "baseSuccess", "effectPower", "xpReward", "eventUsable", "capacityCost", "description"], "recipes.%s" % key, errors)
 		if entry.has("ingredients"):
 			var ingredients: Dictionary = entry["ingredients"]
 			if ingredients.is_empty():
@@ -453,6 +461,10 @@ func _validate_recipes(recipes: Dictionary, ore_types: Dictionary, errors: Array
 					errors.append("recipes.%s: ingredient '%s' is not a known ore type" % [key, ingredient_key])
 		if entry.has("effectPower") and entry["effectPower"].size() != 6:
 			errors.append("recipes.%s: effectPower must have 6 entries (index=skill 0..5)" % key)
+		# dial-device ticket 03: fixed regardless of crafted quality tier --
+		# Dial.load_complication()'s footprint cost.
+		if entry.has("capacityCost") and entry["capacityCost"] <= 0:
+			errors.append("recipes.%s: capacityCost must be > 0" % key)
 
 
 func _validate_devices(devices: Dictionary, recipes: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:
@@ -471,7 +483,7 @@ func _validate_devices(devices: Dictionary, recipes: Dictionary, ore_types: Dict
 # ore type. Hafts are cosmetic-only (Implementation Decisions: "no stat
 # fields and no code path that reads a haft for anything but display") so
 # each only needs a display name, not the fuller schema recipes/devices use.
-func _validate_dial(seed_cost: Dictionary, seed_base_success: float, hafts: Dictionary, movements: Dictionary, attunement_bonus_by_tier: Array, errors: Array[String]) -> void:
+func _validate_dial(seed_cost: Dictionary, seed_base_success: float, hafts: Dictionary, movements: Dictionary, attunement_bonus_by_tier: Array, capacity_by_level: Array, errors: Array[String]) -> void:
 	for ore_key in CANONICAL_ORE_TYPES:
 		if not seed_cost.has(ore_key):
 			errors.append("dial.seedCost: missing canonical ore type '%s'" % ore_key)
@@ -504,6 +516,11 @@ func _validate_dial(seed_cost: Dictionary, seed_base_success: float, hafts: Dict
 
 	if attunement_bonus_by_tier.size() != 6:
 		errors.append("dial.attunementBonusByTier: expected 6 entries (index=tier 0..5), got %d" % attunement_bonus_by_tier.size())
+
+	# dial-device ticket 03: the capacity budget lookup Dial.capacity_max()
+	# reads -- same index=level 0..5 shape as attunementBonusByTier above.
+	if capacity_by_level.size() != 6:
+		errors.append("dial.capacityByLevel: expected 6 entries (index=level 0..5), got %d" % capacity_by_level.size())
 
 
 func _validate_items(items: Dictionary, errors: Array[String]) -> void:

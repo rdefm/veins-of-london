@@ -350,3 +350,183 @@ func run() -> void:
 		GameState.state["player"]["dial"] = dial
 		assert_almost_eq(Dial.attunement_bonus("time"), GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER[3], 0.0001, "loadedComplications must never affect the attunement bonus")
 	)
+
+	# ── ticket 03: capacity budget ───────────────────────────────────────
+
+	run_case("capacity_max_reads_the_dial_level_lookup_table", func():
+		for level in range(GameData.DIAL_CAPACITY_BY_LEVEL.size()):
+			assert_eq(Dial.capacity_max(level), GameData.DIAL_CAPACITY_BY_LEVEL[level], "capacity_max(%d) should match the data table" % level)
+	)
+
+	run_case("capacityMax_is_unaffected_by_seating_or_unseating_a_movement", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["capacityMax"] = 7
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "oreType": "physics", "tier": 5 }]
+
+		Dial.seat_movement(0)
+		assert_eq(GameState.state["player"]["dial"]["capacityMax"], 7, "seating a Movement (even a high-tier one) must not change capacityMax")
+
+		Dial.unseat_movement()
+		assert_eq(GameState.state["player"]["dial"]["capacityMax"], 7, "unseating a Movement must not change capacityMax either")
+	)
+
+	run_case("attempt_seed_success_populates_capacityMax_from_the_level_1_lookup", func():
+		GameState.reset()
+		GameState.state["flags"]["dialGiftGranted"] = true
+		GameState.state["player"]["craftingSkill"] = 5
+		GameState.state["player"]["cultivatingSkill"] = 5
+		_fund_seed_cost(1)
+
+		var success := false
+		var seed := 0
+		while not success and seed < 2000:
+			var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+			Rng.set_seed(seed)
+			var result := Dial.attempt_seed(HAFT_ID)
+			seed += 1
+			if result["success"]:
+				success = true
+			else:
+				GameState.state = snapshot
+				_fund_seed_cost(1)
+
+		assert_true(success, "should find a successful seed within 2000 tries")
+		assert_eq(GameState.state["player"]["dial"]["capacityMax"], GameData.DIAL_CAPACITY_BY_LEVEL[1], "a freshly-seeded level-1 dial's capacityMax comes from the lookup table, not zero")
+	)
+
+	# ── ticket 03: loading Complications ─────────────────────────────────
+
+	run_case("load_complication_refuses_with_no_dial", func():
+		GameState.reset()
+		Crafting.inventory_add("timePearl", 3)
+		var result := Dial.load_complication("timePearl", 3)
+		assert_true(not result["ok"], "loading with no Dial should be refused")
+	)
+
+	run_case("load_complication_refuses_an_unknown_recipe", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["capacityMax"] = 10
+		GameState.state["player"]["dial"] = dial
+		var result := Dial.load_complication("not_a_real_recipe", 1)
+		assert_true(not result["ok"], "an unknown recipe should be refused")
+	)
+
+	run_case("load_complication_refuses_with_nothing_in_that_tier_bucket", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["capacityMax"] = 10
+		GameState.state["player"]["dial"] = dial
+		Crafting.inventory_add("timePearl", 3, 1)
+		var result := Dial.load_complication("timePearl", 2)
+		assert_true(not result["ok"], "loading from a tier bucket with no stock should be refused")
+		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "a refused load must not append anything")
+	)
+
+	run_case("load_complication_decrements_inventory_and_appends_at_the_recipes_fixed_capacity_cost", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["capacityMax"] = 10
+		GameState.state["player"]["dial"] = dial
+		Crafting.inventory_add("blast", 4, 1)
+
+		var result := Dial.load_complication("blast", 4)
+		assert_true(result["ok"], "loading a unit that exists in that tier bucket should succeed")
+		assert_eq(Crafting.inventory_qty("blast"), 0, "the loaded unit leaves the regular tiered inventory")
+		var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
+		assert_eq(loaded.size(), 1, "one Complication should now be loaded")
+		assert_eq(loaded[0]["recipeKey"], "blast", "recipeKey is recorded")
+		assert_eq(loaded[0]["tier"], 4, "the loaded unit keeps the tier it was crafted at, unchanged")
+		assert_eq(loaded[0]["capacityCost"], GameData.RECIPES["blast"]["capacityCost"], "capacityCost is copied from the recipe's fixed data field")
+	)
+
+	run_case("load_complication_capacity_cost_is_independent_of_crafted_tier", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["capacityMax"] = 10
+		GameState.state["player"]["dial"] = dial
+		Crafting.inventory_add("blast", 1, 1)
+		Crafting.inventory_add("blast", 5, 1)
+
+		Dial.load_complication("blast", 1)
+		Dial.load_complication("blast", 5)
+		var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
+		assert_eq(loaded[0]["capacityCost"], loaded[1]["capacityCost"], "capacityCost must be identical regardless of the crafted quality tier loaded")
+	)
+
+	run_case("load_complication_refuses_once_it_would_exceed_capacityMax", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["capacityMax"] = GameData.RECIPES["blast"]["capacityCost"]  # room for exactly one Blast
+		GameState.state["player"]["dial"] = dial
+		Crafting.inventory_add("blast", 1, 2)
+
+		var first := Dial.load_complication("blast", 1)
+		assert_true(first["ok"], "the first load within budget should succeed")
+		var second := Dial.load_complication("blast", 1)
+		assert_true(not second["ok"], "a load that would push capacityUsed past capacityMax should be refused")
+		assert_eq(Crafting.inventory_qty("blast"), 1, "a refused load must not touch inventory")
+		assert_eq(GameState.state["player"]["dial"]["loadedComplications"].size(), 1, "a refused load must not append anything")
+	)
+
+	run_case("load_unload_complication_works_identically_with_no_movement_seated", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["capacityMax"] = 10
+		assert_eq(dial["movement"], null, "fixture starts with no Movement seated")
+		GameState.state["player"]["dial"] = dial
+		Crafting.inventory_add("timePearl", 2, 1)
+
+		var load_result := Dial.load_complication("timePearl", 2)
+		assert_true(load_result["ok"], "loading should succeed with no Movement seated")
+		var unload_result := Dial.unload_complication(0)
+		assert_true(unload_result["ok"], "unloading should succeed with no Movement seated")
+	)
+
+	# ── ticket 03: unloading Complications ───────────────────────────────
+
+	run_case("unload_complication_refuses_with_no_dial", func():
+		GameState.reset()
+		var result := Dial.unload_complication(0)
+		assert_true(not result["ok"], "unloading with no Dial should be refused")
+	)
+
+	run_case("unload_complication_refuses_an_out_of_range_index", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial_no_movement()
+		var result := Dial.unload_complication(0)
+		assert_true(not result["ok"], "unloading from an empty loadedComplications should be refused")
+	)
+
+	run_case("unload_complication_reverses_load_exactly_returning_the_unit_to_its_original_tier_bucket", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["capacityMax"] = 10
+		GameState.state["player"]["dial"] = dial
+		Crafting.inventory_add("blast", 4, 1)
+		Dial.load_complication("blast", 4)
+
+		var result := Dial.unload_complication(0)
+		assert_true(result["ok"], "unloading a valid loadedComplications index should succeed")
+		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "the unloaded Complication leaves loadedComplications")
+		var buckets: Dictionary = GameState.state["player"]["inventory"]["blast"]
+		assert_eq(buckets, { "4": 1 }, "the unit returns to the exact tier bucket it was loaded from, not duplicated or destroyed")
+	)
+
+	run_case("unload_complication_frees_capacity_for_a_subsequent_load", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["capacityMax"] = GameData.RECIPES["blast"]["capacityCost"]
+		GameState.state["player"]["dial"] = dial
+		Crafting.inventory_add("blast", 1, 2)
+
+		Dial.load_complication("blast", 1)
+		var blocked := Dial.load_complication("blast", 1)
+		assert_true(not blocked["ok"], "no room for a second Blast yet")
+
+		Dial.unload_complication(0)
+		var retried := Dial.load_complication("blast", 1)
+		assert_true(retried["ok"], "unloading should free enough capacity for the next load")
+	)

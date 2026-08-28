@@ -47,5 +47,6 @@
       "downside": [0, 1, 2, 3, 4, 6]
     }
   },
-  "attunementBonusByTier": [0, 0.02, 0.04, 0.07, 0.10, 0.15]
+  "attunementBonusByTier": [0, 0.02, 0.04, 0.07, 0.10, 0.15],
+  "capacityByLevel": [0, 4, 6, 9, 12, 16]
 }

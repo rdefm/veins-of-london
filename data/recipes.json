@@ -11,6 +11,7 @@
       "refineStep": { "field": "effectPower", "add": 1 },
       "xpReward": 20,
       "eventUsable": false,
+      "capacityCost": 1,
       "description": "Throw at your feet. Freezes enemy for N turns. Elegant, if you ignore what it actually is."
     },
     "enhancementPowder": {
@@ -24,6 +25,7 @@
       "refineStep": { "field": "effectPower", "add": 1 },
       "xpReward": 25,
       "eventUsable": false,
+      "capacityCost": 1,
       "description": "Rub on skin before a fight. Life-type acceleration — you act faster than anyone can track."
     },
     "rewind": {
@@ -37,6 +39,7 @@
       "refineStep": { "field": "effectPower", "add": 1 },
       "xpReward": 35,
       "eventUsable": true,
+      "capacityCost": 2,
       "description": "Shaped like an hourglass. Briefly unspools time — only you remember what happened. Difficult and expensive to produce."
     },
     "healingSalve": {
@@ -49,6 +52,7 @@
       "refineStep": { "field": "effectPower", "add": 1 },
       "xpReward": 20,
       "eventUsable": false,
+      "capacityCost": 1,
       "description": "Rubbed on the worst of it. Speeds up what your body was doing anyway. No drama, mildly less itching."
     },
     "blast": {
@@ -61,6 +65,7 @@
       "refineStep": { "field": "effectPower", "add": 2 },
       "xpReward": 25,
       "eventUsable": false,
+      "capacityCost": 3,
       "description": "A concentrated shove of physics calc. Knocks them back, occasionally knocks the gun out of their hand. Mostly the former."
     },
     "shield": {
@@ -73,6 +78,7 @@
       "refineStep": { "field": "effectPower", "add": 1 },
       "xpReward": 30,
       "eventUsable": false,
+      "capacityCost": 2,
       "description": "Absorbs the next couple of hits, then quietly stops working. Recharges itself if you're lucky, which is not a policy."
     },
     "blackHole": {
@@ -85,6 +91,7 @@
       "refineStep": { "field": "effectPower", "add": 2 },
       "xpReward": 35,
       "eventUsable": false,
+      "capacityCost": 4,
       "description": "A localised gravity fault, contained mostly to the size of a dinner plate. Everything nearby gets pulled toward the middle — you keep your distance and let it do the work."
     },
     "prophetsBreath": {
@@ -97,6 +104,7 @@
       "refineStep": { "field": "effectPower", "add": 1 },
       "xpReward": 30,
       "eventUsable": true,
+      "capacityCost": 1,
       "description": "Two lungfuls buys you a few seconds of foresight. Enough to flinch correctly."
     },
     "beALady": {
@@ -109,6 +117,7 @@
       "refineStep": { "field": "effectPower", "add": 1 },
       "xpReward": 25,
       "eventUsable": true,
+      "capacityCost": 1,
       "description": "For one action, the numbers stop arguing with you. Fate calc, temporarily very agreeable."
     },
     "pansPrank": {
@@ -121,6 +130,7 @@
       "refineStep": { "field": "effectPower", "add": 1 },
       "xpReward": 30,
       "eventUsable": true,
+      "capacityCost": 2,
       "description": "Aimed at a crowd, not a person. Pick the feeling; the crowd supplies the consequences."
     },
     "healingBurst": {
@@ -133,6 +143,7 @@
       "refineStep": { "field": "effectPower", "add": 3 },
       "xpReward": 30,
       "eventUsable": false,
+      "capacityCost": 2,
       "description": "Faster than the salve, weaker than patience. Time and life calc, for when you don't have either."
     },
     "failsafe": {
@@ -145,6 +156,7 @@
       "refineStep": { "field": "effectPower", "add": 1 },
       "xpReward": 45,
       "eventUsable": true,
+      "capacityCost": 3,
       "description": "Reverses your death, administratively. Expensive because dying is expensive to undo, and everyone in the trade knows it."
     },
     "rejuvenation": {
@@ -157,6 +169,7 @@
       "refineStep": { "field": "effectPower", "add": 0 },
       "xpReward": 20,
       "eventUsable": false,
+      "capacityCost": 1,
       "description": "Does nothing you'd notice. Sells for more than anything else on this bench, which tells you who's buying it."
     },
     "wormhole": {
@@ -169,6 +182,7 @@
       "refineStep": { "field": "effectPower", "add": 0 },
       "xpReward": 40,
       "eventUsable": true,
+      "capacityCost": 3,
       "description": "Folds the distance between two points until there isn't any. Costs what you'd expect for something that ignores geography."
     }
   },

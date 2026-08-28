@@ -73,10 +73,13 @@ static func set_haft(haft_id: String) -> Dictionary:
 	return { "ok": true }
 
 
-# Fully inert: no Movement seated, zero charge/regen/capacity. Later
-# tickets (02 seats a Movement and gives the charge economy its real
-# numbers; 06 gives level/xp their real growth curve) grow this from here,
-# not this ticket.
+# Fully inert on the charge side: no Movement seated, zero charge/regen
+# (ticket 02 seats a Movement and gives the charge economy its real numbers;
+# 06 gives level/xp their real growth curve). Complication capacity is NOT
+# part of that inertness -- ticket 03's PRD decision is that capacity comes
+# from the Dial-level lookup table alone, so a freshly-seeded level-1 Dial
+# already has a real capacityMax and can load/unload Complications with no
+# Movement seated at all.
 static func _new_dial(haft_id: String) -> Dictionary:
 	return {
 		"level": 1,
@@ -84,7 +87,7 @@ static func _new_dial(haft_id: String) -> Dictionary:
 		"currentCharge": 0,
 		"maxCharge": 0,
 		"rechargeRate": 0,
-		"capacityMax": 0,
+		"capacityMax": capacity_max(1),
 		"movement": null,
 		"loadedComplications": [],
 		"haftId": haft_id,
@@ -262,3 +265,86 @@ static func attunement_bonus(ore_type: String) -> float:
 # itself before clamping.
 static func apply_attunement(base_chance: float, ore_type: String) -> float:
 	return min(0.95, base_chance + attunement_bonus(ore_type))
+
+
+# ── ticket 03: Complications -- load, unload, and capacity budget ──────
+#
+# No new item category: loading moves one unit out of Crafting's existing
+# tier-bucketed player.inventory (systems/crafting.gd's "Inventory" section)
+# into player.dial.loadedComplications, unchanged in tier; unloading reverses
+# it exactly. Each loaded entry is { recipeKey, tier, capacityCost, detent }
+# -- capacityCost is copied from the recipe's fixed data/recipes.json field
+# at load time (independent of crafted tier, so a better-tier craft of
+# something already loaded is never a footprint downside); detent is a
+# cosmetic display-order position for the (out-of-scope) Collar UI, assigned
+# as the entry's index at load time -- no code here or elsewhere reads it
+# for anything but display, same as haftId.
+
+
+# User story 25: capacity comes from a Dial-level lookup table only, per
+# data/dial.json's capacityByLevel -- never from which Movement (if any) is
+# seated. Mirrors attunement_bonus()'s tier-indexed curve read.
+static func capacity_max(level: int) -> int:
+	var curve: Array = GameData.DIAL_CAPACITY_BY_LEVEL
+	var idx: int = clampi(level, 0, curve.size() - 1)
+	return curve[idx]
+
+
+static func capacity_used(dial: Dictionary) -> int:
+	var total := 0
+	for entry in dial["loadedComplications"]:
+		total += entry["capacityCost"]
+	return total
+
+
+# User story 19/20/21: moves one unit of `recipe_key` at `tier` out of the
+# regular tiered inventory and appends it to loadedComplications at the
+# recipe's fixed capacity cost. Refused once it would push capacityUsed past
+# the Dial's stored capacityMax (User story 24) -- that field is populated
+# from capacity_max() at seed time (_new_dial()) and never touched by
+# seat_movement()/unseat_movement() above, so this works identically with no
+# Movement seated (User story 6/25).
+static func load_complication(recipe_key: String, tier: int) -> Dictionary:
+	var player: Dictionary = GameState.state["player"]
+	if player["dial"] == null:
+		return { "ok": false, "reason": "No Dial." }
+	if not GameData.RECIPES.has(recipe_key):
+		return { "ok": false, "reason": "Unknown recipe." }
+
+	var buckets: Dictionary = player["inventory"].get(recipe_key, {})
+	var tier_key := str(tier)
+	if buckets.get(tier_key, 0) <= 0:
+		return { "ok": false, "reason": "Nothing to load." }
+
+	var dial: Dictionary = player["dial"]
+	var cost: int = GameData.RECIPES[recipe_key]["capacityCost"]
+	if capacity_used(dial) + cost > dial["capacityMax"]:
+		return { "ok": false, "reason": "Not enough capacity." }
+
+	Crafting.inventory_remove_from_tier(recipe_key, tier, 1)
+	var loaded: Array = dial["loadedComplications"]
+	loaded.append({ "recipeKey": recipe_key, "tier": tier, "capacityCost": cost, "detent": loaded.size() })
+
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# Reverses load_complication() exactly: the unit returns to the same tier
+# bucket it came from (Crafting.inventory_add(), tier-keyed exactly like
+# inventory_remove_from_tier() removed it), not duplicated or destroyed.
+# `index` addresses loadedComplications directly (mirrors seat_movement()'s
+# inventory_index) since two loaded units can share the same recipeKey/tier.
+static func unload_complication(index: int) -> Dictionary:
+	var player: Dictionary = GameState.state["player"]
+	if player["dial"] == null:
+		return { "ok": false, "reason": "No Dial." }
+	var loaded: Array = player["dial"]["loadedComplications"]
+	if index < 0 or index >= loaded.size():
+		return { "ok": false, "reason": "No such Complication." }
+
+	var entry: Dictionary = loaded[index]
+	loaded.remove_at(index)
+	Crafting.inventory_add(entry["recipeKey"], entry["tier"], 1)
+
+	EventBus.state_changed.emit()
+	return { "ok": true }
