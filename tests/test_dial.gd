@@ -15,6 +15,23 @@ static func _fund_seed_cost(multiplier: int = 1) -> void:
 		orichalchum[ore_type] = GameData.DIAL_SEED_COST[ore_type] * multiplier
 
 
+# ticket 02 fixtures.
+
+static func _dial_no_movement() -> Dictionary:
+	return { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "haftId": HAFT_ID }
+
+
+# Same shape as test_sites.gd/test_cultivating.gd's own _find_seed_for.
+static func _find_seed_for(max_tries: int, fn: Callable) -> int:
+	for seed in range(max_tries):
+		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+		Rng.set_seed(seed)
+		if fn.call():
+			return seed
+		GameState.state = snapshot
+	return -1
+
+
 func run() -> void:
 	run_case("attempt_seed_refuses_with_no_gift_flag", func():
 		GameState.reset()
@@ -148,4 +165,188 @@ func run() -> void:
 		GameState.reset()
 		var result := Dial.set_haft(HAFT_ID)
 		assert_true(not result["ok"], "setting a haft with no dial should be refused")
+	)
+
+	# ── ticket 02: Movement crafting ────────────────────────────────────
+
+	run_case("attempt_craft_movement_refuses_an_unknown_archetype", func():
+		GameState.reset()
+		var result := Dial.attempt_craft_movement("not_a_real_archetype", "time")
+		assert_true(not result["ok"], "an unknown archetype should be refused")
+	)
+
+	run_case("attempt_craft_movement_refuses_an_unknown_ore_type", func():
+		GameState.reset()
+		var result := Dial.attempt_craft_movement("impact", "not_a_real_ore")
+		assert_true(not result["ok"], "an unknown ore type should be refused")
+	)
+
+	run_case("attempt_craft_movement_refuses_without_enough_calc", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 5
+		var result := Dial.attempt_craft_movement("impact", "time")
+		assert_true(not result["ok"], "insufficient calc should be refused")
+	)
+
+	run_case("attempt_craft_movement_deducts_ingredient_regardless_of_outcome", func():
+		GameState.reset()
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		Dial.attempt_craft_movement("impact", "time")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 80, "ingredientBase 20 deducted regardless of success/fail, at skill 1")
+	)
+
+	run_case("attempt_craft_movement_success_records_the_chosen_ore_type_as_attunement_and_tier_from_skill", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["craftingSkill"] = 5
+			GameState.state["player"]["orichalchum"]["physics"] = 1000
+			var result := Dial.attempt_craft_movement("capacitor", "physics")
+			return result.get("success", false)
+		)
+		assert_true(seed != -1, "should find a successful Movement craft within 200 tries")
+
+		var inventory: Array = GameState.state["player"]["movementInventory"]
+		assert_eq(inventory.size(), 1, "one crafted Movement lands in movementInventory")
+		assert_eq(inventory[0]["archetype"], "capacitor", "archetype matches what was crafted")
+		assert_eq(inventory[0]["oreType"], "physics", "the chosen ore type becomes the Movement's attunement")
+		assert_eq(inventory[0]["tier"], 5, "tier is set from crafting skill at craft time, exactly like Crafting.quality_tier()'s non-refined branch")
+	)
+
+	run_case("attempt_craft_movement_failure_leaves_no_partial_movement", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["craftingSkill"] = 1
+			GameState.state["player"]["orichalchum"]["time"] = 1000
+			var result := Dial.attempt_craft_movement("recharge", "time")
+			return not result.get("success", true)
+		)
+		assert_true(seed != -1, "should find a failed Movement craft within 200 tries")
+		assert_eq(GameState.state["player"]["movementInventory"], [], "a failed craft must leave no partial Movement in inventory")
+	)
+
+	# ── ticket 02: seating / unseating ───────────────────────────────────
+
+	run_case("seat_movement_refuses_with_no_dial", func():
+		GameState.reset()
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "impact", "oreType": "time", "tier": 1 }]
+		var result := Dial.seat_movement(0)
+		assert_true(not result["ok"], "seating with no Dial should be refused")
+	)
+
+	run_case("seat_movement_refuses_an_out_of_range_index", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial_no_movement()
+		var result := Dial.seat_movement(0)
+		assert_true(not result["ok"], "seating from an empty movementInventory should be refused")
+	)
+
+	run_case("seat_movement_moves_it_out_of_inventory_and_into_the_dial", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial_no_movement()
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "impact", "oreType": "time", "tier": 3 }]
+
+		var result := Dial.seat_movement(0)
+		assert_true(result["ok"], "seating a valid inventory index should succeed")
+		assert_eq(GameState.state["player"]["movementInventory"], [], "the seated Movement leaves movementInventory")
+		assert_eq(GameState.state["player"]["dial"]["movement"], { "archetype": "impact", "oreType": "time", "tier": 3 }, "the Movement is now seated on the dial")
+	)
+
+	run_case("seat_movement_swaps_the_previously_seated_movement_back_into_inventory", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "recharge", "oreType": "life", "tier": 2 }
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "impact", "oreType": "time", "tier": 3 }]
+
+		Dial.seat_movement(0)
+		assert_eq(GameState.state["player"]["dial"]["movement"], { "archetype": "impact", "oreType": "time", "tier": 3 }, "the newly chosen Movement is now seated")
+		assert_eq(GameState.state["player"]["movementInventory"], [{ "archetype": "recharge", "oreType": "life", "tier": 2 }], "the previously seated Movement returns to inventory intact, not destroyed")
+	)
+
+	run_case("unseat_movement_refuses_with_no_dial", func():
+		GameState.reset()
+		var result := Dial.unseat_movement()
+		assert_true(not result["ok"], "unseating with no Dial should be refused")
+	)
+
+	run_case("unseat_movement_refuses_with_nothing_seated", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial_no_movement()
+		var result := Dial.unseat_movement()
+		assert_true(not result["ok"], "unseating an already-empty Dial should be refused")
+	)
+
+	run_case("unseat_movement_returns_it_to_inventory_intact", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "spread", "oreType": "fate", "tier": 4 }
+		GameState.state["player"]["dial"] = dial
+
+		var result := Dial.unseat_movement()
+		assert_true(result["ok"], "unseating a seated Movement should succeed")
+		assert_eq(GameState.state["player"]["dial"]["movement"], null, "the dial has no Movement seated afterward")
+		assert_eq(GameState.state["player"]["movementInventory"], [{ "archetype": "spread", "oreType": "fate", "tier": 4 }], "the unseated Movement returns to inventory intact, not destroyed")
+	)
+
+	# ── ticket 02: attunement bonus ──────────────────────────────────────
+
+	run_case("attunement_bonus_is_zero_with_no_dial", func():
+		GameState.reset()
+		assert_eq(Dial.attunement_bonus("time"), 0.0, "no Dial means no attunement bonus")
+	)
+
+	run_case("attunement_bonus_is_zero_with_a_dial_but_no_movement_seated", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial_no_movement()
+		assert_eq(Dial.attunement_bonus("time"), 0.0, "an inert Dial grants no attunement bonus")
+	)
+
+	run_case("attunement_bonus_is_zero_on_a_mismatched_ore_type", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "impact", "oreType": "physics", "tier": 3 }
+		GameState.state["player"]["dial"] = dial
+		assert_eq(Dial.attunement_bonus("time"), 0.0, "a mismatched ore type must not receive the bonus")
+	)
+
+	run_case("attunement_bonus_matches_the_tier_indexed_curve_on_a_matching_ore_type", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "impact", "oreType": "physics", "tier": 3 }
+		GameState.state["player"]["dial"] = dial
+		assert_almost_eq(Dial.attunement_bonus("physics"), GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER[3], 0.0001, "a matching ore type gets exactly the seated Movement's tier-indexed bonus")
+	)
+
+	run_case("attunement_bonus_changes_immediately_when_a_different_movement_is_seated", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "impact", "oreType": "time", "tier": 1 }
+		GameState.state["player"]["dial"] = dial
+		var before: float = Dial.attunement_bonus("time")
+
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "oreType": "time", "tier": 5 }]
+		Dial.seat_movement(0)
+		var after: float = Dial.attunement_bonus("time")
+		assert_true(after > before, "reseating a higher-tier Movement should raise the bonus immediately")
+	)
+
+	run_case("attunement_bonus_disappears_once_unseated", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "impact", "oreType": "time", "tier": 5 }
+		GameState.state["player"]["dial"] = dial
+		assert_true(Dial.attunement_bonus("time") > 0.0, "a seated matching Movement should grant a nonzero bonus")
+
+		Dial.unseat_movement()
+		assert_eq(Dial.attunement_bonus("time"), 0.0, "the bonus disappears once no Movement is seated")
+	)
+
+	run_case("attunement_bonus_is_unaffected_by_loadedComplications", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "impact", "oreType": "time", "tier": 3 }
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 5, "capacityCost": 3, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+		assert_almost_eq(Dial.attunement_bonus("time"), GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER[3], 0.0001, "loadedComplications must never affect the attunement bonus")
 	)

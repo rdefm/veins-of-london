@@ -339,6 +339,12 @@ func _restore_int_types(state: Dictionary) -> void:
 			# rechargeRate is "possibly fractional" per the PRD (Implementation
 			# Decisions, "Charge model") — intentionally not touched here, same
 			# convention as combat.evadeChance/mapView.zoom above.
+			# dial-device ticket 02: the seated Movement's tier.
+			if dial.get("movement") != null:
+				_int_key(dial["movement"], "tier")
+		# dial-device ticket 02: crafted-but-unseated Movements.
+		for movement in player.get("movementInventory", []):
+			_int_key(movement, "tier")
 
 	if state.has("world"):
 		var world: Dictionary = state["world"]

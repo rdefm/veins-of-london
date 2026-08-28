@@ -243,7 +243,12 @@ static func cultivate(vein_id: String) -> Dictionary:
 
 	var player: Dictionary = GameState.state["player"]
 	var skill: int = player["cultivatingSkill"]
-	var success: bool = Rng.chance(get_cult_chance(skill))
+	# dial-device ticket 02: the player's own cultivate roll gets the seated
+	# Movement's attunement bonus when its ore type matches this vein's;
+	# get_cult_chance() itself stays untouched since Rooms.
+	# process_vein_station() also calls it for contact cultivating, which
+	# must never see the player's own Dial.
+	var success: bool = Rng.chance(Dial.apply_attunement(get_cult_chance(skill), vein["oreType"]))
 
 	if success:
 		var vein_ceiling: int = ceiling(vein)

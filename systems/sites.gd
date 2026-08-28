@@ -394,7 +394,13 @@ static func attempt_seed(site_id: String) -> Dictionary:
 	player["orichalchum"][ore_type] = have - GameData.SEED_ORE_COST
 
 	var skill: int = player["cultivatingSkill"]
-	var success: bool = Rng.chance(seed_success_chance(skill, site["tier"]))
+	# dial-device ticket 02: the "seed-chance action" leg of the attunement
+	# bonus -- a vein-seeding attempt has a real single ore type (the
+	# site's), unlike Dial.attempt_seed()'s own mixed five-ore-type cost,
+	# which can never have a Movement seated when it runs (no Dial exists
+	# yet to seat one on) and so has nothing for attunement to match
+	# against.
+	var success: bool = Rng.chance(Dial.apply_attunement(seed_success_chance(skill, site["tier"]), ore_type))
 
 	if success:
 		var district: String = site["district"]

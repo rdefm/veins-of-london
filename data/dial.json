@@ -8,5 +8,44 @@
     "network_monopod": { "name": "Monopod" },
     "conclave_crook": { "name": "Shepherd's Crook" },
     "street_pole": { "name": "Scaffold Pole" }
-  }
+  },
+  "movements": {
+    "recharge": {
+      "name": "Recharge Movement",
+      "symbol": "↻",
+      "baseSuccess": 0.35,
+      "ingredientBase": 20,
+      "xpReward": 30,
+      "bonus": [0, 0.2, 0.4, 0.7, 1.1, 1.6],
+      "downside": [0, 1, 2, 4, 6, 9]
+    },
+    "capacitor": {
+      "name": "Capacitor Movement",
+      "symbol": "⏚",
+      "baseSuccess": 0.35,
+      "ingredientBase": 20,
+      "xpReward": 30,
+      "bonus": [0, 4, 8, 14, 22, 32],
+      "downside": [0, 0, 0, 1, 2, 4]
+    },
+    "impact": {
+      "name": "Impact Movement",
+      "symbol": "☠",
+      "baseSuccess": 0.35,
+      "ingredientBase": 20,
+      "xpReward": 30,
+      "bonus": [0, 0.15, 0.3, 0.5, 0.8, 1.2],
+      "downside": [0, 2, 4, 7, 11, 16]
+    },
+    "spread": {
+      "name": "Spread Movement",
+      "symbol": "✦",
+      "baseSuccess": 0.35,
+      "ingredientBase": 20,
+      "xpReward": 30,
+      "bonus": [0, 1, 1, 2, 2, 3],
+      "downside": [0, 1, 2, 3, 4, 6]
+    }
+  },
+  "attunementBonusByTier": [0, 0.02, 0.04, 0.07, 0.10, 0.15]
 }

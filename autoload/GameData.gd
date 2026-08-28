@@ -25,6 +25,13 @@ var DIAL_SEED_COST: Dictionary = {}
 var DIAL_SEED_BASE_SUCCESS: float = 0.0
 var DIAL_HAFTS: Dictionary = {}
 
+# dial-device ticket 02: data/dial.json's "movements" table (Dial.
+# attempt_craft_movement()'s per-archetype baseSuccess/ingredientBase/
+# xpReward plus its tier-indexed bonus/downside arrays) and the shared
+# tier-indexed attunement chance bonus (Dial.attunement_bonus()).
+var DIAL_MOVEMENTS: Dictionary = {}
+var DIAL_ATTUNEMENT_BONUS_BY_TIER: Array = []
+
 var ITEMS: Dictionary = {}
 
 var VEIN_SECURITY: Dictionary = {}
@@ -217,6 +224,8 @@ func load_all() -> void:
 	DIAL_SEED_COST = dial.get("seedCost", {})
 	DIAL_SEED_BASE_SUCCESS = dial.get("seedBaseSuccess", 0.0)
 	DIAL_HAFTS = dial.get("hafts", {})
+	DIAL_MOVEMENTS = dial.get("movements", {})
+	DIAL_ATTUNEMENT_BONUS_BY_TIER = dial.get("attunementBonusByTier", [])
 
 	ITEMS = _load_json("res://data/items.json")
 	VEIN_SECURITY = _load_json("res://data/vein_security.json")
@@ -296,7 +305,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_vein_growth(t.get("vein_growth", {}), t.get("cultivating_xp_levels", []), errors)
 	_validate_recipes(t.get("recipes", {}), t.get("ore_types", {}), errors)
 	_validate_devices(t.get("devices", {}), t.get("recipes", {}), t.get("ore_types", {}), errors)
-	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_hafts", {}), errors)
+	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_hafts", {}), t.get("dial_movements", {}), t.get("dial_attunement_bonus_by_tier", []), errors)
 	_validate_items(t.get("items", {}), errors)
 	_validate_vein_security(t.get("vein_security", {}), errors)
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
@@ -331,6 +340,8 @@ func snapshot() -> Dictionary:
 		"dial_seed_cost": DIAL_SEED_COST,
 		"dial_seed_base_success": DIAL_SEED_BASE_SUCCESS,
 		"dial_hafts": DIAL_HAFTS,
+		"dial_movements": DIAL_MOVEMENTS,
+		"dial_attunement_bonus_by_tier": DIAL_ATTUNEMENT_BONUS_BY_TIER,
 		"items": ITEMS,
 		"vein_security": VEIN_SECURITY,
 		"vein_alarm": VEIN_ALARM,
@@ -366,6 +377,11 @@ func snapshot() -> Dictionary:
 # ── per-table checks ──────────────────────────────────────────────────
 
 const CANONICAL_ORE_TYPES: Array[String] = ["time", "physics", "life", "fate", "emotion"]
+
+# dial-device ticket 02: the PRD's "four Movement archetypes (v1 launch
+# set)" -- Dial.MOVEMENT_ARCHETYPES mirrors this list rather than
+# duplicating it, same as every other CANONICAL_* roster here.
+const CANONICAL_MOVEMENT_ARCHETYPES: Array[String] = ["recharge", "capacitor", "impact", "spread"]
 
 
 func _validate_ore_types(ore_types: Dictionary, errors: Array[String]) -> void:
@@ -455,7 +471,7 @@ func _validate_devices(devices: Dictionary, recipes: Dictionary, ore_types: Dict
 # ore type. Hafts are cosmetic-only (Implementation Decisions: "no stat
 # fields and no code path that reads a haft for anything but display") so
 # each only needs a display name, not the fuller schema recipes/devices use.
-func _validate_dial(seed_cost: Dictionary, seed_base_success: float, hafts: Dictionary, errors: Array[String]) -> void:
+func _validate_dial(seed_cost: Dictionary, seed_base_success: float, hafts: Dictionary, movements: Dictionary, attunement_bonus_by_tier: Array, errors: Array[String]) -> void:
 	for ore_key in CANONICAL_ORE_TYPES:
 		if not seed_cost.has(ore_key):
 			errors.append("dial.seedCost: missing canonical ore type '%s'" % ore_key)
@@ -468,6 +484,26 @@ func _validate_dial(seed_cost: Dictionary, seed_base_success: float, hafts: Dict
 		errors.append("dial: hafts must not be empty")
 	for key in hafts.keys():
 		_require_keys(hafts[key], ["name"], "dial.hafts.%s" % key, errors)
+
+	# dial-device ticket 02: each of the four archetypes needs a
+	# tier-indexed bonus/downside array (mirrors effectPower's own
+	# array-of-arrays shape -- index 0 unused, tiers 1-5 real).
+	for archetype in CANONICAL_MOVEMENT_ARCHETYPES:
+		if not movements.has(archetype):
+			errors.append("dial.movements: missing canonical archetype '%s'" % archetype)
+			continue
+		var entry: Dictionary = movements[archetype]
+		_require_keys(entry, ["name", "symbol", "baseSuccess", "ingredientBase", "xpReward", "bonus", "downside"], "dial.movements.%s" % archetype, errors)
+		if entry.has("bonus") and entry["bonus"].size() != 6:
+			errors.append("dial.movements.%s: bonus must have 6 entries (index=tier 0..5)" % archetype)
+		if entry.has("downside") and entry["downside"].size() != 6:
+			errors.append("dial.movements.%s: downside must have 6 entries (index=tier 0..5)" % archetype)
+	for key in movements.keys():
+		if not CANONICAL_MOVEMENT_ARCHETYPES.has(key):
+			errors.append("dial.movements: unexpected archetype '%s' (not in the PRD's v1 launch set)" % key)
+
+	if attunement_bonus_by_tier.size() != 6:
+		errors.append("dial.attunementBonusByTier: expected 6 entries (index=tier 0..5), got %d" % attunement_bonus_by_tier.size())
 
 
 func _validate_items(items: Dictionary, errors: Array[String]) -> void:

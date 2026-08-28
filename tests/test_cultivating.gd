@@ -222,6 +222,48 @@ func run() -> void:
 		assert_true(not result["ok"], "should refuse an unknown vein id")
 	)
 
+	# ── dial-device ticket 02: seated-Movement attunement bonus ─────────
+
+	run_case("cultivate_gets_a_matching_seated_movements_attunement_bonus", func():
+		var flipped := false
+		for seed in range(500):
+			GameState.reset()
+			GameState.state["player"]["cultivatingSkill"] = 1
+			GameState.state["player"]["veins"] = [_vein(20)]  # oreType "time"
+			Rng.set_seed(seed)
+			var without := Cultivating.cultivate("test_vein")
+
+			GameState.reset()
+			GameState.state["player"]["cultivatingSkill"] = 1
+			GameState.state["player"]["veins"] = [_vein(20)]
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": { "archetype": "impact", "oreType": "time", "tier": 5 }, "loadedComplications": [], "haftId": "collective_brolly" }
+			Rng.set_seed(seed)
+			var with_attunement := Cultivating.cultivate("test_vein")
+
+			if not without["success"] and with_attunement["success"]:
+				flipped = true
+				break
+		assert_true(flipped, "a matching-ore-type attunement bonus should flip at least one borderline cultivate roll from fail to success within 500 seeds")
+	)
+
+	run_case("cultivate_mismatched_attunement_never_changes_the_outcome", func():
+		for seed in range(100):
+			GameState.reset()
+			GameState.state["player"]["cultivatingSkill"] = 1
+			GameState.state["player"]["veins"] = [_vein(20)]  # oreType "time"
+			Rng.set_seed(seed)
+			var without := Cultivating.cultivate("test_vein")
+
+			GameState.reset()
+			GameState.state["player"]["cultivatingSkill"] = 1
+			GameState.state["player"]["veins"] = [_vein(20)]
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": { "archetype": "impact", "oreType": "physics", "tier": 5 }, "loadedComplications": [], "haftId": "collective_brolly" }
+			Rng.set_seed(seed)
+			var mismatched := Cultivating.cultivate("test_vein")
+
+			assert_eq(mismatched["success"], without["success"], "seed %d: a mismatched-ore-type Movement must not change the outcome" % seed)
+	)
+
 	# ── prune (spec §2.4, §11 item 3) ──────────────────────────────────
 
 	run_case("prune_yield_is_zero_at_or_below_neutral", func():

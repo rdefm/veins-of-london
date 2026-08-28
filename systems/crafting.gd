@@ -17,6 +17,16 @@ static func craft_chance(recipe_key: String, skill: int) -> float:
 	return min(0.95, r["baseSuccess"] + (skill - 1) * 0.13 + Home.get_workshop_bonus())
 
 
+# dial-device ticket 02: a recipe can have more than one ingredient ore
+# type (healingBurst/failsafe both spend time+life) -- these are "the
+# action's ore type(s)" Dial.attunement_bonus() matches a seated Movement's
+# attunement against; attempt_craft() below checks every one of them, not
+# just the first.
+static func recipe_ore_types(recipe_key: String) -> Array:
+	var r: Dictionary = GameData.RECIPES[recipe_key]
+	return r["ingredients"].keys()
+
+
 static func calc_cost(recipe_key: String, skill: int) -> Dictionary:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	var costs := {}
@@ -158,7 +168,17 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 	for ingredient in costs:
 		player["orichalchum"][ingredient] = maxi(0, player["orichalchum"].get(ingredient, 0) - costs[ingredient])
 
-	var success: bool = Rng.chance(craft_chance(recipe_key, skill))
+	# dial-device ticket 02: the player's own craft gets the seated
+	# Movement's attunement bonus when its ore type matches any one of this
+	# recipe's ingredients (at most one ever can, since a Movement has
+	# exactly one attunement); craft_chance() itself stays untouched since
+	# Rooms.process_lab() also calls it for contact crafting, which must
+	# never see the player's own Dial.
+	var attunement := 0.0
+	for ingredient_ore in recipe_ore_types(recipe_key):
+		attunement = maxf(attunement, Dial.attunement_bonus(ingredient_ore))
+	var chance: float = min(0.95, craft_chance(recipe_key, skill) + attunement)
+	var success: bool = Rng.chance(chance)
 	if success:
 		var power = effect_power(recipe_key, skill)
 		inventory_add(recipe_key, quality_tier(recipe_key, skill))

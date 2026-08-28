@@ -87,6 +87,76 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 2, "no deduction when blocked")
 	)
 
+	# ── dial-device ticket 02: seated-Movement attunement bonus ─────────
+
+	run_case("attempt_craft_gets_a_matching_seated_movements_attunement_bonus", func():
+		var flipped := false
+		for seed in range(500):
+			GameState.reset()
+			GameState.state["player"]["craftingSkill"] = 1
+			GameState.state["player"]["orichalchum"]["time"] = 1000
+			Rng.set_seed(seed)
+			var without := Crafting.attempt_craft("timePearl")
+
+			GameState.reset()
+			GameState.state["player"]["craftingSkill"] = 1
+			GameState.state["player"]["orichalchum"]["time"] = 1000
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": { "archetype": "impact", "oreType": "time", "tier": 5 }, "loadedComplications": [], "haftId": "collective_brolly" }
+			Rng.set_seed(seed)
+			var with_attunement := Crafting.attempt_craft("timePearl")
+
+			if not without["success"] and with_attunement["success"]:
+				flipped = true
+				break
+		assert_true(flipped, "a matching-ore-type attunement bonus should flip at least one borderline roll from fail to success within 500 seeds")
+	)
+
+	run_case("attempt_craft_attunement_matches_a_multi_ingredient_recipes_second_ore_type_too", func():
+		# healingBurst spends both time and life (data/recipes.json) -- a
+		# Movement attuned to "life" (not the first ingredient key) must
+		# still get matched, proving recipe_ore_types() checks every
+		# ingredient, not just one.
+		var flipped := false
+		for seed in range(500):
+			GameState.reset()
+			GameState.state["player"]["craftingSkill"] = 1
+			GameState.state["player"]["orichalchum"]["time"] = 1000
+			GameState.state["player"]["orichalchum"]["life"] = 1000
+			Rng.set_seed(seed)
+			var without := Crafting.attempt_craft("healingBurst")
+
+			GameState.reset()
+			GameState.state["player"]["craftingSkill"] = 1
+			GameState.state["player"]["orichalchum"]["time"] = 1000
+			GameState.state["player"]["orichalchum"]["life"] = 1000
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": { "archetype": "impact", "oreType": "life", "tier": 5 }, "loadedComplications": [], "haftId": "collective_brolly" }
+			Rng.set_seed(seed)
+			var with_attunement := Crafting.attempt_craft("healingBurst")
+
+			if not without["success"] and with_attunement["success"]:
+				flipped = true
+				break
+		assert_true(flipped, "attunement to a recipe's second ingredient ore type should still flip at least one borderline roll within 500 seeds")
+	)
+
+	run_case("attempt_craft_mismatched_attunement_never_changes_the_outcome", func():
+		for seed in range(100):
+			GameState.reset()
+			GameState.state["player"]["craftingSkill"] = 1
+			GameState.state["player"]["orichalchum"]["time"] = 1000
+			Rng.set_seed(seed)
+			var without := Crafting.attempt_craft("timePearl")
+
+			GameState.reset()
+			GameState.state["player"]["craftingSkill"] = 1
+			GameState.state["player"]["orichalchum"]["time"] = 1000
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": { "archetype": "impact", "oreType": "physics", "tier": 5 }, "loadedComplications": [], "haftId": "collective_brolly" }
+			Rng.set_seed(seed)
+			var mismatched := Crafting.attempt_craft("timePearl")
+
+			assert_eq(mismatched["success"], without["success"], "seed %d: a mismatched-ore-type Movement must not change the outcome" % seed)
+	)
+
 	run_case("attempt_craft_success_grants_item_and_full_xp", func():
 		var seed := -1
 		for candidate in range(200):

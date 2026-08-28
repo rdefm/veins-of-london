@@ -127,6 +127,12 @@ func new_game_state() -> Dictionary:
 			# maxCharge, rechargeRate, capacityMax, movement, loadedComplications,
 			# haftId } -- see systems/dial.gd's _new_dial().
 			"dial": null,
+			# dial-device ticket 02: crafted-but-unseated Movements ({
+			# archetype, oreType, tier }, see Dial._new_movement()) -- a
+			# seated Movement (player.dial.movement) is moved out of here on
+			# Dial.seat_movement() and back in on Dial.unseat_movement(),
+			# never duplicated or destroyed.
+			"movementInventory": [],
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
 			"stealthSkill": 1, "stealthXP": 0,
