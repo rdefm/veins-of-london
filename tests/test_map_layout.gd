@@ -66,6 +66,43 @@ func run() -> void:
 		assert_eq(items[1]["slotIndex"], 7, "the natural-vein bonus keeps its own separately-stamped slot")
 	)
 
+	run_case("build_stop_items_shows_a_surviving_sibling_vein_after_the_sites_other_vein_is_sold_to_a_faction", func():
+		# 94-map-vein-slot-overflow-recurrence: a saturated site's natural-vein
+		# bonus lives at the same siteId but its own stamped slotIndex,
+		# independent of the site's *other* vein. Selling/raiding that other
+		# vein away (VeinTrade.sell_to_faction, Raiding.resolve_raid_outcome's
+		# claim branch) flips the site to factionVein-owned without touching
+		# the bonus vein still sitting in player.veins -- before the fix, the
+		# factionVein branch only ever emitted the faction's own stop, so the
+		# still-live bonus vein silently vanished from the map (though a
+		# district vein list, which just filters player.veins by siteId,
+		# still counted it).
+		var site := _faction_claimed("s1", "camden", "collective", 3)
+		var surviving_natural_vein := { "id": "v_natural", "siteId": "s1", "slotIndex": 7 }
+		var items := MapLayout.build_stop_items([site], [surviving_natural_vein])
+		assert_eq(items.size(), 2, "the faction stop and the surviving sibling vein must both render")
+		assert_eq(items[0]["owner"], "collective")
+		assert_eq(items[0]["slotIndex"], 3)
+		assert_eq(items[1]["vein"]["id"], "v_natural")
+		assert_eq(items[1]["owner"], "player")
+		assert_eq(items[1]["slotIndex"], 7, "the surviving sibling keeps its own separately-stamped slot")
+	)
+
+	run_case("build_stop_items_shows_a_surviving_sibling_vein_after_the_sites_other_vein_collapses_to_unclaimed", func():
+		# Mirror of the faction case above: the site's *other* vein collapsing
+		# (Cultivating.collapse_vein's player branch) resets claimed to false
+		# without touching the sibling bonus vein either.
+		var site := _unclaimed("s1", "camden", 3)
+		var surviving_natural_vein := { "id": "v_natural", "siteId": "s1", "slotIndex": 7 }
+		var items := MapLayout.build_stop_items([site], [surviving_natural_vein])
+		assert_eq(items.size(), 2, "the unclaimed stop and the surviving sibling vein must both render")
+		assert_eq(items[0]["kind"], "unclaimed")
+		assert_eq(items[0]["slotIndex"], 3)
+		assert_eq(items[1]["vein"]["id"], "v_natural")
+		assert_eq(items[1]["owner"], "player")
+		assert_eq(items[1]["slotIndex"], 7, "the surviving sibling keeps its own separately-stamped slot")
+	)
+
 	run_case("build_stop_items_ignores_veins_belonging_to_other_sites", func():
 		var site := _claimed("s1", "camden")
 		var other_vein := { "id": "v_other", "siteId": "s2" }
@@ -116,10 +153,10 @@ func run() -> void:
 	)
 
 	run_case("assign_positions_clamps_overflow_onto_the_last_slot", func():
-		# Defensive only — map_layout.json's siteCap+2 buffer (GameData-validated)
-		# means real data should never actually hit this path under normal
-		# churn; slotIndex never being reused/reclaimed means it's still
-		# reachable given enough removals over a long session.
+		# Defensive only — 87-map-slot-index-recycling means a removed stop's
+		# slotIndex is recycled rather than lost, so real data should never
+		# actually hit this path; it's the last-resort fallback if that
+		# guarantee is ever violated, not a path normal churn can reach.
 		var items := [
 			{ "kind": "unclaimed", "site": { "id": "a" }, "vein": null, "slotIndex": 0 },
 			{ "kind": "unclaimed", "site": { "id": "b" }, "vein": null, "slotIndex": 5 },
@@ -334,4 +371,81 @@ func run() -> void:
 		]
 		var grouped := MapLayout.group_by_faction(stops)
 		assert_eq(grouped.keys(), ["firm"], "player-owned and unclaimed stops never form a faction group")
+	)
+
+	run_case("heavy_churn_of_diverging_sibling_veins_never_collides_slots_and_stays_in_sync_with_the_vein_list", func():
+		# 94-map-vein-slot-overflow-recurrence: repeats the exact churn pattern
+		# the fix above targets -- a claimed site with two live veins (the
+		# saturated-site natural-vein bonus, D2) where only the *ordinary*
+		# vein (no own slotIndex) gets sold off (VeinTrade.sell_to_faction),
+		# leaving the natural-vein sibling still attached to a now-
+		# factionVein-owned site -- enough rounds to run well past the
+		# district's real (small) stopSlots buffer if either slot recycling
+		# or the rendering fix regressed. Each round is fully retired before
+		# the next starts (same "stay bounded, churn through it" discipline
+		# as Sites' own next_slot_index_recycles_freed_slots... test) so this
+		# is testing recycling/rendering under volume, not siteCap.
+		GameState.reset()
+		var district := "hampstead"
+		var buffer_size: int = GameData.MAP_LAYOUT["districts"][district]["stopSlots"].size()
+		var rounds: int = buffer_size * 3
+
+		for i in range(rounds):
+			var site_id := "s%d" % i
+			var site_slot: int = Sites.next_slot_index(district)
+			var site := {
+				"id": site_id, "district": district, "tier": "saturated", "oreType": "time",
+				"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+				"hasNaturalVein": true, "slotIndex": site_slot,
+			}
+			GameState.state["world"]["sites"].append(site)
+
+			var ordinary_vein := Cultivating.make_vein("time", 50, district, site_id, {})
+			var natural_vein := Cultivating.make_vein("time", 50, district, site_id, {})
+			natural_vein["slotIndex"] = Sites.next_slot_index(district)
+			GameState.state["player"]["veins"].append(ordinary_vein)
+			GameState.state["player"]["veins"].append(natural_vein)
+
+			# Sell the ordinary vein only -- the site flips to factionVein-
+			# owned while the natural-vein sibling stays a live player vein
+			# on the same site.
+			VeinTrade.sell_to_faction(ordinary_vein["id"], "collective")
+
+			var assigned := MapLayout.assign_slots(district)
+			var seen_positions := {}
+			for stop in assigned:
+				assert_true(not seen_positions.has(stop["position"]), "round %d: two live stops share a position" % i)
+				seen_positions[stop["position"]] = true
+
+			var natural_found := false
+			for stop in assigned:
+				if stop["id"] == natural_vein["id"]:
+					natural_found = true
+			assert_true(natural_found, "round %d: the surviving sibling vein must still render on the map" % i)
+
+			# The actual "district's list view" (systems/vein_list.gd's own
+			# veins()) vs. what the map renders for player-owned veins --
+			# these must agree, not just "the one vein we're tracking shows
+			# up somewhere."
+			var rendered_player_vein_count := 0
+			for stop in assigned:
+				if stop["kind"] == "vein" and stop["owner"] == "player":
+					rendered_player_vein_count += 1
+			assert_eq(rendered_player_vein_count, VeinList.veins(district).size(), "round %d: district vein list count must match what the map renders" % i)
+
+			# Retire the natural vein too (its own slot recycles), then the
+			# site itself, so the next round starts from a clean slate --
+			# Sites.release_slot_index() is the exact primitive every real
+			# site-deletion path (collapse_vein's faction branch, prospect
+			# reroll) calls.
+			VeinTrade.sell_to_faction(natural_vein["id"], "collective")
+			GameState.state["world"]["sites"] = GameState.state["world"]["sites"].filter(func(s): return s["id"] != site_id)
+			Sites.release_slot_index(district, site_slot)
+
+		var district_player_veins: Array = GameState.state["player"]["veins"].filter(func(v): return v["district"] == district)
+		assert_eq(district_player_veins.size(), 0, "every round's veins were sold off -- none should remain")
+		assert_true(GameState.state["world"]["sites"].filter(func(s): return s["district"] == district).is_empty(), "every round's site was retired -- none should remain")
+		assert_eq(MapLayout.assign_slots(district), [], "nothing left to render once every round has been retired")
+
+		GameState.reset()
 	)

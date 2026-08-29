@@ -41,16 +41,39 @@ extends RefCounted
 static func build_stop_items(sites: Array, veins: Array) -> Array:
 	var items: Array = []
 	for site in sites:
+		var site_id: String = site["id"]
 		if site.get("factionVein") != null:
 			items.append({ "kind": "vein", "site": site, "vein": site["factionVein"], "owner": site["factionVein"]["factionId"], "slotIndex": site.get("slotIndex", 0) })
+			_append_surviving_bonus_veins(items, site, veins, site_id)
 		elif site.get("claimed", false):
 			for vein in veins:
-				if vein.get("siteId") == site["id"]:
-					var slot_index: int = vein.get("slotIndex", site.get("slotIndex", 0))
-					items.append({ "kind": "vein", "site": site, "vein": vein, "owner": "player", "slotIndex": slot_index })
+				if vein.get("siteId") == site_id:
+					items.append(_player_vein_stop(site, vein, vein.get("slotIndex", site.get("slotIndex", 0))))
 		else:
 			items.append({ "kind": "unclaimed", "site": site, "vein": null, "owner": null, "slotIndex": site.get("slotIndex", 0) })
+			_append_surviving_bonus_veins(items, site, veins, site_id)
 	return items
+
+
+static func _player_vein_stop(site: Dictionary, vein: Dictionary, slot_index: int) -> Dictionary:
+	return { "kind": "vein", "site": site, "vein": vein, "owner": "player", "slotIndex": slot_index }
+
+
+# 94-map-vein-slot-overflow-recurrence: a site's two veins (a claimed site
+# plus the saturated-site natural-vein bonus, which carries its own stamped
+# slotIndex independent of the site's own slot) can diverge in ownership on
+# their own -- one leaving the site while the other stays attached to the
+# same siteId. A stop keyed only on the site's own top-level status can't
+# assume that covers every live vein at that site once this has happened.
+# Without this, a still-live vein like that silently vanished from the map
+# (though a district's own vein list, which just filters player.veins by
+# siteId, kept counting it, hence the list/map mismatch). The "elif claimed"
+# branch above doesn't need this: it already iterates every vein matching
+# this site.
+static func _append_surviving_bonus_veins(items: Array, site: Dictionary, veins: Array, site_id: String) -> void:
+	for vein in veins:
+		if vein.get("siteId") == site_id and vein.has("slotIndex"):
+			items.append(_player_vein_stop(site, vein, vein["slotIndex"]))
 
 
 # Pure: maps each stop item onto its slot's position, keyed by the item's
@@ -58,10 +81,12 @@ static func build_stop_items(sites: Array, veins: Array) -> Array:
 # position in `items` — a stop's slot must stay fixed for its whole life
 # regardless of what gets discovered, claimed, or removed elsewhere in the
 # same district. Clamps any slotIndex beyond the slot list onto the last
-# slot (defensive: map_layout.json's siteCap+2 buffer covers normal churn,
-# GameData validates that buffer at boot, but slotIndex never gets reused
-# once a stop is removed, so heavy churn over a long session can still run
-# past it).
+# slot (defensive only: 87-map-slot-index-recycling means a removed stop's
+# slotIndex is recycled via Sites.release_slot_index()/next_slot_index(), so
+# a district's live stop count -- not its lifetime churn -- is what actually
+# has to fit inside map_layout.json's siteCap+2 buffer; this clamp is the
+# last-resort fallback if that guarantee is ever violated, not the normal
+# path).
 static func assign_positions(items: Array, slots: Array) -> Array:
 	var result: Array = []
 	if slots.is_empty():
