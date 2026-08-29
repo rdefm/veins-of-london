@@ -779,6 +779,12 @@ func _build_debug() -> void:
 	_content.add_child(UI.heading("Debug"))
 	_content.add_child(_build_debug_add_money_card())
 	_content.add_child(_build_debug_add_calc_card())
+	_content.add_child(UI.heading("Contact relations", 14))
+	for contact_id in GameData.CONTACTS_DEFAULTS.keys():
+		_content.add_child(_build_debug_contact_relation_card(contact_id))
+	_content.add_child(UI.heading("Faction relations", 14))
+	for faction_id in GameData.FACTIONS.keys():
+		_content.add_child(_build_debug_faction_relation_card(faction_id))
 
 
 func _build_debug_add_money_card() -> Control:
@@ -812,6 +818,50 @@ func _build_debug_add_calc_card() -> Control:
 	c["content"].add_child(UI.button("Add", func():
 		var ore_type: String = ore_select.get_item_text(ore_select.selected)
 		DebugTools.add_calc(ore_type, amount_field.text.to_int())
+	))
+
+	return c["panel"]
+
+
+# 02-debug-app-relation-adjusters: one card per contact, listed regardless of
+# unlocked/recruited state -- a debug tool exists to raise an unmet contact's
+# relation past its own recruitThreshold to test recruiting gates, so hiding
+# locked contacts here would defeat the purpose. Calls Contacts.award_relation()
+# directly (that's the system's existing generic adjuster; no DebugTools
+# wrapper needed since, unlike add_cash/add_calc in this same ticket's
+# predecessor, there's no raw-field-write gap to fill here).
+func _build_debug_contact_relation_card(contact_id: String) -> Control:
+	var c := UI.card()
+	var relation: int = GameState.state["contacts"][contact_id]["relation"]
+	c["content"].add_child(UI.heading("%s (relation %d)" % [Contacts.display_name(contact_id), relation], 14))
+
+	var delta_field := LineEdit.new()
+	delta_field.placeholder_text = "Delta"
+	c["content"].add_child(delta_field)
+
+	c["content"].add_child(UI.button("Adjust", func():
+		Contacts.award_relation(contact_id, delta_field.text.to_int())
+	))
+
+	return c["panel"]
+
+
+# Same shape as the contact card above, for state.factions instead --
+# calls Factions.adjust_player_relation() directly, the system's existing
+# player<->faction adjuster (see that function's own comment for why it's
+# generic rather than debug-only).
+func _build_debug_faction_relation_card(faction_id: String) -> Control:
+	var c := UI.card()
+	var relation: int = GameState.state["factions"][faction_id]["relation"]
+	var faction_name: String = GameData.FACTIONS[faction_id]["name"]
+	c["content"].add_child(UI.heading("%s (relation %d)" % [faction_name, relation], 14))
+
+	var delta_field := LineEdit.new()
+	delta_field.placeholder_text = "Delta"
+	c["content"].add_child(delta_field)
+
+	c["content"].add_child(UI.button("Adjust", func():
+		Factions.adjust_player_relation(faction_id, delta_field.text.to_int())
 	))
 
 	return c["panel"]
