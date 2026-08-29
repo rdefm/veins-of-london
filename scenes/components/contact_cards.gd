@@ -29,7 +29,14 @@ static func build_archie_card() -> Control:
 	# build_des_card()/build_nadia_card()/build_hakim_card(), covers all of
 	# them instead of four bespoke branches.
 	for entry in Messages.pending_for("archie"):
-		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
+		# bugfixes-95: a tag-along deal offer needs its own accept/decline
+		# pair, not the generic "Continue →" (which resolves straight into
+		# Events.start_event -- this pending kind has no event to start).
+		if entry["kind"] == ArchieDeals.PENDING_KIND:
+			c["content"].add_child(UI.button("Accept", _on_archie_deal_accept.bind(entry)))
+			c["content"].add_child(UI.button("Decline", _on_archie_deal_decline.bind(entry)))
+		else:
+			c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
 
 	c["content"].add_child(build_messages_button("archie"))
 	c["content"].add_child(build_sell_action())
@@ -195,6 +202,16 @@ static func build_messages_button(contact_id: String) -> Control:
 static func _on_pending_action_pressed(entry: Dictionary) -> void:
 	Messages.resolve_pending(entry["id"])
 	Events.start_event(entry["kind"], entry["payload"])
+
+
+# bugfixes-95: accept/decline for Archie's tag-along deal offer, the two
+# button handlers build_archie_card()'s pending-message loop above binds.
+static func _on_archie_deal_accept(entry: Dictionary) -> void:
+	ArchieDeals.accept_deal(entry["id"])
+
+
+static func _on_archie_deal_decline(entry: Dictionary) -> void:
+	ArchieDeals.decline_deal(entry["id"])
 
 
 static func build_recruit_row(contact_id: String) -> Control:

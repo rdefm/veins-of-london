@@ -1110,6 +1110,70 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["allies"], [], "event_mugging is outside the Archie-sale flow -- unaffected")
 	)
 
+	# ── bugfixes-95: Archie's tag-along deal mugging ─────────────────────
+
+	run_case("start_archie_deal_mugging_always_adds_archie_even_when_not_recruited", func():
+		GameState.reset()
+		assert_true(not GameState.state["contacts"]["archie"]["recruited"], "sanity: not recruited by default")
+		Combat.start_archie_deal_mugging()
+		var allies: Array = GameState.state["combat"]["allies"]
+		assert_eq(allies.size(), 1, "archie should join regardless of the recruited gate")
+		assert_eq(allies[0]["contactId"], "archie")
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_ARCHIE_DEAL_MUGGING)
+	)
+
+	run_case("start_archie_deal_mugging_always_adds_archie_even_on_ko_cooldown", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["contacts"]["archie"]["koCooldownUntilDay"] = GameState.state["world"]["day"] + 5
+		assert_true(not Contacts.can_join_combat("archie"), "sanity: gate would normally exclude him")
+		Combat.start_archie_deal_mugging()
+		var allies: Array = GameState.state["combat"]["allies"]
+		assert_eq(allies.size(), 1, "archie should join despite the KO-cooldown gate")
+		assert_eq(allies[0]["contactId"], "archie")
+	)
+
+	run_case("exit_combat_on_an_archie_deal_mugging_win_resolves_via_ArchieDeals_and_stays_put", func():
+		GameState.reset()
+		GameState.state["pendingArchieDealCut"] = 50
+		GameState.state["flags"]["archieDealActive"] = true
+		GameState.state["combat"] = {
+			"active": true, "context": Combat.CONTEXT_ARCHIE_DEAL_MUGGING, "veinId": null,
+			"enemy": { "name": "Test Enemy", "hp": 0, "hpMax": 20, "attackMin": 0, "attackMax": 0, "veinId": null, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0 },
+			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+			"allies": [],
+		}
+
+		var result := Combat.exit_combat()
+
+		assert_eq(GameState.state["player"]["cash"], 40 + 50, "a won archie-deal mugging pays out pendingArchieDealCut")
+		assert_eq(GameState.state["flags"]["archieDealActive"], false, "archieDealActive cleared")
+		assert_eq(GameState.state["modal"]["type"], "archie_deal_result")
+		assert_eq(result["nextScreen"], null, "stays put -- same as a normal Archie-sale mugging win -- so the result modal stays visible")
+	)
+
+	run_case("exit_combat_on_an_archie_deal_mugging_loss_pays_nothing_and_routes_home", func():
+		GameState.reset()
+		GameState.state["pendingArchieDealCut"] = 50
+		GameState.state["flags"]["archieDealActive"] = true
+		GameState.state["combat"] = {
+			"active": true, "context": Combat.CONTEXT_ARCHIE_DEAL_MUGGING, "veinId": null,
+			"enemy": { "name": "Test Enemy", "hp": 20, "hpMax": 20, "attackMin": 0, "attackMax": 0, "veinId": null, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0 },
+			"log": [], "outcome": "loss", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+			"allies": [],
+		}
+
+		var result := Combat.exit_combat()
+
+		assert_eq(GameState.state["player"]["cash"], 40, "a lost archie-deal mugging pays nothing")
+		assert_eq(GameState.state["pendingArchieDealCut"], 0, "cleared even on a loss")
+		assert_eq(GameState.state["flags"]["archieDealActive"], false, "archieDealActive cleared so the next day can roll again")
+		assert_eq(GameState.state["modal"], null, "a lost mugging opens no result modal")
+		assert_eq(result["nextScreen"], "phone", "a loss routes home, unlike the win")
+	)
+
 	# ── 45-archie-raid-assist ────────────────────────────────────────────
 
 	run_case("start_raid_with_archie_in_ally_ids_adds_him_as_an_ally", func():

@@ -89,6 +89,8 @@ func _dismiss_modal() -> void:
 			_on_job_decline()
 		"sale_result":
 			_on_sale_result_close()
+		"archie_deal_result":
+			_on_archie_deal_result_close()
 		_:
 			Modal.close()
 
@@ -138,6 +140,8 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_sell_menu()
 		"sale_result":
 			_build_sale_result(data)
+		"archie_deal_result":
+			_build_archie_deal_result(data)
 		"james_job_offer":
 			_build_james_job_offer(data)
 		"james_job_short":
@@ -231,6 +235,28 @@ func _build_sale_result(data: Dictionary) -> void:
 
 
 func _on_sale_result_close() -> void:
+	Modal.close()
+	PhoneNav.route_home()
+
+
+# bugfixes-95: same shape as _build_sale_result/_on_sale_result_close above,
+# for Archie's own tag-along deal -- only ever opened on a win (a straight
+# accept or a won mugging); a lost mugging routes home with no modal at all
+# (Combat._exit_archie_deal_mugging), same as a normal Archie-sale mugging
+# loss shows nothing either.
+# PROSE-REVIEW: new copy, drafted against CONTENT-GUIDE.md's tone bible.
+func _build_archie_deal_result(data: Dictionary) -> void:
+	var mugged: bool = data.get("mugged", false)
+	_card_content.add_child(UI.heading("You held them off." if mugged else "Sorted."))
+	if mugged:
+		_card_content.add_child(UI.label("They tried their luck on Archie's stock. Didn't get it."))
+	else:
+		_card_content.add_child(UI.label("Went smooth. Archie's buyer paid up, no fuss."))
+	_card_content.add_child(UI.label("+£%d" % data.get("earned", 0)))
+	_card_content.add_child(UI.button("Back to it", _on_archie_deal_result_close))
+
+
+func _on_archie_deal_result_close() -> void:
 	Modal.close()
 	PhoneNav.route_home()
 

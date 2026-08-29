@@ -249,6 +249,10 @@ func new_game_state() -> Dictionary:
 
 		"jamesJob": null,
 		"pendingSaleCut": 0,
+		# bugfixes-95: Archie's own tag-along deal -- the gross-derived 50/50
+		# cut, held here across a mugging fight the same way pendingSaleCut
+		# holds the player's own sale cut.
+		"pendingArchieDealCut": 0,
 		"labThresholds": {},
 		"veinStationVeins": [],
 		# vein-growth-state ticket 06: plain dict of primitives, purity-safe.
@@ -268,6 +272,10 @@ func new_game_state() -> Dictionary:
 			"archieBuyerSmsQueued": false,
 			"jamesMotionEventSeen": false, "enhancementUnlocked": false,
 			"jamesJobActive": false, "jamesJobAccepted": false,
+			# bugfixes-95: gates ArchieDeals.roll_daily_offer() -- true from the
+			# moment an offer is queued until it's declined or its accepted
+			# deal (including any mugging fight it triggers) resolves.
+			"archieDealActive": false,
 			"homeRaidEventPending": false, "homeRaidEventSeen": false, "homeRaidWon": false,
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,
 			# M1-LONDON D5 — district event one-shot flags/counters.

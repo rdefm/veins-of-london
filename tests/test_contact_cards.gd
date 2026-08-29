@@ -217,3 +217,41 @@ func run() -> void:
 		assert_eq(GameState.state["event"]["eventId"], "james_motion", "pressing it resolves the pending entry and starts its event")
 		assert_true(Messages.pending_for("james").is_empty(), "the pending entry is resolved once acted on")
 	)
+
+	# ── bugfixes-95: Archie's tag-along deal offer ────────────────────────
+
+	run_case("archie_card_surfaces_a_deal_offer_as_accept_decline_not_a_generic_continue_button", func():
+		GameState.reset()
+		Messages.queue_pending("archie", ArchieDeals.PENDING_KIND, "Fancy tagging along for a cut?")
+
+		var card := ContactCards.build_archie_card()
+		assert_true(_find_button(card, "Accept") != null, "should show an Accept button")
+		assert_true(_find_button(card, "Decline") != null, "should show a Decline button")
+		assert_true(_find_button(card, "Continue →") == null, "an archie_deal offer must not fall into the generic Continue loop -- it has no event to start")
+	)
+
+	run_case("pressing_accept_on_archie_card_accepts_the_deal", func():
+		GameState.reset()
+		GameState.state["flags"]["archieDealActive"] = true
+		Messages.queue_pending("archie", ArchieDeals.PENDING_KIND, "Fancy tagging along for a cut?")
+
+		var button := _find_button(ContactCards.build_archie_card(), "Accept")
+		button.pressed.emit()
+
+		assert_true(Messages.pending_for("archie").is_empty(), "the pending entry is resolved once acted on")
+		assert_true(GameState.state["contacts"]["archie"]["relation"] != 10 or GameState.state["combat"]["active"], "accepting should have moved state forward (relation award and/or a mugging)")
+	)
+
+	run_case("pressing_decline_on_archie_card_declines_the_deal", func():
+		GameState.reset()
+		GameState.state["flags"]["archieDealActive"] = true
+		Messages.queue_pending("archie", ArchieDeals.PENDING_KIND, "Fancy tagging along for a cut?")
+		var relation_before: int = GameState.state["contacts"]["archie"]["relation"]
+
+		var button := _find_button(ContactCards.build_archie_card(), "Decline")
+		button.pressed.emit()
+
+		assert_true(Messages.pending_for("archie").is_empty(), "the pending entry is resolved once acted on")
+		assert_eq(GameState.state["flags"]["archieDealActive"], false, "archieDealActive cleared")
+		assert_eq(GameState.state["contacts"]["archie"]["relation"], relation_before + ArchieDeals.DECLINE_RELATION_LOSS, "declining docks relation")
+	)

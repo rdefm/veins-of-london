@@ -286,6 +286,7 @@ func _backfill_new_player_keys(result: Dictionary, defaults: Dictionary) -> void
 # are deliberately left untouched.
 func _restore_int_types(state: Dictionary) -> void:
 	_int_key(state, "pendingSaleCut")
+	_int_key(state, "pendingArchieDealCut")
 	_int_dict_values(state.get("labThresholds", {}))
 	_int_dict_values(state.get("veinStationTargets", {}))
 	for notification in state.get("notifications", []):
@@ -495,7 +496,7 @@ func _restore_modal_int_types(modal: Dictionary) -> void:
 		"cultivate_result":
 			_int_key(data, "gain")
 			_int_key(data, "newLevel")
-		"sale_result":
+		"sale_result", "archie_deal_result":
 			_int_key(data, "earned")
 			_int_key(data, "gross")
 		"james_job_complete":

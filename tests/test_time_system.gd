@@ -100,6 +100,12 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["tutorialStage"] = "buyer_event"
 		GameState.state["flags"]["buyerEventSeen"] = true
+		# bugfixes-95: suppress the unrelated Archie tag-along deal roll (also
+		# a daily-tick step now, also queued onto the "archie" thread) so it
+		# can't be mistaken for the reminder this case is actually checking --
+		# same convention test_time_system.gd's own James-job-expiry case
+		# uses to suppress that roll (jamesJobActive).
+		GameState.state["flags"]["archieDealActive"] = true
 		GameState.state["world"]["day"] = 2
 		TimeSystem.daily_tick()
 		assert_true(not Messages.has_unread("archie"), "buyerEventSeen should suppress the reminder")
@@ -111,6 +117,9 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["tutorialStage"] = "buyer_event"
 		GameState.state["flags"]["buyerEventSeen"] = false
+		# bugfixes-95: suppress the unrelated Archie tag-along deal roll (see
+		# this file's own comment on buyer_event_tutorial_trigger_does_not_fire_once_seen above).
+		GameState.state["flags"]["archieDealActive"] = true
 		GameState.state["world"]["day"] = 2
 
 		TimeSystem.daily_tick()

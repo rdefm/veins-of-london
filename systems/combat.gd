@@ -13,17 +13,24 @@ const CONTEXT_EVENT_MUGGING: String = "event_mugging"
 const CONTEXT_HOME_RAID: String = "home_raid"
 const CONTEXT_EVENT_RAID: String = "event_raid"
 const CONTEXT_DEFEND_VEIN: String = "defend_vein"
+# bugfixes-95: Archie's own tag-along deal going wrong — distinct from
+# CONTEXT_MUGGING (a normal Archie-lane sale) since a win/loss here resolves
+# through ArchieDeals.resolve_mugging() rather than Economy.complete_mugged_sale(),
+# and unlike CONTEXT_MUGGING a *loss* here still needs its own exit_combat()
+# handling (clearing archieDealActive), not just the win.
+const CONTEXT_ARCHIE_DEAL_MUGGING: String = "archie_deal_mugging"
 
 const CANONICAL_CONTEXTS: Array[String] = [
 	CONTEXT_RAID, CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING,
 	CONTEXT_HOME_RAID, CONTEXT_EVENT_RAID, CONTEXT_DEFEND_VEIN,
+	CONTEXT_ARCHIE_DEAL_MUGGING,
 ]
 
 # Contexts that are a mugging in flavour (no vein at stake, "they leg it" on
 # a win) rather than a raid — shared by the win-line/label logic here and
 # in scenes/screens/combat.gd so a third mugging-flavoured context (should
 # one ever exist) is one edit, not three.
-const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = [CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING]
+const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = [CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING, CONTEXT_ARCHIE_DEAL_MUGGING]
 
 # calc-effect-wiring-02 combat-pattern consumables. Percentages/turns are
 # placeholders per the ticket ("tune as needed"), not final balance.
@@ -164,6 +171,22 @@ static func start_mugging() -> void:
 	# CONTENT-GUIDE.md's tone bible.
 	log_lines.append("Archie's deal, Archie's problem -- he wades in.")
 	_start_combat(CONTEXT_MUGGING, null, enemy, log_lines, "muggingWon",
+		[Contacts.build_combat_ally("archie")])
+
+
+# bugfixes-95: the mugging that fires out of ArchieDeals.accept_deal() --
+# his own deal, same always-ally reasoning start_mugging() above uses. onWin
+# is "" (unlike start_mugging()'s "muggingWon") because both outcomes here
+# need handling, not just the win — ArchieDeals.resolve_mugging() is called
+# from exit_combat() for this context regardless of outcome, the same shape
+# CONTEXT_DEFEND_VEIN's Raiding.resolve_defend_outcome() already uses.
+static func start_archie_deal_mugging() -> void:
+	var enemy := generate_mugger()
+	var log_lines := ["%s step out of nowhere. They want what you're carrying." % enemy["name"]]
+	# PROSE-REVIEW: new ally-join log line, drafted against
+	# CONTENT-GUIDE.md's tone bible.
+	log_lines.append("Archie's deal, Archie's problem -- he wades in.")
+	_start_combat(CONTEXT_ARCHIE_DEAL_MUGGING, null, enemy, log_lines, "",
 		[Contacts.build_combat_ally("archie")])
 
 
@@ -918,6 +941,8 @@ static func exit_combat() -> Dictionary:
 
 	if context == CONTEXT_MUGGING and outcome == "win":
 		return _exit_mugging_win()
+	if context == CONTEXT_ARCHIE_DEAL_MUGGING:
+		return _exit_archie_deal_mugging(outcome)
 	if context == CONTEXT_EVENT_MUGGING:
 		return _exit_event_mugging()
 	if context == CONTEXT_HOME_RAID:
@@ -931,6 +956,19 @@ static func exit_combat() -> Dictionary:
 
 static func _exit_mugging_win() -> Dictionary:
 	return { "nextScreen": null }
+
+
+# bugfixes-95: ArchieDeals.resolve_mugging() handles both outcomes (paying
+# out + opening archie_deal_result only on a win, clearing archieDealActive
+# either way) -- a win stays put (the modal it opens is already visible,
+# same shape _exit_mugging_win() above uses for the normal Archie-sale
+# mugging), a loss routes home immediately since there's nothing to show.
+static func _exit_archie_deal_mugging(outcome) -> Dictionary:
+	ArchieDeals.resolve_mugging(outcome == "win")
+	if outcome == "win":
+		return { "nextScreen": null }
+	_route_phone_home()
+	return { "nextScreen": "phone" }
 
 
 # event_mugging (D5): state.event is still active regardless of outcome
