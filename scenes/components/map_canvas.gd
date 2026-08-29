@@ -34,10 +34,13 @@ extends Control
 # real phone width almost the whole canvas sat off-screen and had to be
 # scrolled to piece together — reported unusable from playtest screenshots.
 # zoom_level scales what's actually drawn: _ready()/_set_zoom() resize this
-# Control's own `size` to mapSize * zoom_level (not CanvasItem `scale`,
-# which ScrollContainer's scroll-range calculation ignores — sizing `size`
-# itself keeps the scrollbars honest about the zoomed content's true
-# extent), draw_set_transform() scales this node's own immediate-mode
+# Control's own `custom_minimum_size` to mapSize * zoom_level (not CanvasItem
+# `scale`, which ScrollContainer's scroll-range calculation ignores —
+# `custom_minimum_size` is what keeps the scrollbars honest about the zoomed
+# content's true extent; see _apply_zoom's own comment, bugfixes ticket 88,
+# for why `size` itself is deliberately left for the ScrollContainer's own
+# sort to assign rather than also stamped here), draw_set_transform() scales
+# this node's own immediate-mode
 # _draw() calls to match, and the three child Node2D layers get the same
 # factor on their own `scale` (Node2D.scale, unlike Control.scale here, is a
 # real transform their child draws already respect). Zoom math (clamping,
@@ -410,11 +413,37 @@ func _set_zoom(new_zoom: float) -> void:
 
 
 # Resizes this Control to the zoomed pixel size (see the T15-follow-up
-# comment at the top of this file for why `size`, not CanvasItem `scale`)
-# and matches the four child Node2D layers' own real `scale` to it.
+# comment at the top of this file for why the wrapping ScrollContainer needs
+# to see a real size change here, not CanvasItem `scale`) and matches the
+# four child Node2D layers' own real `scale` to it.
+#
+# Bugfixes ticket 88 (fourth pass at pinch drift): this used to also write
+# `size = custom_minimum_size` directly, immediately after — one of two
+# contributing causes of the drift underneath #76's still-intact
+# anchor-per-segment fix (the other is in _reapply_scroll_deferred's own
+# comment). Verified directly against a live ScrollContainer (headless, no
+# test-harness frame loop needed to reproduce the write itself): the
+# wrapping ScrollContainer's own deferred sort recomputes its scrollbars'
+# max-scroll range from this Control's minimum size every time -- EXCEPT
+# when this Control's `size` already happens to equal what that sort is
+# about to assign it, in which case Godot treats the sort as a no-op for
+# this child and never touches the scrollbar range at all. Manually
+# pre-setting `size` to that exact value, every single pinch frame, is
+# precisely what did that: the very first resize after this Control enters
+# the tree updates the range correctly (nothing to fall back to yet), but
+# every resize after that permanently starves it -- confirmed by polling ten
+# frames past a second resize with `size` manually pre-set (never updates)
+# against the same test with only custom_minimum_size touched (updates
+# within one frame, `size` included, assigned by the container's own sort).
+# Leaving `custom_minimum_size` as the only write here removes this
+# particular starve path: nothing downstream reads this Control's own `size`
+# synchronously for the zoomed content's true extent — _draw() scales via
+# `zoom_level` directly (draw_set_transform), and every content_size
+# computation in this file already goes through `_map_size * zoom_level`,
+# never `size` — so there's nothing to lose by leaving `size` to the
+# ScrollContainer's own sort to assign.
 func _apply_zoom() -> void:
 	custom_minimum_size = _map_size * zoom_level
-	size = custom_minimum_size
 	_halo_layer.scale = Vector2(zoom_level, zoom_level)
 	_playback_layer.scale = Vector2(zoom_level, zoom_level)
 	_pins_layer.scale = Vector2(zoom_level, zoom_level)
@@ -452,7 +481,7 @@ func _apply_initial_view() -> void:
 	if _scroll_container:
 		_apply_scroll(view["scroll"], _scroll_container)
 		# 86-map-camera-persistence-regression: _set_zoom above just resized
-		# this Control (_apply_zoom's custom_minimum_size/size write), but the
+		# this Control (_apply_zoom's custom_minimum_size write), but the
 		# wrapping ScrollContainer doesn't recompute its scroll range from that
 		# resize until its next sort pass, which is deferred, not synchronous.
 		# The _apply_scroll call just above therefore lands against the STALE
@@ -513,9 +542,45 @@ func _apply_scroll(v: Vector2, scroll: ScrollContainer) -> void:
 # re-apply reintroduces exactly that yank for the one visit where a map
 # event is already queued on open, so this backs off whenever _active_tween
 # is already claimed, leaving that tween as the sole authority over scroll.
+#
+# Bugfixes ticket 88 (fourth pass at pinch drift): also now shared by
+# _update_pinch (previously the initial-view restore's own private helper),
+# and the scrollbars' own `max_value` is fixed up here directly rather than
+# left to the ScrollContainer's own deferred sort to recompute. Verified
+# directly against a live ScrollContainer: an IMMEDIATE, synchronous write to
+# `scroll_horizontal`/`scroll_vertical` in the same frame as a resize (which
+# `_apply_scroll` above always does, deliberately, for the common case where
+# nothing needs correcting) leaves the ScrollContainer's own later deferred
+# NOTIFICATION_SORT_CHILDREN pass unable to recompute its scrollbars'
+# max_value on THIS resize, even though that same pass still correctly
+# resizes the child -- confirmed by comparing otherwise-identical resize
+# sequences with and without an intervening scroll_horizontal write. This is
+# what made ticket 86's original fix (a bare _apply_scroll reapply, no range
+# fixup) work for _apply_initial_view's one-off restore but not generalize to
+# _update_pinch's every-frame writes: _apply_initial_view's very first resize
+# still gets a working max_value from the ScrollContainer's own sort (there's
+# no earlier same-frame scroll write to have broken it yet), but every
+# resize from here on already has one, every time, from this very function's
+# preceding call. So this now owns `max_value` itself: `_map_size *
+# zoom_level` is the same content-size formula every other call site in this
+# file already computes independently, applied directly to the real
+# HScrollBar/VScrollBar the ScrollContainer wraps, before writing the scroll
+# position that range is meant to clamp. `page` (the scrollbar's own idea of
+# the viewport extent, which also feeds the effective max) is left alone --
+# attempting the same fixup on it empirically made no difference, apparently
+# still overwritten by whatever ELSE the ScrollContainer/scrollbar visibility
+# machinery does after this deferred call runs, so the reachable max can
+# still land a scrollbar's own thickness (a handful of px) short of
+# MapZoom.scroll_target's own math -- immaterial next to the hundreds/
+# thousands of px this bug actually produced, and what
+# tests/test_map_canvas.gd's own regression case tolerates rather than
+# asserting exactly.
 func _reapply_scroll_deferred(v: Vector2, scroll: ScrollContainer) -> void:
 	if _active_tween != null:
 		return
+	var content_size := _map_size * zoom_level
+	scroll.get_h_scroll_bar().max_value = content_size.x
+	scroll.get_v_scroll_bar().max_value = content_size.y
 	_apply_scroll(v, scroll)
 
 
@@ -1711,6 +1776,25 @@ func _start_pinch() -> void:
 # fingers move), but the LOGICAL point being pinned to it is fixed for the
 # whole segment, so midpoint jitter only ever contributes a direct,
 # proportional (not accumulated) nudge to scroll instead of an integrated one.
+#
+# Bugfixes ticket 88 (fourth pass): #76's fix above holds -- confirmed by
+# re-deriving it fresh and finding it unchanged -- but the jump persisted
+# anyway, from an unrelated mechanism one layer down: this function's own
+# scroll write below was landing against a stale ScrollContainer scrollbar
+# range on every pinch frame after the first, so Godot's own ScrollContainer
+# silently clamped it back short of the real target — see _apply_zoom's own
+# comment for the resize-side half of why (it used to also stamp `size`
+# directly, which turns out to matter here) and _reapply_scroll_deferred's
+# own comment for the write-side half (a synchronous scroll write itself
+# also starves the next range recompute, which is why that helper now fixes
+# the scrollbars' `max_value` up directly rather than trusting the
+# ScrollContainer to do it). This was never caught by #23/#48/#76's own
+# tests because none of them construct MapCanvas with a real ScrollContainer
+# parent (documented explicitly on the case above, and in
+# tests/test_touch_scroll_container.gd's header) — get_parent() as
+# ScrollContainer resolves to null in that construction style, so
+# _update_pinch's entire scroll-writing branch, where this bug lives, was
+# structurally never exercised.
 func _update_pinch() -> void:
 	if _pinch_start_distance <= 0.0:
 		_start_pinch()
@@ -1732,6 +1816,12 @@ func _update_pinch() -> void:
 		var content_size := _map_size * zoom_level
 		var target_scroll := MapZoom.scroll_target(_pinch_anchor_logical, zoom_level, viewport_size, content_size, anchor)
 		_apply_scroll(target_scroll, scroll)
+		# Reapply once more once the ScrollContainer's own deferred sort has
+		# caught up its scrollbar range to this frame's resize -- see this
+		# function's header comment. Same helper _apply_initial_view() uses,
+		# so a pinch mid-playback-tween still defers to that tween instead of
+		# fighting it.
+		_reapply_scroll_deferred.call_deferred(target_scroll, scroll)
 
 	accept_event()
 

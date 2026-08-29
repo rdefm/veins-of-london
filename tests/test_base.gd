@@ -16,7 +16,21 @@ func run() -> void:
 
 func run_case(case_name: String, fn: Callable) -> void:
 	_case_failures = []
-	fn.call()
+	# `await` here is a no-op for the overwhelming majority of cases, whose
+	# `fn` never itself awaits anything -- GDScript only actually suspends at
+	# a real await point, so a synchronous fn.call() still runs start-to-
+	# finish, in order, before this line moves on (see bugfixes ticket 88's
+	# own investigation notes for why this was verified directly rather than
+	# assumed). It exists so a case that DOES need a real engine frame to
+	# elapse (e.g. to prove a ScrollContainer's own deferred layout pass has
+	# caught up) can `await (Engine.get_main_loop() as SceneTree).process_frame`
+	# inside `fn` (test files are RefCounted, not Node, so there's no
+	# get_tree() here) and have this call site actually wait for that —
+	# every call site above this one
+	# (run() in the case's own test file) then has to `await run_case(...)`
+	# in turn for that suspension to actually propagate, same as
+	# tests/test_runner.gd now `await`s each file's run().
+	await fn.call()
 	if _case_failures.is_empty():
 		passed += 1
 		print("  PASS: %s" % case_name)

@@ -32,7 +32,12 @@ func _initialize() -> void:
 		var script: GDScript = load(path)
 		var instance = script.new()
 		print("== %s ==" % path.get_file())
-		instance.run()
+		# Awaited (not a bare call) so a test file whose run() awaits a real
+		# engine frame (bugfixes ticket 88 — see test_base.gd's run_case)
+		# actually finishes before its passed/failed counts are read below.
+		# A no-op for every other file: GDScript only suspends at a real
+		# await point, so a synchronous run() still completes immediately.
+		await instance.run()
 		total_passed += instance.passed
 		total_failed += instance.failed
 

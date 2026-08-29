@@ -1242,3 +1242,92 @@ func run() -> void:
 		_free_zoom_layers(canvas)
 		canvas.free()
 	)
+
+	# Bugfixes ticket 88 (fourth pass at pinch drift): the actual regression,
+	# one layer below #76's anchor-per-segment fix (still intact, unlike here
+	# above). #23/#48/#76's own pinch cases all construct MapCanvas with NO
+	# real ScrollContainer parent (documented on this file's own ticket-76
+	# case above, and in tests/test_touch_scroll_container.gd's header) --
+	# get_parent() resolves to null that way, so _update_pinch's entire
+	# scroll-writing branch was structurally never exercised by any of them.
+	# This case is the exception: a REAL ScrollContainer, live in the actual
+	# scene tree (Engine.get_main_loop().root), so Godot's own scrollbar-range
+	# recompute runs for real -- and it recomputes on a DEFERRED sort pass,
+	# not synchronously with the resize _set_zoom just did. A resize this
+	# frame + an immediate scroll_horizontal/vertical write in the same frame
+	# gets silently clamped by the engine to the PREVIOUS (stale, too-small)
+	# range; only once the deferred sort has actually run does a write stick.
+	# Without _update_pinch's `_reapply_scroll_deferred.call_deferred(...)`,
+	# this case's asserted values stay wrong forever, not just for a frame --
+	# nothing ever re-writes them once the range does catch up. Flip this
+	# case red by commenting out that one line to see it fail before trusting
+	# it green.
+	#
+	# Being live in the tree also means _ready() runs for real this time
+	# (unlike every other case in this file — see the class comment), so this
+	# needs GameState.reset() first and reads back whatever real _map_size/
+	# starting zoom/scroll _ready()'s own _apply_initial_view() lands on
+	# (bugfixes ticket 86) rather than assuming fixed numbers, then computes
+	# its own "expected" from those observed values via the same
+	# MapZoom.scroll_target() formula _update_pinch itself calls -- so this
+	# case stays correct regardless of what GameData.MAP_LAYOUT/MapLayout.
+	# home_anchor() actually contain.
+	#
+	# Awaited (not a bare call): this case's own fn awaits real engine frames
+	# -- see tests/test_base.gd's run_case and tests/test_runner.gd for why
+	# that requires every caller up the chain to await too.
+	await run_case("pinch_scroll_survives_the_scrollcontainers_own_deferred_range_recompute", func():
+		GameState.reset()
+		var tree := Engine.get_main_loop() as SceneTree
+		var scroll := ScrollContainer.new()
+		scroll.size = Vector2(300, 300)
+		var canvas := MapCanvas.new()
+		scroll.add_child(canvas)
+		tree.root.add_child(scroll)
+
+		# Let _ready()'s own _apply_initial_view() (immediate write + its own
+		# deferred reapply, ticket 86) fully settle before this case starts
+		# driving its own pinch, so the "before" state read below is stable.
+		await tree.process_frame
+
+		var start_zoom: float = canvas.zoom_level
+		var map_size: Vector2 = canvas._map_size
+
+		# A hard pinch to MapZoom.MAX, started near the map's bottom-right
+		# corner (so its logical anchor point is large) and dragged to a huge
+		# NEGATIVE screen position (so the final on-screen anchor is small/
+		# negative) -- MapZoom.scroll_target's positioned = point*zoom - anchor
+		# is then unambiguously huge and positive regardless of the exact
+		# numbers, so its own clamp saturates the target to the post-zoom max
+		# scroll, i.e. (map_size * MapZoom.MAX - viewport_size) floored at
+		# zero per axis. That max is well past the PRE-pinch max scroll
+		# (map_size * start_zoom is much smaller), which is exactly what
+		# makes this fixture catch the bug: a write clamped to the STALE
+		# (pre-pinch) range lands well short of it on both axes.
+		var viewport_size := Vector2(300, 300)
+		var expected: Vector2 = (map_size * MapZoom.MAX - viewport_size).max(Vector2.ZERO)
+
+		var pinch_start := map_size * start_zoom * 0.9  # near the zoomed content's bottom-right corner
+		canvas._gui_input(_touch(0, true, pinch_start))
+		canvas._gui_input(_touch(1, true, pinch_start + Vector2(100, 100)))  # start distance ~141
+		canvas._gui_input(_drag(1, pinch_start - Vector2(6000, 6000)))  # huge distance + a swing to a huge-negative midpoint
+
+		assert_almost_eq(canvas.zoom_level, MapZoom.MAX, 0.0001, "sanity: this fixture's drag zooms all the way to MAX")
+
+		await tree.process_frame  # let the ScrollContainer's deferred sort actually run
+
+		# A generous tolerance (not exact equality): a scrollbar's own
+		# thickness can still shave a handful of px off the reachable max
+		# (see _reapply_scroll_deferred's own comment) -- immaterial next to
+		# what this bug actually produced, hundreds/thousands of px short.
+		# The real point of this assertion is "not stuck at the stale
+		# pre-pinch range", which was off by exactly that much.
+		var tolerance := 50.0
+		assert_true(absf(scroll.scroll_horizontal - expected.x) <= tolerance, "scroll_horizontal (%s) must land near the real post-zoom max scroll (%s) once the engine's own range catch-up has happened, not stay clamped to the stale pre-pinch range" % [scroll.scroll_horizontal, expected.x])
+		assert_true(absf(scroll.scroll_vertical - expected.y) <= tolerance, "scroll_vertical (%s) must land near the real post-zoom max scroll (%s) once the engine's own range catch-up has happened, not stay clamped to the stale pre-pinch range" % [scroll.scroll_vertical, expected.y])
+
+		scroll.remove_child(canvas)
+		tree.root.remove_child(scroll)
+		canvas.free()
+		scroll.free()
+	)
