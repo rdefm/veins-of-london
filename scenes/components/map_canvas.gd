@@ -138,6 +138,10 @@ const LINE_CLEARANCE := LINE_WIDTH + LINE_MIN_VISUAL_GAP
 # one stop's icon into another's slot.
 const STOP_NUDGE_MAX_OFFSET := 16.0
 const STOP_NUDGE_MARGIN := 2.0
+# Ticket 93: safety-valve cap on _apply_crossing_nudges()'s reconciliation
+# loop — see that function's own comment for what it's guarding against and
+# why this is a cap, not the actual termination guarantee.
+const _RECONCILE_PASSES := 8
 # bugfixes ticket 02: player/faction stop icons enlarged (was 7.0/5.0) so
 # they're legible and tappable on-device; ratio between the two kept the
 # same as before. MapHitTest.STOP_TAP_RADIUS grew alongside it so the tap
@@ -1008,6 +1012,39 @@ func _other_owner_lines(owner: String) -> Array:
 # off, and the same obstacle nudges to the same spot every time the
 # crossing condition holds, so there's nothing that would visibly animate
 # between one rebuild and the next in the first place.
+#
+# Ticket 93: a single pass over `owners` isn't enough -- nudging a stop to
+# clear one owner's crossing can push that stop straight into a DIFFERENT
+# owner's line that was already checked earlier in this same pass. That
+# earlier owner's turn has already happened, so nothing rechecks it, yet
+# _draw_lines() still rebuilds every owner's route afterwards from these
+# same mutated positions -- so the earlier owner's actually-drawn line can
+# end up crossing a stop that, at the moment it was checked, wasn't
+# crossing anything. Repeating the full owner pass until a pass moves
+# nothing closes that gap.
+#
+# Each individual nudge still gets the full STOP_NUDGE_MAX_OFFSET budget
+# (same as before this ticket), deliberately NOT cumulative across passes/
+# owners -- a per-reconciliation cumulative cap was tried and rejected: it
+# can exhaust a stop's budget on an early conflict and then silently skip a
+# later one, leaving a crossing on the table, which is exactly the "hard,
+# never" no-crossing guarantee ticket 93/74 exist to close. A stop that
+# several different owners' lines all converge on can therefore still drift
+# past STOP_NUDGE_MAX_OFFSET in total across a reconciliation -- correctness
+# (no visible crossing) wins over that softer bound, whose own purpose
+# (STOP_NUDGE_MAX_OFFSET's comment: never pushing a stop into a neighbouring
+# slot) still holds with room to spare against the ~45-60px slot spacing
+# even after a few compounding nudges.
+#
+# _RECONCILE_PASSES is a safety valve, not the termination guarantee --
+# nudge_position's own target (radius + STOP_NUDGE_MARGIN) always clears
+# whichever leg it was called against, so two owners with genuinely
+# opposed pulls (e.g. lines running near-parallel on either side of the
+# same stop, closer together than 2x that target) are the only way this
+# can fail to converge; that is a pre-existing geometric limit of a
+# perpendicular-nudge design, not something either this cap or a bigger one
+# fixes -- same "best-effort tempered by a hard bound" territory as
+# LINE_MIN_VISUAL_GAP already documents elsewhere in this file.
 func _apply_crossing_nudges() -> void:
 	var by_id: Dictionary = {}
 	for stop in _line_vein_stops:
@@ -1020,30 +1057,38 @@ func _apply_crossing_nudges() -> void:
 	var owners: Array = ["player"]
 	owners.append_array(_line_faction_stops.keys())
 
-	for owner in owners:
-		var anchor: Variant = _owner_anchor(owner)
-		if anchor == null:
-			continue  # data error (see MapLayout.faction_first_presence_anchor) -- nothing to route, skip
-		var stops := _line_owner_stops(owner)
-		if stops.size() < 2:
-			continue  # a single-stop terminus stub (or no stops at all) never elbow-crosses anything
-		var obstacle_stops := _other_owner_obstacle_stops(owner)
-		if obstacle_stops.is_empty():
-			continue
-		var obstacle_lines := _other_owner_lines(owner)
+	for _reconcile_pass in range(_RECONCILE_PASSES):
+		var moved := false
 
-		var ordered := MapRouting.nearest_neighbour_order(anchor, stops)
-		for i in range(ordered.size() - 1):
-			var a: Vector2 = ordered[i]["pos"]
-			var b: Vector2 = ordered[i + 1]["pos"]
-			var corner: Vector2 = MapRouting.elbow_path(a, b, river, obstacle_stops, obstacle_lines, LINE_CLEARANCE)[1]
-			for obstacle in MapRouting.crossed_obstacles(a, corner, b, obstacle_stops):
-				var stop_dict: Variant = by_id.get(obstacle.get("id", ""))
-				if stop_dict == null:
-					continue
-				var new_pos := MapRouting.nudge_position(obstacle, a, corner, b, STOP_NUDGE_MARGIN, STOP_NUDGE_MAX_OFFSET)
-				stop_dict["position"] = new_pos
-				obstacle["pos"] = new_pos  # keeps this owner's remaining legs (and this owner's own obstacle_stops copy) consistent
+		for owner in owners:
+			var anchor: Variant = _owner_anchor(owner)
+			if anchor == null:
+				continue  # data error (see MapLayout.faction_first_presence_anchor) -- nothing to route, skip
+			var stops := _line_owner_stops(owner)
+			if stops.size() < 2:
+				continue  # a single-stop terminus stub (or no stops at all) never elbow-crosses anything
+			var obstacle_stops := _other_owner_obstacle_stops(owner)
+			if obstacle_stops.is_empty():
+				continue
+			var obstacle_lines := _other_owner_lines(owner)
+
+			var ordered := MapRouting.nearest_neighbour_order(anchor, stops)
+			for i in range(ordered.size() - 1):
+				var a: Vector2 = ordered[i]["pos"]
+				var b: Vector2 = ordered[i + 1]["pos"]
+				var corner: Vector2 = MapRouting.elbow_path(a, b, river, obstacle_stops, obstacle_lines, LINE_CLEARANCE)[1]
+				for obstacle in MapRouting.crossed_obstacles(a, corner, b, obstacle_stops):
+					var stop_dict: Variant = by_id.get(obstacle.get("id", ""))
+					if stop_dict == null:
+						continue
+					var new_pos := MapRouting.nudge_position(obstacle, a, corner, b, STOP_NUDGE_MARGIN, STOP_NUDGE_MAX_OFFSET)
+					if new_pos != obstacle["pos"]:
+						moved = true
+					stop_dict["position"] = new_pos
+					obstacle["pos"] = new_pos  # keeps this owner's remaining legs (and this owner's own obstacle_stops copy) consistent
+
+		if not moved:
+			break  # converged -- no owner's pass moved anything, so re-checking again would be a no-op
 
 
 # Ticket 03 (retriggered by vein-growth-state ticket 07 on entering the

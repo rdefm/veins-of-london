@@ -1315,6 +1315,66 @@ func run() -> void:
 		canvas.free()
 	)
 
+	# Ticket 93 (recurrence of the crossing #74 was meant to close): a
+	# single pass over `owners` in _apply_crossing_nudges isn't enough.
+	# Nudging a stop to clear one owner's crossing can push that stop
+	# straight into a DIFFERENT owner's line that was already checked
+	# earlier in the very same pass -- that earlier owner's turn has
+	# already happened, so nothing rechecked it, yet _draw_lines() still
+	# rebuilds every owner's route afterwards from the same mutated
+	# positions. Concretely below: the player's route is checked first and
+	# passes clean against faction_a's stop; faction_b is processed next,
+	# finds its own leg crosses that same stop, and nudges it -- landing it
+	# squarely inside the player's own clearance zone. A single-pass
+	# _apply_crossing_nudges leaves it there uncorrected; the fix repeats
+	# the owner pass until nothing moves. Coordinates hand-derived (see this
+	# ticket's own investigation) so faction_b's nudge is guaranteed to
+	# cross the player's leg on the first pass, and the player's own
+	# follow-up nudge is small enough not to re-cross faction_b's leg in
+	# turn -- proving the fix actually converges rather than oscillating.
+	run_case("apply_crossing_nudges_reconciles_a_nudge_that_crosses_an_earlier_owners_already_checked_line", func():
+		GameState.reset()
+		var canvas := MapCanvas.new()
+
+		var faction_ids: Array = GameData.FACTIONS.keys()
+		var faction_a: String = faction_ids[0]
+		var faction_b: String = faction_ids[1]
+
+		var p1 := Vector2(995, 1096)
+		var p2 := Vector2(1095, 1096)
+		var a_stop := Vector2(1031.02, 1085.26)
+		var b1 := Vector2(1030, 1080)
+		var b2 := Vector2(1070, 1120)
+
+		canvas._line_vein_stops = [
+			{ "id": "v1", "position": p1, "kind": "vein", "site": {}, "vein": {}, "owner": "player" },
+			{ "id": "v2", "position": p2, "kind": "vein", "site": {}, "vein": {}, "owner": "player" },
+		]
+		canvas._line_faction_stops = {
+			faction_a: [
+				{ "id": "fa1", "position": a_stop, "kind": "vein", "site": {}, "vein": {}, "owner": faction_a },
+			],
+			faction_b: [
+				{ "id": "fb1", "position": b1, "kind": "vein", "site": {}, "vein": {}, "owner": faction_b },
+				{ "id": "fb2", "position": b2, "kind": "vein", "site": {}, "vein": {}, "owner": faction_b },
+			],
+		}
+
+		canvas._apply_crossing_nudges()
+
+		# Rebuild both the player's and faction_b's real routed lines exactly
+		# as _draw_lines would, and confirm neither crosses the (now doubly
+		# nudged) faction_a stop -- same "guarantee holds against what's
+		# actually drawn" discipline as the ticket 74 case above.
+		for owner in ["player", faction_b]:
+			var anchor: Variant = canvas._owner_anchor(owner)
+			var obstacles := canvas._other_owner_obstacle_stops(owner)
+			var line := MapRouting.build_line(anchor, canvas._line_owner_stops(owner), MapLayout.river_path(), obstacles, canvas._other_owner_lines(owner), MapCanvas.LINE_CLEARANCE)
+			assert_true(MapRouting.crossed_obstacles(line[0], line[1], line[2], obstacles).is_empty(), "%s's real routed line must not cross another owner's stop after reconciliation" % owner)
+
+		canvas.free()
+	)
+
 	# Ticket 76 (third pass at pinch drift): _start_pinch/_update_pinch don't
 	# need a real ScrollContainer parent to exercise the anchor bookkeeping —
 	# get_parent() resolves to null in this construction style (same
