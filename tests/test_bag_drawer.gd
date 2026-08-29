@@ -16,7 +16,7 @@ extends "res://tests/test_base.gd"
 
 
 # dial-device ticket 07: a minimal inert-but-seeded Dial, same shape
-# Dial._new_dial() produces -- callers add "movement"/"loadedComplications"
+# Dial.new_dial() produces -- callers add "movement"/"loadedComplications"
 # as needed. capacityMax comes from Dial.capacity_max(1) so it's never out
 # of sync with the real level-1 lookup.
 func _fresh_dial() -> Dictionary:

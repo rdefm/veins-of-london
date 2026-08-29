@@ -68,7 +68,7 @@ static func attempt_seed(haft_id: String) -> Dictionary:
 
 	var success: bool = Rng.chance(seed_success_chance())
 	if success:
-		player["dial"] = _new_dial(haft_id)
+		player["dial"] = new_dial(haft_id)
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "success": success }
@@ -118,7 +118,12 @@ static func find_loaded_rewind_complication_index() -> int:
 # from the Dial-level lookup table alone, so a freshly-seeded level-1 Dial
 # already has a real capacityMax and can load/unload Complications with no
 # Movement seated at all.
-static func _new_dial(haft_id: String) -> Dictionary:
+#
+# Public (not leading-underscore) because ticket 96's DebugStart.apply()
+# calls this directly from outside dial.gd to hand over a bare seeded Dial,
+# bypassing attempt_seed()'s gift-gate/cost/roll -- the same "no grinding"
+# treatment as every other debug-start grant.
+static func new_dial(haft_id: String) -> Dictionary:
 	return {
 		"level": 1,
 		"xp": 0,
@@ -353,7 +358,7 @@ static func capacity_used(dial: Dictionary) -> int:
 # regular tiered inventory and appends it to loadedComplications at the
 # recipe's fixed capacity cost. Refused once it would push capacityUsed past
 # the Dial's stored capacityMax (User story 24) -- that field is populated
-# from capacity_max() at seed time (_new_dial()) and never touched by
+# from capacity_max() at seed time (new_dial()) and never touched by
 # seat_movement()/unseat_movement() above, so this works identically with no
 # Movement seated (User story 6/25).
 static func load_complication(recipe_key: String, tier: int) -> Dictionary:

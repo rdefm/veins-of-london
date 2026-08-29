@@ -151,4 +151,16 @@ func run() -> void:
 				vein_stop_ids.append(stop["vein"]["id"])
 		for v in p["veins"]:
 			assert_true(vein_stop_ids.has(v["id"]), "%s debug vein renders as a Map stop" % v["oreType"])
+
+		# ticket 96: debug start hands over an already-seeded Dial,
+		# bypassing the gift-gate/cost/roll -- bare, matching
+		# Dial.new_dial()'s exact inert shape.
+		var dial: Dictionary = p["dial"]
+		assert_true(dial != null, "debug start grants a Dial")
+		assert_eq(dial["level"], 1, "seeded Dial is level 1")
+		assert_eq(dial["movement"], null, "seeded Dial has no Movement seated")
+		assert_eq(dial["loadedComplications"], [], "seeded Dial has no loaded Complications")
+		assert_true(GameData.DIAL_HAFTS.has(dial["haftId"]), "seeded Dial has a valid haftId")
+		assert_eq(dial["currentCharge"], 0, "seeded Dial has no charge")
+		assert_eq(dial["capacityMax"], Dial.capacity_max(1), "seeded Dial's capacity matches the level-1 lookup")
 	)

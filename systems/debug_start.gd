@@ -45,6 +45,13 @@ static func apply() -> void:
 	player["items"] = [{ "id": crowbar_id, "type": "crowbar" }]
 	player["equipment"]["weapon"] = crowbar_id
 
+	# ticket 96: bare seeded Dial -- Dial.new_dial()'s exact inert shape
+	# (no Movement, no loaded Complications), reused directly rather than
+	# going through Dial.attempt_seed()'s gift-gate/cost/roll, same
+	# "no grinding" treatment as everything else in this file. The player
+	# still crafts/seats a Movement and loads Complications themselves.
+	player["dial"] = Dial.new_dial("guild_cane")
+
 	# Each debug vein gets its own claimed site in shoreditch so
 	# MapLayout.build_stop_items — which only turns a
 	# vein into a Map stop when it's tied to a claimed site the vein's own

@@ -128,7 +128,7 @@ func new_game_state() -> Dictionary:
 			# non-null). Shape while seeded: { level, xp, currentCharge,
 			# maxCharge, rechargeRate, lastRegenDay, combatRegenTurnCounter,
 			# capacityMax, movement, loadedComplications, haftId } -- see
-			# systems/dial.gd's _new_dial(). lastRegenDay (ticket 04) guards
+			# systems/dial.gd's new_dial(). lastRegenDay (ticket 04) guards
 			# Dial.daily_regen() the same lastResetDay way the old
 			# devicesCompleted entries used to guard their own reset.
 			"dial": null,
