@@ -9,7 +9,7 @@
     "siteCap": 7,
     "special": "home base",
     "factionPresence": "collective",
-    "blurb": "Home turf. Rents keep going up and nobody knows why."
+    "blurb": "Home turf. Rents keep going up and nobody knows why. No ore runs stronger than the rest here — you take whatever surfaces."
   },
   "city": {
     "id": "city",
@@ -21,7 +21,7 @@
     "siteCap": 9,
     "special": "",
     "factionPresence": "conclave",
-    "blurb": "Every building is a bank, a firm, or both, and something older underneath."
+    "blurb": "Every building is a bank, a firm, or both, and something older underneath. Fate ore turns up more than anything else; the City's always been in the business of who owes what to whom."
   },
   "greenwich": {
     "id": "greenwich",
@@ -33,7 +33,7 @@
     "siteCap": 10,
     "special": "",
     "factionPresence": "guild",
-    "blurb": "The Meridian runs through it, which the locals will mention unprompted."
+    "blurb": "The Meridian runs through it, which the locals will mention unprompted. Time ore turns up here more than anywhere else in London."
   },
   "camden": {
     "id": "camden",
@@ -45,7 +45,7 @@
     "siteCap": 6,
     "special": "",
     "factionPresence": "firm",
-    "blurb": "Markets, market stalls, and men who are technically also a market stall."
+    "blurb": "Markets, market stalls, and men who are technically also a market stall. Physics ore is most of what comes up — nothing here holds still long enough to settle."
   },
   "kingscross": {
     "id": "kingscross",
@@ -57,7 +57,7 @@
     "siteCap": 7,
     "special": "veins here: +1 rightward drift, -1 leftward drift (min 0)",
     "factionPresence": "network",
-    "blurb": "Everything in King's Cross is on its way somewhere else. Even the veins grow faster."
+    "blurb": "Everything in King's Cross is on its way somewhere else. Even the veins grow faster, and what surfaces leans time and physics in roughly equal measure."
   },
   "battersea": {
     "id": "battersea",
@@ -69,7 +69,7 @@
     "siteCap": 5,
     "special": "",
     "factionPresence": "firm",
-    "blurb": "The power station stopped generating decades ago. Something still hums."
+    "blurb": "The power station stopped generating decades ago. Something still hums. Physics ore is most of what turns up — the old cooling towers never really switched off."
   },
   "hampstead": {
     "id": "hampstead",
@@ -81,7 +81,7 @@
     "siteCap": 2,
     "special": "",
     "factionPresence": "",
-    "blurb": "Old money and older trees. The Heath keeps its own counsel."
+    "blurb": "Old money and older trees. The Heath keeps its own counsel, and what grows under it is mostly life ore."
   },
   "whitechapel": {
     "id": "whitechapel",
@@ -93,7 +93,7 @@
     "siteCap": 7,
     "special": "vein NPC-raid chance ×1.5 (when vein raids land, M2)",
     "factionPresence": "collective",
-    "blurb": "The oldest grief in London, still paying rent to the newest landlords."
+    "blurb": "The oldest grief in London, still paying rent to the newest landlords. Emotion ore is most of what surfaces — grief doesn't decompose round here, it just changes hands."
   },
   "soho": {
     "id": "soho",
@@ -105,6 +105,6 @@
     "siteCap": 0,
     "special": "marketplace (M4); no veins, no prospecting",
     "factionPresence": "network",
-    "blurb": "Nothing grows here. Everything gets sold here eventually."
+    "blurb": "Nothing grows here — no sites, no veins, nothing to prospect. Everything gets sold here eventually."
   }
 }
