@@ -860,6 +860,116 @@ func run() -> void:
 		canvas.free()
 	)
 
+	# ── step_zoom (bugfixes ticket 89: floating +/- zoom buttons) ─────────
+	# The actual step/clamp math is MapZoom.step_target() (tests/
+	# test_map_zoom.gd), a pure seam unit-tested without any Tween. What's
+	# left to prove here is Node/Tween-side and follows this file's own
+	# established discipline for that (see the ticket-17 case above, and
+	# the class comment near the top of this file): a real value change
+	# delivered through a Tween's tween_method callback isn't reliably
+	# observable via custom_step() on a canvas with no live SceneTree (see
+	# this file's own queuing_a_vein_while_the_map_tab_is_already_active_
+	# starts_its_playback_immediately case's comment on why Tween-timed
+	# animation isn't driven directly in headless tests) — so these only
+	# assert whether a tween gets kicked off at all, not its delivered
+	# end value (see a_second_vein_queued_after_the_first_finished_playing_
+	# also_gets_its_own_playback's own comment, below, for the same finding
+	# against MapEvents' playback tweens). The live-tree case below
+	# (step_zoom_keeps_the_same_logical_point_centred_in_the_viewport) is
+	# the one place a real post-tween zoom_level IS asserted, since it runs
+	# inside an actual ticking SceneTree.
+
+	run_case("step_zoom_in_kicks_off_a_tween_when_not_already_at_max", func():
+		var canvas := MapCanvas.new()
+		canvas.zoom_level = 1.0
+
+		canvas.step_zoom(1)
+
+		assert_true(canvas._active_tween != null, "step_zoom must kick off pan_to()'s tween")
+
+		canvas.free()
+	)
+
+	run_case("step_zoom_out_kicks_off_a_tween_when_not_already_at_min", func():
+		var canvas := MapCanvas.new()
+		canvas.zoom_level = 1.0
+
+		canvas.step_zoom(-1)
+
+		assert_true(canvas._active_tween != null, "step_zoom must kick off pan_to()'s tween")
+
+		canvas.free()
+	)
+
+	run_case("step_zoom_in_is_a_no_op_already_at_max", func():
+		var canvas := MapCanvas.new()
+		canvas.zoom_level = MapZoom.MAX
+
+		canvas.step_zoom(1)
+
+		assert_true(canvas._active_tween == null, "already at the bound the step would clamp to -- no tween, no wasted animation")
+		assert_almost_eq(canvas.zoom_level, MapZoom.MAX, 0.0001)
+
+		canvas.free()
+	)
+
+	run_case("step_zoom_out_is_a_no_op_already_at_min", func():
+		var canvas := MapCanvas.new()
+		canvas.zoom_level = MapZoom.MIN
+
+		canvas.step_zoom(-1)
+
+		assert_true(canvas._active_tween == null, "already at the bound the step would clamp to -- no tween, no wasted animation")
+		assert_almost_eq(canvas.zoom_level, MapZoom.MIN, 0.0001)
+
+		canvas.free()
+	)
+
+	# Bugfixes ticket 89: "the step anchors on the viewport centre" — a real,
+	# live-tree ScrollContainer is needed to prove this against actual scroll
+	# writes (a bare `ScrollContainer.new()` parent with no live tree behaves
+	# like #88's own regression: its scrollbar range never recomputes, so
+	# every scroll_horizontal/vertical write silently clamps to stale (0)
+	# range) -- same "REAL ScrollContainer, live in the actual scene tree"
+	# setup, and the same deferred-sort-catch-up wait, as this file's own
+	# ticket-88 pinch case above (see its header comment for why).
+	await run_case("step_zoom_keeps_the_same_logical_point_centred_in_the_viewport", func():
+		GameState.reset()
+		var tree := Engine.get_main_loop() as SceneTree
+		var scroll := ScrollContainer.new()
+		scroll.size = Vector2(300, 300)
+		var canvas := MapCanvas.new()
+		scroll.add_child(canvas)
+		tree.root.add_child(scroll)
+
+		await tree.process_frame  # let _ready()'s own initial-view settle first
+
+		var start_zoom: float = canvas.zoom_level
+		var map_size: Vector2 = canvas._map_size
+		var viewport_size := Vector2(300, 300)
+
+		# Whatever logical point currently sits dead-centre on screen, before
+		# the step -- this is the point step_zoom() must keep centred.
+		var screen_centre := Vector2(scroll.scroll_horizontal, scroll.scroll_vertical) + viewport_size / 2.0
+		var centred_point := MapZoom.to_logical(screen_centre, start_zoom)
+
+		canvas.step_zoom(1)
+		assert_true(canvas._active_tween != null, "step_zoom must kick off pan_to()'s tween")
+		canvas._active_tween.custom_step(999999.0)
+		assert_almost_eq(canvas.zoom_level, MapZoom.clamp_zoom(start_zoom + MapZoom.STEP), 0.0001, "sanity: this fixture's step lands where step_zoom's own maths says it should")
+
+		await tree.process_frame  # let the ScrollContainer's deferred sort catch up (ticket 88)
+
+		var expected := MapZoom.scroll_target(centred_point, canvas.zoom_level, viewport_size, map_size * canvas.zoom_level)
+		var tolerance := 50.0
+		assert_true(absf(scroll.scroll_horizontal - expected.x) <= tolerance, "scroll_horizontal (%s) must land near %s, keeping the pre-step centred point still centred" % [scroll.scroll_horizontal, expected.x])
+		assert_true(absf(scroll.scroll_vertical - expected.y) <= tolerance, "scroll_vertical (%s) must land near %s, keeping the pre-step centred point still centred" % [scroll.scroll_vertical, expected.y])
+
+		scroll.remove_child(canvas)
+		canvas.free()
+		scroll.free()
+	)
+
 	# Bugfixes ticket 19: a vein queued via MapEvents.queue_seed_claim while
 	# the Map tab is already the active screen (a Seed/Cultivate/Harvest
 	# bubble action, or a daily-tick roll fired from a map-visible action) used

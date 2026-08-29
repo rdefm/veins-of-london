@@ -64,6 +64,7 @@ var _sheet_layer: Control
 # of bubble it came from.
 var _map_canvas: MapCanvas
 var _map_legend: MapLegend
+var _map_zoom_buttons: MapZoomButtons
 var _bubble: MapBubble
 var _bubble_district_id: String = ""
 var _bubble_mode: String = ""
@@ -192,12 +193,19 @@ func _build_diagram_layer() -> Control:
 	# MapCanvas._apply_zoom() on every zoom change — is what keeps this
 	# scrollable area's extents matching what's actually drawn. Zoom itself
 	# is driven by a real two-finger pinch on MapCanvas (see its
-	# _gui_input) rather than a button row here — an earlier +/- button
-	# version got replaced after on-device playtest found it overlapped the
-	# old inline filter chip row (map_controls.gd, since replaced by ticket
-	# 03's drawer) and a pinch is the expected mobile gesture anyway. MapCanvas only
-	# accept_event()s during that active pinch, so a single finger's drag
-	# still bubbles up to this TouchScrollContainer and pans normally.
+	# _gui_input) — an earlier +/- button version got replaced after
+	# on-device playtest found it overlapped the old inline filter chip row
+	# (since replaced by ticket 03's drawer) and a pinch is the expected
+	# mobile gesture anyway. MapCanvas only accept_event()s during that
+	# active pinch, so a single finger's drag still bubbles up to this
+	# TouchScrollContainer and pans normally.
+	#
+	# Bugfixes ticket 89: a +/- button pair is back too, this time as
+	# MapZoomButtons floating over the canvas' own bottom-right corner (see
+	# its class comment) rather than a row in this content flow — it no
+	# longer collides with the old chip row, and gives players a reliable,
+	# no-drift alternative to the pinch gesture (#88's history of drift
+	# bugs) rather than replacing it.
 	# Ticket 26: diagram_area wraps scroll (rather than adding scroll straight
 	# into content below) so _map_legend can sit as its sibling, anchored to
 	# diagram_area's own top-left corner -- which already starts right below
@@ -220,6 +228,16 @@ func _build_diagram_layer() -> Control:
 
 	_map_legend = MapLegend.new()
 	diagram_area.add_child(_map_legend)
+
+	# Ticket 89: map_canvas assigned before adding to the tree, same
+	# "assign then add" idiom _map_controls.map_canvas above already uses —
+	# see map_zoom_buttons.gd's class comment for why. Sibling of scroll
+	# (like _map_legend), not a child of the scrolled content, so it stays
+	# fixed to the diagram area's own bottom-right corner rather than
+	# scrolling/zooming with the map underneath it.
+	_map_zoom_buttons = MapZoomButtons.new()
+	_map_zoom_buttons.map_canvas = _map_canvas
+	diagram_area.add_child(_map_zoom_buttons)
 
 	return layer
 

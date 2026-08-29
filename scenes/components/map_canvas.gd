@@ -59,6 +59,14 @@ extends Control
 # site sheet or district panel popping open mid-swipe). Tap detection now
 # waits for touch-UP and only fires if the release stayed within
 # TAP_MOVE_TOLERANCE of the press and no second finger ever joined.
+#
+# Bugfixes ticket 89: a button row is back — MapZoomButtons, floating over
+# this canvas' own bottom-right corner (not a row in this file's content
+# flow, so the paragraph above still holds for THIS control), as a reliable
+# alternative to the pinch gesture (#88's history of drift bugs). It no
+# longer collides with the old inline filter chip row this comment warned
+# about — that row was replaced by map-filters ticket 03's hamburger
+# drawer. See step_zoom() below.
 
 # 10-map-interaction-model ticket 03: fired once a district tap's pan_to()
 # finishes, telling scenes/screens/map.gd (which owns the MapBubble overlay,
@@ -78,6 +86,13 @@ signal district_tapped(district_id: String, anchor: Vector2)
 # can't recover which of its (possibly two, via a natural-vein bonus site)
 # veins was actually tapped.
 signal station_tapped(stop: Dictionary, anchor: Vector2)
+
+# Bugfixes ticket 89: fired from _set_zoom() on every real zoom_level change
+# (pinch, step_zoom(), or any other caller) — MapZoomButtons listens so its
+# +/- buttons' disabled state tracks zoom_level live, including mid-tween
+# during step_zoom()'s own animated pan_to(), not just the value at the
+# moment a button happens to be built.
+signal zoom_changed(zoom: float)
 
 # bugfixes-50: private join signal for "simultaneous" pacing's _play_batch()
 # — every tween in a batch connects here via a decrementing counter, so the
@@ -410,6 +425,7 @@ func _set_zoom(new_zoom: float) -> void:
 	_pins_layer.queue_redraw()
 	_labels_layer.queue_redraw()
 	_playback_layer.queue_redraw()
+	zoom_changed.emit(zoom_level)
 
 
 # Resizes this Control to the zoomed pixel size (see the T15-follow-up
@@ -528,6 +544,35 @@ func pan_to(point: Vector2, target_zoom: float = -1.0, duration: float = PAN_DUR
 func _apply_scroll(v: Vector2, scroll: ScrollContainer) -> void:
 	scroll.scroll_horizontal = int(v.x)
 	scroll.scroll_vertical = int(v.y)
+
+
+# Bugfixes ticket 89: MapZoomButtons' +/- handler. `direction` is +1 (zoom
+# in) or -1 (zoom out); the step itself is MapZoom.STEP, clamped to MIN/MAX
+# same as any other zoom write. A no-op once already at the bound the step
+# would clamp to — MapZoomButtons also visually disables at that point, but
+# this guard keeps step_zoom() itself safe to call unconditionally (e.g. a
+# stray extra tap racing the disabled-state update).
+#
+# Reuses pan_to() (same tween machinery pinch and queued-event playback
+# already share — see this file's class comment) rather than a bare
+# _set_zoom(), so the step animates instead of snapping, and anchors on
+# `point` = the logical map px currently sitting at the viewport's own
+# centre — there's no pinch midpoint to anchor to from a button tap, and
+# pan_to()'s own `target_zoom`-with-no-explicit-anchor path already centres
+# whatever point it's given, so re-deriving that same centre point back into
+# logical space before calling it keeps that point stationary through the
+# zoom exactly the way a centred pinch would.
+func step_zoom(direction: int) -> void:
+	var target_zoom := MapZoom.step_target(zoom_level, direction)
+	if is_equal_approx(target_zoom, zoom_level):
+		return
+	var scroll := get_parent() as ScrollContainer
+	var viewport_size: Vector2 = scroll.size if scroll else size
+	var screen_centre := viewport_size / 2.0
+	if scroll:
+		screen_centre += Vector2(scroll.scroll_horizontal, scroll.scroll_vertical)
+	var centred_point := MapZoom.to_logical(screen_centre, zoom_level)
+	await pan_to(centred_point, target_zoom)
 
 
 # 86-map-camera-persistence-regression: the deferred half of

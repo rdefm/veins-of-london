@@ -52,6 +52,52 @@ func run() -> void:
 		assert_true(MapZoom.EVENT_ZOOM >= MapZoom.MIN and MapZoom.EVENT_ZOOM <= MapZoom.MAX)
 	)
 
+	# Bugfixes ticket 89: the floating +/- zoom buttons' fixed per-tap step
+	# (MapCanvas.step_zoom). "roughly 5-8 taps" to cross the whole MIN..MAX
+	# range is the ticket's own acceptance target -- assert the tap count
+	# itself, not the literal STEP value, so this stays meaningful if STEP
+	# gets retuned on-device (it's flagged **needs visual sign-off**).
+	run_case("step_is_positive_and_smaller_than_the_full_zoom_range", func():
+		assert_true(MapZoom.STEP > 0.0)
+		assert_true(MapZoom.STEP < MapZoom.MAX - MapZoom.MIN)
+	)
+
+	run_case("step_crosses_the_full_min_to_max_range_in_roughly_5_to_8_taps", func():
+		var taps := ceili((MapZoom.MAX - MapZoom.MIN) / MapZoom.STEP)
+		assert_true(taps >= 5 and taps <= 8, "expected 5-8 taps to cross the full range, got %d" % taps)
+	)
+
+	# ── step_target (bugfixes ticket 89: floating +/- zoom buttons) ───────
+	# Pure target-zoom math -- see MapCanvas.step_zoom() for the Node/Tween
+	# side (animates to this target via pan_to()), not asserted against
+	# directly here, same split every other MapZoom seam in this file uses.
+
+	run_case("step_target_zoom_in_adds_step_to_the_current_zoom", func():
+		assert_almost_eq(MapZoom.step_target(1.0, 1), 1.0 + MapZoom.STEP, 0.0001)
+	)
+
+	run_case("step_target_zoom_out_subtracts_step_from_the_current_zoom", func():
+		assert_almost_eq(MapZoom.step_target(1.0, -1), 1.0 - MapZoom.STEP, 0.0001)
+	)
+
+	run_case("step_target_zoom_in_clamps_to_max_instead_of_overshooting", func():
+		var near_max := MapZoom.MAX - (MapZoom.STEP / 2.0)  # a half-step short of MAX
+		assert_almost_eq(MapZoom.step_target(near_max, 1), MapZoom.MAX, 0.0001)
+	)
+
+	run_case("step_target_zoom_out_clamps_to_min_instead_of_undershooting", func():
+		var near_min := MapZoom.MIN + (MapZoom.STEP / 2.0)  # a half-step short of MIN
+		assert_almost_eq(MapZoom.step_target(near_min, -1), MapZoom.MIN, 0.0001)
+	)
+
+	run_case("step_target_zoom_in_already_at_max_stays_at_max", func():
+		assert_almost_eq(MapZoom.step_target(MapZoom.MAX, 1), MapZoom.MAX, 0.0001)
+	)
+
+	run_case("step_target_zoom_out_already_at_min_stays_at_min", func():
+		assert_almost_eq(MapZoom.step_target(MapZoom.MIN, -1), MapZoom.MIN, 0.0001)
+	)
+
 	# ── scroll_target (pan-to-point, map-animations ticket 01) ────────────
 
 	run_case("scroll_target_centres_the_point_when_there_is_room_to_spare", func():

@@ -27,9 +27,31 @@ const DEFAULT := 0.85
 # rather than at the zoomed-out-to-see-everything DEFAULT.
 const EVENT_ZOOM := 0.8
 
+# Bugfixes ticket 89: the fixed amount a tap on the floating +/- zoom
+# buttons (MapZoomButtons) moves zoom_level, additive rather than a pinch's
+# continuous ratio -- MapCanvas.step_zoom() adds/subtracts this, then
+# clamp_zoom() saturates at MIN/MAX same as any other zoom write. 0.2 covers
+# the whole MIN..MAX span (1.4) in exactly 7 taps, inside the ticket's
+# "roughly 5-8 taps" target. **NEEDS VISUAL SIGN-OFF** -- proposed by the
+# implementer, not spec'd; tune on-device if the step feels too big/small.
+const STEP := 0.2
+
 
 static func clamp_zoom(zoom: float) -> float:
 	return clampf(zoom, MIN, MAX)
+
+
+# Bugfixes ticket 89: pure target-zoom math for the floating +/- zoom
+# buttons' step, factored out same as clamp_zoom/to_logical/scroll_target
+# above so it's unit-testable without a scene tree or Tween — MapCanvas.
+# step_zoom() is Node/Tween-side from here on (it animates to this target
+# via pan_to()), which tests/test_map_canvas.gd's own class comment
+# documents as out of scope for direct headless assertion; this is the pure
+# seam that comment's own "recompute the expected value from the same pure
+# seam" pattern checks against instead. `direction` is +1 (zoom in) or -1
+# (zoom out); clamp_zoom saturates at MIN/MAX same as any other zoom write.
+static func step_target(current_zoom: float, direction: int) -> float:
+	return clamp_zoom(current_zoom + direction * STEP)
 
 
 static func to_logical(screen_pos: Vector2, zoom: float) -> Vector2:
