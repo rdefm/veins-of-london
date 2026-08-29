@@ -116,7 +116,7 @@ func run() -> void:
 		fields[1].text = "40"
 
 		var options := _find_option_buttons(phone)
-		assert_eq(options.size(), 1, "one ore-type selector")
+		assert_eq(options.size(), 4, "add-calc's ore selector plus spawn-site's district/ore/terroir selectors")
 		options[0].selected = 1
 		var chosen_ore := options[0].get_item_text(1)
 
@@ -124,6 +124,69 @@ func run() -> void:
 		add_buttons[1].pressed.emit()
 
 		assert_eq(GameState.state["player"]["orichalchum"].get(chosen_ore, 0), 40, "the selected ore type increased by the entered amount")
+
+		phone.free()
+	)
+
+	# 03-debug-app-spawn-unclaimed-site: the spawn-site card's 3 OptionButtons
+	# (district, ore, terroir) are options[1..3], since options[0] is
+	# add-calc's ore selector (options are found in the debug screen's build
+	# order -- add_calc's card lands before the spawn-site card).
+	run_case("spawn_site_control_appends_a_site_with_the_chosen_fields_bypassing_siteCap", func():
+		GameState.reset()
+		GameState.state["flags"]["debugStartUsed"] = true
+		GameState.state["phoneNav"]["app"] = "debug"
+		GameState.state["world"]["day"] = 3
+
+		var district_id := "hampstead"  # siteCap 2
+		var site_cap: int = GameData.DISTRICTS[district_id]["siteCap"]
+		var filler_ids: Array = []
+		var filler_sites: Array = []
+		for i in range(site_cap):
+			var filler_id := "filler_%d" % i
+			filler_ids.append(filler_id)
+			filler_sites.append({
+				"id": filler_id, "district": district_id, "tier": "poor", "oreType": "time",
+				"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
+				"hasNaturalVein": false,
+			})
+		GameState.state["world"]["sites"] = filler_sites
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var options := _find_option_buttons(phone)
+		assert_eq(options.size(), 4, "add-calc's ore selector plus spawn-site's district/ore/terroir selectors")
+
+		var district_ids: Array = GameData.DISTRICTS.keys()
+		var target_index: int = district_ids.find(district_id)
+		options[1].selected = target_index
+		options[2].selected = 1
+		var chosen_ore: String = options[2].get_item_text(1)
+		options[3].selected = 2
+		var chosen_tier: String = options[3].get_item_text(2)
+
+		var spawn_buttons := _find_buttons_by_text(phone, "Spawn")
+		assert_eq(spawn_buttons.size(), 1, "one Spawn button")
+		spawn_buttons[0].pressed.emit()
+
+		var sites: Array = Sites.sites_in_district(district_id)
+		assert_eq(sites.size(), site_cap + 1, "spawning exceeds siteCap rather than being capped")
+		for i in range(site_cap):
+			assert_true(Sites.find_site("filler_%d" % i) != null, "existing sites were not evicted or rerolled")
+
+		var spawned: Variant = null
+		for s in sites:
+			if not filler_ids.has(s["id"]):
+				spawned = s
+		assert_true(spawned != null, "a new site was appended")
+		assert_eq(spawned["district"], district_id, "the chosen district")
+		assert_eq(spawned["oreType"], chosen_ore, "the chosen ore type")
+		assert_eq(spawned["tier"], chosen_tier, "the chosen terroir tier")
+		assert_true(not spawned["claimed"], "spawned unclaimed")
+		assert_eq(spawned["factionVein"], null, "spawned unclaimed")
+		assert_true(not spawned["hasNaturalVein"], "no natural vein")
+		assert_eq(spawned["bonuses"], [], "no bonuses")
 
 		phone.free()
 	)

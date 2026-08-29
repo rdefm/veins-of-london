@@ -254,6 +254,13 @@ const MAX_BUTTON_TEXT_WIDTH := 220.0
 const _THEME: Theme = preload("res://theme/main_theme.tres")
 
 
+static func option_button(items: Array) -> OptionButton:
+	var o := OptionButton.new()
+	for item in items:
+		o.add_item(item)
+	return o
+
+
 static func button(text: String, callback: Callable) -> Button:
 	var b := Button.new()
 	b.text = text

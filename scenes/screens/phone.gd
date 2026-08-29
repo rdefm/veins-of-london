@@ -779,6 +779,7 @@ func _build_debug() -> void:
 	_content.add_child(UI.heading("Debug"))
 	_content.add_child(_build_debug_add_money_card())
 	_content.add_child(_build_debug_add_calc_card())
+	_content.add_child(_build_debug_spawn_site_card())
 	_content.add_child(UI.heading("Contact relations", 14))
 	for contact_id in GameData.CONTACTS_DEFAULTS.keys():
 		_content.add_child(_build_debug_contact_relation_card(contact_id))
@@ -806,9 +807,7 @@ func _build_debug_add_calc_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Add calc", 14))
 
-	var ore_select := OptionButton.new()
-	for ore_type in GameData.ORE_TYPES.keys():
-		ore_select.add_item(ore_type)
+	var ore_select := UI.option_button(GameData.ORE_TYPES.keys())
 	c["content"].add_child(ore_select)
 
 	var amount_field := LineEdit.new()
@@ -818,6 +817,35 @@ func _build_debug_add_calc_card() -> Control:
 	c["content"].add_child(UI.button("Add", func():
 		var ore_type: String = ore_select.get_item_text(ore_select.selected)
 		DebugTools.add_calc(ore_type, amount_field.text.to_int())
+	))
+
+	return c["panel"]
+
+
+# 03-debug-app-spawn-unclaimed-site: district/ore/terroir all player-picked
+# (Sites.spawn_unclaimed_site() does the actual state append, bypassing
+# siteCap entirely) -- terroir options come from GameData.VEIN_GROWTH[
+# "terroirYieldMult"]'s keys (poor/fair/rich/saturated), not SITE_TIER_ORDER,
+# since barren isn't a seedable terroir and this tool only ever spawns
+# seedable, unclaimed sites.
+func _build_debug_spawn_site_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Spawn site", 14))
+
+	var district_select := UI.option_button(GameData.DISTRICTS.keys())
+	c["content"].add_child(district_select)
+
+	var ore_select := UI.option_button(GameData.ORE_TYPES.keys())
+	c["content"].add_child(ore_select)
+
+	var terroir_select := UI.option_button(GameData.VEIN_GROWTH["terroirYieldMult"].keys())
+	c["content"].add_child(terroir_select)
+
+	c["content"].add_child(UI.button("Spawn", func():
+		var district_id: String = district_select.get_item_text(district_select.selected)
+		var ore_type: String = ore_select.get_item_text(ore_select.selected)
+		var tier: String = terroir_select.get_item_text(terroir_select.selected)
+		Sites.spawn_unclaimed_site(district_id, tier, ore_type)
 	))
 
 	return c["panel"]

@@ -829,3 +829,56 @@ func run() -> void:
 		assert_eq(Sites.sites_in_district(district_id).size(), count_before + 1, "a freed slot is filled by a genuinely new site, not a reroll no-op")
 		assert_true(Sites.sites_in_district(district_id).size() <= site_cap, "refilling the freed slot still respects siteCap")
 	)
+
+	# ── debug: spawn unclaimed site (03-debug-app-spawn-unclaimed-site) ──
+
+	run_case("spawn_unclaimed_site_appends_a_site_with_the_chosen_fields", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 7
+
+		var site := Sites.spawn_unclaimed_site("greenwich", "rich", "fate")
+
+		assert_eq(GameState.state["world"]["sites"], [site], "the spawned site is appended to state.world.sites")
+		assert_eq(site["district"], "greenwich", "chosen district")
+		assert_eq(site["tier"], "rich", "chosen terroir tier")
+		assert_eq(site["oreType"], "fate", "chosen ore type")
+		assert_eq(site["bonuses"], [], "no bonuses, matching the debug fixture convention")
+		assert_true(not site["claimed"], "always unclaimed")
+		assert_eq(site["factionVein"], null, "always unclaimed")
+		assert_true(not site["hasNaturalVein"], "no natural vein, matching the debug fixture convention")
+		assert_eq(site["discoveredDay"], 7, "discoveredDay is the current world day")
+		assert_true(site["id"] is String and site["id"] != "", "a valid id was minted")
+		assert_eq(site["slotIndex"], 0, "a valid slotIndex was minted for the district's first stop")
+	)
+
+	run_case("spawn_unclaimed_site_works_for_every_district_ore_and_terroir_combination", func():
+		GameState.reset()
+		var terroirs: Array = GameData.VEIN_GROWTH["terroirYieldMult"].keys()
+		for district_id in GameData.DISTRICTS.keys():
+			for ore_type in GameData.ORE_TYPES.keys():
+				for tier in terroirs:
+					var site := Sites.spawn_unclaimed_site(district_id, tier, ore_type)
+					assert_eq(site["district"], district_id, "district round-trips for %s/%s/%s" % [district_id, tier, ore_type])
+					assert_eq(site["tier"], tier, "tier round-trips for %s/%s/%s" % [district_id, tier, ore_type])
+					assert_eq(site["oreType"], ore_type, "oreType round-trips for %s/%s/%s" % [district_id, tier, ore_type])
+	)
+
+	run_case("spawn_unclaimed_site_ignores_siteCap_and_never_evicts_or_rerolls_existing_sites", func():
+		GameState.reset()
+		var district_id := "hampstead"  # siteCap 2
+		var site_cap: int = GameData.DISTRICTS[district_id]["siteCap"]
+		var existing_a := _make_site("existing_a", district_id, "poor", 1)
+		var existing_b := _make_site("existing_b", district_id, "barren", 1)
+		GameState.state["world"]["sites"] = [existing_a, existing_b]
+		assert_eq(Sites.sites_in_district(district_id).size(), site_cap, "sanity: district starts at siteCap")
+
+		Sites.spawn_unclaimed_site(district_id, "saturated", "life")
+
+		var sites := Sites.sites_in_district(district_id)
+		assert_eq(sites.size(), site_cap + 1, "spawning exceeds siteCap rather than being capped")
+		var ids: Array = []
+		for s in sites:
+			ids.append(s["id"])
+		assert_true(ids.has("existing_a"), "existing worst-tier site was not evicted")
+		assert_true(ids.has("existing_b"), "existing site was not evicted")
+	)

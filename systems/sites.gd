@@ -362,6 +362,34 @@ static func roll_new_site(district_id: String, tier: String) -> Dictionary:
 	}
 
 
+# ── debug: spawn an unclaimed site (03-debug-app-spawn-unclaimed-site) ──
+
+# Debug-only site creation, called from the Debug phone app: district, tier
+# and oreType are all player-chosen rather than rolled, and this bypasses
+# the district's siteCap entirely -- no _reroll_worst_unclaimed eviction, no
+# cap check at all. It's a testing tool, not a simulated prospect. Same site
+# shape roll_new_site() builds (and debug_start.gd's own _debug_site()
+# mirrors) minus the ore-type/bonus rolls, which are replaced with direct
+# player choices; bonuses and hasNaturalVein are always empty/false, same as
+# debug_start.gd's hand-built fixture convention.
+static func spawn_unclaimed_site(district_id: String, tier: String, ore_type: String) -> Dictionary:
+	var site := {
+		"id": make_site_id(),
+		"district": district_id,
+		"tier": tier,
+		"oreType": ore_type,
+		"bonuses": [],
+		"discoveredDay": GameState.state["world"]["day"],
+		"claimed": false,
+		"factionVein": null,
+		"hasNaturalVein": false,
+		"slotIndex": next_slot_index(district_id),
+	}
+	GameState.state["world"]["sites"].append(site)
+	EventBus.state_changed.emit()
+	return site
+
+
 # ── seeding revamp ──────────────────────────────────────────────────────
 
 static func seed_success_chance(skill: int, tier: String) -> float:
