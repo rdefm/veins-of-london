@@ -12,7 +12,8 @@
     "resourceLevel": 1,
     "startingResources": 200,
     "raidThreshold": -40,
-    "conquerThreshold": -40
+    "conquerThreshold": -40,
+    "raidStealth": 0.35
   },
   "firm": {
     "id": "firm",
@@ -27,7 +28,8 @@
     "resourceLevel": 2,
     "startingResources": 500,
     "raidThreshold": 0,
-    "conquerThreshold": 0
+    "conquerThreshold": 0,
+    "raidStealth": 0.55
   },
   "guild": {
     "id": "guild",
@@ -42,7 +44,8 @@
     "resourceLevel": 2,
     "startingResources": 900,
     "raidThreshold": -30,
-    "conquerThreshold": -30
+    "conquerThreshold": -30,
+    "raidStealth": 0.30
   },
   "network": {
     "id": "network",
@@ -57,7 +60,8 @@
     "resourceLevel": 2,
     "startingResources": 500,
     "raidThreshold": -20,
-    "conquerThreshold": -20
+    "conquerThreshold": -20,
+    "raidStealth": 0.80
   },
   "conclave": {
     "id": "conclave",
@@ -72,6 +76,7 @@
     "resourceLevel": 3,
     "startingResources": 1200,
     "raidThreshold": -20,
-    "conquerThreshold": -20
+    "conquerThreshold": -20,
+    "raidStealth": 0.65
   }
 }

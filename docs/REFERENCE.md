@@ -192,15 +192,17 @@ Descriptions: extract verbatim from HTML consts `HOME_SECURITY` / `HOME_ROOMS`.
 ### 1.8 `data/factions.json`
 Five factions; copy `name`, `shortName`, `tagline`, `industries`, `description`, `colour` verbatim from HTML const `FACTIONS`. Mechanical fields:
 
-| id | joinRelation | raidThreshold | conquerThreshold |
-|---|---|---|---|
-| collective | 20 | -40 | -40 |
-| firm | 35 | 0 | 0 |
-| guild | 40 | -30 | -30 |
-| network | 30 | -20 | -20 |
-| conclave | 60 | -20 | -20 |
+| id | joinRelation | raidThreshold | conquerThreshold | raidStealth |
+|---|---|---|---|---|
+| collective | 20 | -40 | -40 | 0.35 |
+| firm | 35 | 0 | 0 | 0.55 |
+| guild | 40 | -30 | -30 | 0.30 |
+| network | 30 | -20 | -20 | 0.80 |
+| conclave | 60 | -20 | -20 | 0.65 |
 
 **Raid/conquer eligibility thresholds** (71-per-faction-raid-claim-thresholds — human-confirmed): a faction only attempts a raid against a player vein (`Raiding.roll_raid_attempts()`, §3.12) when `state.factions[id].relation < raidThreshold`; at or above its own `raidThreshold`, zero raid attempts occur (loot or claim) for that faction. `conquerThreshold` is the same test (`relation < conquerThreshold`) gating the claim branch of ticket 70's claim/loot split (`Raiding.roll_raid_odds()`) — below it, a successful raid still rolls claim vs. loot by terroir tier as normal; at or above it (but still below `raidThreshold`, so a raid is happening at all), a successful raid is capped at loot regardless of terroir odds. Every faction's `conquerThreshold` equals its `raidThreshold`, so this adds no extra gate beyond ticket 70's own terroir odds. Firm's `raidThreshold` of `0` means they'll raid at any negative relation at all — the most trigger-happy of the five; Collective, at `-40`, is the most patient.
+
+**`raidStealth`** (direction-b-stealth-and-anonymity — **draft only, needs balance sign-off**): each faction's baseline chance (0.0-1.0) of pulling off a raid against a player vein clean, before the target vein's own defenses are weighed in — see `Raiding.faction_stealth_chance()`, §3.12. Network (secretive information brokers) and Conclave (institutional, deniable operations) sit highest; Guild (crafting-focused, not a raiding outfit) and Collective (loosely organised, no tradecraft) sit lowest; Firm (professional but forceful, not clandestine) sits in the middle.
 
 **Faction barometer preferences** (`FACTION_BAROMETER_PREFS`, daily nudges — see §3.2):
 
@@ -501,8 +503,8 @@ Trigger: `homeRaidEventPending` true → on next visit to HQ, launch. Flow: intr
 Before any of this runs, `Raiding.roll_raid_attempts()` gates whether the attacking faction attempts a raid at all, and `Raiding.roll_raid_odds()` gates whether it's willing to claim vs. loot-only — both per-faction `raidThreshold`/`conquerThreshold` relation checks, see §1.8.
 
 `Raiding.resolve_raid_outcome()` (`systems/raiding.gd`), the resolution step for a faction raid that succeeds against a player-owned vein, rolls between two outcomes instead of an automatic takeover:
-- **Claim** — full takeover, unchanged from before: the vein transfers into the attacking faction's `site.factionVein` (carrying `oreType`/`growth`/`security` unchanged), leaves `player.veins`, and queues a map `seed_claim` event. Notification: `"<Faction> raided your vein in <District>. It's theirs now."` (or, if the alarm window was missed: `"Too late — <Faction> took your vein in <District> while the alarm was still ringing."`).
-- **Loot** — the common case: the vein stays player-owned, pruned by `RAID_LOOT_PRUNE_DEPTH` (9, matching `pruneLightDepth`, floored at 0 growth) and the player's own `orichalchum` stash of the vein's ore type docked `RAID_LOOT_ORE_QTY` (8, matching Direction A's own `LOOT_ORE_QTY`), clamped to whatever's actually on hand — it can never go negative. No relation hit, no map event (ownership never changes). Notification: `"<Faction> raided your vein in <District>, pruning it and getting away with <N> units of ore. It's still yours."` (missed-alarm variant reads distinctly too).
+- **Claim** — full takeover, unchanged from before: the vein transfers into the attacking faction's `site.factionVein` (carrying `oreType`/`growth`/`security` unchanged), leaves `player.veins`, and queues a map `seed_claim` event. Notification: `"<Faction> raided your vein in <District>. It's theirs now."` (or, if the alarm window was missed: `"Too late — <Faction> took your vein in <District> while the alarm was still ringing."`). Always names the faction, regardless of the stealth roll below — a claim visibly changes the map, so there's nothing to hide.
+- **Loot** — the common case: the vein stays player-owned, pruned by `RAID_LOOT_PRUNE_DEPTH` (9, matching `pruneLightDepth`, floored at 0 growth) and the player's own `orichalchum` stash of the vein's ore type docked `RAID_LOOT_ORE_QTY` (8, matching Direction A's own `LOOT_ORE_QTY`), clamped to whatever's actually on hand — it can never go negative. No relation hit, no map event (ownership never changes). Notification, caught: `"<Faction> raided your vein in <District>, pruning it and getting away with <N> units of ore. It's still yours."` (missed-alarm variant reads distinctly too). Notification, clean (stealth roll succeeded): identical shape, but the faction's name is swapped for the anonymous stand-in "Someone" (`Raiding.ANONYMOUS_RAIDER_LABEL`) — the player still learns what happened, just not who did it.
 
 **Claim odds by terroir tier** (`Raiding.CLAIM_CHANCE_BY_TERROIR`, keyed off the vein's own `hospitability.tier` — **draft only, needs balance sign-off**, linear interpolation between the PRD's poor/saturated endpoints):
 
@@ -514,6 +516,8 @@ Before any of this runs, `Raiding.roll_raid_attempts()` gates whether the attack
 | saturated | 75% |
 
 The roll happens once, at `Raiding.roll_raid_odds()` time (alongside the existing success roll) — a successful attempt is annotated `outcomeType: "claim"|"loot"` via `Rng.chance(Raiding.claim_chance(vein))`, and that annotation rides unchanged through the alarm-defend queue/expiry machinery (`systems/raiding.gd`'s `_queue_defend_raid`/`_expire_pending_defend_raids`/`resolve_defend_outcome`) to `resolve_raid_outcome()`.
+
+**Stealth/caught roll** (direction-b-stealth-and-anonymity, `Raiding.faction_stealth_chance()` — a second, independent roll, also taken at `roll_raid_odds()` time and annotated onto the same outcome dict as `caught: bool`): `Rng.chance()` against the attacking faction's own `raidStealth` (§1.8), trimmed by the target vein's `raidResist` normalised against the same 55.0 anchor every other raid-odds formula uses. A failure (i.e. the faction is *not* caught, a "clean" getaway) only changes anything on the loot branch above — the claim branch never reads it. It also rides through the alarm-defend queue: `_queue_defend_raid()`'s advance warning (`"Alarm's gone off — <Faction> are closing in on your vein in <District>. Get there today to defend it."`) is anonymized the same way when the queued outcome is already known to resolve as a clean loot (`"...someone's closing in..."`); a claim-bound or caught-loot-bound warning still names the faction, since its eventual notification will too. Neither branch of Direction B calls `Factions.adjust_player_relation()` either way — the player decides how (or whether) to react, this isn't an automated stat hit.
 
 ---
 

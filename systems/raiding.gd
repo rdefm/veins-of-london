@@ -397,6 +397,41 @@ static func claim_chance(vein: Dictionary) -> float:
 	return CLAIM_CHANCE_BY_TERROIR.get(tier, CLAIM_CHANCE_BY_TERROIR["fair"])
 
 
+# ── stealth/caught roll (direction-b-stealth-and-anonymity) ─────────────
+# A second roll, independent of the claim-vs-loot split above, deciding
+# whether the attacking faction gets caught in the act. Only the loot
+# branch's identity-reveal actually depends on it (resolve_raid_outcome()'s
+# claim branch always names the faction, per the ticket) -- but it's rolled
+# for every successful attempt regardless of outcomeType, at the same
+# roll_raid_odds() time as the claim/loot roll, so its result can ride
+# through the alarm-defend queue exactly the way outcomeType already does.
+#
+# Shape: each faction's own data/factions.json "raidStealth" (0.0-1.0) is its
+# baseline chance of a clean getaway, trimmed by a slice proportional to the
+# target vein's own raidResist -- the same normalise-against-55 ("guarded"'s
+# own base tier, data/vein_security.json) anchor stealth_success_chance()
+# and raid_success_chance() both already use for this exact field, so a
+# stacked-guard vein (72-stackable-guards-vein-defense) keeps trimming
+# further rather than capping at a fixed ceiling. Draft weight only --
+# needs balance sign-off, same as CLAIM_CHANCE_BY_TERROIR above.
+const FACTION_STEALTH_RAID_RESIST_DIVISOR := 55.0
+const FACTION_STEALTH_RAID_RESIST_WEIGHT := 0.35
+
+
+static func faction_stealth_chance(attacker_id: String, vein: Dictionary) -> float:
+	var base_stealth: float = GameData.FACTIONS[attacker_id]["raidStealth"]
+	var raid_resist: int = Cultivating.vein_raid_resist(vein)
+	var resist_tilt: float = -(float(raid_resist) / FACTION_STEALTH_RAID_RESIST_DIVISOR) * FACTION_STEALTH_RAID_RESIST_WEIGHT
+	return clampf(base_stealth + resist_tilt, 0.0, 1.0)
+
+
+# The anonymous stand-in used in place of the faction's name whenever a loot
+# outcome comes back clean (resolve_raid_outcome()'s loot branch and
+# _queue_defend_raid()'s advance warning below) -- PROSE-REVIEW, drafted
+# against CONTENT-GUIDE.md's tone bible.
+const ANONYMOUS_RAIDER_LABEL := "Someone"
+
+
 # Draft only (needs balance sign-off), in the same spirit as Direction A's
 # own LOOT_ORE_QTY (8) and pruneLightDepth (9, data/vein_growth.json) -- a
 # loss to loot never bites harder than the player's own worst prune or
@@ -429,6 +464,11 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 	if outcome["success"]:
 		var may_conquer: bool = _faction_may_conquer(attempt["attackerId"])
 		outcome["outcomeType"] = "claim" if (may_conquer and Rng.chance(claim_chance(vein))) else "loot"
+		# direction-b-stealth-and-anonymity: independent of the claim/loot roll
+		# above -- rolled here (rather than in resolve_raid_outcome()) so the
+		# result is already known and can ride through the alarm-defend queue
+		# the same way outcomeType does.
+		outcome["caught"] = not Rng.chance(faction_stealth_chance(attempt["attackerId"], vein))
 	return outcome
 
 
@@ -482,7 +522,11 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
 
 	if outcome.get("outcomeType", "claim") == "loot":
-		_apply_raid_loot(vein, faction_name, district_name, missed_defend)
+		# direction-b-stealth-and-anonymity: "caught" defaults true (identity
+		# revealed) for an outcome dict built without the key, same
+		# missing-key-means-old-behaviour convention outcomeType's own
+		# default-to-"claim" above uses.
+		_apply_raid_loot(vein, faction_name, district_name, missed_defend, outcome.get("caught", true))
 		return
 
 	var faction_vein: Dictionary = GameState.deep_copy(vein)
@@ -521,7 +565,14 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 # distinct from both the claim branch's "It's theirs now." and the missed-
 # defend claim copy so the player can always tell which of the four
 # claim/loot × on-time/missed combinations just happened.
-static func _apply_raid_loot(vein: Dictionary, faction_name: String, district_name: String, missed_defend: bool) -> void:
+#
+# `caught` (direction-b-stealth-and-anonymity): swaps the faction's name for
+# ANONYMOUS_RAIDER_LABEL when the stealth roll came back clean -- same
+# sentence shape either way (the label reads grammatically as a proper noun,
+# same singular-subject-verb agreement as a faction's own shortName), so
+# only the identity differs, never the fact of the loss. PROSE-REVIEW: the
+# clean-loot copy is new.
+static func _apply_raid_loot(vein: Dictionary, faction_name: String, district_name: String, missed_defend: bool, caught: bool) -> void:
 	vein["growth"] = maxi(0, vein["growth"] - RAID_LOOT_PRUNE_DEPTH)
 
 	var ore_type: String = vein["oreType"]
@@ -529,10 +580,11 @@ static func _apply_raid_loot(vein: Dictionary, faction_name: String, district_na
 	var stolen: int = mini(RAID_LOOT_ORE_QTY, ore.get(ore_type, 0))
 	ore[ore_type] = ore.get(ore_type, 0) - stolen
 
+	var attacker: String = faction_name if caught else ANONYMOUS_RAIDER_LABEL
 	if missed_defend:
-		Notify.push("Too late — %s pruned your vein in %s and got away with %d units of ore while the alarm was still ringing. It's still yours." % [faction_name, district_name, stolen], Notify.CATEGORY_DANGER)
+		Notify.push("Too late — %s pruned your vein in %s and got away with %d units of ore while the alarm was still ringing. It's still yours." % [attacker, district_name, stolen], Notify.CATEGORY_DANGER)
 	else:
-		Notify.push("%s raided your vein in %s, pruning it and getting away with %d units of ore. It's still yours." % [faction_name, district_name, stolen], Notify.CATEGORY_DANGER)
+		Notify.push("%s raided your vein in %s, pruning it and getting away with %d units of ore. It's still yours." % [attacker, district_name, stolen], Notify.CATEGORY_DANGER)
 
 
 # Called from time_system.gd's daily_tick, step 5i. Runs the previous tick's
@@ -575,6 +627,19 @@ static func _queue_defend_raid(outcome: Dictionary, vein: Dictionary) -> void:
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
 	# PROSE-REVIEW: new notification copy, drafted against CONTENT-GUIDE.md's
 	# tone bible (dry, administrative, one line).
+	# direction-b-stealth-and-anonymity: the eventual claim/loot × caught/clean
+	# outcome is already rolled (roll_raid_odds() time, same tick), so an
+	# advance warning bound for a clean loot is anonymized here too -- a
+	# claim-bound or caught-loot-bound warning still names the faction, same
+	# as resolve_raid_outcome()'s own notification will once it fires. A
+	# separate sentence (not a %s swap) since "Someone" takes a singular verb
+	# ("is") where a faction's shortName reads as a plural collective ("are").
+	var will_be_clean_loot: bool = outcome.get("outcomeType") == "loot" and not outcome.get("caught", true)
+	var warning_text: String
+	if will_be_clean_loot:
+		warning_text = "Alarm's gone off — someone's closing in on your vein in %s. Get there today to defend it." % district_name
+	else:
+		warning_text = "Alarm's gone off — %s are closing in on your vein in %s. Get there today to defend it." % [faction_name, district_name]
 	# 75-vein-raid-defend-button: veinId meta lets phone.gd's Notifications
 	# app render a Defend button on this exact entry. The notification's own
 	# id is stashed back onto the queued outcome (a Dictionary, so this
@@ -585,7 +650,7 @@ static func _queue_defend_raid(outcome: Dictionary, vein: Dictionary) -> void:
 	# vein once it's raided again later, since the notification log
 	# (Notify.LOG_CAP = 50) keeps old entries around rather than clearing
 	# them.
-	var notification := Notify.push("Alarm's gone off — %s are closing in on your vein in %s. Get there today to defend it." % [faction_name, district_name], Notify.CATEGORY_WARNING, { "veinId": vein["id"] })
+	var notification := Notify.push(warning_text, Notify.CATEGORY_WARNING, { "veinId": vein["id"] })
 	outcome["notificationId"] = notification["id"]
 
 

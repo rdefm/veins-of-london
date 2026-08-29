@@ -1021,6 +1021,175 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["veins"].size(), 0, "an outcome with no outcomeType key should still resolve as a full claim, unchanged from before ticket 70")
 	)
 
+	# ── Direction B: stealth/caught roll (direction-b-stealth-and-anonymity) ─
+
+	run_case("faction_stealth_chance_increases_with_the_factions_own_raidStealth_stat", func():
+		var vein := _player_vein_of(10, "time", "none")
+		var low_stealth := Raiding.faction_stealth_chance("guild", vein)      # raidStealth 0.30
+		var high_stealth := Raiding.faction_stealth_chance("network", vein)  # raidStealth 0.80
+		assert_true(high_stealth > low_stealth, "a faction with a higher raidStealth stat should have better clean-getaway odds (got %f vs %f)" % [high_stealth, low_stealth])
+	)
+
+	run_case("faction_stealth_chance_decreases_with_the_target_veins_raidResist", func():
+		var unsecured := _player_vein_of(10, "time", "none")
+		var guarded := _player_vein_of(10, "time", "guarded")
+		var chance_unsecured := Raiding.faction_stealth_chance("firm", unsecured)
+		var chance_guarded := Raiding.faction_stealth_chance("firm", guarded)
+		assert_true(chance_unsecured > chance_guarded, "a guarded vein should be harder to raid clean than an unsecured one (got %f vs %f)" % [chance_unsecured, chance_guarded])
+	)
+
+	run_case("faction_stealth_chance_clamped_to_the_0_1_range", func():
+		var floor_vein := _player_vein_of(10, "time", "guarded")
+		floor_vein["extraGuards"] = 100  # pushes raidResist far past 55
+		assert_almost_eq(Raiding.faction_stealth_chance("guild", floor_vein), 0.0, 0.0001, "an extreme raidResist should clamp the chance at the floor, not negative")
+	)
+
+	run_case("roll_raid_odds_only_rolls_caught_on_a_successful_attempt", func():
+		GameState.reset()
+		var vein := _player_vein_of(10, "time", "guarded", "hampstead")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+		GameState.state["factions"]["collective"]["relation"] = 100000  # floors raid_success_chance to 0.0
+
+		var outcome := Raiding.roll_raid_odds({ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player" })
+
+		assert_eq(outcome["success"], false, "sanity: this attempt is guaranteed to fail")
+		assert_true(not outcome.has("caught"), "a failed attempt should carry no caught flag -- nothing consumes it")
+	)
+
+	run_case("roll_raid_odds_caught_frequency_trends_with_the_attackers_raidStealth_stat", func():
+		# Same statistical style claim_chance's own terroir-trend test uses --
+		# a guaranteed-success attempt rolled across many seeds, counting how
+		# often "caught" comes back true for a low-raidStealth attacker
+		# (guild, 0.30) vs. a high-raidStealth one (network, 0.80) against the
+		# same target vein.
+		var guild_caught := 0
+		var network_caught := 0
+		for seed in range(500):
+			GameState.reset()
+			var vein := _player_vein_of(10, "time", "none", "hampstead")
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+			GameState.state["factions"]["guild"]["relation"] = -100000  # ceils raid_success_chance to 1.0
+			Rng.set_seed(seed)
+			var guild_outcome := Raiding.roll_raid_odds({ "attackerId": "guild", "veinId": "pv_test", "siteId": "s_player" })
+			if guild_outcome["caught"]:
+				guild_caught += 1
+
+			GameState.reset()
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+			GameState.state["factions"]["network"]["relation"] = -100000
+			Rng.set_seed(seed)
+			var network_outcome := Raiding.roll_raid_odds({ "attackerId": "network", "veinId": "pv_test", "siteId": "s_player" })
+			if network_outcome["caught"]:
+				network_caught += 1
+
+		assert_true(guild_caught > network_caught, "guild's lower raidStealth should get caught more often than network's higher one across 500 seeds -- got guild %d vs network %d" % [guild_caught, network_caught])
+	)
+
+	run_case("resolve_raid_outcome_claim_always_names_the_faction_regardless_of_caught", func():
+		for caught in [true, false]:
+			GameState.reset()
+			var vein := _player_vein_of(30, "time", "none", "camden")
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+			Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "claim", "caught": caught })
+
+			var text: String = GameState.state["notifications"][0]["text"]
+			assert_true(text.contains("Firm"), "a claim must name the faction regardless of the stealth roll (caught=%s) -- got: %s" % [caught, text])
+	)
+
+	run_case("resolve_raid_outcome_loot_names_the_faction_when_caught_and_anonymizes_when_clean", func():
+		GameState.reset()
+		var caught_vein := _player_vein_of(30, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [caught_vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", caught_vein)]
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot", "caught": true })
+		var caught_text: String = GameState.state["notifications"][0]["text"]
+		assert_true(caught_text.contains("Firm"), "a caught loot should name the faction -- got: %s" % caught_text)
+
+		GameState.reset()
+		var clean_vein := _player_vein_of(30, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [clean_vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", clean_vein)]
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot", "caught": false })
+		var clean_text: String = GameState.state["notifications"][0]["text"]
+		assert_true(not clean_text.contains("Firm"), "a clean loot must not name the faction -- got: %s" % clean_text)
+		assert_true(clean_text.contains("still yours"), "a clean loot should still make clear the vein wasn't lost -- got: %s" % clean_text)
+		assert_true(clean_text != caught_text, "caught and clean loot notifications must read differently")
+	)
+
+	run_case("resolve_raid_outcome_missed_defend_loot_anonymizes_when_clean_too", func():
+		GameState.reset()
+		var vein := _player_vein_of(30, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot", "caught": false }, true)
+
+		var text: String = GameState.state["notifications"][0]["text"]
+		assert_true(not text.contains("Firm"), "a missed-defend clean loot must not name the faction -- got: %s" % text)
+		assert_true(text.contains("still yours"), "the missed-defend clean loot notification should still make clear the vein wasn't lost -- got: %s" % text)
+	)
+
+	run_case("resolve_raid_outcome_loot_missing_caught_key_defaults_to_named_unchanged_behaviour", func():
+		GameState.reset()
+		var vein := _player_vein_of(30, "time", "none", "camden")
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot" })
+
+		var text: String = GameState.state["notifications"][0]["text"]
+		assert_true(text.contains("Firm"), "an outcome with no caught key should still name the faction, unchanged from before this ticket -- got: %s" % text)
+	)
+
+	run_case("neither_claim_nor_loot_branch_touches_relation_regardless_of_caught", func():
+		for outcome_type in ["claim", "loot"]:
+			for caught in [true, false]:
+				GameState.reset()
+				var vein := _player_vein_of(30, "time", "none", "camden")
+				GameState.state["player"]["veins"] = [vein]
+				GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+				GameState.state["factions"]["firm"]["relation"] = 20
+
+				Raiding.resolve_raid_outcome({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": outcome_type, "caught": caught })
+
+				assert_eq(GameState.state["factions"]["firm"]["relation"], 20, "Direction B (%s, caught=%s) must never touch relation -- the player decides how to react, not an automated stat hit" % [outcome_type, caught])
+	)
+
+	run_case("queue_defend_raid_warning_anonymizes_when_the_queued_outcome_will_resolve_as_a_clean_loot", func():
+		GameState.reset()
+		var vein := _player_vein_of(10, "time", "none", "camden")
+		vein["alarmUpgrades"] = [Cultivating.ALARM_UPGRADE_ID]
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		Raiding._queue_defend_raid({ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot", "caught": false }, vein)
+
+		var text: String = GameState.state["notifications"][0]["text"]
+		assert_true(not text.contains("Firm"), "a warning bound for a clean loot must not name the faction -- got: %s" % text)
+	)
+
+	run_case("queue_defend_raid_warning_names_the_faction_when_bound_for_a_claim_or_a_caught_loot", func():
+		for outcome in [
+			{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "claim", "caught": false },
+			{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true, "outcomeType": "loot", "caught": true },
+		]:
+			GameState.reset()
+			var vein := _player_vein_of(10, "time", "none", "camden")
+			vein["alarmUpgrades"] = [Cultivating.ALARM_UPGRADE_ID]
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+			Raiding._queue_defend_raid(outcome, vein)
+
+			var text: String = GameState.state["notifications"][0]["text"]
+			assert_true(text.contains("Firm"), "a warning bound for outcomeType=%s/caught=%s should still name the faction -- got: %s" % [outcome["outcomeType"], outcome["caught"], text])
+	)
+
 	# ── Direction B: alarm defend encounter (ticket 07) ───────────────────
 
 	run_case("apply_raid_resolution_queues_an_alarmed_vein_instead_of_resolving_immediately", func():
