@@ -22,7 +22,7 @@ extends RefCounted
 
 static func apps() -> Array[Dictionary]:
 	var unlocked := func(): return false
-	return [
+	var list: Array[Dictionary] = [
 		{ "id": "notes", "label": "Notes", "locked": unlocked },
 		{ "id": "factions", "label": "Factions", "locked": unlocked },
 		{ "id": "ticker", "label": "The Ticker", "locked": unlocked },
@@ -66,6 +66,15 @@ static func apps() -> Array[Dictionary]:
 		# at the UI layer only and Nav.go_to("map") itself has no gate.
 		{ "id": "vfl", "label": "VfL", "locked": func(): return not GameState.state["flags"]["archiePartnerSeen"] },
 	]
+
+	# 01-debug-app: only present on a save started via the title screen's
+	# Debug Start button -- never merely locked (a locked tile still renders
+	# with its padlock overlay), genuinely absent from the grid on a normal
+	# New Game, per the ticket's visibility gate.
+	if GameState.state["flags"]["debugStartUsed"]:
+		list.append({ "id": "debug", "label": "Debug", "locked": unlocked })
+
+	return list
 
 
 # Pure transform: registry entries -> AppTile.configure()-ready dicts, in

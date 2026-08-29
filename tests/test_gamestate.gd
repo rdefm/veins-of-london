@@ -68,6 +68,7 @@ func run() -> void:
 		assert_eq(s["flags"]["tutorialStage"], "intro", "flags.tutorialStage")
 		assert_eq(s["flags"]["metArchie"], false, "flags.metArchie")
 		assert_eq(s["flags"]["homeRaidEventPending"], false, "flags.homeRaidEventPending")
+		assert_eq(s["flags"]["debugStartUsed"], false, "flags.debugStartUsed defaults false on a normal New Game")
 		assert_eq(s["flags"]["consSoldCount"], 0, "flags.consSoldCount")
 	)
 

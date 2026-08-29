@@ -299,6 +299,11 @@ func new_game_state() -> Dictionary:
 			# reads it, per Implementation Decisions "Gift gate". Set true only
 			# by the Collective Act 2 onboarding quest (out of scope here).
 			"dialGiftGranted": false,
+			# 01-debug-app: gates the Debug phone app's visibility (PhoneApps.
+			# apps()) -- true only via DebugStart.apply()'s existing "force
+			# every bool flag true" pass below, never settable any other way,
+			# so a normally-started game never sees the tile.
+			"debugStartUsed": false,
 		},
 
 		# collective1-07, spec §10.1: barkCursors backs Collective._next_bark()'s

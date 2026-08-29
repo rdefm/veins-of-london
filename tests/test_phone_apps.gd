@@ -8,10 +8,38 @@ extends "res://tests/test_base.gd"
 
 func run() -> void:
 	run_case("apps_lists_the_nine_existing_apps_in_a_fixed_order", func():
+		GameState.reset()
 		var ids: Array[String] = []
 		for app in PhoneApps.apps():
 			ids.append(app["id"])
 		assert_eq(ids, ["notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "contacts", "vfl"], "grid slot order comes straight from the registry order")
+	)
+
+	# 01-debug-app: the Debug tile is genuinely absent from the roster on a
+	# normal save (not merely locked -- see PhoneApps.apps()'s own comment),
+	# and appears (unlocked) only once flags.debugStartUsed is true.
+	run_case("debug_app_is_absent_from_the_roster_on_a_normal_new_game", func():
+		GameState.reset()
+		var ids: Array[String] = []
+		for app in PhoneApps.apps():
+			ids.append(app["id"])
+		assert_true(not ids.has("debug"), "a normally-started game never sees a debug entry")
+	)
+
+	run_case("debug_app_appears_unlocked_once_debugStartUsed_is_true", func():
+		GameState.reset()
+		GameState.state["flags"]["debugStartUsed"] = true
+		var apps := PhoneApps.apps()
+		var ids: Array[String] = []
+		for app in apps:
+			ids.append(app["id"])
+		assert_true(ids.has("debug"), "debugStartUsed=true adds a debug entry")
+
+		var debug_locked: Callable
+		for app in apps:
+			if app["id"] == "debug":
+				debug_locked = app["locked"]
+		assert_true(not debug_locked.call(), "the debug tile itself is never locked once visible")
 	)
 
 	run_case("todays_roster_is_entirely_unlocked_except_vfl", func():

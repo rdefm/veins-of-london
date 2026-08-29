@@ -84,6 +84,8 @@ func _refresh() -> void:
 			_build_notifications()
 		"bank":
 			_build_bank()
+		"debug":
+			_build_debug()
 		_:
 			_build_home()
 
@@ -761,4 +763,55 @@ func _build_bank_transaction_row(entry: Dictionary) -> Control:
 	var amount_text: String = "+£%d" % amount if amount >= 0 else "-£%d" % -amount
 	c["content"].add_child(UI.label("%s — %s" % [entry["label"], amount_text]))
 	c["content"].add_child(UI.muted_label("Day %d" % entry["day"]))
+	return c["panel"]
+
+
+# ── Debug (01-debug-app) ──────────────────────────────────────────────
+# Only reachable at all when flags.debugStartUsed is true (PhoneApps.apps()
+# leaves the tile out of the grid entirely otherwise) -- this screen itself
+# doesn't re-check the flag, same trust-the-grid convention every other app
+# case in _refresh()'s match above already follows (e.g. "vfl"'s own lock
+# check lives in PhoneApps, not re-derived here). Two simple adjusters land
+# in this ticket; tickets 02/03 add more to the same screen.
+
+func _build_debug() -> void:
+	_content.add_child(_phone_back_button())
+	_content.add_child(UI.heading("Debug"))
+	_content.add_child(_build_debug_add_money_card())
+	_content.add_child(_build_debug_add_calc_card())
+
+
+func _build_debug_add_money_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Add money", 14))
+
+	var amount_field := LineEdit.new()
+	amount_field.placeholder_text = "Amount"
+	c["content"].add_child(amount_field)
+
+	c["content"].add_child(UI.button("Add", func():
+		DebugTools.add_cash(amount_field.text.to_int())
+	))
+
+	return c["panel"]
+
+
+func _build_debug_add_calc_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Add calc", 14))
+
+	var ore_select := OptionButton.new()
+	for ore_type in GameData.ORE_TYPES.keys():
+		ore_select.add_item(ore_type)
+	c["content"].add_child(ore_select)
+
+	var amount_field := LineEdit.new()
+	amount_field.placeholder_text = "Amount"
+	c["content"].add_child(amount_field)
+
+	c["content"].add_child(UI.button("Add", func():
+		var ore_type: String = ore_select.get_item_text(ore_select.selected)
+		DebugTools.add_calc(ore_type, amount_field.text.to_int())
+	))
+
 	return c["panel"]
