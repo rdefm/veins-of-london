@@ -19,6 +19,7 @@
     { "op": "set_flag", "flag": "collectiveLaneUnlocked", "value": true },
     { "op": "faction_relation", "faction": "collective", "value": 3 },
     { "op": "set_flag", "flag": "colA1Stage", "value": "tuition" },
+    { "op": "notify", "text": "Des reckons there's ground worth a look. Check the map." },
     { "op": "set_screen", "screen": "contacts" }
   ]
 }

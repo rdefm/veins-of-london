@@ -93,13 +93,41 @@ func run() -> void:
 		Objectives.refresh()
 
 		var items: Array = _section(Todo.get_active_questlines(), "tutorial")["items"]
-		assert_eq(items[3]["title"], "Archie's time vein is yours. Cultivate it. Harvest. Make pearls. Archie sells them.", "the final checkpoint should be the newest unlocked item")
+		assert_eq(items[3]["title"], "Archie's time vein is yours. You cultivate and harvest it — Archie sells what you make.", "the final checkpoint should be the newest unlocked item")
 		assert_eq(items[3]["done"], true, "the final checkpoint should render checked, not stuck unchecked forever")
 
 		flags["cultivationTutorialSeen"] = true
 		Objectives.refresh()
 		var sections := Todo.get_active_questlines()
 		assert_eq(_section(sections, "tutorial"), null, "the whole tutorial section should hide once the questline's gate flag is true")
+	)
+
+	run_case("archie_partner_line_renders_checked_immediately_after_the_real_debrief_event_not_stale", func():
+		# ticket 90's investigation: is "Archie's time vein is yours..."
+		# rendering unchecked because state.objectives["tut_archie_partner"].
+		# complete is genuinely still false (a refresh() staleness bug), or
+		# because it renders checked but the wording still reads like an
+		# active instruction (a legibility problem)? Unlike the synthetic
+		# case above (which sets flags directly and calls Objectives.refresh()
+		# itself), this drives the real home_raid_debrief_win event -- whose
+		# on_complete sets homeRaidEventSeen and archiePartnerSeen together,
+		# then Events.apply_effects() calls Objectives.refresh() once at the
+		# end (events.gd's boundary #6) -- with no test-side refresh() call,
+		# to prove the real event path leaves nothing stale. It comes back
+		# complete/checked immediately, confirming the bug (human playtest,
+		# ticket 90 item 4) is the wording reading like a command despite the
+		# checkmark, not a staleness bug -- hence the title reword above,
+		# not a code fix here.
+		GameState.reset()
+		Events.start_event("home_raid_debrief_win")
+		for i in range(GameData.EVENTS["home_raid_debrief_win"]["cards"].size()):
+			Events.advance()
+
+		assert_true(GameState.state["objectives"]["tut_archie_partner"]["complete"], "complete flips true in the same on_complete call that sets archiePartnerSeen -- no stale window")
+		var items: Array = _section(Todo.get_active_questlines(), "tutorial")["items"]
+		var last_item: Dictionary = items[items.size() - 1]
+		assert_eq(last_item["title"], "Archie's time vein is yours. You cultivate and harvest it — Archie sells what you make.")
+		assert_eq(last_item["done"], true, "renders checked with no extra refresh() call needed -- ruling out staleness")
 	)
 
 	run_case("sections_group_by_questline_and_the_whole_section_hides_on_its_gate_flag", func():

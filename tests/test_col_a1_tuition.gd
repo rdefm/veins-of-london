@@ -12,6 +12,34 @@ func _play_event(event_id: String) -> void:
 		Events.advance()
 
 
+# Same idiom as tests/test_events.gd's own _has_notification().
+func _has_notification(text: String) -> bool:
+	for n in GameState.state["notifications"]:
+		if n["text"] == text:
+			return true
+	return false
+
+
+func _collective_section() -> Variant:
+	for section in Todo.get_active_questlines():
+		if section["questline"] == "collective":
+			return section
+	return null
+
+
+# Looks an item up by title rather than a fixed index -- S4 (col_a1_hub)
+# also flips colA1HubReached/colA1DesThreadActive, which simultaneously
+# activates col_a1_des_sites and col_a1_hakim_rescue (their own activateFlags
+# per data/objectives.json), so the Collective section's item count grows
+# past MAX_ITEMS_PER_SECTION and the cap trims from the front -- a positional
+# index into "items" would be fragile to that unrelated activation.
+func _find_item(items: Array, title: String) -> Variant:
+	for item in items:
+		if item["title"] == title:
+			return item
+	return null
+
+
 # Finds the pending-message button ContactCards.build_archie_card() adds for
 # a queued "archie" pendingMessages entry, by walking the returned Control
 # tree the same way tests/test_contact_cards.gd inspects other buttons on
@@ -87,6 +115,42 @@ func run() -> void:
 		# the event finished): on_complete must navigate off the event screen,
 		# not just leave state.event null with currentScreen still "event".
 		assert_eq(GameState.state["currentScreen"], "contacts", "S1 -> Archie's card, where the pending text was tapped from")
+	)
+
+	# ── ticket 90: Notes never goes silent through the S1-S4 tuition chain ──
+
+	run_case("col_a1_intro_on_complete_notifies_the_player_to_check_the_map_and_notes_goes_from_empty_to_showing_the_chain", func():
+		GameState.reset()
+		assert_true(_collective_section() == null, "no Collective section before Des is even met")
+
+		_play_event("col_a1_intro")
+
+		assert_true(_has_notification("Des reckons there's ground worth a look. Check the map."), "S1 should notify the player where to look next, not leave them silent")
+
+		var section: Variant = _collective_section()
+		assert_true(section != null, "Notes' Collective section should appear the instant colA1DesMet flips true")
+		assert_eq(section["items"].size(), 1)
+		assert_eq(section["items"][0]["title"], "Des is waiting on the map. He'll teach you to prospect.")
+		assert_eq(section["items"][0]["done"], false)
+	)
+
+	run_case("notes_tracks_the_full_tuition_chain_through_S2_S3_S4", func():
+		GameState.reset()
+		_play_event("col_a1_intro")
+
+		_play_event("col_a1_prospecting")
+		var items: Array = _collective_section()["items"]
+		assert_eq(_find_item(items, "Des is waiting on the map. He'll teach you to prospect.")["done"], true, "S2 taught -- the prospecting step should render checked")
+		assert_eq(_find_item(items, "Des is waiting on the map. He'll teach you to seed a patch.")["done"], false)
+
+		_play_event("col_a1_seeding")
+		items = _collective_section()["items"]
+		assert_eq(_find_item(items, "Des is waiting on the map. He'll teach you to seed a patch.")["done"], true, "S3 taught -- the seeding step should render checked")
+		assert_eq(_find_item(items, "Des has texted — three things he needs help with. Check Contacts.")["done"], false)
+
+		_play_event("col_a1_hub")
+		items = _collective_section()["items"]
+		assert_eq(_find_item(items, "Des has texted — three things he needs help with. Check Contacts.")["done"], true, "S4 reached -- the hub step should render checked")
 	)
 
 	# ── S2/S3: map pins, teach-don't-require ────────────────────────────

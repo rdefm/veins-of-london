@@ -63,13 +63,43 @@
   },
   "tut_archie_partner": {
     "id": "tut_archie_partner",
-    "title": "Archie's time vein is yours. Cultivate it. Harvest. Make pearls. Archie sells them.",
+    "title": "Archie's time vein is yours. You cultivate and harvest it — Archie sells what you make.",
     "detail": "",
     "type": "flag_true",
     "params": {},
     "activateFlag": "archiePartnerSeen",
     "completeFlag": "archiePartnerSeen",
     "questline": "tutorial"
+  },
+  "col_a1_prospecting": {
+    "id": "col_a1_prospecting",
+    "title": "Des is waiting on the map. He'll teach you to prospect.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "colA1DesMet",
+    "completeFlag": "colA1ProspectingTaught",
+    "questline": "collective"
+  },
+  "col_a1_seeding": {
+    "id": "col_a1_seeding",
+    "title": "Des is waiting on the map. He'll teach you to seed a patch.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "colA1ProspectingTaught",
+    "completeFlag": "colA1SeedingTaught",
+    "questline": "collective"
+  },
+  "col_a1_hub_reached": {
+    "id": "col_a1_hub_reached",
+    "title": "Des has texted — three things he needs help with. Check Contacts.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "colA1SeedingTaught",
+    "completeFlag": "colA1HubReached",
+    "questline": "collective"
   },
   "col_a1_des_sites": {
     "id": "col_a1_des_sites",
