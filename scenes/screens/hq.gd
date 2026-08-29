@@ -321,7 +321,7 @@ func _build_dial_card() -> Control:
 			for haft_id in GameData.DIAL_HAFTS.keys():
 				var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
 				var captured_haft_id: String = haft_id
-				c["content"].add_child(UI.button("Seed as \"%s\"" % haft["name"], func(): Dial.attempt_seed(captured_haft_id)))
+				c["content"].add_child(UI.button("Seed as \"%s\"" % haft["name"], func(): _on_seed_pressed(captured_haft_id)))
 		else:
 			c["content"].add_child(UI.muted_label("No Dial. Nothing's offered you the gift yet."))
 		return c["panel"]
@@ -337,6 +337,21 @@ func _build_dial_card() -> Control:
 	return c["panel"]
 
 
+# bugfixes ticket 97: attempt_seed()'s three outcomes (refuse/fail/succeed)
+# were previously discarded here, so a tap looked like nothing happened.
+# PROSE-REVIEW: notification text below is new copy, drafted against
+# CONTENT-GUIDE.md §3's tone bible -- flag for human review.
+func _on_seed_pressed(haft_id: String) -> void:
+	var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
+	var result := Dial.attempt_seed(haft_id)
+	if not result["ok"]:
+		Notify.push(result["reason"], Notify.CATEGORY_WARNING)
+	elif result["success"]:
+		Notify.push("Dial seeded as \"%s\"." % haft["name"], Notify.CATEGORY_SUCCESS)
+	else:
+		Notify.push("Seeding failed — calc spent, no Dial gained.", Notify.CATEGORY_DANGER)
+
+
 func _build_movement_crafting_section(content: VBoxContainer, player: Dictionary) -> void:
 	content.add_child(UI.heading("Craft a Movement", 13))
 	var skill: int = player["craftingSkill"]
@@ -349,7 +364,22 @@ func _build_movement_crafting_section(content: VBoxContainer, player: Dictionary
 			var have: int = player["orichalchum"].get(ore_type, 0)
 			var captured_archetype: String = archetype
 			var captured_ore: String = ore_type
-			var b := UI.button("%s" % GameData.ORE_TYPES[ore_type]["symbol"], func(): Dial.attempt_craft_movement(captured_archetype, captured_ore))
+			var b := UI.button("%s" % GameData.ORE_TYPES[ore_type]["symbol"], func(): _on_movement_craft_pressed(captured_archetype, captured_ore))
 			b.disabled = have < cost
 			row.add_child(b)
 		content.add_child(row)
+
+
+# bugfixes ticket 97: attempt_craft_movement()'s three outcomes were
+# previously discarded here, same silent-tap problem as _on_seed_pressed().
+# PROSE-REVIEW: notification text below is new copy, drafted against
+# CONTENT-GUIDE.md §3's tone bible -- flag for human review.
+func _on_movement_craft_pressed(archetype: String, ore_type: String) -> void:
+	var result := Dial.attempt_craft_movement(archetype, ore_type)
+	if not result["ok"]:
+		Notify.push(result["reason"], Notify.CATEGORY_WARNING)
+	elif result["success"]:
+		var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
+		Notify.push("Movement crafted: %s (tier %d)." % [m["name"], result["tier"]], Notify.CATEGORY_SUCCESS)
+	else:
+		Notify.push("Movement-crafting failed — calc spent, no Movement gained.", Notify.CATEGORY_DANGER)
