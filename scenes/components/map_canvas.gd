@@ -706,6 +706,24 @@ func _play_event(event: Dictionary) -> void:
 # fire emits _batch_finished, which is what this function actually awaits --
 # not each tween's own signal in turn, which (per _batch_finished's own
 # comment) can't safely rule out two tweens finishing the same frame.
+#
+# 91-map-stuck-playback-flag-recurrence: `remaining` MUST be a one-element
+# Array, not a plain int, for the same reason tests/test_nav.gd's own class
+# comment documents -- GDScript lambdas capture outer locals BY VALUE, not by
+# reference. A plain `var remaining := N` gave every one of the N connected
+# lambdas below its own private snapshot of N, each only ever counting its
+# own single decrement down to N-1 before comparing to 0 -- true for exactly
+# one tween in a batch of one (which is why this went unnoticed: "sequential"
+# pacing never batches, and no test drove a real multi-event "simultaneous"
+# batch to actual completion), but for any batch of two or more (an ordinary
+# vein seed alone queues seed_claim + join_line together -- SIMULTANEOUS_
+# DURATION is the persisted DEFAULT pacing mode) every lambda's own copy
+# lands on N-1, `_batch_finished` never emits, this await never resolves, and
+# MapEvents.advance() never runs -- "playing" stays stuck true and the
+# interrupted join_line event never reveals its line, forever, with no
+# external interruption involved at all. Wrapping the counter in a shared
+# Array (mutated in place, not reassigned) gives every lambda a reference to
+# the SAME cell instead of its own copy.
 func _play_batch(events: Array) -> void:
 	_active_tweens = []
 	for event in events:
@@ -719,11 +737,11 @@ func _play_batch(events: Array) -> void:
 	if _active_tweens.is_empty():
 		return
 
-	var remaining := _active_tweens.size()
+	var remaining := [_active_tweens.size()]
 	for tween in _active_tweens:
 		tween.finished.connect(func():
-			remaining -= 1
-			if remaining == 0:
+			remaining[0] -= 1
+			if remaining[0] == 0:
 				_batch_finished.emit()
 		)
 	await _batch_finished

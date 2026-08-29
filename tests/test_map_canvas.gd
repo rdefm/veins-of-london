@@ -1124,6 +1124,67 @@ func run() -> void:
 		canvas.free()
 	)
 
+	# 91-map-stuck-playback-flag-recurrence: the actual root cause of the
+	# recurrence -- #81 only ever fixed EXTERNAL interruptions (navigation
+	# away from "map" mid-tween). This one is entirely internal to
+	# _play_batch() and needs no interruption at all: "simultaneous" (the
+	# persisted DEFAULT pacing mode) drives a batch of 2+ tweens to
+	# completion via a `remaining` counter closed over by every tween's own
+	# "finished" lambda -- and GDScript lambdas capture outer locals BY
+	# VALUE, so every one of those lambdas got its own private snapshot of
+	# `remaining`, each only ever able to count its own single decrement.
+	# That's indistinguishable from correct for a batch of exactly one (the
+	# only shape any prior test exercised to a real finish -- see the cases
+	# above, which all inspect the batch's synchronous kickoff state and
+	# `canvas.free()` before anything actually completes), but for a batch of
+	# two or more (an ordinary vein seed alone always queues seed_claim +
+	# join_line together) `_batch_finished` never emits no matter how many
+	# tweens actually finish -- proven here by forcing every one of them to
+	# completion via custom_step(). A real, live-tree ScrollContainer parent
+	# is required for that to fire "finished" reliably (see this file's own
+	# ticket-88/89 pinch/step_zoom cases' comments on why a bare canvas with
+	# no live SceneTree can't be trusted to deliver Tween completion
+	# synchronously), hence `await tree.process_frame` here rather than the
+	# bare `canvas._ready()` idiom the batch-kickoff-only cases above use.
+	await run_case("a_batch_of_two_or_more_tweens_actually_finishing_still_advances_the_queue", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [
+			{ "id": "s1", "district": "hampstead", "tier": "fair", "oreType": "time", "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false },
+		]
+		GameState.state["player"]["veins"] = [
+			{ "id": "v1", "siteId": "s1", "oreType": "time", "growth": 20, "security": "none", "alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1, "district": "hampstead", "hospitability": { "tier": "fair", "bonuses": [] } },
+		]
+
+		var tree := Engine.get_main_loop() as SceneTree
+		var scroll := ScrollContainer.new()
+		scroll.size = Vector2(300, 300)
+		var canvas := MapCanvas.new()
+		scroll.add_child(canvas)
+		tree.root.add_child(scroll)
+
+		await tree.process_frame  # let _ready()'s own initial-view settle first
+
+		# The exact real-gameplay shape (Sites.attempt_seed): a seed_claim and
+		# its join_line queued together, drained as one 2-tween batch.
+		MapEvents.queue_seed_claim("hampstead", "v1", "player")
+		MapEvents.queue_join_line("hampstead", "v1", "player")
+		EventBus.state_changed.emit()
+
+		assert_true(MapEvents.is_playing(), "batch claimed the drain")
+		assert_eq(canvas._active_tweens.size(), 2, "sanity: this is genuinely a 2-tween batch, the shape that broke")
+
+		for tween in canvas._active_tweens:
+			tween.custom_step(999999.0)
+
+		assert_true(not MapEvents.is_playing(), "every tween in the batch actually finishing must clear the guard -- a stuck 'playing' here means _batch_finished never emitted, so no tap on this Map tab would ever work again without leaving and returning")
+		assert_eq(MapEvents.pending_vein_ids(), [], "seed_claim's own hidden-from-static-draw exclusion should be lifted")
+		assert_eq(MapEvents.pending_join_line_vein_ids(), [], "join_line's own hidden-from-the-line exclusion should be lifted -- this is the 'vein doesn't show its line connecting' symptom")
+
+		scroll.remove_child(canvas)
+		canvas.free()
+		scroll.free()
+	)
+
 	# Bugfixes ticket 49: the Guild Marketplace pin is additive to its
 	# existing route (contact_cards.gd's faction card button, untouched by
 	# this ticket) -- this only proves the new map-side path. Positioned at
