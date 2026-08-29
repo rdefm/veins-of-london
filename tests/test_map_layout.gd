@@ -449,3 +449,64 @@ func run() -> void:
 
 		GameState.reset()
 	)
+
+	run_case("multiple_sites_diverging_concurrently_needs_the_full_siteCap_times_2_buffer_and_never_collides", func():
+		# 98-map-stopSlots-buffer-margin-vs-vein-divergence: the old
+		# siteCap+2 buffer assumed at most one hasNaturalVein site in a
+		# district was ever mid-divergence at once. Nothing stops several
+		# sites diverging at the same time (independent sells/raids/
+		# collapses, heavier since bugfixes-73's faction vein churn bump),
+		# so this seeds every capped site in a district as claimed +
+		# hasNaturalVein, then diverges *most of them concurrently* --
+		# leaving them all live on the map at once rather than retiring
+		# each round like the 94 regression test above. Peak live-stop
+		# count here (siteCap * 2) is more than the old +2 margin could
+		# ever cover for this district (siteCap + 2 = 7 < 10 needed).
+		GameState.reset()
+		var district := "battersea"
+		var site_cap: int = GameData.DISTRICTS[district]["siteCap"]
+		assert_eq(site_cap, 5, "battersea siteCap (test assumes this to size the scenario)")
+
+		var natural_veins: Array = []
+		for i in range(site_cap):
+			var site_id := "bs%d" % i
+			var site_slot: int = Sites.next_slot_index(district)
+			var site := {
+				"id": site_id, "district": district, "tier": "saturated", "oreType": "physics",
+				"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+				"hasNaturalVein": true, "slotIndex": site_slot,
+			}
+			GameState.state["world"]["sites"].append(site)
+
+			var ordinary_vein := Cultivating.make_vein("physics", 50, district, site_id, {})
+			var natural_vein := Cultivating.make_vein("physics", 50, district, site_id, {})
+			natural_vein["slotIndex"] = Sites.next_slot_index(district)
+			GameState.state["player"]["veins"].append(ordinary_vein)
+			GameState.state["player"]["veins"].append(natural_vein)
+			natural_veins.append(natural_vein)
+
+			# Diverge all but one site: sell only the ordinary vein, leaving
+			# the natural-vein sibling pinned live on the same (now
+			# factionVein-owned) site. Every diverged site's extra slot
+			# stays occupied at the same time as every other one's -- no
+			# retiring between sites, unlike the 94 test above.
+			if i < site_cap - 1:
+				VeinTrade.sell_to_faction(ordinary_vein["id"], "firm")
+
+		var assigned := MapLayout.assign_slots(district)
+		assert_eq(assigned.size(), site_cap * 2, "every capped site's two veins (diverged or not) must all render")
+
+		var seen_positions := {}
+		for stop in assigned:
+			assert_true(not seen_positions.has(stop["position"]), "two live stops share a position at once")
+			seen_positions[stop["position"]] = true
+
+		for natural_vein in natural_veins:
+			var found := false
+			for stop in assigned:
+				if stop["id"] == natural_vein["id"]:
+					found = true
+			assert_true(found, "every diverged sibling vein must still render on the map")
+
+		GameState.reset()
+	)

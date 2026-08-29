@@ -193,8 +193,8 @@ func new_game_state() -> Dictionary:
 			# natural-vein bonus -- removed from player.veins). Sites.
 			# next_slot_index() drains this before ever minting a fresh value
 			# off mapSlotCounters, so a district's live stop count -- not its
-			# lifetime churn -- is what the stopSlots siteCap+2 buffer has to
-			# cover.
+			# lifetime churn -- is what the stopSlots siteCap*2 buffer
+			# (bugfixes-98) has to cover.
 			"mapSlotFreePool": {},
 			# collective1-06: relation-accrual daily-cap tracker, keyed by lane
 			# id ("collective", "archie") -> relation points already awarded

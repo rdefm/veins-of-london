@@ -262,7 +262,7 @@ func run() -> void:
 		for e in errors:
 			if e.contains("camden") and e.contains("stopSlots"):
 				found = true
-		assert_true(found, "camden siteCap 6 needs >= 8 stopSlots — 2 should fail validation")
+		assert_true(found, "camden siteCap 6 needs >= 12 stopSlots — 2 should fail validation")
 	)
 
 	run_case("corrupt_fixture_bad_event_pin_district_fails", func():
@@ -345,7 +345,7 @@ func run() -> void:
 		assert_almost_eq(GameData.SITE_NATURAL_VEIN_CHANCE, 0.05, 0.0001, "natural vein chance")
 		assert_eq(GameData.MAP_LAYOUT["mapSize"], [1170, 1560], "map_layout mapSize")
 		assert_eq(GameData.MAP_LAYOUT["districts"].size(), 9, "map_layout has 9 districts")
-		assert_eq(GameData.MAP_LAYOUT["districts"]["camden"]["stopSlots"].size(), 8, "camden siteCap 6 -> 8 stopSlots")
+		assert_eq(GameData.MAP_LAYOUT["districts"]["camden"]["stopSlots"].size(), 12, "camden siteCap 6 -> 12 stopSlots (siteCap*2, bugfixes-98)")
 		assert_eq(GameData.MAP_LAYOUT["districts"]["soho"]["stopSlots"].size(), 2, "soho siteCap 0 -> 2 stopSlots")
 
 		# collective1-07, spec §9.3/§9.5

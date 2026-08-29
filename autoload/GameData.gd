@@ -689,9 +689,15 @@ func _validate_districts(districts: Dictionary, ore_types: Dictionary, errors: A
 
 
 # M1.5 N3: data/map_layout.json. Cross-references districts' siteCap to
-# enforce "each district has >= siteCap + 2 stopSlots" — the buffer that
-# lets a saturated site's bonus natural vein occupy a second slot beyond
-# one-per-site (see systems/map_layout.gd's assign_slots).
+# enforce "each district has >= siteCap * 2 stopSlots" — bugfixes-98's
+# provably-safe worst case. A saturated (hasNaturalVein) site's two veins
+# can now diverge independently (sold/raided/collapsed one at a time,
+# ticket 94), so any subset of a district's claimed sites could be sitting
+# mid-divergence — pinning both their slots — at once; siteCap*2 is the
+# only margin that always covers that regardless of how many sites diverge
+# concurrently. The old siteCap+2 assumed at most one site in a district
+# ever diverged at a time, which heavier faction vein churn (bugfixes-73)
+# made easy to violate (see systems/map_layout.gd's assign_slots).
 func _validate_map_layout(layout: Dictionary, districts: Dictionary, errors: Array[String]) -> void:
 	_require_keys(layout, ["mapSize", "districts", "riverPath", "homeAnchor"], "map_layout", errors)
 
@@ -736,8 +742,8 @@ func _validate_map_layout(layout: Dictionary, districts: Dictionary, errors: Arr
 			continue
 		if not districts.is_empty() and districts.has(key):
 			var site_cap: int = districts[key].get("siteCap", 0)
-			if stop_slots.size() < site_cap + 2:
-				errors.append("map_layout.districts.%s.stopSlots: needs >= siteCap+2 (%d) slots, got %d" % [key, site_cap + 2, stop_slots.size()])
+			if stop_slots.size() < site_cap * 2:
+				errors.append("map_layout.districts.%s.stopSlots: needs >= siteCap*2 (%d) slots, got %d" % [key, site_cap * 2, stop_slots.size()])
 
 	for key in layout_districts.keys():
 		if not CANONICAL_DISTRICT_IDS.has(key):

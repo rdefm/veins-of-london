@@ -1,4 +1,4 @@
-# Combat Animation & Art Direction — Vision
+﻿# Combat Animation & Art Direction — Vision
 
 **Status:** Draft from a design session (2026-08-26). Written against
 `collective1`. Combat-scoped by decision; §11 flags the wider art-direction
@@ -24,26 +24,15 @@ Combat moves to **full sprite-frame pixel art** — visible player, allies and
 enemies, idle loops, and per-action animation. This supersedes the previous
 plan of record.
 
-Two facts make it affordable, and they should be stated up front because the
-usual objection to sprite animation is budget:
-
-1. **The cast is seven subjects.** `data/enemies.json` defines three raid-guard
-   templates (`territorialScrapper`, `veinGuard`, `orichalchumDealer`) plus
-   `homeRaidRaider`; `generate_mugger()` (`systems/combat.gd:44`) synthesises
-   muggers from one visual; `data/constants.json` gives Archie the only
-   non-zero `combatHpMax`, so he is the only ally that can ever appear. Plus
-   the player. Seven.
-2. **Assets are generatable in-house.** The constraint that previously ruled
-   this out — no image pipeline — no longer holds.
 
 The reference direction is high-fidelity modern indie pixel art: dense detail,
-desaturated palette, practical light sources, contemporary London subject
+practical light sources, contemporary London subject
 matter. Nearest tonal cousins: **Backbone**, **NORCO**, **The Last Night**,
 **Eastward**.
 
 ## 2. Battle grammar — the portrait problem
 
-Bravely Default, Octopath Traveler, Sea of Stars and Chained Echoes all use a
+Bravely Default, Octopath Traveler, Sea of Stars, Cassette Beasts and Chained Echoes all use a
 **horizontal battle line**. The viewport is **390×844 portrait**
 (`project.godot`), so that grammar is unavailable and must not be half-copied.
 

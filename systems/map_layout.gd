@@ -9,7 +9,10 @@ extends RefCounted
 # A "stop" is not 1:1 with a site: an unclaimed site is one stop, but a
 # player-claimed site can carry two veins (a saturated site's bonus natural
 # vein, D2) — that's exactly why map_layout.json's stopSlots buffer is
-# siteCap+2, not siteCap+1. A faction-claimed site's vein is embedded
+# siteCap*2 (bugfixes-98), not siteCap+1: any subset of a district's
+# claimed sites can be mid-divergence (one vein gone, one still pinning its
+# slot) at once, so the worst case is every capped site diverging at the
+# same time. A faction-claimed site's vein is embedded
 # directly on the site (faction-vein-ownership T01 — no natural-vein bonus
 # for faction claims, so always exactly one stop). Stops occupy slots in
 # discovery order: sites in state.world.sites' array order (append order =
@@ -84,7 +87,7 @@ static func _append_surviving_bonus_veins(items: Array, site: Dictionary, veins:
 # slot (defensive only: 87-map-slot-index-recycling means a removed stop's
 # slotIndex is recycled via Sites.release_slot_index()/next_slot_index(), so
 # a district's live stop count -- not its lifetime churn -- is what actually
-# has to fit inside map_layout.json's siteCap+2 buffer; this clamp is the
+# has to fit inside map_layout.json's siteCap*2 buffer (bugfixes-98); this clamp is the
 # last-resort fallback if that guarantee is ever violated, not the normal
 # path).
 static func assign_positions(items: Array, slots: Array) -> Array:
