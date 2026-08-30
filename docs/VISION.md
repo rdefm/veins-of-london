@@ -254,6 +254,8 @@ Enemy variety = new intent mixes + greed/nerve/affinity profiles, not new mechan
 
 **Multi-enemy fights:** the combat data model is enemy-count-agnostic from M2 (an array of combatants, each with its own intent row), but content ships 1v1 through M4. Squad fights (2–3 enemies) arrive in M5 with faction enforcer pairs — giving Black Hole and mass Pan's Prank real targets — and the T5 mercenary squad is the endgame's combat crescendo. Threat tiers per §3b: encounters scale with district danger and what you visibly carry, never with player level.
 
+**Amendment (2026-08-30, `docs/combat-animation-vision.md` §2.2/§2.3/§12, spec landed in `docs/REFERENCE.md` §3.7a):** the squad-combat *mechanic* — a real `combat.enemies` array, speed-sorted turn queue, swipe-to-focus targeting, per-instance roster variance, and the new `combatSkill` player stat driving both turn speed and attack bonus — ships ahead of M5, pulled forward by the combat-UI work. M5 remains the milestone for squad-combat *content* (faction enforcer pairs, T5 mercenary squad, enemy variety) landing on top of a mechanic that already exists.
+
 ## 12. Events & Event Cards (engine feature)
 
 All story content migrates to a **data-driven event framework** — the hardcoded tutorial chains (intro, buyer, James, falafel, raid debriefs) become entries in an `EVENTS` table:

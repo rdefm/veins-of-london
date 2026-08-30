@@ -134,6 +134,14 @@ just a rendering change — see §2.3.
 
 ### 2.3 Scope change flagged — squad combat + turn-based resolution
 
+**Resolved 2026-08-30 — see `docs/REFERENCE.md` §3.7a.** Both mechanic
+changes below are now specified: squad state (`combat.enemies` array,
+`focusedEnemyIndex`), turn-order queue (speed-sorted, no separate initiative
+roll), and the new `combatSkill` player stat (attack bonus + turn speed,
+trained via combat + a new HQ Train action). `docs/VISION.md`'s M5 line is
+amended accordingly (§12). The two items below are kept as a record of what
+was flagged; §3.7a is now canonical for both.
+
 Two mechanic changes surfaced in the 2026-08-29 session that this document
 requires but is **not authorised to specify** (per its own scope-of-authority
 line) — both need dedicated `REFERENCE.md` work, and both push
@@ -550,14 +558,14 @@ from the UI work this document specifies.
 4. **Font.** Pixel art will make the engine fallback font look wrong. A
    bundled pixel font is probably implied by this direction but is not costed
    here.
-5. **Turn-order/initiative mechanic** (§2.3) — speed stat? fixed
-   player→allies→enemies order? something else? How frozen/motion-turn
-   status effects reorder the queue. Needed before §2.4's strip can be
-   implemented; deliberately not designed in this session.
-6. **Squad-combat mechanic itself** (§2.2/§2.3) — targeting rules beyond the
-   UI's swipe-to-focus, multi-enemy AI turn selection, how AoE/status
-   effects resolve across a real roster. Needs `REFERENCE.md` work and a
-   milestone-placement decision (§12).
+5. ~~**Turn-order/initiative mechanic**~~ — **resolved 2026-08-30**, see
+   `REFERENCE.md` §3.7a: a new `combatSkill` player stat drives speed (and
+   attack bonus), allies/enemies carry an authored flat speed, queue is
+   speed-sorted each round with a fixed tie-break.
+6. ~~**Squad-combat mechanic itself**~~ — **resolved 2026-08-30**, see
+   `REFERENCE.md` §3.7a: `combat.enemies` array + `focusedEnemyIndex`
+   targeting, per-enemy independent AI targeting, AoE hits all non-koed
+   enemies undiluted, roster spawning with per-instance stat variance.
 7. **2nd/3rd combat-eligible ally content** — the ally fan is built for 3
    (§2.2) but only Archie exists today; which milestone adds the next
    recruitable combat contact is unscheduled.
