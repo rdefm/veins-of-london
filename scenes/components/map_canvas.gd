@@ -184,6 +184,17 @@ const CLOCK_8 := Vector2(-0.8660254, 0.5)
 const PIN_HEAD_RADIUS := 9.0
 const PIN_TAP_RADIUS := 16.0
 const HERE_RING_RADIUS := 26.0
+
+# Bugfixes ticket 102: data/map_layout.json's homeAnchor deliberately tracks
+# shoreditch's own district anchor (the lock-up genuinely sits there) -- so a
+# contact pin gated to district "shoreditch" (e.g. col_a1_prospecting) would
+# render at the exact same point as the home pin. Two pins on identical
+# coordinates aren't just visually indistinguishable: _handle_tap walks
+# _pins in order and activates the first one within PIN_TAP_RADIUS, and home
+# is always appended first, so the contact pin would never even be
+# reachable by tap. Nudged clear by more than 2x PIN_TAP_RADIUS so both
+# stay individually tappable.
+const CONTACT_PIN_HOME_NUDGE := Vector2(0, -34)
 const DOTTED_RING_SEGMENTS := 12
 const DOTTED_RING_DASH_FRACTION := 0.5
 
@@ -1631,12 +1642,16 @@ func _draw_dotted_ring(pos: Vector2, radius: float, colour: Color) -> void:
 # ring on currentDistrict, tracked separately since it isn't a tap target.
 func _rebuild_pins() -> void:
 	_pins = []
-	_pins.append({ "kind": "home", "position": MapLayout.home_anchor() })
+	var home_position := MapLayout.home_anchor()
+	_pins.append({ "kind": "home", "position": home_position })
 
 	for pin in MapPins.active_contact_pins():
+		var contact_position: Vector2 = MapLayout.district_anchor(pin["district"])
+		if contact_position == home_position:
+			contact_position += CONTACT_PIN_HOME_NUDGE
 		_pins.append({
 			"kind": "contact",
-			"position": MapLayout.district_anchor(pin["district"]),
+			"position": contact_position,
 			"eventId": pin["eventId"],
 		})
 
