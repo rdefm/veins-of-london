@@ -427,6 +427,11 @@ func _new_contacts_state() -> Dictionary:
 			"combatStashMax": defaults.get("combatStashMax", 0),
 			"combatStash": defaults.get("combatStashMax", 0),
 			"combatHealAmount": defaults.get("combatHealAmount", 0),
+			# squad-combat ticket 02: fixed, authored per-contact turn-order
+			# value (not trainable, unlike the player's Combat Skill-driven
+			# speed) -- Contacts.build_combat_ally() copies it into the
+			# combat.allies entry Combat.build_turn_queue() sorts on.
+			"combatSpeed": defaults.get("combatSpeed", 0),
 			"koCooldownDays": defaults.get("koCooldownDays", 0),
 			"koCooldownUntilDay": null,
 			# collective1-06, spec §8.4: same £-denominated accrual counter as

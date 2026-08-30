@@ -107,6 +107,7 @@ static func build_combat_ally(contact_id: String) -> Dictionary:
 		"attackMax": c["combatAttackMax"],
 		"stash": c["combatStash"],
 		"healAmount": c["combatHealAmount"],
+		"speed": c["combatSpeed"],
 		"koed": false,
 	}
 

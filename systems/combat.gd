@@ -49,10 +49,19 @@ const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPow
 # damage, since they have no player to hand a Healing Burst to).
 const ALLY_HEAL_THRESHOLD_FRACTION := 0.4
 
-# squad-combat ticket 01: every roster entry needs a speed field to satisfy
-# the shape, but the turn queue that reads it doesn't land until ticket 02 --
-# an explicit, undifferentiated placeholder, not a balance value.
-const ENEMY_PLACEHOLDER_SPEED := 10
+# squad-combat ticket 02: R§3.7a's turn-order value. The player's is a fixed
+# PLACEHOLDER pending ticket 05's Combat Skill-indexed COMBAT_SPEED_BY_LEVEL
+# (not yet trainable here) -- flagged explicitly so it's obvious this isn't
+# the real curve. Mugger has no data/enemies.json template of its own (it's
+# generated procedurally below), so its authored speed lives here instead.
+# Both, like every other speed value in this ticket, are draft/needs
+# balance sign-off per R§3.7a.
+const PLAYER_SPEED_PLACEHOLDER := 10
+const MUGGER_SPEED := 11
+# Default for any newly-authored enemy template that omits `speed` entirely
+# -- same "documented default" precedent _enemy_capabilities_from_template()
+# already sets for evadeChance (0.2).
+const DEFAULT_TEMPLATE_SPEED := 10
 
 
 static func is_canonical_context(context: String) -> bool:
@@ -72,6 +81,7 @@ static func generate_mugger() -> Dictionary:
 		"weapon": null,
 		"ability": null,
 		"evadeChance": 0.0,
+		"speed": MUGGER_SPEED,
 	}
 
 
@@ -89,6 +99,7 @@ static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionar
 		"weapon": template.get("weapon"),
 		"ability": ability,
 		"evadeChance": template.get("evadeChance", 0.2),
+		"speed": template.get("speed", DEFAULT_TEMPLATE_SPEED),
 	}
 
 
@@ -286,11 +297,13 @@ static func _gather_defend_allies(log_lines: Array) -> Array:
 static func _start_combat(context: String, vein_id, enemy: Dictionary, log_lines: Array, on_win: String, allies: Array = []) -> void:
 	if not is_canonical_context(context):
 		push_error("Combat: unrecognized context '%s' — not in CANONICAL_CONTEXTS, exit_combat() will mis-route it." % context)
-	# squad-combat ticket 01: every roster entry needs koed/speed regardless
-	# of which of the six start_* paths built it -- one chokepoint rather
-	# than duplicating this at each enemy-construction call site.
+	# squad-combat ticket 01: every roster entry needs koed regardless of
+	# which of the six start_* paths built it -- one chokepoint rather than
+	# duplicating this at each enemy-construction call site. speed is set at
+	# construction time instead (generate_mugger()'s MUGGER_SPEED, or
+	# _enemy_capabilities_from_template()'s per-template value) -- ticket 02's
+	# authored values, not a blanket placeholder.
 	enemy["koed"] = false
-	enemy["speed"] = ENEMY_PLACEHOLDER_SPEED
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": vein_id, "enemies": [enemy],
 		"focusedEnemyIndex": 0,
@@ -343,6 +356,62 @@ static func push_combat_snapshot() -> void:
 	Snapshots.push("combat", combat["snapshots"], snap)
 
 
+# squad-combat ticket 02, R§3.7a "Turn order": every non-koed combatant
+# (player, living allies, living enemies), sorted by speed descending, ties
+# broken player > allies (array order) > enemies (array order) -- no RNG in
+# the sort. The tie-break is encoded by the fixed construction order below
+# (player appended first, then allies/enemies in array order) plus an
+# index-stable comparator, rather than relied on from Array.sort_custom
+# (which Godot does not guarantee is a stable sort).
+#
+# Motion (motionTurns > 0) inserts attack_count - 1 extra player entries
+# immediately after the player's own slot -- today's attack_count (2 at
+# motionPower < 3, 3 at motionPower >= 3, matching the old in-place-loop
+# thresholds exactly) is preserved so total damage output for a
+# Motion-boosted round is unchanged, just spread across visible queue
+# entries instead of a hidden per-attack multiplier.
+static func build_turn_queue(combat: Dictionary) -> Array:
+	var entries: Array = [{ "type": "player", "speed": PLAYER_SPEED_PLACEHOLDER }]
+
+	var allies: Array = combat["allies"]
+	for i in range(allies.size()):
+		if not allies[i]["koed"]:
+			entries.append({ "type": "ally", "index": i, "speed": allies[i].get("speed", 0) })
+
+	var enemies: Array = combat["enemies"]
+	for i in range(enemies.size()):
+		if not enemies[i]["koed"]:
+			entries.append({ "type": "enemy", "index": i, "speed": enemies[i].get("speed", 0) })
+
+	var order: Array = range(entries.size())
+	order.sort_custom(func(a, b):
+		if entries[a]["speed"] != entries[b]["speed"]:
+			return entries[a]["speed"] > entries[b]["speed"]
+		return a < b
+	)
+	var queue: Array = []
+	for i in order:
+		queue.append(entries[i])
+
+	if combat["motionTurns"] > 0:
+		var player_pos := 0
+		for i in range(queue.size()):
+			if queue[i]["type"] == "player":
+				player_pos = i
+				break
+		var attack_count: int = 3 if combat["motionPower"] >= 3 else 2
+		for _n in range(attack_count - 1):
+			queue.insert(player_pos + 1, { "type": "player", "speed": PLAYER_SPEED_PLACEHOLDER, "extra": true })
+
+	return queue
+
+
+# squad-combat ticket 02: replaces the old round-synchronous body (player
+# attacks, then every ally, then the one enemy, all inline in this func)
+# with a walk over build_turn_queue()'s ordering -- each entry resolves as
+# one atomic turn via _resolve_player_turn()/_ally_turn()/_enemy_turn()
+# below, stopping the moment an outcome resolves (win, or a loss from an
+# enemy who out-sped the player this round).
 static func player_attack() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
@@ -354,88 +423,81 @@ static func player_attack() -> Dictionary:
 	# every other Movement/no-Dial case).
 	Dial.combat_turn_tick()
 
-	var attack_count := 1
+	# build_turn_queue() is a pure query (no state mutation) -- the
+	# Motion-round announcement line is logged here instead, alongside every
+	# other player_attack()-owned log line.
 	if combat["motionTurns"] > 0:
-		attack_count = 3 if combat["motionPower"] >= 3 else 2
-		var motion_label: String = "three times" if attack_count == 3 else "twice"
+		var motion_label: String = "three times" if combat["motionPower"] >= 3 else "twice"
 		combat["log"].append("Motion powder — you move %s as fast." % motion_label)
 
-	var enemy: Dictionary = _focused_enemy(combat)
-	for i in range(attack_count):
-		if enemy["hp"] <= 0:
+	for entry in build_turn_queue(combat):
+		match entry["type"]:
+			"player":
+				_resolve_player_turn(combat)
+			"ally":
+				var allies: Array = combat["allies"]
+				if entry["index"] < allies.size() and not allies[entry["index"]]["koed"]:
+					_ally_turn(combat, allies[entry["index"]])
+			"enemy":
+				var enemies: Array = combat["enemies"]
+				if entry["index"] < enemies.size() and not enemies[entry["index"]]["koed"]:
+					_enemy_turn(combat, enemies[entry["index"]])
+		if combat["outcome"] != null:
 			break
-		var hit_label: String = " (hit %d)" % (i + 1) if attack_count > 1 else ""
-		if Rng.chance(enemy.get("evadeChance", 0.0)):
-			combat["log"].append("%s dodges%s — no damage." % [enemy["name"], hit_label])
-			continue
-		var atk := get_attack_range()
-		var dmg: int = Rng.randi_range(atk["min"], atk["max"])
-		enemy["hp"] = maxi(0, enemy["hp"] - dmg)
-		var frozen_note: String = " (enemy frozen)" if combat["frozenTurns"] > 0 else ""
-		combat["log"].append("You attack%s — %d damage%s. Enemy: %d/%d HP." % [hit_label, dmg, frozen_note, enemy["hp"], enemy["hpMax"]])
-		_maybe_win_from_direct_damage(combat, enemy)
-		if combat["outcome"] == "win":
-			EventBus.state_changed.emit()
-			return { "ok": true, "outcome": "win" }
 
-	# 44-archie-combat-ally: allies act after the player's own attacks this
-	# turn, and can finish the fight themselves -- same shared win-check
-	# calc-effect-wiring-02's Blast/Black Hole already use for their own
-	# direct-damage outside this loop.
-	_allies_act(combat, enemy)
-	_maybe_win_from_direct_damage(combat, enemy)
-	if combat["outcome"] == "win":
-		EventBus.state_changed.emit()
-		return { "ok": true, "outcome": "win" }
-
+	# Whether this round consumed the last Motion turn doesn't affect
+	# anything once the fight has already resolved (exit_combat() tears the
+	# whole combat dict down regardless), so this always runs rather than
+	# being skipped on an early win/loss the way the old inline version was.
 	if combat["motionTurns"] > 0:
 		combat["motionTurns"] -= 1
 		if combat["motionTurns"] == 0:
 			combat["log"].append("The powder wears off. Back to normal speed.")
 
-	if is_ability_locked(enemy):
-		enemy["ability"]["lockedTurns"] -= 1
-		if enemy["ability"]["lockedTurns"] == 0:
-			combat["log"].append("%s's ability is back online." % enemy["name"])
-
-	if combat["frozenTurns"] > 0:
-		combat["frozenTurns"] -= 1
-		if combat["frozenTurns"] == 0:
-			combat["log"].append("The time effect wears off. They're coming back round.")
-	else:
-		enemy_attack()
-
 	EventBus.state_changed.emit()
 	return { "ok": true, "outcome": combat["outcome"] }
 
 
-# 44-archie-combat-ally: each ally still standing either patches themselves
-# up (below the heal threshold, with stash left) or attacks the enemy --
-# same evade/damage shape as the player's own attack, just against the
-# shared enemy target. Runs after the player's own attacks each turn, once
-# per ally, skipping the rest once the enemy is already dead.
-static func _allies_act(combat: Dictionary, enemy: Dictionary) -> void:
-	for ally in combat["allies"]:
-		if ally["koed"] or enemy["hp"] <= 0:
-			continue
+# One atomic player turn: a single attack against the focused enemy. Called
+# once per player-type queue entry -- normally once a round, twice/three
+# times on a Motion-boosted round (build_turn_queue()'s extra entries).
+static func _resolve_player_turn(combat: Dictionary) -> void:
+	var enemy: Dictionary = _focused_enemy(combat)
+	if Rng.chance(enemy.get("evadeChance", 0.0)):
+		combat["log"].append("%s dodges — no damage." % enemy["name"])
+		return
+	var atk := get_attack_range()
+	var dmg: int = Rng.randi_range(atk["min"], atk["max"])
+	enemy["hp"] = maxi(0, enemy["hp"] - dmg)
+	var frozen_note: String = " (enemy frozen)" if combat["frozenTurns"] > 0 else ""
+	combat["log"].append("You attack — %d damage%s. Enemy: %d/%d HP." % [dmg, frozen_note, enemy["hp"], enemy["hpMax"]])
+	_maybe_win_from_direct_damage(combat, enemy)
 
-		if ally["hp"] < ally["hpMax"] * ALLY_HEAL_THRESHOLD_FRACTION and ally["stash"] > 0:
-			ally["stash"] -= 1
-			ally["hp"] = mini(ally["hpMax"], ally["hp"] + ally["healAmount"])
-			# PROSE-REVIEW: new ally self-heal log line, drafted against
-			# CONTENT-GUIDE.md's tone bible.
-			combat["log"].append("%s patches themselves up. %s: %d/%d HP." % [ally["name"], ally["name"], ally["hp"], ally["hpMax"]])
-			continue
 
-		if Rng.chance(enemy.get("evadeChance", 0.0)):
-			# PROSE-REVIEW: new ally-miss log line.
-			combat["log"].append("%s swings at %s — they dodge." % [ally["name"], enemy["name"]])
-			continue
+# 44-archie-combat-ally, squad-combat ticket 02: one atomic ally turn --
+# patch up from stash below the heal threshold, or attack the player's
+# focused enemy. Same evade/damage shape as the player's own attack.
+static func _ally_turn(combat: Dictionary, ally: Dictionary) -> void:
+	var enemy: Dictionary = _focused_enemy(combat)
 
-		var dmg: int = Rng.randi_range(ally["attackMin"], ally["attackMax"])
-		enemy["hp"] = maxi(0, enemy["hp"] - dmg)
-		# PROSE-REVIEW: new ally-attack log line.
-		combat["log"].append("%s hits %s for %d. Enemy: %d/%d HP." % [ally["name"], enemy["name"], dmg, enemy["hp"], enemy["hpMax"]])
+	if ally["hp"] < ally["hpMax"] * ALLY_HEAL_THRESHOLD_FRACTION and ally["stash"] > 0:
+		ally["stash"] -= 1
+		ally["hp"] = mini(ally["hpMax"], ally["hp"] + ally["healAmount"])
+		# PROSE-REVIEW: new ally self-heal log line, drafted against
+		# CONTENT-GUIDE.md's tone bible.
+		combat["log"].append("%s patches themselves up. %s: %d/%d HP." % [ally["name"], ally["name"], ally["hp"], ally["hpMax"]])
+		return
+
+	if Rng.chance(enemy.get("evadeChance", 0.0)):
+		# PROSE-REVIEW: new ally-miss log line.
+		combat["log"].append("%s swings at %s — they dodge." % [ally["name"], enemy["name"]])
+		return
+
+	var dmg: int = Rng.randi_range(ally["attackMin"], ally["attackMax"])
+	enemy["hp"] = maxi(0, enemy["hp"] - dmg)
+	# PROSE-REVIEW: new ally-attack log line.
+	combat["log"].append("%s hits %s for %d. Enemy: %d/%d HP." % [ally["name"], enemy["name"], dmg, enemy["hp"], enemy["hpMax"]])
+	_maybe_win_from_direct_damage(combat, enemy)
 
 
 # 44-archie-combat-ally: the enemy's single attack now targets the player or
@@ -454,20 +516,45 @@ static func _pick_enemy_target(combat: Dictionary) -> Variant:
 	return candidates[Rng.randi_range(0, candidates.size() - 1)]
 
 
+# Standalone entry point -- still called directly (not via the turn queue)
+# by flee()'s failed-flee parting shot and by several tests that drive an
+# enemy's attack in isolation. squad-combat ticket 01: roster generation (N
+# distinct entries) isn't built until ticket 04 -- every fight here still
+# has exactly one entry, so "the acting enemy" is unambiguously index 0.
 static func enemy_attack() -> void:
 	var combat: Dictionary = GameState.state["combat"]
 	if combat["outcome"] != null or combat["frozenTurns"] > 0:
 		return
+	_resolve_enemy_attack(combat, combat["enemies"][0])
 
-	# squad-combat ticket 01: roster generation (N distinct entries) isn't
-	# built until ticket 04 -- every fight here still has exactly one entry,
-	# so "the acting enemy" is unambiguously index 0.
-	var enemy: Dictionary = combat["enemies"][0]
+
+static func _resolve_enemy_attack(combat: Dictionary, enemy: Dictionary) -> void:
 	var target = _pick_enemy_target(combat)
 	if target == null:
 		_enemy_attack_player(combat, enemy)
 	else:
 		_enemy_attack_ally(combat, enemy, target)
+
+
+# squad-combat ticket 02: one atomic enemy turn for the turn queue -- the
+# ability-lock/frozen bookkeeping the old player_attack() ran unconditionally
+# once per call now runs specifically at this enemy's own queue slot instead.
+# A frozen turn is a no-op-plus-decrement (same log line as today) rather
+# than being skipped/removed from the queue -- the entry is still walked,
+# it just doesn't attack.
+static func _enemy_turn(combat: Dictionary, enemy: Dictionary) -> void:
+	if is_ability_locked(enemy):
+		enemy["ability"]["lockedTurns"] -= 1
+		if enemy["ability"]["lockedTurns"] == 0:
+			combat["log"].append("%s's ability is back online." % enemy["name"])
+
+	if combat["frozenTurns"] > 0:
+		combat["frozenTurns"] -= 1
+		if combat["frozenTurns"] == 0:
+			combat["log"].append("The time effect wears off. They're coming back round.")
+		return
+
+	_resolve_enemy_attack(combat, enemy)
 
 
 static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary) -> void:

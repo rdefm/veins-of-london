@@ -807,8 +807,8 @@ func _validate_barometer(states: Dictionary, actions: Array, faction_prefs: Dict
 
 func _validate_enemies(raid_guards: Dictionary, home_raid_raider: Dictionary, errors: Array[String]) -> void:
 	for key in raid_guards.keys():
-		_require_keys(raid_guards[key], ["name", "hpBase", "attackMin", "attackMax"], "enemies.raidGuards.%s" % key, errors)
-	_require_keys(home_raid_raider, ["name", "hp", "attackMin", "attackMax"], "enemies.homeRaidRaider", errors)
+		_require_keys(raid_guards[key], ["name", "hpBase", "attackMin", "attackMax", "speed"], "enemies.raidGuards.%s" % key, errors)
+	_require_keys(home_raid_raider, ["name", "hp", "attackMin", "attackMax", "speed"], "enemies.homeRaidRaider", errors)
 
 
 func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, errors: Array[String]) -> void:

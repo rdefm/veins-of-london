@@ -1,15 +1,16 @@
 {
-  "_comment": "Enemy capability surface (weapon/ability/evadeChance) is documented in docs/REFERENCE.md §1.10 — the templates below predate it and set evadeChance: 0 explicitly to preserve existing combat math.",
+  "_comment": "Enemy capability surface (weapon/ability/evadeChance) is documented in docs/REFERENCE.md §1.10 — the templates below predate it and set evadeChance: 0 explicitly to preserve existing combat math. squad-combat ticket 02: `speed` is the turn-order value Combat.build_turn_queue() sorts on, same units as GameData.COMBAT_SPEED_BY_LEVEL (draft, needs balance sign-off per R§3.7a).",
   "raidGuards": {
-    "territorialScrapper": { "name": "Territorial Scrapper", "hpBase": 20, "attackMin": 3, "attackMax": 8, "evadeChance": 0 },
-    "veinGuard":            { "name": "Vein Guard",            "hpBase": 30, "attackMin": 4, "attackMax": 10, "evadeChance": 0 },
-    "orichalchumDealer":    { "name": "Orichalchum Dealer",    "hpBase": 25, "attackMin": 5, "attackMax": 12, "evadeChance": 0 }
+    "territorialScrapper": { "name": "Territorial Scrapper", "hpBase": 20, "attackMin": 3, "attackMax": 8, "evadeChance": 0, "speed": 12 },
+    "veinGuard":            { "name": "Vein Guard",            "hpBase": 30, "attackMin": 4, "attackMax": 10, "evadeChance": 0, "speed": 8 },
+    "orichalchumDealer":    { "name": "Orichalchum Dealer",    "hpBase": 25, "attackMin": 5, "attackMax": 12, "evadeChance": 0, "speed": 10 }
   },
   "homeRaidRaider": {
     "name": "The raider",
     "hp": 35,
     "attackMin": 6,
     "attackMax": 14,
-    "evadeChance": 0
+    "evadeChance": 0,
+    "speed": 9
   }
 }

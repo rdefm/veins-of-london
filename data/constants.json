@@ -5,7 +5,7 @@
     "archie": { "startRelation": 10, "unlocked": true,  "recruitThreshold": 80, "recruitable": true,
                 "combatHpMax": 50, "combatAttackMin": 4, "combatAttackMax": 9,
                 "combatStashMax": 2, "combatHealAmount": 15, "koCooldownDays": 2,
-                "raidAssistThreshold": 50 },
+                "raidAssistThreshold": 50, "combatSpeed": 9 },
     "james":  { "startRelation": 0,  "unlocked": false, "recruitThreshold": 100, "recruitable": true },
     "des":    { "startRelation": 0,  "unlocked": false, "recruitThreshold": 0,   "recruitable": false },
     "nadia":  { "startRelation": 0,  "unlocked": false, "recruitThreshold": 0,   "recruitable": false },

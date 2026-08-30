@@ -1289,7 +1289,7 @@ func run() -> void:
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
-			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 50, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 0, "healAmount": 15, "koed": false }],
+			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 50, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 0, "healAmount": 15, "speed": 9, "koed": false }],
 		}
 		Rng.set_seed(1)
 		Combat.player_attack()
@@ -1311,7 +1311,7 @@ func run() -> void:
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
-			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 10, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 1, "healAmount": 15, "koed": false }],
+			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 10, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 1, "healAmount": 15, "speed": 9, "koed": false }],
 		}
 		Rng.set_seed(1)
 		Combat.player_attack()
@@ -1372,4 +1372,156 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["archie"]["combatHp"], 50, "ally hp should be topped back up to hpMax on combat exit")
 		assert_eq(GameState.state["contacts"]["archie"]["combatStash"], 2, "ally stash should replenish to combatStashMax on combat exit")
 		assert_eq(GameState.state["contacts"]["archie"]["koCooldownUntilDay"], 9, "replenish should not touch an existing KO cooldown")
+	)
+
+	# ── squad-combat ticket 02: speed-sorted turn queue ──────────────────
+	# Per the ticket's Testing Decisions: assert the queue's *ordering*
+	# (speeds, ties, a frozen entry, a Motion-boosted entry), not per-turn
+	# resolution -- the existing cases above already cover that.
+
+	run_case("build_turn_queue_orders_every_living_combatant_by_speed_descending", func():
+		GameState.reset()
+		var combat := {
+			"allies": [
+				{ "name": "A (slow ally)", "speed": 5, "koed": false },
+				{ "name": "B (fast ally)", "speed": 15, "koed": false },
+			],
+			"enemies": [
+				{ "name": "E1 (fastest)", "speed": 20, "koed": false },
+				{ "name": "E2 (slowest)", "speed": 1, "koed": false },
+			],
+			"motionTurns": 0, "motionPower": 0, "log": [],
+		}
+		var speeds: Array = []
+		for entry in Combat.build_turn_queue(combat):
+			speeds.append(entry["speed"])
+		# player's placeholder speed (10) slots in between the two allies
+		assert_eq(speeds, [20, 15, 10, 5, 1], "queue should be sorted strictly by speed descending")
+	)
+
+	run_case("build_turn_queue_ties_break_player_then_allies_then_enemies_with_no_rng", func():
+		GameState.reset()
+		var combat := {
+			"allies": [
+				{ "name": "A1", "speed": 10, "koed": false },
+				{ "name": "A2", "speed": 10, "koed": false },
+			],
+			"enemies": [
+				{ "name": "E1", "speed": 10, "koed": false },
+				{ "name": "E2", "speed": 10, "koed": false },
+			],
+			"motionTurns": 0, "motionPower": 0, "log": [],
+		}
+		var order: Array = []
+		for entry in Combat.build_turn_queue(combat):
+			if entry["type"] == "player":
+				order.append("player")
+			else:
+				order.append("%s%d" % [entry["type"], entry["index"]])
+		assert_eq(order, ["player", "ally0", "ally1", "enemy0", "enemy1"], "an all-tied round resolves to player, then allies in array order, then enemies in array order")
+
+		# no RNG in the sort -- rebuilding across different seeds must always
+		# reproduce the exact same tie-break order.
+		for seed in range(5):
+			Rng.set_seed(seed)
+			var repeat_order: Array = []
+			for entry in Combat.build_turn_queue(combat):
+				repeat_order.append(entry["type"])
+			assert_eq(repeat_order, ["player", "ally", "ally", "enemy", "enemy"], "tie-break order must be deterministic regardless of RNG seed")
+	)
+
+	run_case("build_turn_queue_excludes_koed_combatants_from_getting_a_slot", func():
+		GameState.reset()
+		var combat := {
+			"allies": [{ "name": "Down ally", "speed": 5, "koed": true }],
+			"enemies": [
+				{ "name": "Down enemy", "speed": 20, "koed": true },
+				{ "name": "Standing enemy", "speed": 1, "koed": false },
+			],
+			"motionTurns": 0, "motionPower": 0, "log": [],
+		}
+		var queue := Combat.build_turn_queue(combat)
+		assert_eq(queue.size(), 2, "a koed ally/enemy should not get a queue slot")
+		assert_eq(queue[0]["type"], "player")
+		assert_eq(queue[1]["type"], "enemy")
+		assert_eq(queue[1]["index"], 1, "the living enemy (index 1) should get the remaining slot")
+	)
+
+	run_case("build_turn_queue_motion_inserts_one_extra_player_entry_below_power_3", func():
+		GameState.reset()
+		var combat := {
+			"allies": [], "enemies": [{ "name": "E", "speed": 1, "koed": false }],
+			"motionTurns": 1, "motionPower": 2, "log": [],
+		}
+		var queue := Combat.build_turn_queue(combat)
+		var types: Array = []
+		for entry in queue:
+			types.append(entry["type"])
+		assert_eq(types, ["player", "player", "enemy"], "motionPower < 3 should insert exactly one extra player entry immediately after the original slot")
+		assert_eq(queue[1].get("extra", false), true, "the inserted entry should be flagged as the extra turn")
+	)
+
+	run_case("build_turn_queue_motion_inserts_two_extra_player_entries_at_power_3_or_above", func():
+		GameState.reset()
+		var combat := {
+			"allies": [], "enemies": [{ "name": "E", "speed": 1, "koed": false }],
+			"motionTurns": 1, "motionPower": 3, "log": [],
+		}
+		var queue := Combat.build_turn_queue(combat)
+		var types: Array = []
+		for entry in queue:
+			types.append(entry["type"])
+		# squad-combat ticket 02: two extra entries (three player turns total
+		# this round) preserve the old in-place 3x-attack-count's total damage
+		# output -- see build_turn_queue()'s own comment for why this isn't
+		# literally "one extra entry" at every Motion power tier.
+		assert_eq(types, ["player", "player", "player", "enemy"], "motionPower >= 3 should insert two extra player entries so this round's total attacks still match the old 3x behaviour")
+	)
+
+	run_case("build_turn_queue_motion_extra_entry_follows_the_players_own_slot_even_when_others_are_faster", func():
+		GameState.reset()
+		var combat := {
+			"allies": [{ "name": "Fast ally", "speed": 20, "koed": false }],
+			"enemies": [{ "name": "Slow enemy", "speed": 1, "koed": false }],
+			"motionTurns": 1, "motionPower": 2, "log": [],
+		}
+		var queue := Combat.build_turn_queue(combat)
+		var types: Array = []
+		for entry in queue:
+			types.append(entry["type"])
+		assert_eq(types, ["ally", "player", "player", "enemy"], "the extra Motion entry follows the player's own slot regardless of where that slot lands in speed order")
+	)
+
+	run_case("frozen_enemy_keeps_its_queue_slot_as_a_no_op_instead_of_being_skipped_entirely", func():
+		_fresh_combat()
+		GameState.state["combat"]["frozenTurns"] = 1
+		var hp_before: int = GameState.state["player"]["hp"]
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_eq(GameState.state["player"]["hp"], hp_before, "a frozen enemy's queue slot should be a no-op, not an attack")
+		assert_eq(GameState.state["combat"]["frozenTurns"], 0, "the no-op still decrements frozenTurns, same log line as today")
+	)
+
+	run_case("a_faster_enemy_acts_before_the_players_own_attack_within_the_same_round", func():
+		# Real end-to-end reordering, not just build_turn_queue()'s pure
+		# ordering: an enemy far faster than the player's placeholder speed
+		# should land its (lethal) hit before the player's own attack this
+		# round ever resolves -- the whole point of a real turn queue over
+		# today's implicit "player always goes first" call order.
+		GameState.reset()
+		GameState.state["combat"] = {
+			"active": true, "context": Combat.CONTEXT_MUGGING, "veinId": null,
+			"enemies": [{ "name": "Fast Enemy", "hp": 50, "hpMax": 50, "attackMin": 500, "attackMax": 500, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 999, "koed": false }],
+			"focusedEnemyIndex": 0,
+			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [],
+			"allies": [],
+		}
+		GameState.state["player"]["hp"] = 10
+		GameState.state["player"]["attackMin"] = 999
+		GameState.state["player"]["attackMax"] = 999
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_eq(GameState.state["combat"]["outcome"], "loss", "an enemy far faster than the player should land the killing blow before the player's own attack this round")
+		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], 50, "the enemy should be untouched -- the round ended before the player's own (lethal) attack ever got to resolve")
 	)
