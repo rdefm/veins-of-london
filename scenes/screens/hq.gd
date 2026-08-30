@@ -268,14 +268,20 @@ func _build_vein_station_list_row() -> Control:
 # ── gym ─────────────────────────────────────────────────────────────
 
 # PROSE-REVIEW: new flavour text, tone bible per docs/CONTENT-GUIDE.md.
+# squad-combat ticket 05: Train is the Home Gym's repeatable action --
+# unrelated to (and doesn't replace) the room's own one-time +10 hpMax build
+# bonus (Home.add_room()), which fires the moment the room is bought.
 func _build_gym_card() -> Control:
-	var home: Dictionary = GameState.state["home"]
+	var player: Dictionary = GameState.state["player"]
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Gym", 14))
-	if home["rooms"].has("homeGym"):
-		c["content"].add_child(UI.muted_label("Home Gym built. Training programmes arrive in a future update."))
+	if Combat.can_train():
+		c["content"].add_child(UI.label("Combat Skill: Lv%d (%d XP)" % [player["combatSkill"], player["combatXP"]]))
+		var b := UI.button("Train", func(): Combat.train())
+		b.disabled = TimeSystem.is_time_exhausted()
+		c["content"].add_child(b)
 	else:
-		c["content"].add_child(UI.muted_label("Build a Home Gym to claim this space. Training programmes arrive in a future update."))
+		c["content"].add_child(UI.muted_label("Build a Home Gym to claim this space and unlock Train."))
 	return c["panel"]
 
 

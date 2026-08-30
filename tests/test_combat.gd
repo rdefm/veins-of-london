@@ -1524,7 +1524,7 @@ func run() -> void:
 		var speeds: Array = []
 		for entry in Combat.build_turn_queue(combat):
 			speeds.append(entry["speed"])
-		# player's placeholder speed (10) slots in between the two allies
+		# player's level-1 Combat Skill speed (10, GameData.COMBAT_SPEED_BY_LEVEL[1]) slots in between the two allies
 		assert_eq(speeds, [20, 15, 10, 5, 1], "queue should be sorted strictly by speed descending")
 	)
 
@@ -1765,4 +1765,158 @@ func run() -> void:
 			return hit_player and hit_ally
 		)
 		assert_true(found_seed != -1, "3 independently-rolling enemies should be able to split their targets between the player and an ally within 500 tries")
+	)
+
+	# ── squad-combat ticket 05: Combat Skill (attack bonus, speed, XP, Train) ──
+
+	run_case("get_attack_range_regression_level_1_matches_pre_ticket_baseline", func():
+		GameState.reset()
+		GameState.state["player"]["attackMin"] = 5
+		GameState.state["player"]["attackMax"] = 12
+		assert_eq(GameState.state["player"]["combatSkill"], 1, "sanity: a fresh save starts at Combat Skill level 1")
+		var range := Combat.get_attack_range()
+		assert_eq(range["min"], 5, "level 1's attack bonus must be 0 -- today's baseline, unchanged")
+		assert_eq(range["max"], 12, "level 1's attack bonus must be 0 -- today's baseline, unchanged")
+	)
+
+	run_case("get_attack_range_adds_the_level_indexed_combat_skill_bonus_before_the_weapon_bonus", func():
+		GameState.reset()
+		GameState.state["player"]["attackMin"] = 5
+		GameState.state["player"]["attackMax"] = 12
+		GameState.state["player"]["combatSkill"] = 3
+		GameState.state["player"]["items"] = [{ "id": "item1", "type": "crowbar" }]
+		GameState.state["player"]["equipment"]["weapon"] = "item1"
+		var bonus: int = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[3]
+		var range := Combat.get_attack_range()
+		# crowbar attackBonus {min:4, max:8}, applied on top of the skill bonus
+		assert_eq(range["min"], 5 + bonus + 4, "skill bonus should stack with (and apply before) the weapon bonus")
+		assert_eq(range["max"], 12 + bonus + 8, "skill bonus should stack with (and apply before) the weapon bonus")
+	)
+
+	run_case("build_turn_queue_regression_level_1_player_speed_matches_pre_ticket_placeholder", func():
+		GameState.reset()
+		var combat := {
+			"allies": [], "enemies": [{ "name": "E", "speed": 1, "koed": false }],
+			"motionTurns": 0, "motionPower": 0, "log": [],
+		}
+		var queue := Combat.build_turn_queue(combat)
+		assert_eq(queue[0]["speed"], 10, "level 1's speed must be 10 -- ticket 02's old placeholder value, unchanged")
+	)
+
+	run_case("build_turn_queue_player_speed_follows_combat_skill_level", func():
+		GameState.reset()
+		GameState.state["player"]["combatSkill"] = 4
+		var combat := {
+			"allies": [], "enemies": [{ "name": "E", "speed": 1, "koed": false }],
+			"motionTurns": 0, "motionPower": 0, "log": [],
+		}
+		var queue := Combat.build_turn_queue(combat)
+		assert_eq(queue[0]["speed"], GameData.COMBAT_SPEED_BY_LEVEL[4], "the player's queue speed should follow their trained Combat Skill level")
+	)
+
+	run_case("player_attack_awards_flat_xp_once_per_turn_taken_regardless_of_hit_or_miss", func():
+		_fresh_combat()
+		GameState.state["player"]["combatXP"] = 0
+		GameState.state["combat"]["enemies"][0]["evadeChance"] = 1.0  # guaranteed miss
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 0
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 0
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_ATTACK_TURN, "XP is awarded once per player turn taken even on a whiffed attack")
+	)
+
+	run_case("player_attack_awards_flat_xp_even_on_a_lethal_hit_that_wins_the_fight", func():
+		_fresh_combat()
+		GameState.state["player"]["combatXP"] = 0
+		GameState.state["player"]["attackMin"] = 999
+		GameState.state["player"]["attackMax"] = 999
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 0
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 0
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_eq(GameState.state["combat"]["outcome"], "win", "sanity: the hit should have won the fight")
+		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_ATTACK_TURN, "XP is still awarded once, win or not")
+	)
+
+	run_case("combat_xp_levels_up_combat_skill_via_the_shared_progression_curve", func():
+		_fresh_combat()
+		GameState.state["player"]["combatXP"] = GameData.COMBAT_XP_LEVELS[2] - Combat.COMBAT_XP_PER_ATTACK_TURN
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 0
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 0
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_eq(GameState.state["player"]["combatSkill"], 2, "crossing GameData.COMBAT_XP_LEVELS[2] should level Combat Skill up to 2, same Progression.award_xp() mechanism crafting/cultivating use")
+	)
+
+	run_case("train_is_blocked_without_a_home_gym", func():
+		GameState.reset()
+		assert_true(not Combat.can_train(), "sanity: no Home Gym built yet")
+		var result := Combat.train()
+		assert_true(not result["ok"], "Train should refuse without a built Home Gym")
+		assert_eq(GameState.state["player"]["combatXP"], 0, "no XP should be awarded on a blocked Train attempt")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 0, "no time block should be spent on a blocked Train attempt")
+	)
+
+	run_case("train_spends_a_time_block_and_awards_the_larger_flat_xp_amount", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "flat"
+		Home.add_room("homeGym")
+		assert_true(Combat.can_train(), "Home Gym is built, Train should now be available")
+
+		var blocks_before: int = GameState.state["world"]["timeBlocksDone"].size()
+		var result := Combat.train()
+		assert_true(result["ok"], "Train should succeed once Home Gym is built and a block is available")
+		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_GYM_SESSION, "Train awards its own larger flat XP amount")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), blocks_before + 1, "Train consumes one of the daily time blocks, same currency as every other block-consuming HQ action")
+	)
+
+	run_case("train_has_no_separate_cooldown_only_the_daily_block_scarcity_throttles_it", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "flat"
+		Home.add_room("homeGym")
+
+		var first := Combat.train()
+		var second := Combat.train()
+		assert_true(first["ok"], "first Train this day should succeed")
+		assert_true(second["ok"], "a second Train the same day should succeed too -- no separate cooldown")
+		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_GYM_SESSION * 2, "two sessions should award XP twice")
+	)
+
+	# TimeSystem.advance_time_block() rolls the day over (and resets
+	# timeBlocksDone to []) the instant the 3rd block of a day is consumed,
+	# so is_time_exhausted() can never be observed true *after* a
+	# block-consuming call returns -- only *before* one, if something already
+	# left 3 entries sitting there. Exercised directly here rather than via
+	# three real Train() calls (which would just roll the day over and leave
+	# blocks available again -- see the next case).
+	run_case("train_is_blocked_when_the_days_time_blocks_are_already_exhausted", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "flat"
+		Home.add_room("homeGym")
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+
+		var result := Combat.train()
+		assert_true(not result["ok"], "Train should refuse once the day's time blocks are already exhausted")
+		assert_eq(GameState.state["player"]["combatXP"], 0, "no XP should be awarded on a blocked Train attempt")
+	)
+
+	run_case("train_remains_available_again_once_the_day_rolls_over", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "flat"
+		Home.add_room("homeGym")
+		var day_before: int = GameState.state["world"]["day"]
+
+		Combat.train()
+		Combat.train()
+		Combat.train()  # 3rd block of the day -- TimeSystem.advance_time_block() rolls the day over immediately
+		assert_eq(GameState.state["world"]["day"], day_before + 1, "sanity: the 3rd block should have rolled the day over")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 0, "sanity: the new day starts with no blocks spent yet")
+
+		var result := Combat.train()
+		assert_true(result["ok"], "Train should be available again on the new day")
+		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_GYM_SESSION * 4, "the 4th session should still award XP like every other")
 	)

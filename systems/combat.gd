@@ -49,19 +49,22 @@ const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPow
 # damage, since they have no player to hand a Healing Burst to).
 const ALLY_HEAL_THRESHOLD_FRACTION := 0.4
 
-# squad-combat ticket 02: R§3.7a's turn-order value. The player's is a fixed
-# PLACEHOLDER pending ticket 05's Combat Skill-indexed COMBAT_SPEED_BY_LEVEL
-# (not yet trainable here) -- flagged explicitly so it's obvious this isn't
-# the real curve. Mugger has no data/enemies.json template of its own (it's
-# generated procedurally below), so its authored speed lives here instead.
-# Both, like every other speed value in this ticket, are draft/needs
-# balance sign-off per R§3.7a.
-const PLAYER_SPEED_PLACEHOLDER := 10
+# squad-combat ticket 02: R§3.7a's turn-order value. Mugger has no
+# data/enemies.json template of its own (it's generated procedurally below),
+# so its authored speed lives here instead. Both, like every other speed
+# value in this ticket, are draft/needs balance sign-off per R§3.7a.
 const MUGGER_SPEED := 11
 # Default for any newly-authored enemy template that omits `speed` entirely
 # -- same "documented default" precedent _enemy_capabilities_from_template()
 # already sets for evadeChance (0.2).
 const DEFAULT_TEMPLATE_SPEED := 10
+
+# squad-combat ticket 05, R§3.7a: Combat Skill's two level-indexed effects'
+# XP sources. Flat regardless of hit/miss/outcome (mirrors Dial.
+# cast_complication()'s flat +10 -- taking a turn/casting is the "attempt",
+# there's no separate success/fail split to award differently against).
+const COMBAT_XP_PER_ATTACK_TURN := 5
+const COMBAT_XP_PER_GYM_SESSION := 30
 
 # squad-combat ticket 04, R§3.7a "Roster generation": per-instance hp/attack
 # variance band for spawned mugger/guard entries -- DRAFT, needs balance
@@ -200,8 +203,12 @@ static func _guard_group_name(entries: Array) -> String:
 
 static func get_attack_range() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	var min_atk: int = player["attackMin"]
-	var max_atk: int = player["attackMax"]
+	# squad-combat ticket 05, R§3.7a: Combat Skill's attack bonus applies
+	# before the weapon bonus below -- level 1 is 0, so a fresh save reads
+	# identically to pre-ticket combat math.
+	var skill_bonus: int = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[player["combatSkill"]]
+	var min_atk: int = player["attackMin"] + skill_bonus
+	var max_atk: int = player["attackMax"] + skill_bonus
 	var weapon_id = player["equipment"]["weapon"]
 	if weapon_id != null:
 		for item in player["items"]:
@@ -440,8 +447,13 @@ static func push_combat_snapshot() -> void:
 # thresholds exactly) is preserved so total damage output for a
 # Motion-boosted round is unchanged, just spread across visible queue
 # entries instead of a hidden per-attack multiplier.
+static func _player_speed() -> int:
+	var player: Dictionary = GameState.state["player"]
+	return GameData.COMBAT_SPEED_BY_LEVEL[player["combatSkill"]]
+
+
 static func build_turn_queue(combat: Dictionary) -> Array:
-	var entries: Array = [{ "type": "player", "speed": PLAYER_SPEED_PLACEHOLDER }]
+	var entries: Array = [{ "type": "player", "speed": _player_speed() }]
 
 	var allies: Array = combat["allies"]
 	for i in range(allies.size()):
@@ -471,9 +483,19 @@ static func build_turn_queue(combat: Dictionary) -> Array:
 				break
 		var attack_count: int = 3 if combat["motionPower"] >= 3 else 2
 		for _n in range(attack_count - 1):
-			queue.insert(player_pos + 1, { "type": "player", "speed": PLAYER_SPEED_PLACEHOLDER, "extra": true })
+			queue.insert(player_pos + 1, { "type": "player", "speed": _player_speed(), "extra": true })
 
 	return queue
+
+
+# squad-combat ticket 05, R§3.7a: shared by player_attack()'s flat per-turn
+# XP and Train()'s larger flat gym-session XP -- same
+# Progression.award_xp()/GameData.COMBAT_XP_LEVELS mechanism crafting/
+# cultivating skill already use (Cultivating.award_xp() is the precedent).
+static func award_xp(amount: int) -> void:
+	var player: Dictionary = GameState.state["player"]
+	var on_level_up := func(): Notify.push("Combat Skill up — now level %d." % player["combatSkill"], Notify.CATEGORY_SUCCESS)
+	Progression.award_xp(player, "combatXP", "combatSkill", GameData.COMBAT_XP_LEVELS, amount, on_level_up)
 
 
 # squad-combat ticket 02: replaces the old round-synchronous body (player
@@ -492,6 +514,12 @@ static func player_attack() -> Dictionary:
 	# once per player turn (Dial.combat_turn_tick() is a silent no-op for
 	# every other Movement/no-Dial case).
 	Dial.combat_turn_tick()
+
+	# squad-combat ticket 05, R§3.7a: flat XP for taking a player turn --
+	# once per player_attack() call, regardless of what this turn resolves to
+	# (hit, miss, a kill, even a loss elsewhere in the same round) -- "taking
+	# a turn" has no separate success/fail split to award differently against.
+	award_xp(COMBAT_XP_PER_ATTACK_TURN)
 
 	# build_turn_queue() is a pure query (no state mutation) -- the
 	# Motion-round announcement line is logged here instead, alongside every
@@ -1306,3 +1334,30 @@ static func _after_home_raid_combat(outcome) -> void:
 
 	if lost > 0:
 		Notify.push("The raider took %d units of ore before fleeing." % lost, Notify.CATEGORY_DANGER)
+
+
+# ── Train (squad-combat ticket 05, R§3.7a) ──────────────────────────────
+# HQ action, gated on the Home Gym room being built (independent of that
+# room's own one-time +10 hpMax build bonus, GameData.HOME_ROOMS.homeGym --
+# Home Gym is dual-purpose, not replaced). No separate cooldown: spending a
+# time block, out of the player's three/day, is the only throttle, same
+# currency every other block-consuming HQ action (Lab, veinStation, a James
+# job fulfilment) already spends.
+
+static func can_train() -> bool:
+	return GameState.state["home"]["rooms"].has("homeGym")
+
+
+static func train() -> Dictionary:
+	if not can_train():
+		return { "ok": false, "reason": "Build a Home Gym first." }
+	if TimeSystem.is_time_exhausted():
+		return { "ok": false, "reason": "No time blocks left today." }
+
+	TimeSystem.advance_time_block()
+	award_xp(COMBAT_XP_PER_GYM_SESSION)
+	# PROSE-REVIEW: new Train-result notification, drafted against
+	# CONTENT-GUIDE.md's tone bible (dry, one line).
+	Notify.push("A session on the bar and the bag. You feel it tomorrow.", Notify.CATEGORY_SUCCESS)
+	EventBus.state_changed.emit()
+	return { "ok": true }

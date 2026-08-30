@@ -108,6 +108,13 @@ var FACTION_BAROMETER_PREFS: Dictionary = {}
 var ENEMY_RAID_GUARDS: Dictionary = {}
 var ENEMY_HOME_RAID_RAIDER: Dictionary = {}
 
+# squad-combat ticket 05, R§3.7a: player Combat Skill curves, colocated in
+# data/enemies.json (the "curve lives in the nearest relevant data file"
+# precedent dial.json already sets) rather than a new file of their own.
+var COMBAT_XP_LEVELS: Array = []
+var COMBAT_ATTACK_BONUS_BY_LEVEL: Array = []
+var COMBAT_SPEED_BY_LEVEL: Array = []
+
 var TIME_BLOCKS: Array = []
 var ARCHIE_ORE_GOAL: int = 0
 var CONTACTS_DEFAULTS: Dictionary = {}
@@ -298,6 +305,9 @@ func load_all() -> void:
 	var enemies := _load_json("res://data/enemies.json")
 	ENEMY_RAID_GUARDS = enemies.get("raidGuards", {})
 	ENEMY_HOME_RAID_RAIDER = enemies.get("homeRaidRaider", {})
+	COMBAT_XP_LEVELS = enemies.get("combatXpLevels", [])
+	COMBAT_ATTACK_BONUS_BY_LEVEL = enemies.get("combatAttackBonusByLevel", [])
+	COMBAT_SPEED_BY_LEVEL = enemies.get("combatSpeedByLevel", [])
 
 	var constants := _load_json("res://data/constants.json")
 	TIME_BLOCKS = constants.get("timeBlocks", [])
@@ -350,7 +360,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_map_layout(t.get("map_layout", {}), t.get("districts", {}), errors)
 	_validate_sites(t.get("site_tier_order", []), t.get("site_tier_weights", {}), t.get("site_at_cap_tier_weights", {}), t.get("site_prospect_xp", {}), t.get("site_seed_tier_mod", {}), t.get("site_discovery_bonus_pool", []), errors)
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), errors)
-	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), errors)
+	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), t.get("combat_xp_levels", []), t.get("combat_attack_bonus_by_level", []), t.get("combat_speed_by_level", []), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
 	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), errors)
@@ -405,6 +415,9 @@ func snapshot() -> Dictionary:
 		"faction_prefs": FACTION_BAROMETER_PREFS,
 		"enemy_raid_guards": ENEMY_RAID_GUARDS,
 		"enemy_home_raid_raider": ENEMY_HOME_RAID_RAIDER,
+		"combat_xp_levels": COMBAT_XP_LEVELS,
+		"combat_attack_bonus_by_level": COMBAT_ATTACK_BONUS_BY_LEVEL,
+		"combat_speed_by_level": COMBAT_SPEED_BY_LEVEL,
 		"time_blocks": TIME_BLOCKS,
 		"contacts_defaults": CONTACTS_DEFAULTS,
 		"events": EVENTS,
@@ -805,10 +818,21 @@ func _validate_barometer(states: Dictionary, actions: Array, faction_prefs: Dict
 					errors.append("barometer.factionPrefs.%s: state '%s' does not exist in section '%s'" % [faction_id, pref["state"], pref["section"]])
 
 
-func _validate_enemies(raid_guards: Dictionary, home_raid_raider: Dictionary, errors: Array[String]) -> void:
+func _validate_enemies(raid_guards: Dictionary, home_raid_raider: Dictionary, combat_xp_levels: Array, combat_attack_bonus_by_level: Array, combat_speed_by_level: Array, errors: Array[String]) -> void:
 	for key in raid_guards.keys():
 		_require_keys(raid_guards[key], ["name", "hpBase", "attackMin", "attackMax", "speed"], "enemies.raidGuards.%s" % key, errors)
 	_require_keys(home_raid_raider, ["name", "hp", "attackMin", "attackMax", "speed"], "enemies.homeRaidRaider", errors)
+
+	# squad-combat ticket 05: same "6 entries, index=level 0..5" shape every
+	# other skill ladder enforces (_validate_vein_growth's xp_levels check
+	# above, _validate_dial's capacityByLevel/xpLevels checks) — level 1 must
+	# be index 1, so a wrong-length array is a data bug, not a design choice.
+	if combat_xp_levels.size() != 6:
+		errors.append("enemies.combatXpLevels: expected 6 entries (index=level, 0..5), got %d" % combat_xp_levels.size())
+	if combat_attack_bonus_by_level.size() != 6:
+		errors.append("enemies.combatAttackBonusByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_attack_bonus_by_level.size())
+	if combat_speed_by_level.size() != 6:
+		errors.append("enemies.combatSpeedByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_speed_by_level.size())
 
 
 func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, errors: Array[String]) -> void:

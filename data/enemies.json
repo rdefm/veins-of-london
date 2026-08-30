@@ -1,5 +1,8 @@
 {
   "_comment": "Enemy capability surface (weapon/ability/evadeChance) is documented in docs/REFERENCE.md §1.10 — the templates below predate it and set evadeChance: 0 explicitly to preserve existing combat math. squad-combat ticket 02: `speed` is the turn-order value Combat.build_turn_queue() sorts on, same units as GameData.COMBAT_SPEED_BY_LEVEL (draft, needs balance sign-off per R§3.7a).",
+  "combatXpLevels": [0, 0, 80, 220, 500, 1000],
+  "combatAttackBonusByLevel": [0, 0, 2, 4, 7, 11],
+  "combatSpeedByLevel": [0, 10, 12, 14, 17, 21],
   "raidGuards": {
     "territorialScrapper": { "name": "Territorial Scrapper", "hpBase": 20, "attackMin": 3, "attackMax": 8, "evadeChance": 0, "speed": 12 },
     "veinGuard":            { "name": "Vein Guard",            "hpBase": 30, "attackMin": 4, "attackMax": 10, "evadeChance": 0, "speed": 8 },

@@ -51,6 +51,7 @@ func run() -> void:
 		assert_true(texts.has("Crafting: Lv1 (0 XP)"), "crafting skill line")
 		assert_true(texts.has("Cultivating: Lv1 (0 XP)"), "cultivating skill line")
 		assert_true(texts.has("Stealth: Lv1 (0 XP)"), "stealth skill line")
+		assert_true(texts.has("Combat: Lv1 (0 XP)"), "combat skill line")
 
 		phone.free()
 	)
@@ -62,15 +63,15 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		# HP bar + 3 skill bars -- a fresh player is level 1 with 0 XP, so
+		# HP bar + 4 skill bars -- a fresh player is level 1 with 0 XP, so
 		# each skill bar's range is [levels[1], levels[2]] = [0, 80] at 0 XP.
 		var bars := phone.find_children("", "ProgressBar", true, false)
-		assert_eq(bars.size(), 4, "HP bar plus one bar per skill")
+		assert_eq(bars.size(), 5, "HP bar plus one bar per skill")
 
 		var skill_bars: Array = bars.slice(1)
 		for b in skill_bars:
 			assert_eq((b as ProgressBar).value, 0.0, "a fresh Lv1/0XP skill sits at the bottom of its bar")
-			assert_eq((b as ProgressBar).max_value, 80.0, "levels[2] - levels[1] = 80 - 0 for crafting/cultivating/stealth")
+			assert_eq((b as ProgressBar).max_value, 80.0, "levels[2] - levels[1] = 80 - 0 for crafting/cultivating/stealth/combat")
 
 		phone.free()
 	)

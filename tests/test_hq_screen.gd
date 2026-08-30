@@ -273,3 +273,52 @@ func run() -> void:
 
 		hq.free()
 	)
+
+	# ── squad-combat ticket 05: Gym card / Train action ──────────────────
+
+	run_case("hq_gym_card_offers_no_train_button_without_a_built_home_gym", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_true(_find_button(hq, "Train") == null, "Train must not appear before Home Gym is built")
+
+		hq.free()
+	)
+
+	run_case("hq_gym_card_train_button_spends_a_block_and_awards_combat_xp", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["rooms"].append("homeGym")
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		var train_button := _find_button(hq, "Train")
+		assert_true(train_button != null, "a built Home Gym must expose a Train button")
+
+		train_button.pressed.emit()
+
+		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_GYM_SESSION, "pressing Train should award the gym-session XP")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "pressing Train should spend one of the day's time blocks")
+
+		hq.free()
+	)
+
+	run_case("hq_gym_card_train_button_is_disabled_once_the_days_time_blocks_are_exhausted", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["rooms"].append("homeGym")
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		var train_button := _find_button(hq, "Train")
+		assert_true(train_button != null, "the button should still be present, just disabled")
+		assert_true(train_button.disabled, "Train should be disabled once the day's time blocks are exhausted")
+
+		hq.free()
+	)

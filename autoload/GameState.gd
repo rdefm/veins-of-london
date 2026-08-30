@@ -141,6 +141,11 @@ func new_game_state() -> Dictionary:
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
 			"stealthSkill": 1, "stealthXP": 0,
+			# squad-combat ticket 05, R§3.7a: attack bonus + turn-order speed,
+			# both level-indexed (GameData.COMBAT_ATTACK_BONUS_BY_LEVEL/
+			# COMBAT_SPEED_BY_LEVEL) — leveled via the same Progression.award_xp()
+			# mechanism as craftingSkill/cultivatingSkill above.
+			"combatSkill": 1, "combatXP": 0,
 			# calc-discovery ticket 03: the Lab's pure-data state. Known
 			# approaches are NOT stored here — Approaches.get_known() (ticket
 			# 01) already resolves that live from data/approaches.json + owned
