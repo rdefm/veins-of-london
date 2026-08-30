@@ -17,7 +17,8 @@ func _refresh() -> void:
 
 	var combat: Dictionary = GameState.state["combat"]
 	var player: Dictionary = GameState.state["player"]
-	var enemy = combat["enemy"]
+	var enemies: Array = combat["enemies"]
+	var enemy = enemies[combat["focusedEnemyIndex"]] if not enemies.is_empty() else null
 
 	var context_label := "Mugging"
 	if combat["context"] == "home_raid":

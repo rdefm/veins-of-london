@@ -29,7 +29,8 @@ func _fresh_combat(context: String = Combat.CONTEXT_MUGGING) -> void:
 	GameState.reset()
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": null,
-		"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "veinId": null, "isMugging": context == Combat.CONTEXT_MUGGING, "weapon": null, "ability": null, "evadeChance": 0.0 },
+		"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "isMugging": context == Combat.CONTEXT_MUGGING, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
+		"focusedEnemyIndex": 0,
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [],
 		"allies": [],
@@ -58,6 +59,54 @@ func run() -> void:
 				assert_eq(enemy["attackMax"], 16, "count 3 attackMax = 10+3*2")
 			assert_eq(enemy["hpMax"], enemy["hp"], "hp starts full")
 		assert_true(seen[1] and seen[2] and seen[3], "all three mugger counts should appear across 300 seeds")
+	)
+
+	# ── squad-combat ticket 01: combat.enemies roster shape ──────────────
+
+	run_case("fresh_combat_starts_with_a_one_entry_roster_focused_at_index_0", func():
+		_fresh_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["enemies"].size(), 1, "every start_* path still spawns exactly one entry until ticket 04's roster generation")
+		assert_eq(combat["focusedEnemyIndex"], 0, "focus should default to the only entry")
+		assert_eq(combat["enemies"][0]["koed"], false, "a fresh entry should not start koed")
+	)
+
+	run_case("killing_the_lone_enemy_flags_it_koed_and_resolves_win_via_the_all_koed_check", func():
+		_fresh_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		combat["enemies"][0]["hp"] = 1
+		GameState.state["player"]["attackMin"] = 999
+		GameState.state["player"]["attackMax"] = 999
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_eq(combat["enemies"][0]["koed"], true, "the killed entry should be flagged koed")
+		assert_eq(combat["outcome"], "win", "with only one entry, koing it should resolve the fight (behaviourally identical to the old single-enemy-hp-zero check)")
+	)
+
+	# start_* paths only ever spawn one entry until ticket 04 -- this
+	# roster is hand-built to exercise the clamp/all-koed logic ticket 04's
+	# real multi-entry generation will actually reach.
+	run_case("focused_index_auto_clamps_to_the_next_living_enemy_when_the_focused_one_dies_mid_round", func():
+		_fresh_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		combat["enemies"] = [
+			{ "name": "First", "hp": 5, "hpMax": 5, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false },
+			{ "name": "Second", "hp": 5, "hpMax": 5, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false },
+		]
+		combat["focusedEnemyIndex"] = 0
+		GameState.state["player"]["inventory"]["blast"] = { "1": 2 }
+		GameState.state["player"]["craftingSkill"] = 1  # blast effectPower at skill 1 = 6, lethal against hp 5
+
+		Combat.use_blast()
+
+		assert_eq(combat["enemies"][0]["koed"], true, "the focused (first) entry should be koed")
+		assert_eq(combat["focusedEnemyIndex"], 1, "focus should auto-clamp to the next living entry")
+		assert_eq(combat["outcome"], null, "the fight should continue while a living entry remains")
+
+		Combat.use_blast()
+
+		assert_eq(combat["enemies"][1]["koed"], true, "the second entry should now be koed too")
+		assert_eq(combat["outcome"], "win", "the fight should resolve once every entry is koed")
 	)
 
 	run_case("freeze_skips_enemy_turn_and_decrements", func():
@@ -130,8 +179,8 @@ func run() -> void:
 		_fresh_combat()
 		GameState.state["player"]["hp"] = 1
 		GameState.state["player"]["hpMax"] = 100
-		GameState.state["combat"]["enemy"]["attackMin"] = 50
-		GameState.state["combat"]["enemy"]["attackMax"] = 50
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 50
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 50
 		Rng.set_seed(1)
 		Combat.enemy_attack()
 		assert_eq(GameState.state["combat"]["outcome"], "loss", "hp hitting 0 should set outcome to loss")
@@ -169,16 +218,16 @@ func run() -> void:
 		_fresh_combat()
 		var combat: Dictionary = GameState.state["combat"]
 		GameState.state["player"]["hp"] = 80
-		combat["enemy"]["hp"] = 90
-		Snapshots.push("combat", combat["snapshots"], { "playerHp": 100, "enemyHp": 100, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
-		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 95, "log": ["turn 1", "turn 2"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
+		combat["enemies"][0]["hp"] = 90
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 100, "enemyHp": 100, "focusedEnemyIndex": 0, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 95, "focusedEnemyIndex": 0, "log": ["turn 1", "turn 2"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
 
 		var result := Combat.combat_rewind()
 
 		assert_true(result["ok"], "rewind should succeed with a rewind consumable in hand")
 		assert_eq(GameState.state["player"]["hp"], 100, "should restore the OLDEST snapshot's playerHp (100, not 90)")
-		assert_eq(combat["enemy"]["hp"], 100, "should restore the OLDEST snapshot's enemyHp")
+		assert_eq(combat["enemies"][0]["hp"], 100, "should restore the OLDEST snapshot's enemyHp")
 		assert_eq(combat["snapshots"], [], "snapshot stack should be cleared")
 		assert_eq(combat["evadeTurns"], 2, "rewind grants 2 evade turns")
 		assert_almost_eq(combat["evadeChance"], 0.50, 0.0001, "rewind grants 50% evade chance")
@@ -189,6 +238,27 @@ func run() -> void:
 			if line.contains("Time unspools"):
 				found = true
 		assert_true(found, "rewind should log the unspool line")
+	)
+
+	# squad-combat ticket 01: push_combat_snapshot()/_restore_from_snapshot()
+	# carry focusedEnemyIndex alongside enemyHp -- a rewind must put focus
+	# back on whichever entry was actually focused at snapshot time, not
+	# wherever focus happens to be sitting when Rewind is used.
+	run_case("rewind_restores_the_snapshotted_focusedEnemyIndex_not_the_current_one", func():
+		_fresh_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		combat["enemies"].append({ "name": "Second", "hp": 40, "hpMax": 40, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false })
+		combat["focusedEnemyIndex"] = 1
+		Combat.push_combat_snapshot()  # snapshots focusedEnemyIndex == 1, enemies[1].hp == 40
+		combat["focusedEnemyIndex"] = 0  # focus moves on before Rewind is used
+		combat["enemies"][1]["hp"] = 10  # some damage landed on the second entry since the snapshot
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+
+		Combat.combat_rewind()
+
+		assert_eq(combat["focusedEnemyIndex"], 1, "rewind should restore focus to whichever entry was focused when the snapshot was pushed")
+		assert_eq(combat["enemies"][1]["hp"], 40, "rewind should restore the hp of the snapshotted entry")
+		assert_eq(combat["enemies"][0]["hp"], 100, "the entry that wasn't focused at snapshot time is untouched by rewind, same as today's single-enemy scope")
 	)
 
 	run_case("rewind_fails_with_no_snapshots_or_no_rewind_available", func():
@@ -278,7 +348,7 @@ func run() -> void:
 		dial["movement"] = { "archetype": "spread", "oreType": "physics", "tier": 5 }
 		GameState.state["player"]["dial"] = dial
 		var base_power: int = Crafting.effect_power("blast", 1)
-		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
 		var hp_before: int = enemy["hp"]
 
 		var result := Combat.cast_complication(0)
@@ -343,7 +413,8 @@ func run() -> void:
 		GameState.state["player"]["orichalchum"] = { "time": 10, "physics": 7, "life": 20 }
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_HOME_RAID, "veinId": null,
-			"enemy": { "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "veinId": null, "isMugging": false },
+			"enemies": [{ "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "isMugging": false, "speed": 10, "koed": true }],
+			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "loss", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [],
 			"allies": [],
@@ -365,7 +436,8 @@ func run() -> void:
 		GameState.state["player"]["orichalchum"] = { "time": 10 }
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_HOME_RAID, "veinId": null,
-			"enemy": { "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "veinId": null, "isMugging": false },
+			"enemies": [{ "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "isMugging": false, "speed": 10, "koed": true }],
+			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [],
 			"allies": [],
@@ -501,11 +573,11 @@ func run() -> void:
 	run_case("onWin_muggingWon_pays_pendingSaleCut", func():
 		_fresh_combat(Combat.CONTEXT_MUGGING)
 		GameState.state["combat"]["onWin"] = "muggingWon"
-		GameState.state["combat"]["enemy"]["hp"] = 1
+		GameState.state["combat"]["enemies"][0]["hp"] = 1
 		GameState.state["player"]["cash"] = 100
 		GameState.state["pendingSaleCut"] = 50
-		GameState.state["combat"]["enemy"]["attackMin"] = 0
-		GameState.state["combat"]["enemy"]["attackMax"] = 0
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 0
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 0
 		# force a lethal hit
 		GameState.state["player"]["attackMin"] = 999
 		GameState.state["player"]["attackMax"] = 999
@@ -584,11 +656,11 @@ func run() -> void:
 
 	run_case("player_attack_zero_evade_chance_always_hits", func():
 		_fresh_combat()
-		GameState.state["combat"]["enemy"]["evadeChance"] = 0.0
-		var hp_before: int = GameState.state["combat"]["enemy"]["hp"]
+		GameState.state["combat"]["enemies"][0]["evadeChance"] = 0.0
+		var hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
 		Rng.set_seed(1)
 		Combat.player_attack()
-		assert_true(GameState.state["combat"]["enemy"]["hp"] < hp_before, "0% evade should never dodge -- damage always lands")
+		assert_true(GameState.state["combat"]["enemies"][0]["hp"] < hp_before, "0% evade should never dodge -- damage always lands")
 		var dodged := false
 		for line in GameState.state["combat"]["log"]:
 			if line.contains("dodges"):
@@ -598,11 +670,11 @@ func run() -> void:
 
 	run_case("player_attack_guaranteed_evade_chance_always_misses", func():
 		_fresh_combat()
-		GameState.state["combat"]["enemy"]["evadeChance"] = 1.0
-		var hp_before: int = GameState.state["combat"]["enemy"]["hp"]
+		GameState.state["combat"]["enemies"][0]["evadeChance"] = 1.0
+		var hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
 		Rng.set_seed(1)
 		Combat.player_attack()
-		assert_eq(GameState.state["combat"]["enemy"]["hp"], hp_before, "100% evade should always dodge -- no damage lands")
+		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], hp_before, "100% evade should always dodge -- no damage lands")
 		var dodged := false
 		for line in GameState.state["combat"]["log"]:
 			if line.contains("dodges") and line.contains("no damage"):
@@ -613,26 +685,26 @@ func run() -> void:
 	run_case("player_attack_nonzero_evade_chance_can_go_either_way_across_seeds", func():
 		var hit_seed := _find_seed_for(200, func():
 			_fresh_combat()
-			GameState.state["combat"]["enemy"]["evadeChance"] = 0.5
-			var hp_before: int = GameState.state["combat"]["enemy"]["hp"]
+			GameState.state["combat"]["enemies"][0]["evadeChance"] = 0.5
+			var hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
 			Combat.player_attack()
-			return GameState.state["combat"]["enemy"]["hp"] < hp_before
+			return GameState.state["combat"]["enemies"][0]["hp"] < hp_before
 		)
 		assert_true(hit_seed != -1, "should find a landed-hit roll within 200 tries at 50% evade")
 
 		var miss_seed := _find_seed_for(200, func():
 			_fresh_combat()
-			GameState.state["combat"]["enemy"]["evadeChance"] = 0.5
-			var hp_before: int = GameState.state["combat"]["enemy"]["hp"]
+			GameState.state["combat"]["enemies"][0]["evadeChance"] = 0.5
+			var hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
 			Combat.player_attack()
-			return GameState.state["combat"]["enemy"]["hp"] == hp_before
+			return GameState.state["combat"]["enemies"][0]["hp"] == hp_before
 		)
 		assert_true(miss_seed != -1, "should find a dodged-miss roll within 200 tries at 50% evade")
 	)
 
 	run_case("disarm_enemy_strips_weapon_bonus_and_locks_ability", func():
 		_fresh_combat()
-		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
 		enemy["weapon"] = { "min": 3, "max": 6 }
 		enemy["ability"] = { "id": "test_ability", "lockedTurns": 0 }
 
@@ -645,7 +717,7 @@ func run() -> void:
 
 	run_case("disarm_enemy_weapon_strip_removes_the_attack_bonus_from_enemy_damage", func():
 		_fresh_combat()
-		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
 		enemy["attackMin"] = 5
 		enemy["attackMax"] = 5
 		enemy["weapon"] = { "min": 20, "max": 20 }
@@ -661,7 +733,7 @@ func run() -> void:
 
 	run_case("disarmed_ability_lock_expires_after_n_player_turns_and_logs_it", func():
 		_fresh_combat()
-		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
 		enemy["ability"] = { "id": "test_ability", "lockedTurns": 0 }
 		Combat.disarm_enemy(enemy, 2)
 		assert_true(Combat.is_ability_locked(enemy), "should start locked")
@@ -683,7 +755,7 @@ func run() -> void:
 
 	run_case("disarm_enemy_with_no_ability_is_a_no_op_for_the_ability_field", func():
 		_fresh_combat()
-		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
 		assert_eq(enemy["ability"], null, "sanity: fixture enemy has no ability")
 		Combat.disarm_enemy(enemy, 3)
 		assert_eq(enemy["ability"], null, "disarm should not fabricate an ability where none existed")
@@ -702,7 +774,7 @@ func run() -> void:
 	run_case("home_raid_raider_template_defaults_to_zero_evade_chance", func():
 		GameState.reset()
 		Combat.start_home_raid_combat()
-		assert_eq(GameState.state["combat"]["enemy"]["evadeChance"], 0.0, "homeRaidRaider should default to 0% evade")
+		assert_eq(GameState.state["combat"]["enemies"][0]["evadeChance"], 0.0, "homeRaidRaider should default to 0% evade")
 	)
 
 	run_case("procedural_mugger_defaults_to_zero_evade_chance", func():
@@ -729,11 +801,11 @@ func run() -> void:
 		_fresh_combat()
 		GameState.state["player"]["inventory"]["blast"] = { "1": 2 }
 		GameState.state["player"]["craftingSkill"] = 1
-		var hp_before: int = GameState.state["combat"]["enemy"]["hp"]
+		var hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
 		var result := Combat.use_blast()
 		assert_true(result["ok"], "should succeed with a blast in hand")
 		# blast effectPower at skill 1 = 6
-		assert_eq(GameState.state["combat"]["enemy"]["hp"], hp_before - 6, "should deal effectPower damage immediately")
+		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], hp_before - 6, "should deal effectPower damage immediately")
 		assert_eq(Crafting.inventory_qty("blast"), 1, "one blast consumed")
 		assert_eq(GameState.state["combat"]["blastFleeBoost"], true, "should grant a one-use flee boost")
 	)
@@ -749,7 +821,7 @@ func run() -> void:
 		_fresh_combat()
 		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["combat"]["enemy"]["hp"] = 3
+		GameState.state["combat"]["enemies"][0]["hp"] = 3
 		Combat.use_blast()
 		assert_eq(GameState.state["combat"]["outcome"], "win", "lethal blast damage should win the fight")
 	)
@@ -790,7 +862,7 @@ func run() -> void:
 		var disarm_seed := _find_seed_for(500, func():
 			_fresh_combat()
 			GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
-			var enemy: Dictionary = GameState.state["combat"]["enemy"]
+			var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
 			enemy["weapon"] = { "min": 3, "max": 6 }
 			enemy["ability"] = { "id": "test_ability", "lockedTurns": 0 }
 			Combat.use_blast()
@@ -800,7 +872,7 @@ func run() -> void:
 
 		_fresh_combat()
 		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
-		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
 		enemy["weapon"] = { "min": 3, "max": 6 }
 		enemy["ability"] = { "id": "test_ability", "lockedTurns": 0 }
 		Rng.set_seed(disarm_seed)
@@ -840,8 +912,8 @@ func run() -> void:
 		_fresh_combat()
 		GameState.state["player"]["shieldPool"] = 20
 		GameState.state["player"]["hp"] = 100
-		GameState.state["combat"]["enemy"]["attackMin"] = 10
-		GameState.state["combat"]["enemy"]["attackMax"] = 10
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 10
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 10
 		Rng.set_seed(1)
 		Combat.enemy_attack()
 		assert_eq(GameState.state["player"]["hp"], 100, "10 dmg <= 20 pool -> player takes 0")
@@ -852,8 +924,8 @@ func run() -> void:
 		_fresh_combat()
 		GameState.state["player"]["shieldPool"] = 5
 		GameState.state["player"]["hp"] = 100
-		GameState.state["combat"]["enemy"]["attackMin"] = 12
-		GameState.state["combat"]["enemy"]["attackMax"] = 12
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 12
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 12
 		Rng.set_seed(1)
 		Combat.enemy_attack()
 		assert_eq(GameState.state["player"]["hp"], 93, "12 dmg - 5 pool = 7 damage taken")
@@ -865,11 +937,11 @@ func run() -> void:
 		GameState.state["player"]["inventory"]["blackHole"] = { "1": 2 }
 		GameState.state["player"]["craftingSkill"] = 1
 		GameState.state["combat"]["frozenTurns"] = 1
-		var hp_before: int = GameState.state["combat"]["enemy"]["hp"]
+		var hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
 		var result := Combat.use_black_hole()
 		assert_true(result["ok"], "should succeed with a black hole in hand")
 		# blackHole effectPower at skill 1 = 8 -> freeze = 1 + floor(8/8) = 2
-		assert_eq(GameState.state["combat"]["enemy"]["hp"], hp_before - 8, "should deal effectPower damage immediately")
+		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], hp_before - 8, "should deal effectPower damage immediately")
 		assert_eq(GameState.state["combat"]["frozenTurns"], 3, "should add to the existing frozenTurns, not replace it (1 prior + 2 new)")
 		assert_eq(Crafting.inventory_qty("blackHole"), 1, "one black hole consumed")
 	)
@@ -885,7 +957,7 @@ func run() -> void:
 		_fresh_combat()
 		GameState.state["player"]["inventory"]["blackHole"] = { "1": 1 }
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["combat"]["enemy"]["hp"] = 3
+		GameState.state["combat"]["enemies"][0]["hp"] = 3
 		Combat.use_black_hole()
 		assert_eq(GameState.state["combat"]["outcome"], "win", "lethal black hole damage should win the fight")
 	)
@@ -894,8 +966,8 @@ func run() -> void:
 		_fresh_combat()
 		GameState.state["player"]["inventory"]["blackHole"] = { "1": 1 }
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["combat"]["enemy"]["attackMin"] = 10
-		GameState.state["combat"]["enemy"]["attackMax"] = 10
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 10
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 10
 		var hp_before: int = GameState.state["player"]["hp"]
 		Combat.use_black_hole()
 		assert_eq(GameState.state["player"]["hp"], hp_before, "black hole should never reduce the player's own HP")
@@ -953,8 +1025,8 @@ func run() -> void:
 		# unconditionally rather than needing a seed search.
 		_fresh_combat()
 		GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
-		GameState.state["combat"]["enemy"]["attackMin"] = 50
-		GameState.state["combat"]["enemy"]["attackMax"] = 50
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 50
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 50
 		var hp_before: int = GameState.state["player"]["hp"]
 		Combat.use_wormhole()
 		assert_eq(GameState.state["player"]["hp"], hp_before, "wormhole flee must never let the enemy get a parting shot in")
@@ -973,9 +1045,9 @@ func run() -> void:
 		GameState.state["player"]["hp"] = 100
 		GameState.state["player"]["hpMax"] = 100
 		GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
-		combat["enemy"]["attackMin"] = 500
-		combat["enemy"]["attackMax"] = 500
-		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
+		combat["enemies"][0]["attackMin"] = 500
+		combat["enemies"][0]["attackMax"] = 500
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "focusedEnemyIndex": 0, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
 
 		Rng.set_seed(1)
 		Combat.enemy_attack()
@@ -997,8 +1069,8 @@ func run() -> void:
 		GameState.state["player"]["hp"] = 100
 		GameState.state["player"]["hpMax"] = 100
 		GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
-		combat["enemy"]["attackMin"] = 500
-		combat["enemy"]["attackMax"] = 500
+		combat["enemies"][0]["attackMin"] = 500
+		combat["enemies"][0]["attackMax"] = 500
 
 		Rng.set_seed(1)
 		Combat.enemy_attack()
@@ -1019,9 +1091,9 @@ func run() -> void:
 		GameState.state["player"]["hpMax"] = 100
 		GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
-		combat["enemy"]["attackMin"] = 500
-		combat["enemy"]["attackMax"] = 500
-		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
+		combat["enemies"][0]["attackMin"] = 500
+		combat["enemies"][0]["attackMax"] = 500
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "focusedEnemyIndex": 0, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
 
 		Rng.set_seed(1)
 		Combat.enemy_attack()
@@ -1038,9 +1110,9 @@ func run() -> void:
 		GameState.state["player"]["hp"] = 100
 		GameState.state["player"]["hpMax"] = 100
 		GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
-		combat["enemy"]["attackMin"] = 500
-		combat["enemy"]["attackMax"] = 500
-		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
+		combat["enemies"][0]["attackMin"] = 500
+		combat["enemies"][0]["attackMax"] = 500
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "focusedEnemyIndex": 0, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
 
 		Rng.set_seed(1)
 		Combat.enemy_attack()
@@ -1139,7 +1211,8 @@ func run() -> void:
 		GameState.state["flags"]["archieDealActive"] = true
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_ARCHIE_DEAL_MUGGING, "veinId": null,
-			"enemy": { "name": "Test Enemy", "hp": 0, "hpMax": 20, "attackMin": 0, "attackMax": 0, "veinId": null, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0 },
+			"enemies": [{ "name": "Test Enemy", "hp": 0, "hpMax": 20, "attackMin": 0, "attackMax": 0, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": true }],
+			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
 			"allies": [],
@@ -1159,7 +1232,8 @@ func run() -> void:
 		GameState.state["flags"]["archieDealActive"] = true
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_ARCHIE_DEAL_MUGGING, "veinId": null,
-			"enemy": { "name": "Test Enemy", "hp": 20, "hpMax": 20, "attackMin": 0, "attackMax": 0, "veinId": null, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0 },
+			"enemies": [{ "name": "Test Enemy", "hp": 20, "hpMax": 20, "attackMin": 0, "attackMax": 0, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
+			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "loss", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
 			"allies": [],
@@ -1211,14 +1285,15 @@ func run() -> void:
 		GameState.state["player"]["attackMax"] = 0
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
-			"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "veinId": "v1", "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0 },
+			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
+			"focusedEnemyIndex": 0,
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
 			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 50, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 0, "healAmount": 15, "koed": false }],
 		}
 		Rng.set_seed(1)
 		Combat.player_attack()
-		assert_eq(GameState.state["combat"]["enemy"]["hp"], 95, "ally's fixed 5-damage hit should land alongside the player's own zeroed attack")
+		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], 95, "ally's fixed 5-damage hit should land alongside the player's own zeroed attack")
 		var found := false
 		for line in GameState.state["combat"]["log"]:
 			if line.begins_with("Archie hits"):
@@ -1232,7 +1307,8 @@ func run() -> void:
 		GameState.state["player"]["attackMax"] = 0
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
-			"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "veinId": "v1", "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0 },
+			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
+			"focusedEnemyIndex": 0,
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
 			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 10, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 1, "healAmount": 15, "koed": false }],
@@ -1242,7 +1318,7 @@ func run() -> void:
 		var ally: Dictionary = GameState.state["combat"]["allies"][0]
 		assert_eq(ally["hp"], 25, "10 + healAmount(15), below hpMax")
 		assert_eq(ally["stash"], 0, "the heal charge should be spent")
-		assert_eq(GameState.state["combat"]["enemy"]["hp"], 100, "healing should replace the ally's attack this turn, not stack with it")
+		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], 100, "healing should replace the ally's attack this turn, not stack with it")
 		var found := false
 		for line in GameState.state["combat"]["log"]:
 			if line.contains("patches themselves up"):
@@ -1257,7 +1333,8 @@ func run() -> void:
 			GameState.state["world"]["day"] = 5
 			GameState.state["combat"] = {
 				"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
-				"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 999, "attackMax": 999, "veinId": "v1", "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0 },
+				"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 999, "attackMax": 999, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
+				"focusedEnemyIndex": 0,
 				"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 				"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
 				"allies": [Contacts.build_combat_ally("archie")],
@@ -1283,7 +1360,8 @@ func run() -> void:
 		GameState.state["contacts"]["archie"]["koCooldownUntilDay"] = 9
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
-			"enemy": { "name": "Test Enemy", "hp": 0, "hpMax": 100, "attackMin": 0, "attackMax": 0, "veinId": "v1", "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0 },
+			"enemies": [{ "name": "Test Enemy", "hp": 0, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": true }],
+			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
 			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 12, "hpMax": 50, "attackMin": 4, "attackMax": 9, "stash": 0, "healAmount": 15, "koed": false }],

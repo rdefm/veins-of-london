@@ -857,7 +857,8 @@ func run() -> void:
 		Crafting.inventory_add("blast", 3, 1)
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_MUGGING, "veinId": null,
-			"enemy": { "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "veinId": null, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0 },
+			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
+			"focusedEnemyIndex": 0,
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [],
 			"allies": [],
@@ -874,7 +875,7 @@ func run() -> void:
 		Combat.use_blast()
 
 		var expected_power: int = Crafting.effect_power("blast", 3)
-		var enemy: Dictionary = GameState.state["combat"]["enemy"]
+		var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
 		assert_eq(enemy["hp"], 100 - expected_power, "direct-thrown Blast must deal exactly its unamplified effect_power, ignoring the seated Impact Movement entirely")
 		assert_eq(Crafting.inventory_qty("blast"), 0, "throwing directly still destroys the unit, exactly as before this PRD")
 	)

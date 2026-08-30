@@ -59,7 +59,7 @@ func _assert_invariants(label: String) -> void:
 func _force_win_active_combat() -> void:
 	var attack_min: int = GameState.state["player"]["attackMin"]
 	var attack_max: int = GameState.state["player"]["attackMax"]
-	GameState.state["combat"]["enemy"]["hp"] = 1
+	GameState.state["combat"]["enemies"][GameState.state["combat"]["focusedEnemyIndex"]]["hp"] = 1
 	GameState.state["player"]["attackMin"] = 999
 	GameState.state["player"]["attackMax"] = 999
 	Rng.set_seed(1)

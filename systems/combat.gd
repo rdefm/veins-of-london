@@ -49,6 +49,11 @@ const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPow
 # damage, since they have no player to hand a Healing Burst to).
 const ALLY_HEAL_THRESHOLD_FRACTION := 0.4
 
+# squad-combat ticket 01: every roster entry needs a speed field to satisfy
+# the shape, but the turn queue that reads it doesn't land until ticket 02 --
+# an explicit, undifferentiated placeholder, not a balance value.
+const ENEMY_PLACEHOLDER_SPEED := 10
+
 
 static func is_canonical_context(context: String) -> bool:
 	return CANONICAL_CONTEXTS.has(context)
@@ -63,7 +68,6 @@ static func generate_mugger() -> Dictionary:
 		"hpMax": 28 * count,
 		"attackMin": 4 + 2 * (count - 1),
 		"attackMax": 10 + 3 * (count - 1),
-		"veinId": null,
 		"isMugging": true,
 		"weapon": null,
 		"ability": null,
@@ -110,7 +114,6 @@ static func generate_raid_enemy(vein_id, value_tier: int, guards: int = 1, templ
 		"hpMax": hp,
 		"attackMin": template["attackMin"],
 		"attackMax": template["attackMax"] + (value_tier - 1),
-		"veinId": vein_id,
 		"isMugging": false,
 	}
 	enemy.merge(_enemy_capabilities_from_template(template))
@@ -208,7 +211,7 @@ static func start_home_raid_combat() -> void:
 	var enemy := {
 		"name": raider["name"], "hp": raider["hp"], "hpMax": raider["hp"],
 		"attackMin": raider["attackMin"], "attackMax": raider["attackMax"],
-		"veinId": null, "isMugging": false,
+		"isMugging": false,
 	}
 	enemy.merge(_enemy_capabilities_from_template(raider))
 	_start_combat(CONTEXT_HOME_RAID, null, enemy,
@@ -283,8 +286,14 @@ static func _gather_defend_allies(log_lines: Array) -> Array:
 static func _start_combat(context: String, vein_id, enemy: Dictionary, log_lines: Array, on_win: String, allies: Array = []) -> void:
 	if not is_canonical_context(context):
 		push_error("Combat: unrecognized context '%s' — not in CANONICAL_CONTEXTS, exit_combat() will mis-route it." % context)
+	# squad-combat ticket 01: every roster entry needs koed/speed regardless
+	# of which of the six start_* paths built it -- one chokepoint rather
+	# than duplicating this at each enemy-construction call site.
+	enemy["koed"] = false
+	enemy["speed"] = ENEMY_PLACEHOLDER_SPEED
 	GameState.state["combat"] = {
-		"active": true, "context": context, "veinId": vein_id, "enemy": enemy,
+		"active": true, "context": context, "veinId": vein_id, "enemies": [enemy],
+		"focusedEnemyIndex": 0,
 		"log": log_lines, "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": on_win, "snapshots": [],
 		"allies": allies,
@@ -306,14 +315,24 @@ static func _start_combat(context: String, vein_id, enemy: Dictionary, log_lines
 	MapEvents.abandon_playback()
 
 
+# squad-combat ticket 01: the player's single-target actions (Attack,
+# Blast, Black Hole, any non-AoE Complication) all resolve against this one
+# entry -- pulled out since combat.enemies[combat.focusedEnemyIndex] was
+# repeated verbatim at every one of those call sites.
+static func _focused_enemy(combat: Dictionary) -> Dictionary:
+	return combat["enemies"][combat["focusedEnemyIndex"]]
+
+
 static func push_combat_snapshot() -> void:
 	var combat: Dictionary = GameState.state["combat"]
-	if combat["enemy"] == null:
+	if combat["enemies"].is_empty():
 		return
 	var player: Dictionary = GameState.state["player"]
+	var focused: Dictionary = _focused_enemy(combat)
 	var snap := {
 		"playerHp": player["hp"],
-		"enemyHp": combat["enemy"]["hp"],
+		"enemyHp": focused["hp"],
+		"focusedEnemyIndex": combat["focusedEnemyIndex"],
 		"log": combat["log"].duplicate(),
 		"frozenTurns": combat["frozenTurns"],
 		"motionTurns": combat["motionTurns"],
@@ -341,7 +360,7 @@ static func player_attack() -> Dictionary:
 		var motion_label: String = "three times" if attack_count == 3 else "twice"
 		combat["log"].append("Motion powder — you move %s as fast." % motion_label)
 
-	var enemy: Dictionary = combat["enemy"]
+	var enemy: Dictionary = _focused_enemy(combat)
 	for i in range(attack_count):
 		if enemy["hp"] <= 0:
 			break
@@ -440,7 +459,10 @@ static func enemy_attack() -> void:
 	if combat["outcome"] != null or combat["frozenTurns"] > 0:
 		return
 
-	var enemy: Dictionary = combat["enemy"]
+	# squad-combat ticket 01: roster generation (N distinct entries) isn't
+	# built until ticket 04 -- every fight here still has exactly one entry,
+	# so "the acting enemy" is unambiguously index 0.
+	var enemy: Dictionary = combat["enemies"][0]
 	var target = _pick_enemy_target(combat)
 	if target == null:
 		_enemy_attack_player(combat, enemy)
@@ -585,7 +607,7 @@ static func use_blast() -> Dictionary:
 
 	Crafting.inventory_remove("blast", 1)
 	var power = Crafting.effect_power("blast", player["craftingSkill"])
-	var enemy: Dictionary = combat["enemy"]
+	var enemy: Dictionary = _focused_enemy(combat)
 	enemy["hp"] = maxi(0, enemy["hp"] - power)
 	# PROSE-REVIEW: new blast result-log line, drafted against CONTENT-GUIDE.md's tone bible.
 	combat["log"].append("You let off a blast — %d damage. Enemy: %d/%d HP." % [power, enemy["hp"], enemy["hpMax"]])
@@ -641,7 +663,7 @@ static func use_black_hole() -> Dictionary:
 
 	Crafting.inventory_remove("blackHole", 1)
 	var power = Crafting.effect_power("blackHole", player["craftingSkill"])
-	var enemy: Dictionary = combat["enemy"]
+	var enemy: Dictionary = _focused_enemy(combat)
 	enemy["hp"] = maxi(0, enemy["hp"] - power)
 	var freeze_turns: int = 1 + int(floor(float(power) / 8.0))
 	combat["frozenTurns"] += freeze_turns
@@ -654,16 +676,48 @@ static func use_black_hole() -> Dictionary:
 	return { "ok": true }
 
 
-# calc-effect-wiring-02: shared by use_blast/use_black_hole -- both deal
-# immediate damage outside the normal player_attack() turn and can win the
-# fight outright on the spot, same win-log/dispatch shape player_attack()
-# already uses for its own lethal hit.
+# calc-effect-wiring-02: shared by player_attack/use_blast/use_black_hole --
+# all three can deal a lethal hit outside/inside the normal turn and need
+# the same koed-flagging/win-check afterward.
+# squad-combat ticket 01: hp hitting 0 now flags that one entry koed and
+# auto-clamps focus off a dead target rather than ending the fight outright
+# -- the fight itself only ends once every entry in combat.enemies is koed
+# (behaviourally identical to the old single-enemy check for today's
+# always-one-entry rosters; ticket 04's multi-entry rosters are what
+# actually exercises the "not everyone's down yet" branch).
 static func _maybe_win_from_direct_damage(combat: Dictionary, enemy: Dictionary) -> void:
 	if enemy["hp"] > 0:
+		return
+	enemy["koed"] = true
+	_clamp_focused_enemy_index(combat)
+	if not _all_enemies_koed(combat["enemies"]):
 		return
 	combat["outcome"] = "win"
 	combat["log"].append("They leg it. Good call on their part." if NON_LETHAL_MUGGING_CONTEXTS.has(combat["context"]) else "They go down. Vein is yours.")
 	_dispatch_on_win()
+
+
+static func _all_enemies_koed(enemies: Array) -> bool:
+	for enemy in enemies:
+		if not enemy["koed"]:
+			return false
+	return true
+
+
+# squad-combat ticket 01: keeps combat.focusedEnemyIndex pointed at a living
+# enemy after a kill -- a no-op when the currently-focused entry is still
+# alive. With today's always-one-entry rosters this only ever lands on the
+# just-killed entry itself (nothing else to clamp to); ticket 04's
+# multi-entry rosters are what makes this actually move the focus.
+static func _clamp_focused_enemy_index(combat: Dictionary) -> void:
+	var enemies: Array = combat["enemies"]
+	var idx: int = combat["focusedEnemyIndex"]
+	if idx < enemies.size() and not enemies[idx]["koed"]:
+		return
+	for i in range(enemies.size()):
+		if not enemies[i]["koed"]:
+			combat["focusedEnemyIndex"] = i
+			return
 
 
 # calc-effect-wiring-03: Prophet's Breath grants the same evadeTurns/
@@ -758,7 +812,7 @@ static func cast_complication(index: int) -> Dictionary:
 	var power = cast["power"]
 	var targets: int = cast["targets"]
 	var recipe: Dictionary = GameData.RECIPES[recipe_key]
-	var enemy: Dictionary = combat["enemy"]
+	var enemy: Dictionary = _focused_enemy(combat)
 
 	# targets > 1 (a tier-indexed Spread Movement) has no per-target dilution
 	# by design (PRD user story 16) -- with combat's single-enemy model,
@@ -848,7 +902,14 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 	Snapshots.clear(combat["snapshots"])
 
 	player["hp"] = snap["playerHp"]
-	combat["enemy"]["hp"] = snap["enemyHp"]
+	combat["focusedEnemyIndex"] = snap["focusedEnemyIndex"]
+	# koed is kept in lockstep with hp here -- a rewound snapshot's hp is
+	# always the pre-lethal value in practice (snapshots are pushed at the
+	# start of every player turn), but this keeps the invariant true rather
+	# than leaning on that.
+	var focused_enemy: Dictionary = _focused_enemy(combat)
+	focused_enemy["hp"] = snap["enemyHp"]
+	focused_enemy["koed"] = focused_enemy["hp"] <= 0
 	var new_log: Array = snap["log"].duplicate()
 	new_log.append("⟲ Time unspools. The moment resets. Only you remember.")
 	combat["log"] = new_log
@@ -926,7 +987,8 @@ static func exit_combat() -> Dictionary:
 	Contacts.replenish_after_combat(combat["allies"])
 
 	GameState.state["combat"] = {
-		"active": false, "context": CONTEXT_RAID, "veinId": null, "enemy": null, "log": [],
+		"active": false, "context": CONTEXT_RAID, "veinId": null, "enemies": [],
+		"focusedEnemyIndex": 0, "log": [],
 		"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
 		"allies": [],

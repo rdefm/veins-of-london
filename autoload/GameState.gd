@@ -238,7 +238,8 @@ func new_game_state() -> Dictionary:
 		"contacts": _new_contacts_state(),
 
 		"combat": {
-			"active": false, "context": "raid", "veinId": null, "enemy": null, "log": [],
+			"active": false, "context": "raid", "veinId": null, "enemies": [],
+			"focusedEnemyIndex": 0, "log": [],
 			"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
 			# 44-archie-combat-ally: allies fighting alongside the player this
