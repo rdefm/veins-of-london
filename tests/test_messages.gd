@@ -85,6 +85,7 @@ func run() -> void:
 		assert_eq(entry["contactId"], "des")
 		assert_eq(entry["kind"], "col_a1_des_report")
 		assert_eq(entry["payload"], { "site_id": "s1" })
+		assert_eq(entry["text"], "Got something for you.", "the entry carries its own text, so a UI can render it without hunting the message thread")
 	)
 
 	run_case("pending_for_filters_to_the_given_contact", func():

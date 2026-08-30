@@ -265,6 +265,16 @@ func run() -> void:
 		assert_true(_find_button(card, "Continue →") == null, "an archie_deal offer must not fall into the generic Continue loop -- it has no event to start")
 	)
 
+	# ── 100-archie-deal-offer-shows-message: the pitch renders, not just the buttons ──
+
+	run_case("archie_card_shows_the_deal_offer_text_above_accept_decline", func():
+		GameState.reset()
+		Messages.queue_pending("archie", ArchieDeals.PENDING_KIND, "Got a sale lined up, nothing of yours in it. Fancy tagging along for a cut?")
+
+		var card := ContactCards.build_archie_card()
+		assert_true(_label_texts(card).has("Got a sale lined up, nothing of yours in it. Fancy tagging along for a cut?"), "the offer text should be visible on the card, not just bare buttons")
+	)
+
 	run_case("pressing_accept_on_archie_card_accepts_the_deal", func():
 		GameState.reset()
 		GameState.state["flags"]["archieDealActive"] = true

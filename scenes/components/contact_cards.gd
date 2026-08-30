@@ -36,6 +36,7 @@ static func build_archie_card() -> Control:
 		# pair, not the generic "Continue →" (which resolves straight into
 		# Events.start_event -- this pending kind has no event to start).
 		if entry["kind"] == ArchieDeals.PENDING_KIND:
+			c["content"].add_child(UI.label(entry["text"]))
 			c["content"].add_child(UI.button("Accept", _on_archie_deal_accept.bind(entry)))
 			c["content"].add_child(UI.button("Decline", _on_archie_deal_decline.bind(entry)))
 		else:

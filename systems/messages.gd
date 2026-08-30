@@ -6,7 +6,7 @@ extends RefCounted
 # (see CAP). Two state trees:
 #
 #   state.messages[contactId] = [ { from: "them"|"player", text, day, read } ]
-#   state.pendingMessages = [ { id, contactId, kind, payload } ]
+#   state.pendingMessages = [ { id, contactId, kind, payload, text } ]
 #
 # pendingMessages is the generic runtime-delivery road (spec §5.3): any
 # system can queue_pending() to text the player something with a follow-up
@@ -80,7 +80,7 @@ static func queue_pending(contact_id: String, kind: String, text: String, payloa
 	append(contact_id, "them", text)
 	var id := str(Time.get_ticks_usec()) + str(Rng.randi_range(1000, 999999))
 	GameState.state["pendingMessages"].append({
-		"id": id, "contactId": contact_id, "kind": kind, "payload": payload,
+		"id": id, "contactId": contact_id, "kind": kind, "payload": payload, "text": text,
 	})
 	EventBus.state_changed.emit()
 
