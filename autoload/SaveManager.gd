@@ -205,6 +205,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_collective_keys(result, defaults)
 	_backfill_new_world_keys(result, defaults)
 	_backfill_new_player_keys(result, defaults)
+	_backfill_new_home_keys(result, defaults)
 	return result
 
 
@@ -271,6 +272,20 @@ func _backfill_new_player_keys(result: Dictionary, defaults: Dictionary) -> void
 	for key in defaults["player"].keys():
 		if not player.has(key):
 			player[key] = defaults["player"][key]
+
+
+# Mirrors _backfill_new_player_keys/_backfill_new_world_keys above -- "home"
+# has existed as a top-level key since M0, so the shallow fill in
+# backfill_defaults() never fires for it, but this is the first time a new
+# key (guardCount) has been added since. Seeds only the missing key, never
+# touching a pre-existing "security"/"rooms"/etc. the save already has.
+func _backfill_new_home_keys(result: Dictionary, defaults: Dictionary) -> void:
+	if not result.has("home"):
+		return
+	var home: Dictionary = result["home"]
+	for key in defaults["home"].keys():
+		if not home.has(key):
+			home[key] = defaults["home"][key]
 
 
 # JSON has no int/float distinction, so every number in a just-parsed save
@@ -375,6 +390,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("home"):
 		var home: Dictionary = state["home"]
 		_int_key(home, "lastRaidDay")
+		_int_key(home, "guardCount")
 
 	if state.has("mapView"):
 		var map_view: Dictionary = state["mapView"]

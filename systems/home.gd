@@ -17,6 +17,12 @@ extends RefCounted
 # rather than a magic literal, without implying the two are the same flag.
 const ALARM_SECURITY_ID := "alarm"
 
+# Unlike every other id in home["security"] (installed once, boolean
+# membership via .has()), "guard" stacks with no upper limit -- its count
+# lives on home["guardCount"] instead, so add_security() and
+# get_home_raid_chance() both special-case this id.
+const GUARD_SECURITY_ID := "guard"
+
 # PROSE-REVIEW: new notification copy, drafted against CONTENT-GUIDE.md's tone
 # bible (dry, administrative, one line) -- the HQ mirror of Raiding.
 # _queue_defend_raid()'s own warning text.
@@ -31,6 +37,9 @@ static func get_home_raid_chance() -> float:
 	var raid_reduction := 0.0
 	for security_id in home["security"]:
 		raid_reduction += GameData.HOME_SECURITY[security_id]["raidReduction"]
+	# Flat per-guard contribution, uncapped and non-escalating -- a guard
+	# count of 1 reproduces the old single-guard raidReduction exactly.
+	raid_reduction += GameData.HOME_SECURITY[GUARD_SECURITY_ID]["raidReduction"] * home.get("guardCount", 0)
 	var total_stored: int = _sum_ore(player["orichalchum"])
 	var chance: float = tier_data["raidBaseChance"] + fx.get("homeRaid", 0.0) - raid_reduction + total_stored * 0.001
 	return max(0.002, chance)
@@ -172,7 +181,10 @@ static func add_security(security_id: String) -> Dictionary:
 	var home: Dictionary = GameState.state["home"]
 	var player: Dictionary = GameState.state["player"]
 
-	if home["security"].has(security_id):
+	# "guard" never goes in the array (see GUARD_SECURITY_ID above), so it
+	# has nothing to block on here -- it's always allowed past the
+	# minTier/cash checks below.
+	if security_id != GUARD_SECURITY_ID and home["security"].has(security_id):
 		return { "ok": false, "reason": "Already installed." }
 
 	var security_data: Dictionary = GameData.HOME_SECURITY[security_id]
@@ -191,11 +203,27 @@ static func add_security(security_id: String) -> Dictionary:
 
 	player["cash"] -= cost
 	Bank.record(-cost, "HQ security: %s" % security_data["name"])
-	home["security"].append(security_id)
-	Notify.push("Installed %s." % security_data["name"], Notify.CATEGORY_SUCCESS)
+
+	if security_id == GUARD_SECURITY_ID:
+		home["guardCount"] = home.get("guardCount", 0) + 1
+		var guard_count: int = home["guardCount"]
+		# PROSE-REVIEW: new notification copy, drafted against CONTENT-
+		# GUIDE.md's tone bible.
+		var guard_msg: String = "Hired a guard for HQ." if guard_count == 1 else "Hired another guard for HQ — %d guards on watch now." % guard_count
+		Notify.push(guard_msg, Notify.CATEGORY_SUCCESS)
+	else:
+		home["security"].append(security_id)
+		Notify.push("Installed %s." % security_data["name"], Notify.CATEGORY_SUCCESS)
+
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
+
+
+# Single source of truth for HQ's guard count -- old saves without the key
+# read as 0, same convention vein.get("extraGuards", 0) uses.
+static func get_guard_count() -> int:
+	return GameState.state["home"].get("guardCount", 0)
 
 
 static func add_room(room_id: String) -> Dictionary:

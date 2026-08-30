@@ -227,6 +227,40 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	# ── 107-hq-stackable-guards ────────────────────────────────────────
+
+	run_case("save_mutate_load_round_trips_home_guardCount_as_int", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "compound"
+		Home.add_security("guard")
+		Home.add_security("guard")
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["home"]["guardCount"] = 0
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		assert_eq(GameState.state["home"]["guardCount"], 2, "guardCount should be restored")
+		assert_eq(typeof(GameState.state["home"]["guardCount"]), TYPE_INT, "guardCount should be restored as int, not float")
+		assert_eq(GameState.state, original, "the full state tree (including home.guardCount) should deep-equal what was saved")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("loading_a_pre_107_save_backfills_home_guardCount_to_0", func():
+		GameState.reset()
+		# Pre-107 shape: state.home had no guardCount key at all.
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["home"].erase("guardCount")
+
+		var filled := SaveManager.backfill_defaults(legacy)
+		assert_eq(filled["home"]["guardCount"], 0, "a save from before guardCount existed should backfill it to 0")
+	)
+
 	# ── ticket 64: legacy flat-int inventory migration ───────────────────
 
 	run_case("loading_a_pre_ticket_64_save_migrates_flat_int_inventory_into_the_0_bucket", func():

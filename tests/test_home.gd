@@ -231,7 +231,69 @@ func run() -> void:
 		for security_id in GameData.HOME_SECURITY.keys():
 			var result := Home.add_security(security_id)
 			assert_true(result["ok"], "compound-tier player should be able to install %s with no count-based block" % security_id)
-		assert_eq(GameState.state["home"]["security"].size(), GameData.HOME_SECURITY.size(), "all security upgrades should be installed")
+		# 107-hq-stackable-guards: "guard" is stackable and never lands in the
+		# boolean security array (see the guard_* cases below) -- every other
+		# id still does, so the array should hold everything except it.
+		var non_guard_count: int = GameData.HOME_SECURITY.size() - 1
+		assert_eq(GameState.state["home"]["security"].size(), non_guard_count, "every non-guard security upgrade should be installed")
+		assert_true(not GameState.state["home"]["security"].has("guard"), "guard tracks via guardCount, not the boolean security array")
+		assert_eq(GameState.state["home"]["guardCount"], 1, "the one guard purchase in the loop above should have incremented guardCount")
+	)
+
+	# ── 107-hq-stackable-guards ────────────────────────────────────────
+
+	run_case("guard_purchases_stack_as_a_count_not_a_boolean_flag", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "compound"
+
+		var first := Home.add_security("guard")
+		assert_true(first["ok"], "first guard purchase should succeed")
+		assert_eq(GameState.state["home"]["guardCount"], 1, "first purchase sets guardCount to 1")
+
+		var second := Home.add_security("guard")
+		assert_true(second["ok"], "a second guard purchase should succeed -- no longer blocked as 'already installed'")
+		assert_eq(GameState.state["home"]["guardCount"], 2, "second purchase increments guardCount")
+
+		var third := Home.add_security("guard")
+		assert_true(third["ok"], "guards keep stacking with no upper limit, same as vein extraGuards")
+		assert_eq(GameState.state["home"]["guardCount"], 3)
+
+		assert_eq(Home.get_guard_count(), 3, "get_guard_count() reflects the same total")
+	)
+
+	run_case("guard_purchase_still_enforces_minTier_and_cash", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		var blocked := Home.add_security("guard")
+		assert_true(not blocked["ok"], "bedsit-tier player should not be able to hire a guard (requires compound)")
+		assert_eq(GameState.state["home"]["guardCount"], 0, "a blocked purchase must not increment guardCount")
+
+		GameState.state["home"]["tier"] = "compound"
+		GameState.state["player"]["cash"] = 0
+		var poor := Home.add_security("guard")
+		assert_true(not poor["ok"], "should fail without enough cash")
+		assert_eq(GameState.state["home"]["guardCount"], 0)
+	)
+
+	run_case("guard_raidReduction_scales_flat_per_guard_like_vein_extraGuards", func():
+		GameState.reset()
+		# Well clear of get_home_raid_chance()'s max(0.002, ...) floor, so
+		# each guard's subtraction is actually visible in the diff below --
+		# bedsit's own 0.08 base isn't enough headroom for 3 guards' combined
+		# 0.15 reduction on its own.
+		GameState.state["player"]["orichalchum"] = { "time": 1000 }
+		var per_guard: float = GameData.HOME_SECURITY["guard"]["raidReduction"]
+
+		GameState.state["home"]["guardCount"] = 0
+		var no_guard_chance := Home.get_home_raid_chance()
+		GameState.state["home"]["guardCount"] = 1
+		var one_guard_chance := Home.get_home_raid_chance()
+		GameState.state["home"]["guardCount"] = 3
+		var three_guard_chance := Home.get_home_raid_chance()
+
+		assert_almost_eq(no_guard_chance - one_guard_chance, per_guard, 0.0001, "a guard count of 1 must reproduce the pre-ticket single-guard raidReduction exactly")
+		assert_almost_eq(no_guard_chance - three_guard_chance, per_guard * 3, 0.0001, "each extra guard keeps contributing the same flat raidReduction, uncapped -- same scaling shape as Cultivating.vein_raid_resist()'s flat +20/extraGuard")
 	)
 
 	run_case("add_security_applies_securityContactUnlocked_discount", func():

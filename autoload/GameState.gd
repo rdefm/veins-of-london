@@ -216,7 +216,10 @@ func new_game_state() -> Dictionary:
 		# same scoping trick is_defend_notification_pending() uses, so an old
 		# already-resolved warning in the (capped, not cleared) log can't
 		# reactivate its Defend button once HQ is raided again later.
-		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0, "pendingRaid": false, "pendingRaidNotificationId": null },
+		# guardCount is the Hired Guard security upgrade's stack count --
+		# unlike every other id in "security" (boolean membership), "guard"
+		# is never appended there; see Home.GUARD_SECURITY_ID.
+		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0, "pendingRaid": false, "pendingRaidNotificationId": null, "guardCount": 0 },
 
 		"factions": _new_factions_state(),
 

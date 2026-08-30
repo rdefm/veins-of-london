@@ -175,6 +175,8 @@ Tier descriptions: extract verbatim from HTML const `HOME_TIERS`.
 | ward | Orichalchum Ward | 2000 | 0.06 | safehouse |
 | guard | Hired Guard | 1200 | 0.05 | compound |
 
+**Stackable HQ guards** (107-hq-stackable-guards): unlike every other row above (installed once, boolean membership in `state.home.security`), `guard` is uncapped and repeatable — the HQ security list's "Hired Guard" row stays a buy button past the first purchase instead of switching to "Installed", and each purchase increments `state.home.guardCount` (int, default 0; a pre-ticket save with no `guardCount` key backfills to 0) rather than appending to `security`. Cost stays flat at `guard`'s own `1200` (×0.7 with `securityContactUnlocked`, same as any other row) for every purchase — this ticket doesn't introduce an escalating cost curve. `getHomeRaidChance()`'s guard contribution becomes `guard.raidReduction × guardCount` (flat 0.05 per guard, uncapped) instead of a flat one-off 0.05 — a `guardCount` of 1 reproduces the pre-ticket single-guard behaviour exactly. Same flat-uncapped-per-guard shape as vein `extraGuards` (§1.6's "Stackable guards past 'guarded'"), except home guards don't escalate in cost the way vein extra guards do.
+
 **Rooms:**
 
 | id | name | cost | minTier | bonus | bonusValue |
@@ -425,7 +427,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - **Merged effects:** sum `effects` dicts of the three active states. `getEffectiveMugChance(base) = clamp(base + fx.mugChance, 0, 0.8)`. `getEffectiveOrePrice(type, base) = round(base * max(0.1, 1 + fx.orePrice + fx.<type>Premium))`.
 
 ### 3.3 Home
-- `getHomeRaidChance() = max(0.002, tier.raidBaseChance + fx.homeRaid − Σ installed raidReduction + totalCarriedOre * 0.001)`, where `totalCarriedOre` is the sum of `player.orichalchum` (see storedOre merge note in §2).
+- `getHomeRaidChance() = max(0.002, tier.raidBaseChance + fx.homeRaid − Σ installed raidReduction − guard.raidReduction × guardCount + totalCarriedOre * 0.001)`, where `totalCarriedOre` is the sum of `player.orichalchum` (see storedOre merge note in §2). See §1.7's "Stackable HQ guards" for `guardCount`.
 - Raid roll (in daily tick): skip if `day − lastRaidDay < 3`; on hit set `lastRaidDay = day`; if carried ore total is 0, nothing; else lose `floor(qty * ratio)` per type from `player.orichalchum`, ratio 0.50 (0.25 with safeRoom). Notification with units lost.
 - Upgrades/rooms: enforce cash, slot caps, minTier by tier order. Room `body` bonus applies immediately: `hpMax += 10`, `hp = min(hp + 10, hpMax)`. `workshopBonus` = Σ bonusValue of installed rooms with bonus == "crafting".
 

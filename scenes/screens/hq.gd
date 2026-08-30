@@ -55,7 +55,7 @@ func _refresh() -> void:
 	var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
 
 	_content.add_child(UI.heading(tier["name"]))
-	_content.add_child(UI.muted_label("Raid risk: %d%% · %d/%d security installed · %d/%d room slots" % [raid_pct, home["security"].size(), GameData.HOME_SECURITY.size(), home["rooms"].size(), tier["maxRooms"]]))
+	_content.add_child(UI.muted_label("Raid risk: %d%% · %d/%d security installed · %d/%d room slots" % [raid_pct, _installed_security_count(home), GameData.HOME_SECURITY.size(), home["rooms"].size(), tier["maxRooms"]]))
 	_content.add_child(UI.label(tier["description"]))
 	_content.add_child(UI.muted_label("Daily cost: £%d · Tier %d/6" % [tier["dailyCost"], tier["tier"]]))
 
@@ -159,31 +159,50 @@ func _build_collapsible_list_section(title_prefix: String, count: int, total: in
 
 func _build_security_section() -> Control:
 	var home: Dictionary = GameState.state["home"]
-	return _build_collapsible_list_section("Security", home["security"].size(), GameData.HOME_SECURITY.size(), _security_expanded, func(v): _security_expanded = v, GameData.HOME_SECURITY.keys(), _build_security_row)
+	return _build_collapsible_list_section("Security", _installed_security_count(home), GameData.HOME_SECURITY.size(), _security_expanded, func(v): _security_expanded = v, GameData.HOME_SECURITY.keys(), _build_security_row)
 
 
+# "guard" is never appended to home["security"] (Home.add_security()'s own
+# special case for it), so it wouldn't otherwise count towards "installed"
+# totals once bought -- this adds it back in exactly once, whatever the
+# stack count.
+func _installed_security_count(home: Dictionary) -> int:
+	var count: int = home["security"].size()
+	if Home.get_guard_count() > 0:
+		count += 1
+	return count
+
+
+# "guard" stacks with no upper limit (Home.add_security() never blocks it on
+# "already installed" -- see GUARD_SECURITY_ID there), so unlike every other
+# row here its buy button stays live past the first purchase, with a ×N
+# count in place of the static "Installed" line.
 func _build_security_row(security_id: String) -> Control:
 	var home: Dictionary = GameState.state["home"]
 	var sec: Dictionary = GameData.HOME_SECURITY[security_id]
-	var installed: bool = home["security"].has(security_id)
 	var order: Array = GameData.HOME_TIER_ORDER
 	var available: bool = order.find(home["tier"]) >= order.find(sec["minTier"])
 
 	var discount: float = 0.7 if GameState.state["flags"]["securityContactUnlocked"] else 1.0
 	var adj_cost: int = GameState.round_epsilon(sec["cost"] * discount)
 
+	var stackable: bool = security_id == Home.GUARD_SECURITY_ID
+	var count: int = Home.get_guard_count() if stackable else 0
+	var installed: bool = count > 0 if stackable else home["security"].has(security_id)
+	var label: String = sec["name"] if count == 0 else "%s ×%d" % [sec["name"], count]
+
 	var c := UI.card()
 	var prefix := "✅ " if installed else ("🔒 " if not available else "")
-	c["content"].add_child(UI.label(prefix + sec["name"]))
+	c["content"].add_child(UI.label(prefix + label))
 	var desc: String = sec["description"]
 	if not available:
 		desc += " Requires %s." % GameData.HOME_TIERS[sec["minTier"]]["name"]
 	c["content"].add_child(UI.muted_label(desc))
 
-	if installed:
-		c["content"].add_child(UI.muted_label("Installed"))
-	elif not available:
+	if not available:
 		c["content"].add_child(UI.muted_label("Locked"))
+	elif installed and not stackable:
+		c["content"].add_child(UI.muted_label("Installed"))
 	else:
 		var b := UI.button("£%d" % adj_cost, func(): Home.add_security(security_id))
 		b.disabled = GameState.state["player"]["cash"] < adj_cost
