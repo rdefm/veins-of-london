@@ -23,6 +23,10 @@ func randf() -> float:
 	return _rng.randf()
 
 
+func randf_range(from: float, to: float) -> float:
+	return _rng.randf_range(from, to)
+
+
 func chance(p: float) -> bool:
 	return _rng.randf() < p
 

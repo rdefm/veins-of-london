@@ -63,26 +63,59 @@ const MUGGER_SPEED := 11
 # already sets for evadeChance (0.2).
 const DEFAULT_TEMPLATE_SPEED := 10
 
+# squad-combat ticket 04, R§3.7a "Roster generation": per-instance hp/attack
+# variance band for spawned mugger/guard entries -- DRAFT, needs balance
+# sign-off, not a final number.
+const ENEMY_INSTANCE_VARIANCE := 0.15
+# R§3.7a's own squad-size cap -- also the ceiling generate_raid_enemy()
+# clamps guard_count to below.
+const SQUAD_MAX := 3
+
 
 static func is_canonical_context(context: String) -> bool:
 	return CANONICAL_CONTEXTS.has(context)
 
 
-static func generate_mugger() -> Dictionary:
+# squad-combat ticket 04, R§3.7a "Roster generation": rolls the applied
+# variance for one stat independently -- called once per hp/attackMin/
+# attackMax so same-archetype squadmates are never stat-for-stat identical.
+static func _apply_instance_variance(base: float) -> int:
+	return GameState.round_epsilon(base * Rng.randf_range(1.0 - ENEMY_INSTANCE_VARIANCE, 1.0 + ENEMY_INSTANCE_VARIANCE))
+
+
+# squad-combat ticket 04: `count` distinct entries off the single mugger
+# archetype's base stats (hp 28, atk 4-10 per R§3.7a), each with independent
+# variance -- replaces the old one `hp x count` blob. No new mugger
+# archetype is introduced; every entry shares the same base stats.
+static func generate_mugger() -> Array:
 	var count: int = Rng.randi_range(1, 3)
-	var name: String = "A mugger" if count == 1 else "%d muggers" % count
+	var entries: Array = []
+	for _i in range(count):
+		entries.append(_spawn_mugger_instance())
+	return entries
+
+
+static func _spawn_mugger_instance() -> Dictionary:
+	var hp: int = _apply_instance_variance(28)
 	return {
-		"name": name,
-		"hp": 28 * count,
-		"hpMax": 28 * count,
-		"attackMin": 4 + 2 * (count - 1),
-		"attackMax": 10 + 3 * (count - 1),
+		"name": "A mugger",
+		"hp": hp,
+		"hpMax": hp,
+		"attackMin": _apply_instance_variance(4),
+		"attackMax": _apply_instance_variance(10),
 		"isMugging": true,
 		"weapon": null,
 		"ability": null,
 		"evadeChance": 0.0,
 		"speed": MUGGER_SPEED,
 	}
+
+
+# squad-combat ticket 04: the "N muggers stepped out" intro-line label,
+# pulled out of generate_mugger() itself now that naming a roster (vs. a
+# single blob dict) is the caller's job, not the generator's.
+static func _mugger_intro_label(count: int) -> String:
+	return "A mugger" if count == 1 else "%d muggers" % count
 
 
 # calc-effect-wiring-01: builds the {weapon, ability, evadeChance} capability
@@ -109,26 +142,60 @@ static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionar
 # vein-growth-state ticket 03 §3: this parameter used to be a 1-5 vein
 # "level" — it's a Cultivating.value_tier() (1-6) now, same shape, no
 # formula change, just a name that no longer lies about what it holds.
-static func generate_raid_enemy(vein_id, value_tier: int, guards: int = 1, template_key: String = "") -> Dictionary:
+# squad-combat ticket 04: `guard_count` (capped at SQUAD_MAX) distinct
+# entries instead of one `hpBase x guard_count` blob -- each slot
+# independently rolls a template from GameData.ENEMY_RAID_GUARDS unless
+# `template_key` forces one template for every slot, and every entry gets
+# its own hp/attackMin/attackMax variance (R§3.7a).
+static func generate_raid_enemy(vein_id, value_tier: int, guards: int = 1, template_key: String = "") -> Array:
 	var templates: Dictionary = GameData.ENEMY_RAID_GUARDS
-	var key: String = template_key
-	if key == "" or not templates.has(key):
-		key = Rng.rand_from(templates.keys())
-	var template: Dictionary = templates[key]
-	var guard_count: int = maxi(1, guards)
+	var guard_count: int = clampi(guards, 1, SQUAD_MAX)
+	var entries: Array = []
+	for _i in range(guard_count):
+		var key: String = template_key
+		if key == "" or not templates.has(key):
+			key = Rng.rand_from(templates.keys())
+		entries.append(_spawn_guard_instance(templates[key], value_tier))
+	return entries
+
+
+static func _spawn_guard_instance(template: Dictionary, value_tier: int) -> Dictionary:
 	var hp_scale: float = 1.0 + (value_tier - 1) * 0.3
-	var hp: int = GameState.round_epsilon(template["hpBase"] * hp_scale * guard_count)
-	var name: String = template["name"] if guard_count <= 1 else "%d× %s" % [guard_count, template["name"]]
-	var enemy := {
-		"name": name,
+	var hp: int = _apply_instance_variance(template["hpBase"] * hp_scale)
+	var entry := {
+		"name": template["name"],
 		"hp": hp,
 		"hpMax": hp,
-		"attackMin": template["attackMin"],
-		"attackMax": template["attackMax"] + (value_tier - 1),
+		"attackMin": _apply_instance_variance(template["attackMin"]),
+		"attackMax": _apply_instance_variance(template["attackMax"] + (value_tier - 1)),
 		"isMugging": false,
 	}
-	enemy.merge(_enemy_capabilities_from_template(template))
-	return enemy
+	entry.merge(_enemy_capabilities_from_template(template))
+	return entry
+
+
+# squad-combat ticket 04: raid-intro group label for a spawned guard
+# roster -- collapses same-named entries to "N× Name" (identical shape the
+# old forced/single-template blob name used, so a forced-template or an
+# incidentally-uniform roll reads exactly as before), and joins distinct
+# names for a mixed-archetype squad (e.g. one Scrapper + one Vein Guard),
+# which is newly possible now that each slot rolls its own template.
+# PROSE-REVIEW: the "and"-joined mixed-squad case is new copy, drafted
+# against CONTENT-GUIDE.md's tone bible.
+static func _guard_group_name(entries: Array) -> String:
+	var counts: Dictionary = {}
+	var order: Array = []
+	for entry in entries:
+		var n: String = entry["name"]
+		if not counts.has(n):
+			counts[n] = 0
+			order.append(n)
+		counts[n] += 1
+	var parts: Array = []
+	for n in order:
+		var c: int = counts[n]
+		parts.append(n if c <= 1 else "%d× %s" % [c, n])
+	return " and ".join(parts)
 
 
 static func get_attack_range() -> Dictionary:
@@ -179,12 +246,12 @@ static func disarm_enemy(enemy: Dictionary, turns: int) -> void:
 # Contacts.can_join_combat()'s recruited/kit/KO-cooldown gate entirely
 # rather than being subject to it like every other ally-join site.
 static func start_mugging() -> void:
-	var enemy := generate_mugger()
-	var log_lines := ["%s step out of nowhere. They want what you're carrying." % enemy["name"]]
+	var enemies := generate_mugger()
+	var log_lines := ["%s step out of nowhere. They want what you're carrying." % _mugger_intro_label(enemies.size())]
 	# PROSE-REVIEW: new ally-join log line, drafted against
 	# CONTENT-GUIDE.md's tone bible.
 	log_lines.append("Archie's deal, Archie's problem -- he wades in.")
-	_start_combat(CONTEXT_MUGGING, null, enemy, log_lines, "muggingWon",
+	_start_combat(CONTEXT_MUGGING, null, enemies, log_lines, "muggingWon",
 		[Contacts.build_combat_ally("archie")])
 
 
@@ -195,12 +262,12 @@ static func start_mugging() -> void:
 # from exit_combat() for this context regardless of outcome, the same shape
 # CONTEXT_DEFEND_VEIN's Raiding.resolve_defend_outcome() already uses.
 static func start_archie_deal_mugging() -> void:
-	var enemy := generate_mugger()
-	var log_lines := ["%s step out of nowhere. They want what you're carrying." % enemy["name"]]
+	var enemies := generate_mugger()
+	var log_lines := ["%s step out of nowhere. They want what you're carrying." % _mugger_intro_label(enemies.size())]
 	# PROSE-REVIEW: new ally-join log line, drafted against
 	# CONTENT-GUIDE.md's tone bible.
 	log_lines.append("Archie's deal, Archie's problem -- he wades in.")
-	_start_combat(CONTEXT_ARCHIE_DEAL_MUGGING, null, enemy, log_lines, "",
+	_start_combat(CONTEXT_ARCHIE_DEAL_MUGGING, null, enemies, log_lines, "",
 		[Contacts.build_combat_ally("archie")])
 
 
@@ -210,9 +277,9 @@ static func start_archie_deal_mugging() -> void:
 # _dispatch_on_win()'s default case) and exit_combat() routes back to the
 # still-active event screen rather than to the sale flow or home.
 static func start_street_mugging() -> void:
-	var enemy := generate_mugger()
-	_start_combat(CONTEXT_EVENT_MUGGING, null, enemy,
-		["%s want a word. This is about to get physical." % enemy["name"]],
+	var enemies := generate_mugger()
+	_start_combat(CONTEXT_EVENT_MUGGING, null, enemies,
+		["%s want a word. This is about to get physical." % _mugger_intro_label(enemies.size())],
 		"")
 
 
@@ -225,7 +292,7 @@ static func start_home_raid_combat() -> void:
 		"isMugging": false,
 	}
 	enemy.merge(_enemy_capabilities_from_template(raider))
-	_start_combat(CONTEXT_HOME_RAID, null, enemy,
+	_start_combat(CONTEXT_HOME_RAID, null, [enemy],
 		["They're in the flat. You've got the crowbar. This is happening."],
 		"homeRaidWon")
 
@@ -236,10 +303,10 @@ static func start_home_raid_combat() -> void:
 # resume the still-active event on a win instead of routing to inventory --
 # every other caller keeps the original "raid" context and its behaviour.
 static func start_raid(vein_id: String, value_tier: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID, ally_ids: Array = []) -> void:
-	var enemy := generate_raid_enemy(vein_id, value_tier, guards, template_key)
-	var log_lines := ["%s steps out to meet you." % enemy["name"]]
+	var enemies := generate_raid_enemy(vein_id, value_tier, guards, template_key)
+	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
 	var allies := _gather_raid_allies(ally_ids, log_lines)
-	_start_combat(context, vein_id, enemy, log_lines, "raidWon", allies)
+	_start_combat(context, vein_id, enemies, log_lines, "raidWon", allies)
 
 
 # 45-archie-raid-assist: unlike _gather_defend_allies' auto-join-everyone
@@ -271,12 +338,12 @@ static func _gather_raid_allies(ally_ids: Array, log_lines: Array) -> Array:
 # it was (nothing to dispatch); a loss is handled by
 # Raiding.resolve_defend_outcome() from exit_combat() below, not here.
 static func start_defend_vein(vein_id: String, value_tier: int) -> void:
-	var enemy := generate_raid_enemy(vein_id, value_tier)
+	var enemies := generate_raid_enemy(vein_id, value_tier)
 	# PROSE-REVIEW: new combat intro line, drafted against CONTENT-GUIDE.md's
 	# tone bible (dry, administrative, one line).
-	var log_lines := ["The alarm wasn't lying. %s is already there." % enemy["name"]]
+	var log_lines := ["The alarm wasn't lying. %s is already there." % _guard_group_name(enemies)]
 	var allies := _gather_defend_allies(log_lines)
-	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemy, log_lines, "", allies)
+	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemies, log_lines, "", allies)
 
 
 # 44-archie-combat-ally: vein-defense fights only -- every recruited contact
@@ -294,7 +361,7 @@ static func _gather_defend_allies(log_lines: Array) -> Array:
 	return allies
 
 
-static func _start_combat(context: String, vein_id, enemy: Dictionary, log_lines: Array, on_win: String, allies: Array = []) -> void:
+static func _start_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = []) -> void:
 	if not is_canonical_context(context):
 		push_error("Combat: unrecognized context '%s' — not in CANONICAL_CONTEXTS, exit_combat() will mis-route it." % context)
 	# squad-combat ticket 01: every roster entry needs koed regardless of
@@ -302,10 +369,13 @@ static func _start_combat(context: String, vein_id, enemy: Dictionary, log_lines
 	# duplicating this at each enemy-construction call site. speed is set at
 	# construction time instead (generate_mugger()'s MUGGER_SPEED, or
 	# _enemy_capabilities_from_template()'s per-template value) -- ticket 02's
-	# authored values, not a blanket placeholder.
-	enemy["koed"] = false
+	# authored values, not a blanket placeholder. squad-combat ticket 04:
+	# `enemies` is now the full roster (up to SQUAD_MAX distinct entries),
+	# not a single dict wrapped in a list.
+	for enemy in enemies:
+		enemy["koed"] = false
 	GameState.state["combat"] = {
-		"active": true, "context": context, "veinId": vein_id, "enemies": [enemy],
+		"active": true, "context": context, "veinId": vein_id, "enemies": enemies,
 		"focusedEnemyIndex": 0,
 		"log": log_lines, "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": on_win, "snapshots": [],

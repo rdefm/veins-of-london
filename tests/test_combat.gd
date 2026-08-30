@@ -1,6 +1,17 @@
 extends "res://tests/test_base.gd"
 
 
+# squad-combat ticket 04: the exact same min/max formula
+# Combat._apply_instance_variance() rolls between, so a test asserting an
+# entry's stat falls "within its archetype's variance band" is checking
+# the real band, not a hand-guessed approximation of it.
+static func _variance_bounds(base: float) -> Dictionary:
+	return {
+		"min": GameState.round_epsilon(base * (1.0 - Combat.ENEMY_INSTANCE_VARIANCE)),
+		"max": GameState.round_epsilon(base * (1.0 + Combat.ENEMY_INSTANCE_VARIANCE)),
+	}
+
+
 static func _find_seed_for(max_tries: int, fn: Callable) -> int:
 	for seed in range(max_tries):
 		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
@@ -66,27 +77,116 @@ func _multi_enemy_combat(specs: Array, allies: Array = []) -> Dictionary:
 
 
 func run() -> void:
-	run_case("mugger_generation_bands_for_count_1_to_3", func():
+	# ── squad-combat ticket 04: distinct-instance roster generation ─────
+
+	run_case("generate_mugger_returns_count_1_to_3_distinct_entries_within_variance_band", func():
 		var seen := { 1: false, 2: false, 3: false }
+		var hp_bounds := _variance_bounds(28.0)
+		var atk_min_bounds := _variance_bounds(4.0)
+		var atk_max_bounds := _variance_bounds(10.0)
+		var found_variance := false
 		for seed in range(300):
 			Rng.set_seed(seed)
-			var enemy := Combat.generate_mugger()
-			var count: int = enemy["hp"] / 28
+			var entries := Combat.generate_mugger()
+			var count: int = entries.size()
 			seen[count] = true
-			if count == 1:
-				assert_eq(enemy["name"], "A mugger", "count 1 name")
-				assert_eq(enemy["attackMin"], 4, "count 1 attackMin")
-				assert_eq(enemy["attackMax"], 10, "count 1 attackMax")
-			elif count == 2:
-				assert_eq(enemy["name"], "2 muggers", "count 2 name")
-				assert_eq(enemy["attackMin"], 6, "count 2 attackMin = 4+2*1")
-				assert_eq(enemy["attackMax"], 13, "count 2 attackMax = 10+3*1")
-			elif count == 3:
-				assert_eq(enemy["name"], "3 muggers", "count 3 name")
-				assert_eq(enemy["attackMin"], 8, "count 3 attackMin = 4+2*2")
-				assert_eq(enemy["attackMax"], 16, "count 3 attackMax = 10+3*2")
-			assert_eq(enemy["hpMax"], enemy["hp"], "hp starts full")
+			for entry in entries:
+				assert_eq(entry["name"], "A mugger", "every entry rolls off the single mugger archetype -- no new archetype introduced")
+				assert_eq(entry["hpMax"], entry["hp"], "a fresh entry starts full")
+				assert_true(entry["hp"] >= hp_bounds["min"] and entry["hp"] <= hp_bounds["max"], "hp %d outside variance band [%d,%d]" % [entry["hp"], hp_bounds["min"], hp_bounds["max"]])
+				assert_true(entry["attackMin"] >= atk_min_bounds["min"] and entry["attackMin"] <= atk_min_bounds["max"], "attackMin %d outside variance band [%d,%d]" % [entry["attackMin"], atk_min_bounds["min"], atk_min_bounds["max"]])
+				assert_true(entry["attackMax"] >= atk_max_bounds["min"] and entry["attackMax"] <= atk_max_bounds["max"], "attackMax %d outside variance band [%d,%d]" % [entry["attackMax"], atk_max_bounds["min"], atk_max_bounds["max"]])
+				assert_eq(entry["speed"], Combat.MUGGER_SPEED, "speed should carry the authored mugger speed unchanged, no variance applied")
+			if count >= 2 and (entries[0]["hp"] != entries[1]["hp"] or entries[0]["attackMin"] != entries[1]["attackMin"] or entries[0]["attackMax"] != entries[1]["attackMax"]):
+				found_variance = true
 		assert_true(seen[1] and seen[2] and seen[3], "all three mugger counts should appear across 300 seeds")
+		assert_true(found_variance, "same-archetype squadmates should not be guaranteed stat-for-stat identical")
+	)
+
+	run_case("generate_raid_enemy_returns_guard_count_entries_capped_at_squad_max", func():
+		GameState.reset()
+		for guards in [1, 2, 3, 5]:
+			Rng.set_seed(guards)
+			var entries := Combat.generate_raid_enemy("v1", 1, guards, "veinGuard")
+			assert_eq(entries.size(), mini(guards, Combat.SQUAD_MAX), "guard_count %d should spawn min(guards, SQUAD_MAX) entries" % guards)
+	)
+
+	run_case("generate_raid_enemy_forced_template_key_applies_to_every_slot", func():
+		GameState.reset()
+		for seed in range(20):
+			Rng.set_seed(seed)
+			var entries := Combat.generate_raid_enemy("v1", 1, 3, "veinGuard")
+			assert_eq(entries.size(), 3)
+			for entry in entries:
+				assert_eq(entry["name"], "Vein Guard", "a forced template_key should apply to every slot, no mixing")
+	)
+
+	run_case("generate_raid_enemy_unforced_can_mix_templates_across_slots", func():
+		var mixed_found := false
+		for seed in range(300):
+			Rng.set_seed(seed)
+			var entries := Combat.generate_raid_enemy("v1", 1, 3, "")
+			var names := {}
+			for entry in entries:
+				names[entry["name"]] = true
+			if names.size() > 1:
+				mixed_found = true
+				break
+		assert_true(mixed_found, "an unforced 3-guard raid should sometimes mix archetypes across 300 seeds")
+	)
+
+	run_case("generate_raid_enemy_entries_fall_within_their_templates_variance_band_with_value_tier_scaling", func():
+		GameState.reset()
+		var template: Dictionary = GameData.ENEMY_RAID_GUARDS["veinGuard"]
+		var value_tier := 3
+		var hp_scale: float = 1.0 + (value_tier - 1) * 0.3
+		var hp_bounds := _variance_bounds(template["hpBase"] * hp_scale)
+		var atk_min_bounds := _variance_bounds(template["attackMin"])
+		var atk_max_bounds := _variance_bounds(template["attackMax"] + (value_tier - 1))
+		for seed in range(100):
+			Rng.set_seed(seed)
+			var entries := Combat.generate_raid_enemy("v1", value_tier, 1, "veinGuard")
+			var entry: Dictionary = entries[0]
+			assert_eq(entry["hpMax"], entry["hp"], "a fresh entry starts full")
+			assert_true(entry["hp"] >= hp_bounds["min"] and entry["hp"] <= hp_bounds["max"], "hp %d outside variance band [%d,%d]" % [entry["hp"], hp_bounds["min"], hp_bounds["max"]])
+			assert_true(entry["attackMin"] >= atk_min_bounds["min"] and entry["attackMin"] <= atk_min_bounds["max"], "attackMin outside variance band")
+			assert_true(entry["attackMax"] >= atk_max_bounds["min"] and entry["attackMax"] <= atk_max_bounds["max"], "attackMax outside variance band")
+			assert_eq(entry["speed"], template["speed"], "speed should carry the template's authored value unchanged, no variance applied")
+	)
+
+	run_case("generate_raid_enemy_same_template_entries_are_not_guaranteed_identical", func():
+		var found_variance := false
+		for seed in range(200):
+			Rng.set_seed(seed)
+			var entries := Combat.generate_raid_enemy("v1", 1, 3, "veinGuard")
+			if entries[0]["hp"] != entries[1]["hp"] or entries[1]["hp"] != entries[2]["hp"]:
+				found_variance = true
+				break
+		assert_true(found_variance, "same-template guard squadmates should not be stat-for-stat identical across seeds")
+	)
+
+	run_case("guard_group_name_matches_the_old_blob_shape_for_a_single_template_squad", func():
+		var entries := [{ "name": "Vein Guard" }, { "name": "Vein Guard" }, { "name": "Vein Guard" }]
+		assert_eq(Combat._guard_group_name(entries), "3× Vein Guard", "an all-same-template roster should read exactly as the old forced-template blob name did")
+		assert_eq(Combat._guard_group_name([{ "name": "Vein Guard" }]), "Vein Guard", "a single entry should read as just the template name, no count prefix")
+	)
+
+	run_case("guard_group_name_joins_distinct_names_for_a_mixed_squad", func():
+		var entries := [{ "name": "Territorial Scrapper" }, { "name": "Vein Guard" }]
+		assert_eq(Combat._guard_group_name(entries), "Territorial Scrapper and Vein Guard", "a mixed-archetype squad should join distinct names")
+	)
+
+	run_case("start_mugging_can_populate_a_multi_entry_roster_all_unkoed_and_focused_at_0", func():
+		var seed := _find_seed_for(300, func():
+			GameState.reset()
+			Combat.start_mugging()
+			return GameState.state["combat"]["enemies"].size() >= 2
+		)
+		assert_true(seed != -1, "should find a seed producing a 2+ mugger roster within 300 tries")
+		var combat: Dictionary = GameState.state["combat"]
+		for enemy in combat["enemies"]:
+			assert_eq(enemy["koed"], false, "every freshly spawned entry should start un-koed")
+		assert_eq(combat["focusedEnemyIndex"], 0, "focus should default to index 0")
 	)
 
 	# ── squad-combat ticket 01: combat.enemies roster shape ──────────────
@@ -793,7 +893,7 @@ func run() -> void:
 	run_case("existing_raid_guard_templates_default_to_zero_evade_chance", func():
 		GameState.reset()
 		for key in GameData.ENEMY_RAID_GUARDS.keys():
-			var enemy := Combat.generate_raid_enemy("v1", 1, 1, key)
+			var enemy: Dictionary = Combat.generate_raid_enemy("v1", 1, 1, key)[0]
 			assert_eq(enemy["evadeChance"], 0.0, "%s should default to 0%% evade (existing template, preserves current combat math)" % key)
 			assert_eq(enemy["weapon"], null, "%s should have no weapon by default" % key)
 			assert_eq(enemy["ability"], null, "%s should have no ability by default" % key)
@@ -808,10 +908,11 @@ func run() -> void:
 	run_case("procedural_mugger_defaults_to_zero_evade_chance", func():
 		for seed in range(10):
 			Rng.set_seed(seed)
-			var enemy := Combat.generate_mugger()
-			assert_eq(enemy["evadeChance"], 0.0, "procedurally generated muggers should default to 0% evade")
-			assert_eq(enemy["weapon"], null, "muggers should have no weapon by default")
-			assert_eq(enemy["ability"], null, "muggers should have no ability by default")
+			var entries := Combat.generate_mugger()
+			for enemy in entries:
+				assert_eq(enemy["evadeChance"], 0.0, "procedurally generated muggers should default to 0% evade")
+				assert_eq(enemy["weapon"], null, "muggers should have no weapon by default")
+				assert_eq(enemy["ability"], null, "muggers should have no ability by default")
 	)
 
 	run_case("raid_enemy_template_without_an_explicit_evadeChance_defaults_to_20_percent", func():
