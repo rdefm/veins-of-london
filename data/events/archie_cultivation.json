@@ -3,7 +3,9 @@
   "pin": {
     "district": "whitechapel",
     "showWhenFlagsTrue": ["archiePartnerSeen"],
-    "showWhenFlagsFalse": ["cultivationTutorialSeen"]
+    "showWhenFlagsFalse": ["cultivationTutorialSeen"],
+    "contact": "archie",
+    "phoneLabel": "Go and see Archie about the vein"
   },
   "cards": [
     { "type": "narration", "label": "Whitechapel — behind the old brewery", "speaker": null, "text": "The vein is exactly where the pin said: a hairline crack in old brick, humming faintly at a frequency you'd ignore if you didn't already know what you were listening for. Archie's waiting with his hands in his pockets, doing an impression of a man who has never once stood around looking impatient." },

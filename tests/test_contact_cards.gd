@@ -101,6 +101,41 @@ func run() -> void:
 		assert_true(_find_button(ContactCards.build_des_card(), "Ask Des about joining") != null, "deferred-join action reused from build_ask_des_joining_action()")
 	)
 
+	# ── 103-phone-shortcut-for-pin-gated-quests ──────────────────────────
+
+	run_case("des_card_surfaces_a_phone_shortcut_for_a_pin_gated_event_and_starts_it_directly", func():
+		GameState.reset()
+		assert_true(_find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des") == null, "hidden before colA1DesMet -- pin isn't active yet")
+
+		GameState.state["flags"]["colA1DesMet"] = true
+		var button := _find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des")
+		assert_true(button != null, "shown once the map pin's own gate is met -- same data, second surface")
+
+		button.pressed.emit()
+
+		assert_eq(GameState.state["event"]["eventId"], "col_a1_prospecting", "tapping starts the event directly, no travel required")
+	)
+
+	run_case("des_card_phone_shortcut_moves_on_to_the_seeding_pin_once_prospecting_is_taught", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1ProspectingTaught"] = true
+
+		assert_true(_find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des") == null, "prospecting pin is gone once taught")
+		var button := _find_button(ContactCards.build_des_card(), "📍 Go seed a patch with Des")
+		assert_true(button != null, "seeding pin's own gate is now met")
+
+		button.pressed.emit()
+
+		assert_eq(GameState.state["event"]["eventId"], "col_a1_seeding")
+	)
+
+	run_case("build_pin_shortcut_actions_is_generic_not_hardcoded_to_des", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesMet"] = true
+		assert_true(ContactCards.build_pin_shortcut_actions("archie").is_empty(), "archie has no active pin-gated event right now -- must not pick up des's")
+		assert_true(ContactCards.build_pin_shortcut_actions("nadia").is_empty())
+	)
+
 	run_case("nadia_card_surfaces_its_story_action_same_as_the_conversation_action_bar", func():
 		GameState.reset()
 		assert_true(_find_button(ContactCards.build_nadia_card(), "Go and see Nadia") != null, "meet action visible by default (colA1NadiaMet starts false)")

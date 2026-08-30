@@ -218,6 +218,76 @@ func run() -> void:
 		assert_true(not ids.has("col_a1_seeding"), "hidden again once taught")
 	)
 
+	# ── ticket 103: phone shortcut is a second path to the same pin-gated event ──
+
+	run_case("col_a1_prospecting_reaches_the_same_outcome_via_the_phone_shortcut_as_via_the_map_pin", func():
+		# Map-pin path (existing precedent: this is exactly what
+		# MapCanvas._activate_pin() does when the player taps the pin).
+		GameState.reset()
+		GameState.state["flags"]["colA1DesMet"] = true
+		_play_event("col_a1_prospecting")
+		var via_pin_taught: bool = GameState.state["flags"]["colA1ProspectingTaught"]
+		var via_pin_screen: String = GameState.state["currentScreen"]
+
+		# Phone-shortcut path: same event, reached instead by pressing the
+		# button ContactCards.build_des_card() surfaces (ticket 103) -- no
+		# travel, no map pin tapped.
+		GameState.reset()
+		GameState.state["flags"]["colA1DesMet"] = true
+		var button := _find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des")
+		assert_true(button != null, "phone shortcut must be available whenever the map pin is")
+		button.pressed.emit()
+		for i in range(GameData.EVENTS["col_a1_prospecting"]["cards"].size()):
+			Events.advance()
+		var via_phone_taught: bool = GameState.state["flags"]["colA1ProspectingTaught"]
+		var via_phone_screen: String = GameState.state["currentScreen"]
+
+		assert_true(via_pin_taught, "sanity: map-pin path teaches prospecting")
+		assert_eq(via_phone_taught, via_pin_taught, "phone shortcut must leave the same flag outcome as the map pin")
+		assert_eq(via_phone_screen, via_pin_screen, "phone shortcut must leave the same on_complete navigation as the map pin")
+
+		# The map pin itself keeps working unchanged -- this is an additional
+		# access path, not a replacement.
+		var pins := MapPins.active_contact_pins()
+		var ids: Array = []
+		for pin in pins:
+			ids.append(pin["eventId"])
+		assert_true(not ids.has("col_a1_prospecting"), "pin gone once taught, exactly as before -- both paths converge on the same flag")
+	)
+
+	run_case("col_a1_seeding_reaches_the_same_outcome_via_the_phone_shortcut_as_via_the_map_pin", func():
+		# Map-pin path.
+		GameState.reset()
+		GameState.state["flags"]["colA1ProspectingTaught"] = true
+		_play_event("col_a1_seeding")
+		var via_pin_taught: bool = GameState.state["flags"]["colA1SeedingTaught"]
+		var via_pin_screen: String = GameState.state["currentScreen"]
+		var via_pin_pending: Array = Messages.pending_for("des")
+
+		# Phone-shortcut path.
+		GameState.reset()
+		GameState.state["flags"]["colA1ProspectingTaught"] = true
+		var button := _find_button(ContactCards.build_des_card(), "📍 Go seed a patch with Des")
+		assert_true(button != null, "phone shortcut must be available whenever the map pin is")
+		button.pressed.emit()
+		for i in range(GameData.EVENTS["col_a1_seeding"]["cards"].size()):
+			Events.advance()
+		var via_phone_taught: bool = GameState.state["flags"]["colA1SeedingTaught"]
+		var via_phone_screen: String = GameState.state["currentScreen"]
+		var via_phone_pending: Array = Messages.pending_for("des")
+
+		assert_true(via_pin_taught, "sanity: map-pin path teaches seeding")
+		assert_eq(via_phone_taught, via_pin_taught, "phone shortcut must leave the same flag outcome as the map pin")
+		assert_eq(via_phone_screen, via_pin_screen, "phone shortcut must leave the same on_complete navigation as the map pin")
+		assert_eq(via_phone_pending.size(), via_pin_pending.size(), "both paths queue the same col_a1_hub pending message for des")
+
+		var pins := MapPins.active_contact_pins()
+		var ids: Array = []
+		for pin in pins:
+			ids.append(pin["eventId"])
+		assert_true(not ids.has("col_a1_seeding"), "pin gone once taught, exactly as before -- both paths converge on the same flag")
+	)
+
 	run_case("col_a1_seeding_on_complete_queues_the_col_a1_hub_pending_message_for_des", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1ProspectingTaught"] = true

@@ -278,6 +278,12 @@ func _reveal_remaining(box: VBoxContainer, thread: Array, start_index: int) -> v
 # a raid's runtime site_id.
 func _build_action_bar(contact_id: String) -> Control:
 	var bar := UI.vbox(8)
+	# 103-phone-shortcut-for-pin-gated-quests: contact_id-agnostic on purpose
+	# -- MapPins.active_phone_shortcuts_for() just returns [] for a contact
+	# with no active pin-gated event, so a future pin-gated contact needs no
+	# new branch here (unlike every per-contact story action below).
+	for shortcut in ContactCards.build_pin_shortcut_actions(contact_id):
+		bar.add_child(shortcut)
 	# collective1-10, spec §7.2: "Story actions (conditional)" are listed
 	# ahead of "Standing actions" in the contact action-bar order -- Des's
 	# own flag-gated "Tell Des about the ground" button and the generic

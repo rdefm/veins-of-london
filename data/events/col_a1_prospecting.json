@@ -3,7 +3,9 @@
   "pin": {
     "district": "shoreditch",
     "showWhenFlagsTrue": ["colA1DesMet"],
-    "showWhenFlagsFalse": ["colA1ProspectingTaught"]
+    "showWhenFlagsFalse": ["colA1ProspectingTaught"],
+    "contact": "des",
+    "phoneLabel": "Go prospecting with Des"
   },
   "cards": [
     { "type": "narration", "label": "Shoreditch — a service yard behind a coffee place", "speaker": null, "text": "Des has brought you to the least interesting place in Shoreditch and is looking at it with open enthusiasm." },

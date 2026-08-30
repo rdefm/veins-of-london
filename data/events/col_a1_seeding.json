@@ -3,7 +3,9 @@
   "pin": {
     "district": "shoreditch",
     "showWhenFlagsTrue": ["colA1ProspectingTaught"],
-    "showWhenFlagsFalse": ["colA1SeedingTaught"]
+    "showWhenFlagsFalse": ["colA1SeedingTaught"],
+    "contact": "des",
+    "phoneLabel": "Go seed a patch with Des"
   },
   "cards": [
     { "type": "narration", "label": null, "speaker": null, "text": "Des has a jar in his bag. In the jar is about forty units of somebody's physics calc, and he is holding it the way other people hold a thermos." },

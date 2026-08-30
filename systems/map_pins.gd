@@ -14,6 +14,13 @@ extends RefCounted
 # optional, both default to no constraint. _flags_satisfied now takes the
 # whole state (not just flags) so it can read state.factions[faction]
 # .relation and state.world.day too.
+#
+# 103-phone-shortcut-for-pin-gated-quests: a pin block may also carry
+# "contact"/"phoneLabel" — an optional pair (declared together or not at
+# all) naming the phone contact this pin's event belongs to and the label
+# for its phone-card shortcut button. Both are echoed straight into the
+# returned entry when present so ContactCards.build_pin_shortcut_actions()
+# can find "my active pins" without re-scanning GameData.EVENTS itself.
 
 
 static func active_contact_pins() -> Array:
@@ -25,8 +32,24 @@ static func active_contact_pins() -> Array:
 			continue
 		var pin: Dictionary = event_def["pin"]
 		if _flags_satisfied(pin, GameState.state):
-			result.append({ "eventId": event_id, "district": pin["district"] })
+			var entry := { "eventId": event_id, "district": pin["district"] }
+			if pin.has("contact"):
+				entry["contact"] = pin["contact"]
+			if pin.has("phoneLabel"):
+				entry["phoneLabel"] = pin["phoneLabel"]
+			result.append(entry)
 
+	return result
+
+
+# The subset of active_contact_pins() whose event declares "contact":
+# contact_id — i.e. the pins that should also surface as a phone-card
+# shortcut button on that contact, per the general mechanism above.
+static func active_phone_shortcuts_for(contact_id: String) -> Array:
+	var result: Array = []
+	for pin in active_contact_pins():
+		if pin.get("contact", "") == contact_id:
+			result.append(pin)
 	return result
 
 

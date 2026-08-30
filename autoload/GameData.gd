@@ -960,6 +960,11 @@ func _validate_events(events: Dictionary, districts: Dictionary, errors: Array[S
 # M1.5 N2's contact pin: { district, showWhenFlagsTrue:[flag,...],
 # showWhenFlagsFalse:[flag,...] } — read by systems/map_pins.gd to decide
 # whether a pin for this event is currently showing on the Network map.
+# 103-phone-shortcut-for-pin-gated-quests: "contact"/"phoneLabel" are an
+# optional pair naming the phone contact this pin belongs to and the label
+# for its phone-card shortcut (ContactCards.build_pin_shortcut_actions());
+# a pin with one but not the other is a data mistake, not a valid "map-pin
+# only, no phone route" pin.
 func _validate_event_pin(pin: Dictionary, districts: Dictionary, context: String, errors: Array[String]) -> void:
 	_require_keys(pin, ["district", "showWhenFlagsTrue", "showWhenFlagsFalse"], context, errors)
 	if typeof(pin) != TYPE_DICTIONARY:
@@ -967,6 +972,8 @@ func _validate_event_pin(pin: Dictionary, districts: Dictionary, context: String
 	var district: Variant = pin.get("district")
 	if not districts.is_empty() and not districts.has(district):
 		errors.append("%s: district '%s' is not a known district" % [context, district])
+	if pin.has("contact") != pin.has("phoneLabel"):
+		errors.append("%s: 'contact' and 'phoneLabel' must be declared together" % context)
 
 
 # M1-LONDON D5's `choices` card type: { type:"choice", text,

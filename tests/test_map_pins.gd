@@ -99,6 +99,31 @@ func run() -> void:
 		GameState.reset()
 	)
 
+	# 103-phone-shortcut-for-pin-gated-quests: active_phone_shortcuts_for()
+	# routes on the pin's own "contact" field, not a hardcoded contact id --
+	# exercised against the real col_a1_prospecting data (the first event to
+	# declare "contact"/"phoneLabel") since GameData.EVENTS isn't swappable
+	# per-test (same constraint the file header above notes).
+
+	run_case("active_phone_shortcuts_for_returns_nothing_before_the_pin_gate_is_met", func():
+		GameState.reset()
+		assert_true(MapPins.active_phone_shortcuts_for("des").is_empty(), "colA1DesMet not set yet -- no shortcut")
+		GameState.reset()
+	)
+
+	run_case("active_phone_shortcuts_for_finds_the_pin_by_its_declared_contact_once_gated_in", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesMet"] = true
+
+		var shortcuts := MapPins.active_phone_shortcuts_for("des")
+		var ids: Array = []
+		for pin in shortcuts:
+			ids.append(pin["eventId"])
+		assert_true(ids.has("col_a1_prospecting"), "des's pin declares contact:des -- routed to des")
+		assert_true(MapPins.active_phone_shortcuts_for("archie").is_empty(), "the same pin must not also route to an unrelated contact")
+		GameState.reset()
+	)
+
 	run_case("min_relation_and_min_day_combine_with_flag_gates", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesMet"] = true

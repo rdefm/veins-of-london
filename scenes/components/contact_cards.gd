@@ -16,6 +16,9 @@ static func build_archie_card() -> Control:
 	c["content"].add_child(UI.heading("Archie — Relation %d" % archie["relation"], 15))
 	c["content"].add_child(UI.muted_label("Trader · Whitechapel"))
 
+	for shortcut in build_pin_shortcut_actions("archie"):
+		c["content"].add_child(shortcut)
+
 	var pry_action := build_archie_pry_action()
 	if pry_action != null:
 		c["content"].add_child(pry_action)
@@ -102,6 +105,23 @@ static func build_trade_action(contact_id: String) -> Control:
 		return locked
 
 	return UI.button("🤝 Trade", func(): Modal.open("sell_menu", { "factionId": "collective", "contactId": contact_id }))
+
+
+# 103-phone-shortcut-for-pin-gated-quests: a general phone-tab shortcut for
+# any quest-giver whose next event is currently gated purely on a map pin
+# (systems/map_pins.gd) -- one button per active pin this contact declares
+# via "contact"/"phoneLabel" on the event's own pin block, so a future
+# pin-gated contact picks this up for free by declaring that data, with no
+# new UI code beyond the one call already wired into every build_X_card()
+# and phone.gd's _build_action_bar() below. Tapping starts the event
+# directly (Events.start_event, same as MapCanvas._activate_pin() does for
+# the map-pin tap) -- no travel required -- and the map pin itself is left
+# entirely alone, so it keeps working as the alternate path.
+static func build_pin_shortcut_actions(contact_id: String) -> Array:
+	var actions: Array = []
+	for pin in MapPins.active_phone_shortcuts_for(contact_id):
+		actions.append(UI.button("📍 %s" % pin["phoneLabel"], func(): Events.start_event(pin["eventId"])))
+	return actions
 
 
 # collective1-10, spec §6.7/§7.2: Des's own conditional action bar button --
@@ -246,6 +266,9 @@ static func build_james_card() -> Control:
 	c["content"].add_child(UI.heading("James — Relation %d" % james["relation"], 15))
 	c["content"].add_child(UI.muted_label("Craftsman · Bermondsey"))
 
+	for shortcut in build_pin_shortcut_actions("james"):
+		c["content"].add_child(shortcut)
+
 	# 83-contacts-archie-james-sms-port: the "visit James" trigger used to be
 	# a flag-gated card button (archieMotionEventSeen && !jamesMotionEventSeen);
 	# it now arrives as a real pendingMessages entry (archie_motion.json's
@@ -291,6 +314,9 @@ static func build_des_card() -> Control:
 	c["content"].add_child(UI.heading("Des — Relation %d" % des["relation"], 15))
 	c["content"].add_child(UI.muted_label("Prospector · Crystal Palace"))
 
+	for shortcut in build_pin_shortcut_actions("des"):
+		c["content"].add_child(shortcut)
+
 	var report_action := build_des_report_action()
 	if report_action != null:
 		c["content"].add_child(report_action)
@@ -316,6 +342,9 @@ static func build_nadia_card() -> Control:
 	c["content"].add_child(UI.heading("Nadia — Relation %d" % nadia["relation"], 15))
 	c["content"].add_child(UI.muted_label("Fixer · Hackney"))
 
+	for shortcut in build_pin_shortcut_actions("nadia"):
+		c["content"].add_child(shortcut)
+
 	var meet_action := build_nadia_meet_action()
 	if meet_action != null:
 		c["content"].add_child(meet_action)
@@ -340,6 +369,9 @@ static func build_hakim_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Hakim — Relation %d" % hakim["relation"], 15))
 	c["content"].add_child(UI.muted_label("Newsagent · Whitechapel"))
+
+	for shortcut in build_pin_shortcut_actions("hakim"):
+		c["content"].add_child(shortcut)
 
 	var done_action := build_hakim_done_action()
 	if done_action != null:

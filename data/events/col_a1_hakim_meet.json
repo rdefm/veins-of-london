@@ -3,7 +3,9 @@
   "pin": {
     "district": "whitechapel",
     "showWhenFlagsTrue": ["colA1HubReached"],
-    "showWhenFlagsFalse": ["colA1HakimMet"]
+    "showWhenFlagsFalse": ["colA1HakimMet"],
+    "contact": "hakim",
+    "phoneLabel": "Go and meet Hakim"
   },
   "cards": [
     { "type": "narration", "label": "Whitechapel Road", "speaker": null, "text": "The shop sells newspapers, phone credit, four kinds of crisps and, if you know to ask, nothing else at all. There is a child's homework on the counter, half done, with a biro resting in the fold." },
