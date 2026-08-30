@@ -47,6 +47,27 @@ Rules — audit every new line against ALL of these before shipping:
 6. **Magic is stock.** Orichalchum is a trade commodity with VAT implications. Nobody in-world finds it as remarkable as they should.
 7. **Litmus test:** if the line would work as an Alex Verus aside or a Fallen London snippet, it ships.
 
+### 3.1 Whimsy exception (combat flavour only)
+
+Rule 2 ("never whimsy") holds for the main narrative voice everywhere. One
+narrow, checkable carve-out per the combat art-direction decision
+(`docs/combat-animation-vision.md`): **Pratchett-register whimsy is allowed
+in item/consumable flavour text and infrequent flourish moments (crits, KOs,
+rare item-use one-liners) — nowhere else.**
+
+- **Allowed:** flavour line under an item in the bag/tooltip; a one-off aside
+  on a rare flourish beat (a crit, a KO).
+- **Not allowed:** the combat log itself, enemy/threat naming and framing,
+  any narrator line outside combat, Archie/James/Conclave dialogue. These
+  stay strict Adams-dry under rules 1–7 — whimsy must never touch a line
+  that carries the threat.
+- Frequency is part of the rule: flourish whimsy is opt-in (read on tap) or
+  rare by construction (crits, KOs). If it starts showing up every turn, it
+  has stopped being a flourish and must be cut back to dry.
+- Still subject to rule 1 (danger stays sincere) and rule 4 (no fourth wall,
+  no exclamation marks) — whimsy here means absurdist/Pratchett *wit*, not
+  a wink at the player.
+
 Voices:
 - **Archie** — cockney-inflected, blunt, bitingly funny, generous in deed not word. Magic is stock to shift. Time-allergic (canonical; explains the vein he gave away), permanently annoyed about it. Says "calc". Deflects gratitude by leaving.
 - **James** — 60s, brilliant, bitter, precise. Helping people is structurally embarrassing. Quotes Plato and the *Critias*, and is on the record *right*, which makes it worse for everyone. Insults are exact, never crude — except one calibrated profanity per scene at most.
