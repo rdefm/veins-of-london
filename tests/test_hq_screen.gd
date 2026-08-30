@@ -104,6 +104,41 @@ func run() -> void:
 		hq.free()
 	)
 
+	# ── 106-hq-raid-alarm-defend-flow ─────────────────────────────────────
+
+	run_case("hq_actions_card_has_no_defend_button_when_nothing_is_pending", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_true(_find_button(hq, "Defend") == null, "Defend must not render with no raid pending")
+
+		hq.free()
+	)
+
+	run_case("hq_actions_card_shows_a_defend_button_while_a_raid_is_pending", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "n1"
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		var defend_button := _find_button(hq, "Defend")
+		assert_true(defend_button != null, "Defend must render on the Actions card while a raid is pending")
+
+		defend_button.pressed.emit()
+
+		assert_true(GameState.state["combat"]["active"], "tapping Defend should start combat immediately")
+		assert_eq(GameState.state["combat"]["context"], "home_raid")
+		assert_true(not GameState.state["home"]["pendingRaid"], "the pending raid should be popped from the queue")
+
+		hq.free()
+	)
+
 	# ── bugfixes ticket 25: Workbench/Recipes moved out to the Lab screen ──
 
 	run_case("hq_no_longer_renders_workbench_or_recipes_inline_that_moved_to_the_lab_screen", func():

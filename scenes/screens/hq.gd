@@ -85,6 +85,12 @@ func _build_actions_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Actions", 14))
 	c["content"].add_child(UI.button("Rest", _on_rest_pressed))
+	# 106-hq-raid-alarm-defend-flow: the HQ-screen equivalent of the
+	# raid-warning notification's own Defend button (phone.gd's
+	# _build_notification_row()) -- same trigger_defend() call, just reached
+	# from wherever the player already is instead of the Notifications app.
+	if Home.has_pending_raid():
+		c["content"].add_child(UI.button("Defend", func(): Home.trigger_defend()))
 	return c["panel"]
 
 

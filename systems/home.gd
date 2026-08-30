@@ -10,6 +10,19 @@ extends RefCounted
 # other mechanic this touches.
 
 
+# 106-hq-raid-alarm-defend-flow: HQ's own "alarm" security id (data/home.json)
+# -- a separate concept from Cultivating.ALARM_UPGRADE_ID (a per-vein upgrade,
+# data/vein_alarm.json) that happens to share the same raw string. Named here
+# the same way that constant is named, so the check reads as "the alarm id"
+# rather than a magic literal, without implying the two are the same flag.
+const ALARM_SECURITY_ID := "alarm"
+
+# PROSE-REVIEW: new notification copy, drafted against CONTENT-GUIDE.md's tone
+# bible (dry, administrative, one line) -- the HQ mirror of Raiding.
+# _queue_defend_raid()'s own warning text.
+const PENDING_RAID_WARNING := "Alarm's going off at HQ — someone's trying to get in. Get back there today to defend it."
+
+
 static func get_home_raid_chance() -> float:
 	var home: Dictionary = GameState.state["home"]
 	var player: Dictionary = GameState.state["player"]
@@ -23,11 +36,16 @@ static func get_home_raid_chance() -> float:
 	return max(0.002, chance)
 
 
-# Called from time_system.gd's daily_tick, step ②.
+# Called from time_system.gd's daily_tick, step ②. 106-hq-raid-alarm-defend-
+# flow: runs the previous tick's still-pending alarm-defend raid first (a
+# player who never tapped Defend loses it exactly as the no-alarm path
+# would), then rolls today's fresh attempt -- same expire-then-roll order
+# Raiding.apply_raid_resolution() uses for the vein-raid mirror of this flow.
 static func roll_daily_raid() -> void:
 	var home: Dictionary = GameState.state["home"]
-	var player: Dictionary = GameState.state["player"]
 	var day: int = GameState.state["world"]["day"]
+
+	_expire_pending_raid()
 
 	if day - home["lastRaidDay"] < 3:
 		return
@@ -36,6 +54,17 @@ static func roll_daily_raid() -> void:
 
 	home["lastRaidDay"] = day
 
+	if home["security"].has(ALARM_SECURITY_ID):
+		_queue_pending_raid()
+	else:
+		_apply_raid_loss()
+
+
+# The pre-ticket-106 behaviour, factored out so both the no-alarm immediate
+# path and the alarm path's missed-window fallback (_expire_pending_raid()
+# below) share one implementation.
+static func _apply_raid_loss() -> void:
+	var player: Dictionary = GameState.state["player"]
 	var stored: Dictionary = player["orichalchum"]
 	var total: int = _sum_ore(stored)
 	if total <= 0:
@@ -56,6 +85,63 @@ static func roll_daily_raid() -> void:
 	var summary: String = ", ".join(parts) if not parts.is_empty() else "nothing"
 	Notify.push("Home raided. Lost %s." % summary, Notify.CATEGORY_DANGER)
 	EventBus.state_changed.emit()
+
+
+# ── 106-hq-raid-alarm-defend-flow: alarm-gated defend queue ─────────────
+# With the Alarm System security upgrade installed, a successful daily raid
+# attempt doesn't resolve here -- it queues a single pending flag and alerts
+# the player, giving them the rest of the current day (until the next
+# daily_tick -- no separate countdown system, same shape as vein-raiding
+# ticket 07's own alarm-defend window) to tap Defend, from either the
+# Notifications app or the HQ screen's own Actions card, and fight it out via
+# the existing (previously tutorial-only) home-raid combat encounter.
+static func _queue_pending_raid() -> void:
+	var home: Dictionary = GameState.state["home"]
+	home["pendingRaid"] = true
+	var notification := Notify.push(PENDING_RAID_WARNING, Notify.CATEGORY_WARNING, { "homeRaid": true })
+	home["pendingRaidNotificationId"] = notification["id"]
+
+
+# Resolves a still-pending raid via _apply_raid_loss() -- ticket 108 will
+# layer a guard-based chance to avoid this; for now a missed window is
+# always a loss, same as the no-alarm path always was.
+static func _expire_pending_raid() -> void:
+	var home: Dictionary = GameState.state["home"]
+	if not home["pendingRaid"]:
+		return
+	home["pendingRaid"] = false
+	home["pendingRaidNotificationId"] = null
+	_apply_raid_loss()
+
+
+# Is HQ's own currently-pending raid the one notification_id's entry warned
+# about? Same notification-id scoping Raiding.is_defend_notification_pending()
+# uses for the vein-raid Defend button -- the Notifications log is capped, not
+# cleared, so an old already-resolved HQ-raid warning could otherwise
+# reactivate its Defend button once HQ is raided again later.
+static func is_pending_raid_notification(notification_id: String) -> bool:
+	var home: Dictionary = GameState.state["home"]
+	return home["pendingRaid"] and home["pendingRaidNotificationId"] == notification_id
+
+
+static func has_pending_raid() -> bool:
+	return GameState.state["home"]["pendingRaid"]
+
+
+# Pops the pending flag and starts the existing home-raid combat encounter.
+# Called from wherever the player taps Defend (the raid-warning notification,
+# or the HQ screen's Actions card) -- both re-check has_pending_raid()/
+# is_pending_raid_notification() before rendering the button, but this
+# re-checks the flag itself too, the same defensive shape Raiding.
+# trigger_defend() uses, in case the window closed between render and tap.
+static func trigger_defend() -> bool:
+	var home: Dictionary = GameState.state["home"]
+	if not home["pendingRaid"]:
+		return false
+	home["pendingRaid"] = false
+	home["pendingRaidNotificationId"] = null
+	Combat.start_home_raid_combat()
+	return true
 
 
 static func upgrade_tier() -> Dictionary:

@@ -733,6 +733,12 @@ func _build_notification_row(notification: Dictionary) -> Control:
 	var vein_id: Variant = notification.get("veinId")
 	if vein_id != null and Raiding.is_defend_notification_pending(notification["id"]):
 		c["content"].add_child(UI.button("Defend", func(): Raiding.trigger_defend(vein_id)))
+	# 106-hq-raid-alarm-defend-flow: the HQ-raid mirror of the vein-raid
+	# Defend button above -- Home._queue_pending_raid()'s push carries
+	# `homeRaid: true` instead of a veinId, and Home.is_pending_raid_notification()
+	# is the single-flag analogue of Raiding.is_defend_notification_pending().
+	elif notification.get("homeRaid") == true and Home.is_pending_raid_notification(notification["id"]):
+		c["content"].add_child(UI.button("Defend", func(): Home.trigger_defend()))
 
 	return c["panel"]
 

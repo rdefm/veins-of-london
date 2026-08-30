@@ -207,7 +207,16 @@ func new_game_state() -> Dictionary:
 			"relationAwardedToday": {},
 		},
 
-		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0 },
+		# 106-hq-raid-alarm-defend-flow: a successful daily raid attempt against
+		# an alarmed HQ queues here instead of resolving immediately
+		# (Home._queue_pending_raid) -- mirrors world.pendingDefendRaids/
+		# activeDefendRaid (Raiding, vein-raiding ticket 07), just collapsed to
+		# a single flag since HQ has exactly one raid slot, not one per vein.
+		# pendingRaidNotificationId is the queued warning's own Notify id, the
+		# same scoping trick is_defend_notification_pending() uses, so an old
+		# already-resolved warning in the (capped, not cleared) log can't
+		# reactivate its Defend button once HQ is raided again later.
+		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0, "pendingRaid": false, "pendingRaidNotificationId": null },
 
 		"factions": _new_factions_state(),
 

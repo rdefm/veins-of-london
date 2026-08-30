@@ -94,6 +94,107 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 50, "floor(100*0.50) = 50 lost, 50 remain, no safeRoom")
 	)
 
+	# ── 106-hq-raid-alarm-defend-flow ─────────────────────────────────────
+
+	run_case("alarmed_hq_raid_queues_instead_of_resolving_immediately", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 10
+		GameState.state["home"]["lastRaidDay"] = 0
+		GameState.state["home"]["security"] = ["alarm"]
+		GameState.state["player"]["orichalchum"] = { "time": 100 }
+
+		var seed := -1
+		for candidate in range(300):
+			var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+			Rng.set_seed(candidate)
+			Home.roll_daily_raid()
+			if GameState.state["home"]["lastRaidDay"] == 10:
+				seed = candidate
+				break
+			GameState.state = snapshot
+
+		assert_true(seed != -1, "should find a seed that triggers the raid within 300 tries")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 100, "an alarmed raid must not touch ore immediately -- it queues instead")
+		assert_true(GameState.state["home"]["pendingRaid"], "a successful alarmed raid attempt must queue")
+
+		var notifications: Array = GameState.state["notifications"]
+		assert_eq(notifications.size(), 1, "queuing must push exactly one warning")
+		assert_eq(notifications[0]["category"], Notify.CATEGORY_WARNING)
+		assert_eq(notifications[0]["homeRaid"], true, "the warning must carry homeRaid meta for the Notifications app's Defend button")
+		assert_eq(GameState.state["home"]["pendingRaidNotificationId"], notifications[0]["id"])
+	)
+
+	run_case("unalarmed_hq_raid_still_auto_resolves_with_no_pending_raid_queued", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 10
+		GameState.state["home"]["lastRaidDay"] = 0
+		GameState.state["player"]["orichalchum"] = { "time": 100 }
+
+		var seed := -1
+		for candidate in range(300):
+			var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+			Rng.set_seed(candidate)
+			Home.roll_daily_raid()
+			if GameState.state["home"]["lastRaidDay"] == 10:
+				seed = candidate
+				break
+			GameState.state = snapshot
+
+		assert_true(seed != -1, "should find a seed that triggers the raid within 300 tries")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 50, "no alarm installed -- resolves exactly as before (floor(100*0.50) lost)")
+		assert_true(not GameState.state["home"]["pendingRaid"], "no alarm installed -- nothing should queue")
+	)
+
+	run_case("missed_defend_window_resolves_the_pending_raid_as_a_loss_on_the_next_tick", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 10
+		# Spacing gate blocks any *new* attempt this call (0 < 3) -- isolates
+		# the expiry side of roll_daily_raid() from the fresh-roll side.
+		GameState.state["home"]["lastRaidDay"] = 10
+		GameState.state["home"]["security"] = ["alarm"]
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "n_stale"
+		GameState.state["player"]["orichalchum"] = { "time": 100 }
+
+		Home.roll_daily_raid()
+
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 50, "a missed defend window resolves as a loss, same ratio as the no-alarm path (floor(100*0.50))")
+		assert_true(not GameState.state["home"]["pendingRaid"], "the pending raid must be cleared once resolved")
+		assert_eq(GameState.state["home"]["pendingRaidNotificationId"], null)
+	)
+
+	run_case("has_pending_raid_and_is_pending_raid_notification_reflect_the_queued_flag", func():
+		GameState.reset()
+		assert_true(not Home.has_pending_raid(), "sanity: nothing pending on a fresh game")
+
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "n1"
+		assert_true(Home.has_pending_raid())
+		assert_true(Home.is_pending_raid_notification("n1"))
+		assert_true(not Home.is_pending_raid_notification("n2"), "a different notification id must not match")
+	)
+
+	run_case("trigger_defend_pops_the_pending_flag_and_starts_home_raid_combat", func():
+		GameState.reset()
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "n1"
+
+		var started := Home.trigger_defend()
+
+		assert_true(started, "trigger_defend should report it started combat")
+		assert_true(GameState.state["combat"]["active"], "tapping Defend must start combat immediately")
+		assert_eq(GameState.state["combat"]["context"], "home_raid")
+		assert_true(not GameState.state["home"]["pendingRaid"], "the pending raid must be popped from the queue")
+		assert_eq(GameState.state["home"]["pendingRaidNotificationId"], null)
+	)
+
+	run_case("trigger_defend_is_a_no_op_when_nothing_is_pending", func():
+		GameState.reset()
+		var started := Home.trigger_defend()
+		assert_true(not started, "trigger_defend should report false when there's nothing to defend")
+		assert_true(not GameState.state["combat"]["active"], "no combat should start")
+	)
+
 	run_case("upgrade_tier_enforces_cash_and_advances_the_ladder", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100

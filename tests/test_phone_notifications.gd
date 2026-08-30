@@ -196,6 +196,94 @@ func run() -> void:
 		phone.free()
 	)
 
+	# ── 106-hq-raid-alarm-defend-flow: the HQ-raid mirror of the vein-raid ──
+	# ── Defend button above ──────────────────────────────────────────────
+
+	run_case("hq_raid_notification_with_a_pending_defend_raid_shows_its_own_defend_button", func():
+		GameState.reset()
+		GameState.state["home"]["security"] = ["alarm"]
+		GameState.state["home"]["pendingRaid"] = true
+		var notification := Notify.push("Alarm's going off at HQ.", Notify.CATEGORY_WARNING, { "homeRaid": true })
+		GameState.state["home"]["pendingRaidNotificationId"] = notification["id"]
+		GameState.state["phoneNav"]["app"] = "notifications"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var defend_buttons: Array = []
+		for b in phone.find_children("", "Button", true, false):
+			if (b as Button).text == "Defend":
+				defend_buttons.append(b)
+		assert_eq(defend_buttons.size(), 1, "the HQ-raid warning notification must show exactly one Defend button")
+
+		phone.free()
+	)
+
+	run_case("hq_raid_notification_defend_button_absent_once_the_raid_is_no_longer_pending", func():
+		GameState.reset()
+		Notify.push("Alarm's going off at HQ.", Notify.CATEGORY_WARNING, { "homeRaid": true })
+		GameState.state["home"]["pendingRaid"] = false  # resolved/expired since the notification was pushed
+		GameState.state["phoneNav"]["app"] = "notifications"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		for b in phone.find_children("", "Button", true, false):
+			assert_eq((b as Button).text, "‹ Back", "an old HQ-raid notification for a raid that's no longer pending must not show a Defend button")
+
+		phone.free()
+	)
+
+	run_case("hq_raid_notification_defend_button_tap_triggers_home_raid_combat_immediately", func():
+		GameState.reset()
+		GameState.state["home"]["pendingRaid"] = true
+		var notification := Notify.push("Alarm's going off at HQ.", Notify.CATEGORY_WARNING, { "homeRaid": true })
+		GameState.state["home"]["pendingRaidNotificationId"] = notification["id"]
+		GameState.state["phoneNav"]["app"] = "notifications"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var defend_button: Button = null
+		for b in phone.find_children("", "Button", true, false):
+			if (b as Button).text == "Defend":
+				defend_button = b
+		assert_true(defend_button != null)
+		defend_button.pressed.emit()
+
+		assert_true(GameState.state["combat"]["active"], "tapping the notification's Defend button should start combat immediately")
+		assert_eq(GameState.state["combat"]["context"], "home_raid")
+		assert_true(not GameState.state["home"]["pendingRaid"], "the triggered raid should be popped from the queue")
+
+		phone.free()
+	)
+
+	# Regression pin: an old, already-resolved HQ-raid warning (the log is
+	# capped, not cleared) must not reactivate its Defend button once HQ is
+	# raided again later -- same notification-id scoping the vein-raid pin
+	# above tests.
+	run_case("old_resolved_hq_raid_notification_does_not_show_defend_once_hq_is_raided_again", func():
+		GameState.reset()
+		GameState.state["notifications"] = [
+			{ "id": "n_old", "text": "Old HQ warning.", "seen": true, "day": 1, "category": "warning", "homeRaid": true },
+			{ "id": "n_new", "text": "New HQ warning.", "seen": false, "day": 2, "category": "warning", "homeRaid": true },
+		]
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "n_new"
+		GameState.state["phoneNav"]["app"] = "notifications"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var defend_buttons: Array = []
+		for b in phone.find_children("", "Button", true, false):
+			if (b as Button).text == "Defend":
+				defend_buttons.append(b)
+		assert_eq(defend_buttons.size(), 1, "only the fresh HQ warning's Defend button should show -- the old, resolved one must not reactivate")
+
+		phone.free()
+	)
+
 	# Regression pin: matching a notification's Defend button on veinId alone
 	# would resurrect the button on an old, already-resolved warning once the
 	# same vein is raided again later (the log is capped, not cleared).
