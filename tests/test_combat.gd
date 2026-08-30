@@ -37,6 +37,34 @@ func _fresh_combat(context: String = Combat.CONTEXT_MUGGING) -> void:
 	}
 
 
+# squad-combat ticket 03: builds a combat dict with N hand-specced enemy
+# entries (ticket 04's real roster generation isn't built yet) -- each spec
+# dict may set hp/hpMax/attackMin/attackMax/speed/evadeChance/koed,
+# defaulting to a harmless 0-attack, non-koed, speed-10 entry otherwise.
+# `allies` passes through verbatim (e.g. Contacts.build_combat_ally(...)
+# results) for the tests that need a real ally roster.
+func _multi_enemy_combat(specs: Array, allies: Array = []) -> Dictionary:
+	GameState.reset()
+	var enemies: Array = []
+	for i in range(specs.size()):
+		var spec: Dictionary = specs[i]
+		enemies.append({
+			"name": spec.get("name", "Enemy %d" % i), "hp": spec["hp"], "hpMax": spec.get("hpMax", spec["hp"]),
+			"attackMin": spec.get("attackMin", 0), "attackMax": spec.get("attackMax", 0),
+			"isMugging": false, "weapon": null, "ability": null,
+			"evadeChance": spec.get("evadeChance", 0.0), "speed": spec.get("speed", 10),
+			"koed": spec.get("koed", false),
+		})
+	GameState.state["combat"] = {
+		"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
+		"enemies": enemies, "focusedEnemyIndex": 0,
+		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+		"allies": allies,
+	}
+	return GameState.state["combat"]
+
+
 func run() -> void:
 	run_case("mugger_generation_bands_for_count_1_to_3", func():
 		var seen := { 1: false, 2: false, 3: false }
@@ -1524,4 +1552,116 @@ func run() -> void:
 		Combat.player_attack()
 		assert_eq(GameState.state["combat"]["outcome"], "loss", "an enemy far faster than the player should land the killing blow before the player's own attack this round")
 		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], 50, "the enemy should be untouched -- the round ended before the player's own (lethal) attack ever got to resolve")
+	)
+
+	# ── squad-combat ticket 03: multi-enemy targeting & independent enemy turns ──
+
+	run_case("player_attack_and_blast_only_ever_touch_the_focused_enemy_never_other_living_enemies", func():
+		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 50 }])
+		combat["focusedEnemyIndex"] = 1
+		GameState.state["player"]["attackMin"] = 5
+		GameState.state["player"]["attackMax"] = 5
+		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
+		GameState.state["player"]["craftingSkill"] = 1
+
+		Combat.use_blast()
+
+		assert_eq(combat["enemies"][0]["hp"], 50, "Blast should never touch a non-focused enemy")
+		assert_true(combat["enemies"][1]["hp"] < 50, "Blast should hit the focused enemy")
+		assert_eq(combat["enemies"][2]["hp"], 50, "Blast should never touch a non-focused enemy")
+
+		var enemy1_hp_after_blast: int = combat["enemies"][1]["hp"]
+		Combat.player_attack()
+
+		assert_eq(combat["enemies"][0]["hp"], 50, "player_attack (Attack) should never touch a non-focused enemy")
+		assert_true(combat["enemies"][1]["hp"] < enemy1_hp_after_blast, "player_attack (Attack) should hit the focused enemy")
+		assert_eq(combat["enemies"][2]["hp"], 50, "player_attack (Attack) should never touch a non-focused enemy")
+	)
+
+	run_case("use_black_hole_applies_full_undiluted_damage_and_freeze_to_every_non_koed_enemy_independently", func():
+		# the koed entry keeps a nonzero hp (an artificial-but-valid dict shape
+		# here) specifically so an untouched 30 vs. a floored-at-0 30 are
+		# distinguishable -- proving the skip, not just that 0 stayed 0.
+		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
+		GameState.state["player"]["inventory"]["blackHole"] = { "1": 1 }
+		GameState.state["player"]["craftingSkill"] = 1
+		# blackHole effectPower at skill 1 = 8 -> freeze = 1 + floor(8/8) = 2 per enemy hit
+
+		var result := Combat.use_black_hole()
+
+		assert_true(result["ok"], "should succeed with a black hole in hand")
+		assert_eq(combat["enemies"][0]["hp"], 42, "every living enemy should drop by the same, full undiluted power")
+		assert_eq(combat["enemies"][1]["hp"], 42, "every living enemy should drop by the same, full undiluted power")
+		assert_eq(combat["enemies"][2]["hp"], 30, "an already-koed enemy should be skipped entirely, not double-counted")
+		assert_eq(combat["frozenTurns"], 4, "freeze should be applied once per enemy actually hit (2 living enemies x 2 turns each), not once total")
+	)
+
+	run_case("cast_complication_black_hole_applies_full_undiluted_damage_and_freeze_to_every_non_koed_enemy_independently", func():
+		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["player"]["dial"] = _dial_with_loaded("blackHole", 1, 5)
+
+		var result := Combat.cast_complication(0)
+
+		assert_true(result["ok"], "casting a loaded blackHole Complication should succeed")
+		# derive expected dmg/freeze from the Dial's own reported power/targets
+		# (result["power"]/["targets"]) rather than recomputing Dial amplification
+		# math here -- this test is about the AoE fan-out, not the Dial's own
+		# Movement-amplification formula, which is covered in tests/test_dial.gd.
+		var dmg: int = int(result["power"]) * result["targets"]
+		var freeze_turns: int = (1 + int(floor(float(result["power"]) / 8.0))) * result["targets"]
+		assert_eq(combat["enemies"][0]["hp"], 50 - dmg, "every living enemy should drop by the same, full undiluted power")
+		assert_eq(combat["enemies"][1]["hp"], 50 - dmg, "every living enemy should drop by the same, full undiluted power")
+		assert_eq(combat["enemies"][2]["hp"], 30, "an already-koed enemy should be skipped entirely, not double-counted")
+		assert_eq(combat["frozenTurns"], freeze_turns * 2, "freeze should be applied once per enemy actually hit (2 living enemies), not once total")
+	)
+
+	run_case("three_enemy_fight_can_end_a_round_with_one_koed_and_two_still_standing_each_having_acted_independently", func():
+		var combat := _multi_enemy_combat([
+			{ "hp": 1 },
+			{ "hp": 999, "attackMin": 5, "attackMax": 5 },
+			{ "hp": 999, "attackMin": 5, "attackMax": 5 },
+		])
+		combat["focusedEnemyIndex"] = 0
+		GameState.state["player"]["hp"] = 999
+		GameState.state["player"]["hpMax"] = 999
+		GameState.state["player"]["attackMin"] = 999
+		GameState.state["player"]["attackMax"] = 999
+
+		Combat.player_attack()
+
+		assert_eq(combat["enemies"][0]["koed"], true, "the focused (weak) enemy should be koed by the player's own turn")
+		assert_eq(combat["enemies"][1]["koed"], false, "the second enemy should still be standing")
+		assert_eq(combat["enemies"][2]["koed"], false, "the third enemy should still be standing")
+		assert_eq(combat["outcome"], null, "the fight should continue while two enemies remain")
+		assert_eq(combat["focusedEnemyIndex"], 1, "focus should auto-clamp off the koed entry")
+		# no allies present, so both surviving enemies deterministically target
+		# the player -- this proves each took its own independent queue turn
+		# (10 total damage = 2 separate 5-damage attacks), not one shared roll.
+		assert_eq(GameState.state["player"]["hp"], 999 - 10, "both surviving enemies should have taken their own independent turn against the player")
+	)
+
+	run_case("independent_enemies_can_pick_different_targets_from_each_other_within_the_same_round", func():
+		var found_seed := _find_seed_for(500, func():
+			GameState.reset()
+			GameState.state["contacts"]["archie"]["recruited"] = true
+			var ally: Dictionary = Contacts.build_combat_ally("archie")
+			_multi_enemy_combat([
+				{ "name": "E1", "hp": 999, "attackMin": 5, "attackMax": 5 },
+				{ "name": "E2", "hp": 999, "attackMin": 5, "attackMax": 5 },
+				{ "name": "E3", "hp": 999, "attackMin": 5, "attackMax": 5 },
+			], [ally])
+			GameState.state["player"]["hp"] = 999
+			GameState.state["player"]["hpMax"] = 999
+			GameState.state["player"]["attackMin"] = 0
+			GameState.state["player"]["attackMax"] = 0
+
+			Combat.player_attack()
+
+			var hit_player: bool = GameState.state["player"]["hp"] < 999
+			var post_round_ally: Dictionary = GameState.state["combat"]["allies"][0]
+			var hit_ally: bool = post_round_ally["hp"] < post_round_ally["hpMax"]
+			return hit_player and hit_ally
+		)
+		assert_true(found_seed != -1, "3 independently-rolling enemies should be able to split their targets between the player and an ally within 500 tries")
 	)

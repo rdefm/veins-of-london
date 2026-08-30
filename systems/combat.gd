@@ -736,6 +736,29 @@ static func use_shield() -> Dictionary:
 	return { "ok": true }
 
 
+# squad-combat ticket 03: Black Hole is the one AoE effect (R§3.7a) --
+# hits every non-koed enemy independently at full, un-diluted power, not
+# combat.focusedEnemyIndex's single entry. Matches the Dial's Spread
+# Movement no-per-target-dilution precedent below: hitting 3 enemies is 3x
+# the total damage/freeze applied, once per enemy at full power. frozenTurns
+# is one shared pool across the whole fight (ticket 02's turn queue), so N
+# enemies hit adds freeze_turns once per enemy, not once total.
+static func _apply_black_hole_aoe(combat: Dictionary, dmg: int, freeze_turns: int) -> int:
+	var hit_count := 0
+	for enemy in combat["enemies"]:
+		if enemy["koed"]:
+			continue
+		enemy["hp"] = maxi(0, enemy["hp"] - dmg)
+		combat["frozenTurns"] += freeze_turns
+		hit_count += 1
+		_maybe_win_from_direct_damage(combat, enemy)
+	return hit_count
+
+
+static func _enemy_word(hit_count: int) -> String:
+	return "enemy" if hit_count == 1 else "enemies"
+
+
 # calc-effect-wiring-02: immediate damage plus frozenTurns, always additive
 # regardless of source (stacks with Time Pearl or a prior Black Hole) --
 # no reuse guard. Turn count derives from effectPower rather than a new
@@ -750,14 +773,10 @@ static func use_black_hole() -> Dictionary:
 
 	Crafting.inventory_remove("blackHole", 1)
 	var power = Crafting.effect_power("blackHole", player["craftingSkill"])
-	var enemy: Dictionary = _focused_enemy(combat)
-	enemy["hp"] = maxi(0, enemy["hp"] - power)
 	var freeze_turns: int = 1 + int(floor(float(power) / 8.0))
-	combat["frozenTurns"] += freeze_turns
+	var hit_count: int = _apply_black_hole_aoe(combat, power, freeze_turns)
 	# PROSE-REVIEW: new black hole result-log line, drafted against CONTENT-GUIDE.md's tone bible.
-	combat["log"].append("You drop a black hole — %d damage, and the wreckage folds in on itself. Enemy frozen %d turn(s)." % [power, freeze_turns])
-
-	_maybe_win_from_direct_damage(combat, enemy)
+	combat["log"].append("You drop a black hole — %d damage to every enemy (%d %s hit), each frozen %d turn(s)." % [power, hit_count, _enemy_word(hit_count), freeze_turns])
 
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -902,9 +921,12 @@ static func cast_complication(index: int) -> Dictionary:
 	var enemy: Dictionary = _focused_enemy(combat)
 
 	# targets > 1 (a tier-indexed Spread Movement) has no per-target dilution
-	# by design (PRD user story 16) -- with combat's single-enemy model,
-	# "hit every target at full power" collapses to repeating the effect at
-	# full, un-diluted power once per target against the one enemy present.
+	# by design (PRD user story 16) -- for a single-target effect (blast) this
+	# collapses to repeating the effect at full, un-diluted power `targets`
+	# times against the one focused enemy. blackHole (squad-combat ticket 03's
+	# AoE effect) folds `targets` into its per-enemy power/freeze instead,
+	# since it already hits every non-koed enemy independently regardless of
+	# `targets` -- see _apply_black_hole_aoe().
 	#
 	# PROSE-REVIEW: every "You trigger %s..." log line below is new,
 	# Complication-flavoured phrasing (the old device-activation lines read
@@ -932,12 +954,14 @@ static func cast_complication(index: int) -> Dictionary:
 			player["shieldPool"] += int(power) * targets
 			combat["log"].append("You trigger %s. Shield up — %d absorption." % [recipe["name"], player["shieldPool"]])
 		"blackHole":
+			# squad-combat ticket 03: AoE, ignores focusedEnemyIndex -- hits every
+			# non-koed enemy independently at full power (targets' Spread
+			# Movement multiplier folded into that per-enemy power/freeze first,
+			# same as use_black_hole() above).
 			var dmg: int = int(power) * targets
-			enemy["hp"] = maxi(0, enemy["hp"] - dmg)
 			var freeze_turns: int = (1 + int(floor(float(power) / 8.0))) * targets
-			combat["frozenTurns"] += freeze_turns
-			combat["log"].append("You trigger %s — %d damage, and the wreckage folds in on itself. Enemy frozen %d turn(s)." % [recipe["name"], dmg, freeze_turns])
-			_maybe_win_from_direct_damage(combat, enemy)
+			var hit_count: int = _apply_black_hole_aoe(combat, dmg, freeze_turns)
+			combat["log"].append("You trigger %s — %d damage to every enemy (%d %s hit), each frozen %d turn(s)." % [recipe["name"], dmg, hit_count, _enemy_word(hit_count), freeze_turns])
 		"healingBurst":
 			var old_hp: int = player["hp"]
 			player["hp"] = mini(player["hp"] + int(power) * targets, player["hpMax"])
