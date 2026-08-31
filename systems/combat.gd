@@ -1,4 +1,4 @@
-class_name Combat
+﻿class_name Combat
 extends RefCounted
 
 # Turn-based combat per R§3.7, plus rewind per R§3.9. Static funcs only.
@@ -31,6 +31,27 @@ const CANONICAL_CONTEXTS: Array[String] = [
 # in scenes/screens/combat.gd so a third mugging-flavoured context (should
 # one ever exist) is one edit, not three.
 const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = [CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING, CONTEXT_ARCHIE_DEAL_MUGGING]
+
+# combat-presentation ticket 04: beat "kind" vocabulary, same "named
+# constant instead of a bare literal at every call site" precedent as
+# CONTEXT_* above -- a typo becomes an unresolved-identifier error here
+# instead of a beat whose kind silently never matches whatever a later
+# ticket's director/juice-layer code switches on.
+const BEAT_PLAYER_ATTACK := "player_attack"
+const BEAT_ALLY_ATTACK := "ally_attack"
+const BEAT_ALLY_HEAL := "ally_heal"
+const BEAT_ENEMY_ATTACK := "enemy_attack"
+const BEAT_ENEMY_EVADE := "enemy_evade"
+const BEAT_PLAYER_EVADE := "player_evade"
+const BEAT_ABILITY_UNLOCKED := "ability_unlocked"
+const BEAT_FROZEN_WEARS_OFF := "frozen_wears_off"
+const BEAT_ALLY_KO := "ally_ko"
+const BEAT_COMBAT_WIN := "combat_win"
+const BEAT_COMBAT_LOSS := "combat_loss"
+const BEAT_MOTION_ANNOUNCE := "motion_announce"
+const BEAT_MOTION_END := "motion_end"
+const BEAT_FLEE_SUCCESS := "flee_success"
+const BEAT_FLEE_FAILED := "flee_failed"
 
 # calc-effect-wiring-02 combat-pattern consumables. Percentages/turns are
 # placeholders per the ticket ("tune as needed"), not final balance.
@@ -548,6 +569,12 @@ static func award_xp(amount: int) -> void:
 # one atomic turn via _resolve_player_turn()/_ally_turn()/_enemy_turn()
 # below, stopping the moment an outcome resolves (win, or a loss from an
 # enemy who out-sped the player this round).
+# combat-presentation ticket 04, docs/combat-animation-vision.md §8: also
+# returns `beats`, an ordered Array of pure-data dictionaries, one per new
+# log line this call appends (see _log() above) -- GameState.state itself
+# gains no new schema (beats live only in this return value, threaded
+# straight to whichever screen code called player_attack()), so save/load
+# and Rewind are untouched by this ticket.
 static func player_attack() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
@@ -565,25 +592,27 @@ static func player_attack() -> Dictionary:
 	# a turn" has no separate success/fail split to award differently against.
 	award_xp(COMBAT_XP_PER_ATTACK_TURN)
 
+	var beats: Array = []
+
 	# build_turn_queue() is a pure query (no state mutation) -- the
 	# Motion-round announcement line is logged here instead, alongside every
 	# other player_attack()-owned log line.
 	if combat["motionTurns"] > 0:
 		var motion_label: String = "three times" if combat["motionPower"] >= 3 else "twice"
-		combat["log"].append("Motion powder — you move %s as fast." % motion_label)
+		_log(combat, beats, "Motion powder — you move %s as fast." % motion_label, BEAT_MOTION_ANNOUNCE, {})
 
 	for entry in build_turn_queue(combat):
 		match entry["type"]:
 			"player":
-				_resolve_player_turn(combat)
+				_resolve_player_turn(combat, beats)
 			"ally":
 				var allies: Array = combat["allies"]
 				if entry["index"] < allies.size() and not allies[entry["index"]]["koed"]:
-					_ally_turn(combat, allies[entry["index"]])
+					_ally_turn(combat, allies[entry["index"]], entry["index"], beats)
 			"enemy":
 				var enemies: Array = combat["enemies"]
 				if entry["index"] < enemies.size() and not enemies[entry["index"]]["koed"]:
-					_enemy_turn(combat, enemies[entry["index"]])
+					_enemy_turn(combat, enemies[entry["index"]], entry["index"], beats)
 		if combat["outcome"] != null:
 			break
 
@@ -594,67 +623,104 @@ static func player_attack() -> Dictionary:
 	if combat["motionTurns"] > 0:
 		combat["motionTurns"] -= 1
 		if combat["motionTurns"] == 0:
-			combat["log"].append("The powder wears off. Back to normal speed.")
+			_log(combat, beats, "The powder wears off. Back to normal speed.", BEAT_MOTION_END, {})
 
 	EventBus.state_changed.emit()
-	return { "ok": true, "outcome": combat["outcome"] }
+	return { "ok": true, "outcome": combat["outcome"], "beats": beats }
+
+
+# combat-presentation ticket 04, docs/combat-animation-vision.md §8: appends
+# `line` to combat.log and, when a live `beats` Array was threaded through
+# (only player_attack()/flee()'s parting shot/enemy_attack() do this -- see
+# each of their own comments), a matching pure-data beat carrying the same
+# line plus whatever kind/detail fields the caller supplies. `beats` is null
+# (not an empty Array) at every call site that doesn't need beats
+# (use_blast()/use_black_hole()/cast_complication() and friends, which still
+# call this via _maybe_win_from_direct_damage()'s shared win-check), so this
+# stays a single no-op branch rather than a second logging path. No Node,
+# Callable, or SpriteFrames reference ever enters a beat -- ids/numbers/
+# strings only, resolved by the screen through its own combatant-lookup.
+static func _log(combat: Dictionary, beats: Variant, line: String, kind: String, extra: Dictionary = {}) -> void:
+	combat["log"].append(line)
+	if beats == null:
+		return
+	var beat: Dictionary = { "kind": kind, "logLine": line }
+	beat.merge(extra)
+	beats.append(beat)
 
 
 # One atomic player turn: a single attack against the focused enemy. Called
 # once per player-type queue entry -- normally once a round, twice/three
 # times on a Motion-boosted round (build_turn_queue()'s extra entries).
-static func _resolve_player_turn(combat: Dictionary) -> void:
+static func _resolve_player_turn(combat: Dictionary, beats: Variant = null) -> void:
 	var enemy: Dictionary = _focused_enemy(combat)
+	var target_index: int = combat["focusedEnemyIndex"]
 	if Rng.chance(enemy.get("evadeChance", 0.0)):
-		combat["log"].append("%s dodges — no damage." % enemy["name"])
+		_log(combat, beats, "%s dodges — no damage." % enemy["name"], BEAT_ENEMY_EVADE,
+			{ "actorType": "player", "targetType": "enemy", "targetIndex": target_index })
 		return
 	var atk := get_attack_range()
 	var dmg: int = Rng.randi_range(atk["min"], atk["max"])
 	enemy["hp"] = maxi(0, enemy["hp"] - dmg)
 	var frozen_note: String = " (enemy frozen)" if combat["frozenTurns"] > 0 else ""
-	combat["log"].append("You attack — %d damage%s. Enemy: %d/%d HP." % [dmg, frozen_note, enemy["hp"], enemy["hpMax"]])
-	_maybe_win_from_direct_damage(combat, enemy)
+	_log(combat, beats, "You attack — %d damage%s. Enemy: %d/%d HP." % [dmg, frozen_note, enemy["hp"], enemy["hpMax"]], BEAT_PLAYER_ATTACK,
+		{ "actorType": "player", "targetType": "enemy", "targetIndex": target_index, "dmg": dmg })
+	_maybe_win_from_direct_damage(combat, enemy, beats)
 
 
 # 44-archie-combat-ally, squad-combat ticket 02: one atomic ally turn --
 # patch up from stash below the heal threshold, or attack the player's
 # focused enemy. Same evade/damage shape as the player's own attack.
-static func _ally_turn(combat: Dictionary, ally: Dictionary) -> void:
+# combat-presentation ticket 04: `ally_index` is the ally's own position in
+# combat.allies -- the caller already has it (build_turn_queue()'s own
+# "ally" entries carry it), needed here only to stamp it onto this turn's
+# beat.
+static func _ally_turn(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant = null) -> void:
 	var enemy: Dictionary = _focused_enemy(combat)
+	var target_index: int = combat["focusedEnemyIndex"]
 
 	if ally["hp"] < ally["hpMax"] * ALLY_HEAL_THRESHOLD_FRACTION and ally["stash"] > 0:
 		ally["stash"] -= 1
 		ally["hp"] = mini(ally["hpMax"], ally["hp"] + ally["healAmount"])
 		# PROSE-REVIEW: new ally self-heal log line, drafted against
 		# CONTENT-GUIDE.md's tone bible.
-		combat["log"].append("%s patches themselves up. %s: %d/%d HP." % [ally["name"], ally["name"], ally["hp"], ally["hpMax"]])
+		_log(combat, beats, "%s patches themselves up. %s: %d/%d HP." % [ally["name"], ally["name"], ally["hp"], ally["hpMax"]], BEAT_ALLY_HEAL,
+			{ "actorType": "ally", "actorIndex": ally_index, "amount": ally["healAmount"] })
 		return
 
 	if Rng.chance(enemy.get("evadeChance", 0.0)):
 		# PROSE-REVIEW: new ally-miss log line.
-		combat["log"].append("%s swings at %s — they dodge." % [ally["name"], enemy["name"]])
+		_log(combat, beats, "%s swings at %s — they dodge." % [ally["name"], enemy["name"]], BEAT_ENEMY_EVADE,
+			{ "actorType": "ally", "actorIndex": ally_index, "targetType": "enemy", "targetIndex": target_index })
 		return
 
 	var dmg: int = Rng.randi_range(ally["attackMin"], ally["attackMax"])
 	enemy["hp"] = maxi(0, enemy["hp"] - dmg)
 	# PROSE-REVIEW: new ally-attack log line.
-	combat["log"].append("%s hits %s for %d. Enemy: %d/%d HP." % [ally["name"], enemy["name"], dmg, enemy["hp"], enemy["hpMax"]])
-	_maybe_win_from_direct_damage(combat, enemy)
+	_log(combat, beats, "%s hits %s for %d. Enemy: %d/%d HP." % [ally["name"], enemy["name"], dmg, enemy["hp"], enemy["hpMax"]], BEAT_ALLY_ATTACK,
+		{ "actorType": "ally", "actorIndex": ally_index, "targetType": "enemy", "targetIndex": target_index, "dmg": dmg })
+	_maybe_win_from_direct_damage(combat, enemy, beats)
 
 
 # 44-archie-combat-ally: the enemy's single attack now targets the player or
 # one alive ally, uniform-random over whoever's still standing -- an ally
 # absent from combat.allies (every non-defend-vein context) leaves this
 # identical to the pre-ticket player-only behaviour.
-static func _pick_enemy_target(combat: Dictionary) -> Variant:
-	var alive_allies: Array = []
-	for ally in combat["allies"]:
-		if not ally["koed"]:
-			alive_allies.append(ally)
-	if alive_allies.is_empty():
-		return null
-	var candidates: Array = [null]
-	candidates.append_array(alive_allies)
+# combat-presentation ticket 04: returns combat.allies' own index instead of
+# the ally dict itself (-1 sentinel for "attack the player") -- beats need a
+# stable, ids-only target reference (no Node/Dictionary references belong in
+# a beat), and Dictionary `==` in GDScript compares contents rather than
+# identity, so returning the dict itself would risk a find()-style lookup
+# elsewhere matching the wrong same-stat ally.
+static func _pick_enemy_target(combat: Dictionary) -> int:
+	var alive_indices: Array = []
+	for i in range(combat["allies"].size()):
+		if not combat["allies"][i]["koed"]:
+			alive_indices.append(i)
+	if alive_indices.is_empty():
+		return -1
+	var candidates: Array = [-1]
+	candidates.append_array(alive_indices)
 	return candidates[Rng.randi_range(0, candidates.size() - 1)]
 
 
@@ -663,19 +729,27 @@ static func _pick_enemy_target(combat: Dictionary) -> Variant:
 # enemy's attack in isolation. squad-combat ticket 01: roster generation (N
 # distinct entries) isn't built until ticket 04 -- every fight here still
 # has exactly one entry, so "the acting enemy" is unambiguously index 0.
-static func enemy_attack() -> void:
+# combat-presentation ticket 04: returns { "beats": beats } instead of void
+# now (docs/combat-animation-vision.md §8) -- every existing call site
+# either ignores the return value (a bare `Combat.enemy_attack()` statement)
+# or, new in this ticket, flee()'s parting shot, which merges the returned
+# beats into its own. Doesn't emit state_changed itself, same as before --
+# every caller still owns that.
+static func enemy_attack() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
+	var beats: Array = []
 	if combat["outcome"] != null or combat["frozenTurns"] > 0:
-		return
-	_resolve_enemy_attack(combat, combat["enemies"][0])
+		return { "beats": beats }
+	_resolve_enemy_attack(combat, combat["enemies"][0], 0, beats)
+	return { "beats": beats }
 
 
-static func _resolve_enemy_attack(combat: Dictionary, enemy: Dictionary) -> void:
-	var target = _pick_enemy_target(combat)
-	if target == null:
-		_enemy_attack_player(combat, enemy)
+static func _resolve_enemy_attack(combat: Dictionary, enemy: Dictionary, enemy_index: int = 0, beats: Variant = null) -> void:
+	var target_index: int = _pick_enemy_target(combat)
+	if target_index == -1:
+		_enemy_attack_player(combat, enemy, enemy_index, beats)
 	else:
-		_enemy_attack_ally(combat, enemy, target)
+		_enemy_attack_ally(combat, enemy, combat["allies"][target_index], target_index, enemy_index, beats)
 
 
 # squad-combat ticket 02: one atomic enemy turn for the turn queue -- the
@@ -684,22 +758,27 @@ static func _resolve_enemy_attack(combat: Dictionary, enemy: Dictionary) -> void
 # A frozen turn is a no-op-plus-decrement (same log line as today) rather
 # than being skipped/removed from the queue -- the entry is still walked,
 # it just doesn't attack.
-static func _enemy_turn(combat: Dictionary, enemy: Dictionary) -> void:
+# combat-presentation ticket 04: `enemy_index` is this enemy's own position
+# in combat.enemies -- the caller already has it (build_turn_queue()'s own
+# "enemy" entries carry it), needed here only to stamp it onto beats.
+static func _enemy_turn(combat: Dictionary, enemy: Dictionary, enemy_index: int, beats: Variant = null) -> void:
 	if is_ability_locked(enemy):
 		enemy["ability"]["lockedTurns"] -= 1
 		if enemy["ability"]["lockedTurns"] == 0:
-			combat["log"].append("%s's ability is back online." % enemy["name"])
+			_log(combat, beats, "%s's ability is back online." % enemy["name"], BEAT_ABILITY_UNLOCKED,
+				{ "actorType": "enemy", "actorIndex": enemy_index })
 
 	if combat["frozenTurns"] > 0:
 		combat["frozenTurns"] -= 1
 		if combat["frozenTurns"] == 0:
-			combat["log"].append("The time effect wears off. They're coming back round.")
+			_log(combat, beats, "The time effect wears off. They're coming back round.", BEAT_FROZEN_WEARS_OFF,
+				{ "actorType": "enemy", "actorIndex": enemy_index })
 		return
 
-	_resolve_enemy_attack(combat, enemy)
+	_resolve_enemy_attack(combat, enemy, enemy_index, beats)
 
 
-static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary) -> void:
+static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_index: int = 0, beats: Variant = null) -> void:
 	if combat["evadeTurns"] > 0:
 		combat["evadeTurns"] -= 1
 		if Rng.chance(combat["evadeChance"]):
@@ -708,7 +787,8 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary) -> void:
 				evade_note = "%d evade turn%s left." % [combat["evadeTurns"], "" if combat["evadeTurns"] == 1 else "s"]
 			else:
 				evade_note = "Evade fades."
-			combat["log"].append("%s swings — you're not there. %s" % [enemy["name"], evade_note])
+			_log(combat, beats, "%s swings — you're not there. %s" % [enemy["name"], evade_note], BEAT_PLAYER_EVADE,
+				{ "actorType": "enemy", "actorIndex": enemy_index, "targetType": "player" })
 			return
 
 	var atk := get_enemy_attack_range(enemy)
@@ -727,12 +807,21 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary) -> void:
 			shield_note = " (%d absorbed by shield)" % absorbed
 
 	player["hp"] = maxi(0, player["hp"] - dmg)
-	combat["log"].append("%s hits you for %d%s. You: %d/%d HP." % [enemy["name"], dmg, shield_note, player["hp"], player["hpMax"]])
+	_log(combat, beats, "%s hits you for %d%s. You: %d/%d HP." % [enemy["name"], dmg, shield_note, player["hp"], player["hpMax"]], BEAT_ENEMY_ATTACK,
+		{ "actorType": "enemy", "actorIndex": enemy_index, "targetType": "player", "dmg": dmg })
 	if player["hp"] <= 0:
+		# combat-presentation ticket 04: a failsafe/rewind trigger rewrites
+		# combat.log wholesale (_restore_from_snapshot() replaces the array,
+		# it doesn't append) -- there is no single new line to pair a beat
+		# with, so this path deliberately stays un-beaten rather than
+		# emitting a beat whose logLine doesn't correspond to anything
+		# beats-array consumers can find at a stable position. Rewind-as-
+		# animation (vision doc §5: "the whole stage plays backward") is its
+		# own, later mechanism, not this linear beat queue.
 		if _try_failsafe(combat, player):
 			return
 		combat["outcome"] = "loss"
-		combat["log"].append("You're done. You come round somewhere unpleasant.")
+		_log(combat, beats, "You're done. You come round somewhere unpleasant.", BEAT_COMBAT_LOSS, {})
 		player["hp"] = GameState.round_epsilon(player["hpMax"] * 0.3)
 
 
@@ -740,20 +829,26 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary) -> void:
 # resources. KO sets the `koed` flag Combat's own loops already check
 # everywhere, and starts the contact's real (persistent) cooldown via
 # Contacts.knock_out().
-static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dictionary) -> void:
+static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dictionary, ally_index: int, enemy_index: int = 0, beats: Variant = null) -> void:
 	var atk := get_enemy_attack_range(enemy)
 	var dmg: int = Rng.randi_range(atk["min"], atk["max"])
 	ally["hp"] = maxi(0, ally["hp"] - dmg)
 	# PROSE-REVIEW: new enemy-hits-ally log line, drafted against
 	# CONTENT-GUIDE.md's tone bible.
-	combat["log"].append("%s hits %s for %d. %s: %d/%d HP." % [enemy["name"], ally["name"], dmg, ally["name"], ally["hp"], ally["hpMax"]])
+	_log(combat, beats, "%s hits %s for %d. %s: %d/%d HP." % [enemy["name"], ally["name"], dmg, ally["name"], ally["hp"], ally["hpMax"]], BEAT_ENEMY_ATTACK,
+		{ "actorType": "enemy", "actorIndex": enemy_index, "targetType": "ally", "targetIndex": ally_index, "dmg": dmg })
 	if ally["hp"] <= 0:
 		ally["koed"] = true
 		# PROSE-REVIEW: new ally-KO log line.
-		combat["log"].append("%s is knocked out of the fight." % ally["name"])
+		_log(combat, beats, "%s is knocked out of the fight." % ally["name"], BEAT_ALLY_KO,
+			{ "targetType": "ally", "targetIndex": ally_index })
 		Contacts.knock_out(ally["contactId"], GameState.state["world"]["day"])
 
 
+# combat-presentation ticket 04: also returns `beats`, same shape as
+# player_attack()'s (see its own comment) -- the failed-flee branch's
+# parting shot is the one enemy_attack() call site that needs its beats
+# threaded back out, so its own returned beats are appended onto this call's.
 static func flee() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
@@ -768,15 +863,18 @@ static func flee() -> Dictionary:
 		flee_chance = BLAST_FLEE_BOOST_CHANCE
 		combat["blastFleeBoost"] = false
 
+	var beats: Array = []
+
 	if Rng.chance(flee_chance):
 		combat["outcome"] = "fled"
-		combat["log"].append("You back off sharpish. Probably the right call.")
+		_log(combat, beats, "You back off sharpish. Probably the right call.", BEAT_FLEE_SUCCESS, {})
 	else:
-		combat["log"].append("You try to leg it — they get a parting shot in.")
-		enemy_attack()
+		_log(combat, beats, "You try to leg it — they get a parting shot in.", BEAT_FLEE_FAILED, {})
+		var parting_shot: Dictionary = enemy_attack()
+		beats.append_array(parting_shot.get("beats", []))
 
 	EventBus.state_changed.emit()
-	return { "ok": true, "outcome": combat["outcome"] }
+	return { "ok": true, "outcome": combat["outcome"], "beats": beats }
 
 
 static func use_time_pearl() -> Dictionary:
@@ -933,7 +1031,7 @@ static func use_black_hole() -> Dictionary:
 # (behaviourally identical to the old single-enemy check for today's
 # always-one-entry rosters; ticket 04's multi-entry rosters are what
 # actually exercises the "not everyone's down yet" branch).
-static func _maybe_win_from_direct_damage(combat: Dictionary, enemy: Dictionary) -> void:
+static func _maybe_win_from_direct_damage(combat: Dictionary, enemy: Dictionary, beats: Variant = null) -> void:
 	if enemy["hp"] > 0:
 		return
 	enemy["koed"] = true
@@ -941,7 +1039,8 @@ static func _maybe_win_from_direct_damage(combat: Dictionary, enemy: Dictionary)
 	if not _all_enemies_koed(combat["enemies"]):
 		return
 	combat["outcome"] = "win"
-	combat["log"].append("They leg it. Good call on their part." if NON_LETHAL_MUGGING_CONTEXTS.has(combat["context"]) else "They go down. Vein is yours.")
+	var line: String = "They leg it. Good call on their part." if NON_LETHAL_MUGGING_CONTEXTS.has(combat["context"]) else "They go down. Vein is yours."
+	_log(combat, beats, line, BEAT_COMBAT_WIN, {})
 	_dispatch_on_win()
 
 

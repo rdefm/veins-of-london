@@ -1846,6 +1846,94 @@ func run() -> void:
 		assert_true(found_seed != -1, "3 independently-rolling enemies should be able to split their targets between the player and an ally within 500 tries")
 	)
 
+	# ── combat-presentation ticket 04: beat queue ────────────────────────
+
+	run_case("player_attack_beats_match_the_new_log_lines_1_to_1_in_content_and_order_for_a_multi_turn_round", func():
+		var combat := _multi_enemy_combat([
+			{ "hp": 999, "attackMin": 5, "attackMax": 5 },
+			{ "hp": 999, "attackMin": 5, "attackMax": 5 },
+		])
+		combat["focusedEnemyIndex"] = 0
+		GameState.state["player"]["hp"] = 999
+		GameState.state["player"]["hpMax"] = 999
+		GameState.state["player"]["attackMin"] = 10
+		GameState.state["player"]["attackMax"] = 10
+
+		var log_before: int = combat["log"].size()
+		Rng.set_seed(1)
+		var result := Combat.player_attack()
+
+		# Three queue turns this round (player, then each of the two
+		# enemies) -- neither enemy dies, so no win beat/line to account for.
+		var new_log: Array = combat["log"].slice(log_before)
+		var beats: Array = result["beats"]
+		assert_eq(beats.size(), new_log.size(), "beats should have exactly one entry per new log line this round produced")
+		for i in range(new_log.size()):
+			assert_eq(beats[i]["logLine"], new_log[i], "beat %d's logLine should match the log entry at the same position" % i)
+		assert_eq(beats[0]["kind"], Combat.BEAT_PLAYER_ATTACK)
+		assert_eq(beats[1]["kind"], Combat.BEAT_ENEMY_ATTACK)
+		assert_eq(beats[2]["kind"], Combat.BEAT_ENEMY_ATTACK)
+	)
+
+	run_case("flee_failed_beats_include_the_flee_failed_line_plus_the_parting_shots_own_beat", func():
+		var log_before: int
+		# Deterministic seed search for a failed flee, same idiom
+		# flee_65_percent_with_seed already uses.
+		var found_seed := -1
+		for seed in range(200):
+			_fresh_combat()
+			GameState.state["combat"]["enemies"][0]["attackMin"] = 5
+			GameState.state["combat"]["enemies"][0]["attackMax"] = 5
+			log_before = GameState.state["combat"]["log"].size()
+			Rng.set_seed(seed)
+			var result := Combat.flee()
+			if result["outcome"] != "fled":
+				found_seed = seed
+				assert_eq(result["beats"].size(), 2, "flee_failed line + the parting shot's own enemy_attack beat")
+				assert_eq(result["beats"][0]["kind"], Combat.BEAT_FLEE_FAILED)
+				assert_eq(result["beats"][1]["kind"], Combat.BEAT_ENEMY_ATTACK)
+				break
+		assert_true(found_seed != -1, "should find a failed-flee roll within 200 tries")
+	)
+
+	run_case("rewind_still_works_correctly_with_the_beat_queue_threaded_through_player_attack", func():
+		_fresh_combat()
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 5
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 5
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		var player_hp_before: int = GameState.state["player"]["hp"]
+		var enemy_hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
+
+		Rng.set_seed(1)
+		var result := Combat.player_attack()  # push_combat_snapshot() + the new beats-returning turn queue, in the same call
+		assert_true(result["beats"].size() > 0, "sanity: this round produced beats")
+		assert_eq(GameState.state["combat"]["snapshots"].size(), 1, "sanity: player_attack() still pushes exactly one snapshot with the beat queue in place")
+
+		# Simulate more damage landing after the snapshotted turn, same as
+		# the pre-ticket rewind tests do, to prove the restore below isn't
+		# just a no-op.
+		GameState.state["player"]["hp"] = 1
+		GameState.state["combat"]["enemies"][0]["hp"] = 1
+
+		var rewind_result := Combat.combat_rewind()
+
+		assert_true(rewind_result["ok"], "rewind should still succeed")
+		assert_eq(GameState.state["player"]["hp"], player_hp_before, "rewind should restore the pre-round player hp exactly as it did before beats existed")
+		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], enemy_hp_before, "rewind should restore the pre-round enemy hp exactly as it did before beats existed")
+		assert_true(GameState.state["combat"]["snapshots"].is_empty(), "rewind should still clear the snapshot stack")
+	)
+
+	run_case("enemy_attack_returns_a_beats_array_with_the_hit_beat", func():
+		_fresh_combat()
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 5
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 5
+		Rng.set_seed(1)
+		var result := Combat.enemy_attack()
+		assert_eq(result["beats"].size(), 1)
+		assert_eq(result["beats"][0]["kind"], Combat.BEAT_ENEMY_ATTACK)
+		assert_eq(result["beats"][0]["logLine"], GameState.state["combat"]["log"][-1])
+	)
+
 	# ── squad-combat ticket 05: Combat Skill (attack bonus, speed, XP, Train) ──
 
 	run_case("get_attack_range_regression_level_1_matches_pre_ticket_baseline", func():

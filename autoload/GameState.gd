@@ -264,6 +264,10 @@ func new_game_state() -> Dictionary:
 			# outside vein-defense fights.
 			"allies": [],
 		},
+		# combat-presentation ticket 04: outside state.combat itself since
+		# exit_combat() resets that dict to fresh defaults on every fight's
+		# end -- see systems/combat_pacing.gd's own comment.
+		"combatPacingMode": CombatPacing.DEFAULT_MODE,
 
 		"jamesJob": null,
 		"pendingSaleCut": 0,

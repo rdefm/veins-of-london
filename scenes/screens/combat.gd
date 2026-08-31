@@ -3,11 +3,12 @@ extends Control
 
 var _content: VBoxContainer
 
-# combat-presentation ticket 02: which turn-order-strip card is currently
-# displayed as "focused" (exact HP, status, telegraph slot) -- survives
-# across _refresh() rebuilds (only _content's children are freed, not this
-# screen node itself) since TurnOrderStrip holds no state of its own.
-# Empty until the first _refresh() picks a starting card (the enemy at
+# combat-presentation ticket 02, docs/combat-animation-vision.md §2.5: which
+# turn-order-strip card is currently displayed as "focused" (exact HP,
+# status, telegraph slot) -- survives across _sync() rebuilds (only some of
+# _content's children are freed, not this screen node itself) since
+# TurnOrderStrip holds no state of its own.
+# Empty until the first _sync() picks a starting card (the enemy at
 # combat.focusedEnemyIndex, or entries[0] if there's no enemy). A swipe to a
 # non-enemy card updates this without ever touching combat.focusedEnemyIndex
 # (§2.2: only enemies are valid attack targets) -- see
@@ -16,7 +17,7 @@ var _strip_selected_key: Dictionary = {}
 
 # combat-presentation ticket 03, docs/combat-animation-vision.md §2.5: which
 # player.dial.loadedComplications index the Dial widget currently has
-# selected -- survives across _refresh() rebuilds the same way
+# selected -- survives across _sync() rebuilds the same way
 # _strip_selected_key does (DialWidget itself holds no state of its own;
 # see that file's own class comment). Only ever moves via the widget's own
 # rotate gesture (_on_dial_selection_changed below), never reset by a
@@ -100,47 +101,159 @@ class StageSlot extends Control:
 	# read, not for display.
 
 
+# combat-presentation ticket 04, docs/combat-animation-vision.md §8: the
+# stage's placeholder Controls are created once per fight and never
+# queue_free()'d on an ordinary turn any more -- only when a specific
+# combatant is actually koed does _sync_band() free that one slot, never the
+# rest of the band. This is what "persistent combatant nodes" means
+# architecturally: a later ticket's real sprite/AnimationPlayer work (08/09)
+# needs Node identity that survives across turns, which the old
+# per-state_changed queue_free() of the entire stage made impossible (see
+# that doc's §8).
+#
+# Keyed by the combatant's own stable index (combat.enemies'/combat.allies'
+# own array index, -1 for the player) rather than by fan display position --
+# a combatant's display position (front/back-left/back-right) can change
+# turn to turn (a kill re-ranks who's fan-front among the survivors), and an
+# earlier positional-pool version of this got that wrong: popping "the last
+# position" to shrink the pool could free a *survivor's* slot while leaving
+# a dead combatant's slot to be silently repurposed for someone else. Keying
+# by stable identity means a slot is only ever freed when the specific
+# combatant it represents is actually koed.
+var _enemy_slots: Dictionary = {}  # enemy index (int) -> StageSlot
+var _player_slots: Dictionary = {}  # -1 (player) or ally index (int) -> StageSlot
+var _enemy_band_layer: Control
+var _player_band_layer: Control
+
+# The stage frame, the turn-order strip, and the footer (command deck, or
+# the log + outcome button once the fight resolves) are each held in their
+# own fixed-position holder so _sync() can rebuild just one of them without
+# disturbing _content's child order -- see _ready() below.
+var _stage_frame: Panel
+var _heading: Label
+var _pacing_button: Button
+var _strip_holder: VBoxContainer
+var _footer_holder: VBoxContainer
+
+# combat-presentation ticket 04: paces a round's beat queue back onto the
+# screen -- see scenes/components/combat_director.gd's own class comment for
+# why GameState is already final by the time this plays anything.
+var _director: CombatDirector
+
+# How many of combat.log's lines the footer's log box is currently allowed
+# to show; -1 means "show everything" (the default, and where this always
+# ends up once a round's playback finishes or wasn't triggered through the
+# screen at all -- e.g. a system test calling Combat.player_attack()
+# directly never touches this). Set to the pre-round log size when a round
+# starts playing, then advanced one line per beat by _on_beat_played() --
+# see _play_round() below.
+var _revealed_log_count: int = -1
+
+
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 	_content = UI.screen_body(self)
-	EventBus.state_changed.connect(_refresh)
-	_refresh()
+
+	_director = CombatDirector.new()
+	add_child(_director)
+
+	# combat-presentation ticket 04: the player-facing half of
+	# CombatDirector's persisted pacing toggle (CombatPacing, same
+	# systems-own-the-schema split as MapEvents.pacing_mode()) -- without a
+	# real control calling _director.set_pacing(), "quick" pacing would be
+	# fully wired end to end yet unreachable in an actual playthrough.
+	var heading_row := UI.hbox(8)
+	_heading = UI.heading("")
+	heading_row.add_child(_heading)
+	_pacing_button = UI.button("", _on_pacing_button_pressed)
+	heading_row.add_child(_pacing_button)
+	_content.add_child(heading_row)
+
+	_strip_holder = UI.vbox(0)
+	_content.add_child(_strip_holder)
+
+	_stage_frame = _build_stage_skeleton()
+	_content.add_child(_stage_frame)
+
+	_footer_holder = UI.vbox(8)
+	_content.add_child(_footer_holder)
+
+	EventBus.state_changed.connect(_sync)
+	_sync()
 
 
-func _refresh() -> void:
-	for child in _content.get_children():
-		child.queue_free()
-
+# combat-presentation ticket 04: replaces the old _refresh(), which
+# queue_free()'d every child of _content on every EventBus.state_changed --
+# the stage's combatant placeholders (_enemy_slots/_player_slots) now update
+# their bound state in place instead (_sync_stage() below). The turn-order
+# strip and footer (command deck, or the log + outcome button) still rebuild
+# their own contents each call -- neither carries a sprite, tween, or
+# AnimationPlayer that needs to survive a turn (TurnOrderStrip/DialWidget are
+# plain vector UI, not the "combatant nodes" §8 is about), so there's nothing
+# for a full rebuild there to interrupt.
+func _sync() -> void:
 	var combat: Dictionary = GameState.state["combat"]
 	var player: Dictionary = GameState.state["player"]
 
-	var context_label := "Mugging"
-	if combat["context"] == "home_raid":
-		context_label = "Home Raid"
-	elif combat["context"] == "raid":
-		context_label = "Raid"
-	elif combat["context"] == "defend_vein":
-		context_label = "Defend"
-	elif combat["context"] == Combat.CONTEXT_ARCHIE_DEAL_MUGGING:
-		context_label = "Archie's Deal"
+	_heading.text = _context_label(combat["context"])
+	_pacing_button.text = _pacing_button_label()
 
-	_content.add_child(UI.heading(context_label))
-	# The old second heading named only combat.focusedEnemyIndex's entry --
-	# now that the stage fans every living combatant with its own name label
-	# (§2.2), a single-enemy title above it would misrepresent a 2-3 enemy
-	# fight as if only the focused one were present.
-	_content.add_child(_build_turn_order_strip(combat, player))
-	_content.add_child(_build_stage(combat, player))
+	for child in _strip_holder.get_children():
+		child.queue_free()
+	_strip_holder.add_child(_build_turn_order_strip(combat, player))
 
-	# combat-presentation ticket 03, §2.5: mid-fight, the log moves inside
-	# the command deck (it shares the Dial widget's full-height span with
-	# the action-card row); once the fight's over there's no command deck
-	# to share it with, so it renders directly here, same as before.
-	if combat["outcome"] != null:
-		_content.add_child(_build_log(combat))
-		_content.add_child(_build_outcome_button(combat["outcome"], combat["context"]))
+	_sync_stage(combat, player)
+
+	_sync_footer(combat, player)
+
+
+func _pacing_button_label() -> String:
+	return "⏱ Quick" if _director.pacing_mode == "quick" else "⏱ Normal"
+
+
+func _on_pacing_button_pressed() -> void:
+	_director.set_pacing("normal" if _director.pacing_mode == "quick" else "quick")
+	_pacing_button.text = _pacing_button_label()
+
+
+func _context_label(context: String) -> String:
+	if context == "home_raid":
+		return "Home Raid"
+	if context == "raid":
+		return "Raid"
+	if context == "defend_vein":
+		return "Defend"
+	if context == Combat.CONTEXT_ARCHIE_DEAL_MUGGING:
+		return "Archie's Deal"
+	return "Mugging"
+
+
+# combat-presentation ticket 03, §2.5: mid-fight, the log moves inside the
+# command deck (it shares the Dial widget's full-height span with the
+# action-card row); once the fight's over there's no command deck to share
+# it with, so it renders directly here, same as before.
+func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
+	for child in _footer_holder.get_children():
+		child.queue_free()
+	# combat-presentation ticket 04: the outcome button (which calls
+	# Combat.exit_combat() and tears this screen down) only ever appears
+	# once the director has fully finished playing the beat queue back --
+	# never while _director.is_playing(), even if this round's beats
+	# already resolved the fight. Without this gate, a player could tap
+	# Continue mid-playback and free this screen out from under
+	# _play_round()'s still-pending `await _director.play(...)`, which
+	# would then try to call back into a freed CombatScreen instance.
+	# map_canvas.gd's own MapEvents.abandon_playback()/Nav.go_to() guard
+	# solves the equivalent problem for map-event playback; not reusing
+	# that machinery here (this screen's playback can only ever be exited
+	# via this one button, unlike the map's several navigate-away paths) --
+	# simply not offering the exit while playback is live closes the same
+	# hole with much less code.
+	if combat["outcome"] != null and not _director.is_playing():
+		_footer_holder.add_child(_build_log(combat))
+		_footer_holder.add_child(_build_outcome_button(combat["outcome"], combat["context"]))
 	else:
-		_content.add_child(_build_command_deck(combat, player))
+		_footer_holder.add_child(_build_command_deck(combat, player))
 
 
 # combat-presentation ticket 02, §2.4: the one component doing nameplate +
@@ -175,23 +288,28 @@ func _selected_strip_pos(entries: Array, combat: Dictionary) -> int:
 
 # Swiping to an enemy card is the targeting gesture (§2.2) -- routed through
 # Combat.set_focused_enemy() since screens never mutate GameState.state
-# directly; that call emits state_changed, which drives _refresh() itself.
+# directly; that call emits state_changed, which drives _sync() itself.
 # Swiping to the player/an ally card is inert for targeting but still moves
-# which card is displayed as focused, so _refresh() is called directly
+# which card is displayed as focused, so _sync() is called directly
 # (nothing in GameState changed, so nothing would otherwise trigger it).
 func _on_strip_selection_changed(new_key: Dictionary) -> void:
 	_strip_selected_key = new_key
 	if new_key["type"] == "enemy":
 		Combat.set_focused_enemy(new_key["index"])
 	else:
-		_refresh()
+		_sync()
 
 
 # §9's "lit-window frame": a recessed dark inset with a hard 2px border and
 # a slight inner vignette, embedded in the surrounding parchment/vector
 # chrome -- so the pixel stage reads as a window onto the street even before
 # any backdrop art exists (ticket 08 adds the real per-context plates).
-func _build_stage(combat: Dictionary, player: Dictionary) -> Control:
+#
+# combat-presentation ticket 04: built once, in _ready() -- the frame, its
+# vignette, and the two band layers (_enemy_band_layer/_player_band_layer)
+# are never rebuilt; only the placeholder slots living inside the band
+# layers change, via _sync_stage()/_sync_band() below.
+func _build_stage_skeleton() -> Panel:
 	var frame := Panel.new()
 	frame.custom_minimum_size = Vector2(STAGE_WIDTH, STAGE_HEIGHT)
 	frame.clip_contents = true
@@ -210,37 +328,55 @@ func _build_stage(combat: Dictionary, player: Dictionary) -> Control:
 	# TouchScrollContainer (bugfixes ticket 16). Nothing inside the stage is
 	# interactive (every slot is MOUSE_FILTER_IGNORE), so PASS costs nothing.
 	frame.mouse_filter = Control.MOUSE_FILTER_PASS
+	# combat-presentation ticket 04: tap-to-fast-forward (§8) -- a tap
+	# anywhere on the stage while the director is mid-playback snaps the
+	# current beat's pause, same "tap advances the current one-shot" gesture
+	# MapCanvas._skip_current() offers over the map's own event playback.
+	frame.gui_input.connect(_on_stage_gui_input)
 
-	# Enemy band, upper third, facing down-camera.
-	var enemy_origin := Vector2.ZERO
-	var enemy_size := Vector2(STAGE_WIDTH, ENEMY_BAND_HEIGHT)
-	var enemy_entries := _enemy_display_entries(combat["enemies"], combat["focusedEnemyIndex"])
-	for slot in _build_band_slots(enemy_entries, enemy_origin, enemy_size):
-		frame.add_child(slot)
+	_enemy_band_layer = Control.new()
+	_enemy_band_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(_enemy_band_layer)
 
-	# Player + ally band, lower two-thirds.
-	var player_origin := Vector2(0.0, ENEMY_BAND_HEIGHT)
-	var player_size := Vector2(STAGE_WIDTH, PLAYER_BAND_HEIGHT)
-	var player_entries := _player_display_entries(player, combat["allies"])
-	for slot in _build_band_slots(player_entries, player_origin, player_size):
-		frame.add_child(slot)
+	_player_band_layer = Control.new()
+	_player_band_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(_player_band_layer)
 
 	frame.add_child(_build_vignette())
 
 	return frame
 
 
+func _on_stage_gui_input(event: InputEvent) -> void:
+	if not _director.is_playing():
+		return
+	var pressed: bool = (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed)
+	if pressed:
+		_director.fast_forward_current_beat()
+
+
+func _sync_stage(combat: Dictionary, player: Dictionary) -> void:
+	var enemy_entries := _enemy_display_entries(combat["enemies"], combat["focusedEnemyIndex"])
+	_sync_band(_enemy_slots, _enemy_band_layer, enemy_entries, Vector2(STAGE_WIDTH, ENEMY_BAND_HEIGHT), Vector2.ZERO)
+
+	var player_entries := _player_display_entries(player, combat["allies"])
+	_sync_band(_player_slots, _player_band_layer, player_entries, Vector2(STAGE_WIDTH, PLAYER_BAND_HEIGHT), Vector2(0.0, ENEMY_BAND_HEIGHT))
+
+
 # Up to Combat.SQUAD_MAX non-koed enemies, fanned in their existing
 # combat.enemies array order, tagged with whether they're the glow target.
 # Builds fresh display dicts rather than reusing combat["enemies"]' own
 # entries -- SCREENS never mutate GameState.state, and later attaching an
-# "isFocused" key onto a live state dict would do exactly that.
+# "isFocused" key onto a live state dict would do exactly that. `index` is
+# combat.enemies' own array index -- stable for this enemy's whole life in
+# the fight, used by _sync_band() below to key each combatant's persistent
+# StageSlot by identity rather than by fan display position.
 func _enemy_display_entries(enemies: Array, focused_index: int) -> Array:
 	var display: Array = []
 	for i in range(enemies.size()):
 		if not enemies[i]["koed"]:
 			var enemy: Dictionary = enemies[i]
-			display.append({ "name": enemy["name"], "isFocused": i == focused_index })
+			display.append({ "name": enemy["name"], "isFocused": i == focused_index, "index": i })
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
@@ -248,35 +384,72 @@ func _enemy_display_entries(enemies: Array, focused_index: int) -> Array:
 
 # The player (always the fan's front/large slot -- they're the one
 # character guaranteed present) plus up to SQUAD_MAX - 1 non-koed allies.
-# The glow is enemy-only (§2.2), so isFocused is always false here.
+# The glow is enemy-only (§2.2), so isFocused is always false here. -1 is
+# the player's own stable key (never a valid combat.allies index); an
+# ally's `index` is its own combat.allies array index, same "stable for its
+# whole life in the fight" role as an enemy's.
 # 44-archie-combat-ally: koed allies stay in combat["allies"] (so
 # knock_out()'s cooldown has something to key off), so they're filtered out
 # here rather than at the state layer, same as the old card-list code did.
 func _player_display_entries(player: Dictionary, allies: Array) -> Array:
-	var display: Array = [{ "name": "You", "isFocused": false }]
-	for ally in allies:
-		if not ally["koed"]:
-			display.append({ "name": ally["name"], "isFocused": false })
+	var display: Array = [{ "name": "You", "isFocused": false, "index": -1 }]
+	for i in range(allies.size()):
+		if not allies[i]["koed"]:
+			display.append({ "name": allies[i]["name"], "isFocused": false, "index": i })
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
 
 
-# Shared by both bands: fans `display_entries` (front-to-back order, index 0
-# is the fan's front/large slot -- see _enemy_display_entries/
-# _player_display_entries) across `band_size`, positioned at `band_origin`.
-# Slots are built back-to-front so the front (largest) slot is added last
-# and draws on top of the staggered pair behind it, matching "front slot
-# large/foreground".
-func _build_band_slots(display_entries: Array, band_origin: Vector2, band_size: Vector2) -> Array[Control]:
+# combat-presentation ticket 04: reconciles `pool` (one of _enemy_slots/
+# _player_slots, keyed by each combatant's own stable index -- see
+# _enemy_display_entries()/_player_display_entries() above) against
+# `display_entries` instead of rebuilding the band from scratch. A slot is
+# only ever created the first time its combatant is displayed and only ever
+# freed once that specific combatant is koed -- a survivor's slot is the
+# exact same Node turn to turn even as its own fan *position* (front/
+# back-left/back-right) reflows around who else is still standing.
+func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_size: Vector2, band_origin: Vector2) -> void:
+	var live_keys: Dictionary = {}
+	for entry in display_entries:
+		live_keys[entry["index"]] = true
+	for key in pool.keys().duplicate():
+		if not live_keys.has(key):
+			var stale: StageSlot = pool[key]
+			layer.remove_child(stale)
+			stale.queue_free()
+			pool.erase(key)
+
 	var rects := _fan_local_rects(band_size, display_entries.size())
-	var slots: Array[Control] = []
-	for i in range(display_entries.size() - 1, -1, -1):
+	for i in range(display_entries.size()):
 		var entry: Dictionary = display_entries[i]
-		var slot := _build_slot(entry["name"], rects[i], entry["isFocused"])
-		slot.position = band_origin + rects[i].position
-		slots.append(slot)
-	return slots
+		var key = entry["index"]
+		var slot: StageSlot
+		if pool.has(key):
+			slot = pool[key]
+		else:
+			slot = StageSlot.new()
+			slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			layer.add_child(slot)
+			pool[key] = slot
+		var rect: Rect2 = rects[i]
+		slot.size = rect.size
+		slot.custom_minimum_size = rect.size
+		slot.position = band_origin + rect.position
+		slot.combatant_name = entry["name"]
+		slot.fill_color = _placeholder_color(entry["name"])
+		slot.is_focused = entry["isFocused"]
+		slot.queue_redraw()
+
+	# Display position 0 is always the fan's front/large slot (see
+	# _fan_local_rects) -- moving whichever combatant currently holds that
+	# position to the end of the layer's own children keeps it drawn on top
+	# of the staggered pair behind it, matching the pre-ticket-04 rebuild's
+	# own back-to-front insertion order. Re-checked every sync since a kill
+	# can hand the front position to a different (already-existing) slot.
+	if not display_entries.is_empty():
+		var front_key = display_entries[0]["index"]
+		layer.move_child(pool[front_key], layer.get_child_count() - 1)
 
 
 # Local (band-relative) rects for up to 3 fan slots: front is centred and
@@ -303,23 +476,6 @@ func _fan_local_rects(band_size: Vector2, count: int) -> Array[Rect2]:
 		rects.append(Rect2(back_right_pos, back_size))
 
 	return rects
-
-
-# combat-presentation ticket 02, §2.4: the turn-order strip (see
-# _build_turn_order_strip() above) is now the sole source of name/HP/status
-# truth -- the fan itself shows only the placeholder box, its template-id
-# colour, and the focus glow, per "the stage itself shows only the fanned
-# pixel-art sprites plus the target-outline glow -- no floating enamel signs
-# over the diorama."
-func _build_slot(combatant_name: String, rect: Rect2, is_focused: bool) -> StageSlot:
-	var slot := StageSlot.new()
-	slot.size = rect.size
-	slot.custom_minimum_size = rect.size
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	slot.combatant_name = combatant_name
-	slot.fill_color = _placeholder_color(combatant_name)
-	slot.is_focused = is_focused
-	return slot
 
 
 func _placeholder_color(key: String) -> Color:
@@ -372,11 +528,18 @@ func _build_command_deck(combat: Dictionary, player: Dictionary) -> Control:
 	return deck
 
 
+# combat-presentation ticket 04: while `_revealed_log_count` is set (a round
+# is mid-playback -- see _play_round()), only reveals that many of
+# combat.log's lines instead of all of them, so the log types out one line
+# per beat instead of the whole round's outcome appearing at once. -1 (the
+# default, and where this always lands once playback finishes or was never
+# triggered) shows everything, same as before this ticket.
 func _build_log(combat: Dictionary) -> Control:
 	var box := UI.vbox(2)
 	var log: Array = combat["log"]
-	var log_start: int = maxi(0, log.size() - 6)
-	for i in range(log_start, log.size()):
+	var end: int = log.size() if _revealed_log_count < 0 else mini(_revealed_log_count, log.size())
+	var log_start: int = maxi(0, end - 6)
+	for i in range(log_start, end):
 		box.add_child(UI.muted_label(log[i]))
 	return box
 
@@ -388,7 +551,7 @@ func _build_log(combat: Dictionary) -> Control:
 # the old flat action bar used -- only the chrome changes.
 func _build_action_deck(player: Dictionary) -> Control:
 	var row := UI.hbox(8)
-	row.add_child(_build_action_card("⚔ Attack", func(): Combat.player_attack()))
+	row.add_child(_build_action_card("⚔ Attack", _on_attack_pressed))
 
 	# calc-effect-wiring-02/03: blast/shield/blackHole/healingBurst, then
 	# prophetsBreath/wormhole, added to the same "has anything to use" check
@@ -402,7 +565,11 @@ func _build_action_deck(player: Dictionary) -> Control:
 		or (player["dial"] != null and not player["dial"]["loadedComplications"].is_empty())
 	)
 	row.add_child(_build_action_card("🎒 Item", func(): Bag.open(), not has_items))
-	row.add_child(_build_action_card("🏃 Run", func(): Combat.flee()))
+	row.add_child(_build_action_card("🏃 Run", _on_run_pressed))
+
+	if _director.is_playing():
+		row.add_child(_build_action_card("⏭ Skip", func(): _director.skip_to_end()))
+
 	return row
 
 
@@ -414,6 +581,41 @@ func _build_action_card(text: String, callback: Callable, disabled: bool = false
 	return c["panel"]
 
 
+# combat-presentation ticket 04, docs/combat-animation-vision.md §8: Attack/
+# Run now play their round's beat queue back through _director instead of
+# just letting the ordinary state_changed -> _sync() resync show the
+# post-round state immediately. GameState is already final the instant
+# Combat.player_attack()/flee() returns (see combat_director.gd's own
+# comment) -- _play_round() only paces how much of the new log the footer
+# reveals while that plays out; the stage/strip already reflect the real
+# final state from the state_changed emitted inside player_attack()/flee()
+# itself, same as before this ticket.
+func _on_attack_pressed() -> void:
+	_play_round(func(): return Combat.player_attack())
+
+
+func _on_run_pressed() -> void:
+	_play_round(func(): return Combat.flee())
+
+
+func _play_round(action: Callable) -> void:
+	var log_before: int = GameState.state["combat"]["log"].size()
+	var result: Dictionary = action.call()
+	var beats: Array = result.get("beats", [])
+	if beats.is_empty():
+		return
+	_revealed_log_count = log_before
+	_sync_footer(GameState.state["combat"], GameState.state["player"])
+	await _director.play(beats, _on_beat_played)
+	_revealed_log_count = -1
+	_sync()
+
+
+func _on_beat_played(_beat: Dictionary) -> void:
+	_revealed_log_count += 1
+	_sync_footer(GameState.state["combat"], GameState.state["player"])
+
+
 func _build_dial_widget(dial: Dictionary) -> Control:
 	var widget := DialWidget.new()
 	widget.custom_minimum_size = Vector2(DIAL_WIDTH, 0)
@@ -423,11 +625,11 @@ func _build_dial_widget(dial: Dictionary) -> Control:
 
 # DialWidget.handle_rotate() only reports through this callback, never
 # mutates its own selection (see that file's own top comment) -- nothing in
-# GameState changed, so nothing would otherwise trigger a rebuild; _refresh()
+# GameState changed, so nothing would otherwise trigger a rebuild; _sync()
 # is called directly, same as _on_strip_selection_changed()'s non-enemy case.
 func _on_dial_selection_changed(new_index: int) -> void:
 	_dial_selected_index = new_index
-	_refresh()
+	_sync()
 
 
 func _build_outcome_button(outcome: String, context: String) -> Control:

@@ -493,6 +493,52 @@ func run() -> void:
 		screen.free()
 	)
 
+	# ── combat-presentation ticket 04: persistent combatant nodes ────────
+
+	run_case("stage_slot_node_identity_survives_a_real_turn_no_rebuild_each_state_changed", func():
+		_setup_combat([_enemy("Scrapper", 100, 100), _enemy("Vein Guard", 100, 100)])
+		GameState.state["player"]["attackMin"] = 0
+		GameState.state["player"]["attackMax"] = 0
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var slot_before := _slot_named(screen, "Vein Guard")
+		assert_true(slot_before != null)
+
+		Rng.set_seed(1)
+		Combat.player_attack()  # a real turn (state_changed and all) -- nobody dies
+
+		var slot_after := _slot_named(screen, "Vein Guard")
+		assert_true(slot_after == slot_before, "the same living combatant's stage placeholder must be the same Node across a turn, not torn down and rebuilt")
+
+		screen.free()
+	)
+
+	run_case("a_surviving_combatants_stage_slot_survives_a_kill_that_shrinks_the_enemy_band", func():
+		_setup_combat([_enemy("Weak", 1, 20), _enemy("Strong", 999, 999)])
+		GameState.state["player"]["attackMin"] = 999
+		GameState.state["player"]["attackMax"] = 999
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var strong_slot_before := _slot_named(screen, "Strong")
+		assert_true(strong_slot_before != null)
+
+		Rng.set_seed(1)
+		Combat.player_attack()  # kills the focused (Weak) enemy; Strong survives
+		assert_eq(GameState.state["combat"]["enemies"][0]["koed"], true, "sanity: Weak should be dead")
+
+		var strong_slot_after := _slot_named(screen, "Strong")
+		assert_true(strong_slot_after == strong_slot_before, "Strong's stage placeholder must survive even though the band's living count shrank from 2 to 1")
+
+		var slots := _stage_slots(screen)
+		assert_eq(slots.size(), 2, "the koed enemy's placeholder must actually be freed (not merely hidden) -- ticket 01's no-phantom-entries invariant still holds after a live kill")
+
+		screen.free()
+	)
+
 	run_case("triggering_the_dial_widget_casts_through_Combat_cast_complication_and_appends_a_log_line", func():
 		_setup_combat([_enemy("Scrapper", 20, 20)])
 		GameState.state["player"]["dial"] = _dial(["blast"], 3, 5)
