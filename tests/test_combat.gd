@@ -103,6 +103,33 @@ func run() -> void:
 		assert_true(found_variance, "same-archetype squadmates should not be guaranteed stat-for-stat identical")
 	)
 
+	# ── vein-trade-assets ticket 02: harder("vein_included") mugger roster ──
+
+	run_case("generate_mugger_harder_widens_the_count_floor_and_scales_stats_up", func():
+		var hp_bounds := _variance_bounds(28.0 * Combat.HARD_MUGGER_STAT_SCALE)
+		var atk_min_bounds := _variance_bounds(4.0 * Combat.HARD_MUGGER_STAT_SCALE)
+		var atk_max_bounds := _variance_bounds(10.0 * Combat.HARD_MUGGER_STAT_SCALE)
+		for seed in range(300):
+			Rng.set_seed(seed)
+			var entries := Combat.generate_mugger(true)
+			var count: int = entries.size()
+			assert_true(count >= Combat.HARD_MUGGER_MIN_COUNT and count <= Combat.HARD_MUGGER_MAX_COUNT, "harder roster count %d outside [%d,%d]" % [count, Combat.HARD_MUGGER_MIN_COUNT, Combat.HARD_MUGGER_MAX_COUNT])
+			for entry in entries:
+				assert_eq(entry["name"], "A mugger", "still the single mugger archetype, just scaled")
+				assert_true(entry["hp"] >= hp_bounds["min"] and entry["hp"] <= hp_bounds["max"], "harder hp %d outside variance band [%d,%d]" % [entry["hp"], hp_bounds["min"], hp_bounds["max"]])
+				assert_true(entry["attackMin"] >= atk_min_bounds["min"] and entry["attackMin"] <= atk_min_bounds["max"], "harder attackMin outside variance band")
+				assert_true(entry["attackMax"] >= atk_max_bounds["min"] and entry["attackMax"] <= atk_max_bounds["max"], "harder attackMax outside variance band")
+	)
+
+	run_case("start_mugging_vein_included_always_uses_the_harder_rosters_higher_count_floor", func():
+		for seed in range(300):
+			GameState.reset()
+			Rng.set_seed(seed)
+			Combat.start_mugging(true)
+			var entries: Array = GameState.state["combat"]["enemies"]
+			assert_true(entries.size() >= Combat.HARD_MUGGER_MIN_COUNT, "vein_included=true should always roll at least HARD_MUGGER_MIN_COUNT")
+	)
+
 	run_case("generate_raid_enemy_returns_guard_count_entries_capped_at_squad_max", func():
 		GameState.reset()
 		for guards in [1, 2, 3, 5]:

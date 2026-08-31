@@ -5,6 +5,19 @@ extends RefCounted
 
 const MUG_BASE_CHANCE := 0.20
 
+# vein-trade-assets ticket 02: DRAFT, flagged for human review, not a
+# confirmed number. A vein sale needs to be a genuine alternative to the
+# faction lane's no-cut/no-risk sale, not strictly worse -- 35% over quote
+# (before Archie's own cut) is a first proposal, not spec'd.
+const ARCHIE_VEIN_MARKUP := 1.35
+
+# vein-trade-assets ticket 02: DRAFT, flagged for human review. Lower than
+# MUG_BASE_CHANCE (0.20) per spec -- a vein sale should roll a lower base
+# mugging chance than the ordinary ore/item lane, in exchange for the
+# roster it rolls against being harder (Combat.HARD_MUGGER_* above). Not a
+# confirmed number.
+const MUG_BASE_CHANCE_VEIN := 0.12
+
 # bugfixes-63: relation for selling through Archie, smaller than James's
 # +5/job since sales happen far more often. Kept alongside, not replaced by,
 # RelationAccrual's £-denominated tradeProgress accumulator (collective1-06,
@@ -32,6 +45,14 @@ static func quality_price_multiplier(tier: int) -> float:
 	return 1.0 + QUALITY_PRICE_STEP * float(maxi(tier, 1) - 1)
 
 
+# vein-trade-assets ticket 02: Archie's vein price -- VeinTrade.quote()
+# (the same base quote the faction lane and standalone vein-list Sell flow
+# both use) marked up by ARCHIE_VEIN_MARKUP, *before* his cut ratio below
+# is applied to it (his cut applies on top, same as it does for ore/items).
+static func get_archie_vein_price(vein: Dictionary) -> int:
+	return GameState.round_epsilon(VeinTrade.quote(vein) * ARCHIE_VEIN_MARKUP)
+
+
 static func get_archie_cut_ratio() -> float:
 	var relation: int = GameState.state["contacts"]["archie"]["relation"]
 	if relation <= ARCHIE_CUT_RELATION_MIN:
@@ -42,7 +63,12 @@ static func get_archie_cut_ratio() -> float:
 	return ARCHIE_CUT_RATIO_MIN + (ARCHIE_CUT_RATIO_MAX - ARCHIE_CUT_RATIO_MIN) * float(relation - ARCHIE_CUT_RELATION_MIN) / span
 
 
-# items: [{ kind:"ore"|"consumable", type:String, qty:int }, ...]
+# items: [{ kind:"ore"|"consumable", type:String, qty:int } |
+#         { kind:"vein", veinId:String }, ...]
+# vein-trade-assets ticket 02: a "vein" item carries only the id, not a
+# pre-computed price -- same convention ore/consumable items already use
+# (price computed fresh in here from current state), not something the
+# caller works out ahead of time.
 static func execute_sale(items: Array) -> Dictionary:
 	if items.is_empty():
 		return { "ok": false, "reason": "Nothing to sell." }
@@ -63,9 +89,40 @@ static func execute_sale(items: Array) -> Dictionary:
 
 	var gross := 0
 	var cons_sold := 0
+	var vein_included := false
 
 	for item in items:
 		var kind: String = item["kind"]
+		if kind == "vein":
+			# vein-trade-assets ticket 02, spec: "goods leave the player's
+			# hands as part of executing the sale, before the mugging outcome
+			# is known" -- same shape ore/consumables already have in this
+			# loop (deducted/removed unconditionally below), just with a
+			# vein at stake instead. The transfer (VeinTrade.transfer_to_
+			# faction) is unconditional here; only the cash (folded into
+			# gross -> player_cut below) is contingent on the mugging roll.
+			# This means a lost mugging pays nothing for the vein even though
+			# it's already gone -- per the ticket, that's the *intended*
+			# shape (matching existing ore/item behaviour in this lane), not
+			# an oversight.
+			#
+			# Routes through VeinTrade.SELL_FACTION_ID ("collective") the
+			# same way ticket 01's faction lane does -- Archie fences it on,
+			# he doesn't hold veins himself. RelationAccrual inside
+			# transfer_to_faction is fed the plain VeinTrade.quote() (the
+			# vein's real worth to the faction receiving it), not Archie's
+			# markup below -- his markup/cut/relation are a player<->Archie
+			# concern (folded into gross), not the Collective's.
+			var vein_id: String = item["veinId"]
+			var vein: Variant = Cultivating.find_vein(vein_id)
+			if vein == null:
+				continue
+			var transfer_result := VeinTrade.transfer_to_faction(vein_id, VeinTrade.SELL_FACTION_ID, VeinTrade.quote(vein), true)
+			if not transfer_result.get("ok", false):
+				continue
+			gross += get_archie_vein_price(vein)
+			vein_included = true
+			continue
 		var item_type: String = item["type"]
 		var qty: int = item["qty"]
 		if kind == "ore":
@@ -107,7 +164,12 @@ static func execute_sale(items: Array) -> Dictionary:
 	# same call still gets its own cut at the relation it had after the flat
 	# award, not the one this accumulator just bumped it to on top of that.
 	RelationAccrual.accrue_archie(gross)
-	var mugged: bool = Rng.chance(Barometer.get_effective_mug_chance(MUG_BASE_CHANCE + danger_mod))
+	# vein-trade-assets ticket 02, spec: a trade including a vein rolls a
+	# lower base mugging chance (MUG_BASE_CHANCE_VEIN, DRAFT) than the
+	# ordinary ore/item rate -- against a harder roster (Combat.start_mugging's
+	# vein_included argument below), not a softer one.
+	var mug_base: float = MUG_BASE_CHANCE_VEIN if vein_included else MUG_BASE_CHANCE
+	var mugged: bool = Rng.chance(Barometer.get_effective_mug_chance(mug_base + danger_mod))
 
 	if mugged:
 		# No sale_result modal yet — outcome isn't known until the mugging
@@ -120,7 +182,7 @@ static func execute_sale(items: Array) -> Dictionary:
 		# sits there instead of Attack/Run/Item.
 		Modal.close()
 		GameState.state["pendingSaleCut"] = player_cut
-		Combat.start_mugging()
+		Combat.start_mugging(vein_included)
 		EventBus.state_changed.emit()
 		return { "ok": true, "mugged": true, "gross": gross }
 	else:
@@ -213,6 +275,15 @@ static func sell_from_sell_state() -> Dictionary:
 			var qty: int = sell_state.get("con_%s_%s" % [recipe_key, tier_key], 0)
 			if qty > 0:
 				items.append({ "kind": "consumable", "type": recipe_key, "tier": int(tier_key), "qty": qty })
+
+	# vein-trade-assets ticket 02: same "vein_<id>" toggle keys toggle_sell_vein
+	# writes and the faction lane's sell_to_faction_from_sell_state already
+	# reads -- Archie's Assets section (modal_layer.gd) reuses the identical
+	# toggle wiring, just folding into execute_sale's item list instead.
+	if GameState.state["flags"].get("veinSaleUnlocked", false):
+		for vein in GameState.state["player"]["veins"]:
+			if sell_state.get("vein_%s" % vein["id"], 0) > 0:
+				items.append({ "kind": "vein", "veinId": vein["id"] })
 
 	clear_sell_state()
 	return execute_sale(items)

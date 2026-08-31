@@ -223,7 +223,46 @@ func run() -> void:
 		faction_layer.free()
 	)
 
-	run_case("archies_assets_section_lists_no_vein_rows_even_when_the_player_owns_one", func():
+	# ── vein-trade-assets ticket 02: Archie's Assets section goes live ─────
+
+	run_case("archies_assets_section_lists_every_owned_vein_as_a_toggle_row_priced_with_the_markup", func():
+		GameState.reset()
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		var vein := _seed_vein("v1", 50)
+		var price: int = Economy.get_archie_vein_price(vein)
+		assert_true(price > VeinTrade.quote(vein), "sanity: the markup should price above the plain quote")
+		Modal.open("sell_menu")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var expected_label := "Shoreditch — %s %s (£%d)" % [GameData.ORE_TYPES["life"]["symbol"], GameData.ORE_TYPES["life"]["name"], price]
+		assert_true(_find_button(layer, "Assets ▾") != null, "Assets header still renders")
+		assert_true(_label_texts(layer).has(expected_label), "vein row shows district/ore/Archie's marked-up price")
+		assert_true(_find_button(layer, "☐") != null, "vein row starts unselected")
+
+		layer.free()
+	)
+
+	run_case("toggling_a_vein_in_archies_lane_folds_the_markup_price_into_gross_and_cut", func():
+		GameState.reset()
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		var vein := _seed_vein("v1", 50)
+		var price: int = Economy.get_archie_vein_price(vein)
+		var cut_ratio := Economy.get_archie_cut_ratio()
+		Modal.open("sell_menu")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+		_find_button(layer, "☐").pressed.emit()
+
+		var expected_cut: int = int(floor(price * cut_ratio))
+		assert_true(_label_texts(layer).has("Your cut (%d%%): £%d" % [int(round(cut_ratio * 100)), expected_cut]), "cut reflects the vein's marked-up price")
+
+		layer.free()
+	)
+
+	run_case("selecting_a_vein_in_archies_lane_swaps_the_displayed_mugging_chance_to_the_vein_rate", func():
 		GameState.reset()
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		_seed_vein("v1", 50)
@@ -231,11 +270,49 @@ func run() -> void:
 
 		var layer := ModalLayer.new()
 		layer._ready()
+		assert_true(_label_texts(layer).has("%d%% chance of mugging" % int(round(Economy.MUG_BASE_CHANCE * 100))), "no vein selected -- plain rate shown")
 
-		assert_true(_find_button(layer, "Assets ▾") != null, "Assets header still renders")
-		assert_true(_find_button(layer, "☐") == null, "no vein toggle row -- Archie's Assets stays inert")
+		_find_button(layer, "☐").pressed.emit()
+		assert_true(_label_texts(layer).has("%d%% chance of mugging" % int(round(Economy.MUG_BASE_CHANCE_VEIN * 100))), "vein selected -- lower vein-lane rate shown")
 
 		layer.free()
+	)
+
+	run_case("go_on_archies_lane_sells_ore_and_a_toggled_vein_in_one_trade_when_the_roll_does_not_mug", func():
+		var seed := -1
+		for candidate in range(300):
+			GameState.reset()
+			GameState.state["flags"]["veinSaleUnlocked"] = true
+			GameState.state["player"]["orichalchum"]["time"] = 10
+			Economy.adjust_sell_qty("ore_time", 2, 10)
+			_seed_vein("v1", 50)
+			Economy.toggle_sell_vein("v1")
+			Rng.set_seed(candidate)
+			var result := Economy.sell_from_sell_state()
+			if not result.get("mugged", false):
+				seed = candidate
+				break
+		assert_true(seed != -1, "should find a non-mugged roll within 300 tries")
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "the toggled vein left player.veins even though it was sold via Archie")
+		assert_eq(GameState.state["modal"]["type"], "sale_result", "same result modal as an ore-only Archie sale")
+	)
+
+	run_case("archies_lane_transfers_a_mugged_vein_immediately_but_defers_its_cash_to_pendingSaleCut", func():
+		var seed := -1
+		for candidate in range(300):
+			GameState.reset()
+			GameState.state["flags"]["veinSaleUnlocked"] = true
+			var vein := _seed_vein("v1", 50)
+			var vein_key := "vein_%s" % vein["id"]
+			GameState.state["sellState"][vein_key] = 1
+			Rng.set_seed(candidate)
+			var result := Economy.sell_from_sell_state()
+			if result.get("mugged", false):
+				seed = candidate
+				break
+		assert_true(seed != -1, "should find a mugged roll within 300 tries")
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "vein-trade-assets ticket 02, spec: the vein leaves player ownership regardless of the mugging outcome")
+		assert_true(GameState.state["pendingSaleCut"] > 0, "cash is deferred, not lost -- paid out on muggingWon")
 	)
 
 	run_case("faction_sell_menus_assets_section_lists_every_owned_vein_as_a_toggle_row", func():

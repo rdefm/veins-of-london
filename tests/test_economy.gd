@@ -665,3 +665,74 @@ func run() -> void:
 		# time basePrice 60, stable barometer -> gross = 180; cut = floor(180*0.85) = 153
 		assert_eq(GameState.state["player"]["cash"], 40 + 153, "playerCut reflects Archie's relation-scaled cut, not a flat 50%")
 	)
+
+	# ── vein-trade-assets ticket 02: Archie's Assets lane goes live ────────
+
+	run_case("get_archie_vein_price_marks_up_the_plain_quote_before_any_cut", func():
+		GameState.reset()
+		var vein := _seed_vein("v1", 50)
+		var quote_price: int = VeinTrade.quote(vein)
+		assert_eq(Economy.get_archie_vein_price(vein), GameState.round_epsilon(quote_price * Economy.ARCHIE_VEIN_MARKUP), "matches quote * ARCHIE_VEIN_MARKUP")
+		assert_true(Economy.get_archie_vein_price(vein) > quote_price, "the vein lane must price above the plain quote for it to be a genuine alternative to the no-cut faction lane")
+	)
+
+	run_case("execute_sale_with_a_vein_item_transfers_it_immediately_and_folds_its_marked_up_price_into_gross", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			var vein := _seed_vein("v1", 50)
+			var result := Economy.execute_sale([{ "kind": "vein", "veinId": "v1" }])
+			return not result.get("mugged", false)
+		)
+		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "the vein leaves player.veins as part of executing the sale")
+		var site: Variant = Sites.find_site("site_v1")
+		assert_true(site["factionVein"] != null, "the vein re-lands on its site as a faction vein, same mechanism as the faction lane")
+		assert_eq(site["factionVein"]["factionId"], VeinTrade.SELL_FACTION_ID, "Archie fences it through the same collective lane the faction sell/vein-list flows use")
+	)
+
+	run_case("mugged_vein_sale_transfers_the_vein_but_defers_its_marked_up_cut_to_pendingSaleCut", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			var vein := _seed_vein("v1", 50)
+			var result := Economy.execute_sale([{ "kind": "vein", "veinId": "v1" }])
+			return result.get("mugged", false)
+		)
+		assert_true(seed != -1, "should find a mugged roll within 200 tries")
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "spec: the vein leaves ownership regardless of the mugging outcome")
+		assert_eq(GameState.state["player"]["cash"], 40, "cash should NOT increase yet -- the vein's payout is deferred like ore/item payouts")
+		assert_true(GameState.state["pendingSaleCut"] > 0, "pendingSaleCut holds the marked-up vein price's cut, paid out on muggingWon")
+	)
+
+	run_case("a_vein_in_the_trade_rolls_the_lower_vein_lane_base_mugging_chance_not_the_plain_rate", func():
+		# Same technique as dangerMod_can_tip_a_non_mugging_roll_into_a_mugging
+		# above: hold the seed (and so the underlying RNG draw) fixed, and
+		# show the vein-lane's lower base chance changes the outcome the
+		# plain ore-only rate would have produced.
+		var found_seed := -1
+		for seed in range(1000):
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 10
+			Rng.set_seed(seed)
+			var ore_result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 1 }])
+			if not ore_result.get("mugged", false):
+				continue
+			GameState.reset()
+			_seed_vein("v1", 50)
+			Rng.set_seed(seed)
+			var vein_result := Economy.execute_sale([{ "kind": "vein", "veinId": "v1" }])
+			if not vein_result.get("mugged", false):
+				found_seed = seed
+				break
+		assert_true(found_seed != -1, "should find a seed where the plain ore rate (MUG_BASE_CHANCE) mugs but MUG_BASE_CHANCE_VEIN, same draw, does not")
+	)
+
+	run_case("a_mugged_vein_sale_starts_the_harder_mugger_roster", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			_seed_vein("v1", 50)
+			var result := Economy.execute_sale([{ "kind": "vein", "veinId": "v1" }])
+			return result.get("mugged", false)
+		)
+		assert_true(seed != -1, "should find a mugged roll within 200 tries")
+		assert_eq(GameState.state["combat"]["enemies"].size() >= Combat.HARD_MUGGER_MIN_COUNT, true, "vein_included mugging should use Combat's harder roster floor")
+	)

@@ -248,6 +248,68 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["veins"].size(), 1, "an unknown vein id must not touch the real veins")
 	)
 
+	# ── vein-trade-assets ticket 02: transfer_to_faction() split-out ───────
+	# (sell_to_faction() above is now transfer_to_faction() + an immediate,
+	# unconditional cash payout -- Archie's cut-and-risk lane, Economy.
+	# execute_sale, calls transfer_to_faction() directly and defers the cash
+	# to the mugging roll instead.)
+
+	run_case("transfer_to_faction_moves_the_vein_and_recreates_it_as_a_faction_vein_without_paying_cash", func():
+		GameState.reset()
+		_seed_vein(50, "rich")
+		var cash_before: int = GameState.state["player"]["cash"]
+
+		var result := VeinTrade.transfer_to_faction("v1", "collective", 500, true)
+
+		assert_true(result["ok"])
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "the vein still leaves player.veins")
+		assert_eq(GameState.state["player"]["cash"], cash_before, "transfer_to_faction must not itself pay the player -- that's the caller's job")
+		var site: Variant = Sites.find_site("s1")
+		assert_true(site["factionVein"] != null)
+		assert_eq(site["factionVein"]["factionId"], "collective")
+	)
+
+	run_case("transfer_to_faction_still_accrues_tradeProgress_on_the_given_price", func():
+		GameState.reset()
+		_seed_vein(50, "rich")
+
+		VeinTrade.transfer_to_faction("v1", "collective", 500, true)
+
+		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 500, "accrual runs off the given price even though no cash changed hands yet")
+	)
+
+	run_case("transfer_to_faction_count_as_player_sale_false_does_not_stamp_soldByPlayer", func():
+		GameState.reset()
+		_seed_vein(50, "rich")
+
+		VeinTrade.transfer_to_faction("v1", "collective", 0, false)
+
+		var site: Variant = Sites.find_site("s1")
+		assert_true(not site["factionVein"]["soldByPlayer"])
+	)
+
+	run_case("transfer_to_faction_fails_for_an_unknown_vein_id", func():
+		GameState.reset()
+		_seed_vein(50, "fair")
+
+		var result := VeinTrade.transfer_to_faction("not_a_real_vein", "collective", 100, true)
+
+		assert_true(not result["ok"])
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "an unknown vein id must not touch the real veins")
+	)
+
+	run_case("sell_to_faction_still_pays_cash_immediately_on_top_of_the_transfer", func():
+		GameState.reset()
+		var vein := _seed_vein(50, "rich")
+		var price: int = VeinTrade.quote(vein)
+		var cash_before: int = GameState.state["player"]["cash"]
+
+		var result := VeinTrade.sell_to_faction("v1", "collective")
+
+		assert_eq(result["price"], price)
+		assert_eq(GameState.state["player"]["cash"], cash_before + price, "sell_to_faction's own immediate-payout behaviour is unchanged by the transfer_to_faction split")
+	)
+
 	# ── VeinList wiring ──────────────────────────────────────────────────
 
 	run_case("vein_list_actions_for_omits_sell_when_veinSaleUnlocked_is_false", func():

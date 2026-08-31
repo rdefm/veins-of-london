@@ -327,15 +327,39 @@ func _build_sell_menu() -> void:
 				var tier_label := "untiered" if tier <= 0 else "tier %d" % tier
 				item_rows.append(_build_sell_row("%s %s (%s, £%d/ea, have %d)" % [recipe["symbol"], recipe["name"], tier_label, price, have], key, qty, have))
 
-	# vein-trade-assets ticket 01: Archie's Assets section renders (same
-	# three-section layout as the faction lane below) but stays inert -- no
-	# vein rows, no sell wiring yet. That's ticket 02.
-	_build_sell_sections(ore_rows, item_rows, [])
+	# vein-trade-assets ticket 02: Archie's Assets section goes live -- same
+	# 0/1 toggle rows the faction lane's Assets section uses below, priced at
+	# Economy.get_archie_vein_price() (quote + Archie's markup) rather than
+	# the faction lane's plain VeinTrade.quote(). Toggling folds the vein
+	# into this same gross/cut/mugging-roll flow via Economy.sell_from_sell_state().
+	var asset_rows: Array = []
+	var veins_selected := 0
+	if GameState.state["flags"].get("veinSaleUnlocked", false):
+		for vein in player["veins"]:
+			var vein_key := "vein_%s" % vein["id"]
+			var selected: bool = sell_state.get(vein_key, 0) > 0
+			var vein_price := Economy.get_archie_vein_price(vein)
+			if selected:
+				gross += vein_price
+				veins_selected += 1
+			var vein_ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
+			var vein_district: Dictionary = GameData.DISTRICTS[vein["district"]]
+			var vein_label := "%s — %s %s (£%d)" % [vein_district["name"], vein_ore["symbol"], vein_ore["name"], vein_price]
+			asset_rows.append(_build_sell_vein_row(vein_label, vein["id"], selected))
+
+	_build_sell_sections(ore_rows, item_rows, asset_rows)
 
 	var cut_ratio := Economy.get_archie_cut_ratio()
 	var player_cut: int = int(floor(gross * cut_ratio))
 	_card_content.add_child(UI.label("Your cut (%d%%): £%d" % [int(round(cut_ratio * 100)), player_cut]))
-	_card_content.add_child(UI.muted_label("20% chance of mugging"))
+	# vein-trade-assets ticket 02, spec: a vein in the trade rolls a lower
+	# base mugging chance (Economy.MUG_BASE_CHANCE_VEIN) than the plain
+	# ore/item rate -- against a harder roster, per Combat.start_mugging's
+	# vein_included argument (not shown here; this label is the base-chance
+	# figure only, same simplification the pre-existing "20%" label made by
+	# never accounting for district dangerMod either).
+	var mug_pct: float = Economy.MUG_BASE_CHANCE_VEIN if veins_selected > 0 else Economy.MUG_BASE_CHANCE
+	_card_content.add_child(UI.muted_label("%d%% chance of mugging" % int(round(mug_pct * 100))))
 
 	var go_button := UI.button("Go — find a buyer", func(): Economy.sell_from_sell_state())
 	go_button.disabled = player_cut == 0

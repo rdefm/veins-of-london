@@ -44,6 +44,31 @@ static func quote(vein: Dictionary) -> int:
 # + oreType is all that objective checks) and misfire col_a1_nadia_done
 # with Nadia's dialogue over a vein she never touched.
 static func sell_to_faction(vein_id: String, faction_id: String, price_override: Variant = null) -> Dictionary:
+	var is_handback: bool = price_override != null
+	var vein: Variant = Cultivating.find_vein(vein_id)
+	var price: int = price_override if is_handback else (quote(vein) if vein != null else 0)
+
+	var result := transfer_to_faction(vein_id, faction_id, price, not is_handback)
+	if not result.get("ok", false):
+		return result
+
+	GameState.state["player"]["cash"] += price
+	Bank.record(price, "Sold vein to %s" % faction_id.capitalize())
+	EventBus.state_changed.emit()
+	return { "ok": true, "price": price, "factionId": faction_id }
+
+
+# vein-trade-assets ticket 02: everything sell_to_faction() above does
+# *except* paying the player -- the vein leaving player.veins, the site
+# handoff, the faction-vein re-creation, the map event, tradeProgress
+# accrual, and the objective/content boundary hooks. Split out so Archie's
+# cut-and-risk lane (Economy.execute_sale) can move the vein immediately
+# ("goods leave the player's hands as part of executing the sale", same as
+# ore/consumables in that lane) while the cash payout itself stays
+# contingent on the mugging roll, settled later by Economy.complete_mugged_sale()
+# or the non-mugged branch -- sell_to_faction() above is just this plus an
+# unconditional, immediate cash payout for lanes with no risk attached.
+static func transfer_to_faction(vein_id: String, faction_id: String, price: int, count_as_player_sale: bool) -> Dictionary:
 	var vein: Variant = Cultivating.find_vein(vein_id)
 	if vein == null:
 		return { "ok": false, "reason": "No such vein." }
@@ -52,17 +77,12 @@ static func sell_to_faction(vein_id: String, faction_id: String, price_override:
 	if site == null:
 		return { "ok": false, "reason": "Site not found." }
 
-	var is_handback: bool = price_override != null
-	var price: int = price_override if is_handback else quote(vein)
-
 	var player: Dictionary = GameState.state["player"]
 	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
-	player["cash"] += price
-	Bank.record(price, "Sold vein to %s" % faction_id.capitalize())
 	Sites.release_vein_slot(vein)
 
 	var faction_vein: Dictionary = Factions.create_faction_vein(faction_id, site, vein["growth"])
-	faction_vein["soldByPlayer"] = not is_handback
+	faction_vein["soldByPlayer"] = count_as_player_sale
 	site["claimed"] = false
 	site["factionVein"] = faction_vein
 
@@ -71,7 +91,11 @@ static func sell_to_faction(vein_id: String, faction_id: String, price_override:
 	# collective1-06, spec §8.4: a vein sale's price counts toward the
 	# selling faction's tradeProgress exactly like any other trade -- a
 	# no-op at price 0 (ticket 14's Hakim handback) and for factions
-	# RelationAccrual.LANES doesn't configure a rate for.
+	# RelationAccrual.LANES doesn't configure a rate for. Accrued here,
+	# unconditionally, same reasoning Economy.execute_sale's own
+	# RelationAccrual.accrue_archie(gross) call uses for ore/consumables:
+	# relation reflects the trade that happened, not what actually landed
+	# in pocket once a mugging roll settles.
 	RelationAccrual.accrue_faction(faction_id, price)
 
 	Objectives.refresh()  # collective1-05: boundary — vein sale completion
@@ -80,4 +104,4 @@ static func sell_to_faction(vein_id: String, faction_id: String, price_override:
 	# generic sale lane stays ignorant of which faction/objective it is.
 	Collective.maybe_trigger_nadia_vein_done()
 	EventBus.state_changed.emit()
-	return { "ok": true, "price": price, "factionId": faction_id }
+	return { "ok": true }

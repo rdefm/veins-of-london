@@ -86,26 +86,43 @@ static func _apply_instance_variance(base: float) -> int:
 	return GameState.round_epsilon(base * Rng.randf_range(1.0 - ENEMY_INSTANCE_VARIANCE, 1.0 + ENEMY_INSTANCE_VARIANCE))
 
 
+# vein-trade-assets ticket 02, spec: a trade including a vein rolls against
+# a "harder-than-default" mugger encounter -- DRAFT/needs balance sign-off,
+# flagged for review same as MUG_BASE_CHANCE_VEIN in economy.gd. Proposed as
+# a wider, higher-floor roster (2-4 vs. the default 1-3) at 1.3x base
+# stats, rather than a new archetype -- still "a mugger", just more of them
+# and hitting harder, since there's a vein's worth of money on the table.
+const HARD_MUGGER_MIN_COUNT := 2
+const HARD_MUGGER_MAX_COUNT := 4
+const HARD_MUGGER_STAT_SCALE := 1.3
+
+
 # squad-combat ticket 04: `count` distinct entries off the single mugger
 # archetype's base stats (hp 28, atk 4-10 per R§3.7a), each with independent
 # variance -- replaces the old one `hp x count` blob. No new mugger
 # archetype is introduced; every entry shares the same base stats.
-static func generate_mugger() -> Array:
-	var count: int = Rng.randi_range(1, 3)
+# vein-trade-assets ticket 02: `harder` widens the roster to
+# [HARD_MUGGER_MIN_COUNT, HARD_MUGGER_MAX_COUNT] and scales every instance's
+# base stats by HARD_MUGGER_STAT_SCALE -- see those consts' doc above.
+static func generate_mugger(harder: bool = false) -> Array:
+	var min_count: int = HARD_MUGGER_MIN_COUNT if harder else 1
+	var max_count: int = HARD_MUGGER_MAX_COUNT if harder else 3
+	var count: int = Rng.randi_range(min_count, max_count)
 	var entries: Array = []
 	for _i in range(count):
-		entries.append(_spawn_mugger_instance())
+		entries.append(_spawn_mugger_instance(harder))
 	return entries
 
 
-static func _spawn_mugger_instance() -> Dictionary:
-	var hp: int = _apply_instance_variance(28)
+static func _spawn_mugger_instance(harder: bool = false) -> Dictionary:
+	var scale: float = HARD_MUGGER_STAT_SCALE if harder else 1.0
+	var hp: int = _apply_instance_variance(28 * scale)
 	return {
 		"name": "A mugger",
 		"hp": hp,
 		"hpMax": hp,
-		"attackMin": _apply_instance_variance(4),
-		"attackMax": _apply_instance_variance(10),
+		"attackMin": _apply_instance_variance(4 * scale),
+		"attackMax": _apply_instance_variance(10 * scale),
 		"isMugging": true,
 		"weapon": null,
 		"ability": null,
@@ -252,9 +269,18 @@ static func disarm_enemy(enemy: Dictionary, turns: int) -> void:
 # his own deal going wrong -- so he always fights here, bypassing
 # Contacts.can_join_combat()'s recruited/kit/KO-cooldown gate entirely
 # rather than being subject to it like every other ally-join site.
-static func start_mugging() -> void:
-	var enemies := generate_mugger()
+# vein-trade-assets ticket 02: `vein_included`, passed through by
+# execute_sale from whether the batched sale that triggered this mugging
+# had a vein in it, rolls generate_mugger()'s harder roster instead of the
+# default one -- see HARD_MUGGER_* above.
+static func start_mugging(vein_included: bool = false) -> void:
+	var enemies := generate_mugger(vein_included)
 	var log_lines := ["%s step out of nowhere. They want what you're carrying." % _mugger_intro_label(enemies.size())]
+	if vein_included:
+		# PROSE-REVIEW: new line, drafted against CONTENT-GUIDE.md's tone
+		# bible -- flags that this crew is the harder vein-stakes roster
+		# without spelling out the mechanic.
+		log_lines.append("Word of a vein in the mix travels fast -- this lot came heavier.")
 	# PROSE-REVIEW: new ally-join log line, drafted against
 	# CONTENT-GUIDE.md's tone bible.
 	log_lines.append("Archie's deal, Archie's problem -- he wades in.")
