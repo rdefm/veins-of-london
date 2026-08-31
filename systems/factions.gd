@@ -35,6 +35,39 @@ static func adjust_player_relation(faction_id: String, delta: int) -> void:
 	EventBus.state_changed.emit()
 
 
+# ── collective-ore-stock T01: Collective ore stock + restocking ────────
+# A limited, independently-scarce stock the Collective's buy lane draws
+# against -- schema-present on every faction (state.factions[id].oreStock)
+# but only "collective" is ever rolled or read in this milestone, same
+# "present everywhere, only one faction moves it" pattern tradeProgress
+# already uses. Entirely independent of relation: relation only narrows
+# get_faction_buy_spread/get_faction_sell_spread's *price*, never this
+# *quantity* ceiling.
+const ORE_STOCK_RESTOCK_CHANCE := 0.30
+const ORE_STOCK_QTY_MIN := 5
+const ORE_STOCK_QTY_MAX := 20
+
+
+# All 5 canonical ore types reroll together as one event, replacing
+# whatever stock remained rather than adding to it. Silent per spec: no
+# Notify/Ticker push of any kind, ever -- callers include both the
+# unlock-moment pre-roll (events.gd's set_flag op) and the daily chance
+# below.
+static func restock_ore(faction_id: String) -> void:
+	var stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		stock[ore_type] = Rng.randi_range(ORE_STOCK_QTY_MIN, ORE_STOCK_QTY_MAX)
+
+
+# Called from time_system.gd's daily_tick, step ⑤j: an unpredictable daily
+# chance of a restock firing (not a fixed interval). Collective-only for
+# this milestone -- the other 4 factions' oreStock stays schema-present but
+# untouched until a later milestone reads it.
+static func maybe_restock_ore() -> void:
+	if Rng.chance(ORE_STOCK_RESTOCK_CHANCE):
+		restock_ore("collective")
+
+
 # ── faction vein ownership (faction-vein-ownership T01) ────────────────
 # Reuses systems/sites.gd's existing daily-tick claim roll: instead of
 # flipping an anonymous npcClaimed flag, that roll now names one of the 5

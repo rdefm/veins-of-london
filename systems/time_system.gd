@@ -68,6 +68,10 @@ static func do_rest() -> void:
 # roll only reads siteCap/site counts and Messages/collective state, no
 # ordering dependency on any other step -- placed last per landing order,
 # same as ⑤g/⑤h were.
+# collective-ore-stock T01 adds step ⑤j, appended after ⑤i per the ticket's
+# explicit "no ordering dependency on the other steps" -- the daily restock
+# chance only reads/writes state.factions.collective.oreStock, untouched by
+# anything else in the chain.
 # bugfixes-40 removed the old step ⑤c, NPC-abandonment (adr/0002's
 # independent daily kill roll for faction-claimed sites, stacked on top of
 # the growth-collapse-at-zero roll every vein already faces) — faction
@@ -96,6 +100,7 @@ static func daily_tick() -> void:
 	Factions.apply_rivalry_resolution()  # ⑤g faction-territory-rivalry attempt roll + resolution (faction-territory-rivalry T04), runs right after ⑤f so a tick's income/spend is already settled before any vein changes hands
 	Raiding.apply_raid_resolution()      # ⑤h Direction-B raid attempt roll + resolution (vein-raiding T06), runs right after ⑤g
 	Collective.maybe_trigger_hakim_intel()  # ⑤i Hakim's repeatable intel roll (collective1-17), runs right after ⑤h
+	Factions.maybe_restock_ore()         # ⑤j Collective ore stock daily restock roll (collective-ore-stock T01), runs right after ⑤i
 	Rooms.process_lab()                  # ⑥ rooms (lab, then veinStation)
 	Rooms.process_vein_station()
 	Dial.daily_regen()                   # ⑦ dial-device ticket 07: Dial charge regen (replaces Devices.reset_daily_charges())

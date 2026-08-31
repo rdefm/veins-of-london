@@ -418,6 +418,8 @@ func _restore_int_types(state: Dictionary) -> void:
 			for ore_entry in faction.get("oreSold", {}).values():
 				_int_key(ore_entry, "units")
 				_int_key(ore_entry, "transactions")
+			# collective-ore-stock T01
+			_int_dict_values(faction.get("oreStock", {}))
 
 	if state.has("factionRelations"):
 		for row in state["factionRelations"].values():

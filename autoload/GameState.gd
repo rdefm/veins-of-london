@@ -378,6 +378,16 @@ func _new_factions_state() -> Dictionary:
 			# configured rate in Act 1 (RelationAccrual.LANES), so it's the
 			# only one that ever moves.
 			"tradeProgress": 0,
+			# collective-ore-stock T01: a limited, independently-scarce stock
+			# per ore type (systems/factions.gd's Factions.restock_ore()/
+			# maybe_restock_ore()), which the buy lane draws against --
+			# { "<oreType>": int }, absent types read as 0. Present on every
+			# faction for schema uniformity, same as tradeProgress above, but
+			# only ever rolled/read for "collective" in this milestone.
+			# Entirely independent of relation -- relation only narrows
+			# Economy.get_faction_buy_spread/get_faction_sell_spread's price,
+			# never this quantity ceiling.
+			"oreStock": {},
 		}
 	return factions
 

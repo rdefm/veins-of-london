@@ -312,6 +312,23 @@ func run() -> void:
 		assert_true(hit, "daily_tick should reach step 5i (Collective.maybe_trigger_hakim_intel) within 200 tries")
 	)
 
+	run_case("daily_tick_wires_in_the_collective_ore_stock_restock_step_right_after_hakim_intel_step", func():
+		# collective-ore-stock T01: run many seeds and confirm daily_tick
+		# eventually reaches step 5j and rolls the Collective's ore stock.
+		# Full behavioural coverage (range, all-5-together, fire rate, the
+		# unlock-moment pre-roll) lives in tests/test_ore_stock.gd -- this is
+		# just the wiring check, matching every other step's test above.
+		var hit := false
+		for seed in range(200):
+			GameState.reset()
+			Rng.set_seed(seed)
+			TimeSystem.daily_tick()
+			if not GameState.state["factions"]["collective"]["oreStock"].is_empty():
+				hit = true
+				break
+		assert_true(hit, "daily_tick should reach step 5j (Factions.maybe_restock_ore) within 200 tries")
+	)
+
 	# ── bugfixes-30: James job proactive daily offer + deadline expiry ──
 
 	run_case("daily_tick_wires_in_james_job_offer_roll_step", func():

@@ -192,7 +192,19 @@ static func apply_effects(effects: Array, context: Dictionary = {}) -> void:
 static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 	match effect["op"]:
 		"set_flag":
-			GameState.state["flags"][effect["flag"]] = effect["value"]
+			var flags: Dictionary = GameState.state["flags"]
+			var flag_name: String = effect["flag"]
+			var value: Variant = effect["value"]
+			# collective-ore-stock T01: the Collective's ore stock rolls
+			# fresh the instant this flag first flips true -- not a special
+			# "day zero" branch, just the first restock happening at unlock
+			# (col_a1_intro's on_complete, today) instead of waiting for a
+			# qualifying daily_tick, so day one is never an empty shelf.
+			# Guarded on the *old* value so this can't re-roll a live stock
+			# if some future event content ever re-sets an already-true flag.
+			if flag_name == "collectiveLaneUnlocked" and value and not flags.get(flag_name, false):
+				Factions.restock_ore("collective")
+			flags[flag_name] = value
 		"add":
 			_apply_add(effect["path"], effect["value"])
 		"add_ore":
