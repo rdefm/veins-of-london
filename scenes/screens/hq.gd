@@ -363,7 +363,7 @@ func _build_dial_card() -> Control:
 	c["content"].add_child(UI.bar(dial["currentCharge"], maxf(1.0, dial["maxCharge"])))
 	c["content"].add_child(UI.label("Capacity: %d/%d" % [Dial.capacity_used(dial), dial["capacityMax"]]))
 
-	_build_movement_crafting_section(c["content"], player)
+	_build_movement_crafting_section(c["content"])
 
 	return c["panel"]
 
@@ -383,34 +383,24 @@ func _on_seed_pressed(haft_id: String) -> void:
 		Notify.push("Seeding failed — calc spent, no Dial gained.", Notify.CATEGORY_DANGER)
 
 
-func _build_movement_crafting_section(content: VBoxContainer, player: Dictionary) -> void:
+# bugfixes ticket 104: each archetype used to render as a bare cost/chance
+# label above a row of 5 ore-symbol buttons that each crafted immediately on
+# tap, no confirmation and no explanation of what the archetype actually
+# does. Now every archetype gets its own block (name + one-line effect
+# description) and a single Craft button that opens the calc-type picker
+# modal (ModalLayer's "movement_craft" case) instead of crafting directly --
+# the ore-type choice, cost/chance display, and the actual craft attempt all
+# moved there.
+# PROSE-REVIEW: the m["description"] line rendered below (data/dial.json's
+# four movements.*.description strings) is new copy, drafted against
+# CONTENT-GUIDE.md's tone bible -- flag for human review.
+func _build_movement_crafting_section(content: VBoxContainer) -> void:
 	content.add_child(UI.heading("Craft a Movement", 13))
-	var skill: int = player["craftingSkill"]
 	for archetype in GameData.CANONICAL_MOVEMENT_ARCHETYPES:
 		var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
-		var cost: int = Dial.movement_calc_cost(archetype, skill)
-		content.add_child(UI.muted_label("%s %s — %d calc, chance %d%%" % [m["symbol"], m["name"], cost, int(round(Dial.movement_craft_chance(archetype, skill) * 100))]))
-		var row := UI.hbox()
-		for ore_type in GameData.ORE_TYPES.keys():
-			var have: int = player["orichalchum"].get(ore_type, 0)
-			var captured_archetype: String = archetype
-			var captured_ore: String = ore_type
-			var b := UI.button("%s" % GameData.ORE_TYPES[ore_type]["symbol"], func(): _on_movement_craft_pressed(captured_archetype, captured_ore))
-			b.disabled = have < cost
-			row.add_child(b)
-		content.add_child(row)
-
-
-# bugfixes ticket 97: attempt_craft_movement()'s three outcomes were
-# previously discarded here, same silent-tap problem as _on_seed_pressed().
-# PROSE-REVIEW: notification text below is new copy, drafted against
-# CONTENT-GUIDE.md §3's tone bible -- flag for human review.
-func _on_movement_craft_pressed(archetype: String, ore_type: String) -> void:
-	var result := Dial.attempt_craft_movement(archetype, ore_type)
-	if not result["ok"]:
-		Notify.push(result["reason"], Notify.CATEGORY_WARNING)
-	elif result["success"]:
-		var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
-		Notify.push("Movement crafted: %s (tier %d)." % [m["name"], result["tier"]], Notify.CATEGORY_SUCCESS)
-	else:
-		Notify.push("Movement-crafting failed — calc spent, no Movement gained.", Notify.CATEGORY_DANGER)
+		var block := UI.vbox(4)
+		block.add_child(UI.label("%s %s" % [m["symbol"], m["name"]]))
+		block.add_child(UI.muted_label(m.get("description", "")))
+		var captured_archetype: String = archetype
+		block.add_child(UI.button("Craft", func(): Modal.open("movement_craft", { "archetype": captured_archetype })))
+		content.add_child(block)

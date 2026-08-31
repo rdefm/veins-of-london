@@ -163,6 +163,8 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_network_reference()
 		"sell_vein_quote":
 			_build_sell_vein_quote(data)
+		"movement_craft":
+			_build_movement_craft(data)
 		_:
 			_card_content.add_child(UI.heading(type_id))
 			_card_content.add_child(UI.label("…"))
@@ -702,6 +704,50 @@ func _build_sell_vein_quote(data: Dictionary) -> void:
 func _on_sell_vein_confirm(vein_id: String) -> void:
 	VeinTrade.sell_to_faction(vein_id, VeinTrade.SELL_FACTION_ID)
 	Modal.close()
+
+
+# bugfixes ticket 104: hq.gd's "Craft" button opens this instead of crafting
+# directly -- cost/chance are identical across all 5 calc types (Dial.
+# movement_calc_cost/movement_craft_chance take the archetype and the
+# player's skill, not the ore type), so they're computed once here and shown
+# on every row rather than re-derived per option.
+func _build_movement_craft(data: Dictionary) -> void:
+	var archetype: String = data.get("archetype", "")
+	var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
+	var player: Dictionary = GameState.state["player"]
+	var skill: int = player["craftingSkill"]
+	var cost: int = Dial.movement_calc_cost(archetype, skill)
+	var chance_pct: int = int(round(Dial.movement_craft_chance(archetype, skill) * 100))
+
+	_card_content.add_child(UI.heading("%s %s" % [m["symbol"], m["name"]]))
+	_card_content.add_child(UI.muted_label(m.get("description", "")))
+	for ore_type in GameData.ORE_TYPES.keys():
+		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
+		var have: int = player["orichalchum"].get(ore_type, 0)
+		var captured_archetype: String = archetype
+		var captured_ore: String = ore_type
+		var b := UI.button("%s %s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct], func(): _on_movement_craft_pressed(captured_archetype, captured_ore))
+		b.disabled = have < cost
+		_card_content.add_child(b)
+	_card_content.add_child(UI.button("Cancel", func(): Modal.close()))
+
+
+# bugfixes ticket 97: attempt_craft_movement()'s three outcomes were
+# previously discarded, a silent-tap problem -- carried over unchanged from
+# hq.gd's old direct-button handler, just triggered from the modal's picker
+# rows instead.
+# PROSE-REVIEW: notification text below is new copy, drafted against
+# CONTENT-GUIDE.md §3's tone bible -- flag for human review.
+func _on_movement_craft_pressed(archetype: String, ore_type: String) -> void:
+	var result := Dial.attempt_craft_movement(archetype, ore_type)
+	Modal.close()
+	if not result["ok"]:
+		Notify.push(result["reason"], Notify.CATEGORY_WARNING)
+	elif result["success"]:
+		var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
+		Notify.push("Movement crafted: %s (tier %d)." % [m["name"], result["tier"]], Notify.CATEGORY_SUCCESS)
+	else:
+		Notify.push("Movement-crafting failed — calc spent, no Movement gained.", Notify.CATEGORY_DANGER)
 
 
 # Item-use during combat used to be a modal here ("combat_items"); D4.4's

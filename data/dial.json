@@ -17,6 +17,7 @@
     "recharge": {
       "name": "Recharge Movement",
       "symbol": "↻",
+      "description": "Fills the charge pool faster between casts, but holds less of it overall.",
       "baseSuccess": 0.35,
       "ingredientBase": 20,
       "xpReward": 30,
@@ -27,6 +28,7 @@
     "capacitor": {
       "name": "Capacitor Movement",
       "symbol": "⏚",
+      "description": "Holds far more charge, at the cost of filling back up more slowly.",
       "baseSuccess": 0.35,
       "ingredientBase": 20,
       "xpReward": 30,
@@ -37,6 +39,7 @@
     "impact": {
       "name": "Impact Movement",
       "symbol": "☠",
+      "description": "Every cast lands harder — no change to the charge pool itself.",
       "baseSuccess": 0.35,
       "ingredientBase": 20,
       "xpReward": 30,
@@ -47,6 +50,7 @@
     "spread": {
       "name": "Spread Movement",
       "symbol": "✦",
+      "description": "Casts reach extra targets, each one landing at full strength.",
       "baseSuccess": 0.35,
       "ingredientBase": 20,
       "xpReward": 30,
