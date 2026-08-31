@@ -2,8 +2,10 @@ class_name MapZoomButtons
 extends Control
 
 # Bugfixes ticket 89: a floating +/- zoom control over the Network diagram,
-# TfL/Citymapper-style — a reliable alternative to the pinch gesture (#88's
-# history of drift bugs). Built once by map.gd's _build_diagram_layer() (like
+# TfL/Citymapper-style — a reliable alternative to the two-finger pinch
+# gesture (#88's history of drift bugs) that used to also drive zoom; bugfixes
+# ticket 99 later removed that gesture entirely, so these buttons are now the
+# only way to zoom. Built once by map.gd's _build_diagram_layer() (like
 # _map_legend) and added as a sibling of the diagram's scroll view inside
 # diagram_area, so it floats over the canvas at a fixed screen position
 # rather than scrolling/zooming with the content. Placement is the diagram
@@ -53,18 +55,31 @@ func _ready() -> void:
 	# plain ASCII (unlike the top bar's old "☰"/"🎒", ticket 13's reason for
 	# switching those to Icons.draw_*), so they render fine on-device, same
 	# as the vein station row's existing "-5"/"+5" buttons (map.gd).
+	#
+	# Bugfixes ticket 99: UI.button() already sizes custom_minimum_size.x to
+	# fit its own glyph without clipping (text_width + the Button stylebox's
+	# own content margins — see its own comment). BUTTON_SIZE below is a
+	# touch-target floor, not a cap, so it's applied via component-wise max()
+	# rather than a flat overwrite — a flat overwrite is exactly what broke
+	# "+" here: the "+" glyph (10px) plus the theme's 32px of left+right
+	# content margin needs 42px to draw without clipping, but BUTTON_SIZE.x
+	# is only 40px, 2px short, so clip_text (see UI.button()'s own comment)
+	# silently trimmed it down to nothing under OVERRUN_TRIM_ELLIPSIS. "-"
+	# (6px glyph, 38px natural width) happened to fit under the same 40px
+	# override, which is why only "+" went invisible despite both buttons
+	# sharing identical styling.
 	_zoom_in_button = UI.button("+", func(): map_canvas.step_zoom(1))
-	_zoom_in_button.custom_minimum_size = BUTTON_SIZE
+	_zoom_in_button.custom_minimum_size = _zoom_in_button.custom_minimum_size.max(BUTTON_SIZE)
 	_box.add_child(_zoom_in_button)
 
 	_zoom_out_button = UI.button("-", func(): map_canvas.step_zoom(-1))
-	_zoom_out_button.custom_minimum_size = BUTTON_SIZE
+	_zoom_out_button.custom_minimum_size = _zoom_out_button.custom_minimum_size.max(BUTTON_SIZE)
 	_box.add_child(_zoom_out_button)
 
 	if map_canvas != null:
 		# zoom_level changes continuously through step_zoom()'s own animated
-		# pan_to() (and through an ordinary pinch), so this stays correct
-		# whether the bound was reached by this control's own button or not
+		# pan_to(), so this stays correct whether the bound was reached by
+		# this control's own button or not
 		# — reading map_canvas.zoom_level fresh each time rather than trusting
 		# the signal's own argument keeps this in sync even for whichever of
 		# the two fires _ready()/this connection second (see class comment).

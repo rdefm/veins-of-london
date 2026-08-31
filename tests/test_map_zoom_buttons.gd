@@ -96,8 +96,8 @@ func run() -> void:
 	)
 
 	# Bugfixes ticket 89: disabled state must track zoom_level live, not just
-	# whatever it was at _ready() -- a pinch (or the other button) can move
-	# zoom_level to a bound after these buttons already exist. zoom_changed
+	# whatever it was at _ready() -- the other button can move zoom_level to a
+	# bound after these buttons already exist. zoom_changed
 	# is MapCanvas's own signal for this (see its class comment); emitting
 	# it directly is enough to prove the connection without needing a real
 	# Tween to actually run.
@@ -126,6 +126,37 @@ func run() -> void:
 		assert_true(buttons._box.size.x > 0.0, "must have real width to be visible/tappable")
 		assert_true(buttons._box.size.y > 0.0, "must have real height to be visible/tappable")
 
+		buttons.map_canvas.free()
+		buttons.free()
+	)
+
+	# Bugfixes ticket 99: the zoom-in "+" glyph used to render invisible --
+	# root cause was this file's own custom_minimum_size = BUTTON_SIZE flatly
+	# overwriting the width UI.button() had already computed to fit "+"
+	# without clipping (10px glyph + the Button theme's 32px of content
+	# margin = 42px needed; BUTTON_SIZE.x is only 40px, so clip_text's
+	# OVERRUN_TRIM_ELLIPSIS silently trimmed it to nothing -- "-" only needs
+	# 38px, which is why it stayed visible on an identically-styled button).
+	# The fix takes the component-wise max instead of overwriting, so this
+	# builds an independent reference button the same way UI.button() itself
+	# would and asserts neither zoom button was ever shrunk narrower than
+	# that reference -- this must fail under the old flat-overwrite code
+	# (40 < 42 for "+") to be trusted as a real regression guard.
+	run_case("neither_zoom_button_is_shrunk_narrower_than_its_own_glyph_needs_to_avoid_clipping", func():
+		var reference_plus := UI.button("+", func(): pass)
+		var reference_minus := UI.button("-", func(): pass)
+
+		var buttons := MapZoomButtons.new()
+		buttons.map_canvas = MapCanvas.new()
+		buttons._ready()
+
+		assert_true(buttons._zoom_in_button.custom_minimum_size.x >= reference_plus.custom_minimum_size.x, "the + button must be at least as wide as UI.button() itself computed for its own glyph, or clip_text clips it away")
+		assert_true(buttons._zoom_out_button.custom_minimum_size.x >= reference_minus.custom_minimum_size.x, "the - button must be at least as wide as UI.button() itself computed for its own glyph")
+		assert_true(buttons._zoom_in_button.custom_minimum_size.x >= MapZoomButtons.BUTTON_SIZE.x, "still at least the floating control's own square touch-target floor")
+		assert_true(buttons._zoom_out_button.custom_minimum_size.x >= MapZoomButtons.BUTTON_SIZE.x, "still at least the floating control's own square touch-target floor")
+
+		reference_plus.free()
+		reference_minus.free()
 		buttons.map_canvas.free()
 		buttons.free()
 	)

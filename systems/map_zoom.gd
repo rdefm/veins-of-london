@@ -5,7 +5,8 @@ extends RefCounted
 # the same reason as map_style.gd/map_hit_test.gd — unit-testable without a
 # scene tree. MapCanvas is the only caller: it keeps a zoom_level float,
 # resizes itself (and its Node2D layers' scale) to MIN..MAX * mapSize, drives
-# zoom_level from a two-finger pinch (see MapCanvas._update_pinch), and uses
+# zoom_level from the floating +/- zoom buttons (see MapCanvas.step_zoom —
+# ticket 99 removed the earlier two-finger pinch gesture entirely), and uses
 # to_logical() to convert a tap's screen-space position back to the logical
 # map px MapHitTest and the pin list are keyed on.
 
@@ -70,11 +71,12 @@ static func to_logical(screen_pos: Vector2, zoom: float) -> Vector2:
 # scroll together can pass the in-progress zoomed size at each step.
 #
 # `anchor` defaults (sentinel -1,-1, same idiom as pan_to()'s target_zoom)
-# to the viewport's centre — pan_to()'s original "centre on this point"
-# behaviour, unchanged for that caller. Bugfixes ticket 23: pinch-zoom needs
-# `point` to stay under the fingers, not jump to viewport centre, so
-# MapCanvas._update_pinch passes the pinch midpoint's own current
-# viewport-relative position as `anchor` instead.
+# to the viewport's centre — pan_to()'s "centre on this point" behaviour,
+# the only production caller since ticket 99 removed the pinch gesture that
+# used to pass its own midpoint here (bugfixes ticket 23) to keep `point`
+# under the fingers instead of jumping to viewport centre. Left as a real
+# parameter, not inlined, since it's still exercised directly by this file's
+# own unit tests.
 static func scroll_target(point: Vector2, zoom: float, viewport_size: Vector2, content_size: Vector2, anchor: Vector2 = Vector2(-1.0, -1.0)) -> Vector2:
 	var resolved_anchor := anchor if anchor.x >= 0.0 and anchor.y >= 0.0 else viewport_size / 2.0
 	var positioned := point * zoom - resolved_anchor

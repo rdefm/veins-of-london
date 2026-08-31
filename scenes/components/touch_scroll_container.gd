@@ -19,9 +19,9 @@ extends ScrollContainer
 # every screen built through UI.screen_body() (nearly all of them) picks
 # this up automatically. The Network diagram's own pan/zoom ScrollContainer
 # (scenes/screens/map.gd's _build_diagram_layer) uses it directly for the
-# same reason — MapCanvas inside it only ever consumes an event itself
-# (accept_event()) during an active two-finger pinch, so a single finger's
-# drag still bubbles up here and pans normally.
+# same reason — a single finger's drag bubbles up here (MapCanvas.
+# mouse_filter is PASS, not STOP -- see its own _ready() comment) and pans
+# normally.
 
 var _drag_index := -100  # touch index, or -1 for the mouse; -100 = no active drag
 var _last_position: Vector2
@@ -29,17 +29,20 @@ var _touches: Dictionary[int, Vector2] = {}  # touch index -> current position, 
 
 # Bugfixes ticket 48: MapCanvas.mouse_filter is PASS (see its own _ready()
 # comment), which bubbles every touch event up here regardless of whether
-# MapCanvas called accept_event() during its own two-finger pinch handling —
-# that accept_event() call was found to be inert. Without this, a pinch's
-# first-landed finger (already tracked as a single-finger drag from before
-# the second finger joined) kept driving _apply_drag() on every frame
-# throughout the whole pinch, fighting MapCanvas's own anchor-preserving
-# pinch scroll for the same scroll_horizontal/scroll_vertical and producing
-# exactly the "jumps around all over the map" pinch-zoom jitter that ticket
-# reported (worse at speed: bigger per-event deltas from this stray
-# incremental scroll). Fix: track every active touch here too, and end this
-# container's own drag the moment a second finger joins, so a pinch is left
-# entirely to MapCanvas until back down to one finger.
+# MapCanvas itself consumed it — back when MapCanvas drove a two-finger
+# pinch-zoom gesture (bugfixes ticket 99 removed it entirely in favour of
+# the floating +/- MapZoomButtons), its own accept_event() call during that
+# handling was found to be inert here. Without this, a pinch's first-landed
+# finger (already tracked as a single-finger drag from before the second
+# finger joined) kept driving _apply_drag() on every frame throughout the
+# whole pinch, fighting MapCanvas's own anchor-preserving pinch scroll for
+# the same scroll_horizontal/scroll_vertical and producing exactly the
+# "jumps around all over the map" pinch-zoom jitter that ticket reported
+# (worse at speed: bigger per-event deltas from this stray incremental
+# scroll). Fix: track every active touch here too, and end this container's
+# own drag the moment a second finger joins, so a two-finger gesture is
+# never fought over by both this container and whatever (if anything)
+# MapCanvas itself does with it.
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		if event.pressed:
@@ -53,10 +56,10 @@ func _gui_input(event: InputEvent) -> void:
 			if event.index == _drag_index:
 				_end_drag()
 			elif _touches.size() == 1 and _drag_index == -100:
-				# A pinch just ended with one finger still down and moving --
-				# resume single-finger drag-to-scroll from its current
-				# position instead of stranding panning until the next fresh
-				# touch-down.
+				# A second finger just lifted, one finger still down and
+				# moving -- resume single-finger drag-to-scroll from its
+				# current position instead of stranding panning until the
+				# next fresh touch-down.
 				var remaining_index: int = _touches.keys()[0]
 				_start_drag(remaining_index, _touches[remaining_index])
 	elif event is InputEventScreenDrag:

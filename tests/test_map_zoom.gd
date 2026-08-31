@@ -1,7 +1,9 @@
 extends "res://tests/test_base.gd"
 
 # MapZoom — pure zoom-level clamping and screen->logical conversion backing
-# the Network diagram's pinch-to-zoom (see MapCanvas._update_pinch).
+# the Network diagram's zoom (see MapCanvas.step_zoom(), driven by the
+# floating +/- buttons -- bugfixes ticket 99 removed the earlier pinch
+# gesture that also used to drive this).
 
 
 func run() -> void:

@@ -48,22 +48,19 @@ extends Control
 # pure and unit-tested, same split as the rest of this file's system
 # helpers.
 #
-# Post-T15 fix 2: zoom is driven by a real two-finger pinch (_on_screen_drag
-# with 2 active touches — see _update_pinch), not a button row (an earlier
-# +/- version overlapped MapControls' filter chips and wasn't the gesture a
-# phone user expects anyway). This also fixed a second on-device bug: a bare
-# InputEventScreenTouch(pressed) used to call _handle_tap() immediately on
-# touch-DOWN, before the OS/browser could tell whether the gesture was a tap,
-# a pan, or the start of a pinch — so swiping to scroll or pinching to zoom
+# Post-T15 fix 2: a bare InputEventScreenTouch(pressed) used to call
+# _handle_tap() immediately on touch-DOWN, before the OS/browser could tell
+# whether the gesture was a tap or the start of a pan — so swiping to scroll
 # would also fire whatever was under the first finger's landing point (a
 # site sheet or district panel popping open mid-swipe). Tap detection now
 # waits for touch-UP and only fires if the release stayed within
 # TAP_MOVE_TOLERANCE of the press and no second finger ever joined.
 #
-# Bugfixes ticket 89: a button row is back — MapZoomButtons, floating over
-# this canvas' own bottom-right corner (not a row in this file's content
-# flow, so the paragraph above still holds for THIS control), as a reliable
-# alternative to the pinch gesture (#88's history of drift bugs). It no
+# Bugfixes ticket 89: a floating +/- button row — MapZoomButtons, over this
+# canvas' own bottom-right corner (not a row in this file's content flow, so
+# the paragraph above still holds for THIS control) — replaced an earlier
+# two-finger pinch gesture (#88's history of drift bugs); ticket 99 then
+# removed pinch entirely, so the buttons are now the only way to zoom. It no
 # longer collides with the old inline filter chip row this comment warned
 # about — that row was replaced by map-filters ticket 03's hamburger
 # drawer. See step_zoom() below.
@@ -198,7 +195,7 @@ const CONTACT_PIN_HOME_NUDGE := Vector2(0, -34)
 const DOTTED_RING_SEGMENTS := 12
 const DOTTED_RING_DASH_FRACTION := 0.5
 
-# ── input (tap vs. pan/pinch disambiguation — see class comment) ─────────
+# ── input (tap vs. pan disambiguation — see class comment) ───────────────
 # Screen px, not logical map px: this is a UX judgment about finger wobble,
 # unrelated to zoom_level.
 const TAP_MOVE_TOLERANCE := 16.0
@@ -306,22 +303,12 @@ var _line_faction_stops: Dictionary = {}
 var _pins: Array = []
 var _here_position: Vector2
 
-# ── touch state (tap vs. pan/pinch — see class comment) ──────────────────
+# ── touch state (tap vs. pan disambiguation — see class comment) ─────────
 var _touches: Dictionary = {}  # touch index (int) -> current screen-space Vector2
 # Which touch (or -1 for mouse) is still a tap candidate; -100 means "none
 # — a second finger joined, or this touch/mouse drifted past tolerance".
 var _tap_index: int = -100
 var _tap_start_pos: Vector2
-# <= 0 means "no pinch in progress"; set on the second finger landing.
-var _pinch_start_distance: float = -1.0
-var _pinch_start_zoom: float = 1.0
-# Ticket 76 (third pass at pinch drift): the logical map point anchored under
-# the pinch, captured ONCE per pinch segment (by _start_pinch, both on the
-# initial two-finger landing and again on a finger-swap re-init — see
-# _update_pinch's own comment) rather than re-derived from the live midpoint
-# on every drag frame. See _update_pinch for why re-deriving it every frame
-# was the actual drift source.
-var _pinch_anchor_logical: Vector2
 
 # 53-map-auto-focus-and-zoom-persistence: cached in _apply_initial_view()
 # (get_parent() as ScrollContainer, same idiom pan_to() uses live) so
@@ -336,13 +323,10 @@ func _ready() -> void:
 	# push_input() propagation test, not just calling _gui_input() directly
 	# (that bypasses mouse_filter/bubbling entirely and can't catch this) —
 	# silently swallows every touch/mouse event here before it can ever
-	# reach the wrapping TouchScrollContainer's own _gui_input, regardless
-	# of whether this class calls accept_event(). PASS still lets this
-	# Control receive the event first (tap/pinch handling is unaffected);
-	# it just also continues bubbling up afterward, same as the
-	# accept_event() during an active pinch already assumed was the only
-	# thing standing between a single-finger drag and the ScrollContainer
-	# above it.
+	# reach the wrapping TouchScrollContainer's own _gui_input. PASS still
+	# lets this Control receive the event first (tap handling is unaffected);
+	# it just also continues bubbling up afterward, which is what leaves a
+	# single-finger drag free to reach the ScrollContainer above it.
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
 	var map_size: Array = GameData.MAP_LAYOUT["mapSize"]
@@ -526,8 +510,8 @@ func _apply_initial_view() -> void:
 
 
 # Map-animations ticket 01: programmatic pan+zoom to a logical map-px point,
-# tweening both this Control's own zoom (reusing _set_zoom, same as pinch)
-# and the wrapping ScrollContainer's scroll offset (scenes/screens/map.gd
+# tweening both this Control's own zoom (reusing _set_zoom) and the wrapping
+# ScrollContainer's scroll offset (scenes/screens/map.gd
 # always parents this Control directly under one — see _build_diagram_layer
 # — so get_parent() is safe here) to MapZoom.scroll_target()'s answer at the
 # target zoom. `await`-able: the playback loop awaits this before starting
@@ -568,15 +552,14 @@ func _apply_scroll(v: Vector2, scroll: ScrollContainer) -> void:
 # this guard keeps step_zoom() itself safe to call unconditionally (e.g. a
 # stray extra tap racing the disabled-state update).
 #
-# Reuses pan_to() (same tween machinery pinch and queued-event playback
-# already share — see this file's class comment) rather than a bare
-# _set_zoom(), so the step animates instead of snapping, and anchors on
-# `point` = the logical map px currently sitting at the viewport's own
-# centre — there's no pinch midpoint to anchor to from a button tap, and
-# pan_to()'s own `target_zoom`-with-no-explicit-anchor path already centres
-# whatever point it's given, so re-deriving that same centre point back into
-# logical space before calling it keeps that point stationary through the
-# zoom exactly the way a centred pinch would.
+# Reuses pan_to() (same tween machinery queued-event playback already shares
+# — see this file's class comment) rather than a bare _set_zoom(), so the
+# step animates instead of snapping, and anchors on `point` = the logical map
+# px currently sitting at the viewport's own centre — a button tap has no
+# gesture point of its own to anchor to, and pan_to()'s own
+# `target_zoom`-with-no-explicit-anchor path already centres whatever point
+# it's given, so re-deriving that same centre point back into logical space
+# before calling it keeps that point stationary through the zoom.
 func step_zoom(direction: int) -> void:
 	var target_zoom := MapZoom.step_target(zoom_level, direction)
 	if is_equal_approx(target_zoom, zoom_level):
@@ -603,10 +586,11 @@ func step_zoom(direction: int) -> void:
 # event is already queued on open, so this backs off whenever _active_tween
 # is already claimed, leaving that tween as the sole authority over scroll.
 #
-# Bugfixes ticket 88 (fourth pass at pinch drift): also now shared by
-# _update_pinch (previously the initial-view restore's own private helper),
-# and the scrollbars' own `max_value` is fixed up here directly rather than
-# left to the ScrollContainer's own deferred sort to recompute. Verified
+# Bugfixes ticket 88 (fourth pass at pinch drift): also previously shared by
+# the now-removed pinch gesture's own per-frame scroll write (ticket 99
+# deleted pinch entirely — see this file's class comment), and the
+# scrollbars' own `max_value` is fixed up here directly rather than left to
+# the ScrollContainer's own deferred sort to recompute. Verified
 # directly against a live ScrollContainer: an IMMEDIATE, synchronous write to
 # `scroll_horizontal`/`scroll_vertical` in the same frame as a resize (which
 # `_apply_scroll` above always does, deliberately, for the common case where
@@ -617,7 +601,7 @@ func step_zoom(direction: int) -> void:
 # sequences with and without an intervening scroll_horizontal write. This is
 # what made ticket 86's original fix (a bare _apply_scroll reapply, no range
 # fixup) work for _apply_initial_view's one-off restore but not generalize to
-# _update_pinch's every-frame writes: _apply_initial_view's very first resize
+# the old pinch gesture's every-frame writes: _apply_initial_view's very first resize
 # still gets a working max_value from the ScrollContainer's own sort (there's
 # no earlier same-frame scroll write to have broken it yet), but every
 # resize from here on already has one, every time, from this very function's
@@ -1814,7 +1798,6 @@ func _on_screen_touch(event: InputEventScreenTouch) -> void:
 			_tap_start_pos = event.position
 		elif _touches.size() == 2:
 			_tap_index = -100  # a second finger landing rules out a tap
-			_start_pinch()
 		return
 
 	var was_tap := (
@@ -1822,8 +1805,6 @@ func _on_screen_touch(event: InputEventScreenTouch) -> void:
 		and event.position.distance_to(_tap_start_pos) <= TAP_MOVE_TOLERANCE
 	)
 	_touches.erase(event.index)
-	if _touches.size() < 2:
-		_pinch_start_distance = -1.0
 	if was_tap:
 		_tap_index = -100
 		# event.position arrives in this Control's local (zoomed) space;
@@ -1840,113 +1821,6 @@ func _on_screen_drag(event: InputEventScreenDrag) -> void:
 
 	if event.index == _tap_index and event.position.distance_to(_tap_start_pos) > TAP_MOVE_TOLERANCE:
 		_tap_index = -100  # moved too far to still resolve as a tap on release
-
-	if _touches.size() == 2:
-		_update_pinch()
-
-
-func _start_pinch() -> void:
-	var positions: Array = _touches.values()
-	_pinch_start_distance = maxf(positions[0].distance_to(positions[1]), 1.0)
-	_pinch_start_zoom = zoom_level
-	var midpoint: Vector2 = (positions[0] + positions[1]) / 2.0
-	_pinch_anchor_logical = MapZoom.to_logical(midpoint, zoom_level)
-
-
-# Scales zoom_level by how much the distance between the two touch points
-# has changed since the pinch started. accept_event() here specifically (not
-# on every drag) stops the ScrollContainer's own two-finger pan from also
-# fighting the pinch for the same gesture; a single-finger pan is left alone
-# so the ScrollContainer's native scrolling still works.
-#
-# Bugfixes ticket 23: _set_zoom() alone resizes this Control (see
-# _apply_zoom) with no compensating scroll, so the content only ever grows
-# from its top-left — the pinch midpoint drifted toward whatever's in that
-# corner instead of staying under the fingers. Fix: read the midpoint's
-# position relative to the ScrollContainer's current scroll offset (its
-# `anchor`) BEFORE changing zoom_level, then hand it, alongside the anchored
-# logical point, to MapZoom.scroll_target() AFTER — same pan-to-point maths
-# pan_to() already tweens through, just applied immediately each pinch frame
-# instead of animated, and anchored on the pinch point's own screen position
-# instead of scroll_target()'s default viewport-centre anchor.
-#
-# Ticket 76 (third pass at pinch drift): earlier versions of this function
-# re-derived the anchored LOGICAL point fresh from the live midpoint on every
-# single drag frame (`MapZoom.to_logical(midpoint, zoom_level)`, called right
-# here), intending only to avoid a jump when a finger lifts and a new one
-# lands mid-gesture. That per-frame re-derivation was the actual drift
-# source: real touch samples carry a few px of sensor jitter, and this
-# formula turns jitter in the midpoint into a *permanent* scroll shift
-# whenever it coincides with any nonzero frame-to-frame zoom change (i.e.
-# almost every drag frame of a real pinch, since the two-finger distance is
-# constantly changing) — see the algebra in this ticket's own investigation
-# notes: each frame effectively adds `midpoint * (zoom_ratio - 1)` onto the
-# previous scroll, an open-loop accumulation (a random walk) of correlated
-# noise from the very two raw samples that also drive the zoom ratio itself.
-# Slow, careful pinching doesn't remove that jitter — it just gives it more
-# frames to accumulate over, which is why the first two fix attempts (anchor
-# math, then a broader jitter pass) didn't fully resolve it.
-#
-# The fix: `_pinch_anchor_logical` is captured ONCE per pinch segment, by
-# _start_pinch() — on the initial two-finger landing, and again whenever a
-# finger lifts and a new one lands (_pinch_start_distance resets to -1 on a
-# lift, both on the immediate landing path in _on_screen_touch and via the
-# guard below), so a finger swap still re-bases the anchor exactly once,
-# preserving the "no jump on finger swap" behaviour this mechanism was
-# protecting. What no longer happens is re-sampling that anchor on every
-# ordinary frame in between — the screen-space `anchor` below still tracks
-# the live midpoint every frame (so the gesture still pans naturally as the
-# fingers move), but the LOGICAL point being pinned to it is fixed for the
-# whole segment, so midpoint jitter only ever contributes a direct,
-# proportional (not accumulated) nudge to scroll instead of an integrated one.
-#
-# Bugfixes ticket 88 (fourth pass): #76's fix above holds -- confirmed by
-# re-deriving it fresh and finding it unchanged -- but the jump persisted
-# anyway, from an unrelated mechanism one layer down: this function's own
-# scroll write below was landing against a stale ScrollContainer scrollbar
-# range on every pinch frame after the first, so Godot's own ScrollContainer
-# silently clamped it back short of the real target — see _apply_zoom's own
-# comment for the resize-side half of why (it used to also stamp `size`
-# directly, which turns out to matter here) and _reapply_scroll_deferred's
-# own comment for the write-side half (a synchronous scroll write itself
-# also starves the next range recompute, which is why that helper now fixes
-# the scrollbars' `max_value` up directly rather than trusting the
-# ScrollContainer to do it). This was never caught by #23/#48/#76's own
-# tests because none of them construct MapCanvas with a real ScrollContainer
-# parent (documented explicitly on the case above, and in
-# tests/test_touch_scroll_container.gd's header) — get_parent() as
-# ScrollContainer resolves to null in that construction style, so
-# _update_pinch's entire scroll-writing branch, where this bug lives, was
-# structurally never exercised.
-func _update_pinch() -> void:
-	if _pinch_start_distance <= 0.0:
-		_start_pinch()
-		return
-	var positions: Array = _touches.values()
-	var distance: float = positions[0].distance_to(positions[1])
-	var midpoint: Vector2 = (positions[0] + positions[1]) / 2.0
-	var new_zoom := MapZoom.clamp_zoom(_pinch_start_zoom * (distance / _pinch_start_distance))
-
-	var scroll := get_parent() as ScrollContainer
-	var anchor := midpoint
-	if scroll:
-		anchor = midpoint - Vector2(scroll.scroll_horizontal, scroll.scroll_vertical)
-
-	_set_zoom(new_zoom)
-
-	if scroll:
-		var viewport_size: Vector2 = scroll.size
-		var content_size := _map_size * zoom_level
-		var target_scroll := MapZoom.scroll_target(_pinch_anchor_logical, zoom_level, viewport_size, content_size, anchor)
-		_apply_scroll(target_scroll, scroll)
-		# Reapply once more once the ScrollContainer's own deferred sort has
-		# caught up its scrollbar range to this frame's resize -- see this
-		# function's header comment. Same helper _apply_initial_view() uses,
-		# so a pinch mid-playback-tween still defers to that tween instead of
-		# fighting it.
-		_reapply_scroll_deferred.call_deferred(target_scroll, scroll)
-
-	accept_event()
 
 
 # Desktop/browser-testing path (no touchscreen): a click that doesn't move
