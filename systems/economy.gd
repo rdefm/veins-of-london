@@ -111,7 +111,14 @@ static func execute_sale(items: Array) -> Dictionary:
 
 	if mugged:
 		# No sale_result modal yet — outcome isn't known until the mugging
-		# resolves; complete_mugged_sale() opens it once that happens.
+		# resolves; complete_mugged_sale() opens it once that happens. The
+		# sell_menu modal that was still open when "Go" was pressed has to be
+		# closed explicitly here (unlike the non-mugged branch below, which
+		# implicitly replaces it via Modal.open("sale_result", ...)) --
+		# otherwise ModalLayer stays visible over the freshly-started combat
+		# screen, its dim background swallowing every tap, and the sell menu
+		# sits there instead of Attack/Run/Item.
+		Modal.close()
 		GameState.state["pendingSaleCut"] = player_cut
 		Combat.start_mugging()
 		EventBus.state_changed.emit()

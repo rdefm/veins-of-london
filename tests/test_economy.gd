@@ -88,6 +88,24 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["archie"]["tradeProgress"], 180, "tradeProgress accrual should not depend on the mugging outcome either")
 	)
 
+	# Bug: a mugging rolled from the sell_menu modal's "Go" button used to
+	# leave that modal open (only the non-mugged branch implicitly replaced
+	# it via Modal.open("sale_result", ...)) -- ModalLayer stayed visible
+	# over the freshly-started combat screen, its dim background swallowing
+	# every tap, so the sell menu sat there instead of Attack/Run/Item.
+	run_case("mugged_sale_via_archie_closes_the_sell_menu_modal_so_combat_is_reachable", func():
+		var seed := _find_seed_for(200, func():
+			GameState.reset()
+			Modal.open("sell_menu", {})
+			GameState.state["player"]["orichalchum"]["time"] = 10
+			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
+			return result.get("mugged", false)
+		)
+		assert_true(seed != -1, "should find a mugged roll within 200 tries")
+		assert_eq(GameState.state["modal"], null, "the sell_menu modal must be closed so the combat screen's action bar is reachable")
+		assert_true(GameState.state["combat"]["active"], "sanity: the mugging did start combat")
+	)
+
 	run_case("gross_math_applies_barometer_premiums", func():
 		var seed := _find_seed_for(200, func():
 			GameState.reset()
