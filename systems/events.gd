@@ -556,15 +556,18 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 	Combat.start_raid(vein["id"], Cultivating.value_tier(vein), effect.get("guards", 1), effect.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect))
 
 
-# collective1-10, spec §6.7/§10.3: seeds `faction_id` a faction vein on each
-# site recorded in `objective_id`'s progress["matchedSiteIds"] (Objectives.
-# _eval_sites_discovered_matching() stamps those in the moment the objective
-# completes, and never touches them again), via Sites.seed_faction_vein() --
-# the same instant-vein shape Sites.npc_claim_best_unclaimed_site() uses for
-# an NPC claim. A site that's since been claimed (player or another faction)
-# between the objective completing and the player tapping "Tell Des about
-# the ground" is silently skipped rather than overwritten -- same defensive
+# Seeds `faction_id` a faction vein on each site recorded in
+# `objective_id`'s progress["matchedSiteIds"], via Sites.seed_faction_vein()
+# -- the same instant-vein shape Sites.npc_claim_best_unclaimed_site() uses
+# for an NPC claim. A site that's since been claimed (player or another
+# faction) is silently skipped rather than overwritten -- same defensive
 # shape _stealth_check()/_start_raid_combat() use for a stale site_id.
+#
+# col_a1_des_sites' on_complete no longer reaches this: its own evaluator
+# reports and converts sites individually as they're found (Collective.
+# report_des_site()) and never populates matchedSiteIds, so this call is
+# currently inert for that objective -- kept for any future objective that
+# still wants the old "convert everything matched, all at once" shape.
 static func _faction_seed_reported_sites(objective_id: String, faction_id: String) -> void:
 	var progress: Dictionary = GameState.state["objectives"][objective_id]["progress"]
 	var matched: Dictionary = progress.get("matchedSiteIds", {})

@@ -84,47 +84,30 @@ func run() -> void:
 	)
 
 	# ── sites_discovered_matching ────────────────────────────────────────
+	# This evaluator no longer scans state.world.sites itself -- it's a
+	# pure check over progress["reportedSiteIds"], populated by Collective.
+	# report_des_site() one ore type at a time (see tests/test_collective.gd
+	# for that side). minTier/unclaimed filtering now lives entirely in
+	# site_matches_discovery_params(), tested directly below.
 
-	run_case("sites_discovered_matching_requires_every_named_ore_type_at_or_above_minTier_unclaimed", func():
+	run_case("sites_discovered_matching_completes_once_every_required_ore_type_has_been_reported", func():
 		GameState.reset()
 		var original := _install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": ["fate", "physics"], "minTier": "fair", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
 
-		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
 		Objectives.refresh()
-		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "only one of the two required ore types is present")
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "neither ore type has been reported yet")
 
-		GameState.state["world"]["sites"].append(_site("s2", "physics", "poor"))
+		GameState.state["objectives"]["t1"]["progress"]["reportedSiteIds"] = { "fate": "s1" }
 		Objectives.refresh()
-		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "physics site is below minTier 'fair'")
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "only one of the two required ore types has been reported")
 
-		GameState.state["world"]["sites"].append(_site("s3", "physics", "rich"))
+		GameState.state["objectives"]["t1"]["progress"]["reportedSiteIds"]["physics"] = "s2"
 		Objectives.refresh()
-		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "both ore types now present at/above minTier")
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "both required ore types now reported, in either order")
 		assert_eq(GameState.state["flags"]["testComplete"], true, "completeFlag is set")
-		GameData.OBJECTIVES = original
-	)
-
-	run_case("sites_discovered_matching_unclaimed_excludes_claimed_and_faction_owned_sites", func():
-		GameState.reset()
-		var original := _install_objectives({
-			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": ["fate"], "minTier": "poor", "unclaimed": true }),
-		})
-		GameState.state["flags"]["testActive"] = true
-
-		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair", true)]
-		Objectives.refresh()
-		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "a claimed site doesn't count when unclaimed is required")
-
-		GameState.state["world"]["sites"] = [_site("s2", "fate", "fair", false, _faction_vein("collective", "fate", 1, false))]
-		Objectives.refresh()
-		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "a faction-owned site doesn't count when unclaimed is required")
-
-		GameState.state["world"]["sites"].append(_site("s3", "fate", "fair"))
-		Objectives.refresh()
-		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "a genuinely unclaimed matching site completes it")
 		GameData.OBJECTIVES = original
 	)
 
@@ -139,28 +122,15 @@ func run() -> void:
 		GameData.OBJECTIVES = original
 	)
 
-	# collective1-10, spec §6.7/§10.3: the matched site ids get stamped into
-	# progress the moment the objective completes, for col_a1_des_report's
-	# faction_seed_reported_sites op to read back later.
-	run_case("sites_discovered_matching_stamps_matched_site_ids_into_progress_on_completion", func():
-		GameState.reset()
-		var original := _install_objectives({
-			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": ["fate", "physics"], "minTier": "fair", "unclaimed": true }),
-		})
-		GameState.state["flags"]["testActive"] = true
-
-		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
-		Objectives.refresh()
-		assert_eq(GameState.state["objectives"]["t1"]["progress"].get("matchedSiteIds", {}), {}, "not yet complete -- nothing stamped")
-
-		GameState.state["world"]["sites"].append(_site("s2", "physics", "rich"))
-		Objectives.refresh()
-		assert_eq(GameState.state["objectives"]["t1"]["progress"]["matchedSiteIds"], { "fate": "s1", "physics": "s2" }, "the matching site id per required ore type")
-
-		GameState.state["world"]["sites"].append(_site("s3", "fate", "rich"))
-		Objectives.refresh()
-		assert_eq(GameState.state["objectives"]["t1"]["progress"]["matchedSiteIds"], { "fate": "s1", "physics": "s2" }, "already complete -- frozen, not re-evaluated against s3")
-		GameData.OBJECTIVES = original
+	# site_matches_discovery_params: the tier/ore-type/unclaimed check shared
+	# by report_des_site() and Collective.maybe_trigger_weather_beat().
+	run_case("site_matches_discovery_params_checks_ore_type_minTier_and_unclaimed", func():
+		var params := { "minTier": "fair", "unclaimed": true }
+		assert_true(Objectives.site_matches_discovery_params(_site("s1", "fate", "fair"), "fate", params), "matching ore type, at minTier, unclaimed")
+		assert_eq(Objectives.site_matches_discovery_params(_site("s2", "physics", "fair"), "fate", params), false, "wrong ore type")
+		assert_eq(Objectives.site_matches_discovery_params(_site("s3", "fate", "poor"), "fate", params), false, "below minTier")
+		assert_eq(Objectives.site_matches_discovery_params(_site("s4", "fate", "fair", true), "fate", params), false, "claimed")
+		assert_eq(Objectives.site_matches_discovery_params(_site("s5", "fate", "fair", false, _faction_vein("collective", "fate", 1, false)), "fate", params), false, "faction-owned")
 	)
 
 	# ── traded_with_faction ──────────────────────────────────────────────
@@ -305,7 +275,8 @@ func run() -> void:
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": ["fate"], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
-		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
+		Objectives.refresh()  # creates the runtime progress bag, still incomplete
+		GameState.state["objectives"]["t1"]["progress"]["reportedSiteIds"] = { "fate": "s1" }
 		var cash_before: int = GameState.state["player"]["cash"]
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 
@@ -323,13 +294,14 @@ func run() -> void:
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": ["fate"], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
-		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
+		Objectives.refresh()
+		GameState.state["objectives"]["t1"]["progress"]["reportedSiteIds"] = { "fate": "s1" }
 		Objectives.refresh()
 		assert_eq(GameState.state["objectives"]["t1"]["complete"], true)
 
-		# Remove the matching site — a live re-evaluation would flip back to
+		# Clear the report — a live re-evaluation would flip back to
 		# incomplete, which completion must never do.
-		GameState.state["world"]["sites"] = []
+		GameState.state["objectives"]["t1"]["progress"]["reportedSiteIds"] = {}
 		Objectives.refresh()
 		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "completion is sticky, not re-derived every call")
 		GameData.OBJECTIVES = original

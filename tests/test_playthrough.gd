@@ -231,8 +231,12 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	assert_true(GameState.state["flags"]["colA1IntimidationSeen"])
 	_assert_invariants("post-S6")
 
-	Objectives.refresh()
-	assert_true(GameState.state["flags"]["colA1DesSitesFound"], "both qualifying sites together should complete col_a1_des_sites")
+	# col_a1_des_sites completes via per-site reporting -- each qualifying
+	# site found above is reported individually, converting it to a
+	# Collective vein immediately.
+	assert_true(Collective.report_des_site("fate")["ok"])
+	assert_true(Collective.report_des_site("physics")["ok"])
+	assert_true(GameState.state["flags"]["colA1DesSitesFound"], "both ore types individually reported should complete col_a1_des_sites")
 
 	Events.start_event("col_a1_des_report")
 	for i in range(GameData.EVENTS["col_a1_des_report"]["cards"].size()):

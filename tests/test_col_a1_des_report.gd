@@ -21,14 +21,17 @@ func _site(id: String, ore_type: String, tier: String) -> Dictionary:
 	}
 
 
-# Puts col_a1_des_sites through Phase-2 setup and completion: activates it
-# via its own activateFlag, plants a matching fate + physics site, then
-# refreshes so Objectives stamps colA1DesSitesFound and the matched site ids.
+# col_a1_des_sites completes via per-site reporting, not a live scan --
+# activates the thread, plants a matching fate + physics site, then reports
+# each individually through Collective.report_des_site(), which converts
+# both sites to Collective veins immediately (not deferred to col_a1_des_
+# report's on_complete) and stamps colA1DesSitesFound once both are in.
 func _complete_des_sites_objective() -> void:
 	GameState.state["flags"]["colA1DesThreadActive"] = true
 	GameState.state["world"]["sites"].append(_site("s_fate", "fate", "fair"))
 	GameState.state["world"]["sites"].append(_site("s_physics", "physics", "fair"))
-	Objectives.refresh()
+	Collective.report_des_site("fate")
+	Collective.report_des_site("physics")
 
 
 func run() -> void:
@@ -77,20 +80,18 @@ func run() -> void:
 		assert_true(cards[4]["text"].contains("Nobody's ever raided a vein they didn't know about"))
 	)
 
-	# ── on_complete: faction_seed_reported_sites + relation + thread flag ──
+	# ── site conversion: now per-site at report time, not deferred to on_complete ──
 
-	run_case("on_complete_seeds_collective_veins_on_both_reported_sites", func():
+	run_case("report_des_site_seeds_collective_veins_immediately_as_each_ore_type_is_reported", func():
 		GameState.reset()
 		_complete_des_sites_objective()
-		var matched: Dictionary = GameState.state["objectives"]["col_a1_des_sites"]["progress"]["matchedSiteIds"]
-		assert_eq(matched, { "fate": "s_fate", "physics": "s_physics" })
-
-		_play_event("col_a1_des_report")
+		var reported: Dictionary = GameState.state["objectives"]["col_a1_des_sites"]["progress"]["reportedSiteIds"]
+		assert_eq(reported, { "fate": "s_fate", "physics": "s_physics" })
 
 		var fate_site: Dictionary = Sites.find_site("s_fate")
 		var physics_site: Dictionary = Sites.find_site("s_physics")
-		assert_true(fate_site["factionVein"] != null, "fate site should now carry a faction vein")
-		assert_true(physics_site["factionVein"] != null, "physics site should now carry a faction vein")
+		assert_true(fate_site["factionVein"] != null, "fate site already carries a faction vein once reported")
+		assert_true(physics_site["factionVein"] != null, "physics site already carries a faction vein once reported")
 		assert_eq(fate_site["factionVein"]["factionId"], "collective")
 		assert_eq(physics_site["factionVein"]["factionId"], "collective")
 		assert_eq(fate_site["factionVein"]["growth"], GameData.VEIN_GROWTH["seedGrowth"])
@@ -100,6 +101,10 @@ func run() -> void:
 		assert_eq(MapEvents.pending_vein_ids(), vein_ids, "both seeds queue their seed_claim map event")
 		assert_eq(MapEvents.pending_join_line_vein_ids(), vein_ids, "both also queue their join_line map event")
 	)
+
+	# ── on_complete: relation + thread flag (faction_seed_reported_sites is
+	# now an inert no-op -- both sites are already seeded by the time this
+	# event's on_complete runs; see test above) ──
 
 	run_case("on_complete_awards_8_collective_relation_and_sets_the_thread_done_flag", func():
 		GameState.reset()
@@ -115,15 +120,4 @@ func run() -> void:
 		# test_col_a1_tuition.gd's S1 comment): must navigate back to Des's
 		# conversation, where the action-bar button was tapped from.
 		assert_eq(GameState.state["currentScreen"], "phone")
-	)
-
-	run_case("on_complete_skips_a_reported_site_that_has_since_been_claimed", func():
-		GameState.reset()
-		_complete_des_sites_objective()
-		Sites.find_site("s_fate")["claimed"] = true
-
-		_play_event("col_a1_des_report")
-
-		assert_eq(Sites.find_site("s_fate")["factionVein"], null, "already-claimed site is left alone, not overwritten")
-		assert_true(Sites.find_site("s_physics")["factionVein"] != null, "the other reported site still gets seeded")
 	)

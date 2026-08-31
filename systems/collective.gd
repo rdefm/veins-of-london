@@ -41,6 +41,61 @@ static func _next_bark(contact_id: String) -> String:
 	return lines[index]
 
 
+# Lets the player report a qualifying col_a1_des_sites site to Des the
+# moment it exists, one ore type at a time, rather than only ever
+# converting once both required ore types are unclaimed simultaneously.
+# Converts the site to a Collective vein immediately via Sites.
+# seed_faction_vein(), so a site reported for one ore type carries a
+# factionVein from this call onward and can never satisfy "unclaimed" for
+# a later report -- the double-report/re-match guard falls out of
+# site_matches_discovery_params()'s own unclaimed check rather than needing
+# a separate "already used" set. progress["reportedSiteIds"] is cumulative
+# across calls (never overwritten), so reporting fate then physics later
+# (even once the fate site is long gone) still lands both.
+#
+# No-op (ok:false, nothing mutated) when: the thread isn't active yet,
+# ore_type isn't one of col_a1_des_sites' requireEachOreType, it's already
+# been reported, or no currently-qualifying site exists for it -- explicit
+# failure over silent success/retry, so a caller can tell "nothing to
+# report" apart from "reported".
+static func report_des_site(ore_type: String) -> Dictionary:
+	if not GameState.state["flags"].get("colA1DesThreadActive", false):
+		return { "ok": false, "reason": "Thread not active." }
+
+	var def: Dictionary = GameData.OBJECTIVES["col_a1_des_sites"]
+	var params: Dictionary = def["params"]
+	if not params.get("requireEachOreType", []).has(ore_type):
+		return { "ok": false, "reason": "Not a required ore type." }
+
+	var objective_id: String = def["id"]
+	var objectives: Dictionary = GameState.state["objectives"]
+	var runtime: Dictionary = objectives.get(objective_id, { "active": false, "complete": false, "progress": {} })
+	var progress: Dictionary = runtime["progress"]
+	var reported: Dictionary = progress.get("reportedSiteIds", {})
+	if reported.has(ore_type):
+		return { "ok": false, "reason": "Already reported." }
+
+	var found: Variant = null
+	for site in GameState.state["world"]["sites"]:
+		if Objectives.site_matches_discovery_params(site, ore_type, params):
+			found = site
+			break
+	if found == null:
+		return { "ok": false, "reason": "No qualifying site." }
+
+	Sites.seed_faction_vein(found, "collective")
+	Factions.adjust_player_relation("collective", 4)
+
+	reported[ore_type] = found["id"]
+	progress["reportedSiteIds"] = reported
+	runtime["progress"] = progress
+	objectives[objective_id] = runtime
+
+	Objectives.refresh()
+	EventBus.state_changed.emit()
+	return { "ok": true, "oreType": ore_type, "siteId": found["id"] }
+
+
 # collective1-09, spec §6.5/§6.6/§10.4: Des's two location-agnostic "Firm as
 # weather" beats. Called from Sites.prospect() in place of
 # DistrictDeck.maybe_trigger() -- checked first, and this whole function is

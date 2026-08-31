@@ -87,33 +87,21 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return false
 
 
-# requireEachOreType: [String], minTier: String, unclaimed: bool -- for each
-# named ore type, at least one site in state.world.sites at or above minTier
-# (sites.json's tierOrder), and, if unclaimed, neither player-claimed nor
-# faction-owned.
-#
-# collective1-10, spec §6.7/§10.3: also stamps the matched site ids into
-# progress["matchedSiteIds"] (ore_type -> site_id) the moment every required
-# type has a match -- only written on the call that returns true, and a
-# complete objective is never re-evaluated (see _refresh_one's guard), so
-# this freezes at exactly "the sites that satisfied the objective", for
-# col_a1_des_report's faction_seed_reported_sites op to seed later even if
-# the player prospects or claims more ground in between.
+# requireEachOreType: [String] -- col_a1_des_sites is this type's only
+# consumer (data/objectives.json). Collective.report_des_site() converts a
+# qualifying site the moment one exists (reusing site_matches_discovery_
+# params() below) and stamps it into progress["reportedSiteIds"][ore_type]
+# immediately, one ore type at a time, cumulative across calls. This
+# evaluator is a pure progress check over that: complete once every
+# required ore type has been reported, in either order, regardless of
+# whether both were ever unclaimed at once.
 static func _eval_sites_discovered_matching(params: Dictionary, progress: Dictionary) -> bool:
 	var require_each: Array = params.get("requireEachOreType", [])
-	var matched: Dictionary = {}
+	var reported: Dictionary = progress.get("reportedSiteIds", {})
 
 	for ore_type in require_each:
-		var found_id: Variant = null
-		for site in GameState.state["world"]["sites"]:
-			if site_matches_discovery_params(site, ore_type, params):
-				found_id = site["id"]
-				break
-		if found_id == null:
+		if not reported.has(ore_type):
 			return false
-		matched[ore_type] = found_id
-
-	progress["matchedSiteIds"] = matched
 	return true
 
 

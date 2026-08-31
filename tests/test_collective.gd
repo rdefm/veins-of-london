@@ -7,6 +7,14 @@ extends "res://tests/test_base.gd"
 # exhausted.
 
 
+func _site(id: String, ore_type: String, tier: String, claimed: bool = false, faction_vein: Variant = null) -> Dictionary:
+	return {
+		"id": id, "district": "shoreditch", "tier": tier, "oreType": ore_type,
+		"bonuses": [], "discoveredDay": 1, "claimed": claimed, "factionVein": faction_vein,
+		"hasNaturalVein": false,
+	}
+
+
 func run() -> void:
 	run_case("complete_trade_sells_via_the_collective_lane_and_credits_cash", func():
 		GameState.reset()
@@ -82,4 +90,104 @@ func run() -> void:
 			Economy.adjust_sell_qty("ore_time", 3, 10)
 			var result := Collective.complete_trade(contact_id)
 			assert_eq(result["earned"], 99, "%s's door prices identically to the others" % contact_id)
+	)
+
+	# ── report_des_site() ──────────────────────────────────────────────
+
+	run_case("report_des_site_converts_a_qualifying_site_awards_relation_and_records_progress", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesThreadActive"] = true
+		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
+		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
+
+		var result := Collective.report_des_site("fate")
+
+		assert_true(result["ok"], "a qualifying fate site exists")
+		var site: Dictionary = Sites.find_site("s1")
+		assert_true(site["factionVein"] != null, "the site converts to a Collective vein immediately")
+		assert_eq(site["factionVein"]["factionId"], "collective")
+		assert_eq(site["factionVein"]["growth"], GameData.VEIN_GROWTH["seedGrowth"])
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 4, "+4 relation on report")
+		assert_eq(GameState.state["objectives"]["col_a1_des_sites"]["progress"]["reportedSiteIds"], { "fate": "s1" })
+	)
+
+	run_case("report_des_site_is_a_no_op_when_no_qualifying_site_exists", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesThreadActive"] = true
+		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
+
+		var result := Collective.report_des_site("fate")
+
+		assert_true(not result["ok"], "no fate site to report")
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before, "no relation awarded on a no-op")
+		assert_eq(GameState.state["objectives"].get("col_a1_des_sites", {}).get("progress", {}).get("reportedSiteIds", {}), {}, "nothing recorded on a no-op")
+	)
+
+	run_case("report_des_site_ignores_claimed_and_faction_owned_sites", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesThreadActive"] = true
+		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair", true)]
+
+		var result := Collective.report_des_site("fate")
+
+		assert_true(not result["ok"], "the only matching site is already claimed")
+	)
+
+	run_case("report_des_site_cannot_double_report_the_same_ore_type", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesThreadActive"] = true
+		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
+		GameState.state["world"]["sites"].append(_site("s2", "fate", "rich"))
+
+		Collective.report_des_site("fate")
+		var relation_after_first: int = GameState.state["factions"]["collective"]["relation"]
+		var result := Collective.report_des_site("fate")
+
+		assert_true(not result["ok"], "fate has already been reported once")
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_after_first, "no second relation award")
+		assert_eq(Sites.find_site("s2")["factionVein"], null, "the second qualifying fate site is left untouched, not re-matched")
+	)
+
+	run_case("a_site_reported_for_one_ore_type_can_never_be_matched_again_for_any_ore_type", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesThreadActive"] = true
+		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
+
+		Collective.report_des_site("fate")
+
+		var params: Dictionary = GameData.OBJECTIVES["col_a1_des_sites"]["params"]
+		var reported_site: Dictionary = Sites.find_site("s1")
+		assert_true(not Objectives.site_matches_discovery_params(reported_site, "fate", params), "no longer unclaimed, so it can't satisfy fate again")
+		assert_true(not Objectives.site_matches_discovery_params(reported_site, "physics", params), "wrong oreType and no longer unclaimed -- can't be re-matched for the other required type either")
+	)
+
+	run_case("report_des_site_is_a_no_op_for_an_ore_type_not_required_by_the_objective", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesThreadActive"] = true
+		GameState.state["world"]["sites"] = [_site("s1", "time", "fair")]
+
+		var result := Collective.report_des_site("time")
+
+		assert_true(not result["ok"], "time isn't one of col_a1_des_sites' required ore types")
+	)
+
+	run_case("col_a1_des_sites_completes_once_both_ore_types_are_reported_out_of_simultaneous_availability", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesThreadActive"] = true
+		GameState.state["world"]["sites"] = [_site("s_fate", "fate", "fair")]
+
+		# Report fate while it's the only qualifying site around -- the fate
+		# site is already converted (no longer unclaimed) by the time physics
+		# turns up, so the two are never simultaneously unclaimed.
+		var fate_result := Collective.report_des_site("fate")
+		assert_true(fate_result["ok"])
+		assert_true(not GameState.state["flags"].get("colA1DesSitesFound", false), "physics hasn't been reported yet")
+
+		GameState.state["world"]["sites"].append(_site("s_physics", "physics", "fair"))
+		var physics_result := Collective.report_des_site("physics")
+		assert_true(physics_result["ok"])
+
+		assert_true(GameState.state["flags"]["colA1DesSitesFound"], "both ore types now individually reported")
+		assert_true(GameState.state["objectives"]["col_a1_des_sites"]["complete"])
+		assert_eq(GameState.state["objectives"]["col_a1_des_sites"]["progress"]["reportedSiteIds"], { "fate": "s_fate", "physics": "s_physics" })
 	)
