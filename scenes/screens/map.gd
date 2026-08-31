@@ -534,8 +534,32 @@ func _build_site_row(site: Dictionary) -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("%s — %s %s" % [String(site["tier"]).capitalize(), ore["symbol"], ore["name"]], 14))
 	c["content"].add_child(UI.muted_label(_site_claim_state_text(site)))
-	c["content"].add_child(UI.button("View", func(): MapNav.select_site(site_id)))
+
+	var actions := UI.hflow()
+	actions.add_child(UI.button("View", func(): MapNav.select_site(site_id)))
+	# vein-trade-assets ticket 04: same buy entry point as the site sheet's
+	# faction-vein card below, offered here too so buying doesn't require
+	# opening the full sheet first. "Just don't show it" when ineligible --
+	# no separate disabled state for that, only for cash (below).
+	if site["factionVein"] != null and GameState.state["flags"].get("veinSaleUnlocked", false):
+		actions.add_child(_build_buy_vein_button(site["factionVein"]))
+	c["content"].add_child(actions)
 	return c["panel"]
+
+
+# vein-trade-assets ticket 04: the one button-builder shared by both map
+# entry points (this row and the site sheet's faction-vein card) -- pricing
+# and the buy call itself live only here, both surfaces just render whatever
+# this returns. Same VeinTrade.quote()/buy_from_faction() the faction Trade
+# modal's cart uses, called directly rather than through the modal's batched
+# sellState cart (no contact conversation involved on this path).
+func _build_buy_vein_button(faction_vein: Dictionary) -> Button:
+	var price: int = VeinTrade.quote(faction_vein)
+	var vein_id: String = faction_vein["id"]
+	var faction_id: String = faction_vein["factionId"]
+	var button := UI.button("Buy — £%d" % price, func(): VeinTrade.buy_from_faction(vein_id, faction_id))
+	button.disabled = GameState.state["player"]["cash"] < price
+	return button
 
 
 func _site_claim_state_text(site: Dictionary) -> String:
@@ -657,11 +681,23 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_
 		)
 		c["content"].add_child(archie_toggle)
 
+	var actions := UI.hflow()
+
 	var raid_button := UI.button(UI.format_block_cost_label("Raid", 1), func():
 		Raiding.begin_raid(vein, ["archie"] if _raid_bring_archie else [])
 	)
 	raid_button.disabled = not Travel.can_afford(district, 1)
-	c["content"].add_child(raid_button)
+	actions.add_child(raid_button)
+
+	# vein-trade-assets ticket 04: same buy_from_faction() mechanism ticket 03
+	# wired into the faction Trade modal, offered here too as a second entry
+	# point straight off the site sheet. "Just don't show it" when the
+	# vein-sale flag isn't unlocked -- no disabled state for that, only for
+	# cash (see _build_buy_vein_button()).
+	if GameState.state["flags"].get("veinSaleUnlocked", false):
+		actions.add_child(_build_buy_vein_button(vein))
+
+	c["content"].add_child(actions)
 
 	content.add_child(c["panel"])
 

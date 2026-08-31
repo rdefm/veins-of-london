@@ -424,6 +424,139 @@ func run() -> void:
 		screen.free()
 	)
 
+	# ── vein-trade-assets ticket 04: Buy button on the map ───────────────
+
+	run_case("buy_button_present_on_site_sheet_when_vein_sale_unlocked", func():
+		GameState.reset()
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		GameState.state["player"]["cash"] = 100000
+		var faction_vein := _faction_vein()
+
+		var screen := MapScreen.new()
+		var content := UI.vbox()
+		screen._build_faction_vein_content(content, faction_vein, faction_vein["siteId"])
+
+		var buy_buttons := _buttons_labelled(content, "Buy — £")
+		assert_eq(buy_buttons.size(), 1, "sale unlocked -- Buy button offered alongside Raid")
+		assert_true(not (buy_buttons[0] as Button).disabled, "affordable -- enabled")
+
+		content.free()
+		screen.free()
+	)
+
+	run_case("buy_button_absent_on_site_sheet_when_vein_sale_locked", func():
+		GameState.reset()
+		var faction_vein := _faction_vein()
+
+		var screen := MapScreen.new()
+		var content := UI.vbox()
+		screen._build_faction_vein_content(content, faction_vein, faction_vein["siteId"])
+
+		assert_eq(_buttons_labelled(content, "Buy — £").size(), 0, "sale not yet unlocked -- no Buy button")
+
+		content.free()
+		screen.free()
+	)
+
+	run_case("buy_button_disabled_when_unaffordable", func():
+		GameState.reset()
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		GameState.state["player"]["cash"] = 0
+		var faction_vein := _faction_vein()
+
+		var screen := MapScreen.new()
+		var content := UI.vbox()
+		screen._build_faction_vein_content(content, faction_vein, faction_vein["siteId"])
+
+		var buy_buttons := _buttons_labelled(content, "Buy — £")
+		assert_true((buy_buttons[0] as Button).disabled, "can't afford -- disabled, not hidden")
+
+		content.free()
+		screen.free()
+	)
+
+	run_case("buy_button_tap_on_site_sheet_calls_buy_from_faction", func():
+		GameState.reset()
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		GameState.state["player"]["cash"] = 100000
+		var faction_vein := _faction_vein()
+		GameState.state["world"]["sites"] = [{
+			"id": faction_vein["siteId"], "district": faction_vein["district"], "tier": "fair",
+			"oreType": faction_vein["oreType"], "bonuses": [], "discoveredDay": 1,
+			"claimed": false, "factionVein": faction_vein, "hasNaturalVein": false,
+		}]
+
+		var screen := MapScreen.new()
+		var content := UI.vbox()
+		screen._build_faction_vein_content(content, faction_vein, faction_vein["siteId"])
+
+		var buy_button: Button = _buttons_labelled(content, "Buy — £")[0]
+		buy_button.pressed.emit()
+
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "tapping Buy should hand the vein to the player")
+		assert_eq(GameState.state["player"]["veins"][0]["id"], faction_vein["id"])
+
+		content.free()
+		screen.free()
+	)
+
+	run_case("buy_button_present_on_district_site_row_alongside_view", func():
+		GameState.reset()
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		GameState.state["player"]["cash"] = 100000
+		var faction_vein := _faction_vein()
+		var site := {
+			"id": faction_vein["siteId"], "district": faction_vein["district"], "tier": "fair",
+			"oreType": faction_vein["oreType"], "bonuses": [], "discoveredDay": 1,
+			"claimed": false, "factionVein": faction_vein, "hasNaturalVein": false,
+		}
+
+		var screen := MapScreen.new()
+		var row: Control = screen._build_site_row(site)
+
+		assert_eq(_buttons_labelled(row, "View").size(), 1)
+		assert_eq(_buttons_labelled(row, "Buy — £").size(), 1, "eligible faction vein -- Buy row shown next to View")
+
+		row.free()
+		screen.free()
+	)
+
+	run_case("buy_button_absent_on_district_site_row_when_not_faction_owned", func():
+		GameState.reset()
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		var site := {
+			"id": "s1", "district": "camden", "tier": "fair", "oreType": "time",
+			"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
+			"hasNaturalVein": false,
+		}
+
+		var screen := MapScreen.new()
+		var row: Control = screen._build_site_row(site)
+
+		assert_eq(_buttons_labelled(row, "Buy — £").size(), 0, "no faction vein here -- no Buy row")
+
+		row.free()
+		screen.free()
+	)
+
+	run_case("buy_button_absent_on_district_site_row_when_sale_locked", func():
+		GameState.reset()
+		var faction_vein := _faction_vein()
+		var site := {
+			"id": faction_vein["siteId"], "district": faction_vein["district"], "tier": "fair",
+			"oreType": faction_vein["oreType"], "bonuses": [], "discoveredDay": 1,
+			"claimed": false, "factionVein": faction_vein, "hasNaturalVein": false,
+		}
+
+		var screen := MapScreen.new()
+		var row: Control = screen._build_site_row(site)
+
+		assert_eq(_buttons_labelled(row, "Buy — £").size(), 0, "flag not set -- no Buy row")
+
+		row.free()
+		screen.free()
+	)
+
 	# 10-map-interaction-model ticket 03: _build_district_bubble_options()
 	# turns DistrictBubble.district_options() (systems/district_bubble.gd,
 	# tested on its own in tests/test_district_bubble.gd) into the label/
