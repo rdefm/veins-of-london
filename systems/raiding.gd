@@ -654,12 +654,59 @@ static func _queue_defend_raid(outcome: Dictionary, vein: Dictionary) -> void:
 	outcome["notificationId"] = notification["id"]
 
 
+# ticket 108: before a missed-defend window falls through to resolve_raid_
+# outcome()'s auto-loss, a vein with 1+ extraGuards (72-stackable-guards-
+# vein-defense) gets a chance to repel the raid outright instead. Chance-per-
+# guard and cap live in data/constants.json's "guardRepel" (GameData.
+# GUARD_REPEL_CHANCE_PER_GUARD/_CAP) -- one data source shared with Home's
+# own guard_repel_chance() mirror below, so retuning either never touches a
+# .gd file. Zero guards skips the roll entirely (no chance consumed, same as
+# if the check never ran), matching the ticket's "only applies with guards
+# present" call and leaving a zero-guard vein's behaviour byte-for-byte
+# identical to pre-ticket-108.
+static func guard_repel_chance(guard_count: int) -> float:
+	return clampf(guard_count * GameData.GUARD_REPEL_CHANCE_PER_GUARD, 0.0, GameData.GUARD_REPEL_CHANCE_CAP)
+
+
+# Rolls the repel chance for one expiring outcome and, on success, pushes the
+# distinct "held without you" notification and reports true so the caller
+# skips resolve_raid_outcome() entirely -- no ownership change, no ore lost.
+# A vanished vein (outcome["veinId"] no longer resolves) reads as zero guards,
+# same defensive default vein.get("extraGuards", 0) uses everywhere else in
+# this file -- resolve_raid_outcome()'s own null-vein no-op still covers that
+# case correctly if this returns false.
+#
+# PROSE-REVIEW: new notification copy, drafted against CONTENT-GUIDE.md's
+# tone bible -- distinct from both the "you defended it yourself" silence
+# (Combat's defend-vein win path pushes no notification at all) and every
+# missed-defend loss line above, so the player can tell "guards held it"
+# apart from either.
+static func _guards_repel_defend_raid(outcome: Dictionary) -> bool:
+	var vein: Variant = Cultivating.find_vein(outcome["veinId"])
+	if vein == null:
+		return false
+
+	var guard_count: int = vein.get("extraGuards", 0)
+	if guard_count <= 0:
+		return false
+	if not Rng.chance(guard_repel_chance(guard_count)):
+		return false
+
+	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
+	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
+	var attacker: String = faction_name if outcome.get("caught", true) else ANONYMOUS_RAIDER_LABEL
+	Notify.push("Your guards saw %s off your vein in %s before you got there. Nothing lost." % [attacker, district_name], Notify.CATEGORY_SUCCESS)
+	return true
+
+
 # Passes missed_defend=true -- see resolve_raid_outcome() above (ticket 43).
 static func _expire_pending_defend_raids() -> void:
 	var world: Dictionary = GameState.state["world"]
 	var pending: Array = world["pendingDefendRaids"]
 	world["pendingDefendRaids"] = []
 	for outcome in pending:
+		if _guards_repel_defend_raid(outcome):
+			continue
 		resolve_raid_outcome(outcome, true)
 
 

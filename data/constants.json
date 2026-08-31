@@ -15,5 +15,6 @@
     { "maxRelation": 1,    "qtyMin": 1, "qtyMax": 3 },
     { "maxRelation": 3,    "qtyMin": 3, "qtyMax": 6 },
     { "maxRelation": null, "qtyMin": 5, "qtyMax": 10 }
-  ]
+  ],
+  "guardRepel": { "chancePerGuard": 0.15, "cap": 0.75 }
 }

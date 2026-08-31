@@ -120,6 +120,13 @@ var ARCHIE_ORE_GOAL: int = 0
 var CONTACTS_DEFAULTS: Dictionary = {}
 var JAMES_JOB_TRUST_BANDS: Array = []
 
+# 108-guard-repel-missed-defend-roll: the missed-defend guard-repel chance,
+# shared by both Home._guards_repel_pending_raid() (HQ's guardCount) and
+# Raiding._guards_repel_defend_raid() (a vein's extraGuards) -- one data
+# source for both so retuning it never touches either .gd file.
+var GUARD_REPEL_CHANCE_PER_GUARD: float = 0.0
+var GUARD_REPEL_CHANCE_CAP: float = 0.0
+
 var EVENTS: Dictionary = {}
 
 # collective1-07, spec §9.5: per-vendor flavour lines drawn on completing a
@@ -314,6 +321,9 @@ func load_all() -> void:
 	ARCHIE_ORE_GOAL = constants.get("archieOreGoal", 0)
 	CONTACTS_DEFAULTS = constants.get("contacts", {})
 	JAMES_JOB_TRUST_BANDS = constants.get("jamesJobTrustBands", [])
+	var guard_repel: Dictionary = constants.get("guardRepel", {})
+	GUARD_REPEL_CHANCE_PER_GUARD = guard_repel.get("chancePerGuard", 0.0)
+	GUARD_REPEL_CHANCE_CAP = guard_repel.get("cap", 0.0)
 
 	EVENTS = {}
 	for event_id in EVENT_IDS + DISTRICT_EVENT_IDS:

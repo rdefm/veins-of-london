@@ -163,6 +163,69 @@ func run() -> void:
 		assert_eq(GameState.state["home"]["pendingRaidNotificationId"], null)
 	)
 
+	run_case("guard_repel_chance_scales_15_percent_per_guard_capped_at_75", func():
+		assert_almost_eq(Home.guard_repel_chance(0), 0.0, 0.0001)
+		assert_almost_eq(Home.guard_repel_chance(1), 0.15, 0.0001)
+		assert_almost_eq(Home.guard_repel_chance(3), 0.45, 0.0001)
+		assert_almost_eq(Home.guard_repel_chance(5), 0.75, 0.0001, "should cap at 75%")
+		assert_almost_eq(Home.guard_repel_chance(10), 0.75, 0.0001, "stays capped past the guard count that reaches it")
+	)
+
+	run_case("missed_defend_window_with_guards_present_can_be_repelled_with_no_loss", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 10
+		GameState.state["home"]["lastRaidDay"] = 10
+		GameState.state["home"]["security"] = ["alarm"]
+		GameState.state["home"]["guardCount"] = 5  # 75% repel chance
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "n_stale"
+		GameState.state["player"]["orichalchum"] = { "time": 100 }
+
+		var seed := -1
+		for candidate in range(300):
+			var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+			Rng.set_seed(candidate)
+			Home.roll_daily_raid()
+			if not GameState.state["home"]["pendingRaid"] and GameState.state["player"]["orichalchum"]["time"] == 100:
+				seed = candidate
+				break
+			GameState.state = snapshot
+
+		assert_true(seed != -1, "should find a seed where the guards repel the raid within 300 tries")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 100, "a successful repel must leave ore untouched")
+		assert_true(not GameState.state["home"]["pendingRaid"])
+		assert_eq(GameState.state["home"]["pendingRaidNotificationId"], null)
+
+		var notifications: Array = GameState.state["notifications"]
+		assert_eq(notifications.size(), 1, "a repel must still notify exactly once")
+		assert_eq(notifications[0]["category"], Notify.CATEGORY_SUCCESS, "a repel is good news, not a danger notification")
+	)
+
+	run_case("missed_defend_window_with_guards_present_can_still_lose_on_a_failed_repel_roll", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 10
+		GameState.state["home"]["lastRaidDay"] = 10
+		GameState.state["home"]["security"] = ["alarm"]
+		GameState.state["home"]["guardCount"] = 5  # 75% repel chance -- still leaves a 25% fail lane
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "n_stale"
+		GameState.state["player"]["orichalchum"] = { "time": 100 }
+
+		var seed := -1
+		for candidate in range(300):
+			var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+			Rng.set_seed(candidate)
+			Home.roll_daily_raid()
+			if GameState.state["player"]["orichalchum"]["time"] == 50:
+				seed = candidate
+				break
+			GameState.state = snapshot
+
+		assert_true(seed != -1, "should find a seed where the repel roll fails within 300 tries")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 50, "a failed repel resolves exactly as the old auto-loss (floor(100*0.50))")
+		assert_true(not GameState.state["home"]["pendingRaid"])
+	)
+
 	run_case("has_pending_raid_and_is_pending_raid_notification_reflect_the_queued_flag", func():
 		GameState.reset()
 		assert_true(not Home.has_pending_raid(), "sanity: nothing pending on a fresh game")

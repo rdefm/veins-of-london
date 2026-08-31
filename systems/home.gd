@@ -111,15 +111,48 @@ static func _queue_pending_raid() -> void:
 	home["pendingRaidNotificationId"] = notification["id"]
 
 
-# Resolves a still-pending raid via _apply_raid_loss() -- ticket 108 will
-# layer a guard-based chance to avoid this; for now a missed window is
-# always a loss, same as the no-alarm path always was.
+# ticket 108: before a missed-defend window falls through to
+# _apply_raid_loss(), HQ's own guardCount (ticket 107) gets a chance to repel
+# the raid outright instead. Chance-per-guard and cap live in data/
+# constants.json's "guardRepel" (GameData.GUARD_REPEL_CHANCE_PER_GUARD/_CAP)
+# -- one data source shared with Raiding.guard_repel_chance() (systems/
+# raiding.gd), this flow's vein-raid mirror, so retuning either never
+# touches a .gd file. Zero guards skips the roll entirely (no chance
+# consumed), leaving a guardless HQ's behaviour byte-for-byte identical to
+# pre-ticket-108.
+static func guard_repel_chance(guard_count: int) -> float:
+	return clampf(guard_count * GameData.GUARD_REPEL_CHANCE_PER_GUARD, 0.0, GameData.GUARD_REPEL_CHANCE_CAP)
+
+
+# Rolls the repel chance and, on success, pushes the distinct "held without
+# you" notification and reports true so _expire_pending_raid() skips
+# _apply_raid_loss() entirely -- no ore lost.
+#
+# PROSE-REVIEW: new notification copy, drafted against CONTENT-GUIDE.md's
+# tone bible -- distinct from both the "you defended it yourself" silence
+# (Combat's home-raid win path pushes no notification at all) and
+# _apply_raid_loss()'s own loss line, so the player can tell "guards held
+# it" apart from either.
+static func _guards_repel_pending_raid() -> bool:
+	var guard_count: int = get_guard_count()
+	if guard_count <= 0:
+		return false
+	if not Rng.chance(guard_repel_chance(guard_count)):
+		return false
+	Notify.push("Your guards caught them at HQ and saw them off before you got back. Nothing lost.", Notify.CATEGORY_SUCCESS)
+	return true
+
+
+# Resolves a still-pending raid via _apply_raid_loss(), unless ticket 108's
+# guard-repel roll above intercepts it first.
 static func _expire_pending_raid() -> void:
 	var home: Dictionary = GameState.state["home"]
 	if not home["pendingRaid"]:
 		return
 	home["pendingRaid"] = false
 	home["pendingRaidNotificationId"] = null
+	if _guards_repel_pending_raid():
+		return
 	_apply_raid_loss()
 
 

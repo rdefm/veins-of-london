@@ -1283,6 +1283,68 @@ func run() -> void:
 		assert_true(missed_text != plain_text, "missed-window copy must differ from the plain no-alarm loss copy")
 	)
 
+	# ticket 108: guard-repel chance for a missed-defend window.
+	run_case("guard_repel_chance_scales_15_percent_per_guard_capped_at_75", func():
+		assert_almost_eq(Raiding.guard_repel_chance(0), 0.0, 0.0001)
+		assert_almost_eq(Raiding.guard_repel_chance(1), 0.15, 0.0001)
+		assert_almost_eq(Raiding.guard_repel_chance(3), 0.45, 0.0001)
+		assert_almost_eq(Raiding.guard_repel_chance(5), 0.75, 0.0001, "should cap at 75%")
+		assert_almost_eq(Raiding.guard_repel_chance(10), 0.75, 0.0001, "stays capped past the guard count that reaches it")
+	)
+
+	run_case("missed_defend_window_with_extra_guards_present_can_be_repelled_with_no_loss", func():
+		var seed := -1
+		for candidate in range(300):
+			GameState.reset()
+			var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+			vein["alarmUpgrades"] = ["alarm"]
+			vein["extraGuards"] = 5  # 75% repel chance
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+			GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+
+			Rng.set_seed(candidate)
+			Raiding._expire_pending_defend_raids()
+
+			if GameState.state["player"]["veins"].size() == 1:
+				seed = candidate
+				break
+
+		assert_true(seed != -1, "should find a seed where the guards repel the raid within 300 tries")
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "a successful repel must leave the vein with the player")
+		var site: Dictionary = Sites.find_site("s_player")
+		assert_eq(site["factionVein"], null, "ownership must not transfer on a repel")
+		assert_eq(GameState.state["world"]["pendingDefendRaids"], [], "the expired entry should be cleared either way")
+
+		var notifications: Array = GameState.state["notifications"]
+		assert_eq(notifications.size(), 1, "a repel must still notify exactly once")
+		assert_eq(notifications[0]["category"], Notify.CATEGORY_SUCCESS, "a repel is good news, not a danger notification")
+	)
+
+	run_case("missed_defend_window_with_extra_guards_present_can_still_lose_on_a_failed_repel_roll", func():
+		var seed := -1
+		for candidate in range(300):
+			GameState.reset()
+			var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+			vein["alarmUpgrades"] = ["alarm"]
+			vein["extraGuards"] = 5  # 75% repel chance -- still leaves a 25% fail lane
+			GameState.state["player"]["veins"] = [vein]
+			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+			GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
+
+			Rng.set_seed(candidate)
+			Raiding._expire_pending_defend_raids()
+
+			if GameState.state["player"]["veins"].size() == 0:
+				seed = candidate
+				break
+
+		assert_true(seed != -1, "should find a seed where the repel roll fails within 300 tries")
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "a failed repel resolves exactly as the old auto-loss")
+		var site: Dictionary = Sites.find_site("s_player")
+		assert_true(site["factionVein"] != null, "ownership should transfer, same as the guardless auto-loss path")
+	)
+
 	run_case("maybe_trigger_defend_starts_combat_and_pops_the_matching_pending_entry", func():
 		GameState.reset()
 		var vein := _player_vein_of(30, "time", "none", "camden")
