@@ -11,6 +11,26 @@ static func _find_seed_for(max_tries: int, fn: Callable) -> int:
 	return -1
 
 
+# Same shape as test_vein_trade.gd's own _seed_vein -- one player vein wired
+# to its site so VeinTrade.sell_to_faction() can resolve vein.siteId ->
+# Sites.find_site() for real.
+static func _seed_vein(id: String, growth: int, ore_type: String = "life") -> Dictionary:
+	var site := {
+		"id": "site_%s" % id, "district": "shoreditch", "tier": "fair", "oreType": ore_type,
+		"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+		"hasNaturalVein": false,
+	}
+	var vein := {
+		"id": id, "district": "shoreditch", "oreType": ore_type, "growth": growth,
+		"security": "none", "alarmUpgrades": [], "location": "Test Alley",
+		"claimedOnDay": 1, "siteId": "site_%s" % id, "hospitability": { "tier": "fair", "bonuses": [] },
+		"rampantDays": 0,
+	}
+	GameState.state["world"]["sites"].append(site)
+	GameState.state["player"]["veins"].append(vein)
+	return vein
+
+
 func run() -> void:
 	run_case("sale_rejects_empty_item_list", func():
 		GameState.reset()
@@ -239,6 +259,16 @@ func run() -> void:
 		Economy.adjust_sell_qty("ore_time", 2, 10)
 		Economy.clear_sell_state()
 		assert_eq(GameState.state["sellState"], {}, "should be empty after clearing")
+	)
+
+	# vein-trade-assets ticket 01: toggle_sell_vein is a plain 0/1 flip, not
+	# adjust_sell_qty's clamped +/- delta -- a vein isn't stackable.
+	run_case("toggle_sell_vein_flips_between_0_and_1", func():
+		GameState.reset()
+		Economy.toggle_sell_vein("v1")
+		assert_eq(GameState.state["sellState"]["vein_v1"], 1, "first toggle selects it")
+		Economy.toggle_sell_vein("v1")
+		assert_eq(GameState.state["sellState"]["vein_v1"], 0, "second toggle deselects it")
 	)
 
 	# bugfixes-66: marketplaceQty backs the Guild marketplace's per-row qty
@@ -555,6 +585,52 @@ func run() -> void:
 		GameState.reset()
 		var result := Economy.sell_to_faction_from_sell_state("collective")
 		assert_true(not result["ok"], "nothing selected should be a no-op, same as sell_from_sell_state")
+	)
+
+	# ── vein-trade-assets ticket 01: veins fold into the same faction cart ──
+
+	run_case("sell_to_faction_from_sell_state_sells_a_toggled_vein_at_its_quote_price", func():
+		GameState.reset()
+		var vein := _seed_vein("v1", 50)
+		var price: int = VeinTrade.quote(vein)
+		var cash_before: int = GameState.state["player"]["cash"]
+		Economy.toggle_sell_vein("v1")
+
+		var result := Economy.sell_to_faction_from_sell_state("collective")
+
+		assert_true(result["ok"], "a veins-only cart should still sell")
+		assert_eq(result["earned"], price, "earned matches the vein's quote price")
+		assert_eq(result["veinsSold"], 1)
+		assert_eq(GameState.state["player"]["cash"], cash_before + price)
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "the sold vein leaves player.veins")
+	)
+
+	run_case("sell_to_faction_from_sell_state_batches_ore_and_a_vein_into_one_earned_total", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Economy.adjust_sell_qty("ore_time", 3, 10)
+		var vein := _seed_vein("v1", 50)
+		var vein_price: int = VeinTrade.quote(vein)
+		Economy.toggle_sell_vein("v1")
+
+		var result := Economy.sell_to_faction_from_sell_state("collective")
+
+		# time basePrice 60, relation 0 -> sell spread 0.45 -> price 33/unit -> 3*33=99
+		assert_eq(result["earned"], 99 + vein_price, "one combined total, ore plus the vein")
+		assert_eq(result["veinsSold"], 1)
+		assert_eq(GameState.state["sellState"], {}, "sellState cleared after selling")
+	)
+
+	run_case("sell_to_faction_from_sell_state_ignores_an_untoggled_vein", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Economy.adjust_sell_qty("ore_time", 1, 10)
+		_seed_vein("v1", 50)  # never toggled
+
+		var result := Economy.sell_to_faction_from_sell_state("collective")
+
+		assert_eq(result.get("veinsSold", 0), 0, "an unselected vein must not be swept into the sale")
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "the untouched vein stays with the player")
 	)
 
 	# ── Archie's relation-scaled cut (collective1-01 spec.md §8.2, R§3.6 amendment) ─

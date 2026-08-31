@@ -158,6 +158,18 @@ static func clear_sell_state() -> void:
 	EventBus.state_changed.emit()
 
 
+# vein-trade-assets ticket 01: the faction lane's Assets cart row -- a vein
+# isn't stackable, so unlike adjust_sell_qty above this is a plain 0/1
+# include/exclude flip, not a clamped +/- delta. Same "vein_<id>" key space
+# as the ore_<type>/con_<recipeKey>_<tier> keys sell_to_faction_from_sell_state
+# below reads back out.
+static func toggle_sell_vein(vein_id: String) -> void:
+	var sell_state: Dictionary = GameState.state["sellState"]
+	var key := "vein_%s" % vein_id
+	sell_state[key] = 0 if sell_state.get(key, 0) > 0 else 1
+	EventBus.state_changed.emit()
+
+
 # bugfixes-66: state.marketplaceQty backs the Guild marketplace's per-row
 # Buy/Sell ×N stepper -- one shared qty per row (not a separate buy/sell
 # cart entry like sellState above), floored at 1 rather than sellState's
@@ -370,6 +382,16 @@ static func execute_faction_sale(faction_id: String, items: Array) -> Dictionary
 # built items: a faction lane's price doesn't vary by tier (only Archie's
 # execute_sale does), so summing every tier bucket's selection into one
 # per-recipe item is correct here.
+#
+# vein-trade-assets ticket 01: any "vein_<id>" keys toggled on ride along in
+# the same cart/same Go tap -- one sale, not a second confirm step (spec's
+# guard for that is the Go button's own label, built by the caller from this
+# result's veinsSold). Each selected vein is sold through VeinTrade.
+# sell_to_faction() individually (that's the single existing vein-sale code
+# path -- collective1-05's standalone quote-and-confirm flow reuses the same
+# call), since execute_faction_sale() below only knows ore/consumable items;
+# a veins-only cart skips calling it at all rather than tripping its own
+# empty-items rejection.
 static func sell_to_faction_from_sell_state(faction_id: String) -> Dictionary:
 	var sell_state: Dictionary = GameState.state["sellState"]
 	var items: Array = []
@@ -386,5 +408,26 @@ static func sell_to_faction_from_sell_state(faction_id: String) -> Dictionary:
 			if qty > 0:
 				items.append({ "kind": "consumable", "type": recipe_key, "qty": qty })
 
+	var vein_ids: Array = []
+	for vein in GameState.state["player"]["veins"]:
+		if sell_state.get("vein_%s" % vein["id"], 0) > 0:
+			vein_ids.append(vein["id"])
+
 	clear_sell_state()
-	return execute_faction_sale(faction_id, items)
+
+	if items.is_empty() and vein_ids.is_empty():
+		return { "ok": false, "reason": "Nothing to sell." }
+
+	var earned := 0
+	if not items.is_empty():
+		var item_result := execute_faction_sale(faction_id, items)
+		earned += item_result.get("earned", 0)
+
+	var veins_sold := 0
+	for vein_id in vein_ids:
+		var vein_result := VeinTrade.sell_to_faction(vein_id, faction_id)
+		if vein_result.get("ok", false):
+			earned += int(vein_result["price"])
+			veins_sold += 1
+
+	return { "ok": true, "earned": earned, "veinsSold": veins_sold }

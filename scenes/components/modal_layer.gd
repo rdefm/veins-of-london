@@ -10,6 +10,17 @@ var _card: PanelContainer
 var _scroll: ScrollContainer
 var _card_content: VBoxContainer
 
+# vein-trade-assets ticket 01: Ore/Items/Assets sections in sell_menu, all
+# starting expanded. _refresh() rebuilds _card_content from scratch on every
+# EventBus.state_changed, so the section nodes can't remember their own
+# expand state -- these instance vars are what persists it across a rebuild
+# (same pattern hq.gd's _security_expanded/_rooms_expanded use). Shared
+# between Archie's lane and the faction lane since only one sell_menu is ever
+# open at a time.
+var _sell_ore_expanded: bool = true
+var _sell_items_expanded: bool = true
+var _sell_assets_expanded: bool = true
+
 # Root cause of "cultivate/seed shows a blank white modal, nothing tappable"
 # (bugfixes ticket 06): _card is a shrink-to-fit PanelContainer (UI.anchor_
 # center — its rect clamps up to its own minimum size, per Control's normal
@@ -281,6 +292,8 @@ func _build_sell_menu() -> void:
 	_card_content.add_child(UI.muted_label("Archie splits 50/50. Select what you want to move."))
 
 	var gross := 0
+	var ore_rows: Array = []
+	var item_rows: Array = []
 
 	for ore_type in GameData.ORE_TYPES.keys():
 		var have: int = player["orichalchum"].get(ore_type, 0)
@@ -290,7 +303,7 @@ func _build_sell_menu() -> void:
 		var key := "ore_%s" % ore_type
 		var qty: int = sell_state.get(key, 0)
 		gross += ore["basePrice"] * qty
-		_card_content.add_child(_build_sell_row("%s %s (£%d/u, have %d)" % [ore["symbol"], ore["name"], ore["basePrice"], have], key, qty, have))
+		ore_rows.append(_build_sell_row("%s %s (£%d/u, have %d)" % [ore["symbol"], ore["name"], ore["basePrice"], have], key, qty, have))
 
 	# ticket 64: one sell row per (recipe, tier) with stock -- price now
 	# scales by quality tier (Economy.quality_price_multiplier), so tiers of
@@ -312,7 +325,12 @@ func _build_sell_menu() -> void:
 				var qty: int = sell_state.get(key, 0)
 				gross += price * qty
 				var tier_label := "untiered" if tier <= 0 else "tier %d" % tier
-				_card_content.add_child(_build_sell_row("%s %s (%s, £%d/ea, have %d)" % [recipe["symbol"], recipe["name"], tier_label, price, have], key, qty, have))
+				item_rows.append(_build_sell_row("%s %s (%s, £%d/ea, have %d)" % [recipe["symbol"], recipe["name"], tier_label, price, have], key, qty, have))
+
+	# vein-trade-assets ticket 01: Archie's Assets section renders (same
+	# three-section layout as the faction lane below) but stays inert -- no
+	# vein rows, no sell wiring yet. That's ticket 02.
+	_build_sell_sections(ore_rows, item_rows, [])
 
 	var cut_ratio := Economy.get_archie_cut_ratio()
 	var player_cut: int = int(floor(gross * cut_ratio))
@@ -343,6 +361,8 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 	_card_content.add_child(UI.muted_label("Straight sale. No cut, no risk of a mugging."))
 
 	var gross := 0
+	var ore_rows: Array = []
+	var item_rows: Array = []
 
 	for ore_type in GameData.ORE_TYPES.keys():
 		var have: int = player["orichalchum"].get(ore_type, 0)
@@ -353,7 +373,7 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 		var qty: int = sell_state.get(key, 0)
 		var price := Economy.get_faction_sell_price(faction_id, "ore", ore_type)
 		gross += price * qty
-		_card_content.add_child(_build_sell_row("%s %s (£%d/u, have %d)" % [ore["symbol"], ore["name"], price, have], key, qty, have))
+		ore_rows.append(_build_sell_row("%s %s (£%d/u, have %d)" % [ore["symbol"], ore["name"], price, have], key, qty, have))
 
 	if GameState.state["flags"]["canSellConsumables"]:
 		for recipe_key in GameData.CONSUMABLE_PRICES.keys():
@@ -370,14 +390,78 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 				var qty: int = sell_state.get(key, 0)
 				gross += price * qty
 				var tier_label := "untiered" if int(tier_key) <= 0 else "tier %d" % int(tier_key)
-				_card_content.add_child(_build_sell_row("%s %s (%s, £%d/ea, have %d)" % [recipe["symbol"], recipe["name"], tier_label, price, have], key, qty, have))
+				item_rows.append(_build_sell_row("%s %s (%s, £%d/ea, have %d)" % [recipe["symbol"], recipe["name"], tier_label, price, have], key, qty, have))
+
+	# vein-trade-assets ticket 01, spec: the faction lane's Assets section --
+	# every player-owned vein as a 0/1 include/exclude row (not a +/- stepper,
+	# a vein isn't stackable), priced at the same VeinTrade.quote() the
+	# standalone vein-list Sell flow already uses. A selected vein folds
+	# straight into this trade's gross/Go tap; there's no separate per-vein
+	# confirm step here (that guard is the Go button's own label below).
+	var asset_rows: Array = []
+	var veins_selected := 0
+	if GameState.state["flags"].get("veinSaleUnlocked", false):
+		for vein in player["veins"]:
+			var vein_key := "vein_%s" % vein["id"]
+			var selected: bool = sell_state.get(vein_key, 0) > 0
+			var vein_price := VeinTrade.quote(vein)
+			if selected:
+				gross += vein_price
+				veins_selected += 1
+			var vein_ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
+			var vein_district: Dictionary = GameData.DISTRICTS[vein["district"]]
+			var vein_label := "%s — %s %s (£%d)" % [vein_district["name"], vein_ore["symbol"], vein_ore["name"], vein_price]
+			asset_rows.append(_build_sell_vein_row(vein_label, vein["id"], selected))
+
+	_build_sell_sections(ore_rows, item_rows, asset_rows)
 
 	_card_content.add_child(UI.label("You'll get: £%d" % gross))
 
-	var go_button := UI.button("Go — trade", func(): Collective.complete_trade(contact_id))
+	var go_label := "Go — trade"
+	if veins_selected == 1:
+		go_label += " (includes 1 vein sale)"
+	elif veins_selected > 1:
+		go_label += " (includes %d vein sales)" % veins_selected
+	var go_button := UI.button(go_label, func(): Collective.complete_trade(contact_id))
 	go_button.disabled = gross == 0
 	_card_content.add_child(go_button)
 	_card_content.add_child(UI.button("Cancel", _on_sell_menu_cancel))
+
+
+# vein-trade-assets ticket 01: both sell_menu lanes (Archie above, the
+# faction lane below) render Ore/Items/Assets as three UI.collapsible_section
+# panels rather than a flat list -- ore/item row contents and cart behaviour
+# are unchanged, just regrouped. Assets is gated entirely by
+# flags.veinSaleUnlocked (Archie's lane always passes an empty asset_rows,
+# so the section still shows -- inert -- once unlocked, same as the faction
+# lane's populated one).
+func _build_sell_sections(ore_rows: Array, item_rows: Array, asset_rows: Array) -> void:
+	var ore_section := UI.collapsible_section("Ore", _sell_ore_expanded, func(v): _sell_ore_expanded = v)
+	for row in ore_rows:
+		ore_section["content"].add_child(row)
+	_card_content.add_child(ore_section["panel"])
+
+	var items_section := UI.collapsible_section("Items", _sell_items_expanded, func(v): _sell_items_expanded = v)
+	for row in item_rows:
+		items_section["content"].add_child(row)
+	_card_content.add_child(items_section["panel"])
+
+	if GameState.state["flags"].get("veinSaleUnlocked", false):
+		var assets_section := UI.collapsible_section("Assets", _sell_assets_expanded, func(v): _sell_assets_expanded = v)
+		for row in asset_rows:
+			assets_section["content"].add_child(row)
+		_card_content.add_child(assets_section["panel"])
+
+
+# The faction lane's Assets row: a 0/1 toggle (Economy.toggle_sell_vein), not
+# _build_sell_row's -/+ stepper -- a vein isn't stackable.
+func _build_sell_vein_row(label_text: String, vein_id: String, selected: bool) -> Control:
+	var row := UI.hbox(6)
+	row.add_child(UI.button("☑" if selected else "☐", func(): Economy.toggle_sell_vein(vein_id)))
+	var text_label := UI.label(label_text)
+	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text_label)
+	return row
 
 
 func _build_sell_row(label_text: String, key: String, qty: int, max_qty: int) -> Control:
