@@ -54,6 +54,12 @@ class NameplateCard extends Control:
 	var shows_exact_hp: bool = false
 	var status_lines: Array[String] = []
 	var shows_telegraph_slot: bool = false
+	# combat-presentation ticket 06, docs/combat-animation-vision.md §4.2: the
+	# telegraphed-intent text itself, computed by _telegraph_text_for() below
+	# and stashed here (rather than computed inline in _build_card_content())
+	# so both that render step and tests can read the same value. Only
+	# meaningful when shows_telegraph_slot is true.
+	var telegraph_text: String = ""
 	var is_pulsing: bool = false
 	var damage_tier: int = 0  # 0 clean, 1 cracked, 2 ruined -- §2.4's decal tiers
 
@@ -290,10 +296,32 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	if is_focused:
 		card.status_lines = _status_lines_for(entry["key"], _combat, _player)
 		card.shows_telegraph_slot = entry["isEnemy"]
+		if card.shows_telegraph_slot:
+			card.telegraph_text = _telegraph_text_for(_combat["enemies"][entry["key"]["index"]])
 
 	_build_card_content(card)
 	_cards_by_key[card_key_string(entry["key"])] = card
 	return card
+
+
+# combat-presentation ticket 06, docs/combat-animation-vision.md §4.2: the
+# telegraph itself -- a purely-derived read of the enemy's own persistent
+# `ability` state (Combat._enemy_capabilities_from_template()'s shape),
+# independent of turn order or beat-queue timing. Correct for BOTH "this is
+# the enemy currently acting" and "the player swiped ahead to inspect a
+# not-yet-acted enemy" (the ticket's own third acceptance check) for free,
+# since it never looks at whose turn it is -- only at what this specific
+# enemy would do the next time it acts. `ability.id` is rendered as raw
+# capitalized text (no display-name lookup table exists -- REFERENCE.md
+# §1.10: ability is "a string id", and no data/enemies.json template sets
+# one yet) per this ticket's own "for now" scope note; a locked ability
+# reads identically to no ability at all -- both are "about to attack" as
+# far as the player can act on right now.
+func _telegraph_text_for(enemy: Dictionary) -> String:
+	var ability: Variant = enemy.get("ability")
+	if ability != null and not Combat.is_ability_locked(enemy):
+		return "Intent: %s" % String(ability["id"]).capitalize()
+	return "Intent: Attacking"
 
 
 # combat-presentation ticket 05, §4.1: called once, at the start of a round's
@@ -379,11 +407,12 @@ func _build_card_content(card: NameplateCard) -> void:
 		status_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
 		box.add_child(status_label)
 
-	# Ticket 06's enemy telegraph lands here later (§4.2, §2.4) -- an empty
-	# labelled region until then, per this ticket's own scope note.
+	# combat-presentation ticket 06, §4.2/§2.4: the enemy telegraph -- see
+	# _telegraph_text_for() for how card.telegraph_text is derived.
 	if card.shows_telegraph_slot:
 		var telegraph := Label.new()
-		telegraph.text = "Intent: —"
+		telegraph.text = card.telegraph_text
+		telegraph.clip_text = true
 		telegraph.add_theme_font_size_override("font_size", 8)
 		telegraph.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
 		box.add_child(telegraph)

@@ -228,6 +228,72 @@ func run() -> void:
 		assert_true(card.shows_telegraph_slot, "the focused enemy reserves ticket 06's telegraph slot")
 	)
 
+	# ── combat-presentation ticket 06, §4.2: enemy telegraph text ──────────
+
+	run_case("telegraph_text_shows_the_abilitys_id_when_present_and_not_locked", func():
+		GameState.reset()
+		var combat := _combat([_enemy("Guard", 20, 20, false, 30, { "id": "poisonBite", "lockedTurns": 0 })])
+
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
+
+		var card := _card_named(strip, "Guard")
+		assert_eq(card.telegraph_text, "Intent: Poison Bite", "an unlocked ability should telegraph its own id, title-cased")
+	)
+
+	run_case("telegraph_text_is_a_generic_attacking_indicator_when_the_ability_is_locked", func():
+		GameState.reset()
+		var combat := _combat([_enemy("Guard", 20, 20, false, 30, { "id": "poisonBite", "lockedTurns": 2 })])
+
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
+
+		var card := _card_named(strip, "Guard")
+		assert_eq(card.telegraph_text, "Intent: Attacking", "a locked ability must not leak as the telegraphed intent -- it can't actually happen this turn")
+	)
+
+	run_case("telegraph_text_is_a_generic_attacking_indicator_with_no_ability_at_all_not_a_blank_slot", func():
+		GameState.reset()
+		var combat := _combat([_enemy("Scrapper", 20, 20, false, 30, null)])
+
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
+
+		var card := _card_named(strip, "Scrapper")
+		assert_eq(card.telegraph_text, "Intent: Attacking")
+	)
+
+	run_case("telegraph_text_is_shown_for_an_enemy_focused_by_swipe_ahead_of_its_own_turn_not_only_the_next_actor", func():
+		GameState.reset()
+		# Guard (speed 5) acts well after the player/an unlisted faster
+		# enemy in this fight -- Scrapper (speed 30) is who's actually next.
+		# The player swipes past Scrapper to inspect Guard before Guard's
+		# own turn ever comes up; Guard's telegraph must still read
+		# correctly even though nothing about this fight is currently
+		# resolving Guard's turn.
+		var combat := _combat([
+			_enemy("Scrapper", 20, 20, false, 30, null),
+			_enemy("Guard", 20, 20, false, 5, { "id": "poisonBite", "lockedTurns": 0 }),
+		])
+
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		assert_eq(entries[0]["name"], "Scrapper", "sanity: Scrapper (speed 30) is next to act, not Guard")
+		var guard_pos: int = -1
+		for i in range(entries.size()):
+			if entries[i]["name"] == "Guard":
+				guard_pos = i
+		strip.configure(entries, guard_pos, combat, GameState.state["player"], 300.0, Callable())
+
+		var card := _card_named(strip, "Guard")
+		assert_true(card.is_focused, "sanity: the player swiped to Guard, not the next-acting Scrapper")
+		assert_true(card.shows_telegraph_slot)
+		assert_eq(card.telegraph_text, "Intent: Poison Bite", "inspecting an enemy ahead of its own turn should still reveal its pending intent")
+	)
+
 	run_case("focused_player_card_shows_shielded_and_motion_status_never_a_telegraph_slot", func():
 		GameState.reset()
 		GameState.state["player"]["shieldPool"] = 5
