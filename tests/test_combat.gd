@@ -264,6 +264,58 @@ func run() -> void:
 		assert_eq(combat["outcome"], "win", "the fight should resolve once every entry is koed")
 	)
 
+	# ── combat-presentation ticket 02: turn-order strip swipe-to-target ──
+
+	run_case("set_focused_enemy_updates_focusedEnemyIndex_for_a_living_enemy", func():
+		var combat := _multi_enemy_combat([{ "hp": 20 }, { "hp": 20 }, { "hp": 20 }])
+
+		var result := Combat.set_focused_enemy(2)
+
+		assert_eq(result["ok"], true, "targeting a living enemy should succeed")
+		assert_eq(combat["focusedEnemyIndex"], 2, "focus should move to the requested index")
+	)
+
+	run_case("set_focused_enemy_rejects_a_koed_enemy_and_leaves_focus_unchanged", func():
+		var combat := _multi_enemy_combat([{ "hp": 20 }, { "hp": 0, "koed": true }])
+
+		var result := Combat.set_focused_enemy(1)
+
+		assert_eq(result["ok"], false, "a koed entry is not a valid target")
+		assert_eq(combat["focusedEnemyIndex"], 0, "focus should not move onto a koed entry")
+	)
+
+	run_case("set_focused_enemy_rejects_an_out_of_range_index", func():
+		var combat := _multi_enemy_combat([{ "hp": 20 }])
+
+		var result := Combat.set_focused_enemy(5)
+
+		assert_eq(result["ok"], false, "an out-of-range index should be rejected")
+		assert_eq(combat["focusedEnemyIndex"], 0, "focus should not move")
+	)
+
+	run_case("set_focused_enemy_rejects_when_combat_has_already_resolved", func():
+		var combat := _multi_enemy_combat([{ "hp": 20 }, { "hp": 20 }])
+		combat["outcome"] = "win"
+
+		var result := Combat.set_focused_enemy(1)
+
+		assert_eq(result["ok"], false, "targeting after the fight has resolved should be rejected")
+		assert_eq(combat["focusedEnemyIndex"], 0, "focus should not move")
+	)
+
+	run_case("set_focused_enemy_emits_state_changed_but_pushes_no_snapshot", func():
+		var combat := _multi_enemy_combat([{ "hp": 20 }, { "hp": 20 }])
+		var got_state_changed := [false]
+		var on_state := func(): got_state_changed[0] = true
+		EventBus.state_changed.connect(on_state)
+
+		Combat.set_focused_enemy(1)
+
+		EventBus.state_changed.disconnect(on_state)
+		assert_true(got_state_changed[0], "state_changed should fire so the strip/stage re-render")
+		assert_true(combat["snapshots"].is_empty(), "a targeting choice is not a rewindable combat action -- no snapshot should be pushed")
+	)
+
 	run_case("freeze_skips_enemy_turn_and_decrements", func():
 		_fresh_combat()
 		GameState.state["combat"]["frozenTurns"] = 2

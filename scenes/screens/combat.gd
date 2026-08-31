@@ -3,6 +3,17 @@ extends Control
 
 var _content: VBoxContainer
 
+# combat-presentation ticket 02: which turn-order-strip card is currently
+# displayed as "focused" (exact HP, status, telegraph slot) -- survives
+# across _refresh() rebuilds (only _content's children are freed, not this
+# screen node itself) since TurnOrderStrip holds no state of its own.
+# Empty until the first _refresh() picks a starting card (the enemy at
+# combat.focusedEnemyIndex, or entries[0] if there's no enemy). A swipe to a
+# non-enemy card updates this without ever touching combat.focusedEnemyIndex
+# (§2.2: only enemies are valid attack targets) -- see
+# _on_strip_selection_changed() below.
+var _strip_selected_key: Dictionary = {}
+
 # combat-presentation ticket 01, docs/combat-animation-vision.md §2/§2.2/§9:
 # the stage window every living combatant on both sides fans out on.
 #
@@ -68,6 +79,10 @@ class StageSlot extends Control:
 		draw_rect(rect, Color(0, 0, 0, 0.55), false, 2.0)
 		if is_focused:
 			draw_rect(rect.grow(3.0), Color(1.0, 0.86, 0.35, 0.95), false, 3.0)
+	# combat-presentation ticket 02: the placeholder box itself carries no
+	# name/HP label any more (see _build_slot() below) -- combatant_name is
+	# still set, purely as the template-id key _placeholder_color() and tests
+	# read, not for display.
 
 
 func _ready() -> void:
@@ -99,6 +114,7 @@ func _refresh() -> void:
 	# now that the stage fans every living combatant with its own name label
 	# (§2.2), a single-enemy title above it would misrepresent a 2-3 enemy
 	# fight as if only the focused one were present.
+	_content.add_child(_build_turn_order_strip(combat, player))
 	_content.add_child(_build_stage(combat, player))
 
 	var log: Array = combat["log"]
@@ -110,6 +126,50 @@ func _refresh() -> void:
 		_content.add_child(_build_outcome_button(combat["outcome"], combat["context"]))
 	else:
 		_content.add_child(_build_action_bar())
+
+
+# combat-presentation ticket 02, §2.4: the one component doing nameplate +
+# HP/status detail + turn order + targeting, replacing the on-stage name/HP
+# labels _build_slot() used to carry as an interim measure (now removed --
+# see that func's own comment).
+#
+# _strip_selected_key survives across refreshes (this screen node does, even
+# though _content's children don't); this picks the entries[] position it
+# still refers to, or falls back to whichever card carries
+# combat.focusedEnemyIndex, or the first card, the first time a fight starts.
+func _build_turn_order_strip(combat: Dictionary, player: Dictionary) -> Control:
+	var strip := TurnOrderStrip.new()
+	var entries: Array = strip.build_entries(combat, player)
+	var selected_pos := _selected_strip_pos(entries, combat)
+	if selected_pos >= 0:
+		_strip_selected_key = entries[selected_pos]["key"]
+	strip.configure(entries, maxi(0, selected_pos), combat, player, STAGE_WIDTH, _on_strip_selection_changed)
+	return strip
+
+
+func _selected_strip_pos(entries: Array, combat: Dictionary) -> int:
+	for i in range(entries.size()):
+		if entries[i]["key"] == _strip_selected_key:
+			return i
+	for i in range(entries.size()):
+		var key: Dictionary = entries[i]["key"]
+		if key["type"] == "enemy" and key["index"] == combat["focusedEnemyIndex"]:
+			return i
+	return 0 if not entries.is_empty() else -1
+
+
+# Swiping to an enemy card is the targeting gesture (§2.2) -- routed through
+# Combat.set_focused_enemy() since screens never mutate GameState.state
+# directly; that call emits state_changed, which drives _refresh() itself.
+# Swiping to the player/an ally card is inert for targeting but still moves
+# which card is displayed as focused, so _refresh() is called directly
+# (nothing in GameState changed, so nothing would otherwise trigger it).
+func _on_strip_selection_changed(new_key: Dictionary) -> void:
+	_strip_selected_key = new_key
+	if new_key["type"] == "enemy":
+		Combat.set_focused_enemy(new_key["index"])
+	else:
+		_refresh()
 
 
 # §9's "lit-window frame": a recessed dark inset with a hard 2px border and
@@ -165,7 +225,7 @@ func _enemy_display_entries(enemies: Array, focused_index: int) -> Array:
 	for i in range(enemies.size()):
 		if not enemies[i]["koed"]:
 			var enemy: Dictionary = enemies[i]
-			display.append({ "name": enemy["name"], "hp": enemy["hp"], "hpMax": enemy["hpMax"], "isFocused": i == focused_index })
+			display.append({ "name": enemy["name"], "isFocused": i == focused_index })
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
@@ -178,10 +238,10 @@ func _enemy_display_entries(enemies: Array, focused_index: int) -> Array:
 # knock_out()'s cooldown has something to key off), so they're filtered out
 # here rather than at the state layer, same as the old card-list code did.
 func _player_display_entries(player: Dictionary, allies: Array) -> Array:
-	var display: Array = [{ "name": "You", "hp": player["hp"], "hpMax": player["hpMax"], "isFocused": false }]
+	var display: Array = [{ "name": "You", "isFocused": false }]
 	for ally in allies:
 		if not ally["koed"]:
-			display.append({ "name": ally["name"], "hp": ally["hp"], "hpMax": ally["hpMax"], "isFocused": false })
+			display.append({ "name": ally["name"], "isFocused": false })
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
@@ -198,7 +258,7 @@ func _build_band_slots(display_entries: Array, band_origin: Vector2, band_size: 
 	var slots: Array[Control] = []
 	for i in range(display_entries.size() - 1, -1, -1):
 		var entry: Dictionary = display_entries[i]
-		var slot := _build_slot(entry["name"], entry["hp"], entry["hpMax"], rects[i], entry["isFocused"])
+		var slot := _build_slot(entry["name"], rects[i], entry["isFocused"])
 		slot.position = band_origin + rects[i].position
 		slots.append(slot)
 	return slots
@@ -230,11 +290,13 @@ func _fan_local_rects(band_size: Vector2, count: int) -> Array[Rect2]:
 	return rects
 
 
-# combat-presentation ticket 02 replaces this with the turn-order strip's
-# nameplate cards (name/HP/status in one place); until then this keeps the
-# name + HP visible on the fan itself as an interim measure, per that
-# ticket's own note that it may find these still here.
-func _build_slot(combatant_name: String, hp: int, hp_max: int, rect: Rect2, is_focused: bool) -> StageSlot:
+# combat-presentation ticket 02, §2.4: the turn-order strip (see
+# _build_turn_order_strip() above) is now the sole source of name/HP/status
+# truth -- the fan itself shows only the placeholder box, its template-id
+# colour, and the focus glow, per "the stage itself shows only the fanned
+# pixel-art sprites plus the target-outline glow -- no floating enamel signs
+# over the diorama."
+func _build_slot(combatant_name: String, rect: Rect2, is_focused: bool) -> StageSlot:
 	var slot := StageSlot.new()
 	slot.size = rect.size
 	slot.custom_minimum_size = rect.size
@@ -242,29 +304,6 @@ func _build_slot(combatant_name: String, hp: int, hp_max: int, rect: Rect2, is_f
 	slot.combatant_name = combatant_name
 	slot.fill_color = _placeholder_color(combatant_name)
 	slot.is_focused = is_focused
-
-	var box := UI.vbox(0)
-	UI.anchor_full_rect(box)
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var name_label := Label.new()
-	name_label.text = combatant_name
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.clip_text = true
-	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	name_label.add_theme_font_size_override("font_size", 11)
-	name_label.add_theme_color_override("font_color", Color.WHITE)
-	box.add_child(name_label)
-
-	var hp_label := Label.new()
-	hp_label.text = "%d/%d" % [hp, hp_max]
-	hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hp_label.add_theme_font_size_override("font_size", 9)
-	hp_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-	box.add_child(hp_label)
-
-	slot.add_child(box)
 	return slot
 
 

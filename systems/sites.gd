@@ -93,6 +93,20 @@ static func find_site(site_id: String) -> Variant:
 	return null
 
 
+# combat-presentation ticket 02: the turn-order strip's faction-colour
+# lookup for a raid target (§2.4's table) knows a vein id
+# (combat["veinId"]) but not which faction owns it or which site it's on --
+# unlike find_site() above, this searches every site's factionVein
+# regardless of owner, since the caller doesn't know the faction_id in
+# advance (that's what it's trying to find).
+static func find_faction_vein(vein_id: String) -> Variant:
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein != null and vein["id"] == vein_id:
+			return vein
+	return null
+
+
 # vein-trade-assets ticket 03: the "this faction's own live site veins"
 # filter -- shared so the buy-side lane (the faction Trade modal's Assets
 # rows, its batched-cart gather, and VeinTrade.buy_from_faction()'s own

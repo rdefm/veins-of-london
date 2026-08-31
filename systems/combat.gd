@@ -439,6 +439,24 @@ static func _focused_enemy(combat: Dictionary) -> Dictionary:
 	return combat["enemies"][combat["focusedEnemyIndex"]]
 
 
+# combat-presentation ticket 02: the turn-order strip's swipe-to-target
+# gesture calls this rather than writing combat.focusedEnemyIndex directly
+# -- SCREENS never mutate GameState.state (project constitution's one-way
+# data flow). Not a combat action (no snapshot push, no turn spent, no log
+# line) -- purely a targeting choice, same as tapping a target used to be
+# before this ticket.
+static func set_focused_enemy(index: int) -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"] or combat["outcome"] != null:
+		return { "ok": false, "reason": "Combat not active." }
+	var enemies: Array = combat["enemies"]
+	if index < 0 or index >= enemies.size() or enemies[index]["koed"]:
+		return { "ok": false, "reason": "Invalid target." }
+	combat["focusedEnemyIndex"] = index
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
 static func push_combat_snapshot() -> void:
 	var combat: Dictionary = GameState.state["combat"]
 	if combat["enemies"].is_empty():

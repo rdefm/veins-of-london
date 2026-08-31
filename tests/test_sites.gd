@@ -882,3 +882,26 @@ func run() -> void:
 		assert_true(ids.has("existing_a"), "existing worst-tier site was not evicted")
 		assert_true(ids.has("existing_b"), "existing site was not evicted")
 	)
+
+	# ── combat-presentation ticket 02: turn-order strip's raid faction-colour
+	# lookup -- unlike find_site(), the caller only has a vein id (
+	# combat["veinId"]), not the owning faction, so this has to search every
+	# site's factionVein regardless of owner.
+
+	run_case("find_faction_vein_returns_the_vein_owning_site_regardless_of_faction", func():
+		GameState.reset()
+		var vein := _dummy_faction_vein("s1")
+		GameState.state["world"]["sites"] = [_site_with_faction_vein(vein), _make_site("s2", "shoreditch", "fair", 1)]
+
+		var found: Variant = Sites.find_faction_vein("fv_dummy")
+
+		assert_true(found != null, "should find the vein by id")
+		assert_eq(found["factionId"], "collective", "should return the real vein dict, factionId intact")
+	)
+
+	run_case("find_faction_vein_returns_null_for_an_unknown_vein_id", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [_make_site("s1", "shoreditch", "fair", 1, false, false, "time")]
+
+		assert_true(Sites.find_faction_vein("nope") == null, "an unmatched vein id should return null, not crash")
+	)
