@@ -165,6 +165,8 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_sell_vein_quote(data)
 		"movement_craft":
 			_build_movement_craft(data)
+		"craft_components_menu":
+			_build_craft_components_menu()
 		_:
 			_card_content.add_child(UI.heading(type_id))
 			_card_content.add_child(UI.label("…"))
@@ -704,6 +706,26 @@ func _build_sell_vein_quote(data: Dictionary) -> void:
 func _on_sell_vein_confirm(vein_id: String) -> void:
 	VeinTrade.sell_to_faction(vein_id, VeinTrade.SELL_FACTION_ID)
 	Modal.close()
+
+
+# bugfixes ticket 105: hq.gd's Dial card's "Craft Components" button opens
+# this -- the ticket-104 archetype list (name + one-line effect description
+# + Craft button) moved here wholesale from hq.gd's old always-inline
+# _build_movement_crafting_section, so the Dial card itself only links out to
+# it instead of rendering it. The m["description"] line rendered below
+# (data/dial.json's movements.*.description strings) is unchanged copy
+# already flagged PROSE-REVIEW at ticket 104 -- nothing new to re-review here.
+func _build_craft_components_menu() -> void:
+	_card_content.add_child(UI.heading("Craft Components"))
+	for archetype in GameData.CANONICAL_MOVEMENT_ARCHETYPES:
+		var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
+		var block := UI.vbox(4)
+		block.add_child(UI.label("%s %s" % [m["symbol"], m["name"]]))
+		block.add_child(UI.muted_label(m.get("description", "")))
+		var captured_archetype: String = archetype
+		block.add_child(UI.button("Craft", func(): Modal.open("movement_craft", { "archetype": captured_archetype })))
+		_card_content.add_child(block)
+	_card_content.add_child(UI.button("Close", func(): Modal.close()))
 
 
 # bugfixes ticket 104: hq.gd's "Craft" button opens this instead of crafting

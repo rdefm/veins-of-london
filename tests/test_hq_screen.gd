@@ -4,6 +4,24 @@ extends "res://tests/test_base.gd"
 # then _ready(), no live tree needed.
 
 
+# Mirrors tests/test_bag_drawer.gd's _fresh_dial() -- a minimal seeded Dial,
+# same shape Dial.new_dial() produces.
+static func _fresh_dial() -> Dictionary:
+	return {
+		"level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0,
+		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
+		"capacityMax": Dial.capacity_max(1), "movement": null, "loadedComplications": [],
+		"haftId": "collective_brolly",
+	}
+
+
+static func _label_texts(root: Node) -> Array[String]:
+	var texts: Array[String] = []
+	for l in root.find_children("", "Label", true, false):
+		texts.append((l as Label).text)
+	return texts
+
+
 static func _find_button(root: Node, text: String) -> Button:
 	for b in root.find_children("", "Button", true, false):
 		if (b as Button).text == text:
@@ -354,6 +372,72 @@ func run() -> void:
 		var train_button := _find_button(hq, "Train")
 		assert_true(train_button != null, "the button should still be present, just disabled")
 		assert_true(train_button.disabled, "Train should be disabled once the day's time blocks are exhausted")
+
+		hq.free()
+	)
+
+	# ── bugfixes ticket 105: Dial card's Adjust Loadout / Craft Components nav ──
+
+	run_case("hq_dial_card_shows_adjust_loadout_and_craft_components_buttons_instead_of_an_inline_crafting_section", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["player"]["dial"] = _fresh_dial()
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_true(_find_button(hq, "Adjust Loadout") != null, "the Dial card must expose an Adjust Loadout button")
+		assert_true(_find_button(hq, "Craft Components") != null, "the Dial card must expose a Craft Components button")
+		assert_true(_find_button(hq, "Craft") == null, "the old always-inline per-archetype Craft buttons must no longer render directly on the Dial card")
+
+		hq.free()
+	)
+
+	run_case("hq_dial_card_stats_remain_visible_alongside_the_new_nav_buttons", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		var dial := _fresh_dial()
+		dial["currentCharge"] = 3
+		dial["maxCharge"] = 10
+		dial["rechargeRate"] = 2
+		GameState.state["player"]["dial"] = dial
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_true(_label_texts(hq).any(func(t: String): return t.begins_with("Level %d Dial" % dial["level"])), "the Dial's level/haft heading must still render")
+		assert_true(_label_texts(hq).any(func(t: String): return t.begins_with("Charge: 3/10")), "the Dial's charge stat must still render")
+		assert_true(_label_texts(hq).any(func(t: String): return t.begins_with("Capacity: ")), "the Dial's capacity stat must still render")
+
+		hq.free()
+	)
+
+	run_case("hq_dial_card_adjust_loadout_button_opens_the_bag_drawer", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["player"]["dial"] = _fresh_dial()
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_true(not GameState.state["bagDrawerOpen"], "sanity: the bag drawer starts closed")
+		_find_button(hq, "Adjust Loadout").pressed.emit()
+		assert_true(GameState.state["bagDrawerOpen"], "Adjust Loadout must open the same bag drawer the loadout-management flow already lives in")
+
+		hq.free()
+	)
+
+	run_case("hq_dial_card_craft_components_button_opens_the_craft_components_menu_modal", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["player"]["dial"] = _fresh_dial()
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_eq(GameState.state["modal"], null, "sanity: no modal open yet")
+		_find_button(hq, "Craft Components").pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "craft_components_menu", "Craft Components must open the ticket-104 archetype-list modal")
 
 		hq.free()
 	)

@@ -363,7 +363,8 @@ func _build_dial_card() -> Control:
 	c["content"].add_child(UI.bar(dial["currentCharge"], maxf(1.0, dial["maxCharge"])))
 	c["content"].add_child(UI.label("Capacity: %d/%d" % [Dial.capacity_used(dial), dial["capacityMax"]]))
 
-	_build_movement_crafting_section(c["content"])
+	c["content"].add_child(UI.button("Adjust Loadout", func(): Bag.open()))
+	c["content"].add_child(UI.button("Craft Components", func(): Modal.open("craft_components_menu")))
 
 	return c["panel"]
 
@@ -383,24 +384,8 @@ func _on_seed_pressed(haft_id: String) -> void:
 		Notify.push("Seeding failed — calc spent, no Dial gained.", Notify.CATEGORY_DANGER)
 
 
-# bugfixes ticket 104: each archetype used to render as a bare cost/chance
-# label above a row of 5 ore-symbol buttons that each crafted immediately on
-# tap, no confirmation and no explanation of what the archetype actually
-# does. Now every archetype gets its own block (name + one-line effect
-# description) and a single Craft button that opens the calc-type picker
-# modal (ModalLayer's "movement_craft" case) instead of crafting directly --
-# the ore-type choice, cost/chance display, and the actual craft attempt all
-# moved there.
-# PROSE-REVIEW: the m["description"] line rendered below (data/dial.json's
-# four movements.*.description strings) is new copy, drafted against
-# CONTENT-GUIDE.md's tone bible -- flag for human review.
-func _build_movement_crafting_section(content: VBoxContainer) -> void:
-	content.add_child(UI.heading("Craft a Movement", 13))
-	for archetype in GameData.CANONICAL_MOVEMENT_ARCHETYPES:
-		var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
-		var block := UI.vbox(4)
-		block.add_child(UI.label("%s %s" % [m["symbol"], m["name"]]))
-		block.add_child(UI.muted_label(m.get("description", "")))
-		var captured_archetype: String = archetype
-		block.add_child(UI.button("Craft", func(): Modal.open("movement_craft", { "archetype": captured_archetype })))
-		content.add_child(block)
+# bugfixes ticket 105: the always-inline crafting section (ticket 104) moved
+# out to its own modal (ModalLayer's "craft_components_menu" case), reached
+# via the "Craft Components" button above -- this card now only links out to
+# it and to the bag drawer's loadout management, it doesn't render either
+# flow itself.

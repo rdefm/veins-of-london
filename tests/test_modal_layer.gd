@@ -638,6 +638,60 @@ func run() -> void:
 		layer.free()
 	)
 
+	# ── bugfixes ticket 105: Craft Components menu replaces hq.gd's old
+	# always-inline archetype list -- reached from the Dial card's "Craft
+	# Components" button instead of rendering directly on the card.
+
+	run_case("craft_components_menu_lists_every_canonical_archetype_with_its_description_and_a_craft_button", func():
+		GameState.reset()
+		Modal.open("craft_components_menu")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		for archetype in GameData.CANONICAL_MOVEMENT_ARCHETYPES:
+			var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
+			assert_true(_label_texts(layer).has(m["description"]), "%s's effect description must render in the menu" % archetype)
+			assert_true(_label_texts(layer).any(func(t: String): return t.begins_with(m["symbol"])), "%s's name/symbol must render in the menu" % archetype)
+
+		layer.free()
+	)
+
+	run_case("craft_components_menus_craft_button_opens_the_movement_craft_modal_for_that_archetype", func():
+		GameState.reset()
+		Modal.open("craft_components_menu")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var craft_buttons := []
+		for b in layer.find_children("", "Button", true, false):
+			if (b as Button).text == "Craft":
+				craft_buttons.append(b)
+		assert_eq(craft_buttons.size(), GameData.CANONICAL_MOVEMENT_ARCHETYPES.size(), "one Craft button per archetype")
+
+		craft_buttons[0].pressed.emit()
+
+		assert_eq(GameState.state["modal"]["type"], "movement_craft", "tapping Craft must hand off to the calc-type picker modal")
+		assert_eq(GameState.state["modal"]["data"]["archetype"], GameData.CANONICAL_MOVEMENT_ARCHETYPES[0], "the handoff must carry the tapped row's own archetype")
+
+		layer.free()
+	)
+
+	run_case("craft_components_menu_close_button_dismisses_the_modal", func():
+		GameState.reset()
+		Modal.open("craft_components_menu")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "Close").pressed.emit()
+
+		assert_eq(GameState.state["modal"], null, "Close must dismiss the menu")
+
+		layer.free()
+	)
+
 	# ── bugfixes ticket 104: calc-type craft modal replaces the direct row
 	# of 5 ore-symbol buttons on hq.gd's Dial card — cost/chance (identical
 	# across all 5 calc types for a given archetype, since Dial.movement_

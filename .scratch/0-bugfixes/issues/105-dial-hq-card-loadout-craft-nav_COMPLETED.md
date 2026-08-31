@@ -6,8 +6,8 @@
 
 **Status:** ready-for-agent
 
-- [ ] HQ Dial card shows "Adjust Loadout" and "Craft Components" buttons in place of the always-inline crafting section.
-- [ ] "Adjust Loadout" opens the existing bag-drawer loadout-management UI, functionally unchanged from today.
-- [ ] "Craft Components" opens the ticket-104 crafting menu (4 archetypes with descriptions, Craft → calc-type modal).
-- [ ] Dial stats (level/charge/capacity) at the top of the card remain visible and unaffected.
-- [ ] Regression test covering both buttons opening their respective flows.
+- [x] HQ Dial card shows "Adjust Loadout" and "Craft Components" buttons in place of the always-inline crafting section.
+- [x] "Adjust Loadout" opens the existing bag-drawer loadout-management UI, functionally unchanged from today.
+- [x] "Craft Components" opens the ticket-104 crafting menu (4 archetypes with descriptions, Craft → calc-type modal).
+- [x] Dial stats (level/charge/capacity) at the top of the card remain visible and unaffected.
+- [x] Regression test covering both buttons opening their respective flows.
