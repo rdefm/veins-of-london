@@ -344,21 +344,11 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 		rewind_button.disabled = snap_count == 0
 		_content.add_child(rewind_button)
 
-	# dial-device ticket 07: one cast button per loaded Complication (except
-	# "rewind", which the Rewind button above already covers via
-	# Combat.combat_rewind()'s own consumable/Complication fallback).
-	var dial: Variant = player["dial"]
-	if dial != null:
-		var loaded: Array = dial["loadedComplications"]
-		for i in range(loaded.size()):
-			var entry: Dictionary = loaded[i]
-			if entry["recipeKey"] == "rewind":
-				continue
-			var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
-			var captured_index: int = i
-			var cast_button := UI.button("%s %s (charge %d/%d)" % [recipe["symbol"], recipe["name"], int(dial["currentCharge"]), dial["maxCharge"]], func(): _on_cast_complication(captured_index))
-			cast_button.disabled = dial["currentCharge"] < 1
-			_content.add_child(cast_button)
+	# combat-presentation ticket 03, docs/combat-animation-vision.md §2.5:
+	# Dial casting moved to the new command-deck Dial widget
+	# (scenes/components/dial_widget.gd) -- the per-Complication cast-button
+	# list that used to live here (dial-device ticket 07) is gone; this
+	# drawer keeps handling only non-Dial items now.
 
 
 func _on_use_time_pearl() -> void:
@@ -399,8 +389,3 @@ func _on_use_prophets_breath() -> void:
 func _on_use_wormhole() -> void:
 	Bag.close()
 	Combat.use_wormhole()
-
-
-func _on_cast_complication(index: int) -> void:
-	Bag.close()
-	Combat.cast_complication(index)

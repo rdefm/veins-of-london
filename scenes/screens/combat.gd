@@ -14,6 +14,16 @@ var _content: VBoxContainer
 # _on_strip_selection_changed() below.
 var _strip_selected_key: Dictionary = {}
 
+# combat-presentation ticket 03, docs/combat-animation-vision.md §2.5: which
+# player.dial.loadedComplications index the Dial widget currently has
+# selected -- survives across _refresh() rebuilds the same way
+# _strip_selected_key does (DialWidget itself holds no state of its own;
+# see that file's own class comment). Only ever moves via the widget's own
+# rotate gesture (_on_dial_selection_changed below), never reset by a
+# refresh, so casting mid-fight doesn't silently jump the selection back to
+# index 0.
+var _dial_selected_index: int = 0
+
 # combat-presentation ticket 01, docs/combat-animation-vision.md §2/§2.2/§9:
 # the stage window every living combatant on both sides fans out on.
 #
@@ -49,6 +59,11 @@ const FAN_BACK_RIGHT_TUCK := 0.1
 const FAN_FRONT_BOTTOM_MARGIN := 0.03
 const FAN_BACK_LEFT_TOP_MARGIN := 0.04
 const FAN_BACK_RIGHT_TOP_MARGIN := 0.12
+
+# combat-presentation ticket 03, §2.5: the Dial widget's docked-right column
+# width -- narrow enough to leave the action-card row its space, wide enough
+# for the clock-face/bezel placeholder shapes (DialWidget._draw()) to read.
+const DIAL_WIDTH := 64.0
 
 # Placeholder fill colours keyed by template id (name), per the ticket --
 # "coloured, labelled box/silhouette keyed by template id, not real art".
@@ -117,15 +132,15 @@ func _refresh() -> void:
 	_content.add_child(_build_turn_order_strip(combat, player))
 	_content.add_child(_build_stage(combat, player))
 
-	var log: Array = combat["log"]
-	var log_start: int = maxi(0, log.size() - 6)
-	for i in range(log_start, log.size()):
-		_content.add_child(UI.muted_label(log[i]))
-
+	# combat-presentation ticket 03, §2.5: mid-fight, the log moves inside
+	# the command deck (it shares the Dial widget's full-height span with
+	# the action-card row); once the fight's over there's no command deck
+	# to share it with, so it renders directly here, same as before.
 	if combat["outcome"] != null:
+		_content.add_child(_build_log(combat))
 		_content.add_child(_build_outcome_button(combat["outcome"], combat["context"]))
 	else:
-		_content.add_child(_build_action_bar())
+		_content.add_child(_build_command_deck(combat, player))
 
 
 # combat-presentation ticket 02, §2.4: the one component doing nameplate +
@@ -337,15 +352,47 @@ func _vignette_texture() -> GradientTexture2D:
 	return tex
 
 
-func _build_action_bar() -> Control:
-	var row := UI.hbox()
-	row.add_child(UI.button("⚔ Attack", func(): Combat.player_attack()))
-	row.add_child(UI.button("🏃 Run", func(): Combat.flee()))
+# combat-presentation ticket 03, §2.5: the command deck -- the action-card
+# row and log share a left column; the Dial widget (when it has anything
+# loaded to select) docks right, spanning both, per "Dial docked right, full
+# height, spanning both the action-card row and the log below it."
+func _build_command_deck(combat: Dictionary, player: Dictionary) -> Control:
+	var deck := UI.hbox(8)
 
-	var player: Dictionary = GameState.state["player"]
+	var left := UI.vbox(8)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_child(_build_action_deck(player))
+	left.add_child(_build_log(combat))
+	deck.add_child(left)
+
+	var dial: Variant = player["dial"]
+	if dial != null and not dial["loadedComplications"].is_empty():
+		deck.add_child(_build_dial_widget(dial))
+
+	return deck
+
+
+func _build_log(combat: Dictionary) -> Control:
+	var box := UI.vbox(2)
+	var log: Array = combat["log"]
+	var log_start: int = maxi(0, log.size() - 6)
+	for i in range(log_start, log.size()):
+		box.add_child(UI.muted_label(log[i]))
+	return box
+
+
+# §2.5: "Action deck -- 3 cards, not 4. Attack / Item / Run, a visual
+# re-skin of today's _build_action_bar() ... as cards instead of plain
+# buttons -- same handlers, no new inventory/hand mechanic, no energy-cost
+# numbers." Each card is UI.card() wrapping the same single button/handler
+# the old flat action bar used -- only the chrome changes.
+func _build_action_deck(player: Dictionary) -> Control:
+	var row := UI.hbox(8)
+	row.add_child(_build_action_card("⚔ Attack", func(): Combat.player_attack()))
+
 	# calc-effect-wiring-02/03: blast/shield/blackHole/healingBurst, then
 	# prophetsBreath/wormhole, added to the same "has anything to use" check
-	# that gates the Item button. failsafe is deliberately absent -- it has
+	# that gates the Item card. failsafe is deliberately absent -- it has
 	# no manual Use action (see bag_drawer.gd's CONSUMABLE_KEYS comment).
 	var has_items: bool = (
 		Crafting.inventory_qty("timePearl") > 0 or Crafting.inventory_qty("enhancementPowder") > 0 or Crafting.inventory_qty("rewind") > 0
@@ -354,11 +401,33 @@ func _build_action_bar() -> Control:
 		or Crafting.inventory_qty("prophetsBreath") > 0 or Crafting.inventory_qty("wormhole") > 0
 		or (player["dial"] != null and not player["dial"]["loadedComplications"].is_empty())
 	)
-	var item_button := UI.button("🎒 Item", func(): Bag.open())
-	item_button.disabled = not has_items
-	row.add_child(item_button)
-
+	row.add_child(_build_action_card("🎒 Item", func(): Bag.open(), not has_items))
+	row.add_child(_build_action_card("🏃 Run", func(): Combat.flee()))
 	return row
+
+
+func _build_action_card(text: String, callback: Callable, disabled: bool = false) -> Control:
+	var c := UI.card()
+	var button := UI.button(text, callback)
+	button.disabled = disabled
+	c["content"].add_child(button)
+	return c["panel"]
+
+
+func _build_dial_widget(dial: Dictionary) -> Control:
+	var widget := DialWidget.new()
+	widget.custom_minimum_size = Vector2(DIAL_WIDTH, 0)
+	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed)
+	return widget
+
+
+# DialWidget.handle_rotate() only reports through this callback, never
+# mutates its own selection (see that file's own top comment) -- nothing in
+# GameState changed, so nothing would otherwise trigger a rebuild; _refresh()
+# is called directly, same as _on_strip_selection_changed()'s non-enemy case.
+func _on_dial_selection_changed(new_index: int) -> void:
+	_dial_selected_index = new_index
+	_refresh()
 
 
 func _build_outcome_button(outcome: String, context: String) -> Control:

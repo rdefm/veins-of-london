@@ -40,25 +40,31 @@ angle, distinct rotating-bezel texture band with raised notches and a fixed
 pointer marker — art must not imply a fixed notch count since
 `capacityMax` varies by Dial level/complication).
 
-**Status:** ready-for-agent
+**Status:** needs-info — every check below is done except the last; see that
+item's note for the open question blocking it.
 
-- [ ] Attack/Item/Run render as 3 cards, calling the same handlers as
+- [x] Attack/Item/Run render as 3 cards, calling the same handlers as
       today's action bar with no behaviour change
-- [ ] Dial widget is docked right, full height, spanning the action-card row
+- [x] Dial widget is docked right, full height, spanning the action-card row
       and the log region
-- [ ] Rotate gesture cycles the selection through `loadedComplications`
+- [x] Rotate gesture cycles the selection through `loadedComplications`
       only (unloaded capacity is not selectable, matching today's
       `Dial.cast_complication()` behaviour)
-- [ ] Trigger casts the selected complication via `Combat.cast_complication`
+- [x] Trigger casts the selected complication via `Combat.cast_complication`
       and surfaces the same result/log line the old bag-drawer button did
-- [ ] Charge-remaining renders as an analog clock-face reading
+- [x] Charge-remaining renders as an analog clock-face reading
       `dial.currentCharge`/`dial.maxCharge`, visible without opening any
       menu
-- [ ] Widget doesn't render at all when `loadedComplications` is empty
-- [ ] `scenes/components/bag_drawer.gd`'s Dial-cast button list
+- [x] Widget doesn't render at all when `loadedComplications` is empty
+- [x] `scenes/components/bag_drawer.gd`'s Dial-cast button list
       (`_on_cast_complication`) is removed from the in-combat Bag drawer —
       Dial casting only happens through the new widget; non-Dial Bag items
       (time pearl, shield, etc. bought outside crafting-into-Dial) still
       work via the existing Bag flow
 - [ ] Speed toggle + player stats render in their own full-width row beneath
-      the Dial's span
+      the Dial's span — **deferred, needs a human decision.** No animation-
+      speed setting exists anywhere in state today, and the ticket doesn't
+      specify what "player stats" should show (the turn-order strip's "You"
+      card already covers HP). Flagged to the human rather than guessed;
+      asked mid-implementation and told to skip it for now. Everything else
+      in this ticket is implemented, tested, and committed.

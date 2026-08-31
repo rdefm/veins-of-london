@@ -98,6 +98,37 @@ func _setup_combat(enemies: Array, allies: Array = [], focused_index: int = 0) -
 	}
 
 
+# combat-presentation ticket 03, docs/combat-animation-vision.md §2.5: helpers
+# for the command deck's Dial widget, mirroring _find_strip/_strip_cards
+# above -- the widget is rebuilt fresh by every _refresh(), so the latest
+# one found is the live one (see _find_strip's own comment for why).
+static func _find_dial_widget(root: Node) -> DialWidget:
+	var latest: DialWidget = null
+	for c in root.find_children("", "Control", true, false):
+		if c is DialWidget:
+			latest = c
+	return latest
+
+
+static func _deck_buttons(root: Node) -> Array[Button]:
+	var buttons: Array[Button] = []
+	for c in root.find_children("", "Button", true, false):
+		buttons.append(c)
+	return buttons
+
+
+func _dial(loaded_recipe_keys: Array, current_charge: int = 3, max_charge: int = 5) -> Dictionary:
+	var loaded: Array = []
+	for key in loaded_recipe_keys:
+		loaded.append({ "recipeKey": key, "tier": 1, "capacityCost": 1 })
+	return {
+		"level": 1, "xp": 0, "currentCharge": current_charge, "maxCharge": max_charge,
+		"rechargeRate": 0, "combatRegenTurnCounter": 0, "lastRegenDay": 1,
+		"capacityMax": Dial.capacity_max(1), "movement": null, "loadedComplications": loaded,
+		"haftId": "stub",
+	}
+
+
 func run() -> void:
 	run_case("stage_renders_every_living_enemy_up_to_squad_max", func():
 		_setup_combat([_enemy("Scrapper"), _enemy("Vein Guard"), _enemy("Mugger")])
@@ -357,6 +388,123 @@ func run() -> void:
 			names.append(c.combatant_name)
 		assert_true(not names.has("Fast"), "the strip should re-sort to drop the koed entry, not just leave a stale card")
 		assert_eq(names[0], "You", "the player (speed 10) is now the fastest living combatant, per §2.4's reflow -- instant snap is acceptable for this ticket")
+
+		screen.free()
+	)
+
+	# ── combat-presentation ticket 03: command deck (action cards + Dial) ──
+
+	run_case("command_deck_renders_attack_item_and_run_as_cards_wrapping_the_same_handler_labels", func():
+		_setup_combat([_enemy("Scrapper")])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var texts: Array = []
+		for b in _deck_buttons(screen):
+			texts.append(b.text)
+		assert_true(texts.has("⚔ Attack"), "Attack must still be offered, same label as the old flat action bar")
+		assert_true(texts.has("🏃 Run"), "Run must still be offered")
+		assert_true(texts.has("🎒 Item"), "Item must still be offered")
+
+		screen.free()
+	)
+
+	run_case("item_card_is_disabled_when_the_player_has_nothing_usable_same_gate_as_before", func():
+		_setup_combat([_enemy("Scrapper")])
+		GameState.state["player"]["dial"] = null
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var item_button: Button = null
+		for b in _deck_buttons(screen):
+			if b.text == "🎒 Item":
+				item_button = b
+		assert_true(item_button != null)
+		assert_true(item_button.disabled, "no consumables and no loaded Dial -- Item should stay disabled, same gate _build_action_bar() used")
+
+		screen.free()
+	)
+
+	run_case("dial_widget_does_not_render_when_the_player_has_no_dial", func():
+		_setup_combat([_enemy("Scrapper")])
+		GameState.state["player"]["dial"] = null
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_true(_find_dial_widget(screen) == null, "no Dial -- nothing to select, the widget must not render at all")
+
+		screen.free()
+	)
+
+	run_case("dial_widget_does_not_render_when_loadedComplications_is_empty", func():
+		_setup_combat([_enemy("Scrapper")])
+		GameState.state["player"]["dial"] = _dial([])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_true(_find_dial_widget(screen) == null, "an empty loadout has nothing to select -- the widget must not render")
+
+		screen.free()
+	)
+
+	run_case("dial_widget_renders_docked_beside_the_action_deck_when_something_is_loaded", func():
+		_setup_combat([_enemy("Scrapper")])
+		GameState.state["player"]["dial"] = _dial(["blast", "shield"])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var widget := _find_dial_widget(screen)
+		assert_true(widget != null, "a loaded Complication -- the widget must render")
+
+		screen.free()
+	)
+
+	run_case("dial_widget_is_hidden_once_the_fight_has_an_outcome_same_as_the_rest_of_the_command_deck", func():
+		_setup_combat([_enemy("Scrapper")])
+		GameState.state["player"]["dial"] = _dial(["blast"])
+		GameState.state["combat"]["outcome"] = "win"
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_true(_find_dial_widget(screen) == null, "the command deck (cards + Dial) is replaced by the outcome button once the fight is over")
+
+		screen.free()
+	)
+
+	run_case("dial_selection_survives_a_refresh_from_an_unrelated_state_change", func():
+		_setup_combat([_enemy("Scrapper")])
+		GameState.state["player"]["dial"] = _dial(["blast", "shield", "blackHole"])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		_find_dial_widget(screen).handle_rotate(1)
+		assert_eq(_find_dial_widget(screen).current_index(), 1, "sanity: the rotate moved the selection")
+
+		EventBus.state_changed.emit()  # an unrelated refresh, e.g. a real attack elsewhere in the fight
+
+		assert_eq(_find_dial_widget(screen).current_index(), 1, "the selected Complication should survive a refresh not caused by the rotate itself, same persistence story as _strip_selected_key")
+
+		screen.free()
+	)
+
+	run_case("triggering_the_dial_widget_casts_through_Combat_cast_complication_and_appends_a_log_line", func():
+		_setup_combat([_enemy("Scrapper", 20, 20)])
+		GameState.state["player"]["dial"] = _dial(["blast"], 3, 5)
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var log_before: int = GameState.state["combat"]["log"].size()
+
+		_find_dial_widget(screen).handle_trigger()
+
+		assert_true(GameState.state["combat"]["enemies"][0]["hp"] < 20, "triggering Blast should damage the focused enemy")
+		assert_true(GameState.state["combat"]["log"].size() > log_before, "casting should surface the same result/log line the old bag-drawer cast button did")
 
 		screen.free()
 	)
