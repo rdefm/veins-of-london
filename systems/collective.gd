@@ -14,7 +14,12 @@ extends RefCounted
 
 static func complete_trade(contact_id: String) -> Dictionary:
 	var result := Economy.sell_to_faction_from_sell_state("collective")
-	if result.get("ok", false) and result.get("earned", 0) > 0:
+	# vein-trade-assets ticket 03: `ok`, not `earned > 0` -- a buy-heavy cart
+	# nets a zero or negative `earned` (cash spent, not credited) even though
+	# a real trade happened. sell_to_faction_from_sell_state() only returns
+	# ok:false for a genuinely empty cart, and the Go button that calls this
+	# is already disabled for that case, so this still can't fire on a no-op.
+	if result.get("ok", false):
 		Messages.append(contact_id, "them", _next_bark(contact_id))
 		Modal.open("sale_result", { "earned": result["earned"], "gross": result["earned"], "mugged": false })
 	return result

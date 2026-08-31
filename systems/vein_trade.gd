@@ -105,3 +105,64 @@ static func transfer_to_faction(vein_id: String, faction_id: String, price: int,
 	Collective.maybe_trigger_nadia_vein_done()
 	EventBus.state_changed.emit()
 	return { "ok": true }
+
+
+# vein-trade-assets ticket 03: the exact inverse of sell_to_faction() above --
+# a faction's own site vein stops being theirs and re-enters
+# state.player.veins, at the same VeinTrade.quote() price the sell lane uses
+# (no markup either direction), no cut and no mugging roll (the "no cut, no
+# risk" rule the faction lane already applies to ore/items). Mirrors
+# transfer_to_faction()'s bookkeeping in reverse -- Raiding.claim_vein()'s
+# faction-to-player transfer is the closer precedent than sell_to_faction()
+# itself: deep_copy the faction vein wholesale (growth/oreType/hospitability/
+# security/alarmUpgrades/rampantDays/extraGuards carried over unchanged, same
+# "ownership changes hands, nothing about the vein itself resets" convention),
+# erase factionId, site["claimed"] flips to true and site["factionVein"] to
+# null (claim_vein()'s own pair, not sell's claimed=false/factionVein=<new>).
+# No soldByPlayer-equivalent stamp: Objectives' vein_sold_to_faction evaluator
+# only cares whether a *player* sale is currently live on the site, and buying
+# the vein back always clears site.factionVein regardless, so there's nothing
+# for a marker to guard here.
+#
+# Collective.maybe_trigger_nadia_vein_done() is deliberately NOT called here
+# -- it's a sale-completion hook (spec §6.10), and buying can never itself
+# complete col_a1_nadia_vein (that objective requires a *live* faction-owned
+# vein with soldByPlayer set; buying always clears site.factionVein instead).
+static func buy_from_faction(vein_id: String, faction_id: String) -> Dictionary:
+	var site: Variant = _find_site_with_faction_vein(vein_id, faction_id)
+	if site == null:
+		return { "ok": false, "reason": "No such vein." }
+
+	var faction_vein: Dictionary = site["factionVein"]
+	var price: int = quote(faction_vein)
+	var player: Dictionary = GameState.state["player"]
+	if player["cash"] < price:
+		return { "ok": false, "reason": "Not enough cash." }
+
+	var player_vein: Dictionary = GameState.deep_copy(faction_vein)
+	player_vein.erase("factionId")
+	player["veins"].append(player_vein)
+
+	site["claimed"] = true
+	site["factionVein"] = null
+
+	player["cash"] -= price
+	Bank.record(-price, "Bought vein from %s" % faction_id.capitalize())
+
+	MapEvents.queue_seed_claim(site["district"], faction_vein["id"], "player")
+
+	# Same "a trade is a trade" reasoning transfer_to_faction()'s own call
+	# uses -- relation/tradeProgress reflects trade volume with the faction,
+	# regardless of which direction the vein moved.
+	RelationAccrual.accrue_faction(faction_id, price)
+
+	Objectives.refresh()  # boundary — vein purchase completion
+	EventBus.state_changed.emit()
+	return { "ok": true, "price": price, "factionId": faction_id }
+
+
+static func _find_site_with_faction_vein(vein_id: String, faction_id: String) -> Variant:
+	for site in Sites.sites_with_faction_vein(faction_id):
+		if site["factionVein"]["id"] == vein_id:
+			return site
+	return null

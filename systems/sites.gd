@@ -93,6 +93,20 @@ static func find_site(site_id: String) -> Variant:
 	return null
 
 
+# vein-trade-assets ticket 03: the "this faction's own live site veins"
+# filter -- shared so the buy-side lane (the faction Trade modal's Assets
+# rows, its batched-cart gather, and VeinTrade.buy_from_faction()'s own
+# lookup) all agree on one definition of "buyable from this faction" rather
+# than re-deriving it three times.
+static func sites_with_faction_vein(faction_id: String) -> Array:
+	var result: Array = []
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein != null and vein["factionId"] == faction_id:
+			result.append(site)
+	return result
+
+
 static func sites_in_district(district_id: String) -> Array:
 	var result: Array = []
 	for site in GameState.state["world"]["sites"]:

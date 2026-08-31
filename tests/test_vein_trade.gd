@@ -36,6 +36,18 @@ static func _seed_vein(growth: int, tier: String, ore_type: String = "life") -> 
 	return vein
 
 
+# A faction-owned site vein, wired to its site, so buy_from_faction() can
+# resolve site.factionVein -> Sites the same way it does in the real game.
+static func _faction_seed_vein(growth: int, tier: String, ore_type: String = "life") -> Dictionary:
+	var site := _site("s1", "shoreditch", ore_type, tier)
+	site["claimed"] = false
+	var vein := Factions.create_faction_vein("collective", site, growth)
+	site["factionVein"] = vein
+	GameState.state["world"]["sites"] = [site]
+	GameState.state["player"]["veins"] = []
+	return vein
+
+
 func run() -> void:
 	# ── quote() — spec §8.3's worked table, life calc (basePrice £70) ─────
 
@@ -329,6 +341,135 @@ func run() -> void:
 		var ids: Array = VeinList.actions_for(vein).map(func(g): return g["id"])
 
 		assert_true(ids.has(VeinList.SELL_ID))
+	)
+
+	# ── vein-trade-assets ticket 03: buy_from_faction() ─────────────────────
+
+	run_case("buy_from_faction_adds_the_vein_to_player_veins", func():
+		GameState.reset()
+		var faction_vein := _faction_seed_vein(50, "rich")
+		GameState.state["player"]["cash"] = 100000
+
+		VeinTrade.buy_from_faction(faction_vein["id"], "collective")
+
+		assert_eq(GameState.state["player"]["veins"].size(), 1)
+		assert_eq(GameState.state["player"]["veins"][0]["id"], faction_vein["id"])
+	)
+
+	run_case("buy_from_faction_strips_the_factionId_field", func():
+		GameState.reset()
+		var faction_vein := _faction_seed_vein(50, "rich")
+		GameState.state["player"]["cash"] = 100000
+
+		VeinTrade.buy_from_faction(faction_vein["id"], "collective")
+
+		assert_true(not GameState.state["player"]["veins"][0].has("factionId"))
+	)
+
+	run_case("buy_from_faction_preserves_growth_oreType_and_hospitability", func():
+		GameState.reset()
+		var faction_vein := _faction_seed_vein(85, "rich", "fate")
+		GameState.state["player"]["cash"] = 100000
+
+		VeinTrade.buy_from_faction(faction_vein["id"], "collective")
+
+		var player_vein: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(player_vein["oreType"], "fate")
+		assert_eq(player_vein["growth"], 85)
+		assert_eq(player_vein["hospitability"]["tier"], "rich")
+	)
+
+	run_case("buy_from_faction_charges_the_quoted_price", func():
+		GameState.reset()
+		var faction_vein := _faction_seed_vein(50, "rich")
+		GameState.state["player"]["cash"] = 100000
+		var cash_before: int = GameState.state["player"]["cash"]
+		var price: int = VeinTrade.quote(faction_vein)
+
+		var result := VeinTrade.buy_from_faction(faction_vein["id"], "collective")
+
+		assert_eq(result["price"], price)
+		assert_eq(GameState.state["player"]["cash"], cash_before - price)
+	)
+
+	run_case("buy_from_faction_records_the_payment_in_the_bank_log", func():
+		GameState.reset()
+		var faction_vein := _faction_seed_vein(50, "rich")
+		GameState.state["player"]["cash"] = 100000
+
+		VeinTrade.buy_from_faction(faction_vein["id"], "collective")
+
+		var log: Array = GameState.state["bankLog"]
+		assert_eq(log.size(), 1)
+		assert_true(log[0]["amount"] < 0)
+	)
+
+	run_case("buy_from_faction_claims_the_site_and_clears_the_faction_vein", func():
+		GameState.reset()
+		var faction_vein := _faction_seed_vein(50, "rich")
+		GameState.state["player"]["cash"] = 100000
+
+		VeinTrade.buy_from_faction(faction_vein["id"], "collective")
+
+		var site: Variant = Sites.find_site("s1")
+		assert_true(site["claimed"])
+		assert_eq(site["factionVein"], null)
+	)
+
+	run_case("buy_from_faction_queues_a_seed_claim_map_event_for_the_player", func():
+		GameState.reset()
+		var faction_vein := _faction_seed_vein(50, "rich")
+		GameState.state["player"]["cash"] = 100000
+
+		VeinTrade.buy_from_faction(faction_vein["id"], "collective")
+
+		var queue: Array = GameState.state["mapEvents"]["queue"]
+		assert_eq(queue.size(), 1)
+		assert_eq(queue[0]["type"], "seed_claim")
+		assert_eq(queue[0]["district"], "shoreditch")
+		assert_eq(queue[0]["owner"], "player")
+	)
+
+	run_case("buy_from_faction_accrues_tradeProgress_on_the_price", func():
+		GameState.reset()
+		# growth 10 on "fair" keeps the quote below RelationAccrual's 750
+		# collective rate, so tradeProgress lands at the raw price with no
+		# daily-cap rollover complicating the assertion (see
+		# transfer_to_faction_still_accrues_tradeProgress_on_the_given_price's
+		# own low-price choice for the same reason).
+		var faction_vein := _faction_seed_vein(10, "fair")
+		GameState.state["player"]["cash"] = 100000
+		var price: int = VeinTrade.quote(faction_vein)
+		assert_true(price < 750, "sanity: keep this test under the accrual rate")
+
+		VeinTrade.buy_from_faction(faction_vein["id"], "collective")
+
+		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], price)
+	)
+
+	run_case("buy_from_faction_fails_for_an_unknown_vein_id", func():
+		GameState.reset()
+		_faction_seed_vein(50, "rich")
+		GameState.state["player"]["cash"] = 100000
+
+		var result := VeinTrade.buy_from_faction("not_a_real_vein", "collective")
+
+		assert_true(not result["ok"])
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "an unknown vein id must not touch real state")
+	)
+
+	run_case("buy_from_faction_rejects_when_cash_is_insufficient", func():
+		GameState.reset()
+		var faction_vein := _faction_seed_vein(85, "rich")
+		var price: int = VeinTrade.quote(faction_vein)
+		GameState.state["player"]["cash"] = price - 1
+
+		var result := VeinTrade.buy_from_faction(faction_vein["id"], "collective")
+
+		assert_true(not result["ok"])
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "a rejected purchase must not transfer the vein")
+		var site: Variant = Sites.find_site("s1")
+		assert_true(site["factionVein"] != null, "a rejected purchase must leave the faction vein in place")
 	)
 
 	run_case("vein_list_apply_option_sell_opens_the_quote_modal_without_selling_yet", func():

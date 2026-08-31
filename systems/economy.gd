@@ -232,6 +232,18 @@ static func toggle_sell_vein(vein_id: String) -> void:
 	EventBus.state_changed.emit()
 
 
+# vein-trade-assets ticket 03: the buy-side counterpart to toggle_sell_vein()
+# above -- a "buyVein_<id>" key (distinct from "vein_<id>", so a sell row and
+# a buy row can never collide in the cart) toggling one of the faction's own
+# site veins into the same batched trade, read back by
+# sell_to_faction_from_sell_state() below.
+static func toggle_buy_vein(vein_id: String) -> void:
+	var sell_state: Dictionary = GameState.state["sellState"]
+	var key := "buyVein_%s" % vein_id
+	sell_state[key] = 0 if sell_state.get(key, 0) > 0 else 1
+	EventBus.state_changed.emit()
+
+
 # bugfixes-66: state.marketplaceQty backs the Guild marketplace's per-row
 # Buy/Sell ×N stepper -- one shared qty per row (not a separate buy/sell
 # cart entry like sellState above), floored at 1 rather than sellState's
@@ -463,6 +475,14 @@ static func execute_faction_sale(faction_id: String, items: Array) -> Dictionary
 # call), since execute_faction_sale() below only knows ore/consumable items;
 # a veins-only cart skips calling it at all rather than tripping its own
 # empty-items rejection.
+#
+# vein-trade-assets ticket 03: "buyVein_<id>" keys (toggle_buy_vein() above)
+# ride along the same way, in the opposite direction -- gathered from the
+# faction's own live site.factionVein roster rather than player.veins, each
+# bought individually through VeinTrade.buy_from_faction(), its price
+# subtracted from `earned` rather than added (result.earned is always the
+# trade's net cash change, same figure the modal's "You'll get/pay" label and
+# the player's actual cash delta agree on -- not a separate "spent" total).
 static func sell_to_faction_from_sell_state(faction_id: String) -> Dictionary:
 	var sell_state: Dictionary = GameState.state["sellState"]
 	var items: Array = []
@@ -484,10 +504,16 @@ static func sell_to_faction_from_sell_state(faction_id: String) -> Dictionary:
 		if sell_state.get("vein_%s" % vein["id"], 0) > 0:
 			vein_ids.append(vein["id"])
 
+	var buy_vein_ids: Array = []
+	for site in Sites.sites_with_faction_vein(faction_id):
+		var faction_vein: Dictionary = site["factionVein"]
+		if sell_state.get("buyVein_%s" % faction_vein["id"], 0) > 0:
+			buy_vein_ids.append(faction_vein["id"])
+
 	clear_sell_state()
 
-	if items.is_empty() and vein_ids.is_empty():
-		return { "ok": false, "reason": "Nothing to sell." }
+	if items.is_empty() and vein_ids.is_empty() and buy_vein_ids.is_empty():
+		return { "ok": false, "reason": "Nothing to trade." }
 
 	var earned := 0
 	if not items.is_empty():
@@ -501,4 +527,11 @@ static func sell_to_faction_from_sell_state(faction_id: String) -> Dictionary:
 			earned += int(vein_result["price"])
 			veins_sold += 1
 
-	return { "ok": true, "earned": earned, "veinsSold": veins_sold }
+	var veins_bought := 0
+	for vein_id in buy_vein_ids:
+		var buy_result := VeinTrade.buy_from_faction(vein_id, faction_id)
+		if buy_result.get("ok", false):
+			earned -= int(buy_result["price"])
+			veins_bought += 1
+
+	return { "ok": true, "earned": earned, "veinsSold": veins_sold, "veinsBought": veins_bought }

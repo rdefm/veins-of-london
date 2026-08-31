@@ -31,6 +31,23 @@ static func _seed_vein(id: String, growth: int, ore_type: String = "life") -> Di
 	return vein
 
 
+# vein-trade-assets ticket 03: the buy-side fixture -- a site already owned
+# by the faction (site.factionVein set, site.claimed false), so
+# VeinTrade.buy_from_faction() can resolve it the same way it does in the
+# real game.
+static func _seed_faction_vein(id: String, growth: int, faction_id: String = "collective", ore_type: String = "life") -> Dictionary:
+	var site := {
+		"id": "site_%s" % id, "district": "shoreditch", "tier": "fair", "oreType": ore_type,
+		"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
+		"hasNaturalVein": false,
+	}
+	var vein := Factions.create_faction_vein(faction_id, site, growth)
+	vein["id"] = id
+	site["factionVein"] = vein
+	GameState.state["world"]["sites"].append(site)
+	return vein
+
+
 func run() -> void:
 	run_case("sale_rejects_empty_item_list", func():
 		GameState.reset()
@@ -269,6 +286,17 @@ func run() -> void:
 		assert_eq(GameState.state["sellState"]["vein_v1"], 1, "first toggle selects it")
 		Economy.toggle_sell_vein("v1")
 		assert_eq(GameState.state["sellState"]["vein_v1"], 0, "second toggle deselects it")
+	)
+
+	# vein-trade-assets ticket 03: same 0/1 shape, distinct key space so a
+	# buy row and a sell row can never collide in the cart.
+	run_case("toggle_buy_vein_flips_between_0_and_1_under_its_own_key", func():
+		GameState.reset()
+		Economy.toggle_buy_vein("v1")
+		assert_eq(GameState.state["sellState"]["buyVein_v1"], 1, "first toggle selects it")
+		assert_eq(GameState.state["sellState"].get("vein_v1", 0), 0, "must not collide with the sell-side key")
+		Economy.toggle_buy_vein("v1")
+		assert_eq(GameState.state["sellState"]["buyVein_v1"], 0, "second toggle deselects it")
 	)
 
 	# bugfixes-66: marketplaceQty backs the Guild marketplace's per-row qty
@@ -631,6 +659,65 @@ func run() -> void:
 
 		assert_eq(result.get("veinsSold", 0), 0, "an unselected vein must not be swept into the sale")
 		assert_eq(GameState.state["player"]["veins"].size(), 1, "the untouched vein stays with the player")
+	)
+
+	# ── vein-trade-assets ticket 03: buy-side rows fold into the same cart ──
+
+	run_case("sell_to_faction_from_sell_state_buys_a_toggled_faction_vein_at_its_quote_price", func():
+		GameState.reset()
+		var faction_vein := _seed_faction_vein("fv1", 50)
+		var price: int = VeinTrade.quote(faction_vein)
+		GameState.state["player"]["cash"] = 100000
+		var cash_before: int = GameState.state["player"]["cash"]
+		Economy.toggle_buy_vein("fv1")
+
+		var result := Economy.sell_to_faction_from_sell_state("collective")
+
+		assert_true(result["ok"], "a buy-only cart should still trade")
+		assert_eq(result["earned"], -price, "earned is the net cash change -- negative for a net purchase")
+		assert_eq(result["veinsBought"], 1)
+		assert_eq(GameState.state["player"]["cash"], cash_before - price)
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "the bought vein lands in player.veins")
+	)
+
+	run_case("sell_to_faction_from_sell_state_nets_a_sell_and_a_buy_into_one_earned_total", func():
+		GameState.reset()
+		var sell_vein := _seed_vein("v1", 50)
+		var sell_price: int = VeinTrade.quote(sell_vein)
+		var faction_vein := _seed_faction_vein("fv1", 50)
+		var buy_price: int = VeinTrade.quote(faction_vein)
+		GameState.state["player"]["cash"] = 100000
+		Economy.toggle_sell_vein("v1")
+		Economy.toggle_buy_vein("fv1")
+
+		var result := Economy.sell_to_faction_from_sell_state("collective")
+
+		assert_eq(result["earned"], sell_price - buy_price, "one net total across both directions")
+		assert_eq(result["veinsSold"], 1)
+		assert_eq(result["veinsBought"], 1)
+	)
+
+	run_case("sell_to_faction_from_sell_state_ignores_an_untoggled_buyable_faction_vein", func():
+		GameState.reset()
+		_seed_faction_vein("fv1", 50)  # never toggled
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Economy.adjust_sell_qty("ore_time", 1, 10)
+
+		var result := Economy.sell_to_faction_from_sell_state("collective")
+
+		assert_eq(result.get("veinsBought", 0), 0, "an unselected faction vein must not be swept into the trade")
+		assert_eq(GameState.state["player"]["veins"].size(), 0, "nothing was bought")
+	)
+
+	run_case("sell_to_faction_from_sell_state_ignores_a_toggled_buy_vein_belonging_to_a_different_faction", func():
+		GameState.reset()
+		_seed_faction_vein("fv1", 50, "firm")
+		GameState.state["player"]["cash"] = 100000
+		Economy.toggle_buy_vein("fv1")
+
+		var result := Economy.sell_to_faction_from_sell_state("collective")
+
+		assert_true(not result["ok"], "the toggled vein belongs to a different faction, so this trade sees nothing")
 	)
 
 	# ── Archie's relation-scaled cut (collective1-01 spec.md §8.2, R§3.6 amendment) ─

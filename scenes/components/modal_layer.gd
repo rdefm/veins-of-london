@@ -236,12 +236,19 @@ func _build_craft_batch_result(data: Dictionary) -> void:
 
 func _build_sale_result(data: Dictionary) -> void:
 	var mugged: bool = data.get("mugged", false)
+	var earned: int = data.get("earned", 0)
 	_card_content.add_child(UI.heading("You held them off." if mugged else "Done."))
 	if mugged:
 		_card_content.add_child(UI.label("They tried their luck. They didn't get it. Archie owes you a pint."))
+	elif earned < 0:
+		# vein-trade-assets ticket 03: a faction-lane cart can now net a
+		# purchase (a buy-side vein outweighing whatever else was sold in the
+		# same trade) rather than a sale -- "Buyer paid" reads wrong when the
+		# player was the one paying. PROSE-REVIEW: new line, tone bible.
+		_card_content.add_child(UI.label("Paid up, no fuss. It's yours now."))
 	else:
 		_card_content.add_child(UI.label("Smooth as you like. Buyer paid promptly and left."))
-	_card_content.add_child(UI.label("+£%d" % data.get("earned", 0)))
+	_card_content.add_child(UI.label(("+£%d" % earned) if earned >= 0 else ("-£%d" % -earned)))
 	_card_content.add_child(UI.button("Back to it", _on_sale_result_close))
 
 
@@ -424,6 +431,8 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 	# confirm step here (that guard is the Go button's own label below).
 	var asset_rows: Array = []
 	var veins_selected := 0
+	var buy_cost := 0
+	var veins_bought := 0
 	if GameState.state["flags"].get("veinSaleUnlocked", false):
 		for vein in player["veins"]:
 			var vein_key := "vein_%s" % vein["id"]
@@ -437,17 +446,53 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 			var vein_label := "%s — %s %s (£%d)" % [vein_district["name"], vein_ore["symbol"], vein_ore["name"], vein_price]
 			asset_rows.append(_build_sell_vein_row(vein_label, vein["id"], selected))
 
+		# vein-trade-assets ticket 03: the reverse row -- this faction's own
+		# site veins, buyable straight at VeinTrade.quote(), same 0/1 toggle,
+		# folded into the same Assets section and the same Go tap. Read
+		# straight off state.world.sites' live factionVein roster rather than
+		# any player-owned list, since these are the faction's own stock.
+		for site in Sites.sites_with_faction_vein(faction_id):
+			var faction_vein: Dictionary = site["factionVein"]
+			var buy_key := "buyVein_%s" % faction_vein["id"]
+			var buy_selected: bool = sell_state.get(buy_key, 0) > 0
+			var buy_price := VeinTrade.quote(faction_vein)
+			if buy_selected:
+				buy_cost += buy_price
+				veins_bought += 1
+			var buy_ore: Dictionary = GameData.ORE_TYPES[faction_vein["oreType"]]
+			var buy_district: Dictionary = GameData.DISTRICTS[faction_vein["district"]]
+			var buy_label := "Buy: %s — %s %s (£%d)" % [buy_district["name"], buy_ore["symbol"], buy_ore["name"], buy_price]
+			asset_rows.append(_build_buy_vein_row(buy_label, faction_vein["id"], buy_selected))
+
 	_build_sell_sections(ore_rows, item_rows, asset_rows)
 
-	_card_content.add_child(UI.label("You'll get: £%d" % gross))
+	# vein-trade-assets ticket 03: net cash change for the trade as a whole --
+	# `gross` was already "positive = credited to the player" before buy rows
+	# existed; `net` keeps that same meaning once a purchase can outweigh it,
+	# so it's the one figure that always matches result.earned and the
+	# player's actual cash delta.
+	var net := gross - buy_cost
+	if net >= 0:
+		_card_content.add_child(UI.label("You'll get: £%d" % net))
+	else:
+		_card_content.add_child(UI.label("You'll pay: £%d" % -net))
 
 	var go_label := "Go — trade"
+	var go_notes: Array = []
 	if veins_selected == 1:
-		go_label += " (includes 1 vein sale)"
+		go_notes.append("1 vein sale")
 	elif veins_selected > 1:
-		go_label += " (includes %d vein sales)" % veins_selected
+		go_notes.append("%d vein sales" % veins_selected)
+	if veins_bought == 1:
+		go_notes.append("1 vein purchase")
+	elif veins_bought > 1:
+		go_notes.append("%d vein purchases" % veins_bought)
+	if not go_notes.is_empty():
+		go_label += " (includes %s)" % ", ".join(go_notes)
 	var go_button := UI.button(go_label, func(): Collective.complete_trade(contact_id))
-	go_button.disabled = gross == 0
+	var nothing_selected := gross == 0 and buy_cost == 0
+	var unaffordable: bool = net < 0 and -net > int(player["cash"])
+	go_button.disabled = nothing_selected or unaffordable
 	_card_content.add_child(go_button)
 	_card_content.add_child(UI.button("Cancel", _on_sell_menu_cancel))
 
@@ -482,6 +527,17 @@ func _build_sell_sections(ore_rows: Array, item_rows: Array, asset_rows: Array) 
 func _build_sell_vein_row(label_text: String, vein_id: String, selected: bool) -> Control:
 	var row := UI.hbox(6)
 	row.add_child(UI.button("☑" if selected else "☐", func(): Economy.toggle_sell_vein(vein_id)))
+	var text_label := UI.label(label_text)
+	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text_label)
+	return row
+
+
+# vein-trade-assets ticket 03: the buy-side counterpart -- same 0/1 toggle
+# shape, wired to Economy.toggle_buy_vein() instead.
+func _build_buy_vein_row(label_text: String, vein_id: String, selected: bool) -> Control:
+	var row := UI.hbox(6)
+	row.add_child(UI.button("☑" if selected else "☐", func(): Economy.toggle_buy_vein(vein_id)))
 	var text_label := UI.label(label_text)
 	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text_label)

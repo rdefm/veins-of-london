@@ -51,6 +51,22 @@ static func _seed_vein(id: String, growth: int, ore_type: String = "life") -> Di
 	return vein
 
 
+# vein-trade-assets ticket 03: the buy-side fixture -- a site already owned
+# by the faction, so the faction lane's Assets section has a real buyable
+# row to render.
+static func _seed_faction_vein(id: String, growth: int, faction_id: String = "collective", ore_type: String = "life") -> Dictionary:
+	var site := {
+		"id": "site_%s" % id, "district": "shoreditch", "tier": "fair", "oreType": ore_type,
+		"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
+		"hasNaturalVein": false,
+	}
+	var vein := Factions.create_faction_vein(faction_id, site, growth)
+	vein["id"] = id
+	site["factionVein"] = vein
+	GameState.state["world"]["sites"].append(site)
+	return vein
+
+
 func run() -> void:
 	run_case("tap_outside_a_no_side_effect_modal_just_closes_it", func():
 		GameState.reset()
@@ -374,6 +390,138 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], cash_before + 66 + vein_price, "ore and vein proceeds land in one trade")
 		assert_eq(GameState.state["player"]["veins"].size(), 0, "the sold vein leaves player.veins")
 		assert_eq(GameState.state["modal"]["type"], "sale_result", "same result modal as an ore-only trade")
+
+		layer.free()
+	)
+
+	# ── vein-trade-assets ticket 03: buy-side rows in the faction lane ──────
+
+	run_case("faction_sell_menus_assets_section_lists_the_factions_own_veins_as_buyable_rows", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		var faction_vein := _seed_faction_vein("fv1", 50)
+		var price: int = VeinTrade.quote(faction_vein)
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var expected_label := "Buy: Shoreditch — %s %s (£%d)" % [GameData.ORE_TYPES["life"]["symbol"], GameData.ORE_TYPES["life"]["name"], price]
+		assert_true(_label_texts(layer).has(expected_label), "buy row shows district/ore/price")
+		assert_true(_find_button(layer, "☐") != null, "buy row starts unselected")
+
+		layer.free()
+	)
+
+	run_case("archies_lane_never_shows_a_buy_vein_row_even_when_a_faction_vein_exists", func():
+		GameState.reset()
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		_seed_faction_vein("fv1", 50)
+		Modal.open("sell_menu")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		for text in _label_texts(layer):
+			assert_true(not text.begins_with("Buy:"), "Archie's lane has no faction vein stock to offer")
+
+		layer.free()
+	)
+
+	run_case("toggling_a_buy_vein_in_the_faction_lane_updates_the_go_label_and_shows_the_net_cost", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		var faction_vein := _seed_faction_vein("fv1", 50)
+		var price: int = VeinTrade.quote(faction_vein)
+		GameState.state["player"]["cash"] = 100000
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+		_find_button(layer, "☐").pressed.emit()
+
+		assert_true(_find_button(layer, "Go — trade (includes 1 vein purchase)") != null, "label calls out the vein purchase")
+		assert_true(_label_texts(layer).has("You'll pay: £%d" % price), "net flips to a cost once a buy outweighs the (empty) sell side")
+
+		layer.free()
+	)
+
+	run_case("go_on_the_faction_lane_buys_a_toggled_faction_vein", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		var faction_vein := _seed_faction_vein("fv1", 50)
+		var price: int = VeinTrade.quote(faction_vein)
+		GameState.state["player"]["cash"] = 100000
+		var cash_before: int = GameState.state["player"]["cash"]
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+		_find_button(layer, "☐").pressed.emit()
+		_find_button(layer, "Go — trade (includes 1 vein purchase)").pressed.emit()
+
+		assert_eq(GameState.state["player"]["cash"], cash_before - price, "the purchase price is deducted")
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "the bought vein lands in player.veins")
+		var site: Variant = Sites.find_site("site_fv1")
+		assert_eq(site["factionVein"], null, "the faction no longer owns it")
+		assert_eq(GameState.state["modal"]["type"], "sale_result", "a net-purchase trade still opens the result modal")
+
+		layer.free()
+	)
+
+	run_case("go_button_disables_when_a_buy_would_overdraw_cash", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		var faction_vein := _seed_faction_vein("fv1", 50)
+		var price: int = VeinTrade.quote(faction_vein)
+		GameState.state["player"]["cash"] = price - 1
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+		_find_button(layer, "☐").pressed.emit()
+
+		var go_button := _find_button(layer, "Go — trade (includes 1 vein purchase)")
+		assert_true(go_button.disabled, "can't afford this purchase")
+
+		layer.free()
+	)
+
+	run_case("go_on_the_faction_lane_nets_a_sold_vein_and_a_bought_vein_in_one_trade", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		var sell_vein := _seed_vein("v1", 50)
+		var sell_price: int = VeinTrade.quote(sell_vein)
+		var faction_vein := _seed_faction_vein("fv1", 50)
+		var buy_price: int = VeinTrade.quote(faction_vein)
+		GameState.state["player"]["cash"] = 100000
+		var cash_before: int = GameState.state["player"]["cash"]
+		# Both toggles set directly rather than via two sequential button
+		# presses on the same "☐" glyph -- _card_content's old row buttons
+		# are only queue_free()'d (deferred), not removed synchronously, so a
+		# second find-by-glyph mid-test can pick up a stale, about-to-be-freed
+		# button instead of the freshly rebuilt one. Single-toggle presses
+		# (elsewhere in this file) never hit this, since they always re-query
+		# by a label that's unique to the post-toggle state.
+		Economy.toggle_sell_vein("v1")
+		Economy.toggle_buy_vein("fv1")
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var go_button := _find_button(layer, "Go — trade (includes 1 vein sale, 1 vein purchase)")
+		assert_true(go_button != null, "label calls out both directions")
+		go_button.pressed.emit()
+
+		assert_eq(GameState.state["player"]["cash"], cash_before + sell_price - buy_price, "one net trade across both directions")
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "sold vein left, bought vein arrived")
+		assert_eq(GameState.state["player"]["veins"][0]["id"], faction_vein["id"])
 
 		layer.free()
 	)
