@@ -111,7 +111,7 @@ func run() -> void:
 	run_case("col_a1_nadia_supply_is_defined_per_spec_6_8", func():
 		var def: Dictionary = GameData.OBJECTIVES["col_a1_nadia_supply"]
 		assert_eq(def["type"], "traded_with_faction")
-		assert_eq(def["params"], { "factionId": "collective", "oreType": "emotion", "qty": 30, "minTransactions": 3 })
+		assert_eq(def["params"], { "factionId": "collective", "oreType": "time", "qty": 30, "minTransactions": 3 })
 		assert_eq(def["activateFlag"], "colA1NadiaMet")
 		assert_eq(def["completeFlag"], "colA1NadiaSupplied")
 	)
@@ -124,17 +124,17 @@ func run() -> void:
 		Objectives.refresh()
 		assert_true(GameState.state["objectives"]["col_a1_nadia_supply"]["active"])
 
-		GameState.state["player"]["orichalchum"]["emotion"] = 60
+		GameState.state["player"]["orichalchum"]["time"] = 60
 
-		GameState.state["sellState"]["ore_emotion"] = 10
+		GameState.state["sellState"]["ore_time"] = 10
 		Collective.complete_trade("des")
 		assert_true(not GameState.state["flags"].get("colA1NadiaSupplied", false), "one trade, qty met but minTransactions not yet")
 
-		GameState.state["sellState"]["ore_emotion"] = 10
+		GameState.state["sellState"]["ore_time"] = 10
 		Collective.complete_trade("hakim")
 		assert_true(not GameState.state["flags"].get("colA1NadiaSupplied", false), "two trades, still short of minTransactions 3")
 
-		GameState.state["sellState"]["ore_emotion"] = 10
+		GameState.state["sellState"]["ore_time"] = 10
 		Collective.complete_trade("nadia")
 		assert_true(GameState.state["flags"]["colA1NadiaSupplied"], "three trades across three different doors, all feeding the one Collective faction meter")
 	)

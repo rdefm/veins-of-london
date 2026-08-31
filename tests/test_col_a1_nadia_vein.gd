@@ -84,7 +84,7 @@ func run() -> void:
 	run_case("col_a1_nadia_vein_is_defined_per_spec_6_9", func():
 		var def: Dictionary = GameData.OBJECTIVES["col_a1_nadia_vein"]
 		assert_eq(def["type"], "vein_sold_to_faction")
-		assert_eq(def["params"], { "factionId": "collective", "oreType": "emotion" })
+		assert_eq(def["params"], { "factionId": "collective", "oreType": "time" })
 		assert_eq(def["activateFlag"], "colA1NadiaAskSeen")
 		assert_eq(def["completeFlag"], "colA1NadiaVeinSold")
 	)

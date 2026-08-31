@@ -124,19 +124,19 @@
   "col_a1_nadia_supply": {
     "id": "col_a1_nadia_supply",
     "title": "Fill Nadia's standing order",
-    "detail": "Thirty units of emotion calc, sold through the Collective, over at least three trades.",
+    "detail": "Thirty units of time calc, sold through the Collective, over at least three trades.",
     "type": "traded_with_faction",
-    "params": { "factionId": "collective", "oreType": "emotion", "qty": 30, "minTransactions": 3 },
+    "params": { "factionId": "collective", "oreType": "time", "qty": 30, "minTransactions": 3 },
     "activateFlag": "colA1NadiaMet",
     "completeFlag": "colA1NadiaSupplied",
     "questline": "collective"
   },
   "col_a1_nadia_vein": {
     "id": "col_a1_nadia_vein",
-    "title": "Sell Nadia an emotion vein",
+    "title": "Sell Nadia a time vein",
     "detail": "Seed one, grow it up a bit, then sell it to the Collective.",
     "type": "vein_sold_to_faction",
-    "params": { "factionId": "collective", "oreType": "emotion" },
+    "params": { "factionId": "collective", "oreType": "time" },
     "activateFlag": "colA1NadiaAskSeen",
     "completeFlag": "colA1NadiaVeinSold",
     "questline": "collective"

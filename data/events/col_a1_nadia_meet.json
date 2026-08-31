@@ -3,8 +3,8 @@
   "cards": [
     { "type": "narration", "label": "Hackney — the back of a shop that sells phone cases", "speaker": null, "text": "Nadia Beckford is about seventy and is moving a crate that you would need help with. She does not accept help." },
     { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"Des sent you. He's told you I'm short.\" She doesn't look up. \"He's right. I'm short.\"" },
-    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"Standing order. Emotion calc, every fortnight, same bloke, same amount, been running four years. It pays for a lot of things that need paying for.\"" },
-    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"Whitechapel's full of it and everyone round here has a bit and nobody has thirty units at once. So I spend three days on the phone every fortnight like it's 1974.\"" },
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"Standing order. Time calc, every fortnight, same bloke, same amount, been running four years. It pays for a lot of things that need paying for.\"" },
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"This end of town's full of it and everyone round here has a bit and nobody has thirty units at once. So I spend three days on the phone every fortnight like it's 1974.\"" },
     {
       "type": "choice", "label": null, "speaker": null, "text": "She finally looks up.",
       "choices": [
@@ -21,7 +21,7 @@
       ]
     },
     { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"And before you ask — no, I don't know who's holding what. Nobody does. If I knew who had what I'd have had this done Tuesday.\"" },
-    { "type": "resolution", "label": null, "speaker": null, "text": "Thirty units of emotion calc, no deadline, no paperwork, and a woman who has been doing this since before you were born treating it as entirely routine." }
+    { "type": "resolution", "label": null, "speaker": null, "text": "Thirty units of time calc, no deadline, no paperwork, and a woman who has been doing this since before you were born treating it as entirely routine." }
   ],
   "on_complete": [
     { "op": "set_flag", "flag": "colA1NadiaMet", "value": true },

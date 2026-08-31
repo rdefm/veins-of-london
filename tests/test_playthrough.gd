@@ -141,7 +141,7 @@ func _drive_active_event_to_completion() -> void:
 # Phase 2's threads are driven through the real systems the spec calls out
 # by name rather than shortcuts: Sites.prospect() (both for Des's two
 # weather beats, S5/S6, which pre-empt the district deck per spec §10.4, and
-# for the emotion site Nadia's vein sale needs), Economy sales (Collective.
+# for the time site Nadia's vein sale needs), Economy sales (Collective.
 # complete_trade(), the real Trade-button code path, for the three £-lane
 # trades col_a1_nadia_supply needs), Cultivating.cultivate() (growing
 # Hakim's handed-over vein from seed to the rescue threshold), and
@@ -247,12 +247,12 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	Objectives.refresh()  # stamps col_a1_nadia_supply's baseline before any trades happen
 	assert_true(GameState.state["objectives"]["col_a1_nadia_supply"]["active"])
 
-	GameState.state["player"]["orichalchum"]["emotion"] = 60
+	GameState.state["player"]["orichalchum"]["time"] = 60
 	for contact_id in ["des", "hakim", "nadia"]:
-		GameState.state["sellState"]["ore_emotion"] = 10
+		GameState.state["sellState"]["ore_time"] = 10
 		var trade_result := Collective.complete_trade(contact_id)
 		assert_true(trade_result["ok"])
-	assert_true(GameState.state["flags"]["colA1NadiaSupplied"], "3 trades of 10 emotion each, across all three Collective doors, should satisfy col_a1_nadia_supply")
+	assert_true(GameState.state["flags"]["colA1NadiaSupplied"], "3 trades of 10 time each, across all three Collective doors, should satisfy col_a1_nadia_supply")
 	_assert_invariants("post-nadia-supply")
 
 	Events.start_event("col_a1_nadia_vein")
@@ -263,18 +263,18 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	Objectives.refresh()
 	assert_true(GameState.state["objectives"]["col_a1_nadia_vein"]["active"])
 
-	GameState.state["player"]["orichalchum"]["emotion"] += 300
+	GameState.state["player"]["orichalchum"]["time"] += 300
 	var nadia_vein_site: Array = []
 	var nadia_prospect_seed := _find_seed_for(500, func():
-		var result := Sites.prospect("whitechapel")
+		var result := Sites.prospect("greenwich")
 		var site: Variant = result.get("site")
-		if site == null or site["oreType"] != "emotion" or site["tier"] == "barren":
+		if site == null or site["oreType"] != "time" or site["tier"] == "barren":
 			return false
 		nadia_vein_site.clear()
 		nadia_vein_site.append(site)
 		return true
 	)
-	assert_true(nadia_prospect_seed != -1, "should find an emotion site in Whitechapel within 500 tries")
+	assert_true(nadia_prospect_seed != -1, "should find a time site in Greenwich within 500 tries")
 	var nadia_site_id: String = nadia_vein_site[0]["id"]
 	_drive_active_event_to_completion()
 	_assert_invariants("post-nadia-vein-prospect")

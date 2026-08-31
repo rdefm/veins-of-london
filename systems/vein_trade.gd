@@ -40,9 +40,10 @@ static func quote(vein: Dictionary) -> int:
 # handback, which reuses this exact code path at a forced £0 rather than
 # a separate mechanism. A forced price also means the transfer is not a
 # genuine market sale, so `soldByPlayer` is left false for it -- otherwise
-# Hakim's emotion vein would silently satisfy col_a1_nadia_vein (factionId
-# + oreType is all that objective checks) and misfire col_a1_nadia_done
-# with Nadia's dialogue over a vein she never touched.
+# a handback could silently satisfy col_a1_nadia_vein (factionId + oreType
+# is all that objective checks) if the two ever shared an ore type, and
+# misfire col_a1_nadia_done with Nadia's dialogue over a vein she never
+# touched.
 static func sell_to_faction(vein_id: String, faction_id: String, price_override: Variant = null) -> Dictionary:
 	var is_handback: bool = price_override != null
 	var vein: Variant = Cultivating.find_vein(vein_id)
