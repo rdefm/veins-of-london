@@ -591,6 +591,74 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 100 + 33, "cash increased by the Collective's own sell price")
 	)
 
+	# ── collective-ore-stock T02: buying calc from the Collective is gated
+	# by ticket 01's oreStock, on top of (not instead of) cash ─────────────
+
+	run_case("get_faction_buy_max_qty_caps_by_collective_stock_not_just_cash", func():
+		GameState.reset()
+		GameState.state["factions"]["collective"]["relation"] = 0
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 4 }
+		assert_eq(Economy.get_faction_buy_max_qty("collective", "ore", "time"), 4, "stock caps the ceiling even though cash could afford far more")
+	)
+
+	run_case("get_faction_buy_max_qty_is_unaffected_by_stock_for_guild", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 40
+		GameState.state["player"]["cash"] = 100000
+		# Guild's oreStock is schema-present but never rolled (T01) -- stays
+		# {}, so `stock.has()` is false and no cap applies regardless of cash.
+		assert_true(Economy.get_faction_buy_max_qty("guild", "ore", "time") > 100, "Guild purchases stay cash-only, no stock cap")
+	)
+
+	run_case("collective_purchase_rejected_outright_when_qty_exceeds_stock", func():
+		GameState.reset()
+		GameState.state["factions"]["collective"]["relation"] = 0
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 3 }
+		var result := Economy.execute_faction_purchase("collective", [{ "kind": "ore", "type": "time", "qty": 4 }])
+		assert_true(not result["ok"], "asking for more than current stock is rejected outright, mirroring the cash all-or-nothing check")
+		assert_eq(GameState.state["player"]["cash"], 100000, "cash unchanged on a stock-rejected purchase")
+		assert_eq(GameState.state["factions"]["collective"]["oreStock"]["time"], 3, "stock unchanged on a stock-rejected purchase")
+	)
+
+	run_case("collective_purchase_decrements_stock_on_success", func():
+		GameState.reset()
+		GameState.state["factions"]["collective"]["relation"] = 0
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 10 }
+		var result := Economy.execute_faction_purchase("collective", [{ "kind": "ore", "type": "time", "qty": 4 }])
+		assert_true(result["ok"], "purchase within stock should succeed")
+		assert_eq(GameState.state["factions"]["collective"]["oreStock"]["time"], 6, "stock decremented by the qty bought")
+	)
+
+	run_case("collective_purchase_price_still_matches_get_faction_buy_price_unchanged", func():
+		GameState.reset()
+		GameState.state["factions"]["collective"]["relation"] = 0
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 10 }
+		var price := Economy.get_faction_buy_price("collective", "ore", "time")
+		Economy.execute_faction_purchase("collective", [{ "kind": "ore", "type": "time", "qty": 2 }])
+		assert_eq(GameState.state["player"]["cash"], 100000 - price * 2, "stock gating must not change the existing buy-price formula")
+	)
+
+	run_case("collective_sale_to_faction_is_unaffected_by_stock", func():
+		GameState.reset()
+		GameState.state["factions"]["collective"]["relation"] = 0
+		GameState.state["player"]["orichalchum"]["time"] = 50
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 0 }
+		var result := Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 50 }])
+		assert_true(result["ok"], "selling ore to the Collective is unaffected by its stock -- stock only gates the buy lane")
+	)
+
+	run_case("guild_purchase_unaffected_by_any_stock_cap", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 40
+		GameState.state["player"]["cash"] = 1000000
+		var result := Economy.execute_faction_purchase("guild", [{ "kind": "ore", "type": "time", "qty": 1000 }])
+		assert_true(result["ok"], "Guild purchases have no stock cap regardless of quantity")
+	)
+
 	# ── collective1-07: sell_to_faction_from_sell_state (the sell_menu cart, ─
 	# routed to a faction lane rather than Archie's execute_sale) ───────────
 
@@ -613,6 +681,40 @@ func run() -> void:
 		GameState.reset()
 		var result := Economy.sell_to_faction_from_sell_state("collective")
 		assert_true(not result["ok"], "nothing selected should be a no-op, same as sell_from_sell_state")
+	)
+
+	# ── collective-ore-stock T02: "buyOre_<type>" keys fold into the same cart ──
+
+	run_case("sell_to_faction_from_sell_state_buys_ore_from_stock_and_debits_earned", func():
+		GameState.reset()
+		GameState.state["factions"]["collective"]["relation"] = 0
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 10 }
+		var price := Economy.get_faction_buy_price("collective", "ore", "time")
+		GameState.state["sellState"]["buyOre_time"] = 3
+
+		var result := Economy.sell_to_faction_from_sell_state("collective")
+
+		assert_true(result["ok"], "a buy-only ore cart should still trade")
+		assert_eq(result["earned"], -price * 3, "earned is negative -- cash spent, not credited")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 3, "bought ore lands in the player's stock")
+		assert_eq(GameState.state["factions"]["collective"]["oreStock"]["time"], 7, "the Collective's shared stock is decremented")
+		assert_eq(GameState.state["sellState"], {}, "sellState cleared after trading")
+	)
+
+	run_case("sell_to_faction_from_sell_state_skips_an_ore_purchase_that_exceeds_stock", func():
+		GameState.reset()
+		GameState.state["factions"]["collective"]["relation"] = 0
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 2 }
+		GameState.state["sellState"]["buyOre_time"] = 5
+
+		var result := Economy.sell_to_faction_from_sell_state("collective")
+
+		assert_true(result["ok"], "the rest of the cart isn't blocked even though the ore purchase leg is rejected")
+		assert_eq(result["earned"], 0, "the over-stock purchase contributes nothing")
+		assert_eq(GameState.state["player"]["orichalchum"].get("time", 0), 0, "no ore is granted on a rejected purchase")
+		assert_eq(GameState.state["factions"]["collective"]["oreStock"]["time"], 2, "stock is untouched on a rejected purchase")
 	)
 
 	# ── vein-trade-assets ticket 01: veins fold into the same faction cart ──

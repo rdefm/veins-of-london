@@ -374,27 +374,56 @@ static func get_faction_sell_price(faction_id: String, kind: String, item_type: 
 # cash actually covers) -- a formula, not a raw state field like the
 # sell-side ceiling (just player.orichalchum/inventory stock), so it lives
 # here rather than inline in the screen.
+#
+# collective-ore-stock T02: an ore row's ceiling is also capped by the
+# faction's oreStock for that type, when present -- Guild (and every other
+# non-Collective faction) never has oreStock entries (T01 only ever rolls
+# "collective"'s), so `stock.has(item_type)` is false there and this stays
+# cash-only, unaffected. Consumables have no stock concept at all (T01's
+# explicit "ore only"), so the cap only ever applies for kind == "ore".
 static func get_faction_buy_max_qty(faction_id: String, kind: String, item_type: String) -> int:
 	var price := get_faction_buy_price(faction_id, kind, item_type)
 	var cash: int = GameState.state["player"]["cash"]
-	return int(floor(float(cash) / float(maxi(price, 1))))
+	var affordable := int(floor(float(cash) / float(maxi(price, 1))))
+	if kind == "ore":
+		var stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
+		if stock.has(item_type):
+			affordable = mini(affordable, int(stock[item_type]))
+	return affordable
 
 
 # items: [{ kind:"ore"|"consumable", type:String, qty:int }, ...]. All-or-
 # nothing: rejects the whole purchase if total cost exceeds cash, mirroring
 # execute_sale's shape (deducts cash, adds inventory on success).
+#
+# collective-ore-stock T02: also all-or-nothing against oreStock, the same
+# shape as the cash check -- a purchase asking for more of an ore type than
+# the faction currently has in stock is rejected outright, never partially
+# filled. Only ever bites for "collective" in this milestone (the only
+# faction T01 ever rolls oreStock entries for); every other faction's
+# oreStock stays `{}`, so `stock.has(ore_type)` is false and this is a
+# no-op for them, same as get_faction_buy_max_qty above.
 static func execute_faction_purchase(faction_id: String, items: Array) -> Dictionary:
 	if items.is_empty():
 		return { "ok": false, "reason": "Nothing to buy." }
 
 	var player: Dictionary = GameState.state["player"]
 	var total_cost := 0
+	var ore_qty_totals: Dictionary = {}
 	for item in items:
 		var price_per_unit := get_faction_buy_price(faction_id, item["kind"], item["type"])
 		total_cost += price_per_unit * int(item["qty"])
+		if item["kind"] == "ore":
+			var ore_type: String = item["type"]
+			ore_qty_totals[ore_type] = ore_qty_totals.get(ore_type, 0) + int(item["qty"])
 
 	if player["cash"] < total_cost:
 		return { "ok": false, "reason": "Not enough cash." }
+
+	var stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
+	for ore_type in ore_qty_totals.keys():
+		if stock.has(ore_type) and ore_qty_totals[ore_type] > int(stock[ore_type]):
+			return { "ok": false, "reason": "Not enough stock." }
 
 	player["cash"] -= total_cost
 	Bank.record(-total_cost, "%s purchase" % faction_id.capitalize())
@@ -404,6 +433,8 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 		var qty: int = item["qty"]
 		if kind == "ore":
 			player["orichalchum"][item_type] = player["orichalchum"].get(item_type, 0) + qty
+			if stock.has(item_type):
+				stock[item_type] -= qty
 		else:
 			# ticket 64: store-bought stock wasn't crafted at any skill/refine
 			# tier -- files under the same "0" untiered bucket as legacy saves.
@@ -483,6 +514,15 @@ static func execute_faction_sale(faction_id: String, items: Array) -> Dictionary
 # subtracted from `earned` rather than added (result.earned is always the
 # trade's net cash change, same figure the modal's "You'll get/pay" label and
 # the player's actual cash delta agree on -- not a separate "spent" total).
+#
+# collective-ore-stock T02: "buyOre_<type>" keys (the modal's new Ore-
+# section buy rows) ride along the same way, gathered into one items array
+# and settled through execute_faction_purchase() as a single all-or-nothing
+# call (its own stock/cash gate) -- unlike the per-vein buy loop below,
+# these aren't individually toggled units, so one call covers every ore
+# type bought this trade. A rejected purchase (stock ran out from under it
+# between render and Go) just contributes nothing to `earned`, same silent-
+# skip shape a failed vein buy/sell already has here.
 static func sell_to_faction_from_sell_state(faction_id: String) -> Dictionary:
 	var sell_state: Dictionary = GameState.state["sellState"]
 	var items: Array = []
@@ -499,6 +539,12 @@ static func sell_to_faction_from_sell_state(faction_id: String) -> Dictionary:
 			if qty > 0:
 				items.append({ "kind": "consumable", "type": recipe_key, "qty": qty })
 
+	var buy_ore_items: Array = []
+	for ore_type in GameData.ORE_TYPES.keys():
+		var qty: int = sell_state.get("buyOre_%s" % ore_type, 0)
+		if qty > 0:
+			buy_ore_items.append({ "kind": "ore", "type": ore_type, "qty": qty })
+
 	var vein_ids: Array = []
 	for vein in GameState.state["player"]["veins"]:
 		if sell_state.get("vein_%s" % vein["id"], 0) > 0:
@@ -512,13 +558,18 @@ static func sell_to_faction_from_sell_state(faction_id: String) -> Dictionary:
 
 	clear_sell_state()
 
-	if items.is_empty() and vein_ids.is_empty() and buy_vein_ids.is_empty():
+	if items.is_empty() and vein_ids.is_empty() and buy_vein_ids.is_empty() and buy_ore_items.is_empty():
 		return { "ok": false, "reason": "Nothing to trade." }
 
 	var earned := 0
 	if not items.is_empty():
 		var item_result := execute_faction_sale(faction_id, items)
 		earned += item_result.get("earned", 0)
+
+	if not buy_ore_items.is_empty():
+		var buy_result := execute_faction_purchase(faction_id, buy_ore_items)
+		if buy_result.get("ok", false):
+			earned -= int(buy_result["cost"])
 
 	var veins_sold := 0
 	for vein_id in vein_ids:

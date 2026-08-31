@@ -526,6 +526,102 @@ func run() -> void:
 		layer.free()
 	)
 
+	# ── collective-ore-stock T02: buy-ore rows in the faction lane's Ore section ──
+
+	run_case("faction_sell_menu_ore_section_shows_a_buy_row_for_every_ore_type_priced_via_get_faction_buy_price", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 8, "physics": 8, "life": 8, "fate": 8, "emotion": 8 }
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		for ore_type in GameData.ORE_TYPES.keys():
+			var ore: Dictionary = GameData.ORE_TYPES[ore_type]
+			var price := Economy.get_faction_buy_price("collective", "ore", ore_type)
+			var expected := "Buy: %s %s (£%d/u, stock 8)" % [ore["symbol"], ore["name"], price]
+			assert_true(_label_texts(layer).has(expected), "%s must render a buy row priced via get_faction_buy_price, unchanged" % ore_type)
+
+		layer.free()
+	)
+
+	run_case("faction_sell_menus_buy_ore_rows_show_sold_out_with_no_stepper_when_stock_is_zero", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 0, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var sold_out_count := 0
+		for text in _label_texts(layer):
+			if text == "Sold out":
+				sold_out_count += 1
+		assert_eq(sold_out_count, 5, "every one of the 5 ore types is sold out")
+		assert_true(_find_button(layer, "+") == null, "a sold-out row has no qty stepper at all")
+
+		layer.free()
+	)
+
+	run_case("go_on_the_faction_lane_buys_ore_from_collective_stock_and_debits_the_shared_pool", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["player"]["cash"] = 100000
+		var cash_before: int = GameState.state["player"]["cash"]
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 10, "physics": 10, "life": 10, "fate": 10, "emotion": 10 }
+		var price := Economy.get_faction_buy_price("collective", "ore", "time")
+		GameState.state["sellState"]["buyOre_time"] = 3
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var go_button := _find_button(layer, "Go — trade (includes 3 ore bought)")
+		assert_true(go_button != null, "label calls out the ore purchase")
+		go_button.pressed.emit()
+
+		assert_eq(GameState.state["player"]["cash"], cash_before - price * 3, "buy price matches get_faction_buy_price, unchanged")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 3, "bought ore lands in the player's stock")
+		assert_eq(GameState.state["factions"]["collective"]["oreStock"]["time"], 7, "the Collective's shared stock is decremented")
+		assert_eq(GameState.state["modal"]["type"], "sale_result", "same result modal as any other faction-lane trade")
+
+		layer.free()
+	)
+
+	run_case("the_collectives_ore_stock_is_the_same_shared_pool_regardless_of_which_contact_opened_the_modal", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["hakim"] = { "unlocked": true, "relation": 0 }
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 10, "physics": 10, "life": 10, "fate": 10, "emotion": 10 }
+		GameState.state["sellState"]["buyOre_time"] = 4
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+
+		var des_layer := ModalLayer.new()
+		des_layer._ready()
+		_find_button(des_layer, "Go — trade (includes 4 ore bought)").pressed.emit()
+		des_layer.free()
+
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "hakim" })
+		var hakim_layer := ModalLayer.new()
+		hakim_layer._ready()
+
+		var price := Economy.get_faction_buy_price("collective", "ore", "time")
+		assert_true(_label_texts(hakim_layer).has("Buy: %s %s (£%d/u, stock 6)" % [GameData.ORE_TYPES["time"]["symbol"], GameData.ORE_TYPES["time"]["name"], price]), "Hakim's door onto the Trade modal reflects Des's purchase against the same shared stock")
+
+		hakim_layer.free()
+	)
+
+	run_case("guild_marketplace_qty_ceiling_is_unaffected_by_the_collectives_stock_or_lack_thereof", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 40
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 0, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
+		assert_true(Economy.get_faction_buy_max_qty("guild", "ore", "time") > 100, "the Collective being sold out must not leak a stock cap onto the unrelated Guild lane")
+	)
+
 	run_case("non_press_input_on_the_dim_does_not_close_the_modal", func():
 		GameState.reset()
 		Modal.open("seed_result", { "success": true, "oreType": "time" })

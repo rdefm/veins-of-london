@@ -406,6 +406,27 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 		gross += price * qty
 		ore_rows.append(_build_sell_row("%s %s (£%d/u, have %d)" % [ore["symbol"], ore["name"], price, have], key, qty, have))
 
+	# collective-ore-stock T02: the buy side of the same Ore section --
+	# priced via the existing get_faction_buy_price (unchanged formula), qty
+	# capped by get_faction_buy_max_qty (which now also folds in the
+	# faction's oreStock, T01) rather than the sell loop's plain "have". All
+	# 5 canonical ore types render a row regardless of what the player
+	# currently holds, unlike the sell loop above.
+	var ore_stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
+	var buy_cost := 0
+	var ore_bought := 0
+	for ore_type in GameData.ORE_TYPES.keys():
+		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
+		var buy_key := "buyOre_%s" % ore_type
+		var buy_qty: int = sell_state.get(buy_key, 0)
+		var buy_price := Economy.get_faction_buy_price(faction_id, "ore", ore_type)
+		var buy_max: int = Economy.get_faction_buy_max_qty(faction_id, "ore", ore_type)
+		var stock: int = int(ore_stock.get(ore_type, 0))
+		if buy_qty > 0:
+			buy_cost += buy_price * buy_qty
+			ore_bought += buy_qty
+		ore_rows.append(_build_buy_ore_row("Buy: %s %s (£%d/u, stock %d)" % [ore["symbol"], ore["name"], buy_price, stock], buy_key, buy_qty, buy_max))
+
 	if GameState.state["flags"]["canSellConsumables"]:
 		for recipe_key in GameData.CONSUMABLE_PRICES.keys():
 			var buckets: Dictionary = player["inventory"].get(recipe_key, {})
@@ -431,7 +452,6 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 	# confirm step here (that guard is the Go button's own label below).
 	var asset_rows: Array = []
 	var veins_selected := 0
-	var buy_cost := 0
 	var veins_bought := 0
 	if GameState.state["flags"].get("veinSaleUnlocked", false):
 		for vein in player["veins"]:
@@ -487,6 +507,8 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 		go_notes.append("1 vein purchase")
 	elif veins_bought > 1:
 		go_notes.append("%d vein purchases" % veins_bought)
+	if ore_bought > 0:
+		go_notes.append("%d ore bought" % ore_bought)
 	if not go_notes.is_empty():
 		go_label += " (includes %s)" % ", ".join(go_notes)
 	var go_button := UI.button(go_label, func(): Collective.complete_trade(contact_id))
@@ -541,6 +563,25 @@ func _build_buy_vein_row(label_text: String, vein_id: String, selected: bool) ->
 	var text_label := UI.label(label_text)
 	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text_label)
+	return row
+
+
+# collective-ore-stock T02: an ore buy row -- same -/+ stepper shape as
+# _build_sell_row below, wired to the same Economy.adjust_sell_qty (the
+# "buyOre_<type>" key is just another sellState cart slot), except when
+# max_qty is 0 (stock exhausted) it renders "Sold out" with no steppers at
+# all, rather than a stepper that silently refuses to move past 0.
+func _build_buy_ore_row(label_text: String, key: String, qty: int, max_qty: int) -> Control:
+	var row := UI.hbox()
+	var text_label := UI.label(label_text)
+	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text_label)
+	if max_qty <= 0:
+		row.add_child(UI.muted_label("Sold out"))
+		return row
+	row.add_child(UI.button("-", func(): Economy.adjust_sell_qty(key, -1, max_qty)))
+	row.add_child(UI.label(str(qty)))
+	row.add_child(UI.button("+", func(): Economy.adjust_sell_qty(key, 1, max_qty)))
 	return row
 
 
