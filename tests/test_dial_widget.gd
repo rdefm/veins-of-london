@@ -109,3 +109,65 @@ func run() -> void:
 
 		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], enemy_hp_before, "zero charge should refuse the cast -- no effect applied")
 	)
+
+	# combat-presentation ticket 05: handle_trigger()'s new on_triggered report.
+
+	run_case("handle_trigger_reports_the_cast_result_through_on_triggered", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial(["blast"], 3, 5)
+		GameState.state["combat"] = {
+			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
+			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
+			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
+			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
+			"onWin": "", "snapshots": [], "allies": [],
+		}
+		var received: Array = []
+		var widget := DialWidget.new()
+		widget.configure(GameState.state["player"]["dial"], 0, Callable(), func(result): received.append(result))
+
+		widget.handle_trigger()
+
+		assert_eq(received.size(), 1, "a successful trigger should report exactly once")
+		assert_true(received[0]["ok"])
+		assert_true(received[0]["beats"].size() > 0, "the reported result should carry Blast's own damaging beat")
+	)
+
+	run_case("handle_trigger_reports_even_a_refused_cast_through_on_triggered", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial(["blast"], 0, 5)
+		GameState.state["combat"] = {
+			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
+			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
+			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
+			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
+			"onWin": "", "snapshots": [], "allies": [],
+		}
+		var received: Array = []
+		var widget := DialWidget.new()
+		widget.configure(GameState.state["player"]["dial"], 0, Callable(), func(result): received.append(result))
+
+		widget.handle_trigger()
+
+		assert_eq(received.size(), 1, "a refused cast should still be reported, just with ok == false")
+		assert_true(not received[0]["ok"])
+	)
+
+	run_case("handle_trigger_with_no_on_triggered_callback_still_casts_normally", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial(["blast"], 3, 5)
+		GameState.state["combat"] = {
+			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
+			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
+			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
+			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
+			"onWin": "", "snapshots": [], "allies": [],
+		}
+		var widget := DialWidget.new()
+		# 3-arg configure() -- every pre-ticket-05 call site, unchanged.
+		widget.configure(GameState.state["player"]["dial"], 0, Callable())
+
+		widget.handle_trigger()
+
+		assert_true(GameState.state["combat"]["enemies"][0]["hp"] < 20, "the cast itself must still happen with no on_triggered wired at all")
+	)

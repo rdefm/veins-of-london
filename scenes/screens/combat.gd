@@ -66,6 +66,21 @@ const FAN_BACK_RIGHT_TOP_MARGIN := 0.12
 # for the clock-face/bezel placeholder shapes (DialWidget._draw()) to read.
 const DIAL_WIDTH := 64.0
 
+# combat-presentation ticket 05, §4.1: damage numbers rising and fading from
+# the struck combatant's on-stage position.
+const DAMAGE_NUMBER_RISE_PX := 28.0
+const DAMAGE_NUMBER_DURATION := 0.6
+
+# combat-presentation ticket 05, §4.1: "Screen shake, 3-6px, scaled to damage
+# as a fraction of the target's hpMax." SHAKE_FULL_FRACTION is the dmg/hpMax
+# ratio at which shake maxes out at SHAKE_MAX_PX -- a hit for half a target's
+# max HP or more always reads as the biggest shake this game has; anything
+# below scales linearly down to SHAKE_MIN_PX at 0 damage (which never
+# actually plays, since this only runs for beats with dmg > 0).
+const SHAKE_MIN_PX := 3.0
+const SHAKE_MAX_PX := 6.0
+const SHAKE_FULL_FRACTION := 0.5
+
 # Placeholder fill colours keyed by template id (name), per the ticket --
 # "coloured, labelled box/silhouette keyed by template id, not real art".
 # Ticket 09 swaps these for real per-template sprites via the manifest
@@ -89,12 +104,39 @@ class StageSlot extends Control:
 	var fill_color: Color = Color.WHITE
 	var is_focused: bool = false
 
+	# combat-presentation ticket 05, §4.1: "Flash-to-white on the struck
+	# placeholder/sprite (a CanvasItem material flash, not new art)." Drawn
+	# as a plain white overlay in _draw() rather than an actual
+	# CanvasItemMaterial shader swap -- StageSlot is a placeholder-art box
+	# today (real sprites land ticket 09/10), and an alpha-blended overlay
+	# reads identically to a shader flash against either, at a fraction of
+	# the complexity; a later ticket can swap the mechanism without touching
+	# any juice-layer call site (flash_hit() is the only entry point).
+	var flash_alpha: float = 0.0
+
+	func set_flash_alpha(value: float) -> void:
+		flash_alpha = value
+		queue_redraw()
+
+	# Public entry point CombatScreen._play_juice() calls on a landed hit.
+	# Jumps straight to full white, then tweens back down to transparent --
+	# no live tree (e.g. a unit test constructing a bare StageSlot), no
+	# tween, same guard this file's other juice-layer tweens all use.
+	func flash_hit() -> void:
+		set_flash_alpha(1.0)
+		if not is_inside_tree():
+			return
+		var tween := create_tween()
+		tween.tween_method(set_flash_alpha, 1.0, 0.0, 0.18)
+
 	func _draw() -> void:
 		var rect := Rect2(Vector2.ZERO, size)
 		draw_rect(rect, fill_color, true)
 		draw_rect(rect, Color(0, 0, 0, 0.55), false, 2.0)
 		if is_focused:
 			draw_rect(rect.grow(3.0), Color(1.0, 0.86, 0.35, 0.95), false, 3.0)
+		if flash_alpha > 0.0:
+			draw_rect(rect, Color(1.0, 1.0, 1.0, flash_alpha), true)
 	# combat-presentation ticket 02: the placeholder box itself carries no
 	# name/HP label any more (see _build_slot() below) -- combatant_name is
 	# still set, purely as the template-id key _placeholder_color() and tests
@@ -124,6 +166,10 @@ var _enemy_slots: Dictionary = {}  # enemy index (int) -> StageSlot
 var _player_slots: Dictionary = {}  # -1 (player) or ally index (int) -> StageSlot
 var _enemy_band_layer: Control
 var _player_band_layer: Control
+# combat-presentation ticket 05: the screen-shake wrapper -- see
+# _build_stage_skeleton()'s own comment for why this, not `frame`, is what
+# _shake_stage() tweens.
+var _stage_shake_layer: Control
 
 # The stage frame, the turn-order strip, and the footer (command deck, or
 # the log + outcome button once the fight resolves) are each held in their
@@ -134,6 +180,14 @@ var _heading: Label
 var _pacing_button: Button
 var _strip_holder: VBoxContainer
 var _footer_holder: VBoxContainer
+
+# combat-presentation ticket 05: the currently-mounted strip, kept so the
+# juice layer's ghost-drain calls can reach it without re-walking
+# _strip_holder's children. Rebuilt (and reassigned) every real _sync() --
+# see _sync() below -- but, like the strip itself, NOT torn down per-beat
+# mid-playback, which is exactly what lets a single round's worth of
+# ghost-drain calls land on the same NameplateCard instances in sequence.
+var _turn_order_strip: TurnOrderStrip
 
 # combat-presentation ticket 04: paces a round's beat queue back onto the
 # screen -- see scenes/components/combat_director.gd's own class comment for
@@ -148,6 +202,19 @@ var _director: CombatDirector
 # starts playing, then advanced one line per beat by _on_beat_played() --
 # see _play_round() below.
 var _revealed_log_count: int = -1
+
+# combat-presentation ticket 05, §4.1: "HP bar lag-drain -- a ghost bar
+# chasing the real (already-updated) value down." Keyed by
+# TurnOrderStrip.card_key_string() (a "type:index" string, "-1" for the
+# player) -- the running hp each key's ghost bar is currently sitting at,
+# mid-drain. Seeded once per round by _init_ghost_tracker() (reconstructed
+# from combat's already-final hp plus this round's total damage, since
+# there's no separate "pre-round hp" snapshot to read -- GameState is
+# already final by the time any of this runs, same fact combat_director.gd's
+# own top comment explains for beats generally) and decremented beat by
+# beat as each damaging beat plays; cleared at the end of _play_beats()
+# since it's only meaningful mid-playback.
+var _ghost_tracker: Dictionary = {}
 
 
 func _ready() -> void:
@@ -200,7 +267,8 @@ func _sync() -> void:
 
 	for child in _strip_holder.get_children():
 		child.queue_free()
-	_strip_holder.add_child(_build_turn_order_strip(combat, player))
+	_turn_order_strip = _build_turn_order_strip(combat, player)
+	_strip_holder.add_child(_turn_order_strip)
 
 	_sync_stage(combat, player)
 
@@ -265,7 +333,7 @@ func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
 # though _content's children don't); this picks the entries[] position it
 # still refers to, or falls back to whichever card carries
 # combat.focusedEnemyIndex, or the first card, the first time a fight starts.
-func _build_turn_order_strip(combat: Dictionary, player: Dictionary) -> Control:
+func _build_turn_order_strip(combat: Dictionary, player: Dictionary) -> TurnOrderStrip:
 	var strip := TurnOrderStrip.new()
 	var entries: Array = strip.build_entries(combat, player)
 	var selected_pos := _selected_strip_pos(entries, combat)
@@ -334,15 +402,27 @@ func _build_stage_skeleton() -> Panel:
 	# MapCanvas._skip_current() offers over the map's own event playback.
 	frame.gui_input.connect(_on_stage_gui_input)
 
+	# combat-presentation ticket 05, §4.1: screen shake's own layer, sitting
+	# between `frame` (a Panel -- outside any Container, so this is safe to
+	# reposition) and the actual band content. Shaking `frame` itself would
+	# fight _content's VBoxContainer, which re-asserts every direct child's
+	# position on its own sort passes; a Panel's own children are never
+	# repositioned by their parent, so a tween on _stage_shake_layer.position
+	# sticks for the length of the shake instead of snapping back mid-tween.
+	_stage_shake_layer = Control.new()
+	_stage_shake_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_stage_shake_layer.size = Vector2(STAGE_WIDTH, STAGE_HEIGHT)
+	frame.add_child(_stage_shake_layer)
+
 	_enemy_band_layer = Control.new()
 	_enemy_band_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_child(_enemy_band_layer)
+	_stage_shake_layer.add_child(_enemy_band_layer)
 
 	_player_band_layer = Control.new()
 	_player_band_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_child(_player_band_layer)
+	_stage_shake_layer.add_child(_player_band_layer)
 
-	frame.add_child(_build_vignette())
+	_stage_shake_layer.add_child(_build_vignette())
 
 	return frame
 
@@ -601,25 +681,38 @@ func _on_run_pressed() -> void:
 func _play_round(action: Callable) -> void:
 	var log_before: int = GameState.state["combat"]["log"].size()
 	var result: Dictionary = action.call()
-	var beats: Array = result.get("beats", [])
+	await _play_beats(result.get("beats", []), log_before)
+
+
+# combat-presentation ticket 05: split out of _play_round() so
+# _on_dial_triggered() below (a Complication cast, not a full "round" in
+# Combat.build_turn_queue()'s sense) can drive the same director/log-reveal/
+# juice-tracker plumbing -- Combat.cast_complication() already ran
+# synchronously by the time that callback fires (see dial_widget.gd's own
+# handle_trigger() comment), so there's no `action` left to call here.
+func _play_beats(beats: Array, log_before: int) -> void:
 	if beats.is_empty():
 		return
 	_revealed_log_count = log_before
+	_init_ghost_tracker(beats)
 	_sync_footer(GameState.state["combat"], GameState.state["player"])
 	await _director.play(beats, _on_beat_played)
+	_ghost_tracker.clear()
 	_revealed_log_count = -1
 	_sync()
 
 
-func _on_beat_played(_beat: Dictionary) -> void:
+func _on_beat_played(beat: Dictionary) -> void:
 	_revealed_log_count += 1
 	_sync_footer(GameState.state["combat"], GameState.state["player"])
+	if CombatDirector.beat_is_damaging(beat):
+		_play_juice(beat)
 
 
 func _build_dial_widget(dial: Dictionary) -> Control:
 	var widget := DialWidget.new()
 	widget.custom_minimum_size = Vector2(DIAL_WIDTH, 0)
-	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed)
+	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed, _on_dial_triggered)
 	return widget
 
 
@@ -630,6 +723,170 @@ func _build_dial_widget(dial: Dictionary) -> Control:
 func _on_dial_selection_changed(new_index: int) -> void:
 	_dial_selected_index = new_index
 	_sync()
+
+
+# combat-presentation ticket 05: DialWidget.handle_trigger() already called
+# Combat.cast_complication() synchronously and mutated GameState before this
+# ever fires (see that file's own handle_trigger() comment) -- this only
+# paces `result`'s beats back onto the screen, same _play_beats() plumbing
+# _on_attack_pressed()/_on_run_pressed() drive via _play_round(). log_before
+# is reconstructed rather than captured ahead of the cast (there's nothing
+# to capture it before -- the cast already happened by the time this
+# callback exists) by subtracting beats.size(): cast_complication() logs
+# exactly one combat.log line per beat (via _log()), the same 1:1 invariant
+# player_attack()/enemy_attack()/flee()'s own beats already hold.
+func _on_dial_triggered(result: Dictionary) -> void:
+	var beats: Array = result.get("beats", [])
+	var log_before: int = GameState.state["combat"]["log"].size() - beats.size()
+	await _play_beats(beats, log_before)
+
+
+# ── combat-presentation ticket 05, docs/combat-animation-vision.md §4.1 ──
+# The juice layer. Every effect below is keyed off a beat's own `dmg`/
+# `targetType`/`targetIndex` fields (CombatDirector.beat_is_damaging()'s
+# test, shared with the hit-stop it adds to the timeline itself) -- no beat
+# `kind` is special-cased, so Blast/Black Hole's own beats (ticket 05's
+# cast_complication() wiring, above) get exactly the same treatment as a
+# plain attack beat, and any future damaging beat kind gets it for free.
+#
+# One real gap, inherited from ticket 04's own architecture rather than
+# introduced here: the round's final state (including any KO) is already
+# applied and _sync()'d -- stage slots/strip cards for whoever this round
+# kills are gone by the time playback starts (see combat_director.gd's own
+# top comment) -- so a killing blow's own flash/damage-number/ghost-drain
+# silently no-op (their node lookups return null); hit-stop and screen
+# shake, needing no per-combatant node, still play normally even then.
+
+
+# Normalizes a beat's own targetType/targetIndex fields into the same
+# {"type": ..., "index": ...} shape TurnOrderStrip's own entry_key/
+# card_key_string() already use (index -1 for the player) -- one shared
+# format instead of every juice-layer helper below re-deriving its own pair
+# of (target_type, target_index) primitives from the raw beat.
+func _beat_target(beat: Dictionary) -> Dictionary:
+	var target_type: String = beat.get("targetType", "")
+	var target_index: int = -1 if target_type == "player" else int(beat.get("targetIndex", -1))
+	return { "type": target_type, "index": target_index }
+
+
+# The player/ally/enemy Dictionary a target's own hp/hpMax actually live on
+# -- shared by _hp_for()/_hp_max_for() below so the player/ally/enemy
+# lookup exists exactly once, not once per field.
+func _target_state(target: Dictionary) -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if target["type"] == "player":
+		return GameState.state["player"]
+	if target["type"] == "ally":
+		return combat["allies"][target["index"]]
+	if target["type"] == "enemy":
+		return combat["enemies"][target["index"]]
+	return {}
+
+
+func _hp_for(target: Dictionary) -> int:
+	return _target_state(target).get("hp", 0)
+
+
+func _hp_max_for(target: Dictionary) -> int:
+	return _target_state(target).get("hpMax", 1)
+
+
+func _resolve_target_slot(target: Dictionary) -> StageSlot:
+	if target["type"] == "player":
+		return _player_slots.get(-1)
+	if target["type"] == "ally":
+		return _player_slots.get(target["index"])
+	if target["type"] == "enemy":
+		return _enemy_slots.get(target["index"])
+	return null
+
+
+# Seeds _ghost_tracker (and every affected card's ghost bar) to this round's
+# pre-hit hp, reconstructed as "final hp (already live in GameState) + total
+# damage this round's beats deal to that target" -- the only reconstruction
+# available, since nothing snapshots a genuine pre-round hp for the screen to
+# read (see this section's own top comment). Called once, before playback
+# starts.
+func _init_ghost_tracker(beats: Array) -> void:
+	_ghost_tracker.clear()
+	var total_dmg: Dictionary = {}
+	var target_by_key: Dictionary = {}
+	for beat in beats:
+		if not CombatDirector.beat_is_damaging(beat):
+			continue
+		var target: Dictionary = _beat_target(beat)
+		var key: String = TurnOrderStrip.card_key_string(target)
+		total_dmg[key] = total_dmg.get(key, 0) + int(beat["dmg"])
+		target_by_key[key] = target
+
+	for key in total_dmg.keys():
+		var start_hp: int = _hp_for(target_by_key[key]) + total_dmg[key]
+		_ghost_tracker[key] = start_hp
+		if _turn_order_strip != null:
+			_turn_order_strip.set_initial_ghost(key, start_hp)
+
+
+func _drain_ghost(key: String, dmg: int) -> void:
+	if not _ghost_tracker.has(key):
+		return
+	_ghost_tracker[key] = maxi(0, _ghost_tracker[key] - dmg)
+	if _turn_order_strip != null:
+		_turn_order_strip.drain_ghost_to(key, _ghost_tracker[key], _director.beat_duration)
+
+
+func _shake_magnitude(dmg: int, hp_max: int) -> float:
+	if hp_max <= 0:
+		return SHAKE_MIN_PX
+	var frac: float = clampf(float(dmg) / float(hp_max), 0.0, 1.0)
+	return clampf(SHAKE_MIN_PX + (SHAKE_MAX_PX - SHAKE_MIN_PX) * (frac / SHAKE_FULL_FRACTION), SHAKE_MIN_PX, SHAKE_MAX_PX)
+
+
+func _shake_stage(dmg: int, hp_max: int) -> void:
+	if _stage_shake_layer == null or not _stage_shake_layer.is_inside_tree():
+		return
+	var magnitude: float = _shake_magnitude(dmg, hp_max)
+	var base_pos: Vector2 = _stage_shake_layer.position
+	var tween := create_tween()
+	tween.tween_property(_stage_shake_layer, "position", base_pos + Vector2(magnitude, 0.0), 0.03)
+	tween.tween_property(_stage_shake_layer, "position", base_pos + Vector2(-magnitude, magnitude * 0.5), 0.05)
+	tween.tween_property(_stage_shake_layer, "position", base_pos + Vector2(magnitude * 0.5, -magnitude * 0.4), 0.05)
+	tween.tween_property(_stage_shake_layer, "position", base_pos, 0.06)
+
+
+func _spawn_damage_number(slot: StageSlot, dmg: int) -> void:
+	var layer: Node = slot.get_parent()
+	if layer == null:
+		return
+	var label := Label.new()
+	label.text = "-%d" % dmg
+	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.3))
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	label.add_theme_constant_override("outline_size", 2)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.z_index = 5
+	layer.add_child(label)
+	label.position = slot.position + slot.size * 0.5 - Vector2(12.0, 10.0)
+	if not label.is_inside_tree():
+		return
+	var tween := label.create_tween()
+	tween.tween_property(label, "position:y", label.position.y - DAMAGE_NUMBER_RISE_PX, DAMAGE_NUMBER_DURATION)
+	tween.parallel().tween_property(label, "modulate:a", 0.0, DAMAGE_NUMBER_DURATION)
+	tween.tween_callback(label.queue_free)
+
+
+# The single entry point _on_beat_played() calls for every damaging beat.
+func _play_juice(beat: Dictionary) -> void:
+	var target: Dictionary = _beat_target(beat)
+	var dmg: int = int(beat["dmg"])
+
+	var slot: StageSlot = _resolve_target_slot(target)
+	if slot != null:
+		slot.flash_hit()
+		_spawn_damage_number(slot, dmg)
+
+	_shake_stage(dmg, _hp_max_for(target))
+	_drain_ghost(TurnOrderStrip.card_key_string(target), dmg)
 
 
 func _build_outcome_button(outcome: String, context: String) -> Control:

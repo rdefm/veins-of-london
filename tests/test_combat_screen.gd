@@ -554,3 +554,117 @@ func run() -> void:
 
 		screen.free()
 	)
+
+	# ── combat-presentation ticket 05, §4.1: the juice layer ────────────────
+	# These screens are the same off-tree CombatScreen.new() + _ready()
+	# construction every other case in this file uses (this file's own top
+	# comment) -- every juice effect below guards its own tween creation on
+	# is_inside_tree() (see StageSlot.flash_hit()/NameplateCard.set_ghost_hp()
+	# via TurnOrderStrip.drain_ghost_to()/_shake_stage(), each with its own
+	# comment), so off-tree these fall back to their instant/synchronous
+	# state change instead of animating -- which is exactly what's
+	# assertable here without a live SceneTree. Beat playback itself
+	# (_play_round()/_play_beats()) is called without `await`, same
+	# fire-and-forget pattern this file's own dial-trigger case above and
+	# tests/test_combat_director.gd's own cases rely on: GDScript runs an
+	# async call synchronously up to its first real suspension point, and
+	# _director.play()'s very first beat's on_beat callback (_on_beat_played,
+	# which is what calls _play_juice()) fires before that point.
+
+	run_case("shake_magnitude_scales_with_damage_as_a_fraction_of_hp_max_between_3_and_6px", func():
+		var screen := CombatScreen.new()
+
+		assert_almost_eq(screen._shake_magnitude(0, 20), CombatScreen.SHAKE_MIN_PX, 0.01, "no damage should read as the floor")
+		assert_almost_eq(screen._shake_magnitude(10, 20), CombatScreen.SHAKE_MAX_PX, 0.01, "50%+ of hpMax should already be at the cap (SHAKE_FULL_FRACTION)")
+		assert_almost_eq(screen._shake_magnitude(1000, 20), CombatScreen.SHAKE_MAX_PX, 0.01, "damage far beyond hpMax must still clamp at the cap, never exceed it")
+		var mid: float = screen._shake_magnitude(5, 20)  # 25% of hpMax -- halfway to SHAKE_FULL_FRACTION
+		assert_true(mid > CombatScreen.SHAKE_MIN_PX and mid < CombatScreen.SHAKE_MAX_PX, "a hit for a quarter of hpMax should shake somewhere between the floor and the cap")
+	)
+
+	run_case("beat_target_normalizes_a_beats_targetType_targetIndex_into_TurnOrderStrips_own_entry_key_shape", func():
+		var screen := CombatScreen.new()
+
+		assert_eq(screen._beat_target({ "targetType": "player" }), { "type": "player", "index": -1 })
+		assert_eq(screen._beat_target({ "targetType": "ally", "targetIndex": 2 }), { "type": "ally", "index": 2 })
+		assert_eq(screen._beat_target({ "targetType": "enemy", "targetIndex": 0 }), { "type": "enemy", "index": 0 })
+		assert_eq(TurnOrderStrip.card_key_string(screen._beat_target({ "targetType": "enemy", "targetIndex": 0 })), "enemy:0")
+	)
+
+	run_case("resolve_target_slot_finds_the_persistent_stage_slot_for_player_ally_and_enemy_targets", func():
+		_setup_combat([_enemy("Scrapper", 20, 20)], [_ally("Mate", 20, 20)])
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_eq(screen._resolve_target_slot({ "type": "player", "index": -1 }), _slot_named(screen, "You"))
+		assert_eq(screen._resolve_target_slot({ "type": "ally", "index": 0 }), _slot_named(screen, "Mate"))
+		assert_eq(screen._resolve_target_slot({ "type": "enemy", "index": 0 }), _slot_named(screen, "Scrapper"))
+		assert_true(screen._resolve_target_slot({ "type": "enemy", "index": 5 }) == null, "an out-of-range/unknown index should resolve to no slot, not error")
+
+		screen.free()
+	)
+
+	run_case("a_landed_attack_flashes_the_struck_enemys_slot_and_spawns_a_damage_number_at_its_position", func():
+		_setup_combat([_enemy("Scrapper", 20, 20)])
+		GameState.state["player"]["attackMin"] = 6
+		GameState.state["player"]["attackMax"] = 6
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Scrapper")
+		assert_eq(slot.flash_alpha, 0.0, "sanity: no flash before anything has happened")
+
+		screen._on_attack_pressed()  # fire-and-forget -- see this section's own top comment
+
+		assert_true(slot.flash_alpha > 0.0, "the struck enemy's placeholder should flash on the landed hit")
+		var found_number := false
+		for c in slot.get_parent().get_children():
+			if c is Label and c.text == "-6":
+				found_number = true
+		assert_true(found_number, "a '-6' damage number should be spawned at the struck combatant's position")
+
+		screen.free()
+	)
+
+	run_case("attacking_seeds_the_ghost_tracker_and_drains_it_by_the_first_beats_own_damage", func():
+		_setup_combat([_enemy("Scrapper", 12, 20)])  # already at 12/20 -- final state
+		GameState.state["player"]["attackMin"] = 8
+		GameState.state["player"]["attackMax"] = 8  # deterministic 8 damage -> enemy lands at 4/20
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		screen._on_attack_pressed()  # fire-and-forget -- see this section's own top comment
+
+		# Combat.player_attack() emits state_changed synchronously (before
+		# _play_round() ever runs), which rebuilds the strip with a brand
+		# new NameplateCard -- fetch it fresh (same "the latest one found is
+		# the live one" _find_strip()/_strip_card_named() convention this
+		# file's own top comment documents) rather than one captured before
+		# the attack, which would now be a stale, orphaned instance.
+		var card := _strip_card_named(screen, "Scrapper")
+		assert_eq(card.hp, 4, "sanity: the strip already shows the real (post-hit) hp the instant the round resolves, per ticket 04's own architecture")
+
+		# _init_ghost_tracker() reconstructs the pre-hit hp as (final hp +
+		# this round's total damage to that target) and seeds the card's
+		# ghost bar to it with no tween -- see combat.gd's own comment.
+		# The first (only) beat then drains it straight back down to the
+		# real value, again with no tween since this card is off-tree.
+		assert_eq(card.ghost_hp, 4, "the ghost bar should have drained down to the real post-hit hp once the beat played")
+
+		screen.free()
+	)
+
+	run_case("a_non_damaging_beat_never_calls_into_the_juice_layer", func():
+		_setup_combat([_enemy("Scrapper", 20, 20)])
+		GameState.state["player"]["dial"] = _dial(["shield"], 3, 5)
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Scrapper")
+
+		_find_dial_widget(screen).handle_trigger()  # shield has no dmg field at all
+
+		assert_eq(slot.flash_alpha, 0.0, "a non-damaging Complication cast must never flash a combatant that wasn't hit")
+
+		screen.free()
+	)

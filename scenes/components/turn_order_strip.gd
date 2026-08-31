@@ -59,6 +59,20 @@ class NameplateCard extends Control:
 
 	var telegraph_label: Label = null
 
+	# combat-presentation ticket 05, §4.1: "HP bar lag-drain -- a ghost bar
+	# chasing the real (already-updated) value down." `hp` above is already
+	# the final, post-round value the instant this card is built (Combat.*
+	# mutates GameState.state synchronously; see combat_director.gd's own
+	# top comment) -- ghost_hp is a *separate* value CombatScreen drives
+	# beat-by-beat as the round plays back, starting above `hp` and draining
+	# to meet it. null (the default, and every non-"just took a hit this
+	# round" card) means "no ghost -- draw the plain bar only."
+	var ghost_hp: Variant = null
+
+	func set_ghost_hp(value: float) -> void:
+		ghost_hp = int(round(value))
+		queue_redraw()
+
 	func _ready() -> void:
 		if damage_tier == 2:
 			rotation_degrees = TurnOrderStrip.RUINED_TILT_DEGREES
@@ -87,6 +101,15 @@ class NameplateCard extends Control:
 		var frac: float = clampf(float(hp) / float(maxi(1, hp_max)), 0.0, 1.0)
 		draw_rect(Rect2(Vector2(4.0, bar_y), Vector2(size.x - 8.0, TurnOrderStrip.HP_BAR_HEIGHT)), Color(0, 0, 0, 0.4), true)
 		draw_rect(Rect2(Vector2(4.0, bar_y), Vector2((size.x - 8.0) * frac, TurnOrderStrip.HP_BAR_HEIGHT)), faction_colour, true)
+
+		# combat-presentation ticket 05, §4.1: the ghost bar itself -- a
+		# lighter overlay from the real bar's edge out to wherever ghost_hp
+		# still sits, i.e. "the chunk about to drain." Nothing drawn once
+		# ghost_hp catches up to (or was never above) the real value.
+		if ghost_hp != null:
+			var ghost_frac: float = clampf(float(ghost_hp) / float(maxi(1, hp_max)), 0.0, 1.0)
+			if ghost_frac > frac:
+				draw_rect(Rect2(Vector2(4.0 + (size.x - 8.0) * frac, bar_y), Vector2((size.x - 8.0) * (ghost_frac - frac), TurnOrderStrip.HP_BAR_HEIGHT)), Color(1.0, 1.0, 1.0, 0.6), true)
 
 
 func build_entries(combat: Dictionary, player: Dictionary) -> Array:
@@ -188,10 +211,33 @@ var _on_selection_changed: Callable = Callable()
 var _drag_index := -100
 var _drag_start_x: float = 0.0
 
+# combat-presentation ticket 05: keyed the same way CombatScreen already
+# keys its own persistent stage slots (-1 for the player, an array index for
+# an ally/enemy) so the ghost-drain call sites on both sides can build the
+# same key string independently without either side importing the other's
+# key format. Rebuilt in _rebuild() below; this strip is itself rebuilt
+# wholesale on every real _sync() (see this file's own top comment -- ticket
+# 04's persistent-node treatment only reached the stage, not the strip), but
+# NOT per-beat mid-playback (CombatScreen._on_beat_played() only calls
+# _sync_footer(), never rebuilds the strip), so the same NameplateCard
+# instances this dict points at are exactly the ones still on screen for a
+# whole round's beat-by-beat ghost-drain animation.
+var _cards_by_key: Dictionary = {}
+
+
+# entry_key is {"type": "player"} / {"type": "ally", "index": i} /
+# {"type": "enemy", "index": i} (see build_entries() above) -- normalized to
+# a single string so Dictionary lookups here don't depend on Dictionary
+# structural-equality/hash behaviour for a Dictionary-as-key.
+static func card_key_string(entry_key: Dictionary) -> String:
+	var index: int = entry_key["index"] if entry_key["type"] != "player" else -1
+	return "%s:%d" % [entry_key["type"], index]
+
 
 func _rebuild(available_width: float) -> void:
 	for child in get_children():
 		child.queue_free()
+	_cards_by_key.clear()
 
 	custom_minimum_size = Vector2(available_width, CARD_HEIGHT)
 	mouse_filter = Control.MOUSE_FILTER_PASS
@@ -246,7 +292,43 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 		card.shows_telegraph_slot = entry["isEnemy"]
 
 	_build_card_content(card)
+	_cards_by_key[card_key_string(entry["key"])] = card
 	return card
+
+
+# combat-presentation ticket 05, §4.1: called once, at the start of a round's
+# beat-queue playback, before any beat has actually played -- sets the
+# ghost bar's starting point straight to the pre-round hp (already computed
+# by the caller; see combat.gd's own _init_ghost_tracker()) with no tween,
+# since nothing has animated yet. A no-op if this key has no card on the
+# strip right now (e.g. a beat lands on someone the strip doesn't currently
+# have a card for -- shouldn't happen for a living combatant, but a caller
+# ratcheting through an unknown/mistyped key should degrade silently rather
+# than error, same as every other keyed lookup in this file).
+func set_initial_ghost(key_string: String, hp: int) -> void:
+	var card: NameplateCard = _cards_by_key.get(key_string)
+	if card == null:
+		return
+	card.set_ghost_hp(hp)
+
+
+# Tweens the named card's ghost bar down from wherever it currently sits to
+# `hp` over `duration` -- called once per damaging beat that lands on this
+# key, chasing the real bar down in visible steps rather than jumping there.
+# Needs a live tree (create_tween() requires one) -- tests exercising this
+# without one just get the instant set_initial_ghost()-style jump instead,
+# same "no live tree, no tween" guard NameplateCard._ready()'s own pulse
+# tween already uses.
+func drain_ghost_to(key_string: String, hp: int, duration: float) -> void:
+	var card: NameplateCard = _cards_by_key.get(key_string)
+	if card == null:
+		return
+	if not card.is_inside_tree():
+		card.set_ghost_hp(hp)
+		return
+	var from: int = card.ghost_hp if card.ghost_hp != null else card.hp
+	var tween := card.create_tween()
+	tween.tween_method(card.set_ghost_hp, from, hp, duration)
 
 
 func _build_card_content(card: NameplateCard) -> void:

@@ -1796,6 +1796,72 @@ func run() -> void:
 		assert_eq(combat["frozenTurns"], freeze_turns * 2, "freeze should be applied once per enemy actually hit (2 living enemies), not once total")
 	)
 
+	# ── combat-presentation ticket 05: cast_complication() beats ───────────
+
+	run_case("cast_complication_blast_returns_a_beat_with_dmg_and_the_focused_enemy_as_target", func():
+		_fresh_combat()
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["player"]["dial"] = _dial_with_loaded("blast", 1, 5)
+		GameState.state["combat"]["focusedEnemyIndex"] = 0
+
+		var result := Combat.cast_complication(0)
+
+		assert_true(result["ok"], "casting a loaded blast Complication should succeed")
+		var beats: Array = result["beats"]
+		assert_true(beats.size() > 0, "casting Blast should produce at least one beat")
+		assert_eq(beats[0]["kind"], Combat.BEAT_COMPLICATION_BLAST)
+		assert_eq(beats[0]["targetType"], "enemy")
+		assert_eq(beats[0]["targetIndex"], 0)
+		assert_true(int(beats[0]["dmg"]) > 0, "Blast's own beat should carry the damage it dealt")
+		assert_eq(beats.size(), GameState.state["combat"]["log"].size(), "beats should match the new log lines 1:1, same invariant player_attack()'s own beats hold")
+	)
+
+	run_case("cast_complication_black_hole_returns_an_announce_beat_plus_one_damaging_beat_per_enemy_hit", func():
+		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["player"]["dial"] = _dial_with_loaded("blackHole", 1, 5)
+
+		var result := Combat.cast_complication(0)
+
+		assert_true(result["ok"], "casting a loaded blackHole Complication should succeed")
+		var beats: Array = result["beats"]
+		assert_eq(beats.size(), 3, "an announce beat plus one hit beat per living (non-koed) enemy")
+		assert_eq(beats[0]["kind"], Combat.BEAT_COMPLICATION_BLACK_HOLE_ANNOUNCE)
+		assert_true(not beats[0].has("dmg"), "the announce beat itself carries no damage -- the juice layer should not react to it")
+		assert_eq(beats[1]["kind"], Combat.BEAT_COMPLICATION_BLACK_HOLE_HIT)
+		assert_eq(beats[1]["targetType"], "enemy")
+		assert_eq(beats[1]["targetIndex"], 0)
+		assert_true(int(beats[1]["dmg"]) > 0)
+		assert_eq(beats[2]["kind"], Combat.BEAT_COMPLICATION_BLACK_HOLE_HIT)
+		assert_eq(beats[2]["targetIndex"], 1, "the koed third enemy should be skipped entirely -- only the two living enemies get a hit beat")
+		assert_eq(beats.size(), combat["log"].size(), "beats should match the new log lines 1:1")
+	)
+
+	run_case("cast_complication_non_damaging_effects_still_return_beats_without_a_dmg_field", func():
+		_fresh_combat()
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["player"]["dial"] = _dial_with_loaded("shield", 1, 5)
+
+		var result := Combat.cast_complication(0)
+
+		assert_true(result["ok"], "casting a loaded shield Complication should succeed")
+		var beats: Array = result["beats"]
+		assert_eq(beats.size(), 1)
+		assert_eq(beats[0]["kind"], Combat.BEAT_COMPLICATION_SHIELD)
+		assert_true(not beats[0].has("dmg"), "a non-damaging Complication's beat should carry no dmg field -- the juice layer keys off its presence")
+	)
+
+	run_case("cast_complication_refused_casts_return_no_beats", func():
+		_fresh_combat()
+		GameState.state["combat"]["frozenTurns"] = 1
+		GameState.state["player"]["dial"] = _dial_with_loaded("timePearl", 1, 5)
+
+		var result := Combat.cast_complication(0)
+
+		assert_true(not result["ok"])
+		assert_eq(result.get("beats", []), [], "a refused cast should never hand back beats to play through the director")
+	)
+
 	run_case("three_enemy_fight_can_end_a_round_with_one_koed_and_two_still_standing_each_having_acted_independently", func():
 		var combat := _multi_enemy_combat([
 			{ "hp": 1 },

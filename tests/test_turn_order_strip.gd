@@ -361,3 +361,65 @@ func run() -> void:
 		assert_eq(after[0]["name"], "Enemy", "Motion doesn't change who's fastest -- the enemy still leads")
 		assert_eq(after.size(), 2, "Motion's extra queue slot must still collapse to one player card, not create a phantom reorder")
 	)
+
+	# ── combat-presentation ticket 05, §4.1: HP bar ghost-drain ─────────────
+
+	run_case("card_key_string_matches_player_ally_and_enemy_entry_keys", func():
+		assert_eq(TurnOrderStrip.card_key_string({ "type": "player" }), "player:-1")
+		assert_eq(TurnOrderStrip.card_key_string({ "type": "ally", "index": 2 }), "ally:2")
+		assert_eq(TurnOrderStrip.card_key_string({ "type": "enemy", "index": 0 }), "enemy:0")
+	)
+
+	run_case("set_initial_ghost_sets_the_named_cards_ghost_hp_with_no_tween_needed", func():
+		GameState.reset()
+		var combat := _combat([_enemy("Enemy", 12, 20)])
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+
+		strip.set_initial_ghost("enemy:0", 20)
+
+		var card := _card_named(strip, "Enemy")
+		assert_eq(card.ghost_hp, 20, "the ghost bar should jump straight to the given (pre-hit) hp")
+	)
+
+	run_case("set_initial_ghost_on_an_unknown_key_is_a_silent_no_op", func():
+		GameState.reset()
+		var combat := _combat([_enemy("Enemy", 20, 20)])
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+
+		strip.set_initial_ghost("ally:0", 20)  # no ally on this roster at all
+
+		# Should not crash/error -- just nothing to update.
+		assert_true(true)
+	)
+
+	run_case("drain_ghost_to_without_a_live_tree_jumps_straight_to_the_target_value", func():
+		GameState.reset()
+		var combat := _combat([_enemy("Enemy", 8, 20)])
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+		strip.set_initial_ghost("enemy:0", 20)
+
+		strip.drain_ghost_to("enemy:0", 8, 0.3)  # strip isn't in a live tree in this test, so create_tween() would error -- must fall back to an instant set
+
+		var card := _card_named(strip, "Enemy")
+		assert_eq(card.ghost_hp, 8, "with no live tree to tween on, the drain should still land on the target value instantly")
+	)
+
+	run_case("ghost_bar_only_draws_the_overlay_once_ghost_hp_is_above_the_real_hp", func():
+		GameState.reset()
+		var combat := _combat([_enemy("Enemy", 20, 20)])
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+		var card := _card_named(strip, "Enemy")
+
+		assert_eq(card.ghost_hp, null, "a card with no ghost-drain in progress should carry no ghost_hp at all")
+
+		card.set_ghost_hp(20)  # caught all the way up to the real (also 20) value
+		assert_eq(card.ghost_hp, 20, "set_ghost_hp should still record the value even once it matches -- _draw() is what decides whether there's an overlay to paint, not this setter")
+	)

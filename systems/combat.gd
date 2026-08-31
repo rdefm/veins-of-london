@@ -53,6 +53,21 @@ const BEAT_MOTION_END := "motion_end"
 const BEAT_FLEE_SUCCESS := "flee_success"
 const BEAT_FLEE_FAILED := "flee_failed"
 
+# combat-presentation ticket 05: cast_complication()'s own beat kinds (the
+# Dial-cast path only -- use_blast()/use_black_hole()/use_time_pearl() and
+# friends, the direct bag-inventory consumable path, still don't thread
+# beats; see this file's own _log() comment).
+const BEAT_COMPLICATION_TIME_PEARL := "complication_time_pearl"
+const BEAT_COMPLICATION_MOTION := "complication_motion"
+const BEAT_COMPLICATION_BLAST := "complication_blast"
+const BEAT_COMPLICATION_DISARM := "complication_disarm"
+const BEAT_COMPLICATION_SHIELD := "complication_shield"
+const BEAT_COMPLICATION_BLACK_HOLE_ANNOUNCE := "complication_black_hole_announce"
+const BEAT_COMPLICATION_BLACK_HOLE_HIT := "complication_black_hole_hit"
+const BEAT_COMPLICATION_HEALING_BURST := "complication_healing_burst"
+const BEAT_COMPLICATION_PROPHETS_BREATH := "complication_prophets_breath"
+const BEAT_COMPLICATION_WORMHOLE := "complication_wormhole"
+
 # calc-effect-wiring-02 combat-pattern consumables. Percentages/turns are
 # placeholders per the ticket ("tune as needed"), not final balance.
 const BLAST_FLEE_BOOST_CHANCE := 0.90
@@ -631,15 +646,16 @@ static func player_attack() -> Dictionary:
 
 # combat-presentation ticket 04, docs/combat-animation-vision.md §8: appends
 # `line` to combat.log and, when a live `beats` Array was threaded through
-# (only player_attack()/flee()'s parting shot/enemy_attack() do this -- see
-# each of their own comments), a matching pure-data beat carrying the same
-# line plus whatever kind/detail fields the caller supplies. `beats` is null
-# (not an empty Array) at every call site that doesn't need beats
-# (use_blast()/use_black_hole()/cast_complication() and friends, which still
-# call this via _maybe_win_from_direct_damage()'s shared win-check), so this
-# stays a single no-op branch rather than a second logging path. No Node,
-# Callable, or SpriteFrames reference ever enters a beat -- ids/numbers/
-# strings only, resolved by the screen through its own combatant-lookup.
+# (player_attack()/flee()'s parting shot/enemy_attack(), and -- combat-
+# presentation ticket 05 -- cast_complication()), a matching pure-data beat
+# carrying the same line plus whatever kind/detail fields the caller
+# supplies. `beats` is null (not an empty Array) at every call site that
+# doesn't need beats (use_blast()/use_black_hole()/use_time_pearl() and
+# friends, the direct bag-inventory consumable path, which still call this
+# via _maybe_win_from_direct_damage()'s shared win-check), so this stays a
+# single no-op branch rather than a second logging path. No Node, Callable,
+# or SpriteFrames reference ever enters a beat -- ids/numbers/strings only,
+# resolved by the screen through its own combatant-lookup.
 static func _log(combat: Dictionary, beats: Variant, line: String, kind: String, extra: Dictionary = {}) -> void:
 	combat["log"].append(line)
 	if beats == null:
@@ -983,15 +999,31 @@ static func use_shield() -> Dictionary:
 # the total damage/freeze applied, once per enemy at full power. frozenTurns
 # is one shared pool across the whole fight (ticket 02's turn queue), so N
 # enemies hit adds freeze_turns once per enemy, not once total.
-static func _apply_black_hole_aoe(combat: Dictionary, dmg: int, freeze_turns: int) -> int:
+#
+# combat-presentation ticket 05: `beats` (null by default, same convention
+# as _log()) is only ever threaded through by cast_complication() -- when
+# present, each hit gets its own log line + beat (kind
+# BEAT_COMPLICATION_BLACK_HOLE_HIT, dmg + targetIndex set) instead of
+# use_black_hole()'s single combined summary line, so the juice layer (ticket
+# 05) can play a hit-stop/damage-number/shake/flash per enemy in the fan,
+# sequentially, rather than all at once against no particular target.
+static func _apply_black_hole_aoe(combat: Dictionary, dmg: int, freeze_turns: int, beats: Variant = null) -> int:
 	var hit_count := 0
-	for enemy in combat["enemies"]:
+	for i in range(combat["enemies"].size()):
+		var enemy: Dictionary = combat["enemies"][i]
 		if enemy["koed"]:
 			continue
 		enemy["hp"] = maxi(0, enemy["hp"] - dmg)
 		combat["frozenTurns"] += freeze_turns
+		if beats != null:
+			# PROSE-REVIEW: new per-enemy Black-Hole-hit log line (cast_complication()'s
+			# path only -- use_black_hole()'s own single combined summary line,
+			# untouched by this ticket, is unaffected), drafted against
+			# CONTENT-GUIDE.md's tone bible.
+			_log(combat, beats, "%s takes %d damage, frozen %d turn(s). %s: %d/%d HP." % [enemy["name"], dmg, freeze_turns, enemy["name"], enemy["hp"], enemy["hpMax"]], BEAT_COMPLICATION_BLACK_HOLE_HIT,
+				{ "targetType": "enemy", "targetIndex": i, "dmg": dmg })
 		hit_count += 1
-		_maybe_win_from_direct_damage(combat, enemy)
+		_maybe_win_from_direct_damage(combat, enemy, beats)
 	return hit_count
 
 
@@ -1172,28 +1204,41 @@ static func cast_complication(index: int) -> Dictionary:
 	# PROSE-REVIEW: every "You trigger %s..." log line below is new,
 	# Complication-flavoured phrasing (the old device-activation lines read
 	# "You activate the %s...") drafted against CONTENT-GUIDE.md's tone bible.
+	#
+	# combat-presentation ticket 05: every branch now logs through _log()
+	# instead of a raw combat["log"].append(), so this cast returns a `beats`
+	# array the screen can play back through CombatDirector the same way
+	# player_attack()/enemy_attack()/flee() already do (ticket 04) -- the
+	# Dial's Blast/Black Hole casts are exactly the "Blast, Black Hole
+	# per-enemy hit" damaging beats the juice layer (§4.1) needs to hang a
+	# hit-stop/damage-number/shake/flash on. blast/blackHole are the only
+	# branches that set a `dmg` field (the juice layer keys off that field's
+	# presence, not the beat's kind) -- the others are narrative-only beats.
+	var beats: Array = []
 	match recipe_key:
 		"timePearl":
 			var total: int = int(power) * targets
 			combat["frozenTurns"] += total
 			var turn_word: String = "turn" if total == 1 else "turns"
-			combat["log"].append("You trigger %s. Enemy frozen for %d %s." % [recipe["name"], total, turn_word])
+			_log(combat, beats, "You trigger %s. Enemy frozen for %d %s." % [recipe["name"], total, turn_word], BEAT_COMPLICATION_TIME_PEARL, {})
 		"enhancementPowder":
 			combat["motionPower"] = power
 			combat["motionTurns"] = 2 if power >= 3 else 1
-			combat["log"].append("You trigger %s. Movement accelerated." % recipe["name"])
+			_log(combat, beats, "You trigger %s. Movement accelerated." % recipe["name"], BEAT_COMPLICATION_MOTION, {})
 		"blast":
 			var dmg: int = int(power) * targets
+			var target_index: int = combat["focusedEnemyIndex"]
 			enemy["hp"] = maxi(0, enemy["hp"] - dmg)
-			combat["log"].append("You trigger %s — %d damage. Enemy: %d/%d HP." % [recipe["name"], dmg, enemy["hp"], enemy["hpMax"]])
+			_log(combat, beats, "You trigger %s — %d damage. Enemy: %d/%d HP." % [recipe["name"], dmg, enemy["hp"], enemy["hpMax"]], BEAT_COMPLICATION_BLAST,
+				{ "targetType": "enemy", "targetIndex": target_index, "dmg": dmg })
 			combat["blastFleeBoost"] = true
 			if Rng.chance(BLAST_DISARM_CHANCE):
 				disarm_enemy(enemy, BLAST_DISARM_TURNS)
-				combat["log"].append("The shove knocks their weapon loose.")
-			_maybe_win_from_direct_damage(combat, enemy)
+				_log(combat, beats, "The shove knocks their weapon loose.", BEAT_COMPLICATION_DISARM, {})
+			_maybe_win_from_direct_damage(combat, enemy, beats)
 		"shield":
 			player["shieldPool"] += int(power) * targets
-			combat["log"].append("You trigger %s. Shield up — %d absorption." % [recipe["name"], player["shieldPool"]])
+			_log(combat, beats, "You trigger %s. Shield up — %d absorption." % [recipe["name"], player["shieldPool"]], BEAT_COMPLICATION_SHIELD, {})
 		"blackHole":
 			# squad-combat ticket 03: AoE, ignores focusedEnemyIndex -- hits every
 			# non-koed enemy independently at full power (targets' Spread
@@ -1201,23 +1246,23 @@ static func cast_complication(index: int) -> Dictionary:
 			# same as use_black_hole() above).
 			var dmg: int = int(power) * targets
 			var freeze_turns: int = (1 + int(floor(float(power) / 8.0))) * targets
-			var hit_count: int = _apply_black_hole_aoe(combat, dmg, freeze_turns)
-			combat["log"].append("You trigger %s — %d damage to every enemy (%d %s hit), each frozen %d turn(s)." % [recipe["name"], dmg, hit_count, _enemy_word(hit_count), freeze_turns])
+			_log(combat, beats, "You trigger %s." % recipe["name"], BEAT_COMPLICATION_BLACK_HOLE_ANNOUNCE, {})
+			_apply_black_hole_aoe(combat, dmg, freeze_turns, beats)
 		"healingBurst":
 			var old_hp: int = player["hp"]
 			player["hp"] = mini(player["hp"] + int(power) * targets, player["hpMax"])
 			var healed: int = player["hp"] - old_hp
-			combat["log"].append("You trigger %s — +%d HP. %d/%d HP." % [recipe["name"], healed, player["hp"], player["hpMax"]])
+			_log(combat, beats, "You trigger %s — +%d HP. %d/%d HP." % [recipe["name"], healed, player["hp"], player["hpMax"]], BEAT_COMPLICATION_HEALING_BURST, {})
 		"prophetsBreath":
 			combat["evadeTurns"] = int(power) * targets
 			combat["evadeChance"] = 0.50
-			combat["log"].append("You trigger %s. For a few seconds, you can see it coming." % recipe["name"])
+			_log(combat, beats, "You trigger %s. For a few seconds, you can see it coming." % recipe["name"], BEAT_COMPLICATION_PROPHETS_BREATH, {})
 		"wormhole":
 			combat["outcome"] = "fled"
-			combat["log"].append("You trigger %s. You fold the space between you and gone." % recipe["name"])
+			_log(combat, beats, "You trigger %s. You fold the space between you and gone." % recipe["name"], BEAT_COMPLICATION_WORMHOLE, {})
 
 	EventBus.state_changed.emit()
-	return { "ok": true, "recipeKey": recipe_key, "power": power, "targets": targets }
+	return { "ok": true, "recipeKey": recipe_key, "power": power, "targets": targets, "beats": beats }
 
 
 static func combat_rewind() -> Dictionary:

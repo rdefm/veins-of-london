@@ -24,6 +24,15 @@ extends Control
 const NORMAL_DURATION := 0.5
 const QUICK_DURATION := 0.15
 
+# combat-presentation ticket 05, docs/combat-animation-vision.md §4.1: hit-
+# stop -- a brief pause in beat playback on a landed hit, "60-90ms". Added on
+# top of (not instead of) the beat's own paced duration, for every beat that
+# carries a positive `dmg` (any of them -- an attack beat or, ticket 05's own
+# wiring, a Complication cast's Blast/Black Hole beat), regardless of pacing
+# mode: it's a punctuation beat, not part of the "how fast rounds play out"
+# knob beat_duration already covers.
+const HIT_STOP_DURATION := 0.075
+
 var pacing_mode: String = CombatPacing.DEFAULT_MODE
 var beat_duration: float = NORMAL_DURATION
 
@@ -55,6 +64,8 @@ func play(beats: Array, on_beat: Callable) -> void:
 		if not _skip_requested:
 			var tween := create_tween()
 			_active_tween = tween
+			if beat_is_damaging(beat):
+				tween.tween_interval(HIT_STOP_DURATION)
 			tween.tween_interval(beat_duration)
 			await tween.finished
 	_active_tween = null
@@ -89,3 +100,13 @@ func set_pacing(mode: String) -> void:
 func _apply_pacing(mode: String) -> void:
 	pacing_mode = mode
 	beat_duration = QUICK_DURATION if mode == "quick" else NORMAL_DURATION
+
+
+# Public (not `_`-prefixed) so both this file and CombatScreen's own juice-
+# layer code (scenes/screens/combat.gd's _play_juice()) key off the exact
+# same "does this beat land damage" test -- a beat is damaging purely by
+# carrying a positive `dmg` field, regardless of its `kind` (§4.1's juice
+# layer, per combat-presentation ticket 05's own scope note, keys off `dmg`
+# rather than an enumerated list of damaging beat kinds).
+static func beat_is_damaging(beat: Dictionary) -> bool:
+	return beat.get("dmg", 0) > 0

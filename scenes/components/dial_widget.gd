@@ -40,6 +40,7 @@ const ROTATE_ANGLE_THRESHOLD := 0.35
 var _dial: Dictionary = {}
 var _selected_index: int = 0
 var _on_selection_changed: Callable = Callable()
+var _on_triggered: Callable = Callable()
 
 var _drag_index := -100
 var _drag_start_angle: float = 0.0
@@ -50,11 +51,20 @@ var _drag_start_angle: float = 0.0
 # whatever loadedComplications looks like right now, since ticket 03's Dial
 # management (bag_drawer.gd, out of combat only) can't change that list
 # mid-fight but a fresh Dial/fight can hand this a stale index.
-func configure(dial: Dictionary, selected_index: int, on_selection_changed: Callable) -> void:
+#
+# combat-presentation ticket 05: `on_triggered` (optional, defaults to a
+# no-op Callable so every pre-ticket-05 configure() call site/test still
+# works unchanged) reports handle_trigger()'s Combat.cast_complication()
+# result -- same "report through a callback, never own the follow-up"
+# split on_selection_changed already uses. CombatScreen wires it to play the
+# result's `beats` back through CombatDirector, same as an Attack/Run press
+# (_play_round()) -- see that file's _on_dial_triggered().
+func configure(dial: Dictionary, selected_index: int, on_selection_changed: Callable, on_triggered: Callable = Callable()) -> void:
 	_dial = dial
 	var loaded: Array = dial.get("loadedComplications", [])
 	_selected_index = clampi(selected_index, 0, maxi(0, loaded.size() - 1))
 	_on_selection_changed = on_selection_changed
+	_on_triggered = on_triggered
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	queue_redraw()
 
@@ -81,8 +91,14 @@ func handle_rotate(direction: int) -> void:
 # Combat.cast_complication() (systems/combat.gd:1021) already guards charge/
 # validity and appends its own log line -- this widget is a thin dispatcher,
 # same shape as _build_action_bar()'s old inline UI.button() callbacks.
+# combat-presentation ticket 05: the cast itself is still this synchronous
+# direct call (state is fully mutated by the time this returns, same as
+# every other Combat.* call site) -- only the result's `beats` gets handed
+# onward, through _on_triggered, for cosmetic playback.
 func handle_trigger() -> void:
-	Combat.cast_complication(_selected_index)
+	var result: Dictionary = Combat.cast_complication(_selected_index)
+	if _on_triggered.is_valid():
+		_on_triggered.call(result)
 
 
 func _gui_input(event: InputEvent) -> void:
