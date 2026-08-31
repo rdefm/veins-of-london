@@ -125,18 +125,44 @@ static func build_pin_shortcut_actions(contact_id: String) -> Array:
 	return actions
 
 
-# collective1-10, spec §6.7/§7.2: Des's own conditional action bar button --
-# distinct from the generic pendingMessages "Continue →" loop
-# (phone.gd's _build_action_bar) because colA1DesSitesFound flips silently
+# des-dialogue-turn-in-flow ticket 02: Des's own conditional action bar
+# button -- distinct from the generic pendingMessages "Continue →" loop
+# (phone.gd's _build_action_bar) because a qualifying site flips silently
 # off the objectives engine (Objectives.refresh(), called at Sites.prospect())
 # rather than an authored text arriving, so there's no pendingMessages entry
-# to hang a button off. Returns null once colA1DesThreadDone is set, same
-# "vanish, don't disable" shape build_recruit_row() uses below.
+# to hang a button off. Shown the moment ANY required ore type
+# (col_a1_des_sites' requireEachOreType) has a currently-qualifying,
+# not-yet-reported site -- not gated on colA1DesSitesFound any more, since
+# that flag only flips once BOTH are reported (Collective.report_des_site()
+# reports one at a time, per des-sites-partial-turnin ticket 01). Returns
+# null once colA1DesThreadDone is set, same "vanish, don't disable" shape
+# build_recruit_row() uses below.
 static func build_des_report_action() -> Control:
 	var flags: Dictionary = GameState.state["flags"]
-	if not flags.get("colA1DesSitesFound", false) or flags.get("colA1DesThreadDone", false):
+	if flags.get("colA1DesThreadDone", false):
 		return null
-	return UI.button("Tell Des about the ground", func(): Events.start_event("col_a1_des_report"))
+	var ore_type := Collective.next_reportable_des_ore_type()
+	if ore_type == "":
+		return null
+	return UI.button("Tell Des about the ground", func(): _on_des_report_pressed(ore_type))
+
+
+# Reports the site (converting it to a Collective vein and awarding relation
+# immediately, per Collective.report_des_site()) THEN plays a scene reacting
+# to it -- the first-report scene naming whichever ore type is still needed
+# if this was only one of the two, or the reworked col_a1_des_report closer
+# if this report just completed the objective. Relation is never awarded
+# twice: report_des_site() is the only thing that awards it, both here and
+# for the closing report, so col_a1_des_report's own on_complete doesn't.
+static func _on_des_report_pressed(ore_type: String) -> void:
+	var result := Collective.report_des_site(ore_type)
+	if not result.get("ok", false):
+		return
+
+	if GameState.state["objectives"]["col_a1_des_sites"]["complete"]:
+		Events.start_event("col_a1_des_report")
+	else:
+		Events.start_event("col_a1_des_report_first_%s" % ore_type)
 
 
 # collective1-11, spec §6.8/§7.2: Nadia's own conditional action bar button

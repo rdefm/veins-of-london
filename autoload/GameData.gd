@@ -170,8 +170,13 @@ const EVENT_IDS: Array[String] = [
 	# the ground", delivered as a real action-bar button (ContactCards.
 	# build_des_report_action()), not a pendingMessages entry, since
 	# colA1DesSitesFound flips silently off the objectives engine rather than
-	# an authored text arriving.
-	"col_a1_des_report",
+	# an authored text arriving. col_a1_des_report itself is now the
+	# second/closing report only (per-site reporting mechanic, systems/
+	# collective.gd's report_des_site()) -- the two _first_ variants below
+	# play instead the moment just one ore type has been handed over, named
+	# by whichever ore type was just reported since that's the one the still-
+	# needed line has to name.
+	"col_a1_des_report", "col_a1_des_report_first_fate", "col_a1_des_report_first_physics",
 	# collective1-11, spec.md §6.8: Nadia's introduction -- "Go and see Nadia",
 	# delivered the same way as col_a1_des_report above (a real action-bar
 	# button, ContactCards.build_nadia_meet_action(), not a pendingMessages

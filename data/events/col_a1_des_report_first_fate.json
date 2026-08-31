@@ -1,0 +1,12 @@
+{
+  "id": "col_a1_des_report_first_fate",
+  "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "You give Des one address. He doesn't write it down." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Fate. In the City, no less.\" He's pleased in a way that takes a second to read as pleased. \"That's one. Somebody'll have something by the weekend.\"" },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Still want physics off you an' all. No rush — just don't go thinking that's the job done.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "By the end of the week, one patch you found has a vein in it and it isn't yours. You seem fine with this." }
+  ],
+  "on_complete": [
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

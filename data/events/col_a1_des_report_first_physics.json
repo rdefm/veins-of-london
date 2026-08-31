@@ -1,0 +1,12 @@
+{
+  "id": "col_a1_des_report_first_physics",
+  "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "You give Des one address. He doesn't write it down." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Physics. Good — that's somebody sorted by the weekend.\" He's pleased in a way that takes a second to read as pleased." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Still want a fate patch off you an' all. City, for preference — nobody round here's got the ground for it. No rush.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "By the end of the week, one patch you found has a vein in it and it isn't yours. You seem fine with this." }
+  ],
+  "on_complete": [
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

@@ -94,7 +94,12 @@ func run() -> void:
 
 	run_case("des_card_surfaces_its_story_actions_same_as_the_conversation_action_bar", func():
 		GameState.reset()
-		GameState.state["flags"]["colA1DesSitesFound"] = true
+		GameState.state["flags"]["colA1DesThreadActive"] = true
+		GameState.state["world"]["sites"].append({
+			"id": "s_fate", "district": "shoreditch", "tier": "fair", "oreType": "fate",
+			"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
+			"hasNaturalVein": false,
+		})
 		assert_true(_find_button(ContactCards.build_des_card(), "Tell Des about the ground") != null, "report action reused from build_des_report_action()")
 
 		GameState.state["flags"]["colA1DeferredJoin"] = true

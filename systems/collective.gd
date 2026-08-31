@@ -75,11 +75,7 @@ static func report_des_site(ore_type: String) -> Dictionary:
 	if reported.has(ore_type):
 		return { "ok": false, "reason": "Already reported." }
 
-	var found: Variant = null
-	for site in GameState.state["world"]["sites"]:
-		if Objectives.site_matches_discovery_params(site, ore_type, params):
-			found = site
-			break
+	var found: Variant = _find_qualifying_des_site(ore_type, params)
 	if found == null:
 		return { "ok": false, "reason": "No qualifying site." }
 
@@ -94,6 +90,37 @@ static func report_des_site(ore_type: String) -> Dictionary:
 	Objectives.refresh()
 	EventBus.state_changed.emit()
 	return { "ok": true, "oreType": ore_type, "siteId": found["id"] }
+
+
+# des-sites-partial-turnin ticket 02: the first required ore type (col_a1_
+# des_sites' requireEachOreType, in order) that hasn't been reported yet and
+# currently has a qualifying site -- "" if none does. ContactCards.
+# build_des_report_action() calls this to decide whether to show "Tell Des
+# about the ground" and which ore type pressing it will report, sharing the
+# exact qualifying-site scan report_des_site() above uses so the button can
+# never surface a report that call would then reject as "no qualifying site".
+static func next_reportable_des_ore_type() -> String:
+	if not GameState.state["flags"].get("colA1DesThreadActive", false):
+		return ""
+
+	var def: Dictionary = GameData.OBJECTIVES["col_a1_des_sites"]
+	var params: Dictionary = def["params"]
+	var objective: Dictionary = GameState.state["objectives"].get(def["id"], {})
+	var reported: Dictionary = objective.get("progress", {}).get("reportedSiteIds", {})
+
+	for ore_type in params.get("requireEachOreType", []):
+		if reported.has(ore_type):
+			continue
+		if _find_qualifying_des_site(ore_type, params) != null:
+			return ore_type
+	return ""
+
+
+static func _find_qualifying_des_site(ore_type: String, params: Dictionary) -> Variant:
+	for site in GameState.state["world"]["sites"]:
+		if Objectives.site_matches_discovery_params(site, ore_type, params):
+			return site
+	return null
 
 
 # collective1-09, spec §6.5/§6.6/§10.4: Des's two location-agnostic "Firm as

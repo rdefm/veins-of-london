@@ -1,16 +1,14 @@
 {
   "id": "col_a1_des_report",
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "You give Des two addresses. He writes neither of them down." },
-    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Fate in the City. Course it is.\" He's pleased in a way that takes a second to read as pleased. \"And physics. Good. That's two people who'll have something by the weekend.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "You give Des the last address. He still doesn't write it down." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"That's the pair, then.\" He's pleased in a way that takes a second to read as pleased. \"Two people who'll have something by the weekend.\"" },
     { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Archie all right? We go back — years, that. Had a bit of business once, sorted it out ages ago.\" He says it with the mild warmth of a man recalling a settled account, and moves on before you can ask which business." },
     { "type": "narration", "label": null, "speaker": null, "text": "You ask who. He tells you the first names and nothing else, and you realise a beat later that he has told you exactly as much as he'd tell anyone about you." },
     { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Nobody's ever raided a vein they didn't know about.\" He says it as a small joke about paperwork. \"That's the whole trick. That's it. That's the entire clever bit.\"" },
-    { "type": "resolution", "label": null, "speaker": null, "text": "By the end of the week, two patches you found have veins in them and neither of them is yours. You are, apparently, fine with this, which is itself new information." }
+    { "type": "resolution", "label": null, "speaker": null, "text": "By the end of the week, both patches you found have veins in them and neither of them is yours. You are, apparently, fine with this, which is itself new information." }
   ],
   "on_complete": [
-    { "op": "faction_seed_reported_sites", "objective": "col_a1_des_sites", "faction": "collective" },
-    { "op": "faction_relation", "faction": "collective", "value": 8 },
     { "op": "set_flag", "flag": "colA1DesThreadDone", "value": true },
     { "op": "set_screen", "screen": "phone" }
   ]

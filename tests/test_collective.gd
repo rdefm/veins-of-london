@@ -191,3 +191,42 @@ func run() -> void:
 		assert_true(GameState.state["objectives"]["col_a1_des_sites"]["complete"])
 		assert_eq(GameState.state["objectives"]["col_a1_des_sites"]["progress"]["reportedSiteIds"], { "fate": "s_fate", "physics": "s_physics" })
 	)
+
+	# ── next_reportable_des_ore_type() ──────────────────────────────────
+
+	run_case("next_reportable_des_ore_type_is_empty_when_the_thread_is_not_active", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
+		assert_eq(Collective.next_reportable_des_ore_type(), "")
+	)
+
+	run_case("next_reportable_des_ore_type_is_empty_with_no_qualifying_site", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesThreadActive"] = true
+		assert_eq(Collective.next_reportable_des_ore_type(), "")
+	)
+
+	run_case("next_reportable_des_ore_type_returns_fate_before_physics_when_both_qualify", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesThreadActive"] = true
+		GameState.state["world"]["sites"] = [_site("s_fate", "fate", "fair"), _site("s_physics", "physics", "fair")]
+		assert_eq(Collective.next_reportable_des_ore_type(), "fate", "requireEachOreType order: fate, physics")
+	)
+
+	run_case("next_reportable_des_ore_type_skips_an_ore_type_already_reported", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesThreadActive"] = true
+		GameState.state["world"]["sites"] = [_site("s_fate", "fate", "fair")]
+		Collective.report_des_site("fate")
+		GameState.state["world"]["sites"].append(_site("s_physics", "physics", "fair"))
+		assert_eq(Collective.next_reportable_des_ore_type(), "physics")
+	)
+
+	run_case("next_reportable_des_ore_type_is_empty_once_both_are_reported", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1DesThreadActive"] = true
+		GameState.state["world"]["sites"] = [_site("s_fate", "fate", "fair"), _site("s_physics", "physics", "fair")]
+		Collective.report_des_site("fate")
+		Collective.report_des_site("physics")
+		assert_eq(Collective.next_reportable_des_ore_type(), "")
+	)
