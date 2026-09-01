@@ -16,6 +16,7 @@ You are porting and extending **Vein**, a mobile-first, menu-driven London urban
 | Original event prose (extract only, never mechanics) | `reference/london-orichalchum.html` |
 | Domain terminology (site vs. vein, claim states, etc.) | `CONTEXT.md` |
 | Architectural decisions and why | `docs/adr/` |
+| Which file owns what (systems/screens/data index) | `CODEMAP.md` |
 
 The HTML file is **prose quarry only**. Never copy mechanics, formulas, or data from it — the ore roster changed and REFERENCE.md is canonical. If REFERENCE.md and the HTML disagree, REFERENCE.md wins, always.
 
@@ -68,6 +69,7 @@ Identical discipline to the prototype:
 4. Work one task at a time, in the order the milestone doc lists them — the order is dependency-sorted. Commit per task with message `M0-T04: <task name>`.
 5. Never claim something works without having run it headless. You cannot see the UI; the human is visual QA. When a task has UI, list exactly what the human should check on-device, in one short block at the end of your report.
 6. If you need a decision the specs don't make, ask. Do not invent.
+7. If you add, delete, rename, or repurpose a file under `systems/`, `screens/`, `scenes/`, `autoload/`, or `data/` — or change what a file is responsible for — update `CODEMAP.md` in the same commit. Stale map entries cost more tokens later than the update costs now.
 
 ## Environment setup (sandbox or fresh machine)
 
