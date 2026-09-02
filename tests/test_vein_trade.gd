@@ -285,9 +285,12 @@ func run() -> void:
 		GameState.reset()
 		_seed_vein(50, "rich")
 
-		VeinTrade.transfer_to_faction("v1", "collective", 500, true)
+		# 300 stays under RelationAccrual's £350 collective rate, so it lands
+		# whole in tradeProgress with no point conversion complicating this
+		# assertion.
+		VeinTrade.transfer_to_faction("v1", "collective", 300, true)
 
-		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 500, "accrual runs off the given price even though no cash changed hands yet")
+		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 300, "accrual runs off the given price even though no cash changed hands yet")
 	)
 
 	run_case("transfer_to_faction_count_as_player_sale_false_does_not_stamp_soldByPlayer", func():
@@ -432,15 +435,15 @@ func run() -> void:
 
 	run_case("buy_from_faction_accrues_tradeProgress_on_the_price", func():
 		GameState.reset()
-		# growth 10 on "fair" keeps the quote below RelationAccrual's 750
+		# growth 5 on "fair" keeps the quote below RelationAccrual's £350
 		# collective rate, so tradeProgress lands at the raw price with no
 		# daily-cap rollover complicating the assertion (see
 		# transfer_to_faction_still_accrues_tradeProgress_on_the_given_price's
 		# own low-price choice for the same reason).
-		var faction_vein := _faction_seed_vein(10, "fair")
+		var faction_vein := _faction_seed_vein(5, "fair")
 		GameState.state["player"]["cash"] = 100000
 		var price: int = VeinTrade.quote(faction_vein)
-		assert_true(price < 750, "sanity: keep this test under the accrual rate")
+		assert_true(price < 350, "sanity: keep this test under the accrual rate")
 
 		VeinTrade.buy_from_faction(faction_vein["id"], "collective")
 

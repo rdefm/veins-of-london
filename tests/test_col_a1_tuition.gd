@@ -109,7 +109,7 @@ func run() -> void:
 		assert_true(GameState.state["contacts"]["des"]["unlocked"], "des should be unlocked")
 		assert_true(GameState.state["flags"]["colA1DesMet"])
 		assert_true(GameState.state["flags"]["collectiveLaneUnlocked"])
-		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 3, "S1 awards +3 collective relation")
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 5, "S1 awards +5 collective relation")
 		assert_eq(GameState.state["flags"]["colA1Stage"], "tuition")
 		# Regression (bugfix: col_a1_intro's Continue button did nothing once
 		# the event finished): on_complete must navigate off the event screen,

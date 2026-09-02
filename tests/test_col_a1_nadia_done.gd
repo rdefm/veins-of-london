@@ -120,14 +120,14 @@ func run() -> void:
 		assert_eq(GameState.state["event"], null, "the thread is already closed -- no second col_a1_nadia_done")
 	)
 
-	# ── on_complete: relation +8, colA1NadiaThreadDone ──────────────────────
+	# ── on_complete: relation +10, colA1NadiaThreadDone ─────────────────────
 	# Driven directly via Events.start_event() (same idiom test_col_a1_des_
 	# report.gd uses), not through a real sale -- VeinTrade.sell_to_faction()
 	# also runs the sale's own RelationAccrual.accrue_faction() (spec §8.4),
-	# which would add its own relation points on top of this scene's +8 and
+	# which would add its own relation points on top of this scene's +10 and
 	# make the assertion price-dependent for no reason this test cares about.
 
-	run_case("on_complete_awards_8_collective_relation_and_sets_the_thread_done_flag", func():
+	run_case("on_complete_awards_10_collective_relation_and_sets_the_thread_done_flag", func():
 		GameState.reset()
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 
@@ -135,7 +135,7 @@ func run() -> void:
 		for i in range(GameData.EVENTS["col_a1_nadia_done"]["cards"].size()):
 			Events.advance()
 
-		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 8)
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 10)
 		assert_true(GameState.state["flags"]["colA1NadiaThreadDone"])
 		# Regression (bugfix: an on_complete missing a "set_screen" op leaves
 		# the EventScreen stuck on a dead Continue button, per tests/

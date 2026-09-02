@@ -31,7 +31,7 @@ func _play_event_with_choices(event_id: String, choices: Array) -> void:
 			Events.advance()
 
 
-func _set_all_threads_done(relation: int = 27) -> void:
+func _set_all_threads_done(relation: int = 37) -> void:
 	GameState.state["flags"]["colA1DesThreadDone"] = true
 	GameState.state["flags"]["colA1NadiaThreadDone"] = true
 	GameState.state["flags"]["colA1HakimThreadDone"] = true
@@ -51,7 +51,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadDone"] = true
 		GameState.state["flags"]["colA1NadiaThreadDone"] = true
-		GameState.state["factions"]["collective"]["relation"] = 27
+		GameState.state["factions"]["collective"]["relation"] = 37
 		assert_true(not Collective.maybe_trigger_closer())
 	)
 
@@ -93,10 +93,10 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadDone"] = true
 		GameState.state["flags"]["colA1NadiaThreadDone"] = true
-		GameState.state["factions"]["collective"]["relation"] = 19  # +8 below lands exactly at 27 total across S1/S7/S10/S12 in real play; here just below 25
+		GameState.state["factions"]["collective"]["relation"] = 24  # below 25; Hakim's own +10 will cross the gate
 
 		_seed_rescued_hakim_vein_for_handback()
-		_play_event("col_a1_hakim_done")  # sets colA1HakimThreadDone, +8 relation -> 27
+		_play_event("col_a1_hakim_done")  # sets colA1HakimThreadDone, +10 relation -> 34
 
 		assert_true(GameState.state["flags"]["colA1HakimThreadDone"])
 		assert_eq(Messages.pending_for("hakim").size(), 1, "advance()'s on_complete boundary must trigger the closer automatically")
@@ -181,7 +181,7 @@ func run() -> void:
 
 	run_case("playing_the_closer_with_thank_him_and_im_in_joins_and_seeds_the_vein", func():
 		GameState.reset()
-		GameState.state["factions"]["collective"]["relation"] = 27
+		GameState.state["factions"]["collective"]["relation"] = 37
 
 		_play_event_with_choices("col_a1_closer", [0, 0])  # Thank him, I'm in
 
@@ -209,7 +209,7 @@ func run() -> void:
 
 	run_case("playing_the_closer_with_not_yet_defers_membership", func():
 		GameState.reset()
-		GameState.state["factions"]["collective"]["relation"] = 27
+		GameState.state["factions"]["collective"]["relation"] = 37
 
 		_play_event_with_choices("col_a1_closer", [1, 1])  # Insist on paying, Not yet
 
@@ -266,7 +266,7 @@ func run() -> void:
 	run_case("col_a1_deferred_join_on_complete_grants_membership", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DeferredJoin"] = true
-		GameState.state["factions"]["collective"]["relation"] = 27
+		GameState.state["factions"]["collective"]["relation"] = 37
 
 		_play_event("col_a1_deferred_join")
 

@@ -3,42 +3,47 @@ extends "res://tests/test_base.gd"
 # RelationAccrual — collective1-06, spec.md §8.4: trade feeds the meter that
 # owns the lane as an accumulating, remainder-carrying £-denominated counter
 # (tradeProgress) rather than a flat per-transaction award, capped per day.
+#
+# bugfix, post-launch: the collective lane's rate/cap were originally £750
+# per point, capped at +3/day -- too slow and, with no Notify feedback
+# (added in RelationAccrual._accrue()), too invisible. Now £350/+5/day; see
+# systems/relation_accrual.gd's LANES comment.
 
 
 func run() -> void:
-	# ── Collective lane: +1 per £750, capped at +3/day ──────────────────
+	# ── Collective lane: +1 per £350, capped at +5/day ──────────────────
 
-	run_case("collective_accrues_one_relation_point_per_750_traded", func():
+	run_case("collective_accrues_one_relation_point_per_350_traded", func():
 		GameState.reset()
 		var starting: int = GameState.state["factions"]["collective"]["relation"]
-		RelationAccrual.accrue_collective(750)
-		assert_eq(GameState.state["factions"]["collective"]["relation"], starting + 1, "£750 exactly buys one relation point")
+		RelationAccrual.accrue_collective(350)
+		assert_eq(GameState.state["factions"]["collective"]["relation"], starting + 1, "£350 exactly buys one relation point")
 		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 0, "the rate is consumed exactly, nothing left over")
 	)
 
 	run_case("collective_tradeProgress_carries_its_remainder_across_trades", func():
 		GameState.reset()
-		RelationAccrual.accrue_collective(400)
-		assert_eq(GameState.state["factions"]["collective"]["relation"], 0, "£400 alone is below the £750 rate")
-		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 400, "the £400 is banked, not dropped")
+		RelationAccrual.accrue_collective(200)
+		assert_eq(GameState.state["factions"]["collective"]["relation"], 0, "£200 alone is below the £350 rate")
+		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 200, "the £200 is banked, not dropped")
 
-		RelationAccrual.accrue_collective(400)
-		# 400 + 400 = 800 >= 750 -> one point, 50 left over
-		assert_eq(GameState.state["factions"]["collective"]["relation"], 1, "the second trade's £400 tops the first over the £750 rate")
+		RelationAccrual.accrue_collective(200)
+		# 200 + 200 = 400 >= 350 -> one point, 50 left over
+		assert_eq(GameState.state["factions"]["collective"]["relation"], 1, "the second trade's £200 tops the first over the £350 rate")
 		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 50, "the £50 remainder past the rate carries forward")
 	)
 
-	run_case("collective_relation_award_is_capped_at_3_per_day_but_tradeProgress_keeps_the_rest", func():
+	run_case("collective_relation_award_is_capped_at_5_per_day_but_tradeProgress_keeps_the_rest", func():
 		GameState.reset()
-		# £750 * 5 = one huge trade worth 5 relation points -- only 3/day allowed.
-		RelationAccrual.accrue_collective(750 * 5)
-		assert_eq(GameState.state["factions"]["collective"]["relation"], 3, "daily cap holds even a single huge trade to +3")
-		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 750 * 2, "the 2 points blocked by the cap stay banked, not lost")
+		# £350 * 7 = one huge trade worth 7 relation points -- only 5/day allowed.
+		RelationAccrual.accrue_collective(350 * 7)
+		assert_eq(GameState.state["factions"]["collective"]["relation"], 5, "daily cap holds even a single huge trade to +5")
+		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 350 * 2, "the 2 points blocked by the cap stay banked, not lost")
 
 		# A same-day follow-up trade earns nothing further -- the cap is already spent.
-		RelationAccrual.accrue_collective(750)
-		assert_eq(GameState.state["factions"]["collective"]["relation"], 3, "still capped at 3 for the day")
-		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 750 * 3, "further trade still banks into tradeProgress even while capped")
+		RelationAccrual.accrue_collective(350)
+		assert_eq(GameState.state["factions"]["collective"]["relation"], 5, "still capped at 5 for the day")
+		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 350 * 3, "further trade still banks into tradeProgress even while capped")
 	)
 
 	# ── Archie lane: +1 per £1,000, capped at +2/day ────────────────────
@@ -63,18 +68,18 @@ func run() -> void:
 
 	run_case("reset_daily_caps_clears_the_award_counter_but_not_tradeProgress", func():
 		GameState.reset()
-		RelationAccrual.accrue_collective(750 * 3)  # exactly caps out at +3, no remainder
-		RelationAccrual.accrue_collective(700)      # already capped for the day -- banks, doesn't convert
+		RelationAccrual.accrue_collective(350 * 5)  # exactly caps out at +5, no remainder
+		RelationAccrual.accrue_collective(300)      # already capped for the day -- banks, doesn't convert
 		var relation_before_reset: int = GameState.state["factions"]["collective"]["relation"]
-		assert_eq(relation_before_reset, 3, "capped at +3 for the day")
-		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 700, "the capped £700 is banked, not lost")
+		assert_eq(relation_before_reset, 5, "capped at +5 for the day")
+		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 300, "the capped £300 is banked, not lost")
 
 		RelationAccrual.reset_daily_caps()
 
 		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before_reset, "resetting the cap counter doesn't itself award anything")
-		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 700, "tradeProgress is untouched by the reset")
+		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 300, "tradeProgress is untouched by the reset")
 
-		# Now a small trade tops the banked £700 over the £750 rate, and today's
+		# Now a small trade tops the banked £300 over the £350 rate, and today's
 		# cap counter is back to zero, so it converts.
 		RelationAccrual.accrue_collective(50)
 		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before_reset + 1, "the banked remainder plus a trade past the rate converts now the cap has reset")
@@ -83,8 +88,8 @@ func run() -> void:
 
 	run_case("daily_tick_resets_the_relation_accrual_cap", func():
 		GameState.reset()
-		RelationAccrual.accrue_collective(750 * 3)  # exactly caps out at +3, no remainder
-		RelationAccrual.accrue_collective(700)      # already capped -- banks, doesn't convert
+		RelationAccrual.accrue_collective(350 * 5)  # exactly caps out at +5, no remainder
+		RelationAccrual.accrue_collective(300)      # already capped -- banks, doesn't convert
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 
 		TimeSystem.daily_tick()
@@ -114,9 +119,9 @@ func run() -> void:
 		assert_eq(price, 980)
 		VeinTrade.sell_to_faction("v1", "collective")
 
-		# £980 crosses the £750 rate once -- +1 relation, £230 banked into tradeProgress.
-		assert_eq(GameState.state["factions"]["collective"]["relation"], 1, "the vein's sale price accrues relation exactly like an ordinary trade")
-		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], price - 750, "the remainder past the rate is banked, not dropped")
+		# £980 crosses the £350 rate twice (700) -- +2 relation, £280 banked into tradeProgress.
+		assert_eq(GameState.state["factions"]["collective"]["relation"], 2, "the vein's sale price accrues relation exactly like an ordinary trade")
+		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], price - 700, "the remainder past the rate is banked, not dropped")
 	)
 
 	# ── Des, Nadia and Hakim get no personal trickle from trade ─────────

@@ -80,7 +80,7 @@ static func report_des_site(ore_type: String) -> Dictionary:
 		return { "ok": false, "reason": "No qualifying site." }
 
 	Sites.seed_faction_vein(found, "collective")
-	Factions.adjust_player_relation("collective", 4)
+	Factions.adjust_player_relation("collective", 6)
 
 	reported[ore_type] = found["id"]
 	progress["reportedSiteIds"] = reported
@@ -186,8 +186,13 @@ static func maybe_trigger_nadia_vein_done() -> bool:
 
 # collective1-16, spec §6.15/§10.4: S14's delivery condition -- all three
 # thread-done flags plus the relation-25 gate, stated explicitly even though
-# the gate is guaranteed by the +27 favour total the three threads award
-# between them (spec §8.5), so the spine's "gate at 25" contract holds for
+# the gate is guaranteed by the +37 favour total the three threads award
+# between them (bugfix, post-launch: spec §8.5 originally totalled 27,
+# only 2 above the gate -- too tight in practice, since anything that dents
+# collective relation elsewhere (e.g. raiding.gd's CLAIM_RELATION_HIT on a
+# Collective-owned vein) could drop a fully-quested player back under 25
+# with no way back in short of a trade grind. S1 +5, Des +6/ore-type (12),
+# Nadia +10, Hakim +10 = 37, so the spine's "gate at 25" contract holds for
 # the other four factions that inherit this engine. Called from Events.
 # advance() right after any event's on_complete runs (see its own comment) --
 # the one code path all three thread-resolution events' on_complete

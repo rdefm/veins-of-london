@@ -10,7 +10,7 @@
   "on_complete": [
     { "op": "sell_contact_vein_to_faction", "veinIdStatePath": "collective.hakimVeinId", "faction": "collective", "price": 0 },
     { "op": "add", "path": "player.cash", "value": 120 },
-    { "op": "faction_relation", "faction": "collective", "value": 8 },
+    { "op": "faction_relation", "faction": "collective", "value": 10 },
     { "op": "set_flag", "flag": "colA1HakimThreadDone", "value": true },
     { "op": "set_flag", "flag": "hakimIntelUnlocked", "value": true },
     { "op": "set_screen", "screen": "phone" }

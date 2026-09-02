@@ -52,7 +52,7 @@ func run() -> void:
 		b.pressed.emit()
 
 		assert_eq(GameState.state["event"]["eventId"], "col_a1_des_report_first_fate", "only one of the two required ore types is in -- the first-report scene naming the still-needed one")
-		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 4, "report_des_site() awards relation immediately, not deferred to the scene's on_complete")
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 6, "report_des_site() awards relation immediately, not deferred to the scene's on_complete")
 		assert_true(Sites.find_site("s_fate")["factionVein"] != null, "reported site converts to a Collective vein immediately")
 		assert_true(not GameState.state["objectives"]["col_a1_des_sites"]["complete"], "physics still outstanding")
 	)
@@ -71,7 +71,7 @@ func run() -> void:
 		b.pressed.emit()
 
 		assert_eq(GameState.state["event"]["eventId"], "col_a1_des_report", "both ore types now reported -- the reworked closing scene")
-		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 4, "second report_des_site() call awards its own +4; the scene's on_complete must not award a further 8")
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 6, "second report_des_site() call awards its own +6; the scene's on_complete must not award a further relation")
 		assert_true(GameState.state["objectives"]["col_a1_des_sites"]["complete"])
 	)
 
@@ -145,7 +145,7 @@ func run() -> void:
 
 		_play_event("col_a1_des_report")
 
-		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before, "both +4 awards already landed via report_des_site()")
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before, "both +6 awards already landed via report_des_site()")
 		assert_true(GameState.state["flags"]["colA1DesThreadDone"])
 		# Regression (bugfix: an on_complete missing a "set_screen" op leaves
 		# the EventScreen stuck on a dead Continue button, per tests/

@@ -107,7 +107,7 @@ func run() -> void:
 		assert_true(site["factionVein"] != null, "the site converts to a Collective vein immediately")
 		assert_eq(site["factionVein"]["factionId"], "collective")
 		assert_eq(site["factionVein"]["growth"], GameData.VEIN_GROWTH["seedGrowth"])
-		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 4, "+4 relation on report")
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 6, "+6 relation on report")
 		assert_eq(GameState.state["objectives"]["col_a1_des_sites"]["progress"]["reportedSiteIds"], { "fate": "s1" })
 	)
 

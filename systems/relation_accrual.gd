@@ -12,8 +12,15 @@ extends RefCounted
 # lane_id -> { container: top-level state key, id: key within it, rate: £ per
 # +1 relation, dailyCap: int }. "id" doubles as the faction_id/contact_id the
 # generic write-back below dispatches on.
+#
+# bugfix, post-launch: the collective lane's rate/cap were originally 750/3
+# (spec §8.4) -- at that rate a player who dented collective relation
+# elsewhere (e.g. a raid claim's CLAIM_RELATION_HIT) needed real grinding to
+# recover it, and the gain was silent (no Notify, see _accrue() below) so it
+# read as "trading does nothing." Rate halved, cap raised, so it's both
+# faster and (with the Notify.push added below) actually visible.
 const LANES := {
-	"collective": { "container": "factions", "id": "collective", "rate": 750, "dailyCap": 3 },
+	"collective": { "container": "factions", "id": "collective", "rate": 350, "dailyCap": 5 },
 	"archie": { "container": "contacts", "id": "archie", "rate": 1000, "dailyCap": 2 },
 }
 
@@ -61,10 +68,16 @@ static func _accrue(lane_id: String, amount: int) -> void:
 		# Factions.adjust_player_relation/Contacts.award_relation each emit
 		# state_changed themselves -- dispatched generically on the lane's
 		# container so a new lane never needs this switch touched.
+		# bugfix, post-launch: this used to award silently -- a player had no
+		# way to tell trade was moving relation at all short of reading raw
+		# state, which read as "trading does nothing." Notify.push below
+		# surfaces every award, same as any other relation-moving event.
 		if lane["container"] == "factions":
 			Factions.adjust_player_relation(lane["id"], points)
+			Notify.push("Trade builds your standing with %s (+%d)." % [GameData.FACTIONS[lane["id"]]["name"], points], Notify.CATEGORY_SUCCESS)
 		else:
 			Contacts.award_relation(lane["id"], points)
+			Notify.push("Trade builds your standing with %s (+%d)." % [Contacts.display_name(lane["id"]), points], Notify.CATEGORY_SUCCESS)
 	else:
 		# No point awarded this call, but tradeProgress still moved above --
 		# SYSTEMS contract (CLAUDE.md) requires every state mutation to signal.

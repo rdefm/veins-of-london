@@ -71,7 +71,7 @@ func run() -> void:
 		assert_true(ContactCards.build_hakim_done_action() == null)
 	)
 
-	# ── on_complete: transfer at £0, +£120 cash, +8 relation, both flags ───
+	# ── on_complete: transfer at £0, +£120 cash, +10 relation, both flags ──
 
 	run_case("on_complete_transfers_hakims_vein_to_the_collective_at_price_zero", func():
 		GameState.reset()
@@ -107,14 +107,14 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], cash_before + 120)
 	)
 
-	run_case("on_complete_awards_8_collective_relation_and_sets_both_flags", func():
+	run_case("on_complete_awards_10_collective_relation_and_sets_both_flags", func():
 		GameState.reset()
 		_seed_rescued_hakim_vein()
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 
 		_play_event("col_a1_hakim_done")
 
-		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 8)
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 10)
 		assert_true(GameState.state["flags"]["colA1HakimThreadDone"])
 		assert_true(GameState.state["flags"]["hakimIntelUnlocked"])
 		# Regression (bugfix: an on_complete missing a "set_screen" op leaves

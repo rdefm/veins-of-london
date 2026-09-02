@@ -323,7 +323,8 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	_assert_invariants("post-S12")
 
 	# ── Phase 3's gate: all three threads done + relation >= 25 (guaranteed by
-	# the +27 favour total alone, per spec §8.5) auto-queues S14 for Hakim,
+	# the +37 favour total alone, post-launch bugfix -- see systems/
+	# collective.gd's maybe_trigger_closer() comment) auto-queues S14 for Hakim,
 	# from inside col_a1_hakim_done's own advance() call (see systems/
 	# collective.gd's maybe_trigger_closer() comment) ──
 	assert_true(GameState.state["factions"]["collective"]["relation"] >= 25)

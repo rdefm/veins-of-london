@@ -7,7 +7,7 @@
     { "type": "resolution", "label": null, "speaker": null, "text": "You have sold a vein. There's more money in your account than there was and slightly less London that belongs to you, and it is not immediately obvious which of those is the good news." }
   ],
   "on_complete": [
-    { "op": "faction_relation", "faction": "collective", "value": 8 },
+    { "op": "faction_relation", "faction": "collective", "value": 10 },
     { "op": "set_flag", "flag": "colA1NadiaThreadDone", "value": true },
     { "op": "set_screen", "screen": "vein_list" }
   ]
