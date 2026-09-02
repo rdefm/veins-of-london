@@ -1,0 +1,60 @@
+{
+  "meta": {
+    "name": "Vein master palette",
+    "count": 42,
+    "direction": "Overcast daylight, muted/desaturated — brick red, weathered pastel shopfronts, grey sky, damp pavement reflecting sky. Not neon, not rain, not dark-noir. See docs/ART-BIBLE.md and docs/combat-animation-vision.md §1.",
+    "rule": "Quantise every generated pixel-art asset to exactly these colours via tools/pixelize.py. No off-palette pixels ship."
+  },
+  "colors": [
+    { "id": "outline_black",     "hex": "#14120f", "group": "neutral" },
+    { "id": "shadow_deep",       "hex": "#2b2822", "group": "neutral" },
+    { "id": "shadow",            "hex": "#423e36", "group": "neutral" },
+    { "id": "neutral_mid",       "hex": "#5c574c", "group": "neutral" },
+    { "id": "neutral_light",     "hex": "#918a7a", "group": "neutral" },
+    { "id": "highlight_warm",    "hex": "#d8d2c1", "group": "neutral" },
+
+    { "id": "sky_deep",          "hex": "#4c5a61", "group": "sky" },
+    { "id": "sky_mid",           "hex": "#66767c", "group": "sky" },
+    { "id": "sky_light",         "hex": "#869499", "group": "sky" },
+    { "id": "sky_pale",          "hex": "#a9b4b5", "group": "sky" },
+    { "id": "pavement_wet",      "hex": "#56656b", "group": "sky" },
+    { "id": "puddle_shadow",     "hex": "#384049", "group": "sky" },
+
+    { "id": "brick_deep",        "hex": "#5e2a24", "group": "brick" },
+    { "id": "brick_shadow",      "hex": "#7c3a2f", "group": "brick" },
+    { "id": "brick_mid",         "hex": "#9c503c", "group": "brick" },
+    { "id": "brick_lit",         "hex": "#b56b50", "group": "brick" },
+    { "id": "timber_dark",       "hex": "#4c3830", "group": "brick" },
+    { "id": "timber_mid",        "hex": "#6d5342", "group": "brick" },
+
+    { "id": "pastel_blue",       "hex": "#74909a", "group": "pastel" },
+    { "id": "pastel_teal",       "hex": "#93af9f", "group": "pastel" },
+    { "id": "pastel_ochre",      "hex": "#bcae7c", "group": "pastel" },
+    { "id": "pastel_pink",       "hex": "#bf8a8c", "group": "pastel" },
+    { "id": "pastel_sage",       "hex": "#839671", "group": "pastel" },
+    { "id": "pastel_tan",        "hex": "#a89a7f", "group": "pastel" },
+
+    { "id": "slate_dark",        "hex": "#37454f", "group": "clothing" },
+    { "id": "slate_mid",         "hex": "#4f606c", "group": "clothing" },
+    { "id": "slate_light",       "hex": "#6d818a", "group": "clothing" },
+    { "id": "slate_pale",        "hex": "#8a97a0", "group": "clothing" },
+
+    { "id": "skin_deep",         "hex": "#3f2c22", "group": "skin" },
+    { "id": "skin_shadow",       "hex": "#6b4632", "group": "skin" },
+    { "id": "skin_mid",          "hex": "#96684a", "group": "skin" },
+    { "id": "skin_light",        "hex": "#c08f68", "group": "skin" },
+    { "id": "skin_pale",         "hex": "#ddb790", "group": "skin" },
+
+    { "id": "foliage_deep",      "hex": "#4c5c3c", "group": "foliage" },
+    { "id": "foliage_mid",       "hex": "#71865a", "group": "foliage" },
+
+    { "id": "calc_gold",         "hex": "#d4af52", "group": "accent" },
+    { "id": "calc_gold_light",   "hex": "#f2dfa0", "group": "accent" },
+
+    { "id": "ore_time",          "hex": "#4d78a8", "group": "ore" },
+    { "id": "ore_physics",       "hex": "#b8562f", "group": "ore" },
+    { "id": "ore_life",          "hex": "#5a8f4f", "group": "ore" },
+    { "id": "ore_fate",          "hex": "#7a5a9e", "group": "ore" },
+    { "id": "ore_emotion",       "hex": "#b85a82", "group": "ore" }
+  ]
+}
