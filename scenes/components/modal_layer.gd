@@ -167,6 +167,8 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_movement_craft(data)
 		"craft_components_menu":
 			_build_craft_components_menu()
+		"combat_setup":
+			_build_combat_setup()
 		_:
 			_card_content.add_child(UI.heading(type_id))
 			_card_content.add_child(UI.label("…"))
@@ -770,6 +772,75 @@ func _on_movement_craft_pressed(archetype: String, ore_type: String) -> void:
 		Notify.push("Movement crafted: %s (tier %d)." % [m["name"], result["tier"]], Notify.CATEGORY_SUCCESS)
 	else:
 		Notify.push("Movement-crafting failed — calc spent, no Movement gained.", Notify.CATEGORY_DANGER)
+
+
+# Phone Debug app "Combat" card (phone.gd:_build_debug_combat_card): a picker
+# UI in front of Combat.start_raid(), the function combat.gd already documents
+# as "Debug-only in M0" (R§3.7). Picker selections (template/count/tier/ally
+# toggles) live only as local Control state here, same as the LineEdit amount
+# fields on the debug screen's other cards -- never written to GameState until
+# Fight is pressed, so there's no state to unwind on Cancel and no entry
+# needed in _dismiss_modal()'s match above.
+func _build_combat_setup() -> void:
+	_card_content.add_child(UI.heading("Combat setup"))
+
+	var template_options: Array = ["Random"]
+	template_options.append_array(GameData.ENEMY_RAID_GUARDS.keys())
+	_card_content.add_child(UI.label("Enemy type"))
+	var template_select := UI.option_button(template_options)
+	_card_content.add_child(template_select)
+
+	var count_options: Array = []
+	for i in range(1, Combat.SQUAD_MAX + 1):
+		count_options.append(str(i))
+	_card_content.add_child(UI.label("Number of enemies"))
+	var count_select := UI.option_button(count_options)
+	_card_content.add_child(count_select)
+
+	var tier_options: Array = []
+	for i in range(1, 7):
+		tier_options.append(str(i))
+	_card_content.add_child(UI.label("Value tier"))
+	var tier_select := UI.option_button(tier_options)
+	_card_content.add_child(tier_select)
+
+	_card_content.add_child(UI.label("Allies"))
+	var selected_allies: Array = []
+	var eligible_allies := false
+	for contact_id in GameState.state["contacts"].keys():
+		if not Contacts.can_join_combat(contact_id):
+			continue
+		eligible_allies = true
+		_card_content.add_child(_build_combat_setup_ally_row(contact_id, selected_allies))
+	if not eligible_allies:
+		_card_content.add_child(UI.muted_label("No recruited contact is fit for a fight right now."))
+
+	_card_content.add_child(UI.button("Fight", func():
+		var template_key: String = template_select.get_item_text(template_select.selected)
+		if template_key == "Random":
+			template_key = ""
+		var count: int = count_select.get_item_text(count_select.selected).to_int()
+		var value_tier: int = tier_select.get_item_text(tier_select.selected).to_int()
+		Modal.close()
+		Combat.start_raid("debug_combat_setup", value_tier, count, template_key, Combat.CONTEXT_RAID, selected_allies)
+	))
+	_card_content.add_child(UI.button("Cancel", func(): Modal.close()))
+
+
+func _build_combat_setup_ally_row(contact_id: String, selected_allies: Array) -> Control:
+	var row := UI.hbox(6)
+	var toggle_btn: Button
+	toggle_btn = UI.button("☐", func():
+		if contact_id in selected_allies:
+			selected_allies.erase(contact_id)
+			toggle_btn.text = "☐"
+		else:
+			selected_allies.append(contact_id)
+			toggle_btn.text = "☑"
+	)
+	row.add_child(toggle_btn)
+	row.add_child(UI.label(Contacts.display_name(contact_id)))
+	return row
 
 
 # Item-use during combat used to be a modal here ("combat_items"); D4.4's

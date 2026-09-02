@@ -38,8 +38,18 @@ var _dial_selected_index: int = 0
 # has room for and push it past the right edge.
 const STAGE_WIDTH := 390.0 - 16.0 - 16.0
 const STAGE_HEIGHT := 360.0
-const ENEMY_BAND_HEIGHT := STAGE_HEIGHT / 3.0
-const PLAYER_BAND_HEIGHT := STAGE_HEIGHT - ENEMY_BAND_HEIGHT
+
+# combat-presentation ticket 10: left/right stage split -- player + allies
+# occupy the left column, enemies the right, each column running the full
+# stage height. This DEVIATES from docs/combat-animation-vision.md §2's
+# adopted "stacked bands" grammar (enemy band upper third, player+ally band
+# lower two-thirds) -- a direct, explicit call from the human over that
+# doc's own guidance, made when the stacked layout's sprites were reviewed
+# on-device. §2 itself is not amended by this comment; flagged here so the
+# next reader of that doc knows the shipped layout has diverged from it.
+const COLUMN_GAP := 6.0
+const PLAYER_BAND_WIDTH := (STAGE_WIDTH - COLUMN_GAP) / 2.0
+const ENEMY_BAND_WIDTH := STAGE_WIDTH - COLUMN_GAP - PLAYER_BAND_WIDTH
 
 # combat-presentation ticket 08, §9: the frame's own hard border width --
 # shared by _build_stage_skeleton()'s StyleBoxFlat and the backdrop layer's
@@ -54,20 +64,24 @@ const STAGE_BORDER_WIDTH := 2.0
 # drift apart.
 const STAGE_DEFAULT_FILL := Color(0.07, 0.07, 0.09)
 
-# Near/far diagonal fan (§2, §2.2 refinement): the front slot is large and
+# Near/far diagonal fan (§2.2 refinement): the front slot is large and
 # foreground; the other two are smaller and staggered behind it, not laid
-# out flat left-to-right. Sized as a fraction of whichever band they're in
-# so the same math serves both the (shorter) enemy band and the (taller)
-# player+ally band.
-const FAN_FRONT_SIZE_RATIO := Vector2(0.30, 0.62)
-const FAN_BACK_SIZE_RATIO := Vector2(0.20, 0.42)
+# out flat left-to-right. Sized as a fraction of whichever column they're
+# in -- tuned for the tall, narrow (roughly half-stage-width, full-stage-
+# height) columns the left/right split above produces, not the original
+# wide-short bands.
+const FAN_FRONT_SIZE_RATIO := Vector2(0.62, 0.36)
+const FAN_BACK_SIZE_RATIO := Vector2(0.42, 0.24)
 
 # Placement fractions for _fan_local_rects(): how far the two back slots
-# tuck under the front slot's edges (as a fraction of a back slot's own
-# width), and how far each slot sits from its band's near/far edge (as a
-# fraction of band height). back-right sits slightly lower than back-left
+# tuck in from the front slot's edges (as a fraction of a back slot's own
+# width), and how far each slot sits from its column's near/far edge (as a
+# fraction of column height). back-right sits slightly lower than back-left
 # purely to read as "behind at a different depth" rather than a mirrored
-# pair -- an arbitrary but deliberate asymmetry, not a bug.
+# pair -- an arbitrary but deliberate asymmetry, not a bug. _fan_local_rects()
+# itself clamps the resulting x positions to the column's own width, so a
+# narrow column can't push a back slot into the neighbouring column no
+# matter how these fractions are tuned.
 const FAN_BACK_LEFT_TUCK := 0.9
 const FAN_BACK_RIGHT_TUCK := 0.1
 const FAN_FRONT_BOTTOM_MARGIN := 0.03
@@ -147,15 +161,47 @@ class StageSlot extends Control:
 	# so the focus glow/flash always render on top of _sprite_rect -- a
 	# Control's children draw after its own _draw() call, so without a
 	# dedicated top layer the flash would render *under* a real sprite.
+	#
+	# "player" or "enemy" -- combat-presentation ticket 10, purely cosmetic
+	# (mirrors the sprite via _sprite_rect.flip_h so the two stage columns
+	# don't both face the same arbitrary direction; see set_side() below).
+	# Not read anywhere else.
+	var side: String = "player"
 	var _idle_frames: Array[Texture2D] = []
 	var _idle_frame_index: int = 0
 	var _sprite_rect: TextureRect
 	var _idle_timer: Timer
 	var _overlay: Control
 
+	# combat-presentation ticket 10: the three one-shot animations layered on
+	# top of ticket 09's idle loop -- hurt/dead on the struck combatant
+	# (_play_juice()), attack on whoever's swinging (_on_beat_played()).
+	# Same manifest-driven shape as _idle_frames (set_*_animation() below,
+	# mirroring set_idle_animation()); empty means "no manifest entry", and
+	# the corresponding play_*() call then just no-ops rather than erroring.
+	var _hurt_frames: Array[Texture2D] = []
+	var _hurt_fps: float = 10.0
+	var _dead_frames: Array[Texture2D] = []
+	var _dead_fps: float = 12.0
+	var _attack_frames: Array[Texture2D] = []
+	var _attack_fps: float = 12.0
+	# Drives a one-shot play_*() sequence forward -- see _advance_one_shot()
+	# below. Empty means "no one-shot in progress, idle owns the texture".
+	var _one_shot_frames: Array[Texture2D] = []
+	var _one_shot_index: int = 0
+	var _one_shot_hold_last_frame: bool = false
+	var _one_shot_timer: Timer
+
 	func _init() -> void:
 		_sprite_rect = TextureRect.new()
 		_sprite_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# expand_mode defaults to EXPAND_KEEP_SIZE, which draws the texture at
+		# its native pixel size regardless of this control's own rect -- the
+		# "sprite renders way bigger than its slot, spilling out of the stage
+		# frame" bug the human flagged from an on-device screenshot.
+		# IGNORE_SIZE is what lets stretch_mode actually scale the texture
+		# down to fit.
+		_sprite_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		_sprite_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		_sprite_rect.anchor_right = 1.0
 		_sprite_rect.anchor_bottom = 1.0
@@ -167,12 +213,25 @@ class StageSlot extends Control:
 		_idle_timer.timeout.connect(_advance_idle_frame)
 		add_child(_idle_timer)
 
+		_one_shot_timer = Timer.new()
+		_one_shot_timer.one_shot = false
+		_one_shot_timer.timeout.connect(_advance_one_shot)
+		add_child(_one_shot_timer)
+
 		_overlay = Control.new()
 		_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_overlay.anchor_right = 1.0
 		_overlay.anchor_bottom = 1.0
 		_overlay.draw.connect(_draw_overlay)
 		add_child(_overlay)
+
+	# combat-presentation ticket 10: enemies face left (toward the player
+	# column), player/allies face right (toward the enemy column) -- a real
+	# "face each other" convention now that the stage is a left/right split,
+	# not the top/bottom bands this flip started under.
+	func set_side(value: String) -> void:
+		side = value
+		_sprite_rect.flip_h = value == "enemy"
 
 	func set_flash_alpha(value: float) -> void:
 		flash_alpha = value
@@ -210,11 +269,93 @@ class StageSlot extends Control:
 	# shared dummy sheet -- straight alternation, same as any 2-frame
 	# ping-pong). Public so tests can drive it directly without a live tree
 	# ever actually ticking _idle_timer -- see this class's own top comment.
+	# No-ops while a one-shot (_one_shot_frames non-empty) owns _sprite_rect's
+	# texture -- idle keeps ticking in the background regardless (simpler
+	# than stopping/restarting the timer around every one-shot), it just
+	# mustn't clobber the one-shot's current frame.
 	func _advance_idle_frame() -> void:
-		if _idle_frames.size() < 2:
+		if _idle_frames.size() < 2 or not _one_shot_frames.is_empty():
 			return
 		_idle_frame_index = (_idle_frame_index + 1) % _idle_frames.size()
 		_sprite_rect.texture = _idle_frames[_idle_frame_index]
+
+	# combat-presentation ticket 10: manifest-driven loaders for the three
+	# one-shot animations, same shape and calling convention as
+	# set_idle_animation() (CombatScreen._sync_band() calls all four for
+	# every slot, every sync -- see that func's own comment for why that's
+	# cheap). Unlike idle, these don't start anything themselves -- a
+	# one-shot only plays when play_hurt()/play_dead()/play_attack() is
+	# actually called, from a beat.
+	func set_hurt_animation(frames: Array[Texture2D], fps: float) -> void:
+		_hurt_frames = frames
+		_hurt_fps = fps
+
+	func set_dead_animation(frames: Array[Texture2D], fps: float) -> void:
+		_dead_frames = frames
+		_dead_fps = fps
+
+	func set_attack_animation(frames: Array[Texture2D], fps: float) -> void:
+		_attack_frames = frames
+		_attack_fps = fps
+
+	# Public entry points CombatScreen's beat-playback callbacks drive --
+	# _on_beat_played() for play_attack(), _play_juice() for play_hurt()/
+	# play_dead(). A no-op when the manifest has nothing for this animation
+	# (empty frames) -- same "degrade quietly, never error" convention
+	# set_idle_animation()'s own empty-frames case already established.
+	func play_attack() -> void:
+		_start_one_shot(_attack_frames, _attack_fps, false)
+
+	func play_hurt() -> void:
+		_start_one_shot(_hurt_frames, _hurt_fps, false)
+
+	# Holds on the last (down/fallen) frame rather than reverting to idle --
+	# this slot's owner is koed. CombatScreen's frozen-roster mechanism
+	# (_play_round()/_sync_stage()) is what keeps this specific Node alive
+	# long enough to actually show the hold; the slot is freed for real once
+	# the round's beat playback finishes and _sync() reconciles the stage to
+	# the true (post-round) roster.
+	func play_dead() -> void:
+		_start_one_shot(_dead_frames, _dead_fps, true)
+
+	func _start_one_shot(frames: Array[Texture2D], fps: float, hold_last_frame: bool) -> void:
+		if frames.is_empty():
+			return
+		_one_shot_frames = frames
+		_one_shot_index = 0
+		_one_shot_hold_last_frame = hold_last_frame
+		_sprite_rect.texture = frames[0]
+		if frames.size() < 2 or fps <= 0.0:
+			_end_one_shot()
+			return
+		_one_shot_timer.wait_time = 1.0 / fps
+		_one_shot_timer.start()
+
+	# Public (not `_`-prefixed... it is, but so is _advance_idle_frame() --
+	# same off-tree-test convention) so tests can drive a one-shot forward
+	# without a live tree ever actually ticking _one_shot_timer.
+	func _advance_one_shot() -> void:
+		if _one_shot_frames.is_empty():
+			return
+		_one_shot_index += 1
+		if _one_shot_index >= _one_shot_frames.size():
+			if _one_shot_hold_last_frame:
+				_one_shot_timer.stop()
+				return
+			_end_one_shot()
+			return
+		_sprite_rect.texture = _one_shot_frames[_one_shot_index]
+
+	# Hands _sprite_rect's texture back to idle -- either the one-shot
+	# finished (attack/hurt) or it had too few frames/no fps to animate at
+	# all (single-frame or malformed manifest entry). Never called for a
+	# held (dead) one-shot; see _advance_one_shot() above.
+	func _end_one_shot() -> void:
+		_one_shot_timer.stop()
+		_one_shot_frames = []
+		_one_shot_index = 0
+		if not _idle_frames.is_empty():
+			_sprite_rect.texture = _idle_frames[_idle_frame_index]
 
 	func _draw() -> void:
 		if _idle_frames.is_empty():
@@ -268,16 +409,24 @@ var _player_band_layer: Control
 var _backdrop_texture: TextureRect
 var _backdrop_fill: ColorRect
 
-# combat-presentation ticket 09 (in progress): every StageSlot's idle
-# animation, per data/combat_visuals.json's templates.default -- loaded
-# once in _ready() (see _load_default_idle_animation() below), not
+# combat-presentation ticket 09/10 (in progress): every StageSlot's four
+# animations, per data/combat_visuals.json's templates.default -- loaded
+# once in _ready() (see _load_default_animations() below), not
 # per-sync/per-slot, since it's the same shared frames for every
 # combatant until real per-template entries replace this stand-in. Empty
-# means no manifest entry (or the image failed to load) -- every StageSlot
-# then falls back to the ticket-01 placeholder box, same as before this
-# existed.
+# means no manifest entry (or the image failed to load) -- idle falling
+# back means every StageSlot shows the ticket-01 placeholder box; hurt/dead/
+# attack falling back just means that one-shot never plays (play_hurt() /
+# play_dead() / play_attack() no-op on empty frames -- see their own
+# comments), same "degrade quietly" convention throughout.
 var _default_idle_frames: Array[Texture2D] = []
 var _default_idle_fps: float = 6.0
+var _default_hurt_frames: Array[Texture2D] = []
+var _default_hurt_fps: float = 10.0
+var _default_dead_frames: Array[Texture2D] = []
+var _default_dead_fps: float = 12.0
+var _default_attack_frames: Array[Texture2D] = []
+var _default_attack_fps: float = 12.0
 
 # combat-presentation ticket 05: the screen-shake wrapper -- see
 # _build_stage_skeleton()'s own comment for why this, not `frame`, is what
@@ -329,6 +478,32 @@ var _revealed_log_count: int = -1
 # since it's only meaningful mid-playback.
 var _ghost_tracker: Dictionary = {}
 
+# combat-presentation ticket 10: a pre-round snapshot of combat.enemies/
+# combat.allies (deep-copied, so later mutation of the live arrays can't
+# touch it), held only while a round's beats are playing. {} (the default,
+# and where this always ends up once playback finishes) means "read the
+# live GameState roster" -- see _sync_stage() above.
+#
+# Why this exists: Combat.player_attack()/flee() resolve the whole round
+# and emit state_changed synchronously before _play_beats() ever starts
+# playing beats back (combat_director.gd's own top comment) -- so the
+# ordinary state_changed -> _sync() -> _sync_stage() chain would already
+# have excluded a combatant koed *this* round from the fan before their
+# death beat even plays, same "gone by the time playback starts" gap
+# _play_juice()'s own comment flags for flash/damage-number/ghost-drain.
+# Snapshotting the pre-round roster and reading *that* for the first
+# _sync_stage() (fired mid-action.call(), before _play_beats() ever runs)
+# keeps every combatant who started the round alive on stage for its
+# duration, so a lethal beat's play_dead() (see _play_juice()) has a slot to
+# land on. _sync_band()'s own position/fan reflow only runs at round start
+# and round end (never mid-playback -- see _play_beats()), so a dying
+# combatant's slot holds its position and death pose for the whole round
+# without fighting a live re-fan. Cleared (and a final _sync() run against
+# the real, final roster) at the end of _play_beats() -- Dial-cast playback
+# (_on_dial_triggered()) never sets this, so it's unaffected by this
+# mechanism, same pre-existing (already-flagged) gap as before this ticket.
+var _frozen_roster: Dictionary = {}
+
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -337,7 +512,7 @@ func _ready() -> void:
 	_director = CombatDirector.new()
 	add_child(_director)
 
-	_load_default_idle_animation()
+	_load_default_animations()
 
 	# combat-presentation ticket 04: the player-facing half of
 	# CombatDirector's persisted pacing toggle (CombatPacing, same
@@ -364,22 +539,41 @@ func _ready() -> void:
 	_sync()
 
 
-# combat-presentation ticket 09 (in progress): loads data/combat_visuals.
-# json's templates.default.idle -- a single shared, not-yet-palette-
-# quantised build-test sheet applied to every combatant slot (see
-# _sync_band()'s set_idle_animation() call) until real per-template
-# entries land. Sliced into `frameCount` equal-width AtlasTextures (an
-# evenly-divided horizontal strip is the convention docs/ART-BIBLE.md §5
-# already documents for every keypose/idle strip). Missing manifest entry,
-# missing file, or frameCount < 1 all leave _default_idle_frames empty --
-# every StageSlot then falls back to the ticket-01 placeholder box, never
-# an error.
-func _load_default_idle_animation() -> void:
-	var idle: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get("default", {}).get("idle", {})
-	var image_path: String = idle.get("image", "")
-	var frame_count: int = idle.get("frameCount", 0)
+# combat-presentation ticket 09/10 (in progress): loads data/combat_visuals.
+# json's templates.default.{idle,hurt,dead,attack} -- a single shared, not-
+# yet-palette-quantised build-test sheet set applied to every combatant slot
+# (see _sync_band()'s set_*_animation() calls) until real per-template
+# entries land. Each sheet is sliced into `frameCount` equal-width
+# AtlasTextures (an evenly-divided horizontal strip is the convention
+# docs/ART-BIBLE.md §5 already documents for every keypose/idle strip).
+# Missing manifest entry, missing file, or frameCount < 1 all leave that
+# animation's frames empty -- never an error, see this section's own
+# variable-block comment for what "empty" means per animation.
+func _load_default_animations() -> void:
+	var frames_idle := _load_animation_frames("idle")
+	_default_idle_frames = frames_idle["frames"]
+	_default_idle_fps = frames_idle["fps"]
+
+	var frames_hurt := _load_animation_frames("hurt")
+	_default_hurt_frames = frames_hurt["frames"]
+	_default_hurt_fps = frames_hurt["fps"]
+
+	var frames_dead := _load_animation_frames("dead")
+	_default_dead_frames = frames_dead["frames"]
+	_default_dead_fps = frames_dead["fps"]
+
+	var frames_attack := _load_animation_frames("attack")
+	_default_attack_frames = frames_attack["frames"]
+	_default_attack_fps = frames_attack["fps"]
+
+
+func _load_animation_frames(key: String) -> Dictionary:
+	var entry: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get("default", {}).get(key, {})
+	var image_path: String = entry.get("image", "")
+	var frame_count: int = entry.get("frameCount", 0)
+	var empty: Array[Texture2D] = []
 	if image_path.is_empty() or frame_count < 1 or not ResourceLoader.exists(image_path):
-		return
+		return { "frames": empty, "fps": entry.get("fps", 0.0) }
 
 	var sheet: Texture2D = load(image_path)
 	var frame_width := sheet.get_width() / frame_count
@@ -391,8 +585,7 @@ func _load_default_idle_animation() -> void:
 		atlas.region = Rect2(i * frame_width, 0, frame_width, frame_height)
 		frames.append(atlas)
 
-	_default_idle_frames = frames
-	_default_idle_fps = idle.get("fps", 6.0)
+	return { "frames": frames, "fps": entry.get("fps", 0.0) }
 
 
 # combat-presentation ticket 04: replaces the old _refresh(), which
@@ -616,11 +809,17 @@ func _on_stage_gui_input(event: InputEvent) -> void:
 func _sync_stage(combat: Dictionary, player: Dictionary) -> void:
 	_sync_backdrop(combat["context"])
 
-	var enemy_entries := _enemy_display_entries(combat["enemies"], combat["focusedEnemyIndex"])
-	_sync_band(_enemy_slots, _enemy_band_layer, enemy_entries, Vector2(STAGE_WIDTH, ENEMY_BAND_HEIGHT), Vector2.ZERO)
+	var enemies: Array = _frozen_roster.get("enemies", combat["enemies"])
+	var allies: Array = _frozen_roster.get("allies", combat["allies"])
 
-	var player_entries := _player_display_entries(player, combat["allies"])
-	_sync_band(_player_slots, _player_band_layer, player_entries, Vector2(STAGE_WIDTH, PLAYER_BAND_HEIGHT), Vector2(0.0, ENEMY_BAND_HEIGHT))
+	# combat-presentation ticket 10: player+allies left column, enemies right
+	# -- see PLAYER_BAND_WIDTH/ENEMY_BAND_WIDTH's own comment for why this
+	# departs from the vision doc's stacked-bands grammar.
+	var player_entries := _player_display_entries(player, allies)
+	_sync_band(_player_slots, _player_band_layer, player_entries, Vector2(PLAYER_BAND_WIDTH, STAGE_HEIGHT), Vector2.ZERO, "player")
+
+	var enemy_entries := _enemy_display_entries(enemies, combat["focusedEnemyIndex"])
+	_sync_band(_enemy_slots, _enemy_band_layer, enemy_entries, Vector2(ENEMY_BAND_WIDTH, STAGE_HEIGHT), Vector2(PLAYER_BAND_WIDTH + COLUMN_GAP, 0.0), "enemy")
 
 
 # combat-presentation ticket 08, docs/combat-animation-vision.md §2.1/§6:
@@ -693,7 +892,7 @@ func _player_display_entries(player: Dictionary, allies: Array) -> Array:
 # freed once that specific combatant is koed -- a survivor's slot is the
 # exact same Node turn to turn even as its own fan *position* (front/
 # back-left/back-right) reflows around who else is still standing.
-func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_size: Vector2, band_origin: Vector2) -> void:
+func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_size: Vector2, band_origin: Vector2, side: String) -> void:
 	var live_keys: Dictionary = {}
 	for entry in display_entries:
 		live_keys[entry["index"]] = true
@@ -714,6 +913,7 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 		else:
 			slot = StageSlot.new()
 			slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			slot.set_side(side)
 			layer.add_child(slot)
 			pool[key] = slot
 		var rect: Rect2 = rects[i]
@@ -725,11 +925,14 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 		slot.is_focused = entry["isFocused"]
 		slot.queue_redraw()
 		slot._overlay.queue_redraw()
-		# combat-presentation ticket 09 (in progress): every slot gets the
+		# combat-presentation ticket 09/10 (in progress): every slot gets the
 		# same shared dummy-asset frames for now -- see
-		# _load_default_idle_animation()'s own comment for why this is
+		# _load_default_animations()'s own comment for why this is
 		# deliberately not per-template yet.
 		slot.set_idle_animation(_default_idle_frames, _default_idle_fps)
+		slot.set_hurt_animation(_default_hurt_frames, _default_hurt_fps)
+		slot.set_dead_animation(_default_dead_frames, _default_dead_fps)
+		slot.set_attack_animation(_default_attack_frames, _default_attack_fps)
 
 	# Display position 0 is always the fan's front/large slot (see
 	# _fan_local_rects) -- moving whichever combatant currently holds that
@@ -754,15 +957,22 @@ func _fan_local_rects(band_size: Vector2, count: int) -> Array[Rect2]:
 
 	var front_size := band_size * FAN_FRONT_SIZE_RATIO
 	var back_size := band_size * FAN_BACK_SIZE_RATIO
-	var front_pos := Vector2((band_size.x - front_size.x) / 2.0, band_size.y - front_size.y - band_size.y * FAN_FRONT_BOTTOM_MARGIN)
+	var front_x := clampf((band_size.x - front_size.x) / 2.0, 0.0, maxf(0.0, band_size.x - front_size.x))
+	var front_pos := Vector2(front_x, band_size.y - front_size.y - band_size.y * FAN_FRONT_BOTTOM_MARGIN)
 	rects.append(Rect2(front_pos, front_size))
 
+	# Clamped to the column's own width -- the tuck fractions above were
+	# tuned for the old wide-short bands; against the narrower left/right
+	# columns (combat-presentation ticket 10) an untucked position could
+	# otherwise land outside this column entirely, overlapping the
+	# neighbouring one.
+	var max_x: float = maxf(0.0, band_size.x - back_size.x)
 	if count >= 2:
-		var back_left_pos := Vector2(front_pos.x - back_size.x * FAN_BACK_LEFT_TUCK, band_size.y * FAN_BACK_LEFT_TOP_MARGIN)
+		var back_left_pos := Vector2(clampf(front_pos.x - back_size.x * FAN_BACK_LEFT_TUCK, 0.0, max_x), band_size.y * FAN_BACK_LEFT_TOP_MARGIN)
 		rects.append(Rect2(back_left_pos, back_size))
 
 	if count >= 3:
-		var back_right_pos := Vector2(front_pos.x + front_size.x - back_size.x * FAN_BACK_RIGHT_TUCK, band_size.y * FAN_BACK_RIGHT_TOP_MARGIN)
+		var back_right_pos := Vector2(clampf(front_pos.x + front_size.x - back_size.x * FAN_BACK_RIGHT_TUCK, 0.0, max_x), band_size.y * FAN_BACK_RIGHT_TOP_MARGIN)
 		rects.append(Rect2(back_right_pos, back_size))
 
 	return rects
@@ -889,7 +1099,12 @@ func _on_run_pressed() -> void:
 
 
 func _play_round(action: Callable) -> void:
-	var log_before: int = GameState.state["combat"]["log"].size()
+	var combat: Dictionary = GameState.state["combat"]
+	# combat-presentation ticket 10: snapshot BEFORE action.call() -- see
+	# _frozen_roster's own top comment for why this has to happen before the
+	# round resolves, not after.
+	_frozen_roster = { "enemies": combat["enemies"].duplicate(true), "allies": combat["allies"].duplicate(true) }
+	var log_before: int = combat["log"].size()
 	var result: Dictionary = action.call()
 	await _play_beats(result.get("beats", []), log_before)
 
@@ -902,6 +1117,7 @@ func _play_round(action: Callable) -> void:
 # handle_trigger() comment), so there's no `action` left to call here.
 func _play_beats(beats: Array, log_before: int) -> void:
 	if beats.is_empty():
+		_frozen_roster = {}
 		return
 	_revealed_log_count = log_before
 	_init_ghost_tracker(beats)
@@ -909,12 +1125,20 @@ func _play_beats(beats: Array, log_before: int) -> void:
 	await _director.play(beats, _on_beat_played)
 	_ghost_tracker.clear()
 	_revealed_log_count = -1
+	_frozen_roster = {}
 	_sync()
 
 
 func _on_beat_played(beat: Dictionary) -> void:
 	_revealed_log_count += 1
 	_sync_footer(GameState.state["combat"], GameState.state["player"])
+	# combat-presentation ticket 10: an actual swing, hit or missed --
+	# plays before the juice layer's own damage check below, so a miss
+	# still gets its Swipe pose even though _play_juice() never runs for it.
+	if _ATTACK_BEAT_KINDS.has(beat.get("kind", "")):
+		var actor_slot: StageSlot = _resolve_target_slot(_beat_actor(beat))
+		if actor_slot != null:
+			actor_slot.play_attack()
 	if CombatDirector.beat_is_damaging(beat):
 		_play_juice(beat)
 
@@ -959,13 +1183,19 @@ func _on_dial_triggered(result: Dictionary) -> void:
 # cast_complication() wiring, above) get exactly the same treatment as a
 # plain attack beat, and any future damaging beat kind gets it for free.
 #
-# One real gap, inherited from ticket 04's own architecture rather than
-# introduced here: the round's final state (including any KO) is already
-# applied and _sync()'d -- stage slots/strip cards for whoever this round
-# kills are gone by the time playback starts (see combat_director.gd's own
-# top comment) -- so a killing blow's own flash/damage-number/ghost-drain
-# silently no-op (their node lookups return null); hit-stop and screen
-# shake, needing no per-combatant node, still play normally even then.
+# Gap fixed by combat-presentation ticket 10 for the ordinary round path:
+# the round's final state (including any KO) is already applied and
+# _sync()'d before playback starts (see combat_director.gd's own top
+# comment) -- so, undefended, stage slots/strip cards for whoever this round
+# kills would already be gone by the time their killing beat plays, and its
+# own flash/damage-number/ghost-drain/play_dead() would silently no-op
+# (their node lookups return null). _frozen_roster (this screen's own top
+# comment) keeps a dying combatant's StageSlot alive through the round for
+# _play_round()'s path. It does NOT cover _on_dial_triggered() (Complication
+# casts) -- Combat.cast_complication() has already mutated GameState before
+# that callback ever runs, with nothing left to snapshot from; a kill via
+# Blast/Black Hole still hits this original gap. Hit-stop and screen shake,
+# needing no per-combatant node, play normally in both cases regardless.
 
 
 # Normalizes a beat's own targetType/targetIndex fields into the same
@@ -977,6 +1207,27 @@ func _beat_target(beat: Dictionary) -> Dictionary:
 	var target_type: String = beat.get("targetType", "")
 	var target_index: int = -1 if target_type == "player" else int(beat.get("targetIndex", -1))
 	return { "type": target_type, "index": target_index }
+
+
+# Same shape as _beat_target(), but for a beat's actorType/actorIndex --
+# who threw the swing this beat represents, not who it landed on. Used only
+# by the attack-pose trigger in _on_beat_played(); the juice layer proper
+# (flash/damage-number/shake/ghost-drain/hurt/dead) only ever cares about
+# the target.
+func _beat_actor(beat: Dictionary) -> Dictionary:
+	var actor_type: String = beat.get("actorType", "")
+	var actor_index: int = -1 if actor_type == "player" else int(beat.get("actorIndex", -1))
+	return { "type": actor_type, "index": actor_index }
+
+
+# combat-presentation ticket 10: beat kinds that represent an actual swing
+# (hit or missed) rather than a heal, status tick, or Complication cast --
+# these get the attacker's Swipe pose regardless of whether the swing
+# landed (BEAT_ENEMY_EVADE/BEAT_PLAYER_EVADE are misses, not no-ops).
+const _ATTACK_BEAT_KINDS: Array[String] = [
+	Combat.BEAT_PLAYER_ATTACK, Combat.BEAT_ALLY_ATTACK, Combat.BEAT_ENEMY_ATTACK,
+	Combat.BEAT_ENEMY_EVADE, Combat.BEAT_PLAYER_EVADE,
+]
 
 
 # The player/ally/enemy Dictionary a target's own hp/hpMax actually live on
@@ -1094,6 +1345,16 @@ func _play_juice(beat: Dictionary) -> void:
 	if slot != null:
 		slot.flash_hit()
 		_spawn_damage_number(slot, dmg)
+		# combat-presentation ticket 10: koed (this hit's own final GameState
+		# is already applied -- see _frozen_roster's own comment) holds on the
+		# dead sheet's last frame; otherwise a recoil pose. _frozen_roster is
+		# what keeps `slot` from having already been freed for a killing blow
+		# (on the ordinary round path -- see _beat_actor()'s own comment for
+		# the Dial-cast exception).
+		if _target_state(target).get("koed", false):
+			slot.play_dead()
+		else:
+			slot.play_hurt()
 
 	_shake_stage(dmg, _hp_max_for(target))
 	_drain_ghost(TurnOrderStrip.card_key_string(target), dmg)

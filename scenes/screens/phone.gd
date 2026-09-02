@@ -793,6 +793,7 @@ func _build_debug() -> void:
 	_content.add_child(_build_debug_add_money_card())
 	_content.add_child(_build_debug_add_calc_card())
 	_content.add_child(_build_debug_spawn_site_card())
+	_content.add_child(_build_debug_combat_card())
 	_content.add_child(UI.heading("Contact relations", 14))
 	for contact_id in GameData.CONTACTS_DEFAULTS.keys():
 		_content.add_child(_build_debug_contact_relation_card(contact_id))
@@ -861,6 +862,17 @@ func _build_debug_spawn_site_card() -> Control:
 		Sites.spawn_unclaimed_site(district_id, tier, ore_type)
 	))
 
+	return c["panel"]
+
+
+# Debug combat harness: opens combat_setup (modal_layer.gd), which reads
+# Combat.start_raid() directly on "Fight" -- start_raid is the function
+# combat.gd already documents as "Debug-only in M0" (R§3.7), so this card is
+# just a picker UI in front of an existing entry point, not a new one.
+func _build_debug_combat_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Combat", 14))
+	c["content"].add_child(UI.button("Open", func(): Modal.open("combat_setup")))
 	return c["panel"]
 
 

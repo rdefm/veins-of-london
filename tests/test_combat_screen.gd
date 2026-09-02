@@ -160,13 +160,13 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("stage_always_renders_the_player_in_the_lower_band", func():
+	run_case("stage_always_renders_the_player", func():
 		_setup_combat([_enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_true(_slot_named(screen, "You") != null, "the player must always fan into the lower band")
+		assert_true(_slot_named(screen, "You") != null, "the player must always fan onto the stage")
 
 		screen.free()
 	)
@@ -786,4 +786,154 @@ func run() -> void:
 
 		screen.free()
 		GameData.COMBAT_VISUALS = original_combat_visuals
+	)
+
+	# ── combat-presentation ticket 10: hurt/dead/attack one-shots, left/right ──
+	# ── stage split, and the frozen-roster kill-timing fix ──────────────────
+
+	run_case("stage_slots_load_the_default_hurt_dead_and_attack_animations_alongside_idle", func():
+		_setup_combat([_enemy("Scrapper")])
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_eq(screen._default_hurt_frames.size(), 3, "templates.default.hurt declares frameCount 3")
+		assert_eq(screen._default_dead_frames.size(), 10, "templates.default.dead declares frameCount 10")
+		assert_eq(screen._default_attack_frames.size(), 9, "templates.default.attack declares frameCount 9")
+
+		var slot := _slot_named(screen, "Scrapper")
+		assert_eq(slot._hurt_frames.size(), 3)
+		assert_eq(slot._dead_frames.size(), 10)
+		assert_eq(slot._attack_frames.size(), 9)
+
+		screen.free()
+	)
+
+	run_case("play_attack_and_play_hurt_step_through_their_frames_then_hand_the_texture_back_to_idle", func():
+		_setup_combat([_enemy("Scrapper")])
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Scrapper")
+		var idle_frame := slot._sprite_rect.texture
+
+		slot.play_attack()
+		assert_true(slot._sprite_rect.texture != idle_frame, "the attack one-shot's first frame must replace the idle texture")
+		for i in range(slot._attack_frames.size()):
+			slot._advance_one_shot()
+		assert_eq(slot._sprite_rect.texture, idle_frame, "a non-held one-shot must hand the texture back to idle once it runs out of frames")
+		assert_true(slot._one_shot_frames.is_empty(), "the one-shot state must clear itself once finished, so idle ticking resumes")
+
+		screen.free()
+	)
+
+	run_case("play_dead_holds_on_its_own_final_frame_instead_of_reverting_to_idle", func():
+		_setup_combat([_enemy("Scrapper")])
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Scrapper")
+
+		slot.play_dead()
+		for i in range(slot._dead_frames.size()):
+			slot._advance_one_shot()
+		assert_eq(slot._sprite_rect.texture, slot._dead_frames[slot._dead_frames.size() - 1], "a held one-shot (dead) must stay on its own last frame, not idle's")
+
+		screen.free()
+	)
+
+	run_case("play_attack_play_hurt_and_play_dead_no_op_quietly_with_no_manifest_entry", func():
+		_setup_combat([_enemy("Scrapper")])
+		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
+		GameData.COMBAT_VISUALS = {
+			"backdrops": original_combat_visuals["backdrops"],
+			"templates": { "default": { "idle": original_combat_visuals["templates"]["default"]["idle"] } },
+		}  # idle only -- no hurt/dead/attack entries
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Scrapper")
+		var idle_frame := slot._sprite_rect.texture
+
+		slot.play_attack()
+		slot.play_hurt()
+		slot.play_dead()
+
+		assert_eq(slot._sprite_rect.texture, idle_frame, "no hurt/dead/attack manifest entries -- calling any play_*() must not touch the sprite at all")
+
+		screen.free()
+		GameData.COMBAT_VISUALS = original_combat_visuals
+	)
+
+	run_case("player_and_allies_fan_left_of_the_enemy_column", func():
+		# combat-presentation ticket 10: DEVIATES from docs/combat-animation-
+		# vision.md §2's stacked-bands grammar -- see combat.gd's own
+		# PLAYER_BAND_WIDTH/ENEMY_BAND_WIDTH comment for why.
+		_setup_combat([_enemy("Scrapper")], [_ally("Archie")])
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var player_slot := _slot_named(screen, "You")
+		var enemy_slot := _slot_named(screen, "Scrapper")
+		assert_true(player_slot.position.x < enemy_slot.position.x, "player/allies must fan on the left, enemies on the right")
+
+		screen.free()
+	)
+
+	run_case("fan_slots_never_spill_past_the_stage_or_into_the_neighbouring_column", func():
+		_setup_combat([_enemy("A"), _enemy("B"), _enemy("C")], [_ally("Archie")])
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		for slot in _stage_slots(screen):
+			assert_true(slot.position.x >= 0.0, "%s must not spill left of the stage" % slot.combatant_name)
+			assert_true(slot.position.x + slot.size.x <= CombatScreen.STAGE_WIDTH + 0.01, "%s must not spill past the stage's right edge" % slot.combatant_name)
+
+		screen.free()
+	)
+
+	run_case("a_killing_blow_holds_its_slot_and_plays_the_dead_pose_instead_of_vanishing_before_playback", func():
+		# combat-presentation ticket 10: the frozen-roster fix -- without it,
+		# Weak's slot would already be gone (state_changed inside
+		# Combat.player_attack() runs before _play_beats() ever starts) by
+		# the time this beat's own play_dead() call tries to reach it.
+		_setup_combat([_enemy("Weak", 1, 20)])
+		GameState.state["player"]["attackMin"] = 999
+		GameState.state["player"]["attackMax"] = 999
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot_before := _slot_named(screen, "Weak")
+		assert_true(slot_before != null, "sanity: the enemy starts on stage")
+
+		screen._on_attack_pressed()  # fire-and-forget -- see the juice-layer section's own top comment
+
+		assert_eq(GameState.state["combat"]["enemies"][0]["koed"], true, "sanity: Weak is dead in the already-final GameState")
+		var slot_after := _slot_named(screen, "Weak")
+		assert_eq(slot_after, slot_before, "the same Node, still on stage mid-playback -- not freed, not rebuilt")
+		assert_eq(slot_after._one_shot_frames, screen._default_dead_frames, "the killing blow must start the dead one-shot specifically, not hurt")
+
+		screen.free()
+	)
+
+	run_case("frozen_roster_stays_populated_until_the_directors_await_actually_resolves", func():
+		# Off-tree (this file's own top comment), _director.play()'s
+		# `await tween.finished` never resolves -- create_tween() has no live
+		# SceneTree to run against, so playback suspends after the first
+		# beat's on_beat callback and never reaches _play_beats()'s own
+		# clearing line. _frozen_roster staying populated (and Weak's slot
+		# staying put) here is exactly what makes the previous test's
+		# "still on stage mid-playback" assertion meaningful -- this case
+		# pins down the other half: it's not cleared prematurely either.
+		_setup_combat([_enemy("Weak", 1, 20), _enemy("Strong", 999, 999)])
+		GameState.state["player"]["attackMin"] = 999
+		GameState.state["player"]["attackMax"] = 999
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		screen._on_attack_pressed()  # fire-and-forget
+
+		assert_true(not screen._frozen_roster.is_empty(), "playback is suspended mid-round in this off-tree harness, not finished -- _frozen_roster must still be the pre-round snapshot")
+		assert_true(_slot_named(screen, "Weak") != null, "mid-playback, the koed enemy's slot must still be on stage, not yet freed")
+		assert_true(_slot_named(screen, "Strong") != null, "the survivor must still be on stage")
+
+		screen.free()
 	)
