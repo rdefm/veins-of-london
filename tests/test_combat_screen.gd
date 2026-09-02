@@ -744,7 +744,7 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_eq(screen._default_idle_frames.size(), 2, "data/combat_visuals.json's templates.default.idle declares frameCount 2 -- CombatScreen should have loaded exactly that many frames")
+		assert_eq(screen._default_idle_frames.size(), 7, "data/combat_visuals.json's templates.default.idle declares frameCount 7 -- CombatScreen should have loaded exactly that many frames")
 
 		var slot := _slot_named(screen, "Scrapper")
 		assert_true(not slot._idle_frames.is_empty(), "a slot with a default idle animation available must not fall back to the placeholder box")
@@ -762,11 +762,12 @@ func run() -> void:
 		var frame0 := slot._sprite_rect.texture
 		slot._advance_idle_frame()
 		var frame1 := slot._sprite_rect.texture
-		slot._advance_idle_frame()
-		var frame2 := slot._sprite_rect.texture
-
 		assert_true(frame0 != frame1, "advancing the idle frame must change the visible texture")
-		assert_eq(frame2, frame0, "a 2-frame idle loop must ping-pong straight back to the first frame")
+
+		for i in range(slot._idle_frames.size() - 1):
+			slot._advance_idle_frame()
+		var frame_full_cycle := slot._sprite_rect.texture
+		assert_eq(frame_full_cycle, frame0, "advancing once per frame in the sheet must land back on the first frame")
 
 		screen.free()
 	)
@@ -796,14 +797,14 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_eq(screen._default_hurt_frames.size(), 3, "templates.default.hurt declares frameCount 3")
-		assert_eq(screen._default_dead_frames.size(), 10, "templates.default.dead declares frameCount 10")
-		assert_eq(screen._default_attack_frames.size(), 9, "templates.default.attack declares frameCount 9")
+		assert_eq(screen._default_hurt_frames.size(), 4, "templates.default.hurt declares frameCount 4")
+		assert_eq(screen._default_dead_frames.size(), 5, "templates.default.dead declares frameCount 5")
+		assert_eq(screen._default_attack_frames.size(), 6, "templates.default.attack declares frameCount 6")
 
 		var slot := _slot_named(screen, "Scrapper")
-		assert_eq(slot._hurt_frames.size(), 3)
-		assert_eq(slot._dead_frames.size(), 10)
-		assert_eq(slot._attack_frames.size(), 9)
+		assert_eq(slot._hurt_frames.size(), 4)
+		assert_eq(slot._dead_frames.size(), 5)
+		assert_eq(slot._attack_frames.size(), 6)
 
 		screen.free()
 	)
