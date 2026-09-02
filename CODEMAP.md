@@ -76,7 +76,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 
 | File | Renders |
 |---|---|
-| combat.gd | Combat screen (turn UI over systems/combat.gd) |
+| combat.gd | Combat screen (turn UI over systems/combat.gd); stage backdrop reads combat_visuals.json (image or palette.json fallback fill) per combat context |
 | contacts.gd | Contacts tab, flag-gated actions |
 | event.gd | Generic event-card screen driven by state.event |
 | factions.gd | Factions tab |
@@ -117,6 +117,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | approaches.json | systems/approaches.gd |
 | barometer.json | systems/barometer.gd |
 | collective_barks.json | systems/collective.gd |
+| combat_visuals.json | autoload/GameData.gd (COMBAT_VISUALS) → scenes/screens/combat.gd stage backdrop. Maps Combat.CANONICAL_CONTEXTS context → `{image, fallbackColor}`; `image` "" until a real plate lands (ticket 09+), `fallbackColor` a palette.json colour id read via GameData.PALETTE |
 | constants.json | systems/time_system.gd, systems/jobs.gd, scenes/components/top_bar.gd, scenes/screens/phone.gd (timeBlocks, archieOreGoal, contacts defaults, James trust bands) |
 | dial.json | systems/dial.gd |
 | districts.json | systems/districts.gd, district_bubble.gd, sites.gd, economy.gd, factions.gd, raiding.gd, map_layout.gd, archie_deals.gd |
@@ -128,7 +129,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | map_layout.json | systems/map_layout.gd, systems/map_hit_test.gd |
 | objectives.json | systems/objectives.gd, systems/todo.gd, systems/collective.gd |
 | ore_types.json | widely read — economy.gd, cultivating.gd, sites.gd, factions.gd, raiding.gd, dial.gd, rooms.gd, vein_trade.gd, debug_start.gd, archie_deals.gd |
-| palette.json | tools/pixelize.py, tools/make_palette_swatch.py — master 42-colour combat-art palette; not read by any .gd file. Swatch render sits alongside it at `data/palette_swatch.png` |
+| palette.json | tools/pixelize.py, tools/make_palette_swatch.py, autoload/GameData.gd (PALETTE, colour id → Color) — master 42-colour combat-art palette. Swatch render sits alongside it at `data/palette_swatch.png` |
 | recipes.json | systems/crafting.gd, bench.gd, combat.gd, dial.gd, jobs.gd, rooms.gd, economy.gd (consumable prices), contacts.gd (crafting xp levels) |
 | sites.json | systems/sites.gd, collective.gd, objectives.gd |
 | stealth.json | systems/raiding.gd |

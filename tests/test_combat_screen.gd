@@ -87,10 +87,10 @@ func _ally(name: String, hp: int = 20, hp_max: int = 20, koed: bool = false) -> 
 	}
 
 
-func _setup_combat(enemies: Array, allies: Array = [], focused_index: int = 0) -> void:
+func _setup_combat(enemies: Array, allies: Array = [], focused_index: int = 0, context: String = Combat.CONTEXT_RAID) -> void:
 	GameState.reset()
 	GameState.state["combat"] = {
-		"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
+		"active": true, "context": context, "veinId": null,
 		"enemies": enemies, "focusedEnemyIndex": focused_index,
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
@@ -667,4 +667,62 @@ func run() -> void:
 		assert_eq(slot.flash_alpha, 0.0, "a non-damaging Complication cast must never flash a combatant that wasn't hit")
 
 		screen.free()
+	)
+
+	# ── combat-presentation ticket 08, §2.1/§6: per-context backdrop ──
+
+	run_case("stage_backdrop_shows_the_palette_fallback_fill_for_a_context_with_no_plate_yet", func():
+		_setup_combat([_enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var fallback_id: String = GameData.COMBAT_VISUALS["backdrops"]["mugging"]["fallbackColor"]
+		assert_true(screen._backdrop_fill.visible, "no plate exists yet for CONTEXT_MUGGING -- the flat fallback fill must be showing")
+		assert_true(not screen._backdrop_texture.visible, "the image layer must stay hidden when there's no image")
+		assert_eq(screen._backdrop_fill.color, GameData.PALETTE[fallback_id], "fallback fill colour must be the manifest's fallbackColor resolved through the master palette")
+
+		screen.free()
+	)
+
+	run_case("stage_backdrop_follows_context_across_fights", func():
+		_setup_combat([_enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
+		var screen := CombatScreen.new()
+		screen._ready()
+		var mugging_color: Color = screen._backdrop_fill.color
+
+		_setup_combat([_enemy("Vein Guard")], [], 0, Combat.CONTEXT_DEFEND_VEIN)
+		screen._sync()
+		var defend_vein_color: Color = screen._backdrop_fill.color
+
+		assert_true(mugging_color != defend_vein_color, "CONTEXT_MUGGING and CONTEXT_DEFEND_VEIN use different fallback colours in data/combat_visuals.json, so the backdrop must change when the fight's context changes")
+		assert_eq(defend_vein_color, GameData.PALETTE[GameData.COMBAT_VISUALS["backdrops"]["defend_vein"]["fallbackColor"]], "backdrop must resync to the new context's own fallback colour")
+
+		screen.free()
+	)
+
+	run_case("stage_backdrop_archie_deal_mugging_reuses_muggings_fallback", func():
+		_setup_combat([_enemy("A mugger")], [], 0, Combat.CONTEXT_ARCHIE_DEAL_MUGGING)
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_eq(screen._backdrop_fill.color, GameData.PALETTE[GameData.COMBAT_VISUALS["backdrops"]["mugging"]["fallbackColor"]], "archie_deal_mugging is a permanent alias of mugging's backdrop, not a distinct plate")
+
+		screen.free()
+	)
+
+	run_case("stage_backdrop_defends_against_an_unrecognised_context_with_a_default_fill_not_a_crash", func():
+		_setup_combat([_enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
+		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
+		GameData.COMBAT_VISUALS = { "backdrops": {} }  # simulates a context the manifest has no entry for
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_true(screen._backdrop_fill.visible, "an unrecognised context must still fall back to a flat fill rather than rendering nothing")
+		assert_true(not screen._backdrop_texture.visible, "the image layer must stay hidden with no manifest entry to source a path from")
+
+		screen.free()
+		GameData.COMBAT_VISUALS = original_combat_visuals
 	)

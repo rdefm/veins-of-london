@@ -41,6 +41,19 @@ const STAGE_HEIGHT := 360.0
 const ENEMY_BAND_HEIGHT := STAGE_HEIGHT / 3.0
 const PLAYER_BAND_HEIGHT := STAGE_HEIGHT - ENEMY_BAND_HEIGHT
 
+# combat-presentation ticket 08, §9: the frame's own hard border width --
+# shared by _build_stage_skeleton()'s StyleBoxFlat and the backdrop layer's
+# inset, so the backdrop plate/fallback fill never paints over the border
+# it's supposed to sit inside of.
+const STAGE_BORDER_WIDTH := 2.0
+
+# combat-presentation ticket 08: the dark fill both the frame's own
+# StyleBoxFlat (before any backdrop existed) and _sync_backdrop()'s
+# last-resort default (an unrecognised context, or a manifest entry with no
+# usable fallbackColor) use -- one literal instead of two so they can't
+# drift apart.
+const STAGE_DEFAULT_FILL := Color(0.07, 0.07, 0.09)
+
 # Near/far diagonal fan (§2, §2.2 refinement): the front slot is large and
 # foreground; the other two are smaller and staggered behind it, not laid
 # out flat left-to-right. Sized as a fraction of whichever band they're in
@@ -166,6 +179,16 @@ var _enemy_slots: Dictionary = {}  # enemy index (int) -> StageSlot
 var _player_slots: Dictionary = {}  # -1 (player) or ally index (int) -> StageSlot
 var _enemy_band_layer: Control
 var _player_band_layer: Control
+
+# combat-presentation ticket 08, docs/combat-animation-vision.md §2.1/§6:
+# the per-context backdrop -- built once in _build_stage_skeleton() (behind
+# both band layers so combatants render on top of it) and re-pointed at
+# whichever context/fallback data/combat_visuals.json names for the current
+# fight each _sync_stage() (see _sync_backdrop() below). Exactly one of the
+# two is visible at a time: a real plate once ticket 09 lands one for a
+# context, the flat palette-colour fill until then.
+var _backdrop_texture: TextureRect
+var _backdrop_fill: ColorRect
 # combat-presentation ticket 05: the screen-shake wrapper -- see
 # _build_stage_skeleton()'s own comment for why this, not `frame`, is what
 # _shake_stage() tweens.
@@ -371,7 +394,11 @@ func _on_strip_selection_changed(new_key: Dictionary) -> void:
 # §9's "lit-window frame": a recessed dark inset with a hard 2px border and
 # a slight inner vignette, embedded in the surrounding parchment/vector
 # chrome -- so the pixel stage reads as a window onto the street even before
-# any backdrop art exists (ticket 08 adds the real per-context plates).
+# any backdrop art exists. combat-presentation ticket 08 adds the actual
+# per-context backdrop (_backdrop_texture/_backdrop_fill below) reading
+# data/combat_visuals.json; until a real plate lands for a context it's the
+# same flat dark fill this comment used to describe, now sourced from the
+# manifest's fallbackColor instead of hardcoded here.
 #
 # combat-presentation ticket 04: built once, in _ready() -- the frame, its
 # vignette, and the two band layers (_enemy_band_layer/_player_band_layer)
@@ -383,11 +410,11 @@ func _build_stage_skeleton() -> Panel:
 	frame.clip_contents = true
 
 	var frame_style := StyleBoxFlat.new()
-	frame_style.bg_color = Color(0.07, 0.07, 0.09)
-	frame_style.border_width_left = 2
-	frame_style.border_width_top = 2
-	frame_style.border_width_right = 2
-	frame_style.border_width_bottom = 2
+	frame_style.bg_color = STAGE_DEFAULT_FILL
+	frame_style.border_width_left = STAGE_BORDER_WIDTH
+	frame_style.border_width_top = STAGE_BORDER_WIDTH
+	frame_style.border_width_right = STAGE_BORDER_WIDTH
+	frame_style.border_width_bottom = STAGE_BORDER_WIDTH
 	frame_style.border_color = Color(0, 0, 0, 0.65)
 	frame.add_theme_stylebox_override("panel", frame_style)
 	# Panel (like PanelContainer, per ui.gd's card() comment) defaults to
@@ -414,6 +441,34 @@ func _build_stage_skeleton() -> Panel:
 	_stage_shake_layer.size = Vector2(STAGE_WIDTH, STAGE_HEIGHT)
 	frame.add_child(_stage_shake_layer)
 
+	# combat-presentation ticket 08: the backdrop sits behind both bands, and
+	# inset by the frame's own border width so it never paints over the hard
+	# 2px border §9 calls for. _sync_backdrop() (called from _sync_stage())
+	# picks which of these two is visible; both exist from the start so
+	# there's nothing to build/free per context switch.
+	var backdrop_origin := Vector2(STAGE_BORDER_WIDTH, STAGE_BORDER_WIDTH)
+	var backdrop_size := Vector2(STAGE_WIDTH, STAGE_HEIGHT) - backdrop_origin * 2.0
+
+	_backdrop_fill = ColorRect.new()
+	_backdrop_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_backdrop_fill.position = backdrop_origin
+	_backdrop_fill.size = backdrop_size
+	_stage_shake_layer.add_child(_backdrop_fill)
+
+	_backdrop_texture = TextureRect.new()
+	_backdrop_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_backdrop_texture.position = backdrop_origin
+	_backdrop_texture.size = backdrop_size
+	# STRETCH_KEEP_ASPECT_COVERED, not STRETCH_SCALE: a 390x360 native plate
+	# (docs/ART-BIBLE.md §3) doesn't share backdrop_size's exact aspect ratio
+	# (the stage is narrower than 390 -- see STAGE_WIDTH's own comment above),
+	# so a plain non-uniform scale would squash it. Uniform scale-to-cover
+	# crops the overflow instead (frame.clip_contents already clips it) --
+	# never distorts a straight line in the art into a diagonal one.
+	_backdrop_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_backdrop_texture.visible = false
+	_stage_shake_layer.add_child(_backdrop_texture)
+
 	_enemy_band_layer = Control.new()
 	_enemy_band_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stage_shake_layer.add_child(_enemy_band_layer)
@@ -436,11 +491,37 @@ func _on_stage_gui_input(event: InputEvent) -> void:
 
 
 func _sync_stage(combat: Dictionary, player: Dictionary) -> void:
+	_sync_backdrop(combat["context"])
+
 	var enemy_entries := _enemy_display_entries(combat["enemies"], combat["focusedEnemyIndex"])
 	_sync_band(_enemy_slots, _enemy_band_layer, enemy_entries, Vector2(STAGE_WIDTH, ENEMY_BAND_HEIGHT), Vector2.ZERO)
 
 	var player_entries := _player_display_entries(player, combat["allies"])
 	_sync_band(_player_slots, _player_band_layer, player_entries, Vector2(STAGE_WIDTH, PLAYER_BAND_HEIGHT), Vector2(0.0, ENEMY_BAND_HEIGHT))
+
+
+# combat-presentation ticket 08, docs/combat-animation-vision.md §2.1/§6:
+# reads data/combat_visuals.json (GameData.COMBAT_VISUALS) for this fight's
+# context and shows either the real plate or the flat palette-colour
+# fallback -- never both, and never neither. GameData.validate() already
+# guarantees every Combat.CANONICAL_CONTEXTS context has an entry with an
+# image or a fallbackColor, but an unrecognised context (defensive only --
+# Combat.is_canonical_context() rejects these earlier) or a plate whose file
+# went missing still resolves to the same dark fill _build_stage_skeleton()
+# used before this ticket, rather than a missing-texture error or a blank
+# stage.
+func _sync_backdrop(context: String) -> void:
+	var backdrops: Dictionary = GameData.COMBAT_VISUALS.get("backdrops", {})
+	var entry: Dictionary = backdrops.get(context, {})
+	var image_path: String = entry.get("image", "")
+	if not image_path.is_empty() and ResourceLoader.exists(image_path):
+		_backdrop_texture.texture = load(image_path)
+		_backdrop_texture.visible = true
+		_backdrop_fill.visible = false
+	else:
+		_backdrop_fill.color = GameData.PALETTE.get(entry.get("fallbackColor", ""), STAGE_DEFAULT_FILL)
+		_backdrop_fill.visible = true
+		_backdrop_texture.visible = false
 
 
 # Up to Combat.SQUAD_MAX non-koed enemies, fanned in their existing

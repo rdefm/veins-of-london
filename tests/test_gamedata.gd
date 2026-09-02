@@ -314,6 +314,52 @@ func run() -> void:
 		assert_true(found, "losing the one resting (drift:0) band straddling neutral should fail validation")
 	)
 
+	# ── combat-presentation ticket 08: data/combat_visuals.json ──
+
+	run_case("corrupt_fixture_combat_visuals_missing_canonical_context_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["combat_visuals"]["backdrops"].erase("defend_vein")
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("defend_vein"):
+				found = true
+		assert_true(found, "a canonical context missing its backdrop entry should be flagged -- is_canonical_context() staying the single source of truth means a new context is caught here too")
+	)
+
+	run_case("corrupt_fixture_combat_visuals_no_image_and_no_fallback_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["combat_visuals"]["backdrops"]["mugging"]["fallbackColor"] = ""
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("mugging") and e.contains("render nothing"):
+				found = true
+		assert_true(found, "a context with neither an image nor a fallbackColor should be flagged -- the stage would render nothing")
+	)
+
+	run_case("corrupt_fixture_combat_visuals_unknown_fallback_color_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["combat_visuals"]["backdrops"]["raid"]["fallbackColor"] = "not_a_real_colour"
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("not_a_real_colour"):
+				found = true
+		assert_true(found, "a fallbackColor that isn't a data/palette.json colour id should be flagged")
+	)
+
+	run_case("corrupt_fixture_combat_visuals_archie_deal_mugging_diverging_from_mugging_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["combat_visuals"]["backdrops"]["archie_deal_mugging"]["fallbackColor"] = "brick_shadow"
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("archie_deal_mugging") and e.contains("must exactly match backdrops.mugging"):
+				found = true
+		assert_true(found, "archie_deal_mugging is a permanent alias of mugging's backdrop -- any divergence between the two entries should fail validation, not just a test convention")
+	)
+
 	run_case("spot_check_values", func():
 		assert_eq(GameData.ORE_TYPES["fate"]["basePrice"], 90, "fate basePrice")
 		assert_eq(GameData.ORE_TYPES["emotion"]["symbol"], "❋", "emotion symbol")
@@ -356,4 +402,10 @@ func run() -> void:
 			assert_eq(GameData.CONTACTS_DEFAULTS[key]["startRelation"], 0, "%s starts at relation 0" % key)
 			assert_true(not GameData.CONTACTS_DEFAULTS[key]["unlocked"], "%s starts locked" % key)
 			assert_true(GameData.COLLECTIVE_BARKS[key].size() >= 6, "%s has at least 6 bark lines" % key)
+
+		# combat-presentation ticket 08
+		for context in Combat.CANONICAL_CONTEXTS:
+			assert_true(GameData.COMBAT_VISUALS["backdrops"].has(context), "combat_visuals.backdrops missing '%s'" % context)
+		assert_eq(GameData.COMBAT_VISUALS["backdrops"]["archie_deal_mugging"]["fallbackColor"], GameData.COMBAT_VISUALS["backdrops"]["mugging"]["fallbackColor"], "archie_deal_mugging is a permanent alias of mugging's backdrop, not its own 7th plate")
+		assert_eq(GameData.PALETTE["brick_shadow"], Color("#7c3a2f"), "PALETTE resolves a palette.json colour id to its hex Color")
 	)

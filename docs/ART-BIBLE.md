@@ -174,12 +174,19 @@ ticket 08** — noted here so the reasoning isn't re-derived later.
    default for every combat-art directory.** `project.godot:38`'s
    `textures/vram_compression/import_etc2_astc=true` applies to
    VRAM-Compressed import mode; block compression visibly artifacts pixel
-   art. Setting it as a folder default (rather than per-file) means it
-   can't be flipped back by accident on a new asset.
+   art. **Applied in ticket 08** as the project-wide `[importer_defaults]`
+   texture preset in `project.godot` (`compress/mode=0` Lossless,
+   `mipmaps/generate=false`) rather than a true per-folder default — Godot 4
+   has no built-in per-folder import-default mechanism, and combat art is
+   the only pixel-art pipeline in this project, so project-wide has the
+   same effect in practice. A new combat-art PNG still needs `filter off`
+   confirmed on import (no per-CanvasItem `texture_filter` override back to
+   Linear) since that's a runtime property, not an import-time one.
 2. **`rendering/textures/canvas_textures/default_texture_filter` →
    Nearest.** Default is Linear, which turns crisp pixel art to mud.
    `gl_compatibility` (this project's renderer on desktop and mobile) is
-   otherwise fine for this.
+   otherwise fine for this. **Applied in ticket 08** —
+   `textures/canvas_textures/default_texture_filter=0` in `project.godot`.
 3. **Pick one pixel-snapping rule, project-wide, and never mix it.** At
    `canvas_items` stretch on a modern phone, 1 art pixel ≈ 1 logical pixel
    ≈ 3 device pixels — crisp, but a tweened position lands on a fraction
@@ -189,6 +196,10 @@ ticket 08** — noted here so the reasoning isn't re-derived later.
      authentic, everything snaps to the art grid.
    - Leave it off and allow subpixel positioning throughout — smoother,
      slightly softer.
-   Ticket 08 picks one and flips the project setting; whichever it picks,
-   every tween added after that (juice layer, transform-based attack
-   motion, effect sheets) must agree with it.
+   **Decided in ticket 08: `snap_2d_transforms_to_pixel`, on** —
+   `rendering/2d/snap/snap_2d_transforms_to_pixel=true` in `project.godot`.
+   Crunchy/authentic matches §1's "genuine pixel grid" direction and the
+   named reference games (Backbone, NORCO, Eastward all snap). Every tween
+   added after this ticket (juice layer, transform-based attack motion,
+   effect sheets) must agree with it — no subpixel positioning anywhere in
+   the combat stage.

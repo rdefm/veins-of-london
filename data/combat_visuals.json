@@ -1,0 +1,16 @@
+{
+  "meta": {
+    "name": "Combat visuals manifest",
+    "purpose": "Maps combat context (and, from ticket 09, enemy/ally template key) to the art asset that renders it, so scenes/screens/combat.gd never hardcodes a path. See docs/combat-animation-vision.md §2.1/§6 and docs/ART-BIBLE.md.",
+    "backdropRule": "One entry per Combat.CANONICAL_CONTEXTS context (systems/combat.gd). 'image' is a res:// path to a 390x360 backdrop plate, or \"\" when no plate has been produced yet -- the stage then fills with the flat data/palette.json colour named by 'fallbackColor' instead."
+  },
+  "backdrops": {
+    "raid": { "image": "", "fallbackColor": "brick_shadow" },
+    "mugging": { "image": "", "fallbackColor": "pavement_wet" },
+    "event_mugging": { "image": "", "fallbackColor": "pavement_wet" },
+    "home_raid": { "image": "", "fallbackColor": "slate_dark" },
+    "event_raid": { "image": "", "fallbackColor": "brick_shadow" },
+    "defend_vein": { "image": "", "fallbackColor": "puddle_shadow" },
+    "archie_deal_mugging": { "image": "", "fallbackColor": "pavement_wet" }
+  }
+}

@@ -115,6 +115,23 @@ var COMBAT_XP_LEVELS: Array = []
 var COMBAT_ATTACK_BONUS_BY_LEVEL: Array = []
 var COMBAT_SPEED_BY_LEVEL: Array = []
 
+# combat-presentation ticket 08, docs/combat-animation-vision.md §2.1/§6:
+# data/combat_visuals.json's "backdrops" table -- Combat.CANONICAL_CONTEXTS
+# context id -> { "image": res:// path or "" when no plate has been produced
+# yet, "fallbackColor": a PALETTE key the stage fills with instead }. Ticket
+# 09 adds a sibling "templates" table here for per-enemy/ally sprite sheets;
+# not introduced yet since nothing reads it until that ticket.
+var COMBAT_VISUALS: Dictionary = {}
+
+# combat-presentation ticket 08, docs/ART-BIBLE.md §2: data/palette.json's
+# 42-colour master palette, keyed by colour id (e.g. "brick_shadow") ->
+# Color, so any screen can resolve a data-declared palette key (a backdrop
+# fallback fill, and later ticket 09's placeholder-to-real-art handoff)
+# without hardcoding a hex value. Not a per-table validate_tables() subject
+# in the usual sense -- see _validate_combat_visuals() below, which cross-
+# references into it instead of validating it standalone.
+var PALETTE: Dictionary = {}
+
 var TIME_BLOCKS: Array = []
 var ARCHIE_ORE_GOAL: int = 0
 var CONTACTS_DEFAULTS: Dictionary = {}
@@ -321,6 +338,14 @@ func load_all() -> void:
 	COMBAT_ATTACK_BONUS_BY_LEVEL = enemies.get("combatAttackBonusByLevel", [])
 	COMBAT_SPEED_BY_LEVEL = enemies.get("combatSpeedByLevel", [])
 
+	COMBAT_VISUALS = _load_json("res://data/combat_visuals.json")
+
+	PALETTE = {}
+	for entry in _load_json("res://data/palette.json").get("colors", []):
+		var id: String = entry.get("id", "")
+		if not id.is_empty() and entry.has("hex"):
+			PALETTE[id] = Color(entry["hex"])
+
 	var constants := _load_json("res://data/constants.json")
 	TIME_BLOCKS = constants.get("timeBlocks", [])
 	ARCHIE_ORE_GOAL = constants.get("archieOreGoal", 0)
@@ -376,6 +401,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_sites(t.get("site_tier_order", []), t.get("site_tier_weights", {}), t.get("site_at_cap_tier_weights", {}), t.get("site_prospect_xp", {}), t.get("site_seed_tier_mod", {}), t.get("site_discovery_bonus_pool", []), errors)
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), errors)
 	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), t.get("combat_xp_levels", []), t.get("combat_attack_bonus_by_level", []), t.get("combat_speed_by_level", []), errors)
+	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
 	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), errors)
@@ -433,6 +459,8 @@ func snapshot() -> Dictionary:
 		"combat_xp_levels": COMBAT_XP_LEVELS,
 		"combat_attack_bonus_by_level": COMBAT_ATTACK_BONUS_BY_LEVEL,
 		"combat_speed_by_level": COMBAT_SPEED_BY_LEVEL,
+		"combat_visuals": COMBAT_VISUALS,
+		"palette": PALETTE,
 		"time_blocks": TIME_BLOCKS,
 		"contacts_defaults": CONTACTS_DEFAULTS,
 		"events": EVENTS,
@@ -848,6 +876,39 @@ func _validate_enemies(raid_guards: Dictionary, home_raid_raider: Dictionary, co
 		errors.append("enemies.combatAttackBonusByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_attack_bonus_by_level.size())
 	if combat_speed_by_level.size() != 6:
 		errors.append("enemies.combatSpeedByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_speed_by_level.size())
+
+
+# combat-presentation ticket 08: every context in Combat.CANONICAL_CONTEXTS
+# must have a backdrop entry -- is_canonical_context() staying the single
+# source of truth for "is this a real context" means a new context is
+# caught here too, the same guarantee _validate_events() etc. give the rest
+# of the content pipeline. An entry needs an image OR a fallbackColor (never
+# neither, or the stage would render nothing); a fallbackColor must name a
+# real data/palette.json colour id.
+func _validate_combat_visuals(combat_visuals: Dictionary, palette: Dictionary, errors: Array[String]) -> void:
+	var backdrops: Dictionary = combat_visuals.get("backdrops", {})
+	for context in Combat.CANONICAL_CONTEXTS:
+		if not backdrops.has(context):
+			errors.append("combat_visuals.backdrops: missing entry for canonical context '%s'" % context)
+			continue
+		var entry: Dictionary = backdrops[context]
+		_require_keys(entry, ["image", "fallbackColor"], "combat_visuals.backdrops.%s" % context, errors)
+		var image: String = entry.get("image", "")
+		var fallback_color: String = entry.get("fallbackColor", "")
+		if image.is_empty() and fallback_color.is_empty():
+			errors.append("combat_visuals.backdrops.%s: neither 'image' nor 'fallbackColor' set -- stage would render nothing" % context)
+		if not fallback_color.is_empty() and not palette.has(fallback_color):
+			errors.append("combat_visuals.backdrops.%s: fallbackColor '%s' is not a data/palette.json colour id" % [context, fallback_color])
+
+	# combat-presentation ticket 08 (human decision, since CONTEXT_ARCHIE_DEAL_
+	# MUGGING is "flavour-identical to mugging" per docs/combat-animation-
+	# vision.md §2.1's own open question): archie_deal_mugging is a permanent
+	# alias of mugging's backdrop, never its own plate -- enforced here, not
+	# just by convention, so a future ticket that gives mugging a real plate
+	# can't silently leave archie_deal_mugging pointing at the old fallback.
+	if backdrops.has(Combat.CONTEXT_ARCHIE_DEAL_MUGGING) and backdrops.has(Combat.CONTEXT_MUGGING):
+		if backdrops[Combat.CONTEXT_ARCHIE_DEAL_MUGGING] != backdrops[Combat.CONTEXT_MUGGING]:
+			errors.append("combat_visuals.backdrops.archie_deal_mugging: must exactly match backdrops.mugging (permanent alias, not its own plate)")
 
 
 func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, errors: Array[String]) -> void:
