@@ -118,9 +118,16 @@ var COMBAT_SPEED_BY_LEVEL: Array = []
 # combat-presentation ticket 08, docs/combat-animation-vision.md §2.1/§6:
 # data/combat_visuals.json's "backdrops" table -- Combat.CANONICAL_CONTEXTS
 # context id -> { "image": res:// path or "" when no plate has been produced
-# yet, "fallbackColor": a PALETTE key the stage fills with instead }. Ticket
-# 09 adds a sibling "templates" table here for per-enemy/ally sprite sheets;
-# not introduced yet since nothing reads it until that ticket.
+# yet, "fallbackColor": a PALETTE key the stage fills with instead }.
+#
+# combat-presentation ticket 09 (in progress): the sibling "templates"
+# table -- eventually per-enemy/ally-template idle/attack/hit/KO sheets,
+# today just a single "default" entry (an interim, not-yet-palette-
+# quantised build-test asset applied to every combatant slot -- see
+# scenes/screens/combat.gd's _load_default_idle_animation()) until real
+# per-template entries replace it. Deliberately unvalidated here (no
+# _validate_combat_visuals coverage for "templates" yet) since its shape
+# isn't finalised -- scenes/screens/combat.gd reads it defensively.
 var COMBAT_VISUALS: Dictionary = {}
 
 # combat-presentation ticket 08, docs/ART-BIBLE.md §2: data/palette.json's

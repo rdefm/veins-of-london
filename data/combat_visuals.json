@@ -12,5 +12,11 @@
     "event_raid": { "image": "", "fallbackColor": "brick_shadow" },
     "defend_vein": { "image": "", "fallbackColor": "puddle_shadow" },
     "archie_deal_mugging": { "image": "", "fallbackColor": "pavement_wet" }
+  },
+  "templates": {
+    "default": {
+      "_note": "TEMPORARY build-test stand-in (ticket 09 in progress) -- an untouched asset-pack frame (assets/Human Male Model), not final art, not palette-quantised. Applies to every combatant slot until per-template entries land, at which point a template-keyed lookup takes over and this stops applying to anything.",
+      "idle": { "image": "res://assets/combat/dummy/idle.png", "frameCount": 2, "fps": 6 }
+    }
   }
 }

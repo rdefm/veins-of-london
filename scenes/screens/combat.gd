@@ -119,17 +119,64 @@ class StageSlot extends Control:
 
 	# combat-presentation ticket 05, §4.1: "Flash-to-white on the struck
 	# placeholder/sprite (a CanvasItem material flash, not new art)." Drawn
-	# as a plain white overlay in _draw() rather than an actual
-	# CanvasItemMaterial shader swap -- StageSlot is a placeholder-art box
-	# today (real sprites land ticket 09/10), and an alpha-blended overlay
-	# reads identically to a shader flash against either, at a fraction of
-	# the complexity; a later ticket can swap the mechanism without touching
-	# any juice-layer call site (flash_hit() is the only entry point).
+	# as a plain white overlay via _overlay (see below) rather than an
+	# actual CanvasItemMaterial shader swap -- an alpha-blended overlay
+	# reads identically to a shader flash against either a placeholder box
+	# or a real sprite, at a fraction of the complexity; a later ticket can
+	# swap the mechanism without touching any juice-layer call site
+	# (flash_hit() is the only entry point).
 	var flash_alpha: float = 0.0
+
+	# combat-presentation ticket 09 (in progress -- see data/combat_visuals.
+	# json's templates.default and CombatScreen._load_default_idle_animation()
+	# below): once set_idle_animation() has real frames, they replace the
+	# ticket-01 placeholder fill/border in _draw() below. Empty _idle_frames
+	# means "no sprite yet, draw the placeholder box" -- the same fallback
+	# ticket 09's eventual per-template version also needs.
+	#
+	# _sprite_rect/_idle_timer/_overlay are built in _init() rather than
+	# _ready() or _process()-driven, because this file's own test harness
+	# (tests/test_combat_screen.gd) never adds these Controls to a live
+	# SceneTree -- see flash_hit()'s pre-existing is_inside_tree() guard for
+	# the same constraint. _init() runs at construction regardless of tree
+	# membership, so the child structure always exists; _idle_timer simply
+	# never ticks off-tree, which is fine since off-tree tests drive frame
+	# advance directly via _advance_idle_frame() instead of waiting on it.
+	#
+	# _overlay is a separate Control (not more of this class's own _draw())
+	# so the focus glow/flash always render on top of _sprite_rect -- a
+	# Control's children draw after its own _draw() call, so without a
+	# dedicated top layer the flash would render *under* a real sprite.
+	var _idle_frames: Array[Texture2D] = []
+	var _idle_frame_index: int = 0
+	var _sprite_rect: TextureRect
+	var _idle_timer: Timer
+	var _overlay: Control
+
+	func _init() -> void:
+		_sprite_rect = TextureRect.new()
+		_sprite_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_sprite_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_sprite_rect.anchor_right = 1.0
+		_sprite_rect.anchor_bottom = 1.0
+		_sprite_rect.visible = false
+		add_child(_sprite_rect)
+
+		_idle_timer = Timer.new()
+		_idle_timer.one_shot = false
+		_idle_timer.timeout.connect(_advance_idle_frame)
+		add_child(_idle_timer)
+
+		_overlay = Control.new()
+		_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_overlay.anchor_right = 1.0
+		_overlay.anchor_bottom = 1.0
+		_overlay.draw.connect(_draw_overlay)
+		add_child(_overlay)
 
 	func set_flash_alpha(value: float) -> void:
 		flash_alpha = value
-		queue_redraw()
+		_overlay.queue_redraw()
 
 	# Public entry point CombatScreen._play_juice() calls on a landed hit.
 	# Jumps straight to full white, then tweens back down to transparent --
@@ -142,18 +189,49 @@ class StageSlot extends Control:
 		var tween := create_tween()
 		tween.tween_method(set_flash_alpha, 1.0, 0.0, 0.18)
 
+	# combat-presentation ticket 09: CombatScreen._sync_band() calls this
+	# for every slot, every sync -- `frames` is the same shared array either
+	# way (nothing per-instance to build), so this is cheap to call
+	# unconditionally. An empty `frames` array (no manifest entry yet)
+	# reverts the slot to the ticket-01 placeholder box.
+	func set_idle_animation(frames: Array[Texture2D], fps: float) -> void:
+		_idle_frames = frames
+		_idle_frame_index = 0
+		_sprite_rect.visible = not frames.is_empty()
+		_sprite_rect.texture = frames[0] if not frames.is_empty() else null
+		if frames.size() >= 2 and fps > 0.0:
+			_idle_timer.wait_time = 1.0 / fps
+			_idle_timer.start()
+		else:
+			_idle_timer.stop()
+		queue_redraw()
+
+	# Ping-pong across however many frames were given (2, for today's single
+	# shared dummy sheet -- straight alternation, same as any 2-frame
+	# ping-pong). Public so tests can drive it directly without a live tree
+	# ever actually ticking _idle_timer -- see this class's own top comment.
+	func _advance_idle_frame() -> void:
+		if _idle_frames.size() < 2:
+			return
+		_idle_frame_index = (_idle_frame_index + 1) % _idle_frames.size()
+		_sprite_rect.texture = _idle_frames[_idle_frame_index]
+
 	func _draw() -> void:
-		var rect := Rect2(Vector2.ZERO, size)
-		draw_rect(rect, fill_color, true)
-		draw_rect(rect, Color(0, 0, 0, 0.55), false, 2.0)
-		if is_focused:
-			draw_rect(rect.grow(3.0), Color(1.0, 0.86, 0.35, 0.95), false, 3.0)
-		if flash_alpha > 0.0:
-			draw_rect(rect, Color(1.0, 1.0, 1.0, flash_alpha), true)
+		if _idle_frames.is_empty():
+			var rect := Rect2(Vector2.ZERO, size)
+			draw_rect(rect, fill_color, true)
+			draw_rect(rect, Color(0, 0, 0, 0.55), false, 2.0)
 	# combat-presentation ticket 02: the placeholder box itself carries no
 	# name/HP label any more (see _build_slot() below) -- combatant_name is
 	# still set, purely as the template-id key _placeholder_color() and tests
 	# read, not for display.
+
+	func _draw_overlay() -> void:
+		var rect := Rect2(Vector2.ZERO, size)
+		if is_focused:
+			_overlay.draw_rect(rect.grow(3.0), Color(1.0, 0.86, 0.35, 0.95), false, 3.0)
+		if flash_alpha > 0.0:
+			_overlay.draw_rect(rect, Color(1.0, 1.0, 1.0, flash_alpha), true)
 
 
 # combat-presentation ticket 04, docs/combat-animation-vision.md §8: the
@@ -189,6 +267,18 @@ var _player_band_layer: Control
 # context, the flat palette-colour fill until then.
 var _backdrop_texture: TextureRect
 var _backdrop_fill: ColorRect
+
+# combat-presentation ticket 09 (in progress): every StageSlot's idle
+# animation, per data/combat_visuals.json's templates.default -- loaded
+# once in _ready() (see _load_default_idle_animation() below), not
+# per-sync/per-slot, since it's the same shared frames for every
+# combatant until real per-template entries replace this stand-in. Empty
+# means no manifest entry (or the image failed to load) -- every StageSlot
+# then falls back to the ticket-01 placeholder box, same as before this
+# existed.
+var _default_idle_frames: Array[Texture2D] = []
+var _default_idle_fps: float = 6.0
+
 # combat-presentation ticket 05: the screen-shake wrapper -- see
 # _build_stage_skeleton()'s own comment for why this, not `frame`, is what
 # _shake_stage() tweens.
@@ -247,6 +337,8 @@ func _ready() -> void:
 	_director = CombatDirector.new()
 	add_child(_director)
 
+	_load_default_idle_animation()
+
 	# combat-presentation ticket 04: the player-facing half of
 	# CombatDirector's persisted pacing toggle (CombatPacing, same
 	# systems-own-the-schema split as MapEvents.pacing_mode()) -- without a
@@ -270,6 +362,37 @@ func _ready() -> void:
 
 	EventBus.state_changed.connect(_sync)
 	_sync()
+
+
+# combat-presentation ticket 09 (in progress): loads data/combat_visuals.
+# json's templates.default.idle -- a single shared, not-yet-palette-
+# quantised build-test sheet applied to every combatant slot (see
+# _sync_band()'s set_idle_animation() call) until real per-template
+# entries land. Sliced into `frameCount` equal-width AtlasTextures (an
+# evenly-divided horizontal strip is the convention docs/ART-BIBLE.md §5
+# already documents for every keypose/idle strip). Missing manifest entry,
+# missing file, or frameCount < 1 all leave _default_idle_frames empty --
+# every StageSlot then falls back to the ticket-01 placeholder box, never
+# an error.
+func _load_default_idle_animation() -> void:
+	var idle: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get("default", {}).get("idle", {})
+	var image_path: String = idle.get("image", "")
+	var frame_count: int = idle.get("frameCount", 0)
+	if image_path.is_empty() or frame_count < 1 or not ResourceLoader.exists(image_path):
+		return
+
+	var sheet: Texture2D = load(image_path)
+	var frame_width := sheet.get_width() / frame_count
+	var frame_height := sheet.get_height()
+	var frames: Array[Texture2D] = []
+	for i in range(frame_count):
+		var atlas := AtlasTexture.new()
+		atlas.atlas = sheet
+		atlas.region = Rect2(i * frame_width, 0, frame_width, frame_height)
+		frames.append(atlas)
+
+	_default_idle_frames = frames
+	_default_idle_fps = idle.get("fps", 6.0)
 
 
 # combat-presentation ticket 04: replaces the old _refresh(), which
@@ -601,6 +724,12 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 		slot.fill_color = _placeholder_color(entry["name"])
 		slot.is_focused = entry["isFocused"]
 		slot.queue_redraw()
+		slot._overlay.queue_redraw()
+		# combat-presentation ticket 09 (in progress): every slot gets the
+		# same shared dummy-asset frames for now -- see
+		# _load_default_idle_animation()'s own comment for why this is
+		# deliberately not per-template yet.
+		slot.set_idle_animation(_default_idle_frames, _default_idle_fps)
 
 	# Display position 0 is always the fan's front/large slot (see
 	# _fan_local_rects) -- moving whichever combatant currently holds that

@@ -76,7 +76,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 
 | File | Renders |
 |---|---|
-| combat.gd | Combat screen (turn UI over systems/combat.gd); stage backdrop reads combat_visuals.json (image or palette.json fallback fill) per combat context |
+| combat.gd | Combat screen (turn UI over systems/combat.gd); stage backdrop reads combat_visuals.json (image or palette.json fallback fill) per combat context; StageSlot idle animation reads combat_visuals.json's templates.default (shared build-test sprite, ticket 09 in progress) |
 | contacts.gd | Contacts tab, flag-gated actions |
 | event.gd | Generic event-card screen driven by state.event |
 | factions.gd | Factions tab |
@@ -117,7 +117,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | approaches.json | systems/approaches.gd |
 | barometer.json | systems/barometer.gd |
 | collective_barks.json | systems/collective.gd |
-| combat_visuals.json | autoload/GameData.gd (COMBAT_VISUALS) → scenes/screens/combat.gd stage backdrop. Maps Combat.CANONICAL_CONTEXTS context → `{image, fallbackColor}`; `image` "" until a real plate lands (ticket 09+), `fallbackColor` a palette.json colour id read via GameData.PALETTE |
+| combat_visuals.json | autoload/GameData.gd (COMBAT_VISUALS) → scenes/screens/combat.gd. `backdrops`: Combat.CANONICAL_CONTEXTS context → `{image, fallbackColor}` (validated, `fallbackColor` a palette.json colour id via GameData.PALETTE). `templates`: per-template idle/attack/hit/KO sheets (ticket 09, in progress) -- today only `default` exists, a single unvalidated stand-in (`assets/combat/dummy/idle.png`, an untouched asset-pack frame, not final art) applied to every combatant slot until real per-template entries replace it |
 | constants.json | systems/time_system.gd, systems/jobs.gd, scenes/components/top_bar.gd, scenes/screens/phone.gd (timeBlocks, archieOreGoal, contacts defaults, James trust bands) |
 | dial.json | systems/dial.gd |
 | districts.json | systems/districts.gd, district_bubble.gd, sites.gd, economy.gd, factions.gd, raiding.gd, map_layout.gd, archie_deals.gd |

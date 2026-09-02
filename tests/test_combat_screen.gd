@@ -287,7 +287,16 @@ func run() -> void:
 
 		var slot := _slot_named(screen, "Scrapper")
 		assert_true(slot != null)
-		assert_eq(slot.get_child_count(), 0, "ticket 02 removes the interim name/HP labels _build_slot() used to carry -- the strip is now the sole source of that info, the fan placeholder should have no child Controls left")
+		# ticket 02 removed the interim name/HP labels _build_slot() used to
+		# carry -- the strip is the sole source of that info. Ticket 09 (in
+		# progress) gives StageSlot real non-Label children of its own
+		# (_sprite_rect/_idle_timer/_overlay, for the idle animation), so
+		# "no children at all" is no longer the right assertion -- what
+		# still must never come back is a Label.
+		var has_label := false
+		for c in slot.find_children("", "Label", true, false):
+			has_label = true
+		assert_true(not has_label, "the fan placeholder must carry no Label child -- name/HP display lives on the strip only")
 
 		screen.free()
 	)
@@ -722,6 +731,58 @@ func run() -> void:
 
 		assert_true(screen._backdrop_fill.visible, "an unrecognised context must still fall back to a flat fill rather than rendering nothing")
 		assert_true(not screen._backdrop_texture.visible, "the image layer must stay hidden with no manifest entry to source a path from")
+
+		screen.free()
+		GameData.COMBAT_VISUALS = original_combat_visuals
+	)
+
+	# ── combat-presentation ticket 09 (in progress): shared dummy idle animation ──
+
+	run_case("stage_slots_show_the_default_idle_animation_when_the_manifest_has_one", func():
+		_setup_combat([_enemy("Scrapper")])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_eq(screen._default_idle_frames.size(), 2, "data/combat_visuals.json's templates.default.idle declares frameCount 2 -- CombatScreen should have loaded exactly that many frames")
+
+		var slot := _slot_named(screen, "Scrapper")
+		assert_true(not slot._idle_frames.is_empty(), "a slot with a default idle animation available must not fall back to the placeholder box")
+		assert_true(slot._sprite_rect.visible, "the sprite layer must be showing")
+
+		screen.free()
+	)
+
+	run_case("stage_slot_idle_animation_ping_pongs_between_frames", func():
+		_setup_combat([_enemy("Scrapper")])
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Scrapper")
+
+		var frame0 := slot._sprite_rect.texture
+		slot._advance_idle_frame()
+		var frame1 := slot._sprite_rect.texture
+		slot._advance_idle_frame()
+		var frame2 := slot._sprite_rect.texture
+
+		assert_true(frame0 != frame1, "advancing the idle frame must change the visible texture")
+		assert_eq(frame2, frame0, "a 2-frame idle loop must ping-pong straight back to the first frame")
+
+		screen.free()
+	)
+
+	run_case("stage_slot_falls_back_to_the_placeholder_box_when_no_default_idle_animation_is_available", func():
+		_setup_combat([_enemy("Scrapper")])
+		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
+		GameData.COMBAT_VISUALS = { "backdrops": original_combat_visuals["backdrops"] }  # no "templates" key at all
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Scrapper")
+
+		assert_true(screen._default_idle_frames.is_empty(), "no templates.default entry -- nothing to load")
+		assert_true(slot._idle_frames.is_empty(), "slot must fall back to the ticket-01 placeholder box, not error")
+		assert_true(not slot._sprite_rect.visible, "the sprite layer must stay hidden with no frames to show")
 
 		screen.free()
 		GameData.COMBAT_VISUALS = original_combat_visuals
