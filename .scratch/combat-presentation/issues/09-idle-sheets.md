@@ -53,3 +53,24 @@ through `tools/pixelize.py` against `data/palette.json`.
 - [ ] No change was needed to ticket 01's fan-layout/glow code or ticket
       02's strip code to land this — confirms the placeholder-first
       architecture actually decouples art from layout as intended
+
+## Comments
+
+Plumbing landed (commit `combat-presentation-09: per-subject idle-sheet
+manifest + fallback (art deferred)`): `data/combat_visuals.json` gained a
+`templates.<key>.idle` stub per cast subject; `CombatScreen` resolves each
+fanned combatant to its key (player, an ally's own `contactId`, or an
+enemy's `data/enemies.json` raidGuards key / `ENEMY_HOME_RAID_RAIDER` /
+`isMugging`) and falls back cleanly to the ticket-01 placeholder box when
+that key's manifest entry has no art; concurrent same-template enemies
+(2x/3x Mugger) share one cached sheet and alternate an extra mirror flip
+per fan slot. Confirmed no change was needed to ticket 01/02's own code.
+
+**Still blocked:** no image-generation tool was available in-session (the
+agent asked the human; their explicit call was "code/manifest only, art
+deferred" over waiting or hand-supplying source images). None of the 7
+subjects have a real idle sheet yet — every `templates.<key>.idle.image` is
+still `""`, so the stage currently shows the ticket-01 placeholder box for
+every combatant. Re-open this ticket once real art can be produced: fill in
+each subject's `image`/`frameCount`/`fps` in the manifest and the existing
+plumbing picks it up with no further code change.
