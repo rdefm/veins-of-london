@@ -71,10 +71,10 @@ static func _strip_card_named(root: Node, combatant_name: String) -> TurnOrderSt
 # Mirrors tests/test_combat.gd's _multi_enemy_combat() -- hand-specced
 # entries rather than real roster generation, since this ticket is only
 # about rendering the roster the state layer already produces.
-func _enemy(name: String, hp: int = 20, hp_max: int = 20, koed: bool = false, speed: int = 10) -> Dictionary:
+func _enemy(name: String, hp: int = 20, hp_max: int = 20, koed: bool = false, speed: int = 10, is_mugging: bool = false) -> Dictionary:
 	return {
 		"name": name, "hp": hp, "hpMax": hp_max, "attackMin": 1, "attackMax": 1,
-		"isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0,
+		"isMugging": is_mugging, "weapon": null, "ability": null, "evadeChance": 0.0,
 		"speed": speed, "koed": koed,
 	}
 
@@ -85,6 +85,21 @@ func _ally(name: String, hp: int = 20, hp_max: int = 20, koed: bool = false) -> 
 		"attackMin": 1, "attackMax": 1, "stash": 0, "healAmount": 0, "speed": 10,
 		"koed": koed,
 	}
+
+
+# combat-presentation ticket 09: installs a "mugger" templates.idle entry
+# (the dummy idle sheet, reused as a test fixture) on top of the real
+# GameData.COMBAT_VISUALS, since no real per-subject art exists yet -- see
+# every call site below for why this is needed to exercise "a subject with
+# real art" cases. Returns the pre-override COMBAT_VISUALS so the caller can
+# restore it (GameData.COMBAT_VISUALS = <returned value>) once done; caller
+# owns the screen.free()/restore ordering, this only builds the override.
+func _install_mugger_idle_manifest() -> Dictionary:
+	var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
+	var templates: Dictionary = original_combat_visuals.get("templates", {}).duplicate(true)
+	templates["mugger"] = { "idle": { "image": "res://assets/combat/dummy/idle.png", "frameCount": 7, "fps": 9.1 } }
+	GameData.COMBAT_VISUALS = { "backdrops": original_combat_visuals["backdrops"], "templates": templates }
+	return original_combat_visuals
 
 
 func _setup_combat(enemies: Array, allies: Array = [], focused_index: int = 0, context: String = Combat.CONTEXT_RAID) -> void:
@@ -736,28 +751,66 @@ func run() -> void:
 		GameData.COMBAT_VISUALS = original_combat_visuals
 	)
 
-	# ── combat-presentation ticket 09 (in progress): shared dummy idle animation ──
+	# ── combat-presentation ticket 09: per-subject idle sheets ──────────────
+	# Real per-subject art hasn't been produced yet (see data/combat_visuals.
+	# json's templateRule note) -- every subject's manifest "idle" entry is
+	# still an empty stub, so the real-manifest cases below exercise the
+	# fallback path; a synthetic manifest override exercises the "a subject
+	# with real art loads and ping-pongs it" path ahead of that art existing.
 
-	run_case("stage_slots_show_the_default_idle_animation_when_the_manifest_has_one", func():
+	run_case("stage_slot_falls_back_to_the_placeholder_box_when_its_subjects_manifest_entry_has_no_art_yet", func():
 		_setup_combat([_enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
-
-		assert_eq(screen._default_idle_frames.size(), 7, "data/combat_visuals.json's templates.default.idle declares frameCount 7 -- CombatScreen should have loaded exactly that many frames")
-
 		var slot := _slot_named(screen, "Scrapper")
-		assert_true(not slot._idle_frames.is_empty(), "a slot with a default idle animation available must not fall back to the placeholder box")
-		assert_true(slot._sprite_rect.visible, "the sprite layer must be showing")
+
+		assert_true(slot._idle_frames.is_empty(), "no per-subject art has been produced yet (ticket 09) -- must fall back to the placeholder box, not error")
+		assert_true(not slot._sprite_rect.visible, "the sprite layer must stay hidden with no frames to show")
 
 		screen.free()
 	)
 
-	run_case("stage_slot_idle_animation_ping_pongs_between_frames", func():
+	run_case("stage_slot_falls_back_to_the_placeholder_box_when_the_manifest_has_no_templates_key_at_all", func():
 		_setup_combat([_enemy("Scrapper")])
+		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
+		GameData.COMBAT_VISUALS = { "backdrops": original_combat_visuals["backdrops"] }  # no "templates" key at all
+
 		var screen := CombatScreen.new()
 		screen._ready()
 		var slot := _slot_named(screen, "Scrapper")
+
+		assert_true(screen._idle_frames_by_template.is_empty(), "no templates table at all -- nothing to load")
+		assert_true(slot._idle_frames.is_empty(), "slot must fall back to the ticket-01 placeholder box, not error")
+
+		screen.free()
+		GameData.COMBAT_VISUALS = original_combat_visuals
+	)
+
+	run_case("stage_slot_shows_a_subjects_own_idle_animation_once_its_manifest_entry_has_real_art", func():
+		_setup_combat([_enemy("A mugger", 20, 20, false, 10, true)])
+		var original_combat_visuals: Dictionary = _install_mugger_idle_manifest()
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_eq(screen._idle_frames_by_template["mugger"]["frames"].size(), 7, "the mugger template's idle entry declares frameCount 7 -- CombatScreen should have loaded exactly that many frames")
+
+		var slot := _slot_named(screen, "A mugger")
+		assert_true(not slot._idle_frames.is_empty(), "an enemy resolving to a template key with a real manifest entry must not fall back to the placeholder box")
+		assert_true(slot._sprite_rect.visible, "the sprite layer must be showing")
+
+		screen.free()
+		GameData.COMBAT_VISUALS = original_combat_visuals
+	)
+
+	run_case("stage_slot_idle_animation_ping_pongs_between_frames", func():
+		_setup_combat([_enemy("A mugger", 20, 20, false, 10, true)])
+		var original_combat_visuals: Dictionary = _install_mugger_idle_manifest()
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "A mugger")
 
 		var frame0 := slot._sprite_rect.texture
 		slot._advance_idle_frame()
@@ -770,20 +823,44 @@ func run() -> void:
 		assert_eq(frame_full_cycle, frame0, "advancing once per frame in the sheet must land back on the first frame")
 
 		screen.free()
+		GameData.COMBAT_VISUALS = original_combat_visuals
 	)
 
-	run_case("stage_slot_falls_back_to_the_placeholder_box_when_no_default_idle_animation_is_available", func():
-		_setup_combat([_enemy("Scrapper")])
-		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
-		GameData.COMBAT_VISUALS = { "backdrops": original_combat_visuals["backdrops"] }  # no "templates" key at all
+	run_case("enemy_template_key_resolves_mugger_by_the_isMugging_flag_not_by_name", func():
+		_setup_combat([_enemy("A mugger", 20, 20, false, 10, true)])
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_eq(screen._enemy_template_key({ "name": "anything at all", "isMugging": true }), "mugger")
+		assert_eq(screen._enemy_template_key({ "name": "Territorial Scrapper", "isMugging": false }), "territorialScrapper")
+		assert_eq(screen._enemy_template_key({ "name": "Vein Guard", "isMugging": false }), "veinGuard")
+		assert_eq(screen._enemy_template_key({ "name": "Orichalchum Dealer", "isMugging": false }), "orichalchumDealer")
+		assert_eq(screen._enemy_template_key({ "name": GameData.ENEMY_HOME_RAID_RAIDER["name"], "isMugging": false }), "homeRaidRaider")
+		assert_eq(screen._enemy_template_key({ "name": "an unrecognised name", "isMugging": false }), "", "no match -- resolves to empty, same 'no manifest entry' fallback as any other gap")
+
+		screen.free()
+	)
+
+	run_case("concurrent_same_template_enemies_reuse_the_one_sheet_and_alternate_the_extra_mirror", func():
+		_setup_combat([
+			_enemy("A mugger", 20, 20, false, 10, true),
+			_enemy("A mugger", 20, 20, false, 10, true),
+			_enemy("A mugger", 20, 20, false, 10, true),
+		])
+		var original_combat_visuals: Dictionary = _install_mugger_idle_manifest()
 
 		var screen := CombatScreen.new()
 		screen._ready()
-		var slot := _slot_named(screen, "Scrapper")
 
-		assert_true(screen._default_idle_frames.is_empty(), "no templates.default entry -- nothing to load")
-		assert_true(slot._idle_frames.is_empty(), "slot must fall back to the ticket-01 placeholder box, not error")
-		assert_true(not slot._sprite_rect.visible, "the sprite layer must stay hidden with no frames to show")
+		var slot0: CombatScreen.StageSlot = screen._enemy_slots[0]
+		var slot1: CombatScreen.StageSlot = screen._enemy_slots[1]
+		var slot2: CombatScreen.StageSlot = screen._enemy_slots[2]
+
+		assert_eq(slot0._idle_frames, slot1._idle_frames, "concurrent instances of the same template must share the exact same frame set -- no per-instance art")
+		assert_eq(slot0._idle_frames, slot2._idle_frames, "concurrent instances of the same template must share the exact same frame set -- no per-instance art")
+
+		assert_true(slot0._sprite_rect.flip_h != slot1._sprite_rect.flip_h, "the second concurrent instance of a template must carry the extra mirror flip, so it doesn't render as an identical copy of the first")
+		assert_true(slot1._sprite_rect.flip_h != slot2._sprite_rect.flip_h, "the third alternates back off the extra mirror")
 
 		screen.free()
 		GameData.COMBAT_VISUALS = original_combat_visuals

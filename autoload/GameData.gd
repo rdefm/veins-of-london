@@ -120,14 +120,16 @@ var COMBAT_SPEED_BY_LEVEL: Array = []
 # context id -> { "image": res:// path or "" when no plate has been produced
 # yet, "fallbackColor": a PALETTE key the stage fills with instead }.
 #
-# combat-presentation ticket 09 (in progress): the sibling "templates"
-# table -- eventually per-enemy/ally-template idle/attack/hit/KO sheets,
-# today just a single "default" entry (an interim, not-yet-palette-
-# quantised build-test asset applied to every combatant slot -- see
-# scenes/screens/combat.gd's _load_default_idle_animation()) until real
-# per-template entries replace it. Deliberately unvalidated here (no
-# _validate_combat_visuals coverage for "templates" yet) since its shape
-# isn't finalised -- scenes/screens/combat.gd reads it defensively.
+# combat-presentation ticket 09: the sibling "templates" table -- per-
+# subject idle sheets (see data/combat_visuals.json's own "templateRule"
+# note for the seven cast-subject keys and how scenes/screens/combat.gd
+# resolves a combatant to one), plus "default", ticket 10's unrelated
+# shared hurt/dead/attack stand-in. Every per-subject "idle" entry is still
+# an empty stub as of ticket 09 (no art produced) -- CombatScreen falls back
+# to the ticket-01 placeholder box per subject rather than erroring.
+# Deliberately unvalidated here (no _validate_combat_visuals coverage for
+# "templates") since its shape isn't finalised -- scenes/screens/combat.gd
+# reads it defensively.
 var COMBAT_VISUALS: Dictionary = {}
 
 # combat-presentation ticket 08, docs/ART-BIBLE.md §2: data/palette.json's

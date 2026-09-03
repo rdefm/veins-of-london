@@ -2,7 +2,8 @@
   "meta": {
     "name": "Combat visuals manifest",
     "purpose": "Maps combat context (and, from ticket 09, enemy/ally template key) to the art asset that renders it, so scenes/screens/combat.gd never hardcodes a path. See docs/combat-animation-vision.md §2.1/§6 and docs/ART-BIBLE.md.",
-    "backdropRule": "One entry per Combat.CANONICAL_CONTEXTS context (systems/combat.gd). 'image' is a res:// path to a 390x360 backdrop plate, or \"\" when no plate has been produced yet -- the stage then fills with the flat data/palette.json colour named by 'fallbackColor' instead."
+    "backdropRule": "One entry per Combat.CANONICAL_CONTEXTS context (systems/combat.gd). 'image' is a res:// path to a 390x360 backdrop plate, or \"\" when no plate has been produced yet -- the stage then fills with the flat data/palette.json colour named by 'fallbackColor' instead.",
+    "templateRule": "Ticket 09: 'templates' keys other than 'default' are the seven cast subjects (docs/combat-animation-vision.md §3) resolved by scenes/screens/combat.gd's _enemy_template_key()/display-entry building -- 'player' (state.player), the recruited-ally contactId (e.g. 'archie'), the data/enemies.json raidGuards key (territorialScrapper/veinGuard/orichalchumDealer), 'homeRaidRaider' (GameData.ENEMY_HOME_RAID_RAIDER), and 'mugger' (any enemy with isMugging true, however many concurrent instances -- one sheet, reused). Each subject's 'idle' entry is {image, frameCount, fps}; an empty 'image' (every subject below, today) means no art has been produced yet -- CombatScreen.StageSlot falls back cleanly to the ticket-01 placeholder box, per-subject, not an error. 'default' is unrelated to this per-subject lookup -- it's ticket 10's own shared stand-in for hurt/dead/attack only, untouched by ticket 09."
   },
   "backdrops": {
     "raid": { "image": "", "fallbackColor": "brick_shadow" },
@@ -15,11 +16,32 @@
   },
   "templates": {
     "default": {
-      "_note": "TEMPORARY build-test stand-in (ticket 09/10 in progress) -- untouched asset-pack frames (assets/Gangsters_2), not final art, not palette-quantised. Applies to every combatant slot until per-template entries land, at which point a template-keyed lookup takes over and this stops applying to anything.",
+      "_note": "TEMPORARY build-test stand-in (ticket 10) -- untouched asset-pack frames (assets/Gangsters_2), not final art, not palette-quantised. Only hurt/dead/attack still read this entry; idle no longer does (ticket 09 moved idle to the per-subject keys below).",
       "idle": { "image": "res://assets/combat/dummy/idle.png", "frameCount": 7, "fps": 9.1 },
       "hurt": { "image": "res://assets/combat/dummy/hurt.png", "frameCount": 4, "fps": 10.0 },
       "dead": { "image": "res://assets/combat/dummy/dead.png", "frameCount": 5, "fps": 7.15 },
       "attack": { "image": "res://assets/combat/dummy/attack.png", "frameCount": 6, "fps": 10.93 }
+    },
+    "player": {
+      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+    },
+    "archie": {
+      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+    },
+    "territorialScrapper": {
+      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+    },
+    "veinGuard": {
+      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+    },
+    "orichalchumDealer": {
+      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+    },
+    "homeRaidRaider": {
+      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+    },
+    "mugger": {
+      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
     }
   }
 }

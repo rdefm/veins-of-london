@@ -76,7 +76,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 
 | File | Renders |
 |---|---|
-| combat.gd | Combat screen (turn UI over systems/combat.gd); stage backdrop reads combat_visuals.json (image or palette.json fallback fill) per combat context; StageSlot idle animation reads combat_visuals.json's templates.default (shared build-test sprite, ticket 09 in progress) |
+| combat.gd | Combat screen (turn UI over systems/combat.gd); stage backdrop reads combat_visuals.json (image or palette.json fallback fill) per combat context; StageSlot idle animation reads combat_visuals.json's per-subject templates.<key>.idle (ticket 09 -- key resolved by _enemy_template_key()/ally contactId/"player", falls back to the ticket-01 placeholder box until real art lands); hurt/dead/attack one-shots still read the shared templates.default stand-in (ticket 10) |
 | contacts.gd | Contacts tab, flag-gated actions |
 | event.gd | Generic event-card screen driven by state.event |
 | factions.gd | Factions tab |

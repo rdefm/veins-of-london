@@ -141,12 +141,15 @@ class StageSlot extends Control:
 	# (flash_hit() is the only entry point).
 	var flash_alpha: float = 0.0
 
-	# combat-presentation ticket 09 (in progress -- see data/combat_visuals.
-	# json's templates.default and CombatScreen._load_default_idle_animation()
-	# below): once set_idle_animation() has real frames, they replace the
-	# ticket-01 placeholder fill/border in _draw() below. Empty _idle_frames
-	# means "no sprite yet, draw the placeholder box" -- the same fallback
-	# ticket 09's eventual per-template version also needs.
+	# combat-presentation ticket 09 -- see data/combat_visuals.json's
+	# per-subject "templates" entries and CombatScreen._load_template_idle_
+	# animations()/_sync_band() below: once a subject's manifest idle entry
+	# has a real image, set_idle_animation() gets real frames, which replace
+	# the ticket-01 placeholder fill/border in _draw() below. Empty
+	# _idle_frames means "no sprite for this subject yet, draw the
+	# placeholder box" -- every subject's manifest entry is still an empty
+	# stub as of this ticket (no art produced), so this fallback is what
+	# every combatant actually shows today.
 	#
 	# _sprite_rect/_idle_timer/_overlay are built in _init() rather than
 	# _ready() or _process()-driven, because this file's own test harness
@@ -167,6 +170,14 @@ class StageSlot extends Control:
 	# don't both face the same arbitrary direction; see set_side() below).
 	# Not read anywhere else.
 	var side: String = "player"
+
+	# combat-presentation ticket 09: an extra flip on top of the side-based
+	# one, applied to every other same-template concurrent instance (two or
+	# three Muggers sharing the one Mugger sheet -- see
+	# CombatScreen._sync_band()'s per-template occurrence counter) purely so
+	# they don't render as visibly identical copies. No new art either way --
+	# see _apply_flip() below for how this combines with `side`.
+	var _mirror_extra: bool = false
 	var _idle_frames: Array[Texture2D] = []
 	var _idle_frame_index: int = 0
 	var _sprite_rect: TextureRect
@@ -231,7 +242,16 @@ class StageSlot extends Control:
 	# not the top/bottom bands this flip started under.
 	func set_side(value: String) -> void:
 		side = value
-		_sprite_rect.flip_h = value == "enemy"
+		_apply_flip()
+
+	# combat-presentation ticket 09: called from CombatScreen._sync_band() for
+	# every slot, every sync -- see this class's own `_mirror_extra` comment.
+	func set_mirror_extra(value: bool) -> void:
+		_mirror_extra = value
+		_apply_flip()
+
+	func _apply_flip() -> void:
+		_sprite_rect.flip_h = (side == "enemy") != _mirror_extra
 
 	func set_flash_alpha(value: float) -> void:
 		flash_alpha = value
@@ -325,6 +345,15 @@ class StageSlot extends Control:
 		_one_shot_index = 0
 		_one_shot_hold_last_frame = hold_last_frame
 		_sprite_rect.texture = frames[0]
+		# combat-presentation ticket 09: a one-shot (still shared "default"
+		# art, ticket 10) can fire on a slot whose own idle is empty (no
+		# per-subject art yet -- the common case today), which leaves
+		# _sprite_rect hidden (see set_idle_animation()). Without forcing it
+		# visible here, the one-shot's frames would be assigned to a hidden
+		# TextureRect and never actually show. _end_one_shot() below is what
+		# hides it again once the one-shot finishes, if there's still no idle
+		# to fall back to.
+		_sprite_rect.visible = true
 		if frames.size() < 2 or fps <= 0.0:
 			_end_one_shot()
 			return
@@ -356,6 +385,14 @@ class StageSlot extends Control:
 		_one_shot_index = 0
 		if not _idle_frames.is_empty():
 			_sprite_rect.texture = _idle_frames[_idle_frame_index]
+		else:
+			# combat-presentation ticket 09: no idle to hand back to (this
+			# subject has no manifest art yet) -- revert to the ticket-01
+			# placeholder box exactly as set_idle_animation()'s own empty-
+			# frames case does, rather than leaving the one-shot's last frame
+			# stuck on screen.
+			_sprite_rect.visible = false
+			_sprite_rect.texture = null
 
 	func _draw() -> void:
 		if _idle_frames.is_empty():
@@ -409,24 +446,41 @@ var _player_band_layer: Control
 var _backdrop_texture: TextureRect
 var _backdrop_fill: ColorRect
 
-# combat-presentation ticket 09/10 (in progress): every StageSlot's four
-# animations, per data/combat_visuals.json's templates.default -- loaded
-# once in _ready() (see _load_default_animations() below), not
-# per-sync/per-slot, since it's the same shared frames for every
-# combatant until real per-template entries replace this stand-in. Empty
-# means no manifest entry (or the image failed to load) -- idle falling
-# back means every StageSlot shows the ticket-01 placeholder box; hurt/dead/
-# attack falling back just means that one-shot never plays (play_hurt() /
-# play_dead() / play_attack() no-op on empty frames -- see their own
-# comments), same "degrade quietly" convention throughout.
-var _default_idle_frames: Array[Texture2D] = []
-var _default_idle_fps: float = 6.0
+# combat-presentation ticket 10: the hurt/dead/attack one-shots, per
+# data/combat_visuals.json's templates.default -- loaded once in _ready()
+# (see _load_default_animations() below), not per-sync/per-slot, since it's
+# the same shared frames for every combatant until real per-template entries
+# replace this stand-in (that ticket is unaffected by ticket 09 below --
+# idle is the only animation ticket 09 moved off "default"). Empty means no
+# manifest entry (or the image failed to load) -- that one-shot then just
+# never plays (play_hurt() / play_dead() / play_attack() no-op on empty
+# frames -- see their own comments), same "degrade quietly" convention
+# ticket 09's idle fallback also uses.
 var _default_hurt_frames: Array[Texture2D] = []
 var _default_hurt_fps: float = 10.0
 var _default_dead_frames: Array[Texture2D] = []
 var _default_dead_fps: float = 12.0
 var _default_attack_frames: Array[Texture2D] = []
 var _default_attack_fps: float = 12.0
+
+# combat-presentation ticket 09, docs/combat-animation-vision.md §3/§4: idle
+# frames+fps per cast-subject template key (data/combat_visuals.json's
+# "templates" entries other than "default" -- see that file's own
+# "templateRule" note), loaded once in _ready() (_load_template_idle_
+# animations() below) rather than per-sync/per-slot. Keyed by whatever
+# _enemy_template_key()/_player_display_entries()/_ally_template_key resolve
+# a slot's combatant to ("player", an ally's contactId, a
+# GameData.ENEMY_RAID_GUARDS key, "homeRaidRaider", or "mugger"). A key with
+# no manifest entry, an empty image, or a missing file all resolve to the
+# empty-frames default below -- StageSlot.set_idle_animation() already
+# treats empty frames as "show the ticket-01 placeholder box instead", so an
+# unresolved or not-yet-produced subject degrades quietly, same convention
+# as every other manifest lookup in this file.
+var _idle_frames_by_template: Dictionary = {}
+# A genuinely typed empty array, used as _sync_band()'s Dictionary.get()
+# default below -- see that call site's own comment for why an untyped `[]`
+# literal there fails a runtime type check that this doesn't.
+var _empty_idle_frames: Array[Texture2D] = []
 
 # combat-presentation ticket 05: the screen-shake wrapper -- see
 # _build_stage_skeleton()'s own comment for why this, not `frame`, is what
@@ -513,6 +567,7 @@ func _ready() -> void:
 	add_child(_director)
 
 	_load_default_animations()
+	_load_template_idle_animations()
 
 	# combat-presentation ticket 04: the player-facing half of
 	# CombatDirector's persisted pacing toggle (CombatPacing, same
@@ -539,36 +594,48 @@ func _ready() -> void:
 	_sync()
 
 
-# combat-presentation ticket 09/10 (in progress): loads data/combat_visuals.
-# json's templates.default.{idle,hurt,dead,attack} -- a single shared, not-
-# yet-palette-quantised build-test sheet set applied to every combatant slot
-# (see _sync_band()'s set_*_animation() calls) until real per-template
-# entries land. Each sheet is sliced into `frameCount` equal-width
-# AtlasTextures (an evenly-divided horizontal strip is the convention
-# docs/ART-BIBLE.md §5 already documents for every keypose/idle strip).
-# Missing manifest entry, missing file, or frameCount < 1 all leave that
-# animation's frames empty -- never an error, see this section's own
-# variable-block comment for what "empty" means per animation.
+# combat-presentation ticket 10: loads data/combat_visuals.json's
+# templates.default.{hurt,dead,attack} -- a single shared, not-yet-palette-
+# quantised build-test sheet set applied to every combatant slot (see
+# _sync_band()'s set_*_animation() calls) until real per-template entries
+# land. Each sheet is sliced into `frameCount` equal-width AtlasTextures (an
+# evenly-divided horizontal strip is the convention docs/ART-BIBLE.md §5
+# already documents for every keypose/idle strip). Missing manifest entry,
+# missing file, or frameCount < 1 all leave that animation's frames empty --
+# never an error, see this section's own variable-block comment for what
+# "empty" means per animation. idle is deliberately absent here -- ticket 09
+# moved it to _load_template_idle_animations() below.
 func _load_default_animations() -> void:
-	var frames_idle := _load_animation_frames("idle")
-	_default_idle_frames = frames_idle["frames"]
-	_default_idle_fps = frames_idle["fps"]
-
-	var frames_hurt := _load_animation_frames("hurt")
+	var frames_hurt := _load_animation_frames("default", "hurt")
 	_default_hurt_frames = frames_hurt["frames"]
 	_default_hurt_fps = frames_hurt["fps"]
 
-	var frames_dead := _load_animation_frames("dead")
+	var frames_dead := _load_animation_frames("default", "dead")
 	_default_dead_frames = frames_dead["frames"]
 	_default_dead_fps = frames_dead["fps"]
 
-	var frames_attack := _load_animation_frames("attack")
+	var frames_attack := _load_animation_frames("default", "attack")
 	_default_attack_frames = frames_attack["frames"]
 	_default_attack_fps = frames_attack["fps"]
 
 
-func _load_animation_frames(key: String) -> Dictionary:
-	var entry: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get("default", {}).get(key, {})
+# combat-presentation ticket 09: loads every data/combat_visuals.json
+# templates.<key>.idle entry -- "default" included (harmless: no combatant's
+# resolved template key is ever literally "default", so its idle entry just
+# never gets looked up -- see _idle_frames_by_template's own comment). Fully
+# manifest-driven (every key present under "templates", not a hardcoded
+# roster of the seven cast subjects) so a future ticket that adds an eighth
+# subject's manifest entry needs no code change here, per docs/
+# combat-animation-vision.md §6 step 4 ("manifest, not hardcoding").
+func _load_template_idle_animations() -> void:
+	_idle_frames_by_template = {}
+	var templates: Dictionary = GameData.COMBAT_VISUALS.get("templates", {})
+	for key in templates.keys():
+		_idle_frames_by_template[key] = _load_animation_frames(key, "idle")
+
+
+func _load_animation_frames(template_key: String, key: String) -> Dictionary:
+	var entry: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get(template_key, {}).get(key, {})
 	var image_path: String = entry.get("image", "")
 	var frame_count: int = entry.get("frameCount", 0)
 	var empty: Array[Texture2D] = []
@@ -859,10 +926,38 @@ func _enemy_display_entries(enemies: Array, focused_index: int) -> Array:
 	for i in range(enemies.size()):
 		if not enemies[i]["koed"]:
 			var enemy: Dictionary = enemies[i]
-			display.append({ "name": enemy["name"], "isFocused": i == focused_index, "index": i })
+			display.append({ "name": enemy["name"], "isFocused": i == focused_index, "index": i, "templateKey": _enemy_template_key(enemy) })
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
+
+
+# combat-presentation ticket 09, docs/combat-animation-vision.md §3: resolves
+# an enemy state dict to its data/combat_visuals.json template key. Derived
+# from data already on the enemy rather than a new state field (GameState
+# stays a pure tree, and this is exactly what "name" already existed for --
+# see _placeholder_color()'s own precedent for a name-keyed screen-side
+# lookup): `isMugging` is the reliable signal for "mugger" (every concurrent
+# Mugger instance shares it, regardless of how the intro-line names them --
+# see Combat._spawn_mugger_instance()); otherwise the enemy's `name` is
+# matched against GameData.ENEMY_RAID_GUARDS' own `name` fields (territorial
+# Scrapper/Vein Guard/Orichalchum Dealer) and GameData.ENEMY_HOME_RAID_
+# RAIDER's (The Raider) rather than hardcoding those names a second time
+# here -- data/enemies.json stays the one place that spells them. No match
+# (a test fixture's arbitrary name, or a future enemy template this lookup
+# doesn't know about yet) resolves to "" -- _sync_band()'s idle lookup
+# already treats an unresolved key as "no manifest entry", same quiet
+# fallback to the placeholder box as any other gap.
+func _enemy_template_key(enemy: Dictionary) -> String:
+	if enemy.get("isMugging", false):
+		return "mugger"
+	var name: String = enemy.get("name", "")
+	for key in GameData.ENEMY_RAID_GUARDS.keys():
+		if GameData.ENEMY_RAID_GUARDS[key].get("name", "") == name:
+			return key
+	if GameData.ENEMY_HOME_RAID_RAIDER.get("name", "") == name:
+		return "homeRaidRaider"
+	return ""
 
 
 # The player (always the fan's front/large slot -- they're the one
@@ -875,10 +970,14 @@ func _enemy_display_entries(enemies: Array, focused_index: int) -> Array:
 # knock_out()'s cooldown has something to key off), so they're filtered out
 # here rather than at the state layer, same as the old card-list code did.
 func _player_display_entries(player: Dictionary, allies: Array) -> Array:
-	var display: Array = [{ "name": "You", "isFocused": false, "index": -1 }]
+	var display: Array = [{ "name": "You", "isFocused": false, "index": -1, "templateKey": "player" }]
 	for i in range(allies.size()):
 		if not allies[i]["koed"]:
-			display.append({ "name": allies[i]["name"], "isFocused": false, "index": i })
+			# combat-presentation ticket 09: an ally's own contactId (already
+			# on the dict -- Contacts.build_combat_ally()) *is* its template
+			# key, e.g. "archie" for data/constants.json's contacts.archie --
+			# no separate name-matching table needed the way enemies need one.
+			display.append({ "name": allies[i]["name"], "isFocused": false, "index": i, "templateKey": allies[i].get("contactId", "") })
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
@@ -904,6 +1003,13 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 			pool.erase(key)
 
 	var rects := _fan_local_rects(band_size, display_entries.size())
+	# combat-presentation ticket 09: how many display entries so far this
+	# sync share a given template key -- e.g. a 2x/3x Mugger roster, all
+	# resolving to "mugger" -- so the "reused sheet, mirrored/offset per fan
+	# slot" acceptance check (no per-instance art) has something to alternate
+	# on below. Fresh every _sync_band() call, in fan-position order (front,
+	# then the two staggered-behind slots), not persisted across syncs.
+	var template_occurrence: Dictionary = {}
 	for i in range(display_entries.size()):
 		var entry: Dictionary = display_entries[i]
 		var key = entry["index"]
@@ -925,11 +1031,27 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 		slot.is_focused = entry["isFocused"]
 		slot.queue_redraw()
 		slot._overlay.queue_redraw()
-		# combat-presentation ticket 09/10 (in progress): every slot gets the
-		# same shared dummy-asset frames for now -- see
-		# _load_default_animations()'s own comment for why this is
-		# deliberately not per-template yet.
-		slot.set_idle_animation(_default_idle_frames, _default_idle_fps)
+
+		var template_key: String = entry.get("templateKey", "")
+		var occurrence: int = template_occurrence.get(template_key, 0)
+		template_occurrence[template_key] = occurrence + 1
+		# combat-presentation ticket 09: every other concurrent instance of
+		# the same template (occurrence 1, 3, ...) gets the extra mirror --
+		# see StageSlot's own `_mirror_extra` comment for why.
+		slot.set_mirror_extra(not template_key.is_empty() and occurrence % 2 == 1)
+		var idle: Dictionary = _idle_frames_by_template.get(template_key, {})
+		# _empty_idle_frames (a real typed Array[Texture2D], not a `[]`
+		# literal) as the .get() default -- an untyped `[]` literal here
+		# fails a runtime "Array to Array[Texture2D]" type check on assignment
+		# for any templateKey with no manifest entry (every test-fixture enemy
+		# name, and every real subject before its art lands), which a `[]`
+		# default doesn't trip since it's only ever reached via a dict that
+		# came out of _load_animation_frames (always genuinely typed there).
+		var idle_frames: Array[Texture2D] = idle.get("frames", _empty_idle_frames)
+		slot.set_idle_animation(idle_frames, idle.get("fps", 0.0))
+		# combat-presentation ticket 10: hurt/dead/attack are still the one
+		# shared "default" stand-in for every slot -- untouched by ticket 09,
+		# see _load_default_animations()'s own comment.
 		slot.set_hurt_animation(_default_hurt_frames, _default_hurt_fps)
 		slot.set_dead_animation(_default_dead_frames, _default_dead_fps)
 		slot.set_attack_animation(_default_attack_frames, _default_attack_fps)
