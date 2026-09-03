@@ -752,21 +752,51 @@ func run() -> void:
 	)
 
 	# ── combat-presentation ticket 09: per-subject idle sheets ──────────────
-	# Real per-subject art hasn't been produced yet (see data/combat_visuals.
-	# json's templateRule note) -- every subject's manifest "idle" entry is
-	# still an empty stub, so the real-manifest cases below exercise the
-	# fallback path; a synthetic manifest override exercises the "a subject
-	# with real art loads and ping-pongs it" path ahead of that art existing.
+	# Most subjects' manifest "idle" entry is still an empty stub (see
+	# data/combat_visuals.json's templateRule note) -- territorialScrapper and
+	# orichalchumDealer are the two exceptions (asset-pack sourced stand-ins,
+	# not final art -- see those entries' own _note), so the tests below cover
+	# both a real-data fallback case and a real-data loaded case; a synthetic
+	# manifest override covers the mugger/ping-pong/mirroring cases ahead of
+	# that subject having its own real entry.
 
-	run_case("stage_slot_falls_back_to_the_placeholder_box_when_its_subjects_manifest_entry_has_no_art_yet", func():
-		_setup_combat([_enemy("Scrapper")])
+	run_case("stage_slot_falls_back_to_the_placeholder_box_when_its_subjects_manifest_entry_has_no_match", func():
+		_setup_combat([_enemy("Scrapper")])  # deliberately not "Territorial Scrapper" -- no template match
 
 		var screen := CombatScreen.new()
 		screen._ready()
 		var slot := _slot_named(screen, "Scrapper")
 
-		assert_true(slot._idle_frames.is_empty(), "no per-subject art has been produced yet (ticket 09) -- must fall back to the placeholder box, not error")
+		assert_true(slot._idle_frames.is_empty(), "no matching template key -- must fall back to the placeholder box, not error")
 		assert_true(not slot._sprite_rect.visible, "the sprite layer must stay hidden with no frames to show")
+
+		screen.free()
+	)
+
+	run_case("stage_slot_shows_territorial_scrappers_real_manifest_idle_animation", func():
+		_setup_combat([_enemy("Territorial Scrapper")])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Territorial Scrapper")
+
+		assert_eq(screen._idle_frames_by_template["territorialScrapper"]["frames"].size(), 7, "data/combat_visuals.json's templates.territorialScrapper.idle declares frameCount 7")
+		assert_true(not slot._idle_frames.is_empty(), "territorialScrapper has a real manifest entry (assets/Gangsters_2/Idle.png) -- must not fall back to the placeholder box")
+		assert_true(slot._sprite_rect.visible, "the sprite layer must be showing")
+
+		screen.free()
+	)
+
+	run_case("stage_slot_shows_orichalchum_dealers_real_manifest_idle_animation", func():
+		_setup_combat([_enemy("Orichalchum Dealer")])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Orichalchum Dealer")
+
+		assert_eq(screen._idle_frames_by_template["orichalchumDealer"]["frames"].size(), 7, "data/combat_visuals.json's templates.orichalchumDealer.idle declares frameCount 7")
+		assert_true(not slot._idle_frames.is_empty(), "orichalchumDealer has a real manifest entry (assets/Gangsters_3/Idle.png) -- must not fall back to the placeholder box")
+		assert_true(slot._sprite_rect.visible, "the sprite layer must be showing")
 
 		screen.free()
 	)

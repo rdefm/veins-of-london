@@ -29,13 +29,15 @@
       "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
     },
     "territorialScrapper": {
-      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+      "_note": "Asset-pack sourced stand-in (assets/Gangsters_2/Idle.png, untouched, not palette-quantised), same convention as templates.default -- see that entry's own _note. Not final art.",
+      "idle": { "image": "res://assets/combat/territorial_scrapper/idle.png", "frameCount": 7, "fps": 9.1 }
     },
     "veinGuard": {
       "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
     },
     "orichalchumDealer": {
-      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+      "_note": "Asset-pack sourced stand-in (assets/Gangsters_3/Idle.png, untouched, not palette-quantised), same convention as templates.default -- see that entry's own _note. Not final art.",
+      "idle": { "image": "res://assets/combat/orichalchum_dealer/idle.png", "frameCount": 7, "fps": 9.1 }
     },
     "homeRaidRaider": {
       "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
