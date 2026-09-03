@@ -60,6 +60,16 @@ class NameplateCard extends Control:
 	# so both that render step and tests can read the same value. Only
 	# meaningful when shows_telegraph_slot is true.
 	var telegraph_text: String = ""
+	# combat-presentation ticket 10, §4: "Ability tell | 1 pose, held | pulse"
+	# -- ticket 06's telegraph slot getting its real art instead of the text/
+	# glyph placeholder. null (the default -- no tell art exists for any
+	# subject yet, see data/combat_visuals.json's own "actionRule" note)
+	# means the slot still shows telegraph_text as a Label, exactly as before
+	# this ticket; a non-null image replaces that Label with a pulsing
+	# TextureRect instead (see _build_card_content() below). Only meaningful
+	# when shows_telegraph_slot is true, same as telegraph_text.
+	var tell_image: Texture2D = null
+	var tell_rect: TextureRect = null
 	var is_pulsing: bool = false
 	var damage_tier: int = 0  # 0 clean, 1 cracked, 2 ruined -- §2.4's decal tiers
 
@@ -90,6 +100,16 @@ class NameplateCard extends Control:
 			tween.set_loops()
 			tween.tween_property(self, "modulate:a", 0.5, 0.45)
 			tween.tween_property(self, "modulate:a", 1.0, 0.45)
+		# combat-presentation ticket 10, §4: the ability-tell pose's own
+		# "pulse" -- scoped to tell_rect's own alpha, not the whole card's
+		# modulate (is_pulsing above), so a low-HP card that's ALSO the
+		# telegraphed enemy pulses both independently rather than one
+		# tween fighting the other.
+		if tell_rect != null and is_inside_tree():
+			var tell_tween := create_tween()
+			tell_tween.set_loops()
+			tell_tween.tween_property(tell_rect, "modulate:a", 0.4, 0.5)
+			tell_tween.tween_property(tell_rect, "modulate:a", 1.0, 0.5)
 
 	func _draw() -> void:
 		var rect := Rect2(Vector2.ZERO, size)
@@ -297,7 +317,9 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 		card.status_lines = _status_lines_for(entry["key"], _combat, _player)
 		card.shows_telegraph_slot = entry["isEnemy"]
 		if card.shows_telegraph_slot:
-			card.telegraph_text = _telegraph_text_for(_combat["enemies"][entry["key"]["index"]])
+			var enemy: Dictionary = _combat["enemies"][entry["key"]["index"]]
+			card.telegraph_text = _telegraph_text_for(enemy)
+			card.tell_image = _tell_image_for(enemy)
 
 	_build_card_content(card)
 	_cards_by_key[card_key_string(entry["key"])] = card
@@ -322,6 +344,30 @@ func _telegraph_text_for(enemy: Dictionary) -> String:
 	if ability != null and not Combat.is_ability_locked(enemy):
 		return "Intent: %s" % String(ability["id"]).capitalize()
 	return "Intent: Attacking"
+
+
+# combat-presentation ticket 10, docs/combat-animation-vision.md §4: "Ability
+# tell | 1 pose, held | pulse" -- ticket 06's telegraph slot getting its real
+# art instead of the text/glyph placeholder. Reads data/combat_visuals.json's
+# templates.<key>.tell directly (same convention _telegraph_text_for() and
+# _enemy_faction_display() above already use for reading manifest/data
+# tables from a UI component) via CombatScreen.enemy_template_key() -- shared
+# rather than duplicated, same "public static, one shared test" precedent
+# CombatDirector.beat_is_damaging() set. Independent of ability specifically
+# (unlike telegraph_text's own branching): a subject with tell art shows its
+# pose whenever the telegraph slot itself would render at all, generic-
+# attacking intent included. null (no manifest entry, no file, or an
+# unresolved template key) means "no art yet" -- _build_card_content() below
+# falls back to the plain text label in that case, unchanged from ticket 06.
+func _tell_image_for(enemy: Dictionary) -> Texture2D:
+	var key: String = CombatScreen.enemy_template_key(enemy)
+	if key.is_empty():
+		return null
+	var entry: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get(key, {}).get("tell", {})
+	var image_path: String = entry.get("image", "")
+	if image_path.is_empty() or not ResourceLoader.exists(image_path):
+		return null
+	return load(image_path)
 
 
 # combat-presentation ticket 05, §4.1: called once, at the start of a round's
@@ -409,14 +455,26 @@ func _build_card_content(card: NameplateCard) -> void:
 
 	# combat-presentation ticket 06, §4.2/§2.4: the enemy telegraph -- see
 	# _telegraph_text_for() for how card.telegraph_text is derived.
+	# combat-presentation ticket 10, §4: once a subject has real tell art
+	# (card.tell_image non-null -- _tell_image_for() above), this slot shows
+	# the held, pulsing pose instead of the plain text label.
 	if card.shows_telegraph_slot:
-		var telegraph := Label.new()
-		telegraph.text = card.telegraph_text
-		telegraph.clip_text = true
-		telegraph.add_theme_font_size_override("font_size", 8)
-		telegraph.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
-		box.add_child(telegraph)
-		card.telegraph_label = telegraph
+		if card.tell_image != null:
+			var tell := TextureRect.new()
+			tell.texture = card.tell_image
+			tell.custom_minimum_size = Vector2(20.0, 20.0)
+			tell.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			tell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			box.add_child(tell)
+			card.tell_rect = tell
+		else:
+			var telegraph := Label.new()
+			telegraph.text = card.telegraph_text
+			telegraph.clip_text = true
+			telegraph.add_theme_font_size_override("font_size", 8)
+			telegraph.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55))
+			box.add_child(telegraph)
+			card.telegraph_label = telegraph
 
 	var faction_label := Label.new()
 	faction_label.text = card.faction_name

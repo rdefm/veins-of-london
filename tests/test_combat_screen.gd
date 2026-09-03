@@ -861,12 +861,12 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_eq(screen._enemy_template_key({ "name": "anything at all", "isMugging": true }), "mugger")
-		assert_eq(screen._enemy_template_key({ "name": "Territorial Scrapper", "isMugging": false }), "territorialScrapper")
-		assert_eq(screen._enemy_template_key({ "name": "Vein Guard", "isMugging": false }), "veinGuard")
-		assert_eq(screen._enemy_template_key({ "name": "Orichalchum Dealer", "isMugging": false }), "orichalchumDealer")
-		assert_eq(screen._enemy_template_key({ "name": GameData.ENEMY_HOME_RAID_RAIDER["name"], "isMugging": false }), "homeRaidRaider")
-		assert_eq(screen._enemy_template_key({ "name": "an unrecognised name", "isMugging": false }), "", "no match -- resolves to empty, same 'no manifest entry' fallback as any other gap")
+		assert_eq(CombatScreen.enemy_template_key({ "name": "anything at all", "isMugging": true }), "mugger")
+		assert_eq(CombatScreen.enemy_template_key({ "name": "Territorial Scrapper", "isMugging": false }), "territorialScrapper")
+		assert_eq(CombatScreen.enemy_template_key({ "name": "Vein Guard", "isMugging": false }), "veinGuard")
+		assert_eq(CombatScreen.enemy_template_key({ "name": "Orichalchum Dealer", "isMugging": false }), "orichalchumDealer")
+		assert_eq(CombatScreen.enemy_template_key({ "name": GameData.ENEMY_HOME_RAID_RAIDER["name"], "isMugging": false }), "homeRaidRaider")
+		assert_eq(CombatScreen.enemy_template_key({ "name": "an unrecognised name", "isMugging": false }), "", "no match -- resolves to empty, same 'no manifest entry' fallback as any other gap")
 
 		screen.free()
 	)
@@ -896,27 +896,50 @@ func run() -> void:
 		GameData.COMBAT_VISUALS = original_combat_visuals
 	)
 
-	# ── combat-presentation ticket 10: hurt/dead/attack one-shots, left/right ──
-	# ── stage split, and the frozen-roster kill-timing fix ──────────────────
+	# ── combat-presentation ticket 10, docs/combat-animation-vision.md §4: ──
+	# ── attack/hit/ko transform one-shots, left/right stage split, and the ──
+	# ── frozen-roster kill-timing fix ────────────────────────────────────
 
-	run_case("stage_slots_load_the_default_hurt_dead_and_attack_animations_alongside_idle", func():
+	run_case("stage_slots_load_the_default_attack_hit_and_ko_keyposes_alongside_idle", func():
 		_setup_combat([_enemy("Scrapper")])
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_eq(screen._default_hurt_frames.size(), 4, "templates.default.hurt declares frameCount 4")
-		assert_eq(screen._default_dead_frames.size(), 5, "templates.default.dead declares frameCount 5")
-		assert_eq(screen._default_attack_frames.size(), 6, "templates.default.attack declares frameCount 6")
+		assert_eq(screen._default_attack_keyposes.size(), CombatScreen.ATTACK_KEYPOSE_COUNT, "templates.default.attack down-samples to the doctrine's 3 keyposes")
+		assert_eq(screen._default_hit_keyposes.size(), CombatScreen.HIT_KEYPOSE_COUNT, "templates.default.hit down-samples to the doctrine's 1 keypose")
+		assert_eq(screen._default_ko_keyposes.size(), CombatScreen.KO_KEYPOSE_COUNT, "templates.default.ko down-samples to the doctrine's 2 keyposes")
 
+		# "Scrapper" (the test fixture's name) matches no real
+		# data/enemies.json subject, so its template key resolves to "" and
+		# every action falls back to the shared default stand-in.
 		var slot := _slot_named(screen, "Scrapper")
-		assert_eq(slot._hurt_frames.size(), 4)
-		assert_eq(slot._dead_frames.size(), 5)
-		assert_eq(slot._attack_frames.size(), 6)
+		assert_eq(slot._attack_keyposes, screen._default_attack_keyposes)
+		assert_eq(slot._hit_keyposes, screen._default_hit_keyposes)
+		assert_eq(slot._ko_keyposes, screen._default_ko_keyposes)
 
 		screen.free()
 	)
 
-	run_case("play_attack_and_play_hurt_step_through_their_frames_then_hand_the_texture_back_to_idle", func():
+	run_case("a_real_per_subject_template_overrides_the_shared_default_stand_in", func():
+		# "Territorial Scrapper" exactly matches data/enemies.json's
+		# raidGuards.territorialScrapper.name, so CombatScreen.
+		# enemy_template_key() resolves it to "territorialScrapper" -- which
+		# has its own real (asset-pack sourced) attack/hit/ko art wired in
+		# data/combat_visuals.json, distinct from the shared "default" stand-in.
+		_setup_combat([_enemy("Territorial Scrapper")])
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var slot := _slot_named(screen, "Territorial Scrapper")
+		assert_true(slot._attack_keyposes != screen._default_attack_keyposes, "a subject with its own attack art must not fall back to the shared default")
+		assert_eq(slot._attack_keyposes.size(), CombatScreen.ATTACK_KEYPOSE_COUNT)
+		assert_eq(slot._hit_keyposes.size(), CombatScreen.HIT_KEYPOSE_COUNT)
+		assert_eq(slot._ko_keyposes.size(), CombatScreen.KO_KEYPOSE_COUNT)
+
+		screen.free()
+	)
+
+	run_case("play_attack_and_play_hit_step_through_their_transform_steps_then_hand_the_sprite_back_to_idle", func():
 		_setup_combat([_enemy("Scrapper")])
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -924,36 +947,53 @@ func run() -> void:
 		var idle_frame := slot._sprite_rect.texture
 
 		slot.play_attack()
-		assert_true(slot._sprite_rect.texture != idle_frame, "the attack one-shot's first frame must replace the idle texture")
-		for i in range(slot._attack_frames.size()):
+		assert_true(slot._sprite_rect.texture != idle_frame, "the attack one-shot's wind-up keypose must replace the idle texture")
+		assert_eq(slot._one_shot_steps.size(), CombatScreen.ATTACK_KEYPOSE_COUNT, "attack always animates exactly its 3 keyposes")
+		for i in range(slot._one_shot_steps.size()):
 			slot._advance_one_shot()
-		assert_eq(slot._sprite_rect.texture, idle_frame, "a non-held one-shot must hand the texture back to idle once it runs out of frames")
-		assert_true(slot._one_shot_frames.is_empty(), "the one-shot state must clear itself once finished, so idle ticking resumes")
+		assert_eq(slot._sprite_rect.texture, idle_frame, "a non-held one-shot must hand the texture back to idle once it runs out of steps")
+		assert_eq(slot._sprite_rect.position, Vector2.ZERO, "the transform must reset back to rest once the one-shot ends")
+		assert_true(slot._one_shot_steps.is_empty(), "the one-shot state must clear itself once finished, so idle ticking resumes")
+
+		slot.play_hit()
+		# §4's doctrine gives hit a single pose, but the recoil-out/recoil-
+		# back transform is still two discrete steps -- see play_hit()'s own
+		# comment for why they reuse the one texture.
+		assert_eq(slot._one_shot_steps.size(), 2, "hit's single pose still animates a recoil-out/recoil-back pair of transform steps")
+		assert_eq(slot._one_shot_steps[0].texture, slot._one_shot_steps[1].texture, "both recoil steps show the same single hit pose")
+		assert_true(slot._one_shot_steps[0].offset != Vector2.ZERO, "the recoil-out step must actually displace the sprite")
+		for i in range(slot._one_shot_steps.size()):
+			slot._advance_one_shot()
+		assert_eq(slot._sprite_rect.texture, idle_frame)
+		assert_eq(slot._sprite_rect.position, Vector2.ZERO)
 
 		screen.free()
 	)
 
-	run_case("play_dead_holds_on_its_own_final_frame_instead_of_reverting_to_idle", func():
+	run_case("play_ko_holds_on_its_fallen_faded_pose_instead_of_reverting_to_idle", func():
 		_setup_combat([_enemy("Scrapper")])
 		var screen := CombatScreen.new()
 		screen._ready()
 		var slot := _slot_named(screen, "Scrapper")
 
-		slot.play_dead()
-		for i in range(slot._dead_frames.size()):
+		slot.play_ko()
+		assert_eq(slot._one_shot_steps.size(), CombatScreen.KO_KEYPOSE_COUNT, "ko always animates exactly its 2 keyposes")
+		for i in range(slot._one_shot_steps.size()):
 			slot._advance_one_shot()
-		assert_eq(slot._sprite_rect.texture, slot._dead_frames[slot._dead_frames.size() - 1], "a held one-shot (dead) must stay on its own last frame, not idle's")
+		assert_eq(slot._sprite_rect.texture, slot._ko_keyposes[slot._ko_keyposes.size() - 1], "a held one-shot (ko) must stay on its own last keypose, not idle's")
+		assert_almost_eq(slot._sprite_rect.modulate.a, CombatScreen.FALL_ALPHA, 0.001, "the held ko pose must stay faded -- §4's 'transform fall + fade'")
+		assert_eq(slot._sprite_rect.rotation_degrees, CombatScreen.FALL_ROTATION_DEG, "the held ko pose must stay in its fallen rotation")
 
 		screen.free()
 	)
 
-	run_case("play_attack_play_hurt_and_play_dead_no_op_quietly_with_no_manifest_entry", func():
+	run_case("play_attack_play_hit_play_ko_and_play_self_patch_no_op_quietly_with_no_manifest_entry", func():
 		_setup_combat([_enemy("Scrapper")])
 		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
 		GameData.COMBAT_VISUALS = {
 			"backdrops": original_combat_visuals["backdrops"],
 			"templates": { "default": { "idle": original_combat_visuals["templates"]["default"]["idle"] } },
-		}  # idle only -- no hurt/dead/attack entries
+		}  # idle only -- no attack/hit/ko/selfPatch entries anywhere
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -961,10 +1001,73 @@ func run() -> void:
 		var idle_frame := slot._sprite_rect.texture
 
 		slot.play_attack()
-		slot.play_hurt()
-		slot.play_dead()
+		slot.play_hit()
+		slot.play_ko()
+		slot.play_self_patch()
 
-		assert_eq(slot._sprite_rect.texture, idle_frame, "no hurt/dead/attack manifest entries -- calling any play_*() must not touch the sprite at all")
+		assert_eq(slot._sprite_rect.texture, idle_frame, "no attack/hit/ko/selfPatch manifest entries -- calling any play_*() must not touch the sprite at all")
+
+		screen.free()
+		GameData.COMBAT_VISUALS = original_combat_visuals
+	)
+
+	run_case("ghost_next_pose_shows_a_translucent_copy_of_the_wind_up_keypose_and_no_ops_with_no_attack_art", func():
+		_setup_combat([_enemy("Scrapper")])
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Scrapper")
+
+		slot.ghost_next_pose()
+		assert_eq(slot._ghost_rect.texture, slot._attack_keyposes[0], "the ghost must preview the attack's own wind-up keypose")
+
+		slot._attack_keyposes = []
+		slot._ghost_rect.texture = null
+		slot.ghost_next_pose()
+		assert_eq(slot._ghost_rect.texture, null, "no attack art -- ghost_next_pose() must not touch the ghost rect at all")
+
+		screen.free()
+	)
+
+	run_case("beat_played_ghosts_the_evading_enemys_next_pose_before_a_player_evade_beat", func():
+		# combat-presentation ticket 10, docs/combat-animation-vision.md §5:
+		# calling _on_beat_played() directly with a fabricated beat (rather
+		# than rigging RNG/turn-order to produce a real one) tests the beat-
+		# kind dispatch in isolation -- the same beat shape systems/combat.gd
+		# actually emits for a BEAT_PLAYER_EVADE (see that file's
+		# _enemy_attack_player()).
+		_setup_combat([_enemy("Scrapper")])
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Scrapper")
+
+		screen._on_beat_played({ "kind": Combat.BEAT_PLAYER_EVADE, "actorType": "enemy", "actorIndex": 0, "targetType": "player" })
+
+		assert_eq(slot._ghost_rect.texture, slot._attack_keyposes[0], "a BEAT_PLAYER_EVADE beat must ghost the evading enemy's own wind-up keypose")
+
+		screen.free()
+	)
+
+	run_case("beat_played_plays_the_healing_allys_self_patch_pose_on_a_beat_ally_heal_beat", func():
+		_setup_combat([], [_ally("Archie")])
+		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
+		# Archie's own selfPatch entry is still an empty stub in the real
+		# manifest (no art produced yet, per data/combat_visuals.json's own
+		# "actionRule" note) -- inject a fake one so this test can observe
+		# the wiring actually fire, reusing templates.default's own idle
+		# sheet as a stand-in image (content doesn't matter, only that
+		# set_self_patch_animation() received something non-empty).
+		var patched: Dictionary = original_combat_visuals.duplicate(true)
+		patched["templates"]["archie"]["selfPatch"] = original_combat_visuals["templates"]["default"]["idle"]
+		GameData.COMBAT_VISUALS = patched
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Archie")
+		assert_true(not slot._self_patch_keyposes.is_empty(), "sanity: the injected selfPatch entry must have loaded")
+
+		screen._on_beat_played({ "kind": Combat.BEAT_ALLY_HEAL, "actorType": "ally", "actorIndex": 0, "amount": 5 })
+
+		assert_true(not slot._one_shot_steps.is_empty(), "a BEAT_ALLY_HEAL beat must start the healing ally's self-patch one-shot")
 
 		screen.free()
 		GameData.COMBAT_VISUALS = original_combat_visuals
@@ -997,11 +1100,11 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("a_killing_blow_holds_its_slot_and_plays_the_dead_pose_instead_of_vanishing_before_playback", func():
+	run_case("a_killing_blow_holds_its_slot_and_plays_the_ko_pose_instead_of_vanishing_before_playback", func():
 		# combat-presentation ticket 10: the frozen-roster fix -- without it,
 		# Weak's slot would already be gone (state_changed inside
 		# Combat.player_attack() runs before _play_beats() ever starts) by
-		# the time this beat's own play_dead() call tries to reach it.
+		# the time this beat's own play_ko() call tries to reach it.
 		_setup_combat([_enemy("Weak", 1, 20)])
 		GameState.state["player"]["attackMin"] = 999
 		GameState.state["player"]["attackMax"] = 999
@@ -1016,7 +1119,7 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["enemies"][0]["koed"], true, "sanity: Weak is dead in the already-final GameState")
 		var slot_after := _slot_named(screen, "Weak")
 		assert_eq(slot_after, slot_before, "the same Node, still on stage mid-playback -- not freed, not rebuilt")
-		assert_eq(slot_after._one_shot_frames, screen._default_dead_frames, "the killing blow must start the dead one-shot specifically, not hurt")
+		assert_eq(slot_after._one_shot_steps[0].texture, screen._default_ko_keyposes[0], "the killing blow must start the ko one-shot specifically, not hit")
 
 		screen.free()
 	)

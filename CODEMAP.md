@@ -76,7 +76,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 
 | File | Renders |
 |---|---|
-| combat.gd | Combat screen (turn UI over systems/combat.gd); stage backdrop reads combat_visuals.json (image or palette.json fallback fill) per combat context; StageSlot idle animation reads combat_visuals.json's per-subject templates.<key>.idle (ticket 09 -- key resolved by _enemy_template_key()/ally contactId/"player", falls back to the ticket-01 placeholder box until real art lands); hurt/dead/attack one-shots still read the shared templates.default stand-in (ticket 10) |
+| combat.gd | Combat screen (turn UI over systems/combat.gd); stage backdrop reads combat_visuals.json (image or palette.json fallback fill) per combat context; StageSlot idle animation reads combat_visuals.json's per-subject templates.<key>.idle (ticket 09 -- key resolved by CombatScreen.enemy_template_key()/ally contactId/"player", falls back to the ticket-01 placeholder box until real art lands); attack (3 keyposes)/hit (1 pose)/ko (2 poses) one-shots (ticket 10) prefer that same per-subject key's own manifest entry, falling back to the shared templates.default stand-in when empty -- each plays via a transform tween (lunge/recoil/fall+fade) between keyposes, not a flipbook; Archie's self-patch pose and prophetsBreath's ghost-next-pose effect (§5) are wired the same way, both still art-deferred |
 | contacts.gd | Contacts tab, flag-gated actions |
 | event.gd | Generic event-card screen driven by state.event |
 | factions.gd | Factions tab |
@@ -117,7 +117,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | approaches.json | systems/approaches.gd |
 | barometer.json | systems/barometer.gd |
 | collective_barks.json | systems/collective.gd |
-| combat_visuals.json | autoload/GameData.gd (COMBAT_VISUALS) → scenes/screens/combat.gd. `backdrops`: Combat.CANONICAL_CONTEXTS context → `{image, fallbackColor}` (validated, `fallbackColor` a palette.json colour id via GameData.PALETTE). `templates`: per-template idle/attack/hit/KO sheets (ticket 09, in progress) -- today only `default` exists, a single unvalidated stand-in (`assets/combat/dummy/idle.png`, an untouched asset-pack frame, not final art) applied to every combatant slot until real per-template entries replace it |
+| combat_visuals.json | autoload/GameData.gd (COMBAT_VISUALS) → scenes/screens/combat.gd, scenes/components/turn_order_strip.gd. `backdrops`: Combat.CANONICAL_CONTEXTS context → `{image, fallbackColor}` (validated, `fallbackColor` a palette.json colour id via GameData.PALETTE). `templates`: per cast-subject key (ticket 09/10, unvalidated), `idle`/`attack`/`hit`/`ko` sheets each `{image, frameCount, fps}` -- attack/hit/ko fall back to the shared `default` stand-in when a subject's own is empty (idle has no such fallback: empty means the ticket-01 placeholder box). `tell` (ability-telegraph pose) and `selfPatch` (Archie-only heal pose) have no `default` fallback. `territorialScrapper`/`orichalchumDealer` have real (asset-pack sourced, not final) idle/attack/hit/ko art; every other subject and every `tell` entry is still an empty stub |
 | constants.json | systems/time_system.gd, systems/jobs.gd, scenes/components/top_bar.gd, scenes/screens/phone.gd (timeBlocks, archieOreGoal, contacts defaults, James trust bands) |
 | dial.json | systems/dial.gd |
 | districts.json | systems/districts.gd, district_bubble.gd, sites.gd, economy.gd, factions.gd, raiding.gd, map_layout.gd, archie_deals.gd |

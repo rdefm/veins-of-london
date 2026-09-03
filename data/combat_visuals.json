@@ -3,7 +3,8 @@
     "name": "Combat visuals manifest",
     "purpose": "Maps combat context (and, from ticket 09, enemy/ally template key) to the art asset that renders it, so scenes/screens/combat.gd never hardcodes a path. See docs/combat-animation-vision.md §2.1/§6 and docs/ART-BIBLE.md.",
     "backdropRule": "One entry per Combat.CANONICAL_CONTEXTS context (systems/combat.gd). 'image' is a res:// path to a 390x360 backdrop plate, or \"\" when no plate has been produced yet -- the stage then fills with the flat data/palette.json colour named by 'fallbackColor' instead.",
-    "templateRule": "Ticket 09: 'templates' keys other than 'default' are the seven cast subjects (docs/combat-animation-vision.md §3) resolved by scenes/screens/combat.gd's _enemy_template_key()/display-entry building -- 'player' (state.player), the recruited-ally contactId (e.g. 'archie'), the data/enemies.json raidGuards key (territorialScrapper/veinGuard/orichalchumDealer), 'homeRaidRaider' (GameData.ENEMY_HOME_RAID_RAIDER), and 'mugger' (any enemy with isMugging true, however many concurrent instances -- one sheet, reused). Each subject's 'idle' entry is {image, frameCount, fps}; an empty 'image' (every subject below, today) means no art has been produced yet -- CombatScreen.StageSlot falls back cleanly to the ticket-01 placeholder box, per-subject, not an error. 'default' is unrelated to this per-subject lookup -- it's ticket 10's own shared stand-in for hurt/dead/attack only, untouched by ticket 09."
+    "templateRule": "Ticket 09: 'templates' keys other than 'default' are the seven cast subjects (docs/combat-animation-vision.md §3) resolved by CombatScreen.enemy_template_key()/display-entry building -- 'player' (state.player), the recruited-ally contactId (e.g. 'archie'), the data/enemies.json raidGuards key (territorialScrapper/veinGuard/orichalchumDealer), 'homeRaidRaider' (GameData.ENEMY_HOME_RAID_RAIDER), and 'mugger' (any enemy with isMugging true, however many concurrent instances -- one sheet, reused). Each subject's 'idle' entry is {image, frameCount, fps}; an empty 'image' means no art has been produced yet -- CombatScreen.StageSlot falls back cleanly to the ticket-01 placeholder box, per-subject, not an error. 'default' is unrelated to this per-subject idle lookup -- it's ticket 10's own shared stand-in for attack/hit/ko only, untouched by ticket 09.",
+    "actionRule": "Ticket 10, docs/combat-animation-vision.md §4: 'attack' (3 keyposes: wind-up/strike/recover, played with a transform lunge-and-return), 'hit' (1 pose, played with a transform recoil), and 'ko' (2 poses, played with a transform fall+fade) exist per-subject exactly like 'idle' -- CombatScreen loads whichever of a sheet's frames the doctrine calls for (down-sampling evenly if a sheet carries more, e.g. templates.default's own multi-frame stand-in strips) and falls back to templates.default's shared stand-in when a subject's own entry is empty, same two-level fallback 'idle' would use if it had one. 'tell' (1 pose, held with a pulse) is ticket 06's telegraph slot getting real art instead of its text/glyph placeholder -- read directly, no default fallback (no enemy has a non-null `ability` in data/enemies.json yet, so no tell art has anywhere to point). 'selfPatch' is Archie-only (§3: the `_allies_act`/`_ally_turn` heal-below-40%-HP pose) -- also no default fallback, since a generic combat stand-in has no heal pose to lend."
   },
   "backdrops": {
     "raid": { "image": "", "fallbackColor": "brick_shadow" },
@@ -16,34 +17,56 @@
   },
   "templates": {
     "default": {
-      "_note": "TEMPORARY build-test stand-in (ticket 10) -- untouched asset-pack frames (assets/Gangsters_2), not final art, not palette-quantised. Only hurt/dead/attack still read this entry; idle no longer does (ticket 09 moved idle to the per-subject keys below).",
+      "_note": "TEMPORARY build-test stand-in (ticket 10) -- untouched asset-pack frames (assets/combat/dummy), not final art, not palette-quantised. Only attack/hit/ko still read this entry; idle no longer does (ticket 09 moved idle to the per-subject keys below).",
       "idle": { "image": "res://assets/combat/dummy/idle.png", "frameCount": 7, "fps": 9.1 },
-      "hurt": { "image": "res://assets/combat/dummy/hurt.png", "frameCount": 4, "fps": 10.0 },
-      "dead": { "image": "res://assets/combat/dummy/dead.png", "frameCount": 5, "fps": 7.15 },
-      "attack": { "image": "res://assets/combat/dummy/attack.png", "frameCount": 6, "fps": 10.93 }
+      "attack": { "image": "res://assets/combat/dummy/attack.png", "frameCount": 6, "fps": 10.93 },
+      "hit": { "image": "res://assets/combat/dummy/hurt.png", "frameCount": 4, "fps": 10.0 },
+      "ko": { "image": "res://assets/combat/dummy/dead.png", "frameCount": 5, "fps": 7.15 }
     },
     "player": {
-      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+      "idle": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "attack": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "hit": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "ko": { "image": "", "frameCount": 0, "fps": 0.0 }
     },
     "archie": {
-      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+      "idle": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "attack": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "hit": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "ko": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "selfPatch": { "image": "", "frameCount": 0, "fps": 0.0 }
     },
     "territorialScrapper": {
-      "_note": "Asset-pack sourced stand-in (assets/Gangsters_2/Idle.png, untouched, not palette-quantised), same convention as templates.default -- see that entry's own _note. Not final art.",
-      "idle": { "image": "res://assets/combat/territorial_scrapper/idle.png", "frameCount": 7, "fps": 9.1 }
+      "_note": "Asset-pack sourced stand-in (assets/Gangsters_2), untouched, not palette-quantised, same convention as templates.default -- see that entry's own _note. Not final art.",
+      "idle": { "image": "res://assets/combat/territorial_scrapper/idle.png", "frameCount": 7, "fps": 9.1 },
+      "attack": { "image": "res://assets/combat/territorial_scrapper/attack.png", "frameCount": 6, "fps": 10.93 },
+      "hit": { "image": "res://assets/combat/territorial_scrapper/hit.png", "frameCount": 4, "fps": 10.0 },
+      "ko": { "image": "res://assets/combat/territorial_scrapper/ko.png", "frameCount": 5, "fps": 7.15 }
     },
     "veinGuard": {
-      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+      "idle": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "attack": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "hit": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "ko": { "image": "", "frameCount": 0, "fps": 0.0 }
     },
     "orichalchumDealer": {
-      "_note": "Asset-pack sourced stand-in (assets/Gangsters_3/Idle.png, untouched, not palette-quantised), same convention as templates.default -- see that entry's own _note. Not final art.",
-      "idle": { "image": "res://assets/combat/orichalchum_dealer/idle.png", "frameCount": 7, "fps": 9.1 }
+      "_note": "Asset-pack sourced stand-in (assets/Gangsters_3), untouched, not palette-quantised, same convention as templates.default -- see that entry's own _note. Not final art.",
+      "idle": { "image": "res://assets/combat/orichalchum_dealer/idle.png", "frameCount": 7, "fps": 9.1 },
+      "attack": { "image": "res://assets/combat/orichalchum_dealer/attack.png", "frameCount": 5, "fps": 10.93 },
+      "hit": { "image": "res://assets/combat/orichalchum_dealer/hit.png", "frameCount": 4, "fps": 10.0 },
+      "ko": { "image": "res://assets/combat/orichalchum_dealer/ko.png", "frameCount": 5, "fps": 7.15 }
     },
     "homeRaidRaider": {
-      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+      "idle": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "attack": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "hit": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "ko": { "image": "", "frameCount": 0, "fps": 0.0 }
     },
     "mugger": {
-      "idle": { "image": "", "frameCount": 0, "fps": 0.0 }
+      "idle": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "attack": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "hit": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "ko": { "image": "", "frameCount": 0, "fps": 0.0 }
     }
   }
 }

@@ -266,6 +266,47 @@ func run() -> void:
 		assert_eq(card.telegraph_text, "Intent: Attacking")
 	)
 
+	# ── combat-presentation ticket 10, docs/combat-animation-vision.md §4: ──
+	# ── the ability-tell pose replacing the telegraph slot's text/glyph ────
+
+	run_case("tell_image_is_null_with_no_manifest_tell_entry_so_the_text_label_still_renders", func():
+		GameState.reset()
+		var combat := _combat([_enemy("Territorial Scrapper", 20, 20, false, 30, null)])
+
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
+
+		var card := _card_named(strip, "Territorial Scrapper")
+		assert_eq(card.tell_image, null, "no templates.territorialScrapper.tell entry yet -- the text fallback still owns the slot")
+		assert_true(card.telegraph_label != null, "with no tell art, _build_card_content() must still build the text label")
+		assert_true(card.tell_rect == null)
+	)
+
+	run_case("tell_image_replaces_the_text_label_with_a_pulsing_pose_once_manifest_art_exists", func():
+		GameState.reset()
+		# Real per-subject tell art doesn't exist yet (see data/
+		# combat_visuals.json's own "actionRule" note) -- inject a fake entry
+		# so this test can observe the wiring actually fire, reusing
+		# templates.default's own idle sheet as a stand-in image.
+		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
+		var patched: Dictionary = original_combat_visuals.duplicate(true)
+		patched["templates"]["territorialScrapper"]["tell"] = original_combat_visuals["templates"]["default"]["idle"]
+		GameData.COMBAT_VISUALS = patched
+
+		var combat := _combat([_enemy("Territorial Scrapper", 20, 20, false, 30, null)])
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
+
+		var card := _card_named(strip, "Territorial Scrapper")
+		assert_true(card.tell_image != null, "an injected templates.territorialScrapper.tell entry must resolve to a texture")
+		assert_true(card.tell_rect != null, "the pose replaces the text label -- _build_card_content() must build a TextureRect")
+		assert_true(card.telegraph_label == null, "the text label must not also be built once tell art exists")
+
+		GameData.COMBAT_VISUALS = original_combat_visuals
+	)
+
 	run_case("telegraph_text_is_shown_for_an_enemy_focused_by_swipe_ahead_of_its_own_turn_not_only_the_next_actor", func():
 		GameState.reset()
 		# Guard (speed 5) acts well after the player/an unlisted faster

@@ -108,6 +108,30 @@ const SHAKE_MIN_PX := 3.0
 const SHAKE_MAX_PX := 6.0
 const SHAKE_FULL_FRACTION := 0.5
 
+# combat-presentation ticket 10, docs/combat-animation-vision.md §4: "not
+# hand-animated motion" -- attack/hit/ko each carry exactly this many
+# generated keyposes (wind-up/strike/recover, a single hit pose, down/fallen)
+# regardless of how many frames a manifest sheet actually has; StageSlot's
+# own transform tween (lunge/recoil/fall) is what supplies the motion
+# between them. _select_action_keyposes() below down-samples any sheet with
+# more frames than this (e.g. templates.default's own multi-frame stand-in
+# strips, a leftover from before this ticket) to exactly this count.
+const ATTACK_KEYPOSE_COUNT := 3
+const HIT_KEYPOSE_COUNT := 1
+const KO_KEYPOSE_COUNT := 2
+
+# combat-presentation ticket 10, §4: the transform magnitudes StageSlot's
+# play_attack()/play_hit()/play_ko()/play_self_patch() tween _sprite_rect
+# through between keyposes -- "lunge and return" / "recoil" / "fall + fade".
+# Small, pixel-art-scale offsets (StageSlot's own slot rect is a fraction of
+# STAGE_WIDTH/STAGE_HEIGHT), not full-screen movement.
+const LUNGE_PX := 14.0
+const RECOIL_PX := 8.0
+const FALL_SINK_PX := 10.0
+const FALL_ROTATION_DEG := 20.0
+const FALL_ALPHA := 0.35
+const SELF_PATCH_RISE_PX := 6.0
+
 # Placeholder fill colours keyed by template id (name), per the ticket --
 # "coloured, labelled box/silhouette keyed by template id, not real art".
 # Ticket 09 swaps these for real per-template sprites via the manifest
@@ -184,24 +208,62 @@ class StageSlot extends Control:
 	var _idle_timer: Timer
 	var _overlay: Control
 
-	# combat-presentation ticket 10: the three one-shot animations layered on
-	# top of ticket 09's idle loop -- hurt/dead on the struck combatant
-	# (_play_juice()), attack on whoever's swinging (_on_beat_played()).
-	# Same manifest-driven shape as _idle_frames (set_*_animation() below,
-	# mirroring set_idle_animation()); empty means "no manifest entry", and
-	# the corresponding play_*() call then just no-ops rather than erroring.
-	var _hurt_frames: Array[Texture2D] = []
-	var _hurt_fps: float = 10.0
-	var _dead_frames: Array[Texture2D] = []
-	var _dead_fps: float = 12.0
-	var _attack_frames: Array[Texture2D] = []
+	# combat-presentation ticket 10, docs/combat-animation-vision.md §4: the
+	# transform-driven one-shots layered on top of ticket 09's idle loop --
+	# attack on whoever's swinging (_on_beat_played()), hit/ko on the struck
+	# combatant (_play_juice()), self-patch on a healing ally
+	# (_on_beat_played()). Same manifest-driven shape as _idle_frames
+	# (set_*_animation() below, mirroring set_idle_animation()) except these
+	# arrays hold *keyposes*, not a flipbook -- ATTACK_KEYPOSE_COUNT/
+	# HIT_KEYPOSE_COUNT/KO_KEYPOSE_COUNT many, per the doctrine table. Empty
+	# means "no manifest entry", and the corresponding play_*() call then
+	# just no-ops rather than erroring, same convention as every other
+	# manifest-driven fallback in this file.
+	var _hit_keyposes: Array[Texture2D] = []
+	var _hit_fps: float = 10.0
+	var _ko_keyposes: Array[Texture2D] = []
+	var _ko_fps: float = 12.0
+	var _attack_keyposes: Array[Texture2D] = []
 	var _attack_fps: float = 12.0
+	var _self_patch_keyposes: Array[Texture2D] = []
+	var _self_patch_fps: float = 10.0
+
+	# One discrete step of a transform one-shot: a keypose texture plus the
+	# _sprite_rect position offset/rotation/alpha to show it at, relative to
+	# this slot's own rest transform (offset (0,0), rotation 0, alpha 1) --
+	# see _apply_pose_step() below. This *is* "transform lunge/recoil/fall",
+	# per §4's doctrine that the motion between generated keyposes is a
+	# transform, not extra drawn frames -- play_attack()/play_hit()/play_ko()/
+	# play_self_patch() below each synthesize a short list of these (reusing
+	# the same texture across more than one step where the doctrine's frame
+	# count is smaller than the motion needs, e.g. hit's single pose across
+	# a recoil-out/recoil-back pair) rather than storing pre-baked motion
+	# frames in the manifest.
+	class PoseStep:
+		var texture: Texture2D
+		var offset: Vector2
+		var rotation_degrees: float
+		var alpha: float
+		func _init(p_texture: Texture2D, p_offset: Vector2 = Vector2.ZERO, p_rotation_degrees: float = 0.0, p_alpha: float = 1.0) -> void:
+			texture = p_texture
+			offset = p_offset
+			rotation_degrees = p_rotation_degrees
+			alpha = p_alpha
+
 	# Drives a one-shot play_*() sequence forward -- see _advance_one_shot()
 	# below. Empty means "no one-shot in progress, idle owns the texture".
-	var _one_shot_frames: Array[Texture2D] = []
+	var _one_shot_steps: Array[PoseStep] = []
 	var _one_shot_index: int = 0
 	var _one_shot_hold_last_frame: bool = false
 	var _one_shot_timer: Timer
+
+	# combat-presentation ticket 10, docs/combat-animation-vision.md §5:
+	# prophetsBreath's deferred visual ("the enemy's next pose ghosts in at
+	# ~30% alpha before it happens") -- a separate TextureRect from
+	# _sprite_rect so ghost_next_pose() (below) never fights play_attack()'s
+	# own texture/position changes even though CombatScreen fires both in the
+	# same beat (see ghost_next_pose()'s own comment for why that's fine).
+	var _ghost_rect: TextureRect
 
 	func _init() -> void:
 		_sprite_rect = TextureRect.new()
@@ -218,6 +280,16 @@ class StageSlot extends Control:
 		_sprite_rect.anchor_bottom = 1.0
 		_sprite_rect.visible = false
 		add_child(_sprite_rect)
+
+		_ghost_rect = TextureRect.new()
+		_ghost_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_ghost_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_ghost_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_ghost_rect.anchor_right = 1.0
+		_ghost_rect.anchor_bottom = 1.0
+		_ghost_rect.visible = false
+		_ghost_rect.modulate.a = 0.0
+		add_child(_ghost_rect)
 
 		_idle_timer = Timer.new()
 		_idle_timer.one_shot = false
@@ -253,6 +325,13 @@ class StageSlot extends Control:
 	func _apply_flip() -> void:
 		_sprite_rect.flip_h = (side == "enemy") != _mirror_extra
 
+	# combat-presentation ticket 10: which way this slot's own attack lunges/
+	# a hit recoils away from -- enemies face left (toward the player column),
+	# player/allies face right (toward the enemy column), same convention
+	# set_side()'s own comment already established for the sprite flip.
+	func _forward_dir() -> float:
+		return -1.0 if side == "enemy" else 1.0
+
 	func set_flash_alpha(value: float) -> void:
 		flash_alpha = value
 		_overlay.queue_redraw()
@@ -267,6 +346,35 @@ class StageSlot extends Control:
 			return
 		var tween := create_tween()
 		tween.tween_method(set_flash_alpha, 1.0, 0.0, 0.18)
+
+	# combat-presentation ticket 10, docs/combat-animation-vision.md §5:
+	# prophetsBreath's deferred visual -- "the enemy's next pose ghosts in at
+	# ~30% alpha before it happens." CombatScreen._on_beat_played() calls
+	# this on a BEAT_PLAYER_EVADE beat's actor, immediately before calling
+	# play_attack() for the same beat (evade beats are still in
+	# _ATTACK_BEAT_KINDS -- they're a whiffed swing, not a no-op). The two
+	# are deliberately NOT sequenced (this doesn't block/delay play_attack())
+	# -- _ghost_rect is its own Control, so a translucent preview of the
+	# swing's wind-up pose fading in and back out reads fine layered under
+	# the real swing playing out at full opacity on _sprite_rect; actually
+	# blocking play_attack() until this finishes would need turning beat
+	# playback itself async for a purely cosmetic ordering nicety.
+	# No live tree, no tween, no visible ghost -- same guard flash_hit() uses.
+	func ghost_next_pose() -> void:
+		if _attack_keyposes.is_empty():
+			return
+		_ghost_rect.texture = _attack_keyposes[0]
+		_ghost_rect.position = Vector2.ZERO
+		_ghost_rect.modulate.a = 0.0
+		_ghost_rect.visible = true
+		if not is_inside_tree():
+			_ghost_rect.visible = false
+			return
+		var tween := create_tween()
+		tween.tween_property(_ghost_rect, "modulate:a", 0.3, 0.08)
+		tween.tween_interval(0.1)
+		tween.tween_property(_ghost_rect, "modulate:a", 0.0, 0.12)
+		tween.tween_callback(func(): _ghost_rect.visible = false)
 
 	# combat-presentation ticket 09: CombatScreen._sync_band() calls this
 	# for every slot, every sync -- `frames` is the same shared array either
@@ -289,100 +397,177 @@ class StageSlot extends Control:
 	# shared dummy sheet -- straight alternation, same as any 2-frame
 	# ping-pong). Public so tests can drive it directly without a live tree
 	# ever actually ticking _idle_timer -- see this class's own top comment.
-	# No-ops while a one-shot (_one_shot_frames non-empty) owns _sprite_rect's
+	# No-ops while a one-shot (_one_shot_steps non-empty) owns _sprite_rect's
 	# texture -- idle keeps ticking in the background regardless (simpler
 	# than stopping/restarting the timer around every one-shot), it just
 	# mustn't clobber the one-shot's current frame.
 	func _advance_idle_frame() -> void:
-		if _idle_frames.size() < 2 or not _one_shot_frames.is_empty():
+		if _idle_frames.size() < 2 or not _one_shot_steps.is_empty():
 			return
 		_idle_frame_index = (_idle_frame_index + 1) % _idle_frames.size()
 		_sprite_rect.texture = _idle_frames[_idle_frame_index]
 
-	# combat-presentation ticket 10: manifest-driven loaders for the three
-	# one-shot animations, same shape and calling convention as
-	# set_idle_animation() (CombatScreen._sync_band() calls all four for
+	# combat-presentation ticket 10: manifest-driven loaders for the four
+	# transform one-shots, same shape and calling convention as
+	# set_idle_animation() (CombatScreen._sync_band() calls all five for
 	# every slot, every sync -- see that func's own comment for why that's
-	# cheap). Unlike idle, these don't start anything themselves -- a
-	# one-shot only plays when play_hurt()/play_dead()/play_attack() is
+	# cheap). `frames` is already down-sampled to the doctrine's keypose
+	# count by the time it reaches here (CombatScreen._select_action_keyposes()).
+	# Unlike idle, these don't start anything themselves -- a one-shot only
+	# plays when play_attack()/play_hit()/play_ko()/play_self_patch() is
 	# actually called, from a beat.
-	func set_hurt_animation(frames: Array[Texture2D], fps: float) -> void:
-		_hurt_frames = frames
-		_hurt_fps = fps
-
-	func set_dead_animation(frames: Array[Texture2D], fps: float) -> void:
-		_dead_frames = frames
-		_dead_fps = fps
-
 	func set_attack_animation(frames: Array[Texture2D], fps: float) -> void:
-		_attack_frames = frames
+		_attack_keyposes = frames
 		_attack_fps = fps
 
+	func set_hit_animation(frames: Array[Texture2D], fps: float) -> void:
+		_hit_keyposes = frames
+		_hit_fps = fps
+
+	func set_ko_animation(frames: Array[Texture2D], fps: float) -> void:
+		_ko_keyposes = frames
+		_ko_fps = fps
+
+	func set_self_patch_animation(frames: Array[Texture2D], fps: float) -> void:
+		_self_patch_keyposes = frames
+		_self_patch_fps = fps
+
 	# Public entry points CombatScreen's beat-playback callbacks drive --
-	# _on_beat_played() for play_attack(), _play_juice() for play_hurt()/
-	# play_dead(). A no-op when the manifest has nothing for this animation
-	# (empty frames) -- same "degrade quietly, never error" convention
-	# set_idle_animation()'s own empty-frames case already established.
+	# _on_beat_played() for play_attack()/play_self_patch(), _play_juice()
+	# for play_hit()/play_ko(). A no-op when the manifest has nothing for
+	# this animation (empty keyposes) -- same "degrade quietly, never error"
+	# convention set_idle_animation()'s own empty-frames case already
+	# established. §4's doctrine: "Attack | 3 keyposes | transform lunge and
+	# return" -- wind-up at rest, strike at the lunge offset, recover back at
+	# rest; missing keyposes (a manifest entry with fewer than
+	# ATTACK_KEYPOSE_COUNT frames) repeat the last one available rather than
+	# erroring.
 	func play_attack() -> void:
-		_start_one_shot(_attack_frames, _attack_fps, false)
-
-	func play_hurt() -> void:
-		_start_one_shot(_hurt_frames, _hurt_fps, false)
-
-	# Holds on the last (down/fallen) frame rather than reverting to idle --
-	# this slot's owner is koed. CombatScreen's frozen-roster mechanism
-	# (_play_round()/_sync_stage()) is what keeps this specific Node alive
-	# long enough to actually show the hold; the slot is freed for real once
-	# the round's beat playback finishes and _sync() reconciles the stage to
-	# the true (post-round) roster.
-	func play_dead() -> void:
-		_start_one_shot(_dead_frames, _dead_fps, true)
-
-	func _start_one_shot(frames: Array[Texture2D], fps: float, hold_last_frame: bool) -> void:
-		if frames.is_empty():
+		if _attack_keyposes.is_empty():
 			return
-		_one_shot_frames = frames
+		var fwd: float = _forward_dir()
+		var windup: Texture2D = _attack_keyposes[0]
+		var strike: Texture2D = _attack_keyposes[mini(1, _attack_keyposes.size() - 1)]
+		var recover: Texture2D = _attack_keyposes[mini(2, _attack_keyposes.size() - 1)]
+		var steps: Array[PoseStep] = [
+			PoseStep.new(windup, Vector2.ZERO),
+			PoseStep.new(strike, Vector2(CombatScreen.LUNGE_PX * fwd, 0.0)),
+			PoseStep.new(recover, Vector2.ZERO),
+		]
+		_start_one_shot(steps, _attack_fps, false)
+
+	# §4: "Hit | 1 pose | transform recoil + white flash" -- the flash is
+	# CombatScreen._play_juice()'s own flash_hit() call, unchanged by this
+	# ticket. The single pose plays across two steps (recoiled, then back) so
+	# there's still a transform to animate even though there's only one
+	# keypose to show throughout it.
+	func play_hit() -> void:
+		if _hit_keyposes.is_empty():
+			return
+		var fwd: float = _forward_dir()
+		var pose: Texture2D = _hit_keyposes[0]
+		var steps: Array[PoseStep] = [
+			PoseStep.new(pose, Vector2(-CombatScreen.RECOIL_PX * fwd, 0.0)),
+			PoseStep.new(pose, Vector2.ZERO),
+		]
+		_start_one_shot(steps, _hit_fps, false)
+
+	# §4: "KO | 2 poses | transform fall + fade." Holds on the fallen/faded
+	# last step rather than reverting to idle -- this slot's owner is koed.
+	# CombatScreen's frozen-roster mechanism (_play_round()/_sync_stage()) is
+	# what keeps this specific Node alive long enough to actually show the
+	# hold; the slot is freed for real once the round's beat playback
+	# finishes and _sync() reconciles the stage to the true (post-round)
+	# roster.
+	func play_ko() -> void:
+		if _ko_keyposes.is_empty():
+			return
+		var pose1: Texture2D = _ko_keyposes[0]
+		var pose2: Texture2D = _ko_keyposes[mini(1, _ko_keyposes.size() - 1)]
+		var steps: Array[PoseStep] = [
+			PoseStep.new(pose1, Vector2.ZERO),
+			PoseStep.new(pose2, Vector2(0.0, CombatScreen.FALL_SINK_PX), CombatScreen.FALL_ROTATION_DEG, CombatScreen.FALL_ALPHA),
+		]
+		_start_one_shot(steps, _ko_fps, true)
+
+	# §3: Archie's self-patch pose (`_allies_act`/`_ally_turn`'s heal-below-
+	# 40%-HP action) -- CombatScreen._on_beat_played() calls this on a
+	# BEAT_ALLY_HEAL beat's actor. No doctrine frame count is specified for
+	# this one (it's not in §4's table -- a per-subject extra, §3's own
+	# roster note), so it's played the same shape as hit: a single pose
+	# across a small rise-and-settle transform rather than a recoil.
+	func play_self_patch() -> void:
+		if _self_patch_keyposes.is_empty():
+			return
+		var pose: Texture2D = _self_patch_keyposes[0]
+		var steps: Array[PoseStep] = [
+			PoseStep.new(pose, Vector2(0.0, -CombatScreen.SELF_PATCH_RISE_PX)),
+			PoseStep.new(pose, Vector2.ZERO),
+		]
+		_start_one_shot(steps, _self_patch_fps, false)
+
+	func _start_one_shot(steps: Array[PoseStep], fps: float, hold_last_frame: bool) -> void:
+		if steps.is_empty():
+			return
+		_one_shot_steps = steps
 		_one_shot_index = 0
 		_one_shot_hold_last_frame = hold_last_frame
-		_sprite_rect.texture = frames[0]
+		_apply_pose_step(steps[0])
 		# combat-presentation ticket 09: a one-shot (still shared "default"
-		# art, ticket 10) can fire on a slot whose own idle is empty (no
-		# per-subject art yet -- the common case today), which leaves
-		# _sprite_rect hidden (see set_idle_animation()). Without forcing it
-		# visible here, the one-shot's frames would be assigned to a hidden
-		# TextureRect and never actually show. _end_one_shot() below is what
-		# hides it again once the one-shot finishes, if there's still no idle
-		# to fall back to.
+		# art in the common case) can fire on a slot whose own idle is empty
+		# (no per-subject art yet), which leaves _sprite_rect hidden (see
+		# set_idle_animation()). Without forcing it visible here, the
+		# one-shot's frames would be assigned to a hidden TextureRect and
+		# never actually show. _end_one_shot() below is what hides it again
+		# once the one-shot finishes, if there's still no idle to fall back
+		# to.
 		_sprite_rect.visible = true
-		if frames.size() < 2 or fps <= 0.0:
+		if steps.size() < 2 or fps <= 0.0:
 			_end_one_shot()
 			return
 		_one_shot_timer.wait_time = 1.0 / fps
 		_one_shot_timer.start()
 
+	# Applies one PoseStep's texture/offset/rotation/alpha to _sprite_rect --
+	# the "transform" half of "transform lunge/recoil/fall", shared by every
+	# play_*() one-shot and by _end_one_shot()'s own reset back to rest.
+	# pivot_offset is recomputed every call (cheap, and _sprite_rect's size
+	# is only known once it's actually been laid out by _sync_band()) so
+	# play_ko()'s fall rotation pivots around the sprite's own centre rather
+	# than its top-left corner.
+	func _apply_pose_step(step: PoseStep) -> void:
+		_sprite_rect.texture = step.texture
+		_sprite_rect.position = step.offset
+		_sprite_rect.pivot_offset = _sprite_rect.size / 2.0
+		_sprite_rect.rotation_degrees = step.rotation_degrees
+		_sprite_rect.modulate.a = step.alpha
+
 	# Public (not `_`-prefixed... it is, but so is _advance_idle_frame() --
 	# same off-tree-test convention) so tests can drive a one-shot forward
 	# without a live tree ever actually ticking _one_shot_timer.
 	func _advance_one_shot() -> void:
-		if _one_shot_frames.is_empty():
+		if _one_shot_steps.is_empty():
 			return
 		_one_shot_index += 1
-		if _one_shot_index >= _one_shot_frames.size():
+		if _one_shot_index >= _one_shot_steps.size():
 			if _one_shot_hold_last_frame:
 				_one_shot_timer.stop()
 				return
 			_end_one_shot()
 			return
-		_sprite_rect.texture = _one_shot_frames[_one_shot_index]
+		_apply_pose_step(_one_shot_steps[_one_shot_index])
 
-	# Hands _sprite_rect's texture back to idle -- either the one-shot
-	# finished (attack/hurt) or it had too few frames/no fps to animate at
-	# all (single-frame or malformed manifest entry). Never called for a
-	# held (dead) one-shot; see _advance_one_shot() above.
+	# Hands _sprite_rect's texture and transform back to idle/rest -- either
+	# the one-shot finished (attack/hit/self-patch) or it had too few steps
+	# or no fps to animate at all (single-frame or malformed manifest entry).
+	# Never called for a held (ko) one-shot; see _advance_one_shot() above.
 	func _end_one_shot() -> void:
 		_one_shot_timer.stop()
-		_one_shot_frames = []
+		_one_shot_steps = []
 		_one_shot_index = 0
+		_sprite_rect.position = Vector2.ZERO
+		_sprite_rect.rotation_degrees = 0.0
+		_sprite_rect.modulate.a = 1.0
 		if not _idle_frames.is_empty():
 			_sprite_rect.texture = _idle_frames[_idle_frame_index]
 		else:
@@ -446,29 +631,34 @@ var _player_band_layer: Control
 var _backdrop_texture: TextureRect
 var _backdrop_fill: ColorRect
 
-# combat-presentation ticket 10: the hurt/dead/attack one-shots, per
-# data/combat_visuals.json's templates.default -- loaded once in _ready()
-# (see _load_default_animations() below), not per-sync/per-slot, since it's
-# the same shared frames for every combatant until real per-template entries
-# replace this stand-in (that ticket is unaffected by ticket 09 below --
-# idle is the only animation ticket 09 moved off "default"). Empty means no
-# manifest entry (or the image failed to load) -- that one-shot then just
-# never plays (play_hurt() / play_dead() / play_attack() no-op on empty
-# frames -- see their own comments), same "degrade quietly" convention
-# ticket 09's idle fallback also uses.
-var _default_hurt_frames: Array[Texture2D] = []
-var _default_hurt_fps: float = 10.0
-var _default_dead_frames: Array[Texture2D] = []
-var _default_dead_fps: float = 12.0
-var _default_attack_frames: Array[Texture2D] = []
+# combat-presentation ticket 10: the attack/hit/ko one-shots' shared
+# "default" stand-in, per data/combat_visuals.json's templates.default --
+# loaded once in _ready() (see _load_default_animations() below), not
+# per-sync/per-slot. This is the FALLBACK used only when a combatant's own
+# template key has no non-empty entry of its own (see
+# _resolve_action_keyposes() and _sync_band() below) -- ticket 09's idle
+# never had a "default" fallback concept; this ticket introduces one for
+# attack/hit/ko specifically because a shared placeholder stand-in still
+# needs to look like *something* is swinging/getting hit/falling over even
+# before every subject has its own art, same reasoning ticket 09's own
+# now-superseded all-subjects-share-"default" arrangement had before this
+# ticket split it per-subject. Empty means no manifest entry (or the image
+# failed to load) -- that one-shot then just never plays (see StageSlot's
+# own play_*() comments), same "degrade quietly" convention ticket 09's idle
+# fallback also uses.
+var _default_attack_keyposes: Array[Texture2D] = []
 var _default_attack_fps: float = 12.0
+var _default_hit_keyposes: Array[Texture2D] = []
+var _default_hit_fps: float = 10.0
+var _default_ko_keyposes: Array[Texture2D] = []
+var _default_ko_fps: float = 12.0
 
 # combat-presentation ticket 09, docs/combat-animation-vision.md §3/§4: idle
 # frames+fps per cast-subject template key (data/combat_visuals.json's
 # "templates" entries other than "default" -- see that file's own
 # "templateRule" note), loaded once in _ready() (_load_template_idle_
 # animations() below) rather than per-sync/per-slot. Keyed by whatever
-# _enemy_template_key()/_player_display_entries()/_ally_template_key resolve
+# enemy_template_key()/_player_display_entries()/_ally_template_key resolve
 # a slot's combatant to ("player", an ally's contactId, a
 # GameData.ENEMY_RAID_GUARDS key, "homeRaidRaider", or "mugger"). A key with
 # no manifest entry, an empty image, or a missing file all resolve to the
@@ -481,6 +671,22 @@ var _idle_frames_by_template: Dictionary = {}
 # default below -- see that call site's own comment for why an untyped `[]`
 # literal there fails a runtime type check that this doesn't.
 var _empty_idle_frames: Array[Texture2D] = []
+
+# combat-presentation ticket 10, docs/combat-animation-vision.md §3/§4: the
+# per-subject counterparts to _idle_frames_by_template above -- attack/hit/
+# ko keyposes per template key, loaded once in _ready()
+# (_load_template_action_animations() below). Unlike idle, an empty entry
+# here doesn't mean "show nothing" -- _resolve_action_keyposes() below falls
+# back to the shared _default_*_keyposes stand-in, since attack/hit/ko still
+# need to read as *something* happening even before a subject's own art
+# lands (see the _default_* vars' own comment for why that differs from
+# idle's plain fallback-to-placeholder-box). _self_patch_keyposes_by_template
+# has no such fallback -- selfPatch is Archie-only, and "default" carries no
+# heal pose to lend (data/combat_visuals.json's own "actionRule" note).
+var _attack_keyposes_by_template: Dictionary = {}
+var _hit_keyposes_by_template: Dictionary = {}
+var _ko_keyposes_by_template: Dictionary = {}
+var _self_patch_keyposes_by_template: Dictionary = {}
 
 # combat-presentation ticket 05: the screen-shake wrapper -- see
 # _build_stage_skeleton()'s own comment for why this, not `frame`, is what
@@ -548,7 +754,7 @@ var _ghost_tracker: Dictionary = {}
 # Snapshotting the pre-round roster and reading *that* for the first
 # _sync_stage() (fired mid-action.call(), before _play_beats() ever runs)
 # keeps every combatant who started the round alive on stage for its
-# duration, so a lethal beat's play_dead() (see _play_juice()) has a slot to
+# duration, so a lethal beat's play_ko() (see _play_juice()) has a slot to
 # land on. _sync_band()'s own position/fan reflow only runs at round start
 # and round end (never mid-playback -- see _play_beats()), so a dying
 # combatant's slot holds its position and death pose for the whole round
@@ -568,6 +774,7 @@ func _ready() -> void:
 
 	_load_default_animations()
 	_load_template_idle_animations()
+	_load_template_action_animations()
 
 	# combat-presentation ticket 04: the player-facing half of
 	# CombatDirector's persisted pacing toggle (CombatPacing, same
@@ -595,28 +802,29 @@ func _ready() -> void:
 
 
 # combat-presentation ticket 10: loads data/combat_visuals.json's
-# templates.default.{hurt,dead,attack} -- a single shared, not-yet-palette-
-# quantised build-test sheet set applied to every combatant slot (see
-# _sync_band()'s set_*_animation() calls) until real per-template entries
-# land. Each sheet is sliced into `frameCount` equal-width AtlasTextures (an
-# evenly-divided horizontal strip is the convention docs/ART-BIBLE.md §5
-# already documents for every keypose/idle strip). Missing manifest entry,
-# missing file, or frameCount < 1 all leave that animation's frames empty --
-# never an error, see this section's own variable-block comment for what
-# "empty" means per animation. idle is deliberately absent here -- ticket 09
-# moved it to _load_template_idle_animations() below.
+# templates.default.{attack,hit,ko} -- the shared, not-yet-palette-quantised
+# build-test sheet set used as _resolve_action_keyposes()'s fallback for any
+# subject whose own per-subject entry (loaded by
+# _load_template_action_animations() below) is still empty. Each sheet is
+# sliced into `frameCount` equal-width AtlasTextures then down-sampled to the
+# doctrine's own keypose count by _select_action_keyposes() -- "default"'s
+# own dummy sheets carry more frames than the doctrine (leftovers from
+# before this ticket properly split attack/hit/ko into keyposes+transform),
+# which is exactly the case that down-sampling exists to handle. idle is
+# deliberately absent here -- ticket 09 moved it to
+# _load_template_idle_animations() below.
 func _load_default_animations() -> void:
-	var frames_hurt := _load_animation_frames("default", "hurt")
-	_default_hurt_frames = frames_hurt["frames"]
-	_default_hurt_fps = frames_hurt["fps"]
+	var attack := _load_action_keyposes("default", "attack", ATTACK_KEYPOSE_COUNT)
+	_default_attack_keyposes = attack["frames"]
+	_default_attack_fps = attack["fps"]
 
-	var frames_dead := _load_animation_frames("default", "dead")
-	_default_dead_frames = frames_dead["frames"]
-	_default_dead_fps = frames_dead["fps"]
+	var hit := _load_action_keyposes("default", "hit", HIT_KEYPOSE_COUNT)
+	_default_hit_keyposes = hit["frames"]
+	_default_hit_fps = hit["fps"]
 
-	var frames_attack := _load_animation_frames("default", "attack")
-	_default_attack_frames = frames_attack["frames"]
-	_default_attack_fps = frames_attack["fps"]
+	var ko := _load_action_keyposes("default", "ko", KO_KEYPOSE_COUNT)
+	_default_ko_keyposes = ko["frames"]
+	_default_ko_fps = ko["fps"]
 
 
 # combat-presentation ticket 09: loads every data/combat_visuals.json
@@ -632,6 +840,67 @@ func _load_template_idle_animations() -> void:
 	var templates: Dictionary = GameData.COMBAT_VISUALS.get("templates", {})
 	for key in templates.keys():
 		_idle_frames_by_template[key] = _load_animation_frames(key, "idle")
+
+
+# combat-presentation ticket 10: the attack/hit/ko/selfPatch counterpart to
+# _load_template_idle_animations() above -- same fully-manifest-driven loop,
+# each sheet down-sampled to its doctrine keypose count (§4's table;
+# selfPatch has no doctrine entry, so it's loaded at HIT_KEYPOSE_COUNT --
+# StageSlot.play_self_patch() only ever reads keyposes[0] regardless).
+func _load_template_action_animations() -> void:
+	_attack_keyposes_by_template = {}
+	_hit_keyposes_by_template = {}
+	_ko_keyposes_by_template = {}
+	_self_patch_keyposes_by_template = {}
+	var templates: Dictionary = GameData.COMBAT_VISUALS.get("templates", {})
+	for key in templates.keys():
+		_attack_keyposes_by_template[key] = _load_action_keyposes(key, "attack", ATTACK_KEYPOSE_COUNT)
+		_hit_keyposes_by_template[key] = _load_action_keyposes(key, "hit", HIT_KEYPOSE_COUNT)
+		_ko_keyposes_by_template[key] = _load_action_keyposes(key, "ko", KO_KEYPOSE_COUNT)
+		_self_patch_keyposes_by_template[key] = _load_action_keyposes(key, "selfPatch", HIT_KEYPOSE_COUNT)
+
+
+# _load_animation_frames() (unrestricted frame count) plus the doctrine
+# down-sample -- shared by every attack/hit/ko/selfPatch load site above, so
+# a manifest sheet with more frames than the doctrine calls for (today, only
+# templates.default's own leftover multi-frame dummy strips) still resolves
+# to exactly `count` keyposes, evenly spaced across whatever the sheet has.
+func _load_action_keyposes(template_key: String, key: String, count: int) -> Dictionary:
+	var loaded := _load_animation_frames(template_key, key)
+	return { "frames": _select_action_keyposes(loaded["frames"], count), "fps": loaded["fps"] }
+
+
+# Evenly-spaced down-sample to exactly `count` textures (or fewer, if
+# `frames` itself has fewer -- StageSlot's own play_*() functions already
+# clamp/repeat when a keypose array is shorter than the doctrine calls for,
+# same "degrade quietly" convention as everywhere else in this manifest
+# pipeline). A `frames` array already at or below `count` passes through
+# unchanged -- the identity case a real, doctrine-authored per-subject sheet
+# (exactly 3/1/2 frames) always hits.
+func _select_action_keyposes(frames: Array[Texture2D], count: int) -> Array[Texture2D]:
+	var out: Array[Texture2D] = []
+	if frames.is_empty() or count <= 0:
+		return out
+	if frames.size() <= count:
+		return frames.duplicate()
+	for i in range(count):
+		var idx: int = 0 if count == 1 else int(round(float(i) * float(frames.size() - 1) / float(count - 1)))
+		out.append(frames[idx])
+	return out
+
+
+# Resolves one combatant's own attack/hit/ko keyposes+fps, falling back to
+# the shared "default" stand-in (`default_frames`/`default_fps`) when its
+# own per-subject manifest entry is empty -- see _default_attack_keyposes'
+# own top comment for why attack/hit/ko get this fallback and idle doesn't.
+# Passing `_empty_idle_frames`/0.0 as the default (selfPatch's call site)
+# makes this degrade to "no fallback at all", since selfPatch has none.
+func _resolve_action_keyposes(by_template: Dictionary, template_key: String, default_frames: Array[Texture2D], default_fps: float) -> Dictionary:
+	var entry: Dictionary = by_template.get(template_key, {})
+	var frames: Array[Texture2D] = entry.get("frames", _empty_idle_frames)
+	if frames.is_empty():
+		return { "frames": default_frames, "fps": default_fps }
+	return { "frames": frames, "fps": entry.get("fps", 0.0) }
 
 
 func _load_animation_frames(template_key: String, key: String) -> Dictionary:
@@ -926,7 +1195,7 @@ func _enemy_display_entries(enemies: Array, focused_index: int) -> Array:
 	for i in range(enemies.size()):
 		if not enemies[i]["koed"]:
 			var enemy: Dictionary = enemies[i]
-			display.append({ "name": enemy["name"], "isFocused": i == focused_index, "index": i, "templateKey": _enemy_template_key(enemy) })
+			display.append({ "name": enemy["name"], "isFocused": i == focused_index, "index": i, "templateKey": enemy_template_key(enemy) })
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
@@ -948,7 +1217,13 @@ func _enemy_display_entries(enemies: Array, focused_index: int) -> Array:
 # doesn't know about yet) resolves to "" -- _sync_band()'s idle lookup
 # already treats an unresolved key as "no manifest entry", same quiet
 # fallback to the placeholder box as any other gap.
-func _enemy_template_key(enemy: Dictionary) -> String:
+#
+# combat-presentation ticket 10: public and static (mirrors
+# CombatDirector.beat_is_damaging()'s own "public so more than one file can
+# share the exact same test" precedent) so scenes/components/
+# turn_order_strip.gd's own telegraph-pose lookup resolves an enemy to the
+# same template key this file uses, rather than duplicating the lookup.
+static func enemy_template_key(enemy: Dictionary) -> String:
 	if enemy.get("isMugging", false):
 		return "mugger"
 	var name: String = enemy.get("name", "")
@@ -1049,12 +1324,25 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 		# came out of _load_animation_frames (always genuinely typed there).
 		var idle_frames: Array[Texture2D] = idle.get("frames", _empty_idle_frames)
 		slot.set_idle_animation(idle_frames, idle.get("fps", 0.0))
-		# combat-presentation ticket 10: hurt/dead/attack are still the one
-		# shared "default" stand-in for every slot -- untouched by ticket 09,
-		# see _load_default_animations()'s own comment.
-		slot.set_hurt_animation(_default_hurt_frames, _default_hurt_fps)
-		slot.set_dead_animation(_default_dead_frames, _default_dead_fps)
-		slot.set_attack_animation(_default_attack_frames, _default_attack_fps)
+		# combat-presentation ticket 10: attack/hit/ko prefer this combatant's
+		# own per-subject keyposes, falling back to the shared "default"
+		# stand-in when its own entry is empty -- see _resolve_action_keyposes()
+		# and the _default_*_keyposes vars' own comments for why attack/hit/ko
+		# get a fallback and idle doesn't. selfPatch has no "default" fallback
+		# (Archie-only, per that dict's own top comment) -- _empty_idle_frames/
+		# 0.0 as its "default" makes _resolve_action_keyposes() degrade to "no
+		# fallback at all". Looped (rather than four repeated resolve+set
+		# pairs) since all four share the exact same shape -- only which
+		# dictionary/default/setter differs.
+		for action in [
+			[_attack_keyposes_by_template, _default_attack_keyposes, _default_attack_fps, slot.set_attack_animation],
+			[_hit_keyposes_by_template, _default_hit_keyposes, _default_hit_fps, slot.set_hit_animation],
+			[_ko_keyposes_by_template, _default_ko_keyposes, _default_ko_fps, slot.set_ko_animation],
+			[_self_patch_keyposes_by_template, _empty_idle_frames, 0.0, slot.set_self_patch_animation],
+		]:
+			var resolved: Dictionary = _resolve_action_keyposes(action[0], template_key, action[1], action[2])
+			var setter: Callable = action[3]
+			setter.call(resolved["frames"], resolved["fps"])
 
 	# Display position 0 is always the fan's front/large slot (see
 	# _fan_local_rects) -- moving whichever combatant currently holds that
@@ -1254,13 +1542,35 @@ func _play_beats(beats: Array, log_before: int) -> void:
 func _on_beat_played(beat: Dictionary) -> void:
 	_revealed_log_count += 1
 	_sync_footer(GameState.state["combat"], GameState.state["player"])
-	# combat-presentation ticket 10: an actual swing, hit or missed --
-	# plays before the juice layer's own damage check below, so a miss
-	# still gets its Swipe pose even though _play_juice() never runs for it.
-	if _ATTACK_BEAT_KINDS.has(beat.get("kind", "")):
+	var kind: String = beat.get("kind", "")
+	# combat-presentation ticket 10, docs/combat-animation-vision.md §5:
+	# prophetsBreath's ghost-next-pose effect -- fires before play_attack()
+	# below for the same beat, on a BEAT_PLAYER_EVADE specifically (the one
+	# beat kind that means "an enemy's swing whiffed because of the
+	# evadeTurns/evadeChance grant prophetsBreath and Rewind share" -- see
+	# systems/combat.gd's own use_prophets_breath() comment). See
+	# StageSlot.ghost_next_pose()'s own comment for why this isn't sequenced
+	# to finish before play_attack() starts.
+	if kind == Combat.BEAT_PLAYER_EVADE:
+		var evading_slot: StageSlot = _resolve_target_slot(_beat_actor(beat))
+		if evading_slot != null:
+			evading_slot.ghost_next_pose()
+	# An actual swing, hit or missed -- plays before the juice layer's own
+	# damage check below, so a miss still gets its attack pose even though
+	# _play_juice() never runs for it.
+	if _ATTACK_BEAT_KINDS.has(kind):
 		var actor_slot: StageSlot = _resolve_target_slot(_beat_actor(beat))
 		if actor_slot != null:
 			actor_slot.play_attack()
+	# combat-presentation ticket 10, §3: Archie's self-patch pose -- any ally
+	# healing themselves below 40% HP (systems/combat.gd's _ally_turn()),
+	# not just Archie specifically (the manifest lookup is per ally
+	# contactId, same as idle -- see _self_patch_keyposes_by_template's own
+	# comment for why only Archie's entry is non-empty today).
+	if kind == Combat.BEAT_ALLY_HEAL:
+		var healer_slot: StageSlot = _resolve_target_slot(_beat_actor(beat))
+		if healer_slot != null:
+			healer_slot.play_self_patch()
 	if CombatDirector.beat_is_damaging(beat):
 		_play_juice(beat)
 
@@ -1310,7 +1620,7 @@ func _on_dial_triggered(result: Dictionary) -> void:
 # _sync()'d before playback starts (see combat_director.gd's own top
 # comment) -- so, undefended, stage slots/strip cards for whoever this round
 # kills would already be gone by the time their killing beat plays, and its
-# own flash/damage-number/ghost-drain/play_dead() would silently no-op
+# own flash/damage-number/ghost-drain/play_ko() would silently no-op
 # (their node lookups return null). _frozen_roster (this screen's own top
 # comment) keeps a dying combatant's StageSlot alive through the round for
 # _play_round()'s path. It does NOT cover _on_dial_triggered() (Complication
@@ -1332,10 +1642,10 @@ func _beat_target(beat: Dictionary) -> Dictionary:
 
 
 # Same shape as _beat_target(), but for a beat's actorType/actorIndex --
-# who threw the swing this beat represents, not who it landed on. Used only
-# by the attack-pose trigger in _on_beat_played(); the juice layer proper
-# (flash/damage-number/shake/ghost-drain/hurt/dead) only ever cares about
-# the target.
+# who threw the swing (or healed themselves) this beat represents, not who
+# it landed on. Used by _on_beat_played()'s ghost/attack-pose/self-patch
+# triggers; the juice layer proper (flash/damage-number/shake/ghost-drain/
+# hit/ko) only ever cares about the target.
 func _beat_actor(beat: Dictionary) -> Dictionary:
 	var actor_type: String = beat.get("actorType", "")
 	var actor_index: int = -1 if actor_type == "player" else int(beat.get("actorIndex", -1))
@@ -1469,14 +1779,14 @@ func _play_juice(beat: Dictionary) -> void:
 		_spawn_damage_number(slot, dmg)
 		# combat-presentation ticket 10: koed (this hit's own final GameState
 		# is already applied -- see _frozen_roster's own comment) holds on the
-		# dead sheet's last frame; otherwise a recoil pose. _frozen_roster is
+		# fallen/faded KO pose; otherwise a recoil pose. _frozen_roster is
 		# what keeps `slot` from having already been freed for a killing blow
 		# (on the ordinary round path -- see _beat_actor()'s own comment for
 		# the Dial-cast exception).
 		if _target_state(target).get("koed", false):
-			slot.play_dead()
+			slot.play_ko()
 		else:
-			slot.play_hurt()
+			slot.play_hit()
 
 	_shake_stage(dmg, _hp_max_for(target))
 	_drain_ghost(TurnOrderStrip.card_key_string(target), dmg)
