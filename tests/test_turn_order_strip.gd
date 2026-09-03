@@ -51,7 +51,7 @@ func _combat(enemies: Array, allies: Array = [], context: String = Combat.CONTEX
 		"active": true, "context": context, "veinId": vein_id, "enemies": enemies,
 		"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
 		"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
-		"onWin": "", "snapshots": [], "allies": allies,
+		"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "allies": allies,
 	}
 
 

@@ -108,7 +108,7 @@ func _setup_combat(enemies: Array, allies: Array = [], focused_index: int = 0, c
 		"active": true, "context": context, "veinId": null,
 		"enemies": enemies, "focusedEnemyIndex": focused_index,
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 		"allies": allies,
 	}
 

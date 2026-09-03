@@ -258,7 +258,7 @@ func new_game_state() -> Dictionary:
 			"active": false, "context": "raid", "veinId": null, "enemies": [],
 			"focusedEnemyIndex": 0, "log": [],
 			"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [], "beatsSinceSnapshot": [],
 			# 44-archie-combat-ally: allies fighting alongside the player this
 			# combat, general-shaped (see Contacts.build_combat_ally) — empty
 			# outside vein-defense fights.

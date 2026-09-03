@@ -85,3 +85,25 @@ func run() -> void:
 				found = true
 		assert_true(found, "outside combat should push a notification instead")
 	)
+
+	# ── combat-presentation ticket 11: beats for the director/effect layer ──
+
+	run_case("use_healing_burst_returns_a_beat_with_effectKey_when_a_fight_is_active", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["healingBurst"] = { "1": 1 }
+		GameState.state["player"]["hp"] = 50
+		GameState.state["player"]["hpMax"] = 100
+		GameState.state["combat"]["active"] = true
+		var result := Consumables.use_healing_burst()
+		var beats: Array = result["beats"]
+		assert_eq(beats.size(), 1, "an active fight should produce one beat")
+		assert_eq(beats[0]["kind"], Combat.BEAT_USE_HEALING_BURST)
+		assert_eq(beats[0]["effectKey"], "healingBurst")
+	)
+
+	run_case("use_healing_burst_returns_no_beats_outside_combat", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["healingBurst"] = { "1": 1 }
+		var result := Consumables.use_healing_burst()
+		assert_eq(result.get("beats", []), [], "no active fight, nothing for the director to play")
+	)

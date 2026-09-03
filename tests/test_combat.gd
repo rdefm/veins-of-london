@@ -43,7 +43,7 @@ func _fresh_combat(context: String = Combat.CONTEXT_MUGGING) -> void:
 		"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "isMugging": context == Combat.CONTEXT_MUGGING, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 		"focusedEnemyIndex": 0,
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [],
+		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [], "beatsSinceSnapshot": [],
 		"allies": [],
 	}
 
@@ -70,7 +70,7 @@ func _multi_enemy_combat(specs: Array, allies: Array = []) -> Dictionary:
 		"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
 		"enemies": enemies, "focusedEnemyIndex": 0,
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 		"allies": allies,
 	}
 	return GameState.state["combat"]
@@ -623,7 +623,7 @@ func run() -> void:
 			"enemies": [{ "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "isMugging": false, "speed": 10, "koed": true }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "loss", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [],
 		}
 		var result := Combat.exit_combat()
@@ -646,7 +646,7 @@ func run() -> void:
 			"enemies": [{ "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "isMugging": false, "speed": 10, "koed": true }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [],
 		}
 		Combat.exit_combat()
@@ -1422,7 +1422,7 @@ func run() -> void:
 			"enemies": [{ "name": "Test Enemy", "hp": 0, "hpMax": 20, "attackMin": 0, "attackMax": 0, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": true }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [],
 		}
 
@@ -1443,7 +1443,7 @@ func run() -> void:
 			"enemies": [{ "name": "Test Enemy", "hp": 20, "hpMax": 20, "attackMin": 0, "attackMax": 0, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "loss", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [],
 		}
 
@@ -1496,7 +1496,7 @@ func run() -> void:
 			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 50, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 0, "healAmount": 15, "speed": 9, "koed": false }],
 		}
 		Rng.set_seed(1)
@@ -1518,7 +1518,7 @@ func run() -> void:
 			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 10, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 1, "healAmount": 15, "speed": 9, "koed": false }],
 		}
 		Rng.set_seed(1)
@@ -1544,7 +1544,7 @@ func run() -> void:
 				"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 999, "attackMax": 999, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 				"focusedEnemyIndex": 0,
 				"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-				"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+				"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 				"allies": [Contacts.build_combat_ally("archie")],
 			}
 			Combat.enemy_attack()
@@ -1571,7 +1571,7 @@ func run() -> void:
 			"enemies": [{ "name": "Test Enemy", "hp": 0, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": true }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 12, "hpMax": 50, "attackMin": 4, "attackMax": 9, "stash": 0, "healAmount": 15, "koed": false }],
 		}
 
@@ -1722,7 +1722,7 @@ func run() -> void:
 			"enemies": [{ "name": "Fast Enemy", "hp": 50, "hpMax": 50, "attackMin": 500, "attackMax": 500, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 999, "koed": false }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [],
 		}
 		GameState.state["player"]["hp"] = 10
@@ -1860,6 +1860,219 @@ func run() -> void:
 
 		assert_true(not result["ok"])
 		assert_eq(result.get("beats", []), [], "a refused cast should never hand back beats to play through the director")
+	)
+
+	# ── combat-presentation ticket 11: use_*() beats + effectKey ───────────
+
+	run_case("use_time_pearl_returns_a_beat_with_effectKey_timePearl", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
+		GameState.state["player"]["craftingSkill"] = 1
+		var result := Combat.use_time_pearl()
+		var beats: Array = result["beats"]
+		assert_eq(beats.size(), 1)
+		assert_eq(beats[0]["kind"], Combat.BEAT_USE_TIME_PEARL)
+		assert_eq(beats[0]["effectKey"], "timePearl")
+	)
+
+	run_case("use_time_pearl_blocked_when_already_frozen_returns_no_beats", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
+		GameState.state["combat"]["frozenTurns"] = 1
+		var result := Combat.use_time_pearl()
+		assert_eq(result.get("beats", []), [], "a blocked use should never hand back beats")
+	)
+
+	run_case("use_blast_returns_a_damaging_beat_with_effectKey_blast_and_the_focused_enemy_as_target", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
+		GameState.state["player"]["craftingSkill"] = 1
+		GameState.state["combat"]["focusedEnemyIndex"] = 0
+		var result := Combat.use_blast()
+		var beats: Array = result["beats"]
+		assert_true(beats.size() > 0)
+		assert_eq(beats[0]["kind"], Combat.BEAT_USE_BLAST)
+		assert_eq(beats[0]["effectKey"], "blast")
+		assert_eq(beats[0]["targetType"], "enemy")
+		assert_eq(beats[0]["targetIndex"], 0)
+		assert_true(int(beats[0]["dmg"]) > 0)
+	)
+
+	run_case("use_blast_disarm_beat_carries_the_target_but_no_effectKey_transform_only", func():
+		var found_seed := _find_seed_for(500, func():
+			_fresh_combat()
+			GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
+			GameState.state["player"]["craftingSkill"] = 1
+			var result := Combat.use_blast()
+			var beats: Array = result["beats"]
+			return beats.size() == 2 and beats[1]["kind"] == Combat.BEAT_USE_DISARM
+		)
+		assert_true(found_seed != -1, "blast's 15% disarm chance should land within 500 tries")
+
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
+		GameState.state["player"]["craftingSkill"] = 1
+		Rng.set_seed(found_seed)
+		var result := Combat.use_blast()
+		var beats: Array = result["beats"]
+		assert_eq(beats[1]["kind"], Combat.BEAT_USE_DISARM)
+		assert_eq(beats[1]["targetType"], "enemy")
+		assert_eq(beats[1]["targetIndex"], 0)
+		assert_true(not beats[1].has("effectKey"), "disarm has no weapon-sprite art -- transform only, no manifest lookup")
+	)
+
+	run_case("use_shield_returns_a_non_damaging_beat_with_effectKey_shield", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["shield"] = { "1": 1 }
+		GameState.state["player"]["craftingSkill"] = 1
+		var result := Combat.use_shield()
+		var beats: Array = result["beats"]
+		assert_eq(beats.size(), 1)
+		assert_eq(beats[0]["kind"], Combat.BEAT_USE_SHIELD)
+		assert_eq(beats[0]["effectKey"], "shield")
+		assert_true(not beats[0].has("dmg"))
+	)
+
+	run_case("use_black_hole_returns_an_announce_beat_plus_one_hit_beat_per_living_enemy_with_effectKey_blackHole", func():
+		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
+		GameState.state["player"]["inventory"]["blackHole"] = { "1": 1 }
+		GameState.state["player"]["craftingSkill"] = 1
+		var result := Combat.use_black_hole()
+		var beats: Array = result["beats"]
+		assert_eq(beats.size(), 3, "an announce beat plus one hit beat per living (non-koed) enemy")
+		assert_eq(beats[0]["kind"], Combat.BEAT_USE_BLACK_HOLE_ANNOUNCE)
+		assert_true(not beats[0].has("dmg"), "the announce beat carries no damage -- the juice layer should not react to it")
+		assert_eq(beats[1]["kind"], Combat.BEAT_COMPLICATION_BLACK_HOLE_HIT, "shared per-enemy-hit beat kind, same as cast_complication()'s own AoE")
+		assert_eq(beats[1]["effectKey"], "blackHole")
+		assert_eq(beats[1]["targetIndex"], 0)
+		assert_true(int(beats[1]["dmg"]) > 0)
+		assert_eq(beats[2]["targetIndex"], 1, "the koed third enemy should be skipped entirely")
+		assert_eq(beats.size(), combat["log"].size(), "beats should match the new log lines 1:1, same invariant every other beat queue holds")
+	)
+
+	run_case("use_wormhole_returns_a_beat_marking_the_player_as_actor", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
+		var result := Combat.use_wormhole()
+		var beats: Array = result["beats"]
+		assert_eq(beats.size(), 1)
+		assert_eq(beats[0]["kind"], Combat.BEAT_USE_WORMHOLE)
+		assert_eq(beats[0]["actorType"], "player")
+	)
+
+	# ── combat-presentation ticket 11: enhancementPowder's motionBoosted
+	# beat flag (afterimage trail is keyed off this, not live motionTurns --
+	# a live read at playback time would miss the round it's meant to
+	# describe, since player_attack() has already decremented motionTurns
+	# for THIS round by the time it returns; see player_attack()'s own
+	# `motion_active` comment) ──────────────────────────────────────────
+
+	run_case("player_attack_stamps_motionBoosted_on_every_player_beat_of_a_motion_round_including_the_extra_ones", func():
+		_fresh_combat()
+		GameState.state["player"]["attackMin"] = 0
+		GameState.state["player"]["attackMax"] = 0
+		GameState.state["combat"]["enemies"][0]["hp"] = 999999
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 0
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 0
+		GameState.state["combat"]["motionTurns"] = 1  # power < 3: exactly one motion round
+		GameState.state["combat"]["motionPower"] = 1
+
+		var result := Combat.player_attack()
+		var beats: Array = result["beats"]
+
+		var player_attack_beats := 0
+		for beat in beats:
+			if beat.get("actorType", "") == "player":
+				player_attack_beats += 1
+				assert_true(beat.get("motionBoosted", false), "every player-turn beat this round should be stamped motionBoosted")
+		assert_eq(player_attack_beats, 2, "motionPower 1 should give the player 2 attacks this round (the base turn plus one extra)")
+		assert_eq(GameState.state["combat"]["motionTurns"], 0, "motionTurns should have ticked down to 0 by the end of this same round -- the bug this test guards against read this AFTER it had already hit 0")
+	)
+
+	run_case("player_attack_stamps_motionBoosted_on_the_second_of_two_motion_rounds_too", func():
+		_fresh_combat()
+		GameState.state["player"]["attackMin"] = 0
+		GameState.state["player"]["attackMax"] = 0
+		GameState.state["combat"]["enemies"][0]["hp"] = 999999
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 0
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 0
+		GameState.state["combat"]["motionTurns"] = 2  # power >= 3: two motion rounds
+		GameState.state["combat"]["motionPower"] = 3
+
+		Combat.player_attack()  # first motion round
+		assert_eq(GameState.state["combat"]["motionTurns"], 1, "one motion round should remain")
+
+		var result := Combat.player_attack()  # second (final) motion round
+		var beats: Array = result["beats"]
+		var player_attack_beats := 0
+		for beat in beats:
+			if beat.get("actorType", "") == "player":
+				player_attack_beats += 1
+				assert_true(beat.get("motionBoosted", false), "the final motion round's beats should still be stamped -- this is exactly the round the old live-read bug missed")
+		assert_eq(player_attack_beats, 3, "motionPower 3 should give the player 3 attacks this round")
+		assert_eq(GameState.state["combat"]["motionTurns"], 0, "motion should be fully worn off after the second round")
+	)
+
+	run_case("player_attack_never_stamps_motionBoosted_outside_a_motion_round", func():
+		_fresh_combat()
+		GameState.state["player"]["attackMin"] = 0
+		GameState.state["player"]["attackMax"] = 0
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 0
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 0
+
+		var result := Combat.player_attack()
+		var beats: Array = result["beats"]
+		assert_true(beats.size() > 0)
+		for beat in beats:
+			assert_true(not beat.has("motionBoosted"), "an ordinary round should never carry the flag")
+	)
+
+	# ── combat-presentation ticket 11: rewind's beat queue in reverse ──────
+
+	run_case("combat_rewind_returns_this_rounds_beats_in_reverse_order", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		GameState.state["player"]["attackMin"] = 5
+		GameState.state["player"]["attackMax"] = 5
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 0
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 0
+		GameState.state["combat"]["enemies"][0]["evadeChance"] = 1.0  # never dies mid-test
+
+		var forward := Combat.player_attack()
+		var forward_beats: Array = forward["beats"]
+		assert_true(forward_beats.size() > 0, "the round should have produced at least one beat to rewind")
+
+		var result := Combat.combat_rewind()
+		assert_true(result["ok"])
+		var replay_beats: Array = result["beats"]
+		assert_eq(replay_beats.size(), forward_beats.size(), "rewind should hand back exactly the beats this round produced")
+		assert_eq(replay_beats[0], forward_beats[forward_beats.size() - 1], "replay should start from the round's LAST beat")
+		assert_eq(replay_beats[replay_beats.size() - 1], forward_beats[0], "and end on the round's FIRST beat -- reverse order")
+	)
+
+	run_case("combat_rewind_clears_beatsSinceSnapshot_so_a_second_rewind_has_nothing_stale_to_replay", func():
+		_fresh_combat()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 2 }
+		GameState.state["player"]["attackMin"] = 0
+		GameState.state["player"]["attackMax"] = 0
+		GameState.state["combat"]["enemies"][0]["attackMin"] = 0
+		GameState.state["combat"]["enemies"][0]["attackMax"] = 0
+
+		Combat.player_attack()
+		Combat.combat_rewind()
+		assert_eq(GameState.state["combat"]["beatsSinceSnapshot"], [], "should be cleared once consumed")
+
+		# A second rewind with no snapshot pushed since (push only happens at
+		# the start of player_attack()) should have nothing left to replay.
+		var result := Combat.combat_rewind()
+		assert_eq(result.get("beats", []), [], "nothing new happened since the last rewind consumed the accumulator")
+	)
+
+	run_case("combat_rewind_returns_no_beats_when_rewind_is_unavailable", func():
+		_fresh_combat()
+		var result := Combat.combat_rewind()
+		assert_true(not result["ok"])
+		assert_eq(result.get("beats", []), [], "a failed rewind should never hand back beats")
 	)
 
 	run_case("three_enemy_fight_can_end_a_round_with_one_koed_and_two_still_standing_each_having_acted_independently", func():

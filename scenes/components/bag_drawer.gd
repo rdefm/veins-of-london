@@ -340,7 +340,7 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 	var snap_count: int = combat["snapshots"].size()
 	if Crafting.inventory_qty("rewind") > 0:
 		var rewind_label := "(%d turn(s) back · +50%% evade x2 turns)" % snap_count if snap_count > 0 else "(nothing to undo yet)"
-		var rewind_button := UI.button("⟲ Rewind (%d) — %s" % [Crafting.inventory_qty("rewind"), rewind_label], func(): Combat.combat_rewind())
+		var rewind_button := UI.button("⟲ Rewind (%d) — %s" % [Crafting.inventory_qty("rewind"), rewind_label], _on_use_rewind)
 		rewind_button.disabled = snap_count == 0
 		_content.add_child(rewind_button)
 
@@ -351,34 +351,47 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 	# drawer keeps handling only non-Dial items now.
 
 
+# combat-presentation ticket 11: every in-combat use_*() below now returns
+# `beats` (same shape player_attack()/flee()/cast_complication() already
+# produce) -- forwarded to EventBus.combat_beats_played so whichever
+# CombatScreen is on screen can play them through its own CombatDirector.
+# BagDrawer itself is a global overlay (scenes/Main.gd), not a child of
+# CombatScreen, so this signal is the only channel back -- see that
+# signal's own comment.
+func _play_result_beats(result: Dictionary) -> void:
+	var beats: Array = result.get("beats", [])
+	if not beats.is_empty():
+		EventBus.combat_beats_played.emit(beats)
+
+
 func _on_use_time_pearl() -> void:
 	Bag.close()
-	Combat.use_time_pearl()
+	_play_result_beats(Combat.use_time_pearl())
 
 
 func _on_use_enhancement_powder() -> void:
 	Bag.close()
-	Combat.use_enhancement_powder()
+	_play_result_beats(Combat.use_enhancement_powder())
 
 
 func _on_use_blast() -> void:
 	Bag.close()
-	Combat.use_blast()
+	_play_result_beats(Combat.use_blast())
 
 
 func _on_use_shield() -> void:
 	Bag.close()
-	Combat.use_shield()
+	_play_result_beats(Combat.use_shield())
 
 
 func _on_use_black_hole() -> void:
 	Bag.close()
-	Combat.use_black_hole()
+	_play_result_beats(Combat.use_black_hole())
 
 
 func _on_use_healing_burst() -> void:
 	Bag.close()
-	Consumables.use_healing_burst()
+	_play_result_beats(Consumables.use_healing_burst())
 
 
 func _on_use_prophets_breath() -> void:
@@ -388,4 +401,17 @@ func _on_use_prophets_breath() -> void:
 
 func _on_use_wormhole() -> void:
 	Bag.close()
-	Combat.use_wormhole()
+	_play_result_beats(Combat.use_wormhole())
+
+
+# combat-presentation ticket 11, §5: "rewind/failsafe ... the beat queue in
+# reverse" -- routed through the dedicated combat_rewind_played signal
+# (reversed beats, replayed through CombatScreen's own reverse-playback
+# path) rather than _play_result_beats()'s forward one. No Bag.close() here,
+# matching this button's pre-existing behaviour (unlike every use_*() button
+# above, the drawer stays open after a Rewind).
+func _on_use_rewind() -> void:
+	var result: Dictionary = Combat.combat_rewind()
+	var beats: Array = result.get("beats", [])
+	if not beats.is_empty():
+		EventBus.combat_rewind_played.emit(beats)

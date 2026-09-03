@@ -384,14 +384,50 @@ class StageSlot extends Control:
 	func set_idle_animation(frames: Array[Texture2D], fps: float) -> void:
 		_idle_frames = frames
 		_idle_frame_index = 0
+		_idle_fps = fps
 		_sprite_rect.visible = not frames.is_empty()
 		_sprite_rect.texture = frames[0] if not frames.is_empty() else null
 		if frames.size() >= 2 and fps > 0.0:
-			_idle_timer.wait_time = 1.0 / fps
+			_idle_timer.wait_time = 1.0 / (fps * _time_scale)
 			_idle_timer.start()
 		else:
 			_idle_timer.stop()
 		queue_redraw()
+
+	# combat-presentation ticket 11, §5: timePearl's "enemy tweens drop to
+	# ~10% speed" -- scales _idle_timer's own tick rate. Re-synced every
+	# _sync_stage() call from combat.frozenTurns (see that func's own
+	# comment), not beat-driven -- frozenTurns is a combat-wide duration,
+	# not a one-shot.
+	var _time_scale: float = 1.0
+	var _idle_fps: float = 0.0
+
+	func set_time_scale(scale: float) -> void:
+		_time_scale = maxf(0.01, scale)
+		if _idle_frames.size() >= 2 and _idle_fps > 0.0:
+			_idle_timer.wait_time = 1.0 / (_idle_fps * _time_scale)
+
+	# combat-presentation ticket 11, §5: "enemy desaturates via shader" --
+	# a ShaderMaterial toggled on _sprite_rect only (not the ticket-01
+	# placeholder-box fallback -- a minor, accepted gap for the no-idle-art
+	# case, since real idle art lands well before this ticket's own effect
+	# sheets would). Built lazily, once per slot, and reused thereafter.
+	var _frozen_shader_material: ShaderMaterial
+	var _is_frozen_visual: bool = false
+
+	func set_frozen_visual(value: bool) -> void:
+		if value == _is_frozen_visual:
+			return
+		_is_frozen_visual = value
+		if value:
+			if _frozen_shader_material == null:
+				var shader := Shader.new()
+				shader.code = "shader_type canvas_item;\nvoid fragment() {\n\tvec4 c = texture(TEXTURE, UV);\n\tfloat gray = dot(c.rgb, vec3(0.299, 0.587, 0.114));\n\tCOLOR = vec4(mix(c.rgb, vec3(gray), 0.85), c.a);\n}"
+				_frozen_shader_material = ShaderMaterial.new()
+				_frozen_shader_material.shader = shader
+			_sprite_rect.material = _frozen_shader_material
+		else:
+			_sprite_rect.material = null
 
 	# Ping-pong across however many frames were given (2, for today's single
 	# shared dummy sheet -- straight alternation, same as any 2-frame
@@ -506,6 +542,148 @@ class StageSlot extends Control:
 		]
 		_start_one_shot(steps, _self_patch_fps, false)
 
+	# combat-presentation ticket 11, §5: enhancementPowder's afterimage trail
+	# -- "no art, duplicate sprite on an alpha ramp." Clones _sprite_rect's
+	# CURRENT texture/transform into a short-lived TextureRect that fades
+	# and frees itself, rather than a persistent tracked node -- called once
+	# per player attack beat while combat.motionTurns > 0 (see
+	# CombatScreen._on_beat_played()), so a Motion round's 2-3 rapid lunges
+	# each leave their own trailing ghost.
+	# combat-presentation ticket 11: the common "plain overlay TextureRect"
+	# shape spawn_afterimage()/play_effect_sheet()/set_shield_loop() each
+	# need -- centred-fit stretch, no input, drawn at the given z-index
+	# above/below the rest of this slot's content. Callers still set their
+	# own anchors/size/position (a full-slot fill vs. a size-matched ghost
+	# want different layout), just not this shared boilerplate.
+	func _new_overlay_rect(z: int) -> TextureRect:
+		var rect := TextureRect.new()
+		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rect.z_index = z
+		return rect
+
+	func spawn_afterimage() -> void:
+		if _sprite_rect.texture == null or not is_inside_tree():
+			return
+		var ghost := _new_overlay_rect(-1)
+		ghost.texture = _sprite_rect.texture
+		ghost.size = size
+		ghost.position = _sprite_rect.position
+		ghost.flip_h = _sprite_rect.flip_h
+		ghost.modulate = Color(1.0, 1.0, 1.0, 0.45)
+		add_child(ghost)
+		var tween := create_tween()
+		tween.tween_property(ghost, "modulate:a", 0.0, 0.22)
+		tween.tween_callback(ghost.queue_free)
+
+	# combat-presentation ticket 11, §5: "player folds to a vertical line
+	# and vanishes" -- squashes _sprite_rect to a sliver while fading out,
+	# then holds hidden (same "hold the end state, don't revert to idle"
+	# shape as play_ko() -- the fight is fleeing/over either way once this
+	# plays). Transform only, no new art.
+	func play_wormhole_vanish() -> void:
+		if not is_inside_tree():
+			return
+		_sprite_rect.pivot_offset = _sprite_rect.size / 2.0
+		var tween := create_tween()
+		tween.tween_property(_sprite_rect, "scale:x", 0.05, 0.25)
+		tween.parallel().tween_property(_sprite_rect, "modulate:a", 0.0, 0.25)
+		tween.tween_callback(func(): _sprite_rect.visible = false)
+
+	# combat-presentation ticket 11, §5: shield's "cracks and sheds a layer
+	# per absorb" -- a cyan overlay flash + a receding ring, distinct from
+	# flash_hit()'s plain white so an absorbed hit never reads as an
+	# ordinary landed one even though both can fire off the same
+	# enemy_attack() beat (see systems/combat.gd's `shieldAbsorbed` extra
+	# field). A separate alpha from flash_alpha so the two tweens can layer.
+	var _shield_crack_alpha: float = 0.0
+
+	func flash_shield_crack() -> void:
+		_set_shield_crack_alpha(1.0)
+		if not is_inside_tree():
+			return
+		var tween := create_tween()
+		tween.tween_method(_set_shield_crack_alpha, 1.0, 0.0, 0.3)
+
+	func _set_shield_crack_alpha(value: float) -> void:
+		_shield_crack_alpha = value
+		_overlay.queue_redraw()
+
+	# combat-presentation ticket 11, §5: plays one data/combat_visuals.json
+	# "effects" sheet, once, layered over this slot, then frees itself --
+	# not part of this class's own persistent one-shot machinery
+	# (_one_shot_steps etc.), since an effect sheet isn't this combatant's
+	# own pose, it's laid on top of whatever pose they're already in. A
+	# no-op (same "degrade quietly" convention as every other manifest
+	# lookup in this file) while `frames` is empty -- true for every effect
+	# key today, since no art has been produced yet (data/
+	# combat_visuals.json's own effectRule note).
+	func play_effect_sheet(frames: Array[Texture2D], fps: float) -> void:
+		if frames.is_empty() or fps <= 0.0 or not is_inside_tree():
+			return
+		var fx := _new_overlay_rect(4)
+		fx.anchor_right = 1.0
+		fx.anchor_bottom = 1.0
+		fx.texture = frames[0]
+		add_child(fx)
+		var timer := Timer.new()
+		timer.one_shot = false
+		timer.wait_time = 1.0 / fps
+		add_child(timer)
+		var index := 0
+		timer.timeout.connect(func():
+			index += 1
+			if index >= frames.size():
+				timer.stop()
+				timer.queue_free()
+				fx.queue_free()
+				return
+			fx.texture = frames[index]
+		)
+		timer.start()
+
+	# combat-presentation ticket 11, §5: shield's persistent 4-frame shimmer
+	# loop while player.shieldPool > 0 -- unlike play_effect_sheet() above
+	# (one-shot, fired per beat), this ties to a state DURATION the same way
+	# set_frozen_visual()/set_time_scale() do, so CombatScreen re-syncs it
+	# every _sync_stage() rather than firing it from a beat. Lazily built
+	# (only the player ever calls this), and, like every effect-sheet call
+	# in this file, a no-op while `frames` is empty.
+	var _shield_loop_rect: TextureRect
+	var _shield_loop_timer: Timer
+	var _shield_loop_frames: Array[Texture2D] = []
+	var _shield_loop_index: int = 0
+
+	func set_shield_loop(frames: Array[Texture2D], fps: float, active: bool) -> void:
+		if _shield_loop_rect == null:
+			_shield_loop_rect = _new_overlay_rect(3)
+			_shield_loop_rect.anchor_right = 1.0
+			_shield_loop_rect.anchor_bottom = 1.0
+			_shield_loop_rect.visible = false
+			add_child(_shield_loop_rect)
+			_shield_loop_timer = Timer.new()
+			_shield_loop_timer.one_shot = false
+			_shield_loop_timer.timeout.connect(_advance_shield_loop)
+			add_child(_shield_loop_timer)
+
+		_shield_loop_frames = frames
+		var should_show: bool = active and not frames.is_empty() and fps > 0.0
+		_shield_loop_rect.visible = should_show
+		if should_show:
+			_shield_loop_rect.texture = frames[_shield_loop_index % frames.size()]
+			_shield_loop_timer.wait_time = 1.0 / fps
+			_shield_loop_timer.start()
+		else:
+			_shield_loop_timer.stop()
+			_shield_loop_index = 0
+
+	func _advance_shield_loop() -> void:
+		if _shield_loop_frames.is_empty():
+			return
+		_shield_loop_index = (_shield_loop_index + 1) % _shield_loop_frames.size()
+		_shield_loop_rect.texture = _shield_loop_frames[_shield_loop_index]
+
 	func _start_one_shot(steps: Array[PoseStep], fps: float, hold_last_frame: bool) -> void:
 		if steps.is_empty():
 			return
@@ -595,6 +773,9 @@ class StageSlot extends Control:
 			_overlay.draw_rect(rect.grow(3.0), Color(1.0, 0.86, 0.35, 0.95), false, 3.0)
 		if flash_alpha > 0.0:
 			_overlay.draw_rect(rect, Color(1.0, 1.0, 1.0, flash_alpha), true)
+		if _shield_crack_alpha > 0.0:
+			_overlay.draw_rect(rect, Color(0.4, 0.85, 1.0, _shield_crack_alpha * 0.55), true)
+			_overlay.draw_rect(rect.grow(-2.0), Color(0.85, 0.95, 1.0, _shield_crack_alpha), false, 2.0)
 
 
 # combat-presentation ticket 04, docs/combat-animation-vision.md §8: the
@@ -684,6 +865,14 @@ var _hit_keyposes_by_template: Dictionary = {}
 var _ko_keyposes_by_template: Dictionary = {}
 var _self_patch_keyposes_by_template: Dictionary = {}
 
+# combat-presentation ticket 11, docs/combat-animation-vision.md §5: one
+# entry per data/combat_visuals.json "effects" key (timePearl/blast/shield/
+# healingBurst/blackHole -- see that manifest's own effectRule note), loaded
+# once in _ready() (_load_effect_animations() below). No per-subject keying
+# (unlike the *_by_template dicts above) -- an effect sheet is the same
+# regardless of who triggered it or who it lands on.
+var _effect_frames_by_key: Dictionary = {}
+
 # combat-presentation ticket 05: the screen-shake wrapper -- see
 # _build_stage_skeleton()'s own comment for why this, not `frame`, is what
 # _shake_stage() tweens.
@@ -771,6 +960,7 @@ func _ready() -> void:
 	_load_default_animations()
 	_load_template_idle_animations()
 	_load_template_action_animations()
+	_load_effect_animations()
 
 	# combat-presentation ticket 04: the player-facing half of
 	# CombatDirector's persisted pacing toggle (CombatPacing, same
@@ -794,6 +984,11 @@ func _ready() -> void:
 	_content.add_child(_footer_holder)
 
 	EventBus.state_changed.connect(_sync)
+	# combat-presentation ticket 11: the direct bag-item consumable path's
+	# beats/reverse-beats -- see EventBus.combat_beats_played's own comment
+	# for why this signal (not a direct return-value handoff) is needed.
+	EventBus.combat_beats_played.connect(_on_combat_beats_played)
+	EventBus.combat_rewind_played.connect(_on_combat_rewind_played)
 	_sync()
 
 
@@ -901,6 +1096,16 @@ func _resolve_action_keyposes(by_template: Dictionary, template_key: String, def
 
 func _load_animation_frames(template_key: String, key: String) -> Dictionary:
 	var entry: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get(template_key, {}).get(key, {})
+	return _load_sheet_frames(entry)
+
+
+# combat-presentation ticket 11: the actual sheet-slicing logic, factored
+# out of _load_animation_frames() above so _load_effect_animations() below
+# (data/combat_visuals.json's flat "effects" table, not nested under
+# "templates" the way idle/attack/hit/ko are) can reuse it against a
+# manifest entry it already has in hand, rather than a template/key lookup
+# path this manifest shape doesn't have.
+func _load_sheet_frames(entry: Dictionary) -> Dictionary:
 	var image_path: String = entry.get("image", "")
 	var frame_count: int = entry.get("frameCount", 0)
 	var empty: Array[Texture2D] = []
@@ -918,6 +1123,19 @@ func _load_animation_frames(template_key: String, key: String) -> Dictionary:
 		frames.append(atlas)
 
 	return { "frames": frames, "fps": entry.get("fps", 0.0) }
+
+
+# combat-presentation ticket 11: loads every data/combat_visuals.json
+# "effects" entry -- flat (not per-subject, unlike idle/attack/hit/ko), so
+# this is a one-level loop rather than _load_template_idle_animations()'s
+# nested one. An empty "image" (every entry today -- no art produced yet)
+# resolves to empty frames, same quiet-degrade convention as everywhere
+# else in this manifest pipeline.
+func _load_effect_animations() -> void:
+	_effect_frames_by_key = {}
+	var effects: Dictionary = GameData.COMBAT_VISUALS.get("effects", {})
+	for key in effects.keys():
+		_effect_frames_by_key[key] = _load_sheet_frames(effects[key])
 
 
 # combat-presentation ticket 04: replaces the old _refresh(), which
@@ -1152,6 +1370,21 @@ func _sync_stage(combat: Dictionary, player: Dictionary) -> void:
 
 	var enemy_entries := _enemy_display_entries(enemies, combat["focusedEnemyIndex"])
 	_sync_band(_enemy_slots, _enemy_band_layer, enemy_entries, Vector2(ENEMY_BAND_WIDTH, STAGE_HEIGHT), Vector2(PLAYER_BAND_WIDTH + COLUMN_GAP, 0.0), "enemy")
+
+	# combat-presentation ticket 11, §5: timePearl's "enemy desaturates via
+	# shader; enemy tweens drop to ~10% speed" and shield's persistent
+	# shimmer loop -- both tied to a live state DURATION (frozenTurns/
+	# shieldPool), not a one-shot beat, so both are re-synced here on every
+	# _sync_stage() call rather than fired from _on_beat_played().
+	var frozen: bool = combat["frozenTurns"] > 0
+	for slot in _enemy_slots.values():
+		slot.set_time_scale(0.1 if frozen else 1.0)
+		slot.set_frozen_visual(frozen)
+
+	var player_slot: StageSlot = _player_slots.get(-1)
+	if player_slot != null:
+		var shield_entry: Dictionary = _effect_frames_by_key.get("shield", {})
+		player_slot.set_shield_loop(shield_entry.get("frames", _empty_idle_frames), shield_entry.get("fps", 0.0), player["shieldPool"] > 0)
 
 
 # combat-presentation ticket 08, docs/combat-animation-vision.md §2.1/§6:
@@ -1574,6 +1807,19 @@ func _on_beat_played(beat: Dictionary) -> void:
 		var actor_slot: StageSlot = _resolve_target_slot(_beat_actor(beat))
 		if actor_slot != null:
 			actor_slot.play_attack()
+			# combat-presentation ticket 11, §5: enhancementPowder's afterimage
+			# trail -- fires on each of the player's own rapid attack/evade
+			# beats stamped `motionBoosted` (systems/combat.gd's
+			# _resolve_player_turn(), the 2-3 rapid lunges Motion already
+			# produces via build_turn_queue()'s extra player entries), not off
+			# use_enhancement_powder()'s own activation beat (see that func's
+			# own comment). Keyed off the beat itself rather than live
+			# combat.motionTurns -- by playback time player_attack() has
+			# already returned with motionTurns decremented for THIS round
+			# (sometimes to 0, ending the very round it boosted), so a live
+			# read here would silently miss the round it's meant to describe.
+			if beat.get("motionBoosted", false):
+				actor_slot.spawn_afterimage()
 	# combat-presentation ticket 10, §3: Archie's self-patch pose -- any ally
 	# healing themselves below 40% HP (systems/combat.gd's _ally_turn()),
 	# not just Archie specifically (the manifest lookup is per ally
@@ -1583,8 +1829,125 @@ func _on_beat_played(beat: Dictionary) -> void:
 		var healer_slot: StageSlot = _resolve_target_slot(_beat_actor(beat))
 		if healer_slot != null:
 			healer_slot.play_self_patch()
+	# combat-presentation ticket 11, §5: "player folds to a vertical line
+	# and vanishes" -- fires for either wormhole beat kind (the direct
+	# bag-item path and the Dial-cast path each log their own kind, see
+	# systems/combat.gd's BEAT_USE_WORMHOLE/BEAT_COMPLICATION_WORMHOLE).
+	if kind == Combat.BEAT_USE_WORMHOLE or kind == Combat.BEAT_COMPLICATION_WORMHOLE:
+		var wormhole_slot: StageSlot = _resolve_target_slot(_beat_actor(beat))
+		if wormhole_slot != null:
+			wormhole_slot.play_wormhole_vanish()
+	# combat-presentation ticket 11, §5: the manifest effect-sheet dispatch
+	# -- every beat that carries an `effectKey` (systems/combat.gd's
+	# use_*()/cast_complication() branches) plays that key's
+	# data/combat_visuals.json sheet, regardless of `kind` or whether the
+	# beat also carries `dmg` (timePearl/shield/healingBurst never do).
+	var effect_key: String = beat.get("effectKey", "")
+	if not effect_key.is_empty():
+		_play_consumable_effect(beat, effect_key)
+		# combat-presentation ticket 11, §5: "HP bar refills with an
+		# overshoot bounce" -- art-independent (unlike play_effect_sheet()
+		# above), so this fires regardless of whether healingBurst's own
+		# sheet has landed yet. Reuses the ghost-bar tween ticket 05 already
+		# built for damage lag-drain, seeded above the real (already-healed)
+		# value so it settles down onto it instead of draining toward it.
+		if effect_key == "healingBurst" and _turn_order_strip != null:
+			var player_key := TurnOrderStrip.card_key_string({ "type": "player", "index": -1 })
+			var healed_hp: int = GameState.state["player"]["hp"]
+			var overshoot_hp: int = mini(GameState.state["player"]["hpMax"], healed_hp + 12)
+			_turn_order_strip.set_initial_ghost(player_key, overshoot_hp)
+			_turn_order_strip.drain_ghost_to(player_key, healed_hp, 0.3)
+	# combat-presentation ticket 11, §5: shield's "cracks and sheds a layer
+	# per absorb" -- independent of beat_is_damaging() below (a full absorb
+	# leaves `dmg` at 0, see systems/combat.gd's _enemy_attack_player()).
+	var shield_absorbed: int = int(beat.get("shieldAbsorbed", 0))
+	if shield_absorbed > 0:
+		var shielded_slot: StageSlot = _player_slots.get(-1)
+		if shielded_slot != null:
+			shielded_slot.flash_shield_crack()
 	if CombatDirector.beat_is_damaging(beat):
 		_play_juice(beat)
+
+
+# combat-presentation ticket 11, §5: resolves an effect-key beat's target
+# slot and hands it that key's manifest frames -- blast/blackHole already
+# carry a real targetType/targetIndex (an enemy), so _beat_target() resolves
+# them directly; timePearl/shield/healingBurst carry none (they're not
+# aimed at a specific combatant field the way a hit is), so those fall back
+# to _default_effect_target() below.
+func _play_consumable_effect(beat: Dictionary, effect_key: String) -> void:
+	var entry: Dictionary = _effect_frames_by_key.get(effect_key, {})
+	var frames: Array[Texture2D] = entry.get("frames", _empty_idle_frames)
+	if frames.is_empty():
+		return
+	var target: Dictionary = _beat_target(beat)
+	if target["type"] == "":
+		target = _default_effect_target(effect_key)
+	var slot: StageSlot = _resolve_target_slot(target)
+	if slot != null:
+		slot.play_effect_sheet(frames, entry.get("fps", 0.0))
+
+
+# timePearl freezes every enemy at once (frozenTurns is a combat-wide
+# field, not per-enemy) -- the frost ring plays centred on whichever enemy
+# is currently focused, a representative target rather than a literal one.
+# shield/healingBurst are player-targeted self-buffs.
+func _default_effect_target(effect_key: String) -> Dictionary:
+	if effect_key == "timePearl":
+		return { "type": "enemy", "index": GameState.state["combat"]["focusedEnemyIndex"] }
+	return { "type": "player", "index": -1 }
+
+
+# combat-presentation ticket 11: EventBus.combat_beats_played's handler --
+# the direct bag-item consumable path's own beats (bag_drawer.gd's
+# use_*() button handlers), reconstructing `log_before` the same way
+# _on_dial_triggered() does (the 1:1 beat/log-line invariant systems/
+# combat.gd's _log() holds). Same accepted gap _on_dial_triggered() already
+# has: GameState is already mutated by the time this fires (the use_*()
+# call already ran in bag_drawer.gd), so there's no pre-action roster left
+# to snapshot into _frozen_roster either. Skips outright while the
+# director is already mid-playback (a round's own beats, or another
+# external batch) rather than trying to queue behind it -- state is
+# already correct either way; only this action's own animation is skipped.
+func _on_combat_beats_played(beats: Array) -> void:
+	if _director.is_playing() or beats.is_empty():
+		return
+	var log_before: int = GameState.state["combat"]["log"].size() - beats.size()
+	await _play_beats(beats, log_before)
+
+
+# combat-presentation ticket 11, docs/combat-animation-vision.md §5:
+# EventBus.combat_rewind_played's handler -- "rewind/failsafe: the whole
+# stage plays backward". Combat.combat_rewind() has already restored
+# GameState by the time this fires (same ordering as combat_beats_played
+# above); this only plays the reversed beat list back as a cosmetic replay.
+func _on_combat_rewind_played(beats: Array) -> void:
+	if _director.is_playing() or beats.is_empty():
+		return
+	await _director.play(beats, _on_rewind_beat_played)
+	_sync()
+
+
+# A trimmed-down _on_beat_played() for rewind's reverse replay: pose/flash/
+# shake only -- no log-reveal (rewind rewrites combat.log wholesale rather
+# than appending, see systems/combat.gd's _restore_from_snapshot() own
+# comment, so there's no new line to reveal per beat), no damage numbers or
+# HP ghost-drain (GameState already sits at the restored, final HP for the
+# whole replay -- there's no real "pre-hit" value to drain from), and never
+# play_ko() (every combatant the rewound state restored is alive again).
+func _on_rewind_beat_played(beat: Dictionary) -> void:
+	var kind: String = beat.get("kind", "")
+	if _ATTACK_BEAT_KINDS.has(kind):
+		var actor_slot: StageSlot = _resolve_target_slot(_beat_actor(beat))
+		if actor_slot != null:
+			actor_slot.play_attack()
+	if CombatDirector.beat_is_damaging(beat):
+		var target: Dictionary = _beat_target(beat)
+		var slot: StageSlot = _resolve_target_slot(target)
+		if slot != null:
+			slot.flash_hit()
+			slot.play_hit()
+		_shake_stage(int(beat["dmg"]), _hp_max_for(target))
 
 
 func _build_dial_widget(dial: Dictionary) -> Control:

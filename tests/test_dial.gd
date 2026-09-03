@@ -860,7 +860,7 @@ func run() -> void:
 			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [],
 		}
 		# A high-tier Impact Movement seated on the player's Dial must have

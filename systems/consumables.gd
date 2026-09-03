@@ -40,10 +40,16 @@ static func use_healing_burst() -> Dictionary:
 	var line := "You down a healing burst — +%d HP. %d/%d HP." % [healed, player["hp"], player["hpMax"]]
 
 	var combat: Dictionary = GameState.state["combat"]
+	var beats: Array = []
 	if combat["active"]:
-		combat["log"].append(line)
+		# combat-presentation ticket 11: routed through Combat.append_beat()
+		# (not a plain combat["log"].append()) so this in-combat use produces
+		# a beat the director can play through, same as every other
+		# in-combat consumable -- see that func's own comment for why this
+		# lives in Consumables rather than Combat.
+		Combat.append_beat(combat, beats, line, Combat.BEAT_USE_HEALING_BURST, { "effectKey": "healingBurst" })
 	else:
 		Notify.push(line, Notify.CATEGORY_SUCCESS)
 
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return { "ok": true, "beats": beats }

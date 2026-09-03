@@ -68,6 +68,22 @@ const BEAT_COMPLICATION_HEALING_BURST := "complication_healing_burst"
 const BEAT_COMPLICATION_PROPHETS_BREATH := "complication_prophets_breath"
 const BEAT_COMPLICATION_WORMHOLE := "complication_wormhole"
 
+# combat-presentation ticket 11, docs/combat-animation-vision.md §5: the
+# direct bag-item consumable path (use_*()) gets its own beat kinds, parallel
+# to BEAT_COMPLICATION_* above (the Dial-cast path) since the two paths log
+# different phrasing -- but every beat either path produces for the same
+# effect carries the same `effectKey` extra field (see each use_*()/
+# cast_complication() branch below), so the screen's effect-sheet dispatch
+# reads one field regardless of which path triggered it.
+const BEAT_USE_TIME_PEARL := "use_time_pearl"
+const BEAT_USE_MOTION := "use_motion"
+const BEAT_USE_BLAST := "use_blast"
+const BEAT_USE_DISARM := "use_disarm"
+const BEAT_USE_SHIELD := "use_shield"
+const BEAT_USE_BLACK_HOLE_ANNOUNCE := "use_black_hole_announce"
+const BEAT_USE_WORMHOLE := "use_wormhole"
+const BEAT_USE_HEALING_BURST := "use_healing_burst"
+
 # calc-effect-wiring-02 combat-pattern consumables. Percentages/turns are
 # placeholders per the ticket ("tune as needed"), not final balance.
 const BLAST_FLEE_BOOST_CHANCE := 0.90
@@ -449,6 +465,10 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 		"log": log_lines, "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": on_win, "snapshots": [],
 		"allies": allies,
+		# combat-presentation ticket 11: every beat _log() threads since the
+		# oldest snapshot still on the stack was pushed -- see that func's own
+		# comment and combat_rewind()'s "beat queue in reverse" use of it.
+		"beatsSinceSnapshot": [],
 	}
 	GameState.state["currentScreen"] = "combat"
 	EventBus.screen_changed.emit("combat")
@@ -609,17 +629,29 @@ static func player_attack() -> Dictionary:
 
 	var beats: Array = []
 
+	# combat-presentation ticket 11: captured BEFORE the end-of-round
+	# decrement below, and stamped onto each player-attack beat itself
+	# (_resolve_player_turn()'s own `motionBoosted` extra field) rather than
+	# left for the screen to re-read live -- by the time beats actually
+	# play back, player_attack() has already returned with motionTurns
+	# decremented (sometimes to 0, ending the very round it boosted), so a
+	# live re-read at playback time would silently miss the round it's
+	# meant to describe. See CombatDirector's own top comment for why
+	# beats must always be self-describing snapshots, never a live-state
+	# lookup.
+	var motion_active: bool = combat["motionTurns"] > 0
+
 	# build_turn_queue() is a pure query (no state mutation) -- the
 	# Motion-round announcement line is logged here instead, alongside every
 	# other player_attack()-owned log line.
-	if combat["motionTurns"] > 0:
+	if motion_active:
 		var motion_label: String = "three times" if combat["motionPower"] >= 3 else "twice"
 		_log(combat, beats, "Motion powder — you move %s as fast." % motion_label, BEAT_MOTION_ANNOUNCE, {})
 
 	for entry in build_turn_queue(combat):
 		match entry["type"]:
 			"player":
-				_resolve_player_turn(combat, beats)
+				_resolve_player_turn(combat, beats, motion_active)
 			"ally":
 				var allies: Array = combat["allies"]
 				if entry["index"] < allies.size() and not allies[entry["index"]]["koed"]:
@@ -663,24 +695,53 @@ static func _log(combat: Dictionary, beats: Variant, line: String, kind: String,
 	var beat: Dictionary = { "kind": kind, "logLine": line }
 	beat.merge(extra)
 	beats.append(beat)
+	# combat-presentation ticket 11, docs/combat-animation-vision.md §5:
+	# "rewind/failsafe ... the beat queue in reverse" -- mirrors every
+	# threaded beat onto a rolling accumulator combat_rewind() hands back
+	# (reversed) for the director to replay, cleared only when
+	# _restore_from_snapshot() actually consumes it. Not reset per-push
+	# (see push_combat_snapshot()'s own comment) -- a known, accepted
+	# imprecision against the 2-deep snapshot stack, since this is a purely
+	# cosmetic replay layered on top of GameState already being fully
+	# resolved to the correct restored state by the time it plays.
+	combat["beatsSinceSnapshot"].append(beat)
+
+
+# combat-presentation ticket 11: public entry point for a system outside
+# this file (Consumables.use_healing_burst(), the one combat-usable
+# consumable that lives elsewhere -- see that func's own top comment for
+# why) to thread a beat through the exact same accumulator/beats-array
+# convention every use_*() below uses, without reaching into _log() itself.
+static func append_beat(combat: Dictionary, beats: Variant, line: String, kind: String, extra: Dictionary = {}) -> void:
+	_log(combat, beats, line, kind, extra)
 
 
 # One atomic player turn: a single attack against the focused enemy. Called
 # once per player-type queue entry -- normally once a round, twice/three
 # times on a Motion-boosted round (build_turn_queue()'s extra entries).
-static func _resolve_player_turn(combat: Dictionary, beats: Variant = null) -> void:
+static func _resolve_player_turn(combat: Dictionary, beats: Variant = null, motion_boosted: bool = false) -> void:
 	var enemy: Dictionary = _focused_enemy(combat)
 	var target_index: int = combat["focusedEnemyIndex"]
+	# combat-presentation ticket 11: `motionBoosted` -- stamped on this
+	# beat (evade or landed hit alike) whenever this round is a Motion
+	# round, so the screen's afterimage trail can key off the beat itself
+	# rather than live state (see player_attack()'s own `motion_active`
+	# comment). Only added when true -- every other beat kind/path stays
+	# exactly as it was.
 	if Rng.chance(enemy.get("evadeChance", 0.0)):
-		_log(combat, beats, "%s dodges — no damage." % enemy["name"], BEAT_ENEMY_EVADE,
-			{ "actorType": "player", "targetType": "enemy", "targetIndex": target_index })
+		var evade_extra: Dictionary = { "actorType": "player", "targetType": "enemy", "targetIndex": target_index }
+		if motion_boosted:
+			evade_extra["motionBoosted"] = true
+		_log(combat, beats, "%s dodges — no damage." % enemy["name"], BEAT_ENEMY_EVADE, evade_extra)
 		return
 	var atk := get_attack_range()
 	var dmg: int = Rng.randi_range(atk["min"], atk["max"])
 	enemy["hp"] = maxi(0, enemy["hp"] - dmg)
 	var frozen_note: String = " (enemy frozen)" if combat["frozenTurns"] > 0 else ""
-	_log(combat, beats, "You attack — %d damage%s. Enemy: %d/%d HP." % [dmg, frozen_note, enemy["hp"], enemy["hpMax"]], BEAT_PLAYER_ATTACK,
-		{ "actorType": "player", "targetType": "enemy", "targetIndex": target_index, "dmg": dmg })
+	var attack_extra: Dictionary = { "actorType": "player", "targetType": "enemy", "targetIndex": target_index, "dmg": dmg }
+	if motion_boosted:
+		attack_extra["motionBoosted"] = true
+	_log(combat, beats, "You attack — %d damage%s. Enemy: %d/%d HP." % [dmg, frozen_note, enemy["hp"], enemy["hpMax"]], BEAT_PLAYER_ATTACK, attack_extra)
 	_maybe_win_from_direct_damage(combat, enemy, beats)
 
 
@@ -815,16 +876,24 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_in
 	# before HP takes anything -- dmg <= pool drains the pool for zero
 	# damage, dmg > pool empties the pool and passes the remainder through.
 	var shield_note := ""
+	var absorbed := 0
 	if player["shieldPool"] > 0:
-		var absorbed: int = mini(dmg, player["shieldPool"])
+		absorbed = mini(dmg, player["shieldPool"])
 		player["shieldPool"] -= absorbed
 		dmg -= absorbed
 		if absorbed > 0:
 			shield_note = " (%d absorbed by shield)" % absorbed
 
 	player["hp"] = maxi(0, player["hp"] - dmg)
-	_log(combat, beats, "%s hits you for %d%s. You: %d/%d HP." % [enemy["name"], dmg, shield_note, player["hp"], player["hpMax"]], BEAT_ENEMY_ATTACK,
-		{ "actorType": "enemy", "actorIndex": enemy_index, "targetType": "player", "dmg": dmg })
+	var beat_extra: Dictionary = { "actorType": "enemy", "actorIndex": enemy_index, "targetType": "player", "dmg": dmg }
+	if absorbed > 0:
+		# combat-presentation ticket 11, §5: "shield ... cracks and sheds a
+		# layer on each absorb" -- carried independently of `dmg` (which can
+		# be 0 on a full absorb, and CombatDirector.beat_is_damaging()/
+		# _play_juice() only fire for dmg > 0) so the crack still plays even
+		# when nothing got through to the player's HP.
+		beat_extra["shieldAbsorbed"] = absorbed
+	_log(combat, beats, "%s hits you for %d%s. You: %d/%d HP." % [enemy["name"], dmg, shield_note, player["hp"], player["hpMax"]], BEAT_ENEMY_ATTACK, beat_extra)
 	if player["hp"] <= 0:
 		# combat-presentation ticket 04: a failsafe/rewind trigger rewrites
 		# combat.log wholesale (_restore_from_snapshot() replaces the array,
@@ -909,9 +978,10 @@ static func use_time_pearl() -> Dictionary:
 	var power = Crafting.effect_power("timePearl", player["craftingSkill"])
 	combat["frozenTurns"] += power
 	var turn_word: String = "turn" if power == 1 else "turns"
-	combat["log"].append("You throw a time pearl. The air goes thick. Everything slows. (%d %s)" % [power, turn_word])
+	var beats: Array = []
+	_log(combat, beats, "You throw a time pearl. The air goes thick. Everything slows. (%d %s)" % [power, turn_word], BEAT_USE_TIME_PEARL, { "effectKey": "timePearl" })
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return { "ok": true, "beats": beats }
 
 
 static func use_enhancement_powder() -> Dictionary:
@@ -930,9 +1000,15 @@ static func use_enhancement_powder() -> Dictionary:
 	var power = Crafting.effect_power("enhancementPowder", player["craftingSkill"])
 	combat["motionPower"] = power
 	combat["motionTurns"] = 2 if power >= 3 else 1
-	combat["log"].append("You rub the powder in. The world slows slightly around you. You feel very fast.")
+	# combat-presentation ticket 11: no effectKey/manifest sheet -- the
+	# afterimage trail is a duplicate-sprite alpha ramp the screen triggers
+	# directly off combat.motionTurns during the player's own subsequent
+	# BEAT_PLAYER_ATTACK beats, not off this activation beat (see
+	# scenes/screens/combat.gd's _on_beat_played()).
+	var beats: Array = []
+	_log(combat, beats, "You rub the powder in. The world slows slightly around you. You feel very fast.", BEAT_USE_MOTION, {})
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return { "ok": true, "beats": beats }
 
 
 # calc-effect-wiring-02: immediate damage, a one-use boost to the next
@@ -951,20 +1027,23 @@ static func use_blast() -> Dictionary:
 	Crafting.inventory_remove("blast", 1)
 	var power = Crafting.effect_power("blast", player["craftingSkill"])
 	var enemy: Dictionary = _focused_enemy(combat)
+	var target_index: int = combat["focusedEnemyIndex"]
 	enemy["hp"] = maxi(0, enemy["hp"] - power)
+	var beats: Array = []
 	# PROSE-REVIEW: new blast result-log line, drafted against CONTENT-GUIDE.md's tone bible.
-	combat["log"].append("You let off a blast — %d damage. Enemy: %d/%d HP." % [power, enemy["hp"], enemy["hpMax"]])
+	_log(combat, beats, "You let off a blast — %d damage. Enemy: %d/%d HP." % [power, enemy["hp"], enemy["hpMax"]], BEAT_USE_BLAST,
+		{ "targetType": "enemy", "targetIndex": target_index, "dmg": power, "effectKey": "blast" })
 	combat["blastFleeBoost"] = true
 
 	if Rng.chance(BLAST_DISARM_CHANCE):
 		disarm_enemy(enemy, BLAST_DISARM_TURNS)
 		# PROSE-REVIEW: new disarm-on-blast log line.
-		combat["log"].append("The shove knocks their weapon loose.")
+		_log(combat, beats, "The shove knocks their weapon loose.", BEAT_USE_DISARM, { "targetType": "enemy", "targetIndex": target_index })
 
-	_maybe_win_from_direct_damage(combat, enemy)
+	_maybe_win_from_direct_damage(combat, enemy, beats)
 
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return { "ok": true, "beats": beats }
 
 
 # calc-effect-wiring-02: sets player.shieldPool, drained 1:1 by
@@ -986,10 +1065,11 @@ static func use_shield() -> Dictionary:
 	Crafting.inventory_remove("shield", 1)
 	var power = Crafting.effect_power("shield", player["craftingSkill"])
 	player["shieldPool"] = power
+	var beats: Array = []
 	# PROSE-REVIEW: new shield-activation log line.
-	combat["log"].append("A shimmer folds around you. Shield up — %d absorption." % power)
+	_log(combat, beats, "A shimmer folds around you. Shield up — %d absorption." % power, BEAT_USE_SHIELD, { "effectKey": "shield" })
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return { "ok": true, "beats": beats }
 
 
 # squad-combat ticket 03: Black Hole is the one AoE effect (R§3.7a) --
@@ -1001,34 +1081,26 @@ static func use_shield() -> Dictionary:
 # enemies hit adds freeze_turns once per enemy, not once total.
 #
 # combat-presentation ticket 05: `beats` (null by default, same convention
-# as _log()) is only ever threaded through by cast_complication() -- when
-# present, each hit gets its own log line + beat (kind
-# BEAT_COMPLICATION_BLACK_HOLE_HIT, dmg + targetIndex set) instead of
-# use_black_hole()'s single combined summary line, so the juice layer (ticket
-# 05) can play a hit-stop/damage-number/shake/flash per enemy in the fan,
-# sequentially, rather than all at once against no particular target.
-static func _apply_black_hole_aoe(combat: Dictionary, dmg: int, freeze_turns: int, beats: Variant = null) -> int:
-	var hit_count := 0
+# as _log()) is threaded through by both cast_complication() and (ticket 11)
+# use_black_hole() -- each hit gets its own log line + beat (kind
+# BEAT_COMPLICATION_BLACK_HOLE_HIT, dmg + targetIndex + effectKey set), so
+# the juice layer (ticket 05) and the effect-sheet dispatch (ticket 11) can
+# play a hit-stop/damage-number/shake/flash/effect-sheet per enemy in the
+# fan, sequentially, rather than all at once against no particular target.
+# `_log()` itself is already null-safe for `beats` (it still appends the log
+# line either way), so this always calls through it rather than branching.
+static func _apply_black_hole_aoe(combat: Dictionary, dmg: int, freeze_turns: int, beats: Variant = null) -> void:
 	for i in range(combat["enemies"].size()):
 		var enemy: Dictionary = combat["enemies"][i]
 		if enemy["koed"]:
 			continue
 		enemy["hp"] = maxi(0, enemy["hp"] - dmg)
 		combat["frozenTurns"] += freeze_turns
-		if beats != null:
-			# PROSE-REVIEW: new per-enemy Black-Hole-hit log line (cast_complication()'s
-			# path only -- use_black_hole()'s own single combined summary line,
-			# untouched by this ticket, is unaffected), drafted against
-			# CONTENT-GUIDE.md's tone bible.
-			_log(combat, beats, "%s takes %d damage, frozen %d turn(s). %s: %d/%d HP." % [enemy["name"], dmg, freeze_turns, enemy["name"], enemy["hp"], enemy["hpMax"]], BEAT_COMPLICATION_BLACK_HOLE_HIT,
-				{ "targetType": "enemy", "targetIndex": i, "dmg": dmg })
-		hit_count += 1
+		# PROSE-REVIEW: new per-enemy Black-Hole-hit log line, drafted against
+		# CONTENT-GUIDE.md's tone bible.
+		_log(combat, beats, "%s takes %d damage, frozen %d turn(s). %s: %d/%d HP." % [enemy["name"], dmg, freeze_turns, enemy["name"], enemy["hp"], enemy["hpMax"]], BEAT_COMPLICATION_BLACK_HOLE_HIT,
+			{ "targetType": "enemy", "targetIndex": i, "dmg": dmg, "effectKey": "blackHole" })
 		_maybe_win_from_direct_damage(combat, enemy, beats)
-	return hit_count
-
-
-static func _enemy_word(hit_count: int) -> String:
-	return "enemy" if hit_count == 1 else "enemies"
 
 
 # calc-effect-wiring-02: immediate damage plus frozenTurns, always additive
@@ -1046,12 +1118,18 @@ static func use_black_hole() -> Dictionary:
 	Crafting.inventory_remove("blackHole", 1)
 	var power = Crafting.effect_power("blackHole", player["craftingSkill"])
 	var freeze_turns: int = 1 + int(floor(float(power) / 8.0))
-	var hit_count: int = _apply_black_hole_aoe(combat, power, freeze_turns)
-	# PROSE-REVIEW: new black hole result-log line, drafted against CONTENT-GUIDE.md's tone bible.
-	combat["log"].append("You drop a black hole — %d damage to every enemy (%d %s hit), each frozen %d turn(s)." % [power, hit_count, _enemy_word(hit_count), freeze_turns])
+	var beats: Array = []
+	# combat-presentation ticket 11: per-enemy hit beats (via
+	# _apply_black_hole_aoe(), same shared helper cast_complication() already
+	# uses) replace the old single combined summary line -- see that ticket's
+	# own "plays its effect once per hit enemy, not once for the whole
+	# screen" acceptance check.
+	# PROSE-REVIEW: new black-hole-announce log line, drafted against CONTENT-GUIDE.md's tone bible.
+	_log(combat, beats, "You drop a black hole.", BEAT_USE_BLACK_HOLE_ANNOUNCE, {})
+	_apply_black_hole_aoe(combat, power, freeze_turns, beats)
 
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return { "ok": true, "beats": beats }
 
 
 # calc-effect-wiring-02: shared by player_attack/use_blast/use_black_hole --
@@ -1136,10 +1214,11 @@ static func use_wormhole() -> Dictionary:
 
 	Crafting.inventory_remove("wormhole", 1)
 	combat["outcome"] = "fled"
+	var beats: Array = []
 	# PROSE-REVIEW: new guaranteed-flee log line, drafted against CONTENT-GUIDE.md's tone bible.
-	combat["log"].append("You fold the space between you and gone. Clean exit -- no parting shot.")
+	_log(combat, beats, "You fold the space between you and gone. Clean exit -- no parting shot.", BEAT_USE_WORMHOLE, { "actorType": "player" })
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return { "ok": true, "beats": beats }
 
 
 # dial-device ticket 07: replaces use_device() -- casts a loaded Complication
@@ -1220,7 +1299,7 @@ static func cast_complication(index: int) -> Dictionary:
 			var total: int = int(power) * targets
 			combat["frozenTurns"] += total
 			var turn_word: String = "turn" if total == 1 else "turns"
-			_log(combat, beats, "You trigger %s. Enemy frozen for %d %s." % [recipe["name"], total, turn_word], BEAT_COMPLICATION_TIME_PEARL, {})
+			_log(combat, beats, "You trigger %s. Enemy frozen for %d %s." % [recipe["name"], total, turn_word], BEAT_COMPLICATION_TIME_PEARL, { "effectKey": "timePearl" })
 		"enhancementPowder":
 			combat["motionPower"] = power
 			combat["motionTurns"] = 2 if power >= 3 else 1
@@ -1230,15 +1309,15 @@ static func cast_complication(index: int) -> Dictionary:
 			var target_index: int = combat["focusedEnemyIndex"]
 			enemy["hp"] = maxi(0, enemy["hp"] - dmg)
 			_log(combat, beats, "You trigger %s — %d damage. Enemy: %d/%d HP." % [recipe["name"], dmg, enemy["hp"], enemy["hpMax"]], BEAT_COMPLICATION_BLAST,
-				{ "targetType": "enemy", "targetIndex": target_index, "dmg": dmg })
+				{ "targetType": "enemy", "targetIndex": target_index, "dmg": dmg, "effectKey": "blast" })
 			combat["blastFleeBoost"] = true
 			if Rng.chance(BLAST_DISARM_CHANCE):
 				disarm_enemy(enemy, BLAST_DISARM_TURNS)
-				_log(combat, beats, "The shove knocks their weapon loose.", BEAT_COMPLICATION_DISARM, {})
+				_log(combat, beats, "The shove knocks their weapon loose.", BEAT_COMPLICATION_DISARM, { "targetType": "enemy", "targetIndex": target_index })
 			_maybe_win_from_direct_damage(combat, enemy, beats)
 		"shield":
 			player["shieldPool"] += int(power) * targets
-			_log(combat, beats, "You trigger %s. Shield up — %d absorption." % [recipe["name"], player["shieldPool"]], BEAT_COMPLICATION_SHIELD, {})
+			_log(combat, beats, "You trigger %s. Shield up — %d absorption." % [recipe["name"], player["shieldPool"]], BEAT_COMPLICATION_SHIELD, { "effectKey": "shield" })
 		"blackHole":
 			# squad-combat ticket 03: AoE, ignores focusedEnemyIndex -- hits every
 			# non-koed enemy independently at full power (targets' Spread
@@ -1252,14 +1331,14 @@ static func cast_complication(index: int) -> Dictionary:
 			var old_hp: int = player["hp"]
 			player["hp"] = mini(player["hp"] + int(power) * targets, player["hpMax"])
 			var healed: int = player["hp"] - old_hp
-			_log(combat, beats, "You trigger %s — +%d HP. %d/%d HP." % [recipe["name"], healed, player["hp"], player["hpMax"]], BEAT_COMPLICATION_HEALING_BURST, {})
+			_log(combat, beats, "You trigger %s — +%d HP. %d/%d HP." % [recipe["name"], healed, player["hp"], player["hpMax"]], BEAT_COMPLICATION_HEALING_BURST, { "effectKey": "healingBurst" })
 		"prophetsBreath":
 			combat["evadeTurns"] = int(power) * targets
 			combat["evadeChance"] = 0.50
 			_log(combat, beats, "You trigger %s. For a few seconds, you can see it coming." % recipe["name"], BEAT_COMPLICATION_PROPHETS_BREATH, {})
 		"wormhole":
 			combat["outcome"] = "fled"
-			_log(combat, beats, "You trigger %s. You fold the space between you and gone." % recipe["name"], BEAT_COMPLICATION_WORMHOLE, {})
+			_log(combat, beats, "You trigger %s. You fold the space between you and gone." % recipe["name"], BEAT_COMPLICATION_WORMHOLE, { "actorType": "player" })
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "recipeKey": recipe_key, "power": power, "targets": targets, "beats": beats }
@@ -1283,10 +1362,21 @@ static func combat_rewind() -> Dictionary:
 	else:
 		Dial.cast_complication(rewind_index)
 
+	# combat-presentation ticket 11, docs/combat-animation-vision.md §5:
+	# "rewind/failsafe: the whole stage plays backward — free, it is the
+	# beat queue in reverse." Captured (and reversed) BEFORE
+	# _restore_from_snapshot() clears combat.beatsSinceSnapshot -- the
+	# screen replays these through the director in this order, purely
+	# cosmetic (GameState is already restored to the correct pre-rewind
+	# state by the time playback starts, same as every other beat queue in
+	# this file).
+	var replay_beats: Array = combat["beatsSinceSnapshot"].duplicate()
+	replay_beats.reverse()
+
 	_restore_from_snapshot(combat, player)
 
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return { "ok": true, "beats": replay_beats }
 
 
 # calc-effect-wiring-03: the actual snapshot-restore mechanics, shared by
@@ -1316,6 +1406,12 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 	combat["outcome"] = null
 	combat["evadeTurns"] = 2
 	combat["evadeChance"] = 0.50
+	# combat-presentation ticket 11: the accumulator combat_rewind() (and,
+	# implicitly, _try_failsafe()) reads for its "beat queue in reverse"
+	# replay -- cleared here, after combat_rewind() has already captured its
+	# own copy above, so a fresh accumulation starts from this restored
+	# state rather than double-counting into a future rewind.
+	combat["beatsSinceSnapshot"] = []
 
 
 # calc-effect-wiring-03: checked from enemy_attack() the moment the
@@ -1333,6 +1429,17 @@ static func _try_failsafe(combat: Dictionary, player: Dictionary) -> bool:
 		return false
 
 	Crafting.inventory_remove("failsafe", 1)
+	# combat-presentation ticket 11: unlike combat_rewind(), this doesn't
+	# capture/return combat.beatsSinceSnapshot for a reverse-beat replay --
+	# _try_failsafe() fires synchronously mid-round, nested inside
+	# player_attack()/enemy_attack()'s own still-in-flight beat queue (see
+	# this func's own top comment), and that queue is already mid-playback
+	# through the one CombatDirector instance by the time its beats reach
+	# the screen. Kicking off a second, reverse playback here would race
+	# the enclosing round's own forward playback on the same director.
+	# GameState itself is still fully and correctly restored either way
+	# (this call, same as combat_rewind()'s) -- only the cosmetic rewind
+	# animation is out of scope for the automatic trigger.
 	_restore_from_snapshot(combat, player)
 	# PROSE-REVIEW: new failsafe auto-trigger log line, drafted against CONTENT-GUIDE.md's tone bible.
 	combat["log"].append("⚑ Failsafe fires. Death, reversed -- administratively.")
@@ -1389,6 +1496,7 @@ static func exit_combat() -> Dictionary:
 		"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
 		"allies": [],
+		"beatsSinceSnapshot": [],
 	}
 	SaveManager.autosave()  # R§6: autosave on combat exit
 	# The per-context handlers below only emit screen_changed (some don't
