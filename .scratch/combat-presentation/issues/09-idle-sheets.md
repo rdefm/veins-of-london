@@ -66,11 +66,23 @@ that key's manifest entry has no art; concurrent same-template enemies
 (2x/3x Mugger) share one cached sheet and alternate an extra mirror flip
 per fan slot. Confirmed no change was needed to ticket 01/02's own code.
 
-**Still blocked:** no image-generation tool was available in-session (the
-agent asked the human; their explicit call was "code/manifest only, art
-deferred" over waiting or hand-supplying source images). None of the 7
-subjects have a real idle sheet yet — every `templates.<key>.idle.image` is
-still `""`, so the stage currently shows the ticket-01 placeholder box for
-every combatant. Re-open this ticket once real art can be produced: fill in
-each subject's `image`/`frameCount`/`fps` in the manifest and the existing
-plumbing picks it up with no further code change.
+**Update:** 2 of 7 subjects now render real art (commit `combat-presentation-
+09: wire Gangsters_2/Gangsters_3 as Territorial Scrapper/Orichalchum Dealer
+idle art`) — `territorialScrapper` <- `assets/Gangsters_2/Idle.png`,
+`orichalchumDealer` <- `assets/Gangsters_3/Idle.png`, both copied verbatim
+(asset-pack sourced, not palette-quantised or `pixelize.py`-processed — same
+temporary-stand-in convention `templates.default` already used, not the
+ticket's own §6/§7 canonical pipeline) into `assets/combat/` and wired
+straight into the manifest/fallback plumbing below with **no code change**,
+confirming that plumbing works end to end. `.import` files were generated
+via `godot --headless --editor --import` (not committed — `*.import` is
+gitignored project-wide).
+
+**Still blocked (5 of 7):** player, archie, veinGuard, homeRaidRaider, and
+mugger are still empty stubs (`templates.<key>.idle.image` is still `""`) —
+no image-generation tool was available in-session for these (the agent asked
+the human; their call for the ticket as a whole was "code/manifest only, art
+deferred"), and no equivalent asset-pack character was chosen for them yet.
+Re-open this ticket once real (or further asset-pack-sourced) art exists for
+the remaining five: fill in each subject's `image`/`frameCount`/`fps` in the
+manifest and the existing plumbing picks it up with no further code change.
