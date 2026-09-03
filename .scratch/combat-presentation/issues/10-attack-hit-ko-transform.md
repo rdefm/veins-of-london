@@ -152,3 +152,27 @@ one's).
 
 **PROSE-REVIEW:** none — this ticket added no new player-facing prose, only
 render-order/asset-manifest fields and code comments.
+
+**Follow-up (human bug report, same session):** the human flagged a
+coloured box sitting on top of/instead of the front combatants' art, and
+separately confirmed a standing decision this doc didn't previously
+record: `default`'s Gangsters_2-sourced art (already the shared stand-in
+for attack/hit/ko, per the pre-ticket-09 "swap dummy placeholder to
+Gangsters_2 sprites" commit) should be the placeholder for **every**
+subject/animation, idle included — not just attack/hit/ko. Two fixes
+landed:
+
+1. `af9138f` — attack/hit's keypose count dropped from the old flipbook's
+   6/4 frames to 3/2, but kept the same fps, roughly halving the on-screen
+   time per one-shot. Slowed the fps (attack/hit 5.0, ko 3.0) to restore
+   the old total duration.
+2. `67a78bc` — idle never had a `default` fallback (deliberate ticket-09
+   scope: real art or the ticket-01 box, nothing shared). Extended it to
+   use the exact same `_resolve_action_keyposes()` fallback attack/hit/ko
+   already had, sourced from `templates.default.idle` (no new art). The
+   ticket-01 placeholder box is now a defensive-only fallback (a broken/
+   missing `default` entry) — not expected to trigger in normal play.
+
+Verified against a real running build (screenshots via a windowed
+headless-adjacent Godot run, not just unit tests) before and after each
+fix — see those commits' own messages.
