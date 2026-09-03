@@ -368,13 +368,14 @@ The reference images are three different palettes — warm tungsten interior,
 cold blue rain, neutral character plate. Left alone they will read as a mood
 board rather than one game. Pipeline discipline, in order:
 
-1. **Lock a master palette.** 32–48 colours, committed as `data/palette.json`
-   plus a swatch PNG. Quantise **every** generated asset to it. This single
-   step is what makes generated pixel art read as one authored game.
+1. **Reference palette.** 32–48 colours, committed as `data/palette.json`
+   plus a swatch PNG, for the mood direction and for shared named-colour uses
+   (e.g. `combat_visuals.json` backdrop `fallbackColor`). Generated assets
+   are **not** quantised to it.
 2. **Re-gridify.** Generated pixel art is rarely on a true pixel grid and
    carries anti-aliased fringe. Build `tools/pixelize.py`: detect native cell
-   size → downsample nearest → quantise to palette → strip fringe → trim to a
-   fixed canvas. Run it on everything, no exceptions.
+   size → downsample nearest → strip fringe → trim to a fixed canvas. Run it
+   on everything, no exceptions.
 3. **Never re-prompt a character.** Generate one canonical sprite per subject,
    then produce every other pose by editing *that image*, or generate all
    keyposes as a **single strip in one generation**. Re-prompting per frame is

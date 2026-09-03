@@ -129,7 +129,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | map_layout.json | systems/map_layout.gd, systems/map_hit_test.gd |
 | objectives.json | systems/objectives.gd, systems/todo.gd, systems/collective.gd |
 | ore_types.json | widely read — economy.gd, cultivating.gd, sites.gd, factions.gd, raiding.gd, dial.gd, rooms.gd, vein_trade.gd, debug_start.gd, archie_deals.gd |
-| palette.json | tools/pixelize.py, tools/make_palette_swatch.py, autoload/GameData.gd (PALETTE, colour id → Color) — master 42-colour combat-art palette. Swatch render sits alongside it at `data/palette_swatch.png` |
+| palette.json | tools/make_palette_swatch.py, autoload/GameData.gd (PALETTE, colour id → Color) — reference 42-colour combat-art palette; not enforced on generated art. Swatch render sits alongside it at `data/palette_swatch.png` |
 | recipes.json | systems/crafting.gd, bench.gd, combat.gd, dial.gd, jobs.gd, rooms.gd, economy.gd (consumable prices), contacts.gd (crafting xp levels) |
 | sites.json | systems/sites.gd, collective.gd, objectives.gd |
 | stealth.json | systems/raiding.gd |
@@ -160,7 +160,7 @@ Mirrors systems/ and screens/ 1:1 by filename: `tests/test_<name>.gd` tests `sys
 
 | File | Purpose |
 |---|---|
-| pixelize.py | Combat pixel-art pipeline: detect cell size → downsample nearest → strip AA fringe → quantise to `data/palette.json` → trim to a fixed canvas. Run on every generated combat asset, no exceptions — see `docs/ART-BIBLE.md` |
+| pixelize.py | Combat pixel-art pipeline: detect cell size → downsample nearest → strip AA fringe → trim to a fixed canvas. Run on every generated combat asset, no exceptions — see `docs/ART-BIBLE.md` |
 | png_io.py | Pure-stdlib PNG read/write (8-bit RGB/RGBA, non-interlaced) backing pixelize.py — no Pillow dependency |
 | make_palette_swatch.py | Renders `data/palette.json` to `data/palette_swatch.png`; re-run after editing the palette |
 | test_pixelize.py | Self-test for the pixelize pipeline (`python3 tools/test_pixelize.py`) — no external test framework |

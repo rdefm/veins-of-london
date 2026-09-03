@@ -3,7 +3,7 @@
     "name": "Vein master palette",
     "count": 42,
     "direction": "Overcast daylight, muted/desaturated — brick red, weathered pastel shopfronts, grey sky, damp pavement reflecting sky. Not neon, not rain, not dark-noir. See docs/ART-BIBLE.md and docs/combat-animation-vision.md §1.",
-    "rule": "Quantise every generated pixel-art asset to exactly these colours via tools/pixelize.py. No off-palette pixels ship."
+    "rule": "Named colour ids for shared uses (e.g. combat_visuals.json backdrop fallbackColor, resolved via GameData.PALETTE) and as a reference swatch for generation prompts. Generated art is no longer required to quantise to this list."
   },
   "colors": [
     { "id": "outline_black",     "hex": "#14120f", "group": "neutral" },

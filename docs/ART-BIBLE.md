@@ -28,12 +28,15 @@ always.** All three original reference images use it; keep it so a
 character generated in isolation still looks lit by the same sun as the
 backdrop it's composited onto.
 
-## 2. Master palette
+## 2. Reference palette
 
 `data/palette.json` — **42 colours**, swatch at `data/palette_swatch.png`
 (regenerate with `python3 tools/make_palette_swatch.py` after any edit to
-the JSON). Every generated asset is quantised to exactly this list via
-`tools/pixelize.py`; no off-palette pixel ships.
+the JSON). Generated combat art is **not** required to quantise to this
+list — `tools/pixelize.py` no longer has a quantisation step. The palette
+still backs `combat_visuals.json`'s backdrop `fallbackColor` (resolved via
+`GameData.PALETTE`) and stands as the reference swatch for the mood
+direction below when writing generation prompts.
 
 | Group | Count | Role |
 |---|---|---|
@@ -95,15 +98,12 @@ Pipeline, in order:
 2. **Downsample nearest.** One representative pixel per detected cell (its
    top-left corner) — never averaged. Averaging is exactly the blur this
    step exists to remove.
-3. **Quantise to palette.** Every non-fully-transparent pixel's RGB snaps to
-   its nearest colour in `data/palette.json` by squared RGB distance; alpha
-   passes through unchanged so the next step can still see it.
-4. **Strip anti-aliased fringe.** Alpha is binarized at `--alpha-threshold`
+3. **Strip anti-aliased fringe.** Alpha is binarized at `--alpha-threshold`
    (default 128): below → fully transparent, at/above → fully opaque. Then
    any opaque pixel with **no** orthogonally-adjacent opaque pixel (a
    4-connectivity check) is dropped too — a lone speck with no opaque
    neighbour is always a fringe artifact, never intentional art.
-5. **Trim to canvas.** Centred crop/pad to the exact `--canvas` size.
+4. **Trim to canvas.** Centred crop/pad to the exact `--canvas` size.
 
 Self-test (no external test framework, run directly):
 
@@ -111,9 +111,9 @@ Self-test (no external test framework, run directly):
 python3 tools/test_pixelize.py
 ```
 
-Builds a synthetic upscaled sprite with off-palette colour, blended fringe,
-and an isolated speck in memory, runs the full pipeline, and asserts every
-stage did its job. Run this after any change to `pixelize.py` or `png_io.py`.
+Builds a synthetic upscaled sprite with blended fringe and an isolated
+speck in memory, runs the full pipeline, and asserts every stage did its
+job. Run this after any change to `pixelize.py` or `png_io.py`.
 
 **Never re-prompt a character per frame** (vision §6 step 3) — generate one
 canonical sprite, then edit that image for every other pose, or generate an
@@ -162,8 +162,8 @@ Notes:
   frames"`) — this is what makes identity hold across frames; see vision
   §6 step 3.
 - Every field after `Palette:` is expected to survive `pixelize.py`
-  unaltered in *spirit* even though the literal colours won't — the tool
-  quantises to `data/palette.json`, it doesn't relight or repose.
+  unaltered — the tool re-grids, strips fringe, and trims to canvas; it
+  doesn't recolour, relight, or repose.
 
 ## 6. Render/import settings (vision §7 — documented here, applied in ticket 08)
 

@@ -993,8 +993,8 @@ func _ready() -> void:
 
 
 # combat-presentation ticket 10: loads data/combat_visuals.json's
-# templates.default.{attack,hit,ko} -- the shared, not-yet-palette-quantised
-# build-test sheet set used as _resolve_action_keyposes()'s fallback for any
+# templates.default.{attack,hit,ko} -- the shared, not-final-art build-test
+# sheet set used as _resolve_action_keyposes()'s fallback for any
 # subject whose own per-subject entry (loaded by
 # _load_template_action_animations() below) is still empty. Each sheet is
 # sliced into `frameCount` equal-width AtlasTextures then down-sampled to the

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """End-to-end self-test for tools/pixelize.py — no test framework, no
 external deps. Builds a synthetic "generated pixel art" PNG (upscaled
-blocky art with anti-aliased fringe and off-palette colours, the way an
-image model actually produces it), runs it through the full pipeline, and
-asserts every stage behaved. Also unit-tests the fringe-speck-removal step
-directly, since it depends on exact pixel adjacency that's easy to miss by
-accident in a full-image fixture.
+blocky art with anti-aliased fringe, the way an image model actually
+produces it), runs it through the full pipeline, and asserts every stage
+behaved. Also unit-tests the fringe-speck-removal step directly, since it
+depends on exact pixel adjacency that's easy to miss by accident in a
+full-image fixture.
 
     python3 tools/test_pixelize.py
 """
@@ -17,9 +17,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from png_io import read_png, write_png  # noqa: E402
 from pixelize import (  # noqa: E402
-    DEFAULT_PALETTE,
     detect_cell_size,
-    load_palette,
     pixelize,
     strip_fringe,
 )
@@ -29,7 +27,7 @@ NATIVE_GRID = 12  # 12x12 native cells; the sprite occupies an 8x8 inner region
 SPRITE_LO, SPRITE_HI = 2, 10  # native cell range (exclusive hi) the sprite occupies
 
 TRANSPARENT = (0, 0, 0, 0)
-BODY = (0xE0, 0x40, 0x30, 255)     # bright off-palette red — quantization must move it
+BODY = (0xE0, 0x40, 0x30, 255)     # bright red sprite body
 OUTLINE = (0x10, 0x10, 0x10, 255)  # near-black border
 
 
@@ -116,9 +114,6 @@ def test_pipeline_end_to_end():
     width, height, pixels, fringe_added = _make_test_image()
     _assert(fringe_added > 0, "test fixture should contain fringe pixels")
 
-    palette = load_palette(DEFAULT_PALETTE)
-    _assert(32 <= len(palette) <= 48, "palette must have 32-48 colours, has %d" % len(palette))
-
     with tempfile.TemporaryDirectory() as tmp:
         src_path = os.path.join(tmp, "src.png")
         out_path = os.path.join(tmp, "out.png")
@@ -145,12 +140,8 @@ def test_pipeline_end_to_end():
         out_w, out_h, out_pixels = read_png(out_path)
         _assert((out_w, out_h) == (canvas_w, canvas_h), "output PNG is not the requested canvas size")
 
-        # --- quantization: every opaque pixel must be an exact palette colour ---
-        palette_set = set(palette)
         opaque = [(r, g, b) for (r, g, b, a) in out_pixels if a != 0]
         _assert(opaque, "output has no opaque pixels at all")
-        off_palette = [p for p in opaque if p not in palette_set]
-        _assert(not off_palette, "found off-palette pixels after quantization: %r" % off_palette[:5])
 
         # --- fringe stripped: no partially-transparent pixels survive, and
         # the isolated speck (which does survive downsampling, landing on

@@ -33,13 +33,6 @@ window/handheld/orientation="portrait"
 
 [importer_defaults]
 
-; combat-presentation ticket 08, docs/combat-animation-vision.md §7 /
-; docs/ART-BIBLE.md §6: every texture imports Lossless (compress/mode=0),
-; no mipmaps -- block/VRAM compression (textures/vram_compression/
-; import_etc2_astc below) visibly artifacts pixel art, and mipmaps blur it
-; at distance it's never actually viewed at. Project-wide rather than
-; folder-scoped: Godot 4 has no built-in per-folder import-default
-; mechanism, and combat art is the only pixel-art pipeline this project has.
 texture={
 "compress/mode": 0,
 "mipmaps/generate": false
@@ -47,17 +40,8 @@ texture={
 
 [rendering]
 
+textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
-
-; combat-presentation ticket 08, docs/combat-animation-vision.md §7: default
-; is Linear (1), which turns crisp pixel art to mud -- Nearest (0) everywhere
-; a CanvasItem doesn't explicitly override texture_filter itself.
-textures/canvas_textures/default_texture_filter=0
-
-; combat-presentation ticket 08, docs/ART-BIBLE.md §6.3: the chosen pixel-
-; snap rule (crunchy/authentic over smooth/subpixel) -- every tween added
-; after this ticket (juice layer, transform-based attack motion, effect
-; sheets) must agree with it, per that section's "never mix it" rule.
 2d/snap/snap_2d_transforms_to_pixel=true

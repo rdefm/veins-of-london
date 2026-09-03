@@ -25,7 +25,7 @@
   },
   "templates": {
     "default": {
-      "_note": "TEMPORARY build-test stand-in (ticket 10) -- untouched asset-pack frames (assets/combat/dummy), not final art, not palette-quantised. Only attack/hit/ko still read this entry; idle no longer does (ticket 09 moved idle to the per-subject keys below).",
+      "_note": "TEMPORARY build-test stand-in (ticket 10) -- untouched asset-pack frames (assets/combat/dummy), not final art. Only attack/hit/ko still read this entry; idle no longer does (ticket 09 moved idle to the per-subject keys below).",
       "idle": { "image": "res://assets/combat/dummy/idle.png", "frameCount": 7, "fps": 9.1 },
       "attack": { "image": "res://assets/combat/dummy/attack.png", "frameCount": 6, "fps": 5.0 },
       "hit": { "image": "res://assets/combat/dummy/hurt.png", "frameCount": 4, "fps": 5.0 },
@@ -45,7 +45,7 @@
       "selfPatch": { "image": "", "frameCount": 0, "fps": 0.0 }
     },
     "territorialScrapper": {
-      "_note": "Asset-pack sourced stand-in (assets/Gangsters_2), untouched, not palette-quantised, same convention as templates.default -- see that entry's own _note. Not final art.",
+      "_note": "Asset-pack sourced stand-in (assets/Gangsters_2), untouched, same convention as templates.default -- see that entry's own _note. Not final art.",
       "idle": { "image": "res://assets/combat/territorial_scrapper/idle.png", "frameCount": 7, "fps": 9.1 },
       "attack": { "image": "res://assets/combat/territorial_scrapper/attack.png", "frameCount": 6, "fps": 5.0 },
       "hit": { "image": "res://assets/combat/territorial_scrapper/hit.png", "frameCount": 4, "fps": 5.0 },
@@ -58,7 +58,7 @@
       "ko": { "image": "", "frameCount": 0, "fps": 0.0 }
     },
     "orichalchumDealer": {
-      "_note": "Asset-pack sourced stand-in (assets/Gangsters_3), untouched, not palette-quantised, same convention as templates.default -- see that entry's own _note. Not final art.",
+      "_note": "Asset-pack sourced stand-in (assets/Gangsters_3), untouched, same convention as templates.default -- see that entry's own _note. Not final art.",
       "idle": { "image": "res://assets/combat/orichalchum_dealer/idle.png", "frameCount": 7, "fps": 9.1 },
       "attack": { "image": "res://assets/combat/orichalchum_dealer/attack.png", "frameCount": 5, "fps": 5.0 },
       "hit": { "image": "res://assets/combat/orichalchum_dealer/hit.png", "frameCount": 4, "fps": 5.0 },

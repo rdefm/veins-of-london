@@ -12,10 +12,9 @@ Pipeline, in order (matches docs/combat-animation-vision.md §6):
   2. downsample nearest to that cell size (one representative pixel per
      block — never averaged, that is how you reintroduce the blur this
      step exists to remove)
-  3. quantise every non-fully-transparent pixel's RGB to data/palette.json
-  4. binarize alpha and drop isolated single-pixel specks (strips the
+  3. binarize alpha and drop isolated single-pixel specks (strips the
      anti-aliased fringe image models leave around a silhouette)
-  5. trim (crop and/or pad, centred) to the fixed output canvas
+  4. trim (crop and/or pad, centred) to the fixed output canvas
 
 Pure stdlib — no Pillow — so this runs on a bare Python 3 install. See
 tools/png_io.py for the PNG codec and tools/test_pixelize.py for the
@@ -23,7 +22,6 @@ end-to-end self-test.
 """
 
 import argparse
-import json
 import os
 import sys
 from collections import Counter
@@ -32,21 +30,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from png_io import read_png, write_png  # noqa: E402
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DEFAULT_PALETTE = os.path.join(REPO_ROOT, "data", "palette.json")
 
 DEFAULT_ALPHA_THRESHOLD = 128
-
-
-def load_palette(path: str):
-    with open(path, "r") as f:
-        data = json.load(f)
-    rgb = []
-    for entry in data["colors"]:
-        h = entry["hex"].lstrip("#")
-        rgb.append((int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)))
-    if not rgb:
-        raise ValueError("%s: palette has no colours" % path)
-    return rgb
 
 
 def _block_uniformity(pixels, width, height, cell: int) -> float:
@@ -112,8 +97,8 @@ def downsample_nearest(width: int, height: int, pixels, cell: int):
 
 def strip_fringe(width: int, height: int, pixels, alpha_threshold: int = DEFAULT_ALPHA_THRESHOLD):
     """Binarizes alpha, then drops orthogonally-isolated single-pixel specks.
-    Runs after quantize_to_palette, so colour is already on-palette here —
-    this step only ever touches alpha."""
+    Runs after downsampling, on the original sampled colours — this step
+    only ever touches alpha."""
     binarized = []
     for (r, g, b, a) in pixels:
         binarized.append((r, g, b, 255) if a >= alpha_threshold else (0, 0, 0, 0))
@@ -132,31 +117,6 @@ def strip_fringe(width: int, height: int, pixels, alpha_threshold: int = DEFAULT
                     break
             if not has_neighbor:
                 out[idx] = (0, 0, 0, 0)
-    return out
-
-
-def quantize_to_palette(pixels, palette):
-    """Snaps every non-fully-transparent pixel's RGB to its nearest palette
-    colour. Alpha is passed through unchanged — binarizing it is
-    strip_fringe's job, which runs after this so it can still see the
-    original blend strength of anti-aliased fringe pixels."""
-    cache = {}
-    out = []
-    for (r, g, b, a) in pixels:
-        if a == 0:
-            out.append((0, 0, 0, 0))
-            continue
-        key = (r, g, b)
-        match = cache.get(key)
-        if match is None:
-            best_i, best_d = 0, None
-            for i, (pr, pg, pb) in enumerate(palette):
-                d = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2
-                if best_d is None or d < best_d:
-                    best_d, best_i = d, i
-            match = palette[best_i]
-            cache[key] = match
-        out.append((match[0], match[1], match[2], a))
     return out
 
 
@@ -186,18 +146,15 @@ def pixelize(
     output_path: str,
     canvas_w: int,
     canvas_h: int,
-    palette_path: str = DEFAULT_PALETTE,
     cell_override: int = None,
     alpha_threshold: int = DEFAULT_ALPHA_THRESHOLD,
     verbose: bool = True,
 ):
     width, height, pixels = read_png(input_path)
-    palette = load_palette(palette_path)
 
     cell = cell_override if cell_override else detect_cell_size(width, height, pixels)
     ds_w, ds_h, ds_pixels = downsample_nearest(width, height, pixels, cell)
-    quantized = quantize_to_palette(ds_pixels, palette)
-    stripped = strip_fringe(ds_w, ds_h, quantized, alpha_threshold)
+    stripped = strip_fringe(ds_w, ds_h, ds_pixels, alpha_threshold)
     final_pixels = trim_to_canvas(ds_w, ds_h, stripped, canvas_w, canvas_h)
 
     write_png(output_path, canvas_w, canvas_h, final_pixels)
@@ -233,7 +190,6 @@ def main(argv=None):
         help="fixed output canvas, e.g. 64x104 (combatant), 390x360 (backdrop), "
              "96x96 (effect), 160x160 (large effect) — see docs/ART-BIBLE.md",
     )
-    parser.add_argument("--palette", default=DEFAULT_PALETTE, help="path to palette.json")
     parser.add_argument("--cell", type=int, default=None, help="override auto-detected cell size")
     parser.add_argument(
         "--alpha-threshold", type=int, default=DEFAULT_ALPHA_THRESHOLD,
@@ -244,7 +200,7 @@ def main(argv=None):
     canvas_w, canvas_h = args.canvas
     pixelize(
         args.input, args.output, canvas_w, canvas_h,
-        palette_path=args.palette, cell_override=args.cell,
+        cell_override=args.cell,
         alpha_threshold=args.alpha_threshold,
     )
     return 0
