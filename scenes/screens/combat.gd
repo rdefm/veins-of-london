@@ -636,16 +636,10 @@ var _backdrop_fill: ColorRect
 # loaded once in _ready() (see _load_default_animations() below), not
 # per-sync/per-slot. This is the FALLBACK used only when a combatant's own
 # template key has no non-empty entry of its own (see
-# _resolve_action_keyposes() and _sync_band() below) -- ticket 09's idle
-# never had a "default" fallback concept; this ticket introduces one for
-# attack/hit/ko specifically because a shared placeholder stand-in still
-# needs to look like *something* is swinging/getting hit/falling over even
-# before every subject has its own art, same reasoning ticket 09's own
-# now-superseded all-subjects-share-"default" arrangement had before this
-# ticket split it per-subject. Empty means no manifest entry (or the image
-# failed to load) -- that one-shot then just never plays (see StageSlot's
-# own play_*() comments), same "degrade quietly" convention ticket 09's idle
-# fallback also uses.
+# _resolve_action_keyposes() and _sync_band() below). Empty means no
+# manifest entry (or the image failed to load) -- that one-shot then just
+# never plays (see StageSlot's own play_*() comments), same "degrade
+# quietly" convention every manifest lookup in this file uses.
 var _default_attack_keyposes: Array[Texture2D] = []
 var _default_attack_fps: float = 12.0
 var _default_hit_keyposes: Array[Texture2D] = []
@@ -655,17 +649,21 @@ var _default_ko_fps: float = 12.0
 
 # combat-presentation ticket 09, docs/combat-animation-vision.md §3/§4: idle
 # frames+fps per cast-subject template key (data/combat_visuals.json's
-# "templates" entries other than "default" -- see that file's own
-# "templateRule" note), loaded once in _ready() (_load_template_idle_
-# animations() below) rather than per-sync/per-slot. Keyed by whatever
-# enemy_template_key()/_player_display_entries()/_ally_template_key resolve
-# a slot's combatant to ("player", an ally's contactId, a
-# GameData.ENEMY_RAID_GUARDS key, "homeRaidRaider", or "mugger"). A key with
-# no manifest entry, an empty image, or a missing file all resolve to the
-# empty-frames default below -- StageSlot.set_idle_animation() already
-# treats empty frames as "show the ticket-01 placeholder box instead", so an
-# unresolved or not-yet-produced subject degrades quietly, same convention
-# as every other manifest lookup in this file.
+# "templates" entries, "default" included), loaded once in _ready()
+# (_load_template_idle_animations() below) rather than per-sync/per-slot.
+# Keyed by whatever enemy_template_key()/_player_display_entries()/
+# _ally_template_key resolve a slot's combatant to ("player", an ally's
+# contactId, a GameData.ENEMY_RAID_GUARDS key, "homeRaidRaider", "mugger",
+# or "default" itself, read directly by _sync_band() as the shared fallback
+# below). A key with no manifest entry, an empty image, or a missing file
+# resolves to the empty-frames default below, same as any other lookup here
+# -- what _sync_band() then DOES with that emptiness is its own call (falls
+# back to templates.default.idle, per a human-flagged follow-up to ticket 10:
+# every subject shows a sprite, real or the shared Gangsters_2-sourced stand-
+# in, not a blank box -- see that call site's own comment). This dict itself
+# stays a plain per-template lookup with no fallback baked in, so
+# _resolve_action_keyposes() can use it exactly like the attack/hit/ko
+# dictionaries below.
 var _idle_frames_by_template: Dictionary = {}
 # A genuinely typed empty array, used as _sync_band()'s Dictionary.get()
 # default below -- see that call site's own comment for why an untyped `[]`
@@ -675,14 +673,12 @@ var _empty_idle_frames: Array[Texture2D] = []
 # combat-presentation ticket 10, docs/combat-animation-vision.md §3/§4: the
 # per-subject counterparts to _idle_frames_by_template above -- attack/hit/
 # ko keyposes per template key, loaded once in _ready()
-# (_load_template_action_animations() below). Unlike idle, an empty entry
-# here doesn't mean "show nothing" -- _resolve_action_keyposes() below falls
-# back to the shared _default_*_keyposes stand-in, since attack/hit/ko still
-# need to read as *something* happening even before a subject's own art
-# lands (see the _default_* vars' own comment for why that differs from
-# idle's plain fallback-to-placeholder-box). _self_patch_keyposes_by_template
-# has no such fallback -- selfPatch is Archie-only, and "default" carries no
-# heal pose to lend (data/combat_visuals.json's own "actionRule" note).
+# (_load_template_action_animations() below). An empty entry here doesn't
+# mean "show nothing" -- _resolve_action_keyposes() below falls back to the
+# shared _default_*_keyposes stand-in, exactly like idle now does too (see
+# that dict's own comment). _self_patch_keyposes_by_template has no such
+# fallback -- selfPatch is Archie-only, and "default" carries no heal pose
+# to lend (data/combat_visuals.json's own "actionRule" note).
 var _attack_keyposes_by_template: Dictionary = {}
 var _hit_keyposes_by_template: Dictionary = {}
 var _ko_keyposes_by_template: Dictionary = {}
@@ -1216,7 +1212,7 @@ func _enemy_display_entries(enemies: Array, focused_index: int) -> Array:
 # (a test fixture's arbitrary name, or a future enemy template this lookup
 # doesn't know about yet) resolves to "" -- _sync_band()'s idle lookup
 # already treats an unresolved key as "no manifest entry", same quiet
-# fallback to the placeholder box as any other gap.
+# fallback to the shared default stand-in as any other gap.
 #
 # combat-presentation ticket 10: public and static (mirrors
 # CombatDirector.beat_is_damaging()'s own "public so more than one file can
@@ -1314,7 +1310,23 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 		# the same template (occurrence 1, 3, ...) gets the extra mirror --
 		# see StageSlot's own `_mirror_extra` comment for why.
 		slot.set_mirror_extra(not template_key.is_empty() and occurrence % 2 == 1)
-		var idle: Dictionary = _idle_frames_by_template.get(template_key, {})
+		# combat-presentation ticket 10 (human-flagged follow-up): idle now
+		# gets the exact same per-subject-with-default-fallback treatment as
+		# attack/hit/ko below, reusing _resolve_action_keyposes() -- the
+		# fallback source is templates.default's own idle entry (already
+		# loaded into _idle_frames_by_template["default"] by
+		# _load_template_idle_animations(), no separate loading needed).
+		# templates.default.idle is the same Gangsters_2-sourced art already
+		# shared by attack/hit/ko (assets/combat/dummy/*.png -- see that
+		# commit's own history), so this is "use Gangsters_2 as the shared
+		# placeholder for every type," not a new asset. The ticket-01
+		# placeholder box (StageSlot._draw()) is now unreachable in normal
+		# play (every combatant gets a sprite, real or shared stand-in) --
+		# left in place as a defensive fallback for the one remaining gap
+		# (templates.default.idle itself missing/broken), same "degrade
+		# quietly, never error" convention as everywhere else in this file,
+		# rather than deleted as dead code.
+		var default_idle: Dictionary = _idle_frames_by_template.get("default", {})
 		# _empty_idle_frames (a real typed Array[Texture2D], not a `[]`
 		# literal) as the .get() default -- an untyped `[]` literal here
 		# fails a runtime "Array to Array[Texture2D]" type check on assignment
@@ -1322,18 +1334,18 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 		# name, and every real subject before its art lands), which a `[]`
 		# default doesn't trip since it's only ever reached via a dict that
 		# came out of _load_animation_frames (always genuinely typed there).
-		var idle_frames: Array[Texture2D] = idle.get("frames", _empty_idle_frames)
-		slot.set_idle_animation(idle_frames, idle.get("fps", 0.0))
+		var idle := _resolve_action_keyposes(_idle_frames_by_template, template_key, default_idle.get("frames", _empty_idle_frames), default_idle.get("fps", 0.0))
+		slot.set_idle_animation(idle["frames"], idle["fps"])
 		# combat-presentation ticket 10: attack/hit/ko prefer this combatant's
 		# own per-subject keyposes, falling back to the shared "default"
 		# stand-in when its own entry is empty -- see _resolve_action_keyposes()
-		# and the _default_*_keyposes vars' own comments for why attack/hit/ko
-		# get a fallback and idle doesn't. selfPatch has no "default" fallback
-		# (Archie-only, per that dict's own top comment) -- _empty_idle_frames/
-		# 0.0 as its "default" makes _resolve_action_keyposes() degrade to "no
-		# fallback at all". Looped (rather than four repeated resolve+set
-		# pairs) since all four share the exact same shape -- only which
-		# dictionary/default/setter differs.
+		# and the _default_*_keyposes vars' own comments. selfPatch has no
+		# "default" fallback (Archie-only, per that dict's own top comment) --
+		# _empty_idle_frames/0.0 as its "default" makes
+		# _resolve_action_keyposes() degrade to "no fallback at all". Looped
+		# (rather than four repeated resolve+set pairs) since all four share
+		# the exact same shape -- only which dictionary/default/setter
+		# differs.
 		for action in [
 			[_attack_keyposes_by_template, _default_attack_keyposes, _default_attack_fps, slot.set_attack_animation],
 			[_hit_keyposes_by_template, _default_hit_keyposes, _default_hit_fps, slot.set_hit_animation],

@@ -760,17 +760,40 @@ func run() -> void:
 	# manifest override covers the mugger/ping-pong/mirroring cases ahead of
 	# that subject having its own real entry.
 
-	run_case("stage_slot_falls_back_to_the_placeholder_box_when_its_subjects_manifest_entry_has_no_match", func():
+	run_case("stage_slot_falls_back_to_the_shared_default_idle_when_its_subjects_manifest_entry_has_no_match", func():
+		# combat-presentation ticket 10 (human-flagged follow-up): idle now
+		# falls back to templates.default's own idle entry, exactly like
+		# attack/hit/ko already did -- not the ticket-01 placeholder box.
 		_setup_combat([_enemy("Scrapper")])  # deliberately not "Territorial Scrapper" -- no template match
 
 		var screen := CombatScreen.new()
 		screen._ready()
 		var slot := _slot_named(screen, "Scrapper")
 
-		assert_true(slot._idle_frames.is_empty(), "no matching template key -- must fall back to the placeholder box, not error")
+		assert_eq(slot._idle_frames, screen._idle_frames_by_template["default"]["frames"], "no matching template key -- must fall back to templates.default's own idle art, not the empty placeholder box")
+		assert_true(slot._sprite_rect.visible, "the sprite layer must be showing the shared default idle sprite")
+
+		screen.free()
+	)
+
+	run_case("stage_slot_falls_back_to_the_ticket_01_placeholder_box_only_when_even_the_default_idle_entry_is_missing", func():
+		# The one remaining case that still shows the ticket-01 box: no
+		# "default" entry to fall back to at all (a broken/incomplete
+		# manifest), not just "no per-subject match" -- see the previous
+		# case for the (now much more common) per-subject-miss path.
+		_setup_combat([_enemy("Scrapper")])
+		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
+		GameData.COMBAT_VISUALS = { "backdrops": original_combat_visuals["backdrops"], "templates": {} }
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "Scrapper")
+
+		assert_true(slot._idle_frames.is_empty(), "no default entry anywhere -- must fall back to the placeholder box, not error")
 		assert_true(not slot._sprite_rect.visible, "the sprite layer must stay hidden with no frames to show")
 
 		screen.free()
+		GameData.COMBAT_VISUALS = original_combat_visuals
 	)
 
 	run_case("stage_slot_shows_territorial_scrappers_real_manifest_idle_animation", func():
