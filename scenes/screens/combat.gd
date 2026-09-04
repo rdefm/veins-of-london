@@ -64,41 +64,33 @@ const STAGE_BORDER_WIDTH := 2.0
 # drift apart.
 const STAGE_DEFAULT_FILL := Color(0.07, 0.07, 0.09)
 
-# Near/far diagonal fan (§2.2 refinement): the front slot is large and
-# foreground; the other two are smaller and staggered behind it, not laid
-# out flat left-to-right. Sized as a fraction of whichever column they're
-# in -- tuned for the tall, narrow (roughly half-stage-width, full-stage-
-# height) columns the left/right split above produces, not the original
-# wide-short bands.
+# combat-presentation ticket 15 (fan positioning fix), second pass --
+# human-flagged follow-up over the first pass's front/back-left/back-right
+# split (which staggered the two back slots up near the column's top edge,
+# in two different directions either side of the front slot). Human's own
+# description of the wanted look: "first combatant more in the middle,
+# staying near the bottom, additional combatants a bit higher and a bit
+# further to the edge, as though standing a bit behind and to the side of
+# the first" -- "a close descending rugby line", each slot only a bit
+# smaller than the one before it, not a big front/back size jump.
+#
+# _fan_local_rects() now builds a single receding line instead of a
+# symmetric fan: slot 0 (front) is centred near the column's bottom edge at
+# FAN_FRONT_SIZE_RATIO; every slot after it is FAN_STEP_SIZE_SCALE times
+# the previous slot's size, shifted FAN_STEP_OFFSET_RATIO (as a fraction of
+# the column's own size) up and toward the column's own outer edge from
+# the previous slot's position -- so it's their own accumulated line, not
+# a fixed offset from the front. "Outer edge" is which way the line leans:
+# _fan_local_rects() itself always recedes toward local x 0 (this file's
+# own coordinate convention -- see STAGE_WIDTH's comment), and _sync_band()
+# mirrors that horizontally for the enemy column (side == "enemy") so both
+# columns' lines lean away from the centre gap between them, toward their
+# own side of the stage, rather than the enemy line leaning into the
+# player column.
 const FAN_FRONT_SIZE_RATIO := Vector2(0.62, 0.36)
-const FAN_BACK_SIZE_RATIO := Vector2(0.42, 0.24)
-
-# Placement fractions for _fan_local_rects(): how far the two back slots
-# tuck in from the front slot's edges (as a fraction of a back slot's own
-# width), and how far each slot sits from its column's near/far edge (as a
-# fraction of column height). back-right sits slightly lower than back-left
-# purely to read as "behind at a different depth" rather than a mirrored
-# pair -- an arbitrary but deliberate asymmetry, not a bug. _fan_local_rects()
-# itself clamps the resulting x positions to the column's own width, so a
-# narrow column can't push a back slot into the neighbouring column no
-# matter how these fractions are tuned.
-const FAN_BACK_LEFT_TUCK := 0.9
-const FAN_BACK_RIGHT_TUCK := 0.1
 const FAN_FRONT_BOTTOM_MARGIN := 0.03
-# combat-presentation ticket 15 (fan positioning fix): these used to be 0.04/
-# 0.12 -- pinned so close to the column's own top edge that the back slots
-# sat in their own cluster, tens of px clear of the front slot's top edge,
-# with only ~3% of band height between them. On an actual on-device screen
-# (confirmed via screenshot, see .scratch/combat-presentation/issues/
-# 15-fan-positioning-fix.md) that reads as a flat top row plus one unrelated
-# front slot, not a cascading fan -- the diagonal-fan comment above (_fan_
-# local_rects' own "overlapping the front slot's edge") was never actually
-# true at those values. Raised so both back slots genuinely overlap the
-# front slot's own top edge (back-left by a few px, back-right deeper),
-# spread far enough apart from each other to still read as two distinct
-# depths rather than a matched pair.
-const FAN_BACK_LEFT_TOP_MARGIN := 0.40
-const FAN_BACK_RIGHT_TOP_MARGIN := 0.47
+const FAN_STEP_SIZE_SCALE := 0.85
+const FAN_STEP_OFFSET_RATIO := Vector2(0.14, 0.11)
 
 # combat-presentation ticket 03, §2.5: the Dial widget's docked-right column
 # width -- narrow enough to leave the action-card row its space, wide enough
@@ -1518,7 +1510,7 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 			stale.queue_free()
 			pool.erase(key)
 
-	var rects := _fan_local_rects(band_size, display_entries.size())
+	var rects := _fan_local_rects(band_size, display_entries.size(), side == "enemy")
 	# combat-presentation ticket 09: how many display entries so far this
 	# sync share a given template key -- e.g. a 2x/3x Mugger roster, all
 	# resolving to "mugger" -- so the "reused sheet, mirrored/offset per fan
@@ -1612,35 +1604,39 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 		layer.move_child(pool[front_key], layer.get_child_count() - 1)
 
 
-# Local (band-relative) rects for up to 3 fan slots: front is centred and
-# large, near the band's bottom edge (closest to camera); the other two are
-# smaller, staggered near the top, overlapping the front slot's edge the
-# way a fanned hand of cards does -- that's the "staggered behind" look,
-# not a layout bug.
-func _fan_local_rects(band_size: Vector2, count: int) -> Array[Rect2]:
+# Local (band-relative) rects for up to SQUAD_MAX fan slots: a single
+# receding line, not a symmetric fan -- slot 0 (front) is centred and large,
+# near the band's bottom edge (closest to camera); each slot after it is a
+# bit smaller than the one before it (FAN_STEP_SIZE_SCALE), shifted up and
+# toward local x 0 from the *previous* slot's own position (FAN_STEP_
+# OFFSET_RATIO, as a fraction of the column's own size) -- "a close
+# descending rugby line", per the human's own description, not the old
+# front/back-left/back-right fan-out. mirror_x flips the whole line
+# horizontally (local x' = band_size.x - x - width) after computing it, so
+# the enemy column's line (called with mirror_x true) recedes toward its
+# own outer edge instead of leaning into the player column's side of the
+# stage -- see this file's own FAN_STEP_OFFSET_RATIO comment.
+func _fan_local_rects(band_size: Vector2, count: int, mirror_x: bool = false) -> Array[Rect2]:
 	var rects: Array[Rect2] = []
 	if count <= 0:
 		return rects
 
-	var front_size := band_size * FAN_FRONT_SIZE_RATIO
-	var back_size := band_size * FAN_BACK_SIZE_RATIO
-	var front_x := clampf((band_size.x - front_size.x) / 2.0, 0.0, maxf(0.0, band_size.x - front_size.x))
-	var front_pos := Vector2(front_x, band_size.y - front_size.y - band_size.y * FAN_FRONT_BOTTOM_MARGIN)
-	rects.append(Rect2(front_pos, front_size))
+	var size := band_size * FAN_FRONT_SIZE_RATIO
+	var front_x := clampf((band_size.x - size.x) / 2.0, 0.0, maxf(0.0, band_size.x - size.x))
+	var pos := Vector2(front_x, band_size.y - size.y - band_size.y * FAN_FRONT_BOTTOM_MARGIN)
+	rects.append(Rect2(pos, size))
 
-	# Clamped to the column's own width -- the tuck fractions above were
-	# tuned for the old wide-short bands; against the narrower left/right
-	# columns (combat-presentation ticket 10) an untucked position could
-	# otherwise land outside this column entirely, overlapping the
-	# neighbouring one.
-	var max_x: float = maxf(0.0, band_size.x - back_size.x)
-	if count >= 2:
-		var back_left_pos := Vector2(clampf(front_pos.x - back_size.x * FAN_BACK_LEFT_TUCK, 0.0, max_x), band_size.y * FAN_BACK_LEFT_TOP_MARGIN)
-		rects.append(Rect2(back_left_pos, back_size))
+	for i in range(1, count):
+		size *= FAN_STEP_SIZE_SCALE
+		pos = Vector2(
+			clampf(pos.x - band_size.x * FAN_STEP_OFFSET_RATIO.x, 0.0, maxf(0.0, band_size.x - size.x)),
+			maxf(0.0, pos.y - band_size.y * FAN_STEP_OFFSET_RATIO.y),
+		)
+		rects.append(Rect2(pos, size))
 
-	if count >= 3:
-		var back_right_pos := Vector2(clampf(front_pos.x + front_size.x - back_size.x * FAN_BACK_RIGHT_TUCK, 0.0, max_x), band_size.y * FAN_BACK_RIGHT_TOP_MARGIN)
-		rects.append(Rect2(back_right_pos, back_size))
+	if mirror_x:
+		for i in range(rects.size()):
+			rects[i].position.x = band_size.x - rects[i].position.x - rects[i].size.x
 
 	return rects
 

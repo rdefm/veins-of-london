@@ -55,3 +55,31 @@ placeholder/dummy idle sprite itself renders at a small fixed size
 regardless of its slot's box dimensions, so the front/back *size* contrast
 reads weaker than the position contrast does. That's a sprite-scaling
 concern, not a positioning-math one.
+
+**Follow-up (human review, same session):** the first pass above fixed the
+vertical gap but kept the original symmetric front/back-left/back-right
+fan-out (two back slots staggered in opposite directions off a shared
+front/back size split). Human's own description of the wanted look:
+"first combatant more in the middle, staying near the bottom, additional
+combatants a bit higher and a bit further to the edge, as though standing
+a bit behind and to the side of the first" -- "a close descending rugby
+line", each slot only a bit smaller than the one before it, not a big
+front/back size jump.
+
+Replaced the front/back-left/back-right split entirely with a single
+receding line: `_fan_local_rects()` now places slot 0 (front) centred near
+the column's bottom edge, then each subsequent slot `FAN_STEP_SIZE_SCALE`
+(0.85) times the previous slot's size, shifted `FAN_STEP_OFFSET_RATIO`
+(0.14, 0.11 -- as a fraction of the column's own size) up and toward local
+x 0 from the *previous* slot's own position, not a fixed offset from the
+front. Enemy column calls it with `mirror_x = true` (`side == "enemy"` in
+`_sync_band()`) so its line recedes toward its own outer edge instead of
+leaning into the player column's side of the stage.
+
+Re-verified with the same `scripts/debug_combat_fan_screenshot.gd` tool at
+1, 2, and 3 combatants per side -- reads as the requested close diagonal
+line for both columns, front centred/largest, each further-back combatant
+a bit higher, a bit more toward the outer edge, and a bit smaller. Full
+test suite (2079 cases) still green, including the existing
+`fan_layout_is_diagonal_not_a_flat_row` assertions, which hold under the
+new geometry unchanged.
