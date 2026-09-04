@@ -166,6 +166,16 @@ Mirrors systems/ and screens/ 1:1 by filename: `tests/test_<name>.gd` tests `sys
 | make_palette_swatch.py | Renders `data/palette.json` to `data/palette_swatch.png`; re-run after editing the palette |
 | test_pixelize.py | Self-test for the pixelize pipeline (`python3 tools/test_pixelize.py`) — no external test framework |
 
+## tools/quest-editor.html — local quest browser + prose editor
+
+Single static HTML file, open directly in Chrome (no server/build step). Uses the File System
+Access API to open `data/events/`, list every quest JSON, and edit prose fields (`text`, `label`,
+`speaker`, `result_text`) inline while showing `effects`/`on_complete`/`deck`/`pin` read-only.
+Saves by splicing only the edited string literals back into the original file text (via a
+custom position-tracking JSON parser), so untouched keys, values, and formatting are preserved
+byte-for-byte. `test_quest_editor.js` (`node tools/test_quest_editor.js`) unit-tests the parser
+and splice logic against every real file in `data/events/`.
+
 ## docs/*.md and docs/adr/
 
 See CLAUDE.md source-of-truth table for: REFERENCE.md, M0-PORT.md, M1-LONDON.md, M1.5-NETWORK-MAP.md, CONTENT-GUIDE.md, reference/london-orichalchum.html, CONTEXT.md, docs/adr/ (as a category). Not in that table:
