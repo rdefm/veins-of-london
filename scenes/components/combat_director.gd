@@ -21,7 +21,14 @@ extends Control
 # each beat's actor/target fields is ticket 05/06 territory (the "juice
 # layer" and "enemy telegraph"), not this one.
 
-const NORMAL_DURATION := 0.5
+# combat-presentation ticket 17: bumped from the ticket-04 original (0.5) --
+# beats were advancing before a player could read who acted and what
+# happened, especially once the actor's own transform one-shot (attack
+# ~0.4s at data/combat_visuals.json's tuned fps) had finished and the beat
+# was just sitting on its resolved pose. QUICK_DURATION is untouched --
+# it's the deliberate "I don't need to read this" toggle (CombatPacing),
+# not part of this legibility fix.
+const NORMAL_DURATION := 0.9
 const QUICK_DURATION := 0.15
 
 # combat-presentation ticket 05, docs/combat-animation-vision.md §4.1: hit-
