@@ -85,8 +85,20 @@ const FAN_BACK_SIZE_RATIO := Vector2(0.42, 0.24)
 const FAN_BACK_LEFT_TUCK := 0.9
 const FAN_BACK_RIGHT_TUCK := 0.1
 const FAN_FRONT_BOTTOM_MARGIN := 0.03
-const FAN_BACK_LEFT_TOP_MARGIN := 0.04
-const FAN_BACK_RIGHT_TOP_MARGIN := 0.12
+# combat-presentation ticket 15 (fan positioning fix): these used to be 0.04/
+# 0.12 -- pinned so close to the column's own top edge that the back slots
+# sat in their own cluster, tens of px clear of the front slot's top edge,
+# with only ~3% of band height between them. On an actual on-device screen
+# (confirmed via screenshot, see .scratch/combat-presentation/issues/
+# 15-fan-positioning-fix.md) that reads as a flat top row plus one unrelated
+# front slot, not a cascading fan -- the diagonal-fan comment above (_fan_
+# local_rects' own "overlapping the front slot's edge") was never actually
+# true at those values. Raised so both back slots genuinely overlap the
+# front slot's own top edge (back-left by a few px, back-right deeper),
+# spread far enough apart from each other to still read as two distinct
+# depths rather than a matched pair.
+const FAN_BACK_LEFT_TOP_MARGIN := 0.40
+const FAN_BACK_RIGHT_TOP_MARGIN := 0.47
 
 # combat-presentation ticket 03, §2.5: the Dial widget's docked-right column
 # width -- narrow enough to leave the action-card row its space, wide enough
