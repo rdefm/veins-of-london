@@ -87,9 +87,38 @@ const STAGE_DEFAULT_FILL := Color(0.07, 0.07, 0.09)
 # columns' lines lean away from the centre gap between them, toward their
 # own side of the stage, rather than the enemy line leaning into the
 # player column.
-const FAN_FRONT_SIZE_RATIO := Vector2(0.62, 0.36)
-const FAN_FRONT_BOTTOM_MARGIN := 0.03
-const FAN_STEP_SIZE_SCALE := 0.85
+#
+# combat-presentation ticket 16: human-flagged (from an on-device
+# screenshot) that combatants read too small on the stage. Verified via
+# scripts/debug_combat_fan_screenshot.gd (windowed run, real rendered PNGs,
+# same tool ticket 15 built) -- a first attempt that mostly raised the
+# height ratio barely moved the on-screen character at all, which traced
+# back to _load_animation_frames() (~line 1134): every sheet is sliced into
+# frameCount equal-width AtlasTextures, so each keypose texture StageSlot
+# actually renders is near-*square* (e.g. dummy/idle.png's 896x128 sheet
+# sliced 7 ways -> 128x128 frames). _sprite_rect's STRETCH_KEEP_ASPECT_
+# CENTERED then fits that square inside this (portrait) slot rect at
+# `min(slot.width/128, slot.height/128)` -- since the slot is always taller
+# than it is wide here, slot *width* is what actually bounds the rendered
+# character's size, not height, as long as slot height stays >= slot width
+# (true at every ratio below). Extra height beyond that just grows the
+# slot's own empty margin (and the ticket-02 focus-glow box drawn to it),
+# not the character. So this retune leans on FAN_FRONT_SIZE_RATIO.x, not
+# .y: width raised (0.62 -> 0.90, +45%) is what actually reads as a bigger
+# combatant on screen; height (0.36 -> 0.52) only follows along far enough
+# to stay clear of the width-vs-height crossover. FAN_STEP_SIZE_SCALE eased
+# 0.85 -> 0.88 so the receding back slots grow with the front slot instead
+# of shrinking away faster than it grew. FAN_FRONT_BOTTOM_MARGIN trimmed
+# 0.03 -> 0.02 for the extra headroom the taller front slot needs against
+# the column's bottom edge. FAN_STEP_OFFSET_RATIO is unchanged -- it's a
+# fraction of the column's own size, not the slot's, so it doesn't need
+# retuning just because the slots got bigger. Checked against tests/
+# test_combat_screen.gd's existing "fan_slots_never_spill_past_the_stage_
+# or_into_the_neighbouring_column" case (3 enemies + 1 ally, the worst case
+# for both band width and stack depth) -- still holds at these ratios.
+const FAN_FRONT_SIZE_RATIO := Vector2(0.90, 0.52)
+const FAN_FRONT_BOTTOM_MARGIN := 0.02
+const FAN_STEP_SIZE_SCALE := 0.88
 const FAN_STEP_OFFSET_RATIO := Vector2(0.14, 0.11)
 
 # combat-presentation ticket 03, §2.5: the Dial widget's docked-right column
