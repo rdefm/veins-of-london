@@ -15,10 +15,30 @@ func _site(id: String, ore_type: String, tier: String, claimed: bool = false, fa
 	}
 
 
+# Same shape as test_economy.gd's own _seed_vein -- one player vein wired to
+# its site, low growth so its quote stays well under the personal-relation
+# lane's rate (RelationAccrual.LANES), keeping the accrual assertions below simple.
+func _seed_vein(id: String, growth: int, ore_type: String = "life") -> Dictionary:
+	var site := {
+		"id": "site_%s" % id, "district": "shoreditch", "tier": "fair", "oreType": ore_type,
+		"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
+		"hasNaturalVein": false,
+	}
+	var vein := {
+		"id": id, "district": "shoreditch", "oreType": ore_type, "growth": growth,
+		"security": "none", "alarmUpgrades": [], "location": "Test Alley",
+		"claimedOnDay": 1, "siteId": "site_%s" % id, "hospitability": { "tier": "fair", "bonuses": [] },
+		"rampantDays": 0,
+	}
+	GameState.state["world"]["sites"].append(site)
+	GameState.state["player"]["veins"].append(vein)
+	return vein
+
+
 func run() -> void:
 	run_case("complete_trade_sells_via_the_collective_lane_and_credits_cash", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["player"]["orichalchum"]["time"] = 10
 		Economy.adjust_sell_qty("ore_time", 3, 10)
 
@@ -31,7 +51,7 @@ func run() -> void:
 
 	run_case("complete_trade_appends_a_bark_line_to_the_trading_contacts_conversation", func():
 		GameState.reset()
-		GameState.state["contacts"]["nadia"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["nadia"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["player"]["orichalchum"]["emotion"] = 5
 		Economy.adjust_sell_qty("ore_emotion", 2, 5)
 
@@ -45,7 +65,7 @@ func run() -> void:
 
 	run_case("complete_trade_draws_barks_with_no_repeat_until_the_pool_is_exhausted_then_wraps", func():
 		GameState.reset()
-		GameState.state["contacts"]["hakim"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["hakim"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		var pool: Array = GameData.COLLECTIVE_BARKS["hakim"]
 
 		for i in range(pool.size()):
@@ -69,7 +89,7 @@ func run() -> void:
 
 	run_case("complete_trade_is_a_no_op_on_bark_and_message_thread_when_the_cart_is_empty", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 
 		var result := Collective.complete_trade("des")
 
@@ -79,17 +99,53 @@ func run() -> void:
 
 	run_case("des_nadia_and_hakim_trade_at_identical_terms", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
-		GameState.state["contacts"]["nadia"] = { "unlocked": true, "relation": 0 }
-		GameState.state["contacts"]["hakim"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
+		GameState.state["contacts"]["nadia"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
+		GameState.state["contacts"]["hakim"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 
 		for contact_id in ["des", "nadia", "hakim"]:
 			GameState.reset()
-			GameState.state["contacts"][contact_id] = { "unlocked": true, "relation": 0 }
+			GameState.state["contacts"][contact_id] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 			GameState.state["player"]["orichalchum"]["time"] = 10
 			Economy.adjust_sell_qty("ore_time", 3, 10)
 			var result := Collective.complete_trade(contact_id)
 			assert_eq(result["earned"], 99, "%s's door prices identically to the others" % contact_id)
+	)
+
+	# ── 109-collective-vendor-door-personal-relation ────────────────────
+
+	run_case("complete_trade_awards_personal_relation_only_to_the_vendor_traded_through", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Economy.adjust_sell_qty("ore_time", 3, 10)
+
+		Collective.complete_trade("nadia")
+
+		assert_eq(GameState.state["contacts"]["nadia"]["relation"], Collective.VENDOR_TRADE_RELATION_GAIN, "nadia's own relation moves from trading through her door")
+		assert_eq(GameState.state["contacts"]["des"]["relation"], 0, "des's personal relation is untouched by a trade through nadia's door")
+		assert_eq(GameState.state["contacts"]["hakim"]["relation"], 0, "hakim's personal relation is untouched by a trade through nadia's door")
+	)
+
+	run_case("complete_trade_still_feeds_the_collective_faction_relation_meter_unchanged_alongside_the_new_personal_one", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Economy.adjust_sell_qty("ore_time", 3, 10)
+		var faction_progress_before: int = GameState.state["factions"]["collective"]["tradeProgress"]
+
+		Collective.complete_trade("nadia")
+
+		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], faction_progress_before + 99, "the faction meter still accrues the sale's gross, both gains fire from the same trade")
+	)
+
+	run_case("complete_trade_counts_a_toggled_in_vein_sale_toward_the_traded_vendors_personal_relation_too", func():
+		GameState.reset()
+		_seed_vein("v1", 5)
+		Economy.toggle_sell_vein("v1")
+
+		Collective.complete_trade("hakim")
+
+		assert_true(GameState.state["contacts"]["hakim"]["tradeProgress"] > 0, "the cart's vein leg fed hakim's personal meter too, not just the ore/consumable leg")
+		assert_eq(GameState.state["contacts"]["des"]["tradeProgress"], 0, "the vein sale is attributed only to the vendor actually traded through")
 	)
 
 	# ── report_des_site() ──────────────────────────────────────────────

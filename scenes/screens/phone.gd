@@ -583,7 +583,7 @@ func _dial_summary_label(player: Dictionary) -> Control:
 	if movement == null:
 		return UI.label("Dial: Lv%d — no Movement seated (inert)" % dial["level"])
 	var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
-	return UI.label("Dial: Lv%d — %s %s, charge %d/%d" % [dial["level"], m["symbol"], m["name"], int(dial["currentCharge"]), dial["maxCharge"]])
+	return UI.symbol_row(["Dial: Lv%d — " % dial["level"], { "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " %s, charge %d/%d" % [m["name"], int(dial["currentCharge"]), dial["maxCharge"]]])
 
 
 # ── Save/Load (11-phone-os-shell ticket 09) ──────────────────────────

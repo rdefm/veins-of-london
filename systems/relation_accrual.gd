@@ -6,8 +6,11 @@ extends RefCounted
 # (tradeProgress) rather than a flat per-transaction award, so a player can't
 # farm relation with a wall of tiny trades. Archie has no faction -- he *is*
 # the lane -- so his accumulator lives on state.contacts.archie directly.
-# Des, Nadia and Hakim get no personal trickle at all: their lane's trade
-# feeds the Collective faction meter, not them, so no lane below names them.
+#
+# 109-collective-vendor-door-personal-relation: Des, Nadia and Hakim now
+# additionally each get their own personal trickle (on top of, not instead
+# of, the Collective faction meter their door already feeds) -- see
+# Collective.complete_trade()/VeinTrade's contact_id threading.
 
 # lane_id -> { container: top-level state key, id: key within it, rate: £ per
 # +1 relation, dailyCap: int }. "id" doubles as the faction_id/contact_id the
@@ -22,6 +25,15 @@ extends RefCounted
 const LANES := {
 	"collective": { "container": "factions", "id": "collective", "rate": 350, "dailyCap": 5 },
 	"archie": { "container": "contacts", "id": "archie", "rate": 1000, "dailyCap": 2 },
+	# 109-collective-vendor-door-personal-relation: DRAFT rate/cap, pending
+	# human balance sign-off -- same £500/+1, 3/day shape for all three
+	# vendors (their doors already trade at identical terms, spec §5.5/§9.5),
+	# picked as "noticeably slower than the shared Collective meter" rather
+	# than derived from any spec number, since this personal track didn't
+	# exist before this ticket.
+	"des": { "container": "contacts", "id": "des", "rate": 500, "dailyCap": 3 },
+	"nadia": { "container": "contacts", "id": "nadia", "rate": 500, "dailyCap": 3 },
+	"hakim": { "container": "contacts", "id": "hakim", "rate": 500, "dailyCap": 3 },
 }
 
 
@@ -38,6 +50,16 @@ static func accrue_collective(amount: int) -> void:
 
 static func accrue_archie(amount: int) -> void:
 	_accrue("archie", amount)
+
+
+# 109-collective-vendor-door-personal-relation: generic entry point for a
+# vendor's personal trade lane (Collective.complete_trade, VeinTrade.
+# sell_to_faction/transfer_to_faction/buy_from_faction) -- same "no-op for a
+# lane LANES doesn't configure" contract accrue_faction() gives faction
+# lanes, here for contact lanes not named "archie" (his own dedicated
+# accrue_archie() above predates this and stays as-is).
+static func accrue_contact_trade(contact_id: String, amount: int) -> void:
+	_accrue(contact_id, amount)
 
 
 # Reset by TimeSystem.daily_tick() -- every lane's daily award count drops

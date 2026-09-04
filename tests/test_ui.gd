@@ -249,6 +249,76 @@ func run() -> void:
 		section["panel"].free()
 	)
 
+	# Bugfixes ticket 114: symbol_row()/symbol_button() -- the shared
+	# glyph+text composition every ore/recipe "symbol" call site now routes
+	# through instead of interpolating the raw unicode character into a
+	# format string, so SymbolGlyph's font-coverage fallback (ticket 113)
+	# actually runs.
+
+	run_case("symbol_row_renders_a_symbolglyph_for_each_dictionary_part_and_a_label_for_each_string_part", func():
+		var row := UI.symbol_row([{ "symbol": "⧖", "fallback": Callable() }, "Time Pearl: 3"])
+		assert_eq(row.get_child_count(), 2, "one glyph child, one label child")
+		assert_true(row.get_child(0) is SymbolGlyph, "the Dictionary part must render as a SymbolGlyph")
+		assert_true(row.get_child(1) is Label, "the String part must render as a plain Label")
+		assert_eq((row.get_child(1) as Label).text, "Time Pearl: 3")
+		row.free()
+	)
+
+	run_case("symbol_row_wires_the_symbol_and_fallback_onto_the_glyph_child", func():
+		var fallback := func(_t, _c, _col, _r): pass
+		var row := UI.symbol_row([{ "symbol": "⧖", "fallback": fallback }])
+		var glyph := row.get_child(0) as SymbolGlyph
+		assert_eq(glyph.symbol, "⧖")
+		assert_eq(glyph.draw_fallback, fallback)
+		row.free()
+	)
+
+	run_case("symbol_row_muted_option_tints_both_the_label_and_the_glyph_the_muted_grey", func():
+		var row := UI.symbol_row([{ "symbol": "⧖", "fallback": Callable() }, "text"], { "muted": true })
+		var glyph := row.get_child(0) as SymbolGlyph
+		var l := row.get_child(1) as Label
+		var muted := Color(0.541176, 0.541176, 0.541176, 1)
+		assert_eq(glyph.color, muted, "the glyph must be tinted the same muted grey as the label")
+		assert_eq(l.get_theme_color("font_color"), muted)
+		row.free()
+	)
+
+	run_case("symbol_row_heading_size_option_renders_text_parts_at_that_font_size", func():
+		var row := UI.symbol_row(["Site", { "symbol": "⧖", "fallback": Callable() }], { "heading_size": 14 })
+		var l := row.get_child(0) as Label
+		assert_eq(l.get_theme_font_size("font_size"), 14)
+		row.free()
+	)
+
+	run_case("symbol_button_fires_its_callback_on_press", func():
+		var pressed := [false]
+		var b := UI.symbol_button([{ "symbol": "⧖", "fallback": Callable() }, "Time Pearl (3)"], func(): pressed[0] = true)
+		b.pressed.emit()
+		assert_true(pressed[0], "a symbol_button must fire its callback like any other button")
+		b.free()
+	)
+
+	run_case("symbol_button_reserves_real_width_for_its_content_not_just_padding", func():
+		# Same bugfixes-08 failure mode as UI.button()'s own test above --
+		# symbol_button() has no Button.text at all (the content lives inside
+		# an inner row instead), so without an explicit reservation it
+		# collapses to bare style padding.
+		var b := UI.symbol_button([{ "symbol": "⧖", "fallback": Callable() }, "Time Pearl (3)"], func(): pass)
+		var style: StyleBox = preload("res://theme/main_theme.tres").get_stylebox("normal", "Button")
+		var padding_only: float = style.get_minimum_size().x
+		assert_true(b.get_combined_minimum_size().x > padding_only, "must reserve real room for the glyph + text, or it renders blank")
+		b.free()
+	)
+
+	run_case("symbol_button_inner_children_are_mouse_filter_ignore_so_taps_reach_the_button", func():
+		var b := UI.symbol_button([{ "symbol": "⧖", "fallback": Callable() }, "Time Pearl (3)"], func(): pass)
+		var inner := b.get_child(0)
+		assert_eq(inner.mouse_filter, Control.MOUSE_FILTER_IGNORE, "the inner row must not swallow the tap meant for the button")
+		for child in inner.get_children():
+			assert_eq(child.mouse_filter, Control.MOUSE_FILTER_IGNORE, "every glyph/label child must pass taps through to the button")
+		b.free()
+	)
+
 	run_case("tapping_the_header_fires_on_toggle_with_the_new_state", func():
 		# Array, not a bare bool -- see icon_button test above for why a
 		# lambda-captured local can't be mutated directly from the callback.

@@ -79,8 +79,10 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 	var buy_price := Economy.get_faction_buy_price("guild", kind, item_type)
 	var sell_price := Economy.get_faction_sell_price("guild", kind, item_type)
 
+	var fallback: Callable = SymbolGlyph.ore_fallback(item_type) if kind == "ore" else SymbolGlyph.generic_fallback()
+
 	var c := UI.card()
-	c["content"].add_child(UI.heading("%s %s" % [symbol, name], 15))
+	c["content"].add_child(UI.symbol_row([{ "symbol": symbol, "fallback": fallback }, name], { "heading_size": 15 }))
 	c["content"].add_child(UI.label("Buy £%d/u · Sell £%d/u · Have %d" % [buy_price, sell_price, have]))
 
 	# Ticket 66: one shared qty stepper per row, feeding both the Buy and

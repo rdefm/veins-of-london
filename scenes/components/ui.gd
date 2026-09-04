@@ -254,6 +254,97 @@ const MAX_BUTTON_TEXT_WIDTH := 220.0
 const _THEME: Theme = preload("res://theme/main_theme.tres")
 
 
+# Bugfixes ticket 114: the shared glyph+text composition every ore/recipe
+# "symbol" call site now routes through, instead of interpolating the raw
+# unicode character into a Label/Button string the way this file's other
+# helpers do -- SymbolGlyph (ticket 113) needs a real Control per glyph to
+# fall back to a hand-drawn vector shape when the bundled font doesn't cover
+# it, so a symbol can no longer just be one more %s in a format string.
+#
+# `parts`: Array mixing String (plain text, rendered via label()/heading())
+# and Dictionary { "symbol": String, "fallback": Callable (SymbolGlyph.
+# draw_fallback-shaped: fn(target, center, colour, radius) -> void -- see
+# SymbolGlyph.ore_fallback()/generic_fallback()) } (rendered via a
+# SymbolGlyph). `opts`: "heading_size" (int, default 0 = body text at
+# label()'s size; >0 renders text parts via heading() at that size instead,
+# scaling the glyph to match), "muted" (bool, default false = muted_label()'s
+# grey), "sep" (int, default 4, the hbox() separation between parts).
+const SYMBOL_GLYPH_SIZE := 16.0
+const _MUTED_COLOUR := Color(0.541176, 0.541176, 0.541176, 1)
+
+static func symbol_row(parts: Array, opts: Dictionary = {}) -> Control:
+	var heading_size: int = opts.get("heading_size", 0)
+	var muted: bool = opts.get("muted", false)
+	var colour: Color = _MUTED_COLOUR if muted else _THEME.get_color("font_color", "Label")
+	var row := hbox(opts.get("sep", 4))
+	for part in parts:
+		row.add_child(_symbol_part(part, heading_size, colour))
+	return row
+
+
+static func _symbol_part(part: Variant, heading_size: int, colour: Color) -> Control:
+	if part is Dictionary:
+		var glyph := SymbolGlyph.new()
+		glyph.symbol = part.get("symbol", "")
+		glyph.draw_fallback = part.get("fallback", Callable())
+		var glyph_size: float = SYMBOL_GLYPH_SIZE if heading_size <= 0 else float(heading_size) * 1.1
+		glyph.custom_minimum_size = Vector2(glyph_size, glyph_size)
+		glyph.font_size = heading_size if heading_size > 0 else 11
+		glyph.glyph_radius = glyph_size * 0.34
+		glyph.color = colour
+		return glyph
+
+	var text := String(part)
+	if heading_size > 0:
+		var h := heading(text, heading_size)
+		h.add_theme_color_override("font_color", colour)
+		return h
+	var l := label(text)
+	l.add_theme_color_override("font_color", colour)
+	return l
+
+
+# symbol_row()'s button counterpart -- for the many call sites (bag_drawer.gd's
+# Dial/Complication rows, guild_marketplace.gd's buy/sell rows) that pair a
+# symbol glyph with a tap action rather than a static label. Structured like
+# map_bubble.gd's own _build_icon_label_button (an inner MOUSE_FILTER_IGNORE
+# row so every child passes taps through to the Button itself), but with an
+# explicit custom_minimum_size reservation button()/label() above already
+# carry for exactly this reason (bugfixes tickets 05/08): clip_text drops a
+# Button's own text-driven minimum width entirely, and here there IS no
+# Button.text at all (the text lives inside the inner row instead), so
+# without a reservation the button collapses to bare style padding -- zero
+# real hit/visible area.
+static func symbol_button(parts: Array, callback: Callable) -> Button:
+	var b := Button.new()
+	b.pressed.connect(callback)
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+
+	var inner := hbox(4)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var font_colour: Color = _THEME.get_color("font_color", "Button")
+	for part in parts:
+		var child := _symbol_part(part, 0, font_colour)
+		child.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(child)
+	b.add_child(inner)
+
+	var style := _THEME.get_stylebox("normal", "Button")
+	var font: Font = _THEME.get_font("font", "Button")
+	if font == null:
+		font = ThemeDB.fallback_font
+	var content_width := float(4 * maxi(parts.size() - 1, 0))
+	for part in parts:
+		if part is Dictionary:
+			content_width += SYMBOL_GLYPH_SIZE
+		else:
+			content_width += font.get_string_size(String(part), HORIZONTAL_ALIGNMENT_LEFT, -1, _THEME.default_font_size).x
+	b.custom_minimum_size.x = minf(content_width + style.get_minimum_size().x, MAX_BUTTON_TEXT_WIDTH)
+
+	return b
+
+
 static func option_button(items: Array) -> OptionButton:
 	var o := OptionButton.new()
 	for item in items:

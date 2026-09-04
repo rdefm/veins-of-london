@@ -448,7 +448,12 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 # Symmetric counterpart to execute_faction_purchase — straight sale at the
 # faction's spread-narrowed price, no mugging/cut (that's the Archie lane's
 # execute_sale, unrelated to this one).
-static func execute_faction_sale(faction_id: String, items: Array) -> Dictionary:
+#
+# 109-collective-vendor-door-personal-relation: contact_id ("" for every
+# lane but Collective's) additionally feeds the trading vendor's own
+# personal-relation lane, alongside (not instead of) the faction accrual
+# below -- Collective.complete_trade() is the only caller that passes one.
+static func execute_faction_sale(faction_id: String, items: Array, contact_id: String = "") -> Dictionary:
 	if items.is_empty():
 		return { "ok": false, "reason": "Nothing to sell." }
 
@@ -483,6 +488,8 @@ static func execute_faction_sale(faction_id: String, items: Array) -> Dictionary
 	# collective1-06, spec §8.4: trade feeds the meter that owns the lane --
 	# a no-op for factions RelationAccrual.LANES doesn't configure a rate for.
 	RelationAccrual.accrue_faction(faction_id, total_earned)
+	if contact_id != "":
+		RelationAccrual.accrue_contact_trade(contact_id, total_earned)
 	Objectives.refresh()  # collective1-02: boundary — faction lane completion
 	EventBus.state_changed.emit()
 	return { "ok": true, "earned": total_earned }
@@ -523,7 +530,14 @@ static func execute_faction_sale(faction_id: String, items: Array) -> Dictionary
 # type bought this trade. A rejected purchase (stock ran out from under it
 # between render and Go) just contributes nothing to `earned`, same silent-
 # skip shape a failed vein buy/sell already has here.
-static func sell_to_faction_from_sell_state(faction_id: String) -> Dictionary:
+# 109-collective-vendor-door-personal-relation: contact_id ("" for every
+# caller but Collective.complete_trade) rides along to every leg below
+# (item sale, vein sold, vein bought) so a trade through Des/Nadia/Hakim's
+# door builds that specific vendor's own relation, same "a trade is a
+# trade" reasoning VeinTrade's own accrue_faction calls already use for the
+# faction meter -- see the open question this ticket's issue file called
+# out: decided yes, vein legs count too, not just the ore/consumable cart.
+static func sell_to_faction_from_sell_state(faction_id: String, contact_id: String = "") -> Dictionary:
 	var sell_state: Dictionary = GameState.state["sellState"]
 	var items: Array = []
 
@@ -563,7 +577,7 @@ static func sell_to_faction_from_sell_state(faction_id: String) -> Dictionary:
 
 	var earned := 0
 	if not items.is_empty():
-		var item_result := execute_faction_sale(faction_id, items)
+		var item_result := execute_faction_sale(faction_id, items, contact_id)
 		earned += item_result.get("earned", 0)
 
 	if not buy_ore_items.is_empty():
@@ -573,14 +587,14 @@ static func sell_to_faction_from_sell_state(faction_id: String) -> Dictionary:
 
 	var veins_sold := 0
 	for vein_id in vein_ids:
-		var vein_result := VeinTrade.sell_to_faction(vein_id, faction_id)
+		var vein_result := VeinTrade.sell_to_faction(vein_id, faction_id, null, contact_id)
 		if vein_result.get("ok", false):
 			earned += int(vein_result["price"])
 			veins_sold += 1
 
 	var veins_bought := 0
 	for vein_id in buy_vein_ids:
-		var buy_result := VeinTrade.buy_from_faction(vein_id, faction_id)
+		var buy_result := VeinTrade.buy_from_faction(vein_id, faction_id, contact_id)
 		if buy_result.get("ok", false):
 			earned -= int(buy_result["price"])
 			veins_bought += 1

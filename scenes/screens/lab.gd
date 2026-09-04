@@ -137,13 +137,13 @@ func _build_recipe_card(recipe_key: String) -> Control:
 	var stock: int = Crafting.inventory_qty(recipe_key)
 
 	var c := UI.card()
-	c["content"].add_child(UI.heading("%s %s" % [r["symbol"], r["name"]], 15))
+	c["content"].add_child(UI.symbol_row([{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, r["name"]], { "heading_size": 15 }))
 	c["content"].add_child(UI.label("Can craft" if can_make else "Missing calc"))
 	c["content"].add_child(UI.muted_label(r["description"]))
 	for ingredient in costs:
 		var have: int = player["orichalchum"].get(ingredient, 0)
 		var ore: Dictionary = GameData.ORE_TYPES[ingredient]
-		c["content"].add_child(UI.label("Ingredient: %s %s — %d/%d" % [ore["symbol"], ore["name"], have, costs[ingredient]]))
+		c["content"].add_child(UI.symbol_row(["Ingredient: ", { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ingredient) }, " %s — %d/%d" % [ore["name"], have, costs[ingredient]]]))
 	c["content"].add_child(UI.label("Success: %d%%   Effect: %s   Stock: %d" % [int(round(chance * 100)), str(power), stock]))
 
 	var qty: int = Crafting.get_craft_qty(recipe_key)
@@ -202,7 +202,7 @@ func _known_approaches_sentence() -> String:
 func _build_found_card(recipe_key: String) -> Control:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	var c := UI.card()
-	c["content"].add_child(UI.heading("%s %s" % [r["symbol"], r["name"]], 15))
+	c["content"].add_child(UI.symbol_row([{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, r["name"]], { "heading_size": 15 }))
 	c["content"].add_child(UI.muted_label(r["description"]))
 	var types: Array = r["discovery"]["types"]
 	c["content"].add_child(UI.button("View", func(): BenchNav.open_pairing_for_types(types)))
@@ -238,17 +238,17 @@ func _build_picker() -> void:
 
 
 func _build_type_row(type_id: String) -> Control:
-	return UI.button(_picker_row_text(type_id), func(): BenchNav.select_type(type_id))
+	return UI.symbol_button(_picker_row_parts(type_id), func(): BenchNav.select_type(type_id))
 
 
-func _picker_row_text(type_id: String) -> String:
+func _picker_row_parts(type_id: String) -> Array:
 	var symbol: String = GameData.ORE_TYPES[type_id]["symbol"]
 	var held: int = GameState.state["player"]["orichalchum"].get(type_id, 0)
-	var text := "%s %s — %d held" % [symbol, type_id.capitalize(), held]
+	var text := " %s — %d held" % [type_id.capitalize(), held]
 	var selected: Array = GameState.state["benchNav"]["types"]
 	if selected.has(type_id):
 		text += " (selected)"
-	return text
+	return [{ "symbol": symbol, "fallback": SymbolGlyph.ore_fallback(type_id) }, text]
 
 
 func _picker_selection_summary(selected: Array) -> String:
@@ -321,7 +321,7 @@ func _build_approach_row(types: Array, approach_id: String) -> Control:
 			var recipe_key := Bench.find_recipe_for_cell(types, approach_id)
 			var r: Dictionary = GameData.RECIPES[recipe_key]
 			var tier := Bench.refine_tier_target(types, approach_id)
-			c["content"].add_child(UI.label("%s %s · refine to tier %d" % [r["symbol"], r["name"], tier]))
+			c["content"].add_child(UI.symbol_row([{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s · refine to tier %d" % [r["name"], tier]]))
 		_:
 			pass  # untried: no subtitle at all
 
@@ -406,7 +406,7 @@ func _build_result() -> void:
 		result = {}
 
 	_content.add_child(UI.heading(_result_heading(result.get("outcome", ""))))
-	_content.add_child(UI.label(_result_prose(result, types, approach)))
+	_content.add_child(UI.symbol_row(_result_prose_parts(result, types, approach)))
 	_content.add_child(UI.button("Done", func(): BenchNav.open_pairing()))
 
 
@@ -431,15 +431,19 @@ func _result_heading(outcome: String) -> String:
 			return ""
 
 
-func _result_prose(result: Dictionary, types: Array, approach: String) -> String:
+# Returns UI.symbol_row()-shaped parts rather than a plain String -- the
+# "found" outcome's payoff line leads with the recipe's symbol (bugfixes
+# ticket 114), which needs a real SymbolGlyph part, not a %s in a format
+# string. Every other outcome is plain prose, so it's just a 1-element Array.
+func _result_prose_parts(result: Dictionary, types: Array, approach: String) -> Array:
 	match result.get("outcome", ""):
 		"found":
 			var r: Dictionary = GameData.RECIPES[result["recipeKey"]]
-			return "%s %s. %s Craftable now." % [r["symbol"], r["name"], r["description"]]
+			return [{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s. %s Craftable now." % [r["name"], r["description"]]]
 		"hot":
-			return "Something's in there. It didn't come out this time."
+			return ["Something's in there. It didn't come out this time."]
 		"inert":
-			return "Nothing in it. Never was."
+			return ["Nothing in it. Never was."]
 		"refined":
 			var recipe_key := Bench.find_recipe_for_cell(types, approach)
 			var r: Dictionary = GameData.RECIPES[recipe_key]
@@ -447,12 +451,12 @@ func _result_prose(result: Dictionary, types: Array, approach: String) -> String
 			var new_tier: int = Bench.get_cell(types, approach)["refine"]
 			var new_value: Variant = Bench.refined_value(recipe_key, types, approach, skill)
 			var old_value: Variant = Bench.value_at_refine_tier(recipe_key, new_tier - 1, skill)
-			return "%s, tier %d now. %s → %s." % [r["name"], new_tier, str(old_value), str(new_value)]
+			return ["%s, tier %d now. %s → %s." % [r["name"], new_tier, str(old_value), str(new_value)]]
 		"refine_failed":
 			var tier: int = Bench.get_cell(types, approach)["refine"]
-			return "No improvement this time. Still tier %d." % tier
+			return ["No improvement this time. Still tier %d." % tier]
 		_:
-			return ""
+			return [""]
 
 
 # ── bench notes (ticket 09, M3 §8.5) ─────────────────────────────────

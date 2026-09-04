@@ -134,7 +134,7 @@ func run() -> void:
 
 	run_case("faction_sell_menu_prices_via_the_faction_lane_not_archies_cut", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["player"]["orichalchum"]["time"] = 10
 		Economy.adjust_sell_qty("ore_time", 3, 10)
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
@@ -151,7 +151,7 @@ func run() -> void:
 
 	run_case("faction_sell_menu_go_button_sells_appends_a_bark_and_opens_sale_result", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["player"]["orichalchum"]["time"] = 10
 		Economy.adjust_sell_qty("ore_time", 2, 10)
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
@@ -175,7 +175,7 @@ func run() -> void:
 	# all 14 craftable recipes in hand, all 14 must render as sell rows.
 	run_case("faction_sell_menu_lists_all_fourteen_craftable_recipes_when_held", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["canSellConsumables"] = true
 		for recipe_key in GameData.CONSUMABLE_PRICES.keys():
 			Crafting.inventory_add(recipe_key, 1, 1)
@@ -201,7 +201,7 @@ func run() -> void:
 
 	run_case("both_sell_menu_lanes_render_ore_items_and_assets_section_headers_when_unlocked", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 
 		var archie_layer := ModalLayer.new()
@@ -223,7 +223,7 @@ func run() -> void:
 
 	run_case("assets_section_is_absent_from_both_lanes_when_vein_sale_is_locked", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = false
 
 		var archie_layer := ModalLayer.new()
@@ -333,7 +333,7 @@ func run() -> void:
 
 	run_case("faction_sell_menus_assets_section_lists_every_owned_vein_as_a_toggle_row", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		var vein := _seed_vein("v1", 50)
 		var price: int = VeinTrade.quote(vein)
@@ -351,7 +351,7 @@ func run() -> void:
 
 	run_case("toggling_a_vein_in_the_faction_lane_updates_the_go_label_and_gross", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		var vein := _seed_vein("v1", 50)
 		var price: int = VeinTrade.quote(vein)
@@ -372,7 +372,7 @@ func run() -> void:
 
 	run_case("go_on_the_faction_lane_sells_ore_and_a_toggled_vein_in_one_trade", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		GameState.state["player"]["orichalchum"]["time"] = 10
 		Economy.adjust_sell_qty("ore_time", 2, 10)
@@ -398,7 +398,7 @@ func run() -> void:
 
 	run_case("faction_sell_menus_assets_section_lists_the_factions_own_veins_as_buyable_rows", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		var faction_vein := _seed_faction_vein("fv1", 50)
 		var price: int = VeinTrade.quote(faction_vein)
@@ -431,7 +431,7 @@ func run() -> void:
 
 	run_case("toggling_a_buy_vein_in_the_faction_lane_updates_the_go_label_and_shows_the_net_cost", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		var faction_vein := _seed_faction_vein("fv1", 50)
 		var price: int = VeinTrade.quote(faction_vein)
@@ -450,7 +450,7 @@ func run() -> void:
 
 	run_case("go_on_the_faction_lane_buys_a_toggled_faction_vein", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		var faction_vein := _seed_faction_vein("fv1", 50)
 		var price: int = VeinTrade.quote(faction_vein)
@@ -474,7 +474,7 @@ func run() -> void:
 
 	run_case("go_button_disables_when_a_buy_would_overdraw_cash", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		var faction_vein := _seed_faction_vein("fv1", 50)
 		var price: int = VeinTrade.quote(faction_vein)
@@ -493,7 +493,7 @@ func run() -> void:
 
 	run_case("go_on_the_faction_lane_nets_a_sold_vein_and_a_bought_vein_in_one_trade", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		var sell_vein := _seed_vein("v1", 50)
 		var sell_price: int = VeinTrade.quote(sell_vein)
@@ -530,7 +530,7 @@ func run() -> void:
 
 	run_case("faction_sell_menu_ore_section_shows_a_buy_row_for_every_ore_type_priced_via_get_faction_buy_price", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["factions"]["collective"]["oreStock"] = { "time": 8, "physics": 8, "life": 8, "fate": 8, "emotion": 8 }
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
 
@@ -548,7 +548,7 @@ func run() -> void:
 
 	run_case("faction_sell_menus_buy_ore_rows_show_sold_out_with_no_stepper_when_stock_is_zero", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["factions"]["collective"]["oreStock"] = { "time": 0, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
 
@@ -567,7 +567,7 @@ func run() -> void:
 
 	run_case("go_on_the_faction_lane_buys_ore_from_collective_stock_and_debits_the_shared_pool", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["player"]["cash"] = 100000
 		var cash_before: int = GameState.state["player"]["cash"]
 		GameState.state["factions"]["collective"]["oreStock"] = { "time": 10, "physics": 10, "life": 10, "fate": 10, "emotion": 10 }
@@ -592,8 +592,8 @@ func run() -> void:
 
 	run_case("the_collectives_ore_stock_is_the_same_shared_pool_regardless_of_which_contact_opened_the_modal", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
-		GameState.state["contacts"]["hakim"] = { "unlocked": true, "relation": 0 }
+		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
+		GameState.state["contacts"]["hakim"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["player"]["cash"] = 100000
 		GameState.state["factions"]["collective"]["oreStock"] = { "time": 10, "physics": 10, "life": 10, "fate": 10, "emotion": 10 }
 		GameState.state["sellState"]["buyOre_time"] = 4

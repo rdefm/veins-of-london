@@ -591,6 +591,27 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 100 + 33, "cash increased by the Collective's own sell price")
 	)
 
+	# ── 109-collective-vendor-door-personal-relation: contact_id threading ──
+
+	run_case("execute_faction_sale_also_feeds_the_named_vendors_own_personal_relation_lane", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 1
+
+		Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 1 }], "des")
+
+		assert_eq(GameState.state["contacts"]["des"]["tradeProgress"], 33, "des's personal lane accrues the sale's gross, same as the faction lane")
+		assert_eq(GameState.state["contacts"]["nadia"]["tradeProgress"], 0, "not nadia's")
+	)
+
+	run_case("execute_faction_sale_leaves_every_personal_relation_lane_untouched_when_no_contact_id_is_given", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 1
+
+		Economy.execute_faction_sale("collective", [{ "kind": "ore", "type": "time", "qty": 1 }])
+
+		assert_eq(GameState.state["contacts"]["des"]["tradeProgress"], 0, "no vendor door was involved (e.g. Firm/Guild/Network/Conclave have no personal contact at all), so no personal lane moves")
+	)
+
 	# ── collective-ore-stock T02: buying calc from the Collective is gated
 	# by ticket 01's oreStock, on top of (not instead of) cash ─────────────
 
@@ -675,6 +696,21 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 40 + 99, "cash credited at the faction price")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "ore deducted")
 		assert_eq(GameState.state["sellState"], {}, "sellState cleared after selling")
+	)
+
+	run_case("sell_to_faction_from_sell_state_passes_its_own_contact_id_through_to_every_leg", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 10
+		Economy.adjust_sell_qty("ore_time", 3, 10)
+		var vein := _seed_vein("v1", 5)
+		var vein_price: int = VeinTrade.quote(vein)
+		assert_true(vein_price < 500, "sanity: keep this test under the personal-lane rate")
+		Economy.toggle_sell_vein("v1")
+
+		Economy.sell_to_faction_from_sell_state("collective", "hakim")
+
+		assert_eq(GameState.state["contacts"]["hakim"]["tradeProgress"], 99 + vein_price, "both the ore leg and the vein leg feed hakim's personal lane")
+		assert_eq(GameState.state["contacts"]["nadia"]["tradeProgress"], 0, "not nadia's")
 	)
 
 	run_case("sell_to_faction_from_sell_state_rejects_an_empty_cart", func():

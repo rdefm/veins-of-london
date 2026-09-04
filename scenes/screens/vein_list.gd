@@ -82,7 +82,7 @@ func _build_vein_row(vein: Dictionary) -> Control:
 	var vein_ceiling: int = Cultivating.ceiling(vein)
 	var collapsed: bool = band["id"] == "collapsed"
 
-	c["content"].add_child(UI.heading("%s — %s %s" % [district["name"], ore["symbol"], ore["name"]], 14))
+	c["content"].add_child(UI.symbol_row(["%s — " % district["name"], { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s" % ore["name"]], { "heading_size": 14 }))
 	c["content"].add_child(UI.muted_label("%s terroir · 🔒 %s" % [String(tier).capitalize(), Cultivating.security_label(vein)]))
 
 	c["content"].add_child(UI.muted_label("Growth: %d/%d — %s" % [vein["growth"], vein_ceiling, band["label"]]))

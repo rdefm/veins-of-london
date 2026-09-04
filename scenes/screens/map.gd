@@ -522,7 +522,7 @@ func _build_district_actions(district_id: String) -> Control:
 		# shown alongside plain Travel whenever the player holds one.
 		# PROSE-REVIEW: new button label, drafted against CONTENT-GUIDE.md's tone bible.
 		if Crafting.inventory_qty("wormhole") > 0:
-			row.add_child(UI.button("⊗ Wormhole", func(): Travel.travel_via_wormhole(district_id)))
+			row.add_child(UI.symbol_button([{ "symbol": GameData.RECIPES["wormhole"]["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " Wormhole"], func(): Travel.travel_via_wormhole(district_id)))
 
 	return row
 
@@ -532,7 +532,7 @@ func _build_site_row(site: Dictionary) -> Control:
 	var site_id: String = site["id"]
 
 	var c := UI.card()
-	c["content"].add_child(UI.heading("%s — %s %s" % [String(site["tier"]).capitalize(), ore["symbol"], ore["name"]], 14))
+	c["content"].add_child(UI.symbol_row(["%s — " % String(site["tier"]).capitalize(), { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(site["oreType"]) }, " %s" % ore["name"]], { "heading_size": 14 }))
 	c["content"].add_child(UI.muted_label(_site_claim_state_text(site)))
 
 	var actions := UI.hflow()
@@ -607,7 +607,7 @@ func _build_site_sheet(site_id: String) -> void:
 	scroll.add_child(content)
 
 	var ore: Dictionary = GameData.ORE_TYPES[site["oreType"]]
-	content.add_child(UI.heading("%s — %s %s" % [String(site["tier"]).capitalize(), ore["symbol"], ore["name"]]))
+	content.add_child(UI.symbol_row(["%s — " % String(site["tier"]).capitalize(), { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(site["oreType"]) }, " %s" % ore["name"]], { "heading_size": 20 }))
 	content.add_child(UI.muted_label(_site_claim_state_text(site)))
 
 	var bonuses: Array = site["bonuses"]
@@ -660,7 +660,7 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_
 
 	var c := UI.card()
 	c["content"].add_child(UI.tinted_label(faction["name"], Color(faction["colour"])))
-	c["content"].add_child(UI.muted_label("%s %s — %s" % [ore["symbol"], ore["name"], band["label"]]))
+	c["content"].add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s — %s" % [ore["name"], band["label"]]], { "muted": true }))
 	c["content"].add_child(UI.muted_label("🔒 %s" % Cultivating.security_label(vein)))
 
 	if Contacts.can_assist_raid("archie"):
@@ -750,7 +750,7 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	var at_ceiling: bool = vein["growth"] >= vein_ceiling
 	var collapsed: bool = band["id"] == "collapsed"
 
-	c["content"].add_child(UI.heading("%s %s — %s" % [ore["symbol"], ore["name"], band["label"]], 14))
+	c["content"].add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s — %s" % [ore["name"], band["label"]]], { "heading_size": 14 }))
 	c["content"].add_child(UI.muted_label(vein["location"]))
 	c["content"].add_child(UI.label("🔒 %s" % Cultivating.security_label(vein)))
 

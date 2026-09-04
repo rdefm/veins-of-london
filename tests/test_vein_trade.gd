@@ -293,6 +293,28 @@ func run() -> void:
 		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], 300, "accrual runs off the given price even though no cash changed hands yet")
 	)
 
+	# ── 109-collective-vendor-door-personal-relation: contact_id threading ──
+
+	run_case("transfer_to_faction_also_feeds_the_named_vendors_own_personal_relation_lane", func():
+		GameState.reset()
+		_seed_vein(50, "rich")
+
+		VeinTrade.transfer_to_faction("v1", "collective", 300, true, "nadia")
+
+		assert_eq(GameState.state["contacts"]["nadia"]["tradeProgress"], 300, "nadia's personal lane accrues the given price, same as the faction lane above")
+		assert_eq(GameState.state["contacts"]["des"]["tradeProgress"], 0, "a vein sale through nadia's door doesn't touch des's personal lane")
+		assert_eq(GameState.state["contacts"]["hakim"]["tradeProgress"], 0, "nor hakim's")
+	)
+
+	run_case("transfer_to_faction_leaves_every_personal_relation_lane_untouched_when_no_contact_id_is_given", func():
+		GameState.reset()
+		_seed_vein(50, "rich")
+
+		VeinTrade.transfer_to_faction("v1", "collective", 300, true)
+
+		assert_eq(GameState.state["contacts"]["nadia"]["tradeProgress"], 0, "no vendor door was involved (e.g. Archie fencing a vein, or a forced handback), so no personal lane moves")
+	)
+
 	run_case("transfer_to_faction_count_as_player_sale_false_does_not_stamp_soldByPlayer", func():
 		GameState.reset()
 		_seed_vein(50, "rich")
@@ -323,6 +345,17 @@ func run() -> void:
 
 		assert_eq(result["price"], price)
 		assert_eq(GameState.state["player"]["cash"], cash_before + price, "sell_to_faction's own immediate-payout behaviour is unchanged by the transfer_to_faction split")
+	)
+
+	run_case("sell_to_faction_passes_its_own_contact_id_through_to_the_transfer", func():
+		GameState.reset()
+		_seed_vein(5, "fair")
+		var price: int = VeinTrade.quote(GameState.state["player"]["veins"][0])
+		assert_true(price < 500, "sanity: keep this test under the personal-lane rate")
+
+		VeinTrade.sell_to_faction("v1", "collective", null, "des")
+
+		assert_eq(GameState.state["contacts"]["des"]["tradeProgress"], price, "the fourth contact_id argument reaches transfer_to_faction unchanged")
 	)
 
 	# ── VeinList wiring ──────────────────────────────────────────────────
@@ -448,6 +481,29 @@ func run() -> void:
 		VeinTrade.buy_from_faction(faction_vein["id"], "collective")
 
 		assert_eq(GameState.state["factions"]["collective"]["tradeProgress"], price)
+	)
+
+	run_case("buy_from_faction_also_feeds_the_named_vendors_own_personal_relation_lane", func():
+		GameState.reset()
+		var faction_vein := _faction_seed_vein(5, "fair")
+		GameState.state["player"]["cash"] = 100000
+		var price: int = VeinTrade.quote(faction_vein)
+		assert_true(price < 500, "sanity: keep this test under the personal-lane rate")
+
+		VeinTrade.buy_from_faction(faction_vein["id"], "collective", "hakim")
+
+		assert_eq(GameState.state["contacts"]["hakim"]["tradeProgress"], price, "buying a vein back through hakim's door feeds his own personal lane too")
+		assert_eq(GameState.state["contacts"]["nadia"]["tradeProgress"], 0, "not nadia's")
+	)
+
+	run_case("buy_from_faction_leaves_every_personal_relation_lane_untouched_when_no_contact_id_is_given", func():
+		GameState.reset()
+		var faction_vein := _faction_seed_vein(5, "fair")
+		GameState.state["player"]["cash"] = 100000
+
+		VeinTrade.buy_from_faction(faction_vein["id"], "collective")
+
+		assert_eq(GameState.state["contacts"]["hakim"]["tradeProgress"], 0, "map.gd's direct Buy button has no contact conversation attached")
 	)
 
 	run_case("buy_from_faction_fails_for_an_unknown_vein_id", func():

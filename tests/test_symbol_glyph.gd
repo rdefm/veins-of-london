@@ -98,3 +98,39 @@ func run() -> void:
 		assert_eq(spy.calls_matching("draw_rect").size(), 1)
 		assert_eq(spy.calls_matching("draw_circle").size(), 5)
 	)
+
+	# generic_fallback() -- ticket 114's placeholder for the ~19 recipe/
+	# dial-movement/approach symbols that have no bespoke OreGlyphs shape of
+	# their own (human scope decision, see symbol_glyph.gd's own comment).
+
+	run_case("generic_fallback_draws_a_single_diamond_polygon", func():
+		var spy := DrawSpy.new()
+		var fallback := SymbolGlyph.generic_fallback()
+
+		fallback.call(spy, Vector2(2, 3), Color.WHITE, 5.5)
+
+		assert_eq(spy.calls_matching("draw_colored_polygon").size(), 1, "one filled diamond shape")
+	)
+
+	run_case("generic_fallback_diamond_is_centred_and_sized_from_the_given_radius", func():
+		var spy := DrawSpy.new()
+		var centre := Vector2(10, 10)
+		var radius := 6.0
+
+		SymbolGlyph.generic_fallback().call(spy, centre, Color.WHITE, radius)
+
+		var points: PackedVector2Array = spy.calls_matching("draw_colored_polygon")[0]["args"][0]
+		assert_eq(points.size(), 4, "a diamond has 4 vertices")
+		for p in points:
+			assert_true(absf(p.distance_to(centre) - radius) < 0.001, "every vertex must sit exactly `radius` from centre")
+	)
+
+	run_case("draw_symbol_through_generic_fallback_end_to_end_draws_the_diamond_when_the_font_lacks_the_symbol", func():
+		var spy := DrawSpy.new()
+		var symbol: String = GameData.RECIPES["timePearl"]["symbol"]
+
+		SymbolGlyph.draw_symbol(spy, ThemeDB.fallback_font, Vector2(3, 4), symbol, Color.WHITE, 11, 5.5, SymbolGlyph.generic_fallback())
+
+		assert_eq(spy.calls_matching("draw_string").size(), 0, "uncovered recipe symbol must not draw text")
+		assert_eq(spy.calls_matching("draw_colored_polygon").size(), 1, "falls back to the generic diamond")
+	)

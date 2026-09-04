@@ -44,12 +44,17 @@ static func quote(vein: Dictionary) -> int:
 # is all that objective checks) if the two ever shared an ore type, and
 # misfire col_a1_nadia_done with Nadia's dialogue over a vein she never
 # touched.
-static func sell_to_faction(vein_id: String, faction_id: String, price_override: Variant = null) -> Dictionary:
+# 109-collective-vendor-door-personal-relation: contact_id ("" everywhere
+# but Economy.sell_to_faction_from_sell_state's vendor-door callers) rides
+# through to transfer_to_faction() below, unrelated to price_override/
+# is_handback (Hakim's forced-£0 handback stays contact_id-less -- accrue_
+# contact_trade() is already a no-op at amount 0 regardless).
+static func sell_to_faction(vein_id: String, faction_id: String, price_override: Variant = null, contact_id: String = "") -> Dictionary:
 	var is_handback: bool = price_override != null
 	var vein: Variant = Cultivating.find_vein(vein_id)
 	var price: int = price_override if is_handback else (quote(vein) if vein != null else 0)
 
-	var result := transfer_to_faction(vein_id, faction_id, price, not is_handback)
+	var result := transfer_to_faction(vein_id, faction_id, price, not is_handback, contact_id)
 	if not result.get("ok", false):
 		return result
 
@@ -69,7 +74,7 @@ static func sell_to_faction(vein_id: String, faction_id: String, price_override:
 # contingent on the mugging roll, settled later by Economy.complete_mugged_sale()
 # or the non-mugged branch -- sell_to_faction() above is just this plus an
 # unconditional, immediate cash payout for lanes with no risk attached.
-static func transfer_to_faction(vein_id: String, faction_id: String, price: int, count_as_player_sale: bool) -> Dictionary:
+static func transfer_to_faction(vein_id: String, faction_id: String, price: int, count_as_player_sale: bool, contact_id: String = "") -> Dictionary:
 	var vein: Variant = Cultivating.find_vein(vein_id)
 	if vein == null:
 		return { "ok": false, "reason": "No such vein." }
@@ -98,6 +103,11 @@ static func transfer_to_faction(vein_id: String, faction_id: String, price: int,
 	# relation reflects the trade that happened, not what actually landed
 	# in pocket once a mugging roll settles.
 	RelationAccrual.accrue_faction(faction_id, price)
+	# 109-collective-vendor-door-personal-relation: same "a trade is a
+	# trade" reasoning, for whichever vendor's door this sale went through
+	# ("" -- every non-vendor-door caller -- is a no-op).
+	if contact_id != "":
+		RelationAccrual.accrue_contact_trade(contact_id, price)
 
 	Objectives.refresh()  # collective1-05: boundary — vein sale completion
 	# collective1-12, spec §6.10: content-specific hook, same shape Sites.
@@ -129,7 +139,7 @@ static func transfer_to_faction(vein_id: String, faction_id: String, price: int,
 # -- it's a sale-completion hook (spec §6.10), and buying can never itself
 # complete col_a1_nadia_vein (that objective requires a *live* faction-owned
 # vein with soldByPlayer set; buying always clears site.factionVein instead).
-static func buy_from_faction(vein_id: String, faction_id: String) -> Dictionary:
+static func buy_from_faction(vein_id: String, faction_id: String, contact_id: String = "") -> Dictionary:
 	var site: Variant = _find_site_with_faction_vein(vein_id, faction_id)
 	if site == null:
 		return { "ok": false, "reason": "No such vein." }
@@ -156,6 +166,11 @@ static func buy_from_faction(vein_id: String, faction_id: String) -> Dictionary:
 	# uses -- relation/tradeProgress reflects trade volume with the faction,
 	# regardless of which direction the vein moved.
 	RelationAccrual.accrue_faction(faction_id, price)
+	# 109-collective-vendor-door-personal-relation: ditto, for the vendor
+	# whose door this buy-back went through ("" -- map.gd's direct Buy
+	# button has no contact conversation attached -- is a no-op).
+	if contact_id != "":
+		RelationAccrual.accrue_contact_trade(contact_id, price)
 
 	Objectives.refresh()  # boundary — vein purchase completion
 	EventBus.state_changed.emit()

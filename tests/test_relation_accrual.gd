@@ -128,10 +128,37 @@ func run() -> void:
 
 	run_case("an_unconfigured_lane_id_is_a_no_op", func():
 		GameState.reset()
-		# collective1-06, spec §8.4: Des, Nadia and Hakim's lanes feed the
-		# Collective faction meter, not a personal one -- RelationAccrual has
-		# no lane entry for them, so an unknown lane id must be inert.
-		assert_true(not RelationAccrual.LANES.has("des"), "no personal accrual lane exists for Des")
-		assert_true(not RelationAccrual.LANES.has("nadia"), "no personal accrual lane exists for Nadia")
-		assert_true(not RelationAccrual.LANES.has("hakim"), "no personal accrual lane exists for Hakim")
+		# 109-collective-vendor-door-personal-relation superseded collective1-06's
+		# original "no personal lane for Des/Nadia/Hakim" call -- they each have
+		# one now (below). This case just needs *some* genuinely unconfigured
+		# id to prove the generic dispatch stays inert for one.
+		RelationAccrual.accrue_faction("firm", 10000)
+		assert_eq(GameState.state["factions"]["firm"]["relation"], 0, "firm has no configured lane, so accrue_faction must be a no-op for it")
+	)
+
+	# ── 109-collective-vendor-door-personal-relation ────────────────────
+
+	run_case("des_nadia_and_hakim_each_have_their_own_configured_personal_accrual_lane", func():
+		assert_true(RelationAccrual.LANES.has("des"), "a personal accrual lane exists for Des")
+		assert_true(RelationAccrual.LANES.has("nadia"), "a personal accrual lane exists for Nadia")
+		assert_true(RelationAccrual.LANES.has("hakim"), "a personal accrual lane exists for Hakim")
+	)
+
+	run_case("accrue_contact_trade_moves_only_the_named_vendors_own_relation", func():
+		GameState.reset()
+		# 400 stays under the £500 rate, so it lands whole in tradeProgress
+		# with no point conversion complicating this assertion.
+		RelationAccrual.accrue_contact_trade("nadia", 400)
+
+		assert_eq(GameState.state["contacts"]["nadia"]["tradeProgress"], 400)
+		assert_eq(GameState.state["contacts"]["des"]["tradeProgress"], 0, "des's lane is untouched by nadia's accrual")
+		assert_eq(GameState.state["contacts"]["hakim"]["tradeProgress"], 0, "hakim's lane is untouched by nadia's accrual")
+	)
+
+	run_case("accrue_contact_trade_awards_a_relation_point_once_the_rate_is_crossed", func():
+		GameState.reset()
+		RelationAccrual.accrue_contact_trade("hakim", 500)
+
+		assert_eq(GameState.state["contacts"]["hakim"]["relation"], 1, "£500 crosses the personal lane's £500 rate exactly once")
+		assert_eq(GameState.state["contacts"]["hakim"]["tradeProgress"], 0, "the rate is consumed exactly, nothing left over")
 	)

@@ -109,18 +109,18 @@ func _refresh() -> void:
 	for ore_type in GameData.ORE_TYPES.keys():
 		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
 		var qty: int = player["orichalchum"].get(ore_type, 0)
-		_content.add_child(UI.label("%s %s: %d" % [ore["symbol"], ore["name"], qty]))
+		_content.add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s: %d" % [ore["name"], qty]]))
 
 	_content.add_child(UI.heading("Consumables", 14))
 	for recipe_key in CONSUMABLE_KEYS:
 		var recipe: Dictionary = GameData.RECIPES[recipe_key]
 		var qty: int = Crafting.inventory_qty(recipe_key)
-		_content.add_child(UI.label("%s %s: %d" % [recipe["symbol"], recipe["name"], qty]))
+		_content.add_child(UI.symbol_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s: %d" % [recipe["name"], qty]]))
 
 	# A used-up salve still has a running HoT even once its stock hits 0 --
 	# ported from inventory.gd, same unconditional-on-days-left visibility.
 	if player["healingSalveDaysLeft"] > 0:
-		_content.add_child(UI.muted_label("♥ Healing Salve active — %d HP/day, %d day(s) left" % [player["healingSalveDailyAmount"], player["healingSalveDaysLeft"]]))
+		_content.add_child(UI.symbol_row([{ "symbol": GameData.RECIPES["healingSalve"]["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "Healing Salve active — %d HP/day, %d day(s) left" % [player["healingSalveDailyAmount"], player["healingSalveDaysLeft"]]], { "muted": true }))
 
 	if management:
 		_add_out_of_combat_use_buttons(player)
@@ -163,9 +163,23 @@ func _is_management_mode() -> bool:
 # healingSalve gets its own handler since combat never offered it a button.
 func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
 	if Crafting.inventory_qty("healingSalve") > 0:
-		_content.add_child(UI.button("♥ Healing Salve (%d) — 2-day heal-over-time" % Crafting.inventory_qty("healingSalve"), _on_use_healing_salve))
+		_content.add_child(_symbol_use_button("healingSalve", "Healing Salve (%d) — 2-day heal-over-time" % Crafting.inventory_qty("healingSalve"), _on_use_healing_salve))
 	if Crafting.inventory_qty("healingBurst") > 0:
-		_content.add_child(UI.button("✚ Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
+		_content.add_child(_symbol_use_button("healingBurst", "Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
+
+
+# Bugfixes ticket 114: every combat/out-of-combat "use" button below used to
+# hardcode its recipe's symbol as a second, literal copy of
+# data/recipes.json's own "symbol" field (e.g. "⧖" duplicating
+# RECIPES.timePearl.symbol) directly in the button label string -- which
+# also meant it couldn't route through SymbolGlyph's font-coverage fallback
+# the way a real recipe["symbol"] lookup can. Reading the symbol from
+# GameData instead fixes both: one source of truth, and a real glyph
+# fallback via generic_fallback() (recipes have no bespoke OreGlyphs shape
+# -- see symbol_glyph.gd's own comment).
+func _symbol_use_button(recipe_key: String, rest_text: String, callback: Callable) -> Button:
+	var symbol: String = GameData.RECIPES[recipe_key]["symbol"]
+	return UI.symbol_button([{ "symbol": symbol, "fallback": SymbolGlyph.generic_fallback() }, rest_text], callback)
 
 
 func _on_use_healing_salve() -> void:
@@ -224,11 +238,11 @@ func _build_dial_management(player: Dictionary) -> void:
 	if movement != null:
 		var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
 		var c := UI.card()
-		c["content"].add_child(UI.label("%s %s (seated) — attuned %s, tier %d" % [m["symbol"], m["name"], movement["oreType"], movement["tier"]]))
+		c["content"].add_child(UI.symbol_row([{ "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s (seated) — attuned %s, tier %d" % [m["name"], movement["oreType"], movement["tier"]]]))
 		c["content"].add_child(UI.button("Unseat", func(): Dial.unseat_movement()))
 		var cost: int = Dial.winding_cost_per_charge(movement["archetype"], movement["tier"])
 		var have: int = player["orichalchum"].get(movement["oreType"], 0)
-		var wind_button := UI.button("Wind +1 (%d %s)" % [cost, GameData.ORE_TYPES[movement["oreType"]]["symbol"]], func(): Dial.wind(1))
+		var wind_button := UI.symbol_button(["Wind +1 (%d " % cost, { "symbol": GameData.ORE_TYPES[movement["oreType"]]["symbol"], "fallback": SymbolGlyph.ore_fallback(movement["oreType"]) }, ")"], func(): Dial.wind(1))
 		wind_button.disabled = dial["currentCharge"] >= dial["maxCharge"] or have < cost
 		c["content"].add_child(wind_button)
 		_content.add_child(c["panel"])
@@ -241,7 +255,7 @@ func _build_dial_management(player: Dictionary) -> void:
 		var md: Dictionary = GameData.DIAL_MOVEMENTS[inv_movement["archetype"]]
 		var captured_index: int = i
 		var c := UI.card()
-		c["content"].add_child(UI.label("%s %s — attuned %s, tier %d" % [md["symbol"], md["name"], inv_movement["oreType"], inv_movement["tier"]]))
+		c["content"].add_child(UI.symbol_row([{ "symbol": md["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — attuned %s, tier %d" % [md["name"], inv_movement["oreType"], inv_movement["tier"]]]))
 		c["content"].add_child(UI.button("Seat", func(): Dial.seat_movement(captured_index)))
 		_content.add_child(c["panel"])
 
@@ -255,7 +269,7 @@ func _build_dial_management(player: Dictionary) -> void:
 			var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
 			var captured_index: int = i
 			var c := UI.card()
-			c["content"].add_child(UI.label("%s %s — tier %d (cost %d)" % [recipe["symbol"], recipe["name"], entry["tier"], entry["capacityCost"]]))
+			c["content"].add_child(UI.symbol_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — tier %d (cost %d)" % [recipe["name"], entry["tier"], entry["capacityCost"]]]))
 			c["content"].add_child(UI.button("Unload", func(): Dial.unload_complication(captured_index)))
 			_content.add_child(c["panel"])
 
@@ -270,7 +284,7 @@ func _build_dial_management(player: Dictionary) -> void:
 			any_loadable = true
 			var captured_key: String = recipe_key
 			var captured_tier: int = int(tier_key)
-			var load_button := UI.button("%s %s tier %s (%d) — cost %d" % [recipe["symbol"], recipe["name"], tier_key, buckets[tier_key], recipe["capacityCost"]], func(): Dial.load_complication(captured_key, captured_tier))
+			var load_button := UI.symbol_button([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s tier %s (%d) — cost %d" % [recipe["name"], tier_key, buckets[tier_key], recipe["capacityCost"]]], func(): Dial.load_complication(captured_key, captured_tier))
 			load_button.disabled = Dial.capacity_used(dial) + int(recipe["capacityCost"]) > dial["capacityMax"]
 			_content.add_child(load_button)
 	if not any_loadable:
@@ -298,7 +312,7 @@ func _build_dial_summary_label(player: Dictionary) -> Control:
 	if movement == null:
 		return UI.label("Dial: Lv%d — no Movement seated (inert)" % dial["level"])
 	var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
-	return UI.label("Dial: Lv%d — %s %s, charge %d/%d" % [dial["level"], m["symbol"], m["name"], int(dial["currentCharge"]), dial["maxCharge"]])
+	return UI.symbol_row(["Dial: Lv%d — " % dial["level"], { "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " %s, charge %d/%d" % [m["name"], int(dial["currentCharge"]), dial["maxCharge"]]])
 
 
 # Ported from modal_layer.gd's former _build_combat_items — same legal-use
@@ -306,41 +320,41 @@ func _build_dial_summary_label(player: Dictionary) -> Control:
 # that modal (D4.4).
 func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 	if Crafting.inventory_qty("timePearl") > 0:
-		_content.add_child(UI.button("⧖ Time Pearl (%d) — freeze enemy" % Crafting.inventory_qty("timePearl"), _on_use_time_pearl))
+		_content.add_child(_symbol_use_button("timePearl", "Time Pearl (%d) — freeze enemy" % Crafting.inventory_qty("timePearl"), _on_use_time_pearl))
 
 	if Crafting.inventory_qty("enhancementPowder") > 0:
-		_content.add_child(UI.button("↯ Enhancement Powder (%d) — extra attacks" % Crafting.inventory_qty("enhancementPowder"), _on_use_enhancement_powder))
+		_content.add_child(_symbol_use_button("enhancementPowder", "Enhancement Powder (%d) — extra attacks" % Crafting.inventory_qty("enhancementPowder"), _on_use_enhancement_powder))
 
 	# calc-effect-wiring-02: blast/shield/blackHole/healingBurst.
 	# PROSE-REVIEW: new button labels below, drafted against CONTENT-GUIDE.md's tone bible.
 	if Crafting.inventory_qty("blast") > 0:
-		_content.add_child(UI.button("☄ Blast (%d) — damage, flee boost, chance to disarm" % Crafting.inventory_qty("blast"), _on_use_blast))
+		_content.add_child(_symbol_use_button("blast", "Blast (%d) — damage, flee boost, chance to disarm" % Crafting.inventory_qty("blast"), _on_use_blast))
 
 	if Crafting.inventory_qty("shield") > 0:
-		var shield_button := UI.button("⛨ Shield (%d) — absorb incoming damage" % Crafting.inventory_qty("shield"), _on_use_shield)
+		var shield_button := _symbol_use_button("shield", "Shield (%d) — absorb incoming damage" % Crafting.inventory_qty("shield"), _on_use_shield)
 		shield_button.disabled = player["shieldPool"] > 0
 		_content.add_child(shield_button)
 
 	if Crafting.inventory_qty("blackHole") > 0:
-		_content.add_child(UI.button("⊙ Black Hole (%d) — damage and freeze" % Crafting.inventory_qty("blackHole"), _on_use_black_hole))
+		_content.add_child(_symbol_use_button("blackHole", "Black Hole (%d) — damage and freeze" % Crafting.inventory_qty("blackHole"), _on_use_black_hole))
 
 	if Crafting.inventory_qty("healingBurst") > 0:
-		_content.add_child(UI.button("✚ Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
+		_content.add_child(_symbol_use_button("healingBurst", "Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
 
 	# calc-effect-wiring-03: prophetsBreath/wormhole (combat evade buff /
 	# guaranteed flee). failsafe has no button here -- see CONSUMABLE_KEYS'
 	# comment.
 	# PROSE-REVIEW: new button labels below, drafted against CONTENT-GUIDE.md's tone bible.
 	if Crafting.inventory_qty("prophetsBreath") > 0:
-		_content.add_child(UI.button("≋ Prophet's Breath (%d) — evade buff" % Crafting.inventory_qty("prophetsBreath"), _on_use_prophets_breath))
+		_content.add_child(_symbol_use_button("prophetsBreath", "Prophet's Breath (%d) — evade buff" % Crafting.inventory_qty("prophetsBreath"), _on_use_prophets_breath))
 
 	if Crafting.inventory_qty("wormhole") > 0:
-		_content.add_child(UI.button("⊗ Wormhole (%d) — guaranteed flee" % Crafting.inventory_qty("wormhole"), _on_use_wormhole))
+		_content.add_child(_symbol_use_button("wormhole", "Wormhole (%d) — guaranteed flee" % Crafting.inventory_qty("wormhole"), _on_use_wormhole))
 
 	var snap_count: int = combat["snapshots"].size()
 	if Crafting.inventory_qty("rewind") > 0:
 		var rewind_label := "(%d turn(s) back · +50%% evade x2 turns)" % snap_count if snap_count > 0 else "(nothing to undo yet)"
-		var rewind_button := UI.button("⟲ Rewind (%d) — %s" % [Crafting.inventory_qty("rewind"), rewind_label], _on_use_rewind)
+		var rewind_button := _symbol_use_button("rewind", "Rewind (%d) — %s" % [Crafting.inventory_qty("rewind"), rewind_label], _on_use_rewind)
 		rewind_button.disabled = snap_count == 0
 		_content.add_child(rewind_button)
 

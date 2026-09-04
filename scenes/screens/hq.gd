@@ -134,7 +134,7 @@ func _build_stored_ore_card() -> Control:
 			continue
 		any_ore = true
 		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
-		c["content"].add_child(UI.label("%s %s — %d" % [ore["symbol"], ore["name"], qty]))
+		c["content"].add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s — %d" % [ore["name"], qty]]))
 	if not any_ore:
 		c["content"].add_child(UI.muted_label("None in stock."))
 	# PROSE-REVIEW: new flavour text, tone bible per docs/CONTENT-GUIDE.md.

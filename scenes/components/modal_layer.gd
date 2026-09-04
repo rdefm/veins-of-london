@@ -316,7 +316,7 @@ func _build_sell_menu() -> void:
 		var key := "ore_%s" % ore_type
 		var qty: int = sell_state.get(key, 0)
 		gross += ore["basePrice"] * qty
-		ore_rows.append(_build_sell_row("%s %s (£%d/u, have %d)" % [ore["symbol"], ore["name"], ore["basePrice"], have], key, qty, have))
+		ore_rows.append(_build_sell_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s (£%d/u, have %d)" % [ore["name"], ore["basePrice"], have]], key, qty, have))
 
 	# ticket 64: one sell row per (recipe, tier) with stock -- price now
 	# scales by quality tier (Economy.quality_price_multiplier), so tiers of
@@ -338,7 +338,7 @@ func _build_sell_menu() -> void:
 				var qty: int = sell_state.get(key, 0)
 				gross += price * qty
 				var tier_label := "untiered" if tier <= 0 else "tier %d" % tier
-				item_rows.append(_build_sell_row("%s %s (%s, £%d/ea, have %d)" % [recipe["symbol"], recipe["name"], tier_label, price, have], key, qty, have))
+				item_rows.append(_build_sell_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s (%s, £%d/ea, have %d)" % [recipe["name"], tier_label, price, have]], key, qty, have))
 
 	# vein-trade-assets ticket 02: Archie's Assets section goes live -- same
 	# 0/1 toggle rows the faction lane's Assets section uses below, priced at
@@ -357,8 +357,8 @@ func _build_sell_menu() -> void:
 				veins_selected += 1
 			var vein_ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 			var vein_district: Dictionary = GameData.DISTRICTS[vein["district"]]
-			var vein_label := "%s — %s %s (£%d)" % [vein_district["name"], vein_ore["symbol"], vein_ore["name"], vein_price]
-			asset_rows.append(_build_sell_vein_row(vein_label, vein["id"], selected))
+			var vein_parts := ["%s — " % vein_district["name"], { "symbol": vein_ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s (£%d)" % [vein_ore["name"], vein_price]]
+			asset_rows.append(_build_sell_vein_row(vein_parts, vein["id"], selected))
 
 	_build_sell_sections(ore_rows, item_rows, asset_rows)
 
@@ -410,7 +410,7 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 		var qty: int = sell_state.get(key, 0)
 		var price := Economy.get_faction_sell_price(faction_id, "ore", ore_type)
 		gross += price * qty
-		ore_rows.append(_build_sell_row("%s %s (£%d/u, have %d)" % [ore["symbol"], ore["name"], price, have], key, qty, have))
+		ore_rows.append(_build_sell_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s (£%d/u, have %d)" % [ore["name"], price, have]], key, qty, have))
 
 	# collective-ore-stock T02: the buy side of the same Ore section --
 	# priced via the existing get_faction_buy_price (unchanged formula), qty
@@ -431,7 +431,7 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 		if buy_qty > 0:
 			buy_cost += buy_price * buy_qty
 			ore_bought += buy_qty
-		ore_rows.append(_build_buy_ore_row("Buy: %s %s (£%d/u, stock %d)" % [ore["symbol"], ore["name"], buy_price, stock], buy_key, buy_qty, buy_max))
+		ore_rows.append(_build_buy_ore_row(["Buy: ", { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, " %s (£%d/u, stock %d)" % [ore["name"], buy_price, stock]], buy_key, buy_qty, buy_max))
 
 	if GameState.state["flags"]["canSellConsumables"]:
 		for recipe_key in GameData.CONSUMABLE_PRICES.keys():
@@ -448,7 +448,7 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 				var qty: int = sell_state.get(key, 0)
 				gross += price * qty
 				var tier_label := "untiered" if int(tier_key) <= 0 else "tier %d" % int(tier_key)
-				item_rows.append(_build_sell_row("%s %s (%s, £%d/ea, have %d)" % [recipe["symbol"], recipe["name"], tier_label, price, have], key, qty, have))
+				item_rows.append(_build_sell_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s (%s, £%d/ea, have %d)" % [recipe["name"], tier_label, price, have]], key, qty, have))
 
 	# vein-trade-assets ticket 01, spec: the faction lane's Assets section --
 	# every player-owned vein as a 0/1 include/exclude row (not a +/- stepper,
@@ -469,8 +469,8 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 				veins_selected += 1
 			var vein_ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 			var vein_district: Dictionary = GameData.DISTRICTS[vein["district"]]
-			var vein_label := "%s — %s %s (£%d)" % [vein_district["name"], vein_ore["symbol"], vein_ore["name"], vein_price]
-			asset_rows.append(_build_sell_vein_row(vein_label, vein["id"], selected))
+			var vein_parts := ["%s — " % vein_district["name"], { "symbol": vein_ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s (£%d)" % [vein_ore["name"], vein_price]]
+			asset_rows.append(_build_sell_vein_row(vein_parts, vein["id"], selected))
 
 		# vein-trade-assets ticket 03: the reverse row -- this faction's own
 		# site veins, buyable straight at VeinTrade.quote(), same 0/1 toggle,
@@ -487,8 +487,8 @@ func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
 				veins_bought += 1
 			var buy_ore: Dictionary = GameData.ORE_TYPES[faction_vein["oreType"]]
 			var buy_district: Dictionary = GameData.DISTRICTS[faction_vein["district"]]
-			var buy_label := "Buy: %s — %s %s (£%d)" % [buy_district["name"], buy_ore["symbol"], buy_ore["name"], buy_price]
-			asset_rows.append(_build_buy_vein_row(buy_label, faction_vein["id"], buy_selected))
+			var buy_parts := ["Buy: %s — " % buy_district["name"], { "symbol": buy_ore["symbol"], "fallback": SymbolGlyph.ore_fallback(faction_vein["oreType"]) }, " %s (£%d)" % [buy_ore["name"], buy_price]]
+			asset_rows.append(_build_buy_vein_row(buy_parts, faction_vein["id"], buy_selected))
 
 	_build_sell_sections(ore_rows, item_rows, asset_rows)
 
@@ -551,24 +551,26 @@ func _build_sell_sections(ore_rows: Array, item_rows: Array, asset_rows: Array) 
 
 
 # The faction lane's Assets row: a 0/1 toggle (Economy.toggle_sell_vein), not
-# _build_sell_row's -/+ stepper -- a vein isn't stackable.
-func _build_sell_vein_row(label_text: String, vein_id: String, selected: bool) -> Control:
+# _build_sell_row's -/+ stepper -- a vein isn't stackable. `parts`: same
+# UI.symbol_row()-shaped Array every caller here now builds (bugfixes ticket
+# 114), since every row this function renders pairs an ore symbol with text.
+func _build_sell_vein_row(parts: Array, vein_id: String, selected: bool) -> Control:
 	var row := UI.hbox(6)
 	row.add_child(UI.button("☑" if selected else "☐", func(): Economy.toggle_sell_vein(vein_id)))
-	var text_label := UI.label(label_text)
-	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(text_label)
+	var text_row := UI.symbol_row(parts)
+	text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text_row)
 	return row
 
 
 # vein-trade-assets ticket 03: the buy-side counterpart -- same 0/1 toggle
 # shape, wired to Economy.toggle_buy_vein() instead.
-func _build_buy_vein_row(label_text: String, vein_id: String, selected: bool) -> Control:
+func _build_buy_vein_row(parts: Array, vein_id: String, selected: bool) -> Control:
 	var row := UI.hbox(6)
 	row.add_child(UI.button("☑" if selected else "☐", func(): Economy.toggle_buy_vein(vein_id)))
-	var text_label := UI.label(label_text)
-	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(text_label)
+	var text_row := UI.symbol_row(parts)
+	text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text_row)
 	return row
 
 
@@ -577,11 +579,11 @@ func _build_buy_vein_row(label_text: String, vein_id: String, selected: bool) ->
 # "buyOre_<type>" key is just another sellState cart slot), except when
 # max_qty is 0 (stock exhausted) it renders "Sold out" with no steppers at
 # all, rather than a stepper that silently refuses to move past 0.
-func _build_buy_ore_row(label_text: String, key: String, qty: int, max_qty: int) -> Control:
+func _build_buy_ore_row(parts: Array, key: String, qty: int, max_qty: int) -> Control:
 	var row := UI.hbox()
-	var text_label := UI.label(label_text)
-	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(text_label)
+	var text_row := UI.symbol_row(parts)
+	text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text_row)
 	if max_qty <= 0:
 		row.add_child(UI.muted_label("Sold out"))
 		return row
@@ -591,15 +593,15 @@ func _build_buy_ore_row(label_text: String, key: String, qty: int, max_qty: int)
 	return row
 
 
-func _build_sell_row(label_text: String, key: String, qty: int, max_qty: int) -> Control:
+func _build_sell_row(parts: Array, key: String, qty: int, max_qty: int) -> Control:
 	var row := UI.hbox()
-	var text_label := UI.label(label_text)
+	var text_row := UI.symbol_row(parts)
 	# Same fix as UI.message_bubble()/checklist_row(): a non-expand
 	# autowrapping Label's minimum size collapses to ~1px, so without this
 	# it renders as a 1px-wide column with the text overflowing across the
 	# "-"/qty/"+" controls that follow it in this row.
-	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(text_label)
+	text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text_row)
 	# Bugfixes ticket 13: this was "−" (U+2212 MINUS SIGN), the same
 	# invisible-non-ASCII-glyph bug as the map top bar's "☰"/"🎒", and
 	# unlike its "+" sibling it had no fallback text to keep the button
@@ -619,7 +621,7 @@ func _build_james_job_offer(data: Dictionary) -> void:
 		_card_content.add_child(UI.label("Costs 1 time block — £%d flat." % job["pay"]))
 	else:
 		_card_content.add_child(UI.label("\"I need %d %s. Standard rate. Don't take too long about it.\"" % [job["qty"], job["recipeName"]]))
-		_card_content.add_child(UI.label("%s %s ×%d — £%d/ea — total £%d — needed by day %d" % [job["symbol"], job["recipeName"], job["qty"], job["payPerItem"], job["totalPay"], job["byDay"]]))
+		_card_content.add_child(UI.symbol_row([{ "symbol": job["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s ×%d — £%d/ea — total £%d — needed by day %d" % [job["recipeName"], job["qty"], job["payPerItem"], job["totalPay"], job["byDay"]]]))
 	_card_content.add_child(UI.button("Accept", _on_job_accept))
 	_card_content.add_child(UI.button("Decline", _on_job_decline))
 
@@ -666,8 +668,15 @@ func _build_network_reference() -> void:
 	_card_content.add_child(_legend_row("Numeral badge", "Vein level."))
 	_card_content.add_child(_legend_row("Padlock", "Security tier — colour shows how well-warded."))
 	_card_content.add_child(_legend_row("Zone tint", "A faction's presence in the district."))
-	_card_content.add_child(_legend_row("⌂ pin", "Home. Taps through to HQ."))
-	_card_content.add_child(_legend_row("✉ pin", "Someone's waiting on you there."))
+	# These two glyphs (unlike every other legend row here, all plain ASCII
+	# words) are the same "⌂"/"✉" text-glyph tofu bug map_canvas.gd's own
+	# home-pin/quest-pin comments document -- both live pins were already
+	# swapped for Icons.draw_home/draw_phone; this legend text just still
+	# spelled out the retired raw glyphs. Reuses those same two Icons
+	# draw_* funcs as the fallback so the legend entry matches the actual
+	# pin shape rather than a generic placeholder.
+	_card_content.add_child(_legend_glyph_row("⌂", Icons.draw_home, " pin", "Home. Taps through to HQ."))
+	_card_content.add_child(_legend_glyph_row("✉", Icons.draw_phone, " pin", "Someone's waiting on you there."))
 	_card_content.add_child(_legend_row("Padlocked pin", "The Soho market. Not yet."))
 	_card_content.add_child(_legend_row("Amber ring", "Where you are right now."))
 	_card_content.add_child(UI.button("Close", func(): Modal.close()))
@@ -676,6 +685,17 @@ func _build_network_reference() -> void:
 func _legend_row(glyph_label: String, description: String) -> Control:
 	var row := UI.vbox(2)
 	row.add_child(UI.label(glyph_label))
+	row.add_child(UI.muted_label(description))
+	return row
+
+
+# _legend_row()'s counterpart for the two rows whose "glyph" is itself a
+# tofu-prone unicode character (see the call sites' own comment) rather than
+# a plain word describing one -- routes that character through SymbolGlyph
+# instead of a bare Label.
+func _legend_glyph_row(symbol: String, fallback: Callable, suffix_text: String, description: String) -> Control:
+	var row := UI.vbox(2)
+	row.add_child(UI.symbol_row([{ "symbol": symbol, "fallback": fallback }, suffix_text]))
 	row.add_child(UI.muted_label(description))
 	return row
 
@@ -699,7 +719,7 @@ func _build_sell_vein_quote(data: Dictionary) -> void:
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 
 	_card_content.add_child(UI.heading("Sell this vein?"))
-	_card_content.add_child(UI.label("%s %s vein — £%d." % [ore["symbol"], ore["name"], price]))
+	_card_content.add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, "%s vein — £%d." % [ore["name"], price]]))
 	_card_content.add_child(UI.muted_label("It stops being yours. Someone else's line, someone else's cut, from here on."))
 	_card_content.add_child(UI.button("Confirm sale", func(): _on_sell_vein_confirm(vein_id)))
 	_card_content.add_child(UI.button("Cancel", func(): Modal.close()))
@@ -722,7 +742,7 @@ func _build_craft_components_menu() -> void:
 	for archetype in GameData.CANONICAL_MOVEMENT_ARCHETYPES:
 		var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
 		var block := UI.vbox(4)
-		block.add_child(UI.label("%s %s" % [m["symbol"], m["name"]]))
+		block.add_child(UI.symbol_row([{ "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, m["name"]]))
 		block.add_child(UI.muted_label(m.get("description", "")))
 		var captured_archetype: String = archetype
 		block.add_child(UI.button("Craft", func(): Modal.open("movement_craft", { "archetype": captured_archetype })))
@@ -743,14 +763,14 @@ func _build_movement_craft(data: Dictionary) -> void:
 	var cost: int = Dial.movement_calc_cost(archetype, skill)
 	var chance_pct: int = int(round(Dial.movement_craft_chance(archetype, skill) * 100))
 
-	_card_content.add_child(UI.heading("%s %s" % [m["symbol"], m["name"]]))
+	_card_content.add_child(UI.symbol_row([{ "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, m["name"]], { "heading_size": 20 }))
 	_card_content.add_child(UI.muted_label(m.get("description", "")))
 	for ore_type in GameData.ORE_TYPES.keys():
 		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
 		var have: int = player["orichalchum"].get(ore_type, 0)
 		var captured_archetype: String = archetype
 		var captured_ore: String = ore_type
-		var b := UI.button("%s %s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct], func(): _on_movement_craft_pressed(captured_archetype, captured_ore))
+		var b := UI.symbol_button([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s — %d calc, chance %d%%" % [ore["name"], cost, chance_pct]], func(): _on_movement_craft_pressed(captured_archetype, captured_ore))
 		b.disabled = have < cost
 		_card_content.add_child(b)
 	_card_content.add_child(UI.button("Cancel", func(): Modal.close()))

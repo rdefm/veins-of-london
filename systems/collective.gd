@@ -2,18 +2,28 @@ class_name Collective
 extends RefCounted
 
 # collective1-07, spec §5.5/§7.2/§9.5: Des, Nadia and Hakim are three
-# cosmetic doors onto one lane -- identical price and identical relation
-# award, because both are already generic per-faction (systems/economy.gd's
-# execute_faction_sale, systems/relation_accrual.gd's accrue_faction), driven
-# here with faction_id "collective" regardless of which contact's Trade
-# button opened the sell_menu. The only thing that varies by vendor is a
-# flavour line appended to their own conversation on completing a trade
-# (data/collective_barks.json), drawn without repeats until each vendor's
-# pool is exhausted.
+# cosmetic doors onto one lane -- identical price and identical *faction*
+# relation award, because both are already generic per-faction (systems/
+# economy.gd's execute_faction_sale, systems/relation_accrual.gd's
+# accrue_faction), driven here with faction_id "collective" regardless of
+# which contact's Trade button opened the sell_menu. What does vary by
+# vendor: a flavour line appended to their own conversation on completing a
+# trade (data/collective_barks.json), drawn without repeats until each
+# vendor's pool is exhausted -- and, per 109-collective-vendor-door-personal-
+# relation below, that specific vendor's own personal relation.
+
+# 109-collective-vendor-door-personal-relation: DRAFT, pending human balance
+# sign-off -- flat per-trade award to the vendor whose door the trade went
+# through, same "both fire" shape Economy.execute_sale's Archie lane already
+# has (ARCHIE_SALE_RELATION_GAIN flat + RelationAccrual.accrue_archie's
+# tradeProgress meter). Smaller than Archie's +2: three vendors share what
+# would otherwise be one lane's volume, and unlike Archie's cut-and-mugging
+# lane there's no risk here to offset.
+const VENDOR_TRADE_RELATION_GAIN := 1
 
 
 static func complete_trade(contact_id: String) -> Dictionary:
-	var result := Economy.sell_to_faction_from_sell_state("collective")
+	var result := Economy.sell_to_faction_from_sell_state("collective", contact_id)
 	# vein-trade-assets ticket 03: `ok`, not `earned > 0` -- a buy-heavy cart
 	# nets a zero or negative `earned` (cash spent, not credited) even though
 	# a real trade happened. sell_to_faction_from_sell_state() only returns
@@ -22,6 +32,12 @@ static func complete_trade(contact_id: String) -> Dictionary:
 	if result.get("ok", false):
 		Messages.append(contact_id, "them", _next_bark(contact_id))
 		Modal.open("sale_result", { "earned": result["earned"], "gross": result["earned"], "mugged": false })
+		# 109-collective-vendor-door-personal-relation: the flat half of the
+		# "both fire" shape -- accrue_contact_trade's tradeProgress-meter
+		# half already fired (once per item/vein leg) inside
+		# sell_to_faction_from_sell_state() above, keyed on this same
+		# contact_id.
+		Contacts.award_relation(contact_id, VENDOR_TRADE_RELATION_GAIN)
 	return result
 
 

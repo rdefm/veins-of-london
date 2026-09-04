@@ -85,3 +85,20 @@ static func covers(font: Font, symbol: String) -> bool:
 static func ore_fallback(ore_type: String) -> Callable:
 	return func(target: Object, center: Vector2, colour: Color, radius: float) -> void:
 		OreGlyphs.draw(target, center, ore_type, colour, radius)
+
+
+# Ticket 114's sweep found the font gap isn't limited to the 5 ore symbols --
+# every recipe/dial-movement/approach symbol (~19 more, data/recipes.json,
+# data/dial.json, data/approaches.json) is uncovered too, and none of them
+# has bespoke vector art the way OreGlyphs does per ore type. Commissioning
+# ~19 distinct hand-drawn shapes was scoped out of this ticket (human call,
+# 114 planning) in favour of one shared placeholder: a small filled diamond,
+# distinct enough from OreGlyphs' 5 ore silhouettes that a player can still
+# tell "an ore" from "something else" at a glance. Meets the ticket's actual
+# bar -- no blank tofu box -- without per-glyph fidelity.
+static func generic_fallback() -> Callable:
+	return func(target: Object, center: Vector2, colour: Color, radius: float) -> void:
+		target.draw_colored_polygon(PackedVector2Array([
+			center + Vector2(0, -radius), center + Vector2(radius, 0),
+			center + Vector2(0, radius), center + Vector2(-radius, 0),
+		]), colour)
