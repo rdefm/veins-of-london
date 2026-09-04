@@ -42,8 +42,10 @@ static func anchor_bottom_wide(control: Control) -> void:
 # (both visible on any screen not in Main.gd's NAV_HIDDEN_SCREENS /
 # TOP_BAR_HIDDEN_SCREENS lists). For a screen with its own bespoke layout
 # (scroll region + a separately pinned action bar) where UI.screen_body()'s
-# single-scroll skeleton doesn't fit — screen_body() solves the same
-# clearance problem for the common case via margins instead of offsets.
+# single-scroll skeleton doesn't fit — screen_body()'s own ScrollContainer
+# now clips itself the same way (bugfixes ticket 110 — see its own comment
+# for why), so this is only needed when a screen builds a scroll region
+# outside that skeleton.
 # Anything anchored via bare anchor_full_rect() instead of this ends up
 # with content flush against the screen edges, invisible/unreachable under
 # whichever bar is drawn on top (scenes/screens/sms_archie.gd's/
@@ -635,11 +637,29 @@ static func scroll_container() -> ScrollContainer:
 	return sc
 
 
-# Standard screen skeleton: full-rect ScrollContainer > margin > VBoxContainer.
-# Returns the VBoxContainer to add content to; caller adds the returned
-# root Control as the screen's only top-level child.
+# Standard screen skeleton: ScrollContainer (clipped to the gap between the
+# bars) > margin > VBoxContainer. Returns the VBoxContainer to add content
+# to; caller adds the returned root Control as the screen's only top-level
+# child.
 static func screen_body(root: Control) -> VBoxContainer:
 	var sc := scroll_container()
+	# Bugfixes ticket 110: the ScrollContainer's own rect is what actually
+	# bounds what it can draw (Godot clips a ScrollContainer to its own
+	# bounds) — it used to be full-screen, with the gap below the TopBar
+	# expressed instead as a *leading* margin inside the scrolled content
+	# (below). That only holds at scroll_vertical 0: once a screen's content
+	# is tall enough to scroll past that margin's own height, the real
+	# content behind it keeps sliding up past y=0 into the TopBar's own
+	# screen region, which the ScrollContainer's (still full-screen) clip
+	# rect does nothing to hide — the persistent TopBar (a sibling drawn on
+	# top, scenes/Main.gd) then either paints over that content or gets
+	# drawn under it. Not reproduced on every screen sharing this skeleton
+	# only because it takes that much scrollable content to trigger it — HQ
+	# and Phone just accumulate the most in normal play. Anchoring the
+	# container itself below the bars (event.gd's ScrollContainer already
+	# did exactly this, bugfixes ticket 20/21) makes the clip rect itself
+	# the guarantee, regardless of scroll position or content length.
+	anchor_below_bars(sc)
 	root.add_child(sc)
 
 	var margin := MarginContainer.new()
@@ -652,8 +672,8 @@ static func screen_body(root: Control) -> VBoxContainer:
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", int(top_bar_clearance()) + 16)  # room below the top bar
-	margin.add_theme_constant_override("margin_bottom", 80)  # room above the nav bar
+	margin.add_theme_constant_override("margin_top", 16)  # breathing room only -- the scroll viewport itself (above) now clears the top bar
+	margin.add_theme_constant_override("margin_bottom", 16)  # ditto, for the nav bar
 	sc.add_child(margin)
 
 	var content := vbox(12)

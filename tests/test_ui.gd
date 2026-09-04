@@ -319,6 +319,19 @@ func run() -> void:
 		b.free()
 	)
 
+	# Bugfixes ticket 110 -- see UI.screen_body()'s own comment for the bug
+	# this pins (a leading content margin isn't a substitute for the scroll
+	# viewport's own clip boundary).
+
+	run_case("screen_body_scroll_viewport_is_clipped_between_the_bars_not_full_screen", func():
+		var root := Control.new()
+		var content := UI.screen_body(root)
+		var sc := root.get_child(0) as ScrollContainer
+		assert_eq(sc.offset_top, UI.top_bar_clearance(), "the scroll viewport's own top edge -- its clip boundary -- must clear the persistent top bar, not just a leading margin inside the scrolled content")
+		assert_eq(sc.offset_bottom, -NavBar.BAR_HEIGHT, "the scroll viewport's own bottom edge must clear the persistent nav bar")
+		content.get_parent().get_parent().free()  # margin -> sc, freeing sc frees the whole chain
+	)
+
 	run_case("tapping_the_header_fires_on_toggle_with_the_new_state", func():
 		# Array, not a bare bool -- see icon_button test above for why a
 		# lambda-captured local can't be mutated directly from the callback.
