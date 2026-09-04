@@ -8,6 +8,43 @@ extends "res://tests/test_base.gd"
 # _player_vein() (the growth-model vein shape).
 
 
+# Ticket 114: symbol_row() split what used to be one Label's raw-symbol
+# string into a Label per text part plus a SymbolGlyph glyph (see ui.gd's
+# own comment on symbol_row()) -- reconstructs a row's displayed text by
+# walking its direct children in order, substituting SymbolGlyph.symbol for
+# the glyph's drawn text, with no separator added (call sites already
+# author any needed space into their text parts; the hbox's own pixel gap
+# covers the rest visually).
+static func _effective_text(control: Control) -> String:
+	var out := ""
+	for child in control.get_children():
+		if child is SymbolGlyph:
+			out += (child as SymbolGlyph).symbol
+		elif child is Label:
+			out += (child as Label).text
+	return out
+
+
+# Collects every Label's text under root, same as this file's other cases
+# already do inline -- except a symbol_row's own Label(s) (sharing a parent
+# with a SymbolGlyph) are replaced by one reconstructed entry rather than
+# added alongside their individual fragments, so a district name split
+# across the glyph from its ore name (vein_list.gd's "%s — " / ore symbol /
+# " %s" parts) is still findable as one combined string.
+static func _row_texts(root: Node) -> Array[String]:
+	var texts: Array[String] = []
+	var symbol_row_parents: Dictionary = {}
+	for g in root.find_children("", "SymbolGlyph", true, false):
+		var parent := (g as SymbolGlyph).get_parent() as Control
+		if parent and not symbol_row_parents.has(parent):
+			symbol_row_parents[parent] = true
+			texts.append(_effective_text(parent))
+	for l in root.find_children("", "Label", true, false):
+		if not symbol_row_parents.has((l as Label).get_parent()):
+			texts.append((l as Label).text)
+	return texts
+
+
 static func _player_vein(overrides: Dictionary = {}) -> Dictionary:
 	var vein := {
 		"id": "v1", "district": "shoreditch", "oreType": "time", "growth": 20,
@@ -31,8 +68,7 @@ func run() -> void:
 		var screen := VeinListScreen.new()
 		var row: Control = screen._build_vein_row(vein)
 
-		var labels := row.find_children("", "Label", true, false)
-		var texts: Array = labels.map(func(l): return (l as Label).text)
+		var texts: Array = _row_texts(row)
 
 		var district_name: String = GameData.DISTRICTS["shoreditch"]["name"]
 		var ore_name: String = GameData.ORE_TYPES["time"]["name"]
@@ -320,7 +356,7 @@ func run() -> void:
 		var screen := VeinListScreen.new()
 		screen._ready()
 
-		var headings := screen.find_children("", "Label", true, false).filter(func(l): return (l as Label).text.contains("⧖"))
+		var headings := screen.find_children("", "SymbolGlyph", true, false).filter(func(g): return (g as SymbolGlyph).symbol == "⧖")
 		assert_eq(headings.size(), 1, "only v1 matches both the district and band filters")
 
 		screen.free()

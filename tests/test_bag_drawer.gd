@@ -28,17 +28,41 @@ func _fresh_dial() -> Dictionary:
 	}
 
 
+# Ticket 114: symbol_row()/symbol_button() split what used to be one Label's
+# raw-symbol string into a Label per text part plus a SymbolGlyph glyph (see
+# ui.gd's own comment on symbol_row()) -- reconstructs the row's displayed
+# text by walking a symbol_row/symbol_button's direct children in order,
+# substituting SymbolGlyph.symbol for the glyph's drawn text, with no
+# separator added (call sites already author any needed space into their
+# text parts; the hbox's own pixel gap covers the rest visually).
+static func _effective_text(control: Control) -> String:
+	var out := ""
+	for child in control.get_children():
+		if child is SymbolGlyph:
+			out += (child as SymbolGlyph).symbol
+		elif child is Label:
+			out += (child as Label).text
+	return out
+
+
 static func _label_texts(root: Node) -> Array[String]:
 	var texts: Array[String] = []
 	for l in root.find_children("", "Label", true, false):
 		texts.append((l as Label).text)
+	for g in root.find_children("", "SymbolGlyph", true, false):
+		var parent := (g as SymbolGlyph).get_parent() as Control
+		if parent:
+			texts.append(_effective_text(parent))
 	return texts
 
 
 static func _find_button(root: Node, button_text: String) -> Button:
 	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text == button_text:
-			return b
+		var btn := b as Button
+		if btn.text == button_text:
+			return btn
+		if btn.get_child_count() > 0 and _effective_text(btn.get_child(0) as Control) == button_text:
+			return btn
 	return null
 
 
@@ -194,7 +218,7 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		_find_button(drawer, "⧖ Time Pearl tier 1 (1) — cost 1").pressed.emit()
+		_find_button(drawer, "⧖Time Pearl tier 1 (1) — cost 1").pressed.emit()
 		var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
 		assert_eq(loaded.size(), 1, "drawer's Load button should load via Dial.load_complication")
 		assert_eq(Crafting.inventory_qty("timePearl"), 0, "loading should move the unit out of regular inventory")
@@ -222,7 +246,7 @@ func run() -> void:
 
 		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
 
-		_find_button(drawer, "⧖ Time Pearl tier 1 (2) — cost 1").pressed.emit()
+		_find_button(drawer, "⧖Time Pearl tier 1 (2) — cost 1").pressed.emit()
 		var loaded_via_button: Array = GameState.state["player"]["dial"]["loadedComplications"]
 
 		GameState.state = snapshot
@@ -244,8 +268,8 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(_find_button(drawer, "♥ Healing Salve (1) — 2-day heal-over-time") != null, "healingSalve should get a Use button outside combat/events")
-		assert_true(_find_button(drawer, "✚ Healing Burst (1) — instant heal") != null, "healingBurst should get a Use button outside combat/events")
+		assert_true(_find_button(drawer, "♥Healing Salve (1) — 2-day heal-over-time") != null, "healingSalve should get a Use button outside combat/events")
+		assert_true(_find_button(drawer, "✚Healing Burst (1) — instant heal") != null, "healingBurst should get a Use button outside combat/events")
 
 		drawer.free()
 	)
@@ -261,7 +285,7 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(_find_button(drawer, "♥ Healing Salve (1) — 2-day heal-over-time") == null, "no out-of-combat healingSalve Use button during combat")
+		assert_true(_find_button(drawer, "♥Healing Salve (1) — 2-day heal-over-time") == null, "no out-of-combat healingSalve Use button during combat")
 
 		drawer.free()
 	)
@@ -276,7 +300,7 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(_find_button(drawer, "♥ Healing Salve (1) — 2-day heal-over-time") == null, "no out-of-combat healingSalve Use button while the current event card carries itemHooks")
+		assert_true(_find_button(drawer, "♥Healing Salve (1) — 2-day heal-over-time") == null, "no out-of-combat healingSalve Use button while the current event card carries itemHooks")
 
 		drawer.free()
 		GameData.EVENTS = original_events
@@ -294,7 +318,7 @@ func run() -> void:
 		drawer._ready()
 
 		Rng.set_seed(1)
-		var button := _find_button(drawer, "♥ Healing Salve (1) — 2-day heal-over-time")
+		var button := _find_button(drawer, "♥Healing Salve (1) — 2-day heal-over-time")
 		button.pressed.emit()
 
 		assert_eq(Crafting.inventory_qty("healingSalve"), 0, "pressing Use should consume the item via Consumables.use_healing_salve()")
@@ -317,7 +341,7 @@ func run() -> void:
 
 		var joined := "\n".join(_label_texts(drawer))
 		assert_true(joined.contains("Healing Salve active"), "an active HoT should stay visible even once stock (qty 0) stops offering a Use button")
-		assert_true(_find_button(drawer, "♥ Healing Salve (0) — 2-day heal-over-time") == null, "no Use button once stock is 0")
+		assert_true(_find_button(drawer, "♥Healing Salve (0) — 2-day heal-over-time") == null, "no Use button once stock is 0")
 
 		drawer.free()
 	)

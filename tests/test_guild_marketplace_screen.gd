@@ -25,17 +25,63 @@ static func _find_label(root: Node, text: String) -> Label:
 	return null
 
 
-# Ticket 66: same card-scoping trick as tests/test_lab_screen.gd's
-# _find_button_in_card -- finds the goods row's heading Label, then
-# searches its content VBoxContainer (the heading's parent) recursively so
-# nested rows (the qty stepper's own hbox, the buy/sell hbox) are covered
-# too, unlike a direct-sibling-only search.
-static func _find_button_in_card(root: Node, heading_text: String, button_text: String) -> Button:
+# Ticket 114: symbol_row() split what used to be one Label's raw-symbol
+# string into a Label per text part plus a SymbolGlyph glyph (see ui.gd's
+# own comment on symbol_row()) -- reconstructs a row's displayed text by
+# walking its direct children in order, substituting SymbolGlyph.symbol for
+# the glyph's drawn text, with no separator added (call sites already
+# author any needed space into their text parts; the hbox's own pixel gap
+# covers the rest visually).
+static func _effective_text(control: Control) -> String:
+	var out := ""
+	for child in control.get_children():
+		if child is SymbolGlyph:
+			out += (child as SymbolGlyph).symbol
+		elif child is Label:
+			out += (child as Label).text
+	return out
+
+
+static func _label_texts(root: Node) -> Array[String]:
+	var texts: Array[String] = []
 	for l in root.find_children("", "Label", true, false):
-		if (l as Label).text == heading_text:
-			for b in l.get_parent().find_children("", "Button", true, false):
-				if (b as Button).text == button_text:
-					return b
+		texts.append((l as Label).text)
+	for g in root.find_children("", "SymbolGlyph", true, false):
+		var parent := (g as SymbolGlyph).get_parent() as Control
+		if parent:
+			texts.append(_effective_text(parent))
+	return texts
+
+
+# Ticket 66: same card-scoping trick as tests/test_lab_screen.gd's
+# _find_button_in_card -- finds the goods row's heading (now a symbol_row,
+# ticket 114), then searches its content VBoxContainer (the heading row's
+# parent) recursively so nested rows (the qty stepper's own hbox, the
+# buy/sell hbox) are covered too, unlike a direct-sibling-only search.
+#
+# Keeps the LAST match, not the first: _refresh() queue_free()s the old
+# card's children before appending fresh ones, and queue_free() doesn't
+# actually detach them until a frame elapses -- which never happens inside
+# a synchronous test case (see test_base.gd's run_case comment on await
+# being a no-op here) -- so a card that's been through more than one
+# _refresh() has every prior generation of its rows still sitting in the
+# tree, oldest first, with the live one appended last.
+static func _find_card_content(root: Node, heading_text: String) -> Node:
+	var found: Node = null
+	for g in root.find_children("", "SymbolGlyph", true, false):
+		var row := (g as SymbolGlyph).get_parent() as Control
+		if row and _effective_text(row) == heading_text:
+			found = row.get_parent()
+	return found
+
+
+static func _find_button_in_card(root: Node, heading_text: String, button_text: String) -> Button:
+	var card := _find_card_content(root, heading_text)
+	if card == null:
+		return null
+	for b in card.find_children("", "Button", true, false):
+		if (b as Button).text == button_text:
+			return b
 	return null
 
 
@@ -43,15 +89,16 @@ static func _find_button_in_card(root: Node, heading_text: String, button_text: 
 # numeric Label (not a Button) -- used to read back the stepper's current
 # value.
 static func _find_label_in_card(root: Node, heading_text: String, label_text: String) -> Label:
-	for l in root.find_children("", "Label", true, false):
-		if (l as Label).text == heading_text:
-			for sub in l.get_parent().find_children("", "Label", true, false):
-				if (sub as Label).text == label_text:
-					return sub
+	var card := _find_card_content(root, heading_text)
+	if card == null:
+		return null
+	for sub in card.find_children("", "Label", true, false):
+		if (sub as Label).text == label_text:
+			return sub
 	return null
 
 
-const TIME_HEADING := "⧖ Time Orichalchum"
+const TIME_HEADING := "⧖Time Orichalchum"
 
 
 func run() -> void:
@@ -224,10 +271,11 @@ func run() -> void:
 		_find_button_in_card(screen, TIME_HEADING, "+").pressed.emit()
 
 		# time buy £69/u, sell £51/u (same figures as the ×1 tests above) --
-		# ×3 -> buy £207, sell £153.
-		assert_true(_find_label_in_card(screen, TIME_HEADING, "3") != null, "qty label reflects 3 taps of +")
-		assert_true(_find_button(screen, "Buy ×3 (£207)") != null, "buy button reflects qty and total")
-		assert_true(_find_button(screen, "Sell ×3 (£153)") != null, "sell button reflects qty and total")
+		# stepper starts at 1 (see the ×1 test above), so 3 taps of + land on
+		# 4, not 3: buy £276, sell £204.
+		assert_true(_find_label_in_card(screen, TIME_HEADING, "4") != null, "qty label reflects 3 taps of + landing on 4 (starts at 1)")
+		assert_true(_find_button(screen, "Buy ×4 (£276)") != null, "buy button reflects qty and total")
+		assert_true(_find_button(screen, "Sell ×4 (£204)") != null, "sell button reflects qty and total")
 
 		screen.free()
 	)
@@ -361,8 +409,8 @@ func run() -> void:
 		assert_eq(GameData.CONSUMABLE_PRICES.size(), 14, "sanity: all 14 craftable recipes must have a sale price")
 		for recipe_key in GameData.RECIPES.keys():
 			var recipe: Dictionary = GameData.RECIPES[recipe_key]
-			var heading := "%s %s" % [recipe["symbol"], recipe["name"]]
-			assert_true(_find_label(screen, heading) != null, "%s must render as a goods row" % recipe_key)
+			var heading := "%s%s" % [recipe["symbol"], recipe["name"]]
+			assert_true(_label_texts(screen).has(heading), "%s must render as a goods row" % recipe_key)
 
 		screen.free()
 	)

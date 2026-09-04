@@ -7,12 +7,41 @@ extends "res://tests/test_base.gd"
 # touches GameState/GameData and UI.* factory calls).
 
 
+# Ticket 114: symbol_row()/symbol_button() split what used to be one
+# Label's (or Button's) raw-symbol string into a Label per text part plus a
+# SymbolGlyph glyph (see ui.gd's own comment on symbol_row()) --
+# reconstructs a row's displayed text by walking its direct children in
+# order, substituting SymbolGlyph.symbol for the glyph's drawn text, with
+# no separator added (call sites already author any needed space into
+# their text parts; the hbox's own pixel gap covers the rest visually).
+static func _effective_text(control: Control) -> String:
+	var out := ""
+	for child in control.get_children():
+		if child is SymbolGlyph:
+			out += (child as SymbolGlyph).symbol
+		elif child is Label:
+			out += (child as Label).text
+	return out
+
+
 # Collects every Label's text under root, in the same spirit as
-# test_map_screen.gd's _buttons_labelled() helper for Buttons.
+# test_map_screen.gd's _buttons_labelled() helper for Buttons. A
+# symbol_row's own Label(s) (sharing a parent with a SymbolGlyph) are
+# replaced by one reconstructed entry rather than added alongside their
+# individual fragments, so a screen's logical row count -- and any test
+# asserting on it -- reads the same as it did before ticket 114 split each
+# row across multiple nodes.
 static func _label_texts(root: Node) -> Array[String]:
 	var texts: Array[String] = []
+	var symbol_row_parents: Dictionary = {}
+	for g in root.find_children("", "SymbolGlyph", true, false):
+		var parent := (g as SymbolGlyph).get_parent() as Control
+		if parent and not symbol_row_parents.has(parent):
+			symbol_row_parents[parent] = true
+			texts.append(_effective_text(parent))
 	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
+		if not symbol_row_parents.has((l as Label).get_parent()):
+			texts.append((l as Label).text)
 	return texts
 
 
@@ -20,18 +49,27 @@ static func _label_texts(root: Node) -> Array[String]:
 # tell "rendered as a tappable Button" apart from "rendered as an inert
 # Label" -- that distinction IS the untappable/dimmed contract (M3 §3.1),
 # so a plain text search across both node types wouldn't catch a regression
-# that turned a Label into a Button or vice versa.
+# that turned a Label into a Button or vice versa. Same symbol_button
+# reconstruction as _label_texts above, for buttons whose content lives in
+# an inner row instead of Button.text (ticket 114).
 static func _button_texts(root: Node) -> Array[String]:
 	var texts: Array[String] = []
 	for b in root.find_children("", "Button", true, false):
-		texts.append((b as Button).text)
+		var btn := b as Button
+		if not btn.text.is_empty() or btn.get_child_count() == 0:
+			texts.append(btn.text)
+		else:
+			texts.append(_effective_text(btn.get_child(0) as Control))
 	return texts
 
 
 static func _find_button(root: Node, text: String) -> Button:
 	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text == text:
-			return b
+		var btn := b as Button
+		if btn.text == text:
+			return btn
+		if btn.get_child_count() > 0 and _effective_text(btn.get_child(0) as Control) == text:
+			return btn
 	return null
 
 
@@ -48,11 +86,20 @@ static func _find_label(root: Node, text: String) -> Label:
 # is a flat UI.card() -> content VBoxContainer of [heading, description,
 # button] (scenes/components/ui.gd), so a button and the heading Label
 # beside it always share a direct parent -- this scopes the search to the
-# card whose heading is `label_text`.
+# card whose heading is `label_text`. Ticket 114: a card's heading is now
+# often a symbol_row rather than a bare Label, so the heading match itself
+# routes through the same SymbolGlyph-aware reconstruction, scoped to the
+# heading row's own parent (the card content) either way.
 static func _find_button_in_card(root: Node, label_text: String, button_text: String) -> Button:
 	for l in root.find_children("", "Label", true, false):
 		if (l as Label).text == label_text:
 			for sibling in l.get_parent().get_children():
+				if sibling is Button and (sibling as Button).text == button_text:
+					return sibling
+	for g in root.find_children("", "SymbolGlyph", true, false):
+		var row := (g as SymbolGlyph).get_parent() as Control
+		if row and _effective_text(row) == label_text:
+			for sibling in row.get_parent().get_children():
 				if sibling is Button and (sibling as Button).text == button_text:
 					return sibling
 	return null
@@ -103,7 +150,7 @@ func run() -> void:
 		screen._ready()
 
 		var texts := _label_texts(screen)
-		assert_true(texts.has("☾ Test Effect"), "found effect's symbol+name must render")
+		assert_true(texts.has("☾Test Effect"), "found effect's symbol+name must render")
 		assert_true(texts.has("Does a thing, allegedly."), "found effect's description must render")
 		assert_true(not texts.has("Nothing found yet."), "the empty-state line must not show once something is found")
 
@@ -123,7 +170,7 @@ func run() -> void:
 		var screen := LabScreen.new()
 		screen._ready()
 
-		assert_true(not _label_texts(screen).has("☾ Test Effect"), "a hot (not yet found) cell must not appear in the found list")
+		assert_true(not _label_texts(screen).has("☾Test Effect"), "a hot (not yet found) cell must not appear in the found list")
 
 		GameData.RECIPES.erase("_testBenchEffect")
 		screen.free()
@@ -377,7 +424,7 @@ func run() -> void:
 		var buttons := _button_texts(screen)
 
 		assert_true(buttons.has("Heat"), "a found row's approach name is still tappable (refine)")
-		assert_true(labels.has("☾ Test Found Effect · refine to tier 1"), "found row names the effect and its next refine tier")
+		assert_true(labels.has("☾Test Found Effect · refine to tier 1"), "found row names the effect and its next refine tier")
 
 		assert_true(buttons.has("Grinding"), "a hot row's approach name is tappable (retry)")
 		assert_true(labels.has("something nearly took"), "hot row states plainly that something is there")
@@ -426,7 +473,7 @@ func run() -> void:
 		var screen := LabScreen.new()
 		screen._ready()
 
-		var view_button := _find_button_in_card(screen, "☾ Test Effect", "View")
+		var view_button := _find_button_in_card(screen, "☾Test Effect", "View")
 		assert_true(view_button != null)
 		view_button.pressed.emit()
 
@@ -577,7 +624,7 @@ func run() -> void:
 
 		var labels := _label_texts(screen)
 		assert_true(labels.has("Found it."))
-		assert_true(labels.has("☾ Test Effect. Does a thing, allegedly. Craftable now."))
+		assert_true(labels.has("☾Test Effect. Does a thing, allegedly. Craftable now."))
 
 		GameData.RECIPES.erase("_testBenchEffect")
 		screen.free()

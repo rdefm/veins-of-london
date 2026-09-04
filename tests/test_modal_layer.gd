@@ -17,17 +17,42 @@ func _synthetic_tap() -> InputEventScreenTouch:
 	return event
 
 
+# Ticket 114: symbol_row()/symbol_button() split what used to be one Label's
+# raw-symbol string into a Label per text part plus a SymbolGlyph glyph (see
+# ui.gd's own comment on symbol_row()) -- reconstructs the row's displayed
+# text by walking a symbol_row/symbol_button's direct children in order,
+# substituting SymbolGlyph.symbol for the glyph's drawn text, with no
+# separator added (call sites already author any needed space into their
+# text parts, e.g. modal_layer.gd's " %s (£%d)" -- the hbox's own pixel gap
+# covers the rest visually).
+static func _effective_text(control: Control) -> String:
+	var out := ""
+	for child in control.get_children():
+		if child is SymbolGlyph:
+			out += (child as SymbolGlyph).symbol
+		elif child is Label:
+			out += (child as Label).text
+	return out
+
+
 static func _label_texts(root: Node) -> Array[String]:
 	var texts: Array[String] = []
 	for l in root.find_children("", "Label", true, false):
 		texts.append((l as Label).text)
+	for g in root.find_children("", "SymbolGlyph", true, false):
+		var parent := (g as SymbolGlyph).get_parent() as Control
+		if parent:
+			texts.append(_effective_text(parent))
 	return texts
 
 
 static func _find_button(root: Node, text: String) -> Button:
 	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text == text:
-			return b
+		var btn := b as Button
+		if btn.text == text:
+			return btn
+		if btn.get_child_count() > 0 and _effective_text(btn.get_child(0) as Control) == text:
+			return btn
 	return null
 
 
@@ -189,7 +214,7 @@ func run() -> void:
 			var recipe: Dictionary = GameData.RECIPES[recipe_key]
 			var found := false
 			for text in _label_texts(layer):
-				if text.begins_with("%s %s (" % [recipe["symbol"], recipe["name"]]):
+				if text.begins_with("%s%s (" % [recipe["symbol"], recipe["name"]]):
 					found = true
 					break
 			assert_true(found, "%s must render as a sell row" % recipe_key)
@@ -713,7 +738,7 @@ func run() -> void:
 		var chance_pct: int = int(round(Dial.movement_craft_chance("impact", 1) * 100))
 		for ore_type in GameData.ORE_TYPES.keys():
 			var ore: Dictionary = GameData.ORE_TYPES[ore_type]
-			var expected := "%s %s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct]
+			var expected := "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct]
 			assert_true(_find_button(layer, expected) != null, "%s row must show its cost and chance" % ore_type)
 
 		layer.free()
@@ -731,7 +756,7 @@ func run() -> void:
 		var cost: int = Dial.movement_calc_cost("impact", 1)
 		var chance_pct: int = int(round(Dial.movement_craft_chance("impact", 1) * 100))
 		var ore: Dictionary = GameData.ORE_TYPES["time"]
-		var button := _find_button(layer, "%s %s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
+		var button := _find_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
 		assert_true(button != null, "time row must be present")
 		button.pressed.emit()
 
@@ -754,7 +779,7 @@ func run() -> void:
 			var cost: int = Dial.movement_calc_cost("capacitor", 5)
 			var chance_pct: int = int(round(Dial.movement_craft_chance("capacitor", 5) * 100))
 			var ore: Dictionary = GameData.ORE_TYPES["physics"]
-			var button := _find_button(layer, "%s %s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
+			var button := _find_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
 			Rng.set_seed(candidate)
 			button.pressed.emit()
 			layer.free()
@@ -790,7 +815,7 @@ func run() -> void:
 			var cost: int = Dial.movement_calc_cost("impact", 1)
 			var chance_pct: int = int(round(Dial.movement_craft_chance("impact", 1) * 100))
 			var ore: Dictionary = GameData.ORE_TYPES["time"]
-			var button := _find_button(layer, "%s %s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
+			var button := _find_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
 			Rng.set_seed(candidate)
 			button.pressed.emit()
 			layer.free()

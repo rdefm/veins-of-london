@@ -6,10 +6,34 @@ extends "res://tests/test_base.gd"
 # headless-scene pattern as tests/test_phone_home_grid.gd.
 
 
+# Ticket 114: symbol_row() split what used to be one Label's raw-symbol
+# string into a Label per text part plus a SymbolGlyph glyph (see ui.gd's
+# own comment on symbol_row()) -- reconstructs a row's displayed text by
+# walking its direct children in order, substituting SymbolGlyph.symbol for
+# the glyph's drawn text, with no separator added (call sites already
+# author any needed space into their text parts; the hbox's own pixel gap
+# covers the rest visually).
+static func _effective_text(control: Control) -> String:
+	var out := ""
+	for child in control.get_children():
+		if child is SymbolGlyph:
+			out += (child as SymbolGlyph).symbol
+		elif child is Label:
+			out += (child as Label).text
+	return out
+
+
 static func _label_texts(root: Node) -> Array[String]:
 	var texts: Array[String] = []
+	var symbol_row_parents: Dictionary = {}
+	for g in root.find_children("", "SymbolGlyph", true, false):
+		var parent := (g as SymbolGlyph).get_parent() as Control
+		if parent and not symbol_row_parents.has(parent):
+			symbol_row_parents[parent] = true
+			texts.append(_effective_text(parent))
 	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
+		if not symbol_row_parents.has((l as Label).get_parent()):
+			texts.append((l as Label).text)
 	return texts
 
 
