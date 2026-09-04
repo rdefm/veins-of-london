@@ -181,6 +181,20 @@ as a sidecar `data/events/drafts/<id>.notes.md`, fully independent of the real e
 `test_quest_editor.js` (`node tools/test_quest_editor.js`) unit-tests the parser, splice logic,
 builder schema, and notes-sidecar naming against every real file in `data/events/`.
 
+## tools/quest-editor-mobile.html — offline draft builder (phone)
+
+Single static HTML file with no dependency on the File System Access API, so it works in mobile
+browsers (desktop `quest-editor.html` needs `showDirectoryPicker`, which iOS/Android browsers
+don't support). Same card/choice builder UI as `quest-editor.html`'s "+ New quest" flow, but
+touch-sized and with no connection to `data/events/` at all — no folder access, no id-collision
+check. "Save draft" downloads a single bundle `<id>.draft.json` (`{format: "vein-quest-draft/v1",
+id, cards, notes}`); "Open draft…" re-loads one of those (or a plain exported quest JSON) via
+`<input type=file>` to keep editing. "Copy JSON" puts the same bundle on the clipboard as a
+paste-into-chat alternative to file transfer. The round trip: write on phone → get the
+`.draft.json` to a computer (AirDrop/email/clipboard) → hand it to Claude, which creates the real
+`data/events/<id>.json` (+ `drafts/<id>.notes.md` sidecar) and does the registration/wiring pass,
+same as it would for a desktop-built draft.
+
 ## docs/*.md and docs/adr/
 
 See CLAUDE.md source-of-truth table for: REFERENCE.md, M0-PORT.md, M1-LONDON.md, M1.5-NETWORK-MAP.md, CONTENT-GUIDE.md, reference/london-orichalchum.html, CONTEXT.md, docs/adr/ (as a category). Not in that table:

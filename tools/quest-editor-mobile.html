@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vein — Quest Draft (Mobile)</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #1b1b1f;
+    --panel: #232329;
+    --panel-alt: #26262e;
+    --border: #35353f;
+    --text: #e6e6ea;
+    --text-dim: #9a9aa5;
+    --accent: #7aa2f7;
+    --accent-dim: #3d4a6b;
+    --dirty: #e0af68;
+    --danger: #f7768e;
+    --ok: #9ece6a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+  }
+  body { padding-bottom: 60px; }
+
+  #topbar {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  }
+  #topbar h1 { font-size: 16px; margin: 0 0 2px; }
+  #topbar .sub { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+  #status { font-size: 12px; color: var(--text-dim); min-height: 16px; margin-top: 8px; }
+  #status.dirty { color: var(--dirty); }
+  #status.ok { color: var(--ok); }
+  #status.error { color: var(--danger); }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn {
+    background: var(--accent-dim); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; font-size: 14px; cursor: pointer;
+    min-height: 44px; flex: 1 1 auto; text-align: center;
+    -webkit-appearance: none; appearance: none;
+  }
+  .btn:active { background: var(--accent); color: #14141a; }
+  .btn:disabled { opacity: 0.4; }
+  .btn-primary { background: var(--accent); color: #14141a; font-weight: 600; }
+  .btn-danger:active { background: var(--danger); color: #14141a; border-color: var(--danger); }
+  #open-input { display: none; }
+
+  #content { padding: 16px 14px 40px; max-width: 640px; margin: 0 auto; }
+
+  #help {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; margin-bottom: 16px; font-size: 13px; line-height: 1.5; color: var(--text-dim);
+  }
+  #help strong { color: var(--text); }
+  #help ol { margin: 6px 0 0; padding-left: 20px; }
+  #help li { margin-bottom: 4px; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; margin-bottom: 14px;
+  }
+  .panel h2 {
+    font-size: 12px; margin: 0 0 10px; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+
+  .field-row { margin-bottom: 10px; }
+  .field-row:last-child { margin-bottom: 0; }
+  .field-row label {
+    display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px;
+    text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .field-row input[type=text], .field-row textarea {
+    width: 100%; padding: 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    font-family: inherit; font-size: 16px; resize: vertical;
+  }
+  .field-row textarea { min-height: 70px; line-height: 1.4; }
+  .field-row .error-text { color: var(--danger); font-size: 12px; margin-top: 4px; min-height: 14px; }
+
+  .card-block { border: 1px solid var(--border); }
+  .card-block-header {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;
+  }
+  .type-select {
+    background: var(--accent-dim); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 6px 10px; font-size: 12px; text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .card-index { color: var(--text-dim); font-size: 12px; }
+  .header-spacer { flex: 1; }
+  .icon-btn {
+    background: var(--panel-alt); color: var(--text-dim); border: 1px solid var(--border);
+    border-radius: 6px; width: 36px; height: 36px; font-size: 14px; line-height: 1;
+  }
+  .icon-btn:active:not(:disabled) { background: var(--accent-dim); color: var(--text); }
+  .icon-btn:disabled { opacity: 0.3; }
+  .icon-btn.danger:active:not(:disabled) { background: var(--danger); color: #14141a; border-color: var(--danger); }
+
+  .choices-wrap { margin-top: 12px; padding-left: 10px; border-left: 2px solid var(--border); }
+  .choice-block {
+    background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px; margin-bottom: 10px;
+  }
+  .choice-block-header {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: var(--text-dim); margin-bottom: 8px;
+  }
+  .readonly-note {
+    background: var(--bg); border: 1px dashed var(--border); border-radius: 6px;
+    padding: 8px 10px; font-size: 12px; color: var(--text-dim); line-height: 1.4;
+  }
+  .add-choice-btn { width: 100%; margin-top: 4px; }
+  #add-card-btn { width: 100%; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <h1>Quest Draft (Mobile)</h1>
+  <div class="sub">Offline scratchpad — not connected to data/events</div>
+  <div class="toolbar">
+    <button id="new-btn" class="btn">New draft</button>
+    <button id="open-btn" class="btn">Open draft&hellip;</button>
+    <input id="open-input" type="file" accept="application/json,.json">
+    <button id="save-btn" class="btn btn-primary">Save draft</button>
+    <button id="copy-btn" class="btn">Copy JSON</button>
+  </div>
+  <div id="status"></div>
+</div>
+
+<div id="content"></div>
+
+<script>
+"use strict";
+
+/* ---------- State ---------- */
+
+const state = {
+  draft: null, // { id, cards: [{type,label,speaker,text,choices:[{label,result_text}]}], notesText }
+  loadedFrom: null, // filename this draft was opened from, if any
+  dirty: false,
+};
+
+const el = {
+  newBtn: document.getElementById("new-btn"),
+  openBtn: document.getElementById("open-btn"),
+  openInput: document.getElementById("open-input"),
+  saveBtn: document.getElementById("save-btn"),
+  copyBtn: document.getElementById("copy-btn"),
+  status: document.getElementById("status"),
+  content: document.getElementById("content"),
+};
+
+const CARD_TYPES = ["narration", "speaker", "choice", "resolution", "craft"];
+const TYPE_LABELS = {
+  narration: "Narration",
+  speaker: "Speaker",
+  choice: "Choice",
+  resolution: "Resolution",
+  craft: "Craft",
+};
+function typeLabel(t) {
+  return TYPE_LABELS[t] || (t ? t.charAt(0).toUpperCase() + t.slice(1) : "Card");
+}
+
+function defaultCard() {
+  return { type: "narration", label: "", speaker: "", text: "", choices: [] };
+}
+function defaultChoice() {
+  return { label: "", result_text: "" };
+}
+function emptyDraft() {
+  return { id: "", cards: [defaultCard()], notesText: "" };
+}
+
+function setStatus(text, kind) {
+  el.status.textContent = text;
+  el.status.className = kind || "";
+}
+
+function markDirty() {
+  state.dirty = true;
+  setStatus("Unsaved changes", "dirty");
+}
+
+function confirmDiscardIfDirty() {
+  if (!state.dirty) return true;
+  return confirm("Discard unsaved changes to this draft?");
+}
+
+/* ---------- Toolbar actions ---------- */
+
+el.newBtn.addEventListener("click", () => {
+  if (!confirmDiscardIfDirty()) return;
+  state.draft = emptyDraft();
+  state.loadedFrom = null;
+  state.dirty = false;
+  setStatus("", "");
+  render();
+});
+
+el.openBtn.addEventListener("click", () => {
+  if (!confirmDiscardIfDirty()) return;
+  el.openInput.value = "";
+  el.openInput.click();
+});
+
+el.openInput.addEventListener("change", async () => {
+  const file = el.openInput.files[0];
+  if (!file) return;
+  let parsed;
+  try {
+    const text = await file.text();
+    parsed = JSON.parse(text);
+  } catch (err) {
+    setStatus("Could not read " + file.name + ": " + err.message, "error");
+    return;
+  }
+  const draft = draftFromParsed(parsed);
+  if (!draft) {
+    setStatus(file.name + " doesn't look like a quest draft or quest JSON.", "error");
+    return;
+  }
+  state.draft = draft;
+  state.loadedFrom = file.name;
+  state.dirty = false;
+  setStatus("Loaded " + file.name, "ok");
+  render();
+});
+
+el.saveBtn.addEventListener("click", saveDraft);
+el.copyBtn.addEventListener("click", copyDraftJSON);
+
+// Accepts either a previously-saved draft bundle (format: vein-quest-draft/v1)
+// or a plain quest JSON (id + cards) copied in from data/events/ — either way
+// it becomes an editable draft with no collision/registration checks, since
+// this tool has no view of the real data/events/ folder.
+function draftFromParsed(parsed) {
+  if (!parsed || typeof parsed !== "object") return null;
+  if (parsed.format === "vein-quest-draft/v1" && Array.isArray(parsed.cards)) {
+    return {
+      id: typeof parsed.id === "string" ? parsed.id : "",
+      cards: parsed.cards.map(cardFromPlain),
+      notesText: typeof parsed.notes === "string" ? parsed.notes : "",
+    };
+  }
+  if (typeof parsed.id === "string" && Array.isArray(parsed.cards)) {
+    return {
+      id: parsed.id,
+      cards: parsed.cards.map(cardFromPlain),
+      notesText: "",
+    };
+  }
+  return null;
+}
+
+function cardFromPlain(c) {
+  c = c || {};
+  return {
+    type: CARD_TYPES.includes(c.type) ? c.type : "narration",
+    label: c.label || "",
+    speaker: c.speaker || "",
+    text: c.text || "",
+    choices: Array.isArray(c.choices)
+      ? c.choices.map((ch) => ({ label: (ch && ch.label) || "", result_text: (ch && ch.result_text) || "" }))
+      : [],
+  };
+}
+
+// snake_case: lowercase letters/digits, single underscores between segments —
+// matches every id already under data/events/. No collision check here since
+// this tool never sees data/events/; that check happens when the draft is
+// brought back in and turned into a real file.
+function validateId(id) {
+  if (!id) return "Quest id is required.";
+  if (!/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/.test(id)) {
+    return "Must be snake_case: lowercase letters, digits and single underscores, starting with a letter.";
+  }
+  return "";
+}
+
+// Empty prose fields become null, matching the convention every hand-authored
+// event file already uses (see tools/quest-editor.html's builder).
+function normProse(v) {
+  const t = (v || "").trim();
+  return t === "" ? null : t;
+}
+
+function buildBundle(draft) {
+  return {
+    format: "vein-quest-draft/v1",
+    savedAt: new Date().toISOString(),
+    id: draft.id,
+    cards: draft.cards.map((c) => {
+      const card = { type: c.type, label: normProse(c.label), speaker: normProse(c.speaker), text: normProse(c.text) };
+      if (c.type === "choice") {
+        card.choices = c.choices.map((ch) => ({
+          label: normProse(ch.label),
+          effects: [],
+          result_text: normProse(ch.result_text),
+        }));
+      }
+      return card;
+    }),
+    notes: draft.notesText || "",
+  };
+}
+
+function saveDraft() {
+  const d = state.draft;
+  if (!d) return;
+  const err = validateId(d.id);
+  if (err) {
+    setStatus(err, "error");
+    return;
+  }
+  const text = JSON.stringify(buildBundle(d), null, 2) + "\n";
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = d.id + ".draft.json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  state.dirty = false;
+  state.loadedFrom = d.id + ".draft.json";
+  setStatus("Saved " + d.id + ".draft.json — check your downloads/Files app.", "ok");
+}
+
+async function copyDraftJSON() {
+  const d = state.draft;
+  if (!d) return;
+  const err = validateId(d.id);
+  if (err) {
+    setStatus(err, "error");
+    return;
+  }
+  const text = JSON.stringify(buildBundle(d), null, 2) + "\n";
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus("Copied draft JSON to clipboard — paste it into a message to Claude.", "ok");
+  } catch (err2) {
+    setStatus("Clipboard copy failed: " + err2.message, "error");
+  }
+}
+
+/* ---------- Rendering ---------- */
+
+function iconBtn(label, title, disabled, danger, onClick) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "icon-btn" + (danger ? " danger" : "");
+  btn.textContent = label;
+  btn.title = title;
+  btn.disabled = !!disabled;
+  btn.addEventListener("click", onClick);
+  return btn;
+}
+
+function field(labelText, obj, key, controlType) {
+  const row = document.createElement("div");
+  row.className = "field-row";
+  const label = document.createElement("label");
+  label.textContent = labelText;
+  row.appendChild(label);
+  const control = document.createElement(controlType === "textarea" ? "textarea" : "input");
+  if (controlType !== "textarea") control.type = "text";
+  control.value = obj[key] || "";
+  control.addEventListener("input", () => {
+    obj[key] = control.value;
+    markDirty();
+  });
+  row.appendChild(control);
+  return row;
+}
+
+function render() {
+  el.content.innerHTML = "";
+  const d = state.draft;
+
+  if (!d) {
+    const help = document.createElement("div");
+    help.id = "help";
+    help.innerHTML =
+      "<strong>How this works</strong>" +
+      "<ol>" +
+      "<li>Tap <strong>New draft</strong> and write a quest: cards, choices, notes.</li>" +
+      "<li>Tap <strong>Save draft</strong> — it downloads a single <code>&lt;id&gt;.draft.json</code> file to your phone.</li>" +
+      "<li>Get that file to your computer (AirDrop, email, cloud drive, or paste via <strong>Copy JSON</strong> straight into a Claude Code chat).</li>" +
+      "<li>On your computer, hand the file (or pasted JSON) to Claude and ask it to add the quest to <code>data/events/</code> and wire it in.</li>" +
+      "</ol>" +
+      "<p>Tap <strong>Open draft&hellip;</strong> to resume editing a <code>.draft.json</code> you saved earlier.</p>" +
+      "<p>Effects, ops, deck placement and flags aren't editable here — describe what a choice should <em>do</em> in the notes field, same as the desktop editor.</p>";
+    el.content.appendChild(help);
+    return;
+  }
+
+  const idPanel = document.createElement("div");
+  idPanel.className = "panel";
+  const idHeading = document.createElement("h2");
+  idHeading.textContent = "Quest id";
+  idPanel.appendChild(idHeading);
+  const idRow = document.createElement("div");
+  idRow.className = "field-row";
+  const idLabel = document.createElement("label");
+  idLabel.textContent = "snake_case — becomes <id>.draft.json";
+  idRow.appendChild(idLabel);
+  const idInput = document.createElement("input");
+  idInput.type = "text";
+  idInput.value = d.id;
+  idInput.placeholder = "e.g. camden_new_lead";
+  idInput.autocapitalize = "none";
+  idInput.autocorrect = "off";
+  idInput.spellcheck = false;
+  const idError = document.createElement("div");
+  idError.className = "error-text";
+  idInput.addEventListener("input", () => {
+    d.id = idInput.value.trim();
+    idError.textContent = validateId(d.id);
+    markDirty();
+  });
+  idRow.appendChild(idInput);
+  idRow.appendChild(idError);
+  idError.textContent = validateId(d.id);
+  idPanel.appendChild(idRow);
+  el.content.appendChild(idPanel);
+
+  d.cards.forEach((card, idx) => el.content.appendChild(renderCard(card, idx, d.cards)));
+
+  const addCardBtn = document.createElement("button");
+  addCardBtn.type = "button";
+  addCardBtn.id = "add-card-btn";
+  addCardBtn.className = "btn";
+  addCardBtn.textContent = "+ Add card";
+  addCardBtn.addEventListener("click", () => {
+    d.cards.push(defaultCard());
+    markDirty();
+    render();
+  });
+  el.content.appendChild(addCardBtn);
+
+  const notesPanel = document.createElement("div");
+  notesPanel.className = "panel";
+  const notesHeading = document.createElement("h2");
+  notesHeading.textContent = "Notes for Claude";
+  notesPanel.appendChild(notesHeading);
+  const notesSub = document.createElement("div");
+  notesSub.className = "readonly-note";
+  notesSub.style.marginBottom = "10px";
+  notesSub.textContent = "Describe what effects/ops/deck/flags should do — e.g. \"Choice 2 costs 1 physics ore, sets flag favor_archie\". Never written to the real quest JSON.";
+  notesPanel.appendChild(notesSub);
+  notesPanel.appendChild(field("", d, "notesText", "textarea"));
+  el.content.appendChild(notesPanel);
+}
+
+function renderCard(card, idx, cardsArray) {
+  const block = document.createElement("div");
+  block.className = "panel card-block";
+
+  const header = document.createElement("div");
+  header.className = "card-block-header";
+
+  const typeSelect = document.createElement("select");
+  typeSelect.className = "type-select";
+  CARD_TYPES.forEach((t) => {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = typeLabel(t);
+    if (t === card.type) opt.selected = true;
+    typeSelect.appendChild(opt);
+  });
+  typeSelect.addEventListener("change", () => {
+    card.type = typeSelect.value;
+    if (card.type === "choice" && (!card.choices || card.choices.length === 0)) {
+      card.choices = [defaultChoice()];
+    }
+    markDirty();
+    render();
+  });
+  header.appendChild(typeSelect);
+
+  const indexLabel = document.createElement("span");
+  indexLabel.className = "card-index";
+  indexLabel.textContent = "Card " + (idx + 1);
+  header.appendChild(indexLabel);
+
+  const spacer = document.createElement("span");
+  spacer.className = "header-spacer";
+  header.appendChild(spacer);
+
+  header.appendChild(iconBtn("▲", "Move up", idx === 0, false, () => {
+    [cardsArray[idx - 1], cardsArray[idx]] = [cardsArray[idx], cardsArray[idx - 1]];
+    markDirty();
+    render();
+  }));
+  header.appendChild(iconBtn("▼", "Move down", idx === cardsArray.length - 1, false, () => {
+    [cardsArray[idx + 1], cardsArray[idx]] = [cardsArray[idx], cardsArray[idx + 1]];
+    markDirty();
+    render();
+  }));
+  header.appendChild(iconBtn("✕", "Remove card", false, true, () => {
+    cardsArray.splice(idx, 1);
+    markDirty();
+    render();
+  }));
+
+  block.appendChild(header);
+
+  block.appendChild(field("Label", card, "label", "input"));
+  block.appendChild(field("Speaker", card, "speaker", "input"));
+  block.appendChild(field("Text", card, "text", "textarea"));
+
+  if (card.type === "choice") {
+    const wrap = document.createElement("div");
+    wrap.className = "choices-wrap";
+    card.choices.forEach((choice, cIdx) => wrap.appendChild(renderChoice(choice, cIdx, card.choices)));
+    const addChoiceBtn = document.createElement("button");
+    addChoiceBtn.type = "button";
+    addChoiceBtn.className = "btn add-choice-btn";
+    addChoiceBtn.textContent = "+ Add choice";
+    addChoiceBtn.addEventListener("click", () => {
+      card.choices.push(defaultChoice());
+      markDirty();
+      render();
+    });
+    wrap.appendChild(addChoiceBtn);
+    block.appendChild(wrap);
+  }
+
+  return block;
+}
+
+function renderChoice(choice, cIdx, choicesArray) {
+  const block = document.createElement("div");
+  block.className = "choice-block";
+
+  const header = document.createElement("div");
+  header.className = "choice-block-header";
+  const title = document.createElement("span");
+  title.textContent = "Choice " + (cIdx + 1);
+  header.appendChild(title);
+  header.appendChild(iconBtn("✕", "Remove choice", false, true, () => {
+    choicesArray.splice(cIdx, 1);
+    markDirty();
+    render();
+  }));
+  block.appendChild(header);
+
+  block.appendChild(field("Choice label", choice, "label", "input"));
+
+  const effRow = document.createElement("div");
+  effRow.className = "field-row";
+  const effLabel = document.createElement("label");
+  effLabel.textContent = "Effects";
+  effRow.appendChild(effLabel);
+  const effNote = document.createElement("div");
+  effNote.className = "readonly-note";
+  effNote.textContent = "Describe in the notes below — filled in later.";
+  effRow.appendChild(effNote);
+  block.appendChild(effRow);
+
+  block.appendChild(field("Result text", choice, "result_text", "textarea"));
+
+  return block;
+}
+
+/* ---------- Warn before leaving with unsaved changes ---------- */
+
+window.addEventListener("beforeunload", (e) => {
+  if (!state.dirty) return;
+  e.preventDefault();
+  e.returnValue = "";
+});
+
+render();
+</script>
+</body>
+</html>

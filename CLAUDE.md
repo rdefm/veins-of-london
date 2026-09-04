@@ -102,3 +102,8 @@ Default five canonical roles (`needs-triage`, `needs-info`, `ready-for-agent`, `
 ### Domain docs
 
 Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Quest drafts (mobile)
+
+When handed a `<id>.draft.json` file or pasted `{format: "vein-quest-draft/v1", ...}` JSON, see
+`docs/agents/quest-drafts.md` for the exact steps — do not ask the user to re-explain the format.
