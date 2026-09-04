@@ -125,6 +125,19 @@ static func _find_dial_widget(root: Node) -> DialWidget:
 	return latest
 
 
+# combat-presentation ticket 13: climbs from a node to its nearest
+# ScrollContainer ancestor, rather than a fixed `get_parent().get_parent()`
+# hop count -- resilient to the widget growing another wrapper layer in
+# between without silently checking the wrong node.
+static func _find_ancestor_scroll_container(node: Node) -> ScrollContainer:
+	var p: Node = node.get_parent()
+	while p != null:
+		if p is ScrollContainer:
+			return p
+		p = p.get_parent()
+	return null
+
+
 static func _deck_buttons(root: Node) -> Array[Button]:
 	var buttons: Array[Button] = []
 	for c in root.find_children("", "Button", true, false):
@@ -515,6 +528,73 @@ func run() -> void:
 		assert_eq(_find_dial_widget(screen).current_index(), 1, "the selected Complication should survive a refresh not caused by the rotate itself, same persistence story as _strip_selected_key")
 
 		screen.free()
+	)
+
+	# combat-presentation ticket 13: every dial_widget_* case above only
+	# proves the widget node exists -- CombatScreen.new()/_ready() here is
+	# never added to a real, sized tree, so Control layout (global_position/
+	# size) never resolves, and a widget clipped past the edge of a real
+	# phone screen would still pass every one of them. That's exactly the
+	# real-device bug ticket 13 reported ("owned Dial, loaded Complication,
+	# still doesn't appear in a fight"): _build_command_deck()'s action-card
+	# row (unrelated to the Dial -- mostly the 3 action cards' own reserved
+	# button-text widths) plus the Dial widget's fixed width regularly
+	# exceed a phone's available content width once margins are subtracted,
+	# and screen_body()'s outer ScrollContainer has horizontal scroll
+	# disabled project-wide (UI.scroll_container()), so that overflow used
+	# to be silently clipped past the true screen edge with no way to reach
+	# it. See _build_command_deck()'s own comment for the fix: the deck now
+	# gets its own horizontal-only TouchScrollContainer.
+	#
+	# This case needs a real, sized SceneTree entry to catch that -- same
+	# "REAL ScrollContainer, live in the actual scene tree" precedent
+	# tests/test_map_canvas.gd's step_zoom cases use, including their
+	# two-frame wait (first lets any still-pending deferred autoload
+	# _ready() -- GameState._ready() calls reset() -- flush before this
+	# case's own GameState.reset()/setup runs, so a later frame can't
+	# silently wipe it out from under this case; second lets the newly-built
+	# screen's own container layout actually resolve).
+	await run_case("dial_widget_is_scrollable_into_view_when_the_command_deck_overflows_a_phone_viewport", func():
+		var tree := Engine.get_main_loop() as SceneTree
+		await tree.process_frame
+		await tree.process_frame
+
+		_setup_combat([_enemy("Scrapper")])
+		GameState.state["player"]["dial"] = _dial(["blast", "shield"])
+
+		# project.godot's window/size/viewport_width x height -- the actual
+		# device viewport this game ships at, not an arbitrary test size.
+		var viewport := Control.new()
+		viewport.size = Vector2(390, 844)
+		tree.root.add_child(viewport)
+
+		var screen := CombatScreen.new()
+		viewport.add_child(screen)
+		await tree.process_frame
+		await tree.process_frame
+
+		var widget := _find_dial_widget(screen)
+		assert_true(widget != null, "sanity: the widget must still be in the tree")
+
+		var scroller := _find_ancestor_scroll_container(widget)
+		assert_true(scroller != null, "the command deck must be wrapped in its own horizontal ScrollContainer so an overflowing row stays reachable instead of being clipped with no way back to it")
+
+		if scroller != null:
+			var viewport_right: float = scroller.global_position.x + scroller.size.x
+			var widget_right_at_rest: float = widget.global_position.x + widget.size.x
+			# Proves this scenario genuinely overflows a phone viewport at rest --
+			# without this, a regression that removed the scroller AND happened to
+			# shrink the deck back under the viewport width would still pass below.
+			assert_true(widget_right_at_rest > viewport_right, "sanity: this scenario must actually overflow the viewport at scroll=0, or scrolling to reach the widget below proves nothing -- got widget_right=%s, viewport_right=%s" % [widget_right_at_rest, viewport_right])
+
+			scroller.scroll_horizontal = 999999  # ScrollContainer clamps this to its real max range
+			await tree.process_frame
+
+			var widget_right: float = widget.global_position.x + widget.size.x
+			assert_true(widget_right <= viewport_right + 1.0, "scrolling the command deck all the way over must bring the Dial widget fully within the device's actual screen width -- got widget_right=%s, viewport_right=%s" % [widget_right, viewport_right])
+
+		screen.free()
+		viewport.free()
 	)
 
 	# ── combat-presentation ticket 04: persistent combatant nodes ────────
