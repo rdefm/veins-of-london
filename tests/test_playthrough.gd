@@ -466,9 +466,17 @@ func run() -> void:
 			assert_true(not GameState.state["factions"][faction_id]["joined"], "should not have joined any faction")
 
 		# --- 10 daily ticks ---
+		# bugfixes-112: neither contact's own motion event (James's/Archie's
+		# tutorial introduction of the job/deal mechanic) is played anywhere
+		# on this walk — only consumable sales trigger archie_motion (see
+		# systems/economy.gd), and this run never sells one — so the daily
+		# tick's proactive offer rolls must never fire despite running 10
+		# times in a row.
 		for i in range(10):
 			TimeSystem.daily_tick()
 			_assert_invariants("daily tick %d" % (i + 1))
+			assert_true(not GameState.state["flags"]["jamesJobActive"], "daily tick %d: James's job offer must not roll before jamesMotionEventSeen" % (i + 1))
+			assert_true(not GameState.state["flags"]["archieDealActive"], "daily tick %d: Archie's deal offer must not roll before archieMotionEventSeen" % (i + 1))
 
 		# --- Save/load mid-run round-trip ---
 		var pre_save: Dictionary = GameState.deep_copy(GameState.state)

@@ -333,6 +333,7 @@ func run() -> void:
 
 	run_case("daily_tick_wires_in_james_job_offer_roll_step", func():
 		GameState.reset()
+		GameState.state["flags"]["jamesMotionEventSeen"] = true
 		GameState.state["player"]["cash"] = Jobs.FLAT_PAY_LOW_CASH_THRESHOLD  # guarantees a 100% flatPay roll
 		TimeSystem.daily_tick()
 		assert_eq(GameState.state["flags"]["jamesJobActive"], true, "daily_tick should reach the James job offer roll step")

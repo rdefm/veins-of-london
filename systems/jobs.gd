@@ -2,8 +2,9 @@ class_name Jobs
 extends RefCounted
 
 # James jobs per R§3.10 + §1.11 trust bands. Static funcs only. Unlocked
-# by jamesMotionEventSeen (a UI-gating concern for T12, same as other
-# unlockFlag-style flags — not re-enforced here).
+# by jamesMotionEventSeen — bugfixes-112: gated directly in roll_daily_offer()
+# below, not just in ContactCards.build_james_card()'s UI, so the daily tick
+# can't push an offer/Notify naming James before james_motion.json has played.
 #
 # bugfixes-30: James offers jobs proactively (roll_daily_offer(), called
 # from time_system.gd's daily tick) — there is no player-initiated "ask for
@@ -72,6 +73,8 @@ static func generate_flat_pay_job() -> Dictionary:
 # per day: type-1 (flat pay) first, its chance scaling to 100% once the
 # player is nearly broke; type-2 (craft) only gets a roll if type-1 misses.
 static func roll_daily_offer() -> void:
+	if not GameState.state["flags"]["jamesMotionEventSeen"]:
+		return
 	if GameState.state["flags"]["jamesJobActive"]:
 		return
 

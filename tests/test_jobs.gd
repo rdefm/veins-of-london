@@ -72,6 +72,7 @@ func run() -> void:
 	run_case("roll_daily_offer_always_offers_flat_pay_when_cash_at_or_below_threshold", func():
 		for seed in range(10):
 			GameState.reset()
+			GameState.state["flags"]["jamesMotionEventSeen"] = true
 			GameState.state["player"]["cash"] = Jobs.FLAT_PAY_LOW_CASH_THRESHOLD
 			Rng.set_seed(seed)
 			Jobs.roll_daily_offer()
@@ -82,6 +83,7 @@ func run() -> void:
 
 	run_case("roll_daily_offer_skips_entirely_when_a_job_is_already_active", func():
 		GameState.reset()
+		GameState.state["flags"]["jamesMotionEventSeen"] = true
 		var existing := Jobs.generate_flat_pay_job()
 		GameState.state["jamesJob"] = existing
 		GameState.state["flags"]["jamesJobActive"] = true
@@ -103,6 +105,7 @@ func run() -> void:
 		var hit := false
 		for seed in range(200):
 			GameState.reset()
+			GameState.state["flags"]["jamesMotionEventSeen"] = true
 			GameState.state["player"]["cash"] = Jobs.FLAT_PAY_LOW_CASH_THRESHOLD + 1
 			Rng.set_seed(seed)
 			Jobs.roll_daily_offer()
@@ -110,6 +113,17 @@ func run() -> void:
 				hit = true
 				break
 		assert_true(hit, "an offer should eventually roll within 200 seeds at the baseline chances")
+	)
+
+	run_case("roll_daily_offer_never_fires_before_jamesMotionEventSeen", func():
+		for seed in range(20):
+			GameState.reset()
+			GameState.state["flags"]["jamesMotionEventSeen"] = false
+			GameState.state["player"]["cash"] = 0  # would force an offer if the gate were missing
+			Rng.set_seed(seed)
+			Jobs.roll_daily_offer()
+			assert_eq(GameState.state["flags"]["jamesJobActive"], false, "no offer should roll before jamesMotionEventSeen, seed %d" % seed)
+			assert_eq(GameState.state["jamesJob"], null, "no job should be set before jamesMotionEventSeen, seed %d" % seed)
 	)
 
 	run_case("decline_job_clears_job_and_active_flags_with_no_relation_change", func():

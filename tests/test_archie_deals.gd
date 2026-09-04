@@ -66,8 +66,20 @@ func run() -> void:
 
 	# ── daily-tick roll gating ───────────────────────────────────────────
 
+	run_case("roll_daily_offer_never_fires_before_archieMotionEventSeen", func():
+		for seed in range(20):
+			GameState.reset()
+			GameState.state["flags"]["archieMotionEventSeen"] = false
+			GameState.state["player"]["cash"] = 0  # would force an offer if the gate were missing
+			Rng.set_seed(seed)
+			ArchieDeals.roll_daily_offer()
+			assert_eq(GameState.state["flags"]["archieDealActive"], false, "no offer should roll before archieMotionEventSeen, seed %d" % seed)
+			assert_true(Messages.pending_for("archie").is_empty(), "no pending entry should be queued before archieMotionEventSeen, seed %d" % seed)
+	)
+
 	run_case("roll_daily_offer_skips_entirely_when_a_deal_is_already_active", func():
 		GameState.reset()
+		GameState.state["flags"]["archieMotionEventSeen"] = true
 		GameState.state["flags"]["archieDealActive"] = true
 		GameState.state["player"]["cash"] = 0  # would force an offer if the guard were missing
 		for seed in range(10):
@@ -80,6 +92,7 @@ func run() -> void:
 		var hit := false
 		for seed in range(20):
 			GameState.reset()
+			GameState.state["flags"]["archieMotionEventSeen"] = true
 			GameState.state["player"]["cash"] = 0
 			Rng.set_seed(seed)
 			ArchieDeals.roll_daily_offer()
@@ -93,6 +106,7 @@ func run() -> void:
 
 	run_case("roll_daily_offer_touches_no_player_ore_or_cash", func():
 		GameState.reset()
+		GameState.state["flags"]["archieMotionEventSeen"] = true
 		GameState.state["player"]["cash"] = 0
 		var ore_before: Dictionary = GameState.deep_copy(GameState.state["player"]["orichalchum"])
 		Rng.set_seed(1)

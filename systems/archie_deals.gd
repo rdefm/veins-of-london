@@ -40,10 +40,14 @@ static func deal_tier(cash: int) -> int:
 	return mini(int(floor(float(cash) / float(TIER_CASH_STEP))), TIER_MAX)
 
 
-# Called from time_system.gd's daily tick. Only when no offer is currently
+# Called from time_system.gd's daily tick. Only once archie_motion.json has
+# introduced the mechanic (bugfixes-112 — mirrors Jobs.roll_daily_offer()'s
+# own jamesMotionEventSeen gate), and only when no offer is currently
 # pending decision, and no accepted deal (including any mugging fight it
 # triggered) is still in progress.
 static func roll_daily_offer() -> void:
+	if not GameState.state["flags"]["archieMotionEventSeen"]:
+		return
 	if GameState.state["flags"]["archieDealActive"]:
 		return
 
