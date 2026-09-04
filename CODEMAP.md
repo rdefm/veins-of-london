@@ -173,8 +173,13 @@ Access API to open `data/events/`, list every quest JSON, and edit prose fields 
 `speaker`, `result_text`) inline while showing `effects`/`on_complete`/`deck`/`pin` read-only.
 Saves by splicing only the edited string literals back into the original file text (via a
 custom position-tracking JSON parser), so untouched keys, values, and formatting are preserved
-byte-for-byte. `test_quest_editor.js` (`node tools/test_quest_editor.js`) unit-tests the parser
-and splice logic against every real file in `data/events/`.
+byte-for-byte. A "+ New quest" builder lets you assemble a fresh quest's card/choice list from
+scratch and writes it as an inert, unregistered `data/events/<id>.json` (`effects: []`, no
+`deck` key). Every open quest (existing or newly built) also shows an "Author intent notes"
+panel — free text describing what the mechanical fields should do, saved alongside quest saves
+as a sidecar `data/events/drafts/<id>.notes.md`, fully independent of the real event JSON.
+`test_quest_editor.js` (`node tools/test_quest_editor.js`) unit-tests the parser, splice logic,
+builder schema, and notes-sidecar naming against every real file in `data/events/`.
 
 ## docs/*.md and docs/adr/
 

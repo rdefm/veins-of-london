@@ -133,6 +133,9 @@
     max-height: 200px; overflow-y: auto;
   }
 
+  .notes-panel textarea { min-height: 140px; font-family: ui-monospace, Consolas, monospace; }
+  .notes-panel .meta-label-sub { font-size: 11px; color: var(--text-dim); margin: -6px 0 10px; }
+
   .meta-panel {
     background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
     padding: 14px 16px; margin-top: 20px;
@@ -346,7 +349,7 @@ const state = {
   files: [], // { name, id, handle }
   filterText: "",
   selectionToken: 0,
-  current: null, // { fileHandle, name, rawText, root, fieldBindings: [{node, inputEl, kind}] }
+  current: null, // { fileHandle, name, rawText, root, fieldBindings: [{node, inputEl, kind}], notes: {originalText, el} }
   mode: "view", // "view" (browsing/editing an existing quest) | "build" (New quest builder)
   builder: null, // { id, cards: [{type, label, speaker, text, choices:[{label, result_text}]}] }
 };
@@ -456,11 +459,12 @@ async function selectFile(f) {
   // Guard against a second click landing while this one is still awaiting I/O —
   // only the most recent selectFile() call is allowed to update state.current.
   const token = ++state.selectionToken;
-  let file, rawText, root;
+  let file, rawText, root, notesText;
   try {
     file = await f.handle.getFile();
     rawText = await file.text();
     root = parseJSONWithPositions(rawText);
+    notesText = await loadNotesFor(f.id);
   } catch (err) {
     if (token !== state.selectionToken) return;
     setStatus("Failed to open " + f.name + ": " + err.message, "error");
@@ -474,6 +478,7 @@ async function selectFile(f) {
     rawText,
     root,
     fieldBindings: [],
+    notes: { originalText: notesText, el: null },
     hasUnsavedChanges: false,
   };
   renderFileList();
@@ -516,6 +521,7 @@ function renderQuest() {
   }
 
   renderMetaPanel(q.root);
+  renderNotesPanel(q);
 }
 
 function renderCard(cardNode, idx) {
@@ -649,7 +655,7 @@ function isBindingDirty(b) {
 function updateUnsavedFlag() {
   const q = state.current;
   if (!q) return;
-  q.hasUnsavedChanges = q.fieldBindings.some(isBindingDirty);
+  q.hasUnsavedChanges = q.fieldBindings.some(isBindingDirty) || isNotesDirty(q);
   renderFileList();
   if (q.hasUnsavedChanges) setStatus("Unsaved changes", "dirty");
   else setStatus("", "");
@@ -658,6 +664,80 @@ function updateUnsavedFlag() {
 function setStatus(text, kind) {
   el.status.textContent = text;
   el.status.className = kind || "";
+}
+
+/* ---------- Author-intent notes sidecar (ticket 03) ---------- */
+
+// data/events/drafts/<id>.notes.md — a plain-text/Markdown sidecar, keyed to
+// the quest id, fully independent of the real event JSON. Never parsed,
+// never touched by the prose/structure save paths.
+function notesFileName(id) {
+  return id + ".notes.md";
+}
+
+async function loadNotesFor(id) {
+  if (!state.dirHandle) return "";
+  try {
+    const draftsHandle = await state.dirHandle.getDirectoryHandle("drafts");
+    const fileHandle = await draftsHandle.getFileHandle(notesFileName(id));
+    const file = await fileHandle.getFile();
+    return await file.text();
+  } catch (err) {
+    // No drafts/ dir yet, or no notes file for this id yet — empty panel.
+    return "";
+  }
+}
+
+async function saveNotesFor(id, text) {
+  const draftsHandle = await state.dirHandle.getDirectoryHandle("drafts", { create: true });
+  const fileHandle = await draftsHandle.getFileHandle(notesFileName(id), { create: true });
+  const perm = await fileHandle.requestPermission({ mode: "readwrite" });
+  if (perm !== "granted") throw new Error("write permission not granted for notes file");
+  const writable = await fileHandle.createWritable();
+  await writable.write(text);
+  await writable.close();
+}
+
+// Only meaningful for view-mode's { originalText, el } notes shape — the
+// builder's b.notesText is a plain string with no "originalText" to diff
+// against (a brand-new quest has no prior save), so it's written verbatim
+// by createNewQuest() instead of going through this dirty check.
+function isNotesDirty(q) {
+  return !!(q.notes && q.notes.el && q.notes.el.value !== q.notes.originalText);
+}
+
+// Shared by the view-mode notes panel below and the builder's notes panel
+// (New quest builder section) — same heading/subtitle either way.
+function makeNotesPanelShell() {
+  const panel = document.createElement("div");
+  panel.className = "meta-panel notes-panel";
+  const h2 = document.createElement("h2");
+  h2.textContent = "Author intent notes";
+  panel.appendChild(h2);
+  const sub = document.createElement("div");
+  sub.className = "meta-label-sub";
+  sub.textContent = "Sidecar for Claude — describe what effects/ops/deck/flags should do. Never written to the quest JSON.";
+  panel.appendChild(sub);
+  return panel;
+}
+
+function renderNotesPanel(q) {
+  const panel = makeNotesPanelShell();
+
+  const row = document.createElement("div");
+  row.className = "field-row";
+  const textarea = document.createElement("textarea");
+  textarea.placeholder = "e.g. Choice 2 should cost 1 physics ore and add a \"favor_archie\" flag...";
+  textarea.value = q.notes.originalText;
+  textarea.addEventListener("input", () => {
+    textarea.classList.toggle("edited", textarea.value !== q.notes.originalText);
+    updateUnsavedFlag();
+  });
+  row.appendChild(textarea);
+  panel.appendChild(row);
+
+  q.notes.el = textarea;
+  el.content.appendChild(panel);
 }
 
 /* ---------- New quest builder ---------- */
@@ -702,7 +782,7 @@ function startNewQuestBuilder() {
   }
   state.current = null;
   state.mode = "build";
-  state.builder = { id: "", cards: [defaultCard()] };
+  state.builder = { id: "", cards: [defaultCard()], notesText: "" };
   renderFileList();
   renderBuilder();
 }
@@ -814,6 +894,10 @@ function renderBuilder() {
     renderBuilder();
   });
   el.content.appendChild(addCardBtn);
+
+  const notesPanel = makeNotesPanelShell();
+  notesPanel.appendChild(makeBuilderField("Notes for Claude", b, "notesText", "textarea"));
+  el.content.appendChild(notesPanel);
 
   updateBuilderValidity();
 }
@@ -996,13 +1080,35 @@ async function createNewQuest() {
   }
 
   const createdId = b.id;
+  const notesText = b.notesText || "";
+  let notesError = null;
+  if (notesText.trim() !== "") {
+    try {
+      await saveNotesFor(createdId, notesText);
+    } catch (err) {
+      notesError = err;
+    }
+  }
+
   state.mode = "view";
   state.builder = null;
   el.saveBtn.textContent = "Save";
   await indexFolder();
   const created = state.files.find((f) => f.name === createdId + ".json");
   if (created) await selectFile(created);
-  setStatus("Created " + createdId + ".json", "ok");
+  if (notesError) {
+    // selectFile() just loaded (empty) notes from disk since the write above
+    // failed — restore the author's still-unsaved draft rather than losing it.
+    if (state.current && state.current.id === createdId && state.current.notes.el) {
+      state.current.notes.el.value = notesText;
+      state.current.notes.el.classList.toggle("edited", true);
+      state.current.hasUnsavedChanges = true;
+      renderFileList();
+    }
+    setStatus("Created " + createdId + ".json, but notes save failed: " + notesError.message, "error");
+  } else {
+    setStatus("Created " + createdId + ".json", "ok");
+  }
 }
 
 /* ---------- Save ---------- */
@@ -1014,34 +1120,60 @@ async function saveCurrent() {
   const edits = q.fieldBindings
     .filter(isBindingDirty)
     .map((b) => ({ start: b.node.start, end: b.node.end, text: JSON.stringify(b.control.value) }));
+  const notesDirty = isNotesDirty(q);
+  // Captured before any re-render, so a failed notes write can restore the
+  // user's still-unsaved draft instead of silently reverting the textarea.
+  const pendingNotesValue = q.notes.el ? q.notes.el.value : q.notes.originalText;
 
-  if (edits.length === 0) {
+  if (edits.length === 0 && !notesDirty) {
     setStatus("Nothing to save", "ok");
     return;
   }
 
-  const text = applyEdits(q.rawText, edits);
+  if (edits.length > 0) {
+    const text = applyEdits(q.rawText, edits);
+    try {
+      const perm = await q.fileHandle.requestPermission({ mode: "readwrite" });
+      if (perm !== "granted") throw new Error("write permission not granted");
 
-  try {
-    const perm = await q.fileHandle.requestPermission({ mode: "readwrite" });
-    if (perm !== "granted") throw new Error("write permission not granted");
+      const writable = await q.fileHandle.createWritable();
+      await writable.write(text);
+      await writable.close();
+    } catch (err) {
+      setStatus("Save failed: " + err.message, "error");
+      return;
+    }
+    // Re-parse the freshly written text so bindings/offsets stay valid for further edits.
+    q.rawText = text;
+    q.root = parseJSONWithPositions(text);
+  }
+  // renderQuest() below always rebuilds fieldBindings from scratch (via
+  // makeEditableField's push) — clear the stale array first whichever
+  // branch above ran, or a notes-only save would leave old bindings
+  // (pointing at now-detached nodes) piled up alongside the new ones.
+  q.fieldBindings = [];
 
-    const writable = await q.fileHandle.createWritable();
-    await writable.write(text);
-    await writable.close();
-  } catch (err) {
-    setStatus("Save failed: " + err.message, "error");
-    return;
+  let notesError = null;
+  if (notesDirty) {
+    try {
+      await saveNotesFor(q.id, pendingNotesValue);
+      q.notes.originalText = pendingNotesValue;
+    } catch (err) {
+      notesError = err;
+    }
   }
 
-  // Re-parse the freshly written text so bindings/offsets stay valid for further edits.
-  q.rawText = text;
-  q.root = parseJSONWithPositions(text);
-  q.fieldBindings = [];
-  q.hasUnsavedChanges = false;
+  q.hasUnsavedChanges = !!notesError;
   renderQuest();
   renderFileList();
-  setStatus("Saved", "ok");
+  if (notesError) {
+    // Restore the unsaved draft into the freshly rendered textarea so it isn't lost.
+    q.notes.el.value = pendingNotesValue;
+    q.notes.el.classList.toggle("edited", true);
+    setStatus("Saved quest, but notes save failed: " + notesError.message, "error");
+  } else {
+    setStatus("Saved", "ok");
+  }
 }
 </script>
 </body>

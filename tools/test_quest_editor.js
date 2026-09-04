@@ -145,6 +145,27 @@ test("string escaping and unicode round-trip through JSON.stringify like the sou
   assert.strictEqual(editedSpeakerCard.text, withQuotesAndUnicode);
 });
 
+/* ---------- Author-intent notes sidecar (ticket 03) ---------- */
+
+const notesStartMarker = "/* ---------- Author-intent notes sidecar (ticket 03) ---------- */";
+const notesEndMarker = "/* ---------- New quest builder ---------- */";
+const nStart = html.indexOf(notesStartMarker);
+const nEnd = html.indexOf(notesEndMarker);
+assert(nStart !== -1 && nEnd !== -1, "could not locate notes-sidecar markers in quest-editor.html");
+const notesSource = html.slice(nStart, nEnd);
+const { notesFileName } = new Function(notesSource + "\nreturn { notesFileName };")();
+
+test("notesFileName keys the sidecar to the quest id with a .notes.md suffix", () => {
+  assert.strictEqual(notesFileName("camden_new_lead"), "camden_new_lead.notes.md");
+  assert.strictEqual(notesFileName("col_a1_intro"), "col_a1_intro.notes.md");
+});
+
+test("every real event id maps to a distinct sidecar filename (no collisions across ids)", () => {
+  const ids = files.map((f) => f.replace(/\.json$/, ""));
+  const names = new Set(ids.map(notesFileName));
+  assert.strictEqual(names.size, ids.length, "sidecar filenames must be unique per quest id");
+});
+
 /* ---------- New quest builder (ticket 02) ---------- */
 
 test("card type dropdown roster matches ticket 02 exactly", () => {
