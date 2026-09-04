@@ -22,6 +22,26 @@ const parserSource = html.slice(startIdx, endIdx);
 const loaded = new Function(parserSource + "\nreturn { parseJSONWithPositions, nodeGet, nodeToPlain, applyEdits };")();
 const { parseJSONWithPositions, nodeGet, nodeToPlain, applyEdits } = loaded;
 
+// Same extraction trick for the ticket-02 "New quest builder" section. Its
+// pure functions (validateNewQuestId, buildQuestObject, normProse) close
+// over a `state` identifier for the collision check, so the factory takes
+// one and returns it bound — the DOM-touching functions in the same block
+// (renderBuilder etc.) are defined but never invoked here.
+const builderStartMarker = "/* ---------- New quest builder ---------- */";
+const builderEndMarker = "/* ---------- Save ---------- */";
+const bStart = html.indexOf(builderStartMarker);
+const bEnd = html.indexOf(builderEndMarker);
+assert(bStart !== -1 && bEnd !== -1, "could not locate new-quest-builder markers in quest-editor.html");
+const builderSource = html.slice(bStart, bEnd);
+const builderFactory = new Function(
+  "state",
+  builderSource +
+    "\nreturn { validateNewQuestId, buildQuestObject, normProse, defaultCard, defaultChoice, CARD_TYPES };"
+);
+function loadBuilder(files) {
+  return builderFactory({ files });
+}
+
 let passed = 0;
 
 function test(name, fn) {
@@ -123,6 +143,90 @@ test("string escaping and unicode round-trip through JSON.stringify like the sou
   const editedParsed = JSON.parse(edited);
   const editedSpeakerCard = editedParsed.cards.find((c) => c.type === "speaker");
   assert.strictEqual(editedSpeakerCard.text, withQuotesAndUnicode);
+});
+
+/* ---------- New quest builder (ticket 02) ---------- */
+
+test("card type dropdown roster matches ticket 02 exactly", () => {
+  assert.deepStrictEqual(loadBuilder([]).CARD_TYPES, ["narration", "speaker", "choice", "resolution", "craft"]);
+});
+
+test("validateNewQuestId rejects blank/non-snake_case/collisions, accepts a fresh id", () => {
+  const { validateNewQuestId } = loadBuilder([{ name: "busker_greenwich.json" }]);
+  assert.notStrictEqual(validateNewQuestId(""), "");
+  assert.notStrictEqual(validateNewQuestId("CamelCase"), "");
+  assert.notStrictEqual(validateNewQuestId("trailing_"), "");
+  assert.notStrictEqual(validateNewQuestId("_leading"), "");
+  assert.notStrictEqual(validateNewQuestId("double__underscore"), "");
+  assert.notStrictEqual(validateNewQuestId("busker_greenwich"), "", "must reject a filename collision");
+  assert.strictEqual(validateNewQuestId("camden_new_lead"), "");
+});
+
+test("every real event id under data/events/ validates as a legal, collision-free new id", () => {
+  const { validateNewQuestId } = loadBuilder([]); // no existing files -> only checks the id shape itself
+  for (const f of files) {
+    const id = f.replace(/\.json$/, "");
+    assert.strictEqual(validateNewQuestId(id), "", id + " (a real event id) should be valid snake_case");
+  }
+});
+
+test("buildQuestObject matches the real event schema: id/cards/on_complete, effects:[], no deck key", () => {
+  const { buildQuestObject } = loadBuilder([]);
+  const obj = buildQuestObject({
+    id: "test_new_quest",
+    cards: [
+      { type: "narration", label: "Somewhere", speaker: "", text: "It happens.", choices: [] },
+      {
+        type: "choice",
+        label: "",
+        speaker: "",
+        text: "Pick one.",
+        choices: [
+          { label: "Option A", result_text: "A happens." },
+          { label: "", result_text: "" },
+        ],
+      },
+    ],
+  });
+
+  assert.deepStrictEqual(Object.keys(obj), ["id", "cards", "on_complete"]);
+  assert.strictEqual(obj.id, "test_new_quest");
+  assert(!("deck" in obj), "a new quest must never carry a deck key (ticket 02)");
+
+  assert.deepStrictEqual(Object.keys(obj.cards[0]), ["type", "label", "speaker", "text"]);
+  assert.strictEqual(obj.cards[0].label, "Somewhere");
+  assert.strictEqual(obj.cards[0].speaker, null, "a blank prose field is written as null, not an empty string");
+
+  assert.deepStrictEqual(Object.keys(obj.cards[1]), ["type", "label", "speaker", "text", "choices"]);
+  assert.strictEqual(obj.cards[1].choices[0].label, "Option A");
+  assert.deepStrictEqual(obj.cards[1].choices[0].effects, []);
+  assert.strictEqual(obj.cards[1].choices[1].label, null);
+  assert.strictEqual(obj.cards[1].choices[1].result_text, null);
+
+  assert(
+    Array.isArray(obj.on_complete) && obj.on_complete.some((op) => op.op === "set_screen"),
+    "on_complete needs a navigating op or GameData._validate_events() rejects the file once registered"
+  );
+});
+
+test("normProse trims prose and blanks to null", () => {
+  const { normProse } = loadBuilder([]);
+  assert.strictEqual(normProse("  hi  "), "hi");
+  assert.strictEqual(normProse(""), null);
+  assert.strictEqual(normProse("   "), null);
+  assert.strictEqual(normProse(undefined), null);
+});
+
+test("a freshly built quest's saved JSON round-trips through the tool's own parser", () => {
+  const { buildQuestObject } = loadBuilder([]);
+  const obj = buildQuestObject({
+    id: "smoke_test_quest",
+    cards: [{ type: "narration", label: "X", speaker: "", text: "Y", choices: [] }],
+  });
+  const text = JSON.stringify(obj, null, 2) + "\n";
+  const root = parseJSONWithPositions(text);
+  assert.deepStrictEqual(nodeToPlain(root), JSON.parse(text));
+  assert.deepStrictEqual(nodeToPlain(root), obj);
 });
 
 console.log(passed + " test(s) passed");

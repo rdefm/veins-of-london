@@ -38,13 +38,16 @@
   }
   #sidebar-header h1 { font-size: 15px; margin: 0 0 2px; }
   #sidebar-header .sub { font-size: 12px; color: var(--text-dim); }
-  #open-btn, #save-btn {
+  #open-btn, #save-btn, #new-quest-btn, .cancel-btn, .add-card-btn, .add-choice-btn {
     background: var(--accent-dim); color: var(--text);
     border: 1px solid var(--border); border-radius: 6px;
     padding: 6px 10px; cursor: pointer; font-size: 13px;
   }
-  #open-btn:hover, #save-btn:hover:not(:disabled) { background: var(--accent); color: #14141a; }
-  #save-btn:disabled { opacity: 0.4; cursor: default; }
+  #open-btn:hover, #save-btn:hover:not(:disabled), #new-quest-btn:hover:not(:disabled),
+  .cancel-btn:hover, .add-card-btn:hover, .add-choice-btn:hover { background: var(--accent); color: #14141a; }
+  #save-btn:disabled, #new-quest-btn:disabled { opacity: 0.4; cursor: default; }
+  .add-card-btn { display: block; width: 100%; margin-top: 4px; }
+  .add-choice-btn { margin-top: 4px; font-size: 12px; padding: 4px 8px; }
   #search {
     width: 100%; padding: 6px 8px; border-radius: 6px;
     border: 1px solid var(--border); background: var(--bg); color: var(--text);
@@ -89,6 +92,19 @@
     padding: 2px 8px; border-radius: 10px; background: var(--accent-dim); color: var(--accent);
   }
   .card-index { color: var(--text-dim); font-size: 12px; }
+  .type-select {
+    background: var(--accent-dim); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 2px 8px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.04em; cursor: pointer;
+  }
+  .small-btn {
+    background: var(--panel-alt); color: var(--text-dim); border: 1px solid var(--border);
+    border-radius: 4px; width: 24px; height: 22px; cursor: pointer; font-size: 11px; line-height: 1;
+  }
+  .small-btn:hover:not(:disabled) { background: var(--accent-dim); color: var(--text); }
+  .small-btn:disabled { opacity: 0.3; cursor: default; }
+  .small-btn-danger:hover:not(:disabled) { background: var(--danger); color: #14141a; border-color: var(--danger); }
+  .choice-block-header { display: flex; align-items: center; justify-content: space-between; }
 
   .field-row { margin-bottom: 8px; }
   .field-row label {
@@ -139,6 +155,7 @@
       <h1>Quest Prose Editor</h1>
       <div class="sub">data/events/</div>
       <button id="open-btn">Open data/events folder&hellip;</button>
+      <button id="new-quest-btn" disabled>+ New quest</button>
       <input id="search" type="text" placeholder="Filter by id or filename&hellip;" disabled>
     </div>
     <div id="file-count"></div>
@@ -330,10 +347,13 @@ const state = {
   filterText: "",
   selectionToken: 0,
   current: null, // { fileHandle, name, rawText, root, fieldBindings: [{node, inputEl, kind}] }
+  mode: "view", // "view" (browsing/editing an existing quest) | "build" (New quest builder)
+  builder: null, // { id, cards: [{type, label, speaker, text, choices:[{label, result_text}]}] }
 };
 
 const el = {
   openBtn: document.getElementById("open-btn"),
+  newQuestBtn: document.getElementById("new-quest-btn"),
   saveBtn: document.getElementById("save-btn"),
   search: document.getElementById("search"),
   fileList: document.getElementById("file-list"),
@@ -349,11 +369,15 @@ if (!window.showDirectoryPicker) {
     "desktop version of Chrome or Edge.</div>";
 } else {
   el.openBtn.addEventListener("click", openFolder);
+  el.newQuestBtn.addEventListener("click", startNewQuestBuilder);
   el.search.addEventListener("input", () => {
     state.filterText = el.search.value.trim().toLowerCase();
     renderFileList();
   });
-  el.saveBtn.addEventListener("click", saveCurrent);
+  el.saveBtn.addEventListener("click", () => {
+    if (state.mode === "build") createNewQuest();
+    else saveCurrent();
+  });
 }
 
 async function openFolder() {
@@ -367,6 +391,7 @@ async function openFolder() {
   }
   state.dirHandle = handle;
   el.search.disabled = false;
+  el.newQuestBtn.disabled = false;
   await indexFolder();
 }
 
@@ -421,10 +446,13 @@ function renderFileList() {
 }
 
 async function selectFile(f) {
-  if (state.current && state.current.hasUnsavedChanges) {
+  if (state.mode === "view" && state.current && state.current.hasUnsavedChanges) {
     const proceed = confirm("You have unsaved changes in \"" + state.current.name + "\". Discard them?");
     if (!proceed) return;
   }
+  if (state.mode === "build" && !confirm("Discard the quest you're currently building?")) return;
+  state.mode = "view";
+  state.builder = null;
   // Guard against a second click landing while this one is still awaiting I/O —
   // only the most recent selectFile() call is allowed to update state.current.
   const token = ++state.selectionToken;
@@ -471,6 +499,7 @@ function renderQuest() {
   const q = state.current;
   el.content.innerHTML = "";
   el.saveBtn.disabled = false;
+  el.saveBtn.textContent = "Save";
   setStatus("", "");
 
   const idNode = nodeGet(q.root, "id");
@@ -629,6 +658,351 @@ function updateUnsavedFlag() {
 function setStatus(text, kind) {
   el.status.textContent = text;
   el.status.className = kind || "";
+}
+
+/* ---------- New quest builder ---------- */
+
+// Ticket 02's dropdown roster. VALID_CARD_TYPES in GameData.gd also allows
+// "tension", but the ticket's builder only exposes these five.
+const CARD_TYPES = ["narration", "speaker", "choice", "resolution", "craft"];
+
+function defaultCard() {
+  return { type: "narration", label: "", speaker: "", text: "", choices: [] };
+}
+
+function defaultChoice() {
+  return { label: "", result_text: "" };
+}
+
+// snake_case: lowercase letters/digits, single underscores between
+// segments, no leading/trailing/double underscore — matches every id
+// already under data/events/ (col_a1_intro, busker_greenwich, ...).
+function validateNewQuestId(id) {
+  if (!id) return "Quest id is required.";
+  if (!/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/.test(id)) {
+    return "Must be snake_case: lowercase letters, digits and single underscores, starting with a letter.";
+  }
+  const filename = id + ".json";
+  const collides = state.files.some((f) => f.name.toLowerCase() === filename.toLowerCase());
+  if (collides) return "A file named " + filename + " already exists in data/events/.";
+  return "";
+}
+
+function startNewQuestBuilder() {
+  if (!state.dirHandle) {
+    setStatus("Open the data/events folder first.", "error");
+    return;
+  }
+  if (state.mode === "view" && state.current && state.current.hasUnsavedChanges) {
+    const proceed = confirm("You have unsaved changes in \"" + state.current.name + "\". Discard them?");
+    if (!proceed) return;
+  }
+  if (state.mode === "build" && !confirm("Discard the quest you're currently building and start a new one?")) {
+    return;
+  }
+  state.current = null;
+  state.mode = "build";
+  state.builder = { id: "", cards: [defaultCard()] };
+  renderFileList();
+  renderBuilder();
+}
+
+function cancelBuilder() {
+  state.mode = "view";
+  state.builder = null;
+  el.saveBtn.textContent = "Save";
+  renderFileList();
+  if (state.current) {
+    renderQuest();
+  } else {
+    el.questTitle.textContent = "No quest selected";
+    el.saveBtn.disabled = true;
+    el.content.innerHTML = '<div id="empty-state">Open the data/events folder, then pick a quest from the sidebar.</div>';
+  }
+  setStatus("", "");
+}
+
+function smallBtn(label, title, disabled, danger, onClick) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "small-btn" + (danger ? " small-btn-danger" : "");
+  btn.textContent = label;
+  btn.title = title;
+  btn.disabled = !!disabled;
+  btn.addEventListener("click", onClick);
+  return btn;
+}
+
+// Binds a plain input/textarea straight to obj[key] on a fresh in-memory
+// builder card/choice — unlike makeEditableField there's no source text or
+// offsets to preserve, so no dirty-tracking or re-render on input needed.
+function makeBuilderField(labelText, obj, key, controlType) {
+  const row = document.createElement("div");
+  row.className = "field-row";
+  const label = document.createElement("label");
+  label.textContent = labelText;
+  row.appendChild(label);
+  const control = document.createElement(controlType === "textarea" ? "textarea" : "input");
+  if (controlType !== "textarea") control.type = "text";
+  control.value = obj[key] || "";
+  control.addEventListener("input", () => {
+    obj[key] = control.value;
+  });
+  row.appendChild(control);
+  return row;
+}
+
+function renderBuilder() {
+  const b = state.builder;
+  el.content.innerHTML = "";
+  el.saveBtn.textContent = "Create quest";
+  setStatus("", "");
+
+  el.questTitle.textContent = "";
+  el.questTitle.appendChild(document.createTextNode("New quest"));
+  const idSpan = document.createElement("span");
+  idSpan.className = "id";
+  idSpan.id = "builder-title-id";
+  idSpan.textContent = b.id ? b.id + ".json" : "";
+  el.questTitle.appendChild(idSpan);
+
+  const idPanel = document.createElement("div");
+  idPanel.className = "meta-panel";
+  const idHeading = document.createElement("h2");
+  idHeading.textContent = "New quest id";
+  idPanel.appendChild(idHeading);
+
+  const idRow = document.createElement("div");
+  idRow.className = "field-row";
+  const idLabel = document.createElement("label");
+  idLabel.textContent = "Quest id (snake_case) — writes data/events/<id>.json";
+  idRow.appendChild(idLabel);
+  const idInput = document.createElement("input");
+  idInput.type = "text";
+  idInput.id = "builder-id-input";
+  idInput.value = b.id;
+  idInput.placeholder = "e.g. camden_new_lead";
+  idInput.addEventListener("input", () => {
+    b.id = idInput.value.trim();
+    document.getElementById("builder-title-id").textContent = b.id ? b.id + ".json" : "";
+    updateBuilderValidity();
+  });
+  idRow.appendChild(idInput);
+  const idError = document.createElement("div");
+  idError.id = "builder-id-error";
+  idError.style.cssText = "color:var(--danger); font-size:12px; margin-top:4px; min-height:14px;";
+  idRow.appendChild(idError);
+  idPanel.appendChild(idRow);
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "cancel-btn";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", cancelBuilder);
+  idPanel.appendChild(cancelBtn);
+
+  el.content.appendChild(idPanel);
+
+  b.cards.forEach((card, idx) => el.content.appendChild(renderBuilderCard(card, idx, b.cards)));
+
+  const addCardBtn = document.createElement("button");
+  addCardBtn.type = "button";
+  addCardBtn.className = "add-card-btn";
+  addCardBtn.textContent = "+ Add card";
+  addCardBtn.addEventListener("click", () => {
+    b.cards.push(defaultCard());
+    renderBuilder();
+  });
+  el.content.appendChild(addCardBtn);
+
+  updateBuilderValidity();
+}
+
+function renderBuilderCard(card, idx, cardsArray) {
+  const block = document.createElement("div");
+  block.className = "card-block";
+
+  const header = document.createElement("div");
+  header.className = "card-block-header";
+
+  const typeSelect = document.createElement("select");
+  typeSelect.className = "type-select";
+  CARD_TYPES.forEach((t) => {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = typeLabel(t);
+    if (t === card.type) opt.selected = true;
+    typeSelect.appendChild(opt);
+  });
+  typeSelect.addEventListener("change", () => {
+    card.type = typeSelect.value;
+    if (card.type === "choice" && (!card.choices || card.choices.length === 0)) {
+      card.choices = [defaultChoice()];
+    }
+    renderBuilder();
+  });
+  header.appendChild(typeSelect);
+
+  const indexLabel = document.createElement("span");
+  indexLabel.className = "card-index";
+  indexLabel.textContent = "Card " + (idx + 1);
+  header.appendChild(indexLabel);
+
+  const spacer = document.createElement("span");
+  spacer.style.flex = "1";
+  header.appendChild(spacer);
+
+  header.appendChild(smallBtn("▲", "Move card up", idx === 0, false, () => {
+    [cardsArray[idx - 1], cardsArray[idx]] = [cardsArray[idx], cardsArray[idx - 1]];
+    renderBuilder();
+  }));
+  header.appendChild(smallBtn("▼", "Move card down", idx === cardsArray.length - 1, false, () => {
+    [cardsArray[idx + 1], cardsArray[idx]] = [cardsArray[idx], cardsArray[idx + 1]];
+    renderBuilder();
+  }));
+  header.appendChild(smallBtn("✕", "Remove card", false, true, () => {
+    cardsArray.splice(idx, 1);
+    renderBuilder();
+  }));
+
+  block.appendChild(header);
+
+  block.appendChild(makeBuilderField("Label", card, "label", "input"));
+  block.appendChild(makeBuilderField("Speaker", card, "speaker", "input"));
+  block.appendChild(makeBuilderField("Text", card, "text", "textarea"));
+
+  if (card.type === "choice") {
+    const wrap = document.createElement("div");
+    wrap.className = "choices-wrap";
+    card.choices.forEach((choice, cIdx) => wrap.appendChild(renderBuilderChoice(choice, cIdx, card.choices)));
+    const addChoiceBtn = document.createElement("button");
+    addChoiceBtn.type = "button";
+    addChoiceBtn.className = "add-choice-btn";
+    addChoiceBtn.textContent = "+ Add choice";
+    addChoiceBtn.addEventListener("click", () => {
+      card.choices.push(defaultChoice());
+      renderBuilder();
+    });
+    wrap.appendChild(addChoiceBtn);
+    block.appendChild(wrap);
+  }
+
+  return block;
+}
+
+function renderBuilderChoice(choice, cIdx, choicesArray) {
+  const block = document.createElement("div");
+  block.className = "choice-block";
+
+  const header = document.createElement("div");
+  header.className = "choice-block-header";
+  const title = document.createElement("span");
+  title.textContent = "Choice " + (cIdx + 1);
+  header.appendChild(title);
+  header.appendChild(smallBtn("✕", "Remove choice", false, true, () => {
+    choicesArray.splice(cIdx, 1);
+    renderBuilder();
+  }));
+  block.appendChild(header);
+
+  block.appendChild(makeBuilderField("Choice label", choice, "label", "input"));
+
+  const effectsRow = document.createElement("div");
+  effectsRow.className = "field-row";
+  const effLabel = document.createElement("label");
+  effLabel.textContent = "Effects (read-only — fill in later)";
+  effectsRow.appendChild(effLabel);
+  const effPre = document.createElement("div");
+  effPre.className = "readonly-json";
+  effPre.textContent = "[]";
+  effectsRow.appendChild(effPre);
+  block.appendChild(effectsRow);
+
+  block.appendChild(makeBuilderField("Result text", choice, "result_text", "textarea"));
+
+  return block;
+}
+
+function updateBuilderValidity() {
+  const b = state.builder;
+  if (!b) return;
+  const err = validateNewQuestId(b.id);
+  const errEl = document.getElementById("builder-id-error");
+  if (errEl) errEl.textContent = err;
+  el.saveBtn.disabled = !!err;
+}
+
+// Empty prose fields are written as null, matching the convention every
+// hand-authored event file already uses (e.g. a narration card's unused
+// "speaker" key) rather than empty strings.
+function normProse(v) {
+  const t = (v || "").trim();
+  return t === "" ? null : t;
+}
+
+// Builds the plain object saved to data/events/<id>.json: same key set and
+// order GameData._validate_events()/systems/events.gd expect (id, cards,
+// on_complete), effects:[] on every choice, and no "deck" key so the file
+// stays unregistered/inert per ticket 02.
+function buildQuestObject(b) {
+  return {
+    id: b.id,
+    cards: b.cards.map((c) => {
+      const card = { type: c.type, label: normProse(c.label), speaker: normProse(c.speaker), text: normProse(c.text) };
+      if (c.type === "choice") {
+        card.choices = c.choices.map((ch) => ({
+          label: normProse(ch.label),
+          effects: [],
+          result_text: normProse(ch.result_text),
+        }));
+      }
+      return card;
+    }),
+    // GameData._on_complete_navigates() requires a "set_screen" (or other
+    // self-navigating) op before an event can ever be registered/validated;
+    // this default (also used verbatim by busker_greenwich.json and other
+    // district events) keeps a freshly created file valid the moment a
+    // later Claude pass registers it, without this v1 tool touching
+    // mechanics. Swap it as part of that later wiring pass if needed.
+    on_complete: [{ op: "set_screen", screen: "map" }],
+  };
+}
+
+async function createNewQuest() {
+  const b = state.builder;
+  if (!b) return;
+  const err = validateNewQuestId(b.id);
+  if (err) {
+    setStatus(err, "error");
+    return;
+  }
+  if (!state.dirHandle) {
+    setStatus("Open the data/events folder first.", "error");
+    return;
+  }
+
+  const text = JSON.stringify(buildQuestObject(b), null, 2) + "\n";
+  let fileHandle;
+  try {
+    fileHandle = await state.dirHandle.getFileHandle(b.id + ".json", { create: true });
+    const perm = await fileHandle.requestPermission({ mode: "readwrite" });
+    if (perm !== "granted") throw new Error("write permission not granted");
+    const writable = await fileHandle.createWritable();
+    await writable.write(text);
+    await writable.close();
+  } catch (writeErr) {
+    setStatus("Create failed: " + writeErr.message, "error");
+    return;
+  }
+
+  const createdId = b.id;
+  state.mode = "view";
+  state.builder = null;
+  el.saveBtn.textContent = "Save";
+  await indexFolder();
+  const created = state.files.find((f) => f.name === createdId + ".json");
+  if (created) await selectFile(created);
+  setStatus("Created " + createdId + ".json", "ok");
 }
 
 /* ---------- Save ---------- */
