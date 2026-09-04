@@ -106,6 +106,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | nav_bar.gd | Bottom 3-slot nav dock (Phone · Map · HQ) |
 | notification_toast.gd | Auto-fading unseen-notification toasts |
 | ore_glyphs.gd | Ore-symbol font glyph rendering + coverage check |
+| symbol_glyph.gd | Reusable Label-or-vector-fallback Control for any symbol a font may not cover (helper only — not yet wired into any screen; ticket 114) |
 | top_bar.gd | Persistent top bar: cash, day/time-blocks, bag button |
 | touch_scroll_container.gd | ScrollContainer with touch drag-to-scroll |
 | ui.gd | Small shared Control-building helpers |
