@@ -1,8 +1,8 @@
 {
   "id": "shoreditch_archie",
   "cards": [
-    { "type": "narration", "label": null, "speaker": null, "text": "Archie appears the way he always does — already mid-sentence, as though the conversation started before you arrived and you're just catching up." },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"There you are. I was going to text but this is more efficient. You look like someone currently doing something mildly reckless. Carry on, I'm not your mum.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "Archie appears the way he always does - already mid-sentence, as though the conversation started before you arrived and you're just catching up." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Hello hello. Fancy seeing you here. You look like someone currently doing something mildly reckless. - carry on. I'm not your mum.\"" },
     { "type": "speaker", "label": null, "speaker": "You", "text": "\"Comforting.\"" },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"I do try.\" He nods once, like that's the whole conversation, and drifts back into whatever he was doing before he clocked you." }
   ],

@@ -2,7 +2,7 @@
   "id": "busker_greenwich",
   "cards": [
     { "type": "narration", "label": "Greenwich Market", "speaker": null, "text": "By the market, a busker inflates himself explaining the finer points of the zero meridian to a strictly disinterested crowd. He clocks you before you clock him." },
-    { "type": "speaker", "label": null, "speaker": "Busker", "text": "\"You look like someone who deals in the good stuff. I know things — where the Guild's been quiet lately. Worth twenty quid to a man who knows how to spend it.\"" },
+    { "type": "speaker", "label": null, "speaker": "Busker", "text": "\"You look like someone who deals in the good stuff. I know things - like where some small timers may have stashed some calc. Worth twenty quid to a man who knows how to spend it.\"" },
     {
       "type": "choice", "label": null, "speaker": null, "text": "He's either got something, or he's very good at pretending.",
       "choices": [
@@ -13,7 +13,7 @@
             { "op": "add_ore", "type": "time", "qty": 1 },
             { "op": "set_flag", "flag": "greenwichTipOff", "value": true }
           ],
-          "result_text": "He pockets the note and taps the side of his nose. \"Try the docks end. Tell no one where you heard it.\" He presses a scrap of foil into your hand, smeared with what's unmistakably time calc, like a receipt."
+          "result_text": "He pockets the note and taps the side of his nose. \"Bus stop outside the McDonalds. Paving stone next to the bench is loose; lift it up and you'll get a nice surprise\". Funnily, he's telling the truth; there's a small stash of calc. Or more accurately, there WAS a small stash of calc."
         },
         {
           "label": "Keep walking",

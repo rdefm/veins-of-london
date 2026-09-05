@@ -14,7 +14,7 @@
         {
           "label": "Refuse",
           "effects": [{ "op": "chance", "p": 0.4, "on_success": [{ "op": "start_street_mugging" }], "on_fail": [] }],
-          "result_text": "You refuse. For a second, nobody moves — whatever happens next happens fast."
+          "result_text": "You refuse. For a second, nobody moves - whatever happens next happens fast."
         }
       ]
     },

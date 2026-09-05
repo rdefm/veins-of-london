@@ -1704,44 +1704,31 @@ func _vignette_texture() -> GradientTexture2D:
 # row and log share a left column; the Dial widget (when it has anything
 # loaded to select) docks right, spanning both, per "Dial docked right, full
 # height, spanning both the action-card row and the log below it."
+# combat-presentation ticket 13 follow-up (human on-device flag): the Dial
+# used to be the deck's trailing, non-expanding element, which put it past
+# the right edge of a real phone viewport -- reachable only via the
+# TouchScrollContainer this function used to wrap the whole deck in. Docking
+# the Dial first (left) instead means it's never the element that overflows;
+# _build_action_deck()'s own row is a vertical button stack now (not a
+# horizontal row of cards) for the same reason -- three/four buttons stacked
+# tall stay within a phone's content width where they'd have spilled past it
+# side by side, so the deck no longer needs a scroller to stay reachable.
 func _build_command_deck(combat: Dictionary, player: Dictionary) -> Control:
-	var deck := UI.hbox(8)
+	var container := UI.vbox(8)
 
-	var left := UI.vbox(8)
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_child(_build_action_deck(player))
-	left.add_child(_build_log(combat))
-	deck.add_child(left)
+	var deck := UI.hbox(8)
 
 	var dial: Variant = player["dial"]
 	if dial != null and not dial["loadedComplications"].is_empty():
 		deck.add_child(_build_dial_widget(dial))
 
-	# combat-presentation ticket 13: the action-card row (3 cards, 4 once
-	# Skip joins mid-playback) plus a full-height Dial widget docked beside
-	# it can together need more width than a real phone viewport has --
-	# UI.scroll_container()'s outer ScrollContainer (screen_body()) has
-	# horizontal scroll disabled project-wide, and a ScrollContainer only
-	# hides a child's oversized minimum size on the axis where scrolling is
-	# *enabled* (touch_scroll_container.gd's own comment); on a disabled
-	# axis it just requests that full size from its parent instead. With the
-	# deck added straight to _footer_holder, that meant the deck's ~300+px
-	# minimum width (mostly the action row, not the Dial) bubbled all the
-	# way up and inflated the *outer* scroll region past the device's actual
-	# width -- so the Dial (the trailing, non-expanding element) rendered
-	# past the true right edge of the screen and was visually gone, even
-	# though it built correctly and every headless test (which only checks
-	# the node exists) kept passing. Wrapping just the deck in its own
-	# horizontal-only TouchScrollContainer fixes both halves: this strip's
-	# own minimum width collapses back down (scrolling absorbs its
-	# overflow instead of propagating it), so the outer screen stops
-	# overflowing, and the Dial stays reachable here via a horizontal swipe
-	# on devices too narrow to show the whole row at once.
-	var scroller := TouchScrollContainer.new()
-	scroller.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	scroller.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroller.add_child(deck)
-	return scroller
+	var actions := _build_action_deck(player)
+	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	deck.add_child(actions)
+
+	container.add_child(deck)
+	container.add_child(_build_log(combat))
+	return container
 
 
 # combat-presentation ticket 04: while `_revealed_log_count` is set (a round
@@ -1765,8 +1752,15 @@ func _build_log(combat: Dictionary) -> Control:
 # buttons -- same handlers, no new inventory/hand mechanic, no energy-cost
 # numbers." Each card is UI.card() wrapping the same single button/handler
 # the old flat action bar used -- only the chrome changes.
+#
+# combat-presentation ticket 13 follow-up: stacked vertically ("hamburger
+# style", human's own on-device request) rather than side by side -- see
+# _build_command_deck()'s own comment for why: a vertical stack keeps this
+# row's width down to a single card regardless of how many buttons it holds
+# (3 today, 4 once Skip joins mid-playback), so docking the Dial beside it
+# never overflows a phone's content width.
 func _build_action_deck(player: Dictionary) -> Control:
-	var row := UI.hbox(8)
+	var row := UI.vbox(8)
 	row.add_child(_build_action_card("⚔ Attack", _on_attack_pressed))
 
 	# calc-effect-wiring-02/03: blast/shield/blackHole/healingBurst, then

@@ -125,18 +125,6 @@ static func _find_dial_widget(root: Node) -> DialWidget:
 	return latest
 
 
-# combat-presentation ticket 13: climbs from a node to its nearest
-# ScrollContainer ancestor, rather than a fixed `get_parent().get_parent()`
-# hop count -- resilient to the widget growing another wrapper layer in
-# between without silently checking the wrong node.
-static func _find_ancestor_scroll_container(node: Node) -> ScrollContainer:
-	var p: Node = node.get_parent()
-	while p != null:
-		if p is ScrollContainer:
-			return p
-		p = p.get_parent()
-	return null
-
 
 static func _deck_buttons(root: Node) -> Array[Button]:
 	var buttons: Array[Button] = []
@@ -530,31 +518,22 @@ func run() -> void:
 		screen.free()
 	)
 
-	# combat-presentation ticket 13: every dial_widget_* case above only
-	# proves the widget node exists -- CombatScreen.new()/_ready() here is
-	# never added to a real, sized tree, so Control layout (global_position/
-	# size) never resolves, and a widget clipped past the edge of a real
-	# phone screen would still pass every one of them. That's exactly the
-	# real-device bug ticket 13 reported ("owned Dial, loaded Complication,
-	# still doesn't appear in a fight"): _build_command_deck()'s action-card
-	# row (unrelated to the Dial -- mostly the 3 action cards' own reserved
-	# button-text widths) plus the Dial widget's fixed width regularly
-	# exceed a phone's available content width once margins are subtracted,
-	# and screen_body()'s outer ScrollContainer has horizontal scroll
-	# disabled project-wide (UI.scroll_container()), so that overflow used
-	# to be silently clipped past the true screen edge with no way to reach
-	# it. See _build_command_deck()'s own comment for the fix: the deck now
-	# gets its own horizontal-only TouchScrollContainer.
-	#
-	# This case needs a real, sized SceneTree entry to catch that -- same
-	# "REAL ScrollContainer, live in the actual scene tree" precedent
-	# tests/test_map_canvas.gd's step_zoom cases use, including their
-	# two-frame wait (first lets any still-pending deferred autoload
-	# _ready() -- GameState._ready() calls reset() -- flush before this
-	# case's own GameState.reset()/setup runs, so a later frame can't
-	# silently wipe it out from under this case; second lets the newly-built
-	# screen's own container layout actually resolve).
-	await run_case("dial_widget_is_scrollable_into_view_when_the_command_deck_overflows_a_phone_viewport", func():
+	# combat-presentation ticket 13 follow-up (human on-device flag): the
+	# Dial used to be the deck's trailing, non-expanding element, which put
+	# it past the right edge of a real phone viewport, reachable only by
+	# scrolling the deck's own TouchScrollContainer sideways. _build_command_
+	# deck() now docks the Dial first (left) and stacks the action buttons
+	# vertically beside it instead of side by side -- see that function's
+	# own comment. This case needs a real, sized SceneTree entry (not a bare
+	# CombatScreen.new()/_ready(), where Control layout never resolves) to
+	# actually prove the Dial lands on screen at rest -- same "REAL
+	# ScrollContainer, live in the actual scene tree" precedent tests/
+	# test_map_canvas.gd's step_zoom cases use, including their two-frame
+	# wait (first lets any still-pending deferred autoload _ready() --
+	# GameState._ready() calls reset() -- flush before this case's own
+	# GameState.reset()/setup runs; second lets the newly-built screen's own
+	# container layout actually resolve).
+	await run_case("dial_widget_sits_on_screen_at_the_left_of_the_command_deck_without_scrolling", func():
 		var tree := Engine.get_main_loop() as SceneTree
 		await tree.process_frame
 		await tree.process_frame
@@ -576,22 +555,24 @@ func run() -> void:
 		var widget := _find_dial_widget(screen)
 		assert_true(widget != null, "sanity: the widget must still be in the tree")
 
-		var scroller := _find_ancestor_scroll_container(widget)
-		assert_true(scroller != null, "the command deck must be wrapped in its own horizontal ScrollContainer so an overflowing row stays reachable instead of being clipped with no way back to it")
+		var viewport_left: float = viewport.global_position.x
+		var viewport_right: float = viewport_left + viewport.size.x
+		assert_true(widget.global_position.x <= viewport_left + 32.0, "the Dial must dock at the left of the command deck (near the screen's own left margin), not off past the right edge -- got widget_left=%s, viewport_left=%s" % [widget.global_position.x, viewport_left])
+		var widget_right: float = widget.global_position.x + widget.size.x
+		assert_true(widget_right <= viewport_right + 1.0, "the Dial must be fully on screen at rest, with no scrolling needed -- got widget_right=%s, viewport_right=%s" % [widget_right, viewport_right])
 
-		if scroller != null:
-			var viewport_right: float = scroller.global_position.x + scroller.size.x
-			var widget_right_at_rest: float = widget.global_position.x + widget.size.x
-			# Proves this scenario genuinely overflows a phone viewport at rest --
-			# without this, a regression that removed the scroller AND happened to
-			# shrink the deck back under the viewport width would still pass below.
-			assert_true(widget_right_at_rest > viewport_right, "sanity: this scenario must actually overflow the viewport at scroll=0, or scrolling to reach the widget below proves nothing -- got widget_right=%s, viewport_right=%s" % [widget_right_at_rest, viewport_right])
-
-			scroller.scroll_horizontal = 999999  # ScrollContainer clamps this to its real max range
-			await tree.process_frame
-
-			var widget_right: float = widget.global_position.x + widget.size.x
-			assert_true(widget_right <= viewport_right + 1.0, "scrolling the command deck all the way over must bring the Dial widget fully within the device's actual screen width -- got widget_right=%s, viewport_right=%s" % [widget_right, viewport_right])
+		# _deck_buttons() finds every Button in the whole screen (including,
+		# e.g., the pacing toggle up in the heading row) -- narrow down to the
+		# actual action-deck cards by label so this only checks their layout.
+		var action_labels := ["⚔ Attack", "🎒 Item", "🏃 Run"]
+		var buttons: Array[Button] = []
+		for b in _deck_buttons(screen):
+			if action_labels.has(b.text):
+				buttons.append(b)
+		assert_true(buttons.size() >= 2, "sanity: the action deck's buttons must still be present")
+		for i in range(1, buttons.size()):
+			assert_true(buttons[i].global_position.x == buttons[0].global_position.x, "the action buttons must be stacked vertically (hamburger style), sharing one x position, not spread out in a row")
+			assert_true(buttons[i].global_position.x > widget.global_position.x, "the action button stack must sit to the right of the Dial")
 
 		screen.free()
 		viewport.free()

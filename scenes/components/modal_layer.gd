@@ -555,7 +555,17 @@ func _build_sell_sections(ore_rows: Array, item_rows: Array, asset_rows: Array) 
 # UI.symbol_row()-shaped Array every caller here now builds (bugfixes ticket
 # 114), since every row this function renders pairs an ore symbol with text.
 func _build_sell_vein_row(parts: Array, vein_id: String, selected: bool) -> Control:
-	var row := UI.hbox(6)
+	# Was UI.hbox(6) -- a bare hbox never wraps, so a long
+	# vein_parts string (district + ore + price) plus the checkbox could add
+	# up to more than _card's fixed 330px content width. That doesn't just
+	# clip to the right: _card is a shrink-to-fit PanelContainer centred via
+	# UI.anchor_center (GROW_DIRECTION_BOTH), and _scroll's horizontal
+	# scrolling is deliberately disabled (UI.scroll_container()'s own
+	# comment), so a too-wide row inflates _card's own minimum width and it
+	# grows symmetrically past both edges of the screen instead. hflow wraps
+	# the text onto its own line under the checkbox rather than forcing the
+	# whole card wider.
+	var row := UI.hflow(6)
 	row.add_child(UI.button("☑" if selected else "☐", func(): Economy.toggle_sell_vein(vein_id)))
 	var text_row := UI.symbol_row(parts)
 	text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -566,7 +576,8 @@ func _build_sell_vein_row(parts: Array, vein_id: String, selected: bool) -> Cont
 # vein-trade-assets ticket 03: the buy-side counterpart -- same 0/1 toggle
 # shape, wired to Economy.toggle_buy_vein() instead.
 func _build_buy_vein_row(parts: Array, vein_id: String, selected: bool) -> Control:
-	var row := UI.hbox(6)
+	# See _build_sell_vein_row's own comment just above.
+	var row := UI.hflow(6)
 	row.add_child(UI.button("☑" if selected else "☐", func(): Economy.toggle_buy_vein(vein_id)))
 	var text_row := UI.symbol_row(parts)
 	text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -580,21 +591,30 @@ func _build_buy_vein_row(parts: Array, vein_id: String, selected: bool) -> Contr
 # max_qty is 0 (stock exhausted) it renders "Sold out" with no steppers at
 # all, rather than a stepper that silently refuses to move past 0.
 func _build_buy_ore_row(parts: Array, key: String, qty: int, max_qty: int) -> Control:
-	var row := UI.hbox()
+	# Was UI.hbox() -- see _build_sell_vein_row's comment above
+	# for why a bare hbox here can force _card wider than the screen on both
+	# sides rather than just clipping. hflow wraps the stepper onto its own
+	# line under the text instead; the stepper's own "-"/qty/"+" trio is
+	# bundled into one sub-hbox so hflow wraps it as a unit, not scattered
+	# one control per line.
+	var row := UI.hflow()
 	var text_row := UI.symbol_row(parts)
 	text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text_row)
 	if max_qty <= 0:
 		row.add_child(UI.muted_label("Sold out"))
 		return row
-	row.add_child(UI.button("-", func(): Economy.adjust_sell_qty(key, -1, max_qty)))
-	row.add_child(UI.label(str(qty)))
-	row.add_child(UI.button("+", func(): Economy.adjust_sell_qty(key, 1, max_qty)))
+	var stepper := UI.hbox()
+	stepper.add_child(UI.button("-", func(): Economy.adjust_sell_qty(key, -1, max_qty)))
+	stepper.add_child(UI.label(str(qty)))
+	stepper.add_child(UI.button("+", func(): Economy.adjust_sell_qty(key, 1, max_qty)))
+	row.add_child(stepper)
 	return row
 
 
 func _build_sell_row(parts: Array, key: String, qty: int, max_qty: int) -> Control:
-	var row := UI.hbox()
+	# Was UI.hbox() -- see _build_sell_vein_row's comment above.
+	var row := UI.hflow()
 	var text_row := UI.symbol_row(parts)
 	# Same fix as UI.message_bubble()/checklist_row(): a non-expand
 	# autowrapping Label's minimum size collapses to ~1px, so without this
@@ -602,13 +622,15 @@ func _build_sell_row(parts: Array, key: String, qty: int, max_qty: int) -> Contr
 	# "-"/qty/"+" controls that follow it in this row.
 	text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text_row)
+	var stepper := UI.hbox()
 	# Bugfixes ticket 13: this was "−" (U+2212 MINUS SIGN), the same
 	# invisible-non-ASCII-glyph bug as the map top bar's "☰"/"🎒", and
 	# unlike its "+" sibling it had no fallback text to keep the button
 	# legible. ASCII "-" renders correctly.
-	row.add_child(UI.button("-", func(): Economy.adjust_sell_qty(key, -1, max_qty)))
-	row.add_child(UI.label(str(qty)))
-	row.add_child(UI.button("+", func(): Economy.adjust_sell_qty(key, 1, max_qty)))
+	stepper.add_child(UI.button("-", func(): Economy.adjust_sell_qty(key, -1, max_qty)))
+	stepper.add_child(UI.label(str(qty)))
+	stepper.add_child(UI.button("+", func(): Economy.adjust_sell_qty(key, 1, max_qty)))
+	row.add_child(stepper)
 	return row
 
 

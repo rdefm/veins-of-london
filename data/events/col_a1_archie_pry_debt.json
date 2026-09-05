@@ -1,11 +1,11 @@
 {
   "id": "col_a1_archie_pry_debt",
   "cards": [
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Four hundred and twenty quid. Fourteenth of March, 2019. I know because I wrote it in the book, because that's what you do.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"He's had six years and about nine conversations to say 'here's your money' and instead I get — \" he does an impression that is unkind and quite accurate — \" 'we're all right, aren't we.'\"" },
-    { "type": "narration", "label": null, "speaker": null, "text": "It is four hundred and twenty pounds. Archie has, in the time you've known him, given away a vein." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Eight four quid. Fourteenth of March, 2019. I know because I wrote it in the book, because that's what you do.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"He's had six years and about nine conversations to say 'here's your money' and instead I get - \" he does an impression that is unkind and quite accurate - \" 'we're all right, aren't we.'\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "It is eighty four pounds. Archie has, in the time you've known him, given away a vein." },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Also, he's Crystal Palace. Obviously untrustworthy.\" He says it in the specific tone of a man producing a joke because the real answer has run out." },
-    { "type": "resolution", "label": null, "speaker": null, "text": "So that's what that is. A tenner's worth of grievance with six years of compound interest on it. You stop wondering about it, which is exactly what you were supposed to do." }
+    { "type": "resolution", "label": null, "speaker": null, "text": "So that's what that is. A few quid's worth of grievance with six years of compound interest on it. " }
   ],
   "on_complete": [{ "op": "set_screen", "screen": "contacts" }]
 }

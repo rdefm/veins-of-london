@@ -324,11 +324,33 @@ static func symbol_button(parts: Array, callback: Callable) -> Button:
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 
 	var inner := hbox(4)
+	# `inner` used to be added with no anchors, so it never
+	# stretched to the button's real (often full-screen-width) size -- it
+	# just sat pinned at its own top-left, floor-sized minimum. That's
+	# harmless for a short label, but a long recipe/ore name, capped to
+	# _symbol_part()'s label() floor width instead of the button's actual
+	# available width, word-wrapped to a second line that spilled out of
+	# the button's own (unchanged, single-line) minimum height into
+	# whatever rendered above/below it. Anchoring `inner` to the button's
+	# full rect gives the label its real available width to lay out
+	# against, and SIZE_SHRINK_CENTER below keeps both children vertically
+	# centered in it regardless of the button's actual height.
+	anchor_full_rect(inner)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var font_colour: Color = _THEME.get_color("font_color", "Button")
 	for part in parts:
 		var child := _symbol_part(part, 0, font_colour)
 		child.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		child.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		if child is Label:
+			# Every other button helper in this file (UI.button()) never
+			# wraps -- it clips + ellipsis-trims instead, so a dynamic
+			# string can't blow out its container (see that func's own
+			# ticket-05 comment). Match that here instead of word-wrapping,
+			# which is what actually caused the spill described above.
+			child.autowrap_mode = TextServer.AUTOWRAP_OFF
+			child.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		inner.add_child(child)
 	b.add_child(inner)
 

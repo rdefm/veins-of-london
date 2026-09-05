@@ -98,7 +98,12 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 
 	c["content"].add_child(_build_qty_stepper_row(kind, item_type, qty, stepper_max))
 
-	var row := UI.hbox()
+	# Buy + Sell together (each a text-driven button up to
+	# UI.MAX_BUTTON_TEXT_WIDTH wide) can be wider than a narrow phone
+	# viewport; hflow wraps the second button onto its own line instead of
+	# running it off the screen, same fix UI.hflow()'s own comment
+	# documents for the site sheet's vein action row.
+	var row := UI.hflow()
 
 	var buy_total := qty * buy_price
 	var buy_button := UI.button("Buy ×%d (£%d)" % [qty, buy_total], func():
