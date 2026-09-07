@@ -360,6 +360,75 @@ func run() -> void:
 		assert_true(found, "archie_deal_mugging is a permanent alias of mugging's backdrop -- any divergence between the two entries should fail validation, not just a test convention")
 	)
 
+	# ── hq-diorama ticket 01: data/hq_visuals.json ──
+
+	run_case("corrupt_fixture_hq_visuals_no_image_and_no_fallback_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["hq_visuals"]["rooms"]["bedsit"]["fallbackColor"] = ""
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("bedsit") and e.contains("render nothing"):
+				found = true
+		assert_true(found, "a room with neither an image nor a fallbackColor should be flagged -- the room would render nothing")
+	)
+
+	run_case("corrupt_fixture_hq_visuals_unknown_fallback_color_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["hq_visuals"]["rooms"]["bedsit"]["fallbackColor"] = "not_a_real_colour"
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("not_a_real_colour"):
+				found = true
+		assert_true(found, "a fallbackColor that isn't a data/palette.json colour id should be flagged")
+	)
+
+	run_case("corrupt_fixture_hq_visuals_undersized_region_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["hq_visuals"]["rooms"]["bedsit"]["regions"]["dial"]["width"] = 20
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("dial") and e.contains("44x44"):
+				found = true
+		assert_true(found, "a region smaller than 44x44 logical px should be flagged (docs/hq-diorama-vision.md §3.2)")
+	)
+
+	run_case("corrupt_fixture_hq_visuals_overlapping_regions_fail", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		var dial: Dictionary = corrupted["hq_visuals"]["rooms"]["bedsit"]["regions"]["dial"]
+		var lab: Dictionary = corrupted["hq_visuals"]["rooms"]["bedsit"]["regions"]["lab"]
+		lab["x"] = dial["x"]
+		lab["y"] = dial["y"]
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("overlaps region"):
+				found = true
+		assert_true(found, "two regions in the same room must not overlap (docs/hq-diorama-vision.md §3.2)")
+	)
+
+	run_case("corrupt_fixture_hq_visuals_missing_region_key_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["hq_visuals"]["rooms"]["bedsit"]["regions"]["dial"].erase("label")
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("hq_visuals.rooms.bedsit.regions.dial") and e.contains("label"):
+				found = true
+		assert_true(found, "a region missing a required key should be flagged")
+	)
+
+	run_case("real_hq_visuals_bedsit_room_has_every_v1_zone", func():
+		var regions: Dictionary = GameData.HQ_VISUALS["rooms"]["bedsit"]["regions"]
+		# hq-diorama ticket 02: "gym" is here too despite §3.1's own table
+		# putting its first tier at "flat" -- a deliberate, human-approved
+		# deviation (data/hq_visuals.json's own "gymDeviation" meta note).
+		for zone_id in ["dial", "lab", "security", "rest", "rooms", "oreStore", "gym"]:
+			assert_true(regions.has(zone_id), "bedsit room should have a '%s' zone (docs/hq-diorama-vision.md §3.1)" % zone_id)
+	)
+
 	run_case("spot_check_values", func():
 		assert_eq(GameData.ORE_TYPES["fate"]["basePrice"], 90, "fate basePrice")
 		assert_eq(GameData.ORE_TYPES["emotion"]["symbol"], "❋", "emotion symbol")

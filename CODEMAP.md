@@ -81,7 +81,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | event.gd | Generic event-card screen driven by state.event |
 | factions.gd | Factions tab |
 | guild_marketplace.gd | Faction trading UI (buy/sell lanes, per-faction) |
-| hq.gd | HQ tab: property (tier/security/rooms/stored ore) + devices |
+| hq.gd | HQ tab: hq-diorama ticket 02 — the single bedsit room plate (hq_diorama.gd rendering data/hq_visuals.json), no more card stack. Tapping a zone dispatches to today's existing destination (bag/lab/rest direct, or one of modal_layer.gd's "hq_*" modals for Security/Rooms/Ore-store/Dial/Gym); a locked-HQ fallback (no room plate yet) still exposes Rest/Defend. Debug region-overlay toggle button lives here too. Gym is wired into the bedsit plate despite docs/hq-diorama-vision.md §3.1 listing its first tier as "flat" — a deliberate, human-approved deviation (see data/hq_visuals.json's "gymDeviation" meta note) |
 | lab.gd | HQ's Lab card: crafting/workbench + discovery bench |
 | map.gd | Map tab: Network diagram (MapCanvas) + district panel + site/vein sheet |
 | phone.gd | Phone tab: contact list, SMS threads, James jobs, apps grid |
@@ -96,13 +96,14 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | app_tile.gd | Icon+label+badge+lock tile used by phone app grid + dock |
 | bag_drawer.gd | Global bottom-sheet bag drawer, openable from any screen |
 | contact_cards.gd | Shared Archie/James/faction contact-card builders |
+| hq_diorama.gd | Renders one data/hq_visuals.json room-plate entry: background (image or palette.json fallback fill) + a labelled placeholder box per empty-image region + an optional debug overlay (every region rect + id). Pure renderer — region_rects() hands the caller (hq.gd) rects to do its own tap hit-testing; never touches GameState or does navigation itself |
 | icons.gd | 8 drawn icon glyphs (home/pin/padlock/market/phone/bag/legend/news) |
 | map_bubble.gd | Popup anchored at a map point listing tappable options |
 | map_canvas.gd | Network diagram draw pass (paper → zones → river → lines → stops → badges) |
 | map_controls.gd | Filter-chip drawer + legend button |
 | map_legend.gd | Persistent faction-colour key, tube-map line-key style |
 | map_zoom_buttons.gd | Floating +/- zoom control over the Network diagram |
-| modal_layer.gd | Dim background + centred card, dispatches on modal.type |
+| modal_layer.gd | Dim background + centred card, dispatches on modal.type. hq-diorama ticket 02 added HQ's zone-destination modals here ("hq_dial", "hq_security_list", "hq_rooms_list", "hq_ore_readout", "hq_gym") — hq.gd's old always-inline Security/Rooms/Ore-store/Dial/Gym cards, moved verbatim |
 | nav_bar.gd | Bottom 3-slot nav dock (Phone · Map · HQ) |
 | notification_toast.gd | Auto-fading unseen-notification toasts |
 | ore_glyphs.gd | Ore-symbol font glyph rendering + coverage check |
@@ -126,6 +127,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | faction_trade.json | systems/economy.gd |
 | factions.json | systems/factions.gd, sites.gd, raiding.gd, debug_start.gd |
 | home.json | systems/home.gd, systems/approaches.gd |
+| hq_visuals.json | autoload/GameData.gd (HQ_VISUALS) → scenes/components/hq_diorama.gd, scenes/screens/hq.gd. `rooms`: room-plate id (v1: only `bedsit`) → `{image, fallbackColor, width, height, regions}`; `regions`: zone id → `{x, y, width, height, label, image}` in the plate's own display-resolution coordinate space, doubling as both hit region and sprite rect. Read entirely generically (no hardcoded room/zone roster) so a later tier's plate or a new region needs a manifest edit only. `image` empty renders a labelled placeholder box (docs/hq-diorama-vision.md §9). Validated by GameData._validate_hq_visuals() — every region ≥44×44px, no overlaps within a room. |
 | items.json | systems/combat.gd, scenes/screens/phone.gd, scenes/components/bag_drawer.gd |
 | map_layout.json | systems/map_layout.gd, systems/map_hit_test.gd |
 | objectives.json | systems/objectives.gd, systems/todo.gd, systems/collective.gd |

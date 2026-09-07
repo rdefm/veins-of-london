@@ -1,25 +1,15 @@
 extends "res://tests/test_base.gd"
 
-# Same headless-scene pattern as tests/test_lab_screen.gd: HqScreen.new()
-# then _ready(), no live tree needed.
-
-
-# Mirrors tests/test_bag_drawer.gd's _fresh_dial() -- a minimal seeded Dial,
-# same shape Dial.new_dial() produces.
-static func _fresh_dial() -> Dictionary:
-	return {
-		"level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0,
-		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
-		"capacityMax": Dial.capacity_max(1), "movement": null, "loadedComplications": [],
-		"haftId": "collective_brolly",
-	}
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
-	return texts
+# hq-diorama ticket 02: HqScreen is now the single room plate
+# (scenes/components/hq_diorama.gd rendering GameData.HQ_VISUALS["rooms"])
+# instead of a scrolling card stack. Zone-dispatch tests below simulate a
+# tap by building a synthetic InputEventScreenTouch at a region's own
+# centre point (read from HqDiorama.region_rects(), never a hardcoded
+# coordinate) and feeding it through hq._on_diorama_gui_input() -- the same
+# path a real tap takes. What each destination actually renders (the old
+# inline Security/Rooms/Ore-store/Dial cards) is now covered by
+# tests/test_modal_layer.gd's "hq_*" cases, since that's where the content
+# moved to.
 
 
 static func _find_button(root: Node, text: String) -> Button:
@@ -29,31 +19,19 @@ static func _find_button(root: Node, text: String) -> Button:
 	return null
 
 
-static func _find_button_starting_with(root: Node, prefix: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text.begins_with(prefix):
-			return b
-	return null
+# A tap InputEventScreenTouch at `pos`, in HqDiorama's own local coordinate
+# space (matches the space hq._on_diorama_gui_input() reads gui_input events
+# in -- see dial_widget.gd's own _gui_input() for the same convention).
+static func _tap_at(pos: Vector2) -> InputEventScreenTouch:
+	var event := InputEventScreenTouch.new()
+	event.pressed = true
+	event.position = pos
+	return event
 
 
-# Index (among _content's direct children -- each card/section is added as
-# one direct child) of whichever child contains a descendant Label or Button
-# whose text matches `text`/`prefix` -- bugfixes ticket 24: used to assert
-# the actionable cards render above the passive Rooms/Security sections.
-static func _direct_child_index_containing(content: Node, text: String) -> int:
-	var children := content.get_children()
-	for i in children.size():
-		var child: Node = children[i]
-		if child is Label and (child as Label).text == text:
-			return i
-		if child is Button and (child as Button).text.begins_with(text):
-			return i
-		for n in child.find_children("*", "", true, false):
-			if n is Label and (n as Label).text == text:
-				return i
-			if n is Button and (n as Button).text.begins_with(text):
-				return i
-	return -1
+static func _tap_zone(hq: HqScreen, zone_id: String) -> void:
+	var rect: Rect2 = hq._diorama.region_rects()[zone_id]
+	hq._on_diorama_gui_input(_tap_at(rect.get_center()))
 
 
 func run() -> void:
@@ -68,7 +46,7 @@ func run() -> void:
 
 		assert_eq(GameState.state["currentScreen"], "event", "a qualifying HQ visit must start the event, same as the old home screen")
 		assert_eq(GameState.state["event"]["eventId"], "home_raid_intro")
-		assert_eq(hq.get_child_count(), 0, "the check must run before UI.screen_body()/back_button() are ever added -- starting the event navigates away and this node is about to be freed")
+		assert_eq(hq.get_child_count(), 0, "the check must run before any room UI is ever added -- starting the event navigates away and this node is about to be freed")
 
 		hq.free()
 	)
@@ -87,7 +65,7 @@ func run() -> void:
 		hq._ready()
 
 		assert_eq(GameState.state["currentScreen"], "hq", "already-seen must not start the event again")
-		assert_true(hq.get_child_count() > 0, "normal HQ UI must build once the one-shot has already fired")
+		assert_true(hq._diorama != null, "the room plate must build once the one-shot has already fired")
 
 		hq.free()
 	)
@@ -101,44 +79,46 @@ func run() -> void:
 		hq._ready()
 
 		assert_eq(GameState.state["currentScreen"], "hq", "a fresh game with nothing pending must render HQ normally")
-		assert_true(_find_button(hq, "Rest") != null, "Rest action must be reachable on a normal HQ visit")
+		assert_true(hq._diorama != null, "the room plate must render on a normal HQ visit")
+
+		hq.free()
+	)
+
+	# ── locked HQ: no room plate yet, Rest/Defend stay reachable ──────────
+
+	run_case("hq_locked_view_shows_the_locked_message_and_no_room_plate", func():
+		GameState.reset()
+		# homeUnlocked defaults false (autoload/GameState.gd) for the whole
+		# pre-raid stretch of a fresh game.
+		GameState.state["currentScreen"] = "hq"
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_true(hq._diorama == null, "the room plate has nothing to show while HQ is locked")
+		var heading_texts: Array[String] = []
+		for l in hq.find_children("", "Label", true, false):
+			heading_texts.append((l as Label).text)
+		assert_true(heading_texts.has("Locked"), "a locked HQ visit must show the Locked heading")
 
 		hq.free()
 	)
 
 	run_case("hq_rest_action_is_reachable_even_while_hq_is_locked", func():
 		GameState.reset()
-		# homeUnlocked defaults false (autoload/GameState.gd) for the whole
-		# pre-raid stretch of a fresh game -- Rest must never be gated
-		# behind it, or HQ recreates the dead-end this ticket removes.
 		GameState.state["currentScreen"] = "hq"
 
 		var hq := HqScreen.new()
 		hq._ready()
 
-		assert_true(_find_button(hq, "Locked") == null, "sanity: HQ heading text is 'Locked' as a heading, not a button")
 		assert_true(_find_button(hq, "Rest") != null, "Rest must render even on a locked HQ visit")
 
 		hq.free()
 	)
 
-	# ── 106-hq-raid-alarm-defend-flow ─────────────────────────────────────
-
-	run_case("hq_actions_card_has_no_defend_button_when_nothing_is_pending", func():
+	run_case("hq_locked_view_shows_a_defend_button_while_a_raid_is_pending", func():
 		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-
-		var hq := HqScreen.new()
-		hq._ready()
-
-		assert_true(_find_button(hq, "Defend") == null, "Defend must not render with no raid pending")
-
-		hq.free()
-	)
-
-	run_case("hq_actions_card_shows_a_defend_button_while_a_raid_is_pending", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["currentScreen"] = "hq"
 		GameState.state["home"]["pendingRaid"] = true
 		GameState.state["home"]["pendingRaidNotificationId"] = "n1"
 
@@ -146,7 +126,7 @@ func run() -> void:
 		hq._ready()
 
 		var defend_button := _find_button(hq, "Defend")
-		assert_true(defend_button != null, "Defend must render on the Actions card while a raid is pending")
+		assert_true(defend_button != null, "Defend must render on the locked fallback while a raid is pending")
 
 		defend_button.pressed.emit()
 
@@ -157,42 +137,140 @@ func run() -> void:
 		hq.free()
 	)
 
-	# ── bugfixes ticket 25: Workbench/Recipes moved out to the Lab screen ──
+	run_case("hq_locked_view_has_no_defend_button_when_nothing_is_pending", func():
+		GameState.reset()
+		GameState.state["currentScreen"] = "hq"
 
-	run_case("hq_no_longer_renders_workbench_or_recipes_inline_that_moved_to_the_lab_screen", func():
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_true(_find_button(hq, "Defend") == null, "Defend must not render with no raid pending")
+
+		hq.free()
+	)
+
+	# hq-diorama ticket 02: the old HQ-screen Defend shortcut is intentionally
+	# not carried into the normal (unlocked) room view -- §8's hostile-door
+	# state is ticket 5's job, and a pending raid stays reachable via the
+	# Notifications app's own Defend button in the meantime (phone.gd), so
+	# this isn't a lost mechanic, just a removed redundant entry point.
+	run_case("hq_room_view_has_no_defend_shortcut_even_while_a_raid_is_pending", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "n1"
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_true(_find_button(hq, "Defend") == null, "the room view has no Defend shortcut -- ticket 5's hostile-door state owns this now")
+
+		hq.free()
+	)
+
+	# ── the room plate and its zones ──────────────────────────────────────
+
+	run_case("hq_room_view_builds_a_diorama_sized_to_the_bedsit_plate", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
 
 		var hq := HqScreen.new()
 		hq._ready()
 
-		assert_true(_direct_child_index_containing(hq._content, "Workbench") == -1, "Workbench card must no longer render inline on HQ")
-		assert_true(_direct_child_index_containing(hq._content, "Recipes") == -1, "Recipes heading must no longer render inline on HQ")
-		assert_true(_direct_child_index_containing(hq._content, "The Lab") != -1, "the Lab card is still HQ's single entry point for both")
+		assert_true(hq._diorama != null, "sanity: the room plate must build")
+		assert_eq(hq._diorama.size, Vector2(390, 660), "the diorama must be sized to the bedsit plate's own width/height")
 
 		hq.free()
 	)
 
-	run_case("hq_back_button_routes_to_phone_home_not_the_retired_home_screen", func():
+	run_case("hq_room_view_falls_back_to_the_bedsit_plate_for_a_tier_with_no_manifest_entry_yet", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		# v1 (docs/hq-diorama-vision.md §10) ships only the bedsit plate --
+		# a player already at a later tier (art not shipped yet) must still
+		# get a navigable room, not a crash or a blank screen.
+		GameState.state["home"]["tier"] = "flat"
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_true(hq._diorama != null, "a tier with no manifest entry must still render a room, falling back to bedsit")
+		assert_eq(hq._diorama.size, Vector2(390, 660), "the fallback must be the bedsit plate's own size")
+
+		hq.free()
+	)
+
+	run_case("hq_dial_zone_tap_opens_the_hq_dial_modal", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_eq(GameState.state["modal"], null, "sanity: no modal open yet")
+		_tap_zone(hq, "dial")
+		assert_eq(GameState.state["modal"]["type"], "hq_dial", "tapping the Dial zone must open its destination modal")
+
+		hq.free()
+	)
+
+	run_case("hq_lab_zone_tap_navigates_straight_to_the_lab_screen_unchanged", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
 		GameState.state["currentScreen"] = "hq"
-		PhoneNav.open_app("messages")
+		GameState.state["benchNav"]["view"] = "picker"
 
 		var hq := HqScreen.new()
 		hq._ready()
 
-		var back_button := _find_button(hq, "‹ Back")
-		assert_true(back_button != null, "HQ must render a generic back button")
-		back_button.pressed.emit()
+		_tap_zone(hq, "lab")
 
-		assert_eq(GameState.state["currentScreen"], "phone", "the generic back affordance should route to the phone app grid, not the retired home screen")
-		assert_eq(GameState.state["phoneNav"]["app"], "home", "should land on the grid itself, not whatever app was last open")
+		assert_eq(GameState.state["currentScreen"], "lab", "tapping the Lab zone must open the Lab screen, same destination the old 'Open' button used")
+		assert_eq(GameState.state["benchNav"]["view"], "home", "BenchNav.go_home() must reset the bench to its own default view, same as the old Lab card's Open button")
 
 		hq.free()
 	)
 
-	run_case("hq_rest_button_produces_identical_effects_to_TimeSystem_do_rest", func():
+	run_case("hq_security_zone_tap_opens_the_hq_security_list_modal", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		_tap_zone(hq, "security")
+		assert_eq(GameState.state["modal"]["type"], "hq_security_list", "tapping the Security zone must open its destination modal")
+
+		hq.free()
+	)
+
+	run_case("hq_rooms_zone_tap_opens_the_hq_rooms_list_modal", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		_tap_zone(hq, "rooms")
+		assert_eq(GameState.state["modal"]["type"], "hq_rooms_list", "tapping the Rooms zone must open its destination modal")
+
+		hq.free()
+	)
+
+	run_case("hq_ore_store_zone_tap_opens_the_hq_ore_readout_modal", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		_tap_zone(hq, "oreStore")
+		assert_eq(GameState.state["modal"]["type"], "hq_ore_readout", "tapping the Ore store zone must open its destination readout modal, not a sub-view")
+
+		hq.free()
+	)
+
+	run_case("hq_rest_zone_tap_performs_the_rest_action_directly_with_no_intermediate_view", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
 		GameState.state["world"]["day"] = 3
@@ -203,12 +281,11 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		var rest_button := _find_button(hq, "Rest")
-		assert_true(rest_button != null, "HQ must render a Rest action")
-		rest_button.pressed.emit()
+		_tap_zone(hq, "rest")
 
-		assert_eq(GameState.state["world"]["day"], 4, "resting from HQ must advance the day, same as TimeSystem.do_rest()")
-		assert_eq(GameState.state["world"]["timeBlock"], 0, "resting from HQ must reset the time block")
+		assert_eq(GameState.state["modal"], null, "Rest must act directly, with no intermediate modal or view")
+		assert_eq(GameState.state["world"]["day"], 4, "tapping Rest must advance the day, same as TimeSystem.do_rest()")
+		assert_eq(GameState.state["world"]["timeBlock"], 0, "tapping Rest must reset the time block")
 		# do_rest's daily_tick also fires passive regen (bugfixes-42): 50 + round(100*0.05) = 55,
 		# then the rest heal itself: 55 + round(100*0.2) = 75.
 		assert_eq(GameState.state["player"]["hp"], 75, "50 + passive regen 5 + rest heal 20 = 75, same as TimeSystem.do_rest()")
@@ -216,228 +293,74 @@ func run() -> void:
 		hq.free()
 	)
 
-	# ── bugfixes ticket 24: collapsible Rooms/Security, actionable cards to top ──
-
-	run_case("hq_actionable_cards_render_above_the_passive_rooms_and_security_sections", func():
+	run_case("hq_tapping_outside_every_region_opens_nothing", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
 
 		var hq := HqScreen.new()
 		hq._ready()
 
-		var lab_index := _direct_child_index_containing(hq._content, "The Lab")
-		var dial_index := _direct_child_index_containing(hq._content, "The Dial")
-		var security_index := _direct_child_index_containing(hq._content, "Security (")
-		var rooms_index := _direct_child_index_containing(hq._content, "Rooms (")
+		# The bedsit plate is 390x660 (data/hq_visuals.json); none of its
+		# regions cover this corner (see that manifest's own region rects).
+		hq._on_diorama_gui_input(_tap_at(Vector2(2, 2)))
 
-		assert_true(lab_index != -1, "sanity: the Lab card must render")
-		assert_true(dial_index != -1, "sanity: the Dial heading must render")
-		assert_true(security_index != -1, "sanity: the Security section must render")
-		assert_true(rooms_index != -1, "sanity: the Rooms section must render")
-
-		for actionable_index in [lab_index, dial_index]:
-			assert_true(actionable_index < security_index, "actionable HQ content must render above the Security section")
-			assert_true(actionable_index < rooms_index, "actionable HQ content must render above the Rooms section")
+		assert_eq(GameState.state["modal"], null, "a tap outside every region must not open anything")
 
 		hq.free()
 	)
 
-	run_case("hq_security_and_rooms_sections_start_collapsed", func():
+	run_case("hq_non_press_input_on_the_diorama_does_nothing", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
 
 		var hq := HqScreen.new()
 		hq._ready()
 
-		var security_header := _find_button_starting_with(hq, "Security (")
-		var rooms_header := _find_button_starting_with(hq, "Rooms (")
-		assert_true(security_header != null, "sanity: Security header must render")
-		assert_true(rooms_header != null, "sanity: Rooms header must render")
-		assert_true(security_header.text.ends_with("▸"), "Security section must start collapsed")
-		assert_true(rooms_header.text.ends_with("▸"), "Rooms section must start collapsed")
+		var release := InputEventScreenTouch.new()
+		release.pressed = false
+		release.position = hq._diorama.region_rects()["dial"].get_center()
+		hq._on_diorama_gui_input(release)
+
+		assert_eq(GameState.state["modal"], null, "a release event must not dispatch a zone tap")
 
 		hq.free()
 	)
 
-	run_case("hq_expanding_the_security_section_persists_across_a_same_session_refresh", func():
+	# hq-diorama ticket 02: Gym is wired into the bedsit plate despite §3.1's
+	# own "First tier present" being "flat" -- a deliberate, human-approved
+	# deviation (see hq.gd's own top-of-file comment and data/hq_visuals.
+	# json's "gymDeviation" meta note). What the destination modal itself
+	# renders (Train button/gating) is covered by tests/test_modal_layer.gd's
+	# "hq_gym_*" cases, same split every other zone's destination content uses.
+	run_case("hq_gym_zone_tap_opens_the_hq_gym_modal", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
 
 		var hq := HqScreen.new()
 		hq._ready()
 
-		var security_header := _find_button_starting_with(hq, "Security (")
-		security_header.pressed.emit()
-		assert_true(security_header.text.ends_with("▾"), "tapping the header must expand the section")
+		_tap_zone(hq, "gym")
+		assert_eq(GameState.state["modal"]["type"], "hq_gym", "tapping the Gym zone must open its destination modal")
+
+		hq.free()
+	)
+
+	# ── debug region overlay (ticket 01) ───────────────────────────────────
+
+	run_case("hq_debug_regions_button_toggles_the_diorama_overlay_and_survives_a_refresh", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_true(not hq._diorama.is_debug_overlay_enabled(), "the debug overlay must default to off")
+
+		_find_button(hq, "Debug regions").pressed.emit()
+		assert_true(hq._diorama.is_debug_overlay_enabled(), "the Debug regions button must toggle the overlay on")
 
 		hq._refresh()
-
-		var refreshed_header := _find_button_starting_with(hq, "Security (")
-		assert_true(refreshed_header.text.ends_with("▾"), "expansion must survive a same-session _refresh(), not reset to collapsed")
-		# The other section's own state must be untouched by expanding this one.
-		assert_true(_find_button_starting_with(hq, "Rooms (").text.ends_with("▸"), "expanding Security must not also expand Rooms")
-
-		hq.free()
-	)
-
-	run_case("hq_expanding_the_rooms_section_persists_across_a_same_session_refresh", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-
-		var hq := HqScreen.new()
-		hq._ready()
-
-		var rooms_header := _find_button_starting_with(hq, "Rooms (")
-		rooms_header.pressed.emit()
-		assert_true(rooms_header.text.ends_with("▾"), "tapping the header must expand the section")
-
-		hq._refresh()
-
-		var refreshed_header := _find_button_starting_with(hq, "Rooms (")
-		assert_true(refreshed_header.text.ends_with("▾"), "expansion must survive a same-session _refresh(), not reset to collapsed")
-		assert_true(_find_button_starting_with(hq, "Security (").text.ends_with("▸"), "expanding Rooms must not also expand Security")
-
-		hq.free()
-	)
-
-	# vein-growth-state ticket 09 (spec §6.2): HQ's own entry point into the
-	# vein list, once the Vein Station room is installed -- the district
-	# bubble's "List view" (tests/test_district_bubble.gd,
-	# tests/test_map_screen.gd) is the other entry point.
-	run_case("hq_installed_vein_station_room_exposes_a_view_all_veins_button_that_opens_the_list_unfiltered", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-		GameState.state["home"]["rooms"].append("veinStation")
-
-		var hq := HqScreen.new()
-		hq._ready()
-
-		_find_button_starting_with(hq, "Rooms (").pressed.emit()
-		hq._refresh()
-
-		var view_all_button := _find_button(hq, "View all veins")
-		assert_true(view_all_button != null, "an installed Vein Station room must expose a way into the unfiltered vein list")
-
-		view_all_button.pressed.emit()
-
-		assert_eq(GameState.state["veinListNav"]["districtId"], null, "HQ's entry point is unfiltered -- every district")
-		assert_eq(GameState.state["veinListNav"]["originScreen"], "hq", "the list's own Back button must return to HQ, not the Map tab")
-		assert_eq(GameState.state["currentScreen"], "vein_list")
-
-		hq.free()
-	)
-
-	# ── squad-combat ticket 05: Gym card / Train action ──────────────────
-
-	run_case("hq_gym_card_offers_no_train_button_without_a_built_home_gym", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-
-		var hq := HqScreen.new()
-		hq._ready()
-
-		assert_true(_find_button(hq, "Train") == null, "Train must not appear before Home Gym is built")
-
-		hq.free()
-	)
-
-	run_case("hq_gym_card_train_button_spends_a_block_and_awards_combat_xp", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-		GameState.state["home"]["rooms"].append("homeGym")
-
-		var hq := HqScreen.new()
-		hq._ready()
-
-		var train_button := _find_button(hq, "Train")
-		assert_true(train_button != null, "a built Home Gym must expose a Train button")
-
-		train_button.pressed.emit()
-
-		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_GYM_SESSION, "pressing Train should award the gym-session XP")
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "pressing Train should spend one of the day's time blocks")
-
-		hq.free()
-	)
-
-	run_case("hq_gym_card_train_button_is_disabled_once_the_days_time_blocks_are_exhausted", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-		GameState.state["home"]["rooms"].append("homeGym")
-		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-
-		var hq := HqScreen.new()
-		hq._ready()
-
-		var train_button := _find_button(hq, "Train")
-		assert_true(train_button != null, "the button should still be present, just disabled")
-		assert_true(train_button.disabled, "Train should be disabled once the day's time blocks are exhausted")
-
-		hq.free()
-	)
-
-	# ── bugfixes ticket 105: Dial card's Adjust Loadout / Craft Components nav ──
-
-	run_case("hq_dial_card_shows_adjust_loadout_and_craft_components_buttons_instead_of_an_inline_crafting_section", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-		GameState.state["player"]["dial"] = _fresh_dial()
-
-		var hq := HqScreen.new()
-		hq._ready()
-
-		assert_true(_find_button(hq, "Adjust Loadout") != null, "the Dial card must expose an Adjust Loadout button")
-		assert_true(_find_button(hq, "Craft Components") != null, "the Dial card must expose a Craft Components button")
-		assert_true(_find_button(hq, "Craft") == null, "the old always-inline per-archetype Craft buttons must no longer render directly on the Dial card")
-
-		hq.free()
-	)
-
-	run_case("hq_dial_card_stats_remain_visible_alongside_the_new_nav_buttons", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-		var dial := _fresh_dial()
-		dial["currentCharge"] = 3
-		dial["maxCharge"] = 10
-		dial["rechargeRate"] = 2
-		GameState.state["player"]["dial"] = dial
-
-		var hq := HqScreen.new()
-		hq._ready()
-
-		assert_true(_label_texts(hq).any(func(t: String): return t.begins_with("Level %d Dial" % dial["level"])), "the Dial's level/haft heading must still render")
-		assert_true(_label_texts(hq).any(func(t: String): return t.begins_with("Charge: 3/10")), "the Dial's charge stat must still render")
-		assert_true(_label_texts(hq).any(func(t: String): return t.begins_with("Capacity: ")), "the Dial's capacity stat must still render")
-
-		hq.free()
-	)
-
-	run_case("hq_dial_card_adjust_loadout_button_opens_the_bag_drawer", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-		GameState.state["player"]["dial"] = _fresh_dial()
-
-		var hq := HqScreen.new()
-		hq._ready()
-
-		assert_true(not GameState.state["bagDrawerOpen"], "sanity: the bag drawer starts closed")
-		_find_button(hq, "Adjust Loadout").pressed.emit()
-		assert_true(GameState.state["bagDrawerOpen"], "Adjust Loadout must open the same bag drawer the loadout-management flow already lives in")
-
-		hq.free()
-	)
-
-	run_case("hq_dial_card_craft_components_button_opens_the_craft_components_menu_modal", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-		GameState.state["player"]["dial"] = _fresh_dial()
-
-		var hq := HqScreen.new()
-		hq._ready()
-
-		assert_eq(GameState.state["modal"], null, "sanity: no modal open yet")
-		_find_button(hq, "Craft Components").pressed.emit()
-		assert_eq(GameState.state["modal"]["type"], "craft_components_menu", "Craft Components must open the ticket-104 archetype-list modal")
+		assert_true(hq._diorama.is_debug_overlay_enabled(), "the toggle must survive a same-session _refresh(), same as the old collapsible-section persistence pattern")
 
 		hq.free()
 	)

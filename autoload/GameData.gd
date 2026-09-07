@@ -141,6 +141,15 @@ var COMBAT_VISUALS: Dictionary = {}
 # references into it instead of validating it standalone.
 var PALETTE: Dictionary = {}
 
+# hq-diorama ticket 01, docs/hq-diorama-vision.md §9: data/hq_visuals.json's
+# "rooms" table -- room-plate id (v1: only "bedsit") -> { image, fallback
+# Color, width, height, regions: { zone id -> {x,y,width,height,label,
+# image} } }, read generically by scenes/components/hq_diorama.gd (never a
+# hardcoded room/zone roster, unlike COMBAT_VISUALS's CANONICAL_CONTEXTS-
+# keyed backdrops) so a later ticket can add a plate or a region with no
+# code change here.
+var HQ_VISUALS: Dictionary = {}
+
 var TIME_BLOCKS: Array = []
 var ARCHIE_ORE_GOAL: int = 0
 var CONTACTS_DEFAULTS: Dictionary = {}
@@ -349,6 +358,8 @@ func load_all() -> void:
 
 	COMBAT_VISUALS = _load_json("res://data/combat_visuals.json")
 
+	HQ_VISUALS = _load_json("res://data/hq_visuals.json")
+
 	PALETTE = {}
 	for entry in _load_json("res://data/palette.json").get("colors", []):
 		var id: String = entry.get("id", "")
@@ -411,6 +422,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), errors)
 	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), t.get("combat_xp_levels", []), t.get("combat_attack_bonus_by_level", []), t.get("combat_speed_by_level", []), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
+	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
 	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), errors)
@@ -469,6 +481,7 @@ func snapshot() -> Dictionary:
 		"combat_attack_bonus_by_level": COMBAT_ATTACK_BONUS_BY_LEVEL,
 		"combat_speed_by_level": COMBAT_SPEED_BY_LEVEL,
 		"combat_visuals": COMBAT_VISUALS,
+		"hq_visuals": HQ_VISUALS,
 		"palette": PALETTE,
 		"time_blocks": TIME_BLOCKS,
 		"contacts_defaults": CONTACTS_DEFAULTS,
@@ -918,6 +931,43 @@ func _validate_combat_visuals(combat_visuals: Dictionary, palette: Dictionary, e
 	if backdrops.has(Combat.CONTEXT_ARCHIE_DEAL_MUGGING) and backdrops.has(Combat.CONTEXT_MUGGING):
 		if backdrops[Combat.CONTEXT_ARCHIE_DEAL_MUGGING] != backdrops[Combat.CONTEXT_MUGGING]:
 			errors.append("combat_visuals.backdrops.archie_deal_mugging: must exactly match backdrops.mugging (permanent alias, not its own plate)")
+
+
+# hq-diorama ticket 01, docs/hq-diorama-vision.md §9/§3.2: deliberately
+# iterates whatever room/region ids data/hq_visuals.json actually has --
+# no CANONICAL_* roster like _validate_combat_visuals()'s CANONICAL_
+# CONTEXTS, since the whole point of this manifest is that a later ticket
+# adds a plate or a region with no reader code change (the ticket's own
+# "no hardcoded room/zone roster in the reader" acceptance check).
+func _validate_hq_visuals(hq_visuals: Dictionary, palette: Dictionary, errors: Array[String]) -> void:
+	var rooms: Dictionary = hq_visuals.get("rooms", {})
+	for room_id in rooms:
+		var room: Dictionary = rooms[room_id]
+		_require_keys(room, ["image", "fallbackColor", "width", "height", "regions"], "hq_visuals.rooms.%s" % room_id, errors)
+		var image: String = room.get("image", "")
+		var fallback_color: String = room.get("fallbackColor", "")
+		if image.is_empty() and fallback_color.is_empty():
+			errors.append("hq_visuals.rooms.%s: neither 'image' nor 'fallbackColor' set -- the room would render nothing" % room_id)
+		if not fallback_color.is_empty() and not palette.has(fallback_color):
+			errors.append("hq_visuals.rooms.%s: fallbackColor '%s' is not a data/palette.json colour id" % [room_id, fallback_color])
+
+		var regions: Dictionary = room.get("regions", {})
+		var seen_ids: Array[String] = []
+		var seen_rects: Array[Rect2] = []
+		for region_id in regions:
+			var region: Dictionary = regions[region_id]
+			var context := "hq_visuals.rooms.%s.regions.%s" % [room_id, region_id]
+			_require_keys(region, ["x", "y", "width", "height", "label", "image"], context, errors)
+			var width: float = region.get("width", 0.0)
+			var height: float = region.get("height", 0.0)
+			if width < 44 or height < 44:
+				errors.append("%s: %sx%s is below the 44x44 minimum hit-region size (docs/hq-diorama-vision.md §3.2)" % [context, width, height])
+			var rect := Rect2(region.get("x", 0.0), region.get("y", 0.0), width, height)
+			for i in seen_rects.size():
+				if rect.intersects(seen_rects[i]):
+					errors.append("%s: overlaps region '%s' in the same room -- hit regions must not overlap (docs/hq-diorama-vision.md §3.2)" % [context, seen_ids[i]])
+			seen_ids.append(region_id)
+			seen_rects.append(rect)
 
 
 func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, errors: Array[String]) -> void:

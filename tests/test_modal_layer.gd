@@ -92,6 +92,17 @@ static func _seed_faction_vein(id: String, growth: int, faction_id: String = "co
 	return vein
 
 
+# hq-diorama ticket 02: mirrors the old tests/test_hq_screen.gd's own
+# _fresh_dial() -- a minimal seeded Dial, same shape Dial.new_dial() produces.
+static func _fresh_dial() -> Dictionary:
+	return {
+		"level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0,
+		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
+		"capacityMax": Dial.capacity_max(1), "movement": null, "loadedComplications": [],
+		"haftId": "collective_brolly",
+	}
+
+
 func run() -> void:
 	run_case("tap_outside_a_no_side_effect_modal_just_closes_it", func():
 		GameState.reset()
@@ -831,4 +842,312 @@ func run() -> void:
 		var last: Dictionary = notifications[notifications.size() - 1]
 		assert_eq(last["text"], "Movement-crafting failed — calc spent, no Movement gained.", "same failure notification text the old direct-button flow pushed")
 		assert_eq(last["category"], Notify.CATEGORY_DANGER, "same failure category the old direct-button flow pushed")
+	)
+
+	# ── hq-diorama ticket 02: HQ zone destination modals ───────────────────
+	# hq.gd's old always-inline Dial/Security/Rooms/Ore-store cards, moved
+	# here unchanged -- these tests mirror the assertions the old
+	# tests/test_hq_screen.gd made against those cards directly.
+
+	run_case("hq_dial_modal_shows_seeding_ui_when_no_dial_is_seeded_and_the_gift_has_been_granted", func():
+		GameState.reset()
+		GameState.state["flags"]["dialGiftGranted"] = true
+		Modal.open("hq_dial")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		for haft_id in GameData.DIAL_HAFTS.keys():
+			var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
+			assert_true(_find_button(layer, "Seed as \"%s\"" % haft["name"]) != null, "a Seed button must render for haft %s" % haft_id)
+
+		layer.free()
+	)
+
+	run_case("hq_dial_modal_shows_a_waiting_message_when_no_dial_is_seeded_and_no_gift_has_been_granted", func():
+		GameState.reset()
+		Modal.open("hq_dial")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("No Dial. Nothing's offered you the gift yet."), "must show the waiting message, not a seeding UI, before the gift is granted")
+
+		layer.free()
+	)
+
+	run_case("hq_dial_modal_shows_stats_and_nav_buttons_once_a_dial_is_seeded", func():
+		GameState.reset()
+		var dial := _fresh_dial()
+		dial["currentCharge"] = 3
+		dial["maxCharge"] = 10
+		GameState.state["player"]["dial"] = dial
+		Modal.open("hq_dial")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).any(func(t: String): return t.begins_with("Level %d Dial" % dial["level"])), "the Dial's level/haft heading must render")
+		assert_true(_label_texts(layer).any(func(t: String): return t.begins_with("Charge: 3/10")), "the Dial's charge stat must render")
+		assert_true(_find_button(layer, "Adjust Loadout") != null, "must expose an Adjust Loadout button")
+		assert_true(_find_button(layer, "Craft Components") != null, "must expose a Craft Components button")
+
+		layer.free()
+	)
+
+	run_case("hq_dial_modal_adjust_loadout_closes_the_modal_and_opens_the_bag_drawer", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _fresh_dial()
+		Modal.open("hq_dial")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(not GameState.state["bagDrawerOpen"], "sanity: the bag drawer starts closed")
+		_find_button(layer, "Adjust Loadout").pressed.emit()
+
+		assert_true(GameState.state["bagDrawerOpen"], "Adjust Loadout must open the same bag drawer the loadout-management flow already lives in")
+		assert_eq(GameState.state["modal"], null, "Adjust Loadout must close this modal so it doesn't stack on top of the bag drawer")
+
+		layer.free()
+	)
+
+	run_case("hq_dial_modal_craft_components_hands_off_to_the_craft_components_menu_modal", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _fresh_dial()
+		Modal.open("hq_dial")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "Craft Components").pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "craft_components_menu", "Craft Components must open the archetype-list modal")
+
+		layer.free()
+	)
+
+	run_case("hq_security_list_modal_shows_a_buy_button_for_an_available_uninstalled_security_option", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		Modal.open("hq_security_list")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		for security_id in GameData.HOME_SECURITY.keys():
+			var sec: Dictionary = GameData.HOME_SECURITY[security_id]
+			if sec["minTier"] != GameState.state["home"]["tier"]:
+				continue
+			assert_true(_label_texts(layer).any(func(t: String): return t.ends_with(sec["name"])), "%s's name must render" % security_id)
+
+		layer.free()
+	)
+
+	run_case("hq_security_list_modal_buy_button_installs_security_same_as_the_old_direct_row", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		var bedsit_security_id: String = GameData.HOME_SECURITY.keys().filter(func(k): return GameData.HOME_SECURITY[k]["minTier"] == "bedsit")[0]
+		var cost: int = GameData.HOME_SECURITY[bedsit_security_id]["cost"]
+		Modal.open("hq_security_list")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "£%d" % cost).pressed.emit()
+
+		assert_true(GameState.state["home"]["security"].has(bedsit_security_id), "tapping the buy button must install the security option, unchanged from the old direct row")
+
+		layer.free()
+	)
+
+	run_case("hq_security_list_modal_close_button_dismisses_the_modal", func():
+		GameState.reset()
+		Modal.open("hq_security_list")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "Close").pressed.emit()
+		assert_eq(GameState.state["modal"], null, "Close must dismiss the security list")
+
+		layer.free()
+	)
+
+	run_case("hq_rooms_list_modal_buy_button_installs_a_room_same_as_the_old_direct_row", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "flat"
+		var room_id: String = "workshop"
+		var cost: int = GameData.HOME_ROOMS[room_id]["cost"]
+		Modal.open("hq_rooms_list")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "£%d" % cost).pressed.emit()
+
+		assert_true(GameState.state["home"]["rooms"].has(room_id), "tapping the buy button must install the room, unchanged from the old direct row")
+
+		layer.free()
+	)
+
+	# vein-growth-state ticket 09 (spec §6.2): HQ's own entry point into the
+	# vein list, once the Vein Station room is installed.
+	run_case("hq_rooms_list_modal_installed_vein_station_exposes_a_view_all_veins_button_that_closes_the_modal_and_opens_the_list", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("veinStation")
+		Modal.open("hq_rooms_list")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var view_all_button := _find_button(layer, "View all veins")
+		assert_true(view_all_button != null, "an installed Vein Station room must expose a way into the unfiltered vein list")
+
+		view_all_button.pressed.emit()
+
+		assert_eq(GameState.state["veinListNav"]["districtId"], null, "HQ's entry point is unfiltered -- every district")
+		assert_eq(GameState.state["veinListNav"]["originScreen"], "hq", "the list's own Back button must return to HQ, not the Map tab")
+		assert_eq(GameState.state["currentScreen"], "vein_list")
+		assert_eq(GameState.state["modal"], null, "must close this modal before navigating so it doesn't hang over the vein list screen")
+
+		layer.free()
+	)
+
+	run_case("hq_rooms_list_modal_installed_lab_room_exposes_a_contact_assignment_row", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("lab")
+		var contacts: Dictionary = GameState.state["contacts"]
+		var some_contact_id: String = contacts.keys()[0]
+		contacts[some_contact_id]["recruited"] = true
+		Modal.open("hq_rooms_list")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var assign_button := _find_button(layer, "Assign %s" % Contacts.display_name(some_contact_id))
+		assert_true(assign_button != null, "an installed lab room must expose an Assign row for a recruited, unassigned contact")
+
+		assign_button.pressed.emit()
+		assert_eq(Contacts.get_contact_in_room("lab"), some_contact_id, "tapping Assign must assign the contact to the room, unchanged from the old direct row")
+
+		layer.free()
+	)
+
+	run_case("hq_rooms_list_modal_close_button_dismisses_the_modal", func():
+		GameState.reset()
+		Modal.open("hq_rooms_list")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "Close").pressed.emit()
+		assert_eq(GameState.state["modal"], null, "Close must dismiss the rooms list")
+
+		layer.free()
+	)
+
+	run_case("hq_ore_readout_modal_shows_stored_ore_quantities_and_a_raid_risk_note", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["life"] = 12
+		Modal.open("hq_ore_readout")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var life_ore: Dictionary = GameData.ORE_TYPES["life"]
+		assert_true(_label_texts(layer).any(func(t: String): return t.ends_with("%s — 12" % life_ore["name"])), "must show the stored ore's own name and quantity")
+
+		var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
+		assert_true(_label_texts(layer).has("Raid risk: %d%%" % raid_pct), "must show the raid-risk note alongside stored contents, per §12.4's recommended default")
+
+		layer.free()
+	)
+
+	run_case("hq_ore_readout_modal_shows_none_in_stock_when_no_ore_is_held", func():
+		GameState.reset()
+		Modal.open("hq_ore_readout")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("None in stock."), "must show the empty-stock message when nothing is held")
+
+		layer.free()
+	)
+
+	run_case("hq_ore_readout_modal_close_button_dismisses_the_modal", func():
+		GameState.reset()
+		Modal.open("hq_ore_readout")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "Close").pressed.emit()
+		assert_eq(GameState.state["modal"], null, "Close must dismiss the readout")
+
+		layer.free()
+	)
+
+	# ── squad-combat ticket 05 / hq-diorama ticket 02: Gym modal / Train ───
+
+	run_case("hq_gym_modal_offers_no_train_button_without_a_built_home_gym", func():
+		GameState.reset()
+		Modal.open("hq_gym")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_find_button(layer, "Train") == null, "Train must not appear before Home Gym is built")
+		assert_true(_label_texts(layer).has("Build a Home Gym to claim this space and unlock Train."), "must show the not-built message instead")
+
+		layer.free()
+	)
+
+	run_case("hq_gym_modal_train_button_spends_a_block_and_awards_combat_xp", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("homeGym")
+		Modal.open("hq_gym")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var train_button := _find_button(layer, "Train")
+		assert_true(train_button != null, "a built Home Gym must expose a Train button")
+
+		train_button.pressed.emit()
+
+		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_GYM_SESSION, "pressing Train should award the gym-session XP")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "pressing Train should spend one of the day's time blocks")
+
+		layer.free()
+	)
+
+	run_case("hq_gym_modal_train_button_is_disabled_once_the_days_time_blocks_are_exhausted", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("homeGym")
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+		Modal.open("hq_gym")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var train_button := _find_button(layer, "Train")
+		assert_true(train_button != null, "the button should still be present, just disabled")
+		assert_true(train_button.disabled, "Train should be disabled once the day's time blocks are exhausted")
+
+		layer.free()
+	)
+
+	run_case("hq_gym_modal_close_button_dismisses_the_modal", func():
+		GameState.reset()
+		Modal.open("hq_gym")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "Close").pressed.emit()
+		assert_eq(GameState.state["modal"], null, "Close must dismiss the gym modal")
+
+		layer.free()
 	)
