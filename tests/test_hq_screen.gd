@@ -233,7 +233,9 @@ func run() -> void:
 		hq.free()
 	)
 
-	run_case("hq_security_zone_tap_opens_the_hq_security_list_modal", func():
+	# hq-diorama ticket 05: the door is a full-bleed screen, not a Modal (see
+	# tests/test_hq_door.gd for what it renders).
+	run_case("hq_security_zone_tap_navigates_to_the_hq_door_screen", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
 
@@ -241,7 +243,67 @@ func run() -> void:
 		hq._ready()
 
 		_tap_zone(hq, "security")
-		assert_eq(GameState.state["modal"]["type"], "hq_security_list", "tapping the Security zone must open its destination modal")
+		assert_eq(GameState.state["currentScreen"], "hq_door", "tapping the Security zone must navigate to the door sub-view, no modal")
+		assert_eq(GameState.state["modal"], null, "the door sub-view is not a modal")
+
+		hq.free()
+	)
+
+	# §8: "while a raid is pending ... tapping it opens Defend instead of the
+	# security list" -- Home.trigger_defend() is the same "start combat
+	# directly" call the locked-view Defend button uses (see
+	# "hq_locked_view_shows_a_defend_button_while_a_raid_is_pending" above).
+	run_case("hq_security_zone_tap_opens_defend_instead_of_the_door_screen_while_a_raid_is_pending", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "n1"
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		_tap_zone(hq, "security")
+
+		assert_true(GameState.state["combat"]["active"], "tapping the hostile door must start combat immediately, same as the Defend button")
+		assert_eq(GameState.state["combat"]["context"], "home_raid")
+		assert_true(not GameState.state["home"]["pendingRaid"], "the pending raid should be popped from the queue")
+		assert_eq(GameState.state["currentScreen"], "combat", "Combat.start_home_raid_combat() navigates to the combat screen, not the door sub-view")
+		assert_eq(GameState.state["modal"], null)
+
+		hq.free()
+	)
+
+	# §8: "while a raid is pending, the door goes hostile in the room plate" --
+	# no hostile-variant art exists yet (v1 ships zero door art), so the
+	# security region's placeholder-box label is the only signal available;
+	# see hq.gd's _hostile_door_plate(). HqDiorama's own _plate is read
+	# directly here, same as tests/test_hq_diorama.gd already reads
+	# _region_sprites -- the underscore is convention, not enforcement.
+	run_case("hq_room_plate_shows_a_hostile_security_label_while_a_raid_is_pending", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "n1"
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		var rendered_region: Dictionary = hq._diorama._plate["regions"]["security"]
+		assert_eq(rendered_region["label"], "Security — RAID", "the security region's placeholder-box label must go hostile while a raid is pending")
+		assert_eq(GameData.HQ_VISUALS["rooms"]["bedsit"]["regions"]["security"]["label"], "Security", "the source manifest itself must be untouched -- GameData.HQ_VISUALS is loaded once at boot and must never be mutated")
+
+		hq.free()
+	)
+
+	run_case("hq_room_plate_shows_the_normal_security_label_when_no_raid_is_pending", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		var rendered_region: Dictionary = hq._diorama._plate["regions"]["security"]
+		assert_eq(rendered_region["label"], "Security", "with no raid pending, the security region's label must render normally")
 
 		hq.free()
 	)

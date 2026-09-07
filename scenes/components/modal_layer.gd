@@ -170,8 +170,6 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_combat_setup()
 		"hq_dial":
 			_build_hq_dial()
-		"hq_security_list":
-			_build_hq_security_list()
 		"hq_ore_readout":
 			_build_hq_ore_readout()
 		"hq_gym":
@@ -953,63 +951,6 @@ func _on_hq_seed_pressed(haft_id: String) -> void:
 		Notify.push("Dial seeded as \"%s\"." % haft["name"], Notify.CATEGORY_SUCCESS)
 	else:
 		Notify.push("Seeding failed — calc spent, no Dial gained.", Notify.CATEGORY_DANGER)
-
-
-func _build_hq_security_list() -> void:
-	var home: Dictionary = GameState.state["home"]
-	_card_content.add_child(UI.heading("Security (%d/%d)" % [_installed_security_count(home), GameData.HOME_SECURITY.size()]))
-	for security_id in GameData.HOME_SECURITY.keys():
-		_card_content.add_child(_build_hq_security_row(security_id))
-	_card_content.add_child(UI.button("Close", func(): Modal.close()))
-
-
-# "guard" is never appended to home["security"] (Home.add_security()'s own
-# special case for it), so it wouldn't otherwise count towards "installed"
-# totals once bought -- this adds it back in exactly once, whatever the
-# stack count.
-func _installed_security_count(home: Dictionary) -> int:
-	var count: int = home["security"].size()
-	if Home.get_guard_count() > 0:
-		count += 1
-	return count
-
-
-# "guard" stacks with no upper limit (Home.add_security() never blocks it on
-# "already installed" -- see GUARD_SECURITY_ID there), so unlike every other
-# row here its buy button stays live past the first purchase, with a ×N
-# count in place of the static "Installed" line.
-func _build_hq_security_row(security_id: String) -> Control:
-	var home: Dictionary = GameState.state["home"]
-	var sec: Dictionary = GameData.HOME_SECURITY[security_id]
-	var order: Array = GameData.HOME_TIER_ORDER
-	var available: bool = order.find(home["tier"]) >= order.find(sec["minTier"])
-
-	var discount: float = 0.7 if GameState.state["flags"]["securityContactUnlocked"] else 1.0
-	var adj_cost: int = GameState.round_epsilon(sec["cost"] * discount)
-
-	var stackable: bool = security_id == Home.GUARD_SECURITY_ID
-	var count: int = Home.get_guard_count() if stackable else 0
-	var installed: bool = count > 0 if stackable else home["security"].has(security_id)
-	var label: String = sec["name"] if count == 0 else "%s ×%d" % [sec["name"], count]
-
-	var c := UI.card()
-	var prefix := "✅ " if installed else ("🔒 " if not available else "")
-	c["content"].add_child(UI.label(prefix + label))
-	var desc: String = sec["description"]
-	if not available:
-		desc += " Requires %s." % GameData.HOME_TIERS[sec["minTier"]]["name"]
-	c["content"].add_child(UI.muted_label(desc))
-
-	if not available:
-		c["content"].add_child(UI.muted_label("Locked"))
-	elif installed and not stackable:
-		c["content"].add_child(UI.muted_label("Installed"))
-	else:
-		var b := UI.button("£%d" % adj_cost, func(): Home.add_security(security_id))
-		b.disabled = GameState.state["player"]["cash"] < adj_cost
-		c["content"].add_child(b)
-
-	return c["panel"]
 
 
 # M1-LONDON-T06: home.storedOre was merged into player.orichalchum (see

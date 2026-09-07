@@ -7,12 +7,12 @@ extends Control
 # stack. Tapping a zone opens today's existing destination unchanged --
 # diegetic replacements for each (Dial view, Lab bench, floorplan, door) are
 # later tickets (04/05/06/09); this ticket only makes the room navigable.
-# Security/Ore-store/Dial/Gym destinations that used to be inline cards now
-# live in scenes/components/modal_layer.gd (types "hq_security_list",
-# "hq_ore_readout", "hq_dial", "hq_gym") -- moved, not rewritten, so every
-# button/system call inside them is the exact same code that used to render
-# inline here. Rooms (ticket 04) is a full-bleed screen instead, not a
-# Modal -- see scenes/screens/hq_floorplan.gd.
+# Ore-store/Dial/Gym destinations that used to be inline cards now live in
+# scenes/components/modal_layer.gd (types "hq_ore_readout", "hq_dial",
+# "hq_gym") -- moved, not rewritten, so every button/system call inside them
+# is the exact same code that used to render inline here. Rooms (ticket 04)
+# and Security/the door (ticket 05) are full-bleed screens instead, not
+# Modals -- see scenes/screens/hq_floorplan.gd and scenes/screens/hq_door.gd.
 #
 # Gym is wired into the bedsit plate (data/hq_visuals.json's "gym" region)
 # despite §3.1's own "First tier present" column putting it at "flat", one
@@ -26,10 +26,12 @@ extends Control
 # other region already follows.
 #
 # The old HQ-screen "Defend" shortcut is deliberately kept out of the
-# normal room view -- §8's hostile-door state is ticket 5's job: a pending
-# raid stays reachable via the Notifications app's own Defend button in the
-# meantime (phone.gd), so no mechanic is actually lost. Confirmed with the
-# human maintainer rather than assumed.
+# normal room view -- §8's hostile-door state (ticket 05) is what replaces
+# it: the security zone tap itself calls Home.trigger_defend() while a raid
+# is pending, same as the locked-view Defend button below, instead of
+# opening the door sub-view. The Notifications app's own Defend button
+# (phone.gd) still works too -- this isn't the only route in, just the
+# diegetic one.
 
 var _diorama: HqDiorama
 var _debug_overlay_enabled: bool = false
@@ -91,6 +93,8 @@ func _build_room_view() -> void:
 	# whose tier hasn't shipped yet. Forward-compatible with zero code
 	# change once a later art ticket adds that tier's own key.
 	var plate: Dictionary = rooms_visuals.get(home["tier"], rooms_visuals["bedsit"])
+	if Home.has_pending_raid():
+		plate = _hostile_door_plate(plate)
 
 	_diorama = HqDiorama.new()
 	_diorama.build(plate)
@@ -105,6 +109,24 @@ func _build_room_view() -> void:
 	var debug_toggle := UI.button("Debug regions" if not _debug_overlay_enabled else "Debug regions ✓", _on_debug_toggle_pressed)
 	debug_toggle.position = Vector2(4.0, UI.top_bar_clearance() + 4.0)
 	add_child(debug_toggle)
+
+
+# hq-diorama ticket 05, §8: "while a raid is pending, the door goes hostile
+# in the room plate". No hostile-variant art exists (v1 ships zero door art,
+# per §9/§10 -- the "security" region always renders as HqDiorama's own
+# labelled placeholder box today), so the only thing this can change with
+# zero art is the label the placeholder box shows -- same trick §9's
+# "labelled placeholder box" convention already leans on to communicate
+# state with no sprite. Deep-copies the plate (GameData.HQ_VISUALS is the
+# loaded-once source of truth -- CLAUDE.md's STATE/DATA discipline forbids
+# mutating it) so only this render pass sees the hostile label, not every
+# future normal visit.
+func _hostile_door_plate(plate: Dictionary) -> Dictionary:
+	var hostile_plate: Dictionary = plate.duplicate(true)
+	var security_region: Dictionary = hostile_plate["regions"].get("security")
+	if security_region != null:
+		security_region["label"] = "Security — RAID"
+	return hostile_plate
 
 
 func _on_debug_toggle_pressed() -> void:
@@ -138,7 +160,15 @@ func _on_zone_tapped(zone_id: String) -> void:
 			BenchNav.go_home()
 			Nav.go_to("lab")
 		"security":
-			Modal.open("hq_security_list")
+			# hq-diorama ticket 05, §8: a pending raid takes over the door --
+			# tapping it opens Defend instead of the security sub-view.
+			# Home.trigger_defend() is the same "start combat directly" call
+			# the locked-view Defend button already uses (_build_locked_view
+			# above).
+			if Home.has_pending_raid():
+				Home.trigger_defend()
+			else:
+				Nav.go_to("hq_door")
 		"rest":
 			TimeSystem.do_rest()
 		"rooms":

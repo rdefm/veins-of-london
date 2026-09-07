@@ -926,52 +926,11 @@ func run() -> void:
 		layer.free()
 	)
 
-	run_case("hq_security_list_modal_shows_a_buy_button_for_an_available_uninstalled_security_option", func():
-		GameState.reset()
-		GameState.state["player"]["cash"] = 100000
-		Modal.open("hq_security_list")
-
-		var layer := ModalLayer.new()
-		layer._ready()
-
-		for security_id in GameData.HOME_SECURITY.keys():
-			var sec: Dictionary = GameData.HOME_SECURITY[security_id]
-			if sec["minTier"] != GameState.state["home"]["tier"]:
-				continue
-			assert_true(_label_texts(layer).any(func(t: String): return t.ends_with(sec["name"])), "%s's name must render" % security_id)
-
-		layer.free()
-	)
-
-	run_case("hq_security_list_modal_buy_button_installs_security_same_as_the_old_direct_row", func():
-		GameState.reset()
-		GameState.state["player"]["cash"] = 100000
-		var bedsit_security_id: String = GameData.HOME_SECURITY.keys().filter(func(k): return GameData.HOME_SECURITY[k]["minTier"] == "bedsit")[0]
-		var cost: int = GameData.HOME_SECURITY[bedsit_security_id]["cost"]
-		Modal.open("hq_security_list")
-
-		var layer := ModalLayer.new()
-		layer._ready()
-
-		_find_button(layer, "£%d" % cost).pressed.emit()
-
-		assert_true(GameState.state["home"]["security"].has(bedsit_security_id), "tapping the buy button must install the security option, unchanged from the old direct row")
-
-		layer.free()
-	)
-
-	run_case("hq_security_list_modal_close_button_dismisses_the_modal", func():
-		GameState.reset()
-		Modal.open("hq_security_list")
-
-		var layer := ModalLayer.new()
-		layer._ready()
-
-		_find_button(layer, "Close").pressed.emit()
-		assert_eq(GameState.state["modal"], null, "Close must dismiss the security list")
-
-		layer.free()
-	)
+	# hq-diorama ticket 05: the old "hq_security_list" modal cases used to
+	# live here -- moved (not deleted) to tests/test_hq_door.gd, since
+	# Security/the door is now the full-bleed hq_door.gd screen, not a modal
+	# (same move ticket 04 made for "hq_rooms_list" -> tests/
+	# test_hq_floorplan.gd).
 
 	run_case("hq_ore_readout_modal_shows_stored_ore_quantities_and_a_raid_risk_note", func():
 		GameState.reset()
