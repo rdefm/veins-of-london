@@ -7,9 +7,11 @@ extends "res://tests/test_base.gd"
 # centre point (read from HqDiorama.region_rects(), never a hardcoded
 # coordinate) and feeding it through hq._on_diorama_gui_input() -- the same
 # path a real tap takes. What each destination actually renders (the old
-# inline Security/Rooms/Ore-store/Dial cards) is now covered by
+# inline Security/Ore-store/Dial cards) is now covered by
 # tests/test_modal_layer.gd's "hq_*" cases, since that's where the content
-# moved to.
+# moved to. Rooms (hq-diorama ticket 04) is the exception -- it's a
+# full-bleed screen, not a Modal, so its own content is covered by
+# tests/test_hq_floorplan.gd instead.
 
 
 static func _find_button(root: Node, text: String) -> Button:
@@ -244,7 +246,9 @@ func run() -> void:
 		hq.free()
 	)
 
-	run_case("hq_rooms_zone_tap_opens_the_hq_rooms_list_modal", func():
+	# hq-diorama ticket 04: the floorplan is a full-bleed screen, not a Modal
+	# (see tests/test_hq_floorplan.gd for what it renders).
+	run_case("hq_rooms_zone_tap_navigates_to_the_hq_floorplan_screen", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
 
@@ -252,7 +256,8 @@ func run() -> void:
 		hq._ready()
 
 		_tap_zone(hq, "rooms")
-		assert_eq(GameState.state["modal"]["type"], "hq_rooms_list", "tapping the Rooms zone must open its destination modal")
+		assert_eq(GameState.state["currentScreen"], "hq_floorplan", "tapping the Rooms zone must navigate to the floorplan sub-view, no modal")
+		assert_eq(GameState.state["modal"], null, "the floorplan is not a modal")
 
 		hq.free()
 	)

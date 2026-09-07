@@ -81,7 +81,8 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | event.gd | Generic event-card screen driven by state.event |
 | factions.gd | Factions tab |
 | guild_marketplace.gd | Faction trading UI (buy/sell lanes, per-faction) |
-| hq.gd | HQ tab: hq-diorama ticket 02 — the single bedsit room plate (hq_diorama.gd rendering data/hq_visuals.json), no more card stack. Tapping a zone dispatches to today's existing destination (bag/lab/rest direct, or one of modal_layer.gd's "hq_*" modals for Security/Rooms/Ore-store/Dial/Gym); a locked-HQ fallback (no room plate yet) still exposes Rest/Defend. Debug region-overlay toggle button lives here too. Gym is wired into the bedsit plate despite docs/hq-diorama-vision.md §3.1 listing its first tier as "flat" — a deliberate, human-approved deviation (see data/hq_visuals.json's "gymDeviation" meta note) |
+| hq.gd | HQ tab: hq-diorama ticket 02 — the single bedsit room plate (hq_diorama.gd rendering data/hq_visuals.json), no more card stack. Tapping a zone dispatches to today's existing destination (bag/lab/rest direct, one of modal_layer.gd's "hq_*" modals for Security/Ore-store/Dial/Gym, or `Nav.go_to("hq_floorplan")` for Rooms — ticket 04); a locked-HQ fallback (no room plate yet) still exposes Rest/Defend. Debug region-overlay toggle button lives here too. Gym is wired into the bedsit plate despite docs/hq-diorama-vision.md §3.1 listing its first tier as "flat" — a deliberate, human-approved deviation (see data/hq_visuals.json's "gymDeviation" meta note) |
+| hq_floorplan.gd | hq-diorama ticket 04, §6: the Rooms zone's diegetic destination — an estate agent's plan of the property (filled/locked/purchasable room slots, plus lab/veinStation contact assignment), moved verbatim off modal_layer.gd's deleted "hq_rooms_list" modal. First HQ sub-view built as its own screen id (registered in scenes/Main.gd, full-bleed — both TopBar and NavBar hidden for this id per §3.3) rather than a Modal; Back returns to "hq". No hq_visuals.json entry — slot count is data-driven off GameData.HOME_ROOMS/HOME_TIERS, not fixed pixel-art regions |
 | lab.gd | HQ's Lab card: crafting/workbench + discovery bench |
 | map.gd | Map tab: Network diagram (MapCanvas) + district panel + site/vein sheet |
 | phone.gd | Phone tab: contact list, SMS threads, James jobs, apps grid. 03-property-app-phone-tab added the "Harrow's" app (HQ tier stats + Home.upgrade_tier(), relocated off the HQ tab per docs/hq-diorama-vision.md §7) |
@@ -103,7 +104,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | map_controls.gd | Filter-chip drawer + legend button |
 | map_legend.gd | Persistent faction-colour key, tube-map line-key style |
 | map_zoom_buttons.gd | Floating +/- zoom control over the Network diagram |
-| modal_layer.gd | Dim background + centred card, dispatches on modal.type. hq-diorama ticket 02 added HQ's zone-destination modals here ("hq_dial", "hq_security_list", "hq_rooms_list", "hq_ore_readout", "hq_gym") — hq.gd's old always-inline Security/Rooms/Ore-store/Dial/Gym cards, moved verbatim |
+| modal_layer.gd | Dim background + centred card, dispatches on modal.type. hq-diorama ticket 02 added HQ's zone-destination modals here ("hq_dial", "hq_security_list", "hq_ore_readout", "hq_gym") — hq.gd's old always-inline Security/Ore-store/Dial/Gym cards, moved verbatim. Ticket 04 pulled "hq_rooms_list" back out again — Rooms is now the full-bleed hq_floorplan.gd screen, not a modal |
 | nav_bar.gd | Bottom 3-slot nav dock (Phone · Map · HQ) |
 | notification_toast.gd | Auto-fading unseen-notification toasts |
 | ore_glyphs.gd | Ore-symbol font glyph rendering + coverage check |

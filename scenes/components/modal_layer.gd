@@ -39,12 +39,6 @@ var _sell_assets_expanded: bool = true
 # only for content taller than that (sell_menu, network_reference).
 const MAX_CARD_HEIGHT := 620.0
 
-# hq-diorama ticket 02: moved from hq.gd verbatim -- the lab/veinStation
-# rooms are the only ones a contact can be assigned to (see
-# _build_hq_room_row() below).
-const ASSIGNABLE_ROOMS := ["lab", "veinStation"]
-
-
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 	visible = false
@@ -178,8 +172,6 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_hq_dial()
 		"hq_security_list":
 			_build_hq_security_list()
-		"hq_rooms_list":
-			_build_hq_rooms_list()
 		"hq_ore_readout":
 			_build_hq_ore_readout()
 		"hq_gym":
@@ -1018,91 +1010,6 @@ func _build_hq_security_row(security_id: String) -> Control:
 		c["content"].add_child(b)
 
 	return c["panel"]
-
-
-func _build_hq_rooms_list() -> void:
-	var home: Dictionary = GameState.state["home"]
-	var tier: Dictionary = GameData.HOME_TIERS[home["tier"]]
-	_card_content.add_child(UI.heading("Rooms (%d/%d)" % [home["rooms"].size(), tier["maxRooms"]]))
-	for room_id in GameData.HOME_ROOMS.keys():
-		_card_content.add_child(_build_hq_room_row(room_id))
-	_card_content.add_child(UI.button("Close", func(): Modal.close()))
-
-
-func _build_hq_room_row(room_id: String) -> Control:
-	var home: Dictionary = GameState.state["home"]
-	var tier: Dictionary = GameData.HOME_TIERS[home["tier"]]
-	var room: Dictionary = GameData.HOME_ROOMS[room_id]
-	var installed: bool = home["rooms"].has(room_id)
-	var order: Array = GameData.HOME_TIER_ORDER
-	var available: bool = order.find(home["tier"]) >= order.find(room["minTier"])
-	var full: bool = home["rooms"].size() >= tier["maxRooms"] and not installed
-
-	var c := UI.card()
-	var prefix := "✅ " if installed else ("🔒 " if not available else "")
-	c["content"].add_child(UI.label(prefix + room["name"]))
-	var desc: String = room["description"]
-	if not available:
-		desc += " Requires %s." % GameData.HOME_TIERS[room["minTier"]]["name"]
-	c["content"].add_child(UI.muted_label(desc))
-
-	if installed:
-		c["content"].add_child(UI.muted_label("Installed"))
-		if ASSIGNABLE_ROOMS.has(room_id):
-			c["content"].add_child(_build_hq_room_contact_row(room_id))
-		if room_id == "veinStation":
-			c["content"].add_child(_build_hq_vein_station_list_row())
-	elif not available:
-		c["content"].add_child(UI.muted_label("Locked"))
-	elif full:
-		c["content"].add_child(UI.muted_label("No room"))
-	else:
-		var b := UI.button("£%d" % room["cost"], func(): Home.add_room(room_id))
-		b.disabled = GameState.state["player"]["cash"] < room["cost"]
-		c["content"].add_child(b)
-
-	return c["panel"]
-
-
-# R§3.10: lab/veinStation each run daily processing for whichever recruited
-# contact is assigned to them (Contacts.assign_to_room). One contact per
-# room; assigning a contact elsewhere vacates their old room automatically.
-func _build_hq_room_contact_row(room_id: String) -> Control:
-	var contacts: Dictionary = GameState.state["contacts"]
-	var assigned_id: Variant = Contacts.get_contact_in_room(room_id)
-
-	var box := UI.vbox(4)
-	var assigned_text: String = "Assigned: %s" % Contacts.display_name(assigned_id) if assigned_id != null else "Assigned: no one"
-	box.add_child(UI.muted_label(assigned_text))
-
-	var row := UI.hbox()
-	for contact_id in contacts.keys():
-		var c: Dictionary = contacts[contact_id]
-		if not c["recruited"] or c["assignedRoom"] == room_id:
-			continue
-		var captured_id: String = contact_id
-		row.add_child(UI.button("Assign %s" % Contacts.display_name(contact_id), func(): Contacts.assign_to_room(captured_id, room_id)))
-	if assigned_id != null:
-		row.add_child(UI.button("Unassign", func(): Contacts.assign_to_room("none", room_id)))
-	if row.get_child_count() > 0:
-		box.add_child(row)
-
-	return box
-
-
-# vein-growth-state ticket 09 (spec §6.2): HQ's own entry point into the vein
-# list, unfiltered -- the district bubble's "List view" (systems/
-# district_bubble.gd's LIST_ID) is the other. VeinListNav.open_all() sets
-# state.veinListNav.originScreen to "hq" so the list's Back button returns
-# here rather than the Map tab. Closes this modal first -- ModalLayer is a
-# persistent overlay independent of the current screen, so leaving it open
-# across the Nav.go_to() below would show it on top of the vein list too.
-func _build_hq_vein_station_list_row() -> Control:
-	return UI.button("View all veins", func():
-		Modal.close()
-		VeinListNav.open_all()
-		Nav.go_to("vein_list")
-	)
 
 
 # M1-LONDON-T06: home.storedOre was merged into player.orichalchum (see

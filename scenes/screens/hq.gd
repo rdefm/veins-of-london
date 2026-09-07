@@ -7,11 +7,12 @@ extends Control
 # stack. Tapping a zone opens today's existing destination unchanged --
 # diegetic replacements for each (Dial view, Lab bench, floorplan, door) are
 # later tickets (04/05/06/09); this ticket only makes the room navigable.
-# Security/Rooms/Ore-store/Dial/Gym destinations that used to be inline
-# cards now live in scenes/components/modal_layer.gd (types
-# "hq_security_list", "hq_rooms_list", "hq_ore_readout", "hq_dial",
-# "hq_gym") -- moved, not rewritten, so every button/system call inside
-# them is the exact same code that used to render inline here.
+# Security/Ore-store/Dial/Gym destinations that used to be inline cards now
+# live in scenes/components/modal_layer.gd (types "hq_security_list",
+# "hq_ore_readout", "hq_dial", "hq_gym") -- moved, not rewritten, so every
+# button/system call inside them is the exact same code that used to render
+# inline here. Rooms (ticket 04) is a full-bleed screen instead, not a
+# Modal -- see scenes/screens/hq_floorplan.gd.
 #
 # Gym is wired into the bedsit plate (data/hq_visuals.json's "gym" region)
 # despite §3.1's own "First tier present" column putting it at "flat", one
@@ -141,7 +142,9 @@ func _on_zone_tapped(zone_id: String) -> void:
 		"rest":
 			TimeSystem.do_rest()
 		"rooms":
-			Modal.open("hq_rooms_list")
+			# hq-diorama ticket 04: the floorplan sub-view (§6), full-bleed --
+			# no longer a Modal (see scenes/screens/hq_floorplan.gd).
+			Nav.go_to("hq_floorplan")
 		"oreStore":
 			Modal.open("hq_ore_readout")
 		"gym":

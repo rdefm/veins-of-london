@@ -28,6 +28,12 @@ const SCREEN_SCRIPTS := {
 	"hq": preload("res://scenes/screens/hq.gd"),
 	"phone": preload("res://scenes/screens/phone.gd"),
 
+	# hq-diorama ticket 04: the floorplan sub-view (docs/hq-diorama-vision.md
+	# §6), reached from hq.gd's "rooms" zone tap. Full-bleed (see
+	# NAV_HIDDEN_SCREENS/TOP_BAR_HIDDEN_SCREENS below) -- the first HQ
+	# sub-view built as its own screen id rather than a Modal.
+	"hq_floorplan": preload("res://scenes/screens/hq_floorplan.gd"),
+
 	# vein-growth-state ticket 09: the vein-portfolio list (spec §6.2), reached
 	# from the Map tab's district bubble ("List view") and HQ's Vein Station
 	# room ("View all veins") -- state.veinListNav-driven, same convention as
@@ -57,7 +63,10 @@ const RETIRED_SCREEN_IDS := {
 }
 
 # R§2.2: "Global bottom nav ... hidden on title, intro, event, combat".
-const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat"]
+# hq-diorama ticket 04 adds "hq_floorplan": docs/hq-diorama-vision.md §3.3
+# — HQ sub-views are full-bleed, auto-hiding both bars, returning them at
+# the room level (hq.gd itself stays out of both lists).
+const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "hq_floorplan"]
 
 # D4's persistent top bar is up on every screen except the two with no game
 # session to show cash/day/blocks for — unlike NAV_HIDDEN_SCREENS, it stays
@@ -65,8 +74,10 @@ const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat"]
 # Map-filters ticket 02 adds a third exception: the Network diagram wants
 # the full screen above the NavBar, and has its own local top bar (hamburger/
 # title/bag, map.gd's _build_top_bar()) whose bag button already covers what
-# the global one did there.
-const TOP_BAR_HIDDEN_SCREENS := ["title", "intro", "map"]
+# the global one did there. hq-diorama ticket 04 adds "hq_floorplan" per
+# §3.3's full-bleed sub-view rule — unlike "map" it has no replacement top
+# row of its own; hq_floorplan.gd's own Back button is the only chrome.
+const TOP_BAR_HIDDEN_SCREENS := ["title", "intro", "map", "hq_floorplan"]
 
 var screen_container: Control
 var nav_bar: Control
