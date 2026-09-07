@@ -41,7 +41,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | equipment.gd | Weapon equip/unequip | — |
 | events.gd | Event-card runner + rewind (narration/speaker/tension/resolution/craft/choice cards) | data/events/*.json, vein_growth.json |
 | factions.gd | Faction joining | districts.json, factions.json, ore_types.json, vein_growth.json, vein_security.json |
-| home.gd | Home tier/security/rooms/raid | home.json |
+| home.gd | Home tier/security/rooms/raid. `get_raid_chance_for_tier(tier_id)`/`get_next_tier_id(tier_id)` (03-property-app-phone-tab) factor `get_home_raid_chance()`/`upgrade_tier()`'s formulas out so the Phone tab's Harrow's app can preview a tier the player hasn't moved into yet | home.json |
 | jobs.gd | James's jobs, trust bands | recipes.json, constants.json (trust bands) |
 | map_events.gd | Map event queue + playback sequencing | — |
 | map_hit_test.gd | Tap-hit-testing geometry for the Network diagram | map_layout.json |
@@ -57,7 +57,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | nav.gd | Screen navigation (currentScreen) | — |
 | notify.gd | Notifications-list append/evict helpers | — |
 | objectives.gd | Objective/questline evaluator engine (flag_true + 4 others) | objectives.json, sites.json |
-| phone_apps.gd | Phone home-grid app registry | — |
+| phone_apps.gd | Phone home-grid app registry (03-property-app-phone-tab added the "property"/"Harrow's" entry) | — |
 | phone_nav.gd | Phone tab drill-down nav state (apps, Ticker detail view) | — |
 | progression.gd | Shared "award XP against a levels table" loop | — |
 | raiding.gd | Vein stealth-check + raid resolution | districts.json, factions.json, ore_types.json, stealth.json |
@@ -84,7 +84,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | hq.gd | HQ tab: hq-diorama ticket 02 — the single bedsit room plate (hq_diorama.gd rendering data/hq_visuals.json), no more card stack. Tapping a zone dispatches to today's existing destination (bag/lab/rest direct, or one of modal_layer.gd's "hq_*" modals for Security/Rooms/Ore-store/Dial/Gym); a locked-HQ fallback (no room plate yet) still exposes Rest/Defend. Debug region-overlay toggle button lives here too. Gym is wired into the bedsit plate despite docs/hq-diorama-vision.md §3.1 listing its first tier as "flat" — a deliberate, human-approved deviation (see data/hq_visuals.json's "gymDeviation" meta note) |
 | lab.gd | HQ's Lab card: crafting/workbench + discovery bench |
 | map.gd | Map tab: Network diagram (MapCanvas) + district panel + site/vein sheet |
-| phone.gd | Phone tab: contact list, SMS threads, James jobs, apps grid |
+| phone.gd | Phone tab: contact list, SMS threads, James jobs, apps grid. 03-property-app-phone-tab added the "Harrow's" app (HQ tier stats + Home.upgrade_tier(), relocated off the HQ tab per docs/hq-diorama-vision.md §7) |
 | placeholder.gd | Stand-in for any not-yet-built screen |
 | title.gd | Title screen + load-game slot list |
 | vein_list.gd | Vein-portfolio list (district-scoped or global) |
@@ -126,7 +126,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | enemies.json | systems/combat.gd |
 | faction_trade.json | systems/economy.gd |
 | factions.json | systems/factions.gd, sites.gd, raiding.gd, debug_start.gd |
-| home.json | systems/home.gd, systems/approaches.gd |
+| home.json | systems/home.gd, systems/approaches.gd, scenes/screens/phone.gd (03-property-app-phone-tab: Harrow's reads HOME_TIERS/HOME_TIER_ORDER directly for its listing) |
 | hq_visuals.json | autoload/GameData.gd (HQ_VISUALS) → scenes/components/hq_diorama.gd, scenes/screens/hq.gd. `rooms`: room-plate id (v1: only `bedsit`) → `{image, fallbackColor, width, height, regions}`; `regions`: zone id → `{x, y, width, height, label, image}` in the plate's own display-resolution coordinate space, doubling as both hit region and sprite rect. Read entirely generically (no hardcoded room/zone roster) so a later tier's plate or a new region needs a manifest edit only. `image` empty renders a labelled placeholder box (docs/hq-diorama-vision.md §9). Validated by GameData._validate_hq_visuals() — every region ≥44×44px, no overlaps within a room. |
 | items.json | systems/combat.gd, scenes/screens/phone.gd, scenes/components/bag_drawer.gd |
 | map_layout.json | systems/map_layout.gd, systems/map_hit_test.gd |

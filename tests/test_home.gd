@@ -21,6 +21,22 @@ func run() -> void:
 		assert_almost_eq(chance, 0.13, 0.0001, "0.08 base + 50*0.001 carried ore")
 	)
 
+	run_case("get_raid_chance_for_tier_previews_a_tier_the_player_has_not_moved_into_yet", func():
+		GameState.reset()
+		# 03-property-app-phone-tab: Harrow's next-tier preview reuses this
+		# formula against a hypothetical tier_id -- still at bedsit, but
+		# previewing flat (raidBaseChance 0.06 vs bedsit's 0.08), with
+		# installed security/carried ore (both tier-independent) still
+		# applying to the preview exactly as they would after the move.
+		GameState.state["home"]["security"] = ["lock"]  # raidReduction 0.02
+		GameState.state["player"]["orichalchum"] = { "time": 50 }  # +0.05
+		var current := Home.get_raid_chance_for_tier("bedsit")
+		var preview := Home.get_raid_chance_for_tier("flat")
+		assert_almost_eq(current, 0.08 - 0.02 + 0.05, 0.0001, "bedsit base with lock and carried ore")
+		assert_almost_eq(preview, 0.06 - 0.02 + 0.05, 0.0001, "flat's own base, same security/ore applied")
+		assert_almost_eq(Home.get_home_raid_chance(), current, 0.0001, "get_home_raid_chance still reads the actual current tier")
+	)
+
 	run_case("raid_spacing_skips_within_3_days", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 5
@@ -256,6 +272,13 @@ func run() -> void:
 		var started := Home.trigger_defend()
 		assert_true(not started, "trigger_defend should report false when there's nothing to defend")
 		assert_true(not GameState.state["combat"]["active"], "no combat should start")
+	)
+
+	run_case("get_next_tier_id_walks_the_ladder_and_returns_empty_at_the_top", func():
+		GameState.reset()
+		assert_eq(Home.get_next_tier_id("bedsit"), "flat")
+		assert_eq(Home.get_next_tier_id("compound"), "mansion")
+		assert_eq(Home.get_next_tier_id("mansion"), "", "no tier above the top one")
 	)
 
 	run_case("upgrade_tier_enforces_cash_and_advances_the_ladder", func():

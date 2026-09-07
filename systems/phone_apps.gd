@@ -34,6 +34,12 @@ static func apps() -> Array[Dictionary]:
 		# REVIEW candidates) -- the tile label doubles as the in-app heading,
 		# same convention "ticker"/"The Ticker" already uses.
 		{ "id": "bank", "label": "Reynard's", "locked": unlocked },
+		# 03-property-app-phone-tab: HQ tier stats/upgrade, relocated off the
+		# HQ tab per docs/hq-diorama-vision.md §7 -- a parody property portal,
+		# same "brand name doubles as the in-app heading" convention as
+		# Reynard's above. PROSE-REVIEW: "Harrow's" is new prose (drafted
+		# against CONTENT-GUIDE.md's tone bible), pending human sign-off.
+		{ "id": "property", "label": "Harrow's", "locked": unlocked },
 		# 84-contacts-retire-messages-tile: no top-level "messages" entry
 		# here any more -- every contact (Archie/James included, since
 		# 83-contacts-archie-james-sms-port) has its own thread reachable

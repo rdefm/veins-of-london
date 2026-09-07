@@ -30,9 +30,18 @@ const PENDING_RAID_WARNING := "Alarm's going off at HQ — someone's trying to g
 
 
 static func get_home_raid_chance() -> float:
+	return get_raid_chance_for_tier(GameState.state["home"]["tier"])
+
+
+# 03-property-app-phone-tab: factored out of get_home_raid_chance() so the
+# Phone tab's Harrow's app can preview the raid risk of a tier the player
+# hasn't moved into yet -- installed security/guards/carried ore all carry
+# over on an upgrade, so the preview has to run the same formula against a
+# hypothetical tier_id rather than a flat lookup of that tier's raidBaseChance.
+static func get_raid_chance_for_tier(tier_id: String) -> float:
 	var home: Dictionary = GameState.state["home"]
 	var player: Dictionary = GameState.state["player"]
-	var tier_data: Dictionary = GameData.HOME_TIERS[home["tier"]]
+	var tier_data: Dictionary = GameData.HOME_TIERS[tier_id]
 	var fx: Dictionary = Barometer.get_merged_effects()
 	var raid_reduction := 0.0
 	for security_id in home["security"]:
@@ -186,16 +195,25 @@ static func trigger_defend() -> bool:
 	return true
 
 
+# 03-property-app-phone-tab: factored out of upgrade_tier() so the Phone
+# tab's Harrow's app can look up "the next place up" for its listing without
+# duplicating the tier-ladder traversal -- returns "" at the top tier.
+static func get_next_tier_id(tier_id: String) -> String:
+	var order: Array = GameData.HOME_TIER_ORDER
+	var index: int = order.find(tier_id)
+	if index == -1 or index >= order.size() - 1:
+		return ""
+	return order[index + 1]
+
+
 static func upgrade_tier() -> Dictionary:
 	var home: Dictionary = GameState.state["home"]
 	var player: Dictionary = GameState.state["player"]
-	var order: Array = GameData.HOME_TIER_ORDER
 
-	var current_index: int = order.find(home["tier"])
-	if current_index == -1 or current_index >= order.size() - 1:
+	var next_tier_id: String = get_next_tier_id(home["tier"])
+	if next_tier_id == "":
 		return { "ok": false, "reason": "Already at the top tier." }
 
-	var next_tier_id: String = order[current_index + 1]
 	var next_tier: Dictionary = GameData.HOME_TIERS[next_tier_id]
 	var cost: int = next_tier["upgradeCost"]
 	if player["cash"] < cost:

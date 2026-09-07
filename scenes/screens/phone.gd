@@ -84,6 +84,8 @@ func _refresh() -> void:
 			_build_notifications()
 		"bank":
 			_build_bank()
+		"property":
+			_build_property()
 		"debug":
 			_build_debug()
 		_:
@@ -776,6 +778,66 @@ func _build_bank_transaction_row(entry: Dictionary) -> Control:
 	var amount_text: String = "+£%d" % amount if amount >= 0 else "-£%d" % -amount
 	c["content"].add_child(UI.label("%s — %s" % [entry["label"], amount_text]))
 	c["content"].add_child(UI.muted_label("Day %d" % entry["day"]))
+	return c["panel"]
+
+
+# ── Harrow's (03-property-app-phone-tab) ──────────────────────────────
+# HQ tier stats and the upgrade action, relocated off the HQ tab per
+# docs/hq-diorama-vision.md §7: "the phone sells you the place, the room is
+# the place." A parody property portal listing the current tier (daily
+# cost, raid risk, rooms) and the next tier up (its own stats, upgrade
+# cost, and the buy action) -- Home.upgrade_tier() and data/home.json's
+# tier table are unchanged, this is a pure front-end relocation. Security
+# (the door) and Rooms (the floorplan) stay on their own HQ-tab surfaces;
+# this app never lists them, per §7's "no duplication."
+
+func _build_property() -> void:
+	_content.add_child(_phone_back_button())
+	_content.add_child(UI.heading("Harrow's"))
+	_content.add_child(_build_property_current_card())
+	_content.add_child(_build_property_next_card())
+
+
+func _build_property_current_card() -> Control:
+	var home: Dictionary = GameState.state["home"]
+	var tier: Dictionary = GameData.HOME_TIERS[home["tier"]]
+	var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
+
+	var c := UI.card()
+	c["content"].add_child(UI.muted_label("YOUR PLACE"))
+	c["content"].add_child(UI.heading(tier["name"], 14))
+	c["content"].add_child(UI.muted_label(tier["description"]))
+	c["content"].add_child(UI.label("Daily cost: £%d · Raid risk: %d%% · Rooms %d/%d" % [tier["dailyCost"], raid_pct, home["rooms"].size(), tier["maxRooms"]]))
+	return c["panel"]
+
+
+func _build_property_next_card() -> Control:
+	var home: Dictionary = GameState.state["home"]
+	var next_id: String = Home.get_next_tier_id(home["tier"])
+
+	var c := UI.card()
+	c["content"].add_child(UI.muted_label("NEXT UP"))
+
+	if next_id == "":
+		# PROSE-REVIEW: new line, drafted against CONTENT-GUIDE.md's tone
+		# bible -- dry, administrative, no exclamation mark.
+		c["content"].add_child(UI.muted_label("Top of the ladder. Nowhere further to move."))
+		return c["panel"]
+
+	var next_tier: Dictionary = GameData.HOME_TIERS[next_id]
+	var raid_pct: int = int(round(Home.get_raid_chance_for_tier(next_id) * 100))
+	var cost: int = next_tier["upgradeCost"]
+
+	c["content"].add_child(UI.heading(next_tier["name"], 14))
+	c["content"].add_child(UI.muted_label(next_tier["description"]))
+	c["content"].add_child(UI.label("Daily cost: £%d · Raid risk: %d%% · Rooms %d" % [next_tier["dailyCost"], raid_pct, next_tier["maxRooms"]]))
+
+	var b := UI.button("Move for £%d" % cost, func(): Home.upgrade_tier())
+	b.disabled = GameState.state["player"]["cash"] < cost
+	c["content"].add_child(b)
+	if b.disabled:
+		c["content"].add_child(UI.muted_label("Not enough cash."))
+
 	return c["panel"]
 
 
