@@ -364,6 +364,10 @@ func run() -> void:
 
 	run_case("corrupt_fixture_hq_visuals_no_image_and_no_fallback_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		# hq-diorama ticket 10 gave bedsit a real "image", so this fixture must
+		# null that out too -- otherwise it's no longer the "neither set" case
+		# this test means to cover.
+		corrupted["hq_visuals"]["rooms"]["bedsit"]["image"] = ""
 		corrupted["hq_visuals"]["rooms"]["bedsit"]["fallbackColor"] = ""
 		var errors := GameData.validate_tables(corrupted)
 		var found := false

@@ -312,6 +312,38 @@ func run() -> void:
 		hq.free()
 	)
 
+	# hq-diorama ticket 10: the Reinforced Lock is the first HQ visual that
+	# varies with real per-save state (state.home.security) rather than tier
+	# alone -- see hq.gd's _security_lock_installed_plate().
+	run_case("hq_room_plate_shows_the_installed_lock_image_once_the_lock_is_bought", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["security"] = ["lock"]
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		var rendered_region: Dictionary = hq._diorama._plate["regions"]["security"]
+		var expected_image: String = GameData.HQ_VISUALS["rooms"]["bedsit"]["regions"]["security"]["installedImage"]
+		assert_eq(rendered_region["image"], expected_image, "once 'lock' is installed, the security region must render installedImage instead of image")
+		assert_eq(GameData.HQ_VISUALS["rooms"]["bedsit"]["regions"]["security"]["image"], "res://assets/hq/regions/bedsit_security.png", "the source manifest itself must be untouched -- GameData.HQ_VISUALS is loaded once at boot and must never be mutated")
+
+		hq.free()
+	)
+
+	run_case("hq_room_plate_shows_the_empty_lock_image_before_the_lock_is_bought", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		var rendered_region: Dictionary = hq._diorama._plate["regions"]["security"]
+		assert_eq(rendered_region["image"], "res://assets/hq/regions/bedsit_security.png", "with no lock installed, the security region must render the plain-door image")
+
+		hq.free()
+	)
+
 	# hq-diorama ticket 04: the floorplan is a full-bleed screen, not a Modal
 	# (see tests/test_hq_floorplan.gd for what it renders).
 	run_case("hq_rooms_zone_tap_navigates_to_the_hq_floorplan_screen", func():

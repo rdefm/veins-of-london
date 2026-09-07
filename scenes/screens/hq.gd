@@ -93,6 +93,7 @@ func _build_room_view() -> void:
 	# whose tier hasn't shipped yet. Forward-compatible with zero code
 	# change once a later art ticket adds that tier's own key.
 	var plate: Dictionary = rooms_visuals.get(home["tier"], rooms_visuals["bedsit"])
+	plate = _security_lock_installed_plate(plate, home)
 	if Home.has_pending_raid():
 		plate = _hostile_door_plate(plate)
 
@@ -127,6 +128,27 @@ func _hostile_door_plate(plate: Dictionary) -> Dictionary:
 	if security_region != null:
 		security_region["label"] = "Security — RAID"
 	return hostile_plate
+
+
+# hq-diorama ticket 10: the Reinforced Lock security upgrade is the first
+# HQ visual that must vary with real per-save state rather than tier alone
+# -- HqDiorama only ever renders one static "image" per region and never
+# touches GameState (scenes/components/hq_diorama.gd's own doc comment), so
+# the swap happens here, same deep-copy-and-mutate trick _hostile_door_plate
+# below already uses for the raid-pending label. Deep-copies the plate
+# (GameData.HQ_VISUALS is the loaded-once source of truth -- CLAUDE.md's
+# STATE/DATA discipline forbids mutating it) so only this render pass picks
+# up the installed art, not every future visit.
+func _security_lock_installed_plate(plate: Dictionary, home: Dictionary) -> Dictionary:
+	if not home["security"].has("lock"):
+		return plate
+	var security_region: Dictionary = plate.get("regions", {}).get("security", {})
+	var installed_image: String = security_region.get("installedImage", "")
+	if installed_image.is_empty():
+		return plate
+	var installed_plate: Dictionary = plate.duplicate(true)
+	installed_plate["regions"]["security"]["image"] = installed_image
+	return installed_plate
 
 
 func _on_debug_toggle_pressed() -> void:
