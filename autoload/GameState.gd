@@ -70,6 +70,17 @@ func new_game_state() -> Dictionary:
 		# to "home" (Experimenting) keeps the Lab's existing default
 		# landing unchanged; Crafting is reached via the new section tab.
 		"benchNav": { "view": "home", "types": [], "approach": null, "result": null },
+		# hq-diorama ticket 06, docs/hq-diorama-vision.md §5: the diegetic
+		# Lab bench's own nav state -- distinct from benchNav above (M3's
+		# picker/pairing/confirm drill-down, still driving lab.gd's
+		# Experimenting section until ticket 07 replaces it wholesale).
+		# stop is which of the 3 focal stops (systems/lab_bench_nav.gd's
+		# STOPS) is in frame; mode is which notebook (§5.2: "recipes" /
+		# "experiments") is held open for the session, or null at the
+		# fork -- unlike stop, mode is NOT reset by LabBenchNav.open(), so
+		# leaving and re-entering the bench keeps whatever mode the player
+		# last chose (§5.2: "stays visibly open for the whole session").
+		"labBenchNav": { "stop": "books", "mode": null },
 		# collective1-02: state.objectives[<id>] = { active, complete, progress
 		# }, keyed by data/objectives.json ids -- systems/objectives.gd's
 		# Objectives.refresh() is the only writer. progress is per-evaluator-

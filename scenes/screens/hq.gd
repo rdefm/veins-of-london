@@ -157,8 +157,12 @@ func _on_zone_tapped(zone_id: String) -> void:
 		"dial":
 			Modal.open("hq_dial")
 		"lab":
-			BenchNav.go_home()
-			Nav.go_to("lab")
+			# hq-diorama ticket 06: the Lab zone's diegetic destination is now
+			# the bench sub-view (§5), not lab.gd's old picker/pairing screen
+			# -- see scenes/screens/hq_lab_bench.gd's own comment for why
+			# lab.gd itself stays registered a while longer.
+			LabBenchNav.open()
+			Nav.go_to("hq_lab_bench")
 		"security":
 			# hq-diorama ticket 05, §8: a pending raid takes over the door --
 			# tapping it opens Defend instead of the security sub-view.

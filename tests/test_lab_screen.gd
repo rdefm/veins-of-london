@@ -195,36 +195,16 @@ func run() -> void:
 		screen.free()
 	)
 
-	# Bugfixes ticket 25: HQ's Open button still calls BenchNav.go_home(),
-	# unchanged -- the Lab keeps landing on Experimenting's home view by
-	# default, same as before ticket 25. Crafting (the other section) is
-	# reached in-screen via the new section tab (see
-	# lab_section_tabs_switch_between_crafting_and_experimenting below),
-	# not by a different HQ entry point.
-	# hq-diorama ticket 02: HQ's old "Open" button on the Lab card is gone --
-	# tapping the room's Lab zone is the destination now (scenes/screens/
-	# hq.gd's _on_zone_tapped()). See tests/test_hq_screen.gd's own
-	# "hq_lab_zone_tap_navigates_straight_to_the_lab_screen_unchanged" for
-	# the zone-tap-dispatch test; this one just confirms the same landing
-	# behaviour (benchNav resets to "home") from that entry point.
-	run_case("hq_lab_zone_opens_the_lab_screen_on_its_home_view", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-		GameState.state["benchNav"]["view"] = "notes"  # simulate having been left mid-stub last session
-
-		var hq := HqScreen.new()
-		hq._ready()
-		var lab_rect: Rect2 = hq._diorama.region_rects()["lab"]
-		var tap := InputEventScreenTouch.new()
-		tap.pressed = true
-		tap.position = lab_rect.get_center()
-		hq._on_diorama_gui_input(tap)
-
-		assert_eq(GameState.state["currentScreen"], "lab", "tapping the Lab zone must navigate to the lab screen")
-		assert_eq(GameState.state["benchNav"]["view"], "home", "opening the Lab from HQ must always land on its (Experimenting) home view")
-
-		hq.free()
-	)
+	# hq-diorama ticket 06: HQ's Lab zone no longer opens this screen at all
+	# -- it opens the diegetic bench sub-view instead (scenes/screens/
+	# hq_lab_bench.gd, state.labBenchNav-driven), see
+	# tests/test_hq_screen.gd's own "hq_lab_zone_tap_navigates_to_the_hq_
+	# lab_bench_screen" and tests/test_hq_lab_bench.gd. lab.gd stays
+	# registered under its own "lab" screen id (still exercised directly by
+	# every other case in this file) until ticket 07 retires it, but the
+	# old "tapping HQ's Lab zone lands here" case above no longer has a
+	# zone tap to test, so it's been removed rather than updated to assert
+	# nothing happens.
 
 
 	# ── bugfixes ticket 25: Crafting section (moved from hq.gd) ──────────

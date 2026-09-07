@@ -216,19 +216,23 @@ func run() -> void:
 		hq.free()
 	)
 
-	run_case("hq_lab_zone_tap_navigates_straight_to_the_lab_screen_unchanged", func():
+	# hq-diorama ticket 06: the Lab zone now opens the diegetic bench
+	# sub-view (docs/hq-diorama-vision.md §5) instead of lab.gd's old
+	# picker/pairing screen -- see tests/test_hq_lab_bench.gd for that
+	# screen's own coverage.
+	run_case("hq_lab_zone_tap_navigates_to_the_hq_lab_bench_screen", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
 		GameState.state["currentScreen"] = "hq"
-		GameState.state["benchNav"]["view"] = "picker"
+		GameState.state["labBenchNav"]["stop"] = "apparatus"
 
 		var hq := HqScreen.new()
 		hq._ready()
 
 		_tap_zone(hq, "lab")
 
-		assert_eq(GameState.state["currentScreen"], "lab", "tapping the Lab zone must open the Lab screen, same destination the old 'Open' button used")
-		assert_eq(GameState.state["benchNav"]["view"], "home", "BenchNav.go_home() must reset the bench to its own default view, same as the old Lab card's Open button")
+		assert_eq(GameState.state["currentScreen"], "hq_lab_bench", "tapping the Lab zone must open the bench sub-view")
+		assert_eq(GameState.state["labBenchNav"]["stop"], "books", "LabBenchNav.open() must land the bench on its own books stop, same as any fresh visit (§5.1)")
 
 		hq.free()
 	)

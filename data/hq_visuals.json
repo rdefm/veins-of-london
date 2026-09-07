@@ -6,7 +6,8 @@
     "regionRule": "'regions' keys are the room's zones (§3.1 -- dial/lab/security/rest/rooms/oreStore/gym for the bedsit tier; not enumerated here so a later tier or sub-view plate can add its own without touching any reader code). Each region is {x, y, width, height, label, image} in the plate's own display-resolution coordinate space -- the same rect is both the tap hit region and the sprite rect, since a region's art (once produced) is baked directly into the plate or into its own small overlay sprite at that exact rect (§3.2/§11: baked outlines, hit regions measured against the finished plate). 'image' empty means no dedicated sprite for this region yet -- HqDiorama draws a labelled placeholder box there instead, per docs/hq-diorama-vision.md §9 ('the entire HQ tab is therefore navigable, tappable and playable with zero art produced'). 'label' is the human-readable text the placeholder box and debug overlay both show.",
     "gymDeviation": "hq-diorama ticket 02: §3.1's own table lists Gym's 'First tier present' as 'flat', one tier above bedsit -- v1 (§10) ships the bedsit plate only, so a strict reading has no gym region here. Ticket 02's own prose lists Gym among the zones to wire up regardless, and the human maintainer explicitly chose (2026-09-07) to wire it into the bedsit plate now rather than leave Train unreachable until a Flat-tier plate art ticket ships -- a deliberate, approved deviation from the tier table, not an oversight.",
     "regionSizeRule": "Every region must be >= 44x44 logical px and must not overlap another region in the same room (§3.2) -- enforced by GameData._validate_hq_visuals().",
-    "artReview": "ART-REVIEW: every region rect below is a hand-guessed layout (no bedsit plate exists yet to measure against) -- ticket 10 re-verifies each one against the finished art using this ticket's debug overlay and corrects any that don't land on the real object."
+    "artReview": "ART-REVIEW: every region rect below is a hand-guessed layout (no bedsit plate exists yet to measure against) -- ticket 10 re-verifies each one against the finished art using this ticket's debug overlay and corrects any that don't land on the real object.",
+    "labBench": "hq-diorama ticket 06, docs/hq-diorama-vision.md §5.1: the Lab bench sub-view plate, a sibling of 'rooms' rather than a member of it -- it's reached from the 'lab' room zone, not a property tier. One wide plate (1170x844 display-resolution, 3x the 390-wide screen) with three 390px-wide focal stops (books/ore/apparatus, left to right) the screen pans between by offsetting the rendered HqDiorama's x position by whole stop-widths -- never free-scrolled (§5.1: 'no free scrolling -- a swipe gesture would fight the ore-dragging'). Only the books stop (x 0-390) carries regions in this ticket -- the two notebooks, §5.2's mode fork. The ore stop (x 390-780) and apparatus stop (x 780-1170) are deliberately regionless for now: ticket 07 adds the five ore containers and four apparatus slots there. ART-REVIEW applies to notebookRecipes/notebookExperiments below same as every rect in this file."
   },
   "rooms": {
     "bedsit": {
@@ -23,6 +24,16 @@
         "oreStore": { "x": 236, "y": 420, "width": 124, "height": 192, "label": "Ore store", "image": "" },
         "gym": { "x": 145, "y": 158, "width": 100, "height": 76, "label": "Gym", "image": "" }
       }
+    }
+  },
+  "labBench": {
+    "image": "",
+    "fallbackColor": "timber_dark",
+    "width": 1170,
+    "height": 844,
+    "regions": {
+      "notebookRecipes": { "x": 40, "y": 620, "width": 140, "height": 160, "label": "Recipes", "image": "" },
+      "notebookExperiments": { "x": 210, "y": 620, "width": 140, "height": 160, "label": "Experiments", "image": "" }
     }
   }
 }

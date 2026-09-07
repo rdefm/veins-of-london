@@ -939,35 +939,47 @@ func _validate_combat_visuals(combat_visuals: Dictionary, palette: Dictionary, e
 # CONTEXTS, since the whole point of this manifest is that a later ticket
 # adds a plate or a region with no reader code change (the ticket's own
 # "no hardcoded room/zone roster in the reader" acceptance check).
+#
+# hq-diorama ticket 06 adds "labBench" as a second top-level plate, sibling
+# to "rooms" rather than a member of it (§5.1 -- reached from the lab zone,
+# not a property tier). Same rules apply to it, so the per-plate body below
+# is factored out into _validate_hq_plate() and called once per room plus
+# once for labBench, rather than duplicated.
 func _validate_hq_visuals(hq_visuals: Dictionary, palette: Dictionary, errors: Array[String]) -> void:
 	var rooms: Dictionary = hq_visuals.get("rooms", {})
 	for room_id in rooms:
-		var room: Dictionary = rooms[room_id]
-		_require_keys(room, ["image", "fallbackColor", "width", "height", "regions"], "hq_visuals.rooms.%s" % room_id, errors)
-		var image: String = room.get("image", "")
-		var fallback_color: String = room.get("fallbackColor", "")
-		if image.is_empty() and fallback_color.is_empty():
-			errors.append("hq_visuals.rooms.%s: neither 'image' nor 'fallbackColor' set -- the room would render nothing" % room_id)
-		if not fallback_color.is_empty() and not palette.has(fallback_color):
-			errors.append("hq_visuals.rooms.%s: fallbackColor '%s' is not a data/palette.json colour id" % [room_id, fallback_color])
+		_validate_hq_plate(rooms[room_id], "hq_visuals.rooms.%s" % room_id, palette, errors)
 
-		var regions: Dictionary = room.get("regions", {})
-		var seen_ids: Array[String] = []
-		var seen_rects: Array[Rect2] = []
-		for region_id in regions:
-			var region: Dictionary = regions[region_id]
-			var context := "hq_visuals.rooms.%s.regions.%s" % [room_id, region_id]
-			_require_keys(region, ["x", "y", "width", "height", "label", "image"], context, errors)
-			var width: float = region.get("width", 0.0)
-			var height: float = region.get("height", 0.0)
-			if width < 44 or height < 44:
-				errors.append("%s: %sx%s is below the 44x44 minimum hit-region size (docs/hq-diorama-vision.md §3.2)" % [context, width, height])
-			var rect := Rect2(region.get("x", 0.0), region.get("y", 0.0), width, height)
-			for i in seen_rects.size():
-				if rect.intersects(seen_rects[i]):
-					errors.append("%s: overlaps region '%s' in the same room -- hit regions must not overlap (docs/hq-diorama-vision.md §3.2)" % [context, seen_ids[i]])
-			seen_ids.append(region_id)
-			seen_rects.append(rect)
+	if hq_visuals.has("labBench"):
+		_validate_hq_plate(hq_visuals["labBench"], "hq_visuals.labBench", palette, errors)
+
+
+func _validate_hq_plate(plate: Dictionary, context: String, palette: Dictionary, errors: Array[String]) -> void:
+	_require_keys(plate, ["image", "fallbackColor", "width", "height", "regions"], context, errors)
+	var image: String = plate.get("image", "")
+	var fallback_color: String = plate.get("fallbackColor", "")
+	if image.is_empty() and fallback_color.is_empty():
+		errors.append("%s: neither 'image' nor 'fallbackColor' set -- the plate would render nothing" % context)
+	if not fallback_color.is_empty() and not palette.has(fallback_color):
+		errors.append("%s: fallbackColor '%s' is not a data/palette.json colour id" % [context, fallback_color])
+
+	var regions: Dictionary = plate.get("regions", {})
+	var seen_ids: Array[String] = []
+	var seen_rects: Array[Rect2] = []
+	for region_id in regions:
+		var region: Dictionary = regions[region_id]
+		var region_context := "%s.regions.%s" % [context, region_id]
+		_require_keys(region, ["x", "y", "width", "height", "label", "image"], region_context, errors)
+		var width: float = region.get("width", 0.0)
+		var height: float = region.get("height", 0.0)
+		if width < 44 or height < 44:
+			errors.append("%s: %sx%s is below the 44x44 minimum hit-region size (docs/hq-diorama-vision.md §3.2)" % [region_context, width, height])
+		var rect := Rect2(region.get("x", 0.0), region.get("y", 0.0), width, height)
+		for i in seen_rects.size():
+			if rect.intersects(seen_rects[i]):
+				errors.append("%s: overlaps region '%s' in the same plate -- hit regions must not overlap (docs/hq-diorama-vision.md §3.2)" % [region_context, seen_ids[i]])
+		seen_ids.append(region_id)
+		seen_rects.append(rect)
 
 
 func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, errors: Array[String]) -> void:

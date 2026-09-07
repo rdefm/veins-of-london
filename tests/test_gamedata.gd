@@ -429,6 +429,39 @@ func run() -> void:
 			assert_true(regions.has(zone_id), "bedsit room should have a '%s' zone (docs/hq-diorama-vision.md §3.1)" % zone_id)
 	)
 
+	# ── hq-diorama ticket 06: data/hq_visuals.json's "labBench" plate ──
+
+	run_case("real_hq_visuals_lab_bench_has_both_notebook_regions", func():
+		var regions: Dictionary = GameData.HQ_VISUALS["labBench"]["regions"]
+		for zone_id in ["notebookRecipes", "notebookExperiments"]:
+			assert_true(regions.has(zone_id), "the labBench plate should have a '%s' zone (docs/hq-diorama-vision.md §5.2)" % zone_id)
+	)
+
+	run_case("corrupt_fixture_hq_visuals_lab_bench_no_image_and_no_fallback_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["hq_visuals"]["labBench"]["fallbackColor"] = ""
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("labBench") and e.contains("render nothing"):
+				found = true
+		assert_true(found, "the labBench plate with neither an image nor a fallbackColor should be flagged, same as any room plate")
+	)
+
+	run_case("corrupt_fixture_hq_visuals_lab_bench_overlapping_notebook_regions_fail", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		var recipes: Dictionary = corrupted["hq_visuals"]["labBench"]["regions"]["notebookRecipes"]
+		var experiments: Dictionary = corrupted["hq_visuals"]["labBench"]["regions"]["notebookExperiments"]
+		experiments["x"] = recipes["x"]
+		experiments["y"] = recipes["y"]
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("overlaps region"):
+				found = true
+		assert_true(found, "the two notebook regions must not overlap, same rule any room's regions follow (docs/hq-diorama-vision.md §3.2)")
+	)
+
 	run_case("spot_check_values", func():
 		assert_eq(GameData.ORE_TYPES["fate"]["basePrice"], 90, "fate basePrice")
 		assert_eq(GameData.ORE_TYPES["emotion"]["symbol"], "❋", "emotion symbol")

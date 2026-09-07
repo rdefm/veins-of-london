@@ -48,7 +48,16 @@ const SCREEN_SCRIPTS := {
 	# calc-discovery ticket 06: the Lab, reached from HQ's third card. Its
 	# own internal drill-down (home/picker/pairing/notes) is state.benchNav-
 	# driven inside lab.gd, same pattern as phoneNav inside phone.gd.
+	# hq-diorama ticket 06 moved the "lab" HQ-zone tap onto hq_lab_bench
+	# below instead -- this id stays registered (and directly reachable by
+	# whatever still navigates to it) until ticket 07 retires it.
 	"lab": preload("res://scenes/screens/lab.gd"),
+
+	# hq-diorama ticket 06, docs/hq-diorama-vision.md §5: the Lab bench's
+	# diegetic sub-view (pan model, 3 stops, notebook mode fork), reached
+	# from hq.gd's "lab" zone tap. Full-bleed, same reasoning as
+	# hq_floorplan/hq_door below.
+	"hq_lab_bench": preload("res://scenes/screens/hq_lab_bench.gd"),
 
 	# bugfixes-29: the Guild marketplace, reached from the Guild's faction
 	# card (ContactCards.build_faction_card) on both the standalone
@@ -68,11 +77,11 @@ const RETIRED_SCREEN_IDS := {
 }
 
 # R§2.2: "Global bottom nav ... hidden on title, intro, event, combat".
-# hq-diorama ticket 04 adds "hq_floorplan", ticket 05 adds "hq_door":
-# docs/hq-diorama-vision.md §3.3 — HQ sub-views are full-bleed, auto-hiding
-# both bars, returning them at the room level (hq.gd itself stays out of
-# both lists).
-const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "hq_floorplan", "hq_door"]
+# hq-diorama ticket 04 adds "hq_floorplan", ticket 05 adds "hq_door", ticket
+# 06 adds "hq_lab_bench": docs/hq-diorama-vision.md §3.3 — HQ sub-views are
+# full-bleed, auto-hiding both bars, returning them at the room level (hq.gd
+# itself stays out of both lists).
+const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "hq_floorplan", "hq_door", "hq_lab_bench"]
 
 # D4's persistent top bar is up on every screen except the two with no game
 # session to show cash/day/blocks for — unlike NAV_HIDDEN_SCREENS, it stays
@@ -81,10 +90,10 @@ const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "hq_floorplan"
 # the full screen above the NavBar, and has its own local top bar (hamburger/
 # title/bag, map.gd's _build_top_bar()) whose bag button already covers what
 # the global one did there. hq-diorama ticket 04 adds "hq_floorplan", ticket
-# 05 adds "hq_door", per §3.3's full-bleed sub-view rule — unlike "map"
-# neither has a replacement top row of its own; each screen's own Back
-# button is the only chrome.
-const TOP_BAR_HIDDEN_SCREENS := ["title", "intro", "map", "hq_floorplan", "hq_door"]
+# 05 adds "hq_door", ticket 06 adds "hq_lab_bench", per §3.3's full-bleed
+# sub-view rule — unlike "map" none of the three has a replacement top row
+# of its own; each screen's own Back button is the only chrome.
+const TOP_BAR_HIDDEN_SCREENS := ["title", "intro", "map", "hq_floorplan", "hq_door", "hq_lab_bench"]
 
 var screen_container: Control
 var nav_bar: Control
