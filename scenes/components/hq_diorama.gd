@@ -41,14 +41,23 @@ var _debug_overlay_enabled: bool = false
 
 
 func _init() -> void:
+	# z_index -1 pins both background layers behind this Control's own
+	# _draw() (placeholder boxes + debug overlay) -- Godot draws a Control's
+	# own _draw() first and its children on top by default, and these two
+	# are added as children, so without this every placeholder box (and the
+	# debug overlay) would render fully hidden under a full-plate background
+	# fill/texture. Region sprites (added later in build()) stay at the
+	# default z_index 0, on top of both.
 	_background_fill = ColorRect.new()
 	_background_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_background_fill.z_index = -1
 	add_child(_background_fill)
 
 	_background_texture = TextureRect.new()
 	_background_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_background_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_background_texture.visible = false
+	_background_texture.z_index = -1
 	add_child(_background_texture)
 
 

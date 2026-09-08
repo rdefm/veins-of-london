@@ -51,14 +51,15 @@ func run() -> void:
 	)
 
 	run_case("region_with_no_art_produced_yet_gets_a_placeholder_not_a_blank_space", func():
-		# Every region in the real manifest is still image:"" as of this
-		# ticket (docs/hq-diorama-vision.md §10 -- art production is the
-		# last ticket in the rollout), so building the real bedsit plate
-		# should leave every zone id un-sprited.
+		# hq-diorama ticket 10 landed real bedsit art for every region
+		# except oreStore (docs/hq-diorama-vision.md §10 -- no fixture was
+		# ever drawn for it), so that's the one zone still expected to fall
+		# back to the placeholder box; a region with real art (e.g.
+		# "security") should load as a sprite instead.
 		var diorama := HqDiorama.new()
 		diorama.build(_bedsit_plate())
-		for zone_id in diorama.region_rects().keys():
-			assert_true(not diorama._region_sprites.has(zone_id), "zone '%s' has no art yet in the real manifest, so it should fall back to the placeholder box, not a TextureRect" % zone_id)
+		assert_true(not diorama._region_sprites.has("oreStore"), "oreStore has no art yet in the real manifest, so it should fall back to the placeholder box, not a TextureRect")
+		assert_true(diorama._region_sprites.has("security"), "security has real art in the real manifest, so it should load as a sprite, not a placeholder box")
 		diorama.free()
 	)
 
@@ -83,11 +84,32 @@ func run() -> void:
 	)
 
 	run_case("empty_fallback_color_falls_back_to_the_manifest_palette_fallback_fill", func():
+		# The real bedsit plate has real room art since ticket 10, so it no
+		# longer exercises this fallback path -- a synthetic image:""
+		# plate (same shape the region_rects test above already uses)
+		# stands in for a plate that hasn't got its art yet.
+		var plate: Dictionary = {
+			"image": "",
+			"fallbackColor": "timber_dark",
+			"width": 100,
+			"height": 100,
+			"regions": {},
+		}
 		var diorama := HqDiorama.new()
-		diorama.build(_bedsit_plate())
-		var expected: Color = GameData.PALETTE.get(GameData.HQ_VISUALS["rooms"]["bedsit"]["fallbackColor"], Color.BLACK)
-		assert_eq(diorama._background_fill.color, expected, "with no room image yet, the background fill should read the manifest's own fallbackColor from data/palette.json")
+		diorama.build(plate)
+		var expected: Color = GameData.PALETTE.get("timber_dark", Color.BLACK)
+		assert_eq(diorama._background_fill.color, expected, "with no room image, the background fill should read the manifest's own fallbackColor from data/palette.json")
 		assert_true(diorama._background_fill.visible, "the fallback fill should be visible when there's no room image")
 		assert_true(not diorama._background_texture.visible, "the texture layer should stay hidden when there's no room image")
+		diorama.free()
+	)
+
+	run_case("real_room_image_uses_the_texture_layer_not_the_fallback_fill", func():
+		# hq-diorama ticket 10: the real bedsit plate now has real art, so
+		# the opposite branch of build()'s image/fallback fork should fire.
+		var diorama := HqDiorama.new()
+		diorama.build(_bedsit_plate())
+		assert_true(diorama._background_texture.visible, "with a real room image, the texture layer should be visible")
+		assert_true(not diorama._background_fill.visible, "the fallback fill should stay hidden when there's a real room image")
 		diorama.free()
 	)
