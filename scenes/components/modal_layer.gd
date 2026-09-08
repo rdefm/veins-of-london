@@ -168,8 +168,6 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_craft_components_menu()
 		"combat_setup":
 			_build_combat_setup()
-		"hq_dial":
-			_build_hq_dial()
 		"hq_ore_readout":
 			_build_hq_ore_readout()
 		"hq_gym":
@@ -906,57 +904,14 @@ func _build_combat_setup_ally_row(contact_id: String, selected_allies: Array) ->
 # (Dial view §4, floorplan §6, door §8); until then these modals are
 # "today's existing destination", per ticket 02's own spec.
 
-func _build_hq_dial() -> void:
-	var player: Dictionary = GameState.state["player"]
-	var dial: Variant = player["dial"]
-
-	if dial == null:
-		# PROSE-REVIEW: new Dial-seeding copy below, drafted against
-		# CONTENT-GUIDE.md's tone bible -- undrafted-by-a-human, same status
-		# as the haft display names (§1.4). Carried over unchanged from
-		# hq.gd's old card.
-		if GameState.state["flags"].get("dialGiftGranted", false):
-			_card_content.add_child(UI.label("You've been given something rare. It wants a name."))
-			_card_content.add_child(UI.muted_label(UI.format_cost_label(GameData.DIAL_SEED_COST, player["orichalchum"])))
-			for haft_id in GameData.DIAL_HAFTS.keys():
-				var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
-				var captured_haft_id: String = haft_id
-				_card_content.add_child(UI.button("Seed as \"%s\"" % haft["name"], func(): _on_hq_seed_pressed(captured_haft_id)))
-		else:
-			_card_content.add_child(UI.muted_label("No Dial. Nothing's offered you the gift yet."))
-		_card_content.add_child(UI.button("Close", func(): Modal.close()))
-		return
-
-	var haft_name: String = Dial.haft_name(dial)
-	_card_content.add_child(UI.heading("Level %d Dial — %s" % [dial["level"], haft_name], 15))
-	_card_content.add_child(UI.label("Charge: %d/%d (regen %s/day)" % [int(dial["currentCharge"]), dial["maxCharge"], str(dial["rechargeRate"])]))
-	_card_content.add_child(UI.bar(dial["currentCharge"], maxf(1.0, dial["maxCharge"])))
-	_card_content.add_child(UI.label("Capacity: %d/%d" % [Dial.capacity_used(dial), dial["capacityMax"]]))
-	# Closes this modal before handing off -- Bag drawer is its own overlay
-	# (state.bagDrawerOpen), not another modal.type, so it would otherwise
-	# stack on top of this one instead of replacing it.
-	_card_content.add_child(UI.button("Adjust Loadout", func():
-		Modal.close()
-		Bag.open()
-	))
-	_card_content.add_child(UI.button("Craft Components", func(): Modal.open("craft_components_menu")))
-	_card_content.add_child(UI.button("Close", func(): Modal.close()))
-
-
-# bugfixes ticket 97: attempt_seed()'s three outcomes (refuse/fail/succeed)
-# were previously discarded here, so a tap looked like nothing happened.
-# PROSE-REVIEW: notification text below is new copy, drafted against
-# CONTENT-GUIDE.md §3's tone bible -- flag for human review. Carried over
-# unchanged from hq.gd's old _on_seed_pressed().
-func _on_hq_seed_pressed(haft_id: String) -> void:
-	var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
-	var result := Dial.attempt_seed(haft_id)
-	if not result["ok"]:
-		Notify.push(result["reason"], Notify.CATEGORY_WARNING)
-	elif result["success"]:
-		Notify.push("Dial seeded as \"%s\"." % haft["name"], Notify.CATEGORY_SUCCESS)
-	else:
-		Notify.push("Seeding failed — calc spent, no Dial gained.", Notify.CATEGORY_DANGER)
+# hq-diorama ticket 09: the old "hq_dial" modal (_build_hq_dial(),
+# _on_hq_seed_pressed()) is deleted -- its content (unseeded-gift-gate copy/
+# seed buttons, Movement seat/unseat/wind, Complication load/unload) now
+# lives on the full-bleed scenes/screens/hq_dial.gd, the Dial zone's own
+# diegetic sub-view (docs/hq-diorama-vision.md §4), reached directly via
+# Nav.go_to("hq_dial") rather than this modal layer. "craft_components_menu"/
+# "movement_craft" below are unchanged -- that screen still opens them the
+# same way this modal used to.
 
 
 # M1-LONDON-T06: home.storedOre was merged into player.orichalchum (see

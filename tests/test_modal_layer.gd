@@ -92,16 +92,6 @@ static func _seed_faction_vein(id: String, growth: int, faction_id: String = "co
 	return vein
 
 
-# hq-diorama ticket 02: mirrors the old tests/test_hq_screen.gd's own
-# _fresh_dial() -- a minimal seeded Dial, same shape Dial.new_dial() produces.
-static func _fresh_dial() -> Dictionary:
-	return {
-		"level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0,
-		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
-		"capacityMax": Dial.capacity_max(1), "movement": null, "loadedComplications": [],
-		"haftId": "collective_brolly",
-	}
-
 
 func run() -> void:
 	run_case("tap_outside_a_no_side_effect_modal_just_closes_it", func():
@@ -845,86 +835,14 @@ func run() -> void:
 	)
 
 	# ── hq-diorama ticket 02: HQ zone destination modals ───────────────────
-	# hq.gd's old always-inline Dial/Security/Rooms/Ore-store cards, moved
-	# here unchanged -- these tests mirror the assertions the old
+	# hq.gd's old always-inline Security/Rooms/Ore-store cards, moved here
+	# unchanged -- these tests mirror the assertions the old
 	# tests/test_hq_screen.gd made against those cards directly.
 
-	run_case("hq_dial_modal_shows_seeding_ui_when_no_dial_is_seeded_and_the_gift_has_been_granted", func():
-		GameState.reset()
-		GameState.state["flags"]["dialGiftGranted"] = true
-		Modal.open("hq_dial")
-
-		var layer := ModalLayer.new()
-		layer._ready()
-
-		for haft_id in GameData.DIAL_HAFTS.keys():
-			var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
-			assert_true(_find_button(layer, "Seed as \"%s\"" % haft["name"]) != null, "a Seed button must render for haft %s" % haft_id)
-
-		layer.free()
-	)
-
-	run_case("hq_dial_modal_shows_a_waiting_message_when_no_dial_is_seeded_and_no_gift_has_been_granted", func():
-		GameState.reset()
-		Modal.open("hq_dial")
-
-		var layer := ModalLayer.new()
-		layer._ready()
-
-		assert_true(_label_texts(layer).has("No Dial. Nothing's offered you the gift yet."), "must show the waiting message, not a seeding UI, before the gift is granted")
-
-		layer.free()
-	)
-
-	run_case("hq_dial_modal_shows_stats_and_nav_buttons_once_a_dial_is_seeded", func():
-		GameState.reset()
-		var dial := _fresh_dial()
-		dial["currentCharge"] = 3
-		dial["maxCharge"] = 10
-		GameState.state["player"]["dial"] = dial
-		Modal.open("hq_dial")
-
-		var layer := ModalLayer.new()
-		layer._ready()
-
-		assert_true(_label_texts(layer).any(func(t: String): return t.begins_with("Level %d Dial" % dial["level"])), "the Dial's level/haft heading must render")
-		assert_true(_label_texts(layer).any(func(t: String): return t.begins_with("Charge: 3/10")), "the Dial's charge stat must render")
-		assert_true(_find_button(layer, "Adjust Loadout") != null, "must expose an Adjust Loadout button")
-		assert_true(_find_button(layer, "Craft Components") != null, "must expose a Craft Components button")
-
-		layer.free()
-	)
-
-	run_case("hq_dial_modal_adjust_loadout_closes_the_modal_and_opens_the_bag_drawer", func():
-		GameState.reset()
-		GameState.state["player"]["dial"] = _fresh_dial()
-		Modal.open("hq_dial")
-
-		var layer := ModalLayer.new()
-		layer._ready()
-
-		assert_true(not GameState.state["bagDrawerOpen"], "sanity: the bag drawer starts closed")
-		_find_button(layer, "Adjust Loadout").pressed.emit()
-
-		assert_true(GameState.state["bagDrawerOpen"], "Adjust Loadout must open the same bag drawer the loadout-management flow already lives in")
-		assert_eq(GameState.state["modal"], null, "Adjust Loadout must close this modal so it doesn't stack on top of the bag drawer")
-
-		layer.free()
-	)
-
-	run_case("hq_dial_modal_craft_components_hands_off_to_the_craft_components_menu_modal", func():
-		GameState.reset()
-		GameState.state["player"]["dial"] = _fresh_dial()
-		Modal.open("hq_dial")
-
-		var layer := ModalLayer.new()
-		layer._ready()
-
-		_find_button(layer, "Craft Components").pressed.emit()
-		assert_eq(GameState.state["modal"]["type"], "craft_components_menu", "Craft Components must open the archetype-list modal")
-
-		layer.free()
-	)
+	# hq-diorama ticket 09: the old "hq_dial" modal cases used to live here --
+	# moved (not deleted) to tests/test_hq_dial.gd, since the Dial is now the
+	# full-bleed hq_dial.gd screen, not a modal (same move ticket 05 made for
+	# "hq_security_list" -> tests/test_hq_door.gd, below).
 
 	# hq-diorama ticket 05: the old "hq_security_list" modal cases used to
 	# live here -- moved (not deleted) to tests/test_hq_door.gd, since

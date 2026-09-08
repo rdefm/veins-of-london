@@ -112,10 +112,12 @@ Reached only from the bag-and-umbrella zone. This is now the **sole** entry
 point to loadout adjustment; the bag drawer's management mode no longer
 carries it.
 
-Drawn as the device: the haft on one side, the seated Movement, and the
-Complication sockets as visible slots. Crafted Complications sit in a tray
-beside it and are moved into and out of sockets. Charge and capacity read
-off the device itself rather than off a progress bar.
+Drawn as the device itself — no haft in frame, just the seated Movement and
+the Complication sockets as visible slots, **capped at 4 housings for now**
+(more housing art can be added later if a loadout needs more shown at
+once). Crafted Complications sit in a tray beside it and are moved into and
+out of sockets. Charge and capacity read off the device itself rather than
+off a progress bar.
 
 Seeding an unseeded Dial and crafting components keep their current
 behaviour, reached from this view.

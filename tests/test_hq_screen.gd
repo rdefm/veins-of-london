@@ -202,16 +202,18 @@ func run() -> void:
 		hq.free()
 	)
 
-	run_case("hq_dial_zone_tap_opens_the_hq_dial_modal", func():
+	# hq-diorama ticket 09: the Dial is a full-bleed screen, not a Modal (see
+	# tests/test_hq_dial.gd for what it renders).
+	run_case("hq_dial_zone_tap_navigates_to_the_hq_dial_screen", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
 
 		var hq := HqScreen.new()
 		hq._ready()
 
-		assert_eq(GameState.state["modal"], null, "sanity: no modal open yet")
 		_tap_zone(hq, "dial")
-		assert_eq(GameState.state["modal"]["type"], "hq_dial", "tapping the Dial zone must open its destination modal")
+		assert_eq(GameState.state["currentScreen"], "hq_dial", "tapping the Dial zone must navigate to the loadout sub-view, no modal")
+		assert_eq(GameState.state["modal"], null, "the Dial sub-view is not a modal")
 
 		hq.free()
 	)
@@ -419,9 +421,13 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
+		# hq-diorama ticket 09: "dial" no longer opens a modal (it navigates to
+		# the full-bleed hq_dial.gd screen instead) -- "oreStore" still does,
+		# so this generic "release does nothing" check keeps using a
+		# modal-opening zone to catch a regression.
 		var release := InputEventScreenTouch.new()
 		release.pressed = false
-		release.position = hq._diorama.region_rects()["dial"].get_center()
+		release.position = hq._diorama.region_rects()["oreStore"].get_center()
 		hq._on_diorama_gui_input(release)
 
 		assert_eq(GameState.state["modal"], null, "a release event must not dispatch a zone tap")

@@ -9,23 +9,16 @@ extends "res://tests/test_base.gd"
 # relies on for MapControls.
 #
 # 05-bag-drawer-promotion: management-mode gating and the ported
-# equip/unequip/Dial-lifecycle actions (Dial half replaced at dial-device
-# ticket 07). Helpers below mirror tests/test_inventory.gd's
+# equip/unequip weapon actions. Helpers below mirror tests/test_inventory.gd's
 # _label_texts/_find_button_in_card, since this drawer now renders the same
-# equip/Dial cards that screen does.
-
-
-# dial-device ticket 07: a minimal inert-but-seeded Dial, same shape
-# Dial.new_dial() produces -- callers add "movement"/"loadedComplications"
-# as needed. capacityMax comes from Dial.capacity_max(1) so it's never out
-# of sync with the real level-1 lookup.
-func _fresh_dial() -> Dictionary:
-	return {
-		"level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0,
-		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
-		"capacityMax": Dial.capacity_max(1), "movement": null, "loadedComplications": [],
-		"haftId": "collective_brolly",
-	}
+# equip card that screen did.
+#
+# hq-diorama ticket 09: the Dial-lifecycle half of this file (seat/unseat
+# Movement, wind, load/unload Complications, and their own _fresh_dial()
+# fixture) is deleted -- that management moved entirely to
+# tests/test_hq_dial.gd, covering the new scenes/screens/hq_dial.gd screen.
+# This file keeps only the read-only Dial-summary assertions (still rendered
+# by _build_dial_summary_label(), untouched by that ticket).
 
 
 # Ticket 114: symbol_row()/symbol_button() split what used to be one Label's
@@ -124,7 +117,6 @@ func run() -> void:
 		drawer._ready()
 
 		assert_true(_find_button(drawer, "Equip") != null, "an unequipped weapon should get an Equip button")
-		assert_true(_label_texts(drawer).has("No Dial. Seed one from HQ."), "the Dial management section should be present")
 		assert_eq(drawer._card.offset_top, -BagDrawer.MANAGEMENT_DRAWER_HEIGHT, "drawer grows to the management height")
 
 		drawer.free()
@@ -142,7 +134,6 @@ func run() -> void:
 		assert_true(_find_button(drawer, "Equip") == null, "no Equip button during combat")
 		assert_true(_label_texts(drawer).has("Weapon: none equipped"), "falls back to the read-only equipped summary")
 		assert_true(_label_texts(drawer).has("Dial: none"), "falls back to the read-only Dial summary")
-		assert_true(not _label_texts(drawer).has("No Dial. Seed one from HQ."), "no Dial management section during combat")
 		assert_eq(drawer._card.offset_top, -BagDrawer.DRAWER_HEIGHT, "drawer stays the short read-only height")
 
 		drawer.free()
@@ -158,7 +149,6 @@ func run() -> void:
 		drawer._ready()
 
 		assert_true(_find_button(drawer, "Equip") == null, "no Equip button while the current event card carries itemHooks")
-		assert_true(not _label_texts(drawer).has("No Dial. Seed one from HQ."), "no Dial management section while the current event card carries itemHooks")
 		assert_eq(drawer._card.offset_top, -BagDrawer.DRAWER_HEIGHT, "drawer stays the short read-only height")
 
 		drawer.free()
@@ -183,80 +173,9 @@ func run() -> void:
 		drawer.free()
 	)
 
-	run_case("seat_and_unseat_movement_from_the_drawer_matches_dial_system", func():
-		GameState.reset()
-		Bag.open()
-		var player: Dictionary = GameState.state["player"]
-		player["dial"] = _fresh_dial()
-		player["movementInventory"] = [{ "archetype": "recharge", "oreType": "time", "tier": 1 }]
-
-		var drawer := BagDrawer.new()
-		drawer._ready()
-
-		_find_button(drawer, "Seat").pressed.emit()
-		assert_eq(GameState.state["player"]["dial"]["movement"]["archetype"], "recharge", "drawer's Seat button should seat via Dial.seat_movement")
-		assert_eq(GameState.state["player"]["movementInventory"], [], "the seated Movement should leave movementInventory")
-
-		Bag.open()
-		var drawer2 := BagDrawer.new()
-		drawer2._ready()
-		_find_button(drawer2, "Unseat").pressed.emit()
-		assert_eq(GameState.state["player"]["dial"]["movement"], null, "drawer's Unseat button should unseat via Dial.unseat_movement")
-		assert_eq(GameState.state["player"]["movementInventory"].size(), 1, "unseating should return the Movement to movementInventory")
-
-		drawer.free()
-		drawer2.free()
-	)
-
-	run_case("load_and_unload_complication_from_the_drawer_matches_dial_system", func():
-		GameState.reset()
-		Bag.open()
-		var player: Dictionary = GameState.state["player"]
-		player["dial"] = _fresh_dial()
-		player["inventory"]["timePearl"] = { "1": 1 }
-
-		var drawer := BagDrawer.new()
-		drawer._ready()
-
-		_find_button(drawer, "⧖Time Pearl tier 1 (1) — cost 1").pressed.emit()
-		var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
-		assert_eq(loaded.size(), 1, "drawer's Load button should load via Dial.load_complication")
-		assert_eq(Crafting.inventory_qty("timePearl"), 0, "loading should move the unit out of regular inventory")
-
-		Bag.open()
-		var drawer2 := BagDrawer.new()
-		drawer2._ready()
-		_find_button(drawer2, "Unload").pressed.emit()
-		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "drawer's Unload button should unload via Dial.unload_complication")
-		assert_eq(Crafting.inventory_qty("timePearl"), 1, "unloading should return the unit to regular inventory")
-
-		drawer.free()
-		drawer2.free()
-	)
-
-	run_case("load_complication_from_the_drawer_matches_dial_system_directly", func():
-		GameState.reset()
-		Bag.open()
-		var player: Dictionary = GameState.state["player"]
-		player["dial"] = _fresh_dial()
-		player["inventory"]["timePearl"] = { "1": 2 }
-
-		var drawer := BagDrawer.new()
-		drawer._ready()
-
-		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
-
-		_find_button(drawer, "⧖Time Pearl tier 1 (2) — cost 1").pressed.emit()
-		var loaded_via_button: Array = GameState.state["player"]["dial"]["loadedComplications"]
-
-		GameState.state = snapshot
-		Dial.load_complication("timePearl", 1)
-		var loaded_via_system: Array = GameState.state["player"]["dial"]["loadedComplications"]
-
-		assert_eq(loaded_via_button, loaded_via_system, "drawer's Load button should produce the same loadedComplications entry as calling Dial.load_complication directly")
-
-		drawer.free()
-	)
+	# hq-diorama ticket 09: the drawer's Seat/Unseat/Load/Unload Dial cases
+	# used to live here -- moved (not deleted) to tests/test_hq_dial.gd, since
+	# that management now lives entirely on the full-bleed hq_dial.gd screen.
 
 	run_case("healing_salve_and_healing_burst_get_use_buttons_outside_combat_and_events", func():
 		GameState.reset()
@@ -346,39 +265,15 @@ func run() -> void:
 		drawer.free()
 	)
 
-	run_case("movement_crafted_at_hq_appears_in_the_bag_drawer_seat_view", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		player["dial"] = _fresh_dial()
-		player["craftingSkill"] = 10
-		player["orichalchum"]["time"] = 1000000
+	# hq-diorama ticket 09: "movement_crafted_at_hq_appears_in_the_bag_drawer_
+	# seat_view" (the drawer's Seat button for a freshly-crafted Movement)
+	# also moved to tests/test_hq_dial.gd, same reasoning as above.
 
-		Rng.set_seed(1)
-		var guard := 0
-		while player["movementInventory"].is_empty() and guard < 1000:
-			Dial.attempt_craft_movement("recharge", "time")
-			guard += 1
-
-		assert_true(guard < 1000, "crafting a Movement should succeed within a reasonable number of attempts")
-		assert_eq(player["movementInventory"].size(), 1, "the crafted Movement should land in movementInventory")
-
-		Bag.open()
-		var drawer := BagDrawer.new()
-		drawer._ready()
-
-		assert_true(_find_button(drawer, "Seat") != null, "the newly crafted Movement should offer a Seat button in the Bag drawer")
-
-		drawer.free()
-	)
-
-	run_case("weapon_and_dial_cards_stay_drag_to_scroll_safe", func():
+	run_case("weapon_card_stays_drag_to_scroll_safe", func():
 		GameState.reset()
 		Bag.open()
 		var player: Dictionary = GameState.state["player"]
 		player["items"] = [{ "id": "item1", "type": "crowbar" }]
-		player["dial"] = _fresh_dial()
-		player["movementInventory"] = [{ "archetype": "recharge", "oreType": "time", "tier": 1 }]
-		player["inventory"]["timePearl"] = { "1": 1 }
 
 		var drawer := BagDrawer.new()
 		drawer._ready()

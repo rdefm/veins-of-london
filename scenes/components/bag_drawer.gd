@@ -7,17 +7,19 @@ extends Control
 # ModalLayer, just anchored to the bottom and keyed off a different state
 # field so it can be open independently of state.modal.
 #
-# 05-bag-drawer-promotion: full management (equip/unequip weapon, Dial
-# seat/unseat/wind/load/unload — ported straight from inventory.gd's
-# equipment tab, Dial half replaced at dial-device ticket 07) outside
-# combat/item-hook events. Inside them it falls back
-# to read-only contents plus the legal Use buttons — combat's version
-# replaces the old "combat_items" modal (ported from modal_layer.gd's former
-# _build_combat_items). itemHooks (event cards with legal item uses) don't
-# exist yet in the event framework (M1-LONDON.md D5/ticket 08) — no event
-# has one, or a Use-button system to go with it — so the itemHooks half of
-# the gate only ever hides management controls for now; it never has
-# anything to show in their place.
+# 05-bag-drawer-promotion: weapon equip/unequip management (ported straight
+# from inventory.gd's equipment tab) outside combat/item-hook events. Dial
+# management lived here too from dial-device ticket 07 until hq-diorama
+# ticket 09 moved it out entirely to scenes/screens/hq_dial.gd, the Dial's
+# own full-bleed loadout sub-view -- this drawer keeps only a read-only Dial
+# summary now (_build_dial_summary_label()). Inside combat/item-hook events
+# this falls back to read-only contents plus the legal Use buttons --
+# combat's version replaces the old "combat_items" modal (ported from
+# modal_layer.gd's former _build_combat_items). itemHooks (event cards with
+# legal item uses) don't exist yet in the event framework (M1-LONDON.md D5/
+# ticket 08) — no event has one, or a Use-button system to go with it — so
+# the itemHooks half of the gate only ever hides management controls for
+# now; it never has anything to show in their place.
 
 const DRAWER_HEIGHT := 420.0
 const MANAGEMENT_DRAWER_HEIGHT := 700.0
@@ -125,7 +127,6 @@ func _refresh() -> void:
 	if management:
 		_add_out_of_combat_use_buttons(player)
 		_build_weapon_management(player)
-		_build_dial_management(player)
 	else:
 		_content.add_child(UI.heading("Equipped", 14))
 		_content.add_child(_build_equipped_weapon_label(player))
@@ -215,83 +216,13 @@ func _build_weapon_management(player: Dictionary) -> void:
 		_content.add_child(c["panel"])
 
 
-# dial-device ticket 07 — replaces the old device equip/build management:
-# the Dial is a single lifetime-owned instrument, not a slot with spares, so
-# there's no equip/unequip list here any more, just seat/unseat the one
-# Movement, wind the charge pool, and load/unload Complications. Seeding a
-# fresh Dial and crafting new Movements are build-style actions and live in
-# hq.gd's Dial card instead, matching how the old device build loop lived in
-# HQ while equip lived here.
-func _build_dial_management(player: Dictionary) -> void:
-	_content.add_child(UI.heading("Dial", 14))
-	var dial: Variant = player["dial"]
-	if dial == null:
-		# PROSE-REVIEW: new copy, drafted against CONTENT-GUIDE.md's tone bible.
-		_content.add_child(UI.muted_label("No Dial. Seed one from HQ."))
-		return
-
-	var haft_name: String = Dial.haft_name(dial)
-	_content.add_child(UI.label("Level %d — %s" % [dial["level"], haft_name]))
-	_content.add_child(UI.muted_label("Charge %d/%d · Capacity %d/%d" % [int(dial["currentCharge"]), dial["maxCharge"], Dial.capacity_used(dial), dial["capacityMax"]]))
-
-	var movement: Variant = dial["movement"]
-	if movement != null:
-		var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
-		var c := UI.card()
-		c["content"].add_child(UI.symbol_row([{ "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s (seated) — attuned %s, tier %d" % [m["name"], movement["oreType"], movement["tier"]]]))
-		c["content"].add_child(UI.button("Unseat", func(): Dial.unseat_movement()))
-		var cost: int = Dial.winding_cost_per_charge(movement["archetype"], movement["tier"])
-		var have: int = player["orichalchum"].get(movement["oreType"], 0)
-		var wind_button := UI.symbol_button(["Wind +1 (%d " % cost, { "symbol": GameData.ORE_TYPES[movement["oreType"]]["symbol"], "fallback": SymbolGlyph.ore_fallback(movement["oreType"]) }, ")"], func(): Dial.wind(1))
-		wind_button.disabled = dial["currentCharge"] >= dial["maxCharge"] or have < cost
-		c["content"].add_child(wind_button)
-		_content.add_child(c["panel"])
-	else:
-		# PROSE-REVIEW: new copy, drafted against CONTENT-GUIDE.md's tone bible.
-		_content.add_child(UI.muted_label("No Movement seated — the Dial is inert."))
-
-	for i in range(player["movementInventory"].size()):
-		var inv_movement: Dictionary = player["movementInventory"][i]
-		var md: Dictionary = GameData.DIAL_MOVEMENTS[inv_movement["archetype"]]
-		var captured_index: int = i
-		var c := UI.card()
-		c["content"].add_child(UI.symbol_row([{ "symbol": md["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — attuned %s, tier %d" % [md["name"], inv_movement["oreType"], inv_movement["tier"]]]))
-		c["content"].add_child(UI.button("Seat", func(): Dial.seat_movement(captured_index)))
-		_content.add_child(c["panel"])
-
-	_content.add_child(UI.heading("Complications loaded", 14))
-	var loaded: Array = dial["loadedComplications"]
-	if loaded.is_empty():
-		_content.add_child(UI.muted_label("Nothing loaded."))
-	else:
-		for i in range(loaded.size()):
-			var entry: Dictionary = loaded[i]
-			var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
-			var captured_index: int = i
-			var c := UI.card()
-			c["content"].add_child(UI.symbol_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — tier %d (cost %d)" % [recipe["name"], entry["tier"], entry["capacityCost"]]]))
-			c["content"].add_child(UI.button("Unload", func(): Dial.unload_complication(captured_index)))
-			_content.add_child(c["panel"])
-
-	_content.add_child(UI.heading("Load a Complication", 14))
-	var any_loadable := false
-	for recipe_key in GameData.RECIPES.keys():
-		var recipe: Dictionary = GameData.RECIPES[recipe_key]
-		var buckets: Dictionary = player["inventory"].get(recipe_key, {})
-		for tier_key in buckets.keys():
-			if buckets[tier_key] <= 0:
-				continue
-			any_loadable = true
-			var captured_key: String = recipe_key
-			var captured_tier: int = int(tier_key)
-			var load_button := UI.symbol_button([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s tier %s (%d) — cost %d" % [recipe["name"], tier_key, buckets[tier_key], recipe["capacityCost"]]], func(): Dial.load_complication(captured_key, captured_tier))
-			load_button.disabled = Dial.capacity_used(dial) + int(recipe["capacityCost"]) > dial["capacityMax"]
-			_content.add_child(load_button)
-	if not any_loadable:
-		# PROSE-REVIEW: new copy, drafted against CONTENT-GUIDE.md's tone bible.
-		_content.add_child(UI.muted_label("Nothing in stock to load."))
-
-
+# hq-diorama ticket 09: Dial loadout management (seat/unseat Movement, wind
+# the charge pool, load/unload Complications) is deleted from this drawer --
+# scenes/screens/hq_dial.gd (docs/hq-diorama-vision.md §4) is now the sole
+# entry point, reached from HQ's Dial zone. Management mode itself no longer
+# shows anything Dial-related (only weapon equip/unequip remains, above);
+# the read-only summary below (_build_dial_summary_label()) still renders in
+# non-management mode (e.g. mid-combat), untouched by this ticket.
 func _build_equipped_weapon_label(player: Dictionary) -> Control:
 	var weapon_id = player["equipment"]["weapon"]
 	for item in player["items"]:

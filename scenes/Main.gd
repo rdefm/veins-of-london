@@ -55,6 +55,14 @@ const SCREEN_SCRIPTS := {
 	# now the Lab's only reachable id.
 	"hq_lab_bench": preload("res://scenes/screens/hq_lab_bench.gd"),
 
+	# hq-diorama ticket 09, docs/hq-diorama-vision.md §4: the Dial's diegetic
+	# loadout sub-view, reached from hq.gd's "dial" zone tap in place of the
+	# old "hq_dial" modal (modal_layer.gd, deleted this ticket). Full-bleed,
+	# same reasoning as hq_floorplan/hq_door/hq_lab_bench above -- this is now
+	# the sole entry point to loadout adjustment (bag_drawer.gd's management
+	# mode no longer carries it).
+	"hq_dial": preload("res://scenes/screens/hq_dial.gd"),
+
 	# bugfixes-29: the Guild marketplace, reached from the Guild's faction
 	# card (ContactCards.build_faction_card) on both the standalone
 	# `factions` screen and Phone's Factions app.
@@ -81,7 +89,7 @@ const RETIRED_SCREEN_IDS := {
 # 06 adds "hq_lab_bench": docs/hq-diorama-vision.md §3.3 — HQ sub-views are
 # full-bleed, auto-hiding both bars, returning them at the room level (hq.gd
 # itself stays out of both lists).
-const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "hq_floorplan", "hq_door", "hq_lab_bench"]
+const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "hq_floorplan", "hq_door", "hq_lab_bench", "hq_dial"]
 
 # D4's persistent top bar is up on every screen except the two with no game
 # session to show cash/day/blocks for — unlike NAV_HIDDEN_SCREENS, it stays
@@ -93,7 +101,7 @@ const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "hq_floorplan"
 # 05 adds "hq_door", ticket 06 adds "hq_lab_bench", per §3.3's full-bleed
 # sub-view rule — unlike "map" none of the three has a replacement top row
 # of its own; each screen's own Back button is the only chrome.
-const TOP_BAR_HIDDEN_SCREENS := ["title", "intro", "map", "hq_floorplan", "hq_door", "hq_lab_bench"]
+const TOP_BAR_HIDDEN_SCREENS := ["title", "intro", "map", "hq_floorplan", "hq_door", "hq_lab_bench", "hq_dial"]
 
 var screen_container: Control
 var nav_bar: Control

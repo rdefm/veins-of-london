@@ -7,12 +7,13 @@ extends Control
 # stack. Tapping a zone opens today's existing destination unchanged --
 # diegetic replacements for each (Dial view, Lab bench, floorplan, door) are
 # later tickets (04/05/06/09); this ticket only makes the room navigable.
-# Ore-store/Dial/Gym destinations that used to be inline cards now live in
-# scenes/components/modal_layer.gd (types "hq_ore_readout", "hq_dial",
-# "hq_gym") -- moved, not rewritten, so every button/system call inside them
-# is the exact same code that used to render inline here. Rooms (ticket 04)
-# and Security/the door (ticket 05) are full-bleed screens instead, not
-# Modals -- see scenes/screens/hq_floorplan.gd and scenes/screens/hq_door.gd.
+# Ore-store/Gym destinations that used to be inline cards now live in
+# scenes/components/modal_layer.gd (types "hq_ore_readout", "hq_gym") --
+# moved, not rewritten, so every button/system call inside them is the exact
+# same code that used to render inline here. Rooms (ticket 04), Security/the
+# door (ticket 05), the Lab bench (ticket 06) and the Dial (ticket 09) are
+# full-bleed screens instead, not Modals -- see scenes/screens/
+# hq_floorplan.gd, hq_door.gd, hq_lab_bench.gd, and hq_dial.gd.
 #
 # Gym is wired into the bedsit plate (data/hq_visuals.json's "gym" region)
 # despite §3.1's own "First tier present" column putting it at "flat", one
@@ -177,7 +178,10 @@ func _on_diorama_gui_input(event: InputEvent) -> void:
 func _on_zone_tapped(zone_id: String) -> void:
 	match zone_id:
 		"dial":
-			Modal.open("hq_dial")
+			# hq-diorama ticket 09: the Dial zone's diegetic destination is the
+			# full-bleed loadout sub-view (§4), replacing the old "hq_dial"
+			# modal.
+			Nav.go_to("hq_dial")
 		"lab":
 			# hq-diorama ticket 06: the Lab zone's diegetic destination is the
 			# bench sub-view (§5). Ticket 07 built out the full craft flow on
