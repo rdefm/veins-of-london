@@ -174,6 +174,12 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_hq_ore_readout()
 		"hq_gym":
 			_build_hq_gym()
+		"lab_bench_recipe_book":
+			_build_lab_bench_recipe_book()
+		"lab_bench_notes":
+			_build_lab_bench_notes()
+		"lab_bench_probe_result":
+			_build_lab_bench_probe_result(data)
 		_:
 			_card_content.add_child(UI.heading(type_id))
 			_card_content.add_child(UI.label("…"))
@@ -1001,6 +1007,206 @@ func _build_hq_gym() -> void:
 	else:
 		_card_content.add_child(UI.muted_label("Build a Home Gym to claim this space and unlock Train."))
 	_card_content.add_child(UI.button("Close", func(): Modal.close()))
+
+
+# ── hq-diorama ticket 07: Lab bench modals ────────────────────────────
+#
+# The bench's own notebook content and probe feedback, all reached from
+# scenes/screens/hq_lab_bench.gd rather than a full drill-down screen (that
+# screen, lab.gd, plus systems/bench_nav.gd, are all deleted this ticket --
+# see hq_lab_bench.gd's own top comment). Recipe rows and the notes/history
+# rendering below are lab.gd's old _build_recipe_card()/_build_notes_card()/
+# _history_line() moved here near-verbatim, since a modal card is the same
+# shape a screen card was.
+
+# Ticket 07, §5.2/§5.6: the Recipes-mode book path -- pick a known recipe
+# and a quantity, craft -- plus refinement (§5.6: "a recipe-page action in
+# the book, not a fifth apparatus"), both per recipe row. Crafting a batch
+# or refining from here re-opens *this* modal's own content on the next
+# EventBus.state_changed (Crafting.attempt_craft_batch opens its own
+# "craft_batch_result" modal on top, which replaces this one when it fires
+# -- closing that result modal returns to the bare bench, not back into the
+# book; re-tapping "Recipe book" reopens it. Bench.refine() opens no modal
+# of its own, so a refine tap re-renders this same book in place instead).
+func _build_lab_bench_recipe_book() -> void:
+	_card_content.add_child(UI.heading("Recipe book"))
+	var found := Bench.found_recipe_keys()
+	if found.is_empty():
+		_card_content.add_child(UI.muted_label("Nothing found yet."))
+	else:
+		for recipe_key in found:
+			_card_content.add_child(_build_lab_bench_recipe_row(recipe_key))
+	_card_content.add_child(UI.button("Close", func(): Modal.close()))
+
+
+func _build_lab_bench_recipe_row(recipe_key: String) -> Control:
+	var player: Dictionary = GameState.state["player"]
+	var skill: int = player["craftingSkill"]
+	var r: Dictionary = GameData.RECIPES[recipe_key]
+	var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
+	var chance: float = Crafting.craft_chance(recipe_key, skill)
+	var power = Crafting.effect_power(recipe_key, skill)
+	var can_make: bool = Crafting.can_craft(recipe_key)
+	var stock: int = Crafting.inventory_qty(recipe_key)
+
+	var c := UI.card()
+	c["content"].add_child(UI.symbol_row([{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, r["name"]], { "heading_size": 15 }))
+	c["content"].add_child(UI.muted_label(r["description"]))
+	for ingredient in costs:
+		var have: int = player["orichalchum"].get(ingredient, 0)
+		var ore: Dictionary = GameData.ORE_TYPES[ingredient]
+		c["content"].add_child(UI.symbol_row(["Ingredient: ", { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ingredient) }, " %s — %d/%d" % [ore["name"], have, costs[ingredient]]]))
+	c["content"].add_child(UI.label("Success: %d%%   Effect: %s   Stock: %d" % [int(round(chance * 100)), str(power), stock]))
+
+	var qty: int = Crafting.get_craft_qty(recipe_key)
+	var qty_row := UI.hbox()
+	qty_row.add_child(UI.label("Batch:"))
+	qty_row.add_child(UI.button("-", func(): Crafting.adjust_craft_qty(recipe_key, -1)))
+	qty_row.add_child(UI.label(str(qty)))
+	qty_row.add_child(UI.button("+", func(): Crafting.adjust_craft_qty(recipe_key, 1)))
+	c["content"].add_child(qty_row)
+
+	var craft_btn := UI.button("Craft ×%d" % qty, func(): Crafting.attempt_craft_batch(recipe_key, qty))
+	craft_btn.disabled = not can_make
+	c["content"].add_child(craft_btn)
+
+	# §5.6: refinement stays a recipe-page action in the book, not a fifth
+	# apparatus. Every Lab-discovered recipe carries a `discovery` cell
+	# (M3 §9.2 -- the tutorial-taught three do too), so refine is reachable
+	# from every row this list shows.
+	var discovery: Dictionary = r.get("discovery", {})
+	if not discovery.is_empty():
+		var types: Array = discovery["types"]
+		var approach: String = discovery["approach"]
+		var tier := Bench.refine_tier_target(types, approach)
+		var reason := Bench.refine_block_reason(types, approach)
+		var refine_btn := UI.button("Refine to tier %d" % tier, func(): _on_lab_bench_refine_pressed(r["name"], types, approach, tier))
+		refine_btn.disabled = reason != ""
+		c["content"].add_child(refine_btn)
+		if reason != "":
+			c["content"].add_child(UI.muted_label(reason))
+
+	return c["panel"]
+
+
+# PROSE-REVIEW: new notification lines, tone bible per docs/CONTENT-GUIDE.md.
+func _on_lab_bench_refine_pressed(recipe_name: String, types: Array, approach: String, tier: int) -> void:
+	var result := Bench.refine(types, approach)
+	if result.get("outcome", "") == "refined":
+		Notify.push("%s refined to tier %d." % [recipe_name, tier], Notify.CATEGORY_SUCCESS)
+	else:
+		Notify.push("No improvement this time. Still tier %d." % (tier - 1), Notify.CATEGORY_WARNING)
+
+
+# Ticket 07, §5.2 point 2: "The Experiments notebook is tappable here -- a
+# panel of pairings already tried and their results, and current recipe
+# levels." Moved from lab.gd's old _build_notes()/_build_notes_card()
+# near-verbatim -- only pairings Bench.touched_type_sets() reports appear,
+# never the full 15 type sets (M3 §8.0/hq-diorama-vision.md §5.6).
+func _build_lab_bench_notes() -> void:
+	_card_content.add_child(UI.heading("Bench notes"))
+	var touched := Bench.touched_type_sets()
+	if touched.is_empty():
+		_card_content.add_child(UI.muted_label("Nothing recorded yet."))  # PROSE-REVIEW: new empty-state line, tone bible per docs/CONTENT-GUIDE.md.
+	else:
+		for types in touched:
+			_card_content.add_child(_build_lab_bench_notes_card(types))
+	_card_content.add_child(UI.button("Close", func(): Modal.close()))
+
+
+func _build_lab_bench_notes_card(types: Array) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading(_lab_bench_pairing_label(types), 15))
+	c["content"].add_child(UI.label("%d/%d" % [Bench.found_count_in_set(types), Bench.get_surveyed_count(types)]))
+	for row in _lab_bench_found_recipe_rows(types):
+		c["content"].add_child(row)
+	for entry in Bench.notes_for(types):
+		c["content"].add_child(UI.muted_label(_lab_bench_history_line(entry)))
+	return c["panel"]
+
+
+# "...and current recipe levels" (§5.2 point 2) -- one row per approach this
+# pairing has Found a recipe on, naming it and its refine tier (Bench.get_
+# cell()["refine"], 0 until the first successful refine -- the recipe book's
+# own "Refine to tier N" button is where that number climbs). Walks every
+# approach rather than asking Bench for a pairing's found recipes directly:
+# Bench has no such getter (only a total count via found_count_in_set()),
+# and this is the same per-approach scan hq_lab_bench.gd's own apparatus-
+# arming label already does.
+func _lab_bench_found_recipe_rows(types: Array) -> Array:
+	var rows: Array = []
+	for approach_id in GameData.APPROACHES.keys():
+		var recipe_key := Bench.find_recipe_for_cell(types, approach_id)
+		if recipe_key == "" or Bench.cell_state(types, approach_id) != "found":
+			continue
+		var r: Dictionary = GameData.RECIPES[recipe_key]
+		var tier: int = Bench.get_cell(types, approach_id)["refine"]
+		rows.append(UI.symbol_row([{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — tier %d" % [r["name"], tier]]))
+	return rows
+
+
+func _lab_bench_pairing_label(types: Array) -> String:
+	var names: Array[String] = []
+	for type_id in types:
+		names.append(String(type_id).capitalize())
+	if names.size() == 1:
+		return names[0]
+	return "%s and %s" % [names[0], names[1]]
+
+
+# PROSE-REVIEW: new history-line template, tone bible per docs/CONTENT-GUIDE.md.
+func _lab_bench_history_line(entry: Dictionary) -> String:
+	var approach_name: String = GameData.APPROACHES[entry["approach"]]["name"]
+	return "Day %d — %s: %s" % [entry["day"], approach_name, _lab_bench_outcome_heading(entry["outcome"])]
+
+
+# Shared by the notes history line above and the probe-result heading below
+# -- the same five outcome words, one vocabulary, reviewed once.
+# PROSE-REVIEW: tone bible per docs/CONTENT-GUIDE.md.
+func _lab_bench_outcome_heading(outcome: String) -> String:
+	match outcome:
+		"found":
+			return "Found it."
+		"hot":
+			return "Something's there."
+		"inert":
+			return "Inert."
+		"refined":
+			return "Refined."
+		"refine_failed":
+			return "No better this time."
+		_:
+			return ""
+
+
+# Ticket 07, §5.2 point 4: "It animates, consumes ore, and reports the
+# outcome." No animation this ticket (ticket 08's own scope, §5.5) -- the
+# outcome is reported the instant Bench.probe() returns, same "mutation
+# already happened, this is only the reveal" shape every other instant-
+# feedback modal in this file uses (_build_craft_result() etc.). Only ever
+# opened with outcome found/hot/inert (Bench.probe()'s own roster) --
+# refined/refine_failed come from Bench.refine(), handled inline by the
+# recipe book above instead.
+func _build_lab_bench_probe_result(data: Dictionary) -> void:
+	_card_content.add_child(UI.heading(_lab_bench_outcome_heading(data.get("outcome", ""))))
+	_card_content.add_child(UI.symbol_row(_lab_bench_probe_prose_parts(data)))
+	_card_content.add_child(UI.button("Got it", func(): Modal.close()))
+
+
+# PROSE-REVIEW: outcome prose, tone bible per docs/CONTENT-GUIDE.md. Register
+# per M3 §8.4: found is the payoff (name, symbol, what it does), hot is a
+# lure that says plainly something's there, inert lands flat.
+func _lab_bench_probe_prose_parts(data: Dictionary) -> Array:
+	match data.get("outcome", ""):
+		"found":
+			var r: Dictionary = GameData.RECIPES[data["recipeKey"]]
+			return [{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s. %s Craftable now." % [r["name"], r["description"]]]
+		"hot":
+			return ["Something's in there. It didn't come out this time."]
+		"inert":
+			return ["Nothing in it. Never was."]
+		_:
+			return [""]
 
 
 # Item-use during combat used to be a modal here ("combat_items"); D4.4's

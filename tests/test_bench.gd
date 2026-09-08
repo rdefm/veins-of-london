@@ -380,11 +380,12 @@ func run() -> void:
 	# ── ticket 08: app close/reopen mid-flow (spec story 48) ─────────────
 	#
 	# probe()/refine() mutate GameState synchronously and exactly once, at
-	# Confirm-tap time -- the confirm/resolving/result screens (scenes/
-	# screens/lab.gd) only ever navigate benchNav afterward, never re-call
-	# Bench. So "resume correctly" reduces to: a save/load round trip after
-	# a probe must not itself alter player.bench in any way. Slot 93 --
-	# tests/test_gamestate.gd uses 92, tests/test_savemanager.gd uses 91.
+	# the moment they're called -- every caller (originally lab.gd's now-
+	# deleted confirm screen, hq-diorama ticket 07's hq_lab_bench.gd today)
+	# only ever navigates afterward, never re-calls Bench for the same
+	# attempt. So "resume correctly" reduces to: a save/load round trip
+	# after a probe must not itself alter player.bench in any way. Slot 93
+	# -- tests/test_gamestate.gd uses 92, tests/test_savemanager.gd uses 91.
 	const RESUME_TEST_SLOT := 93
 
 	run_case("resuming_after_a_save_load_round_trip_mid_flow_does_not_double_charge_ore_or_duplicate_a_note", func():

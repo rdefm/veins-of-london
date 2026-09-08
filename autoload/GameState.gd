@@ -32,7 +32,7 @@ func new_game_state() -> Dictionary:
 		"mapNav": { "selectedDistrict": null, "selectedSiteId": null },
 		# vein-growth-state ticket 09 (spec §6.2): transient nav state for the
 		# vein list screen, same "resets on load, not meaningfully persisted"
-		# convention as mapNav/phoneNav/benchNav below. districtId null scopes
+		# convention as mapNav/phoneNav/labBenchNav below. districtId null scopes
 		# the list to every district (HQ's Vein Station entry point); a
 		# district id scopes it to just that one (the district bubble's own
 		# "List view" option). originScreen is which of those two opened it,
@@ -54,7 +54,7 @@ func new_game_state() -> Dictionary:
 		# opened yet."
 		"phoneNav": { "app": "home", "selectedAxis": null, "selectedContactId": null, "confirmingNewGame": false, "revealFromIndex": null },
 		# 53-map-auto-focus-and-zoom-persistence: unlike mapNav/phoneNav/
-		# benchNav above/below, this DOES survive save/load (see
+		# labBenchNav above/below, this DOES survive save/load (see
 		# SaveManager._restore_int_types() for scrollX/scrollY) -- the
 		# whole point is that the camera the player left the Network map
 		# at is still there next time, on this save or a reloaded one.
@@ -62,25 +62,22 @@ func new_game_state() -> Dictionary:
 		# auto-focus (see systems/map_view.gd): false only for a save
 		# that has genuinely never had its map opened yet.
 		"mapView": { "everOpened": false, "zoom": MapZoom.DEFAULT, "scrollX": 0, "scrollY": 0 },
-		# calc-discovery ticket 03: transient Lab nav, same convention as
-		# mapNav/phoneNav — resets on load, not meaningfully persisted.
-		# Bugfixes ticket 25: "crafting" joined "home"/"picker"/"pairing"/...
-		# as one more legal top-level view -- the combined Lab screen's
-		# Crafting section (HQ's old Recipes/Workbench cards). Defaulting
-		# to "home" (Experimenting) keeps the Lab's existing default
-		# landing unchanged; Crafting is reached via the new section tab.
-		"benchNav": { "view": "home", "types": [], "approach": null, "result": null },
 		# hq-diorama ticket 06, docs/hq-diorama-vision.md §5: the diegetic
-		# Lab bench's own nav state -- distinct from benchNav above (M3's
-		# picker/pairing/confirm drill-down, still driving lab.gd's
-		# Experimenting section until ticket 07 replaces it wholesale).
-		# stop is which of the 3 focal stops (systems/lab_bench_nav.gd's
-		# STOPS) is in frame; mode is which notebook (§5.2: "recipes" /
-		# "experiments") is held open for the session, or null at the
-		# fork -- unlike stop, mode is NOT reset by LabBenchNav.open(), so
-		# leaving and re-entering the bench keeps whatever mode the player
-		# last chose (§5.2: "stays visibly open for the whole session").
-		"labBenchNav": { "stop": "books", "mode": null },
+		# Lab bench's own nav state, same "resets on load, not meaningfully
+		# persisted" convention as mapNav/phoneNav above. stop is which of
+		# the 3 focal stops (systems/lab_bench_nav.gd's STOPS) is in frame;
+		# mode is which notebook (§5.2: "recipes" / "experiments") is held
+		# open for the session, or null at the fork -- unlike stop, mode is
+		# NOT reset by LabBenchNav.open(), so leaving and re-entering the
+		# bench keeps whatever mode the player last chose (§5.2: "stays
+		# visibly open for the whole session"). Ticket 07 adds selectedOre --
+		# up to 2 ore-type ids picked at the ore stop (§5.4), the same
+		# toggle-replace selection the old BenchNav.select_type used, reset
+		# by LabBenchNav.open() (unlike mode) so re-entering the bench never
+		# opens on a stale pairing from last session. Ticket 07 also retires
+		# BenchNav/lab.gd's picker->pairing->confirm drill-down entirely --
+		# this is now the Lab's only nav state.
+		"labBenchNav": { "stop": "books", "mode": null, "selectedOre": [] },
 		# collective1-02: state.objectives[<id>] = { active, complete, progress
 		# }, keyed by data/objectives.json ids -- systems/objectives.gd's
 		# Objectives.refresh() is the only writer. progress is per-evaluator-

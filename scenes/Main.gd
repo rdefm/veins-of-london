@@ -45,18 +45,14 @@ const SCREEN_SCRIPTS := {
 	# map/hq/phone's own nav-state dicts above.
 	"vein_list": preload("res://scenes/screens/vein_list.gd"),
 
-	# calc-discovery ticket 06: the Lab, reached from HQ's third card. Its
-	# own internal drill-down (home/picker/pairing/notes) is state.benchNav-
-	# driven inside lab.gd, same pattern as phoneNav inside phone.gd.
-	# hq-diorama ticket 06 moved the "lab" HQ-zone tap onto hq_lab_bench
-	# below instead -- this id stays registered (and directly reachable by
-	# whatever still navigates to it) until ticket 07 retires it.
-	"lab": preload("res://scenes/screens/lab.gd"),
-
 	# hq-diorama ticket 06, docs/hq-diorama-vision.md §5: the Lab bench's
 	# diegetic sub-view (pan model, 3 stops, notebook mode fork), reached
 	# from hq.gd's "lab" zone tap. Full-bleed, same reasoning as
-	# hq_floorplan/hq_door below.
+	# hq_floorplan/hq_door below. Ticket 07 built out the full craft flow
+	# (ore selection, apparatus arming, the recipe book, bench notes) on
+	# this same screen and retired the old calc-discovery-06 "lab" screen
+	# id, its lab.gd script, and systems/bench_nav.gd entirely -- this is
+	# now the Lab's only reachable id.
 	"hq_lab_bench": preload("res://scenes/screens/hq_lab_bench.gd"),
 
 	# bugfixes-29: the Guild marketplace, reached from the Guild's faction
@@ -71,9 +67,13 @@ const SCREEN_SCRIPTS := {
 # (SaveManager migrates the persisted value too, but this is the last-line
 # fallback) or any other stray reference -- must land on the phone app
 # grid, not fall through to the "unknown id" title fallback below, which
-# stays reserved for ids that were never valid at all.
+# stays reserved for ids that were never valid at all. hq-diorama ticket 07
+# adds "lab" (lab.gd, deleted) -> "hq", the room whose "lab" zone now opens
+# hq_lab_bench -- SaveManager._remap_retired_lab_screen() covers the same
+# case on the persisted-state side, same split as the other three entries.
 const RETIRED_SCREEN_IDS := {
 	"home": "phone", "you": "phone", "bag": "phone", "inventory": "phone",
+	"lab": "hq",
 }
 
 # R§2.2: "Global bottom nav ... hidden on title, intro, event, combat".

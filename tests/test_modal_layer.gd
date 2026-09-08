@@ -1036,3 +1036,155 @@ func run() -> void:
 
 		layer.free()
 	)
+
+	# ── hq-diorama ticket 07: Lab bench modals ─────────────────────────────
+
+	run_case("lab_bench_recipe_book_lists_found_recipes_with_a_craft_button", func():
+		GameState.reset()
+		Modal.open("lab_bench_recipe_book")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("Time Pearl"), "tutorial-taught recipes are already Found on a fresh save")
+		assert_true(_find_button(layer, "Craft ×1") != null, "each row's batch stepper defaults to qty 1")
+
+		layer.free()
+	)
+
+	run_case("lab_bench_recipe_book_shows_nothing_found_yet_when_the_found_list_is_empty", func():
+		GameState.reset()
+		# Override the 3 tutorial-taught cells (otherwise Found by default with
+		# no stored cells entry, per Bench._default_cell()) back to untried.
+		var cells: Dictionary = GameState.state["player"]["bench"]["cells"]
+		cells["time|compression"] = { "state": "untried", "misses": 0, "refine": 0 }
+		cells["life|grinding"] = { "state": "untried", "misses": 0, "refine": 0 }
+		cells["time|heat"] = { "state": "untried", "misses": 0, "refine": 0 }
+		Modal.open("lab_bench_recipe_book")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("Nothing found yet."), "same empty-state line lab.gd's home used to show")
+
+		layer.free()
+	)
+
+	run_case("lab_bench_recipe_book_craft_button_runs_the_normal_batch_craft_path", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 20
+		Modal.open("lab_bench_recipe_book")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+		_find_button(layer, "Craft ×1").pressed.emit()
+
+		assert_eq(GameState.state["modal"]["type"], "craft_batch_result", "crafting from the book opens the normal batch-result modal on top, same as lab.gd's old crafting section")
+
+		layer.free()
+	)
+
+	run_case("lab_bench_recipe_book_refine_button_is_disabled_when_not_enough_calc", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 0
+		Modal.open("lab_bench_recipe_book")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var refine_button := _find_button(layer, "Refine to tier 1")
+		assert_true(refine_button != null, "§5.6: every Found recipe exposes Refine as a book-page action")
+		assert_true(refine_button.disabled, "not enough calc -- Bench.refine_block_reason() blocks it")
+
+		layer.free()
+	)
+
+	run_case("lab_bench_notes_modal_shows_nothing_recorded_yet_when_the_bench_is_untouched", func():
+		GameState.reset()
+		Modal.open("lab_bench_notes")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("Nothing recorded yet."))
+
+		layer.free()
+	)
+
+	run_case("lab_bench_notes_modal_lists_a_touched_pairing_never_the_full_15_type_sets", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["life"] = 3
+		Bench.probe(["life"], "heat")
+		Modal.open("lab_bench_notes")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("Life"), "the touched pairing's own heading renders")
+		assert_true(not _label_texts(layer).has("Nothing recorded yet."))
+
+		layer.free()
+	)
+
+	run_case("lab_bench_notes_modal_shows_a_found_recipes_current_refine_tier", func():
+		GameState.reset()
+		GameState.state["player"]["bench"]["cells"]["life|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+		Modal.open("lab_bench_notes")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("Healing Salve — tier 2"), "§5.2 point 2: the notebook shows current recipe levels, not just that something was found")
+
+		layer.free()
+	)
+
+	run_case("lab_bench_probe_result_modal_found_names_the_recipe", func():
+		GameState.reset()
+		Modal.open("lab_bench_probe_result", { "outcome": "found", "recipeKey": "healingSalve" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("Found it."))
+		assert_true(_find_button(layer, "Got it") != null)
+
+		layer.free()
+	)
+
+	run_case("lab_bench_probe_result_modal_hot_reads_as_a_lure", func():
+		GameState.reset()
+		Modal.open("lab_bench_probe_result", { "outcome": "hot" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("Something's there."))
+
+		layer.free()
+	)
+
+	run_case("lab_bench_probe_result_modal_inert_lands_flat", func():
+		GameState.reset()
+		Modal.open("lab_bench_probe_result", { "outcome": "inert" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("Inert."))
+
+		layer.free()
+	)
+
+	run_case("lab_bench_probe_result_got_it_button_closes_the_modal", func():
+		GameState.reset()
+		Modal.open("lab_bench_probe_result", { "outcome": "inert" })
+
+		var layer := ModalLayer.new()
+		layer._ready()
+		_find_button(layer, "Got it").pressed.emit()
+
+		assert_eq(GameState.state["modal"], null)
+
+		layer.free()
+	)

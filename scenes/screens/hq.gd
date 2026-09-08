@@ -179,10 +179,11 @@ func _on_zone_tapped(zone_id: String) -> void:
 		"dial":
 			Modal.open("hq_dial")
 		"lab":
-			# hq-diorama ticket 06: the Lab zone's diegetic destination is now
-			# the bench sub-view (§5), not lab.gd's old picker/pairing screen
-			# -- see scenes/screens/hq_lab_bench.gd's own comment for why
-			# lab.gd itself stays registered a while longer.
+			# hq-diorama ticket 06: the Lab zone's diegetic destination is the
+			# bench sub-view (§5). Ticket 07 built out the full craft flow on
+			# that same sub-view and retired the old picker/pairing lab.gd
+			# screen entirely -- see scenes/screens/hq_lab_bench.gd's own
+			# comment.
 			LabBenchNav.open()
 			Nav.go_to("hq_lab_bench")
 		"security":

@@ -69,3 +69,47 @@ func run() -> void:
 		LabBenchNav.tap_notebook(LabBenchNav.MODE_EXPERIMENTS)
 		assert_eq(GameState.state["labBenchNav"]["mode"], "experiments", "§5.2: the player can switch modes freely, no confirmation")
 	)
+
+	# ── ticket 07, §5.4: ore-stop selection ────────────────────────────────
+
+	run_case("select_ore_adds_up_to_two_types", func():
+		GameState.reset()
+		LabBenchNav.select_ore("life")
+		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["life"])
+		LabBenchNav.select_ore("time")
+		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["life", "time"])
+	)
+
+	run_case("select_ore_on_a_third_type_replaces_the_oldest_selection", func():
+		GameState.reset()
+		LabBenchNav.select_ore("life")
+		LabBenchNav.select_ore("time")
+		LabBenchNav.select_ore("fate")
+		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["time", "fate"], "same toggle-replace rule the old BenchNav.select_type used")
+	)
+
+	run_case("select_ore_on_an_already_selected_type_deselects_it", func():
+		GameState.reset()
+		LabBenchNav.select_ore("life")
+		LabBenchNav.select_ore("life")
+		assert_eq(GameState.state["labBenchNav"]["selectedOre"], [])
+	)
+
+	run_case("select_ore_emits_state_changed", func():
+		GameState.reset()
+		var received := [false]
+		var on_changed := func(): received[0] = true
+		EventBus.state_changed.connect(on_changed)
+		LabBenchNav.select_ore("life")
+		EventBus.state_changed.disconnect(on_changed)
+		assert_true(received[0])
+	)
+
+	run_case("open_resets_selected_ore_but_leaves_mode_untouched", func():
+		GameState.reset()
+		GameState.state["labBenchNav"]["selectedOre"] = ["life", "time"]
+		GameState.state["labBenchNav"]["mode"] = "recipes"
+		LabBenchNav.open()
+		assert_eq(GameState.state["labBenchNav"]["selectedOre"], [], "re-entering the bench must not open on a stale pairing from last session")
+		assert_eq(GameState.state["labBenchNav"]["mode"], "recipes", "mode still stays held across a re-entry, unlike selectedOre")
+	)

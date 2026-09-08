@@ -3,27 +3,60 @@ extends RefCounted
 
 # hq-diorama ticket 06, docs/hq-diorama-vision.md §5: nav state for the
 # diegetic Lab bench -- which of the three focal stops (books/ore/apparatus)
-# is in frame, and which notebook mode (recipes/experiments/null) is held.
-# state.labBenchNav is part of GameState.state (R§2), same convention as
-# mapNav/phoneNav/benchNav (see GameState.gd's own comment on labBenchNav).
-# Distinct from BenchNav (systems/bench_nav.gd, M3-CALC-DISCOVERY's picker/
-# pairing/confirm drill-down still driving lab.gd's Experimenting section
-# until ticket 07 replaces it) -- this is purely the bench's own camera and
-# mode-fork state. No crafting/experimenting content is reached from here
-# yet (ticket 07).
+# is in frame, which notebook mode (recipes/experiments/null) is held, and
+# (ticket 07) which ore type(s) are selected at the ore stop. state.
+# labBenchNav is part of GameState.state (R§2), same convention as mapNav/
+# phoneNav (see GameState.gd's own comment on labBenchNav). This is now the
+# Lab's only nav state -- ticket 07 retired BenchNav (systems/bench_nav.gd,
+# M3-CALC-DISCOVERY's old picker/pairing/confirm drill-down) and the lab.gd
+# screen it drove entirely; every interaction the bench supports (ore
+# selection, apparatus arming/run, the recipe book, bench notes) is reached
+# straight off this state and scenes/screens/hq_lab_bench.gd, with no
+# separate drill-down view stack.
 
 const STOPS: Array[String] = ["books", "ore", "apparatus"]
 const MODE_RECIPES := "recipes"
 const MODE_EXPERIMENTS := "experiments"
+
+# Ticket 07: an ore container region id (data/hq_visuals.json's labBench
+# plate) is always "ore_<oreTypeId>" -- this is the one place that prefix is
+# spelled out, so hq_lab_bench.gd derives the ore type from a tapped region
+# id with String.trim_prefix() rather than a second lookup table.
+const ORE_REGION_PREFIX := "ore_"
+# Same convention for the apparatus stop's region ids -- "apparatus_<approachId>".
+const APPARATUS_REGION_PREFIX := "apparatus_"
 
 
 # hq.gd's "lab" zone tap target. §5.1: "the bench opens on the books stop" --
 # always, on every visit. Mode is a session-long choice (§5.2: "stays
 # visibly open for the whole session"), so unlike stop it is deliberately
 # left untouched here -- re-entering the bench with a notebook already held
-# keeps it held.
+# keeps it held. selectedOre, unlike mode, IS reset here: a leftover
+# pairing from last session has no equivalent "stays held" spec language,
+# and re-opening the bench onto an already-armed apparatus with no ore
+# actually chosen this visit would read as a bug, not a feature.
 static func open() -> void:
 	GameState.state["labBenchNav"]["stop"] = "books"
+	GameState.state["labBenchNav"]["selectedOre"] = []
+	EventBus.state_changed.emit()
+
+
+# Ticket 07, §5.4: the ore stop's tap-to-select-then-tap-apparatus primary
+# path (and the drag-and-drop flourish's first half -- see hq_lab_bench.gd's
+# _on_diorama_gui_input()) -- same toggle-replace-max-2 selection logic
+# BenchNav.select_type used before it was retired: tapping a selected type
+# deselects it; tapping a new type fills an open slot (max 2); tapping a
+# third type replaces the oldest selection rather than erroring.
+static func select_ore(type_id: String) -> void:
+	var selected: Array = GameState.state["labBenchNav"]["selectedOre"]
+	if selected.has(type_id):
+		selected.erase(type_id)
+	elif selected.size() < 2:
+		selected.append(type_id)
+	else:
+		selected.pop_front()
+		selected.append(type_id)
+	GameState.state["labBenchNav"]["selectedOre"] = selected
 	EventBus.state_changed.emit()
 
 

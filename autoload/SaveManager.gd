@@ -124,6 +124,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_restore_int_types(filled)
 	_remap_retired_screen_id(filled)
 	_remap_retired_messages_list(filled)
+	_remap_retired_lab_screen(filled)
 	GameState.state = filled
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -167,6 +168,19 @@ func _remap_retired_messages_list(save: Dictionary) -> void:
 	if phone_nav.get("app") == "messages" and phone_nav.get("selectedContactId") == null:
 		phone_nav["app"] = "home"
 		save["phoneNav"] = phone_nav
+
+
+# hq-diorama ticket 07: the old calc-discovery-06 "lab" screen id (lab.gd,
+# its state.benchNav drill-down, and systems/bench_nav.gd) is retired
+# outright, not merged into another screen's app grid -- so unlike
+# _remap_retired_screen_id() above this lands an old save on "hq" (the room
+# view, whose "lab" zone now opens hq_lab_bench) rather than "phone". No
+# nav-state reset needed: state.benchNav simply no longer exists in a fresh
+# GameState.new_game_state(), so a legacy save's own copy is inert data an
+# unregistered screen id will never read again.
+func _remap_retired_lab_screen(save: Dictionary) -> void:
+	if save.get("currentScreen", "") == "lab":
+		save["currentScreen"] = "hq"
 
 
 # vein-growth-state spec §11: save-breaking is accepted for the growth-model

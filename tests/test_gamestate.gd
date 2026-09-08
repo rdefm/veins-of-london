@@ -30,7 +30,9 @@ func run() -> void:
 		assert_eq(s["player"]["stealthSkill"], 1, "player.stealthSkill")
 		assert_eq(s["player"]["stealthXP"], 0, "player.stealthXP")
 		assert_eq(s["player"]["bench"], { "surveyed": {}, "cells": {}, "notes": {} }, "player.bench starts empty")
-		assert_eq(s["benchNav"], { "view": "home", "types": [], "approach": null, "result": null }, "benchNav")
+		# hq-diorama ticket 07: benchNav (BenchNav's old picker/pairing/confirm
+		# drill-down) is retired -- labBenchNav is now the Lab's only nav state.
+		assert_eq(s["labBenchNav"], { "stop": "books", "mode": null, "selectedOre": [] }, "labBenchNav")
 
 		assert_eq(s["world"]["day"], 1, "world.day")
 		assert_eq(s["world"]["timeBlock"], 0, "world.timeBlock")
