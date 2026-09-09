@@ -718,6 +718,48 @@ func run() -> void:
 		layer.free()
 	)
 
+	# ── hq-diorama ticket 16: hq_dial.gd's "Swap" button opens this in place
+	# of the old always-rendered per-inventory-item "Seat" card list -- same
+	# Dial.seat_movement(index) call the deleted cards used, unchanged, just
+	# gathered behind one button tap.
+
+	run_case("movement_swap_lists_movement_inventory_and_seats_the_chosen_entry_via_dial_system", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		player["dial"] = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
+		player["movementInventory"] = [{ "archetype": "recharge", "oreType": "time", "tier": 1 }]
+
+		Modal.open("movement_swap")
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "↻Recharge Movement — attuned time, tier 1").pressed.emit()
+
+		assert_eq(GameState.state["player"]["dial"]["movement"]["archetype"], "recharge", "movement_swap's row should seat via Dial.seat_movement")
+		assert_eq(GameState.state["player"]["movementInventory"], [], "the seated Movement should leave movementInventory")
+		assert_eq(GameState.state["modal"], null, "seating from the picker should close the modal")
+
+		layer.free()
+	)
+
+	run_case("movement_swap_cancel_button_dismisses_the_modal_without_seating_anything", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		player["dial"] = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
+		player["movementInventory"] = [{ "archetype": "recharge", "oreType": "time", "tier": 1 }]
+
+		Modal.open("movement_swap")
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "Cancel").pressed.emit()
+
+		assert_eq(GameState.state["modal"], null, "Cancel must dismiss the picker")
+		assert_eq(GameState.state["player"]["dial"]["movement"], null, "Cancel must not seat anything")
+
+		layer.free()
+	)
+
 	# ── bugfixes ticket 104: calc-type craft modal replaces the direct row
 	# of 5 ore-symbol buttons on hq.gd's Dial card — cost/chance (identical
 	# across all 5 calc types for a given archetype, since Dial.movement_

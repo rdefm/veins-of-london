@@ -164,8 +164,7 @@ func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
 
 	chrome.add_child(UI.back_button("hq"))
 	chrome.add_child(UI.heading("Dial"))
-	_build_readouts(chrome, dial)
-	_build_movement_section(chrome, player, dial)
+	_build_top_block(chrome, player, dial)
 
 	# The umbrella itself: bottom-anchored so it reads as rising up out of
 	# the dock rather than floating mid-list -- the source art's own shaft
@@ -234,11 +233,14 @@ func _build_flanking_sockets(wrap: Control, dial: Dictionary) -> void:
 		wrap.add_child(overflow)
 
 
-# The tray (unslotted crafted Complications) plus Craft Components, docked
-# under the umbrella's cropped shaft in its own fixed-height scroll region
-# so a long tray never disturbs the hero composition above it. PanelContainer
-# picks up the project's standard card background (same style UI.card()
-# uses) so the text stays legible over the art rather than floating bare.
+# The tray (unslotted crafted Complications), docked under the umbrella's
+# cropped shaft in its own fixed-height scroll region so a long tray never
+# disturbs the hero composition above it. PanelContainer picks up the
+# project's standard card background (same style UI.card() uses) so the text
+# stays legible over the art rather than floating bare. hq-diorama ticket 16
+# moved the old "Craft Components" button out of this dock and into the top
+# block (_build_top_block, relabelled "Craft new Movement") -- this dock is
+# tray-only now.
 func _build_bottom_dock(player: Dictionary, dial: Dictionary, screen: Vector2, safe_bottom: float) -> void:
 	var dock := PanelContainer.new()
 	dock.position = Vector2(0.0, screen.y - BOTTOM_DOCK_HEIGHT)
@@ -259,7 +261,6 @@ func _build_bottom_dock(player: Dictionary, dial: Dictionary, screen: Vector2, s
 	margin.add_child(content)
 
 	_build_tray(content, player, dial)
-	content.add_child(UI.button("Craft Components", func(): Modal.open("craft_components_menu")))
 
 
 # Ported from modal_layer.gd's old _build_hq_dial() unseeded branch --
@@ -329,21 +330,28 @@ func _needle_rotation_degrees(dial: Dictionary) -> float:
 	return lerpf(NEEDLE_MIN_DEG, NEEDLE_MAX_DEG, fraction)
 
 
-func _build_readouts(content: VBoxContainer, dial: Dictionary) -> void:
+# hq-diorama ticket 16: the level/charge/capacity readouts and the Movement
+# ("mechanism") menu are one consolidated block, not two separate sections --
+# a human direction to stop the always-rendered per-inventory-item "Seat"
+# card list (one standalone card per movementInventory entry, always drawn
+# below the seated one) from crowding this block; that list is now the
+# "Swap" picker (modal_layer.gd's movement_swap), reached behind one button
+# tap instead. "Craft new Movement" is an unmodified handoff into the
+# existing craft_components_menu -> movement_craft chain (human decision,
+# 2026-09-09: keep that chain as today, only relocate/relabel its entry
+# point into this block) -- Unseat/Wind/seat-via-Dial.seat_movement below are
+# all the same unchanged system calls the old readouts/Movement section and
+# per-inventory Seat cards used.
+func _build_top_block(content: VBoxContainer, player: Dictionary, dial: Dictionary) -> void:
+	var c := UI.card()
 	var haft_name: String = Dial.haft_name(dial)
-	content.add_child(UI.label("Level %d Dial — %s" % [dial["level"], haft_name]))
-	content.add_child(UI.muted_label("Charge %s/%d (regen %s/day)" % [str(int(dial["currentCharge"])), dial["maxCharge"], str(dial["rechargeRate"])]))
-	content.add_child(UI.muted_label("Capacity %d/%d" % [Dial.capacity_used(dial), dial["capacityMax"]]))
+	c["content"].add_child(UI.label("Level %d Dial — %s" % [dial["level"], haft_name]))
+	c["content"].add_child(UI.muted_label("Charge %s/%d (regen %s/day)" % [str(int(dial["currentCharge"])), dial["maxCharge"], str(dial["rechargeRate"])]))
+	c["content"].add_child(UI.muted_label("Capacity %d/%d" % [Dial.capacity_used(dial), dial["capacityMax"]]))
 
-
-# Ported from bag_drawer.gd's old _build_dial_management() Movement half --
-# same seat/unseat/wind system calls, unchanged.
-func _build_movement_section(content: VBoxContainer, player: Dictionary, dial: Dictionary) -> void:
-	content.add_child(UI.heading("Movement", 14))
 	var movement: Variant = dial["movement"]
 	if movement != null:
 		var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
-		var c := UI.card()
 		c["content"].add_child(UI.symbol_row([{ "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s (seated) — attuned %s, tier %d" % [m["name"], movement["oreType"], movement["tier"]]]))
 		c["content"].add_child(UI.button("Unseat", func(): Dial.unseat_movement()))
 		var cost: int = Dial.winding_cost_per_charge(movement["archetype"], movement["tier"])
@@ -351,19 +359,16 @@ func _build_movement_section(content: VBoxContainer, player: Dictionary, dial: D
 		var wind_button := UI.symbol_button(["Wind +1 (%d " % cost, { "symbol": GameData.ORE_TYPES[movement["oreType"]]["symbol"], "fallback": SymbolGlyph.ore_fallback(movement["oreType"]) }, ")"], func(): Dial.wind(1))
 		wind_button.disabled = dial["currentCharge"] >= dial["maxCharge"] or have < cost
 		c["content"].add_child(wind_button)
-		content.add_child(c["panel"])
 	else:
 		# PROSE-REVIEW: carried over unchanged from the old drawer copy.
-		content.add_child(UI.muted_label("No Movement seated — the Dial is inert."))
+		c["content"].add_child(UI.muted_label("No Movement seated — the Dial is inert."))
 
-	for i in range(player["movementInventory"].size()):
-		var inv_movement: Dictionary = player["movementInventory"][i]
-		var md: Dictionary = GameData.DIAL_MOVEMENTS[inv_movement["archetype"]]
-		var captured_index: int = i
-		var c := UI.card()
-		c["content"].add_child(UI.symbol_row([{ "symbol": md["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — attuned %s, tier %d" % [md["name"], inv_movement["oreType"], inv_movement["tier"]]]))
-		c["content"].add_child(UI.button("Seat", func(): Dial.seat_movement(captured_index)))
-		content.add_child(c["panel"])
+	c["content"].add_child(UI.button("Craft new Movement", func(): Modal.open("craft_components_menu")))
+	var swap_button := UI.button("Swap", func(): Modal.open("movement_swap"))
+	swap_button.disabled = player["movementInventory"].is_empty()
+	c["content"].add_child(swap_button)
+
+	content.add_child(c["panel"])
 
 
 # One Complication housing tile -- see SOCKET_TILE_WIDTH/_build_flanking_

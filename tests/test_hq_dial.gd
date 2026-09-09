@@ -132,25 +132,37 @@ func run() -> void:
 		assert_true(_label_texts(screen).any(func(t: String): return t.begins_with("Level %d Dial" % dial["level"])), "the Dial's level/haft heading must render")
 		assert_true(_label_texts(screen).has("Charge 3/10 (regen 0/day)"), "the Dial's charge stat must render off the device readout, not a bar")
 		assert_true(_label_texts(screen).has("Capacity %d/%d" % [Dial.capacity_used(dial), dial["capacityMax"]]), "the Dial's capacity stat must render")
-		assert_true(_find_button(screen, "Craft Components") != null, "must expose a Craft Components button")
+		assert_true(_find_button(screen, "Craft new Movement") != null, "must expose a Craft new Movement button in the consolidated top block")
 
 		screen.free()
 	)
 
-	run_case("hq_dial_screen_craft_components_hands_off_to_the_craft_components_menu_modal", func():
+	run_case("hq_dial_screen_craft_new_movement_hands_off_to_the_craft_components_menu_modal", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _fresh_dial()
 
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		_find_button(screen, "Craft Components").pressed.emit()
-		assert_eq(GameState.state["modal"]["type"], "craft_components_menu", "Craft Components must open the archetype-list modal, unchanged")
+		_find_button(screen, "Craft new Movement").pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "craft_components_menu", "Craft new Movement must open the unchanged archetype-list -> movement_craft chain")
 
 		screen.free()
 	)
 
-	run_case("hq_dial_screen_seat_and_unseat_movement_matches_dial_system", func():
+	run_case("hq_dial_screen_swap_button_disabled_with_an_empty_movement_inventory", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _fresh_dial()
+
+		var screen := HqDialScreen.new()
+		screen._ready()
+
+		assert_true(_find_button(screen, "Swap").disabled, "Swap must be disabled when movementInventory is empty -- nothing to swap to")
+
+		screen.free()
+	)
+
+	run_case("hq_dial_screen_swap_opens_the_movement_swap_picker_which_seats_via_dial_system", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
 		player["dial"] = _fresh_dial()
@@ -159,38 +171,27 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		_find_button(screen, "Seat").pressed.emit()
-		assert_eq(GameState.state["player"]["dial"]["movement"]["archetype"], "recharge", "screen's Seat button should seat via Dial.seat_movement")
-		assert_eq(GameState.state["player"]["movementInventory"], [], "the seated Movement should leave movementInventory")
-
-		var screen2 := HqDialScreen.new()
-		screen2._ready()
-		_find_button(screen2, "Unseat").pressed.emit()
-		assert_eq(GameState.state["player"]["dial"]["movement"], null, "screen's Unseat button should unseat via Dial.unseat_movement")
-		assert_eq(GameState.state["player"]["movementInventory"].size(), 1, "unseating should return the Movement to movementInventory")
+		var swap_button := _find_button(screen, "Swap")
+		assert_true(not swap_button.disabled, "Swap must be enabled once movementInventory has an entry")
+		swap_button.pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "movement_swap", "Swap must open the movement_swap picker modal")
 
 		screen.free()
-		screen2.free()
 	)
 
-	run_case("hq_dial_screen_newly_crafted_movement_offers_a_seat_button", func():
+	run_case("hq_dial_screen_unseat_matches_dial_system", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
-		player["dial"] = _fresh_dial()
-		player["craftingSkill"] = 10
-		player["orichalchum"]["time"] = 1000000
-
-		Rng.set_seed(1)
-		var guard := 0
-		while player["movementInventory"].is_empty() and guard < 1000:
-			Dial.attempt_craft_movement("recharge", "time")
-			guard += 1
-		assert_true(guard < 1000, "crafting a Movement should succeed within a reasonable number of attempts")
+		var dial := _fresh_dial()
+		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 1 }
+		player["dial"] = dial
 
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		assert_true(_find_button(screen, "Seat") != null, "the newly crafted Movement should offer a Seat button on the Dial screen")
+		_find_button(screen, "Unseat").pressed.emit()
+		assert_eq(GameState.state["player"]["dial"]["movement"], null, "screen's Unseat button should unseat via Dial.unseat_movement")
+		assert_eq(GameState.state["player"]["movementInventory"].size(), 1, "unseating should return the Movement to movementInventory")
 
 		screen.free()
 	)

@@ -166,6 +166,8 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_movement_craft(data)
 		"craft_components_menu":
 			_build_craft_components_menu()
+		"movement_swap":
+			_build_movement_swap()
 		"combat_setup":
 			_build_combat_setup()
 		"hq_ore_readout":
@@ -779,6 +781,26 @@ func _build_craft_components_menu() -> void:
 		block.add_child(UI.button("Craft", func(): Modal.open("movement_craft", { "archetype": captured_archetype })))
 		_card_content.add_child(block)
 	_card_content.add_child(UI.button("Close", func(): Modal.close()))
+
+
+# hq-diorama ticket 16: hq_dial.gd's consolidated top block's "Swap" button
+# opens this in place of the old always-rendered per-inventory-item Seat
+# card list -- same Dial.seat_movement(index) call the deleted cards used,
+# unchanged, just gathered behind one button tap instead of always
+# rendered below the seated Movement.
+func _build_movement_swap() -> void:
+	_card_content.add_child(UI.heading("Swap Movement"))
+	var player: Dictionary = GameState.state["player"]
+	var inventory: Array = player["movementInventory"]
+	for i in range(inventory.size()):
+		var inv_movement: Dictionary = inventory[i]
+		var md: Dictionary = GameData.DIAL_MOVEMENTS[inv_movement["archetype"]]
+		var captured_index: int = i
+		_card_content.add_child(UI.symbol_button([{ "symbol": md["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — attuned %s, tier %d" % [md["name"], inv_movement["oreType"], inv_movement["tier"]]], func():
+			Dial.seat_movement(captured_index)
+			Modal.close()
+		))
+	_card_content.add_child(UI.button("Cancel", func(): Modal.close()))
 
 
 # bugfixes ticket 104: hq.gd's "Craft" button opens this instead of crafting
