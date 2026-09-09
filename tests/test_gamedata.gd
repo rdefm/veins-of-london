@@ -93,29 +93,7 @@ func run() -> void:
 		assert_true(not errors.is_empty(), "removing the collective's trade lane config should fail validation")
 	)
 
-	# ── dial-device ticket 03: capacityCost / dial.capacityByLevel ──────
-
-	run_case("corrupt_fixture_recipe_missing_capacityCost_fails", func():
-		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		corrupted["recipes"]["blast"].erase("capacityCost")
-		var errors := GameData.validate_tables(corrupted)
-		var found := false
-		for e in errors:
-			if e.contains("recipes.blast") and e.contains("capacityCost"):
-				found = true
-		assert_true(found, "a recipe missing capacityCost should be flagged")
-	)
-
-	run_case("corrupt_fixture_recipe_zero_capacityCost_fails", func():
-		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		corrupted["recipes"]["blast"]["capacityCost"] = 0
-		var errors := GameData.validate_tables(corrupted)
-		var found := false
-		for e in errors:
-			if e.contains("recipes.blast") and e.contains("capacityCost"):
-				found = true
-		assert_true(found, "a recipe with capacityCost <= 0 should be flagged")
-	)
+	# ── dial-device ticket 03: dial.capacityByLevel ──────────────────────
 
 	run_case("corrupt_fixture_dial_capacityByLevel_wrong_size_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)

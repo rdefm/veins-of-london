@@ -329,13 +329,12 @@ static func apply_attunement(base_chance: float, ore_type: String) -> float:
 # No new item category: loading moves one unit out of Crafting's existing
 # tier-bucketed player.inventory (systems/crafting.gd's "Inventory" section)
 # into player.dial.loadedComplications, unchanged in tier; unloading reverses
-# it exactly. Each loaded entry is { recipeKey, tier, capacityCost, detent }
-# -- capacityCost is copied from the recipe's fixed data/recipes.json field
-# at load time (independent of crafted tier, so a better-tier craft of
-# something already loaded is never a footprint downside); detent is a
-# cosmetic display-order position for the (out-of-scope) Collar UI, assigned
-# as the entry's index at load time -- no code here or elsewhere reads it
-# for anything but display, same as haftId.
+# it exactly. Each loaded entry is { recipeKey, tier, detent } -- ticket 14
+# dropped the old per-recipe capacityCost field: every loaded entry costs
+# exactly one slot, regardless of which recipe it is or the tier it was
+# crafted at. detent is a cosmetic display-order position for the
+# (out-of-scope) Collar UI, assigned as the entry's index at load time -- no
+# code here or elsewhere reads it for anything but display, same as haftId.
 
 
 # User story 25: capacity comes from a Dial-level lookup table only, per
@@ -348,19 +347,17 @@ static func capacity_max(level: int) -> int:
 
 
 static func capacity_used(dial: Dictionary) -> int:
-	var total := 0
-	for entry in dial["loadedComplications"]:
-		total += entry["capacityCost"]
-	return total
+	return dial["loadedComplications"].size()
 
 
 # User story 19/20/21: moves one unit of `recipe_key` at `tier` out of the
-# regular tiered inventory and appends it to loadedComplications at the
-# recipe's fixed capacity cost. Refused once it would push capacityUsed past
-# the Dial's stored capacityMax (User story 24) -- that field is populated
-# from capacity_max() at seed time (new_dial()) and never touched by
-# seat_movement()/unseat_movement() above, so this works identically with no
-# Movement seated (User story 6/25).
+# regular tiered inventory and appends it to loadedComplications. Each loaded
+# entry costs exactly one slot regardless of which recipe it is -- ticket 14
+# dropped the old per-recipe capacityCost field. Refused once it would push
+# capacityUsed past the Dial's stored capacityMax (User story 24) -- that
+# field is populated from capacity_max() at seed time (new_dial()) and never
+# touched by seat_movement()/unseat_movement() above, so this works
+# identically with no Movement seated (User story 6/25).
 static func load_complication(recipe_key: String, tier: int) -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	if player["dial"] == null:
@@ -374,13 +371,12 @@ static func load_complication(recipe_key: String, tier: int) -> Dictionary:
 		return { "ok": false, "reason": "Nothing to load." }
 
 	var dial: Dictionary = player["dial"]
-	var cost: int = GameData.RECIPES[recipe_key]["capacityCost"]
-	if capacity_used(dial) + cost > dial["capacityMax"]:
+	if capacity_used(dial) + 1 > dial["capacityMax"]:
 		return { "ok": false, "reason": "Not enough capacity." }
 
 	Crafting.inventory_remove_from_tier(recipe_key, tier, 1)
 	var loaded: Array = dial["loadedComplications"]
-	loaded.append({ "recipeKey": recipe_key, "tier": tier, "capacityCost": cost, "detent": loaded.size() })
+	loaded.append({ "recipeKey": recipe_key, "tier": tier, "detent": loaded.size() })
 
 	EventBus.state_changed.emit()
 	return { "ok": true }

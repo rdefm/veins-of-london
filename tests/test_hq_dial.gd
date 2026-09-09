@@ -204,7 +204,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		_find_button(screen, "⧖Time Pearl tier 1 (1) — cost 1").pressed.emit()
+		_find_button(screen, "⧖Time Pearl tier 1 (1)").pressed.emit()
 		var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
 		assert_eq(loaded.size(), 1, "screen's Load button should load via Dial.load_complication")
 		assert_eq(Crafting.inventory_qty("timePearl"), 0, "loading should move the unit out of regular inventory")
@@ -245,10 +245,10 @@ func run() -> void:
 		var dial := _fresh_dial()
 		dial["capacityMax"] = 20  # plenty of real budget left after 4 cost-1 loads
 		dial["loadedComplications"] = [
-			{ "recipeKey": "timePearl", "tier": 1, "capacityCost": 1, "detent": 0 },
-			{ "recipeKey": "timePearl", "tier": 1, "capacityCost": 1, "detent": 1 },
-			{ "recipeKey": "timePearl", "tier": 1, "capacityCost": 1, "detent": 2 },
-			{ "recipeKey": "timePearl", "tier": 1, "capacityCost": 1, "detent": 3 },
+			{ "recipeKey": "timePearl", "tier": 1, "detent": 0 },
+			{ "recipeKey": "timePearl", "tier": 1, "detent": 1 },
+			{ "recipeKey": "timePearl", "tier": 1, "detent": 2 },
+			{ "recipeKey": "timePearl", "tier": 1, "detent": 3 },
 		]
 		player["dial"] = dial
 		player["inventory"]["enhancementPowder"] = { "1": 1 }
@@ -257,7 +257,7 @@ func run() -> void:
 		screen._ready()
 
 		assert_true(Dial.capacity_used(dial) + 1 <= dial["capacityMax"], "sanity: real capacity budget has room for a 5th complication")
-		var load_button := _find_button(screen, "↯Enhancement Powder tier 1 (1) — cost 1")
+		var load_button := _find_button(screen, "↯Enhancement Powder tier 1 (1)")
 		assert_true(load_button != null, "the tray entry must still render even though housings are full")
 		assert_true(load_button.disabled, "loading a 5th complication must be blocked once all 4 shown housings are full")
 

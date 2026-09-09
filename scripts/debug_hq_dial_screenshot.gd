@@ -30,9 +30,9 @@ func _run() -> void:
 			"capacityMax": 4, "haftId": "guild_cane",
 			"movement": { "archetype": "impact", "oreType": "time", "tier": 3 },
 			"loadedComplications": [
-				{ "recipeKey": "timePearl", "tier": 3, "capacityCost": 1, "detent": 0 },
-				{ "recipeKey": "enhancementPowder", "tier": 3, "capacityCost": 1, "detent": 1 },
-				{ "recipeKey": "shield", "tier": 3, "capacityCost": 1, "detent": 2 },
+				{ "recipeKey": "timePearl", "tier": 3, "detent": 0 },
+				{ "recipeKey": "enhancementPowder", "tier": 3, "detent": 1 },
+				{ "recipeKey": "shield", "tier": 3, "detent": 2 },
 			],
 		}
 		player["orichalchum"]["time"] = 50

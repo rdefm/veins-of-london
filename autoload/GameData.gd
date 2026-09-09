@@ -560,7 +560,7 @@ func _validate_vein_growth(vein_growth: Dictionary, xp_levels: Array, errors: Ar
 func _validate_recipes(recipes: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:
 	for key in recipes.keys():
 		var entry = recipes[key]
-		_require_keys(entry, ["name", "symbol", "ingredients", "baseSuccess", "effectPower", "xpReward", "eventUsable", "capacityCost", "description"], "recipes.%s" % key, errors)
+		_require_keys(entry, ["name", "symbol", "ingredients", "baseSuccess", "effectPower", "xpReward", "eventUsable", "description"], "recipes.%s" % key, errors)
 		if entry.has("ingredients"):
 			var ingredients: Dictionary = entry["ingredients"]
 			if ingredients.is_empty():
@@ -570,10 +570,6 @@ func _validate_recipes(recipes: Dictionary, ore_types: Dictionary, errors: Array
 					errors.append("recipes.%s: ingredient '%s' is not a known ore type" % [key, ingredient_key])
 		if entry.has("effectPower") and entry["effectPower"].size() != 6:
 			errors.append("recipes.%s: effectPower must have 6 entries (index=skill 0..5)" % key)
-		# dial-device ticket 03: fixed regardless of crafted quality tier --
-		# Dial.load_complication()'s footprint cost.
-		if entry.has("capacityCost") and entry["capacityCost"] <= 0:
-			errors.append("recipes.%s: capacityCost must be > 0" % key)
 
 
 # dial-device ticket 01: seedCost must cover every canonical ore type (the

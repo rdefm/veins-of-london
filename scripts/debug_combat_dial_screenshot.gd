@@ -38,8 +38,8 @@ func _run() -> void:
 			"combatRegenTurnCounter": 0, "lastRegenDay": game_state.state["world"]["day"],
 			"capacityMax": 4, "haftId": "guild_cane", "movement": null,
 			"loadedComplications": [
-				{ "recipeKey": "blast", "tier": 2, "capacityCost": 1 },
-				{ "recipeKey": "shield", "tier": 1, "capacityCost": 1 },
+				{ "recipeKey": "blast", "tier": 2 },
+				{ "recipeKey": "shield", "tier": 1 },
 			],
 		}
 	)

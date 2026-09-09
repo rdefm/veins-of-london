@@ -346,7 +346,7 @@ func run() -> void:
 		GameState.reset()
 		var dial := _dial_no_movement()
 		dial["movement"] = { "archetype": "impact", "oreType": "time", "tier": 3 }
-		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 5, "capacityCost": 3, "detent": 0 }]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 5, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 		assert_almost_eq(Dial.attunement_bonus("time"), GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER[3], 0.0001, "loadedComplications must never affect the attunement bonus")
 	)
@@ -356,6 +356,15 @@ func run() -> void:
 	run_case("capacity_max_reads_the_dial_level_lookup_table", func():
 		for level in range(GameData.DIAL_CAPACITY_BY_LEVEL.size()):
 			assert_eq(Dial.capacity_max(level), GameData.DIAL_CAPACITY_BY_LEVEL[level], "capacity_max(%d) should match the data table" % level)
+	)
+
+	# ticket 14: pins the exact curve the ticket asks for -- the case above
+	# is data-driven and would pass for any curve shape, so this asserts the
+	# literal values instead of just "matches whatever's in the data file".
+	run_case("capacity_max_curve_matches_the_flat_one_slot_per_level_shape", func():
+		var expected: Array = [0, 1, 2, 3, 4, 4]
+		for level in range(expected.size()):
+			assert_eq(Dial.capacity_max(level), expected[level], "capacity_max(%d) should be %d" % [level, expected[level]])
 	)
 
 	run_case("capacityMax_is_unaffected_by_seating_or_unseating_a_movement", func():
@@ -425,7 +434,7 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "a refused load must not append anything")
 	)
 
-	run_case("load_complication_decrements_inventory_and_appends_at_the_recipes_fixed_capacity_cost", func():
+	run_case("load_complication_decrements_inventory_and_appends_at_a_flat_one_slot_cost", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
 		dial["capacityMax"] = 10
@@ -439,27 +448,26 @@ func run() -> void:
 		assert_eq(loaded.size(), 1, "one Complication should now be loaded")
 		assert_eq(loaded[0]["recipeKey"], "blast", "recipeKey is recorded")
 		assert_eq(loaded[0]["tier"], 4, "the loaded unit keeps the tier it was crafted at, unchanged")
-		assert_eq(loaded[0]["capacityCost"], GameData.RECIPES["blast"]["capacityCost"], "capacityCost is copied from the recipe's fixed data field")
+		assert_eq(Dial.capacity_used(GameState.state["player"]["dial"]), 1, "a single loaded entry costs exactly one slot")
 	)
 
-	run_case("load_complication_capacity_cost_is_independent_of_crafted_tier", func():
+	run_case("load_complication_slot_cost_is_flat_regardless_of_recipe_or_crafted_tier", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
 		dial["capacityMax"] = 10
 		GameState.state["player"]["dial"] = dial
 		Crafting.inventory_add("blast", 1, 1)
-		Crafting.inventory_add("blast", 5, 1)
+		Crafting.inventory_add("timePearl", 5, 1)
 
 		Dial.load_complication("blast", 1)
-		Dial.load_complication("blast", 5)
-		var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
-		assert_eq(loaded[0]["capacityCost"], loaded[1]["capacityCost"], "capacityCost must be identical regardless of the crafted quality tier loaded")
+		Dial.load_complication("timePearl", 5)
+		assert_eq(Dial.capacity_used(GameState.state["player"]["dial"]), 2, "two loaded entries cost exactly two slots, regardless of which recipes or tiers they are")
 	)
 
 	run_case("load_complication_refuses_once_it_would_exceed_capacityMax", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["capacityMax"] = GameData.RECIPES["blast"]["capacityCost"]  # room for exactly one Blast
+		dial["capacityMax"] = 1  # room for exactly one loaded Complication
 		GameState.state["player"]["dial"] = dial
 		Crafting.inventory_add("blast", 1, 2)
 
@@ -518,7 +526,7 @@ func run() -> void:
 	run_case("unload_complication_frees_capacity_for_a_subsequent_load", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["capacityMax"] = GameData.RECIPES["blast"]["capacityCost"]
+		dial["capacityMax"] = 1
 		GameState.state["player"]["dial"] = dial
 		Crafting.inventory_add("blast", 1, 2)
 
@@ -754,7 +762,7 @@ func run() -> void:
 		var dial := _dial_no_movement()
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 0
-		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
 		var result := Dial.cast_complication(0)
@@ -766,7 +774,7 @@ func run() -> void:
 		var dial := _dial_no_movement()
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 5
-		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
 		var result := Dial.cast_complication(0)
@@ -781,7 +789,7 @@ func run() -> void:
 		var dial := _dial_no_movement()
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 5
-		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
 		var result := Dial.cast_complication(0)
@@ -795,7 +803,7 @@ func run() -> void:
 		var dial := _dial_no_movement()
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 5
-		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 5, "capacityCost": 3, "detent": 0 }]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 5, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
 		var result := Dial.cast_complication(0)
@@ -808,7 +816,7 @@ func run() -> void:
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 5
 		dial["movement"] = { "archetype": "impact", "oreType": "physics", "tier": 5 }
-		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
 		var result := Dial.cast_complication(0)
@@ -824,7 +832,7 @@ func run() -> void:
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 5
 		dial["movement"] = { "archetype": "spread", "oreType": "physics", "tier": 3 }
-		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
 		var result := Dial.cast_complication(0)
@@ -841,7 +849,7 @@ func run() -> void:
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 5
 		dial["movement"] = { "archetype": "capacitor", "oreType": "physics", "tier": 5 }
-		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
 		var result := Dial.cast_complication(0)
@@ -962,7 +970,7 @@ func run() -> void:
 		var dial := _dial_no_movement()
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 5
-		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "capacityCost": 3, "detent": 0 }]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
 		Dial.cast_complication(0)
@@ -977,7 +985,7 @@ func run() -> void:
 		dial["capacityMax"] = GameData.DIAL_CAPACITY_BY_LEVEL[1]
 		dial["maxCharge"] = int(GameData.DIAL_BASE_MAX_CHARGE - m["downside"][1])
 		dial["rechargeRate"] = GameData.DIAL_BASE_RECHARGE_RATE + m["bonus"][1]
-		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 1, "capacityCost": 1, "detent": 0 }]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 1, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
 		for i in range(5):
@@ -1005,7 +1013,7 @@ func run() -> void:
 		var m: Dictionary = GameData.DIAL_MOVEMENTS["impact"]
 		dial["maxCharge"] = int(GameData.DIAL_BASE_MAX_CHARGE - m["downside"][2])
 		dial["rechargeRate"] = GameData.DIAL_BASE_RECHARGE_RATE
-		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 1, "capacityCost": 1, "detent": 0 }]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 1, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
 		for i in range(5):
@@ -1070,7 +1078,7 @@ func run() -> void:
 		var dial := _dial_no_movement()
 		dial["capacityMax"] = GameData.DIAL_CAPACITY_BY_LEVEL[1]
 		assert_eq(dial["movement"], null, "fixture starts with no Movement seated")
-		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 1, "capacityCost": 1, "detent": 0 }]
+		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 1, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
 		for i in range(5):

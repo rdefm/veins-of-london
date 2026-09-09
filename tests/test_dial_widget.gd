@@ -17,7 +17,7 @@ extends "res://tests/test_base.gd"
 func _dial(loaded_recipe_keys: Array, current_charge: int = 3, max_charge: int = 5) -> Dictionary:
 	var loaded: Array = []
 	for key in loaded_recipe_keys:
-		loaded.append({ "recipeKey": key, "tier": 1, "capacityCost": 1 })
+		loaded.append({ "recipeKey": key, "tier": 1 })
 	return {
 		"level": 1, "xp": 0, "currentCharge": current_charge, "maxCharge": max_charge,
 		"rechargeRate": 0, "combatRegenTurnCounter": 0, "lastRegenDay": 1,

@@ -261,8 +261,8 @@ deck holds three regions:
   down to real UI size. Umbrella fabric/ferrule detailing is not needed —
   the handle-with-built-in-dial reads clearly on its own. Note:
   `dial.gd`'s `loadedComplications`/`capacityMax` is not a fixed slot count
-  (it varies by dial level and per-complication `capacityCost`) — the art
-  must not imply a fixed number of bezel notches.
+  (it varies by dial level, capped at 4) — the art must not imply a fixed
+  number of bezel notches.
 - **Layout: Dial docked right, full height.** The Dial widget is a vertical
   strip on the right edge of the command deck, spanning the full height of
   the action-card row *and* the departure-board log below it — evoking

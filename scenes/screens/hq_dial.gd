@@ -421,8 +421,8 @@ func _build_tray(content: VBoxContainer, player: Dictionary, dial: Dictionary) -
 			any_loadable = true
 			var captured_key: String = recipe_key
 			var captured_tier: int = int(tier_key)
-			var load_button := UI.symbol_button([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s tier %s (%d) — cost %d" % [recipe["name"], tier_key, buckets[tier_key], recipe["capacityCost"]]], func(): Dial.load_complication(captured_key, captured_tier))
-			load_button.disabled = housings_full or Dial.capacity_used(dial) + int(recipe["capacityCost"]) > dial["capacityMax"]
+			var load_button := UI.symbol_button([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s tier %s (%d)" % [recipe["name"], tier_key, buckets[tier_key]]], func(): Dial.load_complication(captured_key, captured_tier))
+			load_button.disabled = housings_full or Dial.capacity_used(dial) + 1 > dial["capacityMax"]
 			content.add_child(load_button)
 	if not any_loadable:
 		# PROSE-REVIEW: carried over unchanged from the old drawer copy.
