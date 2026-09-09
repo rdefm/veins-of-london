@@ -211,8 +211,8 @@ func run() -> void:
 
 		var screen2 := HqDialScreen.new()
 		screen2._ready()
-		_find_button(screen2, "Unload").pressed.emit()
-		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "screen's Unload button should unload via Dial.unload_complication")
+		_find_button(screen2, "⧖Time Pearl t1").pressed.emit()
+		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "tapping a loaded housing tile should unload it via Dial.unload_complication")
 		assert_eq(Crafting.inventory_qty("timePearl"), 1, "unloading should return the unit to regular inventory")
 
 		screen.free()
@@ -229,7 +229,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		assert_true(_label_texts(screen).any(func(t: String): return t.begins_with("⧖Time Pearl — tier 1")), "a loaded Complication must show in its housing tile")
+		assert_true(_label_texts(screen).any(func(t: String): return t.begins_with("⧖Time Pearl t1")), "a loaded Complication must show in its housing tile")
 		assert_eq(_label_texts(screen).filter(func(t: String): return t == "Empty").size(), 3, "the remaining 3 housings must show Empty")
 
 		screen.free()
