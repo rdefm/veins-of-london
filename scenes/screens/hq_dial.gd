@@ -79,9 +79,14 @@ const NEEDLE_HUB_NATIVE := Vector2(13.0, 26.0)
 
 # Presentational gauge sweep for the charge-reserve needle -- a tuning
 # choice, not a game formula (the real 0..maxCharge value it reads is
-# unchanged, R§1.4's Dial.daily_regen()/wind() etc.). ART-REVIEW.
-const NEEDLE_MIN_DEG := -90.0
-const NEEDLE_MAX_DEG := 90.0
+# unchanged, R§1.4's Dial.daily_regen()/wind() etc.). NEEDLE_MIN_DEG
+# corrected (2026-09-09) from -90 to -60 -- confirmed against a live
+# screenshot the old value read ~11 o'clock at zero charge instead of
+# 12 o'clock. NEEDLE_MAX_DEG shifted by the same +30 offset to preserve
+# the sweep width; that end is still unconfirmed (no seeded+charged Dial
+# screenshot exists yet). ART-REVIEW.
+const NEEDLE_MIN_DEG := -60.0
+const NEEDLE_MAX_DEG := 120.0
 
 const MAX_VISIBLE_COMPLICATION_HOUSINGS := 4
 

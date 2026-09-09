@@ -15,7 +15,7 @@ further if needed.
 
 **Status:** ready-for-agent
 
-- [ ] `NEEDLE_MIN_DEG` corrected so 0 charge renders at 12 o'clock
-- [ ] `NEEDLE_MAX_DEG` shifted by the same offset
-- [ ] `tests/test_hq_dial.gd`'s needle-rotation assertions updated to the new consts
-- [ ] Full-charge endpoint left flagged `ART-REVIEW` in the file's own comments for on-device confirmation
+- [x] `NEEDLE_MIN_DEG` corrected so 0 charge renders at 12 o'clock
+- [x] `NEEDLE_MAX_DEG` shifted by the same offset
+- [x] `tests/test_hq_dial.gd`'s needle-rotation assertions updated to the new consts
+- [x] Full-charge endpoint left flagged `ART-REVIEW` in the file's own comments for on-device confirmation

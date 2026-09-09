@@ -274,7 +274,8 @@ func run() -> void:
 		assert_eq(screen._needle_rotation_degrees(dial), HqDialScreen.NEEDLE_MIN_DEG, "empty charge should point the needle to its minimum")
 
 		dial["currentCharge"] = 5
-		assert_eq(screen._needle_rotation_degrees(dial), 0.0, "half charge should point the needle to the midpoint between min and max")
+		var midpoint := (HqDialScreen.NEEDLE_MIN_DEG + HqDialScreen.NEEDLE_MAX_DEG) / 2.0
+		assert_eq(screen._needle_rotation_degrees(dial), midpoint, "half charge should point the needle to the midpoint between min and max")
 
 		dial["currentCharge"] = 10
 		assert_eq(screen._needle_rotation_degrees(dial), HqDialScreen.NEEDLE_MAX_DEG, "full charge should point the needle to its maximum")
