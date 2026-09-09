@@ -264,6 +264,28 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("hq_dial_screen_needle_rotation_reflects_current_charge_fraction", func():
+		GameState.reset()
+		var screen := HqDialScreen.new()
+
+		var dial := _fresh_dial()
+		dial["currentCharge"] = 0
+		dial["maxCharge"] = 10
+		assert_eq(screen._needle_rotation_degrees(dial), HqDialScreen.NEEDLE_MIN_DEG, "empty charge should point the needle to its minimum")
+
+		dial["currentCharge"] = 5
+		assert_eq(screen._needle_rotation_degrees(dial), 0.0, "half charge should point the needle to the midpoint between min and max")
+
+		dial["currentCharge"] = 10
+		assert_eq(screen._needle_rotation_degrees(dial), HqDialScreen.NEEDLE_MAX_DEG, "full charge should point the needle to its maximum")
+
+		dial["currentCharge"] = 3
+		dial["maxCharge"] = 0
+		assert_eq(screen._needle_rotation_degrees(dial), HqDialScreen.NEEDLE_MIN_DEG, "a Dial with no maxCharge yet should not divide by zero, and should read as empty")
+
+		screen.free()
+	)
+
 	run_case("hq_dial_screen_back_button_returns_to_hq", func():
 		GameState.reset()
 		GameState.state["currentScreen"] = "hq_dial"

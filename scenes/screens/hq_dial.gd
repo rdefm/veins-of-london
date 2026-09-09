@@ -65,10 +65,17 @@ const FACE_CENTER_NATIVE := Vector2(250.0, 101.0)
 # assets/hq/dial/dial-needle.png is a 666x375 canvas with the actual needle
 # art only occupying a small corner (alpha bbox measured at roughly
 # x:[3,48] y:[1,38]) -- cropped here via AtlasTexture rather than editing
-# the human's source file. The hub (pin) end sits near this crop's own
-# top-left corner; ART-REVIEW, same caveat as FACE_CENTER_NATIVE above.
+# the human's source file. NEEDLE_HUB_NATIVE is the round pivot end's centre
+# in that crop's own local space -- measured by finding the densest
+# (thickest) point of the alpha mask (image-processing script, not
+# eyeballed): full-image densest point is (16, 27), minus the atlas
+# region's own (3, 1) origin. Bug (2026-09-09): this was previously
+# (8, 7), which lands on the thin tapered tip end instead of the round hub
+# -- the needle rendered off-centre because the wrong point was being
+# pinned to FACE_CENTER_NATIVE. ART-REVIEW, same caveat as
+# FACE_CENTER_NATIVE above.
 const NEEDLE_ATLAS_REGION := Rect2(3.0, 1.0, 45.0, 37.0)
-const NEEDLE_HUB_NATIVE := Vector2(8.0, 7.0)
+const NEEDLE_HUB_NATIVE := Vector2(13.0, 26.0)
 
 # Presentational gauge sweep for the charge-reserve needle -- a tuning
 # choice, not a game formula (the real 0..maxCharge value it reads is
