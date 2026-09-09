@@ -443,6 +443,11 @@ func run() -> void:
 
 	run_case("corrupt_fixture_hq_visuals_lab_bench_no_image_and_no_fallback_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		# hq-diorama ticket 12 gave labBench a real "image" too, so this
+		# fixture must null that out as well -- otherwise it's no longer the
+		# "neither set" case this test means to cover (same reasoning as the
+		# bedsit room's own version of this test, above).
+		corrupted["hq_visuals"]["labBench"]["image"] = ""
 		corrupted["hq_visuals"]["labBench"]["fallbackColor"] = ""
 		var errors := GameData.validate_tables(corrupted)
 		var found := false
