@@ -3,11 +3,15 @@ extends "res://tests/test_base.gd"
 # combat-presentation ticket 03, docs/combat-animation-vision.md §2.5: the
 # Dial widget's own selection/trigger logic, tested independently of
 # CombatScreen's wiring (tests/test_combat_screen.gd covers that half: deck
-# placement, hiding the widget when nothing's loaded, and selection
+# placement, showing the widget once a Dial is seeded, and selection
 # persisting across a refresh). Same "test the logic, not the gesture
-# plumbing" split TurnOrderStrip's own tests use -- handle_rotate/
+# plumbing" split TurnOrderStrip's own tests use -- handle_select/
 # handle_trigger are public exactly so these cases don't have to simulate
 # InputEvents.
+#
+# combat-presentation ticket 18 (human direction, 2026-09-09): handle_rotate()
+# (relative, wrapping cycle) is replaced by handle_select(index) (direct,
+# tap-one-of-4-screws selection) -- see dial_widget.gd's own top comment.
 
 
 func _dial(loaded_recipe_keys: Array, current_charge: int = 3, max_charge: int = 5) -> Dictionary:
@@ -30,46 +34,46 @@ func run() -> void:
 		assert_eq(widget.current_index(), 0, "only one Complication is loaded -- a stale index 5 must clamp down")
 	)
 
-	run_case("handle_rotate_cycles_forward_and_reports_the_new_index_via_the_callback", func():
+	run_case("handle_select_reports_the_tapped_index_via_the_callback", func():
 		var widget := DialWidget.new()
 		var received: Array = []
 		widget.configure(_dial(["blast", "shield", "blackHole"]), 0, func(i): received.append(i))
 
-		widget.handle_rotate(1)
+		widget.handle_select(2)
 
-		assert_eq(received, [1])
-		assert_eq(widget.current_index(), 0, "handle_rotate() only reports through the callback -- like TurnOrderStrip.handle_swipe(), it never mutates its own selection; the caller (CombatScreen) owns persisting it via a fresh configure()")
+		assert_eq(received, [2])
+		assert_eq(widget.current_index(), 0, "handle_select() only reports through the callback -- like TurnOrderStrip.handle_swipe(), it never mutates its own selection; the caller (CombatScreen) owns persisting it via a fresh configure()")
 	)
 
-	run_case("handle_rotate_wraps_around_at_either_end_unlike_the_turn_order_strips_clamp", func():
+	run_case("handle_select_reports_regardless_of_which_screw_it_is_relative_to_the_current_one", func():
 		var widget := DialWidget.new()
 		var received: Array = []
 		widget.configure(_dial(["blast", "shield", "blackHole"]), 2, func(i): received.append(i))
 
-		widget.handle_rotate(1)
+		widget.handle_select(0)
 
-		assert_eq(received, [0], "rotating forward past the last Complication should wrap to the first -- a dial spins continuously")
+		assert_eq(received, [0], "a direct tap jumps straight to whichever screw was tapped, not a relative step")
 	)
 
-	run_case("handle_rotate_backward_wraps_to_the_last_entry", func():
-		var widget := DialWidget.new()
-		var received: Array = []
-		widget.configure(_dial(["blast", "shield", "blackHole"]), 0, func(i): received.append(i))
-
-		widget.handle_rotate(-1)
-
-		assert_eq(received, [2])
-	)
-
-	run_case("handle_rotate_is_a_no_op_with_only_one_complication_loaded", func():
+	run_case("handle_select_is_a_no_op_past_the_end_of_the_loaded_list", func():
 		var widget := DialWidget.new()
 		var received: Array = []
 		widget.configure(_dial(["blast"]), 0, func(i): received.append(i))
 
-		widget.handle_rotate(1)
+		widget.handle_select(1)
 
 		assert_eq(widget.current_index(), 0)
-		assert_eq(received.size(), 0, "nothing to cycle to -- the callback should not fire")
+		assert_eq(received.size(), 0, "nothing loaded into that screw -- the callback should not fire")
+	)
+
+	run_case("handle_select_is_a_no_op_for_a_negative_index", func():
+		var widget := DialWidget.new()
+		var received: Array = []
+		widget.configure(_dial(["blast", "shield"]), 0, func(i): received.append(i))
+
+		widget.handle_select(-1)
+
+		assert_eq(received.size(), 0)
 	)
 
 	run_case("handle_trigger_casts_the_selected_complication_via_Combat_cast_complication", func():

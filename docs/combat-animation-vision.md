@@ -274,6 +274,37 @@ deck holds three regions:
   command deck, full width beneath the Dial strip's span (as in the original
   rough mockup).
 
+**Superseded (combat-presentation ticket 18, human direction, 2026-09-09).**
+The layout and interaction above are replaced:
+
+- **Layout.** The stage window shrinks (was 390×360, now 390×220 — see
+  `scenes/screens/combat.gd`'s own `STAGE_HEIGHT` comment) to free room below
+  it for a furniture row: the Dial widget docks **left** (not right, and no
+  longer spans the log), a Complication detail rectangle plus the 3 action
+  blocks (Attack/Item/Run, back to a horizontal row — ticket 13's vertical
+  "hamburger" stack existed only to fit beside the old full-height Dial) dock
+  **right**, in a column with the detail rectangle above the action row. The
+  departure-board log runs full width beneath both, same as before. Speed
+  toggle + player stats are unaffected (they live in the heading row above
+  the stage, not this furniture row).
+- **Interaction.** Rotate (drag/swipe) is replaced by a direct tap: the 4
+  screws visible in the umbrella art are themselves the selection targets,
+  one per loaded Complication (index order clockwise from 12 o'clock); the
+  oval switch below the grip is a dedicated trigger target (a drawn "⇄"
+  glyph overlaid on it, since the source art has no such icon baked in).
+  Charge-remaining stays an analog clock-face needle built into the top of
+  the handle, unchanged.
+- **Always-shown furniture.** The widget now renders whenever the player has
+  a seeded Dial at all, even with nothing loaded (empty screws just read as
+  unloaded) — previously it only rendered once something was loaded.
+- Physical design and pixel-art-exception status (both below) are
+  unaffected — this reuses `assets/hq/dial/dial_device_base.png`, the same
+  prop `hq_dial.gd`'s loadout screen already renders, rather than
+  commissioning new art, which also folds ticket 14 ("Dial widget pixel-art
+  pass") into this one — ticket 14's own "no functional/interaction change"
+  scope note no longer holds; the human asked for the interaction to change
+  too.
+
 ## 3. The cast and its frame budget
 
 | Subject | Source | Sheets |

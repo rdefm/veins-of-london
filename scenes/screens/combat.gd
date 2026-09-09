@@ -37,7 +37,14 @@ var _dial_selected_index: int = 0
 # the stage the literal 390 here would force it 32px wider than the screen
 # has room for and push it past the right edge.
 const STAGE_WIDTH := 390.0 - 16.0 - 16.0
-const STAGE_HEIGHT := 360.0
+# combat-presentation ticket 18 (human direction, 2026-09-09): shrunk from
+# 360 to free up room below the stage for the umbrella-handle Dial widget +
+# action row (see _build_dial_and_actions_row()) without pushing the command
+# deck off-screen -- a judgment call, not a measured fit against a specific
+# on-device screenshot the way ticket 16's fan-size retune was; ART-REVIEW,
+# human should confirm combatants still read clearly at this height and this
+# doesn't crowd the turn-order strip above it.
+const STAGE_HEIGHT := 220.0
 
 # combat-presentation ticket 10: left/right stage split -- player + allies
 # occupy the left column, enemies the right, each column running the full
@@ -120,11 +127,6 @@ const FAN_FRONT_SIZE_RATIO := Vector2(0.90, 0.52)
 const FAN_FRONT_BOTTOM_MARGIN := 0.02
 const FAN_STEP_SIZE_SCALE := 0.88
 const FAN_STEP_OFFSET_RATIO := Vector2(0.14, 0.11)
-
-# combat-presentation ticket 03, §2.5: the Dial widget's docked-right column
-# width -- narrow enough to leave the action-card row its space, wide enough
-# for the clock-face/bezel placeholder shapes (DialWidget._draw()) to read.
-const DIAL_WIDTH := 64.0
 
 # combat-presentation ticket 05, §4.1: damage numbers rising and fading from
 # the struck combatant's on-stage position.
@@ -1700,35 +1702,69 @@ func _vignette_texture() -> GradientTexture2D:
 	return tex
 
 
-# combat-presentation ticket 03, §2.5: the command deck -- the action-card
-# row and log share a left column; the Dial widget (when it has anything
-# loaded to select) docks right, spanning both, per "Dial docked right, full
-# height, spanning both the action-card row and the log below it."
-# combat-presentation ticket 13 follow-up (human on-device flag): the Dial
-# used to be the deck's trailing, non-expanding element, which put it past
-# the right edge of a real phone viewport -- reachable only via the
-# TouchScrollContainer this function used to wrap the whole deck in. Docking
-# the Dial first (left) instead means it's never the element that overflows;
-# _build_action_deck()'s own row is a vertical button stack now (not a
-# horizontal row of cards) for the same reason -- three/four buttons stacked
-# tall stay within a phone's content width where they'd have spilled past it
-# side by side, so the deck no longer needs a scroller to stay reachable.
+# combat-presentation ticket 18 (human direction, 2026-09-09): the command
+# deck's furniture row -- the umbrella-handle Dial widget docks left (see
+# dial_widget.gd's own top comment for its new tap-the-screws/tap-the-switch
+# interaction), a Complication detail rectangle plus the 3 action blocks
+# (Attack/Item/Run) dock right, and the log runs full width below both.
+# Supersedes ticket 03/13's "Dial spans the full height of the action-card
+# row and the log" layout -- see docs/combat-animation-vision.md §2.5's
+# amendment note.
 func _build_command_deck(combat: Dictionary, player: Dictionary) -> Control:
 	var container := UI.vbox(8)
-
-	var deck := UI.hbox(8)
-
-	var dial: Variant = player["dial"]
-	if dial != null and not dial["loadedComplications"].is_empty():
-		deck.add_child(_build_dial_widget(dial))
-
-	var actions := _build_action_deck(player)
-	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	deck.add_child(actions)
-
-	container.add_child(deck)
+	container.add_child(_build_dial_and_actions_row(player))
 	container.add_child(_build_log(combat))
 	return container
+
+
+# The Dial always shows once the player has one seeded (even with nothing
+# loaded -- an empty Dial is still furniture the player is holding, same
+# "always shown, disabled with a reason" spirit UI.action_button() uses
+# elsewhere), unlike the old docked widget, which only rendered once
+# something was actually loaded. No Dial at all (never seeded) still shows
+# nothing here -- there is no physical prop to draw.
+func _build_dial_and_actions_row(player: Dictionary) -> Control:
+	var row := UI.hbox(8)
+
+	var dial: Variant = player["dial"]
+	if dial != null:
+		row.add_child(_build_dial_widget(dial))
+
+	var actions_col := UI.vbox(6)
+	actions_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions_col.add_child(_build_complication_detail(dial))
+	actions_col.add_child(_build_action_deck(player))
+	row.add_child(actions_col)
+
+	return row
+
+
+# The rectangle above the action row: whichever Complication the Dial widget
+# currently has selected (_dial_selected_index, the same persisted choice
+# dial_widget.gd's own configure() clamps). Shows a muted placeholder line
+# when there's no Dial, or nothing loaded on it, or the charge to actually
+# fire it -- same "always show why, don't just disable silently" reasoning
+# UI.action_button() documents.
+func _build_complication_detail(dial: Variant) -> Control:
+	var c := UI.card()
+	c["panel"].custom_minimum_size = Vector2(0.0, 52.0)
+
+	if dial == null:
+		c["content"].add_child(UI.muted_label("No Dial."))
+		return c["panel"]
+
+	var loaded: Array = dial["loadedComplications"]
+	if loaded.is_empty():
+		c["content"].add_child(UI.muted_label("Nothing loaded on the Dial."))
+		return c["panel"]
+
+	var index: int = clampi(_dial_selected_index, 0, loaded.size() - 1)
+	var entry: Dictionary = loaded[index]
+	var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
+	c["content"].add_child(UI.symbol_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — tier %d" % [recipe["name"], entry["tier"]]]))
+	var can_trigger: bool = dial["currentCharge"] >= 1.0
+	c["content"].add_child(UI.muted_label("Tap ⇄ to cast (1 charge)" if can_trigger else "Not enough charge to cast"))
+	return c["panel"]
 
 
 # combat-presentation ticket 04: while `_revealed_log_count` is set (a round
@@ -1747,21 +1783,24 @@ func _build_log(combat: Dictionary) -> Control:
 	return box
 
 
-# §2.5: "Action deck -- 3 cards, not 4. Attack / Item / Run, a visual
-# re-skin of today's _build_action_bar() ... as cards instead of plain
-# buttons -- same handlers, no new inventory/hand mechanic, no energy-cost
-# numbers." Each card is UI.card() wrapping the same single button/handler
-# the old flat action bar used -- only the chrome changes.
+# §2.5: "Action deck -- 3 cards, not 4. Attack / Item / Run ... same
+# handlers, no new inventory/hand mechanic, no energy-cost numbers." "Item"
+# still opens the existing Bag drawer.
 #
-# combat-presentation ticket 13 follow-up: stacked vertically ("hamburger
-# style", human's own on-device request) rather than side by side -- see
-# _build_command_deck()'s own comment for why: a vertical stack keeps this
-# row's width down to a single card regardless of how many buttons it holds
-# (3 today, 4 once Skip joins mid-playback), so docking the Dial beside it
-# never overflows a phone's content width.
+# combat-presentation ticket 18 (human direction, 2026-09-09): back to a
+# horizontal row of 3 blocks, sitting to the right of the umbrella-handle
+# Dial widget below the Complication detail rectangle -- supersedes ticket
+# 13's vertical "hamburger" stack (that stack existed to keep this row
+# narrow enough to fit beside the old full-height docked Dial; the Dial no
+# longer spans the deck's full height, so there's no longer a width
+# conflict to avoid). Each block is EXPAND_FILL so 3 (or 4, mid-playback
+# with Skip) blocks always divide whatever width the action column has
+# evenly, rather than each reserving its own natural button width and
+# risking an overflow past the screen edge (see UI.button()'s own comment
+# for that failure mode) -- see _build_action_card() below.
 func _build_action_deck(player: Dictionary) -> Control:
-	var row := UI.vbox(8)
-	row.add_child(_build_action_card("⚔ Attack", _on_attack_pressed))
+	var row := UI.hbox(6)
+	row.add_child(_build_action_card("⚔", "Attack", _on_attack_pressed))
 
 	# calc-effect-wiring-02/03: blast/shield/blackHole/healingBurst, then
 	# prophetsBreath/wormhole, added to the same "has anything to use" check
@@ -1774,20 +1813,39 @@ func _build_action_deck(player: Dictionary) -> Control:
 		or Crafting.inventory_qty("prophetsBreath") > 0 or Crafting.inventory_qty("wormhole") > 0
 		or (player["dial"] != null and not player["dial"]["loadedComplications"].is_empty())
 	)
-	row.add_child(_build_action_card("🎒 Item", func(): Bag.open(), not has_items))
-	row.add_child(_build_action_card("🏃 Run", _on_run_pressed))
+	row.add_child(_build_action_card("🎒", "Item", func(): Bag.open(), not has_items))
+	row.add_child(_build_action_card("🏃", "Run", _on_run_pressed))
 
 	if _director.is_playing():
-		row.add_child(_build_action_card("⏭ Skip", func(): _director.skip_to_end()))
+		row.add_child(_build_action_card("⏭", "Skip", func(): _director.skip_to_end()))
 
 	return row
 
 
-func _build_action_card(text: String, callback: Callable, disabled: bool = false) -> Control:
+# combat-presentation ticket 18: split into an icon (a bare Button, plain
+# emoji text -- deliberately NOT UI.button(), whose text-driven minimum-
+# width reservation is sized for a full word like "⚔ Attack" and would blow
+# this block back out past the ~65px an EXPAND_FILL 3-way split actually
+# leaves it) plus a caption label underneath, rather than one wide "⚔
+# Attack" button -- a single-glyph button reserves almost no width of its
+# own, so the block's real minimum comes from the caption Label instead
+# (UI.muted_label(), which already wraps/clips per its own MAX_LABEL_TEXT_
+# WIDTH cap), leaving the emoji comfortably legible at this row's width.
+func _build_action_card(symbol: String, label_text: String, callback: Callable, disabled: bool = false) -> Control:
 	var c := UI.card()
-	var button := UI.button(text, callback)
+	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var button := Button.new()
+	button.text = symbol
+	button.clip_text = true
 	button.disabled = disabled
+	button.pressed.connect(callback)
 	c["content"].add_child(button)
+
+	var caption := UI.muted_label(label_text)
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	c["content"].add_child(caption)
+
 	return c["panel"]
 
 
@@ -2007,12 +2065,14 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 
 func _build_dial_widget(dial: Dictionary) -> Control:
 	var widget := DialWidget.new()
-	widget.custom_minimum_size = Vector2(DIAL_WIDTH, 0)
+	# configure() sets its own fixed custom_minimum_size (DialWidget.
+	# VISIBLE_BOX_SIZE) -- no override needed here, unlike the old DIAL_WIDTH-
+	# only placeholder, which had no art-driven size of its own to fall back on.
 	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed, _on_dial_triggered)
 	return widget
 
 
-# DialWidget.handle_rotate() only reports through this callback, never
+# DialWidget.handle_select() only reports through this callback, never
 # mutates its own selection (see that file's own top comment) -- nothing in
 # GameState changed, so nothing would otherwise trigger a rebuild; _sync()
 # is called directly, same as _on_strip_selection_changed()'s non-enemy case.

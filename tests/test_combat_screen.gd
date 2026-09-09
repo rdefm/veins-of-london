@@ -425,12 +425,22 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
+		# combat-presentation ticket 18: each action block's Button now carries
+		# only the bare emoji (see _build_action_card()'s own comment for why);
+		# the word label moved to a separate caption Label alongside it.
 		var texts: Array = []
 		for b in _deck_buttons(screen):
 			texts.append(b.text)
-		assert_true(texts.has("⚔ Attack"), "Attack must still be offered, same label as the old flat action bar")
-		assert_true(texts.has("🏃 Run"), "Run must still be offered")
-		assert_true(texts.has("🎒 Item"), "Item must still be offered")
+		assert_true(texts.has("⚔"), "Attack must still be offered, same handler as the old flat action bar")
+		assert_true(texts.has("🏃"), "Run must still be offered")
+		assert_true(texts.has("🎒"), "Item must still be offered")
+
+		var captions: Array = []
+		for l in screen.find_children("", "Label", true, false):
+			captions.append(l.text)
+		assert_true(captions.has("Attack"))
+		assert_true(captions.has("Run"))
+		assert_true(captions.has("Item"))
 
 		screen.free()
 	)
@@ -444,7 +454,7 @@ func run() -> void:
 
 		var item_button: Button = null
 		for b in _deck_buttons(screen):
-			if b.text == "🎒 Item":
+			if b.text == "🎒":
 				item_button = b
 		assert_true(item_button != null)
 		assert_true(item_button.disabled, "no consumables and no loaded Dial -- Item should stay disabled, same gate _build_action_bar() used")
@@ -464,14 +474,20 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("dial_widget_does_not_render_when_loadedComplications_is_empty", func():
+	# combat-presentation ticket 18 (human direction, 2026-09-09): the
+	# umbrella is now always-shown furniture once the player has a Dial at
+	# all -- an empty loadout just means every screw sits unloaded, not that
+	# the prop itself vanishes. Supersedes the old "empty loadout, no
+	# widget" rule (this exact case, pre-ticket-18: the widget did NOT
+	# render here).
+	run_case("dial_widget_still_renders_with_an_empty_loadout_now_that_its_always_shown_furniture", func():
 		_setup_combat([_enemy("Scrapper")])
 		GameState.state["player"]["dial"] = _dial([])
 
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_true(_find_dial_widget(screen) == null, "an empty loadout has nothing to select -- the widget must not render")
+		assert_true(_find_dial_widget(screen) != null, "a seeded Dial is always shown, even with nothing loaded on it")
 
 		screen.free()
 	)
@@ -508,12 +524,12 @@ func run() -> void:
 
 		var screen := CombatScreen.new()
 		screen._ready()
-		_find_dial_widget(screen).handle_rotate(1)
-		assert_eq(_find_dial_widget(screen).current_index(), 1, "sanity: the rotate moved the selection")
+		_find_dial_widget(screen).handle_select(1)
+		assert_eq(_find_dial_widget(screen).current_index(), 1, "sanity: the tap moved the selection")
 
 		EventBus.state_changed.emit()  # an unrelated refresh, e.g. a real attack elsewhere in the fight
 
-		assert_eq(_find_dial_widget(screen).current_index(), 1, "the selected Complication should survive a refresh not caused by the rotate itself, same persistence story as _strip_selected_key")
+		assert_eq(_find_dial_widget(screen).current_index(), 1, "the selected Complication should survive a refresh not caused by the tap itself, same persistence story as _strip_selected_key")
 
 		screen.free()
 	)
@@ -521,13 +537,13 @@ func run() -> void:
 	# combat-presentation ticket 13 follow-up (human on-device flag): the
 	# Dial used to be the deck's trailing, non-expanding element, which put
 	# it past the right edge of a real phone viewport, reachable only by
-	# scrolling the deck's own TouchScrollContainer sideways. _build_command_
-	# deck() now docks the Dial first (left) and stacks the action buttons
-	# vertically beside it instead of side by side -- see that function's
-	# own comment. This case needs a real, sized SceneTree entry (not a bare
-	# CombatScreen.new()/_ready(), where Control layout never resolves) to
-	# actually prove the Dial lands on screen at rest -- same "REAL
-	# ScrollContainer, live in the actual scene tree" precedent tests/
+	# scrolling the deck's own TouchScrollContainer sideways.
+	# _build_dial_and_actions_row() docks the Dial first (left) and the
+	# action row (now horizontal again -- ticket 18, see _build_action_deck()'s
+	# own comment) beside it. This case needs a real, sized SceneTree entry
+	# (not a bare CombatScreen.new()/_ready(), where Control layout never
+	# resolves) to actually prove the Dial lands on screen at rest -- same
+	# "REAL ScrollContainer, live in the actual scene tree" precedent tests/
 	# test_map_canvas.gd's step_zoom cases use, including their two-frame
 	# wait (first lets any still-pending deferred autoload _ready() --
 	# GameState._ready() calls reset() -- flush before this case's own
@@ -563,16 +579,18 @@ func run() -> void:
 
 		# _deck_buttons() finds every Button in the whole screen (including,
 		# e.g., the pacing toggle up in the heading row) -- narrow down to the
-		# actual action-deck cards by label so this only checks their layout.
-		var action_labels := ["⚔ Attack", "🎒 Item", "🏃 Run"]
+		# actual action-deck cards by their bare-emoji label (ticket 18: the
+		# word moved to a separate caption Label, see _build_action_card()'s
+		# own comment) so this only checks their layout.
+		var action_labels := ["⚔", "🎒", "🏃"]
 		var buttons: Array[Button] = []
 		for b in _deck_buttons(screen):
 			if action_labels.has(b.text):
 				buttons.append(b)
 		assert_true(buttons.size() >= 2, "sanity: the action deck's buttons must still be present")
 		for i in range(1, buttons.size()):
-			assert_true(buttons[i].global_position.x == buttons[0].global_position.x, "the action buttons must be stacked vertically (hamburger style), sharing one x position, not spread out in a row")
-			assert_true(buttons[i].global_position.x > widget.global_position.x, "the action button stack must sit to the right of the Dial")
+			assert_true(buttons[i].global_position.y == buttons[0].global_position.y, "the action blocks must sit in a horizontal row, sharing one y position, not stacked")
+			assert_true(buttons[i].global_position.x > widget.global_position.x, "the action row must sit to the right of the Dial")
 
 		screen.free()
 		viewport.free()

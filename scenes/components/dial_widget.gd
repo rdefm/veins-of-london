@@ -2,63 +2,120 @@ class_name DialWidget
 extends Control
 
 # combat-presentation ticket 03, docs/combat-animation-vision.md §2.5: the
-# Dial's in-combat casting widget -- docked right, full height, spanning the
-# action-card row and the log beneath it (scenes/screens/combat.gd's
-# _build_command_deck()). Replaces the per-Complication button list
-# bag_drawer.gd's in-combat section used to render (removed there -- Dial
-# casting only happens through this widget now; non-Dial Bag items keep
-# working via the existing Bag flow).
+# Dial's in-combat casting widget -- docked left of the command deck's action
+# row (scenes/screens/combat.gd's _build_dial_and_actions_row()). Replaces
+# the per-Complication button list bag_drawer.gd's in-combat section used to
+# render (removed there -- Dial casting only happens through this widget
+# now; non-Dial Bag items keep working via the existing Bag flow).
 #
 # Rebuilt fresh by CombatScreen._refresh() on every EventBus.state_changed,
-# same as TurnOrderStrip -- and, like TurnOrderStrip.handle_swipe(),
-# handle_rotate() below never mutates this node's own _selected_index; it
-# only reports the new index through the callback. CombatScreen owns the
-# persisted choice (_dial_selected_index) and re-triggers a full _refresh()
-# in response (_on_dial_selection_changed()), the same "nothing in
-# GameState changed, so nothing would otherwise trigger it" case
-# combat.gd's own non-enemy-swipe branch documents -- one source of truth,
-# not two copies of the selection drifting in parallel.
+# same as TurnOrderStrip.
 #
-# Placeholder art only -- plain drawn shapes (_draw()), not the pixel-art
-# diegetic prop §2.5 locks in. That's the one deliberate pixel-art
-# exception in the whole vision doc, deferred rather than placeholder'd
-# with a flat box since this widget's functional shape (rotate/trigger/
-# charge-clock) is what this ticket proves, not its final look.
+# combat-presentation ticket 18 (human direction, 2026-09-09): replaces this
+# widget's placeholder vector clock/bezel _draw() AND its rotate-to-select/
+# press-anywhere-to-trigger gesture with the real `assets/hq/dial/
+# dial_device_base.png` umbrella-handle art (the same prop hq_dial.gd's
+# loadout screen already renders) plus a direct-tap interaction: the 4 grey
+# screws visible in the art are tap targets, one per loaded-Complication
+# housing (index 0..3, same MAX_VISIBLE_COMPLICATION_HOUSINGS cap
+# hq_dial.gd's own flanking sockets use -- a combat loadout never shows more
+# than 4 at once either); the oval switch below the grip is the trigger tap
+# target, overlaid with a drawn "⇄" two-arrow glyph since the source art has
+# no such icon baked in (an art-independent flourish, same convention
+# StageSlot's own vector overlays use). This supersedes ticket 14's "art-only
+# pass, no functional/interaction change" scope -- the human asked for the
+# interaction to change too, so ticket 14 is folded into this one. See
+# docs/combat-animation-vision.md §2.5's amendment note for the superseded
+# rotate-gesture spec text.
+#
+# handle_select()/handle_trigger() only ever REPORT through their callbacks,
+# never mutate this node's own _selected_index -- same split the old
+# handle_rotate() used and TurnOrderStrip.handle_swipe() still uses.
+# CombatScreen owns the persisted choice (_dial_selected_index) and
+# re-triggers a full _refresh() in response, so there is exactly one source
+# of truth for the selection, not two copies drifting in parallel.
+#
+# Geometry below is measured by eye off the same PNG hq_dial.gd's own
+# FACE_CENTER_NATIVE/NEEDLE_* consts were measured from (see that file's top
+# comment for the measurement method) -- ART-REVIEW, not yet confirmed
+# on-device (this agent cannot see the running UI, CLAUDE.md workflow rule
+# 5). Human should eyeball dot/button alignment against the real render and
+# adjust these consts if they read off-target.
 
-# Geometry ratios shared between _draw() and the angular gesture below, so
-# the hit-testing math can never drift from what's actually painted.
-const CLOCK_RADIUS_RATIO := 0.42
-const BEZEL_RADIUS_RATIO := 0.42
-const CLOCK_TOP_MARGIN := 4.0
-const BEZEL_GAP := 10.0
+# Same source art hq_dial.gd's loadout screen uses -- reused, not
+# duplicated, so a future re-paint of the umbrella only has one file to
+# replace.
+const HANDLE_TEXTURE_PATH := "res://assets/hq/dial/dial_device_base.png"
+const NEEDLE_TEXTURE_PATH := "res://assets/hq/dial/dial-needle.png"
 
-# §2.5: "Rotate (drag/swipe around the handle)" -- an angular gesture
-# around the bezel's centre, not a linear swipe. Below this angle the
-# release reads as a press (trigger) rather than a rotate; ~20 degrees.
-const ROTATE_ANGLE_THRESHOLD := 0.35
+# The widget's own fixed footprint -- unlike the old vector widget (which
+# read its rotate/trigger geometry off `size.x`, tying it to whatever the
+# parent HBoxContainer handed it), every geometry helper below works off
+# this fixed box so hit-testing/drawing never depends on a live layout pass
+# having already run (tests build/configure() this widget without adding it
+# to a SceneTree at all -- see tests/test_dial_widget.gd's own top comment).
+const VISIBLE_BOX_SIZE := Vector2(130.0, 170.0)
+
+# The umbrella is rendered at this on-screen size (native art is 500x500,
+# same DEVICE_NATIVE_SIZE hq_dial.gd uses) and then clipped to
+# VISIBLE_BOX_SIZE -- only the head/grip/button reads at combat scale, the
+# long shaft/strap runs off the bottom of the clip, same "rises out of the
+# frame" crop hq_dial.gd's own bottom-anchored composition relies on, just
+# clipped by a fixed box here instead of anchored to the screen edge.
+const HANDLE_DISPLAY_SIZE := 220.0
+const HANDLE_NATIVE_SIZE := 500.0
+const HANDLE_SCALE := HANDLE_DISPLAY_SIZE / HANDLE_NATIVE_SIZE
+
+# Where the rendered umbrella sits inside VISIBLE_BOX_SIZE: horizontally
+# centred, and shifted down by TOP_INSET so the topmost screw (which sits
+# almost flush with the art's own top edge) has room above it for a full
+# hit-square rather than being clipped by the box's own top edge.
+const TOP_INSET := 24.0
+const WRAP_OFFSET := Vector2((VISIBLE_BOX_SIZE.x - HANDLE_DISPLAY_SIZE) / 2.0, TOP_INSET)
+
+# hq_dial.gd's own measured consts, reused verbatim (same PNG, same
+# measurement) -- see that file's top comment for how these were derived.
+const FACE_CENTER_NATIVE := Vector2(250.0, 101.0)
+const NEEDLE_ATLAS_REGION := Rect2(3.0, 1.0, 45.0, 37.0)
+const NEEDLE_HUB_NATIVE := Vector2(13.0, 26.0)
+const NEEDLE_MIN_DEG := -90.0
+const NEEDLE_MAX_DEG := 90.0
+
+# The 4 screws ringing the clock face (hq_dial.gd's own comment: "~55-80
+# native px apart") -- index order matches loadedComplications: 0=top,
+# 1=right, 2=bottom, 3=left, going clockwise from 12 o'clock the same
+# direction hq_dial.gd's flanking-socket reading order and TurnOrderStrip's
+# own left-to-right convention both already use.
+#
+# Explicit per-dot offsets rather than one shared radius -- confirmed via
+# scripts/debug_combat_dial_screenshot.gd's own render (ART-REVIEW, see this
+# file's top comment) that the housing reads taller than it is wide: a
+# radius that lands the top/bottom screws right on the art overshoots past
+# the left/right screws into the empty background beside the housing.
+const DOT_OFFSETS_NATIVE: Array[Vector2] = [
+	Vector2(0.0, -88.0), Vector2(61.0, 0.0), Vector2(0.0, 88.0), Vector2(-61.0, 0.0),
+]
+const DOT_HIT_SIZE := Vector2(34.0, 34.0)
+const MAX_DOTS := 4
+
+# The oval switch below the ridged grip band -- ART-REVIEW, see this file's
+# top comment. Sized well past the visible pill in the art (same "the tap
+# target doesn't have to match the literal art pixel-for-pixel" call
+# hq_dial.gd's own socket tiles already make) so it clears the 44x44
+# no-overlap guidance docs/hq-diorama-vision.md §3.2 sets, and sits far
+# enough below the bottom screw (index 2) that the two hit-boxes don't
+# touch.
+const BUTTON_CENTER_NATIVE := Vector2(250.0, 280.0)
+const BUTTON_HIT_SIZE := Vector2(64.0, 36.0)
 
 var _dial: Dictionary = {}
 var _selected_index: int = 0
 var _on_selection_changed: Callable = Callable()
 var _on_triggered: Callable = Callable()
 
-var _drag_index := -100
-var _drag_start_angle: float = 0.0
 
-
-# `selected_index` is CombatScreen's persisted choice (its own instance var,
-# same pattern as _strip_selected_key/TurnOrderStrip) -- clamped here to
-# whatever loadedComplications looks like right now, since ticket 03's Dial
-# management (bag_drawer.gd, out of combat only) can't change that list
-# mid-fight but a fresh Dial/fight can hand this a stale index.
-#
-# combat-presentation ticket 05: `on_triggered` (optional, defaults to a
-# no-op Callable so every pre-ticket-05 configure() call site/test still
-# works unchanged) reports handle_trigger()'s Combat.cast_complication()
-# result -- same "report through a callback, never own the follow-up"
-# split on_selection_changed already uses. CombatScreen wires it to play the
-# result's `beats` back through CombatDirector, same as an Attack/Run press
-# (_play_round()) -- see that file's _on_dial_triggered().
+# `selected_index` is CombatScreen's persisted choice -- clamped here to
+# whatever loadedComplications looks like right now, same as before.
 func configure(dial: Dictionary, selected_index: int, on_selection_changed: Callable, on_triggered: Callable = Callable()) -> void:
 	_dial = dial
 	var loaded: Array = dial.get("loadedComplications", [])
@@ -66,35 +123,35 @@ func configure(dial: Dictionary, selected_index: int, on_selection_changed: Call
 	_on_selection_changed = on_selection_changed
 	_on_triggered = on_triggered
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	queue_redraw()
+	custom_minimum_size = VISIBLE_BOX_SIZE
+	size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	clip_contents = true
+
+	if get_child_count() == 0:
+		_build_art()
+	_position_needle()
+	if _overlay != null:
+		_overlay.queue_redraw()
 
 
 func current_index() -> int:
 	return _selected_index
 
 
-# Public so tests can drive a rotation without simulating InputEvents (same
-# split TurnOrderStrip.handle_swipe() uses). direction: -1 previous / +1
-# next, wrapping at either end -- a physical dial rotates continuously,
-# unlike the turn-order strip's card-row swipe, which clamps at the ends.
-# Reports through the callback only, same as handle_swipe() -- see this
-# file's own top comment for why it doesn't also mutate _selected_index.
-func handle_rotate(direction: int) -> void:
+# Public so tests can drive selection without simulating InputEvents (same
+# split TurnOrderStrip.handle_swipe() and the old handle_rotate() used).
+# A no-op past the loaded list's own end -- nothing there to select, same
+# "refuse quietly" convention handle_trigger()'s charge check already uses.
+func handle_select(index: int) -> void:
 	var loaded: Array = _dial.get("loadedComplications", [])
-	if loaded.size() <= 1:
+	if index < 0 or index >= loaded.size():
 		return
-	var new_index: int = wrapi(_selected_index + direction, 0, loaded.size())
 	if _on_selection_changed.is_valid():
-		_on_selection_changed.call(new_index)
+		_on_selection_changed.call(index)
 
 
-# Combat.cast_complication() (systems/combat.gd:1021) already guards charge/
-# validity and appends its own log line -- this widget is a thin dispatcher,
-# same shape as _build_action_bar()'s old inline UI.button() callbacks.
-# combat-presentation ticket 05: the cast itself is still this synchronous
-# direct call (state is fully mutated by the time this returns, same as
-# every other Combat.* call site) -- only the result's `beats` gets handed
-# onward, through _on_triggered, for cosmetic playback.
+# Combat.cast_complication() (systems/combat.gd:1231) already guards charge/
+# validity and appends its own log line -- this widget is a thin dispatcher.
 func handle_trigger() -> void:
 	var result: Dictionary = Combat.cast_complication(_selected_index)
 	if _on_triggered.is_valid():
@@ -102,108 +159,177 @@ func handle_trigger() -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventScreenTouch:
-		if event.pressed:
-			if _drag_index == -100:
-				_drag_index = event.index
-				_drag_start_angle = _angle_at(event.position)
-		elif event.index == _drag_index:
-			_end_drag(_angle_at(event.position))
-	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed:
-			if _drag_index == -100:
-				_drag_index = -1
-				_drag_start_angle = _angle_at(event.position)
-		elif _drag_index == -1:
-			_end_drag(_angle_at(event.position))
+	# combat-presentation ticket 18: a plain tap dispatches immediately on
+	# press (no rotate-vs-trigger angle heuristic needed any more -- each
+	# region is its own discrete target, same as tapping any other button).
+	if event is InputEventScreenTouch and event.pressed:
+		_handle_tap_at(event.position)
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		_handle_tap_at(event.position)
 
 
-func _angle_at(local_pos: Vector2) -> float:
-	return (local_pos - _bezel_center()).angle()
-
-
-# A short angular movement (below threshold) is the trigger press; a wider
-# sweep rotates instead, toward whichever way the finger swung around the
-# bezel's centre -- an increasing angle (clockwise, screen coordinates)
-# rotates forward, an arbitrary but consistent convention for this
-# placeholder gesture.
-func _end_drag(release_angle: float) -> void:
-	var delta: float = wrapf(release_angle - _drag_start_angle, -PI, PI)
-	_drag_index = -100
-	if absf(delta) < ROTATE_ANGLE_THRESHOLD:
+func _handle_tap_at(pos: Vector2) -> void:
+	if _button_rect().has_point(pos):
 		handle_trigger()
-	else:
-		handle_rotate(1 if delta > 0.0 else -1)
-
-
-func _clock_radius() -> float:
-	return size.x * CLOCK_RADIUS_RATIO
-
-
-func _clock_center() -> Vector2:
-	return Vector2(size.x / 2.0, _clock_radius() + CLOCK_TOP_MARGIN)
-
-
-func _bezel_radius() -> float:
-	return size.x * BEZEL_RADIUS_RATIO
-
-
-func _bezel_center() -> Vector2:
-	var clock_center := _clock_center()
-	return Vector2(size.x / 2.0, clock_center.y + _clock_radius() + _bezel_radius() + BEZEL_GAP)
-
-
-func _draw() -> void:
-	var loaded: Array = _dial.get("loadedComplications", [])
-	if loaded.is_empty():
 		return
+	for i in range(MAX_DOTS):
+		if _dot_rect(i).has_point(pos):
+			handle_select(i)
+			return
 
-	# Charge clock-face (§2.5's "built into the top of the handle"): a
-	# filled wedge sweeping clockwise from 12 o'clock, proportional to
-	# dial.currentCharge/dial.maxCharge -- an analog gauge, not pips or a
-	# linear meter, per the ticket's explicit call-out.
-	var clock_r: float = _clock_radius()
-	var clock_center := _clock_center()
-	draw_circle(clock_center, clock_r, Color(0.16, 0.16, 0.20))
-	draw_arc(clock_center, clock_r, 0.0, TAU, 32, Color(0, 0, 0, 0.6), 2.0)
 
-	var max_charge: float = maxf(1.0, float(_dial.get("maxCharge", 1)))
-	var current_charge: float = float(_dial.get("currentCharge", 0))
-	var charge_frac: float = clampf(current_charge / max_charge, 0.0, 1.0)
-	var sweep: float = TAU * charge_frac
-	if sweep > 0.0:
-		var points := PackedVector2Array([clock_center])
-		var steps: int = maxi(1, int(sweep / 0.2))
-		for i in range(steps + 1):
-			var a: float = -PI / 2.0 + sweep * (float(i) / float(steps))
-			points.append(clock_center + Vector2(cos(a), sin(a)) * clock_r)
-		draw_colored_polygon(points, Color(0.95, 0.85, 0.35, 0.9))
+func _dot_position(index: int) -> Vector2:
+	return FACE_CENTER_NATIVE * HANDLE_SCALE + DOT_OFFSETS_NATIVE[index] * HANDLE_SCALE + WRAP_OFFSET
 
-	# Handle body + rotating bezel, below the clock-face: a ring of tick
-	# marks, one per loaded Complication, with a raised marker on the
-	# currently-selected one, plus a fixed pointer at 12 o'clock -- §2.5's
-	# "distinct rotating-bezel texture band with raised notches and a fixed
-	# pointer marker," rendered as plain vector shapes per this ticket's
-	# placeholder-art exception. Notch count always follows
-	# loaded.size(), never a fixed number (capacityMax varies by level).
-	var bezel_r: float = _bezel_radius()
-	var bezel_center := _bezel_center()
-	draw_circle(bezel_center, bezel_r + 6.0, Color(0.22, 0.22, 0.26))
-	draw_circle(bezel_center, bezel_r, Color(0.30, 0.28, 0.24))
 
-	# Dimmed when there's no charge to spend -- a press is still accepted
-	# (Combat.cast_complication() refuses it), but nothing here should look
-	# pressable, matching the old bag-drawer cast button's disabled state at
-	# currentCharge < 1.
-	var can_trigger: bool = current_charge >= 1.0
-	var selected_colour: Color = Color(1.0, 0.86, 0.35) if can_trigger else Color(0.5, 0.46, 0.32)
-	var pointer_colour: Color = Color(0.9, 0.9, 0.95) if can_trigger else Color(0.5, 0.5, 0.55)
+func _dot_rect(index: int) -> Rect2:
+	return Rect2(_dot_position(index) - DOT_HIT_SIZE / 2.0, DOT_HIT_SIZE)
 
-	var count: int = loaded.size()
-	for i in range(count):
-		var a: float = -PI / 2.0 + TAU * (float(i) / float(count))
-		var notch_pos: Vector2 = bezel_center + Vector2(cos(a), sin(a)) * (bezel_r - 4.0)
+
+func _button_position() -> Vector2:
+	return BUTTON_CENTER_NATIVE * HANDLE_SCALE + WRAP_OFFSET
+
+
+func _button_rect() -> Rect2:
+	return Rect2(_button_position() - BUTTON_HIT_SIZE / 2.0, BUTTON_HIT_SIZE)
+
+
+# The umbrella base + charge-reserve needle -- built once per instance (a
+# fresh DialWidget every _refresh(), same lifecycle StageSlot's per-fight
+# nodes don't share but this per-sync widget does need re-stating each
+# time), mirroring hq_dial.gd's own _build_device_art() layout math at
+# HANDLE_SCALE instead of that screen's own larger DEVICE_SCALE.
+var _base_rect: TextureRect
+var _needle_rect: TextureRect
+
+# A separate top Control for the ring/arrow overlay, added AFTER `wrap` --
+# a Control's own _draw() paints before its children (same ordering
+# StageSlot's own _overlay comment documents), so overriding self's _draw()
+# directly would paint the rings/arrow UNDER the umbrella texture, invisible
+# wherever the art is opaque (confirmed via scripts/
+# debug_combat_dial_screenshot.gd's own render: the trigger icon disappeared
+# entirely behind the switch graphic). _overlay draws on top instead.
+var _overlay: Control
+
+
+func _build_art() -> void:
+	var wrap := Control.new()
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.position = WRAP_OFFSET
+	wrap.custom_minimum_size = Vector2(HANDLE_DISPLAY_SIZE, HANDLE_DISPLAY_SIZE)
+	add_child(wrap)
+
+	_base_rect = TextureRect.new()
+	_base_rect.texture = load(HANDLE_TEXTURE_PATH)
+	_base_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_base_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_base_rect.size = Vector2(HANDLE_DISPLAY_SIZE, HANDLE_DISPLAY_SIZE)
+	_base_rect.stretch_mode = TextureRect.STRETCH_SCALE
+	wrap.add_child(_base_rect)
+
+	_needle_rect = TextureRect.new()
+	var atlas := AtlasTexture.new()
+	atlas.atlas = load(NEEDLE_TEXTURE_PATH)
+	atlas.region = NEEDLE_ATLAS_REGION
+	_needle_rect.texture = atlas
+	_needle_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_needle_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_needle_rect.stretch_mode = TextureRect.STRETCH_SCALE
+	var needle_size: Vector2 = NEEDLE_ATLAS_REGION.size * HANDLE_SCALE
+	_needle_rect.size = needle_size
+	_needle_rect.pivot_offset = NEEDLE_HUB_NATIVE * HANDLE_SCALE
+	wrap.add_child(_needle_rect)
+
+	# An explicit fixed rect, not anchors -- this widget's own size never
+	# varies (it's always exactly VISIBLE_BOX_SIZE, unlike e.g. StageSlot's
+	# own per-fan-position overlay, which does need to track a resizing
+	# parent), so there's no reason to depend on anchor resolution timing
+	# relative to when this Control gets parented/laid out.
+	_overlay = Control.new()
+	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_overlay.position = Vector2.ZERO
+	_overlay.size = VISIBLE_BOX_SIZE
+	_overlay.draw.connect(_draw_overlay)
+	add_child(_overlay)
+
+
+func _position_needle() -> void:
+	if _needle_rect == null:
+		return
+	var hub_offset: Vector2 = NEEDLE_HUB_NATIVE * HANDLE_SCALE
+	_needle_rect.position = FACE_CENTER_NATIVE * HANDLE_SCALE - hub_offset
+	_needle_rect.rotation_degrees = _needle_rotation_degrees()
+
+
+func _needle_rotation_degrees() -> float:
+	var max_charge: float = float(_dial.get("maxCharge", 0))
+	if max_charge <= 0.0:
+		return NEEDLE_MIN_DEG
+	var fraction: float = clampf(float(_dial.get("currentCharge", 0)) / max_charge, 0.0, 1.0)
+	return lerpf(NEEDLE_MIN_DEG, NEEDLE_MAX_DEG, fraction)
+
+
+# The overlay layer: a ring on the selected (loaded) screw, a dim mark on
+# every screw with nothing loaded into it, and the drawn two-arrow trigger
+# icon -- none of this is baked into the source art, all of it art-
+# independent vector drawing, same convention StageSlot's own overlay
+# effects (flash/shield-crack) use over real or placeholder art alike. Lives
+# on `_overlay` (a Control drawn on top of `wrap`'s art, not this node's own
+# _draw()) -- see this file's own `_overlay` var comment for why.
+func _draw_overlay() -> void:
+	var loaded: Array = _dial.get("loadedComplications", [])
+	var can_trigger: bool = float(_dial.get("currentCharge", 0)) >= 1.0
+
+	for i in range(MAX_DOTS):
+		var pos: Vector2 = _dot_position(i)
+		if i >= loaded.size():
+			# A light (not dark) thin ring -- a dark fill reads invisible
+			# against the umbrella's own near-black housing, loaded/empty or
+			# not (confirmed via scripts/debug_combat_dial_screenshot.gd's own
+			# render).
+			_overlay.draw_arc(pos, 5.0, 0.0, TAU, 16, Color(0.9, 0.9, 0.92, 0.3), 1.0)
+			continue
 		var is_selected: bool = i == _selected_index
-		draw_circle(notch_pos, 4.0 if is_selected else 2.5, selected_colour if is_selected else Color(0.6, 0.6, 0.62))
+		var colour: Color = Color(1.0, 0.86, 0.35, 0.95) if is_selected else Color(0.85, 0.85, 0.9, 0.65)
+		_overlay.draw_arc(pos, 9.0 if is_selected else 7.0, 0.0, TAU, 20, colour, 2.5 if is_selected else 1.5)
 
-	draw_line(bezel_center, bezel_center + Vector2(0, -bezel_r - 8.0), pointer_colour, 2.0)
+	var button_colour: Color = Color(1.0, 0.86, 0.35, 0.95) if can_trigger else Color(0.55, 0.55, 0.58, 0.7)
+	_draw_two_arrow_icon(_button_position(), button_colour)
+
+
+# Drawn rather than a "⇄" text glyph -- ThemeDB.fallback_font's coverage of
+# that codepoint isn't guaranteed (the exact problem scenes/components/
+# symbol_glyph.gd exists to work around for other symbols elsewhere in the
+# project); a missing glyph would silently render nothing at all. Two
+# opposing arrows, offset top/bottom so they read as a pair rather than one
+# double-headed line -- shaft + a triangle head, drawn with primitives only.
+# Every draw_* call below is explicitly `_overlay.draw_*`, not a bare call --
+# a bare draw_arc()/draw_line()/draw_colored_polygon() inside a method that
+# belongs to `self` (this whole class) draws onto `self`'s own canvas layer
+# regardless of which CanvasItem's `draw` signal invoked it, same gotcha
+# StageSlot's own _draw_overlay() (scenes/screens/combat.gd) already works
+# around by prefixing every call with `_overlay.` -- confirmed the hard way
+# via scripts/debug_combat_dial_screenshot.gd's own render (nothing painted
+# at all until this was fixed).
+const ARROW_ICON_HALF_LENGTH := 9.0
+const ARROW_ICON_ROW_GAP := 5.0
+const ARROW_ICON_HEAD_SIZE := 4.5
+
+
+func _draw_two_arrow_icon(center: Vector2, colour: Color) -> void:
+	_draw_single_arrow(center + Vector2(0.0, -ARROW_ICON_ROW_GAP), 1.0, colour)
+	_draw_single_arrow(center + Vector2(0.0, ARROW_ICON_ROW_GAP), -1.0, colour)
+
+
+# `direction` +1 points right, -1 points left.
+func _draw_single_arrow(mid: Vector2, direction: float, colour: Color) -> void:
+	var tail: Vector2 = mid - Vector2(ARROW_ICON_HALF_LENGTH * direction, 0.0)
+	var tip: Vector2 = mid + Vector2(ARROW_ICON_HALF_LENGTH * direction, 0.0)
+	_overlay.draw_line(tail, tip, colour, 2.0)
+	var back: Vector2 = tip - Vector2(ARROW_ICON_HEAD_SIZE * direction, 0.0)
+	var head := PackedVector2Array([
+		tip,
+		back + Vector2(0.0, ARROW_ICON_HEAD_SIZE * 0.7),
+		back + Vector2(0.0, -ARROW_ICON_HEAD_SIZE * 0.7),
+	])
+	_overlay.draw_colored_polygon(head, colour)
