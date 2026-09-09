@@ -46,7 +46,8 @@ const SCREEN_SCRIPTS := {
 	"vein_list": preload("res://scenes/screens/vein_list.gd"),
 
 	# hq-diorama ticket 06, docs/hq-diorama-vision.md §5: the Lab bench's
-	# diegetic sub-view (pan model, 3 stops, notebook mode fork), reached
+	# diegetic sub-view (pan model, 2 stops since ticket 11's books+ore
+	# merge, notebook mode fork), reached
 	# from hq.gd's "lab" zone tap. Full-bleed, same reasoning as
 	# hq_floorplan/hq_door below. Ticket 07 built out the full craft flow
 	# (ore selection, apparatus arming, the recipe book, bench notes) on

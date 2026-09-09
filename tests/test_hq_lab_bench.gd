@@ -53,20 +53,20 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_opens_on_the_books_stop_with_the_left_arrow_disabled", func():
+	run_case("hq_lab_bench_opens_on_the_books_ore_stop_with_the_left_arrow_disabled", func():
 		GameState.reset()
-		GameState.state["labBenchNav"]["stop"] = "books"
+		GameState.state["labBenchNav"]["stop"] = "books_ore"
 
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		assert_true(_find_button(screen, "‹").disabled, "§5.1: the left arrow must be disabled at the first (books) stop")
-		assert_true(not _find_button(screen, "›").disabled, "the right arrow must stay enabled with 2 more stops ahead")
+		assert_true(_find_button(screen, "‹").disabled, "§5.1: the left arrow must be disabled at the first (books+ore) stop")
+		assert_true(not _find_button(screen, "›").disabled, "the right arrow must stay enabled with the apparatus stop ahead")
 
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_right_arrow_steps_to_the_ore_stop", func():
+	run_case("hq_lab_bench_right_arrow_steps_to_the_apparatus_stop", func():
 		GameState.reset()
 
 		var screen := HqLabBenchScreen.new()
@@ -74,7 +74,7 @@ func run() -> void:
 
 		_find_button(screen, "›").pressed.emit()
 
-		assert_eq(GameState.state["labBenchNav"]["stop"], "ore", "tapping the right arrow must advance exactly one stop")
+		assert_eq(GameState.state["labBenchNav"]["stop"], "apparatus", "tapping the right arrow must advance exactly one stop")
 
 		screen.free()
 	)
@@ -87,7 +87,7 @@ func run() -> void:
 		screen._ready()
 
 		assert_true(_find_button(screen, "›").disabled, "§5.1: the right arrow must be disabled at the last (apparatus) stop")
-		assert_true(not _find_button(screen, "‹").disabled, "the left arrow must stay enabled with stops behind it")
+		assert_true(not _find_button(screen, "‹").disabled, "the left arrow must stay enabled with the books+ore stop behind it")
 
 		screen.free()
 	)
@@ -101,8 +101,65 @@ func run() -> void:
 
 		_find_button(screen, "‹").pressed.emit()
 
-		assert_eq(GameState.state["labBenchNav"]["stop"], "ore", "tapping the left arrow must step back exactly one stop")
+		assert_eq(GameState.state["labBenchNav"]["stop"], "books_ore", "tapping the left arrow must step back exactly one stop")
 
+		screen.free()
+	)
+
+	# ── ticket 11: arrow nav tweens the pan instead of snapping ───────────
+
+	await run_case("hq_lab_bench_right_arrow_tweens_the_diorama_pan_when_in_a_live_tree", func():
+		GameState.reset()
+		var tree := Engine.get_main_loop() as SceneTree
+		var screen := HqLabBenchScreen.new()
+		tree.root.add_child(screen)
+		await tree.process_frame
+
+		var stop_width: float = GameData.HQ_VISUALS["labBench"]["width"] / float(LabBenchNav.STOPS.size())
+
+		_find_button(screen, "›").pressed.emit()
+
+		assert_true(screen._active_pan_tween != null, "ticket 11: an arrow step must kick off a tween rather than snap instantly")
+		assert_almost_eq(screen._diorama.position.x, 0.0, 0.01, "mid-tween, the diorama must still be at its pre-step position")
+
+		screen._active_pan_tween.custom_step(999999.0)
+		assert_almost_eq(screen._diorama.position.x, -stop_width, 0.01, "once the tween finishes, the diorama must have arrived at the apparatus stop")
+
+		tree.root.remove_child(screen)
+		screen.free()
+	)
+
+	# code-review (ticket 11): _refresh() rebuilds the diorama on *every*
+	# state_changed, not only an arrow step -- an unrelated state change
+	# (e.g. an impatient tap on a notebook) firing mid-pan must resume the
+	# same pan from wherever it actually is, not snap straight to the
+	# destination early (which is what happens if the rebuild trusts a
+	# _pan_x already overwritten with the tween's target rather than the
+	# diorama's live position).
+	await run_case("hq_lab_bench_an_unrelated_refresh_mid_pan_resumes_toward_the_same_target_instead_of_snapping_there", func():
+		GameState.reset()
+		var tree := Engine.get_main_loop() as SceneTree
+		var screen := HqLabBenchScreen.new()
+		tree.root.add_child(screen)
+		await tree.process_frame
+
+		var stop_width: float = GameData.HQ_VISUALS["labBench"]["width"] / float(LabBenchNav.STOPS.size())
+
+		_find_button(screen, "›").pressed.emit()
+		screen._active_pan_tween.custom_step(0.2)  # halfway through _PAN_DURATION -- still mid-flight
+
+		var mid_x: float = screen._diorama.position.x
+		assert_true(mid_x < -1.0 and mid_x > -(stop_width - 1.0), "sanity: the fixture must actually be mid-flight, not at either end (%s)" % mid_x)
+
+		LabBenchNav.tap_notebook(LabBenchNav.MODE_RECIPES)  # unrelated state_changed, same stop
+
+		assert_almost_eq(screen._diorama.position.x, mid_x, 0.01, "the rebuilt diorama must resume from where the pan actually was, not jump ahead to the destination")
+		assert_true(screen._active_pan_tween != null, "the rebuild must still be animating toward the apparatus stop, not have already arrived")
+
+		screen._active_pan_tween.custom_step(999999.0)
+		assert_almost_eq(screen._diorama.position.x, -stop_width, 0.01, "the resumed tween must still land on the apparatus stop")
+
+		tree.root.remove_child(screen)
 		screen.free()
 	)
 

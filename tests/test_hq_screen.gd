@@ -234,7 +234,7 @@ func run() -> void:
 		_tap_zone(hq, "lab")
 
 		assert_eq(GameState.state["currentScreen"], "hq_lab_bench", "tapping the Lab zone must open the bench sub-view")
-		assert_eq(GameState.state["labBenchNav"]["stop"], "books", "LabBenchNav.open() must land the bench on its own books stop, same as any fresh visit (§5.1)")
+		assert_eq(GameState.state["labBenchNav"]["stop"], "books_ore", "LabBenchNav.open() must land the bench on its own books+ore stop, same as any fresh visit (§5.1)")
 
 		hq.free()
 	)

@@ -6,15 +6,17 @@ extends Control
 # BenchNav.go_home() + Nav.go_to("lab") destination.
 #
 # §5.1's camera model: one wide plate (data/hq_visuals.json's "labBench",
-# 1170x844 -- 3 stops x the 390-wide screen, authored 585x422 shown 2x
-# nearest) panned by offsetting the rendered HqDiorama's own x position by
-# whole stop-widths inside a clipping frame -- never free-scrolled ("a
+# 780x844 -- ticket 11 merged the original 3 stops down to 2 (books+ore
+# share stop 0, apparatus keeps stop 1), still the 390-wide screen x
+# STOPS.size()) panned by offsetting the rendered HqDiorama's own x position
+# by whole stop-widths inside a clipping frame -- never free-scrolled ("a
 # swipe gesture would fight the ore-dragging" ticket 07's own concern).
-# Arrows only. Reuses HqDiorama unmodified (scenes/components/hq_diorama.gd)
-# -- it already renders any plate generically (background + per-region
-# placeholder boxes + debug overlay); panning is purely this screen's own
-# positioning of that one Control inside a 390-wide clip frame, the same
-# way a photo strip scrolls behind a window.
+# Arrows only, and (ticket 11) tweened rather than snapped -- see
+# _pan_diorama_to() below. Reuses HqDiorama unmodified
+# (scenes/components/hq_diorama.gd) -- it already renders any plate
+# generically (background + per-region placeholder boxes + debug overlay);
+# panning is purely this screen's own positioning of that one Control inside
+# a 390-wide clip frame, the same way a photo strip scrolls behind a window.
 #
 # Full-bleed (§3.3), same NAV_HIDDEN_SCREENS/TOP_BAR_HIDDEN_SCREENS
 # registration as hq_floorplan.gd/hq_door.gd (see scenes/Main.gd) -- the
@@ -27,9 +29,11 @@ extends Control
 # state.benchNav nav state, and systems/bench_nav.gd are all deleted --
 # every interaction below reads/writes state.labBenchNav and calls straight
 # into systems/bench.gd, systems/crafting.gd and systems/approaches.gd,
-# same as lab.gd used to). Three stops, one interaction model each:
+# same as lab.gd used to). Three interaction models, books and ore sharing
+# stop 0 since ticket 11's merge (§5.1's pan model above), apparatus keeping
+# stop 1:
 #
-#  - Books stop: unchanged from ticket 06 -- tapping a notebook sets/clears
+#  - Books (stop 0): unchanged from ticket 06 -- tapping a notebook sets/clears
 #    the session-held mode (LabBenchNav.tap_notebook()), and the held
 #    notebook's own region label grows "(open)". Ticket 07 adds a
 #    "Recipe book" / "Notebook" button (plain UI, not a diorama region)
@@ -39,7 +43,7 @@ extends Control
 #    (Experiments mode: pairings already tried + current recipe levels,
 #    §5.2 point 2 -- reusing Bench.touched_type_sets(), never an
 #    enumeration of the 15 type sets, per M3 §8.0/§5.6).
-#  - Ore stop: five containers, region ids "ore_<oreTypeId>"
+#  - Ore containers (stop 0, alongside the books): five containers, region ids "ore_<oreTypeId>"
 #    (LabBenchNav.ORE_REGION_PREFIX). Tapping one toggles it into/out of
 #    state.labBenchNav.selectedOre (LabBenchNav.select_ore(), same
 #    toggle-replace-max-2 logic BenchNav.select_type used). Each
@@ -49,7 +53,7 @@ extends Control
 #    emptyImage/someImage/plentyImage fields for when one is produced), plus
 #    "selected" and the ore-specific cost it would incur once selected
 #    (§5.4's "a selected ore chip must communicate the cost it will incur").
-#  - Apparatus stop: up to four regions, "apparatus_<approachId>"
+#  - Apparatus (stop 1): up to four regions, "apparatus_<approachId>"
 #    (LabBenchNav.APPARATUS_REGION_PREFIX) -- one per data/approaches.json
 #    approach. §3.2's "a hit region for an object not present at this tier
 #    does not exist": an apparatus whose approach Approaches.is_known()
@@ -69,10 +73,13 @@ extends Control
 # code path, per the ticket's own "does the same thing" requirement.
 
 const _STOP_LABELS := {
-	"books": "Books",
-	"ore": "Ore containers",
+	"books_ore": "Books & ore containers",
 	"apparatus": "Apparatus",
 }
+
+# Ticket 11: how long the arrow-stepped pan between stops takes to tween --
+# same duration convention as map_canvas.gd's own PAN_DURATION.
+const _PAN_DURATION := 0.4
 
 # Arrow buttons are ~44px wide (UI.button()'s own minimum) -- inset from
 # the frame edge by the same 4px margin hq.gd's debug toggle button uses.
@@ -92,6 +99,18 @@ var _diorama: HqDiorama
 # pure state tree, same reasoning every other screen's instance vars are).
 var _press_zone: String = ""
 
+# Ticket 11: the diorama's own settled x offset, tracked across
+# _refresh()'s full teardown-and-rebuild so a rebuild triggered by an arrow
+# step (as opposed to e.g. an ore selection at the same stop) knows where to
+# tween *from*. _pan_initialized guards the very first build only -- that
+# one always snaps, same as every rebuild does when there's no live tree to
+# tween on (see _pan_diorama_to()). _active_pan_tween is exposed the same
+# way map_canvas.gd's own _active_tween is, purely so tests can fast-forward
+# it with custom_step() rather than actually waiting _PAN_DURATION out.
+var _pan_x: float = 0.0
+var _pan_initialized: bool = false
+var _active_pan_tween: Tween = null
+
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -100,6 +119,22 @@ func _ready() -> void:
 
 
 func _refresh() -> void:
+	# Ticket 11: captures wherever the diorama actually, visually sits right
+	# now -- including mid-tween, since _refresh() is called on every
+	# state_changed, not only the arrow-step that started a pan (an ore
+	# selection or mode toggle mid-pan rebuilds too). Reading the live
+	# position here (rather than letting _pan_diorama_to() below assume the
+	# pan already reached its target) is what lets an unrelated rebuild
+	# resume the same pan smoothly instead of snapping straight to the
+	# destination early. Any tween still animating the old (about to be
+	# freed) diorama is killed outright rather than left to notice its
+	# target went away on its own next step.
+	if _diorama != null:
+		_pan_x = _diorama.position.x
+	if _active_pan_tween != null:
+		_active_pan_tween.kill()
+		_active_pan_tween = null
+
 	for child in get_children():
 		child.queue_free()
 	_diorama = null
@@ -119,9 +154,9 @@ func _refresh() -> void:
 
 	_diorama = HqDiorama.new()
 	_diorama.build(_visible_plate(plate, nav))
-	_diorama.position = Vector2(-stop_index * stop_width, 0.0)
 	_diorama.gui_input.connect(_on_diorama_gui_input)
 	frame.add_child(_diorama)
+	_pan_diorama_to(-stop_index * stop_width)
 
 	var back := UI.back_button("hq")
 	back.position = Vector2(_ARROW_INSET, UI.safe_area_top_inset() + _ARROW_INSET)
@@ -145,6 +180,27 @@ func _refresh() -> void:
 	right.disabled = stop_index == LabBenchNav.STOPS.size() - 1
 	right.position = Vector2(stop_width - right.custom_minimum_size.x - _ARROW_INSET, plate_height / 2.0)
 	add_child(right)
+
+
+# Ticket 11, §5.1: positions the just-rebuilt _diorama at target_x, tweening
+# there instead of snapping when this is a genuine pan (not the screen's own
+# first build, and only when there's a live tree for create_tween() to run
+# on -- turn_order_strip.gd's drain_ghost_to() uses the same "no live tree,
+# no tween" guard, so a test that calls _ready() directly without adding the
+# screen to a tree, same pattern every existing test in this file already
+# uses, still gets the old instant jump).
+func _pan_diorama_to(target_x: float) -> void:
+	if not _pan_initialized or not is_inside_tree():
+		_diorama.position = Vector2(target_x, 0.0)
+		_pan_x = target_x
+		_pan_initialized = true
+		return
+
+	_diorama.position = Vector2(_pan_x, 0.0)
+	if not is_equal_approx(_pan_x, target_x):
+		_active_pan_tween = create_tween()
+		_active_pan_tween.tween_property(_diorama, "position:x", target_x, _PAN_DURATION)
+	_pan_x = target_x
 
 
 # Ticket 07, §5.2: "The Experiments notebook is tappable here -- a panel of

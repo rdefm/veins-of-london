@@ -65,19 +65,20 @@ func new_game_state() -> Dictionary:
 		# hq-diorama ticket 06, docs/hq-diorama-vision.md §5: the diegetic
 		# Lab bench's own nav state, same "resets on load, not meaningfully
 		# persisted" convention as mapNav/phoneNav above. stop is which of
-		# the 3 focal stops (systems/lab_bench_nav.gd's STOPS) is in frame;
-		# mode is which notebook (§5.2: "recipes" / "experiments") is held
-		# open for the session, or null at the fork -- unlike stop, mode is
-		# NOT reset by LabBenchNav.open(), so leaving and re-entering the
-		# bench keeps whatever mode the player last chose (§5.2: "stays
-		# visibly open for the whole session"). Ticket 07 adds selectedOre --
-		# up to 2 ore-type ids picked at the ore stop (§5.4), the same
-		# toggle-replace selection the old BenchNav.select_type used, reset
-		# by LabBenchNav.open() (unlike mode) so re-entering the bench never
-		# opens on a stale pairing from last session. Ticket 07 also retires
-		# BenchNav/lab.gd's picker->pairing->confirm drill-down entirely --
-		# this is now the Lab's only nav state.
-		"labBenchNav": { "stop": "books", "mode": null, "selectedOre": [] },
+		# the focal stops (systems/lab_bench_nav.gd's STOPS -- ticket 11
+		# merged the original three down to two: "books_ore" then
+		# "apparatus") is in frame; mode is which notebook (§5.2: "recipes" /
+		# "experiments") is held open for the session, or null at the fork --
+		# unlike stop, mode is NOT reset by LabBenchNav.open(), so leaving
+		# and re-entering the bench keeps whatever mode the player last chose
+		# (§5.2: "stays visibly open for the whole session"). Ticket 07 adds
+		# selectedOre -- up to 2 ore-type ids picked at the ore stop (§5.4),
+		# the same toggle-replace selection the old BenchNav.select_type
+		# used, reset by LabBenchNav.open() (unlike mode) so re-entering the
+		# bench never opens on a stale pairing from last session. Ticket 07
+		# also retires BenchNav/lab.gd's picker->pairing->confirm drill-down
+		# entirely -- this is now the Lab's only nav state.
+		"labBenchNav": { "stop": "books_ore", "mode": null, "selectedOre": [] },
 		# collective1-02: state.objectives[<id>] = { active, complete, progress
 		# }, keyed by data/objectives.json ids -- systems/objectives.gd's
 		# Objectives.refresh() is the only writer. progress is per-evaluator-
