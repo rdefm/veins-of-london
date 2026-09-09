@@ -2294,13 +2294,15 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["combatSkill"], 2, "crossing GameData.COMBAT_XP_LEVELS[2] should level Combat Skill up to 2, same Progression.award_xp() mechanism crafting/cultivating use")
 	)
 
-	run_case("train_is_blocked_without_a_home_gym", func():
+	run_case("train_is_available_without_a_home_gym_at_the_lower_flat_xp_amount", func():
 		GameState.reset()
-		assert_true(not Combat.can_train(), "sanity: no Home Gym built yet")
+		assert_true(not GameState.state["home"]["rooms"].has("homeGym"), "sanity: no Home Gym built yet")
+
+		var blocks_before: int = GameState.state["world"]["timeBlocksDone"].size()
 		var result := Combat.train()
-		assert_true(not result["ok"], "Train should refuse without a built Home Gym")
-		assert_eq(GameState.state["player"]["combatXP"], 0, "no XP should be awarded on a blocked Train attempt")
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 0, "no time block should be spent on a blocked Train attempt")
+		assert_true(result["ok"], "Train should succeed without a built Home Gym")
+		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION, "Train awards its lower flat XP amount without a Home Gym")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), blocks_before + 1, "Train consumes one of the daily time blocks, same currency as every other block-consuming HQ action")
 	)
 
 	run_case("train_spends_a_time_block_and_awards_the_larger_flat_xp_amount", func():
@@ -2308,7 +2310,6 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 100000
 		GameState.state["home"]["tier"] = "flat"
 		Home.add_room("homeGym")
-		assert_true(Combat.can_train(), "Home Gym is built, Train should now be available")
 
 		var blocks_before: int = GameState.state["world"]["timeBlocksDone"].size()
 		var result := Combat.train()

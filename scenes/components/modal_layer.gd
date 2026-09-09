@@ -948,19 +948,20 @@ func _build_hq_ore_readout() -> void:
 # from hq.gd's old _build_gym_card(). squad-combat ticket 05: Train is the
 # Home Gym's repeatable action -- unrelated to (and doesn't replace) the
 # room's own one-time +10 hpMax build bonus (Home.add_room()), which fires
-# the moment the room is bought.
+# the moment the room is bought. Train is always available (no gym needed
+# to throw a bodyweight workout); building the Home Gym just raises the flat
+# XP amount it awards, per Combat.train().
 # PROSE-REVIEW: new flavour text, tone bible per docs/CONTENT-GUIDE.md.
-# Carried over unchanged from hq.gd's old card.
 func _build_hq_gym() -> void:
 	var player: Dictionary = GameState.state["player"]
+	var has_gym: bool = GameState.state["home"]["rooms"].has("homeGym")
 	_card_content.add_child(UI.heading("Gym", 14))
-	if Combat.can_train():
-		_card_content.add_child(UI.label("Combat Skill: Lv%d (%d XP)" % [player["combatSkill"], player["combatXP"]]))
-		var b := UI.button("Train", func(): Combat.train())
-		b.disabled = TimeSystem.is_time_exhausted()
-		_card_content.add_child(b)
-	else:
-		_card_content.add_child(UI.muted_label("Build a Home Gym to claim this space and unlock Train."))
+	_card_content.add_child(UI.label("Combat Skill: Lv%d (%d XP)" % [player["combatSkill"], player["combatXP"]]))
+	if not has_gym:
+		_card_content.add_child(UI.muted_label("Build a Home Gym to get more out of each workout."))
+	var b := UI.button("Train", func(): Combat.train())
+	b.disabled = TimeSystem.is_time_exhausted()
+	_card_content.add_child(b)
 	_card_content.add_child(UI.button("Close", func(): Modal.close()))
 
 

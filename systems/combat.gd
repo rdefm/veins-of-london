@@ -117,6 +117,7 @@ const DEFAULT_TEMPLATE_SPEED := 10
 # there's no separate success/fail split to award differently against).
 const COMBAT_XP_PER_ATTACK_TURN := 5
 const COMBAT_XP_PER_GYM_SESSION := 30
+const COMBAT_XP_PER_WORKOUT_SESSION := 10
 
 # squad-combat ticket 04, R§3.7a "Roster generation": per-instance hp/attack
 # variance band for spawned mugger/guard entries -- DRAFT, needs balance
@@ -1633,27 +1634,27 @@ static func _after_home_raid_combat(outcome) -> void:
 
 
 # ── Train (squad-combat ticket 05, R§3.7a) ──────────────────────────────
-# HQ action, gated on the Home Gym room being built (independent of that
-# room's own one-time +10 hpMax build bonus, GameData.HOME_ROOMS.homeGym --
-# Home Gym is dual-purpose, not replaced). No separate cooldown: spending a
-# time block, out of the player's three/day, is the only throttle, same
-# currency every other block-consuming HQ action (Lab, veinStation, a James
-# job fulfilment) already spends.
-
-static func can_train() -> bool:
-	return GameState.state["home"]["rooms"].has("homeGym")
-
+# HQ action, always available -- a bodyweight workout awards the lower flat
+# XP amount; once Home Gym is built (independent of that room's own one-time
+# +10 hpMax build bonus, GameData.HOME_ROOMS.homeGym -- Home Gym is
+# dual-purpose, not replaced) the same action awards the larger flat amount
+# instead. No separate cooldown: spending a time block, out of the player's
+# three/day, is the only throttle, same currency every other
+# block-consuming HQ action (Lab, veinStation, a James job fulfilment)
+# already spends.
 
 static func train() -> Dictionary:
-	if not can_train():
-		return { "ok": false, "reason": "Build a Home Gym first." }
 	if TimeSystem.is_time_exhausted():
 		return { "ok": false, "reason": "No time blocks left today." }
 
+	var has_gym: bool = GameState.state["home"]["rooms"].has("homeGym")
 	TimeSystem.advance_time_block()
-	award_xp(COMBAT_XP_PER_GYM_SESSION)
-	# PROSE-REVIEW: new Train-result notification, drafted against
+	award_xp(COMBAT_XP_PER_GYM_SESSION if has_gym else COMBAT_XP_PER_WORKOUT_SESSION)
+	# PROSE-REVIEW: new Train-result notifications, drafted against
 	# CONTENT-GUIDE.md's tone bible (dry, one line).
-	Notify.push("A session on the bar and the bag. You feel it tomorrow.", Notify.CATEGORY_SUCCESS)
+	if has_gym:
+		Notify.push("A session on the bar and the bag. You feel it tomorrow.", Notify.CATEGORY_SUCCESS)
+	else:
+		Notify.push("Press-ups and shadow boxing on the flat floor. You feel it tomorrow.", Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	return { "ok": true }

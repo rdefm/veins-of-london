@@ -894,15 +894,30 @@ func run() -> void:
 
 	# ── squad-combat ticket 05 / hq-diorama ticket 02: Gym modal / Train ───
 
-	run_case("hq_gym_modal_offers_no_train_button_without_a_built_home_gym", func():
+	run_case("hq_gym_modal_offers_a_train_button_and_a_build_hint_without_a_built_home_gym", func():
 		GameState.reset()
 		Modal.open("hq_gym")
 
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_find_button(layer, "Train") == null, "Train must not appear before Home Gym is built")
-		assert_true(_label_texts(layer).has("Build a Home Gym to claim this space and unlock Train."), "must show the not-built message instead")
+		assert_true(_find_button(layer, "Train") != null, "Train must be available even before Home Gym is built")
+		assert_true(_label_texts(layer).has("Build a Home Gym to get more out of each workout."), "must show the upgrade hint alongside Train")
+
+		layer.free()
+	)
+
+	run_case("hq_gym_modal_train_button_awards_the_lower_workout_xp_without_a_built_home_gym", func():
+		GameState.reset()
+		Modal.open("hq_gym")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "Train").pressed.emit()
+
+		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION, "pressing Train without a Home Gym should award the lower workout XP")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "pressing Train should spend one of the day's time blocks")
 
 		layer.free()
 	)
