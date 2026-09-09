@@ -196,31 +196,25 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_dial_screen_load_and_unload_complication_matches_dial_system", func():
+	# hq-diorama ticket 17: the bottom tray is gone -- an Empty housing is
+	# now itself the load entry point, opening modal_layer.gd's "dial_load_
+	# complication" picker (that modal's own pick-a-recipe -> Dial.load_
+	# complication behaviour is covered by tests/test_modal_layer.gd, not
+	# duplicated here).
+	run_case("hq_dial_screen_tapping_an_empty_housing_opens_the_load_complication_modal", func():
 		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		player["dial"] = _fresh_dial()
-		player["inventory"]["timePearl"] = { "1": 1 }
+		GameState.state["player"]["dial"] = _fresh_dial()
 
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		_find_button(screen, "⧖Time Pearl tier 1 (1)").pressed.emit()
-		var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
-		assert_eq(loaded.size(), 1, "screen's Load button should load via Dial.load_complication")
-		assert_eq(Crafting.inventory_qty("timePearl"), 0, "loading should move the unit out of regular inventory")
-
-		var screen2 := HqDialScreen.new()
-		screen2._ready()
-		_find_button(screen2, "⧖Time Pearl t1").pressed.emit()
-		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "tapping a loaded housing tile should unload it via Dial.unload_complication")
-		assert_eq(Crafting.inventory_qty("timePearl"), 1, "unloading should return the unit to regular inventory")
+		_find_button(screen, "Empty").pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "dial_load_complication", "tapping an Empty housing must open the load-complication picker")
 
 		screen.free()
-		screen2.free()
 	)
 
-	run_case("hq_dial_screen_loaded_complication_shows_in_a_socket_tile", func():
+	run_case("hq_dial_screen_tapping_a_loaded_housing_unloads_it_via_dial_system", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
 		player["dial"] = _fresh_dial()
@@ -230,37 +224,64 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		assert_true(_label_texts(screen).any(func(t: String): return t.begins_with("⧖Time Pearl t1")), "a loaded Complication must show in its housing tile")
-		assert_eq(_label_texts(screen).filter(func(t: String): return t == "Empty").size(), 3, "the remaining 3 housings must show Empty")
+		_find_button(screen, "⧖Time Pearl t1").pressed.emit()
+		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "tapping a loaded housing tile should unload it via Dial.unload_complication")
+		assert_eq(Crafting.inventory_qty("timePearl"), 1, "unloading should return the unit to regular inventory")
 
 		screen.free()
 	)
 
-	# hq-diorama ticket 09's own human decision (2026-09-08): Complication
-	# housings on this screen are capped at 4 for now, regardless of the
-	# Dial's real capacityMax -- a UI-only display cap layered on top of (never
-	# replacing) Dial.capacity_max()'s own real budget check.
-	run_case("hq_dial_screen_load_button_disabled_once_4_housings_are_shown_full_even_with_capacity_left", func():
+	run_case("hq_dial_screen_loaded_complication_shows_in_a_socket_tile_and_the_rest_stay_empty", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
 		var dial := _fresh_dial()
-		dial["capacityMax"] = 20  # plenty of real budget left after 4 cost-1 loads
-		dial["loadedComplications"] = [
-			{ "recipeKey": "timePearl", "tier": 1, "detent": 0 },
-			{ "recipeKey": "timePearl", "tier": 1, "detent": 1 },
-			{ "recipeKey": "timePearl", "tier": 1, "detent": 2 },
-			{ "recipeKey": "timePearl", "tier": 1, "detent": 3 },
-		]
+		dial["capacityMax"] = 4
 		player["dial"] = dial
-		player["inventory"]["enhancementPowder"] = { "1": 1 }
+		player["inventory"]["timePearl"] = { "1": 1 }
+		Dial.load_complication("timePearl", 1)
 
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		assert_true(Dial.capacity_used(dial) + 1 <= dial["capacityMax"], "sanity: real capacity budget has room for a 5th complication")
-		var load_button := _find_button(screen, "↯Enhancement Powder tier 1 (1)")
-		assert_true(load_button != null, "the tray entry must still render even though housings are full")
-		assert_true(load_button.disabled, "loading a 5th complication must be blocked once all 4 shown housings are full")
+		assert_true(_label_texts(screen).any(func(t: String): return t.begins_with("⧖Time Pearl t1")), "a loaded Complication must show in its housing tile")
+		var empties := screen.find_children("", "Button", true, false).filter(func(b): return (b as Button).text == "Empty")
+		assert_eq(empties.size(), 3, "the remaining 3 housings must show Empty")
+
+		screen.free()
+	)
+
+	# hq-diorama ticket 17: the old "4 housings for now" UI-only display cap
+	# (independent of the real capacityMax) is gone -- exactly capacityMax
+	# housings render now, no more, no less, and no separate cap can block
+	# loading ahead of the real one.
+	run_case("hq_dial_screen_renders_exactly_capacity_max_housings_no_separate_display_cap", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		var dial := _fresh_dial()
+		dial["capacityMax"] = 2
+		player["dial"] = dial
+
+		var screen := HqDialScreen.new()
+		screen._ready()
+
+		var empties := screen.find_children("", "Button", true, false).filter(func(b): return (b as Button).text == "Empty")
+		assert_eq(empties.size(), 2, "exactly capacityMax housings should render")
+
+		screen.free()
+	)
+
+	# hq-diorama ticket 17: "Craft Components" (recipes.json Complications,
+	# distinct from Movements) has no other affordance on this screen once
+	# the bottom tray/dock is gone.
+	run_case("hq_dial_screen_craft_components_opens_the_lab_bench_recipe_book_modal", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _fresh_dial()
+
+		var screen := HqDialScreen.new()
+		screen._ready()
+
+		_find_button(screen, "Craft Components").pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book", "Craft Components must open the Lab Bench's recipe book modal")
 
 		screen.free()
 	)

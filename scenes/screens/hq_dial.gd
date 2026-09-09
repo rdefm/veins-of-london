@@ -25,20 +25,24 @@ extends Control
 # not a mechanics deviation: the ticket asks for sockets "as visible slots",
 # not literal pixel-perfect overlap with the photographed screws.
 #
-# Human decision (2026-09-08): Complication housings capped at 4 for now,
-# regardless of the Dial's real capacityMax (which can reach 16, R§1.4) --
-# more housing art can be added later if a loadout ever needs more shown at
-# once. This is a UI-only display cap layered on top of (never replacing)
-# Dial.capacity_max()'s real budget check -- loading is blocked once either
-# 4 housings are already shown full *or* the real capacity budget is spent,
-# whichever comes first.
+# hq-diorama ticket 17: the old "4 housings for now, regardless of the real
+# capacityMax" UI-only display cap (human decision, 2026-09-08) is retired --
+# ticket 14 already capped the real capacityMax curve at 4 max
+# (data/dial.json's capacityByLevel), so a separate display cap no longer
+# does anything a real budget check doesn't already do. Exactly
+# `dial.capacityMax` housings render now, no more no less.
 #
 # Tap moves Complications into/out of sockets (§4/ticket's own acceptance
-# check): tapping a filled housing unloads it back to the tray; tapping a
-# tray entry loads it into the next empty housing. No drag gesture is
-# implemented -- the ticket's "drag as flourish, per the same
-# always-tap-works rule as the bench" only requires tap to always work on
-# its own, it does not require a drag path to exist.
+# check): tapping a filled housing unloads it back to regular inventory
+# (unchanged); tapping an Empty housing opens a modal ("dial_load_
+# complication", modal_layer.gd) listing every loadable crafted Complication
+# in stock, and picking one loads it via the same Dial.load_complication()
+# the old always-rendered bottom tray used -- that tray (and the "Craft
+# Components" button that used to sit below it, see _build_seeded_screen)
+# is deleted; the sockets are now the sole load/unload surface on this
+# screen. No drag gesture is implemented -- the ticket's "drag as flourish,
+# per the same always-tap-works rule as the bench" only requires tap to
+# always work on its own, it does not require a drag path to exist.
 
 # Human direction (2026-09-09): the umbrella is the screen's centrepiece --
 # big enough that its top edge clears the halfway line of an 844-tall
@@ -49,11 +53,19 @@ const DEVICE_DISPLAY_SIZE := 370.0
 const DEVICE_NATIVE_SIZE := 500.0
 const DEVICE_SCALE := DEVICE_DISPLAY_SIZE / DEVICE_NATIVE_SIZE
 
-# Height reserved at the bottom of the screen for the tray + Craft
-# Components dock (see _build_bottom_dock) -- the umbrella's own bottom
-# edge sits just above this, so the device reads as rising up out of the
-# dock rather than floating mid-screen.
-const BOTTOM_DOCK_HEIGHT := 140.0
+# hq-diorama ticket 17: the tray + "Craft Components" dock this used to
+# reserve BOTTOM_DOCK_HEIGHT of screen for is gone -- loading/unloading now
+# happens entirely through the flanking sockets (tap Empty -> modal), and
+# Craft Components has moved into the chrome (see _build_seeded_screen). The
+# umbrella now runs to a small fixed margin above the screen's bottom edge
+# instead. Deliberately a fixed constant, not safe_area_bottom_inset() --
+# see FACE_CENTER_NATIVE's neighbouring comment below and the old dock-only
+# use of safe_bottom this replaces: DisplayServer's safe-area rect returns a
+# bogus large inset in a windowed desktop test session, which would yank
+# this hero composition upward unpredictably if it drove real layout math
+# instead of just a dock's own internal scroll padding (which is gone now
+# anyway).
+const DEVICE_BOTTOM_MARGIN := 16.0
 
 # Measured off assets/hq/dial/dial_device_base.png by pixel inspection (the
 # dial face's cream-coloured bbox centre) -- ART-REVIEW, not yet confirmed
@@ -87,8 +99,6 @@ const NEEDLE_HUB_NATIVE := Vector2(13.0, 26.0)
 # screenshot exists yet). ART-REVIEW.
 const NEEDLE_MIN_DEG := -60.0
 const NEEDLE_MAX_DEG := 120.0
-
-const MAX_VISIBLE_COMPLICATION_HOUSINGS := 4
 
 
 func _ready() -> void:
@@ -151,7 +161,6 @@ func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
 	# on), so a live-viewport read would fail there with "!is_inside_tree()".
 	var screen := Vector2(390.0, 844.0)
 	var safe_top: float = UI.safe_area_top_inset()
-	var safe_bottom: float = UI.safe_area_bottom_inset()
 
 	# Top chrome -- back/heading/readouts/the Movement ("mechanism") menu --
 	# flows top-down above the umbrella; this is the other menu the human
@@ -166,18 +175,32 @@ func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
 	chrome.add_child(UI.heading("Dial"))
 	_build_top_block(chrome, player, dial)
 
+	# hq-diorama ticket 17: "Craft Components" (crafting new Complications --
+	# recipes.json entries like timePearl/enhancementPowder -- as distinct
+	# from Movements, which "Craft new Movement" above already covers) has no
+	# other affordance on this screen once the bottom tray/dock is gone, so
+	# it lives here in the chrome instead. Opens the exact same "lab_bench_
+	# recipe_book" modal the Lab Bench's own "Recipe book" button opens
+	# (hq_lab_bench.gd) -- that modal reads Bench.found_recipe_keys()/
+	# Crafting.attempt_craft() off global player state only, with no
+	# dependency on LabBenchNav's screen-local stop/mode state, so it's safe
+	# to open standalone from here. This screen never actually offered real
+	# Complication crafting before this ticket -- the pre-ticket-16 "Craft
+	# Components" button here (see this file's own git history) opened
+	# "craft_components_menu", which despite its generic name only ever
+	# lists Movement archetypes (GameData.CANONICAL_MOVEMENT_ARCHETYPES) --
+	# so this is a new, genuinely-Complication-only entry point, not a
+	# renamed old one.
+	chrome.add_child(UI.button("Craft Components", func(): Modal.open("lab_bench_recipe_book")))
+
 	# The umbrella itself: bottom-anchored so it reads as rising up out of
-	# the dock rather than floating mid-list -- the source art's own shaft
-	# already runs off the bottom edge of its native 500x500 canvas, so a
-	# literal bottom anchor is what the asset was drawn for. safe_bottom is
-	# deliberately NOT subtracted here (only used as internal dock padding,
-	# _build_bottom_dock below) -- DisplayServer's safe-area rect is
-	# unreliable in a windowed desktop test session (returns a large bogus
-	# inset there), and even on a real device a home-indicator inset should
-	# just add breathing room inside the dock, not shift the whole hero
-	# composition upward.
+	# the bottom of the screen rather than floating mid-list -- the source
+	# art's own shaft already runs off the bottom edge of its native 500x500
+	# canvas, so a literal bottom anchor is what the asset was drawn for.
+	# DEVICE_BOTTOM_MARGIN is a small fixed constant, not safe_area_bottom_
+	# inset() -- see that const's own comment for why.
 	var device_x: float = (screen.x - DEVICE_DISPLAY_SIZE) / 2.0
-	var device_bottom: float = screen.y - BOTTOM_DOCK_HEIGHT
+	var device_bottom: float = screen.y - DEVICE_BOTTOM_MARGIN
 	var device_top: float = device_bottom - DEVICE_DISPLAY_SIZE
 	var device_wrap := _build_device_art(dial)
 	device_wrap.position = Vector2(device_x, device_top)
@@ -185,82 +208,55 @@ func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
 
 	_build_flanking_sockets(device_wrap, dial)
 
-	_build_bottom_dock(player, dial, screen, safe_bottom)
 
-
-# At DEVICE_DISPLAY_SIZE=370 the umbrella is nearly screen-width itself
-# (390px), so there's no external margin left to flank it with tiles the
-# way the smaller ticket-09 layout did -- these sit as an overlay ON the
-# device art instead, nested in the wrap's own local space, one tile per
-# side per row. Human direction (2026-09-09, marked-up screenshot): spread
-# the two rows the full height of the clear side margins rather than
-# stacking them together low on the shaft -- row 1 flanks the clock head
-# itself (pixel inspection of dial_device_base.png: the head cylinder's
-# outer edge sits at roughly native y 10-190, centred on FACE_CENTER_NATIVE's
-# own y=101, well clear of the SOCKET_TILE_WIDTH-wide margins either side of
-# it), row 2 stays down by the tapered lower shaft (shaft narrows to
-# roughly its middle 30% of width from about native y 380 down to the
-# bottom edge, leaving a wide clear margin each side at that height) --
-# ART-REVIEW, same eyeball-and-adjust caveat this file's other measured
-# consts carry.
+# hq-diorama ticket 17: repositioned off the ticket-09/16 row1/row2 flanking
+# layout (which spread across the umbrella's full clear side margins,
+# leaning on the now-deleted bottom tray to justify running that far down)
+# onto the clock face's own 2/4/8/10 o'clock corners, per the ticket's own
+# ask. CLOCK_FACE_RADIUS_NATIVE reuses this file's existing pixel-inspection
+# measurement of the head cylinder's outer edge (see FACE_CENTER_NATIVE's
+# comment above: native y 10-190, centred on y=101 -- radius ~90), not a new
+# eyeballed guess. ART-REVIEW, same caveat as this file's other measured
+# consts: unconfirmed on a live device render.
 const SOCKET_TILE_WIDTH := 80.0
-const SOCKET_ROW1_Y := 52.0
-const SOCKET_ROW2_Y := 250.0
+const SOCKET_TILE_HEIGHT := 44.0
+const CLOCK_FACE_RADIUS_NATIVE := 90.0
 
 
-# The 4 Complication housings, overlaid on the umbrella rather than a
-# separate grid elsewhere on screen -- human direction, hq-diorama ticket 09
-# follow-up. See this file's top comment for why they're separate tap-target
-# tiles rather than hit-tested against the art itself.
+# Four tile top-left positions at the clock face's 10/2/8/4 o'clock points
+# (60 degrees off the 12/6 axis on each side -- the ticket's own requested
+# corners), in that reading order (top-left, top-right, bottom-left,
+# bottom-right) to match the old row1-left/row1-right/row2-left/row2-right
+# order it replaces. Which array index a given corner is doesn't matter
+# mechanically (Dial.load_complication has no slot-targeting concept, see
+# _build_socket_tile below) -- this is presentation order only.
+func _socket_positions() -> Array[Vector2]:
+	var center: Vector2 = FACE_CENTER_NATIVE * DEVICE_SCALE
+	var radius: float = CLOCK_FACE_RADIUS_NATIVE * DEVICE_SCALE
+	var half := Vector2(SOCKET_TILE_WIDTH, SOCKET_TILE_HEIGHT) / 2.0
+	var dx: float = radius * sin(deg_to_rad(60.0))
+	var dy: float = radius * cos(deg_to_rad(60.0))
+	return [
+		center + Vector2(-dx, -dy) - half,
+		center + Vector2(dx, -dy) - half,
+		center + Vector2(-dx, dy) - half,
+		center + Vector2(dx, dy) - half,
+	]
+
+
+# Exactly `dial.capacityMax` Complication housings, overlaid on the umbrella
+# rather than a separate grid elsewhere on screen -- human direction,
+# hq-diorama ticket 09 follow-up, updated by ticket 17 to drop the old
+# separate 4-housing UI display cap (capacityMax itself already caps at 4,
+# ticket 14). See this file's top comment for why they're separate
+# tap-target tiles rather than hit-tested against the art itself.
 func _build_flanking_sockets(wrap: Control, dial: Dictionary) -> void:
 	var loaded: Array = dial["loadedComplications"]
-	var gap := 4.0
-	var left_x := gap
-	var right_x := DEVICE_DISPLAY_SIZE - gap - SOCKET_TILE_WIDTH
-
-	var positions := [
-		Vector2(left_x, SOCKET_ROW1_Y), Vector2(right_x, SOCKET_ROW1_Y),
-		Vector2(left_x, SOCKET_ROW2_Y), Vector2(right_x, SOCKET_ROW2_Y),
-	]
-	for i in range(MAX_VISIBLE_COMPLICATION_HOUSINGS):
+	var positions := _socket_positions()
+	for i in range(dial["capacityMax"]):
 		var tile := _build_socket_tile(i, loaded)
 		tile.position = positions[i]
 		wrap.add_child(tile)
-
-	if loaded.size() > MAX_VISIBLE_COMPLICATION_HOUSINGS:
-		var overflow := UI.muted_label("+%d more loaded, not shown here." % (loaded.size() - MAX_VISIBLE_COMPLICATION_HOUSINGS))
-		overflow.position = Vector2(0.0, SOCKET_ROW2_Y - 22.0)
-		wrap.add_child(overflow)
-
-
-# The tray (unslotted crafted Complications), docked under the umbrella's
-# cropped shaft in its own fixed-height scroll region so a long tray never
-# disturbs the hero composition above it. PanelContainer picks up the
-# project's standard card background (same style UI.card() uses) so the text
-# stays legible over the art rather than floating bare. hq-diorama ticket 16
-# moved the old "Craft Components" button out of this dock and into the top
-# block (_build_top_block, relabelled "Craft new Movement") -- this dock is
-# tray-only now.
-func _build_bottom_dock(player: Dictionary, dial: Dictionary, screen: Vector2, safe_bottom: float) -> void:
-	var dock := PanelContainer.new()
-	dock.position = Vector2(0.0, screen.y - BOTTOM_DOCK_HEIGHT)
-	dock.size = Vector2(screen.x, BOTTOM_DOCK_HEIGHT)
-	add_child(dock)
-
-	var sc := UI.scroll_container()
-	dock.add_child(sc)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_bottom", int(safe_bottom) + 8)
-	sc.add_child(margin)
-
-	var content := UI.vbox(6)
-	margin.add_child(content)
-
-	_build_tray(content, player, dial)
 
 
 # Ported from modal_layer.gd's old _build_hq_dial() unseeded branch --
@@ -382,10 +378,19 @@ func _build_top_block(content: VBoxContainer, player: Dictionary, dial: Dictiona
 # stacked in the umbrella's narrow flanking margin.
 func _build_socket_tile(index: int, loaded: Array) -> Control:
 	if index >= loaded.size():
-		var empty := UI.card()
-		empty["panel"].custom_minimum_size = Vector2(SOCKET_TILE_WIDTH, 32.0)
-		empty["content"].add_child(UI.muted_label("Empty"))
-		return empty["panel"]
+		# hq-diorama ticket 17: an Empty housing is now itself the load
+		# entry point (the bottom tray it used to defer to is gone) --
+		# tapping it opens modal_layer.gd's "dial_load_complication" picker,
+		# which lists every loadable crafted Complication in stock and calls
+		# the same Dial.load_complication() the old tray buttons called.
+		# Always enabled: an Empty tile only renders for
+		# index >= loaded.size(), so capacity_used()+1 <= capacityMax is
+		# guaranteed for whichever slot this becomes (load_complication's own
+		# capacity check is still the real gate; nothing here can invalidate
+		# it before that call runs).
+		var empty := UI.button("Empty", func(): Modal.open("dial_load_complication"))
+		empty.custom_minimum_size = Vector2(SOCKET_TILE_WIDTH, SOCKET_TILE_HEIGHT)
+		return empty
 
 	var entry: Dictionary = loaded[index]
 	var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
@@ -398,7 +403,7 @@ func _build_socket_tile(index: int, loaded: Array) -> Control:
 	# ~8px). Forcing both dimensions here keeps this tile's hit region at
 	# docs/hq-diorama-vision.md §3.2's 44x44 logical-px minimum, not an
 	# 8px sliver.
-	tile.custom_minimum_size = Vector2(SOCKET_TILE_WIDTH, 44.0)
+	tile.custom_minimum_size = Vector2(SOCKET_TILE_WIDTH, SOCKET_TILE_HEIGHT)
 	# symbol_button()'s inner row is autowrap-off (ui.gd, deliberately, so it
 	# clips+ellipses instead of wrapping) but a Label's own minimum size is
 	# still its full natural text width regardless of overrun behaviour --
@@ -412,28 +417,3 @@ func _build_socket_tile(index: int, loaded: Array) -> Control:
 	# overflow inside the tile rather than painting past the umbrella's edge.
 	tile.clip_contents = true
 	return tile
-
-
-# Ported from bag_drawer.gd's old "Load a Complication" loop -- same
-# tier-bucketed inventory scan, same Dial.load_complication() call. Adds the
-# ticket-09 UI-only 4-housing display cap on top of the existing real
-# capacityMax check (see this file's top comment).
-func _build_tray(content: VBoxContainer, player: Dictionary, dial: Dictionary) -> void:
-	content.add_child(UI.heading("Tray", 14))
-	var housings_full: bool = dial["loadedComplications"].size() >= MAX_VISIBLE_COMPLICATION_HOUSINGS
-	var any_loadable := false
-	for recipe_key in GameData.RECIPES.keys():
-		var recipe: Dictionary = GameData.RECIPES[recipe_key]
-		var buckets: Dictionary = player["inventory"].get(recipe_key, {})
-		for tier_key in buckets.keys():
-			if buckets[tier_key] <= 0:
-				continue
-			any_loadable = true
-			var captured_key: String = recipe_key
-			var captured_tier: int = int(tier_key)
-			var load_button := UI.symbol_button([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s tier %s (%d)" % [recipe["name"], tier_key, buckets[tier_key]]], func(): Dial.load_complication(captured_key, captured_tier))
-			load_button.disabled = housings_full or Dial.capacity_used(dial) + 1 > dial["capacityMax"]
-			content.add_child(load_button)
-	if not any_loadable:
-		# PROSE-REVIEW: carried over unchanged from the old drawer copy.
-		content.add_child(UI.muted_label("Nothing in stock to load."))

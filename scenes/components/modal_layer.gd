@@ -168,6 +168,8 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_craft_components_menu()
 		"movement_swap":
 			_build_movement_swap()
+		"dial_load_complication":
+			_build_dial_load_complication()
 		"combat_setup":
 			_build_combat_setup()
 		"hq_ore_readout":
@@ -800,6 +802,40 @@ func _build_movement_swap() -> void:
 			Dial.seat_movement(captured_index)
 			Modal.close()
 		))
+	_card_content.add_child(UI.button("Cancel", func(): Modal.close()))
+
+
+# hq-diorama ticket 17: hq_dial.gd's flanking sockets tap an Empty housing to
+# open this instead of the old always-rendered bottom tray (deleted this
+# ticket) -- same tier-bucketed inventory scan and Dial.load_complication()
+# call the tray used, just gathered behind one tap per Empty housing
+# instead. No slot-targeting: load_complication() has no concept of which
+# housing a load lands in (it just appends), so picking a recipe here always
+# fills the lowest-index Empty housing, same as the tray's own behaviour did.
+func _build_dial_load_complication() -> void:
+	# PROSE-REVIEW: "Load a Complication" heading is new copy (drafted
+	# against the terse imperative headings already used elsewhere in this
+	# file -- "Swap Movement", "Craft Components" -- not extracted from the
+	# HTML source or CONTENT-GUIDE.md).
+	_card_content.add_child(UI.heading("Load a Complication"))
+	var player: Dictionary = GameState.state["player"]
+	var any_loadable := false
+	for recipe_key in GameData.RECIPES.keys():
+		var recipe: Dictionary = GameData.RECIPES[recipe_key]
+		var buckets: Dictionary = player["inventory"].get(recipe_key, {})
+		for tier_key in buckets.keys():
+			if buckets[tier_key] <= 0:
+				continue
+			any_loadable = true
+			var captured_key: String = recipe_key
+			var captured_tier: int = int(tier_key)
+			_card_content.add_child(UI.symbol_button([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s tier %s (%d)" % [recipe["name"], tier_key, buckets[tier_key]]], func():
+				Dial.load_complication(captured_key, captured_tier)
+				Modal.close()
+			))
+	if not any_loadable:
+		# PROSE-REVIEW: carried over unchanged from the old tray/drawer copy.
+		_card_content.add_child(UI.muted_label("Nothing in stock to load."))
 	_card_content.add_child(UI.button("Cancel", func(): Modal.close()))
 
 

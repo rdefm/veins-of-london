@@ -760,6 +760,63 @@ func run() -> void:
 		layer.free()
 	)
 
+	# ── hq-diorama ticket 17: hq_dial.gd's flanking sockets tap an Empty
+	# housing to open this in place of the old always-rendered bottom tray
+	# (deleted this ticket) -- same tier-bucketed inventory scan and
+	# Dial.load_complication() call the tray used, gathered behind one tap.
+
+	run_case("dial_load_complication_lists_loadable_complications_and_loads_via_dial_system", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		player["dial"] = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
+		player["inventory"]["timePearl"] = { "1": 1 }
+
+		Modal.open("dial_load_complication")
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "⧖Time Pearl tier 1 (1)").pressed.emit()
+
+		var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
+		assert_eq(loaded.size(), 1, "picking a row should load via Dial.load_complication")
+		assert_eq(Crafting.inventory_qty("timePearl"), 0, "loading should move the unit out of regular inventory")
+		assert_eq(GameState.state["modal"], null, "loading from the picker should close the modal")
+
+		layer.free()
+	)
+
+	run_case("dial_load_complication_shows_nothing_in_stock_message_when_empty", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		player["dial"] = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
+
+		Modal.open("dial_load_complication")
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("Nothing in stock to load."), "must show the empty-stock message when nothing is loadable")
+
+		layer.free()
+	)
+
+	run_case("dial_load_complication_cancel_button_dismisses_the_modal_without_loading_anything", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		player["dial"] = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
+		player["inventory"]["timePearl"] = { "1": 1 }
+
+		Modal.open("dial_load_complication")
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "Cancel").pressed.emit()
+
+		assert_eq(GameState.state["modal"], null, "Cancel must dismiss the picker")
+		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "Cancel must not load anything")
+
+		layer.free()
+	)
+
 	# ── bugfixes ticket 104: calc-type craft modal replaces the direct row
 	# of 5 ore-symbol buttons on hq.gd's Dial card — cost/chance (identical
 	# across all 5 calc types for a given archetype, since Dial.movement_

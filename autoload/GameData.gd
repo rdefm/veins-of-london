@@ -634,6 +634,17 @@ func _validate_dial(seed_cost: Dictionary, seed_base_success: float, base_max_ch
 	if capacity_by_level.size() != 6:
 		errors.append("dial.capacityByLevel: expected 6 entries (index=level 0..5), got %d" % capacity_by_level.size())
 
+	# hq-diorama ticket 17: hq_dial.gd's flanking-socket layout hard-codes
+	# exactly 4 tile positions (the clock face's 2/4/8/10 o'clock corners)
+	# and indexes straight into that array by capacityMax with no bounds
+	# check of its own -- a future capacityByLevel edit that let this exceed
+	# 4 would silently crash that screen with an out-of-range array access
+	# rather than fail loudly here at boot.
+	for level_value in capacity_by_level:
+		if int(level_value) > 4:
+			errors.append("dial.capacityByLevel: entry %s exceeds 4 -- hq_dial.gd's socket layout has only 4 fixed positions" % str(level_value))
+			break
+
 	# dial-device ticket 06: the XP ladder (DEVICE_XP_LEVELS-style) and the
 	# two level-indexed charge-economy bonus curves it drives -- same
 	# index=level 0..5 shape as capacityByLevel above.
