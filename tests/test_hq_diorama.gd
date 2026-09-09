@@ -63,6 +63,64 @@ func run() -> void:
 		diorama.free()
 	)
 
+	run_case("placeholder_false_suppresses_the_box_even_with_no_image", func():
+		# hq-diorama ticket 18: a region can opt out of the placeholder box
+		# via "placeholder": false while "image" stays empty, for a region
+		# whose art is already baked into the plate's own background.
+		var plate: Dictionary = {
+			"image": "",
+			"fallbackColor": "timber_dark",
+			"width": 100,
+			"height": 100,
+			"regions": {
+				"noBoxZone": { "x": 10, "y": 20, "width": 50, "height": 60, "label": "No box", "image": "", "placeholder": false },
+			},
+		}
+		var diorama := HqDiorama.new()
+		diorama.build(plate)
+		assert_true(not diorama._region_sprites.has("noBoxZone"), "no 'image' set, so no sprite should load")
+		assert_true(not diorama._should_draw_placeholder("noBoxZone", plate["regions"]["noBoxZone"]), "'placeholder': false should suppress the box even though no sprite loaded")
+		diorama.free()
+	)
+
+	run_case("placeholder_defaults_to_true_when_the_field_is_absent", func():
+		# Every pre-ticket-18 region omits "placeholder" entirely and must
+		# keep drawing its box exactly as before.
+		var plate: Dictionary = {
+			"image": "",
+			"fallbackColor": "timber_dark",
+			"width": 100,
+			"height": 100,
+			"regions": {
+				"boxZone": { "x": 10, "y": 20, "width": 50, "height": 60, "label": "Box", "image": "" },
+			},
+		}
+		var diorama := HqDiorama.new()
+		diorama.build(plate)
+		assert_true(diorama._should_draw_placeholder("boxZone", plate["regions"]["boxZone"]), "a region with no 'placeholder' key should default to true (draw the box)")
+		diorama.free()
+	)
+
+	run_case("notebook_regions_in_the_real_manifest_opt_out_of_the_placeholder", func():
+		var lab_bench: Dictionary = GameData.HQ_VISUALS["labBench"]
+		var regions: Dictionary = lab_bench["regions"]
+		assert_true(not regions["notebookRecipes"].get("placeholder", true), "notebookRecipes should opt out of the placeholder box -- ticket 12's desk art already depicts it")
+		assert_true(not regions["notebookExperiments"].get("placeholder", true), "notebookExperiments should opt out of the placeholder box -- ticket 12's desk art already depicts it")
+	)
+
+	run_case("notebook_regions_stay_in_region_rects_for_tap_hit_testing", func():
+		# The opt-out must only affect drawing -- the region's tap hit rect
+		# is untouched.
+		var lab_bench: Dictionary = GameData.HQ_VISUALS["labBench"].duplicate(true)
+		var diorama := HqDiorama.new()
+		diorama.build(lab_bench)
+		var rects: Dictionary = diorama.region_rects()
+		assert_true(rects.has("notebookRecipes"), "notebookRecipes should still be tappable")
+		assert_eq(rects["notebookRecipes"], Rect2(45, 556, 142, 126), "notebookRecipes' hit rect should be unchanged by the placeholder opt-out")
+		assert_true(rects.has("notebookExperiments"), "notebookExperiments should still be tappable")
+		diorama.free()
+	)
+
 	run_case("debug_overlay_toggle_controls_whether_debug_region_draws", func():
 		var diorama := HqDiorama.new()
 		diorama.build(_bedsit_plate())

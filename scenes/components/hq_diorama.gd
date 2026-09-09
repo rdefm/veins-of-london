@@ -18,6 +18,12 @@ extends Control
 #     backdrops use, see GameData._validate_hq_visuals()), plus a labelled
 #     placeholder box in every region whose own "image" is empty. This is
 #     what makes the room navigable and tappable with zero art produced.
+#     hq-diorama ticket 18: a region can opt out of the placeholder box with
+#     "placeholder": false even while "image" stays empty -- for a region
+#     whose art is already baked into the plate's own background image (see
+#     data/hq_visuals.json's "labBench" meta.labBench note on the notebook
+#     regions) rather than drawn as its own sprite. The region stays fully
+#     tappable either way -- region_rects() never reads this field.
 #  2. Debug-only, toggled at runtime via set_debug_overlay_enabled(): every
 #     region's rect drawn again on top, outlined, with its id as text --
 #     "hit region + sprite rect" are the same rect in this manifest's own
@@ -139,14 +145,26 @@ func _region_rect(region: Dictionary) -> Rect2:
 func _draw() -> void:
 	var regions: Dictionary = _plate.get("regions", {})
 	for region_id in regions:
-		if _region_sprites.has(region_id):
-			continue
 		var region: Dictionary = regions[region_id]
+		if not _should_draw_placeholder(region_id, region):
+			continue
 		_draw_placeholder_box(self, _region_rect(region), region.get("label", region_id))
 
 	if _debug_overlay_enabled:
 		for region_id in regions:
 			_draw_debug_region(self, _region_rect(regions[region_id]), region_id)
+
+
+# A region skips its placeholder box when either its own "image" already
+# loaded a sprite (_region_sprites), or the manifest opts it out explicitly
+# via "placeholder": false (ticket 18 -- a region whose art is baked into
+# the plate's background rather than drawn as its own sprite). Split out as
+# its own pure function, rather than inlined in _draw(), so tests can assert
+# on the skip decision without a live draw context.
+func _should_draw_placeholder(region_id: String, region: Dictionary) -> bool:
+	if _region_sprites.has(region_id):
+		return false
+	return region.get("placeholder", true)
 
 
 # Split out from _draw() with a `target` param (mirroring map_canvas.gd's
