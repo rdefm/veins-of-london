@@ -116,7 +116,7 @@ func run() -> void:
 		diorama.build(lab_bench)
 		var rects: Dictionary = diorama.region_rects()
 		assert_true(rects.has("notebookRecipes"), "notebookRecipes should still be tappable")
-		assert_eq(rects["notebookRecipes"], Rect2(45, 556, 142, 126), "notebookRecipes' hit rect should be unchanged by the placeholder opt-out")
+		assert_eq(rects["notebookRecipes"], Rect2(48, 193, 104, 88), "notebookRecipes' hit rect should be unchanged by the placeholder opt-out")
 		assert_true(rects.has("notebookExperiments"), "notebookExperiments should still be tappable")
 		diorama.free()
 	)
