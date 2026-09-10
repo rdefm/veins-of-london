@@ -163,7 +163,7 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_tapping_the_recipes_notebook_sets_the_mode", func():
+	run_case("hq_lab_bench_tapping_the_recipes_notebook_sets_the_mode_and_opens_the_recipe_book", func():
 		GameState.reset()
 
 		var screen := HqLabBenchScreen.new()
@@ -172,11 +172,12 @@ func run() -> void:
 		_tap_zone(screen, "notebookRecipes")
 
 		assert_eq(GameState.state["labBenchNav"]["mode"], "recipes", "tapping the Recipes notebook must set the mode (§5.2)")
+		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book", "ticket 22: the same tap must open the recipe book, not require a second tap on a separate button")
 
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_tapping_the_experiments_notebook_sets_the_mode", func():
+	run_case("hq_lab_bench_tapping_the_experiments_notebook_sets_the_mode_and_opens_the_notebook", func():
 		GameState.reset()
 
 		var screen := HqLabBenchScreen.new()
@@ -185,6 +186,7 @@ func run() -> void:
 		_tap_zone(screen, "notebookExperiments")
 
 		assert_eq(GameState.state["labBenchNav"]["mode"], "experiments")
+		assert_eq(GameState.state["modal"]["type"], "lab_bench_notes", "ticket 22: the same tap must open the notebook, not require a second tap on a separate button")
 
 		screen.free()
 	)
@@ -205,7 +207,7 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_tapping_the_held_notebook_again_returns_to_the_fork", func():
+	run_case("hq_lab_bench_tapping_the_held_notebook_again_returns_to_the_fork_and_opens_no_modal", func():
 		GameState.reset()
 		GameState.state["labBenchNav"]["mode"] = "recipes"
 
@@ -215,6 +217,7 @@ func run() -> void:
 		_tap_zone(screen, "notebookRecipes")
 
 		assert_eq(GameState.state["labBenchNav"]["mode"], null, "§5.2: tapping the held notebook again must return to the fork")
+		assert_eq(GameState.state["modal"], null, "ticket 22: closing the fork must not also pop the modal it's closing")
 
 		screen.free()
 	)
@@ -229,6 +232,7 @@ func run() -> void:
 		_tap_zone(screen, "notebookExperiments")
 
 		assert_eq(GameState.state["labBenchNav"]["mode"], "experiments", "§5.2: the player can switch modes freely")
+		assert_eq(GameState.state["modal"]["type"], "lab_bench_notes", "ticket 22: switching modes via a notebook tap opens that mode's modal same as the fork case")
 
 		screen.free()
 	)
@@ -449,47 +453,6 @@ func run() -> void:
 		_tap_zone(screen, "apparatus_heat")
 
 		assert_eq(GameState.state["modal"], null, "§5.3: an unknown combination is silently inert -- no craft, no side effect")
-
-		screen.free()
-	)
-
-	# ── ticket 07, §5.2: recipe book / notebook entry points ───────────────
-
-	run_case("hq_lab_bench_shows_no_mode_button_at_the_fork", func():
-		GameState.reset()
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		assert_true(_find_button(screen, "Recipe book") == null)
-		assert_true(_find_button(screen, "Notebook") == null)
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_recipes_mode_shows_a_recipe_book_button_that_opens_the_book", func():
-		GameState.reset()
-		LabBenchNav.tap_notebook(LabBenchNav.MODE_RECIPES)
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		var book_button := _find_button(screen, "Recipe book")
-		assert_true(book_button != null)
-		book_button.pressed.emit()
-		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book")
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_experiments_mode_shows_a_notebook_button_that_opens_bench_notes", func():
-		GameState.reset()
-		LabBenchNav.tap_notebook(LabBenchNav.MODE_EXPERIMENTS)
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		var notebook_button := _find_button(screen, "Notebook")
-		assert_true(notebook_button != null)
-		notebook_button.pressed.emit()
-		assert_eq(GameState.state["modal"]["type"], "lab_bench_notes")
 
 		screen.free()
 	)

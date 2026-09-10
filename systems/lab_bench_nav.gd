@@ -79,7 +79,12 @@ static func step(delta: int) -> void:
 # returns to the fork ("tapping it again returns to the fork" -- mode ->
 # null); tapping the other notebook, or either while unheld, sets that mode.
 # "The player can switch modes freely" -- no confirmation, no lock-in.
-static func tap_notebook(mode_id: String) -> void:
+# Returns the resulting mode (mode_id, or null if this tap cleared it) so a
+# caller like hq_lab_bench.gd (ticket 22: open the notebook's modal in the
+# same tap that sets the mode) can tell which happened without re-reading
+# labBenchNav's own shape back out of GameState itself.
+static func tap_notebook(mode_id: String) -> Variant:
 	var nav: Dictionary = GameState.state["labBenchNav"]
 	nav["mode"] = null if nav["mode"] == mode_id else mode_id
 	EventBus.state_changed.emit()
+	return nav["mode"]

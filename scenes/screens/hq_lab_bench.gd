@@ -33,16 +33,20 @@ extends Control
 # stop 0 since ticket 11's merge (§5.1's pan model above), apparatus keeping
 # stop 1:
 #
-#  - Books (stop 0): unchanged from ticket 06 -- tapping a notebook sets/clears
-#    the session-held mode (LabBenchNav.tap_notebook()), and the held
-#    notebook's own region label grows "(open)". Ticket 07 adds a
-#    "Recipe book" / "Notebook" button (plain UI, not a diorama region)
-#    that appears once a mode is held, opening modal_layer.gd's
+#  - Books (stop 0): tapping a notebook sets/clears the session-held mode
+#    (LabBenchNav.tap_notebook()), the held notebook's own region label grows
+#    "(open)", and (ticket 22) the same tap opens modal_layer.gd's
 #    "lab_bench_recipe_book" (Recipes mode: pick a known recipe + a
 #    quantity, craft -- the book path, §5.2) or "lab_bench_notes"
 #    (Experiments mode: pairings already tried + current recipe levels,
 #    §5.2 point 2 -- reusing Bench.touched_type_sets(), never an
-#    enumeration of the 15 type sets, per M3 §8.0/§5.6).
+#    enumeration of the 15 type sets, per M3 §8.0/§5.6) in the same
+#    gesture, provided the tap actually set that mode (tapping the already-
+#    held notebook instead clears the mode and closes the fork -- no modal
+#    for that). There is no separate button anywhere else that reaches
+#    these modals; arrowing back to the books stop and tapping the book is
+#    the only route (ticket 22 removed the old apparatus-stop shortcut
+#    button).
 #  - Ore containers (stop 0, alongside the books): five containers, region ids "ore_<oreTypeId>"
 #    (LabBenchNav.ORE_REGION_PREFIX). Tapping one toggles it into/out of
 #    state.labBenchNav.selectedOre (LabBenchNav.select_ore(), same
@@ -166,11 +170,6 @@ func _refresh() -> void:
 	stop_label.position = Vector2(back.position.x + back.custom_minimum_size.x + 8.0, back.position.y)
 	add_child(stop_label)
 
-	var mode_button := _build_mode_button(nav)
-	if mode_button != null:
-		mode_button.position = Vector2(_ARROW_INSET, stop_label.position.y + 28.0)
-		add_child(mode_button)
-
 	var left := UI.button("‹", func(): LabBenchNav.step(-1))
 	left.disabled = stop_index == 0
 	left.position = Vector2(_ARROW_INSET, plate_height / 2.0)
@@ -201,25 +200,6 @@ func _pan_diorama_to(target_x: float) -> void:
 		_active_pan_tween = create_tween()
 		_active_pan_tween.tween_property(_diorama, "position:x", target_x, _PAN_DURATION)
 	_pan_x = target_x
-
-
-# Ticket 07, §5.2: "The Experiments notebook is tappable here -- a panel of
-# pairings already tried..." / Recipes mode's book path ("tap the recipe
-# book, pick a known recipe and a quantity"). Both open a modal
-# (modal_layer.gd) rather than a diorama region -- the notebooks on the
-# books stop already spend their tap toggling the mode itself (§5.2: "the
-# chosen notebook stays visibly open... tapping it returns to the fork"),
-# so browsing that notebook's *content* needs its own affordance, shown
-# here on every stop once a mode is held rather than only on the books
-# stop, so the player doesn't have to arrow back to reach it mid-session.
-func _build_mode_button(nav: Dictionary) -> Button:
-	match nav["mode"]:
-		LabBenchNav.MODE_RECIPES:
-			return UI.button("Recipe book", func(): Modal.open("lab_bench_recipe_book"))
-		LabBenchNav.MODE_EXPERIMENTS:
-			return UI.button("Notebook", func(): Modal.open("lab_bench_notes"))
-		_:
-			return null
 
 
 # Deep-copies the plate (GameData.HQ_VISUALS is loaded-once boot-time data
@@ -404,17 +384,30 @@ func _zone_at(pos: Vector2) -> String:
 	return ""
 
 
+# Ticket 22: notebookRecipes/notebookExperiments used to only set/clear the
+# held mode (LabBenchNav.tap_notebook()), leaving a separate "Recipe book"/
+# "Notebook" button to open the actual modal on a second tap. That button's
+# gone now -- tapping the notebook does both in one gesture, provided this
+# tap is the one that *set* the mode (LabBenchNav.tap_notebook()'s own
+# return value says which, since tapping the already-held notebook clears
+# the mode instead and must not pop a modal for a fork the player just
+# closed) -- see _tap_notebook_and_maybe_open_modal() below.
 func _on_zone_tapped(zone_id: String) -> void:
 	match zone_id:
 		"notebookRecipes":
-			LabBenchNav.tap_notebook(LabBenchNav.MODE_RECIPES)
+			_tap_notebook_and_maybe_open_modal(LabBenchNav.MODE_RECIPES, "lab_bench_recipe_book")
 		"notebookExperiments":
-			LabBenchNav.tap_notebook(LabBenchNav.MODE_EXPERIMENTS)
+			_tap_notebook_and_maybe_open_modal(LabBenchNav.MODE_EXPERIMENTS, "lab_bench_notes")
 		_:
 			if zone_id.begins_with(LabBenchNav.ORE_REGION_PREFIX):
 				LabBenchNav.select_ore(zone_id.trim_prefix(LabBenchNav.ORE_REGION_PREFIX))
 			elif zone_id.begins_with(LabBenchNav.APPARATUS_REGION_PREFIX):
 				_run_apparatus(zone_id.trim_prefix(LabBenchNav.APPARATUS_REGION_PREFIX))
+
+
+func _tap_notebook_and_maybe_open_modal(mode_id: String, modal_type: String) -> void:
+	if LabBenchNav.tap_notebook(mode_id) == mode_id:
+		Modal.open(modal_type)
 
 
 # §5.3's arming rule, the actual mutation half (the label preview above is

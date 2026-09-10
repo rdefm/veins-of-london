@@ -180,8 +180,8 @@ func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
 	# from Movements, which "Craft new Movement" above already covers) has no
 	# other affordance on this screen once the bottom tray/dock is gone, so
 	# it lives here in the chrome instead. Opens the exact same "lab_bench_
-	# recipe_book" modal the Lab Bench's own "Recipe book" button opens
-	# (hq_lab_bench.gd) -- that modal reads Bench.found_recipe_keys()/
+	# recipe_book" modal tapping the Lab Bench's own recipe-book notebook
+	# opens (hq_lab_bench.gd, ticket 22) -- that modal reads Bench.found_recipe_keys()/
 	# Crafting.attempt_craft() off global player state only, with no
 	# dependency on LabBenchNav's screen-local stop/mode state, so it's safe
 	# to open standalone from here. This screen never actually offered real
