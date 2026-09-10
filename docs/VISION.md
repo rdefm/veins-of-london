@@ -342,7 +342,9 @@ res://
                       # Contacts, World, Property, Factions, Stats, Save, Event
     components/       # VeinCard, SiteMarker, IntentIcon, StatBar, TypeLinkPicker,
                       # NotificationToast, ModalLayer, EventCardStack
-  theme/main_theme.tres   # ink/paper/amber tokens as a Godot Theme resource
+  theme/main_theme.tres   # Godot Theme resource; ink/paper/amber retired
+                          # 2026-09-09, see docs/ui-vision.md for the four
+                          # chrome families that replace it
   map/                # London illustration + district hotspots
 ```
 

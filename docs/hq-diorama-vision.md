@@ -30,9 +30,11 @@ Three consequences we are choosing deliberately:
    costs. Every function below has an object, or it has been moved off the
    tab entirely (see §7, the property app).
 
-Mood, palette, lighting and pixel technique are ART-BIBLE §1–§4 unchanged:
-overcast daylight, muted, top-left key light, genuine pixel grid, no
-anti-aliasing surviving into the shipped asset.
+Pixel technique is ART-BIBLE §3–§4 unchanged: genuine pixel grid, no
+anti-aliasing surviving into the shipped asset. Mood/palette/lighting
+follow ART-BIBLE §1 as amended by `docs/ui-vision.md` §2 (2026-09-09):
+grounded, realistic London colour, per-plate lighting rather than a fixed
+overcast/top-left-key condition.
 
 ## 2. Scope
 

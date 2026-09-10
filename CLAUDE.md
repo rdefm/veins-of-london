@@ -12,6 +12,7 @@ You are porting and extending **Vein**, a mobile-first, menu-driven London urban
 | What to build, in what order, with what tests (port) | `docs/M0-PORT.md` |
 | Districts, prospecting, sites, event framework content | `docs/M1-LONDON.md` |
 | Network Map rendering (diagram, glyph grammar, filters) | `docs/M1.5-NETWORK-MAP.md` |
+| UI chrome, palette/mood, accent colour, typography (4 visual families) | `docs/ui-vision.md` |
 | Prose, tone, dialogue rules | `docs/CONTENT-GUIDE.md` |
 | Original event prose (extract only, never mechanics) | `reference/london-orichalchum.html` |
 | Domain terminology (site vs. vein, claim states, etc.) | `CONTEXT.md` |

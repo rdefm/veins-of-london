@@ -17,16 +17,22 @@ pixel grid, limited palette, dithered shading, no vector/cel-shaded
 linework, no anti-aliasing survives into the shipped asset. Nearest
 technical cousins: **Backbone**, **NORCO**, **The Last Night**, **Eastward**.
 
-Mood: **overcast daylight**, muted/desaturated colour — brick red, weathered
-pastel shopfronts, grey sky, damp pavement reflecting sky. Not neon, not
-rain, not dark-noir. Deliberately mundane and unremarkable, not atmospheric
-— the visual expression of "administrative wonder" (`CONTENT-GUIDE.md` §3),
-not a whimsical or colourful register.
+**Mood (amended 2026-09-09, `docs/ui-vision.md` §2 — supersedes this
+paragraph and the lighting-rule sentence below it):** grounded, realistic
+London colour — vivid where the real city is vivid (brick red, bus/
+pillar-box red, shopfront paint, park green), restrained where it
+naturally is. Not neon, not fantasy-saturated, not dark-noir — but also
+not "mundane and unremarkable" or locked to grey/overcast; that framing
+overcorrected into flatness and is retired. `docs/ui-vision.md` §2 is
+canonical for mood; this section stays canonical for grid/technique/
+pipeline below.
 
-**Lighting rule: top-left key light, on every subject, every plate,
-always.** All three original reference images use it; keep it so a
-character generated in isolation still looks lit by the same sun as the
-backdrop it's composited onto.
+**Lighting: no longer a fixed rule.** Per-plate lighting and weather/
+time-of-day are a creative choice made when that plate is briefed, not a
+single locked "top-left key light, every plate, always" condition. (The
+three original reference images that motivated the old rule all happened
+to share top-left key light — that's a fine default to reach for, just no
+longer mandatory.)
 
 ## 2. Reference palette
 
@@ -134,13 +140,16 @@ someone has to reverse-engineer in six months.
 [SUBJECT], pixel art, [NATIVE RESOLUTION, e.g. 32x52] native grid upscaled
 for export, genuine pixel grid with visible dithering — no vector or
 cel-shaded linework, no smooth anti-aliasing or gradients.
-Lighting: single key light from top-left, hard-edged pixel shadows.
-Palette: muted/desaturated overcast-daylight — brick red, weathered
-pastel, grey sky, damp pavement reflecting sky. No neon, no saturated
-colour, no rain.
+Lighting: [pick per plate — a single key light, hard-edged pixel shadows;
+direction/weather/time-of-day chosen for this plate, not a fixed default].
+Palette: grounded, realistic London colour — brick red, shopfront paint,
+park green, restrained where the real city is (concrete, pavement, sky).
+No neon, no fantasy-saturated colour.
 Pose/frame: [e.g. "idle, arms relaxed, weight on back foot" /
 "attack wind-up keypose" / "static isometric diorama plate, no
 characters"].
+Lighting/weather/time-of-day: [pick per plate — no longer a fixed rule,
+see §1].
 Background: [transparent, for a combatant/effect — solid neutral fill
 never partial-alpha gradients, for a plate].
 Style reference (technique only, not mood): Backbone, NORCO, The Last

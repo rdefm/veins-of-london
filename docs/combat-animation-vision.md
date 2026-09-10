@@ -44,15 +44,19 @@ cel-shaded linework, no smooth anti-aliasing. Nearest technical cousins:
 **Backbone**, **NORCO**, **The Last Night**, **Eastward**. Detail density is
 not a target.
 
-**Mood and brightness (locked 2026-08-29 continuation, via Gemini image-gen
-test):** the game does not inherit these references' dark-noir default.
-Locked direction is overcast daylight, muted/desaturated colour (brick red,
-weathered pastel shopfronts, grey sky), damp pavement reflecting sky rather
-than neon or rain — deliberately mundane and unremarkable rather than
-atmospheric. This is the visual expression of the tone bible's "administrative
-wonder" (`CONTENT-GUIDE.md` §3), not a whimsical or colourful register —
-consistent with §3.1's whimsy carve-out staying confined to item flavour text
-and flourish moments, not the stage itself.
+**Mood and brightness (amended 2026-09-09, `docs/ui-vision.md` §2 —
+supersedes the "locked 2026-08-29" paragraph this replaces):** the game
+does not inherit these references' dark-noir default, and does not inherit
+their brightness either. Direction is grounded, realistic London colour —
+vivid where the real city is vivid (brick red, shopfronts), restrained
+where it naturally is — not neon, not fantasy-saturated, but also not
+"mundane and unremarkable"; that framing is retired. This is still the
+visual expression of the tone bible's "administrative wonder"
+(`CONTENT-GUIDE.md` §3) — the wonder is that magic hides in an ordinary,
+vividly real London, not that the world glows — consistent with §3.1's
+whimsy carve-out staying confined to item flavour text and flourish
+moments, not the stage itself. Per-plate lighting/weather/time-of-day is
+now a creative choice made per backdrop (§2.1), not a fixed condition.
 
 ## 2. Battle grammar — the portrait problem
 
@@ -247,9 +251,9 @@ deck holds three regions:
 - **Art style (locked 2026-08-29 continuation, via image-gen test): pixel
   art, a deliberate one-off exception.** The Dial is diegetic (a physical
   prop the player holds), unlike the action cards and log, which stay
-  vector/parchment-theme chrome. This amends §9: pixel art is not
-  stage-only — the rule is diegetic props render in pixel art, abstract UI
-  controls stay vector.
+  vector chrome (Family 4, `docs/ui-vision.md` §5). This amends §9: pixel
+  art is not stage-only — the rule is diegetic props render in pixel art,
+  abstract UI controls stay vector.
 - **Physical design, locked:** a thick handle (diameter close to the dial
   cap's own width, not a thin rod under a wider disc) with the dial built
   into its top as continuous material, not a separate attached head.
@@ -483,9 +487,13 @@ a second one.**
 
 ## 9. Framing — resolving the collision with the chrome
 
-`theme/main_theme.tres` is cream parchment and amber. The pixel stage's art
-direction (§1) is a different rendering technique entirely — pixel grid,
-dithered shading, muted daylight palette. Dropping one into the other reads
+**Amended 2026-09-09:** `theme/main_theme.tres`'s cream-parchment-and-amber
+look is retired — see `docs/ui-vision.md` for what replaces it (four
+distinct chrome families, none of them parchment). This section's
+framing/vignette argument below still holds regardless of which vector
+theme the command deck ends up using. The pixel stage's art direction (§1)
+is a different rendering technique entirely — pixel grid, dithered
+shading, grounded daylight palette. Dropping one into the other reads
 as a bug.
 
 **The lit-window frame.** The pixel stage sits in a recessed dark inset with a
@@ -499,8 +507,8 @@ too, despite sitting in the command-deck chrome below the stage window, not
 inside it — because it is a diegetic prop (something the player physically
 holds), not an abstract control like the action cards or log. The rule is:
 diegetic props render in pixel art wherever they sit; abstract UI controls
-stay vector/parchment chrome. This is the one exception; it does not extend
-to the rest of the command deck.
+stay vector chrome (Family 4). This is the one exception; it does not
+extend to the rest of the command deck.
 
 Do **not** re-theme the rest of the app's chrome to match the stage's palette
 on the back of this work. The seam is deliberate and it is the subject of
@@ -525,8 +533,12 @@ incremental and can ship in any order.
 
 **Every screen except the Map tab is placeholder aesthetics**, and the Map tab
 itself is acknowledged to need substantial work. `scenes/components/ui.gd` is
-a functional widget kit, not a designed one; `theme/main_theme.tres` is a
-default-ish parchment theme.
+a functional widget kit, not a designed one; `theme/main_theme.tres` was a
+default-ish parchment theme — **now superseded, see `docs/ui-vision.md`**,
+which answers most of the questions this section originally flagged as
+open (palette direction, accent-colour rule, typography) and adds two more
+chrome families (Phone-OS, field-kit HUD) beyond what this section
+anticipated.
 
 That makes this the cheapest moment the project will ever have to set
 **project-wide** standards, because there is almost nothing to retrofit. The
@@ -587,9 +599,9 @@ from the UI work this document specifies.
 3. **Milestone placement.** `docs/VISION.md` schedules a juice pass (tweens,
    particles, haptics, sfx) in M6. Does this work land there, or earlier as
    its own line?
-4. **Font.** Pixel art will make the engine fallback font look wrong. A
-   bundled pixel font is probably implied by this direction but is not costed
-   here.
+4. ~~**Font.**~~ — **resolved 2026-09-09**, see `docs/ui-vision.md` §7: one
+   shared UI sans for vector chrome, one bundled bitmap pixel font for
+   in-scene labels only. Exact typefaces still TBD (cost not yet done).
 5. ~~**Turn-order/initiative mechanic**~~ — **resolved 2026-08-30**, see
    `REFERENCE.md` §3.7a: a new `combatSkill` player stat drives speed (and
    attack bonus), allies/enemies carry an authored flat speed, queue is
@@ -618,6 +630,8 @@ from the UI work this document specifies.
   "one plate per context" framing needs revisiting (§2.1).
 - A full-screen composite sanity check (stage + turn-order strip + command
   deck together) has not been generated.
-- Typography (§13 item 4) — not addressed.
+- ~~Typography (§13 item 4)~~ — **resolved 2026-09-09**, see
+  `docs/ui-vision.md` §7: one shared UI sans across all vector chrome, one
+  bitmap pixel font for in-scene labels only. Exact faces still TBD.
 
 These continue in a further session.
