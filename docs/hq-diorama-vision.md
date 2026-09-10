@@ -104,9 +104,16 @@ the Dial with its sockets, the floorplan, the bench. List-style panels
 where the content is a list and drawing it as furniture would only make it
 harder to read (Train, vein list).
 
-Sub-views are **full-bleed**: top bar and nav dock auto-hide while you are
-inside one, and return at the room level. Time blocks matter when deciding
-what to do; they don't matter once you're at the bench.
+Sub-views are **full-bleed**: the nav dock auto-hides while you are inside
+one, and returns at the room level. **Amended 2026-09-10, see
+`docs/ui-vision.md` §5:** the top bar no longer follows this rule — it
+merged with the notification board into one persistent dot-matrix
+departure-board object that stays visible on every in-game screen,
+including these sub-views, for chrome-consistency and so raid/notification
+alerts are never missed while at the bench or door. This doesn't reverse
+the original claim that time blocks are less relevant once you're at the
+bench — that's still true — it just means the board stays up rather than
+disappearing to make that point.
 
 ## 4. The Dial view
 
