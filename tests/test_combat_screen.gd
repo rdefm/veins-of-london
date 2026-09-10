@@ -596,6 +596,84 @@ func run() -> void:
 		viewport.free()
 	)
 
+	# ── hq-diorama ticket 21: ticker under stage, dial/actions pinned to
+	# bottom ──
+	#
+	# _footer_holder sits right after the stage frame in _content (see
+	# CombatScreen._ready()), so its own child order IS "what comes right
+	# after the stage" -- these cases read that Dictionary/Array-free node
+	# order directly rather than global_position (no live tree needed, same
+	# CombatScreen.new()/_ready() pattern every other case in this file but
+	# the Dial-layout one above uses).
+
+	run_case("mid_fight_footer_puts_the_log_directly_below_the_stage_before_the_command_deck", func():
+		_setup_combat([_enemy("Scrapper")])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		# _build_command_deck() wraps [log, dial/actions row] in one container,
+		# which is _footer_holder's single mid-fight child (see _sync_footer()) --
+		# drill one level in to read the order the ticket actually cares about.
+		assert_eq(screen._footer_holder.get_child_count(), 1, "mid-fight: the command deck is the footer's only direct child")
+		var command_deck: Control = screen._footer_holder.get_child(0)
+		assert_eq(command_deck.get_child_count(), 2, "the command deck itself is exactly the log then the dial/actions row")
+		var log_box: Control = command_deck.get_child(0)
+		var command_row: Control = command_deck.get_child(1)
+		assert_true(_find_dial_widget(log_box) == null, "the first command-deck child must be the ticker, not the command deck's own controls")
+		assert_true(_deck_buttons(command_row).size() > 0, "the second command-deck child must carry the Attack/Item/Run cards")
+
+		screen.free()
+	)
+
+	run_case("mid_fight_ticker_shows_at_most_MID_FIGHT_LOG_LINES_lines_not_the_full_six", func():
+		_setup_combat([_enemy("Scrapper")])
+		GameState.state["combat"]["log"] = ["one", "two", "three", "four", "five"]
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var log_box: Control = screen._footer_holder.get_child(0).get_child(0)
+		var lines: Array = []
+		for l in log_box.get_children():
+			lines.append((l as Label).text)
+		assert_eq(lines.size(), CombatScreen.MID_FIGHT_LOG_LINES, "the mid-fight ticker must cap at MID_FIGHT_LOG_LINES, down from the old 6")
+		assert_eq(lines, ["three", "four", "five"], "it must still be the most recent lines, not the earliest")
+
+		screen.free()
+	)
+
+	run_case("dial_and_action_row_expand_to_fill_more_vertical_space_than_a_compact_row", func():
+		_setup_combat([_enemy("Scrapper")])
+		GameState.state["player"]["dial"] = _dial(["blast"])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var command_row: Control = screen._footer_holder.get_child(0).get_child(1)
+		for b in _deck_buttons(command_row):
+			if ["⚔", "🎒", "🏃"].has(b.text):
+				assert_eq(b.size_flags_vertical, Control.SIZE_EXPAND_FILL, "each action card's button must expand to fill the row's height (set by the Dial's fixed size) rather than sitting compact at the top")
+
+		screen.free()
+	)
+
+	run_case("post_combat_footer_still_renders_log_then_outcome_button_unchanged", func():
+		_setup_combat([_enemy("Scrapper")])
+		GameState.state["combat"]["log"] = ["one", "two", "three", "four", "five", "six", "seven"]
+		GameState.state["combat"]["outcome"] = "win"
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_eq(screen._footer_holder.get_child_count(), 2, "post-combat: still the log then the outcome button, no command deck")
+		var log_box: Control = screen._footer_holder.get_child(0)
+		assert_eq(log_box.get_child_count(), 6, "the post-combat log keeps showing up to 6 lines -- only the mid-fight ticker shrank")
+		assert_true(_find_dial_widget(screen) == null, "the command deck stays gone once the fight has an outcome")
+
+		screen.free()
+	)
+
 	# ── combat-presentation ticket 04: persistent combatant nodes ────────
 
 	run_case("stage_slot_node_identity_survives_a_real_turn_no_rebuild_each_state_changed", func():

@@ -1702,18 +1702,27 @@ func _vignette_texture() -> GradientTexture2D:
 	return tex
 
 
+# hq-diorama ticket 21: mid-fight, the ticker (log) now runs immediately
+# below the stage frame, shrunk to MID_FIGHT_LOG_LINES lines, with the Dial +
+# complication detail + action row below it instead of above -- the reverse
+# of ticket 18's "furniture row first, log below" order. Supersedes ticket
+# 18's own layout note (quoted below) for the mid-fight case only; the
+# outcome-resolved footer (_sync_footer()'s other branch: log then the
+# Continue button, no command deck at all) is unchanged.
+#
 # combat-presentation ticket 18 (human direction, 2026-09-09): the command
 # deck's furniture row -- the umbrella-handle Dial widget docks left (see
 # dial_widget.gd's own top comment for its new tap-the-screws/tap-the-switch
 # interaction), a Complication detail rectangle plus the 3 action blocks
-# (Attack/Item/Run) dock right, and the log runs full width below both.
-# Supersedes ticket 03/13's "Dial spans the full height of the action-card
-# row and the log" layout -- see docs/combat-animation-vision.md §2.5's
-# amendment note.
+# (Attack/Item/Run) dock right. Supersedes ticket 03/13's "Dial spans the
+# full height of the action-card row and the log" layout -- see
+# docs/combat-animation-vision.md §2.5's amendment note.
+const MID_FIGHT_LOG_LINES := 3
+
 func _build_command_deck(combat: Dictionary, player: Dictionary) -> Control:
 	var container := UI.vbox(8)
+	container.add_child(_build_log(combat, MID_FIGHT_LOG_LINES))
 	container.add_child(_build_dial_and_actions_row(player))
-	container.add_child(_build_log(combat))
 	return container
 
 
@@ -1723,6 +1732,13 @@ func _build_command_deck(combat: Dictionary, player: Dictionary) -> Control:
 # elsewhere), unlike the old docked widget, which only rendered once
 # something was actually loaded. No Dial at all (never seeded) still shows
 # nothing here -- there is no physical prop to draw.
+#
+# hq-diorama ticket 21: actions_col now expands to fill the row's full
+# height (the row's own minimum is set by DialWidget's fixed VISIBLE_BOX_SIZE,
+# 170px tall -- dial_widget.gd's own const) instead of sitting top-aligned at
+# its own compact natural height with dead space below -- this, plus
+# _build_action_card()'s matching EXPAND_FILL on the button below, is the
+# "more vertical space than the current compact row" this ticket calls for.
 func _build_dial_and_actions_row(player: Dictionary) -> Control:
 	var row := UI.hbox(8)
 
@@ -1732,6 +1748,7 @@ func _build_dial_and_actions_row(player: Dictionary) -> Control:
 
 	var actions_col := UI.vbox(6)
 	actions_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	actions_col.add_child(_build_complication_detail(dial))
 	actions_col.add_child(_build_action_deck(player))
 	row.add_child(actions_col)
@@ -1773,11 +1790,16 @@ func _build_complication_detail(dial: Variant) -> Control:
 # per beat instead of the whole round's outcome appearing at once. -1 (the
 # default, and where this always lands once playback finishes or was never
 # triggered) shows everything, same as before this ticket.
-func _build_log(combat: Dictionary) -> Control:
+#
+# hq-diorama ticket 21: `max_lines` lets the mid-fight ticker
+# (_build_command_deck(), MID_FIGHT_LOG_LINES) show fewer trailing lines than
+# the post-combat log (_sync_footer()'s outcome branch, still the old 6 --
+# passed as this default so that call site needn't know the number at all).
+func _build_log(combat: Dictionary, max_lines: int = 6) -> Control:
 	var box := UI.vbox(2)
 	var log: Array = combat["log"]
 	var end: int = log.size() if _revealed_log_count < 0 else mini(_revealed_log_count, log.size())
-	var log_start: int = maxi(0, end - 6)
+	var log_start: int = maxi(0, end - max_lines)
 	for i in range(log_start, end):
 		box.add_child(UI.muted_label(log[i]))
 	return box
@@ -1800,6 +1822,7 @@ func _build_log(combat: Dictionary) -> Control:
 # for that failure mode) -- see _build_action_card() below.
 func _build_action_deck(player: Dictionary) -> Control:
 	var row := UI.hbox(6)
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	row.add_child(_build_action_card("⚔", "Attack", _on_attack_pressed))
 
 	# calc-effect-wiring-02/03: blast/shield/blackHole/healingBurst, then
@@ -1834,11 +1857,13 @@ func _build_action_deck(player: Dictionary) -> Control:
 func _build_action_card(symbol: String, label_text: String, callback: Callable, disabled: bool = false) -> Control:
 	var c := UI.card()
 	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c["panel"].size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	var button := Button.new()
 	button.text = symbol
 	button.clip_text = true
 	button.disabled = disabled
+	button.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	button.pressed.connect(callback)
 	c["content"].add_child(button)
 
