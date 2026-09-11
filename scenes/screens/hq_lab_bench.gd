@@ -153,11 +153,34 @@ func _refresh() -> void:
 	var nav: Dictionary = GameState.state["labBenchNav"]
 	var stop_index: int = LabBenchNav.STOPS.find(nav["stop"])
 
+	# ui-chrome-pass ticket 06: the table art (612x408, stop_width 306) was
+	# authored smaller than the screen it renders inside, so the plate read
+	# as noticeably smaller than full-width. `size.x` is this screen's own
+	# real available width -- UI.anchor_full_rect(self) in _ready() already
+	# tracks it against whatever the live, already-sized parent tree actually
+	# is (the same "real available width" every other anchor_full_rect'd
+	# screen gets for free), so scaling the frame up to it (rather than a
+	# hardcoded 390) also fills the extra width a wider-than-390 device's own
+	# viewport exposes. Guarded to 1.0 (no scale) when size.x hasn't resolved
+	# yet -- tests/test_hq_lab_bench.gd's non-live-tree fixtures call
+	# HqLabBenchScreen.new()/_ready() directly with no parent to size against
+	# (same pattern tests/test_hq_dial.gd's own comment documents), and never
+	# assert on rendered scale, only on nav state and hit-testing -- which
+	# stays correct at any scale since region_rects() and _pan_diorama_to()
+	# both stay in the frame's native, pre-scale coordinate space (Godot
+	# delivers gui_input positions already inverse-transformed into the
+	# receiving control's own local space, so region rects never need
+	# rescaling to match).
+	var available_width: float = size.x if size.x > 0.0 else stop_width
+	var scale_factor: float = available_width / stop_width
+	var scaled_height: float = plate_height * scale_factor
+
 	var frame := Control.new()
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.clip_contents = true
 	frame.position = Vector2.ZERO
 	frame.size = Vector2(stop_width, plate_height)
+	frame.scale = Vector2(scale_factor, scale_factor)
 	add_child(frame)
 
 	_diorama = HqDiorama.new()
@@ -176,12 +199,12 @@ func _refresh() -> void:
 
 	var left := UI.button("‹", func(): LabBenchNav.step(-1))
 	left.disabled = stop_index == 0
-	left.position = Vector2(_ARROW_INSET, plate_height / 2.0)
+	left.position = Vector2(_ARROW_INSET, scaled_height / 2.0)
 	add_child(left)
 
 	var right := UI.button("›", func(): LabBenchNav.step(1))
 	right.disabled = stop_index == LabBenchNav.STOPS.size() - 1
-	right.position = Vector2(stop_width - right.custom_minimum_size.x - _ARROW_INSET, plate_height / 2.0)
+	right.position = Vector2(available_width - right.custom_minimum_size.x - _ARROW_INSET, scaled_height / 2.0)
 	add_child(right)
 
 
