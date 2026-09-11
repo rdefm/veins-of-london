@@ -171,14 +171,46 @@ func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
 	var screen := Vector2(390.0, 844.0)
 	var safe_top: float = UI.safe_area_top_inset()
 
+	# Umbrella geometry, computed up front (rather than alongside
+	# _build_device_art below) so the chrome scroll region built next can
+	# reserve exactly the space above device_top and never grow into it.
+	var device_x: float = (screen.x - DEVICE_DISPLAY_SIZE) / 2.0
+	var device_bottom: float = screen.y - DEVICE_BOTTOM_MARGIN
+	var device_top: float = device_bottom - DEVICE_DISPLAY_SIZE
+
 	# Top chrome -- back/heading/readouts/the Movement ("mechanism") menu --
 	# flows top-down above the umbrella; this is the other menu the human
 	# asked to see "arranged around" the art, alongside the Complication
 	# sockets flanking it lower down.
+	#
+	# hq-diorama ticket 26 (05-hq-dial-seat-movement-overlap): a seated
+	# Movement's extra rows (symbol_row/Unseat/Wind) can grow _build_top_
+	# block's card tall enough to run past device_top -- reported via
+	# screenshot as the card visually overlapping the dial art and the
+	# 8/10-o'clock socket tiles beneath it. Human direction: never shrink
+	# the dial image; instead reserve the chrome a fixed box (safe_top+16 ..
+	# device_top) it can never grow out of. A TouchScrollContainer (not a
+	# bare Control) sized to exactly that box does this -- ScrollContainer
+	# always clips to its own rect regardless of content height, and
+	# vertical_scroll_mode AUTO (the default) only shows a scrollbar/lets
+	# the user scroll if content ever does exceed the box, rather than
+	# silently clipping content away. custom_minimum_size is the actual
+	# sizing lever here (not chrome_scroll.size directly): this node has no
+	# parent Container, so Godot floors its real size at its own minimum
+	# size, and a ScrollContainer's minimum size along an AUTO/non-DISABLED
+	# scroll axis is NOT its content's minimum (that's what makes scrolling
+	# possible at all) -- custom_minimum_size is what actually pins the box
+	# to device_top instead of the content dictating it.
+	var chrome_top: float = safe_top + 16.0
+	var chrome_scroll := TouchScrollContainer.new()
+	chrome_scroll.position = Vector2(16.0, chrome_top)
+	chrome_scroll.custom_minimum_size = Vector2(screen.x - 32.0, device_top - chrome_top)
+	chrome_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	add_child(chrome_scroll)
+
 	var chrome := UI.vbox(8)
-	chrome.position = Vector2(16.0, safe_top + 16.0)
 	chrome.custom_minimum_size = Vector2(screen.x - 32.0, 0.0)
-	add_child(chrome)
+	chrome_scroll.add_child(chrome)
 
 	chrome.add_child(UI.back_button("hq"))
 	chrome.add_child(UI.heading("Dial"))
@@ -207,10 +239,9 @@ func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
 	# art's own shaft already runs off the bottom edge of its native 500x500
 	# canvas, so a literal bottom anchor is what the asset was drawn for.
 	# DEVICE_BOTTOM_MARGIN is a small fixed constant, not safe_area_bottom_
-	# inset() -- see that const's own comment for why.
-	var device_x: float = (screen.x - DEVICE_DISPLAY_SIZE) / 2.0
-	var device_bottom: float = screen.y - DEVICE_BOTTOM_MARGIN
-	var device_top: float = device_bottom - DEVICE_DISPLAY_SIZE
+	# inset() -- see that const's own comment for why. device_x/device_bottom/
+	# device_top themselves are computed above, before the chrome scroll box,
+	# so both share one geometry (see the chrome_scroll comment above).
 	var device_wrap := _build_device_art(dial)
 	device_wrap.position = Vector2(device_x, device_top)
 	add_child(device_wrap)
@@ -363,6 +394,14 @@ func _build_top_block(content: VBoxContainer, player: Dictionary, dial: Dictiona
 		var have: int = player["orichalchum"].get(movement["oreType"], 0)
 		var wind_button := UI.symbol_button(["Wind +1 (%d " % cost, { "symbol": GameData.ORE_TYPES[movement["oreType"]]["symbol"], "fallback": SymbolGlyph.ore_fallback(movement["oreType"]) }, ")"], func(): Dial.wind(1))
 		wind_button.disabled = dial["currentCharge"] >= dial["maxCharge"] or have < cost
+		# Found alongside the ticket-26 overlap fix, same root cause
+		# _build_socket_tile's own comment already documents: symbol_button()
+		# never reserves a height (only a width floor), so left unset this
+		# row collapsed to ~8px of stylebox padding and its real content
+		# bled into the "Craft new Movement" row below it inside the same
+		# card -- a card-internal overlap the human's seated-Dial screenshot
+		# already showed alongside the card-vs-dial one this ticket is about.
+		wind_button.custom_minimum_size = Vector2(0, SOCKET_TILE_HEIGHT)
 		c["content"].add_child(wind_button)
 	else:
 		# PROSE-REVIEW: carried over unchanged from the old drawer copy.
