@@ -6,10 +6,23 @@ extends "res://tests/test_base.gd"
 # timers are both simulated by emitting the relevant signal directly
 # (`.pressed.emit()` / `.timeout.emit()`) rather than waiting on real
 # time, since test_base.gd's run_case() is fully synchronous.
+#
+# field-kit-chrome ticket 02: rows now render via a DotMatrixBoard child
+# instead of a styled Button label -- `_board_for()`/`.target_text()` read
+# back what a row actually says instead of `Button.text`, and `_timer_for()`
+# finds the fade Timer by type rather than by child index, since the board
+# is added as a child of the row first.
 
 
 func _timer_for(toast: NotificationToast, id: String) -> Timer:
-	return toast._rows[id].get_child(0)
+	for child in toast._rows[id].get_children():
+		if child is Timer:
+			return child
+	return null
+
+
+func _board_for(toast: NotificationToast, id: String) -> DotMatrixBoard:
+	return toast._boards[id]
 
 
 func run() -> void:
@@ -28,6 +41,20 @@ func run() -> void:
 		toast.free()
 	)
 
+	run_case("visible_rows_render_their_1st_2nd_ordinal_prefix_and_text", func():
+		GameState.reset()
+		var a := Notify.push("First.")
+		var b := Notify.push("Second.")
+
+		var toast := NotificationToast.new()
+		toast._ready()
+
+		assert_eq(_board_for(toast, a["id"]).target_text(), "1ST FIRST.", "the oldest visible entry is ranked 1st (DotMatrixBoard upper-cases everything -- real departure boards are caps-only)")
+		assert_eq(_board_for(toast, b["id"]).target_text(), "2ND SECOND.", "the next is ranked 2nd")
+
+		toast.free()
+	)
+
 	run_case("dismissing_a_visible_toast_drains_the_next_queued_entry", func():
 		GameState.reset()
 		var a := Notify.push("First.")
@@ -41,6 +68,22 @@ func run() -> void:
 
 		assert_eq(toast._visible_ids, [b["id"], c["id"]], "the queued third entry slides in to replace the dismissed one")
 		assert_eq(toast._entries_container.get_child_count(), 2, "still exactly 2 rows rendered")
+
+		toast.free()
+	)
+
+	run_case("a_surviving_row_re_ranks_from_2nd_to_1st_when_the_entry_above_it_is_dismissed", func():
+		GameState.reset()
+		var a := Notify.push("First.")
+		var b := Notify.push("Second.")
+
+		var toast := NotificationToast.new()
+		toast._ready()
+		assert_eq(_board_for(toast, b["id"]).target_text(), "2ND SECOND.", "sanity: starts 2nd")
+
+		Notify.dismiss(a["id"])
+
+		assert_eq(_board_for(toast, b["id"]).target_text(), "1ST SECOND.", "b's own board is re-labelled 1st once it shifts up, not just repositioned")
 
 		toast.free()
 	)
@@ -82,15 +125,16 @@ func run() -> void:
 		toast.free()
 	)
 
-	run_case("a_toast_entry_autowraps_instead_of_clipping_a_long_line", func():
+	run_case("a_long_notification_line_is_clipped_by_its_row_instead_of_overflowing_past_the_screen_edge", func():
 		GameState.reset()
-		var a := Notify.push("A very long notification line that should wrap onto multiple lines instead of clipping off the visible edge of the screen.")
+		var a := Notify.push("A very long notification line that should be clipped at the row's own edge instead of drawing straight past the visible edge of the screen.")
 
 		var toast := NotificationToast.new()
 		toast._ready()
 
 		var entry: Button = toast._rows[a["id"]]
-		assert_eq(entry.autowrap_mode, TextServer.AUTOWRAP_WORD_SMART, "long toast text wraps instead of clipping")
+		assert_true(entry.clip_contents, "a row too long for the board to draw in one screen-width is clipped, not left to overflow")
+		assert_true(_board_for(toast, a["id"]).target_text().ends_with("SCREEN."), "the full text is still the row's real content -- only the drawing is clipped, not the data")
 
 		toast.free()
 	)
@@ -102,12 +146,16 @@ func run() -> void:
 		var toast := NotificationToast.new()
 		toast._ready()
 
-		assert_eq(toast._entries_container.offset_top, UI.top_bar_clearance(), "off the map screen, the toast clears the global 40px TopBar")
+		assert_eq(toast._entries_container.offset_top, UI.top_bar_clearance(), "the toast clears the global TopBar")
 
 		toast.free()
 	)
 
-	run_case("toast_clears_the_map_screens_own_shorter_top_row_instead_of_the_hidden_global_bar", func():
+	run_case("toast_clears_the_persistent_top_bar_on_map_too_now_that_its_no_longer_hidden_there", func():
+		# field-kit-chrome ticket 02: Main.gd's TOP_BAR_HIDDEN_SCREENS no
+		# longer lists "map" -- the merged board is unconditional there too,
+		# so this no longer branches on MapScreen's own top row the way it
+		# used to pre-ticket.
 		GameState.reset()
 		GameState.state["currentScreen"] = "map"
 		Notify.push("Hello.")
@@ -115,24 +163,7 @@ func run() -> void:
 		var toast := NotificationToast.new()
 		toast._ready()
 
-		assert_eq(toast._entries_container.offset_top, MapScreen.top_row_clearance(), "on map, the toast clears MapScreen's own top row")
-		assert_true(toast._entries_container.offset_top > UI.top_bar_clearance(), "map's own top row (8px margin + 40px icon row) sits lower than the hidden global 40px TopBar would have -- the old fixed offset undershot it and overlapped")
-
-		toast.free()
-	)
-
-	run_case("toast_offset_updates_when_navigating_onto_the_map_screen", func():
-		GameState.reset()
-		Notify.push("Hello.")
-
-		var toast := NotificationToast.new()
-		toast._ready()
-		assert_eq(toast._entries_container.offset_top, UI.top_bar_clearance(), "sanity: starts off-map")
-
-		GameState.state["currentScreen"] = "map"
-		EventBus.state_changed.emit()
-
-		assert_eq(toast._entries_container.offset_top, MapScreen.top_row_clearance(), "navigating onto map re-derives the offset on the next refresh")
+		assert_eq(toast._entries_container.offset_top, UI.top_bar_clearance(), "on map, the toast clears the same persistent TopBar as everywhere else")
 
 		toast.free()
 	)

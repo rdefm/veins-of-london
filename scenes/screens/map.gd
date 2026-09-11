@@ -16,20 +16,24 @@ extends Control
 # toggles which of _diagram_layer / _district_scroll is visible, based on
 # whether a district is selected.
 #
-# Map-filters ticket 02: the app-wide TopBar (cash/day/bag) is hidden on
-# this screen (Main.gd's TOP_BAR_HIDDEN_SCREENS) so the diagram gets the
-# full screen above the NavBar — this screen's own top bar (hamburger/
-# title/bag, _build_top_bar()) replaces it, and its bag button calls the
-# same Bag.open() the global one did, so nothing is lost.
+# Map-filters ticket 02: this screen has its own local top bar (hamburger/
+# title/bag, _build_top_bar()), whose bag button calls the same Bag.open()
+# the global one does. field-kit-chrome ticket 02 (ui-vision.md §5) later
+# made the app-wide TopBar/notification board unconditional on every screen
+# including this one (Main.gd's TOP_BAR_HIDDEN_SCREENS no longer lists
+# "map") — that board now sits above this screen's own top row rather than
+# being replaced by it; repositioning _build_top_bar() below the global
+# board is deferred to Family 3's own detailing pass (ui-vision.md §8).
 
 const SHEET_HEIGHT := 480.0
 
 # TOP_ROW_MARGIN is the breathing room above _build_top_bar()'s row
 # (bugfixes ticket 21's safe-area inset lives on top of it).
 # top_row_clearance() is the distance from the screen's top edge to the
-# bottom of that row -- what anything else (bugfixes ticket 62's
-# NotificationToast) needs to clear it, the same way UI.top_bar_clearance()
-# does for the global TopBar.
+# bottom of that row. No longer consumed by NotificationToast (field-kit-
+# chrome ticket 02 — the merged board now clears the global TopBar
+# unconditionally, the same as everywhere else) but still documents this
+# screen's own top-row footprint for whenever Family 3 repositions it.
 const TOP_ROW_MARGIN := 8.0
 
 static func top_row_clearance() -> float:

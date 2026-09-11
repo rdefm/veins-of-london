@@ -1,38 +1,38 @@
 class_name NotificationToast
 extends Control
 
-# Renders up to MAX_VISIBLE unseen notifications as auto-fading toasts,
+# Renders up to MAX_VISIBLE unseen notifications as auto-fading rows,
 # queuing overflow and holding everything while combat is active (ticket
-# 04). Tapping a toast and its fade timer expiring both just call
+# 04). Tapping a row and its fade timer expiring both just call
 # Notify.dismiss(id) — that only flips the log entry's `seen` flag, so
-# dismissing a toast never deletes it from the persistent log and never
+# dismissing a row never deletes it from the persistent log and never
 # navigates anywhere. All fade/queue timing lives here, never in
 # GameState — the state tree only ever holds the pure {id, text, seen,
 # day} entries systems/notify.gd writes.
+#
+# field-kit-chrome ticket 02 (ui-vision.md §5) retires this file's old
+# cream/amber card styling (_style_row()/_CATEGORY_COLOURS) in favour of the
+# same electronic dot-matrix departure/platform board top_bar.gd now draws
+# (DotMatrixBoard/dot_matrix_font.gd) — rows read as numbered lines on that
+# board ("1st ...", "2nd ...") mounted directly beneath the status line so
+# the two look like one continuous object, though this stays its own
+# script/class so notifications can hide independently of the status line
+# on some future screen. Per-category colour coding is dropped along with
+# the card styling: a real departure board is one uniform amber, not
+# colour-tagged by message type.
 
 const MAX_VISIBLE := 2
 const FADE_SECONDS := 4.0
 const FADE_IN_SECONDS := 0.15
 const FADE_OUT_SECONDS := 0.3
 
-# Category taxonomy colours (bugfixes ticket 61) — same palette event.gd's
-# card styling and map_canvas.gd's overlays already draw from (REFERENCE.md
-# §"visual language": --amber #c8873a, --slate #4a5568, --success #3a7a52,
-# --danger #9b2335). No canonical --info exists there; --slate reads as the
-# neutral/informational tone elsewhere (map_canvas.gd district labels), so
-# it's reused here rather than inventing a new hue.
-const _CATEGORY_COLOURS := {
-	"info": Color(0.290196, 0.337255, 0.407843, 1),     # --slate #4a5568
-	"success": Color(0.227451, 0.478431, 0.321569, 1),  # --success #3a7a52
-	"warning": Color(0.784314, 0.529412, 0.227451, 1),  # --amber #c8873a
-	"danger": Color(0.607843, 0.137255, 0.207843, 1),   # --danger #9b2335
-}
-
-const MainScript := preload("res://scenes/Main.gd")
+const NOTIFICATION_DOT_SIZE := 2.0
+const _ORDINALS := ["1st", "2nd"]
 
 var _entries_container: VBoxContainer
 var _visible_ids: Array[String] = []
-var _rows: Dictionary = {}  # id:String -> Control
+var _rows: Dictionary = {}    # id:String -> Control (the tappable Button)
+var _boards: Dictionary = {}  # id:String -> DotMatrixBoard (that Button's board child)
 
 
 func _ready() -> void:
@@ -55,15 +55,12 @@ func _ready() -> void:
 # since Combat always emits it around both) naturally drains the queue
 # again the moment combat ends, with no dedicated signal needed.
 func _refresh() -> void:
-	# Screen-aware clearance (bugfixes ticket 62): fixed UI.top_bar_clearance()
-	# assumes the global 40px TopBar, which undershoots "map"'s own top row
-	# once that bar is hidden there (Main.TOP_BAR_HIDDEN_SCREENS) and leaves
-	# the toast's first entry overlapping it. Main.toast_top_clearance() owns
-	# the per-screen answer, next to the bar-visibility rules it's derived
-	# from. Re-derived every refresh, not just _ready(), so navigating
-	# onto/off of "map" (state_changed fires on every Nav.go_to) keeps it
-	# correct.
-	_entries_container.offset_top = MainScript.toast_top_clearance(GameState.state["currentScreen"])
+	# The board is unconditionally visible on every screen this component
+	# is mounted on (Main.gd's TOP_BAR_HIDDEN_SCREENS is down to just
+	# title/intro, neither of which mounts NotificationToast in practice)
+	# so rows always clear the one persistent TopBar, with no per-screen
+	# branching needed any more.
+	_entries_container.offset_top = UI.top_bar_clearance()
 
 	if GameState.state["combat"]["active"]:
 		_clear_all_rows()
@@ -87,6 +84,8 @@ func _refresh() -> void:
 		_visible_ids.append(next_id)
 		_add_row(by_id[next_id])
 
+	_refresh_row_text(by_id)
+
 
 # Oldest unseen, not-already-visible entry — the queue drains in push order.
 func _next_queued_id() -> String:
@@ -96,19 +95,46 @@ func _next_queued_id() -> String:
 	return ""
 
 
+# Rank (0 = "1st", 1 = "2nd") comes from position in _visible_ids, so a row
+# that shifts up when an earlier one is dismissed gets its ordinal prefix
+# re-drawn here too, not just newly-added rows — DotMatrixBoard.set_lines()
+# only scrambles the cells that actually changed, so an unmoved row's own
+# text stays steady while a shifted one's leading digit flickers into place.
+func _refresh_row_text(by_id: Dictionary) -> void:
+	for i in _visible_ids.size():
+		var id: String = _visible_ids[i]
+		var notification: Dictionary = by_id[id]
+		var board: DotMatrixBoard = _boards[id]
+		board.set_lines([DotMatrixBoard.line(_row_text(i, notification["text"]), NOTIFICATION_DOT_SIZE)])
+		_rows[id].custom_minimum_size = board.custom_minimum_size
+
+
+func _row_text(rank: int, text: String) -> String:
+	var ordinal: String = _ORDINALS[rank] if rank < _ORDINALS.size() else "%dth" % (rank + 1)
+	return "%s %s" % [ordinal, text]
+
+
 func _add_row(notification: Dictionary) -> void:
 	var id: String = notification["id"]
 	var entry := Button.new()
-	entry.text = notification["text"]
-	# Button is single-line/clip by default -- a long notification string
-	# would run off the visible width instead of reflowing (bugfixes
-	# ticket 62) without this.
-	entry.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	entry.flat = true
+	# The board draws its own full-bleed black background; without clipping,
+	# a notification line longer than the board is wide would draw straight
+	# past the screen edge instead of being cut off at it (this component
+	# has no scroll/wrap mechanism — each notification is one board line,
+	# same as a real departure board's per-message row).
+	entry.clip_contents = true
 	entry.mouse_filter = Control.MOUSE_FILTER_STOP
 	entry.pressed.connect(func(): Notify.dismiss(id))
-	_style_row(entry, notification.get("category", "info"))
+
+	var board := DotMatrixBoard.new()
+	UI.anchor_full_rect(board)
+	board.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	entry.add_child(board)
+
 	_entries_container.add_child(entry)
 	_rows[id] = entry
+	_boards[id] = board
 
 	var timer := Timer.new()
 	timer.wait_time = FADE_SECONDS
@@ -130,36 +156,6 @@ func _add_row(notification: Dictionary) -> void:
 		fade_in.tween_property(entry, "modulate:a", 1.0, FADE_IN_SECONDS)
 
 
-# Card-style left-border stripe (event.gd's tension/craft card treatment) in
-# the category's colour, plus a matching font tint, applied to every button
-# state so the colour reads whether the toast is idle or mid-tap — a plain
-# font_color override alone (map_controls.gd's faction-button pattern) would
-# still leave every toast the same shape/background, which is exactly the
-# "indistinguishable, easy to mis-tap" complaint this ticket exists to fix.
-func _style_row(entry: Button, category: String) -> void:
-	var colour: Color = _CATEGORY_COLOURS.get(category, _CATEGORY_COLOURS["info"])
-
-	var box := StyleBoxFlat.new()
-	box.bg_color = Color(0.980392, 0.972549, 0.952941, 1)
-	box.border_width_left = 4
-	box.border_color = colour
-	box.corner_radius_top_left = 6
-	box.corner_radius_top_right = 6
-	box.corner_radius_bottom_right = 6
-	box.corner_radius_bottom_left = 6
-	box.content_margin_left = 12.0
-	box.content_margin_top = 10.0
-	box.content_margin_right = 12.0
-	box.content_margin_bottom = 10.0
-
-	for state in ["normal", "hover", "pressed", "focus"]:
-		entry.add_theme_stylebox_override(state, box)
-	entry.add_theme_color_override("font_color", colour)
-	entry.add_theme_color_override("font_hover_color", colour)
-	entry.add_theme_color_override("font_pressed_color", colour)
-	entry.add_theme_color_override("font_focus_color", colour)
-
-
 # animate: false for combat suppression (_clear_all_rows) — combat.active
 # means "do not render at all," this frame, not "fade out over the next
 # 0.3s while the fight starts," so that path always removes instantly.
@@ -168,6 +164,7 @@ func _remove_row(id: String, animate: bool) -> void:
 		return
 	var row: Control = _rows[id]
 	_rows.erase(id)
+	_boards.erase(id)
 	if animate and row.is_inside_tree():
 		# The queue's next entry (added by the _refresh() call this is
 		# part of) already occupies its own slot beneath this one in

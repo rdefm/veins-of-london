@@ -95,14 +95,15 @@ const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "hq_floorplan"
 # D4's persistent top bar is up on every screen except the two with no game
 # session to show cash/day/blocks for — unlike NAV_HIDDEN_SCREENS, it stays
 # visible through event/combat so the bag button keeps working there (D4.4).
-# Map-filters ticket 02 adds a third exception: the Network diagram wants
-# the full screen above the NavBar, and has its own local top bar (hamburger/
-# title/bag, map.gd's _build_top_bar()) whose bag button already covers what
-# the global one did there. hq-diorama ticket 04 adds "hq_floorplan", ticket
-# 05 adds "hq_door", ticket 06 adds "hq_lab_bench", per §3.3's full-bleed
-# sub-view rule — unlike "map" none of the three has a replacement top row
-# of its own; each screen's own Back button is the only chrome.
-const TOP_BAR_HIDDEN_SCREENS := ["title", "intro", "map", "hq_floorplan", "hq_door", "hq_lab_bench", "hq_dial"]
+# field-kit-chrome ticket 02 (ui-vision.md §5, amending hq-diorama-vision.md
+# §3.3) makes this unconditional everywhere else, including "map" and every
+# HQ full-bleed sub-view — the merged status/notification dot-matrix board
+# stays up so raid/notification alerts are never missed, and each of those
+# screens' own top-of-screen furniture (map.gd's local hamburger/title/bag
+# row included) now sits below it rather than replacing it. The bottom nav
+# dock's own hide-on-full-bleed behaviour (NAV_HIDDEN_SCREENS above) is
+# unchanged by this — the override applies only to the top board.
+const TOP_BAR_HIDDEN_SCREENS := ["title", "intro"]
 
 var screen_container: Control
 var nav_bar: Control
@@ -160,20 +161,6 @@ static func resolve_screen_id(screen_id: String) -> String:
 	if SCREEN_SCRIPTS.has(mapped):
 		return mapped
 	return "title"
-
-
-# Bugfixes ticket 62: how far NotificationToast needs to sit below the
-# screen's top edge to clear whatever top bar is actually showing. Lives
-# here rather than in the toast itself because TOP_BAR_HIDDEN_SCREENS
-# above is the one place that already knows which screens hide the global
-# bar and why -- of those, only "map" has its own replacement top row
-# (map.gd's _build_top_bar()) that a toast could still overlap; title/intro
-# have no game session and no bar-shaped content there at all, so the
-# (unused) global-bar clearance is harmless for them.
-static func toast_top_clearance(screen_id: String) -> float:
-	if resolve_screen_id(screen_id) == "map":
-		return MapScreen.top_row_clearance()
-	return UI.top_bar_clearance()
 
 
 func _show_screen(screen_id: String) -> void:

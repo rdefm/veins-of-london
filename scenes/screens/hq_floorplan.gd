@@ -7,11 +7,12 @@ extends Control
 # assignment for the lab/veinStation rooms. Reached from hq.gd's "rooms"
 # zone tap; Back returns to "hq" specifically, not the phone home grid.
 #
-# §3.3: sub-views are full-bleed -- the persistent TopBar and NavBar hide
-# for this screen id (scenes/Main.gd's TOP_BAR_HIDDEN_SCREENS/
-# NAV_HIDDEN_SCREENS), the first sub-view that actually needs this (every
-# earlier HQ destination is still a Modal, which draws over both bars
-# rather than needing them gone).
+# §3.3: sub-views are full-bleed -- the bottom NavBar hides for this screen
+# id (scenes/Main.gd's NAV_HIDDEN_SCREENS), the first sub-view that actually
+# needs this (every earlier HQ destination is still a Modal, which draws
+# over the dock rather than needing it gone). The persistent TopBar/
+# notification board no longer follows this rule (field-kit-chrome ticket
+# 02, §3.3's own amendment note) -- it stays up here too.
 #
 # §3.1 groups the floorplan with the door/bench as "diegetic", explicitly
 # against "list-style panels" (Train, vein list) -- a first pass here was a
@@ -74,9 +75,14 @@ func _refresh() -> void:
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_right", 16)
-	# No persistent TopBar/NavBar to clear here (both hidden for this screen
-	# id) -- just the notch/home-indicator safe areas plus normal breathing
-	# room, same shape map.gd's own top-row margin uses for the top inset.
+	# No persistent NavBar to clear here (hidden for this screen id) -- just
+	# the notch/home-indicator safe areas plus normal breathing room, same
+	# shape map.gd's own top-row margin uses for the top inset. field-kit-
+	# chrome ticket 02 made the persistent TopBar/notification board visible
+	# on this screen too without adding its UI.top_bar_clearance() back in
+	# here -- the board now overlays this heading rather than the heading
+	# reserving room for it; repositioning is left to a follow-up, same
+	# deferral hq_lab_bench.gd's own plate notes.
 	margin.add_theme_constant_override("margin_top", int(UI.safe_area_top_inset()) + 16)
 	margin.add_theme_constant_override("margin_bottom", int(UI.safe_area_bottom_inset()) + 16)
 	sc.add_child(margin)

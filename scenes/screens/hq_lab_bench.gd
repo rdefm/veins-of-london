@@ -18,11 +18,15 @@ extends Control
 # panning is purely this screen's own positioning of that one Control inside
 # a 390-wide clip frame, the same way a photo strip scrolls behind a window.
 #
-# Full-bleed (§3.3), same NAV_HIDDEN_SCREENS/TOP_BAR_HIDDEN_SCREENS
-# registration as hq_floorplan.gd/hq_door.gd (see scenes/Main.gd) -- the
-# plate's own 844 authored height fills the entire 390x844 viewport with no
-# top-bar clearance to subtract, unlike hq.gd's 660-tall room plate sitting
-# below the (visible, there) top bar.
+# Full-bleed (§3.3), same NAV_HIDDEN_SCREENS registration as
+# hq_floorplan.gd/hq_door.gd (see scenes/Main.gd) -- the plate's own 844
+# authored height fills the entire 390x844 viewport with no top-bar
+# clearance subtracted, unlike hq.gd's 660-tall room plate sitting below
+# the (visible, there) top bar. field-kit-chrome ticket 02 made the
+# persistent TopBar/notification board visible here too without adding
+# that clearance back -- the board now overlays the plate's own top strip
+# rather than the plate reserving room for it; repositioning the plate
+# below the board is left to a follow-up, not attempted here.
 #
 # Ticket 07, docs/hq-diorama-vision.md §5.2-§5.4: the full craft flow,
 # replacing lab.gd's picker->pairing->confirm entirely (that screen, its

@@ -1,6 +1,15 @@
 class_name HqDialScreen
 extends Control
 
+# Full-bleed (docs/hq-diorama-vision.md §3.3): the bottom NavBar hides for
+# this screen id (scenes/Main.gd's NAV_HIDDEN_SCREENS), same as
+# hq_floorplan.gd/hq_door.gd/hq_lab_bench.gd. The persistent TopBar/
+# notification board no longer follows this rule (field-kit-chrome ticket
+# 02, §3.3's own amendment note) -- it stays up here too, overlaying this
+# screen's own top margin rather than that margin reserving room for it
+# (same deferral hq_floorplan.gd/hq_door.gd/hq_lab_bench.gd's own margin
+# comments note).
+#
 # hq-diorama ticket 09, docs/hq-diorama-vision.md §4: the Dial's own diegetic
 # loadout sub-view, reached from hq.gd's "dial" zone tap in place of the old
 # "hq_dial" modal (modal_layer.gd's _build_hq_dial(), deleted this ticket).

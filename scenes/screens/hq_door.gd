@@ -8,7 +8,9 @@ extends Control
 # Reached from hq.gd's "security" zone tap; Back returns to "hq" specifically.
 #
 # §3.3: full-bleed, same as hq_floorplan.gd -- registered in scenes/Main.gd's
-# NAV_HIDDEN_SCREENS/TOP_BAR_HIDDEN_SCREENS.
+# NAV_HIDDEN_SCREENS (the bottom dock only; the persistent TopBar/
+# notification board stays up here too, per §3.3's field-kit-chrome ticket
+# 02 amendment).
 #
 # §3.1 groups the door with the floorplan/bench as "diegetic", explicitly
 # against "list-style panels" (Train, vein list) -- same as hq_floorplan.gd's
@@ -85,6 +87,11 @@ func _refresh() -> void:
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_right", 16)
+	# field-kit-chrome ticket 02 made the persistent TopBar/notification
+	# board visible on this screen too without adding UI.top_bar_clearance()
+	# back into this margin -- the board now overlays this heading rather
+	# than the heading reserving room for it; repositioning is left to a
+	# follow-up, same deferral hq_floorplan.gd's own margin notes.
 	margin.add_theme_constant_override("margin_top", int(UI.safe_area_top_inset()) + 16)
 	margin.add_theme_constant_override("margin_bottom", int(UI.safe_area_bottom_inset()) + 16)
 	sc.add_child(margin)
