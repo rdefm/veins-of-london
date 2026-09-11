@@ -936,13 +936,13 @@ var _turn_order_strip: TurnOrderStrip
 # why GameState is already final by the time this plays anything.
 var _director: CombatDirector
 
-# How many of combat.log's lines the footer's log box is currently allowed
-# to show; -1 means "show everything" (the default, and where this always
-# ends up once a round's playback finishes or wasn't triggered through the
-# screen at all -- e.g. a system test calling Combat.player_attack()
-# directly never touches this). Set to the pre-round log size when a round
-# starts playing, then advanced one line per beat by _on_beat_played() --
-# see _play_round() below.
+# How far into combat.log's lines _push_revealed_log_line() has posted to
+# the top notification board; -1 means "not mid-playback" (the default, and
+# where this always ends up once a round's playback finishes or wasn't
+# triggered through the screen at all -- e.g. a system test calling
+# Combat.player_attack() directly never touches this). Set to the pre-round
+# log size when a round starts playing, then advanced one line per beat by
+# _on_beat_played() -- see _play_round() below.
 var _revealed_log_count: int = -1
 
 # combat-presentation ticket 05, §4.1: "HP bar lag-drain -- a ghost bar
@@ -1224,10 +1224,12 @@ func _context_label(context: String) -> String:
 # mid-fight, there's no log in the footer at all any more -- combat.log
 # lines post to the top dot-matrix board as they're revealed (see
 # _on_beat_played()'s Notify.push() call) instead of rendering under the
-# stage, so the command deck is just the Dial/actions row on its own. Once
-# the fight's over, the recap log (still this screen's own footer, not the
-# board -- it's a full recap, not a live ticker) renders alongside the
-# outcome button, same as before this ticket.
+# stage, so the command deck is just the Dial/actions row on its own.
+#
+# ui-chrome-pass ticket 02: the post-fight recap log is gone too -- the
+# live ticker above already showed every line as it happened, so a static
+# repeat of it afterward was redundant. Once the fight's over, the footer
+# is just the outcome button on its own.
 func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
 	for child in _footer_holder.get_children():
 		child.queue_free()
@@ -1246,7 +1248,6 @@ func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
 	# simply not offering the exit while playback is live closes the same
 	# hole with much less code.
 	if combat["outcome"] != null and not _director.is_playing():
-		_footer_holder.add_child(_build_log(combat))
 		_footer_holder.add_child(_build_outcome_button(combat["outcome"], combat["context"]))
 	else:
 		_footer_holder.add_child(_build_command_deck(player))
@@ -1780,45 +1781,6 @@ func _build_complication_detail(dial: Variant) -> Control:
 	return c["panel"]
 
 
-# combat-presentation ticket 04: while `_revealed_log_count` is set (a round
-# is mid-playback -- see _play_round()), only reveals that many of
-# combat.log's lines instead of all of them. -1 (the default, and where this
-# always lands once playback finishes or was never triggered) shows
-# everything. In practice this only ever runs at -1 today -- _sync_footer()
-# only calls this once the fight has an outcome AND playback has finished
-# (see that func's own branch) -- kept anyway as the same cheap defensive
-# gate it always was rather than assuming that pairing never changes.
-#
-# field-kit-chrome ticket 03, ui-vision.md §5's 2026-09-11 amendment: a
-# rendering swap only -- still the trailing OUTCOME_LOG_LINES lines, still
-# this screen's own footer, just drawn through the shared DotMatrixBoard
-# (ticket 02) instead of a VBoxContainer of muted labels. Wrapped in a
-# clipping Control the same way notification_toast.gd's own rows are
-# (that board has no scroll/wrap mechanism of its own -- a line wider than
-# the footer would otherwise draw straight past the screen edge).
-const OUTCOME_LOG_LINES := 6
-const OUTCOME_LOG_DOT_SIZE := 2.0
-
-func _build_log(combat: Dictionary) -> Control:
-	var log: Array = combat["log"]
-	var end: int = log.size() if _revealed_log_count < 0 else mini(_revealed_log_count, log.size())
-	var log_start: int = maxi(0, end - OUTCOME_LOG_LINES)
-
-	var lines: Array[Dictionary] = []
-	for i in range(log_start, end):
-		lines.append(DotMatrixBoard.line(log[i], OUTCOME_LOG_DOT_SIZE))
-
-	var board := DotMatrixBoard.new()
-	board.set_lines(lines)
-
-	var wrapper := Control.new()
-	wrapper.clip_contents = true
-	UI.anchor_full_rect(board)
-	wrapper.add_child(board)
-	wrapper.custom_minimum_size = board.custom_minimum_size
-	return wrapper
-
-
 # §2.5: "Action deck -- 3 cards, not 4. Attack / Item / Run ... same
 # handlers, no new inventory/hand mechanic, no energy-cost numbers." "Item"
 # still opens the existing Bag drawer.
@@ -2009,8 +1971,8 @@ func _play_beats(beats: Array, log_before: int) -> void:
 # suppression check lets it render immediately instead of holding it for
 # after the fight. A no-op whenever _revealed_log_count lands outside the
 # log's own bounds (beats.is_empty() never calls _on_beat_played() at all,
-# so this is really just defending the same edge _build_log()'s own gate
-# does) -- nothing to post.
+# so this is really just a cheap defensive gate rather than a case that
+# should ever actually hit) -- nothing to post.
 func _push_revealed_log_line() -> void:
 	var log: Array = GameState.state["combat"]["log"]
 	var index: int = _revealed_log_count - 1

@@ -736,7 +736,11 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("post_combat_footer_still_renders_log_then_outcome_button_unchanged", func():
+	run_case("post_combat_footer_is_just_the_outcome_button_no_recap_log", func():
+		# ui-chrome-pass ticket 02: the post-fight recap log is gone -- the
+		# live ticker (see the _on_beat_played() cases above) already showed
+		# every line as it happened, so the footer is just the outcome
+		# button once the fight resolves.
 		_setup_combat([_enemy("Scrapper")])
 		GameState.state["combat"]["log"] = ["one", "two", "three", "four", "five", "six", "seven"]
 		GameState.state["combat"]["outcome"] = "win"
@@ -744,12 +748,7 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_eq(screen._footer_holder.get_child_count(), 2, "post-combat: still the log then the outcome button, no command deck")
-		var log_wrapper: Control = screen._footer_holder.get_child(0)
-		var board: DotMatrixBoard = log_wrapper.get_child(0)
-		assert_eq(board._target_lines.size(), 6, "the post-combat log keeps showing up to 6 lines")
-		assert_eq(board.target_text(0), "TWO", "the oldest of the trailing 6 lines is kept, not the very first line of the whole fight")
-		assert_eq(board.target_text(5), "SEVEN", "the newest line is the last one shown")
+		assert_eq(screen._footer_holder.get_child_count(), 1, "post-combat: just the outcome button, no log and no command deck")
 		assert_true(_find_dial_widget(screen) == null, "the command deck stays gone once the fight has an outcome")
 
 		screen.free()
