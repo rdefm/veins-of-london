@@ -432,14 +432,14 @@ func run() -> void:
 		for b in _deck_buttons(screen):
 			texts.append(b.text)
 		assert_true(texts.has("⚔"), "Attack must still be offered, same handler as the old flat action bar")
-		assert_true(texts.has("🏃"), "Run must still be offered")
+		assert_true(texts.has("🏃"), "Leg it must still be offered")
 		assert_true(texts.has("🎒"), "Item must still be offered")
 
 		var captions: Array = []
 		for l in screen.find_children("", "Label", true, false):
 			captions.append(l.text)
 		assert_true(captions.has("Attack"))
-		assert_true(captions.has("Run"))
+		assert_true(captions.has("Leg it"))
 		assert_true(captions.has("Item"))
 
 		screen.free()

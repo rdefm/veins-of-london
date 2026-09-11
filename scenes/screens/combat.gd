@@ -1851,7 +1851,7 @@ func _build_action_deck(player: Dictionary) -> Control:
 		or (player["dial"] != null and not player["dial"]["loadedComplications"].is_empty())
 	)
 	row.add_child(_build_action_card("🎒", "Item", func(): Bag.open(), not has_items))
-	row.add_child(_build_action_card("🏃", "Run", _on_run_pressed))
+	row.add_child(_build_action_card("🏃", "Leg it", _on_run_pressed))
 
 	if _director.is_playing():
 		row.add_child(_build_action_card("⏭", "Skip", func(): _director.skip_to_end()))
