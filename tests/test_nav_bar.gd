@@ -1,14 +1,21 @@
 extends "res://tests/test_base.gd"
 
 # 11-phone-os-shell ticket 11: the dock restructure -- 3 slots (Phone · Map ·
-# HQ), Phone as a home button, Map's lock rendered as a padlocked AppTile
+# HQ), Phone as a home button, Map's lock rendered as a padlock overlay
 # instead of the old tab-label-overwrite hack.
+#
+# field-kit-chrome ticket 04: the dock's own tile rendering (previously
+# shared AppTile.gd with the phone home grid) is replaced by nav_bar.gd's
+# own dock-local _DockTile/_TileIcon classes -- a flat TfL-style tile strip
+# per ui-vision.md §5. These cases assert against that new structure
+# (`_DockTile.locked`/`.active`, `_TileIcon.kind`/`.colour`, `_lock_badge`)
+# instead of AppTile's frame-style/lock-overlay fields.
 #
 # NavBar.new()/_ready() is safe to call directly without a live scene tree,
 # same reasoning tests/test_phone_home_grid.gd documents for PhoneScreen --
-# nothing UI.anchor_bottom_wide()/AppTile.configure() touches depends on
-# get_tree()/get_viewport(), and AppTile self-heals its own _ready() via
-# _ensure_built() (app_tile.gd) regardless of whether its parent is ever
+# nothing UI.anchor_bottom_wide()/_DockTile.configure() touches depends on
+# get_tree()/get_viewport(), and _DockTile self-heals its own _ready() via
+# _ensure_built() (nav_bar.gd) regardless of whether its parent is ever
 # actually added to a processing tree.
 
 
@@ -54,8 +61,54 @@ func run() -> void:
 			if child is Panel:
 				bg = child
 				break
-		assert_true(bg != null, "ticket 37: NavBar has its own background Panel, distinct from the tiles' own frames")
+		assert_true(bg != null, "NavBar has its own background Panel, distinct from the tiles' own frames")
 		assert_true(bg.visible, "the bar background is visible")
+
+		nav.free()
+	)
+
+	run_case("ticket_04_tile_row_has_thin_vertical_dividers_between_the_three_cells", func():
+		GameState.reset()
+		var nav := NavBar.new()
+		nav._ready()
+
+		var row: HBoxContainer = null
+		for child in nav.get_children():
+			if child is HBoxContainer:
+				row = child
+				break
+		assert_true(row != null, "the tile row exists")
+
+		var dividers := 0
+		for child in row.get_children():
+			if child is ColorRect:
+				dividers += 1
+		assert_eq(dividers, 2, "a thin divider sits between each of the 3 cells (2 dividers total)")
+
+		nav.free()
+	)
+
+	run_case("ticket_04_each_tab_carries_its_own_new_line_icon_kind", func():
+		GameState.reset()
+		var nav := NavBar.new()
+		nav._ready()
+
+		assert_eq(nav._tiles["phone"]._icon.kind, "phone", "Phone tab uses the phone icon")
+		assert_eq(nav._tiles["map"]._icon.kind, "map", "Map tab uses the map icon")
+		assert_eq(nav._tiles["hq"]._icon.kind, "hq", "HQ tab uses the hq icon")
+
+		nav.free()
+	)
+
+	run_case("ticket_04_icon_and_label_colour_is_ui_action_red_not_blue", func():
+		GameState.reset()
+		var nav := NavBar.new()
+		nav._ready()
+
+		var expected: Color = GameData.PALETTE.get("ui_action_red", NavBar._ACTION_COLOR_FALLBACK)
+		var hq_tile: NavBar._DockTile = nav._tiles["hq"]
+		assert_eq(hq_tile._icon.colour, expected, "HQ tab's icon uses ui_action_red")
+		assert_eq(hq_tile._label.get_theme_color("font_color"), expected, "HQ tab's label uses ui_action_red")
 
 		nav.free()
 	)
@@ -66,10 +119,12 @@ func run() -> void:
 		var nav := NavBar.new()
 		nav._ready()
 
-		var hq_tile: AppTile = nav._tiles["hq"]
-		var phone_tile: AppTile = nav._tiles["phone"]
-		assert_eq(hq_tile._frame_style.bg_color, AppTile.ACTIVE_BG_COLOUR, "HQ tile highlights as active while on the hq screen")
-		assert_eq(phone_tile._frame_style.bg_color, AppTile.FRAME_BG_COLOUR, "Phone tile is not active while on the hq screen")
+		var hq_tile: NavBar._DockTile = nav._tiles["hq"]
+		var phone_tile: NavBar._DockTile = nav._tiles["phone"]
+		assert_true(hq_tile.active, "HQ tile is active while on the hq screen")
+		assert_true(hq_tile._active_bar.visible, "HQ tile shows its active-tab indicator bar")
+		assert_true(not phone_tile.active, "Phone tile is not active while on the hq screen")
+		assert_true(not phone_tile._active_bar.visible, "Phone tile shows no active-tab indicator")
 
 		nav.free()
 	)
@@ -81,12 +136,12 @@ func run() -> void:
 		var nav := NavBar.new()
 		nav._ready()
 
-		var phone_tile: AppTile = nav._tiles["phone"]
-		assert_eq(phone_tile._frame_style.bg_color, AppTile.ACTIVE_BG_COLOUR, "Phone tile highlights as active while parked on the app grid")
+		var phone_tile: NavBar._DockTile = nav._tiles["phone"]
+		assert_true(phone_tile.active, "Phone tile is active while parked on the app grid")
 
 		GameState.state["phoneNav"]["app"] = "notes"
 		EventBus.state_changed.emit()
-		assert_eq(phone_tile._frame_style.bg_color, AppTile.FRAME_BG_COLOUR, "Phone tile stops highlighting once an app is open, even though currentScreen is still phone")
+		assert_true(not phone_tile.active, "Phone tile stops being active once an app is open, even though currentScreen is still phone")
 
 		nav.free()
 	)
@@ -96,8 +151,9 @@ func run() -> void:
 		var nav := NavBar.new()
 		nav._ready()
 
-		var map_tile: AppTile = nav._tiles["map"]
-		assert_true(map_tile._lock_overlay.visible, "Map renders locked -- the same padlock overlay every other locked app uses")
+		var map_tile: NavBar._DockTile = nav._tiles["map"]
+		assert_true(map_tile.locked, "Map tile reports locked")
+		assert_true(map_tile._lock_badge.visible, "Map renders locked -- the same padlock overlay every other locked slot uses")
 
 		nav.free()
 	)
@@ -107,7 +163,7 @@ func run() -> void:
 		var nav := NavBar.new()
 		nav._ready()
 
-		var map_tile: AppTile = nav._tiles["map"]
+		var map_tile: NavBar._DockTile = nav._tiles["map"]
 		assert_eq(map_tile.tooltip_text, NavBar.LOCKED_MAP_LABEL, "the locked hint surfaces as a hover tooltip too, not just a toast on tap")
 
 		nav.free()
@@ -119,7 +175,7 @@ func run() -> void:
 		var nav := NavBar.new()
 		nav._ready()
 
-		var map_tile: AppTile = nav._tiles["map"]
+		var map_tile: NavBar._DockTile = nav._tiles["map"]
 		assert_eq(map_tile.tooltip_text, "", "no lock tooltip once Map is unlocked")
 
 		nav.free()
@@ -131,8 +187,9 @@ func run() -> void:
 		var nav := NavBar.new()
 		nav._ready()
 
-		var map_tile: AppTile = nav._tiles["map"]
-		assert_true(not map_tile._lock_overlay.visible, "Map renders unlocked once archiePartnerSeen is true")
+		var map_tile: NavBar._DockTile = nav._tiles["map"]
+		assert_true(not map_tile.locked, "Map renders unlocked once archiePartnerSeen is true")
+		assert_true(not map_tile._lock_badge.visible, "no padlock once Map is unlocked")
 
 		nav.free()
 	)
@@ -147,10 +204,11 @@ func run() -> void:
 			if child is Panel:
 				bg = child
 				break
-		var map_tile: AppTile = nav._tiles["map"]
+		var map_tile: NavBar._DockTile = nav._tiles["map"]
 		assert_true(bg != null and bg.visible, "the bar background still renders with a locked Map slot present")
-		assert_true(map_tile._lock_overlay.visible, "Map's padlock still renders unaffected by the bar chrome")
-		assert_eq(map_tile._frame_style.bg_color, AppTile.FRAME_BG_COLOUR, "a locked Map slot is never also shown as the active tab")
+		assert_true(map_tile._lock_badge.visible, "Map's padlock still renders unaffected by the bar chrome")
+		assert_true(not map_tile.active, "a locked Map slot is never also shown as the active tab")
+		assert_true(not map_tile._active_bar.visible, "a locked Map slot shows no active-tab indicator")
 
 		nav.free()
 	)
@@ -161,7 +219,7 @@ func run() -> void:
 		var nav := NavBar.new()
 		nav._ready()
 
-		var map_tile: AppTile = nav._tiles["map"]
+		var map_tile: NavBar._DockTile = nav._tiles["map"]
 		map_tile._on_gui_input(_synthetic_tap())
 
 		assert_eq(GameState.state["currentScreen"], "hq", "a locked Map tap never navigates")
@@ -178,7 +236,7 @@ func run() -> void:
 		var nav := NavBar.new()
 		nav._ready()
 
-		var map_tile: AppTile = nav._tiles["map"]
+		var map_tile: NavBar._DockTile = nav._tiles["map"]
 		map_tile._on_gui_input(_synthetic_tap())
 
 		assert_eq(GameState.state["currentScreen"], "map", "an unlocked Map tap navigates to the map screen")
@@ -191,7 +249,7 @@ func run() -> void:
 		var nav := NavBar.new()
 		nav._ready()
 
-		var hq_tile: AppTile = nav._tiles["hq"]
+		var hq_tile: NavBar._DockTile = nav._tiles["hq"]
 		hq_tile._on_gui_input(_synthetic_tap())
 
 		assert_eq(GameState.state["currentScreen"], "hq", "the HQ slot navigates to hq")
@@ -206,7 +264,7 @@ func run() -> void:
 		var nav := NavBar.new()
 		nav._ready()
 
-		var phone_tile: AppTile = nav._tiles["phone"]
+		var phone_tile: NavBar._DockTile = nav._tiles["phone"]
 		phone_tile._on_gui_input(_synthetic_tap())
 
 		assert_eq(GameState.state["currentScreen"], "phone", "the Phone slot returns to the phone screen from elsewhere")
@@ -227,7 +285,7 @@ func run() -> void:
 		var nav := NavBar.new()
 		nav._ready()
 
-		var phone_tile: AppTile = nav._tiles["phone"]
+		var phone_tile: NavBar._DockTile = nav._tiles["phone"]
 		phone_tile._on_gui_input(_synthetic_tap())
 
 		EventBus.screen_changed.disconnect(on_screen)
@@ -253,7 +311,7 @@ func run() -> void:
 		EventBus.screen_changed.connect(on_screen)
 		EventBus.state_changed.connect(on_state)
 
-		var phone_tile: AppTile = nav._tiles["phone"]
+		var phone_tile: NavBar._DockTile = nav._tiles["phone"]
 		phone_tile._on_gui_input(_synthetic_tap())
 
 		EventBus.screen_changed.disconnect(on_screen)
