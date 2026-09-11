@@ -371,27 +371,51 @@ the dock.
 - **Tile ground:** drop the cream/tan frame per tile; the whole home-grid
   surface is one flat cool near-black (indicative `#1b1b1d`), icons sitting
   directly on it the way a real launcher's icons sit on a wallpaper, not
-  each icon in its own laminated card. `AppTile`'s rounded-rect frame
-  concept can stay as the icon's *silhouette* (a rounded-square glyph
-  badge) rather than a bordered panel — drop the 1px border entirely, it
-  read as a card edge, which is the "laminated frame" §3 already rules out.
-- **Icon glyph:** flat, single-colour line/fill glyph per app (notepad =
-  Notes, crest/shield = Factions, headline strip = The Ticker, silhouette =
-  Profile, floppy/tray = Save/Load, bell = Notifications, fox = Reynard's,
-  house/key = Harrow's, contact card = Contacts), rendered in the same
-  near-white ink used for text (indicative `#ededee`) on the flat dark
-  badge — **not** colour-coded per app. A rainbow icon-pack would need a
-  third accent family §6 doesn't grant; wayfinding comes from glyph shape +
-  the label underneath instead, same as most real dark-mode launchers.
-  Real icon art still lands per the existing asset contract
-  (`docs/adr/0003-app-icon-asset-contract.md`, `res://assets/icons/apps/
-  <id>.png`) — this only fixes the tile it sits in and the fallback-label
-  rendering when that art hasn't landed yet.
-- **Icon badges themselves carry no `calc_gold`** — §6 reserves it for
-  calc/currency *reads* (figures), not decoration; Reynard's and Harrow's
-  (the two money apps, see table below) get no special tile treatment,
-  same flat badge as every other app. `calc_gold` only shows up once the
-  player is inside those two apps, on the actual £ figures.
+  each icon in its own laminated card.
+- **Icon art is real, bespoke, per-app artwork — not a shared monochrome
+  glyph set (revised same session, direct human steer: the apps should
+  look like genuine, distinct apps, the way a real phone's home screen
+  does — each with its own icon, supplied by Richard and wired in as each
+  one lands).** This reverses this section's first draft, which had
+  proposed one flat ink-coloured glyph style shared across all nine icons
+  specifically to avoid needing a third accent colour. That concern doesn't
+  apply here: icon art is bespoke per-app artwork, the same category §6
+  already carves Family 1's pixel art out of ("Family 1 ... is governed by
+  §2 above, not this rule — its colour is scene-grounded, not
+  accent-driven") — each icon is free to carry its own full colour and
+  identity (Reynard's can be fox-orange, Harrow's brick-red, The Ticker
+  newsprint-grey, whatever the art itself calls for) without that reading
+  as a rogue fifth accent, because it isn't UI-accent colour at all, it's
+  content, the same way a photo in a Contacts avatar wouldn't be. `§6`'s
+  `calc_gold`/`ui_action_red` rule keeps governing this family's *chrome*
+  (buttons, badges, dividers, meters) exactly as written — it was never a
+  restriction on artwork.
+- **Asset contract (existing, no change needed):**
+  `docs/adr/0003-app-icon-asset-contract.md` already covers exactly this —
+  `res://assets/icons/apps/<app_id>.png`, square, 128×128, alpha PNG.
+  `AppTile.load_icon()` already resolves each id independently and falls
+  back to the app's label text when no file exists yet — so supplying icons
+  incrementally, one `.png` at a time, needs no ticket and no code touched
+  per icon; each file just lands at its id's path and the next run picks it
+  up. This section adds one **implementation note the fallback path needs**
+  that wasn't true before: once real art exists for an id, `AppTile` should
+  suppress its own background panel/border for that tile rather than
+  drawing `FRAME_BG_COLOUR` behind it — real art is expected to be a
+  full, self-contained square (its own background baked in, whatever
+  shape/corner treatment the art itself uses), and a mismatched panel
+  colour would peek through any transparent corners. The dark-badge
+  background stays exactly as drafted above, but only for ids still on the
+  label fallback.
+- **Style brief for the art itself (guidance, not a lock — Richard's call
+  as the one drawing them):** square, full-bleed, self-contained
+  (background baked in, not a transparent glyph expecting a shared tile
+  colour behind it) — a genuine icon, not a sprite. Keeping rendering
+  technique roughly consistent app-to-app (all flat/vector-illustrated, or
+  all one shared lighting logic, etc.) will read as one coherent OS rather
+  than nine found icons from different packs, the same instinct that keeps
+  Family 1 coherent across many real-world subjects (§5) — but this is a
+  recommendation to keep in mind while drawing, not a rule to check
+  against.
 - **Badge dot** (unread/attention): `ui_action_red`, exact locked hex
   `#c8102e` — today's `BADGE_COLOUR` constant is a close-but-not-exact
   approximation of the same red; align it to the locked value while this
@@ -441,16 +465,19 @@ timestamp). Tapping a row pushes a detail screen using the same
 app-content shell and back-chevron already described above; nothing about
 the *mechanism* changes; this section only specifies row and header paint.
 
-**Reconciled against §6:** no third accent introduced. `calc_gold` stays
-exactly what §6 already says — calc/currency reads only (Reynard's,
-Harrow's, nowhere else in this family). `ui_action_red` is reused, not
-reclaimed from Family 4 — §6 already scoped it to "ordinary buttons/actions
-across Families 2–4" collectively; the ticket's framing ("already claimed
-by Family 4") describes what's implemented so far, not an exclusive lock.
-The one new rule this section adds on top of §6: **`ui_action_red` marks
-actionable elements only, never a passive data readout** (reputation
-meters, log rows) — the same restriction §6 already places on `calc_gold`,
-generalised.
+**Reconciled against §6:** no third *accent* introduced — `calc_gold` and
+`ui_action_red` still cover everything this family's chrome does.
+`calc_gold` stays exactly what §6 already says — calc/currency reads only
+(Reynard's, Harrow's, nowhere else in this family). `ui_action_red` is
+reused, not reclaimed from Family 4 — §6 already scoped it to "ordinary
+buttons/actions across Families 2–4" collectively; the ticket's framing
+("already claimed by Family 4") describes what's implemented so far, not
+an exclusive lock. The one new rule this section adds on top of §6:
+**`ui_action_red` marks actionable elements only, never a passive data
+readout** (reputation meters, log rows) — the same restriction §6 already
+places on `calc_gold`, generalised. Per-app **icon art** is explicitly
+outside this rule, same carve-out §6 already gives Family 1 — see the
+home-grid treatment above.
 
 **Reconciled against §7:** no new typeface. All of this rides the same one
 shared UI sans §7 already locks for Families 2–4, applied through the same
