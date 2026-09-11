@@ -2,8 +2,11 @@ class_name DialWidget
 extends Control
 
 # combat-presentation ticket 03, docs/combat-animation-vision.md §2.5: the
-# Dial's in-combat casting widget -- docked left of the command deck's action
-# row (scenes/screens/combat.gd's _build_dial_and_actions_row()). Replaces
+# Dial's in-combat casting widget -- a large prop docked left of the command
+# deck's action row (scenes/screens/combat.gd's _build_dial_and_actions_row()),
+# no longer clipped to a small cropped box (ui-chrome-pass ticket 03 -- see
+# that function's and this file's own WIDGET_SIZE/HANDLE_DISPLAY_SIZE
+# comments). Replaces
 # the per-Complication button list bag_drawer.gd's in-combat section used to
 # render (removed there -- Dial casting only happens through this widget
 # now; non-Dial Bag items keep working via the existing Bag flow).
@@ -54,24 +57,54 @@ const NEEDLE_TEXTURE_PATH := "res://assets/hq/dial/dial-needle.png"
 # this fixed box so hit-testing/drawing never depends on a live layout pass
 # having already run (tests build/configure() this widget without adding it
 # to a SceneTree at all -- see tests/test_dial_widget.gd's own top comment).
-const VISIBLE_BOX_SIZE := Vector2(130.0, 170.0)
+#
+# ui-chrome-pass ticket 03 rework (human direction 2026-09-11): this used to
+# be a much smaller VISIBLE_BOX_SIZE (130x170) that clipped the rendered
+# umbrella down to a cropped headshot -- confirmed-by-screenshot bug, this
+# ticket's own issue text. WIDGET_SIZE is now HANDLE_DISPLAY_SIZE plus a
+# small pad on every side, so the whole rendered square shows uncropped
+# (this widget now reads as the same real prop hq_dial.gd's loadout screen
+# renders, just at combat scale) -- the pad only exists so the screw/switch
+# overlay rings (drawn a few px past their own dot centres) don't get
+# clipped by clip_contents sitting flush against the art's own edge.
+const WIDGET_PADDING := 8.0
+
+# The topmost screw (DOT_OFFSETS_NATIVE index 0, native y=13 -- almost flush
+# with the art's own top edge, same fact the old TOP_INSET this replaces was
+# for) needs more headroom above it than WIDGET_PADDING alone gives: at this
+# file's own HANDLE_SCALE, its DOT_HIT_SIZE tap-rect's top edge would sit at
+# a NEGATIVE local y (outside the widget's own bounds -- events are only
+# ever delivered for positive local coordinates within the Control's rect,
+# so the part of that rect past y=0 is simply unreachable, silently shrinking
+# the screw's real tap target) unless the box gives it real room above.
+# Verified via this file's own _dot_rect(0) math -- code-review finding,
+# 2026-09-11. Asymmetric (top only), not folded into WIDGET_PADDING itself,
+# so the other 3 screws/the switch (which all sit further from the edge)
+# don't pay for headroom they don't need.
+const TOP_PADDING := 16.0
 
 # The umbrella is rendered at this on-screen size (native art is 500x500,
-# same DEVICE_NATIVE_SIZE hq_dial.gd uses) and then clipped to
-# VISIBLE_BOX_SIZE -- only the head/grip/button reads at combat scale, the
-# long shaft/strap runs off the bottom of the clip, same "rises out of the
-# frame" crop hq_dial.gd's own bottom-anchored composition relies on, just
-# clipped by a fixed box here instead of anchored to the screen edge.
-const HANDLE_DISPLAY_SIZE := 220.0
+# same DEVICE_NATIVE_SIZE hq_dial.gd uses). Human direction on review
+# (2026-09-11): the Dial docks left of the action deck (combat.gd's
+# _build_dial_and_actions_row()), with the Complication detail card reflowed
+# onto its own full-width line above rather than sharing the row -- see that
+# function's own comment for why. This value is what's left of the 358px
+# content width once the action deck's own 3-card minimum (combat.gd's
+# _build_action_card()) is subtracted -- ART-REVIEW, a first-pass fit against
+# that hand-measured budget, not a measured on-device call (this agent
+# cannot see the running UI, CLAUDE.md workflow rule 5); human should
+# eyeball on a real device and retune.
+const HANDLE_DISPLAY_SIZE := 144.0
 const HANDLE_NATIVE_SIZE := 500.0
 const HANDLE_SCALE := HANDLE_DISPLAY_SIZE / HANDLE_NATIVE_SIZE
 
-# Where the rendered umbrella sits inside VISIBLE_BOX_SIZE: horizontally
-# centred, and shifted down by TOP_INSET so the topmost screw (which sits
-# almost flush with the art's own top edge) has room above it for a full
-# hit-square rather than being clipped by the box's own top edge.
-const TOP_INSET := 24.0
-const WRAP_OFFSET := Vector2((VISIBLE_BOX_SIZE.x - HANDLE_DISPLAY_SIZE) / 2.0, TOP_INSET)
+const WIDGET_SIZE := Vector2(HANDLE_DISPLAY_SIZE + WIDGET_PADDING * 2.0, HANDLE_DISPLAY_SIZE + WIDGET_PADDING + TOP_PADDING)
+
+# Where the rendered umbrella sits inside WIDGET_SIZE: WIDGET_PADDING in from
+# the left/right/bottom edges, TOP_PADDING down from the top (see that
+# const's own comment for why the top needs more room than the other three
+# sides).
+const WRAP_OFFSET := Vector2(WIDGET_PADDING, TOP_PADDING)
 
 # hq_dial.gd's own measured consts, reused verbatim (same PNG, same
 # measurement) -- see that file's top comment for how these were derived.
@@ -123,7 +156,7 @@ func configure(dial: Dictionary, selected_index: int, on_selection_changed: Call
 	_on_selection_changed = on_selection_changed
 	_on_triggered = on_triggered
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	custom_minimum_size = VISIBLE_BOX_SIZE
+	custom_minimum_size = WIDGET_SIZE
 	size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	clip_contents = true
 
@@ -241,14 +274,14 @@ func _build_art() -> void:
 	wrap.add_child(_needle_rect)
 
 	# An explicit fixed rect, not anchors -- this widget's own size never
-	# varies (it's always exactly VISIBLE_BOX_SIZE, unlike e.g. StageSlot's
+	# varies (it's always exactly WIDGET_SIZE, unlike e.g. StageSlot's
 	# own per-fan-position overlay, which does need to track a resizing
 	# parent), so there's no reason to depend on anchor resolution timing
 	# relative to when this Control gets parented/laid out.
 	_overlay = Control.new()
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.position = Vector2.ZERO
-	_overlay.size = VISIBLE_BOX_SIZE
+	_overlay.size = WIDGET_SIZE
 	_overlay.draw.connect(_draw_overlay)
 	add_child(_overlay)
 

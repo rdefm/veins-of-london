@@ -589,28 +589,37 @@ func run() -> void:
 		screen.free()
 	)
 
-	# combat-presentation ticket 13 follow-up (human on-device flag): the
-	# Dial used to be the deck's trailing, non-expanding element, which put
-	# it past the right edge of a real phone viewport, reachable only by
-	# scrolling the deck's own TouchScrollContainer sideways.
-	# _build_dial_and_actions_row() docks the Dial first (left) and the
-	# action row (now horizontal again -- ticket 18, see _build_action_deck()'s
-	# own comment) beside it. This case needs a real, sized SceneTree entry
+	# ui-chrome-pass ticket 03 (human direction, confirmed 2026-09-11, revised
+	# 2026-09-11 after an on-review follow-up): the Dial is now a large,
+	# uncropped prop docked left of the action deck (same side as before this
+	# ticket); the Complication detail card reflows onto its own full-width
+	# line above that row instead of squeezing into it -- see
+	# _build_dial_and_actions_row()'s own comment for why the detail card
+	# specifically needed to move (its longest strings are wide enough on
+	# their own to blow the row's width budget once the Dial claims a real
+	# prop's worth of it). Old layout's actual bug (confirmed-by-screenshot):
+	# the detail card and the "Leg it" card both ran off the right edge of a
+	# real 390-wide viewport. This case needs a real, sized SceneTree entry
 	# (not a bare CombatScreen.new()/_ready(), where Control layout never
-	# resolves) to actually prove the Dial lands on screen at rest -- same
+	# resolves) to actually prove the deck lands on screen at rest -- same
 	# "REAL ScrollContainer, live in the actual scene tree" precedent tests/
 	# test_map_canvas.gd's step_zoom cases use, including their two-frame
 	# wait (first lets any still-pending deferred autoload _ready() --
 	# GameState._ready() calls reset() -- flush before this case's own
 	# GameState.reset()/setup runs; second lets the newly-built screen's own
 	# container layout actually resolve).
-	await run_case("dial_widget_sits_on_screen_at_the_left_of_the_command_deck_without_scrolling", func():
+	await run_case("command_deck_is_fully_on_screen_with_the_dial_docked_beside_a_narrower_action_deck", func():
 		var tree := Engine.get_main_loop() as SceneTree
 		await tree.process_frame
 		await tree.process_frame
 
 		_setup_combat([_enemy("Scrapper")])
-		GameState.state["player"]["dial"] = _dial(["blast", "shield"])
+		# The longest realistic strings this deck renders (a long recipe
+		# name/tier plus the "not enough charge" line) -- the actual
+		# worst-case text this layout's own width/height budget was measured
+		# against (see _build_dial_and_actions_row()'s own comment), not the
+		# short "Blast"/"tier 1" case every other test in this file uses.
+		GameState.state["player"]["dial"] = _dial(["prophetsBreath"], 0, 5)
 
 		# project.godot's window/size/viewport_width x height -- the actual
 		# device viewport this game ships at, not an arbitrary test size.
@@ -628,9 +637,17 @@ func run() -> void:
 
 		var viewport_left: float = viewport.global_position.x
 		var viewport_right: float = viewport_left + viewport.size.x
-		assert_true(widget.global_position.x <= viewport_left + 32.0, "the Dial must dock at the left of the command deck (near the screen's own left margin), not off past the right edge -- got widget_left=%s, viewport_left=%s" % [widget.global_position.x, viewport_left])
-		var widget_right: float = widget.global_position.x + widget.size.x
-		assert_true(widget_right <= viewport_right + 1.0, "the Dial must be fully on screen at rest, with no scrolling needed -- got widget_right=%s, viewport_right=%s" % [widget_right, viewport_right])
+		var viewport_bottom: float = viewport.global_position.y + viewport.size.y
+
+		# Nothing in the command deck (Complication detail card, action deck,
+		# the Dial itself) may clip or run off either edge of the viewport --
+		# the ticket's own confirmed-by-screenshot bug.
+		for c in screen._footer_holder.find_children("", "Control", true, false):
+			var c_left: float = c.global_position.x
+			var c_right: float = c_left + c.size.x
+			var c_bottom: float = c.global_position.y + c.size.y
+			assert_true(c_left >= viewport_left - 1.0 and c_right <= viewport_right + 1.0, "command-deck element %s must stay fully within the 390-wide viewport -- got left=%s right=%s viewport=[%s,%s]" % [c.name, c_left, c_right, viewport_left, viewport_right])
+			assert_true(c_bottom <= viewport_bottom + 1.0, "command-deck element %s must not run past the bottom of the screen, even with this deck's longest realistic text -- got bottom=%s, viewport_bottom=%s" % [c.name, c_bottom, viewport_bottom])
 
 		# _deck_buttons() finds every Button in the whole screen (including,
 		# e.g., the pacing toggle up in the heading row) -- narrow down to the

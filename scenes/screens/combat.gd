@@ -1707,17 +1707,27 @@ func _vignette_texture() -> GradientTexture2D:
 	return tex
 
 
-# combat-presentation ticket 18 (human direction, 2026-09-09): the command
-# deck's furniture row -- the umbrella-handle Dial widget docks left (see
-# dial_widget.gd's own top comment for its new tap-the-screws/tap-the-switch
-# interaction), a Complication detail rectangle plus the 3 action blocks
-# (Attack/Item/Run) dock right. Supersedes ticket 03/13's "Dial spans the
-# full height of the action-card row and the log" layout -- see
-# docs/combat-animation-vision.md §2.5's amendment note.
+# ui-chrome-pass ticket 03 (human direction, confirmed 2026-09-11, revised
+# 2026-09-11 after an on-review follow-up): the Dial docks left of the
+# action deck again -- same side as ticket 18 -- but now at a real "large
+# prop" render size (dial_widget.gd's own WIDGET_SIZE, no longer the small
+# cropped box that used to sit here). The Complication detail card reflows
+# to its own full-width line ABOVE that row rather than sharing it (its
+# longest strings -- "Nothing loaded on the Dial.", "Not enough charge to
+# cast" -- measure 200-220px on their own, more than the Dial+action-deck
+# row has left to give it once the Dial claims a real prop's worth of
+# width; a full-width line above sidesteps that squeeze entirely instead of
+# forcing those strings to wrap). Two earlier passes are NOT what shipped
+# here (see this ticket's own git history): stacking the Dial in its own
+# bottom-anchored band below a full-width action column forced the Dial's
+# render size down hard (220 -> 118) to fit one 844-tall viewport without
+# scrolling, which read too small on review; narrowing the Complication
+# card via a hard-coded pixel cap instead forced its longer strings onto
+# 3-4 wrapped lines, blowing the *vertical* budget right back out.
 #
 # field-kit-chrome ticket 03: no longer wraps a log above this row (hq-
 # diorama ticket 21's own MID_FIGHT_LOG_LINES ticker) -- the command deck
-# IS the Dial/actions row now; combat.log lines route to the top board
+# IS the Dial/actions column now; combat.log lines route to the top board
 # instead (see _sync_footer()'s own comment).
 func _build_command_deck(player: Dictionary) -> Control:
 	return _build_dial_and_actions_row(player)
@@ -1729,28 +1739,21 @@ func _build_command_deck(player: Dictionary) -> Control:
 # elsewhere), unlike the old docked widget, which only rendered once
 # something was actually loaded. No Dial at all (never seeded) still shows
 # nothing here -- there is no physical prop to draw.
-#
-# hq-diorama ticket 21: actions_col now expands to fill the row's full
-# height (the row's own minimum is set by DialWidget's fixed VISIBLE_BOX_SIZE,
-# 170px tall -- dial_widget.gd's own const) instead of sitting top-aligned at
-# its own compact natural height with dead space below -- this, plus
-# _build_action_card()'s matching EXPAND_FILL on the button below, is the
-# "more vertical space than the current compact row" this ticket calls for.
 func _build_dial_and_actions_row(player: Dictionary) -> Control:
-	var row := UI.hbox(8)
+	var col := UI.vbox(8)
 
 	var dial: Variant = player["dial"]
+	col.add_child(_build_complication_detail(dial))
+
+	var row := UI.hbox(8)
 	if dial != null:
 		row.add_child(_build_dial_widget(dial))
+	var action_deck := _build_action_deck(player)
+	action_deck.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(action_deck)
+	col.add_child(row)
 
-	var actions_col := UI.vbox(6)
-	actions_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	actions_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	actions_col.add_child(_build_complication_detail(dial))
-	actions_col.add_child(_build_action_deck(player))
-	row.add_child(actions_col)
-
-	return row
+	return col
 
 
 # The rectangle above the action row: whichever Complication the Dial widget
@@ -1884,10 +1887,16 @@ func _build_action_card(symbol: String, label_text: String, callback: Callable, 
 	panel_style.border_width_bottom = 1
 	panel_style.border_color = accent
 	panel_style.set_corner_radius_all(10)
-	panel_style.content_margin_left = 16
-	panel_style.content_margin_top = 16
-	panel_style.content_margin_right = 16
-	panel_style.content_margin_bottom = 16
+	# ui-chrome-pass ticket 03: trimmed from 16 all round -- the Dial docking
+	# beside this row at a real "large prop" size (see
+	# _build_dial_and_actions_row()'s own comment) leaves less width for 3
+	# cards than ticket 18's original layout budgeted for. No reference image
+	# locks an exact corner/margin value here (this func's own top comment),
+	# so this is a first-pass fit, not a style regression.
+	panel_style.content_margin_left = 8
+	panel_style.content_margin_top = 12
+	panel_style.content_margin_right = 8
+	panel_style.content_margin_bottom = 12
 	c["panel"].add_theme_stylebox_override("panel", panel_style)
 
 	var button := Button.new()
@@ -2150,7 +2159,7 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 func _build_dial_widget(dial: Dictionary) -> Control:
 	var widget := DialWidget.new()
 	# configure() sets its own fixed custom_minimum_size (DialWidget.
-	# VISIBLE_BOX_SIZE) -- no override needed here, unlike the old DIAL_WIDTH-
+	# WIDGET_SIZE) -- no override needed here, unlike the old DIAL_WIDTH-
 	# only placeholder, which had no art-driven size of its own to fall back on.
 	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed, _on_dial_triggered)
 	return widget

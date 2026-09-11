@@ -27,6 +27,34 @@ func _dial(loaded_recipe_keys: Array, current_charge: int = 3, max_charge: int =
 
 
 func run() -> void:
+	# ui-chrome-pass ticket 03: the confirmed-by-screenshot bug this ticket
+	# fixes was WIDGET_SIZE (formerly VISIBLE_BOX_SIZE) being smaller than the
+	# rendered art, cropping it down to a small headshot -- guard that it
+	# never regresses back to a box narrower/shorter than the render it's
+	# meant to fully contain, and that the four screw hit-targets (which used
+	# to sit right at the crop's own edge) all land safely inside the box.
+	run_case("widget_size_fully_contains_the_rendered_umbrella_with_no_cropping", func():
+		assert_true(DialWidget.WIDGET_SIZE.x >= DialWidget.HANDLE_DISPLAY_SIZE, "the box must be at least as wide as the rendered art -- narrower crops the sides off again")
+		assert_true(DialWidget.WIDGET_SIZE.y >= DialWidget.HANDLE_DISPLAY_SIZE, "the box must be at least as tall as the rendered art -- shorter crops the top/bottom off again")
+
+		var widget := DialWidget.new()
+		widget.configure(_dial(["blast", "shield", "blackHole", "healingBurst"]), 0, Callable())
+
+		# The whole HIT RECT (not just the dot's own centre point) must sit
+		# inside the box -- code-review finding, 2026-09-11: the topmost
+		# screw's centre alone can pass this check while its tap-rect still
+		# pokes out past y=0 (unreachable there -- _gui_input() only ever
+		# sees positive local coordinates), silently shrinking that screw's
+		# real tap target. See TOP_PADDING's own comment for the fix this
+		# guards against regressing.
+		for i in range(DialWidget.MAX_DOTS):
+			var rect: Rect2 = widget._dot_rect(i)
+			assert_true(rect.position.x >= 0.0 and rect.position.y >= 0.0 and rect.end.x <= DialWidget.WIDGET_SIZE.x and rect.end.y <= DialWidget.WIDGET_SIZE.y, "screw %d's whole tap-rect must land inside the widget's own box, not just its centre -- got %s, box %s" % [i, rect, DialWidget.WIDGET_SIZE])
+
+		var button_rect: Rect2 = widget._button_rect()
+		assert_true(button_rect.position.x >= 0.0 and button_rect.position.y >= 0.0 and button_rect.end.x <= DialWidget.WIDGET_SIZE.x and button_rect.end.y <= DialWidget.WIDGET_SIZE.y, "the trigger switch's whole tap-rect must land inside the widget's own box too")
+	)
+
 	run_case("configure_clamps_a_stale_selected_index_to_the_current_list_size", func():
 		var widget := DialWidget.new()
 		widget.configure(_dial(["blast"]), 5, Callable())
