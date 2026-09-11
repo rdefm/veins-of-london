@@ -979,9 +979,34 @@ func _build_combat_setup_ally_row(contact_id: String, selected_allies: Array) ->
 # is "contents + raid warning" -- the raid-risk line below is new (the old
 # inline card only had it on HQ's now-removed top summary), everything
 # else is hq.gd's old _build_stored_ore_card() unchanged.
+#
+# field-kit-chrome ticket 07, ui-vision.md §5's component table ("Ore-store
+# readout: a handwritten inventory slip -- running totals per ore type, in
+# hand, the kind of thing someone updates every time stock moves. The
+# raid-warning line rides the same slip rather than a separate element"):
+# the content/values here are untouched (same ore-type loop, same "None in
+# stock."/raid-risk text) -- only the wrapper changes, from bare children of
+# _card_content to one slip-styled panel. §7 locks a single shared UI sans
+# across every family ("never... by swapping typeface"), and no handwriting
+# font ships in this repo (same gap the dot-matrix board's own §5 note
+# describes for its font), so the "handwritten" read comes from linework,
+# not a cursive typeface: a wobbled ruled underline under the heading
+# (_SlipRule) and a wobbled, rotated stamp border around the raid line
+# (_SlipStamp) -- the same "engine can't render this, hand-draw it instead"
+# precedent ore_glyphs.gd/SymbolGlyph already set for the ore symbols, so no
+# produced texture asset is needed here either (no ART-REVIEW flag).
 func _build_hq_ore_readout() -> void:
 	var player: Dictionary = GameState.state["player"]
-	_card_content.add_child(UI.heading("Ore store", 14))
+
+	var slip := UI.card()
+	slip["panel"].add_theme_stylebox_override("panel", _slip_panel_style())
+	var slip_content: VBoxContainer = slip["content"]
+
+	slip_content.add_child(UI.heading("Ore store", 14))
+	var rule := _SlipRule.new()
+	rule.custom_minimum_size = Vector2(0, 10)
+	slip_content.add_child(rule)
+
 	var any_ore := false
 	for ore_type in GameData.ORE_TYPES.keys():
 		var qty: int = player["orichalchum"].get(ore_type, 0)
@@ -989,15 +1014,129 @@ func _build_hq_ore_readout() -> void:
 			continue
 		any_ore = true
 		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
-		_card_content.add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s — %d" % [ore["name"], qty]]))
+		slip_content.add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s — %d" % [ore["name"], qty]]))
 	if not any_ore:
-		_card_content.add_child(UI.muted_label("None in stock."))
+		slip_content.add_child(UI.muted_label("None in stock."))
+
 	var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
-	_card_content.add_child(UI.muted_label("Raid risk: %d%%" % raid_pct))
+	slip_content.add_child(_build_raid_stamp(raid_pct))
 	# PROSE-REVIEW: new flavour text, tone bible per docs/CONTENT-GUIDE.md.
 	# Carried over unchanged from hq.gd's old card.
-	_card_content.add_child(UI.muted_label("Ore kept at the flat is what a raid takes — carry less, lose less."))
+	slip_content.add_child(UI.muted_label("Ore kept at the flat is what a raid takes — carry less, lose less."))
+
+	_card_content.add_child(slip["panel"])
 	_card_content.add_child(UI.button("Close", func(): Modal.close()))
+
+
+# Aged-paper fill/ink colours for the slip -- distinct from ticket 06's
+# _ACTION_CARD_FILL (a flat app-card cream) and from the generic ModalLayer
+# card behind it: warmer, and near-sharp corners (radius 2, not 10) so it
+# reads as a torn-off slip of paper rather than another rounded app panel.
+const _SLIP_FILL := Color(0.976471, 0.960784, 0.882353, 1)
+const _SLIP_INK := Color(0.219608, 0.219608, 0.239216, 1)
+const _STAMP_ROTATION_DEGREES := -3.5
+
+func _slip_panel_style() -> StyleBoxFlat:
+	return _bordered_panel_style(_SLIP_FILL, _SLIP_INK, 2, 16, 14)
+
+
+# Shared shape both _slip_panel_style() above and ticket 06's
+# _action_card_panel_style() (below) build a StyleBoxFlat from -- 1px border
+# on all four sides, one corner radius, one margin per axis. Only the fill/
+# border colour, radius and margins actually differ between the slip and the
+# Train button's card, so those are the only params.
+func _bordered_panel_style(fill: Color, border_color: Color, corner_radius: int, margin_h: int, margin_v: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = border_color
+	style.set_corner_radius_all(corner_radius)
+	style.content_margin_left = margin_h
+	style.content_margin_top = margin_v
+	style.content_margin_right = margin_h
+	style.content_margin_bottom = margin_v
+	return style
+
+
+# The raid line's "stamped/red-ink annotation" (§5): a small rotated box in
+# ui_action_red wrapping the same "Raid risk: NN%" text the old plain
+# muted_label used, rather than a separate card/section.
+func _build_raid_stamp(raid_pct: int) -> Control:
+	var accent := _action_color()
+
+	var stamp := _SlipStamp.new()
+	stamp.ink_color = accent
+	stamp.rotation_degrees = _STAMP_ROTATION_DEGREES
+	stamp.add_theme_constant_override("margin_left", 10)
+	stamp.add_theme_constant_override("margin_top", 6)
+	stamp.add_theme_constant_override("margin_right", 10)
+	stamp.add_theme_constant_override("margin_bottom", 6)
+
+	var raid_label := UI.label("Raid risk: %d%%" % raid_pct)
+	raid_label.add_theme_color_override("font_color", accent)
+	stamp.add_child(raid_label)
+
+	return stamp
+
+
+# Hand-drawn ruled underline beneath the slip's "Ore store" heading -- short
+# segments with a small alternating y-jitter instead of one perfectly
+# straight line, reading as a pen stroke rather than a printed rule.
+# Shared by _SlipRule/_SlipStamp below -- both hand-wobbled shapes are just
+# a run of straight segments between points, drawn on whichever CanvasItem
+# is currently drawing itself.
+static func _draw_ink_polyline(target: CanvasItem, points: PackedVector2Array, ink_color: Color) -> void:
+	for i in range(points.size() - 1):
+		target.draw_line(points[i], points[i + 1], ink_color, 1.5)
+
+
+class _SlipRule extends Control:
+	var ink_color: Color = _SLIP_INK
+
+	func _draw() -> void:
+		if size.x <= 0:
+			return
+		var segments := 5
+		var jitter_amount := 1.5
+		var y: float = size.y * 0.5
+		var seg_w: float = size.x / float(segments)
+		var points := PackedVector2Array()
+		for i in range(segments + 1):
+			var jitter: float = 0.0
+			if i > 0 and i < segments:
+				jitter = jitter_amount if i % 2 == 0 else -jitter_amount
+			points.append(Vector2(seg_w * i, y + jitter))
+		ModalLayer._draw_ink_polyline(self, points, ink_color)
+
+
+# Wobbled rectangle border for the raid-risk stamp -- eight hand-uneven
+# points instead of StyleBoxFlat's clean rect border, which would just read
+# as another printed UI chip rather than something inked onto the slip.
+# Extends MarginContainer (not bare Control) so it sizes itself to its
+# label child + the margins _build_raid_stamp() sets, the same way
+# UI.card()'s PanelContainer sizes around its content.
+class _SlipStamp extends MarginContainer:
+	# Always overwritten by _build_raid_stamp() with _action_color() before
+	# this node is shown -- points at the same named fallback constant
+	# (rather than repeating its literal) purely so there's no bare, unused
+	# accent-red literal sitting in this file a second time.
+	var ink_color: Color = ModalLayer._ACTION_COLOR_FALLBACK
+
+	func _draw() -> void:
+		var w: float = size.x
+		var h: float = size.y
+		if w <= 0 or h <= 0:
+			return
+		var points := PackedVector2Array([
+			Vector2(2, 2), Vector2(w * 0.5, 0), Vector2(w - 2, 3),
+			Vector2(w - 1, h * 0.5), Vector2(w - 3, h - 2),
+			Vector2(w * 0.5, h - 1), Vector2(1, h - 3), Vector2(2, h * 0.5),
+			Vector2(2, 2),
+		])
+		ModalLayer._draw_ink_polyline(self, points, ink_color)
 
 
 # field-kit-chrome ticket 06, ui-vision.md §5's component table ("HQ Train
@@ -1029,19 +1168,7 @@ func _action_color() -> Color:
 
 
 func _action_card_panel_style(accent: Color) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = _ACTION_CARD_FILL
-	style.border_width_left = 1
-	style.border_width_top = 1
-	style.border_width_right = 1
-	style.border_width_bottom = 1
-	style.border_color = accent
-	style.set_corner_radius_all(10)
-	style.content_margin_left = 16
-	style.content_margin_top = 16
-	style.content_margin_right = 16
-	style.content_margin_bottom = 16
-	return style
+	return _bordered_panel_style(_ACTION_CARD_FILL, accent, 10, 16, 16)
 
 
 func _action_button_style(accent: Color, alpha: float) -> StyleBoxFlat:

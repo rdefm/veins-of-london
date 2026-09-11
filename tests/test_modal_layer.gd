@@ -991,6 +991,69 @@ func run() -> void:
 		layer.free()
 	)
 
+	# field-kit-chrome ticket 07, ui-vision.md §5's component table ("Ore-store
+	# readout: a handwritten inventory slip... The raid-warning line rides the
+	# same slip rather than a separate element"): the ore totals and the raid
+	# line must both trace back to the same wrapping container, and that
+	# container must itself be a single panel nested one level inside the
+	# modal's own generic card -- not bare siblings of Close the way the old
+	# plain-card readout rendered them.
+	run_case("hq_ore_readout_modal_renders_ore_totals_and_raid_warning_on_one_shared_slip_panel", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["life"] = 12
+		Modal.open("hq_ore_readout")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var heading: Label = null
+		for l in layer.find_children("", "Label", true, false):
+			if (l as Label).text == "Ore store":
+				heading = l
+				break
+		assert_true(heading != null, "slip must carry its own 'Ore store' heading")
+
+		var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
+		var raid_label: Label = null
+		for l in layer.find_children("", "Label", true, false):
+			if (l as Label).text == "Raid risk: %d%%" % raid_pct:
+				raid_label = l
+				break
+		assert_true(raid_label != null, "raid-risk line must still render")
+
+		# heading -> slip_content; raid_label -> _SlipStamp -> slip_content
+		var slip_from_heading: Node = heading.get_parent()
+		var slip_from_raid: Node = raid_label.get_parent().get_parent()
+		assert_eq(slip_from_heading, slip_from_raid, "raid-warning line must ride the same slip object as the ore totals, not a separate card/section")
+		assert_true(slip_from_heading.get_parent() is PanelContainer, "the slip's heading and raid line sit inside one wrapping panel object")
+
+		layer.free()
+	)
+
+	# ui-vision.md §5: "e.g. a stamped/red-ink annotation using ui_action_red" --
+	# same GameData.PALETTE lookup + fallback pattern ticket 05/06's action-card
+	# tests assert against.
+	run_case("hq_ore_readout_modal_raid_warning_stamp_uses_ui_action_red", func():
+		GameState.reset()
+		Modal.open("hq_ore_readout")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
+		var raid_label: Label = null
+		for l in layer.find_children("", "Label", true, false):
+			if (l as Label).text == "Raid risk: %d%%" % raid_pct:
+				raid_label = l
+				break
+		assert_true(raid_label != null, "raid-risk line must still render")
+
+		var expected: Color = GameData.PALETTE.get("ui_action_red", ModalLayer._ACTION_COLOR_FALLBACK)
+		assert_eq(raid_label.get_theme_color("font_color"), expected, "raid-warning renders as a red-ink annotation in ui_action_red")
+
+		layer.free()
+	)
+
 	# ── squad-combat ticket 05 / hq-diorama ticket 02: Gym modal / Train ───
 
 	run_case("hq_gym_modal_offers_a_train_button_and_a_build_hint_without_a_built_home_gym", func():
