@@ -65,6 +65,29 @@ func run() -> void:
 		board.free()
 	)
 
+	run_case("bugfixes_ticket_01_re_setting_the_same_target_text_mid_scramble_does_not_freeze_the_cell", func():
+		var board := DotMatrixBoard.new()
+		board.set_lines([{ "text": "AAAA", "dot_size": 3.0 }])
+		board.set_lines([{ "text": "ZZZZ", "dot_size": 3.0 }])
+		assert_true(board._is_scrambling(), "sanity: the full-line change starts a scramble")
+
+		board.advance_scramble(DotMatrixBoard.SCRAMBLE_DURATION * 0.5)
+		# Interrupt mid-transition with a set_lines() call whose target text
+		# is unchanged (still "ZZZZ") -- this is what a day-tick's several
+		# back-to-back state_changed events look like once the first one has
+		# already kicked off a scramble.
+		board.set_lines([{ "text": "ZZZZ", "dot_size": 3.0 }])
+
+		assert_true(board._is_scrambling(), "the interrupted cells are still counting down, not frozen at 0")
+
+		board.advance_scramble(DotMatrixBoard.SCRAMBLE_DURATION + 1.0)
+
+		assert_eq(board.display_text(), "ZZZZ", "the interrupted scramble still settles on the correct target text instead of sticking on a mid-transition glyph")
+		assert_true(not board._is_scrambling(), "the scramble actually finishes")
+
+		board.free()
+	)
+
 	run_case("required_size_grows_with_character_count_dot_size_and_line_count", func():
 		var board := DotMatrixBoard.new()
 		board.set_lines([])
@@ -102,6 +125,26 @@ func run() -> void:
 
 		var dot_calls := rects.size() - 1
 		assert_eq(dot_calls, 2 * DotMatrixFont.GLYPH_W * DotMatrixFont.GLYPH_H, "2 characters worth of dots are drawn")
+
+		board.free()
+	)
+
+	run_case("bugfixes_ticket_01_render_withholds_characters_that_would_intrude_into_reserved_right", func():
+		var board := DotMatrixBoard.new()
+		board.set_lines([{ "text": "ABCDE", "dot_size": 3.0 }])
+		board.size = board.required_size()
+		# Reserve enough that only the first two characters have room -- the
+		# same mechanism top_bar.gd uses to keep the bag button's own
+		# footprint clear of status text.
+		var char_width: float = DotMatrixFont.GLYPH_W * 3.0
+		board.reserved_right = board.size.x - (DotMatrixBoard.SIDE_PADDING + 2 * char_width + DotMatrixBoard.CHAR_GAP)
+
+		var spy := DrawSpy.new()
+		board.render(spy)
+
+		var rects: Array = spy.calls_matching("draw_rect")
+		var dot_calls := rects.size() - 1  # minus the one full-bleed background rect
+		assert_eq(dot_calls, 2 * DotMatrixFont.GLYPH_W * DotMatrixFont.GLYPH_H, "only the two characters that fit before reserved_right are drawn")
 
 		board.free()
 	)

@@ -18,7 +18,29 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._status_line_text(), "Day 3 · Afternoon (1/3)   £240")
+		assert_eq(bar._status_line_text(), "D3 AFT £240")
+
+		bar.free()
+	)
+
+	run_case("the_status_board_reserves_the_bag_buttons_footprint_and_the_status_text_fits_before_it", func():
+		GameState.reset()
+		# A generous but realistic worst case (3-digit day, 5-digit cash) --
+		# bugfixes ticket 01's fix is the compact format buying back width,
+		# not the reserved-right clip alone, so this asserts the text
+		# actually fits rather than relying on truncation.
+		GameState.state["world"]["day"] = 150
+		GameState.state["world"]["timeBlock"] = 1
+		GameState.state["player"]["cash"] = 99999
+
+		var bar := TopBar.new()
+		bar._ready()
+
+		assert_eq(bar._board.reserved_right, UI.ICON_BUTTON_SIZE + TopBar._SIDE_MARGIN * 2.0, "the bag button's own footprint is kept clear of status text")
+
+		var viewport_width := 390.0
+		var text_width: float = DotMatrixFont.text_width(bar._status_line_text(), TopBar.STATUS_DOT_SIZE, DotMatrixBoard.CHAR_GAP)
+		assert_true(DotMatrixBoard.SIDE_PADDING + text_width <= viewport_width - bar._board.reserved_right, "the full status string fits before the reserved bag-button zone on a 390-wide viewport")
 
 		bar.free()
 	)

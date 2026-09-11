@@ -41,6 +41,15 @@ const SIDE_PADDING := 6.0
 const SCRAMBLE_DURATION := 0.28
 const SCRAMBLE_STEP := 0.045
 
+# Bugfixes ticket 01: pixels kept clear at the board's own right edge --
+# render() withholds any character that would intrude into this zone, so a
+# caller mounting something on top of the board's right edge (top_bar.gd's
+# bag button) never gets text drawn under/beside it. The board's background
+# rect still spans the full width regardless -- only character glyphs are
+# withheld -- so the strip still reads as one continuous board (ticket 02's
+# design) rather than a board with a hole cut out of it.
+var reserved_right: float = 0.0
+
 # One line, as set_lines()/line() shape it: { "text": String, "dot_size": float }.
 var _target_lines: Array[Dictionary] = []
 var _target_chars: Array[Array] = []    # per line, an Array[String] -- resolved final char per cell
@@ -68,14 +77,18 @@ func _draw() -> void:
 func render(target: Object) -> void:
 	target.draw_rect(Rect2(Vector2.ZERO, size), BG_COLOR, true)
 
+	var text_limit: float = size.x - reserved_right
 	var y := SIDE_PADDING
 	for line_index in _target_lines.size():
 		var dot_size: float = _target_lines[line_index].get("dot_size", 3.0)
+		var char_width: float = DotMatrixFont.GLYPH_W * dot_size
 		var x := SIDE_PADDING
 		var chars: Array = _display_chars[line_index] if line_index < _display_chars.size() else []
 		for ch in chars:
+			if x + char_width > text_limit:
+				break
 			DotMatrixFont.draw_char(target, Vector2(x, y), ch, dot_size, LIT_COLOR, DIM_COLOR)
-			x += DotMatrixFont.GLYPH_W * dot_size + CHAR_GAP
+			x += char_width + CHAR_GAP
 		y += DotMatrixFont.GLYPH_H * dot_size + LINE_GAP
 
 
@@ -179,13 +192,31 @@ func _begin_scramble(new_target_chars: Array[Array]) -> void:
 		var scramble_line: Array[float] = []
 		var cycle_line: Array[float] = []
 
+		var old_scramble: Array = _scramble_seconds_left[line_index] if line_index < _scramble_seconds_left.size() else []
+		var old_cycle: Array = _cycle_seconds_left[line_index] if line_index < _cycle_seconds_left.size() else []
+
 		for char_index in new_line.size():
 			var target_char: String = new_line[char_index]
 			var unchanged: bool = char_index < old_line.size() and old_line[char_index] == target_char
 			if unchanged:
 				display_line.append(old_display[char_index] if char_index < old_display.size() else target_char)
-				scramble_line.append(0.0)
-				cycle_line.append(0.0)
+				# Bugfixes ticket 01: this cell's target text didn't change,
+				# but it may still be mid-scramble from an *earlier*
+				# transition (e.g. two state_changed events landing back to
+				# back on a day-tick). Zeroing its timer here regardless of
+				# that left _display_chars stuck on whatever random glyph it
+				# was showing that frame, with nothing left to ever advance
+				# it to the target -- a permanently frozen cell. Carrying the
+				# remaining scramble/cycle time forward instead lets
+				# advance_scramble() keep running it down to the (unchanged)
+				# target normally.
+				var still_scrambling: float = old_scramble[char_index] if char_index < old_scramble.size() else 0.0
+				if still_scrambling > 0.0:
+					scramble_line.append(still_scrambling)
+					cycle_line.append(old_cycle[char_index] if char_index < old_cycle.size() else SCRAMBLE_STEP)
+				else:
+					scramble_line.append(0.0)
+					cycle_line.append(0.0)
 			else:
 				display_line.append(DotMatrixFont.random_scramble_char())
 				scramble_line.append(SCRAMBLE_DURATION)

@@ -42,6 +42,12 @@ func _ready() -> void:
 	# on top, not part of the dot-matrix text itself.
 	_board = DotMatrixBoard.new()
 	UI.anchor_full_rect(_board)
+	# Bugfixes ticket 01: keep the bag button's own footprint (icon +
+	# margin on both sides) clear of status-line glyphs -- otherwise a long
+	# status string draws characters directly under/beside the button,
+	# camouflaging it (both are amber-on-black) and running the trailing
+	# £<cash> off the screen edge past it.
+	_board.reserved_right = UI.ICON_BUTTON_SIZE + _SIDE_MARGIN * 2.0
 	add_child(_board)
 
 	_bag_button = UI.icon_button(Icons.draw_bag, func(): Bag.open())
@@ -64,13 +70,27 @@ func _ready() -> void:
 
 # Split out so tests can check the composed status line without reaching
 # into DotMatrixBoard's internal per-cell character state.
+#
+# Bugfixes ticket 01: the previous "Day %d · %s (%d/%d)   £%d" format (full
+# time-block name, both separators, the block-progress fraction) runs to
+# ~500px at STATUS_DOT_SIZE -- wider than this board has room for even
+# before reserved_right's bag-button gap, on this project's 390px viewport.
+# Abbreviating the time-block name to its first 3 letters (MOR/AFT/EVE --
+# still unambiguous, and the block name itself already conveys roughly
+# where in the day the player is, making the dropped "(x/3)" progress
+# fraction redundant for a HUD-width readout) is what buys the width back
+# with headroom to spare for day/cash figures growing into 3-4 digits;
+# reserved_right (top_bar.gd's _ready()) remains a defensive clip for
+# truly pathological figures beyond that, not the primary fix.
+# PROSE-REVIEW: new compact status-line format, drafted against
+# docs/CONTENT-GUIDE.md's tone bible.
 func _status_line_text() -> String:
 	var world: Dictionary = GameState.state["world"]
 	var player: Dictionary = GameState.state["player"]
+	var block_name: String = String(GameData.TIME_BLOCKS[world["timeBlock"]])
 
-	return "Day %d · %s (%d/%d)   £%d" % [
-		world["day"], GameData.TIME_BLOCKS[world["timeBlock"]],
-		world["timeBlocksDone"].size(), TimeSystem.BLOCKS_PER_DAY,
+	return "D%d %s £%d" % [
+		world["day"], block_name.substr(0, 3).to_upper(),
 		player["cash"],
 	]
 
