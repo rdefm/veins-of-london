@@ -1069,6 +1069,46 @@ func run() -> void:
 		layer.free()
 	)
 
+	# field-kit-chrome ticket 06, ui-vision.md §5's component table: Train
+	# drops the default theme Button's amber fill (reserved for calc/cash
+	# reads only, §6) in favour of the locked `ui_action_red` accent, same
+	# GameData.PALETTE lookup + hardcoded-hex-fallback pattern ticket 05's
+	# combat action-card test asserts against.
+	run_case("hq_gym_train_button_uses_ui_action_red_not_the_default_theme_amber", func():
+		GameState.reset()
+		Modal.open("hq_gym")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var expected: Color = GameData.PALETTE.get("ui_action_red", ModalLayer._ACTION_COLOR_FALLBACK)
+		var train_button := _find_button(layer, "Train")
+		assert_true(train_button != null)
+		assert_eq(train_button.get_theme_color("font_color"), expected, "Train button uses ui_action_red")
+
+		layer.free()
+	)
+
+	# A disabled Train (day's time blocks exhausted, same gate as above)
+	# reads muted grey instead -- the project's existing "this is disabled"
+	# tint, not ui_action_red, which is reserved for an actually-available
+	# action.
+	run_case("hq_gym_disabled_train_button_reads_muted_grey_not_ui_action_red", func():
+		GameState.reset()
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+		Modal.open("hq_gym")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var train_button := _find_button(layer, "Train")
+		assert_true(train_button != null)
+		assert_true(train_button.disabled)
+		assert_eq(train_button.get_theme_color("font_color"), ModalLayer._ACTION_DISABLED_COLOR, "disabled Train button stays muted grey")
+
+		layer.free()
+	)
+
 	# ── hq-diorama ticket 07: Lab bench modals ─────────────────────────────
 
 	run_case("lab_bench_recipe_book_lists_found_recipes_with_a_craft_button", func():

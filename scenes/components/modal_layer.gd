@@ -1000,6 +1000,72 @@ func _build_hq_ore_readout() -> void:
 	_card_content.add_child(UI.button("Close", func(): Modal.close()))
 
 
+# field-kit-chrome ticket 06, ui-vision.md §5's component table ("HQ Train
+# panel: Generic Family-4 chrome, no bespoke object"): Train carries no
+# inherent diegetic identity of its own (unlike the estate-agent floorplan
+# or the inventory-slip ore readout sharing this file), so per §5 it gets
+# the *same* plain field-kit card+button treatment ticket 05 already gave
+# the combat action cards, not just the same accent colour -- a UI.card()
+# panel (cream fill, accent border, corner radius) wrapping a borderless
+# button whose only accent is a hover/pressed wash, mirroring combat.gd's
+# _build_action_card()/_action_card_button_style() layer split exactly
+# (panel carries the border, the button doesn't) rather than putting a
+# border straight on a bare button, which would read as its own bespoke
+# boxed control instead of the shared chrome. Locked `ui_action_red`
+# replaces the default theme Button's amber fill (main_theme.tres
+# StyleBoxFlat_btn_normal, reserved for calc/cash reads only per §6) --
+# rather than a bespoke workout-app object (explicitly scrapped, §5 session
+# note). Close is left alone: it's the same generic dismiss control every
+# other modal in this file builds via a bare UI.button("Close", ...), which
+# is ModalLayer's own shared chrome and explicitly out of scope for this
+# family (§5: "The shared ModalLayer... dialog card is out of scope
+# here... not owned by any single family").
+const _ACTION_COLOR_FALLBACK := Color(0.784314, 0.062745, 0.180392, 1)
+const _ACTION_DISABLED_COLOR := Color(0.541176, 0.541176, 0.541176, 1)
+const _ACTION_CARD_FILL := Color(0.980392, 0.972549, 0.952941, 1)
+
+func _action_color() -> Color:
+	return GameData.PALETTE.get("ui_action_red", _ACTION_COLOR_FALLBACK)
+
+
+func _action_card_panel_style(accent: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = _ACTION_CARD_FILL
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = accent
+	style.set_corner_radius_all(10)
+	style.content_margin_left = 16
+	style.content_margin_top = 16
+	style.content_margin_right = 16
+	style.content_margin_bottom = 16
+	return style
+
+
+func _action_button_style(accent: Color, alpha: float) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(accent.r, accent.g, accent.b, alpha)
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 8
+	style.content_margin_top = 6
+	style.content_margin_right = 8
+	style.content_margin_bottom = 6
+	return style
+
+
+func _style_action_button(b: Button, accent: Color) -> void:
+	b.add_theme_stylebox_override("normal", _action_button_style(accent, 0.0))
+	b.add_theme_stylebox_override("hover", _action_button_style(accent, 0.14))
+	b.add_theme_stylebox_override("pressed", _action_button_style(accent, 0.22))
+	b.add_theme_stylebox_override("disabled", _action_button_style(accent, 0.0))
+	b.add_theme_color_override("font_color", accent)
+	b.add_theme_color_override("font_hover_color", accent)
+	b.add_theme_color_override("font_pressed_color", accent)
+	b.add_theme_color_override("font_disabled_color", accent)
+
+
 # hq-diorama ticket 02: Gym is wired into the bedsit plate despite §3.1's
 # "First tier present: flat" (see hq.gd's own top comment and this
 # manifest's "gymDeviation" meta note for why) -- carried over unchanged
@@ -1017,10 +1083,23 @@ func _build_hq_gym() -> void:
 	_card_content.add_child(UI.label("Combat Skill: Lv%d (%d XP)" % [player["combatSkill"], player["combatXP"]]))
 	if not has_gym:
 		_card_content.add_child(UI.muted_label("Build a Home Gym to get more out of each workout."))
-	var b := UI.button("Train", func(): Combat.train())
-	b.disabled = TimeSystem.is_time_exhausted()
-	_card_content.add_child(b)
+	_card_content.add_child(_build_train_button())
 	_card_content.add_child(UI.button("Close", func(): Modal.close()))
+
+
+func _build_train_button() -> Control:
+	var disabled: bool = TimeSystem.is_time_exhausted()
+	var accent: Color = _ACTION_DISABLED_COLOR if disabled else _action_color()
+
+	var c := UI.card()
+	c["panel"].add_theme_stylebox_override("panel", _action_card_panel_style(accent))
+
+	var b := UI.button("Train", func(): Combat.train())
+	b.disabled = disabled
+	_style_action_button(b, accent)
+	c["content"].add_child(b)
+
+	return c["panel"]
 
 
 # ── hq-diorama ticket 07: Lab bench modals ────────────────────────────
