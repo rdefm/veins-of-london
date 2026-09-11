@@ -84,17 +84,20 @@ const WIDGET_PADDING := 8.0
 const TOP_PADDING := 16.0
 
 # The umbrella is rendered at this on-screen size (native art is 500x500,
-# same DEVICE_NATIVE_SIZE hq_dial.gd uses). Human direction on review
-# (2026-09-11): the Dial docks left of the action deck (combat.gd's
-# _build_dial_and_actions_row()), with the Complication detail card reflowed
-# onto its own full-width line above rather than sharing the row -- see that
-# function's own comment for why. This value is what's left of the 358px
-# content width once the action deck's own 3-card minimum (combat.gd's
-# _build_action_card()) is subtracted -- ART-REVIEW, a first-pass fit against
-# that hand-measured budget, not a measured on-device call (this agent
-# cannot see the running UI, CLAUDE.md workflow rule 5); human should
-# eyeball on a real device and retune.
-const HANDLE_DISPLAY_SIZE := 144.0
+# same DEVICE_NATIVE_SIZE hq_dial.gd uses) -- the original, un-shrunk value
+# ("same source art, not shrunk", this ticket's own issue text). Human
+# direction on review (2026-09-11): the Dial docks left of the action deck
+# (combat.gd's _build_dial_and_actions_row()), with the Complication detail
+# card reflowed onto its own full-width line above rather than sharing the
+# row, and the action deck itself rebuilt as a vertical stack of compact
+# horizontal bars (combat.gd's _build_action_deck()) rather than a
+# horizontal row of 3 cards stretched to the Dial's height -- both changes
+# free enough width for the Dial to render at its full original size and
+# still fit the 358px content width. Confirmed via scripts/
+# debug_combat_dial_screenshot.gd's own real (non-headless) render, not just
+# hand-measured -- ART-REVIEW still applies to the screw/button hit-region
+# consts below, which remain unconfirmed on an actual device.
+const HANDLE_DISPLAY_SIZE := 208.0
 const HANDLE_NATIVE_SIZE := 500.0
 const HANDLE_SCALE := HANDLE_DISPLAY_SIZE / HANDLE_NATIVE_SIZE
 
@@ -157,7 +160,13 @@ func configure(dial: Dictionary, selected_index: int, on_selection_changed: Call
 	_on_triggered = on_triggered
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	custom_minimum_size = WIDGET_SIZE
-	size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	# ui-chrome-pass ticket 03 (human direction, 2026-09-11): SHRINK_END, not
+	# SHRINK_BEGIN -- when this widget sits in a taller row than its own
+	# height (combat.gd's _command_dock, whose own height also has to fit
+	# the action deck beside it), bottom-aligning keeps the umbrella's own
+	# art flush with the row's bottom edge ("rises from the bottom of the
+	# screen") instead of floating at the row's top with dead space below it.
+	size_flags_vertical = Control.SIZE_SHRINK_END
 	clip_contents = true
 
 	if get_child_count() == 0:

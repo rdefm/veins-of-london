@@ -590,19 +590,22 @@ func run() -> void:
 	)
 
 	# ui-chrome-pass ticket 03 (human direction, confirmed 2026-09-11, revised
-	# 2026-09-11 after an on-review follow-up): the Dial is now a large,
-	# uncropped prop docked left of the action deck (same side as before this
-	# ticket); the Complication detail card reflows onto its own full-width
-	# line above that row instead of squeezing into it -- see
-	# _build_dial_and_actions_row()'s own comment for why the detail card
-	# specifically needed to move (its longest strings are wide enough on
-	# their own to blow the row's width budget once the Dial claims a real
-	# prop's worth of it). Old layout's actual bug (confirmed-by-screenshot):
-	# the detail card and the "Leg it" card both ran off the right edge of a
-	# real 390-wide viewport. This case needs a real, sized SceneTree entry
-	# (not a bare CombatScreen.new()/_ready(), where Control layout never
-	# resolves) to actually prove the deck lands on screen at rest -- same
-	# "REAL ScrollContainer, live in the actual scene tree" precedent tests/
+	# twice same day after on-review follow-ups): the Dial is now a large,
+	# uncropped prop docked left of the action deck, both living in
+	# _command_dock -- a fixed Control anchored to the true bottom-left of
+	# the screen, outside _content's ScrollContainer/margin flow entirely
+	# (see _ready()'s own comment for why: sharing the 358px content column
+	# with the action deck capped the Dial's size however much width the
+	# cards needed that round). The Complication detail card stays in the
+	# ordinary _footer_holder flow, on its own full-width line -- its longest
+	# strings are wide enough on their own to blow the Dial+action-deck row's
+	# own width budget if they shared it (see _build_dial_and_actions_row()'s
+	# own comment). Old layout's actual bug (confirmed-by-screenshot): the
+	# detail card and the "Leg it" card both ran off the right edge of a real
+	# 390-wide viewport. This case needs a real, sized SceneTree entry (not a
+	# bare CombatScreen.new()/_ready(), where Control layout never resolves)
+	# to actually prove the deck lands on screen at rest -- same "REAL
+	# ScrollContainer, live in the actual scene tree" precedent tests/
 	# test_map_canvas.gd's step_zoom cases use, including their two-frame
 	# wait (first lets any still-pending deferred autoload _ready() --
 	# GameState._ready() calls reset() -- flush before this case's own
@@ -639,10 +642,14 @@ func run() -> void:
 		var viewport_right: float = viewport_left + viewport.size.x
 		var viewport_bottom: float = viewport.global_position.y + viewport.size.y
 
-		# Nothing in the command deck (Complication detail card, action deck,
-		# the Dial itself) may clip or run off either edge of the viewport --
-		# the ticket's own confirmed-by-screenshot bug.
-		for c in screen._footer_holder.find_children("", "Control", true, false):
+		# Nothing in the command deck (Complication detail card in
+		# _footer_holder, Dial+action deck in _command_dock -- see
+		# _ready()'s own comment for why they're two separate containers now)
+		# may clip or run off either edge of the viewport -- the ticket's own
+		# confirmed-by-screenshot bug.
+		var command_deck_controls: Array = screen._footer_holder.find_children("", "Control", true, false)
+		command_deck_controls.append_array(screen._command_dock.find_children("", "Control", true, false))
+		for c in command_deck_controls:
 			var c_left: float = c.global_position.x
 			var c_right: float = c_left + c.size.x
 			var c_bottom: float = c.global_position.y + c.size.y
@@ -660,9 +667,26 @@ func run() -> void:
 			if action_labels.has(b.text):
 				buttons.append(b)
 		assert_true(buttons.size() >= 2, "sanity: the action deck's buttons must still be present")
+		# ui-chrome-pass ticket 03 (human direction, 2026-09-11): the action
+		# deck is a VERTICAL stack of horizontal bars now (see
+		# _build_action_deck()'s own comment), superseding ticket 18's
+		# horizontal row of 3 -- each bar shares the Dial's left-hand column
+		# position, stacked one below the last, rather than all 3 sharing one
+		# row's y position.
 		for i in range(1, buttons.size()):
-			assert_true(buttons[i].global_position.y == buttons[0].global_position.y, "the action blocks must sit in a horizontal row, sharing one y position, not stacked")
-			assert_true(buttons[i].global_position.x > widget.global_position.x, "the action row must sit to the right of the Dial")
+			assert_true(buttons[i].global_position.y > buttons[i - 1].global_position.y, "the action bars must stack vertically, each below the last")
+			assert_true(buttons[i].global_position.x == buttons[0].global_position.x, "every action bar must share the same left-hand x position (a column), not drift sideways")
+		for b in buttons:
+			assert_true(b.global_position.x > widget.global_position.x, "the action stack must sit to the right of the Dial")
+
+		# The human-reported regression this case guards against: an earlier
+		# pass of this ticket fit everything on-screen but left a large dead
+		# gap between the deck and the true bottom edge, instead of the deck
+		# actually rising from it. 24px is a generous slack (covers the
+		# card's own border/corner radius) -- nowhere near the ~140px gap the
+		# regression showed.
+		var deck_bottom: float = widget.global_position.y + widget.size.y
+		assert_true(deck_bottom >= viewport_bottom - 24.0, "the command deck must sit flush against the bottom of the screen, not float with dead space beneath it -- got deck_bottom=%s, viewport_bottom=%s" % [deck_bottom, viewport_bottom])
 
 		screen.free()
 		viewport.free()
@@ -678,21 +702,24 @@ func run() -> void:
 	# CombatScreen.new()/_ready() pattern every other case in this file but
 	# the Dial-layout one above uses).
 
-	run_case("mid_fight_footer_is_just_the_dial_and_actions_row_no_ticker_of_its_own", func():
+	run_case("mid_fight_footer_holder_is_empty_command_deck_lives_in_the_dock", func():
 		# field-kit-chrome ticket 03, ui-vision.md §5's 2026-09-11 amendment:
 		# the mid-fight ticker (hq-diorama ticket 21's own under-stage log)
 		# is gone -- combat.log lines route to the top notification board
-		# instead (see the _on_beat_played()-driven cases below), so
-		# _build_command_deck() no longer wraps a log above the dial/actions
-		# row; it IS that row.
+		# instead (see the _on_beat_played()-driven cases below). ui-chrome-pass
+		# ticket 03 (2026-09-11, third revision): the Complication card no
+		# longer lives in _footer_holder either -- it docks as the top bar of
+		# the action stack in _command_dock (a fixed Control outside
+		# _content's flow, see _ready()'s own comment), alongside the
+		# Attack/Item/Leg it cards, so _footer_holder carries nothing at all
+		# during a live fight now.
 		_setup_combat([_enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_eq(screen._footer_holder.get_child_count(), 1, "mid-fight: the command deck is the footer's only direct child")
-		var command_row: Control = screen._footer_holder.get_child(0)
-		assert_true(_deck_buttons(command_row).size() > 0, "the command deck carries the Attack/Item/Run cards directly, with nothing wrapping it")
+		assert_eq(screen._footer_holder.get_child_count(), 0, "mid-fight: _footer_holder carries nothing -- the whole command deck lives in _command_dock now")
+		assert_true(_deck_buttons(screen._command_dock).size() > 0, "the command dock carries the Attack/Item/Run cards directly, with nothing wrapping it")
 
 		screen.free()
 	)
@@ -738,17 +765,31 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("dial_and_action_row_expand_to_fill_more_vertical_space_than_a_compact_row", func():
+	# ui-chrome-pass ticket 03 (human direction, 2026-09-11): supersedes
+	# hq-diorama ticket 21's "each action card expands to fill the row's
+	# height" rule -- stretching the action cards to match the Dial's own
+	# (now much taller, real-prop-sized) height is exactly what made them
+	# read as squashed narrow pillars once the Dial grew. The cards are a
+	# vertical stack of compact horizontal bars now (see
+	# _build_action_deck()'s own comment), each sized to its own natural
+	# (short) content height, not stretched to the Dial's.
+	run_case("action_card_buttons_keep_their_own_compact_size_rather_than_stretching_to_the_dials_height", func():
 		_setup_combat([_enemy("Scrapper")])
 		GameState.state["player"]["dial"] = _dial(["blast"])
 
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		var command_row: Control = screen._footer_holder.get_child(0)
-		for b in _deck_buttons(command_row):
+		# ui-chrome-pass ticket 03 (2026-09-11, second revision): the action
+		# deck lives in _command_dock now, not _footer_holder (see
+		# _ready()'s own comment) -- checked there so this doesn't silently
+		# pass vacuously (0 buttons found) against the wrong container.
+		var found_any := false
+		for b in _deck_buttons(screen._command_dock):
 			if ["⚔", "🎒", "🏃"].has(b.text):
-				assert_eq(b.size_flags_vertical, Control.SIZE_EXPAND_FILL, "each action card's button must expand to fill the row's height (set by the Dial's fixed size) rather than sitting compact at the top")
+				found_any = true
+				assert_true(b.size_flags_vertical != Control.SIZE_EXPAND_FILL, "an action card's icon button must not expand to fill the Dial's own height any more -- that stretch is what made the cards read as squashed pillars")
+		assert_true(found_any, "sanity: the action deck's buttons must actually have been found and checked")
 
 		screen.free()
 	)

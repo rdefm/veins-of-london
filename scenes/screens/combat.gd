@@ -46,6 +46,27 @@ const STAGE_WIDTH := 390.0 - 16.0 - 16.0
 # doesn't crowd the turn-order strip above it.
 const STAGE_HEIGHT := 220.0
 
+# ui-chrome-pass ticket 03 (human direction, 2026-09-11): _command_dock's own
+# geometry -- see _ready()'s own comment for why this Control exists outside
+# _content's flow. It's anchored to `self` (the full 390-wide screen), not to
+# _content's own margin-inset column, so LEFT_MARGIN=0 already sits flush
+# with the screen's true left edge -- reclaiming screen_body()'s 16px column
+# margin for the Dial needs no negative offset here (an earlier pass of this
+# ticket used one, which just pushed the dock 16px further left than the
+# screen itself, off the left edge entirely -- see this ticket's own git
+# history). RIGHT_MARGIN/BOTTOM_MARGIN are small fixed insets (not
+# safe_area_*_inset() -- same "DisplayServer returns a bogus large inset in a
+# windowed desktop test session" reason hq_dial.gd's own DEVICE_BOTTOM_MARGIN
+# gives) so the action deck's right edge and the Dial's art don't sit flush
+# against the literal screen edge. HEIGHT has to cover DialWidget.WIDGET_SIZE.y
+# at whatever HANDLE_DISPLAY_SIZE that file is currently set to -- ART-REVIEW,
+# first-pass fit verified against a real render
+# (scripts/debug_combat_dial_screenshot.gd), not an exact formula.
+const COMMAND_DOCK_LEFT_MARGIN := 0.0
+const COMMAND_DOCK_RIGHT_MARGIN := 4.0
+const COMMAND_DOCK_BOTTOM_MARGIN := 6.0
+const COMMAND_DOCK_HEIGHT := 316.0
+
 # combat-presentation ticket 10: left/right stage split -- player + allies
 # occupy the left column, enemies the right, each column running the full
 # stage height. This DEVIATES from docs/combat-animation-vision.md §2's
@@ -923,6 +944,11 @@ var _pacing_button: Button
 var _strip_holder: VBoxContainer
 var _footer_holder: VBoxContainer
 
+# ui-chrome-pass ticket 03: the Dial+action-deck row's own fixed dock,
+# outside _content's ScrollContainer/margin flow -- see _ready()'s own
+# comment for why, and _build_dial_and_actions_row() for what rebuilds it.
+var _command_dock: HBoxContainer
+
 # combat-presentation ticket 05: the currently-mounted strip, kept so the
 # juice layer's ghost-drain calls can reach it without re-walking
 # _strip_holder's children. Rebuilt (and reassigned) every real _sync() --
@@ -988,6 +1014,46 @@ var _frozen_roster: Dictionary = {}
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 	_content = UI.screen_body(self)
+
+	# ui-chrome-pass ticket 03 (human direction, 2026-09-11, revised again
+	# same day): the Dial+action-deck row lives OUTSIDE _content's
+	# ScrollContainer/margin flow entirely, in its own fixed Control anchored
+	# to the true bottom-left of the SCREEN -- not just stretched/aligned
+	# within the margin-constrained column (tried first, see this ticket's
+	# own git history: that approach only ever had 358px of width to share
+	# between the Dial and the action deck, capping the Dial's size well
+	# below "a real prop" once both had to fit side by side). Breaking out of
+	# the column bleeds past its left/bottom margins for real extra room, and
+	# lets the Dial's art run flush to the screen's own bottom edge.
+	#
+	# Added AFTER _content (a later sibling, so it paints on top and is
+	# checked first for input -- same proven-safe ordering
+	# `_sync_command_dock()`'s predecessor already used) rather than behind
+	# it: layout Containers here (VBoxContainer/MarginContainer/
+	# ScrollContainer, and UI.card()'s own PanelContainer -- see that
+	# function's own mouse_filter comment) all use MOUSE_FILTER_PASS, only
+	# actual leaf controls (Button, DialWidget) STOP -- so a later sibling
+	# only intercepts taps where ITS OWN leaf controls actually sit, letting
+	# anything in _content still receive its own input normally underneath.
+	_command_dock = UI.hbox(8)
+	_command_dock.anchor_left = 0.0
+	_command_dock.anchor_right = 1.0
+	_command_dock.anchor_top = 1.0
+	_command_dock.anchor_bottom = 1.0
+	_command_dock.offset_left = COMMAND_DOCK_LEFT_MARGIN
+	_command_dock.offset_right = -COMMAND_DOCK_RIGHT_MARGIN
+	_command_dock.offset_bottom = -COMMAND_DOCK_BOTTOM_MARGIN
+	_command_dock.offset_top = -(COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_HEIGHT)
+	add_child(_command_dock)
+
+	# screen_body()'s ScrollContainer reserves NavBar.BAR_HEIGHT at the
+	# bottom unconditionally (anchor_below_bars()'s own offset_bottom), even
+	# though combat is a NAV_HIDDEN_SCREENS screen with no NavBar to clear.
+	# Reclaim that dead space, then reserve real room for _command_dock on
+	# top of it, so the scrollable heading/strip/stage/Complication-detail
+	# content never renders underneath the fixed dock.
+	var scroll_container := _content.get_parent().get_parent() as Control
+	scroll_container.offset_bottom = -(COMMAND_DOCK_HEIGHT + COMMAND_DOCK_BOTTOM_MARGIN)
 
 	_director = CombatDirector.new()
 	add_child(_director)
@@ -1249,8 +1315,15 @@ func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
 	# hole with much less code.
 	if combat["outcome"] != null and not _director.is_playing():
 		_footer_holder.add_child(_build_outcome_button(combat["outcome"], combat["context"]))
+		# ui-chrome-pass ticket 03: _command_dock lives outside _footer_holder
+		# (see _ready()'s own comment), so clearing _footer_holder's children
+		# above doesn't touch it -- has to be cleared here explicitly, same
+		# "command deck (cards + Dial) is replaced by the outcome button once
+		# the fight is over" rule this screen has always held.
+		for child in _command_dock.get_children():
+			child.queue_free()
 	else:
-		_footer_holder.add_child(_build_command_deck(player))
+		_build_command_deck(player)
 
 
 # combat-presentation ticket 02, §2.4: the one component doing nameplate +
@@ -1708,101 +1781,125 @@ func _vignette_texture() -> GradientTexture2D:
 
 
 # ui-chrome-pass ticket 03 (human direction, confirmed 2026-09-11, revised
-# 2026-09-11 after an on-review follow-up): the Dial docks left of the
-# action deck again -- same side as ticket 18 -- but now at a real "large
-# prop" render size (dial_widget.gd's own WIDGET_SIZE, no longer the small
-# cropped box that used to sit here). The Complication detail card reflows
-# to its own full-width line ABOVE that row rather than sharing it (its
-# longest strings -- "Nothing loaded on the Dial.", "Not enough charge to
-# cast" -- measure 200-220px on their own, more than the Dial+action-deck
-# row has left to give it once the Dial claims a real prop's worth of
-# width; a full-width line above sidesteps that squeeze entirely instead of
-# forcing those strings to wrap). Two earlier passes are NOT what shipped
-# here (see this ticket's own git history): stacking the Dial in its own
-# bottom-anchored band below a full-width action column forced the Dial's
-# render size down hard (220 -> 118) to fit one 844-tall viewport without
-# scrolling, which read too small on review; narrowing the Complication
-# card via a hard-coded pixel cap instead forced its longer strings onto
-# 3-4 wrapped lines, blowing the *vertical* budget right back out.
+# three times same day after on-review follow-ups): _footer_holder carries
+# nothing during a live fight any more -- the Complication card moved into
+# the action stack itself (see _build_action_deck()'s own comment), so this
+# is now purely a side-effect call that rebuilds _command_dock (a fixed
+# Control outside _content's flow, see _ready()'s own comment for why).
+# Earlier passes are NOT what shipped here (see this ticket's own git
+# history): sharing one row inside the 358px content column between the
+# Dial and the action deck capped the Dial's size however much width the
+# action deck's own cards needed that round (as low as 118px at one point,
+# read as "still tiny" on review); a full-width-column pass after that put
+# the Complication card on its own line above the row, which fixed the
+# width squeeze but still left it visually disconnected from the
+# Attack/Item/Leg it cards it now matches.
 #
-# field-kit-chrome ticket 03: no longer wraps a log above this row (hq-
+# field-kit-chrome ticket 03: no longer wraps a log above the deck (hq-
 # diorama ticket 21's own MID_FIGHT_LOG_LINES ticker) -- the command deck
-# IS the Dial/actions column now; combat.log lines route to the top board
-# instead (see _sync_footer()'s own comment).
-func _build_command_deck(player: Dictionary) -> Control:
-	return _build_dial_and_actions_row(player)
+# IS _command_dock now; combat.log lines route to the top board instead
+# (see _sync_footer()'s own comment).
+func _build_command_deck(player: Dictionary) -> void:
+	_build_dial_and_actions_row(player)
 
 
-# The Dial always shows once the player has one seeded (even with nothing
-# loaded -- an empty Dial is still furniture the player is holding, same
-# "always shown, disabled with a reason" spirit UI.action_button() uses
-# elsewhere), unlike the old docked widget, which only rendered once
-# something was actually loaded. No Dial at all (never seeded) still shows
-# nothing here -- there is no physical prop to draw.
-func _build_dial_and_actions_row(player: Dictionary) -> Control:
-	var col := UI.vbox(8)
+# Rebuilds _command_dock's contents. The Dial always shows once the player
+# has one seeded (even with nothing loaded -- an empty Dial is still
+# furniture the player is holding, same "always shown, disabled with a
+# reason" spirit UI.action_button() uses elsewhere), unlike the old docked
+# widget, which only rendered once something was actually loaded. No Dial at
+# all (never seeded) still shows nothing here -- there is no physical prop
+# to draw.
+func _build_dial_and_actions_row(player: Dictionary) -> void:
+	for child in _command_dock.get_children():
+		child.queue_free()
 
 	var dial: Variant = player["dial"]
-	col.add_child(_build_complication_detail(dial))
-
-	var row := UI.hbox(8)
 	if dial != null:
-		row.add_child(_build_dial_widget(dial))
-	var action_deck := _build_action_deck(player)
-	action_deck.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(action_deck)
-	col.add_child(row)
-
-	return col
+		_command_dock.add_child(_build_dial_widget(dial))
+	_command_dock.add_child(_build_action_deck(player))
 
 
-# The rectangle above the action row: whichever Complication the Dial widget
-# currently has selected (_dial_selected_index, the same persisted choice
-# dial_widget.gd's own configure() clamps). Shows a muted placeholder line
-# when there's no Dial, or nothing loaded on it, or the charge to actually
-# fire it -- same "always show why, don't just disable silently" reasoning
-# UI.action_button() documents.
+# ui-chrome-pass ticket 03 (human direction, 2026-09-11, third revision):
+# the Complication card is now a bar in the same size/format as the
+# Attack/Item/Leg it cards below it (see _build_card_bar()'s own comment),
+# not a plain content rectangle -- built via that same shared helper, with
+# the recipe's own symbol (or a generic diamond fallback -- SymbolGlyph.
+# generic_fallback(), same "no per-glyph art commissioned" placeholder
+# dial_widget.gd's own Complication-detail row used to reuse) standing in
+# for the emoji Button icon the other cards use, since a Button can't render
+# these ~19 recipe/movement symbols (ThemeDB.fallback_font doesn't cover
+# them -- exactly what SymbolGlyph exists to work around, see that file's
+# own header comment). Text trimmed to just the recipe name and tier -- the
+# charge-status line ("Tap ⇄ to cast (1 charge)") this card used to also
+# carry doesn't fit this format and is dropped; DialWidget's own overlay
+# already reads charge state visually (the needle, and the trigger-switch
+# glyph's dim/lit colour -- see that file's own _draw_overlay()).
+#
+# A long recipe name ("Prophet's Breath — tier 3") truncates with an ellipsis
+# (_build_card_bar()'s own caption handling) rather than wrapping or widening
+# the card -- confirmed by test: uncapped, it forced every card in the stack
+# (VBoxContainer sizes each child to its widest sibling) wide enough to push
+# the whole Dial+action-deck row past the 390-wide viewport.
 func _build_complication_detail(dial: Variant) -> Control:
-	var c := UI.card()
-	c["panel"].custom_minimum_size = Vector2(0.0, 52.0)
+	var glyph := SymbolGlyph.new()
+	glyph.font_size = 20
+	glyph.glyph_radius = 12.0
+	glyph.draw_fallback = SymbolGlyph.generic_fallback()
+	var accent := _action_color()
+	glyph.color = accent
 
 	if dial == null:
-		c["content"].add_child(UI.muted_label("No Dial."))
-		return c["panel"]
+		return _build_card_bar(glyph, "No Dial", accent)
 
 	var loaded: Array = dial["loadedComplications"]
 	if loaded.is_empty():
-		c["content"].add_child(UI.muted_label("Nothing loaded on the Dial."))
-		return c["panel"]
+		return _build_card_bar(glyph, "Empty", accent)
 
 	var index: int = clampi(_dial_selected_index, 0, loaded.size() - 1)
 	var entry: Dictionary = loaded[index]
 	var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
-	c["content"].add_child(UI.symbol_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — tier %d" % [recipe["name"], entry["tier"]]]))
-	var can_trigger: bool = dial["currentCharge"] >= 1.0
-	c["content"].add_child(UI.muted_label("Tap ⇄ to cast (1 charge)" if can_trigger else "Not enough charge to cast"))
-	return c["panel"]
+	glyph.symbol = recipe["symbol"]
+	return _build_card_bar(glyph, "%s — tier %d" % [recipe["name"], entry["tier"]], accent)
 
 
 # §2.5: "Action deck -- 3 cards, not 4. Attack / Item / Run ... same
 # handlers, no new inventory/hand mechanic, no energy-cost numbers." "Item"
 # still opens the existing Bag drawer.
 #
-# combat-presentation ticket 18 (human direction, 2026-09-09): back to a
-# horizontal row of 3 blocks, sitting to the right of the umbrella-handle
-# Dial widget below the Complication detail rectangle -- supersedes ticket
-# 13's vertical "hamburger" stack (that stack existed to keep this row
-# narrow enough to fit beside the old full-height docked Dial; the Dial no
-# longer spans the deck's full height, so there's no longer a width
-# conflict to avoid). Each block is EXPAND_FILL so 3 (or 4, mid-playback
-# with Skip) blocks always divide whatever width the action column has
-# evenly, rather than each reserving its own natural button width and
-# risking an overflow past the screen edge (see UI.button()'s own comment
-# for that failure mode) -- see _build_action_card() below.
+# ui-chrome-pass ticket 03 (human direction, 2026-09-11): back to a VERTICAL
+# stack of horizontal bars (icon + caption side by side per bar -- see
+# _build_action_card()'s own comment), same shape ticket 13's old
+# "hamburger" stack used, superseding ticket 18's horizontal row of tall
+# narrow pillars. That row-of-pillars shape only made sense docked beside a
+# Dial that didn't take much width; docked beside a Dial sized to actually
+# read as "a real prop" (see _build_dial_and_actions_row()'s own comment),
+# 3 cards side by side had to squeeze into a sliver, stretching each into a
+# squashed vertical pillar. A vertical stack only ever needs ONE card's
+# width, freeing the rest of the row for the Dial, and each bar reads as an
+# actual horizontal shape instead.
 func _build_action_deck(player: Dictionary) -> Control:
-	var row := UI.hbox(6)
-	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	row.add_child(_build_action_card("⚔", "Attack", _on_attack_pressed))
+	var col := UI.vbox(6)
+	# EXPAND_FILL horizontal -- claims whatever width _command_dock has left
+	# over after the Dial's own fixed-size column, so the cards inside (each
+	# already EXPAND_FILL within this column) get real width to show their
+	# captions in, rather than shrinking to their own bare minimum (just the
+	# icon) and leaving the rest of the dock as dead space.
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# SHRINK_END, not EXPAND_FILL, on the VERTICAL axis -- this stack only
+	# needs its own natural (short) height, not stretched to match the Dial
+	# (that stretch is exactly what made ticket 18's row-of-pillars shape
+	# squashed in the first place). Bottom-aligned (not centred) so it shares
+	# the Dial's own bottom edge -- see DialWidget.configure()'s own
+	# SHRINK_END comment for why: both read as sitting on the same "shelf" at
+	# the row's bottom, whichever of the two ends up taller that round.
+	col.size_flags_vertical = Control.SIZE_SHRINK_END
+	# ui-chrome-pass ticket 03 (human direction, 2026-09-11, third revision):
+	# the Complication card docks as the top bar of this same stack, in the
+	# same size/format as the cards below it -- see _build_complication_detail()'s
+	# own comment.
+	col.add_child(_build_complication_detail(player["dial"]))
+	col.add_child(_build_action_card("⚔", "Attack", _on_attack_pressed))
 
 	# calc-effect-wiring-02/03: blast/shield/blackHole/healingBurst, then
 	# prophetsBreath/wormhole, added to the same "has anything to use" check
@@ -1815,13 +1912,13 @@ func _build_action_deck(player: Dictionary) -> Control:
 		or Crafting.inventory_qty("prophetsBreath") > 0 or Crafting.inventory_qty("wormhole") > 0
 		or (player["dial"] != null and not player["dial"]["loadedComplications"].is_empty())
 	)
-	row.add_child(_build_action_card("🎒", "Item", func(): Bag.open(), not has_items))
-	row.add_child(_build_action_card("🏃", "Leg it", _on_run_pressed))
+	col.add_child(_build_action_card("🎒", "Item", func(): Bag.open(), not has_items))
+	col.add_child(_build_action_card("🏃", "Leg it", _on_run_pressed))
 
 	if _director.is_playing():
-		row.add_child(_build_action_card("⏭", "Skip", func(): _director.skip_to_end()))
+		col.add_child(_build_action_card("⏭", "Skip", func(): _director.skip_to_end()))
 
-	return row
+	return col
 
 
 # field-kit-chrome ticket 05, ui-vision.md §5's component table ("Combat
@@ -1836,11 +1933,11 @@ func _build_action_deck(player: Dictionary) -> Control:
 # meaning is the exact bug §6 exists to fix. The card's cream fill is
 # otherwise unchanged (still built via UI.card() -- already Family 4's
 # shared neutral surface per nav_bar.gd's own comment); its border, glyph,
-# hover/pressed wash, and caption all carry the accent instead, so a
-# tappable command card reads differently from a plain content card like
-# the Complication detail rectangle above it. No reference image exists for
-# exact corners/border weight -- left to this implementation per the
-# ticket.
+# hover/pressed wash, and caption all carry the accent instead. No reference
+# image exists for exact corners/border weight -- left to this
+# implementation per the ticket. (ui-chrome-pass ticket 03: the Complication
+# card, once a separate plain content rectangle, now shares this exact same
+# treatment too -- see _build_card_bar()'s own comment.)
 const _ACTION_COLOR_FALLBACK := Color(0.784314, 0.062745, 0.180392, 1)
 const _ACTION_CARD_DISABLED_COLOR := Color(0.541176, 0.541176, 0.541176, 1)
 const _ACTION_CARD_FILL := Color(0.980392, 0.972549, 0.952941, 1)
@@ -1864,46 +1961,28 @@ func _action_card_button_style(accent: Color, alpha: float) -> StyleBoxFlat:
 	return style
 
 
-# combat-presentation ticket 18: split into an icon (a bare Button, plain
-# emoji text -- deliberately NOT UI.button(), whose text-driven minimum-
-# width reservation is sized for a full word like "⚔ Attack" and would blow
-# this block back out past the ~65px an EXPAND_FILL 3-way split actually
-# leaves it) plus a caption label underneath, rather than one wide "⚔
-# Attack" button -- a single-glyph button reserves almost no width of its
-# own, so the block's real minimum comes from the caption Label instead
-# (UI.label(), which already wraps/clips per its own MAX_LABEL_TEXT_WIDTH
-# cap), leaving the emoji comfortably legible at this row's width.
+# ui-chrome-pass ticket 03 (human direction, 2026-09-11): icon and caption
+# now sit side by side in one row (a bare Button, plain emoji text --
+# deliberately NOT UI.button(), whose text-driven minimum-width reservation
+# is sized for a full word like "⚔ Attack" and would fight the caption
+# Label for space) rather than stacked icon-above-caption -- that vertical
+# stack is what let ticket 18's cards get stretched into tall, narrow,
+# squashed-looking pillars once 3 of them had to share a row beside a real
+# "large prop"-sized Dial (see _build_action_deck()'s own comment for why
+# this is a vertical stack of these horizontal bars now, not a horizontal
+# row of them). custom_minimum_size on the icon keeps it from collapsing to
+# nothing now that it isn't the caption's own natural width driving the
+# block's minimum any more (UI.label(), which already wraps/clips per its
+# own MAX_LABEL_TEXT_WIDTH cap).
+const _ACTION_CARD_ICON_SIZE := 40.0
+
 func _build_action_card(symbol: String, label_text: String, callback: Callable, disabled: bool = false) -> Control:
 	var accent: Color = _ACTION_CARD_DISABLED_COLOR if disabled else _action_color()
-
-	var c := UI.card()
-	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	c["panel"].size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = _ACTION_CARD_FILL
-	panel_style.border_width_left = 1
-	panel_style.border_width_top = 1
-	panel_style.border_width_right = 1
-	panel_style.border_width_bottom = 1
-	panel_style.border_color = accent
-	panel_style.set_corner_radius_all(10)
-	# ui-chrome-pass ticket 03: trimmed from 16 all round -- the Dial docking
-	# beside this row at a real "large prop" size (see
-	# _build_dial_and_actions_row()'s own comment) leaves less width for 3
-	# cards than ticket 18's original layout budgeted for. No reference image
-	# locks an exact corner/margin value here (this func's own top comment),
-	# so this is a first-pass fit, not a style regression.
-	panel_style.content_margin_left = 8
-	panel_style.content_margin_top = 12
-	panel_style.content_margin_right = 8
-	panel_style.content_margin_bottom = 12
-	c["panel"].add_theme_stylebox_override("panel", panel_style)
 
 	var button := Button.new()
 	button.text = symbol
 	button.clip_text = true
 	button.disabled = disabled
-	button.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	button.add_theme_stylebox_override("normal", _action_card_button_style(accent, 0.0))
 	button.add_theme_stylebox_override("hover", _action_card_button_style(accent, 0.14))
 	button.add_theme_stylebox_override("pressed", _action_card_button_style(accent, 0.22))
@@ -1913,12 +1992,63 @@ func _build_action_card(symbol: String, label_text: String, callback: Callable, 
 	button.add_theme_color_override("font_pressed_color", accent)
 	button.add_theme_color_override("font_disabled_color", accent)
 	button.pressed.connect(callback)
-	c["content"].add_child(button)
+
+	return _build_card_bar(button, label_text, accent)
+
+
+# ui-chrome-pass ticket 03 (human direction, 2026-09-11, third revision):
+# shared by every card in the action stack (Attack/Item/Leg it, and now the
+# Complication card too) -- the panel/row/caption assembly used to live only
+# in _build_action_card(), but the Complication card needs the exact same
+# size/format with a different icon widget (a SymbolGlyph, not a Button --
+# see _build_complication_detail()'s own comment for why), so that assembly
+# is pulled out here rather than duplicated. `icon` is deliberately a bare
+# Control, not specifically a Button: only _build_action_card()'s caller
+# wires up press/disabled/hover behaviour on it; a SymbolGlyph is just
+# dropped in inert.
+func _build_card_bar(icon: Control, label_text: String, accent: Color) -> Control:
+	var c := UI.card()
+	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = _ACTION_CARD_FILL
+	panel_style.border_width_left = 1
+	panel_style.border_width_top = 1
+	panel_style.border_width_right = 1
+	panel_style.border_width_bottom = 1
+	panel_style.border_color = accent
+	panel_style.set_corner_radius_all(10)
+	panel_style.content_margin_left = 8
+	panel_style.content_margin_top = 8
+	panel_style.content_margin_right = 8
+	panel_style.content_margin_bottom = 8
+	c["panel"].add_theme_stylebox_override("panel", panel_style)
+
+	var row := UI.hbox(8)
+	c["content"].add_child(row)
+
+	icon.custom_minimum_size = Vector2(_ACTION_CARD_ICON_SIZE, _ACTION_CARD_ICON_SIZE)
+	row.add_child(icon)
 
 	var caption := UI.label(label_text)
-	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# ui-chrome-pass ticket 03: UI.label()'s own floor reserves the caption's
+	# full natural single-line width (that helper's own comment) -- fine for
+	# "Attack"/"Item"/"Leg it", but a recipe name ("Prophet's Breath — tier
+	# 3") can run 2-3x longer, which would otherwise inflate every card in
+	# this VBoxContainer stack to match (VBoxContainer sizes every child to
+	# its widest sibling), pushing the whole Dial+action-deck row past the
+	# 390-wide viewport. Dropping the floor to 0 and truncating with an
+	# ellipsis instead of wrapping (autowrap OFF) keeps every card's height
+	# fixed and predictable regardless of caption length -- wrapping instead
+	# was tried first (see this ticket's own git history) and blew the whole
+	# stack's height budget the same way the width budget got blown here.
+	caption.custom_minimum_size.x = 0.0
+	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
+	caption.clip_text = true
+	caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	caption.add_theme_color_override("font_color", accent)
-	c["content"].add_child(caption)
+	row.add_child(caption)
 
 	return c["panel"]
 
