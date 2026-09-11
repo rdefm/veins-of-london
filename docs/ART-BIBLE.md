@@ -36,7 +36,7 @@ longer mandatory.)
 
 ## 2. Reference palette
 
-`data/palette.json` — **42 colours**, swatch at `data/palette_swatch.png`
+`data/palette.json` — **43 colours**, swatch at `data/palette_swatch.png`
 (regenerate with `python3 tools/make_palette_swatch.py` after any edit to
 the JSON). Generated combat art is **not** required to quantise to this
 list — `tools/pixelize.py` no longer has a quantisation step. The palette

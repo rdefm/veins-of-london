@@ -225,11 +225,9 @@ palette and accent rules in §6, and the typography in §7.
   pillar-box/bus red** — Royal Mail red / Routemaster red register.
   Civic-London, not tied to any one faction, and distinct from the
   Underground roundel blue Family 3 will likely want for itself.
-  Candidate hex: `#c8102e` (indicative — confirm against
-  `data/palette.json`'s existing ramps before locking; needs a new
-  `ui_action_red` entry, probably its own `group`, added the same way
-  `calc_gold` was, with the swatch regenerated per ART-BIBLE §2's
-  documented process).
+  Locked hex: `#c8102e`, `ui_action_red` in `data/palette.json` (own
+  `group: "ui_action"`, added the same way `calc_gold` was; swatch
+  regenerated per ART-BIBLE §2's documented process).
 - Family 1 (pixel art) is governed by §2 above, not this rule — its
   colour is scene-grounded, not accent-driven.
 - Family 3 (tube diagram) may need its own accent (roundel blue/red) —
@@ -304,7 +302,6 @@ Reasoning:
 - Generic Family-4 button/panel chrome (combat action cards, HQ Train
   panel) — the *that it's generic, not bespoke* is locked; exact visual
   styling (corners, border weight, fill) is not, implementation follow-up.
-- `ui_action_red` hex + palette entry, swatch regen.
 - Family 3 (tube diagram) accent colour and full spec — not attempted
   here.
 - Typeface selection for both the UI sans and the pixel font.
