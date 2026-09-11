@@ -415,6 +415,154 @@ static func build_hakim_card() -> Control:
 	return c["panel"]
 
 
+# 08-family-2-chrome-contacts, ui-vision.md §10: repaints an already-built
+# Contacts subtree (contacts.gd's own back/heading row plus every card this
+# file builds) into Family 2's dark "device shell" chrome, in one recursive
+# pass over the finished node tree rather than threading colour choices
+# through each build_*_card()/build_*_action() call site above -- those stay
+# untouched, so the only change here is paint. `root` is typically
+# ContactsScreen's own `_content` VBoxContainer, called once after every
+# card for the current refresh has been added.
+#
+# Deliberately NOT wired into build_faction_card() below -- that builder
+# still serves the (untouched, cream) Factions screen this ticket doesn't
+# cover, and PanelContainer/Label/Button here would repaint it too if this
+# walk ever reached it.
+const _PHONE_BG_CONTENT := "phone_bg_content"
+const _PHONE_DIVIDER := "phone_divider"
+const _PHONE_TEXT_PRIMARY := "phone_text_primary"
+const _PHONE_TEXT_MUTED := "phone_text_muted"
+
+# Fallbacks mirror nav_bar.gd's own GameData.PALETTE.get(id, fallback)
+# pattern -- only exercised if data/palette.json is somehow missing an id.
+const _FALLBACK_BG_CONTENT := Color("#252528")
+const _FALLBACK_DIVIDER := Color("#424246")
+const _FALLBACK_TEXT_PRIMARY := Color("#ededee")
+const _FALLBACK_TEXT_MUTED := Color("#999a9d")
+const _FALLBACK_ACTION := Color("#c8102e")
+
+
+static func _palette(id: String, fallback: Color) -> Color:
+	return GameData.PALETTE.get(id, fallback)
+
+
+static func apply_phone_os_chrome(root: Node) -> void:
+	_style_subtree(root, false)
+
+
+# `inside_button`: once the walk enters a Button, that button's own
+# _style_button() call below has already repainted every Label/SymbolGlyph
+# under it directly (so symbol_button()'s inner glyph+text row, not just the
+# Button's own text, gets the right colour) -- the generic Label branch is
+# skipped for the rest of that subtree so it can't clobber that choice with
+# the plain-label primary/muted heuristic.
+static func _style_subtree(node: Node, inside_button: bool) -> void:
+	var next_inside_button := inside_button
+	if node is PanelContainer:
+		_style_card_panel(node as PanelContainer)
+	elif node is Button:
+		_style_button(node as Button)
+		next_inside_button = true
+	elif node is Label and not inside_button:
+		_style_label(node as Label)
+
+	for child in node.get_children():
+		_style_subtree(child, next_inside_button)
+
+
+static func _style_card_panel(panel: PanelContainer) -> void:
+	var style := StyleBoxFlat.new()
+	style.bg_color = _palette(_PHONE_BG_CONTENT, _FALLBACK_BG_CONTENT)
+	style.border_color = _palette(_PHONE_DIVIDER, _FALLBACK_DIVIDER)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(10)
+	style.content_margin_left = 16
+	style.content_margin_top = 16
+	style.content_margin_right = 16
+	style.content_margin_bottom = 16
+	panel.add_theme_stylebox_override("panel", style)
+
+
+# UI.muted_label() is the only helper above that pre-applies its own
+# font_color override (the shared, family-agnostic grey every screen uses);
+# heading()/label() never do. That's enough to tell the two apart here
+# without threading a second "is this muted" flag through every builder --
+# tinted_label() (faction swatch colours) also carries a pre-existing
+# override, but nothing on this file's Contacts-reachable path
+# (build_faction_card() is deliberately outside this walk, see the comment
+# above) ever produces one.
+static func _style_label(l: Label) -> void:
+	if l.has_theme_color_override("font_color"):
+		l.add_theme_color_override("font_color", _palette(_PHONE_TEXT_MUTED, _FALLBACK_TEXT_MUTED))
+	else:
+		l.add_theme_color_override("font_color", _palette(_PHONE_TEXT_PRIMARY, _FALLBACK_TEXT_PRIMARY))
+
+
+static func _style_button(b: Button) -> void:
+	if b.disabled:
+		_style_outline_button(b)
+	else:
+		_style_filled_button(b)
+
+
+# §10: "ui_action_red marks actionable elements only" -- every enabled
+# button on this screen (Continue, Messages, Trade, Recruit, story actions,
+# pin shortcuts, Accept/Decline) is exactly that, so one filled treatment
+# covers all of them.
+static func _style_filled_button(b: Button) -> void:
+	var accent := _palette("ui_action_red", _FALLBACK_ACTION)
+	var text_colour := _palette(_PHONE_TEXT_PRIMARY, _FALLBACK_TEXT_PRIMARY)
+	b.add_theme_stylebox_override("normal", _button_fill_style(accent))
+	b.add_theme_stylebox_override("hover", _button_fill_style(accent.lightened(0.12)))
+	b.add_theme_stylebox_override("pressed", _button_fill_style(accent.darkened(0.15)))
+	b.add_theme_color_override("font_color", text_colour)
+	b.add_theme_color_override("font_hover_color", text_colour)
+	b.add_theme_color_override("font_pressed_color", text_colour)
+	_recolor_button_content(b, text_colour)
+
+
+# Applies §10's Save/Load precedent ("de-emphasis via weight, not colour")
+# to every disabled button here (locked, e.g. "not unlocked yet", or
+# already-done, e.g. "✅ Archie recruited"), not just the enabled-but-
+# destructive case that precedent was written for -- a disabled button gets
+# a hairline outline instead of a second accent, never a filled
+# ui_action_red, on the same "don't invent a second accent for de-emphasis"
+# principle.
+static func _style_outline_button(b: Button) -> void:
+	var muted := _palette(_PHONE_TEXT_MUTED, _FALLBACK_TEXT_MUTED)
+	var style := _button_fill_style(Color(0, 0, 0, 0))
+	style.border_color = _palette(_PHONE_DIVIDER, _FALLBACK_DIVIDER)
+	style.set_border_width_all(1)
+	b.add_theme_stylebox_override("disabled", style)
+	b.add_theme_color_override("font_disabled_color", muted)
+	_recolor_button_content(b, muted)
+
+
+static func _button_fill_style(fill: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.content_margin_left = 16
+	style.content_margin_top = 10
+	style.content_margin_right = 16
+	style.content_margin_bottom = 10
+	style.set_corner_radius_all(8)
+	return style
+
+
+# UI.symbol_button() (James's delivery-job button) bakes its own font_color
+# override straight onto the Label/SymbolGlyph parts inside its inner row at
+# construction time (ui.gd's own _symbol_part()), rather than relying on the
+# Button's theme colours the way a plain UI.button() text label does -- so
+# repainting the Button's own font_color overrides above isn't enough to
+# keep that row legible against the new fill; its own children need the
+# same colour applied directly.
+static func _recolor_button_content(b: Button, colour: Color) -> void:
+	for l in b.find_children("", "Label", true, false):
+		(l as Label).add_theme_color_override("font_color", colour)
+	for g in b.find_children("", "SymbolGlyph", true, false):
+		(g as SymbolGlyph).color = colour
+
+
 static func build_faction_card(faction_id: String) -> Control:
 	var f: Dictionary = GameData.FACTIONS[faction_id]
 	var state: Dictionary = GameState.state["factions"][faction_id]

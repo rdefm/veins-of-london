@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "Vein master palette",
-    "count": 43,
+    "count": 47,
     "direction": "Overcast daylight, muted/desaturated — brick red, weathered pastel shopfronts, grey sky, damp pavement reflecting sky. Not neon, not rain, not dark-noir. See docs/ART-BIBLE.md and docs/combat-animation-vision.md §1.",
     "rule": "Named colour ids for shared uses (e.g. combat_visuals.json backdrop fallbackColor, resolved via GameData.PALETTE) and as a reference swatch for generation prompts. Generated art is no longer required to quantise to this list."
   },
@@ -57,6 +57,11 @@
     { "id": "ore_fate",          "hex": "#7a5a9e", "group": "ore" },
     { "id": "ore_emotion",       "hex": "#b85a82", "group": "ore" },
 
-    { "id": "ui_action_red",     "hex": "#c8102e", "group": "ui_action" }
+    { "id": "ui_action_red",     "hex": "#c8102e", "group": "ui_action" },
+
+    { "id": "phone_bg_content",  "hex": "#252528", "group": "phone_os" },
+    { "id": "phone_divider",     "hex": "#424246", "group": "phone_os" },
+    { "id": "phone_text_primary", "hex": "#ededee", "group": "phone_os" },
+    { "id": "phone_text_muted",  "hex": "#999a9d", "group": "phone_os" }
   ]
 }

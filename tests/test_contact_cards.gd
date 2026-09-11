@@ -305,3 +305,86 @@ func run() -> void:
 		assert_eq(GameState.state["flags"]["archieDealActive"], false, "archieDealActive cleared")
 		assert_eq(GameState.state["contacts"]["archie"]["relation"], relation_before + ArchieDeals.DECLINE_RELATION_LOSS, "declining docks relation")
 	)
+
+	# ── 08-family-2-chrome-contacts, ui-vision.md §10 ─────────────────────
+
+	run_case("apply_phone_os_chrome_fills_the_card_panel_with_the_phone_content_colour", func():
+		GameState.reset()
+		var card := ContactCards.build_archie_card()
+		ContactCards.apply_phone_os_chrome(card)
+
+		var panel := card as PanelContainer
+		var style := panel.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_eq(style.bg_color, GameData.PALETTE["phone_bg_content"], "card ground is Family 2's dark content-shell colour, not the cream default")
+		assert_eq(style.border_color, GameData.PALETTE["phone_divider"], "card border is the Family 2 hairline divider colour")
+	)
+
+	run_case("apply_phone_os_chrome_paints_the_heading_ink_and_the_card_line_muted", func():
+		GameState.reset()
+		var card := ContactCards.build_archie_card()
+		ContactCards.apply_phone_os_chrome(card)
+
+		var labels := card.find_children("", "Label", true, false)
+		var heading: Label = null
+		var card_line: Label = null
+		for l in labels:
+			if (l as Label).text.begins_with("Archie — Relation"):
+				heading = l
+			elif (l as Label).text == "Trader · Whitechapel":
+				card_line = l
+		assert_true(heading != null and card_line != null, "both labels should exist on the card")
+		assert_eq(heading.get_theme_color("font_color"), GameData.PALETTE["phone_text_primary"], "heading uses Family 2's near-white ink")
+		assert_eq(card_line.get_theme_color("font_color"), GameData.PALETTE["phone_text_muted"], "the muted card line is recoloured, not left at the shared global grey")
+	)
+
+	run_case("apply_phone_os_chrome_fills_an_enabled_button_with_ui_action_red_and_light_text", func():
+		GameState.reset()
+		GameState.state["flags"]["collectiveLaneUnlocked"] = true
+		var card := ContactCards.build_nadia_card()
+		ContactCards.apply_phone_os_chrome(card)
+
+		var b := _find_button(card, "🤝 Trade")
+		assert_true(b != null)
+		var style := b.get_theme_stylebox("normal") as StyleBoxFlat
+		assert_eq(style.bg_color, GameData.PALETTE["ui_action_red"], "an actionable button is filled with the one Family 2 accent")
+		assert_eq(b.get_theme_color("font_color"), GameData.PALETTE["phone_text_primary"], "text on a filled button stays light for contrast")
+	)
+
+	run_case("apply_phone_os_chrome_gives_a_disabled_button_an_outline_not_a_second_accent", func():
+		GameState.reset()
+		var card := ContactCards.build_nadia_card()
+		ContactCards.apply_phone_os_chrome(card)
+
+		var b := _find_button(card, "🤝 Trade (not unlocked yet)")
+		assert_true(b != null and b.disabled)
+		var style := b.get_theme_stylebox("disabled") as StyleBoxFlat
+		assert_eq(style.bg_color, Color(0, 0, 0, 0), "locked/done buttons de-emphasise via weight (an outline), never a filled colour")
+		assert_eq(style.border_color, GameData.PALETTE["phone_divider"], "the outline uses the Family 2 divider colour")
+		assert_eq(b.get_theme_color("font_disabled_color"), GameData.PALETTE["phone_text_muted"], "locked button text is muted, not the old amber-theme disabled grey")
+	)
+
+	run_case("apply_phone_os_chrome_recolours_a_symbol_buttons_own_label_not_just_the_button", func():
+		GameState.reset()
+		GameState.state["contacts"]["james"]["unlocked"] = true
+		GameState.state["flags"]["jamesMotionEventSeen"] = true
+		GameState.state["flags"]["jamesJobActive"] = true
+		GameState.state["flags"]["jamesJobAccepted"] = true
+		GameState.state["jamesJob"] = { "type": "delivery", "qty": 3, "symbol": "physics", "recipeName": "Test Recipe" }
+
+		var card := ContactCards.build_james_card()
+		ContactCards.apply_phone_os_chrome(card)
+
+		var delivery_button: Button = null
+		for b in card.find_children("", "Button", true, false):
+			if (b as Button).find_children("", "Label", true, false).size() > 0:
+				for l in (b as Button).find_children("", "Label", true, false):
+					if (l as Label).text.contains("Deliver job"):
+						delivery_button = b
+		assert_true(delivery_button != null, "james's symbol_button delivery row should be on the card")
+
+		var inner_label: Label = null
+		for l in delivery_button.find_children("", "Label", true, false):
+			if (l as Label).text.contains("Deliver job"):
+				inner_label = l
+		assert_eq(inner_label.get_theme_color("font_color"), GameData.PALETTE["phone_text_primary"], "symbol_button()'s own baked-in label colour must be overridden too, or it stays illegible ink-on-red")
+	)
