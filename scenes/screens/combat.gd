@@ -1859,6 +1859,46 @@ func _build_action_deck(player: Dictionary) -> Control:
 	return row
 
 
+# field-kit-chrome ticket 05, ui-vision.md §5's component table ("Combat
+# action cards: Generic Family-4 chrome, no bespoke object -- exact button
+# styling ... deferred to implementation"): Attack/Item/Run carry no
+# inherent diegetic identity (unlike the departure-board log or the Dial),
+# so per §5's "not every component needs a bespoke citation" they share one
+# plain field-kit button/panel treatment built from §6's locked
+# `ui_action_red` accent, rather than the default theme Button's amber fill
+# (main_theme.tres StyleBoxFlat_btn_normal) -- that amber is reserved for
+# calc/cash reads only (§6), and every button reading amber regardless of
+# meaning is the exact bug §6 exists to fix. The card's cream fill is
+# otherwise unchanged (still built via UI.card() -- already Family 4's
+# shared neutral surface per nav_bar.gd's own comment); its border, glyph,
+# hover/pressed wash, and caption all carry the accent instead, so a
+# tappable command card reads differently from a plain content card like
+# the Complication detail rectangle above it. No reference image exists for
+# exact corners/border weight -- left to this implementation per the
+# ticket.
+const _ACTION_COLOR_FALLBACK := Color(0.784314, 0.062745, 0.180392, 1)
+const _ACTION_CARD_DISABLED_COLOR := Color(0.541176, 0.541176, 0.541176, 1)
+const _ACTION_CARD_FILL := Color(0.980392, 0.972549, 0.952941, 1)
+
+func _action_color() -> Color:
+	return GameData.PALETTE.get("ui_action_red", _ACTION_COLOR_FALLBACK)
+
+
+# One shared button stylebox builder for the three normal/hover/pressed/
+# disabled states below -- `alpha` is the only thing that varies, a faint
+# accent-tinted wash on hover/pressed standing in for the amber fill this
+# replaces, rather than a filled block at rest.
+func _action_card_button_style(accent: Color, alpha: float) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(accent.r, accent.g, accent.b, alpha)
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 8
+	style.content_margin_top = 6
+	style.content_margin_right = 8
+	style.content_margin_bottom = 6
+	return style
+
+
 # combat-presentation ticket 18: split into an icon (a bare Button, plain
 # emoji text -- deliberately NOT UI.button(), whose text-driven minimum-
 # width reservation is sized for a full word like "⚔ Attack" and would blow
@@ -1866,23 +1906,47 @@ func _build_action_deck(player: Dictionary) -> Control:
 # leaves it) plus a caption label underneath, rather than one wide "⚔
 # Attack" button -- a single-glyph button reserves almost no width of its
 # own, so the block's real minimum comes from the caption Label instead
-# (UI.muted_label(), which already wraps/clips per its own MAX_LABEL_TEXT_
-# WIDTH cap), leaving the emoji comfortably legible at this row's width.
+# (UI.label(), which already wraps/clips per its own MAX_LABEL_TEXT_WIDTH
+# cap), leaving the emoji comfortably legible at this row's width.
 func _build_action_card(symbol: String, label_text: String, callback: Callable, disabled: bool = false) -> Control:
+	var accent: Color = _ACTION_CARD_DISABLED_COLOR if disabled else _action_color()
+
 	var c := UI.card()
 	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	c["panel"].size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = _ACTION_CARD_FILL
+	panel_style.border_width_left = 1
+	panel_style.border_width_top = 1
+	panel_style.border_width_right = 1
+	panel_style.border_width_bottom = 1
+	panel_style.border_color = accent
+	panel_style.set_corner_radius_all(10)
+	panel_style.content_margin_left = 16
+	panel_style.content_margin_top = 16
+	panel_style.content_margin_right = 16
+	panel_style.content_margin_bottom = 16
+	c["panel"].add_theme_stylebox_override("panel", panel_style)
 
 	var button := Button.new()
 	button.text = symbol
 	button.clip_text = true
 	button.disabled = disabled
 	button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	button.add_theme_stylebox_override("normal", _action_card_button_style(accent, 0.0))
+	button.add_theme_stylebox_override("hover", _action_card_button_style(accent, 0.14))
+	button.add_theme_stylebox_override("pressed", _action_card_button_style(accent, 0.22))
+	button.add_theme_stylebox_override("disabled", _action_card_button_style(accent, 0.0))
+	button.add_theme_color_override("font_color", accent)
+	button.add_theme_color_override("font_hover_color", accent)
+	button.add_theme_color_override("font_pressed_color", accent)
+	button.add_theme_color_override("font_disabled_color", accent)
 	button.pressed.connect(callback)
 	c["content"].add_child(button)
 
-	var caption := UI.muted_label(label_text)
+	var caption := UI.label(label_text)
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.add_theme_color_override("font_color", accent)
 	c["content"].add_child(caption)
 
 	return c["panel"]

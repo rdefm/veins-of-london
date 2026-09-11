@@ -462,6 +462,61 @@ func run() -> void:
 		screen.free()
 	)
 
+	# field-kit-chrome ticket 05, ui-vision.md §5's component table: the
+	# action cards drop the default theme Button's amber fill (reserved for
+	# calc/cash reads only, §6) in favour of the locked `ui_action_red`
+	# accent, same GameData.PALETTE lookup + hardcoded-hex-fallback pattern
+	# nav_bar.gd's own ticket_04 colour test asserts against.
+	run_case("attack_card_uses_ui_action_red_not_the_default_theme_amber", func():
+		_setup_combat([_enemy("Scrapper")])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var expected: Color = GameData.PALETTE.get("ui_action_red", CombatScreen._ACTION_COLOR_FALLBACK)
+		var attack_button: Button = null
+		var attack_caption: Label = null
+		for b in _deck_buttons(screen):
+			if b.text == "⚔":
+				attack_button = b
+		for l in screen.find_children("", "Label", true, false):
+			if l.text == "Attack":
+				attack_caption = l
+		assert_true(attack_button != null)
+		assert_true(attack_caption != null)
+		assert_eq(attack_button.get_theme_color("font_color"), expected, "Attack card's button glyph uses ui_action_red")
+		assert_eq(attack_caption.get_theme_color("font_color"), expected, "Attack card's caption uses ui_action_red")
+
+		screen.free()
+	)
+
+	# A disabled card (no consumables/Dial -- same gate as above) reads
+	# muted grey instead, the project's existing "this is disabled" tint
+	# (nav_bar.gd's own _LOCKED_COLOR) -- not ui_action_red, which is
+	# reserved for an actually-available action.
+	run_case("disabled_item_card_reads_muted_grey_not_ui_action_red", func():
+		_setup_combat([_enemy("Scrapper")])
+		GameState.state["player"]["dial"] = null
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var item_button: Button = null
+		var item_caption: Label = null
+		for b in _deck_buttons(screen):
+			if b.text == "🎒":
+				item_button = b
+		for l in screen.find_children("", "Label", true, false):
+			if l.text == "Item":
+				item_caption = l
+		assert_true(item_button != null)
+		assert_true(item_caption != null)
+		assert_eq(item_button.get_theme_color("font_color"), CombatScreen._ACTION_CARD_DISABLED_COLOR, "disabled Item card's button glyph stays muted grey")
+		assert_eq(item_caption.get_theme_color("font_color"), CombatScreen._ACTION_CARD_DISABLED_COLOR, "disabled Item card's caption stays muted grey")
+
+		screen.free()
+	)
+
 	run_case("dial_widget_does_not_render_when_the_player_has_no_dial", func():
 		_setup_combat([_enemy("Scrapper")])
 		GameState.state["player"]["dial"] = null
