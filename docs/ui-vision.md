@@ -2,7 +2,8 @@
 
 **Status:** Vision + buildable spec, agreed with the human in a grilling
 session, 2026-09-09; Family 4 detailed in a further grilling session,
-2026-09-10 (§5 below). Supersedes every "parchment" / "ink, paper, amber"
+2026-09-10 (§5 below); Family 2 detailed 2026-09-11 (§10 below, pending
+human confirmation per that section's own note). Supersedes every "parchment" / "ink, paper, amber"
 reference anywhere in the docs — that framing is retired outright, not
 softened. Where this document and `docs/ART-BIBLE.md` disagree on pixel
 technique (grid, canvas sizes, pipeline, render settings), ART-BIBLE still
@@ -87,6 +88,8 @@ that now renders persistently above every screen regardless of tab
 (Family 4, §5).
 
 **Applies to:** everything reachable only through the Phone tab.
+
+**Detailed component-level spec: §10.**
 
 ## 4. Family 3 — Tube-diagram chrome
 
@@ -315,12 +318,149 @@ Reasoning:
 - Family 3 (tube diagram) accent colour and full spec — not attempted
   here.
 - Typeface selection for both the UI sans and the pixel font.
-- Family 2 (Phone-OS) has no bespoke spec yet beyond "look like a real
+- ~~Family 2 (Phone-OS) has no bespoke spec yet beyond "look like a real
   phone" — needs its own detailing pass (icon grid, list/detail patterns,
-  per-app layout) the way HQ and combat got.
+  per-app layout) the way HQ and combat got.~~ — **resolved 2026-09-11**,
+  see §10 (pending the human confirmation that section's own note flags).
 - Shared `ModalLayer` (`modal_layer.gd`) generic vector-chrome treatment —
   deliberately out of scope here (family-agnostic plumbing, §5).
 - File a ticket to rename "Run" → "Leg it" in `combat.gd`'s
   `_build_action_bar()` — `PROSE-REVIEW`, flagged during the 2026-09-10
   session but not decided here (this document carries no player-facing
   copy).
+
+## 10. Family 2 — Phone-OS chrome, detailed spec (session 2026-09-11)
+
+Companion pass to §5, closing the gap §9 flagged. Appended rather than
+inserted between §3 and §4 so every existing `§5`/`§6`/`§7`/`§9` reference
+already scattered across the codebase and other docs keeps pointing at the
+right section — see §3 for the pointer into this one. Scope matches the
+ticket that requested it: home-grid icon/tile treatment, the list/detail
+pattern, per-app layout conventions, and accent colour(s), reconciled
+against §6 (colour) and §7 (typography) rather than inventing either afresh.
+**Design note only — no code changed by this pass.** Per the ticket's own
+acceptance checks, this needs human confirmation before any implementation
+ticket (the roster this section anticipates as "08/09") starts.
+
+**Design principle: it's a phone, not a Vein-branded object.** §3 already
+frames Family 2 as "the same [phone] as the player's own" — the one family
+with no in-fiction material reference. That's a colour argument, not only a
+tone one: where Family 1 is grounded-London warmth and Family 4 is a
+curated kit of specific real *London* objects, Family 2 should read as
+generic, mass-market consumer electronics — cool neutral greys/near-black,
+never `data/palette.json`'s warm neutral group (`outline_black`,
+`shadow_deep`, `neutral_mid`, …), which stays Family 1's own. Concretely:
+Family 2 runs a **dark "device" shell, top to bottom** — home grid and
+every app content screen alike — the way most real phones default today.
+This also reads cleanly against the persistent Family-4 board above it
+(amber-on-black dot-matrix, §5) instead of visually fighting it the way the
+current bright cream sheet does.
+
+**Home-grid icon/tile treatment.** This is `scenes/components/app_tile.gd`
+— confirmed (CODEMAP, `nav_bar.gd`'s own header comments) to be exclusively
+the phone home-grid's component today, not shared with the Family-4 dock
+any more: `nav_bar.gd` forked its own `_DockTile`/`_TileIcon`/`_LockBadge`
+classes away from `AppTile`, its own comments noting that `AppTile`'s
+cream rounded-frame tile is Family 2 (Phone-OS) chrome now that the
+families are split out, not the dock's (field-kit-chrome ticket 04). That
+means `AppTile`'s current `FRAME_BG_COLOUR`/`ACTIVE_BG_COLOUR`/
+`ACTIVE_BORDER_COLOUR` cream-and-tan constants are exactly the leftover
+placeholder this ticket exists to replace, free to change without touching
+the dock.
+
+- **Tile ground:** drop the cream/tan frame per tile; the whole home-grid
+  surface is one flat cool near-black (indicative `#1b1b1d`), icons sitting
+  directly on it the way a real launcher's icons sit on a wallpaper, not
+  each icon in its own laminated card. `AppTile`'s rounded-rect frame
+  concept can stay as the icon's *silhouette* (a rounded-square glyph
+  badge) rather than a bordered panel — drop the 1px border entirely, it
+  read as a card edge, which is the "laminated frame" §3 already rules out.
+- **Icon glyph:** flat, single-colour line/fill glyph per app (notepad =
+  Notes, crest/shield = Factions, headline strip = The Ticker, silhouette =
+  Profile, floppy/tray = Save/Load, bell = Notifications, fox = Reynard's,
+  house/key = Harrow's, contact card = Contacts), rendered in the same
+  near-white ink used for text (indicative `#ededee`) on the flat dark
+  badge — **not** colour-coded per app. A rainbow icon-pack would need a
+  third accent family §6 doesn't grant; wayfinding comes from glyph shape +
+  the label underneath instead, same as most real dark-mode launchers.
+  Real icon art still lands per the existing asset contract
+  (`docs/adr/0003-app-icon-asset-contract.md`, `res://assets/icons/apps/
+  <id>.png`) — this only fixes the tile it sits in and the fallback-label
+  rendering when that art hasn't landed yet.
+- **Icon badges themselves carry no `calc_gold`** — §6 reserves it for
+  calc/currency *reads* (figures), not decoration; Reynard's and Harrow's
+  (the two money apps, see table below) get no special tile treatment,
+  same flat badge as every other app. `calc_gold` only shows up once the
+  player is inside those two apps, on the actual £ figures.
+- **Badge dot** (unread/attention): `ui_action_red`, exact locked hex
+  `#c8102e` — today's `BADGE_COLOUR` constant is a close-but-not-exact
+  approximation of the same red; align it to the locked value while this
+  component is being touched anyway.
+- **Locked overlay:** unchanged — the existing muted-grey padlock
+  (`LOCKED_TINT`, `Icons.draw_padlock`) is family-agnostic disabled-state
+  styling, not part of this pass.
+- `AppTile`'s `active`/`ACTIVE_BG_COLOUR`/`ACTIVE_BORDER_COLOUR` path is
+  dead weight from before `nav_bar.gd` forked away (nothing in `phone.gd`
+  passes `active` today) — noted for whoever picks up the implementation
+  ticket, not a design question, and not this ticket's job to remove.
+
+**App-content shell (every screen past the grid, i.e. everything
+`_phone_back_button()` already fronts):** one shade up from the home-grid
+black — indicative `#252528` — so an open app reads as content raised over
+the home-screen wallpaper, the same layering a real phone uses. Heading +
+back-chevron stay top-left, matching the drill-down navigation
+`PhoneNav`/`_phone_back_button()` already implement; this section only
+specifies the paint, not new navigation structure. Hairline row/section
+dividers: a low-contrast cool grey (indicative `#424246`). Primary text
+near-white (`#ededee`); secondary/muted text a mid cool grey (`#999a9d`) —
+the same job `UI.muted_label()` already does, just recoloured.
+
+**Per-app layout conventions.** The nine apps split into four existing
+shapes, not one — confirmed against `scenes/screens/phone.gd`'s actual
+`_build_*` functions rather than assumed from the app names alone. Each
+shape gets one shared chrome treatment; no per-app bespoke object the way
+Family 4 sometimes reaches for one (§5's principle explicitly doesn't
+apply here — Family 2's whole point is that it has none).
+
+| App | Shape today (`phone.gd`) | Chrome |
+|---|---|---|
+| Notes | Sectioned checklist (`_build_notes`) | Flat-list pattern: section heading, hairline-divided checklist rows, tick glyph in ink, no push-navigation |
+| Factions | Flat directory (`_build_factions`, one card per faction) | Flat-list pattern: row per faction, name + reputation meter inline. Meter fill is **ink, not `ui_action_red`** — §6's accent is for actionable elements, a reputation readout is passive data, same restriction `calc_gold` already has for calc/cash |
+| The Ticker | List → detail (`_build_headline_card` → `_build_axis_detail`) | List/detail pattern (below): headline row → axis detail screen, push/pull buttons in `ui_action_red` |
+| Contacts | List → detail (contact list → `_build_conversation` thread) | List/detail pattern (below), thread view as message bubbles: outgoing bubble filled `ui_action_red` (light text), incoming bubble flat dark-grey fill (`#333336`-ish, light text) — ordinary two-party messaging convention, no new accent needed |
+| Profile | Stat cards (`_build_profile_stats_card`, `_build_profile_skills_card`, `_build_profile_equipment_card`) | Dashboard pattern: label/value rows grouped in cards, ink throughout — no currency shown here (`phone.gd`'s own `_build_profile` comment: cash/day is deliberately excluded, the status bar already shows them), so no `calc_gold` on this screen |
+| Save/Load | Slot rows + action cards (`_build_save_slot_row`, export/import/new-game cards) | Action-list pattern: row = slot summary + inline buttons. Save/Load buttons filled `ui_action_red`; Delete/New-Game (destructive/irreversible) rendered as a lower-weight outline button instead of a second "danger" accent — de-emphasis via weight, not a new colour |
+| Notifications | Flat log (`_build_notification_row`) | Flat-list pattern, newest-first, no push-navigation — this is the full-history log app §3 distinguishes from the persistent dot-matrix board (Family 4) |
+| Reynard's | Balance + flat log (`_build_balance_card`, `_build_bank_transaction_row`) | Dashboard pattern for the balance card (figure in `calc_gold`) + flat-list pattern for the transaction rows below it (amounts in `calc_gold`, everything else ink) |
+| Harrow's | Two comparison cards (`_build_property_current_card`, `_build_property_next_card`) | Dashboard pattern: current-tier and next-tier cards stacked. `£` figures in card body text use `calc_gold`; the "Move for £X" action button stays standard button ink-on-`ui_action_red` (gold-on-red would fail contrast) |
+
+**List/detail pattern** (Ticker, Contacts): master rows are flat,
+hairline-divided, no card border per row — title line in ink, one muted
+secondary line, trailing meta right-aligned where relevant (e.g. a
+timestamp). Tapping a row pushes a detail screen using the same
+app-content shell and back-chevron already described above; nothing about
+the *mechanism* changes; this section only specifies row and header paint.
+
+**Reconciled against §6:** no third accent introduced. `calc_gold` stays
+exactly what §6 already says — calc/currency reads only (Reynard's,
+Harrow's, nowhere else in this family). `ui_action_red` is reused, not
+reclaimed from Family 4 — §6 already scoped it to "ordinary buttons/actions
+across Families 2–4" collectively; the ticket's framing ("already claimed
+by Family 4") describes what's implemented so far, not an exclusive lock.
+The one new rule this section adds on top of §6: **`ui_action_red` marks
+actionable elements only, never a passive data readout** (reputation
+meters, log rows) — the same restriction §6 already places on `calc_gold`,
+generalised.
+
+**Reconciled against §7:** no new typeface. All of this rides the same one
+shared UI sans §7 already locks for Families 2–4, applied through the same
+`UI.*` helpers (`UI.heading()`, `UI.label()`, `UI.muted_label()`,
+`UI.card()`, `UI.button()`, `UI.checklist_row()`) `phone.gd` already calls
+throughout — this section only recolours what those helpers render, it
+doesn't touch font choice or introduce new text components.
+
+**Deferred to implementation, not decided here:** exact hex values above
+are indicative, not locked the way `ui_action_red`'s hex is in §6 — pick
+final values when the implementation ticket lands and lock them the same
+way. Real per-app icon glyph art (the nine `.png` files the asset contract
+expects). Exact corner radius/spacing now that the frame border is gone.
