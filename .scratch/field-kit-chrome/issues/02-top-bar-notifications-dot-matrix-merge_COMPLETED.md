@@ -45,3 +45,11 @@ ticket.
 - [ ] `Main.gd`'s `TOP_BAR_HIDDEN_SCREENS` reduced to `["title", "intro"]` — the board now shows on `map` and every HQ full-bleed sub-view
 - [ ] Nav dock hide-on-full-bleed behaviour is unchanged
 - [ ] `tests/test_notification_toast.gd` updated for the new rendering; new `tests/test_top_bar.gd` added (none exists today)
+
+## Comments
+
+**2026-09-11:** Combat-suppression behaviour here (queue/hold everything
+while `state.combat.active`) is narrowed by ticket 03 — combat-log-sourced
+entries bypass suppression and render live during combat; everything else
+still queues/drains as this ticket built it. See `docs/ui-vision.md` §5's
+2026-09-11 amendment.

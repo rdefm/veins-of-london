@@ -166,7 +166,17 @@ log are one material, confirmed dot-matrix (resolved 2026-09-10):**
   override applies only to the top board.
 - **Combat's departure-board log is the same dot-matrix family** —
   confirmed, reinforced by combat-presentation ticket 21 already calling
-  it the "ticker."
+  it the "ticker." **Amended 2026-09-11:** the *mid-fight* ticker no
+  longer renders as its own component under the stage — its lines route
+  into the top board's notification rows instead, one shared object.
+  This requires the board's combat-suppression rule (state.combat.active
+  → queue and hold) to be narrowed: entries sourced from the combat log
+  bypass suppression and render live, while other notification sources
+  still queue/drain as before. The **post-combat outcome log** (the full
+  recap shown once the fight resolves, alongside the outcome button)
+  stays a separate component, unaffected by this — it's a full-screen
+  recap, not a live ticker feed, and doesn't fit the board's 2-row
+  format. See `.scratch/field-kit-chrome/issues/03-combat-log-dot-matrix-reskin.md`.
 - **Rendering technique:** a custom `_draw()`-based dot-matrix grid — a
   small hardcoded bitmap-font table (5×7-style cells, just the character
   set actually needed) drawn as amber dots on black, per character. This
@@ -201,7 +211,7 @@ log are one material, confirmed dot-matrix (resolved 2026-09-10):**
 | Component | Reference / chrome |
 |---|---|
 | Notifications + top status bar | Merged into one electronic dot-matrix departure/platform board — **confirmed**, unconditionally persistent (see above) |
-| Combat departure-board log | Same dot-matrix family — **confirmed** |
+| Combat departure-board log | Mid-fight ticker merges into the top board (amended 2026-09-11, see §5 above); post-combat outcome log stays its own dot-matrix-family component |
 | Nav dock (Phone/Map/HQ) | TfL's own site — the "Live arrivals / Maps / Nearby" tile row: flat white tile strip, thin dividers, icon-over-label. Shared UI sans (not TfL's Johnston face, per §7's one-typeface rule), `ui_action_red` in place of TfL's brand blue (already reserved for Family 3, §6) |
 | Combat action cards | Generic Family-4 chrome, no bespoke object — exact button styling (corners, border weight, fill) deferred to implementation |
 | HQ floorplan | Estate-agent particulars (already the in-fiction frame per `hq-diorama-vision.md` §6) |
