@@ -23,6 +23,15 @@ const CATEGORY_WARNING := "warning"
 const CATEGORY_DANGER := "danger"
 const VALID_CATEGORIES: Array[String] = [CATEGORY_INFO, CATEGORY_SUCCESS, CATEGORY_WARNING, CATEGORY_DANGER]
 
+# field-kit-chrome ticket 03: the `meta` flag CombatScreen stamps on a
+# mid-fight combat-log line it pushes here -- the one thing
+# notification_toast.gd's combat-suppression check (ui-vision.md §5's
+# 2026-09-11 amendment) reads to decide whether an entry bypasses the
+# hold-while-combat-active rule. Every other notification source omits
+# this key entirely (falsy via Dictionary.get()'s default), so they keep
+# queuing/draining exactly as before.
+const META_COMBAT_LOG := "combatLog"
+
 
 # `meta` (75-vein-raid-defend-button): optional extra pure-data fields
 # merged onto the entry -- e.g. `{"veinId": ...}` on the alarm-raid warning,

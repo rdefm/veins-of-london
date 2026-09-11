@@ -3,7 +3,12 @@ extends Control
 
 # Renders up to MAX_VISIBLE unseen notifications as auto-fading rows,
 # queuing overflow and holding everything while combat is active (ticket
-# 04). Tapping a row and its fade timer expiring both just call
+# 04) -- except entries stamped Notify.META_COMBAT_LOG (field-kit-chrome
+# ticket 03, ui-vision.md §5's 2026-09-11 amendment: the mid-fight combat
+# ticker routes into this board instead of rendering as its own component
+# under the stage), which bypass that hold and render live, competing for
+# the same MAX_VISIBLE slots as everything else. Tapping a row and its
+# fade timer expiring both just call
 # Notify.dismiss(id) — that only flips the log entry's `seen` flag, so
 # dismissing a row never deletes it from the persistent log and never
 # navigates anywhere. All fade/queue timing lives here, never in
@@ -49,11 +54,13 @@ func _ready() -> void:
 	_refresh()
 
 
-# Combat suppression: while state.combat.active is true, nothing renders
-# and nothing is marked seen — entries just hold in the log. The same
+# Combat suppression (narrowed, field-kit-chrome ticket 03): while
+# state.combat.active is true, every notification holds in the log except
+# entries stamped Notify.META_COMBAT_LOG, which render exactly as they
+# would outside combat — nothing marked seen for a held entry, so the same
 # _refresh() that runs on every state_changed (including combat start/end,
-# since Combat always emits it around both) naturally drains the queue
-# again the moment combat ends, with no dedicated signal needed.
+# since Combat always emits it around both) naturally drains the rest of
+# the queue the moment combat ends, with no dedicated signal needed.
 func _refresh() -> void:
 	# The board is unconditionally visible on every screen this component
 	# is mounted on (Main.gd's TOP_BAR_HIDDEN_SCREENS is down to just
@@ -62,23 +69,37 @@ func _refresh() -> void:
 	# branching needed any more.
 	_entries_container.offset_top = UI.top_bar_clearance()
 
-	if GameState.state["combat"]["active"]:
-		_clear_all_rows()
-		return
+	var combat_active: bool = GameState.state["combat"]["active"]
 
+	# `all_by_id` (every current notification, suppression un-applied) is
+	# only consulted below to tell "gone/seen" apart from "held by combat
+	# suppression this frame" for the animate decision — `by_id` (filtered)
+	# still drives everything else (which entries are eligible to show).
+	var all_by_id: Dictionary = {}
 	var by_id: Dictionary = {}
 	for notification in GameState.state["notifications"]:
+		all_by_id[notification["id"]] = notification
+		if combat_active and not notification.get(Notify.META_COMBAT_LOG, false):
+			continue
 		by_id[notification["id"]] = notification
 
 	for i in range(_visible_ids.size() - 1, -1, -1):
 		var id: String = _visible_ids[i]
 		var notification = by_id.get(id)
 		if notification == null or notification["seen"]:
-			_remove_row(id, true)
+			var raw: Dictionary = all_by_id.get(id, {})
+			# combat.active means "do not render at all," this frame, not
+			# "fade out over the next 0.3s while the fight starts" -- a row
+			# that's actually gone/seen still fades normally (`animate`
+			# true); one that's merely newly held because combat just went
+			# active (still unseen in the log, just no longer eligible to
+			# show) vanishes instantly instead.
+			var newly_held_by_combat: bool = combat_active and not raw.is_empty() and not raw["seen"] and not raw.get(Notify.META_COMBAT_LOG, false)
+			_remove_row(id, not newly_held_by_combat)
 			_visible_ids.remove_at(i)
 
 	while _visible_ids.size() < MAX_VISIBLE:
-		var next_id := _next_queued_id()
+		var next_id := _next_queued_id(by_id)
 		if next_id == "":
 			break
 		_visible_ids.append(next_id)
@@ -87,11 +108,14 @@ func _refresh() -> void:
 	_refresh_row_text(by_id)
 
 
-# Oldest unseen, not-already-visible entry — the queue drains in push order.
-func _next_queued_id() -> String:
+# Oldest unseen, not-already-visible, not-currently-held (per `by_id`,
+# already filtered for combat suppression above) entry — the queue drains
+# in push order.
+func _next_queued_id(by_id: Dictionary) -> String:
 	for notification in GameState.state["notifications"]:
-		if not notification["seen"] and not _visible_ids.has(notification["id"]):
-			return notification["id"]
+		var id: String = notification["id"]
+		if by_id.has(id) and not notification["seen"] and not _visible_ids.has(id):
+			return id
 	return ""
 
 
@@ -156,9 +180,11 @@ func _add_row(notification: Dictionary) -> void:
 		fade_in.tween_property(entry, "modulate:a", 1.0, FADE_IN_SECONDS)
 
 
-# animate: false for combat suppression (_clear_all_rows) — combat.active
-# means "do not render at all," this frame, not "fade out over the next
-# 0.3s while the fight starts," so that path always removes instantly.
+# animate: false when a still-unseen entry is merely newly held by combat
+# suppression starting this frame (field-kit-chrome ticket 03's own
+# _refresh() comment) -- combat.active means "do not render at all," this
+# frame, not "fade out over the next 0.3s while the fight starts." true
+# for every other removal (dismissed, expired, or genuinely gone).
 func _remove_row(id: String, animate: bool) -> void:
 	if not _rows.has(id):
 		return
@@ -180,9 +206,3 @@ func _remove_row(id: String, animate: bool) -> void:
 	else:
 		_entries_container.remove_child(row)
 		row.queue_free()
-
-
-func _clear_all_rows() -> void:
-	for id in _visible_ids.duplicate():
-		_remove_row(id, false)
-	_visible_ids.clear()

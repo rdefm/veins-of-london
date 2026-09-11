@@ -202,6 +202,70 @@ func run() -> void:
 		toast.free()
 	)
 
+	run_case("combat_log_sourced_notifications_bypass_suppression_and_render_live_during_combat", func():
+		# field-kit-chrome ticket 03, ui-vision.md §5's 2026-09-11 amendment:
+		# CombatScreen stamps Notify.META_COMBAT_LOG on the mid-fight ticker
+		# lines it posts here -- this is the one thing the narrowed
+		# suppression check reads to let an entry through while combat is
+		# still active, instead of holding it for after the fight.
+		GameState.reset()
+		GameState.state["combat"]["active"] = true
+		var a := Notify.push("Scrapper hits you for 4.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+
+		var toast := NotificationToast.new()
+		toast._ready()
+
+		assert_eq(toast._visible_ids, [a["id"]], "a combat-log-sourced entry renders immediately even while combat is active")
+
+		toast.free()
+	)
+
+	run_case("non_combat_log_notifications_still_hold_during_combat_alongside_a_live_combat_log_entry", func():
+		GameState.reset()
+		GameState.state["combat"]["active"] = true
+		var combat_line := Notify.push("You strike back.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+		var held := Notify.push("An unrelated notification.")
+
+		var toast := NotificationToast.new()
+		toast._ready()
+
+		assert_eq(toast._visible_ids, [combat_line["id"]], "only the combat-log entry shows -- every other source keeps holding, unchanged")
+		assert_eq(GameState.state["notifications"].filter(func(n): return n["id"] == held["id"])[0]["seen"], false, "the held (non-combat-log) entry is not marked seen just because it can't render yet")
+
+		toast.free()
+	)
+
+	run_case("combat_log_entries_still_respect_max_visible_during_combat_with_no_reserved_slot", func():
+		GameState.reset()
+		GameState.state["combat"]["active"] = true
+		var a := Notify.push("Beat one.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+		var b := Notify.push("Beat two.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+		Notify.push("Beat three.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+
+		var toast := NotificationToast.new()
+		toast._ready()
+
+		assert_eq(toast._visible_ids, [a["id"], b["id"]], "combat-log entries still cap at MAX_VISIBLE, oldest-first, same as any other source")
+
+		toast.free()
+	)
+
+	run_case("combat_log_entries_drain_normally_once_dismissed_even_while_combat_stays_active", func():
+		GameState.reset()
+		GameState.state["combat"]["active"] = true
+		var a := Notify.push("Beat one.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+		var b := Notify.push("Beat two.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+
+		var toast := NotificationToast.new()
+		toast._ready()
+
+		Notify.dismiss(a["id"])  # fires state_changed -> _refresh(), combat still active throughout
+
+		assert_eq(toast._visible_ids, [b["id"]], "dismissing a live combat-log row drains normally -- combat staying active doesn't freeze the board")
+
+		toast.free()
+	)
+
 	run_case("real_combat_exit_drains_the_queue_even_on_a_context_that_only_emits_screen_changed", func():
 		# Combat.exit_combat()'s per-context handlers mostly only emit
 		# screen_changed (systems/combat.gd's _exit_default et al.) —

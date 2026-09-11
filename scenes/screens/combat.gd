@@ -1220,10 +1220,14 @@ func _context_label(context: String) -> String:
 	return "Mugging"
 
 
-# combat-presentation ticket 03, §2.5: mid-fight, the log moves inside the
-# command deck (it shares the Dial widget's full-height span with the
-# action-card row); once the fight's over there's no command deck to share
-# it with, so it renders directly here, same as before.
+# field-kit-chrome ticket 03, ui-vision.md §5's 2026-09-11 amendment:
+# mid-fight, there's no log in the footer at all any more -- combat.log
+# lines post to the top dot-matrix board as they're revealed (see
+# _on_beat_played()'s Notify.push() call) instead of rendering under the
+# stage, so the command deck is just the Dial/actions row on its own. Once
+# the fight's over, the recap log (still this screen's own footer, not the
+# board -- it's a full recap, not a live ticker) renders alongside the
+# outcome button, same as before this ticket.
 func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
 	for child in _footer_holder.get_children():
 		child.queue_free()
@@ -1245,7 +1249,7 @@ func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
 		_footer_holder.add_child(_build_log(combat))
 		_footer_holder.add_child(_build_outcome_button(combat["outcome"], combat["context"]))
 	else:
-		_footer_holder.add_child(_build_command_deck(combat, player))
+		_footer_holder.add_child(_build_command_deck(player))
 
 
 # combat-presentation ticket 02, §2.4: the one component doing nameplate +
@@ -1702,14 +1706,6 @@ func _vignette_texture() -> GradientTexture2D:
 	return tex
 
 
-# hq-diorama ticket 21: mid-fight, the ticker (log) now runs immediately
-# below the stage frame, shrunk to MID_FIGHT_LOG_LINES lines, with the Dial +
-# complication detail + action row below it instead of above -- the reverse
-# of ticket 18's "furniture row first, log below" order. Supersedes ticket
-# 18's own layout note (quoted below) for the mid-fight case only; the
-# outcome-resolved footer (_sync_footer()'s other branch: log then the
-# Continue button, no command deck at all) is unchanged.
-#
 # combat-presentation ticket 18 (human direction, 2026-09-09): the command
 # deck's furniture row -- the umbrella-handle Dial widget docks left (see
 # dial_widget.gd's own top comment for its new tap-the-screws/tap-the-switch
@@ -1717,13 +1713,13 @@ func _vignette_texture() -> GradientTexture2D:
 # (Attack/Item/Run) dock right. Supersedes ticket 03/13's "Dial spans the
 # full height of the action-card row and the log" layout -- see
 # docs/combat-animation-vision.md §2.5's amendment note.
-const MID_FIGHT_LOG_LINES := 3
-
-func _build_command_deck(combat: Dictionary, player: Dictionary) -> Control:
-	var container := UI.vbox(8)
-	container.add_child(_build_log(combat, MID_FIGHT_LOG_LINES))
-	container.add_child(_build_dial_and_actions_row(player))
-	return container
+#
+# field-kit-chrome ticket 03: no longer wraps a log above this row (hq-
+# diorama ticket 21's own MID_FIGHT_LOG_LINES ticker) -- the command deck
+# IS the Dial/actions row now; combat.log lines route to the top board
+# instead (see _sync_footer()'s own comment).
+func _build_command_deck(player: Dictionary) -> Control:
+	return _build_dial_and_actions_row(player)
 
 
 # The Dial always shows once the player has one seeded (even with nothing
@@ -1786,23 +1782,41 @@ func _build_complication_detail(dial: Variant) -> Control:
 
 # combat-presentation ticket 04: while `_revealed_log_count` is set (a round
 # is mid-playback -- see _play_round()), only reveals that many of
-# combat.log's lines instead of all of them, so the log types out one line
-# per beat instead of the whole round's outcome appearing at once. -1 (the
-# default, and where this always lands once playback finishes or was never
-# triggered) shows everything, same as before this ticket.
+# combat.log's lines instead of all of them. -1 (the default, and where this
+# always lands once playback finishes or was never triggered) shows
+# everything. In practice this only ever runs at -1 today -- _sync_footer()
+# only calls this once the fight has an outcome AND playback has finished
+# (see that func's own branch) -- kept anyway as the same cheap defensive
+# gate it always was rather than assuming that pairing never changes.
 #
-# hq-diorama ticket 21: `max_lines` lets the mid-fight ticker
-# (_build_command_deck(), MID_FIGHT_LOG_LINES) show fewer trailing lines than
-# the post-combat log (_sync_footer()'s outcome branch, still the old 6 --
-# passed as this default so that call site needn't know the number at all).
-func _build_log(combat: Dictionary, max_lines: int = 6) -> Control:
-	var box := UI.vbox(2)
+# field-kit-chrome ticket 03, ui-vision.md §5's 2026-09-11 amendment: a
+# rendering swap only -- still the trailing OUTCOME_LOG_LINES lines, still
+# this screen's own footer, just drawn through the shared DotMatrixBoard
+# (ticket 02) instead of a VBoxContainer of muted labels. Wrapped in a
+# clipping Control the same way notification_toast.gd's own rows are
+# (that board has no scroll/wrap mechanism of its own -- a line wider than
+# the footer would otherwise draw straight past the screen edge).
+const OUTCOME_LOG_LINES := 6
+const OUTCOME_LOG_DOT_SIZE := 2.0
+
+func _build_log(combat: Dictionary) -> Control:
 	var log: Array = combat["log"]
 	var end: int = log.size() if _revealed_log_count < 0 else mini(_revealed_log_count, log.size())
-	var log_start: int = maxi(0, end - max_lines)
+	var log_start: int = maxi(0, end - OUTCOME_LOG_LINES)
+
+	var lines: Array[Dictionary] = []
 	for i in range(log_start, end):
-		box.add_child(UI.muted_label(log[i]))
-	return box
+		lines.append(DotMatrixBoard.line(log[i], OUTCOME_LOG_DOT_SIZE))
+
+	var board := DotMatrixBoard.new()
+	board.set_lines(lines)
+
+	var wrapper := Control.new()
+	wrapper.clip_contents = true
+	UI.anchor_full_rect(board)
+	wrapper.add_child(board)
+	wrapper.custom_minimum_size = board.custom_minimum_size
+	return wrapper
 
 
 # §2.5: "Action deck -- 3 cards, not 4. Attack / Item / Run ... same
@@ -1922,8 +1936,27 @@ func _play_beats(beats: Array, log_before: int) -> void:
 	_sync()
 
 
+# field-kit-chrome ticket 03, ui-vision.md §5's 2026-09-11 amendment: the
+# mid-fight ticker no longer renders under the stage -- instead, the one
+# combat.log line each beat reveals (the 1:1 beat/log-line invariant
+# systems/combat.gd's own _log() holds, per _on_dial_triggered()'s own
+# comment) posts to the top dot-matrix board as a live notification,
+# stamped Notify.META_COMBAT_LOG so notification_toast.gd's combat-
+# suppression check lets it render immediately instead of holding it for
+# after the fight. A no-op whenever _revealed_log_count lands outside the
+# log's own bounds (beats.is_empty() never calls _on_beat_played() at all,
+# so this is really just defending the same edge _build_log()'s own gate
+# does) -- nothing to post.
+func _push_revealed_log_line() -> void:
+	var log: Array = GameState.state["combat"]["log"]
+	var index: int = _revealed_log_count - 1
+	if index >= 0 and index < log.size():
+		Notify.push(log[index], Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+
+
 func _on_beat_played(beat: Dictionary) -> void:
 	_revealed_log_count += 1
+	_push_revealed_log_line()
 	_sync_footer(GameState.state["combat"], GameState.state["player"])
 	var kind: String = beat.get("kind", "")
 	# combat-presentation ticket 10, docs/combat-animation-vision.md §5:

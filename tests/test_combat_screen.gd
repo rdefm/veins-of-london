@@ -606,39 +606,62 @@ func run() -> void:
 	# CombatScreen.new()/_ready() pattern every other case in this file but
 	# the Dial-layout one above uses).
 
-	run_case("mid_fight_footer_puts_the_log_directly_below_the_stage_before_the_command_deck", func():
+	run_case("mid_fight_footer_is_just_the_dial_and_actions_row_no_ticker_of_its_own", func():
+		# field-kit-chrome ticket 03, ui-vision.md §5's 2026-09-11 amendment:
+		# the mid-fight ticker (hq-diorama ticket 21's own under-stage log)
+		# is gone -- combat.log lines route to the top notification board
+		# instead (see the _on_beat_played()-driven cases below), so
+		# _build_command_deck() no longer wraps a log above the dial/actions
+		# row; it IS that row.
 		_setup_combat([_enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		# _build_command_deck() wraps [log, dial/actions row] in one container,
-		# which is _footer_holder's single mid-fight child (see _sync_footer()) --
-		# drill one level in to read the order the ticket actually cares about.
 		assert_eq(screen._footer_holder.get_child_count(), 1, "mid-fight: the command deck is the footer's only direct child")
-		var command_deck: Control = screen._footer_holder.get_child(0)
-		assert_eq(command_deck.get_child_count(), 2, "the command deck itself is exactly the log then the dial/actions row")
-		var log_box: Control = command_deck.get_child(0)
-		var command_row: Control = command_deck.get_child(1)
-		assert_true(_find_dial_widget(log_box) == null, "the first command-deck child must be the ticker, not the command deck's own controls")
-		assert_true(_deck_buttons(command_row).size() > 0, "the second command-deck child must carry the Attack/Item/Run cards")
+		var command_row: Control = screen._footer_holder.get_child(0)
+		assert_true(_deck_buttons(command_row).size() > 0, "the command deck carries the Attack/Item/Run cards directly, with nothing wrapping it")
 
 		screen.free()
 	)
 
-	run_case("mid_fight_ticker_shows_at_most_MID_FIGHT_LOG_LINES_lines_not_the_full_six", func():
+	run_case("beat_played_posts_the_newly_revealed_combat_log_line_as_a_live_notification", func():
+		# field-kit-chrome ticket 03: _on_beat_played() posts the one
+		# combat.log line each beat reveals (the 1:1 beat/log-line invariant
+		# _on_dial_triggered()'s own comment documents) to the shared
+		# notification log, stamped Notify.META_COMBAT_LOG -- same fabricated-
+		# beat pattern as the ghost-pose/self-patch cases above (calling
+		# _on_beat_played() directly rather than rigging a real round).
 		_setup_combat([_enemy("Scrapper")])
-		GameState.state["combat"]["log"] = ["one", "two", "three", "four", "five"]
+		GameState.state["combat"]["log"] = ["Scrapper claws at you."]
 
 		var screen := CombatScreen.new()
 		screen._ready()
+		screen._revealed_log_count = 0
 
-		var log_box: Control = screen._footer_holder.get_child(0).get_child(0)
-		var lines: Array = []
-		for l in log_box.get_children():
-			lines.append((l as Label).text)
-		assert_eq(lines.size(), CombatScreen.MID_FIGHT_LOG_LINES, "the mid-fight ticker must cap at MID_FIGHT_LOG_LINES, down from the old 6")
-		assert_eq(lines, ["three", "four", "five"], "it must still be the most recent lines, not the earliest")
+		screen._on_beat_played({ "kind": Combat.BEAT_ENEMY_ATTACK, "actorType": "enemy", "actorIndex": 0, "targetType": "player" })
+
+		var notifications: Array = GameState.state["notifications"]
+		assert_eq(notifications.size(), 1, "the newly revealed log line posts as exactly one notification")
+		assert_eq(notifications[0]["text"], "Scrapper claws at you.", "the notification's text is the revealed log line itself")
+		assert_true(notifications[0].get(Notify.META_COMBAT_LOG, false), "the entry is flagged combat-log-sourced so the board bypasses suppression for it")
+
+		screen.free()
+	)
+
+	run_case("beat_played_never_posts_a_notification_when_no_new_log_line_was_revealed", func():
+		# _revealed_log_count starts at -1 (the default) when a beat is fed
+		# in without going through _play_beats() first -- same starting
+		# state the existing ghost-pose/self-patch cases above already rely
+		# on implicitly. _push_revealed_log_line()'s bounds guard must no-op
+		# rather than posting a bogus/out-of-range entry.
+		_setup_combat([_enemy("Scrapper")])
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		screen._on_beat_played({ "kind": Combat.BEAT_PLAYER_EVADE, "actorType": "enemy", "actorIndex": 0, "targetType": "player" })
+
+		assert_eq(GameState.state["notifications"].size(), 0, "no notification posts when there's no newly-revealed log line to source it from")
 
 		screen.free()
 	)
@@ -650,7 +673,7 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		var command_row: Control = screen._footer_holder.get_child(0).get_child(1)
+		var command_row: Control = screen._footer_holder.get_child(0)
 		for b in _deck_buttons(command_row):
 			if ["⚔", "🎒", "🏃"].has(b.text):
 				assert_eq(b.size_flags_vertical, Control.SIZE_EXPAND_FILL, "each action card's button must expand to fill the row's height (set by the Dial's fixed size) rather than sitting compact at the top")
@@ -667,8 +690,11 @@ func run() -> void:
 		screen._ready()
 
 		assert_eq(screen._footer_holder.get_child_count(), 2, "post-combat: still the log then the outcome button, no command deck")
-		var log_box: Control = screen._footer_holder.get_child(0)
-		assert_eq(log_box.get_child_count(), 6, "the post-combat log keeps showing up to 6 lines -- only the mid-fight ticker shrank")
+		var log_wrapper: Control = screen._footer_holder.get_child(0)
+		var board: DotMatrixBoard = log_wrapper.get_child(0)
+		assert_eq(board._target_lines.size(), 6, "the post-combat log keeps showing up to 6 lines")
+		assert_eq(board.target_text(0), "TWO", "the oldest of the trailing 6 lines is kept, not the very first line of the whole fight")
+		assert_eq(board.target_text(5), "SEVEN", "the newest line is the last one shown")
 		assert_true(_find_dial_widget(screen) == null, "the command deck stays gone once the fight has an outcome")
 
 		screen.free()
