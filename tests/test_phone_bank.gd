@@ -39,6 +39,10 @@ func run() -> void:
 		phone.free()
 	)
 
+	# 09-family-2-chrome-phone-apps, ui-vision.md §10: a transaction row's
+	# description and its signed amount are two separate labels now (so the
+	# amount alone can carry calc_gold), not one combined "label — amount"
+	# string -- see phone.gd's own _build_bank_transaction_row() comment.
 	run_case("bank_shows_the_full_log_newest_first", func():
 		GameState.reset()
 		Bank.record(100, "First")
@@ -50,10 +54,13 @@ func run() -> void:
 		phone._ready()
 
 		var texts := _label_texts(phone)
-		var idx_first := texts.find("First — +£100")
-		var idx_second := texts.find("Second — -£50")
-		var idx_third := texts.find("Third — +£200")
-		assert_true(idx_first != -1 and idx_second != -1 and idx_third != -1, "all three entries render with signed amounts")
+		assert_true(texts.has("First") and texts.has("+£100"), "First's row renders with its signed amount")
+		assert_true(texts.has("Second") and texts.has("-£50"), "Second's row renders with its signed amount")
+		assert_true(texts.has("Third") and texts.has("+£200"), "Third's row renders with its signed amount")
+
+		var idx_first := texts.find("First")
+		var idx_second := texts.find("Second")
+		var idx_third := texts.find("Third")
 		assert_true(idx_third < idx_second, "the newest entry (Third) renders above the middle one")
 		assert_true(idx_second < idx_first, "the middle entry renders above the oldest one")
 
@@ -72,8 +79,8 @@ func run() -> void:
 		assert_eq(GameState.state["bankLog"].size(), Bank.LOG_CAP, "sanity: the underlying log is capped at 50")
 
 		var texts := _label_texts(phone)
-		assert_true(not texts.has("Transaction 0 — +£0"), "entries evicted from the log below the cap must not render")
-		assert_true(texts.has("Transaction 54 — +£54"), "the newest entry renders")
+		assert_true(not texts.has("Transaction 0"), "entries evicted from the log below the cap must not render")
+		assert_true(texts.has("Transaction 54") and texts.has("+£54"), "the newest entry renders")
 
 		phone.free()
 	)

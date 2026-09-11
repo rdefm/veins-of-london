@@ -424,22 +424,53 @@ static func build_hakim_card() -> Control:
 # ContactsScreen's own `_content` VBoxContainer, called once after every
 # card for the current refresh has been added.
 #
+# 09-family-2-chrome-phone-apps: also the one recolour pass scenes/screens/
+# phone.gd's own _refresh()/_build_conversation() run over every app it
+# builds (Notes, Factions, Ticker, Profile, Save/Load, Notifications,
+# Reynard's, Harrow's, Messages) -- ContactCards is where ticket 08 already
+# put this "generic Family 2 repaint" utility (its own doc comment already
+# framed it that way), so extending it here rather than forking a second
+# copy into phone.gd keeps the paint rules in one place. The three additions
+# this ticket needs on top of ticket 08's version: ProgressBar fill/track
+# colouring (every Family 2 meter is ink, never ui_action_red -- §10's
+# generalised "accent marks actionable elements only" rule), a smarter Label
+# heuristic that can tell a deliberately-tinted label (UI.tinted_label(),
+# e.g. a calc_gold £ figure) apart from a plain UI.muted_label() instead of
+# treating "has any colour override at all" as proof of the latter, and a
+# message-bubble special case for the PanelContainer branch (Contacts' own
+# subtree never reaches UI.message_bubble()'s output, phone.gd's Messages
+# app does).
+#
 # Deliberately NOT wired into build_faction_card() below -- that builder
 # still serves the (untouched, cream) Factions screen this ticket doesn't
 # cover, and PanelContainer/Label/Button here would repaint it too if this
-# walk ever reached it.
+# walk ever reached it. (phone.gd's own _build_factions() reaches the same
+# builder through a different, Family-2-painted screen -- see that file's
+# own comment; the two call sites build two separate node trees, so this
+# doesn't leak between them.)
+const _PHONE_BG_HOME := "phone_bg_home"
 const _PHONE_BG_CONTENT := "phone_bg_content"
 const _PHONE_DIVIDER := "phone_divider"
 const _PHONE_TEXT_PRIMARY := "phone_text_primary"
 const _PHONE_TEXT_MUTED := "phone_text_muted"
+const _PHONE_BUBBLE_INCOMING := "phone_bubble_incoming"
 
 # Fallbacks mirror nav_bar.gd's own GameData.PALETTE.get(id, fallback)
 # pattern -- only exercised if data/palette.json is somehow missing an id.
+const _FALLBACK_BG_HOME := Color("#1b1b1d")
 const _FALLBACK_BG_CONTENT := Color("#252528")
 const _FALLBACK_DIVIDER := Color("#424246")
 const _FALLBACK_TEXT_PRIMARY := Color("#ededee")
 const _FALLBACK_TEXT_MUTED := Color("#999a9d")
 const _FALLBACK_ACTION := Color("#c8102e")
+const _FALLBACK_BUBBLE_INCOMING := Color("#333336")
+
+# UI.muted_label()'s own hardcoded grey (ui.gd), the one signal this walk
+# uses to tell "a plain muted_label()" apart from "a deliberately tinted
+# label" below -- kept as a value comparison (is_equal_approx), not identity,
+# since ui.gd bakes this exact Color literal at construction time rather
+# than pulling it from GameData.PALETTE itself.
+const _GLOBAL_MUTED_GREY := Color(0.541176, 0.541176, 0.541176, 1)
 
 
 static func _palette(id: String, fallback: Color) -> Color:
@@ -459,15 +490,33 @@ static func apply_phone_os_chrome(root: Node) -> void:
 static func _style_subtree(node: Node, inside_button: bool) -> void:
 	var next_inside_button := inside_button
 	if node is PanelContainer:
-		_style_card_panel(node as PanelContainer)
+		_style_panel(node as PanelContainer)
 	elif node is Button:
 		_style_button(node as Button)
 		next_inside_button = true
 	elif node is Label and not inside_button:
 		_style_label(node as Label)
+	elif node is ProgressBar:
+		_style_progress_bar(node as ProgressBar)
 
 	for child in node.get_children():
 		_style_subtree(child, next_inside_button)
+
+
+# 09-family-2-chrome-phone-apps: a PanelContainer whose direct parent is an
+# HBoxContainer is, on every reachable path this walk ever sees, UI.
+# message_bubble()'s own `row -> card()["panel"]` structure -- no other
+# builder either file calls wraps a card() panel in an hbox row. Outgoing
+# (from_player) sets the row's alignment to ALIGNMENT_END (ui.gd); an
+# ordinary card (added straight into a VBoxContainer, the overwhelming
+# common case) has no HBoxContainer parent at all, so it still falls through
+# to the plain content-panel treatment below.
+static func _style_panel(panel: PanelContainer) -> void:
+	var parent := panel.get_parent()
+	if parent is HBoxContainer:
+		_style_bubble_panel(panel, (parent as HBoxContainer).alignment == BoxContainer.ALIGNMENT_END)
+	else:
+		_style_card_panel(panel)
 
 
 static func _style_card_panel(panel: PanelContainer) -> void:
@@ -483,17 +532,55 @@ static func _style_card_panel(panel: PanelContainer) -> void:
 	panel.add_theme_stylebox_override("panel", style)
 
 
+# §10: "outgoing bubble filled ui_action_red (light text), incoming bubble
+# flat dark-grey fill... light text -- ordinary two-party messaging
+# convention, no new accent needed." Bubble text itself needs no special
+# case here -- it's a plain UI.label() with no pre-existing override, so
+# _style_label()'s own "no override -> primary ink" branch already paints it
+# light, correct against either fill.
+static func _style_bubble_panel(panel: PanelContainer, outgoing: bool) -> void:
+	var style := StyleBoxFlat.new()
+	style.bg_color = _palette("ui_action_red", _FALLBACK_ACTION) if outgoing else _palette(_PHONE_BUBBLE_INCOMING, _FALLBACK_BUBBLE_INCOMING)
+	style.set_corner_radius_all(14)
+	style.content_margin_left = 14
+	style.content_margin_top = 10
+	style.content_margin_right = 14
+	style.content_margin_bottom = 10
+	panel.add_theme_stylebox_override("panel", style)
+
+
+# §10: "ui_action_red marks actionable elements only, never a passive data
+# readout" -- generalised to every meter this family renders (Factions'
+# reputation bar, the Ticker's per-state progress bars, Profile's HP/skill
+# bars): the fill is always ink, never the action accent.
+static func _style_progress_bar(bar: ProgressBar) -> void:
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = _palette(_PHONE_TEXT_PRIMARY, _FALLBACK_TEXT_PRIMARY)
+	fill.set_corner_radius_all(4)
+	bar.add_theme_stylebox_override("fill", fill)
+
+	var track := StyleBoxFlat.new()
+	track.bg_color = _palette(_PHONE_DIVIDER, _FALLBACK_DIVIDER)
+	track.set_corner_radius_all(4)
+	bar.add_theme_stylebox_override("background", track)
+
+
 # UI.muted_label() is the only helper above that pre-applies its own
-# font_color override (the shared, family-agnostic grey every screen uses);
-# heading()/label() never do. That's enough to tell the two apart here
-# without threading a second "is this muted" flag through every builder --
-# tinted_label() (faction swatch colours) also carries a pre-existing
-# override, but nothing on this file's Contacts-reachable path
-# (build_faction_card() is deliberately outside this walk, see the comment
-# above) ever produces one.
+# font_color override using this exact grey; heading()/label() never do.
+# 09-family-2-chrome-phone-apps: phone.gd's apps also reach UI.tinted_label()
+# (calc_gold £ figures -- Reynard's balance/log, faction swatch colours on
+# build_faction_card() were already excluded above) with a DIFFERENT
+# pre-existing override, which must survive this pass untouched rather than
+# being reclassified as "muted" the way a blind has_theme_color_override()
+# check would -- comparing the actual colour value against the known global
+# muted grey is what tells the two apart.
 static func _style_label(l: Label) -> void:
 	if l.has_theme_color_override("font_color"):
-		l.add_theme_color_override("font_color", _palette(_PHONE_TEXT_MUTED, _FALLBACK_TEXT_MUTED))
+		if l.get_theme_color("font_color").is_equal_approx(_GLOBAL_MUTED_GREY):
+			l.add_theme_color_override("font_color", _palette(_PHONE_TEXT_MUTED, _FALLBACK_TEXT_MUTED))
+		# else: a deliberate tint (calc_gold, a faction swatch) -- leave it
+		# exactly as authored; this walk only ever replaces the two shared
+		# "ink"/"muted" defaults, never a colour a builder chose on purpose.
 	else:
 		l.add_theme_color_override("font_color", _palette(_PHONE_TEXT_PRIMARY, _FALLBACK_TEXT_PRIMARY))
 

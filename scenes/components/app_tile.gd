@@ -51,15 +51,24 @@ const LARGE_FALLBACK_FONT_SIZE := 13
 # the UI already uses, not a new colour language.
 const LOCKED_TINT := Color(0.541176, 0.541176, 0.541176, 1)
 const NORMAL_TINT := Color(1, 1, 1, 1)
-const BADGE_COLOUR := Color(0.784314, 0.227451, 0.227451, 1)
 
-# Ticket 36: the placeholder frame every app icon (real art or text
-# fallback) sits inside, so a bare label reads as "an app tile" rather than
-# floating text. Same chrome colours top_bar.gd's _BG_COLOR/_BORDER_COLOR
-# already use elsewhere for subdued system-UI surfaces, reused here rather
-# than inventing a new pair.
-const FRAME_BG_COLOUR := Color(0.909804, 0.894118, 0.85098, 1)
-const FRAME_BORDER_COLOUR := Color(0.831373, 0.811765, 0.768627, 1)
+# 09-family-2-chrome-phone-apps, ui-vision.md §10: aligned to the locked
+# ui_action_red hex exactly (data/palette.json) -- was a close-but-not-exact
+# approximation before this pass.
+const BADGE_COLOUR := Color("#c8102e")
+
+# 09-family-2-chrome-phone-apps, ui-vision.md §10: the home-grid ground
+# colour (indicative #1b1b1d), reused here as the tile-level fallback chip
+# for an id still on the label fallback -- "drop the cream/tan frame per
+# tile; the whole home-grid surface is one flat cool near-black... icons
+# sitting directly on it." No border colour of its own any more (the "cream/
+# tan frame" this replaces is exactly what §10 says to drop) -- kept equal
+# to the fill so the border stays invisible even if a future caller re-adds
+# a non-zero border width. Runtime lookups go through _palette() below so
+# data/palette.json's "phone_bg_home" id stays the source of truth; these
+# are its fallback values only.
+const FRAME_BG_COLOUR := Color("#1b1b1d")
+const FRAME_BORDER_COLOUR := Color("#1b1b1d")
 
 # Ticket 37: dock active-tab highlight -- a filled background tint on the
 # active tile's frame, using theme/main_theme.tres's own button accent
@@ -78,6 +87,18 @@ const ACTIVE_BORDER_WIDTH := 2
 # spec's story 13). That decision belongs to whichever screen wires this
 # tile up (ticket 07/dock ticket 11), same split MapBubble's option_selected
 # leaves the "what happens next" decision to its caller.
+# 09-family-2-chrome-phone-apps: same GameData.PALETTE.get(id, fallback)
+# pattern contact_cards.gd's own Family 2 helper uses, so a human retuning
+# data/palette.json's "phone_bg_home"/"phone_text_primary" hexes later
+# doesn't need a matching code change here.
+const _PHONE_BG_HOME := "phone_bg_home"
+const _PHONE_TEXT_PRIMARY := "phone_text_primary"
+const _FALLBACK_TEXT_PRIMARY := Color("#ededee")
+
+static func _palette(id: String, fallback: Color) -> Color:
+	return GameData.PALETTE.get(id, fallback)
+
+
 signal tile_pressed(app_id: String)
 
 var _app_id: String = ""
@@ -177,12 +198,20 @@ func _ensure_built() -> void:
 	_icon_rect.visible = false
 	_frame.add_child(_icon_rect)
 
+	# 09-family-2-chrome-phone-apps, ui-vision.md §10: the home grid runs a
+	# dark device shell top to bottom -- both text fallbacks need to be
+	# legible ink against that near-black ground now, not the engine's
+	# default dark-on-transparent label colour (theme/main_theme.tres'
+	# Button/colors/font_color, near-black -- invisible on #1b1b1d).
+	var text_colour := _palette(_PHONE_TEXT_PRIMARY, _FALLBACK_TEXT_PRIMARY)
+
 	_fallback_label = Label.new()
 	UI.anchor_full_rect(_fallback_label)
 	_fallback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_fallback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_fallback_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_fallback_label.add_theme_font_size_override("font_size", fallback_font_size)
+	_fallback_label.add_theme_color_override("font_color", text_colour)
 	_fallback_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_fallback_label.visible = false
 	_frame.add_child(_fallback_label)
@@ -211,6 +240,7 @@ func _ensure_built() -> void:
 	_name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name_label.add_theme_font_size_override("font_size", name_font_size)
+	_name_label.add_theme_color_override("font_color", text_colour)
 	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(_name_label)
 
@@ -234,7 +264,8 @@ func configure(data: Dictionary) -> void:
 	_name_label.text = label_text
 
 	var texture: Texture2D = icon_override if icon_override != null else load_icon(_app_id)
-	if texture != null:
+	var has_real_art := texture != null
+	if has_real_art:
 		_icon_rect.texture = texture
 		_icon_rect.visible = true
 		_fallback_label.visible = false
@@ -246,17 +277,30 @@ func configure(data: Dictionary) -> void:
 	_lock_overlay.visible = locked
 	_badge.visible = badge
 
-	# Ticket 37: active takes the frame's own bg_color/border_color/width,
-	# not modulate -- modulate (below) only multiplies brightness, which
-	# can't shift the neutral cream frame toward the accent hue the way a
-	# direct stylebox colour swap can.
-	_frame_style.bg_color = ACTIVE_BG_COLOUR if active else FRAME_BG_COLOUR
-	_frame_style.border_color = ACTIVE_BORDER_COLOUR if active else FRAME_BORDER_COLOUR
-	var border_width := ACTIVE_BORDER_WIDTH if active else 1
-	_frame_style.border_width_left = border_width
-	_frame_style.border_width_top = border_width
-	_frame_style.border_width_right = border_width
-	_frame_style.border_width_bottom = border_width
+	# 09-family-2-chrome-phone-apps, ui-vision.md §10 implementation note:
+	# real icon art is a full, self-contained square with its own background
+	# baked in -- drawing the frame panel behind it would peek through any
+	# transparent corners the art itself leaves, so the panel is suppressed
+	# entirely once an id has real art. A label-fallback tile keeps its dark
+	# chip so the fallback text stays legible; `active`'s dock-highlight ring
+	# (dead weight today per that section's own note, kept rather than
+	# removed) still takes priority over the suppression either way.
+	_background.visible = active or not has_real_art
+
+	if not has_real_art or active:
+		# Ticket 37: active takes the frame's own bg_color/border_color/width,
+		# not modulate -- modulate (below) only multiplies brightness, which
+		# can't shift the frame toward the accent hue the way a direct
+		# stylebox colour swap can.
+		_frame_style.bg_color = ACTIVE_BG_COLOUR if active else _palette(_PHONE_BG_HOME, FRAME_BG_COLOUR)
+		_frame_style.border_color = ACTIVE_BORDER_COLOUR if active else FRAME_BORDER_COLOUR
+		# §10: "drop the cream/tan frame per tile" -- no border for the
+		# ordinary (non-active) case any more, only the dock-highlight ring.
+		var border_width := ACTIVE_BORDER_WIDTH if active else 0
+		_frame_style.border_width_left = border_width
+		_frame_style.border_width_top = border_width
+		_frame_style.border_width_right = border_width
+		_frame_style.border_width_bottom = border_width
 
 	var tint := LOCKED_TINT if locked else NORMAL_TINT
 	_background.modulate = tint

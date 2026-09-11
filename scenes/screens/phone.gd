@@ -15,6 +15,15 @@ var _content: VBoxContainer
 var _export_box: TextEdit
 var _import_box: TextEdit
 
+# 09-family-2-chrome-phone-apps, ui-vision.md §10: the persistent dark
+# "device shell" ground painted behind every view this screen builds --
+# added once in _ready(), then its fill colour switched between the
+# home-grid wallpaper and the app-content shade in _refresh(). Same
+# always-first-child pattern contacts.gd's own _paint_family2_background()
+# uses (a plain Panel, sized full-rect, mouse-transparent).
+var _background: Panel
+var _background_style: StyleBoxFlat
+
 # collective1-03: screen-local presentation cache for the Messages app's
 # staged reveal -- contactId -> "already rendered instantly up to this
 # index." Not game state (same "reveal counter is screen-local
@@ -49,10 +58,26 @@ var _conversation_root: Control = null
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
+	_paint_family2_background()
 	_content = UI.screen_body(self)
 	Barometer.ensure_progress()
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
+
+
+# 09-family-2-chrome-phone-apps, ui-vision.md §10: "Family 2 runs a dark
+# 'device shell', top to bottom -- home grid and every app content screen
+# alike." Added before UI.screen_body() so it sits behind everything this
+# screen ever builds (the scroll container AND _build_conversation()'s own
+# separately-anchored _conversation_root sibling); _refresh() swaps its fill
+# between the home-grid wallpaper and the one-shade-up content shade below.
+func _paint_family2_background() -> void:
+	_background = Panel.new()
+	UI.anchor_full_rect(_background)
+	_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_background_style = StyleBoxFlat.new()
+	_background.add_theme_stylebox_override("panel", _background_style)
+	add_child(_background)
 
 
 func _refresh() -> void:
@@ -64,6 +89,15 @@ func _refresh() -> void:
 	_content.get_parent().visible = true
 
 	var nav: Dictionary = GameState.state["phoneNav"]
+
+	# §10: "the whole home-grid surface is one flat cool near-black" vs.
+	# "the app-content shell... one shade up from the home-grid black... so
+	# an open app reads as content raised over the home-screen wallpaper."
+	if nav["app"] == "home":
+		_background_style.bg_color = GameData.PALETTE.get("phone_bg_home", Color("#1b1b1d"))
+	else:
+		_background_style.bg_color = GameData.PALETTE.get("phone_bg_content", Color("#252528"))
+
 	match nav["app"]:
 		"messages":
 			_build_messages()
@@ -90,6 +124,21 @@ func _refresh() -> void:
 			_build_debug()
 		_:
 			_build_home()
+
+	# 09-family-2-chrome-phone-apps, ui-vision.md §10: one recolour pass over
+	# whatever this refresh just built into _content -- same convention
+	# contacts.gd's own _refresh() uses (see ContactCards.apply_phone_os_
+	# chrome()'s own comment). Safe to run unconditionally, including the
+	# home grid: AppTile's own tiles already self-style (their name/fallback
+	# labels carry a deliberate phone_text_primary override, not the shared
+	# muted grey, so this walk's label heuristic leaves them alone), and the
+	# grid never contains a PanelContainer/Button this walk would otherwise
+	# repaint -- only the screen's own "Phone" heading actually gets touched
+	# on that branch. The Messages app builds into _conversation_root
+	# instead (a separate sibling tree) and styles itself at the end of
+	# _build_conversation()/_reveal_remaining() below, so this call is a
+	# harmless no-op (_content stays empty) on that branch.
+	ContactCards.apply_phone_os_chrome(_content)
 
 
 func _phone_back_button() -> Control:
@@ -245,6 +294,13 @@ func _build_conversation(contact_id: String) -> void:
 
 	_conversation_root.add_child(_build_action_bar(contact_id))
 
+	# 09-family-2-chrome-phone-apps: one recolour pass over the header, the
+	# bubbles already revealed above, and the action bar -- same convention
+	# _refresh() uses for _content. Bubbles _reveal_remaining() adds later
+	# (below) land after this point, so it repaints each of those
+	# individually instead as they're appended.
+	ContactCards.apply_phone_os_chrome(_conversation_root)
+
 	if reveal_from < thread.size():
 		_reveal_from_index[contact_id] = thread.size()
 		_reveal_remaining(box, thread, reveal_from)
@@ -260,7 +316,11 @@ func _reveal_remaining(box: VBoxContainer, thread: Array, start_index: int) -> v
 	for i in range(start_index, thread.size()):
 		if not is_instance_valid(box):
 			return
-		box.add_child(UI.message_bubble(thread[i]["text"], thread[i]["from"] == "player"))
+		var bubble := UI.message_bubble(thread[i]["text"], thread[i]["from"] == "player")
+		box.add_child(bubble)
+		# 09-family-2-chrome-phone-apps: styled individually -- this bubble
+		# lands after _build_conversation()'s own one-shot pass above.
+		ContactCards.apply_phone_os_chrome(bubble)
 		var delay: float = 0.9 if (i - start_index) % 2 == 0 else 0.6
 		await get_tree().create_timer(delay).timeout
 
@@ -768,7 +828,9 @@ func _build_bank() -> void:
 func _build_balance_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.muted_label("BALANCE"))
-	c["content"].add_child(UI.label("£%d" % GameState.state["player"]["cash"]))
+	# §10: "the figure in calc_gold" -- the one currency readout this app's
+	# dashboard card carries.
+	c["content"].add_child(UI.tinted_label("£%d" % GameState.state["player"]["cash"], _calc_gold()))
 	return c["panel"]
 
 
@@ -776,9 +838,22 @@ func _build_bank_transaction_row(entry: Dictionary) -> Control:
 	var c := UI.card()
 	var amount: int = entry["amount"]
 	var amount_text: String = "+£%d" % amount if amount >= 0 else "-£%d" % -amount
-	c["content"].add_child(UI.label("%s — %s" % [entry["label"], amount_text]))
+	# §10: "amounts in calc_gold, everything else ink" -- split into its own
+	# label rather than one combined "label — amount" string so the amount
+	# can carry its own colour; the description stays the plain ink
+	# UI.label() default.
+	var row := UI.hbox()
+	row.add_child(UI.expand_fill(UI.label(entry["label"])))
+	row.add_child(UI.tinted_label(amount_text, _calc_gold()))
+	c["content"].add_child(row)
 	c["content"].add_child(UI.muted_label("Day %d" % entry["day"]))
 	return c["panel"]
+
+
+# §10: "calc_gold stays exactly what §6 already says -- calc/currency reads
+# only (Reynard's, Harrow's, nowhere else in this family)."
+func _calc_gold() -> Color:
+	return GameData.PALETTE.get("calc_gold", Color("#d4af52"))
 
 
 # ── Harrow's (03-property-app-phone-tab) ──────────────────────────────

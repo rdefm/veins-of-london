@@ -48,13 +48,20 @@ func run() -> void:
 		tile.free()
 	)
 
-	run_case("the_background_frame_renders_regardless_of_icon_art_presence", func():
+	# 09-family-2-chrome-phone-apps, ui-vision.md §10 implementation note:
+	# reversed from the pre-Family-2 behaviour this test used to assert --
+	# real icon art is now expected to be a full, self-contained square with
+	# its own background baked in, so the frame panel would peek through any
+	# transparent corners if drawn behind it. It's suppressed once real art
+	# exists; a label-fallback tile keeps its dark chip so the fallback text
+	# stays legible.
+	run_case("the_background_frame_is_suppressed_once_real_icon_art_is_present", func():
 		var with_art := AppTile.new()
 		with_art._ready()
 		with_art.configure({ "id": "messages", "label": "Messages", "icon": PlaceholderTexture2D.new() })
 
-		assert_true(is_instance_valid(with_art._background), "a background node exists even with real icon art")
-		assert_true(with_art._background.visible, "the background is visible when icon art is present")
+		assert_true(is_instance_valid(with_art._background), "the background node still exists")
+		assert_true(not with_art._background.visible, "the background panel is suppressed once real icon art is present")
 
 		with_art.free()
 
@@ -63,7 +70,7 @@ func run() -> void:
 		without_art.configure({ "id": "does_not_exist_yet", "label": "Coming Soon" })
 
 		assert_true(is_instance_valid(without_art._background), "a background node exists even without real icon art")
-		assert_true(without_art._background.visible, "the background is visible when falling back to text")
+		assert_true(without_art._background.visible, "the background stays visible when falling back to text, so the fallback label reads against a dark chip")
 
 		without_art.free()
 	)
@@ -197,6 +204,33 @@ func run() -> void:
 		tile.free()
 	)
 
+	# ── 09-family-2-chrome-phone-apps, ui-vision.md §10 ──────────────────
+
+	run_case("the_fallback_label_and_name_label_use_family2_light_ink", func():
+		var tile := AppTile.new()
+		tile._ready()
+		tile.configure({ "id": "does_not_exist_yet", "label": "Coming Soon" })
+
+		assert_eq(tile._fallback_label.get_theme_color("font_color"), GameData.PALETTE["phone_text_primary"], "the fallback label must read against the dark device shell, not the engine's default near-black ink")
+		assert_eq(tile._name_label.get_theme_color("font_color"), GameData.PALETTE["phone_text_primary"], "the tile's own name label is repainted the same way")
+
+		tile.free()
+	)
+
+	run_case("the_badge_dot_colour_is_locked_to_the_exact_ui_action_red_hex", func():
+		assert_eq(AppTile.BADGE_COLOUR, GameData.PALETTE["ui_action_red"], "the badge dot must match ui_action_red exactly, not a close approximation")
+	)
+
+	run_case("the_default_frame_colour_matches_the_phone_bg_home_palette_entry", func():
+		var tile := AppTile.new()
+		tile._ready()
+		tile.configure({ "id": "does_not_exist_yet", "label": "Coming Soon" })
+
+		assert_eq(tile._frame_style.bg_color, GameData.PALETTE["phone_bg_home"], "a fallback tile's chip is the Family 2 home-grid ground colour")
+
+		tile.free()
+	)
+
 	run_case("active_defaults_to_false_when_omitted", func():
 		var tile := AppTile.new()
 		tile._ready()
@@ -213,7 +247,13 @@ func run() -> void:
 		tile._ready()
 
 		tile.configure({ "id": "messages", "label": "Messages", "locked": true, "badge": true, "active": true })
-		tile.configure({ "id": "notes", "label": "Notes", "locked": false, "badge": false, "active": false })
+		# "not_yet_drawn": no real art file, same as "messages" above -- keeps
+		# this case on the fallback path so _frame_style is actually
+		# recomputed (and not just left stale from the first, active
+		# configure()) by the second call, same reasoning app_tile.gd's own
+		# suppression comment documents. "notes" itself now has real art
+		# (08-family-2-chrome-contacts) and would exercise a different path.
+		tile.configure({ "id": "not_yet_drawn", "label": "Notes", "locked": false, "badge": false, "active": false })
 
 		assert_true(not tile._lock_overlay.visible, "locked state from the first configure() doesn't linger")
 		assert_true(not tile._badge.visible, "badge state from the first configure() doesn't linger")
