@@ -19,6 +19,11 @@ Godot_v4.4-stable_linux.x86_64
 scratch_*.log
 scratch_*.png
 
+# Godot AI editor plugin (github.com/hi-godot/godot-ai) -- vendored,
+# self-updating third-party tool; reinstall per scripts/setup_godot_ai.sh.
+# Not part of the shipped game.
+/addons/godot_ai/
+
 # Local export builds (playtest artifacts) — includes a self-signed TLS
 # keypair for local HTTPS serving (Godot's Web export requires a secure
 # context), never for committing.

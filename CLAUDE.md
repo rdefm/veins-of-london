@@ -2,7 +2,7 @@
 
 # VEIN — Project Constitution
 
-You are porting and extending **Vein**, a mobile-first, menu-driven London urban-fantasy economy game, from an HTML prototype to **Godot 4.4**. You execute specs; you do not redesign mechanics, rename things, or "improve" formulas. If a spec seems wrong, STOP and ask the human — do not guess.
+You are porting and extending **Vein**, a mobile-first, menu-driven London urban-fantasy economy game, from an HTML prototype to **Godot 4.7**. You execute specs; you do not redesign mechanics, rename things, or "improve" formulas. If a spec seems wrong, STOP and ask the human — do not guess.
 
 ## Source-of-truth map
 
@@ -21,9 +21,9 @@ You are porting and extending **Vein**, a mobile-first, menu-driven London urban
 
 The HTML file is **prose quarry only**. Never copy mechanics, formulas, or data from it — the ore roster changed and REFERENCE.md is canonical. If REFERENCE.md and the HTML disagree, REFERENCE.md wins, always.
 
-## Hard rules — Godot 4.4
+## Hard rules — Godot 4.7
 
-Target is **Godot 4.4 stable**. You have been trained on a lot of Godot 3 code. NEVER use Godot 3 syntax. The following are the Godot 4 forms; using the Godot 3 form is an error:
+Target is **Godot 4.7 stable**. You have been trained on a lot of Godot 3 code. NEVER use Godot 3 syntax. The following are the Godot 4 forms; using the Godot 3 form is an error:
 
 - `instantiate()` — never `instance()`
 - `await sig` — never `yield(obj, "sig")`
@@ -74,7 +74,7 @@ Identical discipline to the prototype:
 
 ## Environment setup (sandbox or fresh machine)
 
-If `godot` is not on PATH, run `scripts/setup_godot.sh` (M0-T00 creates it), which downloads the Godot 4.4 headless Linux binary from the official GitHub release (`godotengine/godot` releases, asset `Godot_v4.4-stable_linux.x86_64.zip`), unzips it to `.godot-bin/`, and symlinks it as `godot`. All test and check scripts must work with this binary. Never require the editor GUI for any verification step.
+If `godot` is not on PATH, run `scripts/setup_godot.sh` (M0-T00 creates it), which downloads the Godot 4.7 headless Linux binary from the official GitHub release (`godotengine/godot` releases, asset `Godot_v4.7-stable_linux.x86_64.zip`), unzips it to `.godot-bin/`, and symlinks it as `godot`. All test and check scripts must work with this binary. Never require the editor GUI for any verification step.
 
 ## Prose rules (summary — full rules in docs/CONTENT-GUIDE.md)
 

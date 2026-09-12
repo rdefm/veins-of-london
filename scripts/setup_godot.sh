@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Idempotent Godot 4.4 headless binary setup.
+# Idempotent Godot 4.7 headless binary setup.
 # If `godot` is already on PATH, or already set up under ./godot, does nothing.
-# Otherwise downloads the official godotengine/godot 4.4-stable release for
+# Otherwise downloads the official godotengine/godot 4.7-stable release for
 # the current host OS, unzips it to .godot-bin/, and wires it up as ./godot:
 # a real symlink on Linux, a small exec wrapper script on Windows (Godot's
 # win64 console binary refuses to run under any name but its own -- see
@@ -12,7 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-GODOT_VERSION="4.4-stable"
+GODOT_VERSION="4.7-stable"
 BIN_DIR="$PROJECT_DIR/.godot-bin"
 SYMLINK="$PROJECT_DIR/godot"
 

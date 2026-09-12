@@ -52,7 +52,13 @@ func _initialize() -> void:
 
 # Skips any directory starting with "." (.godot, .godot-bin, .git, .claude,
 # .scratch, ...) -- everything under those is engine cache, tooling, or
-# prose, never project source.
+# prose, never project source. Also skips top-level "addons" -- vendored
+# third-party plugins (e.g. godot-ai) ship their own CI and rely on
+# class_name cross-references that only resolve once the editor's global
+# script class cache has indexed them, which a bare load() sweep never does.
+const EXCLUDE_DIRS := ["addons"]
+
+
 func _discover_gd_files(dir_path: String) -> Array[String]:
 	var files: Array[String] = []
 	var dir := DirAccess.open(dir_path)
@@ -63,7 +69,7 @@ func _discover_gd_files(dir_path: String) -> Array[String]:
 	var name := dir.get_next()
 	while name != "":
 		if dir.current_is_dir():
-			if not name.begins_with("."):
+			if not name.begins_with(".") and not EXCLUDE_DIRS.has(name):
 				files.append_array(_discover_gd_files(dir_path.path_join(name)))
 		elif name.ends_with(".gd") and not EXCLUDE.has(name):
 			files.append(dir_path.path_join(name))
