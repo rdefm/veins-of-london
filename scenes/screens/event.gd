@@ -173,30 +173,39 @@ func _action_color() -> Color:
 
 
 # ui-vision.md §11: "all three recolour from the theme's default amber
-# button fill to ui_action_red" -- same shape as modal_layer.gd's own
-# _style_action_button()/_action_button_style() (the Family 4 "Train"
-# button precedent): a low-alpha accent wash on press/hover rather than a
-# solid fill, with the accent carried by the text itself. Padding here
-# matches this screen's own pre-existing button size (theme/main_theme.tres'
-# 16/10 margins) rather than copying modal_layer.gd's smaller 8/6 verbatim,
-# so Continue/Rewind/choice keep their prior footprint -- only the colour
+# button fill to ui_action_red" -- accent wash carried by the text, same
+# shape as modal_layer.gd's own _style_action_button()/_action_button_style()
+# (the Family 4 "Train" button precedent). Padding here matches this
+# screen's own pre-existing button size (theme/main_theme.tres' 16/10
+# margins) rather than copying modal_layer.gd's smaller 8/6 verbatim, so
+# Continue/Rewind/choice keep their prior footprint -- only the colour
 # changes.
+#
+# Bugfixes ticket 105: unlike Train (flat-at-rest by design, left alone),
+# these are the screen's only bottom-of-screen action buttons and read as
+# plain coloured text with nothing to fill/hover states. Normal now carries
+# a visible border plus a faint fill so they read as buttons at rest; hover/
+# pressed still step the fill up from there. Disabled keeps a fainter
+# border/fill so an unavailable action still reads as a button, just a
+# muted one.
 func _style_action_button(b: Button) -> void:
 	var accent := _action_color()
-	b.add_theme_stylebox_override("normal", _action_button_style(accent, 0.0))
-	b.add_theme_stylebox_override("hover", _action_button_style(accent, 0.14))
-	b.add_theme_stylebox_override("pressed", _action_button_style(accent, 0.22))
-	b.add_theme_stylebox_override("disabled", _action_button_style(accent, 0.0))
+	b.add_theme_stylebox_override("normal", _action_button_style(accent, 0.12, 1.0))
+	b.add_theme_stylebox_override("hover", _action_button_style(accent, 0.20, 1.0))
+	b.add_theme_stylebox_override("pressed", _action_button_style(accent, 0.30, 1.0))
+	b.add_theme_stylebox_override("disabled", _action_button_style(accent, 0.05, 0.4))
 	b.add_theme_color_override("font_color", accent)
 	b.add_theme_color_override("font_hover_color", accent)
 	b.add_theme_color_override("font_pressed_color", accent)
 	b.add_theme_color_override("font_disabled_color", accent)
 
 
-func _action_button_style(accent: Color, alpha: float) -> StyleBoxFlat:
+func _action_button_style(accent: Color, fill_alpha: float, border_alpha: float) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(accent.r, accent.g, accent.b, alpha)
+	style.bg_color = Color(accent.r, accent.g, accent.b, fill_alpha)
 	style.set_corner_radius_all(8)
+	style.set_border_width_all(1.5)
+	style.border_color = Color(accent.r, accent.g, accent.b, border_alpha)
 	style.content_margin_left = 16.0
 	style.content_margin_top = 10.0
 	style.content_margin_right = 16.0

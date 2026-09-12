@@ -209,6 +209,25 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("continue_button_has_a_visible_fill_and_border_at_rest", func():
+		# Bugfixes ticket 105: the resting stylebox used to be fully
+		# transparent (alpha 0.0, no border), so the button read as plain
+		# coloured text -- lock in that rest now carries a non-zero fill and
+		# a fully-opaque border so it reads as a tappable button.
+		GameState.reset()
+		var original_events := _install_full_card_event()
+		Events.start_event("test_screen_event")
+
+		var screen := _fresh_screen()
+		var buttons := screen._action_bar.get_children()
+		var style: StyleBoxFlat = buttons[0].get_theme_stylebox("normal")
+		assert_true(style.bg_color.a > 0.0, "resting fill should not be fully transparent")
+		assert_true(style.border_width_left > 0, "resting style should carry a visible border")
+		assert_true(style.border_color.a > 0.0, "resting border should not be fully transparent")
+
+		GameData.EVENTS = original_events
+	)
+
 	run_case("choice_buttons_are_recoloured_to_ui_action_red", func():
 		GameState.reset()
 		var original_events := _install_full_card_event()
