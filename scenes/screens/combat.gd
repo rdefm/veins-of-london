@@ -1916,9 +1916,6 @@ func _build_action_deck(player: Dictionary) -> Control:
 	col.add_child(_build_action_card("item", "Item", func(): Bag.open(), not has_items))
 	col.add_child(_build_action_card("run", "Leg it", _on_run_pressed))
 
-	if _director.is_playing():
-		col.add_child(_build_action_card("⏭", "Skip", func(): _director.skip_to_end()))
-
 	return col
 
 
@@ -1987,11 +1984,8 @@ const _ACTION_CARD_ICON_SIZE := 40.0
 
 # ui-chrome-pass ticket 04: the recognised drawn-icon kinds this func can
 # render via icons.gd, keyed the same as _build_action_deck()'s own calls
-# ("attack"/"item"/"run"). Not every caller passes a recognised kind --
-# _build_action_deck()'s "Skip" card still passes a literal glyph ("⏭",
-# Miscellaneous Symbols block, confirmed to render fine on-device same as
-# Attack's old "⚔") -- see the `disabled` fallback branch below for how
-# that's told apart from a real icon kind.
+# ("attack"/"item"/"run"). A caller passing an unrecognised kind falls back
+# to plain glyph text instead -- see the `disabled` fallback branch below.
 static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 	match icon_kind:
 		"attack":
@@ -2024,8 +2018,8 @@ func _build_action_card(icon_kind: String, label_text: String, callback: Callabl
 	# bag button already uses -- the glyph reads its colour from this
 	# Button's own font_color override, walking up the theme-owner chain,
 	# same as that shipped precedent) rather than setting Button.text; an
-	# unrecognised kind (Skip's literal "⏭") falls back to the original
-	# plain-glyph-text behaviour untouched.
+	# unrecognised kind falls back to the original plain-glyph-text
+	# behaviour untouched.
 	var draw_icon := _action_icon_draw_fn(icon_kind)
 	if draw_icon.is_valid():
 		button.name = "ActionButton_%s" % icon_kind
