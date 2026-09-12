@@ -34,14 +34,14 @@ const BADGE_SIZE := 12.0
 const NAME_FONT_SIZE := 12
 const FALLBACK_FONT_SIZE := 10
 
-# 120-app-icon-rounded-mask: proportional to frame size (~22%, human-picked
-# after eyeballing both frame sizes) rather than one fixed pixel value for
-# both — the old single FRAME_CORNER_RADIUS=14 read fine on the 56px dock
-# frame but noticeably flatter on the 76px large frame. Now drives both the
-# fallback-chip StyleBoxFlat radius AND the real-art icon mask radius below,
-# so the two always agree.
-const FRAME_CORNER_RADIUS := 12
-const LARGE_FRAME_CORNER_RADIUS := 17
+# 120-app-icon-rounded-mask: proportional to frame size (~29%, human-picked
+# after eyeballing both frame sizes — first pass at ~22% still read flatter
+# than a real iOS/Android home-screen icon once the icon actually filled its
+# frame edge-to-edge) rather than one fixed pixel value for both. Drives both
+# the fallback-chip StyleBoxFlat radius AND the real-art icon mask radius
+# below, so the two always agree.
+const FRAME_CORNER_RADIUS := 16
+const LARGE_FRAME_CORNER_RADIUS := 22
 
 # bugfixes-60: the phone home grid wants a visibly bigger icon+label tile
 # than the dock (nav_bar.gd) does -- the dock is a fixed BAR_HEIGHT=64
@@ -221,7 +221,13 @@ func _ensure_built() -> void:
 	# _ghost_rect and every other real-art TextureRect in this codebase
 	# already applies alongside STRETCH_KEEP_ASPECT_CENTERED/_COVERED.
 	_icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	# 120-app-icon-rounded-mask: COVERED (crop-to-fill), not CENTERED
+	# (letterbox-to-fit) -- CENTERED left empty frame background showing
+	# around the art whenever its aspect ratio wasn't a perfect square,
+	# which read as a small photo floating in a bigger rounded chip rather
+	# than a real phone home-screen icon, where the art always bleeds to
+	# every edge of the rounded shape and any excess is cropped, not shrunk.
+	_icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_icon_rect.visible = false
 	_frame.add_child(_icon_rect)

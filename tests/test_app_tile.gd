@@ -256,6 +256,18 @@ func run() -> void:
 		tile.free()
 	)
 
+	# 120-app-icon-rounded-mask: COVERED crops non-square art to fill the
+	# frame edge-to-edge like a real phone icon; CENTERED would letterbox it
+	# and leave frame background showing around the art.
+	run_case("the_icon_rect_crops_to_fill_its_frame_rather_than_letterboxing", func():
+		var tile := AppTile.new()
+		tile._ready()
+
+		assert_eq(tile._icon_rect.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_COVERED, "non-square art must crop to fill the icon frame, not shrink to fit inside it with visible gaps")
+
+		tile.free()
+	)
+
 	# 120-app-icon-rounded-mask: real icon art is a plain square PNG with no
 	# rounded corners of its own (see the ticket) -- AppTile must clip/mask
 	# _icon_rect itself to the frame's rounded-rect shape rather than relying
