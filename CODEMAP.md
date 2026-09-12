@@ -170,10 +170,8 @@ Mirrors systems/ and screens/ 1:1 by filename: `tests/test_<name>.gd` tests `sys
 
 | File | Purpose |
 |---|---|
-| pixelize.py | Combat pixel-art pipeline: detect cell size → downsample nearest → strip AA fringe → trim to a fixed canvas. Run on every generated combat asset, no exceptions — see `docs/ART-BIBLE.md` |
-| png_io.py | Pure-stdlib PNG read/write (8-bit RGB/RGBA, non-interlaced) backing pixelize.py — no Pillow dependency |
+| png_io.py | Pure-stdlib PNG read/write (8-bit RGB/RGBA, non-interlaced) — no Pillow dependency |
 | make_palette_swatch.py | Renders `data/palette.json` to `data/palette_swatch.png`; re-run after editing the palette |
-| test_pixelize.py | Self-test for the pixelize pipeline (`python3 tools/test_pixelize.py`) — no external test framework |
 
 ## tools/quest-editor.html — local quest browser + prose editor
 
@@ -214,7 +212,7 @@ See CLAUDE.md source-of-truth table for: REFERENCE.md, M0-PORT.md, M1-LONDON.md,
 | M3-CALC-DISCOVERY.md | Lab/Calc-effect-discovery vision doc — provisional, not yet spec/canon |
 | device-plan-spec.md | Dial device mechanic design log — draft, not yet promoted to REFERENCE.md |
 | combat-animation-vision.md | Combat animation & art direction vision draft |
-| ART-BIBLE.md | Combat pixel-art canon: palette, canvas sizes, lighting rule, generation prompt template, render/import settings — see also `tools/pixelize.py` |
+| ART-BIBLE.md | Combat pixel-art canon: palette, canvas sizes, lighting rule, generation prompt template, render/import settings |
 | BUGS.md | Known-bugs log (as of 2026-07-24) |
 | BUGHUNT-2026-07-17.md | Write-up of a 2026-07-17 headless bug-hunting session |
 | android-setup.md | One-time machine setup + build steps for an installable Android APK |
@@ -225,3 +223,4 @@ See CLAUDE.md source-of-truth table for: REFERENCE.md, M0-PORT.md, M1-LONDON.md,
 | adr/0002-site-lifecycle-and-npc-claims.md | siteCap / NPC-claim eligibility / abandonment interaction rules |
 | adr/0003-app-icon-asset-contract.md | Fixed contract for app-tile icon assets |
 | adr/0004-remove-npc-vein-abandonment.md | Removed NPC-vein abandonment; retuned claim rate + prune-back target |
+| adr/0005-event-image-asset-contract.md | Fixed contract for event-card illustration assets (path/numbering/format/canvas) |

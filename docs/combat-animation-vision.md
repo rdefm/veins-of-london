@@ -407,10 +407,10 @@ board rather than one game. Pipeline discipline, in order:
    plus a swatch PNG, for the mood direction and for shared named-colour uses
    (e.g. `combat_visuals.json` backdrop `fallbackColor`). Generated assets
    are **not** quantised to it.
-2. **Re-gridify.** Generated pixel art is rarely on a true pixel grid and
-   carries anti-aliased fringe. Build `tools/pixelize.py`: detect native cell
-   size → downsample nearest → strip fringe → trim to a fixed canvas. Run it
-   on everything, no exceptions.
+2. **Re-gridify by hand.** Generated pixel art is rarely on a true pixel grid
+   and carries anti-aliased fringe. Re-grid to native cell size, strip
+   fringe, and trim to a fixed canvas by hand before it lands under
+   `assets/` — no automated tool, every asset checked individually.
 3. **Never re-prompt a character.** Generate one canonical sprite per subject,
    then produce every other pose by editing *that image*, or generate all
    keyposes as a **single strip in one generation**. Re-prompting per frame is
@@ -516,8 +516,7 @@ on the back of this work. The seam is deliberate and it is the subject of
 
 ## 10. Ticket order
 
-1. `docs/ART-BIBLE.md` + master palette + `tools/pixelize.py` — **before any
-   asset generation**
+1. `docs/ART-BIBLE.md` + master palette — **before any asset generation**
 2. Beat queue director + persistent combatant nodes — no art; cards still, to
    prove the plumbing separately from the aesthetics
 3. Stage frame, backdrop plates (6), render/import settings (§7)

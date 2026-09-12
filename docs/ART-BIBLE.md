@@ -39,7 +39,7 @@ longer mandatory.)
 `data/palette.json` — **43 colours**, swatch at `data/palette_swatch.png`
 (regenerate with `python3 tools/make_palette_swatch.py` after any edit to
 the JSON). Generated combat art is **not** required to quantise to this
-list — `tools/pixelize.py` no longer has a quantisation step. The palette
+list. The palette
 still backs `combat_visuals.json`'s backdrop `fallbackColor` (resolved via
 `GameData.PALETTE`) and stands as the reference swatch for the mood
 direction below when writing generation prompts.
@@ -70,65 +70,29 @@ Native, at the 390×844 logical viewport:
 | Backdrop plate | 390 × 360 |
 | Effect frame | 96 × 96 |
 | Large effect (`blackHole`) | 160 × 160 |
+| Event thumbnail | 358 × 170 |
 
-`tools/pixelize.py --canvas WxH` takes exactly one of these per invocation.
-Output is centred on a transparent canvas of that size — source content
-larger than the canvas is cropped centred; smaller is padded centred. There
-is no other alignment rule (no floor/feet-anchoring) — if a later ticket
-needs baseline alignment instead of centring, that's a `pixelize.py` change
-to make deliberately, not something to work around per-asset.
+Each row is the exact pixel dimensions a prepared asset is delivered at —
+content is centred on that canvas, cropped if larger, padded if smaller.
+There is no other alignment rule (no floor/feet-anchoring) — a later
+ticket wanting baseline alignment instead of centring makes that change
+deliberately, not by working around it per-asset.
 
-## 4. `tools/pixelize.py`
+## 4. Generation discipline
 
-Pure Python 3 stdlib — no Pillow, no install step. PNG codec lives in
-`tools/png_io.py` (8-bit RGB/RGBA, non-interlaced only — reject anything
-else with a clear error rather than silently mishandling it).
-
-```
-python3 tools/pixelize.py <input.png> <output.png> --canvas 64x104
-```
-
-Pipeline, in order:
-
-1. **Detect native cell size.** Generated art is usually exported upscaled
-   from its true pixel grid (e.g. a genuinely 32×32 sprite exported as a
-   512×512 PNG). `detect_cell_size()` scores every candidate block size by
-   how close the image is to a flat-colour mosaic at that size (fraction of
-   each block occupied by its single most-common exact RGBA value,
-   averaged over all blocks) and picks the **largest** candidate that
-   clears a 0.9 uniformity threshold. This is robust to a thin ring of
-   anti-aliased fringe around the silhouette (it dents a handful of blocks'
-   scores slightly, not the whole image's) in a way a naive column-edge
-   scan isn't — a single stray fringe pixel doesn't collapse detection to
-   cell=1. Override with `--cell N` if a given asset auto-detects wrong.
-2. **Downsample nearest.** One representative pixel per detected cell (its
-   top-left corner) — never averaged. Averaging is exactly the blur this
-   step exists to remove.
-3. **Strip anti-aliased fringe.** Alpha is binarized at `--alpha-threshold`
-   (default 128): below → fully transparent, at/above → fully opaque. Then
-   any opaque pixel with **no** orthogonally-adjacent opaque pixel (a
-   4-connectivity check) is dropped too — a lone speck with no opaque
-   neighbour is always a fringe artifact, never intentional art.
-4. **Trim to canvas.** Centred crop/pad to the exact `--canvas` size.
-
-Self-test (no external test framework, run directly):
-
-```
-python3 tools/test_pixelize.py
-```
-
-Builds a synthetic upscaled sprite with blended fringe and an isolated
-speck in memory, runs the full pipeline, and asserts every stage did its
-job. Run this after any change to `pixelize.py` or `png_io.py`.
+No automated pipeline tool — every generated asset is re-gridded to its
+true native pixel size, cleaned of anti-aliased fringe, and cropped/padded
+to canvas by hand before it lands under `assets/`.
 
 **Never re-prompt a character per frame** (vision §6 step 3) — generate one
 canonical sprite, then edit that image for every other pose, or generate an
-entire keypose strip in a single generation. This is outside pixelize.py's
-job; it's a generation-time discipline the tool can't enforce.
+entire keypose strip in a single generation. Re-prompting per frame is how
+you get a character whose face changes mid-punch — this is a
+generation-time discipline, not something tooling can enforce.
 
 `data/combat_visuals.json` (introduced in ticket 08) maps enemy template
-key → sheet path + animation names; `pixelize.py` produces the sheet files
-that manifest points at, it does not touch the manifest itself.
+key → sheet path + animation names; it does not describe how the sheet
+files themselves are produced.
 
 ## 5. Generation prompt template
 
@@ -159,20 +123,19 @@ Night, Eastward.
 Notes:
 
 - For **combatants**, always request a transparent background explicitly —
-  image models default to a scene, and `pixelize.py`'s fringe-stripping
-  step is much cleaner against clean transparency than against a
-  gradient-matted background.
-- For **backdrop plates**, there is no fringe-stripping step needed (no
-  alpha channel expected) — request an opaque fill edge-to-edge instead.
+  image models default to a scene, and clean transparency is much easier
+  to prepare by hand than fringe-stripping a gradient-matted background.
+- For **backdrop plates**, no fringe-stripping is needed (no alpha channel
+  expected) — request an opaque fill edge-to-edge instead.
 - For a **keypose strip** (attack wind-up/strike/recover, or an idle
   ping-pong pair), generate all frames in one image as a single
   horizontal strip and say so explicitly in the prompt (`"N-frame
   horizontal sprite sheet, consistent character identity across all
   frames"`) — this is what makes identity hold across frames; see vision
   §6 step 3.
-- Every field after `Palette:` is expected to survive `pixelize.py`
-  unaltered — the tool re-grids, strips fringe, and trims to canvas; it
-  doesn't recolour, relight, or repose.
+- Every field after `Palette:` is expected to survive unaltered once the
+  asset is re-gridded/trimmed to canvas — that cleanup doesn't recolour,
+  relight, or repose.
 
 ## 6. Render/import settings (vision §7 — documented here, applied in ticket 08)
 

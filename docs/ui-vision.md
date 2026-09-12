@@ -38,8 +38,7 @@ identity instead.
 ## 2. Family 1 — Physical-world pixel art
 
 **Unchanged in technique.** ART-BIBLE §1–§7 still governs grid, palette
-construction, canvas sizes, `pixelize.py`, and render/import settings in
-full. This section only replaces ART-BIBLE §1's *mood* paragraph and the
+construction, canvas sizes, and render/import settings in full. This section only replaces ART-BIBLE §1's *mood* paragraph and the
 matching lines in §5's prompt template and `data/palette.json`'s
 `meta.direction`.
 

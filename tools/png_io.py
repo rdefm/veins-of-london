@@ -1,8 +1,7 @@
 """Minimal pure-stdlib PNG reader/writer.
 
-Supports exactly what the pixelize pipeline needs: 8-bit-per-channel,
-non-interlaced RGB or RGBA. No external dependencies (no Pillow) so
-tools/pixelize.py runs on a bare Python 3 install.
+Supports 8-bit-per-channel, non-interlaced RGB or RGBA. No external
+dependencies (no Pillow) so callers run on a bare Python 3 install.
 
 Pixel buffer format used throughout: a flat list of length width*height,
 each entry a 4-tuple (r, g, b, a), 0-255.

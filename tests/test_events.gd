@@ -477,6 +477,29 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	# event-images ticket 01: the pilot content wiring on the real "intro"
+	# event -- four real cards (authoring-order indices 1, 2, 6, 14) each
+	# set a different res://assets/events/intro/<n>.png, proving both the
+	# static-image path and the sticky-until-next-entry swap against real
+	# data, not a synthetic fixture, and that the wired files actually
+	# exist on disk (docs/adr/0005-event-image-asset-contract.md).
+	run_case("intro_pilot_images_swap_at_their_wired_cards_and_resolve_to_real_files", func():
+		GameState.reset()
+		Events.start_event("intro")
+		assert_eq(Events.current_image_path(), null, "opening card sets no image")
+
+		var wired_at := { 1: "res://assets/events/intro/1.png", 2: "res://assets/events/intro/2.png", 6: "res://assets/events/intro/3.png", 14: "res://assets/events/intro/4.png" }
+		var expected: Variant = null
+		var card_count: int = GameData.EVENTS["intro"]["cards"].size()
+		for i in range(card_count - 1):
+			Events.advance()
+			var card_index: int = GameState.state["event"]["cardIndex"]
+			if wired_at.has(card_index):
+				expected = wired_at[card_index]
+				assert_true(ResourceLoader.exists(expected), "wired image should exist on disk: %s" % expected)
+			assert_eq(Events.current_image_path(), expected, "card %d's image should be whatever the last wired card set" % card_index)
+	)
+
 	run_case("continue_after_choosing_proceeds_to_the_next_card_and_on_complete_still_runs", func():
 		GameState.reset()
 		var original_events := _install_choice_event()
