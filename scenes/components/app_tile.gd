@@ -241,7 +241,15 @@ func _ensure_built() -> void:
 	# _sprite_rect frozen-visual effect already uses in this codebase.
 	if _icon_mask_shader == null:
 		_icon_mask_shader = Shader.new()
-		_icon_mask_shader.code = "shader_type canvas_item;\nuniform vec2 mask_size = vec2(1.0, 1.0);\nuniform float corner_radius = 0.0;\nfloat rounded_rect_sdf(vec2 p, vec2 size, float radius) {\n\tvec2 q = abs(p - size * 0.5) - (size * 0.5 - vec2(radius));\n\treturn length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;\n}\nvoid fragment() {\n\tvec2 p = UV * mask_size;\n\tfloat d = rounded_rect_sdf(p, mask_size, corner_radius);\n\tCOLOR = texture(TEXTURE, UV);\n\tCOLOR.a *= 1.0 - smoothstep(-1.0, 1.0, d);\n}"
+		# 120-app-icon-rounded-mask: position for the mask comes from VERTEX
+		# (canvas-item local geometry space, always 0..node-size for the
+		# quad actually being drawn), NOT from UV. UV is remapped to the
+		# *source texture's* sampling window under a crop stretch mode like
+		# STRETCH_KEEP_ASPECT_COVERED, so it no longer lines up 0..1 with the
+		# quad's visible edges -- using it for position silently pinned the
+		# rounded cut inside the crop window instead of at the tile's actual
+		# boundary, leaving the rendered square looking completely sharp.
+		_icon_mask_shader.code = "shader_type canvas_item;\nuniform vec2 mask_size = vec2(1.0, 1.0);\nuniform float corner_radius = 0.0;\nvarying vec2 local_pos;\nvoid vertex() {\n\tlocal_pos = VERTEX;\n}\nfloat rounded_rect_sdf(vec2 p, vec2 size, float radius) {\n\tvec2 q = abs(p - size * 0.5) - (size * 0.5 - vec2(radius));\n\treturn length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;\n}\nvoid fragment() {\n\tfloat d = rounded_rect_sdf(local_pos, mask_size, corner_radius);\n\tCOLOR = texture(TEXTURE, UV);\n\tCOLOR.a *= 1.0 - smoothstep(-1.0, 1.0, d);\n}"
 	_icon_mask_material = ShaderMaterial.new()
 	_icon_mask_material.shader = _icon_mask_shader
 	_icon_mask_material.set_shader_parameter("mask_size", Vector2(frame_size, frame_size))
