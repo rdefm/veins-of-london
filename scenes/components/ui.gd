@@ -450,12 +450,18 @@ const ICON_BUTTON_SIZE := 40.0
 # scales it back up to fill the touch target properly.
 const ICON_GLYPH_SCALE := 1.4
 
-static func icon_button(draw_icon: Callable, callback: Callable) -> Button:
+# Bugfixes ticket 101: `colour_override` lets a call site force the glyph's
+# colour instead of relying on the ambient "Button" theme lookup below --
+# needed because add_theme_color_override() set on the *Button* (as
+# top_bar.gd used to do) never reaches this glyph, since it's a separate
+# child Control and Godot 4 theme overrides don't cascade to children (only
+# a full Theme resource assigned via .theme propagates down the tree).
+static func icon_button(draw_icon: Callable, callback: Callable, colour_override: Variant = null) -> Button:
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE)
 	b.pressed.connect(callback)
 
-	var glyph := icon_glyph_control(draw_icon, ICON_GLYPH_SCALE)
+	var glyph := icon_glyph_control(draw_icon, ICON_GLYPH_SCALE, colour_override)
 	anchor_full_rect(glyph)
 	b.add_child(glyph)
 
@@ -467,10 +473,11 @@ static func icon_button(draw_icon: Callable, callback: Callable) -> Button:
 # nested in rather than being consumed here. Factored out of icon_button()
 # above so map_bubble.gd's icon+label option rows (10-map-interaction-model
 # ticket 02) can reuse the same glyph-drawing leaf instead of redeclaring it.
-static func icon_glyph_control(draw_icon: Callable, glyph_scale: float = ICON_GLYPH_SCALE) -> Control:
+static func icon_glyph_control(draw_icon: Callable, glyph_scale: float = ICON_GLYPH_SCALE, colour_override: Variant = null) -> Control:
 	var glyph := _IconGlyph.new()
 	glyph.draw_icon = draw_icon
 	glyph.glyph_scale = glyph_scale
+	glyph.colour_override = colour_override
 	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return glyph
 
@@ -478,10 +485,13 @@ static func icon_glyph_control(draw_icon: Callable, glyph_scale: float = ICON_GL
 class _IconGlyph extends Control:
 	var draw_icon: Callable
 	var glyph_scale: float = ICON_GLYPH_SCALE
+	# Variant, not Color: null means "no override, use the ambient theme
+	# lookup below" -- a Color default couldn't represent "unset".
+	var colour_override: Variant = null
 
 	func _draw() -> void:
 		if draw_icon.is_valid():
-			var colour: Color = get_theme_color("font_color", "Button")
+			var colour: Color = colour_override if colour_override != null else get_theme_color("font_color", "Button")
 			draw_icon.call(self, size / 2.0, colour, glyph_scale)
 
 

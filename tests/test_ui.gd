@@ -153,6 +153,30 @@ func run() -> void:
 		b.free()
 	)
 
+	# Bugfixes ticket 101: the drawn glyph is a separate child _IconGlyph
+	# Control, not the Button itself -- add_theme_color_override("font_color",
+	# ...) set on the Button (top_bar.gd's old approach) never reaches it,
+	# since Godot 4 theme overrides don't cascade to children. colour_override
+	# is the fix: it's threaded straight onto the glyph, bypassing the theme
+	# lookup entirely, so a caller can force the icon's colour regardless of
+	# ambient theme.
+	run_case("icon_button_colour_override_is_threaded_onto_the_glyph_not_the_button", func():
+		var b := UI.icon_button(Icons.draw_bag, func(): pass, Color.RED)
+		var glyph: Control = b.get_child(0)
+		assert_eq(glyph.colour_override, Color.RED, "colour_override reaches the glyph child directly")
+		assert_true(not b.has_theme_color_override("font_color"), "the fix must not fall back to a Button-level theme override, which doesn't reach the glyph")
+
+		b.free()
+	)
+
+	run_case("icon_button_with_no_colour_override_keeps_the_ambient_theme_lookup", func():
+		var b := UI.icon_button(Icons.draw_bag, func(): pass)
+		var glyph: Control = b.get_child(0)
+		assert_eq(glyph.colour_override, null, "no override was requested, so _draw() must still fall back to get_theme_color(\"font_color\", \"Button\")")
+
+		b.free()
+	)
+
 	# Bugfixes ticket 16: PanelContainer defaults to MOUSE_FILTER_STOP, unlike
 	# plain Container subclasses (PASS by default) -- a card built with the
 	# engine default swallows a drag gesture before it reaches an ancestor

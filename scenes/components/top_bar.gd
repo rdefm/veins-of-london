@@ -42,13 +42,18 @@ func _ready() -> void:
 	_board.reserved_right = UI.ICON_BUTTON_SIZE + _SIDE_MARGIN * 2.0
 	add_child(_board)
 
-	_bag_button = UI.icon_button(Icons.draw_bag, func(): Bag.open())
+	# Bugfixes ticket 101: passing LIT_COLOR as icon_button()'s
+	# colour_override (rather than add_theme_color_override("font_color", ...)
+	# on the Button, which was the previous approach) is required here --
+	# the drawn glyph is a separate child _IconGlyph Control
+	# (scenes/components/ui.gd), and Godot 4 theme overrides set on a node
+	# don't cascade to its children, so the Button-level override never
+	# reached the glyph's own get_theme_color("font_color", "Button")
+	# lookup. That lookup fell through to the default theme's dark Button
+	# font colour, rendering the icon as near-black against this board's
+	# black background instead of the intended amber.
+	_bag_button = UI.icon_button(Icons.draw_bag, func(): Bag.open(), DotMatrixBoard.LIT_COLOR)
 	_bag_button.flat = true
-	# The icon glyph reads its colour via get_theme_color("font_color",
-	# "Button") (scenes/components/ui.gd's _IconGlyph) -- override it to the
-	# board's own amber so the icon is visible against the now-black strip
-	# instead of the theme's default dark font colour.
-	_bag_button.add_theme_color_override("font_color", DotMatrixBoard.LIT_COLOR)
 	_bag_button.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
 	_bag_button.offset_left = -UI.ICON_BUTTON_SIZE - _SIDE_MARGIN
 	_bag_button.offset_right = -_SIDE_MARGIN

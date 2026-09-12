@@ -112,3 +112,21 @@ func run() -> void:
 
 		bar.free()
 	)
+
+	run_case("the_bag_icon_renders_the_boards_lit_amber_not_the_theme_default", func():
+		# Bugfixes ticket 101: the icon rendered near-black against the
+		# board's black background because the old fix -- an
+		# add_theme_color_override("font_color", ...) set on _bag_button --
+		# never reached the drawn glyph, a separate child _IconGlyph Control
+		# (Godot 4 theme overrides don't cascade to children). Guards that
+		# the glyph itself now carries the board's lit amber directly.
+		GameState.reset()
+
+		var bar := TopBar.new()
+		bar._ready()
+
+		var glyph: Control = bar._bag_button.get_child(0)
+		assert_eq(glyph.colour_override, DotMatrixBoard.LIT_COLOR, "the bag icon glyph is forced to the board's lit amber")
+
+		bar.free()
+	)
