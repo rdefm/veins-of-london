@@ -33,7 +33,15 @@ const FRAME_SIZE := 56.0
 const BADGE_SIZE := 12.0
 const NAME_FONT_SIZE := 12
 const FALLBACK_FONT_SIZE := 10
-const FRAME_CORNER_RADIUS := 14
+
+# 120-app-icon-rounded-mask: proportional to frame size (~22%, human-picked
+# after eyeballing both frame sizes) rather than one fixed pixel value for
+# both — the old single FRAME_CORNER_RADIUS=14 read fine on the 56px dock
+# frame but noticeably flatter on the 76px large frame. Now drives both the
+# fallback-chip StyleBoxFlat radius AND the real-art icon mask radius below,
+# so the two always agree.
+const FRAME_CORNER_RADIUS := 12
+const LARGE_FRAME_CORNER_RADIUS := 17
 
 # bugfixes-60: the phone home grid wants a visibly bigger icon+label tile
 # than the dock (nav_bar.gd) does -- the dock is a fixed BAR_HEIGHT=64
@@ -99,6 +107,13 @@ static func _palette(id: String, fallback: Color) -> Color:
 	return GameData.PALETTE.get(id, fallback)
 
 
+# 120-app-icon-rounded-mask: one compiled Shader shared across every AppTile
+# instance (a screen like the home grid builds several at once) -- only the
+# per-instance ShaderMaterial + its rect_size/corner_radius uniform values
+# need to differ per tile, not the shader program itself.
+static var _icon_mask_shader: Shader
+
+
 signal tile_pressed(app_id: String)
 
 var _app_id: String = ""
@@ -106,6 +121,7 @@ var _frame: Control
 var _background: Panel
 var _frame_style: StyleBoxFlat
 var _icon_rect: TextureRect
+var _icon_mask_material: ShaderMaterial
 var _fallback_label: Label
 var _lock_overlay: _LockOverlay
 var _badge: _BadgeDot
@@ -148,6 +164,7 @@ func _ensure_built() -> void:
 	var badge_size := LARGE_BADGE_SIZE if _large else BADGE_SIZE
 	var name_font_size := LARGE_NAME_FONT_SIZE if _large else NAME_FONT_SIZE
 	var fallback_font_size := LARGE_FALLBACK_FONT_SIZE if _large else FALLBACK_FONT_SIZE
+	var frame_corner_radius := LARGE_FRAME_CORNER_RADIUS if _large else FRAME_CORNER_RADIUS
 
 	custom_minimum_size = LARGE_TILE_SIZE if _large else TILE_SIZE
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -184,10 +201,10 @@ func _ensure_built() -> void:
 	_frame_style.border_width_right = 1
 	_frame_style.border_width_bottom = 1
 	_frame_style.border_color = FRAME_BORDER_COLOUR
-	_frame_style.corner_radius_top_left = FRAME_CORNER_RADIUS
-	_frame_style.corner_radius_top_right = FRAME_CORNER_RADIUS
-	_frame_style.corner_radius_bottom_right = FRAME_CORNER_RADIUS
-	_frame_style.corner_radius_bottom_left = FRAME_CORNER_RADIUS
+	_frame_style.corner_radius_top_left = frame_corner_radius
+	_frame_style.corner_radius_top_right = frame_corner_radius
+	_frame_style.corner_radius_bottom_right = frame_corner_radius
+	_frame_style.corner_radius_bottom_left = frame_corner_radius
 	_background.add_theme_stylebox_override("panel", _frame_style)
 	_frame.add_child(_background)
 
@@ -208,6 +225,22 @@ func _ensure_built() -> void:
 	_icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_icon_rect.visible = false
 	_frame.add_child(_icon_rect)
+
+	# 120-app-icon-rounded-mask: clip the icon texture itself to a rounded
+	# rect matching the frame, independent of whether the source art is a
+	# plain square PNG or already has rounded corners baked in — Control has
+	# no built-in corner-radius clip (only StyleBoxFlat panels draw rounded),
+	# so this is a per-pixel alpha mask via an SDF distance-to-rounded-rect
+	# in a canvas_item shader, same inline-shader-string approach combat.gd's
+	# _sprite_rect frozen-visual effect already uses in this codebase.
+	if _icon_mask_shader == null:
+		_icon_mask_shader = Shader.new()
+		_icon_mask_shader.code = "shader_type canvas_item;\nuniform vec2 mask_size = vec2(1.0, 1.0);\nuniform float corner_radius = 0.0;\nfloat rounded_rect_sdf(vec2 p, vec2 size, float radius) {\n\tvec2 q = abs(p - size * 0.5) - (size * 0.5 - vec2(radius));\n\treturn length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;\n}\nvoid fragment() {\n\tvec2 p = UV * mask_size;\n\tfloat d = rounded_rect_sdf(p, mask_size, corner_radius);\n\tCOLOR = texture(TEXTURE, UV);\n\tCOLOR.a *= 1.0 - smoothstep(-1.0, 1.0, d);\n}"
+	_icon_mask_material = ShaderMaterial.new()
+	_icon_mask_material.shader = _icon_mask_shader
+	_icon_mask_material.set_shader_parameter("mask_size", Vector2(frame_size, frame_size))
+	_icon_mask_material.set_shader_parameter("corner_radius", float(frame_corner_radius))
+	_icon_rect.material = _icon_mask_material
 
 	# 09-family-2-chrome-phone-apps, ui-vision.md §10: the home grid runs a
 	# dark device shell top to bottom -- both text fallbacks need to be

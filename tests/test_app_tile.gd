@@ -256,6 +256,38 @@ func run() -> void:
 		tile.free()
 	)
 
+	# 120-app-icon-rounded-mask: real icon art is a plain square PNG with no
+	# rounded corners of its own (see the ticket) -- AppTile must clip/mask
+	# _icon_rect itself to the frame's rounded-rect shape rather than relying
+	# on art baking that in. Pixel-level corner inspection isn't available
+	# headless, so this asserts the mechanism (a ShaderMaterial applied,
+	# sized/radiused to match the frame it's clipping) rather than pixels.
+	run_case("the_icon_rect_is_masked_to_a_rounded_rect_matching_the_frame", func():
+		var tile := AppTile.new()
+		tile._ready()
+
+		var big_texture := PlaceholderTexture2D.new()
+		big_texture.size = Vector2(512, 512)
+		tile.configure({ "id": "property", "label": "Harrow's", "icon": big_texture })
+
+		assert_true(tile._icon_rect.material is ShaderMaterial, "the icon is clipped via a shader mask, not left to the raw texture's own corners")
+		var mat: ShaderMaterial = tile._icon_rect.material
+		assert_eq(mat.get_shader_parameter("mask_size"), Vector2(AppTile.FRAME_SIZE, AppTile.FRAME_SIZE), "the mask is sized to the dock frame")
+		assert_eq(mat.get_shader_parameter("corner_radius"), float(AppTile.FRAME_CORNER_RADIUS), "the mask radius matches the dock frame's own corner radius")
+
+		tile.free()
+
+		var large_tile := AppTile.new(true)
+		large_tile._ready()
+		large_tile.configure({ "id": "property", "label": "Harrow's", "icon": big_texture })
+
+		var large_mat: ShaderMaterial = large_tile._icon_rect.material
+		assert_eq(large_mat.get_shader_parameter("mask_size"), Vector2(AppTile.LARGE_FRAME_SIZE, AppTile.LARGE_FRAME_SIZE), "the mask is sized to the large home-grid frame")
+		assert_eq(large_mat.get_shader_parameter("corner_radius"), float(AppTile.LARGE_FRAME_CORNER_RADIUS), "the mask radius matches the large frame's own corner radius")
+
+		large_tile.free()
+	)
+
 	run_case("reconfigure_replaces_the_previous_state_rather_than_accumulating_it", func():
 		var tile := AppTile.new()
 		tile._ready()

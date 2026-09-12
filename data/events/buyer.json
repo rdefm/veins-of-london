@@ -12,7 +12,7 @@
     { "type": "resolution", "label": "Walking back — Shoreditch High Street", "speaker": null, "text": "Archie splits the cash on the pavement outside a Pret. The city moves around you, completely indifferent to any of this." },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"So. I've got a contact who knows a lot more about this than I do. Bloke called James — craftsman, Bermondsey. Takes raw calc and makes things out of it. Like the pearls. I've been meaning to introduce you.\"" },
     { "type": "speaker", "label": null, "speaker": "You", "text": "\"Sure.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"I'll set it up. Give me a couple of days.\"" }
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"I'll set it up. Give me a bell tomorrow.\"" }
   ],
   "on_complete": [
     { "op": "add", "path": "player.cash", "value": 40 },
