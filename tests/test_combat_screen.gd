@@ -133,6 +133,18 @@ static func _deck_buttons(root: Node) -> Array[Button]:
 	return buttons
 
 
+# ui-chrome-pass ticket 04: Attack/Item/Leg it action cards no longer carry
+# an identifying raw-emoji Button.text (replaced with a drawn icons.gd
+# glyph child, see combat.gd's _build_action_card()'s own comment) -- the
+# button is named "ActionButton_<kind>" instead ("attack"/"item"/"run"),
+# so tests look the card up by that name rather than by its old emoji text.
+static func _deck_button_named(root: Node, icon_kind: String) -> Button:
+	for b in _deck_buttons(root):
+		if b.name == "ActionButton_%s" % icon_kind:
+			return b
+	return null
+
+
 func _dial(loaded_recipe_keys: Array, current_charge: int = 3, max_charge: int = 5) -> Dictionary:
 	var loaded: Array = []
 	for key in loaded_recipe_keys:
@@ -425,15 +437,13 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		# combat-presentation ticket 18: each action block's Button now carries
-		# only the bare emoji (see _build_action_card()'s own comment for why);
-		# the word label moved to a separate caption Label alongside it.
-		var texts: Array = []
-		for b in _deck_buttons(screen):
-			texts.append(b.text)
-		assert_true(texts.has("⚔"), "Attack must still be offered, same handler as the old flat action bar")
-		assert_true(texts.has("🏃"), "Leg it must still be offered")
-		assert_true(texts.has("🎒"), "Item must still be offered")
+		# ui-chrome-pass ticket 04: each action block's Button now carries a
+		# drawn icons.gd glyph instead of raw emoji text (see
+		# _build_action_card()'s own comment for why) -- looked up by name
+		# instead of by the old emoji Button.text.
+		assert_true(_deck_button_named(screen, "attack") != null, "Attack must still be offered, same handler as the old flat action bar")
+		assert_true(_deck_button_named(screen, "run") != null, "Leg it must still be offered")
+		assert_true(_deck_button_named(screen, "item") != null, "Item must still be offered")
 
 		var captions: Array = []
 		for l in screen.find_children("", "Label", true, false):
@@ -452,10 +462,7 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		var item_button: Button = null
-		for b in _deck_buttons(screen):
-			if b.text == "🎒":
-				item_button = b
+		var item_button := _deck_button_named(screen, "item")
 		assert_true(item_button != null)
 		assert_true(item_button.disabled, "no consumables and no loaded Dial -- Item should stay disabled, same gate _build_action_bar() used")
 
@@ -474,11 +481,8 @@ func run() -> void:
 		screen._ready()
 
 		var expected: Color = GameData.PALETTE.get("ui_action_red", CombatScreen._ACTION_COLOR_FALLBACK)
-		var attack_button: Button = null
+		var attack_button := _deck_button_named(screen, "attack")
 		var attack_caption: Label = null
-		for b in _deck_buttons(screen):
-			if b.text == "⚔":
-				attack_button = b
 		for l in screen.find_children("", "Label", true, false):
 			if l.text == "Attack":
 				attack_caption = l
@@ -501,11 +505,8 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		var item_button: Button = null
+		var item_button := _deck_button_named(screen, "item")
 		var item_caption: Label = null
-		for b in _deck_buttons(screen):
-			if b.text == "🎒":
-				item_button = b
 		for l in screen.find_children("", "Label", true, false):
 			if l.text == "Item":
 				item_caption = l
@@ -658,13 +659,14 @@ func run() -> void:
 
 		# _deck_buttons() finds every Button in the whole screen (including,
 		# e.g., the pacing toggle up in the heading row) -- narrow down to the
-		# actual action-deck cards by their bare-emoji label (ticket 18: the
-		# word moved to a separate caption Label, see _build_action_card()'s
-		# own comment) so this only checks their layout.
-		var action_labels := ["⚔", "🎒", "🏃"]
+		# actual action-deck cards by name (ui-chrome-pass ticket 04:
+		# "ActionButton_<kind>", see _build_action_card()'s own comment; the
+		# word label is a separate caption Label alongside it) so this only
+		# checks their layout.
 		var buttons: Array[Button] = []
-		for b in _deck_buttons(screen):
-			if action_labels.has(b.text):
+		for kind in ["attack", "item", "run"]:
+			var b := _deck_button_named(screen, kind)
+			if b != null:
 				buttons.append(b)
 		assert_true(buttons.size() >= 2, "sanity: the action deck's buttons must still be present")
 		# ui-chrome-pass ticket 03 (human direction, 2026-09-11): the action
@@ -785,8 +787,9 @@ func run() -> void:
 		# _ready()'s own comment) -- checked there so this doesn't silently
 		# pass vacuously (0 buttons found) against the wrong container.
 		var found_any := false
-		for b in _deck_buttons(screen._command_dock):
-			if ["⚔", "🎒", "🏃"].has(b.text):
+		for kind in ["attack", "item", "run"]:
+			var b := _deck_button_named(screen._command_dock, kind)
+			if b != null:
 				found_any = true
 				assert_true(b.size_flags_vertical != Control.SIZE_EXPAND_FILL, "an action card's icon button must not expand to fill the Dial's own height any more -- that stretch is what made the cards read as squashed pillars")
 		assert_true(found_any, "sanity: the action deck's buttons must actually have been found and checked")

@@ -1827,10 +1827,11 @@ func _build_dial_and_actions_row(player: Dictionary) -> void:
 # the recipe's own symbol (or a generic diamond fallback -- SymbolGlyph.
 # generic_fallback(), same "no per-glyph art commissioned" placeholder
 # dial_widget.gd's own Complication-detail row used to reuse) standing in
-# for the emoji Button icon the other cards use, since a Button can't render
-# these ~19 recipe/movement symbols (ThemeDB.fallback_font doesn't cover
-# them -- exactly what SymbolGlyph exists to work around, see that file's
-# own header comment). Text trimmed to just the recipe name and tier -- the
+# for the drawn Icons glyph the other cards use (ui-chrome-pass ticket 04),
+# since a Button can't render these ~19 recipe/movement symbols
+# (ThemeDB.fallback_font doesn't cover them -- exactly what SymbolGlyph
+# exists to work around, see that file's own header comment). Text trimmed
+# to just the recipe name and tier -- the
 # charge-status line ("Tap ⇄ to cast (1 charge)") this card used to also
 # carry doesn't fit this format and is dropped; DialWidget's own overlay
 # already reads charge state visually (the needle, and the trigger-switch
@@ -1899,7 +1900,7 @@ func _build_action_deck(player: Dictionary) -> Control:
 	# same size/format as the cards below it -- see _build_complication_detail()'s
 	# own comment.
 	col.add_child(_build_complication_detail(player["dial"]))
-	col.add_child(_build_action_card("⚔", "Attack", _on_attack_pressed))
+	col.add_child(_build_action_card("attack", "Attack", _on_attack_pressed))
 
 	# calc-effect-wiring-02/03: blast/shield/blackHole/healingBurst, then
 	# prophetsBreath/wormhole, added to the same "has anything to use" check
@@ -1912,8 +1913,8 @@ func _build_action_deck(player: Dictionary) -> Control:
 		or Crafting.inventory_qty("prophetsBreath") > 0 or Crafting.inventory_qty("wormhole") > 0
 		or (player["dial"] != null and not player["dial"]["loadedComplications"].is_empty())
 	)
-	col.add_child(_build_action_card("🎒", "Item", func(): Bag.open(), not has_items))
-	col.add_child(_build_action_card("🏃", "Leg it", _on_run_pressed))
+	col.add_child(_build_action_card("item", "Item", func(): Bag.open(), not has_items))
+	col.add_child(_build_action_card("run", "Leg it", _on_run_pressed))
 
 	if _director.is_playing():
 		col.add_child(_build_action_card("⏭", "Skip", func(): _director.skip_to_end()))
@@ -1962,26 +1963,51 @@ func _action_card_button_style(accent: Color, alpha: float) -> StyleBoxFlat:
 
 
 # ui-chrome-pass ticket 03 (human direction, 2026-09-11): icon and caption
-# now sit side by side in one row (a bare Button, plain emoji text --
-# deliberately NOT UI.button(), whose text-driven minimum-width reservation
-# is sized for a full word like "⚔ Attack" and would fight the caption
-# Label for space) rather than stacked icon-above-caption -- that vertical
-# stack is what let ticket 18's cards get stretched into tall, narrow,
-# squashed-looking pillars once 3 of them had to share a row beside a real
-# "large prop"-sized Dial (see _build_action_deck()'s own comment for why
-# this is a vertical stack of these horizontal bars now, not a horizontal
-# row of them). custom_minimum_size on the icon keeps it from collapsing to
-# nothing now that it isn't the caption's own natural width driving the
-# block's minimum any more (UI.label(), which already wraps/clips per its
-# own MAX_LABEL_TEXT_WIDTH cap).
+# now sit side by side in one row (a bare Button -- deliberately NOT
+# UI.button(), whose text-driven minimum-width reservation is sized for a
+# full word like "Attack" and would fight the caption Label for space)
+# rather than stacked icon-above-caption -- that vertical stack is what let
+# ticket 18's cards get stretched into tall, narrow, squashed-looking
+# pillars once 3 of them had to share a row beside a real "large prop"-sized
+# Dial (see _build_action_deck()'s own comment for why this is a vertical
+# stack of these horizontal bars now, not a horizontal row of them).
+# custom_minimum_size on the icon keeps it from collapsing to nothing now
+# that it isn't the caption's own natural width driving the block's minimum
+# any more (UI.label(), which already wraps/clips per its own
+# MAX_LABEL_TEXT_WIDTH cap).
+#
+# ui-chrome-pass ticket 04 (confirmed by screenshot): the button used to
+# carry the card's raw emoji ("⚔"/"🎒"/"🏃") as plain Button.text. Attack's
+# "⚔" (Miscellaneous Symbols block) rendered fine, but Item's "🎒" rendered
+# as nothing at all -- Godot's bundled font has no colour-emoji glyphs for
+# the Supplementary Multilingual Plane characters "🎒"/"🏃" live in, the
+# same font gap draw_home()'s/draw_hamburger()'s own icons.gd header
+# comments already document for other emoji this project has replaced.
 const _ACTION_CARD_ICON_SIZE := 40.0
 
-func _build_action_card(symbol: String, label_text: String, callback: Callable, disabled: bool = false) -> Control:
+# ui-chrome-pass ticket 04: the recognised drawn-icon kinds this func can
+# render via icons.gd, keyed the same as _build_action_deck()'s own calls
+# ("attack"/"item"/"run"). Not every caller passes a recognised kind --
+# _build_action_deck()'s "Skip" card still passes a literal glyph ("⏭",
+# Miscellaneous Symbols block, confirmed to render fine on-device same as
+# Attack's old "⚔") -- see the `disabled` fallback branch below for how
+# that's told apart from a real icon kind.
+static func _action_icon_draw_fn(icon_kind: String) -> Callable:
+	match icon_kind:
+		"attack":
+			return Icons.draw_attack
+		"item":
+			return Icons.draw_bag
+		"run":
+			return Icons.draw_run
+		_:
+			return Callable()
+
+
+func _build_action_card(icon_kind: String, label_text: String, callback: Callable, disabled: bool = false) -> Control:
 	var accent: Color = _ACTION_CARD_DISABLED_COLOR if disabled else _action_color()
 
 	var button := Button.new()
-	button.text = symbol
-	button.clip_text = true
 	button.disabled = disabled
 	button.add_theme_stylebox_override("normal", _action_card_button_style(accent, 0.0))
 	button.add_theme_stylebox_override("hover", _action_card_button_style(accent, 0.14))
@@ -1992,6 +2018,23 @@ func _build_action_card(symbol: String, label_text: String, callback: Callable, 
 	button.add_theme_color_override("font_pressed_color", accent)
 	button.add_theme_color_override("font_disabled_color", accent)
 	button.pressed.connect(callback)
+
+	# ui-chrome-pass ticket 04: a recognised kind draws its icons.gd glyph
+	# (same UI.icon_glyph_control()/anchor_full_rect() combo top_bar.gd's
+	# bag button already uses -- the glyph reads its colour from this
+	# Button's own font_color override, walking up the theme-owner chain,
+	# same as that shipped precedent) rather than setting Button.text; an
+	# unrecognised kind (Skip's literal "⏭") falls back to the original
+	# plain-glyph-text behaviour untouched.
+	var draw_icon := _action_icon_draw_fn(icon_kind)
+	if draw_icon.is_valid():
+		button.name = "ActionButton_%s" % icon_kind
+		var glyph := UI.icon_glyph_control(draw_icon, UI.ICON_GLYPH_SCALE)
+		UI.anchor_full_rect(glyph)
+		button.add_child(glyph)
+	else:
+		button.text = icon_kind
+		button.clip_text = true
 
 	return _build_card_bar(button, label_text, accent, callback)
 

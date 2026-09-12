@@ -15,6 +15,13 @@ extends RefCounted
 # so the ticket treats it as an approved, deliberate exception to "exactly
 # 8, nothing added" rather than scope creep.
 #
+# ui-chrome-pass ticket 04 adds two more draw_* funcs (`draw_attack`,
+# `draw_run`) for combat.gd's action cards, same "replace a non-rendering
+# emoji" motive as ticket 13's hamburger. These are NOT added to KINDS,
+# though: KINDS is specifically the Network Map's own fixed glyph-legend
+# set (see docs/M1.5-NETWORK-MAP.md), and these two glyphs belong to
+# combat, not the map -- so KINDS staying at 9 is correct, not stale.
+#
 # Every draw_* takes the CanvasItem currently mid-_draw() (the same
 # target-param idiom map_canvas.gd already used for its pin/padlock
 # shapes, since draw_* calls always apply to whichever CanvasItem is
@@ -140,3 +147,52 @@ static func draw_hamburger(target: CanvasItem, center: Vector2, colour: Color, s
 	for i in 3:
 		var y := -s * 0.7 + i * (s * 0.7)
 		target.draw_line(center + Vector2(-s, y), center + Vector2(s, y), colour, 1.5 * scale)
+
+
+# ui-chrome-pass ticket 04: combat.gd's Attack action card, replacing the
+# "⚔" text glyph (a Miscellaneous-Symbols-block character that DOES render
+# on-device, unlike Item's SMP emoji below — see that ticket for the
+# screenshot evidence) with a drawn icon anyway, for the same "no reliance
+# on font emoji coverage" reason every other action-card glyph now uses.
+# Two crossed blade lines with a short perpendicular guard mark near each
+# hilt end (kept near the centre, opposite the blade tips) so the shape
+# reads as crossed swords rather than a bare "X". Not added to KINDS — that
+# array is the Network Map's own fixed glyph-legend set (see this file's
+# header comment); this glyph belongs to the combat screen only.
+static func draw_attack(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	var s := 7.0 * scale
+	_draw_blade(target, center, Vector2(-s, s), Vector2(s, -s), colour, scale)
+	_draw_blade(target, center, Vector2(s, s), Vector2(-s, -s), colour, scale)
+
+
+static func _draw_blade(target: CanvasItem, center: Vector2, hilt_offset: Vector2, tip_offset: Vector2, colour: Color, scale: float) -> void:
+	var hilt := center + hilt_offset
+	var tip := center + tip_offset
+	target.draw_line(hilt, tip, colour, 1.8 * scale)
+	var dir := (tip - hilt).normalized()
+	var perp := Vector2(-dir.y, dir.x)
+	var guard := hilt + dir * (2.2 * scale)
+	target.draw_line(guard - perp * 2.5 * scale, guard + perp * 2.5 * scale, colour, 1.5 * scale)
+
+
+# ui-chrome-pass ticket 04: combat.gd's "Leg it" action card, replacing the
+# "🏃" text glyph — confirmed by screenshot to render as nothing on-device
+# (a Supplementary Multilingual Plane emoji the bundled font has no glyph
+# for, same gap draw_home's/draw_bag's own header comments already
+# document for other emoji this project replaced). A minimal running
+# silhouette: head, a leaning torso, a forward bent leg, a trailing back
+# leg, and a back-swung arm — line-drawn like every other multi-stroke
+# glyph in this file (draw_market/draw_news/draw_hamburger), not a filled
+# polygon. Not added to KINDS, same reason draw_attack above isn't.
+static func draw_run(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	var s := 6.0 * scale
+	var head := center + Vector2(s * 0.3, -s * 1.6)
+	target.draw_circle(head, s * 0.35, colour)
+	var torso_top := head + Vector2(0, s * 0.35)
+	var torso_bottom := center + Vector2(-s * 0.1, s * 0.2)
+	target.draw_line(torso_top, torso_bottom, colour, 1.6 * scale)
+	target.draw_line(torso_bottom, center + Vector2(s * 0.9, s * 0.6), colour, 1.6 * scale)
+	target.draw_line(center + Vector2(s * 0.9, s * 0.6), center + Vector2(s * 1.3, s * 1.3), colour, 1.6 * scale)
+	target.draw_line(torso_bottom, center + Vector2(-s * 0.9, s * 0.3), colour, 1.6 * scale)
+	target.draw_line(center + Vector2(-s * 0.9, s * 0.3), center + Vector2(-s * 1.3, s * 1.0), colour, 1.6 * scale)
+	target.draw_line(torso_top, center + Vector2(-s * 0.9, -s * 0.3), colour, 1.6 * scale)

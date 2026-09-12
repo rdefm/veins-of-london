@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://blkg10b6876d4"]
+
+[ext_resource type="Script" path="res://scenes/_tmp_icon_preview.gd" id="1_qlnb6"]
+
+[node name="Preview" type="Control" unique_id=875111824]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_qlnb6")
