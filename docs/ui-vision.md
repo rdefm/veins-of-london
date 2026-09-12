@@ -3,7 +3,8 @@
 **Status:** Vision + buildable spec, agreed with the human in a grilling
 session, 2026-09-09; Family 4 detailed in a further grilling session,
 2026-09-10 (§5 below); Family 2 detailed 2026-09-11 (§10 below, pending
-human confirmation per that section's own note). Supersedes every "parchment" / "ink, paper, amber"
+human confirmation per that section's own note); Event/dialogue cards
+detailed 2026-09-12 (§11 below). Supersedes every "parchment" / "ink, paper, amber"
 reference anywhere in the docs — that framing is retired outright, not
 softened. Where this document and `docs/ART-BIBLE.md` disagree on pixel
 technique (grid, canvas sizes, pipeline, render settings), ART-BIBLE still
@@ -220,6 +221,7 @@ log are one material, confirmed dot-matrix (resolved 2026-09-10):**
 | HQ floorplan | Estate-agent particulars (already the in-fiction frame per `hq-diorama-vision.md` §6) |
 | HQ Train panel | Generic Family-4 chrome, no bespoke object; carries `combat-presentation`-pattern ticket 08's training animation — no workout-app visual mimicry |
 | Ore-store readout | A handwritten inventory slip — running totals per ore type, in hand, the kind of thing someone updates every time stock moves. The existing raid-warning line (`_build_hq_ore_readout()`) rides the same slip rather than a separate element |
+| Event/dialogue cards (`scenes/screens/event.gd`) | Generic Family-4 chrome, no bespoke object, plus a persistent pixel-art image slot — **detailed spec: §11** |
 
 Every row is now resolved. What's left is implementation detail, tracked
 in §9.
@@ -233,7 +235,10 @@ palette and accent rules in §6, and the typography in §7.
   reads only** — this was already ART-BIBLE's rule; the screenshots that
   prompted this document violate it (every button is amber regardless of
   meaning) and that's the bug, not the target. Enforced from here on: if
-  it's gold, it means calc or cash, full stop.
+  it's gold, it means calc or cash, full stop. **One narrow, documented
+  exception (§11):** a "craft" event card may also carry `calc_gold` panel
+  styling, since crafting is inherently a calc-spend action — scoped to
+  that one card type only, not a general loosening of this rule.
 - **Ordinary buttons/actions across Families 2–4 use a new accent:
   pillar-box/bus red** — Royal Mail red / Routemaster red register.
   Civic-London, not tied to any one faction, and distinct from the
@@ -322,6 +327,9 @@ Reasoning:
   phone" — needs its own detailing pass (icon grid, list/detail patterns,
   per-app layout) the way HQ and combat got.~~ — **resolved 2026-09-11**,
   see §10 (pending the human confirmation that section's own note flags).
+- ~~Event/dialogue cards (`scenes/screens/event.gd`) hardcode their own
+  placeholder amber/danger constants, never assigned to a family~~ —
+  **resolved 2026-09-12**, see §11.
 - Shared `ModalLayer` (`modal_layer.gd`) generic vector-chrome treatment —
   deliberately out of scope here (family-agnostic plumbing, §5).
 - File a ticket to rename "Run" → "Leg it" in `combat.gd`'s
@@ -491,3 +499,106 @@ are indicative, not locked the way `ui_action_red`'s hex is in §6 — pick
 final values when the implementation ticket lands and lock them the same
 way. Real per-app icon glyph art (the nine `.png` files the asset contract
 expects). Exact corner radius/spacing now that the frame border is gone.
+
+## 11. Event/dialogue cards, detailed spec (session 2026-09-12)
+
+Closes the gap flagged in `.scratch/ui-chrome-pass/issues/10-events-ui-design-spec.md`:
+`scenes/screens/event.gd` (the generic event-card screen driven by
+`state.event`, covering district events and story-beat events alike)
+hardcodes its own `AMBER_COLOR`/`AMBER_BG`/`DANGER_COLOR` constants, never
+touched by any family reskin, and §5's table never assigned it anywhere.
+**Design note only — no code changed by this pass.**
+
+**Family: Family 4, generic chrome, no bespoke object.** §5's own
+definition of Family 4 ("everything persistent or in-scene that is neither
+inside a phone app, nor the tube diagram, nor a literal pixel-art object")
+covers the event screen by construction — this isn't a fresh family
+decision, just applying the definition. Within Family 4, this lands in the
+"no inherent diegetic identity" bucket alongside combat's action cards and
+the HQ Train panel, not the "curated real-object reference" bucket
+(departure board, estate-agent particulars): an event card is a plain
+content container, not an object that itself carries information. Entries
+keep their current boxed-panel shape (`UI.card()`) — not Family 2's
+chat-bubble pattern — since event prose runs long and mixes label/speaker/
+body in ways a bubble shape handles poorly; only the palette changes.
+
+**Card-type-by-card-type treatment** (the six types `systems/events.gd`'s
+schema supports: narration, speaker, tension, resolution, craft, choice):
+
+| Type | Treatment |
+|---|---|
+| narration | Plain `UI.card()`, cream fill, no accent. Unchanged. |
+| speaker | Plain card + bold heading (`UI.heading()`) for the speaker name above the body text. Mechanism unchanged from today. |
+| tension | Plain cream fill kept; the border/left-stripe recolours to the *shared* `MapStyle.DANGER_COLOUR` constant (not a private duplicate — `event.gd`'s current `DANGER_COLOR` is numerically identical to it already, so this is a wiring fix, not a redesign) — matches the danger idiom already used in `map.gd`/`vein_list.gd` (tinted warning text/rings), rather than inventing a bespoke event-only danger treatment. The tinted-cream fill is dropped; only the border carries the accent. |
+| craft | Amber panel **kept**, per the documented §6 exception above — border `calc_gold`, fill `calc_gold_light` (`data/palette.json`), replacing the old private `AMBER_COLOR`/`AMBER_BG` constants with the named, shared palette entries. |
+| resolution (synthetic entry spliced in after a resolved choice, `Events.revealed_cards()`) | Identical to narration, no marker — it already reads as a direct continuation of the choice moment. |
+| choice | Prompt renders like narration/speaker (see bug fix below); the `choices` become action-bar buttons, exactly as today — no layout change. |
+
+**Bug fix folded into this pass:** `_build_card()`'s `match card["type"]`
+only renders the `speaker` field for `type:"speaker"` cards today. A
+`type:"choice"` card also carries an optional `speaker` field per the
+M1-LONDON D5 schema addition, but it's currently silently dropped (falls
+into the plain default case). Fixed alongside the reskin: choice cards
+with a `speaker` field render the name the same way speaker cards do.
+
+**Action bar (Continue / Rewind / choice buttons):** all three recolour
+from the theme's default amber button fill to `ui_action_red`, matching
+the precedent already shipped in `combat.gd`'s action cards (§5's
+component table). No separate colour for Rewind — it's an ordinary action
+button, not a bespoke mechanic-specific accent; the codebase has no
+existing precedent for a distinct "rewind colour" anywhere it already
+appears (combat's own rewind replay is uncoloured too).
+
+**New: persistent event image slot.** Not part of the original card
+schema — added by this pass to support inline illustration on some events
+(e.g. story beats), which no prior family spec covers.
+
+- **Schema:** any revealed entry — including a choice's synthetic
+  resolution entry — may carry an optional `image` key: an asset path
+  string, or explicit `null` to clear the slot. Omitting the key entirely
+  means "no change" — the slot keeps showing whatever the last entry that
+  specified one set it to. This is derived state, computed by scanning
+  `Events.revealed_cards()` up to the current position for the last entry
+  that specifies `image` — not a new field on `state.event` itself, so
+  Rewind restores it for free (it already snapshots `cardIndex` and
+  `choiceResults`, which is all this derivation needs).
+- **Art:** Family 1 pixel art, ART-BIBLE pipeline — this is diegetic
+  illustration content sitting inside a vector-chrome document, same
+  split ART-BIBLE §1/`combat-animation-vision.md` §9 already draws
+  everywhere else in the game.
+- **Size/framing:** a **fixed-height thumbnail**, not the full 390×360
+  backdrop-plate proportions (which would eat ~40% of the 844px viewport,
+  same footprint as a combat backdrop) — indicative 160–180px tall, exact
+  value deferred to implementation. Full content width, inset within the
+  same 16px side margins the entry cards below it use, with a thin ink
+  border — reads as an illustration inserted into a document, not a scene
+  bleeding off-screen the way a combat backdrop does.
+- **Placement:** a fixed, non-scrolling region between the persistent
+  top status/notification board (§5) and the scrollable entry stack.
+  Collapses to zero height when no revealed entry has specified an image
+  yet — an event authored with no art looks exactly as it does today.
+- **Asset path convention:** `res://assets/events/<event_id>/<n>.png`,
+  matching the existing per-domain folder convention (`assets/combat/
+  <enemy_id>/`, `assets/hq/regions/`, `assets/hq/dial/`).
+
+**Reconciled against §6:** no third accent introduced. `ui_action_red`
+reused exactly as already scoped ("ordinary buttons/actions across
+Families 2–4"). `calc_gold` stays calc/cash-only except the one documented
+craft-card exception above. `MapStyle.DANGER_COLOUR` is an existing
+app-wide colour (raid warnings, collapsed-vein warnings, the map's danger
+ring) being reused here, not a new one.
+
+**Reconciled against §7:** no new typeface. Rides the same shared UI sans
+through the same `UI.*` helpers `event.gd` already calls
+(`UI.card()`, `UI.heading()`, `UI.label()`, `UI.muted_label()`,
+`UI.button()`).
+
+**Scope:** this design change (including the image-slot schema addition)
+folds into ticket 11's implementation pass rather than splitting into a
+follow-up ticket — see that ticket's updated acceptance checks.
+
+**Deferred to implementation, not decided here:** exact image-slot height
+within the 160–180px indicative range; exact craft/tension border weight
+and corner radius; the schema-comment update atop `systems/events.gd`
+(currently documents the pre-image card shape) needs to gain the `image`
+key once implemented.
