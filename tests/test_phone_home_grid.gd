@@ -256,6 +256,61 @@ func run() -> void:
 		phone.free()
 	)
 
+	# 119-phone-home-grid-tiles-overlap: proves the fix at the actual rendered-
+	# geometry level, against the real, on-disk icon roster (bank.png,
+	# property.png, notes.png, saveload.png as of this ticket -- each far
+	# bigger than a tile's own frame, e.g. property.png is 1408x768). Needs a
+	# real, live, laid-out tree (same tree.root.add_child()+await process_frame
+	# pattern tests/test_map_canvas.gd's own step_zoom cases use) because an
+	# off-tree PhoneScreen._ready() call (every other case in this file) never
+	# runs the container layout pass that gives each AppTile/_frame/_icon_rect
+	# a real, non-zero size to overflow in the first place.
+	# await, not a bare call: this case's own fn awaits a real engine frame
+	# (test_base.gd's run_case doc comment) -- without the await here, run()
+	# doesn't suspend for it either, so run() (and this whole file's pass/
+	# fail tally) can finish and move on to the next test file before this
+	# case's suspended continuation ever resumes, silently dropping its
+	# PASS/FAIL line and leaking an orphaned coroutine still waiting on a
+	# process_frame that may never come.
+	await run_case("no_home_grid_tiles_icon_bleeds_past_its_own_frame_into_a_neighbouring_tile", func():
+		GameState.reset()
+
+		var tree := Engine.get_main_loop() as SceneTree
+		var phone := PhoneScreen.new()
+		tree.root.add_child(phone)
+
+		await tree.process_frame
+		await tree.process_frame
+
+		var tiles := _find_tiles(phone)
+		assert_true(not tiles.is_empty(), "sanity: the grid actually rendered tiles to check")
+		for t in tiles:
+			if not t._icon_rect.visible:
+				continue
+			# Read off the tile's own _large flag rather than assuming
+			# LARGE_FRAME_SIZE for every tile -- the home grid happens to
+			# build every tile large today (phone.gd's _build_app_grid), but
+			# this stays correct if a future caller ever mixes in a
+			# dock-sized (non-large) tile too.
+			var expected_frame: float = AppTile.LARGE_FRAME_SIZE if t._large else AppTile.FRAME_SIZE
+			assert_true(t._icon_rect.size.x <= expected_frame + 0.01 and t._icon_rect.size.y <= expected_frame + 0.01, "%s's icon (size %s) must stay within its own %sx%s frame, not overflow into a neighbouring tile" % [t._app_id, t._icon_rect.size, expected_frame, expected_frame])
+
+		# The ticket's own framing ("two home-grid tiles occupying
+		# overlapping rects") -- checked directly here too, not just the
+		# icon-overflow symptom above, so a future GridContainer/layout
+		# regression that genuinely repositions two tiles on top of each
+		# other (not just an oversized icon bleeding past its own tile) is
+		# caught as well.
+		for i in range(tiles.size()):
+			for j in range(i + 1, tiles.size()):
+				var a: Rect2 = tiles[i].get_global_rect()
+				var b: Rect2 = tiles[j].get_global_rect()
+				assert_true(not a.intersects(b), "%s and %s must not occupy overlapping screen rects (%s vs %s)" % [tiles[i]._app_id, tiles[j]._app_id, a, b])
+
+		tree.root.remove_child(phone)
+		phone.free()
+	)
+
 	run_case("tapping_the_contacts_tile_navigates_straight_to_the_contacts_screen_without_touching_phoneNav", func():
 		GameState.reset()
 		GameState.state["currentScreen"] = "phone"

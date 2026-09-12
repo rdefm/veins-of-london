@@ -242,6 +242,20 @@ func run() -> void:
 		tile.free()
 	)
 
+	# 119-phone-home-grid-tiles-overlap: see _ensure_built()'s own comment on
+	# _icon_rect.expand_mode (above, in app_tile.gd) for why this matters.
+	# Checked directly against the icon_rect's own configuration here rather
+	# than rendered pixel geometry (which needs a live, laid-out tree -- see
+	# tests/test_phone_home_grid.gd's own live-tree case for that level).
+	run_case("the_icon_rect_never_grows_past_its_frame_regardless_of_the_source_textures_native_size", func():
+		var tile := AppTile.new()
+		tile._ready()
+
+		assert_eq(tile._icon_rect.expand_mode, TextureRect.EXPAND_IGNORE_SIZE, "expand_mode must not default to EXPAND_KEEP_SIZE, or a real icon's native pixel size becomes this rect's minimum size and blows out past the tile")
+
+		tile.free()
+	)
+
 	run_case("reconfigure_replaces_the_previous_state_rather_than_accumulating_it", func():
 		var tile := AppTile.new()
 		tile._ready()

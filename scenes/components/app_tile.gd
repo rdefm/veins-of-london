@@ -193,6 +193,17 @@ func _ensure_built() -> void:
 
 	_icon_rect = TextureRect.new()
 	UI.anchor_full_rect(_icon_rect)
+	# 119-phone-home-grid-tiles-overlap: expand_mode defaults to
+	# EXPAND_KEEP_SIZE, which reports the source texture's native pixel
+	# size as this TextureRect's own minimum size -- Control always grows a
+	# node's actual rect to at least its minimum size, even one positioned
+	# by anchors rather than a Container, so a real icon PNG far bigger than
+	# FRAME_SIZE/LARGE_FRAME_SIZE (e.g. assets/icons/apps/property.png) blew
+	# this rect out past its own tile and over whichever neighbouring tiles
+	# happened to be drawn after it. Same fix combat.gd's own _sprite_rect/
+	# _ghost_rect and every other real-art TextureRect in this codebase
+	# already applies alongside STRETCH_KEEP_ASPECT_CENTERED/_COVERED.
+	_icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_icon_rect.visible = false
