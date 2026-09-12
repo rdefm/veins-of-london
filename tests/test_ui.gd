@@ -232,6 +232,13 @@ func run() -> void:
 		assert_eq(UI.safe_area_top_inset(), UI.safe_area_insets()["top"], "top helper must read the same value as the dict")
 	)
 
+	# Bugfixes ticket 106: same no-window early-out as safe_area_insets()
+	# above -- this rig can only pin down the headless/desktop fallback text,
+	# not the real on-device dump (human QA per the ticket).
+	run_case("safe_area_debug_text_reports_no_window_when_headless", func():
+		assert_eq(UI.safe_area_debug_text(), "window 0x0 (no window open -- headless/desktop-without-window)", "no window open means no safe-area dump to build")
+	)
+
 	# Bugfixes ticket 24: collapsible_section() -- HQ's Rooms/Security accordion primitive.
 
 	run_case("collapsible_section_honours_the_initial_expanded_state", func():

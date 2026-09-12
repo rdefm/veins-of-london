@@ -931,6 +931,7 @@ func _build_debug() -> void:
 	_content.add_child(_build_debug_add_calc_card())
 	_content.add_child(_build_debug_spawn_site_card())
 	_content.add_child(_build_debug_combat_card())
+	_content.add_child(_build_debug_safe_area_card())
 	_content.add_child(UI.heading("Contact relations", 14))
 	for contact_id in GameData.CONTACTS_DEFAULTS.keys():
 		_content.add_child(_build_debug_contact_relation_card(contact_id))
@@ -1010,6 +1011,32 @@ func _build_debug_combat_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Combat", 14))
 	c["content"].add_child(UI.button("Open", func(): Modal.open("combat_setup")))
+	return c["panel"]
+
+
+# Bugfixes ticket 106: read-only dump of UI.safe_area_debug_text() (window
+# size, the raw DisplayServer.get_display_safe_area() rect, and every
+# derived inset) so a human on the affected device can read the actual
+# numbers straight off the screen -- no logcat, no rebuild -- to diagnose
+# why the ticker still overlaps the notch after commit 54e8cd7's
+# every-refresh re-derive. Read-only display data, not
+# GameState -- no DebugTools system wrapper needed, same as the Combat
+# card above just opening a modal directly. The label is rebuilt in place
+# on "Refresh" rather than through EventBus.state_changed (nothing here
+# touches GameState) since the OS-reported inset can itself change after
+# this screen is already open, e.g. mid-rotation.
+func _build_debug_safe_area_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Safe area", 14))
+
+	var dump := UI.label(UI.safe_area_debug_text())
+	dump.autowrap_mode = TextServer.AUTOWRAP_OFF
+	c["content"].add_child(dump)
+
+	c["content"].add_child(UI.button("Refresh", func():
+		dump.text = UI.safe_area_debug_text()
+	))
+
 	return c["panel"]
 
 

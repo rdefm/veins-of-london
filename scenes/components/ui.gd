@@ -658,6 +658,42 @@ static func top_bar_clearance() -> float:
 	return TopBar.BAR_HEIGHT + safe_area_top_inset()
 
 
+# Bugfixes ticket 106: the top-bar ticker was still overlapping the notch/
+# front-camera on-device after commit 54e8cd7 made TopBar re-derive
+# safe_area_top_inset() every refresh -- re-deriving a value fixes
+# it drifting *stale*, but does nothing if the OS-reported value itself is
+# wrong on the affected device, and that can't be told apart from here: this
+# whole file only ever runs against the zero-inset early-out in a headless
+# run (see safe_area_insets()'s own comment), never a real cutout. Surfaces
+# every raw + derived number that inset math depends on in one dump, wired
+# into the phone Debug app (phone.gd's _build_debug_safe_area_card()) so a
+# human on the affected device can read it straight off the screen -- no
+# logcat, no rebuild -- and report back what's actually there before this
+# ticket's root cause can be diagnosed. Mirrors safe_area_insets()'s own
+# no-window early-out so the headless/desktop case stays deterministic for
+# tests/test_ui.gd rather than calling DisplayServer.get_display_safe_area()
+# against a (0,0) window.
+static func safe_area_debug_text() -> String:
+	var window_size := DisplayServer.window_get_size()
+	if window_size.x <= 0 or window_size.y <= 0:
+		return "window 0x0 (no window open -- headless/desktop-without-window)"
+
+	var loop := Engine.get_main_loop()
+	var canvas_size := Vector2.ZERO
+	if loop != null and loop is SceneTree:
+		canvas_size = (loop as SceneTree).root.get_visible_rect().size
+
+	var safe_area := DisplayServer.get_display_safe_area()
+	var insets := safe_area_insets()
+
+	return "window %dx%d\ncanvas %.0fx%.0f\nraw safe-area pos (%d,%d) size %dx%d\ninsets top=%.1f bottom=%.1f left=%.1f right=%.1f" % [
+		window_size.x, window_size.y,
+		canvas_size.x, canvas_size.y,
+		safe_area.position.x, safe_area.position.y, safe_area.size.x, safe_area.size.y,
+		insets["top"], insets["bottom"], insets["left"], insets["right"],
+	]
+
+
 # TouchScrollContainer, not a bare ScrollContainer — see its own class
 # comment: vanilla ScrollContainer has no touch/finger drag-to-scroll, only
 # this subclass's manual handling gives every screen built through this

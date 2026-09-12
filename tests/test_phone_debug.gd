@@ -266,6 +266,37 @@ func run() -> void:
 		phone.free()
 	)
 
+	# Bugfixes ticket 106: the Safe area diagnostic card is read-only display
+	# data (UI.safe_area_debug_text()), not GameState, so this only checks
+	# the card renders the dump and Refresh doesn't crash rebuilding it --
+	# the real on-device numbers this ticket needs are human QA per the
+	# ticket (see UI.safe_area_debug_text()'s own comment).
+	run_case("safe_area_card_shows_the_debug_dump_and_refresh_rebuilds_it", func():
+		GameState.reset()
+		GameState.state["flags"]["debugStartUsed"] = true
+		GameState.state["phoneNav"]["app"] = "debug"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var labels: Array[Label] = []
+		for n in phone.find_children("", "Label", true, false):
+			labels.append(n as Label)
+		var dump: Label = null
+		for l in labels:
+			if l.text.begins_with("window 0x0"):
+				dump = l
+		assert_true(dump != null, "the safe-area dump label is present")
+		assert_eq(dump.text, UI.safe_area_debug_text(), "shows the current dump on build")
+
+		var refresh_buttons := _find_buttons_by_text(phone, "Refresh")
+		assert_eq(refresh_buttons.size(), 1, "one Refresh button on the safe-area card")
+		refresh_buttons[0].pressed.emit()
+		assert_eq(dump.text, UI.safe_area_debug_text(), "Refresh rebuilds the dump text in place")
+
+		phone.free()
+	)
+
 	run_case("faction_relation_control_calls_adjust_player_relation_with_the_entered_delta", func():
 		GameState.reset()
 		GameState.state["flags"]["debugStartUsed"] = true
