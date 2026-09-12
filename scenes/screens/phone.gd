@@ -758,9 +758,10 @@ func _on_confirm_new_game_pressed() -> void:
 
 # ── Notifications (11-phone-os-shell ticket 10) ──────────────────────
 # Browses the full persistent log ticket 04's Notify.push()/dismiss() built
-# (GameState.state["notifications"], capped at Notify.LOG_CAP). Mostly
-# read-only -- no dismiss control here; `seen` only ever gets flipped by
-# tapping a live toast (notification_toast.gd), never from this app. Rendered
+# (GameState.state["notifications"], capped at Notify.LOG_CAP). Read-only --
+# no dismiss control here, and nothing else calls Notify.dismiss() any more
+# either (bugfixes ticket 107 retired the top board's tap-to-dismiss along
+# with its fade timer), so `seen` sits unused outside tests today. Rendered
 # newest first, which for an append-only, cap-evicting-from-the-front array
 # just means walking it back to front.
 #

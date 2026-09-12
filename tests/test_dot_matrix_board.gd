@@ -1,8 +1,8 @@
 extends "res://tests/test_base.gd"
 
 # field-kit-chrome ticket 02 (docs/ui-vision.md §5): the shared dot-matrix
-# board renderer behind top_bar.gd's status line and notification_toast.gd's
-# rows. DotMatrixBoard.new()/set_lines() are safe to call without adding the
+# board renderer behind top_bar.gd's merged status/notification board.
+# DotMatrixBoard.new()/set_lines() are safe to call without adding the
 # node to a live scene tree -- _draw()/_process() are Godot callbacks the
 # engine only invokes on a live tree, so nothing here needs that (same
 # reasoning docs/adr's other headless-Control tests rely on); advance_scramble()

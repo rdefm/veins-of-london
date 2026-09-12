@@ -92,8 +92,9 @@ class NameplateCard extends Control:
 	func _ready() -> void:
 		if damage_tier == 2:
 			rotation_degrees = TurnOrderStrip.RUINED_TILT_DEGREES
-		# Tests build this card without adding it to a live tree (same guard
-		# notification_toast.gd's own _ready()-adjacent code uses) --
+		# Tests build this card without adding it to a live tree (same
+		# is_inside_tree() guard dot_matrix_board.gd's set_lines()/
+		# advance_scramble() use before touching process/redraw state) --
 		# create_tween() requires a live tree and would error/no-op there.
 		if is_pulsing and is_inside_tree():
 			var tween := create_tween()
@@ -488,9 +489,9 @@ func _build_card_content(card: NameplateCard) -> void:
 	card.add_child(box)
 
 
-# Public so tests can drive a swipe without simulating InputEvents (same
-# "test the logic, not the gesture plumbing" split notification_toast.gd's
-# tests use). direction: -1 previous / +1 next in turn-order-strip order.
+# Public so tests can drive a swipe without simulating InputEvents ("test
+# the logic, not the gesture plumbing"). direction: -1 previous / +1 next
+# in turn-order-strip order.
 # A swipe onto a non-enemy card is inert for targeting (§2.2) -- the
 # callback still fires so the strip's own selection/display moves, it just
 # doesn't call Combat.set_focused_enemy() (that's the caller's job: see

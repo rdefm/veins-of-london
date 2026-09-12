@@ -7,16 +7,20 @@ extends RefCounted
 # Entries are pure data (id, text, seen, day, category) — no Timer, Node, or
 # Callable ever enters this array (ticket 04). dismiss() only flips `seen`;
 # it never deletes, since the log is meant to be a persistent, browsable
-# history (ticket 10's Notifications app) — NotificationToast (fade timing,
-# the max-2-visible queue, combat suppression) is the only thing that treats
-# `seen` as "stop showing this as a toast."
+# history (ticket 10's Notifications app, which reads it back but doesn't
+# render read/unread differently). Bugfixes ticket 107 retired the only
+# consumer that gave `seen` display meaning (the old NotificationToast's
+# fade/queue logic, which stopped showing an entry as a toast once it was
+# seen) — top_bar.gd's merged board now shows the most recent entries
+# regardless of `seen`, so nothing currently calls dismiss() outside tests.
 
 const LOG_CAP := 50
 
-# Taxonomy (bugfixes ticket 61): every push() carries one of these, used by
-# NotificationToast to colour-code entries so they read apart from each
-# other and from the top-bar buttons they sit near. Purely a display
-# concern — push() only validates the value, never acts on its meaning.
+# Taxonomy (bugfixes ticket 61): every push() carries one of these. Purely a
+# display concern — push() only validates the value, never acts on its
+# meaning; no current renderer reads it back (field-kit-chrome ticket 02's
+# dot-matrix board dropped the old per-category colour-coding this taxonomy
+# originally supported).
 const CATEGORY_INFO := "info"
 const CATEGORY_SUCCESS := "success"
 const CATEGORY_WARNING := "warning"
@@ -25,11 +29,13 @@ const VALID_CATEGORIES: Array[String] = [CATEGORY_INFO, CATEGORY_SUCCESS, CATEGO
 
 # field-kit-chrome ticket 03: the `meta` flag CombatScreen stamps on a
 # mid-fight combat-log line it pushes here -- the one thing
-# notification_toast.gd's combat-suppression check (ui-vision.md §5's
-# 2026-09-11 amendment) reads to decide whether an entry bypasses the
-# hold-while-combat-active rule. Every other notification source omits
-# this key entirely (falsy via Dictionary.get()'s default), so they keep
-# queuing/draining exactly as before.
+# top_bar.gd's combat-suppression check (ui-vision.md §5's 2026-09-11
+# amendment; the check itself moved from notification_toast.gd to
+# top_bar.gd's merged board in bugfixes ticket 107) reads to decide
+# whether an entry bypasses the hold-while-combat-active rule. Every
+# other notification source omits this key entirely (falsy via
+# Dictionary.get()'s default), so they keep being filtered out of the
+# board's eligible pool exactly as before.
 const META_COMBAT_LOG := "combatLog"
 
 

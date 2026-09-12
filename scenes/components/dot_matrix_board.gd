@@ -4,20 +4,12 @@ extends Control
 # field-kit-chrome ticket 02 / ui-vision.md §5: the shared electronic
 # dot-matrix departure/platform board renderer -- amber dots on black,
 # hand-drawn per character against dot_matrix_font.gd's bitmap table.
-# top_bar.gd (the status line) and notification_toast.gd (unseen
-# notifications) both draw through this instead of duplicating the grid
-# logic, so the two read as one continuous board when mounted directly
-# against each other (Main.gd) -- they stay two separate scripts/classes
-# per the ticket, this is just their shared rendering surface, not a merge
-# of the components themselves.
+# top_bar.gd draws through this instead of duplicating the grid logic.
 #
-# Multi-line support (set_lines() takes an Array of lines, not just one) has
-# no caller yet that passes more than a single line -- top_bar.gd's status
-# row and each notification_toast.gd row all mount their own single-line
-# board. It's kept rather than trimmed to one line because ticket 03
-# (.scratch/field-kit-chrome/issues/03-combat-log-dot-matrix-reskin.md,
-# blocked on this one) re-skins combat's multi-line departure-board log onto
-# this exact component -- a already-ticketed consumer, not speculative.
+# Multi-line support (set_lines() takes an Array of lines, not just one) is
+# what bugfixes ticket 107 uses to merge the status line and the scrolling
+# notification log onto one board -- top_bar.gd's line 0 is the status row,
+# further lines are recent notifications, all through this one instance.
 #
 # `render(target)` is split out from _draw() (which just calls
 # render(self)) so tests can drive the actual draw calls headlessly against
@@ -245,9 +237,7 @@ func _process(delta: float) -> void:
 
 
 # Split out from _process() so tests can drive the scramble transition
-# deterministically without a live SceneTree frame loop -- same reasoning
-# notification_toast.gd's tests simulate fade timers via direct signal
-# emission rather than waiting on real time.
+# deterministically without a live SceneTree frame loop.
 func advance_scramble(delta: float) -> void:
 	for line_index in _scramble_seconds_left.size():
 		var scramble_line: Array = _scramble_seconds_left[line_index]

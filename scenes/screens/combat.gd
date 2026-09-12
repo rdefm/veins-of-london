@@ -2173,12 +2173,13 @@ func _play_beats(beats: Array, log_before: int) -> void:
 # combat.log line each beat reveals (the 1:1 beat/log-line invariant
 # systems/combat.gd's own _log() holds, per _on_dial_triggered()'s own
 # comment) posts to the top dot-matrix board as a live notification,
-# stamped Notify.META_COMBAT_LOG so notification_toast.gd's combat-
-# suppression check lets it render immediately instead of holding it for
-# after the fight. A no-op whenever _revealed_log_count lands outside the
-# log's own bounds (beats.is_empty() never calls _on_beat_played() at all,
-# so this is really just a cheap defensive gate rather than a case that
-# should ever actually hit) -- nothing to post.
+# stamped Notify.META_COMBAT_LOG so top_bar.gd's combat-suppression check
+# (moved there from notification_toast.gd by bugfixes ticket 107) lets it
+# render immediately instead of holding it for after the fight. A no-op
+# whenever _revealed_log_count lands outside the log's own bounds
+# (beats.is_empty() never calls _on_beat_played() at all, so this is
+# really just a cheap defensive gate rather than a case that should ever
+# actually hit) -- nothing to post.
 func _push_revealed_log_line() -> void:
 	var log: Array = GameState.state["combat"]["log"]
 	var index: int = _revealed_log_count - 1

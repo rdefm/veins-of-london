@@ -1501,10 +1501,11 @@ static func exit_combat() -> Dictionary:
 	}
 	SaveManager.autosave()  # R§6: autosave on combat exit
 	# The per-context handlers below only emit screen_changed (some don't
-	# emit anything) -- NotificationToast (ticket 04) needs state_changed
-	# specifically to know combat.active flipped false and drain its held
-	# queue, so guarantee it fires here rather than depending on whichever
-	# handler the outcome happens to route through.
+	# emit anything) -- top_bar.gd's merged board (ticket 04, combat-
+	# suppression moved there by ticket 107) needs state_changed
+	# specifically to know combat.active flipped false and recompute its
+	# eligible notification pool, so guarantee it fires here rather than
+	# depending on whichever handler the outcome happens to route through.
 	EventBus.state_changed.emit()
 
 	if context == CONTEXT_MUGGING and outcome == "win":

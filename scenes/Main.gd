@@ -108,7 +108,6 @@ const TOP_BAR_HIDDEN_SCREENS := ["title", "intro"]
 var screen_container: Control
 var nav_bar: Control
 var top_bar: Control
-var notification_toast: Control
 var modal_layer: Control
 var bag_drawer: Control
 var current_screen_node: Control = null
@@ -133,9 +132,6 @@ func _ready() -> void:
 
 	nav_bar = NavBar.new()
 	add_child(nav_bar)
-
-	notification_toast = NotificationToast.new()
-	add_child(notification_toast)
 
 	modal_layer = ModalLayer.new()
 	add_child(modal_layer)
