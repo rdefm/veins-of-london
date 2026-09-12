@@ -32,6 +32,32 @@ func _install_choice_event() -> Dictionary:
 	return original_events
 
 
+# ui-vision.md §11: a choice event whose first option carries an "image"
+# key, followed by a card with no "image" key (sticky) and a card that
+# explicitly clears it (image: null) -- Events.current_image_path()'s own
+# fixtures.
+func _install_image_choice_event() -> Dictionary:
+	var original_events: Dictionary = GameData.EVENTS
+	GameData.EVENTS = GameData.EVENTS.duplicate()
+	GameData.EVENTS["test_image_choice_event"] = {
+		"id": "test_image_choice_event",
+		"cards": [
+			{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
+			{
+				"type": "choice", "label": null, "speaker": null, "text": "Pick one",
+				"choices": [
+					{ "label": "With image", "effects": [], "result_text": "Resolved with image.", "image": "res://assets/combat/dummy/attack.png" },
+					{ "label": "No image", "effects": [], "result_text": "Resolved with no image." },
+				],
+			},
+			{ "type": "narration", "label": null, "speaker": null, "text": "Sticky" },
+			{ "type": "narration", "label": null, "speaker": null, "text": "Cleared", "image": null },
+		],
+		"on_complete": [{ "op": "set_flag", "flag": "imageChoiceEventDone", "value": true }],
+	}
+	return original_events
+
+
 # vein-raiding ticket 02: fixtures for a faction-owned site, mirroring
 # test_factions.gd's own _faction_vein_of/_site_with_vein helpers.
 static func _faction_vein_of(level: int, ore_type: String, security: String = "none", faction_id: String = "collective") -> Dictionary:
@@ -393,6 +419,60 @@ func run() -> void:
 		Events.choose(1)  # "Walk away" — no effects
 		assert_eq(GameState.state["player"]["cash"], cash_before, "no-effect choice should leave cash untouched")
 		assert_eq(Events.revealed_cards()[2]["text"], "You walked away.")
+
+		GameData.EVENTS = original_events
+	)
+
+	# ── current_image_path (ui-vision.md §11) ───────────────────────────
+
+	run_case("current_image_path_is_null_when_nothing_has_specified_one", func():
+		GameState.reset()
+		var original_events := _install_image_choice_event()
+
+		Events.start_event("test_image_choice_event")
+		assert_eq(Events.current_image_path(), null, "the opening narration card sets no image")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("current_image_path_carries_through_a_picked_choices_image_via_the_resolution_card", func():
+		GameState.reset()
+		var original_events := _install_image_choice_event()
+
+		Events.start_event("test_image_choice_event")
+		Events.advance()  # -> choice card
+		assert_eq(Events.current_image_path(), null, "the choice prompt itself sets no image")
+
+		Events.choose(0)  # "With image"
+		assert_eq(Events.current_image_path(), "res://assets/combat/dummy/attack.png", "the picked choice's image should surface via its synthetic resolution card")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("current_image_path_stays_sticky_then_clears_on_an_explicit_null", func():
+		GameState.reset()
+		var original_events := _install_image_choice_event()
+
+		Events.start_event("test_image_choice_event")
+		Events.advance()
+		Events.choose(0)
+		Events.advance()  # -> "Sticky" card, no "image" key at all
+		assert_eq(Events.current_image_path(), "res://assets/combat/dummy/attack.png", "omitting the key means no change")
+
+		Events.advance()  # -> "Cleared" card, image: null
+		assert_eq(Events.current_image_path(), null, "an explicit null should clear it")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("current_image_path_ignores_the_unpicked_choice_option", func():
+		GameState.reset()
+		var original_events := _install_image_choice_event()
+
+		Events.start_event("test_image_choice_event")
+		Events.advance()
+		Events.choose(1)  # "No image" -- the option that never sets one
+		assert_eq(Events.current_image_path(), null, "picking the imageless option should not surface the other option's image")
 
 		GameData.EVENTS = original_events
 	)

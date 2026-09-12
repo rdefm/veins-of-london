@@ -10,6 +10,16 @@ extends RefCounted
 # { type, label, speaker, text }. Events: { id, cards, on_complete:
 # [effect] }. state.event holds the runtime progress: { eventId,
 # cardIndex, snapshots, choiceResults }.
+#
+# ui-vision.md §11: any card (including a choice's own `choices` entries)
+# may also carry an optional "image" key — an asset path string, or
+# explicit null to clear the event screen's persistent image slot.
+# Omitting the key entirely means "no change" (event.gd's own
+# _current_image_path() scans forward and keeps whatever the last entry
+# that specified one set it to). A picked choice's "image" (if present)
+# rides along in choiceResults[cardIndex] — now { text, image? } rather
+# than a bare string — so revealed_cards()'s synthetic resolution card
+# can carry it too.
 
 
 # context (vein-raiding ticket 03): a raid's target site_id is only known
@@ -59,7 +69,24 @@ static func revealed_cards() -> Array:
 	for i in range(event_state["cardIndex"] + 1):
 		result.append(cards[i])
 		if choice_results.has(str(i)):
-			result.append({ "type": "resolution", "label": null, "speaker": null, "text": choice_results[str(i)] })
+			var resolution: Dictionary = choice_results[str(i)]
+			var resolution_card: Dictionary = { "type": "resolution", "label": null, "speaker": null, "text": resolution["text"] }
+			if resolution.has("image"):
+				resolution_card["image"] = resolution["image"]
+			result.append(resolution_card)
+	return result
+
+
+# ui-vision.md §11: derived state for the event screen's persistent image
+# slot. Scans revealed_cards() for the last entry (up to the current
+# position) that specifies an "image" key -- sticky until the next entry
+# that specifies one, explicit null clears it. Never stored on state.event
+# itself, so Rewind restores it for free from cardIndex/choiceResults alone.
+static func current_image_path() -> Variant:
+	var result: Variant = null
+	for card in revealed_cards():
+		if card.has("image"):
+			result = card["image"]
 	return result
 
 
@@ -130,7 +157,10 @@ static func choose(choice_index: int) -> void:
 	var card: Dictionary = current_card()
 	var choice: Dictionary = card["choices"][choice_index]
 
-	event_state["choiceResults"][str(event_state["cardIndex"])] = choice["result_text"]
+	var resolution: Dictionary = { "text": choice["result_text"] }
+	if choice.has("image"):
+		resolution["image"] = choice["image"]
+	event_state["choiceResults"][str(event_state["cardIndex"])] = resolution
 	apply_effects(choice.get("effects", []))
 
 

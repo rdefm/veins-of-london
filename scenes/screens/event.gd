@@ -5,21 +5,40 @@ extends Control
 # in a bottom-anchored ScrollContainer so new ones push older ones up —
 # this replaces the prototype's per-event screens and its scroll bug.
 # Action bar (Continue, Rewind when available) is pinned below.
+#
+# ui-vision.md §11 (session 2026-09-12): recoloured into the shared
+# palette — no more private AMBER_COLOR/AMBER_BG/DANGER_COLOR constants.
+# Tension borders wire to the shared MapStyle.DANGER_COLOUR, craft panels
+# to the named calc_gold/calc_gold_light palette entries, and the action
+# bar (Continue/Rewind/choice buttons) recolours to ui_action_red via the
+# same tinted-fill/accent-text treatment modal_layer.gd's Family 4 "Train"
+# button already established (a low-alpha accent wash, not Family 2's
+# solid-fill-plus-light-text).
 
-const DANGER_COLOR := Color(0.607843, 0.137255, 0.207843, 1)
-const AMBER_COLOR := Color(0.784314, 0.529412, 0.227451, 1)
-const AMBER_BG := Color(0.980392, 0.945098, 0.882353, 1)
+const IMAGE_SLOT_HEIGHT := 170.0
+
+const _ACTION_COLOR_FALLBACK := Color("#c8102e")
+const _CALC_GOLD_FALLBACK := Color("#d4af52")
+const _CALC_GOLD_LIGHT_FALLBACK := Color("#f2dfa0")
+# theme/main_theme.tres' own Label/Button font_color -- not a §6 accent, so
+# there's no named data/palette.json entry to look up (only the accent
+# colours this ticket names are wired to the shared palette).
+const _INK_COLOR := Color(0.101961, 0.101961, 0.101961, 1)
 
 var _scroll: ScrollContainer
 var _cards_box: VBoxContainer
 var _action_bar: HBoxContainer
+var _image_frame: PanelContainer
+var _image_texture: TextureRect
 
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 
+	_image_frame = _build_image_frame()
+	add_child(_image_frame)
+
 	_scroll = UI.scroll_container()
-	_scroll.offset_top = UI.top_bar_clearance()  # clears the persistent top bar (incl. its notch inset) — visible mid-event per D4.4
 	_scroll.offset_bottom = -64
 	add_child(_scroll)
 
@@ -66,8 +85,12 @@ func _refresh() -> void:
 	for card in Events.revealed_cards():
 		_cards_box.add_child(_build_card(card))
 
+	_refresh_image_slot()
+
 	if Events.can_rewind():
-		_action_bar.add_child(UI.button("⟲ Rewind", func(): Events.rewind()))
+		var rewind_button := UI.button("⟲ Rewind", func(): Events.rewind())
+		_style_action_button(rewind_button)
+		_action_bar.add_child(rewind_button)
 
 	if Events.is_awaiting_choice():
 		var choices: Array = Events.current_card()["choices"]
@@ -75,10 +98,12 @@ func _refresh() -> void:
 			var choice_index := i
 			var choice_button := UI.button(choices[i]["label"], func(): Events.choose(choice_index))
 			choice_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_style_action_button(choice_button)
 			_action_bar.add_child(choice_button)
 	else:
 		var continue_button := UI.button("Continue →", func(): Events.advance())
 		continue_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_style_action_button(continue_button)
 		_action_bar.add_child(continue_button)
 
 	_scroll_to_bottom()
@@ -94,6 +119,13 @@ func _build_card(card: Dictionary) -> Control:
 	match card["type"]:
 		"speaker":
 			c["content"].add_child(UI.heading(card["speaker"], 14))
+			c["content"].add_child(UI.label(card["text"]))
+		"choice":
+			# ui-vision.md §11 bug fix: a choice card's optional speaker field
+			# was silently dropped (fell into the plain default case below) --
+			# render it the same way a "speaker" card does when present.
+			if card.get("speaker") != null:
+				c["content"].add_child(UI.heading(card["speaker"], 14))
 			c["content"].add_child(UI.label(card["text"]))
 		_:
 			c["content"].add_child(UI.label(card["text"]))
@@ -117,16 +149,117 @@ func _style_card(panel: PanelContainer, card_type: String) -> void:
 	box.border_width_left = 4
 
 	if card_type == "tension":
+		# Cream fill kept; only the border carries the danger accent now --
+		# the old tinted-cream AMBER_BG-style fill is dropped (§11).
 		box.bg_color = Color(0.980392, 0.972549, 0.952941, 1)
-		box.border_color = DANGER_COLOR
+		box.border_color = MapStyle.DANGER_COLOUR
 	else:  # craft
-		box.bg_color = AMBER_BG
-		box.border_color = AMBER_COLOR
+		box.bg_color = _calc_gold_light()
+		box.border_color = _calc_gold()
 
 	panel.add_theme_stylebox_override("panel", box)
 
 
+func _calc_gold() -> Color:
+	return GameData.PALETTE.get("calc_gold", _CALC_GOLD_FALLBACK)
+
+
+func _calc_gold_light() -> Color:
+	return GameData.PALETTE.get("calc_gold_light", _CALC_GOLD_LIGHT_FALLBACK)
+
+
+func _action_color() -> Color:
+	return GameData.PALETTE.get("ui_action_red", _ACTION_COLOR_FALLBACK)
+
+
+# ui-vision.md §11: "all three recolour from the theme's default amber
+# button fill to ui_action_red" -- same shape as modal_layer.gd's own
+# _style_action_button()/_action_button_style() (the Family 4 "Train"
+# button precedent): a low-alpha accent wash on press/hover rather than a
+# solid fill, with the accent carried by the text itself. Padding here
+# matches this screen's own pre-existing button size (theme/main_theme.tres'
+# 16/10 margins) rather than copying modal_layer.gd's smaller 8/6 verbatim,
+# so Continue/Rewind/choice keep their prior footprint -- only the colour
+# changes.
+func _style_action_button(b: Button) -> void:
+	var accent := _action_color()
+	b.add_theme_stylebox_override("normal", _action_button_style(accent, 0.0))
+	b.add_theme_stylebox_override("hover", _action_button_style(accent, 0.14))
+	b.add_theme_stylebox_override("pressed", _action_button_style(accent, 0.22))
+	b.add_theme_stylebox_override("disabled", _action_button_style(accent, 0.0))
+	b.add_theme_color_override("font_color", accent)
+	b.add_theme_color_override("font_hover_color", accent)
+	b.add_theme_color_override("font_pressed_color", accent)
+	b.add_theme_color_override("font_disabled_color", accent)
+
+
+func _action_button_style(accent: Color, alpha: float) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(accent.r, accent.g, accent.b, alpha)
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 16.0
+	style.content_margin_top = 10.0
+	style.content_margin_right = 16.0
+	style.content_margin_bottom = 10.0
+	return style
+
+
+# ui-vision.md §11 "New: persistent event image slot" -- a fixed,
+# non-scrolling region between the persistent top bar and the scrollable
+# entry stack. Built once here; _refresh_image_slot() below toggles its
+# visibility/texture/height on every rebuild.
+func _build_image_frame() -> PanelContainer:
+	var frame := PanelContainer.new()
+	frame.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	frame.offset_left = 16
+	frame.offset_right = -16
+	frame.offset_top = UI.top_bar_clearance()
+	frame.offset_bottom = UI.top_bar_clearance()  # zero height until an image is shown
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.clip_contents = true
+	frame.visible = false
+
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.border_color = _INK_COLOR
+	frame.add_theme_stylebox_override("panel", style)
+
+	_image_texture = TextureRect.new()
+	_image_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_image_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_image_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	frame.add_child(_image_texture)
+
+	return frame
+
+
+func _refresh_image_slot() -> void:
+	var image_path: Variant = Events.current_image_path()
+	var showing: bool = image_path != null and typeof(image_path) == TYPE_STRING and ResourceLoader.exists(image_path)
+
+	if showing:
+		_image_texture.texture = load(image_path)
+	else:
+		_image_texture.texture = null
+
+	_image_frame.visible = showing
+	var top: float = _image_frame.offset_top
+	_image_frame.offset_bottom = top + IMAGE_SLOT_HEIGHT if showing else top
+	_scroll.offset_top = top + (IMAGE_SLOT_HEIGHT if showing else 0.0)
+
+
 func _scroll_to_bottom() -> void:
+	# Guards a screen instantiated off-tree (tests/test_event_screen.gd's own
+	# EventScreen.new() + _ready() pattern, matching every other screen
+	# test's convention) -- get_tree() is null there, and this only ever
+	# needs a real frame to let a live ScrollContainer's own deferred layout
+	# pass catch up, which off-tree has nothing to wait on anyway.
+	if not is_inside_tree():
+		return
 	await get_tree().process_frame
 	if not is_instance_valid(_scroll):
 		return
