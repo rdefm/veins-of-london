@@ -1993,7 +1993,7 @@ func _build_action_card(symbol: String, label_text: String, callback: Callable, 
 	button.add_theme_color_override("font_disabled_color", accent)
 	button.pressed.connect(callback)
 
-	return _build_card_bar(button, label_text, accent)
+	return _build_card_bar(button, label_text, accent, callback)
 
 
 # ui-chrome-pass ticket 03 (human direction, 2026-09-11, third revision):
@@ -2006,7 +2006,7 @@ func _build_action_card(symbol: String, label_text: String, callback: Callable, 
 # Control, not specifically a Button: only _build_action_card()'s caller
 # wires up press/disabled/hover behaviour on it; a SymbolGlyph is just
 # dropped in inert.
-func _build_card_bar(icon: Control, label_text: String, accent: Color) -> Control:
+func _build_card_bar(icon: Control, label_text: String, accent: Color, click_callback: Callable = Callable()) -> Control:
 	var c := UI.card()
 	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var panel_style := StyleBoxFlat.new()
@@ -2024,7 +2024,6 @@ func _build_card_bar(icon: Control, label_text: String, accent: Color) -> Contro
 	c["panel"].add_theme_stylebox_override("panel", panel_style)
 
 	var row := UI.hbox(8)
-	c["content"].add_child(row)
 
 	icon.custom_minimum_size = Vector2(_ACTION_CARD_ICON_SIZE, _ACTION_CARD_ICON_SIZE)
 	row.add_child(icon)
@@ -2048,7 +2047,38 @@ func _build_card_bar(icon: Control, label_text: String, accent: Color) -> Contro
 	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	caption.add_theme_color_override("font_color", accent)
+	# Purely decorative -- never a tap target of its own, so a click landing
+	# on the caption text falls through to `row` below instead of being
+	# swallowed here (see the click_callback branch's own comment for why
+	# that matters).
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(caption)
+
+	c["content"].add_child(row)
+
+	if click_callback.is_valid():
+		# human-flagged (2026-09-12): tapping the caption ("Attack"/"Item"/
+		# "Leg it") did nothing -- only `icon` (a small Button sized to
+		# _ACTION_CARD_ICON_SIZE) was ever wired to `callback`, and the
+		# caption beside it was an inert sibling Label with no handler of its
+		# own. `icon`'s own Button still owns press/hover/disabled visuals
+		# (unchanged) and still fires first for a tap that lands on it
+		# directly (BaseButton's MOUSE_FILTER_STOP swallows the event before
+		# it ever reaches `row`), so this never double-fires callback -- this
+		# just catches the REST of the row (the caption, and the gap/padding
+		# around it) and forwards those taps to the same callback, making the
+		# whole card one tap target instead of just the glyph.
+		row.mouse_filter = Control.MOUSE_FILTER_STOP
+		row.gui_input.connect(func(event: InputEvent) -> void:
+			if not (event is InputEventMouseButton):
+				return
+			var mb: InputEventMouseButton = event
+			if mb.button_index != MOUSE_BUTTON_LEFT or mb.pressed:
+				return
+			if icon is Button and (icon as Button).disabled:
+				return
+			click_callback.call()
+		)
 
 	return c["panel"]
 
