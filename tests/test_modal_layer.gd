@@ -1274,6 +1274,80 @@ func run() -> void:
 		layer.free()
 	)
 
+	# ── ticket 102: one-tap refine from the Experiments notebook ───────────
+
+	run_case("lab_bench_notes_modal_found_recipe_row_shows_a_refine_button", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		GameState.state["player"]["bench"]["cells"]["life|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+		Modal.open("lab_bench_notes")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var refine_button := _find_button(layer, "Refine to tier 3")
+		assert_true(refine_button != null, "a Found recipe's notebook row exposes the same next-tier action the recipe book does")
+		assert_true(not refine_button.disabled, "enough calc and a known technique -- nothing should block this tap")
+
+		layer.free()
+	)
+
+	run_case("lab_bench_notes_modal_refine_button_runs_the_experiment_immediately_with_no_picker", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		GameState.state["player"]["bench"]["cells"]["life|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+		Modal.open("lab_bench_notes")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+		_find_button(layer, "Refine to tier 3").pressed.emit()
+
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 88, "the tap spends the recipe's own established ore combo (3 * (3+1) = 12) at once -- no intermediate ore/apparatus picker")
+		assert_eq(GameState.state["modal"]["type"], "lab_bench_notes", "the experiment resolves in place -- no picker or result modal opens over the notebook")
+
+		layer.free()
+	)
+
+	run_case("lab_bench_notes_modal_refine_button_is_disabled_when_not_enough_calc", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["life"] = 0
+		GameState.state["player"]["bench"]["cells"]["life|heat"] = { "state": "found", "misses": 0, "refine": 2 }
+		Modal.open("lab_bench_notes")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var refine_button := _find_button(layer, "Refine to tier 3")
+		assert_true(refine_button != null)
+		assert_true(refine_button.disabled, "not enough calc -- Bench.refine_block_reason() blocks it, same reason the recipe book's button respects")
+		assert_true(_label_texts(layer).has("Not enough calc."), "a disabled refine button always states why -- never a dead tap with no reason")
+
+		layer.free()
+	)
+
+	run_case("lab_bench_notes_modal_refine_button_is_disabled_when_the_technique_is_unknown", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["physics"] = 100
+		# compression's source is the "workshop" room (data/approaches.json), not
+		# built on a fresh save -- a second, distinct block-reason branch from
+		# the ore-cost one above. "physics" (blackHole, approach compression)
+		# rather than "time"/"life" avoids colliding with the tutorial-taught
+		# timePearl/rewind/enhancementPowder cells, which default to Found at
+		# already-known approaches and would confuse a same-text button lookup.
+		GameState.state["player"]["bench"]["cells"]["physics|compression"] = { "state": "found", "misses": 0, "refine": 0 }
+		Modal.open("lab_bench_notes")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var refine_button := _find_button(layer, "Refine to tier 1")
+		assert_true(refine_button != null)
+		assert_true(refine_button.disabled, "compression isn't known yet -- Bench.refine_block_reason() blocks it")
+		assert_true(_label_texts(layer).has("You haven't the technique for that yet."))
+
+		layer.free()
+	)
+
 	run_case("lab_bench_probe_result_modal_found_names_the_recipe", func():
 		GameState.reset()
 		Modal.open("lab_bench_probe_result", { "outcome": "found", "recipeKey": "healingSalve" })

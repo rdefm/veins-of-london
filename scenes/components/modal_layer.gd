@@ -1296,17 +1296,22 @@ func _build_lab_bench_recipe_row(recipe_key: String) -> Control:
 	# from every row this list shows.
 	var discovery: Dictionary = r.get("discovery", {})
 	if not discovery.is_empty():
-		var types: Array = discovery["types"]
-		var approach: String = discovery["approach"]
-		var tier := Bench.refine_tier_target(types, approach)
-		var reason := Bench.refine_block_reason(types, approach)
-		var refine_btn := UI.button("Refine to tier %d" % tier, func(): _on_lab_bench_refine_pressed(r["name"], types, approach, tier))
-		refine_btn.disabled = reason != ""
-		c["content"].add_child(refine_btn)
-		if reason != "":
-			c["content"].add_child(UI.muted_label(reason))
+		_append_lab_bench_refine_controls(c["content"], r, discovery["types"], discovery["approach"])
 
 	return c["panel"]
+
+
+# Shared by the Recipe book's per-recipe page above and the Experiments
+# notebook's found-recipe rows below (ticket 102) -- same one-tap refine
+# action, one place for the button/disabled-reason wiring.
+func _append_lab_bench_refine_controls(container: Control, recipe: Dictionary, types: Array, approach: String) -> void:
+	var tier := Bench.refine_tier_target(types, approach)
+	var reason := Bench.refine_block_reason(types, approach)
+	var refine_btn := UI.button("Refine to tier %d" % tier, func(): _on_lab_bench_refine_pressed(recipe["name"], types, approach, tier))
+	refine_btn.disabled = reason != ""
+	container.add_child(refine_btn)
+	if reason != "":
+		container.add_child(UI.muted_label(reason))
 
 
 # PROSE-REVIEW: new notification lines, tone bible per docs/CONTENT-GUIDE.md.
@@ -1347,12 +1352,14 @@ func _build_lab_bench_notes_card(types: Array) -> Control:
 
 # "...and current recipe levels" (§5.2 point 2) -- one row per approach this
 # pairing has Found a recipe on, naming it and its refine tier (Bench.get_
-# cell()["refine"], 0 until the first successful refine -- the recipe book's
-# own "Refine to tier N" button is where that number climbs). Walks every
-# approach rather than asking Bench for a pairing's found recipes directly:
-# Bench has no such getter (only a total count via found_count_in_set()),
-# and this is the same per-approach scan hq_lab_bench.gd's own apparatus-
-# arming label already does.
+# cell()["refine"], 0 until the first successful refine), plus (ticket 102)
+# the same one-tap "Refine to tier N" action the Recipe book exposes -- the
+# notebook is read-only history everywhere else, but a Found recipe's own
+# ore + apparatus combo is already fully established, so there's no picker
+# to run first. Walks every approach rather than asking Bench for a
+# pairing's found recipes directly: Bench has no such getter (only a total
+# count via found_count_in_set()), and this is the same per-approach scan
+# hq_lab_bench.gd's own apparatus-arming label already does.
 func _lab_bench_found_recipe_rows(types: Array) -> Array:
 	var rows: Array = []
 	for approach_id in GameData.APPROACHES.keys():
@@ -1361,7 +1368,10 @@ func _lab_bench_found_recipe_rows(types: Array) -> Array:
 			continue
 		var r: Dictionary = GameData.RECIPES[recipe_key]
 		var tier: int = Bench.get_cell(types, approach_id)["refine"]
-		rows.append(UI.symbol_row([{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — tier %d" % [r["name"], tier]]))
+		var row := UI.vbox(4)
+		row.add_child(UI.symbol_row([{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — tier %d" % [r["name"], tier]]))
+		_append_lab_bench_refine_controls(row, r, types, approach_id)
+		rows.append(row)
 	return rows
 
 
