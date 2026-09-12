@@ -264,6 +264,32 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("image_frame_top_offset_is_reapplied_on_every_refresh_not_just_build", func():
+		# Bugfixes ticket [pending]: _image_frame.offset_top used to be set
+		# once in _build_image_frame() (called once from _ready()) and never
+		# revisited -- same staleness bug top_bar.gd's own
+		# _apply_safe_area_offsets() fix addresses for TopBar itself, and the
+		# two drifting apart on-device (TopBar stuck at its boot-time value
+		# while other things re-derived a since-changed one) is what made the
+		# event image slot and the persistent top bar not sit flush. Guards
+		# that _refresh_image_slot() (called on every _refresh(), i.e. every
+		# card advance) re-derives UI.top_bar_clearance() fresh rather than
+		# reusing whatever offset_top happened to be.
+		GameState.reset()
+		var original_events := _install_full_card_event()
+		Events.start_event("test_screen_event")
+		Events.advance()
+		Events.advance()
+		Events.advance()
+
+		var screen := _fresh_screen()
+		screen._image_frame.offset_top = 999.0
+		EventBus.state_changed.emit()
+		assert_eq(screen._image_frame.offset_top, UI.top_bar_clearance(), "offset_top is re-derived on every refresh, same as TopBar")
+
+		GameData.EVENTS = original_events
+	)
+
 	run_case("image_slot_shows_the_picked_choices_image_via_the_synthetic_resolution_card", func():
 		GameState.reset()
 		var original_events := _install_full_card_event()

@@ -26,15 +26,7 @@ var _bag_button: Button
 
 func _ready() -> void:
 	UI.anchor_top_wide(self)
-	# Bugfixes ticket 21: flush against offset_top = 0 sits directly under
-	# the OS notch/front-camera cutout on some devices, hiding money/time/
-	# bag behind it. Shift the whole bar down by the safe-area top inset
-	# (zero on desktop/headless) while keeping its own height fixed at
-	# BAR_HEIGHT — UI.top_bar_clearance() is what every screen that clears
-	# "below the TopBar" now uses instead of the bare constant, so nothing
-	# ends up hidden under the bar's new, lower position.
-	offset_top = UI.safe_area_top_inset()
-	offset_bottom = UI.top_bar_clearance()
+	_apply_safe_area_offsets()
 
 	# The board fills the whole strip (including behind the bag button) so
 	# the entire row reads as one black board rather than a black board with
@@ -96,4 +88,35 @@ func _status_line_text() -> String:
 
 
 func _refresh() -> void:
+	# Bugfixes ticket [pending]: this used to run once from _ready() only.
+	# TopBar is built exactly once for the whole app session (Main.gd), right
+	# after Main._ready()'s own DisplayServer.screen_set_orientation() call —
+	# on some devices the OS-reported safe-area/display-cutout inset isn't
+	# settled yet at that exact first frame (it can still be mid-transition
+	# from the orientation lock) and later drifts to a different value.
+	# Every other consumer of UI.safe_area_top_inset()/top_bar_clearance()
+	# either re-derives it on every refresh (NotificationToast._refresh(),
+	# mounted directly beneath this bar — see its own comment) or is rebuilt
+	# fresh per screen navigation (event.gd's image slot, hq.gd, map.gd...),
+	# so a TopBar that only ever computed this once at boot silently drifted
+	# out of alignment with everyone else for the rest of the session: seen
+	# on-device as the bar sitting noticeably lower than it should, and
+	# NotificationToast's rows (which had since settled to the current,
+	# smaller value) overlapping up into the bar's own strip instead of
+	# sitting flush beneath it. Re-applying this every refresh (already
+	# wired to EventBus.state_changed) keeps TopBar self-correcting exactly
+	# like NotificationToast, so the two can never disagree.
+	_apply_safe_area_offsets()
 	_board.set_lines([DotMatrixBoard.line(_status_line_text(), STATUS_DOT_SIZE)])
+
+
+# Bugfixes ticket 21: flush against offset_top = 0 sits directly under the OS
+# notch/front-camera cutout on some devices, hiding money/time/bag behind it.
+# Shift the whole bar down by the safe-area top inset (zero on
+# desktop/headless) while keeping its own height fixed at BAR_HEIGHT —
+# UI.top_bar_clearance() is what every screen that clears "below the TopBar"
+# now uses instead of the bare constant, so nothing ends up hidden under the
+# bar's new, lower position.
+func _apply_safe_area_offsets() -> void:
+	offset_top = UI.safe_area_top_inset()
+	offset_bottom = UI.top_bar_clearance()

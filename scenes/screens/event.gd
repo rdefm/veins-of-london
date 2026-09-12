@@ -247,7 +247,14 @@ func _refresh_image_slot() -> void:
 		_image_texture.texture = null
 
 	_image_frame.visible = showing
-	var top: float = _image_frame.offset_top
+	# Re-derive top_bar_clearance() here instead of reading back
+	# _image_frame.offset_top (baked in once by _build_image_frame(), never
+	# revisited) -- same fix as top_bar.gd's own _apply_safe_area_offsets():
+	# a value read once at construction can go stale relative to TopBar's
+	# now-self-correcting one, and this runs on every _refresh() (every
+	# card advance) rather than once per event, so it's essentially free.
+	var top: float = UI.top_bar_clearance()
+	_image_frame.offset_top = top
 	_image_frame.offset_bottom = top + IMAGE_SLOT_HEIGHT if showing else top
 	_scroll.offset_top = top + (IMAGE_SLOT_HEIGHT if showing else 0.0)
 

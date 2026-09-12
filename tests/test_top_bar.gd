@@ -62,6 +62,37 @@ func run() -> void:
 		bar.free()
 	)
 
+	run_case("safe_area_offsets_are_reapplied_on_every_refresh_not_just_ready", func():
+		# Bugfixes ticket [pending]: TopBar used to compute offset_top/
+		# offset_bottom exactly once, in _ready() -- since it's built once for
+		# the whole app session (Main.gd), any drift in what
+		# UI.safe_area_top_inset()/top_bar_clearance() reports after that
+		# first call (seen on-device: the bar sitting too low, and
+		# NotificationToast's rows -- which DO re-derive the same value on
+		# every refresh -- overlapping up into it) never got corrected. This
+		# guards the fix: _refresh() (wired to EventBus.state_changed, same
+		# as NotificationToast's own) must re-apply both offsets every time,
+		# not just leave whatever _ready() set.
+		GameState.reset()
+
+		var bar := TopBar.new()
+		bar._ready()
+		assert_eq(bar.offset_top, UI.safe_area_top_inset())
+		assert_eq(bar.offset_bottom, UI.top_bar_clearance())
+
+		# Simulate the offsets having drifted stale (e.g. a safe-area value
+		# that changed after _ready() ran) -- a real _refresh() must stomp
+		# these back to the current UI.* values, not leave them alone.
+		bar.offset_top = 999.0
+		bar.offset_bottom = 999.0
+		EventBus.state_changed.emit()
+
+		assert_eq(bar.offset_top, UI.safe_area_top_inset(), "offset_top is re-derived on every refresh, same as NotificationToast")
+		assert_eq(bar.offset_bottom, UI.top_bar_clearance(), "offset_bottom is re-derived on every refresh, same as NotificationToast")
+
+		bar.free()
+	)
+
 	run_case("the_bag_button_opens_the_bag_and_never_navigates", func():
 		GameState.reset()
 
