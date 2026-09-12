@@ -70,7 +70,17 @@ func _refresh() -> void:
 # itself only exists once HQ is unlocked, so this fallback keeps the one
 # always-available action (and the raid-pending Defend shortcut, unchanged
 # from the old Actions card) working in the meantime.
+#
+# bugfixes ticket 104: the plain card-stack menu this used to render (a
+# "Locked" heading + description label above the Actions card) had no
+# visual connection to the room itself. Swapped for the bedsit plate's own
+# background image (_build_locked_background(), no regions -- per-hotspot
+# lock states stay out of scope for this ticket, see docs/hq-diorama-vision.md
+# and ticket 104's own note) with the same Rest/Defend/Back buttons overlaid
+# on top, unchanged.
 func _build_locked_view() -> void:
+	_build_locked_background()
+
 	var content := UI.screen_body(self)
 	content.add_child(UI.back_to_home_button())
 
@@ -81,8 +91,23 @@ func _build_locked_view() -> void:
 		c["content"].add_child(UI.button("Defend", func(): Home.trigger_defend()))
 	content.add_child(c["panel"])
 
-	content.add_child(UI.heading("Locked"))
-	content.add_child(UI.muted_label("HQ unlocks as you progress. Keep sourcing. Keep your head down."))
+
+# The bedsit room plate's own background image, reused as this view's
+# backdrop with an empty region table -- HqDiorama is a pure renderer (its
+# own class comment) so an empty "regions" dict paints just the background,
+# no hotspots/placeholder boxes. mouse_filter IGNORE keeps it out of the way
+# of the overlaid buttons' own input handling (added after it, below).
+# Deep-copies the plate (GameData.HQ_VISUALS is the loaded-once source of
+# truth -- CLAUDE.md's STATE/DATA discipline forbids mutating it), same
+# convention _hostile_door_plate()/_security_lock_installed_plate() below use.
+func _build_locked_background() -> void:
+	var bedsit_plate: Dictionary = GameData.HQ_VISUALS["rooms"]["bedsit"].duplicate(true)
+	bedsit_plate["regions"] = {}
+	var background := HqDiorama.new()
+	background.build(bedsit_plate)
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	background.position = Vector2(0.0, UI.top_bar_clearance())
+	add_child(background)
 
 
 func _build_room_view() -> void:

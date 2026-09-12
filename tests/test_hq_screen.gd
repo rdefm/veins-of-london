@@ -88,7 +88,12 @@ func run() -> void:
 
 	# ── locked HQ: no room plate yet, Rest/Defend stay reachable ──────────
 
-	run_case("hq_locked_view_shows_the_locked_message_and_no_room_plate", func():
+	# bugfixes ticket 104: the locked fallback used to show a plain "Locked"
+	# heading with no visual link to the room -- it now paints the bedsit
+	# plate's own background image (via a second, region-less HqDiorama, kept
+	# out of hq._diorama since it isn't the tappable room view) behind the
+	# same Rest/Defend/Back buttons.
+	run_case("hq_locked_view_shows_the_bedsit_background_and_no_room_plate", func():
 		GameState.reset()
 		# homeUnlocked defaults false (autoload/GameState.gd) for the whole
 		# pre-raid stretch of a fresh game.
@@ -98,10 +103,11 @@ func run() -> void:
 		hq._ready()
 
 		assert_true(hq._diorama == null, "the room plate has nothing to show while HQ is locked")
-		var heading_texts: Array[String] = []
-		for l in hq.find_children("", "Label", true, false):
-			heading_texts.append((l as Label).text)
-		assert_true(heading_texts.has("Locked"), "a locked HQ visit must show the Locked heading")
+		var dioramas := hq.find_children("", "HqDiorama", true, false)
+		assert_eq(dioramas.size(), 1, "the locked view must show exactly one background diorama")
+		var background := dioramas[0] as HqDiorama
+		assert_eq(background.region_rects().size(), 0, "the locked background must have no per-hotspot regions -- out of scope for this ticket")
+		assert_eq(background._plate.get("image", ""), GameData.HQ_VISUALS["rooms"]["bedsit"]["image"], "the locked background must reuse the bedsit plate's own image")
 
 		hq.free()
 	)
