@@ -196,7 +196,7 @@ Calc expands these rules: Shield answers additional exposure, Time Pearl delays 
 2. Bills: current daily processing charges a fixed base while property data contains tier costs; zero cash has no arrears. Choose consequences and recovery rules before changing financial pressure.
 3. Contracts: set initial catalogue, quantity/payment/cadence/deadlines, partial-delivery policy, missed-order consequences, staff unlock/capacity/cost, and exact daily processing order relative to production, raids, and settlement.
 4. Nadia migration: map existing partial trade progress into the explicit supply order without taking rewards away or granting them twice.
-5. Alarms: settle whether “Leave undefended” resolves immediately or records non-intervention until the existing deadline. Preserve current timing until this is decided.
+5. Alarms: **settled 2026-09-13.** “Leave undefended” resolves the selected raid immediately after confirmation, using the normal guard-repel check and otherwise its already-rolled outcome. Closing/back remains deferral; current expiry timing otherwise remains unchanged.
 6. Combat: define fatigue reset/recovery, whether consecutive swings are required, stance timing versus fast opponents, multiple strikes and multiple targets, freezes/exhaustion overlap, stance expiry if its target dies, and available actions during exhaustion.
 7. Combat economy: establish a baseline combat action/resource budget so free item uses or extra attacks do not bypass the intended stance/exhaustion decisions.
 
