@@ -1,6 +1,8 @@
 class_name TopBar
 extends Control
 
+const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
+
 # Persistent top bar (D4): cash, day/time-blocks, the global bag button, and
 # (bugfixes ticket 107) the scrolling notification log -- all on one
 # electronic dot-matrix departure/platform board (amber-on-black, rendered
@@ -138,16 +140,21 @@ func _refresh() -> void:
 # next refresh naturally picks the most recent eligible entries back up.
 func _visible_notification_lines() -> Array[String]:
 	var combat_active: bool = GameState.state["combat"]["active"]
+	var lines: Array[String] = []
+	var alarm_count := RaidAlarmsSystem.count()
+	if alarm_count > 0 and not combat_active:
+		lines.append("RAID ALARM%s ×%d — PHONE" % ["S" if alarm_count != 1 else "", alarm_count])
 	var eligible: Array[Dictionary] = []
 	for notification in GameState.state["notifications"]:
 		if combat_active and not notification.get(Notify.META_COMBAT_LOG, false):
 			continue
 		eligible.append(notification)
 
-	var start: int = maxi(0, eligible.size() - MAX_VISIBLE_NOTIFICATIONS)
-	var lines: Array[String] = []
+	var notification_capacity: int = MAX_VISIBLE_NOTIFICATIONS - lines.size()
+	var start: int = maxi(0, eligible.size() - notification_capacity)
 	for i in range(start, eligible.size()):
-		lines.append(_notification_row_text(i - start, eligible[i]["text"]))
+		if notification_capacity > 0:
+			lines.append(_notification_row_text(i - start, eligible[i]["text"]))
 	return lines
 
 

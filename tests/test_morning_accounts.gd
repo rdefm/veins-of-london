@@ -94,7 +94,7 @@ func run() -> void:
 		MorningAccountsSystem.open_bank()
 		assert_eq(GameState.state["phoneNav"]["app"], "bank")
 		MorningAccountsSystem.open_attention(items[0])
-		assert_eq(GameState.state["phoneNav"]["app"], "notifications")
+		assert_eq(GameState.state["phoneNav"]["app"], "alarms")
 		MorningAccountsSystem.open_attention(items[1])
 		assert_eq(GameState.state["phoneNav"]["app"], "messages")
 		assert_eq(GameState.state["phoneNav"]["selectedContactId"], "archie")

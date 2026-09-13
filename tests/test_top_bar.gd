@@ -189,6 +189,20 @@ func run() -> void:
 		bar.free()
 	)
 
+	run_case("unresolved_raid_alarm_stays_pinned_ahead_of_routine_notifications", func():
+		GameState.reset()
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "raid_1"
+		Notify.push("Routine one.")
+		Notify.push("Routine two.")
+		Notify.push("Routine three.")
+		var bar := TopBar.new()
+		bar._ready()
+		assert_eq(bar._board.target_text(2), "RAID ALARM ×1 — PHONE")
+		assert_eq(bar._board.target_text(3), "1ST ROUTINE THREE.")
+		bar.free()
+	)
+
 	run_case("a_notification_stays_visible_across_refreshes_until_displaced_by_a_newer_one", func():
 		# Guards the "no fade timer" acceptance check directly: a plain
 		# state_changed refresh (the kind cash/day changes fire constantly)

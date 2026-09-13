@@ -11,6 +11,7 @@ extends Control
 
 const SECTION_LABELS := { "economic": "Economic", "social": "Social", "political": "Political" }
 const MorningAccountsSystem := preload("res://systems/morning_accounts.gd")
+const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
 
 var _content: VBoxContainer
 var _export_box: TextEdit
@@ -100,6 +101,8 @@ func _refresh() -> void:
 		_background_style.bg_color = GameData.PALETTE.get("phone_bg_content", Color("#252528"))
 
 	match nav["app"]:
+		"alarms":
+			_build_alarms()
 		"bizbrief":
 			_build_bizbrief()
 		"messages":
@@ -222,6 +225,8 @@ func _vfl_locked() -> bool:
 
 func _badge_for(app_id: String) -> bool:
 	match app_id:
+		"alarms":
+			return RaidAlarmsSystem.has_unresolved()
 		"ticker":
 			return _has_ticker_rumblings()
 		_:
@@ -233,6 +238,36 @@ func _has_ticker_rumblings() -> bool:
 		if Barometer.trend_hint_state(section) != null:
 			return true
 	return false
+
+
+# ── Alarms (day-rhythm ticket 04) ───────────────────────────────────
+
+func _build_alarms() -> void:
+	_content.add_child(_phone_back_button())
+	_content.add_child(UI.heading("Alarms"))
+	var rows := RaidAlarmsSystem.summary_rows()
+	if rows.is_empty():
+		_content.add_child(UI.muted_label("No active alarms."))
+		return
+	_content.add_child(UI.muted_label("%d unresolved" % rows.size()))
+	for row in rows:
+		_content.add_child(_build_alarm_row(row))
+
+
+func _build_alarm_row(row: Dictionary) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading(row["title"], 14))
+	c["content"].add_child(UI.label("District: %s" % row["district"]))
+	c["content"].add_child(UI.label("Deadline: %s" % row["deadline"]))
+	c["content"].add_child(UI.muted_label(row["consequence"]))
+	var actions := UI.hbox()
+	actions.add_child(UI.button("Go and defend", func():
+		if not RaidAlarmsSystem.defend(row["id"]):
+			_refresh()
+	))
+	actions.add_child(UI.button("Decide later", func(): PhoneNav.go_home()))
+	c["content"].add_child(actions)
+	return c["panel"]
 
 
 # ── messages (collective1-03: real Messages app) ─────────────────────

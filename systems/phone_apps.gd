@@ -23,6 +23,7 @@ extends RefCounted
 static func apps() -> Array[Dictionary]:
 	var unlocked := func(): return false
 	var list: Array[Dictionary] = [
+		{ "id": "alarms", "label": "Alarms", "locked": unlocked },
 		# day-rhythm ticket 03: standalone business-operations reporting app.
 		# PROSE-REVIEW: BizBrief / Morning Brief.
 		{ "id": "bizbrief", "label": "BizBrief", "locked": unlocked },

@@ -63,6 +63,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | progression.gd | Shared "award XP against a levels table" loop | — |
 | raiding.gd | Vein stealth-check + raid resolution | districts.json, factions.json, ore_types.json, stealth.json |
 | relation_accrual.gd | Capped, remainder-carrying £-denominated trade-relation meter | — |
+| raid_alarms.gd | Read-only stable summaries, counts, defence dispatch, and Phone routing for unresolved HQ/vein raid alarms | — |
 | rooms.gd | Daily processing for lab/veinStation rooms | ore_types.json, recipes.json |
 | sites.gd | Sites & prospecting (land, seeding into a vein) | districts.json, factions.json, ore_types.json, sites.json, vein_growth.json |
 | station_bubble.gd | Map site/vein-stop tap-bubble decision layer | vein_growth.json |

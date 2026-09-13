@@ -1,6 +1,8 @@
 class_name MorningAccounts
 extends RefCounted
 
+const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
+
 # Exact, persisted account of one completed daily tick. The temporary
 # context returned by begin_rollover() exists only while TimeSystem runs the
 # tick; finish_rollover() stores the compact result and discards snapshots.
@@ -147,7 +149,7 @@ static func open_attention(item: Dictionary) -> void:
 	if item["kind"] == "message":
 		PhoneNav.select_conversation(item["contactId"])
 	else:
-		PhoneNav.open_app("notifications")
+		RaidAlarmsSystem.open()
 
 
 static func open_bank() -> void:
