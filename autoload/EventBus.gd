@@ -7,6 +7,8 @@ extends Node
 signal state_changed
 signal screen_changed(screen: String)
 signal day_ticked(day: int)
+# Presentation-only capture; listeners must wait for the action outcome.
+signal time_advanced(source: Dictionary, destination: Dictionary)
 signal notification_pushed
 
 # combat-presentation ticket 11: carries a completed action's `beats` Array

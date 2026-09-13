@@ -11,6 +11,7 @@ const PASSIVE_REGEN_FRACTION := 0.05
 
 static func advance_time_block() -> void:
 	var world: Dictionary = GameState.state["world"]
+	var source := { "day": world["day"], "phase": world["timeBlock"] }
 	world["timeBlocksDone"].append(world["timeBlock"])
 	world["timeBlock"] += 1
 	if world["timeBlock"] >= BLOCKS_PER_DAY:
@@ -19,6 +20,7 @@ static func advance_time_block() -> void:
 		world["timeBlocksDone"] = []
 		world["currentDistrict"] = "shoreditch"
 		daily_tick()
+	EventBus.time_advanced.emit(source, { "day": world["day"], "phase": world["timeBlock"] })
 	EventBus.state_changed.emit()
 
 
@@ -31,6 +33,7 @@ static func is_time_exhausted() -> bool:
 # daily_tick), then heals the player 20% of hpMax, capped at hpMax.
 static func do_rest() -> void:
 	var world: Dictionary = GameState.state["world"]
+	var source := { "day": world["day"], "phase": world["timeBlock"] }
 	world["day"] += 1
 	world["timeBlock"] = 0
 	world["timeBlocksDone"] = []
@@ -44,6 +47,7 @@ static func do_rest() -> void:
 	var actual_heal: int = player["hp"] - old_hp
 
 	Notify.push("Rested. Day %d. +%d HP." % [world["day"], actual_heal], Notify.CATEGORY_SUCCESS)
+	EventBus.time_advanced.emit(source, { "day": world["day"], "phase": world["timeBlock"] })
 	EventBus.state_changed.emit()
 
 

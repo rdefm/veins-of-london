@@ -141,6 +141,9 @@ func _ready() -> void:
 	bag_drawer = BagDrawer.new()
 	add_child(bag_drawer)
 
+	# Last sibling: blocks every screen, modal, navigation and bag control.
+	add_child(preload("res://scenes/components/time_transition.gd").new())
+
 	EventBus.screen_changed.connect(_on_screen_changed)
 	_show_screen(GameState.state["currentScreen"])
 

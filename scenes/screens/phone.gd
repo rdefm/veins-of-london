@@ -574,6 +574,11 @@ func _build_profile() -> void:
 	_content.add_child(_build_profile_stats_card())
 	_content.add_child(_build_profile_skills_card())
 	_content.add_child(_build_profile_equipment_card())
+	var motion := CheckButton.new()
+	motion.text = GameData.DAILY_CYCLE["reducedMotionLabel"]
+	motion.button_pressed = GameState.state["meta"].get("reducedMotion", false)
+	motion.toggled.connect(preload("res://systems/preferences.gd").set_reduced_motion)
+	_content.add_child(motion)
 
 
 func _build_profile_stats_card() -> Control:

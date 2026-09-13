@@ -1,0 +1,32 @@
+{
+  "atlas": "res://assets/daily_cycle/cycle.png",
+  "frameCount": 28,
+  "columns": 7,
+  "rows": 4,
+  "cellSize": 73,
+  "ranges": {
+    "morning_to_afternoon": {
+      "start": 0,
+      "count": 14,
+      "size": [
+        73,
+        73
+      ]
+    },
+    "afternoon_to_evening": {
+      "start": 14,
+      "count": 14,
+      "size": [
+        72,
+        72
+      ]
+    }
+  },
+  "durationSeconds": 1.75,
+  "outcomeHoldSeconds": 0.75,
+  "displaySize": 365,
+  "background": "#111820",
+  "textColor": "#f4efdf",
+  "destinationLabel": "Day %d \u2014 %s",
+  "reducedMotionLabel": "Reduced motion"
+}

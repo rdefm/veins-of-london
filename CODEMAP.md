@@ -6,7 +6,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 
 | File | Purpose |
 |---|---|
-| EventBus.gd | Central signal bus (`state_changed`, `screen_changed`) — systems emit, screens redraw |
+| EventBus.gd | Central signal bus (`state_changed`, `screen_changed`, `time_advanced`) — systems emit, screens redraw |
 | GameData.gd | Loads/validates every `data/*.json` table once at boot into typed consts |
 | GameState.gd | The pure state tree (Dicts/Arrays/primitives only) — systems read/write, screens read only |
 | Rng.gd | Seeded RNG — every probabilistic system must draw from here, never randi/randf directly |
@@ -65,7 +65,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | rooms.gd | Daily processing for lab/veinStation rooms | ore_types.json, recipes.json |
 | sites.gd | Sites & prospecting (land, seeding into a vein) | districts.json, factions.json, ore_types.json, sites.json, vein_growth.json |
 | station_bubble.gd | Map site/vein-stop tap-bubble decision layer | vein_growth.json |
-| time_system.gd | Time blocks, rest, daily tick | constants.json (time blocks) |
+| time_system.gd | Time blocks, rest, daily tick; emits source/destination time_advanced for presentation | constants.json (time blocks) |
 | todo.gd | Notes-app checklist, driven by objectives | objectives.json |
 | travel.gd | District travel (free) | — |
 | vein_list.gd | Vein-portfolio list decision layer | vein_growth.json |
@@ -223,3 +223,16 @@ See CLAUDE.md source-of-truth table for: REFERENCE.md, M0-PORT.md, M1-LONDON.md,
 | adr/0003-app-icon-asset-contract.md | Fixed contract for app-tile icon assets |
 | adr/0004-remove-npc-vein-abandonment.md | Removed NPC-vein abandonment; retuned claim rate + prune-back target |
 | adr/0005-event-image-asset-contract.md | Fixed contract for event-card illustration assets (path/numbering/format/canvas) |
+
+## London time transitions (day-rhythm ticket 02)
+
+| File | Responsibility |
+|---|---|
+| scenes/components/time_transition.gd | Main-owned, topmost ephemeral presentation queue; waits for outcome/event/combat/modal/bag completion, plays atlas, blocks input, discards presentation on state replacement |
+| scenes/Main.gd | Creates the time overlay after all other UI |
+| scenes/screens/phone.gd | Profile exposes Reduced motion preference |
+| systems/preferences.gd | Pure saved accessibility preference mutation (`meta.reducedMotion`) |
+| data/daily_cycle.json | GameData.DAILY_CYCLE: atlas ranges, timing, bounds and presentation copy |
+| tools/pack_daily_cycle.py | Packs authored daily_cycle ZIP strips into a compact atlas, including optional final night clip |
+| assets/daily_cycle/README.md | Source contract, frame count/grid/bounds, final-animation handoff and art review |
+| tests/test_time_transition.gd | Capture/order, effects, free/blocked paths, Rest/rollover, reduced motion, reload, atlas and live input tests |

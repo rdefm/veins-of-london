@@ -410,6 +410,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 ## 3. FORMULAS & SYSTEM RULES
 
 ### 3.1 Time, rest, daily tick
+- **Time transition presentation:** TimeSystem emits source/destination once per block charge or Rest. A transient Main overlay waits for event/combat/result/modal/bag completion and a 0.75s outcome hold, then blocks input for 1.75s. Completion has no effects. Load/reset/Rewind state replacement discards presentation. `meta.reducedMotion` is an optional saved boolean (absent = false), set through Phone Profile; it selects a static destination for the same duration. Asset ranges/tuning: `data/daily_cycle.json`. Overnight art remains pending; static Morning is the temporary fallback.
 - **Clock presentation:** full day/phase, sun/moon cue and three shape-distinct phase markers derive from `world.timeBlock`; no additional persisted clock state. Available Evening paid actions carry a final-block warning. Free/unavailable actions omit time-cost labels. Rest identifies next morning. Copy/cues: `data/constants.json.dayClock`; layout: `docs/ui-vision.md`.
 - 3 blocks/day. `advanceTimeBlock()`: append current block to `timeBlocksDone`, increment `timeBlock`; if `timeBlock >= 3` → `day += 1`, `timeBlock = 0`, `timeBlocksDone = []`, run `daily_tick()`.
 - `isTimeExhausted()` = `timeBlocksDone.size() >= 3`.
