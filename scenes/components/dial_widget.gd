@@ -97,11 +97,54 @@ const TOP_PADDING := 16.0
 # debug_combat_dial_screenshot.gd's own real (non-headless) render, not just
 # hand-measured -- ART-REVIEW still applies to the screw/button hit-region
 # consts below, which remain unconfirmed on an actual device.
-const HANDLE_DISPLAY_SIZE := 208.0
 const HANDLE_NATIVE_SIZE := 500.0
+
+# ticket 108 (2026-09-13, revised same day on further human direction): a
+# first pass here (208.0 -> 280.0) tried to fit a bigger square render into
+# the Dial+action-deck row by shrinking the action deck's own column --
+# turned down on review ("return the buttons to their original size").
+# The actual fix, per a Pillow alpha-bbox scan of dial_device_base.png (this
+# ticket's own working notes): the drawn device only occupies native
+# x:[141,377] of the 500-wide square -- more than half the canvas
+# (x:[0,141] and x:[377,500]) is blank transparent margin, paid for in this
+# widget's own layout width for zero visual gain. CROP_NATIVE_X/WIDTH below
+# crop the rendered AtlasTexture region down to just the device (plus a
+# ~10px safety margin past the measured bbox so antialiased edge pixels
+# don't clip) -- native x only, matching TOP_PADDING's own "vertical
+# geometry is measured by eye, not exact" caveat, which this ticket doesn't
+# touch. Cropping the dead margin (not the device itself) is what lets the
+# rendered art get bigger AND sit further left on screen AND leave the
+# action deck its original width, all at once: the same HANDLE_SCALE now
+# applies to a narrower native strip, so a much bigger on-screen device
+# still fits the same 224px column the un-cropped 208.0 render used to need.
+const CROP_NATIVE_X := 130.0
+const CROP_NATIVE_WIDTH := 260.0
+
+# The umbrella's on-screen HEIGHT (native height is left uncropped, full
+# 0..HANDLE_NATIVE_SIZE -- see CROP_NATIVE_X's own comment) -- 400.0 is
+# exactly what CROP_NATIVE_WIDTH needs to land WIDGET_SIZE.x back at the
+# same 224px this widget's column used before ticket 108 (224 = 400*
+# CROP_NATIVE_WIDTH/HANDLE_NATIVE_SIZE + WIDGET_PADDING*2 = 208 + 16),
+# so the action deck beside it gets its full original column width back
+# rather than sharing a bigger dial's row. That 224px column now renders a
+# device roughly 1.92x its pre-ticket size (400.0 vs the original 208.0),
+# comfortably past the ticket's own 1.75x ask -- confirmed via scripts/
+# debug_combat_dial_screenshot.gd's own rect dump, not just this arithmetic.
+const HANDLE_DISPLAY_SIZE := 400.0
 const HANDLE_SCALE := HANDLE_DISPLAY_SIZE / HANDLE_NATIVE_SIZE
 
-const WIDGET_SIZE := Vector2(HANDLE_DISPLAY_SIZE + WIDGET_PADDING * 2.0, HANDLE_DISPLAY_SIZE + WIDGET_PADDING + TOP_PADDING)
+# What actually gets rendered on screen, after the horizontal crop -- unlike
+# HANDLE_DISPLAY_SIZE (a full 500-native-unit span), this is CROP_NATIVE_WIDTH
+# (260) worth of native units at the same HANDLE_SCALE, so `_build_art()`'s
+# TextureRect and WIDGET_SIZE's own width both use this, not
+# HANDLE_DISPLAY_SIZE. Exposed (not inlined) so tests/test_dial_widget.gd can
+# assert the widget box still fully contains the actually-rendered device,
+# same spirit as the old (pre-crop) "WIDGET_SIZE >= HANDLE_DISPLAY_SIZE"
+# check that guarded against re-introducing ui-chrome-pass ticket 03's
+# cropped-headshot bug.
+const RENDERED_WIDTH := CROP_NATIVE_WIDTH * HANDLE_SCALE
+
+const WIDGET_SIZE := Vector2(RENDERED_WIDTH + WIDGET_PADDING * 2.0, HANDLE_DISPLAY_SIZE + WIDGET_PADDING + TOP_PADDING)
 
 # Where the rendered umbrella sits inside WIDGET_SIZE: WIDGET_PADDING in from
 # the left/right/bottom edges, TOP_PADDING down from the top (see that
@@ -109,9 +152,20 @@ const WIDGET_SIZE := Vector2(HANDLE_DISPLAY_SIZE + WIDGET_PADDING * 2.0, HANDLE_
 # sides).
 const WRAP_OFFSET := Vector2(WIDGET_PADDING, TOP_PADDING)
 
-# hq_dial.gd's own measured consts, reused verbatim (same PNG, same
-# measurement) -- see that file's top comment for how these were derived.
-const FACE_CENTER_NATIVE := Vector2(250.0, 101.0)
+# hq_dial.gd's own measured consts (same PNG, same measurement) sit at
+# native x=250.0 (dead centre of the original, uncropped 500-wide canvas) --
+# hq_dial.gd's own copy of that number is untouched (it renders the full
+# square). This file's rendered texture starts CROP_NATIVE_X native units
+# further right than that, so every x coordinate measured against the full
+# square has to shift left by CROP_NATIVE_X to still land on the same pixel
+# of the actual device art. Derived, not a second hardcoded "120.0" --
+# code-review finding (2026-09-13): two independently-typed copies of the
+# same arithmetic would silently drift apart if CROP_NATIVE_X ever changes
+# again, with no compiler help to catch it (same drift RENDERED_WIDTH above
+# is deliberately derived, not hardcoded, to avoid). Only x shifts; native y
+# is uncropped, so FACE_CENTER_NATIVE.y is untouched.
+const _SOURCE_CENTER_X := 250.0
+const FACE_CENTER_NATIVE := Vector2(_SOURCE_CENTER_X - CROP_NATIVE_X, 101.0)
 const NEEDLE_ATLAS_REGION := Rect2(3.0, 1.0, 45.0, 37.0)
 const NEEDLE_HUB_NATIVE := Vector2(13.0, 26.0)
 const NEEDLE_MIN_DEG := -90.0
@@ -141,7 +195,11 @@ const MAX_DOTS := 4
 # no-overlap guidance docs/hq-diorama-vision.md §3.2 sets, and sits far
 # enough below the bottom screw (index 2) that the two hit-boxes don't
 # touch.
-const BUTTON_CENTER_NATIVE := Vector2(250.0, 280.0)
+#
+# ticket 108: x derived the same way FACE_CENTER_NATIVE's own comment
+# explains (both sit at native x=250.0 on the original, uncropped canvas) --
+# native y untouched.
+const BUTTON_CENTER_NATIVE := Vector2(_SOURCE_CENTER_X - CROP_NATIVE_X, 280.0)
 const BUTTON_HIT_SIZE := Vector2(64.0, 36.0)
 
 var _dial: Dictionary = {}
@@ -258,14 +316,22 @@ func _build_art() -> void:
 	var wrap := Control.new()
 	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wrap.position = WRAP_OFFSET
-	wrap.custom_minimum_size = Vector2(HANDLE_DISPLAY_SIZE, HANDLE_DISPLAY_SIZE)
+	wrap.custom_minimum_size = Vector2(RENDERED_WIDTH, HANDLE_DISPLAY_SIZE)
 	add_child(wrap)
 
+	# ticket 108: an AtlasTexture cropped to CROP_NATIVE_X/WIDTH, not the
+	# plain full-square texture load() this used before -- see
+	# CROP_NATIVE_X's own comment for why (the un-cropped square is more
+	# than half blank margin). Same "atlas-crop a sub-region" mechanism the
+	# needle sprite below already uses on its own spritesheet.
 	_base_rect = TextureRect.new()
-	_base_rect.texture = load(HANDLE_TEXTURE_PATH)
+	var base_atlas := AtlasTexture.new()
+	base_atlas.atlas = load(HANDLE_TEXTURE_PATH)
+	base_atlas.region = Rect2(CROP_NATIVE_X, 0.0, CROP_NATIVE_WIDTH, HANDLE_NATIVE_SIZE)
+	_base_rect.texture = base_atlas
 	_base_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_base_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_base_rect.size = Vector2(HANDLE_DISPLAY_SIZE, HANDLE_DISPLAY_SIZE)
+	_base_rect.size = Vector2(RENDERED_WIDTH, HANDLE_DISPLAY_SIZE)
 	_base_rect.stretch_mode = TextureRect.STRETCH_SCALE
 	wrap.add_child(_base_rect)
 

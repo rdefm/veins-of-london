@@ -58,14 +58,29 @@ const STAGE_HEIGHT := 220.0
 # safe_area_*_inset() -- same "DisplayServer returns a bogus large inset in a
 # windowed desktop test session" reason hq_dial.gd's own DEVICE_BOTTOM_MARGIN
 # gives) so the action deck's right edge and the Dial's art don't sit flush
-# against the literal screen edge. HEIGHT has to cover DialWidget.WIDGET_SIZE.y
-# at whatever HANDLE_DISPLAY_SIZE that file is currently set to -- ART-REVIEW,
-# first-pass fit verified against a real render
-# (scripts/debug_combat_dial_screenshot.gd), not an exact formula.
+# against the literal screen edge.
+#
+# ticket 108 (2026-09-13): HEIGHT is now DialWidget.WIDGET_SIZE.y directly,
+# not a hand-picked flat number -- the previous flat 316.0 was ~74-84px
+# taller than either the Dial or the action deck column actually needed
+# (verified via scripts/debug_combat_dial_screenshot.gd's own rect dump),
+# and that slack was exactly the "oversized gap between the Dial and the
+# stage above" this ticket's issue text flagged: _content's ScrollContainer
+# reserves HEIGHT+BOTTOM_MARGIN of screen space for this dock regardless of
+# what's actually drawn in it (see _ready()'s own comment below), so any
+# unused height in this dock reads on-screen as dead space stacked on top of
+# the Dial, not as space "given back" to the stage above it. Deriving HEIGHT
+# from the widget's own const keeps the two in lockstep as HANDLE_DISPLAY_SIZE
+# (dial_widget.gd) changes again in future, instead of silently drifting out
+# of sync the way the flat 316.0 already had. Safe against the action deck's
+# own (font/icon-driven, ~242px) natural height too -- confirmed via that
+# same script that the Dial is the taller of the two at this file's current
+# HANDLE_DISPLAY_SIZE, so this single value covers both columns without
+# clipping either.
 const COMMAND_DOCK_LEFT_MARGIN := 0.0
 const COMMAND_DOCK_RIGHT_MARGIN := 4.0
 const COMMAND_DOCK_BOTTOM_MARGIN := 6.0
-const COMMAND_DOCK_HEIGHT := 316.0
+const COMMAND_DOCK_HEIGHT := DialWidget.WIDGET_SIZE.y
 
 # combat-presentation ticket 10: left/right stage split -- player + allies
 # occupy the left column, enemies the right, each column running the full

@@ -34,7 +34,13 @@ func run() -> void:
 	# meant to fully contain, and that the four screw hit-targets (which used
 	# to sit right at the crop's own edge) all land safely inside the box.
 	run_case("widget_size_fully_contains_the_rendered_umbrella_with_no_cropping", func():
-		assert_true(DialWidget.WIDGET_SIZE.x >= DialWidget.HANDLE_DISPLAY_SIZE, "the box must be at least as wide as the rendered art -- narrower crops the sides off again")
+		# ticket 108: WIDGET_SIZE.x is checked against RENDERED_WIDTH, not
+		# HANDLE_DISPLAY_SIZE -- this widget now deliberately crops the source
+		# texture's own blank native margin (CROP_NATIVE_X's own comment), so
+		# HANDLE_DISPLAY_SIZE (a full 500-native-unit span) is no longer the
+		# rendered width. RENDERED_WIDTH is what actually gets drawn on
+		# screen, and the box must still fully contain THAT without cropping.
+		assert_true(DialWidget.WIDGET_SIZE.x >= DialWidget.RENDERED_WIDTH, "the box must be at least as wide as the rendered (cropped) art -- narrower crops the sides off again")
 		assert_true(DialWidget.WIDGET_SIZE.y >= DialWidget.HANDLE_DISPLAY_SIZE, "the box must be at least as tall as the rendered art -- shorter crops the top/bottom off again")
 
 		var widget := DialWidget.new()
