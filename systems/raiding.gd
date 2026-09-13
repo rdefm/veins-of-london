@@ -796,6 +796,29 @@ static func trigger_defend(vein_id: String) -> bool:
 	return true
 
 
+# day-rhythm ticket 07: the committed "Leave undefended" path.  The caller
+# supplies the notification identity it rendered, but this is still the
+# authority boundary: find the live queued record again, remove exactly that
+# one, then run the ordinary guard-repel/loss path immediately.  Removing it
+# before either consequence makes repeated, stale, or re-entrant confirms a
+# harmless no-op, and leaves every other pending raid intact.
+static func leave_undefended(vein_id: String, notification_id: String) -> bool:
+	var pending: Array = GameState.state["world"]["pendingDefendRaids"]
+	for i in range(pending.size()):
+		var outcome: Dictionary = pending[i]
+		if outcome.get("veinId", "") != vein_id:
+			continue
+		if str(outcome.get("notificationId", "")) != notification_id:
+			continue
+
+		pending.remove_at(i)
+		if not _guards_repel_defend_raid(outcome):
+			resolve_raid_outcome(outcome)
+		EventBus.state_changed.emit()
+		return true
+	return false
+
+
 # Called by Combat.exit_combat()'s "defend_vein" branch. A win leaves the
 # vein untouched -- ownership was never moved, so there's nothing to do, and
 # the PRD explicitly wants no separate win notification. A loss reuses

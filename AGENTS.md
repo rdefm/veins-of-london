@@ -74,6 +74,11 @@ Identical discipline to the prototype:
 
 ## Environment setup (sandbox or fresh machine)
 
+On this Windows workspace, use the installed Godot 4.7 console binary:
+`C:\\Users\\Richard\\projects\\Godot_v4.7-stable_win64.exe\\Godot_v4.7-stable_win64_console.exe`.
+Do not use the older `godot` PATH entry (currently 4.4.1). All checks and
+tests for this workspace must use the 4.7 binary above.
+
 If `godot` is not on PATH, run `scripts/setup_godot.sh` (M0-T00 creates it), which downloads the Godot 4.7 headless Linux binary from the official GitHub release (`godotengine/godot` releases, asset `Godot_v4.7-stable_linux.x86_64.zip`), unzips it to `.godot-bin/`, and symlinks it as `godot`. All test and check scripts must work with this binary. Never require the editor GUI for any verification step.
 
 ## Prose rules (summary — full rules in docs/CONTENT-GUIDE.md)

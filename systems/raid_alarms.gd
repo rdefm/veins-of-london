@@ -60,6 +60,18 @@ static func defend(situation_id: String) -> bool:
 	return false
 
 
+# day-rhythm ticket 07: confirmation invokes this operation, not a captured
+# outcome dict.  It re-derives the live row, so a stale/duplicate response
+# cannot resolve a different raid or apply a second consequence.
+static func leave_undefended(situation_id: String) -> bool:
+	for row in summary_rows():
+		if row["id"] != situation_id or row["kind"] != "vein":
+			continue
+		var notification_id := situation_id.trim_prefix("vein:")
+		return Raiding.leave_undefended(row["veinId"], notification_id)
+	return false
+
+
 static func open() -> void:
 	PhoneNav.open_app("alarms")
 

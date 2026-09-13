@@ -16,6 +16,7 @@ const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
 var _content: VBoxContainer
 var _export_box: TextEdit
 var _import_box: TextEdit
+var _leave_undefended_situation_id := ""
 
 # 09-family-2-chrome-phone-apps, ui-vision.md §10: the persistent dark
 # "device shell" ground painted behind every view this screen builds --
@@ -265,6 +266,24 @@ func _build_alarm_row(row: Dictionary) -> Control:
 		if not RaidAlarmsSystem.defend(row["id"]):
 			_refresh()
 	))
+	if row["kind"] == "vein":
+		if _leave_undefended_situation_id == row["id"]:
+			c["content"].add_child(UI.muted_label("Leave this vein undefended? The raid resolves immediately."))
+			c["content"].add_child(UI.label(row["consequence"]))
+			actions.add_child(UI.button("Confirm leave undefended", func():
+				_leave_undefended_situation_id = ""
+				RaidAlarmsSystem.leave_undefended(row["id"])
+				_refresh()
+			))
+			actions.add_child(UI.button("Cancel", func():
+				_leave_undefended_situation_id = ""
+				_refresh()
+			))
+		else:
+			actions.add_child(UI.button("Leave undefended", func():
+				_leave_undefended_situation_id = row["id"]
+				_refresh()
+			))
 	actions.add_child(UI.button("Decide later", func(): PhoneNav.go_home()))
 	c["content"].add_child(actions)
 	return c["panel"]
