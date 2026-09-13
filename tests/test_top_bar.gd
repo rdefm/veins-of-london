@@ -8,6 +8,30 @@ extends "res://tests/test_base.gd"
 
 
 func run() -> void:
+	run_case("clock_tracks_public_time_actions_rollover_and_save_import", func():
+		GameState.reset()
+		var bar := TopBar.new()
+		bar._ready()
+		assert_eq(bar._status_line_text(), "☀ Day 1 Morning")
+		assert_true(bar._progress_line_text().begins_with("▣□□"))
+		TimeSystem.advance_time_block()
+		assert_eq(bar._status_line_text(), "☀ Day 1 Afternoon")
+		assert_true(bar._progress_line_text().begins_with("✓▣□"))
+		TimeSystem.advance_time_block()
+		assert_eq(bar._status_line_text(), "☾ Day 1 Evening")
+		assert_true(bar._progress_line_text().begins_with("✓✓▣"))
+		var saved := SaveManager.export_string()
+		TimeSystem.advance_time_block()
+		assert_eq(bar._status_line_text(), "☀ Day 2 Morning")
+		SaveManager.import_string(saved)
+		assert_eq(bar._board.target_text(), "☾ DAY 1 EVENING")
+		assert_true(bar._board.target_text(1).begins_with("✓✓▣"))
+		TimeSystem.do_rest()
+		assert_eq(bar._status_line_text(), "☀ Day 2 Morning")
+		assert_true(bar._progress_line_text().begins_with("▣□□"))
+		bar.free()
+	)
+
 	run_case("the_status_line_reports_day_time_block_progress_and_cash", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 3
@@ -18,7 +42,7 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._status_line_text(), "D3 AFT £240")
+		assert_eq(bar._status_line_text(), "☀ Day 3 Afternoon")
 
 		bar.free()
 	)
@@ -57,7 +81,7 @@ func run() -> void:
 		EventBus.state_changed.emit()
 
 		assert_eq(bar._board.target_text(), bar._status_line_text().to_upper(), "the board redraws with the new cash figure")
-		assert_true(bar._board.target_text().find("500") != -1)
+		assert_true(bar._board.target_text(1).find("500") != -1)
 
 		bar.free()
 	)
@@ -127,7 +151,7 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._board.target_text(1), "", "no second line exists yet")
+		assert_eq(bar._board.target_text(2), "", "no second line exists yet")
 
 		bar.free()
 	)
@@ -140,8 +164,8 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._board.target_text(1), "1ST FIRST.", "the older of the two visible entries is ranked 1st")
-		assert_eq(bar._board.target_text(2), "2ND SECOND.", "the newer is ranked 2nd")
+		assert_eq(bar._board.target_text(2), "1ST FIRST.", "the older of the two visible entries is ranked 1st")
+		assert_eq(bar._board.target_text(3), "2ND SECOND.", "the newer is ranked 2nd")
 
 		bar.free()
 	)
@@ -159,8 +183,8 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._board.target_text(1), "1ST SECOND.", "First. has scrolled off -- it's no longer the newest 2")
-		assert_eq(bar._board.target_text(2), "2ND THIRD.", "Third. is the newest, so it takes the bottom row")
+		assert_eq(bar._board.target_text(2), "1ST SECOND.", "First. has scrolled off -- it's no longer the newest 2")
+		assert_eq(bar._board.target_text(3), "2ND THIRD.", "Third. is the newest, so it takes the bottom row")
 
 		bar.free()
 	)
@@ -174,12 +198,12 @@ func run() -> void:
 
 		var bar := TopBar.new()
 		bar._ready()
-		assert_eq(bar._board.target_text(1), "1ST STICKS AROUND.")
+		assert_eq(bar._board.target_text(2), "1ST STICKS AROUND.")
 
 		EventBus.state_changed.emit()
 		EventBus.state_changed.emit()
 
-		assert_eq(bar._board.target_text(1), "1ST STICKS AROUND.", "still showing -- nothing displaced it and no timer touched it")
+		assert_eq(bar._board.target_text(2), "1ST STICKS AROUND.", "still showing -- nothing displaced it and no timer touched it")
 
 		bar.free()
 	)
@@ -197,7 +221,7 @@ func run() -> void:
 
 		Notify.dismiss(a["id"])  # fires state_changed -> _refresh()
 
-		assert_eq(bar._board.target_text(1), "1ST STILL ON THE BOARD.", "dismissing (marking seen) never hides a row -- only displacement does")
+		assert_eq(bar._board.target_text(2), "1ST STILL ON THE BOARD.", "dismissing (marking seen) never hides a row -- only displacement does")
 
 		bar.free()
 	)
@@ -226,7 +250,7 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._board.target_text(1), "", "nothing renders below the status line while combat is active")
+		assert_eq(bar._board.target_text(2), "", "nothing renders below the status line while combat is active")
 
 		bar.free()
 	)
@@ -239,13 +263,13 @@ func run() -> void:
 
 		var bar := TopBar.new()
 		bar._ready()
-		assert_eq(bar._board.target_text(1), "", "sanity: nothing shown mid-combat")
+		assert_eq(bar._board.target_text(2), "", "sanity: nothing shown mid-combat")
 
 		GameState.state["combat"]["active"] = false
 		EventBus.state_changed.emit()
 
-		assert_eq(bar._board.target_text(1), "1ST HELD 1.", "once combat ends, the held entries are the most recent eligible ones")
-		assert_eq(bar._board.target_text(2), "2ND HELD 2.")
+		assert_eq(bar._board.target_text(2), "1ST HELD 1.", "once combat ends, the held entries are the most recent eligible ones")
+		assert_eq(bar._board.target_text(3), "2ND HELD 2.")
 
 		bar.free()
 	)
@@ -262,7 +286,7 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._board.target_text(1), "1ST SCRAPPER HITS YOU FOR 4.", "a combat-log entry renders immediately even while combat is active")
+		assert_eq(bar._board.target_text(2), "1ST SCRAPPER HITS YOU FOR 4.", "a combat-log entry renders immediately even while combat is active")
 
 		bar.free()
 	)
@@ -276,8 +300,8 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._board.target_text(1), "1ST YOU STRIKE BACK.", "only the combat-log entry shows -- every other source keeps holding")
-		assert_eq(bar._board.target_text(2), "", "no second row -- the unrelated notification is still suppressed")
+		assert_eq(bar._board.target_text(2), "1ST YOU STRIKE BACK.", "only the combat-log entry shows -- every other source keeps holding")
+		assert_eq(bar._board.target_text(3), "", "no second row -- the unrelated notification is still suppressed")
 
 		bar.free()
 	)
@@ -292,8 +316,8 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._board.target_text(1), "1ST BEAT TWO.", "combat-log entries still cap at MAX_VISIBLE_NOTIFICATIONS, most recent first")
-		assert_eq(bar._board.target_text(2), "2ND BEAT THREE.")
+		assert_eq(bar._board.target_text(2), "1ST BEAT TWO.", "combat-log entries still cap at MAX_VISIBLE_NOTIFICATIONS, most recent first")
+		assert_eq(bar._board.target_text(3), "2ND BEAT THREE.")
 
 		bar.free()
 	)

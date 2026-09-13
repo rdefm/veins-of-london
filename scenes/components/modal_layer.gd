@@ -1221,7 +1221,7 @@ func _build_train_button() -> Control:
 	var c := UI.card()
 	c["panel"].add_theme_stylebox_override("panel", _action_card_panel_style(accent))
 
-	var b := UI.button("Train", func(): Combat.train())
+	var b := UI.button(UI.format_block_cost_label("Train", 1, not disabled), func(): Combat.train())
 	b.disabled = disabled
 	_style_action_button(b, accent)
 	c["content"].add_child(b)
@@ -1307,7 +1307,7 @@ func _build_lab_bench_recipe_row(recipe_key: String) -> Control:
 func _append_lab_bench_refine_controls(container: Control, recipe: Dictionary, types: Array, approach: String) -> void:
 	var tier := Bench.refine_tier_target(types, approach)
 	var reason := Bench.refine_block_reason(types, approach)
-	var refine_btn := UI.button("Refine to tier %d" % tier, func(): _on_lab_bench_refine_pressed(recipe["name"], types, approach, tier))
+	var refine_btn := UI.button(UI.format_block_cost_label("Refine to tier %d" % tier, 1, reason.is_empty()), func(): _on_lab_bench_refine_pressed(recipe["name"], types, approach, tier))
 	refine_btn.disabled = reason != ""
 	container.add_child(refine_btn)
 	if reason != "":

@@ -86,7 +86,7 @@ func _build_locked_view() -> void:
 
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Actions", 14))
-	c["content"].add_child(UI.button("Rest", func(): TimeSystem.do_rest()))
+	c["content"].add_child(UI.button(GameData.DAY_CLOCK["restLabel"], func(): TimeSystem.do_rest()))
 	if Home.has_pending_raid():
 		c["content"].add_child(UI.button("Defend", func(): Home.trigger_defend()))
 	content.add_child(c["panel"])
@@ -119,7 +119,9 @@ func _build_room_view() -> void:
 	# whose tier hasn't shipped yet. Forward-compatible with zero code
 	# change once a later art ticket adds that tier's own key.
 	var plate: Dictionary = rooms_visuals.get(home["tier"], rooms_visuals["bedsit"])
-	plate = _security_lock_installed_plate(plate, home)
+	plate = _security_lock_installed_plate(plate, home).duplicate(true)
+	if plate["regions"].has("rest"):
+		plate["regions"]["rest"]["caption"] = GameData.DAY_CLOCK["restLabel"]
 	if Home.has_pending_raid():
 		plate = _hostile_door_plate(plate)
 

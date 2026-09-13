@@ -119,7 +119,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		assert_true(_find_button(hq, "Rest") != null, "Rest must render even on a locked HQ visit")
+		assert_true(_find_button(hq, "Rest — next morning") != null, "Rest must render even on a locked HQ visit")
 
 		hq.free()
 	)

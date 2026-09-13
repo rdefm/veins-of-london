@@ -25,8 +25,8 @@ extends Control
 # never missed and the bag button keeps working everywhere, mid-event and
 # mid-combat included (D4.4).
 
-const BAR_HEIGHT := 40.0
-const STATUS_DOT_SIZE := 3.0
+const BAR_HEIGHT := 80.0
+const STATUS_DOT_SIZE := 2.0
 const NOTIFICATION_DOT_SIZE := 2.0
 const MAX_VISIBLE_NOTIFICATIONS := 2
 const _ORDINALS := ["1st", "2nd"]
@@ -77,31 +77,20 @@ func _ready() -> void:
 	_refresh()
 
 
-# Split out so tests can check the composed status line without reaching
-# into DotMatrixBoard's internal per-cell character state.
-#
-# Bugfixes ticket 01: the previous "Day %d · %s (%d/%d)   £%d" format (full
-# time-block name, both separators, the block-progress fraction) runs to
-# ~500px at STATUS_DOT_SIZE -- wider than this board has room for even
-# before reserved_right's bag-button gap, on this project's 390px viewport.
-# Abbreviating the time-block name to its first 3 letters (MOR/AFT/EVE --
-# still unambiguous, and the block name itself already conveys roughly
-# where in the day the player is, making the dropped "(x/3)" progress
-# fraction redundant for a HUD-width readout) is what buys the width back
-# with headroom to spare for day/cash figures growing into 3-4 digits;
-# reserved_right (top_bar.gd's _ready()) remains a defensive clip for
-# truly pathological figures beyond that, not the primary fix.
-# PROSE-REVIEW: new compact status-line format, drafted against
-# docs/CONTENT-GUIDE.md's tone bible.
+# Read-only clock: derives every marker from the authoritative phase on refresh.
 func _status_line_text() -> String:
 	var world: Dictionary = GameState.state["world"]
-	var player: Dictionary = GameState.state["player"]
-	var block_name: String = String(GameData.TIME_BLOCKS[world["timeBlock"]])
+	var phase: int = world["timeBlock"]
+	return GameData.DAY_CLOCK["dayFormat"] % [GameData.DAY_CLOCK["phaseCues"][phase], world["day"], GameData.TIME_BLOCKS[phase]]
 
-	return "D%d %s £%d" % [
-		world["day"], block_name.substr(0, 3).to_upper(),
-		player["cash"],
-	]
+
+func _progress_line_text() -> String:
+	var phase: int = GameState.state["world"]["timeBlock"]
+	var markers := ""
+	for index in GameData.TIME_BLOCKS.size():
+		var kind := "completed" if index < phase else ("current" if index == phase else "remaining")
+		markers += GameData.DAY_CLOCK["segments"][kind]
+	return "%s £%d" % [markers, GameState.state["player"]["cash"]]
 
 
 func _refresh() -> void:
@@ -121,7 +110,7 @@ func _refresh() -> void:
 	# self-correcting.
 	_apply_safe_area_offsets()
 
-	var lines: Array[Dictionary] = [DotMatrixBoard.line(_status_line_text(), STATUS_DOT_SIZE)]
+	var lines: Array[Dictionary] = [DotMatrixBoard.line(_status_line_text(), STATUS_DOT_SIZE), DotMatrixBoard.line(_progress_line_text(), STATUS_DOT_SIZE)]
 	for text in _visible_notification_lines():
 		lines.append(DotMatrixBoard.line(text, NOTIFICATION_DOT_SIZE))
 	_board.set_lines(lines)

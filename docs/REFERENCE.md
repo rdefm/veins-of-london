@@ -410,6 +410,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 ## 3. FORMULAS & SYSTEM RULES
 
 ### 3.1 Time, rest, daily tick
+- **Clock presentation:** full day/phase, sun/moon cue and three shape-distinct phase markers derive from `world.timeBlock`; no additional persisted clock state. Available Evening paid actions carry a final-block warning. Free/unavailable actions omit time-cost labels. Rest identifies next morning. Copy/cues: `data/constants.json.dayClock`; layout: `docs/ui-vision.md`.
 - 3 blocks/day. `advanceTimeBlock()`: append current block to `timeBlocksDone`, increment `timeBlock`; if `timeBlock >= 3` → `day += 1`, `timeBlock = 0`, `timeBlocksDone = []`, run `daily_tick()`.
 - `isTimeExhausted()` = `timeBlocksDone.size() >= 3`.
 - **Rest:** consume all remaining blocks, roll to next day (runs daily_tick), then heal `round(hpMax * 0.2)` capped at hpMax. Notification: "Rested. Day N. +X HP."

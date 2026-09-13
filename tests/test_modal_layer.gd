@@ -49,7 +49,7 @@ static func _label_texts(root: Node) -> Array[String]:
 static func _find_button(root: Node, text: String) -> Button:
 	for b in root.find_children("", "Button", true, false):
 		var btn := b as Button
-		if btn.text == text:
+		if btn.text == text or btn.text == UI.format_block_cost_label(text):
 			return btn
 		if btn.get_child_count() > 0 and _effective_text(btn.get_child(0) as Control) == text:
 			return btn
@@ -94,6 +94,24 @@ static func _seed_faction_vein(id: String, growth: int, faction_id: String = "co
 
 
 func run() -> void:
+	run_case("evening_train_label_predicts_one_automatic_rollover", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 500
+		TimeSystem.advance_time_block()
+		TimeSystem.advance_time_block()
+		Modal.open("hq_gym")
+		var layer := ModalLayer.new()
+		layer._ready()
+		var button := _find_button(layer, "Train — last block today")
+		assert_true(button != null)
+		button.pressed.emit()
+		assert_eq(GameState.state["world"]["day"], 2)
+		assert_eq(GameState.state["world"]["timeBlock"], 0)
+		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION)
+		assert_eq(GameState.state["player"]["cash"], 450)
+		layer.free()
+	)
+
 	run_case("tap_outside_a_no_side_effect_modal_just_closes_it", func():
 		GameState.reset()
 		Modal.open("seed_result", { "success": true, "oreType": "time" })

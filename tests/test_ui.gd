@@ -5,6 +5,19 @@ extends "res://tests/test_base.gd"
 
 
 func run() -> void:
+	GameState.reset()
+	run_case("last_block_warning_only_for_available_paid_actions", func():
+		GameState.reset()
+		TimeSystem.advance_time_block()
+		TimeSystem.advance_time_block()
+		assert_eq(UI.format_block_cost_label("Train"), "Train — last block today")
+		assert_eq(UI.format_block_cost_label("Travel", 0), "Travel")
+		assert_eq(UI.format_block_cost_label("Seed", 1, false), "Seed")
+		TimeSystem.advance_time_block()
+		assert_eq(UI.format_block_cost_label("Train"), "Train — 1 block")
+		GameState.reset()
+	)
+
 	run_case("ore_cost_label_matches_D4_4_example", func():
 		var cost := { "label": "Seed", "resource": "physics", "amount": 40 }
 		var holdings := { "physics": 52 }

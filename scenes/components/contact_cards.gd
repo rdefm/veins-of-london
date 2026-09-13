@@ -314,7 +314,7 @@ static func build_james_card() -> Control:
 			if not flags["jamesJobAccepted"]:
 				c["content"].add_child(UI.button("📋 James has work for you", func(): Modal.open("james_job_offer", { "job": job })))
 			elif job["type"] == "flatPay":
-				c["content"].add_child(UI.button("💷 Do the job (£%d)" % job["pay"], func(): Jobs.fulfil_job()))
+				c["content"].add_child(UI.button(UI.format_block_cost_label("💷 Do the job (£%d)" % job["pay"]), func(): Jobs.fulfil_job()))
 			else:
 				c["content"].add_child(UI.symbol_button(["📦 Deliver job: %d× " % job["qty"], { "symbol": job["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " %s" % job["recipeName"]], func(): Jobs.fulfil_job()))
 

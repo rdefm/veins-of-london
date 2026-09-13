@@ -16,5 +16,22 @@
     { "maxRelation": 3,    "qtyMin": 3, "qtyMax": 6 },
     { "maxRelation": null, "qtyMin": 5, "qtyMax": 10 }
   ],
-  "guardRepel": { "chancePerGuard": 0.15, "cap": 0.75 }
+  "guardRepel": { "chancePerGuard": 0.15, "cap": 0.75 },
+  "dayClock": {
+    "dayFormat": "%s Day %d %s",
+    "phaseCues": [
+      "☀",
+      "☀",
+      "☾"
+    ],
+    "segments": {
+      "completed": "✓",
+      "current": "▣",
+      "remaining": "□"
+    },
+    "finalBlock": "last block today",
+    "blockSingular": "%d block",
+    "blockPlural": "%d blocks",
+    "restLabel": "Rest — next morning"
+  }
 }

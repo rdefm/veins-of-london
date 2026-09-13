@@ -44,6 +44,7 @@ var _background_fill: ColorRect
 # the placeholder box for exactly those regions.
 var _region_sprites: Dictionary = {}
 var _debug_overlay_enabled: bool = false
+var _captions: Array[Label] = []
 
 
 func _init() -> void:
@@ -71,6 +72,9 @@ func _init() -> void:
 # GameData.HQ_VISUALS["rooms"]["bedsit"]). Safe to call again (e.g. on a
 # tier change) -- clears out the previous build's region sprites first.
 func build(plate: Dictionary) -> void:
+	for caption in _captions:
+		caption.free()
+	_captions.clear()
 	for sprite in _region_sprites.values():
 		sprite.queue_free()
 	_region_sprites.clear()
@@ -113,6 +117,22 @@ func build(plate: Dictionary) -> void:
 		sprite.size = _region_rect(region).size
 		add_child(sprite)
 		_region_sprites[region_id] = sprite
+
+	# Optional action captions remain readable when the region has finished art.
+	for region_id in regions:
+		var region: Dictionary = regions[region_id]
+		if not region.has("caption"):
+			continue
+		var caption := UI.label(region["caption"])
+		caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		caption.position = _region_rect(region).position
+		caption.size.x = _region_rect(region).size.x
+		caption.add_theme_color_override("font_color", Color.WHITE)
+		caption.add_theme_color_override("font_shadow_color", Color.BLACK)
+		caption.add_theme_constant_override("shadow_offset_x", 1)
+		caption.add_theme_constant_override("shadow_offset_y", 1)
+		add_child(caption)
+		_captions.append(caption)
 
 	queue_redraw()
 

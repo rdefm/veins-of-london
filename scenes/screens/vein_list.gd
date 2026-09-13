@@ -132,7 +132,7 @@ func _build_action_button(vein: Dictionary, gate: Dictionary) -> Control:
 	match option_id:
 		VeinList.CULTIVATE_ID:
 			var at_ceiling: bool = vein["growth"] >= Cultivating.ceiling(vein)
-			var label := "Vein at ceiling" if at_ceiling else UI.format_block_cost_label("Cultivate", 1)
+			var label := "Vein at ceiling" if at_ceiling else UI.format_block_cost_label("Cultivate", 1, not gate["disabled"])
 			return UI.action_button(label, func(): VeinList.apply_option(option_id, vein_id), gate["disabled"], gate["reason"])
 		VeinList.PRUNE_LIGHT_ID:
 			return _build_prune_button("Prune (light)", vein, GameData.VEIN_GROWTH["pruneLightDepth"], gate)
@@ -152,5 +152,5 @@ func _build_prune_button(action_label: String, vein: Dictionary, depth: int, gat
 	var vein_id: String = vein["id"]
 	var option_id: String = gate["id"]
 	var projected: int = Cultivating.prune_yield(vein, depth)
-	var label_text := "%s · %d ore" % [UI.format_block_cost_label(action_label, 1), projected]
+	var label_text := "%s · %d ore" % [UI.format_block_cost_label(action_label, 1, not gate["disabled"]), projected]
 	return UI.action_button(label_text, func(): VeinList.apply_option(option_id, vein_id), gate["disabled"], gate["reason"])

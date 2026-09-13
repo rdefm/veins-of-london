@@ -601,3 +601,9 @@ within the 160–180px indicative range; exact craft/tension border weight
 and corner radius; the schema-comment update atop `systems/events.gd`
 (currently documents the pre-image card shape) needs to gain the `image`
 key once implemented.
+
+### Readable day clock — day rhythm ticket 01
+
+The shared departure board reserves 80px below the current safe-area inset. Row 0 shows a sun/moon cue, full day number and full phase name; row 1 shows three phase markers and cash. Both use 2px dots, retaining two notification rows below and the existing bag-button exclusion. At 390px, Day 150 Afternoon and five-digit cash fit on their separate rows. Completed phases use a check, the current phase a filled centre square, and remaining phases hollow squares; colour is not needed to distinguish them.
+
+Available paid actions display "last block today" during Evening. Blocked/free actions omit the time-cost suffix. Rest explicitly says "next morning"; its caption and available experiment cost remain visible over finished diorama artwork. Copy/cues live in `data/constants.json.dayClock`. Mechanics, automatic rollover and daily-tick order are unchanged.

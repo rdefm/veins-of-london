@@ -288,24 +288,13 @@ func _on_district_tapped(district_id: String, canvas_anchor: Vector2) -> void:
 	_bubble.open(anchor, _build_district_bubble_options(district_id))
 
 
-# DistrictBubble.district_options() (systems/district_bubble.gd) owns the
-# disabled/reason gating rules -- this only turns that pure data into the
-# label text MapBubble.open() expects, same split _build_district_actions
-# already draws between gating and its own button label formatting.
-#
-# The Prospect label always carries its cost suffix, disabled or not --
-# _build_district_actions' own real button (its siteCap/tutorial branches
-# swap in a muted label instead of a button, so this only compares against
-# its Travel.can_afford-disabled case) keeps the same "Prospect — 1 block"
-# text either way and only toggles Button.disabled; dropping the suffix
-# specifically while disabled would read as a different, cheaper action
-# rather than the same one you currently can't afford.
+# Render each system option with its availability-aware time label.
 func _build_district_bubble_options(district_id: String) -> Array:
 	var result: Array = []
 	for opt in DistrictBubble.district_options(district_id):
 		result.append({
 			"id": opt["id"],
-			"label": _district_bubble_option_label(opt["id"]),
+			"label": _district_bubble_option_label(opt["id"], not opt["disabled"]),
 			"disabled": opt["disabled"],
 			"reason": opt["reason"],
 		})
@@ -314,10 +303,10 @@ func _build_district_bubble_options(district_id: String) -> Array:
 
 # vein-growth-state ticket 09: "List view" joins Prospect/View Veins as a
 # third, always-enabled bubble option.
-func _district_bubble_option_label(option_id: String) -> String:
+func _district_bubble_option_label(option_id: String, available: bool = true) -> String:
 	match option_id:
 		DistrictBubble.PROSPECT_ID:
-			return UI.format_block_cost_label("Prospect", 1)
+			return UI.format_block_cost_label("Prospect", 1, available)
 		DistrictBubble.LIST_ID:
 			return "List view"
 		_:
@@ -378,32 +367,21 @@ func _build_station_bubble_options(stop: Dictionary) -> Array:
 	for opt in StationBubble.station_options(stop):
 		result.append({
 			"id": opt["id"],
-			"label": _station_option_label(opt["id"], stop),
+			"label": _station_option_label(opt["id"], stop, not opt["disabled"]),
 			"disabled": opt["disabled"],
 			"reason": opt["reason"],
 		})
 	return result
 
 
-# Cultivate keeps its cost suffix even while disabled by the at-ceiling
-# gate, exactly like the district bubble's Prospect label -- see
-# _build_district_bubble_options' own comment for why (dropping it would
-# read as a cheaper action, not the same one currently blocked). At the
-# ceiling specifically, _build_vein_action_card's own real button swaps in
-# "Vein at ceiling" instead, which this matches.
-#
-# Ticket 08: Prune's label always carries its projected yield (Cultivating.
-# prune_yield) so the player sees what a tap is worth *before* pressing it,
-# same as _build_prune_button's own label on the full-screen sheet -- this
-# is shown whether or not the button ends up disabled (StationBubble's own
-# gating owns disabled/reason; this only formats the text).
-func _station_option_label(option_id: String, stop: Dictionary) -> String:
+# Availability comes from the existing system gate; blocked actions omit time cost.
+func _station_option_label(option_id: String, stop: Dictionary, available: bool = true) -> String:
 	match option_id:
 		StationBubble.CULTIVATE_ID:
 			var vein: Dictionary = stop["vein"]
 			if vein["growth"] >= Cultivating.ceiling(vein):
 				return "Vein at ceiling"
-			return UI.format_block_cost_label("Cultivate", 1)
+			return UI.format_block_cost_label("Cultivate", 1, available)
 		StationBubble.PRUNE_LIGHT_ID:
 			return _prune_option_label("Prune (light)", stop["vein"], GameData.VEIN_GROWTH["pruneLightDepth"])
 		StationBubble.PRUNE_HARD_ID:
@@ -416,7 +394,7 @@ func _station_option_label(option_id: String, stop: Dictionary) -> String:
 
 func _prune_option_label(action_label: String, vein: Dictionary, depth: int) -> String:
 	var projected: int = Cultivating.prune_yield(vein, depth)
-	return "%s · %d ore" % [UI.format_block_cost_label(action_label, 1), projected]
+	return "%s · %d ore" % [UI.format_block_cost_label(action_label, 1, not Cultivating.prune_gate(vein, depth, vein["district"])["disabled"]), projected]
 
 
 # Ticket 08: the bubble's own "growth bar + band label + days-to-wall" —
@@ -511,7 +489,7 @@ func _build_district_actions(district_id: String) -> Control:
 		# M1-LONDON D7: prospecting locked until the cultivating tutorial (D6).
 		row.add_child(UI.expand_fill(UI.muted_label("Prospecting — see Archie first")))
 	else:
-		var prospect_button := UI.button(UI.format_block_cost_label("Prospect", 1), func(): Sites.prospect(district_id))
+		var prospect_button := UI.button(UI.format_block_cost_label("Prospect", 1, Travel.can_afford(district_id, 1)), func(): Sites.prospect(district_id))
 		prospect_button.disabled = not Travel.can_afford(district_id, 1)
 		row.add_child(prospect_button)
 
@@ -687,7 +665,7 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_
 
 	var actions := UI.hflow()
 
-	var raid_button := UI.button(UI.format_block_cost_label("Raid", 1), func():
+	var raid_button := UI.button(UI.format_block_cost_label("Raid", 1, Travel.can_afford(district, 1)), func():
 		Raiding.begin_raid(vein, ["archie"] if _raid_bring_archie else [])
 	)
 	raid_button.disabled = not Travel.can_afford(district, 1)
@@ -736,7 +714,7 @@ func _build_seed_row(site: Dictionary) -> Control:
 	var site_id: String = site["id"]
 
 	var cost := { "label": "Seed", "resource": ore_type, "amount": GameData.SEED_ORE_COST }
-	var label_text := "%s · %s" % [UI.format_cost_label(cost, player["orichalchum"]), UI.block_cost_suffix(1)]
+	var label_text := UI.format_block_cost_label(UI.format_cost_label(cost, player["orichalchum"]), 1, player["orichalchum"].get(ore_type, 0) >= GameData.SEED_ORE_COST and Travel.can_afford(district, 1))
 
 	var have: int = player["orichalchum"].get(ore_type, 0)
 	var b := UI.button(label_text, func(): Sites.attempt_seed(site_id))
@@ -791,7 +769,7 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	# and tappable instead of clipped past the right edge.
 	var actions := UI.hflow()
 
-	var cultivate_label := "Vein at ceiling" if at_ceiling else UI.format_block_cost_label("Cultivate", 1)
+	var cultivate_label := "Vein at ceiling" if at_ceiling else UI.format_block_cost_label("Cultivate", 1, Travel.can_afford(district, 1))
 	var cultivate_button := UI.button(cultivate_label, func(): Cultivating.cultivate(vein_id))
 	cultivate_button.disabled = at_ceiling or not Travel.can_afford(district, 1)
 	actions.add_child(cultivate_button)

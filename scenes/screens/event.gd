@@ -178,6 +178,11 @@ func _build_rewind_button() -> Button:
 
 
 func _build_choice_button(label: String, choice_index: int) -> Button:
+	var choice: Dictionary = Events.current_card()["choices"][choice_index]
+	for effect in choice.get("effects", []):
+		if effect.get("op", "") == "lose_time_block":
+			label = UI.format_block_cost_label(label)
+			break
 	var b := UI.button(label, func(): Events.choose(choice_index))
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_action_button(b)

@@ -589,17 +589,19 @@ static func format_cost_label(cost: Dictionary, holdings: Dictionary) -> String:
 	return "%s — %s" % [label, amount_text]
 
 
-# D3's block-cost label helper: the block cost of a districted action
-# (prospect/seed/cultivate/harvest) — flat regardless of the target
-# district since D3's travel surcharge was removed (faction-resource-economy
-# ticket 05). Pure formatter over a pre-computed block count — same contract
-# as format_cost_label above (cost in, string out).
+# Presentation-only time cost. Reads the current phase; callers provide
+# availability from their existing action gate. Never charges time.
 static func block_cost_suffix(action_blocks: int = 1) -> String:
-	var unit: String = "block" if action_blocks == 1 else "blocks"
-	return "%d %s" % [action_blocks, unit]
+	if action_blocks <= 0:
+		return ""
+	if GameState.state["world"]["timeBlock"] == GameData.TIME_BLOCKS.size() - 1 and not TimeSystem.is_time_exhausted():
+		return GameData.DAY_CLOCK["finalBlock"]
+	return GameData.DAY_CLOCK["blockSingular" if action_blocks == 1 else "blockPlural"] % action_blocks
 
 
-static func format_block_cost_label(action_label: String, action_blocks: int = 1) -> String:
+static func format_block_cost_label(action_label: String, action_blocks: int = 1, available: bool = true) -> String:
+	if not available or action_blocks <= 0 or TimeSystem.is_time_exhausted():
+		return action_label
 	return "%s — %s" % [action_label, block_cost_suffix(action_blocks)]
 
 

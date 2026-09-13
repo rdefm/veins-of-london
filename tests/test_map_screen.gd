@@ -566,7 +566,7 @@ func run() -> void:
 	# MapScreen.new()" pattern the district_actions_prospect_and_travel_...
 	# case above uses (this doesn't touch _map_canvas/_bubble at all, so it
 	# doesn't need _ready()).
-	run_case("district_bubble_options_prospect_keeps_its_cost_label_even_when_disabled", func():
+	run_case("district_bubble_options_prospect_omits_cost_when_disabled", func():
 		GameState.reset()
 		# fresh reset: cultivationTutorialSeen is false, so shoreditch's
 		# Prospect option is disabled by the tutorial gate -- exactly the
@@ -577,7 +577,7 @@ func run() -> void:
 
 		assert_eq(options[0]["id"], DistrictBubble.PROSPECT_ID)
 		assert_true(options[0]["disabled"])
-		assert_eq(options[0]["label"], UI.format_block_cost_label("Prospect", 1), "disabled Prospect still reads as the same 1-block action, not a different unlabelled one")
+		assert_eq(options[0]["label"], "Prospect", "unavailable actions must not imply a time cost")
 		assert_eq(options[0]["reason"], "Prospecting — see Archie first")
 
 		screen.free()

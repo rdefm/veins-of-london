@@ -151,6 +151,7 @@ var PALETTE: Dictionary = {}
 var HQ_VISUALS: Dictionary = {}
 
 var TIME_BLOCKS: Array = []
+var DAY_CLOCK: Dictionary = {}
 var ARCHIE_ORE_GOAL: int = 0
 var CONTACTS_DEFAULTS: Dictionary = {}
 var JAMES_JOB_TRUST_BANDS: Array = []
@@ -368,6 +369,7 @@ func load_all() -> void:
 
 	var constants := _load_json("res://data/constants.json")
 	TIME_BLOCKS = constants.get("timeBlocks", [])
+	DAY_CLOCK = constants.get("dayClock", {})
 	ARCHIE_ORE_GOAL = constants.get("archieOreGoal", 0)
 	CONTACTS_DEFAULTS = constants.get("contacts", {})
 	JAMES_JOB_TRUST_BANDS = constants.get("jamesJobTrustBands", [])

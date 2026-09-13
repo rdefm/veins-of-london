@@ -96,6 +96,24 @@ func _install_vn_event() -> Dictionary:
 
 
 func run() -> void:
+	run_case("evening_choice_labels_only_the_time_consuming_option", func():
+		GameState.reset()
+		TimeSystem.advance_time_block()
+		TimeSystem.advance_time_block()
+		Events.start_event("kx_delay")
+		Events.advance()
+		var screen := EventScreen.new()
+		var wait_button := screen._build_choice_button("Wait it out", 0)
+		var cab_button := screen._build_choice_button("Pay for a cab (£30)", 1)
+		assert_eq(wait_button.text, "Wait it out — last block today")
+		assert_eq(cab_button.text, "Pay for a cab (£30)")
+		wait_button.pressed.emit()
+		assert_eq(GameState.state["world"]["day"], 2)
+		wait_button.free()
+		cab_button.free()
+		screen.free()
+	)
+
 	run_case("no_private_amber_or_danger_colour_constants_remain_in_the_script", func():
 		var text := FileAccess.get_file_as_string("res://scenes/screens/event.gd")
 		assert_true(not text.contains("const DANGER_COLOR"), "the private DANGER_COLOR constant should be gone")

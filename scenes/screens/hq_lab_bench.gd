@@ -363,6 +363,7 @@ func _filter_and_label_apparatus_regions(regions: Dictionary, nav: Dictionary) -
 			LabBenchNav.MODE_EXPERIMENTS:
 				if not selected.is_empty() and Bench.can_probe(selected, approach_id):
 					suffix = " — ready"
+					region["caption"] = UI.block_cost_suffix(1)
 			LabBenchNav.MODE_RECIPES:
 				var recipe_key := Bench.find_recipe_for_cell(selected, approach_id) if not selected.is_empty() else ""
 				if recipe_key != "" and Bench.cell_state(selected, approach_id) == "found":
