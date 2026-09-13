@@ -7,12 +7,12 @@ extends "res://tests/test_base.gd"
 
 
 func run() -> void:
-	run_case("apps_lists_the_ten_existing_apps_in_a_fixed_order", func():
+	run_case("apps_lists_the_eleven_existing_apps_in_a_fixed_order", func():
 		GameState.reset()
 		var ids: Array[String] = []
 		for app in PhoneApps.apps():
 			ids.append(app["id"])
-		assert_eq(ids, ["notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "property", "contacts", "vfl"], "grid slot order comes straight from the registry order")
+		assert_eq(ids, ["bizbrief", "notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "property", "contacts", "vfl"], "grid slot order comes straight from the registry order")
 	)
 
 	# 01-debug-app: the Debug tile is genuinely absent from the roster on a

@@ -32,7 +32,7 @@ func run() -> void:
 		var ids: Array[String] = []
 		for t in tiles:
 			ids.append(t._app_id)
-		assert_eq(ids, ["notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "property", "contacts", "vfl"], "grid renders the registry's apps, in registry order")
+		assert_eq(ids, ["bizbrief", "notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "property", "contacts", "vfl"], "grid renders the registry's apps, in registry order")
 
 		phone.free()
 	)

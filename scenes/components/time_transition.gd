@@ -1,5 +1,7 @@
 extends Control
 
+const MorningAccountsSystem := preload("res://systems/morning_accounts.gd")
+
 # Ephemeral presentation only. State replacement (load/reset/Rewind) discards
 # the queue; no transition, timer or callback enters a save or runs an effect.
 var pending: Array[Dictionary] = []
@@ -80,10 +82,14 @@ func _process(delta: float) -> void:
 		elapsed += step
 		_render_frame()
 		if elapsed >= float(GameData.DAILY_CYCLE["durationSeconds"]):
+			var completed_target: Dictionary = current["destination"]
+			var was_overnight: bool = completed_target["day"] > current["source"]["day"]
 			active = false
 			visible = false
 			safe_elapsed = 0.0
-		return
+			if was_overnight:
+				MorningAccountsSystem.open_after_transition(completed_target["day"])
+			return
 	if pending.is_empty():
 		return
 	if not outcome_finished():

@@ -94,6 +94,10 @@ func new_game_state() -> Dictionary:
 		# Bank.record(), same append-and-evict-from-front shape as
 		# `notifications` above (Bank.LOG_CAP mirrors Notify.LOG_CAP).
 		"bankLog": [],
+		# day-rhythm ticket 03: latest is the compact account captured from one
+		# completed daily tick; autoOpenedDay is the once-only presentation
+		# receipt. Both persist so reopening never reruns daily processing.
+		"morningAccounts": { "latest": null, "autoOpenedDay": 0 },
 		"sellState": {},
 		# bugfixes-57: the Lab's crafting batch-quantity picker, keyed by
 		# recipe key -> selected batch size. Same "transient, resets on

@@ -81,10 +81,14 @@ func run() -> void:
 				assert_eq(overlay.pending.size(), 1)
 				assert_eq(overlay.pending[0]["source"]["phase"], phase)
 				assert_eq(ticks.size(), 1 if rest or phase == 2 else 0)
-				var resolved := SaveManager.export_string()
+				var resolved_account = GameState.deep_copy(GameState.state["morningAccounts"].get("latest"))
+				var resolved_cash: int = GameState.state["player"]["cash"]
 				_advance(overlay, 3)
 				assert_true(not overlay.active)
-				assert_eq(SaveManager.export_string(), resolved)
+				assert_eq(GameState.state["morningAccounts"].get("latest"), resolved_account, "playback never reruns or edits the account")
+				assert_eq(GameState.state["player"]["cash"], resolved_cash, "playback never reruns daily effects")
+				if rest or phase == 2:
+					assert_eq(GameState.state["phoneNav"]["app"], "bizbrief", "overnight completion opens the brief")
 				assert_eq(ticks.size(), 1 if rest or phase == 2 else 0)
 				EventBus.day_ticked.disconnect(record)
 				overlay.free()

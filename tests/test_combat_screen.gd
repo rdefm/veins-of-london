@@ -1303,7 +1303,7 @@ func run() -> void:
 			slot._advance_one_shot()
 		assert_eq(slot._sprite_rect.texture, slot._ko_keyposes[slot._ko_keyposes.size() - 1], "a held one-shot (ko) must stay on its own last keypose, not idle's")
 		assert_almost_eq(slot._sprite_rect.modulate.a, CombatScreen.FALL_ALPHA, 0.001, "the held ko pose must stay faded -- §4's 'transform fall + fade'")
-		assert_eq(slot._sprite_rect.rotation_degrees, CombatScreen.FALL_ROTATION_DEG, "the held ko pose must stay in its fallen rotation")
+		assert_almost_eq(slot._sprite_rect.rotation_degrees, CombatScreen.FALL_ROTATION_DEG, 0.001, "the held ko pose must stay in its fallen rotation")
 
 		screen.free()
 	)

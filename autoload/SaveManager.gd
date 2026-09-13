@@ -323,6 +323,21 @@ func _restore_int_types(state: Dictionary) -> void:
 	for bank_entry in state.get("bankLog", []):
 		_int_key(bank_entry, "amount")
 		_int_key(bank_entry, "day")
+	var morning_accounts: Dictionary = state.get("morningAccounts", {})
+	_int_key(morning_accounts, "autoOpenedDay")
+	var morning = morning_accounts.get("latest")
+	if morning != null:
+		for key in ["day", "openingBalance", "closingBalance", "income", "expenses"]:
+			_int_key(morning, key)
+		_int_dict_values(morning.get("oreMovement", {}))
+		_int_dict_values(morning.get("sales", {}))
+		_int_dict_values(morning.get("production", {}).get("ore", {}))
+		_int_dict_values(morning.get("production", {}).get("items", {}))
+		_int_dict_values(morning.get("losses", {}).get("ore", {}))
+		_int_key(morning.get("losses", {}), "veins")
+		for exception in morning.get("exceptions", []):
+			_int_key(exception, "target")
+			_int_key(exception, "actual")
 	# collective1-03
 	for thread in state.get("messages", {}).values():
 		for msg in thread:

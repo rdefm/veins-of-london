@@ -56,11 +56,17 @@ func _initialize() -> void:
 # third-party plugins (e.g. godot-ai) ship their own CI and rely on
 # class_name cross-references that only resolve once the editor's global
 # script class cache has indexed them, which a bare load() sweep never does.
+# Android's build directory is generated output containing an instrumented
+# copy of the project plus harness-dependent test scripts, not source.
 const EXCLUDE_DIRS := ["addons"]
+const EXCLUDE_PATH_PREFIXES := ["res://android/build"]
 
 
 func _discover_gd_files(dir_path: String) -> Array[String]:
 	var files: Array[String] = []
+	for excluded_path in EXCLUDE_PATH_PREFIXES:
+		if dir_path == excluded_path or dir_path.begins_with(excluded_path + "/"):
+			return files
 	var dir := DirAccess.open(dir_path)
 	if dir == null:
 		return files

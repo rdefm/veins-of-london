@@ -15,7 +15,9 @@ static func _find_tiles(root: Node) -> Array[AppTile]:
 static func _find_line_edits(root: Node) -> Array[LineEdit]:
 	var fields: Array[LineEdit] = []
 	for n in root.find_children("", "LineEdit", true, false):
-		fields.append(n as LineEdit)
+		var field := n as LineEdit
+		if field.placeholder_text == "Amount" or field.placeholder_text == "Delta":
+			fields.append(field)
 	return fields
 
 

@@ -7,6 +7,7 @@ const BLOCKS_PER_DAY := 3
 const DAILY_COST_BASE := 50.0
 const REST_HEAL_FRACTION := 0.2
 const PASSIVE_REGEN_FRACTION := 0.05
+const MorningAccountsSystem := preload("res://systems/morning_accounts.gd")
 
 
 static func advance_time_block() -> void:
@@ -85,16 +86,20 @@ static func do_rest() -> void:
 # Steps for systems that don't exist yet are stubs; wire the real call in
 # when that task lands.
 static func daily_tick() -> void:
+	var morning_context: Dictionary = MorningAccountsSystem.begin_rollover()
 	RelationAccrual.reset_daily_caps()   # collective1-06: relation-accrual daily cap reset, no ordering dependency on any other step
 	Barometer.tick()                     # ① barometer
 	Home.roll_daily_raid()               # ② home raid
+	MorningAccountsSystem.capture_losses(morning_context, "HQ raid")
 	Jobs.expire_overdue_job()            # ②b James job deadline expiry (bugfixes-30), runs before the fresh roll below so an expired slot can be re-offered the same day
+	MorningAccountsSystem.capture_job_expiry(morning_context)
 	Jobs.roll_daily_offer()              # ②c James job proactive daily offer roll (bugfixes-30), no ordering dependency on any other step
 	ArchieDeals.roll_daily_offer()       # ②d Archie tag-along deal proactive daily offer roll (bugfixes-95), no ordering dependency on any other step
 	_apply_living_costs()                # ③ living costs
 	_apply_healing_salve_tick()          # ③b Healing Salve HoT (calc-effect-wiring-02), runs right after living costs
 	_apply_passive_regen()               # ③c passive HP regen (bugfixes-42), runs right after the Salve HoT, stacks with it
 	Cultivating.drift_veins()             # ④ vein growth drift (player + faction veins) — also where a faction vein's collapse-at-zero death rolls, since bugfixes-40
+	MorningAccountsSystem.capture_losses(morning_context, "Vein collapse")
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	Sites.roll_npc_claims()              # ⑤b NPC site-claiming (M1-LONDON.md D2)
 	Sites.roll_faction_vein_growth()     # ⑤c faction vein daily growth (faction-vein-ownership T02), runs right after ⑤b
@@ -103,12 +108,16 @@ static func daily_tick() -> void:
 	Factions.apply_security_upgrades()   # ⑤f faction security-upgrade spend (faction-resource-economy T04), runs right after ⑤e so a tick's vein income is already banked and spendable the same day it's earned
 	Factions.apply_rivalry_resolution()  # ⑤g faction-territory-rivalry attempt roll + resolution (faction-territory-rivalry T04), runs right after ⑤f so a tick's income/spend is already settled before any vein changes hands
 	Raiding.apply_raid_resolution()      # ⑤h Direction-B raid attempt roll + resolution (vein-raiding T06), runs right after ⑤g
+	MorningAccountsSystem.capture_losses(morning_context, "Raid")
 	Collective.maybe_trigger_hakim_intel()  # ⑤i Hakim's repeatable intel roll (collective1-17), runs right after ⑤h
 	Factions.maybe_restock_ore()         # ⑤j Collective ore stock daily restock roll (collective-ore-stock T01), runs right after ⑤i
 	Rooms.process_lab()                  # ⑥ rooms (lab, then veinStation)
+	MorningAccountsSystem.capture_lab(morning_context)
 	Rooms.process_vein_station()
+	MorningAccountsSystem.capture_vein_station(morning_context)
 	Dial.daily_regen()                   # ⑦ dial-device ticket 07: Dial charge regen (replaces Devices.reset_daily_charges())
 	Objectives.refresh()                 # ⑧ collective1-02: objectives boundary
+	MorningAccountsSystem.finish_rollover(morning_context)
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])
 	SaveManager.autosave()               # R§6: autosave on every daily tick
 

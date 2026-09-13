@@ -10,6 +10,7 @@ extends Control
 # pattern as state.mapNav for the Map tab.
 
 const SECTION_LABELS := { "economic": "Economic", "social": "Social", "political": "Political" }
+const MorningAccountsSystem := preload("res://systems/morning_accounts.gd")
 
 var _content: VBoxContainer
 var _export_box: TextEdit
@@ -99,6 +100,8 @@ func _refresh() -> void:
 		_background_style.bg_color = GameData.PALETTE.get("phone_bg_content", Color("#252528"))
 
 	match nav["app"]:
+		"bizbrief":
+			_build_bizbrief()
 		"messages":
 			_build_messages()
 		"notes":
@@ -809,6 +812,80 @@ func _build_notification_row(notification: Dictionary) -> Control:
 		c["content"].add_child(UI.button("Defend", func(): Home.trigger_defend()))
 
 	return c["panel"]
+
+
+# ── BizBrief (day-rhythm ticket 03) ───────────────────────────────────
+
+func _build_bizbrief() -> void:
+	_content.add_child(_phone_back_button())
+	_content.add_child(UI.heading("BizBrief"))
+	_content.add_child(UI.heading("Morning Brief", 16))
+	var account = MorningAccountsSystem.latest()
+	if account == null:
+		_content.add_child(UI.muted_label("No morning account yet."))
+		return
+	_content.add_child(UI.muted_label("Day %d · overnight changes" % account["day"]))
+	_content.add_child(_build_bizbrief_bank(account))
+	if MorningAccountsSystem.has_operations(account):
+		_content.add_child(_build_bizbrief_operations(account))
+	var attention := MorningAccountsSystem.attention_items()
+	if not attention.is_empty():
+		_content.add_child(_build_bizbrief_attention(attention))
+
+
+func _build_bizbrief_bank(account: Dictionary) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Reynard's", 14))
+	c["content"].add_child(UI.label("Opening £%d · Closing £%d" % [account["openingBalance"], account["closingBalance"]]))
+	c["content"].add_child(UI.label("Income +£%d · Expenses −£%d" % [account["income"], account["expenses"]]))
+	c["content"].add_child(UI.button("Transaction history →", func(): MorningAccountsSystem.open_bank()))
+	return c["panel"]
+
+
+func _build_bizbrief_operations(account: Dictionary) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Operations", 14))
+	for ore_type in account["oreMovement"]:
+		var change: int = account["oreMovement"][ore_type]
+		c["content"].add_child(UI.symbol_row([{ "symbol": GameData.ORE_TYPES[ore_type]["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s stock %s" % [GameData.ORE_TYPES[ore_type]["name"], _signed_amount(change)]]))
+	for ore_type in account["production"]["ore"]:
+		c["content"].add_child(UI.muted_label("Produced %d %s" % [account["production"]["ore"][ore_type], GameData.ORE_TYPES[ore_type]["name"]]))
+	for recipe_key in account["production"]["items"]:
+		c["content"].add_child(UI.symbol_row([{ "symbol": GameData.RECIPES[recipe_key]["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "Produced %d %s" % [account["production"]["items"][recipe_key], GameData.RECIPES[recipe_key]["name"]]]))
+	for sale_key in account["sales"]:
+		c["content"].add_child(UI.label("Sold %s: %d" % [sale_key, account["sales"][sale_key]]))
+	for ore_type in account["losses"]["ore"]:
+		c["content"].add_child(UI.symbol_row([{ "symbol": GameData.ORE_TYPES[ore_type]["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "Lost %d %s" % [account["losses"]["ore"][ore_type], GameData.ORE_TYPES[ore_type]["name"]]], { "muted": true }))
+	if account["losses"]["veins"] > 0:
+		c["content"].add_child(UI.muted_label("Lost %d vein%s" % [account["losses"]["veins"], "" if account["losses"]["veins"] == 1 else "s"]))
+	for exception in account["exceptions"]:
+		match exception["kind"]:
+			"missedJob":
+				c["content"].add_child(UI.muted_label("Exception: James's order expired."))
+			"productionShortfall":
+				var recipe: Dictionary = GameData.RECIPES[exception["recipeKey"]]
+				c["content"].add_child(UI.muted_label("Exception: %s stock %d/%d." % [recipe["name"], exception["actual"], exception["target"]]))
+	return c["panel"]
+
+
+func _build_bizbrief_attention(items: Array[Dictionary]) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Attention", 14))
+	c["content"].add_child(UI.muted_label("Still unresolved"))
+	for item in items:
+		var captured: Dictionary = item
+		var glyph: Callable = Icons.draw_phone if item["kind"] == "message" else Icons.draw_attack
+		var row := UI.hbox()
+		var icon := UI.icon_glyph_control(glyph, 0.7)
+		icon.custom_minimum_size = Vector2(24, 24)
+		row.add_child(icon)
+		row.add_child(UI.expand_fill(UI.button(MorningAccountsSystem.attention_label(item), func(): MorningAccountsSystem.open_attention(captured))))
+		c["content"].add_child(row)
+	return c["panel"]
+
+
+func _signed_amount(amount: int) -> String:
+	return "+%d" % amount if amount > 0 else str(amount)
 
 
 # ── Reynard's (bugfixes-38) ──────────────────────────────────────────
