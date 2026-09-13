@@ -31,30 +31,48 @@ var _action_bar: HBoxContainer
 var _image_frame: PanelContainer
 var _image_texture: TextureRect
 
+# event-images ticket 02: VN mode is decided once in _ready() (Events.
+# is_vn_mode() reads the static event definition, not revealed-so-far
+# cards) and never revisited for the life of this screen -- the mode must
+# not flip mid-event. VN mode builds a completely separate node set
+# (_vn_frame/_vn_texture/_vn_card_box) instead of _image_frame/_cards_box,
+# so the non-VN path below is untouched byte-for-byte.
+var _vn_mode: bool = false
+var _vn_frame: Control
+var _vn_texture: TextureRect
+var _vn_card_box: VBoxContainer
+var _vn_card_panel: PanelContainer
+
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 
-	_image_frame = _build_image_frame()
-	add_child(_image_frame)
+	_vn_mode = Events.is_vn_mode()
 
-	_scroll = UI.scroll_container()
-	_scroll.offset_bottom = -64
-	add_child(_scroll)
+	if _vn_mode:
+		_vn_frame = _build_vn_frame()
+		add_child(_vn_frame)
+	else:
+		_image_frame = _build_image_frame()
+		add_child(_image_frame)
 
-	var margin := MarginContainer.new()
-	# See UI.screen_body()'s matching comment: a ScrollContainer sizes its
-	# child itself (anchors are ignored), so SIZE_EXPAND is required here
-	# or this shrinks to its word-wrapped content's minimum width.
-	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_bottom", 16)
-	_scroll.add_child(margin)
+		_scroll = UI.scroll_container()
+		_scroll.offset_bottom = -64
+		add_child(_scroll)
 
-	_cards_box = UI.vbox(10)
-	margin.add_child(_cards_box)
+		var margin := MarginContainer.new()
+		# See UI.screen_body()'s matching comment: a ScrollContainer sizes its
+		# child itself (anchors are ignored), so SIZE_EXPAND is required here
+		# or this shrinks to its word-wrapped content's minimum width.
+		margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		margin.add_theme_constant_override("margin_left", 16)
+		margin.add_theme_constant_override("margin_right", 16)
+		margin.add_theme_constant_override("margin_top", 16)
+		margin.add_theme_constant_override("margin_bottom", 16)
+		_scroll.add_child(margin)
+
+		_cards_box = UI.vbox(10)
+		margin.add_child(_cards_box)
 
 	_action_bar = UI.hbox(8)
 	_action_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -77,15 +95,18 @@ func _refresh() -> void:
 	if GameState.state["event"] == null:
 		return  # on_complete already navigated away; this node is about to be freed
 
-	for child in _cards_box.get_children():
-		child.queue_free()
 	for child in _action_bar.get_children():
 		child.queue_free()
 
-	for card in Events.revealed_cards():
-		_cards_box.add_child(_build_card(card))
-
-	_refresh_image_slot()
+	if _vn_mode:
+		_refresh_vn_frame()
+		_refresh_vn_card()
+	else:
+		for child in _cards_box.get_children():
+			child.queue_free()
+		for card in Events.revealed_cards():
+			_cards_box.add_child(_build_card(card))
+		_refresh_image_slot()
 
 	if Events.can_rewind():
 		var rewind_button := UI.button("⟲ Rewind", func(): Events.rewind())
@@ -106,7 +127,8 @@ func _refresh() -> void:
 		_style_action_button(continue_button)
 		_action_bar.add_child(continue_button)
 
-	_scroll_to_bottom()
+	if not _vn_mode:
+		_scroll_to_bottom()
 
 
 func _build_card(card: Dictionary) -> Control:
@@ -266,6 +288,81 @@ func _refresh_image_slot() -> void:
 	_image_frame.offset_top = top
 	_image_frame.offset_bottom = top + IMAGE_SLOT_HEIGHT if showing else top
 	_scroll.offset_top = top + (IMAGE_SLOT_HEIGHT if showing else 0.0)
+
+
+# event-images ticket 02: VN mode's full-bleed portrait frame, built once
+# in _ready() alongside the non-VN _image_frame/_scroll/_cards_box path
+# (never both). Full width, no side margins (unlike the small slot's 16px
+# gutters) -- ART-BIBLE §3's "VN portrait" row is the nominal 390 x 748
+# canvas this collapses to at the baseline viewport with no safe-area
+# insets. Two full-rect children layered inside a plain (non-Panel)
+# Control so the overlay text box can float over the image rather than
+# push it aside: the TextureRect fills the frame edge to edge, and
+# _vn_card_box (a VBoxContainer with ALIGNMENT_END) sizes itself to
+# exactly its one child's minimum height and pins it to the bottom of the
+# frame, the same "shrink to content, anchor to an edge" trick used
+# everywhere else a Godot 4 overlay needs content-driven height without
+# hand-rolled offset math.
+func _build_vn_frame() -> Control:
+	var frame := Control.new()
+	UI.anchor_full_rect(frame)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.clip_contents = true
+
+	_vn_texture = TextureRect.new()
+	UI.anchor_full_rect(_vn_texture)
+	_vn_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vn_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_vn_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	frame.add_child(_vn_texture)
+
+	_vn_card_box = UI.vbox(0)
+	UI.anchor_full_rect(_vn_card_box)
+	_vn_card_box.alignment = BoxContainer.ALIGNMENT_END
+	_vn_card_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(_vn_card_box)
+
+	return frame
+
+
+# Re-derives the frame's vertical extent every refresh, same staleness fix
+# as _refresh_image_slot()'s own top_bar_clearance() re-read. Bottom edge
+# is pinned to the bottom action bar's top edge -- -56.0 here must match
+# _ready()'s own "_action_bar.offset_top = -56 - bottom_inset" (the
+# action bar's fixed 48px height plus its 8px clearance off the screen
+# edge), so the portrait frame's floor and the action bar's ceiling always
+# meet exactly, with no gap and no overlap.
+func _refresh_vn_frame() -> void:
+	var top: float = UI.top_bar_clearance()
+	var bottom_inset: float = UI.safe_area_bottom_inset()
+	_vn_frame.offset_top = top
+	_vn_frame.offset_bottom = -56.0 - bottom_inset
+
+
+# Shows exactly the most-recently-revealed card (the same "last entry" the
+# non-VN stack would have pushed to the bottom) -- after a choose(), that's
+# the synthetic resolution card, matching what the player would see appear
+# next in the accumulating layout. Rebuilt from scratch each refresh via
+# _build_card() (same per-card-type accent as the scrolling stack, since
+# _build_card() already calls _style_card()), so no prior card's content
+# ever lingers in the tree.
+func _refresh_vn_card() -> void:
+	for child in _vn_card_box.get_children():
+		child.queue_free()
+
+	var image_path: Variant = Events.current_image_path()
+	var showing: bool = image_path != null and typeof(image_path) == TYPE_STRING and ResourceLoader.exists(image_path)
+	_vn_texture.texture = load(image_path) if showing else null
+
+	var card: Dictionary = Events.revealed_cards().back()
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 16)
+	margin.add_theme_constant_override("margin_right", 16)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	_vn_card_panel = _build_card(card) as PanelContainer
+	margin.add_child(_vn_card_panel)
+	_vn_card_box.add_child(margin)
 
 
 func _scroll_to_bottom() -> void:

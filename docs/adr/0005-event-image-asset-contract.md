@@ -46,3 +46,45 @@ to load from. Mirrors `docs/adr/0003-app-icon-asset-contract.md`'s shape.
   icon contract's rollout.
 
 **Status:** accepted (2026-09-12, `event-images` ticket 01, pilot: `intro`).
+
+## Amendment: VN-mode portrait canvas (ticket 02)
+
+`event-images` ticket 02 adds a second display context for the same
+`res://assets/events/<event_id>/<n>.png` files this ADR already governs —
+"VN mode," a full-bleed portrait frame (`EventScreen._build_vn_frame()`)
+used instead of the 358×170 slot above whenever *any* card in an event
+could ever set a non-null `current_image_path()` (`Events.is_vn_mode()`):
+a top-level `image` key on any card, **or** a non-null `image` on any of a
+`choice` card's own `choices` entries, regardless of which option ends up
+picked. The existing 358×170 entry above was sized for the small slot
+specifically and does not apply to VN mode.
+
+Because VN-mode detection covers every way an image can ever surface, the
+small slot is now unreachable in practice for a *live* event: any event
+capable of showing an image was already routed into VN mode before its
+first card rendered, so `_refresh_image_slot()`'s "showing" branch never
+fires outside a test that calls it directly. The small slot's code and its
+own remaining test (`tests/test_event_screen.gd`) stay only to confirm it
+correctly does nothing for a genuinely imageless (and therefore always
+non-VN) event.
+
+- **Size:** the VN-mode display canvas is **390 × 748** — full viewport
+  width (no side gutters, unlike the small slot's 16px margins either
+  side) by the nominal height between `TopBar.BAR_HEIGHT` (40) and the
+  bottom action bar's top edge (56 up from the screen's bottom edge) at
+  the 390×844 baseline viewport with no safe-area insets applied. Recorded
+  as the "VN portrait" row in `docs/ART-BIBLE.md` §3, alongside "Event
+  thumbnail."
+- **Cropping:** same `STRETCH_KEEP_ASPECT_COVERED` rule as the small slot
+  — source art is cropped-to-cover at render time, so it doesn't need to
+  be pre-cropped to the 390×748 aspect ratio before landing under
+  `assets/`.
+- **No new art required:** the existing pilot's `assets/events/intro/*.png`
+  files render fine cropped-to-cover at the larger VN canvas, same as they
+  already do at the small slot's canvas — this amendment changes nothing
+  about which files exist or how they're numbered, only how large a
+  region they're asked to cover.
+- **Everything else** (path, numbering, format, loading, missing-art
+  behaviour, rollout) is unchanged from the decisions above.
+
+**Status:** accepted (2026-09-13, `event-images` ticket 02).

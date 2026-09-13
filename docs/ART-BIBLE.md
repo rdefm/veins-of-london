@@ -71,6 +71,7 @@ Native, at the 390×844 logical viewport:
 | Effect frame | 96 × 96 |
 | Large effect (`blackHole`) | 160 × 160 |
 | Event thumbnail | 358 × 170 |
+| VN portrait | 390 × 748 |
 
 Each row is the exact pixel dimensions a prepared asset is delivered at —
 content is centred on that canvas, cropped if larger, padded if smaller.

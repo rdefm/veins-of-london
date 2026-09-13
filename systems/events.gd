@@ -90,6 +90,28 @@ static func current_image_path() -> Variant:
 	return result
 
 
+# event-images ticket 02: decides VN mode for the whole event, once, from
+# the static event definition -- not revealed_cards(), which only grows as
+# the player advances and would flip the layout mid-event the first time a
+# later card's image showed up. True iff current_image_path() could ever
+# return non-null across the event's full run: a top-level "image" key on
+# any card, OR (since a picked choice's own "image" rides into a synthetic
+# resolution card current_image_path() reads the same way -- see this
+# file's header comment) a non-null "image" on any of a "choice" card's
+# own "choices" entries, regardless of which option ends up picked. A key
+# that's omitted, or set explicitly to null, doesn't count.
+static func is_vn_mode() -> bool:
+	var cards: Array = _event_def()["cards"]
+	for card in cards:
+		if card.get("image") != null:
+			return true
+		if card["type"] == "choice":
+			for choice in card["choices"]:
+				if choice.get("image") != null:
+					return true
+	return false
+
+
 static func is_last_card() -> bool:
 	var event_state: Dictionary = GameState.state["event"]
 	var cards: Array = _event_def()["cards"]

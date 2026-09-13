@@ -477,6 +477,113 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	# ── is_vn_mode (event-images ticket 02) ─────────────────────────────
+
+	run_case("is_vn_mode_false_when_no_card_in_the_event_has_an_image", func():
+		GameState.reset()
+		var original_events := _install_choice_event()  # test_choice_event: no card carries "image"
+
+		Events.start_event("test_choice_event")
+		assert_true(not Events.is_vn_mode(), "an event with no image anywhere should not be VN mode")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("is_vn_mode_true_for_an_image_buried_deep_in_the_array_not_just_the_first_card", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_vn_deep_image"] = {
+			"id": "test_vn_deep_image",
+			"cards": [
+				{ "type": "narration", "label": null, "speaker": null, "text": "1" },
+				{ "type": "narration", "label": null, "speaker": null, "text": "2" },
+				{ "type": "narration", "label": null, "speaker": null, "text": "3" },
+				{ "type": "narration", "label": null, "speaker": null, "text": "4, with an image", "image": "res://assets/combat/dummy/attack.png" },
+			],
+			"on_complete": [{ "op": "set_screen", "screen": "map" }],
+		}
+
+		Events.start_event("test_vn_deep_image")
+		assert_true(Events.is_vn_mode(), "an image on a card deep in the array should still make the whole event VN mode")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("is_vn_mode_is_computed_from_the_full_static_definition_not_revealed_so_far_cards", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_vn_static_scan"] = {
+			"id": "test_vn_static_scan",
+			"cards": [
+				{ "type": "narration", "label": null, "speaker": null, "text": "no image yet" },
+				{ "type": "narration", "label": null, "speaker": null, "text": "still none" },
+				{ "type": "narration", "label": null, "speaker": null, "text": "here it is", "image": "res://assets/combat/dummy/attack.png" },
+			],
+			"on_complete": [{ "op": "set_screen", "screen": "map" }],
+		}
+
+		Events.start_event("test_vn_static_scan")
+		assert_true(Events.is_vn_mode(), "VN mode must be true from card 0, before revealed_cards() ever reaches the wired card")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("is_vn_mode_true_when_only_a_choice_options_nested_image_is_set_no_top_level_card_has_one", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_vn_nested_choice_image_only"] = {
+			"id": "test_vn_nested_choice_image_only",
+			"cards": [
+				{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
+				{
+					"type": "choice", "label": null, "speaker": null, "text": "Pick one",
+					"choices": [
+						{ "label": "With image", "effects": [], "result_text": "Resolved with image.", "image": "res://assets/combat/dummy/attack.png" },
+						{ "label": "No image", "effects": [], "result_text": "Resolved with no image." },
+					],
+				},
+			],
+			"on_complete": [{ "op": "set_screen", "screen": "map" }],
+		}
+
+		Events.start_event("test_vn_nested_choice_image_only")
+		assert_true(Events.is_vn_mode(), "a choice option's own image should count toward VN-mode detection even with no top-level card image anywhere, since current_image_path() could surface it once picked")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("is_vn_mode_ignores_a_choice_option_that_carries_no_image_when_no_other_option_has_one_either", func():
+		GameState.reset()
+		var original_events := _install_choice_event()  # neither "Give £20" nor "Walk away" carries an "image"
+
+		Events.start_event("test_choice_event")
+		assert_true(not Events.is_vn_mode(), "a choice card with no image on any of its options should not itself trigger VN mode")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("is_vn_mode_treats_an_explicit_null_image_as_not_counting", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_vn_null_image_only"] = {
+			"id": "test_vn_null_image_only",
+			"cards": [
+				{ "type": "narration", "label": null, "speaker": null, "text": "no change" },
+				{ "type": "narration", "label": null, "speaker": null, "text": "explicit clear", "image": null },
+			],
+			"on_complete": [{ "op": "set_screen", "screen": "map" }],
+		}
+
+		Events.start_event("test_vn_null_image_only")
+		assert_true(not Events.is_vn_mode(), "an explicit null image key should not itself trigger VN mode")
+
+		GameData.EVENTS = original_events
+	)
+
 	# event-images ticket 01: the pilot content wiring on the real "intro"
 	# event -- four real cards (authoring-order indices 1, 2, 6, 14) each
 	# set a different res://assets/events/intro/<n>.png, proving both the

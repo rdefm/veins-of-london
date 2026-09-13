@@ -15,11 +15,14 @@ func _fresh_screen() -> EventScreen:
 	return screen
 
 
-# Six card types + the image-slot schema addition, threaded through one
-# flowing scenario: narration -> speaker -> tension -> craft -> choice
-# (one option carries an "image", picked to test the resolution splice) ->
-# a sticky narration (no "image" key) -> a clearing narration
-# ("image": null).
+# Five card types threaded through one flowing scenario: narration ->
+# speaker -> tension -> craft -> choice. Deliberately imageless -- neither
+# choice option carries an "image" key -- so this fixture always stays
+# non-VN (event-images ticket 02: Events.is_vn_mode() also counts an image
+# on a "choice" card's own "choices" entries, not just a top-level card
+# key, so an event that wants to stay non-VN for these per-card-type
+# rendering checks can't have one anywhere, including there). VN-mode's
+# own image-bearing scenarios live in _install_vn_event() below.
 func _install_full_card_event() -> Dictionary:
 	var original_events: Dictionary = GameData.EVENTS
 	GameData.EVENTS = GameData.EVENTS.duplicate()
@@ -33,12 +36,10 @@ func _install_full_card_event() -> Dictionary:
 			{
 				"type": "choice", "label": null, "speaker": "Nadia", "text": "Pick one.",
 				"choices": [
-					{ "label": "With image", "effects": [], "result_text": "You picked the image option.", "image": "res://assets/combat/dummy/attack.png" },
-					{ "label": "No image", "effects": [], "result_text": "You picked the plain option." },
+					{ "label": "First option", "effects": [], "result_text": "You picked the first option." },
+					{ "label": "Second option", "effects": [], "result_text": "You picked the second option." },
 				],
 			},
-			{ "type": "narration", "label": null, "speaker": null, "text": "Sticky aftermath." },
-			{ "type": "narration", "label": null, "speaker": null, "text": "Cleared aftermath.", "image": null },
 		],
 		"on_complete": [{ "op": "set_screen", "screen": "map" }],
 	}
@@ -59,6 +60,35 @@ func _install_speakerless_choice_event() -> Dictionary:
 					{ "label": "Only option", "effects": [], "result_text": "Done." },
 				],
 			},
+		],
+		"on_complete": [{ "op": "set_screen", "screen": "map" }],
+	}
+	return original_events
+
+
+# event-images ticket 02: a VN-mode event -- one card carries an "image"
+# (deep in the array, per is_vn_mode()'s own test coverage in
+# tests/test_events.gd), a tension card and a craft card to prove the
+# single overlay box still picks up _style_card()'s per-type accent, and a
+# choice whose picked option's image rides the synthetic resolution card
+# through same as the non-VN path already exercises.
+func _install_vn_event() -> Dictionary:
+	var original_events: Dictionary = GameData.EVENTS
+	GameData.EVENTS = GameData.EVENTS.duplicate()
+	GameData.EVENTS["test_vn_event"] = {
+		"id": "test_vn_event",
+		"cards": [
+			{ "type": "narration", "label": null, "speaker": null, "text": "Card one." },
+			{ "type": "tension", "label": null, "speaker": null, "text": "Card two, tense." },
+			{ "type": "craft", "label": null, "speaker": null, "text": "Card three, crafty.", "image": "res://assets/combat/dummy/attack.png" },
+			{
+				"type": "choice", "label": null, "speaker": "Nadia", "text": "Pick one.",
+				"choices": [
+					{ "label": "With image", "effects": [], "result_text": "You picked the image option.", "image": "res://assets/combat/dummy/idle.png" },
+					{ "label": "No image", "effects": [], "result_text": "You picked the plain option." },
+				],
+			},
+			{ "type": "narration", "label": null, "speaker": null, "text": "Aftermath." },
 		],
 		"on_complete": [{ "op": "set_screen", "screen": "map" }],
 	}
@@ -179,7 +209,7 @@ func run() -> void:
 		Events.advance()
 		Events.advance()
 		Events.advance()  # -> choice
-		Events.choose(0)  # "With image"
+		Events.choose(0)  # "First option"
 
 		var screen := _fresh_screen()
 		var cards := screen._cards_box.get_children()
@@ -187,7 +217,7 @@ func run() -> void:
 		assert_true(not cards[5].has_theme_stylebox_override("panel"), "resolution reads as a plain continuation, identical to narration")
 		var labels := cards[5].find_children("", "Label", true, false)
 		var texts: Array = labels.map(func(l): return l.text)
-		assert_true(texts.has("You picked the image option."), "resolution card carries the picked choice's result_text")
+		assert_true(texts.has("You picked the first option."), "resolution card carries the picked choice's result_text")
 
 		GameData.EVENTS = original_events
 	)
@@ -267,100 +297,157 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	run_case("image_slot_is_hidden_with_zero_height_until_a_revealed_entry_sets_one", func():
+	# event-images ticket 02: with VN mode landed, is_vn_mode() intercepts
+	# any event that will ever show an image -- top-level card key or a
+	# choice's own nested "choices" entry -- into the full-portrait path
+	# below, decided before card 0 even renders. That makes the small slot
+	# (_image_frame/_image_texture) unreachable in practice for any event
+	# with real image content: an event that could ever set a non-null
+	# current_image_path() was already classified VN from the start, so
+	# _refresh_image_slot()'s "showing" branch never fires for a live
+	# non-VN event. The dedicated show/sticky/clear coverage that used to
+	# live here (ui-vision.md §11 / event-images ticket 01) tested exactly
+	# that now-unreachable branch and has been removed; this one case is
+	# what's left to check -- the slot stays correctly inert for a genuine
+	# (imageless) non-VN event.
+	run_case("image_slot_stays_hidden_for_a_genuinely_non_vn_event_since_it_can_never_receive_an_image", func():
 		GameState.reset()
 		var original_events := _install_full_card_event()
 		Events.start_event("test_screen_event")
 		Events.advance()
 		Events.advance()
-		Events.advance()  # -> craft; nothing has specified "image" yet
+		Events.advance()  # -> craft
 
 		var screen := _fresh_screen()
-		assert_true(not screen._image_frame.visible, "image slot should stay hidden with nothing to show")
+		assert_true(not screen._image_frame.visible, "an imageless event's small slot should stay hidden")
 		assert_eq(screen._image_frame.offset_bottom, screen._image_frame.offset_top, "hidden slot should collapse to zero height")
 		assert_eq(screen._scroll.offset_top, screen._image_frame.offset_top, "the scroll region should reclaim the collapsed slot's space")
 
 		GameData.EVENTS = original_events
 	)
 
-	run_case("image_frame_top_offset_is_reapplied_on_every_refresh_not_just_build", func():
-		# Bugfixes ticket [pending]: _image_frame.offset_top used to be set
-		# once in _build_image_frame() (called once from _ready()) and never
-		# revisited -- same staleness bug top_bar.gd's own
-		# _apply_safe_area_offsets() fix addresses for TopBar itself, and the
-		# two drifting apart on-device (TopBar stuck at its boot-time value
-		# while other things re-derived a since-changed one) is what made the
-		# event image slot and the persistent top bar not sit flush. Guards
-		# that _refresh_image_slot() (called on every _refresh(), i.e. every
-		# card advance) re-derives UI.top_bar_clearance() fresh rather than
-		# reusing whatever offset_top happened to be.
+	# event-images ticket 02: VN-mode full-portrait layout ─────────────────
+
+	run_case("a_non_vn_event_still_builds_the_small_slot_and_scrolling_stack_path_unchanged", func():
 		GameState.reset()
-		var original_events := _install_full_card_event()
+		var original_events := _install_full_card_event()  # deliberately imageless -- see its own comment
 		Events.start_event("test_screen_event")
-		Events.advance()
-		Events.advance()
-		Events.advance()
 
 		var screen := _fresh_screen()
-		screen._image_frame.offset_top = 999.0
-		EventBus.state_changed.emit()
-		assert_eq(screen._image_frame.offset_top, UI.top_bar_clearance(), "offset_top is re-derived on every refresh, same as TopBar")
+		assert_true(not screen._vn_mode, "an event with no image anywhere, top-level or nested in a choice, should stay non-VN")
+		assert_true(is_instance_valid(screen._image_frame), "non-VN path should still build the small image slot")
+		assert_true(is_instance_valid(screen._cards_box), "non-VN path should still build the scrolling card stack")
+		assert_true(screen._vn_frame == null, "non-VN path should not build the VN frame at all")
 
 		GameData.EVENTS = original_events
 	)
 
-	run_case("image_slot_shows_the_picked_choices_image_via_the_synthetic_resolution_card", func():
+	run_case("an_event_with_an_image_on_any_card_switches_the_screen_into_vn_mode", func():
 		GameState.reset()
-		var original_events := _install_full_card_event()
-		Events.start_event("test_screen_event")
-		Events.advance()
-		Events.advance()
-		Events.advance()
-		Events.advance()  # -> choice
+		var original_events := _install_vn_event()
+		Events.start_event("test_vn_event")
+
+		var screen := _fresh_screen()
+		assert_true(screen._vn_mode, "test_vn_event's third card carries a top-level image key")
+		assert_true(is_instance_valid(screen._vn_frame), "VN path should build the full-portrait frame")
+		assert_true(screen._image_frame == null, "VN path should not build the old small image slot")
+		assert_true(screen._cards_box == null, "VN path should not build the scrolling card stack")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("vn_mode_image_frame_spans_from_top_bar_clearance_to_the_action_bars_top_edge", func():
+		GameState.reset()
+		var original_events := _install_vn_event()
+		Events.start_event("test_vn_event")
+
+		var screen := _fresh_screen()
+		assert_eq(screen._vn_frame.offset_left, 0.0, "the portrait frame is full-bleed -- no side margins")
+		assert_eq(screen._vn_frame.offset_right, 0.0)
+		assert_eq(screen._vn_frame.offset_top, UI.top_bar_clearance())
+		assert_eq(screen._vn_frame.offset_bottom, -56.0 - UI.safe_area_bottom_inset(), "the frame's bottom edge should meet the action bar's top edge exactly")
+		assert_eq(screen._vn_texture.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_COVERED)
+
+		GameData.EVENTS = original_events
+	)
+
+	# Each assertion below uses a freshly-built screen for its own point in
+	# the event (same convention every other case in this file follows) --
+	# a screen's node tree is only ever inspected on its own first _refresh()
+	# (fired from _ready()), never after a second live _refresh() on the
+	# same instance, since queue_free()'d nodes aren't actually gone from
+	# get_children() until a frame this single-shot headless test run never
+	# ticks.
+	run_case("vn_mode_shows_exactly_one_cards_content_and_replaces_it_on_advance", func():
+		GameState.reset()
+		var original_events := _install_vn_event()
+		Events.start_event("test_vn_event")
+
+		var screen1 := _fresh_screen()
+		assert_eq(screen1._vn_card_box.get_children().size(), 1, "exactly one card should be in the tree at a time")
+		var texts1: Array = screen1._vn_card_box.find_children("", "Label", true, false).map(func(l): return l.text)
+		assert_true(texts1.has("Card one."), "the current card's text should render")
+
+		Events.advance()  # -> tension
+		var screen2 := _fresh_screen()
+		assert_eq(screen2._vn_card_box.get_children().size(), 1, "advancing must not accumulate a second card")
+		var texts2: Array = screen2._vn_card_box.find_children("", "Label", true, false).map(func(l): return l.text)
+		assert_true(texts2.has("Card two, tense."), "the box should now show the newly-current card")
+		assert_true(not texts2.has("Card one."), "the previous card's text must not remain visible")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("vn_mode_text_box_accent_follows_the_current_cards_type_same_as_style_card", func():
+		GameState.reset()
+		var original_events := _install_vn_event()
+		Events.start_event("test_vn_event")
+		Events.advance()  # -> tension
+
+		var tension_screen := _fresh_screen()
+		var tension_style: StyleBoxFlat = tension_screen._vn_card_panel.get_theme_stylebox("panel")
+		assert_eq(tension_style.border_color, MapStyle.DANGER_COLOUR, "tension accent should match the non-VN path exactly")
+
+		Events.advance()  # -> craft
+		var craft_screen := _fresh_screen()
+		var craft_style: StyleBoxFlat = craft_screen._vn_card_panel.get_theme_stylebox("panel")
+		assert_eq(craft_style.border_color, GameData.PALETTE["calc_gold"], "craft border accent")
+		assert_eq(craft_style.bg_color, GameData.PALETTE["calc_gold_light"], "craft fill accent")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("vn_mode_shows_the_latest_revealed_card_including_a_resolution_after_a_choice", func():
+		GameState.reset()
+		var original_events := _install_vn_event()
+		Events.start_event("test_vn_event")
+		Events.advance()  # -> tension
+		Events.advance()  # -> craft
+		Events.advance()  # -> choice, awaiting pick
+
+		var before_screen := _fresh_screen()
+		var texts_before: Array = before_screen._vn_card_box.find_children("", "Label", true, false).map(func(l): return l.text)
+		assert_true(texts_before.has("Pick one."), "before picking, the box shows the choice prompt")
+
 		Events.choose(0)  # "With image"
-
-		var screen := _fresh_screen()
-		assert_true(screen._image_frame.visible, "picking the image option should reveal the slot")
-		assert_true(screen._image_texture.texture != null, "the slot should carry a real texture")
-		var top: float = screen._image_frame.offset_top
-		assert_eq(screen._image_frame.offset_bottom - top, EventScreen.IMAGE_SLOT_HEIGHT, "the visible slot should be the fixed thumbnail height")
-		assert_eq(screen._scroll.offset_top, top + EventScreen.IMAGE_SLOT_HEIGHT, "the scroll region should start below the visible slot")
-
-		GameData.EVENTS = original_events
-	)
-
-	run_case("image_slot_stays_sticky_across_a_later_entry_that_omits_the_image_key", func():
-		GameState.reset()
-		var original_events := _install_full_card_event()
-		Events.start_event("test_screen_event")
-		Events.advance()
-		Events.advance()
-		Events.advance()
-		Events.advance()  # -> choice
-		Events.choose(0)  # sets the image
-		Events.advance()  # -> "Sticky aftermath." card, no "image" key at all
-
-		var screen := _fresh_screen()
-		assert_true(screen._image_frame.visible, "omitting the key entirely should mean 'no change', not clearing the slot")
+		var after_screen := _fresh_screen()
+		assert_eq(after_screen._vn_card_box.get_children().size(), 1, "picking a choice must still leave exactly one card in the tree")
+		var texts_after: Array = after_screen._vn_card_box.find_children("", "Label", true, false).map(func(l): return l.text)
+		assert_true(texts_after.has("You picked the image option."), "the box should switch to the synthetic resolution card's text")
+		assert_true(not texts_after.has("Pick one."), "the choice prompt must not remain visible")
+		assert_true(after_screen._vn_texture.texture != null, "the picked choice's image should now be showing")
 
 		GameData.EVENTS = original_events
 	)
 
-	run_case("image_slot_clears_when_a_later_entry_sets_image_to_null", func():
+	run_case("vn_mode_continue_and_choice_buttons_still_drive_advance_from_the_shared_action_bar", func():
 		GameState.reset()
-		var original_events := _install_full_card_event()
-		Events.start_event("test_screen_event")
-		Events.advance()
-		Events.advance()
-		Events.advance()
-		Events.advance()  # -> choice
-		Events.choose(0)  # sets the image
-		Events.advance()  # -> sticky aftermath
-		Events.advance()  # -> "Cleared aftermath.", image: null
+		var original_events := _install_vn_event()
+		Events.start_event("test_vn_event")
 
 		var screen := _fresh_screen()
-		assert_true(not screen._image_frame.visible, "an explicit null should clear the slot")
-		assert_true(screen._image_texture.texture == null, "the stale texture should be dropped, not left showing behind a hidden frame")
+		assert_eq(screen._action_bar.get_children().size(), 1, "a plain Continue button should still be offered")
+		assert_eq(screen._action_bar.get_children()[0].text, "Continue →")
 
 		GameData.EVENTS = original_events
 	)
