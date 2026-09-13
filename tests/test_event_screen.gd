@@ -356,7 +356,11 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	run_case("vn_mode_image_frame_spans_from_top_bar_clearance_to_the_action_bars_top_edge", func():
+	# event-images ticket 03: VN mode retires the separate bottom action bar,
+	# so the portrait frame now runs down to the safe-area inset (with the
+	# same -8px clearance the old action bar itself kept off the screen
+	# edge) instead of stopping at that bar's top edge.
+	run_case("vn_mode_image_frame_spans_from_top_bar_clearance_to_the_safe_area_inset", func():
 		GameState.reset()
 		var original_events := _install_vn_event()
 		Events.start_event("test_vn_event")
@@ -365,7 +369,7 @@ func run() -> void:
 		assert_eq(screen._vn_frame.offset_left, 0.0, "the portrait frame is full-bleed -- no side margins")
 		assert_eq(screen._vn_frame.offset_right, 0.0)
 		assert_eq(screen._vn_frame.offset_top, UI.top_bar_clearance())
-		assert_eq(screen._vn_frame.offset_bottom, -56.0 - UI.safe_area_bottom_inset(), "the frame's bottom edge should meet the action bar's top edge exactly")
+		assert_eq(screen._vn_frame.offset_bottom, -8.0 - UI.safe_area_bottom_inset(), "the frame now runs to the safe-area inset -- there is no action bar left to stop above")
 		assert_eq(screen._vn_texture.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_COVERED)
 
 		GameData.EVENTS = original_events
@@ -440,14 +444,108 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	run_case("vn_mode_continue_and_choice_buttons_still_drive_advance_from_the_shared_action_bar", func():
+	# event-images ticket 03: VN-mode events fold Continue/Rewind/choice into
+	# the text box itself -- there is no separate action bar to hold them.
+	run_case("vn_mode_builds_no_separate_action_bar_at_all", func():
 		GameState.reset()
 		var original_events := _install_vn_event()
 		Events.start_event("test_vn_event")
 
 		var screen := _fresh_screen()
-		assert_eq(screen._action_bar.get_children().size(), 1, "a plain Continue button should still be offered")
-		assert_eq(screen._action_bar.get_children()[0].text, "Continue →")
+		assert_true(screen._action_bar == null, "VN mode should never build the old bottom action bar")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("vn_mode_continue_renders_as_a_right_aligned_arrow_glyph_inside_the_box", func():
+		GameState.reset()
+		var original_events := _install_vn_event()
+		Events.start_event("test_vn_event")
+
+		var screen := _fresh_screen()
+		var buttons := screen._vn_card_panel.find_children("", "Button", true, false)
+		assert_eq(buttons.size(), 1, "just the Continue arrow -- no Rewind yet available")
+		assert_eq(buttons[0].text, "→", "Continue folds down to a bare arrow glyph, matching the mockup")
+		var accent: Color = GameData.PALETTE["ui_action_red"]
+		assert_eq(buttons[0].get_theme_color("font_color"), accent, "still the same ui_action_red accent treatment")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("vn_mode_choice_buttons_render_attached_to_the_box_not_a_separate_bar", func():
+		GameState.reset()
+		var original_events := _install_vn_event()
+		Events.start_event("test_vn_event")
+		Events.advance()  # -> tension
+		Events.advance()  # -> craft
+		Events.advance()  # -> choice, awaiting pick
+
+		var screen := _fresh_screen()
+		assert_true(screen._action_bar == null, "choice buttons must not fall back to the old action bar")
+		var buttons := screen._vn_card_panel.find_children("", "Button", true, false)
+		assert_eq(buttons.size(), 2, "one button per choice, no Continue arrow while awaiting a pick")
+		var texts: Array = buttons.map(func(b): return b.text)
+		assert_true(texts.has("With image") and texts.has("No image"), "both choice labels should render")
+		var accent: Color = GameData.PALETTE["ui_action_red"]
+		for b in buttons:
+			assert_eq(b.get_theme_color("font_color"), accent, "each choice button keeps the ui_action_red accent")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("vn_mode_rewind_renders_attached_to_the_box_when_available", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		var original_events := _install_vn_event()
+		Events.start_event("test_vn_event")
+		Events.advance()  # pushes a snapshot, makes Rewind available
+
+		var screen := _fresh_screen()
+		assert_true(screen._action_bar == null, "Rewind must not fall back to the old action bar")
+		var buttons := screen._vn_card_panel.find_children("", "Button", true, false)
+		var rewind_button: Button = null
+		for b in buttons:
+			if b.text == "⟲ Rewind":
+				rewind_button = b
+		assert_true(rewind_button != null, "Rewind should be attached to the box once a snapshot exists and a rewind charge is in hand")
+		var accent: Color = GameData.PALETTE["ui_action_red"]
+		assert_eq(rewind_button.get_theme_color("font_color"), accent, "Rewind keeps the ui_action_red accent")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("vn_mode_box_accent_still_reads_correctly_with_controls_docked_in_it", func():
+		GameState.reset()
+		var original_events := _install_vn_event()
+		Events.start_event("test_vn_event")
+		Events.advance()  # -> tension
+
+		var screen := _fresh_screen()
+		var style: StyleBoxFlat = screen._vn_card_panel.get_theme_stylebox("panel")
+		assert_eq(style.border_color, MapStyle.DANGER_COLOUR, "the per-card-type accent is unaffected by the docked Continue arrow")
+
+		GameData.EVENTS = original_events
+	)
+
+	# The acceptance checklist explicitly calls out that folding controls into
+	# the VN box must leave the non-VN action bar and its buttons untouched --
+	# this pins that down directly against a non-VN event (the pre-existing
+	# continue/rewind/choice-recolour cases above already exercise the same
+	# bar, but for VN-mode's own screens, so this pairs with them).
+	run_case("non_vn_events_action_bar_and_its_buttons_are_completely_unaffected", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		var original_events := _install_full_card_event()
+		Events.start_event("test_screen_event")
+		Events.advance()  # pushes a snapshot, makes Rewind available
+
+		var screen := _fresh_screen()
+		assert_true(not screen._vn_mode)
+		assert_true(is_instance_valid(screen._action_bar), "a non-VN event still gets the separate bottom action bar")
+		var buttons := screen._action_bar.get_children()
+		var texts: Array = buttons.map(func(b): return b.text)
+		assert_true(texts.has("⟲ Rewind"), "Rewind still renders on the action bar, not folded into any card")
+		assert_true(texts.has("Continue →"), "Continue still reads as the full \"Continue →\" label on the action bar, not the VN arrow glyph")
 
 		GameData.EVENTS = original_events
 	)

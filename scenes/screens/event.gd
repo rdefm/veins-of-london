@@ -4,7 +4,10 @@ extends Control
 # Generic event screen driven by state.event (M0-T13). Cards accumulate
 # in a bottom-anchored ScrollContainer so new ones push older ones up —
 # this replaces the prototype's per-event screens and its scroll bug.
-# Action bar (Continue, Rewind when available) is pinned below.
+# Action bar (Continue, Rewind when available) is pinned below. event-images
+# ticket 03: VN-mode events are the exception -- they have no separate
+# action bar at all; Continue/Rewind/choice dock onto the VN text box
+# itself (see _build_vn_controls_row()).
 #
 # ui-vision.md §11 (session 2026-09-12): recoloured into the shared
 # palette — no more private AMBER_COLOR/AMBER_BG/DANGER_COLOR constants.
@@ -74,18 +77,23 @@ func _ready() -> void:
 		_cards_box = UI.vbox(10)
 		margin.add_child(_cards_box)
 
-	_action_bar = UI.hbox(8)
-	_action_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_action_bar.offset_left = 16
-	_action_bar.offset_right = -16
-	# Bugfixes ticket 20: -8 alone pins this directly under the OS gesture-
-	# nav bar on a notched/gesture-nav device, where Continue/Rewind/choice
-	# buttons land underneath it and are untappable -- lift the whole bar
-	# clear of that inset while keeping its own 48px height fixed.
-	var bottom_inset := UI.safe_area_bottom_inset()
-	_action_bar.offset_top = -56 - bottom_inset
-	_action_bar.offset_bottom = -8 - bottom_inset
-	add_child(_action_bar)
+		# event-images ticket 03: VN-mode retires this bar entirely -- its
+		# Continue/Rewind/choice controls move onto the VN text box itself
+		# (see _build_vn_controls_row()). Non-VN events keep it exactly as
+		# before, so it's only ever built in this branch now; _action_bar
+		# stays null for a VN-mode screen.
+		_action_bar = UI.hbox(8)
+		_action_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		_action_bar.offset_left = 16
+		_action_bar.offset_right = -16
+		# Bugfixes ticket 20: -8 alone pins this directly under the OS gesture-
+		# nav bar on a notched/gesture-nav device, where Continue/Rewind/choice
+		# buttons land underneath it and are untappable -- lift the whole bar
+		# clear of that inset while keeping its own 48px height fixed.
+		var bottom_inset := UI.safe_area_bottom_inset()
+		_action_bar.offset_top = -56 - bottom_inset
+		_action_bar.offset_bottom = -8 - bottom_inset
+		add_child(_action_bar)
 
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
@@ -95,43 +103,36 @@ func _refresh() -> void:
 	if GameState.state["event"] == null:
 		return  # on_complete already navigated away; this node is about to be freed
 
-	for child in _action_bar.get_children():
-		child.queue_free()
-
 	if _vn_mode:
 		_refresh_vn_frame()
 		_refresh_vn_card()
-	else:
-		for child in _cards_box.get_children():
-			child.queue_free()
-		for card in Events.revealed_cards():
-			_cards_box.add_child(_build_card(card))
-		_refresh_image_slot()
+		return
+
+	for child in _action_bar.get_children():
+		child.queue_free()
+
+	for child in _cards_box.get_children():
+		child.queue_free()
+	for card in Events.revealed_cards():
+		_cards_box.add_child(_build_card(card)["panel"])
+	_refresh_image_slot()
 
 	if Events.can_rewind():
-		var rewind_button := UI.button("⟲ Rewind", func(): Events.rewind())
-		_style_action_button(rewind_button)
-		_action_bar.add_child(rewind_button)
+		_action_bar.add_child(_build_rewind_button())
 
 	if Events.is_awaiting_choice():
 		var choices: Array = Events.current_card()["choices"]
 		for i in range(choices.size()):
-			var choice_index := i
-			var choice_button := UI.button(choices[i]["label"], func(): Events.choose(choice_index))
-			choice_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			_style_action_button(choice_button)
-			_action_bar.add_child(choice_button)
+			_action_bar.add_child(_build_choice_button(choices[i]["label"], i))
 	else:
-		var continue_button := UI.button("Continue →", func(): Events.advance())
+		var continue_button := _build_continue_button("Continue →")
 		continue_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_style_action_button(continue_button)
 		_action_bar.add_child(continue_button)
 
-	if not _vn_mode:
-		_scroll_to_bottom()
+	_scroll_to_bottom()
 
 
-func _build_card(card: Dictionary) -> Control:
+func _build_card(card: Dictionary) -> Dictionary:
 	var c := UI.card()
 	_style_card(c["panel"], card["type"])
 
@@ -152,7 +153,32 @@ func _build_card(card: Dictionary) -> Control:
 		_:
 			c["content"].add_child(UI.label(card["text"]))
 
-	return c["panel"]
+	return c
+
+
+# event-images ticket 03: shared by the non-VN action bar (_refresh()) and
+# _build_vn_controls_row() so Rewind/choice/Continue construction and
+# styling live in exactly one place each, instead of two near-identical
+# copies. Callers still own layout concerns the two sites disagree on --
+# SIZE_EXPAND_FILL on the non-VN Continue button, the VN Continue button's
+# own bare-arrow label -- so those stay at the call site, not in here.
+func _build_rewind_button() -> Button:
+	var b := UI.button("⟲ Rewind", func(): Events.rewind())
+	_style_action_button(b)
+	return b
+
+
+func _build_choice_button(label: String, choice_index: int) -> Button:
+	var b := UI.button(label, func(): Events.choose(choice_index))
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_style_action_button(b)
+	return b
+
+
+func _build_continue_button(text: String) -> Button:
+	var b := UI.button(text, func(): Events.advance())
+	_style_action_button(b)
+	return b
 
 
 func _style_card(panel: PanelContainer, card_type: String) -> void:
@@ -326,17 +352,18 @@ func _build_vn_frame() -> Control:
 
 
 # Re-derives the frame's vertical extent every refresh, same staleness fix
-# as _refresh_image_slot()'s own top_bar_clearance() re-read. Bottom edge
-# is pinned to the bottom action bar's top edge -- -56.0 here must match
-# _ready()'s own "_action_bar.offset_top = -56 - bottom_inset" (the
-# action bar's fixed 48px height plus its 8px clearance off the screen
-# edge), so the portrait frame's floor and the action bar's ceiling always
-# meet exactly, with no gap and no overlap.
+# as _refresh_image_slot()'s own top_bar_clearance() re-read. event-images
+# ticket 03: VN mode no longer leaves room for a separate bottom action bar
+# (Continue/Rewind/choice now dock onto the text box itself, in
+# _build_vn_controls_row()) -- the portrait frame runs all the way down to
+# the safe-area inset, with the same -8px clearance the old action bar kept
+# off the screen edge, and _vn_card_box's own ALIGNMENT_END plus its 16px
+# margin (_refresh_vn_card()) is what keeps the floating box off that floor.
 func _refresh_vn_frame() -> void:
 	var top: float = UI.top_bar_clearance()
 	var bottom_inset: float = UI.safe_area_bottom_inset()
 	_vn_frame.offset_top = top
-	_vn_frame.offset_bottom = -56.0 - bottom_inset
+	_vn_frame.offset_bottom = -8.0 - bottom_inset
 
 
 # Shows exactly the most-recently-revealed card (the same "last entry" the
@@ -360,9 +387,39 @@ func _refresh_vn_card() -> void:
 	margin.add_theme_constant_override("margin_right", 16)
 	margin.add_theme_constant_override("margin_top", 16)
 	margin.add_theme_constant_override("margin_bottom", 16)
-	_vn_card_panel = _build_card(card) as PanelContainer
+	var built := _build_card(card)
+	_vn_card_panel = built["panel"]
+	built["content"].add_child(_build_vn_controls_row())
 	margin.add_child(_vn_card_panel)
 	_vn_card_box.add_child(margin)
+
+
+# event-images ticket 03: VN mode's replacement for the old bottom action
+# bar -- Continue/Rewind/choice dock onto the current card's own box instead
+# of a separate HBoxContainer beneath it. Rewind (when offered) sits at the
+# row's left; Continue is the lone right-aligned arrow glyph the approved
+# mockup calls for, pushed into the box's bottom-right corner by the
+# trailing spacer. Awaiting a choice replaces the spacer+arrow with the
+# choice buttons themselves (Rewind, if also offered, still leads the row) --
+# same mutual exclusion the old action bar enforced between Continue and
+# choice buttons.
+func _build_vn_controls_row() -> HBoxContainer:
+	var row := UI.hbox(8)
+
+	if Events.can_rewind():
+		row.add_child(_build_rewind_button())
+
+	if Events.is_awaiting_choice():
+		var choices: Array = Events.current_card()["choices"]
+		for i in range(choices.size()):
+			row.add_child(_build_choice_button(choices[i]["label"], i))
+	else:
+		var spacer := Control.new()
+		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(spacer)
+		row.add_child(_build_continue_button("→"))
+
+	return row
 
 
 func _scroll_to_bottom() -> void:
