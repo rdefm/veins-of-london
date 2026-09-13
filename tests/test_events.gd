@@ -595,7 +595,7 @@ func run() -> void:
 		Events.start_event("intro")
 		assert_eq(Events.current_image_path(), null, "opening card sets no image")
 
-		var wired_at := { 1: "res://assets/events/intro/1.png", 2: "res://assets/events/intro/2.png", 6: "res://assets/events/intro/3.png", 14: "res://assets/events/intro/4.png" }
+		var wired_at := { 1: "res://assets/events/intro/1.jpg", 2: "res://assets/events/intro/2.jpg", 6: "res://assets/events/intro/3.png", 14: "res://assets/events/intro/4.png" }
 		var expected: Variant = null
 		var card_count: int = GameData.EVENTS["intro"]["cards"].size()
 		for i in range(card_count - 1):
@@ -605,6 +605,28 @@ func run() -> void:
 				expected = wired_at[card_index]
 				assert_true(ResourceLoader.exists(expected), "wired image should exist on disk: %s" % expected)
 			assert_eq(Events.current_image_path(), expected, "card %d's image should be whatever the last wired card set" % card_index)
+	)
+
+	run_case("event_card_images_are_discovered_by_event_id_and_one_based_card_index", func():
+		GameState.reset()
+		Events.start_event("buyer")
+
+		var wired_at := {
+			0: "res://assets/events/buyer/buyer_card1.jpg",
+			6: "res://assets/events/buyer/buyer_card7.jpg",
+			8: "res://assets/events/buyer/buyer_card9.jpg",
+		}
+		var expected: String = wired_at[0]
+		assert_true(Events.is_vn_mode(), "a convention-named image anywhere in the event should enable VN mode from card 1")
+		assert_eq(Events.current_image_path(), expected, "card 1 should discover buyer_card1.jpg")
+
+		var card_count: int = GameData.EVENTS["buyer"]["cards"].size()
+		for i in range(card_count - 1):
+			Events.advance()
+			var card_index: int = GameState.state["event"]["cardIndex"]
+			if wired_at.has(card_index):
+				expected = wired_at[card_index]
+			assert_eq(Events.current_image_path(), expected, "card %d should use the latest convention-named image" % (card_index + 1))
 	)
 
 	run_case("continue_after_choosing_proceeds_to_the_next_card_and_on_complete_still_runs", func():

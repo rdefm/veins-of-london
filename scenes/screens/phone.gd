@@ -618,6 +618,14 @@ func _build_profile() -> void:
 	motion.toggled.connect(preload("res://systems/preferences.gd").set_reduced_motion)
 	_content.add_child(motion)
 
+	# day-rhythm ticket 05: persisted vibration preference, same toggle
+	# convention as Reduced motion above. PROSE-REVIEW: new UI copy.
+	var vibrate := CheckButton.new()
+	vibrate.text = "Vibrate for alarms"
+	vibrate.button_pressed = GameState.state["meta"].get("vibrationEnabled", true)
+	vibrate.toggled.connect(preload("res://systems/preferences.gd").set_vibration_enabled)
+	_content.add_child(vibrate)
+
 
 func _build_profile_stats_card() -> Control:
 	var player: Dictionary = GameState.state["player"]

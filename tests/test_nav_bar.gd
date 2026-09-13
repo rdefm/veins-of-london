@@ -322,3 +322,17 @@ func run() -> void:
 
 		nav.free()
 	)
+
+	run_case("alarm_arrived_off_tree_pulses_safely_with_no_live_tree_to_tween_against", func():
+		GameState.reset()
+		var nav := NavBar.new()
+		nav._ready()
+
+		# Same is_inside_tree() guard turn_order_strip.gd's drain_ghost_to()
+		# uses -- create_tween() requires a live SceneTree, and this off-tree
+		# build (this file's own established convention) has none.
+		EventBus.alarm_arrived.emit()
+		assert_true(true, "the Phone-tab pulse no-ops safely with no live tree")
+
+		nav.free()
+	)

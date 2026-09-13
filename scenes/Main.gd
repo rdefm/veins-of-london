@@ -142,7 +142,16 @@ func _ready() -> void:
 	add_child(bag_drawer)
 
 	# Last sibling: blocks every screen, modal, navigation and bag control.
-	add_child(preload("res://scenes/components/time_transition.gd").new())
+	var time_transition := preload("res://scenes/components/time_transition.gd").new()
+	add_child(time_transition)
+
+	# day-rhythm ticket 05: non-visual, so ordering relative to the overlay
+	# above doesn't matter for rendering -- it's wired to that same overlay
+	# instance so its own safe-boundary gate never opens the alarm surface
+	# underneath/around a live time transition.
+	var alarm_presentation := preload("res://scenes/components/alarm_presentation.gd").new()
+	alarm_presentation.time_transition = time_transition
+	add_child(alarm_presentation)
 
 	EventBus.screen_changed.connect(_on_screen_changed)
 	_show_screen(GameState.state["currentScreen"])

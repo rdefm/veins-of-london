@@ -90,6 +90,10 @@ func _ready() -> void:
 		_tiles[tab["screen"]] = tile
 
 	EventBus.state_changed.connect(_refresh)
+	# day-rhythm ticket 05: the visible half of a newly-actionable alarm's
+	# animate+vibrate cue -- fires independently of device haptics, so the
+	# alarm stays legible with vibration off/unsupported (spec story 18).
+	EventBus.alarm_arrived.connect(_pulse_phone_tab)
 	_refresh()
 
 
@@ -129,6 +133,21 @@ func _refresh() -> void:
 			active = current_screen == tab["screen"]
 		tile.configure(tab["label"], locked, active, action_color, _LOCKED_COLOR)
 		tile.tooltip_text = LOCKED_MAP_LABEL if locked else ""
+
+
+# A brief left-right shake, same is_inside_tree() guard turn_order_strip.gd's
+# drain_ghost_to() uses -- create_tween() requires a live tree, and an
+# off-tree test build of this bar (tests/test_nav_bar.gd's own convention)
+# must not error just because an alarm arrived during the case.
+func _pulse_phone_tab() -> void:
+	var tile: _DockTile = _tiles.get("phone")
+	if tile == null or not tile.is_inside_tree():
+		return
+	var base_x := tile.position.x
+	var tween := tile.create_tween()
+	tween.tween_property(tile, "position:x", base_x - 4, 0.05)
+	tween.tween_property(tile, "position:x", base_x + 4, 0.05)
+	tween.tween_property(tile, "position:x", base_x, 0.05)
 
 
 func _on_tile_pressed(screen_id: String) -> void:

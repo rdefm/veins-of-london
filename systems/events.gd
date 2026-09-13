@@ -14,9 +14,8 @@ extends RefCounted
 # ui-vision.md §11: any card (including a choice's own `choices` entries)
 # may also carry an optional "image" key — an asset path string, or
 # explicit null to clear the event screen's persistent image slot.
-# Omitting the key entirely means "no change" (event.gd's own
-# _current_image_path() scans forward and keeps whatever the last entry
-# that specified one set it to). A picked choice's "image" (if present)
+# Omitting the key checks for a convention-named asset at that card index,
+# then means "no change" if none exists. A picked choice's "image" (if present)
 # rides along in choiceResults[cardIndex] — now { text, image? } rather
 # than a bare string — so revealed_cards()'s synthetic resolution card
 # can carry it too.
@@ -78,20 +77,46 @@ static func revealed_cards() -> Array:
 
 
 # ui-vision.md §11: derived state for the event screen's persistent image
-# slot. Scans revealed_cards() for the last entry (up to the current
-# position) that specifies an "image" key -- sticky until the next entry
-# that specifies one, explicit null clears it. Never stored on state.event
-# itself, so Rewind restores it for free from cardIndex/choiceResults alone.
+# slot. Scans cards up to the current position for explicit image keys or
+# convention-named assets, sticky until the next image; explicit null clears
+# it. Never stored on state.event itself, so Rewind restores it for free.
 static func current_image_path() -> Variant:
 	var result: Variant = null
-	for card in revealed_cards():
+	var event_state: Dictionary = GameState.state["event"]
+	var event_id: String = event_state["eventId"]
+	var cards: Array = _event_def()["cards"]
+	var choice_results: Dictionary = event_state["choiceResults"]
+	for i in range(event_state["cardIndex"] + 1):
+		var card: Dictionary = cards[i]
 		if card.has("image"):
 			result = card["image"]
+		else:
+			var discovered_path: Variant = _convention_image_path(event_id, i + 1)
+			if discovered_path != null:
+				result = discovered_path
+		if choice_results.has(str(i)):
+			var resolution: Dictionary = choice_results[str(i)]
+			if resolution.has("image"):
+				result = resolution["image"]
 	return result
 
 
+# Convention-based event art: one-based card numbers map directly to
+# assets/events/<event_id>/<event_id>_card<n>.<extension>. Explicit card
+# image keys remain authoritative, including null (clear). Lowercase common
+# raster extensions are checked in a stable order for export portability.
+static func _convention_image_path(event_id: String, card_number: int) -> Variant:
+	var stem := "res://assets/events/%s/%s_card%d" % [event_id, event_id, card_number]
+	for extension in ["png", "jpg", "jpeg", "webp"]:
+		var path := "%s.%s" % [stem, extension]
+		if ResourceLoader.exists(path):
+			return path
+	return null
+
+
 # event-images ticket 02: decides VN mode for the whole event, once, from
-# the static event definition -- not revealed_cards(), which only grows as
+# the static event definition and convention-named assets -- not
+# revealed_cards(), which only grows as
 # the player advances and would flip the layout mid-event the first time a
 # later card's image showed up. True iff current_image_path() could ever
 # return non-null across the event's full run: a top-level "image" key on
@@ -102,8 +127,13 @@ static func current_image_path() -> Variant:
 # that's omitted, or set explicitly to null, doesn't count.
 static func is_vn_mode() -> bool:
 	var cards: Array = _event_def()["cards"]
-	for card in cards:
-		if card.get("image") != null:
+	var event_id: String = GameState.state["event"]["eventId"]
+	for i in range(cards.size()):
+		var card: Dictionary = cards[i]
+		if card.has("image"):
+			if card["image"] != null:
+				return true
+		elif _convention_image_path(event_id, i + 1) != null:
 			return true
 		if card["type"] == "choice":
 			for choice in card["choices"]:

@@ -2,7 +2,7 @@
   "id": "buyer",
   "cards": [
     { "type": "narration", "label": "The next morning", "speaker": null, "text": "Archie texts an address in Shoreditch and the word \"tonight\". You arrive to find him outside a craft beer bar, looking mildly disgusted by its existence." },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. Same calc from the other night — I held onto it. Buyer's inside. Name's Marcus, finance, collects time-type for what he calls 'recreational use'. Don't ask. Just be normal. Or close to it.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. Same calc from the other night — I held onto it. Buyer's inside. Name's Marcus, finance, collects emotion-type for what he calls 'recreational use'. Don't ask. Just be normal. Or close to it.\"" },
     { "type": "speaker", "label": null, "speaker": "You", "text": "\"This is the same stuff. From when they tried to rob us.\"" },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Correct. Which is why having two of us is better than one. You're essentially a deterrent. Like a scarecrow. No offence.\"" },
     { "type": "speaker", "label": null, "speaker": "You", "text": "\"Some offence.\"" },

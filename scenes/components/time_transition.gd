@@ -67,7 +67,12 @@ func _sync_session() -> void:
 	safe_elapsed = 0.0
 
 
-func outcome_finished() -> bool:
+# day-rhythm ticket 05: static (reads only GameState.state, no instance
+# vars) so scenes/components/alarm_presentation.gd's own safe-boundary gate
+# can call the exact same "is anything blocking presentation" definition
+# via the preloaded script, rather than re-deriving a second one that could
+# drift out of sync with this file's.
+static func outcome_finished() -> bool:
 	var state: Dictionary = GameState.state
 	return state.get("event") == null and not state["combat"].get("active", false) \
 		and state.get("modal") == null and not state.get("bagDrawerOpen", false) \

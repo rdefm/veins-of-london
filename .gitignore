@@ -36,3 +36,9 @@ scratch_*.png
 # Python bytecode cache (tools/*.py)
 __pycache__/
 *.pyc
+
+# Vendored agent-tooling skill packs (auto-installed, not project source or
+# game content) and remote-session chat attachments -- same "not part of the
+# shipped game" reasoning as /addons/godot_ai/ above.
+/.agents/
+/.codex-remote-attachments/

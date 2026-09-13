@@ -555,10 +555,10 @@ schema — added by this pass to support inline illustration on some events
 - **Schema:** any revealed entry — including a choice's synthetic
   resolution entry — may carry an optional `image` key: an asset path
   string, or explicit `null` to clear the slot. Omitting the key entirely
-  means "no change" — the slot keeps showing whatever the last entry that
-  specified one set it to. This is derived state, computed by scanning
-  `Events.revealed_cards()` up to the current position for the last entry
-  that specifies `image` — not a new field on `state.event` itself, so
+  first checks for the card's convention-named asset, then means "no change"
+  when none exists — the slot keeps showing the last image. This is derived
+  state, computed from the cards up to the current position — not a new field
+  on `state.event` itself, so
   Rewind restores it for free (it already snapshots `cardIndex` and
   `choiceResults`, which is all this derivation needs).
 - **Art:** Family 1 pixel art, ART-BIBLE pipeline — this is diegetic
@@ -576,7 +576,10 @@ schema — added by this pass to support inline illustration on some events
   top status/notification board (§5) and the scrollable entry stack.
   Collapses to zero height when no revealed entry has specified an image
   yet — an event authored with no art looks exactly as it does today.
-- **Asset path convention:** `res://assets/events/<event_id>/<n>.png`,
+- **Asset path convention:**
+  `res://assets/events/<event_id>/<event_id>_card<n>.<extension>`, where
+  `<n>` is the one-based card index and `<extension>` is lowercase `png`,
+  `jpg`, `jpeg`, or `webp`. Explicit JSON `image` values remain supported,
   matching the existing per-domain folder convention (`assets/combat/
   <enemy_id>/`, `assets/hq/regions/`, `assets/hq/dial/`).
 

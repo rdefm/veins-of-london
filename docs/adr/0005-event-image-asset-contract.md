@@ -102,3 +102,23 @@ remain fixed inside it. Authors should keep essential composition near the
 centre and not rely on content behind the opaque lower frame.
 
 **Status:** accepted (2026-09-13, `vn-event-fixed-layout` ticket 01).
+
+## Amendment: automatic card-index discovery
+
+Event art may omit the JSON `image` key and instead use
+`res://assets/events/<event_id>/<event_id>_card<n>.<extension>`, where `<n>`
+is the card's one-based index. Supported lowercase extensions, checked in
+order, are `png`, `jpg`, `jpeg`, and `webp`. A found asset sets the persistent
+image exactly like an explicit path; an absent asset leaves the prior image
+sticky.
+
+Explicit JSON remains authoritative: a path overrides discovery and `null`
+clears the image even if a convention-named file exists for that card. Choice
+result images remain explicit because they are synthetic entries without a
+stable top-level card index. VN-mode detection checks the complete event plus
+all convention-named assets before rendering card 1.
+
+This supersedes the original path, numbering, PNG-only, and JSON-wiring rollout
+decisions above. Existing explicit paths remain valid.
+
+**Status:** accepted (2026-09-13, user direction; pilot: `buyer`).

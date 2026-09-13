@@ -11,6 +11,14 @@ signal day_ticked(day: int)
 signal time_advanced(source: Dictionary, destination: Dictionary)
 signal notification_pushed
 
+# day-rhythm ticket 05: fires once per newly-detected batch of actionable
+# alarm situations (scenes/components/alarm_presentation.gd), independent
+# of whether the grouped alarm surface is allowed to auto-open yet --
+# purely "give the player a visible/physical cue now." Carries no payload;
+# listeners (nav_bar.gd's Phone-tab pulse) re-read state themselves if they
+# need details.
+signal alarm_arrived
+
 # combat-presentation ticket 11: carries a completed action's `beats` Array
 # (pure data -- ids/kinds/numbers, same shape player_attack()/flee()/
 # cast_complication() already return directly to their caller) for
