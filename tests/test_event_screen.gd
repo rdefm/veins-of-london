@@ -356,11 +356,10 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	# event-images ticket 03: VN mode retires the separate bottom action bar,
-	# so the portrait frame now runs down to the safe-area inset (with the
-	# same -8px clearance the old action bar itself kept off the screen
-	# edge) instead of stopping at that bar's top edge.
-	run_case("vn_mode_image_frame_spans_from_top_bar_clearance_to_the_safe_area_inset", func():
+	# vn-event-fixed-layout ticket 01: the screenshot-approved text panel is
+	# 236 logical pixels tall at the 390-wide baseline. It and the image are
+	# adjacent regions inside the safe usable frame, never layered.
+	run_case("vn_mode_uses_the_fixed_non_overlapping_image_and_text_split", func():
 		GameState.reset()
 		var original_events := _install_vn_event()
 		Events.start_event("test_vn_event")
@@ -369,8 +368,32 @@ func run() -> void:
 		assert_eq(screen._vn_frame.offset_left, 0.0, "the portrait frame is full-bleed -- no side margins")
 		assert_eq(screen._vn_frame.offset_right, 0.0)
 		assert_eq(screen._vn_frame.offset_top, UI.top_bar_clearance())
-		assert_eq(screen._vn_frame.offset_bottom, -8.0 - UI.safe_area_bottom_inset(), "the frame now runs to the safe-area inset -- there is no action bar left to stop above")
+		assert_eq(screen._vn_frame.offset_bottom, -8.0 - UI.safe_area_bottom_inset(), "the usable frame clears the bottom safe area")
+		assert_eq(screen._vn_text_frame.offset_top, -EventScreen.VN_TEXT_FRAME_HEIGHT - EventScreen.VN_BOTTOM_MARGIN)
+		assert_eq(screen._vn_text_frame.offset_bottom, -EventScreen.VN_BOTTOM_MARGIN)
+		assert_eq(screen._vn_image_frame.offset_bottom, screen._vn_text_frame.offset_top, "image must end exactly where the opaque text panel starts")
+		assert_eq(EventScreen.VN_TEXT_FRAME_HEIGHT, 236.0, "screenshot-approved baseline text-panel height")
 		assert_eq(screen._vn_texture.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_COVERED)
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("vn_mode_text_frame_height_is_content_independent_and_prose_scrolls_inside", func():
+		GameState.reset()
+		var original_events := _install_vn_event()
+		Events.start_event("test_vn_event")
+
+		var short_screen := _fresh_screen()
+		assert_eq(short_screen._vn_text_frame.offset_bottom - short_screen._vn_text_frame.offset_top, EventScreen.VN_TEXT_FRAME_HEIGHT)
+		assert_true(short_screen._vn_text_scroll is ScrollContainer, "prose belongs to an internal scroll viewport")
+		assert_eq(short_screen._vn_text_scroll.size_flags_vertical, Control.SIZE_EXPAND_FILL, "prose scroll viewport consumes remaining fixed-panel height")
+
+		GameData.EVENTS["test_vn_event"]["cards"][1]["text"] = "Long prose. ".repeat(200)
+		Events.advance()
+		var long_screen := _fresh_screen()
+		assert_eq(long_screen._vn_text_frame.offset_bottom - long_screen._vn_text_frame.offset_top, EventScreen.VN_TEXT_FRAME_HEIGHT, "long prose must not grow or shrink the panel")
+		assert_true(long_screen._vn_text_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO, "overflow should scroll vertically")
+		assert_true(long_screen._vn_controls_row.get_parent() != long_screen._vn_text_scroll, "controls stay fixed outside prose overflow")
 
 		GameData.EVENTS = original_events
 	)

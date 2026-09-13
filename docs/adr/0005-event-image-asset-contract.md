@@ -68,13 +68,8 @@ own remaining test (`tests/test_event_screen.gd`) stay only to confirm it
 correctly does nothing for a genuinely imageless (and therefore always
 non-VN) event.
 
-- **Size:** the VN-mode display canvas is **390 × 748** — full viewport
-  width (no side gutters, unlike the small slot's 16px margins either
-  side) by the nominal height between `TopBar.BAR_HEIGHT` (40) and the
-  bottom action bar's top edge (56 up from the screen's bottom edge) at
-  the 390×844 baseline viewport with no safe-area insets applied. Recorded
-  as the "VN portrait" row in `docs/ART-BIBLE.md` §3, alongside "Event
-  thumbnail."
+- **Original size:** ticket 02 used one **390 × 748** image canvas between
+  the top bar and former action bar. This is superseded below.
 - **Cropping:** same `STRETCH_KEEP_ASPECT_COVERED` rule as the small slot
   — source art is cropped-to-cover at render time, so it doesn't need to
   be pre-cropped to the 390×748 aspect ratio before landing under
@@ -88,3 +83,22 @@ non-VN) event.
   behaviour, rollout) is unchanged from the decisions above.
 
 **Status:** accepted (2026-09-13, `event-images` ticket 02).
+
+## Amendment: fixed non-overlapping VN split
+
+`vn-event-fixed-layout` ticket 01 replaces the overlay with adjacent regions
+inside the usable area from `UI.top_bar_clearance()` to 8px above
+`UI.safe_area_bottom_inset()`. At the 390×844 baseline with no insets, the
+upper image frame is **390 × 544**. The lower opaque text panel is
+**358 × 236**, with 16px side and bottom margins; its external height never
+follows content.
+
+The image ends exactly where the text panel begins. Its `TextureRect` remains
+centred `STRETCH_KEEP_ASPECT_COVERED`: any loadable dimensions are accepted,
+source proportions stay intact, and excess is cropped. The image receives the
+remaining usable height as viewport or safe-area clearances change. Prose
+scrolls inside the fixed panel while Continue, Rewind, and choice controls
+remain fixed inside it. Authors should keep essential composition near the
+centre and not rely on content behind the opaque lower frame.
+
+**Status:** accepted (2026-09-13, `vn-event-fixed-layout` ticket 01).

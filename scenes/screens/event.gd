@@ -19,6 +19,8 @@ extends Control
 # solid-fill-plus-light-text).
 
 const IMAGE_SLOT_HEIGHT := 170.0
+const VN_TEXT_FRAME_HEIGHT := 236.0
+const VN_BOTTOM_MARGIN := 16.0
 
 const _ACTION_COLOR_FALLBACK := Color("#c8102e")
 const _CALC_GOLD_FALLBACK := Color("#d4af52")
@@ -42,9 +44,13 @@ var _image_texture: TextureRect
 # so the non-VN path below is untouched byte-for-byte.
 var _vn_mode: bool = false
 var _vn_frame: Control
+var _vn_image_frame: Control
 var _vn_texture: TextureRect
 var _vn_card_box: VBoxContainer
+var _vn_text_frame: VBoxContainer
 var _vn_card_panel: PanelContainer
+var _vn_text_scroll: ScrollContainer
+var _vn_controls_row: HBoxContainer
 
 
 func _ready() -> void:
@@ -135,25 +141,28 @@ func _refresh() -> void:
 func _build_card(card: Dictionary) -> Dictionary:
 	var c := UI.card()
 	_style_card(c["panel"], card["type"])
+	_populate_card_text(c["content"], card)
+	return c
+
+
+func _populate_card_text(content: VBoxContainer, card: Dictionary) -> void:
 
 	if card.get("label") != null:
-		c["content"].add_child(UI.muted_label(card["label"]))
+		content.add_child(UI.muted_label(card["label"]))
 
 	match card["type"]:
 		"speaker":
-			c["content"].add_child(UI.heading(card["speaker"], 14))
-			c["content"].add_child(UI.label(card["text"]))
+			content.add_child(UI.heading(card["speaker"], 14))
+			content.add_child(UI.label(card["text"]))
 		"choice":
 			# ui-vision.md §11 bug fix: a choice card's optional speaker field
 			# was silently dropped (fell into the plain default case below) --
 			# render it the same way a "speaker" card does when present.
 			if card.get("speaker") != null:
-				c["content"].add_child(UI.heading(card["speaker"], 14))
-			c["content"].add_child(UI.label(card["text"]))
+				content.add_child(UI.heading(card["speaker"], 14))
+			content.add_child(UI.label(card["text"]))
 		_:
-			c["content"].add_child(UI.label(card["text"]))
-
-	return c
+			content.add_child(UI.label(card["text"]))
 
 
 # event-images ticket 03: shared by the non-VN action bar (_refresh()) and
@@ -316,37 +325,38 @@ func _refresh_image_slot() -> void:
 	_scroll.offset_top = top + (IMAGE_SLOT_HEIGHT if showing else 0.0)
 
 
-# event-images ticket 02: VN mode's full-bleed portrait frame, built once
-# in _ready() alongside the non-VN _image_frame/_scroll/_cards_box path
-# (never both). Full width, no side margins (unlike the small slot's 16px
-# gutters) -- ART-BIBLE §3's "VN portrait" row is the nominal 390 x 748
-# canvas this collapses to at the baseline viewport with no safe-area
-# insets. Two full-rect children layered inside a plain (non-Panel)
-# Control so the overlay text box can float over the image rather than
-# push it aside: the TextureRect fills the frame edge to edge, and
-# _vn_card_box (a VBoxContainer with ALIGNMENT_END) sizes itself to
-# exactly its one child's minimum height and pins it to the bottom of the
-# frame, the same "shrink to content, anchor to an edge" trick used
-# everywhere else a Godot 4 overlay needs content-driven height without
-# hand-rolled offset math.
+# VN mode uses adjacent regions inside the safe usable frame. The lower
+# panel is the screenshot-approved 236px; the image receives the remainder.
 func _build_vn_frame() -> Control:
 	var frame := Control.new()
 	UI.anchor_full_rect(frame)
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.clip_contents = true
 
+	_vn_image_frame = Control.new()
+	_vn_image_frame.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_vn_image_frame.anchor_bottom = 1.0
+	_vn_image_frame.offset_bottom = -VN_TEXT_FRAME_HEIGHT - VN_BOTTOM_MARGIN
+	_vn_image_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vn_image_frame.clip_contents = true
+	frame.add_child(_vn_image_frame)
+
 	_vn_texture = TextureRect.new()
 	UI.anchor_full_rect(_vn_texture)
 	_vn_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_vn_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_vn_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	frame.add_child(_vn_texture)
+	_vn_image_frame.add_child(_vn_texture)
 
 	_vn_card_box = UI.vbox(0)
-	UI.anchor_full_rect(_vn_card_box)
-	_vn_card_box.alignment = BoxContainer.ALIGNMENT_END
+	_vn_card_box.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_vn_card_box.offset_left = 16.0
+	_vn_card_box.offset_right = -16.0
+	_vn_card_box.offset_top = -VN_TEXT_FRAME_HEIGHT - VN_BOTTOM_MARGIN
+	_vn_card_box.offset_bottom = -VN_BOTTOM_MARGIN
 	_vn_card_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.add_child(_vn_card_box)
+	_vn_text_frame = _vn_card_box
 
 	return frame
 
@@ -357,8 +367,8 @@ func _build_vn_frame() -> Control:
 # (Continue/Rewind/choice now dock onto the text box itself, in
 # _build_vn_controls_row()) -- the portrait frame runs all the way down to
 # the safe-area inset, with the same -8px clearance the old action bar kept
-# off the screen edge, and _vn_card_box's own ALIGNMENT_END plus its 16px
-# margin (_refresh_vn_card()) is what keeps the floating box off that floor.
+# off the screen edge. The child split is relative to this usable frame,
+# so both regions move together as safe-area clearances change.
 func _refresh_vn_frame() -> void:
 	var top: float = UI.top_bar_clearance()
 	var bottom_inset: float = UI.safe_area_bottom_inset()
@@ -382,16 +392,24 @@ func _refresh_vn_card() -> void:
 	_vn_texture.texture = load(image_path) if showing else null
 
 	var card: Dictionary = Events.revealed_cards().back()
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_bottom", 16)
-	var built := _build_card(card)
+	var built := UI.card()
+	_style_card(built["panel"], card["type"])
 	_vn_card_panel = built["panel"]
-	built["content"].add_child(_build_vn_controls_row())
-	margin.add_child(_vn_card_panel)
-	_vn_card_box.add_child(margin)
+	_vn_card_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	_vn_text_scroll = UI.scroll_container()
+	_vn_text_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_vn_text_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_vn_text_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	var prose := UI.vbox(8)
+	prose.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_populate_card_text(prose, card)
+	_vn_text_scroll.add_child(prose)
+	built["content"].add_child(_vn_text_scroll)
+
+	_vn_controls_row = _build_vn_controls_row()
+	built["content"].add_child(_vn_controls_row)
+	_vn_card_box.add_child(_vn_card_panel)
 
 
 # event-images ticket 03: VN mode's replacement for the old bottom action

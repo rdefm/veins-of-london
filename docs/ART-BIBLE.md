@@ -71,13 +71,21 @@ Native, at the 390×844 logical viewport:
 | Effect frame | 96 × 96 |
 | Large effect (`blackHole`) | 160 × 160 |
 | Event thumbnail | 358 × 170 |
-| VN portrait | 390 × 748 |
+| VN image frame | 390 × 544 |
+| VN text frame | 358 × 236 |
 
 Each row is the exact pixel dimensions a prepared asset is delivered at —
 content is centred on that canvas, cropped if larger, padded if smaller.
 There is no other alignment rule (no floor/feet-anchoring) — a later
 ticket wanting baseline alignment instead of centring makes that change
 deliberately, not by working around it per-asset.
+
+The VN rows describe the fixed 390×844 baseline layout, not required source
+image dimensions. The image is centred and aspect-covered into the upper
+frame; overflow is cropped. Keep faces, hands, and story-critical detail near
+the centre because viewport height and safe-area insets can change the visible
+top/bottom crop. The opaque lower text frame is separate: never place required
+visual information as though it will remain visible behind it.
 
 ## 4. Generation discipline
 
