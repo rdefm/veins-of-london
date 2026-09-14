@@ -204,6 +204,12 @@ Calc expands these rules: Shield answers additional exposure, Time Pearl delays 
 
 Deliver time presentation and actionable alarm presentation first; they can use existing gameplay rules. Then specify the quantity-only introductory order and recurring contract/staff lifecycle. Prototype combat independently before production integration. Resolve cultivation and bill changes separately; they are not dependencies of the presentation work.
 
+## Contract and staff specification
+
+See [business-spec.md](business-spec.md). It is the canonical specification
+for ticket 10; its open decisions are not implementation authority.
+
+
 ### Review and provenance
 
 Written from the 2026-09-13 conversation and inspected current systems, screens, data, tests, domain glossary, phone icon ADR, and design documents. Current code and older vision prose diverge in several areas, including free travel, squad combat already existing, cultivation numbers, and bills; use canonical reference plus explicit approved amendments when implementing, never old prose as an accidental mechanics source.

@@ -1,8 +1,8 @@
 {
   "atlas": "res://assets/daily_cycle/cycle.png",
-  "frameCount": 28,
+  "frameCount": 42,
   "columns": 7,
-  "rows": 4,
+  "rows": 6,
   "cellSize": 73,
   "ranges": {
     "morning_to_afternoon": {
@@ -19,6 +19,14 @@
       "size": [
         72,
         72
+      ]
+    },
+    "evening_to_morning": {
+      "start": 28,
+      "count": 14,
+      "size": [
+        73,
+        73
       ]
     }
   },

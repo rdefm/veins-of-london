@@ -4,7 +4,11 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** wontfix (deprecated — superseded by `business-spec.md` and its 2026-09-14 grilling session; see tickets 21-34)
+
+**Approved mechanics:** `.scratch/day-rhythm-business-and-combat/business-spec.md`.
+The remaining catalogue,
+mixed-delivery, Production-target, and migration decisions block implementation.
 
 This ticket authorizes investigation, decision capture and only the explicitly bounded prototype described below. Unresolved rules require human input; ready-for-agent means work can begin, not that proposed mechanics are approved.
 
@@ -18,4 +22,3 @@ This ticket authorizes investigation, decision capture and only the explicitly b
 ## Delivery constraints
 
 Follow the parent feature spec and current canonical mechanics. Keep content/tuning in data, gameplay state serializable, mutations in systems and presentation outside them. Update canonical/domain/ownership documentation when responsibilities or approved mechanics change. After every GDScript edit run the required autoload-aware syntax check, then the full headless suite before completion; report device-only checks separately and flag new prose with PROSE-REVIEW.
-

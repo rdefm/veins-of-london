@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 — Morning accounts; 10 — Contract and staff rules.
 
-**Status:** ready-for-agent
+**Status:** wontfix (deprecated — superseded by tickets 25 and 32)
 
 - [ ] Implement the approved initial catalogue and lifecycle, showing quantity/progress, distinct due day, payment and remaining obligations before explicit delivery.
 - [ ] Add contract planning and delivery to BizBrief's Operations area, extending the reporting app rather than creating another business app or parallel ledger.

@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 — Morning accounts; 11 — Manual recurring contracts.
 
-**Status:** ready-for-agent
+**Status:** wontfix (deprecated — superseded by tickets 26, 28 and 30)
 
 - [ ] Expose approved delegation, reserve quantities, priorities and spending limits; enforce approved unlock, capacity and wage/cost rules.
 - [ ] Place staff controls and contract exceptions in BizBrief's Operations area; do not create a second staff-management app.
