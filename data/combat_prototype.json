@@ -1,5 +1,5 @@
 {
-  "_comment": "day-rhythm-business-and-combat ticket 14: bounded solo combat prototype (rules per ticket 13a) -- prototype-only, NOT production balance, not cross-referenced by REFERENCE.md. encounterOrder is the fixed teaching sequence (brawler -> knifeFighter -> enforcer per the ticket). Each encounter's `script` is the enemy's deterministic committed-action cycle, always aimed at the player, so the fight reliably surfaces the specific matchup(s) it's named to teach rather than leaving it to chance -- CombatPrototype only advances an enemy's script index on a round it actually commits (an exhausted skip round doesn't consume a step). PROSE-REVIEW: every `name`/`intro` string here is new copy, drafted against CONTENT-GUIDE.md's tone bible.",
+  "_comment": "day-rhythm-business-and-combat ticket 14: bounded solo combat prototype (rules per ticket 13a) -- prototype-only, NOT production balance, not cross-referenced by REFERENCE.md. encounterOrder is the fixed brawler -> knifeFighter -> enforcer teaching sequence; those three entries keep ticket 14's original flat single-enemy shape (name/hp/attackMin/attackMax/speed/evadeChance/script at the encounter's own top level) for backward compatibility -- CombatPrototype._current_wave_defs() wraps a flat entry as a one-element roster. Ticket 15 (squad/progression prototype) adds three more encounters, reached outside encounterOrder (via CombatPrototype.list_launchable_encounters(), surfaced as extra Debug-app cards): 'pairAmbush' (two enemies, both scripted at the player every round -- demonstrates that a stance committed against one attacker leaves the other fully dangerous, ticket 15 checklist item 1), 'mixedCrew' (three enemies, one of each teaching archetype together -- the squad-tactics evaluation roster, checklist item 2), and 'gauntlet' (two waves fought back-to-back with no HP reset between them -- the sustained-power/readability check, checklist item 5). A squad entry's roster lives under 'enemies' (array of the same per-enemy fields the flat encounters use); a multi-wave entry's rosters live under 'waves' (array of 'enemies'-shaped arrays, fought in order). `script` is each enemy's deterministic committed-action cycle, always aimed at the player -- CombatPrototype only advances an enemy's own scriptIndex on a round it actually commits (a frozen or exhausted skip round doesn't consume a step). PROSE-REVIEW: every `name`/`intro`/`teaches` string here is new copy, drafted against CONTENT-GUIDE.md's tone bible.",
   "encounterOrder": ["brawler", "knifeFighter", "enforcer"],
   "encounters": {
     "brawler": {
@@ -34,6 +34,103 @@
       "speed": 10,
       "evadeChance": 0.0,
       "script": ["counter", "heavy"]
+    },
+    "pairAmbush": {
+      "name": "Pair Ambush",
+      "teaches": "single-target defence leaves other threats live",
+      "intro": "Two of them, spread wide. Whoever you watch, the other one's free.",
+      "enemies": [
+        {
+          "name": "First Tough",
+          "hp": 24,
+          "attackMin": 5,
+          "attackMax": 10,
+          "speed": 9,
+          "evadeChance": 0.0,
+          "script": ["fast"]
+        },
+        {
+          "name": "Second Tough",
+          "hp": 24,
+          "attackMin": 5,
+          "attackMax": 10,
+          "speed": 7,
+          "evadeChance": 0.0,
+          "script": ["fast"]
+        }
+      ]
+    },
+    "mixedCrew": {
+      "name": "Mixed Crew",
+      "teaches": "squad tactics -- does one strategy dominate a mixed line-up?",
+      "intro": "A brawler, a blade, and someone who's clearly run this before. Three at once.",
+      "enemies": [
+        {
+          "name": "The Brawler",
+          "hp": 30,
+          "attackMin": 6,
+          "attackMax": 12,
+          "speed": 8,
+          "evadeChance": 0.0,
+          "script": ["heavy"]
+        },
+        {
+          "name": "The Knife Fighter",
+          "hp": 26,
+          "attackMin": 5,
+          "attackMax": 10,
+          "speed": 13,
+          "evadeChance": 0.0,
+          "script": ["fast"]
+        },
+        {
+          "name": "The Enforcer",
+          "hp": 42,
+          "attackMin": 6,
+          "attackMax": 13,
+          "speed": 10,
+          "evadeChance": 0.0,
+          "script": ["counter", "heavy"]
+        }
+      ]
+    },
+    "gauntlet": {
+      "name": "The Gauntlet",
+      "teaches": "sustained power across waves -- no reset between fights",
+      "intro": "First lot's just the warm-up. There's more waiting behind them.",
+      "waves": [
+        [
+          {
+            "name": "Gauntlet Runner",
+            "hp": 20,
+            "attackMin": 4,
+            "attackMax": 9,
+            "speed": 9,
+            "evadeChance": 0.0,
+            "script": ["fast"]
+          },
+          {
+            "name": "Gauntlet Runner",
+            "hp": 20,
+            "attackMin": 4,
+            "attackMax": 9,
+            "speed": 6,
+            "evadeChance": 0.0,
+            "script": ["heavy"]
+          }
+        ],
+        [
+          {
+            "name": "Gauntlet Enforcer",
+            "hp": 42,
+            "attackMin": 6,
+            "attackMax": 13,
+            "speed": 10,
+            "evadeChance": 0.0,
+            "script": ["counter", "heavy"]
+          }
+        ]
+      ]
     }
   }
 }

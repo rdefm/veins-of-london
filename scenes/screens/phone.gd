@@ -1167,17 +1167,32 @@ func _build_debug_combat_card() -> Control:
 # solo combat prototype (systems/combat_prototype.gd) -- always starts the
 # teaching sequence from its first encounter (data/combat_prototype.json's
 # encounterOrder), same "picker UI in front of an existing entry point"
-# reasoning as the Combat card above.
+# reasoning as the Combat card above. Ticket 15: also lists every encounter
+# CombatPrototype.list_launchable_encounters() reports (squad/wave
+# evaluation rosters, outside the fixed teaching order) as its own Start
+# button -- generic over whatever data/combat_prototype.json's "encounters"
+# holds, no hardcoded ids.
 func _build_debug_combat_prototype_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Solo Combat Prototype", 14))
-	c["content"].add_child(UI.muted_label("Bounded experiment (ticket 14) — not production combat."))
-	c["content"].add_child(UI.button("Start", func():
+	c["content"].add_child(UI.muted_label("Bounded experiment (tickets 14/15) — not production combat."))
+	c["content"].add_child(UI.button("Start Teaching Sequence", func():
 		var order: Array = GameData.COMBAT_PROTOTYPE.get("encounterOrder", [])
 		if not order.is_empty():
 			CombatPrototype.start_encounter(order[0])
 	))
+	var encounters: Dictionary = GameData.COMBAT_PROTOTYPE.get("encounters", {})
+	for encounter_id in CombatPrototype.list_launchable_encounters():
+		c["content"].add_child(_build_debug_combat_prototype_launch_button(encounter_id, encounters[encounter_id].get("name", encounter_id)))
 	return c["panel"]
+
+
+# Split out of the loop above so the closure captures this call's own
+# `encounter_id` parameter rather than the shared loop variable -- same
+# "pass the loop value through a function call" precedent
+# _build_save_slot_row(slot) already establishes for this exact gotcha.
+func _build_debug_combat_prototype_launch_button(encounter_id: String, label: String) -> Control:
+	return UI.button("Start: %s" % label, func(): CombatPrototype.start_encounter(encounter_id))
 
 
 # Bugfixes ticket 106: read-only dump of UI.safe_area_debug_text() (window

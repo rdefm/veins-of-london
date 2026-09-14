@@ -928,6 +928,16 @@ func _validate_enemies(raid_guards: Dictionary, home_raid_raider: Dictionary, co
 # combat actions (CombatPrototype.SCRIPTABLE_ACTIONS) — a typo here would
 # otherwise silently no-op an enemy's whole teaching script at runtime
 # instead of failing loudly at boot.
+#
+# ticket 15 (squad/progression prototype): encounterOrder's three ids keep
+# the original flat single-enemy shape (checked by _validate_combat_prototype_
+# enemy() below, called directly on the encounter entry itself); any OTHER
+# entry in `encounters` (reached via CombatPrototype.list_launchable_
+# encounters(), not encounterOrder) must be either a squad ('enemies': a
+# non-empty array of enemy defs) or a multi-wave roster ('waves': a
+# non-empty array of non-empty 'enemies'-shaped arrays) — never both, and
+# never the old flat shape (a squad/wave entry's own name/hp/etc. at the top
+# level would silently never be read by CombatPrototype._current_wave_defs()).
 func _validate_combat_prototype(combat_prototype: Dictionary, errors: Array[String]) -> void:
 	var order: Array = combat_prototype.get("encounterOrder", [])
 	if order.is_empty():
@@ -937,14 +947,46 @@ func _validate_combat_prototype(combat_prototype: Dictionary, errors: Array[Stri
 		if not encounters.has(encounter_id):
 			errors.append("combat_prototype.encounters: missing entry for encounterOrder id '%s'" % encounter_id)
 			continue
+		_validate_combat_prototype_enemy(encounters[encounter_id], "combat_prototype.encounters.%s" % encounter_id, errors)
+
+	for encounter_id in encounters.keys():
+		if order.has(encounter_id):
+			continue
 		var entry: Dictionary = encounters[encounter_id]
-		_require_keys(entry, ["name", "hp", "attackMin", "attackMax", "speed", "script"], "combat_prototype.encounters.%s" % encounter_id, errors)
-		var script: Array = entry.get("script", [])
-		if script.is_empty():
-			errors.append("combat_prototype.encounters.%s.script: must not be empty" % encounter_id)
-		for action in script:
-			if not CombatPrototype.SCRIPTABLE_ACTIONS.has(action):
-				errors.append("combat_prototype.encounters.%s.script: unknown action '%s'" % [encounter_id, action])
+		var path: String = "combat_prototype.encounters.%s" % encounter_id
+		_require_keys(entry, ["name"], path, errors)
+		var has_enemies: bool = entry.has("enemies")
+		var has_waves: bool = entry.has("waves")
+		if has_enemies and has_waves:
+			errors.append("%s: must not set both 'enemies' and 'waves'" % path)
+		elif has_enemies:
+			var roster: Array = entry.get("enemies", [])
+			if roster.is_empty():
+				errors.append("%s.enemies: must not be empty" % path)
+			for i in range(roster.size()):
+				_validate_combat_prototype_enemy(roster[i], "%s.enemies[%d]" % [path, i], errors)
+		elif has_waves:
+			var waves: Array = entry.get("waves", [])
+			if waves.is_empty():
+				errors.append("%s.waves: must not be empty" % path)
+			for w in range(waves.size()):
+				var wave_roster: Array = waves[w]
+				if wave_roster.is_empty():
+					errors.append("%s.waves[%d]: must not be empty" % [path, w])
+				for i in range(wave_roster.size()):
+					_validate_combat_prototype_enemy(wave_roster[i], "%s.waves[%d][%d]" % [path, w, i], errors)
+		else:
+			errors.append("%s: must set either 'enemies' or 'waves' (it's outside encounterOrder, so the flat single-enemy shape doesn't apply)" % path)
+
+
+func _validate_combat_prototype_enemy(entry: Dictionary, path: String, errors: Array[String]) -> void:
+	_require_keys(entry, ["name", "hp", "attackMin", "attackMax", "speed", "script"], path, errors)
+	var script: Array = entry.get("script", [])
+	if script.is_empty():
+		errors.append("%s.script: must not be empty" % path)
+	for action in script:
+		if not CombatPrototype.SCRIPTABLE_ACTIONS.has(action):
+			errors.append("%s.script: unknown action '%s'" % [path, action])
 
 
 # combat-presentation ticket 08: every context in Combat.CANONICAL_CONTEXTS

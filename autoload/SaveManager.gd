@@ -566,21 +566,31 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 # entirely separate hand-picked snapshot shape (push_prototype_snapshot()).
 # enemy.evadeChance is a float (0.0-1.0), same convention as combat.
 # evadeChance above -- intentionally not touched here.
+# ticket 15: cp.enemy (single Dictionary) -> cp.enemies (Array), same
+# migration _restore_combat_int_types() already went through for
+# state.combat -- see systems/combat_prototype.gd's own top comment.
 func _restore_combat_prototype_int_types(cp: Dictionary) -> void:
-	_int_key(cp, "round")
+	for key in ["round", "wave", "totalWaves", "frozenTurns", "motionTurns", "motionPower"]:
+		_int_key(cp, key)
 	var player: Dictionary = cp.get("player", {})
-	_int_key(player, "hp")
-	_int_key(player, "hpMax")
-	var enemy: Dictionary = cp.get("enemy", {})
-	for key in ["hp", "hpMax", "attackMin", "attackMax", "speed", "scriptIndex"]:
-		_int_key(enemy, key)
+	for key in ["hp", "hpMax", "shieldPool"]:
+		_int_key(player, key)
+	if player.has("committedTarget") and typeof(player["committedTarget"]) == TYPE_FLOAT:
+		player["committedTarget"] = int(player["committedTarget"])
+	for enemy in cp.get("enemies", []):
+		for key in ["hp", "hpMax", "attackMin", "attackMax", "speed", "scriptIndex"]:
+			_int_key(enemy, key)
 	for snap in cp.get("snapshots", []):
-		_int_key(snap, "round")
+		for key in ["round", "wave", "frozenTurns", "motionTurns", "motionPower"]:
+			_int_key(snap, key)
 		var snap_player: Dictionary = snap.get("player", {})
-		_int_key(snap_player, "hp")
-		var snap_enemy: Dictionary = snap.get("enemy", {})
-		_int_key(snap_enemy, "hp")
-		_int_key(snap_enemy, "scriptIndex")
+		for key in ["hp", "shieldPool"]:
+			_int_key(snap_player, key)
+		if snap_player.has("committedTarget") and typeof(snap_player["committedTarget"]) == TYPE_FLOAT:
+			snap_player["committedTarget"] = int(snap_player["committedTarget"])
+		for snap_enemy in snap.get("enemies", []):
+			_int_key(snap_enemy, "hp")
+			_int_key(snap_enemy, "scriptIndex")
 
 
 # state.modal.data's shape depends on modal.type (systems/crafting.gd,

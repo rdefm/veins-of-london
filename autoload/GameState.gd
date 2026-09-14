@@ -289,11 +289,17 @@ func new_game_state() -> Dictionary:
 		# meaningfully persisted" is fine here (same convention mapNav/
 		# veinListNav above already use): a prototype fight mid-flight at
 		# save time is not a state worth resurrecting.
+		# day-rhythm-business-and-combat ticket 15: cp.enemy (single Dictionary)
+		# -> cp.enemies (Array), same squad-combat-ticket-01 migration
+		# state.combat.enemies already went through -- see
+		# systems/combat_prototype.gd's own top comment for the full shape.
 		"combatPrototype": {
-			"active": false, "encounterId": "", "round": 0, "outcome": null, "log": [],
-			"player": { "hp": 0, "hpMax": 0, "committedAction": null, "committedTarget": null, "exhaustedNextTurn": false, "stanceTriggered": false },
-			"enemy": { "name": "", "hp": 0, "hpMax": 0, "attackMin": 0, "attackMax": 0, "speed": 0, "evadeChance": 0.0, "scriptIndex": 0, "committedAction": null, "committedTarget": null, "exhaustedNextTurn": false, "stanceTriggered": false },
+			"active": false, "encounterId": "", "wave": 0, "totalWaves": 1, "round": 0, "outcome": null, "log": [],
+			"player": { "hp": 0, "hpMax": 0, "committedAction": null, "committedTarget": null, "committedItem": null, "exhaustedNextTurn": false, "stanceTriggered": false, "shieldPool": 0 },
+			"enemies": [],
+			"frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "blastFleeBoost": false,
 			"snapshots": [], "beatsSinceSnapshot": [],
+			"_pending": null, "_waveCleared": false,
 		},
 
 		"jamesJob": null,
