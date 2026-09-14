@@ -413,6 +413,13 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(player, key)
 		_int_dict_values(player.get("orichalchum", {}))
 		_migrate_inventory(player.get("inventory", {}))
+		# ticket 22: player.stash mirrors orichalchum/inventory's own shapes
+		# one level down -- same int-restore/tier-migrate calls, just scoped
+		# to the stash sub-dict backfill_defaults() already guaranteed exists
+		# by the time this runs.
+		var stash: Dictionary = player.get("stash", {})
+		_int_dict_values(stash.get("orichalchum", {}))
+		_migrate_inventory(stash.get("inventory", {}))
 		if player.has("bench"):
 			var bench: Dictionary = player["bench"]
 			_int_dict_values(bench.get("surveyed", {}))

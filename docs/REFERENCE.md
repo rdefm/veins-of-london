@@ -276,6 +276,7 @@ state = {
   sellState: {},              # sell-menu qty selections, transient
   craftQty: {},                # bugfixes-57: Lab batch-craft qty selections, keyed by recipeKey, transient (not restored on load, same as sellState)
   marketplaceQty: {},          # bugfixes-66: faction marketplace row qty steppers, keyed "<factionId>_<kind>_<itemType>", transient (not restored on load, same as sellState/craftQty)
+  stashQty: {},                # day-rhythm-business-and-combat ticket 22: personal-stash move-qty steppers, keyed "ore_<oreType>"/"item_<recipeKey>" (one shared qty per row, same convention as marketplaceQty), transient (not restored on load)
   event: null,                # M0-T13 event runner state: { eventId, cardIndex, snapshots:[] } | null
 
   player: {
@@ -309,6 +310,17 @@ state = {
     craftingSkill: 1, craftingXP: 0,
     cultivatingSkill: 1, cultivatingXP: 0,
     combatSkill: 1, combatXP: 0,   # §3.7a: attack bonus + turn-order speed, both level-indexed
+    # day-rhythm-business-and-combat ticket 22, business-spec.md "Inventory":
+    # the personal stash -- a second ore/crafted-item pool no business
+    # system (contracts, Sales, Production, Procurement) can touch, since
+    # none of them read player.stash. Same shapes as orichalchum/inventory
+    # above, one level down. A stashed unit is subtracted from
+    # orichalchum/inventory the moment it moves in (systems/stash.gd) --
+    # it's a transfer destination, not a second view -- and is the sole
+    # reserve mechanism (no other per-item reserve flag exists anywhere).
+    # Moves are instant/reversible/tier-preserving, clamped to whatever's
+    # actually available on the source side.
+    stash: { orichalchum: {}, inventory: {} },
   },
 
   world: {

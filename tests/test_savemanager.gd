@@ -528,6 +528,57 @@ func run() -> void:
 		assert_true(GameState.state["flags"]["enhancementUnlocked"], "enhancementUnlocked should stay true across the migration")
 	)
 
+	# ticket 22: "player" has existed since M0, so a pre-stash save has it
+	# present but missing the new stash key -- same shallow-fill gap the
+	# dial cases above cover.
+	run_case("backfill_seeds_an_empty_stash_into_an_old_saves_existing_player_dict", func():
+		var incomplete := {
+			"player": {
+				"cash": 999,
+				"orichalchum": { "time": 40 },
+			},
+		}
+		var filled := SaveManager.backfill_defaults(incomplete)
+
+		assert_eq(filled["player"]["cash"], 999, "existing player data must survive untouched")
+		assert_eq(filled["player"]["orichalchum"], { "time": 40 }, "existing player data must survive untouched")
+		assert_eq(filled["player"]["stash"], { "orichalchum": {}, "inventory": {} }, "the new key should be seeded from defaults, same as a missing top-level key")
+	)
+
+	run_case("loading_a_pre_stash_save_migrates_into_an_empty_stash_with_existing_pools_intact", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["player"].erase("stash")
+		legacy["player"]["orichalchum"]["time"] = 40
+		legacy["player"]["inventory"]["timePearl"] = { "3": 2 }
+
+		var result := SaveManager.import_string(JSON.stringify(legacy))
+		assert_true(result["ok"], "a pre-stash save should load without error")
+
+		var player: Dictionary = GameState.state["player"]
+		assert_eq(player["stash"], { "orichalchum": {}, "inventory": {} }, "a pre-stash save should load into an empty stash")
+		assert_eq(player["orichalchum"]["time"], 40, "the shared ore pool should survive the migration untouched")
+		assert_eq(player["inventory"]["timePearl"], { "3": 2 }, "the shared crafted-item pool should survive the migration untouched")
+	)
+
+	run_case("loading_a_save_with_stash_stock_restores_ints_and_migrates_legacy_tier_shape", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["player"]["stash"]["orichalchum"] = { "time": 7.0 }
+		# A stash JSON round trip int-restores/tier-migrates the same way
+		# player.inventory itself does -- exercised directly here since a
+		# pre-stash save can never actually contain stash.inventory in the
+		# legacy bare-number shape (the key didn't exist yet to migrate).
+		legacy["player"]["stash"]["inventory"] = { "timePearl": 3.0 }
+
+		var result := SaveManager.import_string(JSON.stringify(legacy))
+		assert_true(result["ok"], "a save with stash stock should load without error")
+
+		var stash: Dictionary = GameState.state["player"]["stash"]
+		assert_eq(stash["orichalchum"]["time"], 7, "stash ore qty comes back as an int, not a float")
+		assert_eq(stash["inventory"]["timePearl"], { "0": 3 }, "a bare-number stash inventory entry migrates into the tier-0 bucket, same as player.inventory")
+	)
+
 	run_case("loading_a_save_with_a_retired_currentScreen_lands_on_phone_home", func():
 		for retired_id in ["home", "you", "bag", "inventory"]:
 			GameState.reset()

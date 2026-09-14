@@ -109,6 +109,11 @@ func new_game_state() -> Dictionary:
 		# <itemType>" -> selected qty. Same transient, not-restored-on-load
 		# convention as sellState/craftQty above.
 		"marketplaceQty": {},
+		# ticket 22: personal-stash move-qty stepper, keyed "ore_<oreType>"
+		# / "item_<recipeKey>" -- one shared qty per row for both the stash
+		# and unstash button on that row, same convention as marketplaceQty
+		# above. Transient, not restored on load.
+		"stashQty": {},
 		"event": null,
 
 		"player": {
@@ -127,6 +132,16 @@ func new_game_state() -> Dictionary:
 			# ticket 64: quantity per quality tier, not a flat count -- see
 			# Crafting's "Inventory" section. Empty buckets == zero stock.
 			"inventory": { "timePearl": {}, "enhancementPowder": {}, "rewind": {} },
+			# ticket 22 (business-spec.md "Inventory"): the personal stash --
+			# a second ore/crafted-item pool no business system (contracts,
+			# Sales, Production, Procurement) can touch, since none of them
+			# read player.stash at all. A stashed unit is subtracted from
+			# orichalchum/inventory above the moment it moves in (systems/
+			# stash.gd), so it's a transfer destination, not a second view --
+			# the sole reserve mechanism, per spec (no other per-item reserve
+			# flag exists anywhere). Same shapes as the pools above: flat
+			# oreType->qty, and tier-bucketed recipeKey->{tier:qty}.
+			"stash": { "orichalchum": {}, "inventory": {} },
 			"equipment": { "weapon": null },
 			"items": [],
 			# dial-device ticket 07: replaces the old single-slot device system

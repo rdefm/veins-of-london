@@ -1072,6 +1072,101 @@ func run() -> void:
 		layer.free()
 	)
 
+	# ── ticket 22: personal-stash move controls, same modal ────────────────
+
+	run_case("hq_ore_readout_modal_shows_no_stash_stock_messages_when_nothing_is_held", func():
+		GameState.reset()
+		Modal.open("hq_ore_readout")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		assert_true(_label_texts(layer).has("No ore to stash."), "empty ore stash section")
+		assert_true(_label_texts(layer).has("No crafted items to stash."), "empty crafted-item stash section")
+
+		layer.free()
+	)
+
+	run_case("hq_ore_readout_modal_stash_row_appears_for_shared_only_ore_and_moving_it_debits_shared_credits_stash", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["life"] = 12
+		Modal.open("hq_ore_readout")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var life_ore: Dictionary = GameData.ORE_TYPES["life"]
+		assert_true(_label_texts(layer).any(func(t: String): return t.ends_with("%s — shared 12 / stashed 0" % life_ore["name"])), "stash-section row must show the shared/stashed split")
+
+		var to_stash := _find_button(layer, "→ Stash")
+		assert_true(to_stash != null, "a shared-only row must offer a Stash button")
+		assert_true(not to_stash.disabled, "default move qty (1) is within the 12 available")
+		to_stash.pressed.emit()
+
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 11, "shared pool debited by the default qty of 1")
+		assert_eq(Stash.stashed_ore_qty("life"), 1, "stash credited")
+
+		layer.free()
+	)
+
+	run_case("hq_ore_readout_modal_stash_row_still_appears_for_stashed_only_ore_and_unstashing_reverses_it", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["life"] = 5
+		Stash.move_ore_to_stash("life", 5)
+		Modal.open("hq_ore_readout")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var life_ore: Dictionary = GameData.ORE_TYPES["life"]
+		assert_true(_label_texts(layer).any(func(t: String): return t.ends_with("%s — shared 0 / stashed 5" % life_ore["name"])), "a fully-stashed type must still get a row, not vanish")
+
+		var to_stash := _find_button(layer, "→ Stash")
+		assert_true(to_stash.disabled, "nothing shared left to stash")
+		var to_shared := _find_button(layer, "← Shared")
+		assert_true(not to_shared.disabled, "5 available to bring back")
+		to_shared.pressed.emit()
+
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 1, "shared pool credited back by the default qty of 1")
+		assert_eq(Stash.stashed_ore_qty("life"), 4, "stash debited")
+
+		layer.free()
+	)
+
+	run_case("hq_ore_readout_modal_stash_qty_stepper_adjusts_the_move_qty", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["life"] = 12
+		Modal.open("hq_ore_readout")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		_find_button(layer, "+").pressed.emit()
+		assert_eq(Stash.get_ore_move_qty("life"), 2, "+ steps the shared qty up")
+
+		layer.free()
+	)
+
+	run_case("hq_ore_readout_modal_crafted_item_row_appears_and_moves_preserve_the_total", func():
+		GameState.reset()
+		Crafting.inventory_add("timePearl", 3, 4)
+		Modal.open("hq_ore_readout")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var recipe: Dictionary = GameData.RECIPES["timePearl"]
+		assert_true(_label_texts(layer).any(func(t: String): return t.ends_with("%s — shared 4 / stashed 0" % recipe["name"])), "crafted-item row must show the shared/stashed split")
+
+		var to_stash := _find_button(layer, "→ Stash")
+		to_stash.pressed.emit()
+
+		assert_eq(Crafting.inventory_qty("timePearl"), 3, "shared inventory debited by the default qty of 1")
+		assert_eq(Stash.stashed_item_qty("timePearl"), 1, "stash credited")
+
+		layer.free()
+	)
+
 	# ── squad-combat ticket 05 / hq-diorama ticket 02: Gym modal / Train ───
 
 	run_case("hq_gym_modal_offers_a_train_button_and_a_build_hint_without_a_built_home_gym", func():

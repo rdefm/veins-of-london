@@ -1065,7 +1065,110 @@ func _build_hq_ore_readout() -> void:
 	slip_content.add_child(UI.muted_label("Ore kept at the flat is what a raid takes — carry less, lose less."))
 
 	_card_content.add_child(slip["panel"])
+	_card_content.add_child(_build_personal_stash_section())
 	_card_content.add_child(UI.button("Close", func(): Modal.close()))
+
+
+# ticket 22 (business-spec.md "Inventory"): personal-stash move controls,
+# appended below the read-only Ore store slip above on the same modal --
+# the ticket names "the existing Ore-store/inventory surface" as the
+# reachable spot, and this is that surface's only screen. A row appears
+# for anything with stock on EITHER side (shared>0 or stashed>0), unlike
+# the slip above which only ever lists shared stock -- a fully-stashed
+# type would otherwise vanish with no way back. Ore and crafted items each
+# get their own row list; a recipe with no stock anywhere never appears at
+# all, same "only show what exists" convention as the slip.
+func _build_personal_stash_section() -> Control:
+	var card := UI.card()
+	var content: VBoxContainer = card["content"]
+	content.add_child(UI.heading("Personal stash", 14))
+	# PROSE-REVIEW: new copy, drafted against docs/CONTENT-GUIDE.md's tone
+	# bible -- one dry line, no wink.
+	content.add_child(UI.muted_label("Stashed stock is off-limits to contracts and staff — and to a raid."))
+
+	var player: Dictionary = GameState.state["player"]
+	var any_ore_row := false
+	for ore_type in GameData.ORE_TYPES.keys():
+		var shared: int = int(player["orichalchum"].get(ore_type, 0))
+		var stashed: int = Stash.stashed_ore_qty(ore_type)
+		if shared <= 0 and stashed <= 0:
+			continue
+		any_ore_row = true
+		content.add_child(_build_stash_ore_row(ore_type, GameData.ORE_TYPES[ore_type], shared, stashed))
+	if not any_ore_row:
+		content.add_child(UI.muted_label("No ore to stash."))
+
+	content.add_child(UI.heading("Crafted items", 13))
+	var any_item_row := false
+	for recipe_key in GameData.RECIPES.keys():
+		var shared_qty: int = Crafting.inventory_qty(recipe_key)
+		var stashed_qty: int = Stash.stashed_item_qty(recipe_key)
+		if shared_qty <= 0 and stashed_qty <= 0:
+			continue
+		any_item_row = true
+		content.add_child(_build_stash_item_row(recipe_key, GameData.RECIPES[recipe_key], shared_qty, stashed_qty))
+	if not any_item_row:
+		content.add_child(UI.muted_label("No crafted items to stash."))
+
+	return card["panel"]
+
+
+# Shared qty stepper feeds both the "→ Stash" and "← Shared" button below,
+# same one-stepper-both-directions shape ticket 66's guild marketplace row
+# uses (_build_goods_row above) -- each button disables independently
+# against its own direction's real ceiling, not the stepper's shared max.
+func _build_stash_ore_row(ore_type: String, ore: Dictionary, shared: int, stashed: int) -> Control:
+	var row := UI.vbox(4)
+	row.add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s — shared %d / stashed %d" % [ore["name"], shared, stashed]]))
+
+	var stepper_max: int = maxi(shared, stashed)
+	var qty: int = clampi(Stash.get_ore_move_qty(ore_type), 1, maxi(stepper_max, 1))
+	var stepper := UI.hbox()
+	stepper.add_child(UI.label("Qty:"))
+	stepper.add_child(UI.button("-", func(): Stash.adjust_ore_move_qty(ore_type, -1, stepper_max)))
+	stepper.add_child(UI.label(str(qty)))
+	stepper.add_child(UI.button("+", func(): Stash.adjust_ore_move_qty(ore_type, 1, stepper_max)))
+	row.add_child(stepper)
+
+	var buttons := UI.hflow()
+	var to_stash := UI.button("→ Stash", func(): Stash.move_ore_to_stash(ore_type, Stash.get_ore_move_qty(ore_type)))
+	to_stash.disabled = qty > shared
+	buttons.add_child(to_stash)
+	var to_shared := UI.button("← Shared", func(): Stash.move_ore_to_shared(ore_type, Stash.get_ore_move_qty(ore_type)))
+	to_shared.disabled = qty > stashed
+	buttons.add_child(to_shared)
+	row.add_child(buttons)
+
+	return row
+
+
+# Item counterpart to _build_stash_ore_row above -- Stash.move_item_to_*()
+# is tier-preserving internally (lowest-tier-first), but this row only ever
+# shows/moves the flat total, matching how every other crafted-item UI
+# surface (bag_drawer.gd) is already tier-blind.
+func _build_stash_item_row(recipe_key: String, recipe: Dictionary, shared: int, stashed: int) -> Control:
+	var row := UI.vbox(4)
+	row.add_child(UI.symbol_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — shared %d / stashed %d" % [recipe["name"], shared, stashed]]))
+
+	var stepper_max: int = maxi(shared, stashed)
+	var qty: int = clampi(Stash.get_item_move_qty(recipe_key), 1, maxi(stepper_max, 1))
+	var stepper := UI.hbox()
+	stepper.add_child(UI.label("Qty:"))
+	stepper.add_child(UI.button("-", func(): Stash.adjust_item_move_qty(recipe_key, -1, stepper_max)))
+	stepper.add_child(UI.label(str(qty)))
+	stepper.add_child(UI.button("+", func(): Stash.adjust_item_move_qty(recipe_key, 1, stepper_max)))
+	row.add_child(stepper)
+
+	var buttons := UI.hflow()
+	var to_stash := UI.button("→ Stash", func(): Stash.move_item_to_stash(recipe_key, Stash.get_item_move_qty(recipe_key)))
+	to_stash.disabled = qty > shared
+	buttons.add_child(to_stash)
+	var to_shared := UI.button("← Shared", func(): Stash.move_item_to_shared(recipe_key, Stash.get_item_move_qty(recipe_key)))
+	to_shared.disabled = qty > stashed
+	buttons.add_child(to_shared)
+	row.add_child(buttons)
+
+	return row
 
 
 # Aged-paper fill/ink colours for the slip -- distinct from ticket 06's
