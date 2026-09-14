@@ -8,6 +8,8 @@ const DAILY_COST_BASE := 50.0
 const REST_HEAL_FRACTION := 0.2
 const PASSIVE_REGEN_FRACTION := 0.05
 const MorningAccountsSystem := preload("res://systems/morning_accounts.gd")
+const OffersSystem := preload("res://systems/offers.gd")
+const ContractsSystem := preload("res://systems/contracts.gd")
 
 
 static func advance_time_block() -> void:
@@ -115,6 +117,9 @@ static func daily_tick() -> void:
 	MorningAccountsSystem.capture_lab(morning_context)
 	Rooms.process_vein_station()
 	MorningAccountsSystem.capture_vein_station(morning_context)
+	ContractsSystem.process_delegated_deliveries() # ticket 26: Sales closes full periods, then allocates partial stock by priority
+	ContractsSystem.daily_tick()         # ticket 25: due-period settlement/renewal
+	OffersSystem.daily_tick()            # ticket 24: expiry then one passive Sales offer roll
 	Dial.daily_regen()                   # ⑦ dial-device ticket 07: Dial charge regen (replaces Devices.reset_daily_charges())
 	Objectives.refresh()                 # ⑧ collective1-02: objectives boundary
 	MorningAccountsSystem.finish_rollover(morning_context)

@@ -10,7 +10,16 @@ var state: Dictionary = {}
 
 
 func _ready() -> void:
+	EventBus.shared_stock_increased.connect(_on_shared_stock_increased)
 	reset()
+
+
+func _on_shared_stock_increased() -> void:
+	# Deferred script lookup avoids a Contracts <-> Crafting compile cycle:
+	# Contracts consumes crafted stock, while crafting emits this stock-change
+	# boundary after a successful addition.
+	var contracts_script: GDScript = load("res://systems/contracts.gd")
+	contracts_script.shared_stock_increased()
 
 
 func reset() -> void:
@@ -99,6 +108,8 @@ func new_game_state() -> Dictionary:
 		# receipt. Both persist so reopening never reruns daily processing.
 		"morningAccounts": { "latest": null, "autoOpenedDay": 0 },
 		"sellState": {},
+		# ticket 24: serializable pending-offer and accepted-contract ledger.
+		"sales": { "pendingOffers": [], "activeContracts": [], "priorityOrder": [], "contractHistory": [], "settlements": [], "nextOfferId": 1, "nextContractId": 1, "nextPeriodId": 1, "nextSettlementId": 1 },
 		# bugfixes-57: the Lab's crafting batch-quantity picker, keyed by
 		# recipe key -> selected batch size. Same "transient, resets on
 		# load, not meaningfully persisted" convention as sellState above --

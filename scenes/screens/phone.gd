@@ -12,6 +12,9 @@ extends Control
 const SECTION_LABELS := { "economic": "Economic", "social": "Social", "political": "Political" }
 const MorningAccountsSystem := preload("res://systems/morning_accounts.gd")
 const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
+const OffersSystem := preload("res://systems/offers.gd")
+const ContractsSystem := preload("res://systems/contracts.gd")
+const ContractCard := preload("res://scenes/components/contract_card.gd")
 
 var _content: VBoxContainer
 var _export_box: TextEdit
@@ -92,6 +95,7 @@ func _paint_family2_background() -> void:
 
 func _refresh() -> void:
 	for child in _content.get_children():
+		_content.remove_child(child)
 		child.queue_free()
 	if _conversation_root != null:
 		_conversation_root.queue_free()
@@ -933,12 +937,53 @@ func _build_bizbrief_brief() -> void:
 
 func _build_bizbrief_manage() -> void:
 	_content.add_child(UI.heading("Manage", 16))
-	for section in ["Sales", "Production", "Procurement"]:
+	_content.add_child(_build_bizbrief_sales())
+	for section in ["Production", "Procurement"]:
 		var c := UI.card()
 		c["content"].add_child(UI.heading(section, 14))
 		# PROSE-REVIEW: temporary placeholder copy for tickets 24--27.
 		c["content"].add_child(UI.muted_label("Not available yet."))
 		_content.add_child(c["panel"])
+
+
+func _build_bizbrief_sales() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Sales", 14))
+	var offers: Array = OffersSystem.pending_offers()
+	if offers.is_empty():
+		c["content"].add_child(UI.muted_label("No pending offers."))
+	for offer in offers:
+		var request: Dictionary = offer["request"]
+		var name: String = GameData.ORE_TYPES[request["type"]]["name"] if request["kind"] == "ore" else GameData.RECIPES[request["type"]]["name"]
+		c["content"].add_child(UI.label("%d %s · £%d · expires day %d" % [request["qty"], name, offer["quote"]["payment"], offer["expiresDay"]]))
+		c["content"].add_child(UI.button("Accept", func(): OffersSystem.accept_offer(offer["id"])))
+	var contracts: Array = ContractsSystem.active_contracts()
+	if not contracts.is_empty():
+		c["content"].add_child(UI.heading("Active contracts", 14))
+		c["content"].add_child(UI.muted_label("Drag cards to set delivery priority."))
+		for index in contracts.size():
+			var contract: Dictionary = contracts[index]
+			var card := ContractCard.new()
+			card.configure(contract["id"], index)
+			var box := VBoxContainer.new()
+			card.add_child(box)
+			var request: Dictionary = contract["request"]
+			var name: String = GameData.ORE_TYPES[request["type"]]["name"] if request["kind"] == "ore" else GameData.RECIPES[request["type"]]["name"]
+			box.add_child(UI.label("%d. %s: %d/%d %s · due day %d · £%d" % [index + 1, contract["id"], ContractsSystem.delivered_qty(contract), request["qty"], name, contract["dueDay"], contract["quote"]["payment"]]))
+			box.add_child(UI.button("Remove Sales delegation" if contract.get("delegated", false) else "Delegate to Sales", func(): ContractsSystem.set_delegated(contract["id"], not contract.get("delegated", false))))
+			if not contract.get("delegated", false):
+				var row := UI.hbox()
+				row.add_child(UI.button("Deliver 1", func(): ContractsSystem.deliver(contract["id"], 1)))
+				row.add_child(UI.button("Deliver all", func(): ContractsSystem.deliver(contract["id"], ContractsSystem.remaining_qty(contract))))
+				box.add_child(row)
+			c["content"].add_child(card)
+	var history: Array = GameState.state["sales"].get("contractHistory", [])
+	if not history.is_empty():
+		c["content"].add_child(UI.heading("History", 14))
+		for entry in history:
+			var settled: Dictionary = entry["settlement"]
+			c["content"].add_child(UI.muted_label("%s · %s · £%d" % [settled["id"], "complete" if settled["complete"] else "partial", settled["payment"]]))
+	return c["panel"]
 
 
 func _build_bizbrief_bank(account: Dictionary) -> Control:

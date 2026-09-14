@@ -188,7 +188,10 @@ static func get_effective_mug_chance(base: float) -> float:
 
 
 static func get_effective_ore_price(ore_type: String, base: int) -> int:
+	return GameState.round_epsilon(base * (1.0 + get_ore_price_modifier(ore_type)))
+
+
+static func get_ore_price_modifier(ore_type: String) -> float:
 	var fx := get_merged_effects()
 	var premium_key := "%sPremium" % ore_type
-	var multiplier: float = max(0.1, 1.0 + fx.get("orePrice", 0.0) + fx.get(premium_key, 0.0))
-	return GameState.round_epsilon(base * multiplier)
+	return maxf(-0.9, fx.get("orePrice", 0.0) + fx.get(premium_key, 0.0))

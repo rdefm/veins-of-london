@@ -1,0 +1,8 @@
+{
+  "templates": {
+    "random_time_ore": { "id": "random_time_ore", "source": "random", "contractType": "oneOff", "request": { "kind": "ore", "type": "time" } },
+    "random_time_pearl": { "id": "random_time_pearl", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl" } },
+    "scripted_physics_weekly": { "id": "scripted_physics_weekly", "source": "scripted", "contractType": "recurring", "weekday": 1, "expiresAfterDays": 7, "request": { "kind": "ore", "type": "physics", "qty": 3 } },
+    "scripted_life_order": { "id": "scripted_life_order", "source": "scripted", "contractType": "oneOff", "expiresAfterDays": 5, "deadlineAfterDays": 4, "request": { "kind": "ore", "type": "life", "qty": 5 } }
+  }
+}

@@ -5,6 +5,7 @@ extends Node
 # consistent with state purity.
 
 signal state_changed
+signal shared_stock_increased
 signal screen_changed(screen: String)
 signal day_ticked(day: int)
 # Presentation-only capture; listeners must wait for the action outcome.

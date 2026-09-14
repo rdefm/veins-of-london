@@ -160,6 +160,8 @@ static func process_vein_station() -> void:
 			vein["rampantDays"] = 0
 			var ore_type: String = vein["oreType"]
 			player["orichalchum"][ore_type] = player["orichalchum"].get(ore_type, 0) + amount
+			if amount > 0:
+				EventBus.shared_stock_increased.emit()
 			prune_breakdown[ore_type] = prune_breakdown.get(ore_type, 0) + amount
 			Contacts.award_contact_xp(contact_id, "cultivating", 15)
 		elif growth < target - VEIN_STATION_HOLD_BAND:

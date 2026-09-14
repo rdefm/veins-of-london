@@ -252,7 +252,24 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_world_keys(result, defaults)
 	_backfill_new_player_keys(result, defaults)
 	_backfill_new_home_keys(result, defaults)
+	_backfill_new_sales_keys(result, defaults)
 	return result
+
+
+func _backfill_new_sales_keys(result: Dictionary, defaults: Dictionary) -> void:
+	if not result.has("sales"):
+		return
+	var sales: Dictionary = result["sales"]
+	var default_sales: Dictionary = defaults["sales"]
+	for key in default_sales.keys():
+		if not sales.has(key):
+			sales[key] = default_sales[key].duplicate(true) if default_sales[key] is Array or default_sales[key] is Dictionary else default_sales[key]
+	for contract in sales.get("activeContracts", []):
+		if not contract.has("periodId"):
+			contract["periodId"] = "period-%d" % int(sales["nextPeriodId"])
+			sales["nextPeriodId"] += 1
+		if not sales["priorityOrder"].has(contract["id"]):
+			sales["priorityOrder"].append(contract["id"])
 
 
 # collective1-07: "contacts" has existed as a top-level key since M0
@@ -371,6 +388,24 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_key(state, "pendingArchieDealCut")
 	_int_dict_values(state.get("labThresholds", {}))
 	_int_dict_values(state.get("veinStationTargets", {}))
+	var sales: Dictionary = state.get("sales", {})
+	for key in ["nextOfferId", "nextContractId", "nextPeriodId", "nextSettlementId"]:
+		_int_key(sales, key)
+	for offer in sales.get("pendingOffers", []):
+		for key in ["createdDay", "expiresDay", "weekday", "deadlineAfterDays"]:
+			_int_key(offer, key)
+		_int_key(offer.get("request", {}), "qty")
+		for key in ["unitValue", "liveValue", "payment", "salesSkill"]:
+			_int_key(offer.get("quote", {}), key)
+	for contract in sales.get("activeContracts", []):
+		for key in ["acceptedDay", "dueDay", "weekday"]:
+			_int_key(contract, key)
+		_int_key(contract.get("request", {}), "qty")
+		for key in ["unitValue", "liveValue", "payment", "salesSkill"]:
+			_int_key(contract.get("quote", {}), key)
+	for settlement in sales.get("settlements", []):
+		for key in ["day", "payment"]:
+			_int_key(settlement, key)
 	for notification in state.get("notifications", []):
 		_int_key(notification, "day")
 	for bank_entry in state.get("bankLog", []):

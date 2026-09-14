@@ -13,6 +13,7 @@ var CULTIVATING_XP_LEVELS: Array = []
 var RECIPES: Dictionary = {}
 var CRAFTING_XP_LEVELS: Array = []
 var CONSUMABLE_PRICES: Dictionary = {}
+var OFFER_TEMPLATES: Dictionary = {}
 
 # 21-contact-roles-sales-skill: same shape as CULTIVATING_XP_LEVELS/
 # CRAFTING_XP_LEVELS above -- lives in home.json since the Sales role is
@@ -312,6 +313,7 @@ func load_all() -> void:
 	RECIPES = recipes.get("recipes", {})
 	CRAFTING_XP_LEVELS = recipes.get("craftingXpLevels", [])
 	CONSUMABLE_PRICES = recipes.get("consumablePrices", {})
+	OFFER_TEMPLATES = _load_json("res://data/offers.json").get("templates", {})
 
 	var dial := _load_json("res://data/dial.json")
 	DIAL_SEED_COST = dial.get("seedCost", {})

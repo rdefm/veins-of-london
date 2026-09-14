@@ -104,8 +104,9 @@ the Dial with its sockets, the floorplan, the bench. List-style panels
 where the content is a list and drawing it as furniture would only make it
 harder to read (Train, vein list).
 
-Sub-views are **full-bleed**: the nav dock auto-hides while you are inside
-one, and returns at the room level. **Amended 2026-09-10, see
+Sub-views retain the nav dock, so the player always has an exit route through
+Phone, Map, or HQ. **Amended 2026-09-14:** this applies to every HQ sub-view.
+**Amended 2026-09-10, see
 `docs/ui-vision.md` §5:** the top bar no longer follows this rule — it
 merged with the notification board into one persistent dot-matrix
 departure-board object that stays visible on every in-game screen,

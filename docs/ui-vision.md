@@ -165,8 +165,9 @@ log are one material, confirmed dot-matrix (resolved 2026-09-10):**
   deliberate override of `hq-diorama-vision.md` §3.3's "top bar... auto-hide
   while you are inside one" rule for those four screens — amended there in
   the same pass as this document, see that section's own note. The
-  bottom nav dock's hide-on-full-bleed behaviour is **unchanged** — this
-  override applies only to the top board.
+  bottom nav dock remains visible on every HQ sub-view, so the player can
+  leave through Phone, Map, or HQ. This override otherwise applies only to
+  the top board.
 - **Combat's departure-board log is the same dot-matrix family** —
   confirmed, reinforced by combat-presentation ticket 21 already calling
   it the "ticker." **Amended 2026-09-11:** the *mid-fight* ticker no

@@ -435,11 +435,12 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 			player["orichalchum"][item_type] = player["orichalchum"].get(item_type, 0) + qty
 			if stock.has(item_type):
 				stock[item_type] -= qty
+			if qty > 0:
+				EventBus.shared_stock_increased.emit()
 		else:
 			# ticket 64: store-bought stock wasn't crafted at any skill/refine
 			# tier -- files under the same "0" untiered bucket as legacy saves.
 			Crafting.inventory_add(item_type, 0, qty)
-
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true, "cost": total_cost }

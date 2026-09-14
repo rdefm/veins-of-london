@@ -292,6 +292,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"add_ore":
 			var ore: Dictionary = GameState.state["player"]["orichalchum"]
 			ore[effect["type"]] = ore.get(effect["type"], 0) + effect["qty"]
+			if effect["qty"] > 0:
+				EventBus.shared_stock_increased.emit()
 		"add_item":
 			# ticket 64: an event-granted item wasn't crafted at any skill/
 			# refine tier -- files under the "0" untiered bucket, same as a
