@@ -10,6 +10,13 @@ static func _label_texts(root: Node) -> Array[String]:
 	return texts
 
 
+static func _button_with_text(root: Node, text: String) -> Button:
+	for candidate in root.find_children("", "Button", true, false):
+		if (candidate as Button).text == text:
+			return candidate as Button
+	return null
+
+
 func run() -> void:
 	run_case("bizbrief_tile_opens_the_standalone_app", func():
 		GameState.reset()
@@ -56,5 +63,24 @@ func run() -> void:
 		assert_true(texts.has("Reynard's"))
 		assert_true(not texts.has("Operations"))
 		assert_true(not texts.has("Attention"))
+		phone.free()
+	)
+
+	run_case("manage_tab_lists_the_three_future_business_sections", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var manage := _button_with_text(phone, "Manage")
+		assert_true(manage != null, "BizBrief exposes Manage beside Brief")
+		manage.pressed.emit()
+		var texts := _label_texts(phone)
+		for expected in ["BizBrief", "Manage", "Sales", "Production", "Procurement"]:
+			assert_true(texts.has(expected), "missing %s" % expected)
+		assert_true(not texts.has("Morning Brief"), "Manage does not duplicate the Brief tab")
+		var brief := _button_with_text(phone, "Brief")
+		assert_true(brief != null, "Manage keeps the Brief tab available")
+		brief.pressed.emit()
+		assert_true(_label_texts(phone).has("Morning Brief"), "Brief preserves the existing account view")
 		phone.free()
 	)

@@ -5,13 +5,13 @@ account view, ready to host Sales/Production/Procurement.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] BizBrief exposes two tabs: **Brief** (the existing Morning Brief view,
+- [x] BizBrief exposes two tabs: **Brief** (the existing Morning Brief view,
   unchanged) and **Manage**.
-- [ ] Manage shows three section entry points: **Sales**, **Production**,
+- [x] Manage shows three section entry points: **Sales**, **Production**,
   **Procurement** — each a placeholder pending tickets 24-27.
-- [ ] No existing BizBrief behaviour regresses; this is additive navigation
+- [x] No existing BizBrief behaviour regresses; this is additive navigation
   only.
 
 ## Delivery constraints

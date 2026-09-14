@@ -18,6 +18,13 @@ var _export_box: TextEdit
 var _import_box: TextEdit
 var _leave_undefended_situation_id := ""
 
+# BizBrief's selection is presentation state, like the Messages reveal cache
+# below: it changes neither the morning account nor any business mechanics.
+# Tickets 24--27 fill the Manage sections behind this shell.
+const BIZBRIEF_BRIEF_TAB := "brief"
+const BIZBRIEF_MANAGE_TAB := "manage"
+var _bizbrief_tab := BIZBRIEF_BRIEF_TAB
+
 # 09-family-2-chrome-phone-apps, ui-vision.md §10: the persistent dark
 # "device shell" ground painted behind every view this screen builds --
 # added once in _ready(), then its fill colour switched between the
@@ -884,6 +891,32 @@ func _build_notification_row(notification: Dictionary) -> Control:
 func _build_bizbrief() -> void:
 	_content.add_child(_phone_back_button())
 	_content.add_child(UI.heading("BizBrief"))
+	_content.add_child(_build_bizbrief_tabs())
+	if _bizbrief_tab == BIZBRIEF_MANAGE_TAB:
+		_build_bizbrief_manage()
+		return
+	_build_bizbrief_brief()
+
+
+func _build_bizbrief_tabs() -> Control:
+	var tabs := UI.hbox()
+	var brief := UI.button("Brief", func(): _set_bizbrief_tab(BIZBRIEF_BRIEF_TAB))
+	brief.disabled = _bizbrief_tab == BIZBRIEF_BRIEF_TAB
+	tabs.add_child(UI.expand_fill(brief))
+	var manage := UI.button("Manage", func(): _set_bizbrief_tab(BIZBRIEF_MANAGE_TAB))
+	manage.disabled = _bizbrief_tab == BIZBRIEF_MANAGE_TAB
+	tabs.add_child(UI.expand_fill(manage))
+	return tabs
+
+
+func _set_bizbrief_tab(tab: String) -> void:
+	if tab == _bizbrief_tab:
+		return
+	_bizbrief_tab = tab
+	_refresh()
+
+
+func _build_bizbrief_brief() -> void:
 	_content.add_child(UI.heading("Morning Brief", 16))
 	var account = MorningAccountsSystem.latest()
 	if account == null:
@@ -896,6 +929,16 @@ func _build_bizbrief() -> void:
 	var attention := MorningAccountsSystem.attention_items()
 	if not attention.is_empty():
 		_content.add_child(_build_bizbrief_attention(attention))
+
+
+func _build_bizbrief_manage() -> void:
+	_content.add_child(UI.heading("Manage", 16))
+	for section in ["Sales", "Production", "Procurement"]:
+		var c := UI.card()
+		c["content"].add_child(UI.heading(section, 14))
+		# PROSE-REVIEW: temporary placeholder copy for tickets 24--27.
+		c["content"].add_child(UI.muted_label("Not available yet."))
+		_content.add_child(c["panel"])
 
 
 func _build_bizbrief_bank(account: Dictionary) -> Control:
