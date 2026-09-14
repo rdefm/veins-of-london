@@ -45,3 +45,55 @@ Resolved via ticket 14b (grilling session against 13a's round structure). Govern
 
 Follow the parent feature spec and current canonical mechanics. Keep content/tuning in data, gameplay state serializable, mutations in systems and presentation outside them. Update canonical/domain/ownership documentation when responsibilities or approved mechanics change. After every GDScript edit run the required autoload-aware syntax check, then the full headless suite before completion; report device-only checks separately and flag new prose with PROSE-REVIEW.
 
+## Results and recommendation — 2026-09-14
+
+Written per 15d, resting on 15c's verified, regression-free suite (2383 passed, 0 failed) rather than an unverified simulation. Nothing below is superseded by an earlier note; this section is the ticket's closing record.
+
+### 1. Single-target defence demonstration (checklist item 1)
+
+`squad_stance_covers_only_its_target_the_other_attacker_still_connects` (`pairAmbush`, seed 20): Countering enemy 0 only stops and retaliates against enemy 0's own Fast, but enemy 1's unguarded Fast still connects on the player every time — confirming a stance committed to one target leaves every other attacker fully dangerous, exactly as checklist item 1 asked to demonstrate.
+
+Readability assessment (code/log level, not yet device-verified): every resolution line is distinct and carries its own HP readout (`"%s's Fast is stopped cold — you counter."` vs. the plain unguarded-hit line with `"%d/%d HP"` appended per `_log`/`_resolve_enemy_entry` in `systems/combat_prototype.gd`), and the screen renders per-enemy action blocks rather than one pooled log. At the log/data level this reads unambiguously — a player watching the log can tell which enemy connected and why the other didn't. Whether it's equally legible glanced at on a real portrait screen mid-fight is exactly what ticket 15e's on-device pass still needs to confirm; this writeup doesn't claim that. Recommendation: no UI callout is obviously required from the code alone, but defer the final call to 15e rather than deciding it here.
+
+### 2. Mixed-squad tactics finding (checklist item 2)
+
+15b root-caused the original "produces a real outcome mix" case as a harness bug (it kept Dodging the Brawler by name forever instead of cycling by round, so Heavy's branch was never reached — not a combat-balance finding). The corrected, fixed-cadence case (`mixed_squad_fixed_strategy_simulation_runs_cleanly_and_always_loses`, 60 seeded runs of "dodge twice, heavy, repeat" against `mixedCrew`) is the trustworthy result: **0 wins / 60 losses / 0 fled.**
+
+This strategy does not dominate — it loses every single time. It only ever defends the one enemy it's currently prioritising (lowest-index living) while checklist item 1's own finding plays out at squad scale: the other two of three attackers go completely unguarded every round, and Heavy only connects on one round in three — nowhere near enough offense to outpace two enemies' worth of free incoming damage.
+
+Implication for production: this is a real, structural result of the four-action grid (Fast/Heavy/Counter/Dodge) against 3-enemy squads, not a bug. It implies one of two things needs deciding before squads ship as a production encounter shape: either the action grid needs a fifth option that can meaningfully address more than one threat per round (Grab/Bolt/Call are the candidates already flagged, pending 15f's contract resolution — see §5), or squad encounters need explicit rebalancing (fewer simultaneous unguarded attackers, weaker squad-mate damage, or an different intended-strategy target) so a reasonable fixed strategy has a viable path to winning. This prototype doesn't resolve which; it only establishes that the current grid, played straightforwardly, can't.
+
+### 3. Progression finding (checklist item 3)
+
+`ordinary_enemies_do_not_scale_with_player_equipment_or_skill` confirms structurally that a fixed-strength, data-driven `combat_prototype.json` enemy's `hpMax` and attack range never depend on the player's `combatSkill` or equipment — only the player's own attack range (via `Combat.get_attack_range()`) improves between an early and prepared build against the identical enemy.
+
+This is confirmed as designed-in behaviour of ordinary enemies, not a bug. Whether it's the intended *production* posture is an open design question this prototype surfaces but doesn't answer: if ordinary enemies never scale, late-game difficulty has to come from somewhere else (squad composition, multi-wave escalation, or a deliberately separate "scaling enemy" archetype) or a prepared late-game build will trivialize any fixed-strength encounter. Recommendation: a human design decision is needed on whether a scaling-enemy archetype is wanted for production, before ordinary enemies' non-scaling is treated as final.
+
+### 4. Multi-wave assessment (checklist item 5)
+
+`multi_wave_carries_player_hp_forward_and_only_ends_on_the_last_wave` (`gauntlet`, two waves) confirms HP carries forward with no reset between waves, and the fight's `outcome` stays `null` until the last wave clears.
+
+Readability/pacing (code level): the wave transition is explicitly logged (`"That's one wave down. Next one's already moving in."`) and the round note appends a live `"Wave %d/%d."` counter (`scenes/screens/combat_prototype.gd`) — the signalling is unambiguous in the data the screen has to render from. As with §1, genuine on-screen readability is pending 15e's device pass, not claimed here.
+
+The ticket's "don't turn routine encounters into waves" boundary holds: of the three launchable encounters (`pairAmbush`, `mixedCrew`, `gauntlet`), only `gauntlet` is multi-wave, and it exists specifically to stage this checklist item — the other two remain ordinary single-resolution fights. Multi-wave stayed a deliberate, rare escalation in this prototype, not a new default shape.
+
+### 5. Explicit deferral note (checklist item 6)
+
+Grab/Bolt/Call were **not** introduced in this ticket. No resolved contract exists for how they'd interact with the committed-round structure (stance-targetability, exhaustion, real-item resource source, Rewind restoration) — ticket 15's own checklist only required that they not be introduced without one, which not introducing them trivially satisfies. Follow-up ticket 15f (optional, independent of this chain) exists to grill that contract explicit before any future attempt to add them.
+
+### Recommendation
+
+**Ready to inform a separately scoped production integration ticket:**
+
+- The single-target-defence mechanic (§1) and its log/data shape are proven and match spec intent — a solid basis to carry into a production combat screen.
+- 14b's resolved real-inventory item contracts (Shield, Time Pearl, Enhancement Powder, Healing Burst, Blast, Black Hole) work end-to-end against real `Crafting` stock, including zero-stock refusal parity with production and Rewind correctly restoring item stock/Dial charge (but never the Rewind resource itself).
+- The Freeze+exhaustion stacking and Enhancement Powder+Heavy-exhaustion interactions (13a amendments, §"Approved rule" above) are implemented and test-verified.
+- The multi-wave HP-carry-forward mechanic (§4) works and stayed deliberately rare, per the ticket's own boundary.
+
+**Open questions a future production ticket would still need to resolve:**
+
+1. Squad combat balance (§2) — does "dodge twice, heavy, repeat" losing 60/60 mean the action grid needs a fifth option (Grab/Bolt/Call, pending 15f) before squads ship, or does squad encounter design itself need rebalancing? This prototype identifies the problem, not the fix.
+2. Progression posture (§3) — is "ordinary enemies never scale" the intended final design, or does production need an explicit scaling-enemy archetype? Needs a human design call.
+3. Device-level readability for single-target defence and multi-wave (§1, §4) — this writeup's assessment is code/log-level only; ticket 15e's on-device QA is the actual verification step and hasn't run yet.
+4. Grab/Bolt/Call (§5) — resolve via ticket 15f before any production combat spec references them.
+
