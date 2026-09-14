@@ -194,6 +194,14 @@ static func build_nadia_vein_ask_action() -> Control:
 	return UI.button("Nadia has an idea", func(): Events.start_event("col_a1_nadia_vein"))
 
 
+static func build_nadia_supply_action() -> Control:
+	var runtime: Dictionary = GameState.state["objectives"].get("col_a1_nadia_supply", {})
+	if not runtime.get("active", false) or runtime.get("complete", false):
+		return null
+	var presentation: Dictionary = GameData.OBJECTIVES["col_a1_nadia_supply"].get("presentation", {})
+	return UI.button(presentation.get("supplyAction", ""), func(): Modal.open("nadia_supply"))
+
+
 # collective1-14, spec §6.12/§7.2: Hakim's thread-resolution story action --
 # same "vanish, don't disable" shape build_des_report_action() above uses,
 # gated on colA1HakimRescued (col_a1_hakim_rescue's completeFlag, spec
@@ -378,6 +386,9 @@ static func build_nadia_card() -> Control:
 	var vein_ask_action := build_nadia_vein_ask_action()
 	if vein_ask_action != null:
 		c["content"].add_child(vein_ask_action)
+	var supply_action := build_nadia_supply_action()
+	if supply_action != null:
+		c["content"].add_child(supply_action)
 	for entry in Messages.pending_for("nadia"):
 		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
 

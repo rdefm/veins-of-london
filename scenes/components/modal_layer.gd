@@ -148,6 +148,8 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_build_craft_batch_result(data)
 		"sell_menu":
 			_build_sell_menu()
+		"nadia_supply":
+			_build_nadia_supply()
 		"sale_result":
 			_build_sale_result(data)
 		"archie_deal_result":
@@ -251,6 +253,44 @@ func _build_craft_batch_result(data: Dictionary) -> void:
 			line += " — effect power %s" % str(attempt.get("power", 0))
 		_card_content.add_child(UI.label(line))
 	_card_content.add_child(UI.button("Got it", func(): Modal.close()))
+
+
+func _build_nadia_supply() -> void:
+	# PROSE-REVIEW: this order presentation is new player-facing copy.
+	var status := Collective.nadia_supply_status()
+	var presentation: Dictionary = GameData.OBJECTIVES["col_a1_nadia_supply"].get("presentation", {})
+	var stock: int = GameState.state["player"]["orichalchum"].get(status["oreType"], 0)
+	var price: int = Economy.get_faction_sell_price("collective", "ore", status["oreType"])
+	_card_content.add_child(UI.heading(presentation.get("heading", "")))
+	_card_content.add_child(UI.label(presentation.get("delivered", "") % [status["delivered"], status["required"]]))
+	_card_content.add_child(UI.label(presentation.get("remaining", "") % status["remaining"]))
+	_card_content.add_child(UI.label(presentation.get("inStock", "") % [stock, GameData.ORE_TYPES[status["oreType"]]["name"]]))
+	_card_content.add_child(UI.label(presentation.get("pricePerUnit", "") % price))
+
+	var qty := SpinBox.new()
+	qty.min_value = 1
+	qty.max_value = maxi(stock, 1)
+	qty.step = 1
+	qty.value = mini(maxi(status["remaining"], 1), maxi(stock, 1))
+	qty.allow_greater = false
+	qty.editable = stock > 0
+	_card_content.add_child(qty)
+
+	var payment := UI.label("")
+	_card_content.add_child(payment)
+	var update_payment := func(value: float) -> void:
+		payment.text = presentation.get("payment", "") % (price * int(value))
+	update_payment.call(qty.value)
+	qty.value_changed.connect(update_payment)
+
+	var supply := UI.button(presentation.get("supply", ""), func():
+		var result := Collective.supply_nadia(int(qty.value))
+		if result.get("ok", false):
+			Modal.open("sale_result", { "earned": result["earned"], "gross": result["earned"], "mugged": false })
+	)
+	supply.disabled = stock <= 0
+	_card_content.add_child(supply)
+	_card_content.add_child(UI.button(presentation.get("cancel", ""), func(): Modal.close()))
 
 
 func _build_sale_result(data: Dictionary) -> void:

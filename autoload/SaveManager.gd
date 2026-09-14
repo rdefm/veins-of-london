@@ -122,12 +122,43 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 
 	var filled := backfill_defaults(raw)
 	_restore_int_types(filled)
+	_migrate_nadia_supply_order(filled)
 	_remap_retired_screen_id(filled)
 	_remap_retired_messages_list(filled)
 	_remap_retired_lab_screen(filled)
 	GameState.state = filled
 	EventBus.state_changed.emit()
 	return { "ok": true }
+
+
+# Ticket 09: the retired order counted qualifying Collective time-calc sales
+# after activation. Those saves cannot identify which door handled them, so
+# incomplete objectives receive that one compatibility credit exactly once;
+# completed objectives are preserved without re-running their rewards.
+func _migrate_nadia_supply_order(save: Dictionary) -> void:
+	var objectives: Dictionary = save.get("objectives", {})
+	var runtime: Dictionary = objectives.get("col_a1_nadia_supply", {})
+	var flags: Dictionary = save.get("flags", {})
+	if runtime.get("complete", false) or flags.get("colA1NadiaSupplied", false):
+		runtime["active"] = true
+		runtime["complete"] = true
+		objectives["col_a1_nadia_supply"] = runtime
+		flags["colA1NadiaSupplied"] = true
+		save["objectives"] = objectives
+		save["flags"] = flags
+		return
+	if not flags.get("colA1NadiaMet", false) or runtime.get("progress", {}).has("delivered"):
+		return
+
+	var faction: Dictionary = save.get("factions", {}).get("collective", {})
+	var current: Dictionary = faction.get("oreSold", {}).get("time", {})
+	var baseline: Dictionary = runtime.get("progress", {}).get("baseline", {})
+	var delivered := clampi(int(current.get("units", 0)) - int(baseline.get("units", 0)), 0, 30)
+	runtime["active"] = true
+	runtime["complete"] = false
+	runtime["progress"] = { "delivered": delivered, "legacyCredit": true }
+	objectives["col_a1_nadia_supply"] = runtime
+	save["objectives"] = objectives
 
 
 # Ticket 12: home/you/bag/inventory are retired screen ids -- not tied to

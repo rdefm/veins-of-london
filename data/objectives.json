@@ -124,9 +124,20 @@
   "col_a1_nadia_supply": {
     "id": "col_a1_nadia_supply",
     "title": "Fill Nadia's standing order",
-    "detail": "Thirty units of time calc, sold through the Collective, over at least three trades.",
-    "type": "traded_with_faction",
-    "params": { "factionId": "collective", "oreType": "time", "qty": 30, "minTransactions": 3 },
+    "detail": "Supply Nadia with thirty units of time calc.",
+    "type": "supplied_to_contact",
+    "params": { "contactId": "nadia", "factionId": "collective", "oreType": "time", "qty": 30 },
+    "presentation": {
+      "supplyAction": "Supply Nadia's order",
+      "heading": "Nadia's standing order",
+      "delivered": "Delivered: %d / %d",
+      "remaining": "Remaining: %d",
+      "inStock": "In stock: %d %s",
+      "pricePerUnit": "£%d per unit",
+      "payment": "Payment: £%d",
+      "supply": "Supply order",
+      "cancel": "Cancel"
+    },
     "activateFlag": "colA1NadiaMet",
     "completeFlag": "colA1NadiaSupplied",
     "questline": "collective"

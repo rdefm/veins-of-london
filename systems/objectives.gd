@@ -13,6 +13,7 @@ extends RefCounted
 
 const TYPE_SITES_DISCOVERED_MATCHING := "sites_discovered_matching"
 const TYPE_TRADED_WITH_FACTION := "traded_with_faction"
+const TYPE_SUPPLIED_TO_CONTACT := "supplied_to_contact"
 const TYPE_VEIN_SOLD_TO_FACTION := "vein_sold_to_faction"
 const TYPE_VEIN_GROWTH_ABOVE := "vein_growth_above"
 const TYPE_FLAG_TRUE := "flag_true"
@@ -68,6 +69,8 @@ static func _mark_activated(def: Dictionary, progress: Dictionary) -> void:
 		var params: Dictionary = def["params"]
 		var current: Dictionary = _ore_sold_entry(params["factionId"], params["oreType"])
 		progress["baseline"] = { "units": current["units"], "transactions": current["transactions"] }
+	elif def["type"] == TYPE_SUPPLIED_TO_CONTACT:
+		progress["delivered"] = 0
 
 
 static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
@@ -77,6 +80,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return _eval_sites_discovered_matching(params, progress)
 		TYPE_TRADED_WITH_FACTION:
 			return _eval_traded_with_faction(params, progress)
+		TYPE_SUPPLIED_TO_CONTACT:
+			return int(progress.get("delivered", 0)) >= int(params["qty"])
 		TYPE_VEIN_SOLD_TO_FACTION:
 			return _eval_vein_sold_to_faction(params, progress)
 		TYPE_VEIN_GROWTH_ABOVE:

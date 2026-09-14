@@ -432,6 +432,9 @@ func _build_action_bar(contact_id: String) -> Control:
 		var vein_ask_action := ContactCards.build_nadia_vein_ask_action()
 		if vein_ask_action != null:
 			bar.add_child(vein_ask_action)
+		var supply_action := ContactCards.build_nadia_supply_action()
+		if supply_action != null:
+			bar.add_child(supply_action)
 	# collective1-14, spec §6.12/§7.2: Hakim's thread-resolution story action,
 	# same slot Des's report button and Nadia's two occupy above.
 	if contact_id == "hakim":

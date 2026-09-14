@@ -22,6 +22,44 @@ extends RefCounted
 const VENDOR_TRADE_RELATION_GAIN := 1
 
 
+# Nadia's approved introductory order is deliberately a separate operation
+# from the shared Collective cart: only this direct hand-off advances it.
+# Economy remains the owner of price, stock removal, payment and trade-side
+# relation accrual, so this operation has no time cost and cannot fork the
+# faction-sale rules.
+static func supply_nadia(qty: int) -> Dictionary:
+	var runtime: Dictionary = GameState.state["objectives"].get("col_a1_nadia_supply", {})
+	if qty <= 0:
+		return { "ok": false, "reason": "Choose a positive quantity." }
+	if not runtime.get("active", false) or runtime.get("complete", false):
+		return { "ok": false, "reason": "Nadia's order is not accepting deliveries." }
+
+	var params: Dictionary = GameData.OBJECTIVES["col_a1_nadia_supply"]["params"]
+	var ore_type: String = params["oreType"]
+	var stock: int = GameState.state["player"]["orichalchum"].get(ore_type, 0)
+	if qty > stock:
+		return { "ok": false, "reason": "Not enough calc in stock." }
+
+	var result := Economy.execute_faction_sale(params["factionId"], [{ "kind": "ore", "type": ore_type, "qty": qty }], params["contactId"])
+	if not result.get("ok", false):
+		return result
+
+	var progress: Dictionary = runtime["progress"]
+	progress["delivered"] = mini(int(params["qty"]), int(progress.get("delivered", 0)) + qty)
+	runtime["progress"] = progress
+	GameState.state["objectives"]["col_a1_nadia_supply"] = runtime
+	Objectives.refresh()
+	EventBus.state_changed.emit()
+	return result
+
+
+static func nadia_supply_status() -> Dictionary:
+	var params: Dictionary = GameData.OBJECTIVES["col_a1_nadia_supply"]["params"]
+	var runtime: Dictionary = GameState.state["objectives"].get("col_a1_nadia_supply", {})
+	var delivered: int = mini(int(params["qty"]), int(runtime.get("progress", {}).get("delivered", 0)))
+	return { "delivered": delivered, "required": int(params["qty"]), "remaining": maxi(0, int(params["qty"]) - delivered), "oreType": params["oreType"] }
+
+
 static func complete_trade(contact_id: String) -> Dictionary:
 	var result := Economy.sell_to_faction_from_sell_state("collective", contact_id)
 	# vein-trade-assets ticket 03: `ok`, not `earned > 0` -- a buy-heavy cart

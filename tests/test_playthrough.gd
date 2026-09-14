@@ -244,19 +244,19 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	assert_true(GameState.state["flags"]["colA1DesThreadDone"])
 	_assert_invariants("post-S7")
 
-	# ── Nadia's thread: real Economy sales, then a real VeinTrade.sell_to_faction() ──
+	# ── Nadia's thread: direct supply, then a real VeinTrade.sell_to_faction() ──
 	Events.start_event("col_a1_nadia_meet")
 	_drive_active_event_to_completion()
 	assert_true(GameState.state["flags"]["colA1NadiaMet"])
-	Objectives.refresh()  # stamps col_a1_nadia_supply's baseline before any trades happen
+	Objectives.refresh()
 	assert_true(GameState.state["objectives"]["col_a1_nadia_supply"]["active"])
 
 	GameState.state["player"]["orichalchum"]["time"] = 60
-	for contact_id in ["des", "hakim", "nadia"]:
-		GameState.state["sellState"]["ore_time"] = 10
-		var trade_result := Collective.complete_trade(contact_id)
-		assert_true(trade_result["ok"])
-	assert_true(GameState.state["flags"]["colA1NadiaSupplied"], "3 trades of 10 time each, across all three Collective doors, should satisfy col_a1_nadia_supply")
+	GameState.state["sellState"]["ore_time"] = 10
+	assert_true(Collective.complete_trade("des")["ok"])
+	assert_true(not GameState.state["flags"].get("colA1NadiaSupplied", false), "ordinary Collective trades do not settle Nadia's order")
+	assert_true(Collective.supply_nadia(30)["ok"])
+	assert_true(GameState.state["flags"]["colA1NadiaSupplied"], "one direct thirty-unit Nadia delivery should satisfy col_a1_nadia_supply")
 	_assert_invariants("post-nadia-supply")
 
 	Events.start_event("col_a1_nadia_vein")

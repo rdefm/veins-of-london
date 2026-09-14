@@ -10,7 +10,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | GameData.gd | Loads/validates every `data/*.json` table once at boot into typed consts |
 | GameState.gd | The pure state tree (Dicts/Arrays/primitives only) — systems read/write, screens read only |
 | Rng.gd | Seeded RNG — every probabilistic system must draw from here, never randi/randf directly |
-| SaveManager.gd | Save/load/autosave/export-import (3 manual slots + 3 rotating autosaves) |
+| SaveManager.gd | Save/load/autosave/export-import (3 manual slots + 3 rotating autosaves); compatibility migrations for evolved objective progress |
 | Snapshots.gd | Generic bounded snapshot-stack helper backing combat rewind + event rewind |
 
 ## systems/*.gd — static-func systems
@@ -24,7 +24,7 @@ Generated index of what lives where. Update this alongside any file you add/remo
 | barometer.gd | Economic/social/political barometer state + faction preferences | barometer.json |
 | bench.gd | Lab discovery engine — (type-set × approach) cells | recipes.json |
 | bubble_layout.gd | Pure popup-position math for MapBubble | — |
-| collective.gd | Collective faction's 3 vendor doors (Des/Nadia/Hakim) trade + Act 1 triggers | collective_barks.json, districts.json, objectives.json, sites.json |
+| collective.gd | Collective faction's 3 vendor doors, Nadia's direct standing-order settlement, + Act 1 triggers | collective_barks.json, districts.json, objectives.json, sites.json |
 | combat.gd | Turn-based combat + rewind | enemies.json, items.json, recipes.json |
 | consumables.gd | Out-of-combat healing item effects (salve/burst) | — |
 | contacts.gd | Relation, recruiting, room assignment, contact XP | vein_growth.json, recipes.json (xp level ladders) |

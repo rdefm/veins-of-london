@@ -568,6 +568,8 @@ The roll happens once, at `Raiding.roll_raid_odds()` time (alongside the existin
 ## 6. SAVE FORMAT
 JSON of the whole `state` tree. `meta.saveVersion` is 2 (bumped from 1 by vein-growth-state — the vein dict shape changed, and save-breaking was accepted rather than writing a migrator). `SaveManager`: 3 manual slots + 3 rotating autosaves (written on: daily tick, combat exit, event completion, any purchase), plus export/import as a JSON string shown in a copyable text box. Loading checks `meta.saveVersion` against the current `SAVE_VERSION` and rejects a mismatch outright with a clear reason (no half-load, no migrator); a save with no `meta.saveVersion` at all is treated as the current version. A version match then validates required top-level keys and fills missing keys from defaults.
 
+Nadia's Act 1 standing order is `col_a1_nadia_supply`: thirty cumulative units of `time` calc, supplied only through Nadia's explicit order action. Every accepted unit receives the live Collective sell price; a delivery may be partial or over the remaining requirement, but progress caps at thirty while all selected in-stock units are paid. The action costs no time block. Pre-change incomplete saves receive a one-time credit for their recorded post-activation Collective time-calc sales because historic saves do not identify the vendor door; completed objectives remain complete and receive no replayed reward.
+
 ---
 
 ## 7. MIGRATION NOTES (old roster → new, applied at port time)
