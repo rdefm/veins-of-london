@@ -1290,14 +1290,15 @@ func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[Strin
 # evaluator types (systems/objectives.gd), each with its own fixed param
 # schema. ticket 79 adds flag_true: no params at all, complete once the
 # objective's own completeFlag is true -- the shape a flag-driven
-# questline (the tutorial chain) needs, vs. the other four types which all
+# questline (the tutorial chain) needs, vs. the other types which all
 # inspect world/faction/vein state.
 const OBJECTIVE_TYPES: Array[String] = [
-	"sites_discovered_matching", "traded_with_faction", "vein_sold_to_faction", "vein_growth_above", "flag_true",
+	"sites_discovered_matching", "traded_with_faction", "supplied_to_contact", "vein_sold_to_faction", "vein_growth_above", "flag_true",
 ]
 const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"sites_discovered_matching": ["requireEachOreType", "minTier", "unclaimed"],
 	"traded_with_faction": ["factionId", "oreType", "qty", "minTransactions"],
+	"supplied_to_contact": ["contactId", "factionId", "oreType", "qty"],
 	"vein_sold_to_faction": ["factionId", "oreType"],
 	"vein_growth_above": ["veinIdStatePath", "threshold"],
 	"flag_true": [],
