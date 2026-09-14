@@ -283,7 +283,8 @@ static func take_player_action(action: String, target_index: int = -1) -> Dictio
 		if resolved_target == -1:
 			return { "ok": false, "reason": "Invalid target." }
 
-	_ensure_round_started(cp)
+	if _ensure_round_started(cp):
+		_start_round_queue(cp)
 	return _advance_round(cp, action, resolved_target, null)
 
 
@@ -377,13 +378,21 @@ static func use_item(item_id: String, target_index: int = -1) -> Dictionary:
 	# reflects this item as spent (see _ensure_round_started()'s own
 	# comment). A no-op if this call is filling an already-open Motion
 	# extra slot instead of starting a fresh round.
-	_ensure_round_started(cp)
+	var started_round: bool = _ensure_round_started(cp)
 
 	Crafting.inventory_remove(item_id, 1)
 	var skill: int = GameState.state["player"]["craftingSkill"]
 	var power = Crafting.effect_power(item_id, skill)
 	var pre_beats: Array = []
 	_apply_item_effect(cp, item_id, power, 1, resolved_target, pre_beats)
+
+	# Queue build deliberately happens AFTER the effect above -- Enhancement
+	# Powder's own motionTurns has to already be set before _build_queue()
+	# decides how many extra player slots this round's queue gets, or the
+	# inserted slot wouldn't open until next round (see _start_round_queue()'s
+	# own comment).
+	if started_round:
+		_start_round_queue(cp)
 
 	return _advance_round(cp, ACTION_ITEM, resolved_target, item_id, pre_beats)
 
@@ -424,7 +433,7 @@ static func cast_dial_complication(dial_index: int, target_index: int = -1) -> D
 	# Same ordering requirement as use_item() above: the round (and its
 	# snapshot) must exist before Dial.cast_complication() spends a real
 	# charge.
-	_ensure_round_started(cp)
+	var started_round: bool = _ensure_round_started(cp)
 
 	var cast: Dictionary = Dial.cast_complication(dial_index)
 	if not cast["ok"]:
@@ -432,6 +441,10 @@ static func cast_dial_complication(dial_index: int, target_index: int = -1) -> D
 
 	var pre_beats: Array = []
 	_apply_item_effect(cp, recipe_key, cast["power"], cast["targets"], resolved_target, pre_beats)
+
+	# Same reordering as use_item() -- see _start_round_queue()'s own comment.
+	if started_round:
+		_start_round_queue(cp)
 
 	return _advance_round(cp, ACTION_ITEM, resolved_target, recipe_key, pre_beats)
 
@@ -526,12 +539,16 @@ static func _build_queue(cp: Dictionary) -> Array:
 
 
 # Starts a new round if one isn't already in progress: pushes the
-# snapshot, resets stance-triggered flags, commits every living enemy's
-# action for the round (ticket 13a's "commit phase, before resolution
-# phase" -- see _commit_enemies()'s own comment for why this has to happen
-# up front rather than lazily), and builds the queue. A no-op if
-# cp["_pending"] is already set (this call is filling an already-open
-# Motion extra slot, not starting a fresh round).
+# snapshot, resets stance-triggered flags, and commits every living
+# enemy's action for the round (ticket 13a's "commit phase, before
+# resolution phase" -- see _commit_enemies()'s own comment for why this
+# has to happen up front rather than lazily). A no-op if cp["_pending"] is
+# already set (this call is filling an already-open Motion extra slot, not
+# starting a fresh round). Returns whether a fresh round was actually
+# started -- the caller must follow up with _start_round_queue(cp) once
+# any same-call item effect (e.g. Enhancement Powder's own motionTurns)
+# has been applied, but ONLY when this returned true (an already-pending
+# round's queue must never be rebuilt mid-walk).
 #
 # Called from take_player_action()/use_item()/cast_dial_complication()
 # BEFORE any of them spend anything real (Crafting.inventory_remove(),
@@ -541,14 +558,24 @@ static func _build_queue(cp: Dictionary) -> Array:
 # item-specific guards/spend in use_item()/cast_dial_complication(), is
 # what guarantees that ordering regardless of which entry point started
 # the round.
-static func _ensure_round_started(cp: Dictionary) -> void:
+static func _ensure_round_started(cp: Dictionary) -> bool:
 	if cp.get("_pending") != null:
-		return
+		return false
 	push_prototype_snapshot()
 	cp["player"]["stanceTriggered"] = false
 	for enemy in cp["enemies"]:
 		enemy["stanceTriggered"] = false
 	_commit_enemies(cp)
+	return true
+
+
+# Builds and installs the round's queue. Split out from _ensure_round_started()
+# so an item entry point (use_item()/cast_dial_complication()) can apply its
+# own effect -- which may set cp["motionTurns"]/cp["motionPower"] (Enhancement
+# Powder) -- BEFORE the queue is built, letting that same round's own cast
+# insert its extra slot(s) immediately, not starting next round. Only ever
+# called when _ensure_round_started() just returned true.
+static func _start_round_queue(cp: Dictionary) -> void:
 	cp["_pending"] = { "queue": _build_queue(cp), "pos": 0, "beats": [] }
 
 

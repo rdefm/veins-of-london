@@ -551,12 +551,22 @@ func run() -> void:
 
 	# ── Ticket 14b's amended scenario 7: frozen and exhausted stack as two separate skipped turns ──
 
+	# Root-caused in ticket 15b: the original version of this case ran
+	# against "pairAmbush" (two enemies) but only gave enemy 0 the starting
+	# exhaustedNextTurn spec, leaving enemy 1 (Second Tough, untouched, not
+	# frozen or exhausted) fully free to commit and land its own scripted
+	# Fast against the player in both rounds -- a bug in this test's OWN
+	# setup, not in _resolve_enemy_entry()'s frozen/exhaustion ordering
+	# (which every other assertion below, unchanged, already confirms is
+	# correct). This case is only ever about ONE combatant's frozen+exhausted
+	# stacking, so it's rewritten against a solo encounter ("brawler") with
+	# nothing else left alive to muddy the player's hp.
 	run_case("frozen_and_exhausted_stack_as_two_separate_skipped_turns_not_one", func():
-		var cp := _fresh_prototype("pairAmbush", { "frozenTurns": 1 }, [{ "exhaustedNextTurn": true }, {}])
+		var cp := _fresh_prototype("brawler", { "frozenTurns": 1 }, [{ "exhaustedNextTurn": true }])
 		Rng.set_seed(42)
 		var hp_before: int = cp["player"]["hp"]
 
-		CombatPrototype.take_player_action(CombatPrototype.ACTION_FAST, 1)  # round A: enemy 0's turn is consumed by the frozen skip
+		CombatPrototype.take_player_action(CombatPrototype.ACTION_FAST)  # round A: the brawler's turn is consumed by the frozen skip
 		assert_true(cp["enemies"][0]["exhaustedNextTurn"], "the frozen skip must leave the pending exhaustion untouched")
 		assert_eq(cp["frozenTurns"], 0, "frozenTurns should have decremented by one")
 		var frozen_logged := false
@@ -565,14 +575,14 @@ func run() -> void:
 				frozen_logged = true
 		assert_true(frozen_logged)
 
-		CombatPrototype.take_player_action(CombatPrototype.ACTION_FAST, 1)  # round B: now frozenTurns is 0, so THIS turn is consumed by the pending exhaustion instead
+		CombatPrototype.take_player_action(CombatPrototype.ACTION_FAST)  # round B: now frozenTurns is 0, so THIS turn is consumed by the pending exhaustion instead
 		assert_true(not cp["enemies"][0]["exhaustedNextTurn"], "the pending exhaustion should now be the one consumed")
 		var exhausted_logged := false
 		for line in cp["log"]:
 			if line.contains("is exhausted"):
 				exhausted_logged = true
 		assert_true(exhausted_logged, "two separate skips (frozen, then exhausted) should both be logged -- not collapsed into one")
-		assert_eq(cp["player"]["hp"], hp_before, "enemy 0 never got an actual turn across either round")
+		assert_eq(cp["player"]["hp"], hp_before, "the brawler never got an actual turn across either round")
 	)
 
 	# ══════════════════════════════════════════════════════════════════════
@@ -607,15 +617,33 @@ func run() -> void:
 	# ══════════════════════════════════════════════════════════════════════
 	# ── Ticket 15 checklist item 2: mixed-squad evaluation (dodge-heavy-repeat) ──
 	# ══════════════════════════════════════════════════════════════════════
-	# A bounded simulation, not a single assertion: plays a fixed "Dodge the
-	# Brawler, Heavy the Knife Fighter, Dodge the Enforcer, repeat" strategy
-	# against "mixedCrew" across a run of seeds and records the outcome mix.
-	# See this ticket's own results writeup for the reading of these numbers
-	# -- the case itself only asserts the simulation runs cleanly and
-	# produces a real mix of outcomes (i.e. the roster isn't a foregone
-	# conclusion either way), not a specific win-rate threshold.
-
-	run_case("mixed_squad_fixed_strategy_simulation_runs_and_produces_a_real_outcome_mix", func():
+	# A bounded simulation, not a single assertion: plays ticket 15's own
+	# checklist strategy -- "dodge twice, heavy, repeat" -- against
+	# "mixedCrew" across a run of seeds and records the outcome mix.
+	#
+	# Root-caused in ticket 15b: the ORIGINAL version of this strategy
+	# picked its action by the CURRENT TARGET'S NAME ("Heavy the Knife
+	# Fighter, else Dodge the Brawler/Enforcer") rather than ticket 15's own
+	# fixed round-cadence ("dodge twice, heavy, repeat"). Dodge never deals
+	# damage, and target selection always attacks the lowest-index living
+	# enemy -- so under that name-keyed version the Brawler (index 0) was
+	# Dodged forever, never took a point of damage, and the Knife Fighter's
+	# own "Heavy" branch could never be reached at all (index 0 never died
+	# to make way for it). That was a bug in this harness's own strategy
+	# encoding, not a real combat-balance finding.
+	#
+	# Cycling the action by round instead (below) is what the checklist item
+	# actually specifies -- and running IT is what turns up the real,
+	# now-understood finding for 15d: this fixed strategy loses every single
+	# time (0 wins / 60 losses / 0 fled), because it only ever defends the
+	# one enemy it's currently prioritising while the other two of three
+	# attackers go completely unguarded every round (ticket 15 checklist
+	# item 1's own point, playing out here at squad scale), and Heavy only
+	# connects on one round in three -- nowhere near enough offense to
+	# outpace two enemies' worth of free, unmitigated incoming damage. So
+	# this case pins the deterministic result directly rather than asserting
+	# a "real mix" that this (corrected, bug-free) strategy never produces.
+	run_case("mixed_squad_fixed_strategy_simulation_runs_cleanly_and_always_loses", func():
 		var wins := 0
 		var losses := 0
 		var fled := 0
@@ -625,6 +653,7 @@ func run() -> void:
 			Rng.set_seed(seed + 1000)
 			var cp := _fresh_prototype("mixedCrew")
 			var guard := 0
+			var cycle := 0
 			while cp["outcome"] == null and guard < 100:
 				guard += 1
 				if cp["player"]["exhaustedNextTurn"] and cp.get("_pending") == null:
@@ -637,12 +666,13 @@ func run() -> void:
 						break
 				if target == -1:
 					break
-				# Fixed strategy: Dodge the Brawler and the Enforcer (both
-				# script Heavy at some point), Heavy the Knife Fighter (never
-				# swings Heavy, so Dodge would never trigger against it).
-				var enemy_name: String = cp["enemies"][target]["name"]
-				var action: String = CombatPrototype.ACTION_HEAVY if enemy_name == "The Knife Fighter" else CombatPrototype.ACTION_DODGE
+				# Ticket 15's own fixed strategy: "dodge twice, heavy, repeat"
+				# -- a 3-round cadence against whichever enemy is the current
+				# priority target (lowest-index living), not keyed to that
+				# enemy's identity.
+				var action: String = CombatPrototype.ACTION_HEAVY if cycle % 3 == 2 else CombatPrototype.ACTION_DODGE
 				CombatPrototype.take_player_action(action, target)
+				cycle += 1
 			total_rounds += cp["round"]
 			match cp["outcome"]:
 				"win":
@@ -652,5 +682,5 @@ func run() -> void:
 				"fled":
 					fled += 1
 		assert_eq(wins + losses + fled, runs, "every simulated fight should reach a real outcome within the guard-rail round cap")
-		assert_true(wins > 0 and losses > 0, "a fixed Dodge/Heavy-repeat strategy against a mixed squad should neither win nor lose every single time -- see the ticket's own results writeup for the exact split (%d/%d/%d of %d)" % [wins, losses, fled, runs])
+		assert_eq(losses, runs, "a fixed dodge-twice-heavy-repeat strategy against a mixed squad loses every single time -- see this case's own top comment and the ticket's results writeup for why (%d/%d/%d of %d)" % [wins, losses, fled, runs])
 	)
