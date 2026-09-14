@@ -65,6 +65,25 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["archie"]["assignedRoom"], null, "archie's assignment cleared")
 	)
 
+	# 21-contact-roles-sales-skill, business-spec.md: "a Sales, Production or
+	# Procurement assignment replaces any room assignment on that contact,
+	# and vice versa" -- assignedRoom is a single scalar field, so assigning
+	# a contact to a different room type (here "ops"/Sales) automatically
+	# clears whatever room-type assignment (here "lab"/Production) they held
+	# before, with no parallel state model needed.
+	run_case("assigning_a_different_role_replaces_the_contacts_prior_room_assignment", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+
+		Contacts.assign_to_room("archie", "lab")
+		assert_eq(GameState.state["contacts"]["archie"]["assignedRoom"], "lab")
+
+		Contacts.assign_to_room("archie", "ops")
+		assert_eq(GameState.state["contacts"]["archie"]["assignedRoom"], "ops", "assigning to ops (Sales) must replace the prior lab (Production) assignment")
+		assert_eq(Contacts.get_contact_in_room("lab"), null, "lab must be vacated once archie moves to ops")
+		assert_eq(Contacts.get_contact_in_room("ops"), "archie")
+	)
+
 	run_case("assign_none_vacates_without_assigning_anyone", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
@@ -81,6 +100,22 @@ func run() -> void:
 		var found := false
 		for n in GameState.state["notifications"]:
 			if n["text"].contains("Archie's crafting skill reached level 2"):
+				found = true
+		assert_true(found, "should notify on contact skill level-up")
+	)
+
+	# 21-contact-roles-sales-skill: salesSkill/salesXP use the same
+	# skill-threshold-ladder mechanism (GameData.SALES_XP_LEVELS, business-
+	# spec.md's [0, 0, 80, 220, 500, 1000]) as crafting/cultivating above.
+	run_case("award_contact_xp_levels_up_sales_skill_and_notifies", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		assert_eq(GameState.state["contacts"]["archie"]["salesSkill"], 1, "starts at level 1, same as crafting/cultivating")
+		Contacts.award_contact_xp("archie", "sales", 80)
+		assert_eq(GameState.state["contacts"]["archie"]["salesSkill"], 2, "80 xp should cross the level-2 sales threshold")
+		var found := false
+		for n in GameState.state["notifications"]:
+			if n["text"].contains("Archie's sales skill reached level 2"):
 				found = true
 		assert_true(found, "should notify on contact skill level-up")
 	)

@@ -189,7 +189,7 @@ Tier descriptions: extract verbatim from HTML const `HOME_TIERS`.
 | veinStation | Vein Cultivation Station | 8000 | safehouse | passive | 1 |
 | lab | Improved Lab | 15000 | compound | crafting | 0.12 |
 
-Descriptions: extract verbatim from HTML consts `HOME_SECURITY` / `HOME_ROOMS`.
+Descriptions: extract verbatim from HTML consts `HOME_SECURITY` / `HOME_ROOMS` — except `ops`'s, rewritten by 21-contact-roles-sales-skill (PROSE-REVIEW) to describe staffing a Sales contact; its old "faction contact operations" framing is retired outright, not merely deprioritised (business-spec.md grilling decision 4). `ops` is now the Sales role's gate (`salesSkill`/`salesXP`, §2's `contacts` schema) the same way `lab`/`veinStation` gate Production/Procurement.
 
 **Home Gym is dual-purpose (§3.7a):** beyond its existing one-time `+10 hpMax` build bonus above, it also raises the XP reward of the repeatable **Train** action on the HQ screen, which is available regardless of whether Home Gym is built — see §3.7a for cost/reward.
 
@@ -345,16 +345,23 @@ state = {
     # it (james, for now) -- harmless, since can_join_combat()'s own
     # combatHpMax gate already excludes them from ever joining a fight.
     archie: { relation:10, unlocked:true,  recruited:false, recruitThreshold:80,
-              craftingSkill:1, craftingXP:0, cultivatingSkill:1, cultivatingXP:0, assignedRoom:null,
+              craftingSkill:1, craftingXP:0, cultivatingSkill:1, cultivatingXP:0, salesSkill:1, salesXP:0, assignedRoom:null,
               combatHpMax:50, combatHp:50, combatAttackMin:4, combatAttackMax:9,
               combatStashMax:2, combatStash:2, combatHealAmount:15,
               koCooldownDays:2, koCooldownUntilDay:null, raidAssistThreshold:50 },
     james:  { relation:0,  unlocked:false, recruited:false, recruitThreshold:100,
-              craftingSkill:1, craftingXP:0, cultivatingSkill:1, cultivatingXP:0, assignedRoom:null,
+              craftingSkill:1, craftingXP:0, cultivatingSkill:1, cultivatingXP:0, salesSkill:1, salesXP:0, assignedRoom:null,
               combatHpMax:0, combatHp:0, combatAttackMin:0, combatAttackMax:0,
               combatStashMax:0, combatStash:0, combatHealAmount:0,
               koCooldownDays:0, koCooldownUntilDay:null, raidAssistThreshold:0 },
   },
+  # 21-contact-roles-sales-skill: salesSkill/salesXP use the same threshold
+  # ladder [0, 0, 80, 220, 500, 1000] (data/home.json's salesXpLevels) as
+  # craftingSkill/cultivatingSkill above. assignedRoom is the single gate
+  # for all three room-based roles — Sales ("ops"/Operations Room),
+  # Production ("lab"/Improved Lab), Procurement ("veinStation"/Vein
+  # Cultivation Station) — one contact per room, one room per contact; no
+  # parallel staff/role state model exists.
 
   combat: { active:false, context:"raid", veinId:null, enemies:[], focusedEnemyIndex:0, log:[],
             outcome:null, frozenTurns:0, motionTurns:0, motionPower:0,

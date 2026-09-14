@@ -14,6 +14,11 @@ var RECIPES: Dictionary = {}
 var CRAFTING_XP_LEVELS: Array = []
 var CONSUMABLE_PRICES: Dictionary = {}
 
+# 21-contact-roles-sales-skill: same shape as CULTIVATING_XP_LEVELS/
+# CRAFTING_XP_LEVELS above -- lives in home.json since the Sales role is
+# gated by the Operations Room defined there.
+var SALES_XP_LEVELS: Array = []
+
 # dial-device ticket 07: data/dial.json -- Dial.attempt_seed()'s cost/chance
 # inputs and the cosmetic haft whitelist. Replaces the old data/devices.json/
 # DEVICE_XP_LEVELS/DEVICES table, deleted at this ticket's cutover.
@@ -334,6 +339,7 @@ func load_all() -> void:
 	HOME_TIERS = home.get("tiers", {})
 	HOME_SECURITY = home.get("security", {})
 	HOME_ROOMS = home.get("rooms", {})
+	SALES_XP_LEVELS = home.get("salesXpLevels", [])
 
 	APPROACHES = _load_json("res://data/approaches.json")
 
@@ -475,6 +481,7 @@ func snapshot() -> Dictionary:
 		"home_tiers": HOME_TIERS,
 		"home_security": HOME_SECURITY,
 		"home_rooms": HOME_ROOMS,
+		"sales_xp_levels": SALES_XP_LEVELS,
 		"approaches": APPROACHES,
 		"factions": FACTIONS,
 		"faction_trade": FACTION_TRADE,

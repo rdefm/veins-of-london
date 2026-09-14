@@ -247,6 +247,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 		if not result.has(key):
 			result[key] = defaults[key]
 	_backfill_new_contacts(result, defaults)
+	_backfill_new_contact_keys(result, defaults)
 	_backfill_new_collective_keys(result, defaults)
 	_backfill_new_world_keys(result, defaults)
 	_backfill_new_player_keys(result, defaults)
@@ -268,6 +269,26 @@ func _backfill_new_contacts(result: Dictionary, defaults: Dictionary) -> void:
 	for contact_id in defaults["contacts"].keys():
 		if not contacts.has(contact_id):
 			contacts[contact_id] = defaults["contacts"][contact_id]
+
+
+# 21-contact-roles-sales-skill: mirrors _backfill_new_home_keys below --
+# "contacts" has existed since M0 and _backfill_new_contacts above already
+# seeds whole new contact ids, but this is the first time a NEW KEY
+# (salesSkill/salesXP) has been added to a contact id a save already
+# tracks. Seeds only the missing keys per existing contact, never touching
+# one it already has (so in-progress craftingSkill/relation/etc. survive).
+func _backfill_new_contact_keys(result: Dictionary, defaults: Dictionary) -> void:
+	if not result.has("contacts"):
+		return
+	var contacts: Dictionary = result["contacts"]
+	var default_contacts: Dictionary = defaults["contacts"]
+	for contact_id in contacts.keys():
+		if not default_contacts.has(contact_id):
+			continue
+		var contact: Dictionary = contacts[contact_id]
+		for key in default_contacts[contact_id].keys():
+			if not contact.has(key):
+				contact[key] = default_contacts[contact_id][key]
 
 
 # collective1-13: mirrors _backfill_new_contacts above -- "collective" has
@@ -488,7 +509,7 @@ func _restore_int_types(state: Dictionary) -> void:
 
 	if state.has("contacts"):
 		for contact in state["contacts"].values():
-			for key in ["relation", "recruitThreshold", "raidAssistThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "stealthSkill", "stealthXP",
+			for key in ["relation", "recruitThreshold", "raidAssistThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "salesSkill", "salesXP", "stealthSkill", "stealthXP",
 					"combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatStashMax", "combatStash", "combatHealAmount", "combatSpeed", "koCooldownDays", "koCooldownUntilDay",
 					"tradeProgress"]:
 				_int_key(contact, key)

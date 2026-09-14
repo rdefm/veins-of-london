@@ -483,6 +483,12 @@ func _new_contacts_state() -> Dictionary:
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
 			"stealthSkill": 1, "stealthXP": 0,
+			# 21-contact-roles-sales-skill: same skill-threshold-ladder
+			# mechanism as craftingSkill/cultivatingSkill above (Contacts.
+			# award_contact_xp(), GameData.SALES_XP_LEVELS) -- gated by the
+			# Operations Room via the same assignedRoom mechanism below, not a
+			# parallel state model.
+			"salesSkill": 1, "salesXP": 0,
 			"assignedRoom": null,
 			"combatHpMax": defaults.get("combatHpMax", 0),
 			"combatHp": defaults.get("combatHpMax", 0),

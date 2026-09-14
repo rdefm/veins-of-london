@@ -66,7 +66,14 @@ static func award_contact_xp(contact_id: String, skill: String, amount: int) -> 
 	var c: Dictionary = contacts[contact_id]
 	var xp_key: String = skill + "XP"
 	var skill_key: String = skill + "Skill"
-	var levels: Array = GameData.CRAFTING_XP_LEVELS if skill == "crafting" else GameData.CULTIVATING_XP_LEVELS
+	var levels: Array
+	match skill:
+		"crafting":
+			levels = GameData.CRAFTING_XP_LEVELS
+		"sales":
+			levels = GameData.SALES_XP_LEVELS
+		_:
+			levels = GameData.CULTIVATING_XP_LEVELS
 	c[xp_key] = c[xp_key] + amount
 	var max_level: int = levels.size() - 1
 	while c[skill_key] < max_level and c[xp_key] >= levels[c[skill_key] + 1]:

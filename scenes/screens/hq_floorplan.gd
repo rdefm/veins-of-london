@@ -4,8 +4,9 @@ extends Control
 # hq-diorama ticket 04, docs/hq-diorama-vision.md §6: the pinned noticeboard
 # zone's diegetic destination -- an estate agent's plan of the property:
 # filled room slots, empty (locked/purchasable) slots, and contact
-# assignment for the lab/veinStation rooms. Reached from hq.gd's "rooms"
-# zone tap; Back returns to "hq" specifically, not the phone home grid.
+# assignment for the lab/veinStation/ops (Sales, 21-contact-roles-sales-
+# skill) rooms. Reached from hq.gd's "rooms" zone tap; Back returns to "hq"
+# specifically, not the phone home grid.
 #
 # §3.3: sub-views are full-bleed -- the bottom NavBar hides for this screen
 # id (scenes/Main.gd's NAV_HIDDEN_SCREENS), the first sub-view that actually
@@ -37,12 +38,18 @@ extends Control
 #
 # PROSE-REVIEW: "Floorplan" heading is new copy; everything else (room
 # names/descriptions, "Installed"/"Locked"/"No room"/"Assigned: no one")
-# carries over unchanged from the old modal.
+# carries over unchanged from the old modal, EXCEPT the "ops" room's
+# description, rewritten by 21-contact-roles-sales-skill (data/home.json) to
+# describe staffing a Sales contact -- its old "faction contact operations"
+# framing is retired outright, per business-spec.md grilling decision 4.
 
 # Moved here from modal_layer.gd's ASSIGNABLE_ROOMS (hq-diorama ticket 02's
-# own comment): the lab/veinStation rooms are the only ones a contact can
-# be assigned to.
-const ASSIGNABLE_ROOMS := ["lab", "veinStation"]
+# own comment): originally the lab/veinStation rooms only. 21-contact-roles-
+# sales-skill adds "ops" (Operations Room) as the Sales gate, on the same
+# one-contact-per-room footing -- Contacts.assign_to_room()/
+# get_contact_in_room() are already fully generic over room_id, so this
+# list is the only change needed to expose Sales assignment here.
+const ASSIGNABLE_ROOMS := ["lab", "veinStation", "ops"]
 
 const GRID_COLUMNS := 2
 

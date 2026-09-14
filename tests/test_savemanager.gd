@@ -79,7 +79,12 @@ func run() -> void:
 
 	run_case("save_mutate_load_round_trips_messages_with_day_int_intact", func():
 		GameState.reset()
-		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
+		# 21-contact-roles-sales-skill: mutate the default "des" contact in
+		# place rather than replacing it with a hand-rolled partial dict --
+		# contacts are now subject to the same full-shape backfill on load as
+		# home/world/player (SaveManager._backfill_new_contact_keys), so a
+		# stub missing most contact keys would no longer round-trip exactly.
+		GameState.state["contacts"]["des"]["unlocked"] = true
 		Messages.append("des", "them", "Hello.")
 		Messages.queue_pending("des", "col_a1_des_report", "Something for you.")
 		var original: Dictionary = GameState.deep_copy(GameState.state)
@@ -261,6 +266,46 @@ func run() -> void:
 		assert_eq(filled["home"]["guardCount"], 0, "a save from before guardCount existed should backfill it to 0")
 	)
 
+	# ── 21-contact-roles-sales-skill ──────────────────────────────────────
+
+	run_case("loading_a_pre_21_save_backfills_salesSkill_and_salesXP_on_an_existing_contact", func():
+		GameState.reset()
+		# Pre-21 shape: an existing contact's dict had no salesSkill/salesXP
+		# keys at all, unlike a wholly-new contact id (covered by
+		# _backfill_new_contacts already).
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["contacts"]["archie"]["craftingSkill"] = 3
+		legacy["contacts"]["archie"].erase("salesSkill")
+		legacy["contacts"]["archie"].erase("salesXP")
+
+		var filled := SaveManager.backfill_defaults(legacy)
+		assert_eq(filled["contacts"]["archie"]["salesSkill"], 1, "a save from before salesSkill existed should backfill it to 1")
+		assert_eq(filled["contacts"]["archie"]["salesXP"], 0, "a save from before salesXP existed should backfill it to 0")
+		assert_eq(filled["contacts"]["archie"]["craftingSkill"], 3, "backfilling the new keys must not touch existing progress")
+	)
+
+	run_case("save_mutate_load_round_trips_contact_salesSkill_and_salesXP_as_int", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.award_contact_xp("archie", "sales", 80)
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["contacts"]["archie"]["salesSkill"] = 1
+		GameState.state["contacts"]["archie"]["salesXP"] = 0
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		assert_eq(GameState.state["contacts"]["archie"]["salesSkill"], 2, "salesSkill should be restored")
+		assert_eq(typeof(GameState.state["contacts"]["archie"]["salesSkill"]), TYPE_INT, "salesSkill should be restored as int, not float")
+		assert_eq(typeof(GameState.state["contacts"]["archie"]["salesXP"]), TYPE_INT, "salesXP should be restored as int, not float")
+		assert_eq(GameState.state, original, "the full state tree (including contacts.archie.salesSkill/salesXP) should deep-equal what was saved")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	# ── ticket 64: legacy flat-int inventory migration ───────────────────
 
 	run_case("loading_a_pre_ticket_64_save_migrates_flat_int_inventory_into_the_0_bucket", func():
@@ -404,7 +449,14 @@ func run() -> void:
 		var filled := SaveManager.backfill_defaults(incomplete)
 		var defaults := GameState.new_game_state()
 
-		assert_eq(filled["contacts"]["archie"], { "relation": 55, "recruited": true }, "an existing contact's data must survive untouched")
+		# 21-contact-roles-sales-skill's _backfill_new_contact_keys now fills
+		# every OTHER missing key on an existing contact from defaults too
+		# (salesSkill/salesXP among them) -- relation/recruited (the keys
+		# this legacy fixture actually carries) must still survive untouched.
+		var expected_archie: Dictionary = defaults["contacts"]["archie"].duplicate()
+		expected_archie["relation"] = 55
+		expected_archie["recruited"] = true
+		assert_eq(filled["contacts"]["archie"], expected_archie, "an existing contact's own data must survive untouched; every other key backfills from defaults")
 		for contact_id in ["des", "nadia", "hakim"]:
 			assert_eq(filled["contacts"][contact_id], defaults["contacts"][contact_id], "%s should be seeded from defaults, same as a missing top-level key" % contact_id)
 	)

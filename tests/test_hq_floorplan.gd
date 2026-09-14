@@ -94,6 +94,27 @@ func run() -> void:
 		screen.free()
 	)
 
+	# 21-contact-roles-sales-skill: the Operations Room ("ops") is the Sales
+	# gate, assignable the same way as lab/veinStation.
+	run_case("hq_floorplan_installed_ops_room_exposes_a_contact_assignment_row", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("ops")
+		var contacts: Dictionary = GameState.state["contacts"]
+		var some_contact_id: String = contacts.keys()[0]
+		contacts[some_contact_id]["recruited"] = true
+
+		var screen := HqFloorplanScreen.new()
+		screen._ready()
+
+		var assign_button := _find_button(screen, "Assign %s" % Contacts.display_name(some_contact_id))
+		assert_true(assign_button != null, "an installed ops room must expose an Assign row for a recruited, unassigned contact")
+
+		assign_button.pressed.emit()
+		assert_eq(Contacts.get_contact_in_room("ops"), some_contact_id, "tapping Assign must assign the contact to Sales (ops), same mechanism as lab/veinStation")
+
+		screen.free()
+	)
+
 	run_case("hq_floorplan_unassign_button_vacates_the_room", func():
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("lab")
