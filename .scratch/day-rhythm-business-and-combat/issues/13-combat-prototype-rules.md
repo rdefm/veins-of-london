@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** wontfix (deprecated — superseded by `13a-combat-prototype-rules-and-ui.md`, which consolidates this ticket's scope plus the 2026-09-13 UI agreement)
 
 This ticket authorizes investigation, decision capture and only the explicitly bounded prototype described below. Unresolved rules require human input; ready-for-agent means work can begin, not that proposed mechanics are approved.
 
