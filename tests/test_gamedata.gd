@@ -292,6 +292,30 @@ func run() -> void:
 		assert_true(found, "losing the one resting (drift:0) band straddling neutral should fail validation")
 	)
 
+	# ── day-rhythm-business-and-combat ticket 14: data/combat_prototype.json ──
+
+	run_case("corrupt_fixture_combat_prototype_missing_encounter_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["combat_prototype"]["encounters"].erase("brawler")
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("brawler"):
+				found = true
+		assert_true(found, "an encounterOrder id missing its encounters entry should be flagged")
+	)
+
+	run_case("corrupt_fixture_combat_prototype_unknown_script_action_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["combat_prototype"]["encounters"]["brawler"]["script"] = ["stomp"]
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("stomp"):
+				found = true
+		assert_true(found, "a script entry naming an action outside CombatPrototype.SCRIPTABLE_ACTIONS should be flagged")
+	)
+
 	# ── combat-presentation ticket 08: data/combat_visuals.json ──
 
 	run_case("corrupt_fixture_combat_visuals_missing_canonical_context_fails", func():

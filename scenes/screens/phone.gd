@@ -1079,6 +1079,7 @@ func _build_debug() -> void:
 	_content.add_child(_build_debug_add_calc_card())
 	_content.add_child(_build_debug_spawn_site_card())
 	_content.add_child(_build_debug_combat_card())
+	_content.add_child(_build_debug_combat_prototype_card())
 	_content.add_child(_build_debug_safe_area_card())
 	_content.add_child(UI.heading("Contact relations", 14))
 	for contact_id in GameData.CONTACTS_DEFAULTS.keys():
@@ -1159,6 +1160,23 @@ func _build_debug_combat_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Combat", 14))
 	c["content"].add_child(UI.button("Open", func(): Modal.open("combat_setup")))
+	return c["panel"]
+
+
+# day-rhythm-business-and-combat ticket 14: entry point for the bounded
+# solo combat prototype (systems/combat_prototype.gd) -- always starts the
+# teaching sequence from its first encounter (data/combat_prototype.json's
+# encounterOrder), same "picker UI in front of an existing entry point"
+# reasoning as the Combat card above.
+func _build_debug_combat_prototype_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Solo Combat Prototype", 14))
+	c["content"].add_child(UI.muted_label("Bounded experiment (ticket 14) — not production combat."))
+	c["content"].add_child(UI.button("Start", func():
+		var order: Array = GameData.COMBAT_PROTOTYPE.get("encounterOrder", [])
+		if not order.is_empty():
+			CombatPrototype.start_encounter(order[0])
+	))
 	return c["panel"]
 
 

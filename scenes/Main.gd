@@ -68,6 +68,11 @@ const SCREEN_SCRIPTS := {
 	# card (ContactCards.build_faction_card) on both the standalone
 	# `factions` screen and Phone's Factions app.
 	"guild_marketplace": preload("res://scenes/screens/guild_marketplace.gd"),
+
+	# day-rhythm-business-and-combat ticket 14: the bounded solo combat
+	# prototype (systems/combat_prototype.gd) -- reached only from the
+	# Debug app (scenes/screens/phone.gd), never from normal play.
+	"combat_prototype": preload("res://scenes/screens/combat_prototype.gd"),
 }
 
 # Ticket 12: home/you/bag/inventory are retired screen ids, fully absorbed
@@ -90,7 +95,7 @@ const RETIRED_SCREEN_IDS := {
 # 06 adds "hq_lab_bench": docs/hq-diorama-vision.md §3.3 — HQ sub-views are
 # full-bleed, auto-hiding both bars, returning them at the room level (hq.gd
 # itself stays out of both lists).
-const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "hq_floorplan", "hq_door", "hq_lab_bench", "hq_dial"]
+const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "combat_prototype", "hq_floorplan", "hq_door", "hq_lab_bench", "hq_dial"]
 
 # D4's persistent top bar is up on every screen except the two with no game
 # session to show cash/day/blocks for — unlike NAV_HIDDEN_SCREENS, it stays

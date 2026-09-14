@@ -282,6 +282,20 @@ func new_game_state() -> Dictionary:
 		# end -- see systems/combat_pacing.gd's own comment.
 		"combatPacingMode": CombatPacing.DEFAULT_MODE,
 
+		# day-rhythm-business-and-combat ticket 14: the bounded solo combat
+		# prototype's own state tree, fully separate from "combat" above so
+		# nothing here can touch production combat state -- see
+		# systems/combat_prototype.gd's top comment. "resets on load, not
+		# meaningfully persisted" is fine here (same convention mapNav/
+		# veinListNav above already use): a prototype fight mid-flight at
+		# save time is not a state worth resurrecting.
+		"combatPrototype": {
+			"active": false, "encounterId": "", "round": 0, "outcome": null, "log": [],
+			"player": { "hp": 0, "hpMax": 0, "committedAction": null, "committedTarget": null, "exhaustedNextTurn": false, "stanceTriggered": false },
+			"enemy": { "name": "", "hp": 0, "hpMax": 0, "attackMin": 0, "attackMax": 0, "speed": 0, "evadeChance": 0.0, "scriptIndex": 0, "committedAction": null, "committedTarget": null, "exhaustedNextTurn": false, "stanceTriggered": false },
+			"snapshots": [], "beatsSinceSnapshot": [],
+		},
+
 		"jamesJob": null,
 		"pendingSaleCut": 0,
 		# bugfixes-95: Archie's own tag-along deal -- the gross-derived 50/50

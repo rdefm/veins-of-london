@@ -341,9 +341,10 @@ func _backfill_new_home_keys(result: Dictionary, defaults: Dictionary) -> void:
 # calls (barometer.gd, combat.gd) require int arguments, and formatting
 # like "£%d" % cash would misbehave. Restore ints in place, per R§2's
 # schema, immediately after backfill so every top-level key is guaranteed
-# present. The three genuinely-float fields in the whole schema —
-# combat.evadeChance, devicesInProgress[].progress, and mapView.zoom —
-# are deliberately left untouched.
+# present. The genuinely-float fields in the whole schema —
+# combat.evadeChance, combatPrototype.enemy.evadeChance,
+# devicesInProgress[].progress, and mapView.zoom — are deliberately left
+# untouched.
 func _restore_int_types(state: Dictionary) -> void:
 	_int_key(state, "pendingSaleCut")
 	_int_key(state, "pendingArchieDealCut")
@@ -504,6 +505,9 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("combat"):
 		_restore_combat_int_types(state["combat"])
 
+	if state.has("combatPrototype"):
+		_restore_combat_prototype_int_types(state["combatPrototype"])
+
 	# collective1-02: state.objectives[*].progress is a free-form bag
 	# (systems/objectives.gd) -- only its two known numeric shapes need
 	# restoring (activatedDay, and traded_with_faction's baseline snapshot).
@@ -554,6 +558,29 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 	for ally in combat.get("allies", []):
 		for key in ["hp", "hpMax", "attackMin", "attackMax", "stash", "healAmount", "speed"]:
 			_int_key(ally, key)
+
+
+# day-rhythm-business-and-combat ticket 14: the bounded solo combat
+# prototype's own state tree (systems/combat_prototype.gd) -- same
+# fixed-schema restoration as _restore_combat_int_types() above, over its
+# entirely separate hand-picked snapshot shape (push_prototype_snapshot()).
+# enemy.evadeChance is a float (0.0-1.0), same convention as combat.
+# evadeChance above -- intentionally not touched here.
+func _restore_combat_prototype_int_types(cp: Dictionary) -> void:
+	_int_key(cp, "round")
+	var player: Dictionary = cp.get("player", {})
+	_int_key(player, "hp")
+	_int_key(player, "hpMax")
+	var enemy: Dictionary = cp.get("enemy", {})
+	for key in ["hp", "hpMax", "attackMin", "attackMax", "speed", "scriptIndex"]:
+		_int_key(enemy, key)
+	for snap in cp.get("snapshots", []):
+		_int_key(snap, "round")
+		var snap_player: Dictionary = snap.get("player", {})
+		_int_key(snap_player, "hp")
+		var snap_enemy: Dictionary = snap.get("enemy", {})
+		_int_key(snap_enemy, "hp")
+		_int_key(snap_enemy, "scriptIndex")
 
 
 # state.modal.data's shape depends on modal.type (systems/crafting.gd,

@@ -108,6 +108,13 @@ var FACTION_BAROMETER_PREFS: Dictionary = {}
 var ENEMY_RAID_GUARDS: Dictionary = {}
 var ENEMY_HOME_RAID_RAIDER: Dictionary = {}
 
+# day-rhythm-business-and-combat ticket 14: the bounded solo combat
+# prototype's teaching roster (systems/combat_prototype.gd) — prototype-only,
+# not production balance. Kept in its own table rather than folded into
+# ENEMY_RAID_GUARDS so a validation/balance pass over the real roster never
+# has to reason about throwaway-experiment entries.
+var COMBAT_PROTOTYPE: Dictionary = {}
+
 # squad-combat ticket 05, R§3.7a: player Combat Skill curves, colocated in
 # data/enemies.json (the "curve lives in the nearest relevant data file"
 # precedent dial.json already sets) rather than a new file of their own.
@@ -358,6 +365,8 @@ func load_all() -> void:
 	COMBAT_ATTACK_BONUS_BY_LEVEL = enemies.get("combatAttackBonusByLevel", [])
 	COMBAT_SPEED_BY_LEVEL = enemies.get("combatSpeedByLevel", [])
 
+	COMBAT_PROTOTYPE = _load_json("res://data/combat_prototype.json")
+
 	COMBAT_VISUALS = _load_json("res://data/combat_visuals.json")
 
 	HQ_VISUALS = _load_json("res://data/hq_visuals.json")
@@ -425,6 +434,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_sites(t.get("site_tier_order", []), t.get("site_tier_weights", {}), t.get("site_at_cap_tier_weights", {}), t.get("site_prospect_xp", {}), t.get("site_seed_tier_mod", {}), t.get("site_discovery_bonus_pool", []), errors)
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), errors)
 	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), t.get("combat_xp_levels", []), t.get("combat_attack_bonus_by_level", []), t.get("combat_speed_by_level", []), errors)
+	_validate_combat_prototype(t.get("combat_prototype", {}), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
@@ -484,6 +494,7 @@ func snapshot() -> Dictionary:
 		"combat_xp_levels": COMBAT_XP_LEVELS,
 		"combat_attack_bonus_by_level": COMBAT_ATTACK_BONUS_BY_LEVEL,
 		"combat_speed_by_level": COMBAT_SPEED_BY_LEVEL,
+		"combat_prototype": COMBAT_PROTOTYPE,
 		"combat_visuals": COMBAT_VISUALS,
 		"hq_visuals": HQ_VISUALS,
 		"palette": PALETTE,
@@ -909,6 +920,31 @@ func _validate_enemies(raid_guards: Dictionary, home_raid_raider: Dictionary, co
 		errors.append("enemies.combatAttackBonusByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_attack_bonus_by_level.size())
 	if combat_speed_by_level.size() != 6:
 		errors.append("enemies.combatSpeedByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_speed_by_level.size())
+
+
+# day-rhythm-business-and-combat ticket 14: every id in encounterOrder needs
+# a matching encounters entry with the fields CombatPrototype.start_encounter()
+# reads, and every scripted action needs to be one of the four committable
+# combat actions (CombatPrototype.SCRIPTABLE_ACTIONS) — a typo here would
+# otherwise silently no-op an enemy's whole teaching script at runtime
+# instead of failing loudly at boot.
+func _validate_combat_prototype(combat_prototype: Dictionary, errors: Array[String]) -> void:
+	var order: Array = combat_prototype.get("encounterOrder", [])
+	if order.is_empty():
+		errors.append("combat_prototype.encounterOrder: must not be empty")
+	var encounters: Dictionary = combat_prototype.get("encounters", {})
+	for encounter_id in order:
+		if not encounters.has(encounter_id):
+			errors.append("combat_prototype.encounters: missing entry for encounterOrder id '%s'" % encounter_id)
+			continue
+		var entry: Dictionary = encounters[encounter_id]
+		_require_keys(entry, ["name", "hp", "attackMin", "attackMax", "speed", "script"], "combat_prototype.encounters.%s" % encounter_id, errors)
+		var script: Array = entry.get("script", [])
+		if script.is_empty():
+			errors.append("combat_prototype.encounters.%s.script: must not be empty" % encounter_id)
+		for action in script:
+			if not CombatPrototype.SCRIPTABLE_ACTIONS.has(action):
+				errors.append("combat_prototype.encounters.%s.script: unknown action '%s'" % [encounter_id, action])
 
 
 # combat-presentation ticket 08: every context in Combat.CANONICAL_CONTEXTS

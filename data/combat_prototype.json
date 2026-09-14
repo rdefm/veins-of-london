@@ -1,0 +1,39 @@
+{
+  "_comment": "day-rhythm-business-and-combat ticket 14: bounded solo combat prototype (rules per ticket 13a) -- prototype-only, NOT production balance, not cross-referenced by REFERENCE.md. encounterOrder is the fixed teaching sequence (brawler -> knifeFighter -> enforcer per the ticket). Each encounter's `script` is the enemy's deterministic committed-action cycle, always aimed at the player, so the fight reliably surfaces the specific matchup(s) it's named to teach rather than leaving it to chance -- CombatPrototype only advances an enemy's script index on a round it actually commits (an exhausted skip round doesn't consume a step). PROSE-REVIEW: every `name`/`intro` string here is new copy, drafted against CONTENT-GUIDE.md's tone bible.",
+  "encounterOrder": ["brawler", "knifeFighter", "enforcer"],
+  "encounters": {
+    "brawler": {
+      "name": "The Brawler",
+      "teaches": "Heavy, Dodge, exhaustion",
+      "intro": "He squares up, all shoulders. Nothing subtle about what's coming.",
+      "hp": 30,
+      "attackMin": 6,
+      "attackMax": 12,
+      "speed": 8,
+      "evadeChance": 0.0,
+      "script": ["heavy"]
+    },
+    "knifeFighter": {
+      "name": "The Knife Fighter",
+      "teaches": "Fast, Counter",
+      "intro": "Quick on her feet, blade held low. She won't telegraph much.",
+      "hp": 26,
+      "attackMin": 5,
+      "attackMax": 10,
+      "speed": 13,
+      "evadeChance": 0.0,
+      "script": ["fast"]
+    },
+    "enforcer": {
+      "name": "The Enforcer",
+      "teaches": "Counter, Heavy",
+      "intro": "He's done this before -- watching for an opening, not just swinging.",
+      "hp": 42,
+      "attackMin": 6,
+      "attackMax": 13,
+      "speed": 10,
+      "evadeChance": 0.0,
+      "script": ["counter", "heavy"]
+    }
+  }
+}

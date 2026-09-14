@@ -21,6 +21,10 @@ extends Node
 const MAX_SIZES := {
 	"combat": 2,
 	"event": 8,
+	# day-rhythm-business-and-combat ticket 14: bounded solo combat prototype
+	# (systems/combat_prototype.gd) -- same 2-deep cap as "combat" above, per
+	# ticket 13a's "extend the existing combat snapshot ... 2-deep stack".
+	"combatPrototype": 2,
 }
 
 
