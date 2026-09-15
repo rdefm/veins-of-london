@@ -129,6 +129,13 @@ current periods, never future recurring periods. When shared ore is scarce,
 the contract-card priority order wins, then player-set inventory-target
 priority.
 
+Personal target and contract need are **additive and separately reserved**:
+Production crafts toward personal-target + contract-need combined (a target
+of 5 plus a contract need of 10 means Production crafts to 15). The
+personal-target portion of stock is a protected buffer — Sales may only draw
+from the contract-need portion to fulfil deliveries, never from the
+personal-target reserve.
+
 ## Sales XP, wages, and payroll
 
 Sales uses the existing skill threshold ladder `[0, 0, 80, 220, 500, 1000]`.
@@ -182,8 +189,5 @@ period twice.
   deadlines.
 - The exact delivered-proportion formula for a mixed one-off (unit-count vs
   quoted-value weighting).
-- How Production's personal target combines with outstanding contract quantity
-  for the same item (for example, whether a target of 5 plus a contract need
-  of 10 requires 10 or 15 items before Sales can draw stock).
 - Exact migration defaults for saves made before contracts, staff roles,
   personal stash, and resumable payroll exist.
