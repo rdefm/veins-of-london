@@ -112,6 +112,10 @@ contract settles for `quote × delivered proportion × 0.80`, rounded to whole
 pounds; zero delivery pays £0. A recurring period then creates the next weekly
 period even when the previous period was short. A one-off closes permanently.
 
+For a mixed one-off, delivered proportion is quoted-value weighted:
+`Σ(delivered_units × unit_value) / total_quote_value` across every requested
+type, using each type's snapshotted per-unit value from offer creation.
+
 ## Production and Procurement
 
 Procurement preserves the existing Vein Station behaviour: selected veins and
@@ -187,7 +191,5 @@ period twice.
 - Exact data catalogue: which scripted/templates exist, their request kinds,
   weekdays, quantity picks within the approved bands, and scripted expiry /
   deadlines.
-- The exact delivered-proportion formula for a mixed one-off (unit-count vs
-  quoted-value weighting).
 - Exact migration defaults for saves made before contracts, staff roles,
   personal stash, and resumable payroll exist.

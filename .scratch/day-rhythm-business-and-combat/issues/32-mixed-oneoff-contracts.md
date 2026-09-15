@@ -3,18 +3,19 @@
 **What to build:** One-off offers can request more than one item type, with
 the payment/deadline/settlement adjustments that come with that.
 
-**Blocked by:** 25 — Manual fulfilment and settlement; 31 — [needs-info]
-Mixed one-off delivered-proportion formula.
+**Blocked by:** 25 — Manual fulfilment and settlement.
 
-**Status:** needs-info (blocked on ticket 31's decision)
+**Status:** ready-for-agent
 
 - [ ] Mixed requests are allowed only for one-offs (recurring contracts stay
   single-type). Each requested type carries its own quantity; initial
   quantity band is 2-5 units per type in a mixed one-off.
 - [ ] Every extra requested type beyond the first adds two days to the
   one-off's deadline and a 20% payment bonus at quote time.
-- [ ] Settlement uses ticket 31's approved delivered-proportion weighting
-  across requested types for partial payment.
+- [ ] Settlement uses quoted-value-weighted delivered proportion across
+  requested types for partial payment:
+  `Σ(delivered_units × unit_value) / total_quote_value` (see
+  business-spec.md, Fulfilment and settlement).
 - [ ] Manual delivery and Sales delegation (tickets 25/26) both handle mixed
   requests without special-casing at the call site — the shared fulfilment
   operation absorbs the per-type bookkeeping.

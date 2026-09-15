@@ -5,17 +5,21 @@ ticket 32.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** needs-info
+**Status:** resolved
 
-business-spec.md leaves this open: for a mixed one-off (more than one
+business-spec.md left this open: for a mixed one-off (more than one
 requested type), is the delivered proportion used at settlement weighted by
 unit count or by quoted value across the requested types?
 
-- [ ] Get a human decision on the weighting method before ticket 32 can be
+**Decision (human, 2026-09-15):** quoted-value weighted.
+`Σ(delivered_units × unit_value) / total_quote_value`, using each type's
+snapshotted per-unit value from offer creation.
+
+- [x] Get a human decision on the weighting method before ticket 32 can be
   scoped.
-- [ ] Record the approved formula in `docs/REFERENCE.md` (or wherever
-  business-spec.md's formulas ultimately get promoted to canon) once
-  decided.
+- [x] Record the approved formula in business-spec.md's Fulfilment and
+  settlement section (promotion to `docs/REFERENCE.md` happens when
+  business-spec.md's formulas are promoted to canon, per ticket 32/25).
 
 ## Delivery constraints
 
