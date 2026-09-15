@@ -938,12 +938,61 @@ func _build_bizbrief_brief() -> void:
 func _build_bizbrief_manage() -> void:
 	_content.add_child(UI.heading("Manage", 16))
 	_content.add_child(_build_bizbrief_sales())
-	for section in ["Production", "Procurement"]:
-		var c := UI.card()
-		c["content"].add_child(UI.heading(section, 14))
-		# PROSE-REVIEW: temporary placeholder copy for tickets 24--27.
-		c["content"].add_child(UI.muted_label("Not available yet."))
-		_content.add_child(c["panel"])
+	var production := UI.card()
+	production["content"].add_child(UI.heading("Production", 14))
+	# PROSE-REVIEW: temporary placeholder copy for ticket 28+.
+	production["content"].add_child(UI.muted_label("Not available yet."))
+	_content.add_child(production["panel"])
+	_content.add_child(_build_bizbrief_procurement())
+
+
+# 27-procurement-in-manage: the Vein Station selection/target controls,
+# relocated here verbatim (behaviour unchanged -- Rooms.toggle_vein_station_
+# vein/set_vein_station_target/vein_station_target_text are the same system
+# functions the map sheet's own row used to call) from scenes/screens/map.gd's
+# now-deleted _build_vein_station_row. This is the single control surface for
+# Vein Station assignment; the map sheet keeps only a read-only pointer here.
+func _build_bizbrief_procurement() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Procurement", 14))
+
+	if not GameState.state["home"]["rooms"].has("veinStation"):
+		c["content"].add_child(UI.muted_label("Requires the Vein Cultivation Station room."))
+		return c["panel"]
+
+	var veins: Array = VeinList.veins(null, null)
+	if veins.is_empty():
+		c["content"].add_child(UI.muted_label("No veins yet."))
+		return c["panel"]
+
+	for vein in veins:
+		c["content"].add_child(_build_procurement_vein_row(vein))
+	return c["panel"]
+
+
+func _build_procurement_vein_row(vein: Dictionary) -> Control:
+	var vein_id: String = vein["id"]
+	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
+	var district: Dictionary = GameData.DISTRICTS[vein["district"]]
+
+	var box := UI.vbox(4)
+	box.add_child(UI.label("%s — %s" % [district["name"], ore["name"]]))
+
+	var station_text: Variant = Rooms.vein_station_target_text(vein_id)
+	if station_text == null:
+		box.add_child(UI.button("Assign to Vein Station", func(): Rooms.toggle_vein_station_vein(vein_id)))
+		return box
+
+	var target: int = GameState.state["veinStationTargets"].get(vein_id, Rooms.VEIN_STATION_DEFAULT_TARGET)
+	box.add_child(UI.muted_label(String(station_text)))
+
+	var row := UI.hbox()
+	row.add_child(UI.button("-5", func(): Rooms.set_vein_station_target(vein_id, target - 5)))
+	row.add_child(UI.button("+5", func(): Rooms.set_vein_station_target(vein_id, target + 5)))
+	row.add_child(UI.button("Unassign", func(): Rooms.toggle_vein_station_vein(vein_id)))
+	box.add_child(row)
+
+	return box
 
 
 func _build_bizbrief_sales() -> Control:

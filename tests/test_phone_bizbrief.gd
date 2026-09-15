@@ -17,6 +17,20 @@ static func _button_with_text(root: Node, text: String) -> Button:
 	return null
 
 
+# 27-procurement-in-manage: same fixture shape test_rooms.gd's Vein Station
+# cases use.
+static func _player_vein(overrides: Dictionary = {}) -> Dictionary:
+	var vein := {
+		"id": "v1", "oreType": "time", "growth": 20, "security": "none",
+		"alarmUpgrades": [], "location": "Vallance Rd, by the bus stop",
+		"claimedOnDay": 1, "district": "shoreditch", "siteId": null,
+		"hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0,
+	}
+	for key in overrides:
+		vein[key] = overrides[key]
+	return vein
+
+
 func run() -> void:
 	run_case("bizbrief_tile_opens_the_standalone_app", func():
 		GameState.reset()
@@ -82,5 +96,60 @@ func run() -> void:
 		assert_true(brief != null, "Manage keeps the Brief tab available")
 		brief.pressed.emit()
 		assert_true(_label_texts(phone).has("Morning Brief"), "Brief preserves the existing account view")
+		phone.free()
+	)
+
+	# 27-procurement-in-manage
+	run_case("procurement_shows_a_room_gate_message_when_vein_station_not_installed", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		GameState.state["player"]["veins"] = [_player_vein()]
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+
+		assert_true(_label_texts(phone).has("Requires the Vein Cultivation Station room."))
+		assert_true(_button_with_text(phone, "Assign to Vein Station") == null, "no assign control before the room exists")
+		phone.free()
+	)
+
+	run_case("procurement_lists_an_unassigned_vein_and_assigns_it_on_tap", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("veinStation")
+		GameState.state["player"]["veins"] = [_player_vein()]
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+
+		assert_true(_label_texts(phone).any(func(t: String): return t.contains("Time Orichalchum")), "vein row identifies the ore/district")
+		var assign := _button_with_text(phone, "Assign to Vein Station")
+		assert_true(assign != null)
+		assign.pressed.emit()
+
+		assert_eq(GameState.state["veinStationVeins"], ["v1"])
+		phone.free()
+	)
+
+	run_case("procurement_target_controls_adjust_and_unassign_an_assigned_vein", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("veinStation")
+		GameState.state["player"]["veins"] = [_player_vein()]
+		Rooms.toggle_vein_station_vein("v1")
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+
+		assert_true(_label_texts(phone).has("Vein Station target: 70"))
+
+		_button_with_text(phone, "+5").pressed.emit()
+		assert_eq(GameState.state["veinStationTargets"]["v1"], 75)
+
+		_button_with_text(phone, "-5").pressed.emit()
+		assert_eq(GameState.state["veinStationTargets"]["v1"], 70)
+
+		_button_with_text(phone, "Unassign").pressed.emit()
+		assert_eq(GameState.state["veinStationVeins"], [])
 		phone.free()
 	)

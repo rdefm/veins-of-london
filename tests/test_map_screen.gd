@@ -272,6 +272,40 @@ func run() -> void:
 		screen.free()
 	)
 
+	# 27-procurement-in-manage: the vein sheet's old Vein Station assign/
+	# target controls moved to BizBrief's Manage > Procurement section
+	# (scenes/screens/phone.gd) -- this row is now a read-only pointer there.
+	run_case("vein_action_card_shows_a_procurement_pointer_instead_of_vein_station_controls", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("veinStation")
+		var vein := _player_vein()
+
+		var screen := MapScreen.new()
+		var card: Control = screen._build_vein_action_card(vein)
+
+		var texts: Array = card.find_children("", "Label", true, false).map(func(l): return (l as Label).text)
+		assert_true(texts.any(func(t: String): return t.contains("Procurement")), "must point the player at BizBrief > Manage > Procurement")
+		assert_eq(_buttons_labelled(card, "Assign to Vein Station").size(), 0, "no duplicate assign control on the vein sheet")
+		assert_eq(_buttons_labelled(card, "Unassign").size(), 0, "no duplicate unassign control on the vein sheet")
+
+		card.free()
+		screen.free()
+	)
+
+	run_case("vein_action_card_omits_the_procurement_pointer_when_the_vein_station_room_is_not_built", func():
+		GameState.reset()
+		var vein := _player_vein()
+
+		var screen := MapScreen.new()
+		var card: Control = screen._build_vein_action_card(vein)
+
+		var texts: Array = card.find_children("", "Label", true, false).map(func(l): return (l as Label).text)
+		assert_true(not texts.any(func(t: String): return t.contains("Procurement")), "nothing to point to before the room is built")
+
+		card.free()
+		screen.free()
+	)
+
 	# ── 75-vein-raid-defend-button: the vein's own Defend action ─────────
 
 	run_case("defend_button_shown_on_a_vein_with_a_pending_defend_raid", func():

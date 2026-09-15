@@ -803,34 +803,18 @@ func _build_prune_button(action_label: String, vein: Dictionary, depth: int, dis
 	return UI.action_button(label_text, func(): Cultivating.prune(vein_id, depth), gate["disabled"], gate["reason"])
 
 
-# vein-growth-state ticket 06: per-vein Vein Station assignment/target
-# control lives on the vein sheet, alongside security/alarm above -- the
-# vein sheet is the existing "wherever assignment currently happens" per-vein
-# management surface (HQ's room row only assigns the *contact*, not which
-# veins they work). Null (no row at all) until the room is actually built,
-# same gating _build_room_contact_row uses at the HQ end.
-func _build_vein_station_row(vein: Dictionary) -> Variant:
+# 27-procurement-in-manage: the interactive assign/target controls this row
+# used to hold (vein-growth-state ticket 06) have moved to BizBrief's Manage
+# > Procurement section (scenes/screens/phone.gd's _build_bizbrief_
+# procurement) -- that's now the single control surface for Vein Station
+# assignment, per the ticket's "no duplicate control surface" rule. This row
+# is a read-only pointer there, still gated on the room being built (null --
+# no row at all -- until it is, same gating _build_room_contact_row uses at
+# the HQ end) since an unbuilt room has nothing to point to.
+func _build_vein_station_row(_vein: Dictionary) -> Variant:
 	if not GameState.state["home"]["rooms"].has("veinStation"):
 		return null
-
-	var vein_id: String = vein["id"]
-	var station_text: Variant = Rooms.vein_station_target_text(vein_id)
-
-	var box := UI.vbox(4)
-	if station_text == null:
-		box.add_child(UI.button("Assign to Vein Station", func(): Rooms.toggle_vein_station_vein(vein_id)))
-		return box
-
-	var target: int = GameState.state["veinStationTargets"].get(vein_id, Rooms.VEIN_STATION_DEFAULT_TARGET)
-	box.add_child(UI.muted_label(String(station_text)))
-
-	var row := UI.hbox()
-	row.add_child(UI.button("-5", func(): Rooms.set_vein_station_target(vein_id, target - 5)))
-	row.add_child(UI.button("+5", func(): Rooms.set_vein_station_target(vein_id, target + 5)))
-	row.add_child(UI.button("Unassign", func(): Rooms.toggle_vein_station_vein(vein_id)))
-	box.add_child(row)
-
-	return box
+	return UI.muted_label("Vein Station assignment: see BizBrief → Manage → Procurement.")
 
 
 # 72-stackable-guards-vein-defense: same button, same handler, every time --

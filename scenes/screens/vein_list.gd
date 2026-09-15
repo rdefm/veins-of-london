@@ -99,12 +99,12 @@ func _build_vein_row(vein: Dictionary) -> Control:
 
 	# vein-growth-state ticket 06/09: read-only summary of the vein's Vein
 	# Station assignment/target, if any (ticket 09's own row-content checklist
-	# item) -- Rooms.vein_station_target_text() is shared with the map sheet's
-	# own assignment row (scenes/screens/map.gd) so the two can't drift on the
-	# same lookup. The +5/-5/Unassign controls stay on the map sheet (Rooms'
-	# "wherever assignment currently happens" surface); this list only shows
-	# what's currently set, same split the station bubble draws for its own
-	# Manage label.
+	# item) -- Rooms.vein_station_target_text() is shared with BizBrief's
+	# Manage > Procurement section (scenes/screens/phone.gd) so the two can't
+	# drift on the same lookup. The +5/-5/Unassign controls live in
+	# Procurement (27-procurement-in-manage, the sole control surface); this
+	# list only shows what's currently set, same split the station bubble
+	# draws for its own Manage label.
 	var station_text: Variant = Rooms.vein_station_target_text(vein["id"])
 	if station_text != null:
 		c["content"].add_child(UI.muted_label(String(station_text)))
