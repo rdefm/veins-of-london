@@ -26,8 +26,12 @@ static func is_complete(contract: Dictionary) -> bool:
 	return remaining_qty(contract) == 0
 
 
+# ticket 28: "staffed" also requires today's Sales wage to have actually been
+# paid -- an unpaid role does no work for the rest of the rollover (both this
+# same-day real-time recheck and the daily partial-delivery pass below),
+# gated via Payroll.is_paid_today() rather than a second parallel flag.
 static func has_staffed_sales() -> bool:
-	return Contacts.get_contact_in_room("ops") != null
+	return Contacts.get_contact_in_room("ops") != null and Payroll.is_paid_today("ops")
 
 
 # Delegation is a per-contract assignment, not a second stock pool. It may

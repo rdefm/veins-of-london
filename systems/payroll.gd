@@ -1,0 +1,113 @@
+class_name Payroll
+extends RefCounted
+
+# Ticket 28: daily wage payment for the three assignable staff roles (Sales/
+# Production/Procurement, each the same one-contact-per-room assignment
+# Contacts already tracks). Runs at the top of daily-tick step (6), right
+# after living costs -- business-spec.md's original design paused the
+# rollover for a payroll popup when cash couldn't cover every wage; ticket
+# 28's grilling decision 1 replaces that with a "default-then-review" model:
+# affordable roles are paid automatically, in a fixed priority order, and any
+# left unpaid simply do no work for the rest of that day -- no debt, no
+# mid-tick pause, retried fresh next rollover. Static funcs only.
+
+const WAGE_BASE := 100
+const WAGE_PER_SKILL_LEVEL := 50
+
+# Priority order wages are attempted in when cash is short -- matches
+# hq_floorplan.gd's ASSIGNABLE_ROOMS (Production, Procurement, Sales).
+const ROLE_ROOMS: PackedStringArray = ["lab", "veinStation", "ops"]
+
+# Room id -> the contact skill field business-spec.md's role table ties that
+# room to (Sales/salesSkill, Production/craftingSkill, Procurement/
+# cultivatingSkill).
+const ROLE_SKILL_KEYS := {
+	"lab": "craftingSkill",
+	"veinStation": "cultivatingSkill",
+	"ops": "salesSkill",
+}
+
+
+# business-spec.md: "£100 + £50 × (role skill − 1)", applied identically to
+# all three roles (grilling decision 2 extends this to Production/
+# Procurement, previously free). Returns 0 when the room has no assigned
+# contact.
+static func wage_for_room(room_id: String) -> int:
+	var contact_id: Variant = Contacts.get_contact_in_room(room_id)
+	if contact_id == null:
+		return 0
+	var skill: int = int(GameState.state["contacts"][contact_id].get(ROLE_SKILL_KEYS[room_id], 1))
+	return WAGE_BASE + WAGE_PER_SKILL_LEVEL * (skill - 1)
+
+
+# Whether room_id's assigned role was paid on the rollover currently in
+# progress (or the last completed one). Defaults true when payroll has never
+# resolved this room -- an unassigned room has no wage to fail, and a room
+# whose assignment predates any rollover this session (e.g. a direct test
+# setup) should behave as staffed, not silently gated off.
+static func is_paid_today(room_id: String) -> bool:
+	return GameState.state["payroll"]["paidToday"].get(room_id, true)
+
+
+# Called from TimeSystem.daily_tick(), step (6), after living costs (step 3)
+# have already run. Pays every assigned role's wage in ROLE_ROOMS priority
+# order, spending only as far as remaining cash allows.
+static func pay_wages() -> void:
+	var player: Dictionary = GameState.state["player"]
+	var paid_today := {}
+	var entries: Array = []
+	var unpaid_names: Array = []
+
+	for room_id in ROLE_ROOMS:
+		var contact_id: Variant = Contacts.get_contact_in_room(room_id)
+		if contact_id == null:
+			continue
+		var wage := wage_for_room(room_id)
+		var paid: bool = player["cash"] >= wage
+		if paid:
+			player["cash"] -= wage
+			Bank.record(-wage, "Wages: %s" % Contacts.display_name(contact_id))
+		else:
+			unpaid_names.append(Contacts.display_name(contact_id))
+		paid_today[room_id] = paid
+		entries.append({ "room": room_id, "contactId": contact_id, "wage": wage, "paid": paid })
+
+	var payroll: Dictionary = GameState.state["payroll"]
+	payroll["paidToday"] = paid_today
+	payroll["lastSummary"] = { "day": GameState.state["world"]["day"], "entries": entries }
+
+	if not unpaid_names.is_empty():
+		# PROSE-REVIEW: new daily-tick payroll shortfall notification, drafted against CONTENT-GUIDE.md's tone bible.
+		Notify.push("Payday came up short. Couldn't pay %s -- no work from them today." % ", ".join(unpaid_names), Notify.CATEGORY_WARNING)
+
+	EventBus.state_changed.emit()
+
+
+# The "review/override" half of the default-then-review model: cash that
+# arrives later the same day (a manual sale, a settlement) can be spent to
+# clear a role pay_wages() skipped, without waiting for the automatic retry
+# next rollover. Updates the same paidToday/lastSummary records pay_wages()
+# writes, so a role paid this way immediately counts as staffed again for
+# the rest of today (e.g. Contracts.has_staffed_sales()) and shows as paid
+# in the reviewable summary.
+static func pay_now(room_id: String) -> Dictionary:
+	var contact_id: Variant = Contacts.get_contact_in_room(room_id)
+	if contact_id == null:
+		return { "ok": false, "reason": "No one assigned to that role." }
+	if is_paid_today(room_id):
+		return { "ok": false, "reason": "Already paid today." }
+	var wage := wage_for_room(room_id)
+	var player: Dictionary = GameState.state["player"]
+	if player["cash"] < wage:
+		return { "ok": false, "reason": "Not enough cash." }
+
+	player["cash"] -= wage
+	Bank.record(-wage, "Wages: %s" % Contacts.display_name(contact_id))
+	GameState.state["payroll"]["paidToday"][room_id] = true
+	var summary: Variant = GameState.state["payroll"]["lastSummary"]
+	if summary != null:
+		for entry in summary["entries"]:
+			if entry["room"] == room_id:
+				entry["paid"] = true
+	EventBus.state_changed.emit()
+	return { "ok": true, "wage": wage }

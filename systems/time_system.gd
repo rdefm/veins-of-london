@@ -87,6 +87,16 @@ static func do_rest() -> void:
 # up one letter to close the gap; see adr/0004.
 # Steps for systems that don't exist yet are stubs; wire the real call in
 # when that task lands.
+# day-rhythm-business-and-combat ticket 28 replaces step ⑥'s old "lab, then
+# veinStation" pair with the full staff phase from business-spec.md's
+# "Sales XP, wages, and payroll" section: Payroll.pay_wages() first (right
+# after living costs at step ③, per the spec), then Procurement (Vein
+# Station) before Production (lab) -- the order flip from the old ⑥ matters
+# because Sales' same-rollover partial-delivery pass (step ⑥.3) should see
+# both Procurement's yield and Production's crafted output already landed in
+# shared stock. Steps ⑥.3-⑥.5 (Sales delivery/settlement/offer-sourcing)
+# were already wired by tickets 24-26; this ticket only reorders them into
+# the named sequence and adds the wage step ahead of all of them.
 static func daily_tick() -> void:
 	var morning_context: Dictionary = MorningAccountsSystem.begin_rollover()
 	RelationAccrual.reset_daily_caps()   # collective1-06: relation-accrual daily cap reset, no ordering dependency on any other step
@@ -113,13 +123,14 @@ static func daily_tick() -> void:
 	MorningAccountsSystem.capture_losses(morning_context, "Raid")
 	Collective.maybe_trigger_hakim_intel()  # ⑤i Hakim's repeatable intel roll (collective1-17), runs right after ⑤h
 	Factions.maybe_restock_ore()         # ⑤j Collective ore stock daily restock roll (collective-ore-stock T01), runs right after ⑤i
-	Rooms.process_lab()                  # ⑥ rooms (lab, then veinStation)
-	MorningAccountsSystem.capture_lab(morning_context)
-	Rooms.process_vein_station()
+	Payroll.pay_wages()                  # ⑥ staff phase (ticket 28), start: wages, paid after living costs (step ③) -- an unaffordable role is skipped for the rest of this rollover, no debt, retried next rollover
+	Rooms.process_vein_station()         # ⑥.1 Procurement processes Vein Station work
 	MorningAccountsSystem.capture_vein_station(morning_context)
-	ContractsSystem.process_delegated_deliveries() # ticket 26: Sales closes full periods, then allocates partial stock by priority
-	ContractsSystem.daily_tick()         # ticket 25: due-period settlement/renewal
-	OffersSystem.daily_tick()            # ticket 24: expiry then one passive Sales offer roll
+	Rooms.process_lab()                  # ⑥.2 Production crafts effective targets
+	MorningAccountsSystem.capture_lab(morning_context)
+	ContractsSystem.process_delegated_deliveries() # ⑥.3 Sales closes full periods, then allocates partial stock by priority (ticket 26)
+	ContractsSystem.daily_tick()         # ⑥.4 due periods settle; recurring periods renew (ticket 25)
+	OffersSystem.daily_tick()            # ⑥.5 expiry, then Sales sources at most one new random offer (ticket 24)
 	Dial.daily_regen()                   # ⑦ dial-device ticket 07: Dial charge regen (replaces Devices.reset_daily_charges())
 	Objectives.refresh()                 # ⑧ collective1-02: objectives boundary
 	MorningAccountsSystem.finish_rollover(morning_context)

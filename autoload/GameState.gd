@@ -110,6 +110,15 @@ func new_game_state() -> Dictionary:
 		"sellState": {},
 		# ticket 24: serializable pending-offer and accepted-contract ledger.
 		"sales": { "pendingOffers": [], "activeContracts": [], "priorityOrder": [], "contractHistory": [], "settlements": [], "nextOfferId": 1, "nextContractId": 1, "nextPeriodId": 1, "nextSettlementId": 1 },
+		# ticket 28: the "default-then-review" payroll model (business-spec.md
+		# grilling decision 1) -- no mid-tick blocking pause exists, so there is
+		# nothing to resume on reload; paidToday (room id -> bool) is recomputed
+		# fresh by Payroll.pay_wages() every rollover and read for the rest of
+		# that day by Rooms/Contracts/Offers to decide whether an unpaid role's
+		# work runs. lastSummary is the persisted, reviewable record of the most
+		# recent rollover's payroll result -- { day, entries: [{room, contactId,
+		# wage, paid}] } -- overwritten next rollover (retried, not queued).
+		"payroll": { "paidToday": {}, "lastSummary": null },
 		# bugfixes-57: the Lab's crafting batch-quantity picker, keyed by
 		# recipe key -> selected batch size. Same "transient, resets on
 		# load, not meaningfully persisted" convention as sellState above --

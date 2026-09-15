@@ -434,6 +434,12 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_dict_values(state.get("collective", {}).get("barkCursors", {}))
 	# collective1-17
 	_int_key(state.get("collective", {}), "hakimIntelLastDay")
+	# ticket 28
+	var payroll_summary = state.get("payroll", {}).get("lastSummary")
+	if payroll_summary != null:
+		_int_key(payroll_summary, "day")
+		for entry in payroll_summary.get("entries", []):
+			_int_key(entry, "wage")
 
 	if state.has("meta"):
 		_int_key(state["meta"], "saveVersion")

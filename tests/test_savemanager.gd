@@ -77,6 +77,28 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_mutate_load_round_trips_payroll_lastSummary_with_int_fields_intact", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "ops")
+		Payroll.pay_wages()
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["payroll"]["lastSummary"] = null
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		var summary: Dictionary = GameState.state["payroll"]["lastSummary"]
+		assert_eq(typeof(summary["day"]), TYPE_INT, "lastSummary.day should be restored as int, not float")
+		assert_eq(typeof(summary["entries"][0]["wage"]), TYPE_INT, "lastSummary.entries[].wage should be restored as int, not float")
+		assert_eq(GameState.state, original, "the full state tree (including payroll) should deep-equal what was saved")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("save_mutate_load_round_trips_messages_with_day_int_intact", func():
 		GameState.reset()
 		# 21-contact-roles-sales-skill: mutate the default "des" contact in

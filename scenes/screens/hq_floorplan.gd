@@ -173,6 +173,18 @@ func _build_room_contact_row(room_id: String) -> Control:
 	var assigned_text: String = "Assigned: %s" % Contacts.display_name(assigned_id) if assigned_id != null else "Assigned: no one"
 	box.add_child(_tile_label(assigned_text, true))
 
+	# ticket 28: the "review/override" half of the default-then-review
+	# payroll model -- once an unaffordable wage has been skipped for the
+	# day (Payroll.pay_wages(), run at daily rollover), this lets the player
+	# clear it with cash that arrives later the same day, rather than only
+	# ever waiting for the automatic retry next rollover.
+	if assigned_id != null and not Payroll.is_paid_today(room_id):
+		var wage: int = Payroll.wage_for_room(room_id)
+		box.add_child(_tile_label("Unpaid today -- £%d owed" % wage, true))
+		var pay_button := UI.button("Pay now (£%d)" % wage, func(): Payroll.pay_now(room_id))
+		pay_button.disabled = GameState.state["player"]["cash"] < wage
+		box.add_child(pay_button)
+
 	var row := UI.hflow(4)
 	for contact_id in contacts.keys():
 		var c: Dictionary = contacts[contact_id]

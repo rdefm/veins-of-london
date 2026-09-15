@@ -41,7 +41,15 @@ static func random_offer_chance() -> float:
 
 static func daily_tick() -> void:
 	expire_pending_offers()
-	if pending_offers().size() >= PENDING_CAP or not Rng.chance(random_offer_chance()):
+	if pending_offers().size() >= PENDING_CAP:
+		return
+	# ticket 28: an assigned-but-unpaid Sales role sources nothing today (no
+	# work at all, not even at the unassigned skill-1 baseline) -- an
+	# unassigned room isn't gated here since it never owes a wage in the
+	# first place (business-spec.md's "unassigned Sales role uses skill 1").
+	if Contacts.get_contact_in_room("ops") != null and not Payroll.is_paid_today("ops"):
+		return
+	if not Rng.chance(random_offer_chance()):
 		return
 	var templates := random_templates()
 	if templates.is_empty():

@@ -71,6 +71,8 @@ static func process_lab() -> void:
 	var contact_id = Contacts.get_contact_in_room("lab")
 	if contact_id == null:
 		return
+	if not Payroll.is_paid_today("lab"):
+		return
 
 	var c: Dictionary = GameState.state["contacts"][contact_id]
 	var thresholds: Dictionary = GameState.state["labThresholds"]
@@ -131,6 +133,8 @@ static func process_lab() -> void:
 static func process_vein_station() -> void:
 	var contact_id = Contacts.get_contact_in_room("veinStation")
 	if contact_id == null:
+		return
+	if not Payroll.is_paid_today("veinStation"):
 		return
 
 	var c: Dictionary = GameState.state["contacts"][contact_id]

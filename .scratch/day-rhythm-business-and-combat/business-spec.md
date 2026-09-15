@@ -136,13 +136,21 @@ It earns 5 XP for sourcing an offer, 20 XP for a completed delegated contract,
 and 10 XP for a penalised partial settlement. Declined and expired offers earn
 no XP.
 
-An assigned role's daily wage is `£100 + £50 × (role skill − 1)`. Living costs
-are paid first. If remaining cash cannot cover every wage, morning rollover
-pauses after living costs and shows one payroll popup. The player chooses which
-roles to pay within available cash; unpaid roles do no work that day, accrue no
-debt, remain assigned, and are retried next rollover.
+An assigned role's daily wage is `£100 + £50 × (role skill − 1)`, applied to
+all three roles — Sales, Production, and Procurement (Production/Procurement
+wages are new costs for assignments that are free before ticket 28; no
+migration handling for existing saves). Living costs are paid first.
 
-After payroll selection, the staff phase is exactly:
+Grilling decision 1 (ticket 28) replaces this section's original mid-tick
+"payroll popup" pause with a "default-then-review" model: if remaining cash
+cannot cover every wage, affordable roles are paid automatically, in a fixed
+priority order (Production, Procurement, Sales — hq_floorplan.gd's own
+room-assignment order), for that rollover; a role that can't be afforded is
+simply skipped for the whole rollover — no debt, remains assigned, retried
+fresh next rollover — and the result is left as a reviewable summary rather
+than a blocking popup the player must clear mid-tick.
+
+The staff phase (after wages) is exactly:
 
 1. Procurement processes Vein Station work.
 2. Production crafts effective targets.
@@ -151,15 +159,17 @@ After payroll selection, the staff phase is exactly:
 4. Due periods settle; recurring periods renew.
 5. Sales sources at most one new random offer.
 
-This phase replaces the current Lab-then-Vein-Station ordering at daily-tick
+This phase replaces the old Lab-then-Vein-Station ordering at daily-tick
 step ⑥. It runs after the existing raid/faction processing and before Dial
-regen, objectives, accounts completion, `day_ticked`, and autosave. The
-payroll pause is serializable and must resume the same rollover exactly once.
+regen, objectives, accounts completion, `day_ticked`, and autosave. Because
+there is no mid-tick pause, there is nothing to resume on reload — payroll
+state is just that rollover's serializable result, recomputed fresh every
+rollover, so a reload cannot re-charge or re-skip a wage already resolved.
 
 ## Persistence and idempotency requirements
 
 Offers, accepted contracts, periods, request-line progress, priority order,
-delegation, payroll decision/pause state, staff assignment, personal stash,
+delegation, payroll state, staff assignment, personal stash,
 and all quote snapshots are pure serializable state. Every offer, contract,
 period, and settlement has a stable id. Settlement records its id before cash
 is credited, so a reload/resume/retry cannot pay twice or renew a recurring
