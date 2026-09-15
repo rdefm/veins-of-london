@@ -10,6 +10,7 @@ Chosen deliberately over GitHub Issues: this repo (`rdefm/veins-of-london`) is p
 - The spec is `.scratch/<feature-slug>/spec.md`
 - Implementation issues are one file per ticket at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` — never a single combined tickets file
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
+- A **Relevant files** field lists real file paths the ticket is expected to touch or needs to read, plus specific REFERENCE.md § section headers where the ticket's mechanics live there — capture these live during exploration, since that's cheaper than a downstream fresh-context `implement` session re-deriving them from scratch, even though some will drift over time
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 
 ## When a skill says "publish to the issue tracker"
