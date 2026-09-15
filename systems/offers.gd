@@ -18,6 +18,13 @@ const RANDOM_ONE_OFF_DEADLINE_MIN_DAYS := 3
 const RANDOM_ONE_OFF_DEADLINE_MAX_DAYS := 7
 const CONTRACT_MULTIPLIER := 1.25
 const SALES_LEVEL_BONUS := 0.05
+# ticket 32: mixed one-offs (request.types.size() > 1) -- every requested
+# type beyond the first adds this many days to the deadline and this
+# fractional bonus to the quoted payment.
+const MIXED_TYPE_QTY_MIN := 2
+const MIXED_TYPE_QTY_MAX := 5
+const MIXED_EXTRA_TYPE_DEADLINE_DAYS := 2
+const MIXED_EXTRA_TYPE_BONUS := 0.20
 
 
 static func pending_offers() -> Array:
@@ -76,23 +83,24 @@ static func create_offer(template: Dictionary) -> Dictionary:
 	if pending_offers().size() >= PENDING_CAP:
 		return { "ok": false, "reason": "Pending offers are full." }
 	var request: Dictionary = template.get("request", {}).duplicate(true)
-	if not _valid_request(request):
-		return { "ok": false, "reason": "Invalid offer request." }
 	var contract_type: String = template.get("contractType", "oneOff")
 	if contract_type != "oneOff" and contract_type != "recurring":
 		return { "ok": false, "reason": "Invalid contract type." }
-	if not request.has("qty"):
-		request["qty"] = Rng.randi_range(RANDOM_RECURRING_QTY_MIN, RANDOM_RECURRING_QTY_MAX) if contract_type == "recurring" else Rng.randi_range(RANDOM_ONE_OFF_QTY_MIN, RANDOM_ONE_OFF_QTY_MAX)
+	if not _valid_request(request, contract_type):
+		return { "ok": false, "reason": "Invalid offer request." }
+	_fill_request_quantities(request, contract_type)
 	var today: int = GameState.state["world"]["day"]
 	var source: String = template.get("source", "random")
 	var expiry_days: int = int(template.get("expiresAfterDays", Rng.randi_range(RANDOM_EXPIRY_MIN_DAYS, RANDOM_EXPIRY_MAX_DAYS)))
 	var quote := quote_for_request(request, sales_skill())
+	var extra_types: int = maxi(0, quote["lines"].size() - 1)
 	var sales: Dictionary = GameState.state["sales"]
 	var offer := {
 		"id": "offer-%d" % sales["nextOfferId"], "templateId": template.get("id", ""),
 		"source": source, "contractType": contract_type, "request": request,
 		"createdDay": today, "expiresDay": today + expiry_days, "weekday": int(template.get("weekday", 0)),
-		"deadlineAfterDays": int(template.get("deadlineAfterDays", 0)), "quote": quote,
+		"deadlineAfterDays": int(template.get("deadlineAfterDays", 0)),
+		"extraTypeDeadlineDays": extra_types * MIXED_EXTRA_TYPE_DEADLINE_DAYS, "quote": quote,
 	}
 	sales["nextOfferId"] += 1
 	pending_offers().append(offer)
@@ -104,11 +112,29 @@ static func create_offer(template: Dictionary) -> Dictionary:
 	return { "ok": true, "offer": offer }
 
 
+# ticket 32: request.types.size() lines when mixed, else the flat request
+# itself acts as the sole line. Always populates quote.lines/liveValue (one
+# entry for a single-type request) so settle()'s quoted-value-weighted
+# proportion (business-spec.md, Fulfilment and settlement) never has to
+# special-case single- vs. mixed-type contracts; quote.unitValue is kept
+# only for the (still-common) single-type case, unchanged for callers/tests
+# that read it directly.
 static func quote_for_request(request: Dictionary, skill: int) -> Dictionary:
-	var unit_value := unit_value(request["kind"], request["type"])
-	var live_value: int = unit_value * int(request["qty"])
-	var payment := GameState.round_epsilon(float(live_value) * CONTRACT_MULTIPLIER * (1.0 + SALES_LEVEL_BONUS * float(maxi(skill - 1, 0))))
-	return { "unitValue": unit_value, "liveValue": live_value, "payment": payment, "salesSkill": skill }
+	var lines: Array = Contracts.request_lines(request)
+	var extra_types: int = maxi(0, lines.size() - 1)
+	var live_value := 0
+	var quote_lines: Array = []
+	for line in lines:
+		var uv := unit_value(line["kind"], line["type"])
+		var lv: int = uv * int(line["qty"])
+		live_value += lv
+		quote_lines.append({ "kind": line["kind"], "type": line["type"], "unitValue": uv, "liveValue": lv })
+	var multiplier := CONTRACT_MULTIPLIER * (1.0 + MIXED_EXTRA_TYPE_BONUS * float(extra_types)) * (1.0 + SALES_LEVEL_BONUS * float(maxi(skill - 1, 0)))
+	var payment := GameState.round_epsilon(float(live_value) * multiplier)
+	var quote := { "liveValue": live_value, "payment": payment, "salesSkill": skill, "lines": quote_lines }
+	if lines.size() == 1:
+		quote["unitValue"] = quote_lines[0]["unitValue"]
+	return quote
 
 
 static func unit_value(kind: String, item_type: String) -> int:
@@ -142,6 +168,10 @@ static func accept_offer(offer_id: String) -> Dictionary:
 			due_day = _next_weekday_strictly_after(accepted_day, int(offer["weekday"]))
 		elif offer["source"] == "scripted":
 			due_day = accepted_day + int(offer["deadlineAfterDays"])
+		# ticket 32: a mixed one-off's extra requested types were already fixed
+		# at offer-creation (quote) time, so their deadline bonus applies here
+		# on top of whichever base above just got picked.
+		due_day += int(offer.get("extraTypeDeadlineDays", 0))
 		var contract := { "id": "contract-%d" % sales["nextContractId"], "periodId": "period-%d" % sales["nextPeriodId"], "offerId": offer_id, "templateId": offer["templateId"], "contractType": offer["contractType"], "request": offer["request"].duplicate(true), "quote": offer["quote"].duplicate(true), "acceptedDay": accepted_day, "dueDay": due_day, "weekday": offer["weekday"], "delegated": false, "delivered": {}, "status": "active" }
 		sales["nextContractId"] += 1
 		sales["nextPeriodId"] += 1
@@ -180,7 +210,37 @@ static func _next_weekday_strictly_after(day: int, weekday: int) -> int:
 	return day + (7 if offset == 0 else offset)
 
 
-static func _valid_request(request: Dictionary) -> bool:
-	var kind: String = request.get("kind", "")
-	var item_type: String = request.get("type", "")
+# business-spec.md "Offer and contract types": mixed requests (request.types,
+# 2+ lines) are allowed only for one-offs -- a recurring template always
+# stays single-type.
+static func _valid_request(request: Dictionary, contract_type: String) -> bool:
+	if request.has("types"):
+		if contract_type != "oneOff":
+			return false
+		var types: Array = request["types"]
+		if types.size() < 2:
+			return false
+		for line in types:
+			if not (line is Dictionary and _valid_request_line(line)):
+				return false
+		return true
+	return _valid_request_line(request)
+
+
+static func _valid_request_line(line: Dictionary) -> bool:
+	var kind: String = line.get("kind", "")
+	var item_type: String = line.get("type", "")
 	return (kind == "ore" and GameData.ORE_TYPES.has(item_type)) or (kind == "consumable" and GameData.CONSUMABLE_PRICES.has(item_type))
+
+
+# Random one-offs/recurring roll a qty when the template doesn't author one;
+# a mixed one-off's per-type qty band is 2-5 regardless of source
+# (business-spec.md's quantity table).
+static func _fill_request_quantities(request: Dictionary, contract_type: String) -> void:
+	if request.has("types"):
+		for line in request["types"]:
+			if not line.has("qty"):
+				line["qty"] = Rng.randi_range(MIXED_TYPE_QTY_MIN, MIXED_TYPE_QTY_MAX)
+		return
+	if not request.has("qty"):
+		request["qty"] = Rng.randi_range(RANDOM_RECURRING_QTY_MIN, RANDOM_RECURRING_QTY_MAX) if contract_type == "recurring" else Rng.randi_range(RANDOM_ONE_OFF_QTY_MIN, RANDOM_ONE_OFF_QTY_MAX)

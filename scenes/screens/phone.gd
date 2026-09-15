@@ -1039,6 +1039,26 @@ func _build_procurement_vein_row(vein: Dictionary) -> Control:
 	return box
 
 
+# ticket 32: mixed one-offs request more than one type -- these render every
+# request_lines() entry rather than assuming the old flat request["type"].
+func _request_type_name(kind: String, item_type: String) -> String:
+	return GameData.ORE_TYPES[item_type]["name"] if kind == "ore" else GameData.RECIPES[item_type]["name"]
+
+
+func _request_summary(request: Dictionary) -> String:
+	var parts: Array = []
+	for line in ContractsSystem.request_lines(request):
+		parts.append("%d %s" % [line["qty"], _request_type_name(line["kind"], line["type"])])
+	return " + ".join(parts)
+
+
+func _contract_progress_summary(contract: Dictionary) -> String:
+	var parts: Array = []
+	for line in ContractsSystem.request_lines(contract["request"]):
+		parts.append("%d/%d %s" % [ContractsSystem.delivered_qty(contract, line["type"]), line["qty"], _request_type_name(line["kind"], line["type"])])
+	return ", ".join(parts)
+
+
 func _build_bizbrief_sales() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Sales", 14))
@@ -1047,8 +1067,7 @@ func _build_bizbrief_sales() -> Control:
 		c["content"].add_child(UI.muted_label("No pending offers."))
 	for offer in offers:
 		var request: Dictionary = offer["request"]
-		var name: String = GameData.ORE_TYPES[request["type"]]["name"] if request["kind"] == "ore" else GameData.RECIPES[request["type"]]["name"]
-		c["content"].add_child(UI.label("%d %s · £%d · expires day %d" % [request["qty"], name, offer["quote"]["payment"], offer["expiresDay"]]))
+		c["content"].add_child(UI.label("%s · £%d · expires day %d" % [_request_summary(request), offer["quote"]["payment"], offer["expiresDay"]]))
 		c["content"].add_child(UI.button("Accept", func(): OffersSystem.accept_offer(offer["id"])))
 	var contracts: Array = ContractsSystem.active_contracts()
 	if not contracts.is_empty():
@@ -1060,9 +1079,7 @@ func _build_bizbrief_sales() -> Control:
 			card.configure(contract["id"], index)
 			var box := VBoxContainer.new()
 			card.add_child(box)
-			var request: Dictionary = contract["request"]
-			var name: String = GameData.ORE_TYPES[request["type"]]["name"] if request["kind"] == "ore" else GameData.RECIPES[request["type"]]["name"]
-			box.add_child(UI.label("%d. %s: %d/%d %s · due day %d · £%d" % [index + 1, contract["id"], ContractsSystem.delivered_qty(contract), request["qty"], name, contract["dueDay"], contract["quote"]["payment"]]))
+			box.add_child(UI.label("%d. %s: %s · due day %d · £%d" % [index + 1, contract["id"], _contract_progress_summary(contract), contract["dueDay"], contract["quote"]["payment"]]))
 			box.add_child(UI.button("Remove Sales delegation" if contract.get("delegated", false) else "Delegate to Sales", func(): ContractsSystem.set_delegated(contract["id"], not contract.get("delegated", false))))
 			if not contract.get("delegated", false):
 				var row := UI.hbox()

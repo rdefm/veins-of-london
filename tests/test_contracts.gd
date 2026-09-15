@@ -98,6 +98,89 @@ func run() -> void:
 		assert_true(not ContractsSystem.settle(contract["id"])["ok"], "removed period cannot pay again")
 	)
 
+	# ticket 32: mixed one-off delivery/settlement.
+	run_case("manual_delivery_spans_every_requested_type_in_one_time_block", func():
+		GameState.reset()
+		var contract := _accept_mixed_contract()
+		GameState.state["player"]["orichalchum"]["fate"] = 5
+		Crafting.inventory_add("timePearl", 1, 5)
+		var result: Dictionary = ContractsSystem.deliver(contract["id"], 10)
+		assert_true(result["ok"])
+		assert_eq(result["delivered"], 5, "3 fate + 2 timePearl, each capped by its own remaining need")
+		assert_eq(ContractsSystem.delivered_qty(contract, "fate"), 3)
+		assert_eq(ContractsSystem.delivered_qty(contract, "timePearl"), 2)
+		assert_true(result["complete"])
+		assert_eq(GameState.state["world"]["timeBlock"], 1, "one manual action regardless of type count")
+	)
+
+	run_case("mixed_delivery_caps_each_type_by_its_own_shared_stock_independently", func():
+		GameState.reset()
+		var contract := _accept_mixed_contract()
+		GameState.state["player"]["orichalchum"]["fate"] = 1
+		Crafting.inventory_add("timePearl", 1, 5)
+		var result: Dictionary = ContractsSystem.deliver(contract["id"], 10)
+		assert_true(result["ok"])
+		assert_eq(result["delivered"], 3, "1 fate (all that's available) + 2 timePearl (fully covered)")
+		assert_eq(ContractsSystem.delivered_qty(contract, "fate"), 1)
+		assert_eq(ContractsSystem.delivered_qty(contract, "timePearl"), 2)
+		assert_true(not result["complete"], "fate still short by 2")
+	)
+
+	run_case("delegated_mixed_contract_only_closes_when_every_type_is_fully_covered", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "ops")
+		var contract := _accept_mixed_contract()
+		ContractsSystem.set_delegated(contract["id"], true)
+		GameState.state["player"]["orichalchum"]["fate"] = 3
+		Crafting.inventory_add("timePearl", 1, 1)
+		ContractsSystem.shared_stock_increased()
+		assert_eq(ContractsSystem.active_contracts().size(), 1, "timePearl line still short -- not fully deliverable yet")
+		assert_eq(ContractsSystem.delivered_qty(contract, "fate"), 0, "no partial delivery on the realtime recheck")
+		Crafting.inventory_add("timePearl", 1, 1)
+		ContractsSystem.shared_stock_increased()
+		assert_eq(ContractsSystem.active_contracts().size(), 0, "now fully fundable across every type -- closes immediately")
+		assert_eq(GameState.state["contacts"]["archie"]["salesXP"], ContractsSystem.COMPLETE_XP)
+	)
+
+	run_case("daily_partial_pass_fills_each_mixed_type_independently", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "ops")
+		var contract := _accept_mixed_contract()
+		ContractsSystem.set_delegated(contract["id"], true)
+		GameState.state["player"]["orichalchum"]["fate"] = 1
+		Crafting.inventory_add("timePearl", 1, 5)
+		ContractsSystem.process_delegated_deliveries()
+		assert_eq(ContractsSystem.delivered_qty(contract, "fate"), 1, "only 1 fate available")
+		assert_eq(ContractsSystem.delivered_qty(contract, "timePearl"), 2, "timePearl fully covered even though fate is short")
+		assert_eq(ContractsSystem.active_contracts().size(), 1, "fate line still short, period stays open")
+	)
+
+	run_case("mixed_oneoff_settlement_is_quoted_value_weighted", func():
+		GameState.reset()
+		var contract := _accept_mixed_contract()
+		GameState.state["player"]["orichalchum"]["fate"] = 3
+		ContractsSystem.deliver(contract["id"], 3, false)
+		GameState.state["world"]["day"] = contract["dueDay"]
+		var settled: Dictionary = ContractsSystem.settle(contract["id"])
+		assert_true(settled["ok"])
+		assert_true(not settled["settlement"]["complete"])
+		assert_eq(settled["settlement"]["payment"], 324, "quote £765 × (270/510 quoted-value-weighted) × 0.80")
+	)
+
+	run_case("settlement_falls_back_to_the_flat_ratio_for_a_pre_ticket32_quote_with_no_lines", func():
+		GameState.reset()
+		var contract := _accept_life_contract()
+		contract["quote"].erase("lines")
+		GameState.state["player"]["orichalchum"]["life"] = 2
+		ContractsSystem.deliver(contract["id"], 2, false)
+		GameState.state["world"]["day"] = contract["dueDay"]
+		var settled: Dictionary = ContractsSystem.settle(contract["id"])
+		assert_true(settled["ok"], "a contract accepted before ticket 32 must still settle, not KeyError")
+		assert_eq(settled["settlement"]["payment"], GameState.round_epsilon(float(contract["quote"]["payment"]) * (2.0 / 5.0) * 0.80))
+	)
+
 	run_case("partial_recurring_settlement_penalises_then_renews_with_new_period_id", func():
 		GameState.reset()
 		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_physics_weekly")
@@ -118,4 +201,16 @@ func run() -> void:
 
 func _accept_life_contract() -> Dictionary:
 	var created: Dictionary = OffersSystem.create_scripted_offer("scripted_life_order")
+	return OffersSystem.accept_offer(created["offer"]["id"])["contract"]
+
+
+# ticket 32: fate ore qty 3 + timePearl qty 2 (business-spec.md's mixed
+# one-off support). Built inline rather than via data/offers.json: the real
+# scripted/random mixed-offer catalogue is deferred to tickets 33/34.
+func _accept_mixed_contract() -> Dictionary:
+	var created: Dictionary = OffersSystem.create_offer({
+		"id": "t_mixed_calc_order", "source": "scripted", "contractType": "oneOff",
+		"expiresAfterDays": 6, "deadlineAfterDays": 5,
+		"request": { "types": [{ "kind": "ore", "type": "fate", "qty": 3 }, { "kind": "consumable", "type": "timePearl", "qty": 2 }] },
+	})
 	return OffersSystem.accept_offer(created["offer"]["id"])["contract"]

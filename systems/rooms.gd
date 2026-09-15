@@ -40,17 +40,20 @@ static func lab_covers_contracts(recipe_key: String) -> bool:
 static func contract_need(recipe_key: String) -> int:
 	var need := 0
 	for contract in _matching_active_contracts(recipe_key):
-		need += Contracts.remaining_qty(contract)
+		# ticket 32: a mixed contract may request this recipe alongside other
+		# (unrelated-pool) types -- count only this recipe's own line, never
+		# the contract's total remaining across every requested type.
+		need += Contracts.remaining_qty(contract, recipe_key)
 	return need
 
 
 static func _matching_active_contracts(recipe_key: String) -> Array:
 	var matches: Array = []
 	for contract in Contracts.active_contracts():
-		var request: Dictionary = contract["request"]
-		if request.get("kind", "") != "consumable" or request["type"] != recipe_key:
-			continue
-		matches.append(contract)
+		for line in Contracts.request_lines(contract["request"]):
+			if line.get("kind", "") == "consumable" and line["type"] == recipe_key:
+				matches.append(contract)
+				break
 	return matches
 
 
@@ -116,7 +119,7 @@ static func _contract_priority_rank(recipe_key: String) -> int:
 		return unranked
 	var best := unranked
 	for contract in _matching_active_contracts(recipe_key):
-		if Contracts.remaining_qty(contract) <= 0:
+		if Contracts.remaining_qty(contract, recipe_key) <= 0:
 			continue
 		var idx: int = priority_order.find(contract["id"])
 		if idx < 0:
