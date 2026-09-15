@@ -46,6 +46,7 @@ Present the proposed breakdown as a numbered list. For each ticket, show:
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
+- **Relevant files**: real file paths the ticket touches/reads, and any REFERENCE.md § headers that apply
 
 Ask the user:
 
@@ -74,6 +75,8 @@ Do NOT close or modify any parent issue.
 
 **Blocked by:** the numbers/titles of the tickets that gate this one, or "None — can start immediately".
 
+**Relevant files:** real file paths the ticket is expected to touch or needs to read, plus specific REFERENCE.md § section headers where the ticket's mechanics live there.
+
 **Status:** ready-for-agent
 
 - [ ] Acceptance criterion 1
@@ -100,6 +103,12 @@ The end-to-end behaviour this ticket makes work, from the user's perspective —
 
 - A reference to each blocking ticket, or "None — can start immediately".
 
+## Relevant files
+
+- Real file paths the ticket is expected to touch or needs to read, plus specific REFERENCE.md § section headers where the ticket's mechanics live there.
+
 </issue-template>
 
-In either form, avoid specific file paths or code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
+In either form, avoid specific file paths or code snippets in the prose (What to build / Acceptance criteria) — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
+
+The **Relevant files** field is a second exception, and a deliberate one: capture real paths and REFERENCE.md § headers there while you still have the codebase explored in context — paths captured live during exploration are cheaper than a downstream fresh-context `implement` session re-deriving them from scratch, even though some will drift over time.
