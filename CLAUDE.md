@@ -70,7 +70,7 @@ Identical discipline to the prototype:
 4. Work one task at a time, in the order the milestone doc lists them — the order is dependency-sorted. Commit per task with message `M0-T04: <task name>`.
 5. Never claim something works without having run it headless. You cannot see the UI; the human is visual QA. When a task has UI, list exactly what the human should check on-device, in one short block at the end of your report.
 6. If you need a decision the specs don't make, ask. Do not invent.
-7. If you add, delete, rename, or repurpose a file under `systems/`, `screens/`, `scenes/`, `autoload/`, or `data/` — or change what a file is responsible for — update `CODEMAP.md` in the same commit. Stale map entries cost more tokens later than the update costs now.
+7. If you add, delete, rename, or repurpose a file under `systems/`, `screens/`, `scenes/`, `autoload/`, or `data/` — or change what a file is responsible for — update `CODEMAP.md` in the same commit. Stale map entries cost more tokens later than the update costs now. CODEMAP entries describe **current state only** — what a file does now, in ~1-2 sentences — never a running log of which ticket did what. Don't write "ticket 21: adds X" or "27-procurement-in-manage: the sheet's Y is gone, now Z" — just describe what the file does today. History already lives in git log and in `_COMPLETED` ticket files under `.scratch/`; CODEMAP is a cheap lookup table, not a changelog.
 
 ## Environment setup (sandbox or fresh machine)
 
