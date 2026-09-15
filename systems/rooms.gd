@@ -21,6 +21,110 @@ static func adjust_lab_threshold(recipe_key: String, delta: int) -> void:
 	EventBus.state_changed.emit()
 
 
+# ticket 30: per-item opt-in for Production to also craft toward accepted-
+# contract need on top of the personal labThresholds target.
+static func set_lab_cover_contracts(recipe_key: String, enabled: bool) -> void:
+	GameState.state["labCoverContracts"][recipe_key] = enabled
+	EventBus.state_changed.emit()
+
+
+static func lab_covers_contracts(recipe_key: String) -> bool:
+	return GameState.state["labCoverContracts"].get(recipe_key, false)
+
+
+# business-spec.md "Production and Procurement": contract need counts only
+# the undelivered quantity of active current periods -- a recurring
+# contract's next period doesn't exist in state until settle() creates it,
+# so simply summing every active contract's remaining_qty already excludes
+# any future recurring period.
+static func contract_need(recipe_key: String) -> int:
+	var need := 0
+	for contract in _matching_active_contracts(recipe_key):
+		need += Contracts.remaining_qty(contract)
+	return need
+
+
+static func _matching_active_contracts(recipe_key: String) -> Array:
+	var matches: Array = []
+	for contract in Contracts.active_contracts():
+		var request: Dictionary = contract["request"]
+		if request.get("kind", "") != "consumable" or request["type"] != recipe_key:
+			continue
+		matches.append(contract)
+	return matches
+
+
+# ticket 29's approved combination formula: additive, with the personal-
+# target portion reserved. Toggled off, this is just the personal target
+# (today's pre-ticket-30 behaviour).
+static func effective_lab_target(recipe_key: String) -> int:
+	var target: int = GameState.state["labThresholds"].get(recipe_key, 0)
+	if lab_covers_contracts(recipe_key):
+		target += contract_need(recipe_key)
+	return target
+
+
+# The personal-target portion of stock is a protected buffer Sales may never
+# draw from -- see Contracts._shared_stock(). Only reserved while the item
+# is toggled to cover contracts; otherwise Sales draws freely, same as
+# before ticket 30.
+static func production_reserved_qty(recipe_key: String) -> int:
+	if not lab_covers_contracts(recipe_key):
+		return 0
+	return int(GameState.state["labThresholds"].get(recipe_key, 0))
+
+
+# business-spec.md: "the contract-card priority order wins, then player-set
+# inventory-target priority" for which recipe gets scarce shared ore first.
+# Recipes with covered, currently-unmet contract need are ordered by the
+# best (lowest-index/highest-priority) rank of any of their matching active
+# contracts in sales.priorityOrder (ticket 25); every other recipe follows,
+# ordered by labThresholds' own key-insertion order -- the order the player
+# first set each personal target in, i.e. their own de facto priority.
+static func _production_order() -> Array:
+	var threshold_keys: Array = GameState.state["labThresholds"].keys()
+	var recipe_keys: Array = GameData.RECIPES.keys()
+	var ranked: Array = []
+	for i in recipe_keys.size():
+		var recipe_key: String = recipe_keys[i]
+		var threshold_rank: int = threshold_keys.find(recipe_key)
+		if threshold_rank < 0:
+			threshold_rank = threshold_keys.size()
+		ranked.append({
+			"key": recipe_key,
+			"contractRank": _contract_priority_rank(recipe_key),
+			"thresholdRank": threshold_rank,
+			"originalIndex": i,
+		})
+	ranked.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if a["contractRank"] != b["contractRank"]:
+			return a["contractRank"] < b["contractRank"]
+		if a["thresholdRank"] != b["thresholdRank"]:
+			return a["thresholdRank"] < b["thresholdRank"]
+		return a["originalIndex"] < b["originalIndex"]
+	)
+	var order: Array = []
+	for entry in ranked:
+		order.append(entry["key"])
+	return order
+
+
+static func _contract_priority_rank(recipe_key: String) -> int:
+	var priority_order: Array = GameState.state["sales"]["priorityOrder"]
+	var unranked: int = priority_order.size() + 1
+	if not lab_covers_contracts(recipe_key):
+		return unranked
+	var best := unranked
+	for contract in _matching_active_contracts(recipe_key):
+		if Contracts.remaining_qty(contract) <= 0:
+			continue
+		var idx: int = priority_order.find(contract["id"])
+		if idx < 0:
+			idx = priority_order.size()
+		best = mini(best, idx)
+	return best
+
+
 # vein-growth-state spec §6.1: default target on assignment is 70.
 const VEIN_STATION_DEFAULT_TARGET := 70
 
@@ -75,18 +179,17 @@ static func process_lab() -> void:
 		return
 
 	var c: Dictionary = GameState.state["contacts"][contact_id]
-	var thresholds: Dictionary = GameState.state["labThresholds"]
 	var player: Dictionary = GameState.state["player"]
 	var flags: Dictionary = GameState.state["flags"]
 
 	var total_attempts := 0
 	var total_successes := 0
 
-	for recipe_key in GameData.RECIPES.keys():
+	for recipe_key in _production_order():
 		var unlock_flag: String = RECIPE_UNLOCK_FLAGS.get(recipe_key, "")
 		if unlock_flag != "" and not flags.get(unlock_flag, false):
 			continue
-		var target: int = thresholds.get(recipe_key, 0)
+		var target: int = effective_lab_target(recipe_key)
 		if target <= 0:
 			continue
 

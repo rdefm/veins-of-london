@@ -57,6 +57,86 @@ func run() -> void:
 		assert_eq(Crafting.inventory_qty("enhancementPowder"), 0, "enhancementPowder gated by enhancementUnlocked")
 	)
 
+	# ticket 30: Production contract-coverage toggle.
+	run_case("effective_lab_target_adds_contract_need_only_when_covering", func():
+		GameState.reset()
+		GameState.state["labThresholds"]["timePearl"] = 5
+		var created: Dictionary = Offers.create_offer({ "id": "t1", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 10 } })
+		Offers.accept_offer(created["offer"]["id"])
+		assert_eq(Rooms.effective_lab_target("timePearl"), 5, "toggle off -- personal target only, contract need ignored")
+		Rooms.set_lab_cover_contracts("timePearl", true)
+		assert_eq(Rooms.effective_lab_target("timePearl"), 15, "toggle on -- additive per ticket 29 (5 personal + 10 contract need)")
+	)
+
+	run_case("production_reserved_qty_protects_only_the_personal_target_while_covering", func():
+		GameState.reset()
+		GameState.state["labThresholds"]["timePearl"] = 5
+		assert_eq(Rooms.production_reserved_qty("timePearl"), 0, "no reserve while the toggle is off")
+		Rooms.set_lab_cover_contracts("timePearl", true)
+		assert_eq(Rooms.production_reserved_qty("timePearl"), 5, "reserve equals the personal target once covering, never the contract-need portion")
+	)
+
+	run_case("process_lab_ignores_contract_need_when_toggle_is_off", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "lab")
+		GameState.state["contacts"]["archie"]["craftingSkill"] = 3
+		GameState.state["flags"]["craftingUnlocked"] = true
+		GameState.state["labThresholds"]["timePearl"] = 2
+		GameState.state["player"]["orichalchum"]["time"] = 10000
+		var created: Dictionary = Offers.create_offer({ "id": "t2", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 5 } })
+		Offers.accept_offer(created["offer"]["id"])
+		Rng.set_seed(7)
+		Rooms.process_lab()
+		assert_eq(Crafting.inventory_qty("timePearl"), 2, "toggle defaults off -- an active contract for the item must not inflate Production's target")
+	)
+
+	run_case("process_lab_crafts_toward_the_combined_personal_target_and_contract_need", func():
+		var seed := -1
+		for candidate in range(200):
+			GameState.reset()
+			GameState.state["contacts"]["archie"]["recruited"] = true
+			Contacts.assign_to_room("archie", "lab")
+			GameState.state["contacts"]["archie"]["craftingSkill"] = 6
+			GameState.state["flags"]["craftingUnlocked"] = true
+			GameState.state["labThresholds"]["timePearl"] = 2
+			GameState.state["labCoverContracts"]["timePearl"] = true
+			GameState.state["player"]["orichalchum"]["time"] = 10000
+			var created: Dictionary = Offers.create_offer({ "id": "t3", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 3 } })
+			Offers.accept_offer(created["offer"]["id"])
+			Rng.set_seed(candidate)
+			Rooms.process_lab()
+			if Crafting.inventory_qty("timePearl") == 5:
+				seed = candidate
+				break
+		assert_true(seed != -1, "should find a seed reaching the combined target (2 personal + 3 contract need) within 200 tries")
+	)
+
+	run_case("process_lab_orders_scarce_shared_ore_by_contract_priority_then_by_personal_target", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "lab")
+		GameState.state["contacts"]["archie"]["craftingSkill"] = 1
+		GameState.state["flags"]["craftingUnlocked"] = true
+		GameState.state["labCoverContracts"]["timePearl"] = true
+		GameState.state["labCoverContracts"]["rewind"] = true
+		# timePearl costs 5 "time" ore/attempt, rewind costs 6, both at skill 1.
+		GameState.state["player"]["orichalchum"]["time"] = 13
+		var pearl_offer: Dictionary = Offers.create_offer({ "id": "t4_pearl", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 1000 } })
+		Offers.accept_offer(pearl_offer["offer"]["id"])
+		var rewind_offer: Dictionary = Offers.create_offer({ "id": "t4_rewind", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "rewind", "qty": 1000 } })
+		var rewind_contract: Dictionary = Offers.accept_offer(rewind_offer["offer"]["id"])["contract"]
+		# timePearl's contract was accepted first (default priority order); move
+		# rewind's contract to the front so its recipe should get first pick of
+		# the shared "time" ore -- proving order tracks sales.priorityOrder
+		# (ticket 25) rather than GameData.RECIPES.keys()'s fixed data order.
+		Contracts.reorder(rewind_contract["id"], 0)
+		Rooms.process_lab()
+		# rewind processed first: floor(13/6) = 2 attempts, 12 spent, 1 left
+		# (1 < timePearl's cost of 5, so timePearl gets zero attempts).
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 1, "the higher-priority contract's recipe (rewind) should drain the shared ore first")
+	)
+
 	# vein-growth-state ticket 06, spec §11 item 10: "a vein at 95 with target
 	# 70 is pruned down".
 	run_case("veinStation_prunes_a_vein_above_target", func():

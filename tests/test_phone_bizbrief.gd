@@ -99,6 +99,48 @@ func run() -> void:
 		phone.free()
 	)
 
+	# 30-production-contract-coverage-toggle
+	run_case("production_shows_a_room_gate_message_when_lab_not_installed", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+
+		assert_true(_label_texts(phone).has("Requires the Improved Lab."))
+		phone.free()
+	)
+
+	run_case("production_lists_only_unlocked_recipes_and_adjusts_target_and_toggle", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("lab")
+		GameState.state["flags"]["craftingUnlocked"] = true
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+
+		var texts := _label_texts(phone)
+		assert_true(texts.has("Time Pearl"), "craftingUnlocked recipe is listed")
+		assert_true(texts.has("Rewind"), "craftingUnlocked also gates rewind")
+		assert_true(not texts.has("Enhancement Powder"), "enhancementUnlocked recipe stays hidden until unlocked")
+		assert_true(texts.has("Personal target: 0"))
+
+		var plus_buttons: Array = []
+		for candidate in phone.find_children("", "Button", true, false):
+			if (candidate as Button).text == "+5":
+				plus_buttons.append(candidate)
+		assert_eq(plus_buttons.size(), 2, "one +5 button per unlocked recipe")
+		plus_buttons[0].pressed.emit()
+		assert_eq(GameState.state["labThresholds"]["timePearl"], 5)
+
+		var cover := _button_with_text(phone, "Cover contract needs")
+		assert_true(cover != null)
+		cover.pressed.emit()
+		assert_true(GameState.state["labCoverContracts"]["timePearl"])
+		phone.free()
+	)
+
 	# 27-procurement-in-manage
 	run_case("procurement_shows_a_room_gate_message_when_vein_station_not_installed", func():
 		GameState.reset()

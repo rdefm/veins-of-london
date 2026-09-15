@@ -938,12 +938,56 @@ func _build_bizbrief_brief() -> void:
 func _build_bizbrief_manage() -> void:
 	_content.add_child(UI.heading("Manage", 16))
 	_content.add_child(_build_bizbrief_sales())
-	var production := UI.card()
-	production["content"].add_child(UI.heading("Production", 14))
-	# PROSE-REVIEW: temporary placeholder copy for ticket 28+.
-	production["content"].add_child(UI.muted_label("Not available yet."))
-	_content.add_child(production["panel"])
+	_content.add_child(_build_bizbrief_production())
 	_content.add_child(_build_bizbrief_procurement())
+
+
+# 30-production-contract-coverage-toggle: per-item personal stock target
+# (Rooms.adjust_lab_threshold, pre-existing but never surfaced anywhere
+# until now) plus the toggle to also cover accepted-contract need
+# (Rooms.set_lab_cover_contracts/effective_lab_target).
+func _build_bizbrief_production() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Production", 14))
+
+	if not GameState.state["home"]["rooms"].has("lab"):
+		c["content"].add_child(UI.muted_label("Requires the Improved Lab."))
+		return c["panel"]
+
+	var flags: Dictionary = GameState.state["flags"]
+	var any_unlocked := false
+	for recipe_key in Rooms.RECIPE_UNLOCK_FLAGS.keys():
+		var unlock_flag: String = Rooms.RECIPE_UNLOCK_FLAGS[recipe_key]
+		if unlock_flag != "" and not flags.get(unlock_flag, false):
+			continue
+		any_unlocked = true
+		c["content"].add_child(_build_production_recipe_row(recipe_key))
+	if not any_unlocked:
+		c["content"].add_child(UI.muted_label("No craftable recipes unlocked yet."))
+	return c["panel"]
+
+
+func _build_production_recipe_row(recipe_key: String) -> Control:
+	var recipe: Dictionary = GameData.RECIPES[recipe_key]
+	var target: int = GameState.state["labThresholds"].get(recipe_key, 0)
+	var covering: bool = Rooms.lab_covers_contracts(recipe_key)
+
+	var box := UI.vbox(4)
+	box.add_child(UI.label(recipe["name"]))
+
+	var target_text := "Personal target: %d" % target
+	if covering:
+		var need: int = Rooms.contract_need(recipe_key)
+		target_text += " · contract need: %d · crafting to: %d" % [need, Rooms.effective_lab_target(recipe_key)]
+	box.add_child(UI.muted_label(target_text))
+
+	var target_row := UI.hbox()
+	target_row.add_child(UI.button("-5", func(): Rooms.adjust_lab_threshold(recipe_key, -5)))
+	target_row.add_child(UI.button("+5", func(): Rooms.adjust_lab_threshold(recipe_key, 5)))
+	target_row.add_child(UI.button("Stop covering contracts" if covering else "Cover contract needs", func(): Rooms.set_lab_cover_contracts(recipe_key, not covering)))
+	box.add_child(target_row)
+
+	return box
 
 
 # 27-procurement-in-manage: the Vein Station selection/target controls,

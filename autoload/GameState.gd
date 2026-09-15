@@ -344,6 +344,10 @@ func new_game_state() -> Dictionary:
 		# holds the player's own sale cut.
 		"pendingArchieDealCut": 0,
 		"labThresholds": {},
+		# ticket 30: per-recipe opt-in, { recipeKey: bool }. When true, Production's
+		# effective target for that recipe adds undelivered active-contract need on
+		# top of labThresholds -- see Rooms.effective_lab_target/production_reserved_qty.
+		"labCoverContracts": {},
 		"veinStationVeins": [],
 		# vein-growth-state ticket 06: plain dict of primitives, purity-safe.
 		# Companion to veinStationVeins above -- { veinId: int growth target }.

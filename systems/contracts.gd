@@ -179,7 +179,11 @@ static func _deliver_delegated(contract: Dictionary, qty: int = -1) -> void:
 static func _shared_stock(request: Dictionary) -> int:
 	if request["kind"] == "ore":
 		return int(GameState.state["player"]["orichalchum"].get(request["type"], 0))
-	return Crafting.inventory_qty(request["type"])
+	# ticket 30: Production's personal-target portion of a covered item's
+	# stock is a protected buffer -- Sales may only draw the contract-need
+	# portion, never the reserve.
+	var reserved := Rooms.production_reserved_qty(request["type"])
+	return maxi(0, Crafting.inventory_qty(request["type"]) - reserved)
 
 
 static func _remove_shared_stock(request: Dictionary, qty: int) -> void:
