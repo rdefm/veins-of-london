@@ -153,6 +153,11 @@ overlays.
 | james_job_offer_modal.gd | James job offer card; Accept/Decline hand off to Jobs |
 | james_job_short_modal.gd | James job "not enough stock" card |
 | james_job_complete_modal.gd | James job payout card |
+| sell_menu_modal.gd | Archie and faction sell/buy menus; Cancel clears sellState |
+| sell_row_builders.gd | Row widgets shared by sell_menu_modal.gd (sell/buy-ore/vein rows, collapsible Ore/Items/Assets sections) |
+| nadia_supply_modal.gd | Nadia ore-supply objective card |
+| sell_vein_quote_modal.gd | Single-vein sale confirmation card |
+| craft_components_menu_modal.gd | Movement-archetype picker; Craft hands off to movement_craft |
 
 ## data/*.json
 

@@ -14,4 +14,8 @@ static var REGISTRY: Dictionary = {
 	"james_job_offer": JamesJobOfferModal,
 	"james_job_short": JamesJobShortModal,
 	"james_job_complete": JamesJobCompleteModal,
+	"sell_menu": SellMenuModal,
+	"nadia_supply": NadiaSupplyModal,
+	"sell_vein_quote": SellVeinQuoteModal,
+	"craft_components_menu": CraftComponentsMenuModal,
 }

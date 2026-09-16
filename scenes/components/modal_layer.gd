@@ -7,10 +7,6 @@ var _card: PanelContainer
 var _scroll: ScrollContainer
 var _card_content: VBoxContainer
 
-var _sell_ore_expanded: bool = true
-var _sell_items_expanded: bool = true
-var _sell_assets_expanded: bool = true
-
 const MAX_CARD_HEIGHT := 620.0
 
 func _ready() -> void:
@@ -51,7 +47,7 @@ func _dismiss_modal() -> void:
 		return
 	match modal.get("type", ""):
 		"sell_menu":
-			_on_sell_menu_cancel()
+			SellMenuModal.cancel()
 		"james_job_offer":
 			JamesJobOfferModal.decline()
 		"sale_result":
@@ -93,18 +89,10 @@ func _build_modal_content(modal: Dictionary) -> void:
 		return
 
 	match type_id:
-		"sell_menu":
-			_build_sell_menu()
-		"nadia_supply":
-			_build_nadia_supply()
 		"network_reference":
 			_build_network_reference()
-		"sell_vein_quote":
-			_build_sell_vein_quote(data)
 		"movement_craft":
 			_build_movement_craft(data)
-		"craft_components_menu":
-			_build_craft_components_menu()
 		"movement_swap":
 			_build_movement_swap()
 		"dial_load_complication":
@@ -125,303 +113,6 @@ func _build_modal_content(modal: Dictionary) -> void:
 			_card_content.add_child(UI.heading(type_id))
 			_card_content.add_child(UI.label("…"))
 			_card_content.add_child(UI.button("Close", func(): Modal.close()))
-
-
-func _build_nadia_supply() -> void:
-	var status := Collective.nadia_supply_status()
-	var presentation: Dictionary = GameData.OBJECTIVES["col_a1_nadia_supply"].get("presentation", {})
-	var stock: int = GameState.state["player"]["orichalchum"].get(status["oreType"], 0)
-	var price: int = Economy.get_faction_sell_price("collective", "ore", status["oreType"])
-	_card_content.add_child(UI.heading(presentation.get("heading", "")))
-	_card_content.add_child(UI.label(presentation.get("delivered", "") % [status["delivered"], status["required"]]))
-	_card_content.add_child(UI.label(presentation.get("remaining", "") % status["remaining"]))
-	_card_content.add_child(UI.label(presentation.get("inStock", "") % [stock, GameData.ORE_TYPES[status["oreType"]]["name"]]))
-	_card_content.add_child(UI.label(presentation.get("pricePerUnit", "") % price))
-
-	var qty := SpinBox.new()
-	qty.min_value = 1
-	qty.max_value = maxi(stock, 1)
-	qty.step = 1
-	qty.value = mini(maxi(status["remaining"], 1), maxi(stock, 1))
-	qty.allow_greater = false
-	qty.editable = stock > 0
-	_card_content.add_child(qty)
-
-	var payment := UI.label("")
-	_card_content.add_child(payment)
-	var update_payment := func(value: float) -> void:
-		payment.text = presentation.get("payment", "") % (price * int(value))
-	update_payment.call(qty.value)
-	qty.value_changed.connect(update_payment)
-
-	var supply := UI.button(presentation.get("supply", ""), func():
-		var result := Collective.supply_nadia(int(qty.value))
-		if result.get("ok", false):
-			Modal.open("sale_result", { "earned": result["earned"], "gross": result["earned"], "mugged": false })
-	)
-	supply.disabled = stock <= 0
-	_card_content.add_child(supply)
-	_card_content.add_child(UI.button(presentation.get("cancel", ""), func(): Modal.close()))
-
-
-func _build_sell_menu() -> void:
-	var modal: Dictionary = GameState.state["modal"]
-	var data: Dictionary = modal.get("data", {})
-	var faction_id: String = data.get("factionId", "")
-	if faction_id != "":
-		_build_faction_sell_menu(faction_id, data.get("contactId", ""))
-		return
-
-	var player: Dictionary = GameState.state["player"]
-	var sell_state: Dictionary = GameState.state["sellState"]
-
-	_card_content.add_child(UI.heading("Find a buyer"))
-	_card_content.add_child(UI.muted_label("Archie splits 50/50. Select what you want to move."))
-
-	var gross := 0
-	var ore_rows: Array = []
-	var item_rows: Array = []
-
-	for ore_type in GameData.ORE_TYPES.keys():
-		var have: int = player["orichalchum"].get(ore_type, 0)
-		if have <= 0:
-			continue
-		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
-		var key := "ore_%s" % ore_type
-		var qty: int = sell_state.get(key, 0)
-		gross += ore["basePrice"] * qty
-		ore_rows.append(_build_sell_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s (£%d/u, have %d)" % [ore["name"], ore["basePrice"], have]], key, qty, have))
-
-	if GameState.state["flags"]["canSellConsumables"]:
-		for recipe_key in GameData.CONSUMABLE_PRICES.keys():
-			var buckets: Dictionary = player["inventory"].get(recipe_key, {})
-			var recipe: Dictionary = GameData.RECIPES[recipe_key]
-			var base_price: int = GameData.CONSUMABLE_PRICES[recipe_key]
-			var tier_keys: Array = buckets.keys()
-			tier_keys.sort_custom(func(a, b): return int(a) < int(b))
-			for tier_key in tier_keys:
-				var have: int = buckets[tier_key]
-				if have <= 0:
-					continue
-				var tier: int = int(tier_key)
-				var price: int = GameState.round_epsilon(base_price * Economy.quality_price_multiplier(tier))
-				var key := "con_%s_%s" % [recipe_key, tier_key]
-				var qty: int = sell_state.get(key, 0)
-				gross += price * qty
-				var tier_label := "untiered" if tier <= 0 else "tier %d" % tier
-				item_rows.append(_build_sell_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s (%s, £%d/ea, have %d)" % [recipe["name"], tier_label, price, have]], key, qty, have))
-
-	var asset_rows: Array = []
-	var veins_selected := 0
-	if GameState.state["flags"].get("veinSaleUnlocked", false):
-		for vein in player["veins"]:
-			var vein_key := "vein_%s" % vein["id"]
-			var selected: bool = sell_state.get(vein_key, 0) > 0
-			var vein_price := Economy.get_archie_vein_price(vein)
-			if selected:
-				gross += vein_price
-				veins_selected += 1
-			var vein_ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
-			var vein_district: Dictionary = GameData.DISTRICTS[vein["district"]]
-			var vein_parts := ["%s — " % vein_district["name"], { "symbol": vein_ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s (£%d)" % [vein_ore["name"], vein_price]]
-			asset_rows.append(_build_sell_vein_row(vein_parts, vein["id"], selected))
-
-	_build_sell_sections(ore_rows, item_rows, asset_rows)
-
-	var cut_ratio := Economy.get_archie_cut_ratio()
-	var player_cut: int = int(floor(gross * cut_ratio))
-	_card_content.add_child(UI.label("Your cut (%d%%): £%d" % [int(round(cut_ratio * 100)), player_cut]))
-	var mug_pct: float = Economy.MUG_BASE_CHANCE_VEIN if veins_selected > 0 else Economy.MUG_BASE_CHANCE
-	_card_content.add_child(UI.muted_label("%d%% chance of mugging" % int(round(mug_pct * 100))))
-
-	var go_button := UI.button("Go — find a buyer", func(): Economy.sell_from_sell_state())
-	go_button.disabled = player_cut == 0
-	_card_content.add_child(go_button)
-	_card_content.add_child(UI.button("Cancel", _on_sell_menu_cancel))
-
-
-func _on_sell_menu_cancel() -> void:
-	Economy.clear_sell_state()
-	Modal.close()
-
-
-func _build_faction_sell_menu(faction_id: String, contact_id: String) -> void:
-	var player: Dictionary = GameState.state["player"]
-	var sell_state: Dictionary = GameState.state["sellState"]
-	var faction_name: String = GameData.FACTIONS[faction_id]["name"]
-
-	_card_content.add_child(UI.heading("Trade with %s" % faction_name))
-	_card_content.add_child(UI.muted_label("Straight sale. No cut, no risk of a mugging."))
-
-	var gross := 0
-	var ore_rows: Array = []
-	var item_rows: Array = []
-
-	for ore_type in GameData.ORE_TYPES.keys():
-		var have: int = player["orichalchum"].get(ore_type, 0)
-		if have <= 0:
-			continue
-		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
-		var key := "ore_%s" % ore_type
-		var qty: int = sell_state.get(key, 0)
-		var price := Economy.get_faction_sell_price(faction_id, "ore", ore_type)
-		gross += price * qty
-		ore_rows.append(_build_sell_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s (£%d/u, have %d)" % [ore["name"], price, have]], key, qty, have))
-
-	var ore_stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
-	var buy_cost := 0
-	var ore_bought := 0
-	for ore_type in GameData.ORE_TYPES.keys():
-		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
-		var buy_key := "buyOre_%s" % ore_type
-		var buy_qty: int = sell_state.get(buy_key, 0)
-		var buy_price := Economy.get_faction_buy_price(faction_id, "ore", ore_type)
-		var buy_max: int = Economy.get_faction_buy_max_qty(faction_id, "ore", ore_type)
-		var stock: int = int(ore_stock.get(ore_type, 0))
-		if buy_qty > 0:
-			buy_cost += buy_price * buy_qty
-			ore_bought += buy_qty
-		ore_rows.append(_build_buy_ore_row(["Buy: ", { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, " %s (£%d/u, stock %d)" % [ore["name"], buy_price, stock]], buy_key, buy_qty, buy_max))
-
-	if GameState.state["flags"]["canSellConsumables"]:
-		for recipe_key in GameData.CONSUMABLE_PRICES.keys():
-			var buckets: Dictionary = player["inventory"].get(recipe_key, {})
-			var recipe: Dictionary = GameData.RECIPES[recipe_key]
-			var price := Economy.get_faction_sell_price(faction_id, "consumable", recipe_key)
-			var tier_keys: Array = buckets.keys()
-			tier_keys.sort_custom(func(a, b): return int(a) < int(b))
-			for tier_key in tier_keys:
-				var have: int = buckets[tier_key]
-				if have <= 0:
-					continue
-				var key := "con_%s_%s" % [recipe_key, tier_key]
-				var qty: int = sell_state.get(key, 0)
-				gross += price * qty
-				var tier_label := "untiered" if int(tier_key) <= 0 else "tier %d" % int(tier_key)
-				item_rows.append(_build_sell_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s (%s, £%d/ea, have %d)" % [recipe["name"], tier_label, price, have]], key, qty, have))
-
-	var asset_rows: Array = []
-	var veins_selected := 0
-	var veins_bought := 0
-	if GameState.state["flags"].get("veinSaleUnlocked", false):
-		for vein in player["veins"]:
-			var vein_key := "vein_%s" % vein["id"]
-			var selected: bool = sell_state.get(vein_key, 0) > 0
-			var vein_price := VeinTrade.quote(vein)
-			if selected:
-				gross += vein_price
-				veins_selected += 1
-			var vein_ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
-			var vein_district: Dictionary = GameData.DISTRICTS[vein["district"]]
-			var vein_parts := ["%s — " % vein_district["name"], { "symbol": vein_ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s (£%d)" % [vein_ore["name"], vein_price]]
-			asset_rows.append(_build_sell_vein_row(vein_parts, vein["id"], selected))
-
-		for site in Sites.sites_with_faction_vein(faction_id):
-			var faction_vein: Dictionary = site["factionVein"]
-			var buy_key := "buyVein_%s" % faction_vein["id"]
-			var buy_selected: bool = sell_state.get(buy_key, 0) > 0
-			var buy_price := VeinTrade.quote(faction_vein)
-			if buy_selected:
-				buy_cost += buy_price
-				veins_bought += 1
-			var buy_ore: Dictionary = GameData.ORE_TYPES[faction_vein["oreType"]]
-			var buy_district: Dictionary = GameData.DISTRICTS[faction_vein["district"]]
-			var buy_parts := ["Buy: %s — " % buy_district["name"], { "symbol": buy_ore["symbol"], "fallback": SymbolGlyph.ore_fallback(faction_vein["oreType"]) }, " %s (£%d)" % [buy_ore["name"], buy_price]]
-			asset_rows.append(_build_buy_vein_row(buy_parts, faction_vein["id"], buy_selected))
-
-	_build_sell_sections(ore_rows, item_rows, asset_rows)
-
-	var net := gross - buy_cost
-	if net >= 0:
-		_card_content.add_child(UI.label("You'll get: £%d" % net))
-	else:
-		_card_content.add_child(UI.label("You'll pay: £%d" % -net))
-
-	var go_label := "Go — trade"
-	var go_notes: Array = []
-	if veins_selected == 1:
-		go_notes.append("1 vein sale")
-	elif veins_selected > 1:
-		go_notes.append("%d vein sales" % veins_selected)
-	if veins_bought == 1:
-		go_notes.append("1 vein purchase")
-	elif veins_bought > 1:
-		go_notes.append("%d vein purchases" % veins_bought)
-	if ore_bought > 0:
-		go_notes.append("%d ore bought" % ore_bought)
-	if not go_notes.is_empty():
-		go_label += " (includes %s)" % ", ".join(go_notes)
-	var go_button := UI.button(go_label, func(): Collective.complete_trade(contact_id))
-	var nothing_selected := gross == 0 and buy_cost == 0
-	var unaffordable: bool = net < 0 and -net > int(player["cash"])
-	go_button.disabled = nothing_selected or unaffordable
-	_card_content.add_child(go_button)
-	_card_content.add_child(UI.button("Cancel", _on_sell_menu_cancel))
-
-
-func _build_sell_sections(ore_rows: Array, item_rows: Array, asset_rows: Array) -> void:
-	var ore_section := UI.collapsible_section("Ore", _sell_ore_expanded, func(v): _sell_ore_expanded = v)
-	for row in ore_rows:
-		ore_section["content"].add_child(row)
-	_card_content.add_child(ore_section["panel"])
-
-	var items_section := UI.collapsible_section("Items", _sell_items_expanded, func(v): _sell_items_expanded = v)
-	for row in item_rows:
-		items_section["content"].add_child(row)
-	_card_content.add_child(items_section["panel"])
-
-	if GameState.state["flags"].get("veinSaleUnlocked", false):
-		var assets_section := UI.collapsible_section("Assets", _sell_assets_expanded, func(v): _sell_assets_expanded = v)
-		for row in asset_rows:
-			assets_section["content"].add_child(row)
-		_card_content.add_child(assets_section["panel"])
-
-
-func _build_sell_vein_row(parts: Array, vein_id: String, selected: bool) -> Control:
-	var row := UI.hflow(6)
-	row.add_child(UI.button("☑" if selected else "☐", func(): Economy.toggle_sell_vein(vein_id)))
-	var text_row := UI.symbol_row(parts)
-	text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(text_row)
-	return row
-
-
-func _build_buy_vein_row(parts: Array, vein_id: String, selected: bool) -> Control:
-	var row := UI.hflow(6)
-	row.add_child(UI.button("☑" if selected else "☐", func(): Economy.toggle_buy_vein(vein_id)))
-	var text_row := UI.symbol_row(parts)
-	text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(text_row)
-	return row
-
-
-func _build_buy_ore_row(parts: Array, key: String, qty: int, max_qty: int) -> Control:
-	var row := UI.hflow()
-	var text_row := UI.symbol_row(parts)
-	text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(text_row)
-	if max_qty <= 0:
-		row.add_child(UI.muted_label("Sold out"))
-		return row
-	var stepper := UI.hbox()
-	stepper.add_child(UI.button("-", func(): Economy.adjust_sell_qty(key, -1, max_qty)))
-	stepper.add_child(UI.label(str(qty)))
-	stepper.add_child(UI.button("+", func(): Economy.adjust_sell_qty(key, 1, max_qty)))
-	row.add_child(stepper)
-	return row
-
-
-func _build_sell_row(parts: Array, key: String, qty: int, max_qty: int) -> Control:
-	var row := UI.hflow()
-	var text_row := UI.symbol_row(parts)
-	text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(text_row)
-	var stepper := UI.hbox()
-	stepper.add_child(UI.button("-", func(): Economy.adjust_sell_qty(key, -1, max_qty)))
-	stepper.add_child(UI.label(str(qty)))
-	stepper.add_child(UI.button("+", func(): Economy.adjust_sell_qty(key, 1, max_qty)))
-	row.add_child(stepper)
-	return row
 
 
 func _build_network_reference() -> void:
@@ -456,40 +147,6 @@ func _legend_glyph_row(symbol: String, fallback: Callable, suffix_text: String, 
 	row.add_child(UI.symbol_row([{ "symbol": symbol, "fallback": fallback }, suffix_text]))
 	row.add_child(UI.muted_label(description))
 	return row
-
-
-func _build_sell_vein_quote(data: Dictionary) -> void:
-	var vein_id: String = data["veinId"]
-	var price: int = data["price"]
-	var vein: Variant = Cultivating.find_vein(vein_id)
-	if vein == null:
-		Modal.close()
-		return
-	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
-
-	_card_content.add_child(UI.heading("Sell this vein?"))
-	_card_content.add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, "%s vein — £%d." % [ore["name"], price]]))
-	_card_content.add_child(UI.muted_label("It stops being yours. Someone else's line, someone else's cut, from here on."))
-	_card_content.add_child(UI.button("Confirm sale", func(): _on_sell_vein_confirm(vein_id)))
-	_card_content.add_child(UI.button("Cancel", func(): Modal.close()))
-
-
-func _on_sell_vein_confirm(vein_id: String) -> void:
-	VeinTrade.sell_to_faction(vein_id, VeinTrade.SELL_FACTION_ID)
-	Modal.close()
-
-
-func _build_craft_components_menu() -> void:
-	_card_content.add_child(UI.heading("Craft Components"))
-	for archetype in GameData.CANONICAL_MOVEMENT_ARCHETYPES:
-		var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
-		var block := UI.vbox(4)
-		block.add_child(UI.symbol_row([{ "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, m["name"]]))
-		block.add_child(UI.muted_label(m.get("description", "")))
-		var captured_archetype: String = archetype
-		block.add_child(UI.button("Craft", func(): Modal.open("movement_craft", { "archetype": captured_archetype })))
-		_card_content.add_child(block)
-	_card_content.add_child(UI.button("Close", func(): Modal.close()))
 
 
 func _build_movement_swap() -> void:
