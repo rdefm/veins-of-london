@@ -3,7 +3,6 @@ extends PanelContainer
 
 const ContractsSystem := preload("res://systems/contracts.gd")
 
-# Presentation-only drag target for BizBrief's persisted Sales priority.
 var contract_id := ""
 var priority_index := 0
 

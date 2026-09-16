@@ -2,8 +2,6 @@ extends Control
 
 const MorningAccountsSystem := preload("res://systems/morning_accounts.gd")
 
-# Ephemeral presentation only. State replacement (load/reset/Rewind) discards
-# the queue; no transition, timer or callback enters a save or runs an effect.
 var pending: Array[Dictionary] = []
 var active := false
 var elapsed := 0.0
@@ -67,11 +65,6 @@ func _sync_session() -> void:
 	safe_elapsed = 0.0
 
 
-# day-rhythm ticket 05: static (reads only GameState.state, no instance
-# vars) so scenes/components/alarm_presentation.gd's own safe-boundary gate
-# can call the exact same "is anything blocking presentation" definition
-# via the preloaded script, rather than re-deriving a second one that could
-# drift out of sync with this file's.
 static func outcome_finished() -> bool:
 	var state: Dictionary = GameState.state
 	return state.get("event") == null and not state["combat"].get("active", false) \
@@ -81,7 +74,6 @@ static func outcome_finished() -> bool:
 
 func _process(delta: float) -> void:
 	_sync_session()
-	# Do not count time spent suspended towards the visible presentation.
 	var step := minf(delta, 0.1)
 	if active:
 		elapsed += step
@@ -100,8 +92,6 @@ func _process(delta: float) -> void:
 	if not outcome_finished():
 		safe_elapsed = 0.0
 		return
-	# Real rendered frames after the whole synchronous action has returned,
-	# including its final notification, screen change or result modal.
 	safe_elapsed += step
 	if safe_elapsed < float(GameData.DAILY_CYCLE["outcomeHoldSeconds"]):
 		return
@@ -123,8 +113,6 @@ func _render_frame() -> void:
 	var reduced: bool = GameState.state["meta"].get("reducedMotion", false)
 	var segments: Array = []
 	if overnight:
-		# Until the final clip is supplied, every overnight/Rest path holds
-		# the authored Morning frame, with explicit destination text.
 		if ranges.has("evening_to_morning") and not reduced:
 			for phase in range(int(source["phase"]), 3):
 				segments.append(ranges[["morning_to_afternoon", "afternoon_to_evening", "evening_to_morning"][phase]])
@@ -150,15 +138,12 @@ func _render_frame() -> void:
 	var columns := int(config["columns"])
 	texture.region = Rect2((index % columns) * cell, (index / columns) * cell, segment["size"][0], segment["size"][1])
 	picture.texture = texture
-	# Integer scale, complete composition visible at the portrait baseline.
 	var available := minf(size.x, float(config["displaySize"]))
 	var scale_factor := maxi(1, int(available / maxf(segment["size"][0], segment["size"][1])))
 	picture.custom_minimum_size = Vector2(segment["size"][0], segment["size"][1]) * scale_factor
 
 
 func _input(event: InputEvent) -> void:
-	# Swallow keys/gamepad too, including a release after the timer expires:
-	# a finger held across completion must never activate a control below.
 	var key := ""
 	if event is InputEventScreenTouch:
 		key = "touch%d" % event.index

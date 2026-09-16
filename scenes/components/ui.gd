@@ -1,19 +1,8 @@
 class_name UI
 extends RefCounted
 
-# Small shared helpers so screens stay compact and consistent. Godot
-# Controls built via code, matching the rest of the T11/T12 UI shell.
 
 
-# Control.set_anchors_preset(), called with its default keep_offsets, does
-# NOT reset offset_right/offset_bottom to 0 for a node whose parent already
-# has a resolved size (true everywhere in this project — every node here
-# is built inside an already-running, already-sized tree). Instead it
-# recomputes them to preserve the control's pre-existing (zero) rect under
-# the new anchors, which pins offset_right/offset_bottom at -parent_size
-# and collapses the control to 0x0. These wrappers set the anchors and
-# then force the offsets to the values the preset is actually supposed to
-# produce, so every screen/component gets a real, non-collapsed rect.
 static func anchor_full_rect(control: Control) -> void:
 	control.set_anchors_preset(Control.PRESET_FULL_RECT)
 	control.offset_left = 0
@@ -30,37 +19,18 @@ static func anchor_top_wide(control: Control) -> void:
 	control.offset_bottom = 0
 
 
-# Left/right offsets are zeroed (full width); top/bottom are left for the
-# caller to set afterward (e.g. a fixed bar height above the bottom edge).
 static func anchor_bottom_wide(control: Control) -> void:
 	control.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	control.offset_left = 0
 	control.offset_right = 0
 
 
-# Full rect, clipped to the gap between the persistent TopBar and NavBar
-# (both visible on any screen not in Main.gd's NAV_HIDDEN_SCREENS /
-# TOP_BAR_HIDDEN_SCREENS lists). For a screen with its own bespoke layout
-# (scroll region + a separately pinned action bar) where UI.screen_body()'s
-# single-scroll skeleton doesn't fit — screen_body()'s own ScrollContainer
-# now clips itself the same way (bugfixes ticket 110 — see its own comment
-# for why), so this is only needed when a screen builds a scroll region
-# outside that skeleton.
-# Anything anchored via bare anchor_full_rect() instead of this ends up
-# with content flush against the screen edges, invisible/unreachable under
-# whichever bar is drawn on top (scenes/screens/sms_archie.gd's/
-# sms_archie_2.gd's Continue button did exactly this — bugfixes ticket 07).
 static func anchor_below_bars(control: Control) -> void:
 	anchor_full_rect(control)
 	control.offset_top = top_bar_clearance()
 	control.offset_bottom = -NavBar.BAR_HEIGHT
 
 
-# Centres a shrink-to-fit control (one sized by its children, e.g. a
-# PanelContainer or VBoxContainer) regardless of parent-size timing: zero
-# offsets pin the control's anchor point at the parent's centre, and
-# GROW_DIRECTION_BOTH lets it expand symmetrically from that point to its
-# own minimum size instead of hanging off one corner.
 static func anchor_center(control: Control) -> void:
 	control.set_anchors_preset(Control.PRESET_CENTER)
 	control.offset_left = 0
@@ -83,12 +53,6 @@ static func hbox(sep: int = 8) -> HBoxContainer:
 	return box
 
 
-# Like hbox(), but wraps overflowing children onto additional lines instead
-# of forcing them into one row that runs past the container's right edge
-# (bugfixes ticket 05: the site sheet's vein action row — Cultivate + Prune
-# (light) + Prune (hard) together are wider than a narrow phone screen).
-# HFlowContainer uses separate h/v separation theme constants
-# rather than HBoxContainer's single "separation".
 static func hflow(sep: int = 8) -> HFlowContainer:
 	var box := HFlowContainer.new()
 	box.add_theme_constant_override("h_separation", sep)
@@ -96,45 +60,14 @@ static func hflow(sep: int = 8) -> HFlowContainer:
 	return box
 
 
-# A themed "card" panel (uses the Panel style from main_theme.tres) with
-# a VBoxContainer inside it, ready for content.
 static func card() -> Dictionary:
 	var panel := PanelContainer.new()
-	# PanelContainer defaults to MOUSE_FILTER_STOP (unlike plain Container
-	# subclasses, which default to PASS) -- a bare card swallows a drag
-	# gesture before it ever reaches an ancestor TouchScrollContainer's
-	# _gui_input(), so scrolling only worked if a finger landed in the
-	# narrow gaps between cards (bugfixes ticket 16). Cards are non-
-	# interactive wrappers; PASS lets the drag bubble up while still
-	# leaving any interactive leaf inside (a real Button, STOP by default)
-	# free to consume its own taps first.
 	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	var content := vbox(6)
 	panel.add_child(content)
 	return { "panel": panel, "content": content }
 
 
-# Accordion-style collapsible section: a header button showing `title` plus
-# an expand/collapse chevron, toggling a content VBoxContainer's visibility.
-# Same { "panel", "content" } return shape as card() so call sites read the
-# same way. Bugfixes ticket 24: HQ's Rooms/Security lists needed this so
-# they'd stop pushing HQ's actionable cards (Lab, Recipes, workbench) down
-# the screen.
-#
-# `expanded` sets the section's initial state. `on_toggle`, if given, fires
-# with the new expanded bool on every tap -- a screen's _refresh() rebuilds
-# and frees this node from scratch each time (see HqScreen), so the section
-# itself can't remember its own state across a refresh; a caller wanting the
-# collapse state to persist within the session has to store it externally
-# (an instance var) and hand the updated value back in as `expanded` next
-# call.
-#
-# Built as a bare Button rather than via button() above -- that helper caps
-# and reserves a text-driven minimum width for buttons meant to sit as
-# non-expand children in an HBoxContainer row (see its own comment); a
-# section header instead sits alone in a VBoxContainer, whose cross-axis
-# (horizontal) fill already stretches a plain child to the full container
-# width regardless of minimum size, so none of that machinery is needed here.
 static func collapsible_section(title: String, expanded: bool, on_toggle: Callable = Callable()) -> Dictionary:
 	var section := vbox(6)
 
@@ -170,42 +103,8 @@ static func heading(text: String, size: int = 20) -> Label:
 	return label
 
 
-# Cap on the text-driven minimum width UI.label() will reserve -- same
-# reasoning as MAX_BUTTON_TEXT_WIDTH below, but tuned separately since a
-# label's natural content (e.g. a long sentence of prose) is a different
-# shape than a button's (bugfixes ticket 65).
 const MAX_LABEL_TEXT_WIDTH := 220.0
 
-# A word-wrapping Label's own minimum size is near-zero by design -- it's
-# based on the longest unbreakable fragment, not the full text -- so a
-# label added as a non-EXPAND child of an HBoxContainer (which sizes such a
-# child to exactly its minimum size) got squeezed down to a sliver and
-# wrapped the rest of its text one character per line. This was patched
-# ad hoc, over and over, at individual call sites (top_bar.gd's day/cash
-# labels, ui.gd's own checklist_row checkbox glyph, lab.gd's/
-# modal_layer.gd's qty steppers, map_bubble.gd's option rows) by turning
-# autowrap off entirely for that one label -- and still recurred anywhere
-# nobody had patched it yet (bugfixes ticket 65: the Lab's "Batch:" label,
-# the Crafting/Experimenting section-tab's active "(current)" label).
-#
-# Fixed here instead, the same way UI.button() already reserves its own
-# (capped) natural text width as custom_minimum_size so it can't collapse
-# to just its padding: every label now reserves its own natural single-line
-# width, capped at MAX_LABEL_TEXT_WIDTH. That's a floor, not a fixed size --
-# a label handed real width by its parent (the common case: this project's
-# screen_body() VBoxContainer stretches a non-expand child to the full
-# screen width on its cross axis regardless of this floor) still wraps
-# normally across that width. Only a label squeezed into a narrow
-# non-expand HBox slot actually falls back to this floor, and now renders
-# on however many lines that floor takes instead of collapsing to one
-# character per line.
-#
-# This only helps for text fixed at construction time. A label built with
-# placeholder text and then mutated in place afterward (top_bar.gd's
-# _day_label/_cash_label, refreshed via .text = ... on a long-lived node
-# rather than rebuilt from scratch) still needs its own explicit
-# autowrap_mode = OFF, since this reservation isn't recomputed on a later
-# text change.
 static func label(text: String) -> Label:
 	var l := Label.new()
 	l.text = text
@@ -224,53 +123,22 @@ static func muted_label(text: String) -> Label:
 	return l
 
 
-# Flags a control SIZE_EXPAND_FILL before returning it, for the common
-# one-liner `row.add_child(UI.expand_fill(UI.label(...)))` inside an
-# HBoxContainer — see checklist_row()'s comment below for why a wrapping
-# Label needs this in a horizontal row (collapses to one character per
-# line otherwise).
 static func expand_fill(control: Control) -> Control:
 	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return control
 
 
-# A label tinted with an arbitrary colour (e.g. a faction's data/factions.json
-# "colour" hex string) — the swatch-via-font-colour approach the faction
-# vein sheet (faction-vein-ownership T04) uses instead of a separate colour
-# chip, since every faction colour is dark/saturated enough to stay legible
-# as text on the panel's near-white background (theme/main_theme.tres).
 static func tinted_label(text: String, colour: Color) -> Label:
 	var l := label(text)
 	l.add_theme_color_override("font_color", colour)
 	return l
 
 
-# Cap on the text-driven minimum width UI.button() will reserve (see below)
-# -- bugfixes ticket 05's £1,000,000-balance blowout is still possible for
-# any button whose text is genuinely this long; capping it, rather than
-# letting clip_text drop the contribution to zero (bugfixes ticket 08's
-# blank-button regression), keeps ordinary labels fully readable while still
-# bounding the pathological case.
 const MAX_BUTTON_TEXT_WIDTH := 220.0
 
 const _THEME: Theme = preload("res://theme/main_theme.tres")
 
 
-# Bugfixes ticket 114: the shared glyph+text composition every ore/recipe
-# "symbol" call site now routes through, instead of interpolating the raw
-# unicode character into a Label/Button string the way this file's other
-# helpers do -- SymbolGlyph (ticket 113) needs a real Control per glyph to
-# fall back to a hand-drawn vector shape when the bundled font doesn't cover
-# it, so a symbol can no longer just be one more %s in a format string.
-#
-# `parts`: Array mixing String (plain text, rendered via label()/heading())
-# and Dictionary { "symbol": String, "fallback": Callable (SymbolGlyph.
-# draw_fallback-shaped: fn(target, center, colour, radius) -> void -- see
-# SymbolGlyph.ore_fallback()/generic_fallback()) } (rendered via a
-# SymbolGlyph). `opts`: "heading_size" (int, default 0 = body text at
-# label()'s size; >0 renders text parts via heading() at that size instead,
-# scaling the glyph to match), "muted" (bool, default false = muted_label()'s
-# grey), "sep" (int, default 4, the hbox() separation between parts).
 const SYMBOL_GLYPH_SIZE := 16.0
 const _MUTED_COLOUR := Color(0.541176, 0.541176, 0.541176, 1)
 
@@ -306,17 +174,6 @@ static func _symbol_part(part: Variant, heading_size: int, colour: Color) -> Con
 	return l
 
 
-# symbol_row()'s button counterpart -- for the many call sites (bag_drawer.gd's
-# Dial/Complication rows, guild_marketplace.gd's buy/sell rows) that pair a
-# symbol glyph with a tap action rather than a static label. Structured like
-# map_bubble.gd's own _build_icon_label_button (an inner MOUSE_FILTER_IGNORE
-# row so every child passes taps through to the Button itself), but with an
-# explicit custom_minimum_size reservation button()/label() above already
-# carry for exactly this reason (bugfixes tickets 05/08): clip_text drops a
-# Button's own text-driven minimum width entirely, and here there IS no
-# Button.text at all (the text lives inside the inner row instead), so
-# without a reservation the button collapses to bare style padding -- zero
-# real hit/visible area.
 static func symbol_button(parts: Array, callback: Callable) -> Button:
 	var b := Button.new()
 	b.pressed.connect(callback)
@@ -324,17 +181,6 @@ static func symbol_button(parts: Array, callback: Callable) -> Button:
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 
 	var inner := hbox(4)
-	# `inner` used to be added with no anchors, so it never
-	# stretched to the button's real (often full-screen-width) size -- it
-	# just sat pinned at its own top-left, floor-sized minimum. That's
-	# harmless for a short label, but a long recipe/ore name, capped to
-	# _symbol_part()'s label() floor width instead of the button's actual
-	# available width, word-wrapped to a second line that spilled out of
-	# the button's own (unchanged, single-line) minimum height into
-	# whatever rendered above/below it. Anchoring `inner` to the button's
-	# full rect gives the label its real available width to lay out
-	# against, and SIZE_SHRINK_CENTER below keeps both children vertically
-	# centered in it regardless of the button's actual height.
 	anchor_full_rect(inner)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var font_colour: Color = _THEME.get_color("font_color", "Button")
@@ -343,11 +189,6 @@ static func symbol_button(parts: Array, callback: Callable) -> Button:
 		child.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		child.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		if child is Label:
-			# Every other button helper in this file (UI.button()) never
-			# wraps -- it clips + ellipsis-trims instead, so a dynamic
-			# string can't blow out its container (see that func's own
-			# ticket-05 comment). Match that here instead of word-wrapping,
-			# which is what actually caused the spill described above.
 			child.autowrap_mode = TextServer.AUTOWRAP_OFF
 			child.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -379,37 +220,11 @@ static func option_button(items: Array) -> OptionButton:
 static func button(text: String, callback: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
-	# A Button's minimum_size grows to fit its full text by default, so one
-	# long dynamic label (e.g. a cost string built from the player's cash)
-	# can force every container up its parent chain wider than the screen --
-	# none of which scroll horizontally, so the excess just overflows past
-	# the right edge (bugfixes ticket 05: a debug £1,000,000 balance blew up
-	# the site sheet's security-upgrade button this way, dragging the charge
-	# bar, dev bar, and action row wide along with it even after those got
-	# their own overflow fix). clip_text lets the surrounding layout's width
-	# win instead.
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.pressed.connect(callback)
 
-	# clip_text (above) makes Button.get_minimum_size() drop the text's width
-	# contribution entirely, leaving only the style's content-margin padding.
-	# That's invisible inside a plain HBoxContainer (bugfixes ticket 08):
-	# a HBoxContainer gives a non-expand child exactly its minimum size, so
-	# with no text-driven width left the button collapses to its padding
-	# alone -- zero space remains for the label to draw into, so it reads as
-	# fully blank rather than clipped-with-"...". Reserving the button's own
-	# (capped) natural text width as custom_minimum_size restores real room
-	# for the glyphs while still bounding runaway dynamic labels via the cap.
-	# Fixing this once here (rather than per call site) covers every UI.hbox()
-	# + UI.button() row in the project without needing to touch each one --
-	# audited: combat.gd, event.gd, hq.gd, inventory.gd, map.gd, modal_layer.gd,
-	# phone.gd, top_bar.gd, you.gd all build button rows this way.
 	var style := _THEME.get_stylebox("normal", "Button")
-	# main_theme.tres doesn't override Button's font, so it inherits the
-	# engine's default -- get_font() returns null in that case, hence the
-	# fallback (querying the theme first, rather than assuming the fallback
-	# directly, keeps this correct if a themed Button font is ever added).
 	var font: Font = _THEME.get_font("font", "Button")
 	if font == null:
 		font = ThemeDB.fallback_font
@@ -419,13 +234,6 @@ static func button(text: String, callback: Callable) -> Button:
 	return b
 
 
-# vein-growth-state ticket 08: the site sheet's own version of MapBubble.
-# _build_option_row's "always shown, disabled with a muted reason line
-# underneath" pattern — a real inline action button rather than a bubble
-# row, for cases (Prune light/hard) that must never just disappear: the
-# player has to be able to see *why* an action isn't worth taking, not find
-# it missing. `disabled`/`reason` are the caller's job to compute (systems/
-# never touches this file); this only renders the shared shape.
 static func action_button(text: String, callback: Callable, disabled: bool = false, reason: String = "") -> Control:
 	var row := vbox(2)
 	var b := button(text, callback)
@@ -436,26 +244,9 @@ static func action_button(text: String, callback: Callable, disabled: bool = fal
 	return row
 
 
-# Fixed square touch target for an Icons (icons.gd) vector glyph, no text
-# label — bugfixes ticket 13: map.gd's top-bar hamburger/bag buttons used
-# bare "☰"/"🎒" glyphs, which render as nothing on the exported build's
-# font, unlike UI.button()'s glyph+text rows (combat.gd, top_bar.gd) which
-# stay legible because the text carries the button even if the glyph
-# doesn't render. `draw_icon` is one of Icons' `draw_*(target, center,
-# colour, scale)` static funcs, e.g. `Icons.draw_bag`.
 const ICON_BUTTON_SIZE := 40.0
-# The Icons draw_* funcs' own `scale` param is tuned so 1.0 matches their
-# original ~64px map-pin/legend-modal usage (icons.gd N6 asset 2's spec
-# size); a 40px button reads that same glyph as slightly cramped, so this
-# scales it back up to fill the touch target properly.
 const ICON_GLYPH_SCALE := 1.4
 
-# Bugfixes ticket 101: `colour_override` lets a call site force the glyph's
-# colour instead of relying on the ambient "Button" theme lookup below --
-# needed because add_theme_color_override() set on the *Button* (as
-# top_bar.gd used to do) never reaches this glyph, since it's a separate
-# child Control and Godot 4 theme overrides don't cascade to children (only
-# a full Theme resource assigned via .theme propagates down the tree).
 static func icon_button(draw_icon: Callable, callback: Callable, colour_override: Variant = null) -> Button:
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(ICON_BUTTON_SIZE, ICON_BUTTON_SIZE)
@@ -468,11 +259,6 @@ static func icon_button(draw_icon: Callable, callback: Callable, colour_override
 	return b
 
 
-# Draws its bound Icons.draw_* glyph centred in whatever rect it's given —
-# mouse_filter is IGNORE so taps pass through to whatever button/control it's
-# nested in rather than being consumed here. Factored out of icon_button()
-# above so map_bubble.gd's icon+label option rows (10-map-interaction-model
-# ticket 02) can reuse the same glyph-drawing leaf instead of redeclaring it.
 static func icon_glyph_control(draw_icon: Callable, glyph_scale: float = ICON_GLYPH_SCALE, colour_override: Variant = null) -> Control:
 	var glyph := _IconGlyph.new()
 	glyph.draw_icon = draw_icon
@@ -485,8 +271,6 @@ static func icon_glyph_control(draw_icon: Callable, glyph_scale: float = ICON_GL
 class _IconGlyph extends Control:
 	var draw_icon: Callable
 	var glyph_scale: float = ICON_GLYPH_SCALE
-	# Variant, not Color: null means "no override, use the ambient theme
-	# lookup below" -- a Color default couldn't represent "unset".
 	var colour_override: Variant = null
 
 	func _draw() -> void:
@@ -499,22 +283,10 @@ static func back_button(target_screen: String) -> Button:
 	return button("‹ Back", func(): Nav.go_to(target_screen))
 
 
-# Ticket 12: the generic back-to-home affordance, for any screen whose only
-# "home" used to be the retired home screen (hq/contacts/factions). Routes
-# to the phone app grid via PhoneNav.route_home(), which also resets
-# phoneNav.app to "home" so it doesn't land mid-app on whatever was last open.
 static func back_to_home_button() -> Button:
 	return button("‹ Back", func(): PhoneNav.route_home())
 
 
-# SMS chat-bubble row (sms_archie.gd / sms_archie_2.gd): a card-styled
-# bubble, right-aligned for from_player. The label needs an explicit
-# custom_minimum_size.x — an HBoxContainer row's non-expand child (the
-# bubble panel) only ever gets ITS minimum size, and a word-wrapping
-# Label's minimum size is near-zero by design (same failure mode
-# checklist_row()/screen_body() work around) — without it, nothing in the
-# Row -> Panel -> VBox -> Label chain ever hands the Label real width to
-# wrap against, and it collapses to one word (or character) per line.
 const BUBBLE_WIDTH := 260.0
 
 static func message_bubble(text: String, from_player: bool) -> Control:
@@ -529,14 +301,6 @@ static func message_bubble(text: String, from_player: bool) -> Control:
 	return row
 
 
-# A checkbox glyph + wrapping text label, side by side (e.g. the to-do
-# list — home's "Things to do" card, Phone's Notes app). The text label
-# MUST get SIZE_EXPAND_FILL here: an HBoxContainer gives non-expand
-# children exactly their own minimum size on its main axis, and a
-# word-wrapped Label's minimum size is near-zero by design (it expects a
-# parent to hand it real width) — without the flag it collapses to one
-# character per line (same failure mode top_bar.gd's _day_label/_cash_label
-# comment documents, seen in human QA on-device for this exact row).
 static func checklist_row(text: String, done: bool) -> Control:
 	var row := hbox(6)
 	var check_label := label("☑" if done else "☐")
@@ -556,22 +320,10 @@ static func bar(value: float, max_value: float) -> ProgressBar:
 	b.value = value
 	b.show_percentage = false
 	b.custom_minimum_size = Vector2(0, 8)
-	# ProgressBar defaults to MOUSE_FILTER_STOP same as PanelContainer above
-	# -- it's a read-only display, not a control the player drags, so it
-	# shouldn't be able to swallow a scroll drag that starts on top of it
-	# (bugfixes ticket 16 audit).
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	return b
 
 
-# D4.4's shared cost-label helper. `cost` is { label:String, resource:String,
-# amount:int } — `resource` is either "cash" or an ore-type id ("physics"
-# etc.); `holdings` is the Dictionary to read the player's current amount
-# from (player.orichalchum for ore, or a synthetic {"cash": player.cash} —
-# see callers). Produces "Seed — 40 physics (have 52)" / "Bribe — £50 (have
-# £210)" per D4.4's examples; every cost-gated button in the game routes its
-# label through this so a player never has to open the bag drawer just to
-# see if they can afford something.
 static func format_cost_label(cost: Dictionary, holdings: Dictionary) -> String:
 	var resource: String = cost.get("resource", "")
 	var amount: int = cost.get("amount", 0)
@@ -589,8 +341,6 @@ static func format_cost_label(cost: Dictionary, holdings: Dictionary) -> String:
 	return "%s — %s" % [label, amount_text]
 
 
-# Presentation-only time cost. Reads the current phase; callers provide
-# availability from their existing action gate. Never charges time.
 static func block_cost_suffix(action_blocks: int = 1) -> String:
 	if action_blocks <= 0:
 		return ""
@@ -605,18 +355,6 @@ static func format_block_cost_label(action_label: String, action_blocks: int = 1
 	return "%s — %s" % [action_label, block_cost_suffix(action_blocks)]
 
 
-# OS safe-area/gesture-inset (bugfixes ticket 20 — the notched/gesture-nav
-# device this exists for has no headless test rig, so this is verified by
-# the zero-inset desktop/headless behaviour here and human on-device QA per
-# the ticket). DisplayServer.get_display_safe_area() reports the unobstructed
-# region in physical screen pixels, but every offset_* in this file is in
-# canvas coordinates -- project.godot's canvas_items/expand stretch mode
-# means those two spaces are NOT 1:1, so the raw DisplayServer rect can't be
-# used as an offset directly without first scaling it down by how much the
-# stretch mode is enlarging canvas units relative to real pixels.
-# window_get_size() reports (0, 0) with no window open (every headless run,
-# including tests/check_runner.gd) -- the early-out there is what keeps this
-# safe against a division by zero rather than a device-only concern.
 static func safe_area_insets() -> Dictionary:
 	var zero := { "top": 0.0, "bottom": 0.0, "left": 0.0, "right": 0.0 }
 
@@ -649,32 +387,10 @@ static func safe_area_top_inset() -> float:
 	return safe_area_insets()["top"]
 
 
-# Bugfixes ticket 21: TopBar itself shifts down by safe_area_top_inset() to
-# clear a notch/front-camera cutout (see top_bar.gd), which grows its total
-# footprint from BAR_HEIGHT to BAR_HEIGHT + inset. Every screen that clears
-# "below the persistent TopBar" by the bare constant needs the same inset
-# added, or the bar's now-lower bottom edge overlaps the top strip of
-# whatever content assumed the old, shorter footprint. Zero on
-# desktop/headless (no window), same as the insets it wraps.
 static func top_bar_clearance() -> float:
 	return TopBar.BAR_HEIGHT + safe_area_top_inset()
 
 
-# Bugfixes ticket 106: the top-bar ticker was still overlapping the notch/
-# front-camera on-device after commit 54e8cd7 made TopBar re-derive
-# safe_area_top_inset() every refresh -- re-deriving a value fixes
-# it drifting *stale*, but does nothing if the OS-reported value itself is
-# wrong on the affected device, and that can't be told apart from here: this
-# whole file only ever runs against the zero-inset early-out in a headless
-# run (see safe_area_insets()'s own comment), never a real cutout. Surfaces
-# every raw + derived number that inset math depends on in one dump, wired
-# into the phone Debug app (phone.gd's _build_debug_safe_area_card()) so a
-# human on the affected device can read it straight off the screen -- no
-# logcat, no rebuild -- and report back what's actually there before this
-# ticket's root cause can be diagnosed. Mirrors safe_area_insets()'s own
-# no-window early-out so the headless/desktop case stays deterministic for
-# tests/test_ui.gd rather than calling DisplayServer.get_display_safe_area()
-# against a (0,0) window.
 static func safe_area_debug_text() -> String:
 	var window_size := DisplayServer.window_get_size()
 	if window_size.x <= 0 or window_size.y <= 0:
@@ -696,10 +412,6 @@ static func safe_area_debug_text() -> String:
 	]
 
 
-# TouchScrollContainer, not a bare ScrollContainer — see its own class
-# comment: vanilla ScrollContainer has no touch/finger drag-to-scroll, only
-# this subclass's manual handling gives every screen built through this
-# (i.e. nearly all of them, via screen_body()) that behaviour.
 static func scroll_container() -> ScrollContainer:
 	var sc := TouchScrollContainer.new()
 	anchor_full_rect(sc)
@@ -707,38 +419,12 @@ static func scroll_container() -> ScrollContainer:
 	return sc
 
 
-# Standard screen skeleton: ScrollContainer (clipped to the gap between the
-# bars) > margin > VBoxContainer. Returns the VBoxContainer to add content
-# to; caller adds the returned root Control as the screen's only top-level
-# child.
 static func screen_body(root: Control) -> VBoxContainer:
 	var sc := scroll_container()
-	# Bugfixes ticket 110: the ScrollContainer's own rect is what actually
-	# bounds what it can draw (Godot clips a ScrollContainer to its own
-	# bounds) — it used to be full-screen, with the gap below the TopBar
-	# expressed instead as a *leading* margin inside the scrolled content
-	# (below). That only holds at scroll_vertical 0: once a screen's content
-	# is tall enough to scroll past that margin's own height, the real
-	# content behind it keeps sliding up past y=0 into the TopBar's own
-	# screen region, which the ScrollContainer's (still full-screen) clip
-	# rect does nothing to hide — the persistent TopBar (a sibling drawn on
-	# top, scenes/Main.gd) then either paints over that content or gets
-	# drawn under it. Not reproduced on every screen sharing this skeleton
-	# only because it takes that much scrollable content to trigger it — HQ
-	# and Phone just accumulate the most in normal play. Anchoring the
-	# container itself below the bars (event.gd's ScrollContainer already
-	# did exactly this, bugfixes ticket 20/21) makes the clip rect itself
-	# the guarantee, regardless of scroll position or content length.
 	anchor_below_bars(sc)
 	root.add_child(sc)
 
 	var margin := MarginContainer.new()
-	# Anchors are ignored for a ScrollContainer's child — it sizes that
-	# child itself. Without SIZE_EXPAND here, it shrinks the margin (and
-	# everything inside it) down to its content's minimum width instead of
-	# stretching it to the screen width, which is disastrous for a
-	# word-wrapped Label: its minimum width collapses to near 0, so it
-	# wraps one character per line.
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_right", 16)

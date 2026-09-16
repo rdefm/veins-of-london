@@ -1,46 +1,12 @@
 class_name BagDrawer
 extends Control
 
-# D4.4's global bag drawer: a bottom sheet, openable from ANY screen
-# (Bag.open(), driven by state.bagDrawerOpen) without costing a turn, a
-# block, or advancing anything — it's a pure read of state, same as
-# ModalLayer, just anchored to the bottom and keyed off a different state
-# field so it can be open independently of state.modal.
-#
-# 05-bag-drawer-promotion: weapon equip/unequip management (ported straight
-# from inventory.gd's equipment tab) outside combat/item-hook events. Dial
-# management lived here too from dial-device ticket 07 until hq-diorama
-# ticket 09 moved it out entirely to scenes/screens/hq_dial.gd, the Dial's
-# own full-bleed loadout sub-view -- this drawer keeps only a read-only Dial
-# summary now (_build_dial_summary_label()). Inside combat/item-hook events
-# this falls back to read-only contents plus the legal Use buttons --
-# combat's version replaces the old "combat_items" modal (ported from
-# modal_layer.gd's former _build_combat_items). itemHooks (event cards with
-# legal item uses) don't exist yet in the event framework (M1-LONDON.md D5/
-# ticket 08) — no event has one, or a Use-button system to go with it — so
-# the itemHooks half of the gate only ever hides management controls for
-# now; it never has anything to show in their place.
 
 const DRAWER_HEIGHT := 420.0
 const MANAGEMENT_DRAWER_HEIGHT := 700.0
 
-# calc-effect-wiring-02/03: extended with the newly-wired effects. Still a
-# curated list, not every GameData.RECIPES key (unlike inventory.gd's tab,
-# which now iterates all of them) -- this summary only covers consumables
-# with a real, usable effect reachable from THIS drawer; sale-only/not-yet-
-# wired recipes (rejuvenation, etc.) stay off it. failsafe is deliberately
-# absent too -- it's wired (calc-effect-wiring-03) but has no manual Use
-# action, so it belongs only on inventory.gd's tab, which lists every
-# in-stock recipe regardless of whether it has a button here.
 const CONSUMABLE_KEYS := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole"]
 
-# Ticket 12: the two strictly-out-of-combat effects (healingSalve is a 2-day
-# heal-over-time; healingBurst is instant but also legal outside a fight) --
-# ported from the deleted inventory.gd's OUT_OF_COMBAT_USE_KEYS, since that
-# screen was the only place either had a manual Use control. Only shown in
-# management mode (outside combat and outside an itemHooks event card), same
-# gate as equip/device management -- these are self-service actions, not
-# combat-legal item hooks.
 const OUT_OF_COMBAT_USE_KEYS := ["healingSalve", "healingBurst"]
 
 var _dim: ColorRect
@@ -56,9 +22,6 @@ func _ready() -> void:
 	_dim.color = Color(0, 0, 0, 0.5)
 	UI.anchor_full_rect(_dim)
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	# Ticket 12: without this, STOP just swallows the tap silently, leaving
-	# scrolling to the explicit Close button as the only way out. Same
-	# pattern as map_controls.gd's filter drawer.
 	_dim.gui_input.connect(_on_dim_gui_input)
 	add_child(_dim)
 
@@ -71,12 +34,6 @@ func _ready() -> void:
 	var scroll := UI.scroll_container()
 	_card.add_child(scroll)
 
-	# Anchors are ignored for a ScrollContainer's child, and without
-	# SIZE_EXPAND_FILL it shrinks to its content's minimum width instead of
-	# the drawer's — the same failure mode UI.screen_body()'s own comment
-	# documents (a word-wrapped Label's minimum width collapses near 0,
-	# breaking mid-word, e.g. "Orichalchum" -> "Orichalchu"/"m: 20"), just
-	# not worked around here until a real device showed it.
 	_content = UI.vbox(8)
 	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_content)
@@ -119,8 +76,6 @@ func _refresh() -> void:
 		var qty: int = Crafting.inventory_qty(recipe_key)
 		_content.add_child(UI.symbol_row([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s: %d" % [recipe["name"], qty]]))
 
-	# A used-up salve still has a running HoT even once its stock hits 0 --
-	# ported from inventory.gd, same unconditional-on-days-left visibility.
 	if player["healingSalveDaysLeft"] > 0:
 		_content.add_child(UI.symbol_row([{ "symbol": GameData.RECIPES["healingSalve"]["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "Healing Salve active — %d HP/day, %d day(s) left" % [player["healingSalveDailyAmount"], player["healingSalveDaysLeft"]]], { "muted": true }))
 
@@ -139,13 +94,6 @@ func _refresh() -> void:
 	_content.add_child(UI.button("Close", func(): Bag.close()))
 
 
-# Full management (equip/unequip, device lifecycle) is only safe outside
-# combat and outside an event card carrying itemHooks — both are contexts
-# where re-optimizing a loadout for free would be an exploit. itemHooks
-# doesn't exist on any authored card yet (see class comment), so this half
-# of the check is always false today, same as bag_drawer's original D4.4
-# comment already documented — it's here so the gate is correct the moment
-# ticket 08's event content lands, without another edit to this file.
 func _is_management_mode() -> bool:
 	if GameState.state["combat"]["active"]:
 		return false
@@ -158,10 +106,6 @@ func _is_management_mode() -> bool:
 	return true
 
 
-# Ported from inventory.gd's OUT_OF_COMBAT_USE_KEYS section — the only two
-# recipes with a legal manual Use outside combat. healingBurst reuses
-# _on_use_healing_burst below (same Consumables call combat's button makes);
-# healingSalve gets its own handler since combat never offered it a button.
 func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
 	if Crafting.inventory_qty("healingSalve") > 0:
 		_content.add_child(_symbol_use_button("healingSalve", "Healing Salve (%d) — 2-day heal-over-time" % Crafting.inventory_qty("healingSalve"), _on_use_healing_salve))
@@ -169,15 +113,6 @@ func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
 		_content.add_child(_symbol_use_button("healingBurst", "Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
 
 
-# Bugfixes ticket 114: every combat/out-of-combat "use" button below used to
-# hardcode its recipe's symbol as a second, literal copy of
-# data/recipes.json's own "symbol" field (e.g. "⧖" duplicating
-# RECIPES.timePearl.symbol) directly in the button label string -- which
-# also meant it couldn't route through SymbolGlyph's font-coverage fallback
-# the way a real recipe["symbol"] lookup can. Reading the symbol from
-# GameData instead fixes both: one source of truth, and a real glyph
-# fallback via generic_fallback() (recipes have no bespoke OreGlyphs shape
-# -- see symbol_glyph.gd's own comment).
 func _symbol_use_button(recipe_key: String, rest_text: String, callback: Callable) -> Button:
 	var symbol: String = GameData.RECIPES[recipe_key]["symbol"]
 	return UI.symbol_button([{ "symbol": symbol, "fallback": SymbolGlyph.generic_fallback() }, rest_text], callback)
@@ -188,8 +123,6 @@ func _on_use_healing_salve() -> void:
 	Consumables.use_healing_salve()
 
 
-# Ported from inventory.gd's _build_equipment_tab weapon half — same
-# equip/unequip logic, Equipment system calls unchanged.
 func _build_weapon_management(player: Dictionary) -> void:
 	_content.add_child(UI.heading("Weapon", 14))
 	if player["items"].is_empty():
@@ -203,9 +136,6 @@ func _build_weapon_management(player: Dictionary) -> void:
 		var is_equipped: bool = player["equipment"]["weapon"] == item["id"]
 		var item_id: String = item["id"]
 		var c := UI.card()
-		# items.json's schema (REFERENCE.md §1.5: key/name/slot/attackBonus/
-		# description) has no "symbol" field, unlike ore/recipes/devices --
-		# def["name"] alone, matching that canon schema.
 		c["content"].add_child(UI.label("%s%s" % [def["name"], " (equipped)" if is_equipped else ""]))
 		c["content"].add_child(UI.muted_label(def["description"]))
 		c["content"].add_child(UI.muted_label("+%d–%d attack" % [def["attackBonus"]["min"], def["attackBonus"]["max"]]))
@@ -216,13 +146,6 @@ func _build_weapon_management(player: Dictionary) -> void:
 		_content.add_child(c["panel"])
 
 
-# hq-diorama ticket 09: Dial loadout management (seat/unseat Movement, wind
-# the charge pool, load/unload Complications) is deleted from this drawer --
-# scenes/screens/hq_dial.gd (docs/hq-diorama-vision.md §4) is now the sole
-# entry point, reached from HQ's Dial zone. Management mode itself no longer
-# shows anything Dial-related (only weapon equip/unequip remains, above);
-# the read-only summary below (_build_dial_summary_label()) still renders in
-# non-management mode (e.g. mid-combat), untouched by this ticket.
 func _build_equipped_weapon_label(player: Dictionary) -> Control:
 	var weapon_id = player["equipment"]["weapon"]
 	for item in player["items"]:
@@ -232,9 +155,6 @@ func _build_equipped_weapon_label(player: Dictionary) -> Control:
 	return UI.muted_label("Weapon: none equipped")
 
 
-# dial-device ticket 07: replaces _build_equipped_device_label -- the Dial
-# is lifetime-owned, not equipped/unequipped, so this is a read-only summary
-# rather than an "(equipped)" tag.
 func _build_dial_summary_label(player: Dictionary) -> Control:
 	var dial: Variant = player["dial"]
 	if dial == null:
@@ -246,9 +166,6 @@ func _build_dial_summary_label(player: Dictionary) -> Control:
 	return UI.symbol_row(["Dial: Lv%d — " % dial["level"], { "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " %s, charge %d/%d" % [m["name"], int(dial["currentCharge"]), dial["maxCharge"]]])
 
 
-# Ported from modal_layer.gd's former _build_combat_items — same legal-use
-# logic, Bag.close() instead of Modal.close() since this drawer replaces
-# that modal (D4.4).
 func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 	if Crafting.inventory_qty("timePearl") > 0:
 		_content.add_child(_symbol_use_button("timePearl", "Time Pearl (%d) — freeze enemy" % Crafting.inventory_qty("timePearl"), _on_use_time_pearl))
@@ -256,8 +173,6 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 	if Crafting.inventory_qty("enhancementPowder") > 0:
 		_content.add_child(_symbol_use_button("enhancementPowder", "Enhancement Powder (%d) — extra attacks" % Crafting.inventory_qty("enhancementPowder"), _on_use_enhancement_powder))
 
-	# calc-effect-wiring-02: blast/shield/blackHole/healingBurst.
-	# PROSE-REVIEW: new button labels below, drafted against CONTENT-GUIDE.md's tone bible.
 	if Crafting.inventory_qty("blast") > 0:
 		_content.add_child(_symbol_use_button("blast", "Blast (%d) — damage, flee boost, chance to disarm" % Crafting.inventory_qty("blast"), _on_use_blast))
 
@@ -272,10 +187,6 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 	if Crafting.inventory_qty("healingBurst") > 0:
 		_content.add_child(_symbol_use_button("healingBurst", "Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
 
-	# calc-effect-wiring-03: prophetsBreath/wormhole (combat evade buff /
-	# guaranteed flee). failsafe has no button here -- see CONSUMABLE_KEYS'
-	# comment.
-	# PROSE-REVIEW: new button labels below, drafted against CONTENT-GUIDE.md's tone bible.
 	if Crafting.inventory_qty("prophetsBreath") > 0:
 		_content.add_child(_symbol_use_button("prophetsBreath", "Prophet's Breath (%d) — evade buff" % Crafting.inventory_qty("prophetsBreath"), _on_use_prophets_breath))
 
@@ -289,20 +200,8 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 		rewind_button.disabled = snap_count == 0
 		_content.add_child(rewind_button)
 
-	# combat-presentation ticket 03, docs/combat-animation-vision.md §2.5:
-	# Dial casting moved to the new command-deck Dial widget
-	# (scenes/components/dial_widget.gd) -- the per-Complication cast-button
-	# list that used to live here (dial-device ticket 07) is gone; this
-	# drawer keeps handling only non-Dial items now.
 
 
-# combat-presentation ticket 11: every in-combat use_*() below now returns
-# `beats` (same shape player_attack()/flee()/cast_complication() already
-# produce) -- forwarded to EventBus.combat_beats_played so whichever
-# CombatScreen is on screen can play them through its own CombatDirector.
-# BagDrawer itself is a global overlay (scenes/Main.gd), not a child of
-# CombatScreen, so this signal is the only channel back -- see that
-# signal's own comment.
 func _play_result_beats(result: Dictionary) -> void:
 	var beats: Array = result.get("beats", [])
 	if not beats.is_empty():
@@ -349,12 +248,6 @@ func _on_use_wormhole() -> void:
 	_play_result_beats(Combat.use_wormhole())
 
 
-# combat-presentation ticket 11, §5: "rewind/failsafe ... the beat queue in
-# reverse" -- routed through the dedicated combat_rewind_played signal
-# (reversed beats, replayed through CombatScreen's own reverse-playback
-# path) rather than _play_result_beats()'s forward one. No Bag.close() here,
-# matching this button's pre-existing behaviour (unlike every use_*() button
-# above, the drawer stays open after a Rewind).
 func _on_use_rewind() -> void:
 	var result: Dictionary = Combat.combat_rewind()
 	var beats: Array = result.get("beats", [])

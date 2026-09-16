@@ -1,34 +1,6 @@
 class_name HqDiorama
 extends Control
 
-# hq-diorama ticket 01, docs/hq-diorama-vision.md §9: a generic renderer for
-# any plate entry in data/hq_visuals.json (GameData.HQ_VISUALS's "rooms"
-# table today; any future sub-view plate that follows the same {image,
-# fallbackColor, width, height, regions} shape tomorrow). Reads
-# plate.regions entirely generically -- it never hardcodes a zone id, so a
-# new region (or a whole new plate) needs no code change here, only a
-# manifest edit. Callers (ticket 02's HQ screen) build() this from a
-# GameData.HQ_VISUALS["rooms"][tier] entry and read region_rects() to do
-# their own tap-hit-testing; this class only renders.
-#
-# Rendering has two independent layers, per the ticket's own two acceptance
-# checks:
-#  1. Always on: the plate's background (image, or a data/palette.json
-#     fallback fill -- the same two-level fallback data/combat_visuals.json's
-#     backdrops use, see GameData._validate_hq_visuals()), plus a labelled
-#     placeholder box in every region whose own "image" is empty. This is
-#     what makes the room navigable and tappable with zero art produced.
-#     hq-diorama ticket 18: a region can opt out of the placeholder box with
-#     "placeholder": false even while "image" stays empty -- for a region
-#     whose art is already baked into the plate's own background image (see
-#     data/hq_visuals.json's "labBench" meta.labBench note on the notebook
-#     regions) rather than drawn as its own sprite. The region stays fully
-#     tappable either way -- region_rects() never reads this field.
-#  2. Debug-only, toggled at runtime via set_debug_overlay_enabled(): every
-#     region's rect drawn again on top, outlined, with its id as text --
-#     "hit region + sprite rect" are the same rect in this manifest's own
-#     schema (a region's art, once produced, is baked at exactly the rect
-#     that is also its tap area), so one outline pass covers both.
 
 const PLACEHOLDER_FILL := Color(0.30, 0.30, 0.34, 0.85)
 const PLACEHOLDER_BORDER := Color(0.85, 0.85, 0.80)
@@ -39,22 +11,12 @@ const DEBUG_LABEL_MARGIN := Vector2(3.0, 13.0)
 var _plate: Dictionary = {}
 var _background_texture: TextureRect
 var _background_fill: ColorRect
-# region id -> TextureRect, for regions whose own "image" loaded
-# successfully -- built fresh in build(), tracked so _draw() knows to skip
-# the placeholder box for exactly those regions.
 var _region_sprites: Dictionary = {}
 var _debug_overlay_enabled: bool = false
 var _captions: Array[Label] = []
 
 
 func _init() -> void:
-	# z_index -1 pins both background layers behind this Control's own
-	# _draw() (placeholder boxes + debug overlay) -- Godot draws a Control's
-	# own _draw() first and its children on top by default, and these two
-	# are added as children, so without this every placeholder box (and the
-	# debug overlay) would render fully hidden under a full-plate background
-	# fill/texture. Region sprites (added later in build()) stay at the
-	# default z_index 0, on top of both.
 	_background_fill = ColorRect.new()
 	_background_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_background_fill.z_index = -1
@@ -68,9 +30,6 @@ func _init() -> void:
 	add_child(_background_texture)
 
 
-# Rebuilds this control from a data/hq_visuals.json plate entry (e.g.
-# GameData.HQ_VISUALS["rooms"]["bedsit"]). Safe to call again (e.g. on a
-# tier change) -- clears out the previous build's region sprites first.
 func build(plate: Dictionary) -> void:
 	for caption in _captions:
 		caption.free()
@@ -118,7 +77,6 @@ func build(plate: Dictionary) -> void:
 		add_child(sprite)
 		_region_sprites[region_id] = sprite
 
-	# Optional action captions remain readable when the region has finished art.
 	for region_id in regions:
 		var region: Dictionary = regions[region_id]
 		if not region.has("caption"):
@@ -146,10 +104,6 @@ func is_debug_overlay_enabled() -> bool:
 	return _debug_overlay_enabled
 
 
-# region id -> Rect2 in this control's own coordinate space, for callers to
-# do their own tap-hit-testing against. Built fresh from whatever
-# _plate.regions currently holds, never cached, so it always matches the
-# most recent build().
 func region_rects() -> Dictionary:
 	var result: Dictionary = {}
 	var regions: Dictionary = _plate.get("regions", {})
@@ -175,21 +129,12 @@ func _draw() -> void:
 			_draw_debug_region(self, _region_rect(regions[region_id]), region_id)
 
 
-# A region skips its placeholder box when either its own "image" already
-# loaded a sprite (_region_sprites), or the manifest opts it out explicitly
-# via "placeholder": false (ticket 18 -- a region whose art is baked into
-# the plate's background rather than drawn as its own sprite). Split out as
-# its own pure function, rather than inlined in _draw(), so tests can assert
-# on the skip decision without a live draw context.
 func _should_draw_placeholder(region_id: String, region: Dictionary) -> bool:
 	if _region_sprites.has(region_id):
 		return false
 	return region.get("placeholder", true)
 
 
-# Split out from _draw() with a `target` param (mirroring map_canvas.gd's
-# own _draw_*(..., target: Object = self) convention) so tests can pass a
-# DrawSpy and assert on the recorded calls without a live Viewport.
 func _draw_placeholder_box(target: Object, rect: Rect2, label: String) -> void:
 	target.draw_rect(rect, PLACEHOLDER_FILL, true)
 	target.draw_rect(rect, PLACEHOLDER_BORDER, false, 2.0)

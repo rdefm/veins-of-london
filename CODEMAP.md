@@ -129,7 +129,7 @@ overlays.
 | map_controls.gd | Filter-chip drawer + legend button |
 | map_legend.gd | Persistent faction-colour key |
 | map_zoom_buttons.gd | Floating +/- zoom control |
-| modal_layer.gd | Dim background + card, dispatches on modal type |
+| modal_layer.gd | Dim background + card; chrome + tap-outside dismiss. Content for registry types comes from scenes/modals/, everything else stays in its own local `_build_*` match arm |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ) |
 | ore_glyphs.gd | Ore-symbol font glyph rendering |
 | symbol_glyph.gd | Label-or-vector fallback for a symbol |
@@ -138,6 +138,21 @@ overlays.
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
 | turn_order_strip.gd | Combat turn-order display strip |
 | ui.gd | Shared Control builders, time-cost labels |
+
+## scenes/modals/*.gd — modal content, one script per type
+
+| File | Purpose |
+|---|---|
+| modal_registry.gd | type id -> content script table; modal_layer.gd dispatches here first |
+| seed_result_modal.gd | Seed-attempt result card |
+| cultivate_result_modal.gd | Cultivate-attempt result card |
+| craft_result_modal.gd | Single-craft result card |
+| craft_batch_result_modal.gd | Batch-craft result card, per-attempt list |
+| sale_result_modal.gd | Archie/faction sale result card; close routes to Phone home |
+| archie_deal_result_modal.gd | Archie deal-vein result card; close routes to Phone home |
+| james_job_offer_modal.gd | James job offer card; Accept/Decline hand off to Jobs |
+| james_job_short_modal.gd | James job "not enough stock" card |
+| james_job_complete_modal.gd | James job payout card |
 
 ## data/*.json
 

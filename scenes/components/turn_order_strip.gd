@@ -1,21 +1,6 @@
 class_name TurnOrderStrip
 extends Control
 
-# combat-presentation ticket 02, docs/combat-animation-vision.md §2.4: one
-# component doing nameplate + HP/status detail + turn-order + targeting, all
-# at once -- replacing the on-stage name/HP labels ticket 01 kept as an
-# interim measure (scenes/screens/combat.gd's _build_slot() no longer builds
-# them). Rebuilt from scratch by CombatScreen._refresh() on every
-# EventBus.state_changed, same as the stage -- this node holds no state of
-# its own across rebuilds; CombatScreen's own _strip_selected_key instance
-# var is what survives (ticket 04's persistent-node beat-queue architecture
-# hasn't landed yet, so nothing here can outlive a refresh).
-#
-# Card content deliberately omits a "level" badge for enemies/allies -- no
-# such field exists anywhere in the state model today (only
-# player.combatSkill is level-like). See
-# .scratch/combat-presentation/level-system.md for the scoping note on a
-# real enemy/ally leveling system, deferred out of this ticket.
 
 const CARD_HEIGHT := 88.0
 const MAX_CARD_WIDTH := 96.0
@@ -23,24 +8,15 @@ const CARD_SEPARATION := 6.0
 const HP_BAR_HEIGHT := 4.0
 const SWIPE_THRESHOLD_PX := 40.0
 
-# §2.4's HP-bar urgency pulse and damage-decal tiers -- draft thresholds,
-# "~20%"/"~60%"/"~30%" per the vision doc's own hedged language, not exact
-# balance numbers.
 const PULSE_HP_FRACTION := 0.20
 const CRACKED_HP_FRACTION := 0.60
 const RUINED_HP_FRACTION := 0.30
 const RUINED_TILT_DEGREES := -4.0
 
-# Player/ally cards have no faction (they're not the encounter's antagonist)
-# -- a fixed neutral tone distinct from both a real faction colour and the
-# "UNKNOWN" grey an anonymous enemy gets.
 const NEUTRAL_COLOUR := Color(0.42, 0.46, 0.55)
 const UNKNOWN_COLOUR := Color(0.32, 0.32, 0.32)
 
 
-# One nameplate. Public (not `_`-prefixed) so tests can address it as
-# TurnOrderStrip.NameplateCard, mirroring CombatScreen.StageSlot
-# (scenes/screens/combat.gd).
 class NameplateCard extends Control:
 	var entry_key: Dictionary = {}
 	var combatant_name: String = ""
@@ -54,20 +30,7 @@ class NameplateCard extends Control:
 	var shows_exact_hp: bool = false
 	var status_lines: Array[String] = []
 	var shows_telegraph_slot: bool = false
-	# combat-presentation ticket 06, docs/combat-animation-vision.md §4.2: the
-	# telegraphed-intent text itself, computed by _telegraph_text_for() below
-	# and stashed here (rather than computed inline in _build_card_content())
-	# so both that render step and tests can read the same value. Only
-	# meaningful when shows_telegraph_slot is true.
 	var telegraph_text: String = ""
-	# combat-presentation ticket 10, §4: "Ability tell | 1 pose, held | pulse"
-	# -- ticket 06's telegraph slot getting its real art instead of the text/
-	# glyph placeholder. null (the default -- no tell art exists for any
-	# subject yet, see data/combat_visuals.json's own "actionRule" note)
-	# means the slot still shows telegraph_text as a Label, exactly as before
-	# this ticket; a non-null image replaces that Label with a pulsing
-	# TextureRect instead (see _build_card_content() below). Only meaningful
-	# when shows_telegraph_slot is true, same as telegraph_text.
 	var tell_image: Texture2D = null
 	var tell_rect: TextureRect = null
 	var is_pulsing: bool = false
@@ -75,14 +38,6 @@ class NameplateCard extends Control:
 
 	var telegraph_label: Label = null
 
-	# combat-presentation ticket 05, §4.1: "HP bar lag-drain -- a ghost bar
-	# chasing the real (already-updated) value down." `hp` above is already
-	# the final, post-round value the instant this card is built (Combat.*
-	# mutates GameState.state synchronously; see combat_director.gd's own
-	# top comment) -- ghost_hp is a *separate* value CombatScreen drives
-	# beat-by-beat as the round plays back, starting above `hp` and draining
-	# to meet it. null (the default, and every non-"just took a hit this
-	# round" card) means "no ghost -- draw the plain bar only."
 	var ghost_hp: Variant = null
 
 	func set_ghost_hp(value: float) -> void:
@@ -92,20 +47,11 @@ class NameplateCard extends Control:
 	func _ready() -> void:
 		if damage_tier == 2:
 			rotation_degrees = TurnOrderStrip.RUINED_TILT_DEGREES
-		# Tests build this card without adding it to a live tree (same
-		# is_inside_tree() guard dot_matrix_board.gd's set_lines()/
-		# advance_scramble() use before touching process/redraw state) --
-		# create_tween() requires a live tree and would error/no-op there.
 		if is_pulsing and is_inside_tree():
 			var tween := create_tween()
 			tween.set_loops()
 			tween.tween_property(self, "modulate:a", 0.5, 0.45)
 			tween.tween_property(self, "modulate:a", 1.0, 0.45)
-		# combat-presentation ticket 10, §4: the ability-tell pose's own
-		# "pulse" -- scoped to tell_rect's own alpha, not the whole card's
-		# modulate (is_pulsing above), so a low-HP card that's ALSO the
-		# telegraphed enemy pulses both independently rather than one
-		# tween fighting the other.
 		if tell_rect != null and is_inside_tree():
 			var tell_tween := create_tween()
 			tell_tween.set_loops()
@@ -122,17 +68,11 @@ class NameplateCard extends Control:
 		draw_rect(rect, Color(0.11, 0.11, 0.13, bg_alpha), true)
 		draw_rect(rect, faction_colour, false, 3.0 if is_focused else 1.5)
 
-		# The dividing rule line doubling as the HP bar (§2.4) -- depletes by
-		# length, not hue; faction_colour stays constant at every HP level.
 		var bar_y: float = 20.0
 		var frac: float = clampf(float(hp) / float(maxi(1, hp_max)), 0.0, 1.0)
 		draw_rect(Rect2(Vector2(4.0, bar_y), Vector2(size.x - 8.0, TurnOrderStrip.HP_BAR_HEIGHT)), Color(0, 0, 0, 0.4), true)
 		draw_rect(Rect2(Vector2(4.0, bar_y), Vector2((size.x - 8.0) * frac, TurnOrderStrip.HP_BAR_HEIGHT)), faction_colour, true)
 
-		# combat-presentation ticket 05, §4.1: the ghost bar itself -- a
-		# lighter overlay from the real bar's edge out to wherever ghost_hp
-		# still sits, i.e. "the chunk about to drain." Nothing drawn once
-		# ghost_hp catches up to (or was never above) the real value.
 		if ghost_hp != null:
 			var ghost_frac: float = clampf(float(ghost_hp) / float(maxi(1, hp_max)), 0.0, 1.0)
 			if ghost_frac > frac:
@@ -144,13 +84,6 @@ func build_entries(combat: Dictionary, player: Dictionary) -> Array:
 	var entries: Array = []
 	var seen: Dictionary = {}
 	for queue_entry in Combat.build_turn_queue(combat):
-		# Motion (combat.motionTurns) inserts extra "extra": true player
-		# entries into build_turn_queue() so the *turn queue* shows every
-		# upcoming action -- the strip wants one card per living combatant
-		# (per this ticket's own acceptance check), so those duplicates and
-		# any other repeat of the same combatant collapse to their first
-		# appearance, which is also earliest-in-order -- exactly the
-		# position turn order says they act next from.
 		var type: String = queue_entry["type"]
 		var dedup_key: String = type if type == "player" else "%s:%d" % [type, queue_entry["index"]]
 		if seen.has(dedup_key):
@@ -180,12 +113,6 @@ func build_entries(combat: Dictionary, player: Dictionary) -> Array:
 	return entries
 
 
-# §2.4's faction-colour table: defend_vein/home_raid are always anonymous
-# (raid-stealth-anonymity's guard-template decision), mugging/event_mugging
-# muggers have no faction at all, and raid/event_raid reveal the target
-# vein's real owner since the player chose that vein. Every other/unknown
-# context (e.g. archie_deal_mugging) falls through to the same UNKNOWN grey
-# as mugging, by the same "no faction to reveal" reasoning.
 func _enemy_faction_display(combat: Dictionary) -> Dictionary:
 	var context: String = combat["context"]
 	var vein_id: Variant = combat.get("veinId")
@@ -214,12 +141,6 @@ func _status_lines_for(key: Dictionary, combat: Dictionary, player: Dictionary) 
 	return lines
 
 
-# Builds every card up front (no scroll/virtualisation) -- SQUAD_MAX caps
-# each side at 3, so at most 6 cards ever exist; card width shrinks to fit
-# `available_width` instead, which is simpler and more testable than a
-# scroll-into-view carousel and matches this ticket's "instant snap is
-# acceptable" framing (ticket 04's tween-director is what earns real
-# scrolling/reorder animation later).
 func configure(entries: Array, selected_pos: int, combat: Dictionary, player: Dictionary, available_width: float, selection_callback: Callable) -> void:
 	_entries = entries
 	_selected_pos = clampi(selected_pos, 0, maxi(0, entries.size() - 1))
@@ -238,24 +159,9 @@ var _on_selection_changed: Callable = Callable()
 var _drag_index := -100
 var _drag_start_x: float = 0.0
 
-# combat-presentation ticket 05: keyed the same way CombatScreen already
-# keys its own persistent stage slots (-1 for the player, an array index for
-# an ally/enemy) so the ghost-drain call sites on both sides can build the
-# same key string independently without either side importing the other's
-# key format. Rebuilt in _rebuild() below; this strip is itself rebuilt
-# wholesale on every real _sync() (see this file's own top comment -- ticket
-# 04's persistent-node treatment only reached the stage, not the strip), but
-# NOT per-beat mid-playback (CombatScreen._on_beat_played() only calls
-# _sync_footer(), never rebuilds the strip), so the same NameplateCard
-# instances this dict points at are exactly the ones still on screen for a
-# whole round's beat-by-beat ghost-drain animation.
 var _cards_by_key: Dictionary = {}
 
 
-# entry_key is {"type": "player"} / {"type": "ally", "index": i} /
-# {"type": "enemy", "index": i} (see build_entries() above) -- normalized to
-# a single string so Dictionary lookups here don't depend on Dictionary
-# structural-equality/hash behaviour for a Dictionary-as-key.
 static func card_key_string(entry_key: Dictionary) -> String:
 	var index: int = entry_key["index"] if entry_key["type"] != "player" else -1
 	return "%s:%d" % [entry_key["type"], index]
@@ -273,12 +179,6 @@ func _rebuild(available_width: float) -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UI.anchor_full_rect(row)
 
-	# No floor on card width -- fitting every living combatant inside
-	# `available_width` without overflowing the stage takes priority over a
-	# minimum readable size (Label.clip_text/OVERRUN_TRIM_ELLIPSIS on the
-	# name already degrade gracefully at the SQUAD_MAX×2 = 6-combatant
-	# ceiling). MAX_CARD_WIDTH only stops 1-2 combatants from stretching
-	# into an absurdly wide card.
 	var n: int = maxi(1, _entries.size())
 	var card_width: float = minf((available_width - CARD_SEPARATION * (n - 1)) / n, MAX_CARD_WIDTH)
 
@@ -327,19 +227,6 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	return card
 
 
-# combat-presentation ticket 06, docs/combat-animation-vision.md §4.2: the
-# telegraph itself -- a purely-derived read of the enemy's own persistent
-# `ability` state (Combat._enemy_capabilities_from_template()'s shape),
-# independent of turn order or beat-queue timing. Correct for BOTH "this is
-# the enemy currently acting" and "the player swiped ahead to inspect a
-# not-yet-acted enemy" (the ticket's own third acceptance check) for free,
-# since it never looks at whose turn it is -- only at what this specific
-# enemy would do the next time it acts. `ability.id` is rendered as raw
-# capitalized text (no display-name lookup table exists -- REFERENCE.md
-# §1.10: ability is "a string id", and no data/enemies.json template sets
-# one yet) per this ticket's own "for now" scope note; a locked ability
-# reads identically to no ability at all -- both are "about to attack" as
-# far as the player can act on right now.
 func _telegraph_text_for(enemy: Dictionary) -> String:
 	var ability: Variant = enemy.get("ability")
 	if ability != null and not Combat.is_ability_locked(enemy):
@@ -347,19 +234,6 @@ func _telegraph_text_for(enemy: Dictionary) -> String:
 	return "Intent: Attacking"
 
 
-# combat-presentation ticket 10, docs/combat-animation-vision.md §4: "Ability
-# tell | 1 pose, held | pulse" -- ticket 06's telegraph slot getting its real
-# art instead of the text/glyph placeholder. Reads data/combat_visuals.json's
-# templates.<key>.tell directly (same convention _telegraph_text_for() and
-# _enemy_faction_display() above already use for reading manifest/data
-# tables from a UI component) via CombatScreen.enemy_template_key() -- shared
-# rather than duplicated, same "public static, one shared test" precedent
-# CombatDirector.beat_is_damaging() set. Independent of ability specifically
-# (unlike telegraph_text's own branching): a subject with tell art shows its
-# pose whenever the telegraph slot itself would render at all, generic-
-# attacking intent included. null (no manifest entry, no file, or an
-# unresolved template key) means "no art yet" -- _build_card_content() below
-# falls back to the plain text label in that case, unchanged from ticket 06.
 func _tell_image_for(enemy: Dictionary) -> Texture2D:
 	var key: String = CombatScreen.enemy_template_key(enemy)
 	if key.is_empty():
@@ -371,15 +245,6 @@ func _tell_image_for(enemy: Dictionary) -> Texture2D:
 	return load(image_path)
 
 
-# combat-presentation ticket 05, §4.1: called once, at the start of a round's
-# beat-queue playback, before any beat has actually played -- sets the
-# ghost bar's starting point straight to the pre-round hp (already computed
-# by the caller; see combat.gd's own _init_ghost_tracker()) with no tween,
-# since nothing has animated yet. A no-op if this key has no card on the
-# strip right now (e.g. a beat lands on someone the strip doesn't currently
-# have a card for -- shouldn't happen for a living combatant, but a caller
-# ratcheting through an unknown/mistyped key should degrade silently rather
-# than error, same as every other keyed lookup in this file).
 func set_initial_ghost(key_string: String, hp: int) -> void:
 	var card: NameplateCard = _cards_by_key.get(key_string)
 	if card == null:
@@ -387,13 +252,6 @@ func set_initial_ghost(key_string: String, hp: int) -> void:
 	card.set_ghost_hp(hp)
 
 
-# Tweens the named card's ghost bar down from wherever it currently sits to
-# `hp` over `duration` -- called once per damaging beat that lands on this
-# key, chasing the real bar down in visible steps rather than jumping there.
-# Needs a live tree (create_tween() requires one) -- tests exercising this
-# without one just get the instant set_initial_ghost()-style jump instead,
-# same "no live tree, no tween" guard NameplateCard._ready()'s own pulse
-# tween already uses.
 func drain_ghost_to(key_string: String, hp: int, duration: float) -> void:
 	var card: NameplateCard = _cards_by_key.get(key_string)
 	if card == null:
@@ -431,9 +289,6 @@ func _build_card_content(card: NameplateCard) -> void:
 
 	box.add_child(top_row)
 
-	# Reserve the HP-bar's vertical space (drawn in NameplateCard._draw(),
-	# not a child control) -- an empty spacer here keeps the labels below it
-	# from overlapping the bar.
 	var bar_spacer := Control.new()
 	bar_spacer.custom_minimum_size = Vector2(0, HP_BAR_HEIGHT + 2.0)
 	bar_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -454,11 +309,6 @@ func _build_card_content(card: NameplateCard) -> void:
 		status_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
 		box.add_child(status_label)
 
-	# combat-presentation ticket 06, §4.2/§2.4: the enemy telegraph -- see
-	# _telegraph_text_for() for how card.telegraph_text is derived.
-	# combat-presentation ticket 10, §4: once a subject has real tell art
-	# (card.tell_image non-null -- _tell_image_for() above), this slot shows
-	# the held, pulsing pose instead of the plain text label.
 	if card.shows_telegraph_slot:
 		if card.tell_image != null:
 			var tell := TextureRect.new()
@@ -489,13 +339,6 @@ func _build_card_content(card: NameplateCard) -> void:
 	card.add_child(box)
 
 
-# Public so tests can drive a swipe without simulating InputEvents ("test
-# the logic, not the gesture plumbing"). direction: -1 previous / +1 next
-# in turn-order-strip order.
-# A swipe onto a non-enemy card is inert for targeting (§2.2) -- the
-# callback still fires so the strip's own selection/display moves, it just
-# doesn't call Combat.set_focused_enemy() (that's the caller's job: see
-# scenes/screens/combat.gd's _on_strip_selection_changed()).
 func handle_swipe(direction: int) -> void:
 	if _entries.is_empty():
 		return
@@ -527,7 +370,4 @@ func _end_drag(release_x: float) -> void:
 	var delta: float = release_x - _drag_start_x
 	_drag_index = -100
 	if absf(delta) >= SWIPE_THRESHOLD_PX:
-		# Dragging leftward (delta < 0) brings the next card into focus, the
-		# same "content follows the finger" convention TouchScrollContainer
-		# uses for scroll_horizontal.
 		handle_swipe(1 if delta < 0 else -1)

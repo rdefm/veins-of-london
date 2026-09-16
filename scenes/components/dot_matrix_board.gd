@@ -1,28 +1,8 @@
 class_name DotMatrixBoard
 extends Control
 
-# field-kit-chrome ticket 02 / ui-vision.md §5: the shared electronic
-# dot-matrix departure/platform board renderer -- amber dots on black,
-# hand-drawn per character against dot_matrix_font.gd's bitmap table.
-# top_bar.gd draws through this instead of duplicating the grid logic.
-#
-# Multi-line support (set_lines() takes an Array of lines, not just one) is
-# what bugfixes ticket 107 uses to merge the status line and the scrolling
-# notification log onto one board -- top_bar.gd's line 0 is the status row,
-# further lines are recent notifications, all through this one instance.
-#
-# `render(target)` is split out from _draw() (which just calls
-# render(self)) so tests can drive the actual draw calls headlessly against
-# tests/support/draw_spy.gd, the same split ore_glyphs.gd's draw() already
-# uses for the same reason -- a live Viewport is never required.
 
 const BG_COLOR := Color(0.043137, 0.043137, 0.039216, 1)  # near-black board casing
-# LED phosphor amber -- deliberately distinct from data/palette.json's
-# calc_gold/the --amber warning-category tone (a muted parchment colour
-# reserved for other meanings elsewhere); this hex has no other meaning to
-# protect and isn't a shared semantic accent, so it stays a local constant
-# rather than a palette.json entry (unlike ui_action_red, which §6 explicitly
-# locked a hex for).
 const LIT_COLOR := Color(1.0, 0.690196, 0.0, 1)
 const DIM_COLOR := Color(1.0, 0.690196, 0.0, 0.14)  # unlit dot, same hue -- a real board shows its whole grid, not just lit dots
 
@@ -33,16 +13,8 @@ const SIDE_PADDING := 6.0
 const SCRAMBLE_DURATION := 0.28
 const SCRAMBLE_STEP := 0.045
 
-# Bugfixes ticket 01: pixels kept clear at the board's own right edge --
-# render() withholds any character that would intrude into this zone, so a
-# caller mounting something on top of the board's right edge (top_bar.gd's
-# bag button) never gets text drawn under/beside it. The board's background
-# rect still spans the full width regardless -- only character glyphs are
-# withheld -- so the strip still reads as one continuous board (ticket 02's
-# design) rather than a board with a hole cut out of it.
 var reserved_right: float = 0.0
 
-# One line, as set_lines()/line() shape it: { "text": String, "dot_size": float }.
 var _target_lines: Array[Dictionary] = []
 var _target_chars: Array[Array] = []    # per line, an Array[String] -- resolved final char per cell
 var _display_chars: Array[Array] = []   # per line, an Array[String] -- current on-screen char per cell (may lag during a scramble)
@@ -51,8 +23,6 @@ var _cycle_seconds_left: Array[Array] = []     # per line, an Array[float] -- ti
 var _initialized := false
 
 
-# Builds one set_lines() line entry -- the { "text", "dot_size" } shape
-# every caller would otherwise repeat as a raw dictionary literal.
 static func line(text: String, dot_size: float) -> Dictionary:
 	return { "text": text, "dot_size": dot_size }
 
@@ -84,13 +54,6 @@ func render(target: Object) -> void:
 		y += DotMatrixFont.GLYPH_H * dot_size + LINE_GAP
 
 
-# `lines`: Array of { "text": String, "dot_size": float } (see line() above).
-# The first call lands directly on the given text (nothing to scramble from
-# yet); every call after that scrambles only the cells whose character
-# actually changed -- an unchanged character (including one that's merely
-# shifted line, e.g. a notification's rank prefix changing while its own
-# text doesn't) keeps showing steadily rather than re-scrambling for no
-# reason.
 func set_lines(lines: Array[Dictionary]) -> void:
 	var new_target_chars: Array[Array] = _chars_for(lines)
 
@@ -111,9 +74,6 @@ func set_lines(lines: Array[Dictionary]) -> void:
 		queue_redraw()
 
 
-# Reconstructs one line's resolved (`target`) or currently-drawn
-# (`display`) text from its per-cell character arrays -- what tests assert
-# against instead of reaching into _target_chars/_display_chars directly.
 func target_text(line_index: int = 0) -> String:
 	return _joined(_target_chars, line_index)
 
@@ -192,16 +152,6 @@ func _begin_scramble(new_target_chars: Array[Array]) -> void:
 			var unchanged: bool = char_index < old_line.size() and old_line[char_index] == target_char
 			if unchanged:
 				display_line.append(old_display[char_index] if char_index < old_display.size() else target_char)
-				# Bugfixes ticket 01: this cell's target text didn't change,
-				# but it may still be mid-scramble from an *earlier*
-				# transition (e.g. two state_changed events landing back to
-				# back on a day-tick). Zeroing its timer here regardless of
-				# that left _display_chars stuck on whatever random glyph it
-				# was showing that frame, with nothing left to ever advance
-				# it to the target -- a permanently frozen cell. Carrying the
-				# remaining scramble/cycle time forward instead lets
-				# advance_scramble() keep running it down to the (unchanged)
-				# target normally.
 				var still_scrambling: float = old_scramble[char_index] if char_index < old_scramble.size() else 0.0
 				if still_scrambling > 0.0:
 					scramble_line.append(still_scrambling)
@@ -236,8 +186,6 @@ func _process(delta: float) -> void:
 	advance_scramble(delta)
 
 
-# Split out from _process() so tests can drive the scramble transition
-# deterministically without a live SceneTree frame loop.
 func advance_scramble(delta: float) -> void:
 	for line_index in _scramble_seconds_left.size():
 		var scramble_line: Array = _scramble_seconds_left[line_index]

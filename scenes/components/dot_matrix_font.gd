@@ -1,24 +1,6 @@
 class_name DotMatrixFont
 extends RefCounted
 
-# ui-vision.md §5's "Rendering technique" for the merged status-bar/
-# notification board (field-kit-chrome ticket 02): a small hardcoded 5x7
-# bitmap-font table, the same "the engine can't render this glyph, hand-draw
-# it" precedent scenes/components/ore_glyphs.gd already sets for the ore
-# symbols. No dot-matrix font ships or is sourced for this project -- a
-# static font glyph also couldn't drive DotMatrixBoard's scramble-on-refresh
-# transition, which needs to swap in arbitrary intermediate characters.
-#
-# Real departure/platform boards are upper-case only -- DotMatrixBoard
-# upper-cases every line before mapping characters here, which conveniently
-# also means this table only needs one case, not two.
-#
-# Character set covers what the status line (day/time-blocks, cash) and
-# free-form Notify.push() prose across the codebase actually use: A-Z,
-# 0-9, space, and the punctuation those calls contain. Anything outside
-# this set (e.g. the odd emoji-prefixed notification -- systems/events.gd's
-# "\U0001F4F0 BREAKING", systems/combat.gd's "⟲ Time unspools...") falls
-# back to a blank cell via rows_for() rather than crashing or drawing tofu.
 
 const GLYPH_W := 5
 const GLYPH_H := 7
@@ -74,8 +56,6 @@ const GLYPHS := {
 	"?": ["01110", "10001", "00001", "00010", "00100", "00000", "00100"],
 	"'": ["00100", "00100", "00000", "00000", "00000", "00000", "00000"],
 	"\"": ["01010", "01010", "00000", "00000", "00000", "00000", "00000"],
-	# Em dash reuses the hyphen's bar -- both flatten to the same 1-cell-wide
-	# stroke at this resolution; not worth a second, visually-identical glyph.
 	"-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
 	"—": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"],
 	":": ["00000", "01100", "01100", "00000", "01100", "01100", "00000"],
@@ -98,18 +78,11 @@ static func rows_for(ch: String) -> Array:
 	return GLYPHS.get(ch.substr(0, 1).to_upper(), _BLANK)
 
 
-# A character to briefly flash a scrambling cell through, drawn from every
-# glyph that actually lights a dot (space excluded -- scrambling "through"
-# blank would just read as the board going dark, not scrambling).
 static func random_scramble_char() -> String:
 	var pool: Array = GLYPHS.keys().filter(func(k): return k != " ")
 	return pool[randi() % pool.size()]
 
 
-# Draws one character cell's full 5x7 dot grid at `origin` (top-left, in the
-# caller's local coordinates): lit dots in `colour`, unlit ones in
-# `dim_colour` -- a real board shows its whole matrix, dimly, not just the
-# characters currently lit.
 static func draw_char(target: Object, origin: Vector2, ch: String, dot_size: float, colour: Color, dim_colour: Color) -> void:
 	var rows: Array = rows_for(ch)
 	for row_index in GLYPH_H:
@@ -120,8 +93,6 @@ static func draw_char(target: Object, origin: Vector2, ch: String, dot_size: flo
 			target.draw_rect(Rect2(pos, Vector2(dot_size, dot_size)), colour if lit else dim_colour, true)
 
 
-# Pixel width of `text` rendered at `dot_size` with `char_gap` between cells
-# -- what DotMatrixBoard uses to size itself without duplicating this math.
 static func text_width(text: String, dot_size: float, char_gap: float) -> float:
 	if text.is_empty():
 		return 0.0

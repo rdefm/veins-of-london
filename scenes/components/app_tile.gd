@@ -1,31 +1,6 @@
 class_name AppTile
 extends Control
 
-# 11-phone-os-shell ticket 02: the reusable icon+label+badge+lock tile every
-# app-grid slot (ticket 07) and dock icon (ticket 11) is built from. Kept
-# roster-agnostic on purpose — this ticket ships the tile and the asset
-# contract it loads icons against, not the app list itself (11-phone-os-shell
-# spec's Out of Scope: "final app roster ... decided in a later, separate
-# roster ticket").
-#
-# Asset contract (full record: docs/adr/0003-app-icon-asset-contract.md): an
-# app's icon lives at `res://assets/icons/apps/<app_id>.png`, named for the
-# exact id the app is addressed by everywhere else (PhoneNav.APPS/dock
-# entries). No file at that path is expected yet and is NOT an error —
-# Richard generates icon art in a later ticket — so configure() always falls
-# back to the app's own label text rendered inside the icon frame instead of
-# failing to render.
-#
-# Never emoji, never Icons.draw_* for the icon itself (that vector glyph set
-# stays reserved for map/legend glyphs per M1.5 N6, which this spec
-# supersedes only for app icons specifically by NOT using it for them). The
-# one exception is the locked-tile padlock overlay below, which the spec
-# explicitly says reuses Icons.draw_padlock.
-#
-# Standalone/demoable per the ticket: AppTile.new() + configure({...}) is
-# safe to call directly without a live scene tree or GameState, same
-# reasoning tests/test_map_bubble.gd documents for MapBubble — nothing in
-# _ready()/configure() touches get_tree()/get_viewport() or reads state.
 
 const ICON_DIR := "res://assets/icons/apps/"
 const TILE_SIZE := Vector2(76, 92)
@@ -34,71 +9,27 @@ const BADGE_SIZE := 12.0
 const NAME_FONT_SIZE := 12
 const FALLBACK_FONT_SIZE := 10
 
-# 120-app-icon-rounded-mask: proportional to frame size (~29%, human-picked
-# after eyeballing both frame sizes — first pass at ~22% still read flatter
-# than a real iOS/Android home-screen icon once the icon actually filled its
-# frame edge-to-edge) rather than one fixed pixel value for both. Drives both
-# the fallback-chip StyleBoxFlat radius AND the real-art icon mask radius
-# below, so the two always agree.
 const FRAME_CORNER_RADIUS := 16
 const LARGE_FRAME_CORNER_RADIUS := 22
 
-# bugfixes-60: the phone home grid wants a visibly bigger icon+label tile
-# than the dock (nav_bar.gd) does -- the dock is a fixed BAR_HEIGHT=64
-# strip that can't grow, so this is a per-instance opt-in (constructor arg,
-# not a size bump to the shared constants above) rather than a global
-# change that would also inflate the 3 dock tiles past their bar.
 const LARGE_TILE_SIZE := Vector2(100, 122)
 const LARGE_FRAME_SIZE := 76.0
 const LARGE_BADGE_SIZE := 16.0
 const LARGE_NAME_FONT_SIZE := 15
 const LARGE_FALLBACK_FONT_SIZE := 13
 
-# --muted #8a8a8a — same grey UI.muted_label()/map_canvas.gd's MUTED_COLOUR
-# use, reused here so "locked" reads as the same disabled-grey the rest of
-# the UI already uses, not a new colour language.
 const LOCKED_TINT := Color(0.541176, 0.541176, 0.541176, 1)
 const NORMAL_TINT := Color(1, 1, 1, 1)
 
-# 09-family-2-chrome-phone-apps, ui-vision.md §10: aligned to the locked
-# ui_action_red hex exactly (data/palette.json) -- was a close-but-not-exact
-# approximation before this pass.
 const BADGE_COLOUR := Color("#c8102e")
 
-# 09-family-2-chrome-phone-apps, ui-vision.md §10: the home-grid ground
-# colour (indicative #1b1b1d), reused here as the tile-level fallback chip
-# for an id still on the label fallback -- "drop the cream/tan frame per
-# tile; the whole home-grid surface is one flat cool near-black... icons
-# sitting directly on it." No border colour of its own any more (the "cream/
-# tan frame" this replaces is exactly what §10 says to drop) -- kept equal
-# to the fill so the border stays invisible even if a future caller re-adds
-# a non-zero border width. Runtime lookups go through _palette() below so
-# data/palette.json's "phone_bg_home" id stays the source of truth; these
-# are its fallback values only.
 const FRAME_BG_COLOUR := Color("#1b1b1d")
 const FRAME_BORDER_COLOUR := Color("#1b1b1d")
 
-# Ticket 37: dock active-tab highlight -- a filled background tint on the
-# active tile's frame, using theme/main_theme.tres's own button accent
-# (StyleBoxFlat_btn_normal) rather than a new colour language. ACTIVE_BG is
-# FRAME_BG_COLOUR mixed 40% toward that accent (a warm tan, distinct from
-# both the neutral cream frame and the grey LOCKED_TINT); ACTIVE_BORDER is
-# the accent at full strength, with a thicker border width to read as a
-# stronger, "current" outline.
 const ACTIVE_BG_COLOUR := Color(0.870588, 0.717647, 0.535294, 1)
 const ACTIVE_BORDER_COLOUR := Color(0.784314, 0.529412, 0.227451, 1)
 const ACTIVE_BORDER_WIDTH := 2
 
-# Emits on any tap, locked or not — this component only renders the lock
-# state, it doesn't decide navigation policy (e.g. "tapping a locked tile
-# shows a tooltip/toast instead of navigating" per the 11-phone-os-shell
-# spec's story 13). That decision belongs to whichever screen wires this
-# tile up (ticket 07/dock ticket 11), same split MapBubble's option_selected
-# leaves the "what happens next" decision to its caller.
-# 09-family-2-chrome-phone-apps: same GameData.PALETTE.get(id, fallback)
-# pattern contact_cards.gd's own Family 2 helper uses, so a human retuning
-# data/palette.json's "phone_bg_home"/"phone_text_primary" hexes later
-# doesn't need a matching code change here.
 const _PHONE_BG_HOME := "phone_bg_home"
 const _PHONE_TEXT_PRIMARY := "phone_text_primary"
 const _FALLBACK_TEXT_PRIMARY := Color("#ededee")
@@ -107,10 +38,6 @@ static func _palette(id: String, fallback: Color) -> Color:
 	return GameData.PALETTE.get(id, fallback)
 
 
-# 120-app-icon-rounded-mask: one compiled Shader shared across every AppTile
-# instance (a screen like the home grid builds several at once) -- only the
-# per-instance ShaderMaterial + its rect_size/corner_radius uniform values
-# need to differ per tile, not the shader program itself.
 static var _icon_mask_shader: Shader
 
 
@@ -130,11 +57,6 @@ var _built := false
 var _large: bool = false
 
 
-# `large`: opt into the bugfixes-60 phone-home-grid sizing (see the
-# LARGE_* constants above) instead of the dock's default footprint. Read
-# in _ensure_built(), so this must be set here, at construction, not after
-# add_child() -- see that function's own comment for why a caller can't
-# rely on a window between .new() and _ready() to set it later.
 func _init(large: bool = false) -> void:
 	_large = large
 
@@ -143,18 +65,6 @@ func _ready() -> void:
 	_ensure_built()
 
 
-# A caller that instantiates + add_child()s + configure()s an AppTile in
-# the same synchronous stretch (11-phone-os-shell ticket 07's app grid does
-# exactly this in a loop) can run ahead of the engine's own NOTIFICATION_READY
-# dispatch for the new child -- that dispatch is only guaranteed synchronous
-# once the parent is inside a SceneTree that's actively processing frames,
-# which is true in real gameplay but not in a headless test that only ever
-# calls a screen's _ready() directly rather than adding it to a live tree
-# (see tests/test_phone_home_grid.gd's header comment for the verified
-# engine behaviour behind this). Guarding configure() with the same builder
-# _ready() uses makes the component correct either way, and idempotent: in
-# the normal case _ready() has already run by the time configure() is
-# called, so this is a no-op _built check, not a double-build.
 func _ensure_built() -> void:
 	if _built:
 		return
@@ -178,19 +88,10 @@ func _ensure_built() -> void:
 
 	_frame = Control.new()
 	_frame.custom_minimum_size = Vector2(frame_size, frame_size)
-	# SHRINK_CENTER, not the container default (FILL): a VBoxContainer
-	# stretches a FILL child to the container's full cross-axis width, which
-	# would grow _frame past FRAME_SIZE inside a grid cell wider than 56px
-	# and throw off the badge's frame-relative position/size below.
 	_frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(_frame)
 
-	# Ticket 36: a permanent background shape, present whether or not real
-	# icon art has landed at the asset-contract path — not conditional on
-	# load_icon()'s return value. Added first so it sits behind the icon/
-	# fallback-label/lock-overlay/badge, which are all mouse-ignoring and
-	# transparent outside their own glyph.
 	_background = Panel.new()
 	UI.anchor_full_rect(_background)
 	_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -210,45 +111,14 @@ func _ensure_built() -> void:
 
 	_icon_rect = TextureRect.new()
 	UI.anchor_full_rect(_icon_rect)
-	# 119-phone-home-grid-tiles-overlap: expand_mode defaults to
-	# EXPAND_KEEP_SIZE, which reports the source texture's native pixel
-	# size as this TextureRect's own minimum size -- Control always grows a
-	# node's actual rect to at least its minimum size, even one positioned
-	# by anchors rather than a Container, so a real icon PNG far bigger than
-	# FRAME_SIZE/LARGE_FRAME_SIZE (e.g. assets/icons/apps/property.png) blew
-	# this rect out past its own tile and over whichever neighbouring tiles
-	# happened to be drawn after it. Same fix combat.gd's own _sprite_rect/
-	# _ghost_rect and every other real-art TextureRect in this codebase
-	# already applies alongside STRETCH_KEEP_ASPECT_CENTERED/_COVERED.
 	_icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	# 120-app-icon-rounded-mask: COVERED (crop-to-fill), not CENTERED
-	# (letterbox-to-fit) -- CENTERED left empty frame background showing
-	# around the art whenever its aspect ratio wasn't a perfect square,
-	# which read as a small photo floating in a bigger rounded chip rather
-	# than a real phone home-screen icon, where the art always bleeds to
-	# every edge of the rounded shape and any excess is cropped, not shrunk.
 	_icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_icon_rect.visible = false
 	_frame.add_child(_icon_rect)
 
-	# 120-app-icon-rounded-mask: clip the icon texture itself to a rounded
-	# rect matching the frame, independent of whether the source art is a
-	# plain square PNG or already has rounded corners baked in — Control has
-	# no built-in corner-radius clip (only StyleBoxFlat panels draw rounded),
-	# so this is a per-pixel alpha mask via an SDF distance-to-rounded-rect
-	# in a canvas_item shader, same inline-shader-string approach combat.gd's
-	# _sprite_rect frozen-visual effect already uses in this codebase.
 	if _icon_mask_shader == null:
 		_icon_mask_shader = Shader.new()
-		# 120-app-icon-rounded-mask: position for the mask comes from VERTEX
-		# (canvas-item local geometry space, always 0..node-size for the
-		# quad actually being drawn), NOT from UV. UV is remapped to the
-		# *source texture's* sampling window under a crop stretch mode like
-		# STRETCH_KEEP_ASPECT_COVERED, so it no longer lines up 0..1 with the
-		# quad's visible edges -- using it for position silently pinned the
-		# rounded cut inside the crop window instead of at the tile's actual
-		# boundary, leaving the rendered square looking completely sharp.
 		_icon_mask_shader.code = "shader_type canvas_item;\nuniform vec2 mask_size = vec2(1.0, 1.0);\nuniform float corner_radius = 0.0;\nvarying vec2 local_pos;\nvoid vertex() {\n\tlocal_pos = VERTEX;\n}\nfloat rounded_rect_sdf(vec2 p, vec2 size, float radius) {\n\tvec2 q = abs(p - size * 0.5) - (size * 0.5 - vec2(radius));\n\treturn length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;\n}\nvoid fragment() {\n\tfloat d = rounded_rect_sdf(local_pos, mask_size, corner_radius);\n\tCOLOR = texture(TEXTURE, UV);\n\tCOLOR.a *= 1.0 - smoothstep(-1.0, 1.0, d);\n}"
 	_icon_mask_material = ShaderMaterial.new()
 	_icon_mask_material.shader = _icon_mask_shader
@@ -256,11 +126,6 @@ func _ensure_built() -> void:
 	_icon_mask_material.set_shader_parameter("corner_radius", float(frame_corner_radius))
 	_icon_rect.material = _icon_mask_material
 
-	# 09-family-2-chrome-phone-apps, ui-vision.md §10: the home grid runs a
-	# dark device shell top to bottom -- both text fallbacks need to be
-	# legible ink against that near-black ground now, not the engine's
-	# default dark-on-transparent label colour (theme/main_theme.tres'
-	# Button/colors/font_color, near-black -- invisible on #1b1b1d).
 	var text_colour := _palette(_PHONE_TEXT_PRIMARY, _FALLBACK_TEXT_PRIMARY)
 
 	_fallback_label = Label.new()
@@ -282,13 +147,6 @@ func _ensure_built() -> void:
 
 	_badge = _BadgeDot.new()
 	_badge.size = Vector2(badge_size, badge_size)
-	# Ticket 36: kept at its pre-existing corner position rather than moved
-	# for the new rounded background. Checked against FRAME_CORNER_RADIUS —
-	# the badge (centre ~(53.6, 2.4), r=6) sits astride the corner's cut arc
-	# (centre (42, 14), r=14): part rests on the visible rounded background,
-	# part hangs off it, same proportion as before this ticket when it hung
-	# off the corner over nothing at all. That's the ordinary "badge peeking
-	# off the icon's corner" treatment, not a new awkward overlap.
 	_badge.position = Vector2(frame_size - badge_size * 0.7, -badge_size * 0.3)
 	_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_badge.visible = false
@@ -303,13 +161,6 @@ func _ensure_built() -> void:
 	column.add_child(_name_label)
 
 
-# `data`: { id: String, label: String, locked: bool (default false),
-# badge: bool (default false), active: bool (default false — ticket 37's
-# dock-tab highlight; a caller outside the dock that never sets this gets
-# the tile's ordinary unhighlighted frame), icon: Texture2D (optional —
-# overrides the asset-contract lookup; lets a caller supply pre-loaded art,
-# and lets tests exercise the normal-render path without a real icon file
-# on disk) }.
 func configure(data: Dictionary) -> void:
 	_ensure_built()
 	_app_id = data.get("id", "")
@@ -335,25 +186,11 @@ func configure(data: Dictionary) -> void:
 	_lock_overlay.visible = locked
 	_badge.visible = badge
 
-	# 09-family-2-chrome-phone-apps, ui-vision.md §10 implementation note:
-	# real icon art is a full, self-contained square with its own background
-	# baked in -- drawing the frame panel behind it would peek through any
-	# transparent corners the art itself leaves, so the panel is suppressed
-	# entirely once an id has real art. A label-fallback tile keeps its dark
-	# chip so the fallback text stays legible; `active`'s dock-highlight ring
-	# (dead weight today per that section's own note, kept rather than
-	# removed) still takes priority over the suppression either way.
 	_background.visible = active or not has_real_art
 
 	if not has_real_art or active:
-		# Ticket 37: active takes the frame's own bg_color/border_color/width,
-		# not modulate -- modulate (below) only multiplies brightness, which
-		# can't shift the frame toward the accent hue the way a direct
-		# stylebox colour swap can.
 		_frame_style.bg_color = ACTIVE_BG_COLOUR if active else _palette(_PHONE_BG_HOME, FRAME_BG_COLOUR)
 		_frame_style.border_color = ACTIVE_BORDER_COLOUR if active else FRAME_BORDER_COLOUR
-		# §10: "drop the cream/tan frame per tile" -- no border for the
-		# ordinary (non-active) case any more, only the dock-highlight ring.
 		var border_width := ACTIVE_BORDER_WIDTH if active else 0
 		_frame_style.border_width_left = border_width
 		_frame_style.border_width_top = border_width
@@ -371,8 +208,6 @@ static func icon_path(app_id: String) -> String:
 	return ICON_DIR + app_id + ".png"
 
 
-# Returns null (never errors) when no art exists at the contract path yet —
-# see this file's header and docs/adr/0003-app-icon-asset-contract.md.
 static func load_icon(app_id: String) -> Texture2D:
 	var path := icon_path(app_id)
 	if not ResourceLoader.exists(path):
