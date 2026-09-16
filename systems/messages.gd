@@ -1,30 +1,15 @@
 class_name Messages
 extends RefCounted
 
-# collective1-03: the Messages app's data layer. Static funcs only, mirroring
-# systems/notify.gd and systems/bank.gd's append-and-evict-from-front shape
-# (see CAP). Two state trees:
-#
+# Messages app's data layer. Two state trees:
 #   state.messages[contactId] = [ { from: "them"|"player", text, day, read } ]
 #   state.pendingMessages = [ { id, contactId, kind, payload, text } ]
 #
-# pendingMessages is the generic runtime-delivery road (spec §5.3): any
-# system can queue_pending() to text the player something with a follow-up
-# action, the same "context" road systems/raiding.gd already uses to hand a
-# runtime site_id to an event — `kind` here IS the event id start_event()
-# is called with, and `payload` is passed straight through as its context.
-# The entry is removed (resolve_pending) once its action bar button is
-# tapped and the event actually starts.
+# pendingMessages is the generic runtime-delivery road (spec §5.3): `kind` IS
+# the event id start_event() is called with; resolve_pending() removes an
+# entry once its action-bar button starts that event.
 
 const CAP := 50
-
-# 83-contacts-archie-james-sms-port: Archie and James used to stay on their
-# own bespoke SMS screens (scenes/screens/sms_archie*.gd, deleted by this
-# ticket), deliberately excluded from the new Messages app -- spec §5.2:
-# "Migration gets its own ticket once the new renderer has proven itself."
-# That ticket is this one: their content now flows through append()/
-# queue_pending() like every other contact, so there's no exclusion list
-# left to keep.
 
 
 static func append(contact_id: String, from: String, text: String) -> void:
@@ -58,9 +43,8 @@ static func has_unread(contact_id: String) -> bool:
 	return false
 
 
-# 84-contacts-retire-messages-tile: PhoneNav.select_conversation() needs the
-# actual count (not just has_unread()'s bool) to work out how much of the
-# thread predates this open, for the staged-reveal presentation.
+# PhoneNav.select_conversation() needs the actual count, not just
+# has_unread()'s bool, to work out how much of the thread predates this open.
 static func unread_count(contact_id: String) -> int:
 	var count := 0
 	for msg in GameState.state["messages"].get(contact_id, []):

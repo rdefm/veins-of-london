@@ -1,17 +1,10 @@
 class_name Bank
 extends RefCounted
 
-# Transaction log for player.cash mutations (bugfixes-38: the Bank app,
-# "Reynard's"). Static funcs only. Mirrors systems/notify.gd's
-# append-and-evict-from-front shape exactly (see LOG_CAP) -- every direct
-# player.cash mutation in the codebase calls record() alongside itself, so
-# this is a complete history from turn one, not a partial one assembled
-# ticket-by-ticket later.
-#
-# Entries are pure data (id, amount, label, day) -- no Node/Timer/Callable,
-# same purity contract as `notifications` (state purity underlies save/
-# snapshot/Rewind). Display-only, per the ticket: no interest, loans, or
-# transfers live here or anywhere else.
+# Transaction log for player.cash mutations (the Bank app, "Reynard's").
+# Mirrors systems/notify.gd's append-and-evict-from-front shape (LOG_CAP).
+# Entries are pure data -- no Node/Timer/Callable (R§2 state purity).
+# Display-only: no interest, loans, or transfers.
 
 const LOG_CAP := 50
 

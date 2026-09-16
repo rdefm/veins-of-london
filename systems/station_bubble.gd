@@ -1,16 +1,13 @@
 class_name StationBubble
 extends RefCounted
 
-# 10-map-interaction-model ticket 04: pure decision layer for the station
-# (site/vein stop) tap bubble — the same "Node/Tween-side stays out of this"
-# split systems/district_bubble.gd already documents for ticket 03. A tapped
-# stop only gets Cultivate/Harvest here when it's a player-owned vein (a
-# faction vein or an unclaimed site has neither); every other claim state
-# just gets Manage, which map.gd routes into the existing site sheet
-# unchanged — that sheet already knows how to render the Raid action for a
-# faction vein and the Seed action for an unclaimed site (M1-LONDON.md §D2's
-# claim-state rules), so this ticket doesn't need to reimplement either of
-# those inline in the bubble.
+# Pure decision layer for the station (site/vein stop) tap bubble — same
+# "Node/Tween-side stays out of this" split as systems/district_bubble.gd.
+# A tapped stop only gets Cultivate/Prune here when it's a player-owned vein
+# (a faction vein or an unclaimed site has neither); every other claim state
+# just gets Manage, which map.gd routes into the existing site sheet — that
+# sheet already renders Raid for a faction vein and Seed for an unclaimed
+# site (M1-LONDON §D2's claim-state rules).
 #
 # `stop`: one of MapCanvas's own _vein_stops/_faction_stops/_unclaimed_stops
 # entries (systems/map_layout.gd's assign_positions shape) — carries "kind"
@@ -31,12 +28,11 @@ static func station_options(stop: Dictionary) -> Array:
 	return [{ "id": MANAGE_ID, "disabled": false, "reason": "" }]
 
 
-# Cultivate/Prune gating mirrors scenes/screens/map.gd's existing
-# _build_vein_action_card row exactly (at-ceiling and Travel.can_afford
-# gates, both Prune depths always offered per ticket 08) so a vein tapped on
-# the diagram sees identical rules to the full-screen sheet, just surfaced
-# as bubble options instead. Manage is always offered last, unconditionally
-# — it's a pure navigation option (opens the sheet), never blocked.
+# Cultivate/Prune gating mirrors scenes/screens/map.gd's _build_vein_action_card
+# row exactly (at-ceiling and Travel.can_afford gates; both Prune depths
+# always offered) so a vein tapped on the diagram sees identical rules to
+# the full-screen sheet. Manage is always offered last, unconditionally —
+# a pure navigation option (opens the sheet), never blocked.
 static func _player_vein_options(vein: Dictionary) -> Array:
 	var district: String = vein["district"]
 	var at_ceiling: bool = vein["growth"] >= Cultivating.ceiling(vein)
@@ -59,39 +55,27 @@ static func _player_vein_options(vein: Dictionary) -> Array:
 	return options
 
 
-# vein-growth-state ticket 08: always offered, never hidden — gated by
-# Cultivating.prune_gate() (shared with map.gd's own inline Prune button, so
-# the two surfaces can't drift apart on this rule) rather than a growth >
-# neutral heuristic, since the two depths' cuts land differently: a vein
-# just above neutral can still net a light prune a point or two while a
-# hard prune's deeper cut (or vice versa, once terroir/hard-bonus rounding
-# is in play) lands entirely at/below neutral. Each depth is therefore
-# checked on its own projection, never a single shared comparison.
+# Always offered, never hidden — gated by Cultivating.prune_gate() (shared
+# with map.gd's own inline Prune button so the two surfaces can't drift
+# apart) rather than a growth > neutral heuristic, since the two depths' cuts
+# land differently. Each depth is checked on its own projection.
 static func _prune_option(vein: Dictionary, id: String, depth: int, district: String) -> Dictionary:
 	var gate: Dictionary = Cultivating.prune_gate(vein, depth, district)
 	return { "id": id, "disabled": gate["disabled"], "reason": gate["reason"] }
 
 
 # Dispatches a tapped bubble option to the same system calls the full-screen
-# site sheet already uses (Cultivating.cultivate/prune / MapNav.select_site),
-# and reports whether it counts as a success for MapCanvas.play_action_result()'s
-# tween. Manage's `ok` is always true (opening the sheet has no fail state) —
-# same as DistrictBubble.apply_option()'s View Veins branch. Prune's `ok` is
-# just its own "ok" key, always true once dispatched here: pruning never
-# rolls to succeed or fail (it's only ever offered here once _prune_option's
-# gating lets the button through), so "the action ran" and "it worked" are
-# the same thing there — map.gd's tween always plays the success pulse for
-# it as a result.
+# site sheet uses, and reports whether it counts as a success for
+# MapCanvas.play_action_result()'s tween. Manage's `ok` is always true
+# (opening the sheet has no fail state). Prune's `ok` is just its own "ok"
+# key — pruning never rolls to succeed or fail, so "the action ran" and
+# "it worked" are the same thing.
 #
 # Cultivate is the one branch where `ok` deliberately isn't Cultivating.
-# cultivate()'s own "ok" key: that key only means "the action was allowed to
-# run at all" (the travel/time gate) — true even on a failed cultivate roll,
-# since cultivate() still spends the block and shows its own cultivate_result
-# modal either way. What map.gd's play_action_result() tween needs is the
-# roll's own outcome, which cultivate() reports separately as "success" —
-# present only once the action actually ran, so this falls back to "ok"
-# (always false) for the blocked case, where there's no roll to have
-# succeeded or failed.
+# cultivate()'s own "ok" key: that key only means the travel/time gate
+# passed, true even on a failed roll. What the tween needs is the roll's
+# own outcome, reported separately as "success" — falls back to "ok"
+# (always false) for the blocked case, where there's no roll at all.
 static func apply_option(option_id: String, stop: Dictionary) -> Dictionary:
 	match option_id:
 		CULTIVATE_ID:

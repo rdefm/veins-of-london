@@ -1,8 +1,8 @@
 class_name Offers
 extends RefCounted
 
-# Pending sales offers and their immutable quotes. Fulfilment/settlement is
-# deliberately left to tickets 25+; accepted entries only establish its ledger.
+# Pending sales offers and their immutable quotes. Accepted entries become
+# the ledger fulfilment/settlement (systems/contracts.gd) consume.
 
 const PENDING_CAP := 4
 const RANDOM_BASE_CHANCE := 0.20
@@ -18,9 +18,8 @@ const RANDOM_ONE_OFF_DEADLINE_MIN_DAYS := 3
 const RANDOM_ONE_OFF_DEADLINE_MAX_DAYS := 7
 const CONTRACT_MULTIPLIER := 1.25
 const SALES_LEVEL_BONUS := 0.05
-# ticket 32: mixed one-offs (request.types.size() > 1) -- every requested
-# type beyond the first adds this many days to the deadline and this
-# fractional bonus to the quoted payment.
+# Mixed one-offs (request.types.size() > 1): every requested type beyond
+# the first adds this many days to the deadline and this bonus to payment.
 const MIXED_TYPE_QTY_MIN := 2
 const MIXED_TYPE_QTY_MAX := 5
 const MIXED_EXTRA_TYPE_DEADLINE_DAYS := 2
@@ -50,10 +49,8 @@ static func daily_tick() -> void:
 	expire_pending_offers()
 	if pending_offers().size() >= PENDING_CAP:
 		return
-	# ticket 28: an assigned-but-unpaid Sales role sources nothing today (no
-	# work at all, not even at the unassigned skill-1 baseline) -- an
-	# unassigned room isn't gated here since it never owes a wage in the
-	# first place (business-spec.md's "unassigned Sales role uses skill 1").
+	# An assigned-but-unpaid Sales role sources nothing today; an unassigned
+	# room isn't gated here since it never owes a wage (business-spec.md).
 	if Contacts.get_contact_in_room("ops") != null and not Payroll.is_paid_today("ops"):
 		return
 	if not Rng.chance(random_offer_chance()):
@@ -112,13 +109,8 @@ static func create_offer(template: Dictionary) -> Dictionary:
 	return { "ok": true, "offer": offer }
 
 
-# ticket 32: request.types.size() lines when mixed, else the flat request
-# itself acts as the sole line. Always populates quote.lines/liveValue (one
-# entry for a single-type request) so settle()'s quoted-value-weighted
-# proportion (business-spec.md, Fulfilment and settlement) never has to
-# special-case single- vs. mixed-type contracts; quote.unitValue is kept
-# only for the (still-common) single-type case, unchanged for callers/tests
-# that read it directly.
+# One quote.lines entry per requested type (single or mixed) so settle()
+# never special-cases the two; quote.unitValue is kept for single-type callers.
 static func quote_for_request(request: Dictionary, skill: int) -> Dictionary:
 	var lines: Array = Contracts.request_lines(request)
 	var extra_types: int = maxi(0, lines.size() - 1)
@@ -168,9 +160,8 @@ static func accept_offer(offer_id: String) -> Dictionary:
 			due_day = _next_weekday_strictly_after(accepted_day, int(offer["weekday"]))
 		elif offer["source"] == "scripted":
 			due_day = accepted_day + int(offer["deadlineAfterDays"])
-		# ticket 32: a mixed one-off's extra requested types were already fixed
-		# at offer-creation (quote) time, so their deadline bonus applies here
-		# on top of whichever base above just got picked.
+		# Extra requested types were fixed at offer-creation (quote) time; their
+		# deadline bonus applies on top of whichever base above was picked.
 		due_day += int(offer.get("extraTypeDeadlineDays", 0))
 		var contract := { "id": "contract-%d" % sales["nextContractId"], "periodId": "period-%d" % sales["nextPeriodId"], "offerId": offer_id, "templateId": offer["templateId"], "contractType": offer["contractType"], "request": offer["request"].duplicate(true), "quote": offer["quote"].duplicate(true), "acceptedDay": accepted_day, "dueDay": due_day, "weekday": offer["weekday"], "delegated": false, "delivered": {}, "status": "active" }
 		sales["nextContractId"] += 1
@@ -210,9 +201,8 @@ static func _next_weekday_strictly_after(day: int, weekday: int) -> int:
 	return day + (7 if offset == 0 else offset)
 
 
-# business-spec.md "Offer and contract types": mixed requests (request.types,
-# 2+ lines) are allowed only for one-offs -- a recurring template always
-# stays single-type.
+# business-spec.md "Offer and contract types": mixed requests are one-off
+# only; a recurring template always stays single-type.
 static func _valid_request(request: Dictionary, contract_type: String) -> bool:
 	if request.has("types"):
 		if contract_type != "oneOff":
@@ -233,9 +223,8 @@ static func _valid_request_line(line: Dictionary) -> bool:
 	return (kind == "ore" and GameData.ORE_TYPES.has(item_type)) or (kind == "consumable" and GameData.CONSUMABLE_PRICES.has(item_type))
 
 
-# Random one-offs/recurring roll a qty when the template doesn't author one;
-# a mixed one-off's per-type qty band is 2-5 regardless of source
-# (business-spec.md's quantity table).
+# Random one-offs/recurring roll a qty when the template omits one; a mixed
+# one-off's per-type qty band is 2-5 regardless of source (business-spec.md).
 static func _fill_request_quantities(request: Dictionary, contract_type: String) -> void:
 	if request.has("types"):
 		for line in request["types"]:

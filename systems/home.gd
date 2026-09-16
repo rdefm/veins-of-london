@@ -3,29 +3,20 @@ extends RefCounted
 
 # Home tier/security/rooms/raid system per R§3.3. Static funcs only.
 #
-# M1-LONDON-T06: home.storedOre was merged into player.orichalchum — there is
-# no deposit/withdraw mechanic anywhere, so a separate "stored" pool was
-# always either empty or unreachable. Carried ore now IS what a raid is
-# risking and losing; see systems/combat.gd's home-raid-loss code for the
-# other mechanic this touches.
+# Carried ore (player.orichalchum) is what a home raid risks losing; see
+# combat.gd's home-raid-loss handling.
 
 
-# 106-hq-raid-alarm-defend-flow: HQ's own "alarm" security id (data/home.json)
-# -- a separate concept from Cultivating.ALARM_UPGRADE_ID (a per-vein upgrade,
-# data/vein_alarm.json) that happens to share the same raw string. Named here
-# the same way that constant is named, so the check reads as "the alarm id"
-# rather than a magic literal, without implying the two are the same flag.
+# HQ's own "alarm" security id (data/home.json) -- distinct from Cultivating.
+# ALARM_UPGRADE_ID (per-vein, data/vein_alarm.json), which shares the string.
 const ALARM_SECURITY_ID := "alarm"
 
-# Unlike every other id in home["security"] (installed once, boolean
-# membership via .has()), "guard" stacks with no upper limit -- its count
-# lives on home["guardCount"] instead, so add_security() and
-# get_home_raid_chance() both special-case this id.
+# Unlike other security ids (installed once, boolean membership via .has()),
+# "guard" stacks; its count lives in home["guardCount"] instead.
 const GUARD_SECURITY_ID := "guard"
 
-# PROSE-REVIEW: new notification copy, drafted against CONTENT-GUIDE.md's tone
-# bible (dry, administrative, one line) -- the HQ mirror of Raiding.
-# _queue_defend_raid()'s own warning text.
+# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone (dry, administrative,
+# one line).
 const PENDING_RAID_WARNING := "Alarm's going off at HQ — someone's trying to get in. Get back there today to defend it."
 
 
@@ -33,11 +24,8 @@ static func get_home_raid_chance() -> float:
 	return get_raid_chance_for_tier(GameState.state["home"]["tier"])
 
 
-# 03-property-app-phone-tab: factored out of get_home_raid_chance() so the
-# Phone tab's Harrow's app can preview the raid risk of a tier the player
-# hasn't moved into yet -- installed security/guards/carried ore all carry
-# over on an upgrade, so the preview has to run the same formula against a
-# hypothetical tier_id rather than a flat lookup of that tier's raidBaseChance.
+# Split out from get_home_raid_chance() so the Phone tab can preview a tier
+# the player hasn't moved into yet.
 static func get_raid_chance_for_tier(tier_id: String) -> float:
 	var home: Dictionary = GameState.state["home"]
 	var player: Dictionary = GameState.state["player"]
@@ -46,19 +34,15 @@ static func get_raid_chance_for_tier(tier_id: String) -> float:
 	var raid_reduction := 0.0
 	for security_id in home["security"]:
 		raid_reduction += GameData.HOME_SECURITY[security_id]["raidReduction"]
-	# Flat per-guard contribution, uncapped and non-escalating -- a guard
-	# count of 1 reproduces the old single-guard raidReduction exactly.
+	# Flat per-guard contribution, uncapped and non-escalating.
 	raid_reduction += GameData.HOME_SECURITY[GUARD_SECURITY_ID]["raidReduction"] * home.get("guardCount", 0)
 	var total_stored: int = _sum_ore(player["orichalchum"])
 	var chance: float = tier_data["raidBaseChance"] + fx.get("homeRaid", 0.0) - raid_reduction + total_stored * 0.001
 	return max(0.002, chance)
 
 
-# Called from time_system.gd's daily_tick, step ②. 106-hq-raid-alarm-defend-
-# flow: runs the previous tick's still-pending alarm-defend raid first (a
-# player who never tapped Defend loses it exactly as the no-alarm path
-# would), then rolls today's fresh attempt -- same expire-then-roll order
-# Raiding.apply_raid_resolution() uses for the vein-raid mirror of this flow.
+# Called from time_system.gd's daily_tick. Resolves any still-pending
+# alarm-defend raid before rolling a fresh attempt.
 static func roll_daily_raid() -> void:
 	var home: Dictionary = GameState.state["home"]
 	var day: int = GameState.state["world"]["day"]
@@ -78,9 +62,8 @@ static func roll_daily_raid() -> void:
 		_apply_raid_loss()
 
 
-# The pre-ticket-106 behaviour, factored out so both the no-alarm immediate
-# path and the alarm path's missed-window fallback (_expire_pending_raid()
-# below) share one implementation.
+# Shared by the no-alarm immediate path and the alarm path's missed-window
+# fallback (_expire_pending_raid() below).
 static func _apply_raid_loss() -> void:
 	var player: Dictionary = GameState.state["player"]
 	var stored: Dictionary = player["orichalchum"]
@@ -105,14 +88,8 @@ static func _apply_raid_loss() -> void:
 	EventBus.state_changed.emit()
 
 
-# ── 106-hq-raid-alarm-defend-flow: alarm-gated defend queue ─────────────
-# With the Alarm System security upgrade installed, a successful daily raid
-# attempt doesn't resolve here -- it queues a single pending flag and alerts
-# the player, giving them the rest of the current day (until the next
-# daily_tick -- no separate countdown system, same shape as vein-raiding
-# ticket 07's own alarm-defend window) to tap Defend, from either the
-# Notifications app or the HQ screen's own Actions card, and fight it out via
-# the existing (previously tutorial-only) home-raid combat encounter.
+# With Alarm System installed, a raid queues a pending flag instead of
+# resolving immediately; the player has until next daily_tick to Defend.
 static func _queue_pending_raid() -> void:
 	var home: Dictionary = GameState.state["home"]
 	home["pendingRaid"] = true
@@ -120,28 +97,16 @@ static func _queue_pending_raid() -> void:
 	home["pendingRaidNotificationId"] = notification["id"]
 
 
-# ticket 108: before a missed-defend window falls through to
-# _apply_raid_loss(), HQ's own guardCount (ticket 107) gets a chance to repel
-# the raid outright instead. Chance-per-guard and cap live in data/
-# constants.json's "guardRepel" (GameData.GUARD_REPEL_CHANCE_PER_GUARD/_CAP)
-# -- one data source shared with Raiding.guard_repel_chance() (systems/
-# raiding.gd), this flow's vein-raid mirror, so retuning either never
-# touches a .gd file. Zero guards skips the roll entirely (no chance
-# consumed), leaving a guardless HQ's behaviour byte-for-byte identical to
-# pre-ticket-108.
+# Before a missed-defend window applies raid loss, guardCount gets a chance
+# to repel it (rates shared with Raiding.guard_repel_chance()).
 static func guard_repel_chance(guard_count: int) -> float:
 	return clampf(guard_count * GameData.GUARD_REPEL_CHANCE_PER_GUARD, 0.0, GameData.GUARD_REPEL_CHANCE_CAP)
 
 
-# Rolls the repel chance and, on success, pushes the distinct "held without
-# you" notification and reports true so _expire_pending_raid() skips
-# _apply_raid_loss() entirely -- no ore lost.
+# On success, pushes a "held without you" notification distinct from a
+# player-defended win (silent) and _apply_raid_loss()'s loss line.
 #
-# PROSE-REVIEW: new notification copy, drafted against CONTENT-GUIDE.md's
-# tone bible -- distinct from both the "you defended it yourself" silence
-# (Combat's home-raid win path pushes no notification at all) and
-# _apply_raid_loss()'s own loss line, so the player can tell "guards held
-# it" apart from either.
+# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone.
 static func _guards_repel_pending_raid() -> bool:
 	var guard_count: int = get_guard_count()
 	if guard_count <= 0:
@@ -152,8 +117,7 @@ static func _guards_repel_pending_raid() -> bool:
 	return true
 
 
-# Resolves a still-pending raid via _apply_raid_loss(), unless ticket 108's
-# guard-repel roll above intercepts it first.
+# Resolves a still-pending raid unless the guard-repel roll above intercepts it.
 static func _expire_pending_raid() -> void:
 	var home: Dictionary = GameState.state["home"]
 	if not home["pendingRaid"]:
@@ -165,11 +129,8 @@ static func _expire_pending_raid() -> void:
 	_apply_raid_loss()
 
 
-# Is HQ's own currently-pending raid the one notification_id's entry warned
-# about? Same notification-id scoping Raiding.is_defend_notification_pending()
-# uses for the vein-raid Defend button -- the Notifications log is capped, not
-# cleared, so an old already-resolved HQ-raid warning could otherwise
-# reactivate its Defend button once HQ is raided again later.
+# Scopes to HQ's currently-pending raid so a stale warning can't reactivate
+# Defend once HQ is raided again.
 static func is_pending_raid_notification(notification_id: String) -> bool:
 	var home: Dictionary = GameState.state["home"]
 	return home["pendingRaid"] and home["pendingRaidNotificationId"] == notification_id
@@ -179,12 +140,7 @@ static func has_pending_raid() -> bool:
 	return GameState.state["home"]["pendingRaid"]
 
 
-# Pops the pending flag and starts the existing home-raid combat encounter.
-# Called from wherever the player taps Defend (the raid-warning notification,
-# or the HQ screen's Actions card) -- both re-check has_pending_raid()/
-# is_pending_raid_notification() before rendering the button, but this
-# re-checks the flag itself too, the same defensive shape Raiding.
-# trigger_defend() uses, in case the window closed between render and tap.
+# Re-checks the pending flag in case the window closed between render and tap.
 static func trigger_defend() -> bool:
 	var home: Dictionary = GameState.state["home"]
 	if not home["pendingRaid"]:
@@ -195,9 +151,7 @@ static func trigger_defend() -> bool:
 	return true
 
 
-# 03-property-app-phone-tab: factored out of upgrade_tier() so the Phone
-# tab's Harrow's app can look up "the next place up" for its listing without
-# duplicating the tier-ladder traversal -- returns "" at the top tier.
+# Returns the next tier up the ladder, "" at the top tier.
 static func get_next_tier_id(tier_id: String) -> String:
 	var order: Array = GameData.HOME_TIER_ORDER
 	var index: int = order.find(tier_id)
@@ -232,9 +186,8 @@ static func add_security(security_id: String) -> Dictionary:
 	var home: Dictionary = GameState.state["home"]
 	var player: Dictionary = GameState.state["player"]
 
-	# "guard" never goes in the array (see GUARD_SECURITY_ID above), so it
-	# has nothing to block on here -- it's always allowed past the
-	# minTier/cash checks below.
+	# "guard" never enters the array (see GUARD_SECURITY_ID above), so it
+	# skips the minTier/cash checks below.
 	if security_id != GUARD_SECURITY_ID and home["security"].has(security_id):
 		return { "ok": false, "reason": "Already installed." }
 
@@ -258,8 +211,7 @@ static func add_security(security_id: String) -> Dictionary:
 	if security_id == GUARD_SECURITY_ID:
 		home["guardCount"] = home.get("guardCount", 0) + 1
 		var guard_count: int = home["guardCount"]
-		# PROSE-REVIEW: new notification copy, drafted against CONTENT-
-		# GUIDE.md's tone bible.
+		# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone.
 		var guard_msg: String = "Hired a guard for HQ." if guard_count == 1 else "Hired another guard for HQ — %d guards on watch now." % guard_count
 		Notify.push(guard_msg, Notify.CATEGORY_SUCCESS)
 	else:
@@ -271,8 +223,7 @@ static func add_security(security_id: String) -> Dictionary:
 	return { "ok": true }
 
 
-# Single source of truth for HQ's guard count -- old saves without the key
-# read as 0, same convention vein.get("extraGuards", 0) uses.
+# Saves without this key read as 0 (same convention as vein.get("extraGuards", 0)).
 static func get_guard_count() -> int:
 	return GameState.state["home"].get("guardCount", 0)
 

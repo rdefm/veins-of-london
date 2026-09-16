@@ -1,30 +1,16 @@
 extends Node
 
-# Generic bounded snapshot-stack helper (R§3.9). Stacks live INSIDE
-# GameState.state (e.g. state.combat.snapshots, state.event.snapshots) —
-# this just owns the push/trim/pop discipline shared by combat rewind
-# (T08) and event rewind (T13). Never holds data itself; state stays a
-# pure tree, which is what makes it save/load-safe.
+# Bounded snapshot-stack helper (R§3.9). Stacks live inside GameState.state
+# (e.g. state.combat.snapshots), so state stays a pure, save/load-safe tree.
 #
-# CAUTION for any caller building `snapshot` via GameState.deep_copy(
-# GameState.state) (event rewind does this; combat rewind doesn't — it
-# hand-picks a few scalar fields instead): the stack this pushes onto
-# lives INSIDE that same state tree. If the stack isn't emptied before
-# the deep copy, each snapshot embeds the whole stack as it stood a
-# moment ago — which embeds every snapshot before that, recursively.
-# The size cap below only bounds array LENGTH, not this nested content,
-# so it does nothing to stop it: total data size roughly doubles per
-# push regardless, and it will eventually exhaust memory. See
-# systems/events.gd's advance()/rewind() for the empty-before-copy /
-# restore-the-live-stack-after pattern that avoids this.
+# CAUTION: a caller building `snapshot` via GameState.deep_copy(GameState.state)
+# must empty this stack first, or each push embeds the whole stack recursively,
+# roughly doubling data size per push. See systems/events.gd's advance()/rewind().
 
 const MAX_SIZES := {
 	"combat": 2,
 	"event": 8,
-	# day-rhythm-business-and-combat ticket 14: bounded solo combat prototype
-	# (systems/combat_prototype.gd) -- same 2-deep cap as "combat" above, per
-	# ticket 13a's "extend the existing combat snapshot ... 2-deep stack".
-	"combatPrototype": 2,
+	"combatPrototype": 2,  # systems/combat_prototype.gd; same cap as "combat".
 }
 
 
@@ -45,10 +31,9 @@ func clear(stack: Array) -> void:
 	stack.clear()
 
 
-# LIFO pop: removes and returns the most recently pushed snapshot, leaving
-# earlier frames in place. Event rewind uses this (unlike combat rewind,
-# which restores the oldest frame and clears the whole stack) so multiple
-# rewind charges can step back one card at a time.
+# LIFO pop, leaving earlier frames in place. Event rewind uses this (combat
+# rewind instead restores the oldest frame and clears the whole stack) so
+# multiple rewind charges can step back one card at a time.
 func pop_newest(stack: Array) -> Variant:
 	if stack.is_empty():
 		return null

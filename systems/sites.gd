@@ -1,32 +1,23 @@
 class_name Sites
 extends RefCounted
 
-# Sites & prospecting per M1-LONDON.md D2. Static funcs only. A site is the
-# land (state.world.sites); attempt_seed() is what turns an unclaimed site
-# into a vein (systems/cultivating.gd owns veins themselves).
+# Sites & prospecting (M1-LONDON §D2). Static funcs only. A site is the land
+# (state.world.sites); attempt_seed() turns an unclaimed site into a vein
+# (systems/cultivating.gd owns veins themselves).
 
-# Worst-to-best; GameData.SITE_TIER_ORDER (loaded from data/sites.json) is
-# the single source of truth for both the weight table's key order and
-# "worst tier" comparisons — don't duplicate it as a local const.
+# GameData.SITE_TIER_ORDER (data/sites.json) is the single source of truth
+# for worst-to-best ordering — don't duplicate it as a local const.
 
-# D2's tierIndex for the NPC-claim formula (distinct from SITE_TIER_ORDER's
+# tierIndex for the NPC-claim formula (distinct from SITE_TIER_ORDER's
 # worst-to-best position): poor 0, fair 1, rich 2, saturated 3. barren is
-# excluded entirely by the caller — it is never claimed.
+# excluded — it is never claimed.
 const NPC_CLAIM_TIER_INDEX: Dictionary = { "poor": 0, "fair": 1, "rich": 2, "saturated": 3 }
 
-# bugfixes-73: retuned down from the original adr/0002 curve (base 0.03,
-# tier step 0.02, age step 0.01, cap 0.25) now that bugfixes-40 has removed
-# NPC-abandonment — the independent daily death roll that used to cut a
-# claimed vein's life short well before its growth ever finished decaying
-# to 0 (see collapse_vein()'s left-wall roll, the only death path left).
-# Removing that early-death pressure roughly doubles a freshly-claimed
-# vein's expected survival (~10 days -> ~14 days, by the drift math: seed-
-# growth 20 decays to 0 in a deterministic 8 daily-tick steps, then rolls
-# collapseChancePerDay (0.15) each day it sits there, expectation ~6.7
-# days). Halving the tier/age sensitivity and cutting the base/cap by
-# roughly a third keeps the claim rate roughly proportional to the new,
-# slower turnover instead of also compounding it — needs balance sign-off
-# once played, not derived from a hard target vein count.
+# Faction veins now only die via Cultivating.collapse_vein()'s left-wall
+# roll (see adr/0004), so a freshly-claimed vein's expected survival is
+# longer than the original adr/0002 curve assumed. These are tuned down
+# from that curve to keep the claim rate proportional — needs balance
+# sign-off once played, not derived from a hard target vein count.
 const NPC_CLAIM_BASE := 0.02
 const NPC_CLAIM_TIER_STEP := 0.01
 const NPC_CLAIM_AGE_STEP := 0.005
@@ -37,18 +28,14 @@ static func make_site_id() -> String:
 	return "s" + str(Time.get_ticks_usec()) + str(Rng.randi_range(1000, 999999))
 
 
-# 52-map-vein-line-position-drift: the stable, permanent slot a stop keeps
-# for as long as it lives, stamped once at creation onto the site (or, for
-# a saturated site's extra natural-vein stop, onto the vein itself — see
-# attempt_seed() below) rather than derived from where that stop currently
-# sits in state.world.sites/player.veins. 87-map-slot-index-recycling:
-# drains state.world.mapSlotFreePool (release_slot_index()'s backing store)
-# before ever minting a fresh value off the per-district counter in
-# state.world.mapSlotCounters, so a removed stop's slot goes straight back
-# into circulation instead of counting up forever -- a still-live stop's
-# position never moves underneath it (same guarantee as before), but a
-# district's lifetime churn no longer has to fit inside its stopSlots
-# buffer, only its live stop count does.
+# The stable, permanent slot a stop keeps for as long as it lives, stamped
+# once at creation onto the site (or, for a saturated site's extra
+# natural-vein stop, onto the vein itself — see attempt_seed() below) rather
+# than derived from where the stop currently sits in state.world.sites/
+# player.veins. Drains state.world.mapSlotFreePool before minting a fresh
+# value off the per-district mapSlotCounters, so a freed slot recirculates
+# instead of counting up forever — a district's lifetime churn only needs to
+# fit inside its live stop count, not its stopSlots buffer.
 static func next_slot_index(district_id: String) -> int:
 	var free_pool: Dictionary = GameState.state["world"]["mapSlotFreePool"]
 	var freed: Array = free_pool.get(district_id, [])
@@ -61,13 +48,10 @@ static func next_slot_index(district_id: String) -> int:
 	return next_index
 
 
-# 87-map-slot-index-recycling: the other half of next_slot_index() --
-# called by every removal path that ends a site's or a slotIndex-owning
-# vein's existence in a district (Sites._reroll_worst_unclaimed(),
-# Cultivating.collapse_vein()'s both branches, VeinTrade.sell_to_faction(),
-# Raiding.resolve_raid_outcome()'s claim branch), so the freed slot can be
-# handed back out by a later next_slot_index() call instead of leaving that
-# position permanently retired.
+# The other half of next_slot_index() — called by every removal path that
+# ends a site's or a slotIndex-owning vein's existence in a district
+# (_reroll_worst_unclaimed(), Cultivating.collapse_vein(), VeinTrade.
+# sell_to_faction(), Raiding.resolve_raid_outcome()'s claim branch).
 static func release_slot_index(district_id: String, slot_index: int) -> void:
 	var free_pool: Dictionary = GameState.state["world"]["mapSlotFreePool"]
 	if not free_pool.has(district_id):
@@ -75,12 +59,10 @@ static func release_slot_index(district_id: String, slot_index: int) -> void:
 	free_pool[district_id].append(slot_index)
 
 
-# 87-map-slot-index-recycling: shared by every removal path that takes a
-# vein out of state.player.veins while its site survives (collapse,
-# sale, raid). Only the saturated-site natural-vein bonus ever carries
-# its own stamped slotIndex (Sites.attempt_seed()) -- an ordinary vein
-# reuses its site's slot, which stays live for whatever occupies it next,
-# so there is nothing to free for it.
+# Shared by every removal path that takes a vein out of state.player.veins
+# while its site survives (collapse, sale, raid). Only the saturated-site
+# natural-vein bonus ever carries its own stamped slotIndex (attempt_seed()
+# below) — an ordinary vein reuses its site's slot, nothing to free.
 static func release_vein_slot(vein: Dictionary) -> void:
 	if vein.has("slotIndex"):
 		release_slot_index(vein["district"], vein["slotIndex"])
@@ -93,12 +75,9 @@ static func find_site(site_id: String) -> Variant:
 	return null
 
 
-# combat-presentation ticket 02: the turn-order strip's faction-colour
-# lookup for a raid target (§2.4's table) knows a vein id
-# (combat["veinId"]) but not which faction owns it or which site it's on --
-# unlike find_site() above, this searches every site's factionVein
-# regardless of owner, since the caller doesn't know the faction_id in
-# advance (that's what it's trying to find).
+# Used when the caller has a vein id (combat["veinId"]) but not the faction
+# that owns it — unlike find_site() above, this searches every site's
+# factionVein regardless of owner.
 static func find_faction_vein(vein_id: String) -> Variant:
 	for site in GameState.state["world"]["sites"]:
 		var vein: Variant = site["factionVein"]
@@ -107,11 +86,9 @@ static func find_faction_vein(vein_id: String) -> Variant:
 	return null
 
 
-# vein-trade-assets ticket 03: the "this faction's own live site veins"
-# filter -- shared so the buy-side lane (the faction Trade modal's Assets
-# rows, its batched-cart gather, and VeinTrade.buy_from_faction()'s own
-# lookup) all agree on one definition of "buyable from this faction" rather
-# than re-deriving it three times.
+# "This faction's own live site veins" — shared so the buy-side lane (the
+# Trade modal's Assets rows, its cart gather, VeinTrade.buy_from_faction())
+# all agree on one definition of "buyable from this faction".
 static func sites_with_faction_vein(faction_id: String) -> Array:
 	var result: Array = []
 	for site in GameState.state["world"]["sites"]:
@@ -129,7 +106,7 @@ static func sites_in_district(district_id: String) -> Array:
 	return result
 
 
-# ── tier roll (D2: base weights, then modifiers, then normalise) ──────
+# ── tier roll (M1-LONDON §D2: base weights, then modifiers, then normalise) ──
 
 # Shared by compute_tier_weights() and compute_at_cap_tier_weights(): floats
 # out a tier-keyed weight table (GameData.SITE_TIER_WEIGHTS or
@@ -189,15 +166,11 @@ static func roll_tier(district_id: String) -> String:
 	return roll_tier_from_weights(weights)
 
 
-# vein-raiding ticket 10: once a district is at siteCap, the site being
-# rolled is replacing land that's already been picked over, so it draws
-# from GameData.SITE_AT_CAP_TIER_WEIGHTS (data/sites.json) instead of the
-# below-cap table above -- a fixed, heavily poor/barren-weighted table with
-# no siteQualityMod, skill, or Greenwich-tip-off inputs (those describe the
-# district's underlying land, not its "picked-over" state). Same
-# "mostly-the-expected-outcome, occasionally not" shape as
-# Factions.pick_claimant's presence-vs-rival-encroachment split: rich/
-# saturated stay reachable, just rare.
+# Once a district is at siteCap, the site being rolled is replacing land
+# that's already been picked over, so it draws from
+# GameData.SITE_AT_CAP_TIER_WEIGHTS instead — a fixed, heavily poor/
+# barren-weighted table with no siteQualityMod/skill/tip-off inputs (those
+# describe the district's underlying land, not its picked-over state).
 static func compute_at_cap_tier_weights() -> Dictionary:
 	return _tier_weights_from_table(GameData.SITE_AT_CAP_TIER_WEIGHTS)
 
@@ -277,15 +250,11 @@ static func prospect(district_id: String) -> Dictionary:
 	if not travel["ok"]:
 		return travel
 
-	# vein-raiding ticket 07 — checked before advance_time_block(), not
-	# after: advance_time_block() can itself trigger daily_tick() (whenever
-	# this is the day's last block), which would expire this same pending
-	# defend raid via Raiding._expire_pending_defend_raids() before the
-	# post-action check below ever ran, so a player arriving on their last
-	# block of the day would silently lose the encounter to the very tick
-	# their arrival was supposed to pre-empt. Checking here, before any of
-	# prospect()'s own effects land, means arriving is unconditionally
-	# enough -- same as combat always taking the screen over immediately.
+	# Checked before advance_time_block(), not after: advance_time_block() can
+	# itself trigger daily_tick() on the day's last block, which would expire
+	# this same pending defend raid (Raiding._expire_pending_defend_raids())
+	# before a post-action check ever ran. Checking here means arriving is
+	# unconditionally enough, same as combat always taking over immediately.
 	if Raiding.maybe_trigger_defend(district_id):
 		return { "ok": true, "district": district_id, "site": null }
 
@@ -297,21 +266,19 @@ static func prospect(district_id: String) -> Dictionary:
 	else:
 		site = _create_site(district_id)
 
-	Objectives.refresh()  # collective1-02: boundary — after the site is created
+	Objectives.refresh()
 	EventBus.state_changed.emit()
-	# collective1-09, spec §10.4: the story beat is checked first, and — since
-	# it's Rng-free — a genuine early return that never touches the deck's own
-	# seeded roll when it fires. DistrictDeck.maybe_trigger() must stay the
-	# last thing either branch does; see its own doc comment.
+	# The story beat is checked first — it's Rng-free, so a genuine early
+	# return that never touches the deck's own seeded roll when it fires.
+	# DistrictDeck.maybe_trigger() must stay the last thing either branch does.
 	if not Collective.maybe_trigger_weather_beat(site):
 		DistrictDeck.maybe_trigger(district_id)
 	return { "ok": true, "district": district_id, "site": site }
 
 
 # Every truly-unclaimed site in the district (not player-claimed, no
-# factionVein) — the predicate shared by _unclaimed_sites_by_tier() below
-# and Cultivating.self_seed() (vein-growth-state ticket 02, spec §2.6),
-# which just needs the filter, not the tier sort.
+# factionVein) — shared by _unclaimed_sites_by_tier() below and
+# Cultivating.self_seed() (R§3.4), which just needs the filter, not the sort.
 static func unclaimed_sites_in_district(district_id: String) -> Array:
 	var unclaimed: Array = []
 	for site in sites_in_district(district_id):
@@ -366,13 +333,11 @@ static func _create_site(district_id: String, at_cap: bool = false) -> Dictionar
 	return site
 
 
-# Pure dict construction, split out of _create_site() so
-# faction-starting-veins T01's day-1 seeding (systems/factions.gd's
-# _seed_day_one_vein()) can fabricate a from-scratch site with the exact
-# same tier/ore/bonus procedural generation a real prospect would use,
-# without also pulling in _create_site()'s player-action side effects
-# (append to state, queue a discover animation, award prospect XP) that
-# don't apply to a site that's existed since before the game started.
+# Pure dict construction, split out of _create_site() so day-1 site seeding
+# (Factions._seed_day_one_vein()) can fabricate a from-scratch site with the
+# same tier/ore/bonus generation a real prospect uses, without
+# _create_site()'s player-action side effects (state append, discover
+# animation, prospect XP) that don't apply to a pre-existing site.
 static func roll_new_site(district_id: String, tier: String) -> Dictionary:
 	var ore_type := roll_ore_type(district_id)
 	var bonus_roll := roll_discovery_bonuses(tier)
@@ -390,16 +355,13 @@ static func roll_new_site(district_id: String, tier: String) -> Dictionary:
 	}
 
 
-# ── debug: spawn an unclaimed site (03-debug-app-spawn-unclaimed-site) ──
+# ── debug: spawn an unclaimed site ──────────────────────────────────────
 
-# Debug-only site creation, called from the Debug phone app: district, tier
-# and oreType are all player-chosen rather than rolled, and this bypasses
-# the district's siteCap entirely -- no _reroll_worst_unclaimed eviction, no
-# cap check at all. It's a testing tool, not a simulated prospect. Same site
-# shape roll_new_site() builds (and debug_start.gd's own _debug_site()
-# mirrors) minus the ore-type/bonus rolls, which are replaced with direct
-# player choices; bonuses and hasNaturalVein are always empty/false, same as
-# debug_start.gd's hand-built fixture convention.
+# Debug-only site creation from the Debug phone app: district, tier and
+# oreType are player-chosen rather than rolled, and this bypasses the
+# district's siteCap entirely — a testing tool, not a simulated prospect.
+# Same site shape as roll_new_site() (and debug_start.gd's _debug_site())
+# minus the ore-type/bonus rolls; bonuses and hasNaturalVein stay empty/false.
 static func spawn_unclaimed_site(district_id: String, tier: String, ore_type: String) -> Dictionary:
 	var site := {
 		"id": make_site_id(),
@@ -425,8 +387,7 @@ static func seed_success_chance(skill: int, tier: String) -> float:
 	return clampf(Cultivating.get_cult_chance(skill) + tier_mod, 0.05, 0.95)
 
 
-# Replaces free-floating seeding (Cultivating.seed(oreType)) for sites:
-# requires an unclaimed, non-barren site and 40 ore of ITS oreType.
+# Requires an unclaimed, non-barren site and 40 ore of ITS oreType (R§3.4).
 static func attempt_seed(site_id: String) -> Dictionary:
 	var site = find_site(site_id)
 	if site == null:
@@ -450,12 +411,9 @@ static func attempt_seed(site_id: String) -> Dictionary:
 	player["orichalchum"][ore_type] = have - GameData.SEED_ORE_COST
 
 	var skill: int = player["cultivatingSkill"]
-	# dial-device ticket 02: the "seed-chance action" leg of the attunement
-	# bonus -- a vein-seeding attempt has a real single ore type (the
-	# site's), unlike Dial.attempt_seed()'s own mixed five-ore-type cost,
-	# which can never have a Movement seated when it runs (no Dial exists
-	# yet to seat one on) and so has nothing for attunement to match
-	# against.
+	# A vein-seeding attempt has a real single ore type (the site's), unlike
+	# Dial.attempt_seed()'s own mixed five-ore-type cost (R§3.5), which has
+	# nothing for attunement to match against.
 	var success: bool = Rng.chance(Dial.apply_attunement(seed_success_chance(skill, site["tier"]), ore_type))
 
 	if success:
@@ -468,18 +426,14 @@ static func attempt_seed(site_id: String) -> Dictionary:
 		MapEvents.queue_seed_claim(district, vein["id"], "player")
 		MapEvents.queue_join_line(district, vein["id"], "player")
 
-		# D2: claiming a hasNaturalVein site instantly grants a free vein of
-		# the site's oreType, at the same seedGrowth every fresh vein starts
-		# at (vein-growth-state spec §2.7), with its own freshly-rolled (not
-		# shared) location.
+		# M1-LONDON §D2: claiming a hasNaturalVein site instantly grants a free
+		# vein of the site's oreType at the same seedGrowth, with its own
+		# freshly-rolled (not shared) location.
 		var natural_vein_id: Variant = null
 		if site["hasNaturalVein"]:
 			var natural_vein := Cultivating.make_vein(ore_type, GameData.VEIN_GROWTH["seedGrowth"], district, site_id, hospitability)
-			# 52-map-vein-line-position-drift: this is the second stop landing
-			# on an already-positioned site (the first vein above reuses the
-			# site's own slotIndex) -- it needs its own permanent slot, not a
-			# position derived from where it lands in player.veins, or every
-			# stop after it would visibly shift the moment this fires.
+			# Second stop landing on an already-positioned site (the first vein
+			# reuses the site's own slotIndex) — needs its own permanent slot.
 			natural_vein["slotIndex"] = next_slot_index(district)
 			player["veins"].append(natural_vein)
 			natural_vein_id = natural_vein["id"]
@@ -495,32 +449,26 @@ static func attempt_seed(site_id: String) -> Dictionary:
 		return { "ok": true, "success": false, "siteId": site_id }
 
 
-# ── NPC site-claiming (daily tick, D2 + adr/0002, retuned by bugfixes-73) ──
-# adr/0002's second death mechanic, NPC-abandonment (an independent daily
-# chance that deleted a faction-claimed site outright, stacked on top of
-# the growth-collapse-at-zero roll every vein already faces), was removed
-# by bugfixes-40 — see adr/0004. Faction veins now only die via
-# Cultivating.collapse_vein(), the same left-wall roll player veins use.
+# ── NPC site-claiming (daily tick, M1-LONDON §D2, adr/0002) ─────────────
+# Faction veins only die via Cultivating.collapse_vein()'s left-wall roll,
+# same as player veins (see adr/0004).
 
 static func npc_claim_chance(tier: String, age_days: int) -> float:
 	var tier_index: int = NPC_CLAIM_TIER_INDEX.get(tier, 0)
 	return clampf(NPC_CLAIM_BASE + NPC_CLAIM_TIER_STEP * tier_index + NPC_CLAIM_AGE_STEP * age_days, 0.0, NPC_CLAIM_CAP)
 
 
-# rival_prospector (M1-LONDON D5 #13): the district's best (highest-tier,
-# oldest-breaks-ties) unclaimed site, or null if the district has none.
+# The district's best (highest-tier, oldest-breaks-ties) unclaimed site,
+# used by rival_prospector (M1-LONDON §D5 #13), or null if none.
 static func best_unclaimed_site(district_id: String) -> Variant:
 	var sorted := _unclaimed_sites_by_tier(district_id, true)
 	return sorted[0] if not sorted.is_empty() else null
 
 
-# collective1-10: the "instant faction vein" shape shared by NPC claiming
-# (npc_claim_best_unclaimed_site/roll_npc_claims below) and col_a1_des_
-# report's on_complete (systems/events.gd's _faction_seed_reported_sites) --
-# create the vein at seedGrowth, attach it to the site, queue its seed_claim
-# + join_line map events. Callers own the "should this site even get a
-# vein" gating (unclaimed check, faction pick, etc.); this just does the
-# seed itself.
+# The "instant faction vein" shape shared by NPC claiming (below) and
+# events.gd's _faction_seed_reported_sites (col_a1_des_report's
+# on_complete): create the vein at seedGrowth, attach it to the site, queue
+# its map events. Callers own the "should this site get a vein" gating.
 static func seed_faction_vein(site: Dictionary, faction_id: String) -> void:
 	site["factionVein"] = Factions.create_faction_vein(faction_id, site, GameData.VEIN_GROWTH["seedGrowth"])
 	MapEvents.queue_seed_claim(site["district"], site["factionVein"]["id"], faction_id)
@@ -541,12 +489,10 @@ static func npc_claim_best_unclaimed_site(district_id: String) -> void:
 	seed_faction_vein(site, faction_id)
 
 
-# Called from time_system.gd's daily_tick, step ⑤b. Each unclaimed,
-# non-barren site may attract a faction claim; older, richer sites are
-# likelier. faction-vein-ownership T01: the claimant is now always one of
-# the 5 canonical factions (systems/factions.gd's pick_claimant()), not an
-# anonymous flag, and claiming instantly seeds a real vein — no separate
-# "claimed land, not yet seeded" step.
+# Called from TimeSystem.daily_tick() step ⑤b. Each unclaimed, non-barren
+# site may attract a faction claim; older, richer sites are likelier. The
+# claimant is always one of the 5 canonical factions (Factions.
+# pick_claimant()), and claiming instantly seeds a real vein.
 static func roll_npc_claims() -> void:
 	var day: int = GameState.state["world"]["day"]
 	for site in GameState.state["world"]["sites"]:
@@ -561,30 +507,21 @@ static func roll_npc_claims() -> void:
 			Notify.push("%s have moved onto the %s site in %s." % [faction_name, site["tier"], district_name], Notify.CATEGORY_WARNING)
 
 
-# ── faction vein daily growth (faction-vein-ownership T02, vein-growth-state T04) ──
+# ── faction vein daily growth ────────────────────────────────────────────
 
-# Called from time_system.gd's daily_tick, step ⑤c (runs immediately after
-# ⑤b claims — bugfixes-40 removed the abandonment step that used to sit
-# between them). Under the growth model (vein-growth-state spec §5),
-# faction veins drift on the same daily_tick step ④ pass every other vein
-# does (Cultivating.drift_veins()), so this step no longer moves growth
-# itself — it only prunes back veins that drifted all the way to the
-# ceiling, off-screen (no ore granted to anyone): without this, every
+# Called from TimeSystem.daily_tick() step ⑤c, immediately after ⑤b claims.
+# Faction veins drift on the same step ④ pass every other vein does
+# (Cultivating.drift_veins()), so this step only prunes back veins that
+# drifted to the ceiling, off-screen (no ore granted): without it, every
 # faction vein on the map would park at the ceiling within a month.
 #
-# bugfixes-73: TARGET moved from 55 to 40. 55 sits inside the "dormant"
-# band (45-55, drift 0 — data/vein_growth.json), which was harmless while
-# NPC-abandonment gave every faction vein a second, independent way to
-# die; once that's removed (bugfixes-40), a vein reset to 55 would never
-# drift again (direction only flips at neutral, and dormant's own drift is
-# 0) — a de facto immortal vein, silently accumulating without bound over
-# a long game. 40 sits in "thinning" (30-44, drift 1 leftward), so a
-# prune-backed vein resumes its walk toward 0 and eventually rolls
-# collapse_vein()'s left-wall chance same as any other vein, closing the
-# loop that makes a steady state possible at all. THRESHOLD/CHANCE are
-# unrelated to that bug (they only gate how often a ceiling-parked vein
-# gets pruned at all) and are left as-is — needs balance sign-off once
-# played, not derived from a hard target vein count.
+# TARGET is 40, not 55 — 55 sits in the "dormant" band (45-55, drift 0,
+# R§1.2), where a reset vein would never drift again (direction only flips
+# at neutral) and become a de facto immortal vein. 40 sits in "thinning"
+# (30-44, drift 1 leftward), so a prune-backed vein resumes its walk toward
+# 0 and eventually rolls collapse_vein()'s left-wall chance. THRESHOLD/
+# CHANCE only gate how often a ceiling-parked vein gets pruned and need
+# balance sign-off once played, not derived from a hard target vein count.
 const FACTION_PRUNE_BACK_THRESHOLD := 85
 const FACTION_PRUNE_BACK_CHANCE := 0.40
 const FACTION_PRUNE_BACK_TARGET := 40

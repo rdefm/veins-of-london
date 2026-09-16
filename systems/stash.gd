@@ -1,16 +1,12 @@
 class_name Stash
 extends RefCounted
 
-# day-rhythm-business-and-combat ticket 22, business-spec.md "Inventory":
-# the personal stash -- a second ore/crafted-item pool no business system
+# The personal stash: a second ore/crafted-item pool no business system
 # (contracts, Sales, Production, Procurement) can touch. Moving stock in
 # subtracts it from player.orichalchum/player.inventory -- the same pool
 # every other system reads -- so a stashed unit is automatically invisible
-# to those systems without any of them needing to know the stash exists.
-# It's a transfer destination, not a second view onto the same numbers, and
-# the sole reserve mechanism (no other per-item reserve flag exists). Every
-# move is instant and reversible: no time cost, clamped to whatever's
-# actually available rather than erroring on an over-large request.
+# to those systems. Every move is instant and reversible: no time cost,
+# clamped to whatever's actually available.
 
 
 static func stashed_ore_qty(ore_type: String) -> int:
@@ -56,11 +52,9 @@ static func move_item_to_shared(recipe_key: String, qty: int) -> void:
 		EventBus.shared_stock_increased.emit()
 
 
-# Tier-preserving move, lowest-tier-first -- same policy Crafting.
-# inventory_remove uses for every other tier-indifferent consumer -- so a
-# unit that later returns to shared stock still carries the exact quality
-# it was stashed at (Economy prices a sale by tier; the stash must never
-# quietly launder that away).
+# Tier-preserving move, lowest-tier-first (same policy Crafting.
+# inventory_remove uses) -- a unit returning to shared stock keeps the
+# exact quality it was stashed at.
 static func _move_item(source: Dictionary, dest: Dictionary, recipe_key: String, qty: int) -> void:
 	var buckets: Dictionary = source.get(recipe_key, {})
 	if buckets.is_empty() or qty <= 0:
@@ -90,9 +84,8 @@ static func _move_item(source: Dictionary, dest: Dictionary, recipe_key: String,
 		EventBus.state_changed.emit()
 
 
-# Transient per-row move-qty stepper (state.stashQty, not restored on load)
-# -- one shared qty per row for both that row's stash/unstash button, same
-# convention as Economy.get_marketplace_qty/adjust_marketplace_qty.
+# Transient per-row move-qty stepper (state.stashQty, not restored on
+# load), same convention as Economy.get_marketplace_qty/adjust_marketplace_qty.
 static func get_ore_move_qty(ore_type: String) -> int:
 	return int(GameState.state["stashQty"].get("ore_%s" % ore_type, 1))
 

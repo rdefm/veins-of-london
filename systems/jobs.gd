@@ -1,25 +1,23 @@
 class_name Jobs
 extends RefCounted
 
-# James jobs per R§3.10 + §1.11 trust bands. Static funcs only. Unlocked
-# by jamesMotionEventSeen — bugfixes-112: gated directly in roll_daily_offer()
-# below, not just in ContactCards.build_james_card()'s UI, so the daily tick
-# can't push an offer/Notify naming James before james_motion.json has played.
+# James jobs per R§3.10 + §1.11 trust bands. Static funcs only. James
+# offers jobs proactively (roll_daily_offer(), called from
+# time_system.gd's daily tick) -- there is no player-initiated "ask for
+# work". Gated on jamesMotionEventSeen directly in roll_daily_offer(), not
+# just in ContactCards.build_james_card()'s UI, so the daily tick can't
+# push an offer/Notify naming James before james_motion.json has played.
 #
-# bugfixes-30: James offers jobs proactively (roll_daily_offer(), called
-# from time_system.gd's daily tick) — there is no player-initiated "ask for
-# work" anymore. Two job types share the jamesJob/jamesJobActive lifecycle,
-# distinguished by job["type"]:
+# Two job types share the jamesJob/jamesJobActive lifecycle, distinguished
+# by job["type"]:
 #   "flatPay" — spend a time block, get paid FLAT_PAY_AMOUNT flat. No
-#     deadline (ticket only asked for one on the craft type).
-#   "craft"   — the original generate_james_job() qty/recipe job, now with
-#     a byDay deadline (DEADLINE_DAYS_PER_QTY per unit ordered), enforced
-#     by expire_overdue_job() (also called from the daily tick).
+#     deadline.
+#   "craft"   — generate_james_job()'s qty/recipe job, with a byDay
+#     deadline (DEADLINE_DAYS_PER_QTY per unit ordered), enforced by
+#     expire_overdue_job() (also called from the daily tick).
 # jamesJobAccepted tracks accept vs. still-just-offered, separately from
-# jamesJobActive — needed now that an offer can sit unseen for a day or
-# more before the player opens it (previously offer_job() opened the modal
-# synchronously, so "active" and "offered-but-undecided" were the same
-# instant).
+# jamesJobActive, since an offer can sit unseen for a day or more before
+# the player opens it.
 
 const FLAT_PAY_AMOUNT := 300
 const FLAT_PAY_LOW_CASH_THRESHOLD := 100

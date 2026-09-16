@@ -1,12 +1,11 @@
 class_name Consumables
 extends RefCounted
 
-# calc-effect-wiring-02: the two healing effects that aren't gated to an
-# active fight. healingSalve is strictly out-of-combat (a 2-day
-# heal-over-time timer TimeSystem.daily_tick() ticks down); healingBurst
-# works in or out of combat, so it lives here rather than in Combat, and
-# writes its result line to the combat log when a fight is active or pushes
-# a Notify otherwise. Static funcs only.
+# The two healing effects that aren't gated to an active fight. healingSalve
+# is strictly out-of-combat (a 2-day heal-over-time timer TimeSystem.
+# daily_tick() ticks down); healingBurst works in or out of combat, so it
+# lives here rather than in Combat, writing to the combat log when a fight
+# is active or pushing a Notify otherwise.
 
 
 # Refreshes rather than stacks: using a second salve while one is already
@@ -42,11 +41,9 @@ static func use_healing_burst() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	var beats: Array = []
 	if combat["active"]:
-		# combat-presentation ticket 11: routed through Combat.append_beat()
-		# (not a plain combat["log"].append()) so this in-combat use produces
-		# a beat the director can play through, same as every other
-		# in-combat consumable -- see that func's own comment for why this
-		# lives in Consumables rather than Combat.
+		# Routed through Combat.append_beat() (not a plain combat["log"].append())
+		# so this in-combat use produces a beat the director can play through,
+		# same as every other in-combat consumable.
 		Combat.append_beat(combat, beats, line, Combat.BEAT_USE_HEALING_BURST, { "effectKey": "healingBurst" })
 	else:
 		Notify.push(line, Notify.CATEGORY_SUCCESS)

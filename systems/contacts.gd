@@ -18,10 +18,9 @@ static func can_recruit(contact_id: String) -> bool:
 	if not contacts.has(contact_id):
 		return false
 	var c: Dictionary = contacts[contact_id]
-	# collective1-07, spec §7.1: Des/Nadia/Hakim are "not recruitable, in Act
-	# 1 or later" -- gated here too, not just at the UI (ContactCards.
-	# build_recruit_row()), so there's no back door via a recruitThreshold of
-	# 0 (met the instant they unlock).
+	# Some contacts (Des/Nadia/Hakim) are never recruitable -- gated here
+	# too, not just the UI, so there's no back door via a recruitThreshold
+	# of 0 (met the instant they unlock).
 	if not c.get("recruitable", true):
 		return false
 	return c["unlocked"] and not c["recruited"] and c["relation"] >= c["recruitThreshold"]
@@ -81,11 +80,9 @@ static func award_contact_xp(contact_id: String, skill: String, amount: int) -> 
 		Notify.push("%s's %s skill reached level %d." % [display_name(contact_id), skill, c[skill_key]], Notify.CATEGORY_SUCCESS)
 
 
-# 44-archie-combat-ally: recruited is the only gate -- "defending shared
-# interests doesn't need much trust" per the human, so no relation check
-# here (unlike can_recruit's threshold). combatHpMax > 0 excludes any
-# contact whose constants.json entry never defined a combat kit (james, for
-# now) from ever being offered, without hardcoding contact_id == "archie".
+# recruited is the only gate -- no relation check (unlike can_recruit's
+# threshold). combatHpMax > 0 excludes any contact whose constants.json
+# entry never defined a combat kit, without hardcoding contact_id.
 static func can_join_combat(contact_id: String) -> bool:
 	var contacts: Dictionary = GameState.state["contacts"]
 	if not contacts.has(contact_id):
@@ -120,9 +117,8 @@ static func build_combat_ally(contact_id: String) -> Dictionary:
 
 
 # Called by Combat when an ally's hp hits 0 mid-fight -- removes them from
-# that fight (systems/combat.gd checks the `koed` flag it set on the ally
-# dict itself) and starts a cooldown before they're eligible again, per the
-# ticket's "real stakes without permadeath".
+# that fight (systems/combat.gd checks the `koed` flag on the ally dict)
+# and starts a cooldown before they're eligible again.
 static func knock_out(contact_id: String, current_day: int) -> void:
 	var contacts: Dictionary = GameState.state["contacts"]
 	if not contacts.has(contact_id):
@@ -133,10 +129,8 @@ static func knock_out(contact_id: String, current_day: int) -> void:
 
 
 # Called from Combat.exit_combat() once a fight involving allies ends --
-# "replenishes between fights" (the ticket leaves the exact trigger open;
-# fight-end is the simplest one, and matches the HP pool only ever mattering
-# as within-fight stakes, not lasting attrition). Does NOT clear
-# koCooldownUntilDay -- a knocked-out ally stays unavailable for the
+# the HP pool is within-fight stakes only, not lasting attrition. Does NOT
+# clear koCooldownUntilDay -- a knocked-out ally stays unavailable for the
 # cooldown regardless of this replenish.
 static func replenish_after_combat(allies: Array) -> void:
 	var contacts: Dictionary = GameState.state["contacts"]
@@ -149,12 +143,9 @@ static func replenish_after_combat(allies: Array) -> void:
 		c["combatStash"] = c["combatStashMax"]
 
 
-# 45-archie-raid-assist: a raid is offensive (the player's choice, into
-# someone else's vein), unlike defend's auto-join -- the ticket's higher bar
-# (raidAssistThreshold, separate from can_join_combat's no-relation-check) is
-# layered on top of can_join_combat()'s own recruited/combat-kit/cooldown
-# gates, not a replacement for them, so a KO'd or kit-less contact still
-# can't be brought along just because relation is high enough.
+# A raid is offensive (the player's choice), unlike defend's auto-join, so
+# raidAssistThreshold is layered on top of can_join_combat()'s own
+# recruited/combat-kit/cooldown gates, not a replacement for them.
 static func can_assist_raid(contact_id: String) -> bool:
 	var contacts: Dictionary = GameState.state["contacts"]
 	if not contacts.has(contact_id):

@@ -1,11 +1,9 @@
 class_name Equipment
 extends RefCounted
 
-# Weapon equip/unequip — no formula in R§3 covers this (items/equipment
-# aren't given an explicit system anywhere in M0-PORT.md), but screens
-# still can't mutate state directly, so this small system exists to give
-# T12's inventory screen a button handler to call. Dial seat/unseat (the
-# device slot's replacement, dial-device ticket 07) lives in systems/dial.gd
+# Weapon equip/unequip — no formula in R§3 covers this, but screens still
+# can't mutate state directly, so this exists as a button-handler target
+# for the inventory screen. Dial seat/unseat lives in systems/dial.gd
 # instead — a Dial is a lifetime-owned instrument, not an equipment slot.
 
 

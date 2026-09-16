@@ -1,15 +1,11 @@
 class_name Objectives
 extends RefCounted
 
-# collective1-02, spec.md §5.1: objectives as data. A small typed evaluator
-# engine over data/objectives.json (GameData.OBJECTIVES) -- five evaluator
-# types (ticket 79 added flag_true, for a purely flag-driven questline like
-# the tutorial chain), evaluated explicitly at known action boundaries
-# rather than on every state_changed signal. Static funcs only, pure
-# read/write over GameState.state.objectives -- never touches cash/
-# relation/inventory/etc. Awards live in authored event content
-# (on_complete), never here; this system only ever flips complete/
-# completeFlag.
+# A small typed evaluator engine over data/objectives.json (GameData.
+# OBJECTIVES) -- evaluated explicitly at known action boundaries, not on
+# every state_changed signal. Static funcs only, pure read/write over
+# GameState.state.objectives. Awards live in authored event content
+# (on_complete), never here -- this only flips complete/completeFlag.
 
 const TYPE_SITES_DISCOVERED_MATCHING := "sites_discovered_matching"
 const TYPE_TRADED_WITH_FACTION := "traded_with_faction"
@@ -19,21 +15,11 @@ const TYPE_VEIN_GROWTH_ABOVE := "vein_growth_above"
 const TYPE_FLAG_TRUE := "flag_true"
 
 
-# The only entry point. Called explicitly (never via signal) at 7 action
-# boundaries: Sites.prospect(), Economy sale completion (both the Archie
-# lane and the faction lane), VeinTrade.sell_to_faction(), Cultivating.
-# cultivate()/prune(), TimeSystem.daily_tick() (spec §5.1's original 5),
-# plus two ticket 79 adds for the tutorial questline's flag_true objectives:
-# GameState.reset() (a fresh game boots straight into the first checkpoint,
-# whose activateFlag: null needs no flag to flip -- it must read active
-# before any other boundary has ever run) and Events.apply_effects() (every
-# tutorial checkpoint flag is set exclusively via an event's set_flag op,
-# same as several Collective flags already are). Idempotent — calling it
-# twice in a row with no intervening state change produces the same
-# state.objectives result, since a complete objective is never re-evaluated
-# and an inactive one's progress is untouched until its activateFlag flips
-# true. Must never call anything that itself calls refresh() (recursion
-# guard, per spec).
+# The only entry point, called explicitly (never via signal) at action
+# boundaries across Sites/Economy/VeinTrade/Cultivating/TimeSystem/
+# GameState.reset()/Events.apply_effects(). Idempotent -- a complete
+# objective is never re-evaluated. Must never call anything that itself
+# calls refresh() (recursion guard).
 static func refresh() -> void:
 	for id in GameData.OBJECTIVES.keys():
 		_refresh_one(id, GameData.OBJECTIVES[id])
@@ -44,8 +30,7 @@ static func _refresh_one(id: String, def: Dictionary) -> void:
 	var runtime: Dictionary = objectives.get(id, { "active": false, "complete": false, "progress": {} })
 
 	var was_active: bool = runtime["active"]
-	# ticket 79: activateFlag == null means "active from the start" -- no
-	# gating flag, used by the tutorial chain's first checkpoint.
+	# activateFlag == null means "active from the start" -- no gating flag.
 	var activate_flag: Variant = def["activateFlag"]
 	var now_active: bool = true if activate_flag == null else GameState.state["flags"].get(activate_flag, false)
 	runtime["active"] = now_active
@@ -59,10 +44,8 @@ static func _refresh_one(id: String, def: Dictionary) -> void:
 	objectives[id] = runtime
 
 
-# Stamps the objective's activation moment into its progress bag, so
-# window-scoped evaluators (traded_with_faction, vein_sold_to_faction) count
-# only what happens from here on, not history from before the thread that
-# owns this objective ever started.
+# Stamps the activation moment into progress, so window-scoped evaluators
+# count only what happens from here on, not history from before.
 static func _mark_activated(def: Dictionary, progress: Dictionary) -> void:
 	progress["activatedDay"] = GameState.state["world"]["day"]
 	if def["type"] == TYPE_TRADED_WITH_FACTION:
@@ -92,14 +75,9 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return false
 
 
-# requireEachOreType: [String] -- col_a1_des_sites is this type's only
-# consumer (data/objectives.json). Collective.report_des_site() converts a
-# qualifying site the moment one exists (reusing site_matches_discovery_
-# params() below) and stamps it into progress["reportedSiteIds"][ore_type]
-# immediately, one ore type at a time, cumulative across calls. This
-# evaluator is a pure progress check over that: complete once every
-# required ore type has been reported, in either order, regardless of
-# whether both were ever unclaimed at once.
+# requireEachOreType: [String]. Collective.report_des_site() stamps a
+# qualifying site into progress["reportedSiteIds"][ore_type] as it's found;
+# complete once every required ore type has been reported, any order.
 static func _eval_sites_discovered_matching(params: Dictionary, progress: Dictionary) -> bool:
 	var require_each: Array = params.get("requireEachOreType", [])
 	var reported: Dictionary = progress.get("reportedSiteIds", {})
@@ -110,16 +88,11 @@ static func _eval_sites_discovered_matching(params: Dictionary, progress: Dictio
 	return true
 
 
-# collective1-09, spec §6.5/§6.6: the tier/unclaimed half of
-# sites_discovered_matching's per-site check, pulled out so systems/
-# collective.gd's weather-beat trigger can ask "does this one freshly-
-# prospected site individually satisfy col_a1_des_sites' criteria" without
-# duplicating the tier/unclaimed logic _eval_sites_discovered_matching's
-# per-ore-type loop above already has. `ore_type` is passed explicitly
-# (not read off requireEachOreType) so this stays a same-type check either
-# way: the loop above calls it once per required type with that type, and a
-# caller checking "is this specific site's own ore type one of the required
-# ones and does it otherwise qualify" passes the site's own oreType.
+# The tier/unclaimed half of sites_discovered_matching's per-site check,
+# split out so collective.gd's weather-beat trigger can test one freshly-
+# prospected site without duplicating the loop above. `ore_type` is passed
+# explicitly so both the per-required-type loop and a single-site caller
+# use the same check.
 static func site_matches_discovery_params(site: Dictionary, ore_type: String, params: Dictionary) -> bool:
 	if site["oreType"] != ore_type:
 		return false
@@ -132,10 +105,9 @@ static func site_matches_discovery_params(site: Dictionary, ore_type: String, pa
 	return true
 
 
-# factionId, oreType, qty: int, minTransactions: int -- cumulative units of
-# oreType sold to factionId, and a distinct count of sale transactions
-# containing it, both counted only since this objective activated (see
-# _mark_activated's baseline snapshot).
+# factionId, oreType, qty, minTransactions -- cumulative units sold and a
+# distinct transaction count, both counted only since this objective
+# activated (see _mark_activated's baseline snapshot).
 static func _eval_traded_with_faction(params: Dictionary, progress: Dictionary) -> bool:
 	var current: Dictionary = _ore_sold_entry(params["factionId"], params["oreType"])
 	var baseline: Dictionary = progress.get("baseline", { "units": 0, "transactions": 0 })
@@ -151,11 +123,9 @@ static func _ore_sold_entry(faction_id: String, ore_type: String) -> Dictionary:
 
 
 # factionId, oreType -- true once a vein of oreType has been sold to
-# factionId since this objective activated. Reads the "soldByPlayer" marker
-# VeinTrade.sell_to_faction() (spec §5.6, ticket 05) stamps onto the
-# site.factionVein it creates -- a natural-expansion or rivalry-captured
-# faction vein of the same faction/oreType never carries that marker, so it
-# can't false-positive this objective.
+# factionId since activation. Reads the "soldByPlayer" marker VeinTrade.
+# sell_to_faction() stamps on the site.factionVein it creates, so a
+# naturally-expanded or rivalry-captured vein never false-positives this.
 static func _eval_vein_sold_to_faction(params: Dictionary, progress: Dictionary) -> bool:
 	var activated_day: int = progress.get("activatedDay", 0)
 	for site in GameState.state["world"]["sites"]:
@@ -172,10 +142,9 @@ static func _eval_vein_sold_to_faction(params: Dictionary, progress: Dictionary)
 	return false
 
 
-# veinIdStatePath: String, threshold: int -- the vein whose id is stored at
-# that state path (GameState.read_path) has growth >= threshold. Looked up
-# via Cultivating.find_vein, which only searches state.player.veins -- every
-# vein this evaluator is used for in Act 1 (Hakim's yard vein) lives there.
+# veinIdStatePath, threshold -- the vein at that state path (GameState.
+# read_path) has growth >= threshold. Looked up via Cultivating.find_vein,
+# which only searches state.player.veins.
 static func _eval_vein_growth_above(params: Dictionary) -> bool:
 	var vein_id: Variant = GameState.read_path(params["veinIdStatePath"])
 	if vein_id == null:
@@ -186,11 +155,8 @@ static func _eval_vein_growth_above(params: Dictionary) -> bool:
 	return vein["growth"] >= params["threshold"]
 
 
-# No params -- true once the objective's own completeFlag is true. Ticket
-# 79: the tutorial chain's shape -- each checkpoint's "done" state is just
-# its own named flag, set directly by an event's set_flag op, not derived
-# from any other game state -- so this evaluator is deliberately trivial,
-# unlike the other four which all inspect world/faction/vein state, and
-# needs no separate params.flag duplicating completeFlag.
+# No params -- true once the objective's own completeFlag is true. Used by
+# the tutorial chain, where each checkpoint's flag is set directly by an
+# event's set_flag op rather than derived from other state.
 static func _eval_flag_true(def: Dictionary) -> bool:
 	return GameState.state["flags"].get(def["completeFlag"], false)

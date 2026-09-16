@@ -5,10 +5,8 @@ extends RefCounted
 # gated (matches the HTML prototype: attemptCraft never calls
 # advanceTimeBlock — only seed/cultivate/harvest are).
 
-# bugfixes-57: the Lab's batch-craft quantity picker is a UI convenience,
-# not a game balance knob -- capped generously just to keep the state
-# tree and the +/- stepper sane, same reasoning as Economy.adjust_sell_qty's
-# max_qty clamp.
+# The Lab's batch-craft quantity picker is a UI convenience, not a balance
+# knob -- capped generously to keep the state tree and stepper sane.
 const MAX_BATCH_QTY := 99
 
 
@@ -17,11 +15,8 @@ static func craft_chance(recipe_key: String, skill: int) -> float:
 	return min(0.95, r["baseSuccess"] + (skill - 1) * 0.13 + Home.get_workshop_bonus())
 
 
-# dial-device ticket 02: a recipe can have more than one ingredient ore
-# type (healingBurst/failsafe both spend time+life) -- these are "the
-# action's ore type(s)" Dial.attunement_bonus() matches a seated Movement's
-# attunement against; attempt_craft() below checks every one of them, not
-# just the first.
+# A recipe can have more than one ingredient ore type -- these are what
+# Dial.attunement_bonus() matches a seated Movement's attunement against.
 static func recipe_ore_types(recipe_key: String) -> Array:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	return r["ingredients"].keys()
@@ -36,16 +31,8 @@ static func calc_cost(recipe_key: String, skill: int) -> Dictionary:
 	return costs
 
 
-# calc-discovery ticket 10: a Lab-discovered recipe refined past tier 0
-# stacks its refineStep bonus on top of the normal skill-indexed value --
-# only for a refineStep that actually targets effectPower (the schema
-# tolerates other target fields for effects with no live consumer yet, and
-# those aren't effect_power()'s concern). Bench.get_cell() is the single
-# source of truth for a cell's tier; nothing here ever mutates GameData.
-#
-# Shared by effect_power() and quality_tier() below -- returns the active
-# Bench refine tier if `recipe_key` has been refined past 0, else -1 (not
-# a refine-eligible recipe, or still at tier 0).
+# Shared by effect_power()/quality_tier(): returns the active Bench refine
+# tier if refined past 0 and refineStep targets effectPower, else -1.
 static func _active_refine_tier(recipe_key: String) -> int:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	var discovery: Dictionary = r.get("discovery", {})
@@ -66,25 +53,16 @@ static func effect_power(recipe_key: String, skill: int) -> Variant:
 	return powers[skill]
 
 
-# ticket 64: the quality tier a craft at this moment would produce -- the
-# bucket attempt_craft() files a successful craft's inventory unit under,
-# and what Economy scales a consumable's sale price by. Mirrors effect_
-# power()'s own branch: a recipe refined past Bench tier 0 reports that
-# refine tier (uncapped -- refining keeps climbing past 5), everything
-# else reports the crafting skill index effectPower is keyed by (1-5 in
-# practice, since player/contact craftingSkill never starts below 1).
+# The quality tier a craft right now would produce -- the inventory bucket a
+# successful craft files under, and what Economy scales sale price by.
 static func quality_tier(recipe_key: String, skill: int) -> int:
 	var refine_tier := _active_refine_tier(recipe_key)
 	return refine_tier if refine_tier > 0 else skill
 
 
-# ── Inventory (ticket 64: tier-bucketed, not a flat count) ──────────────
-# player.inventory[recipe_key] is { "<tier>": count, ... } -- tier keys
-# stringified since JSON object keys are always strings. Tier "0" means
-# "no known quality": a legacy pre-ticket-64 save's migrated flat count
-# (SaveManager._migrate_inventory), or stock that entered inventory some
-# way other than a player/contact craft (Guild purchase, event add_item
-# grant) -- neither was crafted at a specific skill/refine tier.
+# player.inventory[recipe_key] is { "<tier>": count, ... }, keys stringified
+# (JSON). Tier "0" means "no known quality" -- migrated (SaveManager.
+# _migrate_inventory) or added outside crafting (purchase/grant).
 
 static func inventory_qty(recipe_key: String) -> int:
 	var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
@@ -105,14 +83,9 @@ static func inventory_add(recipe_key: String, tier: int, qty: int = 1) -> void:
 		EventBus.shared_stock_increased.emit()
 
 
-# Removes `qty` from `recipe_key`'s stock, lowest tier first -- keeps
-# higher-quality stock on hand for Economy's price-by-tier sale, since
-# every non-sale consumer (combat/travel item use, James craft jobs) is
-# indifferent to which specific unit it spends: effect_power() already
-# recomputes a used item's magnitude from the *current* skill, not the
-# tier it was crafted at. Callers are expected to have already confirmed
-# enough stock exists (same precondition every call site had pre-ticket-
-# 64) -- this clamps to whatever's on hand rather than erroring.
+# Removes lowest tier first -- keeps higher-quality stock for Economy's
+# price-by-tier sale; other consumers recompute effect_power() from current
+# skill regardless of tier. Assumes the caller already confirmed stock.
 static func inventory_remove(recipe_key: String, qty: int) -> void:
 	var inventory: Dictionary = GameState.state["player"]["inventory"]
 	var buckets: Dictionary = inventory.get(recipe_key, {})
@@ -131,10 +104,8 @@ static func inventory_remove(recipe_key: String, qty: int) -> void:
 			buckets.erase(tier_key)
 
 
-# Sale-specific counterpart to inventory_remove() above: removes `qty`
-# from ONE specific tier bucket, since Economy.execute_sale needs to
-# charge the price that exact tier's stock earns, not whichever bucket a
-# generic lowest-first policy would have picked.
+# Removes `qty` from one specific tier -- Economy.execute_sale needs to
+# charge that exact tier's price, not lowest-first like inventory_remove().
 static func inventory_remove_from_tier(recipe_key: String, tier: int, qty: int) -> void:
 	var inventory: Dictionary = GameState.state["player"]["inventory"]
 	var buckets: Dictionary = inventory.get(recipe_key, {})
@@ -170,12 +141,9 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 	for ingredient in costs:
 		player["orichalchum"][ingredient] = maxi(0, player["orichalchum"].get(ingredient, 0) - costs[ingredient])
 
-	# dial-device ticket 02: the player's own craft gets the seated
-	# Movement's attunement bonus when its ore type matches any one of this
-	# recipe's ingredients (at most one ever can, since a Movement has
-	# exactly one attunement); craft_chance() itself stays untouched since
-	# Rooms.process_lab() also calls it for contact crafting, which must
-	# never see the player's own Dial.
+	# The player's own craft gets the seated Movement's attunement bonus when
+	# its ore type matches an ingredient; craft_chance() stays untouched since
+	# Rooms.process_lab() also calls it for contact crafting (no Dial there).
 	var attunement := 0.0
 	for ingredient_ore in recipe_ore_types(recipe_key):
 		attunement = maxf(attunement, Dial.attunement_bonus(ingredient_ore))
@@ -193,11 +161,8 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 		return { "ok": true, "success": false, "recipeKey": recipe_key, "power": 0 }
 
 
-# bugfixes-57: state.craftQty is keyed by recipeKey, transient like
-# state.sellState (GameState.gd). int() guards against a stored float --
-# craftQty is never restored across a save/load round trip (matching
-# sellState's own precedent), so a raw JSON int would otherwise come back
-# as a float and break range() in attempt_craft_batch below.
+# state.craftQty is keyed by recipeKey, transient like state.sellState. int()
+# guards a stored float since craftQty isn't restored across save/load.
 static func get_craft_qty(recipe_key: String) -> int:
 	return int(GameState.state["craftQty"].get(recipe_key, 1))
 
@@ -208,14 +173,9 @@ static func adjust_craft_qty(recipe_key: String, delta: int) -> void:
 	EventBus.state_changed.emit()
 
 
-# Ticket 57: loops attempt_craft() `quantity` times -- no change to
-# attempt_craft() itself, so each attempt is still independently rolled
-# and deducted (not one pooled success chance). Stops early rather than
-# erroring the moment can_craft() would refuse the next attempt (attempt_
-# craft's own { ok: false } refusal), so running out of calc partway
-# through a batch just yields a short `attempts` list. Overwrites the
-# last attempt's single-result modal with one batch-shaped modal carrying
-# the full per-attempt breakdown.
+# Loops attempt_craft() `quantity` times, each independently rolled and
+# deducted. Stops early if can_craft() would refuse the next attempt, so
+# running low on calc mid-batch just yields a short `attempts` list.
 static func attempt_craft_batch(recipe_key: String, quantity: int) -> Dictionary:
 	var attempts: Array[Dictionary] = []
 	var successes := 0

@@ -1,31 +1,21 @@
 class_name Events
 extends RefCounted
 
-# Event runner per R§3.9 (event rewind) and M0-T13's card/event schema,
-# extended by M1-LONDON D5 with a "choice" card type: { type:"choice",
-# label, speaker, text, choices:[{label, effects, result_text}] }. Picking
-# a choice (choose()) applies its effects immediately and records
-# result_text as a resolution card; the runner then behaves exactly like
-# any other resolved card — Continue/advance() moves past it. Cards:
-# { type, label, speaker, text }. Events: { id, cards, on_complete:
-# [effect] }. state.event holds the runtime progress: { eventId,
-# cardIndex, snapshots, choiceResults }.
+# Event runner (R§3.9, ui-vision.md §11). Cards: {type, label, speaker,
+# text}; a "choice" card adds {choices:[{label, effects, result_text}]}.
+# Events: {id, cards, on_complete:[effect]}. state.event holds runtime
+# progress: {eventId, cardIndex, snapshots, choiceResults}.
 #
-# ui-vision.md §11: any card (including a choice's own `choices` entries)
-# may also carry an optional "image" key — an asset path string, or
-# explicit null to clear the event screen's persistent image slot.
-# Omitting the key checks for a convention-named asset at that card index,
-# then means "no change" if none exists. A picked choice's "image" (if present)
-# rides along in choiceResults[cardIndex] — now { text, image? } rather
-# than a bare string — so revealed_cards()'s synthetic resolution card
-# can carry it too.
+# Any card (including a choice's own "choices" entries) may carry an
+# optional "image" key -- an asset path, or explicit null to clear the
+# event screen's persistent image slot. Omitting the key falls back to a
+# convention-named asset at that card index; a picked choice's own "image"
+# rides along in choiceResults[cardIndex] the same way.
 
 
-# context (vein-raiding ticket 03): a raid's target site_id is only known
-# at Raid-button-press time (a real site's runtime-generated id, never a
-# static literal an event's own JSON could hardcode) -- carried here and
-# read back by the raid ops' _event_site_id() below. Every other caller
-# omits it; state.event.context is just {} for them, same as always.
+# context: a raid's target site_id is only known at Raid-button-press time,
+# so it's carried here and read back by _event_site_id() below. Every other
+# caller omits it.
 static func start_event(event_id: String, context: Dictionary = {}) -> void:
 	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "context": context }
 	Nav.go_to("event")
@@ -54,11 +44,9 @@ static func is_awaiting_choice() -> bool:
 	return not event_state["choiceResults"].has(str(event_state["cardIndex"]))
 
 
-# All cards revealed so far (index 0..cardIndex inclusive) — the event
-# screen renders this whole list so new cards push older ones up rather
-# than replacing them. A resolved "choice" card gets its picked
-# result_text spliced in right after it as a synthetic resolution card,
-# without consuming a cardIndex slot of its own.
+# All cards revealed so far (index 0..cardIndex inclusive). A resolved
+# "choice" card's result_text is spliced in right after it as a synthetic
+# resolution card, without consuming its own cardIndex slot.
 static func revealed_cards() -> Array:
 	var event_state: Dictionary = GameState.state["event"]
 	var cards: Array = _event_def()["cards"]
@@ -76,10 +64,10 @@ static func revealed_cards() -> Array:
 	return result
 
 
-# ui-vision.md §11: derived state for the event screen's persistent image
-# slot. Scans cards up to the current position for explicit image keys or
-# convention-named assets, sticky until the next image; explicit null clears
-# it. Never stored on state.event itself, so Rewind restores it for free.
+# Derived state for the event screen's persistent image slot (ui-vision.md
+# §11): scans cards up to the current position, sticky until the next
+# image; explicit null clears it. Not stored on state.event, so Rewind
+# restores it for free.
 static func current_image_path() -> Variant:
 	var result: Variant = null
 	var event_state: Dictionary = GameState.state["event"]
@@ -103,8 +91,7 @@ static func current_image_path() -> Variant:
 
 # Convention-based event art: one-based card numbers map directly to
 # assets/events/<event_id>/<event_id>_card<n>.<extension>. Explicit card
-# image keys remain authoritative, including null (clear). Lowercase common
-# raster extensions are checked in a stable order for export portability.
+# image keys remain authoritative, including null (clear).
 static func _convention_image_path(event_id: String, card_number: int) -> Variant:
 	var stem := "res://assets/events/%s/%s_card%d" % [event_id, event_id, card_number]
 	for extension in ["png", "jpg", "jpeg", "webp"]:
@@ -114,17 +101,11 @@ static func _convention_image_path(event_id: String, card_number: int) -> Varian
 	return null
 
 
-# event-images ticket 02: decides VN mode for the whole event, once, from
-# the static event definition and convention-named assets -- not
-# revealed_cards(), which only grows as
-# the player advances and would flip the layout mid-event the first time a
-# later card's image showed up. True iff current_image_path() could ever
-# return non-null across the event's full run: a top-level "image" key on
-# any card, OR (since a picked choice's own "image" rides into a synthetic
-# resolution card current_image_path() reads the same way -- see this
-# file's header comment) a non-null "image" on any of a "choice" card's
-# own "choices" entries, regardless of which option ends up picked. A key
-# that's omitted, or set explicitly to null, doesn't count.
+# Decides VN mode once for the whole event from the static definition (not
+# revealed_cards(), which grows and would flip the layout mid-event). True
+# iff current_image_path() could ever return non-null across the full run:
+# a top-level "image" key on any card, or a non-null "image" on any choice
+# option — regardless of which is picked.
 static func is_vn_mode() -> bool:
 	var cards: Array = _event_def()["cards"]
 	var event_id: String = GameState.state["event"]["eventId"]
@@ -155,12 +136,8 @@ static func can_rewind() -> bool:
 	return Crafting.inventory_qty("rewind") > 0 or Dial.find_loaded_rewind_complication_index() >= 0
 
 
-# Continue: snapshots full state, then either reveals the next card or
-# (on the last card) runs on_complete and clears state.event. rewind()
-# below relies on _snapshot_before_mutation()'s emptying trick: it no
-# longer trusts a popped snapshot's own (now always-empty)
-# `event.snapshots` field, and instead carries the real, already-trimmed
-# live stack forward explicitly.
+# Continue: snapshots full state, then either reveals the next card or (on
+# the last card) runs on_complete and clears state.event.
 static func advance() -> void:
 	if is_awaiting_choice():
 		return  # a "choice" card must be resolved via choose() before Continue works
@@ -170,24 +147,16 @@ static func advance() -> void:
 	var event_state: Dictionary = GameState.state["event"]
 	if is_last_card():
 		var on_complete: Array = _event_def().get("on_complete", [])
-		# collective1-17: state.event is nulled BEFORE on_complete runs (not
-		# after -- see the comment on this deliberately, a state_changed emit
-		# mid-on_complete must never find a live event.gd EventScreen still
-		# rendering a tappable Continue for an on_complete that hasn't
-		# finished), so an on_complete op that needs the delivery context
-		# (col_hakim_intel's "reveal_site", reading the pendingMessages
-		# payload's site_id) can't fall back to GameState.state["event"]
-		# .context the way a live choice-card effect can -- it has to be
-		# handed the context explicitly instead.
+		# state.event is nulled BEFORE on_complete runs, so a mid-on_complete
+		# emit never finds a live EventScreen still rendering a tappable
+		# Continue. An on_complete op needing the event's context (e.g.
+		# reveal_site) is handed it explicitly instead of reading
+		# state.event.context.
 		var context: Dictionary = event_state.get("context", {})
 		GameState.state["event"] = null
 		apply_effects(on_complete, context)
-		# collective1-16, spec §6.15/§10.4: the closer's three prerequisite
-		# flags are each set by a different event's own on_complete
-		# (col_a1_des_report/col_a1_nadia_done/col_a1_hakim_done) -- this is
-		# the one code path all three actually flow through, so the check
-		# lives here rather than duplicated at each of their three call
-		# sites. Harmless no-op for every other event's completion.
+		# The one path all three Act-1 closer prerequisite flags flow
+		# through; a harmless no-op for every other event's completion.
 		Collective.maybe_trigger_closer()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
@@ -197,8 +166,8 @@ static func advance() -> void:
 
 # Resolves the current "choice" card: applies the picked choice's effects,
 # then records its result_text so revealed_cards() shows it as a
-# resolution card. Does not itself advance cardIndex — same as any other
-# card, the player still taps Continue to move past the resolution.
+# resolution card. Doesn't advance cardIndex — Continue still moves past
+# the resolution.
 static func choose(choice_index: int) -> void:
 	if not is_awaiting_choice():
 		return
@@ -216,11 +185,10 @@ static func choose(choice_index: int) -> void:
 	apply_effects(choice.get("effects", []))
 
 
-# Shared by advance() and choose() — see advance()'s original comment
-# (still accurate) on why state.event.snapshots must be emptied before
-# the deep copy: it lives inside the tree being copied, and left in
-# place would embed every prior snapshot inside the new one, compounding
-# into exponential blowup across a long event.
+# Shared by advance()/choose(). event.snapshots must be emptied before the
+# deep copy -- it lives inside the tree being copied, and left in place
+# would embed every prior snapshot into the new one, compounding across a
+# long event.
 static func _snapshot_before_mutation() -> void:
 	var event_state: Dictionary = GameState.state["event"]
 	var stack: Array = event_state["snapshots"]
@@ -260,13 +228,9 @@ static func rewind() -> Dictionary:
 static func apply_effects(effects: Array, context: Dictionary = {}) -> void:
 	for effect in effects:
 		_apply_one(effect, context)
-	# ticket 79: boundary #6 -- every tutorial checkpoint flag (metArchie,
-	# buyerEventSeen, ...) is set exclusively via this function's set_flag
-	# op, same as several Collective flags already are, so this is where a
-	# flag-driven questline's objectives actually need to catch up, same as
-	# the 5 boundaries objectives.gd's own doc lists (Sites.prospect(),
-	# Economy sale completion, VeinTrade.sell_to_faction(), Cultivating.
-	# cultivate()/prune(), TimeSystem.daily_tick()).
+	# Every tutorial checkpoint flag is set exclusively via the set_flag op
+	# below, same as several Collective flags, so this is one of the
+	# boundaries objectives.gd's own doc lists.
 	Objectives.refresh()
 	EventBus.state_changed.emit()
 
@@ -277,13 +241,9 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			var flags: Dictionary = GameState.state["flags"]
 			var flag_name: String = effect["flag"]
 			var value: Variant = effect["value"]
-			# collective-ore-stock T01: the Collective's ore stock rolls
-			# fresh the instant this flag first flips true -- not a special
-			# "day zero" branch, just the first restock happening at unlock
-			# (col_a1_intro's on_complete, today) instead of waiting for a
-			# qualifying daily_tick, so day one is never an empty shelf.
-			# Guarded on the *old* value so this can't re-roll a live stock
-			# if some future event content ever re-sets an already-true flag.
+			# Ore stock rolls fresh the instant this flag first flips true,
+			# guarded on the old value so a future re-set can't re-roll a
+			# live stock.
 			if flag_name == "collectiveLaneUnlocked" and value and not flags.get(flag_name, false):
 				Factions.restock_ore("collective")
 			flags[flag_name] = value
@@ -295,26 +255,21 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			if effect["qty"] > 0:
 				EventBus.shared_stock_increased.emit()
 		"add_item":
-			# ticket 64: an event-granted item wasn't crafted at any skill/
-			# refine tier -- files under the "0" untiered bucket, same as a
-			# Guild purchase (Economy.execute_faction_purchase).
+			# Event-granted items aren't crafted at any tier -- filed under
+			# the untiered "0" bucket, same as a Guild purchase.
 			Crafting.inventory_add(effect["item"], 0, effect["qty"])
 		"relation":
 			Contacts.award_relation(effect["contact"], effect["value"])
 		"grant_vein_with_site":
 			_grant_vein_with_site(effect["vein"])
-		# collective1-13, spec §6.11/§10.3: grant_vein_with_site's contact-
-		# handoff cousin -- same site+vein creation, but also records the new
-		# vein's id at a named state path (col_a1_hakim_meet's "collective.
-		# hakimVeinId") so a later objective (col_a1_hakim_rescue's
-		# veinIdStatePath) and thread-resolution event can find it again.
+		# grant_vein_with_site's contact-handoff cousin -- same site+vein
+		# creation, but also records the new vein's id at a named state path
+		# so a later objective can find it again.
 		"grant_contact_vein":
 			_set_path(effect["statePath"], _grant_vein_with_site(effect["vein"]))
 		"set_screen":
-			# Ticket 12: content authored "home" as the landing screen before
-			# that screen was retired -- data/events/*.json now targets "phone"
-			# instead, which needs phoneNav reset to its home view too, same as
-			# every other route-to-phone-home call site.
+			# Routing to "phone" also resets phoneNav to its home view, same
+			# as every other route-to-phone-home call site.
 			if effect["screen"] == "phone":
 				PhoneNav.route_home()
 			else:
@@ -350,86 +305,54 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"unlock_contact":
 			GameState.state["contacts"][effect["contact"]]["unlocked"] = true
 		"push_message":
-			# 83-contacts-archie-james-sms-port: optional "from" lets an
-			# authored SMS thread (e.g. buyer.json's ported ARCHIE_SMS_1)
-			# replay its own outgoing "player" lines verbatim, not just the
-			# contact's incoming ones -- defaults to "them" for every
-			# existing caller that omits it.
+			# Optional "from" lets an authored SMS thread replay its own
+			# outgoing "player" lines verbatim; defaults to "them" when omitted.
 			Messages.append(effect["contact"], effect.get("from", "them"), effect["text"])
-		# collective1-08: queue_pending_message is push_message's follow-up-
-		# action cousin -- a real Messages.queue_pending() call (unread text +
-		# a pendingMessages entry an action bar can surface), for authored
-		# content that wants a runtime "text arrives, tap it to start an
-		# event" beat rather than a plain notification-only line.
+		# push_message's follow-up-action cousin: queues unread text plus a
+		# pendingMessages entry an action bar can surface, for a "tap to
+		# start an event" beat.
 		"queue_pending_message":
 			Messages.queue_pending(effect["contact"], effect["kind"], effect["text"], effect.get("payload", {}))
-		# collective1-08: the "relation" op above is contact-only
-		# (Contacts.award_relation) -- this is its faction-facing twin, over
-		# the same Factions.adjust_player_relation() vein-raiding ticket 02
-		# already added for Raiding's claim/loot relation hits.
+		# Faction-facing twin of the "relation" op above (which is contact-only).
 		"faction_relation":
 			Factions.adjust_player_relation(effect["faction"], effect["value"])
-		# collective1-09, spec §5.7/§10.3: writes state.methodLog[key] =
-		# value -- S6's choice card is the only Act 1 caller. Ordinary
-		# state, so Events.rewind() restores it like anything else.
 		"log_method":
 			GameState.state["methodLog"][effect["key"]] = effect["value"]
-		# collective1-10, spec §6.7/§10.3: S7's on_complete -- seeds a
-		# named faction the two sites recorded on the named objective's
-		# progress (see Objectives._eval_sites_discovered_matching()).
 		"faction_seed_reported_sites":
 			_faction_seed_reported_sites(effect["objective"], effect["faction"])
-		# collective1-14, spec §6.12/§10.3: S12's handback -- resolves a
-		# contact-granted vein's id (grant_contact_vein's statePath, e.g.
-		# col_a1_hakim_meet's "collective.hakimVeinId") and reuses
-		# VeinTrade.sell_to_faction() at a forced price, same "no separate
-		# mechanism" instruction as the ticket. See sell_to_faction()'s own
-		# comment for why a forced price also marks the transfer as not a
-		# real market sale (soldByPlayer false), keeping it from tripping
-		# an unrelated vein_sold_to_faction objective (e.g. col_a1_nadia_vein).
+		# Resolves a contact-granted vein's id via veinIdStatePath and sells
+		# it at a forced price. See VeinTrade.sell_to_faction() for why a
+		# forced price also marks the sale as not a real market transaction.
 		"sell_contact_vein_to_faction":
 			VeinTrade.sell_to_faction(GameState.read_path(effect["veinIdStatePath"]), effect["faction"], effect["price"])
-		# collective1-15, spec section 6.13: S13's "Push" choice must continue
-		# straight into the debt reveal (cards 4-8) without the "Leave it"
-		# branch ever seeing them. advance()'s cardIndex has no branching of
-		# its own, so the two lengths live as two separate events, and this
-		# op (fired from the choice's own effects, same timing as set_flag
-		# above) hands off to the second immediately.
+		# Chains straight into a second event from a choice's own effects --
+		# advance()'s cardIndex has no branching, so two divergent card
+		# sequences live as two separate events instead.
 		"start_event":
 			start_event(effect["event"])
-		# collective1-16, spec §6.15/§10.3: S14's on_complete seed -- creates
-		# the site+vein+claim directly (see _scripted_seed() below) rather
-		# than routing 40 ore through player.orichalchum and calling
-		# Sites.attempt_seed(), so the calc never touches inventory and the
+		# Creates the site+vein+claim directly (see _scripted_seed() below)
+		# rather than spending calc through Sites.attempt_seed(), so this
 		# seed can't roll a failure.
 		"scripted_seed":
 			_scripted_seed(effect["district"], effect["tier"], effect["oreType"])
-		# collective1-16, spec §6.15/§8.6: S14's "I'm in" choice -- the only
-		# remaining path to Factions.join("collective"), now that
+		# The only remaining path to Factions.join("collective") --
 		# ContactCards.build_faction_card() suppresses the generic Join
 		# button for that faction.
 		"join_faction":
 			Factions.join(effect["faction"])
-		# collective1-17, spec §6.16/§10.3: col_hakim_intel's on_complete --
-		# the site was already created at roll time (Collective.
-		# maybe_trigger_hakim_intel()); this just queues its discover map
-		# event, same as a fresh player prospect would, reusing
-		# _event_site_id()'s payload/context fallback rather than a literal
-		# "site_id" in the JSON. state.event is already null by the time
-		# on_complete runs (see advance()'s own comment), so the fallback
-		# reads advance()'s explicitly-threaded context, not live event state.
+		# The site was already created at roll time (Collective.
+		# maybe_trigger_hakim_intel()) -- this just queues its discover map
+		# event. Runs post on_complete, so _event_site_id() falls back to
+		# advance()'s explicitly-threaded context rather than live event state.
 		"reveal_site":
 			_reveal_site(_event_site_id(effect, context))
 		"set_hakim_intel_day":
 			GameState.state["collective"]["hakimIntelLastDay"] = GameState.state["world"]["day"]
 
 
-# Generic path+value combine: adds when both the existing value and the
-# incoming one are numeric (e.g. player.cash), otherwise assigns outright
-# (e.g. contacts.james.unlocked = true, which can't be "added" to a bool).
-# world.archieChatUnlockDay is a special case straight from the HTML
-# (`gameState.world._archieChatUnlockDay = gameState.world.day + 1`): it
-# starts null, so "add" there means "today + value", not "null + value".
+# Adds when both the existing and incoming values are numeric (e.g.
+# player.cash), otherwise assigns outright (e.g. contacts.james.unlocked).
+# world.archieChatUnlockDay starts null, so "add" there means "today + value".
 static func _apply_add(path: String, value: Variant) -> void:
 	var current: Variant = GameState.read_path(path)
 	var new_value: Variant
@@ -454,10 +377,8 @@ static func _set_path(path: String, value: Variant) -> void:
 	current[parts[parts.size() - 1]] = value
 
 
-# Shared claimed-site dict shape between _grant_vein_with_site() and
-# _scripted_seed() below -- both fabricate a site from scratch (no
-# prospecting roll) and immediately claim it, appending to state.world.sites
-# and handing back the new site for its caller's vein to reference by id.
+# Shared by _grant_vein_with_site()/_scripted_seed(): fabricates and claims
+# a site with no prospecting roll, appending to state.world.sites.
 static func _append_claimed_site(district: String, tier: String, ore_type: String, bonuses: Array) -> Dictionary:
 	var site: Dictionary = {
 		"id": Sites.make_site_id(),
@@ -475,12 +396,10 @@ static func _append_claimed_site(district: String, tier: String, ore_type: Strin
 	return site
 
 
-# M1-LONDON D7: the home-raid debrief's granted vein needs a matching
-# player-claimed site on state.world.sites, or the Map tab shows a
-# Whitechapel vein with no site backing it. Site tier/oreType/bonuses are
-# derived from the vein template's own hospitability/oreType fields (same
-# fields Sites.attempt_seed() would have produced), so the two stay in sync
-# by construction rather than by two copies of "fair, no bonuses" agreeing.
+# A granted vein needs a matching claimed site on state.world.sites, or the
+# Map tab shows it with no site backing it. Tier/oreType/bonuses are
+# derived from the vein template's own hospitability fields, so they stay
+# in sync by construction.
 static func _grant_vein_with_site(vein_template: Dictionary) -> String:
 	var hospitability: Dictionary = vein_template.get("hospitability", { "tier": "fair", "bonuses": [] })
 	var day: int = GameState.state["world"]["day"]
@@ -496,15 +415,11 @@ static func _grant_vein_with_site(vein_template: Dictionary) -> String:
 	return vein["id"]
 
 
-# collective1-16, spec §6.15/§10.3: S14's guaranteed seed. Distinct from
-# _grant_vein_with_site() above (which copies a static vein template
-# untouched) -- this rolls no ore/skill/travel and doesn't queue a
-# Modal.open("seed_result") popup, because it isn't a player action to react
-# to: it fabricates the site fresh, at an explicit district/tier/oreType, and
-# claims it exactly as a successful Sites.attempt_seed() would (map events
-# included), so Whitechapel's own scripted rich life vein is guaranteed
-# present regardless of the district's siteCap -- the cap governs prospecting
-# discovery, not this scripted creation, per the ticket's explicit exception.
+# A guaranteed, scripted seed -- unlike _grant_vein_with_site() (copies a
+# static template), this fabricates a fresh site at an explicit
+# district/tier/oreType and claims it exactly as a successful
+# Sites.attempt_seed() would, ignoring the district's siteCap (which only
+# governs prospecting discovery).
 static func _scripted_seed(district: String, tier: String, ore_type: String) -> void:
 	var site: Dictionary = _append_claimed_site(district, tier, ore_type, [])
 
@@ -515,12 +430,11 @@ static func _scripted_seed(district: String, tier: String, ore_type: String) -> 
 	MapEvents.queue_join_line(district, vein["id"], "player")
 
 
-# M1-LONDON D6: archie_cultivation's closer — a forced, always-successful
-# cultivate on the vein the home-raid debrief granted, at no block cost.
-# There's no vein id to reference from static JSON (the debrief creates it
-# at runtime), so this looks up "the Whitechapel time vein" directly — safe
-# because a fresh tutorial playthrough has exactly one at this point, and
-# this event only fires once, right after that debrief.
+# Forced, always-successful cultivate on the vein the home-raid debrief
+# granted, at no block cost. No vein id exists in static JSON (created at
+# runtime), so this looks up "the Whitechapel time vein" directly -- safe
+# since a fresh playthrough has exactly one, and this fires only once,
+# right after that debrief.
 static func _tutorial_cultivate() -> void:
 	var vein = _find_tutorial_cultivation_vein()
 	if vein == null:
@@ -539,20 +453,11 @@ static func _find_tutorial_cultivation_vein() -> Variant:
 	return null
 
 
-# vein-raiding ticket 03: a raid's target site_id is a real, runtime-
-# generated site (Sites.make_site_id()), never a value static event JSON
-# could hardcode -- Raiding.begin_raid() passes it as start_event()'s
-# context instead. Effects that supply a literal "site_id" (ticket 02's own
-# direct apply_effects() tests) still take that literal; only the authored
-# raid card, which omits it, falls back to the active event's context.
-#
-# collective1-17: a live choice-card effect (raiding's own callers) still
-# reads GameState.state["event"].context, since state.event is still set
-# at that point. An on_complete effect (col_hakim_intel's "reveal_site")
-# can't -- state.event is already null by the time on_complete runs (see
-# advance()'s own comment) -- so it reads the explicitly-threaded
-# fallback_context (advance()'s captured copy of that same context)
-# instead.
+# A raid's site_id is runtime-generated, never hardcoded in event JSON --
+# Raiding.begin_raid() passes it via start_event()'s context instead. A
+# live choice-card effect reads GameState.state["event"].context directly;
+# an on_complete effect (state.event already null by then) falls back to
+# the explicitly-threaded fallback_context.
 static func _event_site_id(effect: Dictionary, fallback_context: Dictionary = {}) -> String:
 	if effect.has("site_id"):
 		return effect["site_id"]
@@ -564,11 +469,9 @@ static func _event_site_id(effect: Dictionary, fallback_context: Dictionary = {}
 	return fallback_context.get("site_id", "")
 
 
-# collective1-17, spec §6.16/§10.3: col_hakim_intel's "reveal_site" op --
-# the site itself was already appended to state.world.sites at roll time
-# (Collective.maybe_trigger_hakim_intel()), so all that's left is queuing
-# its discover map event, same as Sites._create_site() does for a fresh
-# player prospect. A no-op if the site is somehow already gone.
+# The site was already appended to state.world.sites at roll time -- this
+# just queues its discover map event, same as Sites._create_site() does
+# for a fresh prospect. No-op if the site is already gone.
 static func _reveal_site(site_id: String) -> void:
 	var site: Variant = Sites.find_site(site_id)
 	if site == null:
@@ -576,11 +479,9 @@ static func _reveal_site(site_id: String) -> void:
 	MapEvents.queue_discover(site["district"], site_id)
 
 
-# 45-archie-raid-assist: mirrors _event_site_id() above -- the raid-assist
-# ally list (currently ever just ["archie"], or []) is only known at
-# Raid-button-press time (Raiding.begin_raid()'s caller reads it off the map
-# sheet's toggle), so it's carried the same way through start_event()'s
-# context rather than baked into the authored vein_raid card's own JSON.
+# Mirrors _event_site_id(): the raid-assist ally list is only known at
+# Raid-button-press time, so it's carried through start_event()'s context
+# rather than baked into the authored card's JSON.
 static func _event_ally_ids(effect: Dictionary) -> Array:
 	if effect.has("ally_ids"):
 		return effect["ally_ids"]
@@ -590,29 +491,19 @@ static func _event_ally_ids(effect: Dictionary) -> Array:
 	return event_state.get("context", {}).get("ally_ids", [])
 
 
-# vein-raiding ticket 03: "caught" drives loot_raid_vein's relation hit, but
-# the authored raid card's clean-stealth and caught-then-combat-win paths
-# both resume at the same shared claim/loot card (exit_combat()'s event_raid
-# case resumes cardIndex as-is, so there's exactly one "next card" either
-# way) -- flags.raidCaught, set by the stealth_check branch that ran
-# earlier in this same event via the plain "set_flag" op, is what tells the
-# shared card which path got it here. Effects that supply a literal
-# "caught" (ticket 02's own direct apply_effects() tests) still take that
-# literal.
+# "caught" drives loot_raid_vein's relation hit. Clean-stealth and
+# caught-then-combat-win both resume at the same shared claim/loot card, so
+# flags.raidCaught (set earlier by the stealth_check branch) is what tells
+# it which path got here.
 static func _event_caught(effect: Dictionary) -> bool:
 	if effect.has("caught"):
 		return effect["caught"]
 	return GameState.state["flags"].get("raidCaught", false)
 
 
-# vein-raiding ticket 02: pure op-dispatch shims into Raiding, mirroring the
-# "relation" op's dispatch into Contacts.award_relation() above. `effect`
-# names its target by `site_id` (Sites.find_site()) rather than embedding a
-# vein template inline the way grant_vein_with_site does, since the target here is an
-# existing runtime faction-owned vein, not static event content. Both are a
-# silent no-op if the site has no factionVein -- same defensive shape
-# Raiding.claim_vein()/loot_vein() already use, so a stale or bad site_id
-# never crashes an event mid-flight.
+# Dispatches into Raiding, targeting an existing runtime faction-owned vein
+# by site_id. Silent no-op if the site has no factionVein, so a stale
+# site_id never crashes an event mid-flight.
 static func _stealth_check(effect: Dictionary) -> void:
 	var site: Variant = Sites.find_site(_event_site_id(effect))
 	if site == null or site["factionVein"] == null:
@@ -627,10 +518,9 @@ static func _stealth_check(effect: Dictionary) -> void:
 
 
 # Branches into Combat.start_raid() with context "event_raid" (see
-# systems/combat.gd's exit_combat()) so a win resumes this same event rather
-# than routing to inventory. `guards`/`template` are the authoring event
-# card's call (per-vein flavour), defaulting to a single guard on the
-# catch-all enemy template.
+# combat.gd's exit_combat()) so a win resumes this same event. guards/
+# template come from the authoring card, defaulting to a single guard on
+# the catch-all template.
 static func _start_raid_combat(effect: Dictionary) -> void:
 	var site: Variant = Sites.find_site(_event_site_id(effect))
 	if site == null or site["factionVein"] == null:
@@ -641,17 +531,11 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 
 
 # Seeds `faction_id` a faction vein on each site recorded in
-# `objective_id`'s progress["matchedSiteIds"], via Sites.seed_faction_vein()
-# -- the same instant-vein shape Sites.npc_claim_best_unclaimed_site() uses
-# for an NPC claim. A site that's since been claimed (player or another
-# faction) is silently skipped rather than overwritten -- same defensive
-# shape _stealth_check()/_start_raid_combat() use for a stale site_id.
-#
-# col_a1_des_sites' on_complete no longer reaches this: its own evaluator
-# reports and converts sites individually as they're found (Collective.
-# report_des_site()) and never populates matchedSiteIds, so this call is
-# currently inert for that objective -- kept for any future objective that
-# still wants the old "convert everything matched, all at once" shape.
+# `objective_id`'s progress["matchedSiteIds"] (Sites.seed_faction_vein()).
+# A site already claimed or vein-occupied is silently skipped. Currently
+# inert for col_a1_des_sites, whose own evaluator reports/converts sites
+# individually and never populates matchedSiteIds -- kept for any future
+# objective using this "convert everything at once" shape.
 static func _faction_seed_reported_sites(objective_id: String, faction_id: String) -> void:
 	var progress: Dictionary = GameState.state["objectives"][objective_id]["progress"]
 	var matched: Dictionary = progress.get("matchedSiteIds", {})

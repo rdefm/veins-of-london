@@ -7,11 +7,8 @@ extends RefCounted
 # "deck" sub-object: { district, weight, excludeIfFlag, barometerState,
 # requireUnclaimedSiteInDistrict? }. Filtering reads GameData.EVENTS
 # directly (not the DISTRICT_EVENT_IDS list itself) so tests can inject
-# synthetic deck entries the same way
-# tests/test_events.gd injects synthetic events, without touching the
-# const id list. Draws proceed through systems/events.gd's existing
-# runner. No event content lives here — that's ticket 09; this is purely
-# the trigger/filter/weight/no-repeat plumbing.
+# synthetic deck entries the same way tests/test_events.gd injects
+# synthetic events, without touching the const id list.
 
 const TRIGGER_CHANCE: float = 0.25
 const NO_REPEAT_DAYS: int = 5
@@ -22,7 +19,9 @@ const NO_REPEAT_DAYS: int = 5
 # neither spends a turn nor consumes anything beyond the RNG roll itself.
 # Callers must invoke this as the very last step of their action, after
 # every other roll — it draws from the same seeded Rng stream, so calling
-# it any earlier would shift the outcome of whatever rolls next.
+# it any earlier would shift the outcome of whatever rolls next. Draws
+# proceed through systems/events.gd's existing runner; no event content
+# lives here, only the trigger/filter/weight/no-repeat plumbing.
 static func maybe_trigger(district_id: String) -> void:
 	if not Rng.chance(TRIGGER_CHANCE):
 		return

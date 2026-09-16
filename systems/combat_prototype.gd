@@ -1,79 +1,26 @@
 class_name CombatPrototype
 extends RefCounted
 
-# day-rhythm-business-and-combat ticket 14 (rules: ticket 13a, superseded/
-# extended by ticket 15's squad+item contracts, resolved via ticket 14b's
-# grilling session): a bounded, throwaway combat experiment testing the
-# four-action Fast/Heavy/Counter/Dodge matchup grid, committed-intent
-# resolution, exhaustion, real calc-effect items and Rewind reliability --
-# NOT production combat. Deliberately isolated from systems/combat.gd and
-# GameState.state["combat"]: its own state lives in
-# GameState.state["combatPrototype"], its own snapshot stack ("combatPrototype"
-# in Snapshots.MAX_SIZES), its own screen (scenes/screens/combat_prototype.gd).
-# Nothing here mutates production combat state or the real player's hp --
-# GameState.state["player"]["hp"] is never touched (the prototype keeps its
-# own hp field, seeded fresh from the real player's hpMax). Item use IS
-# real, though (ticket 15's own "no synthetic pool" resolution): Crafting.
-# inventory_remove()/Dial.cast_complication() spend from the player's actual
-# stock/Dial charge, restored on Rewind (see push_prototype_snapshot()/
-# rewind()'s own comments) but NOT by exiting/losing a fight otherwise.
+# A bounded, throwaway combat experiment for the Fast/Heavy/Counter/Dodge
+# matchup grid, committed-intent resolution, and Rewind reliability -- not
+# production combat. Isolated from systems/combat.gd: own state lives in
+# GameState.state["combatPrototype"], own snapshot stack, own screen
+# (scenes/screens/combat_prototype.gd). Never touches the real player's hp.
+# Item use IS real, though: it spends from the player's actual
+# inventory/Dial charge, restored on Rewind (see push_prototype_snapshot()/
+# rewind()).
 #
-# ── Squad/wave shape (ticket 15) ────────────────────────────────────────
-# cp.enemies is always an Array now (solo == a one-element array) -- see
-# _current_wave_defs()/_build_enemy_state(). cp.wave/cp.totalWaves track a
-# multi-wave encounter's progress; a non-wave encounter is just totalWaves
-# == 1. The player's Fast/Heavy/Counter/Dodge/Blast all take an explicit
-# enemy-index target now (auto-resolved to "the sole living enemy" for a
-# solo fight via _resolve_target(), so every pre-ticket-15 solo call site
-# that omits target_index keeps working unchanged).
+# cp.enemies is always an Array (solo == one-element); cp.wave/cp.totalWaves
+# track a multi-wave encounter's progress. A round can take multiple player
+# commits when Motion is active; cp["_pending"] holds the in-progress
+# round's queue/cursor/beats so a call needing fresh input can resume
+# instead of restarting -- see _advance_round().
 #
-# ── Round engine (ticket 15) ────────────────────────────────────────────
-# A round is no longer always one call. Enhancement Powder's existing
-# extra-queue-turn (§3.7a, reused per 13a scenario 9) means a round can
-# need up to 3 separate player commits when Motion is active (2 at
-# motionPower < 3, 3 at >= 3, mirroring Combat.build_turn_queue()'s own
-# attack_count). cp["_pending"] (null between rounds) holds the in-progress
-# round's queue/cursor/beats while it's mid-resolution; a call that reaches
-# a player queue slot needing fresh input returns {needsPlayerAction: true}
-# instead of finishing the round -- the caller (screen) calls
-# take_player_action()/use_item()/cast_dial_complication() again for that
-# slot, which resumes rather than starting over. See _advance_round()'s own
-# comment for the full walk. Ticket 14b's resolved "Enhancement Powder vs.
-# exhaustion" rule (a Heavy committed on a Motion round's first slot skips
-# the *second, same-round* slot, not next round's) falls out of this
-# design for free: the walk-loop's exhausted-check runs on every player
-# entry it reaches, including an inserted one, before it would otherwise
-# ask for input.
-#
-# ── Frozen (ticket 15) ──────────────────────────────────────────────────
-# cp["frozenTurns"] is a single shared pool (mirrors Combat's own
-# combat.frozenTurns exactly, per ticket 15's "Blast/Black Hole in squad
-# fights: exercised as-is, unchanged from production") -- decremented once
-# per living enemy's own queue turn while > 0, gating that one enemy's
-# turn. Ticket 14b's "Freeze + exhaustion overlap" amendment (the two now
-# stack as two separate skipped turns) falls out of resolving frozen
-# strictly before exhaustion at each enemy's own turn, and never clearing
-# exhaustedNextTurn on a frozen skip -- see _resolve_enemy_entry().
-#
-# ── Scope NOT covered (documented per the ticket's own instruction) ─────
-#  - Grab/Bolt/Call: ticket 15's own checklist gates these behind "their
-#    prototype contracts are explicit" -- no such resolution exists yet (no
-#    ticket 14b-equivalent grilling session for them), so they are not
-#    wired here. Recommendation: a dedicated contract ticket, same shape as
-#    14b, before any future prototype work touches them.
-#  - Prophet's Breath and Wormhole: real combat items in production, but
-#    absent from ticket 14b's own enumerated "Approved rule" item list
-#    (Time Pearl, Shield, Blast, Black Hole, Healing Burst, Healing Salve) --
-#    treated the same as an unresolved contract, not wired.
-#  - Healing Salve: 14b confirms it keeps its production out-of-combat-only
-#    restriction, so it's simply never offered as a committable action here.
-#  - Blast's disarm chance still rolls (for parity with production's
-#    formula) but has no mechanical effect in this prototype -- these
-#    enemies carry no weapon/ability fields to strip (that machinery is
-#    real-combat-only; wiring a prototype-only stand-in was judged out of
-#    scope for this ticket's own budget).
-#  - Allies: still absent, same as ticket 14. Every squad/wave roster here
-#    is player-solo vs. N enemies, never player+ally vs. N enemies.
+# Not wired: Grab/Bolt/Call (no contract defined yet); Prophet's Breath and
+# Wormhole (not in the approved item list); Healing Salve (production
+# restricts it to out-of-combat); Blast's disarm roll (logged-only
+# flourish -- no weapon/ability fields to strip here); allies (always
+# player-solo vs N enemies).
 
 const ACTION_FAST := "fast"
 const ACTION_HEAVY := "heavy"
@@ -82,17 +29,15 @@ const ACTION_DODGE := "dodge"
 const ACTION_FLEE := "flee"
 const ACTION_ITEM := "item"
 
-# The four combat actions a script entry (data/combat_prototype.json) may
-# name -- also what GameData._validate_combat_prototype() checks scripts
-# against. Flee/Item are deliberately excluded: no scripted enemy in this
-# roster ever flees or uses an item.
+# The four actions a script entry (data/combat_prototype.json) may name;
+# GameData validates scripts against this. Flee/Item excluded -- no
+# scripted enemy ever flees or uses an item.
 const SCRIPTABLE_ACTIONS: Array[String] = [ACTION_FAST, ACTION_HEAVY, ACTION_COUNTER, ACTION_DODGE]
 const ACTIONS_STANCE: Array[String] = [ACTION_COUNTER, ACTION_DODGE]
 const COMMITTABLE_ACTIONS: Array[String] = [ACTION_FAST, ACTION_HEAVY, ACTION_COUNTER, ACTION_DODGE, ACTION_FLEE]
 
-# Ticket 15's 14b-approved item roster -- the only calc effects this
-# prototype ever wires (see this file's own top comment for what's
-# deliberately excluded and why).
+# The only calc effects this prototype wires -- see file header for what's
+# deliberately excluded and why.
 const ITEM_RECIPE_KEYS: Array[String] = ["timePearl", "enhancementPowder", "shield", "blast", "blackHole", "healingBurst"]
 
 const ITEM_ZERO_STOCK_REASON := {
@@ -101,15 +46,13 @@ const ITEM_ZERO_STOCK_REASON := {
 	"healingBurst": "No healing burst.",
 }
 
-# Ticket 13a's approved rule: "Heavy = Fast range x 1.5 (min and max),
-# rounded via GameState.round_epsilon(). Prototype-only multiplier, not
-# balance-final."
+# Heavy = Fast range x1.5 (min and max), rounded via GameState.round_epsilon().
+# Prototype-only multiplier, not balance-final.
 const HEAVY_MULTIPLIER := 1.5
 
-# Ticket 13a: "Item use ... and Flee each consume the actor's one committed
-# action for the round, exactly as today". Reuses systems/combat.gd's own
-# flee()/use_blast() base chance and boost (no weapon/disarm mechanic
-# exists in this prototype -- see this file's top comment).
+# Item use and Flee each consume the actor's one committed action for the
+# round, same as production. Reuses Combat's own flee()/use_blast() chance
+# and boost (no weapon/disarm mechanic exists in this prototype).
 const FLEE_CHANCE := 0.65
 const BLAST_FLEE_BOOST_CHANCE := 0.90
 const BLAST_DISARM_CHANCE := 0.15
@@ -117,14 +60,10 @@ const BLAST_DISARM_CHANCE := 0.15
 
 # ── Encounter setup ──────────────────────────────────────────────────────
 
-# Fresh full-hp start for `encounter_id` (must be a key in
-# GameData.COMBAT_PROTOTYPE.encounters). The prototype's own player.hp/hpMax
-# is seeded from the real player's hpMax but is NOT the same field -- every
-# resolution function below only ever reads or writes cp["player"]["hp"],
-# never GameState.state["player"]["hp"], so a prototype fight can never leak
-# damage (or a death) into the real save. Fast's own damage range still
-# comes from the real player via Combat.get_attack_range() (ticket 13a:
-# "today's baseline attack range ... unchanged"), a pure query.
+# Fresh full-hp start for `encounter_id`. The prototype's own player.hp/
+# hpMax is seeded from the real player's hpMax but is never written back --
+# every function below only ever touches cp["player"]["hp"], so a prototype
+# fight can never leak damage into the real save.
 static func start_encounter(encounter_id: String) -> Dictionary:
 	var encounters: Dictionary = GameData.COMBAT_PROTOTYPE.get("encounters", {})
 	if not encounters.has(encounter_id):
@@ -155,9 +94,8 @@ static func start_encounter(encounter_id: String) -> Dictionary:
 
 # Fresh start for whichever encounter follows `current` in
 # GameData.COMBAT_PROTOTYPE.encounterOrder -- the fixed three-fight teaching
-# sequence only (ticket 15's squad/wave encounters live outside this order,
-# see list_launchable_encounters() below). Returns { ok:false } with no
-# state change past the last encounter.
+# sequence only (squad/wave encounters live outside this order, see
+# list_launchable_encounters() below).
 static func advance_to_next_encounter() -> Dictionary:
 	var order: Array = GameData.COMBAT_PROTOTYPE.get("encounterOrder", [])
 	var current: String = GameState.state["combatPrototype"]["encounterId"]
@@ -167,8 +105,8 @@ static func advance_to_next_encounter() -> Dictionary:
 	return start_encounter(order[idx + 1])
 
 
-# Ticket 15: every encounters.<id> NOT in the fixed teaching order --
-# squad/wave/other evaluation encounters, reached directly rather than via
+# Every encounters.<id> NOT in the fixed teaching order -- squad/wave/other
+# evaluation encounters, reached directly rather than via
 # advance_to_next_encounter(). The Debug app's card (scenes/screens/phone.gd)
 # lists these generically off this instead of hardcoding ids.
 static func list_launchable_encounters() -> Array:
@@ -194,10 +132,9 @@ static func _encounter_def(cp: Dictionary) -> Dictionary:
 	return GameData.COMBAT_PROTOTYPE["encounters"][cp["encounterId"]]
 
 
-# The current wave's roster of raw JSON enemy defs (name/hp/attackMin/
-# attackMax/speed/evadeChance/script) -- a flat teaching-order entry (no
-# "enemies"/"waves" key) wraps itself as a one-element roster, so solo
-# encounters go through exactly the same path as a squad/wave one.
+# The current wave's roster of raw JSON enemy defs. A flat teaching-order
+# entry (no "enemies"/"waves" key) wraps itself as a one-element roster, so
+# solo encounters go through the same path as a squad/wave one.
 static func _current_wave_defs(cp: Dictionary) -> Array:
 	var def: Dictionary = _encounter_def(cp)
 	if def.has("waves"):
@@ -218,9 +155,8 @@ static func _build_enemy_state(def: Dictionary) -> Dictionary:
 
 
 # target_index >= 0 must name a living enemy; -1 auto-resolves to "the sole
-# living enemy" (every pre-ticket-15 solo call site keeps working
-# unchanged) and refuses (-1) when a squad has more than one still standing
-# -- there's no correct default to guess in that case.
+# living enemy" and refuses (-1) when a squad has more than one still
+# standing -- there's no correct default to guess in that case.
 static func _resolve_target(cp: Dictionary, target_index: int) -> int:
 	var enemies: Array = cp["enemies"]
 	if target_index >= 0:
@@ -290,11 +226,9 @@ static func take_player_action(action: String, target_index: int = -1) -> Dictio
 
 # Called by the screen instead of take_player_action() when
 # cp.player.exhaustedNextTurn is true at the START of a round -- there's no
-# action to pick, the round auto-resolves as "no commit, no action" for the
-# player (every enemy turn still happens) per ticket 13a ("Available
-# actions while exhausted: none"). Not valid mid-round (an already-paused
-# extra Motion slot auto-skips on its own inside _advance_round() instead --
-# see that func's own comment).
+# action to pick, so the round auto-resolves with no player action (every
+# enemy turn still happens). Not valid mid-round (an already-paused extra
+# Motion slot auto-skips on its own inside _advance_round() instead).
 static func skip_exhausted_round() -> Dictionary:
 	var cp: Dictionary = GameState.state["combatPrototype"]
 	var guard = _guard_active(cp)
@@ -326,7 +260,7 @@ static func skip_exhausted_round() -> Dictionary:
 	return _finalize_round(cp, beats)
 
 
-# ── Items (ticket 15, 14b's resolved item contracts) ─────────────────────
+# ── Items ─────────────────────────────────────────────────────────────────
 
 # Zero-stock/already-active guards run BEFORE any real inventory is spent,
 # same order production's own use_*() functions use -- a blocked attempt
@@ -347,8 +281,7 @@ static func _item_already_active_reason(cp: Dictionary, item_id: String) -> Stri
 
 # Direct-bag entry point -- spends from the player's real
 # GameState.state["player"]["inventory"] via Crafting.inventory_remove(),
-# exactly as production combat.gd does today (ticket 15's "real inventory,
-# no synthetic pool" resolution).
+# exactly as production combat.gd does.
 static func use_item(item_id: String, target_index: int = -1) -> Dictionary:
 	var cp: Dictionary = GameState.state["combatPrototype"]
 	var guard = _guard_active(cp)
@@ -375,9 +308,8 @@ static func use_item(item_id: String, target_index: int = -1) -> Dictionary:
 
 	# The round -- and its snapshot -- must exist BEFORE anything real is
 	# spent, or a later Rewind would restore to a snapshot that already
-	# reflects this item as spent (see _ensure_round_started()'s own
-	# comment). A no-op if this call is filling an already-open Motion
-	# extra slot instead of starting a fresh round.
+	# reflects this item as spent. A no-op if this call is filling an
+	# already-open Motion extra slot instead of starting a fresh round.
 	var started_round: bool = _ensure_round_started(cp)
 
 	Crafting.inventory_remove(item_id, 1)
@@ -387,10 +319,8 @@ static func use_item(item_id: String, target_index: int = -1) -> Dictionary:
 	_apply_item_effect(cp, item_id, power, 1, resolved_target, pre_beats)
 
 	# Queue build deliberately happens AFTER the effect above -- Enhancement
-	# Powder's own motionTurns has to already be set before _build_queue()
-	# decides how many extra player slots this round's queue gets, or the
-	# inserted slot wouldn't open until next round (see _start_round_queue()'s
-	# own comment).
+	# Powder's own motionTurns must already be set before _build_queue()
+	# decides how many extra player slots this round's queue gets.
 	if started_round:
 		_start_round_queue(cp)
 
@@ -398,7 +328,7 @@ static func use_item(item_id: String, target_index: int = -1) -> Dictionary:
 
 
 # Dial-cast entry point (Dial.cast_complication(), including its per-dial
-# power/target multiplier) -- ticket 15's "both entry points in scope".
+# power/target multiplier).
 static func cast_dial_complication(dial_index: int, target_index: int = -1) -> Dictionary:
 	var cp: Dictionary = GameState.state["combatPrototype"]
 	var guard = _guard_active(cp)
@@ -442,22 +372,18 @@ static func cast_dial_complication(dial_index: int, target_index: int = -1) -> D
 	var pre_beats: Array = []
 	_apply_item_effect(cp, recipe_key, cast["power"], cast["targets"], resolved_target, pre_beats)
 
-	# Same reordering as use_item() -- see _start_round_queue()'s own comment.
+	# Same reordering as use_item() -- see the comment there.
 	if started_round:
 		_start_round_queue(cp)
 
 	return _advance_round(cp, ACTION_ITEM, resolved_target, recipe_key, pre_beats)
 
 
-# Applies one item's effect immediately (production's own use_*()/
-# cast_complication() branches are all immediate free actions too -- there's
-# no reactive "wait and see" an item's effect needs, unlike a Fast/Heavy
-# matchup). `targets` is the Dial's per-tier Spread Movement multiplier
-# (always 1 for the direct-bag path) -- folded in exactly like production's
-# cast_complication() does per recipe, including enhancementPowder's
-# deliberate exception (motionPower/motionTurns read `power` directly, not
-# multiplied by targets, matching that same branch in Combat.
-# cast_complication()).
+# Applies one item's effect immediately, same as production's own use_*()/
+# cast_complication() branches. `targets` is the Dial's per-tier Spread
+# Movement multiplier (always 1 for the direct-bag path); enhancementPowder
+# is deliberately exempt (motionPower/motionTurns read `power` directly),
+# matching that same branch in Combat.cast_complication().
 static func _apply_item_effect(cp: Dictionary, item_id: String, power, targets: int, target_index: int, beats: Array) -> void:
 	match item_id:
 		"timePearl":
@@ -478,8 +404,8 @@ static func _apply_item_effect(cp: Dictionary, item_id: String, power, targets: 
 			_deal_damage(cp, false, target_index, dmg, line, "use_blast", true, -1, beats)
 			cp["blastFleeBoost"] = true
 			if Rng.chance(BLAST_DISARM_CHANCE) and not enemy["koed"]:
-				# See this file's top comment: disarm has no weapon/ability to
-				# strip here, so this is a logged-only flourish, not a mechanic.
+				# See file header: disarm has no weapon/ability to strip here,
+				# so this is a logged-only flourish, not a mechanic.
 				_log(cp, beats, "The shove knocks them off balance.", "use_disarm", { "targetType": "enemy", "targetIndex": target_index })
 		"blackHole":
 			var per_enemy_dmg: int = int(power) * targets
@@ -502,12 +428,11 @@ static func _apply_item_effect(cp: Dictionary, item_id: String, power, targets: 
 # ── Round engine ──────────────────────────────────────────────────────────
 
 # Speed-descending queue over the player + every living enemy, ties broken
-# player-first-then-enemy-array-order -- same convention as
+# player-first-then-enemy-array-order, same convention as
 # Combat.build_turn_queue() (R§3.7a). While cp.motionTurns > 0 (Enhancement
 # Powder active), (attack_count - 1) extra player entries are spliced in
-# immediately after the player's own base slot -- mirrors
-# Combat.build_turn_queue()'s own Motion-insertion exactly, just inserting
-# "a player entry awaiting a fresh commit" instead of "a bonus attack".
+# right after the player's base slot, mirroring Combat.build_turn_queue()'s
+# own Motion-insertion.
 static func _build_queue(cp: Dictionary) -> Array:
 	var entries: Array = [{ "type": "player", "speed": Combat._player_speed() }]
 	var enemies: Array = cp["enemies"]
@@ -538,26 +463,17 @@ static func _build_queue(cp: Dictionary) -> Array:
 	return queue
 
 
-# Starts a new round if one isn't already in progress: pushes the
-# snapshot, resets stance-triggered flags, and commits every living
-# enemy's action for the round (ticket 13a's "commit phase, before
-# resolution phase" -- see _commit_enemies()'s own comment for why this
-# has to happen up front rather than lazily). A no-op if cp["_pending"] is
-# already set (this call is filling an already-open Motion extra slot, not
-# starting a fresh round). Returns whether a fresh round was actually
-# started -- the caller must follow up with _start_round_queue(cp) once
-# any same-call item effect (e.g. Enhancement Powder's own motionTurns)
-# has been applied, but ONLY when this returned true (an already-pending
-# round's queue must never be rebuilt mid-walk).
+# Starts a new round if one isn't already in progress: pushes the snapshot,
+# resets stance-triggered flags, and commits every living enemy's action
+# up front (see _commit_enemies()). A no-op if cp["_pending"] is already
+# set. Returns whether a fresh round was actually started -- the caller
+# must follow up with _start_round_queue(cp) once any same-call item effect
+# has been applied, but only when this returned true.
 #
-# Called from take_player_action()/use_item()/cast_dial_complication()
-# BEFORE any of them spend anything real (Crafting.inventory_remove(),
-# Dial.cast_complication()) -- ticket 15's resolved Rewind contract
-# ("restores item stock ... Dial charges") only holds if the snapshot is
-# taken before the spend, not after; pushing it here, ahead of the
-# item-specific guards/spend in use_item()/cast_dial_complication(), is
-# what guarantees that ordering regardless of which entry point started
-# the round.
+# Called before any of take_player_action()/use_item()/
+# cast_dial_complication() spend anything real, so Rewind's "restores item
+# stock, Dial charges" contract holds regardless of which entry point
+# started the round.
 static func _ensure_round_started(cp: Dictionary) -> bool:
 	if cp.get("_pending") != null:
 		return false
@@ -569,12 +485,12 @@ static func _ensure_round_started(cp: Dictionary) -> bool:
 	return true
 
 
-# Builds and installs the round's queue. Split out from _ensure_round_started()
-# so an item entry point (use_item()/cast_dial_complication()) can apply its
-# own effect -- which may set cp["motionTurns"]/cp["motionPower"] (Enhancement
-# Powder) -- BEFORE the queue is built, letting that same round's own cast
-# insert its extra slot(s) immediately, not starting next round. Only ever
-# called when _ensure_round_started() just returned true.
+# Builds and installs the round's queue. Split out from
+# _ensure_round_started() so an item entry point can apply its own effect
+# (which may set cp["motionTurns"]/cp["motionPower"]) BEFORE the queue is
+# built, letting that same round's cast insert its extra slot(s)
+# immediately rather than next round. Only called when
+# _ensure_round_started() just returned true.
 static func _start_round_queue(cp: Dictionary) -> void:
 	cp["_pending"] = { "queue": _build_queue(cp), "pos": 0, "beats": [] }
 
@@ -583,16 +499,12 @@ static func _start_round_queue(cp: Dictionary) -> void:
 # cast_dial_complication(), called after _ensure_round_started() has
 # guaranteed cp["_pending"] exists. `action` is one of COMMITTABLE_ACTIONS
 # or ACTION_ITEM; for ACTION_ITEM the effect has already been applied by
-# the caller (items are immediate, see _apply_item_effect()'s own comment)
-# -- `pre_beats` carries whatever it already logged so this call's
-# returned beats include it.
+# the caller, and `pre_beats` carries whatever it already logged.
 #
-# The action/target/item this call was given resolves the very first
-# not-yet-resolved player queue entry the walk reaches (`action_consumed`,
-# scoped to this one call) -- every player entry reached AFTER that in the
-# same call either auto-skips (already exhausted -- this is where ticket
-# 14b's "Enhancement Powder + Heavy exhaustion" rule falls out for free,
-# same-round) or pauses again asking for the next commit.
+# The action/target/item given resolves the first not-yet-resolved player
+# queue entry the walk reaches; every player entry reached after that in
+# the same call either auto-skips (already exhausted) or pauses again
+# asking for the next commit.
 static func _advance_round(cp: Dictionary, action: String, target_index: int, item_id, pre_beats: Array = []) -> Dictionary:
 	var player: Dictionary = cp["player"]
 	var pending: Dictionary = cp["_pending"]
@@ -653,7 +565,7 @@ static func _resolve_player_attack(cp: Dictionary, beats: Array, action: String,
 
 	var atk_range: Dictionary = _attack_range_for(cp, true, action, -1)
 	var dmg: int = Rng.randi_range(atk_range["min"], atk_range["max"])
-	var stance = enemy["committedAction"]  # this enemy's own stance is always "aimed at the player" -- the player is the only attacker an enemy can ever defend against here
+	var stance = enemy["committedAction"]  # the player is the only attacker an enemy can ever defend against here
 
 	if stance == ACTION_COUNTER:
 		enemy["stanceTriggered"] = true
@@ -677,18 +589,13 @@ static func _resolve_player_attack(cp: Dictionary, beats: Array, action: String,
 	_deal_damage(cp, false, target_index, dmg, "Your %s connects for %d." % [action.capitalize(), dmg], action + "_hit", true, -1, beats)
 
 
-# Ticket 13a's "commit phase": every living enemy not currently exhausted
-# reveals its scripted action NOW, before any resolution this round runs --
-# a slower enemy's Counter/Dodge (or a faster one's Fast/Heavy) has to be
-# already visible in state the instant an earlier queue entry (the player's
-# own slot, or another enemy) needs to check it, regardless of THIS
-# enemy's own queue position. An exhausted enemy commits nothing (13a:
-# "Frozen/exhausted combatants auto-skip and are shown as such -- no
-# commit") -- script pick/advance only ever happens on a real commit,
-# matching ticket 14's "an exhausted skip round doesn't consume a step".
-# Frozen is deliberately NOT checked here: it's a live, resolution-order-
-# dependent pool (see _resolve_enemy_entry() below), so it can only be
-# resolved at each enemy's own queue turn, not decided up front.
+# Commit phase: every living enemy not currently exhausted reveals its
+# scripted action now, before any resolution this round runs -- a slower
+# enemy's Counter/Dodge has to already be visible the instant an earlier
+# queue entry needs to check it. An exhausted enemy commits nothing; script
+# pick/advance only happens on a real commit. Frozen is deliberately NOT
+# checked here: it's a resolution-order-dependent pool, resolved at each
+# enemy's own queue turn instead (see _resolve_enemy_entry()).
 static func _commit_enemies(cp: Dictionary) -> void:
 	var wave_defs: Array = _current_wave_defs(cp)
 	var enemies: Array = cp["enemies"]
@@ -706,15 +613,12 @@ static func _commit_enemies(cp: Dictionary) -> void:
 
 
 # One living enemy's own queue turn, executing whatever _commit_enemies()
-# already revealed for it. Ticket 14b's frozen/exhaustion ordering: frozen
-# is checked and resolved FIRST every time this enemy's turn comes up,
-# decrementing the shared pool and leaving exhaustedNextTurn exactly as it
-# was (pending, untouched) -- only once frozenTurns has stopped gating this
-# enemy's turn does a pending exhaustedNextTurn (signalled by a null
-# committedAction -- see _commit_enemies()) actually consume a turn. A
-# committed stance (Counter/Dodge) has nothing to execute here at all --
-# same as the player's own stance commits, it resolves reactively, from
-# whichever attack targets this enemy.
+# already revealed for it. Frozen is checked and resolved FIRST every time,
+# decrementing the shared pool and leaving exhaustedNextTurn untouched --
+# only once frozenTurns stops gating this enemy's turn does a pending
+# exhaustedNextTurn (signalled by a null committedAction) consume a turn.
+# A committed stance has nothing to execute here -- it resolves reactively,
+# from whichever attack targets this enemy.
 static func _resolve_enemy_entry(cp: Dictionary, enemy_idx: int, beats: Array) -> void:
 	var enemy: Dictionary = cp["enemies"][enemy_idx]
 	if enemy["koed"]:
@@ -741,10 +645,8 @@ static func _resolve_enemy_entry(cp: Dictionary, enemy_idx: int, beats: Array) -
 	var dmg: int = Rng.randi_range(atk_range["min"], atk_range["max"])
 	var player: Dictionary = cp["player"]
 	var player_stance = player["committedAction"]
-	# Ticket 13a: "A stance covers only its one selected opponent; other
-	# attackers remain fully dangerous." -- an unguarded enemy (or one the
-	# player's stance isn't currently pointed at) connects normally, which
-	# is exactly ticket 15 checklist item 1's demonstration.
+	# A stance covers only its one selected opponent; other attackers
+	# remain fully dangerous.
 	var stance_aimed_here: bool = player["committedTarget"] == enemy_idx
 
 	if player_stance == ACTION_COUNTER and stance_aimed_here:
@@ -782,13 +684,10 @@ static func _resolve_flee(cp: Dictionary, beats: Array) -> void:
 
 
 # Shared HP-application chokepoint -- every damage instance in this file
-# (a plain hit, a bypassing Heavy, Fast catching a Dodge, a Counter's own
-# retaliation, or an item) funnels through here. Ticket 13a: "evadeChance
-# rolls apply after the matchup resolves, before HP loss -- unchanged order
-# from today." target/actor are (is_player, enemy_idx) pairs rather than a
-# single "defender" reference, since retaliation's target is the original
-# ATTACKER, not whoever just defended. Also owns shield absorption
-# (player-only) and the enemy-koed -> maybe-wave-cleared check.
+# funnels through here. target/actor are (is_player, enemy_idx) pairs
+# rather than a single "defender" reference, since retaliation's target is
+# the original ATTACKER, not whoever just defended. Also owns shield
+# absorption (player-only) and the enemy-koed -> maybe-wave-cleared check.
 static func _deal_damage(cp: Dictionary, target_is_player: bool, target_idx: int, dmg: int, line: String, kind: String, actor_is_player: bool, actor_idx: int, beats: Array) -> void:
 	var target: Dictionary = cp["player"] if target_is_player else cp["enemies"][target_idx]
 	var extra: Dictionary = {
@@ -835,9 +734,9 @@ static func _maybe_wave_cleared(cp: Dictionary) -> void:
 	cp["_waveCleared"] = true
 
 
-# Ticket 13a: "A stance ... aimed at an opponent who doesn't attack the
-# defender that round ... fizzles with no effect -- the action is still
-# spent." Skipped once the fight's already resolved this round.
+# A stance aimed at an opponent who doesn't attack the defender that round
+# fizzles with no effect -- the action is still spent. Skipped once the
+# fight's already resolved this round.
 static func _log_unused_stances(cp: Dictionary, beats: Array) -> void:
 	var player: Dictionary = cp["player"]
 	var player_action = player["committedAction"]
@@ -852,11 +751,10 @@ static func _log_unused_stances(cp: Dictionary, beats: Array) -> void:
 
 
 # Ends the round: unused-stance fizzles, wave-clear/win resolution, commit
-# reset, Motion decay, round increment. Ticket 15's "do not turn routine
-# encounters into waves" -- this is the ONLY place a wave transition can
-# happen, and it only fires for an encounter def that actually has
-# `waves` (cp.totalWaves > 1); every squad/solo encounter's win resolves
-# immediately here exactly as before.
+# reset, Motion decay, round increment. This is the ONLY place a wave
+# transition can happen, and it only fires for an encounter def that
+# actually has `waves` (cp.totalWaves > 1); every squad/solo encounter's
+# win resolves immediately here.
 static func _finalize_round(cp: Dictionary, beats: Array) -> Dictionary:
 	if cp["outcome"] == null:
 		_log_unused_stances(cp, beats)
@@ -898,15 +796,12 @@ static func _log(cp: Dictionary, beats: Array, line: String, kind: String, extra
 
 # ── Snapshot / Rewind ─────────────────────────────────────────────────────
 
-# Ticket 15's resolved Rewind contract: "restores item stock, HP, Dial
-# charges, and all other combat state to the snapshot -- except the Rewind
-# consumable/Dial-charge itself" (there is no rewind item wired into this
-# prototype at all, so that carve-out is moot here -- everything captured
-# below is restorable). Captures the real player's inventory buckets for
-# every ITEM_RECIPE_KEYS entry (tier-exact, not just an aggregate qty) and
-# the real Dial's currentCharge, alongside cp's own combat state -- pushed
-# once per round, BEFORE that round's first action (including an item cast)
-# is applied, so Rewind can undo a spent item exactly as it undoes damage.
+# Rewind restores item stock, HP, Dial charges, and all other combat state
+# to the snapshot. Captures the real player's inventory buckets for every
+# ITEM_RECIPE_KEYS entry (tier-exact, not just an aggregate qty) and the
+# real Dial's currentCharge, alongside cp's own combat state -- pushed once
+# per round, before that round's first action is applied, so Rewind can
+# undo a spent item exactly as it undoes damage.
 static func push_prototype_snapshot() -> void:
 	var cp: Dictionary = GameState.state["combatPrototype"]
 	var player_state: Dictionary = GameState.state["player"]
@@ -942,11 +837,8 @@ static func push_prototype_snapshot() -> void:
 # Freely available in this prototype (no consumable/Dial gating like
 # production's combat_rewind()) -- the point here is proving restoration is
 # reliable, not resource scarcity. Bounded only by whether a snapshot
-# exists (2-deep stack, same as production). Safe to call mid-round (while
-# cp["_pending"] is non-null, i.e. an Enhancement-Powder-inserted slot is
-# still awaiting its own commit) -- the snapshot was taken before ANY of
-# this round's actions, so it unwinds the whole round, pending slot
-# included.
+# exists (2-deep stack, same as production). Safe to call mid-round, since
+# the snapshot was taken before any of this round's actions.
 static func rewind() -> Dictionary:
 	var cp: Dictionary = GameState.state["combatPrototype"]
 	if not cp["active"] or cp["snapshots"].is_empty():
@@ -1006,9 +898,9 @@ static func rewind() -> Dictionary:
 	return { "ok": true, "beats": replay_beats }
 
 
-# Tears the prototype fight down and returns to whichever screen launched
-# it (the Debug app -- see scenes/screens/phone.gd's own "Solo Combat
-# Prototype" card) rather than any production combat exit routing.
+# Tears the prototype fight down and returns to the Debug app (see
+# scenes/screens/phone.gd's "Solo Combat Prototype" card) rather than any
+# production combat exit routing.
 static func exit_encounter() -> Dictionary:
 	GameState.state["combatPrototype"]["active"] = false
 	Nav.go_to("phone")

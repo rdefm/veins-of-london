@@ -13,9 +13,9 @@ static func active_contracts() -> Array:
 	return GameState.state["sales"]["activeContracts"]
 
 
-# ticket 32: a mixed one-off's request carries a request.types line per
-# requested type; a single-type request (still the common case) acts as its
-# own sole line, so every reader below can walk one shape regardless.
+# A mixed one-off's request carries a request.types line per requested type;
+# a single-type request acts as its own sole line, so every reader below can
+# walk one shape regardless.
 static func request_lines(request: Dictionary) -> Array:
 	return request["types"] if request.has("types") else [request]
 
@@ -41,10 +41,9 @@ static func is_complete(contract: Dictionary) -> bool:
 	return remaining_qty(contract) == 0
 
 
-# ticket 28: "staffed" also requires today's Sales wage to have actually been
-# paid -- an unpaid role does no work for the rest of the rollover (both this
-# same-day real-time recheck and the daily partial-delivery pass below),
-# gated via Payroll.is_paid_today() rather than a second parallel flag.
+# "staffed" also requires today's Sales wage to have actually been paid — an
+# unpaid role does no work for the rest of the rollover, gated via
+# Payroll.is_paid_today() rather than a second parallel flag.
 static func has_staffed_sales() -> bool:
 	return Contacts.get_contact_in_room("ops") != null and Payroll.is_paid_today("ops")
 
@@ -63,10 +62,9 @@ static func set_delegated(contract_id: String, delegated: bool) -> Dictionary:
 	return { "ok": true, "delegated": delegated }
 
 
-# business-spec.md/ticket 26: "if all remaining requested types for one can
-# be supplied" -- a mixed contract needs every one of its lines independently
-# covered (one ore/item pool can never stand in for another), not merely an
-# aggregate sum of shared stock across unrelated types.
+# business-spec.md: a mixed contract needs every one of its lines
+# independently covered (one ore/item pool can never stand in for another),
+# not an aggregate sum of shared stock across unrelated types.
 static func _can_fully_deliver(contract: Dictionary) -> bool:
 	for line in request_lines(contract["request"]):
 		var line_remaining := remaining_qty(contract, line["type"])
@@ -105,18 +103,16 @@ static func process_delegated_deliveries() -> void:
 		_deliver_delegated(contract)
 
 
-# The only stock-mutating delivery entry point. Ticket 26 calls this too,
-# with consume_time=false after it has chosen a delegated contract.
+# The only stock-mutating delivery entry point. _deliver_delegated below
+# also calls this, with consume_time=false after choosing a delegated
+# contract.
 #
-# ticket 32: qty is a TOTAL cap across every requested type, spent against
-# request_lines() in request order -- one type's remaining need is filled
-# (capped by its own shared stock) before the next type gets any of the
-# leftover budget. business-spec.md "Manual delivery costs one time block
-# per delivery action, whatever its quantity or number of requested types" --
-# this is what lets a single manual action span every type in one call, and
-# lets a delegated contract's uncapped delivery (qty = its own total
-# remaining, see _deliver_delegated) fill every type up to that type's own
-# availability without one type's shortage ever stealing another's stock.
+# qty is a TOTAL cap across every requested type, spent against
+# request_lines() in request order — one type's remaining need is filled
+# (capped by its own shared stock) before the next type gets any leftover
+# budget. Per business-spec.md, manual delivery costs one time block per
+# delivery action regardless of quantity or requested-type count, which is
+# what lets a single manual action span every type in one call.
 static func deliver(contract_id: String, qty: int, consume_time: bool = true) -> Dictionary:
 	var contract := _find_active(contract_id)
 	if contract.is_empty():
@@ -225,14 +221,13 @@ static func _deliver_delegated(contract: Dictionary, qty: int = -1) -> void:
 		settle(contract["id"])
 
 
-# ticket 32: per requested-type line rather than per whole request, since a
-# mixed contract's lines each draw from an independent ore/item pool.
+# Per requested-type line rather than per whole request, since a mixed
+# contract's lines each draw from an independent ore/item pool.
 static func _shared_stock_for_line(line: Dictionary) -> int:
 	if line["kind"] == "ore":
 		return int(GameState.state["player"]["orichalchum"].get(line["type"], 0))
-	# ticket 30: Production's personal-target portion of a covered item's
-	# stock is a protected buffer -- Sales may only draw the contract-need
-	# portion, never the reserve.
+	# Production's personal-target portion of a covered item's stock is a
+	# protected buffer — Sales may only draw the contract-need portion.
 	var reserved := Rooms.production_reserved_qty(line["type"])
 	return maxi(0, Crafting.inventory_qty(line["type"]) - reserved)
 
@@ -245,17 +240,16 @@ static func _remove_shared_stock_for_line(line: Dictionary, qty: int) -> void:
 
 
 # business-spec.md "Fulfilment and settlement": a mixed one-off's delivered
-# proportion is quoted-value weighted -- Σ(delivered_units × unit_value) /
-# total_quote_value, using quote.lines' snapshotted per-unit values (ticket
-# 31's approved formula). This is exactly equivalent to the old flat
-# delivered/qty ratio for a single-type contract (the one unit_value factors
-# out of both sides), so both shapes share this one implementation.
+# proportion is quoted-value weighted — Σ(delivered_units × unit_value) /
+# total_quote_value, using quote.lines' snapshotted per-unit values. This is
+# exactly equivalent to a flat delivered/qty ratio for a single-type
+# contract (the one unit_value factors out of both sides), so both shapes
+# share this one implementation.
 static func _delivered_proportion(contract: Dictionary) -> float:
 	var quote: Dictionary = contract["quote"]
 	if not quote.has("lines"):
-		# A contract accepted before ticket 32 shipped snapshotted a quote
-		# with no "lines" key -- fall back to the pre-ticket-32 flat ratio
-		# rather than KeyError on an in-flight save's still-active contract.
+		# An older snapshotted quote with no "lines" key -- fall back to a
+		# flat ratio rather than KeyError on an in-flight save.
 		return float(delivered_qty(contract)) / float(maxi(1, int(contract["request"]["qty"])))
 	var total_quote_value: int = int(quote.get("liveValue", 0))
 	if total_quote_value <= 0:

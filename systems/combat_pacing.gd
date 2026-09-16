@@ -1,17 +1,9 @@
 class_name CombatPacing
 extends RefCounted
 
-# combat-presentation ticket 04, docs/combat-animation-vision.md §8: the beat
-# queue director's own persisted pacing toggle -- same split as
-# MapEvents.pacing_mode()/set_pacing_mode() (systems own the GameState-backed
-# schema, scene components own visual-only duration constants), per that
-# file's own class comment and the vision doc's explicit "reuse
-# map_canvas.gd's pattern, don't invent a second one."
-#
-# Lives at the top level of GameState.state rather than inside
-# state.combat -- Combat.exit_combat() tears combat down to fresh defaults on
-# every fight's end, which would silently reset a player's pacing choice
-# after every single fight if it lived there instead.
+# Persisted pacing toggle for the beat queue director (docs/combat-animation-vision.md §8).
+# Lives at GameState.state's top level, not inside state.combat, since
+# Combat.exit_combat() resets state.combat every fight and would wipe this.
 const MODES: PackedStringArray = ["normal", "quick"]
 const DEFAULT_MODE := "normal"
 

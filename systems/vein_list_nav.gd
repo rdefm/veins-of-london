@@ -1,13 +1,10 @@
 class_name VeinListNav
 extends RefCounted
 
-# vein-growth-state ticket 09: transient nav state for the vein list screen
-# (state.veinListNav, GameState.gd) -- same "a screen-render function must
-# not mutate state, so this goes through a system function" reasoning as
-# MapNav/BenchNav/PhoneNav. originScreen remembers which of the two entry
-# points opened the list (Map tab's district bubble, or HQ's Vein Station
-# room) so the list's own Back button returns there rather than a hardcoded
-# screen.
+# Transient nav state for the vein list screen (state.veinListNav). Same
+# "screens can't mutate state directly" reasoning as MapNav/BenchNav/PhoneNav.
+# originScreen remembers which entry point (Map tab's district bubble, or
+# HQ's Vein Station room) opened the list, so Back returns there.
 
 
 static func open_for_district(district_id: String) -> void:

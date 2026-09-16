@@ -1,11 +1,9 @@
 class_name VeinList
 extends RefCounted
 
-# vein-growth-state ticket 09 (spec §6.2): pure decision layer for the vein
-# list -- same "Node/Tween-side stays out of this" split systems/
-# district_bubble.gd and systems/station_bubble.gd already draw for the map's
-# other two vein-facing surfaces. scenes/screens/vein_list.gd only ever turns
-# this into Controls; it never computes gating or dispatches itself.
+# Pure decision layer for the vein list (spec §6.2); scenes/screens/
+# vein_list.gd only ever turns this into Controls, same split as
+# systems/district_bubble.gd and systems/station_bubble.gd.
 
 const CULTIVATE_ID := "cultivate"
 const PRUNE_LIGHT_ID := "prune_light"
@@ -14,11 +12,9 @@ const MANAGE_ID := "manage"
 const SELL_ID := "sell"
 
 
-# Every player vein, optionally scoped to one district (null -- the HQ Vein
-# Station entry point's "every district" scope) and one growth band (null --
-# no filter, the district bubble's own default). Order matches
-# state.player.veins' own order; no implicit sort, so district-scoped
-# results still read in the same order the map's district panel lists them.
+# Every player vein, optionally scoped to one district (null = every
+# district) and one growth band (null = no filter). Preserves
+# state.player.veins' own order.
 static func veins(district_id: Variant, band_id: Variant = null) -> Array:
 	var result: Array = []
 	for vein in GameState.state["player"]["veins"]:
@@ -30,12 +26,9 @@ static func veins(district_id: Variant, band_id: Variant = null) -> Array:
 	return result
 
 
-# { id, disabled, reason } per row action, in display order -- same shape
-# DistrictBubble.district_options()/StationBubble.station_options() return.
-# Cultivate/Prune gating is identical to the map sheet's own
-# _build_vein_action_card and the station bubble (Cultivating.prune_gate() is
-# the shared seam), so all three surfaces read the same rule. Manage is
-# always offered, unconditionally, same as everywhere else it appears.
+# { id, disabled, reason } per row action, in display order. Cultivate/Prune
+# gating goes through Cultivating.prune_gate(), the shared seam with the map
+# sheet and station bubble, so all three surfaces read the same rule.
 static func actions_for(vein: Dictionary) -> Array:
 	var district: String = vein["district"]
 	var at_ceiling: bool = vein["growth"] >= Cultivating.ceiling(vein)
@@ -59,21 +52,17 @@ static func actions_for(vein: Dictionary) -> Array:
 		{ "id": MANAGE_ID, "disabled": false, "reason": "" },
 	]
 
-	# collective1-05, spec §5.6: absent entirely until flags.veinSaleUnlocked
-	# flips true (ticket 12's S9 scene) -- once it does, every vein gets it,
-	# permanently, unconditionally enabled (no block cost, no per-vein gate).
+	# spec §5.6: absent until flags.veinSaleUnlocked flips true, then always
+	# enabled, no block cost or per-vein gate.
 	if GameState.state["flags"].get("veinSaleUnlocked", false):
 		actions.append({ "id": SELL_ID, "disabled": false, "reason": "" })
 
 	return actions
 
 
-# Dispatches to the same Cultivating functions (and therefore the same
-# Travel.ensure_district call) the Map tab's site/vein sheet and station
-# bubble already use -- a convenience layer over the existing rules, never a
-# second code path. Manage opens the same site/vein sheet Manage opens
-# everywhere else (MapNav.select_site, unchanged), then switches to the Map
-# tab to show it, since the list is its own separate screen.
+# Dispatches through the same Cultivating/Travel calls the Map tab's site
+# sheet and station bubble already use. Manage opens the same site/vein
+# sheet elsewhere, then switches to the Map tab to show it.
 static func apply_option(option_id: String, vein_id: String) -> Dictionary:
 	match option_id:
 		CULTIVATE_ID:
@@ -96,10 +85,8 @@ static func apply_option(option_id: String, vein_id: String) -> Dictionary:
 			var vein: Variant = Cultivating.find_vein(vein_id)
 			if vein == null:
 				return { "ok": false }
-			# Quote, then confirm (spec §5.6 guard: "losing a vein must never
-			# be one tap") -- this only opens the confirmation modal; the
-			# actual VeinTrade.sell_to_faction() call happens from the
-			# modal's Confirm button (scenes/components/modal_layer.gd).
+			# Quote, then confirm (spec §5.6: "losing a vein must never be
+			# one tap") -- the sale itself fires from the modal's Confirm button.
 			Modal.open("sell_vein_quote", { "veinId": vein_id, "price": VeinTrade.quote(vein), "factionId": VeinTrade.SELL_FACTION_ID })
 			return { "ok": true }
 		_:

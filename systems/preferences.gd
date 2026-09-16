@@ -8,9 +8,8 @@ static func set_reduced_motion(enabled: bool) -> void:
 	EventBus.state_changed.emit()
 
 
-# day-rhythm ticket 05: default true (an opt-out, not opt-in, feature) --
-# scenes/components/alarm_presentation.gd reads
-# GameState.state["meta"].get("vibrationEnabled", true) before buzzing.
+# Default true (opt-out, not opt-in) -- scenes/components/alarm_presentation.gd
+# reads GameState.state["meta"].get("vibrationEnabled", true) before buzzing.
 static func set_vibration_enabled(enabled: bool) -> void:
 	GameState.state["meta"]["vibrationEnabled"] = enabled
 	EventBus.state_changed.emit()

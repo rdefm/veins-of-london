@@ -84,8 +84,8 @@ static func _apply_organic_drift() -> void:
 
 
 # Clamps progress to 0-100; if any non-active state has reached 100, it
-# becomes the new active state (old active drops to 0) and a shift
-# notification fires. At most one resolution per section per call.
+# becomes the new active state (the prior active state drops to 0) and a
+# shift notification fires. At most one resolution per section per call.
 static func _resolve_section(section: String) -> void:
 	var barometer: Dictionary = GameState.state["barometer"]
 	var progress: Dictionary = barometer["progress"][section]

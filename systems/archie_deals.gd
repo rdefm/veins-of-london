@@ -1,26 +1,22 @@
 class_name ArchieDeals
 extends RefCounted
 
-# bugfixes-95: Archie occasionally invites the player to tag along on a sale
-# that's entirely his own stock -- no player ore/cash is touched by the deal
-# itself, only by its resolution. Same daily-tick-roll shape as ticket #30's
-# James job offers (Jobs.roll_daily_offer(), called from time_system.gd's
-# daily tick), and the same pendingMessages accept/decline surfacing Archie's
-# other SMS beats use (Messages.queue_pending, ContactCards.build_archie_card).
-# See .scratch/0-bugfixes/issues/95-archie-tag-along-deal-offers.md for the
-# confirmed mechanics this implements.
+# Archie occasionally invites the player to tag along on a sale that's
+# entirely his own stock — no player ore/cash is touched by the deal itself,
+# only by its resolution. Same daily-tick-roll shape as Jobs.roll_daily_offer(),
+# and the same pendingMessages accept/decline surfacing Archie's other SMS
+# beats use. Mechanics documented in
+# .scratch/0-bugfixes/issues/95-archie-tag-along-deal-offers.md.
 
-# Chance curve (needs balance sign-off per the ticket -- shipped as proposed,
-# not yet human-confirmed): 100% at cash <= £100 (well, at cash 0), falling
-# linearly to a 10% floor at cash >= £5000.
+# Chance curve, needs balance sign-off (shipped as proposed, not yet
+# human-confirmed): 100% at cash 0, falling linearly to a 10% floor at
+# cash >= £5000.
 const CHANCE_CASH_CEILING := 5000.0
 const CHANCE_FLOOR := 0.10
 
-# Deal size (needs balance sign-off per the ticket): tier = floor(cash/5000),
-# quantity range 5*2^tier to 25*2^tier. Uncapped this doubles every £5000 of
-# cash forever -- TIER_MAX is this agent's proposed sanity cap (tier 6 ->
-# cash >= £30,000 -> 320-1600 units/deal), flagged for human review rather
-# than shipped uncapped per the ticket's own instruction.
+# Deal size, needs balance sign-off: tier = floor(cash/5000), quantity range
+# 5*2^tier to 25*2^tier. TIER_MAX is a proposed sanity cap (tier 6 -> cash
+# >= £30,000 -> 320-1600 units/deal) rather than shipping uncapped.
 const TIER_CASH_STEP := 5000
 const TIER_MAX := 6
 const QTY_BASE_MIN := 5
@@ -40,11 +36,10 @@ static func deal_tier(cash: int) -> int:
 	return mini(int(floor(float(cash) / float(TIER_CASH_STEP))), TIER_MAX)
 
 
-# Called from time_system.gd's daily tick. Only once archie_motion.json has
-# introduced the mechanic (bugfixes-112 — mirrors Jobs.roll_daily_offer()'s
-# own jamesMotionEventSeen gate), and only when no offer is currently
-# pending decision, and no accepted deal (including any mugging fight it
-# triggered) is still in progress.
+# Called from TimeSystem's daily tick. Only once the archie_motion event has
+# introduced the mechanic (mirrors Jobs.roll_daily_offer()'s own
+# jamesMotionEventSeen gate), and only when no offer is pending and no
+# accepted deal (including any mugging it triggered) is still in progress.
 static func roll_daily_offer() -> void:
 	if not GameState.state["flags"]["archieMotionEventSeen"]:
 		return
@@ -56,7 +51,7 @@ static func roll_daily_offer() -> void:
 		return
 
 	GameState.state["flags"]["archieDealActive"] = true
-	# PROSE-REVIEW: new daily-tick offer SMS, drafted against CONTENT-GUIDE.md's tone bible.
+	# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone bible.
 	Messages.queue_pending("archie", PENDING_KIND, "Got a sale lined up, nothing of yours in it. Fancy tagging along for a cut?")
 
 

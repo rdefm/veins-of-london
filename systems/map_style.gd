@@ -1,29 +1,19 @@
 class_name MapStyle
 extends RefCounted
 
-# M1.5 N4: pure re-styling math for the filter chip modes (Ownership ·
-# Type · Growth · Security, plus map-filters ticket 04's Faction isolate).
-# Consumes already-resolved values (an ore colour, an owner colour, a
-# vein's value tier/security/growth band) and returns colours/widths/
-# scales/booleans/angles — never touches GameState or GameData itself, same
-# purity discipline as systems/map_routing.gd. scenes/components/
-# map_canvas.gd is the only caller; kept separate so the filter maths are
-# unit-testable without a running scene tree. N4 is explicit that filters
-# ONLY re-style — they never hide a stop or change what tapping it does,
-# which is exactly why nothing here returns "hidden" or touches tap targets.
+# M1.5 §N4: pure re-styling math for the filter chip modes (Ownership ·
+# Type · Growth · Security · Faction isolate). Consumes already-resolved
+# values (an ore colour, an owner colour, a vein's value tier/security/
+# growth band) and returns colours/widths/scales/booleans/angles — never
+# touches GameState or GameData, same purity discipline as
+# systems/map_routing.gd. scenes/components/map_canvas.gd is the only
+# caller. §N4 is explicit that filters ONLY re-style — they never hide a
+# stop or change what tapping it does, which is why nothing here returns
+# "hidden" or touches tap targets.
 #
-# vein-growth-state ticket 07: "Strength" and "Charge" merge into one
-# "Growth" chip — the old 1-6 `level`/`charged` flag quartet is gone (see
-# systems/cultivating.gd), replaced by `growth`/`value_tier`/growth bands.
-# Growth mode fades everything outside the "risk" bands, ramps ring colour/
-# width by value_tier (same ramp shape Strength used, just keyed on the new
-# 1-6 magnitude).
-#
-# bugfixes ticket 77: the growth-gauge arc/per-band-texture/countdown-badge
-# maths that used to live at the bottom of this file (growth_arc_angles,
-# arc_texture, arc_width_scale, arc_alpha_scale, countdown_label) are gone —
-# replaced by growth_fill_fraction() below, the one pure seam behind
-# MapCanvas's radial fill meter.
+# "Growth" mode fades everything outside the "risk" bands and ramps ring
+# colour/width by value_tier (1-6, R§3.4). growth_fill_fraction() below is
+# the one pure seam behind MapCanvas's radial fill meter.
 
 const FILTER_MODES: Array[String] = ["ownership", "type", "growth", "security", "faction"]
 
@@ -46,23 +36,19 @@ static func line_colour(filter_mode: String, owner_colour: Color) -> Color:
 	return owner_colour
 
 
-# Faction: "picking a faction dims everything else and highlights just that
-# faction's line and owned stops" -- an owner is "player", a faction id, or
-# "" for an unclaimed/NPC element with no owner at all. selected_faction_id
-# "" means faction mode is active but nothing's been picked yet (e.g. the
-# drawer's "Faction" row was opened without a pick), in which case nothing
-# is isolated -- every owner reads at full alpha, same as ownership.
+# Faction: picking a faction dims everything else and highlights just that
+# faction's line and owned stops. An owner is "player", a faction id, or ""
+# for an unclaimed/NPC element. selected_faction_id "" means faction mode is
+# active but nothing's been picked yet, so nothing is isolated.
 static func is_faction_isolated(filter_mode: String, selected_faction_id: String) -> bool:
 	return filter_mode == "faction" and selected_faction_id != ""
 
 
 # Growth: a line/stub is never itself "at risk" — it fades uniformly
-# whenever this filter is active, same as the old Charge filter's lines
-# ("everything uncharged drops to 35% alpha"). Faction: reuses the same
-# CHARGE_FADE_ALPHA value (per the ticket -- "rather than inventing a new
-# fade value") for every line whose owner isn't the isolated faction;
-# selected_faction_id/owner default to "" so every pre-existing call site
-# (none of which pass them) is unaffected.
+# whenever this filter is active. Faction: reuses the same CHARGE_FADE_ALPHA
+# value (rather than inventing a new one) for every line whose owner isn't
+# the isolated faction; selected_faction_id/owner default to "" so call
+# sites that don't pass them are unaffected.
 static func line_alpha(filter_mode: String, selected_faction_id: String = "", owner: String = "") -> float:
 	if filter_mode == "growth":
 		return CHARGE_FADE_ALPHA
@@ -72,13 +58,10 @@ static func line_alpha(filter_mode: String, selected_faction_id: String = "", ow
 
 
 # Growth: per-stop alpha — full for a vein sitting in one of the risk bands
-# (barren/sparse/wild/rampant/collapsed, see is_risk_band below), faded
-# otherwise (thinning/dormant/taking/lush -- the "nothing urgent" middle).
-# NPC/unclaimed stops have no growth of their own, so callers always pass
-# false for them and get the same fade as a mid-band vein. Faction: same
-# isolate/fade split as line_alpha above, keyed on the stop's own owner
-# ("player", a faction id, or "" for an unclaimed tick) rather than growth
-# state -- default params keep every pre-existing call site unaffected.
+# (see is_risk_band below), faded otherwise (the "nothing urgent" middle
+# bands). NPC/unclaimed stops have no growth of their own, so callers always
+# pass false for them. Faction: same isolate/fade split as line_alpha above,
+# keyed on the stop's own owner rather than growth state.
 static func stop_alpha(filter_mode: String, at_risk: bool, selected_faction_id: String = "", owner: String = "") -> float:
 	if filter_mode == "growth":
 		return 1.0 if at_risk else CHARGE_FADE_ALPHA
@@ -88,8 +71,7 @@ static func stop_alpha(filter_mode: String, at_risk: bool, selected_faction_id: 
 
 
 # Type: stop rings recolour by ore type. Growth: ring greyscale ramp from
-# --muted (tier 1) to --ink (tier 6) -- same ramp shape the old Strength
-# filter used, keyed on value_tier (1-6) instead of the retired 1-6 level.
+# --muted (tier 1) to --ink (tier 6), keyed on value_tier (R§3.4).
 static func vein_ring_colour(filter_mode: String, owner_colour: Color, ore_colour: Color, tier: int) -> Color:
 	match filter_mode:
 		"type":
@@ -101,17 +83,15 @@ static func vein_ring_colour(filter_mode: String, owner_colour: Color, ore_colou
 			return owner_colour
 
 
-# Growth: ring thickness 1.5 + tier*0.8 (same formula the old Strength
-# filter used against level).
+# Growth: ring thickness 1.5 + tier*0.8.
 static func vein_ring_width(filter_mode: String, tier: int, base_width: float) -> float:
 	if filter_mode == "growth":
 		return 1.5 + tier * 0.8
 	return base_width
 
 
-# Security only enlarges the padlock badge -- the old Strength filter's
-# level-badge enlarge no longer applies now that the 4 o'clock level badge
-# is dropped entirely (vein-growth-state ticket 07).
+# Security only enlarges the padlock badge — there is no level badge to
+# enlarge any more (growth replaced the old 1-6 level, R§3.4).
 static func badge_scale(filter_mode: String) -> float:
 	if filter_mode == "security":
 		return BADGE_ENLARGE_SCALE
@@ -130,11 +110,10 @@ static func is_risk_band(band_id: String) -> bool:
 	return RISK_BANDS.has(band_id)
 
 
-# ── growth fill (bugfixes ticket 77) ─────────────────────────────────────
-# The radial fill meter's one pure seam: how full a vein's stop reads,
-# 0.0 (growth 0, empty) to 1.0 (growth at/above ceiling(vein), full) --
-# flat proportional fill, no per-band scaling or texture. ceiling is always
-# > 0 (Cultivating.ceiling's default 100, or 120 with wildCeiling), so no
+# ── growth fill ──────────────────────────────────────────────────────────
+# The radial fill meter's one pure seam: how full a vein's stop reads, 0.0
+# (growth 0) to 1.0 (growth at/above ceiling(vein)) — flat proportional
+# fill, no per-band scaling. ceiling is always > 0 (R§1.2), so no
 # divide-by-zero guard is needed.
 static func growth_fill_fraction(growth: int, ceiling: int) -> float:
 	return clampf(float(growth) / float(ceiling), 0.0, 1.0)

@@ -1,9 +1,8 @@
 extends Node
 
 # Save/load/autosave/export-import per R§6. 3 manual slots + 3 rotating
-# autosaves. autosave() is called from daily_tick, exit_combat, Events.
-# advance (on completion), and every successful cash purchase (home
-# upgrade/security/room, barometer manual push/pull) — M0-T14 wiring.
+# autosaves. autosave() is called from daily_tick, exit_combat, event
+# completion, and every successful cash purchase.
 
 const SAVE_VERSION := 3
 const SLOT_COUNT := 3
@@ -37,9 +36,7 @@ func slot_summary(slot: int) -> Dictionary:
 	var parsed = JSON.parse_string(file.get_as_text())
 	if parsed == null or typeof(parsed) != TYPE_DICTIONARY:
 		return {}
-	# JSON has no int type, so these come back as float — cast explicitly
-	# (see _restore_int_types()'s note below; this path bypasses that
-	# helper since it only ever touches these two scalars).
+		# JSON returns numbers as float; cast explicitly (see _restore_int_types).
 	return {
 		"day": int(parsed.get("world", {}).get("day", 0)),
 		"cash": int(parsed.get("player", {}).get("cash", 0)),

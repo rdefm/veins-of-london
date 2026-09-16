@@ -54,85 +54,48 @@ static func do_rest() -> void:
 	EventBus.state_changed.emit()
 
 
-# Exact step order per R§3.1, extended by M1-LONDON.md D2 (step ⑤b),
-# faction-vein-ownership T02 (step ⑤c), and faction-resource-economy
-# T02/T03/T04 (steps ⑤d/⑤e/⑤f) — do not reorder.
-# bugfixes-42 adds step ③c, right after ③b (Healing Salve HoT): always-on
-# passive HP regen, independent of and stacking with both Rest and the
-# Salve HoT rather than replacing either.
-# faction-territory-rivalry T04 adds step ⑤g, running last in the chain: it
-# runs after ⑤f (security upgrades) so a rivalry resolving this tick sees
-# the day's income already earned and spend already committed before any
-# vein changes hands, and after ⑤c (faction vein growth) so a same-tick
-# freshly-claimed vein is a legitimate rivalry target/target-owner by the
-# time ⑤g runs, same as it already is for ⑤d-⑤f's income/spend reads.
-# vein-raiding T06 adds step ⑤h, right after ⑤g: a faction raiding one of
-# the player's own veins is independent of the ⑤d-⑤g faction-economy chain
-# (it reads/writes player.veins and a target site, not faction resources),
-# so ordering relative to ⑤g doesn't matter causally -- placed last per
-# landing order, same as ⑤g was appended after ⑤f.
-# collective1-17 adds step ⑤i, right after ⑤h: Hakim's repeatable intel
-# roll only reads siteCap/site counts and Messages/collective state, no
-# ordering dependency on any other step -- placed last per landing order,
-# same as ⑤g/⑤h were.
-# collective-ore-stock T01 adds step ⑤j, appended after ⑤i per the ticket's
-# explicit "no ordering dependency on the other steps" -- the daily restock
-# chance only reads/writes state.factions.collective.oreStock, untouched by
-# anything else in the chain.
-# bugfixes-40 removed the old step ⑤c, NPC-abandonment (adr/0002's
-# independent daily kill roll for faction-claimed sites, stacked on top of
-# the growth-collapse-at-zero roll every vein already faces) — faction
-# veins now only die via Cultivating.drift_veins()'s own collapse roll at
-# step ④, same as player veins. Every step from the old ⑤d onward shifted
-# up one letter to close the gap; see adr/0004.
-# Steps for systems that don't exist yet are stubs; wire the real call in
-# when that task lands.
-# day-rhythm-business-and-combat ticket 28 replaces step ⑥'s old "lab, then
-# veinStation" pair with the full staff phase from business-spec.md's
-# "Sales XP, wages, and payroll" section: Payroll.pay_wages() first (right
-# after living costs at step ③, per the spec), then Procurement (Vein
-# Station) before Production (lab) -- the order flip from the old ⑥ matters
-# because Sales' same-rollover partial-delivery pass (step ⑥.3) should see
-# both Procurement's yield and Production's crafted output already landed in
-# shared stock. Steps ⑥.3-⑥.5 (Sales delivery/settlement/offer-sourcing)
-# were already wired by tickets 24-26; this ticket only reorders them into
-# the named sequence and adds the wage step ahead of all of them.
+# Exact step order per R§3.1 -- do not reorder without re-checking each
+# inline note below for a real ordering dependency (income before spend,
+# claims before vein-derived income, etc.); several steps are independent
+# of the rest of the chain and are placed only by landing order. Steps for
+# systems that don't exist yet are stubs; wire the real call in when that
+# task lands.
 static func daily_tick() -> void:
 	var morning_context: Dictionary = MorningAccountsSystem.begin_rollover()
-	RelationAccrual.reset_daily_caps()   # collective1-06: relation-accrual daily cap reset, no ordering dependency on any other step
+	RelationAccrual.reset_daily_caps()
 	Barometer.tick()                     # ① barometer
 	Home.roll_daily_raid()               # ② home raid
 	MorningAccountsSystem.capture_losses(morning_context, "HQ raid")
-	Jobs.expire_overdue_job()            # ②b James job deadline expiry (bugfixes-30), runs before the fresh roll below so an expired slot can be re-offered the same day
+	Jobs.expire_overdue_job()            # ②b before the fresh roll below, so an expired slot can be re-offered the same day
 	MorningAccountsSystem.capture_job_expiry(morning_context)
-	Jobs.roll_daily_offer()              # ②c James job proactive daily offer roll (bugfixes-30), no ordering dependency on any other step
-	ArchieDeals.roll_daily_offer()       # ②d Archie tag-along deal proactive daily offer roll (bugfixes-95), no ordering dependency on any other step
+	Jobs.roll_daily_offer()              # ②c
+	ArchieDeals.roll_daily_offer()       # ②d
 	_apply_living_costs()                # ③ living costs
-	_apply_healing_salve_tick()          # ③b Healing Salve HoT (calc-effect-wiring-02), runs right after living costs
-	_apply_passive_regen()               # ③c passive HP regen (bugfixes-42), runs right after the Salve HoT, stacks with it
-	Cultivating.drift_veins()             # ④ vein growth drift (player + faction veins) — also where a faction vein's collapse-at-zero death rolls, since bugfixes-40
+	_apply_healing_salve_tick()          # ③b Healing Salve HoT, right after living costs
+	_apply_passive_regen()               # ③c stacks with the Salve HoT rather than replacing it
+	Cultivating.drift_veins()             # ④ vein growth drift (player + faction) — faction veins also die here on collapse-at-zero
 	MorningAccountsSystem.capture_losses(morning_context, "Vein collapse")
 	_apply_tutorial_day_triggers()       # ⑤ tutorial day-triggers
 	Sites.roll_npc_claims()              # ⑤b NPC site-claiming (M1-LONDON.md D2)
-	Sites.roll_faction_vein_growth()     # ⑤c faction vein daily growth (faction-vein-ownership T02), runs right after ⑤b
-	Factions.apply_passive_income()      # ⑤d faction passive/industry income (faction-resource-economy T02), runs right after ⑤c — no ordering dependency on ⑤b/⑤c (industries-only, no site/vein reads)
-	Factions.apply_vein_income()         # ⑤e faction vein-derived income (faction-resource-economy T03), runs right after ⑤d — after ⑤c so a same-tick-claimed vein reuses ⑤c's claimedOnDay skip
-	Factions.apply_security_upgrades()   # ⑤f faction security-upgrade spend (faction-resource-economy T04), runs right after ⑤e so a tick's vein income is already banked and spendable the same day it's earned
-	Factions.apply_rivalry_resolution()  # ⑤g faction-territory-rivalry attempt roll + resolution (faction-territory-rivalry T04), runs right after ⑤f so a tick's income/spend is already settled before any vein changes hands
-	Raiding.apply_raid_resolution()      # ⑤h Direction-B raid attempt roll + resolution (vein-raiding T06), runs right after ⑤g
+	Sites.roll_faction_vein_growth()     # ⑤c faction vein daily growth, right after ⑤b
+	Factions.apply_passive_income()      # ⑤d industries-only, no ordering dependency on ⑤b/⑤c
+	Factions.apply_vein_income()         # ⑤e after ⑤c so a same-tick-claimed vein reuses ⑤c's claimedOnDay skip
+	Factions.apply_security_upgrades()   # ⑤f after ⑤e so a tick's vein income is already banked and spendable
+	Factions.apply_rivalry_resolution()  # ⑤g after ⑤f so income/spend is settled before any vein changes hands
+	Raiding.apply_raid_resolution()      # ⑤h independent of ⑤d-⑤g (player veins/sites, not faction resources)
 	MorningAccountsSystem.capture_losses(morning_context, "Raid")
-	Collective.maybe_trigger_hakim_intel()  # ⑤i Hakim's repeatable intel roll (collective1-17), runs right after ⑤h
-	Factions.maybe_restock_ore()         # ⑤j Collective ore stock daily restock roll (collective-ore-stock T01), runs right after ⑤i
-	Payroll.pay_wages()                  # ⑥ staff phase (ticket 28), start: wages, paid after living costs (step ③) -- an unaffordable role is skipped for the rest of this rollover, no debt, retried next rollover
-	Rooms.process_vein_station()         # ⑥.1 Procurement processes Vein Station work
+	Collective.maybe_trigger_hakim_intel()  # ⑤i no ordering dependency on any other step
+	Factions.maybe_restock_ore()         # ⑤j no ordering dependency on any other step
+	Payroll.pay_wages()                  # ⑥ staff phase start: wages, paid after living costs -- an unaffordable role is skipped this rollover, no debt, retried next
+	Rooms.process_vein_station()         # ⑥.1 Procurement, before Production so Sales (⑥.3) sees both yields landed
 	MorningAccountsSystem.capture_vein_station(morning_context)
 	Rooms.process_lab()                  # ⑥.2 Production crafts effective targets
 	MorningAccountsSystem.capture_lab(morning_context)
-	ContractsSystem.process_delegated_deliveries() # ⑥.3 Sales closes full periods, then allocates partial stock by priority (ticket 26)
-	ContractsSystem.daily_tick()         # ⑥.4 due periods settle; recurring periods renew (ticket 25)
-	OffersSystem.daily_tick()            # ⑥.5 expiry, then Sales sources at most one new random offer (ticket 24)
-	Dial.daily_regen()                   # ⑦ dial-device ticket 07: Dial charge regen (replaces Devices.reset_daily_charges())
-	Objectives.refresh()                 # ⑧ collective1-02: objectives boundary
+	ContractsSystem.process_delegated_deliveries() # ⑥.3 Sales closes full periods, then allocates partial stock by priority
+	ContractsSystem.daily_tick()         # ⑥.4 due periods settle; recurring periods renew
+	OffersSystem.daily_tick()            # ⑥.5 expiry, then Sales sources at most one new random offer
+	Dial.daily_regen()                   # ⑦ Dial charge regen
+	Objectives.refresh()                 # ⑧ objectives boundary
 	MorningAccountsSystem.finish_rollover(morning_context)
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])
 	SaveManager.autosave()               # R§6: autosave on every daily tick
@@ -146,8 +109,7 @@ static func _apply_living_costs() -> void:
 	player["cash"] = maxi(0, cash_before - daily_cost)
 	# The floor-at-0 clamp means a broke player's actual deduction can be
 	# less than daily_cost -- log what was really taken, not the nominal
-	# cost, so the ledger stays accurate (bugfixes-38: "a complete, accurate
-	# record from turn one, not a partial one").
+	# cost, so the ledger stays accurate.
 	var actual_deducted: int = cash_before - player["cash"]
 	if actual_deducted > 0:
 		Bank.record(-actual_deducted, "Living costs")
@@ -192,17 +154,12 @@ static func _apply_tutorial_day_triggers() -> void:
 	var day: int = world["day"]
 
 	if day >= 2 and flags["tutorialStage"] == "buyer_event" and not flags["buyerEventSeen"]:
-		# 83-contacts-archie-james-sms-port: ARCHIE_SMS_2's content, queued
-		# exactly once (archieBuyerSmsQueued guards this still re-entering
-		# every day tick until buyerEventSeen). No separate Notify banner --
-		# same reasoning Economy.execute_sale's own archie_motion trigger
-		# comment gives: the queued text itself is the "Archie texted" beat
-		# (unread badge on the Messages tile/Archie's card), same as every
-		# other queue_pending_message caller (archie_cultivation.json's
-		# col_a1_intro, col_a1_seeding.json's col_a1_hub) never pairs one
-		# with a notify op. push_message's lines are the thread up to
-		# Archie's last one; that last line becomes the pendingMessages
-		# entry itself (kind "buyer").
+		# Queued exactly once (archieBuyerSmsQueued guards re-entry on every
+		# later day tick until buyerEventSeen). No separate Notify banner --
+		# the queued text itself is the "Archie texted" beat (unread badge on
+		# the Messages tile/Archie's card), same as every other
+		# queue_pending_message caller. The thread's last line becomes the
+		# pendingMessages entry itself (kind "buyer").
 		if not flags["archieBuyerSmsQueued"]:
 			flags["archieBuyerSmsQueued"] = true
 			Messages.append("archie", "player", "Got some calc to move. You got a buyer?")

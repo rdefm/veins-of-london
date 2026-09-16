@@ -1,17 +1,15 @@
 class_name Cultivating
 extends RefCounted
 
-# Growth/cultivate/prune per vein-growth-state spec.md §2-3. Static funcs only.
+# Vein growth: bands, drift, cultivate/prune, security upgrades (R§3.4, R§1.6).
+# Static funcs only.
 
-# data/vein_security.json's upgrade ladder (R§1.6). The file's key order
-# already matches this, but that's an implicit JSON-insertion-order
-# guarantee — spelled out explicitly here the same way GameData.
-# SITE_TIER_ORDER/HOME_TIER_ORDER pin down their own tables' orderings.
+# data/vein_security.json's upgrade ladder (R§1.6), pinned explicitly rather
+# than relying on the table's JSON key order.
 const VEIN_SECURITY_ORDER: Array[String] = ["none", "basic", "warded", "guarded"]
 
-# Verbatim from HTML generateLocationName(). Kept as the fallback/default
-# array (also used for whitechapel, M1-LONDON.md D2's per-district
-# extension below) so pre-M1 no-arg callers are unaffected.
+# Fallback street list used by generate_location_name() for any district not
+# in DISTRICT_STREETS below (also used directly for whitechapel).
 const LOCATION_STREETS: Array[String] = [
 	"Brick Lane", "Bethnal Green Rd", "Commercial St", "Whitechapel High St",
 	"Mile End Rd", "Roman Rd", "Hackney Rd", "Cambridge Heath Rd", "Vallance Rd",
@@ -21,10 +19,8 @@ const LOCATION_SUFFIXES: Array[String] = [
 	"in the car park", "by the bus stop", "beside the bookies",
 ]
 
-# M1-LONDON.md D2: "location generated with district-appropriate street
-# names (extend the generator: per-district street array, 4-6 real street
-# names each)". Draft, real street names — no PROSE-REVIEW needed. soho
-# has no sites (siteCap 0, no prospecting/veins) so it's omitted.
+# Per-district street names (M1-LONDON §D2), real street names, no
+# PROSE-REVIEW needed. soho is omitted — siteCap 0, no prospecting/veins.
 const DISTRICT_STREETS: Dictionary = {
 	"shoreditch": ["Old St", "Redchurch St", "Rivington St", "Curtain Rd", "Kingsland Rd", "Shoreditch High St"],
 	"city": ["Cheapside", "Cornhill", "Threadneedle St", "Leadenhall St", "Fenchurch St", "Bishopsgate"],
@@ -46,7 +42,7 @@ static func get_cult_chance(skill: int) -> float:
 	return min(0.90, 0.30 + (skill - 1) * 0.12)
 
 
-# ── growth bands (vein-growth-state spec.md §2.2) ───────────────────────
+# ── growth bands (R§3.4) ────────────────────────────────────────────────
 
 static func growth_band(vein: Dictionary) -> Dictionary:
 	return _band_for_growth(vein["growth"])
@@ -56,9 +52,8 @@ static func band_drift(growth: int) -> int:
 	return _band_for_growth(growth)["drift"]
 
 
-# spec §7b: the "vigour" hospitability bonus and the King's Cross district
-# special are the same effect (+1 rightward drift / -1 leftward, min 0) and
-# stack additively — a King's Cross vein on vigour land gets both.
+# The "vigour" hospitability bonus and the King's Cross district special are
+# the same effect (+1 rightward drift / -1 leftward, min 0) and stack.
 static func vigour_stacks(vein: Dictionary) -> int:
 	var stacks := 0
 	var bonuses: Array = vein.get("hospitability", {}).get("bonuses", [])
@@ -69,11 +64,9 @@ static func vigour_stacks(vein: Dictionary) -> int:
 	return stacks
 
 
-# band_drift(growth) plus the vigour/King's Cross bonus above, signed by
-# which side of neutral growth sits on: +stacks rightward, -stacks leftward
-# (floored at 0 — vigour can slow a decline to a stop but never reverse it
-# outright). At neutral itself there is no direction for the bonus to apply
-# to, so it's a no-op there, same as band_drift.
+# band_drift(growth) plus the vigour/King's Cross bonus, signed by which side
+# of neutral growth sits on (floored at 0 — vigour slows a decline, never
+# reverses it). No-op at neutral itself.
 static func effective_drift(growth: int, vein: Dictionary) -> int:
 	var base: int = band_drift(growth)
 	var stacks: int = vigour_stacks(vein)
@@ -87,8 +80,8 @@ static func effective_drift(growth: int, vein: Dictionary) -> int:
 	return base
 
 
-# Tolerates a growth value above 100 (a wildCeiling vein) — the "rampant"
-# band's max is deliberately open-ended (data/vein_growth.json).
+# Tolerates growth above 100 (a wildCeiling vein) — the "rampant" band's max
+# is deliberately open-ended (R§1.2).
 static func _band_for_growth(growth: int) -> Dictionary:
 	for band in GameData.VEIN_GROWTH["bands"]:
 		if growth >= band["min"] and growth <= band["max"]:
@@ -96,16 +89,13 @@ static func _band_for_growth(growth: int) -> Dictionary:
 	return GameData.VEIN_GROWTH["bands"][-1]
 
 
-# spec §3: growth 0-19 -> 1, 20-39 -> 2, ..., 100+ -> 6 (a wildCeiling vein
-# past 100 still reads as 6, not 7 — "1..6" is a hard ceiling, not a
-# straight extrapolation of the formula).
+# R§3.4: growth 0-19 -> 1, ..., 100+ -> 6 (a wildCeiling vein past 100 still
+# reads as 6 — "1..6" is a hard ceiling, not extrapolation).
 static func value_tier(vein: Dictionary) -> int:
 	return mini(6, 1 + int(floor(float(vein["growth"]) / 20.0)))
 
 
-# 100, or 120 with the wildCeiling hospitability bonus (terroir-amplification
-# ticket 05 is what actually grants that bonus — this just has to accept a
-# vein that already carries it).
+# 100, or 120 with the wildCeiling hospitability bonus (R§1.2).
 static func ceiling(vein: Dictionary) -> int:
 	var base: int = GameData.VEIN_GROWTH["ceiling"]
 	var bonuses: Array = vein.get("hospitability", {}).get("bonuses", [])
@@ -114,21 +104,16 @@ static func ceiling(vein: Dictionary) -> int:
 	return base
 
 
-# vein-growth-state ticket 08/09: the collapsed-band warning and the
-# days-to-wall summary line are shared by every surface a vein appears on
-# (map sheet, station bubble Manage label, vein list) — kept here, once,
-# rather than duplicated per screen, since spec §5 requires this wording to
-# never drift ("must never be mistaken for a vein that is merely doing
-# badly"). PROSE-REVIEW: drafted against CONTENT-GUIDE.md §3 (dry, concrete,
-# no wink); "collapse and disappear" echoes collapse_vein()'s own
-# notification line for vocabulary continuity.
+# Shared by every surface a vein appears on (map sheet, station bubble,
+# vein list) so the wording never drifts between them.
+# PROSE-REVIEW: drafted against CONTENT-GUIDE.md §3; "collapse and
+# disappear" echoes collapse_vein()'s own notification line.
 const COLLAPSED_VEIN_WARNING := "Spent. Could collapse and disappear any day — cultivate it to save it."
 
 
-# Simulates daily drift (the same step-shape _drift_one() below applies)
-# until the vein reaches whichever wall it's currently leaning toward.
-# A vein sitting exactly at neutral isn't drifting toward either wall —
-# -1 is the "not applicable" sentinel for that case.
+# Simulates daily drift (same step shape as _drift_one() below) until the
+# vein reaches whichever wall it's leaning toward. -1 means not applicable
+# (already at neutral, drifting toward neither wall).
 static func days_to_wall(vein: Dictionary) -> int:
 	var neutral: int = GameData.VEIN_GROWTH["neutral"]
 	var growth: int = vein["growth"]
@@ -149,11 +134,8 @@ static func days_to_wall(vein: Dictionary) -> int:
 	return days
 
 
-# Formats days_to_wall()'s int into the concrete, plain-numbers phrasing
-# CONTENT-GUIDE.md §4 wants ("concrete numbers") — shared by the map sheet,
-# the station bubble's Manage label, and the vein list (see
-# COLLAPSED_VEIN_WARNING's own comment above for why this lives here once
-# instead of once per screen).
+# Concrete plain-numbers phrasing (CONTENT-GUIDE.md §4), shared by the map
+# sheet, station bubble, and vein list.
 static func days_to_wall_text(vein: Dictionary) -> String:
 	var days: int = days_to_wall(vein)
 	if days < 0:
@@ -163,9 +145,8 @@ static func days_to_wall_text(vein: Dictionary) -> String:
 	return "%d days to empty" % days
 
 
-# "yield" hospitability bonus applies to the ROLLED result, not the growth
-# table's range: finalYield = max(rolled+1, round(rolled*1.15)) — guarantees
-# +1 over the base roll even where 1.15x a small integer would round away.
+# "yield" hospitability bonus applies to the rolled result: max(rolled+1,
+# round(rolled*1.15)) — guarantees +1 even where 1.15x a small int rounds away.
 static func apply_yield_bonus(vein: Dictionary, rolled: int) -> int:
 	var bonuses: Array = vein.get("hospitability", {}).get("bonuses", [])
 	if not bonuses.has("yield"):
@@ -173,44 +154,37 @@ static func apply_yield_bonus(vein: Dictionary, rolled: int) -> int:
 	return maxi(rolled + 1, GameState.round_epsilon(rolled * 1.15))
 
 
-# spec §7a: tier drives ore yield directly (poor 0.6 / fair 1.0 / rich 1.6 /
-# saturated 2.4 — data/vein_growth.json's terroirYieldMult).
+# Tier drives ore yield directly (R§1.2 terroirYieldMult): poor 0.6 / fair
+# 1.0 / rich 1.6 / saturated 2.4.
 static func terroir_yield_mult(vein: Dictionary) -> float:
 	var tier: String = vein.get("hospitability", {}).get("tier", "fair")
 	return GameData.VEIN_GROWTH["terroirYieldMult"].get(tier, 1.0)
 
 
-# Shared vein-dict constructor for every place that creates a fresh
-# vein — systems/sites.gd's attempt_seed()/natural-vein grant,
-# systems/factions.gd's create_faction_vein(), and systems/events.gd's
-# tutorial debrief. hospitability is deep-copied — a site's seeded vein and
-# its natural-vein bonus (D2) both derive their hospitability from the same
-# site dict, and state purity requires every vein to own an independent
-# copy, never share an Array/Dictionary reference with the site or with
-# each other.
+# Shared vein-dict constructor for Sites.attempt_seed(), Factions.
+# create_faction_vein(), and events.gd's tutorial debrief. hospitability is
+# deep-copied — state purity requires every vein to own an independent copy,
+# never share an Array/Dictionary reference with its site.
 static func make_vein(ore_type: String, growth: int, district: String, site_id: Variant, hospitability: Dictionary) -> Dictionary:
 	return {
 		"id": make_vein_id(),
 		"oreType": ore_type,
 		"growth": growth,
 		"security": "none",
-		# vein-raiding ticket 05: array of purchased alarm-upgrade ids, mirroring
-		# state.home["security"]'s shape — independent of the "security" tier
-		# ladder above, per the PRD ("alarm/cameras" is a separate purchase).
+		# Purchased alarm-upgrade ids, mirroring state.home["security"]'s shape
+		# — independent of the "security" tier ladder above (R§1.6).
 		"alarmUpgrades": [],
 		"location": generate_location_name(district),
 		"claimedOnDay": GameState.state["world"]["day"],
 		"district": district,
 		"siteId": site_id,
 		"hospitability": GameState.deep_copy(hospitability),
-		# vein-growth-state spec §2.6: consecutive daily ticks spent at the
-		# ceiling. Drives self-seeding (ticket 02); 0 for any vein not at the
-		# ceiling.
+		# Consecutive daily ticks spent at the ceiling; drives self-seeding
+		# (R§3.4), 0 for any vein not at the ceiling.
 		"rampantDays": 0,
-		# 72-stackable-guards: extra Hired Guards bought on top of "guarded",
-		# the ladder's own top tier — see next_security_upgrade() below.
-		# Reads everywhere else use vein.get("extraGuards", 0) so older
-		# hand-built vein dicts (tests, debug_start.gd) don't need updating.
+		# Extra Hired Guards bought on top of "guarded" — see
+		# next_security_upgrade() below. Reads elsewhere use .get("extraGuards",
+		# 0) so older hand-built vein dicts don't need updating.
 		"extraGuards": 0,
 	}
 
@@ -221,9 +195,8 @@ static func award_xp(amount: int) -> void:
 	Progression.award_xp(player, "cultivatingXP", "cultivatingSkill", GameData.CULTIVATING_XP_LEVELS, amount, on_level_up)
 
 
-# spec §2.4: diminishing toward the right on purpose — cultivating is at its
-# most efficient as rescue on the barren side, least efficient as a
-# shortcut to the ceiling.
+# Diminishing toward the right on purpose (R§3.4) — cultivating is most
+# efficient as rescue on the barren side, least as a shortcut to the ceiling.
 static func cultivate_gain(skill: int, growth: int, vein_ceiling: int) -> int:
 	var vg: Dictionary = GameData.VEIN_GROWTH
 	var raw: float = (vg["cultivateBase"] + vg["cultivatePerSkill"] * skill) * (1.0 - float(growth) / float(vein_ceiling))
@@ -243,11 +216,10 @@ static func cultivate(vein_id: String) -> Dictionary:
 
 	var player: Dictionary = GameState.state["player"]
 	var skill: int = player["cultivatingSkill"]
-	# dial-device ticket 02: the player's own cultivate roll gets the seated
-	# Movement's attunement bonus when its ore type matches this vein's;
-	# get_cult_chance() itself stays untouched since Rooms.
-	# process_vein_station() also calls it for contact cultivating, which
-	# must never see the player's own Dial.
+	# The player's own roll gets the seated Movement's attunement bonus
+	# (R§3.5); get_cult_chance() itself stays untouched since contact
+	# cultivating (Rooms.process_vein_station()) must never see the player's
+	# Dial.
 	var success: bool = Rng.chance(Dial.apply_attunement(get_cult_chance(skill), vein["oreType"]))
 
 	if success:
@@ -259,19 +231,18 @@ static func cultivate(vein_id: String) -> Dictionary:
 			vein["rampantDays"] = 0
 		_queue_growth_events(vein, growth_before)
 		award_xp(20)
-		Objectives.refresh()  # collective1-02: boundary
+		Objectives.refresh()
 		Modal.open("cultivate_result", { "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] })
 		return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] }
 	else:
 		award_xp(8)
-		Objectives.refresh()  # collective1-02: boundary
+		Objectives.refresh()
 		Modal.open("cultivate_result", { "success": false, "veinId": vein_id })
 		return { "ok": true, "success": false, "veinId": vein_id }
 
 
-# spec §2.4: yield counts only the growth points removed from above neutral.
-# Pruning at or below neutral always yields 0 — the UI must show this
-# projection before the player spends a block on it.
+# R§3.4: yield counts only the growth points cleared from above neutral.
+# Pruning at or below neutral always yields 0.
 static func prune_yield(vein: Dictionary, depth: int) -> int:
 	var vg: Dictionary = GameData.VEIN_GROWTH
 	var neutral: int = vg["neutral"]
@@ -283,24 +254,18 @@ static func prune_yield(vein: Dictionary, depth: int) -> int:
 	return apply_yield_bonus(vein, rolled)
 
 
-# vein-growth-state ticket 08: the shared "always offered, disabled with a
-# reason" rule for a Prune button/option -- both the site sheet (map.gd's
-# _build_prune_button) and the station bubble (station_bubble.gd's
-# _prune_option) need the exact same gate, so it's computed once here rather
-# than kept as independently-maintained copies of the same branch.
-# Ticket 41: pruning at/below neutral is no longer disabled -- it correctly
-# yields 0 ore (prune_yield's own rule), but the player may still choose to
-# spend the block on it. Only time-block affordability gates the button now.
+# Shared "always offered, disabled with a reason" gate for a Prune button —
+# both map.gd's site sheet and station_bubble.gd need the same rule. Pruning
+# at/below neutral is allowed (it just yields 0, per prune_yield above);
+# only time-block affordability gates the button.
 static func prune_gate(vein: Dictionary, depth: int, district: String) -> Dictionary:
 	if not Travel.can_afford(district, 1):
 		return { "disabled": true, "reason": "No blocks left today." }
 	return { "disabled": false, "reason": "" }
 
 
-# Replaces harvest_cautious()/harvest_full() — depth is the caller's choice
-# of GameData.VEIN_GROWTH's pruneLightDepth (-9) or pruneHardDepth (-24).
-# No cultivating XP awarded, matching the harvest schedule this replaces
-# (only cultivate() awards cultivating XP).
+# depth is the caller's choice of pruneLightDepth (9) or pruneHardDepth (24),
+# R§1.2. No cultivating XP awarded — only cultivate() awards it.
 static func prune(vein_id: String, depth: int) -> Dictionary:
 	var vein = find_vein(vein_id)
 	if vein == null:
@@ -324,16 +289,15 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 	if amount > 0:
 		EventBus.shared_stock_increased.emit()
 
-	Objectives.refresh()  # collective1-02: boundary
+	Objectives.refresh()
 	EventBus.state_changed.emit()
 	return { "ok": true, "amount": amount, "oreType": ore_type, "veinId": vein_id, "growth": vein["growth"] }
 
 
-# Called from time_system.gd's daily_tick, step ④. Replaces recharge_veins()
-# at the same position — one pass over player veins, then faction veins.
-# Order within this step (spec §10): drift, then the collapse roll, then
-# self-seed -- self_seed() only ever runs over player veins (faction veins
-# never self-seed, §2.6/§5; their expansion is the daily NPC-claim roll).
+# Called from TimeSystem.daily_tick() step ④ (R§3.1). Order matters: drift,
+# then the collapse roll, then self-seed — self_seed() only runs over player
+# veins (faction veins never self-seed; their expansion is the daily
+# NPC-claim roll).
 static func drift_veins() -> void:
 	for vein in GameState.state["player"]["veins"]:
 		_drift_one(vein)
@@ -352,13 +316,10 @@ static func drift_veins() -> void:
 	EventBus.state_changed.emit()
 
 
-# spec §2.6: a player vein that's sat at its ceiling for RAMPANT_SEED_DAYS
-# consecutive ticks spawns a fresh player vein on a uniformly-random
-# unclaimed site in the same district -- the reward for holding a wild
-# posture instead of pruning/cashing out. Claims an existing site (no new
-# site is rolled), so siteCap is untouched; it does compete with the
-# player's own prospecting for the district's unclaimed sites, which is
-# intentional (spec §2.6), not a bug to guard against.
+# R§3.4: a player vein sat at its ceiling for rampantSeedDays consecutive
+# ticks spawns a fresh vein on a random unclaimed site in the same district.
+# Claims an existing site (siteCap untouched); competing with the player's
+# own prospecting for unclaimed sites is intentional, not a bug.
 static func self_seed(vein: Dictionary) -> void:
 	if vein["rampantDays"] < GameData.VEIN_GROWTH["rampantSeedDays"]:
 		return
@@ -366,9 +327,8 @@ static func self_seed(vein: Dictionary) -> void:
 	var district: String = vein["district"]
 	var unclaimed: Array = Sites.unclaimed_sites_in_district(district)
 
-	# No unclaimed site in-district to seed into: rampantDays holds at the
-	# threshold and retries next tick (spec §2.6 point 3) -- the counter is
-	# not touched on a failed attempt.
+	# No unclaimed site to seed into: rampantDays holds at the threshold and
+	# retries next tick.
 	if unclaimed.is_empty():
 		return
 
@@ -383,27 +343,22 @@ static func self_seed(vein: Dictionary) -> void:
 
 	vein["rampantDays"] = 0
 
-	# PROSE-REVIEW: draft against CONTENT-GUIDE.md §3 -- one dry sentence,
-	# concrete nouns, no wink.
+	# PROSE-REVIEW: drafted against CONTENT-GUIDE.md §3.
 	var parent_ore: String = GameData.ORE_TYPES[vein["oreType"]]["name"]
 	var parent_street: String = String(vein["location"]).split(",")[0]
 	var new_ore: String = GameData.ORE_TYPES[new_vein["oreType"]]["name"]
 	Notify.push("Your %s vein on %s has run wild long enough to seed a new %s vein elsewhere in the district." % [parent_ore, parent_street, new_ore])
 
 
-# spec §2.3's drift formula, verbatim. Right-wall clamping falls out of the
-# ceiling clamp for free (the "rampant" band's drift is 0, and growth can
-# never exceed ceiling(vein)); left-wall pinning at 0 likewise falls out of
-# the "collapsed" band's drift being 0, clamped at a floor of 0.
+# R§3.4's drift formula. Right-wall clamping falls out of the ceiling clamp
+# for free (rampant band's drift is 0); left-wall pinning at 0 falls out of
+# the collapsed band's drift likewise being 0.
 #
-# Also carries rampantDays (§2.6): +1 each tick the vein ends this drift at
-# its ceiling, reset to 0 any other tick -- "drops below the ceiling by any
-# means" covers prune/cultivate too, but those already zero it themselves at
-# the moment they act, so this is the only place drift's own effect on the
-# counter needs handling. Capped at rampantSeedDays: once self_seed (which
-# runs later in the same drift_veins() pass) starts finding no unclaimed
-# site to claim, the counter must hold at the threshold and keep retrying
-# every tick (§2.6 point 3), not run off to 6, 7, 8... uncapped.
+# Also carries rampantDays: +1 each tick the vein ends at its ceiling, reset
+# to 0 otherwise (prune/cultivate zero it themselves when they act, so this
+# only needs to handle drift's own effect). Capped at rampantSeedDays so it
+# holds and keeps retrying once self_seed finds no unclaimed site, rather
+# than running off uncapped.
 static func _drift_one(vein: Dictionary) -> void:
 	var neutral: int = GameData.VEIN_GROWTH["neutral"]
 	var growth: int = vein["growth"]
@@ -422,20 +377,13 @@ static func _drift_one(vein: Dictionary) -> void:
 	_queue_growth_events(vein, growth)
 
 
-# vein-growth-state ticket 07: fires the map's burst/drain animations
-# (MapEvents.queue_charge/queue_drain, unchanged since map-animations
-# tickets 03/04) on the specific growth transitions the map's growth-gauge
-# glyph cares about, using the same was_charged-style before/after guard
-# the old recharge_veins() used -- never re-fires while a vein merely sits
-# in a band. Called from every place growth actually changes: _drift_one
-# above (the daily tick) for band-boundary crossings passive drift alone can
-# produce, and cultivate()/prune() for neutral-line crossings, which
-# passive drift can never cause on its own (drift always moves growth away
-# from neutral, per _drift_one's own direction formula) -- only Prune can
-# push a vein down across it. Burst and drain are mutually exclusive by
-# construction: burst only ever fires on a growth INCREASE (entering wild,
-# reaching the ceiling), drain only ever fires on a growth DECREASE
-# (dropping back to/through neutral), so the same call never queues both.
+# Fires the map's burst/drain animations (MapEvents.queue_charge/queue_drain)
+# on the specific growth transitions the growth-gauge glyph cares about;
+# never re-fires while a vein merely sits in a band. Called from every place
+# growth actually changes: _drift_one above (band-boundary crossings) and
+# cultivate()/prune() (neutral-line crossings, which drift alone can never
+# cause). Burst and drain are mutually exclusive by construction — burst on
+# a growth increase, drain on a decrease — so a single call never queues both.
 static func _queue_growth_events(vein: Dictionary, growth_before: int) -> void:
 	var growth_after: int = vein["growth"]
 	if growth_before == growth_after:
@@ -448,26 +396,18 @@ static func _queue_growth_events(vein: Dictionary, growth_before: int) -> void:
 	if (now_wild and not was_wild) or reached_ceiling:
 		MapEvents.queue_charge(vein["district"], vein["id"])
 
-	# Both bounds inclusive, not growth_before > neutral: a vein already
-	# sitting exactly at neutral (the dormant band's own midpoint) that gets
-	# pruned further down has still "crossed below neutral" just as much as
-	# one that started above it -- growth_before >= neutral (not >) is what
-	# makes that edge case fire too, symmetric with growth_after <= neutral
-	# already covering a vein landing exactly on neutral from above.
+	# Both bounds inclusive: a vein already sitting exactly at neutral that
+	# gets pruned further down still counts as crossing below neutral.
 	var neutral: int = GameData.VEIN_GROWTH["neutral"]
 	var drained_to_neutral: bool = growth_before >= neutral and growth_after <= neutral
 	if drained_to_neutral:
 		MapEvents.queue_drain(vein["district"], vein["id"])
 
 
-# spec §2.5: a vein pinned at 0 rolls a COLLAPSE_CHANCE_PER_DAY chance each
-# tick it sits there (not just the tick it crosses down to 0) to be removed
-# for good. Branches by owner on landing: a player vein's site reverts to
-# unclaimed and is re-seedable; a faction vein's site is deleted outright
-# instead. Since bugfixes-40 removed NPC-abandonment (adr/0002's separate,
-# independent daily kill roll for faction-claimed sites), this is now the
-# ONLY way a faction vein dies -- same left-wall roll a player vein faces,
-# no second roll stacked on top.
+# R§3.4: a vein pinned at 0 rolls collapseChancePerDay each tick it sits
+# there to vanish for good. A player vein's site reverts to unclaimed; a
+# faction vein's site vanishes outright — this is the only way a faction
+# vein dies (see adr/0002).
 static func collapse_vein(vein: Dictionary) -> void:
 	if vein["growth"] > 0:
 		return
@@ -481,9 +421,7 @@ static func collapse_vein(vein: Dictionary) -> void:
 		if site != null:
 			var sites: Array = GameState.state["world"]["sites"]
 			GameState.state["world"]["sites"] = sites.filter(func(s2): return s2["id"] != site_id)
-			# 87-map-slot-index-recycling: the site (and its only stop --
-			# faction veins never carry their own stamped slotIndex, see
-			# MapLayout.build_stop_items) is gone for good; free its slot.
+			# The site (and its only stop) is gone for good; free its slot.
 			Sites.release_slot_index(site["district"], site.get("slotIndex", 0))
 	else:
 		var player: Dictionary = GameState.state["player"]
@@ -508,14 +446,12 @@ static func make_vein_id() -> String:
 	return "v" + str(Time.get_ticks_usec()) + str(Rng.randi_range(1000, 999999))
 
 
-# ── vein security (M1-LONDON.md D4: site/vein sheet's "Upgrade security") ──
+# ── vein security (M1-LONDON §D4: site/vein sheet's "Upgrade security") ──
 
-# Null once at "guarded" — the top of the fixed tier ladder. Past that,
-# 72-stackable-guards-vein-defense's uncapped "+1 Guard" purchase
-# (extra_guard_cost()/next_security_upgrade() below) takes over — this
-# function itself is unchanged, still just the 4-tier ladder walk, and
-# faction AI's own upgrade path (Factions.apply_security_upgrades()) still
-# stops here deliberately: only the player's UI button stacks guards.
+# Null once at "guarded" — the top of the fixed tier ladder. Past that, the
+# uncapped "+1 Guard" purchase (extra_guard_cost()/next_security_upgrade()
+# below) takes over. Factions.apply_security_upgrades() stops here
+# deliberately — only the player's UI button stacks guards.
 static func next_security_tier_id(current: String) -> Variant:
 	var idx: int = VEIN_SECURITY_ORDER.find(current)
 	if idx == -1 or idx >= VEIN_SECURITY_ORDER.size() - 1:
@@ -523,41 +459,31 @@ static func next_security_tier_id(current: String) -> Variant:
 	return VEIN_SECURITY_ORDER[idx + 1]
 
 
-# 72-stackable-guards-vein-defense: cost of the next guard bought on top of
-# "guarded", given how many extra guards a vein already has. Draft only
-# (ticket's explicit "needs balance sign-off" call) — continues the ladder's
-# own cost curve rather than inventing a new shape: data/vein_security.json's
-# deltas (none->basic +20, basic->warded +40, warded->guarded +60) already
-# step up by +20 a tier, so the nth extra guard (n=1,2,3...) keeps that same
-# arithmetic progression of deltas (+80, +100, +120...), giving the closed
-# form cost(n) = 10*(n+3)*(n+4) -- 200, 300, 420, 560, ... for
-# extra_guards_owned = 0, 1, 2, 3.
+# Cost of the next guard bought on top of "guarded", given how many extra
+# guards a vein already has. Not yet balance-signed-off; continues the
+# ladder's own cost curve (R§1.6 deltas step up by +20/tier):
+# cost(n) = 10*(n+3)*(n+4) for the nth extra guard.
 static func extra_guard_cost(extra_guards_owned: int) -> int:
 	var n: int = extra_guards_owned + 1
 	return 10 * (n + 3) * (n + 4)
 
 
-# 72-stackable-guards-vein-defense: flat raid-resist added per extra guard.
-# Matches "guarded"'s own marginal contribution over "warded" (55-35=20,
-# data/vein_security.json) -- each additional Hired Guard keeps contributing
-# at that same established rate rather than escalating (only cost escalates,
-# per the ticket).
+# Flat raid-resist added per extra guard, matching "guarded"'s own marginal
+# contribution over "warded" (55-35=20, R§1.6). Only cost escalates.
 const EXTRA_GUARD_RAID_RESIST := 20
 
 
-# Every raid-odds formula (Raiding.stealth_success_chance/raid_success_
-# chance, Factions.rivalry_success_chance) reads a vein's defensive strength
-# through here rather than indexing GameData.VEIN_SECURITY directly, so none
-# of them need their own uncapped-value handling -- extraGuards defaults to
-# 0 via .get() for any vein that predates this ticket (old saves, hand-built
-# test fixtures), reading identically to before.
+# Every raid-odds formula (Raiding.stealth_success_chance/raid_success_chance,
+# Factions.rivalry_success_chance) reads defensive strength through here
+# rather than indexing GameData.VEIN_SECURITY directly. extraGuards defaults
+# to 0 via .get() for veins that predate it.
 static func vein_raid_resist(vein: Dictionary) -> int:
 	var base: int = GameData.VEIN_SECURITY[vein["security"]]["raidResist"]
 	return base + vein.get("extraGuards", 0) * EXTRA_GUARD_RAID_RESIST
 
 
-# Display label for a vein's security row/sheet -- the tier label, plus a
-# "+N" suffix once extra guards are stacked on top (e.g. "Hired Guard +2").
+# Display label: the tier label, plus a "+N" suffix once extra guards are
+# stacked on top (e.g. "Hired Guard +2").
 static func security_label(vein: Dictionary) -> String:
 	var base: String = GameData.VEIN_SECURITY[vein["security"]]["label"]
 	var extra: int = vein.get("extraGuards", 0)
@@ -566,10 +492,9 @@ static func security_label(vein: Dictionary) -> String:
 	return base
 
 
-# What upgrade_vein_security() below would buy next, for the UI button and
-# the purchase itself to share -- never null now that "guarded" rolls into
-# the uncapped "+1 Guard" purchase instead of topping out. tierId is the
-# next ladder rung's id while one remains, else null (guard-stack purchase).
+# What upgrade_vein_security() would buy next, shared by the UI button and
+# the purchase itself. Never null — "guarded" rolls into the uncapped
+# "+1 Guard" purchase (tierId null) instead of topping out.
 static func next_security_upgrade(vein: Dictionary) -> Dictionary:
 	var next_id = next_security_tier_id(vein["security"])
 	if next_id != null:
@@ -578,12 +503,10 @@ static func next_security_upgrade(vein: Dictionary) -> Dictionary:
 	return { "tierId": null, "label": "+1 Guard", "cost": extra_guard_cost(vein.get("extraGuards", 0)) }
 
 
-# Cash-only, no block: D3's travel rule enumerates exactly five districted
+# Cash-only, no block: M1-LONDON §D3's travel rule lists five districted
 # actions (prospect, seed, cultivate, harvest, sell) and security upgrades
-# aren't one of them — same reasoning as Home.add_security, which this
-# mirrors. 72-stackable-guards-vein-defense: no longer refuses at "guarded"
-# — next_security_upgrade() always has something to sell, so the only
-# refusal left is "can't afford it".
+# aren't one, same as Home.add_security. next_security_upgrade() always has
+# something to sell, so "can't afford it" is the only refusal.
 static func upgrade_vein_security(vein_id: String) -> Dictionary:
 	var vein = find_vein(vein_id)
 	if vein == null:
@@ -603,8 +526,7 @@ static func upgrade_vein_security(vein_id: String) -> Dictionary:
 		Notify.push("Installed %s on your %s vein." % [upgrade["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]], Notify.CATEGORY_SUCCESS)
 	else:
 		vein["extraGuards"] = vein.get("extraGuards", 0) + 1
-		# PROSE-REVIEW: new notification copy (ticket 72), drafted against
-		# CONTENT-GUIDE.md's tone bible.
+		# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone bible.
 		Notify.push("Hired another guard for your %s vein — %d guards on watch now." % [GameData.ORE_TYPES[vein["oreType"]]["name"], vein["extraGuards"]], Notify.CATEGORY_SUCCESS)
 
 	EventBus.state_changed.emit()
@@ -612,16 +534,13 @@ static func upgrade_vein_security(vein_id: String) -> Dictionary:
 	return { "ok": true }
 
 
-# ── vein alarm (vein-raiding ticket 05) ─────────────────────────────────
+# ── vein alarm ───────────────────────────────────────────────────────────
 
 const ALARM_UPGRADE_ID := "alarm"
 
-# Cash-only, no block, idempotent guard against re-buying — same shape and
-# reasoning as Home.add_security, which this mirrors. Independent of
-# upgrade_vein_security above: a vein's "security" tier and its
-# "alarmUpgrades" array are two separate purchases (PRD: "alarm/cameras" is
-# not folded into the security ladder). GameData.VEIN_ALARM has only the one
-# "alarm" entry today, but the array shape matches home["security"]'s.
+# Cash-only, no block, idempotent guard against re-buying, same shape as
+# Home.add_security. Independent of upgrade_vein_security above — a vein's
+# "security" tier and its "alarmUpgrades" array are separate purchases.
 static func add_alarm(vein_id: String) -> Dictionary:
 	var vein = find_vein(vein_id)
 	if vein == null:

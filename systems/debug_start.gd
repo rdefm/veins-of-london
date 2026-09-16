@@ -20,22 +20,20 @@ static func apply() -> void:
 	player["cash"] = 1000000
 	player["craftingSkill"] = 3
 	# Maxed (not just raised) so Sites.seed_success_chance's clamp is what
-	# actually caps prospecting odds in debug play, not the skill curve --
+	# actually caps prospecting odds in debug play, not the skill curve —
 	# Cultivating.get_cult_chance(5) alone is 0.78; only rich/saturated
-	# tier's +0.20/+0.35 seedTierMod pushes that up to the 0.95 ceiling.
+	# tier's seedTierMod (R§1.11) pushes that up to the 0.95 ceiling.
 	player["cultivatingSkill"] = 5
 
 	for ore_type in GameData.ORE_TYPES.keys():
 		player["orichalchum"][ore_type] = 50
 
-	# ticket 64: seeded at tier == the craftingSkill just set above, via
+	# Seeded at tier == the craftingSkill just set above, via
 	# Crafting.inventory_add rather than a hand-built flat dict, since
-	# inventory is now tier-bucketed.
+	# inventory is tier-bucketed. Includes a handful of each combat consumable
+	# so debug start exercises the inventory/combat Use buttons directly.
 	var debug_items := {
 		"timePearl": 5, "enhancementPowder": 3, "rewind": 1,
-		# calc-effect-wiring-02: a handful of each newly-wired consumable so
-		# the debug start actually exercises the new inventory/combat Use
-		# buttons without a lab detour.
 		"healingSalve": 2, "blast": 3, "shield": 2, "blackHole": 2, "healingBurst": 3,
 	}
 	for recipe_key in debug_items:
@@ -45,41 +43,36 @@ static func apply() -> void:
 	player["items"] = [{ "id": crowbar_id, "type": "crowbar" }]
 	player["equipment"]["weapon"] = crowbar_id
 
-	# ticket 96: bare seeded Dial -- Dial.new_dial()'s exact inert shape
-	# (no Movement, no loaded Complications), reused directly rather than
-	# going through Dial.attempt_seed()'s gift-gate/cost/roll, same
-	# "no grinding" treatment as everything else in this file. The player
-	# still crafts/seats a Movement and loads Complications themselves.
+	# Bare seeded Dial — Dial.new_dial()'s exact inert shape (no Movement, no
+	# loaded Complications), reused directly rather than going through
+	# Dial.attempt_seed()'s gift-gate/cost/roll, same "no grinding" treatment
+	# as everything else in this file. The player still crafts/seats a
+	# Movement and loads Complications themselves.
 	player["dial"] = Dial.new_dial("guild_cane")
 
 	# Each debug vein gets its own claimed site in shoreditch so
-	# MapLayout.build_stop_items — which only turns a
-	# vein into a Map stop when it's tied to a claimed site the vein's own
-	# siteId points at — actually renders these on the Map tab. Without this
-	# linkage the 3 veins existed in player.veins but could never appear as
-	# a stop, so nothing (including a map-animation event queued against
-	# them) could ever resolve or be tapped.
+	# MapLayout.build_stop_items — which only turns a vein into a Map stop
+	# when it's tied to a claimed site the vein's own siteId points at —
+	# actually renders these on the Map tab.
 	var shoreditch_time_site := _debug_claimed_site("shoreditch", "time")
 	var shoreditch_physics_site := _debug_claimed_site("shoreditch", "physics")
 	var shoreditch_life_site := _debug_claimed_site("shoreditch", "life")
 
-	# vein-growth-state: one per distinct visual state (collapsed, dormant,
-	# rampant) so every band is inspectable immediately without waiting
-	# out drift (docs/REFERENCE.md §5).
+	# One per distinct visual state (collapsed, dormant, rampant) so every
+	# growth band (R§3.4) is inspectable immediately without waiting out drift.
 	player["veins"] = [
 		_debug_vein("time", 0, shoreditch_time_site["id"]),
 		_debug_vein("physics", 50, shoreditch_physics_site["id"]),
 		_debug_vein("life", 100, shoreditch_life_site["id"]),
 	]
 
-	# M1-LONDON D7: 2 discovered, unclaimed sites — one rich (greenwich), one
+	# M1-LONDON §D7: 2 discovered, unclaimed sites — one rich (greenwich), one
 	# saturated (whitechapel) — so a debug-started game has something to
 	# seed/claim on the Map tab immediately. oreType/bonuses are fixed
-	# (not rolled) to keep debug start deterministic like everything else here.
+	# (not rolled) to keep debug start deterministic.
 	#
-	# multi-faction-line-routing (Chunk 2, ticket 03): faction-owned sites in
-	# camden/kingscross/city so a debug-started game shows real routed
-	# faction lines on the Map tab immediately, not just single-stop
+	# Faction-owned sites in camden/kingscross/city so a debug-started game
+	# shows real routed faction lines immediately, not just single-stop
 	# termini stubs — camden's 2 firm sites exercise a multi-stop
 	# elbow-routed faction line; kingscross/city each cover one more faction
 	# with a single-stop stub, matching the real claim-roll path
@@ -105,13 +98,10 @@ static func apply() -> void:
 		city_conclave_site,
 	]
 
-	# ticket 18: seed_day_one_veins() appends directly to
-	# state["world"]["sites"], so it must run after the wholesale
-	# reassignment above, not before, or its output would be discarded.
-	# This gives a debug-started game both the hand-built demo fixture above
-	# (deliberately exercising multi-stop elbow-routed faction lines) and
-	# the full per-faction day-one roster a real New Game gets, so debug
-	# play isn't under-representing faction presence on the Map tab.
+	# seed_day_one_veins() appends directly to state["world"]["sites"], so it
+	# must run after the wholesale reassignment above, not before. This gives
+	# a debug-started game both the hand-built demo fixture above and the
+	# full per-faction day-one roster a real New Game gets.
 	Factions.seed_day_one_veins()
 
 	var flags: Dictionary = state["flags"]
