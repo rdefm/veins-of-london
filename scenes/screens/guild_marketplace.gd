@@ -1,29 +1,13 @@
 class_name GuildMarketplaceScreen
 extends Control
 
-# bugfixes-29: trading UI for economy.gd's Guild lane (bugfixes-28,
-# generalized to a per-faction lane by collective1-01 —
-# get_faction_buy_price()/get_faction_sell_price()/execute_faction_purchase()/
-# execute_faction_sale(), called here with faction_id "guild"). Reached from
-# the guild's faction card
-# (ContactCards.build_faction_card, always shown so a non-member can find
-# out the Guild exists) -- membership itself is checked here, not at the
-# entry point, so a non-member always lands on the locked state rather than
-# the trading UI regardless of how they got here. Catalog matches the
-# existing sell_menu modal's roster exactly (all 5 ore types +
-# GameData.CONSUMABLE_PRICES, consumables behind the same flags.
-# canSellConsumables tutorial gate) -- no separate goods list exists
-# anywhere in the game to draw a different one from.
-
 var _content: VBoxContainer
-
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 	_content = UI.screen_body(self)
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
-
 
 func _refresh() -> void:
 	for child in _content.get_children():
@@ -37,28 +21,17 @@ func _refresh() -> void:
 		return
 
 	_build_trading_ui()
-
-
-# PROSE-REVIEW: new copy, tone bible per docs/CONTENT-GUIDE.md.
 func _build_locked() -> void:
 	_content.add_child(UI.muted_label("Guild members only."))
 	_content.add_child(UI.label("They don't trade with outsiders. Build relation and join to get in."))
-
-
-# PROSE-REVIEW: new copy, tone bible per docs/CONTENT-GUIDE.md.
 func _build_trading_ui() -> void:
 	_content.add_child(UI.muted_label("Ticker-effective prices. Spread narrows the more the Guild trusts you."))
 
 	for ore_type in GameData.ORE_TYPES.keys():
 		_content.add_child(_build_goods_row("ore", ore_type))
-
-	# Same canSellConsumables tutorial gate as modal_layer.gd's sell_menu --
-	# this is the catalog it's mirroring, so consumables shouldn't become
-	# tradeable here before that reveal has actually happened elsewhere.
 	if GameState.state["flags"]["canSellConsumables"]:
 		for recipe_key in GameData.CONSUMABLE_PRICES.keys():
 			_content.add_child(_build_goods_row("consumable", recipe_key))
-
 
 func _build_goods_row(kind: String, item_type: String) -> Control:
 	var player: Dictionary = GameState.state["player"]
@@ -84,25 +57,12 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.symbol_row([{ "symbol": symbol, "fallback": fallback }, name], { "heading_size": 15 }))
 	c["content"].add_child(UI.label("Buy £%d/u · Sell £%d/u · Have %d" % [buy_price, sell_price, have]))
-
-	# Ticket 66: one shared qty stepper per row, feeding both the Buy and
-	# Sell buttons below -- buy_max_qty/sell_max_qty are each direction's
-	# own ceiling (affordability / stock), the stepper's own max is the
-	# larger of the two so neither direction is stuck unable to reach its
-	# own ceiling, and each button disables independently against its own
-	# ceiling rather than the shared stepper max.
 	var buy_max_qty := Economy.get_faction_buy_max_qty("guild", kind, item_type)
 	var sell_max_qty := have
 	var stepper_max := maxi(buy_max_qty, sell_max_qty)
 	var qty: int = clampi(Economy.get_marketplace_qty("guild", kind, item_type), 1, maxi(stepper_max, 1))
 
 	c["content"].add_child(_build_qty_stepper_row(kind, item_type, qty, stepper_max))
-
-	# Buy + Sell together (each a text-driven button up to
-	# UI.MAX_BUTTON_TEXT_WIDTH wide) can be wider than a narrow phone
-	# viewport; hflow wraps the second button onto its own line instead of
-	# running it off the screen, same fix UI.hflow()'s own comment
-	# documents for the site sheet's vein action row.
 	var row := UI.hflow()
 
 	var buy_total := qty * buy_price
@@ -121,11 +81,6 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 
 	c["content"].add_child(row)
 	return c["panel"]
-
-
-# Ticket 66: same "-"/qty/"+" row shape as lab.gd's _build_craft_qty_row and
-# modal_layer.gd's _build_sell_row -- including the same ASCII "-" fix
-# (bugfixes ticket 13: U+2212 MINUS SIGN doesn't render).
 func _build_qty_stepper_row(kind: String, item_type: String, qty: int, max_qty: int) -> Control:
 	var row := UI.hbox()
 	row.add_child(UI.label("Qty:"))

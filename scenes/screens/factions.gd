@@ -3,13 +3,11 @@ extends Control
 
 var _content: VBoxContainer
 
-
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 	_content = UI.screen_body(self)
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
-
 
 func _refresh() -> void:
 	for child in _content.get_children():

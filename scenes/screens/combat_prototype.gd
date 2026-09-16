@@ -1,54 +1,20 @@
 class_name CombatPrototypeScreen
 extends Control
-
-# day-rhythm-business-and-combat ticket 14: minimal, functional (not
-# polished) screen over systems/combat_prototype.gd -- the bounded solo
-# combat experiment. Deliberately NOT scenes/screens/combat.gd's production
-# UI (that's tickets 18/19/20's job, applying ticket 13a's "Agreed UI
-# direction" to the real fight screen once these rules are validated) --
-# this exists only so a human can actually play the teaching encounters and
-# ticket 15's squad/wave evaluation rosters. Same "queue_free() + rebuild
-# from scratch on every EventBus.state_changed" convention every other
-# screen in this project uses (see e.g. scenes/screens/factions.gd).
-#
-# Reached via the Debug app's "Solo Combat Prototype" card
-# (scenes/screens/phone.gd) -- registered in scenes/main.gd's SCREEN_SCRIPTS
-# as "combat_prototype", full-bleed (NAV_HIDDEN_SCREENS) same as "combat".
-#
-# Ticket 15: cp.enemies is always an Array now -- one card + one Fast/Heavy/
-# Counter/Dodge/Blast action row per LIVING enemy (target is implicit: the
-# enemy whose row a button sits under), rather than one fixed action grid.
-# A round mid-resolution (cp["_pending"] != null, an Enhancement-Powder-
-# inserted extra slot awaiting its own commit) needs no special-case here
-# at all: EventBus.state_changed already fired, outcome is still null, the
-# player isn't (necessarily) exhausted, so this just rebuilds the same
-# action rows again for the next commit -- see systems/combat_prototype.gd's
-# _advance_round() for why that's always correct.
-
-# Ticket 13a's own "Agreed UI direction" reminder copy (already PROSE-
-# REVIEWed there) -- "not a complete symmetrical rock-paper-scissors rule
-# table", just enough to remind the player what each button does.
 const ACTION_REMINDERS := {
 	CombatPrototype.ACTION_FAST: "Fast — Catches Dodge",
 	CombatPrototype.ACTION_HEAVY: "Heavy — Bypasses Counter",
 	CombatPrototype.ACTION_COUNTER: "Counter — Stops Fast",
 	CombatPrototype.ACTION_DODGE: "Dodge — Avoids Heavy",
 }
-
-# Ticket 15: self/AoE items (no per-enemy target) shown as one flat list;
-# Blast (the one targeted item) rides in each enemy's own action row
-# instead -- see _build_enemy_block().
 const SELF_OR_AOE_ITEMS := ["timePearl", "enhancementPowder", "shield", "blackHole", "healingBurst"]
 
 var _content: VBoxContainer
-
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 	_content = UI.screen_body(self)
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
-
 
 func _refresh() -> void:
 	for child in _content.get_children():
@@ -101,7 +67,6 @@ func _refresh() -> void:
 	rewind_button.disabled = cp["snapshots"].is_empty()
 	_content.add_child(rewind_button)
 
-
 func _build_player_card(cp: Dictionary) -> Control:
 	var c := UI.card()
 	var player: Dictionary = cp["player"]
@@ -113,14 +78,12 @@ func _build_player_card(cp: Dictionary) -> Control:
 		c["content"].add_child(UI.muted_label("Moving fast — %d round(s) left." % cp["motionTurns"]))
 	return c["panel"]
 
-
 func _build_enemy_card(enemy: Dictionary) -> Control:
 	var c := UI.card()
 	var status: String = " (down)" if enemy["koed"] else ""
 	c["content"].add_child(UI.label("%s — %d/%d HP%s" % [enemy["name"], enemy["hp"], enemy["hpMax"], status]))
 	c["content"].add_child(UI.bar(enemy["hp"], enemy["hpMax"]))
 	return c["panel"]
-
 
 func _build_log_card(log: Array) -> Control:
 	var c := UI.card()
@@ -129,11 +92,6 @@ func _build_log_card(log: Array) -> Control:
 	var log_label := UI.label(text)
 	c["content"].add_child(log_label)
 	return c["panel"]
-
-
-# One target's action block: Fast/Heavy/Counter/Dodge (2x2) plus Blast if
-# the player has any in stock -- ticket 15 checklist item 1's whole point
-# is that a stance only ever covers the ONE enemy its row was tapped for.
 func _build_enemy_block(cp: Dictionary, enemy_index: int) -> Control:
 	var enemy: Dictionary = cp["enemies"][enemy_index]
 	var block := UI.card()
@@ -152,17 +110,11 @@ func _build_enemy_block(cp: Dictionary, enemy_index: int) -> Control:
 		block["content"].add_child(UI.button("Blast", func(): CombatPrototype.use_item("blast", enemy_index)))
 	return block["panel"]
 
-
 func _build_action_button(action: String, enemy_index: int) -> Control:
 	var col := UI.vbox(2)
 	col.add_child(UI.button(action.capitalize(), func(): CombatPrototype.take_player_action(action, enemy_index)))
 	col.add_child(UI.muted_label(ACTION_REMINDERS[action]))
 	return col
-
-
-# Self/AoE items only (Blast rides each enemy's own block above) -- one
-# button per item, showing real inventory qty, hidden entirely at zero
-# stock (no synthetic pool per ticket 15's resolved resource contract).
 func _build_items_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Items", 14))
@@ -176,21 +128,8 @@ func _build_items_card() -> Control:
 	if not any_shown:
 		c["content"].add_child(UI.muted_label("No usable items in stock."))
 	return c["panel"]
-
-
-# Split out of the loop above for the same closure-captures-the-loop-
-# variable reason _build_debug_combat_prototype_launch_button() documents
-# in scenes/screens/phone.gd.
 func _build_item_button(item_id: String, qty: int) -> Control:
 	return UI.button("%s (%d)" % [item_id.capitalize(), qty], func(): CombatPrototype.use_item(item_id))
-
-
-# Ticket 15: the Dial-cast entry point ("both entry points in scope"). Kept
-# deliberately minimal (not the full loadout widget device-plan-spec.md
-# describes) -- one button per loaded Complication this prototype can
-# actually resolve. A loaded Blast Complication is skipped here rather than
-# offered without a target picker (still reachable through the public API/
-# tests) -- see this file's own top comment.
 func _build_dial_card() -> Control:
 	var dial = GameState.state["player"]["dial"]
 	if dial == null:
@@ -212,10 +151,8 @@ func _build_dial_card() -> Control:
 		c["content"].add_child(UI.muted_label("Nothing loaded this prototype can use."))
 	return c["panel"]
 
-
 func _build_dial_cast_button(dial_index: int, label: String) -> Control:
 	return UI.button("Cast: %s" % label, func(): CombatPrototype.cast_dial_complication(dial_index))
-
 
 func _build_outcome_controls(cp: Dictionary) -> Control:
 	var c := UI.card()

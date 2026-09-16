@@ -1,10 +1,5 @@
 extends Control
 
-# ScreenManager: swaps scenes/screens/* on EventBus.screen_changed, per
-# R§2.2's screen list. "intro" is never actually navigated to (Events.
-# start_event("intro") sends the player straight to "event" instead) but
-# stays mapped for registry completeness.
-
 const SCREEN_SCRIPTS := {
 	"title": preload("res://scenes/screens/title.gd"),
 	"intro": preload("res://scenes/screens/placeholder.gd"),
@@ -12,100 +7,22 @@ const SCREEN_SCRIPTS := {
 	"factions": preload("res://scenes/screens/factions.gd"),
 	"combat": preload("res://scenes/screens/combat.gd"),
 	"event": preload("res://scenes/screens/event.gd"),
-
-	# D4's nav bar, collapsed to a 3-slot dock (Phone/Map/HQ) by ticket 11.
-	# map is ticket 04's district list -> district panel -> site/vein sheet.
-	# hq is ticket 06's merge of the old M0 property + crafting screens
-	# (both deleted). phone is ticket 07's PhoneScreen (contact list/SMS/
-	# James jobs/notes/faction directory/Ticker/Profile/Save-Load/
-	# Notifications, state.phoneNav-driven) — the old M0 `world`/
-	# `barometer` screens it replaces are deleted. Ticket 12 retires the
-	# standalone `home`/`you`/`bag`/`inventory` screens entirely — the bag
-	# drawer (ticket 05) and phone's Profile/Save-Load apps (08/09) had
-	# already absorbed everything they carried — so none of the four have
-	# a SCREEN_SCRIPTS entry or a remaining Nav.go_to call site.
 	"map": preload("res://scenes/screens/map.gd"),
 	"hq": preload("res://scenes/screens/hq.gd"),
 	"phone": preload("res://scenes/screens/phone.gd"),
-
-	# hq-diorama ticket 04: the floorplan sub-view (docs/hq-diorama-vision.md
-	# §6), reached from hq.gd's "rooms" zone tap. Full-bleed (see
-	# NAV_HIDDEN_SCREENS/TOP_BAR_HIDDEN_SCREENS below) -- the first HQ
-	# sub-view built as its own screen id rather than a Modal.
 	"hq_floorplan": preload("res://scenes/screens/hq_floorplan.gd"),
-
-	# hq-diorama ticket 05: the door's diegetic security sub-view (docs/
-	# hq-diorama-vision.md §8), reached from hq.gd's "security" zone tap.
-	# Full-bleed, same reasoning as hq_floorplan above.
 	"hq_door": preload("res://scenes/screens/hq_door.gd"),
-
-	# vein-growth-state ticket 09: the vein-portfolio list (spec §6.2), reached
-	# from the Map tab's district bubble ("List view") and HQ's Vein Station
-	# room ("View all veins") -- state.veinListNav-driven, same convention as
-	# map/hq/phone's own nav-state dicts above.
 	"vein_list": preload("res://scenes/screens/vein_list.gd"),
-
-	# hq-diorama ticket 06, docs/hq-diorama-vision.md §5: the Lab bench's
-	# diegetic sub-view (pan model, 2 stops since ticket 11's books+ore
-	# merge, notebook mode fork), reached
-	# from hq.gd's "lab" zone tap. Full-bleed, same reasoning as
-	# hq_floorplan/hq_door below. Ticket 07 built out the full craft flow
-	# (ore selection, apparatus arming, the recipe book, bench notes) on
-	# this same screen and retired the old calc-discovery-06 "lab" screen
-	# id, its lab.gd script, and systems/bench_nav.gd entirely -- this is
-	# now the Lab's only reachable id.
 	"hq_lab_bench": preload("res://scenes/screens/hq_lab_bench.gd"),
-
-	# hq-diorama ticket 09, docs/hq-diorama-vision.md §4: the Dial's diegetic
-	# loadout sub-view, reached from hq.gd's "dial" zone tap in place of the
-	# old "hq_dial" modal (modal_layer.gd, deleted this ticket). Full-bleed,
-	# same reasoning as hq_floorplan/hq_door/hq_lab_bench above -- this is now
-	# the sole entry point to loadout adjustment (bag_drawer.gd's management
-	# mode no longer carries it).
 	"hq_dial": preload("res://scenes/screens/hq_dial.gd"),
-
-	# bugfixes-29: the Guild marketplace, reached from the Guild's faction
-	# card (ContactCards.build_faction_card) on both the standalone
-	# `factions` screen and Phone's Factions app.
 	"guild_marketplace": preload("res://scenes/screens/guild_marketplace.gd"),
-
-	# day-rhythm-business-and-combat ticket 14: the bounded solo combat
-	# prototype (systems/combat_prototype.gd) -- reached only from the
-	# Debug app (scenes/screens/phone.gd), never from normal play.
 	"combat_prototype": preload("res://scenes/screens/combat_prototype.gd"),
 }
-
-# Ticket 12: home/you/bag/inventory are retired screen ids, fully absorbed
-# into the phone app grid + bag drawer (see the SCREEN_SCRIPTS comment
-# above). A stale currentScreen carrying one of these -- an old save
-# (SaveManager migrates the persisted value too, but this is the last-line
-# fallback) or any other stray reference -- must land on the phone app
-# grid, not fall through to the "unknown id" title fallback below, which
-# stays reserved for ids that were never valid at all. hq-diorama ticket 07
-# adds "lab" (lab.gd, deleted) -> "hq", the room whose "lab" zone now opens
-# hq_lab_bench -- SaveManager._remap_retired_lab_screen() covers the same
-# case on the persisted-state side, same split as the other three entries.
 const RETIRED_SCREEN_IDS := {
 	"home": "phone", "you": "phone", "bag": "phone", "inventory": "phone",
 	"lab": "hq",
 }
-
-# R§2.2: "Global bottom nav ... hidden on title, intro, event, combat".
-# Every HQ sub-view keeps the dock visible so the player can always leave
-# through Phone, Map, or HQ.
 const NAV_HIDDEN_SCREENS := ["title", "intro", "event", "combat", "combat_prototype"]
-
-# D4's persistent top bar is up on every screen except the two with no game
-# session to show cash/day/blocks for — unlike NAV_HIDDEN_SCREENS, it stays
-# visible through event/combat so the bag button keeps working there (D4.4).
-# field-kit-chrome ticket 02 (ui-vision.md §5, amending hq-diorama-vision.md
-# §3.3) makes this unconditional everywhere else, including "map" and every
-# HQ full-bleed sub-view — the merged status/notification dot-matrix board
-# stays up so raid/notification alerts are never missed, and each of those
-# screens' own top-of-screen furniture (map.gd's local hamburger/title/bag
-# row included) now sits below it rather than replacing it. The bottom nav
-# dock's own hide-on-full-bleed behaviour (NAV_HIDDEN_SCREENS above) is
-# unchanged by this — the override applies only to the top board.
 const TOP_BAR_HIDDEN_SCREENS := ["title", "intro"]
 
 var screen_container: Control
@@ -115,12 +32,7 @@ var modal_layer: Control
 var bag_drawer: Control
 var current_screen_node: Control = null
 
-
 func _ready() -> void:
-	# Godot's Android export template hardcodes screenOrientation="landscape"
-	# in the manifest regardless of the project's handheld orientation
-	# setting (confirmed in export_templates' android_source.zip) -- force
-	# portrait explicitly at boot rather than relying on that setting alone.
 	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_PORTRAIT)
 
 	UI.anchor_full_rect(self)
@@ -138,20 +50,10 @@ func _ready() -> void:
 
 	modal_layer = ModalLayer.new()
 	add_child(modal_layer)
-
-	# Topmost: D4.4's bag drawer has to open over any modal, mid-event or
-	# mid-combat, from any screen.
 	bag_drawer = BagDrawer.new()
 	add_child(bag_drawer)
-
-	# Last sibling: blocks every screen, modal, navigation and bag control.
 	var time_transition := preload("res://scenes/components/time_transition.gd").new()
 	add_child(time_transition)
-
-	# day-rhythm ticket 05: non-visual, so ordering relative to the overlay
-	# above doesn't matter for rendering -- it's wired to that same overlay
-	# instance so its own safe-boundary gate never opens the alarm surface
-	# underneath/around a live time transition.
 	var alarm_presentation := preload("res://scenes/components/alarm_presentation.gd").new()
 	alarm_presentation.time_transition = time_transition
 	add_child(alarm_presentation)
@@ -159,20 +61,13 @@ func _ready() -> void:
 	EventBus.screen_changed.connect(_on_screen_changed)
 	_show_screen(GameState.state["currentScreen"])
 
-
 func _on_screen_changed(screen_id: String) -> void:
 	_show_screen(screen_id)
-
-
-# Split out from _show_screen so tests can drive the retired-id/unknown-id
-# fallback logic without booting the full Main scene tree (same reasoning
-# phone.gd's _build_app_grid split documents for its own testability).
 static func resolve_screen_id(screen_id: String) -> String:
 	var mapped: String = RETIRED_SCREEN_IDS.get(screen_id, screen_id)
 	if SCREEN_SCRIPTS.has(mapped):
 		return mapped
 	return "title"
-
 
 func _show_screen(screen_id: String) -> void:
 	if current_screen_node != null:
@@ -184,12 +79,6 @@ func _show_screen(screen_id: String) -> void:
 	current_screen_node = screen_node
 	UI.anchor_full_rect(screen_node)
 	screen_container.add_child(screen_node)  # may re-enter _show_screen synchronously (e.g. hq.gd's _ready() redirecting straight into an event)
-
-	# If a nested _show_screen already ran during that add_child (a screen's
-	# _ready() navigating elsewhere, per above), current_screen_node no longer
-	# points at screen_node -- the nested call already set nav_bar/top_bar for
-	# the real final screen, and finishing with this call's now-stale
-	# resolved_id would clobber that with the wrong screen's visibility.
 	if current_screen_node != screen_node:
 		return
 

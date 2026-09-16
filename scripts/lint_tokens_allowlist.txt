@@ -10,7 +10,6 @@ autoload/GameData.gd
 autoload/GameState.gd
 autoload/SaveManager.gd
 autoload/Snapshots.gd
-scenes/Main.gd
 scenes/components/alarm_presentation.gd
 scenes/components/app_tile.gd
 scenes/components/bag_drawer.gd
@@ -36,18 +35,6 @@ scenes/components/top_bar.gd
 scenes/components/touch_scroll_container.gd
 scenes/components/turn_order_strip.gd
 scenes/components/ui.gd
-scenes/screens/combat.gd
-scenes/screens/combat_prototype.gd
-scenes/screens/event.gd
-scenes/screens/guild_marketplace.gd
-scenes/screens/hq.gd
-scenes/screens/hq_dial.gd
-scenes/screens/hq_door.gd
-scenes/screens/hq_floorplan.gd
-scenes/screens/hq_lab_bench.gd
-scenes/screens/map.gd
-scenes/screens/phone.gd
-scenes/screens/vein_list.gd
 scripts/check_runner.gd
 scripts/debug_combat_dial_screenshot.gd
 scripts/debug_combat_fan_screenshot.gd

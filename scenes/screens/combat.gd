@@ -2,211 +2,37 @@ class_name CombatScreen
 extends Control
 
 var _content: VBoxContainer
-
-# combat-presentation ticket 02, docs/combat-animation-vision.md §2.5: which
-# turn-order-strip card is currently displayed as "focused" (exact HP,
-# status, telegraph slot) -- survives across _sync() rebuilds (only some of
-# _content's children are freed, not this screen node itself) since
-# TurnOrderStrip holds no state of its own.
-# Empty until the first _sync() picks a starting card (the enemy at
-# combat.focusedEnemyIndex, or entries[0] if there's no enemy). A swipe to a
-# non-enemy card updates this without ever touching combat.focusedEnemyIndex
-# (§2.2: only enemies are valid attack targets) -- see
-# _on_strip_selection_changed() below.
 var _strip_selected_key: Dictionary = {}
-
-# combat-presentation ticket 03, docs/combat-animation-vision.md §2.5: which
-# player.dial.loadedComplications index the Dial widget currently has
-# selected -- survives across _sync() rebuilds the same way
-# _strip_selected_key does (DialWidget itself holds no state of its own;
-# see that file's own class comment). Only ever moves via the widget's own
-# rotate gesture (_on_dial_selection_changed below), never reset by a
-# refresh, so casting mid-fight doesn't silently jump the selection back to
-# index 0.
 var _dial_selected_index: int = 0
-
-# combat-presentation ticket 01, docs/combat-animation-vision.md §2/§2.2/§9:
-# the stage window every living combatant on both sides fans out on.
-#
-# UI.screen_body() reserves 16px margins on each side (scenes/components/
-# ui.gd) inside the 390-wide project viewport (project.godot) -- the stage's
-# real on-screen width is what's left after those margins, not the literal
-# 390 the vision doc's "390×360 stage window" describes. That number is the
-# full-bleed design target a later ticket (real backdrop plates going edge-
-# to-edge) needs to break out of the shared screen_body() margin for; giving
-# the stage the literal 390 here would force it 32px wider than the screen
-# has room for and push it past the right edge.
 const STAGE_WIDTH := 390.0 - 16.0 - 16.0
-# combat-presentation ticket 18 (human direction, 2026-09-09): shrunk from
-# 360 to free up room below the stage for the umbrella-handle Dial widget +
-# action row (see _build_dial_and_actions_row()) without pushing the command
-# deck off-screen -- a judgment call, not a measured fit against a specific
-# on-device screenshot the way ticket 16's fan-size retune was; ART-REVIEW,
-# human should confirm combatants still read clearly at this height and this
-# doesn't crowd the turn-order strip above it.
 const STAGE_HEIGHT := 220.0
-
-# ui-chrome-pass ticket 03 (human direction, 2026-09-11): _command_dock's own
-# geometry -- see _ready()'s own comment for why this Control exists outside
-# _content's flow. It's anchored to `self` (the full 390-wide screen), not to
-# _content's own margin-inset column, so LEFT_MARGIN=0 already sits flush
-# with the screen's true left edge -- reclaiming screen_body()'s 16px column
-# margin for the Dial needs no negative offset here (an earlier pass of this
-# ticket used one, which just pushed the dock 16px further left than the
-# screen itself, off the left edge entirely -- see this ticket's own git
-# history). RIGHT_MARGIN/BOTTOM_MARGIN are small fixed insets (not
-# safe_area_*_inset() -- same "DisplayServer returns a bogus large inset in a
-# windowed desktop test session" reason hq_dial.gd's own DEVICE_BOTTOM_MARGIN
-# gives) so the action deck's right edge and the Dial's art don't sit flush
-# against the literal screen edge.
-#
-# ticket 108 (2026-09-13): HEIGHT is now DialWidget.WIDGET_SIZE.y directly,
-# not a hand-picked flat number -- the previous flat 316.0 was ~74-84px
-# taller than either the Dial or the action deck column actually needed
-# (verified via scripts/debug_combat_dial_screenshot.gd's own rect dump),
-# and that slack was exactly the "oversized gap between the Dial and the
-# stage above" this ticket's issue text flagged: _content's ScrollContainer
-# reserves HEIGHT+BOTTOM_MARGIN of screen space for this dock regardless of
-# what's actually drawn in it (see _ready()'s own comment below), so any
-# unused height in this dock reads on-screen as dead space stacked on top of
-# the Dial, not as space "given back" to the stage above it. Deriving HEIGHT
-# from the widget's own const keeps the two in lockstep as HANDLE_DISPLAY_SIZE
-# (dial_widget.gd) changes again in future, instead of silently drifting out
-# of sync the way the flat 316.0 already had. Safe against the action deck's
-# own (font/icon-driven, ~242px) natural height too -- confirmed via that
-# same script that the Dial is the taller of the two at this file's current
-# HANDLE_DISPLAY_SIZE, so this single value covers both columns without
-# clipping either.
 const COMMAND_DOCK_LEFT_MARGIN := 0.0
 const COMMAND_DOCK_RIGHT_MARGIN := 4.0
 const COMMAND_DOCK_BOTTOM_MARGIN := 6.0
 const COMMAND_DOCK_HEIGHT := DialWidget.WIDGET_SIZE.y
-
-# combat-presentation ticket 10: left/right stage split -- player + allies
-# occupy the left column, enemies the right, each column running the full
-# stage height. This DEVIATES from docs/combat-animation-vision.md §2's
-# adopted "stacked bands" grammar (enemy band upper third, player+ally band
-# lower two-thirds) -- a direct, explicit call from the human over that
-# doc's own guidance, made when the stacked layout's sprites were reviewed
-# on-device. §2 itself is not amended by this comment; flagged here so the
-# next reader of that doc knows the shipped layout has diverged from it.
 const COLUMN_GAP := 6.0
 const PLAYER_BAND_WIDTH := (STAGE_WIDTH - COLUMN_GAP) / 2.0
 const ENEMY_BAND_WIDTH := STAGE_WIDTH - COLUMN_GAP - PLAYER_BAND_WIDTH
-
-# combat-presentation ticket 08, §9: the frame's own hard border width --
-# shared by _build_stage_skeleton()'s StyleBoxFlat and the backdrop layer's
-# inset, so the backdrop plate/fallback fill never paints over the border
-# it's supposed to sit inside of.
 const STAGE_BORDER_WIDTH := 2.0
-
-# combat-presentation ticket 08: the dark fill both the frame's own
-# StyleBoxFlat (before any backdrop existed) and _sync_backdrop()'s
-# last-resort default (an unrecognised context, or a manifest entry with no
-# usable fallbackColor) use -- one literal instead of two so they can't
-# drift apart.
 const STAGE_DEFAULT_FILL := Color(0.07, 0.07, 0.09)
-
-# combat-presentation ticket 15 (fan positioning fix), second pass --
-# human-flagged follow-up over the first pass's front/back-left/back-right
-# split (which staggered the two back slots up near the column's top edge,
-# in two different directions either side of the front slot). Human's own
-# description of the wanted look: "first combatant more in the middle,
-# staying near the bottom, additional combatants a bit higher and a bit
-# further to the edge, as though standing a bit behind and to the side of
-# the first" -- "a close descending rugby line", each slot only a bit
-# smaller than the one before it, not a big front/back size jump.
-#
-# _fan_local_rects() now builds a single receding line instead of a
-# symmetric fan: slot 0 (front) is centred near the column's bottom edge at
-# FAN_FRONT_SIZE_RATIO; every slot after it is FAN_STEP_SIZE_SCALE times
-# the previous slot's size, shifted FAN_STEP_OFFSET_RATIO (as a fraction of
-# the column's own size) up and toward the column's own outer edge from
-# the previous slot's position -- so it's their own accumulated line, not
-# a fixed offset from the front. "Outer edge" is which way the line leans:
-# _fan_local_rects() itself always recedes toward local x 0 (this file's
-# own coordinate convention -- see STAGE_WIDTH's comment), and _sync_band()
-# mirrors that horizontally for the enemy column (side == "enemy") so both
-# columns' lines lean away from the centre gap between them, toward their
-# own side of the stage, rather than the enemy line leaning into the
-# player column.
-#
-# combat-presentation ticket 16: human-flagged (from an on-device
-# screenshot) that combatants read too small on the stage. Verified via
-# scripts/debug_combat_fan_screenshot.gd (windowed run, real rendered PNGs,
-# same tool ticket 15 built) -- a first attempt that mostly raised the
-# height ratio barely moved the on-screen character at all, which traced
-# back to _load_animation_frames() (~line 1134): every sheet is sliced into
-# frameCount equal-width AtlasTextures, so each keypose texture StageSlot
-# actually renders is near-*square* (e.g. dummy/idle.png's 896x128 sheet
-# sliced 7 ways -> 128x128 frames). _sprite_rect's STRETCH_KEEP_ASPECT_
-# CENTERED then fits that square inside this (portrait) slot rect at
-# `min(slot.width/128, slot.height/128)` -- since the slot is always taller
-# than it is wide here, slot *width* is what actually bounds the rendered
-# character's size, not height, as long as slot height stays >= slot width
-# (true at every ratio below). Extra height beyond that just grows the
-# slot's own empty margin (and the ticket-02 focus-glow box drawn to it),
-# not the character. So this retune leans on FAN_FRONT_SIZE_RATIO.x, not
-# .y: width raised (0.62 -> 0.90, +45%) is what actually reads as a bigger
-# combatant on screen; height (0.36 -> 0.52) only follows along far enough
-# to stay clear of the width-vs-height crossover. FAN_STEP_SIZE_SCALE eased
-# 0.85 -> 0.88 so the receding back slots grow with the front slot instead
-# of shrinking away faster than it grew. FAN_FRONT_BOTTOM_MARGIN trimmed
-# 0.03 -> 0.02 for the extra headroom the taller front slot needs against
-# the column's bottom edge. FAN_STEP_OFFSET_RATIO is unchanged -- it's a
-# fraction of the column's own size, not the slot's, so it doesn't need
-# retuning just because the slots got bigger. Checked against tests/
-# test_combat_screen.gd's existing "fan_slots_never_spill_past_the_stage_
-# or_into_the_neighbouring_column" case (3 enemies + 1 ally, the worst case
-# for both band width and stack depth) -- still holds at these ratios.
 const FAN_FRONT_SIZE_RATIO := Vector2(0.90, 0.52)
 const FAN_FRONT_BOTTOM_MARGIN := 0.02
 const FAN_STEP_SIZE_SCALE := 0.88
 const FAN_STEP_OFFSET_RATIO := Vector2(0.14, 0.11)
-
-# combat-presentation ticket 05, §4.1: damage numbers rising and fading from
-# the struck combatant's on-stage position.
 const DAMAGE_NUMBER_RISE_PX := 28.0
 const DAMAGE_NUMBER_DURATION := 0.6
-
-# combat-presentation ticket 05, §4.1: "Screen shake, 3-6px, scaled to damage
-# as a fraction of the target's hpMax." SHAKE_FULL_FRACTION is the dmg/hpMax
-# ratio at which shake maxes out at SHAKE_MAX_PX -- a hit for half a target's
-# max HP or more always reads as the biggest shake this game has; anything
-# below scales linearly down to SHAKE_MIN_PX at 0 damage (which never
-# actually plays, since this only runs for beats with dmg > 0).
 const SHAKE_MIN_PX := 3.0
 const SHAKE_MAX_PX := 6.0
 const SHAKE_FULL_FRACTION := 0.5
-
-# combat-presentation ticket 10, docs/combat-animation-vision.md §4: "not
-# hand-animated motion" -- attack/hit/ko each carry exactly this many
-# generated keyposes (wind-up/strike/recover, a single hit pose, down/fallen)
-# regardless of how many frames a manifest sheet actually has; StageSlot's
-# own transform tween (lunge/recoil/fall) is what supplies the motion
-# between them. _select_action_keyposes() below down-samples any sheet with
-# more frames than this (e.g. templates.default's own multi-frame stand-in
-# strips, a leftover from before this ticket) to exactly this count.
 const ATTACK_KEYPOSE_COUNT := 3
 const HIT_KEYPOSE_COUNT := 1
 const KO_KEYPOSE_COUNT := 2
-
-# combat-presentation ticket 10, §4: the transform magnitudes StageSlot's
-# play_attack()/play_hit()/play_ko()/play_self_patch() tween _sprite_rect
-# through between keyposes -- "lunge and return" / "recoil" / "fall + fade".
-# Small, pixel-art-scale offsets (StageSlot's own slot rect is a fraction of
-# STAGE_WIDTH/STAGE_HEIGHT), not full-screen movement.
 const LUNGE_PX := 14.0
 const RECOIL_PX := 8.0
 const FALL_SINK_PX := 10.0
 const FALL_ROTATION_DEG := 20.0
 const FALL_ALPHA := 0.35
 const SELF_PATCH_RISE_PX := 6.0
-
-# Placeholder fill colours keyed by template id (name), per the ticket --
-# "coloured, labelled box/silhouette keyed by template id, not real art".
-# Ticket 09 swaps these for real per-template sprites via the manifest
-# ticket 08 introduces; this list is not meant to be exhaustive or final.
 const _PLACEHOLDER_PALETTE: Array[Color] = [
 	Color(0.55, 0.33, 0.33),
 	Color(0.33, 0.47, 0.55),
@@ -215,81 +41,18 @@ const _PLACEHOLDER_PALETTE: Array[Color] = [
 	Color(0.58, 0.48, 0.30),
 	Color(0.33, 0.55, 0.50),
 ]
-
-
-# A single fanned combatant placeholder: a coloured box with a hard border,
-# plus (when `is_focused`) the thin outline/glow §2.2 calls for on whichever
-# enemy `combat.focusedEnemyIndex` currently points at. Public (not `_`-
-# prefixed) so tests can address it as CombatScreen.StageSlot.
 class StageSlot extends Control:
 	var combatant_name: String = ""
 	var fill_color: Color = Color.WHITE
 	var is_focused: bool = false
-
-	# combat-presentation ticket 05, §4.1: "Flash-to-white on the struck
-	# placeholder/sprite (a CanvasItem material flash, not new art)." Drawn
-	# as a plain white overlay via _overlay (see below) rather than an
-	# actual CanvasItemMaterial shader swap -- an alpha-blended overlay
-	# reads identically to a shader flash against either a placeholder box
-	# or a real sprite, at a fraction of the complexity; a later ticket can
-	# swap the mechanism without touching any juice-layer call site
-	# (flash_hit() is the only entry point).
 	var flash_alpha: float = 0.0
-
-	# combat-presentation ticket 09 -- see data/combat_visuals.json's
-	# per-subject "templates" entries and CombatScreen._load_template_idle_
-	# animations()/_sync_band() below: once a subject's manifest idle entry
-	# has a real image, set_idle_animation() gets real frames, which replace
-	# the ticket-01 placeholder fill/border in _draw() below. Empty
-	# _idle_frames means "no sprite for this subject yet, draw the
-	# placeholder box" -- every subject's manifest entry is still an empty
-	# stub as of this ticket (no art produced), so this fallback is what
-	# every combatant actually shows today.
-	#
-	# _sprite_rect/_idle_timer/_overlay are built in _init() rather than
-	# _ready() or _process()-driven, because this file's own test harness
-	# (tests/test_combat_screen.gd) never adds these Controls to a live
-	# SceneTree -- see flash_hit()'s pre-existing is_inside_tree() guard for
-	# the same constraint. _init() runs at construction regardless of tree
-	# membership, so the child structure always exists; _idle_timer simply
-	# never ticks off-tree, which is fine since off-tree tests drive frame
-	# advance directly via _advance_idle_frame() instead of waiting on it.
-	#
-	# _overlay is a separate Control (not more of this class's own _draw())
-	# so the focus glow/flash always render on top of _sprite_rect -- a
-	# Control's children draw after its own _draw() call, so without a
-	# dedicated top layer the flash would render *under* a real sprite.
-	#
-	# "player" or "enemy" -- combat-presentation ticket 10, purely cosmetic
-	# (mirrors the sprite via _sprite_rect.flip_h so the two stage columns
-	# don't both face the same arbitrary direction; see set_side() below).
-	# Not read anywhere else.
 	var side: String = "player"
-
-	# combat-presentation ticket 09: an extra flip on top of the side-based
-	# one, applied to every other same-template concurrent instance (two or
-	# three Muggers sharing the one Mugger sheet -- see
-	# CombatScreen._sync_band()'s per-template occurrence counter) purely so
-	# they don't render as visibly identical copies. No new art either way --
-	# see _apply_flip() below for how this combines with `side`.
 	var _mirror_extra: bool = false
 	var _idle_frames: Array[Texture2D] = []
 	var _idle_frame_index: int = 0
 	var _sprite_rect: TextureRect
 	var _idle_timer: Timer
 	var _overlay: Control
-
-	# combat-presentation ticket 10, docs/combat-animation-vision.md §4: the
-	# transform-driven one-shots layered on top of ticket 09's idle loop --
-	# attack on whoever's swinging (_on_beat_played()), hit/ko on the struck
-	# combatant (_play_juice()), self-patch on a healing ally
-	# (_on_beat_played()). Same manifest-driven shape as _idle_frames
-	# (set_*_animation() below, mirroring set_idle_animation()) except these
-	# arrays hold *keyposes*, not a flipbook -- ATTACK_KEYPOSE_COUNT/
-	# HIT_KEYPOSE_COUNT/KO_KEYPOSE_COUNT many, per the doctrine table. Empty
-	# means "no manifest entry", and the corresponding play_*() call then
-	# just no-ops rather than erroring, same convention as every other
-	# manifest-driven fallback in this file.
 	var _hit_keyposes: Array[Texture2D] = []
 	var _hit_fps: float = 10.0
 	var _ko_keyposes: Array[Texture2D] = []
@@ -298,18 +61,6 @@ class StageSlot extends Control:
 	var _attack_fps: float = 12.0
 	var _self_patch_keyposes: Array[Texture2D] = []
 	var _self_patch_fps: float = 10.0
-
-	# One discrete step of a transform one-shot: a keypose texture plus the
-	# _sprite_rect position offset/rotation/alpha to show it at, relative to
-	# this slot's own rest transform (offset (0,0), rotation 0, alpha 1) --
-	# see _apply_pose_step() below. This *is* "transform lunge/recoil/fall",
-	# per §4's doctrine that the motion between generated keyposes is a
-	# transform, not extra drawn frames -- play_attack()/play_hit()/play_ko()/
-	# play_self_patch() below each synthesize a short list of these (reusing
-	# the same texture across more than one step where the doctrine's frame
-	# count is smaller than the motion needs, e.g. hit's single pose across
-	# a recoil-out/recoil-back pair) rather than storing pre-baked motion
-	# frames in the manifest.
 	class PoseStep:
 		var texture: Texture2D
 		var offset: Vector2
@@ -320,31 +71,15 @@ class StageSlot extends Control:
 			offset = p_offset
 			rotation_degrees = p_rotation_degrees
 			alpha = p_alpha
-
-	# Drives a one-shot play_*() sequence forward -- see _advance_one_shot()
-	# below. Empty means "no one-shot in progress, idle owns the texture".
 	var _one_shot_steps: Array[PoseStep] = []
 	var _one_shot_index: int = 0
 	var _one_shot_hold_last_frame: bool = false
 	var _one_shot_timer: Timer
-
-	# combat-presentation ticket 10, docs/combat-animation-vision.md §5:
-	# prophetsBreath's deferred visual ("the enemy's next pose ghosts in at
-	# ~30% alpha before it happens") -- a separate TextureRect from
-	# _sprite_rect so ghost_next_pose() (below) never fights play_attack()'s
-	# own texture/position changes even though CombatScreen fires both in the
-	# same beat (see ghost_next_pose()'s own comment for why that's fine).
 	var _ghost_rect: TextureRect
 
 	func _init() -> void:
 		_sprite_rect = TextureRect.new()
 		_sprite_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# expand_mode defaults to EXPAND_KEEP_SIZE, which draws the texture at
-		# its native pixel size regardless of this control's own rect -- the
-		# "sprite renders way bigger than its slot, spilling out of the stage
-		# frame" bug the human flagged from an on-device screenshot.
-		# IGNORE_SIZE is what lets stretch_mode actually scale the texture
-		# down to fit.
 		_sprite_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		_sprite_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		_sprite_rect.anchor_right = 1.0
@@ -378,59 +113,27 @@ class StageSlot extends Control:
 		_overlay.anchor_bottom = 1.0
 		_overlay.draw.connect(_draw_overlay)
 		add_child(_overlay)
-
-	# combat-presentation ticket 10: enemies face left (toward the player
-	# column), player/allies face right (toward the enemy column) -- a real
-	# "face each other" convention now that the stage is a left/right split,
-	# not the top/bottom bands this flip started under.
 	func set_side(value: String) -> void:
 		side = value
 		_apply_flip()
-
-	# combat-presentation ticket 09: called from CombatScreen._sync_band() for
-	# every slot, every sync -- see this class's own `_mirror_extra` comment.
 	func set_mirror_extra(value: bool) -> void:
 		_mirror_extra = value
 		_apply_flip()
 
 	func _apply_flip() -> void:
 		_sprite_rect.flip_h = (side == "enemy") != _mirror_extra
-
-	# combat-presentation ticket 10: which way this slot's own attack lunges/
-	# a hit recoils away from -- enemies face left (toward the player column),
-	# player/allies face right (toward the enemy column), same convention
-	# set_side()'s own comment already established for the sprite flip.
 	func _forward_dir() -> float:
 		return -1.0 if side == "enemy" else 1.0
 
 	func set_flash_alpha(value: float) -> void:
 		flash_alpha = value
 		_overlay.queue_redraw()
-
-	# Public entry point CombatScreen._play_juice() calls on a landed hit.
-	# Jumps straight to full white, then tweens back down to transparent --
-	# no live tree (e.g. a unit test constructing a bare StageSlot), no
-	# tween, same guard this file's other juice-layer tweens all use.
 	func flash_hit() -> void:
 		set_flash_alpha(1.0)
 		if not is_inside_tree():
 			return
 		var tween := create_tween()
 		tween.tween_method(set_flash_alpha, 1.0, 0.0, 0.18)
-
-	# combat-presentation ticket 10, docs/combat-animation-vision.md §5:
-	# prophetsBreath's deferred visual -- "the enemy's next pose ghosts in at
-	# ~30% alpha before it happens." CombatScreen._on_beat_played() calls
-	# this on a BEAT_PLAYER_EVADE beat's actor, immediately before calling
-	# play_attack() for the same beat (evade beats are still in
-	# _ATTACK_BEAT_KINDS -- they're a whiffed swing, not a no-op). The two
-	# are deliberately NOT sequenced (this doesn't block/delay play_attack())
-	# -- _ghost_rect is its own Control, so a translucent preview of the
-	# swing's wind-up pose fading in and back out reads fine layered under
-	# the real swing playing out at full opacity on _sprite_rect; actually
-	# blocking play_attack() until this finishes would need turning beat
-	# playback itself async for a purely cosmetic ordering nicety.
-	# No live tree, no tween, no visible ghost -- same guard flash_hit() uses.
 	func ghost_next_pose() -> void:
 		if _attack_keyposes.is_empty():
 			return
@@ -446,12 +149,6 @@ class StageSlot extends Control:
 		tween.tween_interval(0.1)
 		tween.tween_property(_ghost_rect, "modulate:a", 0.0, 0.12)
 		tween.tween_callback(func(): _ghost_rect.visible = false)
-
-	# combat-presentation ticket 09: CombatScreen._sync_band() calls this
-	# for every slot, every sync -- `frames` is the same shared array either
-	# way (nothing per-instance to build), so this is cheap to call
-	# unconditionally. An empty `frames` array (no manifest entry yet)
-	# reverts the slot to the ticket-01 placeholder box.
 	func set_idle_animation(frames: Array[Texture2D], fps: float) -> void:
 		_idle_frames = frames
 		_idle_frame_index = 0
@@ -464,12 +161,6 @@ class StageSlot extends Control:
 		else:
 			_idle_timer.stop()
 		queue_redraw()
-
-	# combat-presentation ticket 11, §5: timePearl's "enemy tweens drop to
-	# ~10% speed" -- scales _idle_timer's own tick rate. Re-synced every
-	# _sync_stage() call from combat.frozenTurns (see that func's own
-	# comment), not beat-driven -- frozenTurns is a combat-wide duration,
-	# not a one-shot.
 	var _time_scale: float = 1.0
 	var _idle_fps: float = 0.0
 
@@ -477,12 +168,6 @@ class StageSlot extends Control:
 		_time_scale = maxf(0.01, scale)
 		if _idle_frames.size() >= 2 and _idle_fps > 0.0:
 			_idle_timer.wait_time = 1.0 / (_idle_fps * _time_scale)
-
-	# combat-presentation ticket 11, §5: "enemy desaturates via shader" --
-	# a ShaderMaterial toggled on _sprite_rect only (not the ticket-01
-	# placeholder-box fallback -- a minor, accepted gap for the no-idle-art
-	# case, since real idle art lands well before this ticket's own effect
-	# sheets would). Built lazily, once per slot, and reused thereafter.
 	var _frozen_shader_material: ShaderMaterial
 	var _is_frozen_visual: bool = false
 
@@ -499,30 +184,11 @@ class StageSlot extends Control:
 			_sprite_rect.material = _frozen_shader_material
 		else:
 			_sprite_rect.material = null
-
-	# Ping-pong across however many frames were given (2, for today's single
-	# shared dummy sheet -- straight alternation, same as any 2-frame
-	# ping-pong). Public so tests can drive it directly without a live tree
-	# ever actually ticking _idle_timer -- see this class's own top comment.
-	# No-ops while a one-shot (_one_shot_steps non-empty) owns _sprite_rect's
-	# texture -- idle keeps ticking in the background regardless (simpler
-	# than stopping/restarting the timer around every one-shot), it just
-	# mustn't clobber the one-shot's current frame.
 	func _advance_idle_frame() -> void:
 		if _idle_frames.size() < 2 or not _one_shot_steps.is_empty():
 			return
 		_idle_frame_index = (_idle_frame_index + 1) % _idle_frames.size()
 		_sprite_rect.texture = _idle_frames[_idle_frame_index]
-
-	# combat-presentation ticket 10: manifest-driven loaders for the four
-	# transform one-shots, same shape and calling convention as
-	# set_idle_animation() (CombatScreen._sync_band() calls all five for
-	# every slot, every sync -- see that func's own comment for why that's
-	# cheap). `frames` is already down-sampled to the doctrine's keypose
-	# count by the time it reaches here (CombatScreen._select_action_keyposes()).
-	# Unlike idle, these don't start anything themselves -- a one-shot only
-	# plays when play_attack()/play_hit()/play_ko()/play_self_patch() is
-	# actually called, from a beat.
 	func set_attack_animation(frames: Array[Texture2D], fps: float) -> void:
 		_attack_keyposes = frames
 		_attack_fps = fps
@@ -538,17 +204,6 @@ class StageSlot extends Control:
 	func set_self_patch_animation(frames: Array[Texture2D], fps: float) -> void:
 		_self_patch_keyposes = frames
 		_self_patch_fps = fps
-
-	# Public entry points CombatScreen's beat-playback callbacks drive --
-	# _on_beat_played() for play_attack()/play_self_patch(), _play_juice()
-	# for play_hit()/play_ko(). A no-op when the manifest has nothing for
-	# this animation (empty keyposes) -- same "degrade quietly, never error"
-	# convention set_idle_animation()'s own empty-frames case already
-	# established. §4's doctrine: "Attack | 3 keyposes | transform lunge and
-	# return" -- wind-up at rest, strike at the lunge offset, recover back at
-	# rest; missing keyposes (a manifest entry with fewer than
-	# ATTACK_KEYPOSE_COUNT frames) repeat the last one available rather than
-	# erroring.
 	func play_attack() -> void:
 		if _attack_keyposes.is_empty():
 			return
@@ -562,12 +217,6 @@ class StageSlot extends Control:
 			PoseStep.new(recover, Vector2.ZERO),
 		]
 		_start_one_shot(steps, _attack_fps, false)
-
-	# §4: "Hit | 1 pose | transform recoil + white flash" -- the flash is
-	# CombatScreen._play_juice()'s own flash_hit() call, unchanged by this
-	# ticket. The single pose plays across two steps (recoiled, then back) so
-	# there's still a transform to animate even though there's only one
-	# keypose to show throughout it.
 	func play_hit() -> void:
 		if _hit_keyposes.is_empty():
 			return
@@ -578,14 +227,6 @@ class StageSlot extends Control:
 			PoseStep.new(pose, Vector2.ZERO),
 		]
 		_start_one_shot(steps, _hit_fps, false)
-
-	# §4: "KO | 2 poses | transform fall + fade." Holds on the fallen/faded
-	# last step rather than reverting to idle -- this slot's owner is koed.
-	# CombatScreen's frozen-roster mechanism (_play_round()/_sync_stage()) is
-	# what keeps this specific Node alive long enough to actually show the
-	# hold; the slot is freed for real once the round's beat playback
-	# finishes and _sync() reconciles the stage to the true (post-round)
-	# roster.
 	func play_ko() -> void:
 		if _ko_keyposes.is_empty():
 			return
@@ -596,13 +237,6 @@ class StageSlot extends Control:
 			PoseStep.new(pose2, Vector2(0.0, CombatScreen.FALL_SINK_PX), CombatScreen.FALL_ROTATION_DEG, CombatScreen.FALL_ALPHA),
 		]
 		_start_one_shot(steps, _ko_fps, true)
-
-	# §3: Archie's self-patch pose (`_allies_act`/`_ally_turn`'s heal-below-
-	# 40%-HP action) -- CombatScreen._on_beat_played() calls this on a
-	# BEAT_ALLY_HEAL beat's actor. No doctrine frame count is specified for
-	# this one (it's not in §4's table -- a per-subject extra, §3's own
-	# roster note), so it's played the same shape as hit: a single pose
-	# across a small rise-and-settle transform rather than a recoil.
 	func play_self_patch() -> void:
 		if _self_patch_keyposes.is_empty():
 			return
@@ -612,20 +246,6 @@ class StageSlot extends Control:
 			PoseStep.new(pose, Vector2.ZERO),
 		]
 		_start_one_shot(steps, _self_patch_fps, false)
-
-	# combat-presentation ticket 11, §5: enhancementPowder's afterimage trail
-	# -- "no art, duplicate sprite on an alpha ramp." Clones _sprite_rect's
-	# CURRENT texture/transform into a short-lived TextureRect that fades
-	# and frees itself, rather than a persistent tracked node -- called once
-	# per player attack beat while combat.motionTurns > 0 (see
-	# CombatScreen._on_beat_played()), so a Motion round's 2-3 rapid lunges
-	# each leave their own trailing ghost.
-	# combat-presentation ticket 11: the common "plain overlay TextureRect"
-	# shape spawn_afterimage()/play_effect_sheet()/set_shield_loop() each
-	# need -- centred-fit stretch, no input, drawn at the given z-index
-	# above/below the rest of this slot's content. Callers still set their
-	# own anchors/size/position (a full-slot fill vs. a size-matched ghost
-	# want different layout), just not this shared boilerplate.
 	func _new_overlay_rect(z: int) -> TextureRect:
 		var rect := TextureRect.new()
 		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -647,12 +267,6 @@ class StageSlot extends Control:
 		var tween := create_tween()
 		tween.tween_property(ghost, "modulate:a", 0.0, 0.22)
 		tween.tween_callback(ghost.queue_free)
-
-	# combat-presentation ticket 11, §5: "player folds to a vertical line
-	# and vanishes" -- squashes _sprite_rect to a sliver while fading out,
-	# then holds hidden (same "hold the end state, don't revert to idle"
-	# shape as play_ko() -- the fight is fleeing/over either way once this
-	# plays). Transform only, no new art.
 	func play_wormhole_vanish() -> void:
 		if not is_inside_tree():
 			return
@@ -661,13 +275,6 @@ class StageSlot extends Control:
 		tween.tween_property(_sprite_rect, "scale:x", 0.05, 0.25)
 		tween.parallel().tween_property(_sprite_rect, "modulate:a", 0.0, 0.25)
 		tween.tween_callback(func(): _sprite_rect.visible = false)
-
-	# combat-presentation ticket 11, §5: shield's "cracks and sheds a layer
-	# per absorb" -- a cyan overlay flash + a receding ring, distinct from
-	# flash_hit()'s plain white so an absorbed hit never reads as an
-	# ordinary landed one even though both can fire off the same
-	# enemy_attack() beat (see systems/combat.gd's `shieldAbsorbed` extra
-	# field). A separate alpha from flash_alpha so the two tweens can layer.
 	var _shield_crack_alpha: float = 0.0
 
 	func flash_shield_crack() -> void:
@@ -680,16 +287,6 @@ class StageSlot extends Control:
 	func _set_shield_crack_alpha(value: float) -> void:
 		_shield_crack_alpha = value
 		_overlay.queue_redraw()
-
-	# combat-presentation ticket 11, §5: plays one data/combat_visuals.json
-	# "effects" sheet, once, layered over this slot, then frees itself --
-	# not part of this class's own persistent one-shot machinery
-	# (_one_shot_steps etc.), since an effect sheet isn't this combatant's
-	# own pose, it's laid on top of whatever pose they're already in. A
-	# no-op (same "degrade quietly" convention as every other manifest
-	# lookup in this file) while `frames` is empty -- true for every effect
-	# key today, since no art has been produced yet (data/
-	# combat_visuals.json's own effectRule note).
 	func play_effect_sheet(frames: Array[Texture2D], fps: float) -> void:
 		if frames.is_empty() or fps <= 0.0 or not is_inside_tree():
 			return
@@ -713,14 +310,6 @@ class StageSlot extends Control:
 			fx.texture = frames[index]
 		)
 		timer.start()
-
-	# combat-presentation ticket 11, §5: shield's persistent 4-frame shimmer
-	# loop while player.shieldPool > 0 -- unlike play_effect_sheet() above
-	# (one-shot, fired per beat), this ties to a state DURATION the same way
-	# set_frozen_visual()/set_time_scale() do, so CombatScreen re-syncs it
-	# every _sync_stage() rather than firing it from a beat. Lazily built
-	# (only the player ever calls this), and, like every effect-sheet call
-	# in this file, a no-op while `frames` is empty.
 	var _shield_loop_rect: TextureRect
 	var _shield_loop_timer: Timer
 	var _shield_loop_frames: Array[Texture2D] = []
@@ -762,38 +351,18 @@ class StageSlot extends Control:
 		_one_shot_index = 0
 		_one_shot_hold_last_frame = hold_last_frame
 		_apply_pose_step(steps[0])
-		# combat-presentation ticket 09: a one-shot (still shared "default"
-		# art in the common case) can fire on a slot whose own idle is empty
-		# (no per-subject art yet), which leaves _sprite_rect hidden (see
-		# set_idle_animation()). Without forcing it visible here, the
-		# one-shot's frames would be assigned to a hidden TextureRect and
-		# never actually show. _end_one_shot() below is what hides it again
-		# once the one-shot finishes, if there's still no idle to fall back
-		# to.
 		_sprite_rect.visible = true
 		if steps.size() < 2 or fps <= 0.0:
 			_end_one_shot()
 			return
 		_one_shot_timer.wait_time = 1.0 / fps
 		_one_shot_timer.start()
-
-	# Applies one PoseStep's texture/offset/rotation/alpha to _sprite_rect --
-	# the "transform" half of "transform lunge/recoil/fall", shared by every
-	# play_*() one-shot and by _end_one_shot()'s own reset back to rest.
-	# pivot_offset is recomputed every call (cheap, and _sprite_rect's size
-	# is only known once it's actually been laid out by _sync_band()) so
-	# play_ko()'s fall rotation pivots around the sprite's own centre rather
-	# than its top-left corner.
 	func _apply_pose_step(step: PoseStep) -> void:
 		_sprite_rect.texture = step.texture
 		_sprite_rect.position = step.offset
 		_sprite_rect.pivot_offset = _sprite_rect.size / 2.0
 		_sprite_rect.rotation_degrees = step.rotation_degrees
 		_sprite_rect.modulate.a = step.alpha
-
-	# Public (not `_`-prefixed... it is, but so is _advance_idle_frame() --
-	# same off-tree-test convention) so tests can drive a one-shot forward
-	# without a live tree ever actually ticking _one_shot_timer.
 	func _advance_one_shot() -> void:
 		if _one_shot_steps.is_empty():
 			return
@@ -805,11 +374,6 @@ class StageSlot extends Control:
 			_end_one_shot()
 			return
 		_apply_pose_step(_one_shot_steps[_one_shot_index])
-
-	# Hands _sprite_rect's texture and transform back to idle/rest -- either
-	# the one-shot finished (attack/hit/self-patch) or it had too few steps
-	# or no fps to animate at all (single-frame or malformed manifest entry).
-	# Never called for a held (ko) one-shot; see _advance_one_shot() above.
 	func _end_one_shot() -> void:
 		_one_shot_timer.stop()
 		_one_shot_steps = []
@@ -820,11 +384,6 @@ class StageSlot extends Control:
 		if not _idle_frames.is_empty():
 			_sprite_rect.texture = _idle_frames[_idle_frame_index]
 		else:
-			# combat-presentation ticket 09: no idle to hand back to (this
-			# subject has no manifest art yet) -- revert to the ticket-01
-			# placeholder box exactly as set_idle_animation()'s own empty-
-			# frames case does, rather than leaving the one-shot's last frame
-			# stuck on screen.
 			_sprite_rect.visible = false
 			_sprite_rect.texture = null
 
@@ -833,10 +392,6 @@ class StageSlot extends Control:
 			var rect := Rect2(Vector2.ZERO, size)
 			draw_rect(rect, fill_color, true)
 			draw_rect(rect, Color(0, 0, 0, 0.55), false, 2.0)
-	# combat-presentation ticket 02: the placeholder box itself carries no
-	# name/HP label any more (see _build_slot() below) -- combatant_name is
-	# still set, purely as the template-id key _placeholder_color() and tests
-	# read, not for display.
 
 	func _draw_overlay() -> void:
 		var rect := Rect2(Vector2.ZERO, size)
@@ -847,209 +402,41 @@ class StageSlot extends Control:
 		if _shield_crack_alpha > 0.0:
 			_overlay.draw_rect(rect, Color(0.4, 0.85, 1.0, _shield_crack_alpha * 0.55), true)
 			_overlay.draw_rect(rect.grow(-2.0), Color(0.85, 0.95, 1.0, _shield_crack_alpha), false, 2.0)
-
-
-# combat-presentation ticket 04, docs/combat-animation-vision.md §8: the
-# stage's placeholder Controls are created once per fight and never
-# queue_free()'d on an ordinary turn any more -- only when a specific
-# combatant is actually koed does _sync_band() free that one slot, never the
-# rest of the band. This is what "persistent combatant nodes" means
-# architecturally: a later ticket's real sprite/AnimationPlayer work (08/09)
-# needs Node identity that survives across turns, which the old
-# per-state_changed queue_free() of the entire stage made impossible (see
-# that doc's §8).
-#
-# Keyed by the combatant's own stable index (combat.enemies'/combat.allies'
-# own array index, -1 for the player) rather than by fan display position --
-# a combatant's display position (front/back-left/back-right) can change
-# turn to turn (a kill re-ranks who's fan-front among the survivors), and an
-# earlier positional-pool version of this got that wrong: popping "the last
-# position" to shrink the pool could free a *survivor's* slot while leaving
-# a dead combatant's slot to be silently repurposed for someone else. Keying
-# by stable identity means a slot is only ever freed when the specific
-# combatant it represents is actually koed.
 var _enemy_slots: Dictionary = {}  # enemy index (int) -> StageSlot
 var _player_slots: Dictionary = {}  # -1 (player) or ally index (int) -> StageSlot
 var _enemy_band_layer: Control
 var _player_band_layer: Control
-
-# combat-presentation ticket 08, docs/combat-animation-vision.md §2.1/§6:
-# the per-context backdrop -- built once in _build_stage_skeleton() (behind
-# both band layers so combatants render on top of it) and re-pointed at
-# whichever context/fallback data/combat_visuals.json names for the current
-# fight each _sync_stage() (see _sync_backdrop() below). Exactly one of the
-# two is visible at a time: a real plate once ticket 09 lands one for a
-# context, the flat palette-colour fill until then.
 var _backdrop_texture: TextureRect
 var _backdrop_fill: ColorRect
-
-# combat-presentation ticket 10: the attack/hit/ko one-shots' shared
-# "default" stand-in, per data/combat_visuals.json's templates.default --
-# loaded once in _ready() (see _load_default_animations() below), not
-# per-sync/per-slot. This is the FALLBACK used only when a combatant's own
-# template key has no non-empty entry of its own (see
-# _resolve_action_keyposes() and _sync_band() below). Empty means no
-# manifest entry (or the image failed to load) -- that one-shot then just
-# never plays (see StageSlot's own play_*() comments), same "degrade
-# quietly" convention every manifest lookup in this file uses.
 var _default_attack_keyposes: Array[Texture2D] = []
 var _default_attack_fps: float = 12.0
 var _default_hit_keyposes: Array[Texture2D] = []
 var _default_hit_fps: float = 10.0
 var _default_ko_keyposes: Array[Texture2D] = []
 var _default_ko_fps: float = 12.0
-
-# combat-presentation ticket 09, docs/combat-animation-vision.md §3/§4: idle
-# frames+fps per cast-subject template key (data/combat_visuals.json's
-# "templates" entries, "default" included), loaded once in _ready()
-# (_load_template_idle_animations() below) rather than per-sync/per-slot.
-# Keyed by whatever enemy_template_key()/_player_display_entries()/
-# _ally_template_key resolve a slot's combatant to ("player", an ally's
-# contactId, a GameData.ENEMY_RAID_GUARDS key, "homeRaidRaider", "mugger",
-# or "default" itself, read directly by _sync_band() as the shared fallback
-# below). A key with no manifest entry, an empty image, or a missing file
-# resolves to the empty-frames default below, same as any other lookup here
-# -- what _sync_band() then DOES with that emptiness is its own call (falls
-# back to templates.default.idle, per a human-flagged follow-up to ticket 10:
-# every subject shows a sprite, real or the shared Gangsters_2-sourced stand-
-# in, not a blank box -- see that call site's own comment). This dict itself
-# stays a plain per-template lookup with no fallback baked in, so
-# _resolve_action_keyposes() can use it exactly like the attack/hit/ko
-# dictionaries below.
 var _idle_frames_by_template: Dictionary = {}
-# A genuinely typed empty array, used as _sync_band()'s Dictionary.get()
-# default below -- see that call site's own comment for why an untyped `[]`
-# literal there fails a runtime type check that this doesn't.
 var _empty_idle_frames: Array[Texture2D] = []
-
-# combat-presentation ticket 10, docs/combat-animation-vision.md §3/§4: the
-# per-subject counterparts to _idle_frames_by_template above -- attack/hit/
-# ko keyposes per template key, loaded once in _ready()
-# (_load_template_action_animations() below). An empty entry here doesn't
-# mean "show nothing" -- _resolve_action_keyposes() below falls back to the
-# shared _default_*_keyposes stand-in, exactly like idle now does too (see
-# that dict's own comment). _self_patch_keyposes_by_template has no such
-# fallback -- selfPatch is Archie-only, and "default" carries no heal pose
-# to lend (data/combat_visuals.json's own "actionRule" note).
 var _attack_keyposes_by_template: Dictionary = {}
 var _hit_keyposes_by_template: Dictionary = {}
 var _ko_keyposes_by_template: Dictionary = {}
 var _self_patch_keyposes_by_template: Dictionary = {}
-
-# combat-presentation ticket 11, docs/combat-animation-vision.md §5: one
-# entry per data/combat_visuals.json "effects" key (timePearl/blast/shield/
-# healingBurst/blackHole -- see that manifest's own effectRule note), loaded
-# once in _ready() (_load_effect_animations() below). No per-subject keying
-# (unlike the *_by_template dicts above) -- an effect sheet is the same
-# regardless of who triggered it or who it lands on.
 var _effect_frames_by_key: Dictionary = {}
-
-# combat-presentation ticket 05: the screen-shake wrapper -- see
-# _build_stage_skeleton()'s own comment for why this, not `frame`, is what
-# _shake_stage() tweens.
 var _stage_shake_layer: Control
-
-# The stage frame, the turn-order strip, and the footer (command deck, or
-# the log + outcome button once the fight resolves) are each held in their
-# own fixed-position holder so _sync() can rebuild just one of them without
-# disturbing _content's child order -- see _ready() below.
 var _stage_frame: Panel
 var _heading: Label
 var _pacing_button: Button
 var _strip_holder: VBoxContainer
 var _footer_holder: VBoxContainer
-
-# ui-chrome-pass ticket 03: the Dial+action-deck row's own fixed dock,
-# outside _content's ScrollContainer/margin flow -- see _ready()'s own
-# comment for why, and _build_dial_and_actions_row() for what rebuilds it.
 var _command_dock: HBoxContainer
-
-# combat-presentation ticket 05: the currently-mounted strip, kept so the
-# juice layer's ghost-drain calls can reach it without re-walking
-# _strip_holder's children. Rebuilt (and reassigned) every real _sync() --
-# see _sync() below -- but, like the strip itself, NOT torn down per-beat
-# mid-playback, which is exactly what lets a single round's worth of
-# ghost-drain calls land on the same NameplateCard instances in sequence.
 var _turn_order_strip: TurnOrderStrip
-
-# combat-presentation ticket 04: paces a round's beat queue back onto the
-# screen -- see scenes/components/combat_director.gd's own class comment for
-# why GameState is already final by the time this plays anything.
 var _director: CombatDirector
-
-# How far into combat.log's lines _push_revealed_log_line() has posted to
-# the top notification board; -1 means "not mid-playback" (the default, and
-# where this always ends up once a round's playback finishes or wasn't
-# triggered through the screen at all -- e.g. a system test calling
-# Combat.player_attack() directly never touches this). Set to the pre-round
-# log size when a round starts playing, then advanced one line per beat by
-# _on_beat_played() -- see _play_round() below.
 var _revealed_log_count: int = -1
-
-# combat-presentation ticket 05, §4.1: "HP bar lag-drain -- a ghost bar
-# chasing the real (already-updated) value down." Keyed by
-# TurnOrderStrip.card_key_string() (a "type:index" string, "-1" for the
-# player) -- the running hp each key's ghost bar is currently sitting at,
-# mid-drain. Seeded once per round by _init_ghost_tracker() (reconstructed
-# from combat's already-final hp plus this round's total damage, since
-# there's no separate "pre-round hp" snapshot to read -- GameState is
-# already final by the time any of this runs, same fact combat_director.gd's
-# own top comment explains for beats generally) and decremented beat by
-# beat as each damaging beat plays; cleared at the end of _play_beats()
-# since it's only meaningful mid-playback.
 var _ghost_tracker: Dictionary = {}
-
-# combat-presentation ticket 10: a pre-round snapshot of combat.enemies/
-# combat.allies (deep-copied, so later mutation of the live arrays can't
-# touch it), held only while a round's beats are playing. {} (the default,
-# and where this always ends up once playback finishes) means "read the
-# live GameState roster" -- see _sync_stage() above.
-#
-# Why this exists: Combat.player_attack()/flee() resolve the whole round
-# and emit state_changed synchronously before _play_beats() ever starts
-# playing beats back (combat_director.gd's own top comment) -- so the
-# ordinary state_changed -> _sync() -> _sync_stage() chain would already
-# have excluded a combatant koed *this* round from the fan before their
-# death beat even plays, same "gone by the time playback starts" gap
-# _play_juice()'s own comment flags for flash/damage-number/ghost-drain.
-# Snapshotting the pre-round roster and reading *that* for the first
-# _sync_stage() (fired mid-action.call(), before _play_beats() ever runs)
-# keeps every combatant who started the round alive on stage for its
-# duration, so a lethal beat's play_ko() (see _play_juice()) has a slot to
-# land on. _sync_band()'s own position/fan reflow only runs at round start
-# and round end (never mid-playback -- see _play_beats()), so a dying
-# combatant's slot holds its position and death pose for the whole round
-# without fighting a live re-fan. Cleared (and a final _sync() run against
-# the real, final roster) at the end of _play_beats() -- Dial-cast playback
-# (_on_dial_triggered()) never sets this, so it's unaffected by this
-# mechanism, same pre-existing (already-flagged) gap as before this ticket.
 var _frozen_roster: Dictionary = {}
-
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 	_content = UI.screen_body(self)
-
-	# ui-chrome-pass ticket 03 (human direction, 2026-09-11, revised again
-	# same day): the Dial+action-deck row lives OUTSIDE _content's
-	# ScrollContainer/margin flow entirely, in its own fixed Control anchored
-	# to the true bottom-left of the SCREEN -- not just stretched/aligned
-	# within the margin-constrained column (tried first, see this ticket's
-	# own git history: that approach only ever had 358px of width to share
-	# between the Dial and the action deck, capping the Dial's size well
-	# below "a real prop" once both had to fit side by side). Breaking out of
-	# the column bleeds past its left/bottom margins for real extra room, and
-	# lets the Dial's art run flush to the screen's own bottom edge.
-	#
-	# Added AFTER _content (a later sibling, so it paints on top and is
-	# checked first for input -- same proven-safe ordering
-	# `_sync_command_dock()`'s predecessor already used) rather than behind
-	# it: layout Containers here (VBoxContainer/MarginContainer/
-	# ScrollContainer, and UI.card()'s own PanelContainer -- see that
-	# function's own mouse_filter comment) all use MOUSE_FILTER_PASS, only
-	# actual leaf controls (Button, DialWidget) STOP -- so a later sibling
-	# only intercepts taps where ITS OWN leaf controls actually sit, letting
-	# anything in _content still receive its own input normally underneath.
 	_command_dock = UI.hbox(8)
 	_command_dock.anchor_left = 0.0
 	_command_dock.anchor_right = 1.0
@@ -1060,13 +447,6 @@ func _ready() -> void:
 	_command_dock.offset_bottom = -COMMAND_DOCK_BOTTOM_MARGIN
 	_command_dock.offset_top = -(COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_HEIGHT)
 	add_child(_command_dock)
-
-	# screen_body()'s ScrollContainer reserves NavBar.BAR_HEIGHT at the
-	# bottom unconditionally (anchor_below_bars()'s own offset_bottom), even
-	# though combat is a NAV_HIDDEN_SCREENS screen with no NavBar to clear.
-	# Reclaim that dead space, then reserve real room for _command_dock on
-	# top of it, so the scrollable heading/strip/stage/Complication-detail
-	# content never renders underneath the fixed dock.
 	var scroll_container := _content.get_parent().get_parent() as Control
 	scroll_container.offset_bottom = -(COMMAND_DOCK_HEIGHT + COMMAND_DOCK_BOTTOM_MARGIN)
 
@@ -1077,12 +457,6 @@ func _ready() -> void:
 	_load_template_idle_animations()
 	_load_template_action_animations()
 	_load_effect_animations()
-
-	# combat-presentation ticket 04: the player-facing half of
-	# CombatDirector's persisted pacing toggle (CombatPacing, same
-	# systems-own-the-schema split as MapEvents.pacing_mode()) -- without a
-	# real control calling _director.set_pacing(), "quick" pacing would be
-	# fully wired end to end yet unreachable in an actual playthrough.
 	var heading_row := UI.hbox(8)
 	_heading = UI.heading("")
 	heading_row.add_child(_heading)
@@ -1100,26 +474,9 @@ func _ready() -> void:
 	_content.add_child(_footer_holder)
 
 	EventBus.state_changed.connect(_sync)
-	# combat-presentation ticket 11: the direct bag-item consumable path's
-	# beats/reverse-beats -- see EventBus.combat_beats_played's own comment
-	# for why this signal (not a direct return-value handoff) is needed.
 	EventBus.combat_beats_played.connect(_on_combat_beats_played)
 	EventBus.combat_rewind_played.connect(_on_combat_rewind_played)
 	_sync()
-
-
-# combat-presentation ticket 10: loads data/combat_visuals.json's
-# templates.default.{attack,hit,ko} -- the shared, not-final-art build-test
-# sheet set used as _resolve_action_keyposes()'s fallback for any
-# subject whose own per-subject entry (loaded by
-# _load_template_action_animations() below) is still empty. Each sheet is
-# sliced into `frameCount` equal-width AtlasTextures then down-sampled to the
-# doctrine's own keypose count by _select_action_keyposes() -- "default"'s
-# own dummy sheets carry more frames than the doctrine (leftovers from
-# before this ticket properly split attack/hit/ko into keyposes+transform),
-# which is exactly the case that down-sampling exists to handle. idle is
-# deliberately absent here -- ticket 09 moved it to
-# _load_template_idle_animations() below.
 func _load_default_animations() -> void:
 	var attack := _load_action_keyposes("default", "attack", ATTACK_KEYPOSE_COUNT)
 	_default_attack_keyposes = attack["frames"]
@@ -1132,28 +489,11 @@ func _load_default_animations() -> void:
 	var ko := _load_action_keyposes("default", "ko", KO_KEYPOSE_COUNT)
 	_default_ko_keyposes = ko["frames"]
 	_default_ko_fps = ko["fps"]
-
-
-# combat-presentation ticket 09: loads every data/combat_visuals.json
-# templates.<key>.idle entry -- "default" included (harmless: no combatant's
-# resolved template key is ever literally "default", so its idle entry just
-# never gets looked up -- see _idle_frames_by_template's own comment). Fully
-# manifest-driven (every key present under "templates", not a hardcoded
-# roster of the seven cast subjects) so a future ticket that adds an eighth
-# subject's manifest entry needs no code change here, per docs/
-# combat-animation-vision.md §6 step 4 ("manifest, not hardcoding").
 func _load_template_idle_animations() -> void:
 	_idle_frames_by_template = {}
 	var templates: Dictionary = GameData.COMBAT_VISUALS.get("templates", {})
 	for key in templates.keys():
 		_idle_frames_by_template[key] = _load_animation_frames(key, "idle")
-
-
-# combat-presentation ticket 10: the attack/hit/ko/selfPatch counterpart to
-# _load_template_idle_animations() above -- same fully-manifest-driven loop,
-# each sheet down-sampled to its doctrine keypose count (§4's table;
-# selfPatch has no doctrine entry, so it's loaded at HIT_KEYPOSE_COUNT --
-# StageSlot.play_self_patch() only ever reads keyposes[0] regardless).
 func _load_template_action_animations() -> void:
 	_attack_keyposes_by_template = {}
 	_hit_keyposes_by_template = {}
@@ -1165,25 +505,9 @@ func _load_template_action_animations() -> void:
 		_hit_keyposes_by_template[key] = _load_action_keyposes(key, "hit", HIT_KEYPOSE_COUNT)
 		_ko_keyposes_by_template[key] = _load_action_keyposes(key, "ko", KO_KEYPOSE_COUNT)
 		_self_patch_keyposes_by_template[key] = _load_action_keyposes(key, "selfPatch", HIT_KEYPOSE_COUNT)
-
-
-# _load_animation_frames() (unrestricted frame count) plus the doctrine
-# down-sample -- shared by every attack/hit/ko/selfPatch load site above, so
-# a manifest sheet with more frames than the doctrine calls for (today, only
-# templates.default's own leftover multi-frame dummy strips) still resolves
-# to exactly `count` keyposes, evenly spaced across whatever the sheet has.
 func _load_action_keyposes(template_key: String, key: String, count: int) -> Dictionary:
 	var loaded := _load_animation_frames(template_key, key)
 	return { "frames": _select_action_keyposes(loaded["frames"], count), "fps": loaded["fps"] }
-
-
-# Evenly-spaced down-sample to exactly `count` textures (or fewer, if
-# `frames` itself has fewer -- StageSlot's own play_*() functions already
-# clamp/repeat when a keypose array is shorter than the doctrine calls for,
-# same "degrade quietly" convention as everywhere else in this manifest
-# pipeline). A `frames` array already at or below `count` passes through
-# unchanged -- the identity case a real, doctrine-authored per-subject sheet
-# (exactly 3/1/2 frames) always hits.
 func _select_action_keyposes(frames: Array[Texture2D], count: int) -> Array[Texture2D]:
 	var out: Array[Texture2D] = []
 	if frames.is_empty() or count <= 0:
@@ -1194,14 +518,6 @@ func _select_action_keyposes(frames: Array[Texture2D], count: int) -> Array[Text
 		var idx: int = 0 if count == 1 else int(round(float(i) * float(frames.size() - 1) / float(count - 1)))
 		out.append(frames[idx])
 	return out
-
-
-# Resolves one combatant's own attack/hit/ko keyposes+fps, falling back to
-# the shared "default" stand-in (`default_frames`/`default_fps`) when its
-# own per-subject manifest entry is empty -- see _default_attack_keyposes'
-# own top comment for why attack/hit/ko get this fallback and idle doesn't.
-# Passing `_empty_idle_frames`/0.0 as the default (selfPatch's call site)
-# makes this degrade to "no fallback at all", since selfPatch has none.
 func _resolve_action_keyposes(by_template: Dictionary, template_key: String, default_frames: Array[Texture2D], default_fps: float) -> Dictionary:
 	var entry: Dictionary = by_template.get(template_key, {})
 	var frames: Array[Texture2D] = entry.get("frames", _empty_idle_frames)
@@ -1209,18 +525,9 @@ func _resolve_action_keyposes(by_template: Dictionary, template_key: String, def
 		return { "frames": default_frames, "fps": default_fps }
 	return { "frames": frames, "fps": entry.get("fps", 0.0) }
 
-
 func _load_animation_frames(template_key: String, key: String) -> Dictionary:
 	var entry: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get(template_key, {}).get(key, {})
 	return _load_sheet_frames(entry)
-
-
-# combat-presentation ticket 11: the actual sheet-slicing logic, factored
-# out of _load_animation_frames() above so _load_effect_animations() below
-# (data/combat_visuals.json's flat "effects" table, not nested under
-# "templates" the way idle/attack/hit/ko are) can reuse it against a
-# manifest entry it already has in hand, rather than a template/key lookup
-# path this manifest shape doesn't have.
 func _load_sheet_frames(entry: Dictionary) -> Dictionary:
 	var image_path: String = entry.get("image", "")
 	var frame_count: int = entry.get("frameCount", 0)
@@ -1239,30 +546,11 @@ func _load_sheet_frames(entry: Dictionary) -> Dictionary:
 		frames.append(atlas)
 
 	return { "frames": frames, "fps": entry.get("fps", 0.0) }
-
-
-# combat-presentation ticket 11: loads every data/combat_visuals.json
-# "effects" entry -- flat (not per-subject, unlike idle/attack/hit/ko), so
-# this is a one-level loop rather than _load_template_idle_animations()'s
-# nested one. An empty "image" (every entry today -- no art produced yet)
-# resolves to empty frames, same quiet-degrade convention as everywhere
-# else in this manifest pipeline.
 func _load_effect_animations() -> void:
 	_effect_frames_by_key = {}
 	var effects: Dictionary = GameData.COMBAT_VISUALS.get("effects", {})
 	for key in effects.keys():
 		_effect_frames_by_key[key] = _load_sheet_frames(effects[key])
-
-
-# combat-presentation ticket 04: replaces the old _refresh(), which
-# queue_free()'d every child of _content on every EventBus.state_changed --
-# the stage's combatant placeholders (_enemy_slots/_player_slots) now update
-# their bound state in place instead (_sync_stage() below). The turn-order
-# strip and footer (command deck, or the log + outcome button) still rebuild
-# their own contents each call -- neither carries a sprite, tween, or
-# AnimationPlayer that needs to survive a turn (TurnOrderStrip/DialWidget are
-# plain vector UI, not the "combatant nodes" §8 is about), so there's nothing
-# for a full rebuild there to interrupt.
 func _sync() -> void:
 	var combat: Dictionary = GameState.state["combat"]
 	var player: Dictionary = GameState.state["player"]
@@ -1279,15 +567,12 @@ func _sync() -> void:
 
 	_sync_footer(combat, player)
 
-
 func _pacing_button_label() -> String:
 	return "⏱ Quick" if _director.pacing_mode == "quick" else "⏱ Normal"
-
 
 func _on_pacing_button_pressed() -> void:
 	_director.set_pacing("normal" if _director.pacing_mode == "quick" else "quick")
 	_pacing_button.text = _pacing_button_label()
-
 
 func _context_label(context: String) -> String:
 	if context == "home_raid":
@@ -1299,57 +584,15 @@ func _context_label(context: String) -> String:
 	if context == Combat.CONTEXT_ARCHIE_DEAL_MUGGING:
 		return "Archie's Deal"
 	return "Mugging"
-
-
-# field-kit-chrome ticket 03, ui-vision.md §5's 2026-09-11 amendment:
-# mid-fight, there's no log in the footer at all any more -- combat.log
-# lines post to the top dot-matrix board as they're revealed (see
-# _on_beat_played()'s Notify.push() call) instead of rendering under the
-# stage, so the command deck is just the Dial/actions row on its own.
-#
-# ui-chrome-pass ticket 02: the post-fight recap log is gone too -- the
-# live ticker above already showed every line as it happened, so a static
-# repeat of it afterward was redundant. Once the fight's over, the footer
-# is just the outcome button on its own.
 func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
 	for child in _footer_holder.get_children():
 		child.queue_free()
-	# combat-presentation ticket 04: the outcome button (which calls
-	# Combat.exit_combat() and tears this screen down) only ever appears
-	# once the director has fully finished playing the beat queue back --
-	# never while _director.is_playing(), even if this round's beats
-	# already resolved the fight. Without this gate, a player could tap
-	# Continue mid-playback and free this screen out from under
-	# _play_round()'s still-pending `await _director.play(...)`, which
-	# would then try to call back into a freed CombatScreen instance.
-	# map_canvas.gd's own MapEvents.abandon_playback()/Nav.go_to() guard
-	# solves the equivalent problem for map-event playback; not reusing
-	# that machinery here (this screen's playback can only ever be exited
-	# via this one button, unlike the map's several navigate-away paths) --
-	# simply not offering the exit while playback is live closes the same
-	# hole with much less code.
 	if combat["outcome"] != null and not _director.is_playing():
 		_footer_holder.add_child(_build_outcome_button(combat["outcome"], combat["context"]))
-		# ui-chrome-pass ticket 03: _command_dock lives outside _footer_holder
-		# (see _ready()'s own comment), so clearing _footer_holder's children
-		# above doesn't touch it -- has to be cleared here explicitly, same
-		# "command deck (cards + Dial) is replaced by the outcome button once
-		# the fight is over" rule this screen has always held.
 		for child in _command_dock.get_children():
 			child.queue_free()
 	else:
 		_build_command_deck(player)
-
-
-# combat-presentation ticket 02, §2.4: the one component doing nameplate +
-# HP/status detail + turn order + targeting, replacing the on-stage name/HP
-# labels _build_slot() used to carry as an interim measure (now removed --
-# see that func's own comment).
-#
-# _strip_selected_key survives across refreshes (this screen node does, even
-# though _content's children don't); this picks the entries[] position it
-# still refers to, or falls back to whichever card carries
-# combat.focusedEnemyIndex, or the first card, the first time a fight starts.
 func _build_turn_order_strip(combat: Dictionary, player: Dictionary) -> TurnOrderStrip:
 	var strip := TurnOrderStrip.new()
 	var entries: Array = strip.build_entries(combat, player)
@@ -1358,7 +601,6 @@ func _build_turn_order_strip(combat: Dictionary, player: Dictionary) -> TurnOrde
 		_strip_selected_key = entries[selected_pos]["key"]
 	strip.configure(entries, maxi(0, selected_pos), combat, player, STAGE_WIDTH, _on_strip_selection_changed)
 	return strip
-
 
 func _selected_strip_pos(entries: Array, combat: Dictionary) -> int:
 	for i in range(entries.size()):
@@ -1369,35 +611,12 @@ func _selected_strip_pos(entries: Array, combat: Dictionary) -> int:
 		if key["type"] == "enemy" and key["index"] == combat["focusedEnemyIndex"]:
 			return i
 	return 0 if not entries.is_empty() else -1
-
-
-# Swiping to an enemy card is the targeting gesture (§2.2) -- routed through
-# Combat.set_focused_enemy() since screens never mutate GameState.state
-# directly; that call emits state_changed, which drives _sync() itself.
-# Swiping to the player/an ally card is inert for targeting but still moves
-# which card is displayed as focused, so _sync() is called directly
-# (nothing in GameState changed, so nothing would otherwise trigger it).
 func _on_strip_selection_changed(new_key: Dictionary) -> void:
 	_strip_selected_key = new_key
 	if new_key["type"] == "enemy":
 		Combat.set_focused_enemy(new_key["index"])
 	else:
 		_sync()
-
-
-# §9's "lit-window frame": a recessed dark inset with a hard 2px border and
-# a slight inner vignette, embedded in the surrounding parchment/vector
-# chrome -- so the pixel stage reads as a window onto the street even before
-# any backdrop art exists. combat-presentation ticket 08 adds the actual
-# per-context backdrop (_backdrop_texture/_backdrop_fill below) reading
-# data/combat_visuals.json; until a real plate lands for a context it's the
-# same flat dark fill this comment used to describe, now sourced from the
-# manifest's fallbackColor instead of hardcoded here.
-#
-# combat-presentation ticket 04: built once, in _ready() -- the frame, its
-# vignette, and the two band layers (_enemy_band_layer/_player_band_layer)
-# are never rebuilt; only the placeholder slots living inside the band
-# layers change, via _sync_stage()/_sync_band() below.
 func _build_stage_skeleton() -> Panel:
 	var frame := Panel.new()
 	frame.custom_minimum_size = Vector2(STAGE_WIDTH, STAGE_HEIGHT)
@@ -1411,35 +630,12 @@ func _build_stage_skeleton() -> Panel:
 	frame_style.border_width_bottom = STAGE_BORDER_WIDTH
 	frame_style.border_color = Color(0, 0, 0, 0.65)
 	frame.add_theme_stylebox_override("panel", frame_style)
-	# Panel (like PanelContainer, per ui.gd's card() comment) defaults to
-	# MOUSE_FILTER_STOP, which would swallow a scroll drag that starts over
-	# the stage before it reaches screen_body()'s ancestor
-	# TouchScrollContainer (bugfixes ticket 16). Nothing inside the stage is
-	# interactive (every slot is MOUSE_FILTER_IGNORE), so PASS costs nothing.
 	frame.mouse_filter = Control.MOUSE_FILTER_PASS
-	# combat-presentation ticket 04: tap-to-fast-forward (§8) -- a tap
-	# anywhere on the stage while the director is mid-playback snaps the
-	# current beat's pause, same "tap advances the current one-shot" gesture
-	# MapCanvas._skip_current() offers over the map's own event playback.
 	frame.gui_input.connect(_on_stage_gui_input)
-
-	# combat-presentation ticket 05, §4.1: screen shake's own layer, sitting
-	# between `frame` (a Panel -- outside any Container, so this is safe to
-	# reposition) and the actual band content. Shaking `frame` itself would
-	# fight _content's VBoxContainer, which re-asserts every direct child's
-	# position on its own sort passes; a Panel's own children are never
-	# repositioned by their parent, so a tween on _stage_shake_layer.position
-	# sticks for the length of the shake instead of snapping back mid-tween.
 	_stage_shake_layer = Control.new()
 	_stage_shake_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stage_shake_layer.size = Vector2(STAGE_WIDTH, STAGE_HEIGHT)
 	frame.add_child(_stage_shake_layer)
-
-	# combat-presentation ticket 08: the backdrop sits behind both bands, and
-	# inset by the frame's own border width so it never paints over the hard
-	# 2px border §9 calls for. _sync_backdrop() (called from _sync_stage())
-	# picks which of these two is visible; both exist from the start so
-	# there's nothing to build/free per context switch.
 	var backdrop_origin := Vector2(STAGE_BORDER_WIDTH, STAGE_BORDER_WIDTH)
 	var backdrop_size := Vector2(STAGE_WIDTH, STAGE_HEIGHT) - backdrop_origin * 2.0
 
@@ -1453,12 +649,6 @@ func _build_stage_skeleton() -> Panel:
 	_backdrop_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_backdrop_texture.position = backdrop_origin
 	_backdrop_texture.size = backdrop_size
-	# STRETCH_KEEP_ASPECT_COVERED, not STRETCH_SCALE: a 390x360 native plate
-	# (docs/ART-BIBLE.md §3) doesn't share backdrop_size's exact aspect ratio
-	# (the stage is narrower than 390 -- see STAGE_WIDTH's own comment above),
-	# so a plain non-uniform scale would squash it. Uniform scale-to-cover
-	# crops the overflow instead (frame.clip_contents already clips it) --
-	# never distorts a straight line in the art into a diagonal one.
 	_backdrop_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_backdrop_texture.visible = false
 	_stage_shake_layer.add_child(_backdrop_texture)
@@ -1475,7 +665,6 @@ func _build_stage_skeleton() -> Panel:
 
 	return frame
 
-
 func _on_stage_gui_input(event: InputEvent) -> void:
 	if not _director.is_playing():
 		return
@@ -1483,27 +672,16 @@ func _on_stage_gui_input(event: InputEvent) -> void:
 	if pressed:
 		_director.fast_forward_current_beat()
 
-
 func _sync_stage(combat: Dictionary, player: Dictionary) -> void:
 	_sync_backdrop(combat["context"])
 
 	var enemies: Array = _frozen_roster.get("enemies", combat["enemies"])
 	var allies: Array = _frozen_roster.get("allies", combat["allies"])
-
-	# combat-presentation ticket 10: player+allies left column, enemies right
-	# -- see PLAYER_BAND_WIDTH/ENEMY_BAND_WIDTH's own comment for why this
-	# departs from the vision doc's stacked-bands grammar.
 	var player_entries := _player_display_entries(player, allies)
 	_sync_band(_player_slots, _player_band_layer, player_entries, Vector2(PLAYER_BAND_WIDTH, STAGE_HEIGHT), Vector2.ZERO, "player")
 
 	var enemy_entries := _enemy_display_entries(enemies, combat["focusedEnemyIndex"])
 	_sync_band(_enemy_slots, _enemy_band_layer, enemy_entries, Vector2(ENEMY_BAND_WIDTH, STAGE_HEIGHT), Vector2(PLAYER_BAND_WIDTH + COLUMN_GAP, 0.0), "enemy")
-
-	# combat-presentation ticket 11, §5: timePearl's "enemy desaturates via
-	# shader; enemy tweens drop to ~10% speed" and shield's persistent
-	# shimmer loop -- both tied to a live state DURATION (frozenTurns/
-	# shieldPool), not a one-shot beat, so both are re-synced here on every
-	# _sync_stage() call rather than fired from _on_beat_played().
 	var frozen: bool = combat["frozenTurns"] > 0
 	for slot in _enemy_slots.values():
 		slot.set_time_scale(0.1 if frozen else 1.0)
@@ -1513,18 +691,6 @@ func _sync_stage(combat: Dictionary, player: Dictionary) -> void:
 	if player_slot != null:
 		var shield_entry: Dictionary = _effect_frames_by_key.get("shield", {})
 		player_slot.set_shield_loop(shield_entry.get("frames", _empty_idle_frames), shield_entry.get("fps", 0.0), player["shieldPool"] > 0)
-
-
-# combat-presentation ticket 08, docs/combat-animation-vision.md §2.1/§6:
-# reads data/combat_visuals.json (GameData.COMBAT_VISUALS) for this fight's
-# context and shows either the real plate or the flat palette-colour
-# fallback -- never both, and never neither. GameData.validate() already
-# guarantees every Combat.CANONICAL_CONTEXTS context has an entry with an
-# image or a fallbackColor, but an unrecognised context (defensive only --
-# Combat.is_canonical_context() rejects these earlier) or a plate whose file
-# went missing still resolves to the same dark fill _build_stage_skeleton()
-# used before this ticket, rather than a missing-texture error or a blank
-# stage.
 func _sync_backdrop(context: String) -> void:
 	var backdrops: Dictionary = GameData.COMBAT_VISUALS.get("backdrops", {})
 	var entry: Dictionary = backdrops.get(context, {})
@@ -1537,16 +703,6 @@ func _sync_backdrop(context: String) -> void:
 		_backdrop_fill.color = GameData.PALETTE.get(entry.get("fallbackColor", ""), STAGE_DEFAULT_FILL)
 		_backdrop_fill.visible = true
 		_backdrop_texture.visible = false
-
-
-# Up to Combat.SQUAD_MAX non-koed enemies, fanned in their existing
-# combat.enemies array order, tagged with whether they're the glow target.
-# Builds fresh display dicts rather than reusing combat["enemies"]' own
-# entries -- SCREENS never mutate GameState.state, and later attaching an
-# "isFocused" key onto a live state dict would do exactly that. `index` is
-# combat.enemies' own array index -- stable for this enemy's whole life in
-# the fight, used by _sync_band() below to key each combatant's persistent
-# StageSlot by identity rather than by fan display position.
 func _enemy_display_entries(enemies: Array, focused_index: int) -> Array:
 	var display: Array = []
 	for i in range(enemies.size()):
@@ -1556,30 +712,6 @@ func _enemy_display_entries(enemies: Array, focused_index: int) -> Array:
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
-
-
-# combat-presentation ticket 09, docs/combat-animation-vision.md §3: resolves
-# an enemy state dict to its data/combat_visuals.json template key. Derived
-# from data already on the enemy rather than a new state field (GameState
-# stays a pure tree, and this is exactly what "name" already existed for --
-# see _placeholder_color()'s own precedent for a name-keyed screen-side
-# lookup): `isMugging` is the reliable signal for "mugger" (every concurrent
-# Mugger instance shares it, regardless of how the intro-line names them --
-# see Combat._spawn_mugger_instance()); otherwise the enemy's `name` is
-# matched against GameData.ENEMY_RAID_GUARDS' own `name` fields (territorial
-# Scrapper/Vein Guard/Orichalchum Dealer) and GameData.ENEMY_HOME_RAID_
-# RAIDER's (The Raider) rather than hardcoding those names a second time
-# here -- data/enemies.json stays the one place that spells them. No match
-# (a test fixture's arbitrary name, or a future enemy template this lookup
-# doesn't know about yet) resolves to "" -- _sync_band()'s idle lookup
-# already treats an unresolved key as "no manifest entry", same quiet
-# fallback to the shared default stand-in as any other gap.
-#
-# combat-presentation ticket 10: public and static (mirrors
-# CombatDirector.beat_is_damaging()'s own "public so more than one file can
-# share the exact same test" precedent) so scenes/components/
-# turn_order_strip.gd's own telegraph-pose lookup resolves an enemy to the
-# same template key this file uses, rather than duplicating the lookup.
 static func enemy_template_key(enemy: Dictionary) -> String:
 	if enemy.get("isMugging", false):
 		return "mugger"
@@ -1590,39 +722,14 @@ static func enemy_template_key(enemy: Dictionary) -> String:
 	if GameData.ENEMY_HOME_RAID_RAIDER.get("name", "") == name:
 		return "homeRaidRaider"
 	return ""
-
-
-# The player (always the fan's front/large slot -- they're the one
-# character guaranteed present) plus up to SQUAD_MAX - 1 non-koed allies.
-# The glow is enemy-only (§2.2), so isFocused is always false here. -1 is
-# the player's own stable key (never a valid combat.allies index); an
-# ally's `index` is its own combat.allies array index, same "stable for its
-# whole life in the fight" role as an enemy's.
-# 44-archie-combat-ally: koed allies stay in combat["allies"] (so
-# knock_out()'s cooldown has something to key off), so they're filtered out
-# here rather than at the state layer, same as the old card-list code did.
 func _player_display_entries(player: Dictionary, allies: Array) -> Array:
 	var display: Array = [{ "name": "You", "isFocused": false, "index": -1, "templateKey": "player" }]
 	for i in range(allies.size()):
 		if not allies[i]["koed"]:
-			# combat-presentation ticket 09: an ally's own contactId (already
-			# on the dict -- Contacts.build_combat_ally()) *is* its template
-			# key, e.g. "archie" for data/constants.json's contacts.archie --
-			# no separate name-matching table needed the way enemies need one.
 			display.append({ "name": allies[i]["name"], "isFocused": false, "index": i, "templateKey": allies[i].get("contactId", "") })
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
-
-
-# combat-presentation ticket 04: reconciles `pool` (one of _enemy_slots/
-# _player_slots, keyed by each combatant's own stable index -- see
-# _enemy_display_entries()/_player_display_entries() above) against
-# `display_entries` instead of rebuilding the band from scratch. A slot is
-# only ever created the first time its combatant is displayed and only ever
-# freed once that specific combatant is koed -- a survivor's slot is the
-# exact same Node turn to turn even as its own fan *position* (front/
-# back-left/back-right) reflows around who else is still standing.
 func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_size: Vector2, band_origin: Vector2, side: String) -> void:
 	var live_keys: Dictionary = {}
 	for entry in display_entries:
@@ -1635,12 +742,6 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 			pool.erase(key)
 
 	var rects := _fan_local_rects(band_size, display_entries.size(), side == "enemy")
-	# combat-presentation ticket 09: how many display entries so far this
-	# sync share a given template key -- e.g. a 2x/3x Mugger roster, all
-	# resolving to "mugger" -- so the "reused sheet, mirrored/offset per fan
-	# slot" acceptance check (no per-instance art) has something to alternate
-	# on below. Fresh every _sync_band() call, in fan-position order (front,
-	# then the two staggered-behind slots), not persisted across syncs.
 	var template_occurrence: Dictionary = {}
 	for i in range(display_entries.size()):
 		var entry: Dictionary = display_entries[i]
@@ -1667,46 +768,10 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 		var template_key: String = entry.get("templateKey", "")
 		var occurrence: int = template_occurrence.get(template_key, 0)
 		template_occurrence[template_key] = occurrence + 1
-		# combat-presentation ticket 09: every other concurrent instance of
-		# the same template (occurrence 1, 3, ...) gets the extra mirror --
-		# see StageSlot's own `_mirror_extra` comment for why.
 		slot.set_mirror_extra(not template_key.is_empty() and occurrence % 2 == 1)
-		# combat-presentation ticket 10 (human-flagged follow-up): idle now
-		# gets the exact same per-subject-with-default-fallback treatment as
-		# attack/hit/ko below, reusing _resolve_action_keyposes() -- the
-		# fallback source is templates.default's own idle entry (already
-		# loaded into _idle_frames_by_template["default"] by
-		# _load_template_idle_animations(), no separate loading needed).
-		# templates.default.idle is the same Gangsters_2-sourced art already
-		# shared by attack/hit/ko (assets/combat/dummy/*.png -- see that
-		# commit's own history), so this is "use Gangsters_2 as the shared
-		# placeholder for every type," not a new asset. The ticket-01
-		# placeholder box (StageSlot._draw()) is now unreachable in normal
-		# play (every combatant gets a sprite, real or shared stand-in) --
-		# left in place as a defensive fallback for the one remaining gap
-		# (templates.default.idle itself missing/broken), same "degrade
-		# quietly, never error" convention as everywhere else in this file,
-		# rather than deleted as dead code.
 		var default_idle: Dictionary = _idle_frames_by_template.get("default", {})
-		# _empty_idle_frames (a real typed Array[Texture2D], not a `[]`
-		# literal) as the .get() default -- an untyped `[]` literal here
-		# fails a runtime "Array to Array[Texture2D]" type check on assignment
-		# for any templateKey with no manifest entry (every test-fixture enemy
-		# name, and every real subject before its art lands), which a `[]`
-		# default doesn't trip since it's only ever reached via a dict that
-		# came out of _load_animation_frames (always genuinely typed there).
 		var idle := _resolve_action_keyposes(_idle_frames_by_template, template_key, default_idle.get("frames", _empty_idle_frames), default_idle.get("fps", 0.0))
 		slot.set_idle_animation(idle["frames"], idle["fps"])
-		# combat-presentation ticket 10: attack/hit/ko prefer this combatant's
-		# own per-subject keyposes, falling back to the shared "default"
-		# stand-in when its own entry is empty -- see _resolve_action_keyposes()
-		# and the _default_*_keyposes vars' own comments. selfPatch has no
-		# "default" fallback (Archie-only, per that dict's own top comment) --
-		# _empty_idle_frames/0.0 as its "default" makes
-		# _resolve_action_keyposes() degrade to "no fallback at all". Looped
-		# (rather than four repeated resolve+set pairs) since all four share
-		# the exact same shape -- only which dictionary/default/setter
-		# differs.
 		for action in [
 			[_attack_keyposes_by_template, _default_attack_keyposes, _default_attack_fps, slot.set_attack_animation],
 			[_hit_keyposes_by_template, _default_hit_keyposes, _default_hit_fps, slot.set_hit_animation],
@@ -1716,30 +781,9 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 			var resolved: Dictionary = _resolve_action_keyposes(action[0], template_key, action[1], action[2])
 			var setter: Callable = action[3]
 			setter.call(resolved["frames"], resolved["fps"])
-
-	# Display position 0 is always the fan's front/large slot (see
-	# _fan_local_rects) -- moving whichever combatant currently holds that
-	# position to the end of the layer's own children keeps it drawn on top
-	# of the staggered pair behind it, matching the pre-ticket-04 rebuild's
-	# own back-to-front insertion order. Re-checked every sync since a kill
-	# can hand the front position to a different (already-existing) slot.
 	if not display_entries.is_empty():
 		var front_key = display_entries[0]["index"]
 		layer.move_child(pool[front_key], layer.get_child_count() - 1)
-
-
-# Local (band-relative) rects for up to SQUAD_MAX fan slots: a single
-# receding line, not a symmetric fan -- slot 0 (front) is centred and large,
-# near the band's bottom edge (closest to camera); each slot after it is a
-# bit smaller than the one before it (FAN_STEP_SIZE_SCALE), shifted up and
-# toward local x 0 from the *previous* slot's own position (FAN_STEP_
-# OFFSET_RATIO, as a fraction of the column's own size) -- "a close
-# descending rugby line", per the human's own description, not the old
-# front/back-left/back-right fan-out. mirror_x flips the whole line
-# horizontally (local x' = band_size.x - x - width) after computing it, so
-# the enemy column's line (called with mirror_x true) recedes toward its
-# own outer edge instead of leaning into the player column's side of the
-# stage -- see this file's own FAN_STEP_OFFSET_RATIO comment.
 func _fan_local_rects(band_size: Vector2, count: int, mirror_x: bool = false) -> Array[Rect2]:
 	var rects: Array[Rect2] = []
 	if count <= 0:
@@ -1764,11 +808,9 @@ func _fan_local_rects(band_size: Vector2, count: int, mirror_x: bool = false) ->
 
 	return rects
 
-
 func _placeholder_color(key: String) -> Color:
 	var index: int = int(abs(hash(key))) % _PLACEHOLDER_PALETTE.size()
 	return _PLACEHOLDER_PALETTE[index]
-
 
 func _build_vignette() -> Control:
 	var vignette := TextureRect.new()
@@ -1778,7 +820,6 @@ func _build_vignette() -> Control:
 	vignette.stretch_mode = TextureRect.STRETCH_SCALE
 	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return vignette
-
 
 func _vignette_texture() -> GradientTexture2D:
 	var gradient := Gradient.new()
@@ -1793,38 +834,8 @@ func _vignette_texture() -> GradientTexture2D:
 	tex.fill_from = Vector2(0.5, 0.5)
 	tex.fill_to = Vector2(1.0, 0.5)
 	return tex
-
-
-# ui-chrome-pass ticket 03 (human direction, confirmed 2026-09-11, revised
-# three times same day after on-review follow-ups): _footer_holder carries
-# nothing during a live fight any more -- the Complication card moved into
-# the action stack itself (see _build_action_deck()'s own comment), so this
-# is now purely a side-effect call that rebuilds _command_dock (a fixed
-# Control outside _content's flow, see _ready()'s own comment for why).
-# Earlier passes are NOT what shipped here (see this ticket's own git
-# history): sharing one row inside the 358px content column between the
-# Dial and the action deck capped the Dial's size however much width the
-# action deck's own cards needed that round (as low as 118px at one point,
-# read as "still tiny" on review); a full-width-column pass after that put
-# the Complication card on its own line above the row, which fixed the
-# width squeeze but still left it visually disconnected from the
-# Attack/Item/Leg it cards it now matches.
-#
-# field-kit-chrome ticket 03: no longer wraps a log above the deck (hq-
-# diorama ticket 21's own MID_FIGHT_LOG_LINES ticker) -- the command deck
-# IS _command_dock now; combat.log lines route to the top board instead
-# (see _sync_footer()'s own comment).
 func _build_command_deck(player: Dictionary) -> void:
 	_build_dial_and_actions_row(player)
-
-
-# Rebuilds _command_dock's contents. The Dial always shows once the player
-# has one seeded (even with nothing loaded -- an empty Dial is still
-# furniture the player is holding, same "always shown, disabled with a
-# reason" spirit UI.action_button() uses elsewhere), unlike the old docked
-# widget, which only rendered once something was actually loaded. No Dial at
-# all (never seeded) still shows nothing here -- there is no physical prop
-# to draw.
 func _build_dial_and_actions_row(player: Dictionary) -> void:
 	for child in _command_dock.get_children():
 		child.queue_free()
@@ -1833,30 +844,6 @@ func _build_dial_and_actions_row(player: Dictionary) -> void:
 	if dial != null:
 		_command_dock.add_child(_build_dial_widget(dial))
 	_command_dock.add_child(_build_action_deck(player))
-
-
-# ui-chrome-pass ticket 03 (human direction, 2026-09-11, third revision):
-# the Complication card is now a bar in the same size/format as the
-# Attack/Item/Leg it cards below it (see _build_card_bar()'s own comment),
-# not a plain content rectangle -- built via that same shared helper, with
-# the recipe's own symbol (or a generic diamond fallback -- SymbolGlyph.
-# generic_fallback(), same "no per-glyph art commissioned" placeholder
-# dial_widget.gd's own Complication-detail row used to reuse) standing in
-# for the drawn Icons glyph the other cards use (ui-chrome-pass ticket 04),
-# since a Button can't render these ~19 recipe/movement symbols
-# (ThemeDB.fallback_font doesn't cover them -- exactly what SymbolGlyph
-# exists to work around, see that file's own header comment). Text trimmed
-# to just the recipe name and tier -- the
-# charge-status line ("Tap ⇄ to cast (1 charge)") this card used to also
-# carry doesn't fit this format and is dropped; DialWidget's own overlay
-# already reads charge state visually (the needle, and the trigger-switch
-# glyph's dim/lit colour -- see that file's own _draw_overlay()).
-#
-# A long recipe name ("Prophet's Breath — tier 3") truncates with an ellipsis
-# (_build_card_bar()'s own caption handling) rather than wrapping or widening
-# the card -- confirmed by test: uncapped, it forced every card in the stack
-# (VBoxContainer sizes each child to its widest sibling) wide enough to push
-# the whole Dial+action-deck row past the 390-wide viewport.
 func _build_complication_detail(dial: Variant) -> Control:
 	var glyph := SymbolGlyph.new()
 	glyph.font_size = 20
@@ -1877,50 +864,12 @@ func _build_complication_detail(dial: Variant) -> Control:
 	var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
 	glyph.symbol = recipe["symbol"]
 	return _build_card_bar(glyph, "%s — tier %d" % [recipe["name"], entry["tier"]], accent)
-
-
-# §2.5: "Action deck -- 3 cards, not 4. Attack / Item / Run ... same
-# handlers, no new inventory/hand mechanic, no energy-cost numbers." "Item"
-# still opens the existing Bag drawer.
-#
-# ui-chrome-pass ticket 03 (human direction, 2026-09-11): back to a VERTICAL
-# stack of horizontal bars (icon + caption side by side per bar -- see
-# _build_action_card()'s own comment), same shape ticket 13's old
-# "hamburger" stack used, superseding ticket 18's horizontal row of tall
-# narrow pillars. That row-of-pillars shape only made sense docked beside a
-# Dial that didn't take much width; docked beside a Dial sized to actually
-# read as "a real prop" (see _build_dial_and_actions_row()'s own comment),
-# 3 cards side by side had to squeeze into a sliver, stretching each into a
-# squashed vertical pillar. A vertical stack only ever needs ONE card's
-# width, freeing the rest of the row for the Dial, and each bar reads as an
-# actual horizontal shape instead.
 func _build_action_deck(player: Dictionary) -> Control:
 	var col := UI.vbox(6)
-	# EXPAND_FILL horizontal -- claims whatever width _command_dock has left
-	# over after the Dial's own fixed-size column, so the cards inside (each
-	# already EXPAND_FILL within this column) get real width to show their
-	# captions in, rather than shrinking to their own bare minimum (just the
-	# icon) and leaving the rest of the dock as dead space.
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# SHRINK_END, not EXPAND_FILL, on the VERTICAL axis -- this stack only
-	# needs its own natural (short) height, not stretched to match the Dial
-	# (that stretch is exactly what made ticket 18's row-of-pillars shape
-	# squashed in the first place). Bottom-aligned (not centred) so it shares
-	# the Dial's own bottom edge -- see DialWidget.configure()'s own
-	# SHRINK_END comment for why: both read as sitting on the same "shelf" at
-	# the row's bottom, whichever of the two ends up taller that round.
 	col.size_flags_vertical = Control.SIZE_SHRINK_END
-	# ui-chrome-pass ticket 03 (human direction, 2026-09-11, third revision):
-	# the Complication card docks as the top bar of this same stack, in the
-	# same size/format as the cards below it -- see _build_complication_detail()'s
-	# own comment.
 	col.add_child(_build_complication_detail(player["dial"]))
 	col.add_child(_build_action_card("attack", "Attack", _on_attack_pressed))
-
-	# calc-effect-wiring-02/03: blast/shield/blackHole/healingBurst, then
-	# prophetsBreath/wormhole, added to the same "has anything to use" check
-	# that gates the Item card. failsafe is deliberately absent -- it has
-	# no manual Use action (see bag_drawer.gd's CONSUMABLE_KEYS comment).
 	var has_items: bool = (
 		Crafting.inventory_qty("timePearl") > 0 or Crafting.inventory_qty("enhancementPowder") > 0 or Crafting.inventory_qty("rewind") > 0
 		or Crafting.inventory_qty("blast") > 0 or Crafting.inventory_qty("shield") > 0
@@ -1932,37 +881,12 @@ func _build_action_deck(player: Dictionary) -> Control:
 	col.add_child(_build_action_card("run", "Leg it", _on_run_pressed))
 
 	return col
-
-
-# field-kit-chrome ticket 05, ui-vision.md §5's component table ("Combat
-# action cards: Generic Family-4 chrome, no bespoke object -- exact button
-# styling ... deferred to implementation"): Attack/Item/Run carry no
-# inherent diegetic identity (unlike the departure-board log or the Dial),
-# so per §5's "not every component needs a bespoke citation" they share one
-# plain field-kit button/panel treatment built from §6's locked
-# `ui_action_red` accent, rather than the default theme Button's amber fill
-# (main_theme.tres StyleBoxFlat_btn_normal) -- that amber is reserved for
-# calc/cash reads only (§6), and every button reading amber regardless of
-# meaning is the exact bug §6 exists to fix. The card's cream fill is
-# otherwise unchanged (still built via UI.card() -- already Family 4's
-# shared neutral surface per nav_bar.gd's own comment); its border, glyph,
-# hover/pressed wash, and caption all carry the accent instead. No reference
-# image exists for exact corners/border weight -- left to this
-# implementation per the ticket. (ui-chrome-pass ticket 03: the Complication
-# card, once a separate plain content rectangle, now shares this exact same
-# treatment too -- see _build_card_bar()'s own comment.)
 const _ACTION_COLOR_FALLBACK := Color(0.784314, 0.062745, 0.180392, 1)
 const _ACTION_CARD_DISABLED_COLOR := Color(0.541176, 0.541176, 0.541176, 1)
 const _ACTION_CARD_FILL := Color(0.980392, 0.972549, 0.952941, 1)
 
 func _action_color() -> Color:
 	return GameData.PALETTE.get("ui_action_red", _ACTION_COLOR_FALLBACK)
-
-
-# One shared button stylebox builder for the three normal/hover/pressed/
-# disabled states below -- `alpha` is the only thing that varies, a faint
-# accent-tinted wash on hover/pressed standing in for the amber fill this
-# replaces, rather than a filled block at rest.
 func _action_card_button_style(accent: Color, alpha: float) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(accent.r, accent.g, accent.b, alpha)
@@ -1972,35 +896,7 @@ func _action_card_button_style(accent: Color, alpha: float) -> StyleBoxFlat:
 	style.content_margin_right = 8
 	style.content_margin_bottom = 6
 	return style
-
-
-# ui-chrome-pass ticket 03 (human direction, 2026-09-11): icon and caption
-# now sit side by side in one row (a bare Button -- deliberately NOT
-# UI.button(), whose text-driven minimum-width reservation is sized for a
-# full word like "Attack" and would fight the caption Label for space)
-# rather than stacked icon-above-caption -- that vertical stack is what let
-# ticket 18's cards get stretched into tall, narrow, squashed-looking
-# pillars once 3 of them had to share a row beside a real "large prop"-sized
-# Dial (see _build_action_deck()'s own comment for why this is a vertical
-# stack of these horizontal bars now, not a horizontal row of them).
-# custom_minimum_size on the icon keeps it from collapsing to nothing now
-# that it isn't the caption's own natural width driving the block's minimum
-# any more (UI.label(), which already wraps/clips per its own
-# MAX_LABEL_TEXT_WIDTH cap).
-#
-# ui-chrome-pass ticket 04 (confirmed by screenshot): the button used to
-# carry the card's raw emoji ("⚔"/"🎒"/"🏃") as plain Button.text. Attack's
-# "⚔" (Miscellaneous Symbols block) rendered fine, but Item's "🎒" rendered
-# as nothing at all -- Godot's bundled font has no colour-emoji glyphs for
-# the Supplementary Multilingual Plane characters "🎒"/"🏃" live in, the
-# same font gap draw_home()'s/draw_hamburger()'s own icons.gd header
-# comments already document for other emoji this project has replaced.
 const _ACTION_CARD_ICON_SIZE := 40.0
-
-# ui-chrome-pass ticket 04: the recognised drawn-icon kinds this func can
-# render via icons.gd, keyed the same as _build_action_deck()'s own calls
-# ("attack"/"item"/"run"). A caller passing an unrecognised kind falls back
-# to plain glyph text instead -- see the `disabled` fallback branch below.
 static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 	match icon_kind:
 		"attack":
@@ -2011,7 +907,6 @@ static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 			return Icons.draw_run
 		_:
 			return Callable()
-
 
 func _build_action_card(icon_kind: String, label_text: String, callback: Callable, disabled: bool = false) -> Control:
 	var accent: Color = _ACTION_CARD_DISABLED_COLOR if disabled else _action_color()
@@ -2027,14 +922,6 @@ func _build_action_card(icon_kind: String, label_text: String, callback: Callabl
 	button.add_theme_color_override("font_pressed_color", accent)
 	button.add_theme_color_override("font_disabled_color", accent)
 	button.pressed.connect(callback)
-
-	# ui-chrome-pass ticket 04: a recognised kind draws its icons.gd glyph
-	# (same UI.icon_glyph_control()/anchor_full_rect() combo top_bar.gd's
-	# bag button already uses -- the glyph reads its colour from this
-	# Button's own font_color override, walking up the theme-owner chain,
-	# same as that shipped precedent) rather than setting Button.text; an
-	# unrecognised kind falls back to the original plain-glyph-text
-	# behaviour untouched.
 	var draw_icon := _action_icon_draw_fn(icon_kind)
 	if draw_icon.is_valid():
 		button.name = "ActionButton_%s" % icon_kind
@@ -2046,18 +933,6 @@ func _build_action_card(icon_kind: String, label_text: String, callback: Callabl
 		button.clip_text = true
 
 	return _build_card_bar(button, label_text, accent, callback)
-
-
-# ui-chrome-pass ticket 03 (human direction, 2026-09-11, third revision):
-# shared by every card in the action stack (Attack/Item/Leg it, and now the
-# Complication card too) -- the panel/row/caption assembly used to live only
-# in _build_action_card(), but the Complication card needs the exact same
-# size/format with a different icon widget (a SymbolGlyph, not a Button --
-# see _build_complication_detail()'s own comment for why), so that assembly
-# is pulled out here rather than duplicated. `icon` is deliberately a bare
-# Control, not specifically a Button: only _build_action_card()'s caller
-# wires up press/disabled/hover behaviour on it; a SymbolGlyph is just
-# dropped in inert.
 func _build_card_bar(icon: Control, label_text: String, accent: Color, click_callback: Callable = Callable()) -> Control:
 	var c := UI.card()
 	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2081,17 +956,6 @@ func _build_card_bar(icon: Control, label_text: String, accent: Color, click_cal
 	row.add_child(icon)
 
 	var caption := UI.label(label_text)
-	# ui-chrome-pass ticket 03: UI.label()'s own floor reserves the caption's
-	# full natural single-line width (that helper's own comment) -- fine for
-	# "Attack"/"Item"/"Leg it", but a recipe name ("Prophet's Breath — tier
-	# 3") can run 2-3x longer, which would otherwise inflate every card in
-	# this VBoxContainer stack to match (VBoxContainer sizes every child to
-	# its widest sibling), pushing the whole Dial+action-deck row past the
-	# 390-wide viewport. Dropping the floor to 0 and truncating with an
-	# ellipsis instead of wrapping (autowrap OFF) keeps every card's height
-	# fixed and predictable regardless of caption length -- wrapping instead
-	# was tried first (see this ticket's own git history) and blew the whole
-	# stack's height budget the same way the width budget got blown here.
 	caption.custom_minimum_size.x = 0.0
 	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
 	caption.clip_text = true
@@ -2099,27 +963,12 @@ func _build_card_bar(icon: Control, label_text: String, accent: Color, click_cal
 	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	caption.add_theme_color_override("font_color", accent)
-	# Purely decorative -- never a tap target of its own, so a click landing
-	# on the caption text falls through to `row` below instead of being
-	# swallowed here (see the click_callback branch's own comment for why
-	# that matters).
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(caption)
 
 	c["content"].add_child(row)
 
 	if click_callback.is_valid():
-		# human-flagged (2026-09-12): tapping the caption ("Attack"/"Item"/
-		# "Leg it") did nothing -- only `icon` (a small Button sized to
-		# _ACTION_CARD_ICON_SIZE) was ever wired to `callback`, and the
-		# caption beside it was an inert sibling Label with no handler of its
-		# own. `icon`'s own Button still owns press/hover/disabled visuals
-		# (unchanged) and still fires first for a tap that lands on it
-		# directly (BaseButton's MOUSE_FILTER_STOP swallows the event before
-		# it ever reaches `row`), so this never double-fires callback -- this
-		# just catches the REST of the row (the caption, and the gap/padding
-		# around it) and forwards those taps to the same callback, making the
-		# whole card one tap target instead of just the glyph.
 		row.mouse_filter = Control.MOUSE_FILTER_STOP
 		row.gui_input.connect(func(event: InputEvent) -> void:
 			if not (event is InputEventMouseButton):
@@ -2133,42 +982,18 @@ func _build_card_bar(icon: Control, label_text: String, accent: Color, click_cal
 		)
 
 	return c["panel"]
-
-
-# combat-presentation ticket 04, docs/combat-animation-vision.md §8: Attack/
-# Run now play their round's beat queue back through _director instead of
-# just letting the ordinary state_changed -> _sync() resync show the
-# post-round state immediately. GameState is already final the instant
-# Combat.player_attack()/flee() returns (see combat_director.gd's own
-# comment) -- _play_round() only paces how much of the new log the footer
-# reveals while that plays out; the stage/strip already reflect the real
-# final state from the state_changed emitted inside player_attack()/flee()
-# itself, same as before this ticket.
 func _on_attack_pressed() -> void:
 	_play_round(func(): return Combat.player_attack())
-
 
 func _on_run_pressed() -> void:
 	_play_round(func(): return Combat.flee())
 
-
 func _play_round(action: Callable) -> void:
 	var combat: Dictionary = GameState.state["combat"]
-	# combat-presentation ticket 10: snapshot BEFORE action.call() -- see
-	# _frozen_roster's own top comment for why this has to happen before the
-	# round resolves, not after.
 	_frozen_roster = { "enemies": combat["enemies"].duplicate(true), "allies": combat["allies"].duplicate(true) }
 	var log_before: int = combat["log"].size()
 	var result: Dictionary = action.call()
 	await _play_beats(result.get("beats", []), log_before)
-
-
-# combat-presentation ticket 05: split out of _play_round() so
-# _on_dial_triggered() below (a Complication cast, not a full "round" in
-# Combat.build_turn_queue()'s sense) can drive the same director/log-reveal/
-# juice-tracker plumbing -- Combat.cast_complication() already ran
-# synchronously by the time that callback fires (see dial_widget.gd's own
-# handle_trigger() comment), so there's no `action` left to call here.
 func _play_beats(beats: Array, log_before: int) -> void:
 	if beats.is_empty():
 		_frozen_roster = {}
@@ -2181,104 +1006,44 @@ func _play_beats(beats: Array, log_before: int) -> void:
 	_revealed_log_count = -1
 	_frozen_roster = {}
 	_sync()
-
-
-# field-kit-chrome ticket 03, ui-vision.md §5's 2026-09-11 amendment: the
-# mid-fight ticker no longer renders under the stage -- instead, the one
-# combat.log line each beat reveals (the 1:1 beat/log-line invariant
-# systems/combat.gd's own _log() holds, per _on_dial_triggered()'s own
-# comment) posts to the top dot-matrix board as a live notification,
-# stamped Notify.META_COMBAT_LOG so top_bar.gd's combat-suppression check
-# (moved there from notification_toast.gd by bugfixes ticket 107) lets it
-# render immediately instead of holding it for after the fight. A no-op
-# whenever _revealed_log_count lands outside the log's own bounds
-# (beats.is_empty() never calls _on_beat_played() at all, so this is
-# really just a cheap defensive gate rather than a case that should ever
-# actually hit) -- nothing to post.
 func _push_revealed_log_line() -> void:
 	var log: Array = GameState.state["combat"]["log"]
 	var index: int = _revealed_log_count - 1
 	if index >= 0 and index < log.size():
 		Notify.push(log[index], Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
 
-
 func _on_beat_played(beat: Dictionary) -> void:
 	_revealed_log_count += 1
 	_push_revealed_log_line()
 	_sync_footer(GameState.state["combat"], GameState.state["player"])
 	var kind: String = beat.get("kind", "")
-	# combat-presentation ticket 10, docs/combat-animation-vision.md §5:
-	# prophetsBreath's ghost-next-pose effect -- fires before play_attack()
-	# below for the same beat, on a BEAT_PLAYER_EVADE specifically (the one
-	# beat kind that means "an enemy's swing whiffed because of the
-	# evadeTurns/evadeChance grant prophetsBreath and Rewind share" -- see
-	# systems/combat.gd's own use_prophets_breath() comment). See
-	# StageSlot.ghost_next_pose()'s own comment for why this isn't sequenced
-	# to finish before play_attack() starts.
 	if kind == Combat.BEAT_PLAYER_EVADE:
 		var evading_slot: StageSlot = _resolve_target_slot(_beat_actor(beat))
 		if evading_slot != null:
 			evading_slot.ghost_next_pose()
-	# An actual swing, hit or missed -- plays before the juice layer's own
-	# damage check below, so a miss still gets its attack pose even though
-	# _play_juice() never runs for it.
 	if _ATTACK_BEAT_KINDS.has(kind):
 		var actor_slot: StageSlot = _resolve_target_slot(_beat_actor(beat))
 		if actor_slot != null:
 			actor_slot.play_attack()
-			# combat-presentation ticket 11, §5: enhancementPowder's afterimage
-			# trail -- fires on each of the player's own rapid attack/evade
-			# beats stamped `motionBoosted` (systems/combat.gd's
-			# _resolve_player_turn(), the 2-3 rapid lunges Motion already
-			# produces via build_turn_queue()'s extra player entries), not off
-			# use_enhancement_powder()'s own activation beat (see that func's
-			# own comment). Keyed off the beat itself rather than live
-			# combat.motionTurns -- by playback time player_attack() has
-			# already returned with motionTurns decremented for THIS round
-			# (sometimes to 0, ending the very round it boosted), so a live
-			# read here would silently miss the round it's meant to describe.
 			if beat.get("motionBoosted", false):
 				actor_slot.spawn_afterimage()
-	# combat-presentation ticket 10, §3: Archie's self-patch pose -- any ally
-	# healing themselves below 40% HP (systems/combat.gd's _ally_turn()),
-	# not just Archie specifically (the manifest lookup is per ally
-	# contactId, same as idle -- see _self_patch_keyposes_by_template's own
-	# comment for why only Archie's entry is non-empty today).
 	if kind == Combat.BEAT_ALLY_HEAL:
 		var healer_slot: StageSlot = _resolve_target_slot(_beat_actor(beat))
 		if healer_slot != null:
 			healer_slot.play_self_patch()
-	# combat-presentation ticket 11, §5: "player folds to a vertical line
-	# and vanishes" -- fires for either wormhole beat kind (the direct
-	# bag-item path and the Dial-cast path each log their own kind, see
-	# systems/combat.gd's BEAT_USE_WORMHOLE/BEAT_COMPLICATION_WORMHOLE).
 	if kind == Combat.BEAT_USE_WORMHOLE or kind == Combat.BEAT_COMPLICATION_WORMHOLE:
 		var wormhole_slot: StageSlot = _resolve_target_slot(_beat_actor(beat))
 		if wormhole_slot != null:
 			wormhole_slot.play_wormhole_vanish()
-	# combat-presentation ticket 11, §5: the manifest effect-sheet dispatch
-	# -- every beat that carries an `effectKey` (systems/combat.gd's
-	# use_*()/cast_complication() branches) plays that key's
-	# data/combat_visuals.json sheet, regardless of `kind` or whether the
-	# beat also carries `dmg` (timePearl/shield/healingBurst never do).
 	var effect_key: String = beat.get("effectKey", "")
 	if not effect_key.is_empty():
 		_play_consumable_effect(beat, effect_key)
-		# combat-presentation ticket 11, §5: "HP bar refills with an
-		# overshoot bounce" -- art-independent (unlike play_effect_sheet()
-		# above), so this fires regardless of whether healingBurst's own
-		# sheet has landed yet. Reuses the ghost-bar tween ticket 05 already
-		# built for damage lag-drain, seeded above the real (already-healed)
-		# value so it settles down onto it instead of draining toward it.
 		if effect_key == "healingBurst" and _turn_order_strip != null:
 			var player_key := TurnOrderStrip.card_key_string({ "type": "player", "index": -1 })
 			var healed_hp: int = GameState.state["player"]["hp"]
 			var overshoot_hp: int = mini(GameState.state["player"]["hpMax"], healed_hp + 12)
 			_turn_order_strip.set_initial_ghost(player_key, overshoot_hp)
 			_turn_order_strip.drain_ghost_to(player_key, healed_hp, 0.3)
-	# combat-presentation ticket 11, §5: shield's "cracks and sheds a layer
-	# per absorb" -- independent of beat_is_damaging() below (a full absorb
-	# leaves `dmg` at 0, see systems/combat.gd's _enemy_attack_player()).
 	var shield_absorbed: int = int(beat.get("shieldAbsorbed", 0))
 	if shield_absorbed > 0:
 		var shielded_slot: StageSlot = _player_slots.get(-1)
@@ -2286,14 +1051,6 @@ func _on_beat_played(beat: Dictionary) -> void:
 			shielded_slot.flash_shield_crack()
 	if CombatDirector.beat_is_damaging(beat):
 		_play_juice(beat)
-
-
-# combat-presentation ticket 11, §5: resolves an effect-key beat's target
-# slot and hands it that key's manifest frames -- blast/blackHole already
-# carry a real targetType/targetIndex (an enemy), so _beat_target() resolves
-# them directly; timePearl/shield/healingBurst carry none (they're not
-# aimed at a specific combatant field the way a hit is), so those fall back
-# to _default_effect_target() below.
 func _play_consumable_effect(beat: Dictionary, effect_key: String) -> void:
 	var entry: Dictionary = _effect_frames_by_key.get(effect_key, {})
 	var frames: Array[Texture2D] = entry.get("frames", _empty_idle_frames)
@@ -2305,55 +1062,20 @@ func _play_consumable_effect(beat: Dictionary, effect_key: String) -> void:
 	var slot: StageSlot = _resolve_target_slot(target)
 	if slot != null:
 		slot.play_effect_sheet(frames, entry.get("fps", 0.0))
-
-
-# timePearl freezes every enemy at once (frozenTurns is a combat-wide
-# field, not per-enemy) -- the frost ring plays centred on whichever enemy
-# is currently focused, a representative target rather than a literal one.
-# shield/healingBurst are player-targeted self-buffs.
 func _default_effect_target(effect_key: String) -> Dictionary:
 	if effect_key == "timePearl":
 		return { "type": "enemy", "index": GameState.state["combat"]["focusedEnemyIndex"] }
 	return { "type": "player", "index": -1 }
-
-
-# combat-presentation ticket 11: EventBus.combat_beats_played's handler --
-# the direct bag-item consumable path's own beats (bag_drawer.gd's
-# use_*() button handlers), reconstructing `log_before` the same way
-# _on_dial_triggered() does (the 1:1 beat/log-line invariant systems/
-# combat.gd's _log() holds). Same accepted gap _on_dial_triggered() already
-# has: GameState is already mutated by the time this fires (the use_*()
-# call already ran in bag_drawer.gd), so there's no pre-action roster left
-# to snapshot into _frozen_roster either. Skips outright while the
-# director is already mid-playback (a round's own beats, or another
-# external batch) rather than trying to queue behind it -- state is
-# already correct either way; only this action's own animation is skipped.
 func _on_combat_beats_played(beats: Array) -> void:
 	if _director.is_playing() or beats.is_empty():
 		return
 	var log_before: int = GameState.state["combat"]["log"].size() - beats.size()
 	await _play_beats(beats, log_before)
-
-
-# combat-presentation ticket 11, docs/combat-animation-vision.md §5:
-# EventBus.combat_rewind_played's handler -- "rewind/failsafe: the whole
-# stage plays backward". Combat.combat_rewind() has already restored
-# GameState by the time this fires (same ordering as combat_beats_played
-# above); this only plays the reversed beat list back as a cosmetic replay.
 func _on_combat_rewind_played(beats: Array) -> void:
 	if _director.is_playing() or beats.is_empty():
 		return
 	await _director.play(beats, _on_rewind_beat_played)
 	_sync()
-
-
-# A trimmed-down _on_beat_played() for rewind's reverse replay: pose/flash/
-# shake only -- no log-reveal (rewind rewrites combat.log wholesale rather
-# than appending, see systems/combat.gd's _restore_from_snapshot() own
-# comment, so there's no new line to reveal per beat), no damage numbers or
-# HP ghost-drain (GameState already sits at the restored, final HP for the
-# whole replay -- there's no real "pre-hit" value to drain from), and never
-# play_ko() (every combatant the rewound state restored is alive again).
 func _on_rewind_beat_played(beat: Dictionary) -> void:
 	var kind: String = beat.get("kind", "")
 	if _ATTACK_BEAT_KINDS.has(kind):
@@ -2368,99 +1090,29 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 			slot.play_hit()
 		_shake_stage(int(beat["dmg"]), _hp_max_for(target))
 
-
 func _build_dial_widget(dial: Dictionary) -> Control:
 	var widget := DialWidget.new()
-	# configure() sets its own fixed custom_minimum_size (DialWidget.
-	# WIDGET_SIZE) -- no override needed here, unlike the old DIAL_WIDTH-
-	# only placeholder, which had no art-driven size of its own to fall back on.
 	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed, _on_dial_triggered)
 	return widget
-
-
-# DialWidget.handle_select() only reports through this callback, never
-# mutates its own selection (see that file's own top comment) -- nothing in
-# GameState changed, so nothing would otherwise trigger a rebuild; _sync()
-# is called directly, same as _on_strip_selection_changed()'s non-enemy case.
 func _on_dial_selection_changed(new_index: int) -> void:
 	_dial_selected_index = new_index
 	_sync()
-
-
-# combat-presentation ticket 05: DialWidget.handle_trigger() already called
-# Combat.cast_complication() synchronously and mutated GameState before this
-# ever fires (see that file's own handle_trigger() comment) -- this only
-# paces `result`'s beats back onto the screen, same _play_beats() plumbing
-# _on_attack_pressed()/_on_run_pressed() drive via _play_round(). log_before
-# is reconstructed rather than captured ahead of the cast (there's nothing
-# to capture it before -- the cast already happened by the time this
-# callback exists) by subtracting beats.size(): cast_complication() logs
-# exactly one combat.log line per beat (via _log()), the same 1:1 invariant
-# player_attack()/enemy_attack()/flee()'s own beats already hold.
 func _on_dial_triggered(result: Dictionary) -> void:
 	var beats: Array = result.get("beats", [])
 	var log_before: int = GameState.state["combat"]["log"].size() - beats.size()
 	await _play_beats(beats, log_before)
-
-
-# ── combat-presentation ticket 05, docs/combat-animation-vision.md §4.1 ──
-# The juice layer. Every effect below is keyed off a beat's own `dmg`/
-# `targetType`/`targetIndex` fields (CombatDirector.beat_is_damaging()'s
-# test, shared with the hit-stop it adds to the timeline itself) -- no beat
-# `kind` is special-cased, so Blast/Black Hole's own beats (ticket 05's
-# cast_complication() wiring, above) get exactly the same treatment as a
-# plain attack beat, and any future damaging beat kind gets it for free.
-#
-# Gap fixed by combat-presentation ticket 10 for the ordinary round path:
-# the round's final state (including any KO) is already applied and
-# _sync()'d before playback starts (see combat_director.gd's own top
-# comment) -- so, undefended, stage slots/strip cards for whoever this round
-# kills would already be gone by the time their killing beat plays, and its
-# own flash/damage-number/ghost-drain/play_ko() would silently no-op
-# (their node lookups return null). _frozen_roster (this screen's own top
-# comment) keeps a dying combatant's StageSlot alive through the round for
-# _play_round()'s path. It does NOT cover _on_dial_triggered() (Complication
-# casts) -- Combat.cast_complication() has already mutated GameState before
-# that callback ever runs, with nothing left to snapshot from; a kill via
-# Blast/Black Hole still hits this original gap. Hit-stop and screen shake,
-# needing no per-combatant node, play normally in both cases regardless.
-
-
-# Normalizes a beat's own targetType/targetIndex fields into the same
-# {"type": ..., "index": ...} shape TurnOrderStrip's own entry_key/
-# card_key_string() already use (index -1 for the player) -- one shared
-# format instead of every juice-layer helper below re-deriving its own pair
-# of (target_type, target_index) primitives from the raw beat.
 func _beat_target(beat: Dictionary) -> Dictionary:
 	var target_type: String = beat.get("targetType", "")
 	var target_index: int = -1 if target_type == "player" else int(beat.get("targetIndex", -1))
 	return { "type": target_type, "index": target_index }
-
-
-# Same shape as _beat_target(), but for a beat's actorType/actorIndex --
-# who threw the swing (or healed themselves) this beat represents, not who
-# it landed on. Used by _on_beat_played()'s ghost/attack-pose/self-patch
-# triggers; the juice layer proper (flash/damage-number/shake/ghost-drain/
-# hit/ko) only ever cares about the target.
 func _beat_actor(beat: Dictionary) -> Dictionary:
 	var actor_type: String = beat.get("actorType", "")
 	var actor_index: int = -1 if actor_type == "player" else int(beat.get("actorIndex", -1))
 	return { "type": actor_type, "index": actor_index }
-
-
-# combat-presentation ticket 10: beat kinds that represent an actual swing
-# (hit or missed) rather than a heal, status tick, or Complication cast --
-# these get the attacker's Swipe pose regardless of whether the swing
-# landed (BEAT_ENEMY_EVADE/BEAT_PLAYER_EVADE are misses, not no-ops).
 const _ATTACK_BEAT_KINDS: Array[String] = [
 	Combat.BEAT_PLAYER_ATTACK, Combat.BEAT_ALLY_ATTACK, Combat.BEAT_ENEMY_ATTACK,
 	Combat.BEAT_ENEMY_EVADE, Combat.BEAT_PLAYER_EVADE,
 ]
-
-
-# The player/ally/enemy Dictionary a target's own hp/hpMax actually live on
-# -- shared by _hp_for()/_hp_max_for() below so the player/ally/enemy
-# lookup exists exactly once, not once per field.
 func _target_state(target: Dictionary) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if target["type"] == "player":
@@ -2471,14 +1123,11 @@ func _target_state(target: Dictionary) -> Dictionary:
 		return combat["enemies"][target["index"]]
 	return {}
 
-
 func _hp_for(target: Dictionary) -> int:
 	return _target_state(target).get("hp", 0)
 
-
 func _hp_max_for(target: Dictionary) -> int:
 	return _target_state(target).get("hpMax", 1)
-
 
 func _resolve_target_slot(target: Dictionary) -> StageSlot:
 	if target["type"] == "player":
@@ -2488,14 +1137,6 @@ func _resolve_target_slot(target: Dictionary) -> StageSlot:
 	if target["type"] == "enemy":
 		return _enemy_slots.get(target["index"])
 	return null
-
-
-# Seeds _ghost_tracker (and every affected card's ghost bar) to this round's
-# pre-hit hp, reconstructed as "final hp (already live in GameState) + total
-# damage this round's beats deal to that target" -- the only reconstruction
-# available, since nothing snapshots a genuine pre-round hp for the screen to
-# read (see this section's own top comment). Called once, before playback
-# starts.
 func _init_ghost_tracker(beats: Array) -> void:
 	_ghost_tracker.clear()
 	var total_dmg: Dictionary = {}
@@ -2514,7 +1155,6 @@ func _init_ghost_tracker(beats: Array) -> void:
 		if _turn_order_strip != null:
 			_turn_order_strip.set_initial_ghost(key, start_hp)
 
-
 func _drain_ghost(key: String, dmg: int) -> void:
 	if not _ghost_tracker.has(key):
 		return
@@ -2522,13 +1162,11 @@ func _drain_ghost(key: String, dmg: int) -> void:
 	if _turn_order_strip != null:
 		_turn_order_strip.drain_ghost_to(key, _ghost_tracker[key], _director.beat_duration)
 
-
 func _shake_magnitude(dmg: int, hp_max: int) -> float:
 	if hp_max <= 0:
 		return SHAKE_MIN_PX
 	var frac: float = clampf(float(dmg) / float(hp_max), 0.0, 1.0)
 	return clampf(SHAKE_MIN_PX + (SHAKE_MAX_PX - SHAKE_MIN_PX) * (frac / SHAKE_FULL_FRACTION), SHAKE_MIN_PX, SHAKE_MAX_PX)
-
 
 func _shake_stage(dmg: int, hp_max: int) -> void:
 	if _stage_shake_layer == null or not _stage_shake_layer.is_inside_tree():
@@ -2540,7 +1178,6 @@ func _shake_stage(dmg: int, hp_max: int) -> void:
 	tween.tween_property(_stage_shake_layer, "position", base_pos + Vector2(-magnitude, magnitude * 0.5), 0.05)
 	tween.tween_property(_stage_shake_layer, "position", base_pos + Vector2(magnitude * 0.5, -magnitude * 0.4), 0.05)
 	tween.tween_property(_stage_shake_layer, "position", base_pos, 0.06)
-
 
 func _spawn_damage_number(slot: StageSlot, dmg: int) -> void:
 	var layer: Node = slot.get_parent()
@@ -2562,9 +1199,6 @@ func _spawn_damage_number(slot: StageSlot, dmg: int) -> void:
 	tween.tween_property(label, "position:y", label.position.y - DAMAGE_NUMBER_RISE_PX, DAMAGE_NUMBER_DURATION)
 	tween.parallel().tween_property(label, "modulate:a", 0.0, DAMAGE_NUMBER_DURATION)
 	tween.tween_callback(label.queue_free)
-
-
-# The single entry point _on_beat_played() calls for every damaging beat.
 func _play_juice(beat: Dictionary) -> void:
 	var target: Dictionary = _beat_target(beat)
 	var dmg: int = int(beat["dmg"])
@@ -2573,12 +1207,6 @@ func _play_juice(beat: Dictionary) -> void:
 	if slot != null:
 		slot.flash_hit()
 		_spawn_damage_number(slot, dmg)
-		# combat-presentation ticket 10: koed (this hit's own final GameState
-		# is already applied -- see _frozen_roster's own comment) holds on the
-		# fallen/faded KO pose; otherwise a recoil pose. _frozen_roster is
-		# what keeps `slot` from having already been freed for a killing blow
-		# (on the ordinary round path -- see _beat_actor()'s own comment for
-		# the Dial-cast exception).
 		if _target_state(target).get("koed", false):
 			slot.play_ko()
 		else:
@@ -2586,7 +1214,6 @@ func _play_juice(beat: Dictionary) -> void:
 
 	_shake_stage(dmg, _hp_max_for(target))
 	_drain_ghost(TurnOrderStrip.card_key_string(target), dmg)
-
 
 func _build_outcome_button(outcome: String, context: String) -> Control:
 	var label: String
@@ -2598,9 +1225,5 @@ func _build_outcome_button(outcome: String, context: String) -> Control:
 		label = "💀 Come round"
 
 	return UI.button(label, _on_continue_pressed)
-
-
-# exit_combat() already navigates for every case except mugging-win
-# (which deliberately stays put so the sale_result modal stays visible).
 func _on_continue_pressed() -> void:
 	Combat.exit_combat()
