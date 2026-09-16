@@ -1,264 +1,209 @@
 # CODEMAP
 
-Generated index of what lives where. Update this alongside any file you add/remove/repurpose under systems/, screens/, scenes/, autoload/, or data/ (see CLAUDE.md workflow step 7).
+What lives where. Update alongside any add/remove/repurpose (CLAUDE.md step 7). Each row: what a
+file owns today, no history.
 
 ## autoload/*.gd — global singletons
 
 | File | Purpose |
 |---|---|
-| EventBus.gd | Central signal bus (`state_changed`, `screen_changed`, `time_advanced`) — systems emit, screens redraw |
-| GameData.gd | Loads/validates every `data/*.json` table once at boot into typed consts |
-| GameState.gd | The pure state tree (Dicts/Arrays/primitives only) — systems read/write, screens read only |
-| Rng.gd | Seeded RNG — every probabilistic system must draw from here, never randi/randf directly |
-| SaveManager.gd | Save/load/autosave/export-import (3 manual slots + 3 rotating autosaves); compatibility migrations for evolved objective progress |
-| Snapshots.gd | Generic bounded snapshot-stack helper backing combat rewind + event rewind |
+| EventBus.gd | Central signal bus — systems emit, screens redraw |
+| GameData.gd | Loads/validates every `data/*.json` table at boot |
+| GameState.gd | Pure state tree (Dicts/Arrays/primitives); screens read only |
+| Rng.gd | Seeded RNG for every probabilistic system |
+| SaveManager.gd | Save/load/autosave/export-import |
+| Snapshots.gd | Bounded snapshot-stack helper backing rewind |
 
 ## systems/*.gd — static-func systems
 
-| File | Domain | Data source |
-|---|---|---|
-| approaches.gd | Which physical approaches (heat/grinding/compression/distilling) player knows | approaches.json, home.json |
-| archie_deals.gd | Archie's daily "tag along on his sale" side-deal roll | districts.json, ore_types.json |
-| bag.gd | Global bag-drawer open/closed toggle | — |
-| bank.gd | Cash transaction log (Reynard's phone app) | — |
-| barometer.gd | Economic/social/political barometer state + faction preferences | barometer.json |
-| bench.gd | Lab discovery engine — (type-set × approach) cells | recipes.json |
-| bubble_layout.gd | Pure popup-position math for MapBubble | — |
-| collective.gd | Collective faction's 3 vendor doors, Nadia's direct standing-order settlement, + Act 1 triggers | collective_barks.json, districts.json, objectives.json, sites.json |
-| contracts.gd | Shared Sales contract delivery, per-contract delegation, priority, immediate full-period Sales settlement, daily partial allocation, deadline settlement and recurring-period renewal; records idempotent settlement receipts before crediting cash. `has_staffed_sales()` also requires the ops role's wage to be paid today (Payroll.is_paid_today), gating both the realtime shared-stock-increase recheck and the daily partial-delivery pass. `_shared_stock_for_line()` for a consumable (crafted-item) line nets out `Rooms.production_reserved_qty()` first (ticket 30) — Sales can never draw a covered item's personal-target reserve, only the contract-need portion above it. Ticket 32: `request_lines(request)` is the single shape every reader below walks — a mixed one-off's `request.types` (2+ lines), or the flat single-type request acting as its own sole line — so `deliver()`/`_can_fully_deliver()`/`settle()`'s quoted-value-weighted `_delivered_proportion()` never special-case single- vs. mixed-type contracts; each line still draws from its own independent ore/item pool (`_shared_stock_for_line`), never substituting one requested type's stock for another's | — |
-| combat.gd | Turn-based combat + rewind | enemies.json, items.json, recipes.json |
-| combat_prototype.gd | Bounded, throwaway combat experiment (committed Fast/Heavy/Counter/Dodge, exhaustion, snapshot/rewind) testing the four-action matchup grid, squads, multi-wave fights and real calc-effect items before any production integration decision. Deliberately isolated from combat.gd/GameState.state["combat"] — its own state lives in state["combatPrototype"] (own snapshot stack, "combatPrototype" in Snapshots.MAX_SIZES), reached only via the Debug app's "Solo Combat Prototype" card (scenes/screens/phone.gd; one Start button per `list_launchable_encounters()` entry), never from normal play. `cp.enemies` is always an Array (solo == one element); `cp.wave`/`cp.totalWaves` track a multi-wave encounter (data/combat_prototype.json's `waves`, HP carries across waves — no reset). Reuses Combat.get_attack_range()/Combat._player_speed() (pure queries) for Fast's baseline and turn order, but never touches GameState.state["player"]["hp"]. Items are real: `use_item()` spends the player's actual Crafting inventory (`timePearl`/`enhancementPowder`/`shield`/`blast`/`blackHole`/`healingBurst` — Healing Salve stays out-of-combat-only, Prophet's Breath/Wormhole/Grab/Bolt/Call are undocumented contracts and deliberately not wired, see the file's own top comment), `cast_dial_complication()` spends the real Dial's charge; `rewind()` restores both alongside cp's own state (except the rewind resource itself, which stays spent — there is none wired here). A round can need more than one player commit when Enhancement Powder is active (`cp["_pending"]` holds an in-progress round; `_advance_round()` returns `needsPlayerAction: true` when it needs another) — see that func's own comment for the full walk and how "Heavy on a Powder round's first slot skips the inserted second slot, same round" and "frozen + exhaustion stack as two separate skips" both fall out of it. | combat_prototype.json |
-| consumables.gd | Out-of-combat healing item effects (salve/burst) | — |
-| contacts.gd | Relation, recruiting, room assignment (Lab/Vein Station/Ops-Sales, all via the same one-contact-per-room `assignedRoom` field), contact XP (crafting/cultivating/sales skill-threshold ladders) | vein_growth.json, recipes.json, home.json (xp level ladders) |
-| crafting.gd | Recipe crafting (not time-block gated) | recipes.json |
-| cultivating.gd | Vein growth / cultivate / prune | vein_growth.json, vein_security.json, vein_alarm.json, ore_types.json |
-| debug_start.gd | Maximal-unlock debug state | factions.json, ore_types.json, vein_growth.json |
-| debug_tools.gd | Debug phone-app state adjusters | — |
-| dial.gd | Dial device mechanic (seed/craft Movements, charge economy) | dial.json, recipes.json, ore_types.json |
-| district_bubble.gd | Map district tap-bubble decision layer (Prospect / View Veins) | districts.json |
-| district_deck.gd | Weighted per-district event deck picker | data/events/*.json (via GameData.EVENTS) |
-| districts.gd | Derived district info for Map tab's district list | districts.json |
-| economy.gd | Selling (Archie lane + generic faction lane) | districts.json, faction_trade.json, ore_types.json, recipes.json (consumable prices) |
-| equipment.gd | Weapon equip/unequip | — |
-| events.gd | Event-card runner + rewind (narration/speaker/tension/resolution/craft/choice cards). Event art auto-discovers `assets/events/<event_id>/<event_id>_card<n>.<extension>` by one-based card index (`png`/`jpg`/`jpeg`/`webp`); explicit card `image` paths/null remain authoritative and choice-result images remain explicit. `is_vn_mode()` scans the full static event plus convention assets before rendering card 1. | data/events/*.json, vein_growth.json |
-| factions.gd | Faction joining | districts.json, factions.json, ore_types.json, vein_growth.json, vein_security.json |
-| home.gd | Home tier/security/rooms/raid. `get_raid_chance_for_tier(tier_id)`/`get_next_tier_id(tier_id)` factor `get_home_raid_chance()`/`upgrade_tier()`'s formulas out so the Phone tab's Harrow's app can preview a tier the player hasn't moved into yet | home.json |
-| jobs.gd | James's jobs, trust bands | recipes.json, constants.json (trust bands) |
-| lab_bench_nav.gd | Lab bench sub-view nav: which focal stop is in frame (`STOPS` = `["books_ore", "apparatus"]`, books+ore sharing stop 0), which notebook mode (recipes/experiments/null) is held for the session, and `selectedOre` (up to 2 ore-type ids picked at the ore stop, via `select_ore()`). This is the Lab's only nav state — the old BenchNav (systems/bench_nav.gd) picker/pairing/confirm drill-down and the lab.gd screen it drove are both deleted | — |
-| map_events.gd | Map event queue + playback sequencing | — |
-| map_hit_test.gd | Tap-hit-testing geometry for the Network diagram | map_layout.json |
-| map_layout.gd | Resolves map_layout.json stop slots against live sites/veins | map_layout.json, districts.json |
-| map_nav.gd | Map tab drill-down nav state (district list → panel → site/vein sheet) | — |
-| map_pins.gd | Contact map-pins for events awaiting at an address | data/events/*.json |
-| map_routing.gd | Pure deterministic octilinear line-routing geometry | — |
-| map_style.gd | Filter-chip re-styling math (Ownership/Type/Growth/Security/Faction isolate) | — |
-| map_view.gd | Persists Network map camera (zoom + scroll) across navigations | — |
-| map_zoom.gd | Pure zoom-level math for the Network diagram | — |
-| messages.gd | Messages phone-app data layer (threads + pending follow-ups) | — |
-| morning_accounts.gd | Exact completed-rollover account capture, live Attention queries, once-only post-transition BizBrief routing | ore_types.json, recipes.json, districts.json |
-| modal.gd | Modal open/close state | — |
-| nav.gd | Screen navigation (currentScreen) | — |
-| notify.gd | Notifications-list append/evict helpers; `META_COMBAT_LOG` meta-flag constant marks an entry as combat-log-sourced for top_bar.gd's suppression check | — |
-| objectives.gd | Objective/questline evaluator engine (flag_true + 4 others) | objectives.json, sites.json |
-| offers.gd | Pending sales offers: quoting, acceptance into a contract, expiry, and the passive daily random-offer roll. The daily sourcing roll is skipped outright when an assigned-but-unpaid ops role exists (an unassigned role still sources at its unassigned skill-1 baseline, since it owes no wage). Ticket 32: a one-off's `request` may carry `types` (2+ `{kind,type,qty}` lines) for a mixed request — recurring templates stay single-type only. `quote_for_request()` always populates `quote.lines`/`liveValue` (one entry for a single-type request too) alongside the legacy top-level `unitValue` (single-type only), and multiplies in `MIXED_EXTRA_TYPE_BONUS` per extra type; `create_offer()` fixes each mixed line's 2-5 qty band and its `extraTypeDeadlineDays` (`MIXED_EXTRA_TYPE_DEADLINE_DAYS` per extra type) at creation, which `accept_offer()` then adds on top of the random-rolled/scripted-authored due day | offers.json, ore_types.json, recipes.json |
-| payroll.gd | Daily wage payment for the 3 assignable staff roles (Sales/Production/Procurement), run at the start of daily-tick step ⑥ (after living costs at step ③ and the raid/faction chain, before the rest of the staff phase) — the "default-then-review" model (business-spec.md): affordable roles paid in fixed priority order (`ROLE_ROOMS` = lab, veinStation, ops), an unaffordable one skipped for the rest of that rollover with no debt, retried fresh next rollover. `is_paid_today(room_id)` (default true when never resolved) gates that day's work in Rooms.process_lab/process_vein_station, Contracts.has_staffed_sales, and Offers.daily_tick's sourcing roll. `pay_now(room_id)` is the "review/override" half -- lets the player clear a still-unpaid role with cash that arrives later the same day (scenes/screens/hq_floorplan.gd's per-room "Pay now" button), rather than only ever waiting for the automatic retry next rollover. | — |
-| phone_apps.gd | Phone home-grid app registry, including BizBrief (`bizbrief`) | — |
-| phone_nav.gd | Phone tab drill-down nav state (apps, Ticker detail view) | — |
-| progression.gd | Shared "award XP against a levels table" loop | — |
-| raiding.gd | Vein stealth-check + raid resolution | districts.json, factions.json, ore_types.json, stealth.json |
-| relation_accrual.gd | Capped, remainder-carrying £-denominated trade-relation meter | — |
-| raid_alarms.gd | Read-only stable summaries, counts, defence dispatch, and Phone routing for unresolved HQ/vein raid alarms | — |
-| rooms.gd | Daily processing for lab/veinStation rooms; each is a no-op when that room's role wage went unpaid today (Payroll.is_paid_today). Lab's repeated-attempt crafting loop (`process_lab`) targets `effective_lab_target()` per recipe — the personal `labThresholds` target, plus (ticket 30) undelivered active-contract need for that item when `labCoverContracts` toggles it on (`set_lab_cover_contracts`/`lab_covers_contracts`); `production_reserved_qty()` is the personal-target portion Contracts._shared_stock() must never draw from. `_production_order()` sequences which recipe gets scarce shared ore first: covered recipes by their best-ranked active contract in sales.priorityOrder, then every other recipe by `labThresholds`' own key-insertion order (the player's de facto priority) | ore_types.json, recipes.json |
-| sites.gd | Sites & prospecting (land, seeding into a vein) | districts.json, factions.json, ore_types.json, sites.json, vein_growth.json |
-| stash.gd | Personal stash: player.stash.orichalchum/inventory, a second ore/crafted-item pool business systems never read, moved instant/reversible/tier-preserving into and out of player.orichalchum/inventory | — |
-| station_bubble.gd | Map site/vein-stop tap-bubble decision layer | vein_growth.json |
-| time_system.gd | Time blocks, rest, daily tick; emits time_advanced and captures the exact Morning Brief around daily operations. Daily-tick step ⑥ runs Payroll.pay_wages() first, then the staff phase in business-spec.md's order (Procurement, Production, Sales delivery, settlement, offer sourcing) — Sales' same-rollover partial delivery sees both Procurement's and Production's output already landed | constants.json (time blocks) |
-| todo.gd | Notes-app checklist, driven by objectives | objectives.json |
-| travel.gd | District travel (free) | — |
-| vein_list.gd | Vein-portfolio list decision layer | vein_growth.json |
-| vein_list_nav.gd | Vein list screen nav state | — |
-| vein_trade.gd | Selling a vein outright to a faction (quote + sell) | ore_types.json, vein_growth.json |
+Data file per system: see `data/*.json` below.
+
+| File | Domain |
+|---|---|
+| approaches.gd | Unlocked physical approaches |
+| archie_deals.gd | Archie's daily side-deal roll |
+| bag.gd | Bag-drawer toggle |
+| bank.gd | Cash transaction log |
+| barometer.gd | Economic/social/political barometer + faction prefs |
+| bench.gd | Lab discovery engine (type-set × approach) |
+| bubble_layout.gd | Popup-position math for MapBubble |
+| collective.gd | Collective faction doors, Nadia settlement |
+| combat.gd | Turn-based combat engine + rewind |
+| combat_pacing.gd | Persisted normal/quick pacing toggle |
+| combat_prototype.gd | Bounded combat experiment, Debug-app |
+| consumables.gd | Out-of-combat healing effects |
+| contacts.gd | Relation, recruiting, room assignment, XP |
+| contracts.gd | Sales contract delivery, priority, settlement |
+| crafting.gd | Recipe crafting |
+| cultivating.gd | Vein growth / cultivate / prune |
+| debug_start.gd | Maximal-unlock debug state |
+| debug_tools.gd | Debug phone-app state adjusters |
+| dial.gd | Dial mechanic (Movements, charge economy) |
+| district_bubble.gd | District tap-bubble decision |
+| district_deck.gd | Weighted district event deck picker |
+| districts.gd | Derived district info for Map tab |
+| economy.gd | Selling (Archie lane + faction lane) |
+| equipment.gd | Weapon equip/unequip |
+| events.gd | Event-card runner + rewind, auto-discovers art |
+| factions.gd | Faction joining |
+| home.gd | Home tier/security/rooms/raid chance |
+| jobs.gd | James's jobs, trust bands |
+| lab_bench_nav.gd | Lab bench nav: stop, notebook, ore |
+| map_events.gd | Map event queue + playback |
+| map_hit_test.gd | Tap-hit geometry, Network diagram |
+| map_layout.gd | Resolves stops vs. live sites/veins |
+| map_nav.gd | Map drill-down nav (list → panel) |
+| map_pins.gd | Contact map-pins for waiting events |
+| map_routing.gd | Octilinear line-routing geometry |
+| map_style.gd | Filter-chip re-styling math |
+| map_view.gd | Persists Network camera |
+| map_zoom.gd | Zoom-level math for the diagram |
+| messages.gd | Messages data layer |
+| modal.gd | Modal open/close state |
+| morning_accounts.gd | Rollover capture, BizBrief routing |
+| nav.gd | Screen navigation |
+| notify.gd | Notifications append/evict |
+| objectives.gd | Objective/questline evaluator |
+| offers.gd | Sales offers: quoting, acceptance, expiry |
+| payroll.gd | Daily wage payment (3 staff roles) |
+| phone_apps.gd | Phone app-grid registry, incl. BizBrief |
+| phone_nav.gd | Phone drill-down nav |
+| preferences.gd | Saved accessibility prefs |
+| progression.gd | Shared "award XP" ladder loop |
+| raid_alarms.gd | Summaries + dispatch for raid alarms |
+| raiding.gd | Vein stealth-check + raid resolution |
+| relation_accrual.gd | Capped £ relation meter |
+| rooms.gd | Daily lab/veinStation processing |
+| sites.gd | Sites & prospecting |
+| stash.gd | Personal stash vs. shared pools |
+| station_bubble.gd | Site/vein-stop tap-bubble decision |
+| time_system.gd | Time blocks, rest, daily tick |
+| todo.gd | Notes checklist, driven by objectives |
+| travel.gd | District travel (free) |
+| vein_list.gd | Vein-portfolio list decision layer |
+| vein_list_nav.gd | Vein list screen nav state |
+| vein_trade.gd | Selling a vein outright to a faction |
 
 ## scenes/screens/*.gd — UI screens
 
+`scenes/Main.gd` (scene root) boots autoloads/first screen, mounts the time-transition + alarm
+overlays.
+
 | File | Renders |
 |---|---|
-| combat.gd | Combat screen (turn UI over systems/combat.gd). Stage backdrop and StageSlot poses (idle/attack 3-keypose/hit/ko) read combat_visuals.json's per-subject `templates.<key>` entries, keyed by `enemy_template_key()`/ally contactId/"player", falling back to `templates.default` when a subject's own entry is empty (the placeholder box is a defensive-only fallback, not expected in normal play); attack/hit/ko play via transform tweens between keyposes, not flipbooks. Archie's self-patch pose and prophetsBreath's ghost-next-pose effect are wired the same way and remain art-deferred with no default fallback. Beats carrying an `effectKey` play combat_visuals.json's `effects.<key>` sheet (art-deferred, empty today) via StageSlot.play_effect_sheet()/set_shield_loop(); art-independent flourishes (afterimage, wormhole-vanish, frozen-visual/time-scale, shield-crack flash) ride alongside regardless of art status. EventBus.combat_beats_played/combat_rewind_played bridge bag_drawer.gd's direct item-use path and combat_rewind()'s reverse-beat replay into this screen's own CombatDirector. The command deck (Dial + Complication card + Attack/Item/Leg it) lives in `_command_dock`, a fixed `HBoxContainer` outside `_content`'s ScrollContainer/margin flow, anchored to the screen's own bottom-left corner — this is what lets the Dial render at `dial_widget.gd`'s real "large prop" size; the Complication card docks as the top bar of the action stack (`_build_card_bar()`, shared with Attack/Item/Leg it), and the Dial and action stack both bottom-align (`SIZE_SHRINK_END`) to share one visual shelf. `_build_action_card()`'s Attack/Item/Run blocks use `ui_action_red` fill, not the default theme's amber (reserved for calc/cash reads). `COMMAND_DOCK_HEIGHT` derives from `DialWidget.WIDGET_SIZE.y` so the dock stays in lockstep as the Dial's own sizing changes. ART-REVIEW: the Dial's screw/switch hit-region consts (dial_widget.gd) and the exact `COMMAND_DOCK_*`/`HANDLE_DISPLAY_SIZE` pixel values are not yet confirmed on-device. |
-| combat_prototype.gd | Minimal, functional (not polished) screen over systems/combat_prototype.gd — the bounded combat experiment. Full-bleed, reached only from the Debug app's "Solo Combat Prototype" card (scenes/screens/phone.gd), never from normal play; not scenes/screens/combat.gd's production UI. One Fast/Heavy/Counter/Dodge/Blast action block per living enemy (target is implicit — whichever enemy's block the button sits under); a flat Items card for the self/AoE items, real `Crafting.inventory_qty()`-gated; a Dial card listing loaded Complications this prototype can cast (skips a loaded Blast — no target picker in this minimal screen). No special-casing for a mid-round paused state (`cp["_pending"]`, an Enhancement-Powder-inserted extra slot) — the same rebuild naturally re-shows the action blocks for the next commit. |
-| contacts.gd | Contacts tab, flag-gated actions. Paints its own Family 2 "device shell" background panel (`phone_bg_content`); once `_refresh()` builds every card, runs `ContactCards.apply_phone_os_chrome(_content)` over the whole tree |
-| event.gd | Generic event-card screen driven by state.event. ui-vision.md §11: shared card/action palette and persistent non-VN image slot. `_ready()` branches once on `Events.is_vn_mode()`. Non-VN keeps `_image_frame` + scrolling `_cards_box` + separate `_action_bar`. VN uses a safe-area-relative non-overlapping split: `_vn_image_frame` gets the upper remainder with centred aspect-cover cropping; fixed 236px `_vn_text_frame` holds internally scrolling prose plus fixed Continue/Rewind/choice controls. Only the latest revealed VN card renders; `_style_card()` preserves tension/craft/neutral treatments. |
+| combat.gd | Combat screen |
+| combat_prototype.gd | Minimal combat-prototype screen, Debug-app only |
+| contacts.gd | Contacts tab, flag-gated actions |
+| event.gd | Event-card screen (VN and non-VN layouts) |
 | factions.gd | Factions tab |
-| guild_marketplace.gd | Faction trading UI (buy/sell lanes, per-faction) |
-| hq.gd | HQ tab: the single bedsit room plate (hq_diorama.gd rendering data/hq_visuals.json), no card stack. Tapping a zone dispatches to its destination: bag/rest direct, one of modal_layer.gd's "hq_*" modals for Ore-store/Gym, or a full-bleed screen for Rooms (`Nav.go_to("hq_floorplan")`)/Security (`"hq_door"`)/Lab (`LabBenchNav.open()` + `"hq_lab_bench"`)/Dial (`"hq_dial"`); a locked-HQ fallback (no room plate yet) still exposes Rest/Defend. A debug region-overlay toggle button lives here too. Gym is wired into the bedsit plate despite docs/hq-diorama-vision.md §3.1 listing its first tier as "flat" — a deliberate, human-approved deviation (see data/hq_visuals.json's "gymDeviation" meta note). While Home.has_pending_raid() is true, the "security" zone tap calls Home.trigger_defend() directly instead of navigating to hq_door.gd, and `_build_room_view()` renders a deep-copied plate whose "security" region label reads "Security — RAID" (the label is the only hostile signal — no hostile-variant art exists). `_security_lock_installed_plate()` applies the same deep-copy-and-swap trick to swap in the security region's "installedImage" once `state.home.security` contains "lock" — the first HQ visual driven by real per-save state rather than tier alone |
-| hq_floorplan.gd | The Rooms zone's diegetic destination — an estate agent's plan of the property (filled/locked/purchasable room slots, plus lab/veinStation/ops contact assignment via the shared ASSIGNABLE_ROOMS row). Full-bleed screen (NavBar hidden, TopBar/notification board shown); Back returns to "hq". No hq_visuals.json entry — slot count is data-driven off GameData.HOME_ROOMS/HOME_TIERS, not fixed pixel-art regions. An assigned role's contact-assignment row also shows a "Pay now" catch-up button (Payroll.pay_now) whenever that room's wage went unpaid at the last rollover, disabled until cash covers it |
-| hq_door.gd | The Security zone's diegetic destination — installed/empty security slots (lock/cameras/reinforcedDoor/alarm/guard/ward), rendered as a 2-column grid of slot tiles (same shape hq_floorplan.gd uses for Rooms). Full-bleed screen (NavBar hidden, TopBar/notification board shown); Back returns to "hq". No hq_visuals.json entry — slot roster is data-driven off GameData.HOME_SECURITY, not fixed pixel-art regions. Raid-pending "hostile door" branching (opening Defend instead of this screen) lives entirely in hq.gd's zone-tap handler, not here |
-| hq_dial.gd | docs/hq-diorama-vision.md §4: the Dial's diegetic loadout sub-view — the sole entry point to loadout adjustment (unseeded gift-gate/seed buttons, Movement seat/unseat/wind, Complication load/unload). Renders `assets/hq/dial/dial_device_base.png` + a rotating `dial-needle.png` charge-reserve overlay purely as decoration — deliberately NOT the hit-test surface: the source art's screws sit only ~55-80 native px apart, well under docs/hq-diorama-vision.md §3.2's 44×44 no-overlap hit-region minimum. Complication-housing tiles are separate, generously-sized UI positioned on the clock face's own 2/4/8/10 o'clock corners (`_socket_positions()`), exactly `dial.capacityMax` of them. No hq_visuals.json entry — this plate isn't reached through HqDiorama/region hit-testing at all, unlike every other HQ sub-view. Full-bleed screen (NavBar hidden, TopBar/notification board shown); Back returns to "hq". `_build_top_block()` consolidates the level/charge/capacity readouts and the seated-Movement card (or inert-state copy) into one `UI.card()` — "Craft new Movement" opens the "craft_components_menu"→"movement_craft" chain, and "Swap" opens modal_layer.gd's "movement_swap" picker. Tapping a filled housing unloads via `Dial.unload_complication`; tapping an Empty housing opens modal_layer.gd's "dial_load_complication" picker. A "Craft Components" button in the chrome opens modal_layer.gd's "lab_bench_recipe_book" modal — the *only* real Complication-crafting entry point this screen has (the same-named `craft_components_menu` chain only ever crafts Movements, despite the generic name) |
-| hq_lab_bench.gd | docs/hq-diorama-vision.md §5: the Lab zone's diegetic destination — one wide plate (data/hq_visuals.json's "labBench", 612×408, 2 stops of 306 each — books+ore share stop 0 ("books_ore"), apparatus keeps stop 1) reused via hq_diorama.gd and panned by offsetting its position inside a 390-wide clipping frame, arrow-stepped only (state.labBenchNav.stop, LabBenchNav.step()) — no swipe/scroll; the pan tweens (_pan_diorama_to(), _PAN_DURATION), falling back to an instant snap with no live tree. Stop 0 carries the two notebook regions (Recipes/Experiments) — tapping one calls LabBenchNav.tap_notebook(), reflected back into the region's own label ("<Name> (open)") — plus the five "ore_<oreTypeId>" regions (tap toggles LabBenchNav.select_ore(), label carries the empty/some/plenty count bucket + selection + cost preview). Stop 1 carries up to four "apparatus_<approachId>" regions (omitted from the render-time copy of the plate when Approaches.is_known() is false), labelled with the armed recipe's name in Recipes/manual mode, or a spoiler-free "ready" in Experiments mode. Tapping an apparatus runs _run_apparatus() (Bench.probe()/Crafting.attempt_craft() per mode, feedback via modal_layer.gd's "lab_bench_probe_result"/"craft_result"); a press on an ore container followed by a release on a different apparatus region also runs that apparatus with the just-pressed selection, but is never the only route — a plain tap already fires. Tapping a notebook opens its modal (modal_layer.gd's "lab_bench_recipe_book"/"lab_bench_notes") in the same tap that sets the mode. This is the Lab's only screen — lab.gd and systems/bench_nav.gd are both deleted. Full-bleed screen (NavBar hidden, TopBar/notification board shown); Back returns to "hq" |
-| map.gd | Map tab: Network diagram (MapCanvas) + district panel + site/vein sheet. The sheet's Vein Station assign/target controls live elsewhere now — it shows only a read-only pointer to BizBrief's Manage > Procurement (scenes/screens/phone.gd). |
-| phone.gd | Phone tab/app grid and app views, including BizBrief's Brief tab (Reynard's summary, Operations, live Attention navigation), Manage Sales offers/draggable contract priorities/delivery+settlement history, Production's per-recipe personal-target +/-5 and contract-coverage toggle (`Rooms.adjust_lab_threshold`/`set_lab_cover_contracts`, ticket 30 — the sole control surface for labThresholds/labCoverContracts), and Procurement's per-vein Vein Station assign/target controls (`Rooms.toggle_vein_station_vein`/`set_vein_station_target`) — the sole control surface for that assignment. Family 2 device-shell/chrome. |
-| placeholder.gd | Stand-in for any not-yet-built screen |
+| guild_marketplace.gd | Faction trading UI |
+| hq.gd | HQ tab: bedsit plate, routes taps to sub-screens |
+| hq_dial.gd | Dial loadout sub-view (Movements, Complications) |
+| hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward) |
+| hq_floorplan.gd | Rooms zone: room slots + contact assignment |
+| hq_lab_bench.gd | Lab zone: notebook/ore/apparatus regions |
+| map.gd | Map tab: diagram + district panel + sheet |
+| phone.gd | Phone app grid, incl. BizBrief |
+| placeholder.gd | Stand-in for a not-yet-built screen |
 | title.gd | Title screen + load-game slot list |
-| vein_list.gd | Vein-portfolio list (district-scoped or global) |
+| vein_list.gd | Vein-portfolio list |
 
 ## scenes/components/*.gd — reusable UI components
 
 | File | Purpose |
 |---|---|
-| alarm_presentation.gd | Non-visual Node, mounted by scenes/Main.gd (wired to the shared TimeTransition instance). Detects newly-actionable raid-alarm situations (systems/raid_alarms.gd's stable summary-row ids) via EventBus.state_changed, using the same ephemeral session-tracking discipline as time_transition.gd (resets known ids on load/reset/Rewind, so an already-unresolved alarm never re-fires on reload). A new id fires EventBus.alarm_arrived (nav_bar.gd's Phone-tab pulse) plus an optional Haptics.buzz() (gated by the persisted meta.vibrationEnabled preference) immediately, and tentatively arms a direct auto-open (Nav "phone" + RaidAlarms.open()) once the shared TimeTransition-derived safe boundary is reached. EventBus.day_ticked unconditionally cancels that tentative auto-open, since MorningAccounts.open_after_transition() is what actually opens BizBrief for a rollover arrival instead. |
-| app_tile.gd | Icon+label+badge+lock tile used by the phone app grid — not shared with the dock, which builds its own dock-local tile chrome (`nav_bar.gd`). A fallback-label tile gets a flat near-black chip (`phone_bg_home`, no border); a tile with real icon art suppresses its own background panel entirely (the art is expected to be a full, self-contained square). Fallback/name label text is `phone_text_primary`; badge dot is `ui_action_red` |
-| bag_drawer.gd | Global bottom-sheet bag drawer, openable from any screen |
-| contact_cards.gd | Shared Archie/James/faction contact-card builders. Also owns `apply_phone_os_chrome(root)`, a recursive repaint pass (card/bubble panel fill, button fill/outline, ProgressBar fill/track, label colour, all via `GameData.PALETTE`'s `phone_os` group) that `contacts.gd` and `phone.gd` run over their built screen trees — including a message-bubble special case (outgoing `ui_action_red` vs. incoming `phone_bubble_incoming`) and a colour-value label heuristic so a deliberately tinted label (e.g. a £ figure) survives the pass. Not wired into `build_faction_card()`, which still serves the untouched (cream) standalone `factions.gd` screen — `phone.gd`'s own faction view reaches the same builder through a separately painted tree, so this doesn't leak between the two |
-| contract_card.gd | Draggable BizBrief Sales card; persists drop order through Contracts without storing UI state |
-| dial_widget.gd | Combat's in-fight Dial-casting widget, docked left of `scenes/screens/combat.gd`'s action stack inside that screen's `_command_dock`. Renders the real `assets/hq/dial/dial_device_base.png` umbrella-handle prop (reused from `hq_dial.gd`'s loadout screen) plus a charge-reserve needle. Interaction is direct tap: `handle_select(index)` fires when one of the 4 screws ringing the clock face is tapped (one per loaded Complication, `MAX_DOTS`-capped same as `hq_dial.gd`'s flanking sockets); `handle_trigger()` fires only from a dedicated hit-region over the oval switch below the grip (a drawn "⇄" glyph overlaid there, since the art has no icon baked in). Renders whenever the player has a seeded Dial at all (even empty) — CombatScreen omits the node entirely when there's no Dial. `_base_rect` draws an `AtlasTexture` cropped to trim the source PNG's blank native margin, so `RENDERED_WIDTH` is the real on-screen width `WIDGET_SIZE` is sized against, with `FACE_CENTER_NATIVE`/`BUTTON_CENTER_NATIVE` shifted to match the cropped coordinate space. `WIDGET_SIZE` is sized to fully contain the rendered art, with an asymmetric `TOP_PADDING` so the topmost screw's own tap-rect doesn't poke past the widget's top edge; the widget bottom-aligns (`SIZE_SHRINK_END`) within `_command_dock` so its art stays flush with the dock's bottom regardless of the action stack's height that round. ART-REVIEW: screw/button hit-region consts and `HANDLE_DISPLAY_SIZE` itself not yet confirmed on-device. |
-| dot_matrix_board.gd | Shared electronic dot-matrix departure/platform board renderer (amber-on-black, custom `_draw()` against dot_matrix_font.gd's bitmap table, scramble-on-refresh transition). `top_bar.gd` is the sole mounter, one instance, using `set_lines()`'s multi-line support directly — status line 0 plus the scrolling notification rows below it |
-| dot_matrix_font.gd | Hardcoded 5x7 bitmap font (A-Z/0-9/space/punctuation actually used by the status line + Notify.push() prose) backing dot_matrix_board.gd — same "engine can't render this, hand-draw it" precedent ore_glyphs.gd sets for ore symbols |
-| haptics.gd | Thin static presentation/platform adapter over Godot's `Input.vibrate_handheld()` (implemented on Android/iOS/Web only, a no-op elsewhere; Android also needs `permissions/vibrate=true` in export_presets.cfg). `is_supported()`/`buzz()`; consumed via an injectable Callable (alarm_presentation.gd's `haptics_hook`), not called directly, so tests can spy on it without real hardware |
-| hq_diorama.gd | Generic plate/region artwork, placeholders and debug hit regions; optional wrapped, non-interactive region captions remain visible over finished art. HQ supplies Rest caption; Lab supplies available experiment time cost. |
-| icons.gd | 8 drawn icon glyphs (home/pin/padlock/market/phone/bag/legend/news) |
-| map_bubble.gd | Popup anchored at a map point listing tappable options |
-| map_canvas.gd | Network diagram draw pass (paper → zones → river → lines → stops → badges) |
+| alarm_presentation.gd | Detects raid alarms; Phone pulse + vibration |
+| app_tile.gd | Icon+label+badge+lock tile for the app grid |
+| bag_drawer.gd | Global bottom-sheet bag drawer |
+| combat_director.gd | Combat beat-queue playback director |
+| contact_cards.gd | Shared card builders + OS chrome repaint |
+| contract_card.gd | Draggable BizBrief Sales card |
+| dial_widget.gd | Combat's Dial-casting widget |
+| dot_matrix_board.gd | Amber-on-black dot-matrix board renderer |
+| dot_matrix_font.gd | Bitmap font for dot_matrix_board.gd |
+| haptics.gd | Adapter over `Input.vibrate_handheld()` |
+| hq_diorama.gd | Generic plate/region artwork renderer |
+| icons.gd | 8 drawn icon glyphs |
+| map_bubble.gd | Popup listing tappable map options |
+| map_canvas.gd | Network diagram draw pass |
 | map_controls.gd | Filter-chip drawer + legend button |
-| map_legend.gd | Persistent faction-colour key, tube-map line-key style |
-| map_zoom_buttons.gd | Floating +/- zoom control over the Network diagram |
-| modal_layer.gd | Dim background + centred card, dispatches on `modal.type`. Current roster: HQ's "hq_ore_readout"/"hq_gym" (Rooms/Security/Dial/Lab have each since moved out to their own full-bleed screens); "craft_components_menu"/"movement_craft" (Movement crafting, reached from hq_dial.gd); "lab_bench_recipe_book" (Recipes-mode book: pick a known recipe + quantity, craft, refine), "lab_bench_notes" (Experiments-mode pairings/recipe-levels panel), "lab_bench_probe_result" (found/hot/inert feedback); "movement_swap" (lists `player.movementInventory`, seats via `Dial.seat_movement()`); "dial_load_complication" (tier-bucketed `player.inventory` scan, `Dial.load_complication()`). `_build_hq_gym()`'s Train button uses a `UI.card()` panel (cream fill, `ui_action_red`-accent border) wrapping a borderless button, the same card+button split combat.gd's action cards use, via this file's own duplicated `_action_color()`/`_action_card_panel_style()`/`_action_button_style()` helpers. `_build_hq_ore_readout()` renders as a handwritten inventory slip (`_slip_panel_style()`, aged-paper fill/near-sharp corners) with the raid-risk line riding the same slip as a rotated `ui_action_red` "stamp" (`_build_raid_stamp()`); the handwritten read comes from linework, not a font — `_SlipRule`/`_SlipStamp` are nested `Control`/`MarginContainer` classes with their own `_draw()`, sharing a `_draw_ink_polyline()` static helper (same "hand-draw it, no texture asset" precedent as ore_glyphs.gd/SymbolGlyph). It also appends `_build_personal_stash_section()` — a second `UI.card()` below the read-only slip, listing every ore type/recipe with stock on either side of Stash's shared/stash split and a shared qty-stepper + "→ Stash"/"← Shared" pair per row |
-| nav_bar.gd | Bottom 3-slot nav dock (Phone · Map · HQ). Renders as ui-vision.md §5's TfL tile-strip chrome (flat pale ground, thin dividers, icon-over-label, `ui_action_red`) via its own dock-local `_DockTile`/`_TileIcon`/`_LockBadge` nested classes, not `app_tile.gd` |
-| ore_glyphs.gd | Ore-symbol font glyph rendering + coverage check |
-| symbol_glyph.gd | Reusable Label-or-vector-fallback Control for any symbol a font may not cover (helper only — not yet wired into any screen) |
-| top_bar.gd | Persistent 80px departure board: full day/phase and sun/moon on row 0; three shape-distinct phase markers and cash on row 1; up to two notification rows below. Refreshes from live state after actions/load. Bag remains available; combat notification suppression unchanged. |
-| touch_scroll_container.gd | ScrollContainer with touch drag-to-scroll |
-| ui.gd | Shared Control builders and availability-aware time-cost labels; Evening paid actions say "last block today". Free/unavailable actions omit time cost. |
+| map_legend.gd | Persistent faction-colour key |
+| map_zoom_buttons.gd | Floating +/- zoom control |
+| modal_layer.gd | Dim background + card, dispatches on modal type |
+| nav_bar.gd | Bottom nav dock (Phone·Map·HQ) |
+| ore_glyphs.gd | Ore-symbol font glyph rendering |
+| symbol_glyph.gd | Label-or-vector fallback for a symbol |
+| time_transition.gd | Presentation queue (day/night atlas) |
+| top_bar.gd | Header: day/phase, cash, notices |
+| touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
+| turn_order_strip.gd | Combat turn-order display strip |
+| ui.gd | Shared Control builders, time-cost labels |
 
 ## data/*.json
 
 | File | Consumed by |
 |---|---|
-| approaches.json | systems/approaches.gd |
-| barometer.json | systems/barometer.gd |
-| collective_barks.json | systems/collective.gd |
-| combat_prototype.json | autoload/GameData.gd (COMBAT_PROTOTYPE) → systems/combat_prototype.gd. The bounded solo combat prototype's teaching roster — prototype-only, not cross-referenced by REFERENCE.md. `encounterOrder`: the fixed brawler → knifeFighter → enforcer teaching sequence, each a flat single-enemy shape (`{name, teaches, intro, hp, attackMin, attackMax, speed, evadeChance, script}` at the encounter's own top level). Three more encounters live outside encounterOrder (reached via `CombatPrototype.list_launchable_encounters()`): `pairAmbush`/`mixedCrew` carry an `enemies` array (same per-enemy fields, one entry per squad member) instead of the flat shape; `gauntlet` carries a `waves` array of `enemies`-shaped arrays instead, fought in order with no HP reset between them. `script` is each enemy's deterministic committed-action cycle (validated against CombatPrototype.SCRIPTABLE_ACTIONS by GameData._validate_combat_prototype(), which also enforces the enemies-xor-waves shape for anything outside encounterOrder), always aimed at the player. |
-| combat_visuals.json | autoload/GameData.gd (COMBAT_VISUALS) → scenes/screens/combat.gd, scenes/components/turn_order_strip.gd. `backdrops`: Combat.CANONICAL_CONTEXTS context → `{image, fallbackColor}` (validated, `fallbackColor` a palette.json colour id via GameData.PALETTE). `templates`: per cast-subject key (unvalidated), `idle`/`attack`/`hit`/`ko` sheets each `{image, frameCount, fps}` -- all four fall back to the shared `default` stand-in (Gangsters_2-sourced) when a subject's own is empty; the placeholder box only shows if even `default` is missing/broken. `tell` (ability-telegraph pose) and `selfPatch` (Archie-only heal pose) have no `default` fallback. `territorialScrapper`/`orichalchumDealer` have real (asset-pack sourced, not final) idle/attack/hit/ko art; every other subject and every `tell` entry is still an empty stub, showing `default`'s art instead. `effects` (unvalidated): flat (not per-subject) table, one entry per consumable with a signature *sheet* effect (`timePearl`/`blast`/`shield`/`healingBurst`/`blackHole`), each `{image, frameCount, fps}` at 96×96 native (blackHole 160×160) -- no `default` fallback (an effect sheet has nothing generic to fall back to); every entry is still an empty stub (no art produced yet). enhancementPowder/wormhole/rewind/failsafe have no `effects` entry at all -- their effects are transform-only (no new art) |
-| constants.json | `dayClock` presentation copy/cues loaded as GameData.DAY_CLOCK; systems/time_system.gd, systems/jobs.gd, scenes/components/top_bar.gd, scenes/screens/phone.gd (timeBlocks, archieOreGoal, contacts defaults, James trust bands) |
-| dial.json | systems/dial.gd |
-| districts.json | systems/districts.gd, district_bubble.gd, sites.gd, economy.gd, factions.gd, raiding.gd, map_layout.gd, archie_deals.gd |
-| enemies.json | systems/combat.gd |
-| faction_trade.json | systems/economy.gd |
-| factions.json | systems/factions.gd, sites.gd, raiding.gd, debug_start.gd |
-| home.json | systems/home.gd, systems/approaches.gd, scenes/screens/phone.gd (Harrow's reads HOME_TIERS/HOME_TIER_ORDER directly for its listing), systems/contacts.gd (`salesXpLevels`, same threshold-ladder shape as recipes.json's craftingXpLevels/vein_growth.json's cultivatingXpLevels) |
-| hq_visuals.json | autoload/GameData.gd (HQ_VISUALS) → scenes/components/hq_diorama.gd, scenes/screens/hq.gd, scenes/screens/hq_lab_bench.gd. `rooms`: room-plate id (v1: only `bedsit`) → `{image, fallbackColor, width, height, regions}`; `regions`: zone id → `{x, y, width, height, label, image}` in the plate's own display-resolution coordinate space, doubling as both hit region and sprite rect. A sibling top-level `labBench` plate (same `{image, fallbackColor, width, height, regions}` shape, one plate not a table — it's the Lab bench sub-view, not a property tier) covers the bench's stop pan (§5.1): 612×408, 2 stops of 306 each, books+ore regions in stop 0 (x 0-390 pre-scale) and apparatus regions in stop 1. `labBench.image` (`assets/hq/lab_bench.png`) is a single full-table render at that native 612×408 covering both stops together — a real photographed table with an alpha-cut edge, not solid colour, so region placement respects where the table is actually opaque (roughly y142-336, sloped corners from x~40/x~560) rather than the plate's raw bounds; `notebookRecipes`/`notebookExperiments` sit on the two book covers, pixel-sampled from the art. The five `ore_<oreTypeId>` regions (one per data/ore_types.json type — hq_lab_bench.gd derives the type from the region id) carry optional `emptyImage`/`someImage`/`plentyImage` fields alongside `image`, following the `security` region's `installedImage` deep-copy-and-swap convention, for the count-driven visual state once art exists (all still empty today, rendering as a labelled placeholder box whose text carries the state instead) — they sit in the one open strip above the books (y144, height 45). The four `apparatus_<approachId>` regions (one per data/approaches.json approach) have no such variants — hq_lab_bench.gd deletes an apparatus's region from its own render-time copy entirely when its approach isn't known yet, rather than swapping its image — laid out as a 2×2 grid inside the table's opaque vertical span (y150/243, each 85 tall). Still flagged ART-REVIEW; a couple of outer edges (`ore_time`, `apparatus_grinding`/`apparatus_distilling`) clip slightly into the table's sloped corners. Read entirely generically (no hardcoded room/zone roster) so a later tier's plate or a new region needs a manifest edit only. `image` empty renders a labelled placeholder box (docs/hq-diorama-vision.md §9). Validated by GameData._validate_hq_visuals() (factored into the per-plate `_validate_hq_plate()`, called once per room plus once for `labBench`) — every region ≥44×44px, no overlaps within the same plate. `bedsit` has real art (`assets/hq/bedsit_room.png` + per-region crops under `assets/hq/regions/`) and an optional `installedImage` on the `security` region (`bedsit_security_installed.png`) — a second full-region plate hq.gd swaps in at render time (never read by hq_diorama.gd itself) once `state.home.security` has `"lock"`; `oreStore` still has no art (`image: ""`, placeholder box) since no fixture was ever drawn for it |
-| items.json | systems/combat.gd, scenes/screens/phone.gd, scenes/components/bag_drawer.gd |
-| map_layout.json | systems/map_layout.gd, systems/map_hit_test.gd |
-| objectives.json | systems/objectives.gd, systems/todo.gd, systems/collective.gd |
-| ore_types.json | widely read — economy.gd, cultivating.gd, sites.gd, factions.gd, raiding.gd, dial.gd, rooms.gd, vein_trade.gd, debug_start.gd, archie_deals.gd |
-| offers.json | autoload/GameData.gd (OFFER_TEMPLATES) → systems/offers.gd; minimal synthetic offer catalogue, a placeholder until the real content is authored |
-| palette.json | tools/make_palette_swatch.py, autoload/GameData.gd (PALETTE, colour id → Color) — reference 42-colour combat-art palette; not enforced on generated art. Swatch render sits alongside it at `data/palette_swatch.png` |
-| recipes.json | systems/crafting.gd, bench.gd, combat.gd, dial.gd, jobs.gd, rooms.gd, economy.gd (consumable prices), contacts.gd (crafting xp levels) |
-| sites.json | systems/sites.gd, collective.gd, objectives.gd |
-| stealth.json | systems/raiding.gd |
-| vein_alarm.json | systems/cultivating.gd |
-| vein_growth.json | systems/cultivating.gd, events.gd, sites.gd, factions.gd, station_bubble.gd, vein_list.gd, vein_trade.gd, debug_start.gd, contacts.gd |
-| vein_security.json | systems/cultivating.gd, systems/factions.gd |
+| approaches.json | approaches.gd |
+| barometer.json | barometer.gd |
+| collective_barks.json | collective.gd |
+| combat_prototype.json | combat_prototype.gd |
+| combat_visuals.json | combat.gd screen (backdrops, pose sheets) |
+| constants.json | time_system.gd, jobs.gd |
+| daily_cycle.json | time_transition.gd (day/night atlas) |
+| dial.json | dial.gd |
+| districts.json | widely read (sites, economy, factions, raiding) |
+| enemies.json | combat.gd |
+| faction_trade.json | economy.gd |
+| factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd |
+| home.json | home.gd, approaches.gd, contacts.gd |
+| hq_visuals.json | hq_diorama.gd, hq*.gd screens |
+| items.json | combat.gd, phone.gd, bag_drawer.gd |
+| map_layout.json | map_layout.gd, map_hit_test.gd |
+| objectives.json | objectives.gd, todo.gd, collective.gd |
+| offers.json | offers.gd (synthetic catalogue) |
+| ore_types.json | widely read (economy, cultivating, sites, factions) |
+| palette.json | GameData.gd (reference combat-art palette) |
+| recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |
+| sites.json | sites.gd, collective.gd, objectives.gd |
+| stealth.json | raiding.gd |
+| vein_alarm.json | cultivating.gd |
+| vein_growth.json | widely read (cultivating, events, sites, vein_trade) |
+| vein_security.json | cultivating.gd, factions.gd |
 
-## data/events/*.json (43 files, not listed individually)
+## data/events/*.json (one file per event id, not listed individually)
 
-One JSON per event id, loaded by autoload/GameData.gd into `EVENTS` (roster is the `EVENT_IDS` + `DISTRICT_EVENT_IDS` consts in GameData.gd — check there for the current id list, not this file). Each is the cards/on_complete event schema systems/events.gd runs. Two naming families: `col_a1_*` / `col_hakim_intel` / `archie_*` / `james_*` / `home_raid_*` etc. are directly-triggered tutorial/Collective-Act-1 story beats; district-named files (`busker_greenwich.json`, `city_suit.json`, ...) are weighted district-deck entries drawn by systems/district_deck.gd and also carry a `deck` sub-object (district/weight/excludeIfFlag/barometerState).
+Loaded by `GameData.gd` into `EVENTS` (`EVENT_IDS` + `DISTRICT_EVENT_IDS`). Each is the
+cards/on_complete schema `systems/events.gd` runs — directly triggered story beats vs. weighted
+district-deck entries (`systems/district_deck.gd`, a `deck` sub-object).
 
 ## tests/*.gd
 
-Mirrors systems/ and screens/ 1:1 by filename: `tests/test_<name>.gd` tests `systems/<name>.gd` or the matching screen/component. `tests/support/` holds shared test helpers (e.g. draw_spy.gd). Run via `scripts/run_tests.sh`. Two files are infrastructure, not mirrors, and are excluded from discovery: `test_runner.gd` (the `-s` entry script — discovers and runs every other file, force-loads `GameData`, flushes one engine frame up front so every autoload's own `_ready()` has run before any case starts, then snapshots the live autoload set via `test_base.gd`'s `protect_autoloads()`) and `test_base.gd` (the shared base class every test file extends by path — provides `run_case()`/`assert_*`, and a teardown that disconnects and frees any EventBus connection a case leaves behind on an off-tree node, while never touching a protected autoload).
+Mirrors systems/ and screens/ 1:1: `tests/test_<name>.gd`. `tests/support/` holds shared helpers,
+run via `scripts/run_tests.sh`. `test_runner.gd`/`test_base.gd` (entry + base class) are
+infrastructure, excluded from discovery.
 
 ## scripts/*.sh and scripts/*.gd — tooling
 
-| File | Purpose |
-|---|---|
-| check_all.sh | Syntax-checks project-authored .gd files via check_runner.gd; generated Android build output is excluded |
-| run_tests.sh | Runs the full headless test suite (tests/test_runner.gd discovers test_*.gd) |
-| setup_godot.sh | Idempotent Godot 4.4 headless binary setup, symlinked as `godot` |
-| soak.sh | Runs the playthrough test 20x as separate `godot --headless` invocations |
-| check_runner.gd | SceneTree script backing check_all.sh — boots normally so autoloads resolve; skips vendored addons and generated Android build output |
-| verify_map_camera_persistence.gd | Live-tree regression check for map-camera-persistence bug |
-| debug_combat_dial_screenshot.gd | Dev-only visual harness (run windowed, `godot -s scripts/debug_combat_dial_screenshot.gd`, real GPU required): boots CombatScreen with a loaded/empty Dial, dumps PNGs + a full Control-rect tree to `.scratch/combat-presentation/dial-screenshots/`. Same pattern as the pre-existing (also unlisted here) `debug_combat_fan_screenshot.gd`/`debug_hq_dial_screenshot.gd` — written for combat-presentation ticket 18 to verify `dial_widget.gd`'s tap-region geometry actually lands on the art |
+`check_all.sh` syntax-checks .gd files, then runs `lint_tokens.sh` (row-cap + comment-vocab ban).
+`run_tests.sh` runs the headless suite. `setup_godot.sh`/`setup_godot_ai.sh` set up the headless
+binary and the godot-ai MCP server; `soak.sh` repeats the playthrough test. The two
+`debug_combat_*_screenshot.gd` files are windowed dev screenshot harnesses;
+`diagnose_115_timing.gd` is a hang-timing probe; `verify_map_camera_persistence.gd` is a
+live-tree check.
 
-## tools/*.py — asset pipeline tooling
+## tools/*.py, *.html, *.js — asset/content pipeline tooling
 
-| File | Purpose |
-|---|---|
-| png_io.py | Pure-stdlib PNG read/write (8-bit RGB/RGBA, non-interlaced) — no Pillow dependency |
-| make_palette_swatch.py | Renders `data/palette.json` to `data/palette_swatch.png`; re-run after editing the palette |
-
-## tools/quest-editor.html — local quest browser + prose editor
-
-Single static HTML file, open directly in Chrome (no server/build step). Uses the File System
-Access API to open `data/events/`, list every quest JSON, and edit prose fields (`text`, `label`,
-`speaker`, `result_text`) inline while showing `effects`/`on_complete`/`deck`/`pin` read-only.
-Saves by splicing only the edited string literals back into the original file text (via a
-custom position-tracking JSON parser), so untouched keys, values, and formatting are preserved
-byte-for-byte. A "+ New quest" builder lets you assemble a fresh quest's card/choice list from
-scratch and writes it as an inert, unregistered `data/events/<id>.json` (`effects: []`, no
-`deck` key). Every open quest (existing or newly built) also shows an "Author intent notes"
-panel — free text describing what the mechanical fields should do, saved alongside quest saves
-as a sidecar `data/events/drafts/<id>.notes.md`, fully independent of the real event JSON.
-`test_quest_editor.js` (`node tools/test_quest_editor.js`) unit-tests the parser, splice logic,
-builder schema, and notes-sidecar naming against every real file in `data/events/`.
-
-## tools/quest-editor-mobile.html — offline draft builder (phone)
-
-Single static HTML file with no dependency on the File System Access API, so it works in mobile
-browsers (desktop `quest-editor.html` needs `showDirectoryPicker`, which iOS/Android browsers
-don't support). Same card/choice builder UI as `quest-editor.html`'s "+ New quest" flow, but
-touch-sized and with no connection to `data/events/` at all — no folder access, no id-collision
-check. "Save draft" downloads a single bundle `<id>.draft.json` (`{format: "vein-quest-draft/v1",
-id, cards, notes}`); "Open draft…" re-loads one of those (or a plain exported quest JSON) via
-`<input type=file>` to keep editing. "Copy JSON" puts the same bundle on the clipboard as a
-paste-into-chat alternative to file transfer. The round trip: write on phone → get the
-`.draft.json` to a computer (AirDrop/email/clipboard) → hand it to Claude, which creates the real
-`data/events/<id>.json` (+ `drafts/<id>.notes.md` sidecar) and does the registration/wiring pass,
-same as it would for a desktop-built draft.
+`png_io.py` is a pure-stdlib PNG reader/writer. `make_palette_swatch.py`/`pack_daily_cycle.py`
+render the palette swatch and daily-cycle atlas. `quest-editor.html`/`quest-editor-mobile.html`
+are the desktop/mobile quest content editors (`data/events/*.json`); `test_quest_editor.js`
+unit-tests the desktop editor.
 
 ## docs/*.md and docs/adr/
 
-See CLAUDE.md source-of-truth table for: REFERENCE.md, M0-PORT.md, M1-LONDON.md, M1.5-NETWORK-MAP.md, CONTENT-GUIDE.md, reference/london-orichalchum.html, CONTEXT.md, docs/adr/ (as a category). Not in that table:
-
-| File | Purpose |
-|---|---|
-| VISION.md | Game vision & dev plan (v1.1) |
-| M3-CALC-DISCOVERY.md | Lab/Calc-effect-discovery vision doc — provisional, not yet spec/canon |
-| device-plan-spec.md | Dial device mechanic design log — draft, not yet promoted to REFERENCE.md |
-| combat-animation-vision.md | Combat animation & art direction vision draft |
-| ART-BIBLE.md | Combat pixel-art canon: palette, canvas sizes, lighting rule, generation prompt template, render/import settings |
-| BUGS.md | Known-bugs log (as of 2026-07-24) |
-| BUGHUNT-2026-07-17.md | Write-up of a 2026-07-17 headless bug-hunting session |
-| android-setup.md | One-time machine setup + build steps for an installable Android APK |
-| agents/domain.md | How engineering skills should consume this repo's domain docs |
-| agents/issue-tracker.md | Local-markdown issue tracker convention (issues live under .scratch/) |
-| agents/triage-labels.md | Maps the 5 canonical triage roles to this repo's actual label strings |
-| adr/0001-defer-network-map-renderer.md | Why the Network Map renderer was split out of M1's exit criteria |
-| adr/0002-site-lifecycle-and-npc-claims.md | siteCap / NPC-claim eligibility / abandonment interaction rules |
-| adr/0003-app-icon-asset-contract.md | Fixed contract for app-tile icon assets |
-| adr/0004-remove-npc-vein-abandonment.md | Removed NPC-vein abandonment; retuned claim rate + prune-back target |
-| adr/0005-event-image-asset-contract.md | Fixed contract for event-card illustration assets (path/numbering/format/canvas) |
-
-## London time transitions (day-rhythm ticket 02)
-
-| File | Responsibility |
-|---|---|
-| scenes/components/time_transition.gd | Main-owned, topmost ephemeral presentation queue; waits for outcome/event/combat/modal/bag completion, plays atlas, blocks input, discards presentation on state replacement |
-| scenes/Main.gd | Creates the time overlay after all other UI |
-| scenes/screens/phone.gd | Profile exposes Reduced motion preference |
-| systems/preferences.gd | Pure saved accessibility preference mutation (`meta.reducedMotion`) |
-| data/daily_cycle.json | GameData.DAILY_CYCLE: atlas ranges, timing, bounds and presentation copy |
-| tools/pack_daily_cycle.py | Packs authored daily_cycle ZIP strips into a compact atlas, including optional final night clip |
-| assets/daily_cycle/README.md | Source contract, frame count/grid/bounds, final-animation handoff and art review |
-
-## Urgent alarms and vibration (day-rhythm ticket 05)
-
-| File | Responsibility |
-|---|---|
-| scenes/components/alarm_presentation.gd | Detects newly-actionable raid alarms (systems/raid_alarms.gd), fires the animate+vibrate cue, auto-opens the grouped alarm surface once safe and outside a rollover (see this file's own CODEMAP entry above for the full mechanism) |
-| scenes/components/haptics.gd | Static Input.vibrate_handheld() platform adapter |
-| scenes/Main.gd | Mounts alarm_presentation.gd wired to the same TimeTransition instance |
-| autoload/EventBus.gd | `alarm_arrived` signal |
-| scenes/components/nav_bar.gd | Phone-tab shake pulse on `alarm_arrived` |
-| scenes/components/time_transition.gd | `outcome_finished()` made `static` so alarm_presentation.gd shares one "is anything blocking presentation" definition instead of a second, divergent one |
-| scenes/screens/phone.gd | Profile exposes a persisted "Vibrate for alarms" preference |
-| systems/preferences.gd | Pure saved preference mutation (`meta.vibrationEnabled`) |
-| tests/test_time_transition.gd | Capture/order, effects, free/blocked paths, Rest/rollover, reduced motion, reload, atlas and live input tests |
+See CLAUDE.md's source-of-truth table for REFERENCE.md, M0-PORT.md, M1-LONDON.md,
+M1.5-NETWORK-MAP.md, CONTENT-GUIDE.md, CONTEXT.md, docs/adr/. Not in that table: `VISION.md`,
+`M3-CALC-DISCOVERY.md`/`device-plan-spec.md` (provisional drafts),
+`hq-diorama-vision.md`/`combat-animation-vision.md`/`ART-BIBLE.md` (screen/art direction),
+`BUGS.md`, `BUGHUNT-2026-07-17.md`, `android-setup.md`, `agents/*.md` (see CLAUDE.md's Agent
+skills section). `docs/adr/0001`–`0005`: Network Map deferral, site/NPC-claim rules, app-icon
+contract, NPC-vein abandonment removal, event-image contract.

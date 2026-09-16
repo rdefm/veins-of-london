@@ -5,7 +5,6 @@
 # the token-diet strip tickets remove entries as they clean each file up.
 # Do not add a new entry for freshly written code -- fix the comment/row
 # instead (CLAUDE.md workflow step 8).
-CODEMAP.md
 autoload/EventBus.gd
 autoload/GameData.gd
 autoload/GameState.gd
