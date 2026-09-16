@@ -3,7 +3,8 @@
 # (a -s SceneTree script, so autoloads register normally -- see that file's
 # header comment for why the old per-file `--check-only --script X` loop
 # false-positived on every autoload-referencing file). Exits non-zero if
-# any file fails to load.
+# any file fails to load. Also runs scripts/lint_tokens.sh (comment +
+# CODEMAP token-diet policy, CLAUDE.md workflow step 8).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,4 +20,7 @@ else
 fi
 
 cd "$PROJECT_DIR"
-"$GODOT_BIN" --headless -s scripts/check_runner.gd
+status=0
+"$GODOT_BIN" --headless -s scripts/check_runner.gd || status=1
+bash "$SCRIPT_DIR/lint_tokens.sh" || status=1
+exit $status
