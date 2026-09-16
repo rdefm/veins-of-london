@@ -57,6 +57,28 @@ func run_case(case_name: String, fn: Callable) -> void:
 # connections before each case and disconnects (and frees) whatever is new
 # after -- catching any off-tree node any case builds and abandons, in any
 # test file, present or future, with no per-file plumbing.
+#
+# bugfixes ticket 124: a project autoload can *also* look like a fresh
+# connection here -- autoload/GameState.gd's own _ready()-time
+# EventBus.shared_stock_increased.connect() is deferred (ticket 123) and
+# only actually appears on EventBus the first time some case flushes a real
+# engine frame. That made the live GameState singleton itself pass the
+# `target is Node` check below and get queue_free()'d, corrupting every
+# later GameState access into a use-after-free that eventually segfaulted
+# somewhere unrelated (122-diagnose-full-suite-segfault_COMPLETED.md).
+# test_runner.gd now calls protect_autoloads() once, before any test file
+# runs, with the live autoload set snapshotted from the SceneTree root --
+# any target whose instance id is in there is skipped entirely, never
+# disconnected and never freed. A leaked off-tree test node was never part
+# of that snapshot, so the ticket-116 behaviour above is unaffected.
+static var _protected_autoload_ids: Dictionary = {}
+
+
+static func protect_autoloads(autoloads: Array[Node]) -> void:
+	for node in autoloads:
+		_protected_autoload_ids[node.get_instance_id()] = true
+
+
 func _snapshot_eventbus_connections() -> Dictionary:
 	var snapshot := {}
 	for sig_name in _eventbus_signal_names():
@@ -77,8 +99,10 @@ func _disconnect_and_free_new_eventbus_connections(before: Dictionary) -> void:
 			var callable: Callable = conn["callable"]
 			if before_callables.has(callable):
 				continue
-			EventBus.disconnect(sig_name, callable)
 			var target := callable.get_object()
+			if target is Node and _protected_autoload_ids.has(target.get_instance_id()):
+				continue
+			EventBus.disconnect(sig_name, callable)
 			if target is Node and not freed_ids.has(target.get_instance_id()):
 				freed_ids[target.get_instance_id()] = true
 				target.queue_free()

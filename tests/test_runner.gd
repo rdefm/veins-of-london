@@ -19,6 +19,32 @@ func _initialize() -> void:
 		game_data.load_all()
 		game_data.validate()
 
+	# bugfixes ticket 124: flush one real engine frame up front so every
+	# autoload's own deferred _ready() -- not just GameData's forced call
+	# above -- has already run before any test case starts. Without this,
+	# whichever case happens to be first in the whole process to `await` a
+	# frame (test_hq_lab_bench.gd, historically) is also the first point
+	# autoload/GameState.gd's EventBus.shared_stock_increased connection
+	# actually appears (ticket 123), which run_case()'s teardown could then
+	# mistake for a freshly leaked node. This closes that timing hazard at
+	# its source; protect_autoloads() below is the backstop in case some
+	# other autoload's _ready() ever grows the same pattern.
+	await process_frame
+
+	# bugfixes ticket 124: snapshot every registered autoload's instance id
+	# so test_base.gd's run_case() teardown can tell a genuinely leaked
+	# off-tree test node apart from an autoload singleton it must never
+	# disconnect or free (122-diagnose-full-suite-segfault_COMPLETED.md).
+	# load(), not a top-level preload() const: this file is itself the `-s`
+	# entry script, and a top-level preload() of test_base.gd (which
+	# references the EventBus autoload identifier) compiles before the
+	# engine has registered any autoload, failing with "Identifier not
+	# found: EventBus" -- load() from inside _initialize() runs after
+	# autoloads are live, same as this same function's own `load(path)`
+	# calls on each discovered test file below.
+	var test_base_script: GDScript = load("res://tests/test_base.gd")
+	test_base_script.protect_autoloads(root.get_children())
+
 	var test_files := _discover_tests()
 	if test_files.is_empty():
 		print("No test files found in %s" % TEST_DIR)

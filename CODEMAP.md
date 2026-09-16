@@ -164,7 +164,7 @@ One JSON per event id, loaded by autoload/GameData.gd into `EVENTS` (roster is t
 
 ## tests/*.gd
 
-Mirrors systems/ and screens/ 1:1 by filename: `tests/test_<name>.gd` tests `systems/<name>.gd` or the matching screen/component. `tests/support/` holds shared test helpers (e.g. draw_spy.gd). Run via `scripts/run_tests.sh`.
+Mirrors systems/ and screens/ 1:1 by filename: `tests/test_<name>.gd` tests `systems/<name>.gd` or the matching screen/component. `tests/support/` holds shared test helpers (e.g. draw_spy.gd). Run via `scripts/run_tests.sh`. Two files are infrastructure, not mirrors, and are excluded from discovery: `test_runner.gd` (the `-s` entry script — discovers and runs every other file, force-loads `GameData`, flushes one engine frame up front so every autoload's own `_ready()` has run before any case starts, then snapshots the live autoload set via `test_base.gd`'s `protect_autoloads()`) and `test_base.gd` (the shared base class every test file extends by path — provides `run_case()`/`assert_*`, and a teardown that disconnects and frees any EventBus connection a case leaves behind on an off-tree node, while never touching a protected autoload).
 
 ## scripts/*.sh and scripts/*.gd — tooling
 
