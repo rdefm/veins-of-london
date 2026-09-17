@@ -235,7 +235,7 @@ func _telegraph_text_for(enemy: Dictionary) -> String:
 
 
 func _tell_image_for(enemy: Dictionary) -> Texture2D:
-	var key: String = CombatScreen.enemy_template_key(enemy)
+	var key: String = CombatStage.enemy_template_key(enemy)
 	if key.is_empty():
 		return null
 	var entry: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get(key, {}).get("tell", {})

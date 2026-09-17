@@ -6,15 +6,15 @@ extends "res://tests/test_base.gd"
 # then _ready(), no live tree needed.
 
 
-static func _stage_slots(root: Node) -> Array[CombatScreen.StageSlot]:
-	var slots: Array[CombatScreen.StageSlot] = []
+static func _stage_slots(root: Node) -> Array[CombatStage.StageSlot]:
+	var slots: Array[CombatStage.StageSlot] = []
 	for c in root.find_children("", "Control", true, false):
-		if c is CombatScreen.StageSlot:
+		if c is CombatStage.StageSlot:
 			slots.append(c)
 	return slots
 
 
-static func _slot_named(root: Node, combatant_name: String) -> CombatScreen.StageSlot:
+static func _slot_named(root: Node, combatant_name: String) -> CombatStage.StageSlot:
 	for s in _stage_slots(root):
 		if s.combatant_name == combatant_name:
 			return s
@@ -262,7 +262,7 @@ func run() -> void:
 		screen._ready()
 
 		var slots := _stage_slots(screen)
-		var mugger_slots: Array[CombatScreen.StageSlot] = []
+		var mugger_slots: Array[CombatStage.StageSlot] = []
 		for s in slots:
 			if s.combatant_name == "A mugger":
 				mugger_slots.append(s)
@@ -894,13 +894,13 @@ func run() -> void:
 	# which is what calls _play_juice()) fires before that point.
 
 	run_case("shake_magnitude_scales_with_damage_as_a_fraction_of_hp_max_between_3_and_6px", func():
-		var screen := CombatScreen.new()
+		var stage := CombatStage.new()
 
-		assert_almost_eq(screen._shake_magnitude(0, 20), CombatScreen.SHAKE_MIN_PX, 0.01, "no damage should read as the floor")
-		assert_almost_eq(screen._shake_magnitude(10, 20), CombatScreen.SHAKE_MAX_PX, 0.01, "50%+ of hpMax should already be at the cap (SHAKE_FULL_FRACTION)")
-		assert_almost_eq(screen._shake_magnitude(1000, 20), CombatScreen.SHAKE_MAX_PX, 0.01, "damage far beyond hpMax must still clamp at the cap, never exceed it")
-		var mid: float = screen._shake_magnitude(5, 20)  # 25% of hpMax -- halfway to SHAKE_FULL_FRACTION
-		assert_true(mid > CombatScreen.SHAKE_MIN_PX and mid < CombatScreen.SHAKE_MAX_PX, "a hit for a quarter of hpMax should shake somewhere between the floor and the cap")
+		assert_almost_eq(stage._shake_magnitude(0, 20), CombatStage.SHAKE_MIN_PX, 0.01, "no damage should read as the floor")
+		assert_almost_eq(stage._shake_magnitude(10, 20), CombatStage.SHAKE_MAX_PX, 0.01, "50%+ of hpMax should already be at the cap (SHAKE_FULL_FRACTION)")
+		assert_almost_eq(stage._shake_magnitude(1000, 20), CombatStage.SHAKE_MAX_PX, 0.01, "damage far beyond hpMax must still clamp at the cap, never exceed it")
+		var mid: float = stage._shake_magnitude(5, 20)  # 25% of hpMax -- halfway to SHAKE_FULL_FRACTION
+		assert_true(mid > CombatStage.SHAKE_MIN_PX and mid < CombatStage.SHAKE_MAX_PX, "a hit for a quarter of hpMax should shake somewhere between the floor and the cap")
 	)
 
 	run_case("beat_target_normalizes_a_beats_targetType_targetIndex_into_TurnOrderStrips_own_entry_key_shape", func():
@@ -917,10 +917,10 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_eq(screen._resolve_target_slot({ "type": "player", "index": -1 }), _slot_named(screen, "You"))
-		assert_eq(screen._resolve_target_slot({ "type": "ally", "index": 0 }), _slot_named(screen, "Mate"))
-		assert_eq(screen._resolve_target_slot({ "type": "enemy", "index": 0 }), _slot_named(screen, "Scrapper"))
-		assert_true(screen._resolve_target_slot({ "type": "enemy", "index": 5 }) == null, "an out-of-range/unknown index should resolve to no slot, not error")
+		assert_eq(screen._stage.resolve_target_slot({ "type": "player", "index": -1 }), _slot_named(screen, "You"))
+		assert_eq(screen._stage.resolve_target_slot({ "type": "ally", "index": 0 }), _slot_named(screen, "Mate"))
+		assert_eq(screen._stage.resolve_target_slot({ "type": "enemy", "index": 0 }), _slot_named(screen, "Scrapper"))
+		assert_true(screen._stage.resolve_target_slot({ "type": "enemy", "index": 5 }) == null, "an out-of-range/unknown index should resolve to no slot, not error")
 
 		screen.free()
 	)
@@ -1000,9 +1000,9 @@ func run() -> void:
 		screen._ready()
 
 		var fallback_id: String = GameData.COMBAT_VISUALS["backdrops"]["mugging"]["fallbackColor"]
-		assert_true(screen._backdrop_fill.visible, "no plate exists yet for CONTEXT_MUGGING -- the flat fallback fill must be showing")
-		assert_true(not screen._backdrop_texture.visible, "the image layer must stay hidden when there's no image")
-		assert_eq(screen._backdrop_fill.color, GameData.PALETTE[fallback_id], "fallback fill colour must be the manifest's fallbackColor resolved through the master palette")
+		assert_true(screen._stage._backdrop_fill.visible, "no plate exists yet for CONTEXT_MUGGING -- the flat fallback fill must be showing")
+		assert_true(not screen._stage._backdrop_texture.visible, "the image layer must stay hidden when there's no image")
+		assert_eq(screen._stage._backdrop_fill.color, GameData.PALETTE[fallback_id], "fallback fill colour must be the manifest's fallbackColor resolved through the master palette")
 
 		screen.free()
 	)
@@ -1011,11 +1011,11 @@ func run() -> void:
 		_setup_combat([_enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
 		var screen := CombatScreen.new()
 		screen._ready()
-		var mugging_color: Color = screen._backdrop_fill.color
+		var mugging_color: Color = screen._stage._backdrop_fill.color
 
 		_setup_combat([_enemy("Vein Guard")], [], 0, Combat.CONTEXT_DEFEND_VEIN)
 		screen._sync()
-		var defend_vein_color: Color = screen._backdrop_fill.color
+		var defend_vein_color: Color = screen._stage._backdrop_fill.color
 
 		assert_true(mugging_color != defend_vein_color, "CONTEXT_MUGGING and CONTEXT_DEFEND_VEIN use different fallback colours in data/combat_visuals.json, so the backdrop must change when the fight's context changes")
 		assert_eq(defend_vein_color, GameData.PALETTE[GameData.COMBAT_VISUALS["backdrops"]["defend_vein"]["fallbackColor"]], "backdrop must resync to the new context's own fallback colour")
@@ -1029,7 +1029,7 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_eq(screen._backdrop_fill.color, GameData.PALETTE[GameData.COMBAT_VISUALS["backdrops"]["mugging"]["fallbackColor"]], "archie_deal_mugging is a permanent alias of mugging's backdrop, not a distinct plate")
+		assert_eq(screen._stage._backdrop_fill.color, GameData.PALETTE[GameData.COMBAT_VISUALS["backdrops"]["mugging"]["fallbackColor"]], "archie_deal_mugging is a permanent alias of mugging's backdrop, not a distinct plate")
 
 		screen.free()
 	)
@@ -1042,8 +1042,8 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_true(screen._backdrop_fill.visible, "an unrecognised context must still fall back to a flat fill rather than rendering nothing")
-		assert_true(not screen._backdrop_texture.visible, "the image layer must stay hidden with no manifest entry to source a path from")
+		assert_true(screen._stage._backdrop_fill.visible, "an unrecognised context must still fall back to a flat fill rather than rendering nothing")
+		assert_true(not screen._stage._backdrop_texture.visible, "the image layer must stay hidden with no manifest entry to source a path from")
 
 		screen.free()
 		GameData.COMBAT_VISUALS = original_combat_visuals
@@ -1068,7 +1068,7 @@ func run() -> void:
 		screen._ready()
 		var slot := _slot_named(screen, "Scrapper")
 
-		assert_eq(slot._idle_frames, screen._idle_frames_by_template["default"]["frames"], "no matching template key -- must fall back to templates.default's own idle art, not the empty placeholder box")
+		assert_eq(slot._idle_frames, screen._stage._idle_frames_by_template["default"]["frames"], "no matching template key -- must fall back to templates.default's own idle art, not the empty placeholder box")
 		assert_true(slot._sprite_rect.visible, "the sprite layer must be showing the shared default idle sprite")
 
 		screen.free()
@@ -1101,7 +1101,7 @@ func run() -> void:
 		screen._ready()
 		var slot := _slot_named(screen, "Territorial Scrapper")
 
-		assert_eq(screen._idle_frames_by_template["territorialScrapper"]["frames"].size(), 7, "data/combat_visuals.json's templates.territorialScrapper.idle declares frameCount 7")
+		assert_eq(screen._stage._idle_frames_by_template["territorialScrapper"]["frames"].size(), 7, "data/combat_visuals.json's templates.territorialScrapper.idle declares frameCount 7")
 		assert_true(not slot._idle_frames.is_empty(), "territorialScrapper has a real manifest entry (assets/Gangsters_2/Idle.png) -- must not fall back to the placeholder box")
 		assert_true(slot._sprite_rect.visible, "the sprite layer must be showing")
 
@@ -1115,7 +1115,7 @@ func run() -> void:
 		screen._ready()
 		var slot := _slot_named(screen, "Orichalchum Dealer")
 
-		assert_eq(screen._idle_frames_by_template["orichalchumDealer"]["frames"].size(), 7, "data/combat_visuals.json's templates.orichalchumDealer.idle declares frameCount 7")
+		assert_eq(screen._stage._idle_frames_by_template["orichalchumDealer"]["frames"].size(), 7, "data/combat_visuals.json's templates.orichalchumDealer.idle declares frameCount 7")
 		assert_true(not slot._idle_frames.is_empty(), "orichalchumDealer has a real manifest entry (assets/Gangsters_3/Idle.png) -- must not fall back to the placeholder box")
 		assert_true(slot._sprite_rect.visible, "the sprite layer must be showing")
 
@@ -1131,7 +1131,7 @@ func run() -> void:
 		screen._ready()
 		var slot := _slot_named(screen, "Scrapper")
 
-		assert_true(screen._idle_frames_by_template.is_empty(), "no templates table at all -- nothing to load")
+		assert_true(screen._stage._idle_frames_by_template.is_empty(), "no templates table at all -- nothing to load")
 		assert_true(slot._idle_frames.is_empty(), "slot must fall back to the ticket-01 placeholder box, not error")
 
 		screen.free()
@@ -1145,7 +1145,7 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_eq(screen._idle_frames_by_template["mugger"]["frames"].size(), 7, "the mugger template's idle entry declares frameCount 7 -- CombatScreen should have loaded exactly that many frames")
+		assert_eq(screen._stage._idle_frames_by_template["mugger"]["frames"].size(), 7, "the mugger template's idle entry declares frameCount 7 -- CombatScreen should have loaded exactly that many frames")
 
 		var slot := _slot_named(screen, "A mugger")
 		assert_true(not slot._idle_frames.is_empty(), "an enemy resolving to a template key with a real manifest entry must not fall back to the placeholder box")
@@ -1182,12 +1182,12 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_eq(CombatScreen.enemy_template_key({ "name": "anything at all", "isMugging": true }), "mugger")
-		assert_eq(CombatScreen.enemy_template_key({ "name": "Territorial Scrapper", "isMugging": false }), "territorialScrapper")
-		assert_eq(CombatScreen.enemy_template_key({ "name": "Vein Guard", "isMugging": false }), "veinGuard")
-		assert_eq(CombatScreen.enemy_template_key({ "name": "Orichalchum Dealer", "isMugging": false }), "orichalchumDealer")
-		assert_eq(CombatScreen.enemy_template_key({ "name": GameData.ENEMY_HOME_RAID_RAIDER["name"], "isMugging": false }), "homeRaidRaider")
-		assert_eq(CombatScreen.enemy_template_key({ "name": "an unrecognised name", "isMugging": false }), "", "no match -- resolves to empty, same 'no manifest entry' fallback as any other gap")
+		assert_eq(CombatStage.enemy_template_key({ "name": "anything at all", "isMugging": true }), "mugger")
+		assert_eq(CombatStage.enemy_template_key({ "name": "Territorial Scrapper", "isMugging": false }), "territorialScrapper")
+		assert_eq(CombatStage.enemy_template_key({ "name": "Vein Guard", "isMugging": false }), "veinGuard")
+		assert_eq(CombatStage.enemy_template_key({ "name": "Orichalchum Dealer", "isMugging": false }), "orichalchumDealer")
+		assert_eq(CombatStage.enemy_template_key({ "name": GameData.ENEMY_HOME_RAID_RAIDER["name"], "isMugging": false }), "homeRaidRaider")
+		assert_eq(CombatStage.enemy_template_key({ "name": "an unrecognised name", "isMugging": false }), "", "no match -- resolves to empty, same 'no manifest entry' fallback as any other gap")
 
 		screen.free()
 	)
@@ -1203,9 +1203,9 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		var slot0: CombatScreen.StageSlot = screen._enemy_slots[0]
-		var slot1: CombatScreen.StageSlot = screen._enemy_slots[1]
-		var slot2: CombatScreen.StageSlot = screen._enemy_slots[2]
+		var slot0: CombatStage.StageSlot = screen._stage._enemy_slots[0]
+		var slot1: CombatStage.StageSlot = screen._stage._enemy_slots[1]
+		var slot2: CombatStage.StageSlot = screen._stage._enemy_slots[2]
 
 		assert_eq(slot0._idle_frames, slot1._idle_frames, "concurrent instances of the same template must share the exact same frame set -- no per-instance art")
 		assert_eq(slot0._idle_frames, slot2._idle_frames, "concurrent instances of the same template must share the exact same frame set -- no per-instance art")
@@ -1226,17 +1226,17 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_eq(screen._default_attack_keyposes.size(), CombatScreen.ATTACK_KEYPOSE_COUNT, "templates.default.attack down-samples to the doctrine's 3 keyposes")
-		assert_eq(screen._default_hit_keyposes.size(), CombatScreen.HIT_KEYPOSE_COUNT, "templates.default.hit down-samples to the doctrine's 1 keypose")
-		assert_eq(screen._default_ko_keyposes.size(), CombatScreen.KO_KEYPOSE_COUNT, "templates.default.ko down-samples to the doctrine's 2 keyposes")
+		assert_eq(screen._stage._default_attack_keyposes.size(), CombatStage.ATTACK_KEYPOSE_COUNT, "templates.default.attack down-samples to the doctrine's 3 keyposes")
+		assert_eq(screen._stage._default_hit_keyposes.size(), CombatStage.HIT_KEYPOSE_COUNT, "templates.default.hit down-samples to the doctrine's 1 keypose")
+		assert_eq(screen._stage._default_ko_keyposes.size(), CombatStage.KO_KEYPOSE_COUNT, "templates.default.ko down-samples to the doctrine's 2 keyposes")
 
 		# "Scrapper" (the test fixture's name) matches no real
 		# data/enemies.json subject, so its template key resolves to "" and
 		# every action falls back to the shared default stand-in.
 		var slot := _slot_named(screen, "Scrapper")
-		assert_eq(slot._attack_keyposes, screen._default_attack_keyposes)
-		assert_eq(slot._hit_keyposes, screen._default_hit_keyposes)
-		assert_eq(slot._ko_keyposes, screen._default_ko_keyposes)
+		assert_eq(slot._attack_keyposes, screen._stage._default_attack_keyposes)
+		assert_eq(slot._hit_keyposes, screen._stage._default_hit_keyposes)
+		assert_eq(slot._ko_keyposes, screen._stage._default_ko_keyposes)
 
 		screen.free()
 	)
@@ -1252,10 +1252,10 @@ func run() -> void:
 		screen._ready()
 
 		var slot := _slot_named(screen, "Territorial Scrapper")
-		assert_true(slot._attack_keyposes != screen._default_attack_keyposes, "a subject with its own attack art must not fall back to the shared default")
-		assert_eq(slot._attack_keyposes.size(), CombatScreen.ATTACK_KEYPOSE_COUNT)
-		assert_eq(slot._hit_keyposes.size(), CombatScreen.HIT_KEYPOSE_COUNT)
-		assert_eq(slot._ko_keyposes.size(), CombatScreen.KO_KEYPOSE_COUNT)
+		assert_true(slot._attack_keyposes != screen._stage._default_attack_keyposes, "a subject with its own attack art must not fall back to the shared default")
+		assert_eq(slot._attack_keyposes.size(), CombatStage.ATTACK_KEYPOSE_COUNT)
+		assert_eq(slot._hit_keyposes.size(), CombatStage.HIT_KEYPOSE_COUNT)
+		assert_eq(slot._ko_keyposes.size(), CombatStage.KO_KEYPOSE_COUNT)
 
 		screen.free()
 	)
@@ -1269,7 +1269,7 @@ func run() -> void:
 
 		slot.play_attack()
 		assert_true(slot._sprite_rect.texture != idle_frame, "the attack one-shot's wind-up keypose must replace the idle texture")
-		assert_eq(slot._one_shot_steps.size(), CombatScreen.ATTACK_KEYPOSE_COUNT, "attack always animates exactly its 3 keyposes")
+		assert_eq(slot._one_shot_steps.size(), CombatStage.ATTACK_KEYPOSE_COUNT, "attack always animates exactly its 3 keyposes")
 		for i in range(slot._one_shot_steps.size()):
 			slot._advance_one_shot()
 		assert_eq(slot._sprite_rect.texture, idle_frame, "a non-held one-shot must hand the texture back to idle once it runs out of steps")
@@ -1298,12 +1298,12 @@ func run() -> void:
 		var slot := _slot_named(screen, "Scrapper")
 
 		slot.play_ko()
-		assert_eq(slot._one_shot_steps.size(), CombatScreen.KO_KEYPOSE_COUNT, "ko always animates exactly its 2 keyposes")
+		assert_eq(slot._one_shot_steps.size(), CombatStage.KO_KEYPOSE_COUNT, "ko always animates exactly its 2 keyposes")
 		for i in range(slot._one_shot_steps.size()):
 			slot._advance_one_shot()
 		assert_eq(slot._sprite_rect.texture, slot._ko_keyposes[slot._ko_keyposes.size() - 1], "a held one-shot (ko) must stay on its own last keypose, not idle's")
-		assert_almost_eq(slot._sprite_rect.modulate.a, CombatScreen.FALL_ALPHA, 0.001, "the held ko pose must stay faded -- §4's 'transform fall + fade'")
-		assert_almost_eq(slot._sprite_rect.rotation_degrees, CombatScreen.FALL_ROTATION_DEG, 0.001, "the held ko pose must stay in its fallen rotation")
+		assert_almost_eq(slot._sprite_rect.modulate.a, CombatStage.FALL_ALPHA, 0.001, "the held ko pose must stay faded -- §4's 'transform fall + fade'")
+		assert_almost_eq(slot._sprite_rect.rotation_degrees, CombatStage.FALL_ROTATION_DEG, 0.001, "the held ko pose must stay in its fallen rotation")
 
 		screen.free()
 	)
@@ -1416,7 +1416,7 @@ func run() -> void:
 
 		for slot in _stage_slots(screen):
 			assert_true(slot.position.x >= 0.0, "%s must not spill left of the stage" % slot.combatant_name)
-			assert_true(slot.position.x + slot.size.x <= CombatScreen.STAGE_WIDTH + 0.01, "%s must not spill past the stage's right edge" % slot.combatant_name)
+			assert_true(slot.position.x + slot.size.x <= CombatStage.STAGE_WIDTH + 0.01, "%s must not spill past the stage's right edge" % slot.combatant_name)
 
 		screen.free()
 	)
@@ -1440,7 +1440,7 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["enemies"][0]["koed"], true, "sanity: Weak is dead in the already-final GameState")
 		var slot_after := _slot_named(screen, "Weak")
 		assert_eq(slot_after, slot_before, "the same Node, still on stage mid-playback -- not freed, not rebuilt")
-		assert_eq(slot_after._one_shot_steps[0].texture, screen._default_ko_keyposes[0], "the killing blow must start the ko one-shot specifically, not hit")
+		assert_eq(slot_after._one_shot_steps[0].texture, screen._stage._default_ko_keyposes[0], "the killing blow must start the ko one-shot specifically, not hit")
 
 		screen.free()
 	)

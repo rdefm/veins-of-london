@@ -91,7 +91,7 @@ overlays.
 
 | File | Renders |
 |---|---|
-| combat.gd | Combat screen |
+| combat.gd | Combat screen: orchestrator over CombatStage/CombatCommandDock -- owns turn flow (turn-order strip), director bridging, and when a band sync happens |
 | combat_prototype.gd | Minimal combat-prototype screen, Debug-app only |
 | contacts.gd | Contacts tab, flag-gated actions |
 | event.gd | Event-card screen (VN and non-VN layouts) |
@@ -115,7 +115,9 @@ overlays.
 | alarm_presentation.gd | Detects raid alarms; Phone pulse + vibration |
 | app_tile.gd | Icon+label+badge+lock tile for the app grid |
 | bag_drawer.gd | Global bottom-sheet bag drawer |
+| combat_command_dock.gd | Combat's Dial/Complication-detail/action-card dock, anchored bottom-left |
 | combat_director.gd | Combat beat-queue playback director |
+| combat_stage.gd | Combat's pixel stage: backdrop, subject slots, keypose one-shots, effect sheets, juice layer |
 | contact_cards.gd | Shared card builders + OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
 | dial_widget.gd | Combat's Dial-casting widget |
@@ -197,7 +199,7 @@ overlays.
 | barometer.json | barometer.gd |
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
-| combat_visuals.json | combat.gd screen (backdrops, pose sheets) |
+| combat_visuals.json | combat_stage.gd (backdrops, pose sheets) |
 | constants.json | time_system.gd, jobs.gd |
 | daily_cycle.json | time_transition.gd (day/night atlas) |
 | dial.json | dial.gd |
