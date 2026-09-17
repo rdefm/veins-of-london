@@ -11,6 +11,37 @@ func run() -> void:
 		assert_true(ok, "GameData.validate() should pass on the real data/*.json tables: %s" % str(GameData.get_errors()))
 	)
 
+	# No id-list const drives events loading -- whatever files live under
+	# data/events/ at boot is the loaded roster.
+	run_case("loaded_events_match_data_events_directory", func():
+		var dir := DirAccess.open("res://data/events/")
+		assert_true(dir != null, "res://data/events/ should be listable")
+		var files_on_disk: Array[String] = []
+		dir.list_dir_begin()
+		var file_name := dir.get_next()
+		while file_name != "":
+			if not dir.current_is_dir() and file_name.ends_with(".json"):
+				files_on_disk.append(file_name.get_basename())
+			file_name = dir.get_next()
+		dir.list_dir_end()
+		files_on_disk.sort()
+
+		var loaded_ids: Array = GameData.EVENTS.keys()
+		loaded_ids.sort()
+		assert_eq(loaded_ids, files_on_disk, "GameData.EVENTS should be exactly the event files on disk")
+	)
+
+	run_case("corrupt_fixture_event_id_mismatched_with_filename_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["events"]["intro"]["id"] = "not_intro"
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("events.intro") and e.contains("does not match filename"):
+				found = true
+		assert_true(found, "an event whose id field disagrees with its filename should fail validation")
+	)
+
 	run_case("corrupt_fixture_missing_ore_type_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
 		corrupted["ore_types"].erase("fate")

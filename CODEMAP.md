@@ -222,9 +222,10 @@ overlays.
 
 ## data/events/*.json (one file per event id, not listed individually)
 
-Loaded by `GameData.gd` into `EVENTS` (`EVENT_IDS` + `DISTRICT_EVENT_IDS`). Each is the
-cards/on_complete schema `systems/events.gd` runs — directly triggered story beats vs. weighted
-district-deck entries (`systems/district_deck.gd`, a `deck` sub-object).
+Auto-discovered by `GameData.gd` into `EVENTS` — every `*.json` file under the directory is
+loaded, keyed by filename; no id-list const to keep in sync. Each is the cards/on_complete schema
+`systems/events.gd` runs — directly triggered story beats vs. weighted district-deck entries
+(`systems/district_deck.gd`, a `deck` sub-object).
 
 ## tests/*.gd
 

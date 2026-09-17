@@ -3,12 +3,10 @@ extends RefCounted
 
 # District event deck per M1-LONDON.md D5. Static funcs only. A deck
 # entry is any GameData.EVENTS entry (normal Events schema — cards/
-# on_complete — see GameData.DISTRICT_EVENT_IDS) that also carries a
-# "deck" sub-object: { district, weight, excludeIfFlag, barometerState,
-# requireUnclaimedSiteInDistrict? }. Filtering reads GameData.EVENTS
-# directly (not the DISTRICT_EVENT_IDS list itself) so tests can inject
-# synthetic deck entries the same way tests/test_events.gd injects
-# synthetic events, without touching the const id list.
+# on_complete) that also carries a "deck" sub-object: { district, weight,
+# excludeIfFlag, barometerState, requireUnclaimedSiteInDistrict? }.
+# Filtering reads GameData.EVENTS directly, so tests can inject synthetic
+# deck entries the same way tests/test_events.gd injects synthetic events.
 
 const TRIGGER_CHANCE: float = 0.25
 const NO_REPEAT_DAYS: int = 5

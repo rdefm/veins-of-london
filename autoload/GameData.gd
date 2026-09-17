@@ -152,6 +152,10 @@ var JAMES_JOB_TRUST_BANDS: Array = []
 var GUARD_REPEL_CHANCE_PER_GUARD: float = 0.0
 var GUARD_REPEL_CHANCE_CAP: float = 0.0
 
+# Loaded by _list_event_ids() from every *.json file under data/events/ —
+# there is no id roster to keep in sync; drop a file in the directory and
+# it is discovered on next boot. Deck membership (M1-LONDON D5) is decided
+# per file by the presence of a "deck" sub-object, not by a separate list.
 var EVENTS: Dictionary = {}
 
 # Per-vendor flavour lines drawn on completing a Collective trade (systems/
@@ -164,49 +168,6 @@ var COLLECTIVE_BARKS: Dictionary = {}
 # rendering: the tutorial's flag chain and Collective's Act 1 threads are
 # both just objectives, distinguished only by questline.
 var OBJECTIVES: Dictionary = {}
-
-# Full tutorial + Collective Act 1 event roster (R§3.11, R§3.8).
-const EVENT_IDS: Array[String] = [
-	"intro", "buyer", "james_meeting", "archie_craft_chat",
-	"home_raid_intro", "home_raid_debrief_win", "home_raid_debrief_loss",
-	"archie_motion", "james_motion",
-	# Cultivating tutorial, triggered by scenes/screens/map.gd on the first
-	# Map-tab visit after archiePartnerSeen.
-	"archie_cultivation",
-	# The Raid button's one representative event card (systems/raiding.gd's
-	# begin_raid()) — directly triggered, not part of any district's
-	# weighted event deck. Targets whichever site's Raid button was pressed
-	# (events.gd's _event_site_id()), not a fixed combination.
-	"vein_raid",
-	# Act 1 Phase 1's mandatory tuition chain.
-	"col_a1_intro", "col_a1_prospecting", "col_a1_seeding", "col_a1_hub",
-	# Des's two location-agnostic beats -- direct-triggered from
-	# Sites.prospect() (systems/collective.gd's maybe_trigger_weather_beat()),
-	# hence EVENT_IDS not DISTRICT_EVENT_IDS.
-	"col_a1_firm_skirmish", "col_a1_firm_intimidation",
-	"col_a1_des_report", "col_a1_des_report_first_fate", "col_a1_des_report_first_physics",
-	"col_a1_nadia_meet",
-	"col_a1_nadia_vein",
-	"col_a1_nadia_done",
-	"col_a1_hakim_meet",
-	"col_a1_hakim_done",
-	"col_a1_archie_pry", "col_a1_archie_pry_debt",
-	"col_a1_closer", "col_a1_deferred_join",
-	# Hakim's repeatable post-Act-1 intel. Not "col_a1_"-prefixed since it
-	# keeps firing after the act ends.
-	"col_hakim_intel",
-]
-
-# District event deck roster (M1-LONDON D5). Loaded into the same EVENTS
-# dict as EVENT_IDS above — a district event file is a normal event file
-# (cards/on_complete) plus a "deck" sub-object (district, weight,
-# excludeIfFlag, barometerState) that systems/district_deck.gd reads.
-const DISTRICT_EVENT_IDS: Array[String] = [
-	"busker_greenwich", "city_suit", "camden_shakedown", "heath_dogwalker",
-	"whitechapel_grief", "kx_delay", "soho_tout", "battersea_hum",
-	"shoreditch_archie", "conclave_watch", "pigeon_omen", "rain",
-	"rival_prospector", "foxes", "roman_brick",
-]
 
 var loaded := false
 var _load_errors: Array[String] = []
@@ -313,7 +274,7 @@ func load_all() -> void:
 	GUARD_REPEL_CHANCE_CAP = guard_repel.get("cap", 0.0)
 
 	EVENTS = {}
-	for event_id in EVENT_IDS + DISTRICT_EVENT_IDS:
+	for event_id in _list_event_ids():
 		var event_def := _load_json("res://data/events/%s.json" % event_id)
 		if not event_def.is_empty():
 			EVENTS[event_id] = event_def
@@ -1061,10 +1022,6 @@ func _on_complete_navigates(on_complete: Array) -> bool:
 
 
 func _validate_events(events: Dictionary, districts: Dictionary, errors: Array[String]) -> void:
-	for expected_id in EVENT_IDS + DISTRICT_EVENT_IDS:
-		if not events.has(expected_id):
-			errors.append("events: missing event file '%s'" % expected_id)
-
 	for key in events.keys():
 		var entry = events[key]
 		_require_keys(entry, ["id", "cards", "on_complete"], "events.%s" % key, errors)
@@ -1083,14 +1040,8 @@ func _validate_events(events: Dictionary, districts: Dictionary, errors: Array[S
 			errors.append("events.%s: on_complete has no 'set_screen' op (and no self-navigating op like 'start_home_raid_combat') — Events.advance() never navigates on its own, so the EventScreen is left stuck on a dead Continue button once this event completes" % key)
 		if entry.has("deck"):
 			_validate_deck_entry(entry["deck"], "events.%s.deck" % key, errors)
-			if not DISTRICT_EVENT_IDS.has(key):
-				errors.append("events.%s: has a 'deck' sub-object but is not registered in GameData.DISTRICT_EVENT_IDS — it would silently join the district-deck draw pool" % key)
 		if entry.has("pin"):
 			_validate_event_pin(entry["pin"], districts, "events.%s.pin" % key, errors)
-
-	for expected_id in DISTRICT_EVENT_IDS:
-		if events.has(expected_id) and not events[expected_id].has("deck"):
-			errors.append("events.%s: registered in GameData.DISTRICT_EVENT_IDS but missing its 'deck' sub-object" % expected_id)
 
 
 # Contact pin (docs/M1.5-NETWORK-MAP.md N2): { district, showWhenFlagsTrue:
@@ -1246,6 +1197,26 @@ func _require_keys(entry: Dictionary, keys: Array, context: String, errors: Arra
 
 
 # ── file loading ──────────────────────────────────────────────────────
+
+# DirAccess.open()/list_dir_begin() reads res:// through Godot's packed
+# resource filesystem, not the OS filesystem — this listing works the same
+# way in the editor, headless and inside an exported Android/Web build.
+func _list_event_ids() -> Array[String]:
+	var ids: Array[String] = []
+	var dir := DirAccess.open("res://data/events/")
+	if dir == null:
+		_load_errors.append("Could not open directory: res://data/events/")
+		return ids
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.ends_with(".json"):
+			ids.append(file_name.get_basename())
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	ids.sort()
+	return ids
+
 
 func _load_json(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):

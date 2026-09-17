@@ -82,9 +82,7 @@ func run() -> void:
 		var errors := GameData.validate_tables(GameData.snapshot())
 		var relevant := errors.filter(func(e): return e.begins_with("events"))
 		assert_eq(relevant, [], "event tables should validate cleanly: %s" % str(relevant))
-
-		for expected_id in GameData.EVENT_IDS:
-			assert_true(GameData.EVENTS.has(expected_id), "missing event file '%s'" % expected_id)
+		assert_true(not GameData.EVENTS.is_empty(), "no event files were loaded from data/events/")
 	)
 
 	# Bugfixes ticket (col_a1_intro Continue softlock): screens only swap on
