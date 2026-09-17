@@ -127,7 +127,8 @@ overlays.
 | hq_diorama.gd | Generic plate/region artwork renderer |
 | icons.gd | 8 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options |
-| map_canvas.gd | Network diagram draw pass |
+| map_canvas.gd | Network diagram: layout/stops/lines, hit-testing, static draw pass; delegates persistent halos and event-playback animations to map_halos.gd |
+| map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
 | map_controls.gd | Filter-chip drawer + legend button |
 | map_legend.gd | Persistent faction-colour key |
 | map_zoom_buttons.gd | Floating +/- zoom control |

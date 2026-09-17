@@ -61,7 +61,7 @@ var _halo_layer: Node2D
 var _playback_layer: Node2D
 var _pins_layer: Node2D
 var _labels_layer: Node2D
-var _halos: Dictionary = {}  # veinId -> ChargeHalo
+var _halos: MapHalos
 
 const SEQUENTIAL_DURATION := 0.35
 const SIMULTANEOUS_DURATION := 1.5
@@ -109,6 +109,8 @@ func _ready() -> void:
 
 	_playback_layer = Node2D.new()
 	add_child(_playback_layer)
+
+	_halos = MapHalos.new(self, _halo_layer, _playback_layer)
 
 	_pins_layer = Node2D.new()
 	add_child(_pins_layer)
@@ -284,15 +286,15 @@ func _play_batch(events: Array) -> void:
 func _start_event_visual(event: Dictionary, stop: Dictionary) -> Variant:
 	match event["type"]:
 		"discover":
-			return _start_discover_ripple(stop["position"], event)
+			return _halos.start_discover_ripple(stop["position"], event, event_visual_duration)
 		"seed_claim":
-			return _start_seed_claim_ring(stop, event)
+			return _halos.start_seed_claim_ring(stop, event, event_visual_duration)
 		"charge":
-			return _start_charge_burst(stop, event)
+			return _halos.start_charge_burst(stop, event, event_visual_duration)
 		"drain":
-			return _start_vein_drain(stop, event)
+			return _halos.start_vein_drain(stop, event, event_visual_duration)
 		"join_line":
-			return _start_line_growth(stop, event)
+			return _halos.start_line_growth(stop, event, event_visual_duration)
 	return null
 
 
@@ -302,81 +304,6 @@ func _resolve_event_stop(event: Dictionary) -> Variant:
 		if stop["id"] == target_id:
 			return stop
 	return null
-
-
-func _start_discover_ripple(pos: Vector2, event: Dictionary) -> Variant:
-	var site: Variant = Sites.find_site(event["siteId"])
-	if site == null:
-		return null
-
-	var ripple := DiscoverRipple.new()
-	ripple.map_canvas = self
-	ripple.ore_type = site["oreType"]
-	ripple.double_ring = site["tier"] in ["rich", "saturated"]
-	ripple.position = pos
-	_playback_layer.add_child(ripple)
-	ripple.start(
-		event_visual_duration * RIPPLE_DURATION_FRACTION,
-		event_visual_duration * (1.0 - RIPPLE_DURATION_FRACTION)
-	)
-	ripple.tween.finished.connect(ripple.queue_free)
-	return ripple.tween
-
-
-func _stop_render_params(owner: String) -> Dictionary:
-	if owner == "player":
-		return { "colour": PLAYER_COLOUR, "radius": VEIN_STOP_RADIUS, "width": VEIN_STOP_STROKE }
-	return {
-		"colour": Color(GameData.FACTIONS[owner]["colour"]),
-		"radius": FACTION_STOP_RADIUS,
-		"width": FACTION_STOP_STROKE,
-	}
-
-
-func _start_seed_claim_ring(stop: Dictionary, event: Dictionary) -> Variant:
-	var vein: Variant = stop["vein"]
-	if vein == null:
-		return null  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to draw
-
-	var params := _stop_render_params(event["owner"])
-	var alpha := MapStyle.stop_alpha(filter_mode, false, selected_faction_id, event["owner"])  # a brand-new vein is never in a risk band
-	var style := _vein_ring_style(vein, params["colour"], params["width"])
-
-	var ring := SeedClaimRing.new()
-	ring.position = stop["position"]
-	ring.radius = params["radius"]
-	ring.fill_colour = _faded(PAPER_COLOUR, alpha)
-	ring.ring_colour = _faded(style["colour"], alpha)
-	ring.ring_width = style["width"]
-	_playback_layer.add_child(ring)
-	ring.start(event_visual_duration)
-	ring.tween.finished.connect(ring.queue_free)
-	return ring.tween
-
-
-func _start_line_growth(stop: Dictionary, event: Dictionary) -> Variant:
-	var vein: Variant = stop["vein"]
-	if vein == null:
-		return null  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to grow
-
-	var owner: String = event["owner"]
-	var anchor: Variant = _owner_anchor(owner)
-	if anchor == null:
-		return null  # data error (see MapLayout.faction_first_presence_anchor) -- nothing to grow onto
-
-	var params := _stop_render_params(owner)
-	var alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, owner)
-	var old_stops := _line_owner_stops(owner)
-	var new_stop := { "id": stop["id"], "pos": stop["position"] }
-	var segment := MapRouting.grow_segment(anchor, old_stops, new_stop, MapLayout.river_path(), _other_owner_obstacle_stops(owner), _other_owner_lines(owner), LINE_CLEARANCE)
-
-	var growth := LineGrowth.new()
-	growth.points = segment
-	growth.line_colour = _faded(MapStyle.line_colour(filter_mode, params["colour"]), alpha)
-	_playback_layer.add_child(growth)
-	growth.start(event_visual_duration)
-	growth.tween.finished.connect(growth.queue_free)
-	return growth.tween
 
 
 func _line_owner_stops(owner: String) -> Array:
@@ -470,32 +397,6 @@ func _apply_crossing_nudges() -> void:
 			break  # converged -- no owner's pass moved anything, so re-checking again would be a no-op
 
 
-func _start_charge_burst(stop: Dictionary, event: Dictionary) -> Variant:
-	var vein: Variant = stop["vein"]
-	if vein == null:
-		return null  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to burst
-
-	var burst := ChargeBurst.new()
-	burst.position = stop["position"]
-	_playback_layer.add_child(burst)
-	burst.start(event_visual_duration)
-	burst.tween.finished.connect(burst.queue_free)
-	return burst.tween
-
-
-func _start_vein_drain(stop: Dictionary, event: Dictionary) -> Variant:
-	var vein: Variant = stop["vein"]
-	if vein == null:
-		return null  # vein no longer resolvable (edge case, see _resolve_event_stop) -- nothing to collapse
-
-	var collapse := DrainCollapse.new()
-	collapse.position = stop["position"]
-	_playback_layer.add_child(collapse)
-	collapse.start(event_visual_duration)
-	collapse.tween.finished.connect(collapse.queue_free)
-	return collapse.tween
-
-
 func _skip_current() -> void:
 	_skip_requested = true
 	if _active_tween != null and _active_tween.is_valid():
@@ -507,7 +408,7 @@ func _skip_current() -> void:
 
 func _rebuild() -> void:
 	_partition_stops()
-	_rebuild_halos()
+	_halos.rebuild(_vein_stops)
 	_rebuild_pins()
 	queue_redraw()
 	_pins_layer.queue_redraw()
@@ -993,116 +894,11 @@ func _activate_pin(pin: Dictionary) -> void:
 
 
 
-func _rebuild_halos() -> void:
-	var needed: Dictionary = {}  # veinId -> Vector2
-	for stop in _vein_stops:
-		var band_id: String = Cultivating.growth_band(stop["vein"])["id"]
-		if band_id == "wild" or band_id == "rampant":
-			needed[stop["id"]] = stop["position"]
-
-	for vein_id in _halos.keys().duplicate():
-		if not needed.has(vein_id):
-			_halos[vein_id].queue_free()
-			_halos.erase(vein_id)
-
-	for vein_id in needed.keys():
-		if _halos.has(vein_id):
-			_halos[vein_id].position = needed[vein_id]
-		else:
-			var halo := ChargeHalo.new()
-			halo.position = needed[vein_id]
-			_halo_layer.add_child(halo)
-			_halos[vein_id] = halo
-
-
-class ChargeHalo:
-	extends Node2D
-
-	const RADIUS := 14.0
-	const PERIOD := 1.2
-	const COLOUR := Color(0.784314, 0.529412, 0.227451)  # amber #c8873a
-
-	var _t := 0.0
-
-	func _ready() -> void:
-		set_process(true)
-
-	func _process(delta: float) -> void:
-		_t = fmod(_t + delta, PERIOD)
-		queue_redraw()
-
-	func _draw() -> void:
-		var progress := _t / PERIOD
-		var scale_factor := lerpf(1.0, 1.3, progress)
-		var alpha := lerpf(0.5, 0.0, progress)
-		draw_circle(Vector2.ZERO, RADIUS * scale_factor, Color(COLOUR.r, COLOUR.g, COLOUR.b, alpha))
-
-
-class ChargeBurst:
-	extends Node2D
-
-	const START_RADIUS := 4.0
-	const END_RADIUS := ChargeHalo.RADIUS * 1.6
-	const START_ALPHA := 0.9
-	const COLOUR := Color(1.0, 0.909804, 0.694118)  # bright warm gold, brighter than ChargeHalo's amber
-
-	var tween: Tween
-	var _radius := START_RADIUS
-	var _alpha := START_ALPHA
-
-	func start(duration: float) -> void:
-		tween = create_tween()
-		tween.tween_method(_set_radius, START_RADIUS, END_RADIUS, duration)
-		tween.parallel().tween_method(_set_alpha, START_ALPHA, 0.0, duration)
-
-	func _set_radius(r: float) -> void:
-		_radius = r
-		queue_redraw()
-
-	func _set_alpha(a: float) -> void:
-		_alpha = a
-		queue_redraw()
-
-	func _draw() -> void:
-		if _alpha > 0.0:
-			draw_circle(Vector2.ZERO, _radius, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
-
-
-class DrainCollapse:
-	extends Node2D
-
-	const START_RADIUS := ChargeHalo.RADIUS
-	const END_RADIUS := 0.0
-	const START_ALPHA := 0.5
-	const COLOUR := ChargeHalo.COLOUR
-
-	var tween: Tween
-	var _radius := START_RADIUS
-	var _alpha := START_ALPHA
-
-	func start(duration: float) -> void:
-		tween = create_tween()
-		tween.tween_method(_set_radius, START_RADIUS, END_RADIUS, duration)
-		tween.parallel().tween_method(_set_alpha, START_ALPHA, 0.0, duration)
-
-	func _set_radius(r: float) -> void:
-		_radius = r
-		queue_redraw()
-
-	func _set_alpha(a: float) -> void:
-		_alpha = a
-		queue_redraw()
-
-	func _draw() -> void:
-		if _alpha > 0.0:
-			draw_circle(Vector2.ZERO, _radius, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
-
-
 class ActionResultPulse:
 	extends Node2D
 
 	const START_RADIUS := 4.0
-	const END_RADIUS := ChargeHalo.RADIUS * 1.4
+	const END_RADIUS := MapHalos.ChargeHalo.RADIUS * 1.4
 	const START_ALPHA := 0.9
 	const COLOUR := MapCanvas.GUARDED_COLOUR
 
@@ -1161,129 +957,3 @@ class ActionResultShake:
 	func _draw() -> void:
 		if _alpha > 0.0:
 			draw_circle(Vector2(_offset_x, 0.0), RADIUS, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
-
-
-class DiscoverRipple:
-	extends Node2D
-
-	const RING_START_RADIUS := MapCanvas.VEIN_STOP_RADIUS
-	const RING_END_RADIUS := MapCanvas.UNCLAIMED_STOP_RADIUS * 3.0
-	const RING_START_ALPHA := 0.6
-	const RING_COLOUR := MapCanvas.MUTED_COLOUR
-
-	var map_canvas: MapCanvas
-	var ore_type: String
-	var double_ring: bool
-
-	var tween: Tween
-	var _ring_radius := RING_START_RADIUS
-	var _ring_alpha := 0.0
-	var _glyph_scale := 0.0
-
-	func start(ring_duration: float, pop_duration: float) -> void:
-		_ring_alpha = RING_START_ALPHA
-		tween = create_tween()
-		tween.tween_method(_set_ring_radius, RING_START_RADIUS, RING_END_RADIUS, ring_duration)
-		tween.parallel().tween_method(_set_ring_alpha, RING_START_ALPHA, 0.0, ring_duration)
-		tween.tween_method(_set_glyph_scale, 0.0, 1.0, pop_duration)
-
-	func _set_ring_radius(r: float) -> void:
-		_ring_radius = r
-		queue_redraw()
-
-	func _set_ring_alpha(a: float) -> void:
-		_ring_alpha = a
-		queue_redraw()
-
-	func _set_glyph_scale(s: float) -> void:
-		_glyph_scale = s
-		queue_redraw()
-
-	func _draw() -> void:
-		if _ring_alpha > 0.0:
-			draw_arc(Vector2.ZERO, _ring_radius, 0, TAU, 32, Color(RING_COLOUR.r, RING_COLOUR.g, RING_COLOUR.b, _ring_alpha), 2.0, true)
-		if _glyph_scale > 0.0:
-			draw_set_transform(Vector2.ZERO, 0.0, Vector2(_glyph_scale, _glyph_scale))
-			var ore: Dictionary = GameData.ORE_TYPES[ore_type]
-			var style := map_canvas._unclaimed_ring_style(ore_type)
-			map_canvas._draw_ring_stop(Vector2.ZERO, MapCanvas.UNCLAIMED_STOP_RADIUS, 1.0, style, 24, self)
-			if double_ring:
-				map_canvas._draw_interchange_ring(Vector2.ZERO, MapCanvas.UNCLAIMED_STOP_RADIUS, 1.0, style, 24, self)
-			map_canvas._draw_ore_symbol(Vector2.ZERO, ore_type, ore, 1.0, self)
-			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
-
-class SeedClaimRing:
-	extends Node2D
-
-	var radius: float
-	var fill_colour: Color
-	var ring_colour: Color
-	var ring_width: float
-
-	var tween: Tween
-	var _sweep_end := 0.0
-
-	func start(duration: float) -> void:
-		tween = create_tween()
-		tween.tween_method(_set_sweep_end, 0.0, TAU, duration)
-
-	func _set_sweep_end(a: float) -> void:
-		_sweep_end = a
-		queue_redraw()
-
-	func _draw() -> void:
-		draw_circle(Vector2.ZERO, radius, fill_colour)
-		if _sweep_end > 0.0:
-			draw_arc(Vector2.ZERO, radius, 0, _sweep_end, 32, ring_colour, ring_width, true)
-
-
-class LineGrowth:
-	extends Node2D
-
-	var points: PackedVector2Array
-	var line_colour: Color
-
-	var tween: Tween
-	var _reveal := 0.0  # 0..1 fraction of `points`' cumulative length shown
-
-	func start(duration: float) -> void:
-		tween = create_tween()
-		tween.tween_method(_set_reveal, 0.0, 1.0, duration)
-
-	func _set_reveal(t: float) -> void:
-		_reveal = t
-		queue_redraw()
-
-	func _draw() -> void:
-		var visible := _visible_points()
-		if visible.size() < 2:
-			return
-		draw_polyline(visible, line_colour, MapCanvas.LINE_WIDTH, true)
-		for p in visible:
-			draw_circle(p, MapCanvas.LINE_WIDTH / 2.0, line_colour)
-
-	func _visible_points() -> PackedVector2Array:
-		if points.size() < 2 or _reveal >= 1.0:
-			return points
-
-		var seg_lengths := PackedFloat32Array()
-		var total := 0.0
-		for i in range(points.size() - 1):
-			var l := points[i].distance_to(points[i + 1])
-			seg_lengths.append(l)
-			total += l
-
-		var target := total * _reveal
-		var result := PackedVector2Array([points[0]])
-		var covered := 0.0
-		for i in range(seg_lengths.size()):
-			var l: float = seg_lengths[i]
-			if is_zero_approx(l) or covered + l <= target:
-				result.append(points[i + 1])
-				covered += l
-			else:
-				var frac: float = (target - covered) / l
-				result.append(points[i].lerp(points[i + 1], frac))
-				break
-		return result
