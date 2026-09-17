@@ -435,3 +435,55 @@ static func screen_body(root: Control) -> VBoxContainer:
 	var content := vbox(12)
 	margin.add_child(content)
 	return content
+
+
+# ui_action_red accent styling (docs/ui-vision.md §5): the one accent for
+# actionable buttons/cards, muted grey when the action is unavailable.
+const ACTION_COLOUR_FALLBACK := Color(0.784314, 0.062745, 0.180392, 1)
+const ACTION_DISABLED_COLOUR := _MUTED_COLOUR
+const ACTION_CARD_FILL := Color(0.980392, 0.972549, 0.952941, 1)
+
+static func action_colour() -> Color:
+	return GameData.PALETTE.get("ui_action_red", ACTION_COLOUR_FALLBACK)
+
+
+static func bordered_panel_style(fill: Color, border_color: Color, corner_radius: int, margin_h: int, margin_v: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.set_border_width_all(1)
+	style.border_color = border_color
+	style.set_corner_radius_all(corner_radius)
+	style.content_margin_left = margin_h
+	style.content_margin_top = margin_v
+	style.content_margin_right = margin_h
+	style.content_margin_bottom = margin_v
+	return style
+
+
+static func action_card_panel_style(accent: Color, margin: int = 16) -> StyleBoxFlat:
+	return bordered_panel_style(ACTION_CARD_FILL, accent, 10, margin, margin)
+
+
+static func action_button_style(accent: Color, alpha: float, border_alpha: float = 0.0, margin_h: float = 8.0, margin_v: float = 6.0) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(accent.r, accent.g, accent.b, alpha)
+	style.set_corner_radius_all(8)
+	if border_alpha > 0.0:
+		style.set_border_width_all(1.5)
+		style.border_color = Color(accent.r, accent.g, accent.b, border_alpha)
+	style.content_margin_left = margin_h
+	style.content_margin_top = margin_v
+	style.content_margin_right = margin_h
+	style.content_margin_bottom = margin_v
+	return style
+
+
+static func style_action_button(b: Button, accent: Color) -> void:
+	b.add_theme_stylebox_override("normal", action_button_style(accent, 0.0))
+	b.add_theme_stylebox_override("hover", action_button_style(accent, 0.14))
+	b.add_theme_stylebox_override("pressed", action_button_style(accent, 0.22))
+	b.add_theme_stylebox_override("disabled", action_button_style(accent, 0.0))
+	b.add_theme_color_override("font_color", accent)
+	b.add_theme_color_override("font_hover_color", accent)
+	b.add_theme_color_override("font_pressed_color", accent)
+	b.add_theme_color_override("font_disabled_color", accent)

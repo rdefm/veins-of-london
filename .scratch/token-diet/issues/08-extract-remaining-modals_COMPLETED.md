@@ -8,7 +8,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] All remaining modal types render and behave identically.
-- [ ] Modal layer script ≤ 300 lines and contains no per-type content builder.
-- [ ] No StyleBoxFlat helper with the same purpose is defined in two places across scenes/.
-- [ ] Syntax check and full test suite green.
+- [x] All remaining modal types render and behave identically.
+- [x] Modal layer script ≤ 300 lines and contains no per-type content builder.
+- [x] No StyleBoxFlat helper with the same purpose is defined in two places across scenes/.
+- [x] Syntax check and full test suite green.

@@ -105,7 +105,7 @@ func run() -> void:
 		var nav := NavBar.new()
 		nav._ready()
 
-		var expected: Color = GameData.PALETTE.get("ui_action_red", NavBar._ACTION_COLOR_FALLBACK)
+		var expected: Color = GameData.PALETTE.get("ui_action_red", UI.ACTION_COLOUR_FALLBACK)
 		var hq_tile: NavBar._DockTile = nav._tiles["hq"]
 		assert_eq(hq_tile._icon.colour, expected, "HQ tab's icon uses ui_action_red")
 		assert_eq(hq_tile._label.get_theme_color("font_color"), expected, "HQ tab's label uses ui_action_red")

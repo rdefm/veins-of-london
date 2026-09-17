@@ -480,7 +480,7 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		var expected: Color = GameData.PALETTE.get("ui_action_red", CombatScreen._ACTION_COLOR_FALLBACK)
+		var expected: Color = GameData.PALETTE.get("ui_action_red", UI.ACTION_COLOUR_FALLBACK)
 		var attack_button := _deck_button_named(screen, "attack")
 		var attack_caption: Label = null
 		for l in screen.find_children("", "Label", true, false):
@@ -512,8 +512,8 @@ func run() -> void:
 				item_caption = l
 		assert_true(item_button != null)
 		assert_true(item_caption != null)
-		assert_eq(item_button.get_theme_color("font_color"), CombatScreen._ACTION_CARD_DISABLED_COLOR, "disabled Item card's button glyph stays muted grey")
-		assert_eq(item_caption.get_theme_color("font_color"), CombatScreen._ACTION_CARD_DISABLED_COLOR, "disabled Item card's caption stays muted grey")
+		assert_eq(item_button.get_theme_color("font_color"), UI.ACTION_DISABLED_COLOUR, "disabled Item card's button glyph stays muted grey")
+		assert_eq(item_caption.get_theme_color("font_color"), UI.ACTION_DISABLED_COLOUR, "disabled Item card's caption stays muted grey")
 
 		screen.free()
 	)

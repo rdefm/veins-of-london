@@ -15,8 +15,7 @@ const LOCKED_MAP_LABEL := "Stick close for now — Archie"
 const _BG_COLOR := Color(0.976471, 0.976471, 0.972549, 1)
 const _DIVIDER_COLOR := Color(0.831373, 0.811765, 0.768627, 1)
 
-const _ACTION_COLOR_FALLBACK := Color(0.784314, 0.062745, 0.180392, 1)
-const _LOCKED_COLOR := Color(0.541176, 0.541176, 0.541176, 1)
+const _LOCKED_COLOR := UI.ACTION_DISABLED_COLOUR
 
 var _tiles: Dictionary = {}
 
@@ -65,14 +64,10 @@ func _make_divider() -> ColorRect:
 	return line
 
 
-func _action_color() -> Color:
-	return GameData.PALETTE.get("ui_action_red", _ACTION_COLOR_FALLBACK)
-
-
 func _refresh() -> void:
 	var current_screen: String = GameState.state["currentScreen"]
 	var phone_home: bool = GameState.state["phoneNav"]["app"] == "home"
-	var action_color := _action_color()
+	var action_color := UI.action_colour()
 
 	for tab in TABS:
 		var tile: _DockTile = _tiles[tab["screen"]]

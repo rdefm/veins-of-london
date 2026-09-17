@@ -849,7 +849,7 @@ func _build_complication_detail(dial: Variant) -> Control:
 	glyph.font_size = 20
 	glyph.glyph_radius = 12.0
 	glyph.draw_fallback = SymbolGlyph.generic_fallback()
-	var accent := _action_color()
+	var accent := UI.action_colour()
 	glyph.color = accent
 
 	if dial == null:
@@ -881,21 +881,6 @@ func _build_action_deck(player: Dictionary) -> Control:
 	col.add_child(_build_action_card("run", "Leg it", _on_run_pressed))
 
 	return col
-const _ACTION_COLOR_FALLBACK := Color(0.784314, 0.062745, 0.180392, 1)
-const _ACTION_CARD_DISABLED_COLOR := Color(0.541176, 0.541176, 0.541176, 1)
-const _ACTION_CARD_FILL := Color(0.980392, 0.972549, 0.952941, 1)
-
-func _action_color() -> Color:
-	return GameData.PALETTE.get("ui_action_red", _ACTION_COLOR_FALLBACK)
-func _action_card_button_style(accent: Color, alpha: float) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(accent.r, accent.g, accent.b, alpha)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 8
-	style.content_margin_top = 6
-	style.content_margin_right = 8
-	style.content_margin_bottom = 6
-	return style
 const _ACTION_CARD_ICON_SIZE := 40.0
 static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 	match icon_kind:
@@ -909,18 +894,11 @@ static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 			return Callable()
 
 func _build_action_card(icon_kind: String, label_text: String, callback: Callable, disabled: bool = false) -> Control:
-	var accent: Color = _ACTION_CARD_DISABLED_COLOR if disabled else _action_color()
+	var accent: Color = UI.ACTION_DISABLED_COLOUR if disabled else UI.action_colour()
 
 	var button := Button.new()
 	button.disabled = disabled
-	button.add_theme_stylebox_override("normal", _action_card_button_style(accent, 0.0))
-	button.add_theme_stylebox_override("hover", _action_card_button_style(accent, 0.14))
-	button.add_theme_stylebox_override("pressed", _action_card_button_style(accent, 0.22))
-	button.add_theme_stylebox_override("disabled", _action_card_button_style(accent, 0.0))
-	button.add_theme_color_override("font_color", accent)
-	button.add_theme_color_override("font_hover_color", accent)
-	button.add_theme_color_override("font_pressed_color", accent)
-	button.add_theme_color_override("font_disabled_color", accent)
+	UI.style_action_button(button, accent)
 	button.pressed.connect(callback)
 	var draw_icon := _action_icon_draw_fn(icon_kind)
 	if draw_icon.is_valid():
@@ -936,19 +914,7 @@ func _build_action_card(icon_kind: String, label_text: String, callback: Callabl
 func _build_card_bar(icon: Control, label_text: String, accent: Color, click_callback: Callable = Callable()) -> Control:
 	var c := UI.card()
 	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = _ACTION_CARD_FILL
-	panel_style.border_width_left = 1
-	panel_style.border_width_top = 1
-	panel_style.border_width_right = 1
-	panel_style.border_width_bottom = 1
-	panel_style.border_color = accent
-	panel_style.set_corner_radius_all(10)
-	panel_style.content_margin_left = 8
-	panel_style.content_margin_top = 8
-	panel_style.content_margin_right = 8
-	panel_style.content_margin_bottom = 8
-	c["panel"].add_theme_stylebox_override("panel", panel_style)
+	c["panel"].add_theme_stylebox_override("panel", UI.action_card_panel_style(accent, 8))
 
 	var row := UI.hbox(8)
 

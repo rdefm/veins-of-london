@@ -350,16 +350,7 @@ static func _style_panel(panel: PanelContainer) -> void:
 
 
 static func _style_card_panel(panel: PanelContainer) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = _palette(_PHONE_BG_CONTENT, _FALLBACK_BG_CONTENT)
-	style.border_color = _palette(_PHONE_DIVIDER, _FALLBACK_DIVIDER)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(10)
-	style.content_margin_left = 16
-	style.content_margin_top = 16
-	style.content_margin_right = 16
-	style.content_margin_bottom = 16
-	panel.add_theme_stylebox_override("panel", style)
+	panel.add_theme_stylebox_override("panel", UI.bordered_panel_style(_palette(_PHONE_BG_CONTENT, _FALLBACK_BG_CONTENT), _palette(_PHONE_DIVIDER, _FALLBACK_DIVIDER), 10, 16, 16))
 
 
 static func _style_bubble_panel(panel: PanelContainer, outgoing: bool) -> void:

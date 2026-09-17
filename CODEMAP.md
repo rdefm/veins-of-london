@@ -129,7 +129,7 @@ overlays.
 | map_controls.gd | Filter-chip drawer + legend button |
 | map_legend.gd | Persistent faction-colour key |
 | map_zoom_buttons.gd | Floating +/- zoom control |
-| modal_layer.gd | Dim background + card; chrome + tap-outside dismiss. Content for registry types comes from scenes/modals/, everything else stays in its own local `_build_*` match arm |
+| modal_layer.gd | Dim background + card; chrome + tap-outside dismiss. All content dispatched by type through scenes/modals/modal_registry.gd; unknown types get a placeholder card |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ) |
 | ore_glyphs.gd | Ore-symbol font glyph rendering |
 | symbol_glyph.gd | Label-or-vector fallback for a symbol |
@@ -137,13 +137,13 @@ overlays.
 | top_bar.gd | Header: day/phase, cash, notices |
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
 | turn_order_strip.gd | Combat turn-order display strip |
-| ui.gd | Shared Control builders, time-cost labels |
+| ui.gd | Shared Control builders, time-cost labels, ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
 
 ## scenes/modals/*.gd — modal content, one script per type
 
 | File | Purpose |
 |---|---|
-| modal_registry.gd | type id -> content script table; modal_layer.gd dispatches here first |
+| modal_registry.gd | type id -> content script table; the only content path modal_layer.gd dispatches through |
 | seed_result_modal.gd | Seed-attempt result card |
 | cultivate_result_modal.gd | Cultivate-attempt result card |
 | craft_result_modal.gd | Single-craft result card |
@@ -158,6 +158,17 @@ overlays.
 | nadia_supply_modal.gd | Nadia ore-supply objective card |
 | sell_vein_quote_modal.gd | Single-vein sale confirmation card |
 | craft_components_menu_modal.gd | Movement-archetype picker; Craft hands off to movement_craft |
+| movement_craft_modal.gd | Pick a calc type to attempt a Movement craft; pushes success/fail notices |
+| movement_swap_modal.gd | Seat a Movement from movementInventory into the Dial |
+| dial_load_complication_modal.gd | Load a crafted complication into the Dial |
+| combat_setup_modal.gd | Debug raid setup: enemy template/count/tier + ally toggles |
+| network_reference_modal.gd | Network Map legend |
+| hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls |
+| hq_gym_modal.gd | Combat skill readout + Train action card |
+| lab_bench_modal_helpers.gd | Refine controls + outcome headings shared by the lab-bench modals |
+| lab_bench_recipe_book_modal.gd | Found recipes: cost/chance, batch qty, Craft, Refine |
+| lab_bench_notes_modal.gd | Per-pairing survey notes with found-recipe refine rows |
+| lab_bench_probe_result_modal.gd | Probe outcome card |
 
 ## data/*.json
 

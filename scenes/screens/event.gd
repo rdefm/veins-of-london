@@ -5,7 +5,6 @@ const IMAGE_SLOT_HEIGHT := 170.0
 const VN_TEXT_FRAME_HEIGHT := 236.0
 const VN_BOTTOM_MARGIN := 16.0
 
-const _ACTION_COLOR_FALLBACK := Color("#c8102e")
 const _CALC_GOLD_FALLBACK := Color("#d4af52")
 const _CALC_GOLD_LIGHT_FALLBACK := Color("#f2dfa0")
 const _INK_COLOR := Color(0.101961, 0.101961, 0.101961, 1)
@@ -167,10 +166,8 @@ func _calc_gold() -> Color:
 func _calc_gold_light() -> Color:
 	return GameData.PALETTE.get("calc_gold_light", _CALC_GOLD_LIGHT_FALLBACK)
 
-func _action_color() -> Color:
-	return GameData.PALETTE.get("ui_action_red", _ACTION_COLOR_FALLBACK)
 func _style_action_button(b: Button) -> void:
-	var accent := _action_color()
+	var accent := UI.action_colour()
 	b.add_theme_stylebox_override("normal", _action_button_style(accent, 0.12, 1.0))
 	b.add_theme_stylebox_override("hover", _action_button_style(accent, 0.20, 1.0))
 	b.add_theme_stylebox_override("pressed", _action_button_style(accent, 0.30, 1.0))
@@ -181,16 +178,7 @@ func _style_action_button(b: Button) -> void:
 	b.add_theme_color_override("font_disabled_color", accent)
 
 func _action_button_style(accent: Color, fill_alpha: float, border_alpha: float) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(accent.r, accent.g, accent.b, fill_alpha)
-	style.set_corner_radius_all(8)
-	style.set_border_width_all(1.5)
-	style.border_color = Color(accent.r, accent.g, accent.b, border_alpha)
-	style.content_margin_left = 16.0
-	style.content_margin_top = 10.0
-	style.content_margin_right = 16.0
-	style.content_margin_bottom = 10.0
-	return style
+	return UI.action_button_style(accent, fill_alpha, border_alpha, 16.0, 10.0)
 func _build_image_frame() -> PanelContainer:
 	var frame := PanelContainer.new()
 	frame.set_anchors_preset(Control.PRESET_TOP_WIDE)

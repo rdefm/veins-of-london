@@ -94,6 +94,51 @@ static func _seed_faction_vein(id: String, growth: int, faction_id: String = "co
 
 
 func run() -> void:
+	# Every modal type the game opens dispatches through ModalRegistry --
+	# modal_layer.gd is chrome only, so an unregistered type would fall to
+	# its placeholder card.
+	run_case("every_modal_type_is_registered_with_a_content_builder", func():
+		for type_id in ["seed_result", "cultivate_result", "craft_result", "craft_batch_result",
+				"sale_result", "archie_deal_result", "james_job_offer", "james_job_short",
+				"james_job_complete", "sell_menu", "nadia_supply", "sell_vein_quote",
+				"craft_components_menu", "network_reference", "movement_craft", "movement_swap",
+				"dial_load_complication", "combat_setup", "hq_ore_readout", "hq_gym",
+				"lab_bench_recipe_book", "lab_bench_notes", "lab_bench_probe_result"]:
+			assert_true(ModalRegistry.REGISTRY.has(type_id), "%s is registered" % type_id)
+			assert_true(ModalRegistry.REGISTRY[type_id].has_method("build"), "%s exposes build()" % type_id)
+	)
+
+	run_case("network_reference_modal_renders_its_legend_and_close_button", func():
+		GameState.reset()
+		Modal.open("network_reference")
+		var layer := ModalLayer.new()
+		layer._ready()
+		var found_heading := false
+		for l in layer.find_children("", "Label", true, false):
+			if (l as Label).text == "Network Reference":
+				found_heading = true
+		assert_true(found_heading, "legend heading renders")
+		var close := _find_button(layer, "Close")
+		assert_true(close != null)
+		close.pressed.emit()
+		assert_eq(GameState.state["modal"], null)
+		layer.free()
+	)
+
+	run_case("combat_setup_modal_fight_button_starts_a_raid_with_the_chosen_settings", func():
+		GameState.reset()
+		Modal.open("combat_setup")
+		var layer := ModalLayer.new()
+		layer._ready()
+		var fight := _find_button(layer, "Fight")
+		assert_true(fight != null)
+		fight.pressed.emit()
+		assert_eq(GameState.state["modal"], null)
+		assert_true(GameState.state["combat"]["active"], "Fight starts a combat")
+		assert_eq(GameState.state["combat"]["enemies"].size(), 1, "default enemy count is 1")
+		layer.free()
+	)
+
 	run_case("evening_train_label_predicts_one_automatic_rollover", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 500
@@ -1066,7 +1111,7 @@ func run() -> void:
 				break
 		assert_true(raid_label != null, "raid-risk line must still render")
 
-		var expected: Color = GameData.PALETTE.get("ui_action_red", ModalLayer._ACTION_COLOR_FALLBACK)
+		var expected: Color = GameData.PALETTE.get("ui_action_red", UI.ACTION_COLOUR_FALLBACK)
 		assert_eq(raid_label.get_theme_color("font_color"), expected, "raid-warning renders as a red-ink annotation in ui_action_red")
 
 		layer.free()
@@ -1257,7 +1302,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var expected: Color = GameData.PALETTE.get("ui_action_red", ModalLayer._ACTION_COLOR_FALLBACK)
+		var expected: Color = GameData.PALETTE.get("ui_action_red", UI.ACTION_COLOUR_FALLBACK)
 		var train_button := _find_button(layer, "Train")
 		assert_true(train_button != null)
 		assert_eq(train_button.get_theme_color("font_color"), expected, "Train button uses ui_action_red")
@@ -1280,7 +1325,7 @@ func run() -> void:
 		var train_button := _find_button(layer, "Train")
 		assert_true(train_button != null)
 		assert_true(train_button.disabled)
-		assert_eq(train_button.get_theme_color("font_color"), ModalLayer._ACTION_DISABLED_COLOR, "disabled Train button stays muted grey")
+		assert_eq(train_button.get_theme_color("font_color"), UI.ACTION_DISABLED_COLOUR, "disabled Train button stays muted grey")
 
 		layer.free()
 	)
