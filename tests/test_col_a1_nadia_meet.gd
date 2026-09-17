@@ -3,7 +3,7 @@ extends "res://tests/test_base.gd"
 # collective1-11, spec.md §6.8: S8 (col_a1_nadia_meet), Nadia's introduction
 # -- the consignment. Drives the real event JSON card-by-card, same idiom
 # tests/test_col_a1_des_report.gd uses for S7, plus the action-bar button
-# (ContactCards.build_nadia_meet_action(), wired into phone.gd's
+# (ContactCards.build_nadia_meet_action(), wired into messages_app.gd's
 # _build_action_bar) that's this scene's delivery, and the col_a1_nadia_
 # supply objective its on_complete activates.
 

@@ -4,7 +4,7 @@ extends "res://tests/test_base.gd"
 # her a vein instead of endlessly supplying loose ore. Drives the real event
 # JSON card-by-card, same idiom tests/test_col_a1_nadia_meet.gd uses for S8,
 # plus the action-bar button (ContactCards.build_nadia_vein_ask_action(),
-# wired into phone.gd's _build_action_bar) that's this scene's delivery, and
+# wired into messages_app.gd's _build_action_bar) that's this scene's delivery, and
 # the col_a1_nadia_vein objective its on_complete activates.
 
 

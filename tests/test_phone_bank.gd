@@ -42,7 +42,7 @@ func run() -> void:
 	# 09-family-2-chrome-phone-apps, ui-vision.md §10: a transaction row's
 	# description and its signed amount are two separate labels now (so the
 	# amount alone can carry calc_gold), not one combined "label — amount"
-	# string -- see phone.gd's own _build_bank_transaction_row() comment.
+	# string -- see scenes/phone_apps/bank_app.gd's _build_transaction_row().
 	run_case("bank_shows_the_full_log_newest_first", func():
 		GameState.reset()
 		Bank.record(100, "First")

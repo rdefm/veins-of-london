@@ -68,7 +68,7 @@ static func select_conversation(contact_id: String) -> void:
 # Save/Load app's New Game confirm gate — no destructive action in that app
 # commits on a single tap. Arming swaps the New Game button for a
 # Confirm/Cancel pair; reset only happens once Confirm is tapped
-# (scenes/screens/phone.gd's _on_confirm_new_game_pressed).
+# (scenes/phone_apps/saveload_app.gd's _on_confirm_new_game_pressed).
 static func arm_new_game_confirm() -> void:
 	GameState.state["phoneNav"]["confirmingNewGame"] = true
 	EventBus.state_changed.emit()

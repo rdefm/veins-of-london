@@ -185,7 +185,7 @@ func _remap_retired_screen_id(save: Dictionary) -> void:
 # have phoneNav.app == "messages" with no selectedContactId set -- exactly
 # the state the retired conversation-list view itself used to leave sitting
 # in phoneNav (its own "no contact chosen yet" view). The Messages app has
-# no such view left to render; PhoneScreen._build_messages() now assumes
+# no such view left to render; MessagesApp.build() assumes
 # selectedContactId is always set (true for every save written by this
 # ticket onward, via PhoneNav.select_conversation()). Same "remap a retired
 # UI state back to the grid on load" reasoning as _remap_retired_screen_id()

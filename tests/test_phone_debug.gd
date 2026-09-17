@@ -39,7 +39,7 @@ static func _find_buttons_by_text(root: Node, text: String) -> Array[Button]:
 # 02-debug-app-relation-adjusters: total LineEdit count on the debug screen
 # once relation cards are added -- 2 (add-money, add-calc) plus one delta
 # field per contact and per faction, in that fixed build order (see
-# scenes/screens/phone.gd's _build_debug()).
+# scenes/phone_apps/debug_app.gd's build()).
 static func _expected_field_count() -> int:
 	return 2 + GameData.CONTACTS_DEFAULTS.size() + GameData.FACTIONS.size()
 

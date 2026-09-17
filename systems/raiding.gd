@@ -628,7 +628,7 @@ static func has_pending_defend(vein_id: String) -> bool:
 
 # 75-vein-raid-defend-button: is the exact raid that notification_id's entry
 # warned about still pending? Used by the raid-warning notification's own
-# Defend button (phone.gd's _build_notification_row()) instead of
+# Defend button (notifications_app.gd's _build_notification_row()) instead of
 # has_pending_defend() -- the Notifications log isn't cleared, only capped
 # (Notify.LOG_CAP), so an old, already-resolved warning for a vein can still
 # be sitting in the log when that same vein gets raided again later; matching

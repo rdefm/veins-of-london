@@ -4,7 +4,7 @@ extends "res://tests/test_base.gd"
 # S7 (col_a1_des_report), Des's thread resolution. Drives the real event JSON
 # card-by-card, same idiom tests/test_col_a1_tuition.gd uses for S1-S4, plus
 # the action-bar button (ContactCards.build_des_report_action(), wired into
-# phone.gd's _build_action_bar) that's this scene's non-pendingMessages
+# messages_app.gd's _build_action_bar) that's this scene's non-pendingMessages
 # delivery. Per-site reporting (ticket 01) means this button now surfaces and
 # fires per ore type, not once both are simultaneously unclaimed -- see
 # col_a1_des_report_first_fate/col_a1_des_report_first_physics for the

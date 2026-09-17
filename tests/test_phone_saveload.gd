@@ -128,7 +128,7 @@ func run() -> void:
 		phone._ready()
 		_find_button(phone, "Generate export string").pressed.emit()
 
-		assert_eq(phone._export_box.text, SaveManager.export_string(), "export box must hold exactly SaveManager.export_string()'s output")
+		assert_eq(phone.app_instance("saveload")._export_box.text, SaveManager.export_string(), "export box must hold exactly SaveManager.export_string()'s output")
 
 		phone.free()
 	)
@@ -141,7 +141,7 @@ func run() -> void:
 
 		var phone := PhoneScreen.new()
 		phone._ready()
-		phone._import_box.text = exported
+		phone.app_instance("saveload")._import_box.text = exported
 		_find_button(phone, "Import").pressed.emit()
 
 		assert_eq(GameState.state["player"]["cash"], 40, "Import button must call through to SaveManager.import_string, restoring the exported cash value")

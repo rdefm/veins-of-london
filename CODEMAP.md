@@ -103,7 +103,7 @@ overlays.
 | hq_floorplan.gd | Rooms zone: room slots + contact assignment |
 | hq_lab_bench.gd | Lab zone: notebook/ore/apparatus regions |
 | map.gd | Map tab: diagram + district panel + sheet |
-| phone.gd | Phone app grid, incl. BizBrief |
+| phone.gd | Phone tab shell: OS background, home app grid + tile routing; dispatches open apps through scenes/phone_apps/phone_app_registry.gd |
 | placeholder.gd | Stand-in for a not-yet-built screen |
 | title.gd | Title screen + load-game slot list |
 | vein_list.gd | Vein-portfolio list |
@@ -170,6 +170,25 @@ overlays.
 | lab_bench_notes_modal.gd | Per-pairing survey notes with found-recipe refine rows |
 | lab_bench_probe_result_modal.gd | Probe outcome card |
 
+## scenes/phone_apps/*.gd — phone app views, one script per app
+
+| File | Purpose |
+|---|---|
+| phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
+| phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
+| alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
+| bizbrief_app.gd | BizBrief: Brief tab (bank, operations, attention) + Manage tab (sales, production, procurement) |
+| messages_app.gd | Single conversation: staged bubble reveal + contact action bar |
+| notes_app.gd | Active questline checklists |
+| factions_app.gd | Faction cards |
+| ticker_app.gd | Barometer headlines + axis detail (push/pull, influence actions) |
+| profile_app.gd | Stats, skills, equipment, motion/vibration toggles |
+| saveload_app.gd | Save slots, export/import, New Game confirm |
+| notifications_app.gd | Notification log with pending Defend buttons |
+| bank_app.gd | Reynard's: balance + transaction log |
+| property_app.gd | Harrow's: current HQ tier + next-tier upgrade |
+| debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, relation adjusters |
+
 ## data/*.json
 
 | File | Consumed by |
@@ -188,7 +207,7 @@ overlays.
 | factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd |
 | home.json | home.gd, approaches.gd, contacts.gd |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
-| items.json | combat.gd, phone.gd, bag_drawer.gd |
+| items.json | combat.gd, profile_app.gd, bag_drawer.gd |
 | map_layout.json | map_layout.gd, map_hit_test.gd |
 | objectives.json | objectives.gd, todo.gd, collective.gd |
 | offers.json | offers.gd (synthetic catalogue) |

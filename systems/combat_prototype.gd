@@ -107,7 +107,7 @@ static func advance_to_next_encounter() -> Dictionary:
 
 # Every encounters.<id> NOT in the fixed teaching order -- squad/wave/other
 # evaluation encounters, reached directly rather than via
-# advance_to_next_encounter(). The Debug app's card (scenes/screens/phone.gd)
+# advance_to_next_encounter(). The Debug app's card (scenes/phone_apps/debug_app.gd)
 # lists these generically off this instead of hardcoding ids.
 static func list_launchable_encounters() -> Array:
 	var order: Array = GameData.COMBAT_PROTOTYPE.get("encounterOrder", [])
@@ -899,7 +899,7 @@ static func rewind() -> Dictionary:
 
 
 # Tears the prototype fight down and returns to the Debug app (see
-# scenes/screens/phone.gd's "Solo Combat Prototype" card) rather than any
+# scenes/phone_apps/debug_app.gd's "Solo Combat Prototype" card) rather than any
 # production combat exit routing.
 static func exit_encounter() -> Dictionary:
 	GameState.state["combatPrototype"]["active"] = false
