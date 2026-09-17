@@ -1,0 +1,4806 @@
+{
+"APPROACHES": {
+"compression": {
+"name": "Compression",
+"source": {
+"id": "workshop",
+"type": "room"
+},
+"symbol": "▽"
+},
+"distilling": {
+"name": "Distilling",
+"source": {
+"id": "lab",
+"type": "room"
+},
+"symbol": "○"
+},
+"grinding": {
+"name": "Grinding",
+"source": {
+"type": "start"
+},
+"symbol": "◇"
+},
+"heat": {
+"name": "Heat",
+"source": {
+"type": "start"
+},
+"symbol": "△"
+}
+},
+"ARCHIE_ORE_GOAL": 10,
+"BAROMETER_ACTIONS": [{
+"cost": {
+"cash": 5000,
+"fate": 20
+},
+"description": "Lean on Conclave contacts to shift the political climate.",
+"id": "lobbyConclave",
+"label": "Lobby the Conclave",
+"requireFaction": "conclave",
+"section": "political"
+}, {
+"cost": {
+"cash": 2000,
+"ore": 50
+},
+"description": "Dump ore on the market to destabilise prices. Crude but effective.",
+"id": "floodMarket",
+"label": "Flood the market",
+"requireFaction": null,
+"section": "economic"
+}, {
+"cost": {
+"cash": 500
+},
+"description": "The Network's speciality. Shape public perception.",
+"id": "spreadRumours",
+"label": "Spread rumours",
+"requireFaction": "network",
+"section": "social"
+}, {
+"cost": {
+"cash": 10000,
+"emotion": 40
+},
+"description": "Requires serious resources. Serious consequences.",
+"id": "engineerCrisis",
+"label": "Engineer a crisis",
+"requireFaction": "conclave",
+"section": "economic"
+}],
+"BAROMETER_STATES": {
+"economic": {
+"boom": {
+"description": "Demand up. Buyers flush with cash.",
+"effects": {
+"mugChance": -0.05,
+"orePrice": 0.25
+},
+"headlines": ["Orichalchum demand surges as buyers open their wallets.", "Boom times: dealers say the calc is moving fast, no questions asked."],
+"id": "boom",
+"label": "Economic Boom"
+},
+"crisis": {
+"description": "Market collapse. Some ore types in desperate demand.",
+"effects": {
+"fatePremium": 0.5,
+"mugChance": 0.12,
+"orePrice": -0.35
+},
+"headlines": ["Market in freefall — fate calc changes hands at desperate prices.", "Financial crisis deepens; dealers advise caution, then ignore it."],
+"id": "crisis",
+"label": "Financial Crisis"
+},
+"inflation": {
+"description": "Everything costs more. Daily costs up.",
+"effects": {
+"dailyCost": 0.3,
+"orePrice": 0.1
+},
+"headlines": ["Prices climb across the board; nobody's living costs go down.", "Inflation squeezes buyers and sellers alike."],
+"id": "inflation",
+"label": "High Inflation"
+},
+"recession": {
+"description": "Buyers tighter. Prices softer.",
+"effects": {
+"mugChance": 0.05,
+"orePrice": -0.2
+},
+"headlines": ["Buyers tighten belts as ore prices soften.", "Recession bites: fewer offers, harder haggling."],
+"id": "recession",
+"label": "Recession"
+},
+"stable": {
+"description": "Markets function normally. Ore prices steady.",
+"effects": {},
+"headlines": ["Markets hold steady, traders report muted relief.", "Ore prices unchanged for the third week running."],
+"id": "stable",
+"label": "Stable"
+}
+},
+"political": {
+"austerity": {
+"description": "Public services cut. Daily costs down but so is stability.",
+"effects": {
+"dailyCost": -0.15,
+"mugChance": 0.06
+},
+"headlines": ["Cuts continue; daily costs fall, so does the safety net.", "Austerity measures bite hardest where nobody's counting."],
+"id": "austerity",
+"label": "Austerity"
+},
+"election": {
+"description": "Noise and distraction. Barometer effects muted temporarily.",
+"effects": {
+"effectMod": -0.3
+},
+"headlines": ["Election noise drowns out everything else, barometer included.", "Distraction season: effects muted, attention elsewhere."],
+"id": "election",
+"label": "Election Period"
+},
+"regulation": {
+"description": "Government crackdown. All trading riskier, prices up.",
+"effects": {
+"mugChance": 0.1,
+"orePrice": 0.15
+},
+"headlines": ["Government crackdown makes every trade riskier, pricier.", "New ore regulation announced; enforcement, as ever, selective."],
+"id": "regulation",
+"label": "Ore Regulation"
+},
+"stable": {
+"description": "No significant political pressure.",
+"effects": {},
+"headlines": ["No significant developments from Westminster this week.", "Political weather: calm, for now."],
+"id": "stable",
+"label": "Stable"
+},
+"war": {
+"description": "Military demand. Time and physics ore prices surge.",
+"effects": {
+"mugChance": 0.05,
+"physicsPremium": 0.4,
+"timePremium": 0.6
+},
+"headlines": ["Conflict abroad drives time and physics calc prices skyward.", "Military demand strains the supply chain."],
+"id": "war",
+"label": "Conflict Abroad"
+}
+},
+"social": {
+"crime": {
+"description": "Everyone is at it. Mugging risk elevated.",
+"effects": {
+"homeRaid": 0.05,
+"mugChance": 0.15
+},
+"headlines": ["Crime wave reported; mugging risk climbs across London.", "Everyone's at it. Watch your pockets, watch your calc."],
+"id": "crime",
+"label": "Crime Wave"
+},
+"festival": {
+"description": "Energy high, people out. Physics ore in demand.",
+"effects": {
+"physicsPremium": 0.4,
+"searchFind": 0.05
+},
+"headlines": ["The City Festival draws crowds and premium prices for physics calc.", "Festival season: energy's up, so is the demand."],
+"id": "festival",
+"label": "City Festival"
+},
+"lockdown": {
+"description": "Movement restricted. Searching harder, yields lower.",
+"effects": {
+"dailyCost": 0.1,
+"searchFind": -0.15
+},
+"headlines": ["Movement restricted; searches slow to a crawl.", "Lockdown in effect — expect delays, expect scrutiny."],
+"id": "lockdown",
+"label": "Lockdown"
+},
+"stable": {
+"description": "Normal levels of street activity.",
+"effects": {},
+"headlines": ["Streets quiet. Nothing to report, which is the point.", "An uneventful week, by London's standards."],
+"id": "stable",
+"label": "Stable"
+},
+"unrest": {
+"description": "Police busy elsewhere. Raid risks up, but so is opportunity.",
+"effects": {
+"mugChance": 0.08,
+"raidChance": 0.1
+},
+"headlines": ["Police stretched thin as unrest spreads across boroughs.", "Opportunists take note: attention is elsewhere tonight."],
+"id": "unrest",
+"label": "Social Unrest"
+}
+}
+},
+"COLLECTIVE_BARKS": {
+"des": ["\"That'll go to someone who needs it. They won't know it was you.\"", "\"Good. That's someone's week easier.\"", "\"Weighed it twice. Habit, not distrust.\"", "\"Nobody's short this fortnight because of that. Worth doing.\"", "\"I'll not make a speech about it. Ta.\"", "\"Right. Onto the next thing that needs doing.\""],
+"hakim": ["\"I'll put it under the counter with the other thing I'm not supposed to have under the counter.\"", "\"Ta. Sorry — you didn't need thanking, that's just what comes out.\"", "\"That'll do nicely. Don't tell my uncle I said 'nicely'.\"", "\"Right, that's counted. Mind how you go.\"", "\"Someone'll be glad of that. Not saying who.\"", "\"Cheers. Shop's not going to run itself, so.\""],
+"nadia": ["\"Counted. Correct. Go on then.\"", "\"Fair price. Don't let anyone tell you otherwise.\"", "\"That's one less phone call I have to make.\"", "\"Noted. Next.\"", "\"You're getting the hang of this.\"", "\"Good. Now go and do something useful.\""]
+},
+"COMBAT_ATTACK_BONUS_BY_LEVEL": [0, 0, 2, 4, 7, 11],
+"COMBAT_PROTOTYPE": {
+"_comment": "day-rhythm-business-and-combat ticket 14: bounded solo combat prototype (rules per ticket 13a) -- prototype-only, NOT production balance, not cross-referenced by REFERENCE.md. encounterOrder is the fixed brawler -> knifeFighter -> enforcer teaching sequence; those three entries keep ticket 14's original flat single-enemy shape (name/hp/attackMin/attackMax/speed/evadeChance/script at the encounter's own top level) for backward compatibility -- CombatPrototype._current_wave_defs() wraps a flat entry as a one-element roster. Ticket 15 (squad/progression prototype) adds three more encounters, reached outside encounterOrder (via CombatPrototype.list_launchable_encounters(), surfaced as extra Debug-app cards): 'pairAmbush' (two enemies, both scripted at the player every round -- demonstrates that a stance committed against one attacker leaves the other fully dangerous, ticket 15 checklist item 1), 'mixedCrew' (three enemies, one of each teaching archetype together -- the squad-tactics evaluation roster, checklist item 2), and 'gauntlet' (two waves fought back-to-back with no HP reset between them -- the sustained-power/readability check, checklist item 5). A squad entry's roster lives under 'enemies' (array of the same per-enemy fields the flat encounters use); a multi-wave entry's rosters live under 'waves' (array of 'enemies'-shaped arrays, fought in order). `script` is each enemy's deterministic committed-action cycle, always aimed at the player -- CombatPrototype only advances an enemy's own scriptIndex on a round it actually commits (a frozen or exhausted skip round doesn't consume a step). PROSE-REVIEW: every `name`/`intro`/`teaches` string here is new copy, drafted against CONTENT-GUIDE.md's tone bible.",
+"encounterOrder": ["brawler", "knifeFighter", "enforcer"],
+"encounters": {
+"brawler": {
+"attackMax": 12,
+"attackMin": 6,
+"evadeChance": 0,
+"hp": 30,
+"intro": "He squares up, all shoulders. Nothing subtle about what's coming.",
+"name": "The Brawler",
+"script": ["heavy"],
+"speed": 8,
+"teaches": "Heavy, Dodge, exhaustion"
+},
+"enforcer": {
+"attackMax": 13,
+"attackMin": 6,
+"evadeChance": 0,
+"hp": 42,
+"intro": "He's done this before -- watching for an opening, not just swinging.",
+"name": "The Enforcer",
+"script": ["counter", "heavy"],
+"speed": 10,
+"teaches": "Counter, Heavy"
+},
+"gauntlet": {
+"intro": "First lot's just the warm-up. There's more waiting behind them.",
+"name": "The Gauntlet",
+"teaches": "sustained power across waves -- no reset between fights",
+"waves": [[{
+"attackMax": 9,
+"attackMin": 4,
+"evadeChance": 0,
+"hp": 20,
+"name": "Gauntlet Runner",
+"script": ["fast"],
+"speed": 9
+}, {
+"attackMax": 9,
+"attackMin": 4,
+"evadeChance": 0,
+"hp": 20,
+"name": "Gauntlet Runner",
+"script": ["heavy"],
+"speed": 6
+}], [{
+"attackMax": 13,
+"attackMin": 6,
+"evadeChance": 0,
+"hp": 42,
+"name": "Gauntlet Enforcer",
+"script": ["counter", "heavy"],
+"speed": 10
+}]]
+},
+"knifeFighter": {
+"attackMax": 10,
+"attackMin": 5,
+"evadeChance": 0,
+"hp": 26,
+"intro": "Quick on her feet, blade held low. She won't telegraph much.",
+"name": "The Knife Fighter",
+"script": ["fast"],
+"speed": 13,
+"teaches": "Fast, Counter"
+},
+"mixedCrew": {
+"enemies": [{
+"attackMax": 12,
+"attackMin": 6,
+"evadeChance": 0,
+"hp": 30,
+"name": "The Brawler",
+"script": ["heavy"],
+"speed": 8
+}, {
+"attackMax": 10,
+"attackMin": 5,
+"evadeChance": 0,
+"hp": 26,
+"name": "The Knife Fighter",
+"script": ["fast"],
+"speed": 13
+}, {
+"attackMax": 13,
+"attackMin": 6,
+"evadeChance": 0,
+"hp": 42,
+"name": "The Enforcer",
+"script": ["counter", "heavy"],
+"speed": 10
+}],
+"intro": "A brawler, a blade, and someone who's clearly run this before. Three at once.",
+"name": "Mixed Crew",
+"teaches": "squad tactics -- does one strategy dominate a mixed line-up?"
+},
+"pairAmbush": {
+"enemies": [{
+"attackMax": 10,
+"attackMin": 5,
+"evadeChance": 0,
+"hp": 24,
+"name": "First Tough",
+"script": ["fast"],
+"speed": 9
+}, {
+"attackMax": 10,
+"attackMin": 5,
+"evadeChance": 0,
+"hp": 24,
+"name": "Second Tough",
+"script": ["fast"],
+"speed": 7
+}],
+"intro": "Two of them, spread wide. Whoever you watch, the other one's free.",
+"name": "Pair Ambush",
+"teaches": "single-target defence leaves other threats live"
+}
+}
+},
+"COMBAT_SPEED_BY_LEVEL": [0, 10, 12, 14, 17, 21],
+"COMBAT_VISUALS": {
+"backdrops": {
+"archie_deal_mugging": {
+"fallbackColor": "pavement_wet",
+"image": ""
+},
+"defend_vein": {
+"fallbackColor": "puddle_shadow",
+"image": ""
+},
+"event_mugging": {
+"fallbackColor": "pavement_wet",
+"image": ""
+},
+"event_raid": {
+"fallbackColor": "brick_shadow",
+"image": ""
+},
+"home_raid": {
+"fallbackColor": "slate_dark",
+"image": ""
+},
+"mugging": {
+"fallbackColor": "pavement_wet",
+"image": ""
+},
+"raid": {
+"fallbackColor": "brick_shadow",
+"image": ""
+}
+},
+"effects": {
+"blackHole": {
+"fps": 10,
+"frameCount": 8,
+"image": ""
+},
+"blast": {
+"fps": 12,
+"frameCount": 6,
+"image": ""
+},
+"healingBurst": {
+"fps": 8,
+"frameCount": 5,
+"image": ""
+},
+"shield": {
+"fps": 6,
+"frameCount": 4,
+"image": ""
+},
+"timePearl": {
+"fps": 8,
+"frameCount": 4,
+"image": ""
+}
+},
+"meta": {
+"actionRule": "Ticket 10, docs/combat-animation-vision.md §4: 'attack' (3 keyposes: wind-up/strike/recover, played with a transform lunge-and-return), 'hit' (1 pose, played with a transform recoil), and 'ko' (2 poses, played with a transform fall+fade) exist per-subject exactly like 'idle' -- CombatScreen loads whichever of a sheet's frames the doctrine calls for (down-sampling evenly if a sheet carries more, e.g. templates.default's own multi-frame stand-in strips) and falls back to templates.default's shared stand-in when a subject's own entry is empty, same two-level fallback 'idle' now uses too (see 'templateRule' above). 'tell' (1 pose, held with a pulse) is ticket 06's telegraph slot getting real art instead of its text/glyph placeholder -- read directly, no default fallback (no enemy has a non-null `ability` in data/enemies.json yet, so no tell art has anywhere to point). 'selfPatch' is Archie-only (§3: the `_allies_act`/`_ally_turn` heal-below-40%-HP pose) -- also no default fallback, since a generic combat stand-in has no heal pose to lend. attack/hit/ko 'fps' values here (5.0/5.0/3.0) are deliberately much lower than idle's -- they pace a short keypose sequence (3/2/2 steps after down-sampling), not a dense flipbook, and were tuned so the total on-screen time per one-shot is close to what the pre-ticket-10 flipbook version showed (a human-flagged regression: the doctrine's own frameCount at the OLD higher fps made each one-shot roughly half as long as before, worsening how long a subject without idle art is actually visible during its own turn).",
+"backdropRule": "One entry per Combat.CANONICAL_CONTEXTS context (systems/combat.gd). 'image' is a res:// path to a 390x360 backdrop plate, or \"\" when no plate has been produced yet -- the stage then fills with the flat data/palette.json colour named by 'fallbackColor' instead.",
+"effectRule": "Ticket 11, docs/combat-animation-vision.md §5: one entry per consumable that has a signature *sheet* effect (as opposed to a pure transform -- enhancementPowder's afterimage, wormhole's fold-and-vanish, and rewind/failsafe's beat-queue-in-reverse are all transform-only, no manifest entry, per the ticket's own 'no new art' list). Each entry is {image, frameCount, fps} at 96x96 native (docs/ART-BIBLE.md §6.1), except blackHole at 160x160 ('the one expensive effect'). 'image' empty means no asset has been produced yet -- CombatScreen's effect player degrades the same way every other manifest lookup in this file does: no frames, no visual, the beat still plays (juice/shader/transform pieces that don't depend on a sheet -- timePearl's enemy-desaturate + slowed idle tweens, shield's crack-on-absorb overlay, blast's hit-flash/shake -- run regardless). No per-subject keying (unlike templates.*) -- an effect sheet is the same regardless of who triggered it or who it lands on, played once per beat that carries the matching `effectKey` extra field (systems/combat.gd's use_*()/cast_complication()), including once per enemy hit for blackHole's AoE (see Combat._apply_black_hole_aoe()).",
+"name": "Combat visuals manifest",
+"purpose": "Maps combat context (and, from ticket 09, enemy/ally template key) to the art asset that renders it, so scenes/screens/combat.gd never hardcodes a path. See docs/combat-animation-vision.md §2.1/§6 and docs/ART-BIBLE.md.",
+"templateRule": "Ticket 09 (amended by a ticket-10 follow-up): 'templates' keys other than 'default' are the seven cast subjects (docs/combat-animation-vision.md §3) resolved by CombatScreen.enemy_template_key()/display-entry building -- 'player' (state.player), the recruited-ally contactId (e.g. 'archie'), the data/enemies.json raidGuards key (territorialScrapper/veinGuard/orichalchumDealer), 'homeRaidRaider' (GameData.ENEMY_HOME_RAID_RAIDER), and 'mugger' (any enemy with isMugging true, however many concurrent instances -- one sheet, reused). Each subject's 'idle' entry is {image, frameCount, fps}; an empty 'image' means no dedicated art has been produced yet -- CombatScreen.StageSlot now falls back to 'default's own idle entry (the same Gangsters_2-sourced stand-in attack/hit/ko already share) rather than the ticket-01 placeholder box, per-subject, not an error. The ticket-01 box is still there as a defensive fallback (a broken/missing 'default' entry), just not expected to trigger in normal play any more."
+},
+"templates": {
+"archie": {
+"attack": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"hit": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"idle": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"ko": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"selfPatch": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+}
+},
+"default": {
+"_note": "TEMPORARY build-test stand-in (ticket 10) -- untouched asset-pack frames (assets/combat/dummy), not final art. Only attack/hit/ko still read this entry; idle no longer does (ticket 09 moved idle to the per-subject keys below).",
+"attack": {
+"fps": 5,
+"frameCount": 6,
+"image": "res://assets/combat/dummy/attack.png"
+},
+"hit": {
+"fps": 5,
+"frameCount": 4,
+"image": "res://assets/combat/dummy/hurt.png"
+},
+"idle": {
+"fps": 9.1,
+"frameCount": 7,
+"image": "res://assets/combat/dummy/idle.png"
+},
+"ko": {
+"fps": 3,
+"frameCount": 5,
+"image": "res://assets/combat/dummy/dead.png"
+}
+},
+"homeRaidRaider": {
+"attack": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"hit": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"idle": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"ko": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+}
+},
+"mugger": {
+"attack": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"hit": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"idle": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"ko": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+}
+},
+"orichalchumDealer": {
+"_note": "Asset-pack sourced stand-in (assets/Gangsters_3), untouched, same convention as templates.default -- see that entry's own _note. Not final art.",
+"attack": {
+"fps": 5,
+"frameCount": 5,
+"image": "res://assets/combat/orichalchum_dealer/attack.png"
+},
+"hit": {
+"fps": 5,
+"frameCount": 4,
+"image": "res://assets/combat/orichalchum_dealer/hit.png"
+},
+"idle": {
+"fps": 9.1,
+"frameCount": 7,
+"image": "res://assets/combat/orichalchum_dealer/idle.png"
+},
+"ko": {
+"fps": 3,
+"frameCount": 5,
+"image": "res://assets/combat/orichalchum_dealer/ko.png"
+}
+},
+"player": {
+"attack": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"hit": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"idle": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"ko": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+}
+},
+"territorialScrapper": {
+"_note": "Asset-pack sourced stand-in (assets/Gangsters_2), untouched, same convention as templates.default -- see that entry's own _note. Not final art.",
+"attack": {
+"fps": 5,
+"frameCount": 6,
+"image": "res://assets/combat/territorial_scrapper/attack.png"
+},
+"hit": {
+"fps": 5,
+"frameCount": 4,
+"image": "res://assets/combat/territorial_scrapper/hit.png"
+},
+"idle": {
+"fps": 9.1,
+"frameCount": 7,
+"image": "res://assets/combat/territorial_scrapper/idle.png"
+},
+"ko": {
+"fps": 3,
+"frameCount": 5,
+"image": "res://assets/combat/territorial_scrapper/ko.png"
+}
+},
+"veinGuard": {
+"attack": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"hit": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"idle": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"ko": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+}
+}
+}
+},
+"COMBAT_XP_LEVELS": [0, 0, 80, 220, 500, 1000],
+"CONSUMABLE_PRICES": {
+"beALady": 150,
+"blackHole": 210,
+"blast": 150,
+"enhancementPowder": 150,
+"failsafe": 270,
+"healingBurst": 180,
+"healingSalve": 120,
+"pansPrank": 180,
+"prophetsBreath": 180,
+"rejuvenation": 280,
+"rewind": 210,
+"shield": 180,
+"timePearl": 120,
+"wormhole": 240
+},
+"CONTACTS_DEFAULTS": {
+"archie": {
+"combatAttackMax": 9,
+"combatAttackMin": 4,
+"combatHealAmount": 15,
+"combatHpMax": 50,
+"combatSpeed": 9,
+"combatStashMax": 2,
+"koCooldownDays": 2,
+"raidAssistThreshold": 50,
+"recruitThreshold": 80,
+"recruitable": true,
+"startRelation": 10,
+"unlocked": true
+},
+"des": {
+"recruitThreshold": 0,
+"recruitable": false,
+"startRelation": 0,
+"unlocked": false
+},
+"hakim": {
+"recruitThreshold": 0,
+"recruitable": false,
+"startRelation": 0,
+"unlocked": false
+},
+"james": {
+"recruitThreshold": 100,
+"recruitable": true,
+"startRelation": 0,
+"unlocked": false
+},
+"nadia": {
+"recruitThreshold": 0,
+"recruitable": false,
+"startRelation": 0,
+"unlocked": false
+}
+},
+"CRAFTING_XP_LEVELS": [0, 0, 80, 220, 500, 1000],
+"CULTIVATING_XP_LEVELS": [0, 0, 80, 220, 500, 1000],
+"DAILY_CYCLE": {
+"atlas": "res://assets/daily_cycle/cycle.png",
+"background": "#111820",
+"cellSize": 73.0,
+"columns": 7.0,
+"destinationLabel": "Day %d — %s",
+"displaySize": 365.0,
+"durationSeconds": 1.75,
+"frameCount": 42.0,
+"outcomeHoldSeconds": 0.75,
+"ranges": {
+"afternoon_to_evening": {
+"count": 14.0,
+"size": [72.0, 72.0],
+"start": 14.0
+},
+"evening_to_morning": {
+"count": 14.0,
+"size": [73.0, 73.0],
+"start": 28.0
+},
+"morning_to_afternoon": {
+"count": 14.0,
+"size": [73.0, 73.0],
+"start": 0.0
+}
+},
+"reducedMotionLabel": "Reduced motion",
+"rows": 6.0,
+"textColor": "#f4efdf"
+},
+"DAY_CLOCK": {
+"blockPlural": "%d blocks",
+"blockSingular": "%d block",
+"dayFormat": "%s Day %d %s",
+"finalBlock": "last block today",
+"phaseCues": ["☀", "☀", "☾"],
+"restLabel": "Rest — next morning",
+"segments": {
+"completed": "✓",
+"current": "▣",
+"remaining": "□"
+}
+},
+"DIAL_ATTUNEMENT_BONUS_BY_TIER": [0, 0.02, 0.04, 0.07, 0.1, 0.15],
+"DIAL_BASE_MAX_CHARGE": 20,
+"DIAL_BASE_RECHARGE_RATE": 2.0,
+"DIAL_CAPACITY_BY_LEVEL": [0, 1, 2, 3, 4, 4],
+"DIAL_HAFTS": {
+"collective_brolly": {
+"name": "Market Umbrella"
+},
+"conclave_crook": {
+"name": "Shepherd's Crook"
+},
+"firm_baton": {
+"name": "Service Baton"
+},
+"guild_cane": {
+"name": "Malacca Cane"
+},
+"network_monopod": {
+"name": "Monopod"
+},
+"street_pole": {
+"name": "Scaffold Pole"
+}
+},
+"DIAL_MAX_CHARGE_BONUS_BY_LEVEL": [0, 0, 5, 12, 22, 35],
+"DIAL_MOVEMENTS": {
+"capacitor": {
+"baseSuccess": 0.35,
+"bonus": [0, 4, 8, 14, 22, 32],
+"description": "Holds far more charge, at the cost of filling back up more slowly.",
+"downside": [0, 0, 0, 1, 2, 4],
+"ingredientBase": 20,
+"name": "Capacitor Movement",
+"symbol": "⏚",
+"windingCostPerCharge": [0, 5, 4, 3, 2, 1],
+"xpReward": 30
+},
+"impact": {
+"baseSuccess": 0.35,
+"bonus": [0, 0.15, 0.3, 0.5, 0.8, 1.2],
+"description": "Every cast lands harder — no change to the charge pool itself.",
+"downside": [0, 2, 4, 7, 11, 16],
+"ingredientBase": 20,
+"name": "Impact Movement",
+"symbol": "☠",
+"windingCostPerCharge": [0, 10, 9, 8, 7, 6],
+"xpReward": 30
+},
+"recharge": {
+"baseSuccess": 0.35,
+"bonus": [0, 0.2, 0.4, 0.7, 1.1, 1.6],
+"description": "Fills the charge pool faster between casts, but holds less of it overall.",
+"downside": [0, 1, 2, 4, 6, 9],
+"ingredientBase": 20,
+"name": "Recharge Movement",
+"symbol": "↻",
+"windingCostPerCharge": [0, 8, 7, 6, 5, 4],
+"xpReward": 30
+},
+"spread": {
+"baseSuccess": 0.35,
+"bonus": [0, 1, 1, 2, 2, 3],
+"description": "Casts reach extra targets, each one landing at full strength.",
+"downside": [0, 1, 2, 3, 4, 6],
+"ingredientBase": 20,
+"name": "Spread Movement",
+"symbol": "✦",
+"windingCostPerCharge": [0, 9, 8, 7, 6, 5],
+"xpReward": 30
+}
+},
+"DIAL_RECHARGE_COMBAT_REGEN_AMOUNT": 1,
+"DIAL_RECHARGE_COMBAT_REGEN_TURNS": 3,
+"DIAL_RECHARGE_RATE_BONUS_BY_LEVEL": [0, 0, 0, 0, 0.5, 1],
+"DIAL_SEED_BASE_SUCCESS": 0.3,
+"DIAL_SEED_COST": {
+"emotion": 40,
+"fate": 40,
+"life": 80,
+"physics": 40,
+"time": 40
+},
+"DIAL_XP_LEVELS": [0, 0, 50, 150, 400, 1000],
+"DISTRICTS": {
+"battersea": {
+"blurb": "The power station stopped generating decades ago. Something still hums. Physics ore is most of what turns up — the old cooling towers never really switched off.",
+"dangerMod": 0,
+"factionPresence": "firm",
+"id": "battersea",
+"name": "Battersea",
+"oreBias": {
+"physics": 0.6
+},
+"priceMod": 0,
+"siteCap": 5,
+"siteQualityMod": 0.05,
+"special": ""
+},
+"camden": {
+"blurb": "Markets, market stalls, and men who are technically also a market stall. Physics ore is most of what comes up — nothing here holds still long enough to settle.",
+"dangerMod": 0.1,
+"factionPresence": "firm",
+"id": "camden",
+"name": "Camden",
+"oreBias": {
+"physics": 0.6
+},
+"priceMod": -0.05,
+"siteCap": 6,
+"siteQualityMod": 0.05,
+"special": ""
+},
+"city": {
+"blurb": "Every building is a bank, a firm, or both, and something older underneath. Fate ore turns up more than anything else; the City's always been in the business of who owes what to whom.",
+"dangerMod": -0.05,
+"factionPresence": "conclave",
+"id": "city",
+"name": "The City",
+"oreBias": {
+"fate": 0.6
+},
+"priceMod": 0.15,
+"siteCap": 9,
+"siteQualityMod": -0.05,
+"special": ""
+},
+"greenwich": {
+"blurb": "The Meridian runs through it, which the locals will mention unprompted. Time ore turns up here more than anywhere else in London.",
+"dangerMod": 0,
+"factionPresence": "guild",
+"id": "greenwich",
+"name": "Greenwich",
+"oreBias": {
+"time": 0.6
+},
+"priceMod": 0,
+"siteCap": 10,
+"siteQualityMod": 0.05,
+"special": ""
+},
+"hampstead": {
+"blurb": "Old money and older trees. The Heath keeps its own counsel, and what grows under it is mostly life ore.",
+"dangerMod": -0.05,
+"factionPresence": "",
+"id": "hampstead",
+"name": "Hampstead",
+"oreBias": {
+"life": 0.6
+},
+"priceMod": 0.05,
+"siteCap": 2,
+"siteQualityMod": 0.1,
+"special": ""
+},
+"kingscross": {
+"blurb": "Everything in King's Cross is on its way somewhere else. Even the veins grow faster, and what surfaces leans time and physics in roughly equal measure.",
+"dangerMod": 0.05,
+"factionPresence": "network",
+"id": "kingscross",
+"name": "King's Cross",
+"oreBias": {
+"physics": 0.3,
+"time": 0.3
+},
+"priceMod": 0,
+"siteCap": 7,
+"siteQualityMod": 0,
+"special": "veins here: +1 rightward drift, -1 leftward drift (min 0)"
+},
+"shoreditch": {
+"blurb": "Home turf. Rents keep going up and nobody knows why. No ore runs stronger than the rest here — you take whatever surfaces.",
+"dangerMod": 0,
+"factionPresence": "collective",
+"id": "shoreditch",
+"name": "Shoreditch",
+"oreBias": {},
+"priceMod": 0,
+"siteCap": 7,
+"siteQualityMod": 0,
+"special": "home base"
+},
+"soho": {
+"blurb": "Nothing grows here — no sites, no veins, nothing to prospect. Everything gets sold here eventually.",
+"dangerMod": -0.05,
+"factionPresence": "network",
+"id": "soho",
+"name": "Soho",
+"oreBias": {},
+"priceMod": 0.1,
+"siteCap": 0,
+"siteQualityMod": 0,
+"special": "marketplace (M4); no veins, no prospecting"
+},
+"whitechapel": {
+"blurb": "The oldest grief in London, still paying rent to the newest landlords. Emotion ore is most of what surfaces — grief doesn't decompose round here, it just changes hands.",
+"dangerMod": 0.1,
+"factionPresence": "collective",
+"id": "whitechapel",
+"name": "Whitechapel",
+"oreBias": {
+"emotion": 0.6
+},
+"priceMod": 0,
+"siteCap": 7,
+"siteQualityMod": 0.1,
+"special": "vein NPC-raid chance ×1.5 (when vein raids land, M2)"
+}
+},
+"ENEMY_HOME_RAID_RAIDER": {
+"attackMax": 14,
+"attackMin": 6,
+"evadeChance": 0,
+"hp": 35,
+"name": "The raider",
+"speed": 9
+},
+"ENEMY_RAID_GUARDS": {
+"orichalchumDealer": {
+"attackMax": 12,
+"attackMin": 5,
+"evadeChance": 0,
+"hpBase": 25,
+"name": "Orichalchum Dealer",
+"speed": 10
+},
+"territorialScrapper": {
+"attackMax": 8,
+"attackMin": 3,
+"evadeChance": 0,
+"hpBase": 20,
+"name": "Territorial Scrapper",
+"speed": 12
+},
+"veinGuard": {
+"attackMax": 10,
+"attackMin": 4,
+"evadeChance": 0,
+"hpBase": 30,
+"name": "Vein Guard",
+"speed": 8
+}
+},
+"EVENTS": {
+"archie_craft_chat": {
+"cards": [{
+"label": "A few days later — Spitalfields Market",
+"speaker": null,
+"text": "Archie is eating a falafel wrap and looking at his phone. He waves you over without looking up, which is either comfortable familiarity or mild rudeness. Probably both.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Alright. How'd it go with James, then?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"He taught me how to make the pearls. Basic stuff, but — it worked.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Archie stops chewing. He looks at you with an expression you haven't seen on him before: genuine surprise.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"He actually showed you? How to craft?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"Yeah. Why?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Because James doesn't show people things. James does things, judges people for not knowing how to do them, and considers that a complete interaction. Either he was absolutely desperate, or —\" He tilts his head. \"He saw something worth the bother.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Don't let it go to your head. You're at the bottom of a very long ladder. James has been at this for thirty years and he still considers himself underappreciated, which should tell you something about the ceiling.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"That said — keep practising. Seriously. Being able to craft your own means you're not at the mercy of James's prices, which frankly are a war crime. And it's a marketable skill.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"Marketable how?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Same way the ore is. There's buyers for finished product too — people who want pearls and don't have a James. I can start lining them up. Anything you make that you don't need, bring it to me. We split it down the middle, same as the calc.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He finishes his wrap and bins the wrapper from four metres away. It goes in first time. He doesn't acknowledge this at all.",
+"type": "resolution"
+}],
+"id": "archie_craft_chat",
+"on_complete": [{
+"flag": "archieCraftChatSeen",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "canSellConsumables",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_stage",
+"value": "free"
+}, {
+"contact": "archie",
+"op": "relation",
+"value": 5
+}, {
+"op": "add_ore",
+"qty": 20,
+"type": "time"
+}, {
+"flag": "homeRaidEventPending",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"archie_cultivation": {
+"cards": [{
+"label": "Whitechapel — behind the old brewery",
+"speaker": null,
+"text": "The vein is exactly where the pin said: a hairline crack in old brick, humming faintly at a frequency you'd ignore if you didn't already know what you were listening for. Archie's waiting with his hands in his pockets, doing an impression of a man who has never once stood around looking impatient.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Right. It's yours now, so you should know how it actually works, not just what the app tells you.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"See that number on it? Growth. Runs nought to a hundred, dead centre at fifty. Leave it be and it drifts — climbs if it was already climbing, sinks if it was already sinking. Doesn't just sit there, whatever you do.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Cultivate pushes it up. Put a session in — might take, might not, that part's down to your own skill. Land it low and it jumps a fair way; land it near the top and you're barely nudging it. Miss, and you've lost nothing but the time.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Prune's how the calc actually comes out, and it only pays once you're past fifty. Light prune takes a bit, leaves the rest growing. Hard prune takes more, sets it right back — more calc for your trouble, mind.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Run one all the way down and leave it there, and it won't wait patient for you — spent long enough, it just collapses and disappears on you. The patch stays, mind, ready to seed again — it's the vein you lose.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"So don't get greedy on something you can't afford to lose. Go on, then — put a session in. I'll watch, so you don't feel like you're talking to brick.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "You work the vein the way he showed you. It takes, first go — beginner's luck, or possibly just Archie standing close enough to make failure socially awkward. The growth number ticks up. Somewhere under Whitechapel, something that used to belong to someone else settles into belonging to you.",
+"type": "resolution"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"There. Not complicated. Keep at it, and don't tell anyone else where it is.\"",
+"type": "speaker"
+}],
+"id": "archie_cultivation",
+"on_complete": [{
+"op": "tutorial_cultivate"
+}, {
+"contact": "archie",
+"op": "relation",
+"value": 2
+}, {
+"flag": "cultivationTutorialSeen",
+"op": "set_flag",
+"value": true
+}, {
+"contact": "archie",
+"kind": "col_a1_intro",
+"op": "queue_pending_message",
+"text": "Come by the lock-up. Got someone you need to meet. Don't make a thing of it."
+}, {
+"op": "set_screen",
+"screen": "map"
+}],
+"pin": {
+"contact": "archie",
+"district": "whitechapel",
+"phoneLabel": "Go and see Archie about the vein",
+"showWhenFlagsFalse": ["cultivationTutorialSeen"],
+"showWhenFlagsTrue": ["archiePartnerSeen"]
+}
+},
+"archie_motion": {
+"cards": [{
+"label": "A message from Archie",
+"speaker": null,
+"text": "You've been moving product. It's working. Archie's text simply says: \"good output. call me.\"",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"So the consumables are going well. Got a buyer asking for more pearls and asking if there's anything else on offer. Which made me think — can you make anything else?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"Not yet. James only taught me the pearls.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Yeah. Right. See, James knows how to make about forty different things and he's sitting on all of it. Which is his prerogative, obviously. But I'm thinking — have you got any sort of relationship with him yet? Because it might be worth asking.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"Asking him to teach me more?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Gently. James doesn't respond well to being asked for things directly. Try framing it as being useful to him. Which, actually, you could be — if he's got orders he can't fill, you could take the overflow. Might be the angle.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Worth a try anyway. He's the only craftsman I know who isn't either retired or in prison, so options are limited.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He hangs up before you can ask anything else. You look up James's address in your phone.",
+"type": "resolution"
+}],
+"id": "archie_motion",
+"on_complete": [{
+"flag": "archieMotionEventSeen",
+"op": "set_flag",
+"value": true
+}, {
+"contact": "james",
+"kind": "james_motion",
+"op": "queue_pending_message",
+"text": "Overflow work, if you're capable of it. Come by."
+}, {
+"op": "set_screen",
+"screen": "contacts"
+}]
+},
+"battersea_hum": {
+"cards": [{
+"label": "Battersea",
+"speaker": null,
+"text": "The old power station hasn't generated anything since before your parents were your age, and it still hums, very faintly, like a tooth that's been pulled but hasn't told the nerve yet.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You put your hand flat against the brick for exactly as long as feels socially acceptable to touch a decommissioned building, and come away with a faint charge of physics-type static in your palm.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "battersea",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "battersea_hum",
+"on_complete": [{
+"op": "add_ore",
+"qty": 1,
+"type": "physics"
+}, {
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"busker_greenwich": {
+"cards": [{
+"label": "Greenwich Market",
+"speaker": null,
+"text": "By the market, a busker inflates himself explaining the finer points of the zero meridian to a strictly disinterested crowd. He clocks you before you clock him.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Busker",
+"text": "\"You look like someone who deals in the good stuff. I know things - like where some small timers may have stashed some calc. Worth twenty quid to a man who knows how to spend it.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [{
+"op": "add",
+"path": "player.cash",
+"value": -20
+}, {
+"op": "add_ore",
+"qty": 1,
+"type": "time"
+}, {
+"flag": "greenwichTipOff",
+"op": "set_flag",
+"value": true
+}],
+"label": "Give him £20",
+"result_text": "He pockets the note and taps the side of his nose. \"Bus stop outside the McDonalds. Paving stone next to the bench is loose; lift it up and you'll get a nice surprise\". Funnily, he's telling the truth; there's a small stash of calc. Or more accurately, there WAS a small stash of calc."
+}, {
+"effects": [],
+"label": "Keep walking",
+"result_text": "You keep walking. He shouts something about the Meridian after you. You don't catch it, and don't ask him to repeat it."
+}],
+"label": null,
+"speaker": null,
+"text": "He's either got something, or he's very good at pretending.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "Whether or not he was lying, Greenwich feels marginally more interesting than it did five minutes ago.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "greenwich",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "busker_greenwich",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"buyer": {
+"cards": [{
+"label": "The next morning",
+"speaker": null,
+"text": "Archie texts an address in Shoreditch and the word \"tonight\". You arrive to find him outside a craft beer bar, looking mildly disgusted by its existence.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Right. Same calc from the other night — I held onto it. Buyer's inside. Name's Marcus, finance, collects emotion-type for what he calls 'recreational use'. Don't ask. Just be normal. Or close to it.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"This is the same stuff. From when they tried to rob us.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Correct. Which is why having two of us is better than one. You're essentially a deterrent. Like a scarecrow. No offence.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"Some offence.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Noted.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Marcus is exactly what you expected: fleece, Patagonia, very clean trainers. He examines the calc with the careful enthusiasm of someone who has recently read about it online. He pays promptly, which is nice.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"See? Smooth as you like. Most of them are like Marcus. Professional, prompt, no Stanley knife. That's the market we're targeting.\"",
+"type": "speaker"
+}, {
+"label": "Walking back — Shoreditch High Street",
+"speaker": null,
+"text": "Archie splits the cash on the pavement outside a Pret. The city moves around you, completely indifferent to any of this.",
+"type": "resolution"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"So. I've got a contact who knows a lot more about this than I do. Bloke called James — craftsman, Bermondsey. Takes raw calc and makes things out of it. Like the pearls. I've been meaning to introduce you.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"Sure.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"I'll set it up. Give me a bell tomorrow.\"",
+"type": "speaker"
+}],
+"id": "buyer",
+"on_complete": [{
+"op": "add",
+"path": "player.cash",
+"value": 40
+}, {
+"flag": "buyerEventSeen",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_stage",
+"value": "sms_archie"
+}, {
+"contact": "archie",
+"from": "player",
+"op": "push_message",
+"text": "You mentioned a bloke called James. When can we sort that?"
+}, {
+"contact": "archie",
+"op": "push_message",
+"text": "Already arranged. Tomorrow — SE1 4YA, storage unit behind the Costcutter. Midday."
+}, {
+"contact": "archie",
+"kind": "james_meeting",
+"op": "queue_pending_message",
+"text": "Fair warning: James is the best craftsman I know and also the worst person I know. Don't take it personally. He's like that with everyone."
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"camden_shakedown": {
+"cards": [{
+"label": "Camden",
+"speaker": null,
+"text": "Two lads corner you near the lock, doing their best impression of menace between a falafel stall and a man selling knock-off headphones. It's not entirely unconvincing.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "One of Them",
+"text": "\"Toll for using this bit of pavement. Fifty quid, and we all have a nice afternoon.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [{
+"op": "add",
+"path": "player.cash",
+"value": -50
+}],
+"label": "Pay £50",
+"result_text": "You pay. They seem almost disappointed not to have to do anything. You walk on with your dignity roughly 90% intact."
+}, {
+"effects": [{
+"on_fail": [],
+"on_success": [{
+"op": "start_street_mugging"
+}],
+"op": "chance",
+"p": 0.4
+}],
+"label": "Refuse",
+"result_text": "You refuse. For a second, nobody moves - whatever happens next happens fast."
+}],
+"label": null,
+"speaker": null,
+"text": "The third one just stands there, which is somehow worse.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "Camden closes back over you like nothing happened. Somewhere, a man is still selling headphones that don't work.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "camden",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "camden_shakedown",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"city_suit": {
+"cards": [{
+"label": "The City",
+"speaker": null,
+"text": "A man in a suit that costs more than your flat buys you a coffee you didn't order, in a café you'd never choose. He introduces himself as \"a friend of a friend\", which in the City means nobody vouches for him.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "The Suit",
+"text": "\"I collect fate-type. Recreationally, you understand. Two hundred up front, I match it eightfold if the numbers land. If they don't — well. Markets.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [{
+"op": "add",
+"path": "player.cash",
+"value": -200
+}, {
+"on_fail": [],
+"on_success": [{
+"op": "add_ore",
+"qty": 8,
+"type": "fate"
+}],
+"op": "chance",
+"p": 0.5
+}],
+"label": "Trade (£200)",
+"result_text": "He taps his card against yours and doesn't blink. The transaction completes with the finality of all City transactions — you'll know how it went when you check your ore."
+}, {
+"effects": [],
+"label": "Pass",
+"result_text": "\"Suit yourself,\" he says, and you both know exactly which word he chose."
+}],
+"label": null,
+"speaker": null,
+"text": "He's already got his card reader out.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "He's gone by the time you check your phone. Some men are only ever passing through.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "city",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "city_suit",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"col_a1_archie_pry": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "You mention Des. Archie's face does the thing it does, which is nothing at all, quite deliberately.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"He's good at ground. Best I know. Leave it there.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [],
+"label": "Leave it",
+"result_text": "You leave it. He looks briefly grateful and then annoyed with himself for looking grateful."
+}, {
+"effects": [{
+"flag": "colA1AskedAboutDebt",
+"op": "set_flag",
+"value": true
+}, {
+"event": "col_a1_archie_pry_debt",
+"op": "start_event"
+}],
+"label": "Push",
+"result_text": ""
+}],
+"label": null,
+"speaker": null,
+"text": "He very obviously wants to leave it there.",
+"type": "choice"
+}],
+"id": "col_a1_archie_pry",
+"on_complete": [{
+"op": "set_screen",
+"screen": "contacts"
+}]
+},
+"col_a1_archie_pry_debt": {
+"cards": [{
+"label": null,
+"speaker": "Archie",
+"text": "\"Four hundred and twenty quid. Fourteenth of March, 2019. I know because I wrote it in the book, because that's what you do.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"He's had six years and about nine conversations to say 'here's your money' and instead I get - \" he does an impression that is unkind and quite accurate - \" 'we're all right, aren't we.'\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "It is four hundred and twenty pounds. Archie has, in the time you've known him, given away a vein.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Also, he's Crystal Palace. Obviously untrustworthy.\" He says it in the specific tone of a man producing a joke because the real answer has run out.",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "So that's what that is. A tenner's worth of grievance with six years of compound interest on it. You stop wondering about it, which is exactly what you were supposed to do.",
+"type": "resolution"
+}],
+"id": "col_a1_archie_pry_debt",
+"on_complete": [{
+"op": "set_screen",
+"screen": "contacts"
+}]
+},
+"col_a1_closer": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "All three of them are in the yard, which has never happened before and is not, apparently, an occasion. Nadia is sitting on an upturned crate. Des has his bag.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"So there's a spot behind the flats on the other side of the estate. Been looking at it for about a year, wondering.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"It's life. Which is wrong for round here — round here is emotion, everyone knows that. But it's life, and it's good ground, and I don't know what to do with good ground.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"You're the one who's good at putting things in. So.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Des has already got the jar out of his bag. He does not make a speech about it. He does not appear to have considered any other course of action.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Forty units, life. Had it about a month waiting for somewhere to put it.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [],
+"label": "Thank him",
+"result_text": "\"You're all right,\" he says, and means it, and the subject is closed."
+}, {
+"effects": [],
+"label": "Insist on paying",
+"result_text": "\"You can pay me back by doing this for somebody else in about a year.\" He hands you the jar. \"That's not me being nice, that's just how the accounting works round here.\""
+}],
+"label": null,
+"speaker": null,
+"text": "You start to say something about paying him back.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "It takes first time. The three of them watch you do it and then go straight back to talking about somebody's boiler.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "Later, walking back, you ask Des how you'd actually join. Whether there's someone to ask.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"There's no list. Nobody keeps one.\" He seems mildly amused you'd think there was. \"You've been doing this with us for a month. You're either one of us or you're not, and that's not really my call.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"He means yes.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [{
+"faction": "collective",
+"op": "join_faction"
+}, {
+"flag": "colA1Joined",
+"op": "set_flag",
+"value": true
+}],
+"label": "I'm in",
+"result_text": "\"Right,\" says Des, and that's the ceremony."
+}, {
+"effects": [{
+"flag": "colA1DeferredJoin",
+"op": "set_flag",
+"value": true
+}],
+"label": "Not yet",
+"result_text": "\"Fair enough.\" He isn't offended and doesn't pretend not to be offended, which is worse and better at once. \"Offer doesn't expire. There's nothing to expire.\""
+}],
+"label": null,
+"speaker": null,
+"text": "Behind you, Whitechapel does what it does.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "You have a life vein in Whitechapel that a newsagent found and a prospector paid for, and no document anywhere records that any of this happened.",
+"type": "resolution"
+}],
+"id": "col_a1_closer",
+"on_complete": [{
+"district": "whitechapel",
+"op": "scripted_seed",
+"oreType": "life",
+"tier": "rich"
+}, {
+"flag": "colA1Stage",
+"op": "set_flag",
+"value": "complete"
+}, {
+"flag": "colA1Complete",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"col_a1_deferred_join": {
+"cards": [{
+"label": null,
+"speaker": "Des",
+"text": "\"Right,\" he says, like you've asked him what time it is. \"You're in. Don't need a form for it.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "That's it. That's the whole thing. Nobody hands you anything to prove it, and you walk out fractionally more a part of something than you were an hour ago.",
+"type": "resolution"
+}],
+"id": "col_a1_deferred_join",
+"on_complete": [{
+"faction": "collective",
+"op": "join_faction"
+}, {
+"flag": "colA1Joined",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"col_a1_des_report": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "You give Des the last address. He still doesn't write it down.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"That's the pair, then.\" He's pleased in a way that takes a second to read as pleased. \"Two people who'll have something by the weekend.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Archie all right? We go back — years, that. Had a bit of business once, sorted it out ages ago.\" He says it with the mild warmth of a man recalling a settled account, and moves on before you can ask which business.",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "You ask who. He tells you the first names and nothing else, and you realise a beat later that he has told you exactly as much as he'd tell anyone about you.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Nobody's ever raided a vein they didn't know about.\" He says it as a small joke about paperwork. \"That's the whole trick. That's it. That's the entire clever bit.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "By the end of the week, both patches you found have veins in them and neither of them is yours. You are, apparently, fine with this, which is itself new information.",
+"type": "resolution"
+}],
+"id": "col_a1_des_report",
+"on_complete": [{
+"flag": "colA1DesThreadDone",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"col_a1_des_report_first_fate": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "You give Des one address. He doesn't write it down.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Fate. In the City, no less.\" He's pleased in a way that takes a second to read as pleased. \"That's one. Somebody'll have something by the weekend.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Still want physics off you an' all. No rush — just don't go thinking that's the job done.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "By the end of the week, one patch you found has a vein in it and it isn't yours. You seem fine with this.",
+"type": "resolution"
+}],
+"id": "col_a1_des_report_first_fate",
+"on_complete": [{
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"col_a1_des_report_first_physics": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "You give Des one address. He doesn't write it down.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Physics. Good — that's somebody sorted by the weekend.\" He's pleased in a way that takes a second to read as pleased.",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Still want a fate patch off you an' all. City, for preference — nobody round here's got the ground for it. No rush.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "By the end of the week, one patch you found has a vein in it and it isn't yours. You seem fine with this.",
+"type": "resolution"
+}],
+"id": "col_a1_des_report_first_physics",
+"on_complete": [{
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"col_a1_firm_intimidation": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "Three of them, waiting by your exit, in no particular hurry. The one in front has the patient look of somebody doing an errand.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Firm Man",
+"text": "\"You've been busy. Fate, physics — bit ambitious for someone who was doing a rent-a-vein in Whitechapel a month ago.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Firm Man",
+"text": "\"Nobody's asking you to stop. Just letting you know it's been noticed. There's a difference, and the difference is entirely up to you.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [{
+"key": "firmFirstContact",
+"op": "log_method",
+"value": "backed_off"
+}],
+"label": "Back off",
+"result_text": "You take the long way round. Nothing happens, which is the point — somebody wanted a face and now has one."
+}, {
+"effects": [{
+"key": "firmFirstContact",
+"op": "log_method",
+"value": "held"
+}],
+"label": "Hold your ground",
+"result_text": "You don't move and you don't say anything. He waits, decides it isn't worth the afternoon, and they go. He is slightly less pleasant on the way past."
+}, {
+"effects": [{
+"key": "firmFirstContact",
+"op": "log_method",
+"value": "fought"
+}, {
+"op": "start_street_mugging"
+}],
+"label": "Tell them where to go",
+"result_text": "You tell him. There is a moment where it could still go either way, and then it doesn't."
+}],
+"label": null,
+"speaker": null,
+"text": "He hasn't threatened you. He's been very careful not to.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "The patches are still yours to give away. That was never what this was about.",
+"type": "resolution"
+}],
+"id": "col_a1_firm_intimidation",
+"on_complete": [{
+"flag": "colA1IntimidationSeen",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"col_a1_firm_skirmish": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "You come round the corner into the end of something. Four people, one of them on the floor, and the specific quiet that happens after shouting rather than before it.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "Two of them are wearing the kind of coats that cost money. They are not hurrying. One is writing something down.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "By the time you've decided whether to do anything, there are two people and one of them is being helped into a car by the other. Nobody looks at you. It has been arranged that there is nothing to look at.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You ask Des about it later. He says \"Firm,\" the way you'd say \"rain,\" and asks whether you found anything.",
+"type": "resolution"
+}],
+"id": "col_a1_firm_skirmish",
+"on_complete": [{
+"flag": "colA1SkirmishSeen",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"col_a1_hakim_done": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "The yard looks exactly the same. The vein does not. It reads as taking, and rising.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"That's better than my uncle had it.\" He says this and then looks slightly stricken, as though he has been disloyal.",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He pays you. It is not very much and he has clearly thought about the amount, and there is no version of refusing it that isn't worse.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"Listen. I hear things. Not — I'm not anybody, I just stand here and people talk. If I hear about ground going, round here, I'll text you. That's not me paying you back, that's just — I'll text you.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "You have made a newsagent's yard marginally more productive. Somewhere in the calculation of what you have spent your week on, this is either the least or the most important thing, and it won't be clear which for some time.",
+"type": "resolution"
+}],
+"id": "col_a1_hakim_done",
+"on_complete": [{
+"faction": "collective",
+"op": "sell_contact_vein_to_faction",
+"price": 0,
+"veinIdStatePath": "collective.hakimVeinId"
+}, {
+"op": "add",
+"path": "player.cash",
+"value": 120
+}, {
+"faction": "collective",
+"op": "faction_relation",
+"value": 10
+}, {
+"flag": "colA1HakimThreadDone",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "hakimIntelUnlocked",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"col_a1_hakim_meet": {
+"cards": [{
+"label": "Whitechapel Road",
+"speaker": null,
+"text": "The shop sells newspapers, phone credit, four kinds of crisps and, if you know to ask, nothing else at all. There is a child's homework on the counter, half done, with a biro resting in the fold.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"You're Des's. He said. Sorry — that came out like you're a dog.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"There's a vein in the yard. Came with the shop. My uncle had it and he was good with it and I'm not, and it's been going backwards for about two years.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "The yard is eleven feet of concrete, three bins and a vein that has clearly not been touched in a long time. It reads as sparse and dropping.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"It does about a third of what it used to. Which is about a third of the rent, so.\" He stops there, having got closer to complaining than he intended.",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"Des says you're good at the growing part. I can't pay you properly. I can pay you something.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [],
+"label": "I'll do it",
+"result_text": "\"Right. Good. Thank you.\" He busies himself with the till so neither of you has to be looking at the other."
+}, {
+"effects": [],
+"label": "You don't have to pay me",
+"result_text": "\"I do, though.\" He says it flatly, and it is the only time he has been immovable about anything. \"I'll pay you something. I'm not having it be a favour.\""
+}],
+"label": null,
+"speaker": null,
+"text": "Behind him, through the doorway, somebody's homework is still half done.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "You have taken on somebody's yard. It is not, in any measurable sense, a good use of your afternoons.",
+"type": "resolution"
+}],
+"id": "col_a1_hakim_meet",
+"on_complete": [{
+"op": "grant_contact_vein",
+"statePath": "collective.hakimVeinId",
+"vein": {
+"alarmUpgrades": [],
+"district": "whitechapel",
+"growth": 18,
+"hospitability": {
+"bonuses": [],
+"tier": "fair"
+},
+"location": "Whitechapel Road, the yard behind the newsagent's",
+"oreType": "emotion",
+"rampantDays": 0,
+"security": "none"
+}
+}, {
+"flag": "colA1HakimMet",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "map"
+}],
+"pin": {
+"contact": "hakim",
+"district": "whitechapel",
+"phoneLabel": "Go and meet Hakim",
+"showWhenFlagsFalse": ["colA1HakimMet"],
+"showWhenFlagsTrue": ["colA1HubReached"]
+}
+},
+"col_a1_hub": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "Des has bought you a coffee you didn't ask for and won't let you pay for, which is becoming a pattern.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Right. You've had a fortnight of me giving you things. That's fine, that's how it works, but it works both ways or it doesn't work.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Three things. Take them in whatever order suits. Or don't — I'm not your governor, nobody is.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"One's mine. We've got people who can seed but haven't got ground. I need a fate patch and a physics patch, decent ones, and I need them left alone until I say. You find them, I'll do the rest.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Two's Nadia. Hackney. She moves more calc in a week than the rest of us see in a month and she's short on something. Go and be useful to her; she'll tell you how.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Three's Hakim. Newsagent, Whitechapel Road. He's got a vein in his yard that's on its way out and he hasn't got the hands for it. That one's not a favour to me, it's a favour to him, and he'll be embarrassed about it, so don't make it worse.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He writes two phone numbers on the back of a receipt, which is the only record of any of this that will ever exist.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "Three names, three problems, no deadline and no order. The Collective, as far as you can tell, is a group of people who have each independently decided to be helpful and have never once discussed it.",
+"type": "resolution"
+}],
+"id": "col_a1_hub",
+"on_complete": [{
+"contact": "nadia",
+"op": "unlock_contact"
+}, {
+"contact": "hakim",
+"op": "unlock_contact"
+}, {
+"flag": "colA1DesThreadActive",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "colA1HubReached",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "colA1Stage",
+"op": "set_flag",
+"value": "hub"
+}, {
+"flag": "colA1ArchiePryAvailable",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"col_a1_intro": {
+"cards": [{
+"label": "Shoreditch",
+"speaker": null,
+"text": "The lock-up smells of damp cardboard and, distantly, of something that isn't cardboard. Archie is standing outside it with the expression of a man who has already had this conversation in his head and did not enjoy it.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"One vein. That's what you've got. One vein, which I gave you, which I'm now going to hear about for the rest of my life.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"One vein isn't a business, it's a hobby with rent. You want more, you have to go and find ground, and seed it, and I can't teach you that because I've never done it. I shift stock. I don't dig.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He fishes his keys out — a fat bunch, a Millennium Falcon keyring worn smooth at the edges — and lets you both into the lock-up.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"So I called a bloke. He's good. He's the best I know at it, actually.\" A pause exactly long enough to be noticeable. \"He'll teach you. Then he'll go home.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "The man who comes in is in his forties, unhurried, with a canvas bag over one shoulder and the air of somebody who has never once been late but has often waited. He looks genuinely pleased to be here, which nobody else in this story has managed.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Desmond. Des. You're the one with the Whitechapel time vein.\" He says it like a fact he's glad about rather than one he's checking.",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Right. He knows ground, I know buyers, and between us you might make rent. That's the arrangement.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Archie does not offer Des tea. Des does not appear to expect any. There is a silence with some history in it, and then Archie remembers somewhere else he needs to be.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"He's all right, Archie. Bit of a transaction, but he's all right.\" He's already unpacking the bag. \"Right. Ground.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "You have a teacher. Neither of you has mentioned money, which is the first thing about today that will turn out to matter.",
+"type": "resolution"
+}],
+"id": "col_a1_intro",
+"on_complete": [{
+"contact": "des",
+"op": "unlock_contact"
+}, {
+"flag": "colA1DesMet",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "collectiveLaneUnlocked",
+"op": "set_flag",
+"value": true
+}, {
+"faction": "collective",
+"op": "faction_relation",
+"value": 5
+}, {
+"flag": "colA1Stage",
+"op": "set_flag",
+"value": "tuition"
+}, {
+"op": "notify",
+"text": "Des reckons there's ground worth a look. Check the map."
+}, {
+"op": "set_screen",
+"screen": "contacts"
+}]
+},
+"col_a1_nadia_done": {
+"cards": [{
+"label": null,
+"speaker": "Nadia",
+"text": "\"Right. That's mine now.\" She counts out the money in a way that suggests she has counted out a great deal of money in her life. \"And that's three days a fortnight back.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"You'll get offers, by the way. People who want to buy ground off you cheap because you're new. Don't take them. Ask me first, I'll tell you what it's worth, and I'll tell you straight even when I'm the one buying.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "You believe her, and you notice that you believe her, and you file that away.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You have sold a vein. There's more money in your account than there was, and slightly less London that belongs to you. Feels like progress.",
+"type": "resolution"
+}],
+"id": "col_a1_nadia_done",
+"on_complete": [{
+"faction": "collective",
+"op": "faction_relation",
+"value": 10
+}, {
+"flag": "colA1NadiaThreadDone",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "vein_list"
+}]
+},
+"col_a1_nadia_meet": {
+"cards": [{
+"label": "Hackney — the back of a shop that sells phone cases",
+"speaker": null,
+"text": "Nadia Beckford is about seventy and is moving a crate that you would need help with. She does not accept help.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"Des sent you. He's told you I'm short.\" She doesn't look up. \"He's right. I'm short.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"Standing order. Time calc, every fortnight, same bloke, same amount, been running four years. It pays for a lot of things that need paying for.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"This end of town's full of it and everyone round here has a bit and nobody has thirty units at once. So I spend three days on the phone every fortnight like it's 1974.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [],
+"label": "I can get you thirty",
+"result_text": "\"Course you can.\" She goes back to the crate. \"Bring it when you've got it. Bring it in bits, I don't care.\""
+}, {
+"effects": [],
+"label": "What's in it for me?",
+"result_text": "\"Market rate, same as anyone.\" A pause. \"You were expecting me to be offended. I'm not. Ask people what things cost, it saves everybody a fortnight.\""
+}],
+"label": null,
+"speaker": null,
+"text": "She finally looks up.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"And before you ask — no, I don't know who's holding what. Nobody does. If I knew who had what I'd have had this done Tuesday.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Thirty units of time calc, no deadline, no paperwork, and a woman who has been doing this since before you were born treating it as entirely routine.",
+"type": "resolution"
+}],
+"id": "col_a1_nadia_meet",
+"on_complete": [{
+"flag": "colA1NadiaMet",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"col_a1_nadia_vein": {
+"cards": [{
+"label": null,
+"speaker": "Nadia",
+"text": "\"That's the order filled and I'm still doing three days on the phone every fortnight. That's not a solution, that's you being nice.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"So. Different idea. You seed me a time vein and I buy it off you. Then it's mine, it produces, and the standing order fills itself.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"You take the risk — the forty units, the seeding, whether it takes. I take a working vein and pay for it. That's not charity in either direction, that's just what things are worth.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "It is the first time anyone in the Collective has proposed a transaction to you where both halves were named out loud, and it's oddly restful.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"Grow it a bit first if you've any sense. I'll pay what it's worth on the day, and a hole in the ground with forty units in it isn't worth much yet.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "You now know that a vein is a thing that can be sold, which had genuinely not occurred to you.",
+"type": "resolution"
+}],
+"id": "col_a1_nadia_vein",
+"on_complete": [{
+"flag": "veinSaleUnlocked",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "colA1NadiaAskSeen",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"col_a1_prospecting": {
+"cards": [{
+"label": "Shoreditch — a service yard behind a coffee place",
+"speaker": null,
+"text": "Des has brought you to the least interesting place in Shoreditch and is looking at it with open enthusiasm.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Everyone looks for the dramatic bit. Cracked stone, old church, that sort of thing. Mostly what you want is somewhere that's been left alone a long time and had something happen to it once.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Prospecting's a block of your day and a walk about. You'll turn up a patch or you won't. What you turn up depends on the ground round here and on how much of this you've done before — that's it, that's the whole system.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Patches come in grades. Poor, fair, rich, and once in a blue moon something that makes you sit down. Barren ones you leave; nothing takes in them.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Different parts of London tend to skew more to a specific type. Round here it's whatever's going. Whitechapel's emotion, mostly. The City's fate, which probably isn't much of a surprise.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He does not tell you which of these facts is the important one. You get the sense this is on purpose.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Go on. Have a look about. I'll be here.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "You spend the better part of an hour looking at brickwork with a seriousness that would embarrass you if anyone you knew walked past. Somewhere under all of it, London is doing what it does.",
+"type": "resolution"
+}],
+"id": "col_a1_prospecting",
+"on_complete": [{
+"flag": "colA1ProspectingTaught",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "map"
+}],
+"pin": {
+"contact": "des",
+"district": "shoreditch",
+"phoneLabel": "Go prospecting with Des",
+"showWhenFlagsFalse": ["colA1ProspectingTaught"],
+"showWhenFlagsTrue": ["colA1DesMet"]
+}
+},
+"col_a1_seeding": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "Des has a jar in his bag. In the jar is about forty units of somebody's physics calc, and he is holding it the way other people hold a thermos.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Finding a patch is half of it. A patch is just good ground. It doesn't do anything until you put something in it.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Forty units of the right type. Has to match what the ground wants — you can't put fate in a life patch and hope. Costs you a block, and it doesn't always take. Better ground takes more often, and you get better at it.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"When it takes, you've got a vein and the patch is yours. When it doesn't, you've lost the calc and the afternoon, and you have another go when you can afford one.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He says the last part without any particular weight, as a man describing weather.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Which is why nobody round here seeds alone if they don't have to. If I've got forty spare and you've found ground, that's not me lending you anything. That's the ground getting used.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"The needs of the many outweigh the needs of the few.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He does not appear to think he has said anything unusual, and moves straight on to the practical bit about matching types, which he has now explained twice.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You know how to seed a patch. You do not yet have forty units of anything spare, which is a different problem and, Des would say, a smaller one.",
+"type": "resolution"
+}],
+"id": "col_a1_seeding",
+"on_complete": [{
+"flag": "colA1SeedingTaught",
+"op": "set_flag",
+"value": true
+}, {
+"contact": "des",
+"kind": "col_a1_hub",
+"op": "queue_pending_message",
+"text": "When you've got a minute. Nothing urgent, but there are three things."
+}, {
+"op": "set_screen",
+"screen": "map"
+}],
+"pin": {
+"contact": "des",
+"district": "shoreditch",
+"phoneLabel": "Go seed a patch with Des",
+"showWhenFlagsFalse": ["colA1SeedingTaught"],
+"showWhenFlagsTrue": ["colA1ProspectingTaught"]
+}
+},
+"col_hakim_intel": {
+"cards": [{
+"label": null,
+"speaker": "Hakim",
+"text": "\"Bloke came in for a Lucozade and wouldn't shut up about the yard behind the launderette. Might be nothing. Thought you'd want it before somebody else does.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "It is on your map now. He will not mention it again and will be embarrassed if you thank him twice.",
+"type": "resolution"
+}],
+"id": "col_hakim_intel",
+"on_complete": [{
+"op": "reveal_site"
+}, {
+"op": "set_hakim_intel_day"
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"conclave_watch": {
+"cards": [{
+"label": "The City",
+"speaker": null,
+"text": "A man in a good coat stands very still outside a bank that isn't a bank, watching nothing in particular with the specific attention of someone paid to watch nothing in particular. He doesn't look at you. That's how you know he's looked at you.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "By the time you think to look back properly, he's gone, and the space he was standing in has already been filled by three tourists and a Deliveroo rider, as if London itself hurried to paper over the gap.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You add it to a growing list of things about the City you're choosing not to think about too hard.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "city",
+"excludeIfFlag": "conclaveNoticed",
+"weight": 1
+},
+"id": "conclave_watch",
+"on_complete": [{
+"flag": "conclaveNoticed",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"foxes": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "A fox crosses your path at the exact midpoint between two streetlights, pauses to look at you with total lack of interest, and continues on business you'll never be briefed on. London's real nightshift clocks on. You're not on the rota.",
+"type": "narration"
+}],
+"deck": {
+"barometerState": null,
+"district": "any",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "foxes",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"heath_dogwalker": {
+"cards": [{
+"label": "Hampstead Heath",
+"speaker": null,
+"text": "An older woman with four dogs and the bearing of a small aristocracy nods at you like you're expected. One of the dogs sniffs your bag with professional interest.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Dogwalker",
+"text": "\"You're doing the ore thing, aren't you. Everyone up here can tell. Here - Wellington dug this up under an oak.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "She's gone before you can ask which dog is Wellington. All four look equally capable of digging up the past.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "hampstead",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "heath_dogwalker",
+"on_complete": [{
+"op": "add_ore",
+"qty": 2,
+"type": "life"
+}, {
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"home_raid_debrief_loss": {
+"cards": [{
+"label": "Later",
+"speaker": null,
+"text": "You come round on the floor. Your ore is gone. The window is open. The rest of the place looks ransacked, though in hindsight it isn't too dissimilar to how it was before; you should probably tidy up a bit more often.",
+"type": "tension"
+}, {
+"label": null,
+"speaker": null,
+"text": "Archie arrives at seven in the morning. He takes one look at you and puts the coffees down without saying anything for a moment.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Right. How much did they get?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"Most of it.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Yeah.\" He sits down. \"This place is a problem. I've been meaning to say something for a while. One lock. Window doesn't close. It's practically a service entrance.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"You alright, though? Properly?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"I'm fine.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Good. Because here's the thing - you're still here, you still fought back, and that counts for something. I've worked with people who'd have just handed it over.\" He pauses. \"Some of them were me, early on.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"I think it's time we made this official. Partners. Properly. Which means I've got a responsibility to make sure you're not operating out of a place someone can stroll into at three in the morning.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Got a bloke who does security - good stuff, fair price, no paperwork. And you need to start thinking about moving somewhere better. This is the kind of place that keeps happening to you until you leave it.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"And - the vein. Time vein, Whitechapel. I said I'd give it to you and I meant it. It's barely tapped. Needs cultivating before it'll produce anything, but it's a start. Build it up, prune it, make pearls. I'll sort the buyers.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He stays until you've eaten something, which you didn't ask for and didn't expect. Then he leaves. You check your phone. There's a pin location. The vein.",
+"type": "resolution"
+}],
+"id": "home_raid_debrief_loss",
+"on_complete": [{
+"flag": "homeRaidEventSeen",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "homeRaidWon",
+"op": "set_flag",
+"value": false
+}, {
+"flag": "archiePartnerSeen",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "homeUnlocked",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "securityContactUnlocked",
+"op": "set_flag",
+"value": true
+}, {
+"contact": "archie",
+"op": "relation",
+"value": 10
+}, {
+"op": "grant_vein_with_site",
+"vein": {
+"alarmUpgrades": [],
+"district": "whitechapel",
+"growth": 20,
+"hospitability": {
+"bonuses": [],
+"tier": "fair"
+},
+"location": "Whitechapel, behind the old brewery",
+"oreType": "time",
+"rampantDays": 0,
+"security": "none"
+}
+}, {
+"op": "notify",
+"text": "HQ's workbench is open now."
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"home_raid_debrief_win": {
+"cards": [{
+"label": "Forty minutes later",
+"speaker": null,
+"text": "The police were called by a neighbour and left without much interest. You gave a statement that was technically accurate in every detail that didn't matter. The raider is gone. Your ore is still here.",
+"type": "resolution"
+}, {
+"label": null,
+"speaker": null,
+"text": "Archie arrives at seven in the morning with two coffees and the air of a man who has absolutely expected this.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"You alright?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"Yeah. They didn't get anything.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Good. That's good.\" He looks around the flat. \"This place is a liability, you know that? One lock on the door and a window that doesn't close properly. You might as well put a sign up.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Anyway. You handled yourself, which is — honestly, that's more than I expected. No offence.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"Some offence.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Fair. Look — this has made me think. We've been doing well together. You've been reliable, which in this line of work is genuinely rare. I think we should make it proper.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Official partners. Means I look out for you, you look out for me. And it means I can call in a favour — got a bloke who does security installs. Good gear, reasonable price, he doesn't ask questions. I'll have him round.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Also — and this is me being straight with you — you need to move. This place is done. Save up, find somewhere better. Nicer area, proper security, somewhere people can't just walk into at three in the morning.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"And — the vein. I said I'd transfer it. Consider it done. Time vein, Whitechapel. It needs work before it'll produce anything, but it's yours. Cultivate it up, prune what you can, make pearls. I'll handle the buyers.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He finishes his coffee and leaves before you can thank him, which is probably how he prefers it. You check your phone. There's a pin location. The vein.",
+"type": "resolution"
+}],
+"id": "home_raid_debrief_win",
+"on_complete": [{
+"flag": "homeRaidEventSeen",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "homeRaidWon",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "archiePartnerSeen",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "homeUnlocked",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "securityContactUnlocked",
+"op": "set_flag",
+"value": true
+}, {
+"contact": "archie",
+"op": "relation",
+"value": 10
+}, {
+"op": "grant_vein_with_site",
+"vein": {
+"alarmUpgrades": [],
+"district": "whitechapel",
+"growth": 20,
+"hospitability": {
+"bonuses": [],
+"tier": "fair"
+},
+"location": "Whitechapel, behind the old brewery",
+"oreType": "time",
+"rampantDays": 0,
+"security": "none"
+}
+}, {
+"op": "notify",
+"text": "HQ's workbench is open now."
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"home_raid_intro": {
+"cards": [{
+"label": "3:14 AM",
+"speaker": null,
+"text": "Something woke you up. You lie still for a moment, cataloguing the sounds of the building. The boiler. A fox outside. Then: footsteps, not from the corridor. From inside.",
+"type": "tension"
+}, {
+"label": null,
+"speaker": null,
+"text": "Your flatmates are out this whole week, but someone's in the flat. Moving carefully, which is almost worse than if they were crashing around - it means they've done this before.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You grab the nearest thing to hand - which, for better or worse, is the torch you left by the bed after last week when the power went out. After what feels like an eternity, your bedroom door slowly opens. You swing and feel the crack more than you hear it. THe intruder reels, then jumps at you.",
+"type": "tension"
+}],
+"id": "home_raid_intro",
+"on_complete": [{
+"op": "start_home_raid_combat"
+}]
+},
+"intro": {
+"cards": [{
+"label": "Earlier tonight — Whitechapel",
+"speaker": null,
+"text": "Rent is due Friday. The job search has been exhausting and fruitless. You have forty quid left in your account. An old friend, Archie, said he might be able to help. So here you are, behind a chicken shop on Mile End Road at half ten on a Tuesday, while Archie holds a plastic Tesco bag with what looks like an opened Amazon box inside.",
+"type": "narration"
+}, {
+"image": "res://assets/events/intro/1.jpg",
+"label": null,
+"speaker": null,
+"text": "The buyers arrive in a grey Vauxhall. Three of them. That's one more than Archie mentioned. He notices too - you can tell by the way he stops whistling.",
+"type": "narration"
+}, {
+"image": "res://assets/events/intro/2.jpg",
+"label": "It goes wrong",
+"speaker": null,
+"text": "The one nearest to you produces a Stanley knife. His mate walks towards Arch and the bag. The third one just stands there, which is somehow worse. Archie says, very quietly: \"Yeah, okay.\"",
+"type": "tension"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Alright chaps?\" he lifts the arm with the bag to wave, drawing everyone's eyes. You notice the other hand slip smoothly into his back pocket and pull something small out.",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He doesn't even move his arm, just flicks his wrist in a practiced motion and whatever he was holding flies through the air. Only one of the thugs even clocks it, eyes tracing it as it lands harmlessly on the ground between him and his mates. It shatters. The air around the three men goes thick and syrupy. They slow. Not stop - but slow, like a video buffering. Archie wraps the Tesco bag handle around his hand and walks, briskly, to the exit of the alley.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Coming, or what?\"",
+"type": "speaker"
+}, {
+"image": "res://assets/events/intro/3.png",
+"label": "Fifteen minutes later — a Wetherspoons",
+"speaker": null,
+"text": "Archie orders two pints and a portion of chips. You sit down opposite him. Neither of you say anything until the chips arrive.",
+"type": "resolution"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"What the hell was that?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Orichalchum. Time-type. Slows things down in a radius - maybe four, five seconds of real time bought, if you compress it right. Was my last one, actually, so cheers for that\". He raises his pint to the door, as though saluting the muggers.",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"Is that... magic?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Nah\". He sips his pint, \"Well, almost. It's basically magic. Don't make a big deal out of it. It's just like any product-  some people source it, some people turn it into something useful, some people use it. In between all that, people like us can make a quid or two connecting them. If we're lucky.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Look. You need rent money. I need someone who isn't a liability. Come out with me tomorrow - I've still got the calc from tonight, and I need to move it properly. I'd feel better doing so with backup. You in?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "You sigh, thinking about your bank balnace. \"Yeah.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Good. I'll text you in the morning. Don't do anything that ends you up in hospital before then.\"",
+"type": "speaker"
+}, {
+"image": "res://assets/events/intro/4.png",
+"label": null,
+"speaker": null,
+"text": "He finishes his pint and leaves. You sit with what's left of your pint, the chips, and the fact that your rent problem has somehow become a different problem entirely.",
+"type": "narration"
+}],
+"id": "intro",
+"on_complete": [{
+"flag": "metArchie",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_stage",
+"value": "buyer_event"
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"james_meeting": {
+"cards": [{
+"label": "Two days later — Bermondsey",
+"speaker": null,
+"text": "The address Archie texted is a storage unit behind a halal supermarket. You find him leaning against the corrugated shutter, hands in pockets, looking like he's waiting for a bus he knows is going to be late.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "The man who opens the shutter is in his sixties. Glasses with one slightly bent arm, a cardigan that has seen things. He looks at the two of you over the rim of his lenses with the specific expression of someone whose time is being wasted — and who has decided, provisionally, to allow it.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"James. Cheers for this. This is — well, he's helping me out at the moment.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"Yes. I can see that. Come in, then. Don't touch anything.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Inside: shelves of labelled jars, a workbench covered in instruments that look like someone crossed a chemistry set with an antique shop. It smells of copper and something you can't name.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You lean in toward a row of sealed jars. One of them contains something that shifts — not from the movement of the shelf, not from any air in the room. It moves, very slightly, as if it noticed you.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You glance up. James is watching you. His expression doesn't change, exactly. But something in it does.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"He's the best craftsman I know. Turns raw calc into — well, you've seen what the pearls do.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"Don't flatter me. I'm the only craftsman you know. There's a difference.\" He turns to Archie. \"I have an order I need moved, but lack the time to do it. I'll give you the next batch of pearls - at cost - if you pick up a supply run for me. Stratford, in 45 minutes.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Yeah, alright. What am I picking up?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"Physics calc, forty units. The address will be on your phone by the time you're at Stratford station.\" He sets down the jar he's holding. \"Your associate stays here.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Right.\" He's already moving toward the door. \"Cheers, James. Back in a bit.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "The shutter closes. James stands in the silence for a moment, regarding you with the careful expression of a man who has decided to do something he hasn't fully justified to himself yet.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"I have a substantial order for time pearls. My usual assistant is indisposed. You'll do.\" A pause. \"I realise that isn't flattering. It isn't meant to be.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"I don't know how to make them.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"Evidently. That is why I am going to explain it to you, slowly, using small words. Even a reasonably attentive puppy could manage this. I'm trusting you to clear that bar.\"",
+"type": "speaker"
+}, {
+"label": "Crafting: Time Pearl",
+"speaker": null,
+"text": "James walks you through it. Time orichalchum, compressed into a glass sphere under controlled conditions. The calc does most of the work - you're just the hands. The sphere seals itself when it's ready. Or it doesn't, and the calc disperses. That's it, really.",
+"type": "craft"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"The quality of the pearl depends on how cleanly you compress it. Rushed work means the time effect is weak and will last perhaps a few seconds. Patient, careful work produces something that can freeze a situation for longer. You will, at first, be rushing it. That's fine. You'll improve. Probably.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"And do try your very best not to fuck it up. The calc isn't free.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"You know, Plato described orichalchum as the second most precious metal in Atlantis. Wrote about it in the Critias  - considered it almost mystical in nature.\" He pauses. \"You have absolutely no idea what the Critias is, do you.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "It isn't really a question. You don't answer it.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"It doesn't matter. The point is that people have understood what this material is for approximately two and a half thousand years, and we still have people like Archie picking up deliveries outside a Poundland in Stratford. Make of that what you will.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "You spend two hours at the bench. Some of the pearls work. Some don't. James says nothing about the ones that don't, which is both surprising and a little unsettling.",
+"type": "resolution"
+}, {
+"label": null,
+"speaker": null,
+"text": "You leave with a crafting kit, a basic understanding of time pearl compression, and the distinct impression that James noticed something - and has decided, for now, not to mention it.",
+"type": "resolution"
+}],
+"id": "james_meeting",
+"on_complete": [{
+"item": "timePearl",
+"op": "add_item",
+"qty": 2
+}, {
+"flag": "metJames",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "craftingUnlocked",
+"op": "set_flag",
+"value": true
+}, {
+"op": "add",
+"path": "contacts.james.unlocked",
+"value": true
+}, {
+"contact": "james",
+"op": "relation",
+"value": 10
+}, {
+"op": "set_stage",
+"value": "archie_craft_chat"
+}, {
+"contact": "archie",
+"kind": "archie_craft_chat",
+"op": "queue_pending_message",
+"text": "Oi — how'd it go with James? Come find me."
+}, {
+"op": "add",
+"path": "world.archieChatUnlockDay",
+"value": 1
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"james_motion": {
+"cards": [{
+"label": "Bermondsey — the storage unit",
+"speaker": null,
+"text": "James opens the door in what you're coming to recognise as his default expression: mild disappointment that the world continues to contain other people.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"You again.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"I wanted to ask if you'd be willing to teach me any other recipes. I've been practising. I'm better with the pearls now.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"I'm sure you are. Mediocrity tends to plateau early. What's in it for me?\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"If you've got more orders than you can handle, I could take the overflow. Or just do the grunt work - the basic stuff that takes your time without needing your skill.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "James looks at you for a long moment. He picks up a glass sphere from his bench, turns it over, sets it down again. This appears to be how he thinks.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"You are proposing to be my assistant.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"If that's how you want to frame it.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"I want to frame it accurately. You would not be a partner, a student, or a colleague. You would handle simple orders. I would retain all complex work. You would not advertise yourself as my associate.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"That's fine.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"Hm.\" Another pause. \"Enhancement powder. It's straightforward. Life orichalchum, compressed differently to the pearls - outward rather than inward. Rub a small amount on the skin before physical exertion. Temporarily accelerates the user's movement.\"",
+"type": "speaker"
+}, {
+"label": "New recipe: Enhancement Powder",
+"speaker": null,
+"text": "The compression is different from pearls. You're squeezing the calc by pushing the vice handle until your hands hurt, then gently scraping it to collect the powder. The result is a fine iridescent dust. James demonstrates once. He expects you to manage after that.",
+"type": "craft"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"Quality scales with skill, as always. Low-grade powder gives you an edge over the average Joe. Better quality powder could make a couch potato compete with Usain Bolt. I trust you understand the principle.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"I'll send you work when I have overflow. Don't expect it to be glamorous. And don't be late.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "You leave with the recipe and the firm sense that James considers this arrangement a concession rather than a collaboration. You suspect that won't change.",
+"type": "resolution"
+}],
+"id": "james_motion",
+"on_complete": [{
+"flag": "jamesMotionEventSeen",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "enhancementUnlocked",
+"op": "set_flag",
+"value": true
+}, {
+"contact": "james",
+"op": "relation",
+"value": 1
+}, {
+"op": "set_screen",
+"screen": "contacts"
+}]
+},
+"kx_delay": {
+"cards": [{
+"label": "King's Cross",
+"speaker": null,
+"text": "The departures board changes its mind for the fourth time. Somewhere behind the barriers, a Tannoy voice apologises for something it clearly isn't sorry about.",
+"type": "narration"
+}, {
+"choices": [{
+"effects": [{
+"op": "lose_time_block"
+}],
+"label": "Wait it out",
+"result_text": "You wait. Time passes the way it only does in stations — all of it, somehow, at once."
+}, {
+"effects": [{
+"op": "add",
+"path": "player.cash",
+"value": -30
+}],
+"label": "Pay for a cab (£30)",
+"result_text": "You pay. The driver has opinions about the Northern line. You did not ask for them."
+}],
+"label": null,
+"speaker": null,
+"text": "Everyone's on the King's Cross deal. You are, for once, one of the delayed rather than the delighted.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "Either way, you get where you're going. King's Cross remains, structurally, on its way somewhere else.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "kingscross",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "kx_delay",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"pigeon_omen": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "A pigeon lands directly on your bag, considers you with the flat, ancient judgement pigeons reserve for people who look like they're up to something, and doesn't move.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You've heard the stories — fate-types collect near omens the way flies collect near anything else. You have no idea if this counts. The pigeon, notably, does not clarify.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "It flies off eventually, satisfied or bored, impossible to say which. You feel, absurdly, like your next piece of luck has already been decided somewhere above you.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "any",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "pigeon_omen",
+"on_complete": [{
+"flag": "luckyOmen",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"rain": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "It starts raining the specific, personal way London rain does — not weather so much as a verdict. Nobody around you reacts; rain is not news here. You're soaked by the time you find shelter, mildly impressed at how quickly the city returns to pretending it didn't just do that.",
+"type": "narration"
+}],
+"deck": {
+"barometerState": null,
+"district": "any",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "rain",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"rival_prospector": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "Someone else has clearly had the same idea about this patch of ground, and unlike you, they've brought company.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Rival",
+"text": "\"Friendly notice. We're taking an interest in the good plot round here. A hundred quid says our interest fades. Your call.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [{
+"op": "add",
+"path": "player.cash",
+"value": -100
+}],
+"label": "Pay them off (£100)",
+"result_text": "He pockets it without counting it, which is somehow more insulting than if he had. \"Pleasure doing business,\" he says, in the tone of a man who has never once meant that sentence."
+}, {
+"effects": [{
+"op": "npc_claim_best_unclaimed_site"
+}],
+"label": "Let them have it",
+"result_text": "You shrug and walk off. By the time you're back, someone else's flag is already in the ground on the best plot going."
+}],
+"label": null,
+"speaker": null,
+"text": "He says \"friendly\" the way people say it right before it stops being true.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "London rewards neither generosity nor spite. It just carries on.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "any",
+"excludeIfFlag": null,
+"requireUnclaimedSiteInDistrict": true,
+"weight": 1
+},
+"id": "rival_prospector",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"roman_brick": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "Half-buried in the churned ground of wherever you're standing is a brick — old, red, unmistakably Roman — in a spot with no plausible Roman history whatsoever.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You've seen one of these before. You didn't think anything of it then either. That's probably the point.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You leave it where it is. Whatever's underneath London doesn't need your help finding daylight.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "any",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "roman_brick",
+"on_complete": [{
+"op": "add",
+"path": "flags.oddities",
+"value": 1
+}, {
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"shoreditch_archie": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "Archie appears the way he always does - already mid-sentence, as though the conversation started before you arrived and you're just catching up.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Hello hello. Fancy seeing you here. You look like someone currently doing something mildly reckless. Carry on. I'm not your mum.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "You",
+"text": "\"Comforting.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"I do try.\" He nods once, like that's the whole conversation, and drifts back into whatever he was doing before he clocked you.",
+"type": "speaker"
+}],
+"deck": {
+"barometerState": null,
+"district": "any",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "shoreditch_archie",
+"on_complete": [{
+"contact": "archie",
+"op": "relation",
+"value": 2
+}, {
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"soho_tout": {
+"cards": [{
+"label": "Soho",
+"speaker": null,
+"text": "A man with a laminated card and the unkillable optimism of the professionally rejected steps into your path. \"Members' bar, love — and word is there's a proper market coming to Soho too. Ore, gear, all sorts. Not yet, but soon. You'll want to be first.\" He's gone before you can ask what \"soon\" means in Soho years.",
+"type": "narration"
+}],
+"deck": {
+"barometerState": null,
+"district": "soho",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "soho_tout",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"vein_raid": {
+"cards": [{
+"label": "Night work",
+"speaker": null,
+"text": "Whoever's sitting on this vein hasn't put a name to it, but the ground still belongs to someone. You case the approach twice. No obvious watchers. That's not the same as no watchers.",
+"type": "tension"
+}, {
+"choices": [{
+"effects": [{
+"consumable_bonus": 0.05,
+"on_caught": [{
+"flag": "raidCaught",
+"op": "set_flag",
+"value": true
+}, {
+"op": "notify",
+"text": "Something moves that shouldn't. You've been seen."
+}, {
+"guards": 1,
+"op": "start_raid_combat",
+"template": "veinGuard"
+}],
+"on_success": [{
+"flag": "raidCaught",
+"op": "set_flag",
+"value": false
+}, {
+"op": "notify",
+"text": "No alarms. You're in clean."
+}],
+"op": "stealth_check"
+}],
+"label": "Go slow",
+"result_text": "You take it slow — weight off every floorboard, timing the dark between passes."
+}, {
+"effects": [{
+"consumable_bonus": -0.05,
+"on_caught": [{
+"flag": "raidCaught",
+"op": "set_flag",
+"value": true
+}, {
+"op": "notify",
+"text": "Something moves that shouldn't. You've been seen."
+}, {
+"guards": 1,
+"op": "start_raid_combat",
+"template": "veinGuard"
+}],
+"on_success": [{
+"flag": "raidCaught",
+"op": "set_flag",
+"value": false
+}, {
+"op": "notify",
+"text": "No alarms. You're in clean."
+}],
+"op": "stealth_check"
+}],
+"label": "Go fast",
+"result_text": "You go in fast. Hesitation is what gets people caught, or so you tell yourself."
+}],
+"label": null,
+"speaker": null,
+"text": "One way in. You commit or you don't.",
+"type": "choice"
+}, {
+"choices": [{
+"effects": [{
+"op": "claim_raid_vein"
+}],
+"label": "Claim it",
+"result_text": "You take it outright. Word gets round fast — it always does — and the relationship with whoever ran this patch takes the hit that comes with being seen to do it."
+}, {
+"effects": [{
+"op": "loot_raid_vein"
+}],
+"label": "Loot and leave",
+"result_text": "You take what you can carry and leave the rest where it stands. Someone else's problem, still."
+}],
+"label": null,
+"speaker": null,
+"text": "The vein's yours to deal with, however you got here.",
+"type": "choice"
+}],
+"id": "vein_raid",
+"on_complete": [{
+"op": "set_screen",
+"screen": "map"
+}]
+},
+"whitechapel_grief": {
+"cards": [{
+"label": "Whitechapel",
+"speaker": null,
+"text": "Whitechapel keeps its grief the way other places keep street furniture — permanent, load-bearing, mostly ignored. You feel it anyway, a low hum under the emotion-type in your bag.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "It passes, the way all inherited grief eventually does — not gone, just filed. The emotion-type in your bag sits heavier when you stand up, like it's been listening the whole time.",
+"type": "resolution"
+}],
+"deck": {
+"barometerState": null,
+"district": "whitechapel",
+"excludeIfFlag": null,
+"weight": 1
+},
+"id": "whitechapel_grief",
+"on_complete": [{
+"op": "add_ore",
+"qty": 1,
+"type": "emotion"
+}, {
+"op": "set_screen",
+"screen": "map"
+}]
+}
+},
+"FACTIONS": {
+"collective": {
+"colour": "#3a7a52",
+"conquerThreshold": -40,
+"description": "A decentralised network of vein finders and small traders. No hierarchy — or at least, no admitted hierarchy. Strong in East and South London. They find and protect veins collaboratively, share yields, and move ore through trusted contacts. Low entry bar, low ceiling.",
+"id": "collective",
+"industries": ["sourcing", "trading"],
+"joinRelation": 25,
+"name": "The Collective",
+"raidStealth": 0.35,
+"raidThreshold": -40,
+"resourceLevel": 1,
+"securityBias": -2,
+"shortName": "Collective",
+"startingResources": 200,
+"tagline": "Community-run. Loosely organised. Surprisingly effective."
+},
+"conclave": {
+"colour": "#2a8fc4",
+"conquerThreshold": -20,
+"description": "Old enough to have advised governments. New enough to use WhatsApp. The Conclave operates at the intersection of orichalchum and institutional power — they shape economic and political conditions that affect everyone else. Joining requires high standing, rare resources, and the willingness to do things that don't appear on any list.",
+"id": "conclave",
+"industries": ["influence", "sourcing", "crafting"],
+"joinRelation": 60,
+"name": "The Conclave",
+"raidStealth": 0.65,
+"raidThreshold": -20,
+"resourceLevel": 3,
+"securityBias": 3,
+"shortName": "Conclave",
+"startingResources": 1200,
+"tagline": "Policy, pressure, and things that can't be admitted in public."
+},
+"firm": {
+"colour": "#9b2335",
+"conquerThreshold": 0,
+"description": "A well-established crew with roots going back further than anyone admits. Operate across South and West London. Specialise in acquiring high-value veins by force and reselling refined product at premium rates. Professional, ruthless, not interested in small operators — unless you show promise.",
+"id": "firm",
+"industries": ["raiding", "trading"],
+"joinRelation": 35,
+"name": "The Firm",
+"raidStealth": 0.55,
+"raidThreshold": 0,
+"resourceLevel": 2,
+"securityBias": 1,
+"shortName": "Firm",
+"startingResources": 500,
+"tagline": "Old money, new methods."
+},
+"guild": {
+"colour": "#7b68ee",
+"conquerThreshold": -30,
+"description": "Formal, ancient, and deeply unimpressed by everyone. The Guild controls the majority of high-end crafting knowledge in London. James is a member, though he'd describe his relationship with them as 'complicated'. Joining requires demonstrated crafting ability and a sponsor.",
+"id": "guild",
+"industries": ["crafting", "trading"],
+"joinRelation": 40,
+"name": "The Guild of Applied Alchemists",
+"raidStealth": 0.3,
+"raidThreshold": -30,
+"resourceLevel": 2,
+"securityBias": 1,
+"shortName": "The Guild",
+"startingResources": 900,
+"tagline": "They've been here since before the word 'orichalchum' was anglicised."
+},
+"network": {
+"colour": "#1f9e96",
+"conquerThreshold": -20,
+"description": "No one's quite sure who runs The Network or what they actually want. They surface occasionally to broker information — who has what vein, who is selling, what the barometer is doing. They seem to know things before they happen. They are interested in you, which should be flattering and is mostly unsettling.",
+"id": "network",
+"industries": ["trading", "influence"],
+"joinRelation": 30,
+"name": "The Network",
+"raidStealth": 0.8,
+"raidThreshold": -20,
+"resourceLevel": 2,
+"securityBias": -1,
+"shortName": "Network",
+"startingResources": 500,
+"tagline": "Information is the resource."
+}
+},
+"FACTION_BAROMETER_PREFS": {
+"collective": [{
+"direction": "push",
+"section": "economic",
+"state": "stable",
+"strength": 3
+}, {
+"direction": "push",
+"section": "social",
+"state": "stable",
+"strength": 3
+}],
+"conclave": [{
+"direction": "push",
+"section": "political",
+"state": "regulation",
+"strength": 4
+}, {
+"direction": "push",
+"section": "political",
+"state": "war",
+"strength": 3
+}, {
+"direction": "push",
+"section": "economic",
+"state": "crisis",
+"strength": 3
+}],
+"firm": [{
+"direction": "push",
+"section": "economic",
+"state": "boom",
+"strength": 4
+}, {
+"direction": "push",
+"section": "social",
+"state": "crime",
+"strength": 3
+}, {
+"direction": "pull",
+"section": "political",
+"state": "regulation",
+"strength": 3
+}],
+"guild": [{
+"direction": "push",
+"section": "economic",
+"state": "stable",
+"strength": 3
+}, {
+"direction": "push",
+"section": "political",
+"state": "stable",
+"strength": 3
+}, {
+"direction": "pull",
+"section": "social",
+"state": "unrest",
+"strength": 2
+}],
+"network": [{
+"direction": "push",
+"section": "economic",
+"state": "inflation",
+"strength": 3
+}, {
+"direction": "push",
+"section": "social",
+"state": "unrest",
+"strength": 3
+}, {
+"direction": "push",
+"section": "political",
+"state": "election",
+"strength": 3
+}]
+},
+"FACTION_TRADE": {
+"collective": {
+"anchorRelation": 0,
+"applyDistrictPriceMod": false,
+"buySpreadMax": 0.15,
+"buySpreadMin": 0.05,
+"memberOnly": false,
+"mugRisk": false,
+"sellSpreadMax": 0.45,
+"sellSpreadMin": 0.05,
+"zeroRelation": 90
+},
+"guild": {
+"anchorRelation": 40,
+"applyDistrictPriceMod": false,
+"buySpreadMax": 0.15,
+"buySpreadMin": 0,
+"memberOnly": true,
+"mugRisk": false,
+"sellSpreadMax": 0.15,
+"sellSpreadMin": 0,
+"zeroRelation": 90
+}
+},
+"GUARD_REPEL_CHANCE_CAP": 0.75,
+"GUARD_REPEL_CHANCE_PER_GUARD": 0.15,
+"HOME_ROOMS": {
+"homeGym": {
+"bonus": "body",
+"bonusValue": 10,
+"cost": 600,
+"description": "Increases max HP and physical attack. It's just a pull-up bar and some kettlebells, but it helps.",
+"id": "homeGym",
+"minTier": "flat",
+"name": "Home Gym"
+},
+"lab": {
+"bonus": "crafting",
+"bonusValue": 0.12,
+"cost": 15000,
+"description": "Professional setup. Set stock thresholds per recipe and an assigned contact will craft to meet them each day, using their skill and improving over time. James approved of it, which is as close to a compliment as he gets.",
+"id": "lab",
+"minTier": "compound",
+"name": "Improved Lab"
+},
+"library": {
+"bonus": "crafting",
+"bonusValue": 0.08,
+"cost": 1200,
+"description": "Reference books, field notes. Stacks with the workshop bonus.",
+"id": "library",
+"minTier": "townhouse",
+"name": "Library"
+},
+"ops": {
+"bonus": "faction",
+"bonusValue": 1,
+"cost": 5000,
+"description": "Desk, screens, maps. Staff it with a contact to run Sales — sourcing offers and chasing the deliveries you delegate to them.",
+"id": "ops",
+"minTier": "safehouse",
+"name": "Operations Room"
+},
+"safeRoom": {
+"bonus": "storage",
+"bonusValue": 0.5,
+"cost": 2000,
+"description": "Halves the amount stolen in a raid. Panic room logic.",
+"id": "safeRoom",
+"minTier": "townhouse",
+"name": "Safe Room"
+},
+"veinStation": {
+"bonus": "passive",
+"bonusValue": 1,
+"cost": 8000,
+"description": "An assigned contact holds your marked veins at whatever growth target you set — pruning back the ones running high, cultivating the ones falling behind. Yield lands in your inventory automatically.",
+"id": "veinStation",
+"minTier": "safehouse",
+"name": "Vein Cultivation Station"
+},
+"workshop": {
+"bonus": "crafting",
+"bonusValue": 0.08,
+"cost": 800,
+"description": "Bench, tools, decent lighting. Slightly increases crafting success chance.",
+"id": "workshop",
+"minTier": "flat",
+"name": "Workshop"
+}
+},
+"HOME_SECURITY": {
+"alarm": {
+"cost": 400,
+"description": "Monitored alarm. Response time: nine minutes. Make of that what you will.",
+"id": "alarm",
+"minTier": "flat",
+"name": "Alarm System",
+"raidReduction": 0.03
+},
+"cameras": {
+"cost": 250,
+"description": "Four cameras, monitored by an app that sometimes works.",
+"id": "cameras",
+"minTier": "flat",
+"name": "CCTV",
+"raidReduction": 0.03
+},
+"guard": {
+"cost": 1200,
+"description": "Someone on site. Expensive. Asks fewer questions than you might expect.",
+"id": "guard",
+"minTier": "compound",
+"name": "Hired Guard",
+"raidReduction": 0.05
+},
+"lock": {
+"cost": 80,
+"description": "Slows down anyone trying the front door. Not much, but something.",
+"id": "lock",
+"minTier": "bedsit",
+"name": "Reinforced Lock",
+"raidReduction": 0.02
+},
+"reinforcedDoor": {
+"cost": 600,
+"description": "Steel-core. Would require a vehicle to breach, which draws attention.",
+"id": "reinforcedDoor",
+"minTier": "townhouse",
+"name": "Reinforced Door",
+"raidReduction": 0.04
+},
+"ward": {
+"cost": 2000,
+"description": "James installed it. Doesn't explain what it does. It works.",
+"id": "ward",
+"minTier": "safehouse",
+"name": "Orichalchum Ward",
+"raidReduction": 0.06
+}
+},
+"HOME_TIERS": {
+"bedsit": {
+"dailyCost": 50,
+"description": "A single room in Whitechapel. The boiler makes a sound like someone clearing their throat. No storage to speak of.",
+"id": "bedsit",
+"maxRooms": 0,
+"name": "Bedsit",
+"raidBaseChance": 0.08,
+"tier": 1,
+"upgradeCost": 0
+},
+"compound": {
+"dailyCost": 600,
+"description": "Gated property, East London. Eight rooms. People who matter know you live here.",
+"id": "compound",
+"maxRooms": 8,
+"name": "Compound",
+"raidBaseChance": 0.01,
+"tier": 5,
+"upgradeCost": 40000
+},
+"flat": {
+"dailyCost": 80,
+"description": "Two rooms above a nail bar in Hackney. Neighbours ask no questions. One spare room.",
+"id": "flat",
+"maxRooms": 1,
+"name": "Flat",
+"raidBaseChance": 0.06,
+"tier": 2,
+"upgradeCost": 1200
+},
+"mansion": {
+"dailyCost": 1500,
+"description": "Grounds, staff quarters, a gate. Twelve rooms. Plato would have something to say about this.",
+"id": "mansion",
+"maxRooms": 12,
+"name": "Mansion & Grounds",
+"raidBaseChance": 0.005,
+"tier": 6,
+"upgradeCost": 150000
+},
+"safehouse": {
+"dailyCost": 300,
+"description": "Off-grid property, no registered occupant. Not technically yours, but no one is arguing. Five spare rooms.",
+"id": "safehouse",
+"maxRooms": 5,
+"name": "Safehouse",
+"raidBaseChance": 0.02,
+"tier": 4,
+"upgradeCost": 12000
+},
+"townhouse": {
+"dailyCost": 150,
+"description": "Three floors, Bethnal Green. Previous tenant left in a hurry. Three spare rooms.",
+"id": "townhouse",
+"maxRooms": 3,
+"name": "Townhouse",
+"raidBaseChance": 0.04,
+"tier": 3,
+"upgradeCost": 4000
+}
+},
+"HOME_TIER_ORDER": ["bedsit", "flat", "townhouse", "safehouse", "compound", "mansion"],
+"HQ_VISUALS": {
+"labBench": {
+"fallbackColor": "timber_dark",
+"height": 408,
+"image": "res://assets/hq/lab_bench.png",
+"regions": {
+"apparatus_compression": {
+"height": 85,
+"image": "",
+"label": "Press",
+"width": 118,
+"x": 330,
+"y": 243
+},
+"apparatus_distilling": {
+"height": 85,
+"image": "",
+"label": "Still",
+"width": 118,
+"x": 471,
+"y": 243
+},
+"apparatus_grinding": {
+"height": 85,
+"image": "",
+"label": "Mortar",
+"width": 118,
+"x": 471,
+"y": 150
+},
+"apparatus_heat": {
+"height": 85,
+"image": "",
+"label": "Burner",
+"width": 118,
+"x": 330,
+"y": 150
+},
+"notebookExperiments": {
+"height": 88,
+"image": "",
+"label": "Experiments",
+"placeholder": false,
+"width": 98,
+"x": 170,
+"y": 193
+},
+"notebookRecipes": {
+"height": 88,
+"image": "",
+"label": "Recipes",
+"placeholder": false,
+"width": 104,
+"x": 48,
+"y": 193
+},
+"ore_emotion": {
+"emptyImage": "",
+"height": 45,
+"image": "",
+"label": "Emotion",
+"plentyImage": "",
+"someImage": "",
+"width": 50,
+"x": 235,
+"y": 144
+},
+"ore_fate": {
+"emptyImage": "",
+"height": 45,
+"image": "",
+"label": "Fate",
+"plentyImage": "",
+"someImage": "",
+"width": 50,
+"x": 180,
+"y": 144
+},
+"ore_life": {
+"emptyImage": "",
+"height": 45,
+"image": "",
+"label": "Life",
+"plentyImage": "",
+"someImage": "",
+"width": 50,
+"x": 126,
+"y": 144
+},
+"ore_physics": {
+"emptyImage": "",
+"height": 45,
+"image": "",
+"label": "Physics",
+"plentyImage": "",
+"someImage": "",
+"width": 50,
+"x": 71,
+"y": 144
+},
+"ore_time": {
+"emptyImage": "",
+"height": 45,
+"image": "",
+"label": "Time",
+"plentyImage": "",
+"someImage": "",
+"width": 50,
+"x": 16,
+"y": 144
+}
+},
+"width": 612
+},
+"meta": {
+"artReview": "ART-REVIEW (ticket 10): bedsit plate produced (assets/hq/bedsit_room.png) and all region rects re-measured against it by pixel inspection of the finished art -- NOT yet confirmed against the live in-app debug overlay (CLAUDE.md workflow rule 5: agent cannot see the running UI), so the human should still toggle hq.gd's debug overlay on-device once and eyeball each of the 6 rects below against the real render. oreStore has no fixture drawn in the source art at all (no bag/strongbox/safe was produced) -- 'image' stays empty and it renders as a placeholder box until that art exists; region rect is a guessed empty floor spot, not measured against anything. Security ships both states: 'image' (no lock, matches state.home.security=[] at new-game start, REFERENCE.md §2) and 'installedImage' (Reinforced Lock fitted), swapped at render time by hq.gd's _security_lock_installed_plate() -- see regionRule above.",
+"gymDeviation": "hq-diorama ticket 02: §3.1's own table lists Gym's 'First tier present' as 'flat', one tier above bedsit -- v1 (§10) ships the bedsit plate only, so a strict reading has no gym region here. Ticket 02's own prose lists Gym among the zones to wire up regardless, and the human maintainer explicitly chose (2026-09-07) to wire it into the bedsit plate now rather than leave Train unreachable until a Flat-tier plate art ticket ships -- a deliberate, approved deviation from the tier table, not an oversight.",
+"labBench": "hq-diorama ticket 06, docs/hq-diorama-vision.md §5.1: the Lab bench sub-view plate, a sibling of 'rooms' rather than a member of it -- it's reached from the 'lab' room zone, not a property tier. Ticket 11 merged the original three 390px-wide focal stops (books/ore/apparatus) down to two -- books+ore now share stop 0, apparatus keeps stop 1. Ticket 23: a new borderless single full-table image replaced the old 780x844 desk render with a 612x408 one -- ONE image for both stops combined (not a per-stop composite the way ticket 12's was), so the plate is now 612x408 (stop width 306), the screen still panning between stops by offsetting the rendered HqDiorama's x position by whole stop-widths, tweened per ticket 11. notebookRecipes/notebookExperiments were re-placed by eye against the new image's actual book art (pixel-sampled, not guessed -- the orange 'recipes' cover and blue-grey 'experiments' cover are both distinctly coloured against the wood background). The five ore_* and four apparatus_* regions have no art of their own yet, but this image (unlike ticket 12's) is a real photographed table with an alpha-cut edge, not a flat colour fill -- so a pure proportional rescale of their 780x844-space rects landed mostly off the visible tabletop (ART-REVIEW caught this on review and it was corrected before commit): the table's opaque region only starts at y~142 (its flat top surface runs roughly y142-336, corners sloping in from x~40 and x~560), well below where a naive '612/780, 408/844' scale of the old rects would place them. Final placement -- ART-REVIEW (ticket 23), still a starting point: ore_* keeps its scaled x/width (16/71/126/180/235, each 50 wide) but y/height were hand-fit into the one open strip of real tabletop above the books (y144, height45 -- the full available gap between the table's opaque top edge and the notebook rects, so it's near the 44x44 hit-region floor) rather than the scaled ~y111/h150, which would have overlapped the freshly-placed notebook rects (GameData._validate_hq_visuals() forbids region overlap) and sat mostly above the table's alpha edge anyway. apparatus_* keeps its scaled x (330/471, 118 wide) but was rebuilt as a 2x2 grid hand-fit inside the table's actual opaque vertical span (y142-336) with even margins/gap (y150/243, each 85 tall) instead of the scaled ~y29/219,h160, which ran well above the table's top edge (row 1) and past its bottom edge (row 2). All nine regions still render as placeholder boxes (labels only) until their own sprites exist; the human should confirm every rect on-device against hq_lab_bench.gd's debug overlay once real art lands -- particularly ore_time and apparatus_grinding/apparatus_distilling, whose outer edges still clip slightly into the table's sloped left/right corners. Ticket 18: notebookRecipes/notebookExperiments keep 'placeholder': false since the desk art renders both books directly at these rects, so HqDiorama draws no grey box over them.",
+"labBenchApparatus": "ticket 07, §5.3 (ticket 11: now stop 1, x 390-780, since books+ore merged into stop 0) -- one region per data/approaches.json approach, region ids 'apparatus_<approachId>' (same derive-from-id convention as the ore containers above). All four are authored here regardless of room gating; hq_lab_bench.gd deletes an apparatus's region from its own render-time copy of this plate when Approaches.is_known() is false for that approach, per §3.2's 'a hit region for an object not present at this tier does not exist' -- so this manifest is the full four-apparatus roster the property ladder eventually reveals, not what's tappable on a fresh bedsit save (which only ever shows heat/grinding, the two start-known approaches). Ticket 13 replaces ticket 11's placeholder merge layout with a symmetric 2x2 slot grid within stop 1's own 390-wide half (x 390-780): 30px side margins/gap, 60px top/bottom margins/gap, each slot 150x332 -- heat top-left, grinding top-right, compression bottom-left, distilling bottom-right, same corners ticket 11 used. No art changes -- 'image' stays empty on all four per this ticket's own scope, so each still renders as a labelled placeholder box (§9) ready to take a sprite later with no code or data-shape change.",
+"labBenchOre": "ticket 07, §5.4 (ticket 11: moved into stop 0 alongside the books, x 0-390; ticket 12: laid out as five narrow columns side by side -- x 20/90/160/230/300, each 64 wide, y 229-540 -- in the open desk space above the books, jar-like and in a row per the human's own correction on this ticket's first pass, which had them as full-width stacked bars instead; height further cut from an initial 460 to 311 -- roughly 0.8x the desk photo's own 389px-tall visible slice -- on the human's second correction, since spanning nearly the full column read as too tall) -- five containers, region ids 'ore_<oreTypeId>' so scenes/screens/hq_lab_bench.gd can derive the ore type straight from the region id with no lookup table. 'image' stays empty (no fixture drawn) alongside three new optional per-count-state fields -- 'emptyImage'/'someImage'/'plentyImage' -- following the same deep-copy-and-swap convention data/hq_visuals.json's 'installedImage' already established for the door's security region: the screen picks whichever of the three matches the player's current ore count and swaps it into 'image' for that render pass only, never mutating GameData.HQ_VISUALS itself. All three stay empty until a state-variant sprite is produced, so every container renders as a placeholder box today, its label text carrying the empty/some/plenty state instead (§9's degradation rule).",
+"name": "HQ visuals manifest",
+"plateRule": "One entry per key under 'rooms' (v1 ships only 'bedsit' -- docs/hq-diorama-vision.md §10). 'image' is a res:// path to the room's 390x660 display-resolution plate (authored 195x330, shown 2x nearest per §3), or \"\" when no plate has been produced yet -- the room then fills with the flat data/palette.json colour named by 'fallbackColor' instead, same two-level fallback combat_visuals.json's backdrops use. 'width'/'height' are the plate's display-resolution size in logical px.",
+"purpose": "Maps HQ diorama plates (docs/hq-diorama-vision.md) to the art asset that renders them and to their hand-authored hit regions, so no HQ screen ever hardcodes a path or a region rect. Follows data/combat_visuals.json's precedent exactly (see that file's own meta block).",
+"regionRule": "'regions' keys are the room's zones (§3.1 -- dial/lab/security/rest/rooms/oreStore/gym for the bedsit tier; not enumerated here so a later tier or sub-view plate can add its own without touching any reader code). Each region is {x, y, width, height, label, image} in the plate's own display-resolution coordinate space -- the same rect is both the tap hit region and the sprite rect, since a region's art (once produced) is baked directly into the plate or into its own small overlay sprite at that exact rect (§3.2/§11: baked outlines, hit regions measured against the finished plate). 'image' empty means no dedicated sprite for this region yet -- HqDiorama draws a labelled placeholder box there instead, per docs/hq-diorama-vision.md §9 ('the entire HQ tab is therefore navigable, tappable and playable with zero art produced'). 'label' is the human-readable text the placeholder box and debug overlay both show. An optional 'placeholder': false (ticket 18) suppresses that box even while 'image' stays empty, for a region whose art is already baked into the plate's own background image rather than drawn as its own sprite -- the region stays exactly as tappable, HqDiorama.region_rects() never reads this field, and the debug overlay still outlines the region regardless. Defaults to true (draw the box) when absent, so every existing region needs no change. An optional 'installedImage' (security only, so far) is a second full-region plate HqDiorama itself never reads -- hq.gd's own _security_lock_installed_plate() deep-copies the plate and swaps 'image' for 'installedImage' when state.home.security has 'lock' installed, since HqDiorama is a pure renderer that never touches GameState (same deep-copy-and-swap trick hq.gd's _hostile_door_plate() already used for the raid-pending label).",
+"regionSizeRule": "Every region must be >= 44x44 logical px and must not overlap another region in the same room (§3.2) -- enforced by GameData._validate_hq_visuals()."
+},
+"rooms": {
+"bedsit": {
+"fallbackColor": "timber_dark",
+"height": 660,
+"image": "res://assets/hq/bedsit_room.png",
+"regions": {
+"dial": {
+"height": 146,
+"image": "res://assets/hq/regions/bedsit_dial.png",
+"label": "Dial",
+"width": 60,
+"x": 0,
+"y": 514
+},
+"gym": {
+"height": 74,
+"image": "res://assets/hq/regions/bedsit_gym.png",
+"label": "Gym",
+"width": 93,
+"x": 79,
+"y": 486
+},
+"lab": {
+"height": 230,
+"image": "res://assets/hq/regions/bedsit_lab.png",
+"label": "Lab",
+"width": 113,
+"x": 276,
+"y": 318
+},
+"oreStore": {
+"height": 108,
+"image": "",
+"label": "Ore store",
+"width": 113,
+"x": 276,
+"y": 552
+},
+"rest": {
+"height": 149,
+"image": "res://assets/hq/regions/bedsit_rest.png",
+"label": "Rest",
+"width": 180,
+"x": 95,
+"y": 335
+},
+"rooms": {
+"height": 80,
+"image": "res://assets/hq/regions/bedsit_rooms.png",
+"label": "Rooms",
+"width": 75,
+"x": 125,
+"y": 145
+},
+"security": {
+"height": 425,
+"image": "res://assets/hq/regions/bedsit_security.png",
+"installedImage": "res://assets/hq/regions/bedsit_security_installed.png",
+"label": "Security",
+"width": 68,
+"x": 8,
+"y": 85
+}
+},
+"width": 390
+}
+}
+},
+"ITEMS": {
+"crowbar": {
+"attackBonus": {
+"max": 8,
+"min": 4
+},
+"description": "A 60cm steel crowbar. Heavy enough to matter. Also useful for doors, if you have legitimate reasons to open them.",
+"name": "Crowbar",
+"slot": "weapon"
+}
+},
+"JAMES_JOB_TRUST_BANDS": [{
+"maxRelation": 1,
+"qtyMax": 3,
+"qtyMin": 1
+}, {
+"maxRelation": 3,
+"qtyMax": 6,
+"qtyMin": 3
+}, {
+"maxRelation": null,
+"qtyMax": 10,
+"qtyMin": 5
+}],
+"MAP_LAYOUT": {
+"districts": {
+"battersea": {
+"anchor": [430, 792],
+"labelAnchor": [430, 717],
+"stopSlots": [[430, 747], [473, 778], [456, 828], [404, 828], [387, 778], [498, 792], [464, 851], [376, 819], [455, 725], [437, 874]],
+"zonePolygon": [[540, 792], [485, 887], [375, 887], [320, 792], [375, 697], [485, 697]]
+},
+"camden": {
+"anchor": [430, 411],
+"labelAnchor": [430, 336],
+"stopSlots": [[430, 366], [469, 389], [469, 433], [430, 456], [391, 433], [391, 388], [498, 411], [464, 470], [371, 404], [418, 477], [390, 347], [511, 433]],
+"zonePolygon": [[540, 411], [485, 506], [375, 506], [320, 411], [375, 316], [485, 316]]
+},
+"city": {
+"anchor": [430, 601],
+"labelAnchor": [430, 526],
+"stopSlots": [[430, 556], [475, 601], [430, 646], [385, 601], [498, 601], [464, 660], [396, 660], [362, 601], [396, 542], [464, 542], [508, 646], [378, 578], [482, 634], [483, 561], [367, 635], [441, 676], [368, 549], [513, 622]],
+"zonePolygon": [[540, 601], [485, 696], [375, 696], [320, 601], [375, 506], [485, 506]]
+},
+"greenwich": {
+"anchor": [760, 982],
+"labelAnchor": [760, 907],
+"stopSlots": [[760, 937], [803, 968], [786, 1018], [734, 1018], [717, 968], [828, 982], [794, 1041], [726, 1041], [692, 982], [726, 923], [794, 923], [838, 1027], [809, 1011], [808, 944], [750, 1047], [761, 913], [696, 1019], [832, 954], [684, 953], [844, 1001]],
+"zonePolygon": [[870, 982], [815, 1077], [705, 1077], [650, 982], [705, 887], [815, 887]]
+},
+"hampstead": {
+"anchor": [430, 220],
+"labelAnchor": [430, 145],
+"stopSlots": [[430, 175], [475, 220], [430, 265], [385, 220]],
+"zonePolygon": [[540, 220], [485, 315], [375, 315], [320, 220], [375, 125], [485, 125]]
+},
+"kingscross": {
+"anchor": [595, 506],
+"labelAnchor": [595, 431],
+"stopSlots": [[595, 461], [638, 492], [621, 542], [569, 542], [552, 492], [663, 506], [629, 565], [561, 565], [527, 506], [543, 532], [618, 445], [601, 577], [537, 453], [676, 531]],
+"zonePolygon": [[705, 506], [650, 601], [540, 601], [485, 506], [540, 411], [650, 411]]
+},
+"shoreditch": {
+"anchor": [595, 696],
+"labelAnchor": [595, 621],
+"stopSlots": [[595, 651], [638, 682], [621, 732], [569, 732], [552, 682], [663, 696], [629, 755], [561, 755], [527, 696], [543, 722], [618, 635], [601, 767], [537, 643], [676, 721]],
+"zonePolygon": [[705, 696], [650, 791], [540, 791], [485, 696], [540, 601], [650, 601]]
+},
+"soho": {
+"anchor": [265, 506],
+"labelAnchor": [265, 431],
+"stopSlots": [[265, 461], [265, 551]],
+"zonePolygon": [[375, 506], [320, 601], [210, 601], [155, 506], [210, 411], [320, 411]]
+},
+"whitechapel": {
+"anchor": [760, 792],
+"labelAnchor": [760, 717],
+"stopSlots": [[760, 747], [803, 778], [786, 828], [734, 828], [717, 778], [828, 792], [794, 851], [726, 851], [692, 792], [708, 818], [783, 731], [766, 863], [702, 739], [841, 817]],
+"zonePolygon": [[870, 792], [815, 887], [705, 887], [650, 792], [705, 697], [815, 697]]
+}
+},
+"homeAnchor": [595, 696],
+"mapSize": [1170, 1560],
+"riverPath": [[80, 760], [300, 780], [480, 820], [650, 850], [820, 830], [1000, 880], [1120, 900]]
+},
+"OBJECTIVES": {
+"col_a1_des_sites": {
+"activateFlag": "colA1DesThreadActive",
+"completeFlag": "colA1DesSitesFound",
+"detail": "One fate, one physics. Fair quality or better. Leave them unclaimed.",
+"id": "col_a1_des_sites",
+"params": {
+"minTier": "fair",
+"requireEachOreType": ["fate", "physics"],
+"unclaimed": true
+},
+"questline": "collective",
+"title": "Find ground for the Collective",
+"type": "sites_discovered_matching"
+},
+"col_a1_hakim_rescue": {
+"activateFlag": "colA1HubReached",
+"completeFlag": "colA1HakimRescued",
+"detail": "It's been neglected for years. Cultivate it back up past neutral.",
+"id": "col_a1_hakim_rescue",
+"params": {
+"threshold": 60,
+"veinIdStatePath": "collective.hakimVeinId"
+},
+"questline": "collective",
+"title": "Bring Hakim's vein back",
+"type": "vein_growth_above"
+},
+"col_a1_hub_reached": {
+"activateFlag": "colA1SeedingTaught",
+"completeFlag": "colA1HubReached",
+"detail": "",
+"id": "col_a1_hub_reached",
+"params": {},
+"questline": "collective",
+"title": "Des has texted — three things he needs help with. Check Contacts.",
+"type": "flag_true"
+},
+"col_a1_nadia_supply": {
+"activateFlag": "colA1NadiaMet",
+"completeFlag": "colA1NadiaSupplied",
+"detail": "Supply Nadia with thirty units of time calc.",
+"id": "col_a1_nadia_supply",
+"params": {
+"contactId": "nadia",
+"factionId": "collective",
+"oreType": "time",
+"qty": 30
+},
+"presentation": {
+"cancel": "Cancel",
+"delivered": "Delivered: %d / %d",
+"heading": "Nadia's standing order",
+"inStock": "In stock: %d %s",
+"payment": "Payment: £%d",
+"pricePerUnit": "£%d per unit",
+"remaining": "Remaining: %d",
+"supply": "Supply order",
+"supplyAction": "Supply Nadia's order"
+},
+"questline": "collective",
+"title": "Fill Nadia's standing order",
+"type": "supplied_to_contact"
+},
+"col_a1_nadia_vein": {
+"activateFlag": "colA1NadiaAskSeen",
+"completeFlag": "colA1NadiaVeinSold",
+"detail": "Seed one, grow it up a bit, then sell it to the Collective.",
+"id": "col_a1_nadia_vein",
+"params": {
+"factionId": "collective",
+"oreType": "time"
+},
+"questline": "collective",
+"title": "Sell Nadia a time vein",
+"type": "vein_sold_to_faction"
+},
+"col_a1_prospecting": {
+"activateFlag": "colA1DesMet",
+"completeFlag": "colA1ProspectingTaught",
+"detail": "",
+"id": "col_a1_prospecting",
+"params": {},
+"questline": "collective",
+"title": "Des is waiting on the map. He'll teach you to prospect.",
+"type": "flag_true"
+},
+"col_a1_seeding": {
+"activateFlag": "colA1ProspectingTaught",
+"completeFlag": "colA1SeedingTaught",
+"detail": "",
+"id": "col_a1_seeding",
+"params": {},
+"questline": "collective",
+"title": "Des is waiting on the map. He'll teach you to seed a patch.",
+"type": "flag_true"
+},
+"tut_archie_craft_chat": {
+"activateFlag": "craftingUnlocked",
+"completeFlag": "archieCraftChatSeen",
+"detail": "",
+"id": "tut_archie_craft_chat",
+"params": {},
+"questline": "tutorial",
+"title": "Catch up with Archie about what James taught you.",
+"type": "flag_true"
+},
+"tut_archie_partner": {
+"activateFlag": "archiePartnerSeen",
+"completeFlag": "archiePartnerSeen",
+"detail": "",
+"id": "tut_archie_partner",
+"params": {},
+"questline": "tutorial",
+"title": "Archie's time vein is yours. You cultivate and harvest it — Archie sells what you make.",
+"type": "flag_true"
+},
+"tut_buyer_event": {
+"activateFlag": "metArchie",
+"completeFlag": "buyerEventSeen",
+"detail": "",
+"earlyTitle": "Wait for Archie's text — he's lining up the buyer.",
+"earlyTitleBeforeDay": 2,
+"id": "tut_buyer_event",
+"params": {},
+"questline": "tutorial",
+"title": "Back up Archie on the sale tonight. Check Contacts.",
+"type": "flag_true"
+},
+"tut_crafting_unlocked": {
+"activateFlag": "metJames",
+"completeFlag": "craftingUnlocked",
+"detail": "",
+"id": "tut_crafting_unlocked",
+"params": {},
+"questline": "tutorial",
+"title": "Go back to James when he's ready. He'll teach you the basics.",
+"type": "flag_true"
+},
+"tut_home_raid": {
+"activateFlag": "archieCraftChatSeen",
+"completeFlag": "homeRaidEventSeen",
+"detail": "",
+"id": "tut_home_raid",
+"params": {},
+"questline": "tutorial",
+"title": "You have calc now. The flat isn't as secure as you thought.",
+"type": "flag_true"
+},
+"tut_meet_archie": {
+"activateFlag": null,
+"completeFlag": "metArchie",
+"detail": "",
+"id": "tut_meet_archie",
+"params": {},
+"questline": "tutorial",
+"title": "Get back to Archie. He's sorting the new buyer.",
+"type": "flag_true"
+},
+"tut_meet_james": {
+"activateFlag": "buyerEventSeen",
+"completeFlag": "metJames",
+"detail": "",
+"id": "tut_meet_james",
+"params": {},
+"questline": "tutorial",
+"title": "Archie mentioned a contact called James. SMS him to set it up.",
+"type": "flag_true"
+}
+},
+"OFFER_TEMPLATES": {
+"random_time_ore": {
+"contractType": "oneOff",
+"id": "random_time_ore",
+"request": {
+"kind": "ore",
+"type": "time"
+},
+"source": "random"
+},
+"random_time_pearl": {
+"contractType": "oneOff",
+"id": "random_time_pearl",
+"request": {
+"kind": "consumable",
+"type": "timePearl"
+},
+"source": "random"
+},
+"scripted_life_order": {
+"contractType": "oneOff",
+"deadlineAfterDays": 4,
+"expiresAfterDays": 5,
+"id": "scripted_life_order",
+"request": {
+"kind": "ore",
+"qty": 5,
+"type": "life"
+},
+"source": "scripted"
+},
+"scripted_physics_weekly": {
+"contractType": "recurring",
+"expiresAfterDays": 7,
+"id": "scripted_physics_weekly",
+"request": {
+"kind": "ore",
+"qty": 3,
+"type": "physics"
+},
+"source": "scripted",
+"weekday": 1
+}
+},
+"ORE_TYPES": {
+"emotion": {
+"basePrice": 65,
+"colour": "#9b4a7a",
+"flavorText": "Holding it, you feel briefly understood. It wears off.",
+"name": "Emotion Orichalchum",
+"symbol": "❋"
+},
+"fate": {
+"basePrice": 90,
+"colour": "#b08d2e",
+"flavorText": "Feels lucky in the hand. Statistically, it isn't.",
+"name": "Fate Orichalchum",
+"symbol": "⚄"
+},
+"life": {
+"basePrice": 70,
+"colour": "#3a7a52",
+"flavorText": "Warm to the touch. Not unpleasantly.",
+"name": "Life Orichalchum",
+"symbol": "✦"
+},
+"physics": {
+"basePrice": 55,
+"colour": "#2a8fc4",
+"flavorText": "Vibrates faintly in your pocket.",
+"name": "Physics Orichalchum",
+"symbol": "↯"
+},
+"time": {
+"basePrice": 60,
+"colour": "#7b68ee",
+"flavorText": "Smells faintly of burnt clocks.",
+"name": "Time Orichalchum",
+"symbol": "⧖"
+}
+},
+"RECIPES": {
+"beALady": {
+"baseSuccess": 0.35,
+"description": "For one action, the numbers stop arguing with you. Fate calc, temporarily very agreeable.",
+"discovery": {
+"approach": "grinding",
+"types": ["fate"]
+},
+"effectPower": [0, 1, 1, 1, 2, 2],
+"eventUsable": true,
+"ingredients": {
+"fate": 6
+},
+"name": "Be a Lady",
+"refineStep": {
+"add": 1,
+"field": "effectPower"
+},
+"symbol": "☘",
+"xpReward": 25
+},
+"blackHole": {
+"baseSuccess": 0.2,
+"description": "A localised gravity fault, contained mostly to the size of a dinner plate. Everything nearby gets pulled toward the middle — you keep your distance and let it do the work.",
+"discovery": {
+"approach": "compression",
+"types": ["physics"]
+},
+"effectPower": [0, 8, 10, 13, 16, 20],
+"eventUsable": false,
+"ingredients": {
+"physics": 7
+},
+"name": "Black Hole",
+"refineStep": {
+"add": 2,
+"field": "effectPower"
+},
+"symbol": "⊙",
+"xpReward": 35
+},
+"blast": {
+"baseSuccess": 0.4,
+"description": "A concentrated shove of physics calc. Knocks them back, occasionally knocks the gun out of their hand. Mostly the former.",
+"discovery": {
+"approach": "grinding",
+"types": ["physics"]
+},
+"effectPower": [0, 6, 8, 10, 12, 15],
+"eventUsable": false,
+"ingredients": {
+"physics": 5
+},
+"name": "Blast",
+"refineStep": {
+"add": 2,
+"field": "effectPower"
+},
+"symbol": "☄",
+"xpReward": 25
+},
+"enhancementPowder": {
+"baseSuccess": 0.35,
+"description": "Rub on skin before a fight. Life-type acceleration — you act faster than anyone can track.",
+"discovery": {
+"approach": "grinding",
+"types": ["life"]
+},
+"effectPower": [0, 1, 1, 2, 2, 3],
+"eventUsable": false,
+"ingredients": {
+"life": 6
+},
+"name": "Enhancement Powder",
+"refineStep": {
+"add": 1,
+"field": "effectPower"
+},
+"symbol": "↯",
+"taughtBy": "tutorial",
+"xpReward": 25
+},
+"failsafe": {
+"baseSuccess": 0.12,
+"description": "Reverses your death, administratively. Expensive because dying is expensive to undo, and everyone in the trade knows it.",
+"discovery": {
+"approach": "distilling",
+"types": ["life", "time"]
+},
+"effectPower": [0, 1, 1, 2, 2, 2],
+"eventUsable": true,
+"ingredients": {
+"life": 6,
+"time": 6
+},
+"name": "Failsafe",
+"refineStep": {
+"add": 1,
+"field": "effectPower"
+},
+"symbol": "⚑",
+"xpReward": 45
+},
+"healingBurst": {
+"baseSuccess": 0.3,
+"description": "Faster than the salve, weaker than patience. Time and life calc, for when you don't have either.",
+"discovery": {
+"approach": "heat",
+"types": ["life", "time"]
+},
+"effectPower": [0, 8, 10, 12, 15, 18],
+"eventUsable": false,
+"ingredients": {
+"life": 4,
+"time": 4
+},
+"name": "Healing Burst",
+"refineStep": {
+"add": 3,
+"field": "effectPower"
+},
+"symbol": "✚",
+"xpReward": 30
+},
+"healingSalve": {
+"baseSuccess": 0.45,
+"description": "Rubbed on the worst of it. Speeds up what your body was doing anyway. No drama, mildly less itching.",
+"discovery": {
+"approach": "heat",
+"types": ["life"]
+},
+"effectPower": [0, 3, 4, 5, 6, 8],
+"eventUsable": false,
+"ingredients": {
+"life": 5
+},
+"name": "Healing Salve",
+"refineStep": {
+"add": 1,
+"field": "effectPower"
+},
+"symbol": "♥",
+"xpReward": 20
+},
+"pansPrank": {
+"baseSuccess": 0.25,
+"description": "Aimed at a crowd, not a person. Pick the feeling; the crowd supplies the consequences.",
+"discovery": {
+"approach": "distilling",
+"types": ["emotion"]
+},
+"effectPower": [0, 2, 3, 4, 5, 6],
+"eventUsable": true,
+"ingredients": {
+"emotion": 6
+},
+"name": "Pan's Prank",
+"refineStep": {
+"add": 1,
+"field": "effectPower"
+},
+"symbol": "☻",
+"xpReward": 30
+},
+"prophetsBreath": {
+"baseSuccess": 0.3,
+"description": "Two lungfuls buys you a few seconds of foresight. Enough to flinch correctly.",
+"discovery": {
+"approach": "distilling",
+"types": ["time"]
+},
+"effectPower": [0, 1, 1, 2, 2, 3],
+"eventUsable": true,
+"ingredients": {
+"time": 5
+},
+"name": "Prophet's Breath",
+"refineStep": {
+"add": 1,
+"field": "effectPower"
+},
+"symbol": "≋",
+"xpReward": 30
+},
+"rejuvenation": {
+"baseSuccess": 0.35,
+"description": "Does nothing you'd notice. Sells for more than anything else on this bench, which tells you who's buying it.",
+"discovery": {
+"approach": "grinding",
+"types": ["life", "time"]
+},
+"effectPower": [0, 0, 0, 0, 0, 0],
+"eventUsable": false,
+"ingredients": {
+"life": 5,
+"time": 5
+},
+"name": "Rejuvenation",
+"refineStep": {
+"add": 0,
+"field": "effectPower"
+},
+"symbol": "❀",
+"xpReward": 20
+},
+"rewind": {
+"baseSuccess": 0.4,
+"description": "Shaped like an hourglass. Briefly unspools time — only you remember what happened. Difficult and expensive to produce.",
+"discovery": {
+"approach": "heat",
+"types": ["time"]
+},
+"effectPower": [0, 2, 2, 2, 2, 2],
+"eventUsable": true,
+"ingredients": {
+"time": 6
+},
+"name": "Rewind",
+"refineStep": {
+"add": 1,
+"field": "effectPower"
+},
+"symbol": "⟲",
+"taughtBy": "tutorial",
+"xpReward": 35
+},
+"shield": {
+"baseSuccess": 0.3,
+"description": "Absorbs the next couple of hits, then quietly stops working. Recharges itself if you're lucky, which is not a policy.",
+"discovery": {
+"approach": "heat",
+"types": ["physics"]
+},
+"effectPower": [0, 4, 5, 6, 8, 10],
+"eventUsable": false,
+"ingredients": {
+"physics": 6
+},
+"name": "Shield",
+"refineStep": {
+"add": 1,
+"field": "effectPower"
+},
+"symbol": "⛨",
+"xpReward": 30
+},
+"timePearl": {
+"baseSuccess": 0.4,
+"description": "Throw at your feet. Freezes enemy for N turns. Elegant, if you ignore what it actually is.",
+"discovery": {
+"approach": "compression",
+"types": ["time"]
+},
+"effectPower": [0, 1, 1, 2, 2, 3],
+"eventUsable": false,
+"ingredients": {
+"time": 5
+},
+"name": "Time Pearl",
+"refineStep": {
+"add": 1,
+"field": "effectPower"
+},
+"symbol": "⧖",
+"taughtBy": "tutorial",
+"xpReward": 20
+},
+"wormhole": {
+"baseSuccess": 0.18,
+"description": "Folds the distance between two points until there isn't any. Costs what you'd expect for something that ignores geography.",
+"discovery": {
+"approach": "compression",
+"types": ["time", "physics"]
+},
+"effectPower": [0, 1, 1, 1, 1, 1],
+"eventUsable": true,
+"ingredients": {
+"physics": 5,
+"time": 5
+},
+"name": "Wormhole",
+"refineStep": {
+"add": 0,
+"field": "effectPower"
+},
+"symbol": "⊗",
+"xpReward": 40
+}
+},
+"SALES_XP_LEVELS": [0, 0, 80, 220, 500, 1000],
+"SEED_ORE_COST": 40,
+"SITE_AT_CAP_TIER_WEIGHTS": {
+"barren": 40,
+"fair": 10,
+"poor": 45,
+"rich": 4,
+"saturated": 1
+},
+"SITE_DISCOVERY_BONUS_POOL": ["vigour", "wildCeiling", "yield"],
+"SITE_NATURAL_VEIN_CHANCE": 0.05,
+"SITE_PROSPECT_XP": {
+"barren": 10,
+"fair": 15,
+"poor": 10,
+"rich": 25,
+"saturated": 40
+},
+"SITE_SEED_TIER_MOD": {
+"fair": 0,
+"poor": -0.15,
+"rich": 0.2,
+"saturated": 0.35
+},
+"SITE_TIER_ORDER": ["barren", "poor", "fair", "rich", "saturated"],
+"SITE_TIER_WEIGHTS": {
+"barren": 20,
+"fair": 32,
+"poor": 30,
+"rich": 14,
+"saturated": 4
+},
+"STEALTH_XP_LEVELS": [0, 0, 80, 220, 500, 1000],
+"TIME_BLOCKS": ["Morning", "Afternoon", "Evening"],
+"VEIN_ALARM": {
+"alarm": {
+"cost": 200,
+"description": "Wires the vein for a silent alarm and cameras. If it's raided, you'll get word in time to go and defend it.",
+"id": "alarm",
+"label": "Alarm/CCTV"
+}
+},
+"VEIN_GROWTH": {
+"bands": [{
+"drift": 0,
+"id": "collapsed",
+"label": "Spent",
+"max": 0,
+"min": 0
+}, {
+"drift": 3,
+"id": "barren",
+"label": "Barren",
+"max": 14,
+"min": 1
+}, {
+"drift": 2,
+"id": "sparse",
+"label": "Sparse",
+"max": 29,
+"min": 15
+}, {
+"drift": 1,
+"id": "thinning",
+"label": "Thinning",
+"max": 44,
+"min": 30
+}, {
+"drift": 0,
+"id": "dormant",
+"label": "Dormant",
+"max": 55,
+"min": 45
+}, {
+"drift": 1,
+"id": "taking",
+"label": "Taking",
+"max": 70,
+"min": 56
+}, {
+"drift": 2,
+"id": "lush",
+"label": "Lush",
+"max": 85,
+"min": 71
+}, {
+"drift": 3,
+"id": "wild",
+"label": "Wild",
+"max": 99,
+"min": 86
+}, {
+"drift": 0,
+"id": "rampant",
+"label": "Rampant",
+"max": 9999,
+"min": 100
+}],
+"ceiling": 100,
+"collapseChancePerDay": 0.15,
+"cultivateBase": 6,
+"cultivateMinGain": 1,
+"cultivatePerSkill": 2,
+"cultivatingXpLevels": [0, 0, 80, 220, 500, 1000],
+"hardPruneBonus": 1.25,
+"neutral": 50,
+"pruneHardDepth": 24,
+"pruneLightDepth": 9,
+"rampantSeedDays": 5,
+"seedGrowth": 20,
+"seedOreCost": 40,
+"selfSeedGrowth": 60,
+"terroirYieldMult": {
+"fair": 1,
+"poor": 0.6,
+"rich": 1.6,
+"saturated": 2.4
+},
+"veinSaleBaseUnits": 35,
+"wildCeilingBonus": 20,
+"yieldPerPoint": 0.35
+},
+"VEIN_SECURITY": {
+"basic": {
+"cost": 20,
+"label": "Basic Lock",
+"raidResist": 15
+},
+"guarded": {
+"cost": 120,
+"label": "Hired Guard",
+"raidResist": 55
+},
+"none": {
+"cost": 0,
+"label": "Unsecured",
+"raidResist": 0
+},
+"warded": {
+"cost": 60,
+"label": "Ward Rune",
+"raidResist": 35
+}
+}
+}

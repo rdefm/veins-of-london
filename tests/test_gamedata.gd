@@ -11,6 +11,67 @@ func run() -> void:
 		assert_true(ok, "GameData.validate() should pass on the real data/*.json tables: %s" % str(GameData.get_errors()))
 	)
 
+	# ── load manifest: field values, load-error naming ──────────────────
+
+	# tests/fixtures/gamedata_pre_manifest_snapshot.gdvar is a var_to_str()
+	# dump of every GameData public loader field. var_to_str/str_to_var (not
+	# JSON) round-trips int vs. float exactly -- Dictionary/Array equality
+	# in Godot compares element types, not just numeric value, so a JSON
+	# round-trip (which reads every number back as float) would falsely
+	# flag fields that are legitimately int.
+	#
+	# DAILY_CYCLE is the one deliberate exception: it loads through the same
+	# _load_json/_normalize_numbers pipeline every other table does, which
+	# turns its whole-number fields (e.g. frameCount) into int. Every reader
+	# of those fields already casts with int()/float() (scenes/components/
+	# time_transition.gd etc.), so this is safe. Compared here against the
+	# fixture's own value passed through _normalize_numbers, to prove that's
+	# the *only* difference from the fixture.
+	run_case("public_fields_match_pre_manifest_load_snapshot", func():
+		var f := FileAccess.open("res://tests/fixtures/gamedata_pre_manifest_snapshot.gdvar", FileAccess.READ)
+		assert_true(f != null, "pre-manifest snapshot fixture should be readable")
+		var expected: Dictionary = str_to_var(f.get_as_text())
+		f.close()
+		for field in expected.keys():
+			if field == "DAILY_CYCLE":
+				continue
+			assert_eq(GameData.get(field), expected[field], "%s should match the load manifest's snapshot fixture" % field)
+		assert_eq(GameData.DAILY_CYCLE, GameData._normalize_numbers(expected["DAILY_CYCLE"]), "DAILY_CYCLE should match the fixture once normalized the same way every other table already is")
+	)
+
+	run_case("manifest_missing_file_reports_a_load_error_naming_the_table", func():
+		var before := GameData._load_errors.size()
+		var result := GameData._load_json("res://data/__manifest_test_missing__.json", "some_table")
+		assert_eq(result, {}, "a missing manifest file should load as an empty dict, same as any other _load_json failure")
+		var found := false
+		for e in GameData._load_errors.slice(before):
+			if e.contains("some_table") and e.contains("Missing data file"):
+				found = true
+		assert_true(found, "a missing manifest file should report a load error naming its table")
+	)
+
+	run_case("manifest_wrong_type_value_reports_table_and_field", func():
+		var errors: Array[String] = []
+		var value: Variant = GameData._resolve_manifest_value({"movements": "not_a_dict"}, {"field": "DIAL_MOVEMENTS", "key": "movements", "type": TYPE_DICTIONARY}, "dial", errors)
+		assert_eq(value, {}, "a wrong-type manifest value should fall back to the type's default")
+		var found := false
+		for e in errors:
+			if e.contains("dial") and e.contains("DIAL_MOVEMENTS"):
+				found = true
+		assert_true(found, "a wrong-type manifest value should report a load error naming its table and field")
+	)
+
+	run_case("manifest_int_value_for_a_float_field_is_widened_not_flagged", func():
+		# _normalize_numbers() turns a whole-number JSON float (e.g. dial.json's
+		# "baseRechargeRate": 2.0) into an int -- a float-typed field reading
+		# one back out is the same int->float widening a plain assignment did
+		# before this manifest existed, not a data error.
+		var errors: Array[String] = []
+		var value = GameData._resolve_manifest_value({"rate": 2}, {"field": "SOME_FLOAT_FIELD", "key": "rate", "type": TYPE_FLOAT}, "some_table", errors)
+		assert_eq(value, 2.0, "an int value for a float-typed field should widen to float")
+		assert_true(errors.is_empty(), "widening int to float should not report an error")
+	)
+
 	# No id-list const drives events loading -- whatever files live under
 	# data/events/ at boot is the loaded roster.
 	run_case("loaded_events_match_data_events_directory", func():

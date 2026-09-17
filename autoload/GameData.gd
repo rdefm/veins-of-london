@@ -179,111 +179,219 @@ func _ready() -> void:
 	validate()
 
 
+# Declarative load table: one entry per data/*.json table, grouping every
+# loader field that table fills. Each field says which JSON key to pull (""
+# for the parsed file's own root) and the Variant type it must be -- load_all()
+# below is the single loop that reads every table once, type-checks each
+# field and assigns it, so a new field never needs its own hand-written
+# extraction line. "snapshot" overrides the key snapshot() files a field
+# under, for the one field (FACTION_BAROMETER_PREFS) whose snapshot key
+# doesn't already match its var name lowercased.
+#
+# PALETTE (an id->hex array that becomes an id->Color dict) and EVENTS (a
+# directory scan, not a single file) are genuine transforms rather than a
+# file/key/type row, so _load_palette()/_load_events() below stay bespoke --
+# both are mirrored as fixed extra lines in snapshot() for the same reason.
+const MANIFEST: Array[Dictionary] = [
+	{"table": "ore_types", "file": "res://data/ore_types.json", "fields": [
+		{"field": "ORE_TYPES", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "vein_growth", "file": "res://data/vein_growth.json", "fields": [
+		{"field": "VEIN_GROWTH", "key": "", "type": TYPE_DICTIONARY},
+		{"field": "SEED_ORE_COST", "key": "seedOreCost", "type": TYPE_INT},
+		{"field": "CULTIVATING_XP_LEVELS", "key": "cultivatingXpLevels", "type": TYPE_ARRAY},
+	]},
+	{"table": "recipes", "file": "res://data/recipes.json", "fields": [
+		{"field": "RECIPES", "key": "recipes", "type": TYPE_DICTIONARY},
+		{"field": "CRAFTING_XP_LEVELS", "key": "craftingXpLevels", "type": TYPE_ARRAY},
+		{"field": "CONSUMABLE_PRICES", "key": "consumablePrices", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "offers", "file": "res://data/offers.json", "fields": [
+		{"field": "OFFER_TEMPLATES", "key": "templates", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "dial", "file": "res://data/dial.json", "fields": [
+		{"field": "DIAL_SEED_COST", "key": "seedCost", "type": TYPE_DICTIONARY},
+		{"field": "DIAL_SEED_BASE_SUCCESS", "key": "seedBaseSuccess", "type": TYPE_FLOAT},
+		{"field": "DIAL_BASE_MAX_CHARGE", "key": "baseMaxCharge", "type": TYPE_INT},
+		{"field": "DIAL_BASE_RECHARGE_RATE", "key": "baseRechargeRate", "type": TYPE_FLOAT},
+		{"field": "DIAL_RECHARGE_COMBAT_REGEN_TURNS", "key": "rechargeCombatRegenEveryTurns", "type": TYPE_INT},
+		{"field": "DIAL_RECHARGE_COMBAT_REGEN_AMOUNT", "key": "rechargeCombatRegenAmount", "type": TYPE_INT},
+		{"field": "DIAL_HAFTS", "key": "hafts", "type": TYPE_DICTIONARY},
+		{"field": "DIAL_MOVEMENTS", "key": "movements", "type": TYPE_DICTIONARY},
+		{"field": "DIAL_ATTUNEMENT_BONUS_BY_TIER", "key": "attunementBonusByTier", "type": TYPE_ARRAY},
+		{"field": "DIAL_CAPACITY_BY_LEVEL", "key": "capacityByLevel", "type": TYPE_ARRAY},
+		{"field": "DIAL_XP_LEVELS", "key": "xpLevels", "type": TYPE_ARRAY},
+		{"field": "DIAL_MAX_CHARGE_BONUS_BY_LEVEL", "key": "maxChargeBonusByLevel", "type": TYPE_ARRAY},
+		{"field": "DIAL_RECHARGE_RATE_BONUS_BY_LEVEL", "key": "rechargeRateBonusByLevel", "type": TYPE_ARRAY},
+	]},
+	{"table": "items", "file": "res://data/items.json", "fields": [
+		{"field": "ITEMS", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "vein_security", "file": "res://data/vein_security.json", "fields": [
+		{"field": "VEIN_SECURITY", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "vein_alarm", "file": "res://data/vein_alarm.json", "fields": [
+		{"field": "VEIN_ALARM", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "stealth", "file": "res://data/stealth.json", "fields": [
+		{"field": "STEALTH_XP_LEVELS", "key": "stealthXpLevels", "type": TYPE_ARRAY},
+	]},
+	{"table": "home", "file": "res://data/home.json", "fields": [
+		{"field": "HOME_TIER_ORDER", "key": "tierOrder", "type": TYPE_ARRAY},
+		{"field": "HOME_TIERS", "key": "tiers", "type": TYPE_DICTIONARY},
+		{"field": "HOME_SECURITY", "key": "security", "type": TYPE_DICTIONARY},
+		{"field": "HOME_ROOMS", "key": "rooms", "type": TYPE_DICTIONARY},
+		{"field": "SALES_XP_LEVELS", "key": "salesXpLevels", "type": TYPE_ARRAY},
+	]},
+	{"table": "approaches", "file": "res://data/approaches.json", "fields": [
+		{"field": "APPROACHES", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "factions", "file": "res://data/factions.json", "fields": [
+		{"field": "FACTIONS", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "faction_trade", "file": "res://data/faction_trade.json", "fields": [
+		{"field": "FACTION_TRADE", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "districts", "file": "res://data/districts.json", "fields": [
+		{"field": "DISTRICTS", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "map_layout", "file": "res://data/map_layout.json", "fields": [
+		{"field": "MAP_LAYOUT", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "sites", "file": "res://data/sites.json", "fields": [
+		{"field": "SITE_TIER_ORDER", "key": "tierOrder", "type": TYPE_ARRAY},
+		{"field": "SITE_TIER_WEIGHTS", "key": "tierWeights", "type": TYPE_DICTIONARY},
+		{"field": "SITE_AT_CAP_TIER_WEIGHTS", "key": "atCapTierWeights", "type": TYPE_DICTIONARY},
+		{"field": "SITE_PROSPECT_XP", "key": "prospectXp", "type": TYPE_DICTIONARY},
+		{"field": "SITE_SEED_TIER_MOD", "key": "seedTierMod", "type": TYPE_DICTIONARY},
+		{"field": "SITE_DISCOVERY_BONUS_POOL", "key": "discoveryBonusPool", "type": TYPE_ARRAY},
+		{"field": "SITE_NATURAL_VEIN_CHANCE", "key": "naturalVeinChance", "type": TYPE_FLOAT},
+	]},
+	{"table": "barometer", "file": "res://data/barometer.json", "fields": [
+		{"field": "BAROMETER_STATES", "key": "states", "type": TYPE_DICTIONARY},
+		{"field": "BAROMETER_ACTIONS", "key": "actions", "type": TYPE_ARRAY},
+		{"field": "FACTION_BAROMETER_PREFS", "key": "factionPrefs", "type": TYPE_DICTIONARY, "snapshot": "faction_prefs"},
+	]},
+	{"table": "enemies", "file": "res://data/enemies.json", "fields": [
+		{"field": "ENEMY_RAID_GUARDS", "key": "raidGuards", "type": TYPE_DICTIONARY},
+		{"field": "ENEMY_HOME_RAID_RAIDER", "key": "homeRaidRaider", "type": TYPE_DICTIONARY},
+		{"field": "COMBAT_XP_LEVELS", "key": "combatXpLevels", "type": TYPE_ARRAY},
+		{"field": "COMBAT_ATTACK_BONUS_BY_LEVEL", "key": "combatAttackBonusByLevel", "type": TYPE_ARRAY},
+		{"field": "COMBAT_SPEED_BY_LEVEL", "key": "combatSpeedByLevel", "type": TYPE_ARRAY},
+	]},
+	{"table": "combat_prototype", "file": "res://data/combat_prototype.json", "fields": [
+		{"field": "COMBAT_PROTOTYPE", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "combat_visuals", "file": "res://data/combat_visuals.json", "fields": [
+		{"field": "COMBAT_VISUALS", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "hq_visuals", "file": "res://data/hq_visuals.json", "fields": [
+		{"field": "HQ_VISUALS", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "constants", "file": "res://data/constants.json", "fields": [
+		{"field": "TIME_BLOCKS", "key": "timeBlocks", "type": TYPE_ARRAY},
+		{"field": "DAY_CLOCK", "key": "dayClock", "type": TYPE_DICTIONARY},
+		{"field": "ARCHIE_ORE_GOAL", "key": "archieOreGoal", "type": TYPE_INT},
+		{"field": "CONTACTS_DEFAULTS", "key": "contacts", "type": TYPE_DICTIONARY},
+		{"field": "JAMES_JOB_TRUST_BANDS", "key": "jamesJobTrustBands", "type": TYPE_ARRAY},
+		{"field": "GUARD_REPEL_CHANCE_PER_GUARD", "key": "guardRepel.chancePerGuard", "type": TYPE_FLOAT},
+		{"field": "GUARD_REPEL_CHANCE_CAP", "key": "guardRepel.cap", "type": TYPE_FLOAT},
+	]},
+	{"table": "daily_cycle", "file": "res://data/daily_cycle.json", "fields": [
+		{"field": "DAILY_CYCLE", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "objectives", "file": "res://data/objectives.json", "fields": [
+		{"field": "OBJECTIVES", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "collective_barks", "file": "res://data/collective_barks.json", "fields": [
+		{"field": "COLLECTIVE_BARKS", "key": "", "type": TYPE_DICTIONARY},
+	]},
+]
+
+
 func load_all() -> void:
-	ORE_TYPES = _load_json("res://data/ore_types.json")
+	for group in MANIFEST:
+		var parsed: Dictionary = _load_json(group["file"], group["table"])
+		for field_entry in group["fields"]:
+			set(field_entry["field"], _resolve_manifest_value(parsed, field_entry, group["table"], _load_errors))
 
-	VEIN_GROWTH = _load_json("res://data/vein_growth.json")
-	SEED_ORE_COST = VEIN_GROWTH.get("seedOreCost", 0)
-	CULTIVATING_XP_LEVELS = VEIN_GROWTH.get("cultivatingXpLevels", [])
+	_load_palette()
+	_load_events()
 
-	var recipes := _load_json("res://data/recipes.json")
-	RECIPES = recipes.get("recipes", {})
-	CRAFTING_XP_LEVELS = recipes.get("craftingXpLevels", [])
-	CONSUMABLE_PRICES = recipes.get("consumablePrices", {})
-	OFFER_TEMPLATES = _load_json("res://data/offers.json").get("templates", {})
+	loaded = true
 
-	var dial := _load_json("res://data/dial.json")
-	DIAL_SEED_COST = dial.get("seedCost", {})
-	DIAL_SEED_BASE_SUCCESS = dial.get("seedBaseSuccess", 0.0)
-	DIAL_BASE_MAX_CHARGE = dial.get("baseMaxCharge", 0)
-	DIAL_BASE_RECHARGE_RATE = dial.get("baseRechargeRate", 0.0)
-	DIAL_RECHARGE_COMBAT_REGEN_TURNS = dial.get("rechargeCombatRegenEveryTurns", 0)
-	DIAL_RECHARGE_COMBAT_REGEN_AMOUNT = dial.get("rechargeCombatRegenAmount", 0)
-	DIAL_HAFTS = dial.get("hafts", {})
-	DIAL_MOVEMENTS = dial.get("movements", {})
-	DIAL_ATTUNEMENT_BONUS_BY_TIER = dial.get("attunementBonusByTier", [])
-	DIAL_CAPACITY_BY_LEVEL = dial.get("capacityByLevel", [])
-	DIAL_XP_LEVELS = dial.get("xpLevels", [])
-	DIAL_MAX_CHARGE_BONUS_BY_LEVEL = dial.get("maxChargeBonusByLevel", [])
-	DIAL_RECHARGE_RATE_BONUS_BY_LEVEL = dial.get("rechargeRateBonusByLevel", [])
 
-	ITEMS = _load_json("res://data/items.json")
-	VEIN_SECURITY = _load_json("res://data/vein_security.json")
-	VEIN_ALARM = _load_json("res://data/vein_alarm.json")
+# Pure: extracts and type-checks one manifest field's value out of its
+# table's already-parsed file dict. A missing key silently falls back to
+# the type's default, matching Dictionary.get()'s own default-on-miss
+# semantics -- only a type mismatch is an error, since load_all() itself
+# already logged a "missing data file" error (naming this same table) if
+# the file read failed and produced {}.
+func _resolve_manifest_value(parsed: Dictionary, field_entry: Dictionary, table: String, errors: Array[String]) -> Variant:
+	var key: String = field_entry.get("key", "")
+	var expected_type: int = field_entry["type"]
+	var value: Variant = parsed if key.is_empty() else _dig(parsed, key)
+	if value == null:
+		return _default_for_type(expected_type)
+	# _normalize_numbers() (called on every parsed file) turns any
+	# whole-number JSON float (e.g. "baseRechargeRate": 2.0) into an int --
+	# a float-typed field reading one is not a data mistake, just the same
+	# int->float widening a plain `= dial.get("baseRechargeRate", 0.0)`
+	# assignment already did silently before this manifest existed.
+	if expected_type == TYPE_FLOAT and typeof(value) == TYPE_INT:
+		return float(value)
+	if typeof(value) != expected_type:
+		errors.append("%s.%s: expected %s at key '%s', got %s" % [table, field_entry["field"], type_string(expected_type), key, type_string(typeof(value))])
+		return _default_for_type(expected_type)
+	return value
 
-	STEALTH_XP_LEVELS = _load_json("res://data/stealth.json").get("stealthXpLevels", [])
 
-	var home := _load_json("res://data/home.json")
-	HOME_TIER_ORDER = home.get("tierOrder", [])
-	HOME_TIERS = home.get("tiers", {})
-	HOME_SECURITY = home.get("security", {})
-	HOME_ROOMS = home.get("rooms", {})
-	SALES_XP_LEVELS = home.get("salesXpLevels", [])
+func _default_for_type(type: int) -> Variant:
+	match type:
+		TYPE_DICTIONARY:
+			return {}
+		TYPE_ARRAY:
+			return []
+		TYPE_FLOAT:
+			return 0.0
+		_:
+			return 0
 
-	APPROACHES = _load_json("res://data/approaches.json")
 
-	FACTIONS = _load_json("res://data/factions.json")
-	FACTION_TRADE = _load_json("res://data/faction_trade.json")
+# Dot-path lookup into a parsed JSON dict (e.g. "guardRepel.chancePerGuard").
+# Returns null on any missing segment, same "silently absent" contract as
+# Dictionary.get() for the single-key case.
+func _dig(dict: Dictionary, dotted_key: String) -> Variant:
+	var current: Variant = dict
+	for part in dotted_key.split("."):
+		if typeof(current) != TYPE_DICTIONARY or not current.has(part):
+			return null
+		current = current[part]
+	return current
 
-	DISTRICTS = _load_json("res://data/districts.json")
 
-	MAP_LAYOUT = _load_json("res://data/map_layout.json")
-
-	var sites := _load_json("res://data/sites.json")
-	SITE_TIER_ORDER = sites.get("tierOrder", [])
-	SITE_TIER_WEIGHTS = sites.get("tierWeights", {})
-	SITE_AT_CAP_TIER_WEIGHTS = sites.get("atCapTierWeights", {})
-	SITE_PROSPECT_XP = sites.get("prospectXp", {})
-	SITE_SEED_TIER_MOD = sites.get("seedTierMod", {})
-	SITE_DISCOVERY_BONUS_POOL = sites.get("discoveryBonusPool", [])
-	SITE_NATURAL_VEIN_CHANCE = sites.get("naturalVeinChance", 0.0)
-
-	var barometer := _load_json("res://data/barometer.json")
-	BAROMETER_STATES = barometer.get("states", {})
-	BAROMETER_ACTIONS = barometer.get("actions", [])
-	FACTION_BAROMETER_PREFS = barometer.get("factionPrefs", {})
-
-	var enemies := _load_json("res://data/enemies.json")
-	ENEMY_RAID_GUARDS = enemies.get("raidGuards", {})
-	ENEMY_HOME_RAID_RAIDER = enemies.get("homeRaidRaider", {})
-	COMBAT_XP_LEVELS = enemies.get("combatXpLevels", [])
-	COMBAT_ATTACK_BONUS_BY_LEVEL = enemies.get("combatAttackBonusByLevel", [])
-	COMBAT_SPEED_BY_LEVEL = enemies.get("combatSpeedByLevel", [])
-
-	COMBAT_PROTOTYPE = _load_json("res://data/combat_prototype.json")
-
-	COMBAT_VISUALS = _load_json("res://data/combat_visuals.json")
-
-	HQ_VISUALS = _load_json("res://data/hq_visuals.json")
-
+# Bespoke: data/palette.json is an array of {id, hex} entries, not a
+# file/key/type row -- it becomes an id -> Color dict, a real transform the
+# manifest's shape doesn't cover.
+func _load_palette() -> void:
 	PALETTE = {}
-	for entry in _load_json("res://data/palette.json").get("colors", []):
+	for entry in _load_json("res://data/palette.json", "palette").get("colors", []):
 		var id: String = entry.get("id", "")
 		if not id.is_empty() and entry.has("hex"):
 			PALETTE[id] = Color(entry["hex"])
 
-	var constants := _load_json("res://data/constants.json")
-	TIME_BLOCKS = constants.get("timeBlocks", [])
-	DAY_CLOCK = constants.get("dayClock", {})
-	DAILY_CYCLE = JSON.parse_string(FileAccess.get_file_as_string("res://data/daily_cycle.json"))
-	ARCHIE_ORE_GOAL = constants.get("archieOreGoal", 0)
-	CONTACTS_DEFAULTS = constants.get("contacts", {})
-	JAMES_JOB_TRUST_BANDS = constants.get("jamesJobTrustBands", [])
-	var guard_repel: Dictionary = constants.get("guardRepel", {})
-	GUARD_REPEL_CHANCE_PER_GUARD = guard_repel.get("chancePerGuard", 0.0)
-	GUARD_REPEL_CHANCE_CAP = guard_repel.get("cap", 0.0)
 
+# Bespoke: loaded by _list_event_ids() from every *.json file under
+# data/events/ -- there is no id roster to keep in sync; drop a file in the
+# directory and it is discovered on next boot. Deck membership (M1-LONDON
+# D5) is decided per file by the presence of a "deck" sub-object, not by a
+# separate list.
+func _load_events() -> void:
 	EVENTS = {}
 	for event_id in _list_event_ids():
-		var event_def := _load_json("res://data/events/%s.json" % event_id)
+		var event_def := _load_json("res://data/events/%s.json" % event_id, "events.%s" % event_id)
 		if not event_def.is_empty():
 			EVENTS[event_id] = event_def
-
-	OBJECTIVES = _load_json("res://data/objectives.json")
-
-	COLLECTIVE_BARKS = _load_json("res://data/collective_barks.json")
-
-	loaded = true
 
 
 func validate() -> bool:
@@ -305,7 +413,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_ore_types(t.get("ore_types", {}), errors)
 	_validate_vein_growth(t.get("vein_growth", {}), t.get("cultivating_xp_levels", []), errors)
 	_validate_recipes(t.get("recipes", {}), t.get("ore_types", {}), errors)
-	_validate_dial(t.get("dial_seed_cost", {}), t.get("dial_seed_base_success", 0.0), t.get("dial_base_max_charge", 0), t.get("dial_base_recharge_rate", 0.0), t.get("dial_recharge_combat_regen_turns", 0), t.get("dial_recharge_combat_regen_amount", 0), t.get("dial_hafts", {}), t.get("dial_movements", {}), t.get("dial_attunement_bonus_by_tier", []), t.get("dial_capacity_by_level", []), t.get("dial_xp_levels", []), t.get("dial_max_charge_bonus_by_level", []), t.get("dial_recharge_rate_bonus_by_level", []), errors)
+	_validate_dial(t, errors)
 	_validate_items(t.get("items", {}), errors)
 	_validate_vein_security(t.get("vein_security", {}), errors)
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
@@ -316,9 +424,9 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_faction_trade(t.get("faction_trade", {}), errors)
 	_validate_districts(t.get("districts", {}), t.get("ore_types", {}), errors)
 	_validate_map_layout(t.get("map_layout", {}), t.get("districts", {}), errors)
-	_validate_sites(t.get("site_tier_order", []), t.get("site_tier_weights", {}), t.get("site_at_cap_tier_weights", {}), t.get("site_prospect_xp", {}), t.get("site_seed_tier_mod", {}), t.get("site_discovery_bonus_pool", []), errors)
+	_validate_sites(t, errors)
 	_validate_barometer(t.get("barometer_states", {}), t.get("barometer_actions", []), t.get("faction_prefs", {}), t.get("factions", {}), errors)
-	_validate_enemies(t.get("enemy_raid_guards", {}), t.get("enemy_home_raid_raider", {}), t.get("combat_xp_levels", []), t.get("combat_attack_bonus_by_level", []), t.get("combat_speed_by_level", []), errors)
+	_validate_enemies(t, errors)
 	_validate_combat_prototype(t.get("combat_prototype", {}), errors)
 	_validate_combat_visuals(t.get("combat_visuals", {}), t.get("palette", {}), errors)
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
@@ -332,64 +440,20 @@ func validate_tables(t: Dictionary) -> Array[String]:
 
 # Public snapshot of every loaded table, keyed for validate_tables().
 # Tests use this to build a deliberately corrupted copy without touching
-# the real data/*.json files.
+# the real data/*.json files. Derived from MANIFEST (each field's key is its
+# var name lowercased, or its "snapshot" override) so a table can't drift
+# out of sync between how it's loaded and how it's snapshotted -- PALETTE
+# and EVENTS are the two bespoke exceptions load_all() also special-cases
+# (see MANIFEST's own doc comment), added here by hand for the same reason.
 func snapshot() -> Dictionary:
-	return {
-		"ore_types": ORE_TYPES,
-		"vein_growth": VEIN_GROWTH,
-		"cultivating_xp_levels": CULTIVATING_XP_LEVELS,
-		"recipes": RECIPES,
-		"dial_seed_cost": DIAL_SEED_COST,
-		"dial_seed_base_success": DIAL_SEED_BASE_SUCCESS,
-		"dial_base_max_charge": DIAL_BASE_MAX_CHARGE,
-		"dial_base_recharge_rate": DIAL_BASE_RECHARGE_RATE,
-		"dial_recharge_combat_regen_turns": DIAL_RECHARGE_COMBAT_REGEN_TURNS,
-		"dial_recharge_combat_regen_amount": DIAL_RECHARGE_COMBAT_REGEN_AMOUNT,
-		"dial_hafts": DIAL_HAFTS,
-		"dial_movements": DIAL_MOVEMENTS,
-		"dial_attunement_bonus_by_tier": DIAL_ATTUNEMENT_BONUS_BY_TIER,
-		"dial_capacity_by_level": DIAL_CAPACITY_BY_LEVEL,
-		"dial_xp_levels": DIAL_XP_LEVELS,
-		"dial_max_charge_bonus_by_level": DIAL_MAX_CHARGE_BONUS_BY_LEVEL,
-		"dial_recharge_rate_bonus_by_level": DIAL_RECHARGE_RATE_BONUS_BY_LEVEL,
-		"items": ITEMS,
-		"vein_security": VEIN_SECURITY,
-		"vein_alarm": VEIN_ALARM,
-		"stealth_xp_levels": STEALTH_XP_LEVELS,
-		"home_tier_order": HOME_TIER_ORDER,
-		"home_tiers": HOME_TIERS,
-		"home_security": HOME_SECURITY,
-		"home_rooms": HOME_ROOMS,
-		"sales_xp_levels": SALES_XP_LEVELS,
-		"approaches": APPROACHES,
-		"factions": FACTIONS,
-		"faction_trade": FACTION_TRADE,
-		"districts": DISTRICTS,
-		"map_layout": MAP_LAYOUT,
-		"site_tier_order": SITE_TIER_ORDER,
-		"site_tier_weights": SITE_TIER_WEIGHTS,
-		"site_at_cap_tier_weights": SITE_AT_CAP_TIER_WEIGHTS,
-		"site_prospect_xp": SITE_PROSPECT_XP,
-		"site_seed_tier_mod": SITE_SEED_TIER_MOD,
-		"site_discovery_bonus_pool": SITE_DISCOVERY_BONUS_POOL,
-		"barometer_states": BAROMETER_STATES,
-		"barometer_actions": BAROMETER_ACTIONS,
-		"faction_prefs": FACTION_BAROMETER_PREFS,
-		"enemy_raid_guards": ENEMY_RAID_GUARDS,
-		"enemy_home_raid_raider": ENEMY_HOME_RAID_RAIDER,
-		"combat_xp_levels": COMBAT_XP_LEVELS,
-		"combat_attack_bonus_by_level": COMBAT_ATTACK_BONUS_BY_LEVEL,
-		"combat_speed_by_level": COMBAT_SPEED_BY_LEVEL,
-		"combat_prototype": COMBAT_PROTOTYPE,
-		"combat_visuals": COMBAT_VISUALS,
-		"hq_visuals": HQ_VISUALS,
-		"palette": PALETTE,
-		"time_blocks": TIME_BLOCKS,
-		"contacts_defaults": CONTACTS_DEFAULTS,
-		"events": EVENTS,
-		"objectives": OBJECTIVES,
-		"collective_barks": COLLECTIVE_BARKS,
-	}
+	var result: Dictionary = {}
+	for group in MANIFEST:
+		for field_entry in group["fields"]:
+			var snapshot_key: String = field_entry.get("snapshot", String(field_entry["field"]).to_lower())
+			result[snapshot_key] = get(field_entry["field"])
+	result["palette"] = PALETTE
+	result["events"] = EVENTS
+	return result
 
 
 # ── per-table checks ──────────────────────────────────────────────────
@@ -478,7 +542,21 @@ func _validate_recipes(recipes: Dictionary, ore_types: Dictionary, errors: Array
 # silently let seeding skip an ore type. Hafts are cosmetic-only (no stat
 # fields, no code path reads one for anything but display), so each only
 # needs a display name, not the fuller schema recipes/movements use.
-func _validate_dial(seed_cost: Dictionary, seed_base_success: float, base_max_charge: int, base_recharge_rate: float, recharge_combat_regen_turns: int, recharge_combat_regen_amount: int, hafts: Dictionary, movements: Dictionary, attunement_bonus_by_tier: Array, capacity_by_level: Array, xp_levels: Array, max_charge_bonus_by_level: Array, recharge_rate_bonus_by_level: Array, errors: Array[String]) -> void:
+func _validate_dial(t: Dictionary, errors: Array[String]) -> void:
+	var seed_cost: Dictionary = t.get("dial_seed_cost", {})
+	var seed_base_success: float = t.get("dial_seed_base_success", 0.0)
+	var base_max_charge: int = t.get("dial_base_max_charge", 0)
+	var base_recharge_rate: float = t.get("dial_base_recharge_rate", 0.0)
+	var recharge_combat_regen_turns: int = t.get("dial_recharge_combat_regen_turns", 0)
+	var recharge_combat_regen_amount: int = t.get("dial_recharge_combat_regen_amount", 0)
+	var hafts: Dictionary = t.get("dial_hafts", {})
+	var movements: Dictionary = t.get("dial_movements", {})
+	var attunement_bonus_by_tier: Array = t.get("dial_attunement_bonus_by_tier", [])
+	var capacity_by_level: Array = t.get("dial_capacity_by_level", [])
+	var xp_levels: Array = t.get("dial_xp_levels", [])
+	var max_charge_bonus_by_level: Array = t.get("dial_max_charge_bonus_by_level", [])
+	var recharge_rate_bonus_by_level: Array = t.get("dial_recharge_rate_bonus_by_level", [])
+
 	for ore_key in CANONICAL_ORE_TYPES:
 		if not seed_cost.has(ore_key):
 			errors.append("dial.seedCost: missing canonical ore type '%s'" % ore_key)
@@ -729,7 +807,14 @@ const CANONICAL_SITE_TIERS: Array[String] = ["barren", "poor", "fair", "rich", "
 const CANONICAL_SITE_BONUSES: Array[String] = ["vigour", "wildCeiling", "yield"]
 
 
-func _validate_sites(tier_order: Array, tier_weights: Dictionary, at_cap_tier_weights: Dictionary, prospect_xp: Dictionary, seed_tier_mod: Dictionary, discovery_bonus_pool: Array, errors: Array[String]) -> void:
+func _validate_sites(t: Dictionary, errors: Array[String]) -> void:
+	var tier_order: Array = t.get("site_tier_order", [])
+	var tier_weights: Dictionary = t.get("site_tier_weights", {})
+	var at_cap_tier_weights: Dictionary = t.get("site_at_cap_tier_weights", {})
+	var prospect_xp: Dictionary = t.get("site_prospect_xp", {})
+	var seed_tier_mod: Dictionary = t.get("site_seed_tier_mod", {})
+	var discovery_bonus_pool: Array = t.get("site_discovery_bonus_pool", [])
+
 	if tier_order != CANONICAL_SITE_TIERS:
 		errors.append("sites: tierOrder must be exactly %s, got %s" % [CANONICAL_SITE_TIERS, tier_order])
 	for tier in CANONICAL_SITE_TIERS:
@@ -780,7 +865,13 @@ func _validate_barometer(states: Dictionary, actions: Array, faction_prefs: Dict
 					errors.append("barometer.factionPrefs.%s: state '%s' does not exist in section '%s'" % [faction_id, pref["state"], pref["section"]])
 
 
-func _validate_enemies(raid_guards: Dictionary, home_raid_raider: Dictionary, combat_xp_levels: Array, combat_attack_bonus_by_level: Array, combat_speed_by_level: Array, errors: Array[String]) -> void:
+func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
+	var raid_guards: Dictionary = t.get("enemy_raid_guards", {})
+	var home_raid_raider: Dictionary = t.get("enemy_home_raid_raider", {})
+	var combat_xp_levels: Array = t.get("combat_xp_levels", [])
+	var combat_attack_bonus_by_level: Array = t.get("combat_attack_bonus_by_level", [])
+	var combat_speed_by_level: Array = t.get("combat_speed_by_level", [])
+
 	for key in raid_guards.keys():
 		_require_keys(raid_guards[key], ["name", "hpBase", "attackMin", "attackMax", "speed"], "enemies.raidGuards.%s" % key, errors)
 	_require_keys(home_raid_raider, ["name", "hp", "attackMin", "attackMax", "speed"], "enemies.homeRaidRaider", errors)
@@ -1218,21 +1309,25 @@ func _list_event_ids() -> Array[String]:
 	return ids
 
 
-func _load_json(path: String) -> Dictionary:
+# `table` is purely for error messages -- every MANIFEST group (and
+# _load_palette()/_load_events()) passes its table id so a missing/broken
+# file's error names the table it was meant to fill, not just its path.
+func _load_json(path: String, table: String = "") -> Dictionary:
+	var tag: String = " (table '%s')" % table if not table.is_empty() else ""
 	if not FileAccess.file_exists(path):
-		_load_errors.append("Missing data file: %s" % path)
+		_load_errors.append("Missing data file: %s%s" % [path, tag])
 		return {}
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		_load_errors.append("Could not open data file: %s (error %d)" % [path, FileAccess.get_open_error()])
+		_load_errors.append("Could not open data file: %s (error %d)%s" % [path, FileAccess.get_open_error(), tag])
 		return {}
 	var text := file.get_as_text()
 	var parsed = JSON.parse_string(text)
 	if parsed == null:
-		_load_errors.append("Failed to parse JSON: %s" % path)
+		_load_errors.append("Failed to parse JSON: %s%s" % [path, tag])
 		return {}
 	if typeof(parsed) != TYPE_DICTIONARY:
-		_load_errors.append("Expected a JSON object at top level: %s" % path)
+		_load_errors.append("Expected a JSON object at top level: %s%s" % [path, tag])
 		return {}
 	return _normalize_numbers(parsed)
 
