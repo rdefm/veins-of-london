@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # 32-load-game-button-on-title-screen: title screen tested against a real
 # TitleScreen instance, same screen-level pattern tests/test_phone_saveload.gd
 # uses for its slot rows. TEST_SLOT/cleanup convention matches that file too
@@ -8,20 +10,6 @@ extends "res://tests/test_base.gd"
 # that touches it.
 
 const TEST_SLOT := 1
-
-
-static func _find_button(root: Node, text: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text == text:
-			return b
-	return null
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
-	return texts
 
 
 static func _delete_all_slots() -> void:
@@ -36,9 +24,9 @@ func run() -> void:
 		var title := TitleScreen.new()
 		title._ready()
 
-		assert_true(_find_button(title, "New Game") != null, "New Game button must still be present")
-		assert_true(_find_button(title, "Load Game") != null, "Load Game button must be present")
-		assert_true(_find_button(title, "Debug Start") != null, "Debug Start button must still be present")
+		assert_true(NodeQuery.find_button(title, "New Game") != null, "New Game button must still be present")
+		assert_true(NodeQuery.find_button(title, "Load Game") != null, "Load Game button must be present")
+		assert_true(NodeQuery.find_button(title, "Debug Start") != null, "Debug Start button must still be present")
 
 		title.free()
 	)
@@ -50,7 +38,7 @@ func run() -> void:
 		var title := TitleScreen.new()
 		title._ready()
 
-		assert_true(_find_button(title, "Load Game").disabled, "Load Game must be disabled with no saves")
+		assert_true(NodeQuery.find_button(title, "Load Game").disabled, "Load Game must be disabled with no saves")
 
 		title.free()
 	)
@@ -63,7 +51,7 @@ func run() -> void:
 		var title := TitleScreen.new()
 		title._ready()
 
-		assert_true(not _find_button(title, "Load Game").disabled, "Load Game must be enabled once a slot exists")
+		assert_true(not NodeQuery.find_button(title, "Load Game").disabled, "Load Game must be enabled once a slot exists")
 
 		SaveManager.delete_slot(TEST_SLOT)
 		title.free()
@@ -81,10 +69,10 @@ func run() -> void:
 
 		assert_true(not title._slot_list.visible, "slot summary must stay hidden until Load Game is tapped")
 
-		_find_button(title, "Load Game").pressed.emit()
+		NodeQuery.find_button(title, "Load Game").pressed.emit()
 
 		assert_true(title._slot_list.visible, "tapping Load Game must reveal the slot summary")
-		var texts := _label_texts(title)
+		var texts := NodeQuery.label_texts(title)
 		assert_true(texts.has("Slot %d" % TEST_SLOT), "the summary must name the slot")
 		assert_true(texts.has("Day 3 · £555"), "the summary must show the saved day/cash")
 
@@ -105,12 +93,12 @@ func run() -> void:
 
 		var title := TitleScreen.new()
 		title._ready()
-		_find_button(title, "Load Game").pressed.emit()
+		NodeQuery.find_button(title, "Load Game").pressed.emit()
 
 		var received := [""]
 		var on_screen := func(screen: String): received[0] = screen
 		EventBus.screen_changed.connect(on_screen)
-		_find_button(title, "Load").pressed.emit()
+		NodeQuery.find_button(title, "Load").pressed.emit()
 		EventBus.screen_changed.disconnect(on_screen)
 
 		assert_eq(GameState.state["player"]["cash"], 4242, "loading must restore the saved cash")

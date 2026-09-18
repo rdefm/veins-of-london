@@ -1,16 +1,11 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # bugfixes-38: Reynard's (the Bank app) -- balance readout + the full
 # transaction log Bank.record() builds (GameState.state["bankLog"]),
 # screen-level-tested against a real PhoneScreen instance, same
 # headless-scene pattern as tests/test_phone_notifications.gd.
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
-	return texts
 
 
 func run() -> void:
@@ -22,7 +17,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_true(_label_texts(phone).has("£1234"), "the balance card shows player.cash")
+		assert_true(NodeQuery.label_texts(phone).has("£1234"), "the balance card shows player.cash")
 
 		phone.free()
 	)
@@ -34,7 +29,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_true(_label_texts(phone).has("No transactions yet."), "an empty log shows an empty-state message")
+		assert_true(NodeQuery.label_texts(phone).has("No transactions yet."), "an empty log shows an empty-state message")
 
 		phone.free()
 	)
@@ -53,7 +48,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("First") and texts.has("+£100"), "First's row renders with its signed amount")
 		assert_true(texts.has("Second") and texts.has("-£50"), "Second's row renders with its signed amount")
 		assert_true(texts.has("Third") and texts.has("+£200"), "Third's row renders with its signed amount")
@@ -78,7 +73,7 @@ func run() -> void:
 
 		assert_eq(GameState.state["bankLog"].size(), Bank.LOG_CAP, "sanity: the underlying log is capped at 50")
 
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.label_texts(phone)
 		assert_true(not texts.has("Transaction 0"), "entries evicted from the log below the cap must not render")
 		assert_true(texts.has("Transaction 54") and texts.has("+£54"), "the newest entry renders")
 

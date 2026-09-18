@@ -1,5 +1,8 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+const SeedSearch := preload("res://tests/support/seed_search.gd")
+
 # collective1-02, spec.md §5.1/§12.2: the objectives engine. Objectives are
 # installed as synthetic GameData.OBJECTIVES entries (same pattern
 # tests/test_events.gd / tests/test_district_deck.gd use for synthetic
@@ -15,44 +18,11 @@ func _objective(id: String, type: String, params: Dictionary, activate_flag: Str
 	}
 
 
-# Installs `entries` (id -> def) into a duplicated GameData.OBJECTIVES.
-# Returns the original for restoration.
-func _install_objectives(entries: Dictionary) -> Dictionary:
-	var original: Dictionary = GameData.OBJECTIVES
-	GameData.OBJECTIVES = entries.duplicate(true)
-	return original
-
-
-func _site(id: String, ore_type: String, tier: String, claimed: bool = false, faction_vein: Variant = null) -> Dictionary:
-	return {
-		"id": id, "district": "shoreditch", "tier": tier, "oreType": ore_type,
-		"bonuses": [], "discoveredDay": 1, "claimed": claimed, "factionVein": faction_vein,
-		"hasNaturalVein": false,
-	}
-
-
-func _faction_vein(faction_id: String, ore_type: String, claimed_on_day: int, sold_by_player: bool) -> Dictionary:
+func _faction_vein_sold(faction_id: String, ore_type: String, claimed_on_day: int, sold_by_player: bool) -> Dictionary:
 	return {
 		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "growth": 30,
 		"rampantDays": 0, "security": "none", "claimedOnDay": claimed_on_day,
 		"hospitability": { "tier": "fair", "bonuses": [] }, "soldByPlayer": sold_by_player,
-	}
-
-
-static func _find_seed_for(max_tries: int, fn: Callable) -> int:
-	for seed in range(max_tries):
-		Rng.set_seed(seed)
-		if fn.call():
-			return seed
-	return -1
-
-
-func _vein(id: String, growth: int) -> Dictionary:
-	return {
-		"id": id, "oreType": "time", "growth": growth, "security": "none",
-		"alarmUpgrades": [], "location": "Test St, nowhere", "claimedOnDay": 1,
-		"district": "shoreditch", "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
-		"rampantDays": 0,
 	}
 
 
@@ -61,7 +31,7 @@ func run() -> void:
 
 	run_case("refresh_leaves_an_objective_inactive_until_its_activateFlag_is_true", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }),
 		})
 		Objectives.refresh()
@@ -73,7 +43,7 @@ func run() -> void:
 	run_case("refresh_activates_once_the_flag_is_true_and_stamps_activatedDay", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 7
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": ["fate"], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
@@ -92,7 +62,7 @@ func run() -> void:
 
 	run_case("sites_discovered_matching_completes_once_every_required_ore_type_has_been_reported", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": ["fate", "physics"], "minTier": "fair", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
@@ -113,7 +83,7 @@ func run() -> void:
 
 	run_case("sites_discovered_matching_vacuous_with_no_required_ore_types", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
@@ -126,18 +96,18 @@ func run() -> void:
 	# by report_des_site() and Collective.maybe_trigger_weather_beat().
 	run_case("site_matches_discovery_params_checks_ore_type_minTier_and_unclaimed", func():
 		var params := { "minTier": "fair", "unclaimed": true }
-		assert_true(Objectives.site_matches_discovery_params(_site("s1", "fate", "fair"), "fate", params), "matching ore type, at minTier, unclaimed")
-		assert_eq(Objectives.site_matches_discovery_params(_site("s2", "physics", "fair"), "fate", params), false, "wrong ore type")
-		assert_eq(Objectives.site_matches_discovery_params(_site("s3", "fate", "poor"), "fate", params), false, "below minTier")
-		assert_eq(Objectives.site_matches_discovery_params(_site("s4", "fate", "fair", true), "fate", params), false, "claimed")
-		assert_eq(Objectives.site_matches_discovery_params(_site("s5", "fate", "fair", false, _faction_vein("collective", "fate", 1, false)), "fate", params), false, "faction-owned")
+		assert_true(Objectives.site_matches_discovery_params(Fixtures.site("s1", "fate", "fair"), "fate", params), "matching ore type, at minTier, unclaimed")
+		assert_eq(Objectives.site_matches_discovery_params(Fixtures.site("s2", "physics", "fair"), "fate", params), false, "wrong ore type")
+		assert_eq(Objectives.site_matches_discovery_params(Fixtures.site("s3", "fate", "poor"), "fate", params), false, "below minTier")
+		assert_eq(Objectives.site_matches_discovery_params(Fixtures.site("s4", "fate", "fair", true), "fate", params), false, "claimed")
+		assert_eq(Objectives.site_matches_discovery_params(Fixtures.site("s5", "fate", "fair", false, _faction_vein_sold("collective", "fate", 1, false)), "fate", params), false, "faction-owned")
 	)
 
 	# ── traded_with_faction ──────────────────────────────────────────────
 
 	run_case("traded_with_faction_requires_both_cumulative_units_and_distinct_transaction_count", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "traded_with_faction", { "factionId": "collective", "oreType": "emotion", "qty": 10, "minTransactions": 2 }),
 		})
 		GameState.state["flags"]["testActive"] = true
@@ -154,7 +124,7 @@ func run() -> void:
 
 	run_case("traded_with_faction_only_counts_trade_since_activation", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "traded_with_faction", { "factionId": "collective", "oreType": "emotion", "qty": 10, "minTransactions": 1 }),
 		})
 		# Trade happens BEFORE the objective's activateFlag is ever set.
@@ -169,7 +139,7 @@ func run() -> void:
 
 	run_case("traded_with_faction_different_ore_type_or_faction_does_not_count", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "traded_with_faction", { "factionId": "collective", "oreType": "emotion", "qty": 5, "minTransactions": 1 }),
 		})
 		GameState.state["flags"]["testActive"] = true
@@ -190,13 +160,13 @@ func run() -> void:
 
 	run_case("vein_sold_to_faction_requires_the_soldByPlayer_marker", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "vein_sold_to_faction", { "factionId": "collective", "oreType": "emotion" }),
 		})
 		GameState.state["flags"]["testActive"] = true
 		Objectives.refresh()
 
-		GameState.state["world"]["sites"] = [_site("s1", "emotion", "fair", false, _faction_vein("collective", "emotion", 1, false))]
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "emotion", "fair", false, _faction_vein_sold("collective", "emotion", 1, false))]
 		Objectives.refresh()
 		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "a faction vein that wasn't sold by the player (e.g. natural expansion) doesn't count")
 
@@ -209,10 +179,10 @@ func run() -> void:
 	run_case("vein_sold_to_faction_ignores_a_sale_that_predates_activation", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 10
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "vein_sold_to_faction", { "factionId": "collective", "oreType": "emotion" }),
 		})
-		GameState.state["world"]["sites"] = [_site("s1", "emotion", "fair", false, _faction_vein("collective", "emotion", 3, true))]
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "emotion", "fair", false, _faction_vein_sold("collective", "emotion", 3, true))]
 		GameState.state["flags"]["testActive"] = true
 		Objectives.refresh()  # activates at day 10; sale's claimedOnDay 3 predates it
 		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "a sale that predates activation must not retroactively complete the objective")
@@ -223,10 +193,10 @@ func run() -> void:
 
 	run_case("vein_growth_above_reads_the_vein_id_from_the_named_state_path", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "vein_growth_above", { "veinIdStatePath": "testVeinId", "threshold": 60 }),
 		})
-		GameState.state["player"]["veins"] = [_vein("v1", 40)]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein("v1", "s1", "shoreditch", "time", 40, "fair")]
 		GameState.state["testVeinId"] = "v1"
 		GameState.state["flags"]["testActive"] = true
 
@@ -241,7 +211,7 @@ func run() -> void:
 
 	run_case("vein_growth_above_missing_vein_is_incomplete_not_a_crash", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "vein_growth_above", { "veinIdStatePath": "testVeinId", "threshold": 60 }),
 		})
 		GameState.state["testVeinId"] = "does_not_exist"
@@ -255,11 +225,11 @@ func run() -> void:
 
 	run_case("refresh_is_idempotent", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": ["fate"], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
-		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "fate", "fair")]
 
 		Objectives.refresh()
 		var after_first: Dictionary = GameState.deep_copy(GameState.state["objectives"])
@@ -271,7 +241,7 @@ func run() -> void:
 
 	run_case("refresh_never_awards_cash_relation_or_anything_else", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": ["fate"], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
@@ -290,7 +260,7 @@ func run() -> void:
 
 	run_case("a_complete_objective_is_never_re_evaluated", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": ["fate"], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
@@ -311,7 +281,7 @@ func run() -> void:
 
 	run_case("prospect_calls_objectives_refresh", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
@@ -323,11 +293,11 @@ func run() -> void:
 
 	run_case("cultivate_calls_objectives_refresh", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
-		GameState.state["player"]["veins"] = [_vein("test_vein", 20)]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein("test_vein", "s1", "shoreditch", "time", 20, "fair")]
 		Cultivating.cultivate("test_vein")
 		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "Cultivating.cultivate() should trigger a refresh regardless of success/fail")
 		GameData.OBJECTIVES = original
@@ -335,11 +305,11 @@ func run() -> void:
 
 	run_case("prune_calls_objectives_refresh", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
-		GameState.state["player"]["veins"] = [_vein("test_vein", 20)]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein("test_vein", "s1", "shoreditch", "time", 20, "fair")]
 		Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneLightDepth"])
 		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "Cultivating.prune() should trigger a refresh")
 		GameData.OBJECTIVES = original
@@ -348,7 +318,7 @@ func run() -> void:
 	run_case("archie_sale_completion_calls_objectives_refresh", func():
 		var original: Dictionary = GameData.OBJECTIVES
 		var test_objectives := { "t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }) }
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameData.OBJECTIVES = test_objectives
 			GameState.state["flags"]["testActive"] = true
@@ -364,7 +334,7 @@ func run() -> void:
 	run_case("archie_mugged_sale_completion_calls_objectives_refresh", func():
 		var original: Dictionary = GameData.OBJECTIVES
 		var test_objectives := { "t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }) }
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameData.OBJECTIVES = test_objectives
 			GameState.state["flags"]["testActive"] = true
@@ -381,7 +351,7 @@ func run() -> void:
 
 	run_case("faction_sale_completion_calls_objectives_refresh", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
@@ -393,12 +363,12 @@ func run() -> void:
 
 	run_case("vein_sale_completion_calls_objectives_refresh", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true
-		GameState.state["world"]["sites"] = [_site("s1", "time", "fair", true)]
-		GameState.state["player"]["veins"] = [_vein("test_vein", 20)]
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "time", "fair", true)]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein("test_vein", "s1", "shoreditch", "time", 20, "fair")]
 		VeinTrade.sell_to_faction("test_vein", "collective")
 		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "VeinTrade.sell_to_faction() should trigger a refresh")
 		GameData.OBJECTIVES = original
@@ -406,7 +376,7 @@ func run() -> void:
 
 	run_case("daily_tick_calls_objectives_refresh", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }),
 		})
 		GameState.state["flags"]["testActive"] = true

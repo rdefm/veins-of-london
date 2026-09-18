@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # Ticket 12: tapping outside the Bag drawer (_dim's gui_input) must close it,
 # same as its own Close button — which is a bare Bag.close() with no other
 # side effect (unlike sell_menu/james_job_offer in ModalLayer).
@@ -9,9 +11,7 @@ extends "res://tests/test_base.gd"
 # relies on for MapControls.
 #
 # 05-bag-drawer-promotion: management-mode gating and the ported
-# equip/unequip weapon actions. Helpers below mirror tests/test_inventory.gd's
-# _label_texts/_find_button_in_card, since this drawer now renders the same
-# equip card that screen did.
+# equip/unequip weapon actions, queried via tests/support/node_query.gd.
 #
 # hq-diorama ticket 09: the Dial-lifecycle half of this file (seat/unseat
 # Movement, wind, load/unload Complications, and their own _fresh_dial()
@@ -19,44 +19,6 @@ extends "res://tests/test_base.gd"
 # tests/test_hq_dial.gd, covering the new scenes/screens/hq_dial.gd screen.
 # This file keeps only the read-only Dial-summary assertions (still rendered
 # by _build_dial_summary_label(), untouched by that ticket).
-
-
-# Ticket 114: symbol_row()/symbol_button() split what used to be one Label's
-# raw-symbol string into a Label per text part plus a SymbolGlyph glyph (see
-# ui.gd's own comment on symbol_row()) -- reconstructs the row's displayed
-# text by walking a symbol_row/symbol_button's direct children in order,
-# substituting SymbolGlyph.symbol for the glyph's drawn text, with no
-# separator added (call sites already author any needed space into their
-# text parts; the hbox's own pixel gap covers the rest visually).
-static func _effective_text(control: Control) -> String:
-	var out := ""
-	for child in control.get_children():
-		if child is SymbolGlyph:
-			out += (child as SymbolGlyph).symbol
-		elif child is Label:
-			out += (child as Label).text
-	return out
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
-	for g in root.find_children("", "SymbolGlyph", true, false):
-		var parent := (g as SymbolGlyph).get_parent() as Control
-		if parent:
-			texts.append(_effective_text(parent))
-	return texts
-
-
-static func _find_button(root: Node, button_text: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		var btn := b as Button
-		if btn.text == button_text:
-			return btn
-		if btn.get_child_count() > 0 and _effective_text(btn.get_child(0) as Control) == button_text:
-			return btn
-	return null
 
 
 # Mirrors tests/test_events.gd's _install_choice_event: installs a synthetic
@@ -116,7 +78,7 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(_find_button(drawer, "Equip") != null, "an unequipped weapon should get an Equip button")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Equip") != null, "an unequipped weapon should get an Equip button")
 		assert_eq(drawer._card.offset_top, -BagDrawer.MANAGEMENT_DRAWER_HEIGHT, "drawer grows to the management height")
 
 		drawer.free()
@@ -131,9 +93,9 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(_find_button(drawer, "Equip") == null, "no Equip button during combat")
-		assert_true(_label_texts(drawer).has("Weapon: none equipped"), "falls back to the read-only equipped summary")
-		assert_true(_label_texts(drawer).has("Dial: none"), "falls back to the read-only Dial summary")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Equip") == null, "no Equip button during combat")
+		assert_true(NodeQuery.label_texts_with_symbols(drawer).has("Weapon: none equipped"), "falls back to the read-only equipped summary")
+		assert_true(NodeQuery.label_texts_with_symbols(drawer).has("Dial: none"), "falls back to the read-only Dial summary")
 		assert_eq(drawer._card.offset_top, -BagDrawer.DRAWER_HEIGHT, "drawer stays the short read-only height")
 
 		drawer.free()
@@ -148,7 +110,7 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(_find_button(drawer, "Equip") == null, "no Equip button while the current event card carries itemHooks")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Equip") == null, "no Equip button while the current event card carries itemHooks")
 		assert_eq(drawer._card.offset_top, -BagDrawer.DRAWER_HEIGHT, "drawer stays the short read-only height")
 
 		drawer.free()
@@ -164,10 +126,10 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		_find_button(drawer, "Equip").pressed.emit()
+		NodeQuery.find_button_by_effective_text(drawer, "Equip").pressed.emit()
 		assert_eq(GameState.state["player"]["equipment"]["weapon"], "item1", "drawer's Equip button should equip via Equipment.equip_weapon")
 
-		_find_button(drawer, "Unequip").pressed.emit()
+		NodeQuery.find_button_by_effective_text(drawer, "Unequip").pressed.emit()
 		assert_eq(GameState.state["player"]["equipment"]["weapon"], null, "drawer's Unequip button should unequip via Equipment.unequip_weapon")
 
 		drawer.free()
@@ -187,8 +149,8 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(_find_button(drawer, "♥Healing Salve (1) — 2-day heal-over-time") != null, "healingSalve should get a Use button outside combat/events")
-		assert_true(_find_button(drawer, "✚Healing Burst (1) — instant heal") != null, "healingBurst should get a Use button outside combat/events")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "♥Healing Salve (1) — 2-day heal-over-time") != null, "healingSalve should get a Use button outside combat/events")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "✚Healing Burst (1) — instant heal") != null, "healingBurst should get a Use button outside combat/events")
 
 		drawer.free()
 	)
@@ -204,7 +166,7 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(_find_button(drawer, "♥Healing Salve (1) — 2-day heal-over-time") == null, "no out-of-combat healingSalve Use button during combat")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "♥Healing Salve (1) — 2-day heal-over-time") == null, "no out-of-combat healingSalve Use button during combat")
 
 		drawer.free()
 	)
@@ -219,7 +181,7 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(_find_button(drawer, "♥Healing Salve (1) — 2-day heal-over-time") == null, "no out-of-combat healingSalve Use button while the current event card carries itemHooks")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "♥Healing Salve (1) — 2-day heal-over-time") == null, "no out-of-combat healingSalve Use button while the current event card carries itemHooks")
 
 		drawer.free()
 		GameData.EVENTS = original_events
@@ -237,7 +199,7 @@ func run() -> void:
 		drawer._ready()
 
 		Rng.set_seed(1)
-		var button := _find_button(drawer, "♥Healing Salve (1) — 2-day heal-over-time")
+		var button := NodeQuery.find_button_by_effective_text(drawer, "♥Healing Salve (1) — 2-day heal-over-time")
 		button.pressed.emit()
 
 		assert_eq(Crafting.inventory_qty("healingSalve"), 0, "pressing Use should consume the item via Consumables.use_healing_salve()")
@@ -258,9 +220,9 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		var joined := "\n".join(_label_texts(drawer))
+		var joined := "\n".join(NodeQuery.label_texts_with_symbols(drawer))
 		assert_true(joined.contains("Healing Salve active"), "an active HoT should stay visible even once stock (qty 0) stops offering a Use button")
-		assert_true(_find_button(drawer, "♥Healing Salve (0) — 2-day heal-over-time") == null, "no Use button once stock is 0")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "♥Healing Salve (0) — 2-day heal-over-time") == null, "no Use button once stock is 0")
 
 		drawer.free()
 	)

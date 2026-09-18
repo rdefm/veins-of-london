@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # Bugfixes ticket 03: tapping the dimmed backdrop behind the site/vein sheet
 # closes it, same as the sheet's own Close button. MapScreen.new() is safe to
 # call methods on without _ready()/adding it to a live tree — same reasoning
@@ -19,22 +21,7 @@ static func _buttons_labelled(root: Node, text: String) -> Array:
 	return found
 
 
-# vein-growth-state ticket 08: fixtures rewritten from the old level/
-# charged/devBar vein shape to the growth model (Cultivating.make_vein()'s
-# shape).
-static func _player_vein(overrides: Dictionary = {}) -> Dictionary:
-	var vein := {
-		"id": "v1", "oreType": "time", "growth": 20, "security": "none",
-		"alarmUpgrades": [], "location": "Test Alley", "claimedOnDay": 1,
-		"district": "shoreditch", "siteId": "s1", "rampantDays": 0,
-		"hospitability": { "tier": "fair", "bonuses": [] },
-	}
-	for key in overrides:
-		vein[key] = overrides[key]
-	return vein
-
-
-static func _faction_vein(overrides: Dictionary = {}) -> Dictionary:
+static func _faction_vein_with(overrides: Dictionary = {}) -> Dictionary:
 	var vein := {
 		"id": "fv1", "factionId": "firm", "oreType": "physics", "growth": 20,
 		"security": "warded", "alarmUpgrades": [], "location": "Test Alley",
@@ -148,7 +135,7 @@ func run() -> void:
 	# no longer needs a "charged" vein, just any vein.
 	run_case("vein_action_row_wraps_instead_of_a_fixed_hbox", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 90 })
+		var vein := Fixtures.player_vein_with({ "growth": 90 })
 
 		var screen := MapScreen.new()
 		var card: Control = screen._build_vein_action_card(vein)
@@ -197,7 +184,7 @@ func run() -> void:
 	# yields 0 ore). Only time-block affordability can disable it now.
 	run_case("prune_buttons_stay_present_and_enabled_even_when_projected_yield_is_zero", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 40 })  # thinning band, below neutral: nothing to prune
+		var vein := Fixtures.player_vein_with({ "growth": 40 })  # thinning band, below neutral: nothing to prune
 
 		var screen := MapScreen.new()
 		var card: Control = screen._build_vein_action_card(vein)
@@ -219,7 +206,7 @@ func run() -> void:
 
 	run_case("prune_button_labels_surface_the_projected_yield_and_stay_enabled_above_neutral", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 90 })  # wild band, well above neutral
+		var vein := Fixtures.player_vein_with({ "growth": 90 })  # wild band, well above neutral
 
 		var screen := MapScreen.new()
 		var card: Control = screen._build_vein_action_card(vein)
@@ -239,7 +226,7 @@ func run() -> void:
 
 	run_case("collapsed_vein_gets_the_danger_warning_and_keeps_cultivate_enabled_as_the_rescue", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 0 })
+		var vein := Fixtures.player_vein_with({ "growth": 0 })
 
 		var screen := MapScreen.new()
 		var card: Control = screen._build_vein_action_card(vein)
@@ -259,7 +246,7 @@ func run() -> void:
 
 	run_case("vein_action_card_shows_a_days_to_wall_figure_for_a_drifting_vein", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 90 })
+		var vein := Fixtures.player_vein_with({ "growth": 90 })
 
 		var screen := MapScreen.new()
 		var card: Control = screen._build_vein_action_card(vein)
@@ -278,7 +265,7 @@ func run() -> void:
 	run_case("vein_action_card_shows_a_procurement_pointer_instead_of_vein_station_controls", func():
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("veinStation")
-		var vein := _player_vein()
+		var vein := Fixtures.player_vein_with()
 
 		var screen := MapScreen.new()
 		var card: Control = screen._build_vein_action_card(vein)
@@ -294,7 +281,7 @@ func run() -> void:
 
 	run_case("vein_action_card_omits_the_procurement_pointer_when_the_vein_station_room_is_not_built", func():
 		GameState.reset()
-		var vein := _player_vein()
+		var vein := Fixtures.player_vein_with()
 
 		var screen := MapScreen.new()
 		var card: Control = screen._build_vein_action_card(vein)
@@ -310,7 +297,7 @@ func run() -> void:
 
 	run_case("defend_button_shown_on_a_vein_with_a_pending_defend_raid", func():
 		GameState.reset()
-		var vein := _player_vein()
+		var vein := Fixtures.player_vein_with()
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": vein["id"], "siteId": vein["siteId"], "success": true }]
 
 		var screen := MapScreen.new()
@@ -326,7 +313,7 @@ func run() -> void:
 
 	run_case("defend_button_absent_when_no_pending_defend_raid", func():
 		GameState.reset()
-		var vein := _player_vein()
+		var vein := Fixtures.player_vein_with()
 
 		var screen := MapScreen.new()
 		var card: Control = screen._build_vein_action_card(vein)
@@ -339,7 +326,7 @@ func run() -> void:
 
 	run_case("defend_button_ignores_a_pending_raid_queued_for_a_different_vein", func():
 		GameState.reset()
-		var vein := _player_vein()
+		var vein := Fixtures.player_vein_with()
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "some_other_vein", "siteId": "s_other", "success": true }]
 
 		var screen := MapScreen.new()
@@ -353,7 +340,7 @@ func run() -> void:
 
 	run_case("defend_button_tap_triggers_the_defend_combat_immediately", func():
 		GameState.reset()
-		var vein := _player_vein()
+		var vein := Fixtures.player_vein_with()
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [{ "id": vein["siteId"], "district": vein["district"], "tier": "fair", "oreType": vein["oreType"], "bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null, "hasNaturalVein": false }]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": vein["id"], "siteId": vein["siteId"], "success": true }]
@@ -374,7 +361,7 @@ func run() -> void:
 
 	run_case("raid_button_present_and_enabled_on_a_faction_vein_site_with_blocks_remaining", func():
 		GameState.reset()
-		var faction_vein := _faction_vein()
+		var faction_vein := _faction_vein_with()
 
 		var screen := MapScreen.new()
 		var content := UI.vbox()
@@ -391,7 +378,7 @@ func run() -> void:
 	run_case("raid_button_disabled_when_time_exhausted", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var faction_vein := _faction_vein()
+		var faction_vein := _faction_vein_with()
 
 		var screen := MapScreen.new()
 		var content := UI.vbox()
@@ -408,7 +395,7 @@ func run() -> void:
 
 	run_case("bring_archie_toggle_hidden_when_archie_ineligible", func():
 		GameState.reset()
-		var faction_vein := _faction_vein()
+		var faction_vein := _faction_vein_with()
 
 		var screen := MapScreen.new()
 		var content := UI.vbox()
@@ -424,7 +411,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		GameState.state["contacts"]["archie"]["relation"] = 50
-		var faction_vein := _faction_vein()
+		var faction_vein := _faction_vein_with()
 
 		var screen := MapScreen.new()
 		var content := UI.vbox()
@@ -464,7 +451,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		GameState.state["player"]["cash"] = 100000
-		var faction_vein := _faction_vein()
+		var faction_vein := _faction_vein_with()
 
 		var screen := MapScreen.new()
 		var content := UI.vbox()
@@ -480,7 +467,7 @@ func run() -> void:
 
 	run_case("buy_button_absent_on_site_sheet_when_vein_sale_locked", func():
 		GameState.reset()
-		var faction_vein := _faction_vein()
+		var faction_vein := _faction_vein_with()
 
 		var screen := MapScreen.new()
 		var content := UI.vbox()
@@ -496,7 +483,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		GameState.state["player"]["cash"] = 0
-		var faction_vein := _faction_vein()
+		var faction_vein := _faction_vein_with()
 
 		var screen := MapScreen.new()
 		var content := UI.vbox()
@@ -513,7 +500,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		GameState.state["player"]["cash"] = 100000
-		var faction_vein := _faction_vein()
+		var faction_vein := _faction_vein_with()
 		GameState.state["world"]["sites"] = [{
 			"id": faction_vein["siteId"], "district": faction_vein["district"], "tier": "fair",
 			"oreType": faction_vein["oreType"], "bonuses": [], "discoveredDay": 1,
@@ -538,7 +525,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		GameState.state["player"]["cash"] = 100000
-		var faction_vein := _faction_vein()
+		var faction_vein := _faction_vein_with()
 		var site := {
 			"id": faction_vein["siteId"], "district": faction_vein["district"], "tier": "fair",
 			"oreType": faction_vein["oreType"], "bonuses": [], "discoveredDay": 1,
@@ -575,7 +562,7 @@ func run() -> void:
 
 	run_case("buy_button_absent_on_district_site_row_when_sale_locked", func():
 		GameState.reset()
-		var faction_vein := _faction_vein()
+		var faction_vein := _faction_vein_with()
 		var site := {
 			"id": faction_vein["siteId"], "district": faction_vein["district"], "tier": "fair",
 			"oreType": faction_vein["oreType"], "bonuses": [], "discoveredDay": 1,
@@ -706,7 +693,7 @@ func run() -> void:
 	run_case("station_bubble_options_cultivate_keeps_its_cost_label_even_when_no_blocks_remain", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var vein := _player_vein()
+		var vein := Fixtures.player_vein_with()
 		var stop := { "kind": "vein", "vein": vein, "owner": "player", "site": { "id": "s1" } }
 		var screen := MapScreen.new()
 
@@ -722,7 +709,7 @@ func run() -> void:
 
 	run_case("station_bubble_options_cultivate_label_swaps_to_vein_at_ceiling_at_the_ceiling", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 100 })  # fair tier, no wildCeiling bonus -- ceiling is 100
+		var vein := Fixtures.player_vein_with({ "growth": 100 })  # fair tier, no wildCeiling bonus -- ceiling is 100
 		var stop := { "kind": "vein", "vein": vein, "owner": "player", "site": { "id": "s1" } }
 		var screen := MapScreen.new()
 
@@ -736,7 +723,7 @@ func run() -> void:
 
 	run_case("station_bubble_options_prune_labels_surface_the_projected_yield", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 90 })
+		var vein := Fixtures.player_vein_with({ "growth": 90 })
 		var stop := { "kind": "vein", "vein": vein, "owner": "player", "site": { "id": "s1" } }
 		var screen := MapScreen.new()
 
@@ -754,7 +741,7 @@ func run() -> void:
 
 	run_case("station_bubble_options_manage_label_shows_band_and_days_to_wall_for_a_player_vein", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 90 })  # wild band
+		var vein := Fixtures.player_vein_with({ "growth": 90 })  # wild band
 		var stop := { "kind": "vein", "vein": vein, "owner": "player", "site": { "id": "s1" } }
 		var screen := MapScreen.new()
 
@@ -770,7 +757,7 @@ func run() -> void:
 
 	run_case("station_bubble_options_manage_label_warns_plainly_for_a_collapsed_vein", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 0 })
+		var vein := Fixtures.player_vein_with({ "growth": 0 })
 		var stop := { "kind": "vein", "vein": vein, "owner": "player", "site": { "id": "s1" } }
 		var screen := MapScreen.new()
 

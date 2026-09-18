@@ -1,19 +1,12 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
 
-static func _faction_vein_of(level: int, ore_type: String, claimed_on_day: int, faction_id: String = "collective", security: String = "none") -> Dictionary:
+static func _faction_vein_claimed_on(level: int, ore_type: String, claimed_on_day: int, faction_id: String = "collective", security: String = "none") -> Dictionary:
 	return {
 		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "growth": 20 * level - 10,
 		"rampantDays": 0, "security": security, "claimedOnDay": claimed_on_day,
 		"hospitability": { "tier": "fair", "bonuses": [] },
-	}
-
-
-static func _site_with_vein(id: String, vein: Dictionary) -> Dictionary:
-	return {
-		"id": id, "district": "shoreditch", "tier": "fair", "oreType": vein["oreType"],
-		"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
-		"hasNaturalVein": false,
 	}
 
 
@@ -202,11 +195,11 @@ func run() -> void:
 		# ore-value axis from the faction-identity axis (no passive-income
 		# noise since only apply_vein_income runs here).
 		GameState.reset()
-		var cheap_vein := _faction_vein_of(1, "physics", 0, "guild")  # basePrice 55
-		var rich_vein := _faction_vein_of(1, "fate", 0, "firm")       # basePrice 90
+		var cheap_vein := _faction_vein_claimed_on(1, "physics", 0, "guild")  # basePrice 55
+		var rich_vein := _faction_vein_claimed_on(1, "fate", 0, "firm")       # basePrice 90
 		GameState.state["world"]["sites"] = [
-			_site_with_vein("cheap_site", cheap_vein),
-			_site_with_vein("rich_site", rich_vein),
+			Fixtures.site_with_vein("cheap_site", cheap_vein),
+			Fixtures.site_with_vein("rich_site", rich_vein),
 		]
 		Factions.apply_vein_income()
 		var guild_income: int = GameState.state["factions"]["guild"]["resources"] - GameData.FACTIONS["guild"]["startingResources"]
@@ -216,11 +209,11 @@ func run() -> void:
 
 	run_case("apply_vein_income_matches_the_documented_basePrice_times_level_formula", func():
 		GameState.reset()
-		var cheap_vein := _faction_vein_of(1, "physics", 0)   # basePrice 55
-		var rich_vein := _faction_vein_of(1, "fate", 0)       # basePrice 90 (both collective, distinct site ids)
+		var cheap_vein := _faction_vein_claimed_on(1, "physics", 0)   # basePrice 55
+		var rich_vein := _faction_vein_claimed_on(1, "fate", 0)       # basePrice 90 (both collective, distinct site ids)
 		GameState.state["world"]["sites"] = [
-			_site_with_vein("cheap_site", cheap_vein),
-			_site_with_vein("rich_site", rich_vein),
+			Fixtures.site_with_vein("cheap_site", cheap_vein),
+			Fixtures.site_with_vein("rich_site", rich_vein),
 		]
 		Factions.apply_vein_income()
 		var collective_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
@@ -229,14 +222,14 @@ func run() -> void:
 
 	run_case("apply_vein_income_scales_with_vein_level", func():
 		GameState.reset()
-		var lv1_vein := _faction_vein_of(1, "time", 0)
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", lv1_vein)]
+		var lv1_vein := _faction_vein_claimed_on(1, "time", 0)
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", lv1_vein)]
 		Factions.apply_vein_income()
 		var lv1_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
 
 		GameState.reset()
-		var lv5_vein := _faction_vein_of(5, "time", 0)
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", lv5_vein)]
+		var lv5_vein := _faction_vein_claimed_on(5, "time", 0)
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", lv5_vein)]
 		Factions.apply_vein_income()
 		var lv5_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
 
@@ -245,15 +238,15 @@ func run() -> void:
 
 	run_case("apply_vein_income_more_veins_out_earns_fewer_veins", func():
 		GameState.reset()
-		var one_vein := _faction_vein_of(2, "life", 0)
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", one_vein)]
+		var one_vein := _faction_vein_claimed_on(2, "life", 0)
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", one_vein)]
 		Factions.apply_vein_income()
 		var one_vein_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
 
 		GameState.reset()
-		var vein_a := _faction_vein_of(2, "life", 0)
-		var vein_b := _faction_vein_of(2, "life", 0)
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein_a), _site_with_vein("s2", vein_b)]
+		var vein_a := _faction_vein_claimed_on(2, "life", 0)
+		var vein_b := _faction_vein_claimed_on(2, "life", 0)
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein_a), Fixtures.site_with_vein("s2", vein_b)]
 		Factions.apply_vein_income()
 		var two_vein_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
 
@@ -263,8 +256,8 @@ func run() -> void:
 	run_case("apply_vein_income_skips_a_vein_claimed_this_same_tick", func():
 		GameState.reset()
 		var today: int = GameState.state["world"]["day"]
-		var fresh_vein := _faction_vein_of(1, "fate", today)  # claimedOnDay == today
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", fresh_vein)]
+		var fresh_vein := _faction_vein_claimed_on(1, "fate", today)  # claimedOnDay == today
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", fresh_vein)]
 		var before: int = GameState.state["factions"]["collective"]["resources"]
 		Factions.apply_vein_income()
 		var after: int = GameState.state["factions"]["collective"]["resources"]
@@ -291,8 +284,8 @@ func run() -> void:
 
 	run_case("apply_security_upgrades_upgrades_an_affordable_eligible_vein_and_charges_its_cost", func():
 		GameState.reset()
-		var vein := _faction_vein_of(1, "physics", 0, "collective")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_claimed_on(1, "physics", 0, "collective")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		GameState.state["factions"]["collective"]["resources"] = 1000
 
 		Factions.apply_security_upgrades()
@@ -303,8 +296,8 @@ func run() -> void:
 
 	run_case("apply_security_upgrades_is_a_no_op_when_balance_cant_afford_the_upgrade", func():
 		GameState.reset()
-		var vein := _faction_vein_of(1, "physics", 0, "collective")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_claimed_on(1, "physics", 0, "collective")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		GameState.state["factions"]["collective"]["resources"] = 5  # below basic's cost of 20
 
 		Factions.apply_security_upgrades()
@@ -315,9 +308,9 @@ func run() -> void:
 
 	run_case("apply_security_upgrades_never_targets_a_vein_already_at_guarded", func():
 		GameState.reset()
-		var vein := _faction_vein_of(1, "physics", 0, "collective")
+		var vein := _faction_vein_claimed_on(1, "physics", 0, "collective")
 		vein["security"] = "guarded"
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		GameState.state["factions"]["collective"]["resources"] = 100000
 		var before: int = GameState.state["factions"]["collective"]["resources"]
 
@@ -333,11 +326,11 @@ func run() -> void:
 		# priority rule picks the higher basePrice*level vein (fate, 90) over
 		# the lower one (physics, 55).
 		GameState.reset()
-		var cheap_vein := _faction_vein_of(1, "physics", 0, "collective")
+		var cheap_vein := _faction_vein_claimed_on(1, "physics", 0, "collective")
 		cheap_vein["id"] = "cheap_v"
-		var rich_vein := _faction_vein_of(1, "fate", 0, "collective")
+		var rich_vein := _faction_vein_claimed_on(1, "fate", 0, "collective")
 		rich_vein["id"] = "rich_v"
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", cheap_vein), _site_with_vein("s2", rich_vein)]
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", cheap_vein), Fixtures.site_with_vein("s2", rich_vein)]
 		GameState.state["factions"]["collective"]["resources"] = GameData.VEIN_SECURITY["basic"]["cost"]
 
 		Factions.apply_security_upgrades()
@@ -395,11 +388,11 @@ func run() -> void:
 		# "raiding") should separate their initiation counts.
 		GameState.reset()
 		GameState.state["world"]["sites"] = [
-			_site_with_vein("s_collective", _faction_vein_of(2, "life", 0, "collective")),
-			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
-			_site_with_vein("s_guild", _faction_vein_of(2, "time", 0, "guild")),
-			_site_with_vein("s_network", _faction_vein_of(2, "emotion", 0, "network")),
-			_site_with_vein("s_conclave", _faction_vein_of(2, "fate", 0, "conclave")),
+			Fixtures.site_with_vein("s_collective", _faction_vein_claimed_on(2, "life", 0, "collective")),
+			Fixtures.site_with_vein("s_firm", _faction_vein_claimed_on(2, "physics", 0, "firm")),
+			Fixtures.site_with_vein("s_guild", _faction_vein_claimed_on(2, "time", 0, "guild")),
+			Fixtures.site_with_vein("s_network", _faction_vein_claimed_on(2, "emotion", 0, "network")),
+			Fixtures.site_with_vein("s_conclave", _faction_vein_claimed_on(2, "fate", 0, "conclave")),
 		]
 
 		var firm_count := 0
@@ -422,7 +415,7 @@ func run() -> void:
 		# no matter how many seeds are rolled.
 		GameState.reset()
 		GameState.state["world"]["sites"] = [
-			_site_with_vein("s_guild", _faction_vein_of(1, "time", 0, "guild")),
+			Fixtures.site_with_vein("s_guild", _faction_vein_claimed_on(1, "time", 0, "guild")),
 		]
 
 		for seed in range(500):
@@ -435,11 +428,11 @@ func run() -> void:
 	run_case("roll_rivalry_attempts_records_only_reference_real_rival_owned_veins", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = [
-			_site_with_vein("s_collective", _faction_vein_of(2, "life", 0, "collective")),
-			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
-			_site_with_vein("s_guild", _faction_vein_of(2, "time", 0, "guild")),
-			_site_with_vein("s_network", _faction_vein_of(2, "emotion", 0, "network")),
-			_site_with_vein("s_conclave", _faction_vein_of(2, "fate", 0, "conclave")),
+			Fixtures.site_with_vein("s_collective", _faction_vein_claimed_on(2, "life", 0, "collective")),
+			Fixtures.site_with_vein("s_firm", _faction_vein_claimed_on(2, "physics", 0, "firm")),
+			Fixtures.site_with_vein("s_guild", _faction_vein_claimed_on(2, "time", 0, "guild")),
+			Fixtures.site_with_vein("s_network", _faction_vein_claimed_on(2, "emotion", 0, "network")),
+			Fixtures.site_with_vein("s_conclave", _faction_vein_claimed_on(2, "fate", 0, "conclave")),
 		]
 		var sites_by_id := {}
 		for site in GameState.state["world"]["sites"]:
@@ -458,8 +451,8 @@ func run() -> void:
 	run_case("roll_rivalry_attempts_is_a_pure_computation_no_state_mutation", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = [
-			_site_with_vein("s_collective", _faction_vein_of(2, "life", 0, "collective")),
-			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+			Fixtures.site_with_vein("s_collective", _faction_vein_claimed_on(2, "life", 0, "collective")),
+			Fixtures.site_with_vein("s_firm", _faction_vein_claimed_on(2, "physics", 0, "firm")),
 		]
 		var before: Dictionary = GameState.deep_copy(GameState.state)
 		Rng.set_seed(1)
@@ -472,7 +465,7 @@ func run() -> void:
 	run_case("rivalry_success_chance_increases_with_attacker_resource_advantage", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = [
-			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+			Fixtures.site_with_vein("s_firm", _faction_vein_claimed_on(2, "physics", 0, "firm")),
 		]
 		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
 		GameState.state["factions"]["firm"]["resources"] = 500
@@ -489,7 +482,7 @@ func run() -> void:
 	run_case("rivalry_success_chance_decreases_with_defender_resource_advantage", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = [
-			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+			Fixtures.site_with_vein("s_firm", _faction_vein_claimed_on(2, "physics", 0, "firm")),
 		]
 		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
 		GameState.state["factions"]["collective"]["resources"] = 500
@@ -505,8 +498,8 @@ func run() -> void:
 
 	run_case("rivalry_success_chance_decreases_with_higher_raidResist", func():
 		GameState.reset()
-		var vein := _faction_vein_of(2, "physics", 0, "firm", "none")
-		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var vein := _faction_vein_claimed_on(2, "physics", 0, "firm", "none")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s_firm", vein)]
 		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
 
 		vein["security"] = "none"
@@ -522,8 +515,8 @@ func run() -> void:
 	# extra guards stack past "guarded" -- no ceiling at the old fixed max.
 	run_case("rivalry_success_chance_keeps_decreasing_as_extra_guards_stack_past_guarded", func():
 		GameState.reset()
-		var vein := _faction_vein_of(2, "physics", 0, "firm", "guarded")
-		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var vein := _faction_vein_claimed_on(2, "physics", 0, "firm", "guarded")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s_firm", vein)]
 		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
 
 		var chance_guarded: float = Factions.rivalry_success_chance(attempt)
@@ -538,7 +531,7 @@ func run() -> void:
 	run_case("rivalry_success_chance_increases_with_worse_defender_relation_toward_attacker", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = [
-			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+			Fixtures.site_with_vein("s_firm", _faction_vein_claimed_on(2, "physics", 0, "firm")),
 		]
 		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
 
@@ -559,8 +552,8 @@ func run() -> void:
 
 	run_case("rivalry_success_chance_clamps_to_the_0_1_range_at_extreme_inputs", func():
 		GameState.reset()
-		var vein := _faction_vein_of(2, "physics", 0, "firm", "none")
-		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var vein := _faction_vein_claimed_on(2, "physics", 0, "firm", "none")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s_firm", vein)]
 		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
 
 		GameState.state["factions"]["collective"]["resources"] = 1000000
@@ -569,7 +562,7 @@ func run() -> void:
 		assert_eq(Factions.rivalry_success_chance(attempt), 1.0, "extreme attacker advantage + max grudge must clamp at 1.0, not overflow above it")
 
 		GameState.reset()
-		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s_firm", vein)]
 		vein["security"] = "guarded"
 		GameState.state["factions"]["collective"]["resources"] = 0
 		GameState.state["factions"]["firm"]["resources"] = 1000000
@@ -580,7 +573,7 @@ func run() -> void:
 	run_case("roll_rivalry_odds_returns_the_attempt_annotated_with_a_success_outcome_matching_the_computed_chance", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = [
-			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+			Fixtures.site_with_vein("s_firm", _faction_vein_claimed_on(2, "physics", 0, "firm")),
 		]
 		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
 
@@ -601,7 +594,7 @@ func run() -> void:
 	run_case("roll_rivalry_odds_is_a_pure_computation_no_state_mutation", func():
 		GameState.reset()
 		GameState.state["world"]["sites"] = [
-			_site_with_vein("s_firm", _faction_vein_of(2, "physics", 0, "firm")),
+			Fixtures.site_with_vein("s_firm", _faction_vein_claimed_on(2, "physics", 0, "firm")),
 		]
 		var attempt := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm" }
 		var before: Dictionary = GameState.deep_copy(GameState.state)
@@ -614,8 +607,8 @@ func run() -> void:
 
 	run_case("resolve_rivalry_outcome_success_transfers_ownership_and_worsens_relation", func():
 		GameState.reset()
-		var vein := _faction_vein_of(3, "fate", 0, "firm", "warded")
-		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var vein := _faction_vein_claimed_on(3, "fate", 0, "firm", "warded")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s_firm", vein)]
 		var relation_before: int = Factions.get_relation("firm", "collective")
 
 		var outcome := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm", "success": true }
@@ -634,8 +627,8 @@ func run() -> void:
 
 	run_case("resolve_rivalry_outcome_success_queues_a_seed_claim_map_event_for_the_new_owner", func():
 		GameState.reset()
-		var vein := _faction_vein_of(3, "fate", 0, "firm", "warded")
-		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var vein := _faction_vein_claimed_on(3, "fate", 0, "firm", "warded")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s_firm", vein)]
 
 		var outcome := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm", "success": true }
 		Factions.resolve_rivalry_outcome(outcome)
@@ -649,8 +642,8 @@ func run() -> void:
 
 	run_case("resolve_rivalry_outcome_failure_queues_no_map_event", func():
 		GameState.reset()
-		var vein := _faction_vein_of(3, "fate", 0, "firm", "warded")
-		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var vein := _faction_vein_claimed_on(3, "fate", 0, "firm", "warded")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s_firm", vein)]
 
 		var outcome := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm", "success": false }
 		Factions.resolve_rivalry_outcome(outcome)
@@ -660,8 +653,8 @@ func run() -> void:
 
 	run_case("resolve_rivalry_outcome_failure_changes_nothing", func():
 		GameState.reset()
-		var vein := _faction_vein_of(3, "fate", 0, "firm", "warded")
-		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var vein := _faction_vein_claimed_on(3, "fate", 0, "firm", "warded")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s_firm", vein)]
 		var before: Dictionary = GameState.deep_copy(GameState.state)
 
 		var outcome := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm", "success": false }
@@ -672,8 +665,8 @@ func run() -> void:
 
 	run_case("resolve_rivalry_outcome_does_not_double_process_a_vein_that_already_changed_hands_this_tick", func():
 		GameState.reset()
-		var vein := _faction_vein_of(3, "fate", 0, "firm", "warded")
-		GameState.state["world"]["sites"] = [_site_with_vein("s_firm", vein)]
+		var vein := _faction_vein_claimed_on(3, "fate", 0, "firm", "warded")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s_firm", vein)]
 
 		var first := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm", "success": true }
 		Factions.resolve_rivalry_outcome(first)
@@ -692,11 +685,11 @@ func run() -> void:
 
 	run_case("resolve_rivalry_outcome_multiple_distinct_veins_each_queue_their_own_event_in_order", func():
 		GameState.reset()
-		var vein_a := _faction_vein_of(3, "fate", 0, "firm", "warded")
-		var vein_b := _faction_vein_of(2, "life", 0, "guild", "none")
+		var vein_a := _faction_vein_claimed_on(3, "fate", 0, "firm", "warded")
+		var vein_b := _faction_vein_claimed_on(2, "life", 0, "guild", "none")
 		GameState.state["world"]["sites"] = [
-			_site_with_vein("s_firm", vein_a),
-			_site_with_vein("s_guild", vein_b),
+			Fixtures.site_with_vein("s_firm", vein_a),
+			Fixtures.site_with_vein("s_guild", vein_b),
 		]
 
 		var first := { "attackerId": "collective", "defenderId": "firm", "veinSiteId": "s_firm", "success": true }
@@ -720,8 +713,8 @@ func run() -> void:
 		var hit := false
 		for seed in range(500):
 			GameState.reset()
-			var firm_vein := _faction_vein_of(3, "fate", 0, "collective", "none")
-			GameState.state["world"]["sites"] = [_site_with_vein("s1", firm_vein)]
+			var firm_vein := _faction_vein_claimed_on(3, "fate", 0, "collective", "none")
+			GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", firm_vein)]
 			GameState.state["factions"]["firm"]["resources"] = 5000
 			GameState.state["factions"]["collective"]["resources"] = 0
 			Rng.set_seed(seed)

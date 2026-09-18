@@ -1,5 +1,9 @@
 extends "res://tests/test_base.gd"
 
+const UiSim := preload("res://tests/support/ui_sim.gd")
+const NodeQuery := preload("res://tests/support/node_query.gd")
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # Ticket 12: tapping outside a modal (_dim's gui_input) must close it,
 # running the same side effect as that modal's own Close/Cancel/Decline
 # button — not a bare Modal.close() that would leave sellState half-applied
@@ -11,86 +15,14 @@ extends "res://tests/test_base.gd"
 # GameState) depends on get_tree()/get_viewport() having run.
 
 
-func _synthetic_tap() -> InputEventScreenTouch:
-	var event := InputEventScreenTouch.new()
-	event.pressed = true
-	return event
-
-
-# Ticket 114: symbol_row()/symbol_button() split what used to be one Label's
-# raw-symbol string into a Label per text part plus a SymbolGlyph glyph (see
-# ui.gd's own comment on symbol_row()) -- reconstructs the row's displayed
-# text by walking a symbol_row/symbol_button's direct children in order,
-# substituting SymbolGlyph.symbol for the glyph's drawn text, with no
-# separator added (call sites already author any needed space into their
-# text parts, e.g. modal_layer.gd's " %s (£%d)" -- the hbox's own pixel gap
-# covers the rest visually).
-static func _effective_text(control: Control) -> String:
-	var out := ""
-	for child in control.get_children():
-		if child is SymbolGlyph:
-			out += (child as SymbolGlyph).symbol
-		elif child is Label:
-			out += (child as Label).text
-	return out
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
-	for g in root.find_children("", "SymbolGlyph", true, false):
-		var parent := (g as SymbolGlyph).get_parent() as Control
-		if parent:
-			texts.append(_effective_text(parent))
-	return texts
-
-
-static func _find_button(root: Node, text: String) -> Button:
+static func _find_cost_button(root: Node, text: String) -> Button:
 	for b in root.find_children("", "Button", true, false):
 		var btn := b as Button
 		if btn.text == text or btn.text == UI.format_block_cost_label(text):
 			return btn
-		if btn.get_child_count() > 0 and _effective_text(btn.get_child(0) as Control) == text:
+		if btn.get_child_count() > 0 and NodeQuery.effective_text(btn.get_child(0) as Control) == text:
 			return btn
 	return null
-
-
-# vein-trade-assets ticket 01: one player vein wired to its site, same shape
-# tests/test_vein_trade.gd's own _seed_vein uses, so VeinTrade.quote() and
-# sell_to_faction() resolve for real inside the faction lane's Assets rows.
-static func _seed_vein(id: String, growth: int, ore_type: String = "life") -> Dictionary:
-	var site := {
-		"id": "site_%s" % id, "district": "shoreditch", "tier": "fair", "oreType": ore_type,
-		"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
-		"hasNaturalVein": false,
-	}
-	var vein := {
-		"id": id, "district": "shoreditch", "oreType": ore_type, "growth": growth,
-		"security": "none", "alarmUpgrades": [], "location": "Test Alley",
-		"claimedOnDay": 1, "siteId": "site_%s" % id, "hospitability": { "tier": "fair", "bonuses": [] },
-		"rampantDays": 0,
-	}
-	GameState.state["world"]["sites"].append(site)
-	GameState.state["player"]["veins"].append(vein)
-	return vein
-
-
-# vein-trade-assets ticket 03: the buy-side fixture -- a site already owned
-# by the faction, so the faction lane's Assets section has a real buyable
-# row to render.
-static func _seed_faction_vein(id: String, growth: int, faction_id: String = "collective", ore_type: String = "life") -> Dictionary:
-	var site := {
-		"id": "site_%s" % id, "district": "shoreditch", "tier": "fair", "oreType": ore_type,
-		"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
-		"hasNaturalVein": false,
-	}
-	var vein := Factions.create_faction_vein(faction_id, site, growth)
-	vein["id"] = id
-	site["factionVein"] = vein
-	GameState.state["world"]["sites"].append(site)
-	return vein
-
 
 
 func run() -> void:
@@ -118,7 +50,7 @@ func run() -> void:
 			if (l as Label).text == "Network Reference":
 				found_heading = true
 		assert_true(found_heading, "legend heading renders")
-		var close := _find_button(layer, "Close")
+		var close := _find_cost_button(layer, "Close")
 		assert_true(close != null)
 		close.pressed.emit()
 		assert_eq(GameState.state["modal"], null)
@@ -130,7 +62,7 @@ func run() -> void:
 		Modal.open("combat_setup")
 		var layer := ModalLayer.new()
 		layer._ready()
-		var fight := _find_button(layer, "Fight")
+		var fight := _find_cost_button(layer, "Fight")
 		assert_true(fight != null)
 		fight.pressed.emit()
 		assert_eq(GameState.state["modal"], null)
@@ -147,7 +79,7 @@ func run() -> void:
 		Modal.open("hq_gym")
 		var layer := ModalLayer.new()
 		layer._ready()
-		var button := _find_button(layer, "Train — last block today")
+		var button := _find_cost_button(layer, "Train — last block today")
 		assert_true(button != null)
 		button.pressed.emit()
 		assert_eq(GameState.state["world"]["day"], 2)
@@ -163,7 +95,7 @@ func run() -> void:
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		layer._on_dim_gui_input(_synthetic_tap())
+		layer._on_dim_gui_input(UiSim.synthetic_tap())
 
 		assert_eq(GameState.state["modal"], null, "outside tap closes the modal")
 
@@ -177,7 +109,7 @@ func run() -> void:
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		layer._on_dim_gui_input(_synthetic_tap())
+		layer._on_dim_gui_input(UiSim.synthetic_tap())
 
 		assert_eq(GameState.state["modal"], null, "outside tap closes sell_menu")
 		assert_eq(GameState.state["sellState"], {}, "sellState is cleared, same as tapping Cancel")
@@ -194,7 +126,7 @@ func run() -> void:
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		layer._on_dim_gui_input(_synthetic_tap())
+		layer._on_dim_gui_input(UiSim.synthetic_tap())
 
 		assert_eq(GameState.state["modal"], null, "outside tap closes james_job_offer")
 		assert_eq(GameState.state["flags"]["jamesJobActive"], false, "declining clears jamesJobActive, same as tapping Decline")
@@ -210,7 +142,7 @@ func run() -> void:
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		layer._on_dim_gui_input(_synthetic_tap())
+		layer._on_dim_gui_input(UiSim.synthetic_tap())
 
 		assert_eq(GameState.state["modal"], null, "outside tap closes sale_result")
 		assert_eq(GameState.state["currentScreen"], "phone", "outside tap navs to phone home, same as tapping Back to it")
@@ -231,9 +163,9 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_label_texts(layer).has("Trade with The Collective"), "heading names the faction, not 'Find a buyer'")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Trade with The Collective"), "heading names the faction, not 'Find a buyer'")
 		# time basePrice 60, collective relation 0 -> sell spread 0.45 -> 33/unit -> 3*33=99
-		assert_true(_label_texts(layer).has("You'll get: £99"), "gross reflects the collective's price, not archie's basePrice/cut split")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("You'll get: £99"), "gross reflects the collective's price, not archie's basePrice/cut split")
 
 		layer.free()
 	)
@@ -248,7 +180,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var go_button := _find_button(layer, "Go — trade")
+		var go_button := _find_cost_button(layer, "Go — trade")
 		assert_true(go_button != null, "faction sell menu has a Go button")
 		go_button.pressed.emit()
 
@@ -277,7 +209,7 @@ func run() -> void:
 		for recipe_key in GameData.RECIPES.keys():
 			var recipe: Dictionary = GameData.RECIPES[recipe_key]
 			var found := false
-			for text in _label_texts(layer):
+			for text in NodeQuery.label_texts_with_symbols(layer):
 				if text.begins_with("%s%s (" % [recipe["symbol"], recipe["name"]]):
 					found = true
 					break
@@ -296,17 +228,17 @@ func run() -> void:
 		var archie_layer := ModalLayer.new()
 		Modal.open("sell_menu")
 		archie_layer._ready()
-		assert_true(_find_button(archie_layer, "Ore ▾") != null, "Archie lane: Ore section header")
-		assert_true(_find_button(archie_layer, "Items ▾") != null, "Archie lane: Items section header")
-		assert_true(_find_button(archie_layer, "Assets ▾") != null, "Archie lane: Assets section header")
+		assert_true(_find_cost_button(archie_layer, "Ore ▾") != null, "Archie lane: Ore section header")
+		assert_true(_find_cost_button(archie_layer, "Items ▾") != null, "Archie lane: Items section header")
+		assert_true(_find_cost_button(archie_layer, "Assets ▾") != null, "Archie lane: Assets section header")
 		archie_layer.free()
 
 		var faction_layer := ModalLayer.new()
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
 		faction_layer._ready()
-		assert_true(_find_button(faction_layer, "Ore ▾") != null, "faction lane: Ore section header")
-		assert_true(_find_button(faction_layer, "Items ▾") != null, "faction lane: Items section header")
-		assert_true(_find_button(faction_layer, "Assets ▾") != null, "faction lane: Assets section header")
+		assert_true(_find_cost_button(faction_layer, "Ore ▾") != null, "faction lane: Ore section header")
+		assert_true(_find_cost_button(faction_layer, "Items ▾") != null, "faction lane: Items section header")
+		assert_true(_find_cost_button(faction_layer, "Assets ▾") != null, "faction lane: Assets section header")
 		faction_layer.free()
 	)
 
@@ -318,13 +250,13 @@ func run() -> void:
 		var archie_layer := ModalLayer.new()
 		Modal.open("sell_menu")
 		archie_layer._ready()
-		assert_true(_find_button(archie_layer, "Assets ▾") == null, "Archie lane hides Assets while locked")
+		assert_true(_find_cost_button(archie_layer, "Assets ▾") == null, "Archie lane hides Assets while locked")
 		archie_layer.free()
 
 		var faction_layer := ModalLayer.new()
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
 		faction_layer._ready()
-		assert_true(_find_button(faction_layer, "Assets ▾") == null, "faction lane hides Assets while locked")
+		assert_true(_find_cost_button(faction_layer, "Assets ▾") == null, "faction lane hides Assets while locked")
 		faction_layer.free()
 	)
 
@@ -333,7 +265,7 @@ func run() -> void:
 	run_case("archies_assets_section_lists_every_owned_vein_as_a_toggle_row_priced_with_the_markup", func():
 		GameState.reset()
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		var vein := _seed_vein("v1", 50)
+		var vein := Fixtures.seed_vein("v1", 50)
 		var price: int = Economy.get_archie_vein_price(vein)
 		assert_true(price > VeinTrade.quote(vein), "sanity: the markup should price above the plain quote")
 		Modal.open("sell_menu")
@@ -342,9 +274,9 @@ func run() -> void:
 		layer._ready()
 
 		var expected_label := "Shoreditch — %s %s (£%d)" % [GameData.ORE_TYPES["life"]["symbol"], GameData.ORE_TYPES["life"]["name"], price]
-		assert_true(_find_button(layer, "Assets ▾") != null, "Assets header still renders")
-		assert_true(_label_texts(layer).has(expected_label), "vein row shows district/ore/Archie's marked-up price")
-		assert_true(_find_button(layer, "☐") != null, "vein row starts unselected")
+		assert_true(_find_cost_button(layer, "Assets ▾") != null, "Assets header still renders")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has(expected_label), "vein row shows district/ore/Archie's marked-up price")
+		assert_true(_find_cost_button(layer, "☐") != null, "vein row starts unselected")
 
 		layer.free()
 	)
@@ -352,17 +284,17 @@ func run() -> void:
 	run_case("toggling_a_vein_in_archies_lane_folds_the_markup_price_into_gross_and_cut", func():
 		GameState.reset()
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		var vein := _seed_vein("v1", 50)
+		var vein := Fixtures.seed_vein("v1", 50)
 		var price: int = Economy.get_archie_vein_price(vein)
 		var cut_ratio := Economy.get_archie_cut_ratio()
 		Modal.open("sell_menu")
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		_find_button(layer, "☐").pressed.emit()
+		_find_cost_button(layer, "☐").pressed.emit()
 
 		var expected_cut: int = int(floor(price * cut_ratio))
-		assert_true(_label_texts(layer).has("Your cut (%d%%): £%d" % [int(round(cut_ratio * 100)), expected_cut]), "cut reflects the vein's marked-up price")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Your cut (%d%%): £%d" % [int(round(cut_ratio * 100)), expected_cut]), "cut reflects the vein's marked-up price")
 
 		layer.free()
 	)
@@ -370,15 +302,15 @@ func run() -> void:
 	run_case("selecting_a_vein_in_archies_lane_swaps_the_displayed_mugging_chance_to_the_vein_rate", func():
 		GameState.reset()
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		_seed_vein("v1", 50)
+		Fixtures.seed_vein("v1", 50)
 		Modal.open("sell_menu")
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		assert_true(_label_texts(layer).has("%d%% chance of mugging" % int(round(Economy.MUG_BASE_CHANCE * 100))), "no vein selected -- plain rate shown")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("%d%% chance of mugging" % int(round(Economy.MUG_BASE_CHANCE * 100))), "no vein selected -- plain rate shown")
 
-		_find_button(layer, "☐").pressed.emit()
-		assert_true(_label_texts(layer).has("%d%% chance of mugging" % int(round(Economy.MUG_BASE_CHANCE_VEIN * 100))), "vein selected -- lower vein-lane rate shown")
+		_find_cost_button(layer, "☐").pressed.emit()
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("%d%% chance of mugging" % int(round(Economy.MUG_BASE_CHANCE_VEIN * 100))), "vein selected -- lower vein-lane rate shown")
 
 		layer.free()
 	)
@@ -390,7 +322,7 @@ func run() -> void:
 			GameState.state["flags"]["veinSaleUnlocked"] = true
 			GameState.state["player"]["orichalchum"]["time"] = 10
 			Economy.adjust_sell_qty("ore_time", 2, 10)
-			_seed_vein("v1", 50)
+			Fixtures.seed_vein("v1", 50)
 			Economy.toggle_sell_vein("v1")
 			Rng.set_seed(candidate)
 			var result := Economy.sell_from_sell_state()
@@ -407,7 +339,7 @@ func run() -> void:
 		for candidate in range(300):
 			GameState.reset()
 			GameState.state["flags"]["veinSaleUnlocked"] = true
-			var vein := _seed_vein("v1", 50)
+			var vein := Fixtures.seed_vein("v1", 50)
 			var vein_key := "vein_%s" % vein["id"]
 			GameState.state["sellState"][vein_key] = 1
 			Rng.set_seed(candidate)
@@ -424,7 +356,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		var vein := _seed_vein("v1", 50)
+		var vein := Fixtures.seed_vein("v1", 50)
 		var price: int = VeinTrade.quote(vein)
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
 
@@ -432,8 +364,8 @@ func run() -> void:
 		layer._ready()
 
 		var expected_label := "Shoreditch — %s %s (£%d)" % [GameData.ORE_TYPES["life"]["symbol"], GameData.ORE_TYPES["life"]["name"], price]
-		assert_true(_label_texts(layer).has(expected_label), "vein row shows district/ore/price")
-		assert_true(_find_button(layer, "☐") != null, "vein row starts unselected")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has(expected_label), "vein row shows district/ore/price")
+		assert_true(_find_cost_button(layer, "☐") != null, "vein row starts unselected")
 
 		layer.free()
 	)
@@ -442,19 +374,19 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		var vein := _seed_vein("v1", 50)
+		var vein := Fixtures.seed_vein("v1", 50)
 		var price: int = VeinTrade.quote(vein)
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		assert_true(_find_button(layer, "Go — trade") != null, "no vein selected yet -- plain label")
+		assert_true(_find_cost_button(layer, "Go — trade") != null, "no vein selected yet -- plain label")
 
-		var toggle := _find_button(layer, "☐")
+		var toggle := _find_cost_button(layer, "☐")
 		toggle.pressed.emit()
 
-		assert_true(_find_button(layer, "Go — trade (includes 1 vein sale)") != null, "label calls out the vein sale")
-		assert_true(_label_texts(layer).has("You'll get: £%d" % price), "gross includes the toggled vein's quote")
+		assert_true(_find_cost_button(layer, "Go — trade (includes 1 vein sale)") != null, "label calls out the vein sale")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("You'll get: £%d" % price), "gross includes the toggled vein's quote")
 
 		layer.free()
 	)
@@ -465,15 +397,15 @@ func run() -> void:
 		GameState.state["flags"]["veinSaleUnlocked"] = true
 		GameState.state["player"]["orichalchum"]["time"] = 10
 		Economy.adjust_sell_qty("ore_time", 2, 10)
-		var vein := _seed_vein("v1", 50)
+		var vein := Fixtures.seed_vein("v1", 50)
 		var vein_price: int = VeinTrade.quote(vein)
 		var cash_before: int = GameState.state["player"]["cash"]
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		_find_button(layer, "☐").pressed.emit()
-		_find_button(layer, "Go — trade (includes 1 vein sale)").pressed.emit()
+		_find_cost_button(layer, "☐").pressed.emit()
+		_find_cost_button(layer, "Go — trade (includes 1 vein sale)").pressed.emit()
 
 		# time basePrice 60, relation 0 -> sell spread 0.45 -> 33/unit -> 2*33=66
 		assert_eq(GameState.state["player"]["cash"], cash_before + 66 + vein_price, "ore and vein proceeds land in one trade")
@@ -489,7 +421,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		var faction_vein := _seed_faction_vein("fv1", 50)
+		var faction_vein := Fixtures.seed_faction_vein("fv1", 50)
 		var price: int = VeinTrade.quote(faction_vein)
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
 
@@ -497,8 +429,8 @@ func run() -> void:
 		layer._ready()
 
 		var expected_label := "Buy: Shoreditch — %s %s (£%d)" % [GameData.ORE_TYPES["life"]["symbol"], GameData.ORE_TYPES["life"]["name"], price]
-		assert_true(_label_texts(layer).has(expected_label), "buy row shows district/ore/price")
-		assert_true(_find_button(layer, "☐") != null, "buy row starts unselected")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has(expected_label), "buy row shows district/ore/price")
+		assert_true(_find_cost_button(layer, "☐") != null, "buy row starts unselected")
 
 		layer.free()
 	)
@@ -506,13 +438,13 @@ func run() -> void:
 	run_case("archies_lane_never_shows_a_buy_vein_row_even_when_a_faction_vein_exists", func():
 		GameState.reset()
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		_seed_faction_vein("fv1", 50)
+		Fixtures.seed_faction_vein("fv1", 50)
 		Modal.open("sell_menu")
 
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		for text in _label_texts(layer):
+		for text in NodeQuery.label_texts_with_symbols(layer):
 			assert_true(not text.begins_with("Buy:"), "Archie's lane has no faction vein stock to offer")
 
 		layer.free()
@@ -522,17 +454,17 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		var faction_vein := _seed_faction_vein("fv1", 50)
+		var faction_vein := Fixtures.seed_faction_vein("fv1", 50)
 		var price: int = VeinTrade.quote(faction_vein)
 		GameState.state["player"]["cash"] = 100000
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		_find_button(layer, "☐").pressed.emit()
+		_find_cost_button(layer, "☐").pressed.emit()
 
-		assert_true(_find_button(layer, "Go — trade (includes 1 vein purchase)") != null, "label calls out the vein purchase")
-		assert_true(_label_texts(layer).has("You'll pay: £%d" % price), "net flips to a cost once a buy outweighs the (empty) sell side")
+		assert_true(_find_cost_button(layer, "Go — trade (includes 1 vein purchase)") != null, "label calls out the vein purchase")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("You'll pay: £%d" % price), "net flips to a cost once a buy outweighs the (empty) sell side")
 
 		layer.free()
 	)
@@ -541,7 +473,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		var faction_vein := _seed_faction_vein("fv1", 50)
+		var faction_vein := Fixtures.seed_faction_vein("fv1", 50)
 		var price: int = VeinTrade.quote(faction_vein)
 		GameState.state["player"]["cash"] = 100000
 		var cash_before: int = GameState.state["player"]["cash"]
@@ -549,8 +481,8 @@ func run() -> void:
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		_find_button(layer, "☐").pressed.emit()
-		_find_button(layer, "Go — trade (includes 1 vein purchase)").pressed.emit()
+		_find_cost_button(layer, "☐").pressed.emit()
+		_find_cost_button(layer, "Go — trade (includes 1 vein purchase)").pressed.emit()
 
 		assert_eq(GameState.state["player"]["cash"], cash_before - price, "the purchase price is deducted")
 		assert_eq(GameState.state["player"]["veins"].size(), 1, "the bought vein lands in player.veins")
@@ -565,16 +497,16 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		var faction_vein := _seed_faction_vein("fv1", 50)
+		var faction_vein := Fixtures.seed_faction_vein("fv1", 50)
 		var price: int = VeinTrade.quote(faction_vein)
 		GameState.state["player"]["cash"] = price - 1
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		_find_button(layer, "☐").pressed.emit()
+		_find_cost_button(layer, "☐").pressed.emit()
 
-		var go_button := _find_button(layer, "Go — trade (includes 1 vein purchase)")
+		var go_button := _find_cost_button(layer, "Go — trade (includes 1 vein purchase)")
 		assert_true(go_button.disabled, "can't afford this purchase")
 
 		layer.free()
@@ -584,9 +516,9 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0, "tradeProgress": 0 }
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		var sell_vein := _seed_vein("v1", 50)
+		var sell_vein := Fixtures.seed_vein("v1", 50)
 		var sell_price: int = VeinTrade.quote(sell_vein)
-		var faction_vein := _seed_faction_vein("fv1", 50)
+		var faction_vein := Fixtures.seed_faction_vein("fv1", 50)
 		var buy_price: int = VeinTrade.quote(faction_vein)
 		GameState.state["player"]["cash"] = 100000
 		var cash_before: int = GameState.state["player"]["cash"]
@@ -604,7 +536,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var go_button := _find_button(layer, "Go — trade (includes 1 vein sale, 1 vein purchase)")
+		var go_button := _find_cost_button(layer, "Go — trade (includes 1 vein sale, 1 vein purchase)")
 		assert_true(go_button != null, "label calls out both directions")
 		go_button.pressed.emit()
 
@@ -630,7 +562,7 @@ func run() -> void:
 			var ore: Dictionary = GameData.ORE_TYPES[ore_type]
 			var price := Economy.get_faction_buy_price("collective", "ore", ore_type)
 			var expected := "Buy: %s %s (£%d/u, stock 8)" % [ore["symbol"], ore["name"], price]
-			assert_true(_label_texts(layer).has(expected), "%s must render a buy row priced via get_faction_buy_price, unchanged" % ore_type)
+			assert_true(NodeQuery.label_texts_with_symbols(layer).has(expected), "%s must render a buy row priced via get_faction_buy_price, unchanged" % ore_type)
 
 		layer.free()
 	)
@@ -645,11 +577,11 @@ func run() -> void:
 		layer._ready()
 
 		var sold_out_count := 0
-		for text in _label_texts(layer):
+		for text in NodeQuery.label_texts_with_symbols(layer):
 			if text == "Sold out":
 				sold_out_count += 1
 		assert_eq(sold_out_count, 5, "every one of the 5 ore types is sold out")
-		assert_true(_find_button(layer, "+") == null, "a sold-out row has no qty stepper at all")
+		assert_true(_find_cost_button(layer, "+") == null, "a sold-out row has no qty stepper at all")
 
 		layer.free()
 	)
@@ -667,7 +599,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var go_button := _find_button(layer, "Go — trade (includes 3 ore bought)")
+		var go_button := _find_cost_button(layer, "Go — trade (includes 3 ore bought)")
 		assert_true(go_button != null, "label calls out the ore purchase")
 		go_button.pressed.emit()
 
@@ -690,7 +622,7 @@ func run() -> void:
 
 		var des_layer := ModalLayer.new()
 		des_layer._ready()
-		_find_button(des_layer, "Go — trade (includes 4 ore bought)").pressed.emit()
+		_find_cost_button(des_layer, "Go — trade (includes 4 ore bought)").pressed.emit()
 		des_layer.free()
 
 		Modal.open("sell_menu", { "factionId": "collective", "contactId": "hakim" })
@@ -698,7 +630,7 @@ func run() -> void:
 		hakim_layer._ready()
 
 		var price := Economy.get_faction_buy_price("collective", "ore", "time")
-		assert_true(_label_texts(hakim_layer).has("Buy: %s %s (£%d/u, stock 6)" % [GameData.ORE_TYPES["time"]["symbol"], GameData.ORE_TYPES["time"]["name"], price]), "Hakim's door onto the Trade modal reflects Des's purchase against the same shared stock")
+		assert_true(NodeQuery.label_texts_with_symbols(hakim_layer).has("Buy: %s %s (£%d/u, stock 6)" % [GameData.ORE_TYPES["time"]["symbol"], GameData.ORE_TYPES["time"]["name"], price]), "Hakim's door onto the Trade modal reflects Des's purchase against the same shared stock")
 
 		hakim_layer.free()
 	)
@@ -740,8 +672,8 @@ func run() -> void:
 
 		for archetype in GameData.CANONICAL_MOVEMENT_ARCHETYPES:
 			var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
-			assert_true(_label_texts(layer).has(m["description"]), "%s's effect description must render in the menu" % archetype)
-			assert_true(_label_texts(layer).any(func(t: String): return t.begins_with(m["symbol"])), "%s's name/symbol must render in the menu" % archetype)
+			assert_true(NodeQuery.label_texts_with_symbols(layer).has(m["description"]), "%s's effect description must render in the menu" % archetype)
+			assert_true(NodeQuery.label_texts_with_symbols(layer).any(func(t: String): return t.begins_with(m["symbol"])), "%s's name/symbol must render in the menu" % archetype)
 
 		layer.free()
 	)
@@ -774,7 +706,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		_find_button(layer, "Close").pressed.emit()
+		_find_cost_button(layer, "Close").pressed.emit()
 
 		assert_eq(GameState.state["modal"], null, "Close must dismiss the menu")
 
@@ -796,7 +728,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		_find_button(layer, "↻Recharge Movement — attuned time, tier 1").pressed.emit()
+		_find_cost_button(layer, "↻Recharge Movement — attuned time, tier 1").pressed.emit()
 
 		assert_eq(GameState.state["player"]["dial"]["movement"]["archetype"], "recharge", "movement_swap's row should seat via Dial.seat_movement")
 		assert_eq(GameState.state["player"]["movementInventory"], [], "the seated Movement should leave movementInventory")
@@ -815,7 +747,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		_find_button(layer, "Cancel").pressed.emit()
+		_find_cost_button(layer, "Cancel").pressed.emit()
 
 		assert_eq(GameState.state["modal"], null, "Cancel must dismiss the picker")
 		assert_eq(GameState.state["player"]["dial"]["movement"], null, "Cancel must not seat anything")
@@ -838,7 +770,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		_find_button(layer, "⧖Time Pearl tier 1 (1)").pressed.emit()
+		_find_cost_button(layer, "⧖Time Pearl tier 1 (1)").pressed.emit()
 
 		var loaded: Array = GameState.state["player"]["dial"]["loadedComplications"]
 		assert_eq(loaded.size(), 1, "picking a row should load via Dial.load_complication")
@@ -857,7 +789,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_label_texts(layer).has("Nothing in stock to load."), "must show the empty-stock message when nothing is loadable")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Nothing in stock to load."), "must show the empty-stock message when nothing is loadable")
 
 		layer.free()
 	)
@@ -872,7 +804,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		_find_button(layer, "Cancel").pressed.emit()
+		_find_cost_button(layer, "Cancel").pressed.emit()
 
 		assert_eq(GameState.state["modal"], null, "Cancel must dismiss the picker")
 		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "Cancel must not load anything")
@@ -895,14 +827,14 @@ func run() -> void:
 		layer._ready()
 
 		var m: Dictionary = GameData.DIAL_MOVEMENTS["impact"]
-		assert_true(_label_texts(layer).has(m["description"]), "the archetype's effect description renders in the modal")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has(m["description"]), "the archetype's effect description renders in the modal")
 
 		var cost: int = Dial.movement_calc_cost("impact", 1)
 		var chance_pct: int = int(round(Dial.movement_craft_chance("impact", 1) * 100))
 		for ore_type in GameData.ORE_TYPES.keys():
 			var ore: Dictionary = GameData.ORE_TYPES[ore_type]
 			var expected := "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct]
-			assert_true(_find_button(layer, expected) != null, "%s row must show its cost and chance" % ore_type)
+			assert_true(_find_cost_button(layer, expected) != null, "%s row must show its cost and chance" % ore_type)
 
 		layer.free()
 	)
@@ -919,7 +851,7 @@ func run() -> void:
 		var cost: int = Dial.movement_calc_cost("impact", 1)
 		var chance_pct: int = int(round(Dial.movement_craft_chance("impact", 1) * 100))
 		var ore: Dictionary = GameData.ORE_TYPES["time"]
-		var button := _find_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
+		var button := _find_cost_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
 		assert_true(button != null, "time row must be present")
 		button.pressed.emit()
 
@@ -942,7 +874,7 @@ func run() -> void:
 			var cost: int = Dial.movement_calc_cost("capacitor", 5)
 			var chance_pct: int = int(round(Dial.movement_craft_chance("capacitor", 5) * 100))
 			var ore: Dictionary = GameData.ORE_TYPES["physics"]
-			var button := _find_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
+			var button := _find_cost_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
 			Rng.set_seed(candidate)
 			button.pressed.emit()
 			layer.free()
@@ -978,7 +910,7 @@ func run() -> void:
 			var cost: int = Dial.movement_calc_cost("impact", 1)
 			var chance_pct: int = int(round(Dial.movement_craft_chance("impact", 1) * 100))
 			var ore: Dictionary = GameData.ORE_TYPES["time"]
-			var button := _find_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
+			var button := _find_cost_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
 			Rng.set_seed(candidate)
 			button.pressed.emit()
 			layer.free()
@@ -1021,10 +953,10 @@ func run() -> void:
 		layer._ready()
 
 		var life_ore: Dictionary = GameData.ORE_TYPES["life"]
-		assert_true(_label_texts(layer).any(func(t: String): return t.ends_with("%s — 12" % life_ore["name"])), "must show the stored ore's own name and quantity")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).any(func(t: String): return t.ends_with("%s — 12" % life_ore["name"])), "must show the stored ore's own name and quantity")
 
 		var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
-		assert_true(_label_texts(layer).has("Raid risk: %d%%" % raid_pct), "must show the raid-risk note alongside stored contents, per §12.4's recommended default")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Raid risk: %d%%" % raid_pct), "must show the raid-risk note alongside stored contents, per §12.4's recommended default")
 
 		layer.free()
 	)
@@ -1036,7 +968,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_label_texts(layer).has("None in stock."), "must show the empty-stock message when nothing is held")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("None in stock."), "must show the empty-stock message when nothing is held")
 
 		layer.free()
 	)
@@ -1048,7 +980,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		_find_button(layer, "Close").pressed.emit()
+		_find_cost_button(layer, "Close").pressed.emit()
 		assert_eq(GameState.state["modal"], null, "Close must dismiss the readout")
 
 		layer.free()
@@ -1126,8 +1058,8 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_label_texts(layer).has("No ore to stash."), "empty ore stash section")
-		assert_true(_label_texts(layer).has("No crafted items to stash."), "empty crafted-item stash section")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("No ore to stash."), "empty ore stash section")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("No crafted items to stash."), "empty crafted-item stash section")
 
 		layer.free()
 	)
@@ -1141,9 +1073,9 @@ func run() -> void:
 		layer._ready()
 
 		var life_ore: Dictionary = GameData.ORE_TYPES["life"]
-		assert_true(_label_texts(layer).any(func(t: String): return t.ends_with("%s — shared 12 / stashed 0" % life_ore["name"])), "stash-section row must show the shared/stashed split")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).any(func(t: String): return t.ends_with("%s — shared 12 / stashed 0" % life_ore["name"])), "stash-section row must show the shared/stashed split")
 
-		var to_stash := _find_button(layer, "→ Stash")
+		var to_stash := _find_cost_button(layer, "→ Stash")
 		assert_true(to_stash != null, "a shared-only row must offer a Stash button")
 		assert_true(not to_stash.disabled, "default move qty (1) is within the 12 available")
 		to_stash.pressed.emit()
@@ -1164,11 +1096,11 @@ func run() -> void:
 		layer._ready()
 
 		var life_ore: Dictionary = GameData.ORE_TYPES["life"]
-		assert_true(_label_texts(layer).any(func(t: String): return t.ends_with("%s — shared 0 / stashed 5" % life_ore["name"])), "a fully-stashed type must still get a row, not vanish")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).any(func(t: String): return t.ends_with("%s — shared 0 / stashed 5" % life_ore["name"])), "a fully-stashed type must still get a row, not vanish")
 
-		var to_stash := _find_button(layer, "→ Stash")
+		var to_stash := _find_cost_button(layer, "→ Stash")
 		assert_true(to_stash.disabled, "nothing shared left to stash")
-		var to_shared := _find_button(layer, "← Shared")
+		var to_shared := _find_cost_button(layer, "← Shared")
 		assert_true(not to_shared.disabled, "5 available to bring back")
 		to_shared.pressed.emit()
 
@@ -1186,7 +1118,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		_find_button(layer, "+").pressed.emit()
+		_find_cost_button(layer, "+").pressed.emit()
 		assert_eq(Stash.get_ore_move_qty("life"), 2, "+ steps the shared qty up")
 
 		layer.free()
@@ -1201,9 +1133,9 @@ func run() -> void:
 		layer._ready()
 
 		var recipe: Dictionary = GameData.RECIPES["timePearl"]
-		assert_true(_label_texts(layer).any(func(t: String): return t.ends_with("%s — shared 4 / stashed 0" % recipe["name"])), "crafted-item row must show the shared/stashed split")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).any(func(t: String): return t.ends_with("%s — shared 4 / stashed 0" % recipe["name"])), "crafted-item row must show the shared/stashed split")
 
-		var to_stash := _find_button(layer, "→ Stash")
+		var to_stash := _find_cost_button(layer, "→ Stash")
 		to_stash.pressed.emit()
 
 		assert_eq(Crafting.inventory_qty("timePearl"), 3, "shared inventory debited by the default qty of 1")
@@ -1221,8 +1153,8 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_find_button(layer, "Train") != null, "Train must be available even before Home Gym is built")
-		assert_true(_label_texts(layer).has("Build a Home Gym to get more out of each workout."), "must show the upgrade hint alongside Train")
+		assert_true(_find_cost_button(layer, "Train") != null, "Train must be available even before Home Gym is built")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Build a Home Gym to get more out of each workout."), "must show the upgrade hint alongside Train")
 
 		layer.free()
 	)
@@ -1234,7 +1166,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		_find_button(layer, "Train").pressed.emit()
+		_find_cost_button(layer, "Train").pressed.emit()
 
 		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION, "pressing Train without a Home Gym should award the lower workout XP")
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "pressing Train should spend one of the day's time blocks")
@@ -1250,7 +1182,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var train_button := _find_button(layer, "Train")
+		var train_button := _find_cost_button(layer, "Train")
 		assert_true(train_button != null, "a built Home Gym must expose a Train button")
 
 		train_button.pressed.emit()
@@ -1270,7 +1202,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var train_button := _find_button(layer, "Train")
+		var train_button := _find_cost_button(layer, "Train")
 		assert_true(train_button != null, "the button should still be present, just disabled")
 		assert_true(train_button.disabled, "Train should be disabled once the day's time blocks are exhausted")
 
@@ -1284,7 +1216,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		_find_button(layer, "Close").pressed.emit()
+		_find_cost_button(layer, "Close").pressed.emit()
 		assert_eq(GameState.state["modal"], null, "Close must dismiss the gym modal")
 
 		layer.free()
@@ -1303,7 +1235,7 @@ func run() -> void:
 		layer._ready()
 
 		var expected: Color = GameData.PALETTE.get("ui_action_red", UI.ACTION_COLOUR_FALLBACK)
-		var train_button := _find_button(layer, "Train")
+		var train_button := _find_cost_button(layer, "Train")
 		assert_true(train_button != null)
 		assert_eq(train_button.get_theme_color("font_color"), expected, "Train button uses ui_action_red")
 
@@ -1322,7 +1254,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var train_button := _find_button(layer, "Train")
+		var train_button := _find_cost_button(layer, "Train")
 		assert_true(train_button != null)
 		assert_true(train_button.disabled)
 		assert_eq(train_button.get_theme_color("font_color"), UI.ACTION_DISABLED_COLOUR, "disabled Train button stays muted grey")
@@ -1339,8 +1271,8 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_label_texts(layer).has("Time Pearl"), "tutorial-taught recipes are already Found on a fresh save")
-		assert_true(_find_button(layer, "Craft ×1") != null, "each row's batch stepper defaults to qty 1")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Time Pearl"), "tutorial-taught recipes are already Found on a fresh save")
+		assert_true(_find_cost_button(layer, "Craft ×1") != null, "each row's batch stepper defaults to qty 1")
 
 		layer.free()
 	)
@@ -1358,7 +1290,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_label_texts(layer).has("Nothing found yet."), "same empty-state line lab.gd's home used to show")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Nothing found yet."), "same empty-state line lab.gd's home used to show")
 
 		layer.free()
 	)
@@ -1370,7 +1302,7 @@ func run() -> void:
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		_find_button(layer, "Craft ×1").pressed.emit()
+		_find_cost_button(layer, "Craft ×1").pressed.emit()
 
 		assert_eq(GameState.state["modal"]["type"], "craft_batch_result", "crafting from the book opens the normal batch-result modal on top, same as lab.gd's old crafting section")
 
@@ -1385,7 +1317,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var refine_button := _find_button(layer, "Refine to tier 1")
+		var refine_button := _find_cost_button(layer, "Refine to tier 1")
 		assert_true(refine_button != null, "§5.6: every Found recipe exposes Refine as a book-page action")
 		assert_true(refine_button.disabled, "not enough calc -- Bench.refine_block_reason() blocks it")
 
@@ -1399,7 +1331,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_label_texts(layer).has("Nothing recorded yet."))
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Nothing recorded yet."))
 
 		layer.free()
 	)
@@ -1413,8 +1345,8 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_label_texts(layer).has("Life"), "the touched pairing's own heading renders")
-		assert_true(not _label_texts(layer).has("Nothing recorded yet."))
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Life"), "the touched pairing's own heading renders")
+		assert_true(not NodeQuery.label_texts_with_symbols(layer).has("Nothing recorded yet."))
 
 		layer.free()
 	)
@@ -1427,7 +1359,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_label_texts(layer).has("Healing Salve — tier 2"), "§5.2 point 2: the notebook shows current recipe levels, not just that something was found")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Healing Salve — tier 2"), "§5.2 point 2: the notebook shows current recipe levels, not just that something was found")
 
 		layer.free()
 	)
@@ -1443,7 +1375,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var refine_button := _find_button(layer, "Refine to tier 3")
+		var refine_button := _find_cost_button(layer, "Refine to tier 3")
 		assert_true(refine_button != null, "a Found recipe's notebook row exposes the same next-tier action the recipe book does")
 		assert_true(not refine_button.disabled, "enough calc and a known technique -- nothing should block this tap")
 
@@ -1458,7 +1390,7 @@ func run() -> void:
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		_find_button(layer, "Refine to tier 3").pressed.emit()
+		_find_cost_button(layer, "Refine to tier 3").pressed.emit()
 
 		assert_eq(GameState.state["player"]["orichalchum"]["life"], 88, "the tap spends the recipe's own established ore combo (3 * (3+1) = 12) at once -- no intermediate ore/apparatus picker")
 		assert_eq(GameState.state["modal"]["type"], "lab_bench_notes", "the experiment resolves in place -- no picker or result modal opens over the notebook")
@@ -1475,10 +1407,10 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var refine_button := _find_button(layer, "Refine to tier 3")
+		var refine_button := _find_cost_button(layer, "Refine to tier 3")
 		assert_true(refine_button != null)
 		assert_true(refine_button.disabled, "not enough calc -- Bench.refine_block_reason() blocks it, same reason the recipe book's button respects")
-		assert_true(_label_texts(layer).has("Not enough calc."), "a disabled refine button always states why -- never a dead tap with no reason")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Not enough calc."), "a disabled refine button always states why -- never a dead tap with no reason")
 
 		layer.free()
 	)
@@ -1498,10 +1430,10 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var refine_button := _find_button(layer, "Refine to tier 1")
+		var refine_button := _find_cost_button(layer, "Refine to tier 1")
 		assert_true(refine_button != null)
 		assert_true(refine_button.disabled, "compression isn't known yet -- Bench.refine_block_reason() blocks it")
-		assert_true(_label_texts(layer).has("You haven't the technique for that yet."))
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("You haven't the technique for that yet."))
 
 		layer.free()
 	)
@@ -1513,8 +1445,8 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_label_texts(layer).has("Found it."))
-		assert_true(_find_button(layer, "Got it") != null)
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Found it."))
+		assert_true(_find_cost_button(layer, "Got it") != null)
 
 		layer.free()
 	)
@@ -1526,7 +1458,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_label_texts(layer).has("Something's there."))
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Something's there."))
 
 		layer.free()
 	)
@@ -1538,7 +1470,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(_label_texts(layer).has("Inert."))
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Inert."))
 
 		layer.free()
 	)
@@ -1549,7 +1481,7 @@ func run() -> void:
 
 		var layer := ModalLayer.new()
 		layer._ready()
-		_find_button(layer, "Got it").pressed.emit()
+		_find_cost_button(layer, "Got it").pressed.emit()
 
 		assert_eq(GameState.state["modal"], null)
 

@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const UiSim := preload("res://tests/support/ui_sim.gd")
+
 # 11-phone-os-shell ticket 11: the dock restructure -- 3 slots (Phone · Map ·
 # HQ), Phone as a home button, Map's lock rendered as a padlock overlay
 # instead of the old tab-label-overwrite hack.
@@ -17,12 +19,6 @@ extends "res://tests/test_base.gd"
 # get_tree()/get_viewport(), and _DockTile self-heals its own _ready() via
 # _ensure_built() (nav_bar.gd) regardless of whether its parent is ever
 # actually added to a processing tree.
-
-
-func _synthetic_tap() -> InputEventScreenTouch:
-	var event := InputEventScreenTouch.new()
-	event.pressed = true
-	return event
 
 
 func run() -> void:
@@ -220,7 +216,7 @@ func run() -> void:
 		nav._ready()
 
 		var map_tile: NavBar._DockTile = nav._tiles["map"]
-		map_tile._on_gui_input(_synthetic_tap())
+		map_tile._on_gui_input(UiSim.synthetic_tap())
 
 		assert_eq(GameState.state["currentScreen"], "hq", "a locked Map tap never navigates")
 		var notifications: Array = GameState.state["notifications"]
@@ -237,7 +233,7 @@ func run() -> void:
 		nav._ready()
 
 		var map_tile: NavBar._DockTile = nav._tiles["map"]
-		map_tile._on_gui_input(_synthetic_tap())
+		map_tile._on_gui_input(UiSim.synthetic_tap())
 
 		assert_eq(GameState.state["currentScreen"], "map", "an unlocked Map tap navigates to the map screen")
 
@@ -250,7 +246,7 @@ func run() -> void:
 		nav._ready()
 
 		var hq_tile: NavBar._DockTile = nav._tiles["hq"]
-		hq_tile._on_gui_input(_synthetic_tap())
+		hq_tile._on_gui_input(UiSim.synthetic_tap())
 
 		assert_eq(GameState.state["currentScreen"], "hq", "the HQ slot navigates to hq")
 
@@ -265,7 +261,7 @@ func run() -> void:
 		nav._ready()
 
 		var phone_tile: NavBar._DockTile = nav._tiles["phone"]
-		phone_tile._on_gui_input(_synthetic_tap())
+		phone_tile._on_gui_input(UiSim.synthetic_tap())
 
 		assert_eq(GameState.state["currentScreen"], "phone", "the Phone slot returns to the phone screen from elsewhere")
 		assert_eq(GameState.state["phoneNav"]["app"], "home", "the Phone slot resets phoneNav back to the app grid")
@@ -286,7 +282,7 @@ func run() -> void:
 		nav._ready()
 
 		var phone_tile: NavBar._DockTile = nav._tiles["phone"]
-		phone_tile._on_gui_input(_synthetic_tap())
+		phone_tile._on_gui_input(UiSim.synthetic_tap())
 
 		EventBus.screen_changed.disconnect(on_screen)
 
@@ -312,7 +308,7 @@ func run() -> void:
 		EventBus.state_changed.connect(on_state)
 
 		var phone_tile: NavBar._DockTile = nav._tiles["phone"]
-		phone_tile._on_gui_input(_synthetic_tap())
+		phone_tile._on_gui_input(UiSim.synthetic_tap())
 
 		EventBus.screen_changed.disconnect(on_screen)
 		EventBus.state_changed.disconnect(on_state)

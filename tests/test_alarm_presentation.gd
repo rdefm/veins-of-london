@@ -1,5 +1,8 @@
 extends "res://tests/test_base.gd"
 
+const UiSim := preload("res://tests/support/ui_sim.gd")
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # day-rhythm ticket 05: tests/test_time_transition.gd's own convention --
 # AlarmPresentation.new()/_ready() is safe to call directly without a live
 # scene tree (nothing here touches get_tree()/get_viewport()), and _process()
@@ -14,24 +17,10 @@ const AlarmPresentation := preload("res://scenes/components/alarm_presentation.g
 const Overlay := preload("res://scenes/components/time_transition.gd")
 const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
 
-
-func _vein(id: String, district: String, ore_type: String) -> Dictionary:
-	return {
-		"id": id, "siteId": "site_" + id, "district": district,
-		"oreType": ore_type, "growth": 40, "security": "none",
-		"alarmUpgrades": ["alarm"], "location": "Test Street",
-	}
-
-
 func _node() -> Node:
 	var node := AlarmPresentation.new()
 	node._ready()
 	return node
-
-
-func _advance(node: Node, seconds: float) -> void:
-	for i in range(int(ceil(seconds / 0.05))):
-		node._process(0.05)
 
 
 func run() -> void:
@@ -44,7 +33,7 @@ func run() -> void:
 		var on_pulse := func(): pulses[0] += 1
 		EventBus.alarm_arrived.connect(on_pulse)
 
-		GameState.state["player"]["veins"] = [_vein("v1", "camden", "time")]
+		GameState.state["player"]["veins"] = [Fixtures.alarmed_vein("v1", "camden", "time")]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" }]
 		EventBus.state_changed.emit()
 		assert_eq(buzzes[0], 1, "a genuinely new alarm buzzes")
@@ -67,7 +56,7 @@ func run() -> void:
 		var on_pulse := func(): pulses[0] += 1
 		EventBus.alarm_arrived.connect(on_pulse)
 
-		GameState.state["player"]["veins"] = [_vein("v1", "camden", "time"), _vein("v2", "shoreditch", "life")]
+		GameState.state["player"]["veins"] = [Fixtures.alarmed_vein("v1", "camden", "time"), Fixtures.alarmed_vein("v2", "shoreditch", "life")]
 		GameState.state["world"]["pendingDefendRaids"] = [
 			{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" },
 			{ "attackerId": "guild", "veinId": "v2", "siteId": "site_v2", "success": true, "outcomeType": "loot", "notificationId": "n2" },
@@ -90,7 +79,7 @@ func run() -> void:
 		var on_pulse := func(): pulses[0] += 1
 		EventBus.alarm_arrived.connect(on_pulse)
 
-		GameState.state["player"]["veins"] = [_vein("v1", "camden", "time")]
+		GameState.state["player"]["veins"] = [Fixtures.alarmed_vein("v1", "camden", "time")]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" }]
 		EventBus.state_changed.emit()
 		assert_eq(buzzes[0], 0, "the persisted preference suppresses the device buzz")
@@ -102,7 +91,7 @@ func run() -> void:
 
 	run_case("reload_does_not_treat_an_already_unresolved_alarm_as_newly_arrived", func():
 		GameState.reset()
-		GameState.state["player"]["veins"] = [_vein("v1", "camden", "time")]
+		GameState.state["player"]["veins"] = [Fixtures.alarmed_vein("v1", "camden", "time")]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" }]
 		var node := _node()
 		var buzzes := [0]
@@ -123,15 +112,15 @@ func run() -> void:
 		node.haptics_hook = func(): pass
 
 		GameState.state["event"] = { "id": "test" }
-		GameState.state["player"]["veins"] = [_vein("v1", "camden", "time")]
+		GameState.state["player"]["veins"] = [Fixtures.alarmed_vein("v1", "camden", "time")]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" }]
 		EventBus.state_changed.emit()
 		assert_true(node.pending_open, "outside a rollover, a new alarm queues a direct auto-open")
-		_advance(node, 3)
+		UiSim.advance(node, 3)
 		assert_eq(GameState.state["currentScreen"], "hq", "an unresolved event choice must not be interrupted")
 
 		GameState.state["event"] = null
-		_advance(node, 3)
+		UiSim.advance(node, 3)
 		assert_eq(GameState.state["currentScreen"], "phone", "once safe, the grouped alarm surface auto-opens")
 		assert_eq(GameState.state["phoneNav"]["app"], "alarms")
 		node.free()
@@ -149,7 +138,7 @@ func run() -> void:
 		# MorningAccounts.finish_rollover() ever stamps today's account, and
 		# EventBus.day_ticked only fires at the very end, once everything --
 		# including that account -- has already settled.
-		GameState.state["player"]["veins"] = [_vein("v1", "camden", "time")]
+		GameState.state["player"]["veins"] = [Fixtures.alarmed_vein("v1", "camden", "time")]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" }]
 		EventBus.state_changed.emit()
 		assert_eq(buzzes[0], 1, "the immediate buzz/pulse cue is unconditional")
@@ -159,7 +148,7 @@ func run() -> void:
 		EventBus.day_ticked.emit(GameState.state["world"]["day"])
 		assert_true(not node.pending_open, "day_ticked cancels the tentative auto-open -- BizBrief owns the single slot")
 
-		_advance(node, 3)
+		UiSim.advance(node, 3)
 		assert_eq(GameState.state["currentScreen"], "title", "no direct navigation once day_ticked has cancelled it")
 		node.free()
 	)
@@ -176,15 +165,15 @@ func run() -> void:
 		node.haptics_hook = func(): pass
 
 		overlay.pending.append({ "source": { "day": 1, "phase": 0 }, "destination": { "day": 1, "phase": 1 } })
-		GameState.state["player"]["veins"] = [_vein("v1", "camden", "time")]
+		GameState.state["player"]["veins"] = [Fixtures.alarmed_vein("v1", "camden", "time")]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" }]
 		EventBus.state_changed.emit()
 		assert_true(node.pending_open)
-		_advance(node, 3)
+		UiSim.advance(node, 3)
 		assert_eq(GameState.state["currentScreen"], "hq", "a still-queued time transition holds the alarm surface back even though the outcome itself is resolved")
 
 		overlay.pending.clear()
-		_advance(node, 3)
+		UiSim.advance(node, 3)
 		assert_eq(GameState.state["currentScreen"], "phone", "once the transition clears, the alarm surface opens")
 
 		overlay.free()

@@ -1,30 +1,11 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # collective1-07: ContactCards' static builders return plain Controls with
 # no scene-tree dependency, so they're testable directly -- same reasoning
 # tests/test_modal_layer.gd gives for instantiating ModalLayer.new() without
 # adding it to a live tree.
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
-	return texts
-
-
-static func _button_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for b in root.find_children("", "Button", true, false):
-		texts.append((b as Button).text)
-	return texts
-
-
-static func _find_button(root: Node, text: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text == text:
-			return b
-	return null
 
 
 func run() -> void:
@@ -69,26 +50,26 @@ func run() -> void:
 
 	run_case("des_nadia_hakim_cards_show_a_relation_heading_and_card_line", func():
 		GameState.reset()
-		var des_texts := _label_texts(ContactCards.build_des_card())
+		var des_texts := NodeQuery.label_texts(ContactCards.build_des_card())
 		assert_true(des_texts.has("Des — Relation 0"), "des heading")
 		assert_true(des_texts.has("Prospector · Crystal Palace"), "des card line, spec.md §3.1")
 
-		var nadia_texts := _label_texts(ContactCards.build_nadia_card())
+		var nadia_texts := NodeQuery.label_texts(ContactCards.build_nadia_card())
 		assert_true(nadia_texts.has("Nadia — Relation 0"), "nadia heading")
 		assert_true(nadia_texts.has("Fixer · Hackney"), "nadia card line, spec.md §3.2")
 
-		var hakim_texts := _label_texts(ContactCards.build_hakim_card())
+		var hakim_texts := NodeQuery.label_texts(ContactCards.build_hakim_card())
 		assert_true(hakim_texts.has("Hakim — Relation 0"), "hakim heading")
 		assert_true(hakim_texts.has("Newsagent · Whitechapel"), "hakim card line, spec.md §3.3")
 	)
 
 	run_case("des_nadia_hakim_cards_never_show_a_recruit_row", func():
 		GameState.reset()
-		for text in _button_texts(ContactCards.build_des_card()):
+		for text in NodeQuery.button_texts(ContactCards.build_des_card()):
 			assert_true(not text.begins_with("⭐"), "des card must not surface a recruit button: %s" % text)
-		for text in _button_texts(ContactCards.build_nadia_card()):
+		for text in NodeQuery.button_texts(ContactCards.build_nadia_card()):
 			assert_true(not text.begins_with("⭐"), "nadia card must not surface a recruit button: %s" % text)
-		for text in _button_texts(ContactCards.build_hakim_card()):
+		for text in NodeQuery.button_texts(ContactCards.build_hakim_card()):
 			assert_true(not text.begins_with("⭐"), "hakim card must not surface a recruit button: %s" % text)
 	)
 
@@ -100,20 +81,20 @@ func run() -> void:
 			"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
 			"hasNaturalVein": false,
 		})
-		assert_true(_find_button(ContactCards.build_des_card(), "Tell Des about the ground") != null, "report action reused from build_des_report_action()")
+		assert_true(NodeQuery.find_button(ContactCards.build_des_card(), "Tell Des about the ground") != null, "report action reused from build_des_report_action()")
 
 		GameState.state["flags"]["colA1DeferredJoin"] = true
-		assert_true(_find_button(ContactCards.build_des_card(), "Ask Des about joining") != null, "deferred-join action reused from build_ask_des_joining_action()")
+		assert_true(NodeQuery.find_button(ContactCards.build_des_card(), "Ask Des about joining") != null, "deferred-join action reused from build_ask_des_joining_action()")
 	)
 
 	# ── 103-phone-shortcut-for-pin-gated-quests ──────────────────────────
 
 	run_case("des_card_surfaces_a_phone_shortcut_for_a_pin_gated_event_and_starts_it_directly", func():
 		GameState.reset()
-		assert_true(_find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des") == null, "hidden before colA1DesMet -- pin isn't active yet")
+		assert_true(NodeQuery.find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des") == null, "hidden before colA1DesMet -- pin isn't active yet")
 
 		GameState.state["flags"]["colA1DesMet"] = true
-		var button := _find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des")
+		var button := NodeQuery.find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des")
 		assert_true(button != null, "shown once the map pin's own gate is met -- same data, second surface")
 
 		button.pressed.emit()
@@ -125,8 +106,8 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["colA1ProspectingTaught"] = true
 
-		assert_true(_find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des") == null, "prospecting pin is gone once taught")
-		var button := _find_button(ContactCards.build_des_card(), "📍 Go seed a patch with Des")
+		assert_true(NodeQuery.find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des") == null, "prospecting pin is gone once taught")
+		var button := NodeQuery.find_button(ContactCards.build_des_card(), "📍 Go seed a patch with Des")
 		assert_true(button != null, "seeding pin's own gate is now met")
 
 		button.pressed.emit()
@@ -143,18 +124,18 @@ func run() -> void:
 
 	run_case("nadia_card_surfaces_its_story_action_same_as_the_conversation_action_bar", func():
 		GameState.reset()
-		assert_true(_find_button(ContactCards.build_nadia_card(), "Go and see Nadia") != null, "meet action visible by default (colA1NadiaMet starts false)")
+		assert_true(NodeQuery.find_button(ContactCards.build_nadia_card(), "Go and see Nadia") != null, "meet action visible by default (colA1NadiaMet starts false)")
 
 		GameState.state["flags"]["colA1NadiaMet"] = true
-		assert_true(_find_button(ContactCards.build_nadia_card(), "Go and see Nadia") == null, "vanishes once met")
+		assert_true(NodeQuery.find_button(ContactCards.build_nadia_card(), "Go and see Nadia") == null, "vanishes once met")
 	)
 
 	run_case("hakim_card_surfaces_its_story_action_same_as_the_conversation_action_bar", func():
 		GameState.reset()
-		assert_true(_find_button(ContactCards.build_hakim_card(), "Hand Hakim's vein back") == null, "hidden before colA1HakimRescued")
+		assert_true(NodeQuery.find_button(ContactCards.build_hakim_card(), "Hand Hakim's vein back") == null, "hidden before colA1HakimRescued")
 
 		GameState.state["flags"]["colA1HakimRescued"] = true
-		assert_true(_find_button(ContactCards.build_hakim_card(), "Hand Hakim's vein back") != null, "reused from build_hakim_done_action()")
+		assert_true(NodeQuery.find_button(ContactCards.build_hakim_card(), "Hand Hakim's vein back") != null, "reused from build_hakim_done_action()")
 	)
 
 	run_case("messages_button_opens_the_pressed_contacts_own_thread", func():
@@ -169,7 +150,7 @@ func run() -> void:
 				"hakim":
 					builder = ContactCards.build_hakim_card
 
-			var button := _find_button(builder.call(), "💬 Messages")
+			var button := NodeQuery.find_button(builder.call(), "💬 Messages")
 			assert_true(button != null, "%s card has a Messages button" % contact_id)
 
 			button.pressed.emit()
@@ -183,7 +164,7 @@ func run() -> void:
 		GameState.reset()
 		Messages.queue_pending("des", "col_a1_hub", "When you've got a minute.")
 
-		var button := _find_button(ContactCards.build_des_card(), "Continue →")
+		var button := NodeQuery.find_button(ContactCards.build_des_card(), "Continue →")
 		assert_true(button != null, "pendingMessages entries surface the same way build_archie_card()'s own loop does")
 
 		button.pressed.emit()
@@ -196,7 +177,7 @@ func run() -> void:
 		GameState.reset()
 		Messages.append("des", "them", "Got something for you.")
 
-		var button := _find_button(ContactCards.build_des_card(), "💬 Messages ●")
+		var button := NodeQuery.find_button(ContactCards.build_des_card(), "💬 Messages ●")
 		assert_true(button != null, "unread dot appended while the thread has an unread message")
 
 		button.pressed.emit()
@@ -208,17 +189,17 @@ func run() -> void:
 
 	run_case("archie_and_james_cards_get_a_messages_button", func():
 		GameState.reset()
-		assert_true(_find_button(ContactCards.build_archie_card(), "💬 Messages") != null, "archie card has a Messages button")
+		assert_true(NodeQuery.find_button(ContactCards.build_archie_card(), "💬 Messages") != null, "archie card has a Messages button")
 
 		GameState.state["contacts"]["james"]["unlocked"] = true
-		assert_true(_find_button(ContactCards.build_james_card(), "💬 Messages") != null, "james card has a Messages button")
+		assert_true(NodeQuery.find_button(ContactCards.build_james_card(), "💬 Messages") != null, "james card has a Messages button")
 	)
 
 	run_case("archie_card_no_longer_surfaces_its_old_bespoke_sms_buttons", func():
 		GameState.reset()
 		GameState.state["flags"]["archieMotionPending"] = true
 		GameState.state["flags"]["tutorialStage"] = "sms_archie"
-		var texts := _button_texts(ContactCards.build_archie_card())
+		var texts := NodeQuery.button_texts(ContactCards.build_archie_card())
 		for text in texts:
 			assert_true(not text.begins_with("💬 Archie texted") and not text.begins_with("💬 Message Archie") and not text.begins_with("💬 Archie wants to meet"), "no bespoke flag-driven SMS button survives: %s" % text)
 	)
@@ -227,7 +208,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["james"]["unlocked"] = true
 		GameState.state["flags"]["archieMotionEventSeen"] = true
-		var texts := _button_texts(ContactCards.build_james_card())
+		var texts := NodeQuery.button_texts(ContactCards.build_james_card())
 		assert_true(not texts.has("💬 Visit James — ask about new recipes"), "the old flag-driven button is gone")
 	)
 
@@ -235,7 +216,7 @@ func run() -> void:
 		GameState.reset()
 		Messages.queue_pending("archie", "archie_motion", "good output. call me.")
 
-		var button := _find_button(ContactCards.build_archie_card(), "Continue →")
+		var button := NodeQuery.find_button(ContactCards.build_archie_card(), "Continue →")
 		assert_true(button != null, "pendingMessages entries surface the same generic way build_des_card()'s loop does")
 
 		button.pressed.emit()
@@ -249,7 +230,7 @@ func run() -> void:
 		GameState.state["contacts"]["james"]["unlocked"] = true
 		Messages.queue_pending("james", "james_motion", "Overflow work, if you're capable of it. Come by.")
 
-		var button := _find_button(ContactCards.build_james_card(), "Continue →")
+		var button := NodeQuery.find_button(ContactCards.build_james_card(), "Continue →")
 		assert_true(button != null, "pendingMessages entries surface the same generic way on james's card")
 
 		button.pressed.emit()
@@ -265,9 +246,9 @@ func run() -> void:
 		Messages.queue_pending("archie", ArchieDeals.PENDING_KIND, "Fancy tagging along for a cut?")
 
 		var card := ContactCards.build_archie_card()
-		assert_true(_find_button(card, "Accept") != null, "should show an Accept button")
-		assert_true(_find_button(card, "Decline") != null, "should show a Decline button")
-		assert_true(_find_button(card, "Continue →") == null, "an archie_deal offer must not fall into the generic Continue loop -- it has no event to start")
+		assert_true(NodeQuery.find_button(card, "Accept") != null, "should show an Accept button")
+		assert_true(NodeQuery.find_button(card, "Decline") != null, "should show a Decline button")
+		assert_true(NodeQuery.find_button(card, "Continue →") == null, "an archie_deal offer must not fall into the generic Continue loop -- it has no event to start")
 	)
 
 	# ── 100-archie-deal-offer-shows-message: the pitch renders, not just the buttons ──
@@ -277,7 +258,7 @@ func run() -> void:
 		Messages.queue_pending("archie", ArchieDeals.PENDING_KIND, "Got a sale lined up, nothing of yours in it. Fancy tagging along for a cut?")
 
 		var card := ContactCards.build_archie_card()
-		assert_true(_label_texts(card).has("Got a sale lined up, nothing of yours in it. Fancy tagging along for a cut?"), "the offer text should be visible on the card, not just bare buttons")
+		assert_true(NodeQuery.label_texts(card).has("Got a sale lined up, nothing of yours in it. Fancy tagging along for a cut?"), "the offer text should be visible on the card, not just bare buttons")
 	)
 
 	run_case("pressing_accept_on_archie_card_accepts_the_deal", func():
@@ -285,7 +266,7 @@ func run() -> void:
 		GameState.state["flags"]["archieDealActive"] = true
 		Messages.queue_pending("archie", ArchieDeals.PENDING_KIND, "Fancy tagging along for a cut?")
 
-		var button := _find_button(ContactCards.build_archie_card(), "Accept")
+		var button := NodeQuery.find_button(ContactCards.build_archie_card(), "Accept")
 		button.pressed.emit()
 
 		assert_true(Messages.pending_for("archie").is_empty(), "the pending entry is resolved once acted on")
@@ -298,7 +279,7 @@ func run() -> void:
 		Messages.queue_pending("archie", ArchieDeals.PENDING_KIND, "Fancy tagging along for a cut?")
 		var relation_before: int = GameState.state["contacts"]["archie"]["relation"]
 
-		var button := _find_button(ContactCards.build_archie_card(), "Decline")
+		var button := NodeQuery.find_button(ContactCards.build_archie_card(), "Decline")
 		button.pressed.emit()
 
 		assert_true(Messages.pending_for("archie").is_empty(), "the pending entry is resolved once acted on")
@@ -343,7 +324,7 @@ func run() -> void:
 		var card := ContactCards.build_nadia_card()
 		ContactCards.apply_phone_os_chrome(card)
 
-		var b := _find_button(card, "🤝 Trade")
+		var b := NodeQuery.find_button(card, "🤝 Trade")
 		assert_true(b != null)
 		var style := b.get_theme_stylebox("normal") as StyleBoxFlat
 		assert_eq(style.bg_color, GameData.PALETTE["ui_action_red"], "an actionable button is filled with the one Family 2 accent")
@@ -355,7 +336,7 @@ func run() -> void:
 		var card := ContactCards.build_nadia_card()
 		ContactCards.apply_phone_os_chrome(card)
 
-		var b := _find_button(card, "🤝 Trade (not unlocked yet)")
+		var b := NodeQuery.find_button(card, "🤝 Trade (not unlocked yet)")
 		assert_true(b != null and b.disabled)
 		var style := b.get_theme_stylebox("disabled") as StyleBoxFlat
 		assert_eq(style.bg_color, Color(0, 0, 0, 0), "locked/done buttons de-emphasise via weight (an outline), never a filled colour")

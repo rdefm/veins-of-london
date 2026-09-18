@@ -1,7 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const UiSim := preload("res://tests/support/ui_sim.gd")
 const Overlay := preload("res://scenes/components/time_transition.gd")
-
 
 func _overlay() -> Control:
 	GameState.reset()
@@ -10,11 +10,6 @@ func _overlay() -> Control:
 	overlay.size = Vector2(390, 844)
 	overlay._ready()
 	return overlay
-
-
-func _advance(overlay: Control, seconds: float) -> void:
-	for i in range(int(ceil(seconds / 0.05))):
-		overlay._process(0.05)
 
 
 func run() -> void:
@@ -28,12 +23,12 @@ func run() -> void:
 		assert_true(not overlay.visible)
 		assert_true(GameState.state["notifications"].back()["text"].contains("tomorrow"))
 		var resolved := SaveManager.export_string()
-		_advance(overlay, 0.8)
+		UiSim.advance(overlay, 0.8)
 		assert_true(overlay.active)
 		assert_eq(overlay.destination.text, "Day 1 — Afternoon")
-		_advance(overlay, 1.6)
+		UiSim.advance(overlay, 1.6)
 		assert_true(overlay.active, "non-skippable duration has not elapsed")
-		_advance(overlay, 0.2)
+		UiSim.advance(overlay, 0.2)
 		assert_true(not overlay.active)
 		assert_eq(SaveManager.export_string(), resolved, "playback owns no gameplay effects")
 		assert_eq(overlay.pending.size(), 0)
@@ -43,26 +38,26 @@ func run() -> void:
 		var overlay := _overlay()
 		TimeSystem.advance_time_block()
 		GameState.state["event"] = {"id": "test"}
-		_advance(overlay, 3)
+		UiSim.advance(overlay, 3)
 		assert_true(not overlay.active)
 		GameState.state["event"] = null
 		GameState.state["combat"]["active"] = true
-		_advance(overlay, 3)
+		UiSim.advance(overlay, 3)
 		assert_true(not overlay.active)
 		GameState.state["combat"]["active"] = false
 		GameState.state["currentScreen"] = "combat"
-		_advance(overlay, 3)
+		UiSim.advance(overlay, 3)
 		assert_true(not overlay.active, "combat result playback still owns screen")
 		GameState.state["currentScreen"] = "hq"
 		Modal.open("james_job_complete", {"earned": 10})
-		_advance(overlay, 3)
+		UiSim.advance(overlay, 3)
 		assert_true(not overlay.active)
 		Modal.close()
 		GameState.state["bagDrawerOpen"] = true
-		_advance(overlay, 3)
+		UiSim.advance(overlay, 3)
 		assert_true(not overlay.active)
 		GameState.state["bagDrawerOpen"] = false
-		_advance(overlay, 0.8)
+		UiSim.advance(overlay, 0.8)
 		assert_true(overlay.active)
 		overlay.free()
 	)
@@ -83,7 +78,7 @@ func run() -> void:
 				assert_eq(ticks.size(), 1 if rest or phase == 2 else 0)
 				var resolved_account = GameState.deep_copy(GameState.state["morningAccounts"].get("latest"))
 				var resolved_cash: int = GameState.state["player"]["cash"]
-				_advance(overlay, 3)
+				UiSim.advance(overlay, 3)
 				assert_true(not overlay.active)
 				assert_eq(GameState.state["morningAccounts"].get("latest"), resolved_account, "playback never reruns or edits the account")
 				assert_eq(GameState.state["player"]["cash"], resolved_cash, "playback never reruns daily effects")
@@ -99,7 +94,7 @@ func run() -> void:
 		assert_eq(overlay.pending.size(), 0)
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
 		assert_true(not Combat.train()["ok"])
-		_advance(overlay, 3)
+		UiSim.advance(overlay, 3)
 		assert_eq(overlay.pending.size(), 0)
 		assert_true(not overlay.active)
 		overlay.free()
@@ -108,9 +103,9 @@ func run() -> void:
 		var overlay := _overlay()
 		preload("res://systems/preferences.gd").set_reduced_motion(true)
 		TimeSystem.advance_time_block()
-		_advance(overlay, 0.8)
+		UiSim.advance(overlay, 0.8)
 		var region: Rect2 = overlay.picture.texture.region
-		_advance(overlay, 1.0)
+		UiSim.advance(overlay, 1.0)
 		assert_eq(overlay.picture.texture.region, region)
 		assert_true(overlay.active)
 		var saved := SaveManager.export_string()
@@ -150,7 +145,7 @@ func run() -> void:
 		await tree.process_frame
 		overlay.set_process(false)
 		TimeSystem.advance_time_block()
-		_advance(overlay, 0.8)
+		UiSim.advance(overlay, 0.8)
 		var press := InputEventMouseButton.new()
 		press.button_index = MOUSE_BUTTON_LEFT
 		press.position = Vector2(20, 20)
@@ -161,7 +156,7 @@ func run() -> void:
 		# A paused SceneTree cannot strand the always-processing overlay.
 		tree.paused = true
 		assert_true(overlay.can_process())
-		_advance(overlay, 1.8)
+		UiSim.advance(overlay, 1.8)
 		tree.paused = false
 		press.pressed = false
 		tree.root.push_input(press, true)

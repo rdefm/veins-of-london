@@ -1,25 +1,19 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # vein-raiding ticket 02: stealth-check + claim/loot resolution ops.
 # systems/raiding.gd's pure logic, tested directly (no event/UI wiring yet
 # -- that's ticket 03).
 
 
-static func _faction_vein_of(growth: int, ore_type: String, security: String = "none", faction_id: String = "collective") -> Dictionary:
+static func _faction_vein_of_growth(growth: int, ore_type: String, security: String = "none", faction_id: String = "collective") -> Dictionary:
 	return {
 		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "growth": growth,
 		"security": security, "alarmUpgrades": [],
 		"location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch",
 		"siteId": "s_test", "hospitability": { "tier": "fair", "bonuses": [] },
 		"rampantDays": 0,
-	}
-
-
-static func _site_with_vein(id: String, vein: Dictionary) -> Dictionary:
-	return {
-		"id": id, "district": "shoreditch", "tier": "fair", "oreType": vein["oreType"],
-		"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
-		"hasNaturalVein": false,
 	}
 
 
@@ -47,15 +41,15 @@ func run() -> void:
 	# ── stealth_success_chance direction ────────────────────────────────
 
 	run_case("stealth_success_chance_increases_with_stealthSkill", func():
-		var vein := _faction_vein_of(30, "time", "warded")
+		var vein := _faction_vein_of_growth(30, "time", "warded")
 		var low_skill := Raiding.stealth_success_chance(1, vein, 0.0)
 		var high_skill := Raiding.stealth_success_chance(5, vein, 0.0)
 		assert_true(high_skill > low_skill, "higher stealthSkill should raise the chance (got %f vs %f)" % [high_skill, low_skill])
 	)
 
 	run_case("stealth_success_chance_decreases_with_raidResist", func():
-		var unsecured := _faction_vein_of(30, "time", "none")
-		var guarded := _faction_vein_of(30, "time", "guarded")
+		var unsecured := _faction_vein_of_growth(30, "time", "none")
+		var guarded := _faction_vein_of_growth(30, "time", "guarded")
 		var chance_unsecured := Raiding.stealth_success_chance(1, unsecured, 0.0)
 		var chance_guarded := Raiding.stealth_success_chance(1, guarded, 0.0)
 		assert_true(chance_unsecured > chance_guarded, "an unsecured vein should be easier to sneak past than a guarded one (got %f vs %f)" % [chance_unsecured, chance_guarded])
@@ -64,8 +58,8 @@ func run() -> void:
 	# 72-stackable-guards-vein-defense: stacking extra guards past "guarded"
 	# keeps reducing the odds -- no ceiling at the old fixed max.
 	run_case("stealth_success_chance_keeps_decreasing_as_extra_guards_stack_past_guarded", func():
-		var guarded := _faction_vein_of(30, "time", "guarded")
-		var stacked := _faction_vein_of(30, "time", "guarded")
+		var guarded := _faction_vein_of_growth(30, "time", "guarded")
+		var stacked := _faction_vein_of_growth(30, "time", "guarded")
 		stacked["extraGuards"] = 10
 		var chance_guarded := Raiding.stealth_success_chance(1, guarded, 0.0)
 		var chance_stacked := Raiding.stealth_success_chance(1, stacked, 0.0)
@@ -74,22 +68,22 @@ func run() -> void:
 	)
 
 	run_case("stealth_success_chance_decreases_with_vein_value", func():
-		var cheap := _faction_vein_of(10, "time", "none")
-		var rich := _faction_vein_of(90, "fate", "none")
+		var cheap := _faction_vein_of_growth(10, "time", "none")
+		var rich := _faction_vein_of_growth(90, "fate", "none")
 		var chance_cheap := Raiding.stealth_success_chance(1, cheap, 0.0)
 		var chance_rich := Raiding.stealth_success_chance(1, rich, 0.0)
 		assert_true(chance_cheap > chance_rich, "a low-value vein should be easier to sneak than a high-value one (got %f vs %f)" % [chance_cheap, chance_rich])
 	)
 
 	run_case("stealth_success_chance_increases_with_consumable_bonus", func():
-		var vein := _faction_vein_of(30, "time", "warded")
+		var vein := _faction_vein_of_growth(30, "time", "warded")
 		var no_bonus := Raiding.stealth_success_chance(1, vein, 0.0)
 		var with_bonus := Raiding.stealth_success_chance(1, vein, 0.2)
 		assert_true(with_bonus > no_bonus, "a consumable bonus should raise the chance (got %f vs %f)" % [with_bonus, no_bonus])
 	)
 
 	run_case("stealth_success_chance_clamped_to_0_1", func():
-		var vein := _faction_vein_of(90, "fate", "guarded")
+		var vein := _faction_vein_of_growth(90, "fate", "guarded")
 		var floored := Raiding.stealth_success_chance(1, vein, -5.0)
 		var ceilinged := Raiding.stealth_success_chance(1, vein, 5.0)
 		assert_eq(floored, 0.0, "an extreme negative bonus should clamp to 0")
@@ -100,7 +94,7 @@ func run() -> void:
 
 	run_case("resolve_stealth_check_awards_full_xp_on_a_guaranteed_success", func():
 		GameState.reset()
-		var vein := _faction_vein_of(10, "time", "none")
+		var vein := _faction_vein_of_growth(10, "time", "none")
 		var xp_before: int = GameState.state["player"]["stealthXP"]
 		var success: bool = Raiding.resolve_stealth_check(vein, 5.0)  # bonus saturates chance to 1.0
 		assert_true(success, "a saturated chance should always succeed")
@@ -109,7 +103,7 @@ func run() -> void:
 
 	run_case("resolve_stealth_check_awards_reduced_xp_on_a_guaranteed_catch", func():
 		GameState.reset()
-		var vein := _faction_vein_of(90, "fate", "guarded")
+		var vein := _faction_vein_of_growth(90, "fate", "guarded")
 		var xp_before: int = GameState.state["player"]["stealthXP"]
 		var success: bool = Raiding.resolve_stealth_check(vein, -5.0)  # bonus floors chance to 0.0
 		assert_true(not success, "a floored chance should always be caught")
@@ -119,7 +113,7 @@ func run() -> void:
 	run_case("resolve_stealth_check_levels_up_stealthSkill_once_xp_crosses_the_threshold", func():
 		GameState.reset()
 		GameState.state["player"]["stealthXP"] = GameData.STEALTH_XP_LEVELS[2] - Raiding.STEALTH_XP_SUCCESS
-		var vein := _faction_vein_of(10, "time", "none")
+		var vein := _faction_vein_of_growth(10, "time", "none")
 		Raiding.resolve_stealth_check(vein, 5.0)
 		assert_eq(GameState.state["player"]["stealthSkill"], 2, "crossing the Lv2 threshold should level stealthSkill up")
 	)
@@ -128,8 +122,8 @@ func run() -> void:
 
 	run_case("claim_vein_transfers_ownership_carrying_oreType_growth_security", func():
 		GameState.reset()
-		var vein := _faction_vein_of(50, "physics", "warded", "guild")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_growth(50, "physics", "warded", "guild")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		GameState.state["factions"]["guild"]["relation"] = 20
 
 		Raiding.claim_vein("s1")
@@ -148,8 +142,8 @@ func run() -> void:
 
 	run_case("claim_vein_always_applies_the_severe_relation_hit", func():
 		GameState.reset()
-		var vein := _faction_vein_of(10, "time", "none", "firm")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_growth(10, "time", "none", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		GameState.state["factions"]["firm"]["relation"] = 50
 
 		Raiding.claim_vein("s1")
@@ -159,7 +153,7 @@ func run() -> void:
 
 	run_case("claim_vein_is_a_no_op_when_the_site_has_no_factionVein", func():
 		GameState.reset()
-		var site: Dictionary = _site_with_vein("s1", _faction_vein_of(10, "time"))
+		var site: Dictionary = Fixtures.site_with_vein("s1", _faction_vein_of_growth(10, "time"))
 		site["factionVein"] = null
 		GameState.state["world"]["sites"] = [site]
 
@@ -171,8 +165,8 @@ func run() -> void:
 
 	run_case("claim_vein_queues_a_seed_claim_map_event_owned_by_the_player", func():
 		GameState.reset()
-		var vein := _faction_vein_of(30, "emotion", "warded", "network")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_growth(30, "emotion", "warded", "network")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 
 		Raiding.claim_vein("s1")
 
@@ -185,7 +179,7 @@ func run() -> void:
 
 	run_case("claim_vein_no_op_does_not_queue_a_map_event", func():
 		GameState.reset()
-		var site: Dictionary = _site_with_vein("s1", _faction_vein_of(10, "time"))
+		var site: Dictionary = Fixtures.site_with_vein("s1", _faction_vein_of_growth(10, "time"))
 		site["factionVein"] = null
 		GameState.state["world"]["sites"] = [site]
 
@@ -197,8 +191,8 @@ func run() -> void:
 
 	run_case("loot_vein_grants_ore_and_leaves_ownership_with_the_faction", func():
 		GameState.reset()
-		var vein := _faction_vein_of(30, "life", "none", "network")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_growth(30, "life", "none", "network")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		var ore_before: int = GameState.state["player"]["orichalchum"].get("life", 0)
 
 		Raiding.loot_vein("s1", false)
@@ -211,8 +205,8 @@ func run() -> void:
 
 	run_case("loot_vein_applies_the_moderate_relation_hit_only_when_caught", func():
 		GameState.reset()
-		var vein_a := _faction_vein_of(10, "time", "none", "conclave")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein_a)]
+		var vein_a := _faction_vein_of_growth(10, "time", "none", "conclave")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein_a)]
 		GameState.state["factions"]["conclave"]["relation"] = 30
 
 		Raiding.loot_vein("s1", false)
@@ -224,7 +218,7 @@ func run() -> void:
 
 	run_case("loot_vein_is_a_no_op_when_the_site_has_no_factionVein", func():
 		GameState.reset()
-		var site: Dictionary = _site_with_vein("s1", _faction_vein_of(10, "time"))
+		var site: Dictionary = Fixtures.site_with_vein("s1", _faction_vein_of_growth(10, "time"))
 		site["factionVein"] = null
 		GameState.state["world"]["sites"] = [site]
 		var ore_before: int = GameState.state["player"]["orichalchum"].get("time", 0)
@@ -237,8 +231,8 @@ func run() -> void:
 
 	run_case("begin_raid_spends_a_time_block_and_starts_the_raid_event_with_the_site_id_in_context", func():
 		GameState.reset()
-		var vein := _faction_vein_of(30, "physics", "warded", "firm")
-		GameState.state["world"]["sites"] = [_site_with_vein(vein["siteId"], vein)]
+		var vein := _faction_vein_of_growth(30, "physics", "warded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein(vein["siteId"], vein)]
 
 		var result := Raiding.begin_raid(vein)
 
@@ -251,8 +245,8 @@ func run() -> void:
 	run_case("begin_raid_blocked_when_time_exhausted", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var vein := _faction_vein_of(10, "time", "none")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_growth(10, "time", "none")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 
 		var result := Raiding.begin_raid(vein)
 
@@ -264,8 +258,8 @@ func run() -> void:
 
 	run_case("begin_raid_carries_ally_ids_into_the_event_context", func():
 		GameState.reset()
-		var vein := _faction_vein_of(30, "physics", "warded", "firm")
-		GameState.state["world"]["sites"] = [_site_with_vein(vein["siteId"], vein)]
+		var vein := _faction_vein_of_growth(30, "physics", "warded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein(vein["siteId"], vein)]
 
 		Raiding.begin_raid(vein, ["archie"])
 
@@ -274,8 +268,8 @@ func run() -> void:
 
 	run_case("begin_raid_defaults_to_no_allies", func():
 		GameState.reset()
-		var vein := _faction_vein_of(30, "physics", "warded", "firm")
-		GameState.state["world"]["sites"] = [_site_with_vein(vein["siteId"], vein)]
+		var vein := _faction_vein_of_growth(30, "physics", "warded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein(vein["siteId"], vein)]
 
 		Raiding.begin_raid(vein)
 
@@ -300,8 +294,8 @@ func run() -> void:
 
 	run_case("raid_event_clean_stealth_success_reaches_the_claim_loot_choice", func():
 		GameState.reset()
-		var vein := _faction_vein_of(10, "time", "none", "firm")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_growth(10, "time", "none", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		GameState.state["player"]["stealthSkill"] = 1000  # saturates stealth_success_chance to 1.0
 
 		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
@@ -318,8 +312,8 @@ func run() -> void:
 
 	run_case("raid_event_caught_then_combat_win_reaches_the_claim_loot_choice", func():
 		GameState.reset()
-		var vein := _faction_vein_of(90, "fate", "guarded", "firm")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_growth(90, "fate", "guarded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 
 		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
 		Events.advance()
@@ -339,8 +333,8 @@ func run() -> void:
 
 	run_case("raid_event_caught_with_archie_brought_along_joins_him_in_the_resulting_combat", func():
 		GameState.reset()
-		var vein := _faction_vein_of(90, "fate", "guarded", "firm")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_growth(90, "fate", "guarded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		GameState.state["contacts"]["archie"]["recruited"] = true
 
 		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1", "ally_ids": ["archie"] })
@@ -355,8 +349,8 @@ func run() -> void:
 
 	run_case("raid_event_caught_then_combat_loss_fails_the_raid_with_no_claim_loot_offered", func():
 		GameState.reset()
-		var vein := _faction_vein_of(90, "fate", "guarded", "firm")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_growth(90, "fate", "guarded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 
 		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
 		Events.advance()
@@ -374,8 +368,8 @@ func run() -> void:
 
 	run_case("raid_event_loot_after_a_caught_win_applies_the_moderate_relation_hit", func():
 		GameState.reset()
-		var vein := _faction_vein_of(90, "fate", "guarded", "firm")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_growth(90, "fate", "guarded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		GameState.state["factions"]["firm"]["relation"] = 50
 
 		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
@@ -393,8 +387,8 @@ func run() -> void:
 
 	run_case("raid_event_clean_stealth_and_loot_leaves_relation_untouched", func():
 		GameState.reset()
-		var vein := _faction_vein_of(10, "time", "none", "network")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_growth(10, "time", "none", "network")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		GameState.state["player"]["stealthSkill"] = 1000
 		GameState.state["factions"]["network"]["relation"] = 30
 
@@ -409,8 +403,8 @@ func run() -> void:
 
 	run_case("raid_event_claim_transfers_ownership_via_the_event's_site_id_context", func():
 		GameState.reset()
-		var vein := _faction_vein_of(10, "time", "none", "guild")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_growth(10, "time", "none", "guild")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		GameState.state["player"]["stealthSkill"] = 1000
 
 		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })

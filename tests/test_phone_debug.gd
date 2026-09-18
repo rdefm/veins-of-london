@@ -1,15 +1,10 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # 01-debug-app: the Debug phone app's shell + its two simplest actions,
 # screen-level-tested against a real PhoneScreen instance, same
 # headless-scene pattern as tests/test_phone_bank.gd.
-
-
-static func _find_tiles(root: Node) -> Array[AppTile]:
-	var tiles: Array[AppTile] = []
-	for t in root.find_children("", "AppTile", true, false):
-		tiles.append(t as AppTile)
-	return tiles
 
 
 static func _find_line_edits(root: Node) -> Array[LineEdit]:
@@ -52,7 +47,7 @@ func run() -> void:
 		phone._ready()
 
 		var found := false
-		for t in _find_tiles(phone):
+		for t in NodeQuery.find_tiles(phone):
 			if t._app_id == "debug":
 				found = true
 		assert_true(not found, "a normally-started game never shows the debug tile")
@@ -68,7 +63,7 @@ func run() -> void:
 		phone._ready()
 
 		var debug_tile: AppTile = null
-		for t in _find_tiles(phone):
+		for t in NodeQuery.find_tiles(phone):
 			if t._app_id == "debug":
 				debug_tile = t
 		assert_true(debug_tile != null, "debug tile must exist once debugStartUsed is true")

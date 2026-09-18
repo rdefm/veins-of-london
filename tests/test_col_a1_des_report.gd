@@ -1,5 +1,8 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+const EventPlay := preload("res://tests/support/event_play.gd")
+
 # collective1-10/des-sites-partial-turnin ticket 02, spec.md §6.7/§6.14/§10.3:
 # S7 (col_a1_des_report), Des's thread resolution. Drives the real event JSON
 # card-by-card, same idiom tests/test_col_a1_tuition.gd uses for S1-S4, plus
@@ -9,20 +12,6 @@ extends "res://tests/test_base.gd"
 # fires per ore type, not once both are simultaneously unclaimed -- see
 # col_a1_des_report_first_fate/col_a1_des_report_first_physics for the
 # in-between scene and this file's own final/closing scene.
-
-
-func _play_event(event_id: String) -> void:
-	Events.start_event(event_id)
-	for i in range(GameData.EVENTS[event_id]["cards"].size()):
-		Events.advance()
-
-
-func _site(id: String, ore_type: String, tier: String) -> Dictionary:
-	return {
-		"id": id, "district": "shoreditch", "tier": tier, "oreType": ore_type,
-		"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
-		"hasNaturalVein": false,
-	}
 
 
 func run() -> void:
@@ -42,7 +31,7 @@ func run() -> void:
 	run_case("build_des_report_action_surfaces_for_a_single_qualifying_site_and_reports_it", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"].append(_site("s_fate", "fate", "fair"))
+		GameState.state["world"]["sites"].append(Fixtures.site("s_fate", "fate", "fair"))
 
 		var b := ContactCards.build_des_report_action() as Button
 		assert_true(b != null)
@@ -60,9 +49,9 @@ func run() -> void:
 	run_case("build_des_report_action_surfaces_again_for_the_second_ore_type_and_closes_the_thread", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"].append(_site("s_fate", "fate", "fair"))
+		GameState.state["world"]["sites"].append(Fixtures.site("s_fate", "fate", "fair"))
 		Collective.report_des_site("fate")
-		GameState.state["world"]["sites"].append(_site("s_physics", "physics", "fair"))
+		GameState.state["world"]["sites"].append(Fixtures.site("s_physics", "physics", "fair"))
 
 		var b := ContactCards.build_des_report_action() as Button
 		assert_true(b != null, "button reappears once a qualifying site exists for the still-needed ore type")
@@ -78,8 +67,8 @@ func run() -> void:
 	run_case("build_des_report_action_is_null_again_once_colA1DesThreadDone", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"].append(_site("s_fate", "fate", "fair"))
-		GameState.state["world"]["sites"].append(_site("s_physics", "physics", "fair"))
+		GameState.state["world"]["sites"].append(Fixtures.site("s_fate", "fate", "fair"))
+		GameState.state["world"]["sites"].append(Fixtures.site("s_physics", "physics", "fair"))
 		Collective.report_des_site("fate")
 		Collective.report_des_site("physics")
 		GameState.state["flags"]["colA1DesThreadDone"] = true
@@ -109,8 +98,8 @@ func run() -> void:
 	run_case("report_des_site_seeds_collective_veins_immediately_as_each_ore_type_is_reported", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"].append(_site("s_fate", "fate", "fair"))
-		GameState.state["world"]["sites"].append(_site("s_physics", "physics", "fair"))
+		GameState.state["world"]["sites"].append(Fixtures.site("s_fate", "fate", "fair"))
+		GameState.state["world"]["sites"].append(Fixtures.site("s_physics", "physics", "fair"))
 		Collective.report_des_site("fate")
 		Collective.report_des_site("physics")
 
@@ -137,13 +126,13 @@ func run() -> void:
 	run_case("on_complete_sets_the_thread_done_flag_and_awards_no_further_relation", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"].append(_site("s_fate", "fate", "fair"))
-		GameState.state["world"]["sites"].append(_site("s_physics", "physics", "fair"))
+		GameState.state["world"]["sites"].append(Fixtures.site("s_fate", "fate", "fair"))
+		GameState.state["world"]["sites"].append(Fixtures.site("s_physics", "physics", "fair"))
 		Collective.report_des_site("fate")
 		Collective.report_des_site("physics")
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 
-		_play_event("col_a1_des_report")
+		EventPlay.play_event("col_a1_des_report")
 
 		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before, "both +6 awards already landed via report_des_site()")
 		assert_true(GameState.state["flags"]["colA1DesThreadDone"])
@@ -159,10 +148,10 @@ func run() -> void:
 	run_case("first_report_scenes_return_to_phone_without_touching_the_thread_done_flag", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"].append(_site("s_fate", "fate", "fair"))
+		GameState.state["world"]["sites"].append(Fixtures.site("s_fate", "fate", "fair"))
 		Collective.report_des_site("fate")
 
-		_play_event("col_a1_des_report_first_fate")
+		EventPlay.play_event("col_a1_des_report_first_fate")
 
 		assert_eq(GameState.state["currentScreen"], "phone")
 		assert_true(not GameState.state["flags"].get("colA1DesThreadDone", false))

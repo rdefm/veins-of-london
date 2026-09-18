@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # VeinList — pure gating (actions_for)/filtering (veins) and dispatch
 # (apply_option) for the vein list, vein-growth-state ticket 09 (spec §6.2).
 # Same split tests/test_district_bubble.gd and tests/test_station_bubble.gd
@@ -7,20 +9,8 @@ extends "res://tests/test_base.gd"
 # Node/Tween side (scenes/screens/vein_list.gd's Control building) isn't
 # exercised here, only the system-level rules.
 #
-# Fixtures mirror tests/test_station_bubble.gd's own _player_vein() (the
-# growth-model vein shape, Cultivating.make_vein()'s shape).
-
-
-static func _player_vein(overrides: Dictionary = {}) -> Dictionary:
-	var vein := {
-		"id": "v1", "district": "shoreditch", "oreType": "time", "growth": 20,
-		"security": "none", "alarmUpgrades": [], "location": "Test Alley",
-		"claimedOnDay": 1, "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
-		"rampantDays": 0,
-	}
-	for key in overrides:
-		vein[key] = overrides[key]
-	return vein
+# Fixtures.player_vein_with() gives the growth-model vein shape
+# (Cultivating.make_vein()'s shape).
 
 
 func run() -> void:
@@ -29,8 +19,8 @@ func run() -> void:
 	run_case("veins_returns_every_district_when_district_id_is_null", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [
-			_player_vein({ "id": "v1", "district": "shoreditch" }),
-			_player_vein({ "id": "v2", "district": "camden" }),
+			Fixtures.player_vein_with({ "id": "v1", "district": "shoreditch" }),
+			Fixtures.player_vein_with({ "id": "v2", "district": "camden" }),
 		]
 
 		var result := VeinList.veins(null)
@@ -41,8 +31,8 @@ func run() -> void:
 	run_case("veins_filters_to_one_district", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [
-			_player_vein({ "id": "v1", "district": "shoreditch" }),
-			_player_vein({ "id": "v2", "district": "camden" }),
+			Fixtures.player_vein_with({ "id": "v1", "district": "shoreditch" }),
+			Fixtures.player_vein_with({ "id": "v2", "district": "camden" }),
 		]
 
 		var result := VeinList.veins("shoreditch")
@@ -54,9 +44,9 @@ func run() -> void:
 	run_case("veins_filters_by_band", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [
-			_player_vein({ "id": "v1", "growth": 90 }),   # wild
-			_player_vein({ "id": "v2", "growth": 20 }),   # sparse
-			_player_vein({ "id": "v3", "growth": 0 }),    # collapsed
+			Fixtures.player_vein_with({ "id": "v1", "growth": 90 }),   # wild
+			Fixtures.player_vein_with({ "id": "v2", "growth": 20 }),   # sparse
+			Fixtures.player_vein_with({ "id": "v3", "growth": 0 }),    # collapsed
 		]
 
 		var result := VeinList.veins(null, "wild")
@@ -68,8 +58,8 @@ func run() -> void:
 	run_case("veins_treats_a_null_band_as_no_filter", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [
-			_player_vein({ "id": "v1", "growth": 90 }),
-			_player_vein({ "id": "v2", "growth": 20 }),
+			Fixtures.player_vein_with({ "id": "v1", "growth": 90 }),
+			Fixtures.player_vein_with({ "id": "v2", "growth": 20 }),
 		]
 
 		assert_eq(VeinList.veins(null, null).size(), 2)
@@ -78,9 +68,9 @@ func run() -> void:
 	run_case("veins_combines_district_and_band_filters", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [
-			_player_vein({ "id": "v1", "district": "shoreditch", "growth": 90 }),
-			_player_vein({ "id": "v2", "district": "camden", "growth": 90 }),
-			_player_vein({ "id": "v3", "district": "shoreditch", "growth": 20 }),
+			Fixtures.player_vein_with({ "id": "v1", "district": "shoreditch", "growth": 90 }),
+			Fixtures.player_vein_with({ "id": "v2", "district": "camden", "growth": 90 }),
+			Fixtures.player_vein_with({ "id": "v3", "district": "shoreditch", "growth": 20 }),
 		]
 
 		var result := VeinList.veins("shoreditch", "wild")
@@ -93,7 +83,7 @@ func run() -> void:
 
 	run_case("actions_for_always_offers_cultivate_both_prune_actions_and_manage_in_order", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 70 })
+		var vein := Fixtures.player_vein_with({ "growth": 70 })
 
 		var gates := VeinList.actions_for(vein)
 
@@ -103,7 +93,7 @@ func run() -> void:
 
 	run_case("actions_for_disables_cultivate_with_a_reason_at_the_ceiling", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 100 })  # fair tier, no wildCeiling bonus -- ceiling is 100
+		var vein := Fixtures.player_vein_with({ "growth": 100 })  # fair tier, no wildCeiling bonus -- ceiling is 100
 
 		var gates := VeinList.actions_for(vein)
 
@@ -114,7 +104,7 @@ func run() -> void:
 	run_case("actions_for_disables_cultivate_when_no_blocks_remain_today", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var vein := _player_vein()
+		var vein := Fixtures.player_vein_with()
 
 		var gates := VeinList.actions_for(vein)
 
@@ -126,7 +116,7 @@ func run() -> void:
 	# correctly yields 0 ore, but the player may still spend the block.
 	run_case("actions_for_keeps_both_prune_actions_enabled_when_projected_yield_is_zero", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 40 })  # below neutral: nothing above neutral to take
+		var vein := Fixtures.player_vein_with({ "growth": 40 })  # below neutral: nothing above neutral to take
 
 		var gates := VeinList.actions_for(vein)
 
@@ -138,7 +128,7 @@ func run() -> void:
 
 	run_case("actions_for_enables_both_prune_actions_when_projected_yield_is_positive", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 70 })
+		var vein := Fixtures.player_vein_with({ "growth": 70 })
 
 		var gates := VeinList.actions_for(vein)
 
@@ -149,7 +139,7 @@ func run() -> void:
 	run_case("actions_for_manage_is_always_enabled_regardless_of_gating", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var vein := _player_vein({ "growth": 100 })
+		var vein := Fixtures.player_vein_with({ "growth": 100 })
 
 		var gates := VeinList.actions_for(vein)
 
@@ -166,7 +156,7 @@ func run() -> void:
 	run_case("apply_option_cultivate_reports_the_roll_outcome_on_a_successful_roll", func():
 		GameState.reset()
 		Rng.set_seed(0)
-		GameState.state["player"]["veins"] = [_player_vein()]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
 
 		var result := VeinList.apply_option(VeinList.CULTIVATE_ID, "v1")
 
@@ -177,7 +167,7 @@ func run() -> void:
 	run_case("apply_option_cultivate_reports_the_roll_outcome_on_a_failed_roll", func():
 		GameState.reset()
 		Rng.set_seed(3)
-		GameState.state["player"]["veins"] = [_player_vein()]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
 
 		var result := VeinList.apply_option(VeinList.CULTIVATE_ID, "v1")
 
@@ -187,7 +177,7 @@ func run() -> void:
 
 	run_case("apply_option_prune_light_forwards_to_Cultivating_prune_light_depth", func():
 		GameState.reset()
-		GameState.state["player"]["veins"] = [_player_vein({ "growth": 70, "oreType": "time" })]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "growth": 70, "oreType": "time" })]
 
 		var result := VeinList.apply_option(VeinList.PRUNE_LIGHT_ID, "v1")
 
@@ -197,7 +187,7 @@ func run() -> void:
 
 	run_case("apply_option_prune_hard_forwards_to_Cultivating_prune_hard_depth", func():
 		GameState.reset()
-		GameState.state["player"]["veins"] = [_player_vein({ "growth": 70, "oreType": "time" })]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "growth": 70, "oreType": "time" })]
 
 		var result := VeinList.apply_option(VeinList.PRUNE_HARD_ID, "v1")
 
@@ -207,7 +197,7 @@ func run() -> void:
 
 	run_case("apply_option_manage_selects_the_site_via_MapNav_and_switches_to_the_Map_tab", func():
 		GameState.reset()
-		GameState.state["player"]["veins"] = [_player_vein({ "siteId": "s7" })]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "siteId": "s7" })]
 
 		var result := VeinList.apply_option(VeinList.MANAGE_ID, "v1")
 
@@ -218,7 +208,7 @@ func run() -> void:
 
 	run_case("apply_option_ignores_an_unknown_option_id", func():
 		GameState.reset()
-		GameState.state["player"]["veins"] = [_player_vein()]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
 
 		var result := VeinList.apply_option("not_a_real_option", "v1")
 

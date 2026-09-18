@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # 10-map-interaction-model ticket 04: the station tap bubble's pure gating
 # (station_options) and dispatch (apply_option) logic -- same split
 # tests/test_district_bubble.gd documents for ticket 03's DistrictBubble.
@@ -16,18 +18,6 @@ extends "res://tests/test_base.gd"
 # returns null rather than throwing, so the suite kept reporting green).
 
 
-static func _player_vein(overrides: Dictionary = {}) -> Dictionary:
-	var vein := {
-		"id": "v1", "district": "shoreditch", "oreType": "time", "growth": 20,
-		"security": "none", "alarmUpgrades": [], "location": "Test Alley",
-		"claimedOnDay": 1, "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
-		"rampantDays": 0,
-	}
-	for key in overrides:
-		vein[key] = overrides[key]
-	return vein
-
-
 static func _vein_stop(vein: Dictionary, owner: String, site_id: String = "s1") -> Dictionary:
 	return { "id": vein["id"], "kind": "vein", "vein": vein, "owner": owner, "site": { "id": site_id } }
 
@@ -39,7 +29,7 @@ static func _unclaimed_stop(site_id: String = "s1") -> Dictionary:
 func run() -> void:
 	run_case("station_options_always_offers_cultivate_both_prune_actions_and_manage", func():
 		GameState.reset()
-		var stop := _vein_stop(_player_vein({ "growth": 70 }), "player")  # taking band: comfortably above neutral
+		var stop := _vein_stop(Fixtures.player_vein_with({ "growth": 70 }), "player")  # taking band: comfortably above neutral
 
 		var options := StationBubble.station_options(stop)
 
@@ -51,7 +41,7 @@ func run() -> void:
 	# correctly yields 0 ore, but the player may still spend the block.
 	run_case("station_options_keeps_both_prune_actions_enabled_when_projected_yield_is_zero", func():
 		GameState.reset()
-		var stop := _vein_stop(_player_vein({ "growth": 40 }), "player")  # below neutral: nothing above neutral to take
+		var stop := _vein_stop(Fixtures.player_vein_with({ "growth": 40 }), "player")  # below neutral: nothing above neutral to take
 
 		var options := StationBubble.station_options(stop)
 
@@ -63,7 +53,7 @@ func run() -> void:
 
 	run_case("station_options_enables_both_prune_actions_when_projected_yield_is_positive", func():
 		GameState.reset()
-		var stop := _vein_stop(_player_vein({ "growth": 70 }), "player")
+		var stop := _vein_stop(Fixtures.player_vein_with({ "growth": 70 }), "player")
 
 		var options := StationBubble.station_options(stop)
 
@@ -75,7 +65,7 @@ func run() -> void:
 
 	run_case("station_options_disables_cultivate_with_a_reason_at_the_ceiling", func():
 		GameState.reset()
-		var stop := _vein_stop(_player_vein({ "growth": 100 }), "player")  # fair tier, no wildCeiling bonus -- ceiling is 100
+		var stop := _vein_stop(Fixtures.player_vein_with({ "growth": 100 }), "player")  # fair tier, no wildCeiling bonus -- ceiling is 100
 
 		var options := StationBubble.station_options(stop)
 
@@ -86,7 +76,7 @@ func run() -> void:
 	run_case("station_options_disables_cultivate_when_no_blocks_remain_today", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var stop := _vein_stop(_player_vein(), "player")
+		var stop := _vein_stop(Fixtures.player_vein_with(), "player")
 
 		var options := StationBubble.station_options(stop)
 
@@ -97,7 +87,7 @@ func run() -> void:
 	run_case("station_options_disables_both_prune_actions_with_a_no_blocks_reason_when_yield_would_be_positive", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var stop := _vein_stop(_player_vein({ "growth": 70 }), "player")
+		var stop := _vein_stop(Fixtures.player_vein_with({ "growth": 70 }), "player")
 
 		var options := StationBubble.station_options(stop)
 
@@ -110,7 +100,7 @@ func run() -> void:
 	run_case("station_options_manage_is_always_enabled_regardless_of_gating", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
-		var stop := _vein_stop(_player_vein({ "growth": 100 }), "player")
+		var stop := _vein_stop(Fixtures.player_vein_with({ "growth": 100 }), "player")
 
 		var options := StationBubble.station_options(stop)
 
@@ -121,7 +111,7 @@ func run() -> void:
 
 	run_case("station_options_offers_only_manage_for_a_faction_owned_vein", func():
 		GameState.reset()
-		var stop := _vein_stop(_player_vein({ "growth": 70 }), "firm")
+		var stop := _vein_stop(Fixtures.player_vein_with({ "growth": 70 }), "firm")
 
 		var options := StationBubble.station_options(stop)
 
@@ -150,7 +140,7 @@ func run() -> void:
 	run_case("apply_option_cultivate_reports_the_roll_outcome_on_a_successful_roll", func():
 		GameState.reset()
 		Rng.set_seed(0)
-		GameState.state["player"]["veins"] = [_player_vein()]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
 		var stop := _vein_stop(GameState.state["player"]["veins"][0], "player")
 
 		var result := StationBubble.apply_option(StationBubble.CULTIVATE_ID, stop)
@@ -162,7 +152,7 @@ func run() -> void:
 	run_case("apply_option_cultivate_reports_the_roll_outcome_on_a_failed_roll", func():
 		GameState.reset()
 		Rng.set_seed(3)
-		GameState.state["player"]["veins"] = [_player_vein()]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
 		var stop := _vein_stop(GameState.state["player"]["veins"][0], "player")
 
 		var result := StationBubble.apply_option(StationBubble.CULTIVATE_ID, stop)
@@ -173,7 +163,7 @@ func run() -> void:
 
 	run_case("apply_option_prune_light_forwards_to_Cultivating_prune_light", func():
 		GameState.reset()
-		GameState.state["player"]["veins"] = [_player_vein({ "growth": 70, "oreType": "time" })]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "growth": 70, "oreType": "time" })]
 		var stop := _vein_stop(GameState.state["player"]["veins"][0], "player")
 
 		var result := StationBubble.apply_option(StationBubble.PRUNE_LIGHT_ID, stop)
@@ -184,7 +174,7 @@ func run() -> void:
 
 	run_case("apply_option_prune_hard_forwards_to_Cultivating_prune_hard", func():
 		GameState.reset()
-		GameState.state["player"]["veins"] = [_player_vein({ "growth": 70, "oreType": "time" })]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "growth": 70, "oreType": "time" })]
 		var stop := _vein_stop(GameState.state["player"]["veins"][0], "player")
 
 		var result := StationBubble.apply_option(StationBubble.PRUNE_HARD_ID, stop)

@@ -1,40 +1,11 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # 11-phone-os-shell ticket 08: Profile app -- absorbs the You tab's
 # HP/skills/read-only-equipment content, screen-level-tested against a real
 # PhoneScreen instance with state.phoneNav.app = "profile", same
 # headless-scene pattern as tests/test_phone_home_grid.gd.
-
-
-# Ticket 114: symbol_row() split what used to be one Label's raw-symbol
-# string into a Label per text part plus a SymbolGlyph glyph (see ui.gd's
-# own comment on symbol_row()) -- reconstructs a row's displayed text by
-# walking its direct children in order, substituting SymbolGlyph.symbol for
-# the glyph's drawn text, with no separator added (call sites already
-# author any needed space into their text parts; the hbox's own pixel gap
-# covers the rest visually).
-static func _effective_text(control: Control) -> String:
-	var out := ""
-	for child in control.get_children():
-		if child is SymbolGlyph:
-			out += (child as SymbolGlyph).symbol
-		elif child is Label:
-			out += (child as Label).text
-	return out
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	var symbol_row_parents: Dictionary = {}
-	for g in root.find_children("", "SymbolGlyph", true, false):
-		var parent := (g as SymbolGlyph).get_parent() as Control
-		if parent and not symbol_row_parents.has(parent):
-			symbol_row_parents[parent] = true
-			texts.append(_effective_text(parent))
-	for l in root.find_children("", "Label", true, false):
-		if not symbol_row_parents.has((l as Label).get_parent()):
-			texts.append((l as Label).text)
-	return texts
 
 
 func run() -> void:
@@ -45,7 +16,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_true(_label_texts(phone).has("HP: 100 / 100"), "HP line reads straight from player.hp/hpMax")
+		assert_true(NodeQuery.symbol_row_texts(phone).has("HP: 100 / 100"), "HP line reads straight from player.hp/hpMax")
 		assert_true(phone.find_children("", "ProgressBar", true, false).size() > 0, "an HP bar must be rendered")
 
 		phone.free()
@@ -59,7 +30,7 @@ func run() -> void:
 		phone._ready()
 
 		var atk := Combat.get_attack_range()
-		assert_true(_label_texts(phone).has("Attack: %d–%d" % [atk["min"], atk["max"]]), "attack range line matches Combat.get_attack_range()")
+		assert_true(NodeQuery.symbol_row_texts(phone).has("Attack: %d–%d" % [atk["min"], atk["max"]]), "attack range line matches Combat.get_attack_range()")
 
 		phone.free()
 	)
@@ -71,7 +42,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.symbol_row_texts(phone)
 		assert_true(texts.has("Crafting: Lv1 (0 XP)"), "crafting skill line")
 		assert_true(texts.has("Cultivating: Lv1 (0 XP)"), "cultivating skill line")
 		assert_true(texts.has("Stealth: Lv1 (0 XP)"), "stealth skill line")
@@ -143,7 +114,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.symbol_row_texts(phone)
 		assert_true(texts.has("Weapon: none equipped"), "no weapon equipped on a fresh game")
 		assert_true(texts.has("Dial: none"), "no Dial seeded on a fresh game")
 
@@ -162,7 +133,7 @@ func run() -> void:
 
 		var def: Dictionary = GameData.ITEMS["crowbar"]
 		var expected := "%s %s (equipped)" % [def.get("symbol", ""), def.get("name", "")]
-		assert_true(_label_texts(phone).has(expected), "equipped weapon summary reads from GameData.ITEMS, read-only (no equip/unequip control)")
+		assert_true(NodeQuery.symbol_row_texts(phone).has(expected), "equipped weapon summary reads from GameData.ITEMS, read-only (no equip/unequip control)")
 		assert_true(phone.find_children("", "Button", true, false).all(func(b): return (b as Button).text != "Unequip"), "Profile is read-only -- no unequip button")
 
 		phone.free()
@@ -179,7 +150,7 @@ func run() -> void:
 
 		var m: Dictionary = GameData.DIAL_MOVEMENTS["recharge"]
 		var expected := "Dial: Lv%d — %s %s, charge %d/%d" % [2, m["symbol"], m["name"], 5, 20]
-		assert_true(_label_texts(phone).has(expected), "seated Dial summary reads from GameData.DIAL_MOVEMENTS, including current/max charge")
+		assert_true(NodeQuery.symbol_row_texts(phone).has(expected), "seated Dial summary reads from GameData.DIAL_MOVEMENTS, including current/max charge")
 
 		phone.free()
 	)
@@ -191,7 +162,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		for text in _label_texts(phone):
+		for text in NodeQuery.symbol_row_texts(phone):
 			assert_true(not text.begins_with("Cash:"), "status bar already shows cash -- Profile must not duplicate it")
 			assert_true(not text.begins_with("Day:"), "status bar already shows day/time-block -- Profile must not duplicate it")
 
@@ -205,7 +176,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		for text in _label_texts(phone):
+		for text in NodeQuery.symbol_row_texts(phone):
 			assert_true(not text.begins_with("Veins held:"), "bag drawer/HQ's stored-ore view already cover this -- Profile must not duplicate it")
 
 		phone.free()

@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const UiSim := preload("res://tests/support/ui_sim.gd")
+
 # 11-phone-os-shell ticket 02: standalone tests for the app-tile component,
 # exercised directly via configure() rather than through a live app grid
 # (ticket 07 wires an actual grid later) — same "component testable before
@@ -9,12 +11,6 @@ extends "res://tests/test_base.gd"
 # live scene tree, same reasoning tests/test_map_bubble.gd/test_bag_drawer.gd
 # already rely on: nothing _ready() touches (UI.*, plain Control/TextureRect/
 # Label construction) depends on get_tree()/get_viewport() having run.
-
-
-func _synthetic_tap() -> InputEventScreenTouch:
-	var event := InputEventScreenTouch.new()
-	event.pressed = true
-	return event
 
 
 func run() -> void:
@@ -155,7 +151,7 @@ func run() -> void:
 		var pressed_ids := []
 		tile.tile_pressed.connect(func(app_id): pressed_ids.append(app_id))
 
-		tile._on_gui_input(_synthetic_tap())
+		tile._on_gui_input(UiSim.synthetic_tap())
 
 		assert_eq(pressed_ids, ["notes"], "tapping the tile identifies which app it is")
 

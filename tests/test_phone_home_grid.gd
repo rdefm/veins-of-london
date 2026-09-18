@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # 11-phone-os-shell ticket 07: the phone home grid, tested against a real
 # PhoneScreen instance (same headless-scene pattern as
 # tests/test_hq_screen.gd/test_lab_screen.gd -- PhoneScreen.new()/_ready()
@@ -14,13 +16,6 @@ extends "res://tests/test_base.gd"
 # never adds anything to a live, processing tree.
 
 
-static func _find_tiles(root: Node) -> Array[AppTile]:
-	var tiles: Array[AppTile] = []
-	for t in root.find_children("", "AppTile", true, false):
-		tiles.append(t as AppTile)
-	return tiles
-
-
 func run() -> void:
 	run_case("home_renders_one_fixed_slot_tile_per_registered_app_in_order", func():
 		GameState.reset()
@@ -28,7 +23,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var tiles := _find_tiles(phone)
+		var tiles := NodeQuery.find_tiles(phone)
 		var ids: Array[String] = []
 		for t in tiles:
 			ids.append(t._app_id)
@@ -43,7 +38,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_eq(_find_tiles(phone).size(), PhoneApps.apps().size(), "one tile per registry entry, no more, no fewer")
+		assert_eq(NodeQuery.find_tiles(phone).size(), PhoneApps.apps().size(), "one tile per registry entry, no more, no fewer")
 
 		phone.free()
 	)
@@ -54,7 +49,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		for t in _find_tiles(phone):
+		for t in NodeQuery.find_tiles(phone):
 			var expected_locked: bool = t._app_id == "vfl"
 			assert_eq(t._lock_overlay.visible, expected_locked, "%s lock render state" % t._app_id)
 			var expected_tint := AppTile.LOCKED_TINT if expected_locked else AppTile.NORMAL_TINT
@@ -119,7 +114,7 @@ func run() -> void:
 		]
 		var grid := phone._build_app_grid(synthetic)
 
-		var tiles := _find_tiles(grid)
+		var tiles := NodeQuery.find_tiles(grid)
 		assert_eq(tiles.size(), 2, "one tile per synthetic entry")
 		assert_true(not tiles[0]._lock_overlay.visible, "messages renders unlocked")
 		assert_true(tiles[1]._lock_overlay.visible, "map renders locked -- not hidden, not replaced with hint text")
@@ -140,7 +135,7 @@ func run() -> void:
 		]
 
 		var before := phone._build_app_grid(synthetic)
-		var before_tiles := _find_tiles(before)
+		var before_tiles := NodeQuery.find_tiles(before)
 		var before_ids: Array[String] = []
 		for t in before_tiles:
 			before_ids.append(t._app_id)
@@ -149,7 +144,7 @@ func run() -> void:
 
 		state["map_locked"] = false
 		var after := phone._build_app_grid(synthetic)
-		var after_tiles := _find_tiles(after)
+		var after_tiles := NodeQuery.find_tiles(after)
 		var after_ids: Array[String] = []
 		for t in after_tiles:
 			after_ids.append(t._app_id)
@@ -168,7 +163,7 @@ func run() -> void:
 		phone._ready()
 
 		var notes_tile: AppTile = null
-		for t in _find_tiles(phone):
+		for t in NodeQuery.find_tiles(phone):
 			if t._app_id == "notes":
 				notes_tile = t
 		assert_true(notes_tile != null, "notes tile must exist")
@@ -193,7 +188,7 @@ func run() -> void:
 		phone._ready()
 
 		var vfl_tile: AppTile = null
-		for t in _find_tiles(phone):
+		for t in NodeQuery.find_tiles(phone):
 			if t._app_id == "vfl":
 				vfl_tile = t
 		assert_true(vfl_tile != null, "vfl tile must exist")
@@ -220,7 +215,7 @@ func run() -> void:
 		phone._ready()
 
 		var vfl_tile: AppTile = null
-		for t in _find_tiles(phone):
+		for t in NodeQuery.find_tiles(phone):
 			if t._app_id == "vfl":
 				vfl_tile = t
 		assert_true(vfl_tile != null, "vfl tile must exist")
@@ -247,7 +242,7 @@ func run() -> void:
 		phone._ready()
 
 		var contacts_tile: AppTile = null
-		for t in _find_tiles(phone):
+		for t in NodeQuery.find_tiles(phone):
 			if t._app_id == "contacts":
 				contacts_tile = t
 		assert_true(contacts_tile != null, "contacts tile must exist in the grid")
@@ -282,7 +277,7 @@ func run() -> void:
 		await tree.process_frame
 		await tree.process_frame
 
-		var tiles := _find_tiles(phone)
+		var tiles := NodeQuery.find_tiles(phone)
 		assert_true(not tiles.is_empty(), "sanity: the grid actually rendered tiles to check")
 		for t in tiles:
 			if not t._icon_rect.visible:
@@ -319,7 +314,7 @@ func run() -> void:
 		phone._ready()
 
 		var contacts_tile: AppTile = null
-		for t in _find_tiles(phone):
+		for t in NodeQuery.find_tiles(phone):
 			if t._app_id == "contacts":
 				contacts_tile = t
 		assert_true(contacts_tile != null, "contacts tile must exist")

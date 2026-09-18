@@ -1,18 +1,7 @@
 extends "res://tests/test_base.gd"
 
-
-# Finds a seed (within max_tries) for which fn() returns true, restoring
-# GameState.state between misses so each attempt starts from the same
-# baseline. Returns the winning seed, or -1 if none found.
-static func _find_seed_for(max_tries: int, fn: Callable) -> int:
-	for seed in range(max_tries):
-		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
-		Rng.set_seed(seed)
-		if fn.call():
-			return seed
-		GameState.state = snapshot
-	return -1
-
+const SeedSearch := preload("res://tests/support/seed_search.gd")
+const Fixtures := preload("res://tests/support/fixtures.gd")
 
 static func _vein(growth: int, district: String = "shoreditch", bonuses: Array = [], tier: String = "fair") -> Dictionary:
 	return {
@@ -20,14 +9,6 @@ static func _vein(growth: int, district: String = "shoreditch", bonuses: Array =
 		"alarmUpgrades": [], "location": "Test St, nowhere", "claimedOnDay": 1,
 		"district": district, "siteId": "s1", "hospitability": { "tier": tier, "bonuses": bonuses },
 		"rampantDays": 0,
-	}
-
-
-static func _site(id: String, district: String = "shoreditch", claimed: bool = false, ore_type: String = "physics") -> Dictionary:
-	return {
-		"id": id, "district": district, "tier": "fair", "oreType": ore_type,
-		"bonuses": [], "discoveredDay": 1, "claimed": claimed, "factionVein": null,
-		"hasNaturalVein": false,
 	}
 
 
@@ -156,7 +137,7 @@ func run() -> void:
 	)
 
 	run_case("cultivate_success_raises_growth_and_awards_xp", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 5
 			GameState.state["player"]["veins"] = [_vein(20)]
@@ -171,7 +152,7 @@ func run() -> void:
 	)
 
 	run_case("cultivate_failure_leaves_growth_unchanged_and_awards_less_xp", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 1
 			GameState.state["player"]["veins"] = [_vein(20)]
@@ -185,7 +166,7 @@ func run() -> void:
 	)
 
 	run_case("cultivate_clamps_at_the_ceiling", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 5
 			GameState.state["player"]["veins"] = [_vein(99)]
@@ -390,7 +371,7 @@ func run() -> void:
 		var recoverable := _vein(0)
 		GameState.state["player"]["veins"] = [recoverable]
 		GameState.state["player"]["cultivatingSkill"] = 5
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			return Cultivating.cultivate("test_vein").get("success", false)
 		)
 		assert_true(seed != -1, "a vein at 0 should still be cultivable")
@@ -416,7 +397,7 @@ func run() -> void:
 	)
 
 	run_case("collapse_reverts_the_site_to_unclaimed_and_notifies", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			var vein := _vein(0)
 			GameState.state["player"]["veins"] = [vein]
@@ -435,7 +416,7 @@ func run() -> void:
 	)
 
 	run_case("a_faction_vein_at_zero_deletes_its_site_outright_not_revert", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			var vein := _vein(0)
 			vein["factionId"] = "collective"
@@ -454,7 +435,7 @@ func run() -> void:
 	# ── 87-map-slot-index-recycling ─────────────────────────────────────
 
 	run_case("collapse_vein_faction_branch_releases_the_deleted_sites_slot_for_reuse", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			var vein := _vein(0)
 			vein["factionId"] = "collective"
@@ -474,12 +455,12 @@ func run() -> void:
 		# Only the saturated-site natural-vein bonus ever carries its own
 		# stamped slotIndex (Sites.attempt_seed()) -- simulated here by
 		# stamping it directly onto the fixture.
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			var vein := _vein(0)
 			vein["slotIndex"] = 9
 			GameState.state["player"]["veins"] = [vein]
-			GameState.state["world"]["sites"] = [_site("s1", "shoreditch", true)]
+			GameState.state["world"]["sites"] = [Fixtures.site("s1", "physics", "fair", true, null, "shoreditch")]
 			Cultivating.drift_veins()
 			return GameState.state["player"]["veins"].is_empty()
 		)
@@ -491,11 +472,11 @@ func run() -> void:
 		# An ordinary vein (no own slotIndex) reverts its site to unclaimed
 		# rather than deleting it -- the site keeps its slot, so nothing
 		# should land in the free pool at all.
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			var vein := _vein(0)
 			GameState.state["player"]["veins"] = [vein]
-			GameState.state["world"]["sites"] = [_site("s1", "shoreditch", true)]
+			GameState.state["world"]["sites"] = [Fixtures.site("s1", "physics", "fair", true, null, "shoreditch")]
 			Cultivating.drift_veins()
 			return GameState.state["player"]["veins"].is_empty()
 		)
@@ -531,7 +512,7 @@ func run() -> void:
 	# Part 2: once pinned at 0, it still dies -- via the one death path left
 	# (collapseChancePerDay, the same roll a player vein's site faces).
 	run_case("faction_vein_pinned_at_zero_still_eventually_collapses_absent_abandonment", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			var vein := _vein(0)
 			vein["factionId"] = "collective"
@@ -659,7 +640,7 @@ func run() -> void:
 	)
 
 	run_case("cultivate_fires_a_charge_burst_when_a_success_pushes_growth_into_wild", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 6
 			GameState.state["player"]["veins"] = [_vein(84)]  # lush; a skill-6 success gain (3) crosses into wild (87)
@@ -675,7 +656,7 @@ func run() -> void:
 	)
 
 	run_case("cultivate_never_fires_a_drain_even_when_a_success_crosses_neutral_upward", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 6
 			GameState.state["player"]["veins"] = [_vein(40)]  # thinning, below neutral
@@ -695,9 +676,9 @@ func run() -> void:
 		vein["rampantDays"] = 3
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [
-			_site("s1", "shoreditch", true),   # the parent vein's own site
-			_site("s2", "shoreditch", false),  # the only unclaimed site in-district
-			_site("s3", "camden", false),      # unclaimed but in the wrong district
+			Fixtures.site("s1", "physics", "fair", true, null, "shoreditch"),   # the parent vein's own site
+			Fixtures.site("s2", "physics", "fair", false, null, "shoreditch"),  # the only unclaimed site in-district
+			Fixtures.site("s3", "physics", "fair", false, null, "camden"),      # unclaimed but in the wrong district
 		]
 
 		Cultivating.drift_veins()
@@ -725,7 +706,7 @@ func run() -> void:
 		var vein := _vein(100)
 		vein["rampantDays"] = 5
 		GameState.state["player"]["veins"] = [vein]
-		var sites := [_site("s1", "shoreditch", true), _site("s2", "shoreditch", false)]
+		var sites := [Fixtures.site("s1", "physics", "fair", true, null, "shoreditch"), Fixtures.site("s2", "physics", "fair", false, null, "shoreditch")]
 		GameState.state["world"]["sites"] = sites
 		var site_count_before: int = GameState.state["world"]["sites"].size()
 
@@ -739,7 +720,7 @@ func run() -> void:
 		var vein := _vein(100)
 		vein["rampantDays"] = 5
 		GameState.state["player"]["veins"] = [vein]
-		GameState.state["world"]["sites"] = [_site("s1", "shoreditch", true)]  # only the parent's own site -- nothing unclaimed
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "physics", "fair", true, null, "shoreditch")]  # only the parent's own site -- nothing unclaimed
 
 		Cultivating.drift_veins()
 
@@ -759,7 +740,7 @@ func run() -> void:
 			{ "id": "s1", "district": "shoreditch", "tier": "fair", "oreType": "time",
 			  "bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": faction_vein,
 			  "hasNaturalVein": false },
-			_site("s2", "shoreditch", false),
+			Fixtures.site("s2", "physics", "fair", false, null, "shoreditch"),
 		]
 
 		Cultivating.drift_veins()
@@ -769,7 +750,7 @@ func run() -> void:
 	)
 
 	run_case("wildCeiling_vein_cultivate_clamps_at_120_not_100", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 5
 			GameState.state["player"]["veins"] = [_vein(119, "shoreditch", ["wildCeiling"])]

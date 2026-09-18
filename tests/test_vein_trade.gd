@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # VeinTrade — collective1-05, spec.md §5.6/§8.3: quote()'s worked-example
 # price table and sell_to_faction()'s transfer mechanics (removal from
 # state.player.veins, faction-vein re-creation preserving growth/oreType/
@@ -8,29 +10,9 @@ extends "res://tests/test_base.gd"
 # ticket 14's Hakim handback).
 
 
-static func _site(id: String, district: String, ore_type: String, tier: String, bonuses: Array = []) -> Dictionary:
-	return {
-		"id": id, "district": district, "tier": tier, "oreType": ore_type,
-		"bonuses": bonuses, "discoveredDay": 1, "claimed": true, "factionVein": null,
-		"hasNaturalVein": false,
-	}
-
-
-static func _player_vein(id: String, site_id: String, district: String, ore_type: String, growth: int, tier: String, bonuses: Array = []) -> Dictionary:
-	return {
-		"id": id, "district": district, "oreType": ore_type, "growth": growth,
-		"security": "none", "alarmUpgrades": [], "location": "Test Alley",
-		"claimedOnDay": 1, "siteId": site_id, "hospitability": { "tier": tier, "bonuses": bonuses },
-		"rampantDays": 0,
-	}
-
-
-# One player vein + its matching site, wired together, so sell_to_faction()
-# can resolve vein.siteId -> Sites.find_site() the same way it does in the
-# real game.
-static func _seed_vein(growth: int, tier: String, ore_type: String = "life") -> Dictionary:
-	var site := _site("s1", "shoreditch", ore_type, tier)
-	var vein := _player_vein("v1", "s1", "shoreditch", ore_type, growth, tier)
+static func _seed_tiered_vein(growth: int, tier: String, ore_type: String = "life") -> Dictionary:
+	var site := Fixtures.site("s1", ore_type, tier, true, null, "shoreditch")
+	var vein := Fixtures.player_vein("v1", "s1", "shoreditch", ore_type, growth, tier)
 	GameState.state["world"]["sites"] = [site]
 	GameState.state["player"]["veins"] = [vein]
 	return vein
@@ -39,7 +21,7 @@ static func _seed_vein(growth: int, tier: String, ore_type: String = "life") -> 
 # A faction-owned site vein, wired to its site, so buy_from_faction() can
 # resolve site.factionVein -> Sites the same way it does in the real game.
 static func _faction_seed_vein(growth: int, tier: String, ore_type: String = "life") -> Dictionary:
-	var site := _site("s1", "shoreditch", ore_type, tier)
+	var site := Fixtures.site("s1", ore_type, tier, true, null, "shoreditch")
 	site["claimed"] = false
 	var vein := Factions.create_faction_vein("collective", site, growth)
 	site["factionVein"] = vein
@@ -53,43 +35,43 @@ func run() -> void:
 
 	run_case("quote_fresh_seed_fair", func():
 		GameState.reset()
-		var vein := _seed_vein(20, "fair")
+		var vein := _seed_tiered_vein(20, "fair")
 		assert_eq(VeinTrade.quote(vein), 980)
 	)
 
 	run_case("quote_fresh_seed_rich", func():
 		GameState.reset()
-		var vein := _seed_vein(20, "rich")
+		var vein := _seed_tiered_vein(20, "rich")
 		assert_eq(VeinTrade.quote(vein), 1568)
 	)
 
 	run_case("quote_neutral_dormant_rich", func():
 		GameState.reset()
-		var vein := _seed_vein(50, "rich")
+		var vein := _seed_tiered_vein(50, "rich")
 		assert_eq(VeinTrade.quote(vein), 3920)
 	)
 
 	run_case("quote_lush_85_fair", func():
 		GameState.reset()
-		var vein := _seed_vein(85, "fair")
+		var vein := _seed_tiered_vein(85, "fair")
 		assert_eq(VeinTrade.quote(vein), 4165)
 	)
 
 	run_case("quote_lush_85_rich", func():
 		GameState.reset()
-		var vein := _seed_vein(85, "rich")
+		var vein := _seed_tiered_vein(85, "rich")
 		assert_eq(VeinTrade.quote(vein), 6664)
 	)
 
 	run_case("quote_rampant_100_rich", func():
 		GameState.reset()
-		var vein := _seed_vein(100, "rich")
+		var vein := _seed_tiered_vein(100, "rich")
 		assert_eq(VeinTrade.quote(vein), 7840)
 	)
 
 	run_case("quote_lush_85_saturated", func():
 		GameState.reset()
-		var vein := _seed_vein(85, "saturated")
+		var vein := _seed_tiered_vein(85, "saturated")
 		assert_eq(VeinTrade.quote(vein), 9996)
 	)
 
@@ -97,7 +79,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_removes_the_vein_from_player_veins", func():
 		GameState.reset()
-		_seed_vein(50, "rich")
+		_seed_tiered_vein(50, "rich")
 
 		VeinTrade.sell_to_faction("v1", "collective")
 
@@ -106,7 +88,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_pays_the_quoted_price_into_player_cash", func():
 		GameState.reset()
-		var vein := _seed_vein(50, "rich")
+		var vein := _seed_tiered_vein(50, "rich")
 		var cash_before: int = GameState.state["player"]["cash"]
 		var price: int = VeinTrade.quote(vein)
 
@@ -118,7 +100,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_records_the_payment_in_the_bank_log", func():
 		GameState.reset()
-		_seed_vein(50, "rich")
+		_seed_tiered_vein(50, "rich")
 
 		VeinTrade.sell_to_faction("v1", "collective")
 
@@ -129,7 +111,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_creates_a_faction_vein_preserving_growth_oreType_and_hospitability", func():
 		GameState.reset()
-		_seed_vein(85, "rich", "fate")
+		_seed_tiered_vein(85, "rich", "fate")
 
 		VeinTrade.sell_to_faction("v1", "collective")
 
@@ -144,7 +126,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_stamps_soldByPlayer_on_the_new_faction_vein", func():
 		GameState.reset()
-		_seed_vein(50, "fair")
+		_seed_tiered_vein(50, "fair")
 
 		VeinTrade.sell_to_faction("v1", "collective")
 
@@ -154,7 +136,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_unclaims_the_site", func():
 		GameState.reset()
-		_seed_vein(50, "fair")
+		_seed_tiered_vein(50, "fair")
 
 		VeinTrade.sell_to_faction("v1", "collective")
 
@@ -164,7 +146,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_queues_a_seed_claim_map_event_for_the_buying_faction", func():
 		GameState.reset()
-		_seed_vein(50, "fair")
+		_seed_tiered_vein(50, "fair")
 
 		VeinTrade.sell_to_faction("v1", "collective")
 
@@ -177,7 +159,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_supports_a_price_of_zero_for_the_hakim_handback_path", func():
 		GameState.reset()
-		var vein := _seed_vein(20, "fair")  # a fresh seed still quotes > 0 normally
+		var vein := _seed_tiered_vein(20, "fair")  # a fresh seed still quotes > 0 normally
 		# Force a zero quote by zeroing growth -- the transfer path itself
 		# must not reject or special-case a £0 sale.
 		vein["growth"] = 0
@@ -193,7 +175,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_price_override_forces_the_price_regardless_of_quote", func():
 		GameState.reset()
-		var vein := _seed_vein(85, "rich")  # quote() would price this well above 0
+		var vein := _seed_tiered_vein(85, "rich")  # quote() would price this well above 0
 		assert_true(VeinTrade.quote(vein) > 0)
 		var cash_before: int = GameState.state["player"]["cash"]
 
@@ -205,7 +187,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_price_override_does_not_stamp_soldByPlayer", func():
 		GameState.reset()
-		_seed_vein(61, "fair")
+		_seed_tiered_vein(61, "fair")
 
 		VeinTrade.sell_to_faction("v1", "collective", 0)
 
@@ -215,7 +197,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_without_a_price_override_still_stamps_soldByPlayer", func():
 		GameState.reset()
-		_seed_vein(50, "fair")
+		_seed_tiered_vein(50, "fair")
 
 		VeinTrade.sell_to_faction("v1", "collective")
 
@@ -230,7 +212,7 @@ func run() -> void:
 		# Only the saturated-site natural-vein bonus ever carries its own
 		# stamped slotIndex (Sites.attempt_seed()) -- simulated here by
 		# stamping it directly onto the fixture.
-		var vein := _seed_vein(50, "rich")
+		var vein := _seed_tiered_vein(50, "rich")
 		vein["slotIndex"] = 6
 
 		VeinTrade.sell_to_faction("v1", "collective")
@@ -243,7 +225,7 @@ func run() -> void:
 		# An ordinary vein (no own slotIndex) hands the site off with a new
 		# factionVein rather than deleting it -- the site keeps its slot, so
 		# nothing should land in the free pool at all.
-		_seed_vein(50, "rich")
+		_seed_tiered_vein(50, "rich")
 
 		VeinTrade.sell_to_faction("v1", "collective")
 
@@ -252,7 +234,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_fails_for_an_unknown_vein_id", func():
 		GameState.reset()
-		_seed_vein(50, "fair")
+		_seed_tiered_vein(50, "fair")
 
 		var result := VeinTrade.sell_to_faction("not_a_real_vein", "collective")
 
@@ -268,7 +250,7 @@ func run() -> void:
 
 	run_case("transfer_to_faction_moves_the_vein_and_recreates_it_as_a_faction_vein_without_paying_cash", func():
 		GameState.reset()
-		_seed_vein(50, "rich")
+		_seed_tiered_vein(50, "rich")
 		var cash_before: int = GameState.state["player"]["cash"]
 
 		var result := VeinTrade.transfer_to_faction("v1", "collective", 500, true)
@@ -283,7 +265,7 @@ func run() -> void:
 
 	run_case("transfer_to_faction_still_accrues_tradeProgress_on_the_given_price", func():
 		GameState.reset()
-		_seed_vein(50, "rich")
+		_seed_tiered_vein(50, "rich")
 
 		# 300 stays under RelationAccrual's £350 collective rate, so it lands
 		# whole in tradeProgress with no point conversion complicating this
@@ -297,7 +279,7 @@ func run() -> void:
 
 	run_case("transfer_to_faction_also_feeds_the_named_vendors_own_personal_relation_lane", func():
 		GameState.reset()
-		_seed_vein(50, "rich")
+		_seed_tiered_vein(50, "rich")
 
 		VeinTrade.transfer_to_faction("v1", "collective", 300, true, "nadia")
 
@@ -308,7 +290,7 @@ func run() -> void:
 
 	run_case("transfer_to_faction_leaves_every_personal_relation_lane_untouched_when_no_contact_id_is_given", func():
 		GameState.reset()
-		_seed_vein(50, "rich")
+		_seed_tiered_vein(50, "rich")
 
 		VeinTrade.transfer_to_faction("v1", "collective", 300, true)
 
@@ -317,7 +299,7 @@ func run() -> void:
 
 	run_case("transfer_to_faction_count_as_player_sale_false_does_not_stamp_soldByPlayer", func():
 		GameState.reset()
-		_seed_vein(50, "rich")
+		_seed_tiered_vein(50, "rich")
 
 		VeinTrade.transfer_to_faction("v1", "collective", 0, false)
 
@@ -327,7 +309,7 @@ func run() -> void:
 
 	run_case("transfer_to_faction_fails_for_an_unknown_vein_id", func():
 		GameState.reset()
-		_seed_vein(50, "fair")
+		_seed_tiered_vein(50, "fair")
 
 		var result := VeinTrade.transfer_to_faction("not_a_real_vein", "collective", 100, true)
 
@@ -337,7 +319,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_still_pays_cash_immediately_on_top_of_the_transfer", func():
 		GameState.reset()
-		var vein := _seed_vein(50, "rich")
+		var vein := _seed_tiered_vein(50, "rich")
 		var price: int = VeinTrade.quote(vein)
 		var cash_before: int = GameState.state["player"]["cash"]
 
@@ -349,7 +331,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_passes_its_own_contact_id_through_to_the_transfer", func():
 		GameState.reset()
-		_seed_vein(5, "fair")
+		_seed_tiered_vein(5, "fair")
 		var price: int = VeinTrade.quote(GameState.state["player"]["veins"][0])
 		assert_true(price < 500, "sanity: keep this test under the personal-lane rate")
 
@@ -362,7 +344,7 @@ func run() -> void:
 
 	run_case("vein_list_actions_for_omits_sell_when_veinSaleUnlocked_is_false", func():
 		GameState.reset()
-		var vein := _seed_vein(50, "fair")
+		var vein := _seed_tiered_vein(50, "fair")
 
 		var ids: Array = VeinList.actions_for(vein).map(func(g): return g["id"])
 
@@ -372,7 +354,7 @@ func run() -> void:
 	run_case("vein_list_actions_for_includes_sell_once_veinSaleUnlocked_is_true", func():
 		GameState.reset()
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		var vein := _seed_vein(50, "fair")
+		var vein := _seed_tiered_vein(50, "fair")
 
 		var ids: Array = VeinList.actions_for(vein).map(func(g): return g["id"])
 
@@ -534,7 +516,7 @@ func run() -> void:
 	run_case("vein_list_apply_option_sell_opens_the_quote_modal_without_selling_yet", func():
 		GameState.reset()
 		GameState.state["flags"]["veinSaleUnlocked"] = true
-		_seed_vein(50, "rich")
+		_seed_tiered_vein(50, "rich")
 
 		var result := VeinList.apply_option(VeinList.SELL_ID, "v1")
 

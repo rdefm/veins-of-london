@@ -1,27 +1,12 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # collective1-12, spec.md §6.10: S10 (col_a1_nadia_done), Nadia's thread
 # resolution -- fires automatically the moment col_a1_nadia_vein's qualifying
 # sale completes (Collective.maybe_trigger_nadia_vein_done(), called from
 # VeinTrade.sell_to_faction() after Objectives.refresh()), never from an
 # action bar. Same site/vein helper shape tests/test_vein_trade.gd uses.
-
-
-func _site(id: String, district: String, ore_type: String, tier: String) -> Dictionary:
-	return {
-		"id": id, "district": district, "tier": tier, "oreType": ore_type,
-		"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
-		"hasNaturalVein": false,
-	}
-
-
-func _player_vein(id: String, site_id: String, district: String, ore_type: String, growth: int, tier: String) -> Dictionary:
-	return {
-		"id": id, "district": district, "oreType": ore_type, "growth": growth,
-		"security": "none", "alarmUpgrades": [], "location": "Test Alley",
-		"claimedOnDay": 1, "siteId": site_id, "hospitability": { "tier": tier, "bonuses": [] },
-		"rampantDays": 0,
-	}
 
 
 # Puts col_a1_nadia_vein through activation (colA1NadiaAskSeen, its
@@ -32,8 +17,8 @@ func _seed_qualifying_vein(growth: int = 60) -> void:
 	Objectives.refresh()
 	assert_true(GameState.state["objectives"]["col_a1_nadia_vein"]["active"])
 
-	var site := _site("s1", "hackney", "time", "fair")
-	var vein := _player_vein("v1", "s1", "hackney", "time", growth, "fair")
+	var site := Fixtures.site("s1", "time", "fair", true, null, "hackney")
+	var vein := Fixtures.player_vein("v1", "s1", "hackney", "time", growth, "fair")
 	GameState.state["world"]["sites"] = [site]
 	GameState.state["player"]["veins"] = [vein]
 
@@ -88,8 +73,8 @@ func run() -> void:
 	run_case("sell_to_faction_does_not_auto_start_the_event_when_col_a1_nadia_vein_is_not_active", func():
 		GameState.reset()
 		# colA1NadiaAskSeen never set -- the objective is never activated.
-		var site := _site("s1", "hackney", "time", "fair")
-		var vein := _player_vein("v1", "s1", "hackney", "time", 60, "fair")
+		var site := Fixtures.site("s1", "time", "fair", true, null, "hackney")
+		var vein := Fixtures.player_vein("v1", "s1", "hackney", "time", 60, "fair")
 		GameState.state["world"]["sites"] = [site]
 		GameState.state["player"]["veins"] = [vein]
 
@@ -110,8 +95,8 @@ func run() -> void:
 			Events.advance()
 		assert_true(GameState.state["flags"]["colA1NadiaThreadDone"])
 
-		var site2 := _site("s2", "hackney", "time", "fair")
-		var vein2 := _player_vein("v2", "s2", "hackney", "time", 60, "fair")
+		var site2 := Fixtures.site("s2", "time", "fair", true, null, "hackney")
+		var vein2 := Fixtures.player_vein("v2", "s2", "hackney", "time", 60, "fair")
 		GameState.state["world"]["sites"].append(site2)
 		GameState.state["player"]["veins"].append(vein2)
 

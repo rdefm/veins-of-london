@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # hq-diorama ticket 04, docs/hq-diorama-vision.md §6: the floorplan
 # sub-view, reached from hq.gd's "rooms" zone tap (see
 # tests/test_hq_screen.gd's own "hq_rooms_zone_tap_navigates_to_the_hq_
@@ -11,13 +13,6 @@ extends "res://tests/test_base.gd"
 # HqFloorplanScreen.new() is safe to call _ready() on directly without
 # adding it to a live scene tree, same reasoning tests/test_hq_screen.gd
 # already relies on for HqScreen.
-
-
-static func _find_button(root: Node, text: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text == text:
-			return b
-	return null
 
 
 func run() -> void:
@@ -32,7 +27,7 @@ func run() -> void:
 
 		for room_id in GameData.HOME_ROOMS.keys():
 			var room: Dictionary = GameData.HOME_ROOMS[room_id]
-			assert_true(_find_button(screen, "£%d" % room["cost"]) == null, "no room should be purchasable at bedsit tier (%s)" % room_id)
+			assert_true(NodeQuery.find_button(screen, "£%d" % room["cost"]) == null, "no room should be purchasable at bedsit tier (%s)" % room_id)
 
 		screen.free()
 	)
@@ -47,7 +42,7 @@ func run() -> void:
 		var screen := HqFloorplanScreen.new()
 		screen._ready()
 
-		_find_button(screen, "£%d" % cost).pressed.emit()
+		NodeQuery.find_button(screen, "£%d" % cost).pressed.emit()
 
 		assert_true(GameState.state["home"]["rooms"].has(room_id), "tapping the buy button must install the room, unchanged from the old direct row")
 
@@ -63,7 +58,7 @@ func run() -> void:
 		var screen := HqFloorplanScreen.new()
 		screen._ready()
 
-		var view_all_button := _find_button(screen, "View all veins")
+		var view_all_button := NodeQuery.find_button(screen, "View all veins")
 		assert_true(view_all_button != null, "an installed Vein Station room must expose a way into the unfiltered vein list")
 
 		view_all_button.pressed.emit()
@@ -85,7 +80,7 @@ func run() -> void:
 		var screen := HqFloorplanScreen.new()
 		screen._ready()
 
-		var assign_button := _find_button(screen, "Assign %s" % Contacts.display_name(some_contact_id))
+		var assign_button := NodeQuery.find_button(screen, "Assign %s" % Contacts.display_name(some_contact_id))
 		assert_true(assign_button != null, "an installed lab room must expose an Assign row for a recruited, unassigned contact")
 
 		assign_button.pressed.emit()
@@ -106,7 +101,7 @@ func run() -> void:
 		var screen := HqFloorplanScreen.new()
 		screen._ready()
 
-		var assign_button := _find_button(screen, "Assign %s" % Contacts.display_name(some_contact_id))
+		var assign_button := NodeQuery.find_button(screen, "Assign %s" % Contacts.display_name(some_contact_id))
 		assert_true(assign_button != null, "an installed ops room must expose an Assign row for a recruited, unassigned contact")
 
 		assign_button.pressed.emit()
@@ -126,7 +121,7 @@ func run() -> void:
 		var screen := HqFloorplanScreen.new()
 		screen._ready()
 
-		var unassign_button := _find_button(screen, "Unassign")
+		var unassign_button := NodeQuery.find_button(screen, "Unassign")
 		assert_true(unassign_button != null, "an assigned lab room must expose an Unassign button")
 
 		unassign_button.pressed.emit()
@@ -151,7 +146,7 @@ func run() -> void:
 
 		var poor_screen := HqFloorplanScreen.new()
 		poor_screen._ready()
-		var disabled_button := _find_button(poor_screen, "Pay now (£100)")
+		var disabled_button := NodeQuery.find_button(poor_screen, "Pay now (£100)")
 		assert_true(disabled_button != null, "an unpaid role must expose a Pay now catch-up button")
 		assert_true(disabled_button.disabled, "Pay now should be disabled while cash is still short")
 		poor_screen.free()
@@ -159,7 +154,7 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 100
 		var funded_screen := HqFloorplanScreen.new()
 		funded_screen._ready()
-		var pay_button := _find_button(funded_screen, "Pay now (£100)")
+		var pay_button := NodeQuery.find_button(funded_screen, "Pay now (£100)")
 		assert_true(not pay_button.disabled, "Pay now should enable once cash covers the wage")
 		pay_button.pressed.emit()
 
@@ -176,7 +171,7 @@ func run() -> void:
 		var screen := HqFloorplanScreen.new()
 		screen._ready()
 
-		_find_button(screen, "‹ Back").pressed.emit()
+		NodeQuery.find_button(screen, "‹ Back").pressed.emit()
 		assert_eq(GameState.state["currentScreen"], "hq", "Back must return to the HQ room, not the phone home grid")
 
 		screen.free()

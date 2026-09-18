@@ -1,5 +1,8 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+const UiSim := preload("res://tests/support/ui_sim.gd")
+
 # hq-diorama ticket 02: HqScreen is now the single room plate
 # (scenes/components/hq_diorama.gd rendering GameData.HQ_VISUALS["rooms"])
 # instead of a scrolling card stack. Zone-dispatch tests below simulate a
@@ -12,28 +15,6 @@ extends "res://tests/test_base.gd"
 # moved to. Rooms (hq-diorama ticket 04) is the exception -- it's a
 # full-bleed screen, not a Modal, so its own content is covered by
 # tests/test_hq_floorplan.gd instead.
-
-
-static func _find_button(root: Node, text: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text == text:
-			return b
-	return null
-
-
-# A tap InputEventScreenTouch at `pos`, in HqDiorama's own local coordinate
-# space (matches the space hq._on_diorama_gui_input() reads gui_input events
-# in -- see dial_widget.gd's own _gui_input() for the same convention).
-static func _tap_at(pos: Vector2) -> InputEventScreenTouch:
-	var event := InputEventScreenTouch.new()
-	event.pressed = true
-	event.position = pos
-	return event
-
-
-static func _tap_zone(hq: HqScreen, zone_id: String) -> void:
-	var rect: Rect2 = hq._diorama.region_rects()[zone_id]
-	hq._on_diorama_gui_input(_tap_at(rect.get_center()))
 
 
 func run() -> void:
@@ -119,7 +100,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		assert_true(_find_button(hq, "Rest — next morning") != null, "Rest must render even on a locked HQ visit")
+		assert_true(NodeQuery.find_button(hq, "Rest — next morning") != null, "Rest must render even on a locked HQ visit")
 
 		hq.free()
 	)
@@ -133,7 +114,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		var defend_button := _find_button(hq, "Defend")
+		var defend_button := NodeQuery.find_button(hq, "Defend")
 		assert_true(defend_button != null, "Defend must render on the locked fallback while a raid is pending")
 
 		defend_button.pressed.emit()
@@ -152,7 +133,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		assert_true(_find_button(hq, "Defend") == null, "Defend must not render with no raid pending")
+		assert_true(NodeQuery.find_button(hq, "Defend") == null, "Defend must not render with no raid pending")
 
 		hq.free()
 	)
@@ -171,7 +152,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		assert_true(_find_button(hq, "Defend") == null, "the room view has no Defend shortcut -- ticket 5's hostile-door state owns this now")
+		assert_true(NodeQuery.find_button(hq, "Defend") == null, "the room view has no Defend shortcut -- ticket 5's hostile-door state owns this now")
 
 		hq.free()
 	)
@@ -217,7 +198,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		_tap_zone(hq, "dial")
+		UiSim.tap_zone(hq, "dial")
 		assert_eq(GameState.state["currentScreen"], "hq_dial", "tapping the Dial zone must navigate to the loadout sub-view, no modal")
 		assert_eq(GameState.state["modal"], null, "the Dial sub-view is not a modal")
 
@@ -237,7 +218,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		_tap_zone(hq, "lab")
+		UiSim.tap_zone(hq, "lab")
 
 		assert_eq(GameState.state["currentScreen"], "hq_lab_bench", "tapping the Lab zone must open the bench sub-view")
 		assert_eq(GameState.state["labBenchNav"]["stop"], "books_ore", "LabBenchNav.open() must land the bench on its own books+ore stop, same as any fresh visit (§5.1)")
@@ -254,7 +235,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		_tap_zone(hq, "security")
+		UiSim.tap_zone(hq, "security")
 		assert_eq(GameState.state["currentScreen"], "hq_door", "tapping the Security zone must navigate to the door sub-view, no modal")
 		assert_eq(GameState.state["modal"], null, "the door sub-view is not a modal")
 
@@ -274,7 +255,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		_tap_zone(hq, "security")
+		UiSim.tap_zone(hq, "security")
 
 		assert_true(GameState.state["combat"]["active"], "tapping the hostile door must start combat immediately, same as the Defend button")
 		assert_eq(GameState.state["combat"]["context"], "home_raid")
@@ -361,7 +342,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		_tap_zone(hq, "rooms")
+		UiSim.tap_zone(hq, "rooms")
 		assert_eq(GameState.state["currentScreen"], "hq_floorplan", "tapping the Rooms zone must navigate to the floorplan sub-view, no modal")
 		assert_eq(GameState.state["modal"], null, "the floorplan is not a modal")
 
@@ -375,7 +356,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		_tap_zone(hq, "oreStore")
+		UiSim.tap_zone(hq, "oreStore")
 		assert_eq(GameState.state["modal"]["type"], "hq_ore_readout", "tapping the Ore store zone must open its destination readout modal, not a sub-view")
 
 		hq.free()
@@ -392,7 +373,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		_tap_zone(hq, "rest")
+		UiSim.tap_zone(hq, "rest")
 
 		assert_eq(GameState.state["modal"], null, "Rest must act directly, with no intermediate modal or view")
 		assert_eq(GameState.state["world"]["day"], 4, "tapping Rest must advance the day, same as TimeSystem.do_rest()")
@@ -413,7 +394,7 @@ func run() -> void:
 
 		# The bedsit plate is 390x660 (data/hq_visuals.json); none of its
 		# regions cover this corner (see that manifest's own region rects).
-		hq._on_diorama_gui_input(_tap_at(Vector2(2, 2)))
+		hq._on_diorama_gui_input(UiSim.tap_at(Vector2(2, 2)))
 
 		assert_eq(GameState.state["modal"], null, "a tap outside every region must not open anything")
 
@@ -454,7 +435,7 @@ func run() -> void:
 		var hq := HqScreen.new()
 		hq._ready()
 
-		_tap_zone(hq, "gym")
+		UiSim.tap_zone(hq, "gym")
 		assert_eq(GameState.state["modal"]["type"], "hq_gym", "tapping the Gym zone must open its destination modal")
 
 		hq.free()
@@ -471,7 +452,7 @@ func run() -> void:
 
 		assert_true(not hq._diorama.is_debug_overlay_enabled(), "the debug overlay must default to off")
 
-		_find_button(hq, "Debug regions").pressed.emit()
+		NodeQuery.find_button(hq, "Debug regions").pressed.emit()
 		assert_true(hq._diorama.is_debug_overlay_enabled(), "the Debug regions button must toggle the overlay on")
 
 		hq._refresh()

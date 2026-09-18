@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+const SeedSearch := preload("res://tests/support/seed_search.gd")
 
 # squad-combat ticket 04: the exact same min/max formula
 # Combat._apply_instance_variance() rolls between, so a test asserting an
@@ -9,30 +11,6 @@ static func _variance_bounds(base: float) -> Dictionary:
 	return {
 		"min": GameState.round_epsilon(base * (1.0 - Combat.ENEMY_INSTANCE_VARIANCE)),
 		"max": GameState.round_epsilon(base * (1.0 + Combat.ENEMY_INSTANCE_VARIANCE)),
-	}
-
-
-static func _find_seed_for(max_tries: int, fn: Callable) -> int:
-	for seed in range(max_tries):
-		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
-		Rng.set_seed(seed)
-		if fn.call():
-			return seed
-		GameState.state = snapshot
-	return -1
-
-
-# dial-device ticket 07: a seeded, seated Dial with one Complication loaded
-# at the given charge -- callers assert against cast_complication()'s
-# guard/effect behaviour without going through the full seed/craft/load flow
-# tested directly in tests/test_dial.gd.
-func _dial_with_loaded(recipe_key: String, tier: int, charge: int) -> Dictionary:
-	return {
-		"level": 1, "xp": 0, "currentCharge": charge, "maxCharge": 20, "rechargeRate": 2.0,
-		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
-		"capacityMax": 4, "movement": { "archetype": "impact", "oreType": "time", "tier": 1 },
-		"loadedComplications": [{ "recipeKey": recipe_key, "tier": tier, "detent": 0 }],
-		"haftId": "collective_brolly",
 	}
 
 
@@ -204,7 +182,7 @@ func run() -> void:
 	)
 
 	run_case("start_mugging_can_populate_a_multi_entry_roster_all_unkoed_and_focused_at_0", func():
-		var seed := _find_seed_for(300, func():
+		var seed := SeedSearch.find_seed_for(300, func():
 			GameState.reset()
 			Combat.start_mugging()
 			return GameState.state["combat"]["enemies"].size() >= 2
@@ -366,14 +344,14 @@ func run() -> void:
 	)
 
 	run_case("flee_65_percent_with_seed", func():
-		var fled_seed := _find_seed_for(200, func():
+		var fled_seed := SeedSearch.find_seed_for(200, func():
 			_fresh_combat()
 			var result := Combat.flee()
 			return result.get("outcome", "") == "fled"
 		)
 		assert_true(fled_seed != -1, "should find a fled roll within 200 tries")
 
-		var caught_seed := _find_seed_for(200, func():
+		var caught_seed := SeedSearch.find_seed_for(200, func():
 			_fresh_combat()
 			var hp_before: int = GameState.state["player"]["hp"]
 			Combat.flee()
@@ -484,7 +462,7 @@ func run() -> void:
 	run_case("rewind_falls_back_to_a_loaded_rewind_complication_when_no_consumable", func():
 		_fresh_combat()
 		Combat.push_combat_snapshot()
-		GameState.state["player"]["dial"] = _dial_with_loaded("rewind", 1, 3)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("rewind", 1, 3)
 
 		var result := Combat.combat_rewind()
 
@@ -496,7 +474,7 @@ func run() -> void:
 	run_case("rewind_does_not_fall_back_to_a_loaded_rewind_complication_with_no_charge", func():
 		_fresh_combat()
 		Combat.push_combat_snapshot()
-		GameState.state["player"]["dial"] = _dial_with_loaded("rewind", 1, 0)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("rewind", 1, 0)
 
 		var result := Combat.combat_rewind()
 
@@ -508,7 +486,7 @@ func run() -> void:
 	run_case("cast_complication_casts_a_loaded_time_pearl_freezes_and_spends_charge", func():
 		_fresh_combat()
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["player"]["dial"] = _dial_with_loaded("timePearl", 1, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("timePearl", 1, 5)
 
 		var result := Combat.cast_complication(0)
 
@@ -520,7 +498,7 @@ func run() -> void:
 
 	run_case("cast_complication_refuses_a_loaded_rewind_recipe", func():
 		_fresh_combat()
-		GameState.state["player"]["dial"] = _dial_with_loaded("rewind", 1, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("rewind", 1, 5)
 
 		var result := Combat.cast_complication(0)
 
@@ -531,7 +509,7 @@ func run() -> void:
 	run_case("cast_complication_refuses_already_frozen_without_spending_a_charge", func():
 		_fresh_combat()
 		GameState.state["combat"]["frozenTurns"] = 1
-		GameState.state["player"]["dial"] = _dial_with_loaded("timePearl", 1, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("timePearl", 1, 5)
 
 		var result := Combat.cast_complication(0)
 
@@ -541,7 +519,7 @@ func run() -> void:
 
 	run_case("cast_complication_refuses_with_no_charge", func():
 		_fresh_combat()
-		GameState.state["player"]["dial"] = _dial_with_loaded("timePearl", 1, 0)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("timePearl", 1, 0)
 
 		var result := Combat.cast_complication(0)
 
@@ -551,7 +529,7 @@ func run() -> void:
 	run_case("cast_complication_spread_movement_multiplies_full_power_by_targets_not_dilution", func():
 		_fresh_combat()
 		GameState.state["player"]["craftingSkill"] = 1
-		var dial := _dial_with_loaded("blast", 1, 5)
+		var dial := Fixtures.dial_with_loaded("blast", 1, 5)
 		dial["movement"] = { "archetype": "spread", "oreType": "physics", "tier": 5 }
 		GameState.state["player"]["dial"] = dial
 		var base_power: int = Crafting.effect_power("blast", 1)
@@ -571,7 +549,7 @@ func run() -> void:
 	# passively in combat itself (PRD user story 14).
 	run_case("player_attack_ticks_dial_combat_turn_tick_for_tier5_recharge", func():
 		_fresh_combat()
-		var dial: Dictionary = _dial_with_loaded("timePearl", 1, 0)
+		var dial: Dictionary = Fixtures.dial_with_loaded("timePearl", 1, 0)
 		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 5 }
 		dial["maxCharge"] = 20
 		GameState.state["player"]["dial"] = dial
@@ -890,7 +868,7 @@ func run() -> void:
 	)
 
 	run_case("player_attack_nonzero_evade_chance_can_go_either_way_across_seeds", func():
-		var hit_seed := _find_seed_for(200, func():
+		var hit_seed := SeedSearch.find_seed_for(200, func():
 			_fresh_combat()
 			GameState.state["combat"]["enemies"][0]["evadeChance"] = 0.5
 			var hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
@@ -899,7 +877,7 @@ func run() -> void:
 		)
 		assert_true(hit_seed != -1, "should find a landed-hit roll within 200 tries at 50% evade")
 
-		var miss_seed := _find_seed_for(200, func():
+		var miss_seed := SeedSearch.find_seed_for(200, func():
 			_fresh_combat()
 			GameState.state["combat"]["enemies"][0]["evadeChance"] = 0.5
 			var hp_before: int = GameState.state["combat"]["enemies"][0]["hp"]
@@ -1035,7 +1013,7 @@ func run() -> void:
 	)
 
 	run_case("blast_flee_boost_raises_flee_chance_to_90_percent_and_clears_after_one_attempt", func():
-		var boosted_flee_seed := _find_seed_for(50, func():
+		var boosted_flee_seed := SeedSearch.find_seed_for(50, func():
 			_fresh_combat()
 			GameState.state["combat"]["blastFleeBoost"] = true
 			var result := Combat.flee()
@@ -1051,7 +1029,7 @@ func run() -> void:
 	)
 
 	run_case("blast_flee_boost_clears_even_on_a_failed_flee_attempt", func():
-		var failed_flee_seed := _find_seed_for(200, func():
+		var failed_flee_seed := SeedSearch.find_seed_for(200, func():
 			_fresh_combat()
 			GameState.state["combat"]["blastFleeBoost"] = true
 			var result := Combat.flee()
@@ -1067,7 +1045,7 @@ func run() -> void:
 	)
 
 	run_case("blast_can_disarm_the_enemy_on_its_small_chance", func():
-		var disarm_seed := _find_seed_for(500, func():
+		var disarm_seed := SeedSearch.find_seed_for(500, func():
 			_fresh_combat()
 			GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
 			var enemy: Dictionary = GameState.state["combat"]["enemies"][0]
@@ -1535,7 +1513,7 @@ func run() -> void:
 	)
 
 	run_case("enemy_can_target_an_ally_and_ko_removes_them_without_ending_the_fight", func():
-		var ko_seed := _find_seed_for(200, func():
+		var ko_seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["contacts"]["archie"]["recruited"] = true
 			GameState.state["world"]["day"] = 5
@@ -1779,7 +1757,7 @@ func run() -> void:
 	run_case("cast_complication_black_hole_applies_full_undiluted_damage_and_freeze_to_every_non_koed_enemy_independently", func():
 		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["player"]["dial"] = _dial_with_loaded("blackHole", 1, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blackHole", 1, 5)
 
 		var result := Combat.cast_complication(0)
 
@@ -1801,7 +1779,7 @@ func run() -> void:
 	run_case("cast_complication_blast_returns_a_beat_with_dmg_and_the_focused_enemy_as_target", func():
 		_fresh_combat()
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["player"]["dial"] = _dial_with_loaded("blast", 1, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blast", 1, 5)
 		GameState.state["combat"]["focusedEnemyIndex"] = 0
 
 		var result := Combat.cast_complication(0)
@@ -1819,7 +1797,7 @@ func run() -> void:
 	run_case("cast_complication_black_hole_returns_an_announce_beat_plus_one_damaging_beat_per_enemy_hit", func():
 		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["player"]["dial"] = _dial_with_loaded("blackHole", 1, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blackHole", 1, 5)
 
 		var result := Combat.cast_complication(0)
 
@@ -1840,7 +1818,7 @@ func run() -> void:
 	run_case("cast_complication_non_damaging_effects_still_return_beats_without_a_dmg_field", func():
 		_fresh_combat()
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["player"]["dial"] = _dial_with_loaded("shield", 1, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("shield", 1, 5)
 
 		var result := Combat.cast_complication(0)
 
@@ -1854,7 +1832,7 @@ func run() -> void:
 	run_case("cast_complication_refused_casts_return_no_beats", func():
 		_fresh_combat()
 		GameState.state["combat"]["frozenTurns"] = 1
-		GameState.state["player"]["dial"] = _dial_with_loaded("timePearl", 1, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("timePearl", 1, 5)
 
 		var result := Combat.cast_complication(0)
 
@@ -1899,7 +1877,7 @@ func run() -> void:
 	)
 
 	run_case("use_blast_disarm_beat_carries_the_target_but_no_effectKey_transform_only", func():
-		var found_seed := _find_seed_for(500, func():
+		var found_seed := SeedSearch.find_seed_for(500, func():
 			_fresh_combat()
 			GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
 			GameState.state["player"]["craftingSkill"] = 1
@@ -2101,7 +2079,7 @@ func run() -> void:
 	)
 
 	run_case("independent_enemies_can_pick_different_targets_from_each_other_within_the_same_round", func():
-		var found_seed := _find_seed_for(500, func():
+		var found_seed := SeedSearch.find_seed_for(500, func():
 			GameState.reset()
 			GameState.state["contacts"]["archie"]["recruited"] = true
 			var ally: Dictionary = Contacts.build_combat_ally("archie")

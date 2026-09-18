@@ -1,5 +1,8 @@
 extends "res://tests/test_base.gd"
 
+const EventPlay := preload("res://tests/support/event_play.gd")
+const SeedSearch := preload("res://tests/support/seed_search.gd")
+
 # M1-LONDON D5/D9 — the 15 real district events, plus the new engine
 # primitives ticket 09 needed to express their mechanics: the "chance" op,
 # start_street_mugging (event_mugging combat context), npc_claim_best_
@@ -8,46 +11,13 @@ extends "res://tests/test_base.gd"
 # entries — this file is about the real content's own effects.
 
 
-static func _find_seed_for(max_tries: int, fn: Callable) -> int:
-	for seed in range(max_tries):
-		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
-		Rng.set_seed(seed)
-		if fn.call():
-			return seed
-		GameState.state = snapshot
-	return -1
-
-
-static func _make_site(id: String, district: String, tier: String, discovered_day: int, claimed: bool = false, faction_claimed: bool = false, ore_type: String = "time") -> Dictionary:
+static func _district_site(id: String, district: String, tier: String, discovered_day: int, claimed: bool = false, faction_claimed: bool = false, ore_type: String = "time") -> Dictionary:
 	return {
 		"id": id, "district": district, "tier": tier, "oreType": ore_type,
 		"bonuses": [], "discoveredDay": discovered_day,
 		"claimed": claimed, "factionVein": { "id": "fv_dummy", "factionId": "collective", "oreType": ore_type, "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": discovered_day } if faction_claimed else null,
 		"hasNaturalVein": false,
 	}
-
-
-# Drives an event from start up to (not including) its choice card, calling
-# only advance() — no effects fire yet. Returns the choice card's index so
-# callers know how many advance() calls remain after choose().
-func _play_to_choice(event_id: String) -> int:
-	Events.start_event(event_id)
-	var cards: Array = GameData.EVENTS[event_id]["cards"]
-	var choice_index := -1
-	for i in range(cards.size()):
-		if cards[i]["type"] == "choice":
-			choice_index = i
-			break
-	for i in range(choice_index):
-		Events.advance()
-	return choice_index
-
-
-# Finishes an event after its choice has been resolved via choose().
-func _finish_after_choice(event_id: String, choice_index: int) -> void:
-	var remaining: int = GameData.EVENTS[event_id]["cards"].size() - choice_index
-	for i in range(remaining):
-		Events.advance()
 
 
 func _play_full(event_id: String) -> void:
@@ -95,8 +65,8 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["world"]["currentDistrict"] = "camden"
 		GameState.state["world"]["sites"] = [
-			_make_site("poor1", "camden", "poor", 1),
-			_make_site("rich1", "camden", "rich", 1),
+			_district_site("poor1", "camden", "poor", 1),
+			_district_site("rich1", "camden", "rich", 1),
 		]
 		Events.apply_effects([{ "op": "npc_claim_best_unclaimed_site" }])
 		assert_true(Sites.find_site("rich1")["factionVein"] != null, "the higher-tier site should be claimed")
@@ -174,7 +144,7 @@ func run() -> void:
 		# tradeProgress accumulator by human decision -- spec.md §8.4), so
 		# the ratio uses relation 12 (startRelation 10 + 2), not 10:
 		# 0.60 + 0.25*(12-10)/70 = 0.6071428571.
-		var seed := _find_seed_for(500, func():
+		var seed := SeedSearch.find_seed_for(500, func():
 			GameState.reset()
 			GameState.state["flags"]["luckyOmen"] = true
 			GameState.state["player"]["orichalchum"]["time"] = 10
@@ -189,7 +159,7 @@ func run() -> void:
 
 	run_case("lucky_omen_consumed_even_when_the_coin_flip_misses", func():
 		# No-bump gross 180 at relation 12 (see the bump case above) -> cut floor(180*0.6071428571) = 109.
-		var seed := _find_seed_for(500, func():
+		var seed := SeedSearch.find_seed_for(500, func():
 			GameState.reset()
 			GameState.state["flags"]["luckyOmen"] = true
 			GameState.state["player"]["orichalchum"]["time"] = 10
@@ -205,31 +175,31 @@ func run() -> void:
 	run_case("busker_greenwich_give_20_pays_grants_ore_tip_off_and_stays_redrawable", func():
 		GameState.reset()
 		var cash_before: int = GameState.state["player"]["cash"]
-		var choice_index := _play_to_choice("busker_greenwich")
+		var choice_index := EventPlay.play_to_choice("busker_greenwich")
 		Events.choose(0)  # Give him £20
 		assert_eq(GameState.state["player"]["cash"], cash_before - 20)
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 1)
 		assert_true(GameState.state["flags"]["greenwichTipOff"])
-		_finish_after_choice("busker_greenwich", choice_index)
+		EventPlay.finish_after_choice("busker_greenwich", choice_index)
 		assert_eq(GameState.state["event"], null)
 	)
 
 	run_case("busker_greenwich_walk_away_costs_nothing", func():
 		GameState.reset()
 		var cash_before: int = GameState.state["player"]["cash"]
-		var choice_index := _play_to_choice("busker_greenwich")
+		var choice_index := EventPlay.play_to_choice("busker_greenwich")
 		Events.choose(1)  # Keep walking
 		assert_eq(GameState.state["player"]["cash"], cash_before)
 		assert_true(not GameState.state["flags"]["greenwichTipOff"])
-		_finish_after_choice("busker_greenwich", choice_index)
+		EventPlay.finish_after_choice("busker_greenwich", choice_index)
 	)
 
 	# ── city_suit (D5 #2) ─────────────────────────────────────────────────
 
 	run_case("city_suit_trade_always_costs_200_and_can_succeed_for_8_fate_ore", func():
-		var seed := _find_seed_for(300, func():
+		var seed := SeedSearch.find_seed_for(300, func():
 			GameState.reset()
-			var choice_index := _play_to_choice("city_suit")
+			var choice_index := EventPlay.play_to_choice("city_suit")
 			Events.choose(0)  # Trade (£200)
 			return GameState.state["player"]["orichalchum"].get("fate", 0) == 8
 		)
@@ -238,9 +208,9 @@ func run() -> void:
 	)
 
 	run_case("city_suit_trade_can_also_fail_for_nothing", func():
-		var seed := _find_seed_for(300, func():
+		var seed := SeedSearch.find_seed_for(300, func():
 			GameState.reset()
-			var choice_index := _play_to_choice("city_suit")
+			var choice_index := EventPlay.play_to_choice("city_suit")
 			Events.choose(0)
 			return GameState.state["player"]["orichalchum"].get("fate", 0) == 0
 		)
@@ -250,7 +220,7 @@ func run() -> void:
 
 	run_case("city_suit_pass_spends_nothing", func():
 		GameState.reset()
-		var choice_index := _play_to_choice("city_suit")
+		var choice_index := EventPlay.play_to_choice("city_suit")
 		Events.choose(1)  # Pass
 		assert_eq(GameState.state["player"]["cash"], 40)
 		assert_eq(GameState.state["player"]["orichalchum"].get("fate", 0), 0)
@@ -260,18 +230,18 @@ func run() -> void:
 
 	run_case("camden_shakedown_pay_deducts_50_and_never_starts_combat", func():
 		GameState.reset()
-		var choice_index := _play_to_choice("camden_shakedown")
+		var choice_index := EventPlay.play_to_choice("camden_shakedown")
 		Events.choose(0)  # Pay £50
 		assert_eq(GameState.state["player"]["cash"], 40 - 50)
 		assert_true(not GameState.state["combat"]["active"])
-		_finish_after_choice("camden_shakedown", choice_index)
+		EventPlay.finish_after_choice("camden_shakedown", choice_index)
 		assert_eq(GameState.state["event"], null)
 	)
 
 	run_case("camden_shakedown_refuse_can_trigger_a_street_mugging", func():
-		var seed := _find_seed_for(300, func():
+		var seed := SeedSearch.find_seed_for(300, func():
 			GameState.reset()
-			var choice_index := _play_to_choice("camden_shakedown")
+			var choice_index := EventPlay.play_to_choice("camden_shakedown")
 			Events.choose(1)  # Refuse
 			return GameState.state["combat"]["active"]
 		)
@@ -281,9 +251,9 @@ func run() -> void:
 	)
 
 	run_case("camden_shakedown_refuse_can_also_walk_away_clean", func():
-		var seed := _find_seed_for(300, func():
+		var seed := SeedSearch.find_seed_for(300, func():
 			GameState.reset()
-			var choice_index := _play_to_choice("camden_shakedown")
+			var choice_index := EventPlay.play_to_choice("camden_shakedown")
 			Events.choose(1)
 			return not GameState.state["combat"]["active"]
 		)
@@ -313,21 +283,21 @@ func run() -> void:
 	run_case("kx_delay_wait_it_out_burns_an_extra_time_block", func():
 		GameState.reset()
 		var blocks_before: int = GameState.state["world"]["timeBlocksDone"].size()
-		var choice_index := _play_to_choice("kx_delay")
+		var choice_index := EventPlay.play_to_choice("kx_delay")
 		Events.choose(0)  # Wait it out
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), blocks_before + 1)
 		assert_eq(GameState.state["player"]["cash"], 40, "waiting costs no cash")
-		_finish_after_choice("kx_delay", choice_index)
+		EventPlay.finish_after_choice("kx_delay", choice_index)
 	)
 
 	run_case("kx_delay_cab_costs_30_and_no_extra_block", func():
 		GameState.reset()
 		var blocks_before: int = GameState.state["world"]["timeBlocksDone"].size()
-		var choice_index := _play_to_choice("kx_delay")
+		var choice_index := EventPlay.play_to_choice("kx_delay")
 		Events.choose(1)  # Pay for a cab
 		assert_eq(GameState.state["player"]["cash"], 40 - 30)
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), blocks_before)
-		_finish_after_choice("kx_delay", choice_index)
+		EventPlay.finish_after_choice("kx_delay", choice_index)
 	)
 
 	# ── soho_tout (D5 #7) ─────────────────────────────────────────────────
@@ -413,27 +383,27 @@ func run() -> void:
 	run_case("rival_prospector_pay_off_costs_100_and_touches_no_sites", func():
 		GameState.reset()
 		GameState.state["world"]["currentDistrict"] = "camden"
-		GameState.state["world"]["sites"] = [_make_site("s1", "camden", "rich", 1)]
-		var choice_index := _play_to_choice("rival_prospector")
+		GameState.state["world"]["sites"] = [_district_site("s1", "camden", "rich", 1)]
+		var choice_index := EventPlay.play_to_choice("rival_prospector")
 		Events.choose(0)  # Pay them off
 		assert_eq(GameState.state["player"]["cash"], 40 - 100)
 		assert_eq(Sites.find_site("s1")["factionVein"], null)
-		_finish_after_choice("rival_prospector", choice_index)
+		EventPlay.finish_after_choice("rival_prospector", choice_index)
 	)
 
 	run_case("rival_prospector_let_them_have_it_faction_claims_the_best_unclaimed_site", func():
 		GameState.reset()
 		GameState.state["world"]["currentDistrict"] = "camden"
 		GameState.state["world"]["sites"] = [
-			_make_site("poor1", "camden", "poor", 1),
-			_make_site("rich1", "camden", "rich", 1),
+			_district_site("poor1", "camden", "poor", 1),
+			_district_site("rich1", "camden", "rich", 1),
 		]
-		var choice_index := _play_to_choice("rival_prospector")
+		var choice_index := EventPlay.play_to_choice("rival_prospector")
 		Events.choose(1)  # Let them have it
 		assert_eq(GameState.state["player"]["cash"], 40, "no payment on this branch")
 		assert_true(Sites.find_site("rich1")["factionVein"] != null)
 		assert_eq(Sites.find_site("poor1")["factionVein"], null)
-		_finish_after_choice("rival_prospector", choice_index)
+		EventPlay.finish_after_choice("rival_prospector", choice_index)
 	)
 
 	run_case("rival_prospector_only_draws_in_a_district_with_an_unclaimed_site", func():
@@ -443,7 +413,7 @@ func run() -> void:
 			camden_ids_before.append(e["id"])
 		assert_true(not camden_ids_before.has("rival_prospector"), "no unclaimed sites anywhere — excluded per D5's 'with unclaimed sites' wording")
 
-		GameState.state["world"]["sites"] = [_make_site("s1", "camden", "fair", 1)]
+		GameState.state["world"]["sites"] = [_district_site("s1", "camden", "fair", 1)]
 		var camden_ids_after: Array = []
 		for e in DistrictDeck.eligible_entries("camden"):
 			camden_ids_after.append(e["id"])

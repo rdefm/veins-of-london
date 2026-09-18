@@ -1,23 +1,13 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+const EventPlay := preload("res://tests/support/event_play.gd")
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # collective1-08, spec.md §4/§6.1-6.4: Act 1 Phase 1 -- the mandatory tuition
 # chain (S1-S4). Drives the real col_a1_intro/col_a1_prospecting/
 # col_a1_seeding/col_a1_hub event JSON card-by-card, same idiom
 # tests/test_playthrough.gd already uses for archie_cultivation.
-
-
-func _play_event(event_id: String) -> void:
-	Events.start_event(event_id)
-	for i in range(GameData.EVENTS[event_id]["cards"].size()):
-		Events.advance()
-
-
-# Same idiom as tests/test_events.gd's own _has_notification().
-func _has_notification(text: String) -> bool:
-	for n in GameState.state["notifications"]:
-		if n["text"] == text:
-			return true
-	return false
 
 
 func _collective_section() -> Variant:
@@ -40,21 +30,6 @@ func _find_item(items: Array, title: String) -> Variant:
 	return null
 
 
-# Finds the pending-message button ContactCards.build_archie_card() adds for
-# a queued "archie" pendingMessages entry, by walking the returned Control
-# tree the same way tests/test_contact_cards.gd inspects other buttons on
-# this card -- no scene tree required, per that file's own precedent.
-func _find_button(root: Control, text: String) -> Button:
-	if root is Button and (root as Button).text == text:
-		return root
-	for child in root.get_children():
-		if child is Control:
-			var found := _find_button(child, text)
-			if found != null:
-				return found
-	return null
-
-
 func run() -> void:
 	# ── S1 delivery: archie_cultivation queues the real pendingMessages road ──
 
@@ -62,7 +37,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["archiePartnerSeen"] = true
 
-		_play_event("archie_cultivation")
+		EventPlay.play_event("archie_cultivation")
 
 		var pending := Messages.pending_for("archie")
 		assert_eq(pending.size(), 1, "archie_cultivation should queue exactly one pending entry for archie")
@@ -76,14 +51,14 @@ func run() -> void:
 	run_case("archie_card_surfaces_the_pending_S1_button_and_pressing_it_resolves_and_starts_col_a1_intro", func():
 		GameState.reset()
 		GameState.state["flags"]["archiePartnerSeen"] = true
-		_play_event("archie_cultivation")
+		EventPlay.play_event("archie_cultivation")
 
 		var card := ContactCards.build_archie_card()
 		# 83-contacts-archie-james-sms-port: Archie's card now surfaces every
 		# pendingMessages entry with the same generic "Continue →" label
 		# Des/Nadia/Hakim's cards use -- the actual S1 text lives in the
 		# message thread itself (previous test case), not the button.
-		var button := _find_button(card, "Continue →")
+		var button := NodeQuery.find_button(card, "Continue →")
 		assert_true(button != null, "Archie's contacts card should surface the pending S1 entry as a button")
 
 		button.pressed.emit()
@@ -95,7 +70,7 @@ func run() -> void:
 	run_case("archie_card_shows_no_pending_button_before_archie_cultivation_fires", func():
 		GameState.reset()
 		var card := ContactCards.build_archie_card()
-		assert_true(_find_button(card, "Continue →") == null, "no pending entry yet -- no button")
+		assert_true(NodeQuery.find_button(card, "Continue →") == null, "no pending entry yet -- no button")
 	)
 
 	# ── S1: col_a1_intro ────────────────────────────────────────────────
@@ -104,7 +79,7 @@ func run() -> void:
 		GameState.reset()
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 
-		_play_event("col_a1_intro")
+		EventPlay.play_event("col_a1_intro")
 
 		assert_true(GameState.state["contacts"]["des"]["unlocked"], "des should be unlocked")
 		assert_true(GameState.state["flags"]["colA1DesMet"])
@@ -123,9 +98,9 @@ func run() -> void:
 		GameState.reset()
 		assert_true(_collective_section() == null, "no Collective section before Des is even met")
 
-		_play_event("col_a1_intro")
+		EventPlay.play_event("col_a1_intro")
 
-		assert_true(_has_notification("Des reckons there's ground worth a look. Check the map."), "S1 should notify the player where to look next, not leave them silent")
+		assert_true(Fixtures.has_notification("Des reckons there's ground worth a look. Check the map."), "S1 should notify the player where to look next, not leave them silent")
 
 		var section: Variant = _collective_section()
 		assert_true(section != null, "Notes' Collective section should appear the instant colA1DesMet flips true")
@@ -136,19 +111,19 @@ func run() -> void:
 
 	run_case("notes_tracks_the_full_tuition_chain_through_S2_S3_S4", func():
 		GameState.reset()
-		_play_event("col_a1_intro")
+		EventPlay.play_event("col_a1_intro")
 
-		_play_event("col_a1_prospecting")
+		EventPlay.play_event("col_a1_prospecting")
 		var items: Array = _collective_section()["items"]
 		assert_eq(_find_item(items, "Des is waiting on the map. He'll teach you to prospect.")["done"], true, "S2 taught -- the prospecting step should render checked")
 		assert_eq(_find_item(items, "Des is waiting on the map. He'll teach you to seed a patch.")["done"], false)
 
-		_play_event("col_a1_seeding")
+		EventPlay.play_event("col_a1_seeding")
 		items = _collective_section()["items"]
 		assert_eq(_find_item(items, "Des is waiting on the map. He'll teach you to seed a patch.")["done"], true, "S3 taught -- the seeding step should render checked")
 		assert_eq(_find_item(items, "Des has texted — three things he needs help with. Check Contacts.")["done"], false)
 
-		_play_event("col_a1_hub")
+		EventPlay.play_event("col_a1_hub")
 		items = _collective_section()["items"]
 		assert_eq(_find_item(items, "Des has texted — three things he needs help with. Check Contacts.")["done"], true, "S4 reached -- the hub step should render checked")
 	)
@@ -170,7 +145,7 @@ func run() -> void:
 			ids.append(pin["eventId"])
 		assert_true(ids.has("col_a1_prospecting"), "shown once colA1DesMet is true")
 
-		_play_event("col_a1_prospecting")
+		EventPlay.play_event("col_a1_prospecting")
 		assert_true(GameState.state["flags"]["colA1ProspectingTaught"])
 
 		pins = MapPins.active_contact_pins()
@@ -185,7 +160,7 @@ func run() -> void:
 		GameState.state["flags"]["colA1DesMet"] = true
 		var sites_before: int = GameState.state["world"]["sites"].size()
 
-		_play_event("col_a1_prospecting")
+		EventPlay.play_event("col_a1_prospecting")
 
 		assert_eq(GameState.state["world"]["sites"].size(), sites_before, "the tutorial teaches, it doesn't call Sites.prospect()")
 		# Regression: on_complete must navigate off the event screen (see S1's
@@ -208,7 +183,7 @@ func run() -> void:
 			ids.append(pin["eventId"])
 		assert_true(ids.has("col_a1_seeding"), "shown once colA1ProspectingTaught is true")
 
-		_play_event("col_a1_seeding")
+		EventPlay.play_event("col_a1_seeding")
 		assert_true(GameState.state["flags"]["colA1SeedingTaught"])
 
 		pins = MapPins.active_contact_pins()
@@ -225,7 +200,7 @@ func run() -> void:
 		# MapCanvas._activate_pin() does when the player taps the pin).
 		GameState.reset()
 		GameState.state["flags"]["colA1DesMet"] = true
-		_play_event("col_a1_prospecting")
+		EventPlay.play_event("col_a1_prospecting")
 		var via_pin_taught: bool = GameState.state["flags"]["colA1ProspectingTaught"]
 		var via_pin_screen: String = GameState.state["currentScreen"]
 
@@ -234,7 +209,7 @@ func run() -> void:
 		# travel, no map pin tapped.
 		GameState.reset()
 		GameState.state["flags"]["colA1DesMet"] = true
-		var button := _find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des")
+		var button := NodeQuery.find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des")
 		assert_true(button != null, "phone shortcut must be available whenever the map pin is")
 		button.pressed.emit()
 		for i in range(GameData.EVENTS["col_a1_prospecting"]["cards"].size()):
@@ -259,7 +234,7 @@ func run() -> void:
 		# Map-pin path.
 		GameState.reset()
 		GameState.state["flags"]["colA1ProspectingTaught"] = true
-		_play_event("col_a1_seeding")
+		EventPlay.play_event("col_a1_seeding")
 		var via_pin_taught: bool = GameState.state["flags"]["colA1SeedingTaught"]
 		var via_pin_screen: String = GameState.state["currentScreen"]
 		var via_pin_pending: Array = Messages.pending_for("des")
@@ -267,7 +242,7 @@ func run() -> void:
 		# Phone-shortcut path.
 		GameState.reset()
 		GameState.state["flags"]["colA1ProspectingTaught"] = true
-		var button := _find_button(ContactCards.build_des_card(), "📍 Go seed a patch with Des")
+		var button := NodeQuery.find_button(ContactCards.build_des_card(), "📍 Go seed a patch with Des")
 		assert_true(button != null, "phone shortcut must be available whenever the map pin is")
 		button.pressed.emit()
 		for i in range(GameData.EVENTS["col_a1_seeding"]["cards"].size()):
@@ -292,7 +267,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["colA1ProspectingTaught"] = true
 
-		_play_event("col_a1_seeding")
+		EventPlay.play_event("col_a1_seeding")
 
 		var pending := Messages.pending_for("des")
 		assert_eq(pending.size(), 1)
@@ -309,7 +284,7 @@ func run() -> void:
 	run_case("col_a1_hub_on_complete_unlocks_nadia_and_hakim_and_activates_des_and_hakim_objectives", func():
 		GameState.reset()
 
-		_play_event("col_a1_hub")
+		EventPlay.play_event("col_a1_hub")
 
 		assert_true(GameState.state["contacts"]["nadia"]["unlocked"])
 		assert_true(GameState.state["contacts"]["hakim"]["unlocked"])
@@ -330,7 +305,7 @@ func run() -> void:
 		GameState.reset()
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 
-		_play_event("col_a1_hub")
+		EventPlay.play_event("col_a1_hub")
 
 		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before, "S4's spec §8.5 award table has no entry for S4 itself")
 	)
@@ -339,8 +314,8 @@ func run() -> void:
 
 	run_case("stopping_after_S4_keeps_the_trading_lane_open_and_relation_never_moves_further", func():
 		GameState.reset()
-		_play_event("col_a1_intro")
-		_play_event("col_a1_hub")
+		EventPlay.play_event("col_a1_intro")
+		EventPlay.play_event("col_a1_hub")
 		var relation_after_hub: int = GameState.state["factions"]["collective"]["relation"]
 
 		# Time passes. Nothing the player does (short of trading or the

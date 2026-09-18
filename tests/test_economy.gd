@@ -1,52 +1,7 @@
 extends "res://tests/test_base.gd"
 
-
-static func _find_seed_for(max_tries: int, fn: Callable) -> int:
-	for seed in range(max_tries):
-		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
-		Rng.set_seed(seed)
-		if fn.call():
-			return seed
-		GameState.state = snapshot
-	return -1
-
-
-# Same shape as test_vein_trade.gd's own _seed_vein -- one player vein wired
-# to its site so VeinTrade.sell_to_faction() can resolve vein.siteId ->
-# Sites.find_site() for real.
-static func _seed_vein(id: String, growth: int, ore_type: String = "life") -> Dictionary:
-	var site := {
-		"id": "site_%s" % id, "district": "shoreditch", "tier": "fair", "oreType": ore_type,
-		"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
-		"hasNaturalVein": false,
-	}
-	var vein := {
-		"id": id, "district": "shoreditch", "oreType": ore_type, "growth": growth,
-		"security": "none", "alarmUpgrades": [], "location": "Test Alley",
-		"claimedOnDay": 1, "siteId": "site_%s" % id, "hospitability": { "tier": "fair", "bonuses": [] },
-		"rampantDays": 0,
-	}
-	GameState.state["world"]["sites"].append(site)
-	GameState.state["player"]["veins"].append(vein)
-	return vein
-
-
-# vein-trade-assets ticket 03: the buy-side fixture -- a site already owned
-# by the faction (site.factionVein set, site.claimed false), so
-# VeinTrade.buy_from_faction() can resolve it the same way it does in the
-# real game.
-static func _seed_faction_vein(id: String, growth: int, faction_id: String = "collective", ore_type: String = "life") -> Dictionary:
-	var site := {
-		"id": "site_%s" % id, "district": "shoreditch", "tier": "fair", "oreType": ore_type,
-		"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": null,
-		"hasNaturalVein": false,
-	}
-	var vein := Factions.create_faction_vein(faction_id, site, growth)
-	vein["id"] = id
-	site["factionVein"] = vein
-	GameState.state["world"]["sites"].append(site)
-	return vein
-
+const Fixtures := preload("res://tests/support/fixtures.gd")
+const SeedSearch := preload("res://tests/support/seed_search.gd")
 
 func run() -> void:
 	run_case("sale_rejects_empty_item_list", func():
@@ -56,7 +11,7 @@ func run() -> void:
 	)
 
 	run_case("gross_math_basic_ore_sale", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["orichalchum"]["time"] = 10
 			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
@@ -94,7 +49,7 @@ func run() -> void:
 	)
 
 	run_case("a_single_sale_crossing_the_1000_rate_still_prices_its_own_cut_at_the_relation_after_the_flat_award_only", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["orichalchum"]["time"] = 20
 			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 17 }])
@@ -113,7 +68,7 @@ func run() -> void:
 	)
 
 	run_case("mugged_sale_via_archie_still_awards_the_flat_gain_and_feeds_tradeProgress", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["orichalchum"]["time"] = 10
 			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
@@ -131,7 +86,7 @@ func run() -> void:
 	# over the freshly-started combat screen, its dim background swallowing
 	# every tap, so the sell menu sat there instead of Attack/Run/Item.
 	run_case("mugged_sale_via_archie_closes_the_sell_menu_modal_so_combat_is_reachable", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			Modal.open("sell_menu", {})
 			GameState.state["player"]["orichalchum"]["time"] = 10
@@ -144,7 +99,7 @@ func run() -> void:
 	)
 
 	run_case("gross_math_applies_barometer_premiums", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["barometer"]["economic"] = "crisis"  # orePrice -0.35, fatePremium +0.5
 			GameState.state["player"]["orichalchum"]["fate"] = 10
@@ -158,7 +113,7 @@ func run() -> void:
 	)
 
 	run_case("gross_math_applies_district_priceMod", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["world"]["currentDistrict"] = "city"  # priceMod +0.15
 			GameState.state["player"]["orichalchum"]["fate"] = 10
@@ -172,7 +127,7 @@ func run() -> void:
 	)
 
 	run_case("consumable_price_also_gets_district_priceMod", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["world"]["currentDistrict"] = "camden"  # priceMod -0.05
 			GameState.state["player"]["inventory"]["timePearl"] = { "0": 5 }
@@ -232,7 +187,7 @@ func run() -> void:
 	)
 
 	run_case("mugged_path_defers_payout_to_pendingSaleCut", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["orichalchum"]["time"] = 10
 			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 3 }])
@@ -351,7 +306,7 @@ func run() -> void:
 	)
 
 	run_case("sell_from_sell_state_builds_items_and_clears_afterward", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["orichalchum"]["time"] = 10
 			GameState.state["player"]["inventory"]["timePearl"] = { "0": 5 }
@@ -379,7 +334,7 @@ func run() -> void:
 	)
 
 	run_case("selling_different_tiers_of_the_same_consumable_yields_different_prices", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
 			var result := Economy.execute_sale([{ "kind": "consumable", "type": "timePearl", "tier": 1, "qty": 1 }])
@@ -409,7 +364,7 @@ func run() -> void:
 	)
 
 	run_case("sell_from_sell_state_offers_each_tier_of_a_consumable_as_its_own_sellable_line", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["inventory"]["timePearl"] = { "1": 5, "5": 5 }
 			Economy.adjust_sell_qty("con_timePearl_1", 2, 5)
@@ -702,7 +657,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
 		Economy.adjust_sell_qty("ore_time", 3, 10)
-		var vein := _seed_vein("v1", 5)
+		var vein := Fixtures.seed_vein("v1", 5)
 		var vein_price: int = VeinTrade.quote(vein)
 		assert_true(vein_price < 500, "sanity: keep this test under the personal-lane rate")
 		Economy.toggle_sell_vein("v1")
@@ -757,7 +712,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_from_sell_state_sells_a_toggled_vein_at_its_quote_price", func():
 		GameState.reset()
-		var vein := _seed_vein("v1", 50)
+		var vein := Fixtures.seed_vein("v1", 50)
 		var price: int = VeinTrade.quote(vein)
 		var cash_before: int = GameState.state["player"]["cash"]
 		Economy.toggle_sell_vein("v1")
@@ -775,7 +730,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
 		Economy.adjust_sell_qty("ore_time", 3, 10)
-		var vein := _seed_vein("v1", 50)
+		var vein := Fixtures.seed_vein("v1", 50)
 		var vein_price: int = VeinTrade.quote(vein)
 		Economy.toggle_sell_vein("v1")
 
@@ -791,7 +746,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
 		Economy.adjust_sell_qty("ore_time", 1, 10)
-		_seed_vein("v1", 50)  # never toggled
+		Fixtures.seed_vein("v1", 50)  # never toggled
 
 		var result := Economy.sell_to_faction_from_sell_state("collective")
 
@@ -803,7 +758,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_from_sell_state_buys_a_toggled_faction_vein_at_its_quote_price", func():
 		GameState.reset()
-		var faction_vein := _seed_faction_vein("fv1", 50)
+		var faction_vein := Fixtures.seed_faction_vein("fv1", 50)
 		var price: int = VeinTrade.quote(faction_vein)
 		GameState.state["player"]["cash"] = 100000
 		var cash_before: int = GameState.state["player"]["cash"]
@@ -820,9 +775,9 @@ func run() -> void:
 
 	run_case("sell_to_faction_from_sell_state_nets_a_sell_and_a_buy_into_one_earned_total", func():
 		GameState.reset()
-		var sell_vein := _seed_vein("v1", 50)
+		var sell_vein := Fixtures.seed_vein("v1", 50)
 		var sell_price: int = VeinTrade.quote(sell_vein)
-		var faction_vein := _seed_faction_vein("fv1", 50)
+		var faction_vein := Fixtures.seed_faction_vein("fv1", 50)
 		var buy_price: int = VeinTrade.quote(faction_vein)
 		GameState.state["player"]["cash"] = 100000
 		Economy.toggle_sell_vein("v1")
@@ -837,7 +792,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_from_sell_state_ignores_an_untoggled_buyable_faction_vein", func():
 		GameState.reset()
-		_seed_faction_vein("fv1", 50)  # never toggled
+		Fixtures.seed_faction_vein("fv1", 50)  # never toggled
 		GameState.state["player"]["orichalchum"]["time"] = 10
 		Economy.adjust_sell_qty("ore_time", 1, 10)
 
@@ -849,7 +804,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_from_sell_state_ignores_a_toggled_buy_vein_belonging_to_a_different_faction", func():
 		GameState.reset()
-		_seed_faction_vein("fv1", 50, "firm")
+		Fixtures.seed_faction_vein("fv1", 50, "firm")
 		GameState.state["player"]["cash"] = 100000
 		Economy.toggle_buy_vein("fv1")
 
@@ -879,7 +834,7 @@ func run() -> void:
 	)
 
 	run_case("archie_sale_cut_uses_the_relation_scaled_ratio_not_a_flat_50_percent", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["contacts"]["archie"]["relation"] = 80  # 0.85x cut
 			GameState.state["player"]["orichalchum"]["time"] = 10
@@ -895,16 +850,16 @@ func run() -> void:
 
 	run_case("get_archie_vein_price_marks_up_the_plain_quote_before_any_cut", func():
 		GameState.reset()
-		var vein := _seed_vein("v1", 50)
+		var vein := Fixtures.seed_vein("v1", 50)
 		var quote_price: int = VeinTrade.quote(vein)
 		assert_eq(Economy.get_archie_vein_price(vein), GameState.round_epsilon(quote_price * Economy.ARCHIE_VEIN_MARKUP), "matches quote * ARCHIE_VEIN_MARKUP")
 		assert_true(Economy.get_archie_vein_price(vein) > quote_price, "the vein lane must price above the plain quote for it to be a genuine alternative to the no-cut faction lane")
 	)
 
 	run_case("execute_sale_with_a_vein_item_transfers_it_immediately_and_folds_its_marked_up_price_into_gross", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
-			var vein := _seed_vein("v1", 50)
+			var vein := Fixtures.seed_vein("v1", 50)
 			var result := Economy.execute_sale([{ "kind": "vein", "veinId": "v1" }])
 			return not result.get("mugged", false)
 		)
@@ -916,9 +871,9 @@ func run() -> void:
 	)
 
 	run_case("mugged_vein_sale_transfers_the_vein_but_defers_its_marked_up_cut_to_pendingSaleCut", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
-			var vein := _seed_vein("v1", 50)
+			var vein := Fixtures.seed_vein("v1", 50)
 			var result := Economy.execute_sale([{ "kind": "vein", "veinId": "v1" }])
 			return result.get("mugged", false)
 		)
@@ -942,7 +897,7 @@ func run() -> void:
 			if not ore_result.get("mugged", false):
 				continue
 			GameState.reset()
-			_seed_vein("v1", 50)
+			Fixtures.seed_vein("v1", 50)
 			Rng.set_seed(seed)
 			var vein_result := Economy.execute_sale([{ "kind": "vein", "veinId": "v1" }])
 			if not vein_result.get("mugged", false):
@@ -952,9 +907,9 @@ func run() -> void:
 	)
 
 	run_case("a_mugged_vein_sale_starts_the_harder_mugger_roster", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
-			_seed_vein("v1", 50)
+			Fixtures.seed_vein("v1", 50)
 			var result := Economy.execute_sale([{ "kind": "vein", "veinId": "v1" }])
 			return result.get("mugged", false)
 		)

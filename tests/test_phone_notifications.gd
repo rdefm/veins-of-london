@@ -1,17 +1,12 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # 11-phone-os-shell ticket 10: Notifications app -- browses the full
 # persistent log ticket 04's Notify.push() built (GameState.state
 # ["notifications"]), screen-level-tested against a real PhoneScreen
 # instance with state.phoneNav.app = "notifications", same headless-scene
 # pattern as tests/test_phone_profile.gd.
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
-	return texts
 
 
 # 75-vein-raid-defend-button fixture: a player-owned, alarmed, site-tied
@@ -39,7 +34,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.label_texts(phone)
 		var idx_first := texts.find("First.")
 		var idx_second := texts.find("Second.")
 		var idx_third := texts.find("Third.")
@@ -61,7 +56,7 @@ func run() -> void:
 
 		assert_eq(GameState.state["notifications"].size(), Notify.LOG_CAP, "sanity: the underlying log is capped at 50")
 
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.label_texts(phone)
 		assert_true(not texts.has("Notification 0."), "entries evicted from the log below the cap must not render")
 		assert_true(texts.has("Notification 5."), "the oldest surviving entry renders")
 		assert_true(texts.has("Notification 54."), "the newest entry renders")
@@ -79,7 +74,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Seen one."), "a seen entry still renders in the log")
 		assert_true(texts.has("Unseen one."), "an unseen entry renders in the log")
 
@@ -111,7 +106,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_true(_label_texts(phone).has("Nothing yet."), "an empty log shows an empty-state message")
+		assert_true(NodeQuery.label_texts(phone).has("Nothing yet."), "an empty log shows an empty-state message")
 
 		phone.free()
 	)

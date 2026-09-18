@@ -1,10 +1,13 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+const UiSim := preload("res://tests/support/ui_sim.gd")
+
 # hq-diorama ticket 06, docs/hq-diorama-vision.md §5: the Lab bench's own
 # diegetic sub-view, reached from hq.gd's "lab" zone tap (see
 # tests/test_hq_screen.gd's own "hq_lab_zone_tap_navigates_to_the_hq_lab_
 # bench_screen"). Tap simulation follows the same pattern
-# tests/test_hq_screen.gd's own _tap_zone() established: a synthetic
+# tests/test_hq_screen.gd's own UiSim.tap_zone() established: a synthetic
 # InputEventScreenTouch at a region's own centre point (read from
 # HqDiorama.region_rects(), never a hardcoded coordinate), fed through the
 # screen's own _on_diorama_gui_input(). Held-notebook label assertions read
@@ -20,25 +23,6 @@ extends "res://tests/test_base.gd"
 # beyond "the arrows reach them".
 
 
-static func _find_button(root: Node, text: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text == text:
-			return b
-	return null
-
-
-static func _tap_at(pos: Vector2) -> InputEventScreenTouch:
-	var event := InputEventScreenTouch.new()
-	event.pressed = true
-	event.position = pos
-	return event
-
-
-static func _tap_zone(screen: HqLabBenchScreen, zone_id: String) -> void:
-	var rect: Rect2 = screen._diorama.region_rects()[zone_id]
-	screen._on_diorama_gui_input(_tap_at(rect.get_center()))
-
-
 func run() -> void:
 	run_case("hq_lab_bench_back_button_returns_to_hq", func():
 		GameState.reset()
@@ -47,7 +31,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_find_button(screen, "‹ Back").pressed.emit()
+		NodeQuery.find_button(screen, "‹ Back").pressed.emit()
 		assert_eq(GameState.state["currentScreen"], "hq", "Back must return to the HQ room, not the phone home grid")
 
 		screen.free()
@@ -60,8 +44,8 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		assert_true(_find_button(screen, "‹").disabled, "§5.1: the left arrow must be disabled at the first (books+ore) stop")
-		assert_true(not _find_button(screen, "›").disabled, "the right arrow must stay enabled with the apparatus stop ahead")
+		assert_true(NodeQuery.find_button(screen, "‹").disabled, "§5.1: the left arrow must be disabled at the first (books+ore) stop")
+		assert_true(not NodeQuery.find_button(screen, "›").disabled, "the right arrow must stay enabled with the apparatus stop ahead")
 
 		screen.free()
 	)
@@ -72,7 +56,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_find_button(screen, "›").pressed.emit()
+		NodeQuery.find_button(screen, "›").pressed.emit()
 
 		assert_eq(GameState.state["labBenchNav"]["stop"], "apparatus", "tapping the right arrow must advance exactly one stop")
 
@@ -86,8 +70,8 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		assert_true(_find_button(screen, "›").disabled, "§5.1: the right arrow must be disabled at the last (apparatus) stop")
-		assert_true(not _find_button(screen, "‹").disabled, "the left arrow must stay enabled with the books+ore stop behind it")
+		assert_true(NodeQuery.find_button(screen, "›").disabled, "§5.1: the right arrow must be disabled at the last (apparatus) stop")
+		assert_true(not NodeQuery.find_button(screen, "‹").disabled, "the left arrow must stay enabled with the books+ore stop behind it")
 
 		screen.free()
 	)
@@ -99,7 +83,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_find_button(screen, "‹").pressed.emit()
+		NodeQuery.find_button(screen, "‹").pressed.emit()
 
 		assert_eq(GameState.state["labBenchNav"]["stop"], "books_ore", "tapping the left arrow must step back exactly one stop")
 
@@ -117,7 +101,7 @@ func run() -> void:
 
 		var stop_width: float = GameData.HQ_VISUALS["labBench"]["width"] / float(LabBenchNav.STOPS.size())
 
-		_find_button(screen, "›").pressed.emit()
+		NodeQuery.find_button(screen, "›").pressed.emit()
 
 		assert_true(screen._active_pan_tween != null, "ticket 11: an arrow step must kick off a tween rather than snap instantly")
 		assert_almost_eq(screen._diorama.position.x, 0.0, 0.01, "mid-tween, the diorama must still be at its pre-step position")
@@ -145,7 +129,7 @@ func run() -> void:
 
 		var stop_width: float = GameData.HQ_VISUALS["labBench"]["width"] / float(LabBenchNav.STOPS.size())
 
-		_find_button(screen, "›").pressed.emit()
+		NodeQuery.find_button(screen, "›").pressed.emit()
 		screen._active_pan_tween.custom_step(0.2)  # halfway through _PAN_DURATION -- still mid-flight
 
 		var mid_x: float = screen._diorama.position.x
@@ -169,7 +153,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "notebookRecipes")
+		UiSim.tap_zone(screen, "notebookRecipes")
 
 		assert_eq(GameState.state["labBenchNav"]["mode"], "recipes", "tapping the Recipes notebook must set the mode (§5.2)")
 		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book", "ticket 22: the same tap must open the recipe book, not require a second tap on a separate button")
@@ -183,7 +167,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "notebookExperiments")
+		UiSim.tap_zone(screen, "notebookExperiments")
 
 		assert_eq(GameState.state["labBenchNav"]["mode"], "experiments")
 		assert_eq(GameState.state["modal"]["type"], "lab_bench_notes", "ticket 22: the same tap must open the notebook, not require a second tap on a separate button")
@@ -214,7 +198,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "notebookRecipes")
+		UiSim.tap_zone(screen, "notebookRecipes")
 
 		assert_eq(GameState.state["labBenchNav"]["mode"], null, "§5.2: tapping the held notebook again must return to the fork")
 		assert_eq(GameState.state["modal"], null, "ticket 22: closing the fork must not also pop the modal it's closing")
@@ -229,7 +213,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "notebookExperiments")
+		UiSim.tap_zone(screen, "notebookExperiments")
 
 		assert_eq(GameState.state["labBenchNav"]["mode"], "experiments", "§5.2: the player can switch modes freely")
 		assert_eq(GameState.state["modal"]["type"], "lab_bench_notes", "ticket 22: switching modes via a notebook tap opens that mode's modal same as the fork case")
@@ -292,7 +276,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "ore_life")
+		UiSim.tap_zone(screen, "ore_life")
 
 		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["life"], "§5.4: tap-to-select is the primary, always-available path")
 
@@ -304,7 +288,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "ore_life")
+		UiSim.tap_zone(screen, "ore_life")
 
 		assert_true(screen._diorama._plate["regions"]["ore_life"]["label"].contains("selected"), "a selected container's own label must say so")
 
@@ -321,7 +305,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "ore_life")
+		UiSim.tap_zone(screen, "ore_life")
 
 		assert_true(screen._diorama._plate["regions"]["ore_life"]["label"].contains("costs 5–6"), "ambiguous until an apparatus is tapped -- shows the min-max range rather than falling silent")
 
@@ -334,7 +318,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "ore_life")
+		UiSim.tap_zone(screen, "ore_life")
 
 		assert_true(screen._diorama._plate["regions"]["ore_life"]["label"].contains("costs %d" % Bench.ORE_COST_PER_TYPE), "§5.4: a selected chip must communicate the cost it will incur")
 
@@ -375,7 +359,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "apparatus_heat")
+		UiSim.tap_zone(screen, "apparatus_heat")
 
 		assert_eq(GameState.state["player"]["orichalchum"]["life"], 3, "§5.3: an unarmed apparatus spends no ore -- no error, no wasted tap")
 		assert_eq(GameState.state["modal"], null)
@@ -390,8 +374,8 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "ore_life")
-		_tap_zone(screen, "apparatus_heat")
+		UiSim.tap_zone(screen, "ore_life")
+		UiSim.tap_zone(screen, "apparatus_heat")
 
 		assert_eq(GameState.state["player"]["orichalchum"]["life"], 0, "a probe always spends the discovery cost regardless of outcome (M3 §7)")
 		assert_eq(GameState.state["modal"]["type"], "lab_bench_probe_result", "the outcome is reported the instant the probe resolves")
@@ -406,7 +390,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "ore_life")
+		UiSim.tap_zone(screen, "ore_life")
 
 		assert_true(not screen._diorama._plate["regions"]["apparatus_heat"]["label"].contains("Healing Salve"), "naming the recipe before it's probed would spoil the discovery M3 §3 is built around")
 		assert_true(screen._diorama._plate["regions"]["apparatus_heat"]["label"].contains("ready"), "the apparatus still shows it's armed, just not with what")
@@ -422,8 +406,8 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "ore_time")
-		_tap_zone(screen, "apparatus_heat")
+		UiSim.tap_zone(screen, "ore_time")
+		UiSim.tap_zone(screen, "apparatus_heat")
 
 		assert_eq(GameState.state["modal"]["type"], "craft_result", "§5.2: the manual path crafts quantity 1 via the normal Crafting.attempt_craft path")
 
@@ -436,7 +420,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "ore_time")
+		UiSim.tap_zone(screen, "ore_time")
 
 		assert_true(screen._diorama._plate["regions"]["apparatus_heat"]["label"].contains("Rewind"), "§5.3: crafting mode names the exact recipe waiting there")
 
@@ -449,8 +433,8 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		_tap_zone(screen, "ore_physics")  # shield lives at physics|heat but is untried, not Found
-		_tap_zone(screen, "apparatus_heat")
+		UiSim.tap_zone(screen, "ore_physics")  # shield lives at physics|heat but is untried, not Found
+		UiSim.tap_zone(screen, "apparatus_heat")
 
 		assert_eq(GameState.state["modal"], null, "§5.3: an unknown combination is silently inert -- no craft, no side effect")
 

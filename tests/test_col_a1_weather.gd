@@ -1,5 +1,9 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+const EventPlay := preload("res://tests/support/event_play.gd")
+const SeedSearch := preload("res://tests/support/seed_search.gd")
+
 # collective1-09, spec.md §6.5/§6.6/§10.4: Des's two location-agnostic
 # "Firm as weather" beats (S5 col_a1_firm_skirmish, S6
 # col_a1_firm_intimidation) and the trigger hook that pre-empts the
@@ -11,54 +15,12 @@ extends "res://tests/test_base.gd"
 # for district-event content.
 
 
-func _play_event(event_id: String) -> void:
-	Events.start_event(event_id)
-	for i in range(GameData.EVENTS[event_id]["cards"].size()):
-		Events.advance()
-
-
-# Drives an event up to (not including) its choice card.
-func _play_to_choice(event_id: String) -> int:
-	Events.start_event(event_id)
-	var cards: Array = GameData.EVENTS[event_id]["cards"]
-	var choice_index := -1
-	for i in range(cards.size()):
-		if cards[i]["type"] == "choice":
-			choice_index = i
-			break
-	for i in range(choice_index):
-		Events.advance()
-	return choice_index
-
-
-func _finish_after_choice(event_id: String, choice_index: int) -> void:
-	var remaining: int = GameData.EVENTS[event_id]["cards"].size() - choice_index
-	for i in range(remaining):
-		Events.advance()
-
-
-func _site(id: String, ore_type: String, tier: String, claimed: bool = false, faction_vein: Variant = null) -> Dictionary:
-	return {
-		"id": id, "district": "shoreditch", "tier": tier, "oreType": ore_type,
-		"bonuses": [], "discoveredDay": 1, "claimed": claimed, "factionVein": faction_vein,
-		"hasNaturalVein": false,
-	}
-
-
-static func _find_seed_for(max_tries: int, fn: Callable) -> int:
-	for seed in range(max_tries):
-		Rng.set_seed(seed)
-		if fn.call():
-			return seed
-	return -1
-
-
 func run() -> void:
 	# ── maybe_trigger_weather_beat() -- unit seam, synthetic sites ──────────
 
 	run_case("does_not_fire_when_colA1DesThreadActive_is_false", func():
 		GameState.reset()
-		var fired := Collective.maybe_trigger_weather_beat(_site("s1", "fate", "fair"))
+		var fired := Collective.maybe_trigger_weather_beat(Fixtures.site("s1", "fate", "fair"))
 		assert_true(not fired)
 		assert_eq(GameState.state["event"], null)
 	)
@@ -73,28 +35,28 @@ func run() -> void:
 	run_case("does_not_fire_for_a_site_whose_ore_type_is_not_fate_or_physics", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		var fired := Collective.maybe_trigger_weather_beat(_site("s1", "emotion", "rich"))
+		var fired := Collective.maybe_trigger_weather_beat(Fixtures.site("s1", "emotion", "rich"))
 		assert_true(not fired)
 	)
 
 	run_case("does_not_fire_for_a_qualifying_ore_type_below_minTier", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		var fired := Collective.maybe_trigger_weather_beat(_site("s1", "fate", "poor"))
+		var fired := Collective.maybe_trigger_weather_beat(Fixtures.site("s1", "fate", "poor"))
 		assert_true(not fired)
 	)
 
 	run_case("does_not_fire_for_an_already_claimed_site", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		var fired := Collective.maybe_trigger_weather_beat(_site("s1", "fate", "fair", true))
+		var fired := Collective.maybe_trigger_weather_beat(Fixtures.site("s1", "fate", "fair", true))
 		assert_true(not fired)
 	)
 
 	run_case("fires_S5_on_the_first_qualifying_site_and_sets_colA1SkirmishSeen", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		var fired := Collective.maybe_trigger_weather_beat(_site("s1", "fate", "fair"))
+		var fired := Collective.maybe_trigger_weather_beat(Fixtures.site("s1", "fate", "fair"))
 		assert_true(fired)
 		assert_eq(GameState.state["event"]["eventId"], "col_a1_firm_skirmish")
 	)
@@ -104,7 +66,7 @@ func run() -> void:
 		GameState.state["flags"]["colA1DesThreadActive"] = true
 		GameState.state["flags"]["colA1SkirmishSeen"] = true
 
-		var fired := Collective.maybe_trigger_weather_beat(_site("s2", "physics", "rich"))
+		var fired := Collective.maybe_trigger_weather_beat(Fixtures.site("s2", "physics", "rich"))
 		assert_true(fired)
 		assert_eq(GameState.state["event"]["eventId"], "col_a1_firm_intimidation")
 	)
@@ -115,7 +77,7 @@ func run() -> void:
 		GameState.state["flags"]["colA1SkirmishSeen"] = true
 		GameState.state["flags"]["colA1IntimidationSeen"] = true
 
-		var fired := Collective.maybe_trigger_weather_beat(_site("s3", "fate", "saturated"))
+		var fired := Collective.maybe_trigger_weather_beat(Fixtures.site("s3", "fate", "saturated"))
 		assert_true(not fired)
 		assert_eq(GameState.state["event"], null)
 	)
@@ -127,7 +89,7 @@ func run() -> void:
 		GameState.state["flags"]["colA1DesThreadActive"] = true
 
 		Rng.set_seed(12345)
-		var fired := Collective.maybe_trigger_weather_beat(_site("s1", "fate", "fair"))
+		var fired := Collective.maybe_trigger_weather_beat(Fixtures.site("s1", "fate", "fair"))
 		assert_true(fired)
 		var next_after_hook: float = Rng.randf()
 
@@ -140,7 +102,7 @@ func run() -> void:
 	# ── Sites.prospect() integration: the story beat pre-empts the deck ─────
 
 	run_case("prospect_starts_the_weather_beat_instead_of_the_district_deck_and_records_nothing_in_recentEvents", func():
-		var seed := _find_seed_for(500, func():
+		var seed := SeedSearch.find_seed_for(500, func():
 			GameState.reset()
 			GameState.state["flags"]["colA1DesThreadActive"] = true
 			var result := Sites.prospect("city")  # City's oreBias leans fate — see data/districts.json
@@ -165,7 +127,7 @@ func run() -> void:
 
 	run_case("col_a1_firm_skirmish_on_complete_sets_colA1SkirmishSeen", func():
 		GameState.reset()
-		_play_event("col_a1_firm_skirmish")
+		EventPlay.play_event("col_a1_firm_skirmish")
 		assert_true(GameState.state["flags"]["colA1SkirmishSeen"])
 		# Regression (bugfix: an on_complete missing a "set_screen" op leaves
 		# the EventScreen stuck on a dead Continue button, per tests/
@@ -179,7 +141,7 @@ func run() -> void:
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 		var sites_before: Array = GameState.state["world"]["sites"].duplicate(true)
 
-		_play_event("col_a1_firm_skirmish")
+		EventPlay.play_event("col_a1_firm_skirmish")
 
 		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before)
 		assert_eq(GameState.state["world"]["sites"], sites_before)
@@ -189,11 +151,11 @@ func run() -> void:
 
 	run_case("col_a1_firm_intimidation_back_off_logs_backed_off_starts_no_combat", func():
 		GameState.reset()
-		var choice_index := _play_to_choice("col_a1_firm_intimidation")
+		var choice_index := EventPlay.play_to_choice("col_a1_firm_intimidation")
 		Events.choose(0)  # Back off
 		assert_eq(GameState.state["methodLog"]["firmFirstContact"], "backed_off")
 		assert_true(not GameState.state["combat"]["active"])
-		_finish_after_choice("col_a1_firm_intimidation", choice_index)
+		EventPlay.finish_after_choice("col_a1_firm_intimidation", choice_index)
 		assert_true(GameState.state["flags"]["colA1IntimidationSeen"])
 		# Regression: on_complete must navigate off the event screen (see S5's
 		# comment above).
@@ -202,17 +164,17 @@ func run() -> void:
 
 	run_case("col_a1_firm_intimidation_hold_your_ground_logs_held_starts_no_combat", func():
 		GameState.reset()
-		var choice_index := _play_to_choice("col_a1_firm_intimidation")
+		var choice_index := EventPlay.play_to_choice("col_a1_firm_intimidation")
 		Events.choose(1)  # Hold your ground
 		assert_eq(GameState.state["methodLog"]["firmFirstContact"], "held")
 		assert_true(not GameState.state["combat"]["active"])
-		_finish_after_choice("col_a1_firm_intimidation", choice_index)
+		EventPlay.finish_after_choice("col_a1_firm_intimidation", choice_index)
 		assert_true(GameState.state["flags"]["colA1IntimidationSeen"])
 	)
 
 	run_case("col_a1_firm_intimidation_tell_them_where_to_go_logs_fought_and_starts_combat", func():
 		GameState.reset()
-		var choice_index := _play_to_choice("col_a1_firm_intimidation")
+		var choice_index := EventPlay.play_to_choice("col_a1_firm_intimidation")
 		Events.choose(2)  # Tell them where to go
 		assert_eq(GameState.state["methodLog"]["firmFirstContact"], "fought")
 		assert_true(GameState.state["combat"]["active"], "should launch the street mugging")
@@ -225,7 +187,7 @@ func run() -> void:
 			var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 			var sites_before: Array = GameState.state["world"]["sites"].duplicate(true)
 
-			var choice_index := _play_to_choice("col_a1_firm_intimidation")
+			var choice_index := EventPlay.play_to_choice("col_a1_firm_intimidation")
 			Events.choose(choice_index_to_pick)
 
 			assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before, "choice %d must not move relation" % choice_index_to_pick)

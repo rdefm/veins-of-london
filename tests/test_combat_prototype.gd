@@ -1,5 +1,8 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+const SeedSearch := preload("res://tests/support/seed_search.gd")
+
 # day-rhythm-business-and-combat ticket 14/15: public-resolution coverage
 # for systems/combat_prototype.gd against ticket 13a's approved rule set
 # (ticket 14) plus ticket 15's squad/item/wave extension, resolved via
@@ -62,32 +65,6 @@ func _fresh_prototype(encounter_id: String, player_spec: Dictionary = {}, enemy_
 		"snapshots": [], "beatsSinceSnapshot": [], "_pending": null, "_waveCleared": false,
 	}
 	return GameState.state["combatPrototype"]
-
-
-# dial-device ticket 07 precedent (tests/test_combat.gd's own
-# _dial_with_loaded()): a seeded, seated Dial with one Complication loaded
-# at the given charge.
-func _dial_with_loaded(recipe_key: String, tier: int, charge: int) -> Dictionary:
-	return {
-		"level": 1, "xp": 0, "currentCharge": charge, "maxCharge": 20, "rechargeRate": 2.0,
-		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
-		"capacityMax": 4, "movement": { "archetype": "impact", "oreType": "time", "tier": 1 },
-		"loadedComplications": [{ "recipeKey": recipe_key, "tier": tier, "detent": 0 }],
-		"haftId": "collective_brolly",
-	}
-
-
-# Same seed-search precedent as tests/test_combat.gd's own _find_seed_for --
-# used only for the flee cases below, where the outcome hinges on a single
-# Rng.chance() roll neither side's committed action determines.
-static func _find_seed_for(max_tries: int, fn: Callable) -> int:
-	for seed in range(max_tries):
-		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
-		Rng.set_seed(seed)
-		if fn.call():
-			return seed
-		GameState.state = snapshot
-	return -1
 
 
 func run() -> void:
@@ -244,7 +221,7 @@ func run() -> void:
 
 	run_case("fled_outcome_ends_the_encounter_without_a_hp_change", func():
 		_fresh_prototype("brawler")
-		var seed := _find_seed_for(500, func():
+		var seed := SeedSearch.find_seed_for(500, func():
 			var result := CombatPrototype.take_player_action(CombatPrototype.ACTION_FLEE)
 			return result["outcome"] == "fled"
 		)
@@ -466,7 +443,7 @@ func run() -> void:
 
 	run_case("cast_dial_complication_spends_real_dial_charge_and_applies_the_effect", func():
 		var cp := _fresh_prototype("brawler")
-		GameState.state["player"]["dial"] = _dial_with_loaded("timePearl", 1, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("timePearl", 1, 5)
 		var result := CombatPrototype.cast_dial_complication(0)
 		assert_true(result["ok"])
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 4, "casting should spend exactly one charge")
@@ -485,7 +462,7 @@ func run() -> void:
 	run_case("rewind_restores_real_inventory_and_dial_charge_spent_this_round", func():
 		var cp := _fresh_prototype("brawler")
 		Crafting.inventory_add("shield", 1, 1)
-		GameState.state["player"]["dial"] = _dial_with_loaded("timePearl", 1, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("timePearl", 1, 5)
 		Rng.set_seed(35)
 		CombatPrototype.use_item("shield")
 

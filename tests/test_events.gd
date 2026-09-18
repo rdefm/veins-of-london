@@ -1,11 +1,6 @@
 extends "res://tests/test_base.gd"
 
-
-func _has_notification(text: String) -> bool:
-	for n in GameState.state["notifications"]:
-		if n["text"] == text:
-			return true
-	return false
+const Fixtures := preload("res://tests/support/fixtures.gd")
 
 
 # M1-LONDON D5's `choices` card type — installed as a synthetic event so
@@ -58,22 +53,14 @@ func _install_image_choice_event() -> Dictionary:
 	return original_events
 
 
-# vein-raiding ticket 02: fixtures for a faction-owned site, mirroring
-# test_factions.gd's own _faction_vein_of/_site_with_vein helpers.
-static func _faction_vein_of(level: int, ore_type: String, security: String = "none", faction_id: String = "collective") -> Dictionary:
+# vein-raiding ticket 02: fixtures for a faction-owned site (paired with
+# Fixtures.site_with_vein).
+static func _faction_vein_of_level(level: int, ore_type: String, security: String = "none", faction_id: String = "collective") -> Dictionary:
 	return {
 		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "growth": 20 * level - 10,
 		"rampantDays": 0, "security": security,
 		"location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch",
 		"siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
-	}
-
-
-static func _site_with_vein(id: String, vein: Dictionary) -> Dictionary:
-	return {
-		"id": id, "district": "shoreditch", "tier": "fair", "oreType": vein["oreType"],
-		"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
-		"hasNaturalVein": false,
 	}
 
 
@@ -669,7 +656,7 @@ func run() -> void:
 
 	run_case("stealth_check_op_branches_into_on_success_with_a_saturated_bonus", func():
 		GameState.reset()
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", _faction_vein_of(1, "time"))]
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", _faction_vein_of_level(1, "time"))]
 		Events.apply_effects([{
 			"op": "stealth_check", "site_id": "s1", "consumable_bonus": 5.0,
 			"on_success": [{ "op": "set_flag", "flag": "stealthOutcome", "value": "success" }],
@@ -681,7 +668,7 @@ func run() -> void:
 
 	run_case("stealth_check_op_branches_into_on_caught_with_a_floored_bonus", func():
 		GameState.reset()
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", _faction_vein_of(5, "fate", "guarded"))]
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", _faction_vein_of_level(5, "fate", "guarded"))]
 		Events.apply_effects([{
 			"op": "stealth_check", "site_id": "s1", "consumable_bonus": -5.0,
 			"on_success": [{ "op": "set_flag", "flag": "stealthOutcome", "value": "success" }],
@@ -692,8 +679,8 @@ func run() -> void:
 
 	run_case("start_raid_combat_op_launches_combat_with_event_raid_context", func():
 		GameState.reset()
-		var vein := _faction_vein_of(2, "physics", "warded")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_level(2, "physics", "warded")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		Events.apply_effects([{ "op": "start_raid_combat", "site_id": "s1" }])
 		assert_true(GameState.state["combat"]["active"], "combat should be launched")
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_EVENT_RAID)
@@ -702,7 +689,7 @@ func run() -> void:
 
 	run_case("claim_raid_vein_op_transfers_ownership", func():
 		GameState.reset()
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", _faction_vein_of(1, "time"))]
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", _faction_vein_of_level(1, "time"))]
 		Events.apply_effects([{ "op": "claim_raid_vein", "site_id": "s1" }])
 		assert_eq(GameState.state["player"]["veins"].size(), 1, "the vein should transfer to the player")
 		assert_eq(GameState.state["world"]["sites"][0]["factionVein"], null, "the site should no longer be faction-owned")
@@ -710,8 +697,8 @@ func run() -> void:
 
 	run_case("loot_raid_vein_op_grants_ore_without_transferring_ownership", func():
 		GameState.reset()
-		var vein := _faction_vein_of(1, "life")
-		GameState.state["world"]["sites"] = [_site_with_vein("s1", vein)]
+		var vein := _faction_vein_of_level(1, "life")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		var ore_before: int = GameState.state["player"]["orichalchum"].get("life", 0)
 		Events.apply_effects([{ "op": "loot_raid_vein", "site_id": "s1", "caught": true }])
 		assert_true(GameState.state["player"]["orichalchum"]["life"] > ore_before, "loot should grant ore")
@@ -735,7 +722,7 @@ func run() -> void:
 		for i in range(GameData.EVENTS["home_raid_debrief_loss"]["cards"].size()):
 			Events.advance()
 		assert_true(GameState.state["flags"]["homeUnlocked"], "debrief_loss: homeUnlocked")
-		assert_true(_has_notification("HQ's workbench is open now."), "debrief_loss: HQ nudge notification")
+		assert_true(Fixtures.has_notification("HQ's workbench is open now."), "debrief_loss: HQ nudge notification")
 	)
 
 	run_case("rewind_restores_full_state_without_corruption", func():
@@ -826,7 +813,7 @@ func run() -> void:
 		assert_eq(GameState.state["flags"]["tutorialStage"], "archie_craft_chat", "james_meeting: stage")
 		assert_eq(GameState.state["world"]["archieChatUnlockDay"], day + 1, "james_meeting: archieChatUnlockDay = day+1")
 		assert_eq(GameState.state["currentScreen"], "phone", "james_meeting: -> phone home, no longer hq")
-		assert_true(not _has_notification("Crafting unlocked. Try the workbench in HQ."), "james_meeting: no longer fires the HQ notification")
+		assert_true(not Fixtures.has_notification("Crafting unlocked. Try the workbench in HQ."), "james_meeting: no longer fires the HQ notification")
 		# 83-contacts-archie-james-sms-port: the archie_craft_chat trigger now
 		# arrives as a pendingMessages entry instead of a bare tutorialStage check.
 		var craft_chat_pending := Messages.pending_for("archie")
@@ -879,7 +866,7 @@ func run() -> void:
 		assert_eq(granted["growth"], GameData.VEIN_GROWTH["seedGrowth"], "granted vein: seedGrowth")
 		assert_eq(granted["district"], "whitechapel", "granted vein: whitechapel")
 		assert_eq(GameState.state["currentScreen"], "phone", "debrief: -> phone home")
-		assert_true(_has_notification("HQ's workbench is open now."), "debrief: HQ nudge notification")
+		assert_true(Fixtures.has_notification("HQ's workbench is open now."), "debrief: HQ nudge notification")
 
 		# D7: the granted vein comes with a matching claimed site.
 		assert_eq(GameState.state["world"]["sites"].size(), 1, "debrief: creates exactly one site")

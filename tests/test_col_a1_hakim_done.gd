@@ -1,5 +1,8 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+const EventPlay := preload("res://tests/support/event_play.gd")
+
 # collective1-14, spec.md §6.12: S12 (col_a1_hakim_done), Hakim's thread
 # resolution -- handing the recovered vein back. Same action-bar-button
 # delivery idiom tests/test_col_a1_des_report.gd uses, plus the on_complete
@@ -9,36 +12,13 @@ extends "res://tests/test_base.gd"
 # (systems/vein_trade.gd's soldByPlayer-false-on-forced-price behaviour).
 
 
-func _play_event(event_id: String) -> void:
-	Events.start_event(event_id)
-	for i in range(GameData.EVENTS[event_id]["cards"].size()):
-		Events.advance()
-
-
-func _site(id: String, district: String, ore_type: String, tier: String) -> Dictionary:
-	return {
-		"id": id, "district": district, "tier": tier, "oreType": ore_type,
-		"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
-		"hasNaturalVein": false,
-	}
-
-
-func _player_vein(id: String, site_id: String, district: String, ore_type: String, growth: int, tier: String) -> Dictionary:
-	return {
-		"id": id, "district": district, "oreType": ore_type, "growth": growth,
-		"security": "none", "alarmUpgrades": [], "location": "Test Alley",
-		"claimedOnDay": 1, "siteId": site_id, "hospitability": { "tier": tier, "bonuses": [] },
-		"rampantDays": 0,
-	}
-
-
 # Plants Hakim's granted vein directly (bypassing col_a1_hakim_meet's own
 # event) with a matching site, and stores its id at collective.hakimVeinId --
 # the exact shape grant_contact_vein leaves behind -- then sets
 # colA1HakimRescued so the action-bar button and event are both reachable.
 func _seed_rescued_hakim_vein(growth: int = 61) -> void:
-	var site := _site("s1", "whitechapel", "emotion", "fair")
-	var vein := _player_vein("v1", "s1", "whitechapel", "emotion", growth, "fair")
+	var site := Fixtures.site("s1", "emotion", "fair", true, null, "whitechapel")
+	var vein := Fixtures.player_vein("v1", "s1", "whitechapel", "emotion", growth, "fair")
 	GameState.state["world"]["sites"] = [site]
 	GameState.state["player"]["veins"] = [vein]
 	GameState.state["collective"]["hakimVeinId"] = "v1"
@@ -77,7 +57,7 @@ func run() -> void:
 		GameState.reset()
 		_seed_rescued_hakim_vein(61)
 
-		_play_event("col_a1_hakim_done")
+		EventPlay.play_event("col_a1_hakim_done")
 
 		assert_eq(GameState.state["player"]["veins"].size(), 0, "the vein leaves player.veins")
 		var site: Variant = Sites.find_site("s1")
@@ -91,7 +71,7 @@ func run() -> void:
 		GameState.reset()
 		_seed_rescued_hakim_vein()
 
-		_play_event("col_a1_hakim_done")
+		EventPlay.play_event("col_a1_hakim_done")
 
 		var site: Variant = Sites.find_site("s1")
 		assert_true(not site["factionVein"]["soldByPlayer"], "a forced-price handback must not count as a player market sale")
@@ -102,7 +82,7 @@ func run() -> void:
 		_seed_rescued_hakim_vein(61)
 		var cash_before: int = GameState.state["player"]["cash"]
 
-		_play_event("col_a1_hakim_done")
+		EventPlay.play_event("col_a1_hakim_done")
 
 		assert_eq(GameState.state["player"]["cash"], cash_before + 120)
 	)
@@ -112,7 +92,7 @@ func run() -> void:
 		_seed_rescued_hakim_vein()
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 
-		_play_event("col_a1_hakim_done")
+		EventPlay.play_event("col_a1_hakim_done")
 
 		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 10)
 		assert_true(GameState.state["flags"]["colA1HakimThreadDone"])
@@ -136,7 +116,7 @@ func run() -> void:
 		Objectives.refresh()
 		assert_true(GameState.state["objectives"]["col_a1_nadia_vein"]["active"])
 
-		_play_event("col_a1_hakim_done")
+		EventPlay.play_event("col_a1_hakim_done")
 
 		assert_true(not GameState.state["objectives"]["col_a1_nadia_vein"]["complete"], "Hakim's handback must not satisfy Nadia's objective")
 		assert_true(not GameState.state["flags"].get("colA1NadiaThreadDone", false), "col_a1_nadia_done must not have fired")

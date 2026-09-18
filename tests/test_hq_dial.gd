@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # hq-diorama ticket 09, docs/hq-diorama-vision.md §4: the Dial's own diegetic
 # loadout sub-view, reached from hq.gd's "dial" zone tap (see
 # tests/test_hq_screen.gd's own "hq_dial_zone_tap_navigates_to_the_hq_dial_
@@ -12,41 +14,6 @@ extends "res://tests/test_base.gd"
 # HqDialScreen.new() is safe to call _ready() on directly without adding it
 # to a live scene tree, same reasoning tests/test_hq_door.gd already relies
 # on for HqDoorScreen.
-
-
-static func _find_button(root: Node, button_text: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		var btn := b as Button
-		if btn.text == button_text:
-			return btn
-		if btn.get_child_count() > 0 and _effective_text(btn.get_child(0) as Control) == button_text:
-			return btn
-	return null
-
-
-# symbol_row()/symbol_button() split what used to be one Label's raw-symbol
-# string into a Label per text part plus a SymbolGlyph glyph (ticket 114) --
-# reconstructs a row/button's displayed text by walking its direct children
-# in order, same helper tests/test_bag_drawer.gd already relies on.
-static func _effective_text(control: Control) -> String:
-	var out := ""
-	for child in control.get_children():
-		if child is SymbolGlyph:
-			out += (child as SymbolGlyph).symbol
-		elif child is Label:
-			out += (child as Label).text
-	return out
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
-	for g in root.find_children("", "SymbolGlyph", true, false):
-		var parent := (g as SymbolGlyph).get_parent() as Control
-		if parent:
-			texts.append(_effective_text(parent))
-	return texts
 
 
 # Mirrors the deleted modal_layer.gd/bag_drawer.gd tests' own _fresh_dial()
@@ -73,7 +40,7 @@ func run() -> void:
 
 		for haft_id in GameData.DIAL_HAFTS.keys():
 			var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
-			assert_true(_find_button(screen, "Seed as \"%s\"" % haft["name"]) != null, "a Seed button must render for haft %s" % haft_id)
+			assert_true(NodeQuery.find_button_by_effective_text(screen, "Seed as \"%s\"" % haft["name"]) != null, "a Seed button must render for haft %s" % haft_id)
 
 		screen.free()
 	)
@@ -84,7 +51,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		assert_true(_label_texts(screen).has("No Dial. Nothing's offered you the gift yet."), "must show the waiting message, not a seeding UI, before the gift is granted")
+		assert_true(NodeQuery.label_texts_with_symbols(screen).has("No Dial. Nothing's offered you the gift yet."), "must show the waiting message, not a seeding UI, before the gift is granted")
 
 		screen.free()
 	)
@@ -107,7 +74,7 @@ func run() -> void:
 
 			var screen := HqDialScreen.new()
 			screen._ready()
-			_find_button(screen, "Seed as \"%s\"" % haft["name"]).pressed.emit()
+			NodeQuery.find_button_by_effective_text(screen, "Seed as \"%s\"" % haft["name"]).pressed.emit()
 			screen.free()
 
 			seed += 1
@@ -129,10 +96,10 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		assert_true(_label_texts(screen).any(func(t: String): return t.begins_with("Level %d Dial" % dial["level"])), "the Dial's level/haft heading must render")
-		assert_true(_label_texts(screen).has("Charge 3/10 (regen 0/day)"), "the Dial's charge stat must render off the device readout, not a bar")
-		assert_true(_label_texts(screen).has("Capacity %d/%d" % [Dial.capacity_used(dial), dial["capacityMax"]]), "the Dial's capacity stat must render")
-		assert_true(_find_button(screen, "Craft new Movement") != null, "must expose a Craft new Movement button in the consolidated top block")
+		assert_true(NodeQuery.label_texts_with_symbols(screen).any(func(t: String): return t.begins_with("Level %d Dial" % dial["level"])), "the Dial's level/haft heading must render")
+		assert_true(NodeQuery.label_texts_with_symbols(screen).has("Charge 3/10 (regen 0/day)"), "the Dial's charge stat must render off the device readout, not a bar")
+		assert_true(NodeQuery.label_texts_with_symbols(screen).has("Capacity %d/%d" % [Dial.capacity_used(dial), dial["capacityMax"]]), "the Dial's capacity stat must render")
+		assert_true(NodeQuery.find_button_by_effective_text(screen, "Craft new Movement") != null, "must expose a Craft new Movement button in the consolidated top block")
 
 		screen.free()
 	)
@@ -144,7 +111,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		_find_button(screen, "Craft new Movement").pressed.emit()
+		NodeQuery.find_button_by_effective_text(screen, "Craft new Movement").pressed.emit()
 		assert_eq(GameState.state["modal"]["type"], "craft_components_menu", "Craft new Movement must open the unchanged archetype-list -> movement_craft chain")
 
 		screen.free()
@@ -157,7 +124,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		assert_true(_find_button(screen, "Swap").disabled, "Swap must be disabled when movementInventory is empty -- nothing to swap to")
+		assert_true(NodeQuery.find_button_by_effective_text(screen, "Swap").disabled, "Swap must be disabled when movementInventory is empty -- nothing to swap to")
 
 		screen.free()
 	)
@@ -171,7 +138,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		var swap_button := _find_button(screen, "Swap")
+		var swap_button := NodeQuery.find_button_by_effective_text(screen, "Swap")
 		assert_true(not swap_button.disabled, "Swap must be enabled once movementInventory has an entry")
 		swap_button.pressed.emit()
 		assert_eq(GameState.state["modal"]["type"], "movement_swap", "Swap must open the movement_swap picker modal")
@@ -189,7 +156,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		_find_button(screen, "Unseat").pressed.emit()
+		NodeQuery.find_button_by_effective_text(screen, "Unseat").pressed.emit()
 		assert_eq(GameState.state["player"]["dial"]["movement"], null, "screen's Unseat button should unseat via Dial.unseat_movement")
 		assert_eq(GameState.state["player"]["movementInventory"].size(), 1, "unseating should return the Movement to movementInventory")
 
@@ -208,7 +175,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		_find_button(screen, "Empty").pressed.emit()
+		NodeQuery.find_button_by_effective_text(screen, "Empty").pressed.emit()
 		assert_eq(GameState.state["modal"]["type"], "dial_load_complication", "tapping an Empty housing must open the load-complication picker")
 
 		screen.free()
@@ -224,7 +191,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		_find_button(screen, "⧖Time Pearl t1").pressed.emit()
+		NodeQuery.find_button_by_effective_text(screen, "⧖Time Pearl t1").pressed.emit()
 		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "tapping a loaded housing tile should unload it via Dial.unload_complication")
 		assert_eq(Crafting.inventory_qty("timePearl"), 1, "unloading should return the unit to regular inventory")
 
@@ -243,7 +210,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		assert_true(_label_texts(screen).any(func(t: String): return t.begins_with("⧖Time Pearl t1")), "a loaded Complication must show in its housing tile")
+		assert_true(NodeQuery.label_texts_with_symbols(screen).any(func(t: String): return t.begins_with("⧖Time Pearl t1")), "a loaded Complication must show in its housing tile")
 		var empties := screen.find_children("", "Button", true, false).filter(func(b): return (b as Button).text == "Empty")
 		assert_eq(empties.size(), 3, "the remaining 3 housings must show Empty")
 
@@ -280,7 +247,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		_find_button(screen, "Craft Components").pressed.emit()
+		NodeQuery.find_button_by_effective_text(screen, "Craft Components").pressed.emit()
 		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book", "Craft Components must open the Lab Bench's recipe book modal")
 
 		screen.free()
@@ -316,7 +283,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		_find_button(screen, "‹ Back").pressed.emit()
+		NodeQuery.find_button_by_effective_text(screen, "‹ Back").pressed.emit()
 		assert_eq(GameState.state["currentScreen"], "hq", "Back must return to the HQ room")
 
 		screen.free()

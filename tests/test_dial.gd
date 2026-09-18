@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const SeedSearch := preload("res://tests/support/seed_search.gd")
+
 # dial-device ticket 01. Every case calls Dial.* directly against
 # GameState.state, same seam as test_sites.gd/test_devices.gd. Rng.set_seed
 # determinism follows test_devices.gd's own
@@ -19,17 +21,6 @@ static func _fund_seed_cost(multiplier: int = 1) -> void:
 
 static func _dial_no_movement() -> Dictionary:
 	return { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "combatRegenTurnCounter": 0, "lastRegenDay": 1, "capacityMax": 0, "movement": null, "loadedComplications": [], "haftId": HAFT_ID }
-
-
-# Same shape as test_sites.gd/test_cultivating.gd's own _find_seed_for.
-static func _find_seed_for(max_tries: int, fn: Callable) -> int:
-	for seed in range(max_tries):
-		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
-		Rng.set_seed(seed)
-		if fn.call():
-			return seed
-		GameState.state = snapshot
-	return -1
 
 
 func run() -> void:
@@ -197,7 +188,7 @@ func run() -> void:
 	)
 
 	run_case("attempt_craft_movement_success_records_the_chosen_ore_type_as_attunement_and_tier_from_skill", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["craftingSkill"] = 5
 			GameState.state["player"]["orichalchum"]["physics"] = 1000
@@ -214,7 +205,7 @@ func run() -> void:
 	)
 
 	run_case("attempt_craft_movement_failure_leaves_no_partial_movement", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["craftingSkill"] = 1
 			GameState.state["player"]["orichalchum"]["time"] = 1000

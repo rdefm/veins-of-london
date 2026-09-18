@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # Todo — the Phone "Notes" app's checklist (R§3.11). Ticket 79: rewritten
 # against the objective-backed model (data/objectives.json's "tutorial"
 # questline replaces the old hardcoded flag chain; systems/objectives.gd's
@@ -8,16 +10,6 @@ extends "res://tests/test_base.gd"
 # reset() calls Objectives.refresh() explicitly first, same as
 # tests/test_objectives.gd already does — reset() only covers the boot-time
 # refresh, not any flag flip a test makes afterward.
-
-
-# Installs a synthetic GameData.OBJECTIVES set (same pattern
-# tests/test_objectives.gd uses) so the grouping/hiding test below doesn't
-# depend on real col_a1_* prose or thread structure. Returns the original
-# for restoration.
-func _install_objectives(entries: Dictionary) -> Dictionary:
-	var original: Dictionary = GameData.OBJECTIVES
-	GameData.OBJECTIVES = entries.duplicate(true)
-	return original
 
 
 func _synthetic(id: String, questline: String, activate_flag: Variant, complete_flag: String) -> Dictionary:
@@ -132,7 +124,7 @@ func run() -> void:
 
 	run_case("sections_group_by_questline_and_the_whole_section_hides_on_its_gate_flag", func():
 		GameState.reset()
-		var original := _install_objectives({
+		var original := Fixtures.install_objectives({
 			"syn_a": _synthetic("syn_a", "collective", null, "synA"),
 			"syn_b": _synthetic("syn_b", "collective", "synA", "synB"),
 		})

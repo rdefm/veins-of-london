@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const EventPlay := preload("res://tests/support/event_play.gd")
+
 # collective1-16, spec.md §6.15/§8.6: S14 (col_a1_closer), Act 1's ending --
 # the guaranteed scripted_seed (Whitechapel, rich, life -- never touching
 # player.orichalchum, ignoring siteCap), the "I'm in"/"Not yet" choice that's
@@ -7,28 +9,6 @@ extends "res://tests/test_base.gd"
 # follow-up (col_a1_deferred_join) declining leaves behind. Also covers
 # Collective.maybe_trigger_closer()'s delivery condition (spec §10.4) and
 # ContactCards.build_faction_card()'s suppressed Join button (spec §8.6).
-
-
-func _play_event(event_id: String) -> void:
-	Events.start_event(event_id)
-	for i in range(GameData.EVENTS[event_id]["cards"].size()):
-		Events.advance()
-
-
-# Generic driver for an event whose cards include "choice" cards: picks
-# choices[i] the i-th time a choice card is reached, in order. advance()
-# both resolves a normal card and (once is_awaiting_choice() has gone false
-# again after choose()) steps past an already-resolved choice card, so no
-# separate post-choose() advance() call is needed.
-func _play_event_with_choices(event_id: String, choices: Array) -> void:
-	Events.start_event(event_id)
-	var choice_i := 0
-	while GameState.state["event"] != null:
-		if Events.is_awaiting_choice():
-			Events.choose(choices[choice_i])
-			choice_i += 1
-		else:
-			Events.advance()
 
 
 func _set_all_threads_done(relation: int = 37) -> void:
@@ -96,7 +76,7 @@ func run() -> void:
 		GameState.state["factions"]["collective"]["relation"] = 24  # below 25; Hakim's own +10 will cross the gate
 
 		_seed_rescued_hakim_vein_for_handback()
-		_play_event("col_a1_hakim_done")  # sets colA1HakimThreadDone, +10 relation -> 34
+		EventPlay.play_event("col_a1_hakim_done")  # sets colA1HakimThreadDone, +10 relation -> 34
 
 		assert_true(GameState.state["flags"]["colA1HakimThreadDone"])
 		assert_eq(Messages.pending_for("hakim").size(), 1, "advance()'s on_complete boundary must trigger the closer automatically")
@@ -183,7 +163,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["factions"]["collective"]["relation"] = 37
 
-		_play_event_with_choices("col_a1_closer", [0, 0])  # Thank him, I'm in
+		EventPlay.play_event_with_choices("col_a1_closer", [0, 0])  # Thank him, I'm in
 
 		assert_true(GameState.state["event"] == null, "the event completes")
 		assert_true(GameState.state["flags"]["colA1Stage"] == "complete")
@@ -211,7 +191,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["factions"]["collective"]["relation"] = 37
 
-		_play_event_with_choices("col_a1_closer", [1, 1])  # Insist on paying, Not yet
+		EventPlay.play_event_with_choices("col_a1_closer", [1, 1])  # Insist on paying, Not yet
 
 		assert_true(GameState.state["flags"]["colA1Complete"])
 		assert_true(GameState.state["flags"]["colA1DeferredJoin"])
@@ -268,7 +248,7 @@ func run() -> void:
 		GameState.state["flags"]["colA1DeferredJoin"] = true
 		GameState.state["factions"]["collective"]["relation"] = 37
 
-		_play_event("col_a1_deferred_join")
+		EventPlay.play_event("col_a1_deferred_join")
 
 		assert_true(GameState.state["flags"]["colA1Joined"])
 		assert_true(GameState.state["factions"]["collective"]["joined"])

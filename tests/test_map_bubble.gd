@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const UiSim := preload("res://tests/support/ui_sim.gd")
+
 # 10-map-interaction-model ticket 02: the standalone anchored bubble/popup
 # component, exercised directly (open()/close(), synthetic taps) rather than
 # through a live map tap -- tickets 03/04 wire an actual tap flow into this
@@ -9,12 +11,6 @@ extends "res://tests/test_base.gd"
 # live scene tree, same reasoning tests/test_map_controls.gd already relies
 # on for MapControls: nothing _ready() touches (UI.*, ColorRect/PanelContainer/
 # VBoxContainer construction) depends on get_tree()/get_viewport() having run.
-
-
-func _synthetic_tap() -> InputEventScreenTouch:
-	var event := InputEventScreenTouch.new()
-	event.pressed = true
-	return event
 
 
 func run() -> void:
@@ -65,7 +61,7 @@ func run() -> void:
 		var closed_count := [0]
 		bubble.closed.connect(func(): closed_count[0] += 1)
 
-		bubble._on_dim_gui_input(_synthetic_tap())
+		bubble._on_dim_gui_input(UiSim.synthetic_tap())
 
 		assert_true(not bubble.visible, "outside tap closes the popup")
 		assert_eq(selected, [], "no option was selected")

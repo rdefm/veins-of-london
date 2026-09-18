@@ -1,21 +1,13 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
 const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
-
-
-func _vein(id: String, district: String, ore_type: String) -> Dictionary:
-	return {
-		"id": id, "siteId": "site_" + id, "district": district,
-		"oreType": ore_type, "growth": 40, "security": "none",
-		"alarmUpgrades": ["alarm"], "location": "Test Street",
-	}
-
 
 func run() -> void:
 	run_case("simultaneous_pending_raids_have_stable_grouped_summary_rows", func():
 		GameState.reset()
-		var first := _vein("v1", "camden", "time")
-		var second := _vein("v2", "shoreditch", "life")
+		var first := Fixtures.alarmed_vein("v1", "camden", "time")
+		var second := Fixtures.alarmed_vein("v2", "shoreditch", "life")
 		GameState.state["player"]["veins"] = [first, second]
 		GameState.state["world"]["pendingDefendRaids"] = [
 			{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "outcomeType": "claim", "notificationId": "n1" },
@@ -32,7 +24,7 @@ func run() -> void:
 
 	run_case("deferral_and_phone_back_leave_pending_alarm_unchanged", func():
 		GameState.reset()
-		var vein := _vein("v1", "camden", "time")
+		var vein := Fixtures.alarmed_vein("v1", "camden", "time")
 		var outcome := { "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" }
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["pendingDefendRaids"] = [outcome]
@@ -44,7 +36,7 @@ func run() -> void:
 
 	run_case("defend_revalidates_and_stale_situation_cannot_start_combat", func():
 		GameState.reset()
-		var vein := _vein("v1", "camden", "time")
+		var vein := Fixtures.alarmed_vein("v1", "camden", "time")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" }]
 		assert_true(RaidAlarmsSystem.defend("vein:n1"))
@@ -56,8 +48,8 @@ func run() -> void:
 
 	run_case("leave_undefended_consumes_only_the_confirmed_raid_once", func():
 		GameState.reset()
-		var first := _vein("v1", "camden", "time")
-		var second := _vein("v2", "shoreditch", "life")
+		var first := Fixtures.alarmed_vein("v1", "camden", "time")
+		var second := Fixtures.alarmed_vein("v2", "shoreditch", "life")
 		GameState.state["player"]["veins"] = [first, second]
 		GameState.state["world"]["sites"] = [
 			{ "id": "site_v1", "claimed": true, "factionVein": null },
@@ -77,7 +69,7 @@ func run() -> void:
 
 	run_case("leave_undefended_stale_response_and_cancel_leave_raid_actionable", func():
 		GameState.reset()
-		var vein := _vein("v1", "camden", "time")
+		var vein := Fixtures.alarmed_vein("v1", "camden", "time")
 		GameState.state["player"]["veins"] = [vein]
 		var outcome := { "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" }
 		GameState.state["world"]["pendingDefendRaids"] = [outcome]
@@ -89,7 +81,7 @@ func run() -> void:
 	run_case("pending_alarm_survives_save_load_then_leave_undefended_resolves_once", func():
 		const test_slot := 92
 		GameState.reset()
-		var vein := _vein("v1", "camden", "time")
+		var vein := Fixtures.alarmed_vein("v1", "camden", "time")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [{ "id": "site_v1", "claimed": true, "factionVein": null }]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" }]
@@ -104,7 +96,7 @@ func run() -> void:
 
 	run_case("alarm_app_badge_and_rows_survive_screen_refresh", func():
 		GameState.reset()
-		var vein := _vein("v1", "camden", "time")
+		var vein := Fixtures.alarmed_vein("v1", "camden", "time")
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "notificationId": "n1" }]
 		GameState.state["phoneNav"]["app"] = "alarms"

@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # combat-presentation ticket 01: the stage window that fans every living
 # combatant on both sides, replacing the old single-enemy-card rendering.
 # Same headless-scene pattern as tests/test_hq_screen.gd -- CombatScreen.new()
@@ -68,25 +70,6 @@ static func _strip_card_named(root: Node, combatant_name: String) -> TurnOrderSt
 	return null
 
 
-# Mirrors tests/test_combat.gd's _multi_enemy_combat() -- hand-specced
-# entries rather than real roster generation, since this ticket is only
-# about rendering the roster the state layer already produces.
-func _enemy(name: String, hp: int = 20, hp_max: int = 20, koed: bool = false, speed: int = 10, is_mugging: bool = false) -> Dictionary:
-	return {
-		"name": name, "hp": hp, "hpMax": hp_max, "attackMin": 1, "attackMax": 1,
-		"isMugging": is_mugging, "weapon": null, "ability": null, "evadeChance": 0.0,
-		"speed": speed, "koed": koed,
-	}
-
-
-func _ally(name: String, hp: int = 20, hp_max: int = 20, koed: bool = false) -> Dictionary:
-	return {
-		"contactId": name.to_lower(), "name": name, "hp": hp, "hpMax": hp_max,
-		"attackMin": 1, "attackMax": 1, "stash": 0, "healAmount": 0, "speed": 10,
-		"koed": koed,
-	}
-
-
 # combat-presentation ticket 09: installs a "mugger" templates.idle entry
 # (the dummy idle sheet, reused as a test fixture) on top of the real
 # GameData.COMBAT_VISUALS, since no real per-subject art exists yet -- see
@@ -125,7 +108,6 @@ static func _find_dial_widget(root: Node) -> DialWidget:
 	return latest
 
 
-
 static func _deck_buttons(root: Node) -> Array[Button]:
 	var buttons: Array[Button] = []
 	for c in root.find_children("", "Button", true, false):
@@ -145,21 +127,9 @@ static func _deck_button_named(root: Node, icon_kind: String) -> Button:
 	return null
 
 
-func _dial(loaded_recipe_keys: Array, current_charge: int = 3, max_charge: int = 5) -> Dictionary:
-	var loaded: Array = []
-	for key in loaded_recipe_keys:
-		loaded.append({ "recipeKey": key, "tier": 1 })
-	return {
-		"level": 1, "xp": 0, "currentCharge": current_charge, "maxCharge": max_charge,
-		"rechargeRate": 0, "combatRegenTurnCounter": 0, "lastRegenDay": 1,
-		"capacityMax": Dial.capacity_max(1), "movement": null, "loadedComplications": loaded,
-		"haftId": "stub",
-	}
-
-
 func run() -> void:
 	run_case("stage_renders_every_living_enemy_up_to_squad_max", func():
-		_setup_combat([_enemy("Scrapper"), _enemy("Vein Guard"), _enemy("Mugger")])
+		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard"), Fixtures.enemy("Mugger")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -173,8 +143,8 @@ func run() -> void:
 
 	run_case("stage_excludes_koed_enemies_and_koed_allies", func():
 		_setup_combat(
-			[_enemy("Scrapper"), _enemy("Vein Guard", 0, 20, true)],
-			[_ally("Archie"), _ally("Nadia", 0, 20, true)],
+			[Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard", 0, 20, true)],
+			[Fixtures.ally("Archie"), Fixtures.ally("Nadia", 0, 20, true)],
 		)
 
 		var screen := CombatScreen.new()
@@ -189,7 +159,7 @@ func run() -> void:
 	)
 
 	run_case("stage_always_renders_the_player", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -200,7 +170,7 @@ func run() -> void:
 	)
 
 	run_case("single_enemy_fight_still_fans_correctly_no_regression_for_the_common_case", func():
-		_setup_combat([_enemy("A mugger", 15, 20)])
+		_setup_combat([Fixtures.enemy("A mugger", 15, 20)])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -214,7 +184,7 @@ func run() -> void:
 	)
 
 	run_case("focused_enemy_index_is_the_only_slot_flagged_for_the_glow", func():
-		_setup_combat([_enemy("Scrapper"), _enemy("Vein Guard"), _enemy("Mugger")], [], 1)
+		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard"), Fixtures.enemy("Mugger")], [], 1)
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -227,7 +197,7 @@ func run() -> void:
 	)
 
 	run_case("glow_never_applies_to_the_player_or_ally_band", func():
-		_setup_combat([_enemy("Scrapper")], [_ally("Archie")], 0)
+		_setup_combat([Fixtures.enemy("Scrapper")], [Fixtures.ally("Archie")], 0)
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -239,7 +209,7 @@ func run() -> void:
 	)
 
 	run_case("fan_layout_is_diagonal_not_a_flat_row", func():
-		_setup_combat([_enemy("Scrapper"), _enemy("Vein Guard"), _enemy("Mugger")])
+		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard"), Fixtures.enemy("Mugger")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -256,7 +226,7 @@ func run() -> void:
 	)
 
 	run_case("template_id_keyed_colour_is_deterministic_not_hardcoded_per_enemy", func():
-		_setup_combat([_enemy("A mugger"), _enemy("A mugger")])
+		_setup_combat([Fixtures.enemy("A mugger"), Fixtures.enemy("A mugger")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -273,7 +243,7 @@ func run() -> void:
 	)
 
 	run_case("stage_sits_in_a_recessed_dark_inset_with_a_hard_2px_border", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -294,7 +264,7 @@ func run() -> void:
 	)
 
 	run_case("stage_rendering_never_mutates_game_state", func():
-		_setup_combat([_enemy("Scrapper"), _enemy("Vein Guard")], [_ally("Archie")], 1)
+		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard")], [Fixtures.ally("Archie")], 1)
 		var before: Dictionary = GameState.deep_copy(GameState.state["combat"])
 
 		var screen := CombatScreen.new()
@@ -308,7 +278,7 @@ func run() -> void:
 	# ── combat-presentation ticket 02: the turn-order strip ──────────────
 
 	run_case("stage_slots_carry_no_interim_name_or_hp_labels_any_more", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -330,7 +300,7 @@ func run() -> void:
 	)
 
 	run_case("turn_order_strip_renders_one_card_per_living_combatant", func():
-		_setup_combat([_enemy("Scrapper"), _enemy("Vein Guard")], [_ally("Archie")])
+		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard")], [Fixtures.ally("Archie")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -345,7 +315,7 @@ func run() -> void:
 	)
 
 	run_case("turn_order_strip_excludes_koed_combatants", func():
-		_setup_combat([_enemy("Scrapper"), _enemy("Vein Guard", 0, 20, true)], [_ally("Archie"), _ally("Nadia", 0, 20, true)])
+		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard", 0, 20, true)], [Fixtures.ally("Archie"), Fixtures.ally("Nadia", 0, 20, true)])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -357,7 +327,7 @@ func run() -> void:
 	)
 
 	run_case("swiping_the_strip_to_an_enemy_routes_through_Combat_set_focused_enemy", func():
-		_setup_combat([_enemy("Scrapper"), _enemy("Vein Guard")], [], 0)
+		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard")], [], 0)
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -372,7 +342,7 @@ func run() -> void:
 	)
 
 	run_case("swiping_the_strip_to_the_player_card_is_inert_for_targeting_but_still_moves_the_displayed_focus", func():
-		_setup_combat([_enemy("Scrapper"), _enemy("Vein Guard")], [], 0)
+		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard")], [], 0)
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -388,7 +358,7 @@ func run() -> void:
 	)
 
 	run_case("strip_selection_survives_a_real_state_changed_refresh_from_an_unrelated_action", func():
-		_setup_combat([_enemy("Scrapper"), _enemy("Vein Guard")], [], 0)
+		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard")], [], 0)
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -408,7 +378,7 @@ func run() -> void:
 	)
 
 	run_case("a_real_kill_mid_fight_re_sorts_the_on_screen_strip", func():
-		_setup_combat([_enemy("Fast", 20, 20, false, 30), _enemy("Slow", 20, 20, false, 5)], [], 0)
+		_setup_combat([Fixtures.enemy("Fast", 20, 20, false, 30), Fixtures.enemy("Slow", 20, 20, false, 5)], [], 0)
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -432,7 +402,7 @@ func run() -> void:
 	# ── combat-presentation ticket 03: command deck (action cards + Dial) ──
 
 	run_case("command_deck_renders_attack_item_and_run_as_cards_wrapping_the_same_handler_labels", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -456,7 +426,7 @@ func run() -> void:
 	)
 
 	run_case("item_card_is_disabled_when_the_player_has_nothing_usable_same_gate_as_before", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		GameState.state["player"]["dial"] = null
 
 		var screen := CombatScreen.new()
@@ -475,7 +445,7 @@ func run() -> void:
 	# accent, same GameData.PALETTE lookup + hardcoded-hex-fallback pattern
 	# nav_bar.gd's own ticket_04 colour test asserts against.
 	run_case("attack_card_uses_ui_action_red_not_the_default_theme_amber", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -499,7 +469,7 @@ func run() -> void:
 	# (nav_bar.gd's own _LOCKED_COLOR) -- not ui_action_red, which is
 	# reserved for an actually-available action.
 	run_case("disabled_item_card_reads_muted_grey_not_ui_action_red", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		GameState.state["player"]["dial"] = null
 
 		var screen := CombatScreen.new()
@@ -519,7 +489,7 @@ func run() -> void:
 	)
 
 	run_case("dial_widget_does_not_render_when_the_player_has_no_dial", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		GameState.state["player"]["dial"] = null
 
 		var screen := CombatScreen.new()
@@ -537,8 +507,8 @@ func run() -> void:
 	# widget" rule (this exact case, pre-ticket-18: the widget did NOT
 	# render here).
 	run_case("dial_widget_still_renders_with_an_empty_loadout_now_that_its_always_shown_furniture", func():
-		_setup_combat([_enemy("Scrapper")])
-		GameState.state["player"]["dial"] = _dial([])
+		_setup_combat([Fixtures.enemy("Scrapper")])
+		GameState.state["player"]["dial"] = Fixtures.dial([])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -549,8 +519,8 @@ func run() -> void:
 	)
 
 	run_case("dial_widget_renders_docked_beside_the_action_deck_when_something_is_loaded", func():
-		_setup_combat([_enemy("Scrapper")])
-		GameState.state["player"]["dial"] = _dial(["blast", "shield"])
+		_setup_combat([Fixtures.enemy("Scrapper")])
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast", "shield"])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -562,8 +532,8 @@ func run() -> void:
 	)
 
 	run_case("dial_widget_is_hidden_once_the_fight_has_an_outcome_same_as_the_rest_of_the_command_deck", func():
-		_setup_combat([_enemy("Scrapper")])
-		GameState.state["player"]["dial"] = _dial(["blast"])
+		_setup_combat([Fixtures.enemy("Scrapper")])
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast"])
 		GameState.state["combat"]["outcome"] = "win"
 
 		var screen := CombatScreen.new()
@@ -575,8 +545,8 @@ func run() -> void:
 	)
 
 	run_case("dial_selection_survives_a_refresh_from_an_unrelated_state_change", func():
-		_setup_combat([_enemy("Scrapper")])
-		GameState.state["player"]["dial"] = _dial(["blast", "shield", "blackHole"])
+		_setup_combat([Fixtures.enemy("Scrapper")])
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast", "shield", "blackHole"])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -617,13 +587,13 @@ func run() -> void:
 		await tree.process_frame
 		await tree.process_frame
 
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		# The longest realistic strings this deck renders (a long recipe
 		# name/tier plus the "not enough charge" line) -- the actual
 		# worst-case text this layout's own width/height budget was measured
 		# against (see _build_dial_and_actions_row()'s own comment), not the
 		# short "Blast"/"tier 1" case every other test in this file uses.
-		GameState.state["player"]["dial"] = _dial(["prophetsBreath"], 0, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial(["prophetsBreath"], 0, 5)
 
 		# project.godot's window/size/viewport_width x height -- the actual
 		# device viewport this game ships at, not an arbitrary test size.
@@ -715,7 +685,7 @@ func run() -> void:
 		# _content's flow, see _ready()'s own comment), alongside the
 		# Attack/Item/Leg it cards, so _footer_holder carries nothing at all
 		# during a live fight now.
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -733,7 +703,7 @@ func run() -> void:
 		# notification log, stamped Notify.META_COMBAT_LOG -- same fabricated-
 		# beat pattern as the ghost-pose/self-patch cases above (calling
 		# _on_beat_played() directly rather than rigging a real round).
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		GameState.state["combat"]["log"] = ["Scrapper claws at you."]
 
 		var screen := CombatScreen.new()
@@ -756,7 +726,7 @@ func run() -> void:
 		# state the existing ghost-pose/self-patch cases above already rely
 		# on implicitly. _push_revealed_log_line()'s bounds guard must no-op
 		# rather than posting a bogus/out-of-range entry.
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		var screen := CombatScreen.new()
 		screen._ready()
 
@@ -776,8 +746,8 @@ func run() -> void:
 	# _build_action_deck()'s own comment), each sized to its own natural
 	# (short) content height, not stretched to the Dial's.
 	run_case("action_card_buttons_keep_their_own_compact_size_rather_than_stretching_to_the_dials_height", func():
-		_setup_combat([_enemy("Scrapper")])
-		GameState.state["player"]["dial"] = _dial(["blast"])
+		_setup_combat([Fixtures.enemy("Scrapper")])
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast"])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -802,7 +772,7 @@ func run() -> void:
 		# live ticker (see the _on_beat_played() cases above) already showed
 		# every line as it happened, so the footer is just the outcome
 		# button once the fight resolves.
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		GameState.state["combat"]["log"] = ["one", "two", "three", "four", "five", "six", "seven"]
 		GameState.state["combat"]["outcome"] = "win"
 
@@ -818,7 +788,7 @@ func run() -> void:
 	# ── combat-presentation ticket 04: persistent combatant nodes ────────
 
 	run_case("stage_slot_node_identity_survives_a_real_turn_no_rebuild_each_state_changed", func():
-		_setup_combat([_enemy("Scrapper", 100, 100), _enemy("Vein Guard", 100, 100)])
+		_setup_combat([Fixtures.enemy("Scrapper", 100, 100), Fixtures.enemy("Vein Guard", 100, 100)])
 		GameState.state["player"]["attackMin"] = 0
 		GameState.state["player"]["attackMax"] = 0
 
@@ -838,7 +808,7 @@ func run() -> void:
 	)
 
 	run_case("a_surviving_combatants_stage_slot_survives_a_kill_that_shrinks_the_enemy_band", func():
-		_setup_combat([_enemy("Weak", 1, 20), _enemy("Strong", 999, 999)])
+		_setup_combat([Fixtures.enemy("Weak", 1, 20), Fixtures.enemy("Strong", 999, 999)])
 		GameState.state["player"]["attackMin"] = 999
 		GameState.state["player"]["attackMax"] = 999
 
@@ -862,8 +832,8 @@ func run() -> void:
 	)
 
 	run_case("triggering_the_dial_widget_casts_through_Combat_cast_complication_and_appends_a_log_line", func():
-		_setup_combat([_enemy("Scrapper", 20, 20)])
-		GameState.state["player"]["dial"] = _dial(["blast"], 3, 5)
+		_setup_combat([Fixtures.enemy("Scrapper", 20, 20)])
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast"], 3, 5)
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -913,7 +883,7 @@ func run() -> void:
 	)
 
 	run_case("resolve_target_slot_finds_the_persistent_stage_slot_for_player_ally_and_enemy_targets", func():
-		_setup_combat([_enemy("Scrapper", 20, 20)], [_ally("Mate", 20, 20)])
+		_setup_combat([Fixtures.enemy("Scrapper", 20, 20)], [Fixtures.ally("Mate", 20, 20)])
 		var screen := CombatScreen.new()
 		screen._ready()
 
@@ -926,7 +896,7 @@ func run() -> void:
 	)
 
 	run_case("a_landed_attack_flashes_the_struck_enemys_slot_and_spawns_a_damage_number_at_its_position", func():
-		_setup_combat([_enemy("Scrapper", 20, 20)])
+		_setup_combat([Fixtures.enemy("Scrapper", 20, 20)])
 		GameState.state["player"]["attackMin"] = 6
 		GameState.state["player"]["attackMax"] = 6
 
@@ -948,7 +918,7 @@ func run() -> void:
 	)
 
 	run_case("attacking_seeds_the_ghost_tracker_and_drains_it_by_the_first_beats_own_damage", func():
-		_setup_combat([_enemy("Scrapper", 12, 20)])  # already at 12/20 -- final state
+		_setup_combat([Fixtures.enemy("Scrapper", 12, 20)])  # already at 12/20 -- final state
 		GameState.state["player"]["attackMin"] = 8
 		GameState.state["player"]["attackMax"] = 8  # deterministic 8 damage -> enemy lands at 4/20
 
@@ -977,8 +947,8 @@ func run() -> void:
 	)
 
 	run_case("a_non_damaging_beat_never_calls_into_the_juice_layer", func():
-		_setup_combat([_enemy("Scrapper", 20, 20)])
-		GameState.state["player"]["dial"] = _dial(["shield"], 3, 5)
+		_setup_combat([Fixtures.enemy("Scrapper", 20, 20)])
+		GameState.state["player"]["dial"] = Fixtures.dial(["shield"], 3, 5)
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -994,7 +964,7 @@ func run() -> void:
 	# ── combat-presentation ticket 08, §2.1/§6: per-context backdrop ──
 
 	run_case("stage_backdrop_shows_the_palette_fallback_fill_for_a_context_with_no_plate_yet", func():
-		_setup_combat([_enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
+		_setup_combat([Fixtures.enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -1008,12 +978,12 @@ func run() -> void:
 	)
 
 	run_case("stage_backdrop_follows_context_across_fights", func():
-		_setup_combat([_enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
+		_setup_combat([Fixtures.enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
 		var screen := CombatScreen.new()
 		screen._ready()
 		var mugging_color: Color = screen._stage._backdrop_fill.color
 
-		_setup_combat([_enemy("Vein Guard")], [], 0, Combat.CONTEXT_DEFEND_VEIN)
+		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_DEFEND_VEIN)
 		screen._sync()
 		var defend_vein_color: Color = screen._stage._backdrop_fill.color
 
@@ -1024,7 +994,7 @@ func run() -> void:
 	)
 
 	run_case("stage_backdrop_archie_deal_mugging_reuses_muggings_fallback", func():
-		_setup_combat([_enemy("A mugger")], [], 0, Combat.CONTEXT_ARCHIE_DEAL_MUGGING)
+		_setup_combat([Fixtures.enemy("A mugger")], [], 0, Combat.CONTEXT_ARCHIE_DEAL_MUGGING)
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -1035,7 +1005,7 @@ func run() -> void:
 	)
 
 	run_case("stage_backdrop_defends_against_an_unrecognised_context_with_a_default_fill_not_a_crash", func():
-		_setup_combat([_enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
+		_setup_combat([Fixtures.enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
 		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
 		GameData.COMBAT_VISUALS = { "backdrops": {} }  # simulates a context the manifest has no entry for
 
@@ -1062,7 +1032,7 @@ func run() -> void:
 		# combat-presentation ticket 10 (human-flagged follow-up): idle now
 		# falls back to templates.default's own idle entry, exactly like
 		# attack/hit/ko already did -- not the ticket-01 placeholder box.
-		_setup_combat([_enemy("Scrapper")])  # deliberately not "Territorial Scrapper" -- no template match
+		_setup_combat([Fixtures.enemy("Scrapper")])  # deliberately not "Territorial Scrapper" -- no template match
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -1079,7 +1049,7 @@ func run() -> void:
 		# "default" entry to fall back to at all (a broken/incomplete
 		# manifest), not just "no per-subject match" -- see the previous
 		# case for the (now much more common) per-subject-miss path.
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
 		GameData.COMBAT_VISUALS = { "backdrops": original_combat_visuals["backdrops"], "templates": {} }
 
@@ -1095,7 +1065,7 @@ func run() -> void:
 	)
 
 	run_case("stage_slot_shows_territorial_scrappers_real_manifest_idle_animation", func():
-		_setup_combat([_enemy("Territorial Scrapper")])
+		_setup_combat([Fixtures.enemy("Territorial Scrapper")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -1109,7 +1079,7 @@ func run() -> void:
 	)
 
 	run_case("stage_slot_shows_orichalchum_dealers_real_manifest_idle_animation", func():
-		_setup_combat([_enemy("Orichalchum Dealer")])
+		_setup_combat([Fixtures.enemy("Orichalchum Dealer")])
 
 		var screen := CombatScreen.new()
 		screen._ready()
@@ -1123,7 +1093,7 @@ func run() -> void:
 	)
 
 	run_case("stage_slot_falls_back_to_the_placeholder_box_when_the_manifest_has_no_templates_key_at_all", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
 		GameData.COMBAT_VISUALS = { "backdrops": original_combat_visuals["backdrops"] }  # no "templates" key at all
 
@@ -1139,7 +1109,7 @@ func run() -> void:
 	)
 
 	run_case("stage_slot_shows_a_subjects_own_idle_animation_once_its_manifest_entry_has_real_art", func():
-		_setup_combat([_enemy("A mugger", 20, 20, false, 10, true)])
+		_setup_combat([Fixtures.enemy("A mugger", 20, 20, false, 10, true)])
 		var original_combat_visuals: Dictionary = _install_mugger_idle_manifest()
 
 		var screen := CombatScreen.new()
@@ -1156,7 +1126,7 @@ func run() -> void:
 	)
 
 	run_case("stage_slot_idle_animation_ping_pongs_between_frames", func():
-		_setup_combat([_enemy("A mugger", 20, 20, false, 10, true)])
+		_setup_combat([Fixtures.enemy("A mugger", 20, 20, false, 10, true)])
 		var original_combat_visuals: Dictionary = _install_mugger_idle_manifest()
 
 		var screen := CombatScreen.new()
@@ -1178,7 +1148,7 @@ func run() -> void:
 	)
 
 	run_case("enemy_template_key_resolves_mugger_by_the_isMugging_flag_not_by_name", func():
-		_setup_combat([_enemy("A mugger", 20, 20, false, 10, true)])
+		_setup_combat([Fixtures.enemy("A mugger", 20, 20, false, 10, true)])
 		var screen := CombatScreen.new()
 		screen._ready()
 
@@ -1194,9 +1164,9 @@ func run() -> void:
 
 	run_case("concurrent_same_template_enemies_reuse_the_one_sheet_and_alternate_the_extra_mirror", func():
 		_setup_combat([
-			_enemy("A mugger", 20, 20, false, 10, true),
-			_enemy("A mugger", 20, 20, false, 10, true),
-			_enemy("A mugger", 20, 20, false, 10, true),
+			Fixtures.enemy("A mugger", 20, 20, false, 10, true),
+			Fixtures.enemy("A mugger", 20, 20, false, 10, true),
+			Fixtures.enemy("A mugger", 20, 20, false, 10, true),
 		])
 		var original_combat_visuals: Dictionary = _install_mugger_idle_manifest()
 
@@ -1222,7 +1192,7 @@ func run() -> void:
 	# ── frozen-roster kill-timing fix ────────────────────────────────────
 
 	run_case("stage_slots_load_the_default_attack_hit_and_ko_keyposes_alongside_idle", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		var screen := CombatScreen.new()
 		screen._ready()
 
@@ -1247,7 +1217,7 @@ func run() -> void:
 		# enemy_template_key() resolves it to "territorialScrapper" -- which
 		# has its own real (asset-pack sourced) attack/hit/ko art wired in
 		# data/combat_visuals.json, distinct from the shared "default" stand-in.
-		_setup_combat([_enemy("Territorial Scrapper")])
+		_setup_combat([Fixtures.enemy("Territorial Scrapper")])
 		var screen := CombatScreen.new()
 		screen._ready()
 
@@ -1261,7 +1231,7 @@ func run() -> void:
 	)
 
 	run_case("play_attack_and_play_hit_step_through_their_transform_steps_then_hand_the_sprite_back_to_idle", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		var screen := CombatScreen.new()
 		screen._ready()
 		var slot := _slot_named(screen, "Scrapper")
@@ -1292,7 +1262,7 @@ func run() -> void:
 	)
 
 	run_case("play_ko_holds_on_its_fallen_faded_pose_instead_of_reverting_to_idle", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		var screen := CombatScreen.new()
 		screen._ready()
 		var slot := _slot_named(screen, "Scrapper")
@@ -1309,7 +1279,7 @@ func run() -> void:
 	)
 
 	run_case("play_attack_play_hit_play_ko_and_play_self_patch_no_op_quietly_with_no_manifest_entry", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
 		GameData.COMBAT_VISUALS = {
 			"backdrops": original_combat_visuals["backdrops"],
@@ -1333,7 +1303,7 @@ func run() -> void:
 	)
 
 	run_case("ghost_next_pose_shows_a_translucent_copy_of_the_wind_up_keypose_and_no_ops_with_no_attack_art", func():
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		var screen := CombatScreen.new()
 		screen._ready()
 		var slot := _slot_named(screen, "Scrapper")
@@ -1356,7 +1326,7 @@ func run() -> void:
 		# kind dispatch in isolation -- the same beat shape systems/combat.gd
 		# actually emits for a BEAT_PLAYER_EVADE (see that file's
 		# _enemy_attack_player()).
-		_setup_combat([_enemy("Scrapper")])
+		_setup_combat([Fixtures.enemy("Scrapper")])
 		var screen := CombatScreen.new()
 		screen._ready()
 		var slot := _slot_named(screen, "Scrapper")
@@ -1369,7 +1339,7 @@ func run() -> void:
 	)
 
 	run_case("beat_played_plays_the_healing_allys_self_patch_pose_on_a_beat_ally_heal_beat", func():
-		_setup_combat([], [_ally("Archie")])
+		_setup_combat([], [Fixtures.ally("Archie")])
 		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
 		# Archie's own selfPatch entry is still an empty stub in the real
 		# manifest (no art produced yet, per data/combat_visuals.json's own
@@ -1398,7 +1368,7 @@ func run() -> void:
 		# combat-presentation ticket 10: DEVIATES from docs/combat-animation-
 		# vision.md §2's stacked-bands grammar -- see combat.gd's own
 		# PLAYER_BAND_WIDTH/ENEMY_BAND_WIDTH comment for why.
-		_setup_combat([_enemy("Scrapper")], [_ally("Archie")])
+		_setup_combat([Fixtures.enemy("Scrapper")], [Fixtures.ally("Archie")])
 		var screen := CombatScreen.new()
 		screen._ready()
 
@@ -1410,7 +1380,7 @@ func run() -> void:
 	)
 
 	run_case("fan_slots_never_spill_past_the_stage_or_into_the_neighbouring_column", func():
-		_setup_combat([_enemy("A"), _enemy("B"), _enemy("C")], [_ally("Archie")])
+		_setup_combat([Fixtures.enemy("A"), Fixtures.enemy("B"), Fixtures.enemy("C")], [Fixtures.ally("Archie")])
 		var screen := CombatScreen.new()
 		screen._ready()
 
@@ -1426,7 +1396,7 @@ func run() -> void:
 		# Weak's slot would already be gone (state_changed inside
 		# Combat.player_attack() runs before _play_beats() ever starts) by
 		# the time this beat's own play_ko() call tries to reach it.
-		_setup_combat([_enemy("Weak", 1, 20)])
+		_setup_combat([Fixtures.enemy("Weak", 1, 20)])
 		GameState.state["player"]["attackMin"] = 999
 		GameState.state["player"]["attackMax"] = 999
 
@@ -1454,7 +1424,7 @@ func run() -> void:
 		# staying put) here is exactly what makes the previous test's
 		# "still on stage mid-playback" assertion meaningful -- this case
 		# pins down the other half: it's not cleared prematurely either.
-		_setup_combat([_enemy("Weak", 1, 20), _enemy("Strong", 999, 999)])
+		_setup_combat([Fixtures.enemy("Weak", 1, 20), Fixtures.enemy("Strong", 999, 999)])
 		GameState.state["player"]["attackMin"] = 999
 		GameState.state["player"]["attackMax"] = 999
 

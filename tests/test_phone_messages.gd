@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # collective1-03: screen-level tests for the Phone's Messages app (a single
 # conversation's history/action bar), same headless-scene pattern as
 # tests/test_phone_bank.gd. The staged reveal itself (get_tree().
@@ -12,27 +14,6 @@ extends "res://tests/test_base.gd"
 # is gone -- Contacts is the only way in now (tests/test_contact_cards.gd
 # covers that button), so every case here opens its conversation the same
 # way that button does: PhoneNav.select_conversation() directly.
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
-	return texts
-
-
-static func _button_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for b in root.find_children("", "Button", true, false):
-		texts.append((b as Button).text)
-	return texts
-
-
-static func _find_button(root: Node, text: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text == text:
-			return b
-	return null
 
 
 func run() -> void:
@@ -50,11 +31,11 @@ func run() -> void:
 		assert_eq(GameState.state["phoneNav"]["selectedContactId"], "des", "select_conversation opens that contact's thread")
 		assert_true(not Messages.has_unread("des"), "opening marks the conversation read")
 
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Got something for you."), "already-there history renders instantly")
 		assert_true(texts.has("On my way."), "player's own message renders too")
 
-		var button_texts := _button_texts(phone)
+		var button_texts := NodeQuery.button_texts(phone)
 		assert_true(button_texts.has("🤝 Trade (not unlocked yet)"), "Trade action bar entry reuses ContactCards.build_trade_action() (collective1-07)")
 
 		phone.free()
@@ -72,7 +53,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var button_texts := _button_texts(phone)
+		var button_texts := NodeQuery.button_texts(phone)
 		assert_true(not button_texts.has("🤝 Trade (not unlocked yet)") and not button_texts.has("🤝 Trade"), "archie's thread never shows the Collective Trade door")
 		assert_true(button_texts.has("💰 Find a buyer (not unlocked yet)"), "archie's thread shows his own sell action instead, same as his Contacts card")
 
@@ -87,7 +68,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var button_texts := _button_texts(phone)
+		var button_texts := NodeQuery.button_texts(phone)
 		assert_true(not button_texts.has("🤝 Trade (not unlocked yet)") and not button_texts.has("🤝 Trade"), "james's thread never shows the Collective Trade door")
 		assert_true(not button_texts.has("💰 Find a buyer (not unlocked yet)") and not button_texts.has("💰 Find a buyer"), "james's thread has no sell action of its own")
 
@@ -105,7 +86,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var back_button := _find_button(phone, "‹ Back")
+		var back_button := NodeQuery.find_button(phone, "‹ Back")
 		assert_true(back_button != null, "conversation view has a Back button")
 		back_button.pressed.emit()
 
@@ -124,7 +105,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var action_button := _find_button(phone, "Continue →")
+		var action_button := NodeQuery.find_button(phone, "Continue →")
 		assert_true(action_button != null, "a pending entry surfaces its own action-bar button")
 		action_button.pressed.emit()
 

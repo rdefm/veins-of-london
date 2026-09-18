@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # combat-presentation ticket 03, docs/combat-animation-vision.md §2.5: the
 # Dial widget's own selection/trigger logic, tested independently of
 # CombatScreen's wiring (tests/test_combat_screen.gd covers that half: deck
@@ -12,18 +14,6 @@ extends "res://tests/test_base.gd"
 # combat-presentation ticket 18 (human direction, 2026-09-09): handle_rotate()
 # (relative, wrapping cycle) is replaced by handle_select(index) (direct,
 # tap-one-of-4-screws selection) -- see dial_widget.gd's own top comment.
-
-
-func _dial(loaded_recipe_keys: Array, current_charge: int = 3, max_charge: int = 5) -> Dictionary:
-	var loaded: Array = []
-	for key in loaded_recipe_keys:
-		loaded.append({ "recipeKey": key, "tier": 1 })
-	return {
-		"level": 1, "xp": 0, "currentCharge": current_charge, "maxCharge": max_charge,
-		"rechargeRate": 0, "combatRegenTurnCounter": 0, "lastRegenDay": 1,
-		"capacityMax": Dial.capacity_max(1), "movement": null, "loadedComplications": loaded,
-		"haftId": "stub",
-	}
 
 
 func run() -> void:
@@ -44,7 +34,7 @@ func run() -> void:
 		assert_true(DialWidget.WIDGET_SIZE.y >= DialWidget.HANDLE_DISPLAY_SIZE, "the box must be at least as tall as the rendered art -- shorter crops the top/bottom off again")
 
 		var widget := DialWidget.new()
-		widget.configure(_dial(["blast", "shield", "blackHole", "healingBurst"]), 0, Callable())
+		widget.configure(Fixtures.dial(["blast", "shield", "blackHole", "healingBurst"]), 0, Callable())
 
 		# The whole HIT RECT (not just the dot's own centre point) must sit
 		# inside the box -- code-review finding, 2026-09-11: the topmost
@@ -63,7 +53,7 @@ func run() -> void:
 
 	run_case("configure_clamps_a_stale_selected_index_to_the_current_list_size", func():
 		var widget := DialWidget.new()
-		widget.configure(_dial(["blast"]), 5, Callable())
+		widget.configure(Fixtures.dial(["blast"]), 5, Callable())
 
 		assert_eq(widget.current_index(), 0, "only one Complication is loaded -- a stale index 5 must clamp down")
 	)
@@ -71,7 +61,7 @@ func run() -> void:
 	run_case("handle_select_reports_the_tapped_index_via_the_callback", func():
 		var widget := DialWidget.new()
 		var received: Array = []
-		widget.configure(_dial(["blast", "shield", "blackHole"]), 0, func(i): received.append(i))
+		widget.configure(Fixtures.dial(["blast", "shield", "blackHole"]), 0, func(i): received.append(i))
 
 		widget.handle_select(2)
 
@@ -82,7 +72,7 @@ func run() -> void:
 	run_case("handle_select_reports_regardless_of_which_screw_it_is_relative_to_the_current_one", func():
 		var widget := DialWidget.new()
 		var received: Array = []
-		widget.configure(_dial(["blast", "shield", "blackHole"]), 2, func(i): received.append(i))
+		widget.configure(Fixtures.dial(["blast", "shield", "blackHole"]), 2, func(i): received.append(i))
 
 		widget.handle_select(0)
 
@@ -92,7 +82,7 @@ func run() -> void:
 	run_case("handle_select_is_a_no_op_past_the_end_of_the_loaded_list", func():
 		var widget := DialWidget.new()
 		var received: Array = []
-		widget.configure(_dial(["blast"]), 0, func(i): received.append(i))
+		widget.configure(Fixtures.dial(["blast"]), 0, func(i): received.append(i))
 
 		widget.handle_select(1)
 
@@ -103,7 +93,7 @@ func run() -> void:
 	run_case("handle_select_is_a_no_op_for_a_negative_index", func():
 		var widget := DialWidget.new()
 		var received: Array = []
-		widget.configure(_dial(["blast", "shield"]), 0, func(i): received.append(i))
+		widget.configure(Fixtures.dial(["blast", "shield"]), 0, func(i): received.append(i))
 
 		widget.handle_select(-1)
 
@@ -112,7 +102,7 @@ func run() -> void:
 
 	run_case("handle_trigger_casts_the_selected_complication_via_Combat_cast_complication", func():
 		GameState.reset()
-		GameState.state["player"]["dial"] = _dial(["blast", "shield"], 3, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast", "shield"], 3, 5)
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
@@ -131,7 +121,7 @@ func run() -> void:
 
 	run_case("handle_trigger_is_refused_without_enough_charge_same_as_the_old_bag_drawer_button", func():
 		GameState.reset()
-		GameState.state["player"]["dial"] = _dial(["blast"], 0, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast"], 0, 5)
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
@@ -152,7 +142,7 @@ func run() -> void:
 
 	run_case("handle_trigger_reports_the_cast_result_through_on_triggered", func():
 		GameState.reset()
-		GameState.state["player"]["dial"] = _dial(["blast"], 3, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast"], 3, 5)
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
@@ -173,7 +163,7 @@ func run() -> void:
 
 	run_case("handle_trigger_reports_even_a_refused_cast_through_on_triggered", func():
 		GameState.reset()
-		GameState.state["player"]["dial"] = _dial(["blast"], 0, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast"], 0, 5)
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
@@ -193,7 +183,7 @@ func run() -> void:
 
 	run_case("handle_trigger_with_no_on_triggered_callback_still_casts_normally", func():
 		GameState.reset()
-		GameState.state["player"]["dial"] = _dial(["blast"], 3, 5)
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast"], 3, 5)
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],

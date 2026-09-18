@@ -1,60 +1,13 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # VeinListScreen — the vein-portfolio list (vein-growth-state ticket 09, spec
 # §6.2). Same "call the pure builder directly on a fresh Screen.new(), no
 # _ready() needed unless the case exercises _refresh() itself" pattern
 # tests/test_map_screen.gd and tests/test_hq_screen.gd already use for their
-# own screens. Fixture mirrors tests/test_station_bubble.gd's own
-# _player_vein() (the growth-model vein shape).
-
-
-# Ticket 114: symbol_row() split what used to be one Label's raw-symbol
-# string into a Label per text part plus a SymbolGlyph glyph (see ui.gd's
-# own comment on symbol_row()) -- reconstructs a row's displayed text by
-# walking its direct children in order, substituting SymbolGlyph.symbol for
-# the glyph's drawn text, with no separator added (call sites already
-# author any needed space into their text parts; the hbox's own pixel gap
-# covers the rest visually).
-static func _effective_text(control: Control) -> String:
-	var out := ""
-	for child in control.get_children():
-		if child is SymbolGlyph:
-			out += (child as SymbolGlyph).symbol
-		elif child is Label:
-			out += (child as Label).text
-	return out
-
-
-# Collects every Label's text under root, same as this file's other cases
-# already do inline -- except a symbol_row's own Label(s) (sharing a parent
-# with a SymbolGlyph) are replaced by one reconstructed entry rather than
-# added alongside their individual fragments, so a district name split
-# across the glyph from its ore name (vein_list.gd's "%s — " / ore symbol /
-# " %s" parts) is still findable as one combined string.
-static func _row_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	var symbol_row_parents: Dictionary = {}
-	for g in root.find_children("", "SymbolGlyph", true, false):
-		var parent := (g as SymbolGlyph).get_parent() as Control
-		if parent and not symbol_row_parents.has(parent):
-			symbol_row_parents[parent] = true
-			texts.append(_effective_text(parent))
-	for l in root.find_children("", "Label", true, false):
-		if not symbol_row_parents.has((l as Label).get_parent()):
-			texts.append((l as Label).text)
-	return texts
-
-
-static func _player_vein(overrides: Dictionary = {}) -> Dictionary:
-	var vein := {
-		"id": "v1", "district": "shoreditch", "oreType": "time", "growth": 20,
-		"security": "none", "alarmUpgrades": [], "location": "Test Alley",
-		"claimedOnDay": 1, "siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
-		"rampantDays": 0,
-	}
-	for key in overrides:
-		vein[key] = overrides[key]
-	return vein
+# own screens. Fixtures.player_vein_with() gives the growth-model vein shape.
 
 
 func run() -> void:
@@ -63,12 +16,12 @@ func run() -> void:
 
 	run_case("vein_row_shows_district_ore_terroir_security_and_band", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 60 })  # taking band
+		var vein := Fixtures.player_vein_with({ "growth": 60 })  # taking band
 
 		var screen := VeinListScreen.new()
 		var row: Control = screen._build_vein_row(vein)
 
-		var texts: Array = _row_texts(row)
+		var texts: Array = NodeQuery.symbol_row_texts(row)
 
 		var district_name: String = GameData.DISTRICTS["shoreditch"]["name"]
 		var ore_name: String = GameData.ORE_TYPES["time"]["name"]
@@ -83,7 +36,7 @@ func run() -> void:
 
 	run_case("vein_row_shows_a_growth_bar_matching_the_vein_and_its_ceiling", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 60 })
+		var vein := Fixtures.player_vein_with({ "growth": 60 })
 
 		var screen := VeinListScreen.new()
 		var row: Control = screen._build_vein_row(vein)
@@ -98,7 +51,7 @@ func run() -> void:
 
 	run_case("vein_row_shows_a_concrete_days_to_wall_figure_for_a_drifting_vein", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 90 })
+		var vein := Fixtures.player_vein_with({ "growth": 90 })
 
 		var screen := VeinListScreen.new()
 		var row: Control = screen._build_vein_row(vein)
@@ -116,7 +69,7 @@ func run() -> void:
 	# COLLAPSED_VEIN_WARNING (shared, not redrafted per screen).
 	run_case("vein_row_shows_the_collapsed_warning_for_a_spent_vein", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 0 })
+		var vein := Fixtures.player_vein_with({ "growth": 0 })
 
 		var screen := VeinListScreen.new()
 		var row: Control = screen._build_vein_row(vein)
@@ -134,7 +87,7 @@ func run() -> void:
 	# any" (systems/rooms.gd, vein-growth-state ticket 06).
 	run_case("vein_row_shows_the_vein_station_target_when_assigned", func():
 		GameState.reset()
-		var vein := _player_vein()
+		var vein := Fixtures.player_vein_with()
 		GameState.state["veinStationVeins"] = ["v1"]
 		GameState.state["veinStationTargets"] = { "v1": 65 }
 
@@ -151,7 +104,7 @@ func run() -> void:
 
 	run_case("vein_row_omits_the_vein_station_line_when_not_assigned", func():
 		GameState.reset()
-		var vein := _player_vein()
+		var vein := Fixtures.player_vein_with()
 
 		var screen := VeinListScreen.new()
 		var row: Control = screen._build_vein_row(vein)
@@ -234,7 +187,7 @@ func run() -> void:
 
 	run_case("actions_row_offers_cultivate_prune_light_prune_hard_and_manage_in_order", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 70 })
+		var vein := Fixtures.player_vein_with({ "growth": 70 })
 
 		var screen := VeinListScreen.new()
 		var actions: Control = screen._build_actions_row(vein)
@@ -248,7 +201,7 @@ func run() -> void:
 
 	run_case("prune_buttons_in_the_list_surface_the_same_projected_yield_the_map_sheet_shows", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 90 })
+		var vein := Fixtures.player_vein_with({ "growth": 90 })
 
 		var screen := VeinListScreen.new()
 		var actions: Control = screen._build_actions_row(vein)
@@ -269,7 +222,7 @@ func run() -> void:
 	# correctly yields 0 ore, but the player may still spend the block.
 	run_case("prune_buttons_in_the_list_stay_present_and_enabled_when_projected_yield_is_zero", func():
 		GameState.reset()
-		var vein := _player_vein({ "growth": 40 })  # thinning band, below neutral
+		var vein := Fixtures.player_vein_with({ "growth": 40 })  # thinning band, below neutral
 
 		var screen := VeinListScreen.new()
 		var actions: Control = screen._build_actions_row(vein)
@@ -290,7 +243,7 @@ func run() -> void:
 	run_case("pressing_cultivate_in_the_list_runs_the_real_Cultivating_cultivate_call", func():
 		GameState.reset()
 		Rng.set_seed(0)  # lands on cultivate()'s success branch, same seed test_vein_list.gd uses
-		GameState.state["player"]["veins"] = [_player_vein()]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
 
 		var screen := VeinListScreen.new()
@@ -307,7 +260,7 @@ func run() -> void:
 
 	run_case("pressing_prune_light_in_the_list_runs_the_real_Cultivating_prune_call", func():
 		GameState.reset()
-		GameState.state["player"]["veins"] = [_player_vein({ "growth": 70 })]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "growth": 70 })]
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
 
 		var screen := VeinListScreen.new()
@@ -324,7 +277,7 @@ func run() -> void:
 
 	run_case("pressing_manage_in_the_list_opens_the_site_sheet_via_MapNav_and_switches_to_the_Map_tab", func():
 		GameState.reset()
-		GameState.state["player"]["veins"] = [_player_vein({ "siteId": "s7" })]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "siteId": "s7" })]
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
 
 		var screen := VeinListScreen.new()
@@ -346,9 +299,9 @@ func run() -> void:
 	run_case("refresh_renders_one_row_per_vein_scoped_to_the_district_and_the_active_band_filter", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [
-			_player_vein({ "id": "v1", "district": "shoreditch", "growth": 90 }),  # wild
-			_player_vein({ "id": "v2", "district": "shoreditch", "growth": 20 }),  # sparse
-			_player_vein({ "id": "v3", "district": "camden", "growth": 90 }),      # wrong district
+			Fixtures.player_vein_with({ "id": "v1", "district": "shoreditch", "growth": 90 }),  # wild
+			Fixtures.player_vein_with({ "id": "v2", "district": "shoreditch", "growth": 20 }),  # sparse
+			Fixtures.player_vein_with({ "id": "v3", "district": "camden", "growth": 90 }),      # wrong district
 		]
 		VeinListNav.open_for_district("shoreditch")
 		VeinListNav.set_band_filter("wild")

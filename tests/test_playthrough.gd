@@ -1,5 +1,8 @@
 extends "res://tests/test_base.gd"
 
+const EventPlay := preload("res://tests/support/event_play.gd")
+const SeedSearch := preload("res://tests/support/seed_search.gd")
+
 # M0-T14: seeded end-to-end playthrough — new game through the full
 # tutorial (as T13), then a full economy loop, asserting invariants at
 # every step rather than re-deriving formulas (those are covered by
@@ -20,20 +23,10 @@ extends "res://tests/test_base.gd"
 # is integration-level only.
 
 
-static func _find_seed_for(max_tries: int, fn: Callable) -> int:
-	for seed in range(max_tries):
-		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
-		Rng.set_seed(seed)
-		if fn.call():
-			return seed
-		GameState.state = snapshot
-	return -1
-
-
-# Same shape as test_sites.gd's/test_district_events.gd's own _make_site —
-# kept here rather than shared across files since GDScript test files are
-# standalone scripts with no import mechanism between them.
-static func _make_site(id: String, district: String, tier: String, claimed: bool, faction_claimed: bool, faction_claimed_day: int = 1) -> Dictionary:
+# Distinct from test_sites.gd's/test_district_events.gd's own site builders —
+# this one takes faction_claimed/faction_claimed_day to seed the NPC-claim
+# soak scenario, a shape neither of those files' helpers need.
+static func _soak_site(id: String, district: String, tier: String, claimed: bool, faction_claimed: bool, faction_claimed_day: int = 1) -> Dictionary:
 	var faction_vein: Variant = null
 	if faction_claimed:
 		faction_vein = { "id": "fv_" + id, "factionId": "collective", "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": faction_claimed_day, "siteId": id, "hospitability": { "tier": "fair", "bonuses": [] } }
@@ -208,7 +201,7 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	_assert_invariants("post-S13")
 
 	# ── Des's thread: S5/S6 fire off real Sites.prospect() calls (spec §10.4) ──
-	var fate_seed := _find_seed_for(500, func():
+	var fate_seed := SeedSearch.find_seed_for(500, func():
 		var result := Sites.prospect("city")
 		var site: Variant = result.get("site")
 		return site != null and site["oreType"] == "fate" and GameData.SITE_TIER_ORDER.find(site["tier"]) >= GameData.SITE_TIER_ORDER.find("fair")
@@ -219,7 +212,7 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	assert_true(GameState.state["flags"]["colA1SkirmishSeen"])
 	_assert_invariants("post-S5")
 
-	var physics_seed := _find_seed_for(500, func():
+	var physics_seed := SeedSearch.find_seed_for(500, func():
 		var result := Sites.prospect("camden")
 		var site: Variant = result.get("site")
 		return site != null and site["oreType"] == "physics" and GameData.SITE_TIER_ORDER.find(site["tier"]) >= GameData.SITE_TIER_ORDER.find("fair")
@@ -269,7 +262,7 @@ func _play_collective_act1_through_all_three_threads() -> void:
 
 	GameState.state["player"]["orichalchum"]["time"] += 300
 	var nadia_vein_site: Array = []
-	var nadia_prospect_seed := _find_seed_for(500, func():
+	var nadia_prospect_seed := SeedSearch.find_seed_for(500, func():
 		var result := Sites.prospect("greenwich")
 		var site: Variant = result.get("site")
 		if site == null or site["oreType"] != "time" or site["tier"] == "barren":
@@ -283,7 +276,7 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	_drive_active_event_to_completion()
 	_assert_invariants("post-nadia-vein-prospect")
 
-	var nadia_vein_seed_roll := _find_seed_for(500, func():
+	var nadia_vein_seed_roll := SeedSearch.find_seed_for(500, func():
 		return Sites.attempt_seed(nadia_site_id).get("success", false)
 	)
 	assert_true(nadia_vein_seed_roll != -1, "should find a successful seed roll within 500 tries")
@@ -307,7 +300,7 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	var rescue_guard := 0
 	while Cultivating.find_vein(hakim_vein_id)["growth"] < threshold and rescue_guard < 20:
 		rescue_guard += 1
-		var cult_seed := _find_seed_for(500, func():
+		var cult_seed := SeedSearch.find_seed_for(500, func():
 			return Cultivating.cultivate(hakim_vein_id).get("success", false)
 		)
 		assert_true(cult_seed != -1, "should find a successful cultivate roll within 500 tries")
@@ -357,21 +350,6 @@ func _resolve_pending_by_kind(contact_id: String, kind: String) -> void:
 	assert_true(false, "no pending %s entry found for %s" % [kind, contact_id])
 
 
-# Same choice-driving idiom as tests/test_col_a1_closer.gd's own
-# _play_event_with_choices() -- not shared with it directly (per this file's
-# own _make_site comment: standalone test scripts have no import mechanism
-# between them), but at least not duplicated a second time within this file.
-func _play_event_with_choices(event_id: String, choices: Array) -> void:
-	Events.start_event(event_id)
-	var choice_i := 0
-	while GameState.state["event"] != null:
-		if Events.is_awaiting_choice():
-			Events.choose(choices[choice_i])
-			choice_i += 1
-		else:
-			Events.advance()
-
-
 func run() -> void:
 	run_case("full_playthrough_tutorial_economy_ticks_and_save_roundtrip", func():
 		GameState.reset()
@@ -384,7 +362,7 @@ func run() -> void:
 		GameState.state["player"]["orichalchum"]["time"] += 100
 		var district_id: String = GameState.state["world"]["currentDistrict"]
 		var found_site: Array = []
-		var prospect_seed := _find_seed_for(500, func():
+		var prospect_seed := SeedSearch.find_seed_for(500, func():
 			var result := Sites.prospect(district_id)
 			if not result["ok"] or result["site"] == null:
 				return false
@@ -399,7 +377,7 @@ func run() -> void:
 		_drive_active_event_to_completion()  # D5: prospect can draw a district event
 		_assert_invariants("post-prospect")
 
-		var seed_seed := _find_seed_for(300, func():
+		var seed_seed := SeedSearch.find_seed_for(300, func():
 			return Sites.attempt_seed(site_id).get("success", false)
 		)
 		assert_true(seed_seed != -1, "should find a successful seed roll")
@@ -412,7 +390,7 @@ func run() -> void:
 		var vein_id: String = new_vein["id"]
 		# Force one successful cultivate roll (formula correctness is
 		# test_cultivating.gd's job).
-		var cult_seed := _find_seed_for(300, func():
+		var cult_seed := SeedSearch.find_seed_for(300, func():
 			return Cultivating.cultivate(vein_id).get("success", false)
 		)
 		assert_true(cult_seed != -1, "should find a successful cultivate roll")
@@ -427,7 +405,7 @@ func run() -> void:
 
 		# --- Craft pearls ---
 		GameState.state["player"]["orichalchum"]["time"] += 100
-		var craft_seed := _find_seed_for(300, func():
+		var craft_seed := SeedSearch.find_seed_for(300, func():
 			return Crafting.attempt_craft("timePearl").get("success", false)
 		)
 		assert_true(craft_seed != -1, "should find a successful craft roll")
@@ -436,7 +414,7 @@ func run() -> void:
 
 		# --- Sell: force both a mugged and a non-mugged branch ---
 		GameState.state["player"]["orichalchum"]["time"] += 50
-		var no_mug_seed := _find_seed_for(300, func():
+		var no_mug_seed := SeedSearch.find_seed_for(300, func():
 			var r := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 5 }])
 			return r["ok"] and not r["mugged"]
 		)
@@ -444,7 +422,7 @@ func run() -> void:
 		_assert_invariants("post-sale-no-mug")
 
 		GameState.state["player"]["orichalchum"]["time"] += 50
-		var mug_seed := _find_seed_for(300, func():
+		var mug_seed := SeedSearch.find_seed_for(300, func():
 			var r := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 5 }])
 			return r["ok"] and r.get("mugged", false)
 		)
@@ -519,14 +497,14 @@ func run() -> void:
 			# a day boundary at any step, which resets currentDistrict to
 			# shoreditch per D3, so re-asserting block counts or currentDistrict
 			# here would just be flaky.)
-			# found_site is a one-element holder, not a plain local: _find_seed_for's
+			# found_site is a one-element holder, not a plain local: SeedSearch.find_seed_for's
 			# Callable can't hand a value back through its bool return, but an
 			# Array is a reference type, so mutating its contents (never
 			# reassigning the variable itself) from inside the closure does
 			# reach this outer scope — unlike GDScript's by-value capture of
 			# plain locals.
 			var found_site: Array = []
-			var prospect_seed := _find_seed_for(500, func():
+			var prospect_seed := SeedSearch.find_seed_for(500, func():
 				var result := Sites.prospect(district_id)
 				if not result["ok"] or result["site"] == null:
 					return false
@@ -548,7 +526,7 @@ func run() -> void:
 			assert_true(GameData.ORE_TYPES.has(site_before_seed["oreType"]), "%s: ore type is visible pre-seed" % district_id)
 
 			# --- seed: claim the site ---
-			var seed_seed := _find_seed_for(500, func():
+			var seed_seed := SeedSearch.find_seed_for(500, func():
 				return Sites.attempt_seed(site_id).get("success", false)
 			)
 			assert_true(seed_seed != -1, "%s: should find a successful seed roll within 500 tries" % district_id)
@@ -563,7 +541,7 @@ func run() -> void:
 			var vein_id: String = vein["id"]
 
 			# --- cultivate: at least one successful session ---
-			var cult_seed := _find_seed_for(500, func():
+			var cult_seed := SeedSearch.find_seed_for(500, func():
 				return Cultivating.cultivate(vein_id).get("success", false)
 			)
 			assert_true(cult_seed != -1, "%s: should find a successful cultivate roll within 500 tries" % district_id)
@@ -581,7 +559,7 @@ func run() -> void:
 			# --- sell: in the district we're standing in (D3) ---
 			var ore_type: String = prune_result["oreType"]
 			var cash_before: int = GameState.state["player"]["cash"]
-			var sell_seed := _find_seed_for(500, func():
+			var sell_seed := SeedSearch.find_seed_for(500, func():
 				var have: int = GameState.state["player"]["orichalchum"].get(ore_type, 0)
 				if have < 1:
 					return false
@@ -613,7 +591,7 @@ func run() -> void:
 
 		var neglect_district := "battersea"
 		var neglect_site: Array = []
-		var neglect_prospect_seed := _find_seed_for(500, func():
+		var neglect_prospect_seed := SeedSearch.find_seed_for(500, func():
 			var result := Sites.prospect(neglect_district)
 			if not result["ok"] or result["site"] == null:
 				return false
@@ -628,7 +606,7 @@ func run() -> void:
 		_drive_active_event_to_completion()
 		_assert_invariants("neglect: post-prospect")
 
-		var neglect_seed_seed := _find_seed_for(500, func():
+		var neglect_seed_seed := SeedSearch.find_seed_for(500, func():
 			return Sites.attempt_seed(neglect_site_id).get("success", false)
 		)
 		assert_true(neglect_seed_seed != -1, "neglect arm: should find a successful seed roll within 500 tries")
@@ -643,7 +621,7 @@ func run() -> void:
 		# "bottomed but still there" state this phase wants to witness; that
 		# outcome is still spec-correct, just not what phase 1 is proving, so
 		# retry with a fresh seed rather than accept it here.
-		var bottom_seed := _find_seed_for(300, func():
+		var bottom_seed := SeedSearch.find_seed_for(300, func():
 			for i in range(60):
 				Cultivating.drift_veins()
 				var v: Variant = Cultivating.find_vein(neglect_vein_id)
@@ -661,7 +639,7 @@ func run() -> void:
 		# eventually remove it -- P(never in 50 days) ~= 0.85^50, and this
 		# itself is retried across up to 100 seeds, so failure here would
 		# mean the roll isn't firing at all, not bad luck.
-		var collapse_seed := _find_seed_for(100, func():
+		var collapse_seed := SeedSearch.find_seed_for(100, func():
 			for i in range(50):
 				Cultivating.drift_veins()
 				if Cultivating.find_vein(neglect_vein_id) == null:
@@ -675,7 +653,7 @@ func run() -> void:
 		assert_true(reverted_site != null, "neglect arm: the site itself survives removal -- it reverts, it isn't deleted")
 		assert_eq(reverted_site["claimed"], false, "neglect arm: the site should revert to unclaimed on removal (a faction vein's collapse deletes its site outright instead)")
 
-		var reseed_seed := _find_seed_for(500, func():
+		var reseed_seed := SeedSearch.find_seed_for(500, func():
 			return Sites.attempt_seed(neglect_site_id).get("success", false)
 		)
 		assert_true(reseed_seed != -1, "neglect arm: the reverted site should be seedable again within 500 tries")
@@ -711,9 +689,9 @@ func run() -> void:
 			# vein uses) since bugfixes-40 removed the separate NPC-
 			# abandonment roll this soak used to drive through directly.
 			var site_cap: int = GameData.DISTRICTS[district_id]["siteCap"]
-			var sites: Array = [_make_site("soak_player_claimed", district_id, "fair", true, false)]
+			var sites: Array = [_soak_site("soak_player_claimed", district_id, "fair", true, false)]
 			for i in range(site_cap - 1):
-				sites.append(_make_site("soak_npc_claimed_%d" % i, district_id, "poor", false, true, 1))
+				sites.append(_soak_site("soak_npc_claimed_%d" % i, district_id, "poor", false, true, 1))
 			GameState.state["world"]["sites"] = sites
 
 			Rng.set_seed(seed)
@@ -773,7 +751,7 @@ func run() -> void:
 	# camden_shakedown's mugging branch.
 	run_case("district_event_driver_resolves_choice_cards_and_mid_event_combat", func():
 		GameState.reset()
-		var combat_seed := _find_seed_for(300, func():
+		var combat_seed := SeedSearch.find_seed_for(300, func():
 			Events.start_event("camden_shakedown")
 			Events.advance()  # narration
 			Events.advance()  # speaker
@@ -796,7 +774,7 @@ func run() -> void:
 		_play_collective_act1_through_all_three_threads()
 
 		_resolve_pending_by_kind("hakim", "col_a1_closer")
-		_play_event_with_choices("col_a1_closer", [0, 0])  # "Thank him", then "I'm in"
+		EventPlay.play_event_with_choices("col_a1_closer", [0, 0])  # "Thank him", then "I'm in"
 
 		assert_true(GameState.state["flags"]["colA1Complete"])
 		assert_eq(GameState.state["flags"]["colA1Stage"], "complete")
@@ -830,7 +808,7 @@ func run() -> void:
 		_play_collective_act1_through_all_three_threads()
 
 		_resolve_pending_by_kind("hakim", "col_a1_closer")
-		_play_event_with_choices("col_a1_closer", [1, 1])  # "Insist on paying", then "Not yet"
+		EventPlay.play_event_with_choices("col_a1_closer", [1, 1])  # "Insist on paying", then "Not yet"
 
 		assert_true(GameState.state["flags"]["colA1Complete"], "declining still completes the act")
 		assert_eq(GameState.state["flags"]["colA1Stage"], "complete")

@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const EventPlay := preload("res://tests/support/event_play.gd")
+
 # collective1-15, spec.md §6.13: S13, the Archie/Des decoy -- optional,
 # missable, player-pried only. Delivered from Archie's existing contact card
 # (ContactCards.build_archie_pry_action()), not a text. "Leave it" ends the
@@ -7,12 +9,6 @@ extends "res://tests/test_base.gd"
 # colA1AskedAboutDebt and chains straight into col_a1_archie_pry_debt (cards
 # 4-8) via the new "start_event" op, since advance()'s cardIndex has no
 # branching of its own and the two branches are different lengths.
-
-
-func _play_event(event_id: String) -> void:
-	Events.start_event(event_id)
-	for i in range(GameData.EVENTS[event_id]["cards"].size()):
-		Events.advance()
 
 
 # Drives col_a1_archie_pry up to (not including) its choice card.

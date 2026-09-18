@@ -1,38 +1,12 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # collective1-07, spec §5.5/§7.2/§9.5: Collective.complete_trade() is the one
 # thing that differs across Des/Nadia/Hakim's otherwise-identical Trade
 # doors -- a bark line appended to whichever contact's conversation the
 # trade happened in, drawn without repeats until that vendor's pool is
 # exhausted.
-
-
-func _site(id: String, ore_type: String, tier: String, claimed: bool = false, faction_vein: Variant = null) -> Dictionary:
-	return {
-		"id": id, "district": "shoreditch", "tier": tier, "oreType": ore_type,
-		"bonuses": [], "discoveredDay": 1, "claimed": claimed, "factionVein": faction_vein,
-		"hasNaturalVein": false,
-	}
-
-
-# Same shape as test_economy.gd's own _seed_vein -- one player vein wired to
-# its site, low growth so its quote stays well under the personal-relation
-# lane's rate (RelationAccrual.LANES), keeping the accrual assertions below simple.
-func _seed_vein(id: String, growth: int, ore_type: String = "life") -> Dictionary:
-	var site := {
-		"id": "site_%s" % id, "district": "shoreditch", "tier": "fair", "oreType": ore_type,
-		"bonuses": [], "discoveredDay": 1, "claimed": true, "factionVein": null,
-		"hasNaturalVein": false,
-	}
-	var vein := {
-		"id": id, "district": "shoreditch", "oreType": ore_type, "growth": growth,
-		"security": "none", "alarmUpgrades": [], "location": "Test Alley",
-		"claimedOnDay": 1, "siteId": "site_%s" % id, "hospitability": { "tier": "fair", "bonuses": [] },
-		"rampantDays": 0,
-	}
-	GameState.state["world"]["sites"].append(site)
-	GameState.state["player"]["veins"].append(vein)
-	return vein
 
 
 func run() -> void:
@@ -139,7 +113,7 @@ func run() -> void:
 
 	run_case("complete_trade_counts_a_toggled_in_vein_sale_toward_the_traded_vendors_personal_relation_too", func():
 		GameState.reset()
-		_seed_vein("v1", 5)
+		Fixtures.seed_vein("v1", 5)
 		Economy.toggle_sell_vein("v1")
 
 		Collective.complete_trade("hakim")
@@ -153,7 +127,7 @@ func run() -> void:
 	run_case("report_des_site_converts_a_qualifying_site_awards_relation_and_records_progress", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "fate", "fair")]
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 
 		var result := Collective.report_des_site("fate")
@@ -182,7 +156,7 @@ func run() -> void:
 	run_case("report_des_site_ignores_claimed_and_faction_owned_sites", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair", true)]
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "fate", "fair", true)]
 
 		var result := Collective.report_des_site("fate")
 
@@ -192,8 +166,8 @@ func run() -> void:
 	run_case("report_des_site_cannot_double_report_the_same_ore_type", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
-		GameState.state["world"]["sites"].append(_site("s2", "fate", "rich"))
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "fate", "fair")]
+		GameState.state["world"]["sites"].append(Fixtures.site("s2", "fate", "rich"))
 
 		Collective.report_des_site("fate")
 		var relation_after_first: int = GameState.state["factions"]["collective"]["relation"]
@@ -207,7 +181,7 @@ func run() -> void:
 	run_case("a_site_reported_for_one_ore_type_can_never_be_matched_again_for_any_ore_type", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "fate", "fair")]
 
 		Collective.report_des_site("fate")
 
@@ -220,7 +194,7 @@ func run() -> void:
 	run_case("report_des_site_is_a_no_op_for_an_ore_type_not_required_by_the_objective", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"] = [_site("s1", "time", "fair")]
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "time", "fair")]
 
 		var result := Collective.report_des_site("time")
 
@@ -230,7 +204,7 @@ func run() -> void:
 	run_case("col_a1_des_sites_completes_once_both_ore_types_are_reported_out_of_simultaneous_availability", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"] = [_site("s_fate", "fate", "fair")]
+		GameState.state["world"]["sites"] = [Fixtures.site("s_fate", "fate", "fair")]
 
 		# Report fate while it's the only qualifying site around -- the fate
 		# site is already converted (no longer unclaimed) by the time physics
@@ -239,7 +213,7 @@ func run() -> void:
 		assert_true(fate_result["ok"])
 		assert_true(not GameState.state["flags"].get("colA1DesSitesFound", false), "physics hasn't been reported yet")
 
-		GameState.state["world"]["sites"].append(_site("s_physics", "physics", "fair"))
+		GameState.state["world"]["sites"].append(Fixtures.site("s_physics", "physics", "fair"))
 		var physics_result := Collective.report_des_site("physics")
 		assert_true(physics_result["ok"])
 
@@ -252,7 +226,7 @@ func run() -> void:
 
 	run_case("next_reportable_des_ore_type_is_empty_when_the_thread_is_not_active", func():
 		GameState.reset()
-		GameState.state["world"]["sites"] = [_site("s1", "fate", "fair")]
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "fate", "fair")]
 		assert_eq(Collective.next_reportable_des_ore_type(), "")
 	)
 
@@ -265,23 +239,23 @@ func run() -> void:
 	run_case("next_reportable_des_ore_type_returns_fate_before_physics_when_both_qualify", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"] = [_site("s_fate", "fate", "fair"), _site("s_physics", "physics", "fair")]
+		GameState.state["world"]["sites"] = [Fixtures.site("s_fate", "fate", "fair"), Fixtures.site("s_physics", "physics", "fair")]
 		assert_eq(Collective.next_reportable_des_ore_type(), "fate", "requireEachOreType order: fate, physics")
 	)
 
 	run_case("next_reportable_des_ore_type_skips_an_ore_type_already_reported", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"] = [_site("s_fate", "fate", "fair")]
+		GameState.state["world"]["sites"] = [Fixtures.site("s_fate", "fate", "fair")]
 		Collective.report_des_site("fate")
-		GameState.state["world"]["sites"].append(_site("s_physics", "physics", "fair"))
+		GameState.state["world"]["sites"].append(Fixtures.site("s_physics", "physics", "fair"))
 		assert_eq(Collective.next_reportable_des_ore_type(), "physics")
 	)
 
 	run_case("next_reportable_des_ore_type_is_empty_once_both_are_reported", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesThreadActive"] = true
-		GameState.state["world"]["sites"] = [_site("s_fate", "fate", "fair"), _site("s_physics", "physics", "fair")]
+		GameState.state["world"]["sites"] = [Fixtures.site("s_fate", "fate", "fair"), Fixtures.site("s_physics", "physics", "fair")]
 		Collective.report_des_site("fate")
 		Collective.report_des_site("physics")
 		assert_eq(Collective.next_reportable_des_ore_type(), "")

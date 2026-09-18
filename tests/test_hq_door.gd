@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # hq-diorama ticket 05, docs/hq-diorama-vision.md §8: the door sub-view,
 # reached from hq.gd's "security" zone tap (see tests/test_hq_screen.gd's
 # own "hq_security_zone_tap_navigates_to_the_hq_door_screen" and
@@ -14,20 +16,6 @@ extends "res://tests/test_base.gd"
 # relies on for HqFloorplanScreen.
 
 
-static func _find_button(root: Node, text: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text == text:
-			return b
-	return null
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
-	return texts
-
-
 func run() -> void:
 	run_case("hq_door_shows_a_buy_button_for_an_available_uninstalled_security_option", func():
 		GameState.reset()
@@ -40,7 +28,7 @@ func run() -> void:
 			var sec: Dictionary = GameData.HOME_SECURITY[security_id]
 			if sec["minTier"] != GameState.state["home"]["tier"]:
 				continue
-			assert_true(_label_texts(screen).any(func(t: String): return t.ends_with(sec["name"])), "%s's name must render" % security_id)
+			assert_true(NodeQuery.label_texts(screen).any(func(t: String): return t.ends_with(sec["name"])), "%s's name must render" % security_id)
 
 		screen.free()
 	)
@@ -54,7 +42,7 @@ func run() -> void:
 		var screen := HqDoorScreen.new()
 		screen._ready()
 
-		_find_button(screen, "£%d" % cost).pressed.emit()
+		NodeQuery.find_button(screen, "£%d" % cost).pressed.emit()
 
 		assert_true(GameState.state["home"]["security"].has(bedsit_security_id), "tapping the buy button must install the security option, unchanged from the old direct row")
 
@@ -70,8 +58,8 @@ func run() -> void:
 		screen._ready()
 
 		var cost: int = GameData.HOME_SECURITY[bedsit_security_id]["cost"]
-		assert_true(_find_button(screen, "£%d" % cost) == null, "an installed slot must not still show a buy button")
-		assert_true(_label_texts(screen).has("Installed"), "an installed slot must show the Installed label")
+		assert_true(NodeQuery.find_button(screen, "£%d" % cost) == null, "an installed slot must not still show a buy button")
+		assert_true(NodeQuery.label_texts(screen).has("Installed"), "an installed slot must show the Installed label")
 
 		screen.free()
 	)
@@ -87,8 +75,8 @@ func run() -> void:
 		screen._ready()
 
 		var ward_cost: int = GameData.HOME_SECURITY["ward"]["cost"]
-		assert_true(_find_button(screen, "£%d" % ward_cost) == null, "a locked slot must not show a buy button")
-		assert_true(_label_texts(screen).has("Locked"), "a locked slot must show the Locked label")
+		assert_true(NodeQuery.find_button(screen, "£%d" % ward_cost) == null, "a locked slot must not show a buy button")
+		assert_true(NodeQuery.label_texts(screen).has("Locked"), "a locked slot must show the Locked label")
 
 		screen.free()
 	)
@@ -100,7 +88,7 @@ func run() -> void:
 		var screen := HqDoorScreen.new()
 		screen._ready()
 
-		_find_button(screen, "‹ Back").pressed.emit()
+		NodeQuery.find_button(screen, "‹ Back").pressed.emit()
 		assert_eq(GameState.state["currentScreen"], "hq", "Back must return to the HQ room, not the phone home grid")
 
 		screen.free()

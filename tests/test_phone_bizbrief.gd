@@ -1,14 +1,8 @@
 extends "res://tests/test_base.gd"
 
 const MorningAccountsSystem := preload("res://systems/morning_accounts.gd")
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for label in root.find_children("", "Label", true, false):
-		texts.append((label as Label).text)
-	return texts
-
+const NodeQuery := preload("res://tests/support/node_query.gd")
+const Fixtures := preload("res://tests/support/fixtures.gd")
 
 static func _button_with_text(root: Node, text: String) -> Button:
 	for candidate in root.find_children("", "Button", true, false):
@@ -17,18 +11,9 @@ static func _button_with_text(root: Node, text: String) -> Button:
 	return null
 
 
-# 27-procurement-in-manage: same fixture shape test_rooms.gd's Vein Station
-# cases use.
-static func _player_vein(overrides: Dictionary = {}) -> Dictionary:
-	var vein := {
-		"id": "v1", "oreType": "time", "growth": 20, "security": "none",
-		"alarmUpgrades": [], "location": "Vallance Rd, by the bus stop",
-		"claimedOnDay": 1, "district": "shoreditch", "siteId": null,
-		"hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0,
-	}
-	for key in overrides:
-		vein[key] = overrides[key]
-	return vein
+# The bizbrief's own vein: no site link, and a real street for the location line.
+static func _brief_vein() -> Dictionary:
+	return Fixtures.player_vein_with({ "location": "Vallance Rd, by the bus stop", "siteId": null })
 
 
 func run() -> void:
@@ -61,7 +46,7 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.label_texts(phone)
 		for expected in ["BizBrief", "Morning Brief", "Reynard's", "Operations", "Attention", "Opening £200 · Closing £145", "Income +£20 · Expenses −£75"]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 		phone.free()
@@ -73,7 +58,7 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Reynard's"))
 		assert_true(not texts.has("Operations"))
 		assert_true(not texts.has("Attention"))
@@ -88,14 +73,14 @@ func run() -> void:
 		var manage := _button_with_text(phone, "Manage")
 		assert_true(manage != null, "BizBrief exposes Manage beside Brief")
 		manage.pressed.emit()
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.label_texts(phone)
 		for expected in ["BizBrief", "Manage", "Sales", "Production", "Procurement"]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 		assert_true(not texts.has("Morning Brief"), "Manage does not duplicate the Brief tab")
 		var brief := _button_with_text(phone, "Brief")
 		assert_true(brief != null, "Manage keeps the Brief tab available")
 		brief.pressed.emit()
-		assert_true(_label_texts(phone).has("Morning Brief"), "Brief preserves the existing account view")
+		assert_true(NodeQuery.label_texts(phone).has("Morning Brief"), "Brief preserves the existing account view")
 		phone.free()
 	)
 
@@ -107,7 +92,7 @@ func run() -> void:
 		phone._ready()
 		_button_with_text(phone, "Manage").pressed.emit()
 
-		assert_true(_label_texts(phone).has("Requires the Improved Lab."))
+		assert_true(NodeQuery.label_texts(phone).has("Requires the Improved Lab."))
 		phone.free()
 	)
 
@@ -120,7 +105,7 @@ func run() -> void:
 		phone._ready()
 		_button_with_text(phone, "Manage").pressed.emit()
 
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Time Pearl"), "craftingUnlocked recipe is listed")
 		assert_true(texts.has("Rewind"), "craftingUnlocked also gates rewind")
 		assert_true(not texts.has("Enhancement Powder"), "enhancementUnlocked recipe stays hidden until unlocked")
@@ -145,12 +130,12 @@ func run() -> void:
 	run_case("procurement_shows_a_room_gate_message_when_vein_station_not_installed", func():
 		GameState.reset()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
-		GameState.state["player"]["veins"] = [_player_vein()]
+		GameState.state["player"]["veins"] = [_brief_vein()]
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Manage").pressed.emit()
 
-		assert_true(_label_texts(phone).has("Requires the Vein Cultivation Station room."))
+		assert_true(NodeQuery.label_texts(phone).has("Requires the Vein Cultivation Station room."))
 		assert_true(_button_with_text(phone, "Assign to Vein Station") == null, "no assign control before the room exists")
 		phone.free()
 	)
@@ -158,13 +143,13 @@ func run() -> void:
 	run_case("procurement_lists_an_unassigned_vein_and_assigns_it_on_tap", func():
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("veinStation")
-		GameState.state["player"]["veins"] = [_player_vein()]
+		GameState.state["player"]["veins"] = [_brief_vein()]
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Manage").pressed.emit()
 
-		assert_true(_label_texts(phone).any(func(t: String): return t.contains("Time Orichalchum")), "vein row identifies the ore/district")
+		assert_true(NodeQuery.label_texts(phone).any(func(t: String): return t.contains("Time Orichalchum")), "vein row identifies the ore/district")
 		var assign := _button_with_text(phone, "Assign to Vein Station")
 		assert_true(assign != null)
 		assign.pressed.emit()
@@ -176,14 +161,14 @@ func run() -> void:
 	run_case("procurement_target_controls_adjust_and_unassign_an_assigned_vein", func():
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("veinStation")
-		GameState.state["player"]["veins"] = [_player_vein()]
+		GameState.state["player"]["veins"] = [_brief_vein()]
 		Rooms.toggle_vein_station_vein("v1")
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Manage").pressed.emit()
 
-		assert_true(_label_texts(phone).has("Vein Station target: 70"))
+		assert_true(NodeQuery.label_texts(phone).has("Vein Station target: 70"))
 
 		_button_with_text(phone, "+5").pressed.emit()
 		assert_eq(GameState.state["veinStationTargets"]["v1"], 75)

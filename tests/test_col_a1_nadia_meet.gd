@@ -1,41 +1,13 @@
 extends "res://tests/test_base.gd"
 
+const EventPlay := preload("res://tests/support/event_play.gd")
+
 # collective1-11, spec.md §6.8: S8 (col_a1_nadia_meet), Nadia's introduction
 # -- the consignment. Drives the real event JSON card-by-card, same idiom
 # tests/test_col_a1_des_report.gd uses for S7, plus the action-bar button
 # (ContactCards.build_nadia_meet_action(), wired into messages_app.gd's
 # _build_action_bar) that's this scene's delivery, and the col_a1_nadia_
 # supply objective its on_complete activates.
-
-
-# Drives an event up to (not including) its choice card.
-func _play_to_choice(event_id: String) -> int:
-	Events.start_event(event_id)
-	var cards: Array = GameData.EVENTS[event_id]["cards"]
-	var choice_index := -1
-	for i in range(cards.size()):
-		if cards[i]["type"] == "choice":
-			choice_index = i
-			break
-	for i in range(choice_index):
-		Events.advance()
-	return choice_index
-
-
-func _finish_after_choice(event_id: String, choice_index: int) -> void:
-	var remaining: int = GameData.EVENTS[event_id]["cards"].size() - choice_index
-	for i in range(remaining):
-		Events.advance()
-
-
-# col_a1_nadia_meet's single choice card carries no effects either way (both
-# branches are cosmetic dialogue only, per spec §6.8) -- this plays the whole
-# event through choice 0 ("I can get you thirty") for cases that only care
-# about on_complete, same as test_col_a1_weather.gd's choice-driving idiom.
-func _play_through_choice(event_id: String) -> void:
-	var choice_index := _play_to_choice(event_id)
-	Events.choose(0)
-	_finish_after_choice(event_id, choice_index)
 
 
 func run() -> void:
@@ -64,7 +36,7 @@ func run() -> void:
 			GameState.reset()
 			var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 
-			var choice_index := _play_to_choice("col_a1_nadia_meet")
+			var choice_index := EventPlay.play_to_choice("col_a1_nadia_meet")
 			Events.choose(choice_index_to_pick)
 			assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before, "choice %d must not move relation" % choice_index_to_pick)
 
@@ -73,7 +45,7 @@ func run() -> void:
 			assert_eq(next_card["speaker"], "Nadia")
 			assert_true(next_card["text"].contains("I don't know who's holding what"), "choice %d should still land on the information-thesis line" % choice_index_to_pick)
 
-			_finish_after_choice("col_a1_nadia_meet", choice_index + 1)
+			EventPlay.finish_after_choice("col_a1_nadia_meet", choice_index + 1)
 			assert_true(GameState.state["flags"]["colA1NadiaMet"])
 	)
 
@@ -83,7 +55,7 @@ func run() -> void:
 		GameState.reset()
 		assert_true(not GameState.state["objectives"].get("col_a1_nadia_supply", {}).get("active", false))
 
-		_play_through_choice("col_a1_nadia_meet")
+		EventPlay.play_through_choice("col_a1_nadia_meet")
 
 		assert_true(GameState.state["flags"]["colA1NadiaMet"])
 		Objectives.refresh()
@@ -100,7 +72,7 @@ func run() -> void:
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 		var sites_before: Array = GameState.state["world"]["sites"].duplicate(true)
 
-		_play_through_choice("col_a1_nadia_meet")
+		EventPlay.play_through_choice("col_a1_nadia_meet")
 
 		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before)
 		assert_eq(GameState.state["world"]["sites"], sites_before)
@@ -120,7 +92,7 @@ func run() -> void:
 
 	run_case("col_a1_nadia_supply_stays_independent_of_the_shared_collective_trade_door", func():
 		GameState.reset()
-		_play_through_choice("col_a1_nadia_meet")  # sets colA1NadiaMet -> activates the objective
+		EventPlay.play_through_choice("col_a1_nadia_meet")  # sets colA1NadiaMet -> activates the objective
 		Objectives.refresh()
 		assert_true(GameState.state["objectives"]["col_a1_nadia_supply"]["active"])
 

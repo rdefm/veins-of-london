@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # 11-phone-os-shell ticket 09: Save/Load app -- absorbs the You tab's
 # save/load/export/import/new-game content, screen-level-tested against a
 # real PhoneScreen instance with state.phoneNav.app = "saveload", same
@@ -9,20 +11,6 @@ extends "res://tests/test_base.gd"
 # convention tests/test_savemanager.gd documents for its own TEST_SLOT.
 
 const TEST_SLOT := 1
-
-
-static func _find_button(root: Node, text: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text == text:
-			return b
-	return null
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
-	return texts
 
 
 func run() -> void:
@@ -54,7 +42,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var texts := _label_texts(phone)
+		var texts := NodeQuery.label_texts(phone)
 		for slot in range(1, SaveManager.SLOT_COUNT + 1):
 			assert_true(texts.has("Slot %d" % slot), "Slot %d heading must be rendered" % slot)
 
@@ -69,9 +57,9 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_true(_find_button(phone, "Save") != null, "Save button must always be present")
-		assert_true(_find_button(phone, "Load") == null, "an empty slot must not show a Load button")
-		assert_true(_find_button(phone, "Delete") == null, "an empty slot must not show a Delete button")
+		assert_true(NodeQuery.find_button(phone, "Save") != null, "Save button must always be present")
+		assert_true(NodeQuery.find_button(phone, "Load") == null, "an empty slot must not show a Load button")
+		assert_true(NodeQuery.find_button(phone, "Delete") == null, "an empty slot must not show a Delete button")
 
 		phone.free()
 	)
@@ -85,7 +73,7 @@ func run() -> void:
 
 		var phone := PhoneScreen.new()
 		phone._ready()
-		_find_button(phone, "Save").pressed.emit()
+		NodeQuery.find_button(phone, "Save").pressed.emit()
 
 		assert_true(SaveManager.slot_exists(TEST_SLOT), "Save button must call through to SaveManager.save_to_slot")
 
@@ -95,7 +83,7 @@ func run() -> void:
 
 		phone = PhoneScreen.new()
 		phone._ready()
-		_find_button(phone, "Load").pressed.emit()
+		NodeQuery.find_button(phone, "Load").pressed.emit()
 
 		assert_eq(GameState.state["player"]["cash"], 4242, "Load button must call through to SaveManager.load_from_slot")
 		assert_eq(GameState.state["world"]["day"], 6, "Load button must call through to SaveManager.load_from_slot")
@@ -112,7 +100,7 @@ func run() -> void:
 
 		var phone := PhoneScreen.new()
 		phone._ready()
-		_find_button(phone, "Delete").pressed.emit()
+		NodeQuery.find_button(phone, "Delete").pressed.emit()
 
 		assert_true(not SaveManager.slot_exists(TEST_SLOT), "Delete button must call through to SaveManager.delete_slot")
 
@@ -126,7 +114,7 @@ func run() -> void:
 
 		var phone := PhoneScreen.new()
 		phone._ready()
-		_find_button(phone, "Generate export string").pressed.emit()
+		NodeQuery.find_button(phone, "Generate export string").pressed.emit()
 
 		assert_eq(phone.app_instance("saveload")._export_box.text, SaveManager.export_string(), "export box must hold exactly SaveManager.export_string()'s output")
 
@@ -142,7 +130,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		phone.app_instance("saveload")._import_box.text = exported
-		_find_button(phone, "Import").pressed.emit()
+		NodeQuery.find_button(phone, "Import").pressed.emit()
 
 		assert_eq(GameState.state["player"]["cash"], 40, "Import button must call through to SaveManager.import_string, restoring the exported cash value")
 
@@ -156,7 +144,7 @@ func run() -> void:
 
 		var phone := PhoneScreen.new()
 		phone._ready()
-		_find_button(phone, "New Game").pressed.emit()
+		NodeQuery.find_button(phone, "New Game").pressed.emit()
 
 		assert_eq(GameState.state["player"]["cash"], 4321, "a single tap on New Game must not reset player state")
 		assert_true(GameState.state["currentScreen"] != "intro", "a single tap on New Game must not navigate away")
@@ -170,15 +158,15 @@ func run() -> void:
 
 		var phone := PhoneScreen.new()
 		phone._ready()
-		_find_button(phone, "New Game").pressed.emit()
+		NodeQuery.find_button(phone, "New Game").pressed.emit()
 
 		phone.free()
 		phone = PhoneScreen.new()
 		phone._ready()
 
-		assert_true(_find_button(phone, "New Game") == null, "the plain New Game button must be gone once armed")
-		assert_true(_find_button(phone, "Confirm") != null, "a Confirm button must appear once armed")
-		assert_true(_find_button(phone, "Cancel") != null, "a Cancel button must appear once armed")
+		assert_true(NodeQuery.find_button(phone, "New Game") == null, "the plain New Game button must be gone once armed")
+		assert_true(NodeQuery.find_button(phone, "Confirm") != null, "a Confirm button must appear once armed")
+		assert_true(NodeQuery.find_button(phone, "Cancel") != null, "a Cancel button must appear once armed")
 
 		phone.free()
 	)
@@ -191,7 +179,7 @@ func run() -> void:
 
 		var phone := PhoneScreen.new()
 		phone._ready()
-		_find_button(phone, "Cancel").pressed.emit()
+		NodeQuery.find_button(phone, "Cancel").pressed.emit()
 
 		assert_eq(GameState.state["player"]["cash"], 777, "Cancel must not reset player state")
 		assert_true(not GameState.state["phoneNav"]["confirmingNewGame"], "Cancel must disarm the confirm gate")
@@ -199,7 +187,7 @@ func run() -> void:
 		phone.free()
 		phone = PhoneScreen.new()
 		phone._ready()
-		assert_true(_find_button(phone, "New Game") != null, "the plain New Game button must return after Cancel")
+		assert_true(NodeQuery.find_button(phone, "New Game") != null, "the plain New Game button must return after Cancel")
 
 		phone.free()
 	)
@@ -212,7 +200,7 @@ func run() -> void:
 
 		var phone := PhoneScreen.new()
 		phone._ready()
-		_find_button(phone, "Confirm").pressed.emit()
+		NodeQuery.find_button(phone, "Confirm").pressed.emit()
 
 		assert_eq(GameState.state["player"]["cash"], 40, "Confirm must reset player state to a fresh game")
 		assert_eq(GameState.state["currentScreen"], "intro", "Confirm must navigate to intro, same as the old You tab's New Game action")

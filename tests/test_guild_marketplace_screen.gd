@@ -1,14 +1,9 @@
 extends "res://tests/test_base.gd"
 
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 # bugfixes-29: same headless-scene pattern as tests/test_hq_screen.gd --
 # GuildMarketplaceScreen.new() then _ready(), no live tree needed.
-
-
-static func _find_button(root: Node, text: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		if (b as Button).text == text:
-			return b
-	return null
 
 
 static func _find_button_starting_with(root: Node, prefix: String) -> Button:
@@ -23,34 +18,6 @@ static func _find_label(root: Node, text: String) -> Label:
 		if (l as Label).text == text:
 			return l
 	return null
-
-
-# Ticket 114: symbol_row() split what used to be one Label's raw-symbol
-# string into a Label per text part plus a SymbolGlyph glyph (see ui.gd's
-# own comment on symbol_row()) -- reconstructs a row's displayed text by
-# walking its direct children in order, substituting SymbolGlyph.symbol for
-# the glyph's drawn text, with no separator added (call sites already
-# author any needed space into their text parts; the hbox's own pixel gap
-# covers the rest visually).
-static func _effective_text(control: Control) -> String:
-	var out := ""
-	for child in control.get_children():
-		if child is SymbolGlyph:
-			out += (child as SymbolGlyph).symbol
-		elif child is Label:
-			out += (child as Label).text
-	return out
-
-
-static func _label_texts(root: Node) -> Array[String]:
-	var texts: Array[String] = []
-	for l in root.find_children("", "Label", true, false):
-		texts.append((l as Label).text)
-	for g in root.find_children("", "SymbolGlyph", true, false):
-		var parent := (g as SymbolGlyph).get_parent() as Control
-		if parent:
-			texts.append(_effective_text(parent))
-	return texts
 
 
 # Ticket 66: same card-scoping trick as tests/test_lab_screen.gd's
@@ -70,7 +37,7 @@ static func _find_card_content(root: Node, heading_text: String) -> Node:
 	var found: Node = null
 	for g in root.find_children("", "SymbolGlyph", true, false):
 		var row := (g as SymbolGlyph).get_parent() as Control
-		if row and _effective_text(row) == heading_text:
+		if row and NodeQuery.effective_text(row) == heading_text:
 			found = row.get_parent()
 	return found
 
@@ -109,7 +76,7 @@ func run() -> void:
 		var screen := GuildMarketplaceScreen.new()
 		screen._ready()
 
-		assert_true(_find_button(screen, "‹ Back") != null, "back button must still render when locked")
+		assert_true(NodeQuery.find_button(screen, "‹ Back") != null, "back button must still render when locked")
 		assert_true(_find_button_starting_with(screen, "Buy ×") == null, "no buy buttons for a non-member")
 		assert_true(_find_button_starting_with(screen, "Sell ×") == null, "no sell buttons for a non-member")
 
@@ -141,13 +108,13 @@ func run() -> void:
 
 		# timePearl basePrice 120, full 15% spread -> buy 138 (same
 		# round_epsilon(120*1.15) math as the ore case's 69).
-		assert_true(_find_button(screen, "Buy ×1 (£69)") != null, "ore is still tradeable regardless of the consumables gate")
-		assert_true(_find_button(screen, "Buy ×1 (£138)") == null, "consumables must not appear before flags.canSellConsumables is true")
+		assert_true(NodeQuery.find_button(screen, "Buy ×1 (£69)") != null, "ore is still tradeable regardless of the consumables gate")
+		assert_true(NodeQuery.find_button(screen, "Buy ×1 (£138)") == null, "consumables must not appear before flags.canSellConsumables is true")
 
 		GameState.state["flags"]["canSellConsumables"] = true
 		screen._refresh()
 
-		assert_true(_find_button(screen, "Buy ×1 (£138)") != null, "consumables appear once the tutorial gate is open")
+		assert_true(NodeQuery.find_button(screen, "Buy ×1 (£138)") != null, "consumables appear once the tutorial gate is open")
 
 		screen.free()
 	)
@@ -162,8 +129,8 @@ func run() -> void:
 
 		# time basePrice 60, stable barometer, full spread -> buy 69 / sell 51
 		# (same figures tests/test_economy.gd's guild price tests assert).
-		var buy_button := _find_button(screen, "Buy ×1 (£69)")
-		var sell_button := _find_button(screen, "Sell ×1 (£51)")
+		var buy_button := NodeQuery.find_button(screen, "Buy ×1 (£69)")
+		var sell_button := NodeQuery.find_button(screen, "Sell ×1 (£51)")
 		assert_true(buy_button != null, "buy price label must reflect Economy.get_guild_buy_price()")
 		assert_true(sell_button != null, "sell price label must reflect Economy.get_guild_sell_price()")
 
@@ -179,7 +146,7 @@ func run() -> void:
 		var screen := GuildMarketplaceScreen.new()
 		screen._ready()
 
-		var buy_button := _find_button(screen, "Buy ×1 (£69)")
+		var buy_button := NodeQuery.find_button(screen, "Buy ×1 (£69)")
 		assert_true(buy_button != null, "sanity: time's buy button must exist")
 		buy_button.pressed.emit()
 
@@ -199,7 +166,7 @@ func run() -> void:
 		var screen := GuildMarketplaceScreen.new()
 		screen._ready()
 
-		var sell_button := _find_button(screen, "Sell ×1 (£51)")
+		var sell_button := NodeQuery.find_button(screen, "Sell ×1 (£51)")
 		assert_true(sell_button != null, "sanity: time's sell button must exist")
 		sell_button.pressed.emit()
 
@@ -218,7 +185,7 @@ func run() -> void:
 		var screen := GuildMarketplaceScreen.new()
 		screen._ready()
 
-		var buy_button := _find_button(screen, "Buy ×1 (£69)")
+		var buy_button := NodeQuery.find_button(screen, "Buy ×1 (£69)")
 		assert_true(buy_button != null, "sanity: time's buy button must exist")
 		assert_true(buy_button.disabled, "buy must be disabled when cash can't cover the price")
 
@@ -233,7 +200,7 @@ func run() -> void:
 		var screen := GuildMarketplaceScreen.new()
 		screen._ready()
 
-		var sell_button := _find_button(screen, "Sell ×1 (£51)")
+		var sell_button := NodeQuery.find_button(screen, "Sell ×1 (£51)")
 		assert_true(sell_button != null, "sanity: time's sell button must exist")
 		assert_true(sell_button.disabled, "sell must be disabled with none held")
 
@@ -250,8 +217,8 @@ func run() -> void:
 		screen._ready()
 
 		assert_true(_find_label_in_card(screen, TIME_HEADING, "1") != null, "qty label starts at 1")
-		assert_true(_find_button(screen, "Buy ×1 (£69)") != null, "buy button starts phrased for qty 1")
-		assert_true(_find_button(screen, "Sell ×1 (£51)") != null, "sell button starts phrased for qty 1")
+		assert_true(NodeQuery.find_button(screen, "Buy ×1 (£69)") != null, "buy button starts phrased for qty 1")
+		assert_true(NodeQuery.find_button(screen, "Sell ×1 (£51)") != null, "sell button starts phrased for qty 1")
 
 		screen.free()
 	)
@@ -274,8 +241,8 @@ func run() -> void:
 		# stepper starts at 1 (see the ×1 test above), so 3 taps of + land on
 		# 4, not 3: buy £276, sell £204.
 		assert_true(_find_label_in_card(screen, TIME_HEADING, "4") != null, "qty label reflects 3 taps of + landing on 4 (starts at 1)")
-		assert_true(_find_button(screen, "Buy ×4 (£276)") != null, "buy button reflects qty and total")
-		assert_true(_find_button(screen, "Sell ×4 (£204)") != null, "sell button reflects qty and total")
+		assert_true(NodeQuery.find_button(screen, "Buy ×4 (£276)") != null, "buy button reflects qty and total")
+		assert_true(NodeQuery.find_button(screen, "Sell ×4 (£204)") != null, "sell button reflects qty and total")
 
 		screen.free()
 	)
@@ -311,7 +278,7 @@ func run() -> void:
 			_find_button_in_card(screen, TIME_HEADING, "+").pressed.emit()
 
 		assert_true(_find_label_in_card(screen, TIME_HEADING, "2") != null, "qty stops climbing at the affordability ceiling")
-		var buy_button := _find_button(screen, "Buy ×2 (£138)")
+		var buy_button := NodeQuery.find_button(screen, "Buy ×2 (£138)")
 		assert_true(buy_button != null, "buy button reflects the clamped qty")
 		assert_true(not buy_button.disabled, "qty 2 is exactly what's affordable, so buy stays enabled")
 
@@ -332,7 +299,7 @@ func run() -> void:
 			_find_button_in_card(screen, TIME_HEADING, "+").pressed.emit()
 
 		assert_true(_find_label_in_card(screen, TIME_HEADING, "2") != null, "qty stops climbing at the stock ceiling")
-		var sell_button := _find_button(screen, "Sell ×2 (£102)")
+		var sell_button := NodeQuery.find_button(screen, "Sell ×2 (£102)")
 		assert_true(sell_button != null, "sell button reflects the clamped qty")
 		assert_true(not sell_button.disabled, "qty 2 is exactly what's held, so sell stays enabled")
 
@@ -356,9 +323,9 @@ func run() -> void:
 			_find_button_in_card(screen, TIME_HEADING, "+").pressed.emit()
 
 		assert_true(_find_label_in_card(screen, TIME_HEADING, "4") != null, "qty climbed to 4, past the buy ceiling")
-		var buy_button := _find_button(screen, "Buy ×4 (£276)")
+		var buy_button := NodeQuery.find_button(screen, "Buy ×4 (£276)")
 		assert_true(buy_button != null and buy_button.disabled, "buy disables once qty exceeds what's affordable")
-		var sell_button := _find_button(screen, "Sell ×4 (£204)")
+		var sell_button := NodeQuery.find_button(screen, "Sell ×4 (£204)")
 		assert_true(sell_button != null and not sell_button.disabled, "sell stays enabled since qty 4 is within stock")
 
 		screen.free()
@@ -382,7 +349,7 @@ func run() -> void:
 			_find_button_in_card(screen, TIME_HEADING, "+").pressed.emit()
 		assert_true(_find_label_in_card(screen, TIME_HEADING, "10") != null, "qty stepper reaches the stock ceiling (10)")
 
-		_find_button(screen, "Sell ×10 (£510)").pressed.emit()
+		NodeQuery.find_button(screen, "Sell ×10 (£510)").pressed.emit()
 		# cash 100 + 510 = 610, stock now 0 -> buy ceiling floor(610/69) = 8,
 		# sell ceiling 0 -> stepper display re-clamps the still-10 stored qty
 		# down to 8 for this render.
@@ -410,7 +377,7 @@ func run() -> void:
 		for recipe_key in GameData.RECIPES.keys():
 			var recipe: Dictionary = GameData.RECIPES[recipe_key]
 			var heading := "%s%s" % [recipe["symbol"], recipe["name"]]
-			assert_true(_label_texts(screen).has(heading), "%s must render as a goods row" % recipe_key)
+			assert_true(NodeQuery.label_texts_with_symbols(screen).has(heading), "%s must render as a goods row" % recipe_key)
 
 		screen.free()
 	)
@@ -423,7 +390,7 @@ func run() -> void:
 		var screen := GuildMarketplaceScreen.new()
 		screen._ready()
 
-		var back_button := _find_button(screen, "‹ Back")
+		var back_button := NodeQuery.find_button(screen, "‹ Back")
 		assert_true(back_button != null, "screen must render a generic back button")
 		back_button.pressed.emit()
 

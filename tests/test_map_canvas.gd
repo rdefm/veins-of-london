@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const UiSim := preload("res://tests/support/ui_sim.gd")
+
 # Map-animations ticket 02: MapCanvas's seed/claim ring animation is Node/
 # Tween-driven, same as ticket 01's DiscoverRipple, so it isn't exercised
 # here (see tests/test_map_events.gd's own note on why Node-side playback
@@ -45,29 +47,8 @@ extends "res://tests/test_base.gd"
 # graph without the padlock detour.
 
 
-static func _vein(ore_type: String, growth: int) -> Dictionary:
+static func _canvas_vein(ore_type: String, growth: int) -> Dictionary:
 	return { "oreType": ore_type, "growth": growth, "hospitability": { "tier": "fair", "bonuses": [] } }
-
-
-# Ticket 76: two-finger touch/drag fixtures, originally built for the pinch
-# drift regression cases (#23/#48/#76/#88) -- built as real
-# InputEventScreenTouch/Drag and dispatched via _gui_input, same idiom the
-# tap-interleaving cases elsewhere in this file already use. Kept post-ticket-
-# 99 (pinch removal) for the "a two-finger drag no longer zooms" regression
-# case below.
-static func _touch(index: int, pressed: bool, pos: Vector2) -> InputEventScreenTouch:
-	var t := InputEventScreenTouch.new()
-	t.index = index
-	t.pressed = pressed
-	t.position = pos
-	return t
-
-
-static func _drag(index: int, pos: Vector2) -> InputEventScreenDrag:
-	var d := InputEventScreenDrag.new()
-	d.index = index
-	d.position = pos
-	return d
 
 
 # A call that actually changes zoom_level runs _set_zoom -> _apply_zoom,
@@ -100,7 +81,7 @@ func run() -> void:
 	run_case("vein_ring_style_matches_MapStyle_directly_in_ownership_mode", func():
 		var canvas := MapCanvas.new()
 		canvas.filter_mode = "ownership"
-		var vein := _vein("time", 45)  # tier 3
+		var vein := _canvas_vein("time", 45)  # tier 3
 		var tier := Cultivating.value_tier(vein)
 
 		var style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
@@ -114,7 +95,7 @@ func run() -> void:
 
 	run_case("vein_ring_style_matches_MapStyle_directly_in_type_and_growth_modes", func():
 		var canvas := MapCanvas.new()
-		var vein := _vein("fate", 85)  # tier 5
+		var vein := _canvas_vein("fate", 85)  # tier 5
 		var tier := Cultivating.value_tier(vein)
 
 		canvas.filter_mode = "type"
@@ -131,7 +112,7 @@ func run() -> void:
 	run_case("vein_ring_style_works_with_a_faction_owner_colour_and_the_faction_base_width", func():
 		var canvas := MapCanvas.new()
 		canvas.filter_mode = "ownership"
-		var vein := _vein("physics", 5)  # tier 1
+		var vein := _canvas_vein("physics", 5)  # tier 1
 		var faction_colour := Color(GameData.FACTIONS["firm"]["colour"])
 
 		var style: Dictionary = canvas._vein_ring_style(vein, faction_colour, MapCanvas.FACTION_STOP_STROKE)
@@ -199,7 +180,7 @@ func run() -> void:
 		var canvas := MapCanvas.new()
 		canvas.filter_mode = "ownership"
 		var pos := Vector2(123.0, 45.0)
-		var vein := _vein("fate", 45)  # isolates the fill's own geometry
+		var vein := _canvas_vein("fate", 45)  # isolates the fill's own geometry
 		var ore: Dictionary = GameData.ORE_TYPES["fate"]
 		var alpha := MapStyle.stop_alpha("ownership", false, "", "player")
 
@@ -225,7 +206,7 @@ func run() -> void:
 		var canvas := MapCanvas.new()
 		canvas.filter_mode = "ownership"
 		var pos := Vector2(200.0, 10.0)
-		var vein := _vein("fate", 45)  # isolates the fill's own geometry
+		var vein := _canvas_vein("fate", 45)  # isolates the fill's own geometry
 		var ore: Dictionary = GameData.ORE_TYPES["fate"]
 		var alpha := MapStyle.stop_alpha("ownership", false, "", "firm")
 		var faction_colour := Color(GameData.FACTIONS["firm"]["colour"])
@@ -307,13 +288,13 @@ func run() -> void:
 	run_case("draw_terroir_ring_only_for_rich_or_saturated_hospitability", func():
 		var canvas := MapCanvas.new()
 		var pos := Vector2(5.0, 5.0)
-		var style: Dictionary = canvas._vein_ring_style(_vein("time", 50), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		var style: Dictionary = canvas._vein_ring_style(_canvas_vein("time", 50), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
 
 		var fair_spy := DrawSpy.new()
-		canvas._draw_terroir_ring(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, style, _vein("time", 50), 32, fair_spy)
+		canvas._draw_terroir_ring(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, style, _canvas_vein("time", 50), 32, fair_spy)
 		assert_true(fair_spy.calls.is_empty(), "fair (the default) terroir draws no interchange ring")
 
-		var rich_vein := _vein("time", 50)
+		var rich_vein := _canvas_vein("time", 50)
 		rich_vein["hospitability"]["tier"] = "rich"
 		var rich_spy := DrawSpy.new()
 		canvas._draw_terroir_ring(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, style, rich_vein, 32, rich_spy)
@@ -1436,11 +1417,11 @@ func run() -> void:
 		canvas.zoom_level = 1.0
 		_stub_zoom_layers(canvas)
 
-		canvas._gui_input(_touch(0, true, Vector2(100, 100)))
-		canvas._gui_input(_touch(1, true, Vector2(200, 100)))  # start distance 100
+		canvas._gui_input(UiSim.touch(0, true, Vector2(100, 100)))
+		canvas._gui_input(UiSim.touch(1, true, Vector2(200, 100)))  # start distance 100
 
-		canvas._gui_input(_drag(0, Vector2(50, 100)))
-		canvas._gui_input(_drag(1, Vector2(250, 100)))  # new distance 200 -- would have doubled zoom under the old pinch gesture
+		canvas._gui_input(UiSim.drag(0, Vector2(50, 100)))
+		canvas._gui_input(UiSim.drag(1, Vector2(250, 100)))  # new distance 200 -- would have doubled zoom under the old pinch gesture
 
 		assert_eq(canvas.zoom_level, 1.0, "a two-finger drag must no longer touch zoom_level at all, however far the fingers move")
 

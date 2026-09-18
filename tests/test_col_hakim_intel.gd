@@ -1,17 +1,13 @@
 extends "res://tests/test_base.gd"
 
+const EventPlay := preload("res://tests/support/event_play.gd")
+
 # collective1-17, spec.md §5.8/§6.16: Hakim's repeatable post-Act-1 intel --
 # Collective.maybe_trigger_hakim_intel()'s daily-tick roll (unlock gate,
 # 3-day minimum gap, siteCap suppression, fair-or-better tier, Shoreditch/
 # Whitechapel only), the col_hakim_intel event's on_complete (reveal_site,
 # set_hakim_intel_day), and the daily_tick wiring test in
 # tests/test_time_system.gd.
-
-
-func _play_event(event_id: String, context: Dictionary = {}) -> void:
-	Events.start_event(event_id, context)
-	for i in range(GameData.EVENTS[event_id]["cards"].size()):
-		Events.advance()
 
 
 func _sites(district: String, count: int) -> Array:
@@ -161,7 +157,7 @@ func run() -> void:
 			"hasNaturalVein": false,
 		}]
 
-		_play_event("col_hakim_intel", { "site_id": "s1" })
+		EventPlay.play_event("col_hakim_intel", { "site_id": "s1" })
 
 		var event: Variant = MapEvents.current()
 		assert_true(event != null, "on_complete should queue a discover map event")
@@ -180,7 +176,7 @@ func run() -> void:
 		GameState.state["world"]["day"] = 42
 		GameState.state["collective"]["hakimIntelLastDay"] = 0
 
-		_play_event("col_hakim_intel", { "site_id": "s1" })
+		EventPlay.play_event("col_hakim_intel", { "site_id": "s1" })
 
 		assert_eq(GameState.state["collective"]["hakimIntelLastDay"], 42)
 	)
@@ -193,7 +189,7 @@ func run() -> void:
 			"hasNaturalVein": false,
 		}]
 
-		_play_event("col_hakim_intel", { "site_id": "s1" })
+		EventPlay.play_event("col_hakim_intel", { "site_id": "s1" })
 
 		assert_eq(GameState.state["currentScreen"], "phone")
 	)
@@ -214,7 +210,7 @@ func run() -> void:
 
 		var entry: Dictionary = Messages.pending_for("hakim")[0]
 		Messages.resolve_pending(entry["id"])
-		_play_event(entry["kind"], entry["payload"])
+		EventPlay.play_event(entry["kind"], entry["payload"])
 
 		var site: Variant = Sites.find_site(entry["payload"]["site_id"])
 		assert_true(site != null)

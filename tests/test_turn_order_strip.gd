@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 # combat-presentation ticket 02, docs/combat-animation-vision.md §2.4: the
 # turn-order strip's data-mapping (build_entries/faction colour/status
 # lines) and swipe-to-target logic (handle_swipe), tested independently of
@@ -30,22 +32,6 @@ static func _entry_of_type(entries: Array, type: String) -> Dictionary:
 	return {}
 
 
-func _enemy(name: String, hp: int = 20, hp_max: int = 20, koed: bool = false, speed: int = 10, ability = null) -> Dictionary:
-	return {
-		"name": name, "hp": hp, "hpMax": hp_max, "attackMin": 1, "attackMax": 1,
-		"isMugging": false, "weapon": null, "ability": ability, "evadeChance": 0.0,
-		"speed": speed, "koed": koed,
-	}
-
-
-func _ally(name: String, hp: int = 20, hp_max: int = 20, koed: bool = false, speed: int = 10) -> Dictionary:
-	return {
-		"contactId": name.to_lower(), "name": name, "hp": hp, "hpMax": hp_max,
-		"attackMin": 1, "attackMax": 1, "stash": 0, "healAmount": 0, "speed": speed,
-		"koed": koed,
-	}
-
-
 func _combat(enemies: Array, allies: Array = [], context: String = Combat.CONTEXT_RAID, vein_id = null) -> Dictionary:
 	return {
 		"active": true, "context": context, "veinId": vein_id, "enemies": enemies,
@@ -55,7 +41,7 @@ func _combat(enemies: Array, allies: Array = [], context: String = Combat.CONTEX
 	}
 
 
-func _site_with_faction_vein(vein_id: String, faction_id: String) -> Dictionary:
+func _site_held_by(vein_id: String, faction_id: String) -> Dictionary:
 	return {
 		"id": "site1", "district": "shoreditch", "tier": "fair", "oreType": "time",
 		"bonuses": [], "discoveredDay": 1, "claimed": false, "hasNaturalVein": false,
@@ -72,7 +58,7 @@ func run() -> void:
 
 	run_case("build_entries_orders_by_turn_queue_interleaving_both_sides", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Fast Enemy", 20, 20, false, 30)], [_ally("Slow Ally", 20, 20, false, 5)])
+		var combat := _combat([Fixtures.enemy("Fast Enemy", 20, 20, false, 30)], [Fixtures.ally("Slow Ally", 20, 20, false, 5)])
 
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
@@ -85,7 +71,7 @@ func run() -> void:
 
 	run_case("build_entries_collapses_motions_extra_queue_entries_to_one_card_per_combatant", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Enemy")])
+		var combat := _combat([Fixtures.enemy("Enemy")])
 		combat["motionTurns"] = 2
 		combat["motionPower"] = 3  # build_turn_queue() inserts 2 "extra" player entries at this power
 
@@ -103,8 +89,8 @@ func run() -> void:
 	run_case("build_entries_excludes_koed_allies_and_enemies", func():
 		GameState.reset()
 		var combat := _combat(
-			[_enemy("Alive Enemy"), _enemy("Dead Enemy", 0, 20, true)],
-			[_ally("Alive Ally"), _ally("Dead Ally", 0, 20, true)],
+			[Fixtures.enemy("Alive Enemy"), Fixtures.enemy("Dead Enemy", 0, 20, true)],
+			[Fixtures.ally("Alive Ally"), Fixtures.ally("Dead Ally", 0, 20, true)],
 		)
 
 		var strip := TurnOrderStrip.new()
@@ -122,7 +108,7 @@ func run() -> void:
 	run_case("build_entries_player_carries_combatSkill_as_level_enemies_and_allies_carry_none", func():
 		GameState.reset()
 		GameState.state["player"]["combatSkill"] = 3
-		var combat := _combat([_enemy("Enemy")], [_ally("Ally")])
+		var combat := _combat([Fixtures.enemy("Enemy")], [Fixtures.ally("Ally")])
 
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
@@ -136,8 +122,8 @@ func run() -> void:
 
 	run_case("faction_colour_reveals_the_real_faction_for_a_raid_context", func():
 		GameState.reset()
-		GameState.state["world"]["sites"] = [_site_with_faction_vein("fv1", "collective")]
-		var combat := _combat([_enemy("Guard")], [], Combat.CONTEXT_RAID, "fv1")
+		GameState.state["world"]["sites"] = [_site_held_by("fv1", "collective")]
+		var combat := _combat([Fixtures.enemy("Guard")], [], Combat.CONTEXT_RAID, "fv1")
 
 		var strip := TurnOrderStrip.new()
 		var enemy_entry := _entry_of_type(strip.build_entries(combat, GameState.state["player"]), "enemy")
@@ -148,8 +134,8 @@ func run() -> void:
 
 	run_case("faction_colour_reveals_the_real_faction_for_an_event_raid_context_too", func():
 		GameState.reset()
-		GameState.state["world"]["sites"] = [_site_with_faction_vein("fv1", "firm")]
-		var combat := _combat([_enemy("Guard")], [], Combat.CONTEXT_EVENT_RAID, "fv1")
+		GameState.state["world"]["sites"] = [_site_held_by("fv1", "firm")]
+		var combat := _combat([Fixtures.enemy("Guard")], [], Combat.CONTEXT_EVENT_RAID, "fv1")
 
 		var strip := TurnOrderStrip.new()
 		var enemy_entry := _entry_of_type(strip.build_entries(combat, GameState.state["player"]), "enemy")
@@ -160,7 +146,7 @@ func run() -> void:
 	run_case("faction_colour_is_unknown_grey_for_defend_vein_and_home_raid", func():
 		GameState.reset()
 		for context in [Combat.CONTEXT_DEFEND_VEIN, Combat.CONTEXT_HOME_RAID]:
-			var combat := _combat([_enemy("Raider")], [], context)
+			var combat := _combat([Fixtures.enemy("Raider")], [], context)
 			var strip := TurnOrderStrip.new()
 			var enemy_entry := _entry_of_type(strip.build_entries(combat, GameState.state["player"]), "enemy")
 			assert_eq(enemy_entry["factionName"], "UNKNOWN", "%s must always be anonymous -- raid-stealth-anonymity" % context)
@@ -170,7 +156,7 @@ func run() -> void:
 	run_case("faction_colour_is_unknown_grey_for_both_mugging_contexts", func():
 		GameState.reset()
 		for context in [Combat.CONTEXT_MUGGING, Combat.CONTEXT_EVENT_MUGGING]:
-			var combat := _combat([_enemy("Mugger")], [], context)
+			var combat := _combat([Fixtures.enemy("Mugger")], [], context)
 			var strip := TurnOrderStrip.new()
 			var enemy_entry := _entry_of_type(strip.build_entries(combat, GameState.state["player"]), "enemy")
 			assert_eq(enemy_entry["factionName"], "UNKNOWN", "%s muggers have no faction affiliation at all" % context)
@@ -178,8 +164,8 @@ func run() -> void:
 
 	run_case("player_and_ally_cards_never_carry_a_faction_colour_even_during_a_raid", func():
 		GameState.reset()
-		GameState.state["world"]["sites"] = [_site_with_faction_vein("fv1", "collective")]
-		var combat := _combat([_enemy("Guard")], [_ally("Archie")], Combat.CONTEXT_RAID, "fv1")
+		GameState.state["world"]["sites"] = [_site_held_by("fv1", "collective")]
+		var combat := _combat([Fixtures.enemy("Guard")], [Fixtures.ally("Archie")], Combat.CONTEXT_RAID, "fv1")
 
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
@@ -193,7 +179,7 @@ func run() -> void:
 	run_case("collapsed_card_hides_the_exact_hp_number_and_status_lines", func():
 		GameState.reset()
 		GameState.state["player"]["shieldPool"] = 5
-		var combat := _combat([_enemy("Enemy", 15, 20, false, 30)])  # faster than the player -> enemy is focused, player collapses
+		var combat := _combat([Fixtures.enemy("Enemy", 15, 20, false, 30)])  # faster than the player -> enemy is focused, player collapses
 
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
@@ -212,7 +198,7 @@ func run() -> void:
 		# would resolve to the player first (build_turn_queue()'s player>
 		# allies>enemies tie-break), which isn't what this case wants to
 		# exercise.
-		var combat := _combat([_enemy("Guard", 14, 20, false, 30, { "id": "someAbility", "lockedTurns": 2 })])
+		var combat := _combat([Fixtures.enemy("Guard", 14, 20, false, 30, false, { "id": "someAbility", "lockedTurns": 2 })])
 		combat["frozenTurns"] = 3
 
 		var strip := TurnOrderStrip.new()
@@ -232,7 +218,7 @@ func run() -> void:
 
 	run_case("telegraph_text_shows_the_abilitys_id_when_present_and_not_locked", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Guard", 20, 20, false, 30, { "id": "poisonBite", "lockedTurns": 0 })])
+		var combat := _combat([Fixtures.enemy("Guard", 20, 20, false, 30, false, { "id": "poisonBite", "lockedTurns": 0 })])
 
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
@@ -244,7 +230,7 @@ func run() -> void:
 
 	run_case("telegraph_text_is_a_generic_attacking_indicator_when_the_ability_is_locked", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Guard", 20, 20, false, 30, { "id": "poisonBite", "lockedTurns": 2 })])
+		var combat := _combat([Fixtures.enemy("Guard", 20, 20, false, 30, false, { "id": "poisonBite", "lockedTurns": 2 })])
 
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
@@ -256,7 +242,7 @@ func run() -> void:
 
 	run_case("telegraph_text_is_a_generic_attacking_indicator_with_no_ability_at_all_not_a_blank_slot", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Scrapper", 20, 20, false, 30, null)])
+		var combat := _combat([Fixtures.enemy("Scrapper", 20, 20, false, 30, false, null)])
 
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
@@ -271,7 +257,7 @@ func run() -> void:
 
 	run_case("tell_image_is_null_with_no_manifest_tell_entry_so_the_text_label_still_renders", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Territorial Scrapper", 20, 20, false, 30, null)])
+		var combat := _combat([Fixtures.enemy("Territorial Scrapper", 20, 20, false, 30, false, null)])
 
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
@@ -294,7 +280,7 @@ func run() -> void:
 		patched["templates"]["territorialScrapper"]["tell"] = original_combat_visuals["templates"]["default"]["idle"]
 		GameData.COMBAT_VISUALS = patched
 
-		var combat := _combat([_enemy("Territorial Scrapper", 20, 20, false, 30, null)])
+		var combat := _combat([Fixtures.enemy("Territorial Scrapper", 20, 20, false, 30, false, null)])
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
 		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
@@ -316,8 +302,8 @@ func run() -> void:
 		# correctly even though nothing about this fight is currently
 		# resolving Guard's turn.
 		var combat := _combat([
-			_enemy("Scrapper", 20, 20, false, 30, null),
-			_enemy("Guard", 20, 20, false, 5, { "id": "poisonBite", "lockedTurns": 0 }),
+			Fixtures.enemy("Scrapper", 20, 20, false, 30, false, null),
+			Fixtures.enemy("Guard", 20, 20, false, 5, false, { "id": "poisonBite", "lockedTurns": 0 }),
 		])
 
 		var strip := TurnOrderStrip.new()
@@ -338,7 +324,7 @@ func run() -> void:
 	run_case("focused_player_card_shows_shielded_and_motion_status_never_a_telegraph_slot", func():
 		GameState.reset()
 		GameState.state["player"]["shieldPool"] = 5
-		var combat := _combat([_enemy("Enemy", 20, 20, false, 1)])  # slower than the player -> player is focused
+		var combat := _combat([Fixtures.enemy("Enemy", 20, 20, false, 1)])  # slower than the player -> player is focused
 		combat["motionTurns"] = 2
 
 		var strip := TurnOrderStrip.new()
@@ -355,7 +341,7 @@ func run() -> void:
 
 	run_case("damage_tier_and_pulse_follow_hp_fraction_thresholds", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Clean", 100, 100), _enemy("Cracked", 40, 100), _enemy("Ruined", 10, 100)])
+		var combat := _combat([Fixtures.enemy("Clean", 100, 100), Fixtures.enemy("Cracked", 40, 100), Fixtures.enemy("Ruined", 10, 100)])
 
 		var strip := TurnOrderStrip.new()
 		strip.configure(strip.build_entries(combat, GameState.state["player"]), 0, combat, GameState.state["player"], 300.0, Callable())
@@ -374,8 +360,8 @@ func run() -> void:
 	run_case("card_widths_shrink_to_fit_available_width_for_a_full_six_combatant_roster", func():
 		GameState.reset()
 		var combat := _combat(
-			[_enemy("E1"), _enemy("E2"), _enemy("E3")],
-			[_ally("A1"), _ally("A2")],
+			[Fixtures.enemy("E1"), Fixtures.enemy("E2"), Fixtures.enemy("E3")],
+			[Fixtures.ally("A1"), Fixtures.ally("A2")],
 		)
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
@@ -394,7 +380,7 @@ func run() -> void:
 
 	run_case("handle_swipe_reports_the_next_entrys_key_via_the_callback", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Enemy", 20, 20, false, 30)], [_ally("Ally", 20, 20, false, 1)])
+		var combat := _combat([Fixtures.enemy("Enemy", 20, 20, false, 30)], [Fixtures.ally("Ally", 20, 20, false, 1)])
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
 		var received: Array = []
@@ -408,7 +394,7 @@ func run() -> void:
 
 	run_case("handle_swipe_clamps_at_the_last_entry_instead_of_wrapping", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Enemy")])
+		var combat := _combat([Fixtures.enemy("Enemy")])
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
 		assert_eq(entries.size(), 2, "sanity: enemy + player")
@@ -422,7 +408,7 @@ func run() -> void:
 
 	run_case("handle_swipe_to_a_non_enemy_entry_still_reports_its_key", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Enemy", 20, 20, false, 30)])
+		var combat := _combat([Fixtures.enemy("Enemy", 20, 20, false, 30)])
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
 		var received: Array = []
@@ -437,7 +423,7 @@ func run() -> void:
 
 	run_case("build_entries_re_sorts_after_a_kill_mid_fight", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Fast", 20, 20, false, 30), _enemy("Slow", 20, 20, false, 5)])
+		var combat := _combat([Fixtures.enemy("Fast", 20, 20, false, 30), Fixtures.enemy("Slow", 20, 20, false, 5)])
 		var strip := TurnOrderStrip.new()
 
 		var before := strip.build_entries(combat, GameState.state["player"])
@@ -455,7 +441,7 @@ func run() -> void:
 
 	run_case("build_entries_re_sorts_after_a_motion_boosted_extra_turn_appears", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Enemy", 20, 20, false, 15)])  # faster than the player's default speed 10
+		var combat := _combat([Fixtures.enemy("Enemy", 20, 20, false, 15)])  # faster than the player's default speed 10
 
 		var strip := TurnOrderStrip.new()
 		var before := strip.build_entries(combat, GameState.state["player"])
@@ -479,7 +465,7 @@ func run() -> void:
 
 	run_case("set_initial_ghost_sets_the_named_cards_ghost_hp_with_no_tween_needed", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Enemy", 12, 20)])
+		var combat := _combat([Fixtures.enemy("Enemy", 12, 20)])
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
 		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
@@ -492,7 +478,7 @@ func run() -> void:
 
 	run_case("set_initial_ghost_on_an_unknown_key_is_a_silent_no_op", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Enemy", 20, 20)])
+		var combat := _combat([Fixtures.enemy("Enemy", 20, 20)])
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
 		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
@@ -505,7 +491,7 @@ func run() -> void:
 
 	run_case("drain_ghost_to_without_a_live_tree_jumps_straight_to_the_target_value", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Enemy", 8, 20)])
+		var combat := _combat([Fixtures.enemy("Enemy", 8, 20)])
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
 		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
@@ -519,7 +505,7 @@ func run() -> void:
 
 	run_case("ghost_bar_only_draws_the_overlay_once_ghost_hp_is_above_the_real_hp", func():
 		GameState.reset()
-		var combat := _combat([_enemy("Enemy", 20, 20)])
+		var combat := _combat([Fixtures.enemy("Enemy", 20, 20)])
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
 		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())

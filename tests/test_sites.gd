@@ -1,19 +1,11 @@
 extends "res://tests/test_base.gd"
 
+const SeedSearch := preload("res://tests/support/seed_search.gd")
+
 # M1-LONDON-T02 acceptance: tier-weight math (incl. floors), ore-bias rolls,
 # discovery-bonus rolls (incl. natural-vein at 5%), siteCap re-roll
 # restricted to truly-unclaimed sites (worst-tier-first, oldest breaks
 # ties), and attempt_seed's tierMod/clamp table.
-
-
-static func _find_seed_for(max_tries: int, fn: Callable) -> int:
-	for seed in range(max_tries):
-		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
-		Rng.set_seed(seed)
-		if fn.call():
-			return seed
-		GameState.state = snapshot
-	return -1
 
 
 static func _make_site(id: String, district: String, tier: String, discovered_day: int, claimed: bool = false, faction_claimed: bool = false, ore_type: String = "time", bonuses: Array = [], has_natural_vein: bool = false) -> Dictionary:
@@ -188,12 +180,12 @@ func run() -> void:
 	)
 
 	run_case("roll_discovery_bonuses_saturated_natural_vein_at_5_percent", func():
-		var hit_seed := _find_seed_for(300, func():
+		var hit_seed := SeedSearch.find_seed_for(300, func():
 			return Sites.roll_discovery_bonuses("saturated")["hasNaturalVein"]
 		)
 		assert_true(hit_seed != -1, "should find a natural-vein hit within 300 tries at 5%")
 
-		var miss_seed := _find_seed_for(300, func():
+		var miss_seed := SeedSearch.find_seed_for(300, func():
 			return not Sites.roll_discovery_bonuses("saturated")["hasNaturalVein"]
 		)
 		assert_true(miss_seed != -1, "should also find a natural-vein miss within 300 tries")
@@ -498,7 +490,7 @@ func run() -> void:
 	)
 
 	run_case("attempt_seed_success_claims_site_and_creates_a_vein_with_hospitability", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			var site := _make_site("s1", "shoreditch", "fair", 1, false, false, "time", ["yield"])
 			GameState.state["world"]["sites"] = [site]
@@ -536,7 +528,7 @@ func run() -> void:
 	)
 
 	run_case("attempt_seed_failure_leaves_site_unclaimed_but_still_spends_ore", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			var site := _make_site("s1", "shoreditch", "poor", 1, false, false, "time")
 			GameState.state["world"]["sites"] = [site]
@@ -566,7 +558,7 @@ func run() -> void:
 	)
 
 	run_case("attempt_seed_natural_vein_grants_a_second_free_lv1_vein", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			var site := _make_site("s1", "shoreditch", "saturated", 1, false, false, "life", ["vigour", "wildCeiling", "yield"], true)
 			GameState.state["world"]["sites"] = [site]
@@ -589,7 +581,7 @@ func run() -> void:
 	)
 
 	run_case("attempt_seed_hospitability_is_not_aliased_across_site_and_veins", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			var site := _make_site("s1", "shoreditch", "saturated", 1, false, false, "life", ["vigour", "wildCeiling", "yield"], true)
 			GameState.state["world"]["sites"] = [site]
@@ -694,7 +686,7 @@ func run() -> void:
 	)
 
 	run_case("roll_npc_claims_hit_names_a_faction_and_seeds_an_instant_vein", func():
-		var seed := _find_seed_for(500, func():
+		var seed := SeedSearch.find_seed_for(500, func():
 			GameState.reset()
 			var site := _make_site("s1", "camden", "saturated", 1)
 			GameState.state["world"]["sites"] = [site]
@@ -749,7 +741,7 @@ func run() -> void:
 	)
 
 	run_case("roll_faction_vein_growth_prunes_a_growth_85_plus_vein_back_to_40_when_it_fires", func():
-		var seed := _find_seed_for(200, func():
+		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			var vein := _faction_vein(90, 1)
 			GameState.state["world"]["sites"] = [_site_with_faction_vein(vein)]

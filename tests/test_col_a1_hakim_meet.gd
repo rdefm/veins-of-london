@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const EventPlay := preload("res://tests/support/event_play.gd")
+
 # collective1-13, spec.md §6.11: S11 (col_a1_hakim_meet), Hakim's
 # introduction -- the yard. Drives the real event JSON card-by-card, same
 # choice-driving idiom tests/test_col_a1_nadia_meet.gd uses for S8, plus the
@@ -7,36 +9,6 @@ extends "res://tests/test_base.gd"
 # delivery, and the grant_contact_vein on_complete op that hands Hakim's vein
 # to the player and gives col_a1_hakim_rescue (activated back at S4, ticket
 # 08) something real to read.
-
-
-# Drives an event up to (not including) its choice card.
-func _play_to_choice(event_id: String) -> int:
-	Events.start_event(event_id)
-	var cards: Array = GameData.EVENTS[event_id]["cards"]
-	var choice_index := -1
-	for i in range(cards.size()):
-		if cards[i]["type"] == "choice":
-			choice_index = i
-			break
-	for i in range(choice_index):
-		Events.advance()
-	return choice_index
-
-
-func _finish_after_choice(event_id: String, choice_index: int) -> void:
-	var remaining: int = GameData.EVENTS[event_id]["cards"].size() - choice_index
-	for i in range(remaining):
-		Events.advance()
-
-
-# col_a1_hakim_meet's single choice card carries no effects either way (both
-# branches are cosmetic dialogue only, per spec §6.11) -- plays the whole
-# event through choice 0 ("I'll do it") for cases that only care about
-# on_complete.
-func _play_through_choice(event_id: String) -> void:
-	var choice_index := _play_to_choice(event_id)
-	Events.choose(0)
-	_finish_after_choice(event_id, choice_index)
 
 
 func _pin_ids() -> Array:
@@ -60,7 +32,7 @@ func run() -> void:
 			if pin["eventId"] == "col_a1_hakim_meet":
 				assert_eq(pin["district"], "whitechapel")
 
-		_play_through_choice("col_a1_hakim_meet")
+		EventPlay.play_through_choice("col_a1_hakim_meet")
 		assert_true(GameState.state["flags"]["colA1HakimMet"])
 
 		assert_true(not _pin_ids().has("col_a1_hakim_meet"), "hidden again once colA1HakimMet")
@@ -74,7 +46,7 @@ func run() -> void:
 			GameState.state["flags"]["colA1HubReached"] = true
 			var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 
-			var choice_index := _play_to_choice("col_a1_hakim_meet")
+			var choice_index := EventPlay.play_to_choice("col_a1_hakim_meet")
 			Events.choose(choice_index_to_pick)
 			assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before, "choice %d must not move relation" % choice_index_to_pick)
 
@@ -82,7 +54,7 @@ func run() -> void:
 			var next_card: Dictionary = Events.current_card()
 			assert_eq(next_card["type"], "resolution")
 
-			_finish_after_choice("col_a1_hakim_meet", choice_index + 1)
+			EventPlay.finish_after_choice("col_a1_hakim_meet", choice_index + 1)
 			assert_true(GameState.state["flags"]["colA1HakimMet"])
 	)
 
@@ -93,7 +65,7 @@ func run() -> void:
 		GameState.state["flags"]["colA1HubReached"] = true
 		var veins_before: int = GameState.state["player"]["veins"].size()
 
-		_play_through_choice("col_a1_hakim_meet")
+		EventPlay.play_through_choice("col_a1_hakim_meet")
 
 		assert_true(GameState.state["flags"]["colA1HakimMet"])
 		assert_eq(GameState.state["player"]["veins"].size(), veins_before + 1, "grant_contact_vein adds exactly one vein")
@@ -127,7 +99,7 @@ func run() -> void:
 		GameState.state["flags"]["colA1HubReached"] = true
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
 
-		_play_through_choice("col_a1_hakim_meet")
+		EventPlay.play_through_choice("col_a1_hakim_meet")
 
 		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before)
 	)
@@ -140,7 +112,7 @@ func run() -> void:
 		Objectives.refresh()
 		assert_true(GameState.state["objectives"]["col_a1_hakim_rescue"]["active"], "colA1HubReached is col_a1_hakim_rescue's activateFlag (ticket 08)")
 
-		_play_through_choice("col_a1_hakim_meet")
+		EventPlay.play_through_choice("col_a1_hakim_meet")
 		Objectives.refresh()
 		assert_true(not GameState.state["flags"].get("colA1HakimRescued", false), "growth 18 is well short of the threshold 60")
 
