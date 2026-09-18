@@ -73,6 +73,15 @@ Identical discipline to the prototype:
 7. If you add, delete, rename, or repurpose a file under `systems/`, `screens/`, `scenes/`, `autoload/`, or `data/` — or change what a file is responsible for — update `CODEMAP.md` in the same commit. Stale map entries cost more tokens later than the update costs now. CODEMAP entries describe **current state only** — what a file does now, in ~1-2 sentences — never a running log of which ticket did what. Don't write "ticket 21: adds X" or "27-procurement-in-manage: the sheet's Y is gone, now Z" — just describe what the file does today. History already lives in git log and in `_COMPLETED` ticket files under `.scratch/`; CODEMAP is a cheap lookup table, not a changelog.
 8. Comment + CODEMAP token diet: each CODEMAP row stays under 400 characters (split an overgrown row into a shorter row plus a linked doc/ADR instead). Comments in code (`.gd` files) describe what the code does *now* — cite a spec/vision doc's `§` header for rationale when the *why* isn't obvious, but never narrate ticket numbers, what a thing "used to" be, or what was deleted/removed/renamed; that history lives in git log. `scripts/lint_tokens.sh` (run by `scripts/check_all.sh`) enforces both rules against `scripts/lint_tokens_allowlist.txt`, seeded with pre-existing violations — don't add a file to that allowlist for new work; fix the comment or row instead.
 
+## Token efficiency
+
+- Grep/Glob for the symbol or section before Read. Don't Read a whole file to find something in it.
+- REFERENCE.md, CONTEXT.md, milestone docs: grep the needed section/table, don't Read the whole doc.
+- Long output (test runs, godot logs): redirect to a file, grep for FAIL/ERROR, don't dump the full log into context.
+- Diagnostic or log-heavy work (test hangs, broad greps): use a fork subagent so raw output stays out of the main thread.
+- Touching more than 2 files: run `scripts/check_all.sh` once instead of per-file `check_runner.gd` calls.
+- Broad Grep searches: set `head_limit` explicitly instead of relying on the default dump.
+
 ## Environment setup (sandbox or fresh machine)
 
 If `godot` is not on PATH, run `scripts/setup_godot.sh` (M0-T00 creates it), which downloads the Godot 4.7 headless Linux binary from the official GitHub release (`godotengine/godot` releases, asset `Godot_v4.7-stable_linux.x86_64.zip`), unzips it to `.godot-bin/`, and symlinks it as `godot`. All test and check scripts must work with this binary. Never require the editor GUI for any verification step.

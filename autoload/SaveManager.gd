@@ -393,6 +393,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		for key in ["cash", "hp", "hpMax", "attackMin", "attackMax", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "stealthSkill", "stealthXP", "combatSkill", "combatXP", "shieldPool", "healingSalveDaysLeft", "healingSalveDailyAmount"]:
 			_int_key(player, key)
 		_int_dict_values(player.get("orichalchum", {}))
+		_int_dict_values(player.get("craftedCounts", {}))
 		_migrate_inventory(player.get("inventory", {}))
 		# player.stash mirrors orichalchum/inventory's own shapes one level
 		# down -- same int-restore/tier-migrate calls, scoped to the stash
@@ -509,15 +510,18 @@ func _restore_int_types(state: Dictionary) -> void:
 		_restore_combat_prototype_int_types(state["combatPrototype"])
 
 	# state.objectives[*].progress is a free-form bag (systems/objectives.gd)
-	# -- only its two known numeric shapes need restoring (activatedDay, and
-	# traded_with_faction's baseline snapshot).
+	# -- only its known numeric shapes need restoring (activatedDay,
+	# traded_with_faction's baseline snapshot, alarm_defend_wins' win
+	# counter, items_crafted_set's crafted-count baseline).
 	if state.has("objectives"):
 		for objective in state["objectives"].values():
 			var progress: Dictionary = objective.get("progress", {})
 			_int_key(progress, "activatedDay")
+			_int_key(progress, "defendWinCount")
 			if progress.has("baseline"):
 				_int_key(progress["baseline"], "units")
 				_int_key(progress["baseline"], "transactions")
+			_int_dict_values(progress.get("craftedBaseline", {}))
 
 	if state.get("jamesJob") != null:
 		var job: Dictionary = state["jamesJob"]

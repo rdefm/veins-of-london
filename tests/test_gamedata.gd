@@ -273,6 +273,65 @@ func run() -> void:
 		assert_true(not found, "activateFlag: null (always active) should not be flagged as invalid")
 	)
 
+	run_case("corrupt_fixture_objective_faction_vein_seeded_count_unknown_faction_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["objectives"]["_test"] = {
+			"id": "_test", "title": "t", "detail": "d", "type": "faction_vein_seeded_count",
+			"params": { "factionId": "not_a_real_faction", "minCount": 1 },
+			"activateFlag": "f1", "completeFlag": "f2", "questline": "collective",
+		}
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("not_a_real_faction"):
+				found = true
+		assert_true(found, "faction_vein_seeded_count referencing an unknown faction should be flagged")
+	)
+
+	run_case("corrupt_fixture_objective_items_crafted_set_unknown_recipe_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["objectives"]["_test"] = {
+			"id": "_test", "title": "t", "detail": "d", "type": "items_crafted_set",
+			"params": { "recipeKeys": ["not_a_real_recipe"], "minEach": 1 },
+			"activateFlag": "f1", "completeFlag": "f2", "questline": "collective",
+		}
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("not_a_real_recipe"):
+				found = true
+		assert_true(found, "items_crafted_set referencing an unknown recipe should be flagged")
+	)
+
+	run_case("corrupt_fixture_objective_items_crafted_set_empty_recipeKeys_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["objectives"]["_test"] = {
+			"id": "_test", "title": "t", "detail": "d", "type": "items_crafted_set",
+			"params": { "recipeKeys": [], "minEach": 1 },
+			"activateFlag": "f1", "completeFlag": "f2", "questline": "collective",
+		}
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("_test") and e.contains("recipeKeys"):
+				found = true
+		assert_true(found, "items_crafted_set with an empty recipeKeys array should be flagged")
+	)
+
+	run_case("corrupt_fixture_objective_alarm_defend_wins_missing_minCount_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["objectives"]["_test"] = {
+			"id": "_test", "title": "t", "detail": "d", "type": "alarm_defend_wins",
+			"params": {}, "activateFlag": "f1", "completeFlag": "f2", "questline": "collective",
+		}
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("missing param 'minCount'"):
+				found = true
+		assert_true(found, "alarm_defend_wins missing minCount should be flagged")
+	)
+
 	run_case("corrupt_fixture_missing_district_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
 		corrupted["districts"].erase("soho")

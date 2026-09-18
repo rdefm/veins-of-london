@@ -401,7 +401,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_hq_visuals(t.get("hq_visuals", {}), t.get("palette", {}), errors)
 	_validate_constants(t.get("time_blocks", []), t.get("contacts_defaults", {}), errors)
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
-	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), errors)
+	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), t.get("recipes", {}), errors)
 	_validate_collective_barks(t.get("collective_barks", {}), errors)
 
 	return errors
@@ -1130,6 +1130,7 @@ func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[Strin
 # types inspect world/faction/vein state.
 const OBJECTIVE_TYPES: Array[String] = [
 	"sites_discovered_matching", "traded_with_faction", "supplied_to_contact", "vein_sold_to_faction", "vein_growth_above", "flag_true",
+	"alarm_defend_wins", "faction_vein_seeded_count", "items_crafted_set",
 ]
 const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"sites_discovered_matching": ["requireEachOreType", "minTier", "unclaimed"],
@@ -1138,10 +1139,13 @@ const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"vein_sold_to_faction": ["factionId", "oreType"],
 	"vein_growth_above": ["veinIdStatePath", "threshold"],
 	"flag_true": [],
+	"alarm_defend_wins": ["minCount"],
+	"faction_vein_seeded_count": ["factionId", "minCount"],
+	"items_crafted_set": ["recipeKeys", "minEach"],
 }
 
 
-func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_types: Dictionary, site_tier_order: Array, errors: Array[String]) -> void:
+func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_types: Dictionary, site_tier_order: Array, recipes: Dictionary, errors: Array[String]) -> void:
 	for key in objectives.keys():
 		var entry = objectives[key]
 		_require_keys(entry, ["id", "title", "detail", "type", "params", "activateFlag", "completeFlag", "questline"], "objectives.%s" % key, errors)
@@ -1198,6 +1202,18 @@ func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_type
 			"vein_growth_above":
 				if typeof(params.get("veinIdStatePath")) != TYPE_STRING:
 					errors.append("objectives.%s: veinIdStatePath must be a string" % key)
+			"faction_vein_seeded_count":
+				var seed_faction_id = params.get("factionId")
+				if not factions.is_empty() and not factions.has(seed_faction_id):
+					errors.append("objectives.%s: factionId '%s' is not a known faction" % [key, seed_faction_id])
+			"items_crafted_set":
+				var recipe_keys = params.get("recipeKeys")
+				if typeof(recipe_keys) != TYPE_ARRAY or recipe_keys.is_empty():
+					errors.append("objectives.%s: recipeKeys must be a non-empty array" % key)
+				elif not recipes.is_empty():
+					for recipe_key in recipe_keys:
+						if not recipes.has(recipe_key):
+							errors.append("objectives.%s: recipeKeys '%s' is not a known recipe" % [key, recipe_key])
 
 
 func _require_keys(entry: Dictionary, keys: Array, context: String, errors: Array[String]) -> void:

@@ -175,6 +175,36 @@ func run() -> void:
 		assert_eq(GameState.state["modal"]["data"]["success"], true, "modal data reflects the outcome")
 	)
 
+	run_case("attempt_craft_success_increments_craftedCounts_failure_does_not", func():
+		var success_seed := -1
+		for candidate in range(200):
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			GameState.state["player"]["craftingSkill"] = 5
+			Rng.set_seed(candidate)
+			if Crafting.attempt_craft("timePearl").get("success", false):
+				success_seed = candidate
+				break
+		assert_true(success_seed != -1, "should find a successful craft roll within 200 tries")
+		assert_eq(GameState.state["player"]["craftedCounts"]["timePearl"], 1, "a successful craft increments craftedCounts")
+
+		Rng.set_seed(success_seed)
+		Crafting.attempt_craft("timePearl")
+		assert_eq(GameState.state["player"]["craftedCounts"]["timePearl"], 2, "repeated successes accumulate")
+
+		var failure_seed := -1
+		for candidate in range(200):
+			GameState.reset()
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			GameState.state["player"]["craftingSkill"] = 1
+			Rng.set_seed(candidate)
+			if not Crafting.attempt_craft("timePearl").get("success", true):
+				failure_seed = candidate
+				break
+		assert_true(failure_seed != -1, "should find a failed craft roll within 200 tries")
+		assert_eq(GameState.state["player"]["craftedCounts"].get("timePearl", 0), 0, "a failed craft must not increment craftedCounts")
+	)
+
 	run_case("attempt_craft_failure_grants_partial_xp", func():
 		var seed := -1
 		for candidate in range(200):

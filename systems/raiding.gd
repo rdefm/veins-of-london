@@ -633,6 +633,9 @@ static func leave_undefended(vein_id: String, notification_id: String) -> bool:
 static func resolve_defend_outcome(won: bool) -> void:
 	var outcome: Variant = GameState.state["world"]["activeDefendRaid"]
 	GameState.state["world"]["activeDefendRaid"] = null
+	if won and outcome != null:
+		Objectives.record_alarm_defend_win(outcome["veinId"])
+	Objectives.refresh()
 	if won or outcome == null:
 		return
 	resolve_raid_outcome(outcome)

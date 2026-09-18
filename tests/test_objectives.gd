@@ -221,6 +221,125 @@ func run() -> void:
 		GameData.OBJECTIVES = original
 	)
 
+	# ── alarm_defend_wins ────────────────────────────────────────────────
+
+	run_case("alarm_defend_wins_counts_only_wins_against_the_targeted_vein", func():
+		GameState.reset()
+		var original := Fixtures.install_objectives({
+			"t1": _objective("t1", "alarm_defend_wins", { "minCount": 2 }),
+		})
+		GameState.state["collective"]["nadiaDefendVeinId"] = "v1"
+		GameState.state["flags"]["testActive"] = true
+		Objectives.refresh()
+
+		Objectives.record_alarm_defend_win("v_other")
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "a win against a different vein must not count")
+
+		Objectives.record_alarm_defend_win("v1")
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "1 of 2 required wins")
+
+		Objectives.record_alarm_defend_win("v1")
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "2 of 2 required wins against the targeted vein")
+		GameData.OBJECTIVES = original
+	)
+
+	run_case("alarm_defend_wins_ignores_a_win_before_activation", func():
+		GameState.reset()
+		var original := Fixtures.install_objectives({
+			"t1": _objective("t1", "alarm_defend_wins", { "minCount": 1 }),
+		})
+		GameState.state["collective"]["nadiaDefendVeinId"] = "v1"
+		# Not active yet -- record_alarm_defend_win() checks runtime.active itself.
+		Objectives.record_alarm_defend_win("v1")
+
+		GameState.state["flags"]["testActive"] = true
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "a win recorded before activation must not retroactively count")
+		GameData.OBJECTIVES = original
+	)
+
+	# ── faction_vein_seeded_count ────────────────────────────────────────
+
+	run_case("faction_vein_seeded_count_only_counts_veins_seeded_since_activation", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 10
+		var original := Fixtures.install_objectives({
+			"t1": _objective("t1", "faction_vein_seeded_count", { "factionId": "collective", "minCount": 2 }),
+		})
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "emotion", "fair", false, _faction_vein_sold("collective", "emotion", 3, false))]
+		GameState.state["flags"]["testActive"] = true
+		Objectives.refresh()  # activates at day 10; s1's claimedOnDay 3 predates it
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "one pre-activation vein alone doesn't count")
+
+		GameState.state["world"]["sites"].append(Fixtures.site("s2", "physics", "fair", false, _faction_vein_sold("collective", "physics", 10, false)))
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "still only 1 since activation, minCount is 2")
+
+		GameState.state["world"]["sites"].append(Fixtures.site("s3", "life", "fair", false, _faction_vein_sold("collective", "life", 10, false)))
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "2 veins seeded since activation now meets minCount")
+		GameData.OBJECTIVES = original
+	)
+
+	run_case("faction_vein_seeded_count_ignores_a_different_faction", func():
+		GameState.reset()
+		var original := Fixtures.install_objectives({
+			"t1": _objective("t1", "faction_vein_seeded_count", { "factionId": "collective", "minCount": 1 }),
+		})
+		GameState.state["flags"]["testActive"] = true
+		Objectives.refresh()
+
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "emotion", "fair", false, _faction_vein_sold("firm", "emotion", 1, false))]
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "a vein seeded for a different faction doesn't count")
+		GameData.OBJECTIVES = original
+	)
+
+	# ── items_crafted_set ────────────────────────────────────────────────
+
+	run_case("items_crafted_set_requires_at_least_minEach_of_every_recipe_since_activation", func():
+		GameState.reset()
+		var original := Fixtures.install_objectives({
+			"t1": _objective("t1", "items_crafted_set", { "recipeKeys": ["blast", "shield", "pansPrank"], "minEach": 1 }),
+		})
+		GameState.state["flags"]["testActive"] = true
+		Objectives.refresh()
+
+		GameState.state["player"]["craftedCounts"]["blast"] = 1
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "1 of 3 recipes crafted")
+
+		GameState.state["player"]["craftedCounts"]["shield"] = 1
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "2 of 3 recipes crafted must not complete early")
+
+		GameState.state["player"]["craftedCounts"]["pansPrank"] = 1
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "all 3 required recipes now crafted at least once")
+		GameData.OBJECTIVES = original
+	)
+
+	run_case("items_crafted_set_ignores_crafts_that_predate_activation", func():
+		GameState.reset()
+		GameState.state["player"]["craftedCounts"] = { "blast": 1, "shield": 1, "pansPrank": 1 }
+		var original := Fixtures.install_objectives({
+			"t1": _objective("t1", "items_crafted_set", { "recipeKeys": ["blast", "shield", "pansPrank"], "minEach": 1 }),
+		})
+		GameState.state["flags"]["testActive"] = true
+		Objectives.refresh()  # baseline snapshot captures the pre-existing counts
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "crafts from before activation must not satisfy the checklist")
+
+		GameState.state["player"]["craftedCounts"]["blast"] += 1
+		GameState.state["player"]["craftedCounts"]["shield"] += 1
+		GameState.state["player"]["craftedCounts"]["pansPrank"] += 1
+		Objectives.refresh()
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "one fresh craft of each since activation completes it")
+		GameData.OBJECTIVES = original
+	)
+
 	# ── engine guarantees: idempotency, no awards ────────────────────────
 
 	run_case("refresh_is_idempotent", func():
@@ -382,6 +501,33 @@ func run() -> void:
 		GameState.state["flags"]["testActive"] = true
 		TimeSystem.daily_tick()
 		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "TimeSystem.daily_tick() should trigger a refresh")
+		GameData.OBJECTIVES = original
+	)
+
+	run_case("crafting_success_calls_objectives_refresh", func():
+		var original: Dictionary = GameData.OBJECTIVES
+		var test_objectives := { "t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }) }
+		var seed := SeedSearch.find_seed_for(200, func():
+			GameState.reset()
+			GameData.OBJECTIVES = test_objectives
+			GameState.state["flags"]["testActive"] = true
+			GameState.state["player"]["orichalchum"]["time"] = 100
+			return Crafting.attempt_craft("timePearl").get("success", false)
+		)
+		assert_true(seed != -1, "should find a successful craft within 200 tries")
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "a successful Crafting.attempt_craft() should trigger a refresh")
+		GameData.OBJECTIVES = original
+	)
+
+	run_case("resolve_defend_outcome_calls_objectives_refresh", func():
+		GameState.reset()
+		var original := Fixtures.install_objectives({
+			"t1": _objective("t1", "sites_discovered_matching", { "requireEachOreType": [], "minTier": "poor", "unclaimed": true }),
+		})
+		GameState.state["flags"]["testActive"] = true
+		GameState.state["world"]["activeDefendRaid"] = { "attackerId": "firm", "veinId": "v1", "siteId": "s1", "success": true }
+		Raiding.resolve_defend_outcome(true)
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "Raiding.resolve_defend_outcome() should trigger a refresh")
 		GameData.OBJECTIVES = original
 	)
 

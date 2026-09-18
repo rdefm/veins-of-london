@@ -145,3 +145,35 @@ func run() -> void:
 
 		GameData.OBJECTIVES = original
 	)
+
+	# ── Collective ledger (Act 2 §5.2) ───────────────────────────────────
+
+	run_case("collective_ledger_is_empty_until_colA2Stage_reaches_hardening", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "life", "fair", false, Factions.create_faction_vein("collective", Fixtures.site("s1", "life", "fair"), 30))]
+		assert_eq(Todo.get_collective_ledger(), [], "no colA2Stage flag at all should read as not unlocked")
+
+		GameState.state["flags"]["colA2Stage"] = "call"
+		assert_eq(Todo.get_collective_ledger(), [], "an earlier colA2Stage value should still hide the ledger")
+
+		GameState.state["flags"]["colA2Stage"] = "hardening"
+		assert_eq(Todo.get_collective_ledger().size(), 1, "colA2Stage 'hardening' unlocks the ledger")
+	)
+
+	run_case("collective_ledger_lists_only_collective_owned_faction_veins", func():
+		GameState.reset()
+		GameState.state["flags"]["colA2Stage"] = "hardening"
+		var collective_vein := Factions.create_faction_vein("collective", Fixtures.site("s1", "physics", "rich"), 30)
+		var firm_vein := Factions.create_faction_vein("firm", Fixtures.site("s2", "life", "fair"), 30)
+		GameState.state["world"]["sites"] = [
+			Fixtures.site("s1", "physics", "rich", false, collective_vein),
+			Fixtures.site("s2", "life", "fair", false, firm_vein),
+			Fixtures.site("s3", "time", "fair"),
+		]
+
+		var rows := Todo.get_collective_ledger()
+		assert_eq(rows.size(), 1, "only the Collective-owned faction vein should appear, not the Firm's vein or the unclaimed site")
+		assert_eq(rows[0]["district"], GameData.DISTRICTS["shoreditch"]["name"])
+		assert_eq(rows[0]["oreType"], GameData.ORE_TYPES["physics"]["name"])
+		assert_eq(rows[0]["security"], Cultivating.security_label(collective_vein))
+	)

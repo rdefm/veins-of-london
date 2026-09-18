@@ -152,7 +152,10 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 	if success:
 		var power = effect_power(recipe_key, skill)
 		inventory_add(recipe_key, quality_tier(recipe_key, skill))
+		var counts: Dictionary = player["craftedCounts"]
+		counts[recipe_key] = int(counts.get(recipe_key, 0)) + 1
 		award_crafting_xp(r["xpReward"])
+		Objectives.refresh()
 		Modal.open("craft_result", { "success": true, "recipeKey": recipe_key, "power": power })
 		return { "ok": true, "success": true, "recipeKey": recipe_key, "power": power }
 	else:

@@ -13,6 +13,9 @@ const TYPE_SUPPLIED_TO_CONTACT := "supplied_to_contact"
 const TYPE_VEIN_SOLD_TO_FACTION := "vein_sold_to_faction"
 const TYPE_VEIN_GROWTH_ABOVE := "vein_growth_above"
 const TYPE_FLAG_TRUE := "flag_true"
+const TYPE_ALARM_DEFEND_WINS := "alarm_defend_wins"
+const TYPE_FACTION_VEIN_SEEDED_COUNT := "faction_vein_seeded_count"
+const TYPE_ITEMS_CRAFTED_SET := "items_crafted_set"
 
 
 # The only entry point, called explicitly at action boundaries across
@@ -54,6 +57,8 @@ static func _mark_activated(def: Dictionary, progress: Dictionary) -> void:
 		progress["baseline"] = { "units": current["units"], "transactions": current["transactions"] }
 	elif def["type"] == TYPE_SUPPLIED_TO_CONTACT:
 		progress["delivered"] = 0
+	elif def["type"] == TYPE_ITEMS_CRAFTED_SET:
+		progress["craftedBaseline"] = GameState.deep_copy(GameState.state["player"]["craftedCounts"])
 
 
 static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
@@ -71,6 +76,12 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return _eval_vein_growth_above(params)
 		TYPE_FLAG_TRUE:
 			return _eval_flag_true(def)
+		TYPE_ALARM_DEFEND_WINS:
+			return int(progress.get("defendWinCount", 0)) >= int(params["minCount"])
+		TYPE_FACTION_VEIN_SEEDED_COUNT:
+			return _eval_faction_vein_seeded_count(params, progress)
+		TYPE_ITEMS_CRAFTED_SET:
+			return _eval_items_crafted_set(params, progress)
 		_:
 			return false
 
@@ -156,3 +167,65 @@ static func _eval_vein_growth_above(params: Dictionary) -> bool:
 # checkpoints, set directly by an event's set_flag op.
 static func _eval_flag_true(def: Dictionary) -> bool:
 	return GameState.state["flags"].get(def["completeFlag"], false)
+
+
+# Called from Raiding.resolve_defend_outcome() on every win, not just for
+# objective ids that exist -- generic over any active alarm_defend_wins
+# objective, same "loop the type" shape _refresh_one() itself uses. The
+# type's contract (col_a2_nadia_ledger, spec §5.1) is scoped to one named
+# vein rather than any Collective vein, so this reads state.collective.
+# nadiaDefendVeinId directly instead of taking a param -- the type has
+# exactly one consumer today and .get() degrades safely (no match, no
+# count) whenever that field is absent from state.
+static func record_alarm_defend_win(vein_id: String) -> void:
+	var target: Variant = GameState.state["collective"].get("nadiaDefendVeinId")
+	if vein_id != target:
+		return
+	var objectives: Dictionary = GameState.state["objectives"]
+	for id in GameData.OBJECTIVES.keys():
+		var def: Dictionary = GameData.OBJECTIVES[id]
+		if def["type"] != TYPE_ALARM_DEFEND_WINS:
+			continue
+		var runtime: Dictionary = objectives.get(id, {})
+		if not runtime.get("active", false) or runtime.get("complete", false):
+			continue
+		var progress: Dictionary = runtime["progress"]
+		progress["defendWinCount"] = int(progress.get("defendWinCount", 0)) + 1
+		runtime["progress"] = progress
+		objectives[id] = runtime
+
+
+# factionId, minCount: sites whose factionVein belongs to factionId and was
+# claimed on/after activation -- same claimedOnDay-vs-activatedDay shape as
+# _eval_vein_sold_to_faction, generalised to a count. No soldByPlayer filter
+# (unlike vein_sold_to_faction): any new vein of that faction counts, player
+# sale or NPC claim alike, matching the type's literal contract.
+static func _eval_faction_vein_seeded_count(params: Dictionary, progress: Dictionary) -> bool:
+	var activated_day: int = progress.get("activatedDay", 0)
+	var count := 0
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein == null:
+			continue
+		if vein["factionId"] != params["factionId"]:
+			continue
+		if vein["claimedOnDay"] < activated_day:
+			continue
+		count += 1
+	return count >= int(params["minCount"])
+
+
+# recipeKeys, minEach: at least minEach successful crafts of every named
+# recipe since activation. Diffs state.player.craftedCounts (Crafting.
+# attempt_craft()'s success branch) against the baseline _mark_activated
+# snapshot, so crafts from before this objective activated never
+# retroactively satisfy it.
+static func _eval_items_crafted_set(params: Dictionary, progress: Dictionary) -> bool:
+	var baseline: Dictionary = progress.get("craftedBaseline", {})
+	var current: Dictionary = GameState.state["player"]["craftedCounts"]
+	var min_each: int = int(params["minEach"])
+	for recipe_key in params["recipeKeys"]:
+		var since: int = int(current.get(recipe_key, 0)) - int(baseline.get(recipe_key, 0))
+		if since < min_each:
+			return false
+	return true

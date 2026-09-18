@@ -878,6 +878,48 @@ func run() -> void:
 		assert_true(not MapEvents.has_pending(), "a won defend encounter leaves the vein untouched, so no map event should queue")
 	)
 
+	run_case("resolve_defend_outcome_win_records_an_alarm_defend_win_only_for_the_targeted_vein", func():
+		GameState.reset()
+		var original := Fixtures.install_objectives({
+			"t1": { "id": "t1", "title": "t", "detail": "d", "type": "alarm_defend_wins", "params": { "minCount": 1 }, "activateFlag": "testActive", "completeFlag": "testComplete" },
+		})
+		GameState.state["collective"]["nadiaDefendVeinId"] = "pv_test"
+		GameState.state["flags"]["testActive"] = true
+
+		var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+		vein["alarmUpgrades"] = ["alarm"]
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		GameState.state["world"]["activeDefendRaid"] = { "attackerId": "firm", "veinId": "not_pv_test", "siteId": "s_player", "success": true }
+		Raiding.resolve_defend_outcome(true)
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "a win against a vein other than nadiaDefendVeinId must not count")
+
+		GameState.state["world"]["activeDefendRaid"] = { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		Raiding.resolve_defend_outcome(true)
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], true, "a win against the targeted vein completes the objective")
+		GameData.OBJECTIVES = original
+	)
+
+	run_case("resolve_defend_outcome_loss_does_not_record_an_alarm_defend_win", func():
+		GameState.reset()
+		var original := Fixtures.install_objectives({
+			"t1": { "id": "t1", "title": "t", "detail": "d", "type": "alarm_defend_wins", "params": { "minCount": 1 }, "activateFlag": "testActive", "completeFlag": "testComplete" },
+		})
+		GameState.state["collective"]["nadiaDefendVeinId"] = "pv_test"
+		GameState.state["flags"]["testActive"] = true
+
+		var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+		vein["alarmUpgrades"] = ["alarm"]
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
+
+		GameState.state["world"]["activeDefendRaid"] = { "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }
+		Raiding.resolve_defend_outcome(false)
+		assert_eq(GameState.state["objectives"]["t1"]["complete"], false, "a lost defend fight must not count as a win")
+		GameData.OBJECTIVES = original
+	)
+
 	run_case("resolve_raid_outcome_pushes_a_notification_only_on_success", func():
 		GameState.reset()
 		var vein := _player_vein_of(10, "time", "none")

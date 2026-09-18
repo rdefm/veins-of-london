@@ -78,7 +78,7 @@ Data file per system: see `data/*.json` below.
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | time_system.gd | Time blocks, rest, daily tick |
-| todo.gd | Notes checklist, driven by objectives |
+| todo.gd | Notes checklist, driven by objectives; also reads state.world.sites directly for the Collective ledger section |
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer |
 | vein_list_nav.gd | Vein list screen nav state |
@@ -182,7 +182,7 @@ overlays.
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
 | bizbrief_app.gd | BizBrief: Brief tab (bank, operations, attention) + Manage tab (sales, production, procurement) |
 | messages_app.gd | Single conversation: staged bubble reveal + contact action bar |
-| notes_app.gd | Active questline checklists |
+| notes_app.gd | Active questline checklists + Collective ledger section |
 | factions_app.gd | Faction cards |
 | ticker_app.gd | Barometer headlines + axis detail (push/pull, influence actions) |
 | profile_app.gd | Stats, skills, equipment, motion/vibration toggles |

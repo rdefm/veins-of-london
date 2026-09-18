@@ -58,6 +58,27 @@ static func get_active_questlines() -> Array[Dictionary]:
 	return sections
 
 
+# Act 2's "the Collective starts keeping records" (spec §5.2): every site
+# currently held as a Collective faction vein, unlocked once colA2Stage
+# reaches "hardening". Pure read over state.world.sites -- no objective/
+# questline plumbing, since there's no checklist here, just a live list
+# that grows and shrinks as veins change hands.
+static func get_collective_ledger() -> Array[Dictionary]:
+	if GameState.state["flags"].get("colA2Stage") != "hardening":
+		return []
+	var rows: Array[Dictionary] = []
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein == null or vein["factionId"] != "collective":
+			continue
+		rows.append({
+			"district": GameData.DISTRICTS[vein["district"]]["name"],
+			"oreType": GameData.ORE_TYPES[vein["oreType"]]["name"],
+			"security": Cultivating.security_label(vein),
+		})
+	return rows
+
+
 # Some checkpoints' wording depends on more than their own flag (e.g.
 # before day 2, Archie's text hasn't arrived, so its title doesn't apply
 # yet). Generic (not id-keyed) so any objective can opt into a day-gated

@@ -108,6 +108,9 @@ func new_game_state() -> Dictionary:
 			# Quantity per quality tier, not a flat count. Empty buckets ==
 			# zero stock.
 			"inventory": { "timePearl": {}, "enhancementPowder": {}, "rewind": {} },
+			# Lifetime successful-craft count per recipeKey, flat, never
+			# decremented -- backs Objectives' items_crafted_set evaluator.
+			"craftedCounts": {},
 			# Second pool no business system (contracts, Sales, Production,
 			# Procurement) can touch -- systems/stash.gd subtracts a stashed
 			# unit from orichalchum/inventory the moment it moves in, so
