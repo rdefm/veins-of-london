@@ -25,11 +25,10 @@ static func go_home() -> void:
 	EventBus.state_changed.emit()
 
 
-# Shared "route to phone home" idiom: always navigate to the phone screen
-# AND land on its home view, regardless of whatever app was last open.
-# nav_bar.gd's own Phone-tab button doesn't use this — it skips the go_to()
-# call (no re-navigation, no flicker) when already on the phone screen,
-# which doesn't apply to callers routing in from elsewhere.
+# Shared "route to phone home" idiom: navigate to the phone screen AND
+# land on its home view, regardless of whatever app was last open.
+# nav_bar.gd's own Phone-tab button skips this — it avoids the go_to()
+# re-navigation/flicker when already on the phone screen.
 static func route_home() -> void:
 	Nav.go_to("phone")
 	go_home()
@@ -46,16 +45,12 @@ static func back_to_ticker() -> void:
 	EventBus.state_changed.emit()
 
 
-# Drills into a single conversation, same "selectedX drives a sub-view
-# within one app" pattern as select_axis()/back_to_ticker() above. Marking
-# the conversation read is a state.messages mutation, so Messages.
-# mark_read() does that here rather than leaving it to the screen.
-#
-# This is the only way a conversation is ever opened (every contact's
-# Messages button calls straight in here, including before the phone screen
-# exists), so the "how many messages were already read" capture the
-# staged-reveal presentation needs is computed and stashed in state.phoneNav
-# here, before mark_read() below erases the read/unread distinction.
+# Drills into a single conversation, same "selectedX drives a sub-view"
+# pattern as select_axis()/back_to_ticker() above; Messages.mark_read()
+# handles the state.messages mutation here rather than the screen. This is
+# the only way a conversation is ever opened, so the staged-reveal
+# presentation's "how many were already read" count is captured into
+# state.phoneNav here, before mark_read() erases the read/unread distinction.
 static func select_conversation(contact_id: String) -> void:
 	var thread: Array = GameState.state["messages"].get(contact_id, [])
 	GameState.state["phoneNav"]["app"] = "messages"

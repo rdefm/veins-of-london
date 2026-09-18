@@ -2,13 +2,11 @@ class_name Bench
 extends RefCounted
 
 # The Lab's discovery engine (docs/M3-CALC-DISCOVERY.md). Static funcs only,
-# mirrors systems/crafting.gd's shape. Cells are (type set) x (approach)
-# pairs; a cell is written lazily into player.bench.cells the first time it
-# is probed -- an absent key means "untried" (see GameState.new_game_state).
-# Formula constants below are M3-CALC-DISCOVERY.md §7.
-#
-# XP_FOUND must stay above the real recipe catalogue's top crafting XP
-# (45, a failsafe craft) so a hard craft never outXPs a discovery.
+# mirrors systems/crafting.gd's shape. Cells are (type set) x (approach) pairs;
+# a cell is written lazily into player.bench.cells the first time it is probed
+# -- an absent key means "untried" (see GameState.new_game_state). Formula
+# constants below are M3-CALC-DISCOVERY.md §7. XP_FOUND must stay above the
+# real recipe catalogue's top crafting XP (45, a failsafe craft) so a hard craft never outXPs a discovery.
 
 const DISCOVERY_BASE_CHANCE := 0.35
 const DISCOVERY_SKILL_BONUS := 0.12
@@ -34,8 +32,7 @@ enum GrantResult { GRANTED, ALREADY_KNOWN }
 
 
 # Canonical type-set key: alphabetically sorted, "+"-joined. Every
-# cell/census/notes lookup goes through this helper so the key can never
-# drift ("time+life" vs "life+time").
+# cell/census/notes lookup goes through this helper so the key can never drift ("time+life" vs "life+time").
 static func type_set_key(types: Array) -> String:
 	var sorted_types := types.duplicate()
 	sorted_types.sort()
@@ -46,10 +43,9 @@ static func cell_key(types: Array, approach: String) -> String:
 	return "%s|%s" % [type_set_key(types), approach]
 
 
-# A cell with no persisted entry defaults to "untried" -- except a cell
-# occupied by a taughtBy recipe (M3 §9.2: the tutorial always teaches
-# timePearl/enhancementPowder/rewind before the bench is reachable), which
-# defaults straight to "found" instead, with no cells-dict write needed.
+# A cell with no persisted entry defaults to "untried" -- except a cell occupied
+# by a taughtBy recipe (M3 §9.2: the tutorial always teaches
+# timePearl/enhancementPowder/rewind before the bench is reachable), which defaults straight to "found" instead, with no cells-dict write needed.
 static func _default_cell(types: Array, approach: String) -> Dictionary:
 	var state := "untried"
 	var recipe_key := find_recipe_for_cell(types, approach)
@@ -77,8 +73,7 @@ static func _set_cell(types: Array, approach: String, updates: Dictionary) -> vo
 
 
 # Recipe keys whose discovery.types normalizes to this type set, across ALL
-# approaches -- including ones behind approaches not yet learned, since the
-# census counts everything (M3 §3.3, §12.1).
+# approaches -- including ones behind approaches not yet learned, since the census counts everything (M3 §3.3, §12.1).
 static func _recipes_in_set(types: Array) -> Array[String]:
 	var key := type_set_key(types)
 	var matches: Array[String] = []
@@ -88,8 +83,7 @@ static func _recipes_in_set(types: Array) -> Array[String]:
 	return matches
 
 
-# Recipe keys with a non-empty `discovery` field -- shared by every Bench
-# query that scans the whole catalogue for Lab-reachable recipes.
+# Recipe keys with a non-empty `discovery` field -- shared by every Bench query that scans the whole catalogue for Lab-reachable recipes.
 static func _lab_reachable_recipe_keys() -> Array[String]:
 	var keys: Array[String] = []
 	for recipe_key in GameData.RECIPES:
@@ -98,9 +92,7 @@ static func _lab_reachable_recipe_keys() -> Array[String]:
 	return keys
 
 
-# The recipe key occupying this exact cell, or "" if the cell is empty.
-# A cell holds at most one effect (M3 §2.1), so the first match is the
-# only match.
+# The recipe key occupying this exact cell, or "" if the cell is empty. A cell holds at most one effect (M3 §2.1), so the first match is the only match.
 static func find_recipe_for_cell(types: Array, approach: String) -> String:
 	for recipe_key in _recipes_in_set(types):
 		if GameData.RECIPES[recipe_key]["discovery"]["approach"] == approach:
@@ -112,8 +104,7 @@ static func census_count(types: Array) -> int:
 	return _recipes_in_set(types).size()
 
 
-# Shared by found_recipe_keys() and found_count_in_set() below -- filters
-# any recipe-key list down to the ones whose cell is currently "found".
+# Shared by found_recipe_keys() and found_count_in_set() below -- filters any recipe-key list down to the ones whose cell is currently "found".
 static func _found_among(recipe_keys: Array[String]) -> Array[String]:
 	var found: Array[String] = []
 	for recipe_key in recipe_keys:
@@ -123,15 +114,12 @@ static func _found_among(recipe_keys: Array[String]) -> Array[String]:
 	return found
 
 
-# Recipe keys whose cell is currently "found" -- the Lab home screen's
-# trophy-shelf list. Order follows GameData.RECIPES's own key order.
+# Recipe keys whose cell is currently "found" -- the Lab home screen's trophy-shelf list. Order follows GameData.RECIPES's own key order.
 static func found_recipe_keys() -> Array[String]:
 	return _found_among(_lab_reachable_recipe_keys())
 
 
-# How many of a specific type set's effects are currently "found" -- the
-# pairing panel's census sentence needs this alongside census_count() to
-# say "N of M", not just the total.
+# How many of a specific type set's effects are currently "found" -- the pairing panel's census sentence needs this alongside census_count() to say "N of M", not just the total.
 static func found_count_in_set(types: Array) -> int:
 	return _found_among(_recipes_in_set(types)).size()
 
@@ -160,16 +148,13 @@ static func discovery_cost(types: Array) -> Dictionary:
 	return costs
 
 
-# Odds on an occupied cell, pity already baked in (M3 §8.4). Reuses
-# Home.get_workshop_bonus() unchanged -- no new bonus channel.
+# Odds on an occupied cell, pity already baked in (M3 §8.4). Reuses Home.get_workshop_bonus() unchanged -- no new bonus channel.
 static func discovery_chance(types: Array, approach: String, skill: int) -> float:
 	var pity: float = get_cell(types, approach)["misses"] * PITY_PER_MISS
 	return minf(DISCOVERY_CHANCE_CAP, DISCOVERY_BASE_CHANCE + (skill - 1) * DISCOVERY_SKILL_BONUS + Home.get_workshop_bonus() + pity)
 
 
-# The tier a refinement attempt is pushing toward -- 1 on a freshly found
-# cell (refine == 0), 2 on its next successful refinement, and so on,
-# uncapped (M3 §5).
+# The tier a refinement attempt is pushing toward -- 1 on a freshly found cell (refine == 0), 2 on its next successful refinement, and so on, uncapped (M3 §5).
 static func refine_tier_target(types: Array, approach: String) -> int:
 	return get_cell(types, approach)["refine"] + 1
 
@@ -182,24 +167,20 @@ static func refine_cost(types: Array, approach: String) -> Dictionary:
 	return costs
 
 
-# Odds fall with each tier but never hit the floor (M3 §7). Refinement has
-# no pity channel -- only tier and skill move this number.
+# Odds fall with each tier but never hit the floor (M3 §7). Refinement has no pity channel -- only tier and skill move this number.
 static func refine_chance(types: Array, approach: String, skill: int) -> float:
 	var n := refine_tier_target(types, approach)
 	return maxf(REFINE_CHANCE_FLOOR, REFINE_BASE_CHANCE + (skill - 1) * REFINE_SKILL_BONUS - REFINE_TIER_PENALTY * (n - 1))
 
 
-# The value a refineStep-targeted recipe field takes on at an arbitrary
-# tier -- derived from the recipe's authored base value, never by mutating
-# GameData.RECIPES. Split out from refined_value() below so the result
-# screen can show "old value -> new value" by asking for tier-1 and tier
-# separately.
-#
-# The targeted field can be a scalar or the skill-indexed array convention
-# crafted recipes use for effectPower (systems/crafting.gd's effect_power())
-# -- refinement stacks as a flat bonus on that per-skill base rather than
-# replacing it. `skill` is required, not defaulted, so an Array-field
-# caller can't silently fall back to skill 1.
+# The value a refineStep-targeted recipe field takes on at an arbitrary tier --
+# derived from the recipe's authored base value, never by mutating
+# GameData.RECIPES. Split out from refined_value() below so the result screen
+# can show a before/after comparison by asking for tier-1 and the current tier
+# separately. The targeted field can be a scalar or the skill-indexed array
+# convention crafted recipes use for effectPower (systems/crafting.gd's
+# effect_power()) -- refinement stacks as a flat bonus on that per-skill base
+# rather than replacing it. `skill` is required, not defaulted, so an Array-field caller can't silently fall back to skill 1.
 static func value_at_refine_tier(recipe_key: String, tier: int, skill: int) -> Variant:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	var step: Dictionary = r["refineStep"]
@@ -210,18 +191,16 @@ static func value_at_refine_tier(recipe_key: String, tier: int, skill: int) -> V
 	return base + step["add"] * tier
 
 
-# The current value of a refineStep-targeted recipe field. Deriving it this
-# way is what makes refine progress survive Rewind and an app close/reopen
-# (M3 §10, spec stories 47-48) for free: the tier count is the only thing
-# that needs to persist.
+# The current value of a refineStep-targeted recipe field. Deriving it this way
+# is what makes refine progress survive Rewind and an app close/reopen (M3 §10,
+# spec stories 47-48) for free: the tier count is the only thing that needs to persist.
 static func refined_value(recipe_key: String, types: Array, approach: String, skill: int) -> Variant:
 	var tier: int = get_cell(types, approach)["refine"]
 	return value_at_refine_tier(recipe_key, tier, skill)
 
 
-# Public: the confirm screen shows this exact reason text next to a
-# disabled Confirm button, same "reason, not apology" convention as every
-# other cost-gated action (CONTENT-GUIDE §4).
+# Public: the confirm screen shows this exact reason text next to a disabled
+# Confirm button, same "reason, not apology" convention as every other cost-gated action (CONTENT-GUIDE §4).
 static func refine_block_reason(types: Array, approach: String) -> String:
 	if not Approaches.is_known(approach):
 		return "You haven't the technique for that yet."
@@ -240,11 +219,10 @@ static func can_refine(types: Array, approach: String) -> bool:
 	return refine_block_reason(types, approach) == ""
 
 
-# Re-experiments an already-found effect to push it toward its next tier.
-# Ore and a time block are spent regardless of outcome (M3 §7's "ore
-# deduction: always"); on success the cell's refine tier increments, which
-# is the entirety of "applying" refineStep -- refined_value() reads it back
-# out. Inert and never-found cells are never reachable here (M3 §5).
+# Re-experiments an already-found effect to push it toward its next tier. Ore
+# and a time block are spent regardless of outcome (M3 §7's "ore deduction:
+# always"); on success the cell's refine tier increments, which is the entirety
+# of "applying" refineStep -- refined_value() reads it back out. Inert and never-found cells are never reachable here (M3 §5).
 static func refine(types: Array, approach: String) -> Dictionary:
 	var reason := refine_block_reason(types, approach)
 	if reason != "":
@@ -297,15 +275,12 @@ static func can_probe(types: Array, approach: String) -> bool:
 
 # Shared entry point for NPC/faction content to teach an effect directly --
 # instantly, no ore or time cost (M3 §12.1: a taught effect is just a free
-# shortcut to a cell that was always reachable by experimentation). Mirrors
-# a probe() success (survey, XP_FOUND, state_changed) minus the cost and
-# minus a notes entry -- touched_type_sets() below already surfaces a
-# cell-only touch with no note.
-#
-# On an already-found cell, mutates nothing and returns ALREADY_KNOWN so
-# calling event prose can acknowledge the collision. Bench only ever
-# touches player.bench here -- §12.1's NPC/relation fallback chain lives
-# in the calling content, not this primitive.
+# shortcut to a cell that was always reachable by experimentation). Mirrors a
+# probe() success (survey, XP_FOUND, state_changed) minus the cost and minus a
+# notes entry -- touched_type_sets() below already surfaces a cell-only touch
+# with no note. On an already-found cell, mutates nothing and returns
+# ALREADY_KNOWN so calling event prose can acknowledge the collision. Bench
+# only ever touches player.bench here -- §12.1's NPC/relation fallback chain lives in the calling content, not this primitive.
 static func grant_effect(recipe_key: String) -> GrantResult:
 	var discovery: Dictionary = GameData.RECIPES[recipe_key]["discovery"]
 	var types: Array = discovery["types"]
@@ -323,11 +298,10 @@ static func grant_effect(recipe_key: String) -> GrantResult:
 	return GrantResult.GRANTED
 
 
-# Type sets the player has touched -- probed or refined at least once.
-# Bench notes' listing source (spec story 41). Unions notes' and cells'
-# keys rather than trusting notes alone, so a direct cell write with no
-# experiment behind it (e.g. grant_effect()) still surfaces here. Sorted
-# so render order is deterministic across calls.
+# Type sets the player has touched -- probed or refined at least once. Bench
+# notes' listing source (spec story 41). Unions notes' and cells' keys rather
+# than trusting notes alone, so a direct cell write with no experiment behind
+# it (e.g. grant_effect()) still surfaces here. Sorted so render order is deterministic across calls.
 static func touched_type_sets() -> Array:
 	var bench: Dictionary = GameState.state["player"]["bench"]
 	var keys: Dictionary = {}
@@ -345,8 +319,7 @@ static func touched_type_sets() -> Array:
 	return sets
 
 
-# The stored note entries for a type set, oldest first, already capped at
-# NOTES_CAP by _append_note() below -- an untouched set returns [].
+# The stored note entries for a type set, oldest first, already capped at NOTES_CAP by _append_note() below -- an untouched set returns [].
 static func notes_for(types: Array) -> Array:
 	var bench: Dictionary = GameState.state["player"]["bench"]
 	return bench["notes"].get(type_set_key(types), [])
@@ -363,10 +336,9 @@ static func _append_note(types: Array, approach: String, outcome: String) -> voi
 
 
 # Runs an experiment against a pairing+approach cell. Resolves the cell's
-# permanent truth (empty -> inert, forever) or rolls an occupied cell
-# (hit -> found; miss -> hot, pity accrues). Ore and a time block are spent
-# and XP is awarded on every attempt that isn't blocked, regardless of
-# outcome (M3 §7's "ore deduction: always" plus the discovery-XP rows).
+# permanent truth (empty -> inert, forever) or rolls an occupied cell (hit ->
+# found; miss -> hot, pity accrues). Ore and a time block are spent and XP is
+# awarded on every attempt that isn't blocked, regardless of outcome (M3 §7's "ore deduction: always" plus the discovery-XP rows).
 static func probe(types: Array, approach: String) -> Dictionary:
 	var reason := probe_block_reason(types, approach)
 	if reason != "":

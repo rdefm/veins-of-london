@@ -3,9 +3,8 @@ extends RefCounted
 
 # The player's way to *choose* to stop owning a vein, by selling it to a
 # faction. quote()/sell_to_faction() are the mechanism only -- which scene
-# unlocks the Sell option and which faction(s) have a lane are content
-# decisions made elsewhere. sell_to_faction() stays generic on faction_id --
-# Hakim's handback reuses it at a forced price of 0.
+# unlocks Sell and which faction(s) have a lane are content decisions made
+# elsewhere. sell_to_faction() stays generic on faction_id; Hakim's handback reuses it at a forced price of 0.
 
 const SELL_FACTION_ID := "collective"
 
@@ -23,16 +22,13 @@ static func quote(vein: Dictionary) -> int:
 	return GameState.round_epsilon(ore_price * terroir * GameData.VEIN_GROWTH["veinSaleBaseUnits"] * growth_factor)
 
 
-# Removes the vein from state.player.veins and re-creates it on its own site
-# as site.factionVein via Factions.create_faction_vein(). Stamps
-# `soldByPlayer` so Objectives' vein_sold_to_faction evaluator can tell a
-# player sale apart from a natural NPC claim or a rivalry capture.
-#
-# `price_override`: non-null only for Hakim's handback, which reuses this
-# path at a forced £0. A forced price means the transfer isn't a genuine
-# market sale, so `soldByPlayer` is left false -- otherwise a handback
-# could silently satisfy col_a1_nadia_vein and misfire Nadia's dialogue
-# over a vein she never touched.
+# Removes the vein from state.player.veins and re-creates it on its own site as
+# site.factionVein via Factions.create_faction_vein(). Stamps `soldByPlayer` so
+# Objectives' vein_sold_to_faction evaluator can tell a player sale apart from a
+# natural NPC claim or rivalry capture. `price_override`: non-null only for
+# Hakim's handback, forced to £0 -- a forced price means it isn't a genuine
+# market sale, so `soldByPlayer` stays false (otherwise a handback could
+# silently satisfy col_a1_nadia_vein over a vein Nadia never touched).
 static func sell_to_faction(vein_id: String, faction_id: String, price_override: Variant = null, contact_id: String = "") -> Dictionary:
 	var is_handback: bool = price_override != null
 	var vein: Variant = Cultivating.find_vein(vein_id)
@@ -48,12 +44,11 @@ static func sell_to_faction(vein_id: String, faction_id: String, price_override:
 	return { "ok": true, "price": price, "factionId": faction_id }
 
 
-# Everything sell_to_faction() above does *except* paying the player.
-# Split out so Archie's cut-and-risk lane (Economy.execute_sale) can move
-# the vein immediately while the cash payout stays contingent on the
-# mugging roll, settled later by Economy.complete_mugged_sale() or the
-# non-mugged branch -- sell_to_faction() is just this plus an unconditional
-# immediate payout for lanes with no risk attached.
+# Everything sell_to_faction() does *except* paying the player. Split out so
+# Archie's cut-and-risk lane (Economy.execute_sale) can move the vein
+# immediately while cash stays contingent on the mugging roll, settled later
+# by Economy.complete_mugged_sale(); sell_to_faction() is just this plus an
+# unconditional payout for risk-free lanes.
 static func transfer_to_faction(vein_id: String, faction_id: String, price: int, count_as_player_sale: bool, contact_id: String = "") -> Dictionary:
 	var vein: Variant = Cultivating.find_vein(vein_id)
 	if vein == null:
@@ -93,16 +88,13 @@ static func transfer_to_faction(vein_id: String, faction_id: String, price: int,
 	return { "ok": true }
 
 
-# The exact inverse of sell_to_faction() above: a faction's own site vein
-# stops being theirs and re-enters state.player.veins at the same quote()
-# price, no cut and no mugging roll. Mirrors transfer_to_faction()'s
-# bookkeeping in reverse -- deep_copy the faction vein wholesale (ownership
-# changes hands, nothing about the vein itself resets), erase factionId,
-# site["claimed"] flips true and site["factionVein"] to null.
-#
-# Collective.maybe_trigger_nadia_vein_done() is deliberately not called
-# here: buying always clears site.factionVein, so it can never itself
-# satisfy col_a1_nadia_vein's live-faction-owned-vein requirement.
+# Exact inverse of sell_to_faction(): a faction's site vein stops being theirs
+# and re-enters state.player.veins at the same quote() price, no cut, no
+# mugging roll. Mirrors transfer_to_faction()'s bookkeeping in reverse --
+# deep_copy the faction vein wholesale, erase factionId, site["claimed"]
+# flips true and site["factionVein"] to null. Collective.maybe_trigger_
+# nadia_vein_done() is deliberately not called here: buying always clears
+# site.factionVein, so it can never satisfy col_a1_nadia_vein's live-vein requirement.
 static func buy_from_faction(vein_id: String, faction_id: String, contact_id: String = "") -> Dictionary:
 	var site: Variant = _find_site_with_faction_vein(vein_id, faction_id)
 	if site == null:

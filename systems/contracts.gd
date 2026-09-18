@@ -86,11 +86,10 @@ static func shared_stock_increased() -> void:
 		_deliver_delegated(contract)
 
 
-# Daily Sales pass: first close every fully-funded period, then spend any
-# remaining shared stock on partials in the same persisted priority order.
-# The second loop needs no manual per-contract cap: _deliver_delegated's
-# uncapped qty (below) already caps each requested type independently by
-# that type's own shared stock, matching "Sales has no delivery-cap limit."
+# Daily Sales pass: close every fully-funded period first, then spend any
+# remaining shared stock on partials in priority order. The second loop
+# needs no manual per-contract cap: _deliver_delegated's uncapped qty already
+# caps each requested type by its own shared stock ("Sales has no delivery-cap limit").
 static func process_delegated_deliveries() -> void:
 	if not has_staffed_sales():
 		return
@@ -103,16 +102,13 @@ static func process_delegated_deliveries() -> void:
 		_deliver_delegated(contract)
 
 
-# The only stock-mutating delivery entry point. _deliver_delegated below
-# also calls this, with consume_time=false after choosing a delegated
-# contract.
-#
-# qty is a TOTAL cap across every requested type, spent against
-# request_lines() in request order — one type's remaining need is filled
-# (capped by its own shared stock) before the next type gets any leftover
+# The only stock-mutating delivery entry point (_deliver_delegated calls it
+# with consume_time=false). qty is a TOTAL cap across every requested type,
+# spent against request_lines() in order -- one type's remaining need is
+# filled (capped by its own shared stock) before the next gets any leftover
 # budget. Per business-spec.md, manual delivery costs one time block per
-# delivery action regardless of quantity or requested-type count, which is
-# what lets a single manual action span every type in one call.
+# delivery action regardless of quantity or type count, letting one manual
+# action span every requested type.
 static func deliver(contract_id: String, qty: int, consume_time: bool = true) -> Dictionary:
 	var contract := _find_active(contract_id)
 	if contract.is_empty():
@@ -239,12 +235,11 @@ static func _remove_shared_stock_for_line(line: Dictionary, qty: int) -> void:
 		Crafting.inventory_remove(line["type"], qty)
 
 
-# business-spec.md "Fulfilment and settlement": a mixed one-off's delivered
-# proportion is quoted-value weighted — Σ(delivered_units × unit_value) /
-# total_quote_value, using quote.lines' snapshotted per-unit values. This is
-# exactly equivalent to a flat delivered/qty ratio for a single-type
-# contract (the one unit_value factors out of both sides), so both shapes
-# share this one implementation.
+# business-spec.md "Fulfilment and settlement": delivered proportion is
+# quoted-value weighted -- Σ(delivered_units × unit_value) / total_quote_value,
+# via quote.lines' snapshotted per-unit values. Equivalent to a flat
+# delivered/qty ratio for a single-type contract (unit_value cancels out),
+# so both shapes share this one implementation.
 static func _delivered_proportion(contract: Dictionary) -> float:
 	var quote: Dictionary = contract["quote"]
 	if not quote.has("lines"):

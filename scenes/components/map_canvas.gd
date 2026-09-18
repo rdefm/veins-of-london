@@ -246,7 +246,7 @@ func _play_queue() -> void:
 func _play_event(event: Dictionary) -> void:
 	var stop: Variant = _resolve_event_stop(event)
 	if stop == null:
-		return  # site/vein no longer resolvable (edge case) -- nothing to animate, just advance past it
+		return  # site/vein not resolvable (edge case) -- nothing to animate, just advance past it
 
 	await pan_to(stop["position"], MapZoom.EVENT_ZOOM)
 	if _skip_requested:
@@ -264,7 +264,7 @@ func _play_batch(events: Array) -> void:
 	for event in events:
 		var stop: Variant = _resolve_event_stop(event)
 		if stop == null:
-			continue  # site/vein no longer resolvable (edge case) -- nothing to animate
+			continue  # site/vein not resolvable (edge case) -- nothing to animate
 		var tween: Variant = _start_event_visual(event, stop)
 		if tween != null:
 			_active_tweens.append(tween)

@@ -15,45 +15,37 @@ var CRAFTING_XP_LEVELS: Array = []
 var CONSUMABLE_PRICES: Dictionary = {}
 var OFFER_TEMPLATES: Dictionary = {}
 
-# Same shape as CULTIVATING_XP_LEVELS/CRAFTING_XP_LEVELS above -- lives in
-# home.json since the Sales role is gated by the Operations Room defined there.
+# Same shape as CULTIVATING_XP_LEVELS/CRAFTING_XP_LEVELS -- lives in
+# home.json since Sales is gated by the Operations Room defined there.
 var SALES_XP_LEVELS: Array = []
 
-# data/dial.json (R§1.4): Dial.attempt_seed()'s cost/chance inputs and the
-# cosmetic haft whitelist.
+# data/dial.json (R§1.4): Dial.attempt_seed()'s cost/chance inputs and
+# cosmetic haft whitelist. *_BY_LEVEL/*_BY_TIER below index level/tier 0..5.
 var DIAL_SEED_COST: Dictionary = {}
 var DIAL_SEED_BASE_SUCCESS: float = 0.0
 var DIAL_HAFTS: Dictionary = {}
 
-# The Dial-wide charge-pool baseline Dial._charge_stats_for() starts from
-# before applying the seated Movement's per-archetype bonus/downside curve.
+# Charge-pool baseline Dial._charge_stats_for() starts from before applying
+# the seated Movement's per-archetype bonus/downside curve.
 var DIAL_BASE_MAX_CHARGE: int = 0
 var DIAL_BASE_RECHARGE_RATE: float = 0.0
 
-# The tier-5 Recharge Movement's regen: Dial.combat_turn_tick() adds this
-# amount every N player turns while seated, independent of the daily
-# rechargeRate ticked by Dial.daily_regen().
+# Tier-5 Recharge Movement's regen: Dial.combat_turn_tick() adds this every
+# N player turns while seated, independent of Dial.daily_regen()'s rechargeRate.
 var DIAL_RECHARGE_COMBAT_REGEN_TURNS: int = 0
 var DIAL_RECHARGE_COMBAT_REGEN_AMOUNT: int = 0
 
-# data/dial.json's "movements" table (Dial.attempt_craft_movement()'s
-# per-archetype baseSuccess/ingredientBase/xpReward, tier-indexed bonus/
-# downside/windingCostPerCharge arrays) and the shared tier-indexed
-# attunement chance bonus (Dial.attunement_bonus()).
+# "movements" table (per-archetype baseSuccess/ingredientBase/xpReward,
+# tier-indexed bonus/downside/windingCostPerCharge) + shared attunement bonus.
 var DIAL_MOVEMENTS: Dictionary = {}
 var DIAL_ATTUNEMENT_BONUS_BY_TIER: Array = []
 
-# data/dial.json's "capacityByLevel" -- the Dial-level lookup table
-# Dial.capacity_max() reads (index=level 0..5), independent of which
-# Movement (if any) is seated.
+# Dial.capacity_max()'s lookup, independent of which Movement is seated.
 var DIAL_CAPACITY_BY_LEVEL: Array = []
 
-# data/dial.json's "xpLevels" -- Dial.cast_complication()'s level-ladder
-# table (index=level 0..5), reused via Progression.award_xp().
-# "maxChargeBonusByLevel" is the primary per-level curve added on top of the
-# seated Movement's own charge stats; "rechargeRateBonusByLevel" is a
-# deliberately sparser curve so levelling reads as bigger reserve now,
-# faster refill only as a rarer milestone.
+# Dial's level ladder. maxChargeBonusByLevel is the primary per-level curve
+# on top of the seated Movement's stats; rechargeRateBonusByLevel is
+# sparser -- bigger reserve now, faster refill later.
 var DIAL_XP_LEVELS: Array = []
 var DIAL_MAX_CHARGE_BONUS_BY_LEVEL: Array = []
 var DIAL_RECHARGE_RATE_BONUS_BY_LEVEL: Array = []
@@ -62,14 +54,13 @@ var ITEMS: Dictionary = {}
 
 var VEIN_SECURITY: Dictionary = {}
 
-# The "alarm/cameras" upgrade — independent of VEIN_SECURITY's tier ladder
-# above. Purchased ids land in a vein's own "alarmUpgrades" array
-# (Cultivating.make_vein), mirroring how HOME_SECURITY's ids land in
-# state.home["security"].
+# "alarm/cameras" upgrade, independent of VEIN_SECURITY's tier ladder --
+# purchased ids land in a vein's "alarmUpgrades" array, mirroring how
+# HOME_SECURITY's ids land in state.home["security"].
 var VEIN_ALARM: Dictionary = {}
 
 # Third skill, same progression shape as CULTIVATING_XP_LEVELS/
-# CRAFTING_XP_LEVELS above. Its own file since it's not tier-keyed content.
+# CRAFTING_XP_LEVELS. Own file since it's not tier-keyed content.
 var STEALTH_XP_LEVELS: Array = []
 
 var HOME_TIER_ORDER: Array = []
@@ -103,39 +94,33 @@ var FACTION_BAROMETER_PREFS: Dictionary = {}
 var ENEMY_RAID_GUARDS: Dictionary = {}
 var ENEMY_HOME_RAID_RAIDER: Dictionary = {}
 
-# The bounded solo combat prototype's teaching roster (systems/
-# combat_prototype.gd) — prototype-only, not production balance. Kept in
-# its own table so a validation/balance pass over the real roster never has
-# to reason about throwaway-experiment entries.
+# Bounded solo combat prototype's teaching roster (systems/
+# combat_prototype.gd) -- prototype-only, not production balance. Own
+# table so a validation/balance pass over the real roster skips it.
 var COMBAT_PROTOTYPE: Dictionary = {}
 
-# Player Combat Skill curves (R§3.7a), colocated in data/enemies.json rather
-# than a new file of their own.
+# Player Combat Skill curves (R§3.7a), colocated in data/enemies.json
+# rather than a new file of their own.
 var COMBAT_XP_LEVELS: Array = []
 var COMBAT_ATTACK_BONUS_BY_LEVEL: Array = []
 var COMBAT_SPEED_BY_LEVEL: Array = []
 
 # data/combat_visuals.json (docs/combat-animation-vision.md §2.1/§6):
-# "backdrops" -- Combat.CANONICAL_CONTEXTS context id -> { "image": res://
-# path or "" when no plate exists, "fallbackColor": a PALETTE key the stage
-# fills with instead }. "templates" -- per-subject idle sheets (see the
-# json's own "templateRule" note) plus a shared "default" hurt/dead/attack
-# stand-in; deliberately unvalidated below since its shape isn't finalised,
-# so scenes/screens/combat.gd reads it defensively.
+# "backdrops" -- context id -> { image, fallbackColor (PALETTE key) }.
+# "templates" -- per-subject idle sheets + shared "default" hurt/dead/
+# attack stand-in; unvalidated below (shape not finalised).
 var COMBAT_VISUALS: Dictionary = {}
 
-# data/palette.json (docs/ART-BIBLE.md §2): the master colour palette, keyed
-# by colour id (e.g. "brick_shadow") -> Color, so any screen can resolve a
-# data-declared palette key without hardcoding a hex value. Not a per-table
-# validate_tables() subject on its own -- _validate_combat_visuals() below
-# cross-references into it instead.
+# data/palette.json (docs/ART-BIBLE.md §2): colour id -> Color, so any
+# screen can resolve a data-declared palette key without hardcoding hex.
+# Not its own validate_tables() subject -- cross-referenced by
+# _validate_combat_visuals() below instead.
 var PALETTE: Dictionary = {}
 
 # data/hq_visuals.json (docs/hq-diorama-vision.md §9): "rooms" table --
-# room-plate id -> { image, fallbackColor, width, height, regions: { zone id
-# -> {x,y,width,height,label,image} } }, read generically by scenes/
-# components/hq_diorama.gd (no hardcoded room/zone roster) so a plate or
-# region can be added with no reader code change.
+# room-plate id -> { image, fallbackColor, width, height, regions: { zone
+# id -> {x,y,width,height,label,image} } }, read generically by
+# hq_diorama.gd (no hardcoded room/zone roster).
 var HQ_VISUALS: Dictionary = {}
 
 var TIME_BLOCKS: Array = []
@@ -145,28 +130,27 @@ var ARCHIE_ORE_GOAL: int = 0
 var CONTACTS_DEFAULTS: Dictionary = {}
 var JAMES_JOB_TRUST_BANDS: Array = []
 
-# The missed-defend guard-repel chance, shared by both Home.
-# _guards_repel_pending_raid() (HQ's guardCount) and Raiding.
-# _guards_repel_defend_raid() (a vein's extraGuards) -- one data source for
-# both so retuning it never touches either .gd file.
+# Missed-defend guard-repel chance, shared by Home._guards_repel_pending_
+# raid() (HQ's guardCount) and Raiding._guards_repel_defend_raid() (a
+# vein's extraGuards) -- one data source so retuning skips both .gd files.
 var GUARD_REPEL_CHANCE_PER_GUARD: float = 0.0
 var GUARD_REPEL_CHANCE_CAP: float = 0.0
 
-# Loaded by _list_event_ids() from every *.json file under data/events/ —
-# there is no id roster to keep in sync; drop a file in the directory and
-# it is discovered on next boot. Deck membership (M1-LONDON D5) is decided
-# per file by the presence of a "deck" sub-object, not by a separate list.
+# Loaded by _list_event_ids() from every *.json file under data/events/ --
+# no id roster to keep in sync; drop a file in, it's discovered on next
+# boot. Deck membership (M1-LONDON D5) is decided per file by a "deck"
+# sub-object, not a separate list.
 var EVENTS: Dictionary = {}
 
-# Per-vendor flavour lines drawn on completing a Collective trade (systems/
-# collective.gd) -- cosmetic only, the three doors trade at identical terms.
-# Keyed by contact id.
+# Per-vendor flavour lines on completing a Collective trade (systems/
+# collective.gd) -- cosmetic only, all three doors trade at identical
+# terms. Keyed by contact id.
 var COLLECTIVE_BARKS: Dictionary = {}
 
-# data/objectives.json, keyed by objective id -- see systems/objectives.gd.
-# Each entry's "questline" field groups it for systems/todo.gd's Notes-app
-# rendering: the tutorial's flag chain and Collective's Act 1 threads are
-# both just objectives, distinguished only by questline.
+# data/objectives.json, keyed by objective id (systems/objectives.gd).
+# "questline" groups an entry for todo.gd's Notes-app rendering: the
+# tutorial's flag chain and Collective's Act 1 threads are both just
+# objectives, distinguished only by questline.
 var OBJECTIVES: Dictionary = {}
 
 var loaded := false
@@ -179,19 +163,15 @@ func _ready() -> void:
 	validate()
 
 
-# Declarative load table: one entry per data/*.json table, grouping every
-# loader field that table fills. Each field says which JSON key to pull (""
-# for the parsed file's own root) and the Variant type it must be -- load_all()
-# below is the single loop that reads every table once, type-checks each
-# field and assigns it, so a new field never needs its own hand-written
-# extraction line. "snapshot" overrides the key snapshot() files a field
-# under, for the one field (FACTION_BAROMETER_PREFS) whose snapshot key
-# doesn't already match its var name lowercased.
-#
-# PALETTE (an id->hex array that becomes an id->Color dict) and EVENTS (a
-# directory scan, not a single file) are genuine transforms rather than a
-# file/key/type row, so _load_palette()/_load_events() below stay bespoke --
-# both are mirrored as fixed extra lines in snapshot() for the same reason.
+# Declarative load table: one entry per data/*.json table, each field
+# naming the JSON key to pull ("" for the file's own root) and the Variant
+# type it must be. load_all() is the single loop reading every table once,
+# type-checking and assigning each field, so a new field never needs its
+# own extraction line. "snapshot" overrides the key snapshot() files a
+# field under (FACTION_BAROMETER_PREFS's non-default snapshot key).
+# PALETTE/EVENTS are genuine transforms (a directory scan, not a file/
+# key/type row) so _load_palette()/_load_events() stay bespoke, mirrored
+# as fixed extra lines in snapshot() too.
 const MANIFEST: Array[Dictionary] = [
 	{"table": "ore_types", "file": "res://data/ore_types.json", "fields": [
 		{"field": "ORE_TYPES", "key": "", "type": TYPE_DICTIONARY},
@@ -321,23 +301,19 @@ func load_all() -> void:
 	loaded = true
 
 
-# Pure: extracts and type-checks one manifest field's value out of its
-# table's already-parsed file dict. A missing key silently falls back to
-# the type's default, matching Dictionary.get()'s own default-on-miss
-# semantics -- only a type mismatch is an error, since load_all() itself
-# already logged a "missing data file" error (naming this same table) if
-# the file read failed and produced {}.
+# Pure: extracts and type-checks one manifest field out of its table's
+# parsed file dict. A missing key falls back to the type's default --
+# only a type mismatch is an error, since load_all() already logged a
+# "missing data file" error if the read failed.
 func _resolve_manifest_value(parsed: Dictionary, field_entry: Dictionary, table: String, errors: Array[String]) -> Variant:
 	var key: String = field_entry.get("key", "")
 	var expected_type: int = field_entry["type"]
 	var value: Variant = parsed if key.is_empty() else _dig(parsed, key)
 	if value == null:
 		return _default_for_type(expected_type)
-	# _normalize_numbers() (called on every parsed file) turns any
-	# whole-number JSON float (e.g. "baseRechargeRate": 2.0) into an int --
-	# a float-typed field reading one is not a data mistake, just the same
-	# int->float widening a plain `= dial.get("baseRechargeRate", 0.0)`
-	# assignment already did silently before this manifest existed.
+	# _normalize_numbers() turns any whole-number JSON float (e.g.
+	# "baseRechargeRate": 2.0) into an int -- a float field reading one
+	# is not a data mistake, just ordinary int->float widening.
 	if expected_type == TYPE_FLOAT and typeof(value) == TYPE_INT:
 		return float(value)
 	if typeof(value) != expected_type:
@@ -359,8 +335,7 @@ func _default_for_type(type: int) -> Variant:
 
 
 # Dot-path lookup into a parsed JSON dict (e.g. "guardRepel.chancePerGuard").
-# Returns null on any missing segment, same "silently absent" contract as
-# Dictionary.get() for the single-key case.
+# Returns null on any missing segment, same contract as Dictionary.get().
 func _dig(dict: Dictionary, dotted_key: String) -> Variant:
 	var current: Variant = dict
 	for part in dotted_key.split("."):
@@ -371,8 +346,7 @@ func _dig(dict: Dictionary, dotted_key: String) -> Variant:
 
 
 # Bespoke: data/palette.json is an array of {id, hex} entries, not a
-# file/key/type row -- it becomes an id -> Color dict, a real transform the
-# manifest's shape doesn't cover.
+# file/key/type row -- becomes an id -> Color dict.
 func _load_palette() -> void:
 	PALETTE = {}
 	for entry in _load_json("res://data/palette.json", "palette").get("colors", []):
@@ -382,10 +356,7 @@ func _load_palette() -> void:
 
 
 # Bespoke: loaded by _list_event_ids() from every *.json file under
-# data/events/ -- there is no id roster to keep in sync; drop a file in the
-# directory and it is discovered on next boot. Deck membership (M1-LONDON
-# D5) is decided per file by the presence of a "deck" sub-object, not by a
-# separate list.
+# data/events/; discovered on next boot, no id roster to keep in sync.
 func _load_events() -> void:
 	EVENTS = {}
 	for event_id in _list_event_ids():
@@ -403,10 +374,8 @@ func get_errors() -> Array[String]:
 	return _errors
 
 
-# Pure, side-effect-free validation over an arbitrary snapshot of tables —
-# takes the same shape _snapshot() returns. Kept separate from validate()
-# so tests can feed it a deliberately corrupted copy without touching the
-# real data/*.json files.
+# Pure validation over a snapshot()-shaped table dict. Kept separate from
+# validate() so tests can feed it a deliberately corrupted copy.
 func validate_tables(t: Dictionary) -> Array[String]:
 	var errors: Array[String] = []
 
@@ -439,12 +408,9 @@ func validate_tables(t: Dictionary) -> Array[String]:
 
 
 # Public snapshot of every loaded table, keyed for validate_tables().
-# Tests use this to build a deliberately corrupted copy without touching
-# the real data/*.json files. Derived from MANIFEST (each field's key is its
-# var name lowercased, or its "snapshot" override) so a table can't drift
-# out of sync between how it's loaded and how it's snapshotted -- PALETTE
-# and EVENTS are the two bespoke exceptions load_all() also special-cases
-# (see MANIFEST's own doc comment), added here by hand for the same reason.
+# Derived from MANIFEST (each field's key is its var name lowercased, or
+# its "snapshot" override) so loading and snapshotting can't drift apart --
+# PALETTE/EVENTS are the same bespoke exceptions added by hand.
 func snapshot() -> Dictionary:
 	var result: Dictionary = {}
 	for group in MANIFEST:
@@ -460,9 +426,7 @@ func snapshot() -> Dictionary:
 
 const CANONICAL_ORE_TYPES: Array[String] = ["time", "physics", "life", "fate", "emotion"]
 
-# The v1 launch set of four Movement archetypes (R§1.4) -- Dial.
-# MOVEMENT_ARCHETYPES mirrors this list rather than duplicating it, same as
-# every other CANONICAL_* roster here.
+# v1 launch set of four Movement archetypes (R§1.4); Dial.MOVEMENT_ARCHETYPES mirrors this.
 const CANONICAL_MOVEMENT_ARCHETYPES: Array[String] = ["recharge", "capacitor", "impact", "spread"]
 
 
@@ -508,8 +472,8 @@ func _validate_vein_growth(vein_growth: Dictionary, xp_levels: Array, errors: Ar
 		errors.append("vein_growth.bands: must cover through growth 100")
 
 	# Exactly one non-pinned ("resting") band should sit at drift 0 and
-	# straddle neutral (dormant) — collapsed/rampant are pinned walls, not
-	# resting bands, even though they also carry drift 0.
+	# straddle neutral -- collapsed/rampant are pinned walls, not resting
+	# bands, despite also carrying drift 0.
 	var resting_zero_drift := 0
 	for band in sorted_bands:
 		if band.get("id") == "collapsed":
@@ -538,10 +502,9 @@ func _validate_recipes(recipes: Dictionary, ore_types: Dictionary, errors: Array
 
 
 # seedCost must cover every canonical ore type (R§1.4's mixed five-ore-type
-# cost) -- unlike a recipe's ingredients dict, a partial cost here would
-# silently let seeding skip an ore type. Hafts are cosmetic-only (no stat
-# fields, no code path reads one for anything but display), so each only
-# needs a display name, not the fuller schema recipes/movements use.
+# cost) -- a partial cost here would silently let seeding skip an ore type.
+# Hafts are cosmetic-only (no stat fields), so each only needs a display
+# name, not the fuller schema recipes/movements use.
 func _validate_dial(t: Dictionary, errors: Array[String]) -> void:
 	var seed_cost: Dictionary = t.get("dial_seed_cost", {})
 	var seed_base_success: float = t.get("dial_seed_base_success", 0.0)
@@ -569,8 +532,7 @@ func _validate_dial(t: Dictionary, errors: Array[String]) -> void:
 		errors.append("dial: baseMaxCharge must be > 0")
 	if base_recharge_rate <= 0.0:
 		errors.append("dial: baseRechargeRate must be > 0")
-	# Dial.combat_turn_tick()'s cadence/amount for the tier-5 Recharge
-	# Movement's in-combat regen.
+	# Dial.combat_turn_tick()'s cadence/amount for tier-5 Recharge regen.
 	if recharge_combat_regen_turns <= 0:
 		errors.append("dial: rechargeCombatRegenEveryTurns must be > 0")
 	if recharge_combat_regen_amount <= 0:
@@ -592,8 +554,6 @@ func _validate_dial(t: Dictionary, errors: Array[String]) -> void:
 			errors.append("dial.movements.%s: bonus must have 6 entries (index=tier 0..5)" % archetype)
 		if entry.has("downside") and entry["downside"].size() != 6:
 			errors.append("dial.movements.%s: downside must have 6 entries (index=tier 0..5)" % archetype)
-		# Dial.winding_cost_per_charge()'s lookup -- same tier-indexed shape
-		# as bonus/downside above.
 		if entry.has("windingCostPerCharge") and entry["windingCostPerCharge"].size() != 6:
 			errors.append("dial.movements.%s: windingCostPerCharge must have 6 entries (index=tier 0..5)" % archetype)
 	for key in movements.keys():
@@ -603,22 +563,17 @@ func _validate_dial(t: Dictionary, errors: Array[String]) -> void:
 	if attunement_bonus_by_tier.size() != 6:
 		errors.append("dial.attunementBonusByTier: expected 6 entries (index=tier 0..5), got %d" % attunement_bonus_by_tier.size())
 
-	# Dial.capacity_max()'s lookup -- same index=level 0..5 shape as
-	# attunementBonusByTier above.
 	if capacity_by_level.size() != 6:
 		errors.append("dial.capacityByLevel: expected 6 entries (index=level 0..5), got %d" % capacity_by_level.size())
 
-	# hq_dial.gd's flanking-socket layout hard-codes exactly 4 tile positions
-	# and indexes into it by capacityMax with no bounds check of its own -- a
-	# capacityByLevel edit exceeding 4 would silently crash that screen
-	# instead of failing loudly here at boot.
+	# hq_dial.gd's flanking-socket layout hard-codes exactly 4 tile
+	# positions with no bounds check of its own -- an edit exceeding 4
+	# would silently crash that screen instead of failing loudly here.
 	for level_value in capacity_by_level:
 		if int(level_value) > 4:
 			errors.append("dial.capacityByLevel: entry %s exceeds 4 -- hq_dial.gd's socket layout has only 4 fixed positions" % str(level_value))
 			break
 
-	# The XP ladder and the two level-indexed charge-economy bonus curves it
-	# drives -- same index=level 0..5 shape as capacityByLevel above.
 	if xp_levels.size() != 6:
 		errors.append("dial.xpLevels: expected 6 entries (index=level 0..5), got %d" % xp_levels.size())
 	if max_charge_bonus_by_level.size() != 6:
@@ -707,8 +662,7 @@ func _validate_factions(factions: Dictionary, errors: Array[String]) -> void:
 		_require_keys(factions[key], ["id", "name", "shortName", "tagline", "industries", "description", "colour", "joinRelation", "securityBias", "resourceLevel"], "factions.%s" % key, errors)
 
 
-# Every faction with a trade lane (Economy.get_faction_*) needs a row here.
-# Only guild and collective have one so far.
+# Every faction with a trade lane (Economy.get_faction_*) needs a row here; only guild and collective have one so far.
 func _validate_faction_trade(faction_trade: Dictionary, errors: Array[String]) -> void:
 	for key in ["guild", "collective"]:
 		if not faction_trade.has(key):
@@ -747,10 +701,8 @@ func _validate_districts(districts: Dictionary, ore_types: Dictionary, errors: A
 # data/map_layout.json (docs/M1.5-NETWORK-MAP.md). Cross-references
 # districts' siteCap to enforce >= siteCap*2 stopSlots per district: a
 # saturated site's two veins can diverge independently (sold/raided/
-# collapsed one at a time), so any subset of a district's claimed sites
-# could be mid-divergence — pinning both their slots — at once, and
-# siteCap*2 is the only margin that always covers that (see systems/
-# map_layout.gd's assign_slots).
+# collapsed one at a time), so siteCap*2 is the margin that always covers
+# any subset of claimed sites being mid-divergence at once.
 func _validate_map_layout(layout: Dictionary, districts: Dictionary, errors: Array[String]) -> void:
 	_require_keys(layout, ["mapSize", "districts", "riverPath", "homeAnchor"], "map_layout", errors)
 
@@ -876,9 +828,7 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 		_require_keys(raid_guards[key], ["name", "hpBase", "attackMin", "attackMax", "speed"], "enemies.raidGuards.%s" % key, errors)
 	_require_keys(home_raid_raider, ["name", "hp", "attackMin", "attackMax", "speed"], "enemies.homeRaidRaider", errors)
 
-	# Same "6 entries, index=level 0..5" shape every other skill ladder
-	# enforces — level 1 must be index 1, so a wrong-length array is a data
-	# bug, not a design choice.
+	# Same "6 entries, index=level 0..5" shape every skill ladder enforces.
 	if combat_xp_levels.size() != 6:
 		errors.append("enemies.combatXpLevels: expected 6 entries (index=level, 0..5), got %d" % combat_xp_levels.size())
 	if combat_attack_bonus_by_level.size() != 6:
@@ -887,16 +837,10 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 		errors.append("enemies.combatSpeedByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_speed_by_level.size())
 
 
-# Every id in encounterOrder needs a matching encounters entry with the
-# fields CombatPrototype.start_encounter() reads, and every scripted action
-# must be one of CombatPrototype.SCRIPTABLE_ACTIONS — a typo would otherwise
-# silently no-op an enemy's teaching script instead of failing at boot.
-#
-# encounterOrder ids keep the flat single-enemy shape; any other `encounters`
-# entry must be either a squad ('enemies': non-empty array of enemy defs) or
-# a multi-wave roster ('waves': non-empty array of non-empty 'enemies'-shaped
-# arrays) — never both, and never the flat shape (which CombatPrototype.
-# _current_wave_defs() would silently never read).
+# Every encounterOrder id needs a matching flat single-enemy `encounters`
+# entry. Any other entry is a squad ('enemies': non-empty array) or a
+# multi-wave roster ('waves': non-empty array of non-empty 'enemies'
+# arrays) -- never both, never flat.
 func _validate_combat_prototype(combat_prototype: Dictionary, errors: Array[String]) -> void:
 	var order: Array = combat_prototype.get("encounterOrder", [])
 	if order.is_empty():
@@ -948,11 +892,9 @@ func _validate_combat_prototype_enemy(entry: Dictionary, path: String, errors: A
 			errors.append("%s.script: unknown action '%s'" % [path, action])
 
 
-# Every context in Combat.CANONICAL_CONTEXTS must have a backdrop entry --
-# a new context is caught here too, the same guarantee _validate_events()
-# gives the rest of the content pipeline. An entry needs an image OR a
-# fallbackColor (never neither, or the stage renders nothing); a
-# fallbackColor must name a real data/palette.json colour id.
+# Every context in Combat.CANONICAL_CONTEXTS must have a backdrop entry.
+# An entry needs an image OR a fallbackColor (never neither, or the stage
+# renders nothing); fallbackColor must name a real data/palette.json colour id.
 func _validate_combat_visuals(combat_visuals: Dictionary, palette: Dictionary, errors: Array[String]) -> void:
 	var backdrops: Dictionary = combat_visuals.get("backdrops", {})
 	for context in Combat.CANONICAL_CONTEXTS:
@@ -969,21 +911,16 @@ func _validate_combat_visuals(combat_visuals: Dictionary, palette: Dictionary, e
 			errors.append("combat_visuals.backdrops.%s: fallbackColor '%s' is not a data/palette.json colour id" % [context, fallback_color])
 
 	# archie_deal_mugging is a permanent alias of mugging's backdrop, never
-	# its own plate (docs/combat-animation-vision.md §2.1) -- enforced here
-	# so a future edit that gives mugging a real plate can't silently leave
-	# archie_deal_mugging behind.
+	# its own plate (docs/combat-animation-vision.md §2.1).
 	if backdrops.has(Combat.CONTEXT_ARCHIE_DEAL_MUGGING) and backdrops.has(Combat.CONTEXT_MUGGING):
 		if backdrops[Combat.CONTEXT_ARCHIE_DEAL_MUGGING] != backdrops[Combat.CONTEXT_MUGGING]:
 			errors.append("combat_visuals.backdrops.archie_deal_mugging: must exactly match backdrops.mugging (permanent alias, not its own plate)")
 
 
-# Deliberately iterates whatever room/region ids data/hq_visuals.json
-# actually has -- no CANONICAL_* roster like _validate_combat_visuals()'s,
-# since the point of this manifest (docs/hq-diorama-vision.md §9/§3.2) is
-# that a plate or region can be added with no reader code change.
-# "labBench" is a second top-level plate, sibling to "rooms" (§5.1 --
-# reached from the lab zone, not a property tier); same rules apply, so the
-# per-plate body is factored into _validate_hq_plate() and called for both.
+# Iterates whatever room/region ids data/hq_visuals.json has -- no
+# CANONICAL_* roster, since the point (§9/§3.2) is a plate or region can
+# be added with no reader code change. "labBench" is a second top-level
+# plate, sibling to "rooms" (§5.1), same rules via _validate_hq_plate().
 func _validate_hq_visuals(hq_visuals: Dictionary, palette: Dictionary, errors: Array[String]) -> void:
 	var rooms: Dictionary = hq_visuals.get("rooms", {})
 	for room_id in rooms:
@@ -1051,54 +988,43 @@ const VALID_EFFECT_OPS: Array[String] = [
 	"set_screen", "notify", "set_stage", "start_home_raid_combat",
 	"chance", "start_street_mugging", "npc_claim_best_unclaimed_site", "lose_time_block",
 	# grant_vein_with_site pairs a granted vein with a matching claimed site
-	# (home-raid debrief); tutorial_cultivate forces one free successful
-	# cultivate (archie_cultivation).
+	# (home-raid debrief); grant_contact_vein is its contact-handoff cousin,
+	# stashing the new vein's id at a named state path. tutorial_cultivate
+	# forces one free successful cultivate.
 	"grant_vein_with_site", "tutorial_cultivate",
 	"stealth_check", "start_raid_combat", "claim_raid_vein", "loot_raid_vein",
-	# unlock_contact flips contacts.<id>.unlocked; push_message appends a
-	# plain unread text to a conversation (no follow-up action -- for that,
-	# systems call Messages.queue_pending() directly).
+	# unlock_contact flips contacts.<id>.unlocked; push_message appends
+	# a plain unread text (no follow-up action); queue_pending_message
+	# is push_message's follow-up-action cousin (Messages.queue_pending()).
 	"unlock_contact", "push_message",
-	# queue_pending_message is push_message's follow-up-action cousin, wired
-	# to Messages.queue_pending(); faction_relation is "relation"'s
-	# faction-facing twin (Factions.adjust_player_relation).
+	# faction_relation is "relation"'s faction-facing twin (Factions.
+	# adjust_player_relation); log_method writes state.methodLog[key]=value.
 	"queue_pending_message", "faction_relation",
-	# log_method writes state.methodLog[key] = value.
 	"log_method",
-	# faction_seed_reported_sites seeds a faction vein on each site recorded
-	# in a named objective's progress.
+	# Seeds a faction vein on each site recorded in a named objective's progress.
 	"faction_seed_reported_sites",
-	# grant_contact_vein is grant_vein_with_site's contact-handoff cousin --
-	# also stores the new vein's id at a named state path.
 	"grant_contact_vein",
-	# sell_contact_vein_to_faction resolves a vein id from a named state path
-	# and reuses VeinTrade.sell_to_faction() at a forced price.
+	# Resolves a vein id from a named state path and reuses
+	# VeinTrade.sell_to_faction() at a forced price.
 	"sell_contact_vein_to_faction",
-	# start_event chains straight into a second event, so a branch's own
-	# on_complete can reach cards a sibling branch must never see (cardIndex
-	# has no branching of its own).
+	# Chains straight into a second event, so a branch's own on_complete
+	# can reach cards a sibling branch must never see.
 	"start_event",
-	# scripted_seed creates a site (district/tier/oreType from the effect), a
-	# claimed vein at seedGrowth, and the matching map events, bypassing
-	# siteCap/ore-cost/travel entirely. join_faction is the only remaining
-	# path to Factions.join() when the generic Join button is suppressed.
+	# scripted_seed creates a site + claimed vein at seedGrowth + map
+	# events, bypassing siteCap/ore-cost/travel. join_faction is the
+	# only Factions.join() path when the generic Join button is suppressed.
 	"scripted_seed", "join_faction",
-	# reveal_site queues the discover map event for a site id (from the
-	# pending message's payload, or the event's own "site_id"; same fallback
-	# _event_site_id() gives raid ops). set_hakim_intel_day stamps
-	# state.collective.hakimIntelLastDay with today.
+	# reveal_site queues the discover map event for a site id.
+	# set_hakim_intel_day stamps state.collective.hakimIntelLastDay with today.
 	"reveal_site", "set_hakim_intel_day",
 ]
 
 
-# Screens only ever swap on EventBus.screen_changed, fired by Nav.go_to() --
-# Events.advance() never calls that itself when an event completes, so
-# on_complete is the only place left to do it. An event whose on_complete
-# forgets a "set_screen" op leaves the EventScreen mounted with a Continue
-# button that dereferences a null state.event. "start_home_raid_combat" is
-# the one recognized exception (it sets currentScreen itself in
-# combat.gd's _start_combat) -- add an op here only after confirming the
-# same.
+# Screens only swap on EventBus.screen_changed (Nav.go_to()), never fired
+# by Events.advance() itself -- an on_complete forgetting a "set_screen"
+# op leaves EventScreen mounted dereferencing a null state.event.
+# "start_home_raid_combat" is the one exception (sets currentScreen
+# itself in combat.gd).
 const SELF_NAVIGATING_ON_COMPLETE_OPS: Array[String] = ["start_home_raid_combat"]
 
 
@@ -1136,11 +1062,10 @@ func _validate_events(events: Dictionary, districts: Dictionary, errors: Array[S
 
 
 # Contact pin (docs/M1.5-NETWORK-MAP.md N2): { district, showWhenFlagsTrue:
-# [flag,...], showWhenFlagsFalse:[flag,...] } — read by systems/map_pins.gd
-# to decide whether a pin for this event is showing on the Network map.
-# "contact"/"phoneLabel" are an optional pair naming the phone contact this
-# pin belongs to and the label for its phone-card shortcut (ContactCards.
-# build_pin_shortcut_actions()); one without the other is a data mistake.
+# [flag,...], showWhenFlagsFalse:[flag,...] } -- systems/map_pins.gd reads
+# this to decide whether a pin shows on the Network map. "contact"/
+# "phoneLabel" optionally name the phone contact this pin belongs to and
+# its phone-card shortcut label; one without the other is a data mistake.
 func _validate_event_pin(pin: Dictionary, districts: Dictionary, context: String, errors: Array[String]) -> void:
 	_require_keys(pin, ["district", "showWhenFlagsTrue", "showWhenFlagsFalse"], context, errors)
 	if typeof(pin) != TYPE_DICTIONARY:
@@ -1189,8 +1114,7 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 
 
 # M1-LONDON D5's deck filter metadata: district (or "any"), weight,
-# excludeIfFlag (nullable), barometerState (nullable — reserved plumbing,
-# not exercised by any current data per D5).
+# excludeIfFlag (nullable), barometerState (nullable, reserved plumbing).
 func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[String]) -> void:
 	_require_keys(deck, ["district", "weight", "excludeIfFlag", "barometerState"], context, errors)
 	if typeof(deck) != TYPE_DICTIONARY:
@@ -1200,11 +1124,10 @@ func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[Strin
 		errors.append("%s: district '%s' is neither 'any' nor a known district" % [context, district])
 
 
-# data/objectives.json — Objectives.refresh()'s canonical evaluator types
-# (systems/objectives.gd), each with its own fixed param schema. flag_true
-# takes no params: complete once the objective's own completeFlag is true --
-# the shape a flag-driven questline (the tutorial chain) needs, vs. the
-# other types which all inspect world/faction/vein state.
+# data/objectives.json -- Objectives.refresh()'s canonical evaluator
+# types, each with its own fixed param schema. flag_true takes no params
+# (complete once completeFlag is true, the tutorial chain's shape); other
+# types inspect world/faction/vein state.
 const OBJECTIVE_TYPES: Array[String] = [
 	"sites_discovered_matching", "traded_with_faction", "supplied_to_contact", "vein_sold_to_faction", "vein_growth_above", "flag_true",
 ]
@@ -1226,9 +1149,8 @@ func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_type
 			continue
 		if entry.get("id") != key:
 			errors.append("objectives.%s: id field '%s' does not match key" % [key, entry.get("id")])
-		# activateFlag may be null -- active from game start, no gating flag
-		# (the tutorial chain's first checkpoint). Every other objective
-		# still needs a real flag name.
+		# activateFlag may be null -- active from game start (the tutorial
+		# chain's first checkpoint). Every other objective needs a real flag name.
 		if entry.has("activateFlag") and entry["activateFlag"] != null and typeof(entry["activateFlag"]) != TYPE_STRING:
 			errors.append("objectives.%s: activateFlag must be a string or null" % key)
 		if entry.has("completeFlag") and typeof(entry["completeFlag"]) != TYPE_STRING:
@@ -1289,9 +1211,8 @@ func _require_keys(entry: Dictionary, keys: Array, context: String, errors: Arra
 
 # ── file loading ──────────────────────────────────────────────────────
 
-# DirAccess.open()/list_dir_begin() reads res:// through Godot's packed
-# resource filesystem, not the OS filesystem — this listing works the same
-# way in the editor, headless and inside an exported Android/Web build.
+# DirAccess reads res:// through Godot's packed resource filesystem, not
+# the OS filesystem -- works the same in editor, headless, and exported builds.
 func _list_event_ids() -> Array[String]:
 	var ids: Array[String] = []
 	var dir := DirAccess.open("res://data/events/")
@@ -1309,9 +1230,8 @@ func _list_event_ids() -> Array[String]:
 	return ids
 
 
-# `table` is purely for error messages -- every MANIFEST group (and
-# _load_palette()/_load_events()) passes its table id so a missing/broken
-# file's error names the table it was meant to fill, not just its path.
+# `table` is purely for error messages, so a missing/broken file's error
+# names the table it was meant to fill, not just its path.
 func _load_json(path: String, table: String = "") -> Dictionary:
 	var tag: String = " (table '%s')" % table if not table.is_empty() else ""
 	if not FileAccess.file_exists(path):
@@ -1332,13 +1252,11 @@ func _load_json(path: String, table: String = "") -> Dictionary:
 	return _normalize_numbers(parsed)
 
 
-# JSON has no int type -- JSON.parse_string() returns every number as a
-# float, but int vs. float is load-bearing once it's in GameState's pure
-# state tree (deep-equality save/load checks, dict lookups that str() an id
-# — "1.0" isn't "1"). Normalize once here rather than casting at every call
-# site: any float with no fractional part becomes int. Every genuinely-
-# fractional field in the current data (baseSuccess, raidBaseChance, etc.)
-# stays float.
+# JSON.parse_string() returns every number as a float, but int vs. float
+# is load-bearing once it's in GameState's pure state tree (deep-equality
+# save/load checks, id lookups that str() a key -- "1.0" isn't "1").
+# Normalize once here: any float with no fractional part becomes int;
+# genuinely-fractional fields (baseSuccess, raidBaseChance, etc.) stay float.
 func _normalize_numbers(value: Variant) -> Variant:
 	match typeof(value):
 		TYPE_DICTIONARY:

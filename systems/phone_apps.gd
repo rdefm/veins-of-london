@@ -2,17 +2,13 @@ class_name PhoneApps
 extends RefCounted
 
 # Roster-agnostic app registry for the phone home grid. Adding an app is
-# adding one entry to apps() below -- the grid derives its fixed slot
-# count/order directly from this list, never from which apps happen to be
-# unlocked, so a slot never reflows when something unlocks.
-#
-# Every entry's locked Callable is a constant false except "vfl" -- the
-# lock mechanism itself is proven by tests/test_phone_apps.gd exercising
-# build_tile_configs() against a synthetic locked entry.
-#
-# Icon art is looked up from id (res://assets/icons/apps/<id>.png) -- id
-# doubles as the icon reference, so there's no separate icon field to fall
-# out of sync with it.
+# adding one entry to apps() below — the grid derives its fixed slot
+# count/order from this list, never from which apps happen to be unlocked,
+# so a slot never reflows when something unlocks. Every entry's locked
+# Callable is a constant false except "vfl"; the lock mechanism itself is
+# proven by tests/test_phone_apps.gd against a synthetic locked entry.
+# Icon art is looked up from id (res://assets/icons/apps/<id>.png), so
+# there's no separate icon field to fall out of sync.
 
 static func apps() -> Array[Dictionary]:
 	var unlocked := func(): return false
@@ -26,32 +22,27 @@ static func apps() -> Array[Dictionary]:
 		{ "id": "profile", "label": "Profile", "locked": unlocked },
 		{ "id": "saveload", "label": "Save/Load", "locked": unlocked },
 		{ "id": "notifications", "label": "Notifications", "locked": unlocked },
-		# Display-only cash balance + transaction log, branded in-fiction as
-		# "Reynard's" -- the tile label doubles as the in-app heading, same
-		# convention "ticker"/"The Ticker" already uses.
+		# Display-only cash balance + transaction log; brand name doubles as
+		# the in-app heading, same convention as "ticker"/"The Ticker".
 		{ "id": "bank", "label": "Reynard's", "locked": unlocked },
-		# HQ tier stats/upgrade, a parody property portal (docs/hq-diorama-vision.md §7),
-		# same "brand name doubles as the in-app heading" convention as
-		# Reynard's above. PROSE-REVIEW: "Harrow's" pending human sign-off.
+		# HQ tier stats/upgrade, a parody property portal (docs/hq-diorama-vision.md §7).
+		# PROSE-REVIEW: "Harrow's" pending human sign-off.
 		{ "id": "property", "label": "Harrow's", "locked": unlocked },
 		# Entry point into the standalone `contacts` screen (Archie/James's
-		# SMS threads + James's job offers). Unlocked from game start, same
-		# as every other non-vfl tile -- metArchie flips true immediately
+		# SMS threads + James's job offers). Unlocked from game start, like
+		# every other non-vfl tile — metArchie flips true immediately
 		# post-intro, before the grid is ever shown.
 		{ "id": "contacts", "label": "Contacts", "locked": unlocked },
-		# Cosmetic rebrand of the dock's Map entry point, not a real app --
-		# tapping it navigates straight to Nav.go_to("map") rather than
-		# opening as a PhoneNav app, so this tile has no in-app heading to
-		# double as. "VfL" parodies TfL; PROSE-REVIEW: the spelled-out full
-		# name is pending human sign-off. Locked predicate mirrors
-		# NavBar._map_locked() exactly -- this dock lock is enforced at the
-		# UI layer only, Nav.go_to("map") itself has no gate.
+		# Cosmetic rebrand of the dock's Map entry point, not a real app —
+		# tapping it navigates straight to Nav.go_to("map") instead of
+		# opening as a PhoneNav app. "VfL" parodies TfL; PROSE-REVIEW: the
+		# spelled-out full name is pending human sign-off. Locked predicate
+		# mirrors NavBar._map_locked(); Nav.go_to("map") itself has no gate.
 		{ "id": "vfl", "label": "VfL", "locked": func(): return not GameState.state["flags"]["archiePartnerSeen"] },
 	]
 
-	# Only present on a save started via the title screen's Debug Start
-	# button -- never merely locked, genuinely absent from the grid on a
-	# normal New Game.
+	# Only present on a save started via Debug Start — never merely locked,
+	# genuinely absent from the grid on a normal New Game.
 	if GameState.state["flags"]["debugStartUsed"]:
 		list.append({ "id": "debug", "label": "Debug", "locked": unlocked })
 
@@ -59,9 +50,9 @@ static func apps() -> Array[Dictionary]:
 
 
 # Pure transform: registry entries -> AppTile.configure()-ready dicts, in
-# the same fixed order as `apps`. `badge_for` is injected (app_id -> bool)
-# rather than read from GameState directly, so this is testable with a
-# synthetic roster and a stub predicate.
+# the same fixed order as `apps`. `badge_for` (app_id -> bool) is injected
+# rather than read from GameState, so this is testable with a synthetic
+# roster and a stub predicate.
 static func build_tile_configs(apps_list: Array[Dictionary], badge_for: Callable) -> Array[Dictionary]:
 	var configs: Array[Dictionary] = []
 	for app in apps_list:

@@ -1,25 +1,22 @@
 class_name DistrictDeck
 extends RefCounted
 
-# District event deck per M1-LONDON.md D5. Static funcs only. A deck
-# entry is any GameData.EVENTS entry (normal Events schema — cards/
-# on_complete) that also carries a "deck" sub-object: { district, weight,
-# excludeIfFlag, barometerState, requireUnclaimedSiteInDistrict? }.
-# Filtering reads GameData.EVENTS directly, so tests can inject synthetic
-# deck entries the same way tests/test_events.gd injects synthetic events.
+# District event deck per M1-LONDON.md D5. Static funcs only. A deck entry is
+# any GameData.EVENTS entry (normal cards/on_complete schema) that also
+# carries a "deck" sub-object: { district, weight, excludeIfFlag,
+# barometerState, requireUnclaimedSiteInDistrict? }.
 
 const TRIGGER_CHANCE: float = 0.25
 const NO_REPEAT_DAYS: int = 5
 
 
 # Called on completing a travel or prospect action (D5). chance(0.25) to
-# draw; a miss, or a draw with nothing eligible, is a silent no-op —
-# neither spends a turn nor consumes anything beyond the RNG roll itself.
-# Callers must invoke this as the very last step of their action, after
-# every other roll — it draws from the same seeded Rng stream, so calling
-# it any earlier would shift the outcome of whatever rolls next. Draws
-# proceed through systems/events.gd's existing runner; no event content
-# lives here, only the trigger/filter/weight/no-repeat plumbing.
+# draw; a miss, or a draw with nothing eligible, is a silent no-op. Callers
+# must invoke this as the very last step of their action, after every
+# other roll — it draws from the same seeded Rng stream, so calling it
+# earlier would shift the outcome of whatever rolls next. Draws proceed
+# through systems/events.gd's runner; no event content lives here, only
+# the trigger/filter/weight/no-repeat plumbing.
 static func maybe_trigger(district_id: String) -> void:
 	if not Rng.chance(TRIGGER_CHANCE):
 		return
@@ -41,17 +38,13 @@ static func draw(district_id: String) -> Variant:
 	return weighted_pick(entries)
 
 
-# Deck filter semantics (D5): district restricts which district's actions
-# can draw the entry ("any" matches every district); excludeIfFlag drops
-# the entry once that flag is true; barometerState (when set) requires
-# state.barometer[section] to currently equal state — reserved plumbing,
-# unused by any current data. requireUnclaimedSiteInDistrict (D5 #13,
-# optional, defaults false — only rival_prospector sets it) drops the
-# entry unless the district currently has at least one unclaimed site,
-# per D5's "any district with unclaimed sites" wording; left optional
-# rather than added to every deck object's required keys, since only one
-# of the 15 events needs it. No-repeat-within-5-days is enforced last via
-# state.world.recentEvents.
+# Deck filter semantics (D5): district restricts which district's actions can
+# draw the entry ("any" matches every district); excludeIfFlag drops the
+# entry once that flag is true; barometerState (when set) requires
+# state.barometer[section] to currently equal state -- reserved, unused by
+# any current data. requireUnclaimedSiteInDistrict (D5 #13, only
+# rival_prospector sets it) drops the entry unless the district has an
+# unclaimed site. No-repeat-within-5-days is enforced last via state.world.recentEvents.
 static func eligible_entries(district_id: String) -> Array:
 	var entries: Array = []
 	for event_id in GameData.EVENTS.keys():
@@ -94,9 +87,9 @@ static func _recently_drawn(event_id: String) -> bool:
 	return false
 
 
-# Weighted roll over a list of { id, weight } dicts (as produced by
-# eligible_entries()) — public and pure so tests can hit the weight math
-# directly, same pattern as Sites.roll_tier_from_weights().
+# Weighted roll over { id, weight } dicts (eligible_entries()'s output) —
+# public and pure so tests can hit the weight math directly, same pattern
+# as Sites.roll_tier_from_weights().
 static func weighted_pick(entries: Array) -> String:
 	var total: float = 0.0
 	for entry in entries:

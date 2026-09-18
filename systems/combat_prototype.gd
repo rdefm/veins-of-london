@@ -5,22 +5,19 @@ extends RefCounted
 # matchup grid, committed-intent resolution, and Rewind reliability -- not
 # production combat. Isolated from systems/combat.gd: own state lives in
 # GameState.state["combatPrototype"], own snapshot stack, own screen
-# (scenes/screens/combat_prototype.gd). Never touches the real player's hp.
-# Item use IS real, though: it spends from the player's actual
-# inventory/Dial charge, restored on Rewind (see push_prototype_snapshot()/
-# rewind()).
+# (scenes/screens/combat_prototype.gd); never touches the real player's hp.
+# Item use IS real though: it spends from the player's actual
+# inventory/Dial charge, restored on Rewind (push_prototype_snapshot()/
+# rewind()). cp.enemies is always an Array (solo == one-element);
+# cp.wave/cp.totalWaves track a multi-wave encounter's progress.
 #
-# cp.enemies is always an Array (solo == one-element); cp.wave/cp.totalWaves
-# track a multi-wave encounter's progress. A round can take multiple player
-# commits when Motion is active; cp["_pending"] holds the in-progress
-# round's queue/cursor/beats so a call needing fresh input can resume
-# instead of restarting -- see _advance_round().
-#
-# Not wired: Grab/Bolt/Call (no contract defined yet); Prophet's Breath and
-# Wormhole (not in the approved item list); Healing Salve (production
-# restricts it to out-of-combat); Blast's disarm roll (logged-only
-# flourish -- no weapon/ability fields to strip here); allies (always
-# player-solo vs N enemies).
+# A round can take multiple player commits when Motion is active;
+# cp["_pending"] holds the in-progress round's queue/cursor/beats so a
+# call needing fresh input can resume instead of restarting (see
+# _advance_round()). Not wired: Grab/Bolt/Call (no contract defined);
+# Prophet's Breath and Wormhole (not in the approved item list); Healing
+# Salve (out-of-combat only); Blast's disarm (logged-only flourish, no
+# weapon/ability to strip here); allies (always player-solo vs N enemies).
 
 const ACTION_FAST := "fast"
 const ACTION_HEAVY := "heavy"
@@ -428,11 +425,10 @@ static func _apply_item_effect(cp: Dictionary, item_id: String, power, targets: 
 # ── Round engine ──────────────────────────────────────────────────────────
 
 # Speed-descending queue over the player + every living enemy, ties broken
-# player-first-then-enemy-array-order, same convention as
-# Combat.build_turn_queue() (R§3.7a). While cp.motionTurns > 0 (Enhancement
-# Powder active), (attack_count - 1) extra player entries are spliced in
-# right after the player's base slot, mirroring Combat.build_turn_queue()'s
-# own Motion-insertion.
+# player-first-then-enemy-array-order (R§3.7a, same convention as
+# Combat.build_turn_queue()). While cp.motionTurns > 0, (attack_count - 1)
+# extra player entries are spliced in after the player's base slot,
+# mirroring Combat.build_turn_queue()'s own Motion-insertion.
 static func _build_queue(cp: Dictionary) -> Array:
 	var entries: Array = [{ "type": "player", "speed": Combat._player_speed() }]
 	var enemies: Array = cp["enemies"]
@@ -466,14 +462,11 @@ static func _build_queue(cp: Dictionary) -> Array:
 # Starts a new round if one isn't already in progress: pushes the snapshot,
 # resets stance-triggered flags, and commits every living enemy's action
 # up front (see _commit_enemies()). A no-op if cp["_pending"] is already
-# set. Returns whether a fresh round was actually started -- the caller
-# must follow up with _start_round_queue(cp) once any same-call item effect
-# has been applied, but only when this returned true.
-#
-# Called before any of take_player_action()/use_item()/
+# set; returns whether a fresh round was actually started, so the caller
+# knows to follow up with _start_round_queue(cp) once any same-call item
+# effect has been applied. Called before take_player_action()/use_item()/
 # cast_dial_complication() spend anything real, so Rewind's "restores item
-# stock, Dial charges" contract holds regardless of which entry point
-# started the round.
+# stock, Dial charges" contract holds regardless of entry point.
 static func _ensure_round_started(cp: Dictionary) -> bool:
 	if cp.get("_pending") != null:
 		return false
@@ -488,9 +481,8 @@ static func _ensure_round_started(cp: Dictionary) -> bool:
 # Builds and installs the round's queue. Split out from
 # _ensure_round_started() so an item entry point can apply its own effect
 # (which may set cp["motionTurns"]/cp["motionPower"]) BEFORE the queue is
-# built, letting that same round's cast insert its extra slot(s)
-# immediately rather than next round. Only called when
-# _ensure_round_started() just returned true.
+# built, letting that round's own cast insert its extra slot(s)
+# immediately. Only called when _ensure_round_started() just returned true.
 static func _start_round_queue(cp: Dictionary) -> void:
 	cp["_pending"] = { "queue": _build_queue(cp), "pos": 0, "beats": [] }
 
@@ -499,12 +491,10 @@ static func _start_round_queue(cp: Dictionary) -> void:
 # cast_dial_complication(), called after _ensure_round_started() has
 # guaranteed cp["_pending"] exists. `action` is one of COMMITTABLE_ACTIONS
 # or ACTION_ITEM; for ACTION_ITEM the effect has already been applied by
-# the caller, and `pre_beats` carries whatever it already logged.
-#
-# The action/target/item given resolves the first not-yet-resolved player
-# queue entry the walk reaches; every player entry reached after that in
-# the same call either auto-skips (already exhausted) or pauses again
-# asking for the next commit.
+# the caller, and `pre_beats` carries whatever it already logged. The
+# action/target/item given resolves the first not-yet-resolved player
+# queue entry the walk reaches; every player entry reached after that
+# either auto-skips (already exhausted) or pauses for the next commit.
 static func _advance_round(cp: Dictionary, action: String, target_index: int, item_id, pre_beats: Array = []) -> Dictionary:
 	var player: Dictionary = cp["player"]
 	var pending: Dictionary = cp["_pending"]
@@ -592,10 +582,9 @@ static func _resolve_player_attack(cp: Dictionary, beats: Array, action: String,
 # Commit phase: every living enemy not currently exhausted reveals its
 # scripted action now, before any resolution this round runs -- a slower
 # enemy's Counter/Dodge has to already be visible the instant an earlier
-# queue entry needs to check it. An exhausted enemy commits nothing; script
-# pick/advance only happens on a real commit. Frozen is deliberately NOT
-# checked here: it's a resolution-order-dependent pool, resolved at each
-# enemy's own queue turn instead (see _resolve_enemy_entry()).
+# queue entry needs to check it. An exhausted enemy commits nothing. Frozen
+# is deliberately NOT checked here: it's resolved at each enemy's own
+# queue turn instead (see _resolve_enemy_entry()).
 static func _commit_enemies(cp: Dictionary) -> void:
 	var wave_defs: Array = _current_wave_defs(cp)
 	var enemies: Array = cp["enemies"]
@@ -613,12 +602,10 @@ static func _commit_enemies(cp: Dictionary) -> void:
 
 
 # One living enemy's own queue turn, executing whatever _commit_enemies()
-# already revealed for it. Frozen is checked and resolved FIRST every time,
-# decrementing the shared pool and leaving exhaustedNextTurn untouched --
-# only once frozenTurns stops gating this enemy's turn does a pending
-# exhaustedNextTurn (signalled by a null committedAction) consume a turn.
-# A committed stance has nothing to execute here -- it resolves reactively,
-# from whichever attack targets this enemy.
+# already revealed for it. Frozen is checked and resolved FIRST every
+# time, leaving exhaustedNextTurn untouched until frozenTurns stops
+# gating this enemy's turn. A committed stance has nothing to execute
+# here -- it resolves reactively, from whichever attack targets it.
 static func _resolve_enemy_entry(cp: Dictionary, enemy_idx: int, beats: Array) -> void:
 	var enemy: Dictionary = cp["enemies"][enemy_idx]
 	if enemy["koed"]:
@@ -685,9 +672,9 @@ static func _resolve_flee(cp: Dictionary, beats: Array) -> void:
 
 # Shared HP-application chokepoint -- every damage instance in this file
 # funnels through here. target/actor are (is_player, enemy_idx) pairs
-# rather than a single "defender" reference, since retaliation's target is
-# the original ATTACKER, not whoever just defended. Also owns shield
-# absorption (player-only) and the enemy-koed -> maybe-wave-cleared check.
+# rather than a single "defender" reference, since retaliation targets the
+# original attacker. Also owns shield absorption and the enemy-koed ->
+# maybe-wave-cleared check.
 static func _deal_damage(cp: Dictionary, target_is_player: bool, target_idx: int, dmg: int, line: String, kind: String, actor_is_player: bool, actor_idx: int, beats: Array) -> void:
 	var target: Dictionary = cp["player"] if target_is_player else cp["enemies"][target_idx]
 	var extra: Dictionary = {
@@ -751,10 +738,9 @@ static func _log_unused_stances(cp: Dictionary, beats: Array) -> void:
 
 
 # Ends the round: unused-stance fizzles, wave-clear/win resolution, commit
-# reset, Motion decay, round increment. This is the ONLY place a wave
-# transition can happen, and it only fires for an encounter def that
-# actually has `waves` (cp.totalWaves > 1); every squad/solo encounter's
-# win resolves immediately here.
+# reset, Motion decay, round increment. The only place a wave transition
+# can happen (only for a def with `waves`, cp.totalWaves > 1); every
+# squad/solo encounter's win resolves immediately here.
 static func _finalize_round(cp: Dictionary, beats: Array) -> Dictionary:
 	if cp["outcome"] == null:
 		_log_unused_stances(cp, beats)
@@ -798,9 +784,8 @@ static func _log(cp: Dictionary, beats: Array, line: String, kind: String, extra
 
 # Rewind restores item stock, HP, Dial charges, and all other combat state
 # to the snapshot. Captures the real player's inventory buckets for every
-# ITEM_RECIPE_KEYS entry (tier-exact, not just an aggregate qty) and the
-# real Dial's currentCharge, alongside cp's own combat state -- pushed once
-# per round, before that round's first action is applied, so Rewind can
+# ITEM_RECIPE_KEYS entry (tier-exact) and the real Dial's currentCharge --
+# pushed once per round, before that round's first action, so Rewind can
 # undo a spent item exactly as it undoes damage.
 static func push_prototype_snapshot() -> void:
 	var cp: Dictionary = GameState.state["combatPrototype"]
@@ -834,11 +819,10 @@ static func push_prototype_snapshot() -> void:
 	Snapshots.push("combatPrototype", cp["snapshots"], snap)
 
 
-# Freely available in this prototype (no consumable/Dial gating like
-# production's combat_rewind()) -- the point here is proving restoration is
-# reliable, not resource scarcity. Bounded only by whether a snapshot
-# exists (2-deep stack, same as production). Safe to call mid-round, since
-# the snapshot was taken before any of this round's actions.
+# Freely available in this prototype (no consumable/Dial gating) -- the
+# point here is proving restoration is reliable, not resource scarcity.
+# Bounded only by whether a snapshot exists (2-deep stack, same as
+# production). Safe mid-round, since the snapshot predates this round.
 static func rewind() -> Dictionary:
 	var cp: Dictionary = GameState.state["combatPrototype"]
 	if not cp["active"] or cp["snapshots"].is_empty():

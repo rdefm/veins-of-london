@@ -5,28 +5,22 @@ extends RefCounted
 
 const MUG_BASE_CHANCE := 0.20
 
-# DRAFT, flagged for human review: a vein sale needs to be a genuine
-# alternative to the faction lane's no-cut/no-risk sale, not strictly worse.
-const ARCHIE_VEIN_MARKUP := 1.35
+# DRAFT, flagged for human review.
+const ARCHIE_VEIN_MARKUP := 1.35  # keeps a vein sale genuinely better than the faction lane's no-cut/no-risk sale
+const MUG_BASE_CHANCE_VEIN := 0.12  # lower than MUG_BASE_CHANCE; offset by a harder mugger roster (Combat.start_mugging)
 
-# DRAFT, flagged for human review: lower than MUG_BASE_CHANCE in exchange
-# for the mugger roster being harder (see Combat.start_mugging).
-const MUG_BASE_CHANCE_VEIN := 0.12
-
-# Smaller than James's +5/job since sales happen far more often. Kept
-# alongside, not instead of, RelationAccrual's £-denominated tradeProgress
-# accumulator (R§3.6) -- see execute_sale below for how the two combine.
+# Smaller than James's +5/job (sales are more frequent); adds to, not
+# replaces, RelationAccrual's tradeProgress accumulator (R§3.6).
 const ARCHIE_SALE_RELATION_GAIN := 2
 
-# Relation-scaled 0.60->0.85 linear across relation 10->80, flat outside
-# (R§3.6, human-confirmed curve).
+# Linear 0.60->0.85 across relation 10->80, flat outside (R§3.6, confirmed curve).
 const ARCHIE_CUT_RATIO_MIN := 0.60
 const ARCHIE_CUT_RATIO_MAX := 0.85
 const ARCHIE_CUT_RELATION_MIN := 10
 const ARCHIE_CUT_RELATION_MAX := 80
 
-# +25% per quality tier over 1, doubling at tier 5 (R§3.6). Tier 0
-# (untiered/legacy stock) prices the same as tier 1 -- quality unknown.
+# +25% per quality tier over 1, doubling at tier 5 (R§3.6); tier 0
+# (untiered/legacy stock) prices as tier 1 since its quality is unknown.
 const QUALITY_PRICE_STEP := 0.25
 
 
@@ -79,14 +73,12 @@ static func execute_sale(items: Array) -> Dictionary:
 	for item in items:
 		var kind: String = item["kind"]
 		if kind == "vein":
-			# The vein transfer is unconditional here; only the cash (folded
-			# into gross -> player_cut) is contingent on the mugging roll --
-			# a lost mugging pays nothing even though the vein is gone.
-			#
-			# Routes through VeinTrade.SELL_FACTION_ID ("collective") -- Archie
-			# fences it on, he doesn't hold veins himself. RelationAccrual
-			# inside transfer_to_faction is fed the plain VeinTrade.quote()
-			# (the vein's worth to the faction), not Archie's markup below.
+			# Vein transfer is unconditional; only the cash (folded into gross
+			# -> player_cut) depends on the mugging roll, so a lost mugging
+			# still loses the vein. Routes through VeinTrade.SELL_FACTION_ID
+			# ("collective") since Archie fences it rather than holding veins
+			# himself; RelationAccrual gets the plain VeinTrade.quote(), not
+			# Archie's markup below.
 			var vein_id: String = item["veinId"]
 			var vein: Variant = Cultivating.find_vein(vein_id)
 			if vein == null:
@@ -119,26 +111,23 @@ static func execute_sale(items: Array) -> Dictionary:
 			# separate Notify banner is needed on top.
 			Messages.queue_pending("archie", "archie_motion", "good output. call me.")
 
-	# Flat award, before the cut ratio below so this same sale's cut
-	# reflects it (R§3.6).
+	# Flat award before the cut ratio below, so this sale's own cut reflects it (R§3.6).
 	Contacts.award_relation("archie", ARCHIE_SALE_RELATION_GAIN)
 
 	var player_cut: int = int(floor(gross * get_archie_cut_ratio()))
 
-	# The separate tradeProgress accumulator (R§3.6), on top of the flat
-	# award above, not instead of it. Computed *after* player_cut so a sale
-	# that crosses a tradeProgress relation point still gets its own cut at
-	# the relation it had before this bump.
+	# Separate tradeProgress accumulator (R§3.6), on top of the flat award
+	# above. Computed *after* player_cut so a sale crossing a tradeProgress
+	# relation point still cuts at the pre-bump relation.
 	RelationAccrual.accrue_archie(gross)
 	var mug_base: float = MUG_BASE_CHANCE_VEIN if vein_included else MUG_BASE_CHANCE
 	var mugged: bool = Rng.chance(Barometer.get_effective_mug_chance(mug_base + danger_mod))
 
 	if mugged:
-		# No sale_result modal yet -- complete_mugged_sale() opens it once
-		# the mugging resolves. The still-open sell_menu modal must be closed
-		# explicitly here (the non-mugged branch below implicitly replaces it
-		# via Modal.open), or ModalLayer would stay visible over the
-		# freshly-started combat screen, swallowing every tap.
+		# No sale_result modal yet -- complete_mugged_sale() opens it once the
+		# mugging resolves. sell_menu must be closed explicitly here (unlike
+		# the non-mugged branch, which implicitly replaces it via Modal.open)
+		# or ModalLayer stays visible over combat, swallowing every tap.
 		Modal.close()
 		GameState.state["pendingSaleCut"] = player_cut
 		Combat.start_mugging(vein_included)
@@ -164,9 +153,8 @@ static func complete_mugged_sale() -> Dictionary:
 	return { "earned": earned, "gross": earned * 2, "mugged": true }
 
 
-# state.sellState (R§2: "sell-menu qty selections, transient") backs the
-# sell_menu modal's qty steppers. Screens can't mutate it directly, so
-# these exist even though they're UI-support rather than R§3.6 formulas.
+# state.sellState (R§2) backs the sell_menu modal's qty steppers; screens
+# can't mutate it directly, hence these UI-support funcs.
 static func adjust_sell_qty(key: String, delta: int, max_qty: int) -> void:
 	var sell_state: Dictionary = GameState.state["sellState"]
 	var current: int = sell_state.get(key, 0)
@@ -179,9 +167,8 @@ static func clear_sell_state() -> void:
 	EventBus.state_changed.emit()
 
 
-# A vein isn't stackable, so unlike adjust_sell_qty this is a plain 0/1
-# include/exclude flip. Same "vein_<id>" key space
-# sell_to_faction_from_sell_state() below reads back out.
+# A vein isn't stackable, so this is a plain 0/1 flip (unlike adjust_sell_qty);
+# sell_to_faction_from_sell_state() below reads the same "vein_<id>" keys back out.
 static func toggle_sell_vein(vein_id: String) -> void:
 	var sell_state: Dictionary = GameState.state["sellState"]
 	var key := "vein_%s" % vein_id
@@ -199,10 +186,9 @@ static func toggle_buy_vein(vein_id: String) -> void:
 
 
 # state.marketplaceQty backs the Guild marketplace's per-row Buy/Sell ×N
-# stepper -- one shared qty per row, floored at 1 (a row's buttons always
-# act on a positive qty). max_qty is the caller-computed larger of the
-# row's buy/sell ceilings; the buttons disable independently past their
-# own direction's ceiling.
+# stepper -- one shared qty per row, floored at 1. max_qty is the caller's
+# larger of the row's buy/sell ceilings; buttons disable independently past
+# their own ceiling.
 static func get_marketplace_qty(faction_id: String, kind: String, item_type: String) -> int:
 	var key := "%s_%s_%s" % [faction_id, kind, item_type]
 	return int(GameState.state["marketplaceQty"].get(key, 1))
@@ -210,9 +196,9 @@ static func get_marketplace_qty(faction_id: String, kind: String, item_type: Str
 
 static func adjust_marketplace_qty(faction_id: String, kind: String, item_type: String, delta: int, max_qty: int) -> void:
 	var key := "%s_%s_%s" % [faction_id, kind, item_type]
-	# The stored qty can go stale between renders (a buy/sell shrinks
-	# max_qty without touching it, and the screen only clamps for display).
-	# Re-clamp against today's max_qty before applying delta.
+	# Stored qty can go stale between renders (a buy/sell shrinks max_qty
+	# without touching it; the screen only clamps for display) -- re-clamp
+	# against today's max_qty before applying delta.
 	var current: int = clampi(get_marketplace_qty(faction_id, kind, item_type), 1, maxi(max_qty, 1))
 	GameState.state["marketplaceQty"][key] = clampi(current + delta, 1, maxi(max_qty, 1))
 	EventBus.state_changed.emit()
@@ -236,9 +222,8 @@ static func sell_from_sell_state() -> Dictionary:
 			if qty > 0:
 				items.append({ "kind": "consumable", "type": recipe_key, "tier": int(tier_key), "qty": qty })
 
-	# Same "vein_<id>" toggle keys toggle_sell_vein()/sell_to_faction_from_
-	# sell_state() use -- Archie's Assets section reuses the identical
-	# toggle wiring, folding into execute_sale's item list instead.
+	# Same "vein_<id>" keys toggle_sell_vein()/sell_to_faction_from_sell_state()
+	# use; Archie's Assets section reuses the wiring, folded into execute_sale's items.
 	if GameState.state["flags"].get("veinSaleUnlocked", false):
 		for vein in GameState.state["player"]["veins"]:
 			if sell_state.get("vein_%s" % vein["id"], 0) > 0:
@@ -312,11 +297,10 @@ static func get_faction_sell_price(faction_id: String, kind: String, item_type: 
 	return GameState.round_epsilon(effective * (1.0 - get_faction_sell_spread(faction_id)))
 
 
-# The Guild marketplace's per-row qty stepper needs a buy-side
-# affordability ceiling (cash / price), unlike the sell-side ceiling which
-# is a raw stock field. An ore row's ceiling is additionally capped by the
-# faction's oreStock when present -- only "collective" ever has entries, so
-# every other faction stays cash-only; consumables have no stock concept.
+# The Guild marketplace's per-row qty stepper needs a buy-side affordability
+# ceiling (cash / price), unlike the raw-stock sell-side ceiling. An ore row is
+# further capped by the faction's oreStock when present -- only "collective"
+# ever has entries, so every other faction stays cash-only; consumables have no stock concept.
 static func get_faction_buy_max_qty(faction_id: String, kind: String, item_type: String) -> int:
 	var price := get_faction_buy_price(faction_id, kind, item_type)
 	var cash: int = GameState.state["player"]["cash"]
@@ -375,9 +359,8 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 
 
 # Symmetric counterpart to execute_faction_purchase -- straight sale at the
-# faction's spread-narrowed price, no mugging/cut. contact_id ("" for every
-# lane but Collective's) additionally feeds the vendor's own
-# personal-relation lane, alongside the faction accrual below.
+# spread-narrowed price, no mugging/cut. contact_id ("" for every lane but
+# Collective's) additionally feeds the vendor's own personal-relation lane.
 static func execute_faction_sale(faction_id: String, items: Array, contact_id: String = "") -> Dictionary:
 	if items.is_empty():
 		return { "ok": false, "reason": "Nothing to sell." }
@@ -416,24 +399,18 @@ static func execute_faction_sale(faction_id: String, items: Array, contact_id: S
 
 
 # Faction-lane counterpart to sell_from_sell_state(): same sellState cart
-# and item-building, but priced/settled through execute_faction_sale()
-# rather than Archie's cut-and-mugging execute_sale(). No tier segment on
-# the built items -- a faction lane's price doesn't vary by tier.
-#
-# Any "vein_<id>"/"buyVein_<id>" keys toggled on ride along in the same
-# cart/Go tap -- each vein sold/bought individually through
-# VeinTrade.sell_to_faction()/buy_from_faction() since execute_faction_sale
-# only knows ore/consumable items. Buy price is subtracted from `earned`
-# rather than added, so `earned` is always the trade's net cash change.
-#
-# "buyOre_<type>" keys are gathered into one items array and settled
-# through execute_faction_purchase() as a single all-or-nothing call. A
-# rejected purchase (stock ran out between render and Go) contributes
-# nothing to `earned`, same silent-skip shape as a failed vein buy/sell.
-#
-# contact_id ("" for every caller but Collective.complete_trade) rides
-# along every leg below so a trade through a specific vendor's door builds
-# that vendor's own personal relation too, not just the faction meter.
+# and item-building, settled via execute_faction_sale() (not Archie's
+# cut-and-mugging execute_sale()) -- no tier segment since faction price
+# doesn't vary by tier. Toggled "vein_<id>"/"buyVein_<id>" keys ride along in
+# the same cart/Go tap but settle individually via
+# VeinTrade.sell_to_faction()/buy_from_faction() (execute_faction_sale only
+# knows ore/consumable); buy price subtracts from `earned` so it stays the
+# trade's net cash change. "buyOre_<type>" keys settle together via
+# execute_faction_purchase() as one all-or-nothing call; a rejected purchase
+# contributes nothing, same silent-skip as a failed vein buy/sell. contact_id
+# ("" for every caller but Collective.complete_trade) rides every leg so a
+# trade through a specific vendor builds that vendor's own relation too, not
+# just the faction meter.
 static func sell_to_faction_from_sell_state(faction_id: String, contact_id: String = "") -> Dictionary:
 	var sell_state: Dictionary = GameState.state["sellState"]
 	var items: Array = []

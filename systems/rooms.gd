@@ -4,10 +4,9 @@ extends RefCounted
 # Daily processing for the lab and veinStation rooms per R§3.10. Static
 # funcs only.
 
-# R§1.3 has no unlockFlag column for recipes, but R§3.10
-# says the lab crafts each "unlocked recipe" — this mirrors the HTML's
-# per-recipe checks with the R§7 rename applied (motionPowder ->
-# enhancementPowder, motionPowderUnlocked -> enhancementUnlocked).
+# R§1.3 has no unlockFlag column for recipes, but R§3.10 says the lab crafts
+# each "unlocked recipe" -- mirrors the HTML's per-recipe checks with the
+# R§7 ids applied (enhancementPowder/enhancementUnlocked).
 const RECIPE_UNLOCK_FLAGS := {
 	"timePearl": "craftingUnlocked",
 	"enhancementPowder": "enhancementUnlocked",
@@ -33,10 +32,9 @@ static func lab_covers_contracts(recipe_key: String) -> bool:
 
 
 # business-spec.md "Production and Procurement": contract need counts only
-# the undelivered quantity of active current periods -- a recurring
-# contract's next period doesn't exist in state until settle() creates it,
-# so simply summing every active contract's remaining_qty already excludes
-# any future recurring period.
+# undelivered qty of active current periods -- a recurring contract's next
+# period doesn't exist until settle() creates it, so summing remaining_qty
+# already excludes any future period.
 static func contract_need(recipe_key: String) -> int:
 	var need := 0
 	for contract in _matching_active_contracts(recipe_key):
@@ -77,11 +75,10 @@ static func production_reserved_qty(recipe_key: String) -> int:
 
 
 # "The contract-card priority order wins, then player-set inventory-target
-# priority" for which recipe gets scarce shared ore first. Recipes with
-# covered, currently-unmet contract need are ordered by the best
-# (lowest-index) rank of any of their matching active contracts in
-# sales.priorityOrder; every other recipe follows, ordered by
-# labThresholds' own key-insertion order -- the player's de facto priority.
+# priority" for scarce shared ore. Recipes with covered, unmet contract need
+# are ordered by the best rank of any matching active contract in
+# sales.priorityOrder; everything else follows labThresholds' own
+# key-insertion order (the player's de facto priority).
 static func _production_order() -> Array:
 	var threshold_keys: Array = GameState.state["labThresholds"].keys()
 	var recipe_keys: Array = GameData.RECIPES.keys()
@@ -221,14 +218,12 @@ static func process_lab() -> void:
 
 
 # Called from time_system.gd's daily_tick, step ⑥ (veinStation half).
-#
-# "Hold-at-target": per assigned vein, a contact prunes down toward the
-# target if growth has drifted more than VEIN_STATION_HOLD_BAND above it,
-# or rolls one cultivate attempt if it's drifted the same amount below it.
-# Drives Cultivating's prune-yield/cultivate-gain math directly rather than
-# routing through Cultivating.prune()/cultivate() -- those spend a time
-# block and require Travel.ensure_district, which don't apply to a contact
-# working from home on a daily tick.
+# "Hold-at-target": per assigned vein, a contact prunes toward target if
+# growth drifted more than VEIN_STATION_HOLD_BAND above it, or rolls one
+# cultivate attempt if drifted the same amount below. Drives Cultivating's
+# prune-yield/cultivate-gain math directly rather than through
+# Cultivating.prune()/cultivate(), which spend a time block and require
+# Travel.ensure_district -- not applicable to a contact working from home.
 static func process_vein_station() -> void:
 	var contact_id = Contacts.get_contact_in_room("veinStation")
 	if contact_id == null:

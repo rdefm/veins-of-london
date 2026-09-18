@@ -2,23 +2,20 @@ class_name Collective
 extends RefCounted
 
 # Des, Nadia and Hakim are three cosmetic doors onto one trade lane --
-# identical price and *faction* relation award, driven with faction_id
-# "collective" regardless of which contact's Trade button opened sell_menu.
-# What varies by vendor: a flavour line on completing a trade (data/
-# collective_barks.json), and that vendor's own personal relation below.
+# identical price and *faction* relation via faction_id "collective",
+# regardless of contact. What varies by vendor: a flavour line on completion
+# (data/collective_barks.json) and that vendor's own personal relation below.
 
-# DRAFT, pending human balance sign-off -- flat per-trade award to the
-# vendor whose door the trade went through, same "both fire" shape as
-# Economy.execute_sale's Archie lane (flat + RelationAccrual meter).
-# Smaller than Archie's +2 since three vendors share one lane's volume.
+# DRAFT, pending human balance sign-off. Flat per-trade award to the vendor
+# whose door the trade went through -- same "both fire" shape as
+# Economy.execute_sale's Archie lane, but smaller since three vendors share one lane's volume.
 const VENDOR_TRADE_RELATION_GAIN := 1
 
 
-# Nadia's approved introductory order is deliberately a separate operation
-# from the shared Collective cart: only this direct hand-off advances it.
-# Economy remains the owner of price, stock removal, payment and trade-side
-# relation accrual, so this operation has no time cost and cannot fork the
-# faction-sale rules.
+# Nadia's approved introductory order is a separate operation from the shared
+# Collective cart: only this direct hand-off advances it. Economy still owns
+# price, stock removal, payment and trade-side relation, so this has no time
+# cost and cannot fork the faction-sale rules.
 static func supply_nadia(qty: int) -> Dictionary:
 	var runtime: Dictionary = GameState.state["objectives"].get("col_a1_nadia_supply", {})
 	if qty <= 0:
@@ -82,11 +79,10 @@ static func _next_bark(contact_id: String) -> String:
 	return lines[index]
 
 
-# Lets the player report a qualifying col_a1_des_sites site to Des one ore
-# type at a time, rather than only once both required ore types are
-# unclaimed simultaneously. Converts the site to a Collective vein
-# immediately (Sites.seed_faction_vein()), which doubles as the
-# double-report guard: a claimed site can never re-match "unclaimed" later.
+# Lets the player report a qualifying col_a1_des_sites site to Des one ore type
+# at a time, rather than only once both required types are unclaimed at once.
+# Converts the site to a Collective vein immediately (Sites.seed_faction_vein()),
+# which doubles as the double-report guard: a claimed site never re-matches "unclaimed".
 static func report_des_site(ore_type: String) -> Dictionary:
 	if not GameState.state["flags"].get("colA1DesThreadActive", false):
 		return { "ok": false, "reason": "Thread not active." }
@@ -150,15 +146,13 @@ static func _find_qualifying_des_site(ore_type: String, params: Dictionary) -> V
 	return null
 
 
-# Des's two location-agnostic "Firm as weather" beats. Called from
-# Sites.prospect() ahead of DistrictDeck.maybe_trigger(); this function is
-# Rng-free, so when it fires the deck's own seeded roll is never touched
-# that action -- a genuine early return, not a discarded draw.
-#
-# `new_site` is the site this same prospect() call just created (null on an
-# at-cap reroll). colA1SkirmishSeen/colA1IntimidationSeen double as a "how
-# many beats have fired" counter: neither seen -> fires the first; only the
-# first seen -> fires the second; both seen -> no more beats.
+# Des's two location-agnostic "Firm as weather" beats. Called from Sites.prospect()
+# ahead of DistrictDeck.maybe_trigger(); Rng-free, so firing never touches the
+# deck's own seeded roll (a genuine early return, not a discarded draw).
+# `new_site` is the site this prospect() call just created (null on an at-cap
+# reroll). colA1SkirmishSeen/colA1IntimidationSeen double as a fired-beats
+# counter: neither seen fires the first, only the first seen fires the second,
+# both seen fires no more.
 static func maybe_trigger_weather_beat(new_site: Variant) -> bool:
 	if not GameState.state["flags"].get("colA1DesThreadActive", false):
 		return false
@@ -198,14 +192,12 @@ static func maybe_trigger_nadia_vein_done() -> bool:
 	return true
 
 
-# The closing beat's delivery condition: all three thread-done flags plus
-# the relation-25 gate, checked explicitly even though the three threads'
-# combined favour award (37) already clears it with margin -- other
-# relation hits (e.g. raiding.gd's CLAIM_RELATION_HIT) could otherwise drop
-# a fully-quested player back under the gate. Called from Events.advance()
-# after any event's on_complete runs. colA1Complete blocks re-firing once
-# played; checking Hakim's pending entries blocks double-queueing before
-# the player opens the text.
+# The closing beat's delivery condition: all three thread-done flags plus the
+# relation-25 gate, checked explicitly even though the threads' combined favour
+# (37) already clears it with margin -- other relation hits (e.g. raiding.gd's
+# CLAIM_RELATION_HIT) could otherwise drop a quested player back under the gate.
+# Called from Events.advance() after any on_complete; colA1Complete blocks
+# re-firing, and checking Hakim's pending entries blocks double-queueing.
 static func maybe_trigger_closer() -> bool:
 	var flags: Dictionary = GameState.state["flags"]
 	if not flags.get("colA1DesThreadDone", false):

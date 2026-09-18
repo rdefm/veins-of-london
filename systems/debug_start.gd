@@ -5,11 +5,9 @@ extends RefCounted
 # feature without playing the tutorial. Static funcs only.
 #
 # One deliberate exception to "all flags complete/true": homeRaidEventSeen
-# stays false. R§5 calls out `homeRaidEventPending = true` as its own
-# trailing clause, separate from "all flags complete" — the only way that
-# clause means anything is if homeRaidEventSeen is NOT also forced true
-# (the trigger is pending && !seen, per R§3.8). The HTML's own debug
-# start makes this exact same carve-out, with a comment explaining why.
+# stays false, since the home-raid trigger is pending && !seen (R§3.8) —
+# forcing seen true would make R§5's own `homeRaidEventPending = true`
+# clause meaningless.
 
 
 static func apply() -> void:
@@ -19,19 +17,17 @@ static func apply() -> void:
 
 	player["cash"] = 1000000
 	player["craftingSkill"] = 3
-	# Maxed (not just raised) so Sites.seed_success_chance's clamp is what
-	# actually caps prospecting odds in debug play, not the skill curve —
-	# Cultivating.get_cult_chance(5) alone is 0.78; only rich/saturated
-	# tier's seedTierMod (R§1.11) pushes that up to the 0.95 ceiling.
+	# Maxed so Sites.seed_success_chance's 0.95 clamp caps prospecting odds
+	# in debug play, not the skill curve — get_cult_chance(5) alone is only
+	# 0.78; rich/saturated tier's seedTierMod (R§1.11) makes up the rest.
 	player["cultivatingSkill"] = 5
 
 	for ore_type in GameData.ORE_TYPES.keys():
 		player["orichalchum"][ore_type] = 50
 
-	# Seeded at tier == the craftingSkill just set above, via
-	# Crafting.inventory_add rather than a hand-built flat dict, since
-	# inventory is tier-bucketed. Includes a handful of each combat consumable
-	# so debug start exercises the inventory/combat Use buttons directly.
+	# Seeded via Crafting.inventory_add (tier == craftingSkill above), not a
+	# hand-built flat dict, since inventory is tier-bucketed. Includes a
+	# handful of each combat consumable to exercise the Use buttons directly.
 	var debug_items := {
 		"timePearl": 5, "enhancementPowder": 3, "rewind": 1,
 		"healingSalve": 2, "blast": 3, "shield": 2, "blackHole": 2, "healingBurst": 3,
@@ -43,17 +39,14 @@ static func apply() -> void:
 	player["items"] = [{ "id": crowbar_id, "type": "crowbar" }]
 	player["equipment"]["weapon"] = crowbar_id
 
-	# Bare seeded Dial — Dial.new_dial()'s exact inert shape (no Movement, no
-	# loaded Complications), reused directly rather than going through
-	# Dial.attempt_seed()'s gift-gate/cost/roll, same "no grinding" treatment
-	# as everything else in this file. The player still crafts/seats a
-	# Movement and loads Complications themselves.
+	# Dial.new_dial()'s bare inert shape (no Movement, no Complications),
+	# skipping attempt_seed()'s gift-gate/cost/roll like everything else in
+	# this file. The player still crafts/seats a Movement themselves.
 	player["dial"] = Dial.new_dial("guild_cane")
 
-	# Each debug vein gets its own claimed site in shoreditch so
-	# MapLayout.build_stop_items — which only turns a vein into a Map stop
-	# when it's tied to a claimed site the vein's own siteId points at —
-	# actually renders these on the Map tab.
+	# Each debug vein gets its own claimed site in shoreditch, since
+	# MapLayout.build_stop_items only renders a vein as a Map stop when its
+	# siteId points at a claimed site.
 	var shoreditch_time_site := _debug_claimed_site("shoreditch", "time")
 	var shoreditch_physics_site := _debug_claimed_site("shoreditch", "physics")
 	var shoreditch_life_site := _debug_claimed_site("shoreditch", "life")
@@ -66,17 +59,17 @@ static func apply() -> void:
 		_debug_vein("life", 100, shoreditch_life_site["id"]),
 	]
 
-	# M1-LONDON §D7: 2 discovered, unclaimed sites — one rich (greenwich), one
-	# saturated (whitechapel) — so a debug-started game has something to
-	# seed/claim on the Map tab immediately. oreType/bonuses are fixed
-	# (not rolled) to keep debug start deterministic.
+	# M1-LONDON §D7: 2 discovered unclaimed sites — rich (greenwich) and
+	# saturated (whitechapel) — so there's something to seed/claim on the
+	# Map tab immediately; oreType/bonuses are fixed, not rolled, to keep
+	# debug start deterministic.
 	#
-	# Faction-owned sites in camden/kingscross/city so a debug-started game
-	# shows real routed faction lines immediately, not just single-stop
-	# termini stubs — camden's 2 firm sites exercise a multi-stop
-	# elbow-routed faction line; kingscross/city each cover one more faction
-	# with a single-stop stub, matching the real claim-roll path
-	# (Factions.create_faction_vein()) rather than hand-building factionVein.
+	# Faction-owned sites in camden/kingscross/city so real routed faction
+	# lines show immediately, not just single-stop stubs: camden's 2 firm
+	# sites exercise a multi-stop elbow-routed line, kingscross/city each
+	# cover one more faction with a single-stop stub. Built via the real
+	# claim-roll path (Factions.create_faction_vein()) rather than
+	# hand-building factionVein.
 	var camden_firm_physics_site := _debug_site("camden", "fair", "physics", [])
 	var camden_firm_emotion_site := _debug_site("camden", "fair", "emotion", [])
 	var kingscross_network_site := _debug_site("kingscross", "fair", "fate", [])
@@ -99,9 +92,9 @@ static func apply() -> void:
 	]
 
 	# seed_day_one_veins() appends directly to state["world"]["sites"], so it
-	# must run after the wholesale reassignment above, not before. This gives
-	# a debug-started game both the hand-built demo fixture above and the
-	# full per-faction day-one roster a real New Game gets.
+	# must run after the wholesale reassignment above — this gives the
+	# hand-built fixture above plus the full per-faction day-one roster a
+	# real New Game gets.
 	Factions.seed_day_one_veins()
 
 	var flags: Dictionary = state["flags"]
@@ -158,8 +151,7 @@ static func _debug_site(district: String, tier: String, ore_type: String, bonuse
 
 
 # Already-claimed counterpart to _debug_site() above, one per _debug_vein()
-# call — see the veins block's own comment for why a debug vein needs one of
-# these to ever render as a Map stop.
+# call (a debug vein needs a claimed site to render as a Map stop).
 static func _debug_claimed_site(district: String, ore_type: String) -> Dictionary:
 	var site := _debug_site(district, "fair", ore_type, [])
 	site["claimed"] = true

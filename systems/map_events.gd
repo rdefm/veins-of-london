@@ -5,13 +5,12 @@ extends RefCounted
 # state.mapEvents.queue is pure data, so it survives save/load and Rewind.
 # All actual animation (camera pan, ring pulse, tick pop-in) is Node-side in
 # scenes/components/map_canvas.gd; this file only tracks which event is
-# current and lets that Node-side code drive it forward.
+# current and lets that Node-side code drive it forward. The queue_*()
+# funcs never emit state_changed themselves — each caller already emits
+# once at the end of its own wrapping action.
 #
-# The queue_*() funcs below never emit state_changed themselves -- each
-# caller already emits once at the end of its own wrapping action.
-#
-# "playing" guards against a second concurrent drain starting while a Node
-# (MapCanvas) is mid-animation, or a finished drain re-triggering -- both
+# "playing" guards against a second concurrent drain starting while
+# MapCanvas is mid-animation, or a finished drain re-triggering — both
 # reachable since MapCanvas re-attempts begin_playback() on every
 # state_changed it sees.
 
@@ -24,11 +23,10 @@ static func queue_discover(district_id: String, site_id: String) -> void:
 	})
 
 
-# A vein appearing on the map, or an existing vein changing hands (a
-# rivalry attempt succeeding). owner is "player" or a faction id -- MapCanvas
-# uses it to pick the ring colour and vein-stop vs. faction-stop treatment.
-# Playback resolves the vein's current owner live rather than off a
-# snapshot, so both cases render the same way.
+# A vein appearing on the map, or changing hands (a rivalry attempt
+# succeeding). owner is "player" or a faction id — MapCanvas uses it for
+# ring colour and vein-stop vs. faction-stop treatment, resolved live at
+# playback rather than off a snapshot so both cases render the same way.
 static func queue_seed_claim(district_id: String, vein_id: String, owner: String) -> void:
 	GameState.state["mapEvents"]["queue"].append({
 		"type": "seed_claim",
@@ -40,9 +38,10 @@ static func queue_seed_claim(district_id: String, vein_id: String, owner: String
 
 # Fires when a player vein's growth crosses into the wild band or reaches
 # the ceiling (Cultivating._queue_growth_events). Deliberately absent from
-# pending_vein_ids() below: _rebuild_halos() already shows the vein's
-# ChargeHalo the instant it enters the band, so the event just adds a
-# one-shot burst on top of a state that's already visible.
+# pending_vein_ids() below — _rebuild_halos() already shows the ChargeHalo
+# the instant it enters the band, so this event just adds a one-shot burst
+# on an already-visible state. queue_drain() below is the same story in
+# reverse (growth draining back through neutral).
 static func queue_charge(district_id: String, vein_id: String) -> void:
 	GameState.state["mapEvents"]["queue"].append({
 		"type": "charge",
@@ -51,10 +50,6 @@ static func queue_charge(district_id: String, vein_id: String) -> void:
 	})
 
 
-# Counterpart to queue_charge: a player vein's growth draining back through
-# neutral. Same reasoning for staying out of pending_vein_ids() below --
-# _rebuild_halos() has already dropped the ChargeHalo by the time this
-# event plays.
 static func queue_drain(district_id: String, vein_id: String) -> void:
 	GameState.state["mapEvents"]["queue"].append({
 		"type": "drain",
@@ -64,10 +59,10 @@ static func queue_drain(district_id: String, vein_id: String) -> void:
 
 
 # A vein stop joining its owner's routed line, queued right after
-# queue_seed_claim for the same vein so playback draws the ring in first,
-# then grows the connecting line segment onto it. The segment itself is
-# computed live at playback time (MapCanvas._play_line_growth, via
-# MapRouting.grow_segment()), not snapshotted here.
+# queue_seed_claim for the same vein so playback draws the ring first, then
+# grows the line onto it. Segment itself is computed live at playback
+# (MapCanvas._play_line_growth via MapRouting.grow_segment()), not
+# snapshotted here.
 static func queue_join_line(district_id: String, vein_id: String, owner: String) -> void:
 	GameState.state["mapEvents"]["queue"].append({
 		"type": "join_line",
@@ -77,17 +72,15 @@ static func queue_join_line(district_id: String, vein_id: String, owner: String)
 	})
 
 
-# The two playback speeds MapCanvas's drain loop supports: "sequential"
-# plays one event at a time, "simultaneous" plays every queued event at
-# once (MapCanvas._play_batch()). Kept here rather than on MapCanvas so the
-# choice survives close/reopen and save/load like the rest of state.
+# The two playback speeds MapCanvas's drain loop supports (MapCanvas._play_batch()):
+# "sequential" plays one event at a time, "simultaneous" plays them all at
+# once. Kept here, not on MapCanvas, so the choice survives save/load.
 const PACING_MODES: PackedStringArray = ["sequential", "simultaneous"]
 const DEFAULT_PACING_MODE := "simultaneous"
 
 
-# .get() with a default, not [] -- backfill_defaults() only fills missing
-# top-level keys, so an older save's existing "mapEvents" dict may still
-# lack "pacingMode" and must fall back to the default rather than null.
+# .get() with a default: backfill_defaults() only fills missing top-level
+# keys, so an older save's "mapEvents" dict may still lack "pacingMode".
 static func pacing_mode() -> String:
 	return GameState.state["mapEvents"].get("pacingMode", DEFAULT_PACING_MODE)
 
@@ -100,8 +93,8 @@ static func set_pacing_mode(mode: String) -> void:
 
 
 # Snapshot before a "simultaneous" batch starts its concurrent tweens, so
-# events queued mid-batch aren't swept into a batch that's already
-# animating -- the batch commits to exactly what it snapshotted.
+# events queued mid-batch aren't swept in — the batch commits to exactly
+# what it snapshotted.
 static func queue_snapshot() -> Array:
 	return GameState.state["mapEvents"]["queue"].duplicate()
 
@@ -129,22 +122,19 @@ static func _pending_ids(event_type: String, id_field: String) -> Array:
 	return ids
 
 
-# Site ids still hidden from the ordinary static draw -- MapCanvas consults
-# this for unclaimed stops whose "discover" event hasn't played yet.
+# Ids still hidden from the ordinary static draw because their event
+# hasn't played: unclaimed stops awaiting "discover", vein stops awaiting
+# "seed_claim". pending_join_line_vein_ids is kept separate from
+# pending_vein_ids so a stop's ring can appear before its line segment
+# does, even though the two events play back to back.
 static func pending_site_ids() -> Array:
 	return _pending_ids("discover", "siteId")
 
 
-# Vein ids still hidden from the static draw -- their "seed_claim"
-# appear-on-map event hasn't played yet.
 static func pending_vein_ids() -> Array:
 	return _pending_ids("seed_claim", "veinId")
 
 
-# Vein ids still hidden from the owner's routed line (not the stop ring --
-# see pending_vein_ids above) because their "join_line" event hasn't played.
-# Kept separate so a stop's ring can appear before its line segment does,
-# even though the two events play back to back.
 static func pending_join_line_vein_ids() -> Array:
 	return _pending_ids("join_line", "veinId")
 
@@ -176,12 +166,12 @@ static func advance() -> bool:
 # Called from MapCanvas._exit_tree(), Nav.go_to(), and Combat._start_combat()
 # when the Node driving playback is torn down or navigated away from
 # mid-drain, before advance() ever runs. Left alone, "playing" would stay
-# stuck true forever, permanently locking out taps on every later Map visit
+# stuck true, permanently locking out taps on every later Map visit
 # (MapCanvas._handle_tap() checks is_playing() first). Also pops the
-# in-flight event off the queue -- the same "consumed" treatment advance()
-# gives a natural completion, so the ordinary redraw reveals it permanently
-# instead of replaying it. Only pops when something was actually playing, so
-# a stray call with nothing in flight doesn't eat a still-waiting event.
+# in-flight event, the same "consumed" treatment advance() gives a natural
+# completion, so the redraw reveals it permanently instead of replaying —
+# but only when something was actually playing, so a stray call doesn't
+# eat a still-waiting event.
 static func abandon_playback() -> void:
 	if GameState.state["mapEvents"]["playing"]:
 		var queue: Array = GameState.state["mapEvents"]["queue"]

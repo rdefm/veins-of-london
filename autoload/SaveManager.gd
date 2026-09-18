@@ -128,10 +128,10 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	return { "ok": true }
 
 
-# Ticket 09: the retired order counted qualifying Collective time-calc sales
-# after activation. Those saves cannot identify which door handled them, so
-# incomplete objectives receive that one compatibility credit exactly once;
-# completed objectives are preserved without re-running their rewards.
+# A save with an in-progress col_a1_nadia_supply objective can't identify
+# which Collective door handled qualifying time-calc sales made before this
+# migration existed, so it receives one compatibility credit exactly once;
+# a completed objective is preserved without re-running its reward.
 func _migrate_nadia_supply_order(save: Dictionary) -> void:
 	var objectives: Dictionary = save.get("objectives", {})
 	var runtime: Dictionary = objectives.get("col_a1_nadia_supply", {})
@@ -158,15 +158,13 @@ func _migrate_nadia_supply_order(save: Dictionary) -> void:
 	save["objectives"] = objectives
 
 
-# Ticket 12: home/you/bag/inventory are retired screen ids -- not tied to
-# any particular saveVersion (they were only just deleted, so every save
-# ever written could carry one), which is why this lives here rather than
-# in the version-keyed migrate() table above. An old save with one of these
-# in currentScreen must land on the phone app grid on load, not soft-lock.
-# Main.gd's resolve_screen_id() fallback covers the same case defensively
-# on the render side; this is the persisted-state side, and additionally
-# resets phoneNav to its home view (a screen-render function must not
-# mutate state, so resolve_screen_id() deliberately leaves phoneNav alone).
+# home/you/bag/inventory are retired screen ids, not tied to any
+# particular saveVersion (any save ever written could carry one), so this
+# lives outside the version-keyed migrate() table. A save with one of
+# these in currentScreen lands on the phone app grid on load instead of
+# soft-locking, and additionally resets phoneNav to its home view --
+# Main.gd's resolve_screen_id() covers the same case on the render side
+# but must not mutate state, so it deliberately leaves phoneNav alone.
 const RETIRED_CURRENT_SCREENS := ["home", "you", "bag", "inventory"]
 
 
@@ -181,16 +179,9 @@ func _remap_retired_screen_id(save: Dictionary) -> void:
 	save["phoneNav"] = phone_nav
 
 
-# 84-contacts-retire-messages-tile: a save from before this ticket could
-# have phoneNav.app == "messages" with no selectedContactId set -- exactly
-# the state the retired conversation-list view itself used to leave sitting
-# in phoneNav (its own "no contact chosen yet" view). The Messages app has
-# no such view left to render; MessagesApp.build() assumes
-# selectedContactId is always set (true for every save written by this
-# ticket onward, via PhoneNav.select_conversation()). Same "remap a retired
-# UI state back to the grid on load" reasoning as _remap_retired_screen_id()
-# above, just scoped to this one phoneNav combination rather than a whole
-# currentScreen value.
+# A save can have phoneNav.app == "messages" with no selectedContactId --
+# a state MessagesApp.build() can't render (it assumes a contact is always
+# selected). Remaps back to the home grid, same as _remap_retired_screen_id().
 func _remap_retired_messages_list(save: Dictionary) -> void:
 	var phone_nav: Dictionary = save.get("phoneNav", {})
 	if phone_nav.get("app") == "messages" and phone_nav.get("selectedContactId") == null:
@@ -198,32 +189,21 @@ func _remap_retired_messages_list(save: Dictionary) -> void:
 		save["phoneNav"] = phone_nav
 
 
-# hq-diorama ticket 07: the old calc-discovery-06 "lab" screen id (lab.gd,
-# its state.benchNav drill-down, and systems/bench_nav.gd) is retired
-# outright, not merged into another screen's app grid -- so unlike
-# _remap_retired_screen_id() above this lands an old save on "hq" (the room
-# view, whose "lab" zone now opens hq_lab_bench) rather than "phone". No
-# nav-state reset needed: state.benchNav simply no longer exists in a fresh
-# GameState.new_game_state(), so a legacy save's own copy is inert data an
-# unregistered screen id will never read again.
+# "lab" has no surviving app-grid equivalent, so it lands on "hq" (whose
+# "lab" zone opens hq_lab_bench) instead of "phone". No phoneNav reset
+# needed: state.benchNav has no field to read back into on a fresh state.
 func _remap_retired_lab_screen(save: Dictionary) -> void:
 	if save.get("currentScreen", "") == "lab":
 		save["currentScreen"] = "hq"
 
 
-# vein-growth-state spec §11: save-breaking is accepted for the growth-model
-# rewrite — no migrator. A save whose meta.saveVersion doesn't match the
-# current SAVE_VERSION is rejected outright with a clear reason, rather than
-# half-loading a v1 save's now-meaningless devBar/level/charged vein fields.
-# A save with no meta.saveVersion at all is treated as the current version
-# (matches new_game_state()'s own default) rather than rejected.
-#
-# 52-map-vein-line-position-drift bumped v2 -> v3 the same way: every site
-# (and a saturated site's extra natural-vein stop) now carries a stamped
-# slotIndex MapLayout.assign_positions() depends on -- a v2 save has none,
-# and there's no way to reconstruct historical discovery order after the
-# fact, so it's rejected rather than half-loaded with sites that fall back
-# to whatever slotIndex 0 means.
+# A save whose meta.saveVersion doesn't match SAVE_VERSION is rejected
+# outright with a clear reason rather than half-loaded (R§6: no migrator
+# for a save-breaking schema rewrite). A save with no meta.saveVersion at
+# all is treated as current (matches new_game_state()'s own default).
+# v3's break: every site now carries a stamped slotIndex MapLayout.
+# assign_positions() depends on, with no way to reconstruct historical
+# discovery order for an older save to backfill it from.
 func _check_save_version(save: Dictionary) -> Dictionary:
 	var meta: Dictionary = save.get("meta", {})
 	var version: int = meta.get("saveVersion", SAVE_VERSION)
@@ -235,8 +215,12 @@ func _check_save_version(save: Dictionary) -> Dictionary:
 # Fills any missing TOP-LEVEL keys from a fresh new_game_state() (R§6:
 # "validates required top-level keys and fills missing keys from
 # defaults"). Existing top-level keys are kept as-is, even if something
-# nested under them is itself missing — this is intentionally shallow,
-# not a deep recursive merge.
+# nested under them is itself missing -- intentionally shallow, not a deep
+# recursive merge. The _backfill_new_*_keys() functions below cover the
+# cases that shallow fill can't: a key added inside an already-present
+# top-level dict (or, for _backfill_new_contacts, a whole new contact id
+# added inside the already-present "contacts" dict). Each seeds only what's
+# missing from the matching default, never touching a key/id the save already has.
 func backfill_defaults(save: Dictionary) -> Dictionary:
 	var defaults := GameState.new_game_state()
 	var result: Dictionary = save.duplicate(true)
@@ -269,13 +253,6 @@ func _backfill_new_sales_keys(result: Dictionary, defaults: Dictionary) -> void:
 			sales["priorityOrder"].append(contract["id"])
 
 
-# collective1-07: "contacts" has existed as a top-level key since M0
-# (archie/james), so the shallow fill above never fires for it -- but this
-# ticket is the first time a *new contact id* (des/nadia/hakim) has ever
-# been added after release. Deliberately narrower than the "intentionally
-# shallow" rule above: this seeds only missing contact ids wholesale from
-# defaults, same as a missing top-level key would be, never touching an
-# id the save already has (archie/james's own progress is untouched).
 func _backfill_new_contacts(result: Dictionary, defaults: Dictionary) -> void:
 	if not result.has("contacts"):
 		return
@@ -285,12 +262,6 @@ func _backfill_new_contacts(result: Dictionary, defaults: Dictionary) -> void:
 			contacts[contact_id] = defaults["contacts"][contact_id]
 
 
-# 21-contact-roles-sales-skill: mirrors _backfill_new_home_keys below --
-# "contacts" has existed since M0 and _backfill_new_contacts above already
-# seeds whole new contact ids, but this is the first time a NEW KEY
-# (salesSkill/salesXP) has been added to a contact id a save already
-# tracks. Seeds only the missing keys per existing contact, never touching
-# one it already has (so in-progress craftingSkill/relation/etc. survive).
 func _backfill_new_contact_keys(result: Dictionary, defaults: Dictionary) -> void:
 	if not result.has("contacts"):
 		return
@@ -305,12 +276,6 @@ func _backfill_new_contact_keys(result: Dictionary, defaults: Dictionary) -> voi
 				contact[key] = default_contacts[contact_id][key]
 
 
-# collective1-13: mirrors _backfill_new_contacts above -- "collective" has
-# existed as a top-level key since collective1-07, so the shallow fill in
-# backfill_defaults() never fires for it, but this ticket is the first time a
-# new key (hakimVeinId) has been added to it since. Seeds only missing keys,
-# same as a missing top-level key would be, never touching one the save
-# already has.
 func _backfill_new_collective_keys(result: Dictionary, defaults: Dictionary) -> void:
 	if not result.has("collective"):
 		return
@@ -320,12 +285,6 @@ func _backfill_new_collective_keys(result: Dictionary, defaults: Dictionary) -> 
 			collective[key] = defaults["collective"][key]
 
 
-# 87-map-slot-index-recycling: mirrors _backfill_new_contacts/
-# _backfill_new_collective_keys above -- "world" has existed as a top-level
-# key since M0, so the shallow fill in backfill_defaults() never fires for
-# it, but this ticket is the first time a new key (mapSlotFreePool) has
-# been added to it since. Seeds only missing keys, same as a missing
-# top-level key would be, never touching one the save already has.
 func _backfill_new_world_keys(result: Dictionary, defaults: Dictionary) -> void:
 	if not result.has("world"):
 		return
@@ -335,16 +294,11 @@ func _backfill_new_world_keys(result: Dictionary, defaults: Dictionary) -> void:
 			world[key] = defaults["world"][key]
 
 
-# dial-device ticket 01: mirrors _backfill_new_world_keys above -- "player"
-# has existed as a top-level key since M0, so the shallow fill in
-# backfill_defaults() never fires for it, but this ticket is the first time
-# a new key (dial) has been added since ticket 64's inventory reshape. A
-# pre-Dial save's devicesInProgress/devicesCompleted/equipment.device are
-# deliberately left untouched here -- they migrate into a null player.dial,
-# not a converted one, per the PRD (systems/devices.gd stays live until
-# ticket 07's cutover); craftingUnlocked/enhancementUnlocked live under
-# "flags", a separate top-level key this function doesn't touch, so they
-# survive automatically.
+# A pre-Dial save's devicesInProgress/devicesCompleted/equipment.device
+# are deliberately left untouched here -- they migrate into a null
+# player.dial, not a converted one, per the PRD. craftingUnlocked/
+# enhancementUnlocked live under "flags", a separate top-level key this
+# function doesn't touch, so they survive automatically.
 func _backfill_new_player_keys(result: Dictionary, defaults: Dictionary) -> void:
 	if not result.has("player"):
 		return
@@ -354,11 +308,6 @@ func _backfill_new_player_keys(result: Dictionary, defaults: Dictionary) -> void
 			player[key] = defaults["player"][key]
 
 
-# Mirrors _backfill_new_player_keys/_backfill_new_world_keys above -- "home"
-# has existed as a top-level key since M0, so the shallow fill in
-# backfill_defaults() never fires for it, but this is the first time a new
-# key (guardCount) has been added since. Seeds only the missing key, never
-# touching a pre-existing "security"/"rooms"/etc. the save already has.
 func _backfill_new_home_keys(result: Dictionary, defaults: Dictionary) -> void:
 	if not result.has("home"):
 		return
@@ -369,17 +318,14 @@ func _backfill_new_home_keys(result: Dictionary, defaults: Dictionary) -> void:
 
 
 # JSON has no int/float distinction, so every number in a just-parsed save
-# comes back as a float — Godot's own Dictionary/Array equality treats
-# int(1) and float(1.0) as distinct once nested inside a container (this
-# is what test_savemanager.gd's exact-round-trip assertions caught), and
+# comes back as a float -- Godot's Dictionary/Array equality treats
+# int(1) and float(1.0) as distinct once nested inside a container, and
 # real game code assumes these fields stay ints: maxi()/mini()/clampi()
 # calls (barometer.gd, combat.gd) require int arguments, and formatting
 # like "£%d" % cash would misbehave. Restore ints in place, per R§2's
 # schema, immediately after backfill so every top-level key is guaranteed
-# present. The genuinely-float fields in the whole schema —
-# combat.evadeChance, combatPrototype.enemy.evadeChance,
-# devicesInProgress[].progress, and mapView.zoom — are deliberately left
-# untouched.
+# present. Genuinely-float fields (combat.evadeChance, combatPrototype.
+# enemy.evadeChance, mapView.zoom) are deliberately left untouched.
 func _restore_int_types(state: Dictionary) -> void:
 	_int_key(state, "pendingSaleCut")
 	_int_key(state, "pendingArchieDealCut")
@@ -424,15 +370,11 @@ func _restore_int_types(state: Dictionary) -> void:
 		for exception in morning.get("exceptions", []):
 			_int_key(exception, "target")
 			_int_key(exception, "actual")
-	# collective1-03
 	for thread in state.get("messages", {}).values():
 		for msg in thread:
 			_int_key(msg, "day")
-	# collective1-07
 	_int_dict_values(state.get("collective", {}).get("barkCursors", {}))
-	# collective1-17
 	_int_key(state.get("collective", {}), "hakimIntelLastDay")
-	# ticket 28
 	var payroll_summary = state.get("payroll", {}).get("lastSummary")
 	if payroll_summary != null:
 		_int_key(payroll_summary, "day")
@@ -452,10 +394,9 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(player, key)
 		_int_dict_values(player.get("orichalchum", {}))
 		_migrate_inventory(player.get("inventory", {}))
-		# ticket 22: player.stash mirrors orichalchum/inventory's own shapes
-		# one level down -- same int-restore/tier-migrate calls, just scoped
-		# to the stash sub-dict backfill_defaults() already guaranteed exists
-		# by the time this runs.
+		# player.stash mirrors orichalchum/inventory's own shapes one level
+		# down -- same int-restore/tier-migrate calls, scoped to the stash
+		# sub-dict backfill_defaults() already guarantees exists by now.
 		var stash: Dictionary = player.get("stash", {})
 		_int_dict_values(stash.get("orichalchum", {}))
 		_migrate_inventory(stash.get("inventory", {}))
@@ -483,10 +424,9 @@ func _restore_int_types(state: Dictionary) -> void:
 			# rechargeRate is "possibly fractional" per the PRD (Implementation
 			# Decisions, "Charge model") — intentionally not touched here, same
 			# convention as combat.evadeChance/mapView.zoom above.
-			# dial-device ticket 02: the seated Movement's tier.
 			if dial.get("movement") != null:
 				_int_key(dial["movement"], "tier")
-		# dial-device ticket 02: crafted-but-unseated Movements.
+		# Crafted-but-unseated Movements carry the same tier field.
 		for movement in player.get("movementInventory", []):
 			_int_key(movement, "tier")
 
@@ -506,13 +446,11 @@ func _restore_int_types(state: Dictionary) -> void:
 		for recent in world.get("recentEvents", []):
 			_int_key(recent, "day")
 		_int_dict_values(world.get("mapSlotCounters", {}))
-		# 87-map-slot-index-recycling: Dictionary<district_id, Array[int]>,
-		# not a flat Dictionary<String, int> -- _int_dict_values only
-		# int-ifies a dict's own values, so each district's freed-slot array
-		# needs its own _int_array_values pass.
+		# mapSlotFreePool is Dictionary<district_id, Array[int]>, not a flat
+		# Dictionary<String, int> -- _int_dict_values only int-ifies a dict's
+		# own values, so each district's freed-slot array needs its own pass.
 		for freed in world.get("mapSlotFreePool", {}).values():
 			_int_array_values(freed)
-		# collective1-06
 		_int_dict_values(world.get("relationAwardedToday", {}))
 
 	if state.has("home"):
@@ -528,11 +466,9 @@ func _restore_int_types(state: Dictionary) -> void:
 		# left untouched, same as combat.evadeChance/devicesInProgress[].
 		# progress above.
 
-	# 84-contacts-retire-messages-tile: null on a fresh/no-conversation-open
-	# state (see GameState.gd's phoneNav default) -- _int_key() is already a
-	# no-op on null (typeof() isn't TYPE_FLOAT), only firing when a save
-	# was captured mid-conversation and the JSON round-trip turned this into
-	# a float.
+	# revealFromIndex is null on a fresh/no-conversation-open state (see
+	# GameState.gd's phoneNav default) -- _int_key() is already a no-op on
+	# null, only firing when a save was captured mid-conversation.
 	if state.has("phoneNav"):
 		_int_key(state["phoneNav"], "revealFromIndex")
 
@@ -540,13 +476,10 @@ func _restore_int_types(state: Dictionary) -> void:
 		for faction in state["factions"].values():
 			_int_key(faction, "relation")
 			_int_key(faction, "resources")
-			# collective1-06
 			_int_key(faction, "tradeProgress")
-			# collective1-02
 			for ore_entry in faction.get("oreSold", {}).values():
 				_int_key(ore_entry, "units")
 				_int_key(ore_entry, "transactions")
-			# collective-ore-stock T01
 			_int_dict_values(faction.get("oreStock", {}))
 
 	if state.has("factionRelations"):
@@ -575,9 +508,9 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("combatPrototype"):
 		_restore_combat_prototype_int_types(state["combatPrototype"])
 
-	# collective1-02: state.objectives[*].progress is a free-form bag
-	# (systems/objectives.gd) -- only its two known numeric shapes need
-	# restoring (activatedDay, and traded_with_faction's baseline snapshot).
+	# state.objectives[*].progress is a free-form bag (systems/objectives.gd)
+	# -- only its two known numeric shapes need restoring (activatedDay, and
+	# traded_with_faction's baseline snapshot).
 	if state.has("objectives"):
 		for objective in state["objectives"].values():
 			var progress: Dictionary = objective.get("progress", {})
@@ -610,7 +543,6 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 	for key in ["frozenTurns", "motionTurns", "motionPower", "evadeTurns", "focusedEnemyIndex"]:
 		_int_key(combat, key)
 	# evadeChance is a float (0.0–1.0) — intentionally not touched here.
-	# squad-combat ticket 01: combat.enemy (single Dictionary) -> combat.enemies (Array).
 	for enemy in combat.get("enemies", []):
 		for key in ["hp", "hpMax", "attackMin", "attackMax", "speed"]:
 			_int_key(enemy, key)
@@ -620,22 +552,17 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 	for snap in combat.get("snapshots", []):
 		for key in ["playerHp", "enemyHp", "focusedEnemyIndex", "frozenTurns", "motionTurns", "motionPower", "evadeTurns"]:
 			_int_key(snap, key)
-	# 44-archie-combat-ally: allies[] entries (Contacts.build_combat_ally).
-	# squad-combat ticket 02: speed added alongside the rest.
+	# allies[] entries (Contacts.build_combat_ally), speed included.
 	for ally in combat.get("allies", []):
 		for key in ["hp", "hpMax", "attackMin", "attackMax", "stash", "healAmount", "speed"]:
 			_int_key(ally, key)
 
 
-# day-rhythm-business-and-combat ticket 14: the bounded solo combat
-# prototype's own state tree (systems/combat_prototype.gd) -- same
-# fixed-schema restoration as _restore_combat_int_types() above, over its
-# entirely separate hand-picked snapshot shape (push_prototype_snapshot()).
-# enemy.evadeChance is a float (0.0-1.0), same convention as combat.
-# evadeChance above -- intentionally not touched here.
-# ticket 15: cp.enemy (single Dictionary) -> cp.enemies (Array), same
-# migration _restore_combat_int_types() already went through for
-# state.combat -- see systems/combat_prototype.gd's own top comment.
+# Same fixed-schema restoration as _restore_combat_int_types() above, over
+# the bounded solo combat prototype's own hand-picked snapshot shape
+# (systems/combat_prototype.gd's push_prototype_snapshot()). enemy.
+# evadeChance is a float (0.0-1.0), same convention as combat.evadeChance
+# -- intentionally not touched here.
 func _restore_combat_prototype_int_types(cp: Dictionary) -> void:
 	for key in ["round", "wave", "totalWaves", "frozenTurns", "motionTurns", "motionPower"]:
 		_int_key(cp, key)
@@ -739,12 +666,10 @@ func _int_key(dict: Dictionary, key: String) -> void:
 		dict[key] = int(dict[key])
 
 
-# ticket 64: player.inventory[recipeKey] moved from a flat count to a
-# tier-bucketed { "<tier>": count } dict. A save from before this ticket
-# has the old bare-number shape per recipe -- migrate each into the "0"
-# (untiered/legacy — quality unknown) bucket rather than rejecting the
-# save or crashing on it. A save already in the new shape just gets its
-# bucket counts int-ified, same as every other numeric field here.
+# player.inventory[recipeKey] is a tier-bucketed { "<tier>": count } dict.
+# A save with a bare-number shape per recipe migrates into the "0"
+# (untiered/legacy — quality unknown) bucket instead of being rejected. A
+# save already in the bucketed shape just gets its counts int-ified.
 func _migrate_inventory(inventory: Dictionary) -> void:
 	for recipe_key in inventory.keys():
 		var value = inventory[recipe_key]

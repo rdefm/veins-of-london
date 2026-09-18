@@ -54,12 +54,10 @@ static func do_rest() -> void:
 	EventBus.state_changed.emit()
 
 
-# Exact step order per R§3.1 -- do not reorder without re-checking each
-# inline note below for a real ordering dependency (income before spend,
-# claims before vein-derived income, etc.); several steps are independent
-# of the rest of the chain and are placed only by landing order. Steps for
-# systems that don't exist yet are stubs; wire the real call in when that
-# task lands.
+# Exact step order per R§3.1 — do not reorder without checking each inline
+# note below for a real dependency (income before spend, claims before
+# vein-derived income, etc.); several steps are independent and placed
+# only by landing order.
 static func daily_tick() -> void:
 	var morning_context: Dictionary = MorningAccountsSystem.begin_rollover()
 	RelationAccrual.reset_daily_caps()
@@ -154,12 +152,8 @@ static func _apply_tutorial_day_triggers() -> void:
 	var day: int = world["day"]
 
 	if day >= 2 and flags["tutorialStage"] == "buyer_event" and not flags["buyerEventSeen"]:
-		# Queued exactly once (archieBuyerSmsQueued guards re-entry on every
-		# later day tick until buyerEventSeen). No separate Notify banner --
-		# the queued text itself is the "Archie texted" beat (unread badge on
-		# the Messages tile/Archie's card), same as every other
-		# queue_pending_message caller. The thread's last line becomes the
-		# pendingMessages entry itself (kind "buyer").
+		# Queued exactly once (archieBuyerSmsQueued guards re-entry); no separate
+		# Notify banner — the queued text itself is the "Archie texted" beat.
 		if not flags["archieBuyerSmsQueued"]:
 			flags["archieBuyerSmsQueued"] = true
 			Messages.append("archie", "player", "Got some calc to move. You got a buyer?")

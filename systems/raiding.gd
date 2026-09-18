@@ -111,10 +111,9 @@ static func loot_vein(site_id: String, caught: bool) -> void:
 # ── raid entry point ─────────────────────────────────────────────────────
 
 # The one raid event card authored so far (a tracer bullet, not a full
-# content pass). Targets whichever real site's Raid button was pressed via
-# start_event()'s context (events.gd's _event_site_id()), so this single
-# card works against any real faction-owned vein; prose is deliberately
-# faction/district-neutral for the same reason.
+# content pass). Targets whichever real site's Raid button was pressed
+# (events.gd's _event_site_id()), so this single card works against any
+# real faction-owned vein; prose is deliberately faction/district-neutral.
 const RAID_EVENT_ID := "vein_raid"
 
 
@@ -132,13 +131,13 @@ static func begin_raid(vein: Dictionary, ally_ids: Array = []) -> Dictionary:
 
 
 # ── Direction B: daily-tick raid trigger ─────────────────────────────────
-# Direction B: a faction raids one of the player's own veins (mirror of
-# Direction A above). Called from TimeSystem.daily_tick(); same
-# attempts/odds/resolve split as Factions' rivalry code. See R§3.12.
+# A faction raids one of the player's own veins (mirror of Direction A
+# above); called from TimeSystem.daily_tick() with the same
+# attempts/odds/resolve split as Factions' rivalry code (R§3.12).
 
 
-# Low baseline: this rolls once per player vein every tick, with no
-# per-faction pre-filter (unlike Chunk 6's coarser rivalry attempts).
+# Low baseline: rolled once per player vein per tick, with no per-faction
+# pre-filter (unlike the coarser faction-rivalry attempts in Factions).
 const RAID_BASE_CHANCE := 0.05
 
 # Relation ranges roughly -100..+60 (joinRelation ceiling); 100 keeps a
@@ -213,10 +212,10 @@ static func _faction_may_conquer(faction_id: String) -> bool:
 	return _relation_below(faction_id, _faction_conquer_threshold(faction_id))
 
 
-# One candidate per eligible player vein (no pre-filter, unlike Chunk 6's
-# rivalry attempts; raid_success_chance()/roll_raid_odds() below decide what
-# actually happens). Veins with a missing/dangling siteId (pre-existing
-# saves) are skipped, not crashed on. Pure -- no state mutation.
+# One candidate per eligible player vein (no pre-filter; raid_success_chance()/
+# roll_raid_odds() below decide what actually happens). Veins with a
+# missing/dangling siteId (pre-existing saves) are skipped, not crashed on.
+# Pure -- no state mutation.
 static func roll_raid_attempts() -> Array:
 	var attempts := []
 	for vein in GameState.state["player"]["veins"]:
@@ -269,23 +268,18 @@ static func claim_chance(vein: Dictionary) -> float:
 	return CLAIM_CHANCE_BY_TERROIR.get(tier, CLAIM_CHANCE_BY_TERROIR["fair"])
 
 
-# ── stealth/caught roll (direction-b-stealth-and-anonymity) ─────────────
+# ── stealth/caught roll ───────────────────────────────────────────────────
 # A second roll, independent of the claim-vs-loot split above, deciding
-# whether the attacking faction gets caught in the act. Only the loot
-# branch's identity-reveal actually depends on it (resolve_raid_outcome()'s
-# claim branch always names the faction, per the ticket) -- but it's rolled
-# for every successful attempt regardless of outcomeType, at the same
-# roll_raid_odds() time as the claim/loot roll, so its result can ride
-# through the alarm-defend queue exactly the way outcomeType already does.
+# whether the attacker gets caught. Only the loot branch's copy names the
+# faction differently based on it (the claim branch always names the
+# faction); rolled for every successful attempt regardless of outcomeType,
+# at roll_raid_odds() time, so the result can ride through the
+# alarm-defend queue the same way outcomeType does.
 #
-# Shape: each faction's own data/factions.json "raidStealth" (0.0-1.0) is its
-# baseline chance of a clean getaway, trimmed by a slice proportional to the
-# target vein's own raidResist -- the same normalise-against-55 ("guarded"'s
-# own base tier, data/vein_security.json) anchor stealth_success_chance()
-# and raid_success_chance() both already use for this exact field, so a
-# stacked-guard vein (72-stackable-guards-vein-defense) keeps trimming
-# further rather than capping at a fixed ceiling. Draft weight only --
-# needs balance sign-off, same as CLAIM_CHANCE_BY_TERROIR above.
+# Each faction's "raidStealth" (0.0-1.0) is its baseline clean-getaway
+# chance, trimmed proportionally to the vein's raidResist (same
+# normalise-against-55 "guarded" anchor as stealth_success_chance()/
+# raid_success_chance()). Draft weight, needs balance sign-off.
 const FACTION_STEALTH_RAID_RESIST_DIVISOR := 55.0
 const FACTION_STEALTH_RAID_RESIST_WEIGHT := 0.35
 
@@ -297,35 +291,28 @@ static func faction_stealth_chance(attacker_id: String, vein: Dictionary) -> flo
 	return clampf(base_stealth + resist_tilt, 0.0, 1.0)
 
 
-# The anonymous stand-in used in place of the faction's name whenever a loot
-# outcome comes back clean (resolve_raid_outcome()'s loot branch and
-# _queue_defend_raid()'s advance warning below) -- PROSE-REVIEW, drafted
-# against CONTENT-GUIDE.md's tone bible.
+# Stand-in for the faction's name when a loot outcome comes back clean
+# (used by resolve_raid_outcome()'s loot branch and _queue_defend_raid()'s
+# advance warning). PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone bible.
 const ANONYMOUS_RAIDER_LABEL := "Someone"
 
 
-# Draft only (needs balance sign-off), in the same spirit as Direction A's
-# own LOOT_ORE_QTY (8) and pruneLightDepth (9, data/vein_growth.json) -- a
-# loss to loot never bites harder than the player's own worst prune or
-# Direction A's own loot payoff.
+# Draft, needs balance sign-off -- kept in line with Direction A's own
+# LOOT_ORE_QTY (8) and pruneLightDepth (9, data/vein_growth.json), so a
+# loss to loot never bites harder than the player's own worst prune.
 const RAID_LOOT_ORE_QTY := 8
 const RAID_LOOT_PRUNE_DEPTH := 9
 
 
-# Rolls the chance above and returns the attempt record annotated with its
-# resolved "success" outcome, plus (only when successful) an "outcomeType"
-# ("claim"/"loot") rolled against claim_chance(). Still pure computation --
-# mutation and the Notify push are resolve_raid_outcome()'s job, not this
-# function's. If the target vein has already vanished since the attempt
-# was recorded, this reads as chance 0 rather than indexing into a null
-# vein, same defensive shape Factions.rivalry_success_chance() uses for its
-# own vanished-target case.
-#
-# ticket 71: the claim_chance() roll only runs at all when the attacker's
-# current relation clears its own conquerThreshold (_faction_may_conquer())
-# -- below that, a successful raid is capped at "loot" regardless of what
-# claim_chance()'s terroir odds would otherwise say, same as if the roll had
-# simply come up loot every time.
+# Rolls the chance above and returns the attempt annotated with "success"
+# plus (only when successful) "outcomeType" ("claim"/"loot", via
+# claim_chance()). Pure computation -- mutation and the Notify push are
+# resolve_raid_outcome()'s job. A vanished target vein reads as chance 0
+# rather than indexing a null vein (same defensive shape as
+# Factions.rivalry_success_chance()). claim_chance() only rolls when the
+# attacker's relation clears its own conquerThreshold
+# (_faction_may_conquer()); below that a successful raid is capped at
+# "loot" regardless of claim_chance()'s odds.
 static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 	var outcome: Dictionary = attempt.duplicate()
 	var vein: Variant = Cultivating.find_vein(attempt["veinId"])
@@ -336,48 +323,35 @@ static func roll_raid_odds(attempt: Dictionary) -> Dictionary:
 	if outcome["success"]:
 		var may_conquer: bool = _faction_may_conquer(attempt["attackerId"])
 		outcome["outcomeType"] = "claim" if (may_conquer and Rng.chance(claim_chance(vein))) else "loot"
-		# direction-b-stealth-and-anonymity: independent of the claim/loot roll
-		# above -- rolled here (rather than in resolve_raid_outcome()) so the
-		# result is already known and can ride through the alarm-defend queue
-		# the same way outcomeType does.
+		# Independent of the claim/loot roll above -- rolled here (rather than
+		# in resolve_raid_outcome()) so the result is already known and can
+		# ride through the alarm-defend queue the same way outcomeType does.
 		outcome["caught"] = not Rng.chance(faction_stealth_chance(attempt["attackerId"], vein))
 	return outcome
 
 
-# Applies one already-rolled outcome. A failed attempt is a documented
-# no-op -- no ownership change, no notification. A successful attempt:
-#   - removes the vein from player.veins and reassigns it (oreType/growth/
-#     security carried over unchanged, matching Chunk 6's resolve_rivalry_
-#     outcome() and Direction A's claim_vein()) into the site's factionVein,
-#     flipping the site back to faction-owned -- the exact mirror image of
-#     Sites.attempt_seed()'s claimed=true/factionVein=null transition, and
-#     what lets a vein taken this way later be raided back via Direction A
-#     (begin_raid() requires vein["siteId"]).
-#   - pushes a Notify, unlike Chunk 6's silent rivalry resolution -- per
-#     the PRD, background world-state changes to the player's own stuff
-#     are surfaced, the same convention Sites.roll_npc_claims() already
-#     uses for other background changes.
-#   - queues a map-animations-ticket-02-shaped "seed_claim" event (map-
-#     visibility-for-direction-b-vein-losses T08), referencing the vein's
-#     district/id and the attacker as owner -- same reuse Direction A's
-#     claim_vein() and Chunk 6's resolve_rivalry_outcome() already
-#     established, and the single choke point both Direction B loss paths
-#     (this ticket's off-screen default and ticket 07's lost defend-
-#     encounter, via resolve_defend_outcome() below) share, so one call
-#     here covers both.
-# Re-checks the vein's live presence in player.veins (rather than trusting
-# the attempt batch's stale snapshot) before touching anything, so a vein
-# that's vanished between the roll and the resolve (e.g. levelled down to
-# nothing elsewhere this same tick) is silently skipped, not crashed on.
+# Applies one already-rolled outcome. A failed attempt is a no-op (no
+# ownership change, no notification). A successful "claim" removes the
+# vein from player.veins and reassigns it (fields unchanged) into the
+# site's factionVein, flipping the site back to faction-owned -- the
+# mirror of Sites.attempt_seed()'s claimed=true/factionVein=null
+# transition, so it can later be raided back via Direction A
+# (begin_raid() requires vein["siteId"]). Pushes a Notify (background
+# changes to the player's own stuff are always surfaced, same convention
+# as Sites.roll_npc_claims()) and queues a "seed_claim" map event
+# referencing the vein's district/id and the attacker as owner -- the
+# single choke point both Direction B loss paths (an off-screen default
+# loss and a lost defend-encounter via resolve_defend_outcome() below) share.
 #
-# `missed_defend` (ticket 43): set only by _expire_pending_defend_raids()
-# below, for the one caller whose copy needs to say "you had a window and
-# missed it" rather than the plain no-alarm loss text.
+# Re-checks the vein's live presence in player.veins first, so a vein
+# that vanished since the attempt was recorded (e.g. levelled down to
+# nothing elsewhere this tick) is silently skipped.
 #
-# `outcome["outcomeType"]` (ticket 70): "claim" (default, when the key is
-# absent -- keeps every outcome dict hand-built without it, elsewhere in
-# this file's own tests included, behaving exactly as the pre-ticket-70
-# always-a-takeover path did) or "loot", rolled by roll_raid_odds() above.
+# missed_defend (set only by _expire_pending_defend_raids() below) swaps
+# in "you had a window and missed it" copy instead of the plain no-alarm
+# loss text. outcome["outcomeType"] defaults to "claim" when absent
+# (hand-built outcome dicts, including in tests) or "loot", rolled by
+# roll_raid_odds() above.
 static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = false) -> void:
 	if not outcome["success"]:
 		return
@@ -394,10 +368,8 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
 
 	if outcome.get("outcomeType", "claim") == "loot":
-		# direction-b-stealth-and-anonymity: "caught" defaults true (identity
-		# revealed) for an outcome dict built without the key, same
-		# missing-key-means-old-behaviour convention outcomeType's own
-		# default-to-"claim" above uses.
+		# "caught" defaults true (identity revealed) for an outcome dict
+		# built without the key, mirroring outcomeType's default-to-"claim".
 		_apply_raid_loot(vein, faction_name, district_name, missed_defend, outcome.get("caught", true))
 		return
 
@@ -413,37 +385,27 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 
 	MapEvents.queue_seed_claim(vein["district"], vein_id, outcome["attackerId"])
 
-	# PROSE-REVIEW: missed_defend branch is new copy (ticket 43), drafted
-	# against CONTENT-GUIDE.md's tone bible.
+	# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone bible.
 	if missed_defend:
 		Notify.push("Too late — %s took your vein in %s while the alarm was still ringing." % [faction_name, district_name], Notify.CATEGORY_DANGER)
 	else:
 		Notify.push("%s raided your vein in %s. It's theirs now." % [faction_name, district_name], Notify.CATEGORY_DANGER)
 
 
-# Direction B loot outcome (ticket 70): the common-case result of a
-# successful raid -- the vein stays player-owned, just pruned
-# (RAID_LOOT_PRUNE_DEPTH) and short a flat quantity of the player's own
-# stash of its ore type (RAID_LOOT_ORE_QTY), clamped to what's actually on
-# hand -- unlike Direction A's loot_vein() (which materialises ore into the
-# player's stash from a faction that never tracked real stock), this steals
-# from a real one, so it can never go negative. No relation hit (resolve_
-# raid_outcome's claim branch above never applied one either -- this is a
-# faction acting against the player, not the reverse) and no map event (the
-# vein never changes hands, so there's nothing for the map to register).
-#
-# PROSE-REVIEW: new notification copy (ticket 70), drafted against
-# CONTENT-GUIDE.md's tone bible -- one dry line, concrete ore count, and
-# distinct from both the claim branch's "It's theirs now." and the missed-
-# defend claim copy so the player can always tell which of the four
-# claim/loot × on-time/missed combinations just happened.
-#
-# `caught` (direction-b-stealth-and-anonymity): swaps the faction's name for
-# ANONYMOUS_RAIDER_LABEL when the stealth roll came back clean -- same
-# sentence shape either way (the label reads grammatically as a proper noun,
-# same singular-subject-verb agreement as a faction's own shortName), so
-# only the identity differs, never the fact of the loss. PROSE-REVIEW: the
-# clean-loot copy is new.
+# Direction B loot outcome: the common-case result of a successful raid --
+# the vein stays player-owned, just pruned (RAID_LOOT_PRUNE_DEPTH) and
+# short a flat quantity of the player's own ore stash (RAID_LOOT_ORE_QTY),
+# clamped to what's on hand. Unlike Direction A's loot_vein() (which
+# materialises ore from a faction that never tracked real stock), this
+# steals from a real stash, so it can never go negative. No relation hit
+# (a faction acting against the player, not the reverse) and no map event
+# (the vein never changes hands). PROSE-REVIEW: one dry line with a
+# concrete ore count, distinct from the claim branch's "It's theirs now."
+# and the missed-defend claim copy, so the player can tell which of the
+# four claim/loot x on-time/missed combinations happened. `caught` swaps
+# the faction's name for ANONYMOUS_RAIDER_LABEL when the stealth roll came
+# back clean -- only the identity differs, never the fact of the loss.
+# PROSE-REVIEW: the clean-loot copy is new.
 static func _apply_raid_loot(vein: Dictionary, faction_name: String, district_name: String, missed_defend: bool, caught: bool) -> void:
 	vein["growth"] = maxi(0, vein["growth"] - RAID_LOOT_PRUNE_DEPTH)
 
@@ -459,12 +421,11 @@ static func _apply_raid_loot(vein: Dictionary, faction_name: String, district_na
 		Notify.push("%s raided your vein in %s, pruning it and getting away with %d units of ore. It's still yours." % [attacker, district_name, stolen], Notify.CATEGORY_DANGER)
 
 
-# Called from time_system.gd's daily_tick, step 5i. Runs the previous tick's
-# still-pending alarm-defend raids first (ticket 07 -- a player who never
-# travelled to defend one loses it exactly as the no-alarm path would), then
-# rolls this tick's fresh attempts: a success against an alarmed vein queues
-# for the player to go defend instead of resolving here; every other success
-# resolves immediately, unchanged from ticket 06.
+# Called from time_system.gd's daily_tick, step 5i. Runs the previous
+# tick's still-pending alarm-defend raids first (a player who never
+# travelled to defend one loses it exactly as the no-alarm path would),
+# then rolls this tick's fresh attempts: a success against an alarmed
+# vein queues for the player to defend; every other success resolves now.
 static func apply_raid_resolution() -> void:
 	_expire_pending_defend_raids()
 
@@ -479,80 +440,62 @@ static func apply_raid_resolution() -> void:
 			resolve_raid_outcome(outcome)
 
 
-# ── Direction B: alarm defend encounter (ticket 07) ─────────────────────
-# Layers the alarm upgrade (ticket 05) onto the raid trigger above as the one
-# case with player agency. A successful attempt against an alarmed vein
-# doesn't resolve here -- it queues in state.world.pendingDefendRaids and
-# alerts the player, giving them the rest of the current day (until the next
-# daily_tick, the same "no separate countdown system" the PRD calls for) to
-# travel to the vein's district and fight it out. maybe_trigger_defend()
-# below is the arrival-side hook (called from Travel.travel_to()/
-# Sites.prospect(), the same two chokepoints DistrictDeck.maybe_trigger()
-# already uses for "player just arrived in this district" side effects);
-# _expire_pending_defend_raids() is the fallthrough side, resolving anything
-# still unclaimed at the top of the next tick via the exact same
-# resolve_raid_outcome() ticket 06 already uses, so a missed window plays out
+# ── Direction B: alarm defend encounter ──────────────────────────────────
+# Layers the alarm upgrade onto the raid trigger above as the one case
+# with player agency. A successful attempt against an alarmed vein doesn't
+# resolve here -- it queues in state.world.pendingDefendRaids and alerts
+# the player, giving them the rest of the current day (until the next
+# daily_tick; there's no separate countdown system) to travel to the
+# vein's district and fight it out. maybe_trigger_defend() below is the
+# arrival-side hook (Travel.travel_to()/Sites.prospect(), the same
+# chokepoints DistrictDeck.maybe_trigger() uses); _expire_pending_
+# defend_raids() is the fallthrough side, resolving anything still
+# unclaimed at the top of the next tick, so a missed window plays out
 # identically to the no-alarm path.
 static func _queue_defend_raid(outcome: Dictionary, vein: Dictionary) -> void:
 	GameState.state["world"]["pendingDefendRaids"].append(outcome)
 	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]
 	var faction_name: String = GameData.FACTIONS[outcome["attackerId"]]["shortName"]
-	# PROSE-REVIEW: new notification copy, drafted against CONTENT-GUIDE.md's
-	# tone bible (dry, administrative, one line).
-	# direction-b-stealth-and-anonymity: the eventual claim/loot × caught/clean
-	# outcome is already rolled (roll_raid_odds() time, same tick), so an
-	# advance warning bound for a clean loot is anonymized here too -- a
-	# claim-bound or caught-loot-bound warning still names the faction, same
-	# as resolve_raid_outcome()'s own notification will once it fires. A
-	# separate sentence (not a %s swap) since "Someone" takes a singular verb
-	# ("is") where a faction's shortName reads as a plural collective ("are").
+	# PROSE-REVIEW: dry, administrative, one line, per CONTENT-GUIDE.md.
+	# The claim/loot x caught/clean outcome is already rolled (same tick),
+	# so a warning bound for a clean loot is anonymized here too. Separate
+	# sentences (not a %s swap) since "Someone" takes a singular verb ("is")
+	# where a faction's shortName reads as a plural collective ("are").
 	var will_be_clean_loot: bool = outcome.get("outcomeType") == "loot" and not outcome.get("caught", true)
 	var warning_text: String
 	if will_be_clean_loot:
 		warning_text = "Alarm's gone off — someone's closing in on your vein in %s. Get there today to defend it." % district_name
 	else:
 		warning_text = "Alarm's gone off — %s are closing in on your vein in %s. Get there today to defend it." % [faction_name, district_name]
-	# 75-vein-raid-defend-button: veinId meta lets phone.gd's Notifications
-	# app render a Defend button on this exact entry. The notification's own
-	# id is stashed back onto the queued outcome (a Dictionary, so this
-	# mutates the same entry already sitting in pendingDefendRaids) so
-	# is_defend_notification_pending() below can scope the button to THIS
-	# raid occurrence specifically -- matching on veinId alone would
-	# resurrect the button on an old, already-resolved warning for the same
-	# vein once it's raided again later, since the notification log
-	# (Notify.LOG_CAP = 50) keeps old entries around rather than clearing
-	# them.
+	# veinId meta lets phone.gd's Notifications app render a Defend button
+	# on this entry. The notification's id is stashed back onto the queued
+	# outcome so is_defend_notification_pending() below can scope the
+	# button to this raid occurrence -- matching on veinId alone would
+	# resurrect the button on an already-resolved warning once the vein is
+	# raided again (Notify.LOG_CAP caps the log rather than clearing it).
 	var notification := Notify.push(warning_text, Notify.CATEGORY_WARNING, { "veinId": vein["id"] })
 	outcome["notificationId"] = notification["id"]
 
 
-# ticket 108: before a missed-defend window falls through to resolve_raid_
-# outcome()'s auto-loss, a vein with 1+ extraGuards (72-stackable-guards-
-# vein-defense) gets a chance to repel the raid outright instead. Chance-per-
-# guard and cap live in data/constants.json's "guardRepel" (GameData.
-# GUARD_REPEL_CHANCE_PER_GUARD/_CAP) -- one data source shared with Home's
-# own guard_repel_chance() mirror below, so retuning either never touches a
-# .gd file. Zero guards skips the roll entirely (no chance consumed, same as
-# if the check never ran), matching the ticket's "only applies with guards
-# present" call and leaving a zero-guard vein's behaviour byte-for-byte
-# identical to pre-ticket-108.
+# Before a missed-defend window falls through to resolve_raid_outcome()'s
+# auto-loss, a vein with 1+ extraGuards gets a chance to repel the raid
+# outright. Chance-per-guard and cap live in data/constants.json's
+# "guardRepel" (GameData.GUARD_REPEL_CHANCE_PER_GUARD/_CAP), shared with
+# Home's own guard_repel_chance() mirror so retuning never touches a .gd
+# file. Zero guards skips the roll entirely -- no chance consumed.
 static func guard_repel_chance(guard_count: int) -> float:
 	return clampf(guard_count * GameData.GUARD_REPEL_CHANCE_PER_GUARD, 0.0, GameData.GUARD_REPEL_CHANCE_CAP)
 
 
-# Rolls the repel chance for one expiring outcome and, on success, pushes the
-# distinct "held without you" notification and reports true so the caller
-# skips resolve_raid_outcome() entirely -- no ownership change, no ore lost.
-# A vanished vein (outcome["veinId"] no longer resolves) reads as zero guards,
-# same defensive default vein.get("extraGuards", 0) uses everywhere else in
-# this file -- resolve_raid_outcome()'s own null-vein no-op still covers that
-# case correctly if this returns false.
-#
-# PROSE-REVIEW: new notification copy, drafted against CONTENT-GUIDE.md's
-# tone bible -- distinct from both the "you defended it yourself" silence
-# (Combat's defend-vein win path pushes no notification at all) and every
-# missed-defend loss line above, so the player can tell "guards held it"
-# apart from either.
+# Rolls the repel chance for one expiring outcome and, on success, pushes
+# a "held without you" notification and returns true so the caller skips
+# resolve_raid_outcome() entirely -- no ownership change, no ore lost. A
+# vanished vein reads as zero guards (same default vein.get("extraGuards",
+# 0) uses elsewhere in this file), so resolve_raid_outcome()'s null-vein
+# no-op still covers that case if this returns false. PROSE-REVIEW:
+# distinct from both the silent "you defended it yourself" win path and
+# every missed-defend loss line above, so the player can tell "guards
+# held it" apart from either.
 static func _guards_repel_defend_raid(outcome: Dictionary) -> bool:
 	var vein: Variant = Cultivating.find_vein(outcome["veinId"])
 	if vein == null:
@@ -571,7 +514,7 @@ static func _guards_repel_defend_raid(outcome: Dictionary) -> bool:
 	return true
 
 
-# Passes missed_defend=true -- see resolve_raid_outcome() above (ticket 43).
+# Passes missed_defend=true -- see resolve_raid_outcome() above.
 static func _expire_pending_defend_raids() -> void:
 	var world: Dictionary = GameState.state["world"]
 	var pending: Array = world["pendingDefendRaids"]
@@ -601,10 +544,9 @@ static func maybe_trigger_defend(district_id: String) -> bool:
 	return false
 
 
-# 75-vein-raid-defend-button: index into pendingDefendRaids of the entry
-# queued for vein_id, or -1. Shared by has_pending_defend() and
-# trigger_defend() below so the "which entry matches this vein" scan exists
-# in exactly one place.
+# Index into pendingDefendRaids of the entry queued for vein_id, or -1.
+# Shared by has_pending_defend() and trigger_defend() below so the "which
+# entry matches this vein" scan exists in exactly one place.
 static func _pending_defend_index(vein_id: String) -> int:
 	var pending: Array = GameState.state["world"]["pendingDefendRaids"]
 	for i in range(pending.size()):
@@ -613,28 +555,24 @@ static func _pending_defend_index(vein_id: String) -> int:
 	return -1
 
 
-# 75-vein-raid-defend-button: does vein_id have a raid queued in
-# state.world.pendingDefendRaids right now? Used by the vein's own Defend
-# button (map.gd's _build_vein_action_card()) to decide whether to show the
-# button at all -- once the raid resolves (won, lost, or expired via
-# _expire_pending_defend_raids()), this goes false and the button stops
-# rendering on its own, no extra bookkeeping needed. The site sheet always
-# reflects the vein's live state, so matching on vein_id alone is correct
-# here (contrast is_defend_notification_pending() below, which needs to
-# scope to one specific historical notification instead).
+# Does vein_id have a raid queued in state.world.pendingDefendRaids right
+# now? Used by the vein's own Defend button (map.gd's
+# _build_vein_action_card()) to decide whether to show the button -- once
+# the raid resolves or expires, this goes false and the button stops
+# rendering, no extra bookkeeping needed. Matching on vein_id alone is
+# correct here (contrast is_defend_notification_pending() below, which
+# scopes to one specific historical notification instead).
 static func has_pending_defend(vein_id: String) -> bool:
 	return _pending_defend_index(vein_id) != -1
 
 
-# 75-vein-raid-defend-button: is the exact raid that notification_id's entry
-# warned about still pending? Used by the raid-warning notification's own
-# Defend button (notifications_app.gd's _build_notification_row()) instead of
-# has_pending_defend() -- the Notifications log isn't cleared, only capped
-# (Notify.LOG_CAP), so an old, already-resolved warning for a vein can still
-# be sitting in the log when that same vein gets raided again later; matching
-# on veinId alone would incorrectly reactivate that old entry's button too.
-# _queue_defend_raid() stashes the notification's own id onto the queued
-# outcome for exactly this lookup.
+# Is the exact raid that notification_id warned about still pending?
+# Used by the raid-warning notification's own Defend button instead of
+# has_pending_defend() -- the Notifications log only caps entries, it
+# doesn't clear them, so a resolved warning can still be sitting in the
+# log when the same vein is raided again; matching on veinId alone would
+# incorrectly reactivate that entry's button too. _queue_defend_raid()
+# stashes the notification's id for this lookup.
 static func is_defend_notification_pending(notification_id: String) -> bool:
 	for outcome in GameState.state["world"]["pendingDefendRaids"]:
 		if outcome.get("notificationId") == notification_id:
@@ -642,17 +580,15 @@ static func is_defend_notification_pending(notification_id: String) -> bool:
 	return false
 
 
-# 75-vein-raid-defend-button: the explicit-trigger sibling of
-# maybe_trigger_defend() above -- same pop-and-start shape, but keyed on
-# vein_id instead of district_id since there's no arrival to key off. The
-# player presses Defend from wherever they currently are (the vein's site
-# sheet, or the raid-warning notification in the Phone's Notifications app)
-# and the fight starts immediately, no travel time or cost; the
-# arrival-triggered path above is untouched and still works as an
-# alternative way into the same fight. Re-checks the queue itself (rather
-# than trusting the has_pending_defend()/is_defend_notification_pending() the
-# button used to decide whether to render) in case the window closed between
-# render and tap -- e.g. the player left the sheet open across a daily_tick.
+# The explicit-trigger sibling of maybe_trigger_defend() above -- same
+# pop-and-start shape, but keyed on vein_id instead of district_id since
+# there's no arrival to key off. The player presses Defend from the
+# vein's site sheet or the raid-warning notification in the Phone's
+# Notifications app, and the fight starts immediately, no travel cost.
+# Re-checks the queue itself (rather than trusting whatever
+# has_pending_defend()/is_defend_notification_pending() rendered the
+# button from) in case the window closed between render and tap -- e.g.
+# the player left the sheet open across a daily_tick.
 static func trigger_defend(vein_id: String) -> bool:
 	var i := _pending_defend_index(vein_id)
 	if i == -1:
@@ -668,12 +604,11 @@ static func trigger_defend(vein_id: String) -> bool:
 	return true
 
 
-# day-rhythm ticket 07: the committed "Leave undefended" path.  The caller
-# supplies the notification identity it rendered, but this is still the
-# authority boundary: find the live queued record again, remove exactly that
-# one, then run the ordinary guard-repel/loss path immediately.  Removing it
-# before either consequence makes repeated, stale, or re-entrant confirms a
-# harmless no-op, and leaves every other pending raid intact.
+# The committed "Leave undefended" path. The caller supplies the
+# notification identity it rendered, but this is still the authority
+# boundary: find the live queued record again, remove exactly that one,
+# then run the ordinary guard-repel/loss path. Removing it first makes
+# repeated, stale, or re-entrant confirms a harmless no-op.
 static func leave_undefended(vein_id: String, notification_id: String) -> bool:
 	var pending: Array = GameState.state["world"]["pendingDefendRaids"]
 	for i in range(pending.size()):
@@ -692,10 +627,9 @@ static func leave_undefended(vein_id: String, notification_id: String) -> bool:
 
 
 # Called by Combat.exit_combat()'s "defend_vein" branch. A win leaves the
-# vein untouched -- ownership was never moved, so there's nothing to do, and
-# the PRD explicitly wants no separate win notification. A loss reuses
-# resolve_raid_outcome() so the transfer and its Notify text are identical to
-# every other whole-vein-loss path in this file.
+# vein untouched (ownership was never moved, and the PRD wants no separate
+# win notification). A loss reuses resolve_raid_outcome() so the transfer
+# and its Notify text match every other whole-vein-loss path in this file.
 static func resolve_defend_outcome(won: bool) -> void:
 	var outcome: Variant = GameState.state["world"]["activeDefendRaid"]
 	GameState.state["world"]["activeDefendRaid"] = null

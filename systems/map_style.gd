@@ -3,17 +3,15 @@ extends RefCounted
 
 # M1.5 §N4: pure re-styling math for the filter chip modes (Ownership ·
 # Type · Growth · Security · Faction isolate). Consumes already-resolved
-# values (an ore colour, an owner colour, a vein's value tier/security/
-# growth band) and returns colours/widths/scales/booleans/angles — never
-# touches GameState or GameData, same purity discipline as
-# systems/map_routing.gd. scenes/components/map_canvas.gd is the only
-# caller. §N4 is explicit that filters ONLY re-style — they never hide a
-# stop or change what tapping it does, which is why nothing here returns
-# "hidden" or touches tap targets.
+# values (colours, tier/security/growth band) and returns
+# colours/widths/scales/booleans — never touches GameState or GameData,
+# like systems/map_routing.gd. scenes/components/map_canvas.gd is the only
+# caller. §N4 is explicit that filters ONLY re-style, never hide a stop or
+# change tap behaviour, which is why nothing here touches tap targets.
 #
 # "Growth" mode fades everything outside the "risk" bands and ramps ring
-# colour/width by value_tier (1-6, R§3.4). growth_fill_fraction() below is
-# the one pure seam behind MapCanvas's radial fill meter.
+# colour/width by value_tier (1-6, R§3.4); growth_fill_fraction() below is
+# the pure seam behind MapCanvas's radial fill meter.
 
 const FILTER_MODES: Array[String] = ["ownership", "type", "growth", "security", "faction"]
 
@@ -36,19 +34,18 @@ static func line_colour(filter_mode: String, owner_colour: Color) -> Color:
 	return owner_colour
 
 
-# Faction: picking a faction dims everything else and highlights just that
-# faction's line and owned stops. An owner is "player", a faction id, or ""
-# for an unclaimed/NPC element. selected_faction_id "" means faction mode is
-# active but nothing's been picked yet, so nothing is isolated.
+# Faction: picking a faction dims everything else and highlights just its
+# line and owned stops. Owner is "player", a faction id, or "" for
+# unclaimed/NPC; selected_faction_id "" means faction mode is active but
+# nothing's been picked, so nothing is isolated.
 static func is_faction_isolated(filter_mode: String, selected_faction_id: String) -> bool:
 	return filter_mode == "faction" and selected_faction_id != ""
 
 
 # Growth: a line/stub is never itself "at risk" — it fades uniformly
-# whenever this filter is active. Faction: reuses the same CHARGE_FADE_ALPHA
-# value (rather than inventing a new one) for every line whose owner isn't
-# the isolated faction; selected_faction_id/owner default to "" so call
-# sites that don't pass them are unaffected.
+# whenever this filter is active. Faction: reuses CHARGE_FADE_ALPHA for
+# every line whose owner isn't the isolated faction; selected_faction_id/
+# owner default to "" so callers that don't pass them are unaffected.
 static func line_alpha(filter_mode: String, selected_faction_id: String = "", owner: String = "") -> float:
 	if filter_mode == "growth":
 		return CHARGE_FADE_ALPHA
@@ -57,11 +54,9 @@ static func line_alpha(filter_mode: String, selected_faction_id: String = "", ow
 	return 1.0
 
 
-# Growth: per-stop alpha — full for a vein sitting in one of the risk bands
-# (see is_risk_band below), faded otherwise (the "nothing urgent" middle
-# bands). NPC/unclaimed stops have no growth of their own, so callers always
-# pass false for them. Faction: same isolate/fade split as line_alpha above,
-# keyed on the stop's own owner rather than growth state.
+# Growth: per-stop alpha — full for a vein in a risk band (is_risk_band
+# below), faded otherwise. NPC/unclaimed stops always pass at_risk=false.
+# Faction: same isolate/fade split as line_alpha above, keyed on owner.
 static func stop_alpha(filter_mode: String, at_risk: bool, selected_faction_id: String = "", owner: String = "") -> float:
 	if filter_mode == "growth":
 		return 1.0 if at_risk else CHARGE_FADE_ALPHA

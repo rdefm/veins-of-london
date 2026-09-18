@@ -37,79 +37,60 @@ func new_game_state() -> Dictionary:
 		"modal": null,
 		"bagDrawerOpen": false,
 		"inventoryTab": "ore",
+		# mapNav/veinListNav/phoneNav/labBenchNav are transient nav state,
+		# reset on load -- mapView below is the one exception.
 		"mapNav": { "selectedDistrict": null, "selectedSiteId": null },
-		# Transient nav state for the vein list screen, resets on load like
-		# mapNav/phoneNav/labBenchNav. districtId null scopes the list to
-		# every district (HQ's Vein Station entry point); a district id
-		# scopes it to just that one (the district bubble's "List view").
-		# originScreen is which of those opened it, for the Back button.
+		# districtId null scopes to every district (HQ's Vein Station
+		# entry); a district id scopes to just that one (a district
+		# bubble's "List view"). originScreen is which opened it, for Back.
 		"veinListNav": { "districtId": null, "bandFilter": null, "originScreen": "map" },
-		# pacingMode lives here (not a MapCanvas-local var) so the player's
-		# chosen event-playback pace survives close/reopen and save/load --
-		# see MapEvents.pacing_mode()/set_pacing_mode().
+		# pacingMode lives here (not MapCanvas-local) so the player's chosen
+		# event-playback pace survives close/reopen and save/load.
 		"mapEvents": { "queue": [], "playing": false, "pacingMode": MapEvents.DEFAULT_PACING_MODE },
-		# selectedContactId drills into a single conversation the same way
-		# selectedAxis drills into a single Ticker axis below; a conversation
-		# is only ever opened via PhoneNav.select_conversation(), which
-		# always sets a real id. revealFromIndex is that function's
-		# staged-reveal handoff to the phone screen (screen-local once
-		# consumed) -- null means "no conversation opened yet."
+		# selectedContactId drills into one conversation, set only via
+		# PhoneNav.select_conversation() (always a real id), same way
+		# selectedAxis drills into a Ticker axis. revealFromIndex is that
+		# function's staged-reveal handoff; null = unopened.
 		"phoneNav": { "app": "home", "selectedAxis": null, "selectedContactId": null, "confirmingNewGame": false, "revealFromIndex": null },
-		# Unlike mapNav/phoneNav/labBenchNav, this DOES survive save/load
-		# (see SaveManager._restore_int_types() for scrollX/scrollY) -- the
-		# camera the player left the Network map at is still there next time.
-		# everOpened gates MapCanvas._apply_initial_view()'s one-shot
-		# auto-focus (systems/map_view.gd): false only for a save that has
-		# genuinely never had its map opened yet.
+		# The one exception above: survives save/load (SaveManager restores
+		# scrollX/scrollY as ints), so camera position persists. everOpened
+		# gates MapCanvas's one-shot auto-focus, false until first map open.
 		"mapView": { "everOpened": false, "zoom": MapZoom.DEFAULT, "scrollX": 0, "scrollY": 0 },
-		# The diegetic Lab bench's own nav state (docs/hq-diorama-vision.md
-		# §5), resets on load like mapNav/phoneNav above. stop is which focal
-		# stop (systems/lab_bench_nav.gd's STOPS) is in frame; mode is which
-		# notebook ("recipes"/"experiments") is held open, or null at the
-		# fork -- unlike stop, mode is NOT reset by LabBenchNav.open(), so
-		# re-entering the bench keeps the player's last-chosen mode.
-		# selectedOre is up to 2 ore-type ids picked at the ore stop (§5.4),
-		# reset by LabBenchNav.open() (unlike mode) so re-entering never
-		# opens on a stale pairing.
+		# Lab bench nav (docs/hq-diorama-vision.md §5). stop is the focal
+		# stop in frame; mode (the held-open notebook) persists across
+		# re-entry, unlike selectedOre (up to 2 ids, §5.4), which
+		# open() always resets so re-entry never opens on a stale pairing.
 		"labBenchNav": { "stop": "books_ore", "mode": null, "selectedOre": [] },
 		# state.objectives[<id>] = { active, complete, progress }, keyed by
-		# data/objectives.json ids -- systems/objectives.gd's Objectives.
-		# refresh() is the only writer. progress is per-evaluator-type
-		# free-form scratch (activatedDay always; traded_with_faction also
-		# stashes a baseline snapshot of factions.<id>.oreSold at activation,
-		# so its qty/minTransactions params count only trade during the
-		# objective's active window).
+		# data/objectives.json ids; Objectives.refresh() is the only writer.
+		# progress is per-evaluator scratch data -- e.g. traded_with_faction
+		# baselines factions.<id>.oreSold at activation so qty/
+		# minTransactions count only trade during the active window.
 		"objectives": {},
 		"notifications": [],
-		# Reynard's transaction log -- every direct player.cash mutation logs
-		# here via systems/bank.gd's Bank.record(), same append-and-evict-
-		# from-front shape as `notifications` above.
+		# Reynard's transaction log -- every player.cash mutation logs here
+		# via Bank.record(), same evict-from-front shape as notifications.
 		"bankLog": [],
-		# latest is the compact account captured from one completed daily
-		# tick; autoOpenedDay is the once-only presentation receipt. Both
+		# latest is one completed daily tick's compact account;
+		# autoOpenedDay is the once-only presentation receipt -- both
 		# persist so reopening never reruns daily processing.
 		"morningAccounts": { "latest": null, "autoOpenedDay": 0 },
 		"sellState": {},
 		# Serializable pending-offer and accepted-contract ledger.
 		"sales": { "pendingOffers": [], "activeContracts": [], "priorityOrder": [], "contractHistory": [], "settlements": [], "nextOfferId": 1, "nextContractId": 1, "nextPeriodId": 1, "nextSettlementId": 1 },
-		# The "default-then-review" payroll model (R§3.10): no mid-tick
-		# blocking pause exists, so there's nothing to resume on reload;
-		# paidToday (room id -> bool) is recomputed fresh by Payroll.
-		# pay_wages() every rollover. lastSummary is the persisted record of
-		# the most recent rollover's result -- { day, entries: [{room,
-		# contactId, wage, paid}] } -- overwritten next rollover.
+		# "Default-then-review" payroll (R§3.10): no mid-tick blocking
+		# pause, so nothing to resume on reload. paidToday (room id -> bool)
+		# is recomputed fresh every rollover; lastSummary is the last
+		# rollover's result ({ day, entries: [{room, contactId, wage,
+		# paid}] }), overwritten next rollover.
 		"payroll": { "paidToday": {}, "lastSummary": null },
-		# The Lab's crafting batch-quantity picker, keyed by recipe key ->
-		# selected batch size. Transient, not restored by SaveManager, same
-		# convention as sellState above.
+		# Transient UI qty-steppers, not restored by SaveManager (same
+		# convention as sellState): craftQty keys recipe key -> batch size;
+		# marketplaceQty keys "<factionId>_<kind>_<itemType>" -> qty; stashQty
+		# keys "ore_<oreType>"/"item_<recipeKey>" -> qty, shared by a row's
+		# stash/unstash buttons.
 		"craftQty": {},
-		# Faction marketplace row qty steppers (Guild marketplace's Buy/Sell
-		# ×N controls), keyed "<factionId>_<kind>_<itemType>" -> selected
-		# qty. Same transient convention as sellState/craftQty above.
 		"marketplaceQty": {},
-		# Personal-stash move-qty stepper, keyed "ore_<oreType>" /
-		# "item_<recipeKey>" -- one shared qty per row for both the stash and
-		# unstash button on that row. Transient, not restored on load.
 		"stashQty": {},
 		"event": null,
 
@@ -117,52 +98,41 @@ func new_game_state() -> Dictionary:
 			"cash": 40,
 			"hp": 100, "hpMax": 100,
 			"attackMin": 5, "attackMax": 12,
-			# Shield's absorption pool (no turn cap -- drains on incoming
-			# damage until it's gone) and Healing Salve's 2-day heal-over-time
-			# timer, both outside the combat dict since they persist across
-			# combat's teardown-and-rebuild in Combat.exit_combat().
+			# Shield absorption pool (no turn cap) and Healing Salve's
+			# 2-day heal-over-time timer -- both persist across
+			# Combat.exit_combat()'s teardown/rebuild.
 			"shieldPool": 0,
 			"healingSalveDaysLeft": 0, "healingSalveDailyAmount": 0,
 			"orichalchum": {},
 			"veins": [],
-			# Quantity per quality tier, not a flat count -- see Crafting's
-			# "Inventory" section. Empty buckets == zero stock.
+			# Quantity per quality tier, not a flat count. Empty buckets ==
+			# zero stock.
 			"inventory": { "timePearl": {}, "enhancementPowder": {}, "rewind": {} },
-			# The personal stash -- a second ore/crafted-item pool no business
-			# system (contracts, Sales, Production, Procurement) can touch. A
-			# stashed unit is subtracted from orichalchum/inventory above the
-			# moment it moves in (systems/stash.gd), so it's a transfer
-			# destination, not a second view. Same shapes as the pools above:
-			# flat oreType->qty, and tier-bucketed recipeKey->{tier:qty}.
+			# Second pool no business system (contracts, Sales, Production,
+			# Procurement) can touch -- systems/stash.gd subtracts a stashed
+			# unit from orichalchum/inventory the moment it moves in, so
+			# this is a transfer destination, not a second view.
 			"stash": { "orichalchum": {}, "inventory": {} },
 			"equipment": { "weapon": null },
 			"items": [],
-			# null until Dial.attempt_seed() succeeds; there is never a second
-			# Dial (attempt_seed() refuses outright once this is non-null).
-			# Shape while seeded: { level, xp, currentCharge, maxCharge,
-			# rechargeRate, lastRegenDay, combatRegenTurnCounter, capacityMax,
-			# movement, loadedComplications, haftId } -- see systems/dial.gd's
-			# new_dial(). lastRegenDay guards Dial.daily_regen() the same
-			# lastResetDay way other daily-reset fields guard their own reset.
+			# null until Dial.attempt_seed() succeeds (refuses outright
+			# once non-null). Seeded shape: { level, xp, currentCharge,
+			# maxCharge, rechargeRate, lastRegenDay, combatRegenTurnCounter,
+			# capacityMax, movement, loadedComplications, haftId }.
 			"dial": null,
-			# Crafted-but-unseated Movements ({ archetype, oreType, tier },
-			# see Dial._new_movement()) -- a seated Movement (player.dial.
-			# movement) is moved out of here on Dial.seat_movement() and back
-			# in on Dial.unseat_movement(), never duplicated or destroyed.
+			# Crafted-but-unseated Movements ({ archetype, oreType, tier }) --
+			# moved out on Dial.seat_movement(), back in on unseat_movement().
 			"movementInventory": [],
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
 			"stealthSkill": 1, "stealthXP": 0,
-			# Attack bonus + turn-order speed, both level-indexed
-			# (GameData.COMBAT_ATTACK_BONUS_BY_LEVEL/COMBAT_SPEED_BY_LEVEL,
-			# R§3.7a) — leveled via the same Progression.award_xp() mechanism
-			# as craftingSkill/cultivatingSkill above.
+			# Attack bonus + turn-order speed, level-indexed (GameData.
+			# COMBAT_ATTACK_BONUS_BY_LEVEL/COMBAT_SPEED_BY_LEVEL, R§3.7a).
 			"combatSkill": 1, "combatXP": 0,
-			# The Lab's pure-data state. Known approaches are NOT stored here
-			# — Approaches.get_known() already resolves that live from
-			# data/approaches.json + owned home rooms, so caching it here
-			# would be a second, syncable-out-of-date source of truth. Cells
-			# are written lazily; an absent key means "untried".
+			# Lab's pure-data state. Known approaches are NOT stored here --
+			# Approaches.get_known() resolves that live, so caching here
+			# would be a second, driftable source of truth. Cells write
+			# lazily; absent key means "untried".
 			"bench": { "surveyed": {}, "cells": {}, "notes": {} },
 		},
 
@@ -172,65 +142,47 @@ func new_game_state() -> Dictionary:
 			"currentDistrict": "shoreditch",
 			"sites": [],
 			"recentEvents": [],  # D5: [{id, day}] — district-deck no-repeat-within-5-days tracking
-			# A successful raid attempt against an alarmed vein (R§3.12) queues
-			# here instead of resolving immediately (Raiding._queue_defend_raid)
-			# -- each entry is an outcome dict shaped { attackerId, veinId,
-			# siteId, success: true }, the shape resolve_raid_outcome() consumes.
-			# Cleared and re-resolved off-screen at the start of the next
-			# daily_tick's raid-resolution step (Raiding.
-			# _expire_pending_defend_raids) if the player never travelled to
-			# the vein's district in the meantime.
+			# A successful raid on an alarmed vein (R§3.12) queues here
+			# instead of resolving immediately; each entry is { attackerId,
+			# veinId, siteId, success: true }. Any still-pending entry
+			# resolves off-screen at the next daily_tick if the player
+			# never travelled to that district.
 			"pendingDefendRaids": [],
-			# The one pending entry (above) currently being fought as a
-			# "defend_vein" combat, popped off pendingDefendRaids by
-			# Raiding.maybe_trigger_defend() when the player travels into its
-			# district. Combat.exit_combat() reads this to resolve a loss via
-			# Raiding.resolve_defend_outcome(), then clears it back to null.
+			# The pendingDefendRaids entry currently fought as a
+			# "defend_vein" combat -- popped on travel into its district,
+			# cleared back to null when Combat.exit_combat() resolves it.
 			"activeDefendRaid": null,
-			# Per-district monotonic counter, Sites.next_slot_index()'s
-			# backing store. Each site (and each claimed site's extra
-			# natural-vein stop) is stamped with a slotIndex the moment it's
-			# created and keeps it for life -- MapLayout.assign_positions()
-			# keys off that stamped value rather than a stop's current
-			# position in state.world.sites, so an unrelated site's removal or
-			# insertion never reflows a later stop's slot. This counter only
-			# mints new indices; mapSlotFreePool (below) is where a vacated
-			# stop's slot goes so it can be handed back out here instead of
-			# growing this counter unboundedly.
+			# Per-district monotonic counter for stop slotIndex stamps,
+			# minted for life the moment a stop is created; MapLayout.
+			# assign_positions() keys off the stamp, not a stop's position
+			# in state.world.sites, so removing/inserting an unrelated site
+			# never reflows another's slot. Mints new indices only --
+			# mapSlotFreePool below recycles vacated ones.
 			"mapSlotCounters": {},
-			# Per-district stack of slotIndex values freed by Sites.
-			# release_slot_index() when the stop that owned them stops
-			# existing. Sites.next_slot_index() drains this before minting a
-			# fresh value off mapSlotCounters, so a district's live stop
-			# count -- not its lifetime churn -- is what the stopSlots
-			# siteCap*2 buffer has to cover.
+			# Per-district stack of slotIndex values freed when their stop
+			# stops existing, drained before minting fresh off
+			# mapSlotCounters.
 			"mapSlotFreePool": {},
 			# Relation-accrual daily-cap tracker, keyed by lane id
-			# ("collective", "archie") -> relation points already awarded
-			# today. RelationAccrual.reset_daily_caps() clears it on daily_tick.
+			# ("collective", "archie") -> points already awarded today,
+			# cleared on daily_tick.
 			"relationAwardedToday": {},
 		},
 
-		# A successful daily raid attempt against an alarmed HQ queues here
-		# instead of resolving immediately (Home._queue_pending_raid) --
-		# mirrors world.pendingDefendRaids/activeDefendRaid, just collapsed
-		# to a single flag since HQ has exactly one raid slot, not one per
-		# vein. pendingRaidNotificationId is the queued warning's own Notify
-		# id, so a stale already-resolved warning sitting in the (capped, not
-		# cleared) log can't reactivate its Defend button once HQ is raided
-		# again later. guardCount is the Hired Guard security upgrade's
-		# stack count -- unlike every other id in "security" (boolean
-		# membership), "guard" is never appended there; see Home.
-		# GUARD_SECURITY_ID.
+		# A successful raid on alarmed HQ queues here instead of resolving
+		# immediately -- mirrors world.pendingDefendRaids/activeDefendRaid,
+		# collapsed to one flag since HQ has one raid slot.
+		# pendingRaidNotificationId is that warning's Notify id, so a stale
+		# resolved warning can't reactivate its Defend button. guardCount is
+		# the Hired Guard stack count -- unlike other security ids (boolean
+		# membership), "guard" is never appended to `security`.
 		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0, "pendingRaid": false, "pendingRaidNotificationId": null, "guardCount": 0 },
 
 		"factions": _new_factions_state(),
 
-		# A separate, internal-only matrix of every faction's relation
-		# *toward* every other faction (directional -- state.
-		# factionRelations[a][b] is a's relation toward b, and need not equal
-		# [b][a]). Distinct from state.factions[id].relation above, which is
-		# the player-facing player<->faction stat.
+		# Internal-only directional matrix: factionRelations[a][b] is a's
+		# relation toward b (need not equal [b][a]) -- distinct from
+		# state.factions[id].relation, the player<->faction stat.
 		"factionRelations": _new_faction_relations_state(),
 
 		"barometer": {
@@ -240,16 +192,14 @@ func new_game_state() -> Dictionary:
 		},
 
 		# state.messages[<contactId>] = [{ from: "them"|"player", text, day,
-		# read }], capped at Messages.CAP (systems/messages.gd), same
-		# append-and-evict-from-front convention as notifications/bankLog
-		# above. pendingMessages is the generic runtime-delivery road --
-		# entries clear once their action-bar button is tapped.
+		# read }], capped at Messages.CAP, same evict-from-front convention
+		# as notifications/bankLog. pendingMessages is the runtime-delivery
+		# queue, cleared as each entry's action-bar button is tapped.
 		"messages": {},
 		"pendingMessages": [],
-		# A flat dict of pure-data counters -- Act 1 writes exactly one key
-		# (methodLog.firmFirstContact). Ordinary state: Events.rewind()
-		# restores it like anything else (plans/COLLECTIVE-QUESTLINE.md
-		# §8.3's deliberate decision that Rewind erases the log).
+		# Flat dict of pure-data counters -- Act 1 writes exactly one key
+		# (methodLog.firmFirstContact). Rewind erases it deliberately, like
+		# any other state (plans/COLLECTIVE-QUESTLINE.md §8.3).
 		"methodLog": {},
 
 		"contacts": _new_contacts_state(),
@@ -259,21 +209,17 @@ func new_game_state() -> Dictionary:
 			"focusedEnemyIndex": 0, "log": [],
 			"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [], "beatsSinceSnapshot": [],
-			# Allies fighting alongside the player this combat, general-shaped
-			# (see Contacts.build_combat_ally) — empty outside vein-defense fights.
+			# Allies fighting alongside the player this combat (see
+			# Contacts.build_combat_ally) — empty outside vein-defense fights.
 			"allies": [],
 		},
-		# Outside state.combat itself since exit_combat() resets that dict to
-		# fresh defaults on every fight's end -- see systems/
-		# combat_pacing.gd's own comment.
+		# Outside state.combat itself since exit_combat() resets that dict
+		# to fresh defaults on every fight's end.
 		"combatPacingMode": CombatPacing.DEFAULT_MODE,
 
-		# The bounded solo combat prototype's own state tree, fully separate
-		# from "combat" above so nothing here can touch production combat
-		# state -- see systems/combat_prototype.gd's top comment. Resets on
-		# load, not meaningfully persisted (same convention as mapNav/
-		# veinListNav above): a prototype fight mid-flight at save time isn't
-		# worth resurrecting.
+		# Bounded solo combat prototype's own state tree, fully separate
+		# from "combat" above. Resets on load like mapNav/veinListNav -- a
+		# fight mid-flight at save time isn't resurrected.
 		"combatPrototype": {
 			"active": false, "encounterId": "", "wave": 0, "totalWaves": 1, "round": 0, "outcome": null, "log": [],
 			"player": { "hp": 0, "hpMax": 0, "committedAction": null, "committedTarget": null, "committedItem": null, "exhaustedNextTurn": false, "stanceTriggered": false, "shieldPool": 0 },
@@ -285,19 +231,15 @@ func new_game_state() -> Dictionary:
 
 		"jamesJob": null,
 		"pendingSaleCut": 0,
-		# Archie's own tag-along deal -- the gross-derived 50/50 cut, held
-		# here across a mugging fight the same way pendingSaleCut holds the
-		# player's own sale cut.
+		# Archie's tag-along deal -- the gross-derived 50/50 cut, held
+		# across a mugging fight the same way pendingSaleCut is.
 		"pendingArchieDealCut": 0,
 		"labThresholds": {},
-		# Per-recipe opt-in, { recipeKey: bool }. When true, Production's
-		# effective target for that recipe adds undelivered active-contract
-		# need on top of labThresholds -- see Rooms.effective_lab_target/
-		# production_reserved_qty.
+		# Per-recipe opt-in { recipeKey: bool }; when true, Production adds
+		# undelivered active-contract need to labThresholds for that recipe.
 		"labCoverContracts": {},
 		"veinStationVeins": [],
-		# Plain dict of primitives, purity-safe. Companion to
-		# veinStationVeins above -- { veinId: int growth target }.
+		# Companion to veinStationVeins above -- { veinId: int growth target }.
 		"veinStationTargets": {},
 
 		"flags": {
@@ -306,15 +248,13 @@ func new_game_state() -> Dictionary:
 			"craftingUnlocked": false, "archieCraftChatSeen": false,
 			"canSellConsumables": false, "consSoldCount": 0,
 			"archieMotionPending": false, "archieMotionEventSeen": false,
-			# Idempotency guard for the day>=2/buyer_event day-tick trigger
-			# (TimeSystem._apply_tutorial_day_triggers) so the archie_2 SMS
-			# content queues exactly once, not on every tick until the player acts.
+			# Idempotency guard: archie_2 SMS queues exactly once, not on
+			# every tick until the player acts.
 			"archieBuyerSmsQueued": false,
 			"jamesMotionEventSeen": false, "enhancementUnlocked": false,
 			"jamesJobActive": false, "jamesJobAccepted": false,
-			# Gates ArchieDeals.roll_daily_offer() -- true from the moment an
-			# offer is queued until it's declined or its accepted deal
-			# (including any mugging fight it triggers) resolves.
+			# Gates ArchieDeals.roll_daily_offer() true from offer-queued
+			# until declined or its accepted deal (incl. any mugging fight) resolves.
 			"archieDealActive": false,
 			"homeRaidEventPending": false, "homeRaidEventSeen": false, "homeRaidWon": false,
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,
@@ -322,47 +262,37 @@ func new_game_state() -> Dictionary:
 			"greenwichTipOff": false, "luckyOmen": false, "conclaveNoticed": false, "oddities": 0,
 			# M1-LONDON D6 — cultivating tutorial.
 			"cultivationTutorialSeen": false,
-			# Set by the raid event's stealth_check on_success/on_caught
-			# branches, read by loot_raid_vein's _event_caught() fallback
-			# (systems/events.gd) so the shared claim/loot card knows which
+			# Set by the raid event's stealth_check success/caught branches;
+			# read by loot_raid_vein so the shared loot card knows which
 			# path got the player there.
 			"raidCaught": false,
-			# Flips true once, never false again -- gates VeinList's Sell
-			# option (systems/vein_list.gd) on permanently for every vein
-			# from then on.
+			# Flips true once, never false again -- permanently gates
+			# VeinList's Sell option for every vein from then on.
 			"veinSaleUnlocked": false,
-			# Pre-join lane gate -- Des, Nadia and Hakim's Trade action-bar
-			# entry (ContactCards.build_trade_action) reads this, not
-			# faction membership.
+			# Pre-join lane gate: Des/Nadia/Hakim's Trade action-bar entry
+			# reads this, not faction membership.
 			"collectiveLaneUnlocked": false,
-			# Gates Dial.attempt_seed() (R§3.5's Gift gate). Set true only by
-			# the Collective Act 2 onboarding quest (out of scope here).
+			# Gates Dial.attempt_seed() (R§3.5's Gift gate). Set true only
+			# by the Collective Act 2 onboarding quest.
 			"dialGiftGranted": false,
-			# Gates the Debug phone app's visibility (PhoneApps.apps()) --
-			# true only via DebugStart.apply()'s "force every bool flag true"
-			# pass below, never settable any other way, so a normally-started
-			# game never sees the tile.
+			# Gates Debug phone app visibility -- true only via
+			# DebugStart.apply()'s force-all-flags pass.
 			"debugStartUsed": false,
 		},
 
 		# barkCursors backs Collective._next_bark()'s no-repeat-until-
 		# exhausted draw per vendor (contactId -> next index into data/
-		# collective_barks.json's array for that contact). Later additions
-		# extend this dict rather than each carving out their own top-level
-		# state key.
+		# collective_barks.json). Later state extends this dict, not new
+		# top-level keys.
 		"collective": {
 			"barkCursors": {},
 			# The vein col_a1_hakim_meet's grant_contact_vein op hands the
-			# player, referenced by id both by col_a1_hakim_rescue's
-			# objective (veinIdStatePath) and by the thread-resolution event.
-			# null until that event fires.
+			# player, referenced by col_a1_hakim_rescue. null pre-event.
 			"hakimVeinId": null,
-			# Last day (state.world.day) that col_hakim_intel's daily-tick
-			# roll actually completed -- the sentinel 0 means "never", so the
-			# first roll is eligible once the 3-day minimum gap has passed.
-			# Updated only by col_hakim_intel's own on_complete, not at roll
-			# time, so the gap is measured from when the player actually read
-			# the text, not from when Hakim heard the tip.
+			# Last state.world.day col_hakim_intel's roll completed; 0 =
+			# never. Updated only on_complete (not at roll time), so the
+			# 3-day gap is measured from when the player read it, not when
+			# Hakim heard it.
 			"hakimIntelLastDay": 0,
 		},
 	}
@@ -374,45 +304,33 @@ func _new_factions_state() -> Dictionary:
 		factions[faction_id] = {
 			"relation": 0,
 			"joined": false,
-			# A real ledger balance, distinct from data/factions.json's
-			# `resourceLevel` (a security-roll opulence input, Factions.
-			# _security_opulence()). resourceLevel ties Guild to Firm/Network
-			# at 2, which doesn't read "Guild richer" per its flavour text, so
-			# `startingResources` is its own tiered field: Collective
-			# scrappiest, Firm/Network mid, Guild/Conclave richest.
+			# Ledger balance, distinct from factions.json's `resourceLevel`
+			# (security-roll opulence input); startingResources tiers
+			# scrappiest to richest: Collective < Firm/Network < Guild/Conclave.
 			"resources": GameData.FACTIONS[faction_id].get("startingResources", 0),
-			# Lifetime cumulative ore sold TO this faction by the player
-			# through Economy.execute_faction_sale(), keyed by ore type --
-			# { "<oreType>": { "units": int, "transactions": int } }. Absent
-			# ore types read as zero. Not the same as tradeProgress
-			# (relation-accrual's £-denominated counter below) -- this is
-			# unit/transaction-denominated and exists purely for objective
-			# evaluation.
+			# Lifetime ore sold TO this faction, keyed by ore type --
+			# { units, transactions }, absent = zero. Unlike tradeProgress
+			# (£-denominated) below, unit/transaction-based, used only for
+			# objective evaluation.
 			"oreSold": {},
-			# The accumulating £-denominated counter RelationAccrual converts
-			# into relation points, carrying any remainder below the lane's
-			# rate across trades. Present on every faction for schema
-			# uniformity; only "collective" has a configured rate in Act 1
-			# (RelationAccrual.LANES), so it's the only one that ever moves.
+			# £-denominated counter RelationAccrual converts to relation
+			# points, remainder carried across trades. Only "collective"
+			# has a configured rate in Act 1; present elsewhere for schema
+			# uniformity.
 			"tradeProgress": 0,
-			# A limited, independently-scarce stock per ore type (systems/
-			# factions.gd's Factions.restock_ore()/maybe_restock_ore()),
-			# which the buy lane draws against -- { "<oreType>": int },
-			# absent types read as 0. Present on every faction for schema
-			# uniformity, but only ever rolled/read for "collective" in this
-			# milestone. Independent of relation -- relation only narrows
-			# Economy.get_faction_buy_spread/get_faction_sell_spread's price,
-			# never this quantity ceiling.
+			# Independently-scarce per-ore stock the buy lane draws against
+			# -- { oreType: int }, absent = 0. Only rolled for "collective"
+			# this milestone; independent of relation, which narrows
+			# buy/sell spread, never this ceiling.
 			"oreStock": {},
 		}
 	return factions
 
 
 # Seeds every ordered pair of the 5 canonical factions to a neutral
-# baseline (0) -- a flat start keeps the rivalry odds this matrix feeds into
-# dependent purely on resource/security disparity, not an unjustified
-# industries-overlap guess. Every relationship still drifts from here via
-# the "grudges compound" feedback loop.
+# baseline (0) -- a flat start keeps the rivalry odds this matrix feeds
+# into dependent purely on resource/security disparity, not an
+# unjustified industries-overlap guess.
 func _new_faction_relations_state() -> Dictionary:
 	var relations := {}
 	for a in GameData.FACTIONS.keys():
@@ -428,36 +346,30 @@ func _new_contacts_state() -> Dictionary:
 	var contacts := {}
 	for contact_id in GameData.CONTACTS_DEFAULTS.keys():
 		var defaults: Dictionary = GameData.CONTACTS_DEFAULTS[contact_id]
-		# combat* fields: a generic ally-combat block every contact carries,
-		# not an archie-only schema addition — a contact whose constants.json
-		# entry omits them (james, for now) gets combatHpMax 0, which
-		# Contacts.can_join_combat() reads as "no combat kit, never eligible".
+		# Generic ally-combat block every contact carries, not archie-only
+		# -- a contact whose constants.json entry omits these fields gets
+		# combatHpMax 0, which Contacts.can_join_combat() reads as ineligible.
 		contacts[contact_id] = {
 			"relation": defaults.get("startRelation", 0),
 			"unlocked": defaults.get("unlocked", false),
 			"recruited": false,
 			"recruitThreshold": defaults.get("recruitThreshold", 0),
-			# Defaults true so contacts whose constants.json entry omits it
-			# render their recruit row unchanged -- false suppresses the row
-			# entirely (not shown-disabled) and gates Contacts.can_recruit()
-			# itself, so there's no back door to recruiting a "not
-			# recruitable, ever" contact even without a UI button for it.
+			# Defaults true (omitted entries render their recruit row
+			# unchanged). false suppresses the row entirely and gates
+			# Contacts.can_recruit() itself -- no UI-less back door to
+			# recruiting a "never" contact.
 			"recruitable": defaults.get("recruitable", true),
-			# A second, higher relation gate on top of recruitThreshold --
-			# can_assist_raid() reads relation against this rather than
-			# recruitThreshold, so a contact can be recruited (and combat-
-			# eligible via can_join_combat()) well before they're trusted
-			# enough to be asked along on an offensive raid. Defaults to 0
-			# for any contact whose entry omits it -- harmless since
-			# can_join_combat()'s own combatHpMax gate already excludes them.
+			# Higher relation gate than recruitThreshold: can_assist_raid()
+			# reads against this, so a contact can be recruit/combat-
+			# eligible well before trusted for an offensive raid. Defaults
+			# 0 for entries that omit it -- harmless since combatHpMax
+			# already excludes them.
 			"raidAssistThreshold": defaults.get("raidAssistThreshold", 0),
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
 			"stealthSkill": 1, "stealthXP": 0,
-			# Same skill-threshold-ladder mechanism as craftingSkill/
-			# cultivatingSkill above (Contacts.award_contact_xp(), GameData.
-			# SALES_XP_LEVELS) -- gated by the Operations Room via the same
-			# assignedRoom mechanism below, not a parallel state model.
+			# Same skill-threshold-ladder as craftingSkill/cultivatingSkill,
+			# gated by the Operations Room via assignedRoom.
 			"salesSkill": 1, "salesXP": 0,
 			"assignedRoom": null,
 			"combatHpMax": defaults.get("combatHpMax", 0),
@@ -467,30 +379,23 @@ func _new_contacts_state() -> Dictionary:
 			"combatStashMax": defaults.get("combatStashMax", 0),
 			"combatStash": defaults.get("combatStashMax", 0),
 			"combatHealAmount": defaults.get("combatHealAmount", 0),
-			# Fixed, authored per-contact turn-order value (not trainable,
-			# unlike the player's Combat Skill-driven speed) -- Contacts.
-			# build_combat_ally() copies it into the combat.allies entry
-			# Combat.build_turn_queue() sorts on.
+			# Fixed authored turn-order value (not trainable, unlike the
+			# player's Combat Skill-driven speed) -- copied into
+			# combat.allies, which Combat.build_turn_queue() sorts on.
 			"combatSpeed": defaults.get("combatSpeed", 0),
 			"koCooldownDays": defaults.get("koCooldownDays", 0),
 			"koCooldownUntilDay": null,
-			# Same £-denominated accrual counter as state.factions[id].
-			# tradeProgress above, but for Archie -- he has no faction, he
-			# *is* the lane, so his accumulator lives here. Present on every
-			# contact for schema uniformity; only "archie" has a configured
-			# rate (RelationAccrual.LANES).
+			# Same £-denominated accrual as state.factions[id].tradeProgress,
+			# but for Archie -- he has no faction, he *is* the lane.
 			"tradeProgress": 0,
 		}
 	return contacts
 
 
 # Dot-path convenience reader, e.g. read_path("player.cash"). Named
-# read_path (not get_path) because Node already declares a native
-# get_path() -> NodePath — GameState is an autoload extending Node, so
-# reusing that name silently overrides the engine's method instead of
-# declaring a new one, which Godot 4.4 now treats as a hard parse error.
-# Not a replacement for direct dict access (systems should still
-# read/write `state` directly) — just a small helper for tests/
+# read_path, not get_path -- Node already declares a native get_path() ->
+# NodePath, and reusing that name is a hard parse error in Godot 4.4. Not
+# a replacement for direct dict access -- just a small helper for tests/
 # notifications that want a value without knowing which layer holds it.
 func read_path(path: String, default: Variant = null) -> Variant:
 	var current: Variant = state

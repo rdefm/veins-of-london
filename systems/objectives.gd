@@ -2,10 +2,10 @@ class_name Objectives
 extends RefCounted
 
 # A small typed evaluator engine over data/objectives.json (GameData.
-# OBJECTIVES) -- evaluated explicitly at known action boundaries, not on
-# every state_changed signal. Static funcs only, pure read/write over
+# OBJECTIVES), evaluated explicitly at known action boundaries, not on
+# every state_changed. Static funcs only, pure read/write over
 # GameState.state.objectives. Awards live in authored event content
-# (on_complete), never here -- this only flips complete/completeFlag.
+# (on_complete) — this only flips complete/completeFlag.
 
 const TYPE_SITES_DISCOVERED_MATCHING := "sites_discovered_matching"
 const TYPE_TRADED_WITH_FACTION := "traded_with_faction"
@@ -15,11 +15,11 @@ const TYPE_VEIN_GROWTH_ABOVE := "vein_growth_above"
 const TYPE_FLAG_TRUE := "flag_true"
 
 
-# The only entry point, called explicitly (never via signal) at action
-# boundaries across Sites/Economy/VeinTrade/Cultivating/TimeSystem/
-# GameState.reset()/Events.apply_effects(). Idempotent -- a complete
-# objective is never re-evaluated. Must never call anything that itself
-# calls refresh() (recursion guard).
+# The only entry point, called explicitly at action boundaries across
+# Sites/Economy/VeinTrade/Cultivating/TimeSystem/GameState.reset()/
+# Events.apply_effects(). Idempotent — a complete objective is never
+# re-evaluated, and must never call anything that itself calls refresh()
+# (recursion guard).
 static func refresh() -> void:
 	for id in GameData.OBJECTIVES.keys():
 		_refresh_one(id, GameData.OBJECTIVES[id])
@@ -90,9 +90,7 @@ static func _eval_sites_discovered_matching(params: Dictionary, progress: Dictio
 
 # The tier/unclaimed half of sites_discovered_matching's per-site check,
 # split out so collective.gd's weather-beat trigger can test one freshly-
-# prospected site without duplicating the loop above. `ore_type` is passed
-# explicitly so both the per-required-type loop and a single-site caller
-# use the same check.
+# prospected site without duplicating the loop above.
 static func site_matches_discovery_params(site: Dictionary, ore_type: String, params: Dictionary) -> bool:
 	if site["oreType"] != ore_type:
 		return false
@@ -105,9 +103,9 @@ static func site_matches_discovery_params(site: Dictionary, ore_type: String, pa
 	return true
 
 
-# factionId, oreType, qty, minTransactions -- cumulative units sold and a
-# distinct transaction count, both counted only since this objective
-# activated (see _mark_activated's baseline snapshot).
+# factionId, oreType, qty, minTransactions: cumulative units sold and
+# transaction count, both counted only since activation (_mark_activated's
+# baseline snapshot).
 static func _eval_traded_with_faction(params: Dictionary, progress: Dictionary) -> bool:
 	var current: Dictionary = _ore_sold_entry(params["factionId"], params["oreType"])
 	var baseline: Dictionary = progress.get("baseline", { "units": 0, "transactions": 0 })
@@ -122,10 +120,10 @@ static func _ore_sold_entry(faction_id: String, ore_type: String) -> Dictionary:
 	return ore_sold.get(ore_type, { "units": 0, "transactions": 0 })
 
 
-# factionId, oreType -- true once a vein of oreType has been sold to
-# factionId since activation. Reads the "soldByPlayer" marker VeinTrade.
-# sell_to_faction() stamps on the site.factionVein it creates, so a
-# naturally-expanded or rivalry-captured vein never false-positives this.
+# factionId, oreType: true once a vein of oreType has sold to factionId
+# since activation. Reads the "soldByPlayer" marker VeinTrade.
+# sell_to_faction() stamps, so a naturally-expanded or rivalry-captured
+# vein never false-positives this.
 static func _eval_vein_sold_to_faction(params: Dictionary, progress: Dictionary) -> bool:
 	var activated_day: int = progress.get("activatedDay", 0)
 	for site in GameState.state["world"]["sites"]:
@@ -142,9 +140,8 @@ static func _eval_vein_sold_to_faction(params: Dictionary, progress: Dictionary)
 	return false
 
 
-# veinIdStatePath, threshold -- the vein at that state path (GameState.
-# read_path) has growth >= threshold. Looked up via Cultivating.find_vein,
-# which only searches state.player.veins.
+# veinIdStatePath, threshold: the vein at that state path (GameState.
+# read_path) has growth >= threshold, via Cultivating.find_vein.
 static func _eval_vein_growth_above(params: Dictionary) -> bool:
 	var vein_id: Variant = GameState.read_path(params["veinIdStatePath"])
 	if vein_id == null:
@@ -155,8 +152,7 @@ static func _eval_vein_growth_above(params: Dictionary) -> bool:
 	return vein["growth"] >= params["threshold"]
 
 
-# No params -- true once the objective's own completeFlag is true. Used by
-# the tutorial chain, where each checkpoint's flag is set directly by an
-# event's set_flag op rather than derived from other state.
+# No params: true once completeFlag is already true — the tutorial chain's
+# checkpoints, set directly by an event's set_flag op.
 static func _eval_flag_true(def: Dictionary) -> bool:
 	return GameState.state["flags"].get(def["completeFlag"], false)

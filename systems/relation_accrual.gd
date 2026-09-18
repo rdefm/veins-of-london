@@ -8,29 +8,25 @@ extends RefCounted
 # accumulator lives on state.contacts.archie directly. Des, Nadia and Hakim
 # each additionally get their own personal trickle on top of the Collective
 # faction meter their door already feeds.
-
+#
 # lane_id -> { container: top-level state key, id: key within it, rate: £ per
 # +1 relation, dailyCap: int }. "id" doubles as the faction_id/contact_id the
-# generic write-back below dispatches on.
-#
-# Collective's rate/cap are halved/raised from spec — the original rate made
-# recovering a relation hit (e.g. a raid claim) feel like it required
-# grinding, and the gain was silent, which read as "trading does nothing."
+# generic write-back below dispatches on. Collective's rate/cap are
+# halved/raised from spec so recovering a relation hit (e.g. a raid claim)
+# doesn't feel like grinding, and the gain is never silent.
 const LANES := {
 	"collective": { "container": "factions", "id": "collective", "rate": 350, "dailyCap": 5 },
 	"archie": { "container": "contacts", "id": "archie", "rate": 1000, "dailyCap": 2 },
 	# DRAFT rate/cap, pending human balance sign-off — same shape for all
-	# three vendors (their doors already trade at identical terms), picked as
-	# "noticeably slower than the shared Collective meter".
+	# three vendors, picked as "noticeably slower than the shared Collective meter".
 	"des": { "container": "contacts", "id": "des", "rate": 500, "dailyCap": 3 },
 	"nadia": { "container": "contacts", "id": "nadia", "rate": 500, "dailyCap": 3 },
 	"hakim": { "container": "contacts", "id": "hakim", "rate": 500, "dailyCap": 3 },
 }
 
 
-# Generic entry point for any faction trade lane (Economy.execute_faction_sale,
-# VeinTrade.sell_to_faction) — a no-op for factions LANES doesn't configure,
-# so call sites don't need their own faction_id guard.
+# Entry point for any faction trade lane — a no-op for factions LANES
+# doesn't configure, so call sites don't need their own guard.
 static func accrue_faction(faction_id: String, amount: int) -> void:
 	_accrue(faction_id, amount)
 
@@ -43,17 +39,16 @@ static func accrue_archie(amount: int) -> void:
 	_accrue("archie", amount)
 
 
-# Generic entry point for a vendor's personal trade lane (Collective.
-# complete_trade, VeinTrade.sell_to_faction/transfer_to_faction/
-# buy_from_faction) — same no-op contract as accrue_faction() above, for
-# contact lanes other than "archie" (his own accrue_archie() stays separate).
+# Entry point for a vendor's personal trade lane — same no-op contract as
+# accrue_faction() above, for contact lanes other than "archie" (his own
+# accrue_archie() stays separate).
 static func accrue_contact_trade(contact_id: String, amount: int) -> void:
 	_accrue(contact_id, amount)
 
 
-# Reset by TimeSystem.daily_tick() — every lane's daily award count drops to
-# zero, but tradeProgress itself is untouched, so a big trade that overshot
-# the cap keeps its banked remainder into the new day.
+# Reset by TimeSystem.daily_tick(): every lane's daily award count drops to
+# zero, but tradeProgress is untouched, so an overshoot keeps its banked
+# remainder into the new day.
 static func reset_daily_caps() -> void:
 	GameState.state["world"]["relationAwardedToday"] = {}
 
@@ -76,10 +71,8 @@ static func _accrue(lane_id: String, amount: int) -> void:
 
 	if points > 0:
 		awarded_today[lane_id] = already + points
-		# Factions.adjust_player_relation/Contacts.award_relation each emit
-		# state_changed themselves — dispatched generically on the lane's
-		# container so a new lane never needs this switch touched. Notify.push
-		# below surfaces every award, same as any other relation-moving event.
+		# Dispatched generically on the lane's container so a new lane never
+		# needs this switch touched; both branches emit state_changed themselves.
 		if lane["container"] == "factions":
 			Factions.adjust_player_relation(lane["id"], points)
 			Notify.push("Trade builds your standing with %s (+%d)." % [GameData.FACTIONS[lane["id"]]["name"], points], Notify.CATEGORY_SUCCESS)
@@ -87,6 +80,5 @@ static func _accrue(lane_id: String, amount: int) -> void:
 			Contacts.award_relation(lane["id"], points)
 			Notify.push("Trade builds your standing with %s (+%d)." % [Contacts.display_name(lane["id"]), points], Notify.CATEGORY_SUCCESS)
 	else:
-		# No point awarded this call, but tradeProgress still moved above —
-		# every state mutation must signal (CLAUDE.md systems contract).
+		# tradeProgress still moved above — every mutation must signal.
 		EventBus.state_changed.emit()

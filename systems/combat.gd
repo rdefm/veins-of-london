@@ -57,9 +57,8 @@ const BEAT_COMPLICATION_PROPHETS_BREATH := "complication_prophets_breath"
 const BEAT_COMPLICATION_WORMHOLE := "complication_wormhole"
 
 # The direct bag-item use_*() path's own beat kinds, parallel to
-# BEAT_COMPLICATION_* (docs/combat-animation-vision.md §5). Both paths stamp
-# the same `effectKey` field per effect, so the screen's effect-sheet
-# dispatch reads one field regardless of which path triggered it.
+# BEAT_COMPLICATION_*. Both paths stamp the same `effectKey` field, so the
+# screen's effect-sheet dispatch reads one field regardless of the path.
 const BEAT_USE_TIME_PEARL := "use_time_pearl"
 const BEAT_USE_MOTION := "use_motion"
 const BEAT_USE_BLAST := "use_blast"
@@ -83,11 +82,10 @@ const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPow
 # stash instead of attacking -- no player to hand them a Healing Burst.
 const ALLY_HEAL_THRESHOLD_FRACTION := 0.4
 
-# R§3.7a's turn-order value. Mugger has no data/enemies.json template of
-# its own (generated procedurally below), so its speed lives here instead.
+# R§3.7a turn-order values. MUGGER_SPEED: the mugger has no data/enemies.json
+# template of its own (generated procedurally below), so its speed lives
+# here. DEFAULT_TEMPLATE_SPEED: default for a template that omits `speed`.
 const MUGGER_SPEED := 11
-# Default for a template that omits `speed`, same documented-default
-# precedent _enemy_capabilities_from_template() uses for evadeChance.
 const DEFAULT_TEMPLATE_SPEED := 10
 
 # R§3.7a: Combat Skill's XP sources, flat regardless of hit/miss/outcome
@@ -97,11 +95,11 @@ const COMBAT_XP_PER_ATTACK_TURN := 5
 const COMBAT_XP_PER_GYM_SESSION := 30
 const COMBAT_XP_PER_WORKOUT_SESSION := 10
 
-# R§3.7a "Roster generation": per-instance hp/attack variance band for
-# spawned mugger/guard entries -- draft, not balance-final.
+# R§3.7a "Roster generation": ENEMY_INSTANCE_VARIANCE is the per-instance
+# hp/attack variance band for spawned mugger/guard entries (draft, not
+# balance-final); SQUAD_MAX is the squad-size cap generate_raid_enemy()
+# clamps guard_count to.
 const ENEMY_INSTANCE_VARIANCE := 0.15
-# R§3.7a's squad-size cap; also the ceiling generate_raid_enemy() clamps
-# guard_count below.
 const SQUAD_MAX := 3
 
 
@@ -116,9 +114,8 @@ static func _apply_instance_variance(base: float) -> int:
 
 
 # A trade including a vein rolls a harder mugger encounter: a wider,
-# higher-floor roster (2-4 vs. the default 1-3) at 1.3x base stats, not a
-# new archetype -- draft, needs balance sign-off (see MUG_BASE_CHANCE_VEIN
-# in economy.gd).
+# higher-floor roster (2-4 vs. the default 1-3) at 1.3x base stats. Draft,
+# needs balance sign-off (see MUG_BASE_CHANCE_VEIN in economy.gd).
 const HARD_MUGGER_MIN_COUNT := 2
 const HARD_MUGGER_MAX_COUNT := 4
 const HARD_MUGGER_STAT_SCALE := 1.3
@@ -176,10 +173,9 @@ static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionar
 
 
 # Debug-only in M0 (R§3.7); M0 has no NPC-claimed-vein storage, so callers
-# supply a value tier/guards directly rather than a real vein. value_tier is
-# Cultivating.value_tier() (1-6). guard_count (capped at SQUAD_MAX) distinct
-# entries roll independently from GameData.ENEMY_RAID_GUARDS, unless
-# `template_key` forces one template for every slot (R§3.7a variance).
+# supply a value tier/guards directly. value_tier is Cultivating.value_tier()
+# (1-6); guard_count (capped at SQUAD_MAX) entries roll independently from
+# GameData.ENEMY_RAID_GUARDS unless `template_key` forces one template.
 static func generate_raid_enemy(vein_id, value_tier: int, guards: int = 1, template_key: String = "") -> Array:
 	var templates: Dictionary = GameData.ENEMY_RAID_GUARDS
 	var guard_count: int = clampi(guards, 1, SQUAD_MAX)
@@ -270,10 +266,9 @@ static func disarm_enemy(enemy: Dictionary, turns: int) -> void:
 		enemy["ability"]["lockedTurns"] = turns
 
 
-# Fires out of Economy.execute_sale()'s Archie lane (its only caller) --
-# his own deal going wrong, so he always fights here, bypassing
-# Contacts.can_join_combat()'s recruited/kit/KO-cooldown gate. `vein_included`
-# rolls generate_mugger()'s harder roster -- see HARD_MUGGER_* above.
+# Fires out of Economy.execute_sale()'s Archie lane -- his own deal going
+# wrong, so he always fights here, bypassing Contacts.can_join_combat()'s
+# gate. `vein_included` rolls generate_mugger()'s harder roster.
 static func start_mugging(vein_included: bool = false) -> void:
 	var enemies := generate_mugger(vein_included)
 	var log_lines := ["%s step out of nowhere. They want what you're carrying." % _mugger_intro_label(enemies.size())]
@@ -330,10 +325,9 @@ static func start_raid(vein_id: String, value_tier: int, guards: int = 1, templa
 
 
 # Unlike _gather_defend_allies' auto-join-everyone, bringing an ally on a
-# raid is the player's explicit choice at the Raid button (map.gd) --
-# ally_ids is that choice. Re-validated against can_join_combat() here since
-# relation/KO-cooldown/recruit state can move between pressing Raid and
-# combat actually starting.
+# raid is the player's explicit choice at the Raid button (map.gd).
+# Re-validated against can_join_combat() since relation/cooldown/recruit
+# state can move between pressing Raid and combat actually starting.
 static func _gather_raid_allies(ally_ids: Array, log_lines: Array) -> Array:
 	var allies: Array = []
 	for contact_id in ally_ids:
@@ -343,11 +337,9 @@ static func _gather_raid_allies(ally_ids: Array, log_lines: Array) -> Array:
 	return allies
 
 
-# The alarm-upgrade defend encounter. Called by Raiding.maybe_trigger_defend()
-# once the player travels into the target vein's district within the
-# pending window. Reuses generate_raid_enemy() rather than a bespoke enemy.
-# onWin is "" -- a loss is handled by Raiding.resolve_defend_outcome() from
-# exit_combat() below.
+# The alarm-upgrade defend encounter, called by Raiding.maybe_trigger_defend()
+# once the player travels into the vein's district within the pending
+# window. onWin is "" -- a loss is handled by Raiding.resolve_defend_outcome().
 static func start_defend_vein(vein_id: String, value_tier: int) -> void:
 	var enemies := generate_raid_enemy(vein_id, value_tier)
 	var log_lines := ["The alarm wasn't lying. %s is already there." % _guard_group_name(enemies)]
@@ -370,9 +362,7 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 	if not is_canonical_context(context):
 		push_error("Combat: unrecognized context '%s' — not in CANONICAL_CONTEXTS, exit_combat() will mis-route it." % context)
 	# Every roster entry needs koed regardless of which start_* path built
-	# it -- one chokepoint. speed is set at construction time (generate_mugger()'s
-	# MUGGER_SPEED, or _enemy_capabilities_from_template()'s per-template value).
-	# `enemies` is the full roster (up to SQUAD_MAX distinct entries).
+	# it -- one chokepoint (speed is already set at construction time).
 	for enemy in enemies:
 		enemy["koed"] = false
 	GameState.state["combat"] = {
@@ -388,12 +378,10 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 	GameState.state["currentScreen"] = "combat"
 	EventBus.screen_changed.emit("combat")
 	EventBus.state_changed.emit()
-	# The sole combat-entry chokepoint; sets currentScreen/emits screen_changed
-	# itself rather than via Nav.go_to(), so it needs the same
-	# abandon-after-both-emits treatment Nav.go_to() gives every navigation-away-
-	# from-map, since Raiding.maybe_trigger_defend() can fire this synchronously
-	# mid-Sites.prospect()/Travel.travel_to() while a Map animation is still
-	# playing.
+	# Sets currentScreen/emits screen_changed itself rather than via
+	# Nav.go_to(), so it needs the same abandon-after-both-emits treatment,
+	# since Raiding.maybe_trigger_defend() can fire this synchronously
+	# mid-Sites.prospect()/Travel.travel_to() while a Map animation plays.
 	MapEvents.abandon_playback()
 
 
@@ -439,14 +427,11 @@ static func push_combat_snapshot() -> void:
 
 
 # R§3.7a "Turn order": every non-koed combatant, sorted by speed
-# descending, ties broken player > allies > enemies (array order) -- the
-# construction order below plus an index-stable comparator encode the
-# tie-break, since Array.sort_custom isn't guaranteed stable.
-#
+# descending, ties broken player > allies > enemies (construction order
+# plus an index-stable comparator, since Array.sort_custom isn't stable).
 # Motion (motionTurns > 0) inserts attack_count - 1 extra player entries
-# right after the player's slot (2 at motionPower < 3, 3 at >= 3), so total
-# damage is spread across visible queue entries instead of a hidden
-# multiplier.
+# after the player's slot (2 below motionPower 3, 3 at/above), so total
+# damage spreads across visible queue entries, not a hidden multiplier.
 static func _player_speed() -> int:
 	var player: Dictionary = GameState.state["player"]
 	return GameData.COMBAT_SPEED_BY_LEVEL[player["combatSkill"]]
@@ -498,13 +483,10 @@ static func award_xp(amount: int) -> void:
 
 
 # Walks build_turn_queue()'s ordering, each entry resolving as one atomic
-# turn via _resolve_player_turn()/_ally_turn()/_enemy_turn(), stopping the
-# moment an outcome resolves.
-#
-# Also returns `beats` (docs/combat-animation-vision.md §8): an ordered
-# Array of pure-data dictionaries, one per new log line (see _log()).
-# GameState.state gains no new schema -- beats live only in the return
-# value, so save/load and Rewind are untouched.
+# turn, stopping the moment an outcome resolves. Also returns `beats`
+# (docs/combat-animation-vision.md §8): an ordered Array of pure-data
+# dictionaries, one per new log line. GameState.state gains no new schema --
+# beats live only in the return value, so save/load and Rewind are untouched.
 static func player_attack() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
@@ -522,9 +504,9 @@ static func player_attack() -> Dictionary:
 	var beats: Array = []
 
 	# Captured before the end-of-round decrement below and stamped onto each
-	# beat's `motionBoosted` field, since by playback time motionTurns may
-	# already be decremented to 0 -- beats must be self-describing snapshots,
-	# never a live-state re-read (see CombatDirector's top comment).
+	# beat's `motionBoosted` field, since motionTurns may already be 0 by
+	# playback time -- beats must be self-describing snapshots, never a
+	# live-state re-read.
 	var motion_active: bool = combat["motionTurns"] > 0
 
 	# build_turn_queue() is a pure query (no state mutation), so the
@@ -561,10 +543,9 @@ static func player_attack() -> Dictionary:
 
 # Appends `line` to combat.log and, when a live `beats` Array was threaded
 # through, a matching pure-data beat with the same line plus caller-supplied
-# fields (docs/combat-animation-vision.md §8). `beats` is null (not an empty
-# Array) at call sites that don't need it, so this stays one no-op branch.
-# No Node/Callable/SpriteFrames ever enters a beat -- ids/numbers/strings
-# only, resolved by the screen.
+# fields. `beats` is null (not an empty Array) at call sites that don't
+# need it. No Node/Callable/SpriteFrames ever enters a beat -- ids/numbers/
+# strings only, resolved by the screen.
 static func _log(combat: Dictionary, beats: Variant, line: String, kind: String, extra: Dictionary = {}) -> void:
 	combat["log"].append(line)
 	if beats == null:
@@ -572,10 +553,10 @@ static func _log(combat: Dictionary, beats: Variant, line: String, kind: String,
 	var beat: Dictionary = { "kind": kind, "logLine": line }
 	beat.merge(extra)
 	beats.append(beat)
-	# docs/combat-animation-vision.md §5: mirrors every threaded beat onto a
-	# rolling accumulator combat_rewind() hands back (reversed) for replay,
-	# cleared only when _restore_from_snapshot() consumes it -- a purely
-	# cosmetic layer on top of GameState already being correctly restored.
+	# Mirrors every threaded beat onto a rolling accumulator combat_rewind()
+	# hands back (reversed) for replay, cleared only when
+	# _restore_from_snapshot() consumes it -- purely cosmetic (GameState is
+	# already correctly restored by then).
 	combat["beatsSinceSnapshot"].append(beat)
 
 
@@ -641,8 +622,7 @@ static func _ally_turn(combat: Dictionary, ally: Dictionary, ally_index: int, be
 # The enemy's single attack targets the player or one alive ally,
 # uniform-random over whoever's still standing. Returns combat.allies'
 # index (-1 sentinel for "attack the player"), not the dict itself, since
-# beats need a stable ids-only reference and Dictionary `==` in GDScript
-# compares contents, not identity.
+# beats need a stable ids-only reference.
 static func _pick_enemy_target(combat: Dictionary) -> int:
 	var alive_indices: Array = []
 	for i in range(combat["allies"].size()):
@@ -657,9 +637,8 @@ static func _pick_enemy_target(combat: Dictionary) -> int:
 
 # Standalone entry point, called directly (not via the turn queue) by
 # flee()'s failed-flee parting shot and by tests driving an enemy's attack
-# in isolation -- "the acting enemy" is always index 0 here. Returns
-# { "beats": beats } (docs/combat-animation-vision.md §8); doesn't emit
-# state_changed itself, same as before -- every caller still owns that.
+# in isolation -- "the acting enemy" is always index 0 here. Doesn't emit
+# state_changed itself; every caller owns that.
 static func enemy_attack() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	var beats: Array = []
@@ -677,10 +656,9 @@ static func _resolve_enemy_attack(combat: Dictionary, enemy: Dictionary, enemy_i
 		_enemy_attack_ally(combat, enemy, combat["allies"][target_index], target_index, enemy_index, beats)
 
 
-# One atomic enemy turn for the turn queue: ability-lock/frozen bookkeeping
-# runs at this enemy's own queue slot. A frozen turn is a no-op-plus-
-# decrement -- the entry is still walked, it just doesn't attack.
-# `enemy_index` is only needed to stamp onto beats.
+# One atomic enemy turn: ability-lock/frozen bookkeeping runs at this
+# enemy's own queue slot. A frozen turn is a no-op-plus-decrement -- the
+# entry is still walked, it just doesn't attack.
 static func _enemy_turn(combat: Dictionary, enemy: Dictionary, enemy_index: int, beats: Variant = null) -> void:
 	if is_ability_locked(enemy):
 		enemy["ability"]["lockedTurns"] -= 1
@@ -730,15 +708,13 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_in
 	player["hp"] = maxi(0, player["hp"] - dmg)
 	var beat_extra: Dictionary = { "actorType": "enemy", "actorIndex": enemy_index, "targetType": "player", "dmg": dmg }
 	if absorbed > 0:
-		# docs/combat-animation-vision.md §5: shield cracks on each absorb,
-		# carried independently of `dmg` (which can be 0 on a full absorb, and
-		# the juice layer only fires for dmg > 0) so the crack still plays.
+		# Shield cracks on each absorb, carried independently of `dmg`
+		# (0 on a full absorb) so the crack still plays.
 		beat_extra["shieldAbsorbed"] = absorbed
 	_log(combat, beats, "%s hits you for %d%s. You: %d/%d HP." % [enemy["name"], dmg, shield_note, player["hp"], player["hpMax"]], BEAT_ENEMY_ATTACK, beat_extra)
 	if player["hp"] <= 0:
-		# A failsafe/rewind trigger rewrites combat.log wholesale
-		# (_restore_from_snapshot() replaces the array, not appends), so this
-		# path deliberately stays un-beaten -- rewind-as-animation (§5) is its
+		# A failsafe/rewind trigger rewrites combat.log wholesale, so this
+		# path deliberately stays un-beaten -- rewind-as-animation is its
 		# own, separate mechanism, not this linear beat queue.
 		if _try_failsafe(combat, player):
 			return
@@ -770,9 +746,9 @@ static func flee() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 
-	# Blast's one-use flee boost. Not part of the canonical combat-dict shape
-	# -- read defensively and cleared here regardless of the roll's outcome,
-	# so it never survives past the next attempt.
+	# Blast's one-use flee boost, read defensively and cleared here
+	# regardless of the roll's outcome, so it never survives past the next
+	# attempt.
 	var flee_chance := 0.65
 	if combat.get("blastFleeBoost", false):
 		flee_chance = BLAST_FLEE_BOOST_CHANCE
@@ -894,14 +870,10 @@ static func use_shield() -> Dictionary:
 
 
 # Black Hole is the one AoE effect (R§3.7a): hits every non-koed enemy
-# independently at full, un-diluted power, not just the focused entry.
-# frozenTurns is one shared pool across the fight, so N enemies hit adds
-# freeze_turns once per enemy, not once total.
-#
-# `beats` (null by default, same convention as _log()) is threaded through
-# by both cast_complication() and use_black_hole() -- each hit gets its own
-# log line + beat, so the juice layer can play a hit-stop/flash/effect-sheet
-# per enemy in the fan, sequentially.
+# independently at full, un-diluted power. frozenTurns is one shared pool
+# across the fight, so N enemies hit adds freeze_turns once per enemy, not
+# once total. Each hit gets its own log line + beat, so the juice layer
+# can play an effect per enemy in the fan, sequentially.
 static func _apply_black_hole_aoe(combat: Dictionary, dmg: int, freeze_turns: int, beats: Variant = null) -> void:
 	for i in range(combat["enemies"].size()):
 		var enemy: Dictionary = combat["enemies"][i]
@@ -1014,10 +986,9 @@ static func use_wormhole() -> Dictionary:
 
 
 # Casts a loaded Complication by its player.dial.loadedComplications index.
-# "rewind" is refused here since it's cast via combat_rewind()'s own
-# fallback instead. Every "already active" guard below runs before
-# Dial.cast_complication() spends a charge -- a blocked cast must never
-# cost a charge.
+# "rewind" is refused here (cast via combat_rewind()'s own fallback
+# instead). Every "already active" guard below runs before
+# Dial.cast_complication() spends a charge -- a blocked cast never costs one.
 static func cast_complication(index: int) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
@@ -1060,15 +1031,10 @@ static func cast_complication(index: int) -> Dictionary:
 	var enemy: Dictionary = _focused_enemy(combat)
 
 	# targets > 1 (a tier-indexed Spread Movement) has no per-target dilution
-	# by design -- for a single-target effect (blast) this repeats the effect
-	# at full power `targets` times against the focused enemy. blackHole folds
-	# `targets` into its per-enemy power/freeze instead (see
-	# _apply_black_hole_aoe()).
-	#
-	# Every branch logs through _log(), so this cast returns a `beats` array
-	# the screen plays back through CombatDirector. blast/blackHole are the
-	# only branches that set a `dmg` field -- the juice layer keys off that
-	# field's presence, the others are narrative-only beats.
+	# by design -- for blast (single-target) this repeats the effect at
+	# full power `targets` times. blackHole folds `targets` into its
+	# per-enemy power/freeze instead. blast/blackHole are the only branches
+	# that set a `dmg` field on their beats -- the juice layer keys off that.
 	var beats: Array = []
 	match recipe_key:
 		"timePearl":
@@ -1136,10 +1102,9 @@ static func combat_rewind() -> Dictionary:
 	else:
 		Dial.cast_complication(rewind_index)
 
-	# docs/combat-animation-vision.md §5: rewind/failsafe plays the beat
-	# queue in reverse. Captured before _restore_from_snapshot() clears
-	# combat.beatsSinceSnapshot -- purely cosmetic, GameState is already
-	# restored to the correct state by playback time.
+	# Rewind/failsafe plays the beat queue in reverse. Captured before
+	# _restore_from_snapshot() clears combat.beatsSinceSnapshot -- purely
+	# cosmetic, GameState is already restored by playback time.
 	var replay_beats: Array = combat["beatsSinceSnapshot"].duplicate()
 	replay_beats.reverse()
 
@@ -1180,8 +1145,7 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 
 # Checked the moment the player's hp would hit 0, before "loss" resolves
 # -- a separate resource from Rewind, tried automatically. Requires a
-# snapshot to restore to; with none available the loss proceeds normally
-# even with failsafe in stock.
+# snapshot to restore to; with none available the loss proceeds normally.
 static func _try_failsafe(combat: Dictionary, player: Dictionary) -> bool:
 	if Crafting.inventory_qty("failsafe") <= 0:
 		return false
@@ -1189,12 +1153,10 @@ static func _try_failsafe(combat: Dictionary, player: Dictionary) -> bool:
 		return false
 
 	Crafting.inventory_remove("failsafe", 1)
-	# Unlike combat_rewind(), this doesn't capture beatsSinceSnapshot for a
-	# reverse replay -- it fires synchronously mid-round, nested inside an
-	# already-mid-playback beat queue, and a second reverse playback would
-	# race the enclosing round's forward one on the same director. GameState
-	# is still fully restored either way -- only the cosmetic animation is
-	# skipped.
+	# Unlike combat_rewind(), this skips the reverse-replay capture -- it
+	# fires synchronously mid-round, and a second reverse playback would
+	# race the enclosing round's forward one. GameState is still fully
+	# restored; only the cosmetic animation is skipped.
 	_restore_from_snapshot(combat, player)
 	combat["log"].append("⚑ Failsafe fires. Death, reversed -- administratively.")
 	return true
@@ -1223,13 +1185,10 @@ static func _raid_won() -> void:
 	pass
 
 
-# Tears down combat state and routes to the next screen. Per R§3.7's exit
-# dispatch: mugging-win leaves the screen alone (sale_result modal already
-# showing); home_raid routes into the matching debrief event (R§3.8);
-# event_raid resumes the still-active event on a win, ends it on a loss;
-# otherwise phone home, with the bag drawer opened on a raid win. Each
-# branch below is a private helper -- this func just tears down shared
-# state and dispatches.
+# Tears down combat state and routes to the next screen (R§3.7): mugging-
+# win leaves the screen alone; home_raid routes into the matching debrief
+# event (R§3.8); event_raid resumes the still-active event on a win, ends
+# it on a loss; otherwise phone home, bag drawer opened on a raid win.
 static func exit_combat() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	var outcome = combat["outcome"]
@@ -1292,9 +1251,8 @@ static func _exit_event_mugging() -> Dictionary:
 
 
 # Every "route home" destination below is the phone app grid. Hand-rolled
-# rather than calling PhoneNav.route_home(): exit_combat() already
-# guarantees one state_changed emit before dispatching here, and
-# route_home() would fire a redundant second one.
+# rather than PhoneNav.route_home(): exit_combat() already guarantees one
+# state_changed emit, so route_home() would fire a redundant second one.
 static func _route_phone_home() -> void:
 	GameState.state["currentScreen"] = "phone"
 	EventBus.screen_changed.emit("phone")
@@ -1363,11 +1321,9 @@ static func _after_home_raid_combat(outcome) -> void:
 
 
 # ── Train (R§3.7a) ───────────────────────────────────────────────────────
-# HQ action, always available -- a bodyweight workout awards the lower flat
-# XP; once Home Gym is built (GameData.HOME_ROOMS.homeGym, dual-purpose with
-# its +10 hpMax bonus) the same action awards the larger amount instead. No
-# separate cooldown: spending a time block is the only throttle, same
-# currency every other block-consuming HQ action spends.
+# HQ action, always available -- a bodyweight workout awards the lower
+# flat XP; once Home Gym is built the same action awards the larger
+# amount instead. No separate cooldown: spending a time block is it.
 
 static func train() -> Dictionary:
 	if TimeSystem.is_time_exhausted():

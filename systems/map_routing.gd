@@ -19,9 +19,9 @@ static func _diag_offset(from: Vector2, to: Vector2) -> Vector2:
 
 
 # Two-segment elbow, "diag-first": diagonal 45deg for min(|dx|,|dy|) out of
-# `from`, then axis-aligned for the remainder into `to`. "diag-last" is the
-# mirror orientation (axis-aligned out of `from`, diagonal into `to`) — the
-# alternate N3 allows for river-crossing avoidance.
+# `from`, then axis-aligned into `to`. "diag-last" mirrors it (axis-aligned
+# out of `from`, diagonal into `to`) — the alternate N3 allows for
+# river-crossing avoidance.
 static func elbow_corner_diag_first(from: Vector2, to: Vector2) -> Vector2:
 	return from + _diag_offset(from, to)
 
@@ -31,15 +31,12 @@ static func elbow_corner_diag_last(from: Vector2, to: Vector2) -> Vector2:
 
 
 # The full two-segment path (3 points: start, corner, end). Picks whichever
-# orientation avoids crossing river_path AND obstacle_stops, AND running
-# closer than line_clearance to any obstacle_lines polyline, "where
-# trivially possible" (docs/M1.5-NETWORK-MAP.md N3); if both or neither
-# clear everything, prefers diag-first for deterministic output.
-# obstacle_stops is an Array of { "pos": Vector2, "radius": float } that
-# another owner's line must not visually overlap. obstacle_lines is other
-# owners' already-routed polylines to keep line_clearance away from,
-# best-effort only -- see MapCanvas._apply_crossing_nudges for the hard
-# stop-crossing guarantee this doesn't provide.
+# orientation avoids crossing river_path AND obstacle_stops (Array of
+# { "pos", "radius" }) AND running closer than line_clearance to any
+# obstacle_lines polyline, "where trivially possible" (N3); if both or
+# neither clear everything, prefers diag-first for determinism.
+# obstacle_lines clearance is best-effort only — see
+# MapCanvas._apply_crossing_nudges for the hard stop-crossing guarantee.
 static func elbow_path(from: Vector2, to: Vector2, river_path: Array = [], obstacle_stops: Array = [], obstacle_lines: Array = [], line_clearance: float = 0.0) -> PackedVector2Array:
 	var corner_first := elbow_corner_diag_first(from, to)
 	if river_path.size() < 2 and obstacle_stops.is_empty() and (obstacle_lines.is_empty() or line_clearance <= 0.0):
@@ -132,13 +129,12 @@ static func crossed_obstacles(a: Vector2, corner: Vector2, b: Vector2, obstacle_
 
 
 # Pushes the obstacle clear of BOTH legs of a two-leg elbow (a->corner->b),
-# not just whichever it started nearest to -- an obstacle near the corner
-# can cross both legs at once. Iterates a few times (each pass pushes away
-# from whichever leg is nearest below `margin`), converging in at most 2
-# real passes since there are only 2 legs. Total displacement is capped to
-# `max_offset`, which callers should choose high enough to always dominate
-# radius + margin (see MapCanvas.STOP_NUDGE_MAX_OFFSET) so the crossing is
-# fully cleared rather than merely reduced.
+# not just whichever it started nearest to — an obstacle near the corner
+# can cross both. Each pass pushes away from whichever leg is nearest
+# below `margin`, converging in at most 2 passes (only 2 legs). Total
+# displacement is capped to `max_offset`, which callers should set high
+# enough to dominate radius + margin (MapCanvas.STOP_NUDGE_MAX_OFFSET) so
+# the crossing is fully cleared, not merely reduced.
 const _NUDGE_ITERATIONS := 4
 
 static func nudge_position(obstacle: Dictionary, a: Vector2, corner: Vector2, b: Vector2, margin: float, max_offset: float) -> Vector2:
@@ -207,9 +203,9 @@ static func terminus_stub(point: Vector2, length: float = TERMINUS_STUB_LENGTH) 
 
 
 # Nearest-neighbour ordering, deterministic regardless of `stops`' input
-# order: ties on distance broken by id (ascending). `stops` is an Array of
-# { "id": String, "pos": Vector2 }; returns them reordered starting from
-# whichever is nearest `start`, then nearest to the previous pick, etc.
+# order (ties broken by ascending id). `stops` is an Array of
+# { "id", "pos": Vector2 }; reorders starting from whichever is nearest
+# `start`, then nearest to the previous pick, etc.
 static func nearest_neighbour_order(start: Vector2, stops: Array) -> Array:
 	var remaining: Array = stops.duplicate()
 	var ordered: Array = []
@@ -282,10 +278,10 @@ static func grow_segment(anchor: Vector2, old_stops: Array, new_stop: Dictionary
 	var segment := PackedVector2Array()
 
 	# build_line() special-cases a single-stop owner as a terminus stub
-	# rather than a path from the anchor, so the old stub's points share
-	# nothing with the new elbow-chain even on a genuine append (no reorder).
-	# Bridge it by starting the grown segment at the old stub's own rendered
-	# endpoint instead of jumping to the new line's first point.
+	# rather than a path from the anchor, so a stub's points share nothing
+	# with the new elbow-chain even on a genuine append (no reorder). Bridge
+	# it by starting the grown segment at the stub's own rendered endpoint
+	# instead of jumping to the new line's first point.
 	if prefix == 0 and old_stops.size() == 1 and not old_line.is_empty():
 		var new_order := nearest_neighbour_order(anchor, new_stops)
 		if new_order[0]["id"] == old_stops[0]["id"]:

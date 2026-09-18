@@ -30,45 +30,38 @@ static func adjust_player_relation(faction_id: String, delta: int) -> void:
 
 
 # ── Collective ore stock + restocking ───────────────────────────────────
-# An independently-scarce buy-lane cap, unrelated to relation (relation
-# narrows price via get_faction_buy/sell_spread; this caps quantity).
-# Schema-present on every faction but only "collective" is rolled/read.
+# Independently-scarce buy-lane cap (relation only narrows price, not qty).
+# Schema-present on every faction; only "collective" is rolled/read.
 const ORE_STOCK_RESTOCK_CHANCE := 0.30
 const ORE_STOCK_QTY_MIN := 5
 const ORE_STOCK_QTY_MAX := 20
 
 
-# Rerolls all 5 ore types together, replacing rather than adding. Silent
-# by design -- no Notify/Ticker push.
+# Rerolls all 5 ore types, replacing rather than adding; silent by design (no Notify/Ticker push).
 static func restock_ore(faction_id: String) -> void:
 	var stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
 	for ore_type in GameData.CANONICAL_ORE_TYPES:
 		stock[ore_type] = Rng.randi_range(ORE_STOCK_QTY_MIN, ORE_STOCK_QTY_MAX)
 
 
-# Called from TimeSystem.daily_tick(). Collective-only; other factions'
-# oreStock stays schema-present but untouched.
+# Daily-tick hook; collective-only -- other factions' oreStock stays schema-present but untouched.
 static func maybe_restock_ore() -> void:
 	if Rng.chance(ORE_STOCK_RESTOCK_CHANCE):
 		restock_ore("collective")
 
 
 # ── Faction vein ownership ──────────────────────────────────────────────
-# The daily NPC-claim roll (systems/sites.gd) seeds one of the 5 canonical
-# factions a real vein via create_faction_vein().
+# The daily NPC-claim roll (systems/sites.gd) seeds a canonical faction a real vein via create_faction_vein().
 
-# A district's presence faction usually wins its own claim roll; this is
-# the chance a rival muscles in instead.
+# Chance a rival muscles into a district's claim roll instead of its presence faction winning by default.
 const RIVAL_ENCROACH_CHANCE := 0.15
 
-# roll_security_tier()'s base distribution before any faction/value/
-# resource tilt is applied.
+# roll_security_tier()'s base distribution before any faction/value/resource tilt.
 const SECURITY_BASE_WEIGHTS: Dictionary = { "none": 40.0, "basic": 30.0, "warded": 20.0, "guarded": 10.0 }
 
 
-# Weighted claimant pick for a district's daily claim roll. Favours the
-# district's factionPresence; falls back to a uniform pick across all 5
-# factions when there's no presence (or the rival-encroach roll hits).
+# Weighted claimant pick for a district's daily claim roll. Favours factionPresence;
+# falls back to a uniform pick across all 5 when absent (or the rival-encroach roll hits).
 static func pick_claimant(district_id: String) -> String:
 	var canonical: Array = GameData.FACTIONS.keys()
 	var presence: String = GameData.DISTRICTS.get(district_id, {}).get("factionPresence", "")
@@ -83,9 +76,8 @@ static func pick_claimant(district_id: String) -> String:
 	return presence
 
 
-# Instant vein for a claiming faction: oreType/district/hospitability come
-# from the site; growth is the caller's choice. Security is rolled fresh
-# (see roll_security_tier()).
+# Instant vein for a claiming faction: oreType/district/hospitability come from the
+# site, growth is the caller's choice, security is rolled fresh (roll_security_tier()).
 static func create_faction_vein(faction_id: String, site: Dictionary, growth: int) -> Dictionary:
 	var hospitability := { "tier": site["tier"], "bonuses": site["bonuses"] }
 	var vein := Cultivating.make_vein(site["oreType"], growth, site["district"], site["id"], hospitability)
@@ -94,9 +86,8 @@ static func create_faction_vein(faction_id: String, site: Dictionary, growth: in
 	return vein
 
 
-# Security-tier roll from three signed tilts on SECURITY_BASE_WEIGHTS:
-# faction flavour bias, vein value (ore basePrice), and faction resource
-# balance -- positive tilts weight toward warded/guarded.
+# Security-tier roll from three signed tilts on SECURITY_BASE_WEIGHTS -- faction
+# flavour bias, vein value (basePrice), faction resource balance -- toward warded/guarded.
 static func roll_security_tier(faction_id: String, ore_type: String) -> String:
 	var weights: Dictionary = SECURITY_BASE_WEIGHTS.duplicate()
 	var opulence := _security_opulence(faction_id, ore_type)
@@ -109,15 +100,12 @@ static func roll_security_tier(faction_id: String, ore_type: String) -> String:
 	return _weighted_security_roll(weights)
 
 
-# ore basePrice (R§1.1) centres on the roster's ~72 midpoint so an
-# average-value ore contributes ~0 tilt.
-#
-# Resource input is the faction's real dynamic balance (state.factions[id]
-# .resources), not a static placeholder -- a faction that's spent itself
-# poor on security upgrades rolls toward cheaper tiers next time.
-# RESOURCE_OPULENCE_BASELINE is the mean of the 5 factions' starting
-# resources; RESOURCE_OPULENCE_DIVISOR scales the 200-1200 starting spread
-# to a tilt comparable to value_tilt's.
+# ore basePrice (R§1.1) centres on the roster's ~72 midpoint, so an average-value
+# ore contributes ~0 tilt. Resource input is the faction's real dynamic balance
+# (state.factions[id].resources), not a static placeholder, so a faction that's
+# spent itself poor on security rolls toward cheaper tiers next time.
+# RESOURCE_OPULENCE_BASELINE is the 5 factions' mean starting resources;
+# RESOURCE_OPULENCE_DIVISOR scales the 200-1200 starting spread to value_tilt's range.
 const RESOURCE_OPULENCE_BASELINE := 660.0
 const RESOURCE_OPULENCE_DIVISOR := 360.0
 
@@ -158,9 +146,8 @@ static func weighted_pick_index(weights: Array[float]) -> int:
 
 
 # ── Daily passive industry income ───────────────────────────────────────
-# Fixed £/day per industry, independent of vein count. Tiered so grunt-work
-# industries (trading/sourcing) sit lowest and influence/crafting highest,
-# matching each faction's flavour text.
+# Fixed £/day per industry, independent of vein count; tiered so grunt-work
+# (trading/sourcing) sits lowest and influence/crafting highest, per flavour text.
 const INDUSTRY_INCOME: Dictionary = {
 	"sourcing": 6,
 	"trading": 8,
@@ -181,16 +168,14 @@ static func apply_passive_income() -> void:
 
 
 # ── Daily vein-derived income ────────────────────────────────────────────
-# Same ore-value-to-cash conversion as the player's sell loop
-# (Economy.execute_sale), but automated -- no mugging or district price
-# mod. VEIN_INCOME_DIVISOR is tuned so a fresh tier-1 vein of a mid-range
-# ore nets ~£5/day, and a tier-5 fate vein ~£30/day.
+# Same ore-value-to-cash conversion as the player's sell loop (Economy.execute_sale)
+# but automated, with no mugging/district price mod. VEIN_INCOME_DIVISOR is tuned so
+# a fresh tier-1 mid-range vein nets ~£5/day and a tier-5 fate vein ~£30/day.
 const VEIN_INCOME_DIVISOR := 15.0
 
 
-# Called from TimeSystem.daily_tick() after passive income. Skips a vein
-# claimed this same tick so it doesn't earn income before a full day has
-# passed (mirrors the same exemption growth uses).
+# Daily-tick hook, run after passive income. Skips a vein claimed this same
+# tick so it doesn't earn income before a full day passes (mirrors growth's exemption).
 static func apply_vein_income() -> void:
 	var day: int = GameState.state["world"]["day"]
 	for site in GameState.state["world"]["sites"]:
@@ -203,13 +188,10 @@ static func apply_vein_income() -> void:
 
 
 # ── Daily security-upgrade spend ─────────────────────────────────────────
-# A faction with money to spare quietly hardens its highest-value held
-# vein each tick (same ladder/cost table as the player's own
-# upgrade_vein_security()), funded from its own resources.
-#
-# One upgrade per faction per tick, targeting the vein with the highest
-# basePrice * value_tier among veins both below max security and
-# affordable. No eligible/affordable vein is a no-op.
+# A faction with spare resources quietly hardens its highest-value held vein each
+# tick (same ladder/cost table as the player's upgrade_vein_security()). One upgrade
+# per faction per tick, targeting the highest basePrice * value_tier vein that's both
+# below max security and affordable; no eligible/affordable vein is a no-op.
 static func apply_security_upgrades() -> void:
 	for faction_id in GameState.state["factions"].keys():
 		var faction_state: Dictionary = GameState.state["factions"][faction_id]
@@ -242,7 +224,7 @@ static func apply_security_upgrades() -> void:
 
 
 # ── Faction-to-faction relation matrix ──────────────────────────────────
-# state.factionRelations: a's relation *toward* b, distinct from the
+# state.factionRelations holds a's relation *toward* b -- distinct from the
 # player-facing state.factions[id].relation the join logic above uses.
 
 # self-vs-self is a documented no-op / always-0 read, not an error.
@@ -259,12 +241,10 @@ static func adjust_relation(faction_a: String, faction_b: String, delta: int) ->
 
 
 # ── Rivalry initiation roll ─────────────────────────────────────────────
-# Decides who throws a punch and at what. Whether it lands is
-# rivalry_success_chance()'s job below.
+# Decides who throws a punch and at what; whether it lands is rivalry_success_chance()'s job.
 
-# Reuses the `industries` field rather than a separate aggression stat.
-# "raiding" dominates; the other four get a small trickle so a faction can
-# still occasionally initiate without a raiding-flavoured industry.
+# Reuses the `industries` field rather than a separate aggression stat -- "raiding"
+# dominates, the other four get a small trickle so any faction can occasionally initiate.
 const INDUSTRY_AGGRESSION: Dictionary = {
 	"raiding": 0.35,
 	"influence": 0.05,
@@ -273,13 +253,11 @@ const INDUSTRY_AGGRESSION: Dictionary = {
 	"sourcing": 0.02,
 }
 
-# Floor under INDUSTRY_AGGRESSION's trickle so every faction has some
-# baseline chance to initiate.
+# Floor under INDUSTRY_AGGRESSION's trickle so every faction has some baseline chance to initiate.
 const BASE_INITIATION_CHANCE := 0.05
 
 
-# One roll per faction per tick. A faction with zero rival-held veins is
-# never eligible.
+# One roll per faction per tick; a faction with zero rival-held veins is never eligible.
 static func roll_rivalry_attempts() -> Array:
 	var attempts := []
 	for faction_id in GameData.FACTIONS.keys():
@@ -316,8 +294,7 @@ static func _eligible_rival_veins(faction_id: String) -> Array:
 	return candidates
 
 
-# Weighted by vein value (basePrice * value_tier) -- an attacker is more
-# likely to go after a rival's crown jewel than its scraps.
+# Weighted by vein value (basePrice * value_tier) -- attackers favour a rival's crown jewel over scraps.
 static func _pick_target_vein(candidates: Array) -> Dictionary:
 	var weight_list: Array[float] = []
 	for candidate in candidates:
@@ -327,38 +304,32 @@ static func _pick_target_vein(candidates: Array) -> Dictionary:
 
 
 # ── Rivalry odds ─────────────────────────────────────────────────────────
-# Scores one attempt record and rolls whether it succeeds. No state
-# mutation -- ownership transfer and relation writes are
-# resolve_rivalry_outcome()'s job.
+# Scores one attempt and rolls success; no state mutation -- ownership transfer
+# and relation writes are resolve_rivalry_outcome()'s job.
 
 # Coin-flip baseline; the three tilts below push it up or down.
 const RIVALRY_BASE_CHANCE := 0.5
 
-# Normalises attacker-defender resource gap against the roster's starting
-# spread (200-1200) so a realistic early-game disparity's tilt stays
-# within roughly +/-1 before WEIGHT scales it down.
+# Normalises attacker-defender resource gap against the roster's 200-1200 starting
+# spread so an early-game disparity's tilt stays roughly +/-1 before WEIGHT scales it.
 const RIVALRY_RESOURCE_DIVISOR := 1000.0
 const RIVALRY_RESOURCE_WEIGHT := 0.25
 
-# Normalises against "guarded" raidResist (55, R§1.6) so the base tier
-# ladder stays within [0, 1] before WEIGHT scales it down. Not a hard
-# ceiling: stacked extraGuards can push raidResist past 55, which just
-# keeps pushing the tilt further negative (clamped by this function's own
-# clampf below).
+# Normalises against "guarded" raidResist (55, R§1.6) so the base tilt stays within
+# [0, 1] before WEIGHT scales it. Not a hard ceiling -- stacked extraGuards can push
+# raidResist past 55, pushing the tilt further negative (clamped by clampf below).
 const RIVALRY_RAID_RESIST_DIVISOR := 55.0
 const RIVALRY_RAID_RESIST_WEIGHT := 0.25
 
-# Relation drift is unbounded over a long save, unlike the other two
-# inputs -- 100 is picked so a handful of grudge writes meaningfully move
-# the odds without one bad tick maxing out the tilt.
+# Relation drift is unbounded over a long save unlike the other two inputs -- 100 is
+# picked so a handful of grudge writes move the odds without one bad tick maxing it.
 const RIVALRY_RELATION_DIVISOR := 100.0
 const RIVALRY_RELATION_WEIGHT := 0.25
 
 
-# Success chance for one attempt. Higher attacker resources / lower
-# defender resources, lower raidResist, and a worse defender-toward-
-# attacker relation all push the chance up; clamped to [0, 1]. A target
-# vein already claimed by another same-tick attempt reads as chance 0.
+# Success chance for one attempt: higher attacker resources / lower defender
+# resources, lower raidResist, and a worse defender-toward-attacker relation all
+# push it up, clamped to [0, 1]. A vein already claimed this tick reads as chance 0.
 static func rivalry_success_chance(attempt: Dictionary) -> float:
 	var attacker_resources: int = GameState.state["factions"][attempt["attackerId"]]["resources"]
 	var defender_resources: int = GameState.state["factions"][attempt["defenderId"]]["resources"]
@@ -377,8 +348,7 @@ static func rivalry_success_chance(attempt: Dictionary) -> float:
 	return clampf(chance, 0.0, 1.0)
 
 
-# Rolls the chance above and returns the attempt annotated with its
-# resolved "success" outcome. Still pure -- no state mutation.
+# Rolls the chance above; returns the attempt annotated with its resolved "success" outcome (still pure, no mutation).
 static func roll_rivalry_odds(attempt: Dictionary) -> Dictionary:
 	var outcome: Dictionary = attempt.duplicate()
 	outcome["success"] = Rng.chance(rivalry_success_chance(attempt))
@@ -386,13 +356,11 @@ static func roll_rivalry_odds(attempt: Dictionary) -> Dictionary:
 
 
 # ── Rivalry resolution ──────────────────────────────────────────────────
-# Called from TimeSystem.daily_tick() after security upgrades. Rolls this
-# tick's batch of attempts through the odds above and applies
-# resolve_rivalry_outcome() to each result.
+# Daily-tick hook, run after security upgrades: rolls this tick's batch of attempts
+# through the odds above and applies resolve_rivalry_outcome() to each result.
 
-# Relation-feedback magnitude on a successful attempt -- large enough that
-# repeated losses to the same rival compound meaningfully, small enough
-# that one loss alone doesn't saturate RIVALRY_RELATION_DIVISOR.
+# Relation-feedback magnitude on success -- big enough that repeated losses to the
+# same rival compound, small enough that one loss alone doesn't saturate the divisor.
 const RIVALRY_RELATION_PENALTY := -15
 
 
@@ -401,17 +369,13 @@ static func apply_rivalry_resolution() -> void:
 		resolve_rivalry_outcome(roll_rivalry_odds(attempt))
 
 
-# Applies one already-rolled outcome. A failed attempt is a no-op.
-# On success: reassigns factionId (other fields carry over unchanged),
-# worsens the defender's relation toward the attacker, and queues a
-# seed_claim map event (MapCanvas reads the vein's current factionId live,
-# so this plays whether the vein is new or just changed hands).
-#
-# Re-checks the site's current factionId against this outcome's recorded
-# defenderId, since two attempts in the same tick's batch can target the
-# same vein -- a vein that already changed hands this tick is silently
-# skipped rather than transferred twice. Silent throughout: no Notify/
-# Ticker push on either outcome.
+# Applies one already-rolled outcome; a failed attempt is a no-op. On success:
+# reassigns factionId (other fields unchanged), worsens the defender's relation
+# toward the attacker, and queues a seed_claim map event (MapCanvas reads factionId
+# live, so this plays whether the vein is new or just changed hands). Re-checks the
+# site's current factionId against the outcome's recorded defenderId, since two
+# attempts in the same batch can target the same vein -- already-flipped veins are
+# silently skipped rather than transferred twice. No Notify/Ticker push either way.
 static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 	if not outcome["success"]:
 		return
@@ -429,18 +393,13 @@ static func resolve_rivalry_outcome(outcome: Dictionary) -> void:
 
 
 # ── Day-1 starting veins ─────────────────────────────────────────────────
-# New-game-only seeding so the other 5 factions don't feel absent while
-# the daily NPC-claim tick above slowly builds up. Reuses the same
-# site+vein mechanism, but fabricates a brand-new site per starting vein
-# and passes a fixed roster growth instead of seedGrowth.
-#
-# Per-faction growth lists are fixed constants, not re-rolled per game.
-# Each was rolled once within the roster's 1-5 level range, then mapped to
-# growth via growth = 20n - 10 (Lv1->10 ... Lv5->90).
-#
-# District counts here match data/districts.json's siteCap bump for each
-# district -- every district below appears in exactly that many starting
-# veins.
+# New-game-only seeding so the other 5 factions don't feel absent while the daily
+# NPC-claim tick slowly builds up. Reuses the site+vein mechanism but fabricates a
+# brand-new site per starting vein and passes a fixed roster growth instead of
+# seedGrowth. Per-faction growth lists are fixed constants (each rolled once within
+# the roster's 1-5 level range, mapped via growth = 20n - 10, Lv1->10 ... Lv5->90).
+# District counts match data/districts.json's siteCap bump -- each district below
+# appears in exactly that many starting veins.
 const DAY_ONE_ROSTER: Dictionary = {
 	"collective": [
 		{ "district": "shoreditch", "growths": [50, 10, 50, 50] },
@@ -462,9 +421,8 @@ const DAY_ONE_ROSTER: Dictionary = {
 }
 
 
-# Called once by a real New Game flow, always right after GameState.reset()
-# -- never folded into reset() itself, since tests expect reset() to
-# produce a bare state with empty world.sites.
+# Called once by New Game, always right after GameState.reset() -- never folded into
+# reset() itself, since tests expect reset() to produce a bare state with empty sites.
 static func seed_day_one_veins() -> void:
 	for faction_id in DAY_ONE_ROSTER.keys():
 		for group in DAY_ONE_ROSTER[faction_id]:
@@ -474,9 +432,8 @@ static func seed_day_one_veins() -> void:
 	EventBus.state_changed.emit()
 
 
-# Site/security roll exactly as a normal NPC claim; only growth is fixed.
-# No MapEvents queueing or Notify/XP -- these veins exist from game start,
-# so there's nothing to animate or award XP for.
+# Site/security roll exactly as a normal NPC claim, only growth is fixed. No MapEvents
+# queueing or Notify/XP -- these veins exist from game start, nothing to animate.
 static func _seed_day_one_vein(faction_id: String, district_id: String, growth: int) -> void:
 	var tier := Sites.roll_tier(district_id)
 	var site := Sites.roll_new_site(district_id, tier)

@@ -2,36 +2,28 @@ class_name MapLayout
 extends RefCounted
 
 # Resolves data/map_layout.json's per-district stopSlots against live state
-# (state.world.sites + state.player.veins) into concrete stop positions for
-# scenes/components/map_canvas.gd (docs/M1.5-NETWORK-MAP.md N3). Read-only
-# — never mutates GameState, same discipline as systems/districts.gd.
+# into concrete stop positions for scenes/components/map_canvas.gd
+# (docs/M1.5-NETWORK-MAP.md N3). Read-only, like systems/districts.gd.
 #
-# A "stop" is not 1:1 with a site: an unclaimed site is one stop, but a
-# player-claimed site can carry two veins (a saturated site's bonus natural
-# vein). That's why map_layout.json's stopSlots buffer is siteCap*2, not
-# siteCap+1: any subset of a district's claimed sites can be mid-divergence
-# (one vein gone, one still pinning its slot) at once, so the worst case is
-# every capped site diverging at the same time. A faction-claimed site's
-# vein is embedded directly on the site (no natural-vein bonus for faction
-# claims, so always exactly one stop). Stops occupy slots in discovery
-# order.
+# A "stop" isn't 1:1 with a site: an unclaimed or faction-claimed site is
+# always one stop, but a player-claimed site can carry a second stop (its
+# saturated-site bonus natural vein). map_layout.json's stopSlots buffer is
+# siteCap*2 to cover every capped site double-stopping at once. Stops
+# occupy slots in discovery order.
 
 
 # Pure: turns a district's sites + the full player veins list into ordered
-# stop items (no positions yet). Kept separate from assign_slots() so tests
+# stop items (no positions yet), kept separate from assign_slots() so tests
 # can exercise discovery-order occupancy without touching GameData/GameState.
-# "vein" stops carry an "owner" key ("player" or a faction id) -- both draw
+# "vein" stops carry an "owner" key ("player" or a faction id); both draw
 # the same shape (circle), just in the owner's colour.
 #
-# Every item carries the "slotIndex" assign_positions() keys off of, rather
-# than its position in this returned array -- a stop's slot must stay fixed
-# for its whole life regardless of what's discovered/claimed/removed
-# elsewhere in the district. A site's own stamped slotIndex covers the
-# unclaimed/faction/first-player-vein case; a claimed site's second player
-# vein carries its own stamped slotIndex, since it's a separate stop
-# needing its own permanent slot. Read via .get(...,0): test fixtures that
-# hand-build minimal site/vein dicts must degrade to "everyone piles on
-# slot 0" rather than crash.
+# Each item carries the "slotIndex" assign_positions() keys off of, not its
+# position in this array, so a stop's slot stays fixed for its life
+# regardless of what else changes in the district. A claimed site's second
+# (bonus) vein stamps its own slotIndex since it's a separate stop needing
+# its own permanent slot. Read via .get(...,0) so minimal test fixtures
+# degrade to "everyone piles on slot 0" rather than crash.
 static func build_stop_items(sites: Array, veins: Array) -> Array:
 	var items: Array = []
 	for site in sites:
@@ -53,12 +45,11 @@ static func _player_vein_stop(site: Dictionary, vein: Dictionary, slot_index: in
 	return { "kind": "vein", "site": site, "vein": vein, "owner": "player", "slotIndex": slot_index }
 
 
-# A site's two veins (a claimed site plus the saturated-site natural-vein
-# bonus) can diverge in ownership independently -- one leaving the site
-# while the other stays attached to the same siteId. A stop keyed only on
-# the site's own top-level status can't assume that covers every live vein
-# there once this has happened. The "elif claimed" branch above doesn't
-# need this: it already iterates every vein matching this site.
+# A site's two veins (the claimed one plus its saturated-site bonus) can
+# diverge in ownership independently, so a stop keyed only on the site's
+# top-level status can miss a live vein still attached to the same siteId.
+# The "elif claimed" branch above doesn't need this — it already iterates
+# every vein matching that site.
 static func _append_surviving_bonus_veins(items: Array, site: Dictionary, veins: Array, site_id: String) -> void:
 	for vein in veins:
 		if vein.get("siteId") == site_id and vein.has("slotIndex"):
@@ -67,11 +58,10 @@ static func _append_surviving_bonus_veins(items: Array, site: Dictionary, veins:
 
 # Pure: maps each stop item onto its slot's position, keyed by the item's
 # own stamped "slotIndex" rather than its position in `items`. Clamps any
-# slotIndex beyond the slot list onto the last slot -- defensive only: a
-# removed stop's slotIndex is recycled (Sites.release_slot_index()/
-# next_slot_index()), so a district's live stop count always fits inside
-# the siteCap*2 buffer; this clamp is the last-resort fallback if that
-# guarantee is ever violated.
+# slotIndex beyond the slot list onto the last slot — defensive only, since
+# Sites.release_slot_index()/next_slot_index() recycle freed indices and
+# keep a district's live stop count within the siteCap*2 buffer; this is
+# the last-resort fallback if that guarantee is ever violated.
 static func assign_positions(items: Array, slots: Array) -> Array:
 	var result: Array = []
 	if slots.is_empty():
@@ -129,10 +119,9 @@ static func river_path() -> Array:
 	return result
 
 
-# Groups already-positioned "vein" stops by owning faction id -- the
-# player's own stops and "unclaimed" stops are excluded.
-# scenes/components/map_canvas.gd builds one MapRouting.build_line() per
-# faction from this. Pure -- no GameState/GameData reads.
+# Groups already-positioned "vein" stops by owning faction id, excluding
+# the player's own and "unclaimed" stops. map_canvas.gd builds one
+# MapRouting.build_line() per faction from this. Pure.
 static func group_by_faction(stops: Array) -> Dictionary:
 	var result: Dictionary = {}
 	for stop in stops:
@@ -147,10 +136,10 @@ static func group_by_faction(stops: Array) -> Dictionary:
 	return result
 
 
-# A faction's line starts from its first-presence district anchor -- the
-# first district (GameData.DISTRICTS' key order) whose factionPresence
-# matches. Null if the faction has no presence anywhere (a data error;
-# every canonical faction should have at least one).
+# A faction's line starts from its first-presence district anchor: the
+# first district (GameData.DISTRICTS key order) whose factionPresence
+# matches. Null only on a data error — every canonical faction should
+# have at least one presence district.
 static func faction_first_presence_anchor(faction_id: String) -> Variant:
 	for district_id in GameData.DISTRICTS.keys():
 		var district: Dictionary = GameData.DISTRICTS[district_id]
