@@ -389,20 +389,21 @@ func _restore_int_types(state: Dictionary) -> void:
 	for key in ["nextOfferId", "nextContractId", "nextPeriodId", "nextSettlementId"]:
 		_int_key(sales, key)
 	for offer in sales.get("pendingOffers", []):
-		for key in ["createdDay", "expiresDay", "weekday", "deadlineAfterDays"]:
+		for key in ["createdDay", "expiresDay", "weekday", "deadlineAfterDays", "extraTypeDeadlineDays"]:
 			_int_key(offer, key)
-		_int_key(offer.get("request", {}), "qty")
-		for key in ["unitValue", "liveValue", "payment", "salesSkill"]:
-			_int_key(offer.get("quote", {}), key)
+		_restore_request_int_types(offer.get("request", {}))
+		_restore_quote_int_types(offer.get("quote", {}))
 	for contract in sales.get("activeContracts", []):
-		for key in ["acceptedDay", "dueDay", "weekday"]:
-			_int_key(contract, key)
-		_int_key(contract.get("request", {}), "qty")
-		for key in ["unitValue", "liveValue", "payment", "salesSkill"]:
-			_int_key(contract.get("quote", {}), key)
+		_restore_contract_int_types(contract)
 	for settlement in sales.get("settlements", []):
-		for key in ["day", "payment"]:
-			_int_key(settlement, key)
+		_restore_settlement_int_types(settlement)
+	# Each entry embeds its own full copies of a settled contract/settlement
+	# (systems/contracts.gd's settle()), not references into activeContracts/
+	# settlements above -- same nested request/quote/delivered shape, so it
+	# needs the same restoration applied separately.
+	for entry in sales.get("contractHistory", []):
+		_restore_contract_int_types(entry.get("contract", {}))
+		_restore_settlement_int_types(entry.get("settlement", {}))
 	for notification in state.get("notifications", []):
 		_int_key(notification, "day")
 	for bank_entry in state.get("bankLog", []):
@@ -689,6 +690,48 @@ func _restore_modal_int_types(modal: Dictionary) -> void:
 				var job: Dictionary = data["job"]
 				for key in ["qty", "payPerItem", "totalPay", "byDay", "pay"]:
 					_int_key(job, key)
+
+
+# A sales offer/contract request (systems/contracts.gd's request_lines()):
+# single-type shape has "qty" directly on the request; a mixed one-off
+# instead carries a "types" array, one { kind, type, qty } line per
+# requested type.
+func _restore_request_int_types(request: Dictionary) -> void:
+	_int_key(request, "qty")
+	for line in request.get("types", []):
+		_int_key(line, "qty")
+
+
+# A sales offer/contract quote (systems/offers.gd's quote_for_request()):
+# unitValue/liveValue/payment/salesSkill on the quote itself, plus the same
+# unitValue/liveValue pair repeated per quote.lines[] entry (one requested
+# type each).
+func _restore_quote_int_types(quote: Dictionary) -> void:
+	for key in ["unitValue", "liveValue", "payment", "salesSkill"]:
+		_int_key(quote, key)
+	for line in quote.get("lines", []):
+		_int_key(line, "unitValue")
+		_int_key(line, "liveValue")
+
+
+# An active or settled contract (systems/contracts.gd) -- shared by
+# sales.activeContracts and each sales.contractHistory entry's own embedded
+# "contract" copy.
+func _restore_contract_int_types(contract: Dictionary) -> void:
+	for key in ["acceptedDay", "dueDay", "weekday"]:
+		_int_key(contract, key)
+	_restore_request_int_types(contract.get("request", {}))
+	_restore_quote_int_types(contract.get("quote", {}))
+	_int_dict_values(contract.get("delivered", {}))
+
+
+# A contract settlement receipt (systems/contracts.gd's settle()) -- shared
+# by sales.settlements and each sales.contractHistory entry's own embedded
+# "settlement" copy.
+func _restore_settlement_int_types(settlement: Dictionary) -> void:
+	for key in ["day", "payment"]:
+		_int_key(settlement, key)
+	_int_dict_values(settlement.get("delivered", {}))
 
 
 func _int_key(dict: Dictionary, key: String) -> void:

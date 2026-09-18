@@ -4,6 +4,17 @@ extends "res://tests/test_base.gd"
 # save data, and cleans up after itself.
 
 const TEST_SLOT := 91
+const OffersSystem := preload("res://systems/offers.gd")
+const ContractsSystem := preload("res://systems/contracts.gd")
+
+
+# Shared by the mixed-offer round-trip case below, for both the pending
+# offer's own quote and (after acceptance) the resulting contract's quote --
+# same { lines: [{ unitValue, liveValue }] } shape either way.
+func _assert_quote_lines_are_ints(quote: Dictionary, label: String) -> void:
+	for line in quote["lines"]:
+		assert_eq(typeof(line["unitValue"]), TYPE_INT, "%s quote.lines[].unitValue should be restored as int, not float" % label)
+		assert_eq(typeof(line["liveValue"]), TYPE_INT, "%s quote.lines[].liveValue should be restored as int, not float" % label)
 
 
 func run() -> void:
@@ -170,6 +181,79 @@ func run() -> void:
 		var freed: Array = GameState.state["world"]["mapSlotFreePool"]["hampstead"]
 		assert_eq(typeof(freed[0]), TYPE_INT, "a freed slotIndex should be restored as int, not float")
 		assert_eq(GameState.state, original, "the full state tree (including mapSlotFreePool) should deep-equal what was saved")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	# Covers both a pending mixed-type offer and, after accepting it, the
+	# resulting contract -- each carries its own quote.lines[] array (one
+	# entry per requested ore/consumable type) alongside the offer's own
+	# extraTypeDeadlineDays.
+	run_case("save_mutate_load_round_trips_a_mixed_offer_quotes_lines_and_extraTypeDeadlineDays_as_ints", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 10
+		var created: Dictionary = OffersSystem.create_offer({
+			"id": "t_mixed_savemanager", "source": "scripted", "contractType": "oneOff",
+			"expiresAfterDays": 6, "deadlineAfterDays": 5,
+			"request": { "types": [{ "kind": "ore", "type": "fate", "qty": 3 }, { "kind": "consumable", "type": "timePearl", "qty": 2 }] },
+		})
+		assert_true(created["ok"])
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["sales"]["pendingOffers"] = []
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		var offer: Dictionary = GameState.state["sales"]["pendingOffers"][0]
+		assert_eq(typeof(offer["extraTypeDeadlineDays"]), TYPE_INT, "extraTypeDeadlineDays should be restored as int, not float")
+		assert_eq(offer["quote"]["lines"].size(), 2)
+		_assert_quote_lines_are_ints(offer["quote"], "offer")
+		assert_eq(GameState.state, original, "the full state tree (including the mixed offer's quote.lines) should deep-equal what was saved")
+
+		var accepted: Dictionary = OffersSystem.accept_offer(offer["id"])
+		assert_true(accepted["ok"])
+		var original_with_contract: Dictionary = GameState.deep_copy(GameState.state)
+
+		save_result = SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["sales"]["activeContracts"] = []
+		load_result = SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		var contract: Dictionary = GameState.state["sales"]["activeContracts"][0]
+		_assert_quote_lines_are_ints(contract["quote"], "contract")
+		assert_eq(GameState.state, original_with_contract, "the full state tree (including the accepted contract's quote.lines) should deep-equal what was saved")
+
+		# A settled contract lands in sales.contractHistory as its own full
+		# copy (systems/contracts.gd's settle()), not a reference into
+		# activeContracts -- same nested quote/request/delivered shape, so it
+		# needs the same round-trip proof.
+		GameState.state["player"]["orichalchum"]["fate"] = 3
+		Crafting.inventory_add("timePearl", 1, 2)
+		ContractsSystem.deliver(contract["id"], 5, false)
+		GameState.state["world"]["day"] = contract["dueDay"]
+		var settled: Dictionary = ContractsSystem.settle(contract["id"])
+		assert_true(settled["ok"])
+		var original_with_history: Dictionary = GameState.deep_copy(GameState.state)
+
+		save_result = SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["sales"]["contractHistory"] = []
+		load_result = SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		var history_entry: Dictionary = GameState.state["sales"]["contractHistory"][0]
+		_assert_quote_lines_are_ints(history_entry["contract"]["quote"], "contractHistory.contract")
+		assert_eq(typeof(history_entry["contract"]["dueDay"]), TYPE_INT, "contractHistory.contract.dueDay should be restored as int, not float")
+		assert_eq(typeof(history_entry["contract"]["delivered"]["fate"]), TYPE_INT, "contractHistory.contract.delivered[].qty should be restored as int, not float")
+		assert_eq(typeof(history_entry["settlement"]["payment"]), TYPE_INT, "contractHistory.settlement.payment should be restored as int, not float")
+		assert_eq(typeof(history_entry["settlement"]["delivered"]["fate"]), TYPE_INT, "contractHistory.settlement.delivered[].qty should be restored as int, not float")
+		assert_eq(GameState.state, original_with_history, "the full state tree (including sales.contractHistory) should deep-equal what was saved")
 
 		SaveManager.delete_slot(TEST_SLOT)
 	)
