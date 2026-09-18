@@ -1,0 +1,11 @@
+{
+  "id": "col_a2_intro",
+  "cards": [
+    { "type": "narration", "label": "Now", "speaker": null, "text": "Des writes full sentences. Punctuation, structure, the works. This wasn't that — four separate half-thoughts sent one after another, which is how you know something's wrong before you've even read what it is." },
+    { "type": "narration", "label": null, "speaker": null, "text": "You don't reply. You're already moving." }
+  ],
+  "on_complete": [
+    { "op": "set_screen", "screen": "contacts" },
+    { "op": "start_event", "event": "col_a2_shop" }
+  ]
+}

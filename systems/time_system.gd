@@ -83,6 +83,7 @@ static func daily_tick() -> void:
 	Raiding.apply_raid_resolution()      # ⑤h independent of ⑤d-⑤g (player veins/sites, not faction resources)
 	MorningAccountsSystem.capture_losses(morning_context, "Raid")
 	Collective.maybe_trigger_hakim_intel()  # ⑤i no ordering dependency on any other step
+	Collective.maybe_trigger_act2_intro()   # ⑤i2 backstop for the same trigger events.advance() already checks
 	Factions.maybe_restock_ore()         # ⑤j no ordering dependency on any other step
 	Payroll.pay_wages()                  # ⑥ staff phase start: wages, paid after living costs -- an unaffordable role is skipped this rollover, no debt, retried next
 	Rooms.process_vein_station()         # ⑥.1 Procurement, before Production so Sales (⑥.3) sees both yields landed

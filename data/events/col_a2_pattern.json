@@ -1,0 +1,14 @@
+{
+  "id": "col_a2_pattern",
+  "cards": [
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"It's not just Hakim. Priya had someone on the phone about her window three days ago. Marcus actually got his window put through last week. Sef had a 'friendly visit' from two blokes who complimented his stock.\"" },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Temper doesn't organise itself into three separate visits inside a fortnight. Somebody decided we're worth the bother.\"" },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Right. Something needs doing. I don't much care what order — pick at it as it comes.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "Nobody says the word plan. It isn't that, not yet. It's three problems and a room full of people who'd rather be doing something than talking about it." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "colA2Stage", "value": "call" },
+    { "op": "set_screen", "screen": "contacts" },
+    { "op": "start_event", "event": "col_a2_handler_deferred" }
+  ]
+}

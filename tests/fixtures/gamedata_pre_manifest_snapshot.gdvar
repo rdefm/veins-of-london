@@ -665,32 +665,32 @@
 "DAILY_CYCLE": {
 "atlas": "res://assets/daily_cycle/cycle.png",
 "background": "#111820",
-"cellSize": 73.0,
-"columns": 7.0,
+"cellSize": 73,
+"columns": 7,
 "destinationLabel": "Day %d — %s",
-"displaySize": 365.0,
+"displaySize": 365,
 "durationSeconds": 1.75,
-"frameCount": 42.0,
+"frameCount": 42,
 "outcomeHoldSeconds": 0.75,
 "ranges": {
 "afternoon_to_evening": {
-"count": 14.0,
-"size": [72.0, 72.0],
-"start": 14.0
+"count": 14,
+"size": [72, 72],
+"start": 14
 },
 "evening_to_morning": {
-"count": 14.0,
-"size": [73.0, 73.0],
-"start": 28.0
+"count": 14,
+"size": [73, 73],
+"start": 28
 },
 "morning_to_afternoon": {
-"count": 14.0,
-"size": [73.0, 73.0],
-"start": 0.0
+"count": 14,
+"size": [73, 73],
+"start": 0
 }
 },
 "reducedMotionLabel": "Reduced motion",
-"rows": 6.0,
+"rows": 6,
 "textColor": "#f4efdf"
 },
 "DAY_CLOCK": {
@@ -2422,6 +2422,149 @@
 "showWhenFlagsFalse": ["colA1SeedingTaught"],
 "showWhenFlagsTrue": ["colA1ProspectingTaught"]
 }
+},
+"col_a2_handler_deferred": {
+"cards": [{
+"label": null,
+"speaker": "Nadia",
+"text": "\"There's a way to know before it happens. Costs money. Costs the right kind of money, mind, not the kind we're short of.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"No.\" A pause, because he's noticed how that sounded. \"Not because it's wrong. Because it's too soon.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"You start with 'just this once' and you don't notice the year it stopped being once.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"Fine. We do it the hard way first.\" She isn't fighting him on it, which is its own kind of answer.",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Nobody writes it down, but it's agreed, the way things get agreed round here — once, out loud, and never mentioned again unless it stops holding.",
+"type": "resolution"
+}],
+"id": "col_a2_handler_deferred",
+"on_complete": [{
+"flag": "colA2HandlerDeferred",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"col_a2_intro": {
+"cards": [{
+"label": "Now",
+"speaker": null,
+"text": "Des writes full sentences. Punctuation, structure, the works. This wasn't that — four separate half-thoughts sent one after another, which is how you know something's wrong before you've even read what it is.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "You don't reply. You're already moving.",
+"type": "narration"
+}],
+"id": "col_a2_intro",
+"on_complete": [{
+"op": "set_screen",
+"screen": "contacts"
+}, {
+"event": "col_a2_shop",
+"op": "start_event"
+}]
+},
+"col_a2_pattern": {
+"cards": [{
+"label": null,
+"speaker": "Nadia",
+"text": "\"It's not just Hakim. Priya had someone on the phone about her window three days ago. Marcus actually got his window put through last week. Sef had a 'friendly visit' from two blokes who complimented his stock.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Temper doesn't organise itself into three separate visits inside a fortnight. Somebody decided we're worth the bother.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Right. Something needs doing. I don't much care what order — pick at it as it comes.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Nobody says the word plan. It isn't that, not yet. It's three problems and a room full of people who'd rather be doing something than talking about it.",
+"type": "resolution"
+}],
+"id": "col_a2_pattern",
+"on_complete": [{
+"flag": "colA2Stage",
+"op": "set_flag",
+"value": "call"
+}, {
+"op": "set_screen",
+"screen": "contacts"
+}, {
+"event": "col_a2_handler_deferred",
+"op": "start_event"
+}]
+},
+"col_a2_shop": {
+"cards": [{
+"label": "Whitechapel",
+"speaker": null,
+"text": "The shop's shutter is halfway down. The blind on the door is turned to closed.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "Hakim's on the stool behind the till, holding a tea towel full of ice from the freezer cabinet against his mouth. His lip's split. He keeps trying to talk properly around it.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"I'm fine,\" he says.",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Des and Nadia are already there. Des isn't shouting. He's gone quiet instead, which nobody in the room has seen him do before, and which is worse.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Two of them. Made an offer for the shop and what's under it. A fair price, they said.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"I said no.\" He tries to shrug and thinks better of it halfway through. \"They didn't love that.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Nobody involved has a name yet. That's apparently how you know it's serious — the people who matter enough to hurt you don't bother introducing themselves.",
+"type": "narration"
+}],
+"id": "col_a2_shop",
+"on_complete": [{
+"flag": "colA2ShopSeen",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "contacts"
+}, {
+"event": "col_a2_pattern",
+"op": "start_event"
+}]
 },
 "col_hakim_intel": {
 "cards": [{

@@ -218,6 +218,27 @@ static func maybe_trigger_closer() -> bool:
 	return true
 
 
+# Act 2's own opening trigger (collective-act2 spec §6.1): "colA1Complete
+# AND relation >= 25". Called from Events.advance() (colA1Complete only ever
+# flips inside an event's on_complete, and relation is already >=25 at that
+# instant per maybe_trigger_closer()'s own gate above) and from TimeSystem.
+# daily_tick() as a backstop for the rare case relation dips below 25 again
+# before col_a1_closer is actually played out. colA2Started blocks re-firing
+# permanently once the text is sent.
+static func maybe_trigger_act2_intro() -> bool:
+	var flags: Dictionary = GameState.state["flags"]
+	if flags.get("colA2Started", false):
+		return false
+	if not flags.get("colA1Complete", false):
+		return false
+	if GameState.state["factions"]["collective"]["relation"] < 25:
+		return false
+
+	flags["colA2Started"] = true
+	Messages.queue_pending("des", "col_a2_intro", "\"Get over here. Now. It's Hakim. He's all right — he's not all right, but he's not — just come.\"")
+	return true
+
+
 # Hakim's repeatable unprompted intel -- a free lead on unclaimed ground.
 # Called from TimeSystem.daily_tick(). Districts + tiers weighted per
 # HAKIM_INTEL_TIERS below.

@@ -151,6 +151,9 @@ static func advance() -> void:
 		# The one path all three Act-1 closer prerequisite flags flow through; a
 		# harmless no-op for every other event's completion.
 		Collective.maybe_trigger_closer()
+		# Act 2's own opener -- same "check after any on_complete" idiom, since
+		# colA1Complete only ever flips inside an event's on_complete too.
+		Collective.maybe_trigger_act2_intro()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
 		event_state["cardIndex"] += 1

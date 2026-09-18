@@ -1,0 +1,17 @@
+{
+  "id": "col_a2_shop",
+  "cards": [
+    { "type": "narration", "label": "Whitechapel", "speaker": null, "text": "The shop's shutter is halfway down. The blind on the door is turned to closed." },
+    { "type": "narration", "label": null, "speaker": null, "text": "Hakim's on the stool behind the till, holding a tea towel full of ice from the freezer cabinet against his mouth. His lip's split. He keeps trying to talk properly around it." },
+    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"I'm fine,\" he says." },
+    { "type": "narration", "label": null, "speaker": null, "text": "Des and Nadia are already there. Des isn't shouting. He's gone quiet instead, which nobody in the room has seen him do before, and which is worse." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Two of them. Made an offer for the shop and what's under it. A fair price, they said.\"" },
+    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"I said no.\" He tries to shrug and thinks better of it halfway through. \"They didn't love that.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "Nobody involved has a name yet. That's apparently how you know it's serious — the people who matter enough to hurt you don't bother introducing themselves." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "colA2ShopSeen", "value": true },
+    { "op": "set_screen", "screen": "contacts" },
+    { "op": "start_event", "event": "col_a2_pattern" }
+  ]
+}
