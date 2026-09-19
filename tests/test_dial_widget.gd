@@ -66,7 +66,7 @@ func run() -> void:
 		widget.handle_select(2)
 
 		assert_eq(received, [2])
-		assert_eq(widget.current_index(), 0, "handle_select() only reports through the callback -- like TurnOrderStrip.handle_swipe(), it never mutates its own selection; the caller (CombatScreen) owns persisting it via a fresh configure()")
+		assert_eq(widget.current_index(), 0, "handle_select() only reports through the callback -- like TurnOrderStrip.handle_tap(), it never mutates its own selection; the caller (CombatScreen) owns persisting it via a fresh configure()")
 	)
 
 	run_case("handle_select_reports_regardless_of_which_screw_it_is_relative_to_the_current_one", func():

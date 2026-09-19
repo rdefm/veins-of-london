@@ -28,7 +28,7 @@ Data file per system: see `data/*.json` below.
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement |
-| combat.gd | Turn-based combat engine + rewind. Resumable per-decision-point progression (R§3.7a): `combat.turnCursor` tracks the round's queue/index; `advance_to_next_decision()` auto-resolves ally/enemy entries and parks at the next player-type one; `prime_decision_point()`/`conclude_decision_point()` wrap every player command (Attack/Item/Flee/Complication) around it |
+| combat.gd | Turn-based combat engine + rewind. Resumable per-decision-point progression via `combat.turnCursor` + `advance_to_next_decision()`/`prime_decision_point()`/`conclude_decision_point()`, and a pure `project_queue()` read for the turn-order strip's occurrence horizon -- see REFERENCE.md §3.7a |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry via Combat.prime_decision_point()/conclude_decision_point() (R§3.7a) |
@@ -139,7 +139,7 @@ overlays.
 | time_transition.gd | Presentation queue (day/night atlas) |
 | top_bar.gd | Header: day/phase, cash, notices |
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
-| turn_order_strip.gd | Combat turn-order display strip |
+| turn_order_strip.gd | Combat turn-order strip: one card per turn *occurrence* (Combat.project_queue(), R§3.7a), not per combatant -- repeated occurrences of the same combatant share the selected treatment. Drag scrolls the viewport only; a tap selects the tapped card's combatant (`handle_tap`/`handle_drag`) |
 | ui.gd | Shared Control builders, time-cost labels, ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
 
 ## scenes/modals/*.gd — modal content, one script per type

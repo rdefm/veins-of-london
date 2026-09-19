@@ -4,7 +4,7 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 
 # combat-presentation ticket 02, docs/combat-animation-vision.md §2.4: the
 # turn-order strip's data-mapping (build_entries/faction colour/status
-# lines) and swipe-to-target logic (handle_swipe), tested independently of
+# lines) and tap-to-select/drag-to-scroll logic, tested independently of
 # CombatScreen's own wiring (tests/test_combat_screen.gd covers that half:
 # strip placement, selection persistence across refresh, and routing an
 # enemy selection through Combat.set_focused_enemy).
@@ -69,7 +69,11 @@ func run() -> void:
 		assert_eq(entries[2]["name"], "Slow Ally", "the slowest entry goes last")
 	)
 
-	run_case("build_entries_collapses_motions_extra_queue_entries_to_one_card_per_combatant", func():
+	run_case("build_entries_gives_every_motion_extra_queue_entry_its_own_occurrence_card", func():
+		# combat-refining ticket 04: occurrence cards replace the old
+		# collapsed-to-one-card-per-combatant behaviour -- the player
+		# appears once per queue entry (base slot + each Motion-inserted
+		# extra), in sequence, not deduplicated.
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy")])
 		combat["motionTurns"] = 2
@@ -78,12 +82,13 @@ func run() -> void:
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
 
-		assert_eq(entries.size(), 2, "player + the one enemy -- motion's extra queue slots must not become extra cards")
-		var player_entries := 0
-		for e in entries:
-			if e["key"]["type"] == "player":
-				player_entries += 1
-		assert_eq(player_entries, 1)
+		assert_eq(entries.size(), 4, "3 player occurrences (base + 2 extras) + the one enemy")
+		assert_eq(entries[0]["key"]["type"], "player")
+		assert_eq(entries[1]["key"]["type"], "player")
+		assert_eq(entries[2]["key"]["type"], "player")
+		assert_eq(entries[3]["key"]["type"], "enemy")
+		assert_true(entries[0]["occurrenceId"] != entries[1]["occurrenceId"], "each occurrence card needs its own stable id")
+		assert_true(entries[1]["occurrenceId"] != entries[2]["occurrenceId"])
 	)
 
 	run_case("build_entries_excludes_koed_allies_and_enemies", func():
@@ -376,37 +381,45 @@ func run() -> void:
 		assert_true(total_width <= 300.5, "six cards must fit within the strip's available width, not overflow the stage")
 	)
 
-	# ── swipe-to-target ────────────────────────────────────────────────
+	# ── tap-to-select / drag-to-scroll (combat-refining ticket 04) ───────
+	# Dragging past SWIPE_THRESHOLD_PX scrolls the viewport only, never
+	# selection; a short release (a tap) selects whichever card sits under
+	# the release point. Both entry points are exercised directly (as the
+	# old handle_swipe() tests exercised their gesture directly), since
+	# _gui_input()/_end_drag() are just the threshold dispatch between them.
 
-	run_case("handle_swipe_reports_the_next_entrys_key_via_the_callback", func():
+	run_case("handle_tap_reports_the_tapped_cards_key_via_the_callback", func():
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy", 20, 20, false, 30)], [Fixtures.ally("Ally", 20, 20, false, 1)])
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		assert_eq(entries.size(), 3, "sanity: enemy + player + ally")
+		var received: Array = []
+		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, func(key): received.append(key))
+
+		# 3 entries over 300px: card_width = (300 - 2*6)/3 = 96, stride 102.
+		# x=150 lands in entries[1]'s span (102..198).
+		strip.handle_tap(150.0)
+
+		assert_eq(received.size(), 1)
+		assert_eq(received[0], entries[1]["key"], "tapping the middle card should report entries[1]'s key")
+	)
+
+	run_case("handle_tap_outside_any_card_is_a_no_op", func():
+		GameState.reset()
+		var combat := _combat([Fixtures.enemy("Enemy")])
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
 		var received: Array = []
 		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, func(key): received.append(key))
 
-		strip.handle_swipe(1)
+		strip.handle_tap(-5.0)  # left of every card
+		strip.handle_tap(9999.0)  # far past the last card
 
-		assert_eq(received.size(), 1)
-		assert_eq(received[0], entries[1]["key"], "swiping forward from index 0 should report entries[1]'s key")
+		assert_eq(received.size(), 0, "a tap that lands on no card should be a no-op")
 	)
 
-	run_case("handle_swipe_clamps_at_the_last_entry_instead_of_wrapping", func():
-		GameState.reset()
-		var combat := _combat([Fixtures.enemy("Enemy")])
-		var strip := TurnOrderStrip.new()
-		var entries := strip.build_entries(combat, GameState.state["player"])
-		assert_eq(entries.size(), 2, "sanity: enemy + player")
-		var received: Array = []
-		strip.configure(entries, 1, combat, GameState.state["player"], 300.0, func(key): received.append(key))
-
-		strip.handle_swipe(1)
-
-		assert_eq(received.size(), 0, "swiping past the last card should be a no-op, not wrap around")
-	)
-
-	run_case("handle_swipe_to_a_non_enemy_entry_still_reports_its_key", func():
+	run_case("handle_tap_to_a_non_enemy_entry_still_reports_its_key", func():
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy", 20, 20, false, 30)])
 		var strip := TurnOrderStrip.new()
@@ -414,9 +427,27 @@ func run() -> void:
 		var received: Array = []
 		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, func(key): received.append(key))
 
-		strip.handle_swipe(1)
+		# 2 entries over 300px: card_width = (300-6)/2 = 147, stride 153.
+		# x=200 lands in entries[1]'s span (153..300) -- the player.
+		strip.handle_tap(200.0)
 
-		assert_eq(received[0]["type"], "player", "TurnOrderStrip reports every swipe -- deciding that a non-enemy swipe is inert for targeting is the caller's job (CombatScreen), not this component's")
+		assert_eq(received[0]["type"], "player", "TurnOrderStrip reports every tap -- deciding a non-enemy tap is inert for targeting is the caller's job (CombatScreen), not this component's")
+	)
+
+	run_case("handle_drag_never_reports_a_selection_or_touches_GameState", func():
+		GameState.reset()
+		var combat := _combat([Fixtures.enemy("Enemy", 20, 20, false, 30)], [Fixtures.ally("Ally", 20, 20, false, 1)])
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		var received: Array = []
+		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, func(key): received.append(key))
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+
+		strip.handle_drag(-80.0)
+		strip.handle_drag(200.0)
+
+		assert_eq(received.size(), 0, "dragging must never change selection")
+		assert_eq(GameState.state, before, "dragging must never touch GameState -- it only moves the strip's own scroll offset")
 	)
 
 	# ── reflow: turn order changing mid-fight re-sorts the strip ─────────
@@ -452,7 +483,11 @@ func run() -> void:
 
 		var after := strip.build_entries(combat, GameState.state["player"])
 		assert_eq(after[0]["name"], "Enemy", "Motion doesn't change who's fastest -- the enemy still leads")
-		assert_eq(after.size(), 2, "Motion's extra queue slot must still collapse to one player card, not create a phantom reorder")
+		# combat-refining ticket 04: the inserted extra is its own occurrence
+		# card now, not collapsed into the player's existing one.
+		assert_eq(after.size(), 3, "enemy + the player's base slot + its Motion-inserted extra, each its own card")
+		assert_eq(after[1]["key"]["type"], "player")
+		assert_eq(after[2]["key"]["type"], "player")
 	)
 
 	# ── combat-presentation ticket 05, §4.1: HP bar ghost-drain ─────────────

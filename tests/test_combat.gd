@@ -1704,6 +1704,115 @@ func run() -> void:
 		assert_eq(types, ["player", "player", "player", "enemy"], "motionPower >= 3 should insert two extra player entries so this round's total attacks still match the old 3x behaviour")
 	)
 
+	# ── combat-refining ticket 04: bounded queue-projection (R§3.7a) ─────
+
+	run_case("project_queue_is_pure_and_never_mutates_the_combat_dict", func():
+		GameState.reset()
+		var combat := {
+			"allies": [], "enemies": [{ "name": "E", "speed": 1, "koed": false }],
+			"motionTurns": 1, "motionPower": 2, "log": [],
+			"turnCursor": { "queue": [{ "type": "player", "speed": 10 }, { "type": "enemy", "index": 0, "speed": 1 }], "index": 0, "round": 1 },
+		}
+		var before: Dictionary = GameState.deep_copy(combat)
+
+		Combat.project_queue(combat)
+
+		assert_eq(combat, before, "project_queue() must never mutate the combat dict it reads")
+	)
+
+	run_case("project_queue_projects_the_current_rounds_remainder_plus_exactly_one_extra_round", func():
+		GameState.reset()
+		var combat := {
+			"allies": [], "enemies": [{ "name": "E", "speed": 1, "koed": false }],
+			"motionTurns": 0, "motionPower": 0, "log": [],
+			# Parked past the player's own slot -- only the enemy's entry is
+			# left unresolved in the current round.
+			"turnCursor": { "queue": [{ "type": "player", "speed": 10 }, { "type": "enemy", "index": 0, "speed": 1 }], "index": 1, "round": 1 },
+		}
+
+		var projected := Combat.project_queue(combat)
+		var types: Array = []
+		for occurrence in projected:
+			types.append(occurrence["type"])
+
+		assert_eq(types, ["enemy", "player", "enemy"], "current round's remaining enemy slot, then the whole of the next round (player, enemy)")
+	)
+
+	run_case("project_queue_motion_fixture_the_player_appears_twice_in_sequence", func():
+		GameState.reset()
+		var combat := {
+			"allies": [], "enemies": [{ "name": "E", "speed": 1, "koed": false }],
+			"motionTurns": 1, "motionPower": 2, "log": [],
+			"turnCursor": { "queue": [], "index": 0, "round": 0 },
+		}
+
+		var projected := Combat.project_queue(combat)
+		var types: Array = []
+		for occurrence in projected:
+			types.append(occurrence["type"])
+
+		assert_eq(types, ["player", "player", "enemy"], "the base slot and the Motion-inserted extra should appear back to back")
+	)
+
+	run_case("project_queue_two_enemy_fixture_with_speeds_straddling_the_player_interleaves_like_build_turn_queue", func():
+		GameState.reset()
+		var combat := {
+			"allies": [],
+			"enemies": [
+				{ "name": "Fast", "speed": 30, "koed": false },
+				{ "name": "Slow", "speed": 1, "koed": false },
+			],
+			"motionTurns": 0, "motionPower": 0, "log": [],
+			"turnCursor": { "queue": [], "index": 0, "round": 0 },
+		}
+
+		var projected := Combat.project_queue(combat)
+		var expected := Combat.build_turn_queue(combat)
+		assert_eq(projected.size(), expected.size(), "a fresh cursor's projection is exactly one round -- same size as build_turn_queue()'s own")
+		for i in range(expected.size()):
+			assert_eq(projected[i]["type"], expected[i]["type"], "interleaving order should match build_turn_queue() exactly")
+			assert_eq(projected[i].get("index"), expected[i].get("index"))
+	)
+
+	run_case("project_queue_every_living_combatant_has_at_least_one_occurrence_koed_have_none", func():
+		GameState.reset()
+		var combat := {
+			"allies": [{ "name": "Ally", "speed": 8, "koed": false }],
+			"enemies": [
+				{ "name": "Alive", "speed": 5, "koed": false },
+				{ "name": "Dead", "speed": 50, "koed": true },
+			],
+			"motionTurns": 0, "motionPower": 0, "log": [],
+			"turnCursor": { "queue": [], "index": 0, "round": 0 },
+		}
+
+		var projected := Combat.project_queue(combat)
+		var enemy0_seen := false
+		var enemy1_seen := false
+		for occurrence in projected:
+			if occurrence["type"] == "enemy" and occurrence["index"] == 0:
+				enemy0_seen = true
+			if occurrence["type"] == "enemy" and occurrence["index"] == 1:
+				enemy1_seen = true
+		assert_true(enemy0_seen, "every living combatant must have at least one occurrence")
+		assert_true(not enemy1_seen, "a koed combatant must have none")
+	)
+
+	run_case("project_queue_occurrence_ids_are_stable_and_unique_in_scheduling_order", func():
+		GameState.reset()
+		var combat := {
+			"allies": [], "enemies": [{ "name": "E", "speed": 1, "koed": false }],
+			"motionTurns": 1, "motionPower": 3, "log": [],
+			"turnCursor": { "queue": [], "index": 0, "round": 0 },
+		}
+
+		var projected := Combat.project_queue(combat)
+		var ids: Dictionary = {}
+		for occurrence in projected:
+			assert_true(not ids.has(occurrence["occurrenceId"]), "occurrenceId must be unique across the whole projection")
+			ids[occurrence["occurrenceId"]] = true
+	)
+
 	run_case("build_turn_queue_motion_extra_entry_follows_the_players_own_slot_even_when_others_are_faster", func():
 		GameState.reset()
 		var combat := {

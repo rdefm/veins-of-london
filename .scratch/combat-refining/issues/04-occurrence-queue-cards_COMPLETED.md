@@ -18,11 +18,11 @@ Strip tests asserting the old collapse-to-one-card behaviour are replaced by occ
 
 **Status:** ready-for-agent
 
-- [ ] Projection query is pure (no state mutation, no RNG consumption) and returns occurrences in scheduling order with a stable per-occurrence id and the combatant key
-- [ ] Motion fixture: the player appears twice in sequence; a two-enemy fixture with speeds straddling the player's shows enemy/player/enemy interleaving matching `build_turn_queue`
-- [ ] Every living combatant has at least one occurrence in the projection; KO'd combatants have none
-- [ ] Strip renders one card per occurrence; card count equals projection length
-- [ ] Dragging the strip changes only its scroll offset — `GameState.state` is byte-identical before and after
-- [ ] Tapping the second occurrence of a combatant yields the same selection as tapping the first; both cards render selected
-- [ ] Ghost HP bars drain on every card of the damaged combatant
-- [ ] `scripts/check_all.sh` and `scripts/run_tests.sh` pass; CODEMAP row for `turn_order_strip.gd` updated
+- [x] Projection query is pure (no state mutation, no RNG consumption) and returns occurrences in scheduling order with a stable per-occurrence id and the combatant key
+- [x] Motion fixture: the player appears twice in sequence; a two-enemy fixture with speeds straddling the player's shows enemy/player/enemy interleaving matching `build_turn_queue`
+- [x] Every living combatant has at least one occurrence in the projection; KO'd combatants have none
+- [x] Strip renders one card per occurrence; card count equals projection length
+- [x] Dragging the strip changes only its scroll offset — `GameState.state` is byte-identical before and after
+- [x] Tapping the second occurrence of a combatant yields the same selection as tapping the first; both cards render selected
+- [x] Ghost HP bars drain on every card of the damaged combatant
+- [x] `scripts/check_all.sh` and `scripts/run_tests.sh` pass; CODEMAP row for `turn_order_strip.gd` updated

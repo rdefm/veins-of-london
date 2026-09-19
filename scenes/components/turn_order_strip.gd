@@ -79,34 +79,39 @@ class NameplateCard extends Control:
 				draw_rect(Rect2(Vector2(4.0 + (size.x - 8.0) * frac, bar_y), Vector2((size.x - 8.0) * (ghost_frac - frac), TurnOrderStrip.HP_BAR_HEIGHT)), Color(1.0, 1.0, 1.0, 0.6), true)
 
 
+# One card per turn *occurrence* (CONTEXT.md's Turn occurrence), not one
+# per unique combatant. Reads Combat.project_queue()'s bounded horizon
+# (R§3.7a) -- a repeated occurrence (a Motion-inserted extra turn, or the
+# same combatant's next-round turn) gets its own card, no deduplication.
+# "key" (combatant identity, used for selection/ghosting) and
+# "occurrenceId" (this specific card's identity) are deliberately separate
+# fields -- several entries can share a key.
 func build_entries(combat: Dictionary, player: Dictionary) -> Array:
 	var faction_display: Dictionary = _enemy_faction_display(combat)
 	var entries: Array = []
-	var seen: Dictionary = {}
-	for queue_entry in Combat.build_turn_queue(combat):
-		var type: String = queue_entry["type"]
-		var dedup_key: String = type if type == "player" else "%s:%d" % [type, queue_entry["index"]]
-		if seen.has(dedup_key):
-			continue
-		seen[dedup_key] = true
+	for occurrence in Combat.project_queue(combat):
+		var type: String = occurrence["type"]
 
 		if type == "player":
 			entries.append({
-				"key": { "type": "player" }, "name": "You", "level": player["combatSkill"],
+				"key": { "type": "player" }, "occurrenceId": occurrence["occurrenceId"],
+				"name": "You", "level": player["combatSkill"],
 				"hp": player["hp"], "hpMax": player["hpMax"],
 				"factionName": "", "factionColour": NEUTRAL_COLOUR, "isEnemy": false,
 			})
 		elif type == "ally":
-			var ally: Dictionary = combat["allies"][queue_entry["index"]]
+			var ally: Dictionary = combat["allies"][occurrence["index"]]
 			entries.append({
-				"key": { "type": "ally", "index": queue_entry["index"] }, "name": ally["name"], "level": null,
+				"key": { "type": "ally", "index": occurrence["index"] }, "occurrenceId": occurrence["occurrenceId"],
+				"name": ally["name"], "level": null,
 				"hp": ally["hp"], "hpMax": ally["hpMax"],
 				"factionName": "", "factionColour": NEUTRAL_COLOUR, "isEnemy": false,
 			})
 		else:
-			var enemy: Dictionary = combat["enemies"][queue_entry["index"]]
+			var enemy: Dictionary = combat["enemies"][occurrence["index"]]
 			entries.append({
-				"key": { "type": "enemy", "index": queue_entry["index"] }, "name": enemy["name"], "level": null,
+				"key": { "type": "enemy", "index": occurrence["index"] }, "occurrenceId": occurrence["occurrenceId"],
+				"name": enemy["name"], "level": null,
 				"hp": enemy["hp"], "hpMax": enemy["hpMax"],
 				"factionName": faction_display["name"], "factionColour": faction_display["colour"], "isEnemy": true,
 			})
@@ -141,9 +146,13 @@ func _status_lines_for(key: Dictionary, combat: Dictionary, player: Dictionary) 
 	return lines
 
 
+# selected_pos indexes into `entries` only to seed which *combatant*
+# starts out selected -- every entry sharing that combatant's key renders
+# selected, since several entries can be the same combatant's occurrences.
 func configure(entries: Array, selected_pos: int, combat: Dictionary, player: Dictionary, available_width: float, selection_callback: Callable) -> void:
 	_entries = entries
-	_selected_pos = clampi(selected_pos, 0, maxi(0, entries.size() - 1))
+	var clamped_pos: int = clampi(selected_pos, 0, maxi(0, entries.size() - 1))
+	_selected_key = entries[clamped_pos]["key"] if not entries.is_empty() else {}
 	_combat = combat
 	_player = player
 	_on_selection_changed = selection_callback
@@ -151,7 +160,7 @@ func configure(entries: Array, selected_pos: int, combat: Dictionary, player: Di
 
 
 var _entries: Array = []
-var _selected_pos: int = 0
+var _selected_key: Dictionary = {}
 var _combat: Dictionary = {}
 var _player: Dictionary = {}
 var _on_selection_changed: Callable = Callable()
@@ -159,6 +168,14 @@ var _on_selection_changed: Callable = Callable()
 var _drag_index := -100
 var _drag_start_x: float = 0.0
 
+var _row: HBoxContainer = null
+var _card_width: float = 0.0
+var _scroll_offset: float = 0.0
+var _max_scroll: float = 0.0
+
+# combatant key string -> Array[NameplateCard]; several occurrence cards
+# can share one combatant, so ghost draining (set_initial_ghost/
+# drain_ghost_to) fans out to every card of the damaged combatant.
 var _cards_by_key: Dictionary = {}
 
 
@@ -174,19 +191,25 @@ func _rebuild(available_width: float) -> void:
 
 	custom_minimum_size = Vector2(available_width, CARD_HEIGHT)
 	mouse_filter = Control.MOUSE_FILTER_PASS
+	clip_contents = true
 
-	var row := UI.hbox(CARD_SEPARATION)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	UI.anchor_full_rect(row)
+	_row = UI.hbox(CARD_SEPARATION)
+	_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var n: int = maxi(1, _entries.size())
-	var card_width: float = minf((available_width - CARD_SEPARATION * (n - 1)) / n, MAX_CARD_WIDTH)
+	_card_width = minf((available_width - CARD_SEPARATION * (n - 1)) / n, MAX_CARD_WIDTH)
+	var total_width: float = _card_width * n + CARD_SEPARATION * (n - 1)
+	_row.custom_minimum_size = Vector2(total_width, CARD_HEIGHT)
+	_max_scroll = maxf(0.0, total_width - available_width)
+	_scroll_offset = clampf(_scroll_offset, 0.0, _max_scroll)
+	_row.position.x = -_scroll_offset
 
 	for i in range(_entries.size()):
-		var card := _build_card(_entries[i], i == _selected_pos, Vector2(card_width, CARD_HEIGHT))
-		row.add_child(card)
+		var entry: Dictionary = _entries[i]
+		var card := _build_card(entry, entry["key"] == _selected_key, Vector2(_card_width, CARD_HEIGHT))
+		_row.add_child(card)
 
-	add_child(row)
+	add_child(_row)
 
 
 func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> NameplateCard:
@@ -223,7 +246,10 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 			card.tell_image = _tell_image_for(enemy)
 
 	_build_card_content(card)
-	_cards_by_key[card_key_string(entry["key"])] = card
+	var key_string: String = card_key_string(entry["key"])
+	if not _cards_by_key.has(key_string):
+		_cards_by_key[key_string] = []
+	_cards_by_key[key_string].append(card)
 	return card
 
 
@@ -245,23 +271,21 @@ func _tell_image_for(enemy: Dictionary) -> Texture2D:
 	return load(image_path)
 
 
+# Fans out to every occurrence card of this combatant -- a damaged
+# combatant's ghost bar drains identically on each of its cards.
 func set_initial_ghost(key_string: String, hp: int) -> void:
-	var card: NameplateCard = _cards_by_key.get(key_string)
-	if card == null:
-		return
-	card.set_ghost_hp(hp)
+	for card: NameplateCard in _cards_by_key.get(key_string, []):
+		card.set_ghost_hp(hp)
 
 
 func drain_ghost_to(key_string: String, hp: int, duration: float) -> void:
-	var card: NameplateCard = _cards_by_key.get(key_string)
-	if card == null:
-		return
-	if not card.is_inside_tree():
-		card.set_ghost_hp(hp)
-		return
-	var from: int = card.ghost_hp if card.ghost_hp != null else card.hp
-	var tween := card.create_tween()
-	tween.tween_method(card.set_ghost_hp, from, hp, duration)
+	for card: NameplateCard in _cards_by_key.get(key_string, []):
+		if not card.is_inside_tree():
+			card.set_ghost_hp(hp)
+			continue
+		var from: int = card.ghost_hp if card.ghost_hp != null else card.hp
+		var tween: Tween = card.create_tween()
+		tween.tween_method(card.set_ghost_hp, from, hp, duration)
 
 
 func _build_card_content(card: NameplateCard) -> void:
@@ -339,14 +363,41 @@ func _build_card_content(card: NameplateCard) -> void:
 	card.add_child(box)
 
 
-func handle_swipe(direction: int) -> void:
-	if _entries.is_empty():
-		return
-	var new_pos: int = clampi(_selected_pos + direction, 0, _entries.size() - 1)
-	if new_pos == _selected_pos:
+# Tapping any card selects its combatant (full tap/sprite/arrow treatment
+# lives in docs/combat-animation-vision.md §2.4). A tap outside any card
+# is a no-op.
+func handle_tap(x: float) -> void:
+	var idx: int = _entry_index_at_x(x)
+	if idx == -1:
 		return
 	if _on_selection_changed.is_valid():
-		_on_selection_changed.call(_entries[new_pos]["key"])
+		_on_selection_changed.call(_entries[idx]["key"])
+
+
+# Moves only the strip's own scroll offset, clamped to the content's
+# actual overflow -- never touches selection, GameState, or the turn
+# queue (R§3.7a's read-only projection contract carries into the UI).
+func handle_drag(delta_x: float) -> void:
+	if _entries.is_empty() or _row == null:
+		return
+	_scroll_offset = clampf(_scroll_offset - delta_x, 0.0, _max_scroll)
+	_row.position.x = -_scroll_offset
+
+
+# Every card shares _card_width (the shrink-to-fit division in _rebuild()),
+# so a tap's target card is a straight stride lookup against the current
+# scroll offset; a tap landing in the gap between cards hits nothing.
+func _entry_index_at_x(x: float) -> int:
+	if _entries.is_empty() or _card_width <= 0.0:
+		return -1
+	var stride: float = _card_width + CARD_SEPARATION
+	var content_x: float = x + _scroll_offset
+	var idx: int = int(floor(content_x / stride))
+	if idx < 0 or idx >= _entries.size():
+		return -1
+	if content_x - idx * stride > _card_width:
+		return -1
+	return idx
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -370,4 +421,6 @@ func _end_drag(release_x: float) -> void:
 	var delta: float = release_x - _drag_start_x
 	_drag_index = -100
 	if absf(delta) >= SWIPE_THRESHOLD_PX:
-		handle_swipe(1 if delta < 0 else -1)
+		handle_drag(delta)
+	else:
+		handle_tap(release_x)

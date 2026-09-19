@@ -25,13 +25,14 @@ static func _slot_named(root: Node, combatant_name: String) -> CombatStage.Stage
 
 # combat-presentation ticket 02: the turn-order strip and its nameplate
 # cards -- see tests/test_turn_order_strip.gd for TurnOrderStrip's own
-# data-mapping/swipe-logic tests. These cover CombatScreen's side of the
-# wiring: the strip is actually placed on screen, selection persists across
-# a refresh (this screen node survives; only _content's children don't),
-# and swiping an enemy card routes through Combat.set_focused_enemy() (a
-# screen never mutates GameState.state directly).
+# data-mapping/tap-select/drag-scroll tests. These cover CombatScreen's
+# side of the wiring: the strip is actually placed on screen, selection
+# persists across a refresh (this screen node survives; only _content's
+# children don't), and tapping an enemy card routes through
+# Combat.set_focused_enemy() (a screen never mutates GameState.state
+# directly).
 #
-# A test case that triggers more than one _refresh() (a swipe, then a
+# A test case that triggers more than one _refresh() (a tap, then a
 # second unrelated state_changed) has to pick the *latest* strip:
 # queue_free() only flags the node it's called directly on (the strip
 # itself, freed as one of _content's direct children) -- its descendant
@@ -326,7 +327,7 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("swiping_the_strip_to_an_enemy_routes_through_Combat_set_focused_enemy", func():
+	run_case("tapping_the_strip_to_an_enemy_routes_through_Combat_set_focused_enemy", func():
 		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard")], [], 0)
 
 		var screen := CombatScreen.new()
@@ -334,25 +335,29 @@ func run() -> void:
 		var strip := _find_strip(screen)
 		assert_true(strip != null)
 
-		strip.handle_swipe(1)  # from Scrapper (combat.focusedEnemyIndex 0) onward to Vein Guard
+		# Turn order is You, Scrapper, Vein Guard (all tied at speed 10 --
+		# player, then enemies in array order). 3 cards over the 390px
+		# stage: card_width = (390 - 2*6)/3 = 126, stride 132. x=300 lands
+		# in Vein Guard's span (264..390).
+		strip.handle_tap(300.0)
 
-		assert_eq(GameState.state["combat"]["focusedEnemyIndex"], 1, "swiping onto an enemy card should move combat.focusedEnemyIndex -- the targeting gesture (§2.2)")
+		assert_eq(GameState.state["combat"]["focusedEnemyIndex"], 1, "tapping an enemy card should move combat.focusedEnemyIndex -- the targeting gesture (§2.2)")
 
 		screen.free()
 	)
 
-	run_case("swiping_the_strip_to_the_player_card_is_inert_for_targeting_but_still_moves_the_displayed_focus", func():
+	run_case("tapping_the_strip_to_the_player_card_is_inert_for_targeting_but_still_moves_the_displayed_focus", func():
 		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard")], [], 0)
 
 		var screen := CombatScreen.new()
 		screen._ready()
 		var strip := _find_strip(screen)
 
-		strip.handle_swipe(-1)  # from Scrapper back to the player -- turn order is You, Scrapper, Vein Guard
+		strip.handle_tap(60.0)  # the player's card, position 0 (0..126)
 
-		assert_eq(GameState.state["combat"]["focusedEnemyIndex"], 0, "only enemies are valid attack targets (§2.2) -- swiping to the player must not move combat.focusedEnemyIndex")
+		assert_eq(GameState.state["combat"]["focusedEnemyIndex"], 0, "only enemies are valid attack targets (§2.2) -- tapping the player must not move combat.focusedEnemyIndex")
 		var player_card := _strip_card_named(screen, "You")
-		assert_true(player_card.is_focused, "the strip's own displayed focus should still move to the swiped-to card, even though targeting didn't")
+		assert_true(player_card.is_focused, "the strip's own displayed focus should still move to the tapped card, even though targeting didn't")
 
 		screen.free()
 	)
@@ -362,7 +367,7 @@ func run() -> void:
 
 		var screen := CombatScreen.new()
 		screen._ready()
-		_find_strip(screen).handle_swipe(1)  # focus moves to Vein Guard (index 1)
+		_find_strip(screen).handle_tap(300.0)  # focus moves to Vein Guard (index 1)
 		assert_eq(GameState.state["combat"]["focusedEnemyIndex"], 1)
 
 		# Combat.set_focused_enemy()'s own state_changed emit already drove one
@@ -372,7 +377,7 @@ func run() -> void:
 		EventBus.state_changed.emit()
 
 		var card := _strip_card_named(screen, "Vein Guard")
-		assert_true(card.is_focused, "the selected card should survive a refresh triggered by something other than the swipe itself")
+		assert_true(card.is_focused, "the selected card should survive a refresh triggered by something other than the tap itself")
 
 		screen.free()
 	)

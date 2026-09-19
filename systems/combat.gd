@@ -562,6 +562,55 @@ static func conclude_decision_point(combat: Dictionary, beats: Variant = null) -
 		advance_to_next_decision(combat, beats)
 
 
+# R§3.7a "Bounded queue-projection policy": a pure, non-mutating "what's
+# coming" read for the turn-order strip (docs/combat-animation-vision.md
+# §2.4). Horizon: the remainder of the current round from turnCursor.index
+# onward, plus exactly one additional full round, built against the state
+# as it would stand after the deterministic round-boundary tick -- never
+# committed to turnCursor, a projection only. One extra round always
+# guarantees every living combatant's next occurrence appears (worst
+# case: a combatant who just acted at the very start of the current
+# round). Repeated occurrences and Motion-inserted extra slots appear
+# exactly as build_turn_queue() naturally produces them -- no dedup.
+# Never reveals unresolved-turn outcomes (evade rolls, damage, an enemy's
+# target pick) -- only who acts and in what order.
+static func project_queue(combat: Dictionary) -> Array:
+	var cursor: Dictionary = combat["turnCursor"]
+	var projected: Array = []
+
+	for i in range(cursor["index"], cursor["queue"].size()):
+		projected.append(_project_occurrence(cursor["queue"][i], cursor["round"], i))
+
+	# Mirrors advance_to_next_decision()'s own round-boundary tick, but
+	# against a duplicated dict so the real combat state is never mutated
+	# by a read. Only decrements a projected motionTurns when the ending
+	# round's own queue actually carried a Motion-inserted "extra" slot --
+	# same reasoning as the real tick (see that function's own comment).
+	var round_spent_motion := false
+	for queued_entry in cursor["queue"]:
+		if queued_entry.get("extra", false):
+			round_spent_motion = true
+			break
+	var projected_combat: Dictionary = combat.duplicate()
+	if round_spent_motion and combat["motionTurns"] > 0:
+		projected_combat["motionTurns"] = combat["motionTurns"] - 1
+
+	var next_round: Array = build_turn_queue(projected_combat)
+	for i in range(next_round.size()):
+		projected.append(_project_occurrence(next_round[i], cursor["round"] + 1, i))
+
+	return projected
+
+
+# occurrenceId is stable within one project_queue() call -- "round:index
+# within that round's queue" -- unique across the whole projection since
+# each (round, index) pair appears at most once.
+static func _project_occurrence(entry: Dictionary, round_num: int, index_in_round: int) -> Dictionary:
+	var occurrence: Dictionary = entry.duplicate()
+	occurrence["occurrenceId"] = "%d:%d" % [round_num, index_in_round]
+	return occurrence
+
+
 # R§3.7a: shared by player_attack()'s per-turn XP and train()'s gym-session
 # XP -- same Progression.award_xp()/GameData.COMBAT_XP_LEVELS mechanism
 # Cultivating.award_xp() already uses.
