@@ -8,8 +8,8 @@
     "phoneLabel": "Go and meet Hakim"
   },
   "cards": [
-    { "type": "narration", "label": "Whitechapel Road", "speaker": null, "text": "The shop sells newspapers, phone credit, four kinds of crisps and, if you know to ask, nothing else at all. There is a child's homework on the counter, half done, with a biro resting in the fold." },
-    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"You're Des's. He said. Sorry — that came out like you're a dog.\"" },
+    { "type": "narration", "label": "Whitechapel Road", "speaker": null, "text": "The shop sells newspapers, phone credit, and a dozen kinds of crisps, among other things. There is a child's homework on the counter, half done, with a biro resting in the fold." },
+    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"You're Des's. He said. Sorry - that came out like you're a dog.\"" },
     { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"There's a vein in the yard. Came with the shop. My uncle had it and he was good with it and I'm not, and it's been going backwards for about two years.\"" },
     { "type": "narration", "label": null, "speaker": null, "text": "The yard is eleven feet of concrete, three bins and a vein that has clearly not been touched in a long time. It reads as sparse and dropping." },
     { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"It does about a third of what it used to. Which is about a third of the rent, so.\" He stops there, having got closer to complaining than he intended." },

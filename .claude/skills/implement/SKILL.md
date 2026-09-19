@@ -8,6 +8,12 @@ Implement the work described by the user in the spec or tickets.
 
 First, check whether the ticket has a **Relevant files** field. If it does, open and read those files/sections directly instead of running a fresh discovery pass (Explore, grepping the codebase, reading CODEMAP.md/REFERENCE.md cover-to-cover). Fall back to normal search for whatever the hints don't cover: the field is absent, a hinted path no longer exists, or a hinted file turns out not to actually cover what the ticket needs. Don't treat a full CODEMAP.md/REFERENCE.md read as a default step — the point is skipping that cost when hints exist and hold up.
 
+When a fallback discovery pass is needed, spawn a fork subagent to run it rather than doing raw Explore/grep in the main thread — a fork inherits full context, and its search noise never has to land in yours. Have it return a compact digest of what the implementation will actually need (e.g. layout constants, a nav-bar gotcha, the test file's live-tree pattern), not a transcript of everything it searched.
+
+Grep named symbols with context lines (`-C`) before Read'ing a file over ~150 lines — don't Read a whole file to locate something inside it.
+
+Prefer the Edit tool over shell one-liners (`sed`, heredocs, PowerShell `-replace`, etc.) for text substitution, even in scratch files.
+
 Use /tdd where possible, at pre-agreed seams.
 
 Run typechecking regularly, single test files regularly, and the full test suite once at the end.

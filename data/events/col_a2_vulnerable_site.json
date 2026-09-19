@@ -6,8 +6,8 @@
     "showWhenFlagsFalse": ["colA2VulnerableSiteDone"]
   },
   "cards": [
-    { "type": "narration", "label": "Whitechapel", "speaker": null, "text": "A railway arch nobody's bothered to lock properly in three years. It's held ore the whole time and nothing's ever gone wrong with it, which is not the same as nothing ever going wrong with it." },
-    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"That one's ours and it's soft as anything. Fine while nobody's looking twice at us. We're past that now.\"" },
+    { "type": "narration", "label": "Whitechapel", "speaker": null, "text": "A railway arch nobody's bothered to lock properly in three years. It's held ore the whole time and nothing's ever gone wrong with it - yet." },
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"That one's ours and it's soft as anything. It was fine while nobody's looking twice at us. We're past that now.\"" },
     {
       "type": "choice", "label": null, "speaker": null, "text": "Two ways to leave it.",
       "choices": [
@@ -18,14 +18,14 @@
             { "op": "add", "path": "factions.collective.resources", "value": 150 },
             { "op": "log_method", "key": "a2VulnerableSite", "value": "lookout" }
           ],
-          "result_text": "You put the money where Nadia can actually spend it, not where it looks good spent. Somebody starts sitting on a crate near the arch most evenings, reading a paper, not reading a paper."
+          "result_text": "You put the money in, so someone doesn't need to pull a second shift and can spend it here, sitting on a crate near the arch most evenings, reading a paper without readlly reading it."
         },
         {
           "label": "Stay soft and fast",
           "effects": [
             { "op": "log_method", "key": "a2VulnerableSite", "value": "soft" }
           ],
-          "result_text": "You leave it as it is. Nobody's ever taken it before. That's an argument, not a guarantee."
+          "result_text": "You leave it as it is. Nobody's ever taken it before, and sometimes a lookout just draws more attention."
         }
       ]
     },

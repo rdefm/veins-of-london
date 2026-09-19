@@ -1614,7 +1614,7 @@
 "value": true
 }],
 "label": "Not yet",
-"result_text": "\"Fair enough.\" He isn't offended and doesn't pretend not to be offended, which is worse and better at once. \"Offer doesn't expire. There's nothing to expire.\""
+"result_text": "\"Fair enough.\" He isn't offended. \"Offer doesn't expire. There's nothing to expire.\""
 }],
 "label": null,
 "speaker": null,
@@ -1922,12 +1922,12 @@
 "cards": [{
 "label": "Whitechapel Road",
 "speaker": null,
-"text": "The shop sells newspapers, phone credit, four kinds of crisps and, if you know to ask, nothing else at all. There is a child's homework on the counter, half done, with a biro resting in the fold.",
+"text": "The shop sells newspapers, phone credit, and a dozen kinds of crisps, among other things. There is a child's homework on the counter, half done, with a biro resting in the fold.",
 "type": "narration"
 }, {
 "label": null,
 "speaker": "Hakim",
-"text": "\"You're Des's. He said. Sorry — that came out like you're a dog.\"",
+"text": "\"You're Des's. He said. Sorry - that came out like you're a dog.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -2596,7 +2596,7 @@
 }, {
 "label": null,
 "speaker": null,
-"text": "Des and Nadia are already there. Des isn't shouting. He's gone quiet instead, which nobody in the room has seen him do before, and which is worse.",
+"text": "Des and Nadia are already there. Des isn't shouting. He's gone quiet instead, which nobody in the room has seen him do before. It makes everything feel even more serious.",
 "type": "narration"
 }, {
 "label": null,
@@ -2611,7 +2611,7 @@
 }, {
 "label": null,
 "speaker": null,
-"text": "Nobody involved has a name yet. That's apparently how you know it's serious — the people who matter enough to hurt you don't bother introducing themselves.",
+"text": "Nobody involved has a name yet. From the way Nadia's talking, you think that will change soon - this attack won't go unanswered.",
 "type": "narration"
 }],
 "id": "col_a2_shop",
@@ -2626,6 +2626,68 @@
 "event": "col_a2_pattern",
 "op": "start_event"
 }]
+},
+"col_a2_vulnerable_site": {
+"cards": [{
+"label": "Whitechapel",
+"speaker": null,
+"text": "A railway arch nobody's bothered to lock properly in three years. It's held ore the whole time and nothing's ever gone wrong with it - yet.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"That one's ours and it's soft as anything. It was fine while nobody's looking twice at us. We're past that now.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [{
+"op": "add",
+"path": "player.cash",
+"value": -150
+}, {
+"op": "add",
+"path": "factions.collective.resources",
+"value": 150
+}, {
+"key": "a2VulnerableSite",
+"op": "log_method",
+"value": "lookout"
+}],
+"label": "Fund a lookout (£150)",
+"result_text": "You put the money in, so someone doesn't need to pull a second shift and can spend it here, sitting on a crate near the arch most evenings, reading a paper without readlly reading it."
+}, {
+"effects": [{
+"key": "a2VulnerableSite",
+"op": "log_method",
+"value": "soft"
+}],
+"label": "Stay soft and fast",
+"result_text": "You leave it as it is. Nobody's ever taken it before, and sometimes a lookout just draws more attention."
+}],
+"label": null,
+"speaker": null,
+"text": "Two ways to leave it.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "Either way, the arch keeps doing what it's always done, for now. Whether that keeps being true is a separate question.",
+"type": "resolution"
+}],
+"id": "col_a2_vulnerable_site",
+"on_complete": [{
+"flag": "colA2VulnerableSiteDone",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "map"
+}],
+"pin": {
+"district": "whitechapel",
+"showWhenFlagsFalse": ["colA2VulnerableSiteDone"],
+"showWhenFlagsTrue": ["colA2Stage"]
+}
 },
 "col_hakim_intel": {
 "cards": [{
@@ -3074,7 +3136,7 @@
 "cards": [{
 "label": "Two days later — Bermondsey",
 "speaker": null,
-"text": "The address Archie texted is a storage unit behind a halal supermarket. You find him leaning against the corrugated shutter, hands in pockets, looking like he's waiting for a bus he knows is going to be late.",
+"text": "The address Archie texted is a storage unit beside a halal supermarket. You find him leaning against the corrugated shutter, hands in pockets, looking like he's waiting for a bus he knows is going to be late.",
 "type": "narration"
 }, {
 "label": null,
@@ -3134,7 +3196,7 @@
 }, {
 "label": null,
 "speaker": null,
-"text": "The shutter closes. James stands in the silence for a moment, regarding you with the careful expression of a man who has decided to do something he hasn't fully justified to himself yet.",
+"text": "The door closes. James stands in the silence for a moment, regarding you with the careful expression of a man who has decided to do something he hasn't fully justified to himself yet.",
 "type": "narration"
 }, {
 "label": null,

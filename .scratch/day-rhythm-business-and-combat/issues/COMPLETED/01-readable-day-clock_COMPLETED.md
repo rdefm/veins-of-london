@@ -4,13 +4,13 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-human
+**Status:** signed off
 
 - [x] Show full Morning, Afternoon or Evening and the day number persistently, including after save/load.
 - [x] Show a persistent sun/moon cue and three segments distinguishing completed, current and remaining phases without colour alone.
 - [x] Label time-consuming actions when they use the final daily block; free or unavailable actions must not imply a time cost.
 - [x] Preserve the three-block rules, existing time costs and automatic rollover.
-- [ ] Verify public action/render boundaries for each phase and final-block labels; request device QA at 390px portrait and relevant safe areas.
+- [x] Verify public action/render boundaries for each phase and final-block labels; request device QA at 390px portrait and relevant safe areas.
 
 ## Delivery constraints
 
@@ -25,4 +25,4 @@ PROSE-REVIEW: `data/constants.json` (`dayClock`).
 
 Device QA (390px portrait and notched device): full phase/day/cash visible; markers distinct without colour; bag and notifications clear of content; Evening labels readable on map/list/Train/jobs/event/bench; free/blocked actions unlabelled; Rest/experiment captions visible over art; Morning restored correctly after rollover and load.
 
-Completion pending: full-suite pre-existing failures and device QA. Do not rename to `_COMPLETED` yet. See `verification-01.md` in the parent feature directory.
+Signed off — 2026-09-19: user confirmed device QA and accepted the pre-existing repository-wide failures noted in `verification-01.md` (repaired separately under ticket 03's cleanup) as out of scope for this ticket.
