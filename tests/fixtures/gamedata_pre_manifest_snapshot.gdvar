@@ -2423,6 +2423,67 @@
 "showWhenFlagsTrue": ["colA1ProspectingTaught"]
 }
 },
+"col_a2_contested_vein": {
+"cards": [{
+"label": "Camden",
+"speaker": null,
+"text": "A lock-up off the market that used to be Collective ground. Somebody's changed the padlock. Nobody saw it happen, or nobody's saying.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"That one's the Firm's now. Since sometime after Hakim. Nobody rang to tell us — we just noticed the takings stopped.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [{
+"op": "claim_faction_vein",
+"siteIdStatePath": "collective.contestedVeinSiteId"
+}, {
+"key": "a2ContestedVein",
+"op": "log_method",
+"value": "force"
+}],
+"label": "Take it back",
+"result_text": "You go in like it's still yours, because it still should be. Nobody's there to argue. That doesn't mean nobody notices."
+}, {
+"effects": [{
+"faction": "firm",
+"op": "buy_faction_vein",
+"siteIdStatePath": "collective.contestedVeinSiteId"
+}, {
+"key": "a2ContestedVein",
+"op": "log_method",
+"value": "bought"
+}],
+"label": "Buy it back",
+"result_text": "\"You want it back, that's a price, same as anyone's. We're not precious about it. It was never really ours, was it — three weeks in a ledger doesn't make it family.\" He counts it without looking up. It is the least interesting thing that has happened to him all week."
+}],
+"label": null,
+"speaker": null,
+"text": "Two ways to have it back.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "Either way, the lock-up is yours again. Whether it feels like it is a separate question, for later.",
+"type": "resolution"
+}],
+"id": "col_a2_contested_vein",
+"on_complete": [{
+"flag": "colA2ContestedVeinDone",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "map"
+}],
+"pin": {
+"district": "camden",
+"showWhenFlagsFalse": ["colA2ContestedVeinDone"],
+"showWhenFlagsTrue": ["colA2Stage"]
+}
+},
 "col_a2_handler_deferred": {
 "cards": [{
 "label": null,

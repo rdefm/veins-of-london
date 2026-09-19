@@ -297,6 +297,10 @@ func new_game_state() -> Dictionary:
 			# 3-day gap is measured from when the player read it, not when
 			# Hakim heard it.
 			"hakimIntelLastDay": 0,
+			# Act 2 T5 (spec §6.5): the site Collective.maybe_trigger_
+			# a2_contested_vein_setup() scripts as "a Collective vein the
+			# Firm has taken since T3". null until Phase 1 opens.
+			"contestedVeinSiteId": null,
 		},
 	}
 

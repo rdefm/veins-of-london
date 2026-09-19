@@ -1017,6 +1017,11 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# reveal_site queues the discover map event for a site id.
 	# set_hakim_intel_day stamps state.collective.hakimIntelLastDay with today.
 	"reveal_site", "set_hakim_intel_day",
+	# Contested-vein choice ops (col_a2_contested_vein, spec §6.5): resolve a
+	# site id from a named state path (siteIdStatePath) rather than a raid's
+	# threaded context, then reuse Raiding.claim_vein()/VeinTrade.
+	# buy_from_faction() respectively.
+	"claim_faction_vein", "buy_faction_vein",
 ]
 
 

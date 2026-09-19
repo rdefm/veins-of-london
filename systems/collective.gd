@@ -239,6 +239,33 @@ static func maybe_trigger_act2_intro() -> bool:
 	return true
 
 
+# Act 2 T5's contested vein (spec §6.5): "a named Collective vein has been
+# taken by the Firm since T3" is scripted rather than left to
+# Factions.apply_rivalry_resolution()'s own odds, so col_a2_contested_vein's
+# pin always has a real site for its Force/Buy back choice to resolve
+# against -- the beat is deliberately abstract/teaching, per the spec, unlike
+# T10-T11's precise losses. Called from Events.advance()'s post-on_complete
+# idiom, same as maybe_trigger_act2_intro() above; contestedVeinSiteId blocks
+# re-firing.
+const CONTESTED_VEIN_DISTRICT := "camden"
+const CONTESTED_VEIN_ORE := "physics"
+const CONTESTED_VEIN_TIER := "fair"
+const CONTESTED_VEIN_GROWTH := 65
+
+
+static func maybe_trigger_a2_contested_vein_setup() -> bool:
+	if not GameState.state["flags"].get("colA2Stage", false):
+		return false
+	if GameState.state["collective"]["contestedVeinSiteId"] != null:
+		return false
+
+	var site: Dictionary = Sites.spawn_unclaimed_site(CONTESTED_VEIN_DISTRICT, CONTESTED_VEIN_TIER, CONTESTED_VEIN_ORE)
+	site["factionVein"] = Factions.create_faction_vein("firm", site, CONTESTED_VEIN_GROWTH)
+	MapEvents.queue_seed_claim(site["district"], site["factionVein"]["id"], "firm")
+	GameState.state["collective"]["contestedVeinSiteId"] = site["id"]
+	return true
+
+
 # Hakim's repeatable unprompted intel -- a free lead on unclaimed ground.
 # Called from TimeSystem.daily_tick(). Districts + tiers weighted per
 # HAKIM_INTEL_TIERS below.

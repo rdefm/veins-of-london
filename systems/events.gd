@@ -154,6 +154,9 @@ static func advance() -> void:
 		# Act 2's own opener -- same "check after any on_complete" idiom, since
 		# colA1Complete only ever flips inside an event's on_complete too.
 		Collective.maybe_trigger_act2_intro()
+		# T5's scripted vein loss -- same idiom, gated on colA2Stage which T3's
+		# on_complete sets.
+		Collective.maybe_trigger_a2_contested_vein_setup()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
 		event_state["cardIndex"] += 1
@@ -291,6 +294,14 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			Raiding.claim_vein(_event_site_id(effect))
 		"loot_raid_vein":
 			Raiding.loot_vein(_event_site_id(effect), _event_caught(effect))
+		# Contested-vein choice ops (col_a2_contested_vein, spec §6.5): both
+		# resolve a site id from a named state path (no per-raid context to
+		# thread, since a map pin's tap carries none) rather than reusing
+		# claim_raid_vein's context-threaded site_id.
+		"claim_faction_vein":
+			Raiding.claim_vein(GameState.read_path(effect["siteIdStatePath"]))
+		"buy_faction_vein":
+			_buy_faction_vein(effect)
 		"unlock_contact":
 			GameState.state["contacts"][effect["contact"]]["unlocked"] = true
 		"push_message":
@@ -443,6 +454,17 @@ static func _event_site_id(effect: Dictionary, fallback_context: Dictionary = {}
 		if from_live_context != "":
 			return from_live_context
 	return fallback_context.get("site_id", "")
+
+
+# buy_faction_vein's helper: resolves a site's current factionVein id from
+# effect["siteIdStatePath"] and reuses VeinTrade.buy_from_faction() at its
+# normal quote() price. A silent no-op if the site or its faction vein is
+# already gone (e.g. bought from the Map screen before this event ran).
+static func _buy_faction_vein(effect: Dictionary) -> void:
+	var site: Variant = Sites.find_site(GameState.read_path(effect["siteIdStatePath"]))
+	if site == null or site["factionVein"] == null:
+		return
+	VeinTrade.buy_from_faction(site["factionVein"]["id"], effect["faction"])
 
 
 # The site was already appended to state.world.sites at roll time -- this just
