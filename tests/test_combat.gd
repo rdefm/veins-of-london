@@ -23,6 +23,7 @@ func _fresh_combat(context: String = Combat.CONTEXT_MUGGING) -> void:
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [], "beatsSinceSnapshot": [],
 		"allies": [],
+		"turnCursor": { "queue": [], "index": 0, "round": 0 },
 	}
 
 
@@ -50,6 +51,7 @@ func _multi_enemy_combat(specs: Array, allies: Array = []) -> Dictionary:
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 		"allies": allies,
+		"turnCursor": { "queue": [], "index": 0, "round": 0 },
 	}
 	return GameState.state["combat"]
 
@@ -318,16 +320,20 @@ func run() -> void:
 	)
 
 	run_case("motion_grants_2_attacks_at_power_below_3", func():
+		# R§3.7a resumable progression: each player-type queue entry (the
+		# base slot plus every Motion-inserted extra) is its own decision --
+		# a Motion round's 2nd hit needs its own player_attack() call.
 		_fresh_combat()
 		GameState.state["combat"]["motionTurns"] = 1
 		GameState.state["combat"]["motionPower"] = 2
 		Rng.set_seed(1)
 		Combat.player_attack()
+		Combat.player_attack()
 		var attack_lines := 0
 		for line in GameState.state["combat"]["log"]:
 			if line.begins_with("You attack"):
 				attack_lines += 1
-		assert_eq(attack_lines, 2, "motionPower 2 should grant exactly 2 attacks")
+		assert_eq(attack_lines, 2, "motionPower 2 should grant exactly 2 attacks across 2 decisions")
 	)
 
 	run_case("motion_grants_3_attacks_at_power_3_or_above", func():
@@ -336,11 +342,13 @@ func run() -> void:
 		GameState.state["combat"]["motionPower"] = 3
 		Rng.set_seed(1)
 		Combat.player_attack()
+		Combat.player_attack()
+		Combat.player_attack()
 		var attack_lines := 0
 		for line in GameState.state["combat"]["log"]:
 			if line.begins_with("You attack"):
 				attack_lines += 1
-		assert_eq(attack_lines, 3, "motionPower 3 should grant exactly 3 attacks")
+		assert_eq(attack_lines, 3, "motionPower 3 should grant exactly 3 attacks across 3 decisions")
 	)
 
 	run_case("flee_65_percent_with_seed", func():
@@ -491,7 +499,17 @@ func run() -> void:
 		var result := Combat.cast_complication(0)
 
 		assert_true(result["ok"], "casting a loaded timePearl Complication should succeed")
-		assert_true(GameState.state["combat"]["frozenTurns"] > 0, "casting timePearl should freeze the enemy")
+		# R§3.7a: casting now resolves the queued player turn and the engine
+		# runs forward -- with a single enemy, its own queued turn follows
+		# immediately this same round and can consume the freeze (a 1-turn
+		# grant reads back as 0 by the time this returns), so check the
+		# granted amount via the log line instead of the now-transient
+		# live value.
+		var found := false
+		for line in GameState.state["combat"]["log"]:
+			if line.contains("Enemy frozen for"):
+				found = true
+		assert_true(found, "casting timePearl should freeze the enemy")
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 4, "casting should spend exactly one charge")
 		assert_eq(Crafting.inventory_qty("timePearl"), 0, "casting a loaded Complication must never touch regular inventory")
 	)
@@ -575,7 +593,13 @@ func run() -> void:
 	)
 
 	run_case("use_time_pearl_sets_frozenTurns_from_effect_power", func():
+		# R§3.7a: using an item now resolves the queued player turn and runs
+		# the engine forward -- a live enemy would immediately spend the
+		# freeze via its own following turn this same round. No enemy means
+		# nothing auto-resolves after the item, so the granted value is
+		# still observable live.
 		_fresh_combat()
+		GameState.state["combat"]["enemies"] = []
 		GameState.state["player"]["inventory"]["timePearl"] = { "1": 3 }
 		GameState.state["player"]["craftingSkill"] = 1
 		Combat.use_time_pearl()
@@ -601,7 +625,7 @@ func run() -> void:
 			"enemies": [{ "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "isMugging": false, "speed": 10, "koed": true }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "loss", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [], "beatsSinceSnapshot": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [],
 		}
 		var result := Combat.exit_combat()
@@ -624,7 +648,7 @@ func run() -> void:
 			"enemies": [{ "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "isMugging": false, "speed": 10, "koed": true }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [], "beatsSinceSnapshot": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [],
 		}
 		Combat.exit_combat()
@@ -1067,7 +1091,11 @@ func run() -> void:
 	)
 
 	run_case("use_shield_sets_shieldPool_from_effect_power", func():
+		# R§3.7a: no enemy means nothing auto-resolves after the item, so
+		# shieldPool's just-granted value is still observable live -- see
+		# use_time_pearl_sets_frozenTurns_from_effect_power's own comment.
 		_fresh_combat()
+		GameState.state["combat"]["enemies"] = []
 		GameState.state["player"]["inventory"]["shield"] = { "1": 2 }
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_shield()
@@ -1128,7 +1156,13 @@ func run() -> void:
 		assert_true(result["ok"], "should succeed with a black hole in hand")
 		# blackHole effectPower at skill 1 = 8 -> freeze = 1 + floor(8/8) = 2
 		assert_eq(GameState.state["combat"]["enemies"][0]["hp"], hp_before - 8, "should deal effectPower damage immediately")
-		assert_eq(GameState.state["combat"]["frozenTurns"], 3, "should add to the existing frozenTurns, not replace it (1 prior + 2 new)")
+		# R§3.7a: using the item resolves the queued player turn, and the
+		# engine runs forward -- the enemy's own queued turn follows
+		# immediately this same round, and being frozen, silently spends
+		# one point of the pool (1 prior + 2 new - 1 spent = 2). Still
+		# distinguishes additive from a replace-instead-of-add bug (which
+		# would read back as 1, not 2).
+		assert_eq(GameState.state["combat"]["frozenTurns"], 2, "should add to the existing frozenTurns, not replace it")
 		assert_eq(Crafting.inventory_qty("blackHole"), 1, "one black hole consumed")
 	)
 
@@ -1166,7 +1200,12 @@ func run() -> void:
 	# ── calc-effect-wiring-03: reactive and escape consumables ───────────
 
 	run_case("use_prophets_breath_sets_evadeTurns_from_effect_power_and_50_percent_chance", func():
+		# R§3.7a: no enemy means nothing auto-resolves after the item, so
+		# evadeTurns' just-granted value is still observable live -- a live
+		# enemy's own following turn this same round would otherwise
+		# unconditionally decrement it (see _enemy_attack_player).
 		_fresh_combat()
+		GameState.state["combat"]["enemies"] = []
 		GameState.state["player"]["inventory"]["prophetsBreath"] = { "1": 2 }
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_prophets_breath()
@@ -1186,6 +1225,7 @@ func run() -> void:
 
 	run_case("use_prophets_breath_overwrites_an_existing_evade_grant_rather_than_stacking", func():
 		_fresh_combat()
+		GameState.state["combat"]["enemies"] = []
 		GameState.state["player"]["inventory"]["prophetsBreath"] = { "1": 1 }
 		GameState.state["player"]["craftingSkill"] = 1
 		GameState.state["combat"]["evadeTurns"] = 5
@@ -1400,7 +1440,7 @@ func run() -> void:
 			"enemies": [{ "name": "Test Enemy", "hp": 0, "hpMax": 20, "attackMin": 0, "attackMax": 0, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": true }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [],
 		}
 
@@ -1421,7 +1461,7 @@ func run() -> void:
 			"enemies": [{ "name": "Test Enemy", "hp": 20, "hpMax": 20, "attackMin": 0, "attackMax": 0, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "loss", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [],
 		}
 
@@ -1474,7 +1514,7 @@ func run() -> void:
 			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 50, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 0, "healAmount": 15, "speed": 9, "koed": false }],
 		}
 		Rng.set_seed(1)
@@ -1496,7 +1536,7 @@ func run() -> void:
 			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 10, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 1, "healAmount": 15, "speed": 9, "koed": false }],
 		}
 		Rng.set_seed(1)
@@ -1522,7 +1562,7 @@ func run() -> void:
 				"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 999, "attackMax": 999, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 				"focusedEnemyIndex": 0,
 				"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-				"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
+				"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 				"allies": [Contacts.build_combat_ally("archie")],
 			}
 			Combat.enemy_attack()
@@ -1549,7 +1589,7 @@ func run() -> void:
 			"enemies": [{ "name": "Test Enemy", "hp": 0, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": true }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 12, "hpMax": 50, "attackMin": 4, "attackMax": 9, "stash": 0, "healAmount": 15, "koed": false }],
 		}
 
@@ -1700,7 +1740,7 @@ func run() -> void:
 			"enemies": [{ "name": "Fast Enemy", "hp": 50, "hpMax": 50, "attackMin": 500, "attackMax": 500, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 999, "koed": false }],
 			"focusedEnemyIndex": 0,
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
-			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [], "beatsSinceSnapshot": [],
+			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [],
 		}
 		GameState.state["player"]["hp"] = 10
@@ -1751,7 +1791,13 @@ func run() -> void:
 		assert_eq(combat["enemies"][0]["hp"], 42, "every living enemy should drop by the same, full undiluted power")
 		assert_eq(combat["enemies"][1]["hp"], 42, "every living enemy should drop by the same, full undiluted power")
 		assert_eq(combat["enemies"][2]["hp"], 30, "an already-koed enemy should be skipped entirely, not double-counted")
-		assert_eq(combat["frozenTurns"], 4, "freeze should be applied once per enemy actually hit (2 living enemies x 2 turns each), not once total")
+		# R§3.7a: the item resolves the queued player turn and the engine
+		# runs forward -- both living enemies' own queued turns follow
+		# immediately this same round and, being frozen, each silently
+		# spend one point of the shared pool (2 living x 2 turns = 4,
+		# minus 2 spent = 2). Still distinguishes "once per enemy hit" (2)
+		# from a once-total bug (which would read back as 0).
+		assert_eq(combat["frozenTurns"], 2, "freeze should be applied once per enemy actually hit, not once total")
 	)
 
 	run_case("cast_complication_black_hole_applies_full_undiluted_damage_and_freeze_to_every_non_koed_enemy_independently", func():
@@ -1771,7 +1817,10 @@ func run() -> void:
 		assert_eq(combat["enemies"][0]["hp"], 50 - dmg, "every living enemy should drop by the same, full undiluted power")
 		assert_eq(combat["enemies"][1]["hp"], 50 - dmg, "every living enemy should drop by the same, full undiluted power")
 		assert_eq(combat["enemies"][2]["hp"], 30, "an already-koed enemy should be skipped entirely, not double-counted")
-		assert_eq(combat["frozenTurns"], freeze_turns * 2, "freeze should be applied once per enemy actually hit (2 living enemies), not once total")
+		# R§3.7a: both living enemies' own queued turns follow immediately
+		# this same round and, being frozen, each spend one point of the
+		# shared pool -- see the sibling use_black_hole() test's own comment.
+		assert_eq(combat["frozenTurns"], freeze_turns * 2 - 2, "freeze should be applied once per enemy actually hit, not once total")
 	)
 
 	# ── combat-presentation ticket 05: cast_complication() beats ───────────
@@ -1824,7 +1873,10 @@ func run() -> void:
 
 		assert_true(result["ok"], "casting a loaded shield Complication should succeed")
 		var beats: Array = result["beats"]
-		assert_eq(beats.size(), 1)
+		# R§3.7a: casting resolves the queued player turn and the engine
+		# runs forward -- the single enemy's own queued turn follows
+		# immediately this same round, appending its own trailing beat.
+		assert_eq(beats.size(), 2, "the shield beat plus the immediately-following enemy turn's beat")
 		assert_eq(beats[0]["kind"], Combat.BEAT_COMPLICATION_SHIELD)
 		assert_true(not beats[0].has("dmg"), "a non-damaging Complication's beat should carry no dmg field -- the juice layer keys off its presence")
 	)
@@ -1848,7 +1900,10 @@ func run() -> void:
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_time_pearl()
 		var beats: Array = result["beats"]
-		assert_eq(beats.size(), 1)
+		# R§3.7a: using the item resolves the queued player turn and the
+		# engine runs forward -- the single enemy's own queued turn follows
+		# immediately this same round, appending its own trailing beat.
+		assert_eq(beats.size(), 2, "the pearl's own beat plus the immediately-following enemy turn's beat")
 		assert_eq(beats[0]["kind"], Combat.BEAT_USE_TIME_PEARL)
 		assert_eq(beats[0]["effectKey"], "timePearl")
 	)
@@ -1877,13 +1932,17 @@ func run() -> void:
 	)
 
 	run_case("use_blast_disarm_beat_carries_the_target_but_no_effectKey_transform_only", func():
+		# R§3.7a: using the item resolves the queued player turn and the
+		# engine runs forward -- the single enemy's own queued turn follows
+		# immediately this same round, appending a 3rd, trailing beat after
+		# blast's own dmg beat and (on a disarm roll) its disarm beat.
 		var found_seed := SeedSearch.find_seed_for(500, func():
 			_fresh_combat()
 			GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
 			GameState.state["player"]["craftingSkill"] = 1
 			var result := Combat.use_blast()
 			var beats: Array = result["beats"]
-			return beats.size() == 2 and beats[1]["kind"] == Combat.BEAT_USE_DISARM
+			return beats.size() == 3 and beats[1]["kind"] == Combat.BEAT_USE_DISARM
 		)
 		assert_true(found_seed != -1, "blast's 15% disarm chance should land within 500 tries")
 
@@ -1905,7 +1964,9 @@ func run() -> void:
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_shield()
 		var beats: Array = result["beats"]
-		assert_eq(beats.size(), 1)
+		# R§3.7a: the single enemy's own queued turn follows immediately
+		# this same round, appending its own trailing beat.
+		assert_eq(beats.size(), 2, "the shield beat plus the immediately-following enemy turn's beat")
 		assert_eq(beats[0]["kind"], Combat.BEAT_USE_SHIELD)
 		assert_eq(beats[0]["effectKey"], "shield")
 		assert_true(not beats[0].has("dmg"))
@@ -1946,6 +2007,9 @@ func run() -> void:
 	# `motion_active` comment) ──────────────────────────────────────────
 
 	run_case("player_attack_stamps_motionBoosted_on_every_player_beat_of_a_motion_round_including_the_extra_ones", func():
+		# R§3.7a: a Motion round's base slot and every inserted extra slot
+		# are now separate decision points -- each needs its own
+		# player_attack() call, so beats accumulate across both.
 		_fresh_combat()
 		GameState.state["player"]["attackMin"] = 0
 		GameState.state["player"]["attackMax"] = 0
@@ -1955,8 +2019,10 @@ func run() -> void:
 		GameState.state["combat"]["motionTurns"] = 1  # power < 3: exactly one motion round
 		GameState.state["combat"]["motionPower"] = 1
 
-		var result := Combat.player_attack()
-		var beats: Array = result["beats"]
+		var beats: Array = []
+		beats.append_array(Combat.player_attack()["beats"])  # the round's base slot
+		assert_eq(GameState.state["combat"]["motionTurns"], 1, "motionTurns should not tick down until the round's extra slot has also resolved")
+		beats.append_array(Combat.player_attack()["beats"])  # the Motion-inserted extra slot
 
 		var player_attack_beats := 0
 		for beat in beats:
@@ -1977,11 +2043,16 @@ func run() -> void:
 		GameState.state["combat"]["motionTurns"] = 2  # power >= 3: two motion rounds
 		GameState.state["combat"]["motionPower"] = 3
 
-		Combat.player_attack()  # first motion round
+		# First motion round: base slot + 2 extra slots, one decision each.
+		for i in range(3):
+			Combat.player_attack()
 		assert_eq(GameState.state["combat"]["motionTurns"], 1, "one motion round should remain")
 
-		var result := Combat.player_attack()  # second (final) motion round
-		var beats: Array = result["beats"]
+		# Second (final) motion round -- again 3 separate decisions.
+		var beats: Array = []
+		for i in range(3):
+			beats.append_array(Combat.player_attack()["beats"])
+
 		var player_attack_beats := 0
 		for beat in beats:
 			if beat.get("actorType", "") == "player":
@@ -2146,7 +2217,12 @@ func run() -> void:
 			var result := Combat.flee()
 			if result["outcome"] != "fled":
 				found_seed = seed
-				assert_eq(result["beats"].size(), 2, "flee_failed line + the parting shot's own enemy_attack beat")
+				# R§3.7a: a failed flee still resolves the queued player
+				# turn -- the parting shot is a separate, immediate
+				# enemy_attack() outside the queue (unchanged), so the
+				# engine then runs forward into that same enemy's own
+				# still-pending queued turn this round, appending a 3rd beat.
+				assert_eq(result["beats"].size(), 3, "flee_failed line + the parting shot's own enemy_attack beat + this round's own queued enemy turn")
 				assert_eq(result["beats"][0]["kind"], Combat.BEAT_FLEE_FAILED)
 				assert_eq(result["beats"][1]["kind"], Combat.BEAT_ENEMY_ATTACK)
 				break

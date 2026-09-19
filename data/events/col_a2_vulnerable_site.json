@@ -18,7 +18,7 @@
             { "op": "add", "path": "factions.collective.resources", "value": 150 },
             { "op": "log_method", "key": "a2VulnerableSite", "value": "lookout" }
           ],
-          "result_text": "You put the money in, so someone doesn't need to pull a second shift and can spend it here, sitting on a crate near the arch most evenings, reading a paper without readlly reading it."
+          "result_text": "You put the money in, so someone doesn't need to pull a second shift and can spend it here, sitting on a crate near the arch most evenings, reading a paper without really reading it."
         },
         {
           "label": "Stay soft and fast",

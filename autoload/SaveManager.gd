@@ -556,10 +556,26 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 	for snap in combat.get("snapshots", []):
 		for key in ["playerHp", "enemyHp", "focusedEnemyIndex", "frozenTurns", "motionTurns", "motionPower", "evadeTurns"]:
 			_int_key(snap, key)
+		if snap.has("turnCursor"):
+			_restore_turn_cursor_int_types(snap["turnCursor"])
 	# allies[] entries (Contacts.build_combat_ally), speed included.
 	for ally in combat.get("allies", []):
 		for key in ["hp", "hpMax", "attackMin", "attackMax", "stash", "healAmount", "speed"]:
 			_int_key(ally, key)
+	if combat.has("turnCursor"):
+		_restore_turn_cursor_int_types(combat["turnCursor"])
+
+
+# R§3.7a resumable-progression cursor: index/round are ints, and each
+# queued entry (systems/combat.gd's build_turn_queue() shape) carries its
+# own int speed plus an int index for an ally/enemy entry (absent on a
+# player-type entry).
+func _restore_turn_cursor_int_types(cursor: Dictionary) -> void:
+	for key in ["index", "round"]:
+		_int_key(cursor, key)
+	for entry in cursor.get("queue", []):
+		_int_key(entry, "speed")
+		_int_key(entry, "index")
 
 
 # Same fixed-schema restoration as _restore_combat_int_types() above, over

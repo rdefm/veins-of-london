@@ -57,6 +57,7 @@ func _run() -> void:
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": allies,
+			"turnCursor": { "queue": [], "index": 0, "round": 0 },
 		}
 
 		var screen: Control = load("res://scenes/screens/combat.gd").new()

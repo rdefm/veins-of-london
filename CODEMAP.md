@@ -28,10 +28,10 @@ Data file per system: see `data/*.json` below.
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement |
-| combat.gd | Turn-based combat engine + rewind |
+| combat.gd | Turn-based combat engine + rewind. Resumable per-decision-point progression (R§3.7a): `combat.turnCursor` tracks the round's queue/index; `advance_to_next_decision()` auto-resolves ally/enemy entries and parks at the next player-type one; `prime_decision_point()`/`conclude_decision_point()` wrap every player command (Attack/Item/Flee/Complication) around it |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
-| consumables.gd | Out-of-combat healing effects |
+| consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry via Combat.prime_decision_point()/conclude_decision_point() (R§3.7a) |
 | contacts.gd | Relation, recruiting, room assignment, XP |
 | contracts.gd | Sales contract delivery, priority, settlement |
 | crafting.gd | Recipe crafting |

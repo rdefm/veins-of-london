@@ -374,6 +374,10 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 		# Every beat _log() threads since the oldest snapshot still on the stack
 		# was pushed; see combat_rewind()'s "beat queue in reverse" use of it.
 		"beatsSinceSnapshot": [],
+		# R§3.7a "Resumable turn progression": the round's queue + how far
+		# into it we've resolved. Never carried between fights -- the first
+		# advance_to_next_decision() call populates queue/round from empty.
+		"turnCursor": { "queue": [], "index": 0, "round": 0 },
 	}
 	GameState.state["currentScreen"] = "combat"
 	EventBus.screen_changed.emit("combat")
@@ -422,6 +426,10 @@ static func push_combat_snapshot() -> void:
 		"motionPower": combat["motionPower"],
 		"evadeTurns": combat["evadeTurns"],
 		"evadeChance": combat["evadeChance"],
+		# R§3.7a: parked cursor position at this decision point, so a
+		# restore resumes at the same queued player-type entry rather than
+		# losing its place in the round.
+		"turnCursor": combat["turnCursor"].duplicate(),
 	}
 	Snapshots.push("combat", combat["snapshots"], snap)
 
@@ -473,6 +481,87 @@ static func build_turn_queue(combat: Dictionary) -> Array:
 	return queue
 
 
+# R§3.7a "Resumable turn progression": the engine's resume function.
+# Starting from combat.turnCursor.index, auto-resolves every non-player
+# entry in place (ally/enemy turns, unchanged bodies -- a koed entry is
+# skipped exactly as its own turn body already handles) and stops the
+# instant either combat.outcome resolves or a player-type entry (the
+# round's own slot or a Motion-inserted extra) is reached. Never resolves
+# the player entry itself -- it parks there and waits for a command. A
+# round boundary (cursor exhausts the queue) decrements motionTurns once,
+# rebuilds the queue via build_turn_queue() against the post-tick state,
+# and keeps auto-resolving into the new round.
+static func advance_to_next_decision(combat: Dictionary, beats: Variant = null) -> void:
+	var cursor: Dictionary = combat["turnCursor"]
+	while true:
+		if cursor["index"] >= cursor["queue"].size():
+			# Only decrement when the round that's ending actually spent the
+			# buff (its queue carries Motion-inserted "extra" slots) -- not
+			# whenever motionTurns happens to be >0. Activating Motion mid-
+			# round (an item use) sets motionTurns after this round's queue
+			# was already built without extras, so it takes effect starting
+			# next round; decrementing here too would expire it before it
+			# ever granted an extra attack, including at the very first
+			# round of a fight (queue starts empty, no round has run yet).
+			var round_spent_motion := false
+			for queued_entry in cursor["queue"]:
+				if queued_entry.get("extra", false):
+					round_spent_motion = true
+					break
+			if round_spent_motion and combat["motionTurns"] > 0:
+				combat["motionTurns"] -= 1
+				if combat["motionTurns"] == 0:
+					_log(combat, beats, "The powder wears off. Back to normal speed.", BEAT_MOTION_END, {})
+			cursor["queue"] = build_turn_queue(combat)
+			cursor["index"] = 0
+			cursor["round"] += 1
+			if combat["motionTurns"] > 0:
+				var motion_label: String = "three times" if combat["motionPower"] >= 3 else "twice"
+				_log(combat, beats, "Motion powder — you move %s as fast." % motion_label, BEAT_MOTION_ANNOUNCE, {})
+			continue
+
+		var entry: Dictionary = cursor["queue"][cursor["index"]]
+		if entry["type"] == "player":
+			return
+
+		cursor["index"] += 1
+		match entry["type"]:
+			"ally":
+				var allies: Array = combat["allies"]
+				if entry["index"] < allies.size() and not allies[entry["index"]]["koed"]:
+					_ally_turn(combat, allies[entry["index"]], entry["index"], beats)
+			"enemy":
+				var enemies: Array = combat["enemies"]
+				if entry["index"] < enemies.size() and not enemies[entry["index"]]["koed"]:
+					_enemy_turn(combat, enemies[entry["index"]], entry["index"], beats)
+
+		if combat["outcome"] != null:
+			return
+
+
+# Guarantees the cursor is parked at a player-type entry before a command's
+# own effect resolves against it. Only ever does real work on the very
+# first decision of a fresh fight (turnCursor.queue starts empty) -- every
+# later call arrives already parked there, because the previous decision's
+# conclude_decision_point() already ran the engine forward into this round.
+# Returns false when advancing here itself ends the fight (e.g. a
+# faster-than-player enemy opens with a lethal hit) -- callers bail out
+# without resolving their own action.
+static func prime_decision_point(combat: Dictionary, beats: Variant = null) -> bool:
+	if combat["turnCursor"]["queue"].is_empty():
+		advance_to_next_decision(combat, beats)
+	return combat["outcome"] == null
+
+
+# Marks the cursor's current player-type entry resolved and runs the engine
+# forward to the next decision point (or outcome) -- called once a
+# command's own effect has been applied to that entry.
+static func conclude_decision_point(combat: Dictionary, beats: Variant = null) -> void:
+	combat["turnCursor"]["index"] += 1
+	if combat["outcome"] == null:
+		advance_to_next_decision(combat, beats)
+
+
 # R§3.7a: shared by player_attack()'s per-turn XP and train()'s gym-session
 # XP -- same Progression.award_xp()/GameData.COMBAT_XP_LEVELS mechanism
 # Cultivating.award_xp() already uses.
@@ -482,8 +571,9 @@ static func award_xp(amount: int) -> void:
 	Progression.award_xp(player, "combatXP", "combatSkill", GameData.COMBAT_XP_LEVELS, amount, on_level_up)
 
 
-# Walks build_turn_queue()'s ordering, each entry resolving as one atomic
-# turn, stopping the moment an outcome resolves. Also returns `beats`
+# Resolves exactly the one queued player-type entry the cursor is parked
+# on -- never a whole round (R§3.7a "Resumable turn progression") -- then
+# runs the engine forward to the next decision point. Also returns `beats`
 # (docs/combat-animation-vision.md §8): an ordered Array of pure-data
 # dictionaries, one per new log line. GameState.state gains no new schema --
 # beats live only in the return value, so save/load and Rewind are untouched.
@@ -492,6 +582,11 @@ static func player_attack() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 
+	var beats: Array = []
+	if not prime_decision_point(combat, beats):
+		EventBus.state_changed.emit()
+		return { "ok": true, "outcome": combat["outcome"], "beats": beats }
+
 	push_combat_snapshot()
 	# Tier-5 Recharge Movement's in-combat regen ticks once per player turn;
 	# a silent no-op for every other Movement/no-Dial case.
@@ -499,43 +594,19 @@ static func player_attack() -> Dictionary:
 
 	# R§3.7a: flat XP once per player_attack() call, regardless of hit/miss/
 	# kill/loss -- taking a turn has no success/fail split to award against.
+	# A Motion round now calls this once per resolved player entry (2-3
+	# calls), so it visibly awards 2-3x -- matching "once per player turn
+	# taken" as already written here, not a formula change.
 	award_xp(COMBAT_XP_PER_ATTACK_TURN)
 
-	var beats: Array = []
-
-	# Captured before the end-of-round decrement below and stamped onto each
-	# beat's `motionBoosted` field, since motionTurns may already be 0 by
+	# Stamped onto this attack's beat, since motionTurns may already be 0 by
 	# playback time -- beats must be self-describing snapshots, never a
-	# live-state re-read.
-	var motion_active: bool = combat["motionTurns"] > 0
+	# live-state re-read. Stable for the whole round (only the round
+	# boundary decrements it), so every player entry in a Motion round sees
+	# the same value.
+	_resolve_player_turn(combat, beats, combat["motionTurns"] > 0)
 
-	# build_turn_queue() is a pure query (no state mutation), so the
-	# Motion-round announcement is logged here instead.
-	if motion_active:
-		var motion_label: String = "three times" if combat["motionPower"] >= 3 else "twice"
-		_log(combat, beats, "Motion powder — you move %s as fast." % motion_label, BEAT_MOTION_ANNOUNCE, {})
-
-	for entry in build_turn_queue(combat):
-		match entry["type"]:
-			"player":
-				_resolve_player_turn(combat, beats, motion_active)
-			"ally":
-				var allies: Array = combat["allies"]
-				if entry["index"] < allies.size() and not allies[entry["index"]]["koed"]:
-					_ally_turn(combat, allies[entry["index"]], entry["index"], beats)
-			"enemy":
-				var enemies: Array = combat["enemies"]
-				if entry["index"] < enemies.size() and not enemies[entry["index"]]["koed"]:
-					_enemy_turn(combat, enemies[entry["index"]], entry["index"], beats)
-		if combat["outcome"] != null:
-			break
-
-	# Always runs, even on an early win/loss -- exit_combat() tears the whole
-	# combat dict down regardless, so nothing depends on this being skipped.
-	if combat["motionTurns"] > 0:
-		combat["motionTurns"] -= 1
-		if combat["motionTurns"] == 0:
-			_log(combat, beats, "The powder wears off. Back to normal speed.", BEAT_MOTION_END, {})
+	conclude_decision_point(combat, beats)
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "outcome": combat["outcome"], "beats": beats }
@@ -740,11 +811,20 @@ static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dict
 
 
 # Also returns `beats`, same shape as player_attack()'s -- the failed-flee
-# parting shot's own returned beats are appended onto this call's.
+# parting shot's own returned beats are appended onto this call's. Leg it
+# resolves the cursor's parked player-type entry exactly like Attack does
+# (R§3.7a): a snapshot per attempt, then the engine runs forward afterward.
 static func flee() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
+
+	var beats: Array = []
+	if not prime_decision_point(combat, beats):
+		EventBus.state_changed.emit()
+		return { "ok": true, "outcome": combat["outcome"], "beats": beats }
+
+	push_combat_snapshot()
 
 	# Blast's one-use flee boost, read defensively and cleared here
 	# regardless of the roll's outcome, so it never survives past the next
@@ -754,8 +834,6 @@ static func flee() -> Dictionary:
 		flee_chance = BLAST_FLEE_BOOST_CHANCE
 		combat["blastFleeBoost"] = false
 
-	var beats: Array = []
-
 	if Rng.chance(flee_chance):
 		combat["outcome"] = "fled"
 		_log(combat, beats, "You back off sharpish. Probably the right call.", BEAT_FLEE_SUCCESS, {})
@@ -763,6 +841,8 @@ static func flee() -> Dictionary:
 		_log(combat, beats, "You try to leg it — they get a parting shot in.", BEAT_FLEE_FAILED, {})
 		var parting_shot: Dictionary = enemy_attack()
 		beats.append_array(parting_shot.get("beats", []))
+
+	conclude_decision_point(combat, beats)
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "outcome": combat["outcome"], "beats": beats }
@@ -780,12 +860,20 @@ static func use_time_pearl() -> Dictionary:
 		EventBus.state_changed.emit()
 		return { "ok": false, "reason": "Already frozen." }
 
+	var beats: Array = []
+	if not prime_decision_point(combat, beats):
+		EventBus.state_changed.emit()
+		return { "ok": true, "beats": beats }
+	push_combat_snapshot()
+
 	Crafting.inventory_remove("timePearl", 1)
 	var power = Crafting.effect_power("timePearl", player["craftingSkill"])
 	combat["frozenTurns"] += power
 	var turn_word: String = "turn" if power == 1 else "turns"
-	var beats: Array = []
 	_log(combat, beats, "You throw a time pearl. The air goes thick. Everything slows. (%d %s)" % [power, turn_word], BEAT_USE_TIME_PEARL, { "effectKey": "timePearl" })
+
+	conclude_decision_point(combat, beats)
+
 	EventBus.state_changed.emit()
 	return { "ok": true, "beats": beats }
 
@@ -802,22 +890,32 @@ static func use_enhancement_powder() -> Dictionary:
 		EventBus.state_changed.emit()
 		return { "ok": false, "reason": "Already moving fast." }
 
+	var beats: Array = []
+	if not prime_decision_point(combat, beats):
+		EventBus.state_changed.emit()
+		return { "ok": true, "beats": beats }
+	push_combat_snapshot()
+
 	Crafting.inventory_remove("enhancementPowder", 1)
 	var power = Crafting.effect_power("enhancementPowder", player["craftingSkill"])
 	combat["motionPower"] = power
 	combat["motionTurns"] = 2 if power >= 3 else 1
 	# No effectKey/manifest sheet -- the afterimage trail is a duplicate-sprite
 	# alpha ramp the screen triggers off combat.motionTurns during subsequent
-	# BEAT_PLAYER_ATTACK beats, not off this activation beat.
-	var beats: Array = []
+	# BEAT_PLAYER_ATTACK beats, not off this activation beat. The current
+	# round's queue is already fixed (R§3.7a) -- the extra attacks land
+	# starting next round, not this one.
 	_log(combat, beats, "You rub the powder in. The world slows slightly around you. You feel very fast.", BEAT_USE_MOTION, {})
+
+	conclude_decision_point(combat, beats)
+
 	EventBus.state_changed.emit()
 	return { "ok": true, "beats": beats }
 
 
 # Immediate damage, a one-use boost to the next flee() roll, and a small
-# chance to disarm the enemy via disarm_enemy(). Free action, same shape as
-# use_time_pearl/use_enhancement_powder -- doesn't consume a turn.
+# chance to disarm the enemy via disarm_enemy(). Resolves the cursor's
+# parked player-type entry, same as every other combat command (R§3.7a).
 static func use_blast() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
@@ -826,12 +924,17 @@ static func use_blast() -> Dictionary:
 	if Crafting.inventory_qty("blast") <= 0:
 		return { "ok": false, "reason": "No blast." }
 
+	var beats: Array = []
+	if not prime_decision_point(combat, beats):
+		EventBus.state_changed.emit()
+		return { "ok": true, "beats": beats }
+	push_combat_snapshot()
+
 	Crafting.inventory_remove("blast", 1)
 	var power = Crafting.effect_power("blast", player["craftingSkill"])
 	var enemy: Dictionary = _focused_enemy(combat)
 	var target_index: int = combat["focusedEnemyIndex"]
 	enemy["hp"] = maxi(0, enemy["hp"] - power)
-	var beats: Array = []
 	_log(combat, beats, "You let off a blast — %d damage. Enemy: %d/%d HP." % [power, enemy["hp"], enemy["hpMax"]], BEAT_USE_BLAST,
 		{ "targetType": "enemy", "targetIndex": target_index, "dmg": power, "effectKey": "blast" })
 	combat["blastFleeBoost"] = true
@@ -841,6 +944,8 @@ static func use_blast() -> Dictionary:
 		_log(combat, beats, "The shove knocks their weapon loose.", BEAT_USE_DISARM, { "targetType": "enemy", "targetIndex": target_index })
 
 	_maybe_win_from_direct_damage(combat, enemy, beats)
+
+	conclude_decision_point(combat, beats)
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "beats": beats }
@@ -860,11 +965,19 @@ static func use_shield() -> Dictionary:
 		EventBus.state_changed.emit()
 		return { "ok": false, "reason": "Shield already active." }
 
+	var beats: Array = []
+	if not prime_decision_point(combat, beats):
+		EventBus.state_changed.emit()
+		return { "ok": true, "beats": beats }
+	push_combat_snapshot()
+
 	Crafting.inventory_remove("shield", 1)
 	var power = Crafting.effect_power("shield", player["craftingSkill"])
 	player["shieldPool"] = power
-	var beats: Array = []
 	_log(combat, beats, "A shimmer folds around you. Shield up — %d absorption." % power, BEAT_USE_SHIELD, { "effectKey": "shield" })
+
+	conclude_decision_point(combat, beats)
+
 	EventBus.state_changed.emit()
 	return { "ok": true, "beats": beats }
 
@@ -897,14 +1010,21 @@ static func use_black_hole() -> Dictionary:
 	if Crafting.inventory_qty("blackHole") <= 0:
 		return { "ok": false, "reason": "No black hole." }
 
+	var beats: Array = []
+	if not prime_decision_point(combat, beats):
+		EventBus.state_changed.emit()
+		return { "ok": true, "beats": beats }
+	push_combat_snapshot()
+
 	Crafting.inventory_remove("blackHole", 1)
 	var power = Crafting.effect_power("blackHole", player["craftingSkill"])
 	var freeze_turns: int = 1 + int(floor(float(power) / 8.0))
-	var beats: Array = []
 	# Per-enemy hit beats (via _apply_black_hole_aoe(), the same shared helper
 	# cast_complication() uses) replace a single combined summary line.
 	_log(combat, beats, "You drop a black hole.", BEAT_USE_BLACK_HOLE_ANNOUNCE, {})
 	_apply_black_hole_aoe(combat, power, freeze_turns, beats)
+
+	conclude_decision_point(combat, beats)
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "beats": beats }
@@ -958,13 +1078,22 @@ static func use_prophets_breath() -> Dictionary:
 	if Crafting.inventory_qty("prophetsBreath") <= 0:
 		return { "ok": false, "reason": "No prophet's breath." }
 
+	var beats: Array = []
+	if not prime_decision_point(combat, beats):
+		EventBus.state_changed.emit()
+		return { "ok": true, "beats": beats }
+	push_combat_snapshot()
+
 	Crafting.inventory_remove("prophetsBreath", 1)
 	var power = Crafting.effect_power("prophetsBreath", player["craftingSkill"])
 	combat["evadeTurns"] = power
 	combat["evadeChance"] = 0.50
 	combat["log"].append("You take a lungful. For a few seconds, you can see it coming.")
+
+	conclude_decision_point(combat, beats)
+
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return { "ok": true, "beats": beats }
 
 
 # Wormhole's combat half: guarantees flee()'s escape outright rather than
@@ -977,10 +1106,18 @@ static func use_wormhole() -> Dictionary:
 	if Crafting.inventory_qty("wormhole") <= 0:
 		return { "ok": false, "reason": "No wormhole." }
 
+	var beats: Array = []
+	if not prime_decision_point(combat, beats):
+		EventBus.state_changed.emit()
+		return { "ok": true, "beats": beats }
+	push_combat_snapshot()
+
 	Crafting.inventory_remove("wormhole", 1)
 	combat["outcome"] = "fled"
-	var beats: Array = []
 	_log(combat, beats, "You fold the space between you and gone. Clean exit -- no parting shot.", BEAT_USE_WORMHOLE, { "actorType": "player" })
+
+	conclude_decision_point(combat, beats)
+
 	EventBus.state_changed.emit()
 	return { "ok": true, "beats": beats }
 
@@ -1021,9 +1158,15 @@ static func cast_complication(index: int) -> Dictionary:
 		EventBus.state_changed.emit()
 		return { "ok": false, "reason": "Shield already active." }
 
+	var beats: Array = []
+	if not prime_decision_point(combat, beats):
+		EventBus.state_changed.emit()
+		return { "ok": true, "outcome": combat["outcome"], "beats": beats }
+
 	var cast: Dictionary = Dial.cast_complication(index)
 	if not cast["ok"]:
 		return cast
+	push_combat_snapshot()
 
 	var power = cast["power"]
 	var targets: int = cast["targets"]
@@ -1035,7 +1178,6 @@ static func cast_complication(index: int) -> Dictionary:
 	# full power `targets` times. blackHole folds `targets` into its
 	# per-enemy power/freeze instead. blast/blackHole are the only branches
 	# that set a `dmg` field on their beats -- the juice layer keys off that.
-	var beats: Array = []
 	match recipe_key:
 		"timePearl":
 			var total: int = int(power) * targets
@@ -1079,6 +1221,8 @@ static func cast_complication(index: int) -> Dictionary:
 		"wormhole":
 			combat["outcome"] = "fled"
 			_log(combat, beats, "You trigger %s. You fold the space between you and gone." % recipe["name"], BEAT_COMPLICATION_WORMHOLE, { "actorType": "player" })
+
+	conclude_decision_point(combat, beats)
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "recipeKey": recipe_key, "power": power, "targets": targets, "beats": beats }
@@ -1137,6 +1281,9 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 	combat["outcome"] = null
 	combat["evadeTurns"] = 2
 	combat["evadeChance"] = 0.50
+	# R§3.7a: restores the cursor to the same parked player-type entry the
+	# snapshot was pushed in front of -- a coherent decision point to resume.
+	combat["turnCursor"] = snap["turnCursor"].duplicate()
 	# The accumulator combat_rewind()/_try_failsafe() read for their "beat
 	# queue in reverse" replay -- cleared here after combat_rewind() already
 	# captured its own copy, so accumulation restarts from this state.
@@ -1205,6 +1352,7 @@ static func exit_combat() -> Dictionary:
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
 		"allies": [],
 		"beatsSinceSnapshot": [],
+		"turnCursor": { "queue": [], "index": 0, "round": 0 },
 	}
 	SaveManager.autosave()  # R§6: autosave on combat exit
 	# The per-context handlers below only emit screen_changed (some emit

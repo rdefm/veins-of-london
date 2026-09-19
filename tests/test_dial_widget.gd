@@ -108,7 +108,7 @@ func run() -> void:
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
 			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
-			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "allies": [],
+			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
 		}
 		var widget := DialWidget.new()
 		widget.configure(GameState.state["player"]["dial"], 1, Callable())  # index 1 -> shield
@@ -127,7 +127,7 @@ func run() -> void:
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
 			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
-			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "allies": [],
+			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
 		}
 		var widget := DialWidget.new()
 		widget.configure(GameState.state["player"]["dial"], 0, Callable())
@@ -148,7 +148,7 @@ func run() -> void:
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
 			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
-			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "allies": [],
+			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
 		}
 		var received: Array = []
 		var widget := DialWidget.new()
@@ -169,7 +169,7 @@ func run() -> void:
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
 			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
-			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "allies": [],
+			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
 		}
 		var received: Array = []
 		var widget := DialWidget.new()
@@ -189,7 +189,7 @@ func run() -> void:
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
 			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
 			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
-			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "allies": [],
+			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
 		}
 		var widget := DialWidget.new()
 		# 3-arg configure() -- every pre-ticket-05 call site, unchanged.

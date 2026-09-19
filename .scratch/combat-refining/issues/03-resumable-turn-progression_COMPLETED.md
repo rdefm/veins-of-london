@@ -1,4 +1,4 @@
-# 03 — Resumable turn progression (pause at every player decision point)
+﻿# 03 — Resumable turn progression (pause at every player decision point)
 
 **What to build:** Combat stops at every player decision point instead of resolving a whole sorted round per Attack press. Pressing Attack, Leg it, using an item or casting a Complication resolves the player's current occurrence and then advances automatic turns only until the next player occurrence (crossing a round boundary if needed) — so enemies faster than the player act before the player's first command of a round, and a Motion-boosted extra turn is a separate pause the player commands. The turn cursor is persisted in the combat state per ticket 01's contract, snapshots are pushed at each decision point, and Rewind restores a coherent decision point. Damage, XP, rewards, flee odds, item effects and enemy targeting rules are unchanged. The combat screen still plays the returned beats and simply stops at the pause; the existing strip keeps working (dedup and all) until ticket 04.
 
@@ -16,13 +16,13 @@ Existing progression tests that asserted "one call resolves the whole round" are
 - `tests/test_combat_screen.gd` — "stage_slot_node_identity_survives_a_real_turn…", "a_real_kill_mid_fight_re_sorts…"
 - `docs/REFERENCE.md` — §3.7a Turn order bullet, §3.9 Combat rewind (as amended by 01)
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Fixture where an enemy outspeeds the player: first Attack press yields beats with the enemy's turn before the player's hit
-- [ ] Fixture with Motion active: each player occurrence is its own call; the second occurrence does not resolve until the player acts again
-- [ ] After a player action, automatic turns resolve only up to the next player occurrence; state shows the cursor parked there
-- [ ] Snapshot count grows by one per player decision point; Rewind restores the oldest and the cursor points at a valid player occurrence
-- [ ] Per-turn XP, damage ranges, flee odds and item effects produce the same values as before for the same RNG seed
-- [ ] Item use / Complication cast from the Bag drawer or Dial follows the same advance-to-next-decision-point rule
-- [ ] Round-boundary decrements (`motionTurns`, `frozenTurns`, ability lock) fire once per round, at the boundary defined in 01
-- [ ] `scripts/check_all.sh` and `scripts/run_tests.sh` pass; CODEMAP row for `systems/combat.gd` updated
+- [x] Fixture where an enemy outspeeds the player: first Attack press yields beats with the enemy's turn before the player's hit
+- [x] Fixture with Motion active: each player occurrence is its own call; the second occurrence does not resolve until the player acts again
+- [x] After a player action, automatic turns resolve only up to the next player occurrence; state shows the cursor parked there
+- [x] Snapshot count grows by one per player decision point; Rewind restores the oldest and the cursor points at a valid player occurrence
+- [x] Per-turn XP, damage ranges, flee odds and item effects produce the same values as before for the same RNG seed
+- [x] Item use / Complication cast from the Bag drawer or Dial follows the same advance-to-next-decision-point rule
+- [x] Round-boundary decrements (`motionTurns`, `frozenTurns`, ability lock) fire once per round, at the boundary defined in 01 — with one refinement: `motionTurns` only decrements when the ending round's queue actually carried a Motion-inserted slot, not whenever it's merely >0 (see REFERENCE.md §3.7a's round-boundary bullet)
+- [x] `scripts/check_all.sh` and `scripts/run_tests.sh` pass; CODEMAP row for `systems/combat.gd` updated

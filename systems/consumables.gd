@@ -30,6 +30,17 @@ static func use_healing_burst() -> Dictionary:
 	if Crafting.inventory_qty("healingBurst") <= 0:
 		return { "ok": false, "reason": "No healing burst." }
 
+	var combat: Dictionary = GameState.state["combat"]
+	var beats: Array = []
+	# In-combat, this resolves the cursor's parked player-type entry same as
+	# every other combat command (R§3.7a) -- a snapshot per use, engine runs
+	# forward afterward. Out of combat there's no cursor to prime/conclude.
+	if combat["active"]:
+		if not Combat.prime_decision_point(combat, beats):
+			EventBus.state_changed.emit()
+			return { "ok": true, "beats": beats }
+		Combat.push_combat_snapshot()
+
 	Crafting.inventory_remove("healingBurst", 1)
 	var power = Crafting.effect_power("healingBurst", player["craftingSkill"])
 	var old_hp: int = player["hp"]
@@ -38,13 +49,12 @@ static func use_healing_burst() -> Dictionary:
 	# PROSE-REVIEW: new healing-burst result line, drafted against CONTENT-GUIDE.md's tone bible.
 	var line := "You down a healing burst — +%d HP. %d/%d HP." % [healed, player["hp"], player["hpMax"]]
 
-	var combat: Dictionary = GameState.state["combat"]
-	var beats: Array = []
 	if combat["active"]:
 		# Routed through Combat.append_beat() (not a plain combat["log"].append())
 		# so this in-combat use produces a beat the director can play through,
 		# same as every other in-combat consumable.
 		Combat.append_beat(combat, beats, line, Combat.BEAT_USE_HEALING_BURST, { "effectKey": "healingBurst" })
+		Combat.conclude_decision_point(combat, beats)
 	else:
 		Notify.push(line, Notify.CATEGORY_SUCCESS)
 

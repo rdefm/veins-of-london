@@ -215,6 +215,9 @@ func new_game_state() -> Dictionary:
 			# Allies fighting alongside the player this combat (see
 			# Contacts.build_combat_ally) — empty outside vein-defense fights.
 			"allies": [],
+			# R§3.7a resumable-progression cursor; reset fresh by
+			# Combat._start_combat()/exit_combat(), never carried between fights.
+			"turnCursor": { "queue": [], "index": 0, "round": 0 },
 		},
 		# Outside state.combat itself since exit_combat() resets that dict
 		# to fresh defaults on every fight's end.

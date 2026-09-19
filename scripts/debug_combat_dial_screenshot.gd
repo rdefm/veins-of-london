@@ -31,6 +31,7 @@ func _run() -> void:
 			"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [],
+			"turnCursor": { "queue": [], "index": 0, "round": 0 },
 		}
 		var player: Dictionary = game_state.state["player"]
 		player["dial"] = {
@@ -52,6 +53,7 @@ func _run() -> void:
 			"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [],
+			"turnCursor": { "queue": [], "index": 0, "round": 0 },
 		}
 		var player: Dictionary = game_state.state["player"]
 		player["dial"] = {

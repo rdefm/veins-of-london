@@ -861,6 +861,7 @@ func run() -> void:
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [],
+			"turnCursor": { "queue": [], "index": 0, "round": 0 },
 		}
 		# A high-tier Impact Movement seated on the player's Dial must have
 		# zero effect on this path -- amplification is exclusive to
