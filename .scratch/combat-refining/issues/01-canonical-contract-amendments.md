@@ -21,12 +21,12 @@ Items to define:
 - `systems/consumables.gd` — read `use_healing_burst`
 - `.scratch/combat-refining/spec.md` — "Known mechanical dependencies" section
 
-**Status:** ready-for-agent
+**Status:** ready-for-human — all items drafted below; awaiting human sign-off (removal of the `DRAFT — pending sign-off` markers) before tickets 03/05/07/10 start.
 
-- [ ] REFERENCE §3.7a defines the turn cursor, round-boundary tick, extra-turn decision point and snapshot-per-decision-point rule
-- [ ] REFERENCE §2 defines the persisted selection representation and its KO-clamp rule
-- [ ] REFERENCE §3.7/§3.7a carries an ally-targetable effect table with cost/turn rules
-- [ ] REFERENCE §3.7a defines the bounded projection policy
-- [ ] REFERENCE §2 defines `locationKey` and its derivation; §3.7 or the vision doc defines the backdrop lookup order
-- [ ] combat-animation-vision §2.4/§2.5 amended with the six presentation changes, superseded text left in place with a dated "superseded" note (existing doc convention)
-- [ ] Every new item carries a draft marker until the human removes it; ticket is complete only after sign-off
+- [x] REFERENCE §3.7a defines the turn cursor, round-boundary tick, extra-turn decision point and snapshot-per-decision-point rule ("Resumable turn progression" bullet)
+- [x] REFERENCE §2 defines the persisted selection representation and its KO-clamp rule (`combat.selection`, in the §2 amendment block)
+- [x] REFERENCE §3.7/§3.7a carries an ally-targetable effect table with cost/turn rules (new bullet after Healing Salve in §3.7)
+- [x] REFERENCE §3.7a defines the bounded projection policy ("Bounded queue-projection policy" bullet)
+- [x] REFERENCE §2 defines `locationKey` and its derivation; the vision doc (§2.1) defines the backdrop lookup order
+- [x] combat-animation-vision §2.2/§2.4/§2.5 amended with the five presentation changes listed in this ticket, superseded text left in place with a dated "superseded" note (existing doc convention) — **note:** this ticket's own line 12 lists five distinct changes (tap-replaces-swipe, occurrence cards, arrow, flat rows, two-region layout); the checklist below says "six" — flagging the mismatch rather than inventing an unlisted sixth change. Confirm with the human whether a change was meant to be added.
+- [ ] Every new item carries a draft marker until the human removes it; ticket is complete only after sign-off — **markers are in place; sign-off itself has not happened.** This box, and the ticket's completion, stay open until the human reviews and removes the `DRAFT — pending sign-off` tags in `docs/REFERENCE.md` §2/§3.7/§3.7a and `docs/combat-animation-vision.md` §2.1/§2.2/§2.4/§2.5, and the `_(draft, ...)_` tags in `CONTEXT.md`.

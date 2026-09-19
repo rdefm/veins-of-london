@@ -40,3 +40,13 @@ The land itself — a site's tier (`poor`/`fair`/`rich`/`saturated`, driving `te
 
 **The Network**:
 In-fiction name for the game's map screen (a Beck-style transit diagram). Never call it "the tube map," "the Underground," or "London Underground" in player-facing text — see `plans/M1-LONDON.md` D4.1 for the legal rationale.
+
+**Turn occurrence** _(draft, ticket 01 combat-refining, 2026-09-19)_:
+One entry in a combat round's turn queue (`combat.turnCursor.queue`, `Combat.build_turn_queue()`) — not a synonym for [[Combatant]]. The same combatant produces more than one occurrence in a round with a Motion-inserted extra turn, and a fresh occurrence every round it survives into. The turn-order strip (`docs/combat-animation-vision.md` §2.4) renders one card per occurrence, not one per combatant — a combatant with two live occurrences this round shows two cards.
+_Avoid_: "turn" alone when a distinction from "combatant" matters — "turn" is ambiguous between the occurrence and the atomic action it resolves into.
+
+**Combatant** _(draft, ticket 01 combat-refining, 2026-09-19)_:
+A single fighting entity in `combat` — the player, one `combat.allies[]` entry, or one `combat.enemies[]` entry. Has one persistent identity for the fight's duration (HP, KO state) even though it may own several [[Turn occurrence]]s across a round or the fight.
+
+**Selection** _(draft, ticket 01 combat-refining, 2026-09-19)_:
+`combat.selection: {type, index}` — the player's current single-target for Attack/Blast/an eligible Complication, addressable at the player, an ally or an enemy (`type`). Distinct from a turn occurrence and from scroll position in the turn-order strip: scrolling to inspect an upcoming occurrence never changes `selection`, only tapping a card or a combatant sprite does.

@@ -103,6 +103,25 @@ production starts. The daylight-mundane mood locked in §1 is confirmed for
 one location/time combination (`CONTEXT_MUGGING`), not asserted as universal
 across all six contexts.
 
+**DRAFT amendment — pending sign-off (ticket 01 combat-refining, 2026-09-19).**
+Resolves the flag above: backdrop selection is a three-tier lookup,
+most-specific first, keyed by the new `combat.locationKey`
+(`docs/REFERENCE.md` §2):
+
+1. **Location plate** — a plate authored for this exact `(locationKey,
+   timeOfDay)` pair, if one exists.
+2. **Context plate** — falls back to today's one-plate-per-`CONTEXT_*` set
+   (the six enumerated above) when no location-specific plate has been
+   authored yet.
+3. **Palette fallback colour** — a flat fill from `docs/ui-vision.md`'s mood
+   palette (no new art) when neither exists, so an un-authored district never
+   renders blank/broken.
+
+This lets backdrop production ship incrementally (context plates now,
+location plates opportunistically) rather than blocking on the
+plates-per-context-vs-plates-per-location×time question the flag above
+raised.
+
 ### 2.2 Squad roster and stage composition
 
 **New decision (2026-08-29).** Combat moves from "one enemy entity per fight"
@@ -135,6 +154,13 @@ just a rendering change — see §2.3.
   until a milestone adds a 2nd/3rd recruitable combat contact. The fan
   geometry is built for 3 now so that content doesn't force a second layout
   pass later (§13 open questions has the milestone-placement question).
+
+**Superseded (combat-refining ticket 01, human direction via
+`.scratch/combat-refining/spec.md`, 2026-09-19).** The target callout above
+is replaced: a subtle arrow marks the selected sprite instead of an
+outline/glow shader. Selection itself also moves off the stage as the
+source of truth — see §2.4's superseded note below; the stage sprite is now
+marked only by the arrow, not a second independent selection cue.
 
 ### 2.3 Scope change flagged — squad combat + turn-based resolution
 
@@ -227,6 +253,30 @@ they're on).
   | `CONTEXT_RAID` (you raid a faction's vein) | The target faction's real `colour` — you chose the vein, so you already know whose it is. |
   | `CONTEXT_MUGGING`, `CONTEXT_EVENT_MUGGING` | Always dark grey — muggers have no faction affiliation at all (`generate_mugger()`), not a concealed one. |
 
+**Superseded (combat-refining ticket 01, human direction via
+`.scratch/combat-refining/spec.md`, 2026-09-19).** Two amendments to the
+strip above:
+
+- **Tap replaces swipe.** Selection is a direct tap on a card or on a
+  combatant's stage sprite (both select the same underlying combatant), not
+  a swipe gesture. Scrolling the strip (to inspect an upcoming occurrence)
+  never changes selection by itself — only a tap does.
+- **Occurrence cards replace deduplicated roster cards.** Each card is one
+  turn *occurrence* (`CONTEXT.md`'s [[Turn occurrence]]), not one per unique
+  combatant — the same combatant shows a separate card for each occurrence
+  it owns this round (a Motion-inserted extra turn) and again for its next
+  round's occurrence, per the bounded queue-projection policy
+  (`docs/REFERENCE.md` §3.7a). As a combatant's occurrence resolves, its
+  card leaves at the left; upcoming occurrences enter at the right, scrolled
+  back to the front when playback starts. Tapping any repeated occurrence of
+  the same combatant applies the same selection.
+
+Both amendments' mechanical side (turn cursor, `combat.selection` schema)
+carries a `DRAFT — pending sign-off` status in `docs/REFERENCE.md` §3.7a
+until the human removes that marker; this document's presentation side is
+approved for the visual-refresh tickets regardless, per
+`.scratch/combat-refining/issues/01-canonical-contract-amendments.md`.
+
 ### 2.5 Command deck — action cards and the Dial widget
 
 **New decision (2026-08-29).** Below the 390×360 stage window, the command
@@ -308,6 +358,33 @@ The layout and interaction above are replaced:
   pass") into this one — ticket 14's own "no functional/interaction change"
   scope note no longer holds; the human asked for the interaction to change
   too.
+
+**Further superseded (combat-refining ticket 01, human direction via
+`.scratch/combat-refining/spec.md`, 2026-09-19).** Ticket 18's furniture-row
+layout above is itself replaced:
+
+- **Flat command rows replace action cards.** The lower command region is
+  one continuous near-white surface; the 3 action entries (Attack/Item/Run,
+  still matching `_build_action_bar()`'s set) render as equally-weighted
+  icon-and-label rows separated by fine rules, not individual
+  rounded/enamel cards — no per-row primary-action emphasis. Available rows
+  use the existing pillar-box red accent; disabled rows recede, with
+  visible pressed/focus states.
+- **Upper/lower two-region layout replaces the 390×220 stage + furniture
+  row.** Below the unchanged shared departure board, the screen splits into
+  two roughly equal regions instead of a fixed 220px stage: an upper
+  encounter region (the London backdrop, full-squad staging reaching both
+  screen edges, plus the turn-order strip/queue) and a lower command region
+  (the Dial, docked left at its unchanged size/touch geometry, plus the flat
+  command rows above, docked right). Dial usability takes priority over
+  exact 50/50 equality. Neither region's exact pixel split is fixed by this
+  document — `.scratch/combat-refining/spec.md` "Composition and appearance"
+  governs the acceptance size/allocation for implementation.
+
+Ticket 14/18's Dial physical-design/pixel-art-exception status, docking side
+notwithstanding, is otherwise unaffected — same asset, same interaction
+(tap-the-screws-to-select, oval switch to trigger), unchanged by this
+layout pass.
 
 ## 3. The cast and its frame budget
 
