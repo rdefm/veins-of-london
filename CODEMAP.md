@@ -115,9 +115,9 @@ overlays.
 | alarm_presentation.gd | Detects raid alarms; Phone pulse + vibration |
 | app_tile.gd | Icon+label+badge+lock tile for the app grid |
 | bag_drawer.gd | Global bottom-sheet bag drawer |
-| combat_command_dock.gd | Combat's Dial/Complication-detail/action-card dock, anchored bottom-left |
+| combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial/Complication-detail/action-card row, anchored to the true screen bottom |
 | combat_director.gd | Combat beat-queue playback director |
-| combat_stage.gd | Combat's pixel stage: backdrop, subject slots, keypose one-shots, effect sheets, juice layer |
+| combat_stage.gd | Combat's full-width pixel stage: backdrop, subject slots, keypose one-shots, effect sheets, juice layer |
 | contact_cards.gd | Shared card builders + OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
 | dial_widget.gd | Combat's Dial-casting widget |

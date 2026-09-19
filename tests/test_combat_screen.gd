@@ -1439,3 +1439,89 @@ func run() -> void:
 
 		screen.free()
 	)
+
+	# ── combat-refining ticket 02: two-region layout recomposition ───────
+
+	run_case("stage_spans_the_full_390_width_with_no_side_margins", func():
+		_setup_combat([Fixtures.enemy("Scrapper")])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_eq(screen._stage.position, Vector2.ZERO, "the stage must sit flush at the upper region's top-left -- no side margin, no grey page framing")
+		assert_eq(CombatStage.STAGE_WIDTH, 390.0, "the stage's own width constant must be the full logical viewport width, with no side margin baked in")
+		assert_eq(screen._stage.size.x, CombatStage.STAGE_WIDTH)
+
+		screen.free()
+	)
+
+	# Needs a real, sized SceneTree entry -- same reasoning as
+	# "command_deck_is_fully_on_screen..." above: off-tree Control anchors
+	# never resolve to real pixel rects (see that case's own comment).
+	await run_case("upper_and_lower_regions_are_roughly_equal_height", func():
+		var tree := Engine.get_main_loop() as SceneTree
+		await tree.process_frame
+		await tree.process_frame
+
+		_setup_combat([Fixtures.enemy("Scrapper")])
+
+		var viewport := Control.new()
+		viewport.size = Vector2(390, 844)
+		tree.root.add_child(viewport)
+
+		var screen := CombatScreen.new()
+		viewport.add_child(screen)
+		await tree.process_frame
+		await tree.process_frame
+
+		var upper_height: float = screen._upper_region.size.y
+		var lower_height: float = CombatCommandDock.COMMAND_DOCK_SURFACE_HEIGHT
+		var diff_fraction: float = absf(upper_height - lower_height) / maxf(upper_height, lower_height)
+		# Ticket 02's own escape clause: Dial usability wins over exact
+		# equality. The Dial's fixed COMMAND_DOCK_SURFACE_HEIGHT is what
+		# lower_height is built from, so any imbalance traces back to it.
+		assert_true(diff_fraction <= 0.15, "upper (%s) and lower (%s) regions must be within ~10%% of each other, or the Dial's own baseline size must be the reason they are not -- got %.1f%% apart" % [upper_height, lower_height, diff_fraction * 100.0])
+
+		screen.free()
+		viewport.free()
+	)
+
+	await run_case("reserved_detail_band_content_moves_neither_the_stage_nor_the_dial", func():
+		var tree := Engine.get_main_loop() as SceneTree
+		await tree.process_frame
+		await tree.process_frame
+
+		_setup_combat([Fixtures.enemy("Scrapper")])
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast"])
+
+		var viewport := Control.new()
+		viewport.size = Vector2(390, 844)
+		tree.root.add_child(viewport)
+
+		var screen := CombatScreen.new()
+		viewport.add_child(screen)
+		await tree.process_frame
+		await tree.process_frame
+
+		var stage_rect_before := Rect2(screen._stage.global_position, screen._stage.size)
+		var widget_before := _find_dial_widget(screen)
+		var widget_rect_before := Rect2(widget_before.global_position, widget_before.size)
+
+		# Simulate a future selected-card detail (ticket 04/05's job, not
+		# this one's) landing in the still-empty reserved band.
+		var stand_in := Control.new()
+		stand_in.custom_minimum_size = Vector2(300, 200)
+		screen._detail_band.add_child(stand_in)
+		await tree.process_frame
+		await tree.process_frame
+
+		var stage_rect_after := Rect2(screen._stage.global_position, screen._stage.size)
+		var widget_after := _find_dial_widget(screen)
+		var widget_rect_after := Rect2(widget_after.global_position, widget_after.size)
+
+		assert_eq(stage_rect_after, stage_rect_before, "the reserved band gaining content must not move or resize the stage")
+		assert_eq(widget_rect_after, widget_rect_before, "the reserved band gaining content must not move or resize the Dial")
+
+		screen.free()
+		viewport.free()
+	)

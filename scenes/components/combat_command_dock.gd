@@ -1,14 +1,15 @@
 class_name CombatCommandDock
-extends HBoxContainer
+extends Panel
 
-# The Dial + Complication detail + Attack/Item/Leg-it action cards,
+# The lower command region: one continuous near-white surface (this Panel)
+# spanning the full screen width, holding an inner row (_row) with the Dial
+# + Complication detail + Attack/Item/Leg-it action cards,
 # docs/combat-animation-vision.md §2.5. A fixed Control anchored to the true
-# bottom-left of the screen, outside scenes/screens/combat.gd's
-# ScrollContainer/margin flow entirely, so sharing that column with the
-# content list never caps its size. combat.gd owns turn flow/director
-# bridging: Attack and Leg-it forward through the callables passed to
-# configure(), since both need to play a beat queue, which is the screen's
-# job, not this dock's.
+# bottom of the screen, outside scenes/screens/combat.gd's stage/detail-band
+# flow entirely, so sharing that space with the upper region never caps the
+# Dial's own size. combat.gd owns turn flow/director bridging: Attack and
+# Leg-it forward through the callables passed to configure(), since both
+# need to play a beat queue, which is the screen's job, not this dock's.
 #
 # Same off-tree-testable shape as DialWidget/TurnOrderStrip: no _ready()
 # override, anchors/theme set in _init() (always runs on .new(), unlike
@@ -19,8 +20,13 @@ const COMMAND_DOCK_LEFT_MARGIN := 0.0
 const COMMAND_DOCK_RIGHT_MARGIN := 4.0
 const COMMAND_DOCK_BOTTOM_MARGIN := 6.0
 const COMMAND_DOCK_HEIGHT := DialWidget.WIDGET_SIZE.y
+# Breathing room above the Dial/action row within the near-white surface,
+# so it reads as a region of the screen, not a shrink-wrapped card.
+const COMMAND_DOCK_SURFACE_TOP_PADDING := 12.0
+const COMMAND_DOCK_SURFACE_HEIGHT := COMMAND_DOCK_HEIGHT + COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_SURFACE_TOP_PADDING
 const _ACTION_CARD_ICON_SIZE := 40.0
 
+var _row: HBoxContainer
 var _dial_selected_index: int = 0
 var _player: Dictionary = {}
 var _on_attack_callback: Callable = Callable()
@@ -33,11 +39,27 @@ func _init() -> void:
 	anchor_right = 1.0
 	anchor_top = 1.0
 	anchor_bottom = 1.0
-	offset_left = COMMAND_DOCK_LEFT_MARGIN
-	offset_right = -COMMAND_DOCK_RIGHT_MARGIN
-	offset_bottom = -COMMAND_DOCK_BOTTOM_MARGIN
-	offset_top = -(COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_HEIGHT)
-	add_theme_constant_override("separation", 8)
+	offset_left = 0.0
+	offset_right = 0.0
+	offset_bottom = 0.0
+	offset_top = -COMMAND_DOCK_SURFACE_HEIGHT
+	mouse_filter = Control.MOUSE_FILTER_PASS
+
+	var surface_style := StyleBoxFlat.new()
+	surface_style.bg_color = UI.ACTION_CARD_FILL
+	add_theme_stylebox_override("panel", surface_style)
+
+	_row = HBoxContainer.new()
+	_row.anchor_left = 0.0
+	_row.anchor_right = 1.0
+	_row.anchor_top = 1.0
+	_row.anchor_bottom = 1.0
+	_row.offset_left = COMMAND_DOCK_LEFT_MARGIN
+	_row.offset_right = -COMMAND_DOCK_RIGHT_MARGIN
+	_row.offset_bottom = -COMMAND_DOCK_BOTTOM_MARGIN
+	_row.offset_top = -(COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_HEIGHT)
+	_row.add_theme_constant_override("separation", 8)
+	add_child(_row)
 
 
 func configure(player: Dictionary, on_attack: Callable, on_run: Callable, on_dial_triggered: Callable) -> void:
@@ -48,19 +70,19 @@ func configure(player: Dictionary, on_attack: Callable, on_run: Callable, on_dia
 
 
 func hide_deck() -> void:
-	for child in get_children():
+	for child in _row.get_children():
 		child.queue_free()
 
 
 func _rebuild(player: Dictionary) -> void:
 	_player = player
-	for child in get_children():
+	for child in _row.get_children():
 		child.queue_free()
 
 	var dial: Variant = player["dial"]
 	if dial != null:
-		add_child(_build_dial_widget(dial))
-	add_child(_build_action_deck(player))
+		_row.add_child(_build_dial_widget(dial))
+	_row.add_child(_build_action_deck(player))
 
 
 func _build_dial_widget(dial: Dictionary) -> Control:

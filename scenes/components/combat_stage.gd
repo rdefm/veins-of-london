@@ -14,7 +14,7 @@ extends Panel
 # test_combat_screen.gd's own top comment documents), skeleton + animation
 # loading happen lazily on first sync() instead.
 
-const STAGE_WIDTH := 390.0 - 16.0 - 16.0
+const STAGE_WIDTH := 390.0
 const STAGE_HEIGHT := 220.0
 const COLUMN_GAP := 6.0
 const PLAYER_BAND_WIDTH := (STAGE_WIDTH - COLUMN_GAP) / 2.0

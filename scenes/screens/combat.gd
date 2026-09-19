@@ -3,18 +3,33 @@ extends Control
 
 # Orchestrator over two node-owning components -- CombatStage (backdrop/
 # subject slots/keyposes/effects/juice, scenes/components/combat_stage.gd)
-# and CombatCommandDock (Dial + Complication detail + action cards,
-# scenes/components/combat_command_dock.gd). This screen keeps turn flow
-# (the turn-order strip), director bridging (translating the beat queue
-# into calls on the stage/dock's own small interfaces) and band sync
-# (deciding when a sync happens; the stage owns how it renders).
+# and CombatCommandDock (near-white command surface: Dial + Complication
+# detail + action cards, scenes/components/combat_command_dock.gd). This
+# screen lays out a two-region body: a slim heading row, an upper region
+# (stage full-bleed, the turn-order strip overlaid on top of it, and a
+# reserved band below for a selected card's expanded details) and the
+# command dock's own near-white surface filling the rest down to the true
+# bottom edge. It also keeps turn flow (the turn-order strip), director
+# bridging (translating the beat queue into calls on the stage/dock's own
+# small interfaces) and band sync (deciding when a sync happens; the stage
+# owns how it renders).
 
-var _content: VBoxContainer
+# Fixed pixel band for the heading/context label + pacing toggle, matched
+# against CombatCommandDock.COMMAND_DOCK_SURFACE_HEIGHT below to keep the
+# upper/lower regions roughly equal, with the Dial's own baseline size
+# taking priority when they can't be.
+const _HEADING_ROW_HEIGHT := 40.0
+# Padding above the turn-order strip so it doesn't sit flush on the stage's
+# own top border.
+const _STRIP_TOP_INSET := 6.0
+
 var _strip_selected_key: Dictionary = {}
 var _heading: Label
 var _pacing_button: Button
-var _strip_holder: VBoxContainer
+var _strip_holder: Control
 var _footer_holder: VBoxContainer
+var _detail_band: Control
+var _upper_region: Control
 var _command_dock: CombatCommandDock
 var _stage: CombatStage
 var _turn_order_strip: TurnOrderStrip
@@ -31,32 +46,78 @@ const _ATTACK_BEAT_KINDS: Array[String] = [
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
-	_content = UI.screen_body(self)
 
-	_command_dock = CombatCommandDock.new()
-	add_child(_command_dock)
-	var scroll_container := _content.get_parent().get_parent() as Control
-	scroll_container.offset_bottom = -(CombatCommandDock.COMMAND_DOCK_HEIGHT + CombatCommandDock.COMMAND_DOCK_BOTTOM_MARGIN)
+	# Only the top bar is cleared here, not the nav bar -- Main.gd's
+	# NAV_HIDDEN_SCREENS hides it entirely on "combat", so the command
+	# surface below is meant to reach the screen's true bottom edge.
+	var body := Control.new()
+	UI.anchor_full_rect(body)
+	body.offset_top = UI.top_bar_clearance()
+	add_child(body)
 
 	_director = CombatDirector.new()
 	add_child(_director)
 
 	var heading_row := UI.hbox(8)
+	heading_row.anchor_right = 1.0
+	heading_row.offset_left = 16.0
+	heading_row.offset_right = -16.0
+	heading_row.offset_bottom = _HEADING_ROW_HEIGHT
 	_heading = UI.heading("")
 	heading_row.add_child(_heading)
 	_pacing_button = UI.button("", _on_pacing_button_pressed)
 	heading_row.add_child(_pacing_button)
-	_content.add_child(heading_row)
+	body.add_child(heading_row)
 
-	_strip_holder = UI.vbox(0)
-	_content.add_child(_strip_holder)
+	# Upper region: stage full-bleed, strip overlaid on top, reserved detail
+	# band below -- fills everything between the heading row and the command
+	# surface, with no gap (see CombatCommandDock.COMMAND_DOCK_SURFACE_HEIGHT).
+	_upper_region = Control.new()
+	_upper_region.anchor_right = 1.0
+	_upper_region.anchor_bottom = 1.0
+	_upper_region.offset_top = _HEADING_ROW_HEIGHT
+	_upper_region.offset_bottom = -CombatCommandDock.COMMAND_DOCK_SURFACE_HEIGHT
+	_upper_region.mouse_filter = Control.MOUSE_FILTER_PASS
+	body.add_child(_upper_region)
 
 	_stage = CombatStage.new()
+	_stage.position = Vector2.ZERO
+	_stage.size = Vector2(CombatStage.STAGE_WIDTH, CombatStage.STAGE_HEIGHT)
 	_stage.gui_input.connect(_on_stage_gui_input)
-	_content.add_child(_stage)
+	_upper_region.add_child(_stage)
+
+	# Added after the stage so it paints on top of it -- the turn-order strip
+	# overlays the stage rather than stacking above it.
+	_strip_holder = Control.new()
+	_strip_holder.anchor_right = 1.0
+	_strip_holder.offset_top = _STRIP_TOP_INSET
+	_strip_holder.offset_bottom = _STRIP_TOP_INSET + TurnOrderStrip.CARD_HEIGHT
+	_strip_holder.mouse_filter = Control.MOUSE_FILTER_PASS
+	_upper_region.add_child(_strip_holder)
+
+	# Everything below the stage frame: the (usually empty) outcome-button
+	# footer, then the reserved detail band soaking up whatever's left of
+	# the upper region. A plain VBox so the footer's own natural height
+	# never has to be guessed -- the detail band's SIZE_EXPAND_FILL just
+	# yields it whatever room it needs.
+	var post_stage := UI.vbox(0)
+	post_stage.anchor_right = 1.0
+	post_stage.anchor_bottom = 1.0
+	post_stage.offset_top = CombatStage.STAGE_HEIGHT
+	_upper_region.add_child(post_stage)
 
 	_footer_holder = UI.vbox(8)
-	_content.add_child(_footer_holder)
+	post_stage.add_child(_footer_holder)
+
+	_detail_band = Control.new()
+	_detail_band.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_detail_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	post_stage.add_child(_detail_band)
+
+	# The lower region: CombatCommandDock owns its own near-white surface
+	# and anchors itself to the true bottom of whatever it's added to.
+	_command_dock = CombatCommandDock.new()
+	body.add_child(_command_dock)
 
 	EventBus.state_changed.connect(_sync)
 	EventBus.combat_beats_played.connect(_on_combat_beats_played)
