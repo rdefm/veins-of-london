@@ -951,7 +951,7 @@
 "EVENTS": {
 "archie_craft_chat": {
 "cards": [{
-"label": "A few days later — Spitalfields Market",
+"label": "Later - Spitalfields Market",
 "speaker": null,
 "text": "Archie is eating a falafel wrap and looking at his phone. He waves you over without looking up, which is either comfortable familiarity or mild rudeness. Probably both.",
 "type": "narration"
@@ -983,7 +983,7 @@
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Because James doesn't show people things. James does things, judges people for not knowing how to do them, and considers that a complete interaction. Either he was absolutely desperate, or —\" He tilts his head. \"He saw something worth the bother.\"",
+"text": "\"Because James doesn't show people things. James does things, judges people for not knowing how to do them, and considers that a complete interaction. Either he was absolutely desperate, or...\" He tilts his head. \"He saw something worth the bother.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1042,9 +1042,9 @@
 },
 "archie_cultivation": {
 "cards": [{
-"label": "Whitechapel — behind the old brewery",
+"label": "Whitechapel - behind the old brewery",
 "speaker": null,
-"text": "The vein is exactly where the pin said: a hairline crack in old brick, humming faintly at a frequency you'd ignore if you didn't already know what you were listening for. Archie's waiting with his hands in his pockets, doing an impression of a man who has never once stood around looking impatient.",
+"text": "The vein is exactly where Archie said: a hairline crack in old brick, humming faintly at a frequency you'd ignore if you didn't already know what you were listening for. Archie's waiting with his hands in his pockets, doing an impression of a man who has never once stood around looking impatient.",
 "type": "narration"
 }, {
 "label": null,
@@ -1054,32 +1054,32 @@
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"See that number on it? Growth. Runs nought to a hundred, dead centre at fifty. Leave it be and it drifts — climbs if it was already climbing, sinks if it was already sinking. Doesn't just sit there, whatever you do.\"",
+"text": "\"The way it's been explained to me, veins are a bit like gardens. If you don't tend to them, they can wither and die, or become wild and overgrown. So you can cultivate, or harvest and prune it\".",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Cultivate pushes it up. Put a session in — might take, might not, that part's down to your own skill. Land it low and it jumps a fair way; land it near the top and you're barely nudging it. Miss, and you've lost nothing but the time.\"",
+"text": "\"Cultivate helps it grow. Harvesting cuts it down a bit, but gives you some calc.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Prune's how the calc actually comes out, and it only pays once you're past fifty. Light prune takes a bit, leaves the rest growing. Hard prune takes more, sets it right back — more calc for your trouble, mind.\"",
+"text": "\"Prune's how the calc actually comes out. Light prune takes a bit, leaves the rest growing. Hard prune takes more, sets it right back — more calc for your trouble, mind.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Run one all the way down and leave it there, and it won't wait patient for you — spent long enough, it just collapses and disappears on you. The patch stays, mind, ready to seed again — it's the vein you lose.\"",
+"text": "\"Run one all the way down and leave it there, and it won't wait patient for you. Eventually it just collapses and disappears on you. The patch stays, mind, ready to seed again - it's the vein you lose.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"So don't get greedy on something you can't afford to lose. Go on, then — put a session in. I'll watch, so you don't feel like you're talking to brick.\"",
+"text": "\"So don't get greedy on something you can't afford to lose. Go on, then - put a session in. I'll watch, so you don't feel like you're talking to brick.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": null,
-"text": "You work the vein the way he showed you. It takes, first go — beginner's luck, or possibly just Archie standing close enough to make failure socially awkward. The growth number ticks up. Somewhere under Whitechapel, something that used to belong to someone else settles into belonging to you.",
+"text": "You work the vein the way he showed you. It takes, first go - beginner's luck, or possibly just Archie standing close enough to make failure socially awkward. You can see the glow brighten slightly. Somewhere under Whitechapel, something that used to belong to someone else settles into belonging to you.",
 "type": "resolution"
 }, {
 "label": null,
@@ -2076,12 +2076,12 @@
 "cards": [{
 "label": "Shoreditch",
 "speaker": null,
-"text": "The lock-up smells of damp cardboard and, distantly, of something that isn't cardboard. Archie is standing outside it with the expression of a man who has already had this conversation in his head and did not enjoy it.",
+"text": "The footpath shines, wet from the recent rain. Archie is standing outside it with the expression of a man who has already had this conversation in his head and did not enjoy it.",
 "type": "narration"
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"One vein. That's what you've got. One vein, which I gave you, which I'm now going to hear about for the rest of my life.\"",
+"text": "\"One vein. That's what we've got. One vein, which is nice, but it's not enough.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -2091,7 +2091,7 @@
 }, {
 "label": null,
 "speaker": null,
-"text": "He fishes his keys out — a fat bunch, a Millennium Falcon keyring worn smooth at the edges — and lets you both into the lock-up.",
+"text": "He fishes his keys out - a fat bunch, a Millennium Falcon keyring worn smooth at the edges - and lets you both into the lock-up.",
 "type": "narration"
 }, {
 "label": null,
@@ -2111,7 +2111,7 @@
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Right. He knows ground, I know buyers, and between us you might make rent. That's the arrangement.\"",
+"text": "\"Right. Des knows ground, I know buyers, and between us you might make rent. That's the arrangement.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -2126,7 +2126,7 @@
 }, {
 "label": null,
 "speaker": null,
-"text": "You have a teacher. Neither of you has mentioned money, which is the first thing about today that will turn out to matter.",
+"text": "You have a teacher. Neither of you has mentioned money, which, given your money troubles, is both a relief and slightly unsettling.",
 "type": "resolution"
 }],
 "id": "col_a1_intro",
@@ -2171,7 +2171,7 @@
 }, {
 "label": null,
 "speaker": null,
-"text": "You believe her, and you notice that you believe her, and you file that away.",
+"text": "You notice that you actually believe her.",
 "type": "narration"
 }, {
 "label": null,
@@ -2195,7 +2195,7 @@
 },
 "col_a1_nadia_meet": {
 "cards": [{
-"label": "Hackney — the back of a shop that sells phone cases",
+"label": "Hackney - the back of a shop that sells phone cases",
 "speaker": null,
 "text": "Nadia Beckford is about seventy and is moving a crate that you would need help with. She does not accept help.",
 "type": "narration"
@@ -2231,7 +2231,7 @@
 }, {
 "label": null,
 "speaker": "Nadia",
-"text": "\"And before you ask — no, I don't know who's holding what. Nobody does. If I knew who had what I'd have had this done Tuesday.\"",
+"text": "\"And before you ask - no, I don't know who's holding what in the collective. Nobody does. If I knew who had what I'd have had this done Tuesday.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -2263,7 +2263,7 @@
 }, {
 "label": null,
 "speaker": "Nadia",
-"text": "\"You take the risk — the forty units, the seeding, whether it takes. I take a working vein and pay for it. That's not charity in either direction, that's just what things are worth.\"",
+"text": "\"You take the risk - the forty units, the seeding, whether it takes. I take a working vein and pay for it.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -2273,7 +2273,7 @@
 }, {
 "label": null,
 "speaker": "Nadia",
-"text": "\"Grow it a bit first if you've any sense. I'll pay what it's worth on the day, and a hole in the ground with forty units in it isn't worth much yet.\"",
+"text": "\"Grow it a bit first if you've any sense. I'll pay what it's worth on the day, and a hole in the ground with forty units in it isn't worth as much as something you've cultivated.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -2297,7 +2297,7 @@
 },
 "col_a1_prospecting": {
 "cards": [{
-"label": "Shoreditch — a service yard behind a coffee place",
+"label": "Shoreditch - a service yard behind a coffee place",
 "speaker": null,
 "text": "Des has brought you to the least interesting place in Shoreditch and is looking at it with open enthusiasm.",
 "type": "narration"
@@ -2309,12 +2309,12 @@
 }, {
 "label": null,
 "speaker": "Des",
-"text": "\"Prospecting's a block of your day and a walk about. You'll turn up a patch or you won't. What you turn up depends on the ground round here and on how much of this you've done before — that's it, that's the whole system.\"",
+"text": "\"Prospecting mainly takes time, and a walk about. You'll turn up a patch or you won't. What you turn up depends on the ground round here and on how much of this you've done before - that's it, that's the whole system.\"",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": "Des",
-"text": "\"Patches come in grades. Poor, fair, rich, and once in a blue moon something that makes you sit down. Barren ones you leave; nothing takes in them.\"",
+"text": "\"Patches come in grades. The better, the more room there is for a vein to grow, and create more calc. Barren ones you leave; nothing takes in them.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -2432,7 +2432,7 @@
 }, {
 "label": null,
 "speaker": "Nadia",
-"text": "\"That one's the Firm's now. Since sometime after Hakim. Nobody rang to tell us — we just noticed the takings stopped.\"",
+"text": "\"That one's the Firm's now. Since sometime after Hakim. Nobody rang to tell us - we just noticed the takings stopped.\"",
 "type": "speaker"
 }, {
 "choices": [{
@@ -2457,7 +2457,7 @@
 "value": "bought"
 }],
 "label": "Buy it back",
-"result_text": "\"You want it back, that's a price, same as anyone's. We're not precious about it. It was never really ours, was it — three weeks in a ledger doesn't make it family.\" He counts it without looking up. It is the least interesting thing that has happened to him all week."
+"result_text": "\"You want it back, there's a price, same as anyone's. We're not precious about it. It's only business, at the end of the day.\" He counts it without looking up. It is the least interesting thing that has happened to him all week."
 }],
 "label": null,
 "speaker": null,
@@ -2503,12 +2503,12 @@
 }, {
 "label": null,
 "speaker": "Nadia",
-"text": "\"Fine. We do it the hard way first.\" She isn't fighting him on it, which is its own kind of answer.",
+"text": "A pause, then \"Fine. We do it the hard way. For now\" ",
 "type": "speaker"
 }, {
 "label": null,
 "speaker": null,
-"text": "Nobody writes it down, but it's agreed, the way things get agreed round here — once, out loud, and never mentioned again unless it stops holding.",
+"text": "Nobody writes it down, but it's agreed, the way things get agreed round here - once, out loud, and never mentioned again unless it stops holding.",
 "type": "resolution"
 }],
 "id": "col_a2_handler_deferred",
@@ -2551,12 +2551,12 @@
 }, {
 "label": null,
 "speaker": "Des",
-"text": "\"Temper doesn't organise itself into three separate visits inside a fortnight. Somebody decided we're worth the bother.\"",
+"text": "\"Three separate visits inside a fortnight. Somebody decided we're worth the bother.\"",
 "type": "speaker"
 }, {
 "label": null,
-"speaker": "Des",
-"text": "\"Right. Something needs doing. I don't much care what order — pick at it as it comes.\"",
+"speaker": "Nadia",
+"text": "\"Right. Something needs doing. I don't much care what order - pick at it as it comes.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -2654,7 +2654,7 @@
 "value": "lookout"
 }],
 "label": "Fund a lookout (£150)",
-"result_text": "You put the money in, so someone doesn't need to pull a second shift and can spend it here, sitting on a crate near the arch most evenings, reading a paper without readlly reading it."
+"result_text": "You put the money in, so someone doesn't need to pull a second shift and can spend it here, sitting on a crate near the arch most evenings, reading a paper without really reading it."
 }, {
 "effects": [{
 "key": "a2VulnerableSite",
@@ -2671,7 +2671,7 @@
 }, {
 "label": null,
 "speaker": null,
-"text": "Either way, the arch keeps doing what it's always done, for now. Whether that keeps being true is a separate question.",
+"text": "Either way, the vein keeps doing what it's always done, for now. Whether that keeps being true is a separate question.",
 "type": "resolution"
 }],
 "id": "col_a2_vulnerable_site",
