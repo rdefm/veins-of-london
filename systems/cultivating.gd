@@ -311,6 +311,7 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 # the collapse roll, then self-seed -- self_seed() only runs over player veins (faction veins never self-seed; their expansion is the daily NPC-claim roll).
 static func drift_veins() -> void:
 	for vein in GameState.state["player"]["veins"]:
+		_advance_development_streak(vein)
 		_drift_one(vein)
 	for vein in GameState.state["player"]["veins"].duplicate():
 		collapse_vein(vein)
@@ -319,6 +320,7 @@ static func drift_veins() -> void:
 
 	for site in GameState.state["world"]["sites"]:
 		if site["factionVein"] != null:
+			_advance_development_streak(site["factionVein"])
 			_drift_one(site["factionVein"])
 	for site in GameState.state["world"]["sites"].duplicate():
 		if site["factionVein"] != null:
@@ -420,6 +422,25 @@ static func _queue_growth_events(vein: Dictionary, growth_before: int) -> void:
 static func _clear_streak_below_threshold(vein: Dictionary) -> void:
 	if vein["growth"] < GameData.VEIN_GROWTH["developmentThreshold"]:
 		vein["developmentStreak"] = 0
+
+
+# A vein is development-eligible once its condition is at/above
+# developmentThreshold (90) AND it still has headroom below its terroir
+# level cap -- a maxed vein can sit at 90+ indefinitely without ever
+# counting toward a streak. Public so the level-up roll can reuse the same
+# definition.
+static func is_development_eligible(vein: Dictionary) -> bool:
+	var threshold: int = GameData.VEIN_GROWTH["developmentThreshold"]
+	return vein["growth"] >= threshold and vein.get("level", 1) < level_cap(vein)
+
+
+# Called once per vein per drift_veins() pass, before _drift_one() touches
+# growth -- eligibility for tonight's check is the condition the player left
+# the vein in, not tonight's drift result, so a drift-driven 89->90 crawl
+# can't backdate eligibility to the same night.
+static func _advance_development_streak(vein: Dictionary) -> void:
+	if is_development_eligible(vein):
+		vein["developmentStreak"] = vein.get("developmentStreak", 0) + 1
 
 
 # R§3.4: a vein pinned at 0 rolls collapseChancePerDay each tick it sits there to

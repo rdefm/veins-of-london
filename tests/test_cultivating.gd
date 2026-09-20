@@ -413,6 +413,59 @@ func run() -> void:
 		assert_eq(vein["developmentStreak"], 0)
 	)
 
+	# ── development eligibility & streak tracking (cultivation-refining ticket 05) ──
+
+	run_case("is_development_eligible_requires_condition_at_90_plus_headroom_below_the_terroir_cap", func():
+		assert_true(not Cultivating.is_development_eligible(_vein(89, "shoreditch", [], "fair", 1)), "89 fails the threshold")
+		assert_true(Cultivating.is_development_eligible(_vein(90, "shoreditch", [], "fair", 1)), "90 qualifies with headroom to level 3")
+		assert_true(not Cultivating.is_development_eligible(_vein(95, "shoreditch", [], "fair", 3)), "fair caps at level 3 -- already maxed, no headroom")
+	)
+
+	run_case("drift_veins_checks_eligibility_on_the_pre_drift_condition_not_the_post_drift_result", func():
+		GameState.reset()
+		var vein := _vein(89, "shoreditch", [], "saturated", 1)
+		GameState.state["player"]["veins"] = [vein]
+		Cultivating.drift_veins()
+		assert_true(vein["growth"] >= GameData.VEIN_GROWTH["developmentThreshold"], "sanity: drift should carry 89 up past 90 this tick")
+		assert_eq(vein["developmentStreak"], 0, "89 as left by the player is not eligible, even though the same night's drift clears 90")
+	)
+
+	run_case("consecutive_eligible_nights_accumulate_the_development_streak", func():
+		GameState.reset()
+		var vein := _vein(95, "shoreditch", [], "saturated", 1)
+		GameState.state["player"]["veins"] = [vein]
+		for i in range(3):
+			Cultivating.drift_veins()
+		assert_eq(vein["developmentStreak"], 3, "three consecutive eligible nights should tally three")
+	)
+
+	run_case("veins_at_their_terroir_cap_never_accumulate_a_development_streak", func():
+		GameState.reset()
+		var vein := _vein(95, "shoreditch", [], "fair", 3)
+		GameState.state["player"]["veins"] = [vein]
+		for i in range(3):
+			Cultivating.drift_veins()
+		assert_eq(vein["developmentStreak"], 0, "fair caps at level 3 -- no headroom means never eligible")
+	)
+
+	run_case("a_same_day_dip_below_90_clears_the_streak_even_after_cultivating_back_above_it", func():
+		GameState.reset()
+		var vein := _vein(95, "shoreditch", [], "saturated", 1)
+		vein["developmentStreak"] = 3
+		GameState.state["player"]["veins"] = [vein]
+		Rng.set_seed(1)
+		var prune_result := Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneHardDepth"])
+		assert_true(prune_result["ok"])
+		assert_true(vein["growth"] < GameData.VEIN_GROWTH["developmentThreshold"], "sanity: hard prune from 95 should dip below 90")
+		assert_eq(vein["developmentStreak"], 0, "dip clears the streak")
+
+		GameState.state["player"]["cultivatingSkill"] = 20
+		var cultivate_result := Cultivating.cultivate("test_vein")
+		assert_true(cultivate_result["ok"])
+		assert_true(vein["growth"] >= GameData.VEIN_GROWTH["developmentThreshold"], "sanity: cultivating back up should clear 90 again the same day")
+		assert_eq(vein["developmentStreak"], 0, "climbing back above 90 later the same day does not resurrect the streak -- only the next night's drift_veins() pass extends a fresh one")
+	)
+
 	run_case("prune_moves_growth_down_by_depth_clamped_at_zero_and_credits_ore", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [_vein(60, "shoreditch")]
