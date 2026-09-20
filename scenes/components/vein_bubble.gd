@@ -15,6 +15,14 @@ signal action_selected(option_id: String)
 signal info_selected()
 signal closed()
 
+const PAPER := Color("#f0eee6")
+const INK := Color("#252e30")
+const DIM := Color("#65716c")
+const LINE := Color("#c0c8bb")
+const GOLD := Color("#957019")
+const SAGE := Color("#dedfd3")
+
+var _pointer: Control
 var _dim: ColorRect
 var _panel: PanelContainer
 var _content: VBoxContainer
@@ -43,7 +51,21 @@ func _ready() -> void:
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_panel)
 
-	_content = UI.vbox(6)
+	_panel.custom_minimum_size.x = 268
+	var skin := _skin(PAPER, 18)
+	skin.content_margin_left = 16
+	skin.content_margin_right = 16
+	skin.content_margin_top = 14
+	skin.content_margin_bottom = 14
+	skin.shadow_color = Color(0, 0, 0, 0.13)
+	skin.shadow_size = 18
+	skin.shadow_offset = Vector2(0, 10)
+	_panel.add_theme_stylebox_override("panel", skin)
+	_pointer = Control.new()
+	_pointer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pointer.draw.connect(_draw_pointer)
+	add_child(_pointer)
+	_content = UI.vbox(12)
 	_panel.add_child(_content)
 
 
@@ -101,23 +123,24 @@ func _build_info_button(vein: Dictionary) -> Control:
 	var wrap := PanelContainer.new()
 	wrap.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 
-	var inner := UI.vbox(4)
+	var inner := UI.vbox(10)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 	var district: Dictionary = GameData.DISTRICTS[vein["district"]]
 	var heading_row := UI.hbox(4)
 	heading_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var heading_label := UI.label("%s · %s" % [district["name"], ore["name"]])
+	var heading_label := _label("%s · %s" % [district["name"], ore["name"]])
+	heading_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	heading_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading_row.add_child(heading_label)
-	heading_row.add_child(UI.muted_label("›"))
+	heading_row.add_child(_label("›", 18))
 	inner.add_child(heading_row)
 
-	inner.add_child(build_level_row(vein))
-	inner.add_child(build_condition_column(vein))
+	inner.add_child(build_level_row(vein, true))
+	inner.add_child(build_condition_column(vein, true))
 
-	var cues: Variant = build_cue_row(vein)
+	var cues: Variant = build_cue_row(vein, true)
 	if cues != null:
 		inner.add_child(cues)
 
@@ -133,20 +156,21 @@ func _build_info_button(vein: Dictionary) -> Control:
 
 # Public + static: also reused by vein_detail_panel.gd's identity section
 # so the earned-level segments read identically in both places.
-static func build_level_row(vein: Dictionary) -> Control:
+static func build_level_row(vein: Dictionary, compact: bool = false) -> Control:
 	var row := UI.hbox(6)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var level: int = vein.get("level", 1)
 	var cap: int = Cultivating.level_cap(vein)
-	row.add_child(UI.muted_label("Lv %d/%d" % [level, cap]))
+	row.add_child(_label("Lv %d/%d" % [level, cap], 12) if compact else UI.muted_label("Lv %d/%d" % [level, cap]))
 
-	var pips := UI.hbox(3)
+	var pips := UI.hbox(4 if compact else 3)
 	pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for i in cap:
-		var pip := ColorRect.new()
-		pip.custom_minimum_size = Vector2(14, 5)
-		pip.color = MapCanvas.PLAYER_COLOUR if i < level else MapStyle.MUTED_COLOUR
+		var pip := Panel.new()
+		pip.custom_minimum_size = Vector2(23, 6) if compact else Vector2(14, 5)
+		pip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pip.add_theme_stylebox_override("panel", _skin((INK if i < level else LINE) if compact else (MapCanvas.PLAYER_COLOUR if i < level else MapStyle.MUTED_COLOUR), 2, false))
 		pips.add_child(pip)
 	row.add_child(pips)
 
@@ -154,7 +178,7 @@ static func build_level_row(vein: Dictionary) -> Control:
 
 
 # Public + static: shared with vein_detail_panel.gd's condition section.
-static func build_condition_column(vein: Dictionary) -> Control:
+static func build_condition_column(vein: Dictionary, compact: bool = false) -> Control:
 	var col := UI.vbox(2)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -163,13 +187,15 @@ static func build_condition_column(vein: Dictionary) -> Control:
 
 	var header := UI.hbox(4)
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var label := UI.muted_label("Condition")
+	var label := _label("Condition", 11, DIM) if compact else UI.muted_label("Condition")
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(label)
-	header.add_child(UI.muted_label("%d/%d" % [vein["growth"], vein_ceiling]))
+	header.add_child(_label(str(vein["growth"]), 14) if compact else UI.muted_label("%d/%d" % [vein["growth"], vein_ceiling]))
 	col.add_child(header)
 
 	var bar := ConditionBar.new()
+	bar.compact = compact
+	bar.custom_minimum_size.y = 38 if compact else 10
 	bar.set_data(vein["growth"], vein_ceiling, threshold, GameData.VEIN_GROWTH["neutral"])
 	col.add_child(bar)
 
@@ -183,7 +209,9 @@ static func build_condition_column(vein: Dictionary) -> Control:
 # 90+ and draw raids), while development eligibility additionally requires
 # headroom under the level cap -- the two can and do diverge. Public +
 # static: shared with vein_detail_panel.gd's identity section.
-static func build_cue_row(vein: Dictionary) -> Variant:
+static func build_cue_row(vein: Dictionary, compact: bool = false) -> Variant:
+	if compact:
+		return _compact_cues(vein)
 	var threshold: int = GameData.VEIN_GROWTH["developmentThreshold"]
 	var parts: Array = []
 	if Cultivating.is_development_eligible(vein):
@@ -206,11 +234,11 @@ func _build_actions_row(vein: Dictionary) -> Control:
 	var cultivate_opt := _find_option(options, StationBubble.CULTIVATE_ID)
 	var harvest_disabled: bool = light_opt["disabled"] and hard_opt["disabled"]
 
-	var row := UI.hbox(28)
+	var row := UI.hbox(40)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	row.add_child(_build_action_column(_action_caption("Harvest", not harvest_disabled), Icons.draw_harvest, harvest_disabled, _open_chooser))
-	row.add_child(_build_action_column(_action_caption("Cultivate", not cultivate_opt["disabled"]), Icons.draw_cultivate, cultivate_opt["disabled"], func(): _select_action(StationBubble.CULTIVATE_ID)))
+	row.add_child(_build_action_column(_action_caption("Cultivate", not cultivate_opt["disabled"]), _draw_sprout, cultivate_opt["disabled"], func(): _select_action(StationBubble.CULTIVATE_ID)))
 
 	return row
 
@@ -224,14 +252,31 @@ func _action_caption(label_text: String, available: bool) -> String:
 
 
 func _build_action_column(caption: String, draw_icon: Callable, disabled: bool, callback: Callable) -> Control:
-	var col := UI.vbox(2)
+	var col := UI.vbox(4)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var btn := UI.icon_button(draw_icon, callback)
+	var btn := UI.icon_button(draw_icon, callback, DIM if disabled else INK)
+	btn.custom_minimum_size = Vector2(44, 44)
+	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var fill := SAGE
+		if state == "hover":
+			fill = SAGE.lightened(0.15)
+		elif state == "pressed":
+			fill = LINE
+		elif state == "disabled":
+			fill = PAPER
+		var skin := _skin(fill, 22)
+		if state == "focus":
+			skin.bg_color = Color.TRANSPARENT
+			skin.border_color = GOLD
+		btn.add_theme_stylebox_override(state, skin)
 	btn.disabled = disabled
 	col.add_child(btn)
 
-	var cap := UI.muted_label(caption)
+	var cap := _label(caption, 11, DIM if disabled else INK)
+	cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cap.custom_minimum_size.x = 44
 	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(cap)
 
@@ -295,7 +340,11 @@ func _reposition() -> void:
 
 func _apply_position() -> void:
 	_panel.size = _panel.get_combined_minimum_size()
-	_panel.position = BubbleLayout.popup_position(_anchor, _panel.size, _bounds_size)
+	var offset := Vector2(-_panel.size.x / 2.0, -_panel.size.y - 12)
+	if _anchor.y + offset.y < BubbleLayout.EDGE_MARGIN:
+		offset.y = 12
+	_panel.position = BubbleLayout.popup_position(_anchor, _panel.size, _bounds_size, offset)
+	_pointer.queue_redraw()
 
 
 # Draws the slim condition bar: a filled track to `growth`, a hairline tick
@@ -306,13 +355,14 @@ func _apply_position() -> void:
 # not at 90% of the bar. The zone's boundary is also a drawn line, not
 # colour alone.
 class ConditionBar extends Control:
+	var compact: bool = false
 	var growth: int = 0
 	var vein_ceiling: int = 100
 	var threshold: int = 90
 	var neutral: int = 50
 
 	func _ready() -> void:
-		custom_minimum_size = Vector2(0, 10)
+		custom_minimum_size = Vector2(0, 38 if compact else 10)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func set_data(growth_: int, ceiling_: int, threshold_: int, neutral_: int) -> void:
@@ -328,6 +378,20 @@ class ConditionBar extends Control:
 		if w <= 0 or h <= 0:
 			return
 
+		if compact:
+			var track := Rect2(4, 8, w - 8, 8)
+			draw_style_box(VeinBubble._skin(LINE, 4, false), track)
+			var zone_x := track.position.x + track.size.x * float(threshold) / vein_ceiling
+			draw_style_box(VeinBubble._skin(GOLD, 3, false), Rect2(zone_x, 8, track.end.x - zone_x, 8))
+			var neutral_x := track.position.x + track.size.x * float(neutral) / vein_ceiling
+			var needle_x := track.position.x + track.size.x * clampf(float(growth) / vein_ceiling, 0, 1)
+			draw_line(Vector2(neutral_x, 5), Vector2(neutral_x, 19), DIM, 1, true)
+			draw_line(Vector2(needle_x, 4), Vector2(needle_x, 20), INK, 3, true)
+			var font := get_theme_default_font()
+			for mark in [["0", track.position.x], [str(neutral), neutral_x - font.get_string_size(str(neutral), HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x / 2], ["%d+" % threshold, track.end.x - font.get_string_size("%d+" % threshold, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x]]:
+				draw_string(font, Vector2(mark[1], 34), mark[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, DIM)
+			return
+
 		draw_rect(Rect2(0, 0, w, h), MapStyle.MUTED_COLOUR.lerp(Color.WHITE, 0.5))
 
 		var fill_w: float = w * clampf(float(growth) / float(vein_ceiling), 0.0, 1.0)
@@ -339,3 +403,69 @@ class ConditionBar extends Control:
 
 		var neutral_x: float = w * clampf(float(neutral) / float(vein_ceiling), 0.0, 1.0)
 		draw_line(Vector2(neutral_x, 0), Vector2(neutral_x, h), MapStyle.INK_COLOUR, 2.0)
+
+
+func _draw_pointer() -> void:
+	var below := _panel.position.y > _anchor.y
+	var x := clampf(_anchor.x, _panel.position.x + 24, _panel.position.x + _panel.size.x - 24)
+	var y := _panel.position.y if below else _panel.position.y + _panel.size.y
+	var a := Vector2(x - 9, y)
+	var b := Vector2(x, y + (-11 if below else 11))
+	var c := Vector2(x + 9, y)
+	_pointer.draw_colored_polygon(PackedVector2Array([a, b, c]), PAPER)
+	_pointer.draw_polyline(PackedVector2Array([a, b, c]), LINE, 1, true)
+
+
+static func _skin(fill: Color, radius: int, border: bool = true) -> StyleBoxFlat:
+	var skin := StyleBoxFlat.new()
+	skin.bg_color = fill
+	skin.set_corner_radius_all(radius)
+	skin.set_border_width_all(1 if border else 0)
+	skin.border_color = LINE
+	return skin
+
+
+static func _label(value: String, font_size: int = 14, colour: Color = INK) -> Label:
+	var label := Label.new()
+	label.text = value
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", colour)
+	return label
+
+
+static func _compact_cues(vein: Dictionary) -> Variant:
+	var developing := Cultivating.is_development_eligible(vein)
+	var risk: bool = vein["growth"] >= GameData.VEIN_GROWTH["developmentThreshold"]
+	if not developing and not risk:
+		return null
+	var row := UI.hbox(7)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	for cue in (["Developing", "Raid risk ↑"] if developing and risk else (["Developing"] if developing else ["Raid risk ↑"])):
+		if row.get_child_count() > 0:
+			row.add_child(_label("·", 11, GOLD))
+		var glyph := UI.icon_glyph_control(_draw_sprout if cue == "Developing" else _draw_shield, 0.8, GOLD)
+		glyph.custom_minimum_size = Vector2(13, 18)
+		row.add_child(glyph)
+		row.add_child(_label(cue, 11, GOLD))
+	return row
+
+
+static func _draw_sprout(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	var stem := PackedVector2Array([Vector2(-4, 6), Vector2(4, 6), Vector2(0, 6), Vector2(0, -2)])
+	for i in range(stem.size()):
+		stem[i] = center + stem[i] * scale
+	target.draw_polyline(stem, colour, scale, true)
+	for side in [-1, 1]:
+		var leaf := PackedVector2Array([Vector2(0, 0), Vector2(side * 5, -1), Vector2(side * 6, -5), Vector2(side * 2, -5), Vector2(0, 0)])
+		for i in range(leaf.size()):
+			leaf[i] = center + leaf[i] * scale
+		target.draw_polyline(leaf, colour, scale, true)
+
+
+static func _draw_shield(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	var points := PackedVector2Array([Vector2(0, -7), Vector2(6, -4), Vector2(5, 3), Vector2(0, 7), Vector2(-5, 3), Vector2(-6, -4), Vector2(0, -7)])
+	for i in range(points.size()):
+		points[i] = center + points[i] * scale
+	target.draw_polyline(points, colour, scale, true)
+	target.draw_line(center + Vector2(0, -3) * scale, center, colour, scale, true)
+	target.draw_circle(center + Vector2(0, 3) * scale, scale * 0.65, colour)

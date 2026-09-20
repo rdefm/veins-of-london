@@ -14,8 +14,8 @@ static func _vein_stop(vein: Dictionary) -> Dictionary:
 
 
 static func _info_inner(bubble: VeinBubble) -> Control:
-	var info_button: Button = bubble._content.get_child(0)
-	return info_button.get_child(0) as Control
+	var info_panel: PanelContainer = bubble._content.get_child(0)
+	return info_panel.get_child(0) as Control
 
 
 func run() -> void:
@@ -89,9 +89,12 @@ func run() -> void:
 		var inner := _info_inner(bubble)
 		assert_eq(inner.get_child_count(), 4, "a cue row is added when either cue applies")
 		var cue_row: HBoxContainer = inner.get_child(3)
-		var cue_label: Label = cue_row.get_child(0)
-		assert_true(cue_label.text.find("Developing") != -1, "eligibility cue is a word, not colour alone")
-		assert_true(cue_label.text.find("Raid risk") != -1, "raised raid exposure is a word, not colour alone")
+		var cue_text := ""
+		for child in cue_row.get_children():
+			if child is Label:
+				cue_text += child.text
+		assert_true(cue_text.find("Developing") != -1, "eligibility cue is a word, not colour alone")
+		assert_true(cue_text.find("Raid risk") != -1, "raised raid exposure is a word, not colour alone")
 
 		bubble.free()
 	)
@@ -120,9 +123,12 @@ func run() -> void:
 
 		var inner := _info_inner(bubble)
 		var cue_row: HBoxContainer = inner.get_child(3)
-		var cue_label: Label = cue_row.get_child(0)
-		assert_true(cue_label.text.find("Developing") == -1, "a maxed-level vein never shows the eligibility cue")
-		assert_true(cue_label.text.find("Raid risk") != -1, "condition alone still raises raid exposure past the level cap")
+		var cue_text := ""
+		for child in cue_row.get_children():
+			if child is Label:
+				cue_text += child.text
+		assert_true(cue_text.find("Developing") == -1, "a maxed-level vein never shows the eligibility cue")
+		assert_true(cue_text.find("Raid risk") != -1, "condition alone still raises raid exposure past the level cap")
 
 		bubble.free()
 	)
@@ -260,7 +266,7 @@ func run() -> void:
 		bubble.info_selected.connect(func(): info_fired[0] += 1)
 		bubble.action_selected.connect(func(id): actions_fired.append(id))
 
-		var info_button: Button = bubble._content.get_child(0)
+		var info_button: Button = bubble._content.get_child(0).get_child(1)
 		info_button.pressed.emit()
 
 		assert_eq(info_fired[0], 1)
@@ -324,4 +330,38 @@ func run() -> void:
 		assert_true(harvest_button.disabled, "no blocks left today disables Harvest as a whole")
 
 		bubble.free()
+	)
+
+	run_case("bubble_anchors_above_pin_and_flips_at_top_edge", func():
+		GameState.reset()
+		var bubble := VeinBubble.new()
+		bubble._ready()
+		var stop := _vein_stop(Fixtures.player_vein_with({ "growth": 95 }))
+		bubble.open(Vector2(195, 500), stop, Vector2(390, 844))
+		assert_true(bubble._panel.position.y + bubble._panel.size.y < 500, "bubble clears pin above")
+		assert_true(absf(bubble._panel.position.x + bubble._panel.size.x / 2 - 195) < 1, "centred on pin")
+		bubble.open(Vector2(12, 12), stop, Vector2(390, 844))
+		assert_true(bubble._panel.position.y > 12, "top edge flips below")
+		assert_true(bubble._panel.position.x >= BubbleLayout.EDGE_MARGIN, "clamps left edge")
+		bubble.free()
+	)
+
+	await run_case("settled_layout_keeps_actions_circular_and_info_separate", func():
+		GameState.reset()
+		GameState.state["flags"]["cultivationTutorialSeen"] = true
+		var tree := Engine.get_main_loop() as SceneTree
+		var bubble := VeinBubble.new()
+		tree.root.add_child(bubble)
+		bubble.open(Vector2(195, 500), _vein_stop(Fixtures.player_vein_with({ "growth": 95 })), Vector2(390, 844))
+		for frame in range(4):
+			await tree.process_frame
+		assert_true(bubble._panel.size.x <= 269, "normal bubble stays at reference width")
+		var actions: Control = bubble._content.get_child(1)
+		var info: Control = bubble._content.get_child(0)
+		assert_true(info.position.y + info.size.y <= actions.position.y, "info never overlaps actions")
+		for col in actions.get_children():
+			var button: Button = col.get_child(0)
+			assert_eq(button.size, Vector2(44, 44), "caption cannot stretch the circle")
+		bubble.queue_free()
+		await tree.process_frame
 	)
