@@ -153,26 +153,29 @@ func run() -> void:
 	# tests/test_station_bubble.gd runs for the bubble's own dispatch --
 	# these assert the real Cultivating call ran, not just an echoed ok.
 
-	run_case("apply_option_cultivate_reports_the_roll_outcome_on_a_successful_roll", func():
+	# cultivation-refining ticket 03 removed cultivate()'s success/fail roll --
+	# every call now advances growth, so there's no failure branch left to
+	# exercise here (see VeinList.apply_option's own comment).
+	run_case("apply_option_cultivate_reports_ok_and_advances_growth", func():
 		GameState.reset()
 		Rng.set_seed(0)
 		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
 
 		var result := VeinList.apply_option(VeinList.CULTIVATE_ID, "v1")
 
-		assert_true(result["ok"], "fixture seed must land on cultivate()'s success branch")
-		assert_true(GameState.state["player"]["veins"][0]["growth"] > 20, "a reported success must have actually advanced growth, not just echoed a stub ok")
+		assert_true(result["ok"], "cultivate always reports ok when the travel/time gate passes")
+		assert_true(GameState.state["player"]["veins"][0]["growth"] > 20, "a reported ok must have actually advanced growth, not just echoed a stub")
 	)
 
-	run_case("apply_option_cultivate_reports_the_roll_outcome_on_a_failed_roll", func():
+	run_case("apply_option_cultivate_reports_not_ok_when_blocked", func():
 		GameState.reset()
-		Rng.set_seed(3)
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
 		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
 
 		var result := VeinList.apply_option(VeinList.CULTIVATE_ID, "v1")
 
-		assert_true(not result["ok"], "fixture seed must land on cultivate()'s failure branch")
-		assert_eq(GameState.state["player"]["veins"][0]["growth"], 20, "a reported failure must leave growth untouched")
+		assert_true(not result["ok"], "no blocks left today -- cultivate() itself refuses before any roll")
+		assert_eq(GameState.state["player"]["veins"][0]["growth"], 20, "a blocked action must leave growth untouched")
 	)
 
 	run_case("apply_option_prune_light_forwards_to_Cultivating_prune_light_depth", func():

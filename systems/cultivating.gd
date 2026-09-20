@@ -187,11 +187,25 @@ static func award_xp(amount: int) -> void:
 	Progression.award_xp(player, "cultivatingXP", "cultivatingSkill", GameData.CULTIVATING_XP_LEVELS, amount, on_level_up)
 
 
-# Diminishing toward the right on purpose (R§3.4) -- cultivating is most efficient as rescue on the barren side, least as a shortcut to the ceiling.
-static func cultivate_gain(skill: int, growth: int, vein_ceiling: int) -> int:
-	var vg: Dictionary = GameData.VEIN_GROWTH
-	var raw: float = (vg["cultivateBase"] + vg["cultivatePerSkill"] * skill) * (1.0 - float(growth) / float(vein_ceiling))
-	return maxi(vg["cultivateMinGain"], GameState.round_epsilon(raw))
+# R§3.4: every call rolls a positive whole-number gain uniform in
+# [skill+cultivateGainMinOffset, skill+cultivateGainMaxOffset] and applies it
+# in full, clamped only by remaining headroom to the ceiling (a
+# ceiling-limited gain smaller than the nominal minimum is not a failed
+# roll) -- there's no separate success/failure roll. attunement_bonus
+# (R§3.5's seated Movement bonus, 0 for contact cultivating which never sees
+# the player's Dial) boosts the rolled magnitude multiplicatively.
+static func cultivate_min_gain(skill: int) -> int:
+	return skill + GameData.VEIN_GROWTH["cultivateGainMinOffset"]
+
+
+static func cultivate_max_gain(skill: int) -> int:
+	return skill + GameData.VEIN_GROWTH["cultivateGainMaxOffset"]
+
+
+static func cultivate_gain(skill: int, growth: int, vein_ceiling: int, attunement_bonus: float = 0.0) -> int:
+	var rolled: int = Rng.randi_range(cultivate_min_gain(skill), cultivate_max_gain(skill))
+	var boosted: int = GameState.round_epsilon(rolled * (1.0 + attunement_bonus))
+	return mini(boosted, maxi(0, vein_ceiling - growth))
 
 
 static func cultivate(vein_id: String) -> Dictionary:
@@ -207,28 +221,18 @@ static func cultivate(vein_id: String) -> Dictionary:
 
 	var player: Dictionary = GameState.state["player"]
 	var skill: int = player["cultivatingSkill"]
-	# The player's own roll gets the seated Movement's attunement bonus (R§3.5);
-	# get_cult_chance() itself stays untouched since contact cultivating
-	# (Rooms.process_vein_station()) must never see the player's Dial.
-	var success: bool = Rng.chance(Dial.apply_attunement(get_cult_chance(skill), vein["oreType"]))
-
-	if success:
-		var vein_ceiling: int = ceiling(vein)
-		var growth_before: int = vein["growth"]
-		var gain: int = cultivate_gain(skill, vein["growth"], vein_ceiling)
-		vein["growth"] = clampi(vein["growth"] + gain, 0, vein_ceiling)
-		if vein["growth"] < vein_ceiling:
-			vein["rampantDays"] = 0
-		_queue_growth_events(vein, growth_before)
-		award_xp(20)
-		Objectives.refresh()
-		Modal.open("cultivate_result", { "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] })
-		return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] }
-	else:
-		award_xp(8)
-		Objectives.refresh()
-		Modal.open("cultivate_result", { "success": false, "veinId": vein_id })
-		return { "ok": true, "success": false, "veinId": vein_id }
+	var vein_ceiling: int = ceiling(vein)
+	var growth_before: int = vein["growth"]
+	var attunement: float = Dial.attunement_bonus(vein["oreType"])
+	var gain: int = cultivate_gain(skill, vein["growth"], vein_ceiling, attunement)
+	vein["growth"] = clampi(vein["growth"] + gain, 0, vein_ceiling)
+	if vein["growth"] < vein_ceiling:
+		vein["rampantDays"] = 0
+	_queue_growth_events(vein, growth_before)
+	award_xp(15)
+	Objectives.refresh()
+	Modal.open("cultivate_result", { "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] })
+	return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] }
 
 
 # R§3.4: yield counts only the growth points cleared from above neutral. Pruning at or below neutral always yields 0.

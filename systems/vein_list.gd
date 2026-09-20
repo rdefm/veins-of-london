@@ -67,7 +67,7 @@ static func apply_option(option_id: String, vein_id: String) -> Dictionary:
 	match option_id:
 		CULTIVATE_ID:
 			var result := Cultivating.cultivate(vein_id)
-			return { "ok": result.get("success", result.get("ok", false)) }
+			return { "ok": result.get("ok", false) }
 		PRUNE_LIGHT_ID:
 			var result := Cultivating.prune(vein_id, GameData.VEIN_GROWTH["pruneLightDepth"])
 			return { "ok": result.get("ok", false) }

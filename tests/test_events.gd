@@ -320,8 +320,9 @@ func run() -> void:
 		Events.apply_effects([{ "op": "tutorial_cultivate" }])
 
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		var expected_gain: int = Cultivating.cultivate_gain(1, 20, Cultivating.ceiling(vein))
-		assert_eq(vein["growth"], 20 + expected_gain, "growth increases by cultivate_gain, no roll involved")
+		# cultivation-refining ticket 03: cultivate_gain is a random uniform
+		# roll, so this checks skill 1's [6,10] range rather than an exact value.
+		assert_true(vein["growth"] >= 20 + 6 and vein["growth"] <= 20 + 10, "growth increases by cultivate_gain (skill 1: [6,10]), no roll to fail")
 	)
 
 	run_case("tutorial_cultivate_can_push_growth_up_from_any_starting_point", func():
@@ -884,13 +885,17 @@ func run() -> void:
 		assert_true(GameState.state["flags"]["archiePartnerSeen"] and not GameState.state["flags"]["cultivationTutorialSeen"])
 		var archie_relation_before_cultivation: int = GameState.state["contacts"]["archie"]["relation"]
 		var growth_before: int = granted["growth"]
-		var expected_gain: int = Cultivating.cultivate_gain(GameState.state["player"]["cultivatingSkill"], growth_before, Cultivating.ceiling(granted))
+		var skill: int = GameState.state["player"]["cultivatingSkill"]
+		var min_gain: int = Cultivating.cultivate_min_gain(skill)
+		var max_gain: int = Cultivating.cultivate_max_gain(skill)
 		Events.start_event("archie_cultivation")
 		for i in range(GameData.EVENTS["archie_cultivation"]["cards"].size()):
 			Events.advance()
 		assert_true(GameState.state["flags"]["cultivationTutorialSeen"], "archie_cultivation: cultivationTutorialSeen")
 		assert_eq(GameState.state["contacts"]["archie"]["relation"], archie_relation_before_cultivation + 2, "archie_cultivation: archie relation +2")
-		assert_eq(granted["growth"], growth_before + expected_gain, "archie_cultivation: tutorial_cultivate added cultivate_gain growth")
+		# cultivation-refining ticket 03: cultivate_gain is a random uniform roll,
+		# so this checks the skill-dependent range rather than an exact value.
+		assert_true(granted["growth"] >= growth_before + min_gain and granted["growth"] <= growth_before + max_gain, "archie_cultivation: tutorial_cultivate added a cultivate_gain-range growth")
 		assert_eq(GameState.state["currentScreen"], "map", "archie_cultivation: -> map")
 
 		# 6. Post-tutorial motion events

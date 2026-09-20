@@ -194,8 +194,10 @@ func run() -> void:
 				final_growth = vein["growth"]
 				break
 		assert_true(seed != -1, "should find a successful cultivate roll within 200 tries")
-		# cultivate_gain(skill 5, growth 40, ceiling 100) = round((6+2*5)*(1-40/100)) = round(16*0.6) = 10
-		assert_eq(final_growth, 40 + 10, "growth += cultivate_gain on success")
+		# cultivation-refining ticket 03: cultivate_gain is now a uniform
+		# [skill+5, skill+9] roll rather than a fixed diminishing formula --
+		# skill 5 at growth 40 (ample ceiling headroom) rolls in [10, 14].
+		assert_true(final_growth >= 40 + 10 and final_growth <= 40 + 14, "growth += cultivate_gain on success, within skill 5's [10,14] range")
 		assert_eq(GameState.state["contacts"]["archie"]["cultivatingXP"], 20, "+20 contact cultivating XP for a successful cultivate")
 	)
 

@@ -131,13 +131,10 @@ func run() -> void:
 	)
 
 	# apply_option's CULTIVATE_ID branch reports Cultivating.cultivate()'s own
-	# "success" (the roll outcome), not its always-true-once-run "ok" key --
-	# see apply_option's own comment for why. These two seeds are picked to
-	# land on each side of that roll (skill 1's 30% chance, Cultivating.
-	# get_cult_chance) so both outcomes get a real, deterministic assertion
-	# instead of an "if" that only ever exercises whichever one the seed
-	# happens to hit.
-	run_case("apply_option_cultivate_reports_the_roll_outcome_on_a_successful_roll", func():
+	# "ok" key. cultivation-refining ticket 03 removed cultivate()'s
+	# success/fail roll -- every call now advances growth, so there's no
+	# failure branch left to exercise here (see apply_option's own comment).
+	run_case("apply_option_cultivate_reports_ok_and_advances_growth", func():
 		GameState.reset()
 		Rng.set_seed(0)
 		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
@@ -145,20 +142,20 @@ func run() -> void:
 
 		var result := StationBubble.apply_option(StationBubble.CULTIVATE_ID, stop)
 
-		assert_true(result["ok"], "fixture seed must land on cultivate()'s success branch")
-		assert_true(GameState.state["player"]["veins"][0]["growth"] > 20, "a reported success must have actually advanced growth, not just echoed a stub ok")
+		assert_true(result["ok"], "cultivate always reports ok when the travel/time gate passes")
+		assert_true(GameState.state["player"]["veins"][0]["growth"] > 20, "a reported ok must have actually advanced growth, not just echoed a stub")
 	)
 
-	run_case("apply_option_cultivate_reports_the_roll_outcome_on_a_failed_roll", func():
+	run_case("apply_option_cultivate_reports_not_ok_when_blocked", func():
 		GameState.reset()
-		Rng.set_seed(3)
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
 		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
 		var stop := _vein_stop(GameState.state["player"]["veins"][0], "player")
 
 		var result := StationBubble.apply_option(StationBubble.CULTIVATE_ID, stop)
 
-		assert_true(not result["ok"], "fixture seed must land on cultivate()'s failure branch")
-		assert_eq(GameState.state["player"]["veins"][0]["growth"], 20, "a reported failure must leave growth untouched")
+		assert_true(not result["ok"], "no blocks left today -- cultivate() itself refuses before any roll")
+		assert_eq(GameState.state["player"]["veins"][0]["growth"], 20, "a blocked action must leave growth untouched")
 	)
 
 	run_case("apply_option_prune_light_forwards_to_Cultivating_prune_light", func():

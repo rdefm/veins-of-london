@@ -66,18 +66,14 @@ static func _prune_option(vein: Dictionary, id: String, depth: int, district: St
 # Dispatches a tapped bubble option to the same system calls the full-screen
 # site sheet uses, and reports whether it counts as a success for
 # MapCanvas.play_action_result()'s tween. Manage's `ok` is always true (no
-# fail state). Prune's `ok` is just its own "ok" key — pruning never rolls
-# to succeed/fail, so "the action ran" and "it worked" are the same thing.
-# Cultivate is the one branch where `ok` deliberately isn't Cultivating.
-# cultivate()'s own "ok" key, which only means the travel/time gate passed
-# (true even on a failed roll) — the tween needs the roll's own outcome,
-# reported as "success", falling back to "ok" (always false) when blocked
-# and there's no roll at all.
+# fail state). Prune's and Cultivate's `ok` are each just their own "ok" key
+# — "the action ran" and "it worked" are the same thing for both (R§3.4:
+# cultivate has no success/fail roll), gated only by the travel/time block passing.
 static func apply_option(option_id: String, stop: Dictionary) -> Dictionary:
 	match option_id:
 		CULTIVATE_ID:
 			var result := Cultivating.cultivate(stop["vein"]["id"])
-			return { "ok": result.get("success", result.get("ok", false)) }
+			return { "ok": result.get("ok", false) }
 		PRUNE_LIGHT_ID:
 			var result := Cultivating.prune(stop["vein"]["id"], GameData.VEIN_GROWTH["pruneLightDepth"])
 			return { "ok": result.get("ok", false) }

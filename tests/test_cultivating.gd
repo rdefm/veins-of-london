@@ -143,53 +143,79 @@ func run() -> void:
 
 	# ── cultivate (spec §2.4) ──────────────────────────────────────────
 
-	run_case("cultivate_gain_diminishes_toward_the_ceiling", func():
-		# cultivate_gain(skill, growth, ceiling) = max(1, round((6+2*skill)*(1-growth/ceiling)))
-		assert_eq(Cultivating.cultivate_gain(1, 20, 100), 6, "skill1 at growth20: round(8*0.8)=6")
-		assert_eq(Cultivating.cultivate_gain(5, 90, 100), 2, "skill5 at growth90: round(16*0.1)=2")
-		assert_eq(Cultivating.cultivate_gain(5, 100, 100), 1, "at the ceiling the formula floors at the min gain")
+	# cultivation-refining ticket 03: no separate success/failure roll -- every
+	# call applies a positive, whole-number gain uniform in
+	# [skill+cultivateGainMinOffset, skill+cultivateGainMaxOffset], clamped
+	# only by remaining headroom to the ceiling.
+	run_case("cultivate_min_and_max_gain_match_the_skill_dependent_offsets", func():
+		for skill in [1, 3, 5, 8]:
+			assert_eq(Cultivating.cultivate_min_gain(skill), skill + 5, "skill %d minimum gain" % skill)
+			assert_eq(Cultivating.cultivate_max_gain(skill), skill + 9, "skill %d maximum gain" % skill)
 	)
 
-	run_case("cultivate_success_raises_growth_and_awards_xp", func():
-		var seed := SeedSearch.find_seed_for(200, func():
-			GameState.reset()
-			GameState.state["player"]["cultivatingSkill"] = 5
-			GameState.state["player"]["veins"] = [_vein(20)]
-			var result := Cultivating.cultivate("test_vein")
-			return result.get("success", false)
-		)
-		assert_true(seed != -1, "should find a successful cultivate roll within 200 tries")
+	# Ticket 01's worst-case level-1 drift is level + driftRandomMax = 1 + 5 = 6,
+	# exactly skill 1's minimum cultivate gain -- one cultivate action a day
+	# permits maintenance even on repeated minimum rolls, never net-negative.
+	run_case("skill_1_minimum_cultivate_gain_covers_every_possible_level_1_drift_roll", func():
+		var min_gain := Cultivating.cultivate_min_gain(1)
+		assert_eq(min_gain, 1 + GameData.VEIN_GROWTH["driftRandomMax"], "skill 1's minimum gain must equal the worst-case level-1 drift magnitude")
+		for seed in range(200):
+			Rng.set_seed(seed)
+			var drift := Cultivating.drift_magnitude(1)
+			assert_true(min_gain >= drift, "seed %d: skill-1 minimum gain (%d) must cover this level-1 drift roll (%d)" % [seed, min_gain, drift])
+	)
+
+	run_case("cultivate_gain_rolls_uniformly_within_skill_bounds_when_the_ceiling_is_not_a_factor", func():
+		for skill in [1, 3, 5]:
+			for seed in range(100):
+				Rng.set_seed(seed)
+				var gain := Cultivating.cultivate_gain(skill, 20, 100)
+				assert_true(gain >= skill + 5 and gain <= skill + 9, "skill %d seed %d: gain %d out of [%d, %d]" % [skill, seed, gain, skill + 5, skill + 9])
+	)
+
+	run_case("cultivate_gain_clamps_to_ceiling_headroom_even_below_the_nominal_minimum", func():
+		# skill 1's nominal minimum is 6, but only 2 points of headroom remain --
+		# every roll (6-10) must clamp down to exactly 2, never to 0 or negative.
+		for seed in range(50):
+			Rng.set_seed(seed)
+			var gain := Cultivating.cultivate_gain(1, 98, 100)
+			assert_eq(gain, 2, "a ceiling-limited gain must equal the exact headroom, seed %d" % seed)
+	)
+
+	run_case("cultivate_always_raises_growth_awards_flat_xp_and_opens_the_result_modal", func():
+		GameState.reset()
+		GameState.state["player"]["cultivatingSkill"] = 5
+		GameState.state["player"]["cultivatingXP"] = 0
+		GameState.state["player"]["veins"] = [_vein(20)]
+		Rng.set_seed(1)
+		var result := Cultivating.cultivate("test_vein")
+		assert_true(result["ok"] and result["success"], "cultivate always succeeds now -- no roll to fail")
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
 		assert_true(vein["growth"] > 20, "growth should have increased")
-		assert_eq(GameState.state["player"]["cultivatingXP"], 20, "success awards 20 XP")
+		assert_eq(GameState.state["player"]["cultivatingXP"], 15, "flat 15 XP per action, replacing the old 20-success/8-fail split")
 		assert_eq(GameState.state["modal"]["type"], "cultivate_result", "cultivate should open the cultivate_result modal")
 	)
 
-	run_case("cultivate_failure_leaves_growth_unchanged_and_awards_less_xp", func():
-		var seed := SeedSearch.find_seed_for(200, func():
-			GameState.reset()
-			GameState.state["player"]["cultivatingSkill"] = 1
-			GameState.state["player"]["veins"] = [_vein(20)]
-			var result := Cultivating.cultivate("test_vein")
-			return not result.get("success", true)
-		)
-		assert_true(seed != -1, "should find a failed cultivate roll within 200 tries")
-		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(vein["growth"], 20, "failure leaves growth unchanged")
-		assert_eq(GameState.state["player"]["cultivatingXP"], 8, "failure awards 8 XP")
+	run_case("cultivate_ceiling_clamped_gain_still_reports_a_normal_success_not_a_failure", func():
+		GameState.reset()
+		GameState.state["player"]["cultivatingSkill"] = 1
+		GameState.state["player"]["veins"] = [_vein(98)]
+		Rng.set_seed(1)
+		var result := Cultivating.cultivate("test_vein")
+		assert_true(result["ok"] and result["success"], "a ceiling-clamped gain is still an ordinary success, never a failure")
+		assert_eq(result["gain"], 2, "gain clamps exactly to the 2 points of headroom, below the nominal minimum of 6")
+		assert_eq(GameState.state["player"]["veins"][0]["growth"], 100)
 	)
 
-	run_case("cultivate_clamps_at_the_ceiling", func():
-		var seed := SeedSearch.find_seed_for(200, func():
+	run_case("cultivate_clamps_at_the_ceiling_across_every_possible_roll", func():
+		# skill 5's range (10-14) always overshoots the 1 point of headroom left at growth 99.
+		for seed in range(50):
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 5
 			GameState.state["player"]["veins"] = [_vein(99)]
-			var result := Cultivating.cultivate("test_vein")
-			return result.get("success", false)
-		)
-		assert_true(seed != -1, "should find a successful cultivate roll within 200 tries")
-		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(vein["growth"], 100, "growth clamps at the ceiling, never overshoots")
+			Rng.set_seed(seed)
+			Cultivating.cultivate("test_vein")
+			assert_eq(GameState.state["player"]["veins"][0]["growth"], 100, "growth clamps at the ceiling, never overshoots, seed %d" % seed)
 	)
 
 	run_case("cultivate_in_a_different_district_costs_the_same_1_block_no_travel_surcharge", func():
@@ -217,11 +243,12 @@ func run() -> void:
 		assert_true(not result["ok"], "should refuse an unknown vein id")
 	)
 
-	# ── dial-device ticket 02: seated-Movement attunement bonus ─────────
+	# ── dial-device ticket 02 / cultivation-refining ticket 03: the seated ──
+	# Movement's attunement bonus no longer shifts a success chance (cultivate
+	# has none); it now multiplies the rolled gain by (1 + bonus) instead.
 
-	run_case("cultivate_gets_a_matching_seated_movements_attunement_bonus", func():
-		var flipped := false
-		for seed in range(500):
+	run_case("cultivate_gain_gets_a_matching_seated_movements_attunement_bonus", func():
+		for seed in range(50):
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 1
 			GameState.state["player"]["veins"] = [_vein(20)]  # oreType "time"
@@ -235,14 +262,11 @@ func run() -> void:
 			Rng.set_seed(seed)
 			var with_attunement := Cultivating.cultivate("test_vein")
 
-			if not without["success"] and with_attunement["success"]:
-				flipped = true
-				break
-		assert_true(flipped, "a matching-ore-type attunement bonus should flip at least one borderline cultivate roll from fail to success within 500 seeds")
+			assert_true(with_attunement["gain"] > without["gain"], "seed %d: a matching-ore-type attunement bonus should boost the rolled gain" % seed)
 	)
 
-	run_case("cultivate_mismatched_attunement_never_changes_the_outcome", func():
-		for seed in range(100):
+	run_case("cultivate_mismatched_attunement_never_changes_the_gain", func():
+		for seed in range(50):
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 1
 			GameState.state["player"]["veins"] = [_vein(20)]  # oreType "time"
@@ -256,7 +280,7 @@ func run() -> void:
 			Rng.set_seed(seed)
 			var mismatched := Cultivating.cultivate("test_vein")
 
-			assert_eq(mismatched["success"], without["success"], "seed %d: a mismatched-ore-type Movement must not change the outcome" % seed)
+			assert_eq(mismatched["gain"], without["gain"], "seed %d: a mismatched-ore-type Movement must not change the gain" % seed)
 	)
 
 	# ── prune (spec §2.4, §11 item 3) ──────────────────────────────────
@@ -385,12 +409,10 @@ func run() -> void:
 		var recoverable := _vein(0)
 		GameState.state["player"]["veins"] = [recoverable]
 		GameState.state["player"]["cultivatingSkill"] = 5
-		var seed := SeedSearch.find_seed_for(200, func():
-			return Cultivating.cultivate("test_vein").get("success", false)
-		)
-		assert_true(seed != -1, "a vein at 0 should still be cultivable")
-		var gain: int = Cultivating.cultivate_gain(5, 0, Cultivating.ceiling(recoverable))
-		assert_eq(gain, Cultivating.cultivate_gain(5, 0, 100), "gain at growth 0 is the formula's maximum (1 - 0/ceiling = 1)")
+		Rng.set_seed(1)
+		var result := Cultivating.cultivate("test_vein")
+		assert_true(result["ok"] and result["success"], "a vein at 0 should still be cultivable -- no roll to fail")
+		assert_true(result["gain"] >= 10 and result["gain"] <= 14, "skill 5's full gain range applies at growth 0 -- ample headroom to the ceiling")
 		assert_true(GameState.state["player"]["veins"][0]["growth"] > 0, "cultivating a spent vein should recover it above 0")
 	)
 
@@ -661,34 +683,30 @@ func run() -> void:
 		assert_true(not MapEvents.has_pending(), "growth 90 -> 81 never reaches neutral -- no drain")
 	)
 
-	run_case("cultivate_fires_a_charge_burst_when_a_success_pushes_growth_into_wild", func():
-		var seed := SeedSearch.find_seed_for(200, func():
-			GameState.reset()
-			GameState.state["player"]["cultivatingSkill"] = 6
-			GameState.state["player"]["veins"] = [_vein(84)]  # lush; a skill-6 success gain (3) crosses into wild (87)
-			var result := Cultivating.cultivate("test_vein")
-			return result.get("success", false)
-		)
-		assert_true(seed != -1, "should find a successful cultivate roll within 200 tries")
+	run_case("cultivate_fires_a_charge_burst_when_growth_is_pushed_into_wild", func():
+		# lush (84); skill 6's gain range (11-15) always lands at 95-99, inside wild (86-99).
+		GameState.reset()
+		GameState.state["player"]["cultivatingSkill"] = 6
+		GameState.state["player"]["veins"] = [_vein(84)]
+		Rng.set_seed(1)
+		Cultivating.cultivate("test_vein")
 
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(vein["growth"], 87, "confirms the gain actually crossed into wild")
+		assert_true(vein["growth"] >= 95 and vein["growth"] <= 99, "confirms the gain actually crossed into wild")
 		assert_true(MapEvents.has_pending(), "cultivate can trigger the same burst drift does, mid-action")
 		assert_eq(MapEvents.current()["type"], "charge")
 	)
 
-	run_case("cultivate_never_fires_a_drain_even_when_a_success_crosses_neutral_upward", func():
-		var seed := SeedSearch.find_seed_for(200, func():
-			GameState.reset()
-			GameState.state["player"]["cultivatingSkill"] = 6
-			GameState.state["player"]["veins"] = [_vein(40)]  # thinning, below neutral
-			var result := Cultivating.cultivate("test_vein")
-			return result.get("success", false)
-		)
-		assert_true(seed != -1, "should find a successful cultivate roll within 200 tries")
+	run_case("cultivate_never_fires_a_drain_even_when_growth_crosses_neutral_upward", func():
+		# thinning, below neutral (40); skill 6's gain range (11-15) always lands at 51-55.
+		GameState.reset()
+		GameState.state["player"]["cultivatingSkill"] = 6
+		GameState.state["player"]["veins"] = [_vein(40)]
+		Rng.set_seed(1)
+		Cultivating.cultivate("test_vein")
 
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(vein["growth"], 51, "growth 40 -> 51 crosses neutral upward, into 'dormant'")
+		assert_true(vein["growth"] >= 51 and vein["growth"] <= 55, "growth 40 -> 51-55 crosses neutral upward, into 'dormant'")
 		assert_true(not MapEvents.has_pending(), "drain is a downward-only crossing -- Cultivate, which only ever increases growth, never fires it")
 	)
 
@@ -772,14 +790,12 @@ func run() -> void:
 	)
 
 	run_case("wildCeiling_vein_cultivate_clamps_at_120_not_100", func():
-		var seed := SeedSearch.find_seed_for(200, func():
-			GameState.reset()
-			GameState.state["player"]["cultivatingSkill"] = 5
-			GameState.state["player"]["veins"] = [_vein(119, "shoreditch", ["wildCeiling"])]
-			var result := Cultivating.cultivate("test_vein")
-			return result.get("success", false)
-		)
-		assert_true(seed != -1, "should find a successful cultivate roll within 200 tries")
+		# skill 5's minimum gain (10) already exceeds the 1 point of headroom -- every roll clamps.
+		GameState.reset()
+		GameState.state["player"]["cultivatingSkill"] = 5
+		GameState.state["player"]["veins"] = [_vein(119, "shoreditch", ["wildCeiling"])]
+		Rng.set_seed(1)
+		Cultivating.cultivate("test_vein")
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
 		assert_eq(vein["growth"], 120, "growth clamps at the wildCeiling ceiling (120), not the base 100")
 	)
@@ -792,25 +808,25 @@ func run() -> void:
 		assert_eq(vein["rampantDays"], 0, "a fresh vein starts with no rampant days banked")
 	)
 
-	run_case("skill_1_player_can_climb_a_seeded_vein_to_neutral_in_roughly_two_dozen_blocks", func():
-		# Ticket 41's gentler cultivateBase/PerSkill roughly doubles the
-		# successes needed to close the same 20->50 gap, so the block count
-		# this takes roughly doubles too (was "a dozen", now "two dozen").
-		# cultivation-refining ticket 01's drift rework (level + randi_range(1,5),
-		# ~4/day average at level 1 vs. the old band table's 1-3) also now
-		# competes against the climb via a real Rng draw each overnight tick,
-		# nudging this fixed-seed run from 25 to 26 -- the bound is loosened by
-		# a couple blocks to absorb that; full balance re-tuning is ticket 14's job.
-		GameState.reset()
-		GameState.state["player"]["cultivatingSkill"] = 1
-		var vein := _vein(GameData.VEIN_GROWTH["seedGrowth"])
-		GameState.state["player"]["veins"] = [vein]
-		Rng.set_seed(7)
-		var blocks := 0
-		while vein["growth"] < 50 and blocks < 40:
-			Cultivating.cultivate("test_vein")
-			blocks += 1
-		assert_true(blocks <= 28, "should reach neutral in roughly two dozen blocks (skill 1), took %d" % blocks)
+	run_case("skill_1_player_can_climb_a_seeded_vein_to_neutral_within_a_handful_of_blocks", func():
+		# cultivation-refining ticket 03: skill 1's uniform [6,10] gain, applied
+		# in full every time with no roll to fail, closes the 20->50 gap (30
+		# points) in ceil(30/10)=3 blocks best case -- the floor holds
+		# regardless of drift, since drift only ever pulls a sub-neutral vein
+		# further away, never closer. Every 3rd block crosses a day boundary
+		# and can pull growth back down via overnight drift, so the upper
+		# bound is loosened well past the drift-free minimum to absorb that.
+		for seed in range(20):
+			GameState.reset()
+			GameState.state["player"]["cultivatingSkill"] = 1
+			var vein := _vein(GameData.VEIN_GROWTH["seedGrowth"])
+			GameState.state["player"]["veins"] = [vein]
+			Rng.set_seed(seed)
+			var blocks := 0
+			while vein["growth"] < 50 and blocks < 20:
+				Cultivating.cultivate("test_vein")
+				blocks += 1
+			assert_true(blocks >= 3 and blocks <= 12, "seed %d: should reach neutral within a dozen blocks (skill 1), took %d" % [seed, blocks])
 	)
 
 	# ── value tier (spec §3, §11 item 8) ────────────────────────────────

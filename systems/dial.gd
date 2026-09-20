@@ -205,9 +205,11 @@ static func unseat_movement() -> Dictionary:
 
 # Flat additive bonus from the seated Movement only (never loadedComplications),
 # applied when ore_type matches its attunement; magnitude scales with tier per
-# data/dial.json's attunementBonusByTier (R§3.5). Callers (Cultivating.cultivate(),
-# Crafting.attempt_craft(), Sites.attempt_seed()) add this on top of their own
-# chance formula -- never baked in, since NPC contacts roll those same formulas without a Dial.
+# data/dial.json's attunementBonusByTier (R§3.5). Callers (Crafting.attempt_craft(),
+# Sites.attempt_seed()) add this on top of their own chance formula.
+# Cultivating.cultivate() instead multiplies its rolled gain by (1 + this
+# bonus), since that action has no chance to shift (R§3.4). Never baked in,
+# since NPC contacts roll those same formulas without a Dial.
 static func attunement_bonus(ore_type: String) -> float:
 	var dial: Variant = GameState.state["player"]["dial"]
 	if dial == null:
@@ -222,8 +224,8 @@ static func attunement_bonus(ore_type: String) -> float:
 	return curve[tier]
 
 
-# Shared 0.95 ceiling for single-ore-type actions (Cultivating.cultivate(),
-# Sites.attempt_seed()). Crafting.attempt_craft() doesn't use this directly since a recipe can span multiple ore types.
+# Shared 0.95 ceiling for single-ore-type chance actions (Sites.attempt_seed()).
+# Crafting.attempt_craft() doesn't use this directly since a recipe can span multiple ore types.
 static func apply_attunement(base_chance: float, ore_type: String) -> float:
 	return min(0.95, base_chance + attunement_bonus(ore_type))
 

@@ -443,7 +443,7 @@ func _validate_ore_types(ore_types: Dictionary, errors: Array[String]) -> void:
 func _validate_vein_growth(vein_growth: Dictionary, xp_levels: Array, errors: Array[String]) -> void:
 	_require_keys(vein_growth, [
 		"neutral", "ceiling", "wildCeilingBonus", "bands", "yieldPerPoint", "hardPruneBonus",
-		"pruneLightDepth", "pruneHardDepth", "cultivateBase", "cultivatePerSkill", "cultivateMinGain",
+		"pruneLightDepth", "pruneHardDepth", "cultivateGainMinOffset", "cultivateGainMaxOffset",
 		"collapseChancePerDay", "seedGrowth", "rampantSeedDays", "selfSeedGrowth", "terroirYieldMult",
 		"levelCapByTerroir", "driftRandomMin", "driftRandomMax",
 	], "vein_growth", errors)
