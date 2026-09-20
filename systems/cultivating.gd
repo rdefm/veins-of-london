@@ -144,6 +144,12 @@ static func terroir_yield_mult(vein: Dictionary) -> float:
 	return GameData.VEIN_GROWTH["terroirYieldMult"].get(tier, 1.0)
 
 
+# Level drives ore yield directly (cultivation-refining ticket 04): 1 + 0.2*(level-1), so level1=1.0x .. level5=1.8x.
+static func level_yield_mult(vein: Dictionary) -> float:
+	var vg: Dictionary = GameData.VEIN_GROWTH
+	return vg["levelYieldMultBase"] + vg["levelYieldMultPerLevel"] * (vein.get("level", 1) - 1)
+
+
 # Max earned vein level for a terroir tier (R§1.2 levelCapByTerroir): poor 2 / fair 3 / rich 4 / saturated 5.
 static func level_cap_for_tier(tier: String) -> int:
 	return GameData.VEIN_GROWTH["levelCapByTerroir"].get(tier, 1)
@@ -178,6 +184,11 @@ static func make_vein(ore_type: String, growth: int, district: String, site_id: 
 		# Persistent earned level (R§1.2), 1..level_cap_for_tier(tier). Every
 		# fresh vein seeds at 1; later tickets add ways to raise/lose it.
 		"level": mini(1, level_cap_for_tier(hospitability.get("tier", "fair"))),
+		# Consecutive nights held at/above developmentThreshold (90) with no
+		# in-between dip below it (cultivation-refining ticket 05 builds the
+		# eligibility check this counts toward; ticket 04 only wires the
+		# clear-on-dip invariant -- see _clear_streak_below_threshold below).
+		"developmentStreak": 0,
 	}
 
 
@@ -229,10 +240,20 @@ static func cultivate(vein_id: String) -> Dictionary:
 	if vein["growth"] < vein_ceiling:
 		vein["rampantDays"] = 0
 	_queue_growth_events(vein, growth_before)
+	_clear_streak_below_threshold(vein)
 	award_xp(15)
 	Objectives.refresh()
 	Modal.open("cultivate_result", { "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] })
 	return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] }
+
+
+# Pure preview of prune()'s own growth mutation, so a chooser can show the
+# actual resulting condition before the player commits (cultivation-refining
+# ticket 04/10) rather than assuming every harvest exits the development zone
+# -- a hard harvest from deep in a wildCeiling vein's rampant band can still
+# land at or above developmentThreshold (90).
+static func prune_resulting_growth(vein: Dictionary, depth: int) -> int:
+	return maxi(0, vein["growth"] - depth)
 
 
 # R§3.4: yield counts only the growth points cleared from above neutral. Pruning at or below neutral always yields 0.
@@ -240,10 +261,10 @@ static func prune_yield(vein: Dictionary, depth: int) -> int:
 	var vg: Dictionary = GameData.VEIN_GROWTH
 	var neutral: int = vg["neutral"]
 	var growth_before: int = vein["growth"]
-	var growth_after: int = maxi(0, growth_before - depth)
+	var growth_after: int = prune_resulting_growth(vein, depth)
 	var points: int = maxi(0, growth_before - neutral) - maxi(0, growth_after - neutral)
 	var hard_bonus: float = vg["hardPruneBonus"] if depth == vg["pruneHardDepth"] else 1.0
-	var rolled: int = GameState.round_epsilon(points * vg["yieldPerPoint"] * terroir_yield_mult(vein) * hard_bonus)
+	var rolled: int = GameState.round_epsilon(points * vg["yieldPerPoint"] * terroir_yield_mult(vein) * level_yield_mult(vein) * hard_bonus)
 	return apply_yield_bonus(vein, rolled)
 
 
@@ -270,9 +291,10 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 
 	var amount: int = prune_yield(vein, depth)
 	var growth_before: int = vein["growth"]
-	vein["growth"] = maxi(0, vein["growth"] - depth)
+	vein["growth"] = prune_resulting_growth(vein, depth)
 	vein["rampantDays"] = 0
 	_queue_growth_events(vein, growth_before)
+	_clear_streak_below_threshold(vein)
 
 	var player: Dictionary = GameState.state["player"]
 	var ore_type: String = vein["oreType"]
@@ -361,6 +383,7 @@ static func _drift_one(vein: Dictionary) -> void:
 		vein["rampantDays"] = 0
 
 	_queue_growth_events(vein, growth)
+	_clear_streak_below_threshold(vein)
 
 
 # Fires the map's burst/drain animations (MapEvents.queue_charge/queue_drain) on
@@ -386,6 +409,17 @@ static func _queue_growth_events(vein: Dictionary, growth_before: int) -> void:
 	var drained_to_neutral: bool = growth_before >= neutral and growth_after <= neutral
 	if drained_to_neutral:
 		MapEvents.queue_drain(vein["district"], vein["id"])
+
+
+# cultivation-refining ticket 05's development streak persists only while a
+# vein never dips below developmentThreshold (90); any condition mutation
+# that leaves it below clears the streak immediately, even one the player
+# reverses later the same day. Single shared hook called from every place
+# growth actually changes (cultivate/prune/_drift_one), alongside
+# _queue_growth_events above, so the invariant is never duplicated per-caller.
+static func _clear_streak_below_threshold(vein: Dictionary) -> void:
+	if vein["growth"] < GameData.VEIN_GROWTH["developmentThreshold"]:
+		vein["developmentStreak"] = 0
 
 
 # R§3.4: a vein pinned at 0 rolls collapseChancePerDay each tick it sits there to

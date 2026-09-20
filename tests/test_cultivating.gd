@@ -348,6 +348,71 @@ func run() -> void:
 		assert_eq(hard_yield, 11, "hard prune, 1.25x bonus, more points removed")
 	)
 
+	# ── level-scaled yield (cultivation-refining ticket 04) ─────────────
+
+	run_case("level_yield_mult_matches_the_spec_curve_1x_to_1_8x", func():
+		var expected := { 1: 1.0, 2: 1.2, 3: 1.4, 4: 1.6, 5: 1.8 }
+		for level in expected:
+			var mult: float = Cultivating.level_yield_mult(_vein(95, "shoreditch", [], "fair", level))
+			assert_almost_eq(mult, expected[level], 0.0001, "level %d yield mult" % level)
+	)
+
+	run_case("hard_prune_yield_scales_by_level_on_top_of_terroir_and_hard_bonus", func():
+		# growth 95, hard prune (-24) -> 24 points above neutral, same base
+		# (10.5) as the level-1 case above; only levelYieldMult changes.
+		var expected := { 1: 11, 2: 13, 3: 15, 4: 17, 5: 19 }
+		for level in expected:
+			var vein := _vein(95, "shoreditch", [], "fair", level)
+			var yld := Cultivating.prune_yield(vein, GameData.VEIN_GROWTH["pruneHardDepth"])
+			assert_eq(yld, expected[level], "level %d hard-prune yield" % level)
+	)
+
+	run_case("prune_resulting_growth_previews_the_real_post_harvest_condition_without_mutating", func():
+		# wildCeiling headroom means a hard harvest doesn't always exit the
+		# development zone -- 120 - 24 = 96, still >= developmentThreshold (90).
+		var vein := _vein(120, "shoreditch", ["wildCeiling"], "saturated")
+		var previewed := Cultivating.prune_resulting_growth(vein, GameData.VEIN_GROWTH["pruneHardDepth"])
+		assert_eq(previewed, 96, "hard harvest from 120 should preview 96, still development-eligible")
+		assert_eq(vein["growth"], 120, "preview must not mutate the vein")
+	)
+
+	run_case("prune_resulting_growth_clamps_at_zero", func():
+		assert_eq(Cultivating.prune_resulting_growth(_vein(10), GameData.VEIN_GROWTH["pruneHardDepth"]), 0)
+	)
+
+	# ── development-streak clear invariant (cultivation-refining ticket 04) ──
+
+	run_case("prune_that_drops_condition_below_90_clears_the_development_streak", func():
+		GameState.reset()
+		var vein := _vein(95)
+		vein["developmentStreak"] = 3
+		GameState.state["player"]["veins"] = [vein]
+		Rng.set_seed(1)
+		var result := Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneHardDepth"])
+		assert_true(result["ok"])
+		var after: Dictionary = GameState.state["player"]["veins"][0]
+		assert_true(after["growth"] < GameData.VEIN_GROWTH["developmentThreshold"], "sanity: this harvest really does drop below 90")
+		assert_eq(after["developmentStreak"], 0, "dropping below 90 clears the streak")
+	)
+
+	run_case("prune_that_leaves_condition_at_or_above_90_preserves_the_development_streak", func():
+		GameState.reset()
+		var vein := _vein(100)
+		vein["developmentStreak"] = 4
+		GameState.state["player"]["veins"] = [vein]
+		Rng.set_seed(1)
+		var result := Cultivating.prune("test_vein", GameData.VEIN_GROWTH["pruneLightDepth"])
+		assert_true(result["ok"])
+		var after: Dictionary = GameState.state["player"]["veins"][0]
+		assert_true(after["growth"] >= GameData.VEIN_GROWTH["developmentThreshold"], "sanity: this light harvest should stay >= 90")
+		assert_eq(after["developmentStreak"], 4, "staying at/above 90 preserves the streak untouched")
+	)
+
+	run_case("fresh_vein_seeds_with_a_zero_development_streak", func():
+		var vein := Cultivating.make_vein("time", GameData.VEIN_GROWTH["seedGrowth"], "shoreditch", null, { "tier": "fair", "bonuses": [] })
+		assert_eq(vein["developmentStreak"], 0)
+	)
+
 	run_case("prune_moves_growth_down_by_depth_clamped_at_zero_and_credits_ore", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [_vein(60, "shoreditch")]

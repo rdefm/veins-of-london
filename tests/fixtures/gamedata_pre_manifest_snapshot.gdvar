@@ -5019,6 +5019,7 @@
 "cultivateGainMaxOffset": 9,
 "cultivateGainMinOffset": 5,
 "cultivatingXpLevels": [0, 0, 80, 220, 500, 1000],
+"developmentThreshold": 90,
 "driftRandomMax": 5,
 "driftRandomMin": 1,
 "hardPruneBonus": 1.25,
@@ -5028,6 +5029,8 @@
 "rich": 4,
 "saturated": 5
 },
+"levelYieldMultBase": 1,
+"levelYieldMultPerLevel": 0.2,
 "neutral": 50,
 "pruneHardDepth": 24,
 "pruneLightDepth": 9,
