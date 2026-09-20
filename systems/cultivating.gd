@@ -144,7 +144,7 @@ static func terroir_yield_mult(vein: Dictionary) -> float:
 	return GameData.VEIN_GROWTH["terroirYieldMult"].get(tier, 1.0)
 
 
-# Level drives ore yield directly (cultivation-refining ticket 04): 1 + 0.2*(level-1), so level1=1.0x .. level5=1.8x.
+# Level drives ore yield directly (R§1.2 levelYieldMult): 1 + 0.2*(level-1), so level1=1.0x .. level5=1.8x.
 static func level_yield_mult(vein: Dictionary) -> float:
 	var vg: Dictionary = GameData.VEIN_GROWTH
 	return vg["levelYieldMultBase"] + vg["levelYieldMultPerLevel"] * (vein.get("level", 1) - 1)
@@ -185,9 +185,9 @@ static func make_vein(ore_type: String, growth: int, district: String, site_id: 
 		# fresh vein seeds at 1; later tickets add ways to raise/lose it.
 		"level": mini(1, level_cap_for_tier(hospitability.get("tier", "fair"))),
 		# Consecutive nights held at/above developmentThreshold (90) with no
-		# in-between dip below it (cultivation-refining ticket 05 builds the
-		# eligibility check this counts toward; ticket 04 only wires the
-		# clear-on-dip invariant -- see _clear_streak_below_threshold below).
+		# in-between dip below it. The eligibility check this counts toward
+		# lives elsewhere; here we only wire the clear-on-dip invariant (see
+		# _clear_streak_below_threshold below).
 		"developmentStreak": 0,
 	}
 
@@ -247,10 +247,10 @@ static func cultivate(vein_id: String) -> Dictionary:
 
 
 # Pure preview of prune()'s own growth mutation, so a chooser can show the
-# actual resulting condition before the player commits (cultivation-refining
-# ticket 04/10) rather than assuming every harvest exits the development zone
-# -- a hard harvest from deep in a wildCeiling vein's rampant band can still
-# land at or above developmentThreshold (90).
+# actual resulting condition before the player commits, rather than assuming
+# every harvest exits the development zone -- a hard harvest from deep in a
+# wildCeiling vein's rampant band can still land at or above
+# developmentThreshold (90).
 static func prune_resulting_growth(vein: Dictionary, depth: int) -> int:
 	return maxi(0, vein["growth"] - depth)
 
@@ -421,10 +421,10 @@ static func _queue_growth_events(vein: Dictionary, growth_before: int) -> void:
 		MapEvents.queue_drain(vein["district"], vein["id"])
 
 
-# cultivation-refining ticket 05's development streak persists only while a
-# vein never dips below developmentThreshold (90); any condition mutation
-# that leaves it below clears the streak immediately, even one the player
-# reverses later the same day. Single shared hook called from every place
+# The development streak persists only while a vein never dips below
+# developmentThreshold (90); any condition mutation that leaves it below
+# clears the streak immediately, even one the player reverses later the
+# same day. Single shared hook called from every place
 # growth actually changes (cultivate/prune/_drift_one), alongside
 # _queue_growth_events above, so the invariant is never duplicated per-caller.
 static func _clear_streak_below_threshold(vein: Dictionary) -> void:
@@ -483,8 +483,8 @@ static func _roll_level_up(vein: Dictionary) -> bool:
 # A vein above level 1 depletes instead of risking the collapse roll: it loses
 # exactly one level, resets growth to neutral (50), and clears its streak via
 # the usual hook -- no cascading through multiple levels and no collapse roll
-# the same night the reset happens (cultivation-refining ticket 07). Applies
-# to player and faction veins alike; only the level-1 collapse below forks by
+# the same night the reset happens. Applies to player and faction veins
+# alike; only the level-1 collapse below forks by
 # vein.has("factionId").
 static func collapse_vein(vein: Dictionary) -> void:
 	if vein["growth"] > 0:
