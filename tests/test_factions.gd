@@ -236,6 +236,25 @@ func run() -> void:
 		assert_true(lv5_income > lv1_income, "a higher-level vein earns more vein-derived income")
 	)
 
+	# R§3.4: income reads combined_magnitude, so a faction vein's earned
+	# `level` field raises income even at the same growth/value_tier.
+	run_case("apply_vein_income_scales_with_combined_magnitude_earned_level", func():
+		GameState.reset()
+		var unleveled := _faction_vein_claimed_on(3, "time", 0)
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", unleveled)]
+		Factions.apply_vein_income()
+		var unleveled_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
+
+		GameState.reset()
+		var leveled_up := _faction_vein_claimed_on(3, "time", 0)
+		leveled_up["level"] = 4
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", leveled_up)]
+		Factions.apply_vein_income()
+		var leveled_up_income: int = GameState.state["factions"]["collective"]["resources"] - GameData.FACTIONS["collective"]["startingResources"]
+
+		assert_true(leveled_up_income > unleveled_income, "an earned level above 1 should raise income at the same growth (got %d vs %d)" % [unleveled_income, leveled_up_income])
+	)
+
 	run_case("apply_vein_income_more_veins_out_earns_fewer_veins", func():
 		GameState.reset()
 		var one_vein := _faction_vein_claimed_on(2, "life", 0)

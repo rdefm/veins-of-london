@@ -173,8 +173,9 @@ static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionar
 
 
 # Debug-only in M0 (R§3.7); M0 has no NPC-claimed-vein storage, so callers
-# supply a value tier/guards directly. value_tier is Cultivating.value_tier()
-# (1-6); guard_count (capped at SQUAD_MAX) entries roll independently from
+# supply a value tier/guards directly. value_tier is Cultivating.combined_magnitude()
+# (R§3.4: value_tier blended with a vein's earned level); guard_count
+# (capped at SQUAD_MAX) entries roll independently from
 # GameData.ENEMY_RAID_GUARDS unless `template_key` forces one template.
 static func generate_raid_enemy(vein_id, value_tier: int, guards: int = 1, template_key: String = "") -> Array:
 	var templates: Dictionary = GameData.ENEMY_RAID_GUARDS

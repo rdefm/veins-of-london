@@ -560,7 +560,7 @@ func _draw_stops() -> void:
 
 func _vein_ring_style(vein: Dictionary, owner_colour: Color, base_width: float) -> Dictionary:
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
-	var tier: int = Cultivating.value_tier(vein)
+	var tier: int = Cultivating.combined_magnitude(vein)
 	return {
 		"colour": MapStyle.vein_ring_colour(filter_mode, owner_colour, Color(ore["colour"]), tier),
 		"width": MapStyle.vein_ring_width(filter_mode, tier, base_width),

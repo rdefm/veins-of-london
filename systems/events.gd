@@ -521,7 +521,7 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 		return
 
 	var vein: Dictionary = site["factionVein"]
-	Combat.start_raid(vein["id"], Cultivating.value_tier(vein), effect.get("guards", 1), effect.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect))
+	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), effect.get("guards", 1), effect.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect))
 
 
 # Seeds `faction_id` a faction vein on each site recorded in `objective_id`'s

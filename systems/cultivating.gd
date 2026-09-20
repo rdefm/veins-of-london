@@ -70,6 +70,16 @@ static func value_tier(vein: Dictionary) -> int:
 	return mini(6, 1 + int(floor(float(vein["growth"]) / 20.0)))
 
 
+# R§3.4: the magnitude every value_tier() consumer (raid stealth odds,
+# faction raid targeting/income, rivalry weighting, combat scaling, the
+# map's growth ring) reads instead of raw value_tier(), so a vein's earned
+# level is felt everywhere its condition-derived tier already was.
+# Uncapped here -- a consumer indexing a fixed-size table by this value is
+# responsible for clamping to its own valid range.
+static func combined_magnitude(vein: Dictionary) -> int:
+	return value_tier(vein) + (vein.get("level", 1) - 1)
+
+
 # 100, or 120 with the wildCeiling hospitability bonus (R§1.2).
 static func ceiling(vein: Dictionary) -> int:
 	var base: int = GameData.VEIN_GROWTH["ceiling"]

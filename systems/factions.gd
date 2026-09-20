@@ -183,14 +183,14 @@ static func apply_vein_income() -> void:
 		if vein == null or vein["claimedOnDay"] >= day:
 			continue
 		var base_price: int = GameData.ORE_TYPES[vein["oreType"]]["basePrice"]
-		var income: int = GameState.round_epsilon(base_price * Cultivating.value_tier(vein) / VEIN_INCOME_DIVISOR)
+		var income: int = GameState.round_epsilon(base_price * Cultivating.combined_magnitude(vein) / VEIN_INCOME_DIVISOR)
 		GameState.state["factions"][vein["factionId"]]["resources"] += income
 
 
 # ── Daily security-upgrade spend ─────────────────────────────────────────
 # A faction with spare resources quietly hardens its highest-value held vein each
 # tick (same ladder/cost table as the player's upgrade_vein_security()). One upgrade
-# per faction per tick, targeting the highest basePrice * value_tier vein that's both
+# per faction per tick, targeting the highest basePrice * combined_magnitude vein that's both
 # below max security and affordable; no eligible/affordable vein is a no-op.
 static func apply_security_upgrades() -> void:
 	for faction_id in GameState.state["factions"].keys():
@@ -210,7 +210,7 @@ static func apply_security_upgrades() -> void:
 			var cost: int = GameData.VEIN_SECURITY[next_id]["cost"]
 			if faction_state["resources"] < cost:
 				continue
-			var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.value_tier(vein)
+			var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein)
 			if value > best_value:
 				best_value = value
 				best_vein = vein
@@ -294,12 +294,12 @@ static func _eligible_rival_veins(faction_id: String) -> Array:
 	return candidates
 
 
-# Weighted by vein value (basePrice * value_tier) -- attackers favour a rival's crown jewel over scraps.
+# Weighted by vein value (basePrice * combined_magnitude) -- attackers favour a rival's crown jewel over scraps.
 static func _pick_target_vein(candidates: Array) -> Dictionary:
 	var weight_list: Array[float] = []
 	for candidate in candidates:
 		var vein: Dictionary = candidate["vein"]
-		weight_list.append(GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.value_tier(vein))
+		weight_list.append(GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein))
 	return candidates[weighted_pick_index(weight_list)]
 
 

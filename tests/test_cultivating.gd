@@ -830,6 +830,26 @@ func run() -> void:
 		assert_eq(Cultivating.value_tier(_vein(120)), 6, "above 100 (wildCeiling) still reads as 6, not 7")
 	)
 
+	# ── combined magnitude (R§3.4: value_tier blended with earned level) ─
+
+	run_case("combined_magnitude_matches_value_tier_exactly_at_level_1", func():
+		for growth in [0, 19, 20, 59, 60, 99, 100, 120]:
+			var vein := _vein(growth)
+			assert_eq(Cultivating.combined_magnitude(vein), Cultivating.value_tier(vein), "level-1 vein: no behaviour change at growth %d" % growth)
+	)
+
+	run_case("combined_magnitude_adds_level_minus_one_above_value_tier", func():
+		var vein := _vein(40, "shoreditch", [], "rich", 3)
+		assert_eq(Cultivating.value_tier(vein), 3, "growth 40 is tier 3")
+		assert_eq(Cultivating.combined_magnitude(vein), 5, "tier 3 + (level 3 - 1) = 5")
+	)
+
+	run_case("combined_magnitude_defaults_missing_level_field_to_1", func():
+		var vein := _vein(40)
+		vein.erase("level")
+		assert_eq(Cultivating.combined_magnitude(vein), Cultivating.value_tier(vein), "a vein predating the level field reads as level 1")
+	)
+
 	# ── terroir spread (spec §7, §11 item 9) ────────────────────────────
 
 	# A single hard prune is capped at pruneHardDepth (24) points regardless

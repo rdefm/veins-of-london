@@ -10,7 +10,8 @@ extends RefCounted
 # change tap behaviour, which is why nothing here touches tap targets.
 #
 # "Growth" mode fades everything outside the "risk" bands and ramps ring
-# colour/width by value_tier (1-6, R§3.4); growth_fill_fraction() below is
+# colour/width by Cultivating.combined_magnitude() (R§3.4: value_tier
+# blended with a vein's earned level); growth_fill_fraction() below is
 # the pure seam behind MapCanvas's radial fill meter.
 
 const FILTER_MODES: Array[String] = ["ownership", "type", "growth", "security", "faction"]
@@ -66,7 +67,8 @@ static func stop_alpha(filter_mode: String, at_risk: bool, selected_faction_id: 
 
 
 # Type: stop rings recolour by ore type. Growth: ring greyscale ramp from
-# --muted (tier 1) to --ink (tier 6), keyed on value_tier (R§3.4).
+# --muted (tier 1) to --ink (tier 6+), keyed on combined_magnitude, clamped
+# to [0,1] here so a leveled-up vein past 6 still reads as full ink.
 static func vein_ring_colour(filter_mode: String, owner_colour: Color, ore_colour: Color, tier: int) -> Color:
 	match filter_mode:
 		"type":

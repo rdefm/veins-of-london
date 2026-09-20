@@ -75,6 +75,18 @@ func run() -> void:
 		assert_true(chance_cheap > chance_rich, "a low-value vein should be easier to sneak than a high-value one (got %f vs %f)" % [chance_cheap, chance_rich])
 	)
 
+	# R§3.4: stealth odds read combined_magnitude (value_tier blended with
+	# earned level), so a leveled-up vein is a harder sneak even at the
+	# same growth/value_tier.
+	run_case("stealth_success_chance_decreases_with_vein_level_at_the_same_growth", func():
+		var level_1 := _faction_vein_of_growth(90, "fate", "none")
+		var leveled_up := _faction_vein_of_growth(90, "fate", "none")
+		leveled_up["level"] = 4
+		var chance_level_1 := Raiding.stealth_success_chance(1, level_1, 0.0)
+		var chance_leveled_up := Raiding.stealth_success_chance(1, leveled_up, 0.0)
+		assert_true(chance_level_1 > chance_leveled_up, "a higher-level vein should be harder to sneak past at the same growth (got %f vs %f)" % [chance_level_1, chance_leveled_up])
+	)
+
 	run_case("stealth_success_chance_increases_with_consumable_bonus", func():
 		var vein := _faction_vein_of_growth(30, "time", "warded")
 		var no_bonus := Raiding.stealth_success_chance(1, vein, 0.0)

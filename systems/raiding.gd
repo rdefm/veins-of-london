@@ -14,8 +14,9 @@ const STEALTH_BASE_CHANCE := 0.55
 const STEALTH_SKILL_WEIGHT := 0.05
 const STEALTH_RAID_RESIST_DIVISOR := 55.0
 const STEALTH_RAID_RESIST_WEIGHT := 0.35
-# basePrice * value_tier tops out ~450-540 for a maxed vein; dividing by 450
-# keeps the tilt within roughly [-1.2, 0] before the weight scales it further.
+# basePrice * combined_magnitude tops out ~450-540 for a maxed level-1 vein; dividing by 450
+# keeps the tilt within roughly [-1.2, 0] before the weight scales it further (a leveled-up
+# vein's combined magnitude, R§3.4, can push past that ceiling).
 const STEALTH_VALUE_DIVISOR := 450.0
 const STEALTH_VALUE_WEIGHT := 0.15
 
@@ -26,7 +27,7 @@ static func stealth_success_chance(stealth_skill: int, vein: Dictionary, consuma
 	var raid_resist: int = Cultivating.vein_raid_resist(vein)
 	var resist_tilt: float = -(float(raid_resist) / STEALTH_RAID_RESIST_DIVISOR) * STEALTH_RAID_RESIST_WEIGHT
 
-	var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.value_tier(vein)
+	var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein)
 	var value_tilt: float = -(value / STEALTH_VALUE_DIVISOR) * STEALTH_VALUE_WEIGHT
 
 	var chance: float = STEALTH_BASE_CHANCE + skill_tilt + resist_tilt + value_tilt + consumable_bonus
@@ -539,7 +540,7 @@ static func maybe_trigger_defend(district_id: String) -> bool:
 		if vein != null and vein["district"] == district_id:
 			pending.remove_at(i)
 			GameState.state["world"]["activeDefendRaid"] = outcome
-			Combat.start_defend_vein(outcome["veinId"], Cultivating.value_tier(vein))
+			Combat.start_defend_vein(outcome["veinId"], Cultivating.combined_magnitude(vein))
 			return true
 	return false
 
@@ -600,7 +601,7 @@ static func trigger_defend(vein_id: String) -> bool:
 	var outcome: Dictionary = pending[i]
 	pending.remove_at(i)
 	GameState.state["world"]["activeDefendRaid"] = outcome
-	Combat.start_defend_vein(vein_id, Cultivating.value_tier(vein))
+	Combat.start_defend_vein(vein_id, Cultivating.combined_magnitude(vein))
 	return true
 
 

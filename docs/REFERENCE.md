@@ -50,7 +50,7 @@ Other constants (`data/vein_growth.json`): `yieldPerPoint: 0.35`, `hardPruneBonu
 
 **Right wall**: `growth` clamps at `ceiling(vein)` (100, or 120 with the `wildCeiling` hospitability bonus). A vein sitting at the ceiling accrues `rampantDays` and self-seeds a new vein nearby after `rampantSeedDays` (5) days at the ceiling — see vein-growth-state ticket 02.
 
-**Value tier** (`Cultivating.value_tier(vein)`, 1..6, `= min(6, 1 + floor(growth/20))`) is the single seam that replaces the old 1–5 `level` everywhere magnitude mattered (raid stealth odds, faction raid targeting, faction vein income, rivalry weighting, combat scaling, the map's Strength filter). cultivation-refining ticket 02 blends the new earned `level` into this same seam via a combined-magnitude helper — not yet implemented.
+**Value tier** (`Cultivating.value_tier(vein)`, 1..6, `= min(6, 1 + floor(growth/20))`) is the condition-derived magnitude. Every place magnitude actually matters (raid stealth odds, faction security-upgrade/rivalry targeting, faction vein income, combat scaling, the map's growth ring) instead reads `Cultivating.combined_magnitude(vein) = value_tier(vein) + (level - 1)` (cultivation-refining ticket 02), so a vein's earned `level` is felt on top of its condition. A level-1 vein's combined magnitude equals its value_tier exactly. Uncapped at this seam — a consumer indexing a fixed-size table by it clamps to its own valid range itself; none currently do.
 
 There is NO vein lifespan/expiry mechanic beyond the collapse roll above.
 
@@ -478,7 +478,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - **Prune(vein, depth):** 1 block. `depth` is `pruneLightDepth` (9) or `pruneHardDepth` (24). `points = max(0, growth_before−50) − max(0, growth_after−50)` where `growth_after = max(0, growth_before − depth)`; `yield = round(points * yieldPerPoint(0.35) * terroirYieldMult(vein.hospitability.tier) * hardBonus)` (hardBonus 1.25 for a hard prune, 1.0 for light), then `apply_yield_bonus`. Pruning at or below neutral (50) always yields 0. No cultivating XP awarded (matches the harvest schedule this replaces).
 - **Left wall (collapse):** `growth` pins at 0. Each daily tick a vein sits at 0, `chance(collapseChancePerDay)` (0.15) removes it: a player vein's site reverts to unclaimed; a faction vein's site is deleted outright. Still cultivable at the maximum gain while pinned at 0. This is the only way a faction vein dies — see the NPC-claim/faction-vein-growth bullet in §3.1.
 - **Right wall (rampant/self-seed):** `growth` clamps at `ceiling(vein)`. `rampantDays` increments each daily tick spent at the ceiling; at `rampantSeedDays` (5), claims an unclaimed site in the same district for a new player vein at `growth = selfSeedGrowth` (60) — see vein-growth-state ticket 02. Faction veins never self-seed.
-- `value_tier(vein) = min(6, 1 + floor(growth/20))` — the 1–6 magnitude that replaces the old 1–5 `level` everywhere a vein's value/strength matters.
+- `value_tier(vein) = min(6, 1 + floor(growth/20))` — the 1–6 condition-derived magnitude. `combined_magnitude(vein) = value_tier(vein) + (level − 1)` is what every value/strength consumer actually reads (§1.2).
 - XP level-up loop: while skill < 5 and XP ≥ table[skill+1] → skill += 1 (notification for cultivating).
 
 ### 3.5 Crafting & the Dial
