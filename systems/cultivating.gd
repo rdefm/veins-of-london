@@ -312,7 +312,8 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 static func drift_veins() -> void:
 	for vein in GameState.state["player"]["veins"]:
 		_advance_development_streak(vein)
-		_drift_one(vein)
+		if not _roll_level_up(vein):
+			_drift_one(vein)
 	for vein in GameState.state["player"]["veins"].duplicate():
 		collapse_vein(vein)
 	for vein in GameState.state["player"]["veins"].duplicate():
@@ -321,7 +322,8 @@ static func drift_veins() -> void:
 	for site in GameState.state["world"]["sites"]:
 		if site["factionVein"] != null:
 			_advance_development_streak(site["factionVein"])
-			_drift_one(site["factionVein"])
+			if not _roll_level_up(site["factionVein"]):
+				_drift_one(site["factionVein"])
 	for site in GameState.state["world"]["sites"].duplicate():
 		if site["factionVein"] != null:
 			collapse_vein(site["factionVein"])
@@ -441,6 +443,33 @@ static func is_development_eligible(vein: Dictionary) -> bool:
 static func _advance_development_streak(vein: Dictionary) -> void:
 	if is_development_eligible(vein):
 		vein["developmentStreak"] = vein.get("developmentStreak", 0) + 1
+
+
+# An eligible vein rolls for a level-up each night, chance growing with the
+# streak (day 1 of eligibility never succeeds; day 2 is levelUpChancePerDay;
+# capped at 100%). An ineligible (maxed) vein never rolls at all -- not a
+# guaranteed-fail roll. Success resets growth to neutral in place of that
+# night's drift, so the caller must skip _drift_one() when this returns true.
+static func _roll_level_up(vein: Dictionary) -> bool:
+	if not is_development_eligible(vein):
+		return false
+
+	var streak: int = vein.get("developmentStreak", 0)
+	var chance: float = minf(1.0, GameData.VEIN_GROWTH["levelUpChancePerDay"] * (streak - 1))
+	if not Rng.chance(chance):
+		return false
+
+	vein["level"] = mini(vein.get("level", 1) + 1, level_cap(vein))
+	vein["growth"] = GameData.VEIN_GROWTH["neutral"]
+	vein["developmentStreak"] = 0
+
+	if not vein.has("factionId"):
+		var location_street: String = String(vein["location"]).split(",")[0]
+		var ore_name: String = GameData.ORE_TYPES[vein["oreType"]]["name"]
+		# PROSE-REVIEW: drafted against CONTENT-GUIDE.md §3.
+		Notify.push("Your %s vein on %s has matured -- now level %d." % [ore_name, location_street, vein["level"]], Notify.CATEGORY_SUCCESS)
+
+	return true
 
 
 # R§3.4: a vein pinned at 0 rolls collapseChancePerDay each tick it sits there to

@@ -5029,6 +5029,7 @@
 "rich": 4,
 "saturated": 5
 },
+"levelUpChancePerDay": 0.1,
 "levelYieldMultBase": 1,
 "levelYieldMultPerLevel": 0.2,
 "neutral": 50,

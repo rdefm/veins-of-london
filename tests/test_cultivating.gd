@@ -434,6 +434,7 @@ func run() -> void:
 		GameState.reset()
 		var vein := _vein(95, "shoreditch", [], "saturated", 1)
 		GameState.state["player"]["veins"] = [vein]
+		Rng.set_seed(1)  # ticket 06's level-up roll must not fire (and reset the streak) across these 3 nights
 		for i in range(3):
 			Cultivating.drift_veins()
 		assert_eq(vein["developmentStreak"], 3, "three consecutive eligible nights should tally three")
@@ -464,6 +465,77 @@ func run() -> void:
 		assert_true(cultivate_result["ok"])
 		assert_true(vein["growth"] >= GameData.VEIN_GROWTH["developmentThreshold"], "sanity: cultivating back up should clear 90 again the same day")
 		assert_eq(vein["developmentStreak"], 0, "climbing back above 90 later the same day does not resurrect the streak -- only the next night's drift_veins() pass extends a fresh one")
+	)
+
+	# ── level-up resolution (cultivation-refining ticket 06) ──────
+
+	run_case("level_up_never_succeeds_on_day_one_of_eligibility_regardless_of_seed", func():
+		for seed in range(10):
+			GameState.reset()
+			var vein := _vein(95, "shoreditch", [], "saturated", 1)
+			GameState.state["player"]["veins"] = [vein]
+			Rng.set_seed(seed)
+			Cultivating.drift_veins()
+			assert_eq(vein["level"], 1, "day 1 of eligibility is a 0%% chance -- must never level up, seed %d" % seed)
+			assert_eq(vein["developmentStreak"], 1, "streak should tick up to 1, not clear, seed %d" % seed)
+	)
+
+	run_case("level_up_chance_on_a_middle_day_matches_10_percent_times_streak_minus_one", func():
+		var found_success := false
+		var found_failure := false
+		for seed in range(200):
+			GameState.reset()
+			var vein := _vein(95, "shoreditch", [], "saturated", 1)
+			vein["developmentStreak"] = 5  # advances to 6 this night -> chance = 0.10*(6-1) = 50%
+			GameState.state["player"]["veins"] = [vein]
+			Rng.set_seed(seed)
+			Cultivating.drift_veins()
+			if vein["level"] == 2:
+				found_success = true
+				assert_eq(vein["growth"], GameData.VEIN_GROWTH["neutral"], "a successful level-up resets growth to exactly neutral, seed %d" % seed)
+				assert_eq(vein["developmentStreak"], 0, "a successful level-up clears the streak, seed %d" % seed)
+			else:
+				found_failure = true
+			if found_success and found_failure:
+				break
+		assert_true(found_success, "a 50%% chance should succeed for at least one seed within 200 tries")
+		assert_true(found_failure, "a 50%% chance should also fail for at least one seed within 200 tries")
+	)
+
+	run_case("level_up_chance_saturates_at_100_percent_from_the_eleventh_eligible_night_onward", func():
+		for streak in [10, 19]:  # advances to 11 (exactly 100%) and 20 (still capped at 100%) this night
+			for seed in [0, 1, 2, 999]:
+				GameState.reset()
+				var vein := _vein(95, "shoreditch", [], "saturated", 1)
+				vein["developmentStreak"] = streak
+				GameState.state["player"]["veins"] = [vein]
+				Rng.set_seed(seed)
+				Cultivating.drift_veins()
+				assert_eq(vein["level"], 2, "a 100%% chance must always level up, streak %d seed %d" % [streak, seed])
+	)
+
+	run_case("a_successful_level_up_increments_once_and_applies_no_further_drift_that_night", func():
+		GameState.reset()
+		var vein := _vein(95, "shoreditch", [], "saturated", 2)
+		vein["developmentStreak"] = 19  # guarantees a 100% chance this night
+		GameState.state["player"]["veins"] = [vein]
+		Rng.set_seed(1)
+		Cultivating.drift_veins()
+		assert_eq(vein["level"], 3, "should level up exactly once")
+		assert_eq(vein["growth"], GameData.VEIN_GROWTH["neutral"], "growth should land on exactly neutral -- no drift layered on top of the reset")
+		assert_eq(vein["developmentStreak"], 0, "streak should clear on success")
+	)
+
+	run_case("a_vein_at_its_terroir_cap_never_rolls_for_a_level_up", func():
+		GameState.reset()
+		var vein := _vein(95, "shoreditch", [], "fair", 3)  # fair caps at level 3 -- already maxed
+		vein["developmentStreak"] = 50  # would guarantee a 100% roll if this vein were eligible
+		GameState.state["player"]["veins"] = [vein]
+		for seed in range(5):
+			Rng.set_seed(seed)
+			Cultivating.drift_veins()
+			assert_eq(vein["level"], 3, "a maxed vein must never level up, seed %d" % seed)
+			assert_eq(vein["developmentStreak"], 50, "a maxed vein is ineligible, so the roll is skipped and the streak is left untouched, seed %d" % seed)
 	)
 
 	run_case("prune_moves_growth_down_by_depth_clamped_at_zero_and_credits_ore", func():

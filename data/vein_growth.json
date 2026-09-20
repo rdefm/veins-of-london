@@ -25,6 +25,7 @@
   "selfSeedGrowth": 60,
   "terroirYieldMult": { "poor": 0.6, "fair": 1.0, "rich": 1.6, "saturated": 2.4 },
   "levelCapByTerroir": { "poor": 2, "fair": 3, "rich": 4, "saturated": 5 },
+  "levelUpChancePerDay": 0.10,
   "levelYieldMultBase": 1.0,
   "levelYieldMultPerLevel": 0.2,
   "developmentThreshold": 90,
