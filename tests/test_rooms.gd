@@ -169,6 +169,31 @@ func run() -> void:
 		assert_true(found, "notification uses prune language and an ore-type breakdown, matching the old harvest-breakdown shape")
 	)
 
+	# cultivation-refining ticket 08: automated vein-station cultivation must
+	# apply the same eligibility invariant as manual cultivate()/prune() --
+	# a drop below developmentThreshold clears the streak either way.
+	run_case("veinStation_prune_below_90_clears_the_development_streak_same_as_manual_prune", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "veinStation")
+		var vein := {
+			"id": "vs5", "oreType": "time", "growth": 95, "security": "none",
+			"alarmUpgrades": [], "location": "Roman Rd, in the car park",
+			"claimedOnDay": 1, "district": "shoreditch", "siteId": null,
+			"hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0,
+			"level": 1, "developmentStreak": 3,
+		}
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["veinStationVeins"] = ["vs5"]
+		GameState.state["veinStationTargets"] = { "vs5": 70 }
+
+		Rng.set_seed(1)
+		Rooms.process_vein_station()
+
+		assert_true(vein["growth"] < GameData.VEIN_GROWTH["developmentThreshold"], "sanity: pruned down to 70, below the 90 threshold")
+		assert_eq(vein["developmentStreak"], 0, "the vein station's automated prune clears the streak identically to a manual prune")
+	)
+
 	# spec §11 item 10: "one at 40 with target 70 is cultivated up".
 	run_case("veinStation_cultivates_a_vein_below_target", func():
 		var seed := -1

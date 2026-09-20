@@ -251,6 +251,7 @@ static func process_vein_station() -> void:
 			var amount: int = Cultivating.prune_yield(vein, depth)
 			vein["growth"] = maxi(0, growth - depth)
 			vein["rampantDays"] = 0
+			Cultivating.apply_growth_change(vein, growth)
 			var ore_type: String = vein["oreType"]
 			player["orichalchum"][ore_type] = player["orichalchum"].get(ore_type, 0) + amount
 			if amount > 0:
@@ -266,6 +267,7 @@ static func process_vein_station() -> void:
 				vein["growth"] = clampi(growth + gain, 0, vein_ceiling)
 				if vein["growth"] < vein_ceiling:
 					vein["rampantDays"] = 0
+				Cultivating.apply_growth_change(vein, growth)
 				Contacts.award_contact_xp(contact_id, "cultivating", 20)
 				total_cultivated += 1
 			else:

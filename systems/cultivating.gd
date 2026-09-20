@@ -239,8 +239,7 @@ static func cultivate(vein_id: String) -> Dictionary:
 	vein["growth"] = clampi(vein["growth"] + gain, 0, vein_ceiling)
 	if vein["growth"] < vein_ceiling:
 		vein["rampantDays"] = 0
-	_queue_growth_events(vein, growth_before)
-	_clear_streak_below_threshold(vein)
+	apply_growth_change(vein, growth_before)
 	award_xp(15)
 	Objectives.refresh()
 	Modal.open("cultivate_result", { "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] })
@@ -293,8 +292,7 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 	var growth_before: int = vein["growth"]
 	vein["growth"] = prune_resulting_growth(vein, depth)
 	vein["rampantDays"] = 0
-	_queue_growth_events(vein, growth_before)
-	_clear_streak_below_threshold(vein)
+	apply_growth_change(vein, growth_before)
 
 	var player: Dictionary = GameState.state["player"]
 	var ore_type: String = vein["oreType"]
@@ -386,7 +384,15 @@ static func _drift_one(vein: Dictionary) -> void:
 	else:
 		vein["rampantDays"] = 0
 
-	_queue_growth_events(vein, growth)
+	apply_growth_change(vein, growth)
+
+
+# Shared post-mutation hook for every growth-changing code path (cultivate(),
+# prune(), _drift_one() above, and Rooms.process_vein_station()'s automated
+# cultivate/prune) -- staff-automated veins get the same map events and
+# streak invariant as manual cultivation, not a separate formula.
+static func apply_growth_change(vein: Dictionary, growth_before: int) -> void:
+	_queue_growth_events(vein, growth_before)
 	_clear_streak_below_threshold(vein)
 
 

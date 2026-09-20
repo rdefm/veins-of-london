@@ -674,6 +674,45 @@ func run() -> void:
 		assert_eq(after.get("developmentStreak", 0), 0, "streak clears on depletion")
 	)
 
+	# ── cultivation-refining 08: faction & automated vein parity ──
+
+	run_case("a_faction_vein_held_at_streak_10_levels_up_per_the_same_100pct_schedule_as_a_player_vein", func():
+		for seed in [0, 1, 2, 999]:
+			GameState.reset()
+			var vein := _vein(95, "shoreditch", [], "saturated", 1)
+			vein["factionId"] = "collective"
+			vein["developmentStreak"] = 10  # advances to 11 (100%) this night, same as the player-vein test above
+			GameState.state["world"]["sites"] = [{
+				"id": "s1", "district": "shoreditch", "tier": "saturated", "oreType": "time",
+				"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
+				"hasNaturalVein": false,
+			}]
+			Rng.set_seed(seed)
+			Cultivating.drift_veins()
+			assert_eq(vein["level"], 2, "a faction vein's 100%% roll should land exactly like a player vein's, seed %d" % seed)
+			assert_eq(vein["growth"], GameData.VEIN_GROWTH["neutral"], "growth resets to neutral on level-up, seed %d" % seed)
+			assert_eq(vein["developmentStreak"], 0, "streak clears on success, seed %d" % seed)
+	)
+
+	run_case("a_faction_vein_above_level_1_depletes_to_50_and_loses_a_level_identically_to_a_player_vein", func():
+		GameState.reset()
+		var vein := _vein(0, "shoreditch", [], "saturated", 4)
+		vein["factionId"] = "collective"
+		vein["developmentStreak"] = 6
+		GameState.state["world"]["sites"] = [{
+			"id": "s1", "district": "shoreditch", "tier": "saturated", "oreType": "time",
+			"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
+			"hasNaturalVein": false,
+		}]
+		Cultivating.drift_veins()
+
+		assert_eq(GameState.state["world"]["sites"].size(), 1, "a faction vein above level 1 survives depletion -- no site deletion")
+		var after: Dictionary = GameState.state["world"]["sites"][0]["factionVein"]
+		assert_eq(after["level"], 3, "loses exactly one level, same as a player vein")
+		assert_eq(after["growth"], GameData.VEIN_GROWTH["neutral"], "condition resets to exactly neutral (50)")
+		assert_eq(after.get("developmentStreak", 0), 0, "streak clears on depletion")
+	)
+
 	run_case("level_1_vein_at_zero_keeps_the_15pct_collapse_roll_and_a_pre_roll_cultivate_rescue_holds", func():
 		GameState.reset()
 		var vein := _vein(0, "shoreditch", [], "fair", 1)
