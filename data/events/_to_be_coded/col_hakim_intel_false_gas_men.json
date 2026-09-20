@@ -1,0 +1,53 @@
+{
+  "id": "col_hakim_intel_false_gas_men",
+  "cards": [
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "There's something behind a building near here you might want to look at. Men keep coming round, saying they're British Gas. One of my regulars told me."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "They don't look at the meter. Just the ground at the back. Last time one asked where the cellar was, after telling her he'd checked it the week before."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "She challenged him about that. He wanted to know if she lived on her own. She shut the door."
+    },
+    {
+      "type": "narration",
+      "label": null,
+      "speaker": null,
+      "text": "Hakim sends a pin for the rear of the building. No name accompanies it."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "You can get there from the service lane. Please don't knock on any doors asking who spoke to me. She's worried enough."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "I don't know what they've found. Or if they've found anything. But if you go, be careful."
+    },
+    {
+      "type": "resolution",
+      "label": null,
+      "speaker": null,
+      "text": "You save the location. Hakim sends nothing that identifies the woman."
+    }
+  ],
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ]
+}

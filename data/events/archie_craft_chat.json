@@ -1,13 +1,13 @@
 {
   "id": "archie_craft_chat",
   "cards": [
-    { "type": "narration", "label": "A few days later — Spitalfields Market", "speaker": null, "text": "Archie is eating a falafel wrap and looking at his phone. He waves you over without looking up, which is either comfortable familiarity or mild rudeness. Probably both." },
+    { "type": "narration", "label": "Later - Spitalfields Market", "speaker": null, "text": "Archie is eating a falafel wrap and looking at his phone. He waves you over without looking up, which is either comfortable familiarity or mild rudeness. Probably both." },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Alright. How'd it go with James, then?\"" },
     { "type": "speaker", "label": null, "speaker": "You", "text": "\"He taught me how to make the pearls. Basic stuff, but — it worked.\"" },
     { "type": "narration", "label": null, "speaker": null, "text": "Archie stops chewing. He looks at you with an expression you haven't seen on him before: genuine surprise." },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"He actually showed you? How to craft?\"" },
     { "type": "speaker", "label": null, "speaker": "You", "text": "\"Yeah. Why?\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Because James doesn't show people things. James does things, judges people for not knowing how to do them, and considers that a complete interaction. Either he was absolutely desperate, or —\" He tilts his head. \"He saw something worth the bother.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Because James doesn't show people things. James does things, judges people for not knowing how to do them, and considers that a complete interaction. Either he was absolutely desperate, or...\" He tilts his head. \"He saw something worth the bother.\"" },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Don't let it go to your head. You're at the bottom of a very long ladder. James has been at this for thirty years and he still considers himself underappreciated, which should tell you something about the ceiling.\"" },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"That said — keep practising. Seriously. Being able to craft your own means you're not at the mercy of James's prices, which frankly are a war crime. And it's a marketable skill.\"" },
     { "type": "speaker", "label": null, "speaker": "You", "text": "\"Marketable how?\"" },

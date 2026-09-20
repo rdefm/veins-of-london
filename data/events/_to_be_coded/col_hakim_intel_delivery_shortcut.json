@@ -1,0 +1,41 @@
+{
+  "id": "col_hakim_intel_delivery_shortcut",
+  "cards": [
+    {
+      "type": "narration",
+      "label": null,
+      "speaker": null,
+      "text": "Hakim sends you a message which a map pain."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "Had a driver in earlier, says his phone loses a few minutes whenever he unloads in this yard. Gets back on the road and it puts itself right. He thinks it's the reception. I said it might be."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "GPS apparently is also spotty around there. Go past the fire station, then left. He was very clear about that because apparently everyone goes right and ends up at the bins."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "My uncle used to take his watch off before he checked certain places. Might not be the same thing. I just thought I'd share it, before I forgot."
+    },
+    {
+      "type": "resolution",
+      "label": null,
+      "speaker": null,
+      "text": "You save the location."
+    }
+  ],
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ]
+}

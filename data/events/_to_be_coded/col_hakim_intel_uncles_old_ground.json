@@ -1,0 +1,41 @@
+{
+  "id": "col_hakim_intel_uncles_old_ground",
+  "cards": [
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "That workshop with the boards over the windows is opening again. Someone came in for a paper and said they're clearing it out. I've sent you the address."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "The old owner was a family friend. My uncle used to go round the back there, taking care of a vein for him. He'd leave me in the shop, so I can tell you exactly where it is and almost nothing useful about it. Sorry."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "There's a passage beside it. Looks like it belongs to the next place, but it goes through to the courtyard. He always went that way."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "He stopped going, eventually. I don't know if it was the ground or his knees. He wasn't one for explaining either."
+    },
+    {
+      "type": "resolution",
+      "label": null,
+      "speaker": null,
+      "text": "You mark the courtyard. Hakim sends one correction: the passage is on the left, looking from the road."
+    }
+  ],
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ]
+}

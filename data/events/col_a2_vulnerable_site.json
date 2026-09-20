@@ -29,7 +29,7 @@
         }
       ]
     },
-    { "type": "resolution", "label": null, "speaker": null, "text": "Either way, the arch keeps doing what it's always done, for now. Whether that keeps being true is a separate question." }
+    { "type": "resolution", "label": null, "speaker": null, "text": "Either way, the vein keeps doing what it's always done, for now. Whether that keeps being true is a separate question." }
   ],
   "on_complete": [
     { "op": "set_flag", "flag": "colA2VulnerableSiteDone", "value": true },

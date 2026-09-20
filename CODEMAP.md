@@ -230,6 +230,10 @@ loaded, keyed by filename; no id-list const to keep in sync. Each is the cards/o
 `systems/events.gd` runs — directly triggered story beats vs. weighted district-deck entries
 (`systems/district_deck.gd`, a `deck` sub-object).
 
+`data/events/_to_be_coded/col_hakim_intel_*.json` holds five unregistered Hakim intel
+prose variants generated with the quest editor builder. Implementation briefs are in
+`data/events/_to_be_coded/drafts/*.notes.md`; these drafts are not loaded by the game.
+
 ## tests/*.gd
 
 Mirrors systems/ and screens/ 1:1: `tests/test_<name>.gd`. `tests/support/` holds shared helpers,

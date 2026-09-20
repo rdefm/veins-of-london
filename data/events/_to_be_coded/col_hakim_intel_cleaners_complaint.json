@@ -1,0 +1,47 @@
+{
+  "id": "col_hakim_intel_cleaners_complaint",
+  "cards": [
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "Woman who cleans the offices round the corner was in. She said someone keeps lifting a cover under the back stairs and digging underneath. Puts the cover back afterwards, leaves all the dirt for her. "
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "She thought it was maintenance, first time. Asked the manager. He said nobody had been booked, so now she's got to report it whenever it happens. As well as sweeping it up."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "I asked which stairs. Just so I knew where she meant. She drew me this."
+    },
+    {
+      "type": "narration",
+      "label": null,
+      "speaker": null,
+      "text": "The rough sketch shows a route drawn on the back of a receipt: service entrance, corridor, stairs."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "Could just be someone after a pipe. But they've been back, and I thought you'd know better than me."
+    },
+    {
+      "type": "resolution",
+      "label": null,
+      "speaker": null,
+      "text": "You save the route and the position of the cover. Whoever is digging has been careful about everything except the cleaner."
+    }
+  ],
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ]
+}

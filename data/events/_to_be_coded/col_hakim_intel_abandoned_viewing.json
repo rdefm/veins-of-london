@@ -1,0 +1,41 @@
+{
+  "id": "col_hakim_intel_abandoned_viewing",
+  "cards": [
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "A man came in after looking at a shop to rent. Didn't take it. Said all the metal shelves leaned towards one bit of wall, even the one they moved out into the middle."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "Agent told him subsidence. He asked why the bottles on the counter were standing straight. Didn't get an answer he liked."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "We had something like that near my uncle's old shop once, where he had a physics vein. Had to keep the stock on the other side. Not saying this is that, shelving can just be bad shelving."
+    },
+    {
+      "type": "speaker",
+      "label": null,
+      "speaker": "Hakim",
+      "text": "I've sent you the address, and a photo from the estate agent listing. The wall on the right, he said."
+    },
+    {
+      "type": "resolution",
+      "label": null,
+      "speaker": null,
+      "text": "You save the location. The letting photograph shows the shelves empty."
+    }
+  ],
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ]
+}
