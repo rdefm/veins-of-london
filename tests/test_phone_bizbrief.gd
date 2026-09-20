@@ -52,6 +52,29 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("attention_surfaces_a_live_development_eligible_vein_with_raid_exposure", func():
+		GameState.reset()
+		Fixtures.seed_vein("eligible", 95)
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var texts := NodeQuery.button_texts(phone)
+		assert_true(texts.any(func(t: String): return t.find("ready to develop") != -1 and t.find("raid exposure") != -1), "development-eligible vein and its raid exposure are surfaced in Attention")
+		phone.free()
+	)
+
+	run_case("attention_never_lists_a_vein_already_at_its_level_cap", func():
+		GameState.reset()
+		var capped := Fixtures.seed_vein("capped", 95)
+		capped["level"] = 3  # fair cap 3: already maxed
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var texts := NodeQuery.button_texts(phone)
+		assert_true(not texts.any(func(t: String): return t.find("ready to develop") != -1), "a capped vein is never shown as development-eligible")
+		phone.free()
+	)
+
 	run_case("quiet_sections_are_not_rendered", func():
 		GameState.reset()
 		MorningAccountsSystem.finish_rollover(MorningAccountsSystem.begin_rollover())

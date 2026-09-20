@@ -49,11 +49,14 @@ func _build_brief(content: VBoxContainer) -> void:
 	var account = MorningAccountsSystem.latest()
 	if account == null:
 		content.add_child(UI.muted_label("No morning account yet."))
-		return
-	content.add_child(UI.muted_label("Day %d · overnight changes" % account["day"]))
-	content.add_child(_build_bank(account))
-	if MorningAccountsSystem.has_operations(account):
-		content.add_child(_build_operations(account))
+	else:
+		content.add_child(UI.muted_label("Day %d · overnight changes" % account["day"]))
+		content.add_child(_build_bank(account))
+		if MorningAccountsSystem.has_operations(account):
+			content.add_child(_build_operations(account))
+	# Live, not tied to the presence of a rollover snapshot -- a
+	# development-eligible vein (or an alarm/unread message) shows up here
+	# even before the first morning account ever lands.
 	var attention := MorningAccountsSystem.attention_items()
 	if not attention.is_empty():
 		content.add_child(_build_attention(attention))
@@ -249,7 +252,11 @@ func _build_attention(items: Array[Dictionary]) -> Control:
 	c["content"].add_child(UI.muted_label("Still unresolved"))
 	for item in items:
 		var captured: Dictionary = item
-		var glyph: Callable = Icons.draw_phone if item["kind"] == "message" else Icons.draw_attack
+		var glyph: Callable = Icons.draw_attack
+		if item["kind"] == "message":
+			glyph = Icons.draw_phone
+		elif item["kind"] == "development":
+			glyph = Icons.draw_cultivate
 		var row := UI.hbox()
 		var icon := UI.icon_glyph_control(glyph, 0.7)
 		icon.custom_minimum_size = Vector2(24, 24)
