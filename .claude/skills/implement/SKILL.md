@@ -16,7 +16,7 @@ Prefer the Edit tool over shell one-liners (`sed`, heredocs, PowerShell `-replac
 
 Use /tdd where possible, at pre-agreed seams.
 
-Run typechecking regularly, single test files regularly, and the full test suite once at the end.
+Run typechecking regularly. Don't run tests (single files or the full suite) mid-implementation — run them once, at the end, after the whole ticket is implemented.
 
 Once done, use /code-review to review the work.
 

@@ -430,19 +430,6 @@ func run() -> void:
 		assert_true(found, "bands that stop short of growth 100 should fail validation")
 	)
 
-	run_case("corrupt_fixture_vein_growth_no_dormant_band_fails", func():
-		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		for band in corrupted["vein_growth"]["bands"]:
-			if band["id"] == "dormant":
-				band["drift"] = 1  # no longer a resting band at all
-		var errors := GameData.validate_tables(corrupted)
-		var found := false
-		for e in errors:
-			if e.contains("exactly one drift:0 band straddling neutral"):
-				found = true
-		assert_true(found, "losing the one resting (drift:0) band straddling neutral should fail validation")
-	)
-
 	# ── day-rhythm-business-and-combat ticket 14: data/combat_prototype.json ──
 
 	run_case("corrupt_fixture_combat_prototype_missing_encounter_fails", func():

@@ -445,6 +445,7 @@ func _validate_vein_growth(vein_growth: Dictionary, xp_levels: Array, errors: Ar
 		"neutral", "ceiling", "wildCeilingBonus", "bands", "yieldPerPoint", "hardPruneBonus",
 		"pruneLightDepth", "pruneHardDepth", "cultivateBase", "cultivatePerSkill", "cultivateMinGain",
 		"collapseChancePerDay", "seedGrowth", "rampantSeedDays", "selfSeedGrowth", "terroirYieldMult",
+		"levelCapByTerroir", "driftRandomMin", "driftRandomMax",
 	], "vein_growth", errors)
 
 	if xp_levels.size() != 6:
@@ -452,7 +453,6 @@ func _validate_vein_growth(vein_growth: Dictionary, xp_levels: Array, errors: Ar
 
 	if not vein_growth.has("bands"):
 		return
-	var neutral: int = vein_growth.get("neutral", 50)
 	var bands: Array = vein_growth["bands"]
 	var sorted_bands: Array = bands.duplicate()
 	sorted_bands.sort_custom(func(a, b): return a["min"] < b["min"])
@@ -464,26 +464,12 @@ func _validate_vein_growth(vein_growth: Dictionary, xp_levels: Array, errors: Ar
 		errors.append("vein_growth.bands: must start at growth 0")
 
 	for i in range(sorted_bands.size()):
-		_require_keys(sorted_bands[i], ["id", "min", "max", "label", "drift"], "vein_growth.bands[%d]" % i, errors)
+		_require_keys(sorted_bands[i], ["id", "min", "max", "label"], "vein_growth.bands[%d]" % i, errors)
 		if i > 0 and sorted_bands[i - 1]["max"] + 1 != sorted_bands[i]["min"]:
 			errors.append("vein_growth.bands: gap or overlap between '%s' and '%s'" % [sorted_bands[i - 1].get("id"), sorted_bands[i].get("id")])
 
 	if sorted_bands[-1]["max"] < 100:
 		errors.append("vein_growth.bands: must cover through growth 100")
-
-	# Exactly one non-pinned ("resting") band should sit at drift 0 and
-	# straddle neutral -- collapsed/rampant are pinned walls, not resting
-	# bands, despite also carrying drift 0.
-	var resting_zero_drift := 0
-	for band in sorted_bands:
-		if band.get("id") == "collapsed":
-			continue
-		if band["min"] == 0 or band["min"] >= vein_growth.get("ceiling", 100):
-			continue
-		if band["drift"] == 0 and band["min"] <= neutral and neutral <= band["max"]:
-			resting_zero_drift += 1
-	if resting_zero_drift != 1:
-		errors.append("vein_growth.bands: expected exactly one drift:0 band straddling neutral (dormant), found %d" % resting_zero_drift)
 
 
 func _validate_recipes(recipes: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:

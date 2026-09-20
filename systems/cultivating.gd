@@ -48,34 +48,13 @@ static func growth_band(vein: Dictionary) -> Dictionary:
 	return _band_for_growth(vein["growth"])
 
 
-static func band_drift(growth: int) -> int:
-	return _band_for_growth(growth)["drift"]
-
-
-# The "vigour" hospitability bonus and the King's Cross district special are the same effect (+1 rightward drift / -1 leftward, min 0) and stack.
-static func vigour_stacks(vein: Dictionary) -> int:
-	var stacks := 0
-	var bonuses: Array = vein.get("hospitability", {}).get("bonuses", [])
-	if bonuses.has("vigour"):
-		stacks += 1
-	if vein.get("district") == "kingscross":
-		stacks += 1
-	return stacks
-
-
-# band_drift(growth) plus the vigour/King's Cross bonus, signed by which side of
-# neutral growth sits on (floored at 0 -- vigour slows a decline, never reverses it). No-op at neutral itself.
-static func effective_drift(growth: int, vein: Dictionary) -> int:
-	var base: int = band_drift(growth)
-	var stacks: int = vigour_stacks(vein)
-	if stacks == 0:
-		return base
-	var neutral: int = GameData.VEIN_GROWTH["neutral"]
-	if growth > neutral:
-		return base + stacks
-	elif growth < neutral:
-		return maxi(0, base - stacks)
-	return base
+# R§1.2/§8.3: nightly drift magnitude, re-rolled per vein per tick -- scales
+# with the vein's earned level plus a per-night random component. Direction
+# (toward whichever wall the vein currently leans) is applied by the caller;
+# a vein exactly at neutral never calls this (see _drift_one/days_to_wall).
+static func drift_magnitude(level: int) -> int:
+	var vg: Dictionary = GameData.VEIN_GROWTH
+	return level + Rng.randi_range(vg["driftRandomMin"], vg["driftRandomMax"])
 
 
 # Tolerates growth above 100 (a wildCeiling vein) -- the "rampant" band's max is deliberately open-ended (R§1.2).
@@ -106,24 +85,26 @@ static func ceiling(vein: Dictionary) -> int:
 const COLLAPSED_VEIN_WARNING := "Spent. Could collapse and disappear any day — cultivate it to save it."
 
 
-# Simulates daily drift (same step shape as _drift_one() below) until the vein
-# reaches whichever wall it's leaning toward. -1 means not applicable (already at neutral, drifting toward neither wall).
+# Estimates days to whichever wall the vein is leaning toward, using the
+# *expected* nightly drift magnitude (level + the midpoint of the random
+# range) since actual drift is re-rolled per tick (R§1.2/§8.3) -- this is an
+# estimate for UI display, not a guaranteed countdown. -1 means not
+# applicable (already at neutral, drifting toward neither wall).
 static func days_to_wall(vein: Dictionary) -> int:
 	var neutral: int = GameData.VEIN_GROWTH["neutral"]
 	var growth: int = vein["growth"]
 	if growth == neutral:
 		return -1
 
+	var vg: Dictionary = GameData.VEIN_GROWTH
+	var expected_delta: int = maxi(1, GameState.round_epsilon(vein.get("level", 1) + (vg["driftRandomMin"] + vg["driftRandomMax"]) / 2.0))
 	var target: int = ceiling(vein) if growth > neutral else 0
 	var days := 0
 	while growth != target and days < 1000:
-		var delta: int = effective_drift(growth, vein)
-		if delta == 0:
-			break
 		if growth > neutral:
-			growth = mini(target, growth + delta)
+			growth = mini(target, growth + expected_delta)
 		else:
-			growth = maxi(target, growth - delta)
+			growth = maxi(target, growth - expected_delta)
 		days += 1
 	return days
 
@@ -153,6 +134,16 @@ static func terroir_yield_mult(vein: Dictionary) -> float:
 	return GameData.VEIN_GROWTH["terroirYieldMult"].get(tier, 1.0)
 
 
+# Max earned vein level for a terroir tier (R§1.2 levelCapByTerroir): poor 2 / fair 3 / rich 4 / saturated 5.
+static func level_cap_for_tier(tier: String) -> int:
+	return GameData.VEIN_GROWTH["levelCapByTerroir"].get(tier, 1)
+
+
+static func level_cap(vein: Dictionary) -> int:
+	var tier: String = vein.get("hospitability", {}).get("tier", "fair")
+	return level_cap_for_tier(tier)
+
+
 # Shared vein-dict constructor for Sites.attempt_seed(), Factions.
 # create_faction_vein(), and events.gd's tutorial debrief. hospitability is
 # deep-copied -- state purity requires every vein to own an independent copy, never share an Array/Dictionary reference with its site.
@@ -174,6 +165,9 @@ static func make_vein(ore_type: String, growth: int, district: String, site_id: 
 		# Extra Hired Guards bought on top of "guarded" -- see next_security_upgrade()
 		# below. Reads elsewhere use .get("extraGuards", 0) so older hand-built vein dicts don't need updating.
 		"extraGuards": 0,
+		# Persistent earned level (R§1.2), 1..level_cap_for_tier(tier). Every
+		# fresh vein seeds at 1; later tickets add ways to raise/lose it.
+		"level": mini(1, level_cap_for_tier(hospitability.get("tier", "fair"))),
 	}
 
 
@@ -329,11 +323,13 @@ static func self_seed(vein: Dictionary) -> void:
 	Notify.push("Your %s vein on %s has run wild long enough to seed a new %s vein elsewhere in the district." % [parent_ore, parent_street, new_ore])
 
 
-# R§3.4's drift formula. Right-wall clamping falls out of the ceiling clamp for
-# free (rampant band's drift is 0); left-wall pinning at 0 falls out of the
-# collapsed band's drift likewise being 0. Also carries rampantDays: +1 each
-# tick the vein ends at its ceiling, reset to 0 otherwise (prune/cultivate zero
-# it themselves when they act, so this only needs to handle drift's own effect).
+# R§1.2/§8.3's drift formula: exactly 50 (neutral) is the sole stable point;
+# every other tick rerolls drift_magnitude(level) and steps that far further
+# from 50, toward whichever wall the vein already leans. Right-wall clamping
+# falls out of the ceiling clamp for free; left-wall pinning at 0 likewise.
+# Also carries rampantDays: +1 each tick the vein ends at its ceiling, reset
+# to 0 otherwise (prune/cultivate zero it themselves when they act, so this
+# only needs to handle drift's own effect).
 # Capped at rampantSeedDays so it holds and keeps retrying once self_seed finds no unclaimed site, rather than running off uncapped.
 static func _drift_one(vein: Dictionary) -> void:
 	var neutral: int = GameData.VEIN_GROWTH["neutral"]
@@ -341,7 +337,7 @@ static func _drift_one(vein: Dictionary) -> void:
 	var vein_ceiling: int = ceiling(vein)
 
 	if growth != neutral:
-		var delta: int = effective_drift(growth, vein)
+		var delta: int = drift_magnitude(vein.get("level", 1))
 		var direction: int = 1 if growth > neutral else -1
 		vein["growth"] = clampi(growth + delta * direction, 0, vein_ceiling)
 

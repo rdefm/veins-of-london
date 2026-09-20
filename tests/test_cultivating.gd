@@ -3,12 +3,12 @@ extends "res://tests/test_base.gd"
 const SeedSearch := preload("res://tests/support/seed_search.gd")
 const Fixtures := preload("res://tests/support/fixtures.gd")
 
-static func _vein(growth: int, district: String = "shoreditch", bonuses: Array = [], tier: String = "fair") -> Dictionary:
+static func _vein(growth: int, district: String = "shoreditch", bonuses: Array = [], tier: String = "fair", level: int = 1) -> Dictionary:
 	return {
 		"id": "test_vein", "oreType": "time", "growth": growth, "security": "none",
 		"alarmUpgrades": [], "location": "Test St, nowhere", "claimedOnDay": 1,
 		"district": district, "siteId": "s1", "hospitability": { "tier": tier, "bonuses": bonuses },
-		"rampantDays": 0,
+		"rampantDays": 0, "level": level,
 	}
 
 
@@ -41,57 +41,59 @@ func run() -> void:
 			assert_eq(band["id"], cases[growth], "growth %d should land in band '%s'" % [growth, cases[growth]])
 	)
 
-	run_case("band_drift_matches_the_table", func():
-		assert_eq(Cultivating.band_drift(0), 0, "collapsed: pinned")
-		assert_eq(Cultivating.band_drift(10), 3, "barren: 3/day")
-		assert_eq(Cultivating.band_drift(20), 2, "sparse: 2/day")
-		assert_eq(Cultivating.band_drift(40), 1, "thinning: 1/day")
-		assert_eq(Cultivating.band_drift(50), 0, "dormant: 0/day")
-		assert_eq(Cultivating.band_drift(60), 1, "taking: 1/day")
-		assert_eq(Cultivating.band_drift(80), 2, "lush: 2/day")
-		assert_eq(Cultivating.band_drift(90), 3, "wild: 3/day")
-		assert_eq(Cultivating.band_drift(100), 0, "rampant: pinned")
+	# ── vein level & terroir cap (cultivation-refining ticket 01) ──────
+
+	run_case("level_cap_by_terroir_matches_the_spec_table", func():
+		assert_eq(Cultivating.level_cap_for_tier("poor"), 2, "poor caps at level 2")
+		assert_eq(Cultivating.level_cap_for_tier("fair"), 3, "fair caps at level 3")
+		assert_eq(Cultivating.level_cap_for_tier("rich"), 4, "rich caps at level 4")
+		assert_eq(Cultivating.level_cap_for_tier("saturated"), 5, "saturated caps at level 5")
 	)
 
-	# ── vigour / King's Cross drift bonus (spec §7b) ───────────────────
+	run_case("level_cap_reads_a_veins_own_hospitability_tier", func():
+		assert_eq(Cultivating.level_cap(_vein(50, "shoreditch", [], "poor")), 2)
+		assert_eq(Cultivating.level_cap(_vein(50, "shoreditch", [], "fair")), 3)
+		assert_eq(Cultivating.level_cap(_vein(50, "shoreditch", [], "rich")), 4)
+		assert_eq(Cultivating.level_cap(_vein(50, "shoreditch", [], "saturated")), 5)
+	)
 
-	run_case("vigour_bonus_adds_1_rightward_and_subtracts_1_leftward_min_0", func():
+	run_case("fresh_vein_seeds_at_level_1_for_every_terroir_tier", func():
+		for tier in ["poor", "fair", "rich", "saturated"]:
+			var vein := Cultivating.make_vein("time", GameData.VEIN_GROWTH["seedGrowth"], "shoreditch", null, { "tier": tier, "bonuses": [] })
+			assert_eq(vein["level"], 1, "%s-tier vein should seed at level 1" % tier)
+	)
+
+	# ── drift (cultivation-refining ticket 01, spec §8.3): exactly 50 is the ──
+	# sole stable point; every other tick rerolls level + randi_range(1,5) and ──
+	# steps that far further from 50, toward whichever wall the vein leans. ──
+
+	run_case("drift_magnitude_stays_within_level_plus_1_to_level_plus_5", func():
+		for level in [1, 2, 3, 4, 5]:
+			for seed in range(50):
+				Rng.set_seed(seed)
+				var delta := Cultivating.drift_magnitude(level)
+				assert_true(delta >= level + 1 and delta <= level + 5, "level %d seed %d: delta %d out of [%d, %d]" % [level, seed, delta, level + 1, level + 5])
+	)
+
+	run_case("drift_magnitude_level_offset_is_exact_given_the_same_random_draw", func():
+		Rng.set_seed(42)
+		var lvl1 := Cultivating.drift_magnitude(1)
+		Rng.set_seed(42)
+		var lvl5 := Cultivating.drift_magnitude(5)
+		assert_eq(lvl5 - lvl1, 4, "the same random draw plus a level 4 higher should differ by exactly 4")
+	)
+
+	run_case("vein_at_exactly_neutral_never_drifts_regardless_of_level_or_elapsed_ticks", func():
 		GameState.reset()
-		var right := _vein(60, "shoreditch", ["vigour"])  # taking band, base drift 1
-		var left := _vein(40, "shoreditch", ["vigour"])   # thinning band, base drift 1
-		GameState.state["player"]["veins"] = [right, left]
-		Cultivating.drift_veins()
-		assert_eq(right["growth"], 62, "vigour: base drift 1 + 1 = 2 rightward")
-		assert_eq(left["growth"], 40, "vigour: base drift 1 - 1 = 0 leftward, floored — the vein holds")
+		var veins := []
+		for level in [1, 2, 3, 4, 5]:
+			veins.append(_vein(50, "shoreditch", [], "fair", level))
+		GameState.state["player"]["veins"] = veins
+		for i in range(10):
+			Cultivating.drift_veins()
+		for vein in veins:
+			assert_eq(vein["growth"], 50, "growth at exactly neutral must hold regardless of level or elapsed ticks")
 	)
-
-	run_case("kingscross_special_grants_the_same_plus1_minus1_effect_as_vigour", func():
-		GameState.reset()
-		var right := _vein(60, "kingscross")
-		var left := _vein(40, "kingscross")
-		GameState.state["player"]["veins"] = [right, left]
-		Cultivating.drift_veins()
-		assert_eq(right["growth"], 62, "King's Cross alone: base drift 1 + 1 = 2 rightward")
-		assert_eq(left["growth"], 40, "King's Cross alone: base drift 1 - 1 = 0 leftward, floored")
-	)
-
-	run_case("vigour_bonus_and_kingscross_special_stack_additively", func():
-		GameState.reset()
-		var vein := _vein(60, "kingscross", ["vigour"])  # taking band, base drift 1
-		GameState.state["player"]["veins"] = [vein]
-		Cultivating.drift_veins()
-		assert_eq(vein["growth"], 63, "vigour + King's Cross stack: base drift 1 + 2 = 3 rightward")
-	)
-
-	run_case("stacked_vigour_and_kingscross_floor_a_base_2_leftward_drift_at_0", func():
-		GameState.reset()
-		var vein := _vein(20, "kingscross", ["vigour"])  # sparse band, base drift 2
-		GameState.state["player"]["veins"] = [vein]
-		Cultivating.drift_veins()
-		assert_eq(vein["growth"], 20, "2 stacks arrest a base-2 leftward drift entirely, not past 0")
-	)
-
-	# ── drift (spec §2.3, §11 items 1-2) ──────────────────────────────
 
 	run_case("drift_is_symmetric_and_sided", func():
 		GameState.reset()
@@ -105,7 +107,18 @@ func run() -> void:
 		assert_eq(neutral["growth"], 50, "a vein at neutral does not move")
 	)
 
-	run_case("soak_56_to_ceiling_lands_in_24_to_28_ticks", func():
+	run_case("drift_direction_and_magnitude_bounds_hold_at_several_levels", func():
+		for level in [1, 3, 5]:
+			GameState.reset()
+			var right := _vein(60, "shoreditch", [], "fair", level)
+			var left := _vein(40, "shoreditch", [], "fair", level)
+			GameState.state["player"]["veins"] = [right, left]
+			Cultivating.drift_veins()
+			assert_true(right["growth"] >= 60 + level + 1 and right["growth"] <= 60 + level + 5, "level %d: rightward step should be level+1..level+5" % level)
+			assert_true(left["growth"] <= 40 - (level + 1) and left["growth"] >= 40 - (level + 5), "level %d: leftward step should be level+1..level+5" % level)
+	)
+
+	run_case("soak_56_to_ceiling_lands_within_the_level_1_bound", func():
 		GameState.reset()
 		var vein := _vein(56)
 		GameState.state["player"]["veins"] = [vein]
@@ -113,10 +126,11 @@ func run() -> void:
 		while vein["growth"] < Cultivating.ceiling(vein) and ticks < 100:
 			Cultivating.drift_veins()
 			ticks += 1
-		assert_true(ticks >= 24 and ticks <= 28, "56 -> ceiling should take 24-28 ticks, took %d" % ticks)
+		# level 1: 2-6/day over a 44-point gap -> ceil(44/6)=8 .. floor(44/2)=22 ticks.
+		assert_true(ticks >= 8 and ticks <= 22, "56 -> ceiling should take 8-22 ticks at level 1, took %d" % ticks)
 	)
 
-	run_case("soak_44_to_zero_lands_in_24_to_28_ticks", func():
+	run_case("soak_44_to_zero_lands_within_the_level_1_bound", func():
 		GameState.reset()
 		var vein := _vein(44)
 		GameState.state["player"]["veins"] = [vein]
@@ -124,7 +138,7 @@ func run() -> void:
 		while vein["growth"] > 0 and ticks < 100:
 			Cultivating.drift_veins()
 			ticks += 1
-		assert_true(ticks >= 24 and ticks <= 28, "44 -> 0 should take 24-28 ticks, took %d" % ticks)
+		assert_true(ticks >= 8 and ticks <= 22, "44 -> 0 should take 8-22 ticks at level 1, took %d" % ticks)
 	)
 
 	# ── cultivate (spec §2.4) ──────────────────────────────────────────
@@ -486,12 +500,12 @@ func run() -> void:
 
 	# bugfixes-40: NPC-abandonment (adr/0002's independent daily kill roll
 	# for faction-claimed sites, stacked on top of this same collapse roll)
-	# is gone -- a faction vein now has exactly one way to die. Part 1 is
-	# fully deterministic (no RNG at all): collapse_vein() only ever rolls
-	# once growth==0, and drift/band math is pure, so a fresh NPC claim
-	# (seedGrowth 20, below neutral) decays on a fixed schedule -- no
-	# independent roll can cut that walk short anymore.
-	run_case("faction_vein_survives_the_full_deterministic_decay_to_zero_with_no_independent_death_roll", func():
+	# is gone -- a faction vein now has exactly one way to die. Part 1: no
+	# independent roll shortens the walk down while growth is still above 0
+	# (collapse_vein() only ever rolls once growth==0); a fresh NPC claim
+	# (seedGrowth 20, level 1, below neutral) decays monotonically at
+	# level+1..level+5/day (2-6/day), reaching 0 within 4-10 ticks.
+	run_case("faction_vein_decays_monotonically_toward_zero_with_no_independent_death_roll", func():
 		GameState.reset()
 		var vein := _vein(20)
 		vein["factionId"] = "collective"
@@ -500,13 +514,21 @@ func run() -> void:
 			"bonuses": [], "discoveredDay": 1, "claimed": false, "factionVein": vein,
 			"hasNaturalVein": false,
 		}]
-		# 20 -> 18 -> 16 -> 14 -> 11 -> 8 -> 5 -> 2: seven ticks, still > 0.
-		for day in range(7):
+
+		var last_growth := 20
+		var reached_zero_at := -1
+		for day in range(15):
 			Cultivating.drift_veins()
-			assert_eq(GameState.state["world"]["sites"].size(), 1, "day %d: vein should survive while growth is still above 0" % day)
-			assert_true(GameState.state["world"]["sites"][0]["factionVein"]["growth"] > 0, "day %d: growth still positive" % day)
-		Cultivating.drift_veins()  # day 8: 2 - 3 clamps to exactly 0
-		assert_eq(GameState.state["world"]["sites"][0]["factionVein"]["growth"], 0, "growth should have decayed to exactly 0 via drift alone, on schedule")
+			var sites: Array = GameState.state["world"]["sites"]
+			if sites.is_empty():
+				break  # growth hit 0 and the same-tick collapse roll happened to fire -- an allowed outcome, covered on its own below
+			var growth: int = sites[0]["factionVein"]["growth"]
+			assert_true(growth <= last_growth, "day %d: growth should never increase while draining toward zero" % day)
+			if growth == 0:
+				reached_zero_at = day + 1
+				break
+			last_growth = growth
+		assert_true(reached_zero_at == -1 or (reached_zero_at >= 4 and reached_zero_at <= 10), "level-1 decay from 20 to 0 (2-6/day) should take 4-10 ticks if it survives that long, took %s" % str(reached_zero_at))
 	)
 
 	# Part 2: once pinned at 0, it still dies -- via the one death path left
@@ -558,12 +580,12 @@ func run() -> void:
 
 	run_case("drift_fires_a_charge_burst_the_tick_a_vein_drifts_into_wild", func():
 		GameState.reset()
-		var vein := _vein(84)  # lush; lush's own drift (2) crosses the 86 wild threshold in one tick
+		var vein := _vein(84)  # lush; level 1's drift (2-6) always crosses the 86 wild threshold in one tick
 		GameState.state["player"]["veins"] = [vein]
 
 		Cultivating.drift_veins()
 
-		assert_eq(vein["growth"], 86, "lush drifts by 2/day")
+		assert_true(vein["growth"] >= 86 and vein["growth"] <= 90, "level 1 drifts by 2-6/day from 84")
 		assert_true(MapEvents.has_pending(), "crossing into wild queues a burst")
 		var event = MapEvents.current()
 		assert_eq(event["type"], "charge")
@@ -578,7 +600,7 @@ func run() -> void:
 
 		Cultivating.drift_veins()
 
-		assert_eq(vein["growth"], 100, "wild drifts by 3/day, clamped at the ceiling")
+		assert_eq(vein["growth"], 100, "99 + any level-1 drift (2-6) clamps at the ceiling")
 		assert_true(MapEvents.has_pending(), "reaching the ceiling queues a burst on its own, independent of the wild-entry check")
 		assert_eq(MapEvents.current()["type"], "charge")
 	)
@@ -594,7 +616,7 @@ func run() -> void:
 		assert_true(not MapEvents.has_pending())
 
 		Cultivating.drift_veins()
-		assert_eq(vein["growth"], 89, "still drifting rightward within wild")
+		assert_eq(Cultivating.growth_band(vein)["id"], "wild", "still drifting rightward within wild (86-90 + 2-6 never reaches the 100 ceiling)")
 		assert_true(not MapEvents.has_pending(), "sitting inside wild a second tick does not requeue a burst")
 	)
 
@@ -774,6 +796,11 @@ func run() -> void:
 		# Ticket 41's gentler cultivateBase/PerSkill roughly doubles the
 		# successes needed to close the same 20->50 gap, so the block count
 		# this takes roughly doubles too (was "a dozen", now "two dozen").
+		# cultivation-refining ticket 01's drift rework (level + randi_range(1,5),
+		# ~4/day average at level 1 vs. the old band table's 1-3) also now
+		# competes against the climb via a real Rng draw each overnight tick,
+		# nudging this fixed-seed run from 25 to 26 -- the bound is loosened by
+		# a couple blocks to absorb that; full balance re-tuning is ticket 14's job.
 		GameState.reset()
 		GameState.state["player"]["cultivatingSkill"] = 1
 		var vein := _vein(GameData.VEIN_GROWTH["seedGrowth"])
@@ -783,7 +810,7 @@ func run() -> void:
 		while vein["growth"] < 50 and blocks < 40:
 			Cultivating.cultivate("test_vein")
 			blocks += 1
-		assert_true(blocks <= 25, "should reach neutral in roughly two dozen blocks (skill 1), took %d" % blocks)
+		assert_true(blocks <= 28, "should reach neutral in roughly two dozen blocks (skill 1), took %d" % blocks)
 	)
 
 	# ── value tier (spec §3, §11 item 8) ────────────────────────────────
@@ -833,21 +860,26 @@ func run() -> void:
 		assert_eq(Cultivating.ceiling(_vein(50, "shoreditch", ["wildCeiling"])), 120, "wildCeiling bonus -> 120")
 	)
 
-	run_case("days_to_wall_matches_a_manual_drift_simulation", func():
-		var vein := _vein(56)
-		var manual: Dictionary = GameState.deep_copy(vein)
-		var days := 0
-		while manual["growth"] < Cultivating.ceiling(manual) and days < 100:
-			var delta: int = Cultivating.band_drift(manual["growth"])
-			manual["growth"] = mini(Cultivating.ceiling(manual), manual["growth"] + delta)
-			days += 1
-		assert_eq(Cultivating.days_to_wall(vein), days, "days_to_wall should match a manual day-by-day simulation")
+	run_case("days_to_wall_returns_minus_one_at_neutral", func():
+		assert_eq(Cultivating.days_to_wall(_vein(50)), -1, "a vein at neutral is not drifting toward either wall")
 	)
 
-	run_case("days_to_wall_reflects_the_vigour_bonus", func():
-		var plain := _vein(60)
-		var vigorous := _vein(60, "shoreditch", ["vigour"])
-		assert_true(Cultivating.days_to_wall(vigorous) < Cultivating.days_to_wall(plain), "vigour should shorten the days-to-wall projection")
+	run_case("days_to_wall_matches_a_manual_simulation_using_the_expected_drift_magnitude", func():
+		var vg: Dictionary = GameData.VEIN_GROWTH
+		var vein := _vein(56)  # level 1
+		var expected_delta: int = maxi(1, GameState.round_epsilon(1 + (vg["driftRandomMin"] + vg["driftRandomMax"]) / 2.0))
+		var manual_growth := 56
+		var days := 0
+		while manual_growth < 100 and days < 100:
+			manual_growth = mini(100, manual_growth + expected_delta)
+			days += 1
+		assert_eq(Cultivating.days_to_wall(vein), days, "days_to_wall should match a manual simulation using the expected (level + midpoint-of-random) delta")
+	)
+
+	run_case("days_to_wall_shrinks_as_earned_level_increases", func():
+		var low_level := _vein(56, "shoreditch", [], "fair", 1)
+		var high_level := _vein(56, "shoreditch", [], "rich", 4)
+		assert_true(Cultivating.days_to_wall(high_level) < Cultivating.days_to_wall(low_level), "a higher earned level should reach the wall sooner in the estimate")
 	)
 
 	# ── M1 hospitability bonuses (terroir yield mult) ──────────────────

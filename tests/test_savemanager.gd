@@ -66,6 +66,26 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_mutate_load_round_trips_vein_level_as_an_int", func():
+		GameState.reset()
+		GameState.state["player"]["veins"].append(Cultivating.make_vein("time", 50, "shoreditch", "s1", { "tier": "rich", "bonuses": [] }))
+		GameState.state["player"]["veins"][0]["level"] = 3
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["player"]["veins"][0]["level"] = 0
+
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		var restored: Variant = GameState.state["player"]["veins"][0]["level"]
+		assert_eq(restored, 3, "vein level should be restored")
+		assert_eq(typeof(restored), TYPE_INT, "JSON round-trip should restore int, not float")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("save_mutate_load_round_trips_bankLog_with_int_fields_intact", func():
 		GameState.reset()
 		Bank.record(-50, "Living costs")
