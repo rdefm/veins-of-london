@@ -7,9 +7,8 @@ extends Control
 # actions kept separate from the info area. Player-owned vein stops only --
 # a faction vein or an unclaimed site has neither action and keeps the
 # plain MapBubble list (see map.gd's station-tap branch). Tapping the info
-# area emits info_selected(), which map.gd routes into the site sheet
-# Manage opens -- the eventual larger detail panel stays behind that same
-# signal.
+# area emits info_selected(), which map.gd routes into VeinDetailPanel
+# instead of the site sheet's Manage view.
 
 
 signal action_selected(option_id: String)
@@ -115,10 +114,10 @@ func _build_info_button(vein: Dictionary) -> Control:
 	heading_row.add_child(UI.muted_label("›"))
 	inner.add_child(heading_row)
 
-	inner.add_child(_build_level_row(vein))
-	inner.add_child(_build_condition_column(vein))
+	inner.add_child(build_level_row(vein))
+	inner.add_child(build_condition_column(vein))
 
-	var cues: Variant = _build_cue_row(vein)
+	var cues: Variant = build_cue_row(vein)
 	if cues != null:
 		inner.add_child(cues)
 
@@ -132,7 +131,9 @@ func _build_info_button(vein: Dictionary) -> Control:
 	return wrap
 
 
-func _build_level_row(vein: Dictionary) -> Control:
+# Public + static: also reused by vein_detail_panel.gd's identity section
+# so the earned-level segments read identically in both places.
+static func build_level_row(vein: Dictionary) -> Control:
 	var row := UI.hbox(6)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -152,7 +153,8 @@ func _build_level_row(vein: Dictionary) -> Control:
 	return row
 
 
-func _build_condition_column(vein: Dictionary) -> Control:
+# Public + static: shared with vein_detail_panel.gd's condition section.
+static func build_condition_column(vein: Dictionary) -> Control:
 	var col := UI.vbox(2)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -179,8 +181,9 @@ func _build_condition_column(vein: Dictionary) -> Control:
 # use) so eligibility and raid exposure never rely on colour alone. Raised
 # raid exposure tracks condition alone (a maxed-level vein can still sit at
 # 90+ and draw raids), while development eligibility additionally requires
-# headroom under the level cap -- the two can and do diverge.
-func _build_cue_row(vein: Dictionary) -> Variant:
+# headroom under the level cap -- the two can and do diverge. Public +
+# static: shared with vein_detail_panel.gd's identity section.
+static func build_cue_row(vein: Dictionary) -> Variant:
 	var threshold: int = GameData.VEIN_GROWTH["developmentThreshold"]
 	var parts: Array = []
 	if Cultivating.is_development_eligible(vein):

@@ -39,7 +39,7 @@ func new_game_state() -> Dictionary:
 		"inventoryTab": "ore",
 		# mapNav/veinListNav/phoneNav/labBenchNav are transient nav state,
 		# reset on load -- mapView below is the one exception.
-		"mapNav": { "selectedDistrict": null, "selectedSiteId": null },
+		"mapNav": { "selectedDistrict": null, "selectedSiteId": null, "selectedVeinId": null },
 		# districtId null scopes to every district (HQ's Vein Station
 		# entry); a district id scopes to just that one (a district
 		# bubble's "List view"). originScreen is which opened it, for Back.

@@ -58,6 +58,7 @@ func _refresh() -> void:
 	var nav: Dictionary = GameState.state["mapNav"]
 	var selected_district = nav.get("selectedDistrict")
 	var selected_site_id = nav.get("selectedSiteId")
+	var selected_vein_id = nav.get("selectedVeinId")
 
 	_diagram_layer.visible = selected_district == null
 	_district_scroll.visible = selected_district != null
@@ -65,7 +66,11 @@ func _refresh() -> void:
 	if selected_district != null:
 		_build_district_panel(selected_district)
 
-	if selected_site_id != null:
+	if selected_vein_id != null:
+		var vein = Cultivating.find_vein(selected_vein_id)
+		if vein != null:
+			_sheet_layer.add_child(VeinDetailPanel.build(vein))
+	elif selected_site_id != null:
 		_build_site_sheet(selected_site_id)
 
 func _build_diagram_layer() -> Control:
@@ -171,7 +176,7 @@ func _on_vein_bubble_action_selected(option_id: String) -> void:
 	var result := StationBubble.apply_option(option_id, _bubble_stop)
 	_map_canvas.play_action_result(_bubble_stop["position"], result["ok"])
 func _on_vein_bubble_info_selected() -> void:
-	StationBubble.apply_option(StationBubble.MANAGE_ID, _bubble_stop)
+	MapNav.select_vein_detail(_bubble_stop["vein"]["id"])
 func _build_station_bubble_options(stop: Dictionary) -> Array:
 	var result: Array = []
 	for opt in StationBubble.station_options(stop):

@@ -52,7 +52,7 @@ Data file per system: see `data/*.json` below.
 | map_events.gd | Map event queue + playback |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
-| map_nav.gd | Map drill-down nav (list → panel) |
+| map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
 | map_pins.gd | Contact map-pins for waiting events |
 | map_routing.gd | Octilinear line-routing geometry |
 | map_style.gd | Filter-chip re-styling math |
@@ -141,7 +141,8 @@ overlays.
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
 | turn_order_strip.gd | Combat turn-order strip: one card per turn *occurrence* (Combat.project_queue(), R§3.7a), not per combatant -- repeated occurrences of the same combatant share the selected treatment. Drag scrolls the viewport only; a tap selects the tapped card's combatant (`handle_tap`/`handle_drag`) |
 | ui.gd | Shared Control builders, time-cost labels, ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
-| vein_bubble.gd | Compact player-vein tap bubble: Lv segments, condition bar with 50/90+ markers, development/raid cues, round Harvest (light/hard chooser)/Cultivate actions; tapping the info area is separate from tapping an action |
+| vein_bubble.gd | Compact player-vein tap bubble: Lv segments, condition bar with 50/90+ markers, development/raid cues, round Harvest (light/hard chooser)/Cultivate actions; tapping the info area opens vein_detail_panel.gd instead of running an action |
+| vein_detail_panel.gd | Larger vein detail sheet (mapNav.selectedVeinId): yield, drift/upkeep, development chance, raid risk, and full action set (Cultivate/Harvest/security/alarm/Defend) for one vein; reuses VeinBubble's level/condition/cue builders and keeps earned level, Cultivating skill, and condition visually distinct |
 
 ## scenes/modals/*.gd — modal content, one script per type
 
