@@ -658,6 +658,38 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["sites"], [], "the site (and its faction vein) is deleted outright")
 	)
 
+	# ── cultivation-refining 07: depletion (level loss instead of collapse) ──
+
+	run_case("depletion_above_level_1_loses_one_level_and_resets_to_50_without_disappearing_or_cascading", func():
+		GameState.reset()
+		var vein := _vein(0, "shoreditch", [], "saturated", 4)
+		vein["developmentStreak"] = 6
+		GameState.state["player"]["veins"] = [vein]
+		Cultivating.drift_veins()
+
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "a vein above level 1 survives depletion -- it does not disappear")
+		var after: Dictionary = GameState.state["player"]["veins"][0]
+		assert_eq(after["level"], 3, "loses exactly one level, never cascading through more even from a high starting level")
+		assert_eq(after["growth"], GameData.VEIN_GROWTH["neutral"], "condition resets to exactly neutral (50), not left at 0")
+		assert_eq(after.get("developmentStreak", 0), 0, "streak clears on depletion")
+	)
+
+	run_case("level_1_vein_at_zero_keeps_the_15pct_collapse_roll_and_a_pre_roll_cultivate_rescue_holds", func():
+		GameState.reset()
+		var vein := _vein(0, "shoreditch", [], "fair", 1)
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["player"]["cultivatingSkill"] = 5
+		Cultivating.cultivate("test_vein")  # rescue: lift growth off 0 before tonight's roll
+		assert_true(GameState.state["player"]["veins"][0]["growth"] > 0, "cultivate should lift growth off 0")
+
+		# collapse_vein() only ever rolls while growth is still pinned at 0 --
+		# once a rescue lifts it off 0, the roll never fires, for any seed.
+		for seed in range(50):
+			Rng.set_seed(seed)
+			Cultivating.collapse_vein(GameState.state["player"]["veins"][0])
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "a level-1 vein rescued above 0 before the roll is never removed by it")
+	)
+
 	# ── 87-map-slot-index-recycling ─────────────────────────────────────
 
 	run_case("collapse_vein_faction_branch_releases_the_deleted_sites_slot_for_reuse", func():

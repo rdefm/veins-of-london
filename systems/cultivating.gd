@@ -474,9 +474,28 @@ static func _roll_level_up(vein: Dictionary) -> bool:
 
 # R§3.4: a vein pinned at 0 rolls collapseChancePerDay each tick it sits there to
 # vanish for good. A player vein's site reverts to unclaimed; a faction vein's site vanishes outright -- this is the only way a faction vein dies (adr/0002).
+# A vein above level 1 depletes instead of risking the collapse roll: it loses
+# exactly one level, resets growth to neutral (50), and clears its streak via
+# the usual hook -- no cascading through multiple levels and no collapse roll
+# the same night the reset happens (cultivation-refining ticket 07). Applies
+# to player and faction veins alike; only the level-1 collapse below forks by
+# vein.has("factionId").
 static func collapse_vein(vein: Dictionary) -> void:
 	if vein["growth"] > 0:
 		return
+
+	if vein.get("level", 1) > 1:
+		vein["level"] -= 1
+		vein["growth"] = GameData.VEIN_GROWTH["neutral"]
+		_clear_streak_below_threshold(vein)
+
+		if not vein.has("factionId"):
+			var location_street: String = String(vein["location"]).split(",")[0]
+			var ore_name: String = GameData.ORE_TYPES[vein["oreType"]]["name"]
+			# PROSE-REVIEW: drafted against CONTENT-GUIDE.md §3.
+			Notify.push("Your %s vein on %s has depleted -- down to level %d." % [ore_name, location_street, vein["level"]], Notify.CATEGORY_WARNING)
+		return
+
 	if not Rng.chance(GameData.VEIN_GROWTH["collapseChancePerDay"]):
 		return
 
