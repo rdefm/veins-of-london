@@ -38,9 +38,10 @@
       "ko": { "image": "", "frameCount": 0, "fps": 0.0 }
     },
     "archie": {
-      "idle": { "image": "", "frameCount": 0, "fps": 0.0 },
-      "attack": { "image": "", "frameCount": 0, "fps": 0.0 },
-      "hit": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "_note": "Single-pose stills, not sheets (frameCount 1 each) -- ko/selfPatch art not produced yet, fall back per templateRule/effectRule above.",
+      "idle": { "image": "res://assets/combat/archie/archie_idle1.png", "frameCount": 1, "fps": 0.0 },
+      "attack": { "image": "res://assets/combat/archie/archie_attack_1.png", "frameCount": 1, "fps": 5.0 },
+      "hit": { "image": "res://assets/combat/archie/archie_hurt.png", "frameCount": 1, "fps": 5.0 },
       "ko": { "image": "", "frameCount": 0, "fps": 0.0 },
       "selfPatch": { "image": "", "frameCount": 0, "fps": 0.0 }
     },

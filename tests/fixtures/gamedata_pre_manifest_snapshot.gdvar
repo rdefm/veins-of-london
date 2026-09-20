@@ -418,20 +418,21 @@
 },
 "templates": {
 "archie": {
+"_note": "Single-pose stills, not sheets (frameCount 1 each) -- ko/selfPatch art not produced yet, fall back per templateRule/effectRule above.",
 "attack": {
-"fps": 0,
-"frameCount": 0,
-"image": ""
+"fps": 5,
+"frameCount": 1,
+"image": "res://assets/combat/archie/archie_attack_1.png"
 },
 "hit": {
-"fps": 0,
-"frameCount": 0,
-"image": ""
+"fps": 5,
+"frameCount": 1,
+"image": "res://assets/combat/archie/archie_hurt.png"
 },
 "idle": {
 "fps": 0,
-"frameCount": 0,
-"image": ""
+"frameCount": 1,
+"image": "res://assets/combat/archie/archie_idle1.png"
 },
 "ko": {
 "fps": 0,
