@@ -125,7 +125,7 @@ overlays.
 | dot_matrix_font.gd | Bitmap font for dot_matrix_board.gd |
 | haptics.gd | Adapter over `Input.vibrate_handheld()` |
 | hq_diorama.gd | Generic plate/region artwork renderer |
-| icons.gd | 8 drawn icon glyphs |
+| icons.gd | 13 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options |
 | map_canvas.gd | Network diagram: layout/stops/lines, hit-testing, static draw pass; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
@@ -141,6 +141,7 @@ overlays.
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
 | turn_order_strip.gd | Combat turn-order strip: one card per turn *occurrence* (Combat.project_queue(), R§3.7a), not per combatant -- repeated occurrences of the same combatant share the selected treatment. Drag scrolls the viewport only; a tap selects the tapped card's combatant (`handle_tap`/`handle_drag`) |
 | ui.gd | Shared Control builders, time-cost labels, ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
+| vein_bubble.gd | Compact player-vein tap bubble: Lv segments, condition bar with 50/90+ markers, development/raid cues, round Harvest (light/hard chooser)/Cultivate actions; tapping the info area is separate from tapping an action |
 
 ## scenes/modals/*.gd — modal content, one script per type
 

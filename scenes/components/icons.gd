@@ -98,6 +98,24 @@ static func _draw_blade(target: CanvasItem, center: Vector2, hilt_offset: Vector
 	target.draw_line(guard - perp * 2.5 * scale, guard + perp * 2.5 * scale, colour, 1.5 * scale)
 
 
+static func draw_harvest(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	var s := 6.0 * scale
+	var tip := center + Vector2(0, -s * 1.1)
+	target.draw_line(center + Vector2(-s * 0.5, s * 0.6), tip, colour, 1.6 * scale)
+	target.draw_line(center + Vector2(s * 0.5, s * 0.6), tip, colour, 1.6 * scale)
+	target.draw_arc(center + Vector2(-s * 0.5, s * 0.7), s * 0.35, 0, TAU, 10, colour, 1.4 * scale, true)
+	target.draw_arc(center + Vector2(s * 0.5, s * 0.7), s * 0.35, 0, TAU, 10, colour, 1.4 * scale, true)
+
+
+static func draw_cultivate(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	var s := 6.0 * scale
+	var base := center + Vector2(0, s)
+	var tip := center + Vector2(0, -s * 0.8)
+	target.draw_line(base, tip, colour, 1.6 * scale)
+	target.draw_line(tip, tip + Vector2(-s * 0.9, s * 0.5), colour, 1.6 * scale)
+	target.draw_line(tip, tip + Vector2(s * 0.9, s * 0.5), colour, 1.6 * scale)
+
+
 static func draw_run(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
 	var s := 6.0 * scale
 	var head := center + Vector2(s * 0.3, -s * 1.6)

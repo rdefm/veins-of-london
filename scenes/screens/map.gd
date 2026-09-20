@@ -18,6 +18,7 @@ var _map_canvas: MapCanvas
 var _map_legend: MapLegend
 var _map_zoom_buttons: MapZoomButtons
 var _bubble: MapBubble
+var _vein_bubble: VeinBubble
 var _bubble_district_id: String = ""
 var _bubble_mode: String = ""
 var _bubble_stop: Dictionary = {}
@@ -40,6 +41,10 @@ func _ready() -> void:
 	_bubble = MapBubble.new()
 	_bubble.option_selected.connect(_on_bubble_option_selected)
 	add_child(_bubble)
+	_vein_bubble = VeinBubble.new()
+	_vein_bubble.action_selected.connect(_on_vein_bubble_action_selected)
+	_vein_bubble.info_selected.connect(_on_vein_bubble_info_selected)
+	add_child(_vein_bubble)
 
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
@@ -118,6 +123,7 @@ func _build_top_bar() -> Control:
 
 	return row
 func _on_district_tapped(district_id: String, canvas_anchor: Vector2) -> void:
+	_vein_bubble.close()
 	_bubble_mode = BUBBLE_MODE_DISTRICT
 	_bubble_district_id = district_id
 	var anchor: Vector2 = _map_canvas.global_position + canvas_anchor - _bubble.global_position
@@ -149,10 +155,23 @@ func _on_bubble_option_selected(option_id: String) -> void:
 	if option_id == DistrictBubble.PROSPECT_ID:
 		_map_canvas.play_prospect_result(_bubble_district_id, result["ok"])
 func _on_station_tapped(stop: Dictionary, canvas_anchor: Vector2) -> void:
+	if stop["kind"] == "vein" and stop.get("owner") == "player":
+		_bubble.close()
+		_bubble_stop = stop
+		var vein_anchor: Vector2 = _map_canvas.global_position + canvas_anchor - _vein_bubble.global_position
+		_vein_bubble.open(vein_anchor, stop)
+		return
+
+	_vein_bubble.close()
 	_bubble_mode = BUBBLE_MODE_STATION
 	_bubble_stop = stop
 	var anchor: Vector2 = _map_canvas.global_position + canvas_anchor - _bubble.global_position
 	_bubble.open(anchor, _build_station_bubble_options(stop))
+func _on_vein_bubble_action_selected(option_id: String) -> void:
+	var result := StationBubble.apply_option(option_id, _bubble_stop)
+	_map_canvas.play_action_result(_bubble_stop["position"], result["ok"])
+func _on_vein_bubble_info_selected() -> void:
+	StationBubble.apply_option(StationBubble.MANAGE_ID, _bubble_stop)
 func _build_station_bubble_options(stop: Dictionary) -> Array:
 	var result: Array = []
 	for opt in StationBubble.station_options(stop):
