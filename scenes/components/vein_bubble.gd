@@ -91,10 +91,16 @@ func _rebuild() -> void:
 		_content.add_child(_build_actions_row(vein))
 
 
+# A Button isn't a Container -- it never reports a child Control's minimum
+# size as its own, so wrapping this multi-row content directly in a Button
+# starved it to the button's own near-zero minimum height, spilling the
+# unclipped content into the actions row below. A PanelContainer IS a
+# Container (its minimum size is the max over its children's), so it sizes
+# correctly to `inner` while a full-rect transparent Button stacked on top
+# catches the tap.
 func _build_info_button(vein: Dictionary) -> Control:
-	var b := Button.new()
-	b.flat = true
-	b.pressed.connect(_select_info)
+	var wrap := PanelContainer.new()
+	wrap.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 
 	var inner := UI.vbox(4)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -116,8 +122,14 @@ func _build_info_button(vein: Dictionary) -> Control:
 	if cues != null:
 		inner.add_child(cues)
 
-	b.add_child(inner)
-	return b
+	wrap.add_child(inner)
+
+	var tap := Button.new()
+	tap.flat = true
+	tap.pressed.connect(_select_info)
+	wrap.add_child(tap)
+
+	return wrap
 
 
 func _build_level_row(vein: Dictionary) -> Control:
