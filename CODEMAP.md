@@ -58,7 +58,7 @@ Data file per system: see `data/*.json` below.
 | map_style.gd | Filter-chip re-styling math |
 | map_view.gd | Persists Network camera |
 | map_zoom.gd | Zoom-level math for the diagram |
-| messages.gd | Messages data layer |
+| messages.gd | Messages data layer + conversation-index projections and total unread count |
 | modal.gd | Modal open/close state |
 | morning_accounts.gd | Rollover capture, BizBrief routing |
 | nav.gd | Screen navigation |
@@ -67,7 +67,7 @@ Data file per system: see `data/*.json` below.
 | offers.gd | Sales offers: quoting, acceptance, expiry |
 | payroll.gd | Daily wage payment (3 staff roles) |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
-| phone_nav.gd | Phone drill-down nav |
+| phone_nav.gd | Phone app/index/thread drill-down nav |
 | preferences.gd | Saved accessibility prefs |
 | progression.gd | Shared "award XP" ladder loop |
 | raid_alarms.gd | Summaries + dispatch for raid alarms |
@@ -103,7 +103,7 @@ overlays.
 | hq_floorplan.gd | Rooms zone: room slots + contact assignment |
 | hq_lab_bench.gd | Lab zone: notebook/ore/apparatus regions |
 | map.gd | Map tab: diagram + district panel + sheet |
-| phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |
+| phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid + home-only Phone/Messages/Settings dock, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |
 | placeholder.gd | Stand-in for a not-yet-built screen |
 | title.gd | Title screen + load-game slot list |
 | vein_list.gd | Vein-portfolio list |
@@ -136,6 +136,7 @@ overlays.
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ) |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
 | phone_device_shell.gd | Persistent rounded simulated-phone frame: clipped display, approved London wallpaper, fixed status/widget chrome, dark opened-app surface + shared/custom content mounts |
+| phone_home_dock.gd | Home-only translucent three-destination Phone/Messages/Settings dock |
 | symbol_glyph.gd | Label-or-vector fallback for a symbol |
 | time_transition.gd | Presentation queue (day/night atlas) |
 | top_bar.gd | Header: day/phase, cash, notices |
@@ -184,11 +185,13 @@ overlays.
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
 | bizbrief_app.gd | BizBrief: Brief tab (bank, operations, attention) + Manage tab (sales, production, procurement) |
-| messages_app.gd | Single conversation: staged bubble reveal + contact action bar |
+| messages_app.gd | Conversation master list + single-thread staged bubble reveal/action bar |
 | notes_app.gd | Active questline checklists + Collective ledger section |
 | factions_app.gd | Faction cards |
 | ticker_app.gd | Barometer headlines + axis detail (push/pull, influence actions) |
-| profile_app.gd | Stats, skills, equipment, motion/vibration toggles |
+| profile_app.gd | Stats, skills, equipment |
+| dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
+| settings_app.gd | Reduced-motion and alarm-vibration preference controls |
 | saveload_app.gd | Save slots, export/import, New Game confirm |
 | notifications_app.gd | Notification log with pending Defend buttons |
 | bank_app.gd | Reynard's: balance + transaction log |

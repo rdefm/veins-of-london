@@ -9,16 +9,6 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_stats_card())
 	content.add_child(_build_skills_card())
 	content.add_child(_build_equipment_card())
-	var motion := CheckButton.new()
-	motion.text = GameData.DAILY_CYCLE["reducedMotionLabel"]
-	motion.button_pressed = GameState.state["meta"].get("reducedMotion", false)
-	motion.toggled.connect(preload("res://systems/preferences.gd").set_reduced_motion)
-	content.add_child(motion)
-	var vibrate := CheckButton.new()
-	vibrate.text = "Vibrate for alarms"
-	vibrate.button_pressed = GameState.state["meta"].get("vibrationEnabled", true)
-	vibrate.toggled.connect(preload("res://systems/preferences.gd").set_vibration_enabled)
-	content.add_child(vibrate)
 
 
 func _build_stats_card() -> Control:

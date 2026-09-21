@@ -9,14 +9,45 @@ const NodeQuery := preload("res://tests/support/node_query.gd")
 # these only exercise the instant-render/state paths: what a conversation
 # shows, what tapping its action bar does.
 #
-# 84-contacts-retire-messages-tile: the conversation-list view these used to
-# exercise (row rendering, "Open ->", the empty state, the top-level tile)
-# is gone -- Contacts is the only way in now (tests/test_contact_cards.gd
-# covers that button), so every case here opens its conversation the same
-# way that button does: PhoneNav.select_conversation() directly.
+# The home dock restores a conversation index while Contacts remains a
+# direct route into the same threads.
 
 
 func run() -> void:
+	run_case("messages_index_lists_names_latest_previews_and_unread_counts", func():
+		GameState.reset()
+		Messages.append("archie", "them", "First")
+		Messages.append("archie", "them", "Latest")
+		PhoneNav.open_app("messages")
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has(Contacts.display_name("archie")), "row shows contact name")
+		assert_true(texts.has("Latest"), "row shows latest message preview")
+		assert_true(texts.has("2"), "row shows unread count")
+		phone.free()
+	)
+
+	run_case("messages_index_row_opens_thread_and_thread_back_returns_to_index", func():
+		GameState.reset()
+		Messages.append("archie", "them", "Hello")
+		PhoneNav.open_app("messages")
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var rows := phone.find_children("", "Button", true, false)
+		var conversation_row: Button = null
+		for candidate in rows:
+			if candidate != NodeQuery.find_button(phone, "‹ Back"):
+				conversation_row = candidate
+				break
+		assert_true(conversation_row != null, "index has a tappable conversation row")
+		conversation_row.pressed.emit()
+		assert_eq(GameState.state["phoneNav"]["selectedContactId"], "archie")
+		NodeQuery.find_button(phone, "‹ Back").pressed.emit()
+		assert_eq(GameState.state["phoneNav"]["app"], "messages")
+		assert_eq(GameState.state["phoneNav"]["selectedContactId"], null)
+		phone.free()
+	)
 	run_case("selecting_a_conversation_marks_it_read_and_renders_its_history_and_trade_button", func():
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
@@ -75,10 +106,7 @@ func run() -> void:
 		phone.free()
 	)
 
-	# 84-contacts-retire-messages-tile: back from a conversation has nowhere
-	# left to return to but the app grid -- the conversation-list it used to
-	# return to is gone.
-	run_case("back_from_a_conversation_returns_to_the_phone_home_grid", func():
+	run_case("back_from_a_contact_card_conversation_returns_to_messages_index", func():
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }
 		PhoneNav.select_conversation("des")
@@ -90,7 +118,7 @@ func run() -> void:
 		assert_true(back_button != null, "conversation view has a Back button")
 		back_button.pressed.emit()
 
-		assert_eq(GameState.state["phoneNav"]["app"], "home", "back from a conversation lands on the app grid")
+		assert_eq(GameState.state["phoneNav"]["app"], "messages", "back from a conversation lands on the Messages index")
 		assert_eq(GameState.state["phoneNav"]["selectedContactId"], null, "back clears the drill-down")
 
 		phone.free()

@@ -6,7 +6,7 @@ extends RefCounted
 # drill-down into a single axis's detail view. state.phoneNav (R§2) is
 # navigated only through here, same as Nav.go_to/MapNav.
 
-const APPS: Array[String] = ["alarms", "bizbrief", "messages", "notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "property"]
+const APPS: Array[String] = ["alarms", "bizbrief", "dialer", "messages", "notes", "factions", "ticker", "profile", "saveload", "settings", "notifications", "bank", "property"]
 
 
 static func open_app(app_id: String) -> void:
@@ -57,6 +57,12 @@ static func select_conversation(contact_id: String) -> void:
 	GameState.state["phoneNav"]["selectedContactId"] = contact_id
 	GameState.state["phoneNav"]["revealFromIndex"] = maxi(thread.size() - Messages.unread_count(contact_id), 0)
 	Messages.mark_read(contact_id)
+	EventBus.state_changed.emit()
+
+
+static func back_to_messages() -> void:
+	GameState.state["phoneNav"]["app"] = "messages"
+	GameState.state["phoneNav"]["selectedContactId"] = null
 	EventBus.state_changed.emit()
 
 

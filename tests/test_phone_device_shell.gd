@@ -26,7 +26,8 @@ func run() -> void:
 		var texts := NodeQuery.label_texts(phone)
 		for expected in ["08:14", "87%", "Tue, 14 May", "☁  12°C  ·  London", "Same city. Different rules."]:
 			assert_true(texts.has(expected), "home renders fixed presentation text: %s" % expected)
-		assert_true(not texts.has("Phone"), "legacy Phone heading is absent")
+		var widget_texts := NodeQuery.label_texts(shell.content.get_child(0))
+		assert_true(not widget_texts.has("Phone"), "legacy Phone heading is absent from the home widget")
 		assert_true(shell.wallpaper.visible and not shell.app_surface.visible, "home shows wallpaper rather than app surface")
 
 		tree.root.remove_child(phone)

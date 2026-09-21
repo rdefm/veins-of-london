@@ -9,6 +9,7 @@ const BEZEL_WIDTH := 6.0
 const FRAME_RADIUS := 30.0
 const DISPLAY_RADIUS := 24.0
 const STATUS_HEIGHT := 38.0
+const HOME_DOCK_CLEARANCE := 136.0
 
 var display: Control
 var wallpaper: TextureRect
@@ -111,6 +112,7 @@ func set_home_mode(is_home: bool) -> void:
 	ensure_built()
 	wallpaper.visible = is_home
 	app_surface.visible = not is_home
+	content_scroll.offset_bottom = -HOME_DOCK_CLEARANCE if is_home else 0.0
 
 
 func add_home_widget() -> void:

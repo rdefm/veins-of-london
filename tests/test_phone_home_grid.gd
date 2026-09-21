@@ -23,7 +23,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var tiles := NodeQuery.find_tiles(phone)
+		var tiles := NodeQuery.find_tiles(phone._content)
 		var ids: Array[String] = []
 		for t in tiles:
 			ids.append(t._app_id)
@@ -51,7 +51,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_eq(NodeQuery.find_tiles(phone).size(), PhoneApps.apps().size(), "one tile per registry entry, no more, no fewer")
+		assert_eq(NodeQuery.find_tiles(phone._content).size(), PhoneApps.apps().size(), "one main-grid tile per registry entry, no more, no fewer")
 
 		phone.free()
 	)

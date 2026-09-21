@@ -60,6 +60,27 @@ static func has_any_unread() -> bool:
 	return false
 
 
+static func total_unread_count() -> int:
+	var count := 0
+	for contact_id in GameState.state["messages"].keys():
+		count += unread_count(contact_id)
+	return count
+
+
+static func conversation_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for contact_id in GameState.state["messages"].keys():
+		ids.append(contact_id)
+	return ids
+
+
+static func latest_preview(contact_id: String) -> String:
+	var thread: Array = GameState.state["messages"].get(contact_id, [])
+	if thread.is_empty():
+		return ""
+	return str(thread[-1].get("text", ""))
+
+
 static func queue_pending(contact_id: String, kind: String, text: String, payload: Dictionary = {}) -> void:
 	append(contact_id, "them", text)
 	var id := str(Time.get_ticks_usec()) + str(Rng.randi_range(1000, 999999))

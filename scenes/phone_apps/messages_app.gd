@@ -1,4 +1,4 @@
-# Single-conversation view. Mounts its own full-height root on the shell
+# Conversation index and single-conversation view. Detail mounts its own full-height root on the shell
 # (the shared scroll body is hidden) so the action bar sits below a
 # scrolling thread; messages unread when the conversation was opened are
 # revealed one bubble at a time.
@@ -10,11 +10,45 @@ var _conversation_root: Control = null
 
 
 func build(content: VBoxContainer) -> void:
-	var contact_id: String = GameState.state["phoneNav"]["selectedContactId"]
+	var contact_id: Variant = GameState.state["phoneNav"]["selectedContactId"]
+	if contact_id == null:
+		_build_index(content)
+		return
 	if not _reveal_from_index.has(contact_id):
 		var reveal_from_index = GameState.state["phoneNav"].get("revealFromIndex")
 		_reveal_from_index[contact_id] = reveal_from_index if reveal_from_index != null else 0
 	_build_conversation(content, contact_id)
+
+
+func _build_index(content: VBoxContainer) -> void:
+	content.add_child(back_button())
+	content.add_child(UI.heading("Messages"))
+	var ids := Messages.conversation_ids()
+	if ids.is_empty():
+		# PROSE-REVIEW: new Messages empty-state copy.
+		content.add_child(UI.muted_label("No conversations yet."))
+		return
+	for contact_id in ids:
+		content.add_child(_build_conversation_row(contact_id))
+
+
+func _build_conversation_row(contact_id: String) -> Control:
+	var button := Button.new()
+	button.custom_minimum_size.y = 64
+	button.pressed.connect(PhoneNav.select_conversation.bind(contact_id))
+	var row := UI.hbox(8)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var copy := UI.vbox(2)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(UI.label(Contacts.display_name(contact_id)))
+	copy.add_child(UI.muted_label(Messages.latest_preview(contact_id)))
+	row.add_child(copy)
+	var unread := Messages.unread_count(contact_id)
+	if unread > 0:
+		row.add_child(UI.label(str(unread)))
+	button.add_child(row)
+	return button
 
 
 func teardown() -> void:
@@ -28,7 +62,7 @@ func _build_conversation(content: VBoxContainer, contact_id: String) -> void:
 	shell.mount_custom_root(_conversation_root)
 
 	var header := UI.hbox()
-	header.add_child(back_button())
+	header.add_child(UI.button("‹ Back", PhoneNav.back_to_messages))
 	header.add_child(UI.heading(Contacts.display_name(contact_id)))
 	_conversation_root.add_child(header)
 
@@ -57,7 +91,11 @@ func _build_conversation(content: VBoxContainer, contact_id: String) -> void:
 
 	if reveal_from < thread.size():
 		_reveal_from_index[contact_id] = thread.size()
-		_reveal_remaining(box, thread, reveal_from)
+		if shell.is_inside_tree():
+			_reveal_remaining(box, thread, reveal_from)
+		else:
+			for i in range(reveal_from, thread.size()):
+				box.add_child(UI.message_bubble(thread[i]["text"], thread[i]["from"] == "player"))
 
 
 func _reveal_remaining(box: VBoxContainer, thread: Array, start_index: int) -> void:

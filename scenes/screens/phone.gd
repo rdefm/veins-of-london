@@ -7,12 +7,14 @@ extends Control
 
 const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
 const PhoneDeviceShellScript := preload("res://scenes/components/phone_device_shell.gd")
+const PhoneHomeDockScript := preload("res://scenes/components/phone_home_dock.gd")
 const GRID_COLUMNS := 4
 
 var _content: VBoxContainer
 var device_shell: PhoneDeviceShellScript
 var _apps: Dictionary = {}
 var _active_app: PhoneApp = null
+var _home_dock: PhoneHomeDock = null
 
 
 func _ready() -> void:
@@ -21,6 +23,9 @@ func _ready() -> void:
 	add_child(device_shell)
 	device_shell.ensure_built()
 	_content = device_shell.content
+	_home_dock = PhoneHomeDockScript.new()
+	device_shell.display.add_child(_home_dock)
+	_home_dock.ensure_built()
 	Barometer.ensure_progress()
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
@@ -38,6 +43,7 @@ func _refresh() -> void:
 	var nav: Dictionary = GameState.state["phoneNav"]
 	var app_id: String = nav["app"]
 	device_shell.set_home_mode(app_id == "home")
+	_set_home_dock_visible(app_id == "home")
 
 	if PhoneAppRegistry.REGISTRY.has(app_id):
 		_active_app = app_instance(app_id)
@@ -60,6 +66,12 @@ func app_instance(app_id: String) -> PhoneApp:
 func _build_home() -> void:
 	device_shell.add_home_widget()
 	_content.add_child(_build_app_grid(PhoneApps.apps()))
+
+
+func _set_home_dock_visible(is_home: bool) -> void:
+	_home_dock.visible = is_home
+	if is_home:
+		_home_dock.refresh_badges()
 
 
 func mount_custom_root(root: Control) -> void:
@@ -110,6 +122,8 @@ func _badge_count_for(app_id: String) -> int:
 			return _ticker_rumblings_count()
 		"notifications":
 			return _unseen_notification_count()
+		"messages":
+			return Messages.total_unread_count()
 		_:
 			return 0
 
