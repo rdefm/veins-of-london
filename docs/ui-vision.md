@@ -73,14 +73,13 @@ render, the door, combat backdrop plates, combat sprites/effects.
 
 ## 3. Family 2 — Phone-OS chrome
 
-The Phone tab and everything under it — the home grid and every app
-(Notes, Factions, The Ticker, Profile, Save/Load, Notifications, Reynard's,
-Harrow's, Contacts) — is designed to actually look like using a
-contemporary smartphone. Status-bar-style top strip, app-icon grid with
-real icon art (not laminated frames), native-feeling list/detail patterns
-per app. This is the one family with no bespoke in-fiction material
-reference — the joke is that it's *just a phone*, the same as the
-player's own.
+The Phone tab and everything under it is designed to actually look like
+using a contemporary smartphone: a dark rounded device frame, decorative
+status bar, London wallpaper and home widget, four-column launcher, and a
+three-app simulated dock. Opened apps keep the device frame and use
+native-feeling dark list/detail patterns. This is the one family with no
+bespoke in-fiction material reference — the joke is that it's *just a
+phone*, the same as the player's own.
 
 "Notifications" here is the full-history log app (a phone-native
 list/detail screen) — distinct from the live dot-matrix notification board
@@ -350,6 +349,81 @@ against §6 (colour) and §7 (typography) rather than inventing either afresh.
 acceptance checks, this needs human confirmation before any implementation
 ticket (the roster this section anticipates as "08/09") starts.
 
+### Approved diegetic home (session 2026-09-21)
+
+[`../.scratch/phone-tab-refresh/phone_tab_mockup.png`](../.scratch/phone-tab-refresh/phone_tab_mockup.png)
+is the visual authority for composition, subject to the written decisions
+below. This approved refresh **supersedes any earlier full-bleed/no-bezel,
+no simulated status chrome, or flat wallpaper-free home direction** in
+this document. It changes the home presentation, not the opened-app
+content rules later in this section.
+
+- **Device shell:** the simulated screen sits inside a dark rounded phone
+  frame. Its conventional internal status bar shows decorative time,
+  cellular signal, Wi-Fi, battery glyph, and percentage. The frame and
+  status bar remain around opened apps.
+- **Fixed presentation, not mechanics:** status time `08:14`, date
+  `Tue, 14 May`, cloudy `12°C`, `London`, and battery `87%` are fixed
+  mockup copy. They create no calendar, weather, connectivity, or battery
+  state; enter neither `GameState` nor save data; and make no host-clock
+  lookup or network request.
+- **Home-only layers:** the approved
+  `assets/phone/phone-wallpaper.jpg` fills/crops responsively inside the
+  rounded display. The widget carries the fixed presentation above and
+  the exact line `Same city. Different rules.` The wallpaper, widget,
+  launcher, and simulated dock disappear inside an opened app; the old
+  `Phone` page heading does not appear on home.
+- **Main launcher:** four columns, fixed order and ids:
+
+  | Slot | Label | App id |
+  |---:|---|---|
+  | 1 | Alarms | `alarms` |
+  | 2 | Notes | `notes` |
+  | 3 | BizBrief | `bizbrief` |
+  | 4 | The Ticker | `ticker` |
+  | 5 | Factions | `factions` |
+  | 6 | Reynard's | `bank` |
+  | 7 | Harrow's | `property` |
+  | 8 | My File | `profile` |
+  | 9 | Contacts | `contacts` |
+  | 10 | TfL | `vfl` |
+  | 11 | Notifications | `notifications` |
+  | 12 | Save/Load | `saveload` |
+
+  `Debug` (`debug`) is absent in normal games and appended after
+  Save/Load only when `flags.debugStartUsed` is true. Every launcher icon
+  has the same rendered dimensions, corner radius, centred label, and
+  badge treatment.
+- **Badges:** red numeric counts, hidden at zero, with one consistent
+  capped-overflow treatment. Live counts come from pending Alarms,
+  BizBrief attention items, Ticker rumblings, unseen Notifications, and
+  total unread Messages; no duplicate badge state is introduced.
+- **Simulated home dock:** one translucent/dark rounded surface with
+  exactly three symmetrically spaced apps:
+
+  | Label | App id | Behaviour |
+  |---|---|---|
+  | Phone | `dialer` | No-mechanics recent-calls placeholder. |
+  | Messages | `messages` | Conversation index, then the existing thread views; carries total unread badge. |
+  | Settings | `settings` | Owns the existing reduced-motion and alarm-vibration preferences, moved out of My File/Profile. |
+
+  Messages and Settings live only in this dock, never in the main
+  launcher.
+- **Outer boundary:** the persistent amber top board and external
+  Phone / Map / HQ navigation remain unchanged outside the simulated
+  device. External Phone is the home-navigation tab; it is distinct from
+  the internal `dialer` app.
+- **Routes/mechanics unchanged:** TfL (`vfl`) keeps its existing Map gate
+  and direct Map routing. Save/Load, conditional Debug, and all existing
+  app content and mechanics retain their current behaviour. This refresh
+  changes presentation and launcher placement only.
+- **Icon assets:** the runtime contract remains
+  `res://assets/icons/apps/<app_id>.png`, square 128×128 alpha PNG, loaded
+  through `AppTile.load_icon()` as fixed by
+  `docs/adr/0003-app-icon-asset-contract.md`. Larger supplied files under
+  `assets/phone/` may be source artwork for crop/scale/alpha normalisation;
+  they do not replace the runtime path or dimensions.
+
 **Design principle: it's a phone, not a Vein-branded object.** §3 already
 frames Family 2 as "the same [phone] as the player's own" — the one family
 with no in-fiction material reference. That's a colour argument, not only a
@@ -358,11 +432,11 @@ curated kit of specific real *London* objects, Family 2 should read as
 generic, mass-market consumer electronics — cool neutral greys/near-black,
 never `data/palette.json`'s warm neutral group (`outline_black`,
 `shadow_deep`, `neutral_mid`, …), which stays Family 1's own. Concretely:
-Family 2 runs a **dark "device" shell, top to bottom** — home grid and
-every app content screen alike — the way most real phones default today.
-This also reads cleanly against the persistent Family-4 board above it
-(amber-on-black dot-matrix, §5) instead of visually fighting it the way the
-current bright cream sheet does.
+Family 2 runs a **dark device frame and dark opened-app shell**. The home
+itself uses the approved London wallpaper inside that frame; opened apps
+use the cool near-black content surface specified below. Both read cleanly
+against the persistent Family-4 board above (amber-on-black dot-matrix,
+§5), unlike the current bright cream sheet.
 
 **Home-grid icon/tile treatment.** This is `scenes/components/app_tile.gd`
 — confirmed (CODEMAP, `nav_bar.gd`'s own header comments) to be exclusively
@@ -376,10 +450,9 @@ means `AppTile`'s current `FRAME_BG_COLOUR`/`ACTIVE_BG_COLOUR`/
 placeholder this ticket exists to replace, free to change without touching
 the dock.
 
-- **Tile ground:** drop the cream/tan frame per tile; the whole home-grid
-  surface is one flat cool near-black (indicative `#1b1b1d`), icons sitting
-  directly on it the way a real launcher's icons sit on a wallpaper, not
-  each icon in its own laminated card.
+- **Tile ground:** drop the cream/tan frame per tile. Icons sit directly on
+  the approved wallpaper, not inside laminated cards. The containing
+  device frame remains dark.
 - **Icon art is real, bespoke, per-app artwork — not a shared monochrome
   glyph set (revised same session, direct human steer: the apps should
   look like genuine, distinct apps, the way a real phone's home screen
@@ -424,10 +497,11 @@ the dock.
   Family 1 coherent across many real-world subjects (§5) — but this is a
   recommendation to keep in mind while drawing, not a rule to check
   against.
-- **Badge dot** (unread/attention): `ui_action_red`, exact locked hex
-  `#c8102e` — today's `BADGE_COLOUR` constant is a close-but-not-exact
-  approximation of the same red; align it to the locked value while this
-  component is being touched anyway.
+- **Numeric badge** (unread/attention): `ui_action_red`, exact locked hex
+  `#c8102e`, hidden at zero, with the shared capped-overflow treatment —
+  today's `BADGE_COLOUR` constant is a close-but-not-exact approximation
+  of the same red; align it to the locked value while this component is
+  being touched anyway.
 - **Locked overlay:** unchanged — the existing muted-grey padlock
   (`LOCKED_TINT`, `Icons.draw_padlock`) is family-agnostic disabled-state
   styling, not part of this pass.
@@ -437,36 +511,42 @@ the dock.
   ticket, not a design question, and not this ticket's job to remove.
 
 **App-content shell (every screen past the grid, i.e. everything
-`_phone_back_button()` already fronts):** one shade up from the home-grid
-black — indicative `#252528` — so an open app reads as content raised over
-the home-screen wallpaper, the same layering a real phone uses. Heading +
-back-chevron stay top-left, matching the drill-down navigation
+`_phone_back_button()` already fronts):** a cool near-black surface —
+indicative `#252528` — replaces the home wallpaper so an open app reads as
+content within the same framed device. Heading + back-chevron stay
+top-left, matching the drill-down navigation
 `PhoneNav`/`_phone_back_button()` already implement; this section only
 specifies the paint, not new navigation structure. Hairline row/section
 dividers: a low-contrast cool grey (indicative `#424246`). Primary text
 near-white (`#ededee`); secondary/muted text a mid cool grey (`#999a9d`) —
 the same job `UI.muted_label()` already does, just recoloured.
 
-**Per-app layout conventions.** The nine apps split into four existing
-shapes, not one — confirmed against `scenes/screens/phone.gd`'s actual
-`_build_*` functions rather than assumed from the app names alone. Each
-shape gets one shared chrome treatment; no per-app bespoke object the way
-Family 4 sometimes reaches for one (§5's principle explicitly doesn't
-apply here — Family 2's whole point is that it has none).
+**Per-app layout conventions.** The opened apps catalogued in the original
+pass split into four existing shapes, not one — confirmed against
+`scenes/screens/phone.gd`'s actual `_build_*` functions rather than assumed
+from the app names alone. Each shape gets one shared chrome treatment; no
+per-app bespoke object the way Family 4 sometimes reaches for one (§5's
+principle explicitly doesn't apply here — Family 2's whole point is that
+it has none). Alarms and BizBrief retain their existing content mechanics;
+the three simulated-dock app behaviours are locked above. This refresh
+changes home placement and the surrounding shell, not gameplay.
 
 | App | Shape today (`phone.gd`) | Chrome |
 |---|---|---|
 | Notes | Sectioned checklist (`_build_notes`) | Flat-list pattern: section heading, hairline-divided checklist rows, tick glyph in ink, no push-navigation |
 | Factions | Flat directory (`_build_factions`, one card per faction) | Flat-list pattern: row per faction, name + reputation meter inline. Meter fill is **ink, not `ui_action_red`** — §6's accent is for actionable elements, a reputation readout is passive data, same restriction `calc_gold` already has for calc/cash |
 | The Ticker | List → detail (`_build_headline_card` → `_build_axis_detail`) | List/detail pattern (below): headline row → axis detail screen, push/pull buttons in `ui_action_red` |
-| Contacts | List → detail (contact list → `_build_conversation` thread) | List/detail pattern (below), thread view as message bubbles: outgoing bubble filled `ui_action_red` (light text), incoming bubble flat dark-grey fill (`#333336`-ish, light text) — ordinary two-party messaging convention, no new accent needed |
+| Contacts | Existing contact directory | Existing content and routing stay unchanged; this home refresh only places its launcher tile in slot 9 |
+| Messages (home dock) | Conversation index → existing thread | List/detail pattern (below), thread view as message bubbles: outgoing bubble filled `ui_action_red` (light text), incoming bubble flat dark-grey fill (`#333336`-ish, light text) |
+| Phone (home dock) | Recent-calls placeholder | Flat list only; no call mechanics |
+| Settings (home dock) | Existing preference controls | Reduced-motion and alarm-vibration rows only |
 | Profile | Stat cards (`_build_profile_stats_card`, `_build_profile_skills_card`, `_build_profile_equipment_card`) | Dashboard pattern: label/value rows grouped in cards, ink throughout — no currency shown here (`phone.gd`'s own `_build_profile` comment: cash/day is deliberately excluded, the status bar already shows them), so no `calc_gold` on this screen |
 | Save/Load | Slot rows + action cards (`_build_save_slot_row`, export/import/new-game cards) | Action-list pattern: row = slot summary + inline buttons. Save/Load buttons filled `ui_action_red`; Delete/New-Game (destructive/irreversible) rendered as a lower-weight outline button instead of a second "danger" accent — de-emphasis via weight, not a new colour |
 | Notifications | Flat log (`_build_notification_row`) | Flat-list pattern, newest-first, no push-navigation — this is the full-history log app §3 distinguishes from the persistent dot-matrix board (Family 4) |
 | Reynard's | Balance + flat log (`_build_balance_card`, `_build_bank_transaction_row`) | Dashboard pattern for the balance card (figure in `calc_gold`) + flat-list pattern for the transaction rows below it (amounts in `calc_gold`, everything else ink) |
 | Harrow's | Two comparison cards (`_build_property_current_card`, `_build_property_next_card`) | Dashboard pattern: current-tier and next-tier cards stacked. `£` figures in card body text use `calc_gold`; the "Move for £X" action button stays standard button ink-on-`ui_action_red` (gold-on-red would fail contrast) |
 
-**List/detail pattern** (Ticker, Contacts): master rows are flat,
+**List/detail pattern** (The Ticker, Messages): master rows are flat,
 hairline-divided, no card border per row — title line in ink, one muted
 secondary line, trailing meta right-aligned where relevant (e.g. a
 timestamp). Tapping a row pushes a detail screen using the same
