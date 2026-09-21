@@ -28,9 +28,9 @@ static func _slot_named(root: Node, combatant_name: String) -> CombatStage.Stage
 # data-mapping/tap-select/drag-scroll tests. These cover CombatScreen's
 # side of the wiring: the strip is actually placed on screen, selection
 # persists across a refresh (this screen node survives; only _content's
-# children don't), and tapping an enemy card routes through
-# Combat.set_focused_enemy() (a screen never mutates GameState.state
-# directly).
+# children don't), and tapping a card or a stage sprite both route through
+# Combat.set_selection() (a screen never mutates GameState.state
+# directly, combat-refining ticket 05).
 #
 # A test case that triggers more than one _refresh() (a tap, then a
 # second unrelated state_changed) has to pick the *latest* strip:
@@ -90,7 +90,7 @@ func _setup_combat(enemies: Array, allies: Array = [], focused_index: int = 0, c
 	GameState.reset()
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": null,
-		"enemies": enemies, "focusedEnemyIndex": focused_index,
+		"enemies": enemies, "selection": { "type": "enemy", "index": focused_index },
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 		"allies": allies,
@@ -184,27 +184,39 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("focused_enemy_index_is_the_only_slot_flagged_for_the_glow", func():
+	run_case("exactly_one_enemy_slot_is_marked_selected_matching_combat_selection", func():
 		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard"), Fixtures.enemy("Mugger")], [], 1)
 
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_true(not _slot_named(screen, "Scrapper").is_focused, "unfocused enemy must not carry the glow")
-		assert_true(_slot_named(screen, "Vein Guard").is_focused, "combat.focusedEnemyIndex 1 must carry the glow")
-		assert_true(not _slot_named(screen, "Mugger").is_focused, "unfocused enemy must not carry the glow")
+		assert_true(not _slot_named(screen, "Scrapper").is_focused, "unselected enemy must not carry the arrow")
+		assert_true(_slot_named(screen, "Vein Guard").is_focused, "combat.selection enemy index 1 must carry the arrow")
+		assert_true(not _slot_named(screen, "Mugger").is_focused, "unselected enemy must not carry the arrow")
 
 		screen.free()
 	)
 
-	run_case("glow_never_applies_to_the_player_or_ally_band", func():
+	# R§2 (ticket 05): selection generalises to player/ally/enemy -- the
+	# arrow follows combat.selection onto any of the three bands, not just
+	# enemies (superseding the old enemy-only "glow" scope).
+	run_case("selection_arrow_can_land_on_the_player_or_an_ally_not_just_an_enemy", func():
 		_setup_combat([Fixtures.enemy("Scrapper")], [Fixtures.ally("Archie")], 0)
 
 		var screen := CombatScreen.new()
 		screen._ready()
+		assert_true(not _slot_named(screen, "You").is_focused, "sanity: selection starts on the enemy")
+		assert_true(not _slot_named(screen, "Archie").is_focused)
 
-		assert_true(not _slot_named(screen, "You").is_focused, "the glow is enemy-only, per §2.2 -- targeting never lands on the player")
-		assert_true(not _slot_named(screen, "Archie").is_focused, "the glow is enemy-only, per §2.2 -- targeting never lands on an ally")
+		Combat.set_selection("player", 0)
+		screen._sync()
+		assert_true(_slot_named(screen, "You").is_focused, "the arrow should follow a player selection")
+		assert_true(not _slot_named(screen, "Scrapper").is_focused, "only one slot carries the arrow at a time")
+
+		Combat.set_selection("ally", 0)
+		screen._sync()
+		assert_true(_slot_named(screen, "Archie").is_focused, "the arrow should follow an ally selection")
+		assert_true(not _slot_named(screen, "You").is_focused)
 
 		screen.free()
 	)
@@ -327,7 +339,7 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("tapping_the_strip_to_an_enemy_routes_through_Combat_set_focused_enemy", func():
+	run_case("tapping_the_strip_to_an_enemy_routes_through_Combat_set_selection", func():
 		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard")], [], 0)
 
 		var screen := CombatScreen.new()
@@ -336,28 +348,29 @@ func run() -> void:
 		assert_true(strip != null)
 
 		# Turn order is You, Scrapper, Vein Guard (all tied at speed 10 --
-		# player, then enemies in array order). 3 cards over the 390px
-		# stage: card_width = (390 - 2*6)/3 = 126, stride 132. x=300 lands
-		# in Vein Guard's span (264..390).
+		# player, then enemies in array order); Scrapper (entries[1]) starts
+		# selected and wider (EXPANDED_WIDTH_BONUS_PX). Over the 390px stage:
+		# base width = (390 - 2*6 - 16)/3 ≈ 120.7, Vein Guard spans
+		# ≈[269.3, 390]. x=300 lands inside it.
 		strip.handle_tap(300.0)
 
-		assert_eq(GameState.state["combat"]["focusedEnemyIndex"], 1, "tapping an enemy card should move combat.focusedEnemyIndex -- the targeting gesture (§2.2)")
+		assert_eq(GameState.state["combat"]["selection"], { "type": "enemy", "index": 1 }, "tapping an enemy card should move combat.selection -- the targeting gesture (§2.2)")
 
 		screen.free()
 	)
 
-	run_case("tapping_the_strip_to_the_player_card_is_inert_for_targeting_but_still_moves_the_displayed_focus", func():
+	run_case("tapping_the_strip_to_the_player_card_moves_selection_onto_the_player", func():
 		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard")], [], 0)
 
 		var screen := CombatScreen.new()
 		screen._ready()
 		var strip := _find_strip(screen)
 
-		strip.handle_tap(60.0)  # the player's card, position 0 (0..126)
+		strip.handle_tap(60.0)  # the player's card, spanning ≈[0, 120.7]
 
-		assert_eq(GameState.state["combat"]["focusedEnemyIndex"], 0, "only enemies are valid attack targets (§2.2) -- tapping the player must not move combat.focusedEnemyIndex")
+		assert_eq(GameState.state["combat"]["selection"], { "type": "player", "index": 0 }, "R§2 (ticket 05): the player is now a valid selection, not just an enemy")
 		var player_card := _strip_card_named(screen, "You")
-		assert_true(player_card.is_focused, "the strip's own displayed focus should still move to the tapped card, even though targeting didn't")
+		assert_true(player_card.is_focused, "the strip's own displayed focus should move to the tapped card")
 
 		screen.free()
 	)
@@ -367,17 +380,99 @@ func run() -> void:
 
 		var screen := CombatScreen.new()
 		screen._ready()
-		_find_strip(screen).handle_tap(300.0)  # focus moves to Vein Guard (index 1)
-		assert_eq(GameState.state["combat"]["focusedEnemyIndex"], 1)
+		_find_strip(screen).handle_tap(300.0)  # selection moves to Vein Guard (index 1)
+		assert_eq(GameState.state["combat"]["selection"], { "type": "enemy", "index": 1 })
 
-		# Combat.set_focused_enemy()'s own state_changed emit already drove one
+		# Combat.set_selection()'s own state_changed emit already drove one
 		# _refresh() above -- fire an unrelated one (as a real attack would)
-		# and confirm the strip still shows Vein Guard focused rather than
-		# reverting to combat.focusedEnemyIndex's old default.
+		# and confirm the strip still shows Vein Guard selected rather than
+		# reverting to combat.selection's old default. combat.selection is
+		# the sole source of truth (R§2) -- no screen-local cache to lose.
 		EventBus.state_changed.emit()
 
 		var card := _strip_card_named(screen, "Vein Guard")
 		assert_true(card.is_focused, "the selected card should survive a refresh triggered by something other than the tap itself")
+
+		screen.free()
+	)
+
+	# combat-refining ticket 05: tapping a stage sprite selects exactly like
+	# tapping that combatant's strip card -- both routes go through
+	# CombatStage.subject_tapped -> CombatScreen._on_stage_subject_tapped()
+	# -> the same Combat.set_selection() call the strip's own tap uses.
+	run_case("tapping_a_stage_sprite_selects_the_same_combatant_as_tapping_its_card", func():
+		_setup_combat([Fixtures.enemy("Scrapper")], [Fixtures.ally("Archie")], 0)
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		assert_true(not _slot_named(screen, "Archie").is_focused, "sanity: selection starts on the enemy")
+
+		screen._on_stage_subject_tapped({ "type": "ally", "index": 0 })
+
+		assert_eq(GameState.state["combat"]["selection"], { "type": "ally", "index": 0 }, "a sprite tap should select through the same Combat.set_selection() call a card tap uses")
+		assert_true(_slot_named(screen, "Archie").is_focused, "the tapped sprite's own slot should carry the arrow")
+		var ally_card := _strip_card_named(screen, "Archie")
+		assert_true(ally_card.is_focused, "the strip's matching card should also show selected, proving both routes converge on the same state")
+
+		screen.free()
+	)
+
+	run_case("tapping_a_stage_sprite_pushes_no_snapshot_same_as_a_card_tap", func():
+		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard")], [], 0)
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		screen._on_stage_subject_tapped({ "type": "enemy", "index": 1 })
+
+		assert_true(GameState.state["combat"]["snapshots"].is_empty(), "a targeting choice is not a rewindable combat action, whether it came from a sprite or a card")
+
+		screen.free()
+	)
+
+	run_case("stage_tap_during_director_playback_fast_forwards_and_never_changes_selection", func():
+		_setup_combat([Fixtures.enemy("Scrapper")], [Fixtures.ally("Archie")], 0)
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		screen._director._playing = true
+
+		screen._on_stage_subject_tapped({ "type": "ally", "index": 0 })
+
+		assert_eq(GameState.state["combat"]["selection"], { "type": "enemy", "index": 0 }, "a stage tap during playback must fast-forward, never change selection")
+
+		screen.free()
+	)
+
+	# combat-refining ticket 05, §2.4: the selected occurrence card grows
+	# into the reserved band ticket 02 kept empty for it, without moving
+	# the stage or the command dock (headless rect assertions -- these are
+	# directly-assigned position/size, not container-deferred, so they
+	# resolve reliably in this file's off-tree CombatScreen.new()+_ready()
+	# pattern, same as e.g. fan_layout_is_diagonal_not_a_flat_row above).
+	run_case("expanded_card_reaches_beyond_the_collapsed_height_while_stage_and_dock_positions_stay_put", func():
+		_setup_combat([Fixtures.enemy("Scrapper"), Fixtures.enemy("Vein Guard")], [], 0)
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var stage_pos_before: Vector2 = screen._stage.position
+		var stage_size_before: Vector2 = screen._stage.size
+		var dock_pos_before: Vector2 = screen._command_dock.position
+		var dock_size_before: Vector2 = screen._command_dock.size
+
+		var selected := _strip_card_named(screen, "Scrapper")
+		var unselected := _strip_card_named(screen, "Vein Guard")
+		assert_true(selected.size.y > unselected.size.y, "the selected card should be taller than an unselected one")
+		assert_true(selected.size.y > TurnOrderStrip.CARD_HEIGHT, "the selected card should grow beyond the collapsed card height, into the band ticket 02 kept reserved for this")
+		assert_true(selected.size.x > unselected.size.x, "the selected card should also be wider")
+
+		Combat.set_selection("enemy", 1)
+		screen._sync()
+
+		assert_eq(screen._stage.position, stage_pos_before, "selecting a different combatant must not move the stage")
+		assert_eq(screen._stage.size, stage_size_before, "selecting a different combatant must not resize the stage")
+		assert_eq(screen._command_dock.position, dock_pos_before, "selecting a different combatant must not move the command dock")
+		assert_eq(screen._command_dock.size, dock_size_before, "selecting a different combatant must not resize the command dock")
 
 		screen.free()
 	)

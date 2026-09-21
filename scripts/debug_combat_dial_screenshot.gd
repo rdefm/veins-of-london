@@ -27,7 +27,7 @@ func _run() -> void:
 		game_state.state["combat"] = {
 			"active": true, "context": "raid", "veinId": null,
 			"enemies": [{ "name": "Scrapper", "hp": 14, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"focusedEnemyIndex": 0, "log": ["You swing and miss.", "Scrapper lands a hit for 6."],
+			"selection": { "type": "enemy", "index": 0 }, "log": ["You swing and miss.", "Scrapper lands a hit for 6."],
 			"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [],
@@ -49,7 +49,7 @@ func _run() -> void:
 		game_state.state["combat"] = {
 			"active": true, "context": "raid", "veinId": null,
 			"enemies": [{ "name": "Scrapper", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"focusedEnemyIndex": 0, "log": [],
+			"selection": { "type": "enemy", "index": 0 }, "log": [],
 			"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": [],

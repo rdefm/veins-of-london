@@ -53,7 +53,7 @@ func _run() -> void:
 		game_state.reset()
 		game_state.state["combat"] = {
 			"active": true, "context": "raid", "veinId": null,
-			"enemies": enemies, "focusedEnemyIndex": 0,
+			"enemies": enemies, "selection": { "type": "enemy", "index": 0 },
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 			"allies": allies,

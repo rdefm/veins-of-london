@@ -544,9 +544,11 @@ func _restore_int_types(state: Dictionary) -> void:
 
 
 func _restore_combat_int_types(combat: Dictionary) -> void:
-	for key in ["frozenTurns", "motionTurns", "motionPower", "evadeTurns", "focusedEnemyIndex"]:
+	for key in ["frozenTurns", "motionTurns", "motionPower", "evadeTurns"]:
 		_int_key(combat, key)
 	# evadeChance is a float (0.0–1.0) — intentionally not touched here.
+	if combat.has("selection"):
+		_int_key(combat["selection"], "index")
 	for enemy in combat.get("enemies", []):
 		for key in ["hp", "hpMax", "attackMin", "attackMax", "speed"]:
 			_int_key(enemy, key)
@@ -554,8 +556,10 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 	# are a small hand-picked dict, not a full-state copy — different
 	# shape from event snapshots, restored explicitly here.
 	for snap in combat.get("snapshots", []):
-		for key in ["playerHp", "enemyHp", "focusedEnemyIndex", "frozenTurns", "motionTurns", "motionPower", "evadeTurns"]:
+		for key in ["playerHp", "enemyHp", "enemyIndex", "frozenTurns", "motionTurns", "motionPower", "evadeTurns"]:
 			_int_key(snap, key)
+		if snap.has("selection"):
+			_int_key(snap["selection"], "index")
 		if snap.has("turnCursor"):
 			_restore_turn_cursor_int_types(snap["turnCursor"])
 	# allies[] entries (Contacts.build_combat_ally), speed included.

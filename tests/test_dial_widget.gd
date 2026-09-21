@@ -106,7 +106,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
+			"selection": { "type": "enemy", "index": 0 }, "log": [], "outcome": null, "frozenTurns": 0,
 			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
 			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
 		}
@@ -125,7 +125,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
+			"selection": { "type": "enemy", "index": 0 }, "log": [], "outcome": null, "frozenTurns": 0,
 			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
 			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
 		}
@@ -146,7 +146,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
+			"selection": { "type": "enemy", "index": 0 }, "log": [], "outcome": null, "frozenTurns": 0,
 			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
 			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
 		}
@@ -167,7 +167,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
+			"selection": { "type": "enemy", "index": 0 }, "log": [], "outcome": null, "frozenTurns": 0,
 			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
 			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
 		}
@@ -187,7 +187,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
 			"enemies": [{ "name": "Enemy", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
+			"selection": { "type": "enemy", "index": 0 }, "log": [], "outcome": null, "frozenTurns": 0,
 			"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
 			"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": [],
 		}

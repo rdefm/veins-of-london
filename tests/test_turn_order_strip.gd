@@ -6,8 +6,8 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 # turn-order strip's data-mapping (build_entries/faction colour/status
 # lines) and tap-to-select/drag-to-scroll logic, tested independently of
 # CombatScreen's own wiring (tests/test_combat_screen.gd covers that half:
-# strip placement, selection persistence across refresh, and routing an
-# enemy selection through Combat.set_focused_enemy).
+# strip placement, selection persistence across refresh, and routing a
+# selection through Combat.set_selection).
 
 
 static func _cards(root: Node) -> Array[TurnOrderStrip.NameplateCard]:
@@ -35,7 +35,7 @@ static func _entry_of_type(entries: Array, type: String) -> Dictionary:
 func _combat(enemies: Array, allies: Array = [], context: String = Combat.CONTEXT_RAID, vein_id = null) -> Dictionary:
 	return {
 		"active": true, "context": context, "veinId": vein_id, "enemies": enemies,
-		"focusedEnemyIndex": 0, "log": [], "outcome": null, "frozenTurns": 0,
+		"selection": { "type": "enemy", "index": 0 }, "log": [], "outcome": null, "frozenTurns": 0,
 		"motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0,
 		"onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 }, "allies": allies,
 	}
@@ -397,8 +397,9 @@ func run() -> void:
 		var received: Array = []
 		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, func(key): received.append(key))
 
-		# 3 entries over 300px: card_width = (300 - 2*6)/3 = 96, stride 102.
-		# x=150 lands in entries[1]'s span (102..198).
+		# 3 entries over 300px, entries[0] selected (wider by
+		# EXPANDED_WIDTH_BONUS_PX): base width = (300 - 2*6 - 16)/3 ≈ 90.7,
+		# entries[1] spans ≈[112.7, 203.3]. x=150 lands inside it.
 		strip.handle_tap(150.0)
 
 		assert_eq(received.size(), 1)
@@ -427,8 +428,9 @@ func run() -> void:
 		var received: Array = []
 		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, func(key): received.append(key))
 
-		# 2 entries over 300px: card_width = (300-6)/2 = 147, stride 153.
-		# x=200 lands in entries[1]'s span (153..300) -- the player.
+		# 2 entries over 300px, entries[0] (the enemy) selected: base width
+		# = (300-6-16)/2 = 139, entries[1] spans [161, 300] -- the player.
+		# x=200 lands inside it.
 		strip.handle_tap(200.0)
 
 		assert_eq(received[0]["type"], "player", "TurnOrderStrip reports every tap -- deciding a non-enemy tap is inert for targeting is the caller's job (CombatScreen), not this component's")
@@ -448,6 +450,51 @@ func run() -> void:
 
 		assert_eq(received.size(), 0, "dragging must never change selection")
 		assert_eq(GameState.state, before, "dragging must never touch GameState -- it only moves the strip's own scroll offset")
+	)
+
+	# combat-refining ticket 05: selecting a combatant whose card is beyond
+	# the visible width scrolls it into view. Under today's shrink-to-fit
+	# sizing policy (ticket 02/04's protected "six cards must fit, never
+	# overflow" invariant -- see the card_widths_shrink_to_fit case above)
+	# the strip can never actually overflow from real combat data, so this
+	# exercises _reveal_pos()'s own scroll math directly against a
+	# synthetic overflowing layout rather than a real (unreachable) one.
+	run_case("reveal_pos_scrolls_just_enough_to_bring_an_off_screen_entry_fully_into_view", func():
+		GameState.reset()
+		var combat := _combat([Fixtures.enemy("Enemy")])
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+
+		strip._card_rects = [
+			Rect2(Vector2(0, 0), Vector2(100, 88)),
+			Rect2(Vector2(106, 0), Vector2(100, 88)),
+			Rect2(Vector2(212, 0), Vector2(100, 88)),
+		]
+		strip._max_scroll = 112.0  # total content width (312) minus the 200px viewport
+		strip._available_width = 200.0
+		strip._scroll_offset = 0.0
+
+		strip._reveal_pos(2)  # third card spans content-space [212, 312], beyond the 200px viewport
+
+		assert_almost_eq(strip._scroll_offset, 112.0, 0.01, "should scroll exactly enough for the card's right edge to land at the viewport's right edge (312 - 200)")
+	)
+
+	run_case("reveal_pos_is_a_no_op_when_the_entry_is_already_fully_visible", func():
+		GameState.reset()
+		var combat := _combat([Fixtures.enemy("Enemy")])
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, GameState.state["player"])
+		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
+
+		strip._card_rects = [Rect2(Vector2(0, 0), Vector2(100, 88)), Rect2(Vector2(106, 0), Vector2(100, 88))]
+		strip._max_scroll = 0.0
+		strip._available_width = 300.0
+		strip._scroll_offset = 0.0
+
+		strip._reveal_pos(1)
+
+		assert_eq(strip._scroll_offset, 0.0, "an already-visible card must not cause any scroll")
 	)
 
 	# ── reflow: turn order changing mid-fight re-sorts the strip ─────────

@@ -50,5 +50,5 @@ _Avoid_: "turn" alone when a distinction from "combatant" matters — "turn" is 
 **Combatant** _(draft, ticket 01 combat-refining, 2026-09-19)_:
 A single fighting entity in `combat` — the player, one `combat.allies[]` entry, or one `combat.enemies[]` entry. Has one persistent identity for the fight's duration (HP, KO state) even though it may own several [[Turn occurrence]]s across a round or the fight.
 
-**Selection** _(draft, ticket 01 combat-refining, 2026-09-19)_:
+**Selection** _(signed off, ticket 05 combat-refining, 2026-09-21)_:
 `combat.selection: {type, index}` — the player's current single-target for Attack/Blast/an eligible Complication, addressable at the player, an ally or an enemy (`type`). Distinct from a turn occurrence and from scroll position in the turn-order strip: scrolling to inspect an upcoming occurrence never changes `selection`, only tapping a card or a combatant sprite does.

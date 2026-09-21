@@ -1,6 +1,12 @@
 class_name CombatStage
 extends Panel
 
+# Emitted on a tap landing on a StageSlot -- the screen decides what a tap
+# means (fast-forward during playback vs. Combat.set_selection() otherwise,
+# scenes/screens/combat.gd's _on_stage_subject_tapped()); this component
+# never calls into systems itself.
+signal subject_tapped(target: Dictionary)
+
 # The pixel stage -- backdrop, subject slots, keypose/attack/hit/ko
 # one-shots, effect sheets and the art-independent juice layer (flash/
 # shake/damage numbers). scenes/screens/combat.gd is the orchestrator: it
@@ -403,12 +409,23 @@ class StageSlot extends Control:
 	func _draw_overlay() -> void:
 		var rect := Rect2(Vector2.ZERO, size)
 		if is_focused:
-			_overlay.draw_rect(rect.grow(3.0), Color(1.0, 0.86, 0.35, 0.95), false, 3.0)
+			_draw_selection_arrow()
 		if flash_alpha > 0.0:
 			_overlay.draw_rect(rect, Color(1.0, 1.0, 1.0, flash_alpha), true)
 		if _shield_crack_alpha > 0.0:
 			_overlay.draw_rect(rect, Color(0.4, 0.85, 1.0, _shield_crack_alpha * 0.55), true)
 			_overlay.draw_rect(rect.grow(-2.0), Color(0.85, 0.95, 1.0, _shield_crack_alpha), false, 2.0)
+
+	# §2.2: a subtle arrow marks the selected sprite.
+	func _draw_selection_arrow() -> void:
+		var cx: float = size.x / 2.0
+		var tip_y: float = -2.0
+		var points := PackedVector2Array([
+			Vector2(cx - 7.0, tip_y - 10.0),
+			Vector2(cx + 7.0, tip_y - 10.0),
+			Vector2(cx, tip_y),
+		])
+		_overlay.draw_colored_polygon(points, Color(1.0, 0.86, 0.35, 0.95))
 
 var _enemy_slots: Dictionary = {}  # enemy index (int) -> StageSlot
 var _player_slots: Dictionary = {}  # -1 (player) or ally index (int) -> StageSlot
@@ -440,10 +457,11 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 
 	var enemies: Array = frozen_roster.get("enemies", combat["enemies"])
 	var allies: Array = frozen_roster.get("allies", combat["allies"])
-	var player_entries := _player_display_entries(player, allies)
+	var selection: Dictionary = combat["selection"]
+	var player_entries := _player_display_entries(player, allies, selection)
 	_sync_band(_player_slots, _player_band_layer, player_entries, Vector2(PLAYER_BAND_WIDTH, STAGE_HEIGHT), Vector2.ZERO, "player")
 
-	var enemy_entries := _enemy_display_entries(enemies, combat["focusedEnemyIndex"])
+	var enemy_entries := _enemy_display_entries(enemies, selection)
 	_sync_band(_enemy_slots, _enemy_band_layer, enemy_entries, Vector2(ENEMY_BAND_WIDTH, STAGE_HEIGHT), Vector2(PLAYER_BAND_WIDTH + COLUMN_GAP, 0.0), "enemy")
 	var frozen: bool = combat["frozenTurns"] > 0
 	for slot in _enemy_slots.values():
@@ -454,6 +472,14 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 	if player_slot != null:
 		var shield_entry: Dictionary = _effect_frames_by_key.get("shield", {})
 		player_slot.set_shield_loop(shield_entry.get("frames", _empty_idle_frames), shield_entry.get("fps", 0.0), player["shieldPool"] > 0)
+
+
+func _on_slot_gui_input(event: InputEvent, side: String, key: int) -> void:
+	var pressed: bool = (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed)
+	if not pressed:
+		return
+	var target_type: String = "enemy" if side == "enemy" else ("player" if key == -1 else "ally")
+	subject_tapped.emit({ "type": target_type, "index": key })
 
 
 func resolve_target_slot(target: Dictionary) -> StageSlot:
@@ -528,7 +554,9 @@ static func _beat_target(beat: Dictionary) -> Dictionary:
 
 func _default_effect_target(effect_key: String) -> Dictionary:
 	if effect_key == "timePearl":
-		return { "type": "enemy", "index": GameState.state["combat"]["focusedEnemyIndex"] }
+		var selection: Dictionary = GameState.state["combat"]["selection"]
+		var index: int = selection["index"] if selection["type"] == "enemy" else 0
+		return { "type": "enemy", "index": index }
 	return { "type": "player", "index": -1 }
 
 
@@ -671,12 +699,13 @@ func _sync_backdrop(context: String) -> void:
 		_backdrop_fill.color = GameData.PALETTE.get(entry.get("fallbackColor", ""), STAGE_DEFAULT_FILL)
 		_backdrop_fill.visible = true
 		_backdrop_texture.visible = false
-func _enemy_display_entries(enemies: Array, focused_index: int) -> Array:
+func _enemy_display_entries(enemies: Array, selection: Dictionary) -> Array:
 	var display: Array = []
+	var is_enemy_selected: bool = selection["type"] == "enemy"
 	for i in range(enemies.size()):
 		if not enemies[i]["koed"]:
 			var enemy: Dictionary = enemies[i]
-			display.append({ "name": enemy["name"], "isFocused": i == focused_index, "index": i, "templateKey": enemy_template_key(enemy) })
+			display.append({ "name": enemy["name"], "isFocused": is_enemy_selected and i == selection["index"], "index": i, "templateKey": enemy_template_key(enemy) })
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
@@ -690,11 +719,12 @@ static func enemy_template_key(enemy: Dictionary) -> String:
 	if GameData.ENEMY_HOME_RAID_RAIDER.get("name", "") == name:
 		return "homeRaidRaider"
 	return ""
-func _player_display_entries(player: Dictionary, allies: Array) -> Array:
-	var display: Array = [{ "name": "You", "isFocused": false, "index": -1, "templateKey": "player" }]
+func _player_display_entries(player: Dictionary, allies: Array, selection: Dictionary) -> Array:
+	var display: Array = [{ "name": "You", "isFocused": selection["type"] == "player", "index": -1, "templateKey": "player" }]
+	var is_ally_selected: bool = selection["type"] == "ally"
 	for i in range(allies.size()):
 		if not allies[i]["koed"]:
-			display.append({ "name": allies[i]["name"], "isFocused": false, "index": i, "templateKey": allies[i].get("contactId", "") })
+			display.append({ "name": allies[i]["name"], "isFocused": is_ally_selected and i == selection["index"], "index": i, "templateKey": allies[i].get("contactId", "") })
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
@@ -719,8 +749,11 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 			slot = pool[key]
 		else:
 			slot = StageSlot.new()
-			slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			# STOP (not IGNORE, §2.2 amendment) -- a tap on a sprite now
+			# selects it, the same gesture as tapping its strip card.
+			slot.mouse_filter = Control.MOUSE_FILTER_STOP
 			slot.set_side(side)
+			slot.gui_input.connect(_on_slot_gui_input.bind(side, key))
 			layer.add_child(slot)
 			pool[key] = slot
 		var rect: Rect2 = rects[i]

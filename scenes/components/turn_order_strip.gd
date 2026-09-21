@@ -5,6 +5,10 @@ extends Control
 const CARD_HEIGHT := 88.0
 const MAX_CARD_WIDTH := 96.0
 const CARD_SEPARATION := 6.0
+# §2.4: the selected card grows taller/wider, extending into the band
+# reserved below the strip for a selected occurrence's expanded details.
+const EXPANDED_CARD_HEIGHT := CARD_HEIGHT * 2.0
+const EXPANDED_WIDTH_BONUS_PX := 16.0
 const HP_BAR_HEIGHT := 4.0
 const SWIPE_THRESHOLD_PX := 40.0
 
@@ -157,6 +161,10 @@ func configure(entries: Array, selected_pos: int, combat: Dictionary, player: Di
 	_player = player
 	_on_selection_changed = selection_callback
 	_rebuild(available_width)
+	# Whatever drove this selection (a sprite tap, most often -- a card tap
+	# is already visible by definition) may have picked an occurrence that
+	# scrolled off the current viewport; always land it back in view.
+	_reveal_pos(clamped_pos)
 
 
 var _entries: Array = []
@@ -169,7 +177,12 @@ var _drag_index := -100
 var _drag_start_x: float = 0.0
 
 var _row: HBoxContainer = null
-var _card_width: float = 0.0
+var _available_width: float = 0.0
+# Content-space (pre-scroll) rect per entry, in _entries order -- built
+# once in _rebuild(). Only the selected entry's rect differs in size from
+# the rest, so tap hit-testing and scroll-into-view both read this instead
+# of assuming a uniform stride.
+var _card_rects: Array[Rect2] = []
 var _scroll_offset: float = 0.0
 var _max_scroll: float = 0.0
 
@@ -189,7 +202,11 @@ func _rebuild(available_width: float) -> void:
 		child.queue_free()
 	_cards_by_key.clear()
 
-	custom_minimum_size = Vector2(available_width, CARD_HEIGHT)
+	_available_width = available_width
+	# The strip's own reserved height never changes with selection (§2.4:
+	# nothing below it moves when a card expands) -- it's always tall
+	# enough for the one card that's always selected.
+	custom_minimum_size = Vector2(available_width, EXPANDED_CARD_HEIGHT)
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	clip_contents = true
 
@@ -197,16 +214,28 @@ func _rebuild(available_width: float) -> void:
 	_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var n: int = maxi(1, _entries.size())
-	_card_width = minf((available_width - CARD_SEPARATION * (n - 1)) / n, MAX_CARD_WIDTH)
-	var total_width: float = _card_width * n + CARD_SEPARATION * (n - 1)
-	_row.custom_minimum_size = Vector2(total_width, CARD_HEIGHT)
+	var base_width: float = minf((available_width - CARD_SEPARATION * (n - 1) - EXPANDED_WIDTH_BONUS_PX) / n, MAX_CARD_WIDTH)
+
+	_card_rects = []
+	var x: float = 0.0
+	for i in range(_entries.size()):
+		var entry: Dictionary = _entries[i]
+		var is_selected: bool = entry["key"] == _selected_key
+		var w: float = base_width + (EXPANDED_WIDTH_BONUS_PX if is_selected else 0.0)
+		var h: float = EXPANDED_CARD_HEIGHT if is_selected else CARD_HEIGHT
+		_card_rects.append(Rect2(Vector2(x, 0.0), Vector2(w, h)))
+		x += w + CARD_SEPARATION
+	var total_width: float = maxf(0.0, x - CARD_SEPARATION)
+	_row.custom_minimum_size = Vector2(total_width, EXPANDED_CARD_HEIGHT)
 	_max_scroll = maxf(0.0, total_width - available_width)
 	_scroll_offset = clampf(_scroll_offset, 0.0, _max_scroll)
 	_row.position.x = -_scroll_offset
 
 	for i in range(_entries.size()):
 		var entry: Dictionary = _entries[i]
-		var card := _build_card(entry, entry["key"] == _selected_key, Vector2(_card_width, CARD_HEIGHT))
+		var is_selected: bool = entry["key"] == _selected_key
+		var card := _build_card(entry, is_selected, _card_rects[i].size)
+		card.size_flags_vertical = Control.SIZE_FILL if is_selected else Control.SIZE_SHRINK_BEGIN
 		_row.add_child(card)
 
 	add_child(_row)
@@ -384,20 +413,30 @@ func handle_drag(delta_x: float) -> void:
 	_row.position.x = -_scroll_offset
 
 
-# Every card shares _card_width (the shrink-to-fit division in _rebuild()),
-# so a tap's target card is a straight stride lookup against the current
-# scroll offset; a tap landing in the gap between cards hits nothing.
+# Cards aren't uniform width (the selected one is wider, EXPANDED_WIDTH_
+# BONUS_PX), so a tap's target card is a lookup against _card_rects rather
+# than a stride formula; a tap landing in the gap between cards hits nothing.
 func _entry_index_at_x(x: float) -> int:
-	if _entries.is_empty() or _card_width <= 0.0:
-		return -1
-	var stride: float = _card_width + CARD_SEPARATION
 	var content_x: float = x + _scroll_offset
-	var idx: int = int(floor(content_x / stride))
-	if idx < 0 or idx >= _entries.size():
-		return -1
-	if content_x - idx * stride > _card_width:
-		return -1
-	return idx
+	for i in range(_card_rects.size()):
+		var r: Rect2 = _card_rects[i]
+		if content_x >= r.position.x and content_x <= r.position.x + r.size.x:
+			return i
+	return -1
+
+
+# Scrolls just enough to bring entry `pos`'s card fully into the viewport
+# -- a no-op if it's already visible. Used by configure() so a selection
+# made from an off-screen sprite (R§2.4) doesn't leave its card hidden.
+func _reveal_pos(pos: int) -> void:
+	if pos < 0 or pos >= _card_rects.size() or _row == null:
+		return
+	var r: Rect2 = _card_rects[pos]
+	if r.position.x < _scroll_offset:
+		_scroll_offset = maxf(0.0, r.position.x)
+	elif r.position.x + r.size.x > _scroll_offset + _available_width:
+		_scroll_offset = minf(_max_scroll, r.position.x + r.size.x - _available_width)
+	_row.position.x = -_scroll_offset
 
 
 func _gui_input(event: InputEvent) -> void:

@@ -271,10 +271,10 @@ strip above:
   back to the front when playback starts. Tapping any repeated occurrence of
   the same combatant applies the same selection.
 
-Both amendments' mechanical side (turn cursor, `combat.selection` schema)
-carries a `DRAFT — pending sign-off` status in `docs/REFERENCE.md` §3.7a
-until the human removes that marker; this document's presentation side is
-approved for the visual-refresh tickets regardless, per
+Both amendments' mechanical side (turn cursor, `combat.selection` schema) is
+now signed off in `docs/REFERENCE.md` §2/§3.7a (ticket 03 for the cursor,
+ticket 05 for `combat.selection`); this document's presentation side was
+already approved for the visual-refresh tickets regardless, per
 `.scratch/combat-refining/issues/01-canonical-contract-amendments.md`.
 
 ### 2.5 Command deck — action cards and the Dial widget

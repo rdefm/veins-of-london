@@ -843,7 +843,7 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_RAID)
 
 		# Force a deterministic win.
-		GameState.state["combat"]["enemies"][GameState.state["combat"]["focusedEnemyIndex"]]["hp"] = 1
+		GameState.state["combat"]["enemies"][GameState.state["combat"]["selection"]["index"]]["hp"] = 1
 		GameState.state["player"]["attackMin"] = 999
 		GameState.state["player"]["attackMax"] = 999
 		Rng.set_seed(1)

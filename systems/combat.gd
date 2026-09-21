@@ -368,7 +368,8 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 		enemy["koed"] = false
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": vein_id, "enemies": enemies,
-		"focusedEnemyIndex": 0,
+		# R§2: player/ally/enemy selection. Defaults to the first enemy.
+		"selection": { "type": "enemy", "index": 0 },
 		"log": log_lines, "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": on_win, "snapshots": [],
 		"allies": allies,
@@ -390,23 +391,50 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 	MapEvents.abandon_playback()
 
 
-# The player's single-target actions (Attack, Blast, any non-AoE
+# The player's single-target enemy-only actions (Attack, Blast, any non-AoE
 # Complication) all resolve against this one entry.
 static func _focused_enemy(combat: Dictionary) -> Dictionary:
-	return combat["enemies"][combat["focusedEnemyIndex"]]
+	return combat["enemies"][_enemy_action_index(combat)]
 
 
-# The turn-order strip's swipe-to-target gesture calls this rather than
-# writing combat.focusedEnemyIndex directly (screens never mutate
-# GameState.state). Not a combat action -- no snapshot, no turn, no log.
-static func set_focused_enemy(index: int) -> Dictionary:
+# Enemy-only actions need a concrete enemy index regardless of what
+# combat.selection currently points at -- a non-enemy selection falls
+# back to the first living enemy here rather than indexing out of range.
+# Command-level availability (rejecting an enemy-only action outright
+# when selection.type != "enemy", R§2) is a separate concern from this
+# index resolution.
+static func _enemy_action_index(combat: Dictionary) -> int:
+	var selection: Dictionary = combat["selection"]
+	if selection["type"] == "enemy":
+		return selection["index"]
+	return _first_living_enemy_index(combat["enemies"])
+
+
+static func _first_living_enemy_index(enemies: Array) -> int:
+	for i in range(enemies.size()):
+		if not enemies[i]["koed"]:
+			return i
+	return 0
+
+
+# The turn-order strip's tap-to-select gesture (card or stage sprite, R§2)
+# calls this rather than writing combat.selection directly (screens never
+# mutate GameState.state). Not a combat action -- no snapshot, no turn,
+# no log.
+static func set_selection(type: String, index: int) -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
-	var enemies: Array = combat["enemies"]
-	if index < 0 or index >= enemies.size() or enemies[index]["koed"]:
+	if type == "player":
+		combat["selection"] = { "type": "player", "index": 0 }
+		EventBus.state_changed.emit()
+		return { "ok": true }
+	if type != "ally" and type != "enemy":
 		return { "ok": false, "reason": "Invalid target." }
-	combat["focusedEnemyIndex"] = index
+	var roster: Array = combat["allies"] if type == "ally" else combat["enemies"]
+	if index < 0 or index >= roster.size() or roster[index]["koed"]:
+		return { "ok": false, "reason": "Invalid target." }
+	combat["selection"] = { "type": type, "index": index }
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
@@ -420,7 +448,12 @@ static func push_combat_snapshot() -> void:
 	var snap := {
 		"playerHp": player["hp"],
 		"enemyHp": focused["hp"],
-		"focusedEnemyIndex": combat["focusedEnemyIndex"],
+		# The concrete enemy the above hp belongs to -- kept separate from
+		# `selection` below since selection may not be enemy-type at all
+		# (R§2); re-deriving it from the restored selection could land on a
+		# different enemy than the one this hp was actually captured from.
+		"enemyIndex": _enemy_action_index(combat),
+		"selection": combat["selection"].duplicate(),
 		"log": combat["log"].duplicate(),
 		"frozenTurns": combat["frozenTurns"],
 		"motionTurns": combat["motionTurns"],
@@ -693,7 +726,7 @@ static func append_beat(combat: Dictionary, beats: Variant, line: String, kind: 
 # times on a Motion-boosted round (build_turn_queue()'s extra entries).
 static func _resolve_player_turn(combat: Dictionary, beats: Variant = null, motion_boosted: bool = false) -> void:
 	var enemy: Dictionary = _focused_enemy(combat)
-	var target_index: int = combat["focusedEnemyIndex"]
+	var target_index: int = _enemy_action_index(combat)
 	# `motionBoosted` is stamped on this beat whenever this round is a Motion
 	# round, so the screen's afterimage trail can key off the beat itself
 	# rather than live state. Only added when true.
@@ -719,7 +752,7 @@ static func _resolve_player_turn(combat: Dictionary, beats: Variant = null, moti
 # player's own attack. `ally_index` is only needed to stamp onto the beat.
 static func _ally_turn(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant = null) -> void:
 	var enemy: Dictionary = _focused_enemy(combat)
-	var target_index: int = combat["focusedEnemyIndex"]
+	var target_index: int = _enemy_action_index(combat)
 
 	if ally["hp"] < ally["hpMax"] * ALLY_HEAL_THRESHOLD_FRACTION and ally["stash"] > 0:
 		ally["stash"] -= 1
@@ -855,6 +888,7 @@ static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dict
 		{ "actorType": "enemy", "actorIndex": enemy_index, "targetType": "ally", "targetIndex": ally_index, "dmg": dmg })
 	if ally["hp"] <= 0:
 		ally["koed"] = true
+		_clamp_selection(combat)
 		_log(combat, beats, "%s is knocked out of the fight." % ally["name"], BEAT_ALLY_KO,
 			{ "targetType": "ally", "targetIndex": ally_index })
 		Contacts.knock_out(ally["contactId"], GameState.state["world"]["day"])
@@ -983,7 +1017,7 @@ static func use_blast() -> Dictionary:
 	Crafting.inventory_remove("blast", 1)
 	var power = Crafting.effect_power("blast", player["craftingSkill"])
 	var enemy: Dictionary = _focused_enemy(combat)
-	var target_index: int = combat["focusedEnemyIndex"]
+	var target_index: int = _enemy_action_index(combat)
 	enemy["hp"] = maxi(0, enemy["hp"] - power)
 	_log(combat, beats, "You let off a blast — %d damage. Enemy: %d/%d HP." % [power, enemy["hp"], enemy["hpMax"]], BEAT_USE_BLAST,
 		{ "targetType": "enemy", "targetIndex": target_index, "dmg": power, "effectKey": "blast" })
@@ -1082,13 +1116,13 @@ static func use_black_hole() -> Dictionary:
 
 # Shared by player_attack/use_blast/use_black_hole -- all three can deal a
 # lethal hit and need the same koed-flagging/win-check afterward. hp
-# hitting 0 flags that entry koed and auto-clamps focus off a dead target;
-# the fight ends only once every entry in combat.enemies is koed.
+# hitting 0 flags that entry koed and auto-clamps selection off a dead
+# target; the fight ends only once every entry in combat.enemies is koed.
 static func _maybe_win_from_direct_damage(combat: Dictionary, enemy: Dictionary, beats: Variant = null) -> void:
 	if enemy["hp"] > 0:
 		return
 	enemy["koed"] = true
-	_clamp_focused_enemy_index(combat)
+	_clamp_selection(combat)
 	if not _all_enemies_koed(combat["enemies"]):
 		return
 	combat["outcome"] = "win"
@@ -1104,16 +1138,25 @@ static func _all_enemies_koed(enemies: Array) -> bool:
 	return true
 
 
-# Keeps combat.focusedEnemyIndex pointed at a living enemy after a kill --
-# a no-op when the currently-focused entry is still alive.
-static func _clamp_focused_enemy_index(combat: Dictionary) -> void:
-	var enemies: Array = combat["enemies"]
-	var idx: int = combat["focusedEnemyIndex"]
-	if idx < enemies.size() and not enemies[idx]["koed"]:
+# Keeps combat.selection pointed at a living entry after a kill/KO -- a
+# no-op when the currently-selected entry is still alive. R§2's KO-clamp
+# rule: same-type first (next living ally/enemy in array order), else
+# fall back to the next living enemy; never fires for type "player".
+static func _clamp_selection(combat: Dictionary) -> void:
+	var selection: Dictionary = combat["selection"]
+	if selection["type"] == "player":
 		return
-	for i in range(enemies.size()):
-		if not enemies[i]["koed"]:
-			combat["focusedEnemyIndex"] = i
+	var roster: Array = combat["allies"] if selection["type"] == "ally" else combat["enemies"]
+	var idx: int = selection["index"]
+	if idx < roster.size() and not roster[idx]["koed"]:
+		return
+	for i in range(roster.size()):
+		if not roster[i]["koed"]:
+			combat["selection"] = { "type": selection["type"], "index": i }
+			return
+	for i in range(combat["enemies"].size()):
+		if not combat["enemies"][i]["koed"]:
+			combat["selection"] = { "type": "enemy", "index": i }
 			return
 
 
@@ -1240,7 +1283,7 @@ static func cast_complication(index: int) -> Dictionary:
 			_log(combat, beats, "You trigger %s. Movement accelerated." % recipe["name"], BEAT_COMPLICATION_MOTION, {})
 		"blast":
 			var dmg: int = int(power) * targets
-			var target_index: int = combat["focusedEnemyIndex"]
+			var target_index: int = _enemy_action_index(combat)
 			enemy["hp"] = maxi(0, enemy["hp"] - dmg)
 			_log(combat, beats, "You trigger %s — %d damage. Enemy: %d/%d HP." % [recipe["name"], dmg, enemy["hp"], enemy["hpMax"]], BEAT_COMPLICATION_BLAST,
 				{ "targetType": "enemy", "targetIndex": target_index, "dmg": dmg, "effectKey": "blast" })
@@ -1253,7 +1296,7 @@ static func cast_complication(index: int) -> Dictionary:
 			player["shieldPool"] += int(power) * targets
 			_log(combat, beats, "You trigger %s. Shield up — %d absorption." % [recipe["name"], player["shieldPool"]], BEAT_COMPLICATION_SHIELD, { "effectKey": "shield" })
 		"blackHole":
-			# AoE, ignores focusedEnemyIndex -- hits every non-koed enemy
+			# AoE, ignores selection -- hits every non-koed enemy
 			# independently at full power, same as use_black_hole() above.
 			var dmg: int = int(power) * targets
 			var freeze_turns: int = (1 + int(floor(float(power) / 8.0))) * targets
@@ -1316,10 +1359,12 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 	Snapshots.clear(combat["snapshots"])
 
 	player["hp"] = snap["playerHp"]
-	combat["focusedEnemyIndex"] = snap["focusedEnemyIndex"]
+	# R§2: restores whoever/whatever was selected at the snapshotted decision
+	# point (player, ally or enemy), not just an enemy index.
+	combat["selection"] = snap["selection"].duplicate()
 	# koed is kept in lockstep with hp -- a rewound snapshot's hp is always
 	# pre-lethal in practice, but this keeps the invariant true regardless.
-	var focused_enemy: Dictionary = _focused_enemy(combat)
+	var focused_enemy: Dictionary = combat["enemies"][snap["enemyIndex"]]
 	focused_enemy["hp"] = snap["enemyHp"]
 	focused_enemy["koed"] = focused_enemy["hp"] <= 0
 	var new_log: Array = snap["log"].duplicate()
@@ -1397,7 +1442,7 @@ static func exit_combat() -> Dictionary:
 
 	GameState.state["combat"] = {
 		"active": false, "context": CONTEXT_RAID, "veinId": null, "enemies": [],
-		"focusedEnemyIndex": 0, "log": [],
+		"selection": { "type": "enemy", "index": 0 }, "log": [],
 		"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
 		"allies": [],

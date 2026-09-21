@@ -19,7 +19,7 @@ func _fresh_combat(context: String = Combat.CONTEXT_MUGGING) -> void:
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": null,
 		"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 5, "attackMax": 5, "isMugging": context == Combat.CONTEXT_MUGGING, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-		"focusedEnemyIndex": 0,
+		"selection": { "type": "enemy", "index": 0 },
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [], "beatsSinceSnapshot": [],
 		"allies": [],
@@ -47,7 +47,7 @@ func _multi_enemy_combat(specs: Array, allies: Array = []) -> Dictionary:
 		})
 	GameState.state["combat"] = {
 		"active": true, "context": Combat.CONTEXT_RAID, "veinId": null,
-		"enemies": enemies, "focusedEnemyIndex": 0,
+		"enemies": enemies, "selection": { "type": "enemy", "index": 0 },
 		"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [],
 		"allies": allies,
@@ -193,7 +193,7 @@ func run() -> void:
 		var combat: Dictionary = GameState.state["combat"]
 		for enemy in combat["enemies"]:
 			assert_eq(enemy["koed"], false, "every freshly spawned entry should start un-koed")
-		assert_eq(combat["focusedEnemyIndex"], 0, "focus should default to index 0")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 0 }, "selection should default to enemy index 0")
 	)
 
 	# ── squad-combat ticket 01: combat.enemies roster shape ──────────────
@@ -202,7 +202,7 @@ func run() -> void:
 		_fresh_combat()
 		var combat: Dictionary = GameState.state["combat"]
 		assert_eq(combat["enemies"].size(), 1, "every start_* path still spawns exactly one entry until ticket 04's roster generation")
-		assert_eq(combat["focusedEnemyIndex"], 0, "focus should default to the only entry")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 0 }, "selection should default to the only entry")
 		assert_eq(combat["enemies"][0]["koed"], false, "a fresh entry should not start koed")
 	)
 
@@ -228,14 +228,14 @@ func run() -> void:
 			{ "name": "First", "hp": 5, "hpMax": 5, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false },
 			{ "name": "Second", "hp": 5, "hpMax": 5, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false },
 		]
-		combat["focusedEnemyIndex"] = 0
+		combat["selection"] = { "type": "enemy", "index": 0 }
 		GameState.state["player"]["inventory"]["blast"] = { "1": 2 }
 		GameState.state["player"]["craftingSkill"] = 1  # blast effectPower at skill 1 = 6, lethal against hp 5
 
 		Combat.use_blast()
 
 		assert_eq(combat["enemies"][0]["koed"], true, "the focused (first) entry should be koed")
-		assert_eq(combat["focusedEnemyIndex"], 1, "focus should auto-clamp to the next living entry")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 1 }, "selection should auto-clamp to the next living entry")
 		assert_eq(combat["outcome"], null, "the fight should continue while a living entry remains")
 
 		Combat.use_blast()
@@ -244,56 +244,137 @@ func run() -> void:
 		assert_eq(combat["outcome"], "win", "the fight should resolve once every entry is koed")
 	)
 
-	# ── combat-presentation ticket 02: turn-order strip swipe-to-target ──
+	# ── combat-refining ticket 05: generalised tap-selection API ─────────
 
-	run_case("set_focused_enemy_updates_focusedEnemyIndex_for_a_living_enemy", func():
+	run_case("set_selection_updates_selection_for_a_living_enemy", func():
 		var combat := _multi_enemy_combat([{ "hp": 20 }, { "hp": 20 }, { "hp": 20 }])
 
-		var result := Combat.set_focused_enemy(2)
+		var result := Combat.set_selection("enemy", 2)
 
 		assert_eq(result["ok"], true, "targeting a living enemy should succeed")
-		assert_eq(combat["focusedEnemyIndex"], 2, "focus should move to the requested index")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 2 }, "selection should move to the requested index")
 	)
 
-	run_case("set_focused_enemy_rejects_a_koed_enemy_and_leaves_focus_unchanged", func():
-		var combat := _multi_enemy_combat([{ "hp": 20 }, { "hp": 0, "koed": true }])
+	run_case("set_selection_updates_selection_for_a_living_ally", func():
+		var combat := _multi_enemy_combat([{ "hp": 20 }], [
+			{ "contactId": "archie", "name": "Archie", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "stash": 0, "healAmount": 0, "speed": 10, "koed": false },
+		])
 
-		var result := Combat.set_focused_enemy(1)
+		var result := Combat.set_selection("ally", 0)
 
-		assert_eq(result["ok"], false, "a koed entry is not a valid target")
-		assert_eq(combat["focusedEnemyIndex"], 0, "focus should not move onto a koed entry")
+		assert_eq(result["ok"], true, "targeting a living ally should succeed")
+		assert_eq(combat["selection"], { "type": "ally", "index": 0 }, "selection should move to the requested ally")
 	)
 
-	run_case("set_focused_enemy_rejects_an_out_of_range_index", func():
+	run_case("set_selection_selects_the_player_regardless_of_the_index_argument", func():
 		var combat := _multi_enemy_combat([{ "hp": 20 }])
 
-		var result := Combat.set_focused_enemy(5)
+		var result := Combat.set_selection("player", 7)
 
-		assert_eq(result["ok"], false, "an out-of-range index should be rejected")
-		assert_eq(combat["focusedEnemyIndex"], 0, "focus should not move")
+		assert_eq(result["ok"], true, "targeting the player should succeed")
+		assert_eq(combat["selection"], { "type": "player", "index": 0 }, "player selection's index is always 0 regardless of what was passed")
 	)
 
-	run_case("set_focused_enemy_rejects_when_combat_has_already_resolved", func():
+	run_case("set_selection_rejects_a_koed_enemy_and_leaves_selection_unchanged", func():
+		var combat := _multi_enemy_combat([{ "hp": 20 }, { "hp": 0, "koed": true }])
+
+		var result := Combat.set_selection("enemy", 1)
+
+		assert_eq(result["ok"], false, "a koed entry is not a valid target")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 0 }, "selection should not move onto a koed entry")
+	)
+
+	run_case("set_selection_rejects_a_koed_ally_and_leaves_selection_unchanged", func():
+		var combat := _multi_enemy_combat([{ "hp": 20 }], [
+			{ "contactId": "archie", "name": "Archie", "hp": 0, "hpMax": 20, "attackMin": 1, "attackMax": 1, "stash": 0, "healAmount": 0, "speed": 10, "koed": true },
+		])
+
+		var result := Combat.set_selection("ally", 0)
+
+		assert_eq(result["ok"], false, "a koed ally is not a valid target")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 0 }, "selection should not move onto a koed ally")
+	)
+
+	run_case("set_selection_rejects_an_out_of_range_index", func():
+		var combat := _multi_enemy_combat([{ "hp": 20 }])
+
+		var result := Combat.set_selection("enemy", 5)
+
+		assert_eq(result["ok"], false, "an out-of-range index should be rejected")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 0 }, "selection should not move")
+	)
+
+	run_case("set_selection_rejects_an_unrecognised_type", func():
+		var combat := _multi_enemy_combat([{ "hp": 20 }])
+
+		var result := Combat.set_selection("bystander", 0)
+
+		assert_eq(result["ok"], false, "an unrecognised selection type should be rejected")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 0 }, "selection should not move")
+	)
+
+	run_case("set_selection_rejects_when_combat_has_already_resolved", func():
 		var combat := _multi_enemy_combat([{ "hp": 20 }, { "hp": 20 }])
 		combat["outcome"] = "win"
 
-		var result := Combat.set_focused_enemy(1)
+		var result := Combat.set_selection("enemy", 1)
 
 		assert_eq(result["ok"], false, "targeting after the fight has resolved should be rejected")
-		assert_eq(combat["focusedEnemyIndex"], 0, "focus should not move")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 0 }, "selection should not move")
 	)
 
-	run_case("set_focused_enemy_emits_state_changed_but_pushes_no_snapshot", func():
+	run_case("set_selection_emits_state_changed_but_pushes_no_snapshot", func():
 		var combat := _multi_enemy_combat([{ "hp": 20 }, { "hp": 20 }])
 		var got_state_changed := [false]
 		var on_state := func(): got_state_changed[0] = true
 		EventBus.state_changed.connect(on_state)
 
-		Combat.set_focused_enemy(1)
+		Combat.set_selection("enemy", 1)
 
 		EventBus.state_changed.disconnect(on_state)
 		assert_true(got_state_changed[0], "state_changed should fire so the strip/stage re-render")
 		assert_true(combat["snapshots"].is_empty(), "a targeting choice is not a rewindable combat action -- no snapshot should be pushed")
+	)
+
+	# R§2 KO-clamp: same-type first, else the next living enemy; never
+	# fires for a player selection.
+	run_case("ko_clamp_moves_ally_selection_to_the_next_living_ally_when_the_selected_one_is_koed", func():
+		var combat := _multi_enemy_combat([{ "hp": 20, "attackMin": 5, "attackMax": 5 }], [
+			{ "contactId": "archie", "name": "Archie", "hp": 5, "hpMax": 20, "attackMin": 1, "attackMax": 1, "stash": 0, "healAmount": 0, "speed": 10, "koed": false },
+			{ "contactId": "nadia", "name": "Nadia", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "stash": 0, "healAmount": 0, "speed": 10, "koed": false },
+		])
+		Combat.set_selection("ally", 0)
+		var enemy: Dictionary = combat["enemies"][0]
+
+		Combat._enemy_attack_ally(combat, enemy, combat["allies"][0], 0, 0, null)
+
+		assert_true(combat["allies"][0]["koed"], "the attacked ally should be flagged koed")
+		assert_eq(combat["selection"], { "type": "ally", "index": 1 }, "selection should auto-clamp to the next living ally, same type first")
+	)
+
+	run_case("ko_clamp_falls_back_to_the_next_living_enemy_when_no_ally_survives", func():
+		var combat := _multi_enemy_combat([{ "hp": 20, "attackMin": 5, "attackMax": 5 }], [
+			{ "contactId": "archie", "name": "Archie", "hp": 5, "hpMax": 20, "attackMin": 1, "attackMax": 1, "stash": 0, "healAmount": 0, "speed": 10, "koed": false },
+		])
+		Combat.set_selection("ally", 0)
+		var enemy: Dictionary = combat["enemies"][0]
+
+		Combat._enemy_attack_ally(combat, enemy, combat["allies"][0], 0, 0, null)
+
+		assert_true(combat["allies"][0]["koed"], "the attacked ally should be flagged koed")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 0 }, "with no living ally left, selection should fall back to the next living enemy")
+	)
+
+	run_case("ko_clamp_never_moves_a_player_selection", func():
+		var combat := _multi_enemy_combat([{ "hp": 20, "attackMin": 5, "attackMax": 5 }], [
+			{ "contactId": "archie", "name": "Archie", "hp": 5, "hpMax": 20, "attackMin": 1, "attackMax": 1, "stash": 0, "healAmount": 0, "speed": 10, "koed": false },
+		])
+		Combat.set_selection("player", 0)
+		var enemy: Dictionary = combat["enemies"][0]
+
+		Combat._enemy_attack_ally(combat, enemy, combat["allies"][0], 0, 0, null)
+
+		assert_eq(combat["selection"], { "type": "player", "index": 0 }, "a player selection is never clamped, even when an ally dies")
 	)
 
 	run_case("freeze_skips_enemy_turn_and_decrements", func():
@@ -412,8 +493,8 @@ func run() -> void:
 		var combat: Dictionary = GameState.state["combat"]
 		GameState.state["player"]["hp"] = 80
 		combat["enemies"][0]["hp"] = 90
-		Snapshots.push("combat", combat["snapshots"], { "playerHp": 100, "enemyHp": 100, "focusedEnemyIndex": 0, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
-		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 95, "focusedEnemyIndex": 0, "log": ["turn 1", "turn 2"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 100, "enemyHp": 100, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } })
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 95, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": ["turn 1", "turn 2"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } })
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
 
 		var result := Combat.combat_rewind()
@@ -434,24 +515,40 @@ func run() -> void:
 	)
 
 	# squad-combat ticket 01: push_combat_snapshot()/_restore_from_snapshot()
-	# carry focusedEnemyIndex alongside enemyHp -- a rewind must put focus
-	# back on whichever entry was actually focused at snapshot time, not
-	# wherever focus happens to be sitting when Rewind is used.
-	run_case("rewind_restores_the_snapshotted_focusedEnemyIndex_not_the_current_one", func():
+	# carry the enemy hp target alongside combat.selection -- a rewind must
+	# put the enemy-hp restore on whichever entry was actually targeted at
+	# snapshot time, not wherever that ends up sitting when Rewind is used.
+	run_case("rewind_restores_the_snapshotted_enemy_target_not_the_current_one", func():
 		_fresh_combat()
 		var combat: Dictionary = GameState.state["combat"]
 		combat["enemies"].append({ "name": "Second", "hp": 40, "hpMax": 40, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false })
-		combat["focusedEnemyIndex"] = 1
-		Combat.push_combat_snapshot()  # snapshots focusedEnemyIndex == 1, enemies[1].hp == 40
-		combat["focusedEnemyIndex"] = 0  # focus moves on before Rewind is used
+		combat["selection"] = { "type": "enemy", "index": 1 }
+		Combat.push_combat_snapshot()  # snapshots selection == enemy 1, enemies[1].hp == 40
+		combat["selection"] = { "type": "enemy", "index": 0 }  # selection moves on before Rewind is used
 		combat["enemies"][1]["hp"] = 10  # some damage landed on the second entry since the snapshot
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
 
 		Combat.combat_rewind()
 
-		assert_eq(combat["focusedEnemyIndex"], 1, "rewind should restore focus to whichever entry was focused when the snapshot was pushed")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 1 }, "rewind should restore whichever entry was selected when the snapshot was pushed")
 		assert_eq(combat["enemies"][1]["hp"], 40, "rewind should restore the hp of the snapshotted entry")
-		assert_eq(combat["enemies"][0]["hp"], 100, "the entry that wasn't focused at snapshot time is untouched by rewind, same as today's single-enemy scope")
+		assert_eq(combat["enemies"][0]["hp"], 100, "the entry that wasn't selected at snapshot time is untouched by rewind, same as today's single-enemy scope")
+	)
+
+	# R§2/ticket 05: selection itself (not just the enemy hp it targeted)
+	# must round-trip through Rewind, for any of the three selection types.
+	run_case("rewind_restores_an_ally_or_player_selection_active_at_snapshot_time", func():
+		_fresh_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		combat["allies"] = [{ "contactId": "archie", "name": "Archie", "hp": 20, "hpMax": 20, "attackMin": 1, "attackMax": 1, "stash": 0, "healAmount": 0, "speed": 10, "koed": false }]
+		Combat.set_selection("ally", 0)
+		Combat.push_combat_snapshot()  # snapshots selection == ally 0
+		Combat.set_selection("player", 0)  # selection moves on before Rewind is used
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+
+		Combat.combat_rewind()
+
+		assert_eq(combat["selection"], { "type": "ally", "index": 0 }, "rewind should restore the ally selection active when the snapshot was pushed")
 	)
 
 	run_case("rewind_fails_with_no_snapshots_or_no_rewind_available", func():
@@ -623,7 +720,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_HOME_RAID, "veinId": null,
 			"enemies": [{ "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "isMugging": false, "speed": 10, "koed": true }],
-			"focusedEnemyIndex": 0,
+			"selection": { "type": "enemy", "index": 0 },
 			"log": [], "outcome": "loss", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [],
@@ -646,7 +743,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_HOME_RAID, "veinId": null,
 			"enemies": [{ "name": "The raider", "hp": 0, "hpMax": 35, "attackMin": 6, "attackMax": 14, "isMugging": false, "speed": 10, "koed": true }],
-			"focusedEnemyIndex": 0,
+			"selection": { "type": "enemy", "index": 0 },
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "homeRaidWon", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [],
@@ -1273,7 +1370,7 @@ func run() -> void:
 		GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
 		combat["enemies"][0]["attackMin"] = 500
 		combat["enemies"][0]["attackMax"] = 500
-		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "focusedEnemyIndex": 0, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } })
 
 		Rng.set_seed(1)
 		Combat.enemy_attack()
@@ -1319,7 +1416,7 @@ func run() -> void:
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
 		combat["enemies"][0]["attackMin"] = 500
 		combat["enemies"][0]["attackMax"] = 500
-		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "focusedEnemyIndex": 0, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } })
 
 		Rng.set_seed(1)
 		Combat.enemy_attack()
@@ -1338,7 +1435,7 @@ func run() -> void:
 		GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
 		combat["enemies"][0]["attackMin"] = 500
 		combat["enemies"][0]["attackMax"] = 500
-		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "focusedEnemyIndex": 0, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0 })
+		Snapshots.push("combat", combat["snapshots"], { "playerHp": 90, "enemyHp": 80, "enemyIndex": 0, "selection": { "type": "enemy", "index": 0 }, "log": ["turn 1"], "frozenTurns": 0, "motionTurns": 0, "motionPower": 0, "evadeTurns": 0, "evadeChance": 0.0, "turnCursor": { "queue": [], "index": 0, "round": 0 } })
 
 		Rng.set_seed(1)
 		Combat.enemy_attack()
@@ -1438,7 +1535,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_ARCHIE_DEAL_MUGGING, "veinId": null,
 			"enemies": [{ "name": "Test Enemy", "hp": 0, "hpMax": 20, "attackMin": 0, "attackMax": 0, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": true }],
-			"focusedEnemyIndex": 0,
+			"selection": { "type": "enemy", "index": 0 },
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [],
@@ -1459,7 +1556,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_ARCHIE_DEAL_MUGGING, "veinId": null,
 			"enemies": [{ "name": "Test Enemy", "hp": 20, "hpMax": 20, "attackMin": 0, "attackMax": 0, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"focusedEnemyIndex": 0,
+			"selection": { "type": "enemy", "index": 0 },
 			"log": [], "outcome": "loss", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [],
@@ -1512,7 +1609,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
 			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"focusedEnemyIndex": 0,
+			"selection": { "type": "enemy", "index": 0 },
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 50, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 0, "healAmount": 15, "speed": 9, "koed": false }],
@@ -1534,7 +1631,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
 			"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-			"focusedEnemyIndex": 0,
+			"selection": { "type": "enemy", "index": 0 },
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 10, "hpMax": 50, "attackMin": 5, "attackMax": 5, "stash": 1, "healAmount": 15, "speed": 9, "koed": false }],
@@ -1560,7 +1657,7 @@ func run() -> void:
 			GameState.state["combat"] = {
 				"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
 				"enemies": [{ "name": "Test Enemy", "hp": 100, "hpMax": 100, "attackMin": 999, "attackMax": 999, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": false }],
-				"focusedEnemyIndex": 0,
+				"selection": { "type": "enemy", "index": 0 },
 				"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 				"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 				"allies": [Contacts.build_combat_ally("archie")],
@@ -1587,7 +1684,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_DEFEND_VEIN, "veinId": "v1",
 			"enemies": [{ "name": "Test Enemy", "hp": 0, "hpMax": 100, "attackMin": 0, "attackMax": 0, "isMugging": false, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 10, "koed": true }],
-			"focusedEnemyIndex": 0,
+			"selection": { "type": "enemy", "index": 0 },
 			"log": [], "outcome": "win", "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [{ "contactId": "archie", "name": "Archie", "hp": 12, "hpMax": 50, "attackMin": 4, "attackMax": 9, "stash": 0, "healAmount": 15, "koed": false }],
@@ -1847,7 +1944,7 @@ func run() -> void:
 		GameState.state["combat"] = {
 			"active": true, "context": Combat.CONTEXT_MUGGING, "veinId": null,
 			"enemies": [{ "name": "Fast Enemy", "hp": 50, "hpMax": 50, "attackMin": 500, "attackMax": 500, "isMugging": true, "weapon": null, "ability": null, "evadeChance": 0.0, "speed": 999, "koed": false }],
-			"focusedEnemyIndex": 0,
+			"selection": { "type": "enemy", "index": 0 },
 			"log": [], "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": "muggingWon", "snapshots": [], "beatsSinceSnapshot": [], "turnCursor": { "queue": [], "index": 0, "round": 0 },
 			"allies": [],
@@ -1865,7 +1962,7 @@ func run() -> void:
 
 	run_case("player_attack_and_blast_only_ever_touch_the_focused_enemy_never_other_living_enemies", func():
 		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 50 }])
-		combat["focusedEnemyIndex"] = 1
+		combat["selection"] = { "type": "enemy", "index": 1 }
 		GameState.state["player"]["attackMin"] = 5
 		GameState.state["player"]["attackMax"] = 5
 		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
@@ -1938,7 +2035,7 @@ func run() -> void:
 		_fresh_combat()
 		GameState.state["player"]["craftingSkill"] = 1
 		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("blast", 1, 5)
-		GameState.state["combat"]["focusedEnemyIndex"] = 0
+		GameState.state["combat"]["selection"] = { "type": "enemy", "index": 0 }
 
 		var result := Combat.cast_complication(0)
 
@@ -2029,7 +2126,7 @@ func run() -> void:
 		_fresh_combat()
 		GameState.state["player"]["inventory"]["blast"] = { "1": 1 }
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["combat"]["focusedEnemyIndex"] = 0
+		GameState.state["combat"]["selection"] = { "type": "enemy", "index": 0 }
 		var result := Combat.use_blast()
 		var beats: Array = result["beats"]
 		assert_true(beats.size() > 0)
@@ -2239,7 +2336,7 @@ func run() -> void:
 			{ "hp": 999, "attackMin": 5, "attackMax": 5 },
 			{ "hp": 999, "attackMin": 5, "attackMax": 5 },
 		])
-		combat["focusedEnemyIndex"] = 0
+		combat["selection"] = { "type": "enemy", "index": 0 }
 		GameState.state["player"]["hp"] = 999
 		GameState.state["player"]["hpMax"] = 999
 		GameState.state["player"]["attackMin"] = 999
@@ -2251,7 +2348,7 @@ func run() -> void:
 		assert_eq(combat["enemies"][1]["koed"], false, "the second enemy should still be standing")
 		assert_eq(combat["enemies"][2]["koed"], false, "the third enemy should still be standing")
 		assert_eq(combat["outcome"], null, "the fight should continue while two enemies remain")
-		assert_eq(combat["focusedEnemyIndex"], 1, "focus should auto-clamp off the koed entry")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 1 }, "selection should auto-clamp off the koed entry")
 		# no allies present, so both surviving enemies deterministically target
 		# the player -- this proves each took its own independent queue turn
 		# (10 total damage = 2 separate 5-damage attacks), not one shared roll.
@@ -2290,7 +2387,7 @@ func run() -> void:
 			{ "hp": 999, "attackMin": 5, "attackMax": 5 },
 			{ "hp": 999, "attackMin": 5, "attackMax": 5 },
 		])
-		combat["focusedEnemyIndex"] = 0
+		combat["selection"] = { "type": "enemy", "index": 0 }
 		GameState.state["player"]["hp"] = 999
 		GameState.state["player"]["hpMax"] = 999
 		GameState.state["player"]["attackMin"] = 10

@@ -23,7 +23,6 @@ const _HEADING_ROW_HEIGHT := 40.0
 # own top border.
 const _STRIP_TOP_INSET := 6.0
 
-var _strip_selected_key: Dictionary = {}
 var _heading: Label
 var _pacing_button: Button
 var _strip_holder: Control
@@ -84,6 +83,7 @@ func _ready() -> void:
 	_stage.position = Vector2.ZERO
 	_stage.size = Vector2(CombatStage.STAGE_WIDTH, CombatStage.STAGE_HEIGHT)
 	_stage.gui_input.connect(_on_stage_gui_input)
+	_stage.subject_tapped.connect(_on_stage_subject_tapped)
 	_upper_region.add_child(_stage)
 
 	# Added after the stage so it paints on top of it -- the turn-order strip
@@ -168,28 +168,28 @@ func _build_turn_order_strip(combat: Dictionary, player: Dictionary) -> TurnOrde
 	var strip := TurnOrderStrip.new()
 	var entries: Array = strip.build_entries(combat, player)
 	var selected_pos := _selected_strip_pos(entries, combat)
-	if selected_pos >= 0:
-		_strip_selected_key = entries[selected_pos]["key"]
 	strip.configure(entries, maxi(0, selected_pos), combat, player, CombatStage.STAGE_WIDTH, _on_strip_selection_changed)
 	return strip
 
+# combat.selection (R§2) is the sole source of truth now -- no screen-local
+# cache needed, so this always resolves against live state, which is also
+# what makes selection survive an unrelated state_changed refresh for free.
 func _selected_strip_pos(entries: Array, combat: Dictionary) -> int:
-	for i in range(entries.size()):
-		if entries[i]["key"] == _strip_selected_key:
-			return i
+	var selection: Dictionary = combat["selection"]
 	for i in range(entries.size()):
 		var key: Dictionary = entries[i]["key"]
-		if key["type"] == "enemy" and key["index"] == combat["focusedEnemyIndex"]:
+		if key["type"] == selection["type"] and key.get("index", 0) == selection["index"]:
 			return i
 	return 0 if not entries.is_empty() else -1
 func _on_strip_selection_changed(new_key: Dictionary) -> void:
-	_strip_selected_key = new_key
-	if new_key["type"] == "enemy":
-		Combat.set_focused_enemy(new_key["index"])
-	else:
-		_sync()
+	_select_target(new_key)
 func _sync_stage(combat: Dictionary, player: Dictionary) -> void:
 	_stage.sync(combat, player, _frozen_roster)
+
+# The one place a tap (card or sprite) turns into a selection -- both
+# routes call Combat.set_selection() and nothing else (R§2).
+func _select_target(target: Dictionary) -> void:
+	Combat.set_selection(target["type"], target.get("index", 0))
 
 func _on_stage_gui_input(event: InputEvent) -> void:
 	if not _director.is_playing():
@@ -197,6 +197,15 @@ func _on_stage_gui_input(event: InputEvent) -> void:
 	var pressed: bool = (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed)
 	if pressed:
 		_director.fast_forward_current_beat()
+
+# A tap landing on a sprite (CombatStage.subject_tapped) -- during playback
+# it fast-forwards like any other stage tap and never changes selection;
+# otherwise it selects, the same as tapping that combatant's strip card.
+func _on_stage_subject_tapped(target: Dictionary) -> void:
+	if _director.is_playing():
+		_director.fast_forward_current_beat()
+		return
+	_select_target(target)
 
 func _on_attack_pressed() -> void:
 	_play_round(func(): return Combat.player_attack())

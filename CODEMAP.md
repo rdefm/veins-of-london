@@ -28,7 +28,7 @@ Data file per system: see `data/*.json` below.
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement |
-| combat.gd | Turn-based combat engine + rewind. Resumable per-decision-point progression via `combat.turnCursor` + `advance_to_next_decision()`/`prime_decision_point()`/`conclude_decision_point()`, and a pure `project_queue()` read for the turn-order strip's occurrence horizon -- see REFERENCE.md §3.7a |
+| combat.gd | Turn-based combat engine + rewind. Resumable per-decision-point progression via `combat.turnCursor` + `advance_to_next_decision()`/`prime_decision_point()`/`conclude_decision_point()`, and a pure `project_queue()` read for the strip's occurrence horizon -- REFERENCE.md §3.7a. `combat.selection` (player/ally/enemy) is written via `set_selection()`, KO-clamped by `_clamp_selection` |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry via Combat.prime_decision_point()/conclude_decision_point() (R§3.7a) |
@@ -91,7 +91,7 @@ overlays.
 
 | File | Renders |
 |---|---|
-| combat.gd | Combat screen: orchestrator over CombatStage/CombatCommandDock -- owns turn flow (turn-order strip), director bridging, and when a band sync happens |
+| combat.gd | Combat screen: orchestrator over CombatStage/CombatCommandDock -- owns turn flow (turn-order strip), director bridging, and when a band sync happens. `_select_target()` is the sole route from a card tap or a stage-sprite tap (`CombatStage.subject_tapped`) to `Combat.set_selection()`; a stage tap during director playback fast-forwards instead |
 | combat_prototype.gd | Minimal combat-prototype screen, Debug-app only |
 | contacts.gd | Contacts tab, flag-gated actions |
 | event.gd | Event-card screen (VN and non-VN layouts) |
@@ -117,7 +117,7 @@ overlays.
 | bag_drawer.gd | Global bottom-sheet bag drawer |
 | combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial/Complication-detail/action-card row, anchored to the true screen bottom |
 | combat_director.gd | Combat beat-queue playback director |
-| combat_stage.gd | Combat's full-width pixel stage: backdrop, subject slots, keypose one-shots, effect sheets, juice layer |
+| combat_stage.gd | Combat's full-width pixel stage: backdrop, subject slots, keypose one-shots, effect sheets, juice layer. Each `StageSlot` takes taps directly (`MOUSE_FILTER_STOP`) and emits `subject_tapped`; the selected slot draws a small arrow (`is_focused`/`_draw_selection_arrow`) |
 | contact_cards.gd | Shared card builders + OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
 | dial_widget.gd | Combat's Dial-casting widget |
@@ -141,7 +141,7 @@ overlays.
 | time_transition.gd | Presentation queue (day/night atlas) |
 | top_bar.gd | Header: day/phase, cash, notices |
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
-| turn_order_strip.gd | Combat turn-order strip: one card per turn *occurrence* (Combat.project_queue(), R§3.7a), not per combatant -- repeated occurrences of the same combatant share the selected treatment. Drag scrolls the viewport only; a tap selects the tapped card's combatant (`handle_tap`/`handle_drag`) |
+| turn_order_strip.gd | Combat turn-order strip: one card per turn *occurrence* (Combat.project_queue(), R§3.7a), not per combatant. Drag scrolls the viewport; a tap selects the tapped card's combatant (`handle_tap`/`handle_drag`). The selected card grows (`EXPANDED_CARD_HEIGHT`/`_WIDTH_BONUS_PX`); `_reveal_pos()` scrolls an off-screen selection into view |
 | ui.gd | Shared Control builders, time-cost labels, ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
 | vein_bubble.gd | Compact player-vein tap bubble: locally styled pin-anchored card with edge flipping, Lv segments, condition needle with 50/90+ scale, outline development/raid cues, round Harvest (light/hard chooser)/Cultivate actions; tapping the info area opens vein_detail_panel.gd instead of running an action |
 | vein_detail_panel.gd | Larger vein detail sheet (mapNav.selectedVeinId): yield, drift/upkeep, development chance, raid risk, and full action set (Cultivate/Harvest/security/alarm/Defend) for one vein; reuses VeinBubble's level/condition/cue builders and keeps earned level, Cultivating skill, and condition visually distinct |
