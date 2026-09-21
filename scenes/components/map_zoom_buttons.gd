@@ -4,10 +4,17 @@ extends Control
 
 const MARGIN := Vector2(8.0, 8.0)
 const BUTTON_SIZE := Vector2(UI.ICON_BUTTON_SIZE, UI.ICON_BUTTON_SIZE)
+const PILL_RADIUS := 14
+const CREAM := Color(0.980392, 0.972549, 0.952941, 1.0)
+const BORDER := Color(0.831373, 0.811765, 0.768627, 1.0)
+const CHARCOAL := Color(0.101961, 0.101961, 0.101961, 1.0)
+const DISABLED_CHARCOAL := Color(0.101961, 0.101961, 0.101961, 0.35)
 
 var map_canvas: MapCanvas
 
-var _box: VBoxContainer
+var _pill: PanelContainer
+var _box: HBoxContainer
+var _divider: ColorRect
 var _zoom_in_button: Button
 var _zoom_out_button: Button
 
@@ -22,21 +29,84 @@ func _ready() -> void:
 	grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	grow_vertical = Control.GROW_DIRECTION_BEGIN
 
-	_box = UI.vbox(6)
-	add_child(_box)
+	_pill = PanelContainer.new()
+	_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pill.add_theme_stylebox_override("panel", _pill_style())
+	add_child(_pill)
 
-	_zoom_in_button = UI.button("+", func(): map_canvas.step_zoom(1))
-	_zoom_in_button.custom_minimum_size = _zoom_in_button.custom_minimum_size.max(BUTTON_SIZE)
-	_box.add_child(_zoom_in_button)
+	_box = UI.hbox(0)
+	_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pill.add_child(_box)
 
-	_zoom_out_button = UI.button("-", func(): map_canvas.step_zoom(-1))
-	_zoom_out_button.custom_minimum_size = _zoom_out_button.custom_minimum_size.max(BUTTON_SIZE)
+	_zoom_out_button = _build_button("−", "Zoom out", false, func(): map_canvas.step_zoom(-1))
 	_box.add_child(_zoom_out_button)
+
+	_divider = ColorRect.new()
+	_divider.color = BORDER
+	_divider.custom_minimum_size.x = 1.0
+	_divider.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_box.add_child(_divider)
+
+	_zoom_in_button = _build_button("+", "Zoom in", true, func(): map_canvas.step_zoom(1))
+	_box.add_child(_zoom_in_button)
 
 	if map_canvas != null:
 		map_canvas.zoom_changed.connect(_update_disabled)
 	_update_disabled()
 	_reposition()
+
+
+func _build_button(glyph: String, tooltip: String, right_half: bool, callback: Callable) -> Button:
+	var button := Button.new()
+	button.text = glyph
+	button.tooltip_text = tooltip
+	button.custom_minimum_size = BUTTON_SIZE
+	button.add_theme_font_size_override("font_size", 22)
+	button.add_theme_color_override("font_color", CHARCOAL)
+	button.add_theme_color_override("font_hover_color", CHARCOAL)
+	button.add_theme_color_override("font_pressed_color", CHARCOAL)
+	button.add_theme_color_override("font_focus_color", CHARCOAL)
+	button.add_theme_color_override("font_disabled_color", DISABLED_CHARCOAL)
+	button.add_theme_stylebox_override("normal", _button_style(Color.TRANSPARENT, right_half))
+	button.add_theme_stylebox_override("hover", _button_style(Color(CHARCOAL, 0.06), right_half))
+	button.add_theme_stylebox_override("pressed", _button_style(Color(CHARCOAL, 0.12), right_half))
+	button.add_theme_stylebox_override("focus", _button_style(Color(CHARCOAL, 0.06), right_half))
+	button.add_theme_stylebox_override("disabled", _button_style(Color.TRANSPARENT, right_half))
+	button.pressed.connect(callback)
+	return button
+
+
+func _pill_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = CREAM
+	style.set_border_width_all(1)
+	style.border_color = BORDER
+	style.set_corner_radius_all(PILL_RADIUS)
+	style.content_margin_left = 1.0
+	style.content_margin_top = 1.0
+	style.content_margin_right = 1.0
+	style.content_margin_bottom = 1.0
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.13)
+	style.shadow_size = 8
+	style.shadow_offset = Vector2(0.0, 3.0)
+	return style
+
+
+func _button_style(fill: Color, right_half: bool) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.content_margin_left = 8.0
+	style.content_margin_top = 6.0
+	style.content_margin_right = 8.0
+	style.content_margin_bottom = 6.0
+	if right_half:
+		style.corner_radius_top_right = PILL_RADIUS - 1
+		style.corner_radius_bottom_right = PILL_RADIUS - 1
+	else:
+		style.corner_radius_top_left = PILL_RADIUS - 1
+		style.corner_radius_bottom_left = PILL_RADIUS - 1
+	return style
 
 
 func _update_disabled(_zoom: float = 0.0) -> void:
@@ -48,4 +118,5 @@ func _update_disabled(_zoom: float = 0.0) -> void:
 
 func _reposition() -> void:
 	_box.size = _box.get_combined_minimum_size()
-	_box.position = -_box.size - MARGIN
+	_pill.size = _pill.get_combined_minimum_size()
+	_pill.position = -_pill.size - MARGIN

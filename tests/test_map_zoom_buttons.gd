@@ -15,14 +15,43 @@ extends "res://tests/test_base.gd"
 # and that the buttons' own disabled state tracks zoom_level correctly.
 
 
+class ZoomSpyCanvas extends MapCanvas:
+	var requested_directions: Array[int] = []
+
+	func step_zoom(direction: int) -> void:
+		requested_directions.append(direction)
+
+
 func run() -> void:
-	run_case("renders_a_plus_and_a_minus_button", func():
+	run_case("renders_minus_then_plus_in_one_horizontal_pill", func():
 		var buttons := MapZoomButtons.new()
 		buttons.map_canvas = MapCanvas.new()
 		buttons._ready()
 
+		assert_true(buttons._box is HBoxContainer, "the two controls share one horizontal row")
+		assert_eq(buttons._zoom_out_button.get_index(), 0, "minus is the left half")
+		assert_eq(buttons._zoom_in_button.get_index(), 2, "plus follows the internal divider")
+		assert_eq(buttons._zoom_out_button.text, "−")
 		assert_eq(buttons._zoom_in_button.text, "+")
-		assert_eq(buttons._zoom_out_button.text, "-")
+		assert_eq(buttons._zoom_out_button.get_parent(), buttons._zoom_in_button.get_parent(), "both halves belong to the same pill")
+
+		buttons.map_canvas.free()
+		buttons.free()
+	)
+
+	run_case("pill_uses_cream_charcoal_material_without_action_orange", func():
+		var buttons := MapZoomButtons.new()
+		buttons.map_canvas = MapCanvas.new()
+		buttons._ready()
+
+		var pill_style := buttons._pill.get_theme_stylebox("panel") as StyleBoxFlat
+		var minus_style := buttons._zoom_out_button.get_theme_stylebox("normal") as StyleBoxFlat
+		assert_eq(pill_style.bg_color, MapZoomButtons.CREAM)
+		assert_eq(pill_style.border_color, MapZoomButtons.BORDER)
+		assert_true(pill_style.shadow_size > 0, "cream surface has the requested subtle shadow")
+		assert_eq(buttons._zoom_out_button.get_theme_color("font_color"), MapZoomButtons.CHARCOAL)
+		assert_eq(buttons._zoom_in_button.get_theme_color("font_color"), MapZoomButtons.CHARCOAL)
+		assert_eq(minus_style.bg_color, Color.TRANSPARENT, "normal halves do not inherit the global orange button fill")
 
 		buttons.map_canvas.free()
 		buttons.free()
@@ -30,13 +59,13 @@ func run() -> void:
 
 	run_case("pressing_plus_steps_the_canvas_zoom_in", func():
 		var buttons := MapZoomButtons.new()
-		buttons.map_canvas = MapCanvas.new()
+		buttons.map_canvas = ZoomSpyCanvas.new()
 		buttons.map_canvas.zoom_level = 1.0
 		buttons._ready()
 
 		buttons._zoom_in_button.pressed.emit()
 
-		assert_true(buttons.map_canvas._active_tween != null, "pressing + must reach MapCanvas.step_zoom(), which kicks off pan_to()'s tween")
+		assert_eq((buttons.map_canvas as ZoomSpyCanvas).requested_directions, [1], "plus must dispatch exactly +1")
 
 		buttons.map_canvas.free()
 		buttons.free()
@@ -44,13 +73,13 @@ func run() -> void:
 
 	run_case("pressing_minus_steps_the_canvas_zoom_out", func():
 		var buttons := MapZoomButtons.new()
-		buttons.map_canvas = MapCanvas.new()
+		buttons.map_canvas = ZoomSpyCanvas.new()
 		buttons.map_canvas.zoom_level = 1.0
 		buttons._ready()
 
 		buttons._zoom_out_button.pressed.emit()
 
-		assert_true(buttons.map_canvas._active_tween != null, "pressing - must reach MapCanvas.step_zoom(), which kicks off pan_to()'s tween")
+		assert_eq((buttons.map_canvas as ZoomSpyCanvas).requested_directions, [-1], "minus must dispatch exactly -1")
 
 		buttons.map_canvas.free()
 		buttons.free()
@@ -130,33 +159,17 @@ func run() -> void:
 		buttons.free()
 	)
 
-	# Bugfixes ticket 99: the zoom-in "+" glyph used to render invisible --
-	# root cause was this file's own custom_minimum_size = BUTTON_SIZE flatly
-	# overwriting the width UI.button() had already computed to fit "+"
-	# without clipping (10px glyph + the Button theme's 32px of content
-	# margin = 42px needed; BUTTON_SIZE.x is only 40px, so clip_text's
-	# OVERRUN_TRIM_ELLIPSIS silently trimmed it to nothing -- "-" only needs
-	# 38px, which is why it stayed visible on an identically-styled button).
-	# The fix takes the component-wise max instead of overwriting, so this
-	# builds an independent reference button the same way UI.button() itself
-	# would and asserts neither zoom button was ever shrunk narrower than
-	# that reference -- this must fail under the old flat-overwrite code
-	# (40 < 42 for "+") to be trusted as a real regression guard.
-	run_case("neither_zoom_button_is_shrunk_narrower_than_its_own_glyph_needs_to_avoid_clipping", func():
-		var reference_plus := UI.button("+", func(): pass)
-		var reference_minus := UI.button("-", func(): pass)
-
+	run_case("each_half_keeps_a_full_touch_target_and_visible_glyph", func():
 		var buttons := MapZoomButtons.new()
 		buttons.map_canvas = MapCanvas.new()
 		buttons._ready()
 
-		assert_true(buttons._zoom_in_button.custom_minimum_size.x >= reference_plus.custom_minimum_size.x, "the + button must be at least as wide as UI.button() itself computed for its own glyph, or clip_text clips it away")
-		assert_true(buttons._zoom_out_button.custom_minimum_size.x >= reference_minus.custom_minimum_size.x, "the - button must be at least as wide as UI.button() itself computed for its own glyph")
-		assert_true(buttons._zoom_in_button.custom_minimum_size.x >= MapZoomButtons.BUTTON_SIZE.x, "still at least the floating control's own square touch-target floor")
-		assert_true(buttons._zoom_out_button.custom_minimum_size.x >= MapZoomButtons.BUTTON_SIZE.x, "still at least the floating control's own square touch-target floor")
+		for button in [buttons._zoom_out_button, buttons._zoom_in_button]:
+			assert_true(button.custom_minimum_size.x >= UI.ICON_BUTTON_SIZE, "each half is wide enough to tap")
+			assert_true(button.custom_minimum_size.y >= UI.ICON_BUTTON_SIZE, "each half is tall enough to tap")
+			assert_true(not button.clip_text, "glyphs must not be clipped")
+			assert_true(button.text.length() > 0, "each half retains a visible glyph")
 
-		reference_plus.free()
-		reference_minus.free()
 		buttons.map_canvas.free()
 		buttons.free()
 	)
