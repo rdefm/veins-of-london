@@ -15,13 +15,13 @@ Decal artwork may be authored as a small overlay set under assets; if the human 
 - `docs/combat-animation-vision.md` — §2.4 Nameplate anatomy, Damage-decal tiers, Faction-colour mapping
 - `docs/ui-vision.md` — §6 Colour rules, §7 Typography
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] Card background is a light sign colour with dark text; border is thin and neutral, faction colour appears only on the HP bar and faction line
-- [ ] Damage tier boundaries remain exactly 60% and 30% of hpMax; pulse remains at 20%
-- [ ] At the ruined tier the name, HP bar and faction line are still fully drawn inside the card rect (no overlay covers them)
-- [ ] A 24-character name, three status lines and a long intent string fit the expanded card via wrap/ellipsis without exceeding the reserved band
-- [ ] Faction-colour mapping tests pass unchanged
-- [ ] Colours come from `palette.json`/constants, not inline literals
-- [ ] `scripts/check_all.sh` and `scripts/run_tests.sh` pass; CODEMAP row updated
-- [ ] Report lists on-device checks: sign legibility, overlay restraint, distinctness from command rows
+- [x] Card background is a light sign colour with dark text; border is thin and neutral, faction colour appears only on the HP bar and faction line
+- [x] Damage tier boundaries remain exactly 60% and 30% of hpMax; pulse remains at 20%
+- [x] At the ruined tier the name, HP bar and faction line are still fully drawn inside the card rect (no overlay covers them)
+- [x] A 24-character name, three status lines and a long intent string fit the expanded card via wrap/ellipsis without exceeding the reserved band
+- [x] Faction-colour mapping tests pass unchanged
+- [x] Colours come from `palette.json`/constants, not inline literals
+- [x] `scripts/check_all.sh` and `scripts/run_tests.sh` pass; CODEMAP row updated
+- [x] Report lists on-device checks: sign legibility, overlay restraint, distinctness from command rows

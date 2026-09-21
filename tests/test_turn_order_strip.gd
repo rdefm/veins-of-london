@@ -362,6 +362,62 @@ func run() -> void:
 		assert_true(ruined.is_pulsing, "10% hp is below the ~20% urgency threshold")
 	)
 
+	run_case("damage_and_pulse_boundaries_remain_exactly_60_30_and_20_percent", func():
+		GameState.reset()
+		var combat := _combat([
+			Fixtures.enemy("At sixty", 60, 100),
+			Fixtures.enemy("At thirty", 30, 100),
+			Fixtures.enemy("Below thirty", 29, 100),
+			Fixtures.enemy("At twenty", 20, 100),
+		])
+		var strip := TurnOrderStrip.new()
+		strip.configure(strip.build_entries(combat, GameState.state["player"]), 0, combat, GameState.state["player"], 300.0, Callable())
+
+		assert_eq(_card_named(strip, "At sixty").damage_tier, 0)
+		assert_eq(_card_named(strip, "At thirty").damage_tier, 1)
+		assert_eq(_card_named(strip, "Below thirty").damage_tier, 2)
+		assert_true(not _card_named(strip, "At twenty").is_pulsing, "pulse begins below 20%, not at it")
+	)
+
+	run_case("street_sign_colours_are_palette_backed_and_faction_colour_is_content_only", func():
+		GameState.reset()
+		for id in [
+			TurnOrderStrip.SIGN_GROUND_ID, TurnOrderStrip.SIGN_LETTERING_ID,
+			TurnOrderStrip.SIGN_BORDER_ID, TurnOrderStrip.SIGN_STATUS_ID,
+			TurnOrderStrip.SIGN_INTENT_ID, TurnOrderStrip.SIGN_HP_TRACK_ID,
+			TurnOrderStrip.SIGN_GHOST_ID, TurnOrderStrip.SIGN_DAMAGE_ID,
+		]:
+			assert_true(GameData.PALETTE.has(id), "%s must resolve through data/palette.json" % id)
+		var ground: Color = GameData.PALETTE[TurnOrderStrip.SIGN_GROUND_ID]
+		var lettering: Color = GameData.PALETTE[TurnOrderStrip.SIGN_LETTERING_ID]
+		assert_true(ground.get_luminance() > lettering.get_luminance(), "sign ground must stay light with dark lettering")
+		assert_true(GameData.PALETTE[TurnOrderStrip.SIGN_BORDER_ID] != Color(GameData.FACTIONS["collective"]["colour"]), "neutral border must not inherit faction colour")
+	)
+
+	run_case("expanded_card_bounds_long_name_three_statuses_and_long_intent", func():
+		GameState.reset()
+		var strip := TurnOrderStrip.new()
+		var card := TurnOrderStrip.NameplateCard.new()
+		card.size = Vector2(TurnOrderStrip.MAX_CARD_WIDTH + TurnOrderStrip.EXPANDED_WIDTH_BONUS_PX, TurnOrderStrip.EXPANDED_CARD_HEIGHT)
+		card.custom_minimum_size = card.size
+		card.combatant_name = "TwentyFourCharacterNameXX"
+		card.hp = 10
+		card.hp_max = 20
+		card.shows_exact_hp = true
+		card.status_lines = ["Frozen (12)", "Ability locked (12)", "Third status line"]
+		card.shows_telegraph_slot = true
+		card.telegraph_text = "Intent: A deliberately long canonical ability name that must remain inside the card"
+		card.faction_name = "UNKNOWN"
+		strip._build_card_content(card)
+
+		assert_eq(card.name_label.text_overrun_behavior, TextServer.OVERRUN_TRIM_ELLIPSIS)
+		assert_eq(card.telegraph_label.autowrap_mode, TextServer.AUTOWRAP_WORD_SMART)
+		assert_eq(card.telegraph_label.max_lines_visible, 2)
+		assert_eq(card.telegraph_label.text_overrun_behavior, TextServer.OVERRUN_TRIM_ELLIPSIS)
+		assert_true(card.telegraph_label.custom_minimum_size.y <= TurnOrderStrip.EXPANDED_CARD_HEIGHT)
+		assert_true(card.name_label != null and card.faction_label != null, "protected name and faction content remain present at every damage tier")
+	)
+
 	run_case("card_widths_shrink_to_fit_available_width_for_a_full_six_combatant_roster", func():
 		GameState.reset()
 		var combat := _combat(

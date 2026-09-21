@@ -59,6 +59,15 @@
 
     { "id": "ui_action_red",     "hex": "#c8102e", "group": "ui_action" },
 
+    { "id": "combat_sign_ground", "hex": "#d8d2c1", "group": "combat_ui" },
+    { "id": "combat_sign_lettering", "hex": "#14120f", "group": "combat_ui" },
+    { "id": "combat_sign_border", "hex": "#5c574c", "group": "combat_ui" },
+    { "id": "combat_sign_status", "hex": "#37454f", "group": "combat_ui" },
+    { "id": "combat_sign_intent", "hex": "#423e36", "group": "combat_ui" },
+    { "id": "combat_sign_hp_track", "hex": "#918a7a", "group": "combat_ui" },
+    { "id": "combat_sign_ghost", "hex": "#ededee", "group": "combat_ui" },
+    { "id": "combat_sign_damage", "hex": "#6d5342", "group": "combat_ui" },
+
     { "id": "phone_frame",       "hex": "#111216", "group": "phone_os" },
     { "id": "phone_frame_border", "hex": "#363a43", "group": "phone_os" },
     { "id": "phone_bg_home",     "hex": "#1b1b1d", "group": "phone_os" },
