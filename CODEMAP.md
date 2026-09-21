@@ -103,7 +103,7 @@ overlays.
 | hq_floorplan.gd | Rooms zone: room slots + contact assignment |
 | hq_lab_bench.gd | Lab zone: notebook/ore/apparatus regions |
 | map.gd | Map tab: diagram + district panel + sheet |
-| phone.gd | Phone tab shell: OS background, home app grid + tile routing; dispatches open apps through scenes/phone_apps/phone_app_registry.gd |
+| phone.gd | Phone tab controller: mounts the persistent PhoneDeviceShell, owns home app grid + tile routing, dispatches open apps through scenes/phone_apps/phone_app_registry.gd |
 | placeholder.gd | Stand-in for a not-yet-built screen |
 | title.gd | Title screen + load-game slot list |
 | vein_list.gd | Vein-portfolio list |
@@ -135,6 +135,7 @@ overlays.
 | modal_layer.gd | Dim background + card; chrome + tap-outside dismiss. All content dispatched by type through scenes/modals/modal_registry.gd; unknown types get a placeholder card |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ) |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
+| phone_device_shell.gd | Persistent rounded simulated-phone frame: clipped display, approved London wallpaper, fixed status/widget chrome, dark opened-app surface + shared/custom content mounts |
 | symbol_glyph.gd | Label-or-vector fallback for a symbol |
 | time_transition.gd | Presentation queue (day/night atlas) |
 | top_bar.gd | Header: day/phase, cash, notices |
@@ -218,6 +219,7 @@ overlays.
 | offers.json | offers.gd (synthetic catalogue) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | palette.json | GameData.gd (reference combat-art palette) |
+| phone_home.json | GameData.gd + phone_device_shell.gd (fixed wallpaper/status/widget presentation; no GameState or host-service data) |
 | recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |
 | sites.json | sites.gd, collective.gd, objectives.gd |
 | stealth.json | raiding.gd |
@@ -235,6 +237,12 @@ loaded, keyed by filename; no id-list const to keep in sync. Each is the cards/o
 `data/events/_to_be_coded/col_hakim_intel_*.json` holds five unregistered Hakim intel
 prose variants generated with the quest editor builder. Implementation briefs are in
 `data/events/_to_be_coded/drafts/*.notes.md`; these drafts are not loaded by the game.
+
+## assets/phone/
+
+| File | Purpose |
+|---|---|
+| phone-wallpaper.jpg | Approved runtime Phone-home wallpaper, aspect-filled inside PhoneDeviceShell's clipped display |
 
 ## tests/*.gd
 

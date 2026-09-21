@@ -1,0 +1,10 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)
+  PASS: starts_collapsed_with_only_header_and_closed_chevron_visible
+  PASS: whole_header_toggles_content_chevron_and_shrink_wrapped_height
+  PASS: expanded_rows_follow_GameData_order_with_existing_colour_and_shortName
+  PASS: card_is_cream_charcoal_touch_sized_and_only_visible_bounds_capture_input
+MAP_LEGEND: 4 passed, 0 failed
+[godot_ai game_helper] registered mcp capture (debugger active=false, logger=true)

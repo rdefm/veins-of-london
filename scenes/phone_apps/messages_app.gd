@@ -24,11 +24,8 @@ func teardown() -> void:
 
 
 func _build_conversation(content: VBoxContainer, contact_id: String) -> void:
-	content.get_parent().visible = false
-
 	_conversation_root = UI.vbox(0)
-	UI.anchor_below_bars(_conversation_root)
-	shell.add_child(_conversation_root)
+	shell.mount_custom_root(_conversation_root)
 
 	var header := UI.hbox()
 	header.add_child(back_button())

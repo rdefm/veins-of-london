@@ -1,4 +1,4 @@
-# Phone tab shell: paints the OS background, owns the home app grid and
+# Phone tab shell: owns the persistent simulated device, home app grid and
 # tile routing, and dispatches any open app (state.phoneNav.app) to its
 # PhoneApp from scenes/phone_apps/phone_app_registry.gd. Each app's view
 # lives in its own script under scenes/phone_apps/.
@@ -6,31 +6,24 @@ class_name PhoneScreen
 extends Control
 
 const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
+const PhoneDeviceShellScript := preload("res://scenes/components/phone_device_shell.gd")
 const GRID_COLUMNS := 3
 
 var _content: VBoxContainer
-var _background: Panel
-var _background_style: StyleBoxFlat
+var device_shell: PhoneDeviceShellScript
 var _apps: Dictionary = {}
 var _active_app: PhoneApp = null
 
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
-	_paint_family2_background()
-	_content = UI.screen_body(self)
+	device_shell = PhoneDeviceShellScript.new()
+	add_child(device_shell)
+	device_shell.ensure_built()
+	_content = device_shell.content
 	Barometer.ensure_progress()
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
-
-
-func _paint_family2_background() -> void:
-	_background = Panel.new()
-	UI.anchor_full_rect(_background)
-	_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_background_style = StyleBoxFlat.new()
-	_background.add_theme_stylebox_override("panel", _background_style)
-	add_child(_background)
 
 
 func _refresh() -> void:
@@ -40,14 +33,11 @@ func _refresh() -> void:
 	if _active_app != null:
 		_active_app.teardown()
 		_active_app = null
-	_content.get_parent().visible = true
+	device_shell.show_shared_content()
 
 	var nav: Dictionary = GameState.state["phoneNav"]
 	var app_id: String = nav["app"]
-	if app_id == "home":
-		_background_style.bg_color = GameData.PALETTE.get("phone_bg_home", Color("#1b1b1d"))
-	else:
-		_background_style.bg_color = GameData.PALETTE.get("phone_bg_content", Color("#252528"))
+	device_shell.set_home_mode(app_id == "home")
 
 	if PhoneAppRegistry.REGISTRY.has(app_id):
 		_active_app = app_instance(app_id)
@@ -68,8 +58,12 @@ func app_instance(app_id: String) -> PhoneApp:
 
 
 func _build_home() -> void:
-	_content.add_child(UI.heading("Phone"))
+	device_shell.add_home_widget()
 	_content.add_child(_build_app_grid(PhoneApps.apps()))
+
+
+func mount_custom_root(root: Control) -> void:
+	device_shell.mount_custom_root(root)
 
 
 func _build_app_grid(apps_list: Array[Dictionary]) -> Control:

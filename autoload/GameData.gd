@@ -117,6 +117,10 @@ var COMBAT_VISUALS: Dictionary = {}
 # _validate_combat_visuals() below instead.
 var PALETTE: Dictionary = {}
 
+# Fixed, presentation-only simulated-phone home configuration. This never
+# enters GameState and never consults host time, battery, or network state.
+var PHONE_HOME: Dictionary = {}
+
 # data/hq_visuals.json (docs/hq-diorama-vision.md §9): "rooms" table --
 # room-plate id -> { image, fallbackColor, width, height, regions: { zone
 # id -> {x,y,width,height,label,image} } }, read generically by
@@ -286,6 +290,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "collective_barks", "file": "res://data/collective_barks.json", "fields": [
 		{"field": "COLLECTIVE_BARKS", "key": "", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "phone_home", "file": "res://data/phone_home.json", "fields": [
+		{"field": "PHONE_HOME", "key": "", "type": TYPE_DICTIONARY},
+	]},
 ]
 
 
@@ -403,8 +410,30 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
 	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), t.get("recipes", {}), errors)
 	_validate_collective_barks(t.get("collective_barks", {}), errors)
+	_validate_phone_home(t.get("phone_home", {}), errors)
 
 	return errors
+
+
+func _validate_phone_home(phone_home: Dictionary, errors: Array[String]) -> void:
+	_require_keys(phone_home, ["wallpaper", "status", "widget"], "phone_home", errors)
+	var wallpaper: String = phone_home.get("wallpaper", "")
+	if wallpaper != "res://assets/phone/phone-wallpaper.jpg":
+		errors.append("phone_home.wallpaper: must reference the approved assets/phone/phone-wallpaper.jpg")
+	elif not FileAccess.file_exists(wallpaper):
+		errors.append("phone_home.wallpaper: approved asset does not exist")
+	var status: Dictionary = phone_home.get("status", {})
+	_require_keys(status, ["time", "cellular", "wifi", "batteryGlyph", "batteryPercent"], "phone_home.status", errors)
+	_require_exact_values(status, {"time": "08:14", "cellular": "▂▄▆█", "wifi": "⌁", "batteryGlyph": "▰", "batteryPercent": "87%"}, "phone_home.status", errors)
+	var widget: Dictionary = phone_home.get("widget", {})
+	_require_keys(widget, ["date", "weather", "temperature", "location", "flavour"], "phone_home.widget", errors)
+	_require_exact_values(widget, {"date": "Tue, 14 May", "weather": "☁", "temperature": "12°C", "location": "London", "flavour": "Same city. Different rules."}, "phone_home.widget", errors)
+
+
+func _require_exact_values(actual: Dictionary, expected: Dictionary, context: String, errors: Array[String]) -> void:
+	for key in expected:
+		if actual.get(key) != expected[key]:
+			errors.append("%s.%s: expected fixed presentation value '%s'" % [context, key, expected[key]])
 
 
 # Public snapshot of every loaded table, keyed for validate_tables().

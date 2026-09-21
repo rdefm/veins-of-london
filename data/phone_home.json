@@ -1,0 +1,17 @@
+{
+  "wallpaper": "res://assets/phone/phone-wallpaper.jpg",
+  "status": {
+    "time": "08:14",
+    "cellular": "▂▄▆█",
+    "wifi": "⌁",
+    "batteryGlyph": "▰",
+    "batteryPercent": "87%"
+  },
+  "widget": {
+    "date": "Tue, 14 May",
+    "weather": "☁",
+    "temperature": "12°C",
+    "location": "London",
+    "flavour": "Same city. Different rules."
+  }
+}
