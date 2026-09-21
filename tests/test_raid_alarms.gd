@@ -102,7 +102,7 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "alarms"
 		var phone := PhoneScreen.new()
 		phone._ready()
-		assert_true(phone._badge_for("alarms"))
+		assert_eq(phone._badge_count_for("alarms"), 1)
 		assert_true(phone.find_children("", "Button", true, false).any(func(button): return button.text == "Go and defend"))
 		assert_true(phone.find_children("", "Button", true, false).any(func(button): return button.text == "Leave undefended"))
 		var leave_button: Button = phone.find_children("", "Button", true, false).filter(func(button): return button.text == "Leave undefended")[0]

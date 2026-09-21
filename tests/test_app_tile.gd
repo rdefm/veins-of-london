@@ -121,24 +121,41 @@ func run() -> void:
 		tile.free()
 	)
 
-	run_case("a_badge_dot_renders_when_requested", func():
+	run_case("a_numeric_badge_renders_its_count_when_positive", func():
 		var tile := AppTile.new()
 		tile._ready()
 
-		tile.configure({ "id": "messages", "label": "Messages", "badge": true })
+		tile.configure({ "id": "messages", "label": "Messages", "badge": 7 })
 
-		assert_true(tile._badge.visible, "the badge dot is shown")
+		assert_true(tile._badge.visible, "the numeric badge is shown")
+		assert_eq(tile._badge.count, 7, "the badge retains its numeric source")
+		assert_eq(tile._badge.display_text, "7", "the live count is legible")
 
 		tile.free()
 	)
 
-	run_case("no_badge_dot_by_default", func():
+	run_case("numeric_badge_hides_at_zero_and_by_default", func():
 		var tile := AppTile.new()
 		tile._ready()
 
 		tile.configure({ "id": "messages", "label": "Messages" })
 
-		assert_true(not tile._badge.visible, "no badge dot when the caller doesn't request one")
+		assert_true(not tile._badge.visible, "no badge when the caller doesn't request one")
+
+		tile.configure({ "id": "messages", "label": "Messages", "badge": 0 })
+		assert_true(not tile._badge.visible, "an explicit zero also hides the badge")
+
+		tile.free()
+	)
+
+	run_case("numeric_badge_caps_large_values_with_one_documented_overflow_display", func():
+		var tile := AppTile.new()
+		tile._ready()
+		tile.configure({ "id": "messages", "label": "Messages", "badge": 123 })
+
+		assert_true(tile._badge.visible, "an overflow count remains visible")
+		assert_eq(tile._badge.display_text, "99+", "values above BADGE_OVERFLOW_THRESHOLD use 99+")
+		assert_eq(AppTile.BADGE_OVERFLOW_THRESHOLD, 99, "the cap is explicit and stable")
 
 		tile.free()
 	)
@@ -300,14 +317,14 @@ func run() -> void:
 		var tile := AppTile.new()
 		tile._ready()
 
-		tile.configure({ "id": "messages", "label": "Messages", "locked": true, "badge": true, "active": true })
+		tile.configure({ "id": "messages", "label": "Messages", "locked": true, "badge": 4, "active": true })
 		# "not_yet_drawn": no real art file, same as "messages" above -- keeps
 		# this case on the fallback path so _frame_style is actually
 		# recomputed (and not just left stale from the first, active
 		# configure()) by the second call, same reasoning app_tile.gd's own
 		# suppression comment documents. "notes" itself now has real art
 		# (08-family-2-chrome-contacts) and would exercise a different path.
-		tile.configure({ "id": "not_yet_drawn", "label": "Notes", "locked": false, "badge": false, "active": false })
+		tile.configure({ "id": "not_yet_drawn", "label": "Notes", "locked": false, "badge": 0, "active": false })
 
 		assert_true(not tile._lock_overlay.visible, "locked state from the first configure() doesn't linger")
 		assert_true(not tile._badge.visible, "badge state from the first configure() doesn't linger")

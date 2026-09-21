@@ -7,12 +7,15 @@ extends "res://tests/test_base.gd"
 
 
 func run() -> void:
-	run_case("apps_lists_the_twelve_existing_apps_in_a_fixed_order", func():
+	run_case("apps_lists_the_twelve_main_apps_in_the_locked_order_and_labels", func():
 		GameState.reset()
 		var ids: Array[String] = []
+		var labels: Array[String] = []
 		for app in PhoneApps.apps():
 			ids.append(app["id"])
-		assert_eq(ids, ["alarms", "bizbrief", "notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "property", "contacts", "vfl"], "grid slot order comes straight from the registry order")
+			labels.append(app["label"])
+		assert_eq(ids, ["alarms", "notes", "bizbrief", "ticker", "factions", "bank", "property", "profile", "contacts", "vfl", "notifications", "saveload"], "grid slot order comes straight from the registry order")
+		assert_eq(labels, ["Alarms", "Notes", "BizBrief", "The Ticker", "Factions", "Reynard's", "Harrow's", "My File", "Contacts", "TfL", "Notifications", "Save/Load"], "player-facing launcher labels are exact")
 	)
 
 	# 01-debug-app: the Debug tile is genuinely absent from the roster on a
@@ -33,7 +36,8 @@ func run() -> void:
 		var ids: Array[String] = []
 		for app in apps:
 			ids.append(app["id"])
-		assert_true(ids.has("debug"), "debugStartUsed=true adds a debug entry")
+		assert_eq(ids[-1], "debug", "debug appends after Save/Load")
+		assert_eq(ids[-2], "saveload", "Save/Load remains slot 12 before conditional Debug")
 
 		var debug_locked: Callable
 		for app in apps:
@@ -67,21 +71,21 @@ func run() -> void:
 			{ "id": "alpha", "label": "Alpha", "locked": func(): return false },
 			{ "id": "beta", "label": "Beta", "locked": func(): return true },
 		]
-		var configs := PhoneApps.build_tile_configs(synthetic, func(_id): return false)
+		var configs := PhoneApps.build_tile_configs(synthetic, func(_id): return 0)
 
 		assert_eq(configs[0]["locked"], false, "alpha's own predicate says unlocked")
 		assert_eq(configs[1]["locked"], true, "beta's own predicate says locked")
 	)
 
-	run_case("build_tile_configs_wires_the_injected_badge_predicate_per_app_id", func():
+	run_case("build_tile_configs_wires_non_negative_numeric_badge_counts_per_app_id", func():
 		var synthetic: Array[Dictionary] = [
 			{ "id": "messages", "label": "Messages", "locked": func(): return false },
 			{ "id": "notes", "label": "Notes", "locked": func(): return false },
 		]
-		var configs := PhoneApps.build_tile_configs(synthetic, func(id): return id == "messages")
+		var configs := PhoneApps.build_tile_configs(synthetic, func(id): return 7 if id == "messages" else -4)
 
-		assert_eq(configs[0]["badge"], true, "messages gets a badge when the predicate says so")
-		assert_eq(configs[1]["badge"], false, "notes gets no badge when the predicate says no")
+		assert_eq(configs[0]["badge"], 7, "messages gets the live numeric count")
+		assert_eq(configs[1]["badge"], 0, "negative counts are clamped to zero")
 	)
 
 	run_case("fixed_slot_order_and_count_survive_a_lock_state_change", func():
@@ -91,7 +95,7 @@ func run() -> void:
 			{ "id": "beta", "label": "Beta", "locked": func(): return state["beta_locked"] },
 			{ "id": "gamma", "label": "Gamma", "locked": func(): return false },
 		]
-		var badge_for := func(_id): return false
+		var badge_for := func(_id): return 0
 
 		var before := PhoneApps.build_tile_configs(synthetic, badge_for)
 		state["beta_locked"] = false
@@ -103,4 +107,14 @@ func run() -> void:
 		assert_eq(after_ids, ["alpha", "beta", "gamma"], "slot order is unchanged after the unlock -- no reflow")
 		assert_eq(before[1]["locked"], true, "beta reads locked before the state change")
 		assert_eq(after[1]["locked"], false, "beta reads unlocked after the state change, same slot")
+	)
+
+	run_case("every_main_grid_and_debug_icon_exists_as_a_square_128px_alpha_png", func():
+		var ids := ["alarms", "notes", "bizbrief", "ticker", "factions", "bank", "property", "profile", "contacts", "vfl", "notifications", "saveload", "debug"]
+		for id in ids:
+			var path := AppTile.icon_path(id)
+			assert_true(FileAccess.file_exists(path), "%s icon exists at the ADR contract path" % id)
+			var image := Image.load_from_file(path)
+			assert_eq(image.get_size(), Vector2i(128, 128), "%s icon is exactly 128x128" % id)
+			assert_eq(image.get_format(), Image.FORMAT_RGBA8, "%s icon carries an alpha channel" % id)
 	)

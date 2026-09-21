@@ -14,20 +14,18 @@ static func apps() -> Array[Dictionary]:
 	var unlocked := func(): return false
 	var list: Array[Dictionary] = [
 		{ "id": "alarms", "label": "Alarms", "locked": unlocked },
+		{ "id": "notes", "label": "Notes", "locked": unlocked },
 		# PROSE-REVIEW: BizBrief / Morning Brief.
 		{ "id": "bizbrief", "label": "BizBrief", "locked": unlocked },
-		{ "id": "notes", "label": "Notes", "locked": unlocked },
-		{ "id": "factions", "label": "Factions", "locked": unlocked },
 		{ "id": "ticker", "label": "The Ticker", "locked": unlocked },
-		{ "id": "profile", "label": "Profile", "locked": unlocked },
-		{ "id": "saveload", "label": "Save/Load", "locked": unlocked },
-		{ "id": "notifications", "label": "Notifications", "locked": unlocked },
+		{ "id": "factions", "label": "Factions", "locked": unlocked },
 		# Display-only cash balance + transaction log; brand name doubles as
 		# the in-app heading, same convention as "ticker"/"The Ticker".
 		{ "id": "bank", "label": "Reynard's", "locked": unlocked },
 		# HQ tier stats/upgrade, a parody property portal (docs/hq-diorama-vision.md §7).
 		# PROSE-REVIEW: "Harrow's" pending human sign-off.
 		{ "id": "property", "label": "Harrow's", "locked": unlocked },
+		{ "id": "profile", "label": "My File", "locked": unlocked },
 		# Entry point into the standalone `contacts` screen (Archie/James's
 		# SMS threads + James's job offers). Unlocked from game start, like
 		# every other non-vfl tile — metArchie flips true immediately
@@ -35,10 +33,11 @@ static func apps() -> Array[Dictionary]:
 		{ "id": "contacts", "label": "Contacts", "locked": unlocked },
 		# Cosmetic rebrand of the dock's Map entry point, not a real app —
 		# tapping it navigates straight to Nav.go_to("map") instead of
-		# opening as a PhoneNav app. "VfL" parodies TfL; PROSE-REVIEW: the
-		# spelled-out full name is pending human sign-off. Locked predicate
+		# opening as a PhoneNav app. Locked predicate
 		# mirrors NavBar._map_locked(); Nav.go_to("map") itself has no gate.
-		{ "id": "vfl", "label": "VfL", "locked": func(): return not GameState.state["flags"]["archiePartnerSeen"] },
+		{ "id": "vfl", "label": "TfL", "locked": func(): return not GameState.state["flags"]["archiePartnerSeen"] },
+		{ "id": "notifications", "label": "Notifications", "locked": unlocked },
+		{ "id": "saveload", "label": "Save/Load", "locked": unlocked },
 	]
 
 	# Only present on a save started via Debug Start — never merely locked,
@@ -50,10 +49,10 @@ static func apps() -> Array[Dictionary]:
 
 
 # Pure transform: registry entries -> AppTile.configure()-ready dicts, in
-# the same fixed order as `apps`. `badge_for` (app_id -> bool) is injected
-# rather than read from GameState, so this is testable with a synthetic
-# roster and a stub predicate.
-static func build_tile_configs(apps_list: Array[Dictionary], badge_for: Callable) -> Array[Dictionary]:
+# the same fixed order as `apps`. `badge_count_for` (app_id -> non-negative
+# int) is injected rather than read from GameState, so this is testable with
+# a synthetic roster and a stub projection.
+static func build_tile_configs(apps_list: Array[Dictionary], badge_count_for: Callable) -> Array[Dictionary]:
 	var configs: Array[Dictionary] = []
 	for app in apps_list:
 		var app_id: String = app["id"]
@@ -62,6 +61,6 @@ static func build_tile_configs(apps_list: Array[Dictionary], badge_for: Callable
 			"id": app_id,
 			"label": app["label"],
 			"locked": locked_check.call(),
-			"badge": badge_for.call(app_id),
+			"badge": maxi(int(badge_count_for.call(app_id)), 0),
 		})
 	return configs

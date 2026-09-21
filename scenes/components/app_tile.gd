@@ -5,18 +5,22 @@ extends Control
 const ICON_DIR := "res://assets/icons/apps/"
 const TILE_SIZE := Vector2(76, 92)
 const FRAME_SIZE := 56.0
-const BADGE_SIZE := 12.0
+const BADGE_HEIGHT := 18.0
+const BADGE_MIN_WIDTH := 18.0
 const NAME_FONT_SIZE := 12
 const FALLBACK_FONT_SIZE := 10
 
 const FRAME_CORNER_RADIUS := 16
 const LARGE_FRAME_CORNER_RADIUS := 22
 
-const LARGE_TILE_SIZE := Vector2(100, 122)
-const LARGE_FRAME_SIZE := 76.0
-const LARGE_BADGE_SIZE := 16.0
-const LARGE_NAME_FONT_SIZE := 15
+const LARGE_TILE_SIZE := Vector2(78, 96)
+const LARGE_FRAME_SIZE := 64.0
+const LARGE_BADGE_HEIGHT := 20.0
+const LARGE_BADGE_MIN_WIDTH := 20.0
+const LARGE_NAME_FONT_SIZE := 12
 const LARGE_FALLBACK_FONT_SIZE := 13
+
+const BADGE_OVERFLOW_THRESHOLD := 99
 
 const LOCKED_TINT := Color(0.541176, 0.541176, 0.541176, 1)
 const NORMAL_TINT := Color(1, 1, 1, 1)
@@ -51,7 +55,7 @@ var _icon_rect: TextureRect
 var _icon_mask_material: ShaderMaterial
 var _fallback_label: Label
 var _lock_overlay: _LockOverlay
-var _badge: _BadgeDot
+var _badge: _CountBadge
 var _name_label: Label
 var _built := false
 var _large: bool = false
@@ -71,7 +75,8 @@ func _ensure_built() -> void:
 	_built = true
 
 	var frame_size := LARGE_FRAME_SIZE if _large else FRAME_SIZE
-	var badge_size := LARGE_BADGE_SIZE if _large else BADGE_SIZE
+	var badge_height := LARGE_BADGE_HEIGHT if _large else BADGE_HEIGHT
+	var badge_min_width := LARGE_BADGE_MIN_WIDTH if _large else BADGE_MIN_WIDTH
 	var name_font_size := LARGE_NAME_FONT_SIZE if _large else NAME_FONT_SIZE
 	var fallback_font_size := LARGE_FALLBACK_FONT_SIZE if _large else FALLBACK_FONT_SIZE
 	var frame_corner_radius := LARGE_FRAME_CORNER_RADIUS if _large else FRAME_CORNER_RADIUS
@@ -145,9 +150,10 @@ func _ensure_built() -> void:
 	_lock_overlay.visible = false
 	_frame.add_child(_lock_overlay)
 
-	_badge = _BadgeDot.new()
-	_badge.size = Vector2(badge_size, badge_size)
-	_badge.position = Vector2(frame_size - badge_size * 0.7, -badge_size * 0.3)
+	_badge = _CountBadge.new()
+	_badge.custom_minimum_size = Vector2(badge_min_width, badge_height)
+	_badge.size = Vector2(badge_min_width, badge_height)
+	_badge.position = Vector2(frame_size - badge_min_width * 0.72, -badge_height * 0.28)
 	_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_badge.visible = false
 	_frame.add_child(_badge)
@@ -166,7 +172,7 @@ func configure(data: Dictionary) -> void:
 	_app_id = data.get("id", "")
 	var label_text: String = data.get("label", _app_id)
 	var locked: bool = data.get("locked", false)
-	var badge: bool = data.get("badge", false)
+	var badge_count := maxi(int(data.get("badge", 0)), 0)
 	var active: bool = data.get("active", false)
 	var icon_override: Texture2D = data.get("icon")
 
@@ -184,7 +190,7 @@ func configure(data: Dictionary) -> void:
 		_fallback_label.visible = true
 
 	_lock_overlay.visible = locked
-	_badge.visible = badge
+	_badge.set_count(badge_count)
 
 	_background.visible = active or not has_real_art
 
@@ -225,6 +231,40 @@ class _LockOverlay extends Control:
 		Icons.draw_padlock(self, size / 2.0, LOCKED_TINT, 2.0)
 
 
-class _BadgeDot extends Control:
+class _CountBadge extends Control:
+	var count := 0
+	var display_text := ""
+	var _label: Label
+
+	func _ready() -> void:
+		_ensure_label()
+
+	func set_count(value: int) -> void:
+		count = maxi(value, 0)
+		display_text = "%d+" % BADGE_OVERFLOW_THRESHOLD if count > BADGE_OVERFLOW_THRESHOLD else str(count)
+		visible = count > 0
+		_ensure_label()
+		_label.text = display_text
+		var required_width := maxf(custom_minimum_size.x, 10.0 + display_text.length() * 7.0)
+		size.x = required_width
+		queue_redraw()
+
+	func _ensure_label() -> void:
+		if _label != null:
+			return
+		_label = Label.new()
+		UI.anchor_full_rect(_label)
+		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_label.add_theme_font_size_override("font_size", 11)
+		_label.add_theme_color_override("font_color", Color.WHITE)
+		_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
+		_label.add_theme_constant_override("shadow_offset_y", 1)
+		_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_label)
+
 	func _draw() -> void:
-		draw_circle(size / 2.0, size.x / 2.0, BADGE_COLOUR)
+		var style := StyleBoxFlat.new()
+		style.bg_color = BADGE_COLOUR
+		style.set_corner_radius_all(int(size.y / 2.0))
+		draw_style_box(style, Rect2(Vector2.ZERO, size))

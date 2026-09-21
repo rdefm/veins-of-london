@@ -7,7 +7,7 @@ extends Control
 
 const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
 const PhoneDeviceShellScript := preload("res://scenes/components/phone_device_shell.gd")
-const GRID_COLUMNS := 3
+const GRID_COLUMNS := 4
 
 var _content: VBoxContainer
 var device_shell: PhoneDeviceShellScript
@@ -72,7 +72,7 @@ func _build_app_grid(apps_list: Array[Dictionary]) -> Control:
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 
-	for config in PhoneApps.build_tile_configs(apps_list, _badge_for):
+	for config in PhoneApps.build_tile_configs(apps_list, _badge_count_for):
 		var tile := AppTile.new(true)
 		grid.add_child(tile)
 		tile.configure(config)
@@ -100,18 +100,31 @@ func _vfl_locked() -> bool:
 	return not GameState.state["flags"]["archiePartnerSeen"]
 
 
-func _badge_for(app_id: String) -> bool:
+func _badge_count_for(app_id: String) -> int:
 	match app_id:
 		"alarms":
-			return RaidAlarmsSystem.has_unresolved()
+			return RaidAlarmsSystem.count()
+		"bizbrief":
+			return MorningAccounts.attention_items().size()
 		"ticker":
-			return _has_ticker_rumblings()
+			return _ticker_rumblings_count()
+		"notifications":
+			return _unseen_notification_count()
 		_:
-			return false
+			return 0
 
 
-func _has_ticker_rumblings() -> bool:
+func _ticker_rumblings_count() -> int:
+	var count := 0
 	for section in Barometer.SECTIONS:
 		if Barometer.trend_hint_state(section) != null:
-			return true
-	return false
+			count += 1
+	return count
+
+
+func _unseen_notification_count() -> int:
+	var count := 0
+	for notification in GameState.state["notifications"]:
+		if not notification.get("seen", false):
+			count += 1
+	return count

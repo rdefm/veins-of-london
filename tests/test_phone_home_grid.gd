@@ -27,8 +27,21 @@ func run() -> void:
 		var ids: Array[String] = []
 		for t in tiles:
 			ids.append(t._app_id)
-		assert_eq(ids, ["alarms", "bizbrief", "notes", "factions", "ticker", "profile", "saveload", "notifications", "bank", "property", "contacts", "vfl"], "grid renders the registry's apps, in registry order")
+		assert_eq(ids, ["alarms", "notes", "bizbrief", "ticker", "factions", "bank", "property", "profile", "contacts", "vfl", "notifications", "saveload"], "grid renders the registry's apps, in registry order")
 
+		phone.free()
+	)
+
+	run_case("home_grid_has_four_equal_columns", func():
+		GameState.reset()
+		var phone := PhoneScreen.new()
+		var wrapper := phone._build_app_grid(PhoneApps.apps())
+		var grid := wrapper.get_child(0) as GridContainer
+
+		assert_eq(PhoneScreen.GRID_COLUMNS, 4, "launcher geometry is four-column")
+		assert_eq(grid.columns, 4, "the rendered GridContainer uses four columns")
+
+		wrapper.free()
 		phone.free()
 	)
 
@@ -64,13 +77,13 @@ func run() -> void:
 		# "economic" defaults to active state "stable" -- pushing a
 		# different state's progress to the trend-hint threshold
 		# (systems/barometer.gd TREND_HINT_THRESHOLD=70) is what
-		# _has_ticker_rumblings() checks for.
+		# _ticker_rumblings_count() checks for.
 		GameState.state["barometer"]["progress"]["economic"]["boom"] = 80
 
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_true(phone._badge_for("ticker"), "ticker badge follows _has_ticker_rumblings()")
+		assert_eq(phone._badge_count_for("ticker"), 1, "ticker badge counts sections with rumblings")
 
 		phone.free()
 	)
@@ -81,7 +94,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_true(not phone._badge_for("ticker"), "no rumblings on a fresh game")
+		assert_eq(phone._badge_count_for("ticker"), 0, "no rumblings on a fresh game")
 
 		phone.free()
 	)
@@ -92,8 +105,34 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_true(not phone._badge_for("notes"), "notes has no badge predicate")
-		assert_true(not phone._badge_for("factions"), "factions has no badge predicate")
+		assert_eq(phone._badge_count_for("notes"), 0, "notes has no badge count")
+		assert_eq(phone._badge_count_for("factions"), 0, "factions has no badge count")
+
+		phone.free()
+	)
+
+	run_case("each_live_main_grid_badge_count_reads_its_canonical_state", func():
+		GameState.reset()
+		var phone := PhoneScreen.new()
+
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "home-alarm"
+		assert_eq(phone._badge_count_for("alarms"), 1, "Alarms counts unresolved alarm rows")
+
+		GameState.state["messages"]["archie"] = [{ "id": "m1", "text": "Test", "read": false }]
+		assert_eq(phone._badge_count_for("bizbrief"), MorningAccounts.attention_items().size(), "BizBrief counts unresolved attention items")
+
+		Barometer.ensure_progress()
+		GameState.state["barometer"]["progress"]["economic"]["boom"] = 80
+		GameState.state["barometer"]["progress"]["social"]["unrest"] = 80
+		assert_eq(phone._badge_count_for("ticker"), 2, "Ticker counts sections with rumblings, not a boolean")
+
+		GameState.state["notifications"] = [
+			{ "id": "n1", "text": "New", "seen": false, "day": 1, "category": "info" },
+			{ "id": "n2", "text": "Seen", "seen": true, "day": 1, "category": "info" },
+			{ "id": "n3", "text": "Newer", "seen": false, "day": 1, "category": "info" },
+		]
+		assert_eq(phone._badge_count_for("notifications"), 2, "Notifications counts unseen log entries")
 
 		phone.free()
 	)
