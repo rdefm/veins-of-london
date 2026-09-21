@@ -27,7 +27,7 @@ func run() -> void:
 	)
 
 	# ── growth (ticket 07 — merges the old Strength and Charge chips) ────
-	run_case("growth_ramps_ring_greyscale_and_width_by_value_tier", func():
+	run_case("growth_ramps_fullness_arc_greyscale_without_changing_width", func():
 		# Color.lerp(to, 1.0) isn't guaranteed bit-exact with `to` (float
 		# rounding in from + (to-from)*weight), so compare channels within
 		# an epsilon rather than with assert_eq's exact `!=`.
@@ -44,8 +44,8 @@ func run() -> void:
 		var mid := MapStyle.vein_ring_colour("growth", owner, ore, 3)
 		assert_true(absf(mid.r - MapStyle.MUTED_COLOUR.r) > 0.01 and absf(mid.r - MapStyle.INK_COLOUR.r) > 0.01, "tier 3 sits strictly between the ramp's ends")
 
-		assert_almost_eq(MapStyle.vein_ring_width("growth", 1, 2.5), 2.3, 0.001, "1.5 + 1*0.8")
-		assert_almost_eq(MapStyle.vein_ring_width("growth", 6, 2.5), 6.3, 0.001, "1.5 + 6*0.8")
+		assert_almost_eq(MapStyle.vein_ring_width("growth", 1, 2.5), 2.5, 0.001, "tier 1 keeps the standard marker diameter")
+		assert_almost_eq(MapStyle.vein_ring_width("growth", 6, 2.5), 2.5, 0.001, "tier 6 keeps the standard marker diameter")
 
 		assert_eq(MapStyle.badge_scale("growth"), 1.0, "growth mode doesn't enlarge the security padlock -- the old level-badge enlarge is gone with the badge itself")
 	)
@@ -119,18 +119,18 @@ func run() -> void:
 	)
 
 	# ── growth fill maths (bugfixes ticket 77) ───────────────────────────
-	run_case("growth_fill_fraction_is_zero_at_growth_zero_and_one_at_the_ceiling", func():
-		assert_eq(MapStyle.growth_fill_fraction(0, 100), 0.0, "empty vein -- no fill")
-		assert_eq(MapStyle.growth_fill_fraction(100, 100), 1.0, "at the ceiling -- full")
-		assert_eq(MapStyle.growth_fill_fraction(50, 100), 0.5, "halfway to the ceiling -- half full")
+	run_case("fullness_fraction_is_zero_at_growth_zero_and_one_at_the_ceiling", func():
+		assert_eq(MapStyle.fullness_fraction(0, 100), 0.0, "empty vein -- no progress")
+		assert_eq(MapStyle.fullness_fraction(100, 100), 1.0, "at the ceiling -- full circle")
+		assert_eq(MapStyle.fullness_fraction(50, 100), 0.5, "halfway to the ceiling -- half circle")
 	)
 
-	run_case("growth_fill_fraction_uses_the_veins_own_ceiling", func():
-		assert_eq(MapStyle.growth_fill_fraction(120, 120), 1.0, "a wildCeiling vein's own 120 ceiling, not the default 100, is what fills it")
-		assert_eq(MapStyle.growth_fill_fraction(60, 120), 0.5, "halfway to a 120 ceiling")
+	run_case("fullness_fraction_uses_the_veins_own_ceiling", func():
+		assert_eq(MapStyle.fullness_fraction(120, 120), 1.0, "a wildCeiling vein's own 120 ceiling, not the default 100, makes a full circle")
+		assert_eq(MapStyle.fullness_fraction(60, 120), 0.5, "halfway to a 120 ceiling")
 	)
 
-	run_case("growth_fill_fraction_clamps_rather_than_overflowing_or_going_negative", func():
-		assert_eq(MapStyle.growth_fill_fraction(150, 100), 1.0, "growth above ceiling still reads as full, not overfull")
-		assert_eq(MapStyle.growth_fill_fraction(-10, 100), 0.0, "growth can't actually go negative, but the fraction still clamps defensively")
+	run_case("fullness_fraction_clamps_rather_than_overflowing_or_going_negative", func():
+		assert_eq(MapStyle.fullness_fraction(150, 100), 1.0, "growth above ceiling still reads as full, not overfull")
+		assert_eq(MapStyle.fullness_fraction(-10, 100), 0.0, "growth can't actually go negative, but the fraction still clamps defensively")
 	)

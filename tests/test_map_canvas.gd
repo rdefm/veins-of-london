@@ -27,11 +27,9 @@ const UiSim := preload("res://tests/support/ui_sim.gd")
 # *static* draw path (_draw_vein_stop/_draw_faction_stop/_draw_unclaimed_
 # stop and the shared helpers under them), not their pop-in animations.
 #
-# vein-growth-state ticket 07 / bugfixes ticket 77: a vein/faction stop's
-# ring is a radial growth fill now (_draw_growth_fill), not the plain
-# styled ring _draw_ring_stop draws — that stays exactly as it was, but
-# only unclaimed stops (which have no growth to gauge) still call it
-# directly.
+# Network-map visual refresh ticket 02: every stop uses a shared external
+# fullness-ring helper. Claimed progress is an arc over a neutral track;
+# unclaimed stops draw the neutral track with zero progress.
 #
 # _draw_vein_stop/_draw_faction_stop/_draw_unclaimed_stop themselves take no
 # `target` param (ticket 34 left this as ticket 35's call) — they always
@@ -117,8 +115,10 @@ func run() -> void:
 
 		var style: Dictionary = canvas._vein_ring_style(vein, faction_colour, MapCanvas.FACTION_STOP_STROKE)
 
-		assert_eq(style["colour"], faction_colour, "ownership mode: faction ring colour is the faction's own colour")
-		assert_eq(style["width"], MapCanvas.FACTION_STOP_STROKE, "tier 1 + ownership mode: width is just the faction base stroke")
+		assert_eq(style["colour"], MapCanvas.PLAYER_COLOUR, "ownership remains on lines; faction fullness uses the same restrained gold as player fullness")
+		assert_eq(style["width"], MapCanvas.FACTION_STOP_STROKE, "tier 1 + ownership mode: width is the standard fullness stroke")
+		assert_eq(MapCanvas.VEIN_STOP_RADIUS, MapCanvas.FACTION_STOP_RADIUS, "player and faction markers share one visual diameter")
+		assert_eq(MapCanvas.FACTION_STOP_RADIUS, MapCanvas.UNCLAIMED_STOP_RADIUS, "unclaimed markers share that same diameter")
 		canvas.free()
 	)
 
@@ -143,11 +143,13 @@ func run() -> void:
 			canvas.filter_mode = mode
 			var style: Dictionary = canvas._unclaimed_ring_style("fate")
 			assert_eq(style["colour"], MapCanvas.MUTED_COLOUR, mode + ": unclaimed ring colour stays muted -- no owner, and no value tier for growth mode to key off")
+			assert_eq(style["track_colour"], MapCanvas.TRACK_COLOUR, mode + ": empty unclaimed ring stays a neutral complete track")
 			assert_eq(style["width"], MapCanvas.UNCLAIMED_STOP_STROKE, mode + ": unclaimed ring width never thickens -- no value tier for growth mode to key off")
 
 		canvas.filter_mode = "type"
 		var type_style: Dictionary = canvas._unclaimed_ring_style("fate")
 		assert_eq(type_style["colour"], Color(GameData.ORE_TYPES["fate"]["colour"]), "N4: Type mode recolours every stop ring by ore type, unclaimed sites included")
+		assert_eq(type_style["track_colour"], Color(GameData.ORE_TYPES["fate"]["colour"]), "with no progress arc, Type recolours the complete unclaimed track")
 		assert_eq(type_style["width"], MapCanvas.UNCLAIMED_STOP_STROKE, "type mode: width still fixed -- recolouring doesn't touch it")
 
 		canvas.free()
@@ -177,10 +179,11 @@ func run() -> void:
 		var ore: Dictionary = GameData.ORE_TYPES["fate"]
 		var alpha := MapStyle.stop_alpha("ownership", false, "", "player")
 
-		var fill_spy := DrawSpy.new()
-		canvas._draw_growth_fill(pos, MapCanvas.VEIN_STOP_RADIUS, alpha, 0.45, MapCanvas.PLAYER_COLOUR, 32, fill_spy)
-		var outlines: Array = fill_spy.calls_matching("draw_arc")
-		assert_true(outlines.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS), "the fill's outline ring is centred on the stop's own position, at VEIN_STOP_RADIUS")
+		var ring_spy := DrawSpy.new()
+		var style := canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		canvas._draw_fullness_ring(pos, alpha, 0.45, style, 32, ring_spy)
+		var outlines: Array = ring_spy.calls_matching("draw_arc")
+		assert_true(outlines.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.FULLNESS_RING_RADIUS), "the fullness ring is centred on the stop's own position")
 
 		var glyph_spy := DrawSpy.new()
 		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy, MapCanvas.STOP_ICON_GROWTH)
@@ -204,10 +207,11 @@ func run() -> void:
 		var alpha := MapStyle.stop_alpha("ownership", false, "", "firm")
 		var faction_colour := Color(GameData.FACTIONS["firm"]["colour"])
 
-		var fill_spy := DrawSpy.new()
-		canvas._draw_growth_fill(pos, MapCanvas.FACTION_STOP_RADIUS, alpha, 0.45, faction_colour, 24, fill_spy)
-		var outlines: Array = fill_spy.calls_matching("draw_arc")
-		assert_true(outlines.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.FACTION_STOP_RADIUS), "the fill's outline ring is centred on the stop's own position, at FACTION_STOP_RADIUS")
+		var ring_spy := DrawSpy.new()
+		var style := canvas._vein_ring_style(vein, faction_colour, MapCanvas.FACTION_STOP_STROKE)
+		canvas._draw_fullness_ring(pos, alpha, 0.45, style, 32, ring_spy)
+		var outlines: Array = ring_spy.calls_matching("draw_arc")
+		assert_true(outlines.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.FULLNESS_RING_RADIUS), "faction fullness uses the same radius as the player marker")
 
 		var glyph_spy := DrawSpy.new()
 		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy)
@@ -241,22 +245,23 @@ func run() -> void:
 
 	# ── growth fill draw call graph (bugfixes ticket 77) ─────────────────
 
-	run_case("draw_growth_fill_draws_paper_then_a_pie_wedge_then_a_full_outline_ring", func():
+	run_case("draw_fullness_ring_draws_white_centre_neutral_track_and_partial_progress_arc", func():
 		var canvas := MapCanvas.new()
 		var pos := Vector2(123.0, 45.0)
+		var style := canvas._vein_ring_style(_canvas_vein("time", 50), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
 
 		var spy := DrawSpy.new()
-		canvas._draw_growth_fill(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, 0.5, MapCanvas.PLAYER_COLOUR, 32, spy)
+		canvas._draw_fullness_ring(pos, 1.0, 0.5, style, 32, spy)
 
-		assert_true(spy.calls_matching("draw_circle").any(func(c): return c["args"][0] == pos), "paper fill centred on the stop")
+		assert_true(spy.calls_matching("draw_circle").any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.STOP_CENTER_RADIUS and c["args"][2] == MapCanvas.PAPER_COLOUR), "white centre stays independent of fullness")
+		assert_true(spy.calls_matching("draw_colored_polygon").is_empty(), "fullness never fills the centre")
 
-		var wedges: Array = spy.calls_matching("draw_colored_polygon")
-		assert_eq(wedges.size(), 1, "a partially-filled vein draws exactly one wedge")
-		assert_eq(wedges[0]["args"][0][0], pos, "the wedge fan starts at the stop's own centre")
-		assert_eq(wedges[0]["args"][1], MapCanvas.PLAYER_COLOUR, "the wedge is drawn flat in the owner colour, not scaled/gradiented")
-
-		var outlines: Array = spy.calls_matching("draw_arc")
-		assert_true(outlines.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS and is_equal_approx(c["args"][3] - c["args"][2], TAU)), "a full-circumference outline ring always draws, regardless of fill level")
+		var arcs: Array = spy.calls_matching("draw_arc")
+		assert_eq(arcs.size(), 2, "neutral full track plus one progress arc")
+		assert_true(is_equal_approx(arcs[0]["args"][3] - arcs[0]["args"][2], TAU), "track is full circumference")
+		assert_true(is_equal_approx(arcs[1]["args"][3] - arcs[1]["args"][2], TAU * 0.5), "partial growth maps directly to arc sweep")
+		assert_eq(arcs[0]["args"][6], MapCanvas.FULLNESS_RING_WIDTH)
+		assert_eq(arcs[1]["args"][6], MapCanvas.FULLNESS_RING_WIDTH)
 
 		canvas.free()
 	)
@@ -264,57 +269,35 @@ func run() -> void:
 	# Ticket 77's own acceptance check: "renders correctly at growth 0
 	# (empty)... without visual glitches" -- no wedge at all, just the paper
 	# base and the outline ring, so the stop's extent still reads.
-	run_case("draw_growth_fill_draws_no_wedge_at_zero_fraction", func():
+	run_case("draw_fullness_ring_at_zero_has_track_but_no_progress_arc", func():
 		var canvas := MapCanvas.new()
 		var pos := Vector2(1.0, 2.0)
+		var style := canvas._vein_ring_style(_canvas_vein("time", 0), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
 
 		var spy := DrawSpy.new()
-		canvas._draw_growth_fill(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, 0.0, MapCanvas.PLAYER_COLOUR, 32, spy)
+		canvas._draw_fullness_ring(pos, 1.0, 0.0, style, 32, spy)
 
-		assert_true(spy.calls_matching("draw_colored_polygon").is_empty(), "growth 0 -- no wedge, just the paper base and outline")
-		assert_true(spy.calls_matching("draw_circle").any(func(c): return c["args"][0] == pos), "the paper base still draws so the stop stays visible")
-		var outlines: Array = spy.calls_matching("draw_arc")
-		assert_true(outlines.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS), "the outline ring still draws so the stop's extent still reads")
+		assert_true(spy.calls_matching("draw_colored_polygon").is_empty(), "growth 0 never fills the centre")
+		assert_true(spy.calls_matching("draw_circle").any(func(c): return c["args"][0] == pos), "the paper centre still draws")
+		assert_eq(spy.calls_matching("draw_arc").size(), 1, "zero fullness draws only the complete neutral track")
 
 		canvas.free()
 	)
 
 	# "renders correctly... at/above ceiling (full) without visual glitches"
 	# -- the wedge fan wraps a complete circle rather than leaving a seam.
-	run_case("draw_growth_fill_draws_a_full_wedge_at_a_fraction_of_one", func():
+	run_case("draw_fullness_ring_at_one_draws_a_complete_progress_circle", func():
 		var canvas := MapCanvas.new()
 		var pos := Vector2(5.0, 5.0)
+		var style := canvas._vein_ring_style(_canvas_vein("time", 100), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
 
 		var spy := DrawSpy.new()
-		canvas._draw_growth_fill(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, 1.0, MapCanvas.PLAYER_COLOUR, 32, spy)
+		canvas._draw_fullness_ring(pos, 1.0, 1.0, style, 32, spy)
 
-		var wedges: Array = spy.calls_matching("draw_colored_polygon")
-		assert_eq(wedges.size(), 1, "a fully-filled vein still draws exactly one wedge")
-		var fan: PackedVector2Array = wedges[0]["args"][0]
-		var first_rim := fan[1]
-		var last_rim := fan[fan.size() - 1]
-		assert_true(first_rim.is_equal_approx(last_rim), "a full fraction wraps the fan back to its own starting rim point -- a closed disc, no gap")
-
-		canvas.free()
-	)
-
-	# Ticket 07: terroir moves off the old level badge and onto the same
-	# interchange-ring shape an unclaimed rich/saturated site already draws.
-	run_case("draw_terroir_ring_only_for_rich_or_saturated_hospitability", func():
-		var canvas := MapCanvas.new()
-		var pos := Vector2(5.0, 5.0)
-		var style: Dictionary = canvas._vein_ring_style(_canvas_vein("time", 50), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
-
-		var fair_spy := DrawSpy.new()
-		canvas._draw_terroir_ring(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, style, _canvas_vein("time", 50), 32, fair_spy)
-		assert_true(fair_spy.calls.is_empty(), "fair (the default) terroir draws no interchange ring")
-
-		var rich_vein := _canvas_vein("time", 50)
-		rich_vein["hospitability"]["tier"] = "rich"
-		var rich_spy := DrawSpy.new()
-		canvas._draw_terroir_ring(pos, MapCanvas.VEIN_STOP_RADIUS, 1.0, style, rich_vein, 32, rich_spy)
-		var arcs: Array = rich_spy.calls_matching("draw_arc")
-		assert_true(arcs.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.VEIN_STOP_RADIUS + MapCanvas.INTERCHANGE_RING_GAP), "rich terroir draws the second concentric ring, INTERCHANGE_RING_GAP further out -- same shape an unclaimed interchange site draws")
+		var arcs: Array = spy.calls_matching("draw_arc")
+		assert_eq(arcs.size(), 2, "track plus progress")
+		assert_true(is_equal_approx(arcs[1]["args"][3] - arcs[1]["args"][2], TAU), "ceiling growth produces a complete progress circle")
+		assert_true(spy.calls_matching("draw_colored_polygon").is_empty(), "even full growth leaves the white centre untouched")
 
 		canvas.free()
 	)
@@ -337,39 +320,15 @@ func run() -> void:
 		var style: Dictionary = canvas._unclaimed_ring_style("fate")
 
 		var ring_spy := DrawSpy.new()
-		canvas._draw_ring_stop(pos, MapCanvas.UNCLAIMED_STOP_RADIUS, alpha, style, 24, ring_spy)
+		canvas._draw_fullness_ring(pos, alpha, 0.0, style, 32, ring_spy)
 		var rings: Array = ring_spy.calls_matching("draw_arc")
-		assert_true(rings.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.UNCLAIMED_STOP_RADIUS), "the ring arc is centred on the stop's own position, at UNCLAIMED_STOP_RADIUS")
+		assert_eq(rings.size(), 1, "unclaimed site draws a complete neutral track and no progress arc")
+		assert_true(rings.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.FULLNESS_RING_RADIUS and is_equal_approx(c["args"][3] - c["args"][2], TAU)), "the neutral track is centred on the stop")
 
 		var glyph_spy := DrawSpy.new()
 		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy)
 		var glyph_circles: Array = glyph_spy.calls_matching("draw_circle")
 		assert_true(glyph_circles.any(func(c): return c["args"][0] == pos), "the die ore glyph's centre pip lands exactly on the stop's position -- ticket 27's 'and centered' gap")
-
-		canvas.free()
-	)
-
-	# Ticket 27's rich/saturated "double tick" -- previously zero coverage of
-	# any kind, per ticket 35's own checklist. _draw_unclaimed_stop calls
-	# both _draw_ring_stop and _draw_interchange_ring into the same target
-	# when double_ring is true (site tier in ["rich", "saturated"]), so this
-	# reproduces that pair of calls directly and checks both rings land at
-	# the radii a real tube-map interchange marker would use: the base
-	# UNCLAIMED_STOP_RADIUS, and a second one INTERCHANGE_RING_GAP further out.
-	run_case("unclaimed_stop_interchange_ring_records_two_rings_a_gap_apart_for_rich_saturated_sites", func():
-		var canvas := MapCanvas.new()
-		canvas.filter_mode = "ownership"
-		var pos := Vector2(80.0, 90.0)
-		var alpha := MapStyle.stop_alpha("ownership", false, "", "")
-		var style: Dictionary = canvas._unclaimed_ring_style("time")
-
-		var spy := DrawSpy.new()
-		canvas._draw_ring_stop(pos, MapCanvas.UNCLAIMED_STOP_RADIUS, alpha, style, 24, spy)
-		canvas._draw_interchange_ring(pos, MapCanvas.UNCLAIMED_STOP_RADIUS, alpha, style, 24, spy)
-
-		var arcs: Array = spy.calls_matching("draw_arc")
-		assert_true(arcs.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.UNCLAIMED_STOP_RADIUS), "inner ring at the base unclaimed radius")
-		assert_true(arcs.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.UNCLAIMED_STOP_RADIUS + MapCanvas.INTERCHANGE_RING_GAP), "outer interchange ring, INTERCHANGE_RING_GAP further out -- rich/saturated sites only")
 
 		canvas.free()
 	)

@@ -50,7 +50,6 @@ func start_discover_ripple(pos: Vector2, event: Dictionary, duration: float) -> 
 	var ripple := DiscoverRipple.new()
 	ripple.map_canvas = canvas
 	ripple.ore_type = site["oreType"]
-	ripple.double_ring = site["tier"] in ["rich", "saturated"]
 	ripple.position = pos
 	playback_layer.add_child(ripple)
 	ripple.start(
@@ -74,8 +73,10 @@ func start_seed_claim_ring(stop: Dictionary, event: Dictionary, duration: float)
 	ring.position = stop["position"]
 	ring.radius = params["radius"]
 	ring.fill_colour = canvas._faded(MapCanvas.PAPER_COLOUR, alpha)
-	ring.ring_colour = canvas._faded(style["colour"], alpha)
+	ring.track_colour = canvas._faded(style["track_colour"], alpha)
+	ring.progress_colour = canvas._faded(style["colour"], alpha)
 	ring.ring_width = style["width"]
+	ring.progress_fraction = MapStyle.fullness_fraction(vein["growth"], Cultivating.ceiling(vein))
 	playback_layer.add_child(ring)
 	ring.start(duration)
 	ring.tween.finished.connect(ring.queue_free)
@@ -236,7 +237,6 @@ class DiscoverRipple:
 
 	var map_canvas: MapCanvas
 	var ore_type: String
-	var double_ring: bool
 
 	var tween: Tween
 	var _ring_radius := RING_START_RADIUS
@@ -269,9 +269,7 @@ class DiscoverRipple:
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2(_glyph_scale, _glyph_scale))
 			var ore: Dictionary = GameData.ORE_TYPES[ore_type]
 			var style := map_canvas._unclaimed_ring_style(ore_type)
-			map_canvas._draw_ring_stop(Vector2.ZERO, MapCanvas.UNCLAIMED_STOP_RADIUS, 1.0, style, 24, self)
-			if double_ring:
-				map_canvas._draw_interchange_ring(Vector2.ZERO, MapCanvas.UNCLAIMED_STOP_RADIUS, 1.0, style, 24, self)
+			map_canvas._draw_fullness_ring(Vector2.ZERO, 1.0, 0.0, style, 32, self)
 			map_canvas._draw_ore_symbol(Vector2.ZERO, ore_type, ore, 1.0, self)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -281,24 +279,27 @@ class SeedClaimRing:
 
 	var radius: float
 	var fill_colour: Color
-	var ring_colour: Color
+	var track_colour: Color
+	var progress_colour: Color
 	var ring_width: float
+	var progress_fraction: float
 
 	var tween: Tween
 	var _sweep_end := 0.0
 
 	func start(duration: float) -> void:
 		tween = create_tween()
-		tween.tween_method(_set_sweep_end, 0.0, TAU, duration)
+		tween.tween_method(_set_sweep_end, 0.0, TAU * progress_fraction, duration)
 
 	func _set_sweep_end(a: float) -> void:
 		_sweep_end = a
 		queue_redraw()
 
 	func _draw() -> void:
-		draw_circle(Vector2.ZERO, radius, fill_colour)
+		draw_circle(Vector2.ZERO, MapCanvas.STOP_CENTER_RADIUS, fill_colour)
+		draw_arc(Vector2.ZERO, radius, 0, TAU, 32, track_colour, ring_width, true)
 		if _sweep_end > 0.0:
-			draw_arc(Vector2.ZERO, radius, 0, _sweep_end, 32, ring_colour, ring_width, true)
+			draw_arc(Vector2.ZERO, radius, -PI / 2.0, -PI / 2.0 + _sweep_end, 32, progress_colour, ring_width, true)
 
 
 class LineGrowth:

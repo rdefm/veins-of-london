@@ -9,10 +9,10 @@ extends RefCounted
 # caller. §N4 is explicit that filters ONLY re-style, never hide a stop or
 # change tap behaviour, which is why nothing here touches tap targets.
 #
-# "Growth" mode fades everything outside the "risk" bands and ramps ring
-# colour/width by Cultivating.combined_magnitude() (R§3.4: value_tier
-# blended with a vein's earned level); growth_fill_fraction() below is
-# the pure seam behind MapCanvas's radial fill meter.
+# "Growth" mode fades everything outside the "risk" bands and ramps the
+# fullness arc colour by Cultivating.combined_magnitude() (R§3.4: value_tier
+# blended with a vein's earned level). fullness_fraction() below is the pure
+# seam behind MapCanvas's external progress ring.
 
 const FILTER_MODES: Array[String] = ["ownership", "type", "growth", "security", "faction"]
 
@@ -66,7 +66,7 @@ static func stop_alpha(filter_mode: String, at_risk: bool, selected_faction_id: 
 	return 1.0
 
 
-# Type: stop rings recolour by ore type. Growth: ring greyscale ramp from
+# Type: fullness arcs recolour by ore type. Growth: arc greyscale ramp from
 # --muted (tier 1) to --ink (tier 6+), keyed on combined_magnitude, clamped
 # to [0,1] here so a leveled-up vein past 6 still reads as full ink.
 static func vein_ring_colour(filter_mode: String, owner_colour: Color, ore_colour: Color, tier: int) -> Color:
@@ -80,10 +80,10 @@ static func vein_ring_colour(filter_mode: String, owner_colour: Color, ore_colou
 			return owner_colour
 
 
-# Growth: ring thickness 1.5 + tier*0.8.
-static func vein_ring_width(filter_mode: String, tier: int, base_width: float) -> float:
-	if filter_mode == "growth":
-		return 1.5 + tier * 0.8
+# Fullness-ring thickness stays fixed in every filter. Growth already carries
+# magnitude through colour and risk-band alpha; changing diameter would make
+# otherwise identical stops read as different marker classes.
+static func vein_ring_width(_filter_mode: String, _tier: int, base_width: float) -> float:
 	return base_width
 
 
@@ -108,9 +108,9 @@ static func is_risk_band(band_id: String) -> bool:
 
 
 # ── growth fill ──────────────────────────────────────────────────────────
-# The radial fill meter's one pure seam: how full a vein's stop reads, 0.0
+# The progress arc's one pure seam: how full a vein's stop reads, 0.0
 # (growth 0) to 1.0 (growth at/above ceiling(vein)) — flat proportional
-# fill, no per-band scaling. ceiling is always > 0 (R§1.2), so no
+# sweep, no per-band scaling. ceiling is always > 0 (R§1.2), so no
 # divide-by-zero guard is needed.
-static func growth_fill_fraction(growth: int, ceiling: int) -> float:
+static func fullness_fraction(growth: int, ceiling: int) -> float:
 	return clampf(float(growth) / float(ceiling), 0.0, 1.0)

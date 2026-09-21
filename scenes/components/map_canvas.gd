@@ -13,6 +13,7 @@ signal _batch_finished
 const PAPER_COLOUR := Color(1.0, 1.0, 1.0)                     # #ffffff, see _draw_paper() for why
 const RIVER_COLOUR := Color(0.831373, 0.811765, 0.768627, 0.6)  # #d4cfc4 @ 60%
 const MUTED_COLOUR := Color(0.541176, 0.541176, 0.541176)       # --muted #8a8a8a
+const TRACK_COLOUR := Color(0.831373, 0.811765, 0.768627)       # --border #d4cfc4
 const INK_COLOUR := Color(0.101961, 0.101961, 0.101961)         # --ink #1a1a1a
 const SLATE_COLOUR := Color(0.290196, 0.337255, 0.407843)       # --slate #4a5568
 const PLAYER_COLOUR := Color(0.784314, 0.529412, 0.227451)      # amber #c8873a
@@ -27,17 +28,19 @@ const LINE_CLEARANCE := LINE_WIDTH + LINE_MIN_VISUAL_GAP
 const STOP_NUDGE_MAX_OFFSET := 16.0
 const STOP_NUDGE_MARGIN := 2.0
 const _RECONCILE_PASSES := 8
-const VEIN_STOP_RADIUS := 10.0
-const VEIN_STOP_STROKE := 3.0
-const FACTION_STOP_RADIUS := 7.0
-const FACTION_STOP_STROKE := 2.5
-const UNCLAIMED_STOP_RADIUS := FACTION_STOP_RADIUS
-const UNCLAIMED_STOP_STROKE := FACTION_STOP_STROKE
-const INTERCHANGE_RING_GAP := 3.0
+const STOP_CENTER_RADIUS := 7.0
+const FULLNESS_RING_RADIUS := 10.0
+const FULLNESS_RING_WIDTH := 3.0
+const VEIN_STOP_RADIUS := FULLNESS_RING_RADIUS
+const VEIN_STOP_STROKE := FULLNESS_RING_WIDTH
+const FACTION_STOP_RADIUS := FULLNESS_RING_RADIUS
+const FACTION_STOP_STROKE := FULLNESS_RING_WIDTH
+const UNCLAIMED_STOP_RADIUS := FULLNESS_RING_RADIUS
+const UNCLAIMED_STOP_STROKE := FULLNESS_RING_WIDTH
+const DANGER_RING_GAP := 6.0
 
-const BASE_VEIN_STOP_RADIUS := 7.0
-const STOP_ICON_GROWTH := VEIN_STOP_RADIUS / BASE_VEIN_STOP_RADIUS
-const BADGE_OFFSET := 10.0 * STOP_ICON_GROWTH
+const STOP_ICON_GROWTH := 1.0
+const BADGE_OFFSET := 14.0
 
 const CLOCK_8 := Vector2(-0.8660254, 0.5)
 
@@ -554,46 +557,24 @@ func _draw_stops() -> void:
 		_draw_unclaimed_stop(stop)
 
 
-func _vein_ring_style(vein: Dictionary, owner_colour: Color, base_width: float) -> Dictionary:
+func _vein_ring_style(vein: Dictionary, _owner_colour: Color, base_width: float) -> Dictionary:
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 	var tier: int = Cultivating.combined_magnitude(vein)
 	return {
-		"colour": MapStyle.vein_ring_colour(filter_mode, owner_colour, Color(ore["colour"]), tier),
+		# Ownership remains on the route line. Every stop's default fullness
+		# progress is the same restrained gold from the approved marker grammar.
+		"colour": MapStyle.vein_ring_colour(filter_mode, PLAYER_COLOUR, Color(ore["colour"]), tier),
+		"track_colour": TRACK_COLOUR,
 		"width": MapStyle.vein_ring_width(filter_mode, tier, base_width),
 	}
 
 
-func _draw_ring_stop(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int, target: Object = self) -> void:
-	target.draw_circle(pos, radius, _faded(PAPER_COLOUR, alpha))
-	target.draw_arc(pos, radius, 0, TAU, segments, _faded(style["colour"], alpha), style["width"], true)
-
-
-func _draw_interchange_ring(pos: Vector2, radius: float, alpha: float, style: Dictionary, segments: int, target: Object = self) -> void:
-	target.draw_arc(pos, radius + INTERCHANGE_RING_GAP, 0, TAU, segments, _faded(style["colour"], alpha), style["width"], true)
-
-
-const GROWTH_FILL_OUTLINE_WIDTH := 1.5
-
-func _draw_growth_fill(pos: Vector2, radius: float, alpha: float, fraction: float, colour: Color, segments: int, target: Object = self) -> void:
-	target.draw_circle(pos, radius, _faded(PAPER_COLOUR, alpha))
-	var filled_colour := _faded(colour, alpha)
-	var clamped: float = clampf(fraction, 0.0, 1.0)
+func _draw_fullness_ring(pos: Vector2, alpha: float, fraction: float, style: Dictionary, segments: int, target: Object = self) -> void:
+	target.draw_circle(pos, STOP_CENTER_RADIUS, _faded(PAPER_COLOUR, alpha))
+	target.draw_arc(pos, FULLNESS_RING_RADIUS, 0, TAU, segments, _faded(style["track_colour"], alpha), style["width"], true)
+	var clamped := clampf(fraction, 0.0, 1.0)
 	if clamped > 0.0:
-		var steps: int = maxi(1, int(ceil(segments * clamped)))
-		var points := PackedVector2Array()
-		points.append(pos)
-		for i in steps + 1:
-			var t: float = clamped * float(i) / float(steps)
-			var angle: float = -PI / 2.0 + t * TAU
-			points.append(pos + Vector2(cos(angle), sin(angle)) * radius)
-		target.draw_colored_polygon(points, filled_colour)
-	target.draw_arc(pos, radius, 0, TAU, segments, filled_colour, GROWTH_FILL_OUTLINE_WIDTH, true)
-
-
-func _draw_terroir_ring(pos: Vector2, radius: float, alpha: float, style: Dictionary, vein: Dictionary, segments: int, target: Object = self) -> void:
-	var tier: String = vein.get("hospitability", {}).get("tier", "fair")
-	if tier == "rich" or tier == "saturated":
-		_draw_interchange_ring(pos, radius, alpha, style, segments, target)
+		target.draw_arc(pos, FULLNESS_RING_RADIUS, -PI / 2.0, -PI / 2.0 + TAU * clamped, segments, _faded(style["colour"], alpha), style["width"], true)
 
 
 func _draw_vein_stop(stop: Dictionary) -> void:
@@ -605,17 +586,16 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 
 	var alpha := MapStyle.stop_alpha(filter_mode, MapStyle.is_risk_band(band_id), selected_faction_id, "player")
 	var style := _vein_ring_style(vein, PLAYER_COLOUR, VEIN_STOP_STROKE)
-	var fraction := MapStyle.growth_fill_fraction(vein["growth"], Cultivating.ceiling(vein))
+	var fraction := MapStyle.fullness_fraction(vein["growth"], Cultivating.ceiling(vein))
 
-	_draw_growth_fill(pos, VEIN_STOP_RADIUS, alpha, fraction, style["colour"], 32)
-	_draw_terroir_ring(pos, VEIN_STOP_RADIUS, alpha, style, vein, 32)
+	_draw_fullness_ring(pos, alpha, fraction, style, 32)
 	_draw_ore_symbol(pos, vein["oreType"], ore, alpha, self, STOP_ICON_GROWTH)
 
 	var security_scale := MapStyle.badge_scale(filter_mode)
 	_draw_security_padlock(pos, security, security_scale, alpha)
 
 	if MapStyle.show_danger_ring(filter_mode, security):
-		_draw_dotted_ring(pos, VEIN_STOP_RADIUS + 3.0, MapStyle.DANGER_COLOUR)
+		_draw_dotted_ring(pos, FULLNESS_RING_RADIUS + DANGER_RING_GAP, MapStyle.DANGER_COLOUR)
 
 
 func _draw_faction_stop(stop: Dictionary) -> void:
@@ -626,31 +606,31 @@ func _draw_faction_stop(stop: Dictionary) -> void:
 	var band_id: String = Cultivating.growth_band(vein)["id"]
 	var alpha := MapStyle.stop_alpha(filter_mode, MapStyle.is_risk_band(band_id), selected_faction_id, stop["owner"])
 	var style := _vein_ring_style(vein, faction_colour, FACTION_STOP_STROKE)
-	var fraction := MapStyle.growth_fill_fraction(vein["growth"], Cultivating.ceiling(vein))
+	var fraction := MapStyle.fullness_fraction(vein["growth"], Cultivating.ceiling(vein))
 
-	_draw_growth_fill(pos, FACTION_STOP_RADIUS, alpha, fraction, style["colour"], 24)
-	_draw_terroir_ring(pos, FACTION_STOP_RADIUS, alpha, style, vein, 24)
-	_draw_ore_symbol(pos, vein["oreType"], ore, alpha)
+	_draw_fullness_ring(pos, alpha, fraction, style, 32)
+	_draw_ore_symbol(pos, vein["oreType"], ore, alpha, self, STOP_ICON_GROWTH)
 
 
 func _draw_unclaimed_stop(stop: Dictionary) -> void:
 	var pos: Vector2 = stop["position"]
 	var site: Dictionary = stop["site"]
 	var ore: Dictionary = GameData.ORE_TYPES[site["oreType"]]
-	var double_ring: bool = site["tier"] in ["rich", "saturated"]
 	var alpha := MapStyle.stop_alpha(filter_mode, false, selected_faction_id, "")
 	var style := _unclaimed_ring_style(site["oreType"])
 
-	_draw_ring_stop(pos, UNCLAIMED_STOP_RADIUS, alpha, style, 24)
-	if double_ring:
-		_draw_interchange_ring(pos, UNCLAIMED_STOP_RADIUS, alpha, style, 24)
+	_draw_fullness_ring(pos, alpha, 0.0, style, 32)
 	_draw_ore_symbol(pos, site["oreType"], ore, alpha)
 
 
 func _unclaimed_ring_style(ore_type: String) -> Dictionary:
 	var ore_colour := Color(GameData.ORE_TYPES[ore_type]["colour"])
+	var progress_colour := MapStyle.vein_ring_colour(filter_mode, MUTED_COLOUR, ore_colour, 1)
 	return {
-		"colour": MapStyle.vein_ring_colour(filter_mode, MUTED_COLOUR, ore_colour, 1),
+		"colour": progress_colour,
+		# With no progress arc, Type colours the complete track so the filter
+		# retains its existing ore-colour channel. Default remains neutral.
+		"track_colour": progress_colour if filter_mode == "type" else TRACK_COLOUR,
 		"width": UNCLAIMED_STOP_STROKE,
 	}
 
