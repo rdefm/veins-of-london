@@ -266,6 +266,20 @@ func run() -> void:
 		canvas.free()
 	)
 
+	run_case("white_centre_overlaps_the_fullness_ring_so_route_lines_cannot_show_between_them", func():
+		var canvas := MapCanvas.new()
+		var style := canvas._vein_ring_style(_canvas_vein("time", 50), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		var spy := DrawSpy.new()
+		canvas._draw_fullness_ring(Vector2.ZERO, 1.0, 0.5, style, 32, spy)
+
+		var centre_radius: float = spy.calls_matching("draw_circle")[0]["args"][1]
+		var track: Dictionary = spy.calls_matching("draw_arc")[0]
+		var track_inner_radius: float = track["args"][1] - track["args"][6] / 2.0
+		assert_true(centre_radius > track_inner_radius, "white centre must overlap the antialiased ring edge; exact contact can leave a hairline")
+
+		canvas.free()
+	)
+
 	# Ticket 77's own acceptance check: "renders correctly at growth 0
 	# (empty)... without visual glitches" -- no wedge at all, just the paper
 	# base and the outline ring, so the stop's extent still reads.
