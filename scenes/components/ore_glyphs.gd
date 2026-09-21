@@ -5,9 +5,9 @@ extends RefCounted
 const SHAPES := {
 	"time": "hourglass",
 	"physics": "bolt",
-	"life": "star4",
-	"fate": "die5",
-	"emotion": "asterisk8",
+	"life": "sprout",
+	"fate": "die",
+	"emotion": "heart",
 }
 
 
@@ -25,46 +25,80 @@ static func draw(target: Object, center: Vector2, ore_type: String, colour: Colo
 			_draw_hourglass(target, center, colour, radius)
 		"bolt":
 			_draw_bolt(target, center, colour, radius)
-		"star4":
-			_draw_star4(target, center, colour, radius)
-		"die5":
-			_draw_die5(target, center, colour, radius)
-		"asterisk8":
-			_draw_asterisk8(target, center, colour, radius)
+		"sprout":
+			_draw_sprout(target, center, colour, radius)
+		"die":
+			_draw_die(target, center, colour, radius)
+		"heart":
+			_draw_heart(target, center, colour, radius)
 
 
 static func _draw_hourglass(target: Object, c: Vector2, colour: Color, r: float) -> void:
-	target.draw_colored_polygon(PackedVector2Array([c + Vector2(-r, -r), c + Vector2(r, -r), c]), colour)
-	target.draw_colored_polygon(PackedVector2Array([c + Vector2(-r, r), c + Vector2(r, r), c]), colour)
+	var edge := r * 0.68
+	var cap_y := r * 0.78
+	var width := maxf(1.0, r * 0.24)
+	target.draw_line(c + Vector2(-edge, -cap_y), c + Vector2(edge, -cap_y), colour, width, true)
+	target.draw_line(c + Vector2(-edge, cap_y), c + Vector2(edge, cap_y), colour, width, true)
+	target.draw_line(c + Vector2(-edge, -cap_y), c, colour, width, true)
+	target.draw_line(c + Vector2(edge, -cap_y), c, colour, width, true)
+	target.draw_line(c, c + Vector2(-edge, cap_y), colour, width, true)
+	target.draw_line(c, c + Vector2(edge, cap_y), colour, width, true)
 
 
 static func _draw_bolt(target: Object, c: Vector2, colour: Color, r: float) -> void:
 	target.draw_colored_polygon(PackedVector2Array([
-		c + Vector2(0.2, -1.0) * r, c + Vector2(-0.6, 0.1) * r, c + Vector2(0.0, 0.1) * r,
-		c + Vector2(-0.2, 1.0) * r, c + Vector2(0.6, -0.1) * r, c + Vector2(0.0, -0.1) * r,
+		c + Vector2(0.18, -0.86) * r,
+		c + Vector2(-0.58, 0.02) * r,
+		c + Vector2(-0.08, 0.02) * r,
+		c + Vector2(-0.24, 0.86) * r,
+		c + Vector2(0.62, -0.18) * r,
+		c + Vector2(0.10, -0.18) * r,
 	]), colour)
 
 
-static func _draw_star4(target: Object, c: Vector2, colour: Color, r: float) -> void:
-	var pts := PackedVector2Array()
-	for i in 8:
-		var ang := TAU * i / 8.0
-		var rad := r if i % 2 == 0 else r * 0.4
-		pts.append(c + Vector2(cos(ang), sin(ang)) * rad)
-	target.draw_colored_polygon(pts, colour)
+static func _draw_sprout(target: Object, c: Vector2, colour: Color, r: float) -> void:
+	var width := maxf(1.0, r * 0.24)
+	var junction := c + Vector2(0.0, -r * 0.02)
+	target.draw_line(junction, c + Vector2(0.0, r * 0.72), colour, width, true)
+	target.draw_line(c + Vector2(-r * 0.34, r * 0.72), c + Vector2(r * 0.34, r * 0.72), colour, width, true)
+	target.draw_colored_polygon(PackedVector2Array([
+		junction,
+		c + Vector2(-0.28, -0.56) * r,
+		c + Vector2(-0.72, -0.72) * r,
+		c + Vector2(-0.66, -0.28) * r,
+		c + Vector2(-0.20, 0.08) * r,
+	]), colour)
+	target.draw_colored_polygon(PackedVector2Array([
+		junction,
+		c + Vector2(0.28, -0.56) * r,
+		c + Vector2(0.72, -0.72) * r,
+		c + Vector2(0.66, -0.28) * r,
+		c + Vector2(0.20, 0.08) * r,
+	]), colour)
 
 
-static func _draw_die5(target: Object, c: Vector2, colour: Color, r: float) -> void:
-	var half := r * 0.85
-	target.draw_rect(Rect2(c - Vector2(half, half), Vector2(half, half) * 2.0), colour, false, 1.2)
-	var dot_r := r * 0.16
-	var offsets := [Vector2(-1, -1), Vector2(1, -1), Vector2(0, 0), Vector2(-1, 1), Vector2(1, 1)]
-	for o in offsets:
-		target.draw_circle(c + o * half * 0.6, dot_r, colour)
+static func _draw_die(target: Object, c: Vector2, colour: Color, r: float) -> void:
+	var half := r * 0.72
+	var width := maxf(1.0, r * 0.24)
+	target.draw_rect(Rect2(c - Vector2(half, half), Vector2(half, half) * 2.0), colour, false, width, true)
+	var dot_r := maxf(0.7, r * 0.13)
+	var pip_offset := half * 0.52
+	for offset in [Vector2(-pip_offset, -pip_offset), Vector2(pip_offset, -pip_offset), Vector2.ZERO, Vector2(-pip_offset, pip_offset), Vector2(pip_offset, pip_offset)]:
+		target.draw_circle(c + offset, dot_r, colour, true, -1.0, true)
 
 
-static func _draw_asterisk8(target: Object, c: Vector2, colour: Color, r: float) -> void:
-	for i in 4:
-		var ang := PI / 4.0 * i
-		var d := Vector2(cos(ang), sin(ang)) * r
-		target.draw_line(c - d, c + d, colour, 1.4)
+static func _draw_heart(target: Object, c: Vector2, colour: Color, r: float) -> void:
+	target.draw_colored_polygon(PackedVector2Array([
+		c + Vector2(0.0, -0.38) * r,
+		c + Vector2(-0.20, -0.68) * r,
+		c + Vector2(-0.52, -0.70) * r,
+		c + Vector2(-0.76, -0.42) * r,
+		c + Vector2(-0.74, -0.08) * r,
+		c + Vector2(-0.54, 0.22) * r,
+		c + Vector2(0.0, 0.78) * r,
+		c + Vector2(0.54, 0.22) * r,
+		c + Vector2(0.74, -0.08) * r,
+		c + Vector2(0.76, -0.42) * r,
+		c + Vector2(0.52, -0.70) * r,
+		c + Vector2(0.20, -0.68) * r,
+	]), colour)

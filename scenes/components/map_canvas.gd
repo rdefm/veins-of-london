@@ -77,8 +77,6 @@ var _active_tween: Tween = null
 var _active_tweens: Array = []
 var _skip_requested := false
 
-var _ore_font_covers_symbols: bool
-
 var _vein_stops: Array = []
 var _faction_stops: Dictionary = {}  # faction id -> Array of that faction's owned vein stops
 var _unclaimed_stops: Array = []
@@ -101,8 +99,6 @@ func _ready() -> void:
 
 	var map_size: Array = GameData.MAP_LAYOUT["mapSize"]
 	_map_size = Vector2(map_size[0], map_size[1])
-
-	_ore_font_covers_symbols = OreGlyphs.font_covers_all_symbols(ThemeDB.fallback_font)
 
 	_halo_layer = Node2D.new()
 	add_child(_halo_layer)
@@ -660,12 +656,8 @@ func _unclaimed_ring_style(ore_type: String) -> Dictionary:
 
 
 
-func _draw_ore_symbol(pos: Vector2, ore_type: String, ore: Dictionary, alpha: float, target: Object = self, enlarge: float = 1.0) -> void:
-	var colour := _faded(Color(ore["colour"]), alpha)
-	if _ore_font_covers_symbols:
-		_draw_centered_text(pos, ore["symbol"], int(11 * enlarge), colour, target)
-	else:
-		OreGlyphs.draw(target, pos, ore_type, colour, 5.5 * enlarge)
+func _draw_ore_symbol(pos: Vector2, ore_type: String, _ore: Dictionary, alpha: float, target: Object = self, enlarge: float = 1.0) -> void:
+	OreGlyphs.draw(target, pos, ore_type, _faded(INK_COLOUR, alpha), 5.5 * enlarge)
 
 
 
@@ -764,13 +756,6 @@ func _draw_labels(target: CanvasItem) -> void:
 		var pos := Vector2(anchor[0], anchor[1])
 		target.draw_string(font, pos, district["name"].to_upper(), HORIZONTAL_ALIGNMENT_CENTER, -1, 13, SLATE_COLOUR)
 
-
-
-func _draw_centered_text(pos: Vector2, text: String, font_size: int, colour: Color, target: Object = self) -> void:
-	var font := ThemeDB.fallback_font
-	var text_size := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-	var baseline := pos + Vector2(-text_size.x / 2.0, text_size.y * 0.35)
-	target.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, colour)
 
 
 func _faded(colour: Color, alpha_mult: float) -> Color:

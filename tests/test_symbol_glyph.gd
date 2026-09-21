@@ -68,11 +68,11 @@ func run() -> void:
 
 		fallback.call(spy, Vector2(1, 2), Color.WHITE, 5.5)
 
-		# OreGlyphs.draw("time", ...) draws the hourglass shape: two
-		# triangles -- same assertion tests/test_ore_glyphs.gd's own
+		# OreGlyphs.draw("time", ...) draws the hourglass shape: two caps
+		# plus four sloping sides -- same assertion tests/test_ore_glyphs.gd's own
 		# draw_time case makes, proving ore_fallback really reaches
 		# OreGlyphs.draw rather than some other shape.
-		assert_eq(spy.calls_matching("draw_colored_polygon").size(), 2, "top and bottom triangle of the hourglass")
+		assert_eq(spy.calls_matching("draw_line").size(), 6, "two caps and four sides of the hourglass")
 	)
 
 	run_case("ore_fallback_binds_the_ore_type_it_was_built_with_not_whatever_is_passed_later", func():
@@ -92,7 +92,7 @@ func run() -> void:
 
 		SymbolGlyph.draw_symbol(spy, ThemeDB.fallback_font, Vector2(3, 4), ore["symbol"], Color.WHITE, 11, 5.5, SymbolGlyph.ore_fallback("fate"))
 
-		# fate (die5) draws one frame rect + five pips -- same shape
+		# fate (die) draws one frame rect + five pips -- same shape
 		# test_ore_glyphs.gd's own draw_fate case checks, now reached through
 		# the full covers()-fails -> draw_fallback() path this ticket adds.
 		assert_eq(spy.calls_matching("draw_rect").size(), 1)

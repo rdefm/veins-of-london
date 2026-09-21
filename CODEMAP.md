@@ -134,7 +134,7 @@ overlays.
 | map_zoom_buttons.gd | Floating +/- zoom control |
 | modal_layer.gd | Dim background + card; chrome + tap-outside dismiss. All content dispatched by type through scenes/modals/modal_registry.gd; unknown types get a placeholder card |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ) |
-| ore_glyphs.gd | Ore-symbol font glyph rendering |
+| ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
 | symbol_glyph.gd | Label-or-vector fallback for a symbol |
 | time_transition.gd | Presentation queue (day/night atlas) |
 | top_bar.gd | Header: day/phase, cash, notices |

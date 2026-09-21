@@ -162,16 +162,9 @@ func run() -> void:
 	# which _vein_ring_style()'s style-dict coverage above never could (a
 	# style dict has no position in it at all).
 	#
-	# oreType "fate" is picked deliberately: _ore_font_covers_symbols is only
-	# ever computed in _ready() (see that field's own comment), which a bare
-	# MapCanvas.new() here never runs -- same "never touches get_tree()" case
-	# as every other run_case() in this file -- so it sits at its uninitialised
-	# default, false. _draw_ore_symbol's live path under that default is
-	# OreGlyphs.draw() (which also happens to be the real, computed answer on
-	# a live canvas -- see tests/test_ore_glyphs.gd's bundled_font_does_not_
-	# cover_any_ore_symbol case -- so this isn't testing a path production
-	# never takes, just not exercising the _ready()-time check itself). And
-	# "fate" -> OreGlyphs._draw_die5's centre pip (the offset (0,0) dot) is
+	# oreType "fate" is picked deliberately: _draw_ore_symbol always routes
+	# through the approved OreGlyphs vector set, so this off-tree spy reaches
+	# the same renderer as the live map. OreGlyphs._draw_die's centre pip is
 	# the one glyph draw call in the whole OreGlyphs shape set whose
 	# recorded position argument is the *exact*, unmodified centre point
 	# passed in, rather than a centre-plus-offset -- the cleanest possible
@@ -192,7 +185,7 @@ func run() -> void:
 		var glyph_spy := DrawSpy.new()
 		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy, MapCanvas.STOP_ICON_GROWTH)
 		var glyph_circles: Array = glyph_spy.calls_matching("draw_circle")
-		assert_true(glyph_circles.any(func(c): return c["args"][0] == pos), "the die5 ore glyph's centre pip lands exactly on the stop's position -- ticket 27's 'and centered' gap")
+		assert_true(glyph_circles.any(func(c): return c["args"][0] == pos), "the die ore glyph's centre pip lands exactly on the stop's position -- ticket 27's 'and centered' gap")
 
 		canvas.free()
 	)
@@ -219,7 +212,29 @@ func run() -> void:
 		var glyph_spy := DrawSpy.new()
 		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy)
 		var glyph_circles: Array = glyph_spy.calls_matching("draw_circle")
-		assert_true(glyph_circles.any(func(c): return c["args"][0] == pos), "the die5 ore glyph's centre pip lands exactly on the stop's position -- ticket 27's 'and centered' gap")
+		assert_true(glyph_circles.any(func(c): return c["args"][0] == pos), "the die ore glyph's centre pip lands exactly on the stop's position -- ticket 27's 'and centered' gap")
+
+		canvas.free()
+	)
+
+	run_case("ore_glyphs_are_always_vector_drawn_in_charcoal_independent_of_ore_type", func():
+		var canvas := MapCanvas.new()
+		var alpha := 0.4
+		var expected := MapCanvas.INK_COLOUR
+		expected.a *= alpha
+
+		for ore_id in OreGlyphs.SHAPES.keys():
+			var spy := DrawSpy.new()
+			canvas._draw_ore_symbol(Vector2.ZERO, ore_id, GameData.ORE_TYPES[ore_id], alpha, spy)
+			assert_true(spy.calls_matching("draw_string").is_empty(), "%s uses the approved vector silhouette, never the retired font symbol" % ore_id)
+			for call in spy.calls:
+				var colour: Color
+				match call["method"]:
+					"draw_line", "draw_circle":
+						colour = call["args"][2]
+					"draw_rect", "draw_colored_polygon":
+						colour = call["args"][1]
+				assert_eq(colour, expected, "%s stays charcoal; the active filter may only fade its alpha" % ore_id)
 
 		canvas.free()
 	)
@@ -329,7 +344,7 @@ func run() -> void:
 		var glyph_spy := DrawSpy.new()
 		canvas._draw_ore_symbol(pos, "fate", ore, alpha, glyph_spy)
 		var glyph_circles: Array = glyph_spy.calls_matching("draw_circle")
-		assert_true(glyph_circles.any(func(c): return c["args"][0] == pos), "the die5 ore glyph's centre pip lands exactly on the stop's position -- ticket 27's 'and centered' gap")
+		assert_true(glyph_circles.any(func(c): return c["args"][0] == pos), "the die ore glyph's centre pip lands exactly on the stop's position -- ticket 27's 'and centered' gap")
 
 		canvas.free()
 	)
