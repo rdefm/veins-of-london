@@ -168,6 +168,56 @@ func run() -> void:
 	# Trade uses a dedicated dark sheet. Selection still routes through Economy
 	# and Collective; only the presentation and review step changed.
 
+	await run_case("trade_rows_keep_readable_width_on_phone", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 50
+		GameState.state["flags"]["canSellConsumables"] = true
+		Crafting.inventory_add("blast", 2, 1)
+		Modal.open("sell_menu")
+		var host := Control.new()
+		host.size = Vector2(390, 844)
+		(Engine.get_main_loop() as SceneTree).root.add_child(host)
+		var layer := ModalLayer.new()
+		host.add_child(layer)
+		await (Engine.get_main_loop() as SceneTree).process_frame
+		var view: PanelContainer = layer._trade_view
+		var ore_button := _find_cost_button(view, "Ore")
+		var time_label: Label = null
+		var total_label: Label = null
+		var price_label: Label = null
+		var stock_label: Label = null
+		for label in view.find_children("", "Label", true, false):
+			if (label as Label).text == "Time Orichalchum":
+				time_label = label as Label
+			if (label as Label).text == "£0":
+				total_label = label as Label
+			if price_label == null and (label as Label).text.begins_with("£") and (label as Label).text != "£0":
+				price_label = label as Label
+			if stock_label == null and (label as Label).text.contains("available"):
+				stock_label = label as Label
+		var scroll: ScrollContainer = view.find_children("", "ScrollContainer", true, false)[0]
+		assert_true(ore_button != null and ore_button.size.x >= 60.0, "category width %s, view %s, layout %s" % [ore_button.size.x, view.size.x, view.get_child(0).size.x])
+		assert_true(time_label != null and time_label.size.x >= 130.0, "ore width %s, scroll %s, body margin %s" % [time_label.size.x, scroll.size.x, scroll.get_child(0).size.x])
+		assert_true(price_label != null and price_label.get_line_count() == 1, "price stays on one line")
+		assert_true(stock_label != null and stock_label.get_line_count() == 1, "stock stays on one line")
+		assert_true(total_label != null and total_label.get_line_count() == 1, "footer total stays on one line")
+		assert_true(total_label.get_global_rect().end.x <= view.get_global_rect().end.x, "footer total fits inside sheet")
+		var minus := _find_named_button(view, "Remove one Time Orichalchum")
+		assert_true(minus != null and stock_label.get_global_rect().end.x <= minus.get_global_rect().position.x, "ore metadata does not overlap quantity controls")
+		_find_cost_button(view, "Items").pressed.emit()
+		await (Engine.get_main_loop() as SceneTree).process_frame
+		var group := _find_button_prefix(view, "Blast")
+		var tier_label: Label = null
+		for label in view.find_children("", "Label", true, false):
+			if (label as Label).text == "Tier 2":
+				tier_label = label as Label
+				break
+		assert_true(group != null and group.size.x >= 300.0, "item group spans the sheet")
+		assert_true(tier_label != null and tier_label.size.x >= 100.0, "tier name stays readable")
+		host.queue_free()
+		await (Engine.get_main_loop() as SceneTree).process_frame
+	)
+
 	run_case("trade_sheet_has_fixed_footer_and_category_tabs", func():
 		GameState.reset()
 		GameState.state["flags"]["veinSaleUnlocked"] = true

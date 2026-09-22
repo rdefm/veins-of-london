@@ -53,6 +53,7 @@ func _render(reset_scroll: bool = false) -> void:
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(_scroll)
 	var body_margin := MarginContainer.new()
+	body_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body_margin.add_theme_constant_override("margin_left", 14)
 	body_margin.add_theme_constant_override("margin_right", 14)
 	_scroll.add_child(body_margin)
@@ -115,6 +116,7 @@ func _build_categories(layout: VBoxContainer) -> void:
 		var chosen: bool = _category == category
 		var fill := TEXT if chosen else Color.TRANSPARENT
 		var button := _button(category.capitalize(), _select_category.bind(category), fill, 40)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_color_override("font_color", BG if chosen else TEXT)
 		button.add_theme_color_override("font_hover_color", BG if chosen else TEXT)
 		button.add_theme_color_override("font_pressed_color", BG if chosen else TEXT)
@@ -227,12 +229,12 @@ func _add_row(parent: VBoxContainer, entry: Dictionary, tier_row: bool = false) 
 	info.add_child(_label(name, 14, TEXT))
 	var meta := UI.hbox(3)
 	info.add_child(meta)
-	meta.add_child(_label("£%d" % int(entry["price"]), 12, _gold()))
-	meta.add_child(_label(" / vein" if entry["kind"] == "vein" else " each", 12, MUTED))
+	meta.add_child(_label("£%d" % int(entry["price"]), 12, _gold(), false))
+	meta.add_child(_label(" / vein" if entry["kind"] == "vein" else " each", 12, MUTED, false))
 	var stock_text := " · %d available" % int(entry["stock"])
 	if entry["direction"] == "buy":
 		stock_text = " · stock %d" % int(entry["stock"])
-	meta.add_child(_label(stock_text, 12, MUTED))
+	meta.add_child(_label(stock_text, 12, MUTED, false))
 	if entry["kind"] == "vein":
 		var chosen := int(entry["qty"]) > 0
 		var button := _button("✓ Added" if chosen else "+ Add", _toggle_vein.bind(entry), BUTTON_BG, 44)
@@ -276,7 +278,7 @@ func _build_review(body: VBoxContainer, entries: Array) -> void:
 		var description := _label(line, 13, TEXT)
 		description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(description)
-		row.add_child(_label("%s£%d" % [sign, int(entry["price"]) * int(entry["qty"])], 13, _gold()))
+		row.add_child(_label("%s£%d" % [sign, int(entry["price"]) * int(entry["qty"])], 13, _gold(), false))
 		body.add_child(_divider())
 	if not any_selected:
 		body.add_child(_label("No goods selected.", 14, MUTED))
@@ -304,7 +306,7 @@ func _build_footer(layout: VBoxContainer, entries: Array) -> void:
 	else:
 		note = "%d selected · est. cut %d%% of £%d" % [totals["count"], int(round(Economy.get_archie_cut_ratio() * 100.0)), totals["gross"]]
 	explanation.add_child(_label(note, 12, MUTED))
-	summary.add_child(_label("£%d" % absi(net), 22, _gold()))
+	summary.add_child(_label("£%d" % absi(net), 22, _gold(), false))
 	if not _is_faction():
 		var mug_base: float = Economy.MUG_BASE_CHANCE_VEIN if totals["veins"] > 0 else Economy.MUG_BASE_CHANCE
 		content.add_child(_label("%d%% base chance of mugging" % int(round(mug_base * 100.0)), 12, MUTED))
@@ -471,11 +473,11 @@ func _gold() -> Color:
 	return GameData.PALETTE.get("calc_gold", Color("#d4af52"))
 
 
-func _label(value: String, font_size: int, colour: Color) -> Label:
+func _label(value: String, font_size: int, colour: Color, wrap: bool = true) -> Label:
 	var label := Label.new()
 	label.text = value
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if wrap else TextServer.AUTOWRAP_OFF
 	label.add_theme_color_override("font_color", colour)
 	label.add_theme_font_size_override("font_size", font_size)
 	return label
