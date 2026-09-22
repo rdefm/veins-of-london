@@ -1,6 +1,113 @@
 class_name ContactCards
 extends RefCounted
 
+static func layout_directory_row(card: Control, contact_id: String) -> void:
+	# Reuse the card's existing gated actions; only its presentation changes.
+	card.set_meta("contact_directory_row", true)
+	var content := card.get_child(0) as VBoxContainer
+	var original := content.get_children()
+	for child in original:
+		content.remove_child(child)
+
+	var header := UI.hbox(10)
+	var avatar := Panel.new()
+	avatar.custom_minimum_size = Vector2(50, 50)
+	var avatar_style := StyleBoxFlat.new()
+	avatar_style.bg_color = Color("#70444d") if contact_id == "archie" else Color("#465b68")
+	avatar_style.set_corner_radius_all(25)
+	avatar.add_theme_stylebox_override("panel", avatar_style)
+	var initial := Label.new()
+	initial.text = Contacts.display_name(contact_id).substr(0, 1).to_upper()
+	initial.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	initial.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	initial.add_theme_font_size_override("font_size", 22)
+	UI.anchor_full_rect(initial)
+	avatar.add_child(initial)
+	header.add_child(avatar)
+
+	var copy := UI.vbox(2)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var name := original[0] as Label
+	name.text = Contacts.display_name(contact_id)
+	copy.add_child(name)
+	copy.add_child(original[1])
+	header.add_child(copy)
+	var relation := UI.label("Rel. %d" % GameState.state["contacts"][contact_id]["relation"])
+	relation.add_theme_font_size_override("font_size", 12)
+	relation.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	header.add_child(relation)
+	content.add_child(header)
+
+	var quick: Dictionary = {}
+	var extra: Array[Node] = []
+	for i in range(2, original.size()):
+		var child: Node = original[i]
+		var kind := _quick_action_kind(child)
+		if kind == "":
+			extra.append(child)
+		else:
+			quick[kind] = child
+	var row := UI.hbox(7)
+	for kind in ["messages", "trade", "recruit"]:
+		if quick.has(kind):
+			var button := quick[kind] as Button
+			_format_quick_action(button, kind, contact_id)
+			row.add_child(button)
+	content.add_child(row)
+	for child in extra:
+		content.add_child(child)
+
+
+static func _quick_action_kind(node: Node) -> String:
+	if not node is Button:
+		return ""
+	var label: String = (node as Button).text
+	if label.contains("Messages"):
+		return "messages"
+	if label.contains("Trade"):
+		return "trade"
+	if label.contains("Recruit") or label.contains("recruited"):
+		return "recruit"
+	return ""
+
+
+static func _format_quick_action(button: Button, kind: String, contact_id: String) -> void:
+	button.set_meta("contact_quick_action", kind)
+	button.tooltip_text = button.text
+	button.text = ""
+	button.custom_minimum_size = Vector2(0, 76)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var copy := UI.vbox(1)
+	copy.alignment = BoxContainer.ALIGNMENT_CENTER
+	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UI.anchor_full_rect(copy)
+	button.add_child(copy)
+	var icon := Label.new()
+	icon.text = {"messages": "▣", "trade": "⇄", "recruit": "☆"}[kind]
+	icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon.add_theme_font_size_override("font_size", 21)
+	icon.add_theme_color_override("font_color", _palette("ui_action_red", _FALLBACK_ACTION) if not button.disabled else _palette(_PHONE_TEXT_MUTED, _FALLBACK_TEXT_MUTED))
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(icon)
+	var title := Label.new()
+	title.text = {"messages": "Messages", "trade": "Trade", "recruit": "Recruit"}[kind]
+	if kind == "recruit" and GameState.state["contacts"][contact_id]["recruited"]:
+		title.text = "Recruited"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 13)
+	title.add_theme_color_override("font_color", _palette(_PHONE_TEXT_PRIMARY, _FALLBACK_TEXT_PRIMARY) if not button.disabled else _palette(_PHONE_TEXT_MUTED, _FALLBACK_TEXT_MUTED))
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(title)
+	if kind == "recruit" and button.disabled and not GameState.state["contacts"][contact_id]["recruited"]:
+		var needed: int = GameState.state["contacts"][contact_id]["recruitThreshold"] - GameState.state["contacts"][contact_id]["relation"]
+		var hint := Label.new()
+		hint.text = "%d more rel." % needed
+		hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hint.add_theme_font_size_override("font_size", 10)
+		hint.add_theme_color_override("font_color", _palette(_PHONE_TEXT_MUTED, _FALLBACK_TEXT_MUTED))
+		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		copy.add_child(hint)
+
 
 
 static func build_archie_card() -> Control:
@@ -48,7 +155,7 @@ static func build_sell_action() -> Control:
 	var player: Dictionary = GameState.state["player"]
 
 	if not flags["buyerEventSeen"]:
-		var locked := UI.button("💰 Find a buyer (not unlocked yet)", func(): pass)
+		var locked := UI.button("🤝 Trade (not unlocked yet)", func(): pass)
 		locked.disabled = true
 		return locked
 
@@ -60,7 +167,7 @@ static func build_sell_action() -> Control:
 	var has_consumables: bool = flags["canSellConsumables"] and (Crafting.inventory_qty("timePearl") > 0 or Crafting.inventory_qty("enhancementPowder") > 0)
 	var has_sellable: bool = has_ore or has_consumables
 
-	var b := UI.button("💰 Find a buyer" if has_sellable else "💰 Find a buyer (nothing to sell)", func(): Modal.open("sell_menu"))
+	var b := UI.button("🤝 Trade" if has_sellable else "🤝 Trade (nothing to sell)", func(): Modal.open("sell_menu"))
 	b.disabled = not has_sellable
 	return b
 
@@ -350,6 +457,15 @@ static func _style_panel(panel: PanelContainer) -> void:
 
 
 static func _style_card_panel(panel: PanelContainer) -> void:
+	if panel.has_meta("contact_directory_row"):
+		var row_style := StyleBoxFlat.new()
+		row_style.bg_color = _palette(_PHONE_BG_CONTENT, _FALLBACK_BG_CONTENT)
+		row_style.border_color = _palette(_PHONE_DIVIDER, _FALLBACK_DIVIDER)
+		row_style.border_width_bottom = 1
+		row_style.content_margin_top = 8
+		row_style.content_margin_bottom = 16
+		panel.add_theme_stylebox_override("panel", row_style)
+		return
 	panel.add_theme_stylebox_override("panel", UI.bordered_panel_style(_palette(_PHONE_BG_CONTENT, _FALLBACK_BG_CONTENT), _palette(_PHONE_DIVIDER, _FALLBACK_DIVIDER), 10, 16, 16))
 
 
@@ -385,10 +501,30 @@ static func _style_label(l: Label) -> void:
 
 
 static func _style_button(b: Button) -> void:
+	if b.has_meta("contact_quick_action"):
+		_style_contact_quick_button(b)
+		return
+	if b.has_meta("contact_back"):
+		var plain := _button_fill_style(Color(0, 0, 0, 0))
+		plain.content_margin_left = 0
+		b.add_theme_stylebox_override("normal", plain)
+		b.add_theme_stylebox_override("hover", plain)
+		b.add_theme_stylebox_override("pressed", plain)
+		b.add_theme_color_override("font_color", _palette("ui_action_red", _FALLBACK_ACTION))
+		return
 	if b.disabled:
 		_style_outline_button(b)
 	else:
 		_style_filled_button(b)
+
+
+static func _style_contact_quick_button(b: Button) -> void:
+	var style := _button_fill_style(Color("#36363a") if not b.disabled else Color("#2c2c2f"))
+	style.set_corner_radius_all(12)
+	b.add_theme_stylebox_override("normal", style)
+	b.add_theme_stylebox_override("disabled", style)
+	b.add_theme_stylebox_override("hover", _button_fill_style(Color("#444448")))
+	b.add_theme_stylebox_override("pressed", _button_fill_style(Color("#29292c")))
 
 
 static func _style_filled_button(b: Button) -> void:

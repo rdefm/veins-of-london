@@ -93,7 +93,7 @@ overlays.
 |---|---|
 | combat.gd | Combat screen: orchestrator over CombatStage/CombatCommandDock -- owns turn flow (turn-order strip), director bridging, and when a band sync happens. `_select_target()` is the sole route from a card tap or a stage-sprite tap (`CombatStage.subject_tapped`) to `Combat.set_selection()`; a stage tap during director playback fast-forwards instead |
 | combat_prototype.gd | Minimal combat-prototype screen, Debug-app only |
-| contacts.gd | Contacts tab, flag-gated actions |
+| contacts.gd | Contacts app inside PhoneDeviceShell; alphabetic directory with inline flag-gated actions |
 | event.gd | Event-card screen (VN and non-VN layouts) |
 | factions.gd | Factions tab |
 | guild_marketplace.gd | Faction trading UI |
@@ -118,7 +118,7 @@ overlays.
 | combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial/Complication-detail/action-card row, anchored to the true screen bottom |
 | combat_director.gd | Combat beat-queue playback director |
 | combat_stage.gd | Combat's full-width pixel stage: backdrop, subject slots, keypose one-shots, effect sheets, juice layer. Each `StageSlot` takes taps directly (`MOUSE_FILTER_STOP`) and emits `subject_tapped`; the selected slot draws a small arrow (`is_focused`/`_draw_selection_arrow`) |
-| contact_cards.gd | Shared card builders + OS chrome repaint |
+| contact_cards.gd | Shared contact/faction card builders, inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
 | dial_widget.gd | Combat's Dial-casting widget |
 | dot_matrix_board.gd | Amber-on-black dot-matrix board renderer |

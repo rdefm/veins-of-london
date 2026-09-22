@@ -19,7 +19,7 @@ static func _build_archie(container: VBoxContainer) -> void:
 	var player: Dictionary = GameState.state["player"]
 	var sell_state: Dictionary = GameState.state["sellState"]
 
-	container.add_child(UI.heading("Find a buyer"))
+	container.add_child(UI.heading("Trade"))
 	container.add_child(UI.muted_label("Archie splits 50/50. Select what you want to move."))
 
 	var gross := 0

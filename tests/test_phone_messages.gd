@@ -79,14 +79,18 @@ func run() -> void:
 	# card-only, out of this ticket's scope).
 	run_case("archie_conversation_action_bar_shows_his_own_sell_action_not_the_collective_trade_door", func():
 		GameState.reset()
+		GameState.state["flags"]["buyerEventSeen"] = true
+		GameState.state["player"]["orichalchum"]["time"] = 1
 		PhoneNav.select_conversation("archie")
 
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var button_texts := NodeQuery.button_texts(phone)
-		assert_true(not button_texts.has("🤝 Trade (not unlocked yet)") and not button_texts.has("🤝 Trade"), "archie's thread never shows the Collective Trade door")
-		assert_true(button_texts.has("💰 Find a buyer (not unlocked yet)"), "archie's thread shows his own sell action instead, same as his Contacts card")
+		var trade := NodeQuery.find_button(phone, "🤝 Trade")
+		assert_true(trade != null and not trade.disabled, "Archie's Trade action is available with ore")
+		trade.pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "sell_menu")
+		assert_eq(GameState.state["modal"]["data"], {}, "Archie's Trade action uses his own lane")
 
 		phone.free()
 	)
@@ -101,7 +105,6 @@ func run() -> void:
 
 		var button_texts := NodeQuery.button_texts(phone)
 		assert_true(not button_texts.has("🤝 Trade (not unlocked yet)") and not button_texts.has("🤝 Trade"), "james's thread never shows the Collective Trade door")
-		assert_true(not button_texts.has("💰 Find a buyer (not unlocked yet)") and not button_texts.has("💰 Find a buyer"), "james's thread has no sell action of its own")
 
 		phone.free()
 	)
