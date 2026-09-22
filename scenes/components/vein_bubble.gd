@@ -15,13 +15,6 @@ signal action_selected(option_id: String)
 signal info_selected()
 signal closed()
 
-const PAPER := Color("#f0eee6")
-const INK := Color("#252e30")
-const DIM := Color("#65716c")
-const LINE := Color("#c0c8bb")
-const GOLD := Color("#957019")
-const SAGE := Color("#dedfd3")
-
 var _pointer: Control
 var _dim: ColorRect
 var _panel: PanelContainer
@@ -52,15 +45,7 @@ func _ready() -> void:
 	add_child(_panel)
 
 	_panel.custom_minimum_size.x = 268
-	var skin := _skin(PAPER, 18)
-	skin.content_margin_left = 16
-	skin.content_margin_right = 16
-	skin.content_margin_top = 14
-	skin.content_margin_bottom = 14
-	skin.shadow_color = Color(0, 0, 0, 0.13)
-	skin.shadow_size = 18
-	skin.shadow_offset = Vector2(0, 10)
-	_panel.add_theme_stylebox_override("panel", skin)
+	_panel.add_theme_stylebox_override("panel", MapCardStyle.card_panel(18, 0.13))
 	_pointer = Control.new()
 	_pointer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pointer.draw.connect(_draw_pointer)
@@ -170,7 +155,7 @@ static func build_level_row(vein: Dictionary, compact: bool = false) -> Control:
 		var pip := Panel.new()
 		pip.custom_minimum_size = Vector2(23, 6) if compact else Vector2(14, 5)
 		pip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		pip.add_theme_stylebox_override("panel", _skin((INK if i < level else LINE) if compact else (MapCanvas.PLAYER_COLOUR if i < level else MapStyle.MUTED_COLOUR), 2, false))
+		pip.add_theme_stylebox_override("panel", MapCardStyle.skin((MapCardStyle.INK if i < level else MapCardStyle.LINE) if compact else (MapCanvas.PLAYER_COLOUR if i < level else MapStyle.MUTED_COLOUR), 2, false))
 		pips.add_child(pip)
 	row.add_child(pips)
 
@@ -187,7 +172,7 @@ static func build_condition_column(vein: Dictionary, compact: bool = false) -> C
 
 	var header := UI.hbox(4)
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var label := _label("Condition", 11, DIM) if compact else UI.muted_label("Condition")
+	var label := _label("Condition", 11, MapCardStyle.DIM) if compact else UI.muted_label("Condition")
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(label)
 	header.add_child(_label(str(vein["growth"]), 14) if compact else UI.muted_label("%d/%d" % [vein["growth"], vein_ceiling]))
@@ -255,26 +240,20 @@ func _build_action_column(caption: String, draw_icon: Callable, disabled: bool, 
 	var col := UI.vbox(4)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var btn := UI.icon_button(draw_icon, callback, DIM if disabled else INK)
+	var btn := UI.icon_button(draw_icon, callback, MapCardStyle.DIM if disabled else MapCardStyle.INK)
 	btn.custom_minimum_size = Vector2(44, 44)
 	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var fill := SAGE
-		if state == "hover":
-			fill = SAGE.lightened(0.15)
-		elif state == "pressed":
-			fill = LINE
-		elif state == "disabled":
-			fill = PAPER
-		var skin := _skin(fill, 22)
 		if state == "focus":
-			skin.bg_color = Color.TRANSPARENT
-			skin.border_color = GOLD
-		btn.add_theme_stylebox_override(state, skin)
+			var focus_style := MapCardStyle.skin(Color.TRANSPARENT, 22)
+			focus_style.border_color = MapCardStyle.GOLD
+			btn.add_theme_stylebox_override(state, focus_style)
+		else:
+			btn.add_theme_stylebox_override(state, MapCardStyle.action_circle_style(state))
 	btn.disabled = disabled
 	col.add_child(btn)
 
-	var cap := _label(caption, 11, DIM if disabled else INK)
+	var cap := _label(caption, 11, MapCardStyle.DIM if disabled else MapCardStyle.INK)
 	cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	cap.custom_minimum_size.x = 44
 	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -380,16 +359,16 @@ class ConditionBar extends Control:
 
 		if compact:
 			var track := Rect2(4, 8, w - 8, 8)
-			draw_style_box(VeinBubble._skin(LINE, 4, false), track)
+			draw_style_box(MapCardStyle.skin(MapCardStyle.LINE, 4, false), track)
 			var zone_x := track.position.x + track.size.x * float(threshold) / vein_ceiling
-			draw_style_box(VeinBubble._skin(GOLD, 3, false), Rect2(zone_x, 8, track.end.x - zone_x, 8))
+			draw_style_box(MapCardStyle.skin(MapCardStyle.GOLD, 3, false), Rect2(zone_x, 8, track.end.x - zone_x, 8))
 			var neutral_x := track.position.x + track.size.x * float(neutral) / vein_ceiling
 			var needle_x := track.position.x + track.size.x * clampf(float(growth) / vein_ceiling, 0, 1)
-			draw_line(Vector2(neutral_x, 5), Vector2(neutral_x, 19), DIM, 1, true)
-			draw_line(Vector2(needle_x, 4), Vector2(needle_x, 20), INK, 3, true)
+			draw_line(Vector2(neutral_x, 5), Vector2(neutral_x, 19), MapCardStyle.DIM, 1, true)
+			draw_line(Vector2(needle_x, 4), Vector2(needle_x, 20), MapCardStyle.INK, 3, true)
 			var font := get_theme_default_font()
 			for mark in [["0", track.position.x], [str(neutral), neutral_x - font.get_string_size(str(neutral), HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x / 2], ["%d+" % threshold, track.end.x - font.get_string_size("%d+" % threshold, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x]]:
-				draw_string(font, Vector2(mark[1], 34), mark[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, DIM)
+				draw_string(font, Vector2(mark[1], 34), mark[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, MapCardStyle.DIM)
 			return
 
 		draw_rect(Rect2(0, 0, w, h), MapStyle.MUTED_COLOUR.lerp(Color.WHITE, 0.5))
@@ -412,20 +391,11 @@ func _draw_pointer() -> void:
 	var a := Vector2(x - 9, y)
 	var b := Vector2(x, y + (-11 if below else 11))
 	var c := Vector2(x + 9, y)
-	_pointer.draw_colored_polygon(PackedVector2Array([a, b, c]), PAPER)
-	_pointer.draw_polyline(PackedVector2Array([a, b, c]), LINE, 1, true)
+	_pointer.draw_colored_polygon(PackedVector2Array([a, b, c]), MapCardStyle.PAPER)
+	_pointer.draw_polyline(PackedVector2Array([a, b, c]), MapCardStyle.LINE, 1, true)
 
 
-static func _skin(fill: Color, radius: int, border: bool = true) -> StyleBoxFlat:
-	var skin := StyleBoxFlat.new()
-	skin.bg_color = fill
-	skin.set_corner_radius_all(radius)
-	skin.set_border_width_all(1 if border else 0)
-	skin.border_color = LINE
-	return skin
-
-
-static func _label(value: String, font_size: int = 14, colour: Color = INK) -> Label:
+static func _label(value: String, font_size: int = 14, colour: Color = MapCardStyle.INK) -> Label:
 	var label := Label.new()
 	label.text = value
 	label.add_theme_font_size_override("font_size", font_size)
@@ -442,11 +412,11 @@ static func _compact_cues(vein: Dictionary) -> Variant:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	for cue in (["Developing", "Raid risk ↑"] if developing and risk else (["Developing"] if developing else ["Raid risk ↑"])):
 		if row.get_child_count() > 0:
-			row.add_child(_label("·", 11, GOLD))
-		var glyph := UI.icon_glyph_control(_draw_sprout if cue == "Developing" else _draw_shield, 0.8, GOLD)
+			row.add_child(_label("·", 11, MapCardStyle.GOLD))
+		var glyph := UI.icon_glyph_control(_draw_sprout if cue == "Developing" else _draw_shield, 0.8, MapCardStyle.GOLD)
 		glyph.custom_minimum_size = Vector2(13, 18)
 		row.add_child(glyph)
-		row.add_child(_label(cue, 11, GOLD))
+		row.add_child(_label(cue, 11, MapCardStyle.GOLD))
 	return row
 
 

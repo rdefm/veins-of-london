@@ -8,8 +8,6 @@ signal closed()
 const ICON_SIZE := 20.0
 const ACTION_WIDTH := 88.0
 const ACTION_ICON_SIZE := 56.0
-const CREAM := Color(0.980392, 0.972549, 0.952941, 1.0)
-const SLATE := Color(0.290196, 0.337255, 0.407843, 1.0)
 
 var _dim: ColorRect
 var _panel: PanelContainer
@@ -35,6 +33,7 @@ func _ready() -> void:
 	_panel = PanelContainer.new()
 	_panel.visible = false
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	_panel.add_theme_stylebox_override("panel", MapCardStyle.card_panel())
 	add_child(_panel)
 
 	_content = UI.vbox(4)
@@ -94,15 +93,9 @@ func _build_action_column(option: Dictionary) -> Control:
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	button.disabled = disabled
 	button.pressed.connect(func(): _select(id))
-	var circle := StyleBoxFlat.new()
-	circle.bg_color = CREAM
-	circle.border_color = SLATE
-	circle.set_border_width_all(1)
-	circle.set_corner_radius_all(int(ACTION_ICON_SIZE / 2.0))
-	button.add_theme_stylebox_override("normal", circle)
-	button.add_theme_stylebox_override("hover", circle)
-	button.add_theme_stylebox_override("pressed", circle)
-	var glyph := UI.icon_glyph_control(draw_icon, 1.25)
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		button.add_theme_stylebox_override(state, MapCardStyle.action_circle_style(state))
+	var glyph := UI.icon_glyph_control(draw_icon, 1.25, MapCardStyle.DIM if disabled else MapCardStyle.INK)
 	UI.anchor_full_rect(glyph)
 	button.add_child(glyph)
 	column.add_child(button)
@@ -111,6 +104,7 @@ func _build_action_column(option: Dictionary) -> Control:
 	label.custom_minimum_size.x = ACTION_WIDTH
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_color_override("font_color", MapCardStyle.DIM if disabled else MapCardStyle.INK)
 	column.add_child(label)
 	if disabled and reason != "":
 		var reason_label := UI.muted_label(reason)

@@ -126,7 +126,8 @@ overlays.
 | haptics.gd | Adapter over `Input.vibrate_handheld()` |
 | hq_diorama.gd | Generic plate/region artwork renderer |
 | icons.gd | 13 drawn icon glyphs |
-| map_bubble.gd | Popup listing tappable map options |
+| map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
+| map_card_style.gd | Shared PAPER/INK/DIM/LINE/GOLD/SAGE palette + card/action-circle StyleBoxFlat builders for the map-tab popup family (map_bubble.gd, vein_bubble.gd, vein_detail_panel.gd) |
 | map_canvas.gd | Network diagram: layout/stops/lines, hit-testing, static draw pass; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
 | map_controls.gd | Filter-chip drawer + legend button |
@@ -143,8 +144,8 @@ overlays.
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
 | turn_order_strip.gd | Combat turn-order strip: one card per projected turn occurrence. Tap selects; drag scrolls. Selected cards grow into a fixed reserved band. Owns palette-backed street-sign styling, bounded details, safe procedural damage decals, HP ghost drain, and `_reveal_pos()` |
 | ui.gd | Shared Control builders, time-cost labels, ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
-| vein_bubble.gd | Compact player-vein tap bubble: locally styled pin-anchored card with edge flipping, Lv segments, condition needle with 50/90+ scale, outline development/raid cues, round Harvest (light/hard chooser)/Cultivate actions; tapping the info area opens vein_detail_panel.gd instead of running an action |
-| vein_detail_panel.gd | Floating paper-card vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/alarm/Defend; reuses VeinBubble's level/condition builders |
+| vein_bubble.gd | Compact player-vein tap bubble: map_card_style.gd-skinned pin-anchored card with edge flipping, Lv segments, condition needle with 50/90+ scale, outline development/raid cues, round Harvest (light/hard chooser)/Cultivate actions; tapping the info area opens vein_detail_panel.gd instead of running an action |
+| vein_detail_panel.gd | Floating map_card_style.gd-skinned vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/alarm/Defend; reuses VeinBubble's level/condition builders |
 
 ## scenes/modals/*.gd — modal content, one script per type
 
