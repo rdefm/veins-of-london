@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reynard's — banking app concept</title>
+<style>
+  :root{font-family:Arial,Helvetica,sans-serif;color:#ededee;background:#494949;font-synthesis:none}
+  *{box-sizing:border-box}body{margin:0}.stage{width:min(100%,576px);height:100dvh;min-height:750px;margin:auto;display:flex;flex-direction:column}
+  .board{height:188px;background:#121210;border-bottom:5px solid #333;color:#efb84b;padding:67px 10px 8px;font:22px/1.12 monospace;letter-spacing:1px;overflow:hidden;white-space:nowrap}.board small{display:block;font-size:19px}
+  .device{flex:1;min-height:0;margin:0 10px 10px;padding:6px;border:5px solid #1a1a1c;border-radius:50px;background:#171719;box-shadow:0 0 0 2px #3b3b3e;overflow:hidden}.screen{height:100%;border-radius:40px;background:#252528;overflow:auto;scrollbar-width:thin;scrollbar-color:#666 transparent}
+  .status{height:70px;padding:29px 23px 0;display:flex;justify-content:space-between;font-size:21px}.signal{letter-spacing:3px}.app{padding:0 22px 34px}.top{display:flex;align-items:center;justify-content:space-between;padding:4px 0 21px}.back{color:#d9d9db;text-decoration:none;font-size:18px}.mark{font-size:13px;letter-spacing:2px;font-weight:800;color:#ececee}.avatar{width:28px;height:28px;border-radius:50%;background:#323236;color:#aaa;display:grid;place-items:center;font-size:13px}
+  .balance{background:#303034;border:1px solid #414146;border-radius:22px;padding:25px 23px 22px}.eyebrow{font-size:12px;letter-spacing:1.5px;color:#a7a7ac;font-weight:700;text-transform:uppercase}.sum{margin:9px 0 5px;font-size:46px;font-weight:650;letter-spacing:-2px;color:#d4af52;font-variant-numeric:tabular-nums}.balance p{margin:0;color:#a7a7ac;font-size:13px}.section{display:flex;justify-content:space-between;align-items:baseline;margin:32px 1px 9px}.section h2{margin:0;font-size:18px;letter-spacing:-.2px}.section span{color:#999a9d;font-size:13px}.day{padding:17px 1px 7px;border-bottom:1px solid #424246;color:#999a9d;font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase}.row{min-height:70px;padding:17px 1px;display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #424246}.desc{font-size:16px;line-height:1.35;max-width:74%}.amount{color:#d4af52;font-size:17px;font-weight:650;white-space:nowrap;font-variant-numeric:tabular-nums}.nav{height:90px;background:#fff;display:grid;grid-template-columns:repeat(3,1fr);color:#c8102e;text-align:center}.nav div{padding-top:14px;font-size:15px}.nav div+div{border-left:1px solid #eee}.nav b{display:block;font-size:24px;font-weight:400;margin-bottom:3px}
+  @media(max-height:900px){.board{height:126px;padding-top:25px}.status{height:56px;padding-top:20px}.nav{height:70px}.nav div{padding-top:7px}}
+</style>
+<main class="stage">
+  <div class="board">◖ DAY 51 EVENING<br>⌄▣ £3784<small>1ST YOUR EMOTION ORICHALCHUM VEIN</small><small>2ND HIRED ANOTHER GUARD FOR YOUR</small></div>
+  <div class="device"><div class="screen">
+    <div class="status"><span>08:14</span><span class="signal">▂▄▆ ◢ 87%</span></div>
+    <div class="app">
+      <div class="top"><a class="back" href="#">‹ Back</a><span class="mark">REYNARD’S</span><span class="avatar">R</span></div>
+      <div class="balance"><div class="eyebrow">Current balance</div><div class="sum">£3,784</div><p>Available to spend</p></div>
+      <div class="section"><h2>Activity</h2><span>Latest first</span></div>
+      <div class="day">Day 51</div>
+      <div class="row"><span class="desc">Vein security: +1 Guard</span><span class="amount">−£720</span></div>
+      <div class="row"><span class="desc">Living costs</span><span class="amount">−£50</span></div>
+      <div class="day">Day 50</div>
+      <div class="row"><span class="desc">Living costs</span><span class="amount">−£50</span></div>
+      <div class="day">Day 49</div>
+      <div class="row"><span class="desc">Archie sale</span><span class="amount">+£3,440</span></div>
+    </div>
+  </div></div>
+  <div class="nav"><div><b>♧</b>Phone</div><div><b>♧</b>Map</div><div><b>⌂</b>HQ</div></div>
+</main>
+</html>
