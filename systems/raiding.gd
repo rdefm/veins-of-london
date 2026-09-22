@@ -383,6 +383,9 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 	var vein_id: String = outcome["veinId"]
 	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
 	Sites.release_vein_slot(vein)
+	# Act 2 T8a (spec §6.8a): a no-op unless vein_id is the one col_a2_nadia_
+	# defend was watching, in which case it re-targets rather than dead-ending.
+	Collective.maybe_retarget_nadia_defend_vein(vein_id)
 
 	MapEvents.queue_seed_claim(vein["district"], vein_id, outcome["attackerId"])
 

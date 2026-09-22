@@ -2543,6 +2543,88 @@
 "op": "start_event"
 }]
 },
+"col_a2_nadia_defend_brief": {
+"cards": [{
+"label": null,
+"speaker": "Nadia",
+"text": "\"Kit's made — good. There's one place I want eyes on now, more than the rest. You'll get the alert same as ever; when it goes, you'll know why.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"That's what you made it for.\"",
+"type": "speaker"
+}],
+"id": "col_a2_nadia_defend_brief",
+"on_complete": [{
+"op": "col_a2_pick_nadia_defend_vein"
+}, {
+"flag": "colA2DefendBriefed",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"col_a2_nadia_ledger": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "Nadia's got a ledger out — a real one, not the back of an envelope — and she's already three columns into it by the time you sit down.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"I've started writing it down. Who's got what, where. Not for anyone else — for me, so I stop finding out we've lost something a week after everyone else does.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"Feels like something to be careful with, that.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Nobody quite picks that up. Nadia's already turning the page, asking who's carrying what, and the room goes with her — relieved, mostly, to have somewhere to look.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"Right. Sensible split, nothing heroic. Someone finds us fresh ground, someone keeps an eye on the place that's most exposed, everyone chips in on stock. I'll square you up for a start.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"You can't fight and you can't calm anyone down, you can just get hit slightly slower than you used to. Make some Blast. Make a Shield. And do one of the Prank — not because I think you'll need it, because I think you won't reach for it, and you should have the option sat there anyway.\"",
+"type": "speaker"
+}],
+"id": "col_a2_nadia_ledger",
+"on_complete": [{
+"op": "add",
+"path": "player.cash",
+"value": 250
+}, {
+"op": "add_ore",
+"qty": 11,
+"type": "physics"
+}, {
+"op": "add_ore",
+"qty": 6,
+"type": "emotion"
+}, {
+"flag": "colA2LedgerStarted",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "colA2Stage",
+"op": "set_flag",
+"value": "hardening"
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
 "col_a2_pattern": {
 "cards": [{
 "label": null,
@@ -4482,6 +4564,44 @@
 "questline": "collective",
 "title": "Des is waiting on the map. He'll teach you to seed a patch.",
 "type": "flag_true"
+},
+"col_a2_nadia_defend": {
+"activateFlag": "colA2DefendBriefed",
+"completeFlag": "colA2NadiaDefendDone",
+"detail": "Win the alarm-defend fight when it comes.",
+"id": "col_a2_nadia_defend",
+"params": {
+"minCount": 1
+},
+"questline": "collective",
+"title": "Defend the vein Nadia's watching",
+"type": "alarm_defend_wins"
+},
+"col_a2_nadia_reseed": {
+"activateFlag": "colA2LedgerStarted",
+"completeFlag": "colA2NadiaReseedDone",
+"detail": "One more foothold, properly claimed.",
+"id": "col_a2_nadia_reseed",
+"params": {
+"factionId": "collective",
+"minCount": 1
+},
+"questline": "collective",
+"title": "Seed a new vein for the Collective",
+"type": "faction_vein_seeded_count"
+},
+"col_a2_nadia_supplies": {
+"activateFlag": "colA2LedgerStarted",
+"completeFlag": "colA2NadiaSuppliesDone",
+"detail": "Craft one Blast, one Shield, one Pan's Prank.",
+"id": "col_a2_nadia_supplies",
+"params": {
+"minEach": 1,
+"recipeKeys": ["blast", "shield", "pansPrank"]
+},
+"questline": "collective",
+"title": "Stock the Collective's kit",
+"type": "items_crafted_set"
 },
 "tut_archie_craft_chat": {
 "activateFlag": "craftingUnlocked",

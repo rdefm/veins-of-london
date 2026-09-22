@@ -151,5 +151,35 @@
     "activateFlag": "colA1NadiaAskSeen",
     "completeFlag": "colA1NadiaVeinSold",
     "questline": "collective"
+  },
+  "col_a2_nadia_reseed": {
+    "id": "col_a2_nadia_reseed",
+    "title": "Seed a new vein for the Collective",
+    "detail": "One more foothold, properly claimed.",
+    "type": "faction_vein_seeded_count",
+    "params": { "factionId": "collective", "minCount": 1 },
+    "activateFlag": "colA2LedgerStarted",
+    "completeFlag": "colA2NadiaReseedDone",
+    "questline": "collective"
+  },
+  "col_a2_nadia_supplies": {
+    "id": "col_a2_nadia_supplies",
+    "title": "Stock the Collective's kit",
+    "detail": "Craft one Blast, one Shield, one Pan's Prank.",
+    "type": "items_crafted_set",
+    "params": { "recipeKeys": ["blast", "shield", "pansPrank"], "minEach": 1 },
+    "activateFlag": "colA2LedgerStarted",
+    "completeFlag": "colA2NadiaSuppliesDone",
+    "questline": "collective"
+  },
+  "col_a2_nadia_defend": {
+    "id": "col_a2_nadia_defend",
+    "title": "Defend the vein Nadia's watching",
+    "detail": "Win the alarm-defend fight when it comes.",
+    "type": "alarm_defend_wins",
+    "params": { "minCount": 1 },
+    "activateFlag": "colA2DefendBriefed",
+    "completeFlag": "colA2NadiaDefendDone",
+    "questline": "collective"
   }
 }

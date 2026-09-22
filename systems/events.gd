@@ -316,6 +316,11 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			Factions.adjust_player_relation(effect["faction"], effect["value"])
 		"log_method":
 			GameState.state["methodLog"][effect["key"]] = effect["value"]
+		# col_a2_nadia_defend_brief (T8a, spec §6.8a): no per-raid context to
+		# resolve a site from, unlike claim_faction_vein/loot_raid_vein above --
+		# Collective.pick_nadia_defend_vein() picks and writes the target itself.
+		"col_a2_pick_nadia_defend_vein":
+			Collective.pick_nadia_defend_vein()
 		"faction_seed_reported_sites":
 			_faction_seed_reported_sites(effect["objective"], effect["faction"])
 		# Resolves a contact-granted vein's id via veinIdStatePath and sells it at a forced

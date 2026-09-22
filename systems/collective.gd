@@ -337,3 +337,53 @@ static func _roll_hakim_intel_tier() -> String:
 		if roll < cumulative:
 			return tier
 	return HAKIM_INTEL_TIERS[-1]
+
+
+# Act 2 T8a (spec §5.1/§6.8a): the player vein col_a2_nadia_defend watches --
+# whichever vein already carries the Alarm upgrade if one does, else the
+# lowest-raid-resist ("most exposed") vein, per the spec's own fallback
+# order. exclude_id lets maybe_retarget_nadia_defend_vein() below rule out
+# a vein that was just lost.
+static func _pick_defend_vein_candidate(exclude_id: String = "") -> Variant:
+	var most_exposed: Variant = null
+	for vein in GameState.state["player"]["veins"]:
+		if vein["id"] == exclude_id:
+			continue
+		if vein["alarmUpgrades"].has(Cultivating.ALARM_UPGRADE_ID):
+			return vein
+		if most_exposed == null or Cultivating.vein_raid_resist(vein) < Cultivating.vein_raid_resist(most_exposed):
+			most_exposed = vein
+	return most_exposed
+
+
+# The col_a2_pick_nadia_defend_vein on_complete op's handler (col_a2_nadia_
+# defend_brief's on_complete, spec §6.8a): picks and stamps the target once, when the brief scene resolves.
+static func pick_nadia_defend_vein() -> void:
+	var vein: Variant = _pick_defend_vein_candidate()
+	GameState.state["collective"]["nadiaDefendVeinId"] = vein["id"] if vein != null else null
+
+
+# Called from Raiding.resolve_raid_outcome() on every ownership-transferring
+# loss. Spec §6.8a: "should re-target a different Collective vein rather
+# than dead-end" if the vein col_a2_nadia_defend was watching is the one
+# just lost -- a no-op for every other loss.
+static func maybe_retarget_nadia_defend_vein(lost_vein_id: String) -> void:
+	if GameState.state["collective"].get("nadiaDefendVeinId") != lost_vein_id:
+		return
+	var vein: Variant = _pick_defend_vein_candidate(lost_vein_id)
+	GameState.state["collective"]["nadiaDefendVeinId"] = vein["id"] if vein != null else null
+
+
+# Fires col_a2_nadia_defend_brief the instant col_a2_nadia_supplies completes
+# (spec §5.1's "supplies before defend, not parallel" sequencing), called
+# from Crafting.attempt_craft()'s success branch after Objectives.refresh(),
+# same shape as maybe_trigger_nadia_vein_done() above. colA2DefendBriefed
+# (the scene's own on_complete flag) blocks re-firing.
+static func maybe_trigger_a2_nadia_defend_brief() -> bool:
+	if GameState.state["flags"].get("colA2DefendBriefed", false):
+		return false
+	if not GameState.state["objectives"].get("col_a2_nadia_supplies", {}).get("complete", false):
+		return false
+
+	Events.start_event("col_a2_nadia_defend_brief")
+	return true

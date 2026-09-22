@@ -304,6 +304,11 @@ func new_game_state() -> Dictionary:
 			# a2_contested_vein_setup() scripts as "a Collective vein the
 			# Firm has taken since T3". null until Phase 1 opens.
 			"contestedVeinSiteId": null,
+			# Act 2 T8a (spec §6.8a): the player vein col_a2_nadia_defend is
+			# currently watching, picked by Collective.pick_nadia_defend_vein()
+			# and re-picked by maybe_retarget_nadia_defend_vein() if lost
+			# before being defended. null until T8a fires.
+			"nadiaDefendVeinId": null,
 		},
 	}
 

@@ -1,0 +1,12 @@
+{
+  "id": "col_a2_nadia_defend_brief",
+  "cards": [
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"Kit's made — good. There's one place I want eyes on now, more than the rest. You'll get the alert same as ever; when it goes, you'll know why.\"" },
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"That's what you made it for.\"" }
+  ],
+  "on_complete": [
+    { "op": "col_a2_pick_nadia_defend_vein" },
+    { "op": "set_flag", "flag": "colA2DefendBriefed", "value": true },
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "col_a2_nadia_ledger",
+  "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "Nadia's got a ledger out — a real one, not the back of an envelope — and she's already three columns into it by the time you sit down." },
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"I've started writing it down. Who's got what, where. Not for anyone else — for me, so I stop finding out we've lost something a week after everyone else does.\"" },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Feels like something to be careful with, that.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "Nobody quite picks that up. Nadia's already turning the page, asking who's carrying what, and the room goes with her — relieved, mostly, to have somewhere to look." },
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"Right. Sensible split, nothing heroic. Someone finds us fresh ground, someone keeps an eye on the place that's most exposed, everyone chips in on stock. I'll square you up for a start.\"" },
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"You can't fight and you can't calm anyone down, you can just get hit slightly slower than you used to. Make some Blast. Make a Shield. And do one of the Prank — not because I think you'll need it, because I think you won't reach for it, and you should have the option sat there anyway.\"" }
+  ],
+  "on_complete": [
+    { "op": "add", "path": "player.cash", "value": 250 },
+    { "op": "add_ore", "type": "physics", "qty": 11 },
+    { "op": "add_ore", "type": "emotion", "qty": 6 },
+    { "op": "set_flag", "flag": "colA2LedgerStarted", "value": true },
+    { "op": "set_flag", "flag": "colA2Stage", "value": "hardening" },
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

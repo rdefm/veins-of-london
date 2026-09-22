@@ -156,6 +156,7 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 		counts[recipe_key] = int(counts.get(recipe_key, 0)) + 1
 		award_crafting_xp(r["xpReward"])
 		Objectives.refresh()
+		Collective.maybe_trigger_a2_nadia_defend_brief()
 		Modal.open("craft_result", { "success": true, "recipeKey": recipe_key, "power": power })
 		return { "ok": true, "success": true, "recipeKey": recipe_key, "power": power }
 	else:

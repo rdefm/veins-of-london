@@ -344,6 +344,11 @@ static func _gather_raid_allies(ally_ids: Array, log_lines: Array) -> Array:
 static func start_defend_vein(vein_id: String, value_tier: int) -> void:
 	var enemies := generate_raid_enemy(vein_id, value_tier)
 	var log_lines := ["The alarm wasn't lying. %s is already there." % _guard_group_name(enemies)]
+	# Act 2 T8a's pre-fight reminder (spec §5.1/§6.8a): one Nadia-voiced line,
+	# prepended only for the vein col_a2_nadia_defend is watching, only once.
+	if vein_id == GameState.state["collective"].get("nadiaDefendVeinId") and not GameState.state["flags"].get("colA2DefendReminderShown", false):
+		log_lines.push_front("Nadia, in your ear: \"Go on then. That's what the Blast and the Shield were for — use them properly this time, not for luck.\"")
+		GameState.state["flags"]["colA2DefendReminderShown"] = true
 	var allies := _gather_defend_allies(log_lines)
 	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemies, log_lines, "", allies)
 

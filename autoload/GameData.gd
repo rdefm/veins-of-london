@@ -1037,6 +1037,10 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# threaded context, then reuse Raiding.claim_vein()/VeinTrade.
 	# buy_from_faction() respectively.
 	"claim_faction_vein", "buy_faction_vein",
+	# col_a2_nadia_defend_brief's on_complete (T8a, spec §6.8a): picks and
+	# stamps state.collective.nadiaDefendVeinId via Collective.
+	# pick_nadia_defend_vein() -- no per-raid context to resolve a site from.
+	"col_a2_pick_nadia_defend_vein",
 ]
 
 
