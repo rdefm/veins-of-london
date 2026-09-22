@@ -6,6 +6,7 @@ var _dim: ColorRect
 var _card: PanelContainer
 var _scroll: ScrollContainer
 var _card_content: VBoxContainer
+var _trade_view: PanelContainer
 
 const MAX_CARD_HEIGHT := 620.0
 
@@ -31,6 +32,11 @@ func _ready() -> void:
 	_card_content = UI.vbox(8)
 	_card_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(_card_content)
+
+	_trade_view = preload("res://scenes/modals/sell_menu_view.gd").new()
+	UI.anchor_full_rect(_trade_view)
+	_trade_view.visible = false
+	add_child(_trade_view)
 
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
@@ -62,7 +68,21 @@ func _refresh() -> void:
 	var modal = GameState.state["modal"]
 	visible = modal != null
 	if modal == null:
+		if _trade_view.visible:
+			_trade_view.call("reset_ui")
+		_trade_view.visible = false
 		return
+	if modal.get("type", "") == "sell_menu":
+		_card.visible = false
+		_trade_view.visible = true
+		_trade_view.offset_top = UI.top_bar_clearance() + 8.0
+		_trade_view.offset_bottom = -NavBar.BAR_HEIGHT
+		_trade_view.call("refresh", modal.get("data", {}))
+		return
+	if _trade_view.visible:
+		_trade_view.call("reset_ui")
+	_trade_view.visible = false
+	_card.visible = true
 
 	for child in _card_content.get_children():
 		child.queue_free()

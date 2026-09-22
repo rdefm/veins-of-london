@@ -133,7 +133,7 @@ overlays.
 | map_controls.gd | Filter-chip drawer + legend button |
 | map_legend.gd | Persistent faction-colour key |
 | map_zoom_buttons.gd | Floating +/- zoom control |
-| modal_layer.gd | Dim background + card; chrome + tap-outside dismiss. All content dispatched by type through scenes/modals/modal_registry.gd; unknown types get a placeholder card |
+| modal_layer.gd | Dim background + generic card; mounts the dedicated Trade sheet for sell_menu, and dispatches other content through modal_registry.gd; tap-outside dismiss |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ) |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
 | phone_device_shell.gd | Persistent rounded simulated-phone frame: clipped display, approved London wallpaper, fixed status/widget chrome, dark opened-app surface + shared/custom content mounts |
@@ -161,8 +161,8 @@ overlays.
 | james_job_offer_modal.gd | James job offer card; Accept/Decline hand off to Jobs |
 | james_job_short_modal.gd | James job "not enough stock" card |
 | james_job_complete_modal.gd | James job payout card |
-| sell_menu_modal.gd | Archie and faction sell/buy menus; Cancel clears sellState |
-| sell_row_builders.gd | Row widgets shared by sell_menu_modal.gd (sell/buy-ore/vein rows, collapsible Ore/Items/Assets sections) |
+| sell_menu_modal.gd | Trade modal registry adapter and Cancel action that clears sellState |
+| sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; invokes existing trade systems |
 | nadia_supply_modal.gd | Nadia ore-supply objective card |
 | sell_vein_quote_modal.gd | Single-vein sale confirmation card |
 | craft_components_menu_modal.gd | Movement-archetype picker; Craft hands off to movement_craft |
