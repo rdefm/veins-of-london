@@ -22,6 +22,7 @@ const _HEADING_ROW_HEIGHT := 40.0
 # Padding above the turn-order strip so it doesn't sit flush on the stage's
 # own top border.
 const _STRIP_TOP_INSET := 6.0
+const _STRIP_SIDE_INSET := 9.0
 
 var _heading: Label
 var _pacing_button: Button
@@ -90,6 +91,8 @@ func _ready() -> void:
 	# overlays the stage rather than stacking above it.
 	_strip_holder = Control.new()
 	_strip_holder.anchor_right = 1.0
+	_strip_holder.offset_left = _STRIP_SIDE_INSET
+	_strip_holder.offset_right = -_STRIP_SIDE_INSET
 	_strip_holder.offset_top = _STRIP_TOP_INSET
 	_strip_holder.offset_bottom = _STRIP_TOP_INSET + TurnOrderStrip.CARD_HEIGHT
 	_strip_holder.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -168,7 +171,7 @@ func _build_turn_order_strip(combat: Dictionary, player: Dictionary) -> TurnOrde
 	var strip := TurnOrderStrip.new()
 	var entries: Array = strip.build_entries(combat, player)
 	var selected_pos := _selected_strip_pos(entries, combat)
-	strip.configure(entries, maxi(0, selected_pos), combat, player, CombatStage.STAGE_WIDTH, _on_strip_selection_changed)
+	strip.configure(entries, maxi(0, selected_pos), combat, player, CombatStage.STAGE_WIDTH - _STRIP_SIDE_INSET * 2.0, _on_strip_selection_changed)
 	return strip
 
 # combat.selection (R§2) is the sole source of truth now -- no screen-local

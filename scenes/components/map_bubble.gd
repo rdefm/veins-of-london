@@ -6,6 +6,10 @@ signal option_selected(option_id: String)
 signal closed()
 
 const ICON_SIZE := 20.0
+const ACTION_WIDTH := 88.0
+const ACTION_ICON_SIZE := 56.0
+const CREAM := Color(0.980392, 0.972549, 0.952941, 1.0)
+const SLATE := Color(0.290196, 0.337255, 0.407843, 1.0)
 
 var _dim: ColorRect
 var _panel: PanelContainer
@@ -37,10 +41,10 @@ func _ready() -> void:
 	_panel.add_child(_content)
 
 
-func open(anchor: Vector2, options: Array, bounds_size: Vector2 = Vector2.ZERO) -> void:
+func open(anchor: Vector2, options: Array, bounds_size: Vector2 = Vector2.ZERO, horizontal_actions: bool = false) -> void:
 	_anchor = anchor
 	_bounds_size = bounds_size if bounds_size != Vector2.ZERO else size
-	_rebuild(options)
+	_rebuild(options, horizontal_actions)
 	visible = true
 	_dim.visible = true
 	_panel.visible = true
@@ -61,11 +65,60 @@ func _on_dim_gui_input(event: InputEvent) -> void:
 		close()
 
 
-func _rebuild(options: Array) -> void:
+func _rebuild(options: Array, horizontal_actions: bool = false) -> void:
 	for child in _content.get_children():
 		child.free()
+	if horizontal_actions:
+		var actions := UI.hbox(8)
+		for option in options:
+			actions.add_child(_build_action_column(option))
+		_content.add_child(actions)
+		return
 	for option in options:
 		_content.add_child(_build_option_row(option))
+
+
+func _build_action_column(option: Dictionary) -> Control:
+	var id: String = option.get("id", "")
+	var label_text: String = option.get("label", "")
+	var draw_icon: Callable = option.get("icon", Icons.draw_hamburger)
+	var disabled: bool = option.get("disabled", false)
+	var reason: String = option.get("reason", "")
+
+	var column := UI.vbox(4)
+	column.custom_minimum_size.x = ACTION_WIDTH
+	column.alignment = BoxContainer.ALIGNMENT_BEGIN
+
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(ACTION_ICON_SIZE, ACTION_ICON_SIZE)
+	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	button.disabled = disabled
+	button.pressed.connect(func(): _select(id))
+	var circle := StyleBoxFlat.new()
+	circle.bg_color = CREAM
+	circle.border_color = SLATE
+	circle.set_border_width_all(1)
+	circle.set_corner_radius_all(int(ACTION_ICON_SIZE / 2.0))
+	button.add_theme_stylebox_override("normal", circle)
+	button.add_theme_stylebox_override("hover", circle)
+	button.add_theme_stylebox_override("pressed", circle)
+	var glyph := UI.icon_glyph_control(draw_icon, 1.25)
+	UI.anchor_full_rect(glyph)
+	button.add_child(glyph)
+	column.add_child(button)
+
+	var label := UI.label(label_text)
+	label.custom_minimum_size.x = ACTION_WIDTH
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(label)
+	if disabled and reason != "":
+		var reason_label := UI.muted_label(reason)
+		reason_label.custom_minimum_size.x = ACTION_WIDTH
+		reason_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		reason_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(reason_label)
+	return column
 
 
 func _build_option_row(option: Dictionary) -> Control:

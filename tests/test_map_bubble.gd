@@ -110,6 +110,25 @@ func run() -> void:
 		bubble.free()
 	)
 
+	run_case("horizontal_actions_render_as_three_icon_columns", func():
+		var bubble := MapBubble.new()
+		bubble._ready()
+		bubble.open(Vector2(100, 100), [
+			{ "id": "prospect", "label": "Prospect — 1 block", "icon": Icons.draw_prospect },
+			{ "id": "view", "label": "View Veins", "icon": Icons.draw_search },
+			{ "id": "list", "label": "List view", "icon": Icons.draw_hamburger },
+		], Vector2(390, 844), true)
+
+		assert_eq(bubble._content.get_child_count(), 1, "the action card has one horizontal row")
+		var actions := bubble._content.get_child(0) as HBoxContainer
+		assert_eq(actions.get_child_count(), 3, "the district actions sit side by side")
+		var first_column := actions.get_child(0) as VBoxContainer
+		assert_true(first_column.get_child(0) is Button, "each action starts with a tappable icon button")
+		assert_eq((first_column.get_child(1) as Label).text, "Prospect — 1 block", "the label sits below its icon")
+
+		bubble.free()
+	)
+
 	run_case("an_option_with_an_icon_callable_renders_a_glyph_alongside_its_label", func():
 		var bubble := MapBubble.new()
 		bubble._ready()

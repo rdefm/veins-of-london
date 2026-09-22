@@ -2,14 +2,15 @@ class_name TurnOrderStrip
 extends Control
 
 
-const CARD_HEIGHT := 88.0
-const MAX_CARD_WIDTH := 96.0
-const CARD_SEPARATION := 6.0
+const CARD_HEIGHT := 68.0
+const MAX_CARD_WIDTH := 101.0
+const CARD_SEPARATION := 4.0
 # §2.4: the selected card grows taller/wider, extending into the band
 # reserved below the strip for a selected occurrence's expanded details.
-const EXPANDED_CARD_HEIGHT := CARD_HEIGHT * 2.0
-const EXPANDED_WIDTH_BONUS_PX := 16.0
-const HP_BAR_HEIGHT := 4.0
+const EXPANDED_CARD_HEIGHT := 84.0
+const MAX_EXPANDED_CARD_HEIGHT := 136.0
+const EXPANDED_WIDTH_BONUS_PX := 28.0
+const HP_BAR_HEIGHT := 6.0
 const SWIPE_THRESHOLD_PX := 40.0
 
 const PULSE_HP_FRACTION := 0.20
@@ -75,18 +76,22 @@ class NameplateCard extends Control:
 
 	func _draw() -> void:
 		var rect := Rect2(Vector2.ZERO, size)
-		draw_rect(rect, TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_GROUND_ID), true)
-		draw_rect(rect, TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_BORDER_ID), false, 2.0 if is_focused else 1.0)
+		var sign := StyleBoxFlat.new()
+		sign.bg_color = TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_GROUND_ID)
+		sign.border_color = TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_BORDER_ID)
+		sign.set_border_width_all(2)
+		sign.set_corner_radius_all(4)
+		draw_style_box(sign, rect)
 
-		var bar_y: float = 20.0
+		var bar_y: float = 25.0
 		var frac: float = clampf(float(hp) / float(maxi(1, hp_max)), 0.0, 1.0)
-		draw_rect(Rect2(Vector2(4.0, bar_y), Vector2(size.x - 8.0, TurnOrderStrip.HP_BAR_HEIGHT)), TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_HP_TRACK_ID), true)
-		draw_rect(Rect2(Vector2(4.0, bar_y), Vector2((size.x - 8.0) * frac, TurnOrderStrip.HP_BAR_HEIGHT)), faction_colour, true)
+		draw_rect(Rect2(Vector2(8.0, bar_y), Vector2(size.x - 16.0, TurnOrderStrip.HP_BAR_HEIGHT)), TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_HP_TRACK_ID), true)
+		draw_rect(Rect2(Vector2(8.0, bar_y), Vector2((size.x - 16.0) * frac, TurnOrderStrip.HP_BAR_HEIGHT)), faction_colour, true)
 
 		if ghost_hp != null:
 			var ghost_frac: float = clampf(float(ghost_hp) / float(maxi(1, hp_max)), 0.0, 1.0)
 			if ghost_frac > frac:
-				draw_rect(Rect2(Vector2(4.0 + (size.x - 8.0) * frac, bar_y), Vector2((size.x - 8.0) * (ghost_frac - frac), TurnOrderStrip.HP_BAR_HEIGHT)), TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_GHOST_ID), true)
+				draw_rect(Rect2(Vector2(8.0 + (size.x - 16.0) * frac, bar_y), Vector2((size.x - 16.0) * (ghost_frac - frac), TurnOrderStrip.HP_BAR_HEIGHT)), TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_GHOST_ID), true)
 
 		_draw_damage_overlay()
 
@@ -97,19 +102,19 @@ class NameplateCard extends Control:
 		# Damage stays clear of the name/HP band (y <= 28) and the bottom
 		# faction line. Children render above this procedural decal as a
 		# second guard against lost information.
-		var right: float = size.x - 3.0
+		var right: float = size.x - 4.0
 		draw_polyline(PackedVector2Array([
-			Vector2(right, 34.0), Vector2(right - 7.0, 41.0),
-			Vector2(right - 3.0, 48.0), Vector2(right - 10.0, 56.0),
+			Vector2(right, 4.0), Vector2(right - 7.0, 10.0),
+			Vector2(right - 3.0, 17.0), Vector2(right - 10.0, 23.0),
 		]), ink, 1.0)
 		if damage_tier < 2:
 			return
 		draw_polyline(PackedVector2Array([
-			Vector2(3.0, 47.0), Vector2(10.0, 53.0), Vector2(5.0, 62.0),
+			Vector2(3.0, 38.0), Vector2(10.0, 44.0), Vector2(5.0, 53.0),
 		]), ink, 1.0)
 		# A small mid-edge chip; never intersects the protected information bands.
 		draw_colored_polygon(PackedVector2Array([
-			Vector2(size.x, 61.0), Vector2(size.x - 7.0, 65.0), Vector2(size.x, 70.0),
+			Vector2(size.x, 48.0), Vector2(size.x - 7.0, 52.0), Vector2(size.x, 57.0),
 		]), TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_BORDER_ID))
 
 
@@ -240,15 +245,14 @@ func _rebuild(available_width: float) -> void:
 	# The strip's own reserved height never changes with selection (§2.4:
 	# nothing below it moves when a card expands) -- it's always tall
 	# enough for the one card that's always selected.
-	custom_minimum_size = Vector2(available_width, EXPANDED_CARD_HEIGHT)
+	custom_minimum_size = Vector2(available_width, MAX_EXPANDED_CARD_HEIGHT)
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	clip_contents = true
 
 	_row = UI.hbox(CARD_SEPARATION)
 	_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var n: int = maxi(1, _entries.size())
-	var base_width: float = minf((available_width - CARD_SEPARATION * (n - 1) - EXPANDED_WIDTH_BONUS_PX) / n, MAX_CARD_WIDTH)
+	var base_width: float = MAX_CARD_WIDTH
 
 	_card_rects = []
 	var x: float = 0.0
@@ -256,11 +260,11 @@ func _rebuild(available_width: float) -> void:
 		var entry: Dictionary = _entries[i]
 		var is_selected: bool = entry["key"] == _selected_key
 		var w: float = base_width + (EXPANDED_WIDTH_BONUS_PX if is_selected else 0.0)
-		var h: float = EXPANDED_CARD_HEIGHT if is_selected else CARD_HEIGHT
+		var h: float = _expanded_height_for(entry) if is_selected else CARD_HEIGHT
 		_card_rects.append(Rect2(Vector2(x, 0.0), Vector2(w, h)))
 		x += w + CARD_SEPARATION
 	var total_width: float = maxf(0.0, x - CARD_SEPARATION)
-	_row.custom_minimum_size = Vector2(total_width, EXPANDED_CARD_HEIGHT)
+	_row.custom_minimum_size = Vector2(total_width, MAX_EXPANDED_CARD_HEIGHT)
 	_max_scroll = maxf(0.0, total_width - available_width)
 	_scroll_offset = clampf(_scroll_offset, 0.0, _max_scroll)
 	_row.position.x = -_scroll_offset
@@ -273,6 +277,17 @@ func _rebuild(available_width: float) -> void:
 		_row.add_child(card)
 
 	add_child(_row)
+
+
+func _expanded_height_for(entry: Dictionary) -> float:
+	var statuses := _status_lines_for(entry["key"], _combat, _player)
+	if not statuses.is_empty():
+		return MAX_EXPANDED_CARD_HEIGHT
+	if entry["isEnemy"]:
+		var enemy: Dictionary = _combat["enemies"][entry["key"]["index"]]
+		if _telegraph_text_for(enemy).length() > 20:
+			return MAX_EXPANDED_CARD_HEIGHT
+	return EXPANDED_CARD_HEIGHT
 
 
 func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> NameplateCard:
@@ -354,10 +369,10 @@ func drain_ghost_to(key_string: String, hp: int, duration: float) -> void:
 func _build_card_content(card: NameplateCard) -> void:
 	var box := UI.vbox(1)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.offset_left = 5.0
-	box.offset_top = 3.0
-	box.offset_right = -5.0
-	box.offset_bottom = -3.0
+	box.offset_left = 8.0
+	box.offset_top = 4.0
+	box.offset_right = -8.0
+	box.offset_bottom = -5.0
 	UI.anchor_full_rect(box)
 
 	var top_row := UI.hbox(2)
@@ -366,7 +381,7 @@ func _build_card_content(card: NameplateCard) -> void:
 	name_label.text = card.combatant_name
 	name_label.clip_text = true
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	name_label.add_theme_font_size_override("font_size", 10)
+	name_label.add_theme_font_size_override("font_size", 12)
 	name_label.add_theme_color_override("font_color", _palette_colour(SIGN_LETTERING_ID))
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(name_label)
@@ -375,21 +390,21 @@ func _build_card_content(card: NameplateCard) -> void:
 	if card.level != null:
 		var level_label := Label.new()
 		level_label.text = "Lv%d" % card.level
-		level_label.add_theme_font_size_override("font_size", 8)
+		level_label.add_theme_font_size_override("font_size", 9)
 		level_label.add_theme_color_override("font_color", _palette_colour(SIGN_LETTERING_ID))
 		top_row.add_child(level_label)
 
 	box.add_child(top_row)
 
 	var bar_spacer := Control.new()
-	bar_spacer.custom_minimum_size = Vector2(0, HP_BAR_HEIGHT + 2.0)
+	bar_spacer.custom_minimum_size = Vector2(0, HP_BAR_HEIGHT + 8.0)
 	bar_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(bar_spacer)
 
 	if card.shows_exact_hp:
 		var hp_label := Label.new()
-		hp_label.text = "%d/%d" % [card.hp, card.hp_max]
-		hp_label.add_theme_font_size_override("font_size", 9)
+		hp_label.text = "%d/%d HP" % [card.hp, card.hp_max]
+		hp_label.add_theme_font_size_override("font_size", 10)
 		hp_label.add_theme_color_override("font_color", _palette_colour(SIGN_LETTERING_ID))
 		box.add_child(hp_label)
 
@@ -398,7 +413,7 @@ func _build_card_content(card: NameplateCard) -> void:
 		status_label.text = line
 		status_label.clip_text = true
 		status_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		status_label.add_theme_font_size_override("font_size", 8)
+		status_label.add_theme_font_size_override("font_size", 9)
 		status_label.add_theme_color_override("font_color", _palette_colour(SIGN_STATUS_ID))
 		box.add_child(status_label)
 
@@ -417,8 +432,8 @@ func _build_card_content(card: NameplateCard) -> void:
 			telegraph.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			telegraph.max_lines_visible = 2
 			telegraph.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-			telegraph.custom_minimum_size.y = 24.0
-			telegraph.add_theme_font_size_override("font_size", 8)
+			telegraph.custom_minimum_size.y = 22.0
+			telegraph.add_theme_font_size_override("font_size", 10)
 			telegraph.add_theme_color_override("font_color", _palette_colour(SIGN_INTENT_ID))
 			box.add_child(telegraph)
 			card.telegraph_label = telegraph
@@ -426,7 +441,7 @@ func _build_card_content(card: NameplateCard) -> void:
 	var faction_label := Label.new()
 	faction_label.text = card.faction_name
 	faction_label.clip_text = true
-	faction_label.add_theme_font_size_override("font_size", 8)
+	faction_label.add_theme_font_size_override("font_size", 9)
 	faction_label.add_theme_color_override("font_color", UNKNOWN_COLOUR if card.faction_name == "UNKNOWN" else card.faction_colour)
 	faction_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	faction_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM

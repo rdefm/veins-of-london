@@ -21,6 +21,39 @@ static func _label_texts(root: Node) -> Array:
 
 
 func run() -> void:
+	await run_case("detail_card_and_controls_stay_inside_the_phone_viewport", func():
+		GameState.reset()
+		var panel := VeinDetailPanel.build(Fixtures.player_vein_with({ "growth": 60 }))
+		var tree := Engine.get_main_loop() as SceneTree
+		tree.root.add_child(panel)
+		await tree.process_frame
+		await tree.process_frame
+
+		var cards := panel.find_children("VeinDetailCard", "PanelContainer", true, false)
+		assert_eq(cards.size(), 1)
+		var card := cards[0] as PanelContainer
+		var viewport_width := tree.root.get_visible_rect().size.x
+		assert_true(card.global_position.x >= 0.0, "card left edge must remain visible")
+		assert_true(card.global_position.x + card.size.x <= viewport_width, "card right edge must remain visible")
+		for button in card.find_children("", "Button", true, false):
+			var control := button as Button
+			assert_true(control.global_position.x >= 0.0, "%s left edge must remain tappable" % control.name)
+			assert_true(control.global_position.x + control.size.x <= viewport_width, "%s right edge must remain tappable" % control.name)
+
+		panel.free()
+	)
+
+	run_case("primary_actions_render_as_three_compact_tiles", func():
+		GameState.reset()
+		var panel := VeinDetailPanel.build(Fixtures.player_vein_with({ "growth": 60 }))
+		var rows := panel.find_children("ActionTiles", "HBoxContainer", true, false)
+
+		assert_eq(rows.size(), 1)
+		assert_eq((rows[0] as HBoxContainer).get_child_count(), 3)
+
+		panel.free()
+	)
+
 	run_case("header_names_the_district_and_ore", func():
 		GameState.reset()
 		var vein := Fixtures.player_vein_with({ "growth": 60 })

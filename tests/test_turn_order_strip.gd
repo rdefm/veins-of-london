@@ -391,14 +391,35 @@ func run() -> void:
 		var ground: Color = GameData.PALETTE[TurnOrderStrip.SIGN_GROUND_ID]
 		var lettering: Color = GameData.PALETTE[TurnOrderStrip.SIGN_LETTERING_ID]
 		assert_true(ground.get_luminance() > lettering.get_luminance(), "sign ground must stay light with dark lettering")
+		assert_true(ground.get_luminance() > 0.9, "reference cards use a near-white face")
+		assert_true(GameData.PALETTE[TurnOrderStrip.SIGN_BORDER_ID].get_luminance() < 0.15, "reference cards use a dark high-contrast border")
 		assert_true(GameData.PALETTE[TurnOrderStrip.SIGN_BORDER_ID] != Color(GameData.FACTIONS["collective"]["colour"]), "neutral border must not inherit faction colour")
+	)
+
+	run_case("clean_selected_card_uses_the_reference_shallow_expanded_height", func():
+		GameState.reset()
+		var combat := _combat([Fixtures.enemy("Scrapper", 20, 20, false, 30)])
+		var strip := TurnOrderStrip.new()
+		strip.configure(strip.build_entries(combat, GameState.state["player"]), 0, combat, GameState.state["player"], 300.0, Callable())
+
+		assert_eq(_card_named(strip, "Scrapper").size.y, TurnOrderStrip.EXPANDED_CARD_HEIGHT)
+	)
+
+	run_case("status_details_use_the_reserved_tall_card_without_changing_the_default_shape", func():
+		GameState.reset()
+		var combat := _combat([Fixtures.enemy("Scrapper", 20, 20, false, 30)])
+		combat["frozenTurns"] = 2
+		var strip := TurnOrderStrip.new()
+		strip.configure(strip.build_entries(combat, GameState.state["player"]), 0, combat, GameState.state["player"], 300.0, Callable())
+
+		assert_eq(_card_named(strip, "Scrapper").size.y, TurnOrderStrip.MAX_EXPANDED_CARD_HEIGHT)
 	)
 
 	run_case("expanded_card_bounds_long_name_three_statuses_and_long_intent", func():
 		GameState.reset()
 		var strip := TurnOrderStrip.new()
 		var card := TurnOrderStrip.NameplateCard.new()
-		card.size = Vector2(TurnOrderStrip.MAX_CARD_WIDTH + TurnOrderStrip.EXPANDED_WIDTH_BONUS_PX, TurnOrderStrip.EXPANDED_CARD_HEIGHT)
+		card.size = Vector2(TurnOrderStrip.MAX_CARD_WIDTH + TurnOrderStrip.EXPANDED_WIDTH_BONUS_PX, TurnOrderStrip.MAX_EXPANDED_CARD_HEIGHT)
 		card.custom_minimum_size = card.size
 		card.combatant_name = "TwentyFourCharacterNameXX"
 		card.hp = 10
@@ -414,11 +435,11 @@ func run() -> void:
 		assert_eq(card.telegraph_label.autowrap_mode, TextServer.AUTOWRAP_WORD_SMART)
 		assert_eq(card.telegraph_label.max_lines_visible, 2)
 		assert_eq(card.telegraph_label.text_overrun_behavior, TextServer.OVERRUN_TRIM_ELLIPSIS)
-		assert_true(card.telegraph_label.custom_minimum_size.y <= TurnOrderStrip.EXPANDED_CARD_HEIGHT)
+		assert_true(card.telegraph_label.custom_minimum_size.y <= TurnOrderStrip.MAX_EXPANDED_CARD_HEIGHT)
 		assert_true(card.name_label != null and card.faction_label != null, "protected name and faction content remain present at every damage tier")
 	)
 
-	run_case("card_widths_shrink_to_fit_available_width_for_a_full_six_combatant_roster", func():
+	run_case("card_widths_stay_readable_and_overflow_into_the_scrollable_strip", func():
 		GameState.reset()
 		var combat := _combat(
 			[Fixtures.enemy("E1"), Fixtures.enemy("E2"), Fixtures.enemy("E3")],
@@ -429,12 +450,11 @@ func run() -> void:
 		assert_eq(entries.size(), 6, "sanity: 3 enemies + 2 allies + the player")
 		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, Callable())
 
-		var total_width := 0.0
 		var cards := _cards(strip)
-		for c in cards:
-			total_width += c.size.x
-		total_width += TurnOrderStrip.CARD_SEPARATION * (cards.size() - 1)
-		assert_true(total_width <= 300.5, "six cards must fit within the strip's available width, not overflow the stage")
+		assert_eq(cards[0].size.x, TurnOrderStrip.MAX_CARD_WIDTH + TurnOrderStrip.EXPANDED_WIDTH_BONUS_PX)
+		for i in range(1, cards.size()):
+			assert_eq(cards[i].size.x, TurnOrderStrip.MAX_CARD_WIDTH)
+		assert_true(strip._max_scroll > 0.0, "the screenshot-sized cards should keep their readable width and use the strip's existing horizontal scroll")
 	)
 
 	# ── tap-to-select / drag-to-scroll (combat-refining ticket 04) ───────
@@ -453,9 +473,8 @@ func run() -> void:
 		var received: Array = []
 		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, func(key): received.append(key))
 
-		# 3 entries over 300px, entries[0] selected (wider by
-		# EXPANDED_WIDTH_BONUS_PX): base width = (300 - 2*6 - 16)/3 ≈ 90.7,
-		# entries[1] spans ≈[112.7, 203.3]. x=150 lands inside it.
+		# entries[0] is selected (129px wide), followed by the 4px gap;
+		# entries[1] spans [133, 234]. x=150 lands inside it.
 		strip.handle_tap(150.0)
 
 		assert_eq(received.size(), 1)
@@ -484,8 +503,8 @@ func run() -> void:
 		var received: Array = []
 		strip.configure(entries, 0, combat, GameState.state["player"], 300.0, func(key): received.append(key))
 
-		# 2 entries over 300px, entries[0] (the enemy) selected: base width
-		# = (300-6-16)/2 = 139, entries[1] spans [161, 300] -- the player.
+		# entries[0] (the enemy) is selected at 129px; entries[1] spans
+		# [133, 234] -- the player.
 		# x=200 lands inside it.
 		strip.handle_tap(200.0)
 
@@ -509,12 +528,9 @@ func run() -> void:
 	)
 
 	# combat-refining ticket 05: selecting a combatant whose card is beyond
-	# the visible width scrolls it into view. Under today's shrink-to-fit
-	# sizing policy (ticket 02/04's protected "six cards must fit, never
-	# overflow" invariant -- see the card_widths_shrink_to_fit case above)
-	# the strip can never actually overflow from real combat data, so this
-	# exercises _reveal_pos()'s own scroll math directly against a
-	# synthetic overflowing layout rather than a real (unreachable) one.
+	# the visible width scrolls it into view. Exercise _reveal_pos()'s own
+	# scroll math directly against a compact synthetic layout so the exact
+	# reveal distance remains easy to assert.
 	run_case("reveal_pos_scrolls_just_enough_to_bring_an_off_screen_entry_fully_into_view", func():
 		GameState.reset()
 		var combat := _combat([Fixtures.enemy("Enemy")])

@@ -15,7 +15,7 @@ Decal artwork may be authored as a small overlay set under assets; if the human 
 - `docs/combat-animation-vision.md` — §2.4 Nameplate anatomy, Damage-decal tiers, Faction-colour mapping
 - `docs/ui-vision.md` — §6 Colour rules, §7 Typography
 
-**Status:** ready-for-human
+**Status:** complete
 
 - [x] Card background is a light sign colour with dark text; border is thin and neutral, faction colour appears only on the HP bar and faction line
 - [x] Damage tier boundaries remain exactly 60% and 30% of hpMax; pulse remains at 20%

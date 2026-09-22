@@ -132,13 +132,14 @@ func _on_district_tapped(district_id: String, canvas_anchor: Vector2) -> void:
 	_bubble_mode = BUBBLE_MODE_DISTRICT
 	_bubble_district_id = district_id
 	var anchor: Vector2 = _map_canvas.global_position + canvas_anchor - _bubble.global_position
-	_bubble.open(anchor, _build_district_bubble_options(district_id))
+	_bubble.open(anchor, _build_district_bubble_options(district_id), Vector2.ZERO, true)
 func _build_district_bubble_options(district_id: String) -> Array:
 	var result: Array = []
 	for opt in DistrictBubble.district_options(district_id):
 		result.append({
 			"id": opt["id"],
 			"label": _district_bubble_option_label(opt["id"], not opt["disabled"]),
+			"icon": _district_bubble_option_icon(opt["id"]),
 			"disabled": opt["disabled"],
 			"reason": opt["reason"],
 		})
@@ -151,6 +152,14 @@ func _district_bubble_option_label(option_id: String, available: bool = true) ->
 			return "List view"
 		_:
 			return "View Veins"
+func _district_bubble_option_icon(option_id: String) -> Callable:
+	match option_id:
+		DistrictBubble.PROSPECT_ID:
+			return Icons.draw_prospect
+		DistrictBubble.LIST_ID:
+			return Icons.draw_hamburger
+		_:
+			return Icons.draw_search
 func _on_bubble_option_selected(option_id: String) -> void:
 	if _bubble_mode == BUBBLE_MODE_STATION:
 		_on_station_bubble_option_selected(option_id)

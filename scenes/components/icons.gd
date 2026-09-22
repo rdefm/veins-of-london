@@ -82,6 +82,19 @@ static func draw_hamburger(target: CanvasItem, center: Vector2, colour: Color, s
 		target.draw_line(center + Vector2(-s, y), center + Vector2(s, y), colour, 1.5 * scale)
 
 
+static func draw_prospect(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	var s := 7.0 * scale
+	target.draw_line(center + Vector2(-s * 0.7, s), center + Vector2(s * 0.55, -s * 0.75), colour, 2.0 * scale, true)
+	target.draw_arc(center + Vector2(s * 0.15, -s * 0.55), s * 0.8, PI * 1.08, PI * 1.85, 10, colour, 2.0 * scale, true)
+
+
+static func draw_search(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	var radius := 5.5 * scale
+	var lens_center := center + Vector2(-1.5, -1.5) * scale
+	target.draw_arc(lens_center, radius, 0, TAU, 20, colour, 2.0 * scale, true)
+	target.draw_line(lens_center + Vector2(radius * 0.7, radius * 0.7), center + Vector2(7, 7) * scale, colour, 2.0 * scale, true)
+
+
 static func draw_attack(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
 	var s := 7.0 * scale
 	_draw_blade(target, center, Vector2(-s, s), Vector2(s, -s), colour, scale)

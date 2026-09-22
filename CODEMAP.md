@@ -144,7 +144,7 @@ overlays.
 | turn_order_strip.gd | Combat turn-order strip: one card per projected turn occurrence. Tap selects; drag scrolls. Selected cards grow into a fixed reserved band. Owns palette-backed street-sign styling, bounded details, safe procedural damage decals, HP ghost drain, and `_reveal_pos()` |
 | ui.gd | Shared Control builders, time-cost labels, ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
 | vein_bubble.gd | Compact player-vein tap bubble: locally styled pin-anchored card with edge flipping, Lv segments, condition needle with 50/90+ scale, outline development/raid cues, round Harvest (light/hard chooser)/Cultivate actions; tapping the info area opens vein_detail_panel.gd instead of running an action |
-| vein_detail_panel.gd | Larger vein detail sheet (mapNav.selectedVeinId): yield, drift/upkeep, development chance, raid risk, and full action set (Cultivate/Harvest/security/alarm/Defend) for one vein; reuses VeinBubble's level/condition/cue builders and keeps earned level, Cultivating skill, and condition visually distinct |
+| vein_detail_panel.gd | Floating paper-card vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/alarm/Defend; reuses VeinBubble's level/condition builders |
 
 ## scenes/modals/*.gd — modal content, one script per type
 
