@@ -640,6 +640,7 @@ static func resolve_defend_outcome(won: bool) -> void:
 	if won and outcome != null:
 		Objectives.record_alarm_defend_win(outcome["veinId"])
 	Objectives.refresh()
+	Collective.maybe_trigger_a2_checkpoint()
 	if won or outcome == null:
 		return
 	resolve_raid_outcome(outcome)

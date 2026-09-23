@@ -314,6 +314,10 @@ func new_game_state() -> Dictionary:
 			# and re-picked by maybe_retarget_nadia_defend_vein() if lost
 			# before being defended. null until T8a fires.
 			"nadiaDefendVeinId": null,
+			# Act 2 T9 (spec §6.9): state.world.day colA2LedgerStarted was
+			# first seen true, stamped by Collective.maybe_trigger_a2_
+			# checkpoint(). null until T8 resolves.
+			"ledgerStartedDay": null,
 		},
 	}
 

@@ -157,6 +157,8 @@ static func advance() -> void:
 		# T5's scripted vein loss -- same idiom, gated on colA2Stage which T3's
 		# on_complete sets.
 		Collective.maybe_trigger_a2_contested_vein_setup()
+		# T9's checkpoint -- stamps ledgerStartedDay straight after T8's on_complete.
+		Collective.maybe_trigger_a2_checkpoint()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
 		event_state["cardIndex"] += 1

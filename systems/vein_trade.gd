@@ -84,6 +84,7 @@ static func transfer_to_faction(vein_id: String, faction_id: String, price: int,
 	# Collective.maybe_trigger_weather_beat() -- this generic sale lane
 	# stays ignorant of which faction/objective it is.
 	Collective.maybe_trigger_nadia_vein_done()
+	Collective.maybe_trigger_a2_checkpoint()
 	EventBus.state_changed.emit()
 	return { "ok": true }
 

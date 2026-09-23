@@ -387,3 +387,49 @@ static func maybe_trigger_a2_nadia_defend_brief() -> bool:
 
 	Events.start_event("col_a2_nadia_defend_brief")
 	return true
+
+
+# Act 2 T9 (spec §6.9): Nadia texts col_a2_checkpoint once all three T8
+# missions are complete, or CHECKPOINT_FALLBACK_DAYS after the ledger
+# started, whichever first -- so a player who does two of three still sees
+# the beat. Also stamps state.collective.ledgerStartedDay the first time it
+# sees colA2LedgerStarted (Events.advance() calls this straight after T8's
+# on_complete). Called from Events.advance(), TimeSystem.daily_tick() and
+# the two action boundaries a last mission can complete at (Raiding.
+# resolve_defend_outcome(), VeinTrade.transfer_to_faction()).
+const CHECKPOINT_FALLBACK_DAYS := 14
+const CHECKPOINT_MISSIONS: PackedStringArray = ["col_a2_nadia_defend", "col_a2_nadia_reseed", "col_a2_nadia_supplies"]
+
+
+static func maybe_trigger_a2_checkpoint() -> bool:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA2LedgerStarted", false):
+		return false
+	var collective: Dictionary = GameState.state["collective"]
+	var day: int = GameState.state["world"]["day"]
+	if collective.get("ledgerStartedDay") == null:
+		collective["ledgerStartedDay"] = day
+
+	if flags.get("colA2CheckpointSeen", false):
+		return false
+	for entry in Messages.pending_for("nadia"):
+		if entry["kind"] == "col_a2_checkpoint":
+			return false
+	var active_event: Variant = GameState.state["event"]
+	if active_event != null and active_event["eventId"] == "col_a2_checkpoint":
+		return false
+
+	if not _all_checkpoint_missions_complete() and day - int(collective["ledgerStartedDay"]) < CHECKPOINT_FALLBACK_DAYS:
+		return false
+
+	# PROSE-REVIEW: new SMS teaser, drafted against CONTENT-GUIDE.md.
+	Messages.queue_pending("nadia", "col_a2_checkpoint", "\"Come by when you've a minute. I've got numbers.\"")
+	return true
+
+
+static func _all_checkpoint_missions_complete() -> bool:
+	var objectives: Dictionary = GameState.state["objectives"]
+	for id in CHECKPOINT_MISSIONS:
+		if not objectives.get(id, {}).get("complete", false):
+			return false
+	return true
