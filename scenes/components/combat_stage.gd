@@ -586,6 +586,9 @@ func _build() -> void:
 	_backdrop_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_backdrop_texture.position = backdrop_origin
 	_backdrop_texture.size = backdrop_size
+	# Ignore the plate's native size, or its minimum size grows the rect past
+	# the stage and the clip reads as a zoom-in.
+	_backdrop_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_backdrop_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_backdrop_texture.visible = false
 	_stage_shake_layer.add_child(_backdrop_texture)
