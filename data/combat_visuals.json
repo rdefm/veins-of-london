@@ -18,7 +18,13 @@
     "defend_vein": { "image": "", "fallbackColor": "puddle_shadow" },
     "archie_deal_mugging": { "image": "res://assets/combat/backdrops/street.png", "fallbackColor": "pavement_wet" }
   },
-  "locationBackdrops": {},
+  "locationBackdrops": {
+    "battersea": { "image": "res://assets/combat/backdrops/battersea.png" },
+    "camden": { "image": "res://assets/combat/backdrops/camden.png" },
+    "greenwich": { "image": "res://assets/combat/backdrops/greenwich.png" },
+    "shoreditch": { "image": "res://assets/combat/backdrops/shoreditch.png" },
+    "soho": { "image": "res://assets/combat/backdrops/soho.png" }
+  },
   "effects": {
     "timePearl": { "image": "", "frameCount": 4, "fps": 8.0 },
     "blast": { "image": "", "frameCount": 6, "fps": 12.0 },
