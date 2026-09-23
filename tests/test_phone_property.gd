@@ -41,6 +41,22 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("property_flat_listing_shows_a_static_floorplan_with_no_room_controls", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "property"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var plans := phone.find_children("*", "TextureRect", true, false).filter(func(t): return t.texture == load("res://assets/floorplans/flat.svg"))
+		assert_eq(plans.size(), 1, "the Flat listing (next tier from bedsit) shows its plan")
+		assert_eq(phone.find_child(FloorplanView.slot_node_name(0), true, false), null, "the listing plan is static: no selectable slot")
+		for room_id in GameData.HOME_ROOMS.keys():
+			assert_true(NodeQuery.find_button(phone, "£%d" % GameData.HOME_ROOMS[room_id]["cost"]) == null, "Harrow's sells no room upgrades (%s)" % room_id)
+
+		phone.free()
+	)
+
 	run_case("property_upgrade_button_is_disabled_without_enough_cash_and_calls_upgrade_tier_when_enabled", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100

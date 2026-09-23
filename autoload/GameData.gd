@@ -67,6 +67,8 @@ var HOME_TIER_ORDER: Array = []
 var HOME_TIERS: Dictionary = {}
 var HOME_SECURITY: Dictionary = {}
 var HOME_ROOMS: Dictionary = {}
+# Per-tier floorplan geometry, keyed by home tier id; tiers without a plan are absent.
+var FLOORPLANS: Dictionary = {}
 
 var APPROACHES: Dictionary = {}
 
@@ -227,6 +229,9 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "HOME_SECURITY", "key": "security", "type": TYPE_DICTIONARY},
 		{"field": "HOME_ROOMS", "key": "rooms", "type": TYPE_DICTIONARY},
 		{"field": "SALES_XP_LEVELS", "key": "salesXpLevels", "type": TYPE_ARRAY},
+	]},
+	{"table": "floorplans", "file": "res://data/floorplans.json", "fields": [
+		{"field": "FLOORPLANS", "key": "", "type": TYPE_DICTIONARY},
 	]},
 	{"table": "approaches", "file": "res://data/approaches.json", "fields": [
 		{"field": "APPROACHES", "key": "", "type": TYPE_DICTIONARY},

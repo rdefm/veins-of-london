@@ -201,6 +201,8 @@ Tier descriptions: extract verbatim from HTML const `HOME_TIERS`.
 
 Descriptions: extract verbatim from HTML consts `HOME_SECURITY` / `HOME_ROOMS` — except `ops`'s, rewritten by 21-contact-roles-sales-skill (PROSE-REVIEW) to describe staffing a Sales contact; its old "faction contact operations" framing is retired outright, not merely deprioritised (business-spec.md grilling decision 4). `ops` is now the Sales role's gate (`salesSkill`/`salesXP`, §2's `contacts` schema) the same way `lab`/`veinStation` gate Production/Procurement.
 
+**Room slots and floorplans:** a tier's `maxRooms` counts its selectable room slots; every property also has one fixed bedroom, which is never a slot. `state.home.rooms` is in slot order — `rooms[i]` occupies selectable slot `i` (on the Flat's plan, slot 0 is room 02); slots fill in order, so there are no gaps. `data/floorplans.json` maps a tier id to its plan asset, plan size, and each slot's label/rect in plan coordinates; tiers without an entry (currently every tier but `flat`) use the plain room list. Moving up a tier keeps `rooms` as-is (upgrades stay purchased and active); the new tier's extra slots start empty.
+
 **Home Gym is dual-purpose (§3.7a):** beyond its existing one-time `+10 hpMax` build bonus above, it also raises the XP reward of the repeatable **Train** action on the HQ screen, which is available regardless of whether Home Gym is built — see §3.7a for cost/reward.
 
 ### 1.8 `data/factions.json`
@@ -487,6 +489,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - `getHomeRaidChance() = max(0.002, tier.raidBaseChance + fx.homeRaid − Σ installed raidReduction − guard.raidReduction × guardCount + totalCarriedOre * 0.001)`, where `totalCarriedOre` is the sum of `player.orichalchum` (see storedOre merge note in §2). See §1.7's "Stackable HQ guards" for `guardCount`.
 - Raid roll (in daily tick): skip if `day − lastRaidDay < 3`; on hit set `lastRaidDay = day`; if carried ore total is 0, nothing; else lose `floor(qty * ratio)` per type from `player.orichalchum`, ratio 0.50 (0.25 with safeRoom). Notification with units lost.
 - Upgrades/rooms: enforce cash, slot caps, minTier by tier order. Room `body` bonus applies immediately: `hpMax += 10`, `hp = min(hp + 10, hpMax)`. `workshopBonus` = Σ bonusValue of installed rooms with bonus == "crafting".
+- Room use per slot (`Home.set_room_use(slot, roomId)`): blocked (nothing changes) if `roomId` is already in any slot, `slot` is past the next empty slot or `≥ maxRooms`, the tier is below `minTier`, or cash `< cost`. Otherwise charge full `cost`; if the slot held another room, that room is replaced in place with no refund — its `body` bonus reverses (`hpMax −= bonusValue`, `hp = min(hp, hpMax)`), crafting/storage bonuses end (they're read live from `rooms`), and any contact assigned to it is unassigned. `add_room(id)` = `set_room_use(rooms.size(), id)`.
 
 ### 3.4 Cultivating & pruning
 - `cultChance = min(0.90, 0.30 + (skill−1) * 0.12)` — still used by Seed's `seedSuccessChance` (below) and by `Rooms.process_vein_station()`'s contact cultivating; no longer used by the player's own Cultivate (see below, cultivation-refining ticket 03).

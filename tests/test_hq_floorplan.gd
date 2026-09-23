@@ -32,19 +32,64 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_floorplan_buy_button_installs_a_room_same_as_the_old_direct_row", func():
+	run_case("hq_floorplan_flat_tapping_room_02_lists_eligible_uses_and_buys_into_the_slot", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100000
 		GameState.state["home"]["tier"] = "flat"
-		var room_id: String = "workshop"
-		var cost: int = GameData.HOME_ROOMS[room_id]["cost"]
 
 		var screen := HqFloorplanScreen.new()
 		screen._ready()
 
-		NodeQuery.find_button(screen, "£%d" % cost).pressed.emit()
+		assert_true(NodeQuery.find_button(screen, "£800") == null, "no uses are offered until a room is tapped")
+		var slot := screen.find_child(FloorplanView.slot_node_name(0), true, false) as Button
+		assert_true(slot != null, "room 02 is a touch target on the plan")
+		assert_eq(screen.find_child(FloorplanView.slot_node_name(1), true, false), null, "the bedroom is not a selectable slot")
+		assert_true(slot.size.x >= 44.0 and slot.size.y >= 44.0, "room 02's touch region is at least a mobile tap target")
 
-		assert_true(GameState.state["home"]["rooms"].has(room_id), "tapping the buy button must install the room, unchanged from the old direct row")
+		slot.pressed.emit()
+		var library := NodeQuery.find_button(screen, "£%d" % GameData.HOME_ROOMS["library"]["cost"])
+		assert_true(library != null and library.disabled, "Library is listed but locked at the Flat")
+		assert_true(NodeQuery.label_texts(screen).has("Requires Townhouse or better."), "a locked use says why")
+		assert_true(NodeQuery.label_texts(screen).has("Crafting success +8%"), "a use shows its effect")
+
+		NodeQuery.find_button(screen, "£800").pressed.emit()
+		assert_eq(GameState.state["home"]["rooms"], ["workshop"], "the Workshop occupies room 02")
+		assert_eq(GameState.state["player"]["cash"], 99200, "charged once")
+
+		screen.free()
+	)
+
+	run_case("hq_floorplan_flat_replacing_room_02_charges_the_new_price_and_swaps_the_use", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 700
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["home"]["rooms"] = ["workshop"]
+
+		var screen := HqFloorplanScreen.new()
+		screen._ready()
+		(screen.find_child(FloorplanView.slot_node_name(0), true, false) as Button).pressed.emit()
+
+		assert_true(NodeQuery.label_texts(screen).has("Installed: Workshop"), "the current use is shown")
+		assert_true(NodeQuery.find_button(screen, "Installed").disabled, "the installed use can't be rebought")
+		NodeQuery.find_button(screen, "£600").pressed.emit()
+		assert_eq(GameState.state["home"]["rooms"], ["homeGym"])
+		assert_eq(GameState.state["player"]["cash"], 100)
+
+		screen.free()
+	)
+
+	run_case("hq_floorplan_flat_unaffordable_use_is_disabled_with_its_reason", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 700
+		GameState.state["home"]["tier"] = "flat"
+
+		var screen := HqFloorplanScreen.new()
+		screen._ready()
+		(screen.find_child(FloorplanView.slot_node_name(0), true, false) as Button).pressed.emit()
+
+		assert_true(NodeQuery.find_button(screen, "£800").disabled, "Workshop is unaffordable at £700")
+		assert_true(not NodeQuery.find_button(screen, "£600").disabled, "Home Gym is affordable")
+		assert_true(NodeQuery.label_texts(screen).has("Not enough cash."))
 
 		screen.free()
 	)

@@ -236,41 +236,89 @@ static func get_guard_count() -> int:
 	return GameState.state["home"].get("guardCount", 0)
 
 
+# Fills the next empty selectable slot (home.rooms is in slot order, R§2).
 static func add_room(room_id: String) -> Dictionary:
+	return set_room_use(GameState.state["home"]["rooms"].size(), room_id)
+
+
+# Selectable slot count for the current tier; the fixed bedroom is not a slot.
+static func get_room_slot_count() -> int:
+	return GameData.HOME_TIERS[GameState.state["home"]["tier"]]["maxRooms"]
+
+
+# Room id occupying selectable slot `slot`, or "" when that slot is empty.
+static func get_room_in_slot(slot: int) -> String:
+	var rooms: Array = GameState.state["home"]["rooms"]
+	return rooms[slot] if slot >= 0 and slot < rooms.size() else ""
+
+
+# "" when set_room_use(slot, room_id) would succeed, else the reason it's
+# blocked. Checked in full before set_room_use mutates anything (R§3.3).
+static func room_use_block_reason(slot: int, room_id: String) -> String:
 	var home: Dictionary = GameState.state["home"]
-	var player: Dictionary = GameState.state["player"]
+	var rooms: Array = home["rooms"]
 
 	if home["rooms"].has(room_id):
-		return { "ok": false, "reason": "Already built." }
-
-	var tier_data: Dictionary = GameData.HOME_TIERS[home["tier"]]
-	if home["rooms"].size() >= tier_data["maxRooms"]:
-		return { "ok": false, "reason": "No room slots free." }
+		return "Already built."
+	if slot < 0 or slot > rooms.size() or slot >= get_room_slot_count():
+		return "No room slots free."
 
 	var room_data: Dictionary = GameData.HOME_ROOMS[room_id]
 	var order: Array = GameData.HOME_TIER_ORDER
-	var current_index: int = order.find(home["tier"])
-	var min_index: int = order.find(room_data["minTier"])
-	if current_index < min_index:
-		return { "ok": false, "reason": "Requires %s or better." % GameData.HOME_TIERS[room_data["minTier"]]["name"] }
+	if order.find(home["tier"]) < order.find(room_data["minTier"]):
+		return "Requires %s or better." % GameData.HOME_TIERS[room_data["minTier"]]["name"]
 
+	if GameState.state["player"]["cash"] < room_data["cost"]:
+		return "Not enough cash."
+	return ""
+
+
+# Buys room_id into selectable slot `slot` at full price. An occupied slot's
+# previous use ends with no refund: its effects stop and any contact
+# staffing it is unassigned (R§3.3).
+static func set_room_use(slot: int, room_id: String) -> Dictionary:
+	var reason := room_use_block_reason(slot, room_id)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+
+	var home: Dictionary = GameState.state["home"]
+	var player: Dictionary = GameState.state["player"]
+	var room_data: Dictionary = GameData.HOME_ROOMS[room_id]
 	var cost: int = room_data["cost"]
-	if player["cash"] < cost:
-		return { "ok": false, "reason": "Not enough cash." }
+	var old_id: String = get_room_in_slot(slot)
 
 	player["cash"] -= cost
 	Bank.record(-cost, "HQ room: %s" % room_data["name"])
-	home["rooms"].append(room_id)
+
+	if old_id != "":
+		_remove_room_effects(old_id)
+		home["rooms"][slot] = room_id
+	else:
+		home["rooms"].append(room_id)
 
 	if room_data["bonus"] == "body":
 		var bonus_value: int = room_data["bonusValue"]
 		player["hpMax"] += bonus_value
 		player["hp"] = mini(player["hp"] + bonus_value, player["hpMax"])
 
-	Notify.push("Built %s." % room_data["name"], Notify.CATEGORY_SUCCESS)
+	if old_id != "":
+		Notify.push("Replaced %s with %s." % [GameData.HOME_ROOMS[old_id]["name"], room_data["name"]], Notify.CATEGORY_SUCCESS)
+	else:
+		Notify.push("Built %s." % room_data["name"], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
+
+
+# Reverses the one-time build effects of a room leaving its slot. Crafting
+# and storage bonuses are read live from home.rooms, so they end on their own.
+static func _remove_room_effects(room_id: String) -> void:
+	var player: Dictionary = GameState.state["player"]
+	var room_data: Dictionary = GameData.HOME_ROOMS[room_id]
+	if room_data["bonus"] == "body":
+		player["hpMax"] -= int(room_data["bonusValue"])
+		player["hp"] = mini(player["hp"], player["hpMax"])
+	Contacts.assign_to_room("none", room_id)
 
 
 static func get_workshop_bonus() -> float:

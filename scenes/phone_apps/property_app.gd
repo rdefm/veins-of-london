@@ -21,6 +21,7 @@ func _build_current_card() -> Control:
 	c["content"].add_child(UI.heading(tier["name"], 14))
 	c["content"].add_child(UI.muted_label(tier["description"]))
 	c["content"].add_child(UI.label("Daily cost: £%d · Raid risk: %d%% · Rooms %d/%d" % [tier["dailyCost"], raid_pct, home["rooms"].size(), tier["maxRooms"]]))
+	_add_static_plan(c["content"], home["tier"])
 	return c["panel"]
 
 
@@ -42,6 +43,7 @@ func _build_next_card() -> Control:
 	c["content"].add_child(UI.heading(next_tier["name"], 14))
 	c["content"].add_child(UI.muted_label(next_tier["description"]))
 	c["content"].add_child(UI.label("Daily cost: £%d · Raid risk: %d%% · Rooms %d" % [next_tier["dailyCost"], raid_pct, next_tier["maxRooms"]]))
+	_add_static_plan(c["content"], next_id)
 
 	var b := UI.button("Move for £%d" % cost, func(): Home.upgrade_tier())
 	b.disabled = GameState.state["player"]["cash"] < cost
@@ -50,3 +52,9 @@ func _build_next_card() -> Control:
 		c["content"].add_child(UI.muted_label("Not enough cash."))
 
 	return c["panel"]
+
+
+# Listings show the tier's plan read-only; rooms are bought on HQ's noticeboard (§7).
+func _add_static_plan(content: VBoxContainer, tier_id: String) -> void:
+	if FloorplanView.has_plan(tier_id):
+		content.add_child(FloorplanView.build(tier_id))

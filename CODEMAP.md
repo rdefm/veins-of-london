@@ -46,7 +46,7 @@ Data file per system: see `data/*.json` below.
 | equipment.gd | Weapon equip/unequip |
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | factions.gd | Faction joining |
-| home.gd | Home tier/security/rooms/raid chance; daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
+| home.gd | Home tier/security/rooms/raid chance; per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: stop, notebook, ore |
 | map_events.gd | Map event queue + playback |
@@ -100,7 +100,7 @@ overlays.
 | hq.gd | HQ tab: bedsit plate, routes taps to sub-screens |
 | hq_dial.gd | Dial loadout sub-view (Movements, Complications) |
 | hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward) |
-| hq_floorplan.gd | Rooms zone: room slots + contact assignment |
+| hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment for staffed rooms |
 | hq_lab_bench.gd | Lab zone: notebook/ore/apparatus regions |
 | map.gd | Map tab: diagram + district panel + sheet |
 | phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid + home-only Phone/Messages/Settings dock, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |
@@ -120,6 +120,7 @@ overlays.
 | combat_stage.gd | Combat's pixel stage, sized to its region: edge-to-edge backdrop (location -> context -> palette); slots in two receding diagonal groups (enemies back/smaller) below the strip clearance, fitted to each sprite's visible figure, depth-sorted; keypose one-shots, effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot draws an arrow |
 | contact_cards.gd | Shared contact/faction card builders, inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
+| floorplan_view.gd | Estate-agent plan for a home tier from floorplans.json; static, or with tappable slot overlays showing current use |
 | dial_widget.gd | Combat's Dial-casting widget |
 | dot_matrix_board.gd | Amber-on-black dot-matrix board renderer |
 | dot_matrix_font.gd | Bitmap font for dot_matrix_board.gd |
@@ -196,7 +197,7 @@ overlays.
 | saveload_app.gd | Save slots, export/import, New Game confirm |
 | notifications_app.gd | Notification log with pending Defend buttons |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
-| property_app.gd | Harrow's: current HQ tier + next-tier upgrade |
+| property_app.gd | Harrow's: current HQ tier + next-tier upgrade, each with its static floorplan when one exists |
 | debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, relation adjusters |
 
 ## data/*.json
@@ -216,6 +217,7 @@ overlays.
 | faction_trade.json | economy.gd |
 | factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd |
 | home.json | home.gd, approaches.gd, contacts.gd |
+| floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
 | items.json | combat.gd, profile_app.gd, bag_drawer.gd |
 | map_layout.json | map_layout.gd, map_hit_test.gd |

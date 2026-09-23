@@ -1632,7 +1632,7 @@ static func _dispatch_on_win() -> void:
 	var on_win: String = combat.get("onWin", "")
 	match on_win:
 		"muggingWon":
-			Economy.complete_mugged_sale()
+			pass  # paid out on exit -- _exit_mugging_win()
 		"raidWon":
 			_raid_won()
 		"homeRaidWon":
@@ -1650,7 +1650,7 @@ static func _raid_won() -> void:
 
 
 # Tears down combat state and routes to the next screen (R§3.7): mugging-
-# win leaves the screen alone; home_raid routes into the matching debrief
+# win routes home under the sale modal; home_raid routes into the matching debrief
 # event (R§3.8); event_raid resumes the still-active event on a win, ends
 # it on a loss; otherwise phone home, bag drawer opened on a raid win.
 static func exit_combat() -> Dictionary:
@@ -1695,8 +1695,12 @@ static func exit_combat() -> Dictionary:
 	return _exit_default(outcome, context)
 
 
+# Home beneath, sale modal on top: the modal opens only once the fight is
+# over, so its own "Back to it" never leaves a live combat behind (R§3.7).
 static func _exit_mugging_win() -> Dictionary:
-	return { "nextScreen": null }
+	_route_phone_home()
+	Economy.complete_mugged_sale()
+	return { "nextScreen": "phone" }
 
 
 # ArchieDeals.resolve_mugging() handles both outcomes (paying out on a

@@ -784,14 +784,15 @@ func run() -> void:
 		assert_eq(GameState.state["event"]["eventId"], "home_raid_debrief_win", "a win should chain into the win debrief event")
 	)
 
-	run_case("exit_combat_mugging_win_does_not_change_screen", func():
+	run_case("exit_combat_mugging_win_routes_home_under_the_sale_modal", func():
 		GameState.reset()
 		GameState.state["currentScreen"] = "combat"
 		GameState.state["combat"]["active"] = true
 		GameState.state["combat"]["context"] = Combat.CONTEXT_MUGGING
 		GameState.state["combat"]["outcome"] = "win"
 		Combat.exit_combat()
-		assert_eq(GameState.state["currentScreen"], "combat", "mugging-win exit should leave the screen alone (sale_result modal handles it)")
+		assert_eq(GameState.state["currentScreen"], "phone", "mugging-win exit leaves the combat screen")
+		assert_eq(GameState.state["modal"]["type"], "sale_result", "the sale modal sits on top")
 	)
 
 	run_case("exit_combat_raid_win_routes_to_phone_home_with_the_bag_drawer_open", func():
@@ -921,8 +922,14 @@ func run() -> void:
 		Rng.set_seed(1)
 		Combat.player_attack()
 		assert_eq(GameState.state["combat"]["outcome"], "win", "sanity: the enemy should be dead")
-		assert_eq(GameState.state["player"]["cash"], 150, "muggingWon should pay out pendingSaleCut")
+		assert_eq(GameState.state["player"]["cash"], 100, "no payout or sale modal while the fight is still on screen")
+		assert_eq(GameState.state["modal"], null, "the sale modal waits for exit")
+		Combat.exit_combat()
+		assert_eq(GameState.state["player"]["cash"], 150, "muggingWon should pay out pendingSaleCut on exit")
 		assert_eq(GameState.state["pendingSaleCut"], 0, "pendingSaleCut should clear after payout")
+		assert_eq(GameState.state["modal"]["type"], "sale_result", "exit opens the sale modal")
+		assert_eq(GameState.state["currentScreen"], "phone", "exit leaves the combat screen, home beneath the modal")
+		assert_true(not GameState.state["combat"]["active"], "combat torn down")
 	)
 
 	run_case("get_attack_range_includes_equipped_weapon_bonus", func():

@@ -465,6 +465,102 @@ func run() -> void:
 		assert_eq(bank_log[0]["amount"], -GameData.HOME_ROOMS["homeGym"]["cost"], "the recorded amount matches the room's cost")
 	)
 
+	run_case("set_room_use_replaces_the_slot_at_full_price_with_no_refund", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["player"]["cash"] = 2000
+		assert_true(Home.set_room_use(0, "workshop")["ok"])
+		assert_eq(GameState.state["player"]["cash"], 1200)
+		assert_almost_eq(Home.get_workshop_bonus(), 0.08, 0.0001)
+
+		var result := Home.set_room_use(0, "homeGym")
+		assert_true(result["ok"], "an occupied slot can be replaced")
+		assert_eq(GameState.state["home"]["rooms"], ["homeGym"], "the new use takes the same physical slot")
+		assert_eq(GameState.state["player"]["cash"], 600, "full 600 charged, the workshop's 800 not refunded")
+		assert_almost_eq(Home.get_workshop_bonus(), 0.0, 0.0001, "the replaced workshop's crafting bonus ends")
+		assert_eq(GameState.state["player"]["hpMax"], 110, "the new Home Gym's bonus applies")
+	)
+
+	run_case("replacing_home_gym_reverses_its_hp_bonus_and_clamps_hp", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["player"]["cash"] = 5000
+		Home.set_room_use(0, "homeGym")
+		GameState.state["player"]["hp"] = 110
+		Home.set_room_use(0, "workshop")
+		assert_eq(GameState.state["player"]["hpMax"], 100, "hpMax loses the gym's +10")
+		assert_eq(GameState.state["player"]["hp"], 100, "hp clamps to the reduced hpMax")
+
+		Home.set_room_use(0, "homeGym")
+		GameState.state["player"]["hp"] = 40
+		Home.set_room_use(0, "workshop")
+		assert_eq(GameState.state["player"]["hp"], 40, "an hp already under the reduced cap is left alone")
+	)
+
+	run_case("blocked_replacement_leaves_the_slot_and_cash_untouched", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["player"]["cash"] = 800
+		Home.set_room_use(0, "workshop")
+		assert_eq(GameState.state["player"]["cash"], 0)
+
+		var poor := Home.set_room_use(0, "homeGym")
+		assert_eq(poor["reason"], "Not enough cash.")
+		GameState.state["player"]["cash"] = 100000
+		var locked := Home.set_room_use(0, "library")
+		assert_eq(locked["reason"], "Requires Townhouse or better.")
+		var duplicate := Home.set_room_use(0, "workshop")
+		assert_eq(duplicate["reason"], "Already built.")
+		var no_slot := Home.set_room_use(1, "homeGym")
+		assert_eq(no_slot["reason"], "No room slots free.", "the Flat has one selectable slot")
+
+		assert_eq(GameState.state["home"]["rooms"], ["workshop"], "every blocked purchase leaves the old use in place")
+		assert_eq(GameState.state["player"]["cash"], 100000, "no blocked purchase charges")
+		assert_eq(GameState.state["bankLog"].size(), 1, "only the original build was recorded")
+	)
+
+	run_case("replacing_a_staffed_room_unassigns_its_contact", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "compound"
+		GameState.state["home"]["rooms"] = ["lab"]
+		GameState.state["player"]["cash"] = 100000
+		var contact_id: String = GameState.state["contacts"].keys()[0]
+		GameState.state["contacts"][contact_id]["recruited"] = true
+		Contacts.assign_to_room(contact_id, "lab")
+
+		assert_true(Home.set_room_use(0, "workshop")["ok"])
+		assert_eq(Contacts.get_contact_in_room("lab"), null, "the lab's contact is unassigned with the room")
+		assert_eq(GameState.state["contacts"][contact_id]["assignedRoom"], null)
+	)
+
+	run_case("moving_up_keeps_room_upgrades_and_adds_empty_slots", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["player"]["cash"] = 100000
+		Home.set_room_use(0, "homeGym")
+		var hp_max: int = GameState.state["player"]["hpMax"]
+
+		assert_true(Home.upgrade_tier()["ok"])
+		assert_eq(GameState.state["home"]["rooms"], ["homeGym"], "moving never re-buys or drops a room")
+		assert_eq(GameState.state["player"]["hpMax"], hp_max, "the gym's bonus stays active after the move")
+		assert_eq(Home.get_room_slot_count(), 3)
+		assert_eq(Home.get_room_in_slot(0), "homeGym")
+		assert_eq(Home.get_room_in_slot(1), "", "the Townhouse's extra slots start empty")
+		assert_true(Home.set_room_use(1, "library")["ok"], "a new slot can be filled")
+	)
+
+	run_case("an_existing_room_list_save_loads_with_slots_intact", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "townhouse"
+		GameState.state["home"]["rooms"] = ["workshop", "safeRoom"]
+		var text: String = SaveManager.export_string()
+		GameState.reset()
+
+		assert_true(SaveManager.import_string(text)["ok"])
+		assert_eq(GameState.state["home"]["rooms"], ["workshop", "safeRoom"])
+		assert_eq(Home.get_room_in_slot(1), "safeRoom", "list order is slot order")
+	)
+
 	run_case("workshop_bonus_sums_installed_crafting_rooms", func():
 		GameState.reset()
 		GameState.state["home"]["tier"] = "townhouse"

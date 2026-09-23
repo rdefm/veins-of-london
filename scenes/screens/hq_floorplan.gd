@@ -6,6 +6,9 @@ const GRID_COLUMNS := 2
 const TILE_MIN_WIDTH := 160.0
 const TILE_LABEL_MAX_WIDTH := 130.0
 
+# Selected plan slot is view-only state, never game state; -1 = none.
+var _selected_slot: int = -1
+
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 	EventBus.state_changed.connect(_refresh)
@@ -34,7 +37,14 @@ func _refresh() -> void:
 
 	var home: Dictionary = GameState.state["home"]
 	var tier: Dictionary = GameData.HOME_TIERS[home["tier"]]
+	if FloorplanView.has_plan(home["tier"]):
+		content.add_child(UI.heading(tier["name"], 14))
+		content.add_child(UI.muted_label(tier["description"]))
 	content.add_child(UI.muted_label("Rooms: %d/%d" % [home["rooms"].size(), tier["maxRooms"]]))
+
+	if FloorplanView.has_plan(home["tier"]):
+		_build_plan(content, home["tier"])
+		return
 
 	var grid := GridContainer.new()
 	grid.columns = GRID_COLUMNS
@@ -44,6 +54,89 @@ func _refresh() -> void:
 
 	for room_id in GameData.HOME_ROOMS.keys():
 		grid.add_child(_build_room_slot(room_id))
+
+# Tiers with a plan asset (data/floorplans.json): rooms are chosen per
+# physical slot on the plan (.scratch/flat-floorplan/spec.md).
+func _build_plan(content: VBoxContainer, tier_id: String) -> void:
+	content.add_child(FloorplanView.build(tier_id, _on_slot_pressed, _selected_slot))
+	# PROSE-REVIEW: UI hint, drafted against CONTENT-GUIDE.md.
+	content.add_child(UI.muted_label("Tap a marked room to choose its use. The bedroom stays a bedroom."))
+	if _selected_slot >= 0 and _selected_slot < Home.get_room_slot_count():
+		content.add_child(_build_slot_card(tier_id, _selected_slot))
+
+func _on_slot_pressed(slot: int) -> void:
+	_selected_slot = slot
+	_refresh()
+
+func _build_slot_card(tier_id: String, slot: int) -> Control:
+	var current_id: String = Home.get_room_in_slot(slot)
+	var c := UI.card()
+	c["content"].add_child(UI.muted_label("ROOM %s" % FloorplanView.slot_label(tier_id, slot)))
+	c["content"].add_child(UI.heading("Change room use" if current_id != "" else "Choose room use", 14))
+	if current_id != "":
+		c["content"].add_child(UI.label("Installed: %s" % GameData.HOME_ROOMS[current_id]["name"]))
+		# PROSE-REVIEW: replacement warning, drafted against CONTENT-GUIDE.md.
+		c["content"].add_child(UI.muted_label("Changing it removes the current upgrade. No refund; the new use costs full price."))
+		if ASSIGNABLE_ROOMS.has(current_id):
+			c["content"].add_child(_build_room_contact_row(current_id))
+		if current_id == "veinStation":
+			c["content"].add_child(_build_vein_station_list_row())
+
+	for room_id in _listed_room_ids():
+		c["content"].add_child(_build_use_row(slot, room_id, current_id))
+
+	c["content"].add_child(UI.button("Close", func():
+		_selected_slot = -1
+		_refresh()
+	))
+	return c["panel"]
+
+# Rooms unlocked at this tier, plus those the next tier up would unlock.
+func _listed_room_ids() -> Array:
+	var order: Array = GameData.HOME_TIER_ORDER
+	var horizon: int = order.find(GameState.state["home"]["tier"]) + 1
+	var ids: Array = []
+	for room_id in GameData.HOME_ROOMS.keys():
+		if order.find(GameData.HOME_ROOMS[room_id]["minTier"]) <= horizon:
+			ids.append(room_id)
+	return ids
+
+func _build_use_row(slot: int, room_id: String, current_id: String) -> Control:
+	var room: Dictionary = GameData.HOME_ROOMS[room_id]
+	var box := UI.vbox(2)
+	box.add_child(UI.label(room["name"]))
+	var effect := _effect_text(room)
+	if effect != "":
+		box.add_child(UI.muted_label(effect))
+	box.add_child(UI.muted_label(room["description"]))
+
+	if room_id == current_id:
+		var installed := UI.button("Installed", func(): pass)
+		installed.disabled = true
+		box.add_child(installed)
+		return box
+
+	var reason := Home.room_use_block_reason(slot, room_id)
+	var b := UI.button("£%d" % room["cost"], func(): _buy(slot, room_id))
+	b.disabled = reason != ""
+	box.add_child(b)
+	if reason != "":
+		box.add_child(UI.muted_label(reason))
+	return box
+
+func _buy(slot: int, room_id: String) -> void:
+	if Home.set_room_use(slot, room_id)["ok"]:
+		_selected_slot = -1
+		_refresh()
+
+func _effect_text(room: Dictionary) -> String:
+	match room["bonus"]:
+		"crafting":
+			return "Crafting success +%d%%" % int(round(room["bonusValue"] * 100))
+		"body":
+			return "Max HP +%d" % int(room["bonusValue"])
+	return ""
+
 func _tile_label(text: String, muted: bool = false) -> Label:
 	var l: Label = UI.muted_label(text) if muted else UI.label(text)
 	l.custom_minimum_size.x = minf(l.custom_minimum_size.x, TILE_LABEL_MAX_WIDTH)

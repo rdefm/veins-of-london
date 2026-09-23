@@ -1,0 +1,9 @@
+{
+  "flat": {
+    "texture": "res://assets/floorplans/flat.svg",
+    "size": [316, 313],
+    "slots": [
+      { "label": "02", "rect": [161, 28, 127, 188], "useLabelAt": [172, 160] }
+    ]
+  }
+}
