@@ -83,6 +83,7 @@ class StageSlot extends Control:
 	var _ko_fps: float = 12.0
 	var _attack_keyposes: Array[Texture2D] = []
 	var _attack_fps: float = 12.0
+	var _attack_variants: Array = []
 	var _self_patch_keyposes: Array[Texture2D] = []
 	var _self_patch_fps: float = 10.0
 	var _cast_keyposes: Array[Texture2D] = []
@@ -267,19 +268,29 @@ class StageSlot extends Control:
 	func set_cast_animation(frames: Array[Texture2D], fps: float) -> void:
 		_cast_keyposes = frames
 		_cast_fps = fps
+	# Alternative attack poses; play_attack() picks one at random per swing.
+	func set_attack_variants(variants: Array) -> void:
+		_attack_variants = variants
+
 	func play_attack() -> void:
-		if _attack_keyposes.is_empty():
+		var keyposes: Array[Texture2D] = _attack_keyposes
+		var fps: float = _attack_fps
+		if not _attack_variants.is_empty():
+			var variant: Dictionary = _attack_variants[randi_range(0, _attack_variants.size() - 1)]
+			keyposes = variant["frames"]
+			fps = variant["fps"]
+		if keyposes.is_empty():
 			return
 		var fwd: float = _forward_dir()
-		var windup: Texture2D = _attack_keyposes[0]
-		var strike: Texture2D = _attack_keyposes[mini(1, _attack_keyposes.size() - 1)]
-		var recover: Texture2D = _attack_keyposes[mini(2, _attack_keyposes.size() - 1)]
+		var windup: Texture2D = keyposes[0]
+		var strike: Texture2D = keyposes[mini(1, keyposes.size() - 1)]
+		var recover: Texture2D = keyposes[mini(2, keyposes.size() - 1)]
 		var steps: Array[PoseStep] = [
 			PoseStep.new(windup, Vector2.ZERO),
 			PoseStep.new(strike, Vector2(CombatStage.LUNGE_PX * fwd, 0.0)),
 			PoseStep.new(recover, Vector2.ZERO),
 		]
-		_start_one_shot(steps, _attack_fps, false)
+		_start_one_shot(steps, fps, false)
 	func play_hit() -> void:
 		if _hit_keyposes.is_empty():
 			return
@@ -724,8 +735,20 @@ func _load_template_action_animations() -> void:
 		_ko_keyposes_by_template[key] = _load_action_keyposes(key, "ko", KO_KEYPOSE_COUNT)
 		_self_patch_keyposes_by_template[key] = _load_action_keyposes(key, "selfPatch", HIT_KEYPOSE_COUNT)
 		_cast_keyposes_by_template[key] = _load_action_keyposes(key, "cast", HIT_KEYPOSE_COUNT)
+# An entry with "variants" ([entry, ...]) holds alternative poses for the
+# same action; "frames"/"fps" mirror the first variant for fallback checks.
 func _load_action_keyposes(template_key: String, key: String, count: int) -> Dictionary:
-	var loaded := _load_animation_frames(template_key, key)
+	var entry: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get(template_key, {}).get(key, {})
+	if entry.has("variants"):
+		var variants: Array = []
+		for variant in entry["variants"]:
+			var loaded_variant := _load_sheet_frames(variant)
+			if not loaded_variant["frames"].is_empty():
+				variants.append({ "frames": _select_action_keyposes(loaded_variant["frames"], count), "fps": loaded_variant["fps"] })
+		if variants.is_empty():
+			return { "frames": _empty_idle_frames, "fps": 0.0, "variants": variants }
+		return { "frames": variants[0]["frames"], "fps": variants[0]["fps"], "variants": variants }
+	var loaded := _load_sheet_frames(entry)
 	return { "frames": _select_action_keyposes(loaded["frames"], count), "fps": loaded["fps"] }
 func _select_action_keyposes(frames: Array[Texture2D], count: int) -> Array[Texture2D]:
 	var out: Array[Texture2D] = []
@@ -817,7 +840,7 @@ static func enemy_template_key(enemy: Dictionary) -> String:
 		return "homeRaidRaider"
 	return ""
 func _player_display_entries(player: Dictionary, allies: Array, selection: Dictionary) -> Array:
-	var display: Array = [{ "name": "You", "isFocused": selection["type"] == "player", "index": -1, "templateKey": "player" }]
+	var display: Array = [{ "name": "You", "isFocused": selection["type"] == "player", "index": -1, "templateKey": player.get("model", "") }]
 	var is_ally_selected: bool = selection["type"] == "ally"
 	for i in range(allies.size()):
 		if not allies[i]["koed"]:
@@ -876,6 +899,7 @@ func _sync_band(pool: Dictionary, display_entries: Array, side: String) -> void:
 			var resolved: Dictionary = _resolve_action_keyposes(action[0], template_key, action[1], action[2])
 			var setter: Callable = action[3]
 			setter.call(resolved["frames"], resolved["fps"])
+		slot.set_attack_variants(_attack_keyposes_by_template.get(template_key, {}).get("variants", []))
 
 
 func _layout_all_slots() -> void:

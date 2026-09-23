@@ -448,7 +448,7 @@
 "locationBackdropRule": "'locationBackdrops' maps a combat.locationKey (a data/districts.json id, or 'home') to { image } and is checked before 'backdrops': location plate -> context plate -> fallbackColor (docs/combat-animation-vision.md §2.1). A missing key or an unloadable image falls through to the context tier.",
 "name": "Combat visuals manifest",
 "purpose": "Maps combat context (and, from ticket 09, enemy/ally template key) to the art asset that renders it, so scenes/screens/combat.gd never hardcodes a path. See docs/combat-animation-vision.md §2.1/§6 and docs/ART-BIBLE.md.",
-"templateRule": "Ticket 09 (amended by a ticket-10 follow-up): 'templates' keys other than 'default' are the seven cast subjects (docs/combat-animation-vision.md §3) resolved by CombatScreen.enemy_template_key()/display-entry building -- 'player' (state.player), the recruited-ally contactId (e.g. 'archie'), the data/enemies.json raidGuards key (territorialScrapper/veinGuard/orichalchumDealer), 'homeRaidRaider' (GameData.ENEMY_HOME_RAID_RAIDER), and 'mugger' (any enemy with isMugging true, however many concurrent instances -- one sheet, reused). Each subject's 'idle' entry is {image, frameCount, fps}; an empty 'image' means no dedicated art has been produced yet -- CombatScreen.StageSlot now falls back to 'default's own idle entry (the same Gangsters_2-sourced stand-in attack/hit/ko already share) rather than the ticket-01 placeholder box, per-subject, not an error. The ticket-01 box is still there as a defensive fallback (a broken/missing 'default' entry), just not expected to trigger in normal play any more."
+"templateRule": "Ticket 09 (amended by a ticket-10 follow-up): 'templates' keys other than 'default' are the seven cast subjects (docs/combat-animation-vision.md §3) resolved by CombatScreen.enemy_template_key()/display-entry building -- the player's state.player.model key (e.g. 'protagonist2'), the recruited-ally contactId (e.g. 'archie'), the data/enemies.json raidGuards key (territorialScrapper/veinGuard/orichalchumDealer), 'homeRaidRaider' (GameData.ENEMY_HOME_RAID_RAIDER), and 'mugger' (any enemy with isMugging true, however many concurrent instances -- one sheet, reused). Each subject's 'idle' entry is {image, frameCount, fps}; an empty 'image' means no dedicated art has been produced yet -- CombatScreen.StageSlot now falls back to 'default's own idle entry (the same Gangsters_2-sourced stand-in attack/hit/ko already share) rather than the ticket-01 placeholder box, per-subject, not an error. The ticket-01 box is still there as a defensive fallback (a broken/missing 'default' entry), just not expected to trigger in normal play any more."
 },
 "templates": {
 "archie": {
@@ -594,21 +594,24 @@
 "image": "res://assets/combat/orichalchum_dealer/ko.png"
 }
 },
-"player": {
+"protagonist2": {
+"_note": "Playable protagonist (state.player.model). Separate single-pose files; attack 'variants' are alternative swings, one picked at random per attack: a 1-frame jab, or guard wind-up then cross.",
 "attack": {
-"fps": 0,
-"frameCount": 0,
-"image": ""
+"variants": [{
+"fps": 5,
+"images": ["res://assets/combat/protagonist2/protagonist2_attack_1.png"]
+}, {
+"fps": 5,
+"images": ["res://assets/combat/protagonist2/protagonist2_attack_2a.png", "res://assets/combat/protagonist2/protagonist2_attack_2b.png"]
+}]
 },
 "hit": {
-"fps": 0,
-"frameCount": 0,
-"image": ""
+"fps": 5,
+"images": ["res://assets/combat/protagonist2/protagonist2_hurt.png"]
 },
 "idle": {
 "fps": 0,
-"frameCount": 0,
-"image": ""
+"images": ["res://assets/combat/protagonist2/protagonist2_idle.png"]
 },
 "ko": {
 "fps": 0,
@@ -4082,6 +4085,13 @@
 },
 "GUARD_REPEL_CHANCE_CAP": 0.75,
 "GUARD_REPEL_CHANCE_PER_GUARD": 0.15,
+"HOME_BILLS": {
+"downgradeThresholdDays": 10,
+"interestRate": 0.05,
+"interestThresholdDays": 5,
+"utilitiesBase": 50,
+"utilitiesFraction": 0.1
+},
 "HOME_ROOMS": {
 "homeGym": {
 "bonus": "body",
@@ -4196,13 +4206,6 @@
 "name": "Orichalchum Ward",
 "raidReduction": 0.06
 }
-},
-"HOME_BILLS": {
-"downgradeThresholdDays": 10,
-"interestRate": 0.05,
-"interestThresholdDays": 5,
-"utilitiesBase": 50,
-"utilitiesFraction": 0.1
 },
 "HOME_TIERS": {
 "bedsit": {

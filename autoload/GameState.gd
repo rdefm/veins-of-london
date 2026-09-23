@@ -96,6 +96,8 @@ func new_game_state() -> Dictionary:
 
 		"player": {
 			"cash": 40,
+			# Playable protagonist -- a data/combat_visuals.json templates key.
+			"model": "protagonist2",
 			"hp": 100, "hpMax": 100,
 			"attackMin": 5, "attackMax": 12,
 			# Shield absorption pool (no turn cap) and Healing Salve's

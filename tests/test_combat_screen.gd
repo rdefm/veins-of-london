@@ -1501,6 +1501,23 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("player_slot_uses_the_chosen_models_idle_and_attack_variants", func():
+		_setup_combat([Fixtures.enemy("Territorial Scrapper")])
+		GameState.state["player"]["model"] = "protagonist2"
+
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "You")
+
+		assert_eq(slot._idle_frames, screen._stage._idle_frames_by_template["protagonist2"]["frames"], "the player slot reads templates[state.player.model]")
+		assert_eq(slot._attack_variants.size(), 2, "protagonist2 declares two attack variants")
+		assert_eq(slot._attack_variants[0]["frames"].size(), 1, "jab variant is one pose")
+		assert_eq(slot._attack_variants[1]["frames"].size(), 2, "wind-up + cross variant is two poses")
+		assert_eq(slot._hit_keyposes.size(), 1, "hurt pose loads")
+
+		screen.free()
+	)
+
 	run_case("stage_slot_shows_orichalchum_dealers_real_manifest_idle_animation", func():
 		_setup_combat([Fixtures.enemy("Orichalchum Dealer")])
 
