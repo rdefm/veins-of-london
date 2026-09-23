@@ -139,9 +139,15 @@ resumes from rollover 6 of the new count, and there are no further drops.
 - With cash 600 instead: interest 20 → pays 420 → bill 50 → cash 130, arrears
   0, days 0. Wages are then paid from 130.
 
-## Open (not decided — ask before implementing)
+## Follow-up decisions (2026-09-23)
 
-- Whether voluntary downgrades are allowed at all.
-- Security upgrades kept on a downgrade below their `minTier`: do they still
-  apply?
-- Staff assigned to cleared rooms: unassigned only, or other consequences?
+- **Voluntary downgrade is allowed.** The player may move down one tier by
+  choice. They choose rent or buy (buying is not possible for the bedsit).
+  The same room wipe applies.
+- **Security moves with the player.** On any downgrade, each security
+  upgrade whose `minTier` is above the new tier is lost without refund.
+  Upgrades still available at the new tier are kept.
+- **Room wipe unassigns staff.** Staff assigned to a wiped room are
+  unassigned automatically. Nothing else happens to them.
+- **Wiping the Home Gym reverts its bonus.** `hpMax −= bonusValue` and `hp`
+  is clamped to the new max. Building the gym again re-grants the bonus.
