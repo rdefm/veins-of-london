@@ -418,7 +418,8 @@ func _archie_raid_toggle_label() -> String:
 func _build_claimed_site_content(content: VBoxContainer, site: Dictionary) -> void:
 	var veins := _veins_for_site(site["id"])
 	if veins.is_empty():
-		content.add_child(_dim_label("This site's vein has collapsed. Nothing to do here."))
+		# collective-act2 spec §11.3 item 4: a ruined site says nothing about why.
+		content.add_child(_dim_label("Nothing to do here." if site.get("ruinedByFirm", false) else "This site's vein has collapsed. Nothing to do here."))
 		return
 	for vein in veins:
 		content.add_child(_build_vein_action_card(vein))

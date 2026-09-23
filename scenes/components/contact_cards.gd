@@ -241,6 +241,15 @@ static func build_hakim_done_action() -> Control:
 	return UI.button("Hand Hakim's vein back", func(): Events.start_event("col_a1_hakim_done"))
 
 
+# collective-act2 spec §6.13: T13's retake, open from the first Targets
+# purchase on Hakim's Firm-held vein until the retake plays.
+static func build_hakim_retake_action() -> Control:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA2HakimIntelBought", false) or flags.get("colA2HakimRetaken", false):
+		return null
+	return UI.button("Get the yard back", func(): Events.start_event("col_a2_hakim_retake"))
+
+
 # collective-act2 spec §6.12: T12's "Go with Nadia", open between
 # colA2SecondLossSeen and the meet itself.
 static func build_handler_meet_action() -> Control:
@@ -420,6 +429,9 @@ static func build_hakim_card() -> Control:
 	var done_action := build_hakim_done_action()
 	if done_action != null:
 		c["content"].add_child(done_action)
+	var retake_action := build_hakim_retake_action()
+	if retake_action != null:
+		c["content"].add_child(retake_action)
 	for entry in Messages.pending_for("hakim"):
 		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
 

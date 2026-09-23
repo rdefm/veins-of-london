@@ -513,6 +513,43 @@ static func maybe_trigger_a2_crack() -> bool:
 	return false
 
 
+# Act 2 T13's gate (spec §6.13): any Targets purchase on Hakim's vein while
+# the Firm holds it, "no" answers included -- the intel entry itself expires,
+# the gate doesn't. Called by NetworkHandler.buy_target().
+static func note_targets_purchase(site_id: String) -> void:
+	var site: Variant = Sites.find_site(site_id)
+	if site == null or site["factionVein"] == null:
+		return
+	var vein: Dictionary = site["factionVein"]
+	if vein["factionId"] == "firm" and vein["id"] == GameState.state["collective"]["hakimVeinId"]:
+		GameState.state["flags"]["colA2HakimIntelBought"] = true
+
+
+# The col_a2_ruin_site op (spec §5.4), fired right after T13's retake lands:
+# Hakim's retaken vein leaves state.player.veins; its site stays claimed but empty, with
+# ruinedByFirm barring Sites.attempt_seed(). No-ops (false) unless the player
+# holds the vein at state.collective.hakimVeinId.
+static func ruin_hakim_site() -> bool:
+	var vein_id: Variant = GameState.state["collective"]["hakimVeinId"]
+	if vein_id == null:
+		return false
+	var vein: Variant = Cultivating.find_vein(vein_id)
+	if vein == null:
+		return false
+	var site: Variant = Sites.find_site(vein["siteId"])
+	if site == null:
+		return false
+
+	var player: Dictionary = GameState.state["player"]
+	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
+	Sites.release_vein_slot(vein)
+	maybe_retarget_nadia_defend_vein(vein_id)
+	site["claimed"] = true
+	site["ruinedByFirm"] = true
+	EventBus.state_changed.emit()
+	return true
+
+
 static func _a2_beat_in_flight() -> bool:
 	var active_event: Variant = GameState.state["event"]
 	if active_event != null and str(active_event["eventId"]).begins_with("col_a2_"):

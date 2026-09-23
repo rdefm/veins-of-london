@@ -1070,7 +1070,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# Contested-vein choice ops (col_a2_contested_vein, spec §6.5): resolve a
 	# site id from a named state path (siteIdStatePath) rather than a raid's
 	# threaded context, then reuse Raiding.claim_vein()/VeinTrade.
-	# buy_from_faction() respectively.
+	# buy_from_faction() respectively. veinIdStatePath names the faction
+	# vein instead (col_a2_hakim_retake).
 	"claim_faction_vein", "buy_faction_vein",
 	# col_a2_nadia_defend_brief's on_complete (T8a, spec §6.8a): picks and
 	# stamps state.collective.nadiaDefendVeinId via Collective.
@@ -1080,6 +1081,9 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# transfer via Collective.force_vein_loss(), target from veinIdStatePath
 	# or Collective.second_loss_target_id().
 	"col_a2_force_vein_loss",
+	# col_a2_hakim_retake's choices (T13, spec §5.4): Collective.
+	# ruin_hakim_site() empties Hakim's retaken site for good.
+	"col_a2_ruin_site",
 	# Network handler products (spec §5.3): NetworkHandler.reveal_vulnerable_
 	# vein() (site id from effect/context, "effect" claim_bonus|security_freeze)
 	# and NetworkHandler.reveal_site() ("oreType", "minTier").

@@ -27,7 +27,7 @@ Data file per system: see `data/*.json` below.
 | barometer.gd | Economic/social/political barometer + faction prefs |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
-| collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses |
+| collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses, Hakim retake gate + site ruin (ruinedByFirm) |
 | combat.gd | Turn-based combat engine + rewind. Resumable progression via `combat.turnCursor` + `prime_`/`conclude_decision_point()`; pure `project_queue()` (no koed slots, empty after outcome; R§3.7a). Beats carry `occurrence` tags. `combat.selection` via `set_selection()`, `clamp_selection()` on KO/Rewind/load; `selection_block_reason()` gates commands. Stamps `combat.locationKey` |
 | network_handler.gd | Network handler Targets (timed `collective.networkIntel` claim_bonus/security_freeze) and Sourcing (site delivered by handler text); pricing off `VeinTrade.quote()` |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |

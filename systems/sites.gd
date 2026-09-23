@@ -375,6 +375,9 @@ static func attempt_seed(site_id: String) -> Dictionary:
 	var site = find_site(site_id)
 	if site == null:
 		return { "ok": false, "reason": "Site not found." }
+	# Collective.ruin_hakim_site() (collective-act2 spec §5.4) is its only setter.
+	if site.get("ruinedByFirm", false):
+		return { "ok": false, "reason": "Nothing to do here." }
 	if site["claimed"] or site["factionVein"] != null:
 		return { "ok": false, "reason": "Site is already claimed." }
 	if site["tier"] == "barren":

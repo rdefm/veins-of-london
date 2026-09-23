@@ -299,9 +299,10 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		# Contested-vein choice ops (col_a2_contested_vein, spec §6.5): both
 		# resolve a site id from a named state path (no per-raid context to
 		# thread, since a map pin's tap carries none) rather than reusing
-		# claim_raid_vein's context-threaded site_id.
+		# claim_raid_vein's context-threaded site_id. veinIdStatePath instead
+		# names the faction vein itself (col_a2_hakim_retake, spec §6.13).
 		"claim_faction_vein":
-			Raiding.claim_vein(GameState.read_path(effect["siteIdStatePath"]))
+			Raiding.claim_vein(_state_path_site_id(effect))
 		"buy_faction_vein":
 			_buy_faction_vein(effect)
 		"unlock_contact":
@@ -328,6 +329,9 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"col_a2_force_vein_loss":
 			var target: Variant = GameState.read_path(effect["veinIdStatePath"]) if effect.has("veinIdStatePath") else Collective.second_loss_target_id()
 			Collective.force_vein_loss(target, effect["faction"])
+		# T13 (spec §5.4): runs right after the retake's claim/buy op.
+		"col_a2_ruin_site":
+			Collective.ruin_hakim_site()
 		"network_reveal_vulnerable_vein":
 			NetworkHandler.reveal_vulnerable_vein(_event_site_id(effect, context), effect["effect"])
 		"network_reveal_site":
@@ -480,10 +484,23 @@ static func _event_site_id(effect: Dictionary, fallback_context: Dictionary = {}
 # normal quote() price. A silent no-op if the site or its faction vein is
 # already gone (e.g. bought from the Map screen before this event ran).
 static func _buy_faction_vein(effect: Dictionary) -> void:
-	var site: Variant = Sites.find_site(GameState.read_path(effect["siteIdStatePath"]))
+	var site: Variant = Sites.find_site(_state_path_site_id(effect))
 	if site == null or site["factionVein"] == null:
 		return
 	VeinTrade.buy_from_faction(site["factionVein"]["id"], effect["faction"])
+
+
+# claim_faction_vein/buy_faction_vein's site: siteIdStatePath directly, or the
+# site holding the faction vein veinIdStatePath names ("" once no site does).
+static func _state_path_site_id(effect: Dictionary) -> String:
+	if effect.has("siteIdStatePath"):
+		var site_id: Variant = GameState.read_path(effect["siteIdStatePath"])
+		return site_id if site_id != null else ""
+	var vein_id: Variant = GameState.read_path(effect["veinIdStatePath"])
+	for site in GameState.state["world"]["sites"]:
+		if site["factionVein"] != null and site["factionVein"]["id"] == vein_id:
+			return site["id"]
+	return ""
 
 
 # The site was already appended to state.world.sites at roll time -- this just

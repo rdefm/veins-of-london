@@ -2602,6 +2602,77 @@
 "showWhenFlagsTrue": ["colA2Stage"]
 }
 },
+"col_a2_hakim_retake": {
+"cards": [{
+"label": "Whitechapel Road",
+"speaker": null,
+"text": "The padlock on the yard gate is still the Firm's. Hakim watches it from the shop doorway, the way you'd watch the weather.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"Nadia says you've been asking about it.\" He wipes his hands on his apron, though they're clean. \"I don't want anyone getting hurt over a yard. Sorry. I know that's not much help.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [{
+"op": "claim_faction_vein",
+"veinIdStatePath": "collective.hakimVeinId"
+}, {
+"op": "col_a2_ruin_site"
+}],
+"label": "Take it back",
+"result_text": "You go in at the hour the handler said. The chain's cheap, and the man meant to be watching it is round the corner on his phone. It takes less time than the kettle."
+}, {
+"effects": [{
+"faction": "firm",
+"op": "buy_faction_vein",
+"veinIdStatePath": "collective.hakimVeinId"
+}, {
+"op": "col_a2_ruin_site"
+}],
+"label": "Buy it back",
+"result_text": "The Firm's man meets you at the gate with the paperwork already filled in. \"Same price as anyone's. It was only ever a yard to us.\" He hands over the key to his padlock and doesn't look back at it."
+}],
+"label": null,
+"speaker": null,
+"text": "Two ways through that gate.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "Hakim opens the gate himself. It takes him two goes with the key.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "The yard is as it was. The bins, the broken pallet, the drain in the corner. He crouches and puts his palm flat on the concrete, the way his uncle used to, and keeps it there a while.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"Well.\" He stands, and his knees crack. \"It's ours. Thank you. Really.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He locks the gate behind you both, with his own padlock this time.",
+"type": "resolution"
+}],
+"id": "col_a2_hakim_retake",
+"on_complete": [{
+"faction": "collective",
+"op": "faction_relation",
+"value": 15
+}, {
+"flag": "colA2HakimRetaken",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
 "col_a2_hakim_vein_lost": {
 "cards": [{
 "label": "Whitechapel Road",

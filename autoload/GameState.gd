@@ -289,6 +289,10 @@ func new_game_state() -> Dictionary:
 			# Gates Debug phone app visibility -- true only via
 			# DebugStart.apply()'s force-all-flags pass.
 			"debugStartUsed": false,
+			# collective-act2 T13 (spec §6.13): the Hakim-card retake action
+			# opens once Targets intel is bought on his Firm-held vein
+			# (Collective.note_targets_purchase()), and closes on the retake.
+			"colA2HakimIntelBought": false, "colA2HakimRetaken": false,
 		},
 
 		# barkCursors backs Collective._next_bark()'s no-repeat-until-

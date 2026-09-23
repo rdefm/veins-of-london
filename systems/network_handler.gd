@@ -91,6 +91,7 @@ static func buy_target(site_id: String, effect: String) -> Dictionary:
 	var price := target_price(site_id)
 	if not _charge(price, "Network handler: targets"):
 		return { "ok": false, "reason": "Not enough cash." }
+	Collective.note_targets_purchase(site_id)
 	var vulnerable := reveal_vulnerable_vein(site_id, effect)
 	var text: String
 	if effect == EFFECT_SECURITY_FREEZE:
