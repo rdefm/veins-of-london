@@ -293,6 +293,10 @@ func run() -> void:
 				var smaller: float = minf(a.get_area(), b.get_area())
 				assert_true(overlap < 0.5 * smaller, "%s/%s overlap %.0f must be under half of %.0f" % [all_slots[i].combatant_name, all_slots[j].combatant_name, overlap, smaller])
 
+		var clear_y: float = CombatScreen._STRIP_TOP_INSET + TurnOrderStrip.MAX_EXPANDED_CARD_HEIGHT + CombatStage.SELECTION_ARROW_CLEARANCE
+		for s in all_slots:
+			assert_true(s.position.y >= clear_y, "%s (top %.0f) and its arrow must stand below a fully expanded strip card (%.0f)" % [s.combatant_name, s.position.y, clear_y])
+
 		var layer: Node = all_slots[0].get_parent()
 		for s in all_slots:
 			assert_true(s.get_parent() == layer, "all slots share one layer so depth sorts across groups")
@@ -333,6 +337,23 @@ func run() -> void:
 			assert_eq(tapped, [expected[name]], "tapping %s must target it" % name)
 
 		screen.free()
+	)
+
+	run_case("a_figure_box_fills_its_slot_bottom_centred_and_mirrors_when_flipped", func():
+		# A 128² frame whose figure is 29×71 at (45, 57), like the shipped idle sheets.
+		var frame := Vector2(128, 128)
+		var box := Rect2(45, 57, 29, 71)
+		var slot := Vector2(40, 80)
+		var rect := CombatStage.StageSlot.figure_frame_rect(slot, frame, box, false)
+		var fit: float = rect.size.x / frame.x
+		var figure := Rect2(rect.position + box.position * fit, box.size * fit)
+		assert_almost_eq(figure.size.y, slot.y, 0.01, "a tall figure fills the slot's height")
+		assert_almost_eq(figure.end.y, slot.y, 0.01, "feet on the slot's bottom edge")
+		assert_almost_eq(figure.get_center().x, slot.x / 2.0, 0.01, "horizontally centred")
+
+		var flipped := CombatStage.StageSlot.figure_frame_rect(slot, frame, box, true)
+		var mirrored_x: float = frame.x - box.end.x
+		assert_almost_eq(flipped.position.x + (mirrored_x + box.size.x / 2.0) * fit, slot.x / 2.0, 0.01, "a flipped frame's figure is still centred")
 	)
 
 	run_case("lone_combatants_stand_inside_their_half_not_at_the_edge", func():
@@ -1924,6 +1945,35 @@ func run() -> void:
 		assert_eq(widget_rect_after, widget_rect_before, "the reserved band gaining content must not move or resize the Dial")
 
 		screen.free()
+		viewport.free()
+	)
+
+	# combat-refining ticket 13: the stage fills the upper region.
+	await run_case("stage_reaches_the_command_surface_and_full_squad_stands_clear_of_the_strip", func():
+		var tree := Engine.get_main_loop() as SceneTree
+		_setup_combat([Fixtures.enemy("E0"), Fixtures.enemy("E1"), Fixtures.enemy("E2")], [Fixtures.ally("A0"), Fixtures.ally("A1")])
+		var viewport := Control.new()
+		viewport.size = Vector2(390, 844)
+		tree.root.add_child(viewport)
+		var screen := CombatScreen.new()
+		viewport.add_child(screen)
+		await tree.process_frame
+		await tree.process_frame
+
+		var region := Rect2(screen._upper_region.global_position, screen._upper_region.size)
+		var stage := Rect2(screen._stage.global_position, screen._stage.size)
+		assert_eq(stage, region, "the stage fills the whole upper region -- no exposed band below it")
+		assert_almost_eq(stage.end.y, viewport.size.y - CombatCommandDock.COMMAND_DOCK_SURFACE_HEIGHT, 1.0, "the stage's bottom meets the command surface")
+		assert_almost_eq(CombatStage.STAGE_HEIGHT, stage.size.y, 1.0, "the off-tree fallback height matches the design viewport's region")
+
+		var strip_bottom: float = screen._strip_holder.global_position.y + TurnOrderStrip.MAX_EXPANDED_CARD_HEIGHT
+		var slots := _stage_slots(screen)
+		assert_eq(slots.size(), 6)
+		for s in slots:
+			var r := Rect2(s.global_position, s.size)
+			assert_true(r.position.y >= strip_bottom, "%s must stand below even a fully expanded strip card" % s.combatant_name)
+			assert_true(stage.encloses(r), "%s must stay on the stage, above the command surface" % s.combatant_name)
+
 		viewport.free()
 	)
 

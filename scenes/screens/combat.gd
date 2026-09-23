@@ -6,8 +6,8 @@ extends Control
 # and CombatCommandDock (near-white command surface: Dial + Complication
 # detail + action cards, scenes/components/combat_command_dock.gd). This
 # screen lays out a two-region body: a slim heading row, an upper region
-# (stage full-bleed, the turn-order strip overlaid on top of it, and a
-# reserved band below for a selected card's expanded details) and the
+# (stage full-bleed down to the command surface, with the turn-order strip
+# and a reserved detail band/outcome footer overlaid on it) and the
 # command dock's own near-white surface filling the rest down to the true
 # bottom edge. It also keeps turn flow (the turn-order strip), director
 # bridging (translating the beat queue into calls on the stage/dock's own
@@ -90,9 +90,14 @@ func _ready() -> void:
 	_stage = CombatStage.new()
 	_stage.position = Vector2.ZERO
 	_stage.size = Vector2(CombatStage.STAGE_WIDTH, CombatStage.STAGE_HEIGHT)
+	# Sprites stand below the strip even when the selected card is fully expanded.
+	_stage.set_top_clearance(_STRIP_TOP_INSET + TurnOrderStrip.MAX_EXPANDED_CARD_HEIGHT)
 	_stage.gui_input.connect(_on_stage_gui_input)
 	_stage.subject_tapped.connect(_on_stage_subject_tapped)
 	_upper_region.add_child(_stage)
+	# The stage fills the whole upper region, down to the command surface.
+	_upper_region.resized.connect(_fit_stage_to_region)
+	_fit_stage_to_region()
 
 	# Added after the stage so it paints on top of it -- the turn-order strip
 	# overlays the stage rather than stacking above it.
@@ -108,24 +113,23 @@ func _ready() -> void:
 	_turn_order_strip = TurnOrderStrip.new()
 	_strip_holder.add_child(_turn_order_strip)
 
-	# Everything below the stage frame: the (usually empty) outcome-button
-	# footer, then the reserved detail band soaking up whatever's left of
-	# the upper region. A plain VBox so the footer's own natural height
-	# never has to be guessed -- the detail band's SIZE_EXPAND_FILL just
-	# yields it whatever room it needs.
+	# Overlaid on the stage: the reserved detail band soaking up the upper
+	# region, then the (usually empty) outcome-button footer at its bottom
+	# edge. Mouse-transparent so sprite taps pass through to the stage.
 	var post_stage := UI.vbox(0)
 	post_stage.anchor_right = 1.0
 	post_stage.anchor_bottom = 1.0
-	post_stage.offset_top = CombatStage.STAGE_HEIGHT
+	post_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_upper_region.add_child(post_stage)
-
-	_footer_holder = UI.vbox(8)
-	post_stage.add_child(_footer_holder)
 
 	_detail_band = Control.new()
 	_detail_band.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_detail_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	post_stage.add_child(_detail_band)
+
+	_footer_holder = UI.vbox(8)
+	_footer_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	post_stage.add_child(_footer_holder)
 
 	# The lower region: CombatCommandDock owns its own near-white surface
 	# and anchors itself to the true bottom of whatever it's added to.
@@ -136,6 +140,14 @@ func _ready() -> void:
 	EventBus.combat_beats_played.connect(_on_combat_beats_played)
 	EventBus.combat_rewind_played.connect(_on_combat_rewind_played)
 	_sync()
+
+
+# Off-tree the region never gets a size, so the stage keeps its fallback.
+func _fit_stage_to_region() -> void:
+	if _upper_region.size.y > 0.0:
+		_stage.set_stage_size(Vector2(CombatStage.STAGE_WIDTH, _upper_region.size.y))
+
+
 func _sync() -> void:
 	var combat: Dictionary = GameState.state["combat"]
 	var player: Dictionary = GameState.state["player"]

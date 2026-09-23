@@ -21,22 +21,27 @@ signal subject_tapped(target: Dictionary)
 # loading happen lazily on first sync() instead.
 
 const STAGE_WIDTH := 390.0
-const STAGE_HEIGHT := 220.0
+# The upper region's height at the 390×844 design viewport; used off-tree.
+# In a live tree the screen sizes the stage to its region.
+const STAGE_HEIGHT := 362.0
 const STAGE_DEFAULT_FILL := Color(0.07, 0.07, 0.09)
 # Receding staging (vision §2.2): friendlies near the viewer (lower, larger),
 # enemies farther back (higher, smaller). Each group's front slot sits on the
-# outer side; back slots step toward the stage centre, up and smaller. Ratios
-# are of the stage size; SLOT_ASPECT follows the ~64×104 combatant canvas (§6.1).
-const SLOT_ASPECT := 0.62
-const FRIENDLY_FRONT_HEIGHT_RATIO := 0.60
-const FRIENDLY_FRONT_BOTTOM_RATIO := 0.98
+# outer side; back slots step toward the stage centre, up and smaller.
+# Heights/steps are ratios of the staging zone -- the band between the
+# turn-order strip's clearance line (plus room for the selection arrow) and
+# the stage floor; x anchors are ratios of the stage width.
+const SLOT_ASPECT := 0.5
+const SELECTION_ARROW_CLEARANCE := 14.0
+const FLOOR_MARGIN_RATIO := 0.02
+const FRIENDLY_FRONT_HEIGHT_RATIO := 0.62
 const FRIENDLY_ANCHOR_X_RATIO := 0.26
-const ENEMY_FRONT_HEIGHT_RATIO := 0.45
-const ENEMY_FRONT_BOTTOM_RATIO := 0.74
+const ENEMY_FRONT_HEIGHT_RATIO := 0.46
+const ENEMY_FRONT_BOTTOM_RATIO := 0.62
 const ENEMY_ANCHOR_X_RATIO := 0.74
-const DEPTH_STEP_SIZE_SCALE := 0.9
+const DEPTH_STEP_SIZE_SCALE := 0.88
 const DEPTH_STEP_X_OF_WIDTH := 0.65
-const DEPTH_STEP_Y_RATIO := 0.07
+const DEPTH_STEP_Y_RATIO := 0.10
 const DAMAGE_NUMBER_RISE_PX := 28.0
 const DAMAGE_NUMBER_DURATION := 0.6
 const SHAKE_MIN_PX := 3.0
@@ -95,8 +100,16 @@ class StageSlot extends Control:
 	var _one_shot_hold_last_frame: bool = false
 	var _one_shot_timer: Timer
 	var _ghost_rect: TextureRect
+	# Holds the sprite at full-frame size, placed so the frame's visible
+	# figure (_figure_box, frame px) fills the slot bottom-centred.
+	var _figure_holder: Control
+	var _figure_box: Rect2 = Rect2()
 
 	func _init() -> void:
+		_figure_holder = Control.new()
+		_figure_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_figure_holder)
+
 		_sprite_rect = TextureRect.new()
 		_sprite_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_sprite_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -104,7 +117,7 @@ class StageSlot extends Control:
 		_sprite_rect.anchor_right = 1.0
 		_sprite_rect.anchor_bottom = 1.0
 		_sprite_rect.visible = false
-		add_child(_sprite_rect)
+		_figure_holder.add_child(_sprite_rect)
 
 		_ghost_rect = TextureRect.new()
 		_ghost_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -114,7 +127,7 @@ class StageSlot extends Control:
 		_ghost_rect.anchor_bottom = 1.0
 		_ghost_rect.visible = false
 		_ghost_rect.modulate.a = 0.0
-		add_child(_ghost_rect)
+		_figure_holder.add_child(_ghost_rect)
 
 		_idle_timer = Timer.new()
 		_idle_timer.one_shot = false
@@ -141,6 +154,32 @@ class StageSlot extends Control:
 
 	func _apply_flip() -> void:
 		_sprite_rect.flip_h = (side == "enemy") != _mirror_extra
+		layout_figure()
+
+	func set_figure_box(box: Rect2) -> void:
+		_figure_box = box
+		layout_figure()
+
+	func layout_figure() -> void:
+		var frame_size: Vector2 = _sprite_rect.texture.get_size() if _sprite_rect.texture != null else Vector2.ZERO
+		if not _figure_box.has_area() or not frame_size.x > 0.0:
+			_figure_holder.position = Vector2.ZERO
+			_figure_holder.size = size
+			return
+		var rect := figure_frame_rect(size, frame_size, _figure_box, _sprite_rect.flip_h)
+		_figure_holder.position = rect.position
+		_figure_holder.size = rect.size
+
+	# Where a whole frame lands in slot space so its figure box fits the
+	# slot (aspect kept), bottom-aligned and horizontally centred.
+	static func figure_frame_rect(slot_size: Vector2, frame_size: Vector2, figure_box: Rect2, flipped: bool) -> Rect2:
+		var fit: float = minf(slot_size.x / figure_box.size.x, slot_size.y / figure_box.size.y)
+		var figure_x: float = frame_size.x - figure_box.end.x if flipped else figure_box.position.x
+		var pos := Vector2(
+			slot_size.x / 2.0 - (figure_x + figure_box.size.x / 2.0) * fit,
+			slot_size.y - figure_box.end.y * fit,
+		)
+		return Rect2(pos, frame_size * fit)
 	func _forward_dir() -> float:
 		return -1.0 if side == "enemy" else 1.0
 
@@ -278,11 +317,11 @@ class StageSlot extends Control:
 			return
 		var ghost := _new_overlay_rect(-1)
 		ghost.texture = _sprite_rect.texture
-		ghost.size = size
+		ghost.size = _figure_holder.size
 		ghost.position = _sprite_rect.position
 		ghost.flip_h = _sprite_rect.flip_h
 		ghost.modulate = Color(1.0, 1.0, 1.0, 0.45)
-		add_child(ghost)
+		_figure_holder.add_child(ghost)
 		var tween := create_tween()
 		tween.tween_property(ghost, "modulate:a", 0.0, 0.22)
 		tween.tween_callback(ghost.queue_free)
@@ -436,6 +475,12 @@ class StageSlot extends Control:
 var _enemy_slots: Dictionary = {}  # enemy index (int) -> StageSlot
 var _player_slots: Dictionary = {}  # -1 (player) or ally index (int) -> StageSlot
 var _slot_layer: Control
+var _vignette: TextureRect
+var _top_clearance: float = 0.0
+# Display keys per side in front-to-back order, as of the last sync().
+var _player_order: Array = []
+var _enemy_order: Array = []
+var _figure_box_by_frame: Dictionary = {}  # first idle frame's instance id -> Rect2 (px)
 var _backdrop_texture: TextureRect
 var _backdrop_fill: ColorRect
 var _default_attack_keyposes: Array[Texture2D] = []
@@ -454,6 +499,28 @@ var _effect_frames_by_key: Dictionary = {}
 var _stage_shake_layer: Control
 
 
+# The stage fills whatever region the screen gives it; slots re-stage to fit.
+func set_stage_size(value: Vector2) -> void:
+	size = value
+	if _stage_shake_layer != null:
+		_fit_layers_to_size()
+		_layout_all_slots()
+
+
+# Stage-space y above which the screen overlays chrome (the turn-order strip)
+# that sprites must stand clear of.
+func set_top_clearance(value: float) -> void:
+	_top_clearance = value
+	if _slot_layer != null:
+		_layout_all_slots()
+
+
+func _fit_layers_to_size() -> void:
+	for layer in [_stage_shake_layer, _backdrop_fill, _backdrop_texture, _slot_layer, _vignette]:
+		layer.position = Vector2.ZERO
+		layer.size = size
+
+
 func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> void:
 	if get_child_count() == 0:
 		_build()
@@ -468,7 +535,9 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 
 	var enemy_entries := _enemy_display_entries(enemies, selection)
 	_sync_band(_enemy_slots, enemy_entries, "enemy")
-	_sort_slots_by_depth()
+	_player_order = player_entries.map(func(e): return e["index"])
+	_enemy_order = enemy_entries.map(func(e): return e["index"])
+	_layout_all_slots()
 	var frozen: bool = combat["frozenTurns"] > 0
 	for slot in _enemy_slots.values():
 		slot.set_time_scale(0.1 if frozen else 1.0)
@@ -567,9 +636,11 @@ func _default_effect_target(effect_key: String) -> Dictionary:
 
 
 func _build() -> void:
-	custom_minimum_size = Vector2(STAGE_WIDTH, STAGE_HEIGHT)
+	custom_minimum_size = Vector2(STAGE_WIDTH, 0.0)
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_PASS
+	if size.y <= 0.0:
+		size = Vector2(STAGE_WIDTH, STAGE_HEIGHT)
 
 	var frame_style := StyleBoxFlat.new()
 	frame_style.bg_color = STAGE_DEFAULT_FILL
@@ -577,22 +648,15 @@ func _build() -> void:
 
 	_stage_shake_layer = Control.new()
 	_stage_shake_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_stage_shake_layer.size = Vector2(STAGE_WIDTH, STAGE_HEIGHT)
 	add_child(_stage_shake_layer)
-	# Edge-to-edge, no frame border (vision §2.1).
-	var backdrop_origin := Vector2.ZERO
-	var backdrop_size := Vector2(STAGE_WIDTH, STAGE_HEIGHT)
 
+	# Edge-to-edge, no frame border (vision §2.1).
 	_backdrop_fill = ColorRect.new()
 	_backdrop_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_backdrop_fill.position = backdrop_origin
-	_backdrop_fill.size = backdrop_size
 	_stage_shake_layer.add_child(_backdrop_fill)
 
 	_backdrop_texture = TextureRect.new()
 	_backdrop_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_backdrop_texture.position = backdrop_origin
-	_backdrop_texture.size = backdrop_size
 	# Ignore the plate's native size, or its minimum size grows the rect past
 	# the stage and the clip reads as a zoom-in.
 	_backdrop_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -604,7 +668,9 @@ func _build() -> void:
 	_slot_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stage_shake_layer.add_child(_slot_layer)
 
-	_stage_shake_layer.add_child(_build_vignette())
+	_vignette = _build_vignette()
+	_stage_shake_layer.add_child(_vignette)
+	_fit_layers_to_size()
 
 	_load_default_animations()
 	_load_template_idle_animations()
@@ -744,7 +810,6 @@ func _sync_band(pool: Dictionary, display_entries: Array, side: String) -> void:
 			stale.queue_free()
 			pool.erase(key)
 
-	var rects := _group_rects(display_entries.size(), side)
 	var template_occurrence: Dictionary = {}
 	for i in range(display_entries.size()):
 		var entry: Dictionary = display_entries[i]
@@ -761,10 +826,6 @@ func _sync_band(pool: Dictionary, display_entries: Array, side: String) -> void:
 			slot.gui_input.connect(_on_slot_gui_input.bind(side, key))
 			_slot_layer.add_child(slot)
 			pool[key] = slot
-		var rect: Rect2 = rects[i]
-		slot.size = rect.size
-		slot.custom_minimum_size = rect.size
-		slot.position = rect.position
 		slot.combatant_name = entry["name"]
 		slot.fill_color = _placeholder_color(entry["name"])
 		slot.is_focused = entry["isFocused"]
@@ -778,6 +839,7 @@ func _sync_band(pool: Dictionary, display_entries: Array, side: String) -> void:
 		var default_idle: Dictionary = _idle_frames_by_template.get("default", {})
 		var idle := _resolve_action_keyposes(_idle_frames_by_template, template_key, default_idle.get("frames", _empty_idle_frames), default_idle.get("fps", 0.0))
 		slot.set_idle_animation(idle["frames"], idle["fps"])
+		slot.set_figure_box(_figure_box_for(idle["frames"]))
 		for action in [
 			[_attack_keyposes_by_template, _default_attack_keyposes, _default_attack_fps, slot.set_attack_animation],
 			[_hit_keyposes_by_template, _default_hit_keyposes, _default_hit_fps, slot.set_hit_animation],
@@ -787,6 +849,22 @@ func _sync_band(pool: Dictionary, display_entries: Array, side: String) -> void:
 			var resolved: Dictionary = _resolve_action_keyposes(action[0], template_key, action[1], action[2])
 			var setter: Callable = action[3]
 			setter.call(resolved["frames"], resolved["fps"])
+
+
+func _layout_all_slots() -> void:
+	for group in [[_player_slots, _player_order, "player"], [_enemy_slots, _enemy_order, "enemy"]]:
+		var pool: Dictionary = group[0]
+		var order: Array = group[1]
+		var rects := group_rects(order.size(), group[2], size, _top_clearance)
+		for i in range(order.size()):
+			var slot: StageSlot = pool.get(order[i])
+			if slot == null:
+				continue
+			slot.custom_minimum_size = rects[i].size
+			slot.size = rects[i].size
+			slot.position = rects[i].position
+			slot.layout_figure()
+	_sort_slots_by_depth()
 
 
 # Nearer (lower bottom edge) slots draw last, so they sit over farther ones
@@ -800,31 +878,60 @@ func _sort_slots_by_depth() -> void:
 
 # Stage-space rects for one group, front slot first. The group's bounding box
 # is centred on its anchor so a lone combatant stands in its half, not at the edge.
-static func _group_rects(count: int, side: String) -> Array[Rect2]:
+static func group_rects(count: int, side: String, stage_size: Vector2, top_clearance: float) -> Array[Rect2]:
 	var rects: Array[Rect2] = []
 	if count <= 0:
 		return rects
 	var is_enemy := side == "enemy"
-	var height: float = STAGE_HEIGHT * (ENEMY_FRONT_HEIGHT_RATIO if is_enemy else FRIENDLY_FRONT_HEIGHT_RATIO)
-	var bottom: float = STAGE_HEIGHT * (ENEMY_FRONT_BOTTOM_RATIO if is_enemy else FRIENDLY_FRONT_BOTTOM_RATIO)
+	var zone_top: float = top_clearance + SELECTION_ARROW_CLEARANCE
+	var zone_bottom: float = stage_size.y * (1.0 - FLOOR_MARGIN_RATIO)
+	var zone: float = maxf(0.0, zone_bottom - zone_top)
+	var height: float = zone * (ENEMY_FRONT_HEIGHT_RATIO if is_enemy else FRIENDLY_FRONT_HEIGHT_RATIO)
+	var bottom: float = (zone_top + zone * ENEMY_FRONT_BOTTOM_RATIO) if is_enemy else zone_bottom
 	var x := 0.0
 	for i in range(count):
-		var size := Vector2(height * SLOT_ASPECT, height)
-		# Rects are built left-to-right from the front slot, then mirrored for enemies.
-		rects.append(Rect2(Vector2(x, bottom - height), size))
-		x += size.x * DEPTH_STEP_X_OF_WIDTH
+		var slot_size := Vector2(height * SLOT_ASPECT, height)
+		# Built left-to-right from the front slot, then mirrored for enemies.
+		rects.append(Rect2(Vector2(x, bottom - height), slot_size))
+		x += slot_size.x * DEPTH_STEP_X_OF_WIDTH
 		height *= DEPTH_STEP_SIZE_SCALE
-		bottom -= STAGE_HEIGHT * DEPTH_STEP_Y_RATIO
+		bottom -= zone * DEPTH_STEP_Y_RATIO
 
 	var span: float = 0.0
 	for r in rects:
 		span = maxf(span, r.end.x)
-	var anchor: float = STAGE_WIDTH * (ENEMY_ANCHOR_X_RATIO if is_enemy else FRIENDLY_ANCHOR_X_RATIO)
-	var left: float = clampf(anchor - span / 2.0, 0.0, STAGE_WIDTH - span)
+	var anchor: float = stage_size.x * (ENEMY_ANCHOR_X_RATIO if is_enemy else FRIENDLY_ANCHOR_X_RATIO)
+	var left: float = clampf(anchor - span / 2.0, 0.0, maxf(0.0, stage_size.x - span))
 	for i in range(rects.size()):
 		var local_x: float = span - rects[i].end.x if is_enemy else rects[i].position.x
 		rects[i].position.x = left + local_x
 	return rects
+
+
+# Pixel rect of the visible figure within a frame (union over the idle
+# frames), so slots size to the figure rather than the padded canvas. Falls
+# back to the whole frame when pixels can't be read (headless renderer).
+func _figure_box_for(frames: Array[Texture2D]) -> Rect2:
+	if frames.is_empty():
+		return Rect2()
+	var key: int = frames[0].get_instance_id()
+	if _figure_box_by_frame.has(key):
+		return _figure_box_by_frame[key]
+	var frame_size := Vector2(frames[0].get_width(), frames[0].get_height())
+	var box := Rect2()
+	for frame in frames:
+		var image: Image = frame.get_image()
+		if image == null or image.is_empty():
+			box = Rect2()
+			break
+		var used := Rect2(image.get_used_rect())
+		if used.has_area():
+			box = used if not box.has_area() else box.merge(used)
+	if not box.has_area():
+		box = Rect2(Vector2.ZERO, frame_size)
+	_figure_box_by_frame[key] = box
+	return box
+
 
 func _placeholder_color(key: String) -> Color:
 	var index: int = int(abs(hash(key))) % _PLACEHOLDER_PALETTE.size()
@@ -833,8 +940,6 @@ func _placeholder_color(key: String) -> Color:
 func _build_vignette() -> Control:
 	var vignette := TextureRect.new()
 	vignette.texture = _vignette_texture()
-	vignette.position = Vector2.ZERO
-	vignette.size = Vector2(STAGE_WIDTH, STAGE_HEIGHT)
 	vignette.stretch_mode = TextureRect.STRETCH_SCALE
 	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return vignette

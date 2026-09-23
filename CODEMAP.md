@@ -91,7 +91,7 @@ overlays.
 
 | File | Renders |
 |---|---|
-| combat.gd | Combat screen: orchestrator over CombatStage/CombatCommandDock -- owns turn flow, director bridging, band sync. Keeps one persistent strip and steps its queue beat by beat during (and Rewind) playback. `_select_target()` is the sole tap->`Combat.set_selection()` route; a stage tap during playback fast-forwards |
+| combat.gd | Combat screen: orchestrator over CombatStage (fills the upper region)/CombatCommandDock -- owns turn flow, director bridging, band sync. Keeps one persistent strip and steps its queue beat by beat during (and Rewind) playback. `_select_target()` is the sole tap->`Combat.set_selection()` route; a stage tap during playback fast-forwards |
 | combat_prototype.gd | Minimal combat-prototype screen, Debug-app only |
 | contacts.gd | Contacts app inside PhoneDeviceShell; alphabetic directory with inline flag-gated actions |
 | event.gd | Event-card screen (VN and non-VN layouts) |
@@ -117,7 +117,7 @@ overlays.
 | bag_drawer.gd | Global bottom-sheet bag drawer; in combat, item buttons disable (with reason) per `Combat.selection_block_reason()` |
 | combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial beside flat 1px-ruled command rows (Complication readout, Attack, Item, Leg it), anchored to the true screen bottom; Attack/Item disabled per the current selection |
 | combat_director.gd | Combat beat-queue playback director |
-| combat_stage.gd | Combat's full-width pixel stage: edge-to-edge backdrop (location -> context -> palette), slots in two receding diagonal groups (enemies back/smaller) depth-sorted on one layer, keypose one-shots, effect sheets, juice layer. Each `StageSlot` takes taps (`MOUSE_FILTER_STOP`), emits `subject_tapped`; selected slot draws a small arrow |
+| combat_stage.gd | Combat's pixel stage, sized to its region: edge-to-edge backdrop (location -> context -> palette); slots in two receding diagonal groups (enemies back/smaller) below the strip clearance, fitted to each sprite's visible figure, depth-sorted; keypose one-shots, effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot draws an arrow |
 | contact_cards.gd | Shared contact/faction card builders, inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
 | dial_widget.gd | Combat's Dial-casting widget |
