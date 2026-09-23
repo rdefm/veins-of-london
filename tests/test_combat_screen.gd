@@ -259,6 +259,97 @@ func run() -> void:
 		screen.free()
 	)
 
+	# combat-refining ticket 11: receding full-squad staging.
+	run_case("full_squad_stages_six_slots_in_two_receding_groups", func():
+		_setup_combat([Fixtures.enemy("E0"), Fixtures.enemy("E1"), Fixtures.enemy("E2")], [Fixtures.ally("A0"), Fixtures.ally("A1")])
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var enemies: Array = [_slot_named(screen, "E0"), _slot_named(screen, "E1"), _slot_named(screen, "E2")]
+		var friendlies: Array = [_slot_named(screen, "You"), _slot_named(screen, "A0"), _slot_named(screen, "A1")]
+		var all_slots: Array = enemies + friendlies
+		assert_eq(_stage_slots(screen).size(), 6, "3 enemies + player + 2 allies")
+		var stage_rect := Rect2(0.0, 0.0, CombatStage.STAGE_WIDTH, CombatStage.STAGE_HEIGHT)
+		for s in all_slots:
+			var r: Rect2 = s.get_rect()
+			assert_true(r.has_area() and stage_rect.encloses(r), "%s's rect %s must be non-empty and inside the stage" % [s.combatant_name, r])
+
+		for e in enemies:
+			for f in friendlies:
+				assert_true(e.get_rect().end.y < f.get_rect().end.y, "%s (enemy) must stand farther back than %s" % [e.combatant_name, f.combatant_name])
+				assert_true(e.size.x < f.size.x and e.size.y < f.size.y, "%s (enemy) must be smaller than %s" % [e.combatant_name, f.combatant_name])
+
+		for group in [enemies, friendlies]:
+			for i in range(1, group.size()):
+				var prev: Rect2 = group[i - 1].get_rect()
+				var cur: Rect2 = group[i].get_rect()
+				assert_true(prev.position.x != cur.position.x and prev.end.y != cur.end.y, "%s -> %s must step diagonally" % [group[i - 1].combatant_name, group[i].combatant_name])
+
+		for i in range(all_slots.size()):
+			for j in range(i + 1, all_slots.size()):
+				var a: Rect2 = all_slots[i].get_rect()
+				var b: Rect2 = all_slots[j].get_rect()
+				var overlap: float = a.intersection(b).get_area()
+				var smaller: float = minf(a.get_area(), b.get_area())
+				assert_true(overlap < 0.5 * smaller, "%s/%s overlap %.0f must be under half of %.0f" % [all_slots[i].combatant_name, all_slots[j].combatant_name, overlap, smaller])
+
+		var layer: Node = all_slots[0].get_parent()
+		for s in all_slots:
+			assert_true(s.get_parent() == layer, "all slots share one layer so depth sorts across groups")
+		for a in all_slots:
+			for b in all_slots:
+				if a.get_rect().end.y < b.get_rect().end.y:
+					assert_true(a.get_index() < b.get_index(), "nearer %s must draw over farther %s" % [b.combatant_name, a.combatant_name])
+
+		screen.free()
+	)
+
+	run_case("every_full_squad_sprite_centre_resolves_its_own_tap", func():
+		_setup_combat([Fixtures.enemy("E0"), Fixtures.enemy("E1"), Fixtures.enemy("E2")], [Fixtures.ally("A0"), Fixtures.ally("A1")])
+		var screen := CombatScreen.new()
+		screen._ready()
+		var stage: CombatStage = screen._stage
+		var tapped: Array = []
+		stage.subject_tapped.connect(func(t: Dictionary): tapped.append(t))
+
+		var expected := {
+			"E0": { "type": "enemy", "index": 0 }, "E1": { "type": "enemy", "index": 1 }, "E2": { "type": "enemy", "index": 2 },
+			"You": { "type": "player", "index": -1 }, "A0": { "type": "ally", "index": 0 }, "A1": { "type": "ally", "index": 1 },
+		}
+		var slots := _stage_slots(screen)
+		for name in expected.keys():
+			var slot := _slot_named(screen, name)
+			var centre: Vector2 = slot.get_rect().get_center()
+			# The topmost (last-drawn) slot under the centre is the one the GUI picks.
+			var topmost: CombatStage.StageSlot = null
+			for s in slots:
+				if s.get_rect().has_point(centre) and (topmost == null or s.get_index() > topmost.get_index()):
+					topmost = s
+			assert_true(topmost == slot, "%s's centre must not be covered by a nearer sprite" % name)
+			tapped.clear()
+			var tap := InputEventScreenTouch.new()
+			tap.pressed = true
+			slot.gui_input.emit(tap)
+			assert_eq(tapped, [expected[name]], "tapping %s must target it" % name)
+
+		screen.free()
+	)
+
+	run_case("lone_combatants_stand_inside_their_half_not_at_the_edge", func():
+		_setup_combat([Fixtures.enemy("Scrapper")])
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var player := _slot_named(screen, "You").get_rect()
+		var enemy := _slot_named(screen, "Scrapper").get_rect()
+		var half := CombatStage.STAGE_WIDTH / 2.0
+		assert_true(player.position.x > 0.0 and player.end.x < half, "a lone player must stand clear of the left edge, inside its half -- got %s" % player)
+		assert_true(enemy.position.x > half and enemy.end.x < CombatStage.STAGE_WIDTH, "a lone enemy must stand clear of the right edge, inside its half -- got %s" % enemy)
+		assert_true(enemy.end.y < player.end.y, "the enemy still stands farther back than the player")
+
+		screen.free()
+	)
+
 	run_case("template_id_keyed_colour_is_deterministic_not_hardcoded_per_enemy", func():
 		_setup_combat([Fixtures.enemy("A mugger"), Fixtures.enemy("A mugger")])
 
@@ -1676,9 +1767,8 @@ func run() -> void:
 	)
 
 	run_case("player_and_allies_fan_left_of_the_enemy_column", func():
-		# combat-presentation ticket 10: DEVIATES from docs/combat-animation-
-		# vision.md §2's stacked-bands grammar -- see combat.gd's own
-		# PLAYER_BAND_WIDTH/ENEMY_BAND_WIDTH comment for why.
+		# Friendlies stand left, enemies right -- see combat_stage.gd's
+		# receding-staging constants.
 		_setup_combat([Fixtures.enemy("Scrapper")], [Fixtures.ally("Archie")])
 		var screen := CombatScreen.new()
 		screen._ready()

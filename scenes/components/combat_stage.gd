@@ -22,14 +22,21 @@ signal subject_tapped(target: Dictionary)
 
 const STAGE_WIDTH := 390.0
 const STAGE_HEIGHT := 220.0
-const COLUMN_GAP := 6.0
-const PLAYER_BAND_WIDTH := (STAGE_WIDTH - COLUMN_GAP) / 2.0
-const ENEMY_BAND_WIDTH := STAGE_WIDTH - COLUMN_GAP - PLAYER_BAND_WIDTH
 const STAGE_DEFAULT_FILL := Color(0.07, 0.07, 0.09)
-const FAN_FRONT_SIZE_RATIO := Vector2(0.98, 0.74)
-const FAN_FRONT_BOTTOM_MARGIN := 0.02
-const FAN_STEP_SIZE_SCALE := 0.88
-const FAN_STEP_OFFSET_RATIO := Vector2(0.14, 0.11)
+# Receding staging (vision §2.2): friendlies near the viewer (lower, larger),
+# enemies farther back (higher, smaller). Each group's front slot sits on the
+# outer side; back slots step toward the stage centre, up and smaller. Ratios
+# are of the stage size; SLOT_ASPECT follows the ~64×104 combatant canvas (§6.1).
+const SLOT_ASPECT := 0.62
+const FRIENDLY_FRONT_HEIGHT_RATIO := 0.60
+const FRIENDLY_FRONT_BOTTOM_RATIO := 0.98
+const FRIENDLY_ANCHOR_X_RATIO := 0.26
+const ENEMY_FRONT_HEIGHT_RATIO := 0.45
+const ENEMY_FRONT_BOTTOM_RATIO := 0.74
+const ENEMY_ANCHOR_X_RATIO := 0.74
+const DEPTH_STEP_SIZE_SCALE := 0.9
+const DEPTH_STEP_X_OF_WIDTH := 0.65
+const DEPTH_STEP_Y_RATIO := 0.07
 const DAMAGE_NUMBER_RISE_PX := 28.0
 const DAMAGE_NUMBER_DURATION := 0.6
 const SHAKE_MIN_PX := 3.0
@@ -428,8 +435,7 @@ class StageSlot extends Control:
 
 var _enemy_slots: Dictionary = {}  # enemy index (int) -> StageSlot
 var _player_slots: Dictionary = {}  # -1 (player) or ally index (int) -> StageSlot
-var _enemy_band_layer: Control
-var _player_band_layer: Control
+var _slot_layer: Control
 var _backdrop_texture: TextureRect
 var _backdrop_fill: ColorRect
 var _default_attack_keyposes: Array[Texture2D] = []
@@ -458,10 +464,11 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 	var allies: Array = frozen_roster.get("allies", combat["allies"])
 	var selection: Dictionary = combat["selection"]
 	var player_entries := _player_display_entries(player, allies, selection)
-	_sync_band(_player_slots, _player_band_layer, player_entries, Vector2(PLAYER_BAND_WIDTH, STAGE_HEIGHT), Vector2.ZERO, "player")
+	_sync_band(_player_slots, player_entries, "player")
 
 	var enemy_entries := _enemy_display_entries(enemies, selection)
-	_sync_band(_enemy_slots, _enemy_band_layer, enemy_entries, Vector2(ENEMY_BAND_WIDTH, STAGE_HEIGHT), Vector2(PLAYER_BAND_WIDTH + COLUMN_GAP, 0.0), "enemy")
+	_sync_band(_enemy_slots, enemy_entries, "enemy")
+	_sort_slots_by_depth()
 	var frozen: bool = combat["frozenTurns"] > 0
 	for slot in _enemy_slots.values():
 		slot.set_time_scale(0.1 if frozen else 1.0)
@@ -593,13 +600,9 @@ func _build() -> void:
 	_backdrop_texture.visible = false
 	_stage_shake_layer.add_child(_backdrop_texture)
 
-	_enemy_band_layer = Control.new()
-	_enemy_band_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_stage_shake_layer.add_child(_enemy_band_layer)
-
-	_player_band_layer = Control.new()
-	_player_band_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_stage_shake_layer.add_child(_player_band_layer)
+	_slot_layer = Control.new()
+	_slot_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_stage_shake_layer.add_child(_slot_layer)
 
 	_stage_shake_layer.add_child(_build_vignette())
 
@@ -730,18 +733,18 @@ func _player_display_entries(player: Dictionary, allies: Array, selection: Dicti
 			if display.size() >= Combat.SQUAD_MAX:
 				break
 	return display
-func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_size: Vector2, band_origin: Vector2, side: String) -> void:
+func _sync_band(pool: Dictionary, display_entries: Array, side: String) -> void:
 	var live_keys: Dictionary = {}
 	for entry in display_entries:
 		live_keys[entry["index"]] = true
 	for key in pool.keys().duplicate():
 		if not live_keys.has(key):
 			var stale: StageSlot = pool[key]
-			layer.remove_child(stale)
+			_slot_layer.remove_child(stale)
 			stale.queue_free()
 			pool.erase(key)
 
-	var rects := _fan_local_rects(band_size, display_entries.size(), side == "enemy")
+	var rects := _group_rects(display_entries.size(), side)
 	var template_occurrence: Dictionary = {}
 	for i in range(display_entries.size()):
 		var entry: Dictionary = display_entries[i]
@@ -756,12 +759,12 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 			slot.mouse_filter = Control.MOUSE_FILTER_STOP
 			slot.set_side(side)
 			slot.gui_input.connect(_on_slot_gui_input.bind(side, key))
-			layer.add_child(slot)
+			_slot_layer.add_child(slot)
 			pool[key] = slot
 		var rect: Rect2 = rects[i]
 		slot.size = rect.size
 		slot.custom_minimum_size = rect.size
-		slot.position = band_origin + rect.position
+		slot.position = rect.position
 		slot.combatant_name = entry["name"]
 		slot.fill_color = _placeholder_color(entry["name"])
 		slot.is_focused = entry["isFocused"]
@@ -784,31 +787,43 @@ func _sync_band(pool: Dictionary, layer: Control, display_entries: Array, band_s
 			var resolved: Dictionary = _resolve_action_keyposes(action[0], template_key, action[1], action[2])
 			var setter: Callable = action[3]
 			setter.call(resolved["frames"], resolved["fps"])
-	if not display_entries.is_empty():
-		var front_key = display_entries[0]["index"]
-		layer.move_child(pool[front_key], layer.get_child_count() - 1)
-func _fan_local_rects(band_size: Vector2, count: int, mirror_x: bool = false) -> Array[Rect2]:
+
+
+# Nearer (lower bottom edge) slots draw last, so they sit over farther ones
+# and win taps where rects overlap.
+func _sort_slots_by_depth() -> void:
+	var slots: Array = _slot_layer.get_children()
+	slots.sort_custom(func(a: Control, b: Control) -> bool: return a.position.y + a.size.y < b.position.y + b.size.y)
+	for i in range(slots.size()):
+		_slot_layer.move_child(slots[i], i)
+
+
+# Stage-space rects for one group, front slot first. The group's bounding box
+# is centred on its anchor so a lone combatant stands in its half, not at the edge.
+static func _group_rects(count: int, side: String) -> Array[Rect2]:
 	var rects: Array[Rect2] = []
 	if count <= 0:
 		return rects
+	var is_enemy := side == "enemy"
+	var height: float = STAGE_HEIGHT * (ENEMY_FRONT_HEIGHT_RATIO if is_enemy else FRIENDLY_FRONT_HEIGHT_RATIO)
+	var bottom: float = STAGE_HEIGHT * (ENEMY_FRONT_BOTTOM_RATIO if is_enemy else FRIENDLY_FRONT_BOTTOM_RATIO)
+	var x := 0.0
+	for i in range(count):
+		var size := Vector2(height * SLOT_ASPECT, height)
+		# Rects are built left-to-right from the front slot, then mirrored for enemies.
+		rects.append(Rect2(Vector2(x, bottom - height), size))
+		x += size.x * DEPTH_STEP_X_OF_WIDTH
+		height *= DEPTH_STEP_SIZE_SCALE
+		bottom -= STAGE_HEIGHT * DEPTH_STEP_Y_RATIO
 
-	var size := band_size * FAN_FRONT_SIZE_RATIO
-	var front_x := clampf((band_size.x - size.x) / 2.0, 0.0, maxf(0.0, band_size.x - size.x))
-	var pos := Vector2(front_x, band_size.y - size.y - band_size.y * FAN_FRONT_BOTTOM_MARGIN)
-	rects.append(Rect2(pos, size))
-
-	for i in range(1, count):
-		size *= FAN_STEP_SIZE_SCALE
-		pos = Vector2(
-			clampf(pos.x - band_size.x * FAN_STEP_OFFSET_RATIO.x, 0.0, maxf(0.0, band_size.x - size.x)),
-			maxf(0.0, pos.y - band_size.y * FAN_STEP_OFFSET_RATIO.y),
-		)
-		rects.append(Rect2(pos, size))
-
-	if mirror_x:
-		for i in range(rects.size()):
-			rects[i].position.x = band_size.x - rects[i].position.x - rects[i].size.x
-
+	var span: float = 0.0
+	for r in rects:
+		span = maxf(span, r.end.x)
+	var anchor: float = STAGE_WIDTH * (ENEMY_ANCHOR_X_RATIO if is_enemy else FRIENDLY_ANCHOR_X_RATIO)
+	var left: float = clampf(anchor - span / 2.0, 0.0, STAGE_WIDTH - span)
+	for i in range(rects.size()):
+		var local_x: float = span - rects[i].end.x if is_enemy else rects[i].position.x
+		rects[i].position.x = left + local_x
 	return rects
 
 func _placeholder_color(key: String) -> Color:

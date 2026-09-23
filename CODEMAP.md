@@ -117,7 +117,7 @@ overlays.
 | bag_drawer.gd | Global bottom-sheet bag drawer; in combat, item buttons disable (with reason) per `Combat.selection_block_reason()` |
 | combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial beside flat 1px-ruled command rows (Complication readout, Attack, Item, Leg it), anchored to the true screen bottom; Attack/Item disabled per the current selection |
 | combat_director.gd | Combat beat-queue playback director |
-| combat_stage.gd | Combat's full-width pixel stage: edge-to-edge backdrop (location -> context -> palette), subject slots, keypose one-shots, effect sheets, juice layer. Each `StageSlot` takes taps directly (`MOUSE_FILTER_STOP`) and emits `subject_tapped`; the selected slot draws a small arrow (`is_focused`/`_draw_selection_arrow`) |
+| combat_stage.gd | Combat's full-width pixel stage: edge-to-edge backdrop (location -> context -> palette), slots in two receding diagonal groups (enemies back/smaller) depth-sorted on one layer, keypose one-shots, effect sheets, juice layer. Each `StageSlot` takes taps (`MOUSE_FILTER_STOP`), emits `subject_tapped`; selected slot draws a small arrow |
 | contact_cards.gd | Shared contact/faction card builders, inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
 | dial_widget.gd | Combat's Dial-casting widget |
