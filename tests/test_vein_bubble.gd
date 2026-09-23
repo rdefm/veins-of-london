@@ -205,6 +205,9 @@ func run() -> void:
 		var expected_light_after: int = Cultivating.prune_resulting_growth(vein, GameData.VEIN_GROWTH["pruneLightDepth"])
 		assert_true(light_button.text.find("%d ore" % expected_light_yield) != -1, "the chooser shows the real projected yield, not a placeholder")
 		assert_true(light_button.text.find("70→%d" % expected_light_after) != -1, "the chooser shows the true resulting condition")
+		var back_button: Button = chooser.get_child(3)
+		for b: Button in [light_button, back_button]:
+			assert_eq(b.get_theme_color("font_color"), MapCardStyle.DIM if b.disabled else UI.action_colour(), "chooser buttons use the map card button style")
 
 		bubble.free()
 	)

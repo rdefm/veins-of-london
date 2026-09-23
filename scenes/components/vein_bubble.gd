@@ -274,10 +274,10 @@ func _open_chooser() -> void:
 # always exits the development zone.
 func _build_chooser(vein: Dictionary) -> Control:
 	var col := UI.vbox(4)
-	col.add_child(UI.muted_label("Harvest depth"))
+	col.add_child(_label("Harvest depth", 12, MapCardStyle.DIM))
 	col.add_child(_build_chooser_row("Light", vein, GameData.VEIN_GROWTH["pruneLightDepth"], StationBubble.PRUNE_LIGHT_ID))
 	col.add_child(_build_chooser_row("Hard", vein, GameData.VEIN_GROWTH["pruneHardDepth"], StationBubble.PRUNE_HARD_ID))
-	col.add_child(UI.button("‹ Back", _close_chooser))
+	col.add_child(MapCardStyle.style_button(UI.button("‹ Back", _close_chooser)))
 	return col
 
 
@@ -286,7 +286,7 @@ func _build_chooser_row(label_text: String, vein: Dictionary, depth: int, option
 	var projected_yield: int = Cultivating.prune_yield(vein, depth)
 	var resulting: int = Cultivating.prune_resulting_growth(vein, depth)
 	var text := "%s · %d ore · %d→%d" % [label_text, projected_yield, vein["growth"], resulting]
-	return UI.action_button(text, func(): _select_action(option_id), opt["disabled"], opt["reason"])
+	return MapCardStyle.action_button(text, func(): _select_action(option_id), opt["disabled"], opt["reason"])
 
 
 func _close_chooser() -> void:
