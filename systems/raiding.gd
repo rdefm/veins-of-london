@@ -30,7 +30,8 @@ static func stealth_success_chance(stealth_skill: int, vein: Dictionary, consuma
 	var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein)
 	var value_tilt: float = -(value / STEALTH_VALUE_DIVISOR) * STEALTH_VALUE_WEIGHT
 
-	var chance: float = STEALTH_BASE_CHANCE + skill_tilt + resist_tilt + value_tilt + consumable_bonus
+	var intel_bonus: float = NetworkHandler.claim_bonus(vein.get("siteId", ""))
+	var chance: float = STEALTH_BASE_CHANCE + skill_tilt + resist_tilt + value_tilt + consumable_bonus + intel_bonus
 	return clampf(chance, 0.0, 1.0)
 
 

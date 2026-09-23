@@ -1,0 +1,11 @@
+{
+  "id": "network_sourcing_delivered",
+  "cards": [
+    { "type": "speaker", "label": null, "speaker": "Handler", "text": "\"As ordered. Nobody else has it yet. I'd go before that changes.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "It is on your map now. The invoice arrived before the text did." }
+  ],
+  "on_complete": [
+    { "op": "reveal_site" },
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

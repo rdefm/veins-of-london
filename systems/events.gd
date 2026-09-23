@@ -328,6 +328,10 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"col_a2_force_vein_loss":
 			var target: Variant = GameState.read_path(effect["veinIdStatePath"]) if effect.has("veinIdStatePath") else Collective.second_loss_target_id()
 			Collective.force_vein_loss(target, effect["faction"])
+		"network_reveal_vulnerable_vein":
+			NetworkHandler.reveal_vulnerable_vein(_event_site_id(effect, context), effect["effect"])
+		"network_reveal_site":
+			NetworkHandler.reveal_site(effect["oreType"], effect["minTier"])
 		"faction_seed_reported_sites":
 			_faction_seed_reported_sites(effect["objective"], effect["faction"])
 		# Resolves a contact-granted vein's id via veinIdStatePath and sells it at a forced

@@ -78,6 +78,7 @@ static func daily_tick() -> void:
 	Sites.roll_faction_vein_growth()     # ⑤c faction vein daily growth, right after ⑤b
 	Factions.apply_passive_income()      # ⑤d industries-only, no ordering dependency on ⑤b/⑤c
 	Factions.apply_vein_income()         # ⑤e after ⑤c so a same-tick-claimed vein reuses ⑤c's claimedOnDay skip
+	NetworkHandler.expire_intel()        # ⑤e2 before ⑤f so a lapsed security_freeze stops skipping today's upgrade
 	Factions.apply_security_upgrades()   # ⑤f after ⑤e so a tick's vein income is already banked and spendable
 	Factions.apply_rivalry_resolution()  # ⑤g after ⑤f so income/spend is settled before any vein changes hands
 	Raiding.apply_raid_resolution()      # ⑤h independent of ⑤d-⑤g (player veins/sites, not faction resources)

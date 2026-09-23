@@ -29,7 +29,7 @@ func _refresh() -> void:
 	_content.add_child(heading)
 
 	var previous_initial := ""
-	for contact_id in ["archie", "des", "hakim", "james", "nadia"]:
+	for contact_id in ["archie", "des", "hakim", "handler", "james", "nadia"]:
 		if not GameState.state["contacts"][contact_id]["unlocked"]:
 			continue
 		var initial: String = Contacts.display_name(contact_id).substr(0, 1)
@@ -49,6 +49,7 @@ func _build_card(contact_id: String) -> Control:
 		"archie": return ContactCards.build_archie_card()
 		"des": return ContactCards.build_des_card()
 		"hakim": return ContactCards.build_hakim_card()
+		"handler": return ContactCards.build_handler_card()
 		"james": return ContactCards.build_james_card()
 		"nadia": return ContactCards.build_nadia_card()
 	return Control.new()

@@ -29,6 +29,7 @@ Data file per system: see `data/*.json` below.
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses |
 | combat.gd | Turn-based combat engine + rewind. Resumable progression via `combat.turnCursor` + `prime_`/`conclude_decision_point()`; pure `project_queue()` (no koed slots, empty after outcome; R§3.7a). Beats carry `occurrence` tags. `combat.selection` via `set_selection()`, `clamp_selection()` on KO/Rewind/load; `selection_block_reason()` gates commands. Stamps `combat.locationKey` |
+| network_handler.gd | Network handler Targets (timed `collective.networkIntel` claim_bonus/security_freeze) and Sourcing (site delivered by handler text); pricing off `VeinTrade.quote()` |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
@@ -118,7 +119,7 @@ overlays.
 | combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial beside flat 1px-ruled command rows (Complication readout, Attack, Item, Leg it), anchored to the true screen bottom; Attack/Item disabled per the current selection |
 | combat_director.gd | Combat beat-queue playback director |
 | combat_stage.gd | Combat pixel stage: backdrop (location -> context -> palette); slots in two receding diagonal groups (enemies back/smaller), fitted to each sprite's visible figure, depth-sorted; keypose one-shots (sheet, `images` list, or random attack `variants`; player = `templates[player.model]`), effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot draws an arrow |
-| contact_cards.gd | Shared contact/faction card builders, inline Contacts action-row layout, OS chrome repaint |
+| contact_cards.gd | Shared contact/faction card builders (incl. handler card, Targets/Sourcing, "Go with Nadia"), inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
 | floorplan_view.gd | Estate-agent plan for a home tier from floorplans.json; static, or with tappable slot overlays showing current use |
 | dial_widget.gd | Combat's Dial-casting widget |
@@ -165,6 +166,8 @@ overlays.
 | sell_menu_modal.gd | Trade modal registry adapter and Cancel action that clears sellState |
 | sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; invokes existing trade systems |
 | nadia_supply_modal.gd | Nadia ore-supply objective card |
+| network_targets_modal.gd | Handler Targets picker: faction veins, soft/freeze questions |
+| network_sourcing_modal.gd | Handler Sourcing order: ore type + minimum tier |
 | sell_vein_quote_modal.gd | Single-vein sale confirmation card |
 | craft_components_menu_modal.gd | Movement-archetype picker; Craft hands off to movement_craft |
 | movement_craft_modal.gd | Pick a calc type to attempt a Movement craft; pushes success/fail notices |
@@ -209,7 +212,7 @@ overlays.
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets) |
-| constants.json | time_system.gd, jobs.gd |
+| constants.json | time_system.gd, jobs.gd, GameState.gd (contacts roster incl. handler) |
 | daily_cycle.json | time_transition.gd (day/night atlas) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |

@@ -204,6 +204,8 @@ static func apply_security_upgrades() -> void:
 			var vein: Variant = site["factionVein"]
 			if vein == null or vein["factionId"] != faction_id:
 				continue
+			if NetworkHandler.is_security_frozen(site["id"]):
+				continue
 			var next_id: Variant = Cultivating.next_security_tier_id(vein["security"])
 			if next_id == null:
 				continue
@@ -344,7 +346,10 @@ static func rivalry_success_chance(attempt: Dictionary) -> float:
 	var relation: int = get_relation(attempt["defenderId"], attempt["attackerId"])
 	var relation_tilt: float = -(float(relation) / RIVALRY_RELATION_DIVISOR) * RIVALRY_RELATION_WEIGHT
 
-	var chance: float = RIVALRY_BASE_CHANCE + resource_tilt + security_tilt + relation_tilt
+	# Network Targets intel is the Collective's own (spec §5.3), so it only tilts Collective attacks.
+	var intel_bonus: float = NetworkHandler.claim_bonus(attempt["veinSiteId"]) if attempt["attackerId"] == "collective" else 0.0
+
+	var chance: float = RIVALRY_BASE_CHANCE + resource_tilt + security_tilt + relation_tilt + intel_bonus
 	return clampf(chance, 0.0, 1.0)
 
 

@@ -318,6 +318,10 @@ func new_game_state() -> Dictionary:
 			# first seen true, stamped by Collective.maybe_trigger_a2_
 			# checkpoint(). null until T8 resolves.
 			"ledgerStartedDay": null,
+			# Network handler Targets intel (spec §5.3), siteId -> { expiresDay,
+			# effect: "claim_bonus"|"security_freeze", magnitude }. Active while
+			# state.world.day < expiresDay; pruned by NetworkHandler.expire_intel().
+			"networkIntel": {},
 		},
 	}
 

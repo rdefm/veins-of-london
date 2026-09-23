@@ -138,11 +138,18 @@ func _build_action_bar(contact_id: String) -> Control:
 		var hakim_done_action := ContactCards.build_hakim_done_action()
 		if hakim_done_action != null:
 			bar.add_child(hakim_done_action)
+	if contact_id == "nadia":
+		var handler_meet_action := ContactCards.build_handler_meet_action()
+		if handler_meet_action != null:
+			bar.add_child(handler_meet_action)
+	if contact_id == ContactCards.HANDLER_ID:
+		for action in ContactCards.build_handler_actions():
+			bar.add_child(action)
 	for entry in Messages.pending_for(contact_id):
 		bar.add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
 	if contact_id == "archie":
 		bar.add_child(ContactCards.build_sell_action())
-	elif contact_id != "james":
+	elif contact_id != "james" and contact_id != ContactCards.HANDLER_ID:
 		bar.add_child(ContactCards.build_trade_action(contact_id))
 	return bar
 

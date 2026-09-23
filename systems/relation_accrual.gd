@@ -22,6 +22,9 @@ const LANES := {
 	"des": { "container": "contacts", "id": "des", "rate": 500, "dailyCap": 3 },
 	"nadia": { "container": "contacts", "id": "nadia", "rate": 500, "dailyCap": 3 },
 	"hakim": { "container": "contacts", "id": "hakim", "rate": 500, "dailyCap": 3 },
+	# DRAFT rate/cap, pending playtest (collective-act2 spec §7.2): fed by
+	# NetworkHandler purchases, on top of their flat RELATION_GAIN.
+	"network": { "container": "factions", "id": "network", "rate": 500, "dailyCap": 3 },
 }
 
 

@@ -1011,9 +1011,9 @@ func _validate_hq_plate(plate: Dictionary, context: String, palette: Dictionary,
 func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, errors: Array[String]) -> void:
 	if time_blocks.size() != 3:
 		errors.append("constants: timeBlocks must have exactly 3 entries, got %d" % time_blocks.size())
-	# All five contacts carry recruitable -- the row that reads it is
+	# Every contact carries recruitable -- the row that reads it is
 	# ContactCards.build_recruit_row().
-	for key in ["archie", "james", "des", "nadia", "hakim"]:
+	for key in ["archie", "james", "des", "nadia", "hakim", "handler"]:
 		if not contacts_defaults.has(key):
 			errors.append("constants: contacts is missing '%s'" % key)
 			continue
@@ -1080,6 +1080,10 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# transfer via Collective.force_vein_loss(), target from veinIdStatePath
 	# or Collective.second_loss_target_id().
 	"col_a2_force_vein_loss",
+	# Network handler products (spec §5.3): NetworkHandler.reveal_vulnerable_
+	# vein() (site id from effect/context, "effect" claim_bonus|security_freeze)
+	# and NetworkHandler.reveal_site() ("oreType", "minTier").
+	"network_reveal_vulnerable_vein", "network_reveal_site",
 ]
 
 

@@ -1,0 +1,20 @@
+{
+  "id": "col_a2_handler_meet",
+  "cards": [
+    { "type": "narration", "label": null, "speaker": null, "text": "Nadia doesn't ask if you're free. She texts an address in Clerkenwell and a time, and then she's waiting on the corner when you get there." },
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"I know we said not yet. That was before something we couldn't explain took a vein we'd done everything right by. I'm done waiting for an explanation to turn up on its own.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "Des is already there, on the step, with his coat buttoned to the top. He came. Nobody asked him to and nobody asked him not to." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"For the record, I think this is a mistake. I'd like that written down somewhere.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "Nadia holds the door. He looks at it for a moment, then goes in first. It is the least comfortable you have ever seen him." },
+    { "type": "narration", "label": null, "speaker": null, "text": "The office is small and very tidy. The handler stands when you come in, shakes everyone's hand, and asks after Hakim by name." },
+    { "type": "speaker", "label": null, "speaker": "Handler", "text": "\"Two things, and I'll be brief. Name a vein you think is weak and I'll tell you whether it is. Name what you want in the ground and I'll find you one.\"" },
+    { "type": "speaker", "label": null, "speaker": "Handler", "text": "\"Everything I tell you will be true. You'll pay for it either way. That includes the answers you don't like.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "The handler writes a number on the back of a card and slides it across. Nobody is hurried out. There is no need." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "networkHandlerUnlocked", "value": true },
+    { "op": "unlock_contact", "contact": "handler" },
+    { "op": "push_message", "contact": "handler", "text": "\"Whenever you're ready.\"" },
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

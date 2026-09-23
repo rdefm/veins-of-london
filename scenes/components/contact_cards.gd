@@ -1,6 +1,8 @@
 class_name ContactCards
 extends RefCounted
 
+const HANDLER_ID := NetworkHandler.CONTACT_ID
+
 static func layout_directory_row(card: Control, contact_id: String) -> void:
 	# Reuse the card's existing gated actions; only its presentation changes.
 	card.set_meta("contact_directory_row", true)
@@ -32,10 +34,12 @@ static func layout_directory_row(card: Control, contact_id: String) -> void:
 	copy.add_child(name)
 	copy.add_child(original[1])
 	header.add_child(copy)
-	var relation := UI.label("Rel. %d" % GameState.state["contacts"][contact_id]["relation"])
-	relation.add_theme_font_size_override("font_size", 12)
-	relation.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	header.add_child(relation)
+	# The handler has no relation track of their own (collective-act2 spec §3).
+	if contact_id != HANDLER_ID:
+		var relation := UI.label("Rel. %d" % GameState.state["contacts"][contact_id]["relation"])
+		relation.add_theme_font_size_override("font_size", 12)
+		relation.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		header.add_child(relation)
 	content.add_child(header)
 
 	var quick: Dictionary = {}
@@ -237,6 +241,25 @@ static func build_hakim_done_action() -> Control:
 	return UI.button("Hand Hakim's vein back", func(): Events.start_event("col_a1_hakim_done"))
 
 
+# collective-act2 spec §6.12: T12's "Go with Nadia", open between
+# colA2SecondLossSeen and the meet itself.
+static func build_handler_meet_action() -> Control:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA2SecondLossSeen", false) or flags.get("networkHandlerUnlocked", false):
+		return null
+	return UI.button("Go with Nadia", func(): Events.start_event("col_a2_handler_meet"))
+
+
+# The handler's Targets/Sourcing entries (spec §5.3), once T12 unlocks them.
+static func build_handler_actions() -> Array[Control]:
+	var actions: Array[Control] = []
+	if not GameState.state["flags"].get("networkHandlerUnlocked", false):
+		return actions
+	actions.append(UI.button("Targets", func(): Modal.open("network_targets")))
+	actions.append(UI.button("Sourcing", func(): Modal.open("network_sourcing")))
+	return actions
+
+
 static func build_ask_des_joining_action() -> Control:
 	var flags: Dictionary = GameState.state["flags"]
 	if not flags.get("colA1DeferredJoin", false) or flags.get("colA1Joined", false):
@@ -369,6 +392,9 @@ static func build_nadia_card() -> Control:
 	var supply_action := build_nadia_supply_action()
 	if supply_action != null:
 		c["content"].add_child(supply_action)
+	var handler_meet_action := build_handler_meet_action()
+	if handler_meet_action != null:
+		c["content"].add_child(handler_meet_action)
 	for entry in Messages.pending_for("nadia"):
 		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
 
@@ -402,6 +428,21 @@ static func build_hakim_card() -> Control:
 	var recruit_row := build_recruit_row("hakim")
 	if recruit_row != null:
 		c["content"].add_child(recruit_row)
+
+	return c["panel"]
+
+
+static func build_handler_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Handler", 15))
+	c["content"].add_child(UI.muted_label("The Network · Clerkenwell"))
+
+	for action in build_handler_actions():
+		c["content"].add_child(action)
+	for entry in Messages.pending_for(HANDLER_ID):
+		c["content"].add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
+
+	c["content"].add_child(build_messages_button(HANDLER_ID))
 
 	return c["panel"]
 
