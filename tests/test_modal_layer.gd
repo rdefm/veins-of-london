@@ -96,6 +96,22 @@ func run() -> void:
 		layer.free()
 	)
 
+	run_case("combat_setup_modal_ally_toggle_brings_the_ally_into_the_fight", func():
+		GameState.reset()
+		GameState.state["contacts"]["james"]["recruited"] = true
+		Modal.open("combat_setup")
+		var layer := ModalLayer.new()
+		layer._ready()
+		var toggle := _find_cost_button(layer, "☐")
+		assert_true(toggle != null)
+		toggle.pressed.emit()
+		assert_eq(toggle.text, "☑")
+		_find_cost_button(layer, "Fight").pressed.emit()
+		assert_eq(GameState.state["combat"]["allies"].size(), 1)
+		assert_eq(GameState.state["combat"]["allies"][0]["contactId"], "james")
+		layer.free()
+	)
+
 	run_case("combat_setup_modal_fight_type_and_location_pickers_drive_the_fight", func():
 		GameState.reset()
 		Modal.open("combat_setup")

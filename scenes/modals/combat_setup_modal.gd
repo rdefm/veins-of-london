@@ -70,8 +70,10 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 
 static func _ally_row(contact_id: String, selected_allies: Array) -> Control:
 	var row := UI.hbox(6)
-	var toggle_btn: Button
-	toggle_btn = UI.button("☐", func():
+	# Connected after creation: a lambda captures locals by value, so one
+	# built inside UI.button()'s own call would see toggle_btn as null.
+	var toggle_btn := UI.button("☐", func(): pass)
+	toggle_btn.pressed.connect(func():
 		if contact_id in selected_allies:
 			selected_allies.erase(contact_id)
 			toggle_btn.text = "☐"
