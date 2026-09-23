@@ -25,7 +25,6 @@ const STAGE_HEIGHT := 220.0
 const COLUMN_GAP := 6.0
 const PLAYER_BAND_WIDTH := (STAGE_WIDTH - COLUMN_GAP) / 2.0
 const ENEMY_BAND_WIDTH := STAGE_WIDTH - COLUMN_GAP - PLAYER_BAND_WIDTH
-const STAGE_BORDER_WIDTH := 2.0
 const STAGE_DEFAULT_FILL := Color(0.07, 0.07, 0.09)
 const FAN_FRONT_SIZE_RATIO := Vector2(0.98, 0.74)
 const FAN_FRONT_BOTTOM_MARGIN := 0.02
@@ -453,7 +452,7 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 	if get_child_count() == 0:
 		_build()
 
-	_sync_backdrop(combat["context"])
+	_sync_backdrop(combat["context"], combat.get("locationKey", ""))
 
 	var enemies: Array = frozen_roster.get("enemies", combat["enemies"])
 	var allies: Array = frozen_roster.get("allies", combat["allies"])
@@ -567,19 +566,15 @@ func _build() -> void:
 
 	var frame_style := StyleBoxFlat.new()
 	frame_style.bg_color = STAGE_DEFAULT_FILL
-	frame_style.border_width_left = STAGE_BORDER_WIDTH
-	frame_style.border_width_top = STAGE_BORDER_WIDTH
-	frame_style.border_width_right = STAGE_BORDER_WIDTH
-	frame_style.border_width_bottom = STAGE_BORDER_WIDTH
-	frame_style.border_color = Color(0, 0, 0, 0.65)
 	add_theme_stylebox_override("panel", frame_style)
 
 	_stage_shake_layer = Control.new()
 	_stage_shake_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stage_shake_layer.size = Vector2(STAGE_WIDTH, STAGE_HEIGHT)
 	add_child(_stage_shake_layer)
-	var backdrop_origin := Vector2(STAGE_BORDER_WIDTH, STAGE_BORDER_WIDTH)
-	var backdrop_size := Vector2(STAGE_WIDTH, STAGE_HEIGHT) - backdrop_origin * 2.0
+	# Edge-to-edge, no frame border (vision §2.1).
+	var backdrop_origin := Vector2.ZERO
+	var backdrop_size := Vector2(STAGE_WIDTH, STAGE_HEIGHT)
 
 	_backdrop_fill = ColorRect.new()
 	_backdrop_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -687,10 +682,14 @@ func _load_effect_animations() -> void:
 		_effect_frames_by_key[key] = _load_sheet_frames(effects[key])
 
 
-func _sync_backdrop(context: String) -> void:
+# Vision §2.1 lookup: location plate -> context plate -> palette fill.
+func _sync_backdrop(context: String, location_key: String) -> void:
+	var location_backdrops: Dictionary = GameData.COMBAT_VISUALS.get("locationBackdrops", {})
 	var backdrops: Dictionary = GameData.COMBAT_VISUALS.get("backdrops", {})
 	var entry: Dictionary = backdrops.get(context, {})
-	var image_path: String = entry.get("image", "")
+	var image_path: String = location_backdrops.get(location_key, {}).get("image", "")
+	if image_path.is_empty() or not ResourceLoader.exists(image_path):
+		image_path = entry.get("image", "")
 	if not image_path.is_empty() and ResourceLoader.exists(image_path):
 		_backdrop_texture.texture = load(image_path)
 		_backdrop_texture.visible = true

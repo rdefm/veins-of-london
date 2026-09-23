@@ -18,13 +18,15 @@
 - `docs/REFERENCE.md` — §2 combat schema `locationKey`; §3.7 backdrop lookup order (as amended by 01)
 - `docs/combat-animation-vision.md` — §2.1 Backdrops
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Every `start_*` path sets `locationKey`; raid/defend use the vein's district, mugging uses the player's district, home raid uses the fixed key
-- [ ] Lookup order location → context → palette colour verified by three headless cases (plate for location; no location plate but context plate; neither)
-- [ ] Backdrop texture rect spans the full stage width and height with no inset or border
-- [ ] Same context in two different districts shows two different plates when both are configured
-- [ ] Unknown `locationKey` degrades to the context/palette path, never a crash
-- [ ] Save → load round-trips `locationKey`; older saves without it load with a safe default
-- [ ] `scripts/check_all.sh` and `scripts/run_tests.sh` pass; CODEMAP rows for `combat.gd`, `combat_stage.gd`, `combat_visuals.json` updated
-- [ ] Report lists which districts still need plates (human art)
+- [x] Every `start_*` path sets `locationKey`; raid/defend use the vein's district, mugging uses the player's district, home raid uses the fixed key
+- [x] Lookup order location → context → palette colour verified by three headless cases (plate for location; no location plate but context plate; neither)
+- [x] Backdrop texture rect spans the full stage width and height with no inset or border
+- [x] Same context in two different districts shows two different plates when both are configured
+- [x] Unknown `locationKey` degrades to the context/palette path, never a crash
+- [x] Save → load round-trips `locationKey`; older saves without it load with a safe default
+- [x] `scripts/check_all.sh` and `scripts/run_tests.sh` pass; CODEMAP rows for `combat.gd`, `combat_stage.gd`, `combat_visuals.json` updated
+- [x] Report lists which districts still need plates (human art)
+
+**Notes:** Per human, the supplied plate (`assets/combat/backdrops/street.png`) ships as the generic street *context* plate for mugging/event_mugging/archie_deal_mugging, not a district plate; `locationBackdrops` ships empty and the location tier is proven by tests with stand-in textures. Location plates keyed by `locationKey` only (no timeOfDay yet). Stage border removed per human (vision §9 amended).

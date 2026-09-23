@@ -234,7 +234,20 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_player_keys(result, defaults)
 	_backfill_new_home_keys(result, defaults)
 	_backfill_new_sales_keys(result, defaults)
+	_backfill_new_combat_keys(result, defaults)
 	return result
+
+
+# A save made mid-fight before a combat key existed (e.g. locationKey) gets
+# the fresh default, which for locationKey means "no location plate".
+func _backfill_new_combat_keys(result: Dictionary, defaults: Dictionary) -> void:
+	if not result.has("combat"):
+		return
+	var combat: Dictionary = result["combat"]
+	var default_combat: Dictionary = defaults["combat"]
+	for key in default_combat.keys():
+		if not combat.has(key):
+			combat[key] = default_combat[key].duplicate(true) if default_combat[key] is Array or default_combat[key] is Dictionary else default_combat[key]
 
 
 func _backfill_new_sales_keys(result: Dictionary, defaults: Dictionary) -> void:

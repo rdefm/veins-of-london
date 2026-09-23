@@ -107,6 +107,7 @@ var COMBAT_SPEED_BY_LEVEL: Array = []
 
 # data/combat_visuals.json (docs/combat-animation-vision.md §2.1/§6):
 # "backdrops" -- context id -> { image, fallbackColor (PALETTE key) }.
+# "locationBackdrops" -- combat.locationKey -> { image }, checked first.
 # "templates" -- per-subject idle sheets + shared "default" hurt/dead/
 # attack stand-in; unvalidated below (shape not finalised).
 var COMBAT_VISUALS: Dictionary = {}
@@ -930,6 +931,14 @@ func _validate_combat_visuals(combat_visuals: Dictionary, palette: Dictionary, e
 	if backdrops.has(Combat.CONTEXT_ARCHIE_DEAL_MUGGING) and backdrops.has(Combat.CONTEXT_MUGGING):
 		if backdrops[Combat.CONTEXT_ARCHIE_DEAL_MUGGING] != backdrops[Combat.CONTEXT_MUGGING]:
 			errors.append("combat_visuals.backdrops.archie_deal_mugging: must exactly match backdrops.mugging (permanent alias, not its own plate)")
+
+	# Location plates are optional per key, but an entry that exists must
+	# name an image -- an empty one would silently mask the context tier.
+	var location_backdrops: Dictionary = combat_visuals.get("locationBackdrops", {})
+	for location_key in location_backdrops.keys():
+		var location_entry: Dictionary = location_backdrops[location_key]
+		if str(location_entry.get("image", "")).is_empty():
+			errors.append("combat_visuals.locationBackdrops.%s: 'image' must be a res:// path (drop the entry instead of leaving it empty)" % location_key)
 
 
 # Iterates whatever room/region ids data/hq_visuals.json has -- no

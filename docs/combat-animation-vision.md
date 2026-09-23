@@ -103,13 +103,15 @@ production starts. The daylight-mundane mood locked in §1 is confirmed for
 one location/time combination (`CONTEXT_MUGGING`), not asserted as universal
 across all six contexts.
 
-**DRAFT amendment — pending sign-off (ticket 01 combat-refining, 2026-09-19).**
+**Signed off (ticket 10 combat-refining, 2026-09-23).**
 Resolves the flag above: backdrop selection is a three-tier lookup,
 most-specific first, keyed by the new `combat.locationKey`
 (`docs/REFERENCE.md` §2):
 
-1. **Location plate** — a plate authored for this exact `(locationKey,
-   timeOfDay)` pair, if one exists.
+1. **Location plate** — a plate authored for this `locationKey`
+   (`data/combat_visuals.json` `locationBackdrops`), if one exists. Keyed
+   by location only: the game has no time-of-day state yet, so a
+   `(locationKey, timeOfDay)` split is deferred until one exists.
 2. **Context plate** — falls back to today's one-plate-per-`CONTEXT_*` set
    (the six enumerated above) when no location-specific plate has been
    authored yet.
@@ -573,9 +575,10 @@ is a different rendering technique entirely — pixel grid, dithered
 shading, grounded daylight palette. Dropping one into the other reads
 as a bug.
 
-**The lit-window frame.** The pixel stage sits in a recessed dark inset with a
-hard 2px border and a slight inner vignette, embedded in the existing chrome —
-so it reads as a window onto the street, not a style clash. This is Octopath's
+**The lit-window frame.** The pixel stage's backdrop plate runs edge-to-edge
+across the full-width stage (no inset, no border; amended 2026-09-23,
+combat-refining ticket 10), with a slight inner vignette, embedded in the
+existing chrome — so it reads as a window onto the street, not a style clash. This is Octopath's
 own trick (vignette isolating the diorama), and it is the composition of the
 Tube-carriage reference plate.
 

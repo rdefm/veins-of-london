@@ -945,6 +945,68 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_DEFEND_VEIN)
 	)
 
+	# ── combat-refining ticket 10: R§2 combat.locationKey ──────────────
+
+	run_case("mugging_start_paths_record_the_players_current_district_as_location_key", func():
+		GameState.reset()
+		GameState.state["world"]["currentDistrict"] = "camden"
+		Combat.start_mugging()
+		assert_eq(GameState.state["combat"]["locationKey"], "camden")
+
+		GameState.reset()
+		GameState.state["world"]["currentDistrict"] = "soho"
+		Combat.start_street_mugging()
+		assert_eq(GameState.state["combat"]["locationKey"], "soho")
+
+		GameState.reset()
+		GameState.state["world"]["currentDistrict"] = "greenwich"
+		Combat.start_archie_deal_mugging()
+		assert_eq(GameState.state["combat"]["locationKey"], "greenwich")
+	)
+
+	run_case("home_start_paths_record_the_fixed_home_location_key", func():
+		GameState.reset()
+		GameState.state["world"]["currentDistrict"] = "camden"
+		Combat.start_home_raid_combat()
+		assert_eq(GameState.state["combat"]["locationKey"], Combat.HOME_LOCATION_KEY, "home isn't a district -- never the current district")
+
+		GameState.reset()
+		Combat.start_home_alarm_defend_combat()
+		assert_eq(GameState.state["combat"]["locationKey"], Combat.HOME_LOCATION_KEY)
+	)
+
+	run_case("vein_start_paths_record_the_fought_veins_district_not_the_players", func():
+		GameState.reset()
+		GameState.state["world"]["currentDistrict"] = "shoreditch"
+		GameState.state["player"]["veins"].append({ "id": "pv_loc", "district": "battersea" })
+		GameState.state["world"]["sites"].append({ "id": "s_loc", "district": "hampstead", "factionVein": { "id": "fv_loc", "district": "hampstead" } })
+
+		Combat.start_defend_vein("pv_loc", 1)
+		assert_eq(GameState.state["combat"]["locationKey"], "battersea", "defend uses the player's own vein's district")
+		Combat.exit_combat()
+
+		Combat.start_raid("fv_loc", 1)
+		assert_eq(GameState.state["combat"]["locationKey"], "hampstead", "raid uses the faction vein's district")
+		Combat.exit_combat()
+
+		Combat.start_raid("fv_loc", 1, 1, "", Combat.CONTEXT_EVENT_RAID)
+		assert_eq(GameState.state["combat"]["locationKey"], "hampstead", "event raid uses the vein's district too")
+	)
+
+	run_case("vein_start_path_with_an_unresolvable_vein_records_an_empty_location_key", func():
+		GameState.reset()
+		Combat.start_raid("no_such_vein", 1)
+		assert_eq(GameState.state["combat"]["locationKey"], "", "unknown vein -> empty key, backdrop degrades to the context tier")
+	)
+
+	run_case("exit_combat_resets_location_key", func():
+		GameState.reset()
+		GameState.state["world"]["currentDistrict"] = "camden"
+		Combat.start_street_mugging()
+		Combat.exit_combat()
+		assert_eq(GameState.state["combat"]["locationKey"], "")
+	)
+
 	run_case("is_canonical_context_accepts_every_named_constant", func():
 		for context in Combat.CANONICAL_CONTEXTS:
 			assert_true(Combat.is_canonical_context(context), "%s should be canonical" % context)

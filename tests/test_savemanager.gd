@@ -390,6 +390,38 @@ func run() -> void:
 		assert_eq(filled["home"]["guardCount"], 0, "a save from before guardCount existed should backfill it to 0")
 	)
 
+	# ── combat-refining 10: combat.locationKey ────────────────────────────
+
+	run_case("save_mutate_load_round_trips_combat_locationKey", func():
+		GameState.reset()
+		GameState.state["world"]["currentDistrict"] = "camden"
+		Combat.start_street_mugging()
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.state["combat"]["locationKey"] = "soho"
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		assert_eq(GameState.state["combat"]["locationKey"], "camden", "locationKey should be restored")
+		assert_eq(GameState.state, original, "the full state tree should deep-equal what was saved")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("loading_a_save_without_combat_locationKey_backfills_it_empty", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["combat"]["active"] = true
+		legacy["combat"].erase("locationKey")
+
+		var filled := SaveManager.backfill_defaults(legacy)
+		assert_eq(filled["combat"]["locationKey"], "", "a save from before locationKey existed should backfill it empty (context-plate path)")
+		assert_true(filled["combat"]["active"], "backfilling must not touch existing combat keys")
+	)
+
 	# ── 21-contact-roles-sales-skill ──────────────────────────────────────
 
 	run_case("loading_a_pre_21_save_backfills_salesSkill_and_salesXP_on_an_existing_contact", func():

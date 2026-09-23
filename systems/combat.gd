@@ -28,6 +28,9 @@ const CANONICAL_CONTEXTS: Array[String] = [
 # raid; shared with scenes/screens/combat.gd's win-line/label logic.
 const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = [CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING, CONTEXT_ARCHIE_DEAL_MUGGING]
 
+# R§2 combat.locationKey for the two home contexts -- home isn't a district.
+const HOME_LOCATION_KEY := "home"
+
 # Beat "kind" vocabulary (same named-constant precedent as CONTEXT_*) so a
 # typo errors instead of silently mismatching the director's switch.
 const BEAT_PLAYER_ATTACK := "player_attack"
@@ -415,6 +418,7 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 		enemy["koed"] = false
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": vein_id, "enemies": enemies,
+		"locationKey": location_key_for(context, vein_id),
 		# R§2: player/ally/enemy selection. Defaults to the first enemy.
 		"selection": { "type": "enemy", "index": 0 },
 		"log": log_lines, "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
@@ -436,6 +440,24 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 	# since Raiding.maybe_trigger_defend() can fire this synchronously
 	# mid-Sites.prospect()/Travel.travel_to() while a Map animation plays.
 	MapEvents.abandon_playback()
+
+
+# R§2 combat.locationKey derivation: home contexts -> HOME_LOCATION_KEY;
+# vein fights -> the fought vein's district (player's own vein first, then a
+# faction site vein); everything else -> world.currentDistrict. A vein id
+# that resolves to nothing yields "", which the stage's backdrop lookup
+# treats as "no location plate".
+static func location_key_for(context: String, vein_id) -> String:
+	if context == CONTEXT_HOME_RAID or context == CONTEXT_HOME_ALARM_DEFEND:
+		return HOME_LOCATION_KEY
+	if context == CONTEXT_RAID or context == CONTEXT_DEFEND_VEIN or context == CONTEXT_EVENT_RAID:
+		if vein_id == null:
+			return ""
+		var vein: Variant = Cultivating.find_vein(str(vein_id))
+		if vein == null:
+			vein = Sites.find_faction_vein(str(vein_id))
+		return "" if vein == null else str(vein.get("district", ""))
+	return str(GameState.state["world"].get("currentDistrict", ""))
 
 
 # The player's single-target enemy-only actions (Attack, Blast, any non-AoE
@@ -1597,6 +1619,7 @@ static func exit_combat() -> Dictionary:
 
 	GameState.state["combat"] = {
 		"active": false, "context": CONTEXT_RAID, "veinId": null, "enemies": [],
+		"locationKey": "",
 		"selection": { "type": "enemy", "index": 0 }, "log": [],
 		"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],

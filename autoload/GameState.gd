@@ -209,6 +209,8 @@ func new_game_state() -> Dictionary:
 
 		"combat": {
 			"active": false, "context": "raid", "veinId": null, "enemies": [],
+			# R§2: backdrop location key, set by Combat._start_combat().
+			"locationKey": "",
 			"selection": { "type": "enemy", "index": 0 }, "log": [],
 			"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
 			"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [], "beatsSinceSnapshot": [],

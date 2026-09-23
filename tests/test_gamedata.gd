@@ -467,13 +467,24 @@ func run() -> void:
 		assert_true(found, "a canonical context missing its backdrop entry should be flagged -- is_canonical_context() staying the single source of truth means a new context is caught here too")
 	)
 
-	run_case("corrupt_fixture_combat_visuals_no_image_and_no_fallback_fails", func():
+	run_case("corrupt_fixture_combat_visuals_location_backdrop_without_image_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		corrupted["combat_visuals"]["backdrops"]["mugging"]["fallbackColor"] = ""
+		corrupted["combat_visuals"]["locationBackdrops"] = { "camden": { "image": "" } }
 		var errors := GameData.validate_tables(corrupted)
 		var found := false
 		for e in errors:
-			if e.contains("mugging") and e.contains("render nothing"):
+			if e.contains("locationBackdrops.camden"):
+				found = true
+		assert_true(found, "an empty location plate entry would mask the context tier and must be flagged")
+	)
+
+	run_case("corrupt_fixture_combat_visuals_no_image_and_no_fallback_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["combat_visuals"]["backdrops"]["raid"]["fallbackColor"] = ""
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("raid") and e.contains("render nothing"):
 				found = true
 		assert_true(found, "a context with neither an image nor a fallbackColor should be flagged -- the stage would render nothing")
 	)

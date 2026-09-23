@@ -90,6 +90,23 @@ func _install_mugger_idle_manifest() -> Dictionary:
 	return original_combat_visuals
 
 
+const LOCATION_PLATE_A := "res://assets/combat/dummy/idle.png"
+const LOCATION_PLATE_B := "res://assets/combat/archie/archie_idle1.png"
+
+
+# Real manifest plus two location plates (reused sprite sheets as stand-in
+# textures) so the location tier is exercised independent of shipped art.
+func _install_location_backdrop_manifest() -> Dictionary:
+	var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
+	var visuals: Dictionary = original_combat_visuals.duplicate(true)
+	visuals["locationBackdrops"] = {
+		"shoreditch": { "image": LOCATION_PLATE_A },
+		"camden": { "image": LOCATION_PLATE_B },
+	}
+	GameData.COMBAT_VISUALS = visuals
+	return original_combat_visuals
+
+
 func _setup_combat(enemies: Array, allies: Array = [], focused_index: int = 0, context: String = Combat.CONTEXT_RAID) -> void:
 	GameState.reset()
 	GameState.state["combat"] = {
@@ -259,7 +276,7 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("stage_sits_in_a_recessed_dark_inset_with_a_hard_2px_border", func():
+	run_case("stage_renders_as_a_dark_borderless_panel", func():
 		_setup_combat([Fixtures.enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
@@ -270,12 +287,9 @@ func run() -> void:
 			if c.has_theme_stylebox_override("panel"):
 				frame = c
 				break
-		assert_true(frame != null, "the stage must render as a Panel with an overridden style (the recessed dark inset)")
+		assert_true(frame != null, "the stage must render as a Panel with an overridden style")
 		var style: StyleBoxFlat = frame.get_theme_stylebox("panel")
-		assert_eq(style.border_width_left, 2, "§9 calls for a hard 2px border")
-		assert_eq(style.border_width_top, 2)
-		assert_eq(style.border_width_right, 2)
-		assert_eq(style.border_width_bottom, 2)
+		assert_eq(style.border_width_left + style.border_width_top + style.border_width_right + style.border_width_bottom, 0, "§9 amended: the plate runs edge-to-edge, no border")
 
 		screen.free()
 	)
@@ -1173,13 +1187,13 @@ func run() -> void:
 	# ── combat-presentation ticket 08, §2.1/§6: per-context backdrop ──
 
 	run_case("stage_backdrop_shows_the_palette_fallback_fill_for_a_context_with_no_plate_yet", func():
-		_setup_combat([Fixtures.enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
+		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_RAID)
 
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		var fallback_id: String = GameData.COMBAT_VISUALS["backdrops"]["mugging"]["fallbackColor"]
-		assert_true(screen._stage._backdrop_fill.visible, "no plate exists yet for CONTEXT_MUGGING -- the flat fallback fill must be showing")
+		var fallback_id: String = GameData.COMBAT_VISUALS["backdrops"]["raid"]["fallbackColor"]
+		assert_true(screen._stage._backdrop_fill.visible, "no plate exists yet for CONTEXT_RAID -- the flat fallback fill must be showing")
 		assert_true(not screen._stage._backdrop_texture.visible, "the image layer must stay hidden when there's no image")
 		assert_eq(screen._stage._backdrop_fill.color, GameData.PALETTE[fallback_id], "fallback fill colour must be the manifest's fallbackColor resolved through the master palette")
 
@@ -1187,28 +1201,113 @@ func run() -> void:
 	)
 
 	run_case("stage_backdrop_follows_context_across_fights", func():
-		_setup_combat([Fixtures.enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
+		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_RAID)
 		var screen := CombatScreen.new()
 		screen._ready()
-		var mugging_color: Color = screen._stage._backdrop_fill.color
+		var raid_color: Color = screen._stage._backdrop_fill.color
 
 		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_DEFEND_VEIN)
 		screen._sync()
 		var defend_vein_color: Color = screen._stage._backdrop_fill.color
 
-		assert_true(mugging_color != defend_vein_color, "CONTEXT_MUGGING and CONTEXT_DEFEND_VEIN use different fallback colours in data/combat_visuals.json, so the backdrop must change when the fight's context changes")
+		assert_true(raid_color != defend_vein_color, "CONTEXT_RAID and CONTEXT_DEFEND_VEIN use different fallback colours in data/combat_visuals.json, so the backdrop must change when the fight's context changes")
 		assert_eq(defend_vein_color, GameData.PALETTE[GameData.COMBAT_VISUALS["backdrops"]["defend_vein"]["fallbackColor"]], "backdrop must resync to the new context's own fallback colour")
 
 		screen.free()
 	)
 
-	run_case("stage_backdrop_archie_deal_mugging_reuses_muggings_fallback", func():
+	run_case("stage_backdrop_archie_deal_mugging_reuses_muggings_plate", func():
 		_setup_combat([Fixtures.enemy("A mugger")], [], 0, Combat.CONTEXT_ARCHIE_DEAL_MUGGING)
 
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_eq(screen._stage._backdrop_fill.color, GameData.PALETTE[GameData.COMBAT_VISUALS["backdrops"]["mugging"]["fallbackColor"]], "archie_deal_mugging is a permanent alias of mugging's backdrop, not a distinct plate")
+		assert_true(screen._stage._backdrop_texture.visible, "mugging ships a real street plate, and archie_deal_mugging aliases it")
+		assert_eq(screen._stage._backdrop_texture.texture.resource_path, GameData.COMBAT_VISUALS["backdrops"]["mugging"]["image"], "archie_deal_mugging is a permanent alias of mugging's backdrop, not a distinct plate")
+
+		screen.free()
+	)
+
+	# ── combat-refining ticket 10: location -> context -> palette lookup ──
+
+	run_case("stage_backdrop_prefers_the_location_plate_over_the_context_plate", func():
+		var original_combat_visuals := _install_location_backdrop_manifest()
+		_setup_combat([Fixtures.enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
+		GameState.state["combat"]["locationKey"] = "shoreditch"
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_true(screen._stage._backdrop_texture.visible, "a configured location plate must show")
+		assert_eq(screen._stage._backdrop_texture.texture.resource_path, LOCATION_PLATE_A, "location tier wins over the mugging context plate")
+
+		screen.free()
+		GameData.COMBAT_VISUALS = original_combat_visuals
+	)
+
+	run_case("stage_backdrop_falls_back_to_the_context_plate_for_a_location_without_one", func():
+		var original_combat_visuals := _install_location_backdrop_manifest()
+		_setup_combat([Fixtures.enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
+		GameState.state["combat"]["locationKey"] = "not_a_real_district"
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_true(screen._stage._backdrop_texture.visible, "unknown locationKey must degrade to the context plate, not crash or blank")
+		assert_eq(screen._stage._backdrop_texture.texture.resource_path, GameData.COMBAT_VISUALS["backdrops"]["mugging"]["image"])
+
+		screen.free()
+		GameData.COMBAT_VISUALS = original_combat_visuals
+	)
+
+	run_case("stage_backdrop_falls_back_to_the_palette_fill_with_neither_plate", func():
+		var original_combat_visuals := _install_location_backdrop_manifest()
+		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_RAID)
+		GameState.state["combat"]["locationKey"] = "not_a_real_district"
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_true(screen._stage._backdrop_fill.visible, "no location plate, no raid plate -> palette fill")
+		assert_true(not screen._stage._backdrop_texture.visible)
+		assert_eq(screen._stage._backdrop_fill.color, GameData.PALETTE[GameData.COMBAT_VISUALS["backdrops"]["raid"]["fallbackColor"]])
+
+		screen.free()
+		GameData.COMBAT_VISUALS = original_combat_visuals
+	)
+
+	run_case("stage_backdrop_same_context_in_two_districts_shows_two_plates", func():
+		var original_combat_visuals := _install_location_backdrop_manifest()
+		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_RAID)
+		GameState.state["combat"]["locationKey"] = "shoreditch"
+		var screen := CombatScreen.new()
+		screen._ready()
+		var first_path: String = screen._stage._backdrop_texture.texture.resource_path
+
+		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_RAID)
+		GameState.state["combat"]["locationKey"] = "camden"
+		screen._sync()
+		var second_path: String = screen._stage._backdrop_texture.texture.resource_path
+
+		assert_eq(first_path, LOCATION_PLATE_A)
+		assert_eq(second_path, LOCATION_PLATE_B, "same context, different district -> that district's own plate")
+
+		screen.free()
+		GameData.COMBAT_VISUALS = original_combat_visuals
+	)
+
+	run_case("stage_backdrop_spans_the_full_stage_with_no_inset", func():
+		_setup_combat([Fixtures.enemy("A mugger")], [], 0, Combat.CONTEXT_MUGGING)
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var stage_size := Vector2(CombatStage.STAGE_WIDTH, CombatStage.STAGE_HEIGHT)
+		assert_eq(screen._stage._backdrop_texture.position, Vector2.ZERO, "no inset")
+		assert_eq(screen._stage._backdrop_texture.size, stage_size, "texture spans the full stage")
+		assert_eq(screen._stage._backdrop_fill.position, Vector2.ZERO)
+		assert_eq(screen._stage._backdrop_fill.size, stage_size)
+		var frame: StyleBoxFlat = screen._stage.get_theme_stylebox("panel")
+		assert_eq(frame.border_width_left + frame.border_width_top + frame.border_width_right + frame.border_width_bottom, 0, "no frame border around the plate")
 
 		screen.free()
 	)
