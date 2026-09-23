@@ -32,6 +32,17 @@ static func _entry_of_type(entries: Array, type: String) -> Dictionary:
 	return {}
 
 
+static func _occ(occurrence_id: String, type: String, index: int = -1) -> Dictionary:
+	var occurrence := { "type": type, "occurrenceId": occurrence_id }
+	if type != "player":
+		occurrence["index"] = index
+	return occurrence
+
+
+static func _ids(occurrences: Array) -> Array:
+	return occurrences.map(func(o): return o["occurrenceId"])
+
+
 func _combat(enemies: Array, allies: Array = [], context: String = Combat.CONTEXT_RAID, vein_id = null) -> Dictionary:
 	return {
 		"active": true, "context": context, "veinId": vein_id, "enemies": enemies,
@@ -669,4 +680,85 @@ func run() -> void:
 
 		card.set_ghost_hp(20)  # caught all the way up to the real (also 20) value
 		assert_eq(card.ghost_hp, 20, "set_ghost_hp should still record the value even once it matches -- _draw() is what decides whether there's an overlay to paint, not this setter")
+	)
+
+	# ── combat-refining ticket 06: queue advance in sync with playback ───
+
+	run_case("playback_occurrences_drops_played_turns_and_keeps_a_two_round_horizon", func():
+		var earlier := [_occ("1:0", "player"), _occ("1:1", "enemy", 0), _occ("1:2", "enemy", 1), _occ("2:0", "player"), _occ("2:1", "enemy", 0), _occ("2:2", "enemy", 1)]
+		# The live state is already parked at 2:0: committed round 2, projected round 3.
+		var target := [_occ("2:0", "player"), _occ("2:1", "enemy", 0), _occ("2:2", "enemy", 1), _occ("3:0", "player"), _occ("3:1", "enemy", 0), _occ("3:2", "enemy", 1)]
+
+		assert_eq(_ids(TurnOrderStrip.playback_occurrences("1:0", true, target, earlier, [])), ["1:0", "1:1", "1:2", "2:0", "2:1", "2:2"], "before any beat: the pre-action queue")
+		assert_eq(_ids(TurnOrderStrip.playback_occurrences("1:0", false, target, earlier, [])), ["1:1", "1:2", "2:0", "2:1", "2:2"], "after the player's beat: only its card has left")
+		assert_eq(_ids(TurnOrderStrip.playback_occurrences("1:2", false, target, earlier, [])), ["2:0", "2:1", "2:2", "3:0", "3:1", "3:2"], "the round's last turn played: round 3 enters at the right")
+	)
+
+	run_case("playback_occurrences_reads_a_rebuilt_round_from_the_live_committed_queue_never_merging_by_id", func():
+		# Round 2 as projected before the action still had fast enemy 1 at
+		# 2:0; it died in round 1, so the committed round 2 renumbered.
+		var earlier := [_occ("1:0", "player"), _occ("1:1", "enemy", 0), _occ("2:0", "enemy", 1), _occ("2:1", "player"), _occ("2:2", "enemy", 0)]
+		var target := [_occ("2:0", "player"), _occ("2:1", "enemy", 0), _occ("3:0", "player"), _occ("3:1", "enemy", 0)]
+
+		var shown: Array = TurnOrderStrip.playback_occurrences("1:1", false, target, earlier, [])
+
+		assert_eq(_ids(shown), ["2:0", "2:1", "3:0", "3:1"])
+		assert_eq(shown[1]["index"], 0, "2:1 is enemy 0 in the committed round, not the stale projection's player")
+	)
+
+	run_case("playback_occurrences_falls_back_to_beat_tags_for_a_round_nothing_else_covers", func():
+		var beats := [{ "kind": "enemy_attack", "occurrence": _occ("1:1", "enemy", 0) }, { "kind": "motion_announce", "occurrence": null }, { "kind": "player_attack", "occurrence": _occ("1:0", "player") }]
+
+		assert_eq(_ids(TurnOrderStrip.playback_occurrences("1:0", true, [], [], beats)), ["1:0", "1:1"], "deduped, in scheduling order, null tags ignored")
+	)
+
+	run_case("configure_keeps_the_scroll_offset_when_the_selection_is_unchanged", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		var combat := _combat([Fixtures.enemy("A"), Fixtures.enemy("B"), Fixtures.enemy("C")])
+		var strip := TurnOrderStrip.new()
+		strip.configure(strip.build_entries(combat, player), 0, combat, player, 200.0, Callable())
+		assert_true(strip._max_scroll > 60.0, "sanity: four cards overflow a 200px viewport")
+		strip.handle_drag(-60.0)
+
+		strip.configure(strip.build_entries(combat, player), 0, combat, player, 200.0, Callable())
+
+		assert_almost_eq(strip._scroll_offset, 60.0, 0.01, "an unrelated refresh must not move the viewport")
+		strip.free()
+	)
+
+	run_case("reset_scroll_returns_the_viewport_to_the_front", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		var combat := _combat([Fixtures.enemy("A"), Fixtures.enemy("B"), Fixtures.enemy("C")])
+		var strip := TurnOrderStrip.new()
+		strip.configure(strip.build_entries(combat, player), 0, combat, player, 200.0, Callable())
+		strip.handle_drag(-60.0)
+
+		strip.reset_scroll()
+
+		assert_eq(strip._scroll_offset, 0.0)
+		assert_eq(strip._row.position.x, 0.0)
+		strip.free()
+	)
+
+	run_case("advance_to_rebuilds_the_cards_in_the_new_order_and_keeps_a_draining_ghost", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		var combat := _combat([Fixtures.enemy("Enemy", 10, 20)])
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, player)
+		strip.configure(entries, 0, combat, player, 300.0, Callable())
+		strip.set_initial_ghost("enemy:0", 18)
+
+		strip.advance_to(entries.slice(1), combat, player, 0.3)
+
+		var cards := _cards(strip)
+		assert_eq(cards.size(), entries.size() - 1, "the played occurrence's card is gone, no stale card left behind")
+		assert_eq(cards[0].combatant_name, entries[1]["name"], "the next occurrence is now the front card")
+		assert_eq(_card_named(strip, "Enemy").ghost_hp, 18, "the ghost bar survives the rebuild")
+
+		strip.clear_ghosts()
+		assert_eq(_card_named(strip, "Enemy").ghost_hp, null)
+		strip.free()
 	)

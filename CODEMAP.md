@@ -28,7 +28,7 @@ Data file per system: see `data/*.json` below.
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement |
-| combat.gd | Turn-based combat engine + rewind. Resumable per-decision-point progression via `combat.turnCursor` + `advance_to_next_decision()`/`prime_decision_point()`/`conclude_decision_point()`, and a pure `project_queue()` read for the strip's occurrence horizon -- REFERENCE.md §3.7a. `combat.selection` (player/ally/enemy) is written via `set_selection()`, KO-clamped by `_clamp_selection` |
+| combat.gd | Turn-based combat engine + rewind. Resumable progression via `combat.turnCursor` + `advance_to_next_decision()`/`prime_`/`conclude_decision_point()`; pure `project_queue()` for the strip's horizon (REFERENCE.md §3.7a). Every turn beat carries its `occurrence` tag. `combat.selection` written via `set_selection()`, KO-clamped |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry via Combat.prime_decision_point()/conclude_decision_point() (R§3.7a) |
@@ -91,7 +91,7 @@ overlays.
 
 | File | Renders |
 |---|---|
-| combat.gd | Combat screen: orchestrator over CombatStage/CombatCommandDock -- owns turn flow (turn-order strip), director bridging, and when a band sync happens. `_select_target()` is the sole route from a card tap or a stage-sprite tap (`CombatStage.subject_tapped`) to `Combat.set_selection()`; a stage tap during director playback fast-forwards instead |
+| combat.gd | Combat screen: orchestrator over CombatStage/CombatCommandDock -- owns turn flow, director bridging, band sync. Keeps one persistent strip and steps its queue beat by beat during (and Rewind) playback. `_select_target()` is the sole tap->`Combat.set_selection()` route; a stage tap during playback fast-forwards |
 | combat_prototype.gd | Minimal combat-prototype screen, Debug-app only |
 | contacts.gd | Contacts app inside PhoneDeviceShell; alphabetic directory with inline flag-gated actions |
 | event.gd | Event-card screen (VN and non-VN layouts) |
@@ -142,7 +142,7 @@ overlays.
 | time_transition.gd | Presentation queue (day/night atlas) |
 | top_bar.gd | Header: day/phase, cash, notices |
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
-| turn_order_strip.gd | Combat turn-order strip: one card per projected turn occurrence. Tap selects; drag scrolls. Selected cards grow into a fixed reserved band. Owns palette-backed street-sign styling, bounded details, safe procedural damage decals, HP ghost drain, and `_reveal_pos()` |
+| turn_order_strip.gd | Combat turn-order strip: one card per projected turn occurrence. Tap selects; drag scrolls (offset survives re-configure). Selected card grows into a reserved band. Street-sign styling, damage decals, HP ghost drain, `_reveal_pos()`, and playback reflow via `playback_occurrences()` + `advance_to()` |
 | ui.gd | Shared Control builders, time-cost labels, ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
 | vein_bubble.gd | Compact player-vein tap bubble: map_card_style.gd-skinned pin-anchored card with edge flipping, Lv segments, condition needle with 50/90+ scale, outline development/raid cues, round Harvest (light/hard chooser)/Cultivate actions; tapping the info area opens vein_detail_panel.gd instead of running an action |
 | vein_detail_panel.gd | Floating map_card_style.gd-skinned vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/alarm/Defend; reuses VeinBubble's level/condition builders |

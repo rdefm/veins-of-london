@@ -37,6 +37,13 @@ var _director: CombatDirector
 var _revealed_log_count: int = -1
 var _ghost_tracker: Dictionary = {}
 var _frozen_roster: Dictionary = {}
+# The live projection the strip last settled on, and the one before it --
+# the pre-action (or pre-Rewind) queue playback steps away from, since the
+# action's own state_changed has already moved the live one on.
+var _resting_queue: Array = []
+var _previous_queue: Array = []
+# Set for the length of one playback: TurnOrderStrip.playback_occurrences()'s inputs.
+var _queue_playback: Dictionary = {}
 
 const _ATTACK_BEAT_KINDS: Array[String] = [
 	Combat.BEAT_PLAYER_ATTACK, Combat.BEAT_ALLY_ATTACK, Combat.BEAT_ENEMY_ATTACK,
@@ -97,6 +104,9 @@ func _ready() -> void:
 	_strip_holder.offset_bottom = _STRIP_TOP_INSET + TurnOrderStrip.CARD_HEIGHT
 	_strip_holder.mouse_filter = Control.MOUSE_FILTER_PASS
 	_upper_region.add_child(_strip_holder)
+	# Persistent, so its scroll offset survives every refresh.
+	_turn_order_strip = TurnOrderStrip.new()
+	_strip_holder.add_child(_turn_order_strip)
 
 	# Everything below the stage frame: the (usually empty) outcome-button
 	# footer, then the reserved detail band soaking up whatever's left of
@@ -133,10 +143,14 @@ func _sync() -> void:
 	_heading.text = _context_label(combat["context"])
 	_pacing_button.text = _pacing_button_label()
 
-	for child in _strip_holder.get_children():
-		child.queue_free()
-	_turn_order_strip = _build_turn_order_strip(combat, player)
-	_strip_holder.add_child(_turn_order_strip)
+	var queue: Array = Combat.project_queue(combat)
+	if _occurrence_ids(queue) != _occurrence_ids(_resting_queue):
+		_previous_queue = _resting_queue
+		_resting_queue = queue
+	# Mid-playback the strip shows the queue as far as the beats have
+	# played, not this already-resolved state; playback's end re-syncs.
+	if not _director.is_playing():
+		_configure_turn_order_strip(combat, player)
 
 	_sync_stage(combat, player)
 
@@ -167,12 +181,60 @@ func _sync_footer(combat: Dictionary, player: Dictionary) -> void:
 		_command_dock.hide_deck()
 	else:
 		_command_dock.configure(player, _on_attack_pressed, _on_run_pressed, _on_dial_triggered)
-func _build_turn_order_strip(combat: Dictionary, player: Dictionary) -> TurnOrderStrip:
-	var strip := TurnOrderStrip.new()
-	var entries: Array = strip.build_entries(combat, player)
+func _configure_turn_order_strip(combat: Dictionary, player: Dictionary) -> void:
+	var entries: Array = _turn_order_strip.build_entries(combat, player)
 	var selected_pos := _selected_strip_pos(entries, combat)
-	strip.configure(entries, maxi(0, selected_pos), combat, player, CombatStage.STAGE_WIDTH - _STRIP_SIDE_INSET * 2.0, _on_strip_selection_changed)
-	return strip
+	_turn_order_strip.configure(entries, maxi(0, selected_pos), combat, player, CombatStage.STAGE_WIDTH - _STRIP_SIDE_INSET * 2.0, _on_strip_selection_changed)
+
+static func _occurrence_ids(occurrences: Array) -> Array:
+	return occurrences.map(func(o): return o["occurrenceId"])
+
+static func _first_occurrence_id(beats: Array) -> String:
+	for beat in beats:
+		var occurrence: Variant = beat.get("occurrence")
+		if occurrence != null:
+			return occurrence["occurrenceId"]
+	return ""
+
+# §2.4 Reflow: arms the strip to step through `beats`. Forward playback
+# starts at the first played occurrence; reversed (Rewind) playback starts
+# just past its first beat -- the state before Rewind -- and re-reveals
+# each card as its beat unplays. `_previous_queue` is only trusted when its
+# front sits where this playback starts, never a stale older projection.
+func _begin_queue_playback(beats: Array, rewinding: bool) -> void:
+	_queue_playback = {}
+	var first_id: String = _first_occurrence_id(beats)
+	if first_id.is_empty():
+		return
+	var first_rank: Vector2i = TurnOrderStrip.occurrence_rank(first_id)
+	var earlier: Array = []
+	if not _previous_queue.is_empty():
+		var front_rank: Vector2i = TurnOrderStrip.occurrence_rank(_previous_queue[0]["occurrenceId"])
+		if (rewinding and front_rank > first_rank) or (not rewinding and front_rank == first_rank):
+			earlier = _previous_queue
+	_queue_playback = {
+		"target": Combat.project_queue(GameState.state["combat"], true),
+		"earlier": earlier, "beats": beats, "rewinding": rewinding,
+	}
+	_turn_order_strip.reset_scroll()
+	_show_playback_queue(first_id, not rewinding, 0.0)
+
+func _advance_queue_playback(beat: Dictionary) -> void:
+	var occurrence: Variant = beat.get("occurrence")
+	if _queue_playback.is_empty() or occurrence == null:
+		return
+	_show_playback_queue(occurrence["occurrenceId"], _queue_playback["rewinding"], _director.beat_duration)
+
+func _show_playback_queue(threshold_id: String, inclusive: bool, duration: float) -> void:
+	var occurrences: Array = TurnOrderStrip.playback_occurrences(threshold_id, inclusive,
+		_queue_playback["target"], _queue_playback["earlier"], _queue_playback["beats"])
+	var combat: Dictionary = GameState.state["combat"]
+	var player: Dictionary = GameState.state["player"]
+	_turn_order_strip.advance_to(_turn_order_strip.build_entries_for(occurrences, combat, player), combat, player, duration)
+
+func _end_queue_playback() -> void:
+	_queue_playback = {}
+	_turn_order_strip.clear_ghosts()
 
 # combat.selection (R§2) is the sole source of truth now -- no screen-local
 # cache needed, so this always resolves against live state, which is also
@@ -232,10 +294,12 @@ func _play_beats(beats: Array, log_before: int) -> void:
 		_frozen_roster = {}
 		return
 	_revealed_log_count = log_before
+	_begin_queue_playback(beats, false)
 	_init_ghost_tracker(beats)
 	_sync_footer(GameState.state["combat"], GameState.state["player"])
 	await _director.play(beats, _on_beat_played)
 	_ghost_tracker.clear()
+	_end_queue_playback()
 	_revealed_log_count = -1
 	_frozen_roster = {}
 	_sync()
@@ -248,6 +312,7 @@ func _push_revealed_log_line() -> void:
 func _on_beat_played(beat: Dictionary) -> void:
 	_revealed_log_count += 1
 	_push_revealed_log_line()
+	_advance_queue_playback(beat)
 	_sync_footer(GameState.state["combat"], GameState.state["player"])
 	var kind: String = beat.get("kind", "")
 	if kind == Combat.BEAT_PLAYER_EVADE:
@@ -292,9 +357,12 @@ func _on_combat_beats_played(beats: Array) -> void:
 func _on_combat_rewind_played(beats: Array) -> void:
 	if _director.is_playing() or beats.is_empty():
 		return
+	_begin_queue_playback(beats, true)
 	await _director.play(beats, _on_rewind_beat_played)
+	_end_queue_playback()
 	_sync()
 func _on_rewind_beat_played(beat: Dictionary) -> void:
+	_advance_queue_playback(beat)
 	var kind: String = beat.get("kind", "")
 	if _ATTACK_BEAT_KINDS.has(kind):
 		var actor_slot: CombatStage.StageSlot = _stage.resolve_target_slot(_beat_actor(beat))

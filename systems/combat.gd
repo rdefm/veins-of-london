@@ -548,6 +548,7 @@ static func advance_to_next_decision(combat: Dictionary, beats: Variant = null) 
 	var cursor: Dictionary = combat["turnCursor"]
 	while true:
 		if cursor["index"] >= cursor["queue"].size():
+			var boundary_beats_start: int = beats.size() if beats != null else 0
 			# Only decrement when the round that's ending actually spent the
 			# buff (its queue carries Motion-inserted "extra" slots) -- not
 			# whenever motionTurns happens to be >0. Activating Motion mid-
@@ -571,12 +572,14 @@ static func advance_to_next_decision(combat: Dictionary, beats: Variant = null) 
 			if combat["motionTurns"] > 0:
 				var motion_label: String = "three times" if combat["motionPower"] >= 3 else "twice"
 				_log(combat, beats, "Motion powder — you move %s as fast." % motion_label, BEAT_MOTION_ANNOUNCE, {})
+			_stamp_occurrence(beats, boundary_beats_start, null)
 			continue
 
 		var entry: Dictionary = cursor["queue"][cursor["index"]]
 		if entry["type"] == "player":
 			return
 
+		var turn_beats_start: int = beats.size() if beats != null else 0
 		cursor["index"] += 1
 		match entry["type"]:
 			"ally":
@@ -587,9 +590,24 @@ static func advance_to_next_decision(combat: Dictionary, beats: Variant = null) 
 				var enemies: Array = combat["enemies"]
 				if entry["index"] < enemies.size() and not enemies[entry["index"]]["koed"]:
 					_enemy_turn(combat, enemies[entry["index"]], entry["index"], beats)
+		_stamp_occurrence(beats, turn_beats_start, _project_occurrence(entry, cursor["round"], cursor["index"] - 1))
 
 		if combat["outcome"] != null:
 			return
+
+
+# Tags every beat from `from` onward that isn't tagged yet with the turn
+# occurrence that produced it (a project_queue()-shaped entry), or null for
+# a round-boundary beat that belongs to no turn -- lets the turn-order strip
+# advance in step with playback (docs/combat-animation-vision.md §2.4
+# Reflow). Beats share their Dictionary with combat.beatsSinceSnapshot, so
+# Rewind's reversed replay carries the same tag.
+static func _stamp_occurrence(beats: Variant, from: int, occurrence: Variant) -> void:
+	if beats == null:
+		return
+	for i in range(from, beats.size()):
+		if not beats[i].has("occurrence"):
+			beats[i]["occurrence"] = occurrence
 
 
 # Guarantees the cursor is parked at a player-type entry before a command's
@@ -610,7 +628,15 @@ static func prime_decision_point(combat: Dictionary, beats: Variant = null) -> b
 # forward to the next decision point (or outcome) -- called once a
 # command's own effect has been applied to that entry.
 static func conclude_decision_point(combat: Dictionary, beats: Variant = null) -> void:
-	combat["turnCursor"]["index"] += 1
+	var cursor: Dictionary = combat["turnCursor"]
+	# Every still-untagged trailing beat is this command's own -- anything
+	# prime_decision_point() produced was already tagged by the engine.
+	if beats != null and cursor["index"] < cursor["queue"].size():
+		var from: int = beats.size()
+		while from > 0 and not beats[from - 1].has("occurrence"):
+			from -= 1
+		_stamp_occurrence(beats, from, _project_occurrence(cursor["queue"][cursor["index"]], cursor["round"], cursor["index"]))
+	cursor["index"] += 1
 	if combat["outcome"] == null:
 		advance_to_next_decision(combat, beats)
 
@@ -627,11 +653,14 @@ static func conclude_decision_point(combat: Dictionary, beats: Variant = null) -
 # exactly as build_turn_queue() naturally produces them -- no dedup.
 # Never reveals unresolved-turn outcomes (evade rolls, damage, an enemy's
 # target pick) -- only who acts and in what order.
-static func project_queue(combat: Dictionary) -> Array:
+# `from_round_start` also includes the current round's already-resolved
+# occurrences -- the turn-order strip's playback needs the whole committed
+# round to lay out turns that resolved but haven't been played back yet.
+static func project_queue(combat: Dictionary, from_round_start: bool = false) -> Array:
 	var cursor: Dictionary = combat["turnCursor"]
 	var projected: Array = []
 
-	for i in range(cursor["index"], cursor["queue"].size()):
+	for i in range(0 if from_round_start else cursor["index"], cursor["queue"].size()):
 		projected.append(_project_occurrence(cursor["queue"][i], cursor["round"], i))
 
 	# Mirrors advance_to_next_decision()'s own round-boundary tick, but

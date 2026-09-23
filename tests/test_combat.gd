@@ -2627,3 +2627,51 @@ func run() -> void:
 		assert_true(result["ok"], "Train should be available again on the new day")
 		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_GYM_SESSION * 4, "the 4th session should still award XP like every other")
 	)
+
+	# ── combat-refining ticket 06: beats carry their turn occurrence ─────
+
+	run_case("every_turn_beat_carries_the_occurrence_that_produced_it", func():
+		_fresh_combat()
+		GameState.state["combat"]["enemies"][0]["speed"] = 1  # player 1:0, enemy 1:1
+		Rng.set_seed(1)
+		var beats: Array = Combat.player_attack()["beats"]
+
+		assert_eq(beats[0]["kind"], Combat.BEAT_PLAYER_ATTACK)
+		assert_eq(beats[0]["occurrence"]["occurrenceId"], "1:0", "the player's own attack belongs to the parked player slot")
+		assert_eq(beats[0]["occurrence"]["type"], "player")
+		var enemy_beat: Dictionary = beats[beats.size() - 1]
+		assert_eq(enemy_beat["kind"], Combat.BEAT_ENEMY_ATTACK)
+		assert_eq(enemy_beat["occurrence"]["occurrenceId"], "1:1", "the engine-resolved enemy turn carries its own slot")
+		assert_eq(enemy_beat["occurrence"]["index"], 0)
+		var accumulated: Array = GameState.state["combat"]["beatsSinceSnapshot"]
+		assert_eq(accumulated[accumulated.size() - 1]["occurrence"]["occurrenceId"], "1:1", "Rewind's accumulator shares the same tagged beats")
+	)
+
+	run_case("a_round_boundary_beat_is_tagged_with_no_occurrence", func():
+		_fresh_combat()
+		GameState.state["combat"]["motionTurns"] = 1
+		GameState.state["combat"]["motionPower"] = 2
+		Rng.set_seed(1)
+		var beats: Array = Combat.player_attack()["beats"]
+
+		var announce: Dictionary = {}
+		for beat in beats:
+			if beat["kind"] == Combat.BEAT_MOTION_ANNOUNCE:
+				announce = beat
+		assert_true(announce.has("occurrence"), "sanity: the fresh round's Motion announcement must be present and tagged")
+		assert_eq(announce["occurrence"], null, "a round-boundary beat belongs to no turn")
+		assert_eq(beats[beats.size() - 1]["occurrence"]["occurrenceId"], "1:0", "the player's attack after it still gets the player slot, not the boundary's null")
+	)
+
+	run_case("project_queue_from_round_start_includes_the_current_rounds_resolved_occurrences", func():
+		GameState.reset()
+		var combat := {
+			"allies": [], "enemies": [{ "name": "E", "speed": 1, "koed": false }],
+			"motionTurns": 0, "motionPower": 0, "log": [],
+			"turnCursor": { "queue": [{ "type": "player", "speed": 10 }, { "type": "enemy", "index": 0, "speed": 1 }], "index": 1, "round": 3 },
+		}
+
+		var ids: Array = Combat.project_queue(combat, true).map(func(o): return o["occurrenceId"])
+
+		assert_eq(ids, ["3:0", "3:1", "4:0", "4:1"], "the whole committed round, then the projected next one")
+	)

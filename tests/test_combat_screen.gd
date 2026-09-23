@@ -64,6 +64,10 @@ static func _strip_cards(root: Node) -> Array[TurnOrderStrip.NameplateCard]:
 	return cards
 
 
+static func _strip_ids(strip: TurnOrderStrip) -> Array:
+	return CombatScreen._occurrence_ids(strip._entries)
+
+
 static func _strip_card_named(root: Node, combatant_name: String) -> TurnOrderStrip.NameplateCard:
 	for c in _strip_cards(root):
 		if c.combatant_name == combatant_name:
@@ -1623,5 +1627,102 @@ func run() -> void:
 		assert_eq(widget_rect_after, widget_rect_before, "the reserved band gaining content must not move or resize the Dial")
 
 		screen.free()
+		viewport.free()
+	)
+
+	# ── combat-refining ticket 06: queue advances in step with playback ──
+	# The director's first beat plays synchronously; each
+	# fast_forward_current_beat() completes the current beat's pause, which
+	# resumes play() into the next beat -- only inside a live tree, so these
+	# cases mount the screen the same way the layout cases above do.
+
+	await run_case("after_each_played_beat_the_strip_front_is_the_next_occurrence_not_the_post_round_front", func():
+		var tree := Engine.get_main_loop() as SceneTree
+		_setup_combat([Fixtures.enemy("Slow A", 20, 20, false, 1), Fixtures.enemy("Slow B", 20, 20, false, 1)])
+		var viewport := Control.new()
+		viewport.size = Vector2(390, 844)
+		tree.root.add_child(viewport)
+		var screen := CombatScreen.new()
+		viewport.add_child(screen)
+		var strip := _find_strip(screen)
+		Rng.set_seed(1)
+
+		screen._on_attack_pressed()  # beat 1: the player's own attack (1:0)
+		assert_eq(_strip_ids(strip)[0], "1:1", "after the player's beat, Slow A's turn is next -- not the resolved round-2 front")
+		assert_eq(_strip_cards(screen)[0].combatant_name, "Slow A")
+
+		screen._director.fast_forward_current_beat()  # beat 2: Slow A (1:1)
+		await tree.process_frame
+		assert_eq(_strip_ids(strip)[0], "1:2", "a card leaves only once its own beat has played")
+
+		screen._director.fast_forward_current_beat()  # beat 3: Slow B (1:2), the last
+		await tree.process_frame
+		var final_ids: Array = CombatScreen._occurrence_ids(Combat.project_queue(GameState.state["combat"]))
+		assert_eq(_strip_ids(strip), final_ids, "the round's last beat brings round 3 in at the right")
+
+		screen._director.fast_forward_current_beat()  # playback ends, strip re-syncs
+		await tree.process_frame
+		assert_true(not screen._director.is_playing(), "sanity: playback finished")
+		assert_eq(_strip_ids(strip), final_ids, "fast-forwarding to the end leaves no orphaned or missing cards")
+
+		viewport.free()
+	)
+
+	run_case("starting_playback_returns_the_strip_viewport_to_the_front", func():
+		_setup_combat([Fixtures.enemy("A", 20, 20, false, 1), Fixtures.enemy("B", 20, 20, false, 1), Fixtures.enemy("C", 20, 20, false, 1), Fixtures.enemy("D", 20, 20, false, 1)])
+		var screen := CombatScreen.new()
+		screen._ready()
+		var strip := _find_strip(screen)
+		strip.handle_drag(-80.0)
+		assert_true(strip._scroll_offset > 0.0, "sanity: five cards overflow the strip")
+
+		Rng.set_seed(1)
+		screen._on_attack_pressed()
+
+		assert_eq(strip._scroll_offset, 0.0)
+		screen.free()
+	)
+
+	run_case("an_unrelated_state_changed_mid_inspection_preserves_the_strip_scroll_offset", func():
+		_setup_combat([Fixtures.enemy("A", 20, 20, false, 1), Fixtures.enemy("B", 20, 20, false, 1), Fixtures.enemy("C", 20, 20, false, 1), Fixtures.enemy("D", 20, 20, false, 1)])
+		var screen := CombatScreen.new()
+		screen._ready()
+		var strip := _find_strip(screen)
+		strip.handle_drag(-80.0)
+		var offset: float = strip._scroll_offset
+		assert_true(offset > 0.0, "sanity: five cards overflow the strip")
+
+		Notify.push("Something unrelated.")  # a notification's own state_changed
+
+		assert_eq(_find_strip(screen), strip, "the strip is persistent, not rebuilt")
+		assert_almost_eq(strip._scroll_offset, offset, 0.01)
+		screen.free()
+	)
+
+	await run_case("rewind_playback_runs_the_queue_back_to_the_restored_decision_points_projection", func():
+		var tree := Engine.get_main_loop() as SceneTree
+		_setup_combat([Fixtures.enemy("A", 20, 20, false, 1), Fixtures.enemy("B", 20, 20, false, 1)])
+		var viewport := Control.new()
+		viewport.size = Vector2(390, 844)
+		tree.root.add_child(viewport)
+		var screen := CombatScreen.new()
+		viewport.add_child(screen)
+		var strip := _find_strip(screen)
+		Rng.set_seed(1)
+		Combat.player_attack()  # no playback -- the strip rests on the round-2 projection
+		Crafting.inventory_add("rewind", 1)
+		var result: Dictionary = Combat.combat_rewind()
+		var restored_ids: Array = CombatScreen._occurrence_ids(Combat.project_queue(GameState.state["combat"]))
+
+		screen._on_combat_rewind_played(result["beats"])  # first reversed beat: B's 1:2
+		assert_eq(_strip_ids(strip)[0], "1:2", "the last-played turn's card re-enters first")
+
+		for _i in range(10):
+			if not screen._director.is_playing():
+				break
+			screen._director.fast_forward_current_beat()
+			await tree.process_frame
+		assert_true(not screen._director.is_playing(), "sanity: reversed playback finished")
+		assert_eq(_strip_ids(strip), restored_ids, "the strip ends on the restored decision point's projection")
 		viewport.free()
 	)

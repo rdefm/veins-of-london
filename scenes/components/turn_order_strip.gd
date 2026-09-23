@@ -126,9 +126,16 @@ class NameplateCard extends Control:
 # "occurrenceId" (this specific card's identity) are deliberately separate
 # fields -- several entries can share a key.
 func build_entries(combat: Dictionary, player: Dictionary) -> Array:
+	return build_entries_for(Combat.project_queue(combat), combat, player)
+
+
+# Same card data as build_entries(), for an arbitrary occurrence list --
+# playback lays out intermediate queues (playback_occurrences()) that no
+# single live projection produces.
+func build_entries_for(occurrences: Array, combat: Dictionary, player: Dictionary) -> Array:
 	var faction_display: Dictionary = _enemy_faction_display(combat)
 	var entries: Array = []
-	for occurrence in Combat.project_queue(combat):
+	for occurrence in occurrences:
 		var type: String = occurrence["type"]
 
 		if type == "player":
@@ -155,6 +162,59 @@ func build_entries(combat: Dictionary, player: Dictionary) -> Array:
 				"factionName": faction_display["name"], "factionColour": faction_display["colour"], "isEnemy": true,
 			})
 	return entries
+
+
+# "round:index" occurrenceId -> a lexicographically comparable pair.
+static func occurrence_rank(occurrence_id: String) -> Vector2i:
+	var parts: PackedStringArray = occurrence_id.split(":")
+	return Vector2i(int(parts[0]), int(parts[1]))
+
+
+# §2.4 Reflow: the occurrences the strip shows once playback has reached
+# `threshold_id` -- every occurrence after it (and the threshold itself
+# when `inclusive`, as reversed Rewind playback re-reveals the card its
+# beat belongs to), cut to Combat.project_queue()'s horizon (R§3.7a): the
+# first shown occurrence's round plus one more. Each round is
+# read from one source, never merged by id -- two sources' "r:i" ids can
+# name different combatants once a KO reshapes a rebuilt round:
+# - `target`: the live state's whole committed round (project_queue(...,
+#   true)) plus its projected next round; its committed round wins.
+# - `earlier`: the projection shown before the action (or before Rewind).
+# - `beats`: each beat's own `occurrence` tag, the last resort.
+static func playback_occurrences(threshold_id: String, inclusive: bool, target: Array, earlier: Array, beats: Array) -> Array:
+	var threshold: Vector2i = occurrence_rank(threshold_id)
+	var committed_round: int = occurrence_rank(target[0]["occurrenceId"]).x if not target.is_empty() else -1
+	var from_beats: Array = _beat_occurrences(beats)
+	var shown: Array = []
+	for round_num in [threshold.x, threshold.x + 1, threshold.x + 2]:
+		var source: Array = _occurrences_in_round(target, round_num) if round_num == committed_round else []
+		for candidate in [earlier, target, from_beats]:
+			if not source.is_empty():
+				break
+			source = _occurrences_in_round(candidate, round_num)
+		for occurrence in source:
+			var rank: Vector2i = occurrence_rank(occurrence["occurrenceId"])
+			if rank > threshold or (inclusive and rank == threshold):
+				shown.append(occurrence)
+	if shown.is_empty():
+		return shown
+	var last_round: int = occurrence_rank(shown[0]["occurrenceId"]).x + 1
+	return shown.filter(func(o): return occurrence_rank(o["occurrenceId"]).x <= last_round)
+
+
+static func _occurrences_in_round(occurrences: Array, round_num: int) -> Array:
+	return occurrences.filter(func(o): return occurrence_rank(o["occurrenceId"]).x == round_num)
+
+
+static func _beat_occurrences(beats: Array) -> Array:
+	var by_id: Dictionary = {}
+	for beat in beats:
+		var occurrence: Variant = beat.get("occurrence")
+		if occurrence != null:
+			by_id[occurrence["occurrenceId"]] = occurrence
+	var occurrences: Array = by_id.values()
+	occurrences.sort_custom(func(a, b): return occurrence_rank(a["occurrenceId"]) < occurrence_rank(b["occurrenceId"]))
+	return occurrences
 
 
 func _enemy_faction_display(combat: Dictionary) -> Dictionary:
@@ -188,18 +248,77 @@ func _status_lines_for(key: Dictionary, combat: Dictionary, player: Dictionary) 
 # selected_pos indexes into `entries` only to seed which *combatant*
 # starts out selected -- every entry sharing that combatant's key renders
 # selected, since several entries can be the same combatant's occurrences.
+# The scroll offset survives a re-configure, so an unrelated refresh never
+# yanks the viewport away from what the player is inspecting.
 func configure(entries: Array, selected_pos: int, combat: Dictionary, player: Dictionary, available_width: float, selection_callback: Callable) -> void:
 	_entries = entries
 	var clamped_pos: int = clampi(selected_pos, 0, maxi(0, entries.size() - 1))
-	_selected_key = entries[clamped_pos]["key"] if not entries.is_empty() else {}
+	var new_key: Dictionary = entries[clamped_pos]["key"] if not entries.is_empty() else {}
+	var selection_changed: bool = new_key != _selected_key
+	_selected_key = new_key
 	_combat = combat
 	_player = player
 	_on_selection_changed = selection_callback
 	_rebuild(available_width)
-	# Whatever drove this selection (a sprite tap, most often -- a card tap
+	# Whatever drove a new selection (a sprite tap, most often -- a card tap
 	# is already visible by definition) may have picked an occurrence that
-	# scrolled off the current viewport; always land it back in view.
-	_reveal_pos(clamped_pos)
+	# scrolled off the current viewport; land it back in view.
+	if selection_changed:
+		_reveal_pos(clamped_pos)
+
+
+# §2.4 Reflow: swaps in the queue as it stands after a played beat. Cards
+# are rebuilt at once (the layout is always the final one for this step);
+# the row then slides from where the surviving cards were, and newly
+# revealed occurrences fade in -- one tween, cut short by the next call or
+# finish_advance(). `combat`/`player` refresh card content only.
+func advance_to(entries: Array, combat: Dictionary, player: Dictionary, duration: float) -> void:
+	var old_x: Dictionary = {}
+	for i in range(mini(_entries.size(), _card_rects.size())):
+		old_x[_entries[i]["occurrenceId"]] = _card_rects[i].position.x
+	_entries = entries
+	_combat = combat
+	_player = player
+	_rebuild(_available_width)
+	if duration <= 0.0 or not is_inside_tree():
+		return
+
+	var shift: float = 0.0
+	for i in range(_entries.size()):
+		var occurrence_id: String = _entries[i]["occurrenceId"]
+		if old_x.has(occurrence_id):
+			shift = old_x[occurrence_id] - _card_rects[i].position.x
+			break
+	_advance_tween = create_tween().set_parallel(true)
+	_row.position.x = -_scroll_offset + shift
+	_advance_tween.tween_property(_row, "position:x", -_scroll_offset, duration)
+	var cards: Array[Node] = _row.get_children()
+	for i in range(cards.size()):
+		var card: NameplateCard = cards[i]
+		if not old_x.has(_entries[i]["occurrenceId"]) and not card.is_pulsing:
+			card.modulate.a = 0.0
+			_advance_tween.tween_property(card, "modulate:a", 1.0, duration)
+
+
+func finish_advance() -> void:
+	if _advance_tween != null and _advance_tween.is_valid():
+		_advance_tween.custom_step(999999.0)
+	_advance_tween = null
+
+
+# Playback starts from the front of the queue (§2.4).
+func reset_scroll() -> void:
+	_scroll_offset = 0.0
+	if _row != null:
+		_row.position.x = 0.0
+
+
+func clear_ghosts() -> void:
+	_ghost_hp_by_key.clear()
+	for cards in _cards_by_key.values():
+		for card: NameplateCard in cards:
+			card.ghost_hp = null
+			card.queue_redraw()
 
 
 var _entries: Array = []
@@ -225,6 +344,10 @@ var _max_scroll: float = 0.0
 # can share one combatant, so ghost draining (set_initial_ghost/
 # drain_ghost_to) fans out to every card of the damaged combatant.
 var _cards_by_key: Dictionary = {}
+# combatant key string -> ghost hp, re-applied to the fresh cards every
+# _rebuild() so a queue advance mid-playback never drops a draining ghost.
+var _ghost_hp_by_key: Dictionary = {}
+var _advance_tween: Tween = null
 
 
 static func _palette_colour(id: String) -> Color:
@@ -237,7 +360,9 @@ static func card_key_string(entry_key: Dictionary) -> String:
 
 
 func _rebuild(available_width: float) -> void:
+	finish_advance()
 	for child in get_children():
+		remove_child(child)
 		child.queue_free()
 	_cards_by_key.clear()
 
@@ -328,6 +453,8 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	if not _cards_by_key.has(key_string):
 		_cards_by_key[key_string] = []
 	_cards_by_key[key_string].append(card)
+	if _ghost_hp_by_key.has(key_string):
+		card.ghost_hp = _ghost_hp_by_key[key_string]
 	return card
 
 
@@ -352,11 +479,13 @@ func _tell_image_for(enemy: Dictionary) -> Texture2D:
 # Fans out to every occurrence card of this combatant -- a damaged
 # combatant's ghost bar drains identically on each of its cards.
 func set_initial_ghost(key_string: String, hp: int) -> void:
+	_ghost_hp_by_key[key_string] = hp
 	for card: NameplateCard in _cards_by_key.get(key_string, []):
 		card.set_ghost_hp(hp)
 
 
 func drain_ghost_to(key_string: String, hp: int, duration: float) -> void:
+	_ghost_hp_by_key[key_string] = hp
 	for card: NameplateCard in _cards_by_key.get(key_string, []):
 		if not card.is_inside_tree():
 			card.set_ghost_hp(hp)
