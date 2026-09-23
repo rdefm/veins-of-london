@@ -2541,6 +2541,53 @@
 "screen": "phone"
 }]
 },
+"col_a2_closer": {
+"cards": [{
+"label": null,
+"speaker": null,
+"text": "Hakim's, after closing. The ledger is on the counter between the scratchcards and the till, open, because somebody has been adding to it.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"Six months ago I couldn't have told you what we held. Now I can tell you to the jar, and who's watching it, and when it last got looked at.\" She taps the page. \"First winter I've not lain awake counting.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"She's right. It's easier. I don't have to remember anything any more, I just look.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Des turns back a page, then forward again.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"It's all in one place now, isn't it.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Nobody takes it as a question. Hakim puts the kettle on, and the talk moves to whose round it is.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "The Collective has never been safer, and never been easier to find, and nobody in the shop tonight would think to put those in the same sentence.",
+"type": "resolution"
+}],
+"id": "col_a2_closer",
+"on_complete": [{
+"flag": "colA2Complete",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
 "col_a2_contested_vein": {
 "cards": [{
 "label": "Camden",
@@ -3121,6 +3168,31 @@
 }],
 "id": "col_hakim_intel",
 "on_complete": [{
+"op": "reveal_site"
+}, {
+"op": "set_hakim_intel_day"
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"col_hakim_intel_weak": {
+"cards": [{
+"label": null,
+"speaker": "Hakim",
+"text": "\"Lad who does their deliveries was in for fags. Says the lot minding one of theirs have mostly stopped turning up. Might be nothing. I don't know what soft looks like, I only know what he said.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "He shows you where on the map, and then asks after your mum, whom he has never met.",
+"type": "resolution"
+}],
+"id": "col_hakim_intel_weak",
+"on_complete": [{
+"effect": "claim_bonus",
+"op": "network_reveal_vulnerable_vein"
+}, {
 "op": "reveal_site"
 }, {
 "op": "set_hakim_intel_day"

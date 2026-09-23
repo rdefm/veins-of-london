@@ -1,0 +1,13 @@
+{
+  "id": "col_hakim_intel_weak",
+  "cards": [
+    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"Lad who does their deliveries was in for fags. Says the lot minding one of theirs have mostly stopped turning up. Might be nothing. I don't know what soft looks like, I only know what he said.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "He shows you where on the map, and then asks after your mum, whom he has never met." }
+  ],
+  "on_complete": [
+    { "op": "network_reveal_vulnerable_vein", "effect": "claim_bonus" },
+    { "op": "reveal_site" },
+    { "op": "set_hakim_intel_day" },
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

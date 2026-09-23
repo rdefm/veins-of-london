@@ -99,6 +99,8 @@ static func daily_tick() -> void:
 	Objectives.refresh()                 # ⑧ objectives boundary
 	Collective.maybe_trigger_a2_checkpoint()  # ⑧a after ⑧ so an NPC-claimed reseed counts; also the day-threshold fallback
 	Collective.maybe_trigger_a2_crack()       # ⑧b T10/T11, a day or more behind the beat before each
+	Collective.maybe_trigger_a2_closer()      # ⑧c T15, before ⑧d so it trails T14 by a day or more
+	Collective.maybe_trigger_a2_spine_reward()  # ⑧d T14 backstop once relation accrues past the gate
 	MorningAccountsSystem.finish_rollover(morning_context)
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])
 	SaveManager.autosave()               # R§6: autosave on every daily tick

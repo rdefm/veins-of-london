@@ -275,6 +275,10 @@ const HAKIM_INTEL_DISTRICTS: PackedStringArray = ["shoreditch", "whitechapel"]
 # "fair or better" -- barren/poor excluded outright rather than rolled and
 # rerolled, so the 15% chance always spends exactly one Rng draw.
 const HAKIM_INTEL_TIERS: PackedStringArray = ["fair", "rich", "saturated"]
+# DRAFT, playtest-pending: once colA2SpineReward is set, the share of
+# successful rolls that flag a weak enemy-held vein rather than new ground.
+const HAKIM_INTEL_WEAK_VEIN_SHARE := 0.5
+const HAKIM_INTEL_WEAK_KIND := "col_hakim_intel_weak"
 
 
 static func maybe_trigger_hakim_intel() -> bool:
@@ -283,7 +287,7 @@ static func maybe_trigger_hakim_intel() -> bool:
 	# Same double-queue guard as maybe_trigger_closer() above: a text the
 	# player hasn't read yet shouldn't roll a second one.
 	for entry in Messages.pending_for("hakim"):
-		if entry["kind"] == "col_hakim_intel":
+		if entry["kind"] == "col_hakim_intel" or entry["kind"] == HAKIM_INTEL_WEAK_KIND:
 			return false
 
 	var day: int = GameState.state["world"]["day"]
@@ -292,11 +296,19 @@ static func maybe_trigger_hakim_intel() -> bool:
 		return false
 
 	var eligible_districts := _eligible_hakim_intel_districts()
-	if eligible_districts.is_empty():
+	var weak_site_ids := _hakim_intel_weak_vein_site_ids()
+	if eligible_districts.is_empty() and weak_site_ids.is_empty():
 		return false
 
 	if not Rng.chance(HAKIM_INTEL_CHANCE):
 		return false
+
+	# Past T14 (collective-act2 spec §5.6), the same roll may land on a weak
+	# enemy-held vein instead of fresh ground.
+	if not weak_site_ids.is_empty() and (eligible_districts.is_empty() or Rng.chance(HAKIM_INTEL_WEAK_VEIN_SHARE)):
+		# PROSE-REVIEW: new SMS teaser, drafted against CONTENT-GUIDE.md.
+		Messages.queue_pending("hakim", HAKIM_INTEL_WEAK_KIND, "\"Heard something. Not ground this time. Don't get excited.\"", { "site_id": Rng.rand_from(weak_site_ids) })
+		return true
 
 	var district: String = Rng.rand_from(eligible_districts)
 	var tier := _roll_hakim_intel_tier()
@@ -319,6 +331,18 @@ static func _eligible_hakim_intel_districts() -> Array:
 		if Sites.sites_in_district(district_id).size() < site_cap:
 			eligible.append(district_id)
 	return eligible
+
+
+# Enemy-held veins genuinely soft right now (NetworkHandler's own honest
+# test) and not already carrying a live claim bonus. Empty before T14.
+static func _hakim_intel_weak_vein_site_ids() -> Array:
+	if not GameState.state["flags"].get("colA2SpineReward", false):
+		return []
+	var ids: Array = []
+	for site_id in NetworkHandler.target_site_ids():
+		if NetworkHandler.is_vulnerable(site_id, NetworkHandler.EFFECT_CLAIM_BONUS) and NetworkHandler.claim_bonus(site_id) == 0.0:
+			ids.append(site_id)
+	return ids
 
 
 # Weighted pick over HAKIM_INTEL_TIERS using the same GameData.SITE_TIER_
@@ -547,6 +571,53 @@ static func ruin_hakim_site() -> bool:
 	site["claimed"] = true
 	site["ruinedByFirm"] = true
 	EventBus.state_changed.emit()
+	return true
+
+
+# Act 2's gate (spec §7.4): all three Phase 1 choices logged, Hakim's vein
+# retaken, and Collective relation >= 50.
+const ACT2_GATE_RELATION := 50
+const ACT2_METHOD_KEYS: PackedStringArray = ["a2ContestedVein", "a2VulnerableSite", "a2HostileMember"]
+const CLOSER_KIND := "col_a2_closer"
+
+
+static func act2_gate_met() -> bool:
+	var method_log: Dictionary = GameState.state["methodLog"]
+	for key in ACT2_METHOD_KEYS:
+		if method_log.get(key) == null:
+			return false
+	if not GameState.state["flags"].get("colA2HakimRetaken", false):
+		return false
+	return GameState.state["factions"]["collective"]["relation"] >= ACT2_GATE_RELATION
+
+
+# T14 (spec §6.14): the silent spine reward, fired the moment the gate is
+# met. colA2SpineReward is what opens the weak-vein branch of
+# maybe_trigger_hakim_intel(). Called from Events.advance() (T13's +15 is
+# the usual crossing) and TimeSystem.daily_tick() (relation accrued later).
+static func maybe_trigger_a2_spine_reward() -> bool:
+	var flags: Dictionary = GameState.state["flags"]
+	if flags.get("colA2SpineReward", false) or not act2_gate_met():
+		return false
+
+	flags["colA2SpineReward"] = true
+	# PROSE-REVIEW: spec §6.14's own line.
+	Messages.append("hakim", "them", "\"Started keeping half an ear out further afield, since. Don't get excited, I'm still mostly hearing about washing machines.\"")
+	return true
+
+
+# T15 (spec §6.15): queued from TimeSystem.daily_tick() only, so it lands a
+# day or more behind T14's text. colA2Complete (its on_complete) blocks
+# re-firing; the in-flight check blocks double-queueing.
+static func maybe_trigger_a2_closer() -> bool:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA2SpineReward", false) or flags.get("colA2Complete", false):
+		return false
+	if _a2_beat_in_flight():
+		return false
+
+	# PROSE-REVIEW: new SMS teaser, drafted against CONTENT-GUIDE.md.
+	Messages.queue_pending("nadia", CLOSER_KIND, "\"Everyone's at Hakim's tonight. Bring yourself.\"")
 	return true
 
 

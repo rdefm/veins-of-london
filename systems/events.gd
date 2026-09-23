@@ -159,6 +159,8 @@ static func advance() -> void:
 		Collective.maybe_trigger_a2_contested_vein_setup()
 		# T9's checkpoint -- stamps ledgerStartedDay straight after T8's on_complete.
 		Collective.maybe_trigger_a2_checkpoint()
+		# T14's gate usually crosses on T13's own +15 relation award.
+		Collective.maybe_trigger_a2_spine_reward()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
 		event_state["cardIndex"] += 1

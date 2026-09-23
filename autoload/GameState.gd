@@ -293,6 +293,10 @@ func new_game_state() -> Dictionary:
 			# opens once Targets intel is bought on his Firm-held vein
 			# (Collective.note_targets_purchase()), and closes on the retake.
 			"colA2HakimIntelBought": false, "colA2HakimRetaken": false,
+			# collective-act2 T14/T15 (spec §6.14/§6.15): colA2SpineReward
+			# is set once the §7.4 gate is met and opens Hakim's weak-vein
+			# intel; colA2Complete is col_a2_closer's on_complete.
+			"colA2SpineReward": false, "colA2Complete": false,
 		},
 
 		# barkCursors backs Collective._next_bark()'s no-repeat-until-
