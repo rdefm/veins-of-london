@@ -91,10 +91,14 @@ created. Acceptance and later settlement never reprice it.
 ## Fulfilment and settlement
 
 A contract tracks delivered quantity separately for every requested type.
-Manual delivery costs one time block per delivery action, whatever its
-quantity or number of requested types. It may be partial. Manual delivery is
-available only for non-delegated contracts; delegation is an exclusive Sales
-automation assignment.
+Manual delivery costs no time, whatever its quantity or number of requested
+types. It may be partial. Manual delivery is available only for non-delegated
+contracts; delegation is an exclusive Sales automation assignment.
+
+Any delivery (manual or Sales) that leaves nothing remaining settles the
+period immediately for the full snapshotted quote: a one-off closes, a
+recurring contract renews into its next weekly period. The due-day tick never
+pays that period again.
 
 Sales has no delivery-cap limit. It handles every delegated contract in its
 player-set priority order. The player drag-reorders active contract cards; that
@@ -107,7 +111,7 @@ remaining requested types for one can be supplied, it delivers them and closes
 that period immediately. At daily rollover, Sales also makes partial deliveries
 from available shared stock in priority order.
 
-At deadline, a complete contract pays its full snapshotted quote. An incomplete
+At deadline, an incomplete
 contract settles for `quote × delivered proportion × 0.80`, rounded to whole
 pounds; zero delivery pays £0. A recurring period then creates the next weekly
 period even when the previous period was short. A one-off closes permanently.

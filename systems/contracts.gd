@@ -103,17 +103,17 @@ static func process_delegated_deliveries() -> void:
 
 
 # The only stock-mutating delivery entry point (_deliver_delegated calls it
-# with consume_time=false). qty is a TOTAL cap across every requested type,
+# with manual=false). qty is a TOTAL cap across every requested type,
 # spent against request_lines() in order -- one type's remaining need is
 # filled (capped by its own shared stock) before the next gets any leftover
-# budget. Per business-spec.md, manual delivery costs one time block per
-# delivery action regardless of quantity or type count, letting one manual
-# action span every requested type.
-static func deliver(contract_id: String, qty: int, consume_time: bool = true) -> Dictionary:
+# budget. Per business-spec.md §Fulfilment and settlement, delivery costs no
+# time, and a delivery that leaves nothing remaining settles the period at
+# once through settle(), so the due-day tick never sees that period again.
+static func deliver(contract_id: String, qty: int, manual: bool = true) -> Dictionary:
 	var contract := _find_active(contract_id)
 	if contract.is_empty():
 		return { "ok": false, "reason": "Contract not found." }
-	if contract.get("delegated", false) and consume_time:
+	if contract.get("delegated", false) and manual:
 		return { "ok": false, "reason": "Delegated contracts cannot be delivered manually." }
 	if qty <= 0:
 		return { "ok": false, "reason": "Choose a quantity." }
@@ -135,10 +135,11 @@ static func deliver(contract_id: String, qty: int, consume_time: bool = true) ->
 		budget -= take
 	if delivered_total <= 0:
 		return { "ok": false, "reason": "No shared stock available." }
-	EventBus.state_changed.emit()
-	if consume_time:
-		TimeSystem.advance_time_block()
-	return { "ok": true, "delivered": delivered_total, "complete": is_complete(contract) }
+	if not is_complete(contract):
+		EventBus.state_changed.emit()
+		return { "ok": true, "delivered": delivered_total, "complete": false }
+	var settled := settle(contract_id)
+	return { "ok": true, "delivered": delivered_total, "complete": true, "settlement": settled.get("settlement", {}) }
 
 
 static func reorder(contract_id: String, destination_index: int) -> bool:
@@ -212,9 +213,7 @@ static func _deliver_delegated(contract: Dictionary, qty: int = -1) -> void:
 	var amount := remaining_qty(contract) if qty < 0 else qty
 	if amount <= 0:
 		return
-	var result := deliver(contract["id"], amount, false)
-	if result.get("ok", false) and result.get("complete", false):
-		settle(contract["id"])
+	deliver(contract["id"], amount, false)
 
 
 # Per requested-type line rather than per whole request, since a mixed

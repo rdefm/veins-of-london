@@ -254,10 +254,8 @@ func run() -> void:
 		# needs the same round-trip proof.
 		GameState.state["player"]["orichalchum"]["fate"] = 3
 		Crafting.inventory_add("timePearl", 1, 2)
-		ContractsSystem.deliver(contract["id"], 5, false)
-		GameState.state["world"]["day"] = contract["dueDay"]
-		var settled: Dictionary = ContractsSystem.settle(contract["id"])
-		assert_true(settled["ok"])
+		var settled: Dictionary = ContractsSystem.deliver(contract["id"], 5)
+		assert_true(settled["ok"] and settled["complete"], "full delivery settles immediately")
 		var original_with_history: Dictionary = GameState.deep_copy(GameState.state)
 
 		save_result = SaveManager.save_to_slot(TEST_SLOT)
