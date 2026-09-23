@@ -464,6 +464,54 @@ static func action_card_panel_style(accent: Color, margin: int = 16) -> StyleBox
 	return bordered_panel_style(ACTION_CARD_FILL, accent, 10, margin, margin)
 
 
+# Flat command rows (docs/combat-animation-vision.md §2.5, combat-refining
+# amendment): equal-height icon+label rows on the command surface,
+# separated by 1px rules, no per-row panel/border. Height is thumb-sized.
+const COMMAND_ROW_HEIGHT := 48.0
+const COMMAND_ROW_ICON_SIZE := 32.0
+const COMMAND_ROW_FONT_SIZE := 18
+const COMMAND_ROW_MARGIN_H := 10.0
+const COMMAND_ROW_RULE_COLOUR := Color(0.541176, 0.541176, 0.541176, 0.35)
+const COMMAND_ROW_HOVER_ALPHA := 0.08
+const COMMAND_ROW_PRESSED_ALPHA := 0.18
+const COMMAND_ROW_FOCUS_BORDER := 2
+
+static func command_row_style(accent: Color, fill_alpha: float, focus_border: int = 0) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(accent.r, accent.g, accent.b, fill_alpha)
+	style.draw_center = fill_alpha > 0.0
+	if focus_border > 0:
+		style.set_border_width_all(focus_border)
+		style.border_color = accent
+	style.content_margin_left = COMMAND_ROW_MARGIN_H
+	style.content_margin_right = COMMAND_ROW_MARGIN_H
+	return style
+
+
+static func style_command_row(b: Button, accent: Color) -> void:
+	b.add_theme_stylebox_override("normal", command_row_style(accent, 0.0))
+	b.add_theme_stylebox_override("hover", command_row_style(accent, COMMAND_ROW_HOVER_ALPHA))
+	b.add_theme_stylebox_override("pressed", command_row_style(accent, COMMAND_ROW_PRESSED_ALPHA))
+	b.add_theme_stylebox_override("hover_pressed", command_row_style(accent, COMMAND_ROW_PRESSED_ALPHA))
+	b.add_theme_stylebox_override("focus", command_row_style(accent, 0.0, COMMAND_ROW_FOCUS_BORDER))
+	b.add_theme_stylebox_override("disabled", command_row_style(accent, 0.0))
+	b.add_theme_color_override("font_color", accent)
+	b.add_theme_color_override("font_hover_color", accent)
+	b.add_theme_color_override("font_pressed_color", accent)
+	b.add_theme_color_override("font_disabled_color", accent)
+
+
+static func command_row_rule() -> HSeparator:
+	var rule := HSeparator.new()
+	var line := StyleBoxLine.new()
+	line.color = COMMAND_ROW_RULE_COLOUR
+	line.thickness = 1
+	rule.add_theme_stylebox_override("separator", line)
+	rule.add_theme_constant_override("separation", 1)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return rule
+
+
 static func action_button_style(accent: Color, alpha: float, border_alpha: float = 0.0, margin_h: float = 8.0, margin_v: float = 6.0) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(accent.r, accent.g, accent.b, alpha)

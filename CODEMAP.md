@@ -115,7 +115,7 @@ overlays.
 | alarm_presentation.gd | Detects raid alarms; Phone pulse + vibration |
 | app_tile.gd | Normalised icon+label+numeric-count-badge+lock tile for phone launchers |
 | bag_drawer.gd | Global bottom-sheet bag drawer; in combat, item buttons disable (with reason) per `Combat.selection_block_reason()` |
-| combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial/Complication-detail/action-card row, anchored to the true screen bottom; Attack/Item disabled per the current selection |
+| combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial beside flat 1px-ruled command rows (Complication readout, Attack, Item, Leg it), anchored to the true screen bottom; Attack/Item disabled per the current selection |
 | combat_director.gd | Combat beat-queue playback director |
 | combat_stage.gd | Combat's full-width pixel stage: backdrop, subject slots, keypose one-shots, effect sheets, juice layer. Each `StageSlot` takes taps directly (`MOUSE_FILTER_STOP`) and emits `subject_tapped`; the selected slot draws a small arrow (`is_focused`/`_draw_selection_arrow`) |
 | contact_cards.gd | Shared contact/faction card builders, inline Contacts action-row layout, OS chrome repaint |

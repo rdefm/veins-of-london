@@ -122,7 +122,7 @@ static func _deck_buttons(root: Node) -> Array[Button]:
 
 # ui-chrome-pass ticket 04: Attack/Item/Leg it action cards no longer carry
 # an identifying raw-emoji Button.text (replaced with a drawn icons.gd
-# glyph child, see combat.gd's _build_action_card()'s own comment) -- the
+# glyph child, see combat_command_dock.gd's _build_action_row()) -- the
 # button is named "ActionButton_<kind>" instead ("attack"/"item"/"run"),
 # so tests look the card up by that name rather than by its old emoji text.
 static func _deck_button_named(root: Node, icon_kind: String) -> Button:
@@ -505,7 +505,7 @@ func run() -> void:
 
 	# ── combat-presentation ticket 03: command deck (action cards + Dial) ──
 
-	run_case("command_deck_renders_attack_item_and_run_as_cards_wrapping_the_same_handler_labels", func():
+	run_case("command_deck_renders_attack_item_and_run_rows_wrapping_the_same_handler_labels", func():
 		_setup_combat([Fixtures.enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
@@ -513,7 +513,7 @@ func run() -> void:
 
 		# ui-chrome-pass ticket 04: each action block's Button now carries a
 		# drawn icons.gd glyph instead of raw emoji text (see
-		# _build_action_card()'s own comment for why) -- looked up by name
+		# _build_action_row()'s own comment for why) -- looked up by name
 		# instead of by the old emoji Button.text.
 		assert_true(_deck_button_named(screen, "attack") != null, "Attack must still be offered, same handler as the old flat action bar")
 		assert_true(_deck_button_named(screen, "run") != null, "Leg it must still be offered")
@@ -577,7 +577,7 @@ func run() -> void:
 	# calc/cash reads only, §6) in favour of the locked `ui_action_red`
 	# accent, same GameData.PALETTE lookup + hardcoded-hex-fallback pattern
 	# nav_bar.gd's own ticket_04 colour test asserts against.
-	run_case("attack_card_uses_ui_action_red_not_the_default_theme_amber", func():
+	run_case("attack_row_uses_ui_action_red_not_the_default_theme_amber", func():
 		_setup_combat([Fixtures.enemy("Scrapper")])
 
 		var screen := CombatScreen.new()
@@ -601,7 +601,7 @@ func run() -> void:
 	# muted grey instead, the project's existing "this is disabled" tint
 	# (nav_bar.gd's own _LOCKED_COLOR) -- not ui_action_red, which is
 	# reserved for an actually-available action.
-	run_case("disabled_item_card_reads_muted_grey_not_ui_action_red", func():
+	run_case("disabled_item_row_reads_muted_grey_not_ui_action_red", func():
 		_setup_combat([Fixtures.enemy("Scrapper")])
 		GameState.state["player"]["dial"] = null
 
@@ -617,6 +617,82 @@ func run() -> void:
 		assert_true(item_caption != null)
 		assert_eq(item_button.get_theme_color("font_color"), UI.ACTION_DISABLED_COLOUR, "disabled Item card's button glyph stays muted grey")
 		assert_eq(item_caption.get_theme_color("font_color"), UI.ACTION_DISABLED_COLOUR, "disabled Item card's caption stays muted grey")
+
+		screen.free()
+	)
+
+	# combat-refining ticket 08: flat command rows -- Complication readout,
+	# Attack, Item, Leg it at equal height/label size, 1px rules between,
+	# no per-row panel/border, distinct pressed/focus styleboxes.
+	run_case("command_rows_are_four_equal_flat_rows_separated_by_1px_rules", func():
+		_setup_combat([Fixtures.enemy("Scrapper")])
+		GameState.state["player"]["dial"] = null
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var complication: Control = screen._command_dock.find_child("ComplicationRow", true, false)
+		assert_true(complication != null, "the Complication row must lead the deck")
+		var rows: Array[Control] = [complication]
+		for kind in ["attack", "item", "run"]:
+			rows.append(_deck_button_named(screen._command_dock, kind))
+		var col: Node = complication.get_parent()
+		var expected_labels := ["No Dial", "Attack", "Item", "Leg it"]
+		var prev_index := -1
+		for i in rows.size():
+			var row: Control = rows[i]
+			assert_true(row != null and row.get_parent() == col, "row %d shares the deck column" % i)
+			assert_eq(row.custom_minimum_size.y, UI.COMMAND_ROW_HEIGHT, "row %d height" % i)
+			var caption: Label = row.find_children("", "Label", true, false)[0]
+			assert_eq(caption.text, expected_labels[i])
+			assert_eq(caption.get_theme_font_size("font_size"), UI.COMMAND_ROW_FONT_SIZE, "row %d label size" % i)
+			if i > 0:
+				assert_eq(row.get_index(), prev_index + 2, "exactly one rule between rows %d and %d" % [i - 1, i])
+				var rule: Node = col.get_child(row.get_index() - 1)
+				assert_true(rule is HSeparator, "the gap between rows is a rule")
+				var line: StyleBoxLine = (rule as HSeparator).get_theme_stylebox("separator")
+				assert_eq(line.thickness, 1, "rules are 1px")
+			prev_index = row.get_index()
+			for state in ["panel", "normal", "disabled"]:
+				var style: StyleBox = row.get_theme_stylebox(state) if row.has_theme_stylebox_override(state) else null
+				if style is StyleBoxFlat:
+					var flat: StyleBoxFlat = style
+					assert_eq(flat.border_width_left, 0, "row %d %s: no border" % [i, state])
+					assert_eq(flat.corner_radius_top_left, 0, "row %d %s: no rounded panel" % [i, state])
+					assert_true(not flat.draw_center, "row %d %s: no filled card" % [i, state])
+
+		screen.free()
+	)
+
+	run_case("action_rows_have_pressed_and_focus_styles_distinct_from_normal", func():
+		_setup_combat([Fixtures.enemy("Scrapper")])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		for kind in ["attack", "item", "run"]:
+			var b := _deck_button_named(screen._command_dock, kind)
+			assert_eq(b.focus_mode, Control.FOCUS_ALL, "%s row is focusable" % kind)
+			var normal: StyleBoxFlat = b.get_theme_stylebox("normal")
+			var pressed: StyleBoxFlat = b.get_theme_stylebox("pressed")
+			var focus: StyleBoxFlat = b.get_theme_stylebox("focus")
+			assert_true(pressed.draw_center and not normal.draw_center, "%s pressed fills, normal doesn't" % kind)
+			assert_true(focus.border_width_left > 0 and normal.border_width_left == 0, "%s focus draws a ring, normal doesn't" % kind)
+
+		screen.free()
+	)
+
+	run_case("complication_row_reflects_the_dials_selected_complication", func():
+		_setup_combat([Fixtures.enemy("Scrapper")])
+		GameState.state["player"]["dial"] = Fixtures.dial(["blast"])
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		var complication: Control = screen._command_dock.find_child("ComplicationRow", true, false)
+		var caption: Label = complication.find_children("", "Label", true, false)[0]
+		var recipe: Dictionary = GameData.RECIPES["blast"]
+		assert_true(caption.text.begins_with(recipe["name"]), "loaded Dial: first row names the selected Complication -- got %s" % caption.text)
 
 		screen.free()
 	)
@@ -763,7 +839,7 @@ func run() -> void:
 		# _deck_buttons() finds every Button in the whole screen (including,
 		# e.g., the pacing toggle up in the heading row) -- narrow down to the
 		# actual action-deck cards by name (ui-chrome-pass ticket 04:
-		# "ActionButton_<kind>", see _build_action_card()'s own comment; the
+		# "ActionButton_<kind>", see _build_action_row()'s own comment; the
 		# word label is a separate caption Label alongside it) so this only
 		# checks their layout.
 		var buttons: Array[Button] = []

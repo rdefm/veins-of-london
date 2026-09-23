@@ -3,7 +3,7 @@ extends Panel
 
 # The lower command region: one continuous near-white surface (this Panel)
 # spanning the full screen width, holding an inner row (_row) with the Dial
-# + Complication detail + Attack/Item/Leg-it action cards,
+# + flat command rows (Complication readout, Attack, Item, Leg it),
 # docs/combat-animation-vision.md §2.5. A fixed Control anchored to the true
 # bottom of the screen, outside scenes/screens/combat.gd's stage/detail-band
 # flow entirely, so sharing that space with the upper region never caps the
@@ -24,7 +24,6 @@ const COMMAND_DOCK_HEIGHT := DialWidget.WIDGET_SIZE.y
 # so it reads as a region of the screen, not a shrink-wrapped card.
 const COMMAND_DOCK_SURFACE_TOP_PADDING := 12.0
 const COMMAND_DOCK_SURFACE_HEIGHT := COMMAND_DOCK_HEIGHT + COMMAND_DOCK_BOTTOM_MARGIN + COMMAND_DOCK_SURFACE_TOP_PADDING
-const _ACTION_CARD_ICON_SIZE := 40.0
 
 var _row: HBoxContainer
 var _dial_selected_index: int = 0
@@ -113,27 +112,44 @@ func _build_complication_detail(dial: Variant) -> Control:
 	var accent := UI.action_colour()
 	glyph.color = accent
 
-	if dial == null:
-		return _build_card_bar(glyph, "No Dial", accent)
+	var text := "No Dial"
+	if dial != null:
+		var loaded: Array = dial["loadedComplications"]
+		text = "Empty"
+		if not loaded.is_empty():
+			var index: int = clampi(_dial_selected_index, 0, loaded.size() - 1)
+			var entry: Dictionary = loaded[index]
+			var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
+			glyph.symbol = recipe["symbol"]
+			text = "%s — tier %d" % [recipe["name"], entry["tier"]]
 
-	var loaded: Array = dial["loadedComplications"]
-	if loaded.is_empty():
-		return _build_card_bar(glyph, "Empty", accent)
-
-	var index: int = clampi(_dial_selected_index, 0, loaded.size() - 1)
-	var entry: Dictionary = loaded[index]
-	var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
-	glyph.symbol = recipe["symbol"]
-	return _build_card_bar(glyph, "%s — tier %d" % [recipe["name"], entry["tier"]], accent)
+	# Read-only readout of the Dial's selection (casting is the Dial's own
+	# trigger), so a plain row rather than a Button -- same height/inset.
+	var row := PanelContainer.new()
+	row.name = "ComplicationRow"
+	row.custom_minimum_size.y = UI.COMMAND_ROW_HEIGHT
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_stylebox_override("panel", UI.command_row_style(accent, 0.0))
+	row.add_child(_build_row_content(glyph, text, accent))
+	return row
+# Flat command rows (docs/combat-animation-vision.md §2.5, combat-refining
+# amendment): Complication readout, Attack, Item, Leg it -- equal height,
+# 1px rules between, no per-row panel or primary-action emphasis.
 func _build_action_deck(player: Dictionary) -> Control:
-	var col := UI.vbox(6)
+	var col := UI.vbox(0)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.size_flags_vertical = Control.SIZE_SHRINK_END
-	col.add_child(_build_complication_detail(player["dial"]))
-	col.add_child(_build_action_card("attack", "Attack", _on_attack_pressed, not Combat.selection_block_reason("attack").is_empty()))
-	col.add_child(_build_action_card("item", "Item", func(): Bag.open(), not Combat.has_usable_item(player)))
-	col.add_child(_build_action_card("run", "Leg it", _on_run_pressed))
-
+	var rows: Array[Control] = [
+		_build_complication_detail(player["dial"]),
+		_build_action_row("attack", "Attack", _on_attack_pressed, not Combat.selection_block_reason("attack").is_empty()),
+		_build_action_row("item", "Item", func(): Bag.open(), not Combat.has_usable_item(player)),
+		_build_action_row("run", "Leg it", _on_run_pressed),
+	]
+	for i in rows.size():
+		if i > 0:
+			col.add_child(UI.command_row_rule())
+		col.add_child(rows[i])
 	return col
 static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 	match icon_kind:
@@ -146,32 +162,34 @@ static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 		_:
 			return Callable()
 
-func _build_action_card(icon_kind: String, label_text: String, callback: Callable, disabled: bool = false) -> Control:
+# The whole row is the Button (full-width hit area); icon + caption sit
+# inside it with mouse ignored so taps land on the Button itself.
+func _build_action_row(icon_kind: String, label_text: String, callback: Callable, disabled: bool = false) -> Control:
 	var accent: Color = UI.ACTION_DISABLED_COLOUR if disabled else UI.action_colour()
 
 	var button := Button.new()
+	button.name = "ActionButton_%s" % icon_kind
 	button.disabled = disabled
-	UI.style_action_button(button, accent)
+	button.focus_mode = Control.FOCUS_ALL
+	button.custom_minimum_size.y = UI.COMMAND_ROW_HEIGHT
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UI.style_command_row(button, accent)
 	button.pressed.connect(callback)
-	var draw_icon := _action_icon_draw_fn(icon_kind)
-	if draw_icon.is_valid():
-		button.name = "ActionButton_%s" % icon_kind
-		var glyph := UI.icon_glyph_control(draw_icon, UI.ICON_GLYPH_SCALE)
-		UI.anchor_full_rect(glyph)
-		button.add_child(glyph)
-	else:
-		button.text = icon_kind
-		button.clip_text = true
 
-	return _build_card_bar(button, label_text, accent, callback)
-func _build_card_bar(icon: Control, label_text: String, accent: Color, click_callback: Callable = Callable()) -> Control:
-	var c := UI.card()
-	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	c["panel"].add_theme_stylebox_override("panel", UI.action_card_panel_style(accent, 8))
+	var icon := UI.icon_glyph_control(_action_icon_draw_fn(icon_kind), UI.ICON_GLYPH_SCALE, accent)
+	var content := _build_row_content(icon, label_text, accent)
+	content.offset_left = UI.COMMAND_ROW_MARGIN_H
+	content.offset_right = -UI.COMMAND_ROW_MARGIN_H
+	button.add_child(content)
+	return button
+func _build_row_content(icon: Control, label_text: String, accent: Color) -> HBoxContainer:
+	var row := UI.hbox(10)
+	UI.anchor_full_rect(row)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var row := UI.hbox(8)
-
-	icon.custom_minimum_size = Vector2(_ACTION_CARD_ICON_SIZE, _ACTION_CARD_ICON_SIZE)
+	icon.custom_minimum_size = Vector2(UI.COMMAND_ROW_ICON_SIZE, UI.COMMAND_ROW_ICON_SIZE)
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(icon)
 
 	var caption := UI.label(label_text)
@@ -180,24 +198,10 @@ func _build_card_bar(icon: Control, label_text: String, accent: Color, click_cal
 	caption.clip_text = true
 	caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	caption.size_flags_vertical = Control.SIZE_FILL
 	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	caption.add_theme_font_size_override("font_size", UI.COMMAND_ROW_FONT_SIZE)
 	caption.add_theme_color_override("font_color", accent)
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(caption)
-
-	c["content"].add_child(row)
-
-	if click_callback.is_valid():
-		row.mouse_filter = Control.MOUSE_FILTER_STOP
-		row.gui_input.connect(func(event: InputEvent) -> void:
-			if not (event is InputEventMouseButton):
-				return
-			var mb: InputEventMouseButton = event
-			if mb.button_index != MOUSE_BUTTON_LEFT or mb.pressed:
-				return
-			if icon is Button and (icon as Button).disabled:
-				return
-			click_callback.call()
-		)
-
-	return c["panel"]
+	return row
