@@ -5,7 +5,6 @@
 class_name BankApp
 extends PhoneApp
 
-const ICON_PATH := "res://assets/icons/apps/bank.png"
 const HEADER_ICON_SIZE := 28.0
 const OXBLOOD := Color("#720e13")
 const OXBLOOD_DEEP := Color("#51090e")
@@ -60,7 +59,7 @@ func _build_header() -> Control:
 	row.add_child(wordmark)
 
 	var icon := TextureRect.new()
-	icon.texture = load(ICON_PATH)
+	icon.texture = AppTile.load_icon("bank")
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.custom_minimum_size = Vector2(HEADER_ICON_SIZE, HEADER_ICON_SIZE)

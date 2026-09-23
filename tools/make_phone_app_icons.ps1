@@ -4,8 +4,8 @@ param(
 
 Add-Type -AssemblyName System.Drawing
 
-$outputDirectory = Join-Path $ProjectRoot 'assets/icons/apps'
-$sourceDirectory = Join-Path $ProjectRoot 'assets/phone'
+$outputDirectory = Join-Path $ProjectRoot 'assets/phone/icons'
+$sourceDirectory = Join-Path $ProjectRoot 'assets/phone/source'
 $renderSize = 512
 $finalSize = 128
 

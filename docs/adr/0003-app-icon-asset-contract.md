@@ -9,7 +9,11 @@ it per app. No icon art exists yet — Richard generates it in a later ticket
 "art hasn't landed" being a normal, non-error state.
 
 **Decisions:**
-- **Path:** `res://assets/icons/apps/<app_id>.png`, one file per app.
+- **Path:** `res://assets/phone/icons/<app_id>.png`, one file per app.
+  Phone-tab art shares one root: the wallpaper sits beside it at
+  `assets/phone/phone-wallpaper.jpg`, and supplied source artwork for
+  `tools/make_phone_app_icons.ps1` lives in `assets/phone/source/`
+  (`.gdignore`d, never loaded at runtime).
 - **Naming:** `<app_id>` is the exact id the app is addressed by everywhere
   else it's wired up, lowercase, no separators — never a second, icon-only
   naming scheme. `PhoneNav.APPS` already has four of these live
@@ -41,4 +45,5 @@ it per app. No icon art exists yet — Richard generates it in a later ticket
   overlay, which does reuse `Icons.draw_padlock` — that's a lock-state
   indicator drawn on top of the tile, not the app's own icon art.
 
-**Status:** accepted (2026-08-17, 11-phone-os-shell ticket 02).
+**Status:** accepted (2026-08-17, 11-phone-os-shell ticket 02). Path amended
+2026-09-23 (phone-asset-consolidation): `assets/icons/apps/` → `assets/phone/icons/`.

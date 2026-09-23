@@ -417,12 +417,12 @@ content rules later in this section.
   and direct Map routing. Save/Load, conditional Debug, and all existing
   app content and mechanics retain their current behaviour. This refresh
   changes presentation and launcher placement only.
-- **Icon assets:** the runtime contract remains
-  `res://assets/icons/apps/<app_id>.png`, square 128×128 alpha PNG, loaded
-  through `AppTile.load_icon()` as fixed by
+- **Icon assets:** all phone-tab art lives under `assets/phone/`. The
+  runtime contract is `res://assets/phone/icons/<app_id>.png`, square
+  128×128 alpha PNG, loaded through `AppTile.load_icon()` as fixed by
   `docs/adr/0003-app-icon-asset-contract.md`. Larger supplied files under
-  `assets/phone/` may be source artwork for crop/scale/alpha normalisation;
-  they do not replace the runtime path or dimensions.
+  `assets/phone/source/` are source artwork for crop/scale/alpha
+  normalisation only; they do not replace the runtime path or dimensions.
 
 **Design principle: it's a phone, not a Vein-branded object.** §3 already
 frames Family 2 as "the same [phone] as the player's own" — the one family
@@ -473,7 +473,7 @@ the dock.
   restriction on artwork.
 - **Asset contract (existing, no change needed):**
   `docs/adr/0003-app-icon-asset-contract.md` already covers exactly this —
-  `res://assets/icons/apps/<app_id>.png`, square, 128×128, alpha PNG.
+  `res://assets/phone/icons/<app_id>.png`, square, 128×128, alpha PNG.
   `AppTile.load_icon()` already resolves each id independently and falls
   back to the app's label text when no file exists yet — so supplying icons
   incrementally, one `.png` at a time, needs no ticket and no code touched

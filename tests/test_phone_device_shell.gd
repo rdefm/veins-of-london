@@ -22,6 +22,13 @@ func run() -> void:
 		assert_eq(shell.wallpaper_path, "res://assets/phone/phone-wallpaper.jpg", "home uses the approved wallpaper asset")
 		assert_true(shell.wallpaper.texture != null, "approved wallpaper decodes into the home texture")
 		assert_eq(shell.wallpaper.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_COVERED, "wallpaper uses aspect-fill/cover")
+		var tiles := _app_tiles(phone)
+		assert_true(not tiles.is_empty(), "home renders launcher tiles")
+		for tile in tiles:
+			var icon_path := AppTile.icon_path(tile._app_id)
+			assert_true(icon_path.begins_with("res://assets/phone/icons/"), "%s icon lives under the phone asset root" % tile._app_id)
+			assert_true(tile._icon_rect.visible and tile._icon_rect.texture != null, "%s launcher icon loads" % tile._app_id)
+		assert_true(not DirAccess.dir_exists_absolute("res://assets/icons"), "no phone-tab assets remain under the general icon directory")
 
 		var texts := NodeQuery.label_texts(phone)
 		for expected in ["08:14", "87%", "Tue, 14 May", "☁  12°C  ·  London", "Same city. Different rules."]:
@@ -83,6 +90,15 @@ func _find_shell(root: Node) -> PhoneDeviceShellScript:
 		if child is PhoneDeviceShellScript:
 			return child
 	return null
+
+
+func _app_tiles(root: Node) -> Array[AppTile]:
+	var found: Array[AppTile] = []
+	for child in root.get_children():
+		if child is AppTile:
+			found.append(child)
+		found.append_array(_app_tiles(child))
+	return found
 
 
 func _contains_external_bar(root: Node) -> bool:

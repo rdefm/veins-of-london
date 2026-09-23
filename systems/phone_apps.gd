@@ -7,7 +7,7 @@ extends RefCounted
 # so a slot never reflows when something unlocks. Every entry's locked
 # Callable is a constant false except "vfl"; the lock mechanism itself is
 # proven by tests/test_phone_apps.gd against a synthetic locked entry.
-# Icon art is looked up from id (res://assets/icons/apps/<id>.png), so
+# Icon art is looked up from id (res://assets/phone/icons/<id>.png), so
 # there's no separate icon field to fall out of sync.
 
 static func apps() -> Array[Dictionary]:

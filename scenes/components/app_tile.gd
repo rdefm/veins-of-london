@@ -2,7 +2,7 @@ class_name AppTile
 extends Control
 
 
-const ICON_DIR := "res://assets/icons/apps/"
+const ICON_DIR := "res://assets/phone/icons/"
 const TILE_SIZE := Vector2(76, 92)
 const FRAME_SIZE := 56.0
 const BADGE_HEIGHT := 18.0
