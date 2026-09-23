@@ -8,6 +8,7 @@ const _STOP_LABELS := {
 const _PAN_DURATION := 0.4
 const _ARROW_INSET := 4.0
 const _ORE_PLENTY_THRESHOLD := 20
+const _SELECT_ORE_HINT := "Pick an ore type first."
 
 var _diorama: HqDiorama
 var _press_zone: String = ""
@@ -109,6 +110,7 @@ func _label_ore_regions(regions: Dictionary, nav: Dictionary) -> void:
 		var ore_name: String = GameData.ORE_TYPES[ore_type]["name"]
 		var label := "%s — %d (%s)" % [ore_name, count, bucket]
 		if selected.has(ore_type):
+			region["selected"] = true
 			label += " · selected"
 			var cost_label := _selected_ore_cost_label(ore_type, nav)
 			if cost_label != "":
@@ -122,8 +124,6 @@ func _ore_bucket(count: int) -> String:
 		return "plenty"
 	return "some"
 func _selected_ore_cost_label(type_id: String, nav: Dictionary) -> String:
-	if nav["mode"] == LabBenchNav.MODE_EXPERIMENTS:
-		return str(Bench.ORE_COST_PER_TYPE)
 	if nav["mode"] == LabBenchNav.MODE_RECIPES:
 		var costs := _selected_ore_manual_costs(nav["selectedOre"], type_id)
 		if costs.is_empty():
@@ -132,7 +132,7 @@ func _selected_ore_cost_label(type_id: String, nav: Dictionary) -> String:
 			return str(costs[0])
 		costs.sort()
 		return "%d–%d" % [costs[0], costs[costs.size() - 1]]
-	return ""
+	return str(Bench.ORE_COST_PER_TYPE)
 func _selected_ore_manual_costs(selected: Array, type_id: String) -> Array:
 	if selected.is_empty():
 		return []
@@ -158,18 +158,22 @@ func _filter_and_label_apparatus_regions(regions: Dictionary, nav: Dictionary) -
 
 		var region: Dictionary = regions[region_id]
 		var suffix := ""
-		match nav["mode"]:
-			LabBenchNav.MODE_EXPERIMENTS:
-				if not selected.is_empty() and Bench.can_probe(selected, approach_id):
-					suffix = " — ready"
-					region["caption"] = UI.block_cost_suffix(1)
-			LabBenchNav.MODE_RECIPES:
-				var recipe_key := Bench.find_recipe_for_cell(selected, approach_id) if not selected.is_empty() else ""
-				if recipe_key != "" and Bench.cell_state(selected, approach_id) == "found":
-					suffix = " — %s" % GameData.RECIPES[recipe_key]["name"]
+		var recipe_key := ""
+		if nav["mode"] == LabBenchNav.MODE_RECIPES and not selected.is_empty():
+			recipe_key = Bench.find_recipe_for_cell(selected, approach_id)
+			if recipe_key != "" and Bench.cell_state(selected, approach_id) != "found":
+				recipe_key = ""
+		if recipe_key != "":
+			suffix = " — %s" % GameData.RECIPES[recipe_key]["name"]
+		elif not selected.is_empty() and Bench.can_probe(selected, approach_id):
+			suffix = " — ready"
+			region["caption"] = UI.block_cost_suffix(1)
 		region["label"] = region.get("label", region_id) + suffix
 func _on_diorama_gui_input(event: InputEvent) -> void:
-	var is_touch_event: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) \
+	# Touch-emulated mouse events (device DEVICE_ID_EMULATION) twin every real
+	# touch; handling both would toggle an ore selection on and straight off.
+	var is_touch_event: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
+			and event.device != InputEvent.DEVICE_ID_EMULATION) \
 		or (event is InputEventScreenTouch)
 	if not is_touch_event:
 		return
@@ -209,23 +213,28 @@ func _on_zone_tapped(zone_id: String) -> void:
 func _tap_notebook_and_maybe_open_modal(mode_id: String, modal_type: String) -> void:
 	if LabBenchNav.tap_notebook(mode_id) == mode_id:
 		Modal.open(modal_type)
+# An apparatus tap probes the selected ore set unless the Recipes notebook is
+# held over an already-found cell, which crafts instead. No notebook is needed
+# to experiment.
 func _run_apparatus(approach_id: String) -> void:
 	var nav: Dictionary = GameState.state["labBenchNav"]
 	var selected: Array = nav["selectedOre"]
 	if selected.is_empty():
+		Notify.push(_SELECT_ORE_HINT)
 		return
 
-	match nav["mode"]:
-		LabBenchNav.MODE_EXPERIMENTS:
-			if not Bench.can_probe(selected, approach_id):
-				return
-			var result := Bench.probe(selected, approach_id)
-			Modal.open("lab_bench_probe_result", {
-				"outcome": result.get("outcome", ""),
-				"recipeKey": result.get("recipeKey", ""),
-			})
-		LabBenchNav.MODE_RECIPES:
-			var recipe_key := Bench.find_recipe_for_cell(selected, approach_id)
-			if recipe_key == "" or Bench.cell_state(selected, approach_id) != "found":
-				return
+	if nav["mode"] == LabBenchNav.MODE_RECIPES:
+		var recipe_key := Bench.find_recipe_for_cell(selected, approach_id)
+		if recipe_key != "" and Bench.cell_state(selected, approach_id) == "found":
 			Crafting.attempt_craft(recipe_key)
+			return
+
+	var reason := Bench.probe_block_reason(selected, approach_id)
+	if reason != "":
+		Notify.push(reason, Notify.CATEGORY_WARNING)
+		return
+	var result := Bench.probe(selected, approach_id)
+	Modal.open("lab_bench_probe_result", {
+		"outcome": result.get("outcome", ""),
+		"recipeKey": result.get("recipeKey", ""),
+	})

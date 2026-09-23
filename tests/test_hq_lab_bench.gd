@@ -325,6 +325,90 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("hq_lab_bench_selected_ore_container_is_flagged_for_the_outline_cue", func():
+		GameState.reset()
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+
+		UiSim.tap_zone(screen, "ore_life")
+		assert_true(screen._diorama._plate["regions"]["ore_life"].get("selected", false), "a selected container must carry the diorama's outline flag")
+		assert_true(not screen._diorama._plate["regions"]["ore_time"].get("selected", false))
+
+		UiSim.tap_zone(screen, "ore_life")
+		assert_true(not screen._diorama._plate["regions"]["ore_life"].get("selected", false), "tapping again deselects")
+
+		screen.free()
+	)
+
+	run_case("hq_lab_bench_ignores_touch_emulated_mouse_twin_of_a_tap", func():
+		GameState.reset()
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+		var center: Vector2 = screen._diorama.region_rects()["ore_life"].get_center()
+
+		screen._on_diorama_gui_input(UiSim.tap_at(center))
+		var twin := InputEventMouseButton.new()
+		twin.button_index = MOUSE_BUTTON_LEFT
+		twin.pressed = true
+		twin.position = center
+		twin.device = InputEvent.DEVICE_ID_EMULATION
+		screen._on_diorama_gui_input(twin)
+
+		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["life"], "one physical tap (touch + emulated mouse) must select once, not toggle on and off")
+
+		screen.free()
+	)
+
+	run_case("hq_lab_bench_apparatus_with_no_selection_hints_to_pick_ore", func():
+		GameState.reset()
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+		var before: int = GameState.state["notifications"].size()
+
+		UiSim.tap_zone(screen, "apparatus_heat")
+
+		var notifications: Array = GameState.state["notifications"]
+		assert_eq(notifications.size(), before + 1, "a zero-selection apparatus tap must say why nothing happened")
+		assert_eq(notifications[-1]["text"], HqLabBenchScreen._SELECT_ORE_HINT)
+		assert_eq(GameState.state["modal"], null)
+
+		screen.free()
+	)
+
+	run_case("hq_lab_bench_apparatus_probes_with_no_notebook_open", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["life"] = 3
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+
+		UiSim.tap_zone(screen, "ore_life")
+		UiSim.tap_zone(screen, "apparatus_heat")
+
+		assert_eq(GameState.state["labBenchNav"]["mode"], null)
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 0, "experimenting must not need a notebook held first")
+		assert_eq(GameState.state["modal"]["type"], "lab_bench_probe_result")
+
+		screen.free()
+	)
+
+	run_case("hq_lab_bench_blocked_probe_reports_the_block_reason", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["life"] = 1
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+		var reason := Bench.probe_block_reason(["life"], "heat")
+
+		UiSim.tap_zone(screen, "ore_life")
+		UiSim.tap_zone(screen, "apparatus_heat")
+
+		assert_true(reason != "", "precondition: 1 life can't cover a probe")
+		assert_eq(GameState.state["notifications"][-1]["text"], reason)
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 1, "a blocked probe spends nothing")
+		assert_eq(GameState.state["modal"], null)
+
+		screen.free()
+	)
+
 	# ── ticket 07, §5.3: apparatus ──────────────────────────────────────────
 
 	run_case("hq_lab_bench_apparatus_regions_only_exist_for_known_approaches", func():

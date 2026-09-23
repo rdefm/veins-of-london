@@ -7,6 +7,8 @@ const PLACEHOLDER_BORDER := Color(0.85, 0.85, 0.80)
 const DEBUG_OUTLINE_COLOR := Color(1.0, 0.1, 0.75)
 const DEBUG_LABEL_COLOR := Color(1.0, 1.0, 1.0)
 const DEBUG_LABEL_MARGIN := Vector2(3.0, 13.0)
+const SELECTED_OUTLINE_PALETTE_ID := "calc_gold"
+const SELECTED_OUTLINE_WIDTH := 3.0
 
 var _plate: Dictionary = {}
 var _background_texture: TextureRect
@@ -123,6 +125,13 @@ func _draw() -> void:
 		if not _should_draw_placeholder(region_id, region):
 			continue
 		_draw_placeholder_box(self, _region_rect(region), region.get("label", region_id))
+
+	# A region flagged "selected" gets an outline grown past its rect so it
+	# still reads around a region sprite drawn on top.
+	var outline_color: Color = GameData.PALETTE.get(SELECTED_OUTLINE_PALETTE_ID, Color.GOLD)
+	for region_id in regions:
+		if regions[region_id].get("selected", false):
+			draw_rect(_region_rect(regions[region_id]).grow(SELECTED_OUTLINE_WIDTH), outline_color, false, SELECTED_OUTLINE_WIDTH)
 
 	if _debug_overlay_enabled:
 		for region_id in regions:

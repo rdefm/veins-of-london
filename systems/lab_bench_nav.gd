@@ -14,6 +14,7 @@ extends RefCounted
 const STOPS: Array[String] = ["books_ore", "apparatus"]
 const MODE_RECIPES := "recipes"
 const MODE_EXPERIMENTS := "experiments"
+const MAX_SELECTED_ORE := 2
 
 # An ore container region id (data/hq_visuals.json's labBench plate) is
 # always "ore_<oreTypeId>" — the one place that prefix is spelled out, so
@@ -37,16 +38,15 @@ static func open() -> void:
 # §5.4: the ore stop's tap-to-select-then-tap-apparatus path (and the
 # drag-and-drop flourish's first half, hq_lab_bench.gd's
 # _on_diorama_gui_input()): tapping a selected type deselects it, a new
-# type fills an open slot (max 2), a third replaces the oldest.
+# type fills an open slot (max 2), a third is ignored.
 static func select_ore(type_id: String) -> void:
 	var selected: Array = GameState.state["labBenchNav"]["selectedOre"]
 	if selected.has(type_id):
 		selected.erase(type_id)
-	elif selected.size() < 2:
+	elif selected.size() < MAX_SELECTED_ORE:
 		selected.append(type_id)
 	else:
-		selected.pop_front()
-		selected.append(type_id)
+		return
 	GameState.state["labBenchNav"]["selectedOre"] = selected
 	EventBus.state_changed.emit()
 

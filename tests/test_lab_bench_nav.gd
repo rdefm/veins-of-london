@@ -79,12 +79,21 @@ func run() -> void:
 		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["life", "time"])
 	)
 
-	run_case("select_ore_on_a_third_type_replaces_the_oldest_selection", func():
+	run_case("select_ore_on_a_third_type_is_ignored", func():
 		GameState.reset()
 		LabBenchNav.select_ore("life")
 		LabBenchNav.select_ore("time")
 		LabBenchNav.select_ore("fate")
-		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["time", "fate"], "same toggle-replace rule the old BenchNav.select_type used")
+		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["life", "time"], "two selected: a third tap leaves the selection unchanged")
+	)
+
+	run_case("select_ore_frees_a_slot_after_deselecting_at_the_cap", func():
+		GameState.reset()
+		LabBenchNav.select_ore("life")
+		LabBenchNav.select_ore("time")
+		LabBenchNav.select_ore("life")
+		LabBenchNav.select_ore("fate")
+		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["time", "fate"])
 	)
 
 	run_case("select_ore_on_an_already_selected_type_deselects_it", func():

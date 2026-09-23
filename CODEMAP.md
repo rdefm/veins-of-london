@@ -124,7 +124,7 @@ overlays.
 | dot_matrix_board.gd | Amber-on-black dot-matrix board renderer |
 | dot_matrix_font.gd | Bitmap font for dot_matrix_board.gd |
 | haptics.gd | Adapter over `Input.vibrate_handheld()` |
-| hq_diorama.gd | Generic plate/region artwork renderer |
+| hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected` |
 | icons.gd | 13 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
 | map_card_style.gd | Shared PAPER/INK/DIM/LINE/GOLD/SAGE palette + card/inset/action-circle styleboxes, ink labels, text-button/bar/symbol tinting for the map-tab family (map_bubble.gd, vein_bubble.gd, vein_detail_panel.gd, map.gd's district panel/site sheet, vein_list.gd) |
