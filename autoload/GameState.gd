@@ -179,7 +179,8 @@ func new_game_state() -> Dictionary:
 		# resolved warning can't reactivate its Defend button. guardCount is
 		# the Hired Guard stack count -- unlike other security ids (boolean
 		# membership), "guard" is never appended to `security`.
-		"home": { "tier": "bedsit", "security": [], "rooms": [], "lastRaidDay": 0, "pendingRaid": false, "pendingRaidNotificationId": null, "guardCount": 0 },
+		# tenure is "rented"/"owned" (ADR 0006); arrears is unpaid bill £, arrearsDays the consecutive rollovers in arrears.
+		"home": { "tier": "bedsit", "tenure": "rented", "arrears": 0, "arrearsDays": 0, "security": [], "rooms": [], "lastRaidDay": 0, "pendingRaid": false, "pendingRaidNotificationId": null, "guardCount": 0 },
 
 		"factions": _new_factions_state(),
 

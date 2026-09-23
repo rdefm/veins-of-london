@@ -4,7 +4,6 @@ extends RefCounted
 # Time blocks, rest, and the daily tick per R§3.1. Static funcs only.
 
 const BLOCKS_PER_DAY := 3
-const DAILY_COST_BASE := 50.0
 const REST_HEAL_FRACTION := 0.2
 const PASSIVE_REGEN_FRACTION := 0.05
 const MorningAccountsSystem := preload("res://systems/morning_accounts.gd")
@@ -101,20 +100,18 @@ static func daily_tick() -> void:
 	SaveManager.autosave()               # R§6: autosave on every daily tick
 
 
+# Home bill per ADR 0006: rent if rented, utilities if owned, scaled by the
+# barometer. Shortfall is forgiven here -- cash floors at 0.
 static func _apply_living_costs() -> void:
 	var player: Dictionary = GameState.state["player"]
 	var fx: Dictionary = Barometer.get_merged_effects()
-	var daily_cost: int = GameState.round_epsilon(DAILY_COST_BASE * (1.0 + fx.get("dailyCost", 0.0)))
-	var cash_before: int = player["cash"]
-	player["cash"] = maxi(0, cash_before - daily_cost)
-	# The floor-at-0 clamp means a broke player's actual deduction can be
-	# less than daily_cost -- log what was really taken, not the nominal
-	# cost, so the ledger stays accurate.
-	var actual_deducted: int = cash_before - player["cash"]
-	if actual_deducted > 0:
-		Bank.record(-actual_deducted, "Living costs")
+	var bill: int = GameState.round_epsilon(Home.current_bill_base() * (1.0 + fx.get("dailyCost", 0.0)))
+	var paid: int = mini(player["cash"], bill)
+	player["cash"] -= paid
+	if paid > 0:
+		Bank.record(-paid, "Living costs")
 
-	var text := "Day %d: -£%d living costs." % [GameState.state["world"]["day"], daily_cost]
+	var text := "Day %d: -£%d living costs." % [GameState.state["world"]["day"], paid]
 	var category := Notify.CATEGORY_INFO
 	if player["cash"] == 0:
 		text += " You are flat broke."

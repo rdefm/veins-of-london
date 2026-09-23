@@ -24,6 +24,25 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("property_current_daily_cost_follows_tenure", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "townhouse"
+		GameState.state["phoneNav"]["app"] = "property"
+		var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
+
+		GameState.state["home"]["tenure"] = "owned"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_true(NodeQuery.label_texts(phone).has("Daily cost: £65 · Raid risk: %d%% · Rooms 0/3" % raid_pct), "owned townhouse shows utilities (65)")
+		phone.free()
+
+		GameState.state["home"]["tenure"] = "rented"
+		phone = PhoneScreen.new()
+		phone._ready()
+		assert_true(NodeQuery.label_texts(phone).has("Daily cost: £150 · Raid risk: %d%% · Rooms 0/3" % raid_pct), "rented townhouse shows rent (150)")
+		phone.free()
+	)
+
 	run_case("property_shows_the_next_tier_up_with_its_own_stats_and_upgrade_cost", func():
 		GameState.reset()
 		GameState.state["phoneNav"]["app"] = "property"
@@ -34,8 +53,8 @@ func run() -> void:
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Flat"), "next tier's name (flat, the tier above bedsit) renders")
 		var raid_pct: int = int(round(Home.get_raid_chance_for_tier("flat") * 100))
-		var expected: String = "Daily cost: £80 · Raid risk: %d%% · Rooms 1" % raid_pct
-		assert_true(texts.has(expected), "next tier's own stats line renders, not the current tier's")
+		var expected: String = "Daily cost: £58 · Raid risk: %d%% · Rooms 1" % raid_pct
+		assert_true(texts.has(expected), "next tier's own stats line renders its owned utilities (moving up is a purchase)")
 		assert_true(NodeQuery.find_button(phone, "Move for £1200") != null, "upgrade action shows flat's upgradeCost")
 
 		phone.free()

@@ -354,6 +354,10 @@ func _backfill_new_home_keys(result: Dictionary, defaults: Dictionary) -> void:
 	if not result.has("home"):
 		return
 	var home: Dictionary = result["home"]
+	# Pre-tenure saves paid upgradeCost to move up, so they own their tier;
+	# the bedsit is rent-only (ADR 0006 §Migration).
+	if not home.has("tenure"):
+		home["tenure"] = Home.TENURE_RENTED if home.get("tier", "bedsit") == "bedsit" else Home.TENURE_OWNED
 	for key in defaults["home"].keys():
 		if not home.has(key):
 			home[key] = defaults["home"][key]
@@ -500,6 +504,8 @@ func _restore_int_types(state: Dictionary) -> void:
 		var home: Dictionary = state["home"]
 		_int_key(home, "lastRaidDay")
 		_int_key(home, "guardCount")
+		_int_key(home, "arrears")
+		_int_key(home, "arrearsDays")
 
 	if state.has("mapView"):
 		var map_view: Dictionary = state["mapView"]

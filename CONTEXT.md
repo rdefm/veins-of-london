@@ -4,6 +4,10 @@ A mobile-first, menu-driven London urban-fantasy economy game (Godot 4.4 port). 
 
 ## Language
 
+**Tenure**:
+Whether the player rents or owns their current home tier (`state.home.tenure`, `"rented"`/`"owned"`). Rented pays the tier's rent (`dailyCost`) each rollover; owned pays utilities. The bedsit is rent-only. See ADR 0006.
+_Avoid_: "lease", "mortgage" — neither exists.
+
 **Site**:
 A prospected plot in a district (`state.world.sites`) with fixed tier/ore/bonuses, visible before it's claimed. A site is not a vein — it's the *land*; a vein is what grows on it once seeded.
 _Avoid_: plot, spot, location (as a synonym for site — "location" is the vein's flavour-text address string)

@@ -14,6 +14,8 @@ const ALARM_SECURITY_ID := "alarm"
 # Unlike other security ids (installed once, boolean membership via .has()),
 # "guard" stacks; its count lives in home["guardCount"] instead.
 const GUARD_SECURITY_ID := "guard"
+const TENURE_RENTED := "rented"
+const TENURE_OWNED := "owned"
 
 # PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone (dry, administrative,
 # one line).
@@ -160,6 +162,25 @@ static func resolve_defend_outcome(won: bool) -> void:
 
 
 # Returns the next tier up the ladder, "" at the top tier.
+# Owned-home utilities per ADR 0006: utilitiesBase + round(utilitiesFraction × dailyCost).
+static func utilities_for_tier(tier_id: String) -> int:
+	var bills: Dictionary = GameData.HOME_BILLS
+	var daily_cost: float = GameData.HOME_TIERS[tier_id]["dailyCost"]
+	return int(bills["utilitiesBase"]) + GameState.round_epsilon(bills["utilitiesFraction"] * daily_cost)
+
+
+# Pre-barometer daily bill: the tier's rent if rented, its utilities if owned.
+static func bill_base_for(tier_id: String, tenure: String) -> int:
+	if tenure == TENURE_OWNED:
+		return utilities_for_tier(tier_id)
+	return int(GameData.HOME_TIERS[tier_id]["dailyCost"])
+
+
+static func current_bill_base() -> int:
+	var home: Dictionary = GameState.state["home"]
+	return bill_base_for(home["tier"], home["tenure"])
+
+
 static func get_next_tier_id(tier_id: String) -> String:
 	var order: Array = GameData.HOME_TIER_ORDER
 	var index: int = order.find(tier_id)
@@ -184,6 +205,7 @@ static func upgrade_tier() -> Dictionary:
 	player["cash"] -= cost
 	Bank.record(-cost, "HQ upgrade: %s" % next_tier["name"])
 	home["tier"] = next_tier_id
+	home["tenure"] = TENURE_OWNED
 	Notify.push("Moved up to %s." % next_tier["name"], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase

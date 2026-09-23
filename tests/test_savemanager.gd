@@ -391,6 +391,51 @@ func run() -> void:
 		assert_eq(filled["home"]["guardCount"], 0, "a save from before guardCount existed should backfill it to 0")
 	)
 
+	run_case("new_game_starts_in_a_rented_bedsit_with_no_arrears", func():
+		GameState.reset()
+		var home: Dictionary = GameState.state["home"]
+		assert_eq(home["tier"], "bedsit", "new game tier")
+		assert_eq(home["tenure"], "rented", "new game tenure")
+		assert_eq(home["arrears"], 0, "new game arrears")
+		assert_eq(home["arrearsDays"], 0, "new game arrearsDays")
+	)
+
+	run_case("loading_a_pre_tenure_save_owns_its_tier_or_rents_the_bedsit", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		for key in ["tenure", "arrears", "arrearsDays"]:
+			legacy["home"].erase(key)
+		legacy["home"]["tier"] = "townhouse"
+
+		var filled := SaveManager.backfill_defaults(legacy)
+		assert_eq(filled["home"]["tenure"], "owned", "a pre-tenure townhouse save loads as owned")
+		assert_eq(filled["home"]["arrears"], 0, "arrears backfills to 0")
+		assert_eq(filled["home"]["arrearsDays"], 0, "arrearsDays backfills to 0")
+		assert_eq(SaveManager.backfill_defaults(filled), filled, "re-migrating a migrated save is idempotent")
+
+		legacy["home"]["tier"] = "bedsit"
+		assert_eq(SaveManager.backfill_defaults(legacy)["home"]["tenure"], "rented", "a pre-tenure bedsit save loads as rented")
+	)
+
+	run_case("save_mutate_load_round_trips_home_tenure_and_arrears_as_ints", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["home"]["tenure"] = "owned"
+		GameState.state["home"]["arrears"] = 120
+		GameState.state["home"]["arrearsDays"] = 3
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"], "save_to_slot should succeed")
+		GameState.state["home"]["arrears"] = 0
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"], "load_from_slot should succeed")
+
+		assert_eq(typeof(GameState.state["home"]["arrears"]), TYPE_INT, "arrears restored as int")
+		assert_eq(typeof(GameState.state["home"]["arrearsDays"]), TYPE_INT, "arrearsDays restored as int")
+		assert_eq(GameState.state, original, "home tenure/arrears round-trip exactly")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	# ── combat-refining 10: combat.locationKey ────────────────────────────
 
 	run_case("save_mutate_load_round_trips_combat_locationKey", func():

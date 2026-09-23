@@ -11,7 +11,7 @@ file owns today, no history.
 | GameData.gd | Loads/validates every `data/*.json` table at boot |
 | GameState.gd | Pure state tree (Dicts/Arrays/primitives); screens read only |
 | Rng.gd | Seeded RNG for every probabilistic system |
-| SaveManager.gd | Save/load/autosave/export-import; backfills missing keys, restores JSON ints, KO-clamps a loaded fight's selection |
+| SaveManager.gd | Save/load/autosave/export-import; backfills missing keys (pre-tenure homes load owned, bedsit rented), restores JSON ints, KO-clamps a loaded fight's selection |
 | Snapshots.gd | Bounded snapshot-stack helper backing rewind |
 
 ## systems/*.gd — static-func systems
@@ -46,7 +46,7 @@ Data file per system: see `data/*.json` below.
 | equipment.gd | Weapon equip/unequip |
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | factions.gd | Faction joining |
-| home.gd | Home tier/security/rooms/raid chance; per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
+| home.gd | Home tier/tenure/security/rooms/raid chance; daily bill base (rent or utilities); per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: stop, notebook, ore |
 | map_events.gd | Map event queue + playback |
@@ -77,7 +77,7 @@ Data file per system: see `data/*.json` below.
 | sites.gd | Sites & prospecting |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
-| time_system.gd | Time blocks, rest, daily tick |
+| time_system.gd | Time blocks, rest, daily tick (charges the tenure-aware home bill) |
 | todo.gd | Notes checklist, driven by objectives; also reads state.world.sites directly for the Collective ledger section |
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer |
@@ -197,7 +197,7 @@ overlays.
 | saveload_app.gd | Save slots, export/import, New Game confirm |
 | notifications_app.gd | Notification log with pending Defend buttons |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
-| property_app.gd | Harrow's: current HQ tier + next-tier upgrade, each with its static floorplan when one exists |
+| property_app.gd | Harrow's: current HQ tier (tenure-correct daily cost) + next-tier upgrade, each with its static floorplan when one exists |
 | debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, relation adjusters |
 
 ## data/*.json

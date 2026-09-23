@@ -62,13 +62,50 @@ func run() -> void:
 		GameState.state["barometer"]["economic"] = "inflation"
 		GameState.state["player"]["cash"] = 1000
 		TimeSystem.daily_tick()
-		# DAILY_COST = round(50 * (1 + 0.30)) = 65
+		# rented bedsit bill = round(50 * (1 + 0.30)) = 65
 		assert_eq(GameState.state["player"]["cash"], 1000 - 65, "inflation's +0.30 dailyCost should apply")
 
 		var bank_log: Array = GameState.state["bankLog"]
 		assert_eq(bank_log.size(), 1, "living costs record one bank transaction")
 		assert_eq(bank_log[0]["amount"], -65, "the recorded amount matches the inflation-adjusted daily cost")
 		assert_eq(bank_log[0]["label"], "Living costs", "the recorded label names the deduction")
+	)
+
+	run_case("daily_bill_charges_rent_when_rented", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["home"]["tenure"] = "rented"
+		GameState.state["player"]["cash"] = 500
+		TimeSystem._apply_living_costs()
+		assert_eq(GameState.state["player"]["cash"], 420, "rented flat pays rent 80")
+	)
+
+	run_case("daily_bill_charges_utilities_when_owned", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "townhouse"
+		GameState.state["home"]["tenure"] = "owned"
+		GameState.state["player"]["cash"] = 500
+		TimeSystem._apply_living_costs()
+		assert_eq(GameState.state["player"]["cash"], 435, "owned townhouse pays utilities 50 + round(0.10 × 150) = 65")
+	)
+
+	run_case("daily_bill_rent_scales_with_inflation", func():
+		GameState.reset()
+		GameState.state["barometer"]["economic"] = "inflation"
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["home"]["tenure"] = "rented"
+		GameState.state["player"]["cash"] = 500
+		TimeSystem._apply_living_costs()
+		assert_eq(GameState.state["player"]["cash"], 396, "rented flat under inflation pays round(80 × 1.3) = 104")
+	)
+
+	run_case("daily_bill_notification_states_the_amount_actually_paid", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 30
+		TimeSystem._apply_living_costs()
+		var last: Dictionary = GameState.state["notifications"][GameState.state["notifications"].size() - 1]
+		assert_true(last["text"].contains("-£30 living costs"), "notification shows the 30 paid, not the nominal 50: %s" % last["text"])
+		assert_eq(GameState.state["home"]["arrears"], 0, "shortfall is still forgiven: no arrears accrue")
 	)
 
 	run_case("daily_cost_notification_flags_flat_broke", func():

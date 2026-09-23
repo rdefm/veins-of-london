@@ -4197,64 +4197,83 @@
 "raidReduction": 0.06
 }
 },
+"HOME_BILLS": {
+"downgradeThresholdDays": 10,
+"interestRate": 0.05,
+"interestThresholdDays": 5,
+"utilitiesBase": 50,
+"utilitiesFraction": 0.1
+},
 "HOME_TIERS": {
 "bedsit": {
+"buyPrice": 0,
 "dailyCost": 50,
 "description": "A single room in Whitechapel. The boiler makes a sound like someone clearing their throat. No storage to speak of.",
 "id": "bedsit",
 "maxRooms": 0,
 "name": "Bedsit",
 "raidBaseChance": 0.08,
+"rentOnly": true,
 "tier": 1,
 "upgradeCost": 0
 },
 "compound": {
+"buyPrice": 2000000,
 "dailyCost": 600,
 "description": "Gated property, East London. Eight rooms. People who matter know you live here.",
 "id": "compound",
 "maxRooms": 8,
 "name": "Compound",
 "raidBaseChance": 0.01,
+"rentOnly": false,
 "tier": 5,
 "upgradeCost": 40000
 },
 "flat": {
+"buyPrice": 200000,
 "dailyCost": 80,
 "description": "Two rooms above a nail bar in Hackney. Neighbours ask no questions. One spare room.",
 "id": "flat",
 "maxRooms": 1,
 "name": "Flat",
 "raidBaseChance": 0.06,
+"rentOnly": false,
 "tier": 2,
 "upgradeCost": 1200
 },
 "mansion": {
+"buyPrice": 4000000,
 "dailyCost": 1500,
 "description": "Grounds, staff quarters, a gate. Twelve rooms. Plato would have something to say about this.",
 "id": "mansion",
 "maxRooms": 12,
 "name": "Mansion & Grounds",
 "raidBaseChance": 0.005,
+"rentOnly": false,
 "tier": 6,
 "upgradeCost": 150000
 },
 "safehouse": {
+"buyPrice": 800000,
 "dailyCost": 300,
 "description": "Off-grid property, no registered occupant. Not technically yours, but no one is arguing. Five spare rooms.",
 "id": "safehouse",
 "maxRooms": 5,
 "name": "Safehouse",
 "raidBaseChance": 0.02,
+"rentOnly": false,
 "tier": 4,
 "upgradeCost": 12000
 },
 "townhouse": {
+"buyPrice": 500000,
 "dailyCost": 150,
 "description": "Three floors, Bethnal Green. Previous tenant left in a hurry. Three spare rooms.",
 "id": "townhouse",
 "maxRooms": 3,
 "name": "Townhouse",
 "raidBaseChance": 0.04,
+"rentOnly": false,
 "tier": 3,
 "upgradeCost": 4000
 }

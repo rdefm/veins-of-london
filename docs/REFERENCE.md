@@ -163,14 +163,18 @@ Descriptions (verbatim):
 
 **Tiers** (order matters — it is the upgrade ladder). `maxSecuritySlots` no longer exists — security is gated by each upgrade's `minTier` instead (below), not by a count cap:
 
-| id | name | tier | upgradeCost | dailyCost | raidBaseChance | maxRooms |
-|---|---|---|---|---|---|---|
-| bedsit | Bedsit | 1 | 0 | 50 | 0.08 | 0 |
-| flat | Flat | 2 | 1200 | 80 | 0.06 | 1 |
-| townhouse | Townhouse | 3 | 4000 | 150 | 0.04 | 3 |
-| safehouse | Safehouse | 4 | 12000 | 300 | 0.02 | 5 |
-| compound | Compound | 5 | 40000 | 600 | 0.01 | 8 |
-| mansion | Mansion & Grounds | 6 | 150000 | 1500 | 0.005 | 12 |
+| id | name | tier | upgradeCost | buyPrice | rentOnly | dailyCost | raidBaseChance | maxRooms |
+|---|---|---|---|---|---|---|---|---|
+| bedsit | Bedsit | 1 | 0 | 0 | true | 50 | 0.08 | 0 |
+| flat | Flat | 2 | 1200 | 200000 | false | 80 | 0.06 | 1 |
+| townhouse | Townhouse | 3 | 4000 | 500000 | false | 150 | 0.04 | 3 |
+| safehouse | Safehouse | 4 | 12000 | 800000 | false | 300 | 0.02 | 5 |
+| compound | Compound | 5 | 40000 | 2000000 | false | 600 | 0.01 | 8 |
+| mansion | Mansion & Grounds | 6 | 150000 | 4000000 | false | 1500 | 0.005 | 12 |
+
+`dailyCost` is the tier's rent. An owned tier's daily bill is its utilities, `utilitiesBase + round(utilitiesFraction × dailyCost)` (ADR 0006). The bedsit is rent-only.
+
+**Bills** (`bills`): `utilitiesBase` 50, `utilitiesFraction` 0.10, `interestRate` 0.05, `interestThresholdDays` 5, `downgradeThresholdDays` 10. Interest/thresholds feed arrears (ADR 0006).
 
 Tier descriptions: extract verbatim from HTML const `HOME_TIERS`.
 
@@ -342,7 +346,7 @@ state = {
     currentDistrict: "shoreditch",   # M1; harmless in M0
   },
 
-  home: { tier: "bedsit", security: [], rooms: [], lastRaidDay: 0 },
+  home: { tier: "bedsit", tenure: "rented", arrears: 0, arrearsDays: 0, security: [], rooms: [], lastRaidDay: 0 },  # tenure "rented"|"owned"; arrears int £ ≥ 0; arrearsDays int ≥ 0 (ADR 0006). Pre-tenure saves load owned (rented at bedsit).
   # M1-LONDON-T06: storedOre was merged into player.orichalchum — there was
   # never a deposit/withdraw mechanic, so it was always an empty or
   # unreachable second pool. Carried ore is what a home raid now risks and
@@ -474,7 +478,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - 3 blocks/day. `advanceTimeBlock()`: append current block to `timeBlocksDone`, increment `timeBlock`; if `timeBlock >= 3` → `day += 1`, `timeBlock = 0`, `timeBlocksDone = []`, run `daily_tick()`.
 - `isTimeExhausted()` = `timeBlocksDone.size() >= 3`.
 - **Rest:** consume all remaining blocks, roll to next day (runs daily_tick), then heal `round(hpMax * 0.2)` capped at hpMax. Notification: "Rested. Day N. +X HP."
-- **daily_tick order (exact):** ① tick barometer ② roll home raid ③ living costs: `DAILY_COST = round(50 * (1 + fx.dailyCost))`, `cash = max(0, cash − DAILY_COST)`, notification (append " You are flat broke." if cash hits 0) ③b Healing Salve HoT (see §3.7) ③c passive HP regen (bugfixes-42): unconditional, always-on, independent of Rest and the Salve HoT (stacks with both) — `heal = round(hpMax * PASSIVE_REGEN_FRACTION)` (`PASSIVE_REGEN_FRACTION` = 0.05), capped at hpMax, skipped (no notification) if already at full HP; notification "You rest easy. +X HP." ④ vein growth drift (`Cultivating.drift_veins()`, §1.2/§8.3): for each player vein and each faction vein sitting off neutral, `delta = drift_magnitude(level) = level + rand(1,5)`, `direction = +1 if growth>50, -1 if growth<50`, `growth = clamp(growth + delta*direction, 0, ceiling(vein))` (a vein exactly at 50 does not drift); a vein pinned at 0 then rolls `collapseChancePerDay` (0.15) to be removed (site reverts to unclaimed for a player vein, deleted outright for a faction vein) ⑤ tutorial day-triggers (day ≥ 2 & stage "buyer_event" & !buyerEventSeen → queues ARCHIE_SMS_2's content as a real pendingMessages entry, once, guarded by `archieBuyerSmsQueued` — bugfixes-83, no separate notification; stage "archie_craft_chat" & day ≥ archieChatUnlockDay → notification "Archie wants to meet up. Check Contacts.") ⑤b NPC site-claiming ⑤c faction-vein prune-back ⑥ process lab room, then veinStation room, if installed ⑦ Dial charge regen (`Dial.daily_regen()`, dial-device ticket 07 — replaces the old device system's per-device charge reset; §1.4/§3.5). (This line predates the faction-economy/rivalry/raiding steps that now run between ⑤c and ⑥ — see `systems/time_system.gd`'s own daily_tick() doc comment for the full, current step list; not re-derived here to avoid a second copy drifting out of sync.)
+- **daily_tick order (exact):** ① tick barometer ② roll home raid ③ home bill (ADR 0006): `BILL = round(base * (1 + fx.dailyCost))`, `base` = tier `dailyCost` (rent) if `home.tenure == "rented"`, else utilities; `paid = min(cash, BILL)`, `cash −= paid` (shortfall forgiven until arrears land), bank-log and notify `paid` (append " You are flat broke." if cash hits 0) ③b Healing Salve HoT (see §3.7) ③c passive HP regen (bugfixes-42): unconditional, always-on, independent of Rest and the Salve HoT (stacks with both) — `heal = round(hpMax * PASSIVE_REGEN_FRACTION)` (`PASSIVE_REGEN_FRACTION` = 0.05), capped at hpMax, skipped (no notification) if already at full HP; notification "You rest easy. +X HP." ④ vein growth drift (`Cultivating.drift_veins()`, §1.2/§8.3): for each player vein and each faction vein sitting off neutral, `delta = drift_magnitude(level) = level + rand(1,5)`, `direction = +1 if growth>50, -1 if growth<50`, `growth = clamp(growth + delta*direction, 0, ceiling(vein))` (a vein exactly at 50 does not drift); a vein pinned at 0 then rolls `collapseChancePerDay` (0.15) to be removed (site reverts to unclaimed for a player vein, deleted outright for a faction vein) ⑤ tutorial day-triggers (day ≥ 2 & stage "buyer_event" & !buyerEventSeen → queues ARCHIE_SMS_2's content as a real pendingMessages entry, once, guarded by `archieBuyerSmsQueued` — bugfixes-83, no separate notification; stage "archie_craft_chat" & day ≥ archieChatUnlockDay → notification "Archie wants to meet up. Check Contacts.") ⑤b NPC site-claiming ⑤c faction-vein prune-back ⑥ process lab room, then veinStation room, if installed ⑦ Dial charge regen (`Dial.daily_regen()`, dial-device ticket 07 — replaces the old device system's per-device charge reset; §1.4/§3.5). (This line predates the faction-economy/rivalry/raiding steps that now run between ⑤c and ⑥ — see `systems/time_system.gd`'s own daily_tick() doc comment for the full, current step list; not re-derived here to avoid a second copy drifting out of sync.)
 - **NPC site-claiming** (`Sites.roll_npc_claims()`, step ⑤b, M1-LONDON.md D2/adr/0002): each unclaimed, non-barren site rolls `chance(npc_claim_chance(tier, ageDays))`, `npc_claim_chance = clamp(0.02 + 0.01×tierIndex + 0.005×ageDays, 0.0, 0.15)` (tierIndex: poor 0, fair 1, rich 2, saturated 3; ageDays = day − discoveredDay) — on hit, one of the 5 canonical factions (`Factions.pick_claimant()`) instantly claims it (a real vein at `growth = seedGrowth`, per §1.2/§3.4). **Retuned by bugfixes-73/adr/0004** (down from base 0.03 / tier-step 0.02 / age-step 0.01 / cap 0.25) alongside removing NPC-abandonment below, to roughly track the slower turnover that removal produces — needs balance sign-off once played.
 - **NPC-abandonment — REMOVED** (bugfixes-73/adr/0004): adr/0002 originally paired the claim roll above with a second, independent daily kill roll for every faction-claimed site (`p = clamp(0.02 + 0.005×ageDaysSinceClaim, 0.0, 0.08)`, deleting the site outright on a hit). That mechanic no longer exists. A faction vein now only dies via the same growth-collapse-at-zero roll a player vein faces (§3.4's Left wall) — no second roll stacked on top.
 - **Faction-vein growth prune-back** (`Sites.roll_faction_vein_growth()`, step ⑤c, faction-vein-ownership T02/vein-growth-state T04): once a faction vein's growth (drifting per §3.4/§1.2, same as any vein) reaches ≥85, each daily tick it stays there rolls `chance(0.40)` to reset `growth` to a fixed target — without this, a faction vein sitting at the ceiling (0 drift there) would park forever. **Target retuned from 55 to 40 by bugfixes-73/adr/0004**: 55 sits inside the "dormant" band (45–55, drift 0 — §1.2), which is *also* a permanent parking spot once NPC-abandonment (a faction vein's independent second death roll) is gone — a vein reset to 55 would never drift again, since direction only flips at neutral (50) and dormant's own drift is 0. 40 sits in "thinning" (30–44, drift 1 leftward), so a prune-backed vein resumes its walk toward 0 and eventually reaches the same collapse-at-zero fate as any other vein, which is what makes a steady faction-vein population possible at all now that abandonment is gone. Threshold (85) and chance (0.40) are unchanged — needs balance sign-off once played.

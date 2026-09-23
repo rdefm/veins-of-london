@@ -67,6 +67,8 @@ var HOME_TIER_ORDER: Array = []
 var HOME_TIERS: Dictionary = {}
 var HOME_SECURITY: Dictionary = {}
 var HOME_ROOMS: Dictionary = {}
+# Daily bill constants (ADR 0006): utilities formula, arrears interest and thresholds.
+var HOME_BILLS: Dictionary = {}
 # Per-tier floorplan geometry, keyed by home tier id; tiers without a plan are absent.
 var FLOORPLANS: Dictionary = {}
 
@@ -228,6 +230,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "HOME_TIERS", "key": "tiers", "type": TYPE_DICTIONARY},
 		{"field": "HOME_SECURITY", "key": "security", "type": TYPE_DICTIONARY},
 		{"field": "HOME_ROOMS", "key": "rooms", "type": TYPE_DICTIONARY},
+		{"field": "HOME_BILLS", "key": "bills", "type": TYPE_DICTIONARY},
 		{"field": "SALES_XP_LEVELS", "key": "salesXpLevels", "type": TYPE_ARRAY},
 	]},
 	{"table": "floorplans", "file": "res://data/floorplans.json", "fields": [
@@ -401,6 +404,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_vein_alarm(t.get("vein_alarm", {}), errors)
 	_validate_stealth(t.get("stealth_xp_levels", []), errors)
 	_validate_home(t.get("home_tier_order", []), t.get("home_tiers", {}), t.get("home_security", {}), t.get("home_rooms", {}), errors)
+	_validate_home_bills(t.get("home_bills", {}), t.get("home_tiers", {}), errors)
 	_validate_approaches(t.get("approaches", {}), t.get("home_rooms", {}), errors)
 	_validate_factions(t.get("factions", {}), errors)
 	_validate_faction_trade(t.get("faction_trade", {}), errors)
@@ -635,7 +639,7 @@ func _validate_home(tier_order: Array, tiers: Dictionary, security: Dictionary, 
 		if not tiers.has(id):
 			errors.append("home: tierOrder references unknown tier '%s'" % id)
 	for key in tiers.keys():
-		_require_keys(tiers[key], ["id", "name", "tier", "upgradeCost", "dailyCost", "raidBaseChance", "maxRooms", "description"], "home.tiers.%s" % key, errors)
+		_require_keys(tiers[key], ["id", "name", "tier", "upgradeCost", "buyPrice", "rentOnly", "dailyCost", "raidBaseChance", "maxRooms", "description"], "home.tiers.%s" % key, errors)
 
 	for key in security.keys():
 		var sec_entry: Dictionary = security[key]
@@ -648,6 +652,23 @@ func _validate_home(tier_order: Array, tiers: Dictionary, security: Dictionary, 
 		_require_keys(entry, ["id", "name", "cost", "minTier", "bonus", "bonusValue", "description"], "home.rooms.%s" % key, errors)
 		if entry.has("minTier") and not tiers.has(entry["minTier"]):
 			errors.append("home.rooms.%s: minTier '%s' is not a known home tier" % [key, entry["minTier"]])
+
+
+# ADR 0006: the bedsit is rent-only; every other tier has a positive buy price.
+func _validate_home_bills(bills: Dictionary, tiers: Dictionary, errors: Array[String]) -> void:
+	_require_keys(bills, ["utilitiesBase", "utilitiesFraction", "interestRate", "interestThresholdDays", "downgradeThresholdDays"], "home.bills", errors)
+	for key in bills.keys():
+		var v = bills[key]
+		if (typeof(v) != TYPE_INT and typeof(v) != TYPE_FLOAT) or v < 0:
+			errors.append("home.bills.%s: expected a non-negative number" % key)
+	if tiers.has("bedsit") and tiers["bedsit"].get("rentOnly", false) != true:
+		errors.append("home.tiers.bedsit: must be rentOnly")
+	for key in tiers.keys():
+		var tier: Dictionary = tiers[key]
+		if typeof(tier.get("rentOnly")) != TYPE_BOOL:
+			errors.append("home.tiers.%s: rentOnly must be a bool" % key)
+		elif not tier["rentOnly"] and not (float(tier.get("buyPrice", 0)) > 0.0):
+			errors.append("home.tiers.%s: buyable tier needs a positive buyPrice" % key)
 
 
 const VALID_APPROACH_SOURCE_TYPES: Array[String] = ["start", "room", "contact", "faction", "device"]
