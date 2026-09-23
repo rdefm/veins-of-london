@@ -85,6 +85,15 @@ func run() -> void:
 		var result := Crafting.attempt_craft("timePearl")
 		assert_true(not result["ok"], "should refuse with insufficient calc")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 2, "no deduction when blocked")
+		assert_eq(result["reason"], Crafting.craft_block_reason("timePearl"), "attempt_craft refuses with the same reason the Craft button shows")
+	)
+
+	run_case("craft_block_reason_is_empty_when_affordable", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		assert_eq(Crafting.craft_block_reason("timePearl"), "")
+		GameState.state["player"]["orichalchum"]["time"] = 0
+		assert_eq(Crafting.craft_block_reason("timePearl"), "Not enough calc.")
 	)
 
 	# ── dial-device ticket 02: seated-Movement attunement bonus ─────────

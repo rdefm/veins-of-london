@@ -62,13 +62,9 @@ static func step(delta: int) -> void:
 	EventBus.state_changed.emit()
 
 
-# The books stop's notebook tap (§5.2). Tapping the currently-held notebook
-# returns to the fork (mode -> null); any other tap sets that mode — no
-# confirmation, no lock-in. Returns the resulting mode (or null if cleared)
-# so hq_lab_bench.gd can open the notebook's modal in the same tap without
-# re-reading labBenchNav back out of GameState.
-static func tap_notebook(mode_id: String) -> Variant:
-	var nav: Dictionary = GameState.state["labBenchNav"]
-	nav["mode"] = null if nav["mode"] == mode_id else mode_id
+# The books stop's notebook tap (§5.2): sets that notebook as the held mode —
+# no confirmation, no lock-in. Re-tapping the held notebook keeps it held, so
+# hq_lab_bench.gd can open the notebook's modal on every tap.
+static func tap_notebook(mode_id: String) -> void:
+	GameState.state["labBenchNav"]["mode"] = mode_id
 	EventBus.state_changed.emit()
-	return nav["mode"]

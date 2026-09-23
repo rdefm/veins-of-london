@@ -201,18 +201,18 @@ func _zone_at(pos: Vector2) -> String:
 func _on_zone_tapped(zone_id: String) -> void:
 	match zone_id:
 		"notebookRecipes":
-			_tap_notebook_and_maybe_open_modal(LabBenchNav.MODE_RECIPES, "lab_bench_recipe_book")
+			_tap_notebook_and_open_modal(LabBenchNav.MODE_RECIPES, "lab_bench_recipe_book")
 		"notebookExperiments":
-			_tap_notebook_and_maybe_open_modal(LabBenchNav.MODE_EXPERIMENTS, "lab_bench_notes")
+			_tap_notebook_and_open_modal(LabBenchNav.MODE_EXPERIMENTS, "lab_bench_notes")
 		_:
 			if zone_id.begins_with(LabBenchNav.ORE_REGION_PREFIX):
 				LabBenchNav.select_ore(zone_id.trim_prefix(LabBenchNav.ORE_REGION_PREFIX))
 			elif zone_id.begins_with(LabBenchNav.APPARATUS_REGION_PREFIX):
 				_run_apparatus(zone_id.trim_prefix(LabBenchNav.APPARATUS_REGION_PREFIX))
 
-func _tap_notebook_and_maybe_open_modal(mode_id: String, modal_type: String) -> void:
-	if LabBenchNav.tap_notebook(mode_id) == mode_id:
-		Modal.open(modal_type)
+func _tap_notebook_and_open_modal(mode_id: String, modal_type: String) -> void:
+	LabBenchNav.tap_notebook(mode_id)
+	Modal.open(modal_type)
 # An apparatus tap probes the selected ore set unless the Recipes notebook is
 # held over an already-found cell, which crafts instead. No notebook is needed
 # to experiment.

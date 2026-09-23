@@ -55,11 +55,11 @@ func run() -> void:
 		assert_eq(GameState.state["labBenchNav"]["mode"], "recipes")
 	)
 
-	run_case("tap_notebook_on_the_held_notebook_returns_to_the_fork", func():
+	run_case("tap_notebook_on_the_held_notebook_keeps_it_held", func():
 		GameState.reset()
 		LabBenchNav.tap_notebook(LabBenchNav.MODE_EXPERIMENTS)
 		LabBenchNav.tap_notebook(LabBenchNav.MODE_EXPERIMENTS)
-		assert_eq(GameState.state["labBenchNav"]["mode"], null, "§5.2: tapping the held notebook again returns to the fork")
+		assert_eq(GameState.state["labBenchNav"]["mode"], "experiments", "§5.2: re-tapping the held notebook never toggles it off")
 	)
 
 	run_case("tap_notebook_switches_modes_freely", func():

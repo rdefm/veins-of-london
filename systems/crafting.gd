@@ -118,19 +118,26 @@ static func inventory_remove_from_tier(recipe_key: String, tier: int, qty: int) 
 		buckets[key] = new_qty
 
 
-static func can_craft(recipe_key: String) -> bool:
+# Why a craft of recipe_key would be refused right now, or "" if it wouldn't
+# -- the one string a disabled Craft button shows and attempt_craft() returns.
+static func craft_block_reason(recipe_key: String) -> String:
 	var skill: int = GameState.state["player"]["craftingSkill"]
 	var costs: Dictionary = calc_cost(recipe_key, skill)
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
 	for ingredient in costs:
 		if orichalchum.get(ingredient, 0) < costs[ingredient]:
-			return false
-	return true
+			return "Not enough calc."
+	return ""
+
+
+static func can_craft(recipe_key: String) -> bool:
+	return craft_block_reason(recipe_key) == ""
 
 
 static func attempt_craft(recipe_key: String) -> Dictionary:
-	if not can_craft(recipe_key):
-		return { "ok": false, "reason": "Not enough calc." }
+	var reason := craft_block_reason(recipe_key)
+	if reason != "":
+		return { "ok": false, "reason": reason }
 
 	var player: Dictionary = GameState.state["player"]
 	var r: Dictionary = GameData.RECIPES[recipe_key]

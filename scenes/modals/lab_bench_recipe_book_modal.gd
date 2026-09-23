@@ -20,7 +20,6 @@ static func _recipe_row(recipe_key: String) -> Control:
 	var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
 	var chance: float = Crafting.craft_chance(recipe_key, skill)
 	var power = Crafting.effect_power(recipe_key, skill)
-	var can_make: bool = Crafting.can_craft(recipe_key)
 	var stock: int = Crafting.inventory_qty(recipe_key)
 
 	var c := UI.card()
@@ -41,8 +40,11 @@ static func _recipe_row(recipe_key: String) -> Control:
 	c["content"].add_child(qty_row)
 
 	var craft_btn := UI.button("Craft ×%d" % qty, func(): Crafting.attempt_craft_batch(recipe_key, qty))
-	craft_btn.disabled = not can_make
+	var block_reason := Crafting.craft_block_reason(recipe_key)
+	craft_btn.disabled = block_reason != ""
 	c["content"].add_child(craft_btn)
+	if block_reason != "":
+		c["content"].add_child(UI.muted_label(block_reason))
 
 	var discovery: Dictionary = r.get("discovery", {})
 	if not discovery.is_empty():

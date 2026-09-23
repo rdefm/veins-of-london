@@ -153,8 +153,9 @@ Canvas: **1170 × 844** displayed (3 × 390 wide, full-bleed), authored at
 
 The bench opens on the books stop with two notebooks: **Recipes** and
 **Experiments**. Tapping one sets the mode. The chosen notebook stays
-visibly open/held for the whole session so the mode is never invisible, and
-tapping it returns to the fork. The player can switch modes freely.
+visibly open/held for the whole session so the mode is never invisible.
+Every notebook tap — including on the held one — opens that notebook's book.
+The player can switch modes freely.
 
 **Experiments mode**
 1. Ore stop: select 1 or 2 ore types.

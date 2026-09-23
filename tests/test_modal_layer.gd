@@ -1004,6 +1004,22 @@ func run() -> void:
 		layer.free()
 	)
 
+	run_case("lab_bench_recipe_book_craft_button_is_disabled_with_a_reason_when_unaffordable", func():
+		GameState.reset()
+		for ore_type in GameData.ORE_TYPES.keys():
+			GameState.state["player"]["orichalchum"][ore_type] = 0
+		Modal.open("lab_bench_recipe_book")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+
+		var craft_button := _find_cost_button(layer, "Craft ×1")
+		assert_true(craft_button.disabled, "no calc -- Crafting.craft_block_reason() blocks it")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has(Crafting.craft_block_reason("timePearl")), "a disabled Craft button states why")
+
+		layer.free()
+	)
+
 	run_case("lab_bench_recipe_book_refine_button_is_disabled_when_not_enough_calc", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 0

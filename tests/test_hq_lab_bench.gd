@@ -191,7 +191,7 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_tapping_the_held_notebook_again_returns_to_the_fork_and_opens_no_modal", func():
+	run_case("hq_lab_bench_tapping_the_held_recipes_notebook_still_opens_the_recipe_book", func():
 		GameState.reset()
 		GameState.state["labBenchNav"]["mode"] = "recipes"
 
@@ -200,8 +200,38 @@ func run() -> void:
 
 		UiSim.tap_zone(screen, "notebookRecipes")
 
-		assert_eq(GameState.state["labBenchNav"]["mode"], null, "§5.2: tapping the held notebook again must return to the fork")
-		assert_eq(GameState.state["modal"], null, "ticket 22: closing the fork must not also pop the modal it's closing")
+		assert_eq(GameState.state["labBenchNav"]["mode"], "recipes", "re-tapping the held notebook keeps it held")
+		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book", "§5.2: every notebook tap opens its book, held or not")
+
+		screen.free()
+	)
+
+	run_case("hq_lab_bench_tapping_the_held_experiments_notebook_still_opens_the_notes", func():
+		GameState.reset()
+		GameState.state["labBenchNav"]["mode"] = "experiments"
+
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+
+		UiSim.tap_zone(screen, "notebookExperiments")
+
+		assert_eq(GameState.state["labBenchNav"]["mode"], "experiments")
+		assert_eq(GameState.state["modal"]["type"], "lab_bench_notes", "§5.2: every notebook tap opens its book, held or not")
+
+		screen.free()
+	)
+
+	run_case("hq_lab_bench_tapping_a_notebook_twice_opens_its_book_both_times", func():
+		GameState.reset()
+
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+
+		UiSim.tap_zone(screen, "notebookRecipes")
+		Modal.close()
+		UiSim.tap_zone(screen, "notebookRecipes")
+
+		assert_eq(GameState.state["modal"]["type"], "lab_bench_recipe_book", "the second tap must not silently toggle the book shut")
 
 		screen.free()
 	)
