@@ -1,8 +1,8 @@
-# Harrow's: current HQ tier card (with buy-out when rented), the next tier's
-# rent/buy offer and the tier below's move-down offer
-# (docs/hq-diorama-vision.md §7, ADR 0006).
+# Harrow's: current HQ tier card (with buy-out when rented, and the arrears
+# balance and countdown while in arrears), the next tier's rent/buy offer and
+# the tier below's move-down offer (docs/hq-diorama-vision.md §7, ADR 0006).
 #
-# PROSE-REVIEW: tenure, rent/buy, buy-out, move-down and room-wipe strings.
+# PROSE-REVIEW: tenure, rent/buy, buy-out, move-down, room-wipe and arrears strings.
 class_name PropertyApp
 extends PhoneApp
 
@@ -30,6 +30,11 @@ func _build_current_card() -> Control:
 	c["content"].add_child(UI.muted_label(tier["description"]))
 	c["content"].add_child(UI.label("Daily cost: £%d · Raid risk: %d%% · Rooms %d/%d" % [Home.current_bill_base(), raid_pct, home["rooms"].size(), tier["maxRooms"]]))
 	c["content"].add_child(UI.muted_label("Rented." if rented else "Owned outright."))
+	var countdown: Dictionary = Home.arrears_countdown()
+	if not countdown.is_empty():
+		c["content"].add_child(UI.label("Arrears: £%d" % countdown["arrears"]))
+		for line in MorningAccounts.countdown_lines(countdown):
+			c["content"].add_child(UI.muted_label(line))
 	if rented and Home.can_buy_tier(tier_id):
 		var price: int = Home.buy_price(tier_id)
 		_add_purchase_button(c["content"], "Buy out for £%d" % price, price, Home.buy_out)

@@ -416,6 +416,8 @@ func _restore_int_types(state: Dictionary) -> void:
 		for exception in morning.get("exceptions", []):
 			_int_key(exception, "target")
 			_int_key(exception, "actual")
+			for key in ["amount", "arrears", "roomsLost", "interestInDays", "downgradeInDays"]:
+				_int_key(exception, key)
 	for thread in state.get("messages", {}).values():
 		for msg in thread:
 			_int_key(msg, "day")

@@ -24,6 +24,35 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("property_shows_arrears_balance_and_countdown_only_while_in_arrears", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["phoneNav"]["app"] = "property"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_true(not NodeQuery.label_texts(phone).any(func(t: String): return t.begins_with("Arrears")), "no arrears line when paid up")
+		phone.free()
+
+		GameState.state["home"]["arrears"] = 320
+		GameState.state["home"]["arrearsDays"] = 5
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		phone = PhoneScreen.new()
+		phone._ready()
+		var texts := NodeQuery.label_texts(phone)
+		for expected in ["Arrears: £320", "Interest compounds daily.", "Lose the Flat in 5 days."]:
+			assert_true(texts.has(expected), "missing %s" % expected)
+		assert_eq(GameState.state["home"], before["home"], "rendering only reads state")
+		phone.free()
+
+		GameState.state["home"]["tier"] = "bedsit"
+		phone = PhoneScreen.new()
+		phone._ready()
+		texts = NodeQuery.label_texts(phone)
+		assert_true(texts.has("Arrears: £320"))
+		assert_true(not texts.any(func(t: String): return t.begins_with("Lose the")), "no downgrade countdown at the bedsit")
+		phone.free()
+	)
+
 	run_case("property_current_daily_cost_follows_tenure", func():
 		GameState.reset()
 		GameState.state["home"]["tier"] = "townhouse"

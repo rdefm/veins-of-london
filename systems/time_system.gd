@@ -67,7 +67,8 @@ static func daily_tick() -> void:
 	MorningAccountsSystem.capture_job_expiry(morning_context)
 	Jobs.roll_daily_offer()              # ②c
 	ArchieDeals.roll_daily_offer()       # ②d
-	_apply_living_costs()                # ③ living costs
+	var bill_result: Dictionary = _apply_living_costs()  # ③ living costs
+	MorningAccountsSystem.capture_bills(morning_context, bill_result)
 	_apply_healing_salve_tick()          # ③b Healing Salve HoT, right after living costs
 	_apply_passive_regen()               # ③c stacks with the Salve HoT rather than replacing it
 	Cultivating.drift_veins()             # ④ vein growth drift (player + faction) — faction veins also die here on collapse-at-zero
@@ -103,10 +104,12 @@ static func daily_tick() -> void:
 # Home bill per ADR 0006 "Daily ordering": interest on carried arrears, pay
 # arrears, pay today's bill (rent if rented, utilities if owned, barometer-
 # scaled), shortfall into arrears, advance the clock, then the forced
-# downgrade check. Cash never goes negative.
+# downgrade check. Cash never goes negative. Returns what happened for the
+# morning account: { interest, shortfall, arrears, downgrade } (downgrade is
+# {} unless one fired).
 #
 # PROSE-REVIEW: the arrears and repossession lines below.
-static func _apply_living_costs() -> void:
+static func _apply_living_costs() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	var home: Dictionary = GameState.state["home"]
 	var bills: Dictionary = GameData.HOME_BILLS
@@ -153,18 +156,23 @@ static func _apply_living_costs() -> void:
 		category = Notify.CATEGORY_WARNING
 	Notify.push(text, category)
 
+	var arrears_after_bill: int = home["arrears"]
+	var downgrade := {}
 	if home["arrearsDays"] >= int(bills["downgradeThresholdDays"]):
-		_force_downgrade()
+		downgrade = _force_downgrade()
+	return { "interest": interest, "shortfall": shortfall, "arrears": arrears_after_bill, "downgrade": downgrade }
 
 
 # ADR 0006 step 5: drop one tier into a rented home. Losing an owned tier
 # clears the debt; losing a rented one carries it. The clock restarts either
-# way. No-op at the bedsit (step 6).
-static func _force_downgrade() -> void:
+# way. No-op at the bedsit (step 6), returning {}; otherwise returns
+# { fromTier, toTier, roomsLost, arrearsCleared, arrears }.
+static func _force_downgrade() -> Dictionary:
 	var home: Dictionary = GameState.state["home"]
 	var prev_tier_id: String = Home.get_prev_tier_id(home["tier"])
 	if prev_tier_id == "":
-		return
+		return {}
+	var from_tier_id: String = home["tier"]
 	var lost_tier_name: String = GameData.HOME_TIERS[home["tier"]]["name"]
 	var was_owned: bool = home["tenure"] == Home.TENURE_OWNED
 	var result: Dictionary = Home.change_tier(prev_tier_id, Home.TENURE_RENTED)
@@ -180,6 +188,11 @@ static func _force_downgrade() -> void:
 	else:
 		text += " You still owe £%d." % home["arrears"]
 	Notify.push(text, Notify.CATEGORY_WARNING)
+	return {
+		"fromTier": from_tier_id, "toTier": prev_tier_id,
+		"roomsLost": result["roomsLost"].size(), "arrearsCleared": was_owned,
+		"arrears": home["arrears"],
+	}
 
 
 static func _apply_healing_salve_tick() -> void:

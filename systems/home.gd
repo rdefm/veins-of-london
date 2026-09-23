@@ -180,6 +180,26 @@ static func current_bill_base() -> int:
 	return bill_base_for(home["tier"], home["tenure"])
 
 
+# Rollovers left before each arrears consequence (ADR 0006 "Daily ordering"),
+# read from live state. Empty when not in arrears. "interestInDays" is absent
+# once interest already compounds; "downgradeInDays" is absent at the bedsit.
+static func arrears_countdown() -> Dictionary:
+	var home: Dictionary = GameState.state["home"]
+	if home["arrears"] <= 0:
+		return {}
+	var bills: Dictionary = GameData.HOME_BILLS
+	var days: int = home["arrearsDays"]
+	var result := { "arrears": home["arrears"], "tier": home["tier"] }
+	var interest_threshold := int(bills["interestThresholdDays"])
+	# Interest applies at a rollover that starts with arrearsDays ≥ threshold.
+	if days < interest_threshold:
+		result["interestInDays"] = interest_threshold + 1 - days
+	# The downgrade fires at the rollover that brings arrearsDays to its threshold.
+	if get_prev_tier_id(home["tier"]) != "":
+		result["downgradeInDays"] = int(bills["downgradeThresholdDays"]) - days
+	return result
+
+
 # Returns the next tier up the ladder, "" at the top tier.
 static func get_next_tier_id(tier_id: String) -> String:
 	var order: Array = GameData.HOME_TIER_ORDER

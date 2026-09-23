@@ -71,6 +71,65 @@ static func capture_vein_station(context: Dictionary) -> void:
 	context["lastOre"] = current_ore
 
 
+# Arrears exceptions (ADR 0006 "Morning account and notifications") from
+# TimeSystem._apply_living_costs()'s result, then the live countdown while
+# still in arrears.
+static func capture_bills(context: Dictionary, result: Dictionary) -> void:
+	var exceptions: Array = context["exceptions"]
+	if result["interest"] > 0:
+		exceptions.append({ "kind": "arrearsInterest", "amount": result["interest"] })
+	if result["shortfall"] > 0:
+		exceptions.append({ "kind": "arrearsShortfall", "amount": result["shortfall"], "arrears": result["arrears"] })
+	var downgrade: Dictionary = result["downgrade"]
+	if not downgrade.is_empty():
+		exceptions.append({
+			"kind": "forcedDowngrade", "fromTier": downgrade["fromTier"], "toTier": downgrade["toTier"],
+			"roomsLost": downgrade["roomsLost"], "arrearsCleared": downgrade["arrearsCleared"], "arrears": downgrade["arrears"],
+		})
+	var countdown: Dictionary = Home.arrears_countdown()
+	if not countdown.is_empty():
+		countdown["kind"] = "arrearsCountdown"
+		exceptions.append(countdown)
+
+
+# BizBrief line for an arrears exception kind; "" for any other kind.
+# PROSE-REVIEW: arrears exception and countdown lines.
+static func arrears_label(exception: Dictionary) -> String:
+	match exception["kind"]:
+		"arrearsInterest":
+			return "Exception: £%d interest on the arrears." % exception["amount"]
+		"arrearsShortfall":
+			return "Exception: £%d short on the bills. Owed £%d." % [exception["amount"], exception["arrears"]]
+		"forcedDowngrade":
+			var text := "Exception: lost the %s for unpaid bills. Renting the %s now." % [GameData.HOME_TIERS[exception["fromTier"]]["name"], GameData.HOME_TIERS[exception["toTier"]]["name"]]
+			if exception["roomsLost"] > 0:
+				text += " %d room%s gone." % [exception["roomsLost"], "" if exception["roomsLost"] == 1 else "s"]
+			if exception["arrearsCleared"]:
+				text += " The debt went with it."
+			else:
+				text += " Still owed £%d." % exception["arrears"]
+			return text
+		"arrearsCountdown":
+			return " ".join(countdown_lines(exception))
+	return ""
+
+
+# Countdown sentences for a Home.arrears_countdown()-shaped dictionary.
+static func countdown_lines(countdown: Dictionary) -> Array[String]:
+	var lines: Array[String] = []
+	if countdown.has("interestInDays"):
+		lines.append("Interest starts %s." % _days_phrase(countdown["interestInDays"]))
+	else:
+		lines.append("Interest compounds daily.")
+	if countdown.has("downgradeInDays"):
+		lines.append("Lose the %s %s." % [GameData.HOME_TIERS[countdown["tier"]]["name"], _days_phrase(countdown["downgradeInDays"])])
+	return lines
+
+
+static func _days_phrase(days: int) -> String:
+	return "tomorrow" if days == 1 else "in %d days" % days
+
+
 # Future daily contract/staff operations report settled quantities here;
 # this records only an operation that already ran and never executes a sale.
 static func record_sale(context: Dictionary, sale_id: String, quantity: int) -> void:

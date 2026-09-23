@@ -75,6 +75,34 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("brief_renders_arrears_exceptions_and_countdown", func():
+		GameState.reset()
+		GameState.state["morningAccounts"]["latest"] = {
+			"day": 5, "openingBalance": 0, "closingBalance": 0,
+			"income": 0, "expenses": 0, "oreMovement": {},
+			"production": { "ore": {}, "items": {} },
+			"sales": {}, "losses": { "ore": {}, "veins": 0 },
+			"exceptions": [
+				{ "kind": "arrearsInterest", "amount": 20 },
+				{ "kind": "arrearsShortfall", "amount": 80, "arrears": 500 },
+				{ "kind": "forcedDowngrade", "fromTier": "flat", "toTier": "bedsit", "roomsLost": 0, "arrearsCleared": false, "arrears": 500 },
+				{ "kind": "arrearsCountdown", "arrears": 500, "tier": "bedsit", "interestInDays": 6 },
+			],
+		}
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var texts := NodeQuery.label_texts(phone)
+		for expected in [
+			"Exception: £20 interest on the arrears.",
+			"Exception: £80 short on the bills. Owed £500.",
+			"Exception: lost the Flat for unpaid bills. Renting the Bedsit now. Still owed £500.",
+			"Interest starts in 6 days.",
+		]:
+			assert_true(texts.has(expected), "missing %s" % expected)
+		phone.free()
+	)
+
 	run_case("quiet_sections_are_not_rendered", func():
 		GameState.reset()
 		MorningAccountsSystem.finish_rollover(MorningAccountsSystem.begin_rollover())

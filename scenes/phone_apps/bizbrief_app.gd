@@ -243,6 +243,8 @@ func _build_operations(account: Dictionary) -> Control:
 			"productionShortfall":
 				var recipe: Dictionary = GameData.RECIPES[exception["recipeKey"]]
 				c["content"].add_child(UI.muted_label("Exception: %s stock %d/%d." % [recipe["name"], exception["actual"], exception["target"]]))
+			"arrearsInterest", "arrearsShortfall", "forcedDowngrade", "arrearsCountdown":
+				c["content"].add_child(UI.muted_label(MorningAccountsSystem.arrears_label(exception)))
 	return c["panel"]
 
 
