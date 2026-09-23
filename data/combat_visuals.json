@@ -12,6 +12,7 @@
     "mugging": { "image": "", "fallbackColor": "pavement_wet" },
     "event_mugging": { "image": "", "fallbackColor": "pavement_wet" },
     "home_raid": { "image": "", "fallbackColor": "slate_dark" },
+    "home_alarm_defend": { "image": "", "fallbackColor": "slate_dark" },
     "event_raid": { "image": "", "fallbackColor": "brick_shadow" },
     "defend_vein": { "image": "", "fallbackColor": "puddle_shadow" },
     "archie_deal_mugging": { "image": "", "fallbackColor": "pavement_wet" }

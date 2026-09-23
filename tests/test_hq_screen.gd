@@ -120,7 +120,7 @@ func run() -> void:
 		defend_button.pressed.emit()
 
 		assert_true(GameState.state["combat"]["active"], "tapping Defend should start combat immediately")
-		assert_eq(GameState.state["combat"]["context"], "home_raid")
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_ALARM_DEFEND)
 		assert_true(not GameState.state["home"]["pendingRaid"], "the pending raid should be popped from the queue")
 
 		hq.free()
@@ -258,9 +258,9 @@ func run() -> void:
 		UiSim.tap_zone(hq, "security")
 
 		assert_true(GameState.state["combat"]["active"], "tapping the hostile door must start combat immediately, same as the Defend button")
-		assert_eq(GameState.state["combat"]["context"], "home_raid")
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_ALARM_DEFEND)
 		assert_true(not GameState.state["home"]["pendingRaid"], "the pending raid should be popped from the queue")
-		assert_eq(GameState.state["currentScreen"], "combat", "Combat.start_home_raid_combat() navigates to the combat screen, not the door sub-view")
+		assert_eq(GameState.state["currentScreen"], "combat", "Combat.start_home_alarm_defend_combat() navigates to the combat screen, not the door sub-view")
 		assert_eq(GameState.state["modal"], null)
 
 		hq.free()

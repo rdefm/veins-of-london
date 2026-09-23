@@ -9,6 +9,9 @@ const CONTEXT_RAID: String = "raid"
 const CONTEXT_MUGGING: String = "mugging"
 const CONTEXT_EVENT_MUGGING: String = "event_mugging"
 const CONTEXT_HOME_RAID: String = "home_raid"
+# A later HQ raid defended from its alarm (Home.trigger_defend()); no quest
+# dialogue, Home owns the win/loss consequence (R§3.8).
+const CONTEXT_HOME_ALARM_DEFEND: String = "home_alarm_defend"
 const CONTEXT_EVENT_RAID: String = "event_raid"
 const CONTEXT_DEFEND_VEIN: String = "defend_vein"
 # Archie's own deal going wrong; resolves via ArchieDeals.resolve_mugging(),
@@ -18,7 +21,7 @@ const CONTEXT_ARCHIE_DEAL_MUGGING: String = "archie_deal_mugging"
 const CANONICAL_CONTEXTS: Array[String] = [
 	CONTEXT_RAID, CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING,
 	CONTEXT_HOME_RAID, CONTEXT_EVENT_RAID, CONTEXT_DEFEND_VEIN,
-	CONTEXT_ARCHIE_DEAL_MUGGING,
+	CONTEXT_ARCHIE_DEAL_MUGGING, CONTEXT_HOME_ALARM_DEFEND,
 ]
 
 # Contexts that are a mugging in flavour (no vein at stake) rather than a
@@ -303,6 +306,19 @@ static func start_street_mugging() -> void:
 
 # Called by combat_intro events via the start_home_raid_combat effect op.
 static func start_home_raid_combat() -> void:
+	_start_combat(CONTEXT_HOME_RAID, null, [_home_raider_enemy()],
+		["They're in the flat. You've got the crowbar. This is happening."],
+		"homeRaidWon")
+
+
+# Called by Home.trigger_defend(): same raider, no onWin (Home resolves it).
+static func start_home_alarm_defend_combat() -> void:
+	_start_combat(CONTEXT_HOME_ALARM_DEFEND, null, [_home_raider_enemy()],
+		["They're in the flat. You've got the crowbar. This is happening."],
+		"")
+
+
+static func _home_raider_enemy() -> Dictionary:
 	var raider: Dictionary = GameData.ENEMY_HOME_RAID_RAIDER
 	var enemy := {
 		"name": raider["name"], "hp": raider["hp"], "hpMax": raider["hp"],
@@ -310,9 +326,7 @@ static func start_home_raid_combat() -> void:
 		"isMugging": false,
 	}
 	enemy.merge(_enemy_capabilities_from_template(raider))
-	_start_combat(CONTEXT_HOME_RAID, null, [enemy],
-		["They're in the flat. You've got the crowbar. This is happening."],
-		"homeRaidWon")
+	return enemy
 
 
 # Debug-only in M0 (see generate_raid_enemy). Also called by events.gd's
@@ -1468,6 +1482,8 @@ static func exit_combat() -> Dictionary:
 		return _exit_event_mugging()
 	if context == CONTEXT_HOME_RAID:
 		return _exit_home_raid(outcome)
+	if context == CONTEXT_HOME_ALARM_DEFEND:
+		return _exit_home_alarm_defend(outcome)
 	if context == CONTEXT_EVENT_RAID:
 		return _exit_event_raid(outcome)
 	if context == CONTEXT_DEFEND_VEIN:
@@ -1512,6 +1528,14 @@ static func _exit_home_raid(outcome) -> Dictionary:
 	var debrief_id: String = "home_raid_debrief_win" if outcome == "win" else "home_raid_debrief_loss"
 	Events.start_event(debrief_id)
 	return { "nextScreen": "event" }
+
+
+# Home owns the consequence (nothing on a win, the undefended-raid loss
+# otherwise); no debrief event either way, routes home.
+static func _exit_home_alarm_defend(outcome) -> Dictionary:
+	Home.resolve_defend_outcome(outcome == "win")
+	_route_phone_home()
+	return { "nextScreen": "phone" }
 
 
 # A raid event card's "caught" branch, via start_raid(..., "event_raid").

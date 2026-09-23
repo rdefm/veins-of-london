@@ -147,8 +147,16 @@ static func trigger_defend() -> bool:
 		return false
 	home["pendingRaid"] = false
 	home["pendingRaidNotificationId"] = null
-	Combat.start_home_raid_combat()
+	Combat.start_home_alarm_defend_combat()
 	return true
+
+
+# Called by Combat's home_alarm_defend exit: a win costs nothing, anything
+# else resolves exactly as an undefended raid.
+static func resolve_defend_outcome(won: bool) -> void:
+	if won:
+		return
+	_apply_raid_loss()
 
 
 # Returns the next tier up the ladder, "" at the top tier.

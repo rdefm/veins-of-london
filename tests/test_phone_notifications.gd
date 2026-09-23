@@ -247,7 +247,7 @@ func run() -> void:
 		defend_button.pressed.emit()
 
 		assert_true(GameState.state["combat"]["active"], "tapping the notification's Defend button should start combat immediately")
-		assert_eq(GameState.state["combat"]["context"], "home_raid")
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_ALARM_DEFEND)
 		assert_true(not GameState.state["home"]["pendingRaid"], "the triggered raid should be popped from the queue")
 
 		phone.free()

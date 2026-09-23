@@ -46,7 +46,7 @@ Data file per system: see `data/*.json` below.
 | equipment.gd | Weapon equip/unequip |
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | factions.gd | Faction joining |
-| home.gd | Home tier/security/rooms/raid chance |
+| home.gd | Home tier/security/rooms/raid chance; daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: stop, notebook, ore |
 | map_events.gd | Map event queue + playback |

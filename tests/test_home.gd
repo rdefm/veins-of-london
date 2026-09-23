@@ -262,9 +262,47 @@ func run() -> void:
 
 		assert_true(started, "trigger_defend should report it started combat")
 		assert_true(GameState.state["combat"]["active"], "tapping Defend must start combat immediately")
-		assert_eq(GameState.state["combat"]["context"], "home_raid")
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_ALARM_DEFEND)
 		assert_true(not GameState.state["home"]["pendingRaid"], "the pending raid must be popped from the queue")
 		assert_eq(GameState.state["home"]["pendingRaidNotificationId"], null)
+	)
+
+	run_case("alarm_defend_win_loses_nothing_starts_no_event_and_routes_home", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"] = { "time": 100, "life": 7 }
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "n1"
+		Home.trigger_defend()
+		GameState.state["combat"]["outcome"] = "win"
+
+		var result := Combat.exit_combat()
+
+		assert_eq(result["nextScreen"], "phone")
+		assert_eq(GameState.state["currentScreen"], "phone")
+		assert_eq(GameState.state["event"], null, "no debrief event on an alarm-defend win")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 100, "a win costs nothing")
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 7)
+		assert_true(not GameState.state["flags"]["homeRaidEventSeen"], "the quest flags stay untouched")
+	)
+
+	run_case("alarm_defend_loss_matches_undefended_raid_loss_and_starts_no_event", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"] = { "time": 100, "life": 7 }
+		GameState.state["home"]["rooms"] = ["safeRoom"]
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["home"]["pendingRaidNotificationId"] = "n1"
+		Home.trigger_defend()
+		GameState.state["combat"]["outcome"] = "loss"
+
+		var result := Combat.exit_combat()
+
+		assert_eq(result["nextScreen"], "phone")
+		assert_eq(GameState.state["currentScreen"], "phone")
+		assert_eq(GameState.state["event"], null, "no debrief event on an alarm-defend loss")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 75, "same as _apply_raid_loss with safeRoom: floor(100*0.25) lost")
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 6, "floor(7*0.25) = 1 lost")
+		assert_true(not GameState.state["flags"]["homeRaidEventSeen"], "the quest flags stay untouched")
+		assert_true(not GameState.state["flags"]["homeRaidWon"])
 	)
 
 	run_case("trigger_defend_is_a_no_op_when_nothing_is_pending", func():

@@ -150,7 +150,7 @@ func _on_pacing_button_pressed() -> void:
 	_pacing_button.text = _pacing_button_label()
 
 func _context_label(context: String) -> String:
-	if context == "home_raid":
+	if context == Combat.CONTEXT_HOME_RAID or context == Combat.CONTEXT_HOME_ALARM_DEFEND:
 		return "Home Raid"
 	if context == "raid":
 		return "Raid"

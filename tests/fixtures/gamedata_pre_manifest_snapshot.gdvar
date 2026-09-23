@@ -368,6 +368,10 @@
 "fallbackColor": "brick_shadow",
 "image": ""
 },
+"home_alarm_defend": {
+"fallbackColor": "slate_dark",
+"image": ""
+},
 "home_raid": {
 "fallbackColor": "slate_dark",
 "image": ""
