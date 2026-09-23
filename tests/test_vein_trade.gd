@@ -36,43 +36,43 @@ func run() -> void:
 	run_case("quote_fresh_seed_fair", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(20, "fair")
-		assert_eq(VeinTrade.quote(vein), 980)
+		assert_eq(VeinTrade.quote(vein), 4900)
 	)
 
 	run_case("quote_fresh_seed_rich", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(20, "rich")
-		assert_eq(VeinTrade.quote(vein), 1568)
+		assert_eq(VeinTrade.quote(vein), 7840)
 	)
 
 	run_case("quote_neutral_dormant_rich", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(50, "rich")
-		assert_eq(VeinTrade.quote(vein), 3920)
+		assert_eq(VeinTrade.quote(vein), 19600)
 	)
 
 	run_case("quote_lush_85_fair", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(85, "fair")
-		assert_eq(VeinTrade.quote(vein), 4165)
+		assert_eq(VeinTrade.quote(vein), 20825)
 	)
 
 	run_case("quote_lush_85_rich", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(85, "rich")
-		assert_eq(VeinTrade.quote(vein), 6664)
+		assert_eq(VeinTrade.quote(vein), 33320)
 	)
 
 	run_case("quote_rampant_100_rich", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(100, "rich")
-		assert_eq(VeinTrade.quote(vein), 7840)
+		assert_eq(VeinTrade.quote(vein), 39200)
 	)
 
 	run_case("quote_lush_85_saturated", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(85, "saturated")
-		assert_eq(VeinTrade.quote(vein), 9996)
+		assert_eq(VeinTrade.quote(vein), 49980)
 	)
 
 	# ── sell_to_faction() ───────────────────────────────────────────────
@@ -331,7 +331,7 @@ func run() -> void:
 
 	run_case("sell_to_faction_passes_its_own_contact_id_through_to_the_transfer", func():
 		GameState.reset()
-		_seed_tiered_vein(5, "fair")
+		_seed_tiered_vein(1, "fair")
 		var price: int = VeinTrade.quote(GameState.state["player"]["veins"][0])
 		assert_true(price < 500, "sanity: keep this test under the personal-lane rate")
 
@@ -450,12 +450,12 @@ func run() -> void:
 
 	run_case("buy_from_faction_accrues_tradeProgress_on_the_price", func():
 		GameState.reset()
-		# growth 5 on "fair" keeps the quote below RelationAccrual's £350
+		# growth 1 on "fair" keeps the quote below RelationAccrual's £350
 		# collective rate, so tradeProgress lands at the raw price with no
 		# daily-cap rollover complicating the assertion (see
 		# transfer_to_faction_still_accrues_tradeProgress_on_the_given_price's
 		# own low-price choice for the same reason).
-		var faction_vein := _faction_seed_vein(5, "fair")
+		var faction_vein := _faction_seed_vein(1, "fair")
 		GameState.state["player"]["cash"] = 100000
 		var price: int = VeinTrade.quote(faction_vein)
 		assert_true(price < 350, "sanity: keep this test under the accrual rate")
@@ -467,7 +467,7 @@ func run() -> void:
 
 	run_case("buy_from_faction_also_feeds_the_named_vendors_own_personal_relation_lane", func():
 		GameState.reset()
-		var faction_vein := _faction_seed_vein(5, "fair")
+		var faction_vein := _faction_seed_vein(1, "fair")
 		GameState.state["player"]["cash"] = 100000
 		var price: int = VeinTrade.quote(faction_vein)
 		assert_true(price < 500, "sanity: keep this test under the personal-lane rate")

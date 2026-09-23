@@ -33,5 +33,5 @@
   "driftRandomMax": 5,
   "seedOreCost": 40,
   "cultivatingXpLevels": [0, 0, 80, 220, 500, 1000],
-  "veinSaleBaseUnits": 35
+  "veinSaleBaseUnits": 175
 }

@@ -11,9 +11,9 @@ const SELL_FACTION_ID := "collective"
 
 # Barometer-effective price times terroir times a fixed per-unit rate,
 # scaled by how far above/below neutral the vein's growth sits. A fresh
-# seed (growth 20) prices at 0.4x, so flipping one straight off loses money
-# against its seed cost -- deliberate, so no same-day-sale rule is needed
-# to prevent seed-and-flip abuse.
+# seed (growth 20) prices at 0.4x. At veinSaleBaseUnits 175 that is ~70
+# calc-worth x terroir, above the 40-calc seed cost on non-poor tiers; no
+# same-day-sale rule guards seed-and-flip.
 static func quote(vein: Dictionary) -> int:
 	var base_price: int = GameData.ORE_TYPES[vein["oreType"]]["basePrice"]
 	var ore_price: int = Barometer.get_effective_ore_price(vein["oreType"], base_price)

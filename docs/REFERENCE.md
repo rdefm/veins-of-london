@@ -60,6 +60,8 @@ There is NO vein lifespan/expiry mechanic beyond the collapse roll above.
 
 Other cultivating constants (also `data/vein_growth.json`, colocated since their old home `vein_levels.json` no longer exists): `SEED_ORE_COST = 40`. `CULTIVATING_XP_LEVELS = [0, 0, 80, 220, 500, 1000]` (index = cultivating skill level).
 
+**Vein sale price** (`VeinTrade.quote(vein)`): `round(orePrice(oreType) × terroirYieldMult(tier) × veinSaleBaseUnits × growth / neutral)`, `veinSaleBaseUnits: 175`. Every vein buy/sell path derives from this one quote: the faction lane (buy and sell) uses it as-is; Archie's price is `quote × ARCHIE_VEIN_MARKUP` before his cut ratio. Claim fees, security costs and ore prices do not read it.
+
 ### 1.3 `data/recipes.json`
 
 Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one key per required ore type, cost computed per-key (§3.5). Existing recipes are all single-ingredient (one-key dicts); nothing in the schema requires that.

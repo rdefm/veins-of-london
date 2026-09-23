@@ -657,7 +657,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
 		Economy.adjust_sell_qty("ore_time", 3, 10)
-		var vein := Fixtures.seed_vein("v1", 5)
+		var vein := Fixtures.seed_vein("v1", 1)
 		var vein_price: int = VeinTrade.quote(vein)
 		assert_true(vein_price < 500, "sanity: keep this test under the personal-lane rate")
 		Economy.toggle_sell_vein("v1")
