@@ -41,6 +41,7 @@ const DEBUG_SETUP_CONTEXTS: Array[String] = [CONTEXT_RAID, CONTEXT_MUGGING, CONT
 const BEAT_PLAYER_ATTACK := "player_attack"
 const BEAT_ALLY_ATTACK := "ally_attack"
 const BEAT_ALLY_HEAL := "ally_heal"
+const BEAT_ALLY_CAST := "ally_cast"
 const BEAT_ENEMY_ATTACK := "enemy_attack"
 const BEAT_ENEMY_EVADE := "enemy_evade"
 const BEAT_PLAYER_EVADE := "player_evade"
@@ -939,6 +940,9 @@ static func _resolve_player_turn(combat: Dictionary, beats: Variant = null, moti
 # attack the player's focused enemy. Same evade/damage shape as the
 # player's own attack. `ally_index` is only needed to stamp onto the beat.
 static func _ally_turn(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant = null) -> void:
+	if _ally_try_cast(combat, ally, ally_index, beats):
+		return
+
 	var enemy: Dictionary = _focused_enemy(combat)
 	var target_index: int = _enemy_action_index(combat)
 
@@ -959,6 +963,78 @@ static func _ally_turn(combat: Dictionary, ally: Dictionary, ally_index: int, be
 	_log(combat, beats, "%s hits %s for %d. Enemy: %d/%d HP." % [ally["name"], enemy["name"], dmg, enemy["hp"], enemy["hpMax"]], BEAT_ALLY_ATTACK,
 		{ "actorType": "ally", "actorIndex": ally_index, "targetType": "enemy", "targetIndex": target_index, "dmg": dmg })
 	_maybe_win_from_direct_damage(combat, enemy, beats)
+
+
+# An ally with a combatDial (constants.json) spends one of the day's
+# charges instead of attacking: Healing Burst on the most-hurt of player /
+# alive allies below ALLY_HEAL_THRESHOLD_FRACTION, else Time Pearl when
+# 2+ enemies stand and none are frozen. Power reads the recipe's
+# effectPower at the Dial's fixed tier. Rewind fires from _try_ally_rewind().
+static func _ally_try_cast(combat: Dictionary, ally: Dictionary, ally_index: int, beats: Variant) -> bool:
+	if int(ally.get("dialCharges", 0)) <= 0:
+		return false
+	var dial: Dictionary = Contacts.combat_dial(ally["contactId"])
+	var loaded: Array = dial.get("complications", [])
+	var tier: int = int(dial.get("tier", 0))
+
+	if loaded.has("healingBurst"):
+		var target: Dictionary = _most_hurt_friendly(combat)
+		if not target.is_empty():
+			var power: int = int(GameData.RECIPES["healingBurst"]["effectPower"][tier])
+			var healed_entry: Dictionary = GameState.state["player"] if target["type"] == "player" else combat["allies"][target["index"]]
+			var old_hp: int = healed_entry["hp"]
+			healed_entry["hp"] = mini(healed_entry["hp"] + power, healed_entry["hpMax"])
+			ally["dialCharges"] -= 1
+			var who: String = "you" if target["type"] == "player" else healed_entry["name"]
+			var extra: Dictionary = { "actorType": "ally", "actorIndex": ally_index, "effectKey": "healingBurst", "castKey": "healingBurst" }
+			if target["type"] == "ally":
+				extra["targetType"] = "ally"
+				extra["targetIndex"] = target["index"]
+			# PROSE-REVIEW: James's dial Healing Burst line.
+			_log(combat, beats, "%s turns the dial. Healing Burst on %s — +%d HP." % [ally["name"], who, healed_entry["hp"] - old_hp], BEAT_ALLY_CAST, extra)
+			return true
+
+	if loaded.has("timePearl") and combat["frozenTurns"] == 0 and _alive_enemy_count(combat) >= 2:
+		var turns: int = int(GameData.RECIPES["timePearl"]["effectPower"][tier])
+		combat["frozenTurns"] += turns
+		ally["dialCharges"] -= 1
+		var turn_word: String = "turn" if turns == 1 else "turns"
+		# PROSE-REVIEW: James's dial Time Pearl line.
+		_log(combat, beats, "%s turns the dial. Time Pearl — enemies frozen for %d %s." % [ally["name"], turns, turn_word], BEAT_ALLY_CAST,
+			{ "actorType": "ally", "actorIndex": ally_index, "effectKey": "timePearl", "castKey": "timePearl" })
+		return true
+
+	return false
+
+
+# Lowest hp fraction among the player (if standing) and non-koed allies,
+# below ALLY_HEAL_THRESHOLD_FRACTION -- {type, index} or {} when nobody is.
+static func _most_hurt_friendly(combat: Dictionary) -> Dictionary:
+	var best: Dictionary = {}
+	var best_fraction: float = ALLY_HEAL_THRESHOLD_FRACTION
+	var player: Dictionary = GameState.state["player"]
+	if player["hp"] > 0:
+		var fraction: float = float(player["hp"]) / float(player["hpMax"])
+		if fraction < best_fraction:
+			best_fraction = fraction
+			best = { "type": "player", "index": -1 }
+	var allies: Array = combat["allies"]
+	for i in range(allies.size()):
+		if allies[i]["koed"]:
+			continue
+		var fraction: float = float(allies[i]["hp"]) / float(allies[i]["hpMax"])
+		if fraction < best_fraction:
+			best_fraction = fraction
+			best = { "type": "ally", "index": i }
+	return best
+
+
+static func _alive_enemy_count(combat: Dictionary) -> int:
+	var count := 0
+	for enemy in combat["enemies"]:
+		if not enemy["koed"]:
+			count += 1
+	return count
 
 
 # The enemy's single attack targets the player or one alive ally,
@@ -1059,6 +1135,8 @@ static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_in
 		# path deliberately stays un-beaten -- rewind-as-animation is its
 		# own, separate mechanism, not this linear beat queue.
 		if _try_failsafe(combat, player):
+			return
+		if _try_ally_rewind(combat, player):
 			return
 		combat["outcome"] = "loss"
 		_log(combat, beats, "You're done. You come round somewhere unpleasant.", BEAT_COMBAT_LOSS, {})
@@ -1625,6 +1703,26 @@ static func _try_failsafe(combat: Dictionary, player: Dictionary) -> bool:
 	combat["log"].append("⚑ Failsafe fires. Death, reversed -- administratively.")
 	return true
 
+
+
+# After the player's own Failsafe: a standing ally with Rewind loaded and a
+# Dial charge left spends it to undo the lethal hit, once per fight. Same
+# snapshot restore (and same skipped reverse replay) as _try_failsafe().
+static func _try_ally_rewind(combat: Dictionary, player: Dictionary) -> bool:
+	if combat["snapshots"].is_empty():
+		return false
+	for ally in combat["allies"]:
+		if ally["koed"] or ally.get("rewindUsed", false) or int(ally.get("dialCharges", 0)) <= 0:
+			continue
+		if not Contacts.combat_dial(ally["contactId"]).get("complications", []).has("rewind"):
+			continue
+		ally["dialCharges"] -= 1
+		ally["rewindUsed"] = true
+		_restore_from_snapshot(combat, player)
+		# PROSE-REVIEW: James's dial Rewind line.
+		combat["log"].append("⟲ %s turns the dial back a notch. You're still standing." % ally["name"])
+		return true
+	return false
 
 
 static func _dispatch_on_win() -> void:

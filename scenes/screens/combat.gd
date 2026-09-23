@@ -337,6 +337,10 @@ func _on_beat_played(beat: Dictionary) -> void:
 			actor_slot.play_attack()
 			if beat.get("motionBoosted", false):
 				actor_slot.spawn_afterimage()
+	if kind == Combat.BEAT_ALLY_CAST:
+		var caster_slot: CombatStage.StageSlot = _stage.resolve_target_slot(_beat_actor(beat))
+		if caster_slot != null:
+			caster_slot.play_cast()
 	if kind == Combat.BEAT_ALLY_HEAL:
 		var healer_slot: CombatStage.StageSlot = _stage.resolve_target_slot(_beat_actor(beat))
 		if healer_slot != null:

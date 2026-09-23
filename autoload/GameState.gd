@@ -402,6 +402,9 @@ func _new_contacts_state() -> Dictionary:
 			"combatSpeed": defaults.get("combatSpeed", 0),
 			"koCooldownDays": defaults.get("koCooldownDays", 0),
 			"koCooldownUntilDay": null,
+			# Ally Dial casts left today; refilled by Contacts.daily_dial_regen().
+			# The loadout itself (complications/tier) stays in constants.json's combatDial.
+			"dialCharges": defaults.get("combatDial", {}).get("chargesPerDay", 0),
 			# Same £-denominated accrual as state.factions[id].tradeProgress,
 			# but for Archie -- he has no faction, he *is* the lane.
 			"tradeProgress": 0,

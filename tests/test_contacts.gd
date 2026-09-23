@@ -134,9 +134,9 @@ func run() -> void:
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		assert_true(Contacts.can_join_combat("archie"), "recruited with a combat kit")
 
-		# james has no combat kit defined in constants.json yet (combatHpMax 0)
-		GameState.state["contacts"]["james"]["recruited"] = true
-		assert_true(not Contacts.can_join_combat("james"), "recruited but no combat kit -- never eligible")
+		# des has no combat kit defined in constants.json (combatHpMax 0)
+		GameState.state["contacts"]["des"]["recruited"] = true
+		assert_true(not Contacts.can_join_combat("des"), "recruited but no combat kit -- never eligible")
 	)
 
 	run_case("can_join_combat_needs_no_relation_threshold_once_recruited", func():
@@ -215,7 +215,48 @@ func run() -> void:
 
 	run_case("can_assist_raid_is_false_for_a_contact_with_no_raid_assist_threshold_defined", func():
 		GameState.reset()
+		GameState.state["contacts"]["des"]["recruited"] = true
+		GameState.state["contacts"]["des"]["relation"] = 1000
+		assert_true(not Contacts.can_assist_raid("des"), "des has no combat kit -- can_join_combat excludes him regardless")
+	)
+
+	run_case("recruited_james_joins_combat_with_his_kit_and_full_dial", func():
+		GameState.reset()
 		GameState.state["contacts"]["james"]["recruited"] = true
-		GameState.state["contacts"]["james"]["relation"] = 1000
-		assert_true(not Contacts.can_assist_raid("james"), "james has no combat kit -- can_join_combat excludes him regardless")
+		assert_true(Contacts.can_join_combat("james"))
+		var ally := Contacts.build_combat_ally("james")
+		assert_eq(ally["hpMax"], 35)
+		assert_eq(ally["attackMin"], 2)
+		assert_eq(ally["attackMax"], 4)
+		assert_eq(ally["speed"], 6)
+		assert_eq(ally["stash"], 0)
+		assert_eq(ally["dialCharges"], 3)
+	)
+
+	run_case("dial_charges_carry_over_between_fights_and_refill_daily", func():
+		GameState.reset()
+		var ally := Contacts.build_combat_ally("james")
+		ally["dialCharges"] = 1
+		Contacts.replenish_after_combat([ally])
+		assert_eq(GameState.state["contacts"]["james"]["dialCharges"], 1, "spent casts stay spent after the fight")
+		assert_eq(GameState.state["contacts"]["archie"]["dialCharges"], 0, "archie has no dial")
+
+		Contacts.daily_dial_regen()
+		assert_eq(GameState.state["contacts"]["james"]["dialCharges"], 3)
+		assert_eq(GameState.state["contacts"]["archie"]["dialCharges"], 0, "no combatDial -- nothing to refill")
+	)
+
+	run_case("old_save_with_kitless_james_adopts_the_new_combat_kit", func():
+		GameState.reset()
+		var save: Dictionary = GameState.state.duplicate(true)
+		var james: Dictionary = save["contacts"]["james"]
+		for key in ["combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatSpeed", "koCooldownDays"]:
+			james[key] = 0
+		james.erase("dialCharges")
+		save["contacts"]["archie"]["combatHp"] = 7
+		var out: Dictionary = SaveManager.backfill_defaults(save)
+		assert_eq(out["contacts"]["james"]["combatHpMax"], 35)
+		assert_eq(out["contacts"]["james"]["combatSpeed"], 6)
+		assert_eq(out["contacts"]["james"]["dialCharges"], 3)
+		assert_eq(out["contacts"]["archie"]["combatHp"], 7, "a contact that already had a kit is untouched")
 	)

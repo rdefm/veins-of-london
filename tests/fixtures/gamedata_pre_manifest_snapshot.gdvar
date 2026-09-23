@@ -419,14 +419,11 @@
 "camden": {
 "image": "res://assets/combat/backdrops/camden.png"
 },
+"city": {
+"image": "res://assets/combat/backdrops/city.png"
+},
 "greenwich": {
 "image": "res://assets/combat/backdrops/greenwich.png"
-},
-"shoreditch": {
-"image": "res://assets/combat/backdrops/shoreditch.png"
-},
-"soho": {
-"image": "res://assets/combat/backdrops/soho.png"
 },
 "hampstead": {
 "image": "res://assets/combat/backdrops/hampstead.png"
@@ -434,11 +431,14 @@
 "kingscross": {
 "image": "res://assets/combat/backdrops/kingscross.png"
 },
+"shoreditch": {
+"image": "res://assets/combat/backdrops/shoreditch.png"
+},
+"soho": {
+"image": "res://assets/combat/backdrops/soho.png"
+},
 "whitechapel": {
 "image": "res://assets/combat/backdrops/whitechapel.png"
-},
-"city": {
-"image": "res://assets/combat/backdrops/city.png"
 }
 },
 "meta": {
@@ -517,6 +517,31 @@
 "fps": 0,
 "frameCount": 0,
 "image": ""
+},
+"ko": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+}
+},
+"james": {
+"_note": "Separate single-pose files ('images', one frame each) -- attack plays attack_1 wind-up then attack_2 strike; 'cast' is the Dial-cast pose (BEAT_ALLY_CAST). james_idle2.png is 530x470 vs the 1347x1168 set, so idle uses james_idle.png only.",
+"attack": {
+"fps": 5,
+"images": ["res://assets/combat/james/james_attack_1.png", "res://assets/combat/james/james_attack_2.png"]
+},
+"cast": {
+"fps": 3,
+"images": ["res://assets/combat/james/james_cast.png"]
+},
+"hit": {
+"fps": 0,
+"frameCount": 0,
+"image": ""
+},
+"idle": {
+"fps": 0,
+"images": ["res://assets/combat/james/james_idle.png"]
 },
 "ko": {
 "fps": 0,
@@ -683,6 +708,18 @@
 "unlocked": false
 },
 "james": {
+"combatAttackMax": 4,
+"combatAttackMin": 2,
+"combatDial": {
+"chargesPerDay": 3,
+"complications": ["timePearl", "rewind", "healingBurst"],
+"tier": 3
+},
+"combatHealAmount": 0,
+"combatHpMax": 35,
+"combatSpeed": 6,
+"combatStashMax": 0,
+"koCooldownDays": 2,
 "recruitThreshold": 100,
 "recruitable": true,
 "startRelation": 0,

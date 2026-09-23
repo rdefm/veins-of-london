@@ -85,6 +85,8 @@ class StageSlot extends Control:
 	var _attack_fps: float = 12.0
 	var _self_patch_keyposes: Array[Texture2D] = []
 	var _self_patch_fps: float = 10.0
+	var _cast_keyposes: Array[Texture2D] = []
+	var _cast_fps: float = 10.0
 	class PoseStep:
 		var texture: Texture2D
 		var offset: Vector2
@@ -262,6 +264,9 @@ class StageSlot extends Control:
 	func set_self_patch_animation(frames: Array[Texture2D], fps: float) -> void:
 		_self_patch_keyposes = frames
 		_self_patch_fps = fps
+	func set_cast_animation(frames: Array[Texture2D], fps: float) -> void:
+		_cast_keyposes = frames
+		_cast_fps = fps
 	func play_attack() -> void:
 		if _attack_keyposes.is_empty():
 			return
@@ -304,6 +309,16 @@ class StageSlot extends Control:
 			PoseStep.new(pose, Vector2.ZERO),
 		]
 		_start_one_shot(steps, _self_patch_fps, false)
+	# Dial cast: hold the cast pose with a slight rise, like the self-patch.
+	func play_cast() -> void:
+		if _cast_keyposes.is_empty():
+			return
+		var pose: Texture2D = _cast_keyposes[0]
+		var steps: Array[PoseStep] = [
+			PoseStep.new(pose, Vector2(0.0, -CombatStage.SELF_PATCH_RISE_PX)),
+			PoseStep.new(pose, Vector2.ZERO),
+		]
+		_start_one_shot(steps, _cast_fps, false)
 	func _new_overlay_rect(z: int) -> TextureRect:
 		var rect := TextureRect.new()
 		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -495,6 +510,7 @@ var _attack_keyposes_by_template: Dictionary = {}
 var _hit_keyposes_by_template: Dictionary = {}
 var _ko_keyposes_by_template: Dictionary = {}
 var _self_patch_keyposes_by_template: Dictionary = {}
+var _cast_keyposes_by_template: Dictionary = {}
 var _effect_frames_by_key: Dictionary = {}
 var _stage_shake_layer: Control
 
@@ -700,12 +716,14 @@ func _load_template_action_animations() -> void:
 	_hit_keyposes_by_template = {}
 	_ko_keyposes_by_template = {}
 	_self_patch_keyposes_by_template = {}
+	_cast_keyposes_by_template = {}
 	var templates: Dictionary = GameData.COMBAT_VISUALS.get("templates", {})
 	for key in templates.keys():
 		_attack_keyposes_by_template[key] = _load_action_keyposes(key, "attack", ATTACK_KEYPOSE_COUNT)
 		_hit_keyposes_by_template[key] = _load_action_keyposes(key, "hit", HIT_KEYPOSE_COUNT)
 		_ko_keyposes_by_template[key] = _load_action_keyposes(key, "ko", KO_KEYPOSE_COUNT)
 		_self_patch_keyposes_by_template[key] = _load_action_keyposes(key, "selfPatch", HIT_KEYPOSE_COUNT)
+		_cast_keyposes_by_template[key] = _load_action_keyposes(key, "cast", HIT_KEYPOSE_COUNT)
 func _load_action_keyposes(template_key: String, key: String, count: int) -> Dictionary:
 	var loaded := _load_animation_frames(template_key, key)
 	return { "frames": _select_action_keyposes(loaded["frames"], count), "fps": loaded["fps"] }
@@ -729,10 +747,18 @@ func _resolve_action_keyposes(by_template: Dictionary, template_key: String, def
 func _load_animation_frames(template_key: String, key: String) -> Dictionary:
 	var entry: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get(template_key, {}).get(key, {})
 	return _load_sheet_frames(entry)
+# An entry is either one horizontal sheet ({image, frameCount}) or
+# separate single-pose files ({images: [...]}), one frame each.
 func _load_sheet_frames(entry: Dictionary) -> Dictionary:
 	var image_path: String = entry.get("image", "")
 	var frame_count: int = entry.get("frameCount", 0)
 	var empty: Array[Texture2D] = []
+	if entry.has("images"):
+		var posed: Array[Texture2D] = []
+		for path in entry["images"]:
+			if ResourceLoader.exists(path):
+				posed.append(load(path))
+		return { "frames": posed, "fps": entry.get("fps", 0.0) }
 	if image_path.is_empty() or frame_count < 1 or not ResourceLoader.exists(image_path):
 		return { "frames": empty, "fps": entry.get("fps", 0.0) }
 
@@ -845,6 +871,7 @@ func _sync_band(pool: Dictionary, display_entries: Array, side: String) -> void:
 			[_hit_keyposes_by_template, _default_hit_keyposes, _default_hit_fps, slot.set_hit_animation],
 			[_ko_keyposes_by_template, _default_ko_keyposes, _default_ko_fps, slot.set_ko_animation],
 			[_self_patch_keyposes_by_template, _empty_idle_frames, 0.0, slot.set_self_patch_animation],
+			[_cast_keyposes_by_template, _empty_idle_frames, 0.0, slot.set_cast_animation],
 		]:
 			var resolved: Dictionary = _resolve_action_keyposes(action[0], template_key, action[1], action[2])
 			var setter: Callable = action[3]

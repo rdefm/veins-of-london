@@ -230,6 +230,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 			result[key] = defaults[key]
 	_backfill_new_contacts(result, defaults)
 	_backfill_new_contact_keys(result, defaults)
+	_backfill_contact_combat_kits(result, defaults)
 	_backfill_new_collective_keys(result, defaults)
 	_backfill_new_world_keys(result, defaults)
 	_backfill_new_player_keys(result, defaults)
@@ -282,6 +283,25 @@ func _backfill_new_contacts(result: Dictionary, defaults: Dictionary) -> void:
 	for contact_id in defaults["contacts"].keys():
 		if not contacts.has(contact_id):
 			contacts[contact_id] = defaults["contacts"][contact_id]
+
+
+# A contact saved before constants.json gave them a combat kit carries
+# combatHpMax 0 (present, so _backfill_new_contact_keys skips it) -- adopt
+# the default kit whole. Never touches a contact that already had one.
+func _backfill_contact_combat_kits(result: Dictionary, defaults: Dictionary) -> void:
+	if not result.has("contacts"):
+		return
+	var contacts: Dictionary = result["contacts"]
+	var default_contacts: Dictionary = defaults["contacts"]
+	for contact_id in contacts.keys():
+		if not default_contacts.has(contact_id):
+			continue
+		var contact: Dictionary = contacts[contact_id]
+		var fresh: Dictionary = default_contacts[contact_id]
+		if int(contact.get("combatHpMax", 0)) > 0 or int(fresh["combatHpMax"]) <= 0:
+			continue
+		for key in ["combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatStashMax", "combatStash", "combatHealAmount", "combatSpeed", "koCooldownDays", "dialCharges"]:
+			contact[key] = fresh[key]
 
 
 func _backfill_new_contact_keys(result: Dictionary, defaults: Dictionary) -> void:
@@ -513,7 +533,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		for contact in state["contacts"].values():
 			for key in ["relation", "recruitThreshold", "raidAssistThreshold", "craftingSkill", "craftingXP", "cultivatingSkill", "cultivatingXP", "salesSkill", "salesXP", "stealthSkill", "stealthXP",
 					"combatHpMax", "combatHp", "combatAttackMin", "combatAttackMax", "combatStashMax", "combatStash", "combatHealAmount", "combatSpeed", "koCooldownDays", "koCooldownUntilDay",
-					"tradeProgress"]:
+					"dialCharges", "tradeProgress"]:
 				_int_key(contact, key)
 
 	if state.has("barometer"):
@@ -586,7 +606,7 @@ func _restore_combat_int_types(combat: Dictionary) -> void:
 			_restore_turn_cursor_int_types(snap["turnCursor"])
 	# allies[] entries (Contacts.build_combat_ally), speed included.
 	for ally in combat.get("allies", []):
-		for key in ["hp", "hpMax", "attackMin", "attackMax", "stash", "healAmount", "speed"]:
+		for key in ["hp", "hpMax", "attackMin", "attackMax", "stash", "healAmount", "speed", "dialCharges"]:
 			_int_key(ally, key)
 	if combat.has("turnCursor"):
 		_restore_turn_cursor_int_types(combat["turnCursor"])

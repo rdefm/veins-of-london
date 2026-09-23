@@ -259,7 +259,7 @@ Muggers: generated, see §3.7.
 **Squad combat additions (§3.7a):** every template also carries a flat, authored `speed` (turn-order value, same units as the player's `GameData.COMBAT_SPEED_BY_LEVEL`, draft/needs balance sign-off). `data/enemies.json` also holds the Combat Skill curves as top-level tables — `combatXpLevels`, `combatAttackBonusByLevel`, `combatSpeedByLevel` — loaded into `GameData.COMBAT_XP_LEVELS`/`COMBAT_ATTACK_BONUS_BY_LEVEL`/`COMBAT_SPEED_BY_LEVEL`, the same "curve lives in the nearest relevant data file" precedent `dial.json` already sets for Dial's own tables. See §3.7a for how these are used.
 
 ### 1.11 Misc constants
-`TIME_BLOCKS = ["Morning","Afternoon","Evening"]` · `ARCHIE_ORE_GOAL = 10` · contacts: archie {startRelation:10, unlocked:true, recruitThreshold:80, combatHpMax:50, combatAttackMin:4, combatAttackMax:9, combatStashMax:2, combatHealAmount:15, koCooldownDays:2, raidAssistThreshold:50}, james {startRelation:0, unlocked:false, recruitThreshold:100} · James job trust→qty bands: relation ≤1 → 1–3; ≤3 → 3–6; else 5–10; payPerItem = CONSUMABLE_PRICES[recipe].
+`TIME_BLOCKS = ["Morning","Afternoon","Evening"]` · `ARCHIE_ORE_GOAL = 10` · contacts: archie {startRelation:10, unlocked:true, recruitThreshold:80, combatHpMax:50, combatAttackMin:4, combatAttackMax:9, combatStashMax:2, combatHealAmount:15, koCooldownDays:2, raidAssistThreshold:50}, james {startRelation:0, unlocked:false, recruitThreshold:100, combatHpMax:35, combatAttackMin:2, combatAttackMax:4, combatStashMax:0, combatHealAmount:0, koCooldownDays:2, combatSpeed:6, combatDial:{chargesPerDay:3, tier:3, complications:[timePearl, rewind, healingBurst]}} (human-confirmed; see §3.7 "Ally Dial") · James job trust→qty bands: relation ≤1 → 1–3; ≤3 → 3–6; else 5–10; payPerItem = CONSUMABLE_PRICES[recipe].
 
 **James job daily offer roll** (bugfixes-30, human-confirmed): on the daily tick, when no James job is active, roll sequentially — type-1 first, type-2 only if type-1 misses:
 - **Type-1 (flat pay):** `{recipeKey/qty}`-less job, pay `£300` flat for spending one time block. Offer chance = 100% if `player.cash <= 100`, else a 15% baseline.
@@ -361,13 +361,14 @@ state = {
     # combat* fields + koCooldownUntilDay (44-archie-combat-ally): a
     # generic ally-combat block every contact carries, not archie-only at
     # the schema level. A contact whose constants.json entry omits the
-    # combat* constants (james, for now) gets combatHpMax 0 -- read by
+    # combat* constants (des/nadia/hakim) gets combatHpMax 0 -- read by
     # Contacts.can_join_combat() as "no combat kit, never eligible".
     # raidAssistThreshold (45-archie-raid-assist): a second, higher relation
     # gate on top of recruitThreshold, checked only for the offensive
     # raid-assist ask (Contacts.can_assist_raid()), not for defend's
     # auto-join. Defaults to 0 for a contact whose constants.json entry omits
-    # it (james, for now) -- harmless, since can_join_combat()'s own
+    # it (james, des/nadia/hakim) -- harmless for james since recruiting
+    # already needs relation 100; for the rest can_join_combat()'s own
     # combatHpMax gate already excludes them from ever joining a fight.
     archie: { relation:10, unlocked:true,  recruited:false, recruitThreshold:80,
               craftingSkill:1, craftingXP:0, cultivatingSkill:1, cultivatingXP:0, salesSkill:1, salesXP:0, assignedRoom:null,
@@ -376,9 +377,10 @@ state = {
               koCooldownDays:2, koCooldownUntilDay:null, raidAssistThreshold:50 },
     james:  { relation:0,  unlocked:false, recruited:false, recruitThreshold:100,
               craftingSkill:1, craftingXP:0, cultivatingSkill:1, cultivatingXP:0, salesSkill:1, salesXP:0, assignedRoom:null,
-              combatHpMax:0, combatHp:0, combatAttackMin:0, combatAttackMax:0,
-              combatStashMax:0, combatStash:0, combatHealAmount:0,
-              koCooldownDays:0, koCooldownUntilDay:null, raidAssistThreshold:0 },
+              combatHpMax:35, combatHp:35, combatAttackMin:2, combatAttackMax:4,
+              combatStashMax:0, combatStash:0, combatHealAmount:0, combatSpeed:6,
+              koCooldownDays:2, koCooldownUntilDay:null, raidAssistThreshold:0,
+              dialCharges:3 },   # every contact carries dialCharges (0 without a combatDial)
   },
   # 21-contact-roles-sales-skill: salesSkill/salesXP use the same threshold
   # ladder [0, 0, 80, 220, 500, 1000] (data/home.json's salesXpLevels) as
@@ -551,6 +553,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
   | Rewind | No | Whole-fight state rewind, not a targeted effect. |
 - **onWin dispatch:** "muggingWon" → pay `pendingSaleCut`, sale result modal. "raidWon" → transfer vein to player. Exit combat: mugging-win keeps the sale modal; context "home_raid" → debrief flow; "home_alarm_defend" → §3.8 alarm-defend resolution, home; else → inventory (raid win) / home.
 - **Ally combat** (44-archie-combat-ally, `defend_vein`; extended to raid combat by 45-archie-raid-assist): in `defend_vein`, every recruited contact with `Contacts.can_join_combat()` true joins `combat.allies` automatically when the fight starts (no offer/decline — defending a shared vein needs no relation threshold once recruited, just not currently KO'd). In raid combat (`Combat.start_raid()`), joining is opt-in instead: the raid-initiation UI (the faction-vein site sheet, `scenes/screens/map.gd`) offers a "Bring Archie" toggle once `Contacts.can_assist_raid(id)` passes (`relation >= raidAssistThreshold` on top of `can_join_combat()`'s own recruited/kit/cooldown gates), and the player's choice rides into the raid event's context (`Raiding.begin_raid()` → `Events.start_event()`'s `ally_ids` → `events.gd`'s `_start_raid_combat()` → `Combat.start_raid(..., ally_ids)`), re-validated against `can_join_combat()` again once combat actually starts (`Combat._gather_raid_allies()`) since a time block passes between the ask and the fight. Once joined, an ally behaves identically regardless of how they got there. Each player-attack turn, after the player's own attacks resolve (and can still win the fight outright), every non-KO'd ally acts once, in array order: if `hp < hpMax × 0.4` and `stash > 0` they spend one stash charge healing `healAmount` (capped at hpMax) instead of attacking; otherwise they roll `chance(enemy.evadeChance)` (miss, no damage) else `dmg = rand(attackMin, attackMax)` against the enemy, same as the player's own hit — this can also win the fight outright. The enemy's one attack per turn then targets a target chosen uniformly at random from {player} ∪ {non-KO'd allies} — a plain player-only fight (no allies) is unaffected. A hit on the player is unchanged from the player-only path (shield, HP, loss/failsafe). A hit on an ally has no shield/evade/failsafe: `ally.hp = max(0, hp − dmg)`; at 0, `ally.koed = true` (removed from all further turn/target logic this fight, not deleted from the array) and `Contacts.knock_out(contactId, today)` sets `koCooldownUntilDay = today + koCooldownDays` — the fight itself continues for the player regardless. On `exit_combat()`, `Contacts.replenish_after_combat(combat.allies)` resets every fought ally's persistent `combatHp`/`combatStash` back to their Max (the HP pool's stakes are within-fight only; `koCooldownUntilDay` is untouched by this and gates `can_join_combat()` on future fights until the day arrives).
+- **Ally Dial** (human-confirmed): a contact whose constants.json entry has `combatDial {chargesPerDay, tier, complications}` (James: 3/day, tier 3, timePearl + rewind + healingBurst) carries `dialCharges` (state) into `combat.allies[i].dialCharges`. Spent charges persist across fights (`replenish_after_combat()` writes the ally's value back, never refills); `Contacts.daily_dial_regen()` refills to `chargesPerDay` on the daily tick. Power = `RECIPES[recipe].effectPower[tier]` (no skill/refine scaling). On the ally's turn, before stash-heal/attack, with ≥1 charge: (1) healingBurst on the lowest hp-fraction of {player if hp>0} ∪ {non-KO'd allies} below 0.4, capped at hpMax; else (2) timePearl if `frozenTurns == 0` and ≥2 non-KO'd enemies (`frozenTurns += power`); else attack as normal. Each cast spends 1 charge and emits `ally_cast` (with `effectKey`). Rewind: when the player's hp would hit 0 and their own Failsafe didn't fire, the first non-KO'd ally with rewind loaded, a charge left and `rewindUsed` unset spends a charge, sets `rewindUsed` (once per fight) and runs the same snapshot restore as Failsafe; needs a snapshot. Old saves whose contact has `combatHpMax 0` but a kit in constants adopt the kit on load.
 
 ### 3.7a Squad combat, turn order, and Combat Skill (2026-08-30 pass — extends/supersedes §3.7)
 

@@ -112,8 +112,25 @@ static func build_combat_ally(contact_id: String) -> Dictionary:
 		"stash": c["combatStash"],
 		"healAmount": c["combatHealAmount"],
 		"speed": c["combatSpeed"],
+		"dialCharges": c.get("dialCharges", 0),
 		"koed": false,
 	}
+
+
+# constants.json's combatDial block ({chargesPerDay, tier, complications}),
+# or {} for a contact with no Dial.
+static func combat_dial(contact_id: String) -> Dictionary:
+	return GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("combatDial", {})
+
+
+# Daily tick: every contact with a combatDial gets its day's charges back.
+static func daily_dial_regen() -> void:
+	var contacts: Dictionary = GameState.state["contacts"]
+	for contact_id in contacts.keys():
+		var dial: Dictionary = combat_dial(contact_id)
+		if not dial.is_empty():
+			contacts[contact_id]["dialCharges"] = int(dial["chargesPerDay"])
+	EventBus.state_changed.emit()
 
 
 # Called by Combat when an ally's hp hits 0 mid-fight -- removes them from
@@ -141,6 +158,9 @@ static func replenish_after_combat(allies: Array) -> void:
 		var c: Dictionary = contacts[contact_id]
 		c["combatHp"] = c["combatHpMax"]
 		c["combatStash"] = c["combatStashMax"]
+		# Dial charges are per day, not per fight -- spent casts carry over.
+		if ally.has("dialCharges"):
+			c["dialCharges"] = ally["dialCharges"]
 
 
 # A raid is offensive (the player's choice), unlike defend's auto-join, so

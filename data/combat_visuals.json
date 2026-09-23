@@ -58,6 +58,14 @@
       "ko": { "image": "", "frameCount": 0, "fps": 0.0 },
       "selfPatch": { "image": "", "frameCount": 0, "fps": 0.0 }
     },
+    "james": {
+      "_note": "Separate single-pose files ('images', one frame each) -- attack plays attack_1 wind-up then attack_2 strike; 'cast' is the Dial-cast pose (BEAT_ALLY_CAST). james_idle2.png is 530x470 vs the 1347x1168 set, so idle uses james_idle.png only.",
+      "idle": { "images": ["res://assets/combat/james/james_idle.png"], "fps": 0.0 },
+      "attack": { "images": ["res://assets/combat/james/james_attack_1.png", "res://assets/combat/james/james_attack_2.png"], "fps": 5.0 },
+      "hit": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "ko": { "image": "", "frameCount": 0, "fps": 0.0 },
+      "cast": { "images": ["res://assets/combat/james/james_cast.png"], "fps": 3.0 }
+    },
     "territorialScrapper": {
       "_note": "Asset-pack sourced stand-in (assets/Gangsters_2), untouched, same convention as templates.default -- see that entry's own _note. Not final art.",
       "idle": { "image": "res://assets/combat/territorial_scrapper/idle.png", "frameCount": 7, "fps": 9.1 },

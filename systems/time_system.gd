@@ -94,6 +94,7 @@ static func daily_tick() -> void:
 	ContractsSystem.daily_tick()         # ⑥.4 due periods settle; recurring periods renew
 	OffersSystem.daily_tick()            # ⑥.5 expiry, then Sales sources at most one new random offer
 	Dial.daily_regen()                   # ⑦ Dial charge regen
+	Contacts.daily_dial_regen()          # ⑦.1 ally Dial charges refill
 	Objectives.refresh()                 # ⑧ objectives boundary
 	MorningAccountsSystem.finish_rollover(morning_context)
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])

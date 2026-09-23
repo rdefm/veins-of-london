@@ -32,7 +32,7 @@ Data file per system: see `data/*.json` below.
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
-| contacts.gd | Relation, recruiting, room assignment, XP |
+| contacts.gd | Relation, recruiting, room assignment, XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`) |
 | contracts.gd | Sales contract delivery, priority, settlement |
 | crafting.gd | Recipe crafting |
 | cultivating.gd | Vein growth / cultivate / prune |
@@ -117,7 +117,7 @@ overlays.
 | bag_drawer.gd | Global bottom-sheet bag drawer; in combat, item buttons disable (with reason) per `Combat.selection_block_reason()` |
 | combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial beside flat 1px-ruled command rows (Complication readout, Attack, Item, Leg it), anchored to the true screen bottom; Attack/Item disabled per the current selection |
 | combat_director.gd | Combat beat-queue playback director |
-| combat_stage.gd | Combat's pixel stage, sized to its region: edge-to-edge backdrop (location -> context -> palette); slots in two receding diagonal groups (enemies back/smaller) below the strip clearance, fitted to each sprite's visible figure, depth-sorted; keypose one-shots, effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot draws an arrow |
+| combat_stage.gd | Combat pixel stage: backdrop (location -> context -> palette); slots in two receding diagonal groups (enemies back/smaller), fitted to each sprite's visible figure, depth-sorted; keypose one-shots (incl. ally Dial `cast`; frames from a sheet or an `images` list), effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot draws an arrow |
 | contact_cards.gd | Shared contact/faction card builders, inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
 | floorplan_view.gd | Estate-agent plan for a home tier from floorplans.json; static, or with tappable slot overlays showing current use |
