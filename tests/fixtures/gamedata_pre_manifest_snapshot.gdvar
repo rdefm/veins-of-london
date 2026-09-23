@@ -4214,8 +4214,7 @@
 "name": "Bedsit",
 "raidBaseChance": 0.08,
 "rentOnly": true,
-"tier": 1,
-"upgradeCost": 0
+"tier": 1
 },
 "compound": {
 "buyPrice": 2000000,
@@ -4226,8 +4225,7 @@
 "name": "Compound",
 "raidBaseChance": 0.01,
 "rentOnly": false,
-"tier": 5,
-"upgradeCost": 40000
+"tier": 5
 },
 "flat": {
 "buyPrice": 200000,
@@ -4238,8 +4236,7 @@
 "name": "Flat",
 "raidBaseChance": 0.06,
 "rentOnly": false,
-"tier": 2,
-"upgradeCost": 1200
+"tier": 2
 },
 "mansion": {
 "buyPrice": 4000000,
@@ -4250,8 +4247,7 @@
 "name": "Mansion & Grounds",
 "raidBaseChance": 0.005,
 "rentOnly": false,
-"tier": 6,
-"upgradeCost": 150000
+"tier": 6
 },
 "safehouse": {
 "buyPrice": 800000,
@@ -4262,8 +4258,7 @@
 "name": "Safehouse",
 "raidBaseChance": 0.02,
 "rentOnly": false,
-"tier": 4,
-"upgradeCost": 12000
+"tier": 4
 },
 "townhouse": {
 "buyPrice": 500000,
@@ -4274,8 +4269,7 @@
 "name": "Townhouse",
 "raidBaseChance": 0.04,
 "rentOnly": false,
-"tier": 3,
-"upgradeCost": 4000
+"tier": 3
 }
 },
 "HOME_TIER_ORDER": ["bedsit", "flat", "townhouse", "safehouse", "compound", "mansion"],

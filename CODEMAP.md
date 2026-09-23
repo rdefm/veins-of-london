@@ -46,7 +46,7 @@ Data file per system: see `data/*.json` below.
 | equipment.gd | Weapon equip/unequip |
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | factions.gd | Faction joining |
-| home.gd | Home tier/tenure/security/rooms/raid chance; daily bill base (rent or utilities); per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
+| home.gd | Home tier/tenure/security/rooms/raid chance; daily bill base (rent or utilities); rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: stop, notebook, ore |
 | map_events.gd | Map event queue + playback |
@@ -197,7 +197,7 @@ overlays.
 | saveload_app.gd | Save slots, export/import, New Game confirm |
 | notifications_app.gd | Notification log with pending Defend buttons |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
-| property_app.gd | Harrow's: current HQ tier (tenure-correct daily cost) + next-tier upgrade, each with its static floorplan when one exists |
+| property_app.gd | Harrow's: current HQ tier (tenure-correct daily cost, buy-out when rented), next tier rent/buy and tier-below move-down offers with bill previews and losses, each with its static floorplan |
 | debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, relation adjusters |
 
 ## data/*.json

@@ -639,7 +639,7 @@ func _validate_home(tier_order: Array, tiers: Dictionary, security: Dictionary, 
 		if not tiers.has(id):
 			errors.append("home: tierOrder references unknown tier '%s'" % id)
 	for key in tiers.keys():
-		_require_keys(tiers[key], ["id", "name", "tier", "upgradeCost", "buyPrice", "rentOnly", "dailyCost", "raidBaseChance", "maxRooms", "description"], "home.tiers.%s" % key, errors)
+		_require_keys(tiers[key], ["id", "name", "tier", "buyPrice", "rentOnly", "dailyCost", "raidBaseChance", "maxRooms", "description"], "home.tiers.%s" % key, errors)
 
 	for key in security.keys():
 		var sec_entry: Dictionary = security[key]

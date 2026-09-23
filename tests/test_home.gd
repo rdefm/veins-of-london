@@ -319,22 +319,90 @@ func run() -> void:
 		assert_eq(Home.get_next_tier_id("mansion"), "", "no tier above the top one")
 	)
 
-	run_case("upgrade_tier_enforces_cash_and_advances_the_ladder", func():
+	run_case("rent_up_is_free_and_sets_rented", func():
 		GameState.reset()
+		GameState.state["player"]["cash"] = 0
+		assert_true(Home.rent_up()["ok"], "renting has no up-front cost")
+		assert_eq(GameState.state["home"]["tier"], "flat")
+		assert_eq(GameState.state["home"]["tenure"], "rented")
+		assert_eq(GameState.state["player"]["cash"], 0)
+		assert_eq(GameState.state["bankLog"].size(), 0, "no purchase to log")
+		GameState.state["home"]["tier"] = "mansion"
+		assert_true(not Home.rent_up()["ok"], "nothing above the top tier")
+	)
+
+	run_case("buy_up_enforces_cash_logs_and_sets_owned", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 199999
+		assert_true(not Home.buy_up()["ok"], "short of the flat's 200000")
+		assert_eq(GameState.state["home"]["tier"], "bedsit")
+		assert_eq(GameState.state["bankLog"].size(), 0)
+
+		GameState.state["player"]["cash"] = 250000
+		assert_true(Home.buy_up()["ok"])
+		assert_eq(GameState.state["home"]["tier"], "flat")
+		assert_eq(GameState.state["home"]["tenure"], "owned")
+		assert_eq(GameState.state["player"]["cash"], 50000, "buyPrice deducted")
+		assert_eq(GameState.state["bankLog"].size(), 1)
+		assert_eq(GameState.state["bankLog"][0]["amount"], -200000)
+	)
+
+	run_case("buy_out_owns_the_rented_tier_and_keeps_rooms_and_staff", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "compound"
+		GameState.state["home"]["tenure"] = "rented"
+		GameState.state["home"]["rooms"] = ["lab"]
+		var contact_id: String = GameState.state["contacts"].keys()[0]
+		GameState.state["contacts"][contact_id]["recruited"] = true
+		Contacts.assign_to_room(contact_id, "lab")
+		GameState.state["player"]["cash"] = 1999999
+		assert_true(not Home.buy_out()["ok"], "short of 2000000")
+
+		GameState.state["player"]["cash"] = 2000000
+		assert_true(Home.buy_out()["ok"])
+		assert_eq(GameState.state["home"]["tier"], "compound", "tier unchanged")
+		assert_eq(GameState.state["home"]["tenure"], "owned")
+		assert_eq(GameState.state["home"]["rooms"], ["lab"], "rooms kept")
+		assert_eq(Contacts.get_contact_in_room("lab"), contact_id, "staff kept")
+		assert_eq(GameState.state["player"]["cash"], 0)
+		assert_eq(GameState.state["bankLog"][0]["amount"], -2000000)
+		assert_true(not Home.buy_out()["ok"], "already owned")
+	)
+
+	run_case("buy_out_is_unavailable_at_the_bedsit", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 10000000
+		assert_true(not Home.buy_out()["ok"])
+		assert_eq(GameState.state["home"]["tenure"], "rented")
+	)
+
+	run_case("downgrade_moves_one_tier_down_rented_or_bought", func():
+		GameState.reset()
+		assert_true(not Home.downgrade("rented")["ok"], "no downgrade from the bedsit")
+
+		GameState.state["home"]["tier"] = "townhouse"
+		GameState.state["home"]["tenure"] = "owned"
+		GameState.state["player"]["cash"] = 200000
+		assert_true(Home.downgrade("owned")["ok"], "buying the flat at 200000")
+		assert_eq(GameState.state["home"]["tier"], "flat")
+		assert_eq(GameState.state["home"]["tenure"], "owned")
+		assert_eq(GameState.state["player"]["cash"], 0)
+
+		assert_true(not Home.downgrade("owned")["ok"], "the bedsit can't be bought")
+		assert_eq(GameState.state["home"]["tier"], "flat")
+		assert_true(Home.downgrade("rented")["ok"])
+		assert_eq(GameState.state["home"]["tier"], "bedsit")
+		assert_eq(GameState.state["home"]["tenure"], "rented")
+	)
+
+	run_case("downgrade_buy_is_refused_when_cash_is_short", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "townhouse"
+		GameState.state["home"]["rooms"] = ["workshop"]
 		GameState.state["player"]["cash"] = 100
-		var poor_result := Home.upgrade_tier()
-		assert_true(not poor_result["ok"], "should fail without enough cash")
-		assert_eq(GameState.state["home"]["tier"], "bedsit", "tier unchanged on failed upgrade")
-
-		GameState.state["player"]["cash"] = 5000
-		var result := Home.upgrade_tier()
-		assert_true(result["ok"], "flat costs 1200, should succeed with 5000 cash")
-		assert_eq(GameState.state["home"]["tier"], "flat", "tier advances to flat")
-		assert_eq(GameState.state["player"]["cash"], 5000 - 1200, "upgradeCost deducted")
-
-		var bank_log: Array = GameState.state["bankLog"]
-		assert_eq(bank_log.size(), 1, "the failed attempt records nothing, only the successful upgrade records a bank transaction")
-		assert_eq(bank_log[0]["amount"], -1200, "the recorded amount matches the upgrade cost")
+		assert_true(not Home.downgrade("owned")["ok"])
+		assert_eq(GameState.state["home"]["tier"], "townhouse")
+		assert_eq(GameState.state["home"]["rooms"], ["workshop"], "a refused move wipes nothing")
 	)
 
 	run_case("add_security_enforces_minTier", func():
@@ -533,20 +601,55 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"][contact_id]["assignedRoom"], null)
 	)
 
-	run_case("moving_up_keeps_room_upgrades_and_adds_empty_slots", func():
+	run_case("change_tier_wipes_rooms_unassigns_staff_and_reverts_the_gym", func():
 		GameState.reset()
-		GameState.state["home"]["tier"] = "flat"
+		GameState.state["home"]["tier"] = "compound"
 		GameState.state["player"]["cash"] = 100000
-		Home.set_room_use(0, "homeGym")
 		var hp_max: int = GameState.state["player"]["hpMax"]
+		Home.set_room_use(0, "homeGym")
+		Home.set_room_use(1, "lab")
+		var contact_id: String = GameState.state["contacts"].keys()[0]
+		GameState.state["contacts"][contact_id]["recruited"] = true
+		Contacts.assign_to_room(contact_id, "lab")
+		var cash_before: int = GameState.state["player"]["cash"]
 
-		assert_true(Home.upgrade_tier()["ok"])
-		assert_eq(GameState.state["home"]["rooms"], ["homeGym"], "moving never re-buys or drops a room")
-		assert_eq(GameState.state["player"]["hpMax"], hp_max, "the gym's bonus stays active after the move")
-		assert_eq(Home.get_room_slot_count(), 3)
-		assert_eq(Home.get_room_in_slot(0), "homeGym")
-		assert_eq(Home.get_room_in_slot(1), "", "the Townhouse's extra slots start empty")
-		assert_true(Home.set_room_use(1, "library")["ok"], "a new slot can be filled")
+		var result := Home.change_tier("mansion", "rented")
+		assert_eq(GameState.state["home"]["rooms"], [], "every room wiped on an upgrade too")
+		assert_eq(result["roomsLost"], ["homeGym", "lab"])
+		assert_eq(GameState.state["player"]["cash"], cash_before, "no refund")
+		assert_eq(GameState.state["contacts"][contact_id]["assignedRoom"], null, "staff unassigned")
+		assert_eq(GameState.state["player"]["hpMax"], hp_max, "gym bonus reverted")
+		assert_true(GameState.state["player"]["hp"] <= hp_max, "hp clamped")
+		assert_eq(GameState.state["home"]["tier"], "mansion")
+		assert_eq(GameState.state["home"]["tenure"], "rented")
+		assert_eq(Home.get_room_slot_count(), 12)
+	)
+
+	run_case("change_tier_down_drops_security_above_the_new_tier", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "compound"
+		GameState.state["home"]["security"] = ["lock", "cameras", "alarm", "reinforcedDoor", "ward"]
+		GameState.state["home"]["guardCount"] = 3
+
+		var result := Home.change_tier("safehouse", "rented")
+		assert_eq(GameState.state["home"]["security"], ["lock", "cameras", "alarm", "reinforcedDoor", "ward"], "all still allowed at the safehouse")
+		assert_eq(GameState.state["home"]["guardCount"], 0, "guards need the compound")
+		assert_eq(result["guardsLost"], 3)
+
+		result = Home.change_tier("flat", "owned")
+		assert_eq(GameState.state["home"]["security"], ["lock", "cameras", "alarm"])
+		assert_eq(result["securityLost"], ["reinforcedDoor", "ward"])
+		assert_eq(GameState.state["home"]["tenure"], "owned")
+	)
+
+	run_case("change_tier_up_keeps_security_and_guards", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "compound"
+		GameState.state["home"]["security"] = ["lock", "ward"]
+		GameState.state["home"]["guardCount"] = 2
+		Home.change_tier("mansion", "owned")
+		assert_eq(GameState.state["home"]["security"], ["lock", "ward"])
+		assert_eq(GameState.state["home"]["guardCount"], 2)
 	)
 
 	run_case("an_existing_room_list_save_loads_with_slots_intact", func():

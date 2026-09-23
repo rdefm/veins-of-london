@@ -161,7 +161,6 @@ static func resolve_defend_outcome(won: bool) -> void:
 	_apply_raid_loss()
 
 
-# Returns the next tier up the ladder, "" at the top tier.
 # Owned-home utilities per ADR 0006: utilitiesBase + round(utilitiesFraction × dailyCost).
 static func utilities_for_tier(tier_id: String) -> int:
 	var bills: Dictionary = GameData.HOME_BILLS
@@ -181,6 +180,7 @@ static func current_bill_base() -> int:
 	return bill_base_for(home["tier"], home["tenure"])
 
 
+# Returns the next tier up the ladder, "" at the top tier.
 static func get_next_tier_id(tier_id: String) -> String:
 	var order: Array = GameData.HOME_TIER_ORDER
 	var index: int = order.find(tier_id)
@@ -189,25 +189,133 @@ static func get_next_tier_id(tier_id: String) -> String:
 	return order[index + 1]
 
 
-static func upgrade_tier() -> Dictionary:
-	var home: Dictionary = GameState.state["home"]
-	var player: Dictionary = GameState.state["player"]
+# Returns the next tier down the ladder, "" at the bedsit.
+static func get_prev_tier_id(tier_id: String) -> String:
+	var order: Array = GameData.HOME_TIER_ORDER
+	var index: int = order.find(tier_id)
+	if index <= 0:
+		return ""
+	return order[index - 1]
 
-	var next_tier_id: String = get_next_tier_id(home["tier"])
+
+static func can_buy_tier(tier_id: String) -> bool:
+	return not GameData.HOME_TIERS[tier_id]["rentOnly"]
+
+
+static func buy_price(tier_id: String) -> int:
+	return int(GameData.HOME_TIERS[tier_id]["buyPrice"])
+
+
+# Shared tier move (ADR 0006): every installed room is wiped with no refund
+# (staff unassigned, gym bonus reverted with hp clamped), security whose
+# minTier is above the new tier is lost (guards follow the "guard" row), and
+# the tenure is set. No cash moves here — callers charge first. Returns
+# { roomsLost: Array, securityLost: Array, guardsLost: int }.
+static func change_tier(new_tier_id: String, tenure: String) -> Dictionary:
+	var home: Dictionary = GameState.state["home"]
+	var rooms_lost: Array = home["rooms"].duplicate()
+	for room_id in rooms_lost:
+		_remove_room_effects(room_id)
+	home["rooms"] = []
+
+	var security_lost: Array = security_lost_moving_to(new_tier_id)
+	for security_id in security_lost:
+		home["security"].erase(security_id)
+	var guards_lost: int = guards_lost_moving_to(new_tier_id)
+	if guards_lost > 0:
+		home["guardCount"] = 0
+
+	home["tier"] = new_tier_id
+	home["tenure"] = tenure
+	EventBus.state_changed.emit()
+	return { "roomsLost": rooms_lost, "securityLost": security_lost, "guardsLost": guards_lost }
+
+
+# Installed security ids (not guards; see guards_lost_moving_to) a move to
+# tier_id would lose because their minTier is above it.
+static func security_lost_moving_to(tier_id: String) -> Array:
+	var lost: Array = []
+	for security_id in GameState.state["home"]["security"]:
+		if _tier_below_min(tier_id, GameData.HOME_SECURITY[security_id]["minTier"]):
+			lost.append(security_id)
+	return lost
+
+
+static func guards_lost_moving_to(tier_id: String) -> int:
+	if _tier_below_min(tier_id, GameData.HOME_SECURITY[GUARD_SECURITY_ID]["minTier"]):
+		return get_guard_count()
+	return 0
+
+
+static func _tier_below_min(tier_id: String, min_tier_id: String) -> bool:
+	var order: Array = GameData.HOME_TIER_ORDER
+	return order.find(tier_id) < order.find(min_tier_id)
+
+
+# PROSE-REVIEW: tier-move notifications and refusal reasons below.
+static func rent_up() -> Dictionary:
+	var next_tier_id: String = get_next_tier_id(GameState.state["home"]["tier"])
 	if next_tier_id == "":
 		return { "ok": false, "reason": "Already at the top tier." }
+	change_tier(next_tier_id, TENURE_RENTED)
+	Notify.push("Signed the lease on the %s." % GameData.HOME_TIERS[next_tier_id]["name"], Notify.CATEGORY_SUCCESS)
+	SaveManager.autosave()
+	return { "ok": true }
 
-	var next_tier: Dictionary = GameData.HOME_TIERS[next_tier_id]
-	var cost: int = next_tier["upgradeCost"]
-	if player["cash"] < cost:
+
+static func buy_up() -> Dictionary:
+	var next_tier_id: String = get_next_tier_id(GameState.state["home"]["tier"])
+	if next_tier_id == "":
+		return { "ok": false, "reason": "Already at the top tier." }
+	return _buy_move(next_tier_id)
+
+
+# Buys the currently rented tier outright; tier, rooms and staff are unchanged.
+static func buy_out() -> Dictionary:
+	var home: Dictionary = GameState.state["home"]
+	var tier_id: String = home["tier"]
+	if not can_buy_tier(tier_id):
+		return { "ok": false, "reason": "This place can't be bought." }
+	if home["tenure"] == TENURE_OWNED:
+		return { "ok": false, "reason": "Already yours." }
+	var price: int = buy_price(tier_id)
+	var player: Dictionary = GameState.state["player"]
+	if player["cash"] < price:
 		return { "ok": false, "reason": "Not enough cash." }
-
-	player["cash"] -= cost
-	Bank.record(-cost, "HQ upgrade: %s" % next_tier["name"])
-	home["tier"] = next_tier_id
+	player["cash"] -= price
+	Bank.record(-price, "HQ buy-out: %s" % GameData.HOME_TIERS[tier_id]["name"])
 	home["tenure"] = TENURE_OWNED
-	Notify.push("Moved up to %s." % next_tier["name"], Notify.CATEGORY_SUCCESS)
+	Notify.push("Bought out the %s. No more rent." % GameData.HOME_TIERS[tier_id]["name"], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
+	SaveManager.autosave()  # R§6: autosave on purchase
+	return { "ok": true }
+
+
+# Voluntary one-tier move down, rented or bought (buying refused at the bedsit).
+static func downgrade(tenure: String) -> Dictionary:
+	var prev_tier_id: String = get_prev_tier_id(GameState.state["home"]["tier"])
+	if prev_tier_id == "":
+		return { "ok": false, "reason": "Nowhere lower to go." }
+	if tenure == TENURE_OWNED:
+		if not can_buy_tier(prev_tier_id):
+			return { "ok": false, "reason": "This place can't be bought." }
+		return _buy_move(prev_tier_id)
+	change_tier(prev_tier_id, TENURE_RENTED)
+	Notify.push("Moved down to a rented %s." % GameData.HOME_TIERS[prev_tier_id]["name"], Notify.CATEGORY_SUCCESS)
+	SaveManager.autosave()
+	return { "ok": true }
+
+
+static func _buy_move(tier_id: String) -> Dictionary:
+	var player: Dictionary = GameState.state["player"]
+	var tier: Dictionary = GameData.HOME_TIERS[tier_id]
+	var price: int = buy_price(tier_id)
+	if player["cash"] < price:
+		return { "ok": false, "reason": "Not enough cash." }
+	player["cash"] -= price
+	Bank.record(-price, "HQ purchase: %s" % tier["name"])
+	change_tier(tier_id, TENURE_OWNED)
+	Notify.push("Bought the %s. The keys are yours." % tier["name"], Notify.CATEGORY_SUCCESS)
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 

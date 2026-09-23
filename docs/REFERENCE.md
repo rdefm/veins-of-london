@@ -163,16 +163,16 @@ Descriptions (verbatim):
 
 **Tiers** (order matters — it is the upgrade ladder). `maxSecuritySlots` no longer exists — security is gated by each upgrade's `minTier` instead (below), not by a count cap:
 
-| id | name | tier | upgradeCost | buyPrice | rentOnly | dailyCost | raidBaseChance | maxRooms |
-|---|---|---|---|---|---|---|---|---|
-| bedsit | Bedsit | 1 | 0 | 0 | true | 50 | 0.08 | 0 |
-| flat | Flat | 2 | 1200 | 200000 | false | 80 | 0.06 | 1 |
-| townhouse | Townhouse | 3 | 4000 | 500000 | false | 150 | 0.04 | 3 |
-| safehouse | Safehouse | 4 | 12000 | 800000 | false | 300 | 0.02 | 5 |
-| compound | Compound | 5 | 40000 | 2000000 | false | 600 | 0.01 | 8 |
-| mansion | Mansion & Grounds | 6 | 150000 | 4000000 | false | 1500 | 0.005 | 12 |
+| id | name | tier | buyPrice | rentOnly | dailyCost | raidBaseChance | maxRooms |
+|---|---|---|---|---|---|---|---|
+| bedsit | Bedsit | 1 | 0 | true | 50 | 0.08 | 0 |
+| flat | Flat | 2 | 200000 | false | 80 | 0.06 | 1 |
+| townhouse | Townhouse | 3 | 500000 | false | 150 | 0.04 | 3 |
+| safehouse | Safehouse | 4 | 800000 | false | 300 | 0.02 | 5 |
+| compound | Compound | 5 | 2000000 | false | 600 | 0.01 | 8 |
+| mansion | Mansion & Grounds | 6 | 4000000 | false | 1500 | 0.005 | 12 |
 
-`dailyCost` is the tier's rent. An owned tier's daily bill is its utilities, `utilitiesBase + round(utilitiesFraction × dailyCost)` (ADR 0006). The bedsit is rent-only.
+`dailyCost` is the tier's rent. An owned tier's daily bill is its utilities, `utilitiesBase + round(utilitiesFraction × dailyCost)` (ADR 0006). The bedsit is rent-only. Moves are one tier at a time: rent (no up-front cost) or buy (`buyPrice`), up or down; see §3.3 "Tier moves".
 
 **Bills** (`bills`): `utilitiesBase` 50, `utilitiesFraction` 0.10, `interestRate` 0.05, `interestThresholdDays` 5, `downgradeThresholdDays` 10. Interest/thresholds feed arrears (ADR 0006).
 
@@ -189,7 +189,7 @@ Tier descriptions: extract verbatim from HTML const `HOME_TIERS`.
 | ward | Orichalchum Ward | 2000 | 0.06 | safehouse |
 | guard | Hired Guard | 1200 | 0.05 | compound |
 
-**Stackable HQ guards** (107-hq-stackable-guards): unlike every other row above (installed once, boolean membership in `state.home.security`), `guard` is uncapped and repeatable — the HQ security list's "Hired Guard" row stays a buy button past the first purchase instead of switching to "Installed", and each purchase increments `state.home.guardCount` (int, default 0; a pre-ticket save with no `guardCount` key backfills to 0) rather than appending to `security`. Cost stays flat at `guard`'s own `1200` (×0.7 with `securityContactUnlocked`, same as any other row) for every purchase — this ticket doesn't introduce an escalating cost curve. `getHomeRaidChance()`'s guard contribution becomes `guard.raidReduction × guardCount` (flat 0.05 per guard, uncapped) instead of a flat one-off 0.05 — a `guardCount` of 1 reproduces the pre-ticket single-guard behaviour exactly. Same flat-uncapped-per-guard shape as vein `extraGuards` (§1.6's "Stackable guards past 'guarded'"), except home guards don't escalate in cost the way vein extra guards do.
+**Stackable HQ guards** (107-hq-stackable-guards): unlike every other row above (installed once, boolean membership in `state.home.security`), `guard` is uncapped and repeatable — the HQ security list's "Hired Guard" row stays a buy button past the first purchase instead of switching to "Installed", and each purchase increments `state.home.guardCount` (int, default 0; a pre-ticket save with no `guardCount` key backfills to 0) rather than appending to `security`. Guards follow the row's `minTier`: a move below the compound drops `guardCount` to 0 without refund (§3.3 "Tier moves"). Cost stays flat at `guard`'s own `1200` (×0.7 with `securityContactUnlocked`, same as any other row) for every purchase — this ticket doesn't introduce an escalating cost curve. `getHomeRaidChance()`'s guard contribution becomes `guard.raidReduction × guardCount` (flat 0.05 per guard, uncapped) instead of a flat one-off 0.05 — a `guardCount` of 1 reproduces the pre-ticket single-guard behaviour exactly. Same flat-uncapped-per-guard shape as vein `extraGuards` (§1.6's "Stackable guards past 'guarded'"), except home guards don't escalate in cost the way vein extra guards do.
 
 **Rooms:**
 
@@ -495,6 +495,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - `getHomeRaidChance() = max(0.002, tier.raidBaseChance + fx.homeRaid − Σ installed raidReduction − guard.raidReduction × guardCount + totalCarriedOre * 0.001)`, where `totalCarriedOre` is the sum of `player.orichalchum` (see storedOre merge note in §2). See §1.7's "Stackable HQ guards" for `guardCount`.
 - Raid roll (in daily tick): skip if `day − lastRaidDay < 3`; on hit set `lastRaidDay = day`; if carried ore total is 0, nothing; else lose `floor(qty * ratio)` per type from `player.orichalchum`, ratio 0.50 (0.25 with safeRoom). Notification with units lost.
 - Upgrades/rooms: enforce cash, slot caps, minTier by tier order. Room `body` bonus applies immediately: `hpMax += 10`, `hp = min(hp + 10, hpMax)`. `workshopBonus` = Σ bonusValue of installed rooms with bonus == "crafting".
+- **Tier moves** (ADR 0006): `Home.rent_up()` (free, `tenure = "rented"`), `Home.buy_up()` (cash ≥ next tier `buyPrice`, bank-logged, `tenure = "owned"`), `Home.buy_out()` (rented, buyable current tier → owned at full `buyPrice`; tier, rooms, staff unchanged), `Home.downgrade(tenure)` (one tier down, rent or buy; buy refused at the bedsit; none from the bedsit). Every tier change runs `Home.change_tier(tierId, tenure)`: all `rooms` wiped with no refund (each via the room-replacement reversal below: staff unassigned, `body` bonus reverted with `hp` clamped), security whose `minTier` is above the new tier removed (and `guardCount = 0` if below the compound), everything else kept. Returns `{roomsLost, securityLost, guardsLost}`.
 - Room use per slot (`Home.set_room_use(slot, roomId)`): blocked (nothing changes) if `roomId` is already in any slot, `slot` is past the next empty slot or `≥ maxRooms`, the tier is below `minTier`, or cash `< cost`. Otherwise charge full `cost`; if the slot held another room, that room is replaced in place with no refund — its `body` bonus reverses (`hpMax −= bonusValue`, `hp = min(hp, hpMax)`), crafting/storage bonuses end (they're read live from `rooms`), and any contact assigned to it is unassigned. `add_room(id)` = `set_room_use(rooms.size(), id)`.
 
 ### 3.4 Cultivating & pruning
@@ -606,7 +607,7 @@ The chain plays once. Later HQ raids defended from the alarm (`Home.trigger_defe
 - **Event rewind:** the event runner snapshots full `state` before applying each card's effects; Rewind pops one card-frame (M0-T13).
 
 ### 3.10 Contacts, rooms, jobs
-- `awardRelation(id, n)`. Recruit at threshold: sets recruited, notification, assignable to rooms (one contact per room; assigning vacates).
+- `awardRelation(id, n)`. Recruit at threshold: sets recruited, notification, assignable to rooms (one contact per room; assigning vacates). A tier change wipes every room (§3.3 "Tier moves"), unassigning its contact.
 - **Ally combat eligibility** (44-archie-combat-ally): `Contacts.can_join_combat(id)` = recruited AND `combatHpMax > 0` (a combat kit is defined for this contact) AND not currently on KO cooldown (`koCooldownUntilDay == null` or `world.day >= koCooldownUntilDay`). No relation check — joining a defense fight is a lower bar than recruiting at all. See §3.7 for the fight itself.
 - **Raid-assist eligibility** (45-archie-raid-assist): `Contacts.can_assist_raid(id)` = `relation >= raidAssistThreshold` (archie: 50) AND `can_join_combat(id)` — a higher, separate bar than defend's auto-join, since being asked along on an offensive raid is a bigger ask than defending shared ground. Gates the raid-initiation UI's "Bring Archie" toggle only; see §3.7 for how the choice reaches the fight itself.
 - **Lab (daily):** contact in lab crafts each unlocked recipe up to its effective target, using the CONTACT's skill in the §3.5 formulas (workshopBonus included), consuming player ore, awarding contact XP (full/⅓). Effective target = `labThresholds[recipe]` (personal inventory target), plus — when `labCoverContracts[recipe]` is on (ticket 30) — the summed undelivered quantity of every active contract requesting that item (a recurring contract's next period doesn't exist in state until settlement creates it, so this already excludes any future period). Additive, personal-target-first-reserved: Sales (§3.10 below / Contracts._shared_stock) may only deliver from the contract-need portion of stock, never the personal-target reserve. When shared ore can't cover every recipe's attempts, the recipe with the highest-priority (lowest sales.priorityOrder index) covered, unmet contract need is crafted first; every other recipe follows in `labThresholds`' own key-insertion order.

@@ -4,37 +4,37 @@
   "tiers": {
     "bedsit": {
       "id": "bedsit", "name": "Bedsit", "tier": 1,
-      "upgradeCost": 0, "buyPrice": 0, "rentOnly": true, "dailyCost": 50, "raidBaseChance": 0.08,
+      "buyPrice": 0, "rentOnly": true, "dailyCost": 50, "raidBaseChance": 0.08,
       "maxRooms": 0,
       "description": "A single room in Whitechapel. The boiler makes a sound like someone clearing their throat. No storage to speak of."
     },
     "flat": {
       "id": "flat", "name": "Flat", "tier": 2,
-      "upgradeCost": 1200, "buyPrice": 200000, "rentOnly": false, "dailyCost": 80, "raidBaseChance": 0.06,
+      "buyPrice": 200000, "rentOnly": false, "dailyCost": 80, "raidBaseChance": 0.06,
       "maxRooms": 1,
       "description": "Two rooms above a nail bar in Hackney. Neighbours ask no questions. One spare room."
     },
     "townhouse": {
       "id": "townhouse", "name": "Townhouse", "tier": 3,
-      "upgradeCost": 4000, "buyPrice": 500000, "rentOnly": false, "dailyCost": 150, "raidBaseChance": 0.04,
+      "buyPrice": 500000, "rentOnly": false, "dailyCost": 150, "raidBaseChance": 0.04,
       "maxRooms": 3,
       "description": "Three floors, Bethnal Green. Previous tenant left in a hurry. Three spare rooms."
     },
     "safehouse": {
       "id": "safehouse", "name": "Safehouse", "tier": 4,
-      "upgradeCost": 12000, "buyPrice": 800000, "rentOnly": false, "dailyCost": 300, "raidBaseChance": 0.02,
+      "buyPrice": 800000, "rentOnly": false, "dailyCost": 300, "raidBaseChance": 0.02,
       "maxRooms": 5,
       "description": "Off-grid property, no registered occupant. Not technically yours, but no one is arguing. Five spare rooms."
     },
     "compound": {
       "id": "compound", "name": "Compound", "tier": 5,
-      "upgradeCost": 40000, "buyPrice": 2000000, "rentOnly": false, "dailyCost": 600, "raidBaseChance": 0.01,
+      "buyPrice": 2000000, "rentOnly": false, "dailyCost": 600, "raidBaseChance": 0.01,
       "maxRooms": 8,
       "description": "Gated property, East London. Eight rooms. People who matter know you live here."
     },
     "mansion": {
       "id": "mansion", "name": "Mansion & Grounds", "tier": 6,
-      "upgradeCost": 150000, "buyPrice": 4000000, "rentOnly": false, "dailyCost": 1500, "raidBaseChance": 0.005,
+      "buyPrice": 4000000, "rentOnly": false, "dailyCost": 1500, "raidBaseChance": 0.005,
       "maxRooms": 12,
       "description": "Grounds, staff quarters, a gate. Twelve rooms. Plato would have something to say about this."
     }
