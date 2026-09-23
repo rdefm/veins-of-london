@@ -382,7 +382,7 @@
 },
 "raid": {
 "fallbackColor": "brick_shadow",
-"image": ""
+"image": "res://assets/combat/backdrops/street.png"
 }
 },
 "effects": {

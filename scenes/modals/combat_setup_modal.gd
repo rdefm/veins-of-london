@@ -1,6 +1,8 @@
 class_name CombatSetupModal
 extends RefCounted
 
+const LOCATION_AUTO := "Auto"
+
 
 static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	container.add_child(UI.heading("Combat setup"))
@@ -25,6 +27,20 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	var tier_select := UI.option_button(tier_options)
 	container.add_child(tier_select)
 
+	var context_options: Array = []
+	context_options.append_array(Combat.DEBUG_SETUP_CONTEXTS)
+	container.add_child(UI.label("Fight type"))
+	var context_select := UI.option_button(context_options)
+	container.add_child(context_select)
+
+	# "Auto" derives locationKey the normal way (R§2); anything else overrides
+	# it so each backdrop tier can be previewed.
+	var location_options: Array = [LOCATION_AUTO, Combat.HOME_LOCATION_KEY]
+	location_options.append_array(GameData.DISTRICTS.keys())
+	container.add_child(UI.label("Location (backdrop)"))
+	var location_select := UI.option_button(location_options)
+	container.add_child(location_select)
+
 	container.add_child(UI.label("Allies"))
 	var selected_allies: Array = []
 	var eligible_allies := false
@@ -43,7 +59,11 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 		var count: int = count_select.get_item_text(count_select.selected).to_int()
 		var value_tier: int = tier_select.get_item_text(tier_select.selected).to_int()
 		Modal.close()
-		Combat.start_raid("debug_combat_setup", value_tier, count, template_key, Combat.CONTEXT_RAID, selected_allies)
+		var context: String = context_select.get_item_text(context_select.selected)
+		var location_key: String = location_select.get_item_text(location_select.selected)
+		if location_key == LOCATION_AUTO:
+			location_key = ""
+		Combat.start_debug_combat(context, location_key, value_tier, count, template_key, selected_allies)
 	))
 	container.add_child(UI.button("Cancel", func(): Modal.close()))
 

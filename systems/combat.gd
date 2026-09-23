@@ -31,6 +31,11 @@ const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = [CONTEXT_MUGGING, CONTEXT_EVE
 # R§2 combat.locationKey for the two home contexts -- home isn't a district.
 const HOME_LOCATION_KEY := "home"
 
+# Contexts the debug combat setup may pick: their exit_combat() handlers need
+# no active event and apply no story consequence (defend_vein with no
+# activeDefendRaid is a no-op), so a throwaway fight can't corrupt a save.
+const DEBUG_SETUP_CONTEXTS: Array[String] = [CONTEXT_RAID, CONTEXT_MUGGING, CONTEXT_DEFEND_VEIN]
+
 # Beat "kind" vocabulary (same named-constant precedent as CONTEXT_*) so a
 # typo errors instead of silently mismatching the director's switch.
 const BEAT_PLAYER_ATTACK := "player_attack"
@@ -409,7 +414,22 @@ static func _gather_defend_allies(log_lines: Array) -> Array:
 	return allies
 
 
-static func _start_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = []) -> void:
+# Debug-only (combat_setup_modal.gd): raid-guard roster under any
+# DEBUG_SETUP_CONTEXTS context, with an optional locationKey override so every
+# backdrop tier can be previewed. location_key == "" derives it as normal.
+static func start_debug_combat(context: String, location_key: String, value_tier: int, guards: int, template_key: String, ally_ids: Array) -> void:
+	if not DEBUG_SETUP_CONTEXTS.has(context):
+		push_error("Combat.start_debug_combat: context '%s' is not in DEBUG_SETUP_CONTEXTS" % context)
+		return
+	var enemies := generate_raid_enemy("debug_combat_setup", value_tier, guards, template_key)
+	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
+	var allies := _gather_raid_allies(ally_ids, log_lines)
+	var on_win := "raidWon" if context == CONTEXT_RAID else ""
+	_start_combat(context, "debug_combat_setup", enemies, log_lines, on_win, allies,
+		location_key if not location_key.is_empty() else null)
+
+
+static func _start_combat(context: String, vein_id, enemies: Array, log_lines: Array, on_win: String, allies: Array = [], location_key_override: Variant = null) -> void:
 	if not is_canonical_context(context):
 		push_error("Combat: unrecognized context '%s' — not in CANONICAL_CONTEXTS, exit_combat() will mis-route it." % context)
 	# Every roster entry needs koed regardless of which start_* path built
@@ -418,7 +438,7 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 		enemy["koed"] = false
 	GameState.state["combat"] = {
 		"active": true, "context": context, "veinId": vein_id, "enemies": enemies,
-		"locationKey": location_key_for(context, vein_id),
+		"locationKey": location_key_for(context, vein_id) if location_key_override == null else str(location_key_override),
 		# R§2: player/ally/enemy selection. Defaults to the first enemy.
 		"selection": { "type": "enemy", "index": 0 },
 		"log": log_lines, "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,

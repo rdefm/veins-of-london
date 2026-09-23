@@ -1187,13 +1187,13 @@ func run() -> void:
 	# ── combat-presentation ticket 08, §2.1/§6: per-context backdrop ──
 
 	run_case("stage_backdrop_shows_the_palette_fallback_fill_for_a_context_with_no_plate_yet", func():
-		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_RAID)
+		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_DEFEND_VEIN)
 
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		var fallback_id: String = GameData.COMBAT_VISUALS["backdrops"]["raid"]["fallbackColor"]
-		assert_true(screen._stage._backdrop_fill.visible, "no plate exists yet for CONTEXT_RAID -- the flat fallback fill must be showing")
+		var fallback_id: String = GameData.COMBAT_VISUALS["backdrops"]["defend_vein"]["fallbackColor"]
+		assert_true(screen._stage._backdrop_fill.visible, "no plate exists yet for CONTEXT_DEFEND_VEIN -- the flat fallback fill must be showing")
 		assert_true(not screen._stage._backdrop_texture.visible, "the image layer must stay hidden when there's no image")
 		assert_eq(screen._stage._backdrop_fill.color, GameData.PALETTE[fallback_id], "fallback fill colour must be the manifest's fallbackColor resolved through the master palette")
 
@@ -1201,16 +1201,16 @@ func run() -> void:
 	)
 
 	run_case("stage_backdrop_follows_context_across_fights", func():
-		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_RAID)
+		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_HOME_RAID)
 		var screen := CombatScreen.new()
 		screen._ready()
-		var raid_color: Color = screen._stage._backdrop_fill.color
+		var home_raid_color: Color = screen._stage._backdrop_fill.color
 
 		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_DEFEND_VEIN)
 		screen._sync()
 		var defend_vein_color: Color = screen._stage._backdrop_fill.color
 
-		assert_true(raid_color != defend_vein_color, "CONTEXT_RAID and CONTEXT_DEFEND_VEIN use different fallback colours in data/combat_visuals.json, so the backdrop must change when the fight's context changes")
+		assert_true(home_raid_color != defend_vein_color, "CONTEXT_HOME_RAID and CONTEXT_DEFEND_VEIN use different fallback colours in data/combat_visuals.json, so the backdrop must change when the fight's context changes")
 		assert_eq(defend_vein_color, GameData.PALETTE[GameData.COMBAT_VISUALS["backdrops"]["defend_vein"]["fallbackColor"]], "backdrop must resync to the new context's own fallback colour")
 
 		screen.free()
@@ -1262,15 +1262,15 @@ func run() -> void:
 
 	run_case("stage_backdrop_falls_back_to_the_palette_fill_with_neither_plate", func():
 		var original_combat_visuals := _install_location_backdrop_manifest()
-		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_RAID)
+		_setup_combat([Fixtures.enemy("Vein Guard")], [], 0, Combat.CONTEXT_DEFEND_VEIN)
 		GameState.state["combat"]["locationKey"] = "not_a_real_district"
 
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		assert_true(screen._stage._backdrop_fill.visible, "no location plate, no raid plate -> palette fill")
+		assert_true(screen._stage._backdrop_fill.visible, "no location plate, no defend_vein plate -> palette fill")
 		assert_true(not screen._stage._backdrop_texture.visible)
-		assert_eq(screen._stage._backdrop_fill.color, GameData.PALETTE[GameData.COMBAT_VISUALS["backdrops"]["raid"]["fallbackColor"]])
+		assert_eq(screen._stage._backdrop_fill.color, GameData.PALETTE[GameData.COMBAT_VISUALS["backdrops"]["defend_vein"]["fallbackColor"]])
 
 		screen.free()
 		GameData.COMBAT_VISUALS = original_combat_visuals

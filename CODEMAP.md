@@ -169,7 +169,7 @@ overlays.
 | movement_craft_modal.gd | Pick a calc type to attempt a Movement craft; pushes success/fail notices |
 | movement_swap_modal.gd | Seat a Movement from movementInventory into the Dial |
 | dial_load_complication_modal.gd | Load a crafted complication into the Dial |
-| combat_setup_modal.gd | Debug raid setup: enemy template/count/tier + ally toggles |
+| combat_setup_modal.gd | Debug combat setup: fight type (`Combat.DEBUG_SETUP_CONTEXTS`), location override for backdrop preview, enemy template/count/tier + ally toggles; calls `Combat.start_debug_combat()` |
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls |
 | hq_gym_modal.gd | Combat skill readout + Train action card |

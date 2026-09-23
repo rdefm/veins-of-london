@@ -480,11 +480,11 @@ func run() -> void:
 
 	run_case("corrupt_fixture_combat_visuals_no_image_and_no_fallback_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		corrupted["combat_visuals"]["backdrops"]["raid"]["fallbackColor"] = ""
+		corrupted["combat_visuals"]["backdrops"]["defend_vein"]["fallbackColor"] = ""
 		var errors := GameData.validate_tables(corrupted)
 		var found := false
 		for e in errors:
-			if e.contains("raid") and e.contains("render nothing"):
+			if e.contains("defend_vein") and e.contains("render nothing"):
 				found = true
 		assert_true(found, "a context with neither an image nor a fallbackColor should be flagged -- the stage would render nothing")
 	)

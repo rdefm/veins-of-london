@@ -9,7 +9,7 @@
     "effectRule": "Ticket 11, docs/combat-animation-vision.md §5: one entry per consumable that has a signature *sheet* effect (as opposed to a pure transform -- enhancementPowder's afterimage, wormhole's fold-and-vanish, and rewind/failsafe's beat-queue-in-reverse are all transform-only, no manifest entry, per the ticket's own 'no new art' list). Each entry is {image, frameCount, fps} at 96x96 native (docs/ART-BIBLE.md §6.1), except blackHole at 160x160 ('the one expensive effect'). 'image' empty means no asset has been produced yet -- CombatScreen's effect player degrades the same way every other manifest lookup in this file does: no frames, no visual, the beat still plays (juice/shader/transform pieces that don't depend on a sheet -- timePearl's enemy-desaturate + slowed idle tweens, shield's crack-on-absorb overlay, blast's hit-flash/shake -- run regardless). No per-subject keying (unlike templates.*) -- an effect sheet is the same regardless of who triggered it or who it lands on, played once per beat that carries the matching `effectKey` extra field (systems/combat.gd's use_*()/cast_complication()), including once per enemy hit for blackHole's AoE (see Combat._apply_black_hole_aoe())."
   },
   "backdrops": {
-    "raid": { "image": "", "fallbackColor": "brick_shadow" },
+    "raid": { "image": "res://assets/combat/backdrops/street.png", "fallbackColor": "brick_shadow" },
     "mugging": { "image": "res://assets/combat/backdrops/street.png", "fallbackColor": "pavement_wet" },
     "event_mugging": { "image": "res://assets/combat/backdrops/street.png", "fallbackColor": "pavement_wet" },
     "home_raid": { "image": "", "fallbackColor": "slate_dark" },

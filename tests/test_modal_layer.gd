@@ -15,7 +15,16 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 # GameState) depends on get_tree()/get_viewport() having run.
 
 
-static func _find_cost_button(root: Node, text: String) -> Button:
+static func _find_option_with_item(root: Node, item_text: String) -> OptionButton:
+	for node in root.find_children("", "OptionButton", true, false):
+		var option: OptionButton = node
+		for i in range(option.item_count):
+			if option.get_item_text(i) == item_text:
+				return option
+	return null
+
+
+func _find_cost_button(root: Node, text: String) -> Button:
 	for b in root.find_children("", "Button", true, false):
 		var btn := b as Button
 		if btn.text == text or btn.text == UI.format_block_cost_label(text):
@@ -82,6 +91,26 @@ func run() -> void:
 		assert_eq(GameState.state["modal"], null)
 		assert_true(GameState.state["combat"]["active"], "Fight starts a combat")
 		assert_eq(GameState.state["combat"]["enemies"].size(), 1, "default enemy count is 1")
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_RAID, "default fight type is raid")
+		assert_eq(GameState.state["combat"]["locationKey"], "", "default location is Auto -- the fake debug vein derives no district")
+		layer.free()
+	)
+
+	run_case("combat_setup_modal_fight_type_and_location_pickers_drive_the_fight", func():
+		GameState.reset()
+		Modal.open("combat_setup")
+		var layer := ModalLayer.new()
+		layer._ready()
+		var context_select: OptionButton = _find_option_with_item(layer, Combat.CONTEXT_DEFEND_VEIN)
+		var location_select: OptionButton = _find_option_with_item(layer, CombatSetupModal.LOCATION_AUTO)
+		assert_true(context_select != null and location_select != null, "both pickers render")
+		context_select.select(Combat.DEBUG_SETUP_CONTEXTS.find(Combat.CONTEXT_MUGGING))
+		for i in range(location_select.item_count):
+			if location_select.get_item_text(i) == "camden":
+				location_select.select(i)
+		_find_cost_button(layer, "Fight").pressed.emit()
+		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_MUGGING)
+		assert_eq(GameState.state["combat"]["locationKey"], "camden", "picked location overrides the derived key")
 		layer.free()
 	)
 
