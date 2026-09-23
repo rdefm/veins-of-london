@@ -1,8 +1,9 @@
 # Property bills, tenure and arrears
 
 Decision record for `day-rhythm-business-and-combat` spec decision 2
-(Bills). **Approved 2026-09-23.** Tenure-aware daily bill and rent/buy moves
-implemented; arrears, interest and forced downgrade still pending their tickets.
+(Bills). **Approved 2026-09-23.** Tenure-aware daily bill, rent/buy moves,
+arrears, interest and forced downgrade implemented; morning-account
+visibility still pending its ticket.
 
 ## Current behaviour (at decision time)
 

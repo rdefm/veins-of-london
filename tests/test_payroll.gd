@@ -45,6 +45,24 @@ func run() -> void:
 		assert_eq(log[1]["amount"], -100)
 	)
 
+	run_case("wages_come_from_cash_left_after_arrears_and_bill", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "ops")
+		GameState.state["home"]["arrears"] = 400
+		GameState.state["home"]["arrearsDays"] = 5
+		GameState.state["player"]["cash"] = 600
+		TimeSystem.daily_tick()
+		# ADR 0006 recovery: interest 20, pays 420 arrears + 50 bill -> 130, then the ops wage 100.
+		assert_eq(GameState.state["home"]["arrears"], 0)
+		assert_eq(GameState.state["player"]["cash"], 30)
+		var log: Array = GameState.state["bankLog"]
+		assert_eq(log[0]["label"], "Arrears")
+		assert_eq(log[0]["amount"], -420)
+		assert_eq(log[1]["label"], "Living costs")
+		assert_eq(log[2]["label"], "Wages: Archie")
+	)
+
 	run_case("insufficient_cash_pays_affordable_roles_in_priority_order_and_skips_the_rest", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true

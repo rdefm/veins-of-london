@@ -100,23 +100,86 @@ static func daily_tick() -> void:
 	SaveManager.autosave()               # R§6: autosave on every daily tick
 
 
-# Home bill per ADR 0006: rent if rented, utilities if owned, scaled by the
-# barometer. Shortfall is forgiven here -- cash floors at 0.
+# Home bill per ADR 0006 "Daily ordering": interest on carried arrears, pay
+# arrears, pay today's bill (rent if rented, utilities if owned, barometer-
+# scaled), shortfall into arrears, advance the clock, then the forced
+# downgrade check. Cash never goes negative.
+#
+# PROSE-REVIEW: the arrears and repossession lines below.
 static func _apply_living_costs() -> void:
 	var player: Dictionary = GameState.state["player"]
+	var home: Dictionary = GameState.state["home"]
+	var bills: Dictionary = GameData.HOME_BILLS
+
+	var interest := 0
+	if home["arrears"] > 0 and home["arrearsDays"] >= int(bills["interestThresholdDays"]):
+		interest = GameState.round_epsilon(home["arrears"] * bills["interestRate"])
+		home["arrears"] += interest
+
+	var arrears_paid: int = mini(player["cash"], home["arrears"])
+	player["cash"] -= arrears_paid
+	home["arrears"] -= arrears_paid
+	if arrears_paid > 0:
+		Bank.record(-arrears_paid, "Arrears")
+
 	var fx: Dictionary = Barometer.get_merged_effects()
 	var bill: int = GameState.round_epsilon(Home.current_bill_base() * (1.0 + fx.get("dailyCost", 0.0)))
-	var paid: int = mini(player["cash"], bill)
-	player["cash"] -= paid
-	if paid > 0:
-		Bank.record(-paid, "Living costs")
+	var bill_paid: int = mini(player["cash"], bill)
+	player["cash"] -= bill_paid
+	if bill_paid > 0:
+		Bank.record(-bill_paid, "Living costs")
+	var shortfall: int = bill - bill_paid
+	home["arrears"] += shortfall
 
-	var text := "Day %d: -£%d living costs." % [GameState.state["world"]["day"], paid]
+	if home["arrears"] == 0:
+		home["arrearsDays"] = 0
+	else:
+		home["arrearsDays"] += 1
+
+	var text := "Day %d: -£%d living costs." % [GameState.state["world"]["day"], bill_paid]
+	if arrears_paid > 0:
+		text = "Day %d: -£%d living costs, -£%d off arrears." % [GameState.state["world"]["day"], bill_paid, arrears_paid]
 	var category := Notify.CATEGORY_INFO
+	if interest > 0:
+		text += " £%d interest added." % interest
+	if shortfall > 0:
+		text += " £%d short — owed £%d." % [shortfall, home["arrears"]]
+		category = Notify.CATEGORY_WARNING
+	elif home["arrears"] > 0:
+		text += " Still owed £%d." % home["arrears"]
+		category = Notify.CATEGORY_WARNING
 	if player["cash"] == 0:
 		text += " You are flat broke."
 		category = Notify.CATEGORY_WARNING
 	Notify.push(text, category)
+
+	if home["arrearsDays"] >= int(bills["downgradeThresholdDays"]):
+		_force_downgrade()
+
+
+# ADR 0006 step 5: drop one tier into a rented home. Losing an owned tier
+# clears the debt; losing a rented one carries it. The clock restarts either
+# way. No-op at the bedsit (step 6).
+static func _force_downgrade() -> void:
+	var home: Dictionary = GameState.state["home"]
+	var prev_tier_id: String = Home.get_prev_tier_id(home["tier"])
+	if prev_tier_id == "":
+		return
+	var lost_tier_name: String = GameData.HOME_TIERS[home["tier"]]["name"]
+	var was_owned: bool = home["tenure"] == Home.TENURE_OWNED
+	var result: Dictionary = Home.change_tier(prev_tier_id, Home.TENURE_RENTED)
+	if was_owned:
+		home["arrears"] = 0
+	home["arrearsDays"] = 0
+
+	var text := "The %s's gone for unpaid bills. You're in a rented %s now." % [lost_tier_name, GameData.HOME_TIERS[prev_tier_id]["name"]]
+	if not result["roomsLost"].is_empty():
+		text += " Rooms lost: %d." % result["roomsLost"].size()
+	if was_owned:
+		text += " The debt went with it."
+	else:
+		text += " You still owe £%d." % home["arrears"]
+	Notify.push(text, Notify.CATEGORY_WARNING)
 
 
 static func _apply_healing_salve_tick() -> void:

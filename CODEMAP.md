@@ -77,7 +77,7 @@ Data file per system: see `data/*.json` below.
 | sites.gd | Sites & prospecting |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
-| time_system.gd | Time blocks, rest, daily tick (charges the tenure-aware home bill) |
+| time_system.gd | Time blocks, rest, daily tick (tenure-aware home bill, arrears + interest, forced one-tier downgrade per ADR 0006) |
 | todo.gd | Notes checklist, driven by objectives; also reads state.world.sites directly for the Collective ledger section |
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer |
