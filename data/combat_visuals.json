@@ -26,7 +26,8 @@
     "soho": { "image": "res://assets/combat/backdrops/soho.png" },
     "hampstead": { "image": "res://assets/combat/backdrops/hampstead.png" },
     "kingscross": { "image": "res://assets/combat/backdrops/kingscross.png" },
-    "whitechapel": { "image": "res://assets/combat/backdrops/whitechapel.png" }
+    "whitechapel": { "image": "res://assets/combat/backdrops/whitechapel.png" },
+    "city": { "image": "res://assets/combat/backdrops/city.png" }
   },
   "effects": {
     "timePearl": { "image": "", "frameCount": 4, "fps": 8.0 },

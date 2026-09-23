@@ -436,6 +436,9 @@
 },
 "whitechapel": {
 "image": "res://assets/combat/backdrops/whitechapel.png"
+},
+"city": {
+"image": "res://assets/combat/backdrops/city.png"
 }
 },
 "meta": {
