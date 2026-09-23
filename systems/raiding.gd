@@ -374,26 +374,33 @@ static func resolve_raid_outcome(outcome: Dictionary, missed_defend: bool = fals
 		_apply_raid_loot(vein, faction_name, district_name, missed_defend, outcome.get("caught", true))
 		return
 
-	var faction_vein: Dictionary = GameState.deep_copy(vein)
-	faction_vein["factionId"] = outcome["attackerId"]
-	site["factionVein"] = faction_vein
-	site["claimed"] = false
-
-	var player: Dictionary = GameState.state["player"]
-	var vein_id: String = outcome["veinId"]
-	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
-	Sites.release_vein_slot(vein)
-	# Act 2 T8a (spec §6.8a): a no-op unless vein_id is the one col_a2_nadia_
-	# defend was watching, in which case it re-targets rather than dead-ending.
-	Collective.maybe_retarget_nadia_defend_vein(vein_id)
-
-	MapEvents.queue_seed_claim(vein["district"], vein_id, outcome["attackerId"])
+	transfer_player_vein_to_faction(vein, site, outcome["attackerId"])
 
 	# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone bible.
 	if missed_defend:
 		Notify.push("Too late — %s took your vein in %s while the alarm was still ringing." % [faction_name, district_name], Notify.CATEGORY_DANGER)
 	else:
 		Notify.push("%s raided your vein in %s. It's theirs now." % [faction_name, district_name], Notify.CATEGORY_DANGER)
+
+
+# The claim branch's ownership bookkeeping: the player vein moves onto its
+# site as faction_id's faction vein, wholesale. Shared with Collective.
+# force_vein_loss() (spec §5.4), which moves a vein the same way unrolled.
+static func transfer_player_vein_to_faction(vein: Dictionary, site: Dictionary, faction_id: String) -> void:
+	var faction_vein: Dictionary = GameState.deep_copy(vein)
+	faction_vein["factionId"] = faction_id
+	site["factionVein"] = faction_vein
+	site["claimed"] = false
+
+	var player: Dictionary = GameState.state["player"]
+	var vein_id: String = vein["id"]
+	player["veins"] = player["veins"].filter(func(v): return v["id"] != vein_id)
+	Sites.release_vein_slot(vein)
+	# Act 2 T8a (spec §6.8a): a no-op unless vein_id is the one col_a2_nadia_
+	# defend was watching, in which case it re-targets rather than dead-ending.
+	Collective.maybe_retarget_nadia_defend_vein(vein_id)
+
+	MapEvents.queue_seed_claim(vein["district"], vein_id, faction_id)
 
 
 # Direction B loot outcome: the common-case result of a successful raid --

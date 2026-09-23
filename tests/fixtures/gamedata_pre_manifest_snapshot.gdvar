@@ -2596,6 +2596,44 @@
 "showWhenFlagsTrue": ["colA2Stage"]
 }
 },
+"col_a2_hakim_vein_lost": {
+"cards": [{
+"label": "Whitechapel Road",
+"speaker": null,
+"text": "The shop's open. Hakim's behind the till, serving, making change, saying thank you to every single customer.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "The door to the yard is shut. There's a new padlock on the gate beyond it, and it isn't his.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"Came this morning. Three of them, very polite. One had a clipboard.\" He straightens the lighters on the counter. \"Nobody touched me this time. Nobody needed to.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "The homework's back on the counter, finished this time, the biro clipped to the cover. Somebody's written their name on it very neatly.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Hakim",
+"text": "\"It was only ever a third of the rent. We'll manage.\" He says it the way people say things they've already said to someone else at home.",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Everything that was meant to hold did. The yard went anyway.",
+"type": "resolution"
+}],
+"id": "col_a2_hakim_vein_lost",
+"on_complete": [{
+"op": "set_screen",
+"screen": "phone"
+}]
+},
 "col_a2_handler_deferred": {
 "cards": [{
 "label": null,
@@ -2769,6 +2807,51 @@
 }, {
 "event": "col_a2_handler_deferred",
 "op": "start_event"
+}]
+},
+"col_a2_second_loss": {
+"cards": [{
+"label": null,
+"speaker": "Nadia",
+"text": "\"Another one's gone. Not one of the easy ones. One of ours — one we did everything for.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "She has the ledger open. She runs a finger down the column for that vein and stops at the bottom, where nothing's missing.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"That one shouldn't have gone. We did everything right for that one.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "She isn't upset. She's doing the sum again, slower, like it might come out different.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": null,
+"text": "Des reads it over her shoulder, twice. He opens his mouth, closes it again, and goes back to the top of the column.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"I don't know. I genuinely don't. It should've been the last one they tried.\"",
+"type": "speaker"
+}],
+"id": "col_a2_second_loss",
+"on_complete": [{
+"faction": "firm",
+"op": "col_a2_force_vein_loss"
+}, {
+"flag": "colA2SecondLossSeen",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
 }]
 },
 "col_a2_shop": {

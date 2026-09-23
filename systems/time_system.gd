@@ -97,6 +97,7 @@ static func daily_tick() -> void:
 	Contacts.daily_dial_regen()          # ⑦.1 ally Dial charges refill
 	Objectives.refresh()                 # ⑧ objectives boundary
 	Collective.maybe_trigger_a2_checkpoint()  # ⑧a after ⑧ so an NPC-claimed reseed counts; also the day-threshold fallback
+	Collective.maybe_trigger_a2_crack()       # ⑧b T10/T11, a day or more behind the beat before each
 	MorningAccountsSystem.finish_rollover(morning_context)
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])
 	SaveManager.autosave()               # R§6: autosave on every daily tick

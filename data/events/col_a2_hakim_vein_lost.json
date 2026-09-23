@@ -1,0 +1,14 @@
+{
+  "id": "col_a2_hakim_vein_lost",
+  "cards": [
+    { "type": "narration", "label": "Whitechapel Road", "speaker": null, "text": "The shop's open. Hakim's behind the till, serving, making change, saying thank you to every single customer." },
+    { "type": "narration", "label": null, "speaker": null, "text": "The door to the yard is shut. There's a new padlock on the gate beyond it, and it isn't his." },
+    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"Came this morning. Three of them, very polite. One had a clipboard.\" He straightens the lighters on the counter. \"Nobody touched me this time. Nobody needed to.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "The homework's back on the counter, finished this time, the biro clipped to the cover. Somebody's written their name on it very neatly." },
+    { "type": "speaker", "label": null, "speaker": "Hakim", "text": "\"It was only ever a third of the rent. We'll manage.\" He says it the way people say things they've already said to someone else at home." },
+    { "type": "resolution", "label": null, "speaker": null, "text": "Everything that was meant to hold did. The yard went anyway." }
+  ],
+  "on_complete": [
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

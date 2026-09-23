@@ -323,12 +323,20 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		# Collective.pick_nadia_defend_vein() picks and writes the target itself.
 		"col_a2_pick_nadia_defend_vein":
 			Collective.pick_nadia_defend_vein()
+		# Act 2 T10/T11 (spec §5.4): unrolled ownership transfer. veinIdStatePath
+		# names the vein (T10, Hakim's); without it, Collective picks T11's target.
+		"col_a2_force_vein_loss":
+			var target: Variant = GameState.read_path(effect["veinIdStatePath"]) if effect.has("veinIdStatePath") else Collective.second_loss_target_id()
+			Collective.force_vein_loss(target, effect["faction"])
 		"faction_seed_reported_sites":
 			_faction_seed_reported_sites(effect["objective"], effect["faction"])
 		# Resolves a contact-granted vein's id via veinIdStatePath and sells it at a forced
 		# price. See VeinTrade.sell_to_faction() for why a forced price also marks the sale as not a real market transaction.
+		# The state path is re-pointed at the new faction vein's id, so it keeps naming that vein after the handover.
 		"sell_contact_vein_to_faction":
-			VeinTrade.sell_to_faction(GameState.read_path(effect["veinIdStatePath"]), effect["faction"], effect["price"])
+			var sale := VeinTrade.sell_to_faction(GameState.read_path(effect["veinIdStatePath"]), effect["faction"], effect["price"])
+			if sale.get("ok", false):
+				_set_path(effect["veinIdStatePath"], sale["factionVeinId"])
 		# Chains straight into a second event from a choice's own effects -- advance()'s
 		# cardIndex has no branching, so two divergent card sequences live as two separate events instead.
 		"start_event":

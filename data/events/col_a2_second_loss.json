@@ -1,0 +1,16 @@
+{
+  "id": "col_a2_second_loss",
+  "cards": [
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"Another one's gone. Not one of the easy ones. One of ours — one we did everything for.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "She has the ledger open. She runs a finger down the column for that vein and stops at the bottom, where nothing's missing." },
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"That one shouldn't have gone. We did everything right for that one.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "She isn't upset. She's doing the sum again, slower, like it might come out different." },
+    { "type": "narration", "label": null, "speaker": null, "text": "Des reads it over her shoulder, twice. He opens his mouth, closes it again, and goes back to the top of the column." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"I don't know. I genuinely don't. It should've been the last one they tried.\"" }
+  ],
+  "on_complete": [
+    { "op": "col_a2_force_vein_loss", "faction": "firm" },
+    { "op": "set_flag", "flag": "colA2SecondLossSeen", "value": true },
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

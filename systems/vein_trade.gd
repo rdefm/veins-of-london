@@ -41,7 +41,7 @@ static func sell_to_faction(vein_id: String, faction_id: String, price_override:
 	GameState.state["player"]["cash"] += price
 	Bank.record(price, "Sold vein to %s" % faction_id.capitalize())
 	EventBus.state_changed.emit()
-	return { "ok": true, "price": price, "factionId": faction_id }
+	return { "ok": true, "price": price, "factionId": faction_id, "factionVeinId": result["factionVeinId"] }
 
 
 # Everything sell_to_faction() does *except* paying the player. Split out so
@@ -86,7 +86,7 @@ static func transfer_to_faction(vein_id: String, faction_id: String, price: int,
 	Collective.maybe_trigger_nadia_vein_done()
 	Collective.maybe_trigger_a2_checkpoint()
 	EventBus.state_changed.emit()
-	return { "ok": true }
+	return { "ok": true, "factionVeinId": faction_vein["id"] }
 
 
 # Exact inverse of sell_to_faction(): a faction's site vein stops being theirs

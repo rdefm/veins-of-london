@@ -433,3 +433,91 @@ static func _all_checkpoint_missions_complete() -> bool:
 		if not objectives.get(id, {}).get("complete", false):
 			return false
 	return true
+
+
+# Act 2 T10/T11 (spec §5.4): the col_a2_force_vein_loss op -- a story-
+# triggered, unrolled ownership transfer to to_faction. vein_id may name a
+# player vein (Raiding.transfer_player_vein_to_faction(), the raid claim
+# branch's bookkeeping) or a Collective-held faction vein (Factions.
+# resolve_rivalry_outcome()'s transfer branch). Returns false, touching
+# nothing, once the vein is neither the player's nor the Collective's.
+static func force_vein_loss(vein_id: Variant, to_faction: String) -> bool:
+	if vein_id == null:
+		return false
+	var player_vein: Variant = Cultivating.find_vein(vein_id)
+	if player_vein != null:
+		var player_site: Variant = Sites.find_site(player_vein["siteId"])
+		if player_site == null or player_site["factionVein"] != null:
+			return false
+		Raiding.transfer_player_vein_to_faction(player_vein, player_site, to_faction)
+		EventBus.state_changed.emit()
+		return true
+
+	for site in Sites.sites_with_faction_vein("collective"):
+		var vein: Dictionary = site["factionVein"]
+		if vein["id"] != vein_id:
+			continue
+		vein["factionId"] = to_faction
+		Factions.adjust_relation("collective", to_faction, Factions.RIVALRY_RELATION_PENALTY)
+		MapEvents.queue_seed_claim(site["district"], vein["id"], to_faction)
+		EventBus.state_changed.emit()
+		return true
+	return false
+
+
+# Act 2 T11's target (spec §4.2/§5.4): the vein col_a2_nadia_defend named,
+# if it's still the player's; otherwise the Collective's highest-raid-resist
+# vein -- the player's own first, the faction's if the player holds none.
+static func second_loss_target_id() -> Variant:
+	var defend_id: Variant = GameState.state["collective"].get("nadiaDefendVeinId")
+	if defend_id != null and Cultivating.find_vein(defend_id) != null:
+		return defend_id
+
+	var candidates: Array = GameState.state["player"]["veins"]
+	if candidates.is_empty():
+		candidates = Sites.sites_with_faction_vein("collective").map(func(s): return s["factionVein"])
+	var best: Variant = null
+	for vein in candidates:
+		if best == null or Cultivating.vein_raid_resist(vein) > Cultivating.vein_raid_resist(best):
+			best = vein
+	return best["id"] if best != null else null
+
+
+# Act 2 T10 (spec §6.10): after T9, Hakim's vein goes -- the transfer lands
+# the moment his text does, so the text reports a loss that's already real.
+# T11 (spec §6.11) follows once T10 has been read, never alongside it. Both
+# wait on the daily tick, so neither lands on top of the scene before it,
+# and neither queues while another col_a2_ beat is pending or playing.
+# colA2HakimVeinLost blocks T10 re-firing; T11's own colA2SecondLossSeen
+# (plus the in-flight check while it's pending or playing) blocks T11.
+const HAKIM_VEIN_LOST_KIND := "col_a2_hakim_vein_lost"
+const SECOND_LOSS_KIND := "col_a2_second_loss"
+
+
+static func maybe_trigger_a2_crack() -> bool:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA2CheckpointSeen", false) or _a2_beat_in_flight():
+		return false
+
+	if not flags.get("colA2HakimVeinLost", false):
+		flags["colA2HakimVeinLost"] = true
+		force_vein_loss(GameState.state["collective"]["hakimVeinId"], "firm")
+		# PROSE-REVIEW: spec §6.10's own line, lightly punctuated.
+		Messages.queue_pending("hakim", HAKIM_VEIN_LOST_KIND, "\"They've had the yard. I'm — it's fine. Everyone's fine. Come by when you can.\"")
+		return true
+
+	if not flags.get("colA2SecondLossSeen", false):
+		# PROSE-REVIEW: new SMS teaser, drafted against CONTENT-GUIDE.md.
+		Messages.queue_pending("nadia", SECOND_LOSS_KIND, "\"Another one's gone. Need you here.\"")
+		return true
+	return false
+
+
+static func _a2_beat_in_flight() -> bool:
+	var active_event: Variant = GameState.state["event"]
+	if active_event != null and str(active_event["eventId"]).begins_with("col_a2_"):
+		return true
+	for entry in GameState.state["pendingMessages"]:
+		if str(entry["kind"]).begins_with("col_a2_"):
+			return true
+	return false

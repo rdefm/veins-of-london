@@ -1076,6 +1076,10 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# stamps state.collective.nadiaDefendVeinId via Collective.
 	# pick_nadia_defend_vein() -- no per-raid context to resolve a site from.
 	"col_a2_pick_nadia_defend_vein",
+	# col_a2_second_loss's on_complete (T11, spec §5.4): unrolled ownership
+	# transfer via Collective.force_vein_loss(), target from veinIdStatePath
+	# or Collective.second_loss_target_id().
+	"col_a2_force_vein_loss",
 ]
 
 
