@@ -193,7 +193,7 @@ Calc expands these rules: Shield answers additional exposure, Time Pearl delays 
 ### Decisions to settle through bounded follow-up work
 
 1. Cultivation: select whether guaranteed progress is desired, then set baseline/bonus growth and XP while respecting drift and the three-block budget.
-2. Bills: current daily processing charges a fixed base while property data contains tier costs; zero cash has no arrears. Choose consequences and recovery rules before changing financial pressure.
+2. Bills: **settled 2026-09-23** in [docs/adr/0006-property-bills-and-arrears.md](../../docs/adr/0006-property-bills-and-arrears.md). It covers rent-or-buy tenure, arrears with 5%/day compounding interest from day 6 and a forced downgrade at day 10, and a James-job-only recovery route. Production is unchanged; implementation needs a separately scoped ticket.
 3. Contracts: set initial catalogue, quantity/payment/cadence/deadlines, partial-delivery policy, missed-order consequences, staff unlock/capacity/cost, and exact daily processing order relative to production, raids, and settlement.
 4. Nadia migration: map existing partial trade progress into the explicit supply order without taking rewards away or granting them twice.
 5. Alarms: **settled 2026-09-13.** “Leave undefended” resolves the selected raid immediately after confirmation, using the normal guard-repel check and otherwise its already-rolled outcome. Closing/back remains deferral; current expiry timing otherwise remains unchanged.
