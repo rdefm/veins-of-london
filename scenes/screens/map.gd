@@ -231,23 +231,39 @@ func _on_station_bubble_option_selected(option_id: String) -> void:
 func _build_district_panel(district_id: String) -> void:
 	var district: Dictionary = GameData.DISTRICTS[district_id]
 
-	_content.add_child(UI.button("‹ Back to districts", func(): MapNav.back_to_list()))
-	_content.add_child(UI.heading(district["name"]))
-	_content.add_child(UI.label(district["blurb"]))
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", MapCardStyle.card_panel(18, 0.12))
+	_content.add_child(panel)
+	var body := UI.vbox(10)
+	panel.add_child(body)
+
+	var back := MapCardStyle.style_button(UI.button("‹ Back to districts", func(): MapNav.back_to_list()))
+	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	body.add_child(back)
+	body.add_child(MapCardStyle.label(district["name"], 20, MapCardStyle.INK))
+	body.add_child(MapCardStyle.label(district["blurb"], 14, MapCardStyle.INK))
 
 	var indicators := Districts.derived_indicators(district_id)
 	if not indicators.is_empty():
-		_content.add_child(UI.muted_label(" · ".join(indicators)))
+		body.add_child(MapCardStyle.label(" · ".join(indicators), 12, MapCardStyle.DIM))
 
-	_content.add_child(_build_district_actions(district_id))
+	body.add_child(_build_district_actions(district_id))
 
-	_content.add_child(UI.heading("Sites", 15))
+	body.add_child(MapCardStyle.label("Sites", 15, MapCardStyle.INK))
 	var sites := Sites.sites_in_district(district_id)
 	if sites.is_empty():
-		_content.add_child(UI.muted_label("No sites discovered yet. Prospect to find one."))
+		body.add_child(MapCardStyle.label("No sites discovered yet. Prospect to find one.", 12, MapCardStyle.DIM))
 	else:
 		for site in sites:
-			_content.add_child(_build_site_row(site))
+			body.add_child(_build_site_row(site))
+
+func _map_card() -> Dictionary:
+	var c := UI.card()
+	(c["panel"] as PanelContainer).add_theme_stylebox_override("panel", MapCardStyle.inset_panel())
+	return c
+
+func _dim_label(text: String) -> Label:
+	return MapCardStyle.label(text, 12, MapCardStyle.DIM)
 
 func _build_district_actions(district_id: String) -> Control:
 	var district: Dictionary = GameData.DISTRICTS[district_id]
@@ -255,20 +271,22 @@ func _build_district_actions(district_id: String) -> Control:
 
 	var site_cap: int = district.get("siteCap", 0)
 	if site_cap <= 0:
-		row.add_child(UI.expand_fill(UI.muted_label("No prospecting here")))
+		row.add_child(UI.expand_fill(_dim_label("No prospecting here")))
 	elif not GameState.state["flags"]["cultivationTutorialSeen"]:
-		row.add_child(UI.expand_fill(UI.muted_label("Prospecting — see Archie first")))
+		row.add_child(UI.expand_fill(_dim_label("Prospecting — see Archie first")))
 	else:
 		var prospect_button := UI.button(UI.format_block_cost_label("Prospect", 1, Travel.can_afford(district_id, 1)), func(): Sites.prospect(district_id))
 		prospect_button.disabled = not Travel.can_afford(district_id, 1)
-		row.add_child(prospect_button)
+		row.add_child(MapCardStyle.style_button(prospect_button))
 
 	if GameState.state["world"]["currentDistrict"] == district_id:
-		row.add_child(UI.expand_fill(UI.muted_label("Travel (already here)")))
+		row.add_child(UI.expand_fill(_dim_label("Travel (already here)")))
 	else:
-		row.add_child(UI.button("Travel", func(): Travel.travel_to(district_id)))
+		row.add_child(MapCardStyle.style_button(UI.button("Travel", func(): Travel.travel_to(district_id))))
 		if Crafting.inventory_qty("wormhole") > 0:
-			row.add_child(UI.symbol_button([{ "symbol": GameData.RECIPES["wormhole"]["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " Wormhole"], func(): Travel.travel_via_wormhole(district_id)))
+			var wormhole := MapCardStyle.style_button(UI.symbol_button([{ "symbol": GameData.RECIPES["wormhole"]["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " Wormhole"], func(): Travel.travel_via_wormhole(district_id)))
+			MapCardStyle.tint_symbols(wormhole, UI.action_colour())
+			row.add_child(wormhole)
 
 	return row
 
@@ -276,12 +294,12 @@ func _build_site_row(site: Dictionary) -> Control:
 	var ore: Dictionary = GameData.ORE_TYPES[site["oreType"]]
 	var site_id: String = site["id"]
 
-	var c := UI.card()
-	c["content"].add_child(UI.symbol_row(["%s — " % String(site["tier"]).capitalize(), { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(site["oreType"]) }, " %s" % ore["name"]], { "heading_size": 14 }))
-	c["content"].add_child(UI.muted_label(_site_claim_state_text(site)))
+	var c := _map_card()
+	c["content"].add_child(MapCardStyle.tint_symbols(UI.symbol_row(["%s — " % String(site["tier"]).capitalize(), { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(site["oreType"]) }, " %s" % ore["name"]], { "heading_size": 14 }), MapCardStyle.INK))
+	c["content"].add_child(_dim_label(_site_claim_state_text(site)))
 
 	var actions := UI.hflow()
-	actions.add_child(UI.button("View", func(): MapNav.select_site(site_id)))
+	actions.add_child(MapCardStyle.style_button(UI.button("View", func(): MapNav.select_site(site_id))))
 	if site["factionVein"] != null and GameState.state["flags"].get("veinSaleUnlocked", false):
 		actions.add_child(_build_buy_vein_button(site["factionVein"]))
 	c["content"].add_child(actions)
@@ -292,7 +310,7 @@ func _build_buy_vein_button(faction_vein: Dictionary) -> Button:
 	var faction_id: String = faction_vein["factionId"]
 	var button := UI.button("Buy — £%d" % price, func(): VeinTrade.buy_from_faction(vein_id, faction_id))
 	button.disabled = GameState.state["player"]["cash"] < price
-	return button
+	return MapCardStyle.style_button(button)
 
 func _site_claim_state_text(site: Dictionary) -> String:
 	if site["claimed"]:
@@ -317,6 +335,10 @@ func _build_site_sheet(site_id: String) -> void:
 	UI.anchor_bottom_wide(card)
 	card.offset_top = -SHEET_HEIGHT
 	card.offset_bottom = 0
+	var sheet_style := MapCardStyle.card_panel(18, 0.18)
+	sheet_style.corner_radius_bottom_left = 0
+	sheet_style.corner_radius_bottom_right = 0
+	card.add_theme_stylebox_override("panel", sheet_style)
 	_sheet_layer.add_child(card)
 
 	var scroll := UI.scroll_container()
@@ -326,25 +348,25 @@ func _build_site_sheet(site_id: String) -> void:
 	scroll.add_child(content)
 
 	var ore: Dictionary = GameData.ORE_TYPES[site["oreType"]]
-	content.add_child(UI.symbol_row(["%s — " % String(site["tier"]).capitalize(), { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(site["oreType"]) }, " %s" % ore["name"]], { "heading_size": 20 }))
-	content.add_child(UI.muted_label(_site_claim_state_text(site)))
+	content.add_child(MapCardStyle.tint_symbols(UI.symbol_row(["%s — " % String(site["tier"]).capitalize(), { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(site["oreType"]) }, " %s" % ore["name"]], { "heading_size": 20 }), MapCardStyle.INK))
+	content.add_child(_dim_label(_site_claim_state_text(site)))
 
 	var bonuses: Array = site["bonuses"]
 	if not bonuses.is_empty():
-		content.add_child(UI.muted_label("Bonuses: %s" % ", ".join(bonuses)))
+		content.add_child(_dim_label("Bonuses: %s" % ", ".join(bonuses)))
 	if site["hasNaturalVein"] and not site["claimed"]:
-		content.add_child(UI.muted_label("A natural vein runs here — claiming grants a free bonus vein."))
+		content.add_child(_dim_label("A natural vein runs here — claiming grants a free bonus vein."))
 
 	if site["factionVein"] != null:
 		_build_faction_vein_content(content, site["factionVein"], site_id)
 	elif site["claimed"]:
 		_build_claimed_site_content(content, site)
 	elif site["tier"] == "barren":
-		content.add_child(UI.muted_label("Barren — nothing to seed here."))
+		content.add_child(_dim_label("Barren — nothing to seed here."))
 	else:
 		content.add_child(_build_seed_row(site))
 
-	content.add_child(UI.button("Close", func(): MapNav.close_site_sheet()))
+	content.add_child(MapCardStyle.style_button(UI.button("Close", func(): MapNav.close_site_sheet())))
 
 func _on_sheet_dim_gui_input(event: InputEvent) -> void:
 	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
@@ -360,16 +382,17 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_
 
 	var band: Dictionary = Cultivating.growth_band(vein)
 
-	var c := UI.card()
-	c["content"].add_child(UI.tinted_label(faction["name"], Color(faction["colour"])))
-	c["content"].add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s — %s" % [ore["name"], band["label"]]], { "muted": true }))
-	c["content"].add_child(UI.muted_label("🔒 %s" % Cultivating.security_label(vein)))
+	var c := _map_card()
+	c["content"].add_child(MapCardStyle.label(faction["name"], 14, Color(faction["colour"])))
+	c["content"].add_child(MapCardStyle.tint_symbols(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s — %s" % [ore["name"], band["label"]]]), MapCardStyle.DIM))
+	c["content"].add_child(_security_line(vein, MapCardStyle.DIM))
 
 	if Contacts.can_assist_raid("archie"):
 		var archie_toggle := Button.new()
 		archie_toggle.clip_text = true
 		archie_toggle.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		archie_toggle.text = _archie_raid_toggle_label()
+		UI.style_action_button(archie_toggle, MapCardStyle.INK)
 		archie_toggle.pressed.connect(func():
 			_raid_bring_archie = not _raid_bring_archie
 			archie_toggle.text = _archie_raid_toggle_label()
@@ -382,7 +405,7 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_
 		Raiding.begin_raid(vein, ["archie"] if _raid_bring_archie else [])
 	)
 	raid_button.disabled = not Travel.can_afford(district, 1)
-	actions.add_child(raid_button)
+	actions.add_child(MapCardStyle.style_button(raid_button))
 	if GameState.state["flags"].get("veinSaleUnlocked", false):
 		actions.add_child(_build_buy_vein_button(vein))
 
@@ -395,7 +418,7 @@ func _archie_raid_toggle_label() -> String:
 func _build_claimed_site_content(content: VBoxContainer, site: Dictionary) -> void:
 	var veins := _veins_for_site(site["id"])
 	if veins.is_empty():
-		content.add_child(UI.muted_label("This site's vein has collapsed. Nothing to do here."))
+		content.add_child(_dim_label("This site's vein has collapsed. Nothing to do here."))
 		return
 	for vein in veins:
 		content.add_child(_build_vein_action_card(vein))
@@ -419,10 +442,10 @@ func _build_seed_row(site: Dictionary) -> Control:
 	var have: int = player["orichalchum"].get(ore_type, 0)
 	var b := UI.button(label_text, func(): Sites.attempt_seed(site_id))
 	b.disabled = have < GameData.SEED_ORE_COST or not Travel.can_afford(district, 1)
-	return b
+	return MapCardStyle.style_button(b)
 
 func _build_vein_action_card(vein: Dictionary) -> Control:
-	var c := UI.card()
+	var c := _map_card()
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 	var band: Dictionary = Cultivating.growth_band(vein)
 	var district: String = vein["district"]
@@ -431,25 +454,27 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	var at_ceiling: bool = vein["growth"] >= vein_ceiling
 	var collapsed: bool = band["id"] == "collapsed"
 
-	c["content"].add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s — %s" % [ore["name"], band["label"]]], { "heading_size": 14 }))
-	c["content"].add_child(UI.muted_label(vein["location"]))
-	c["content"].add_child(UI.label("🔒 %s" % Cultivating.security_label(vein)))
+	c["content"].add_child(MapCardStyle.tint_symbols(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s — %s" % [ore["name"], band["label"]]], { "heading_size": 14 }), MapCardStyle.INK))
+	c["content"].add_child(_dim_label(vein["location"]))
+	c["content"].add_child(_security_line(vein, MapCardStyle.INK))
 	if Raiding.has_pending_defend(vein_id):
-		c["content"].add_child(UI.tinted_label("Under raid — defend now or lose it at the next tick.", MapStyle.DANGER_COLOUR))
-		c["content"].add_child(UI.button("Defend", func(): Raiding.trigger_defend(vein_id)))
+		c["content"].add_child(MapCardStyle.label("Under raid — defend now or lose it at the next tick.", 12, MapStyle.DANGER_COLOUR))
+		var defend := UI.button("Defend", func(): Raiding.trigger_defend(vein_id))
+		UI.style_action_button(defend, MapStyle.DANGER_COLOUR)
+		c["content"].add_child(defend)
 
-	c["content"].add_child(UI.muted_label("Growth: %d/%d" % [vein["growth"], vein_ceiling]))
-	c["content"].add_child(UI.bar(vein["growth"], vein_ceiling))
+	c["content"].add_child(_dim_label("Growth: %d/%d" % [vein["growth"], vein_ceiling]))
+	c["content"].add_child(MapCardStyle.style_bar(UI.bar(vein["growth"], vein_ceiling)))
 	if collapsed:
-		c["content"].add_child(UI.tinted_label(Cultivating.COLLAPSED_VEIN_WARNING, MapStyle.DANGER_COLOUR))
+		c["content"].add_child(MapCardStyle.label(Cultivating.COLLAPSED_VEIN_WARNING, 12, MapStyle.DANGER_COLOUR))
 	else:
-		c["content"].add_child(UI.muted_label(Cultivating.days_to_wall_text(vein)))
+		c["content"].add_child(_dim_label(Cultivating.days_to_wall_text(vein)))
 	var actions := UI.hflow()
 
 	var cultivate_label := "Vein at ceiling" if at_ceiling else UI.format_block_cost_label("Cultivate", 1, Travel.can_afford(district, 1))
 	var cultivate_button := UI.button(cultivate_label, func(): Cultivating.cultivate(vein_id))
 	cultivate_button.disabled = at_ceiling or not Travel.can_afford(district, 1)
-	actions.add_child(cultivate_button)
+	actions.add_child(MapCardStyle.style_button(cultivate_button))
 
 	actions.add_child(_build_prune_button("Prune (light)", vein, GameData.VEIN_GROWTH["pruneLightDepth"], district))
 	actions.add_child(_build_prune_button("Prune (hard)", vein, GameData.VEIN_GROWTH["pruneHardDepth"], district))
@@ -466,11 +491,24 @@ func _build_prune_button(action_label: String, vein: Dictionary, depth: int, dis
 	var vein_id: String = vein["id"]
 	var label_text := _prune_option_label(action_label, vein, depth)
 	var gate: Dictionary = Cultivating.prune_gate(vein, depth, district)
-	return UI.action_button(label_text, func(): Cultivating.prune(vein_id, depth), gate["disabled"], gate["reason"])
+	var row := UI.vbox(2)
+	var b := UI.button(label_text, func(): Cultivating.prune(vein_id, depth))
+	b.disabled = gate["disabled"]
+	row.add_child(MapCardStyle.style_button(b))
+	if gate["disabled"] and gate["reason"] != "":
+		row.add_child(_dim_label(gate["reason"]))
+	return row
+func _security_line(vein: Dictionary, colour: Color) -> Control:
+	var row := UI.hbox(5)
+	var glyph := UI.icon_glyph_control(Icons.draw_padlock, 0.8, colour)
+	glyph.custom_minimum_size = Vector2(18, 18)
+	row.add_child(glyph)
+	row.add_child(MapCardStyle.label(Cultivating.security_label(vein), 12, colour))
+	return row
 func _build_vein_station_row(_vein: Dictionary) -> Variant:
 	if not GameState.state["home"]["rooms"].has("veinStation"):
 		return null
-	return UI.muted_label("Vein Station assignment: see BizBrief → Manage → Procurement.")
+	return _dim_label("Vein Station assignment: see BizBrief → Manage → Procurement.")
 func _build_security_row(vein: Dictionary) -> Control:
 	var upgrade: Dictionary = Cultivating.next_security_upgrade(vein)
 	var player: Dictionary = GameState.state["player"]
@@ -481,11 +519,11 @@ func _build_security_row(vein: Dictionary) -> Control:
 
 	var b := UI.button(UI.format_cost_label(cost, { "cash": player["cash"] }), func(): Cultivating.upgrade_vein_security(vein_id))
 	b.disabled = player["cash"] < upgrade["cost"]
-	return b
+	return MapCardStyle.style_button(b)
 func _build_alarm_row(vein: Dictionary) -> Control:
 	var alarm_data: Dictionary = GameData.VEIN_ALARM[Cultivating.ALARM_UPGRADE_ID]
 	if vein["alarmUpgrades"].has(Cultivating.ALARM_UPGRADE_ID):
-		return UI.muted_label("%s: installed" % alarm_data["label"])
+		return _dim_label("%s: installed" % alarm_data["label"])
 
 	var player: Dictionary = GameState.state["player"]
 	var cost := { "label": "Install %s" % alarm_data["label"], "resource": "cash", "amount": alarm_data["cost"] }
@@ -493,4 +531,4 @@ func _build_alarm_row(vein: Dictionary) -> Control:
 
 	var b := UI.button(UI.format_cost_label(cost, { "cash": player["cash"] }), func(): Cultivating.add_alarm(vein_id))
 	b.disabled = player["cash"] < alarm_data["cost"]
-	return b
+	return MapCardStyle.style_button(b)

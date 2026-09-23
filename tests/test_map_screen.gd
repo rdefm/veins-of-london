@@ -112,6 +112,31 @@ func run() -> void:
 	# directly on a fresh, un-_ready()'d screen -- same reasoning
 	# test_icons.gd gives for not exercising draw_* itself: this only
 	# checks the built structure, not the click behaviour.
+	# playtest-fixes 03: the district panel, site sheet and vein action card
+	# share the map card look -- no Button on this path falls back to the
+	# default theme stylebox.
+	run_case("district_panel_and_site_sheet_use_the_map_card_style", func():
+		GameState.reset()
+		GameState.state["flags"]["cultivationTutorialSeen"] = true
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "time", "fair", true)]
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({})]
+		MapNav.select_district("shoreditch")
+		MapNav.select_site("s1")
+
+		var screen := MapScreen.new()
+		screen._ready()
+
+		var card: PanelContainer = screen._sheet_layer.get_child(1)
+		assert_true(card.has_theme_stylebox_override("panel"), "site sheet uses the paper card panel")
+		var buttons: Array = screen._content.find_children("", "Button", true, false)
+		buttons.append_array(screen._sheet_layer.find_children("", "Button", true, false))
+		assert_true(buttons.size() >= 6, "district actions + site row + vein card actions all built")
+		for b in buttons:
+			assert_true((b as Button).has_theme_stylebox_override("normal"), "%s must carry the map card button style" % (b as Button).text)
+
+		screen.free()
+	)
+
 	run_case("top_bar_hamburger_and_bag_buttons_carry_no_glyph_text", func():
 		var screen := MapScreen.new()
 		var row := screen._build_top_bar()

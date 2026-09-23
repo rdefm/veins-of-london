@@ -127,7 +127,7 @@ overlays.
 | hq_diorama.gd | Generic plate/region artwork renderer |
 | icons.gd | 13 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
-| map_card_style.gd | Shared PAPER/INK/DIM/LINE/GOLD/SAGE palette + card/action-circle StyleBoxFlat builders for the map-tab popup family (map_bubble.gd, vein_bubble.gd, vein_detail_panel.gd) |
+| map_card_style.gd | Shared PAPER/INK/DIM/LINE/GOLD/SAGE palette + card/inset/action-circle styleboxes, ink labels, text-button/bar/symbol tinting for the map-tab family (map_bubble.gd, vein_bubble.gd, vein_detail_panel.gd, map.gd's district panel/site sheet) |
 | map_canvas.gd | Network diagram: layout/stops/lines, hit-testing, static draw pass; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
 | map_controls.gd | Filter-chip drawer + legend button |
