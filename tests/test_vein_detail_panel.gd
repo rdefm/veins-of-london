@@ -235,3 +235,29 @@ func run() -> void:
 
 		panel.free()
 	)
+
+	run_case("guarded_vein_offers_an_enabled_plus_one_guard_that_buys_it", func():
+		GameState.reset()
+		var vein := Fixtures.seed_vein("v1", 60)
+		vein["security"] = "guarded"
+		var cost: int = Cultivating.extra_guard_cost(0)
+		GameState.state["player"]["cash"] = cost
+		var panel := VeinDetailPanel.build(vein)
+
+		var buttons: Array = panel.find_children("SecurityButton", "Button", true, false)
+		assert_eq(buttons.size(), 1)
+		var button := buttons[0] as Button
+		assert_true(button.text.begins_with("+1 Guard"), "guarded vein offers the uncapped +1 Guard purchase")
+		assert_true(not button.disabled,"+1 Guard is enabled when affordable")
+		button.pressed.emit()
+
+		assert_eq(vein["extraGuards"], 1)
+		assert_eq(GameState.state["player"]["cash"], 0)
+		panel.free()
+
+		GameState.state["player"]["cash"] = Cultivating.extra_guard_cost(1) - 1
+		var broke_panel := VeinDetailPanel.build(vein)
+		var broke_button := broke_panel.find_children("SecurityButton", "Button", true, false)[0] as Button
+		assert_true(broke_button.disabled, "disabled only when cash is short")
+		broke_panel.free()
+	)

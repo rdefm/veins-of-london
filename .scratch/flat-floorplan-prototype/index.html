@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PROTOTYPE — Harrow's Flat floorplan</title>
+<style>
+  :root{font-family:Arial,Helvetica,sans-serif;color:#ededee;background:#171719;font-size:14px}
+  *{box-sizing:border-box}body{margin:0;min-height:100vh;padding:24px 12px 100px;display:flex;justify-content:center}
+  button{font:inherit;cursor:pointer}button:focus-visible{outline:3px solid #c8102e;outline-offset:3px}
+  .phone{width:min(100%,390px);min-height:740px;background:#252528;border:2px solid #363a43;border-radius:28px;padding:19px 15px 28px;box-shadow:0 15px 55px #0008}
+  .top{font-size:12px;letter-spacing:.15em;color:#aaa;display:flex;justify-content:space-between;padding:4px 1px 15px;border-bottom:1px solid #424246}
+  .apphead{display:flex;align-items:center;gap:12px;padding:17px 0 13px}.back{background:none;border:0;color:#eee;padding:4px;font-size:22px}.brand{font-size:22px;font-weight:700;letter-spacing:-.04em}.subbrand{color:#999a9d;font-size:11px;letter-spacing:.16em;text-transform:uppercase}
+  .tabs{display:flex;border-bottom:1px solid #555;margin:0 0 16px}.tabs button{flex:1;background:none;color:#999a9d;border:0;padding:12px 3px;border-bottom:3px solid transparent}.tabs button.active{color:white;border-bottom-color:#c8102e}
+  .eyebrow{font-size:10px;color:#777;letter-spacing:.17em;text-transform:uppercase;font-weight:700}.title{font-size:22px;line-height:1.1;font-weight:700;margin:5px 0}.muted{color:#777;line-height:1.45}.meta{display:flex;gap:8px;margin:14px 0}.meta span{border-right:1px solid #bbb;padding-right:9px;font-weight:700}.meta span:last-child{border:0}
+  .paper{background:#f2f0e9;color:#242424;border:1px solid #b8b4a8;padding:15px 14px 16px;box-shadow:1px 3px 0 #c8c5bc,3px 6px 12px #0002}
+  .paper-head{border-bottom:2px solid #242424;padding-bottom:9px;display:flex;justify-content:space-between;align-items:end}.paper-head b{font-size:18px;letter-spacing:-.07em}.paper-head small{font-size:9px;text-align:right;line-height:1.3;color:#666}
+  .paper-foot{display:flex;justify-content:space-between;border-top:1px solid #aaa;padding-top:8px;margin-top:10px;font-size:10px;color:#555}
+  .plan{display:block;width:100%;height:auto;margin:12px auto 4px}.plan .wall{fill:none;stroke:#242424;stroke-width:8;stroke-linejoin:miter}.plan .thin{fill:none;stroke:#777;stroke-width:1.5}.plan .fixture{fill:none;stroke:#999;stroke-width:1.5}.plan text{font-family:Arial,Helvetica,sans-serif;fill:#333}.plan .room-name{font-weight:bold;font-size:14px;letter-spacing:.08em}.plan .room-sub{font-size:10px;fill:#666}.plan .room-number{font-size:10px;fill:#777}.plan .active-room{fill:#c8102e;fill-opacity:.12;stroke:#c8102e;stroke-width:2}.plan .door-gap{stroke:#f2f0e9;stroke-width:11}.plan .door{fill:none;stroke:#777;stroke-width:1.3}
+  .plan-button{border:0;background:transparent;padding:0;width:100%;display:block;text-align:left}.plan-button:focus-visible{outline-offset:6px}.plan-button:not(.clickable){cursor:default}
+  .card{border:1px solid #424246;background:#2d2d30;padding:14px;margin-top:14px}.card h3{font-size:15px;margin:0 0 8px}.card p{margin:0 0 8px;line-height:1.4;color:#b8b8bb}.red{background:#c8102e;color:#fff;border:0;border-radius:3px;padding:10px 13px;font-weight:700}.red:disabled{background:#5c5c60;color:#aaa;cursor:not-allowed}.outline{background:none;color:#eee;border:1px solid #666;border-radius:3px;padding:9px 12px}.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 0;border-top:1px solid #48484b}.row:first-of-type{border-top:0}.row small{display:block;color:#999a9d;margin-top:3px}.cost{font-weight:700;color:#d4af52}.heading{font-weight:700;font-size:18px;margin:20px 0 5px}
+  .note{font-size:11px;color:#aaa;line-height:1.45;margin:10px 0}.callout{background:#fff;border-left:4px solid #c8102e;padding:11px 12px;color:#333;font-size:12px;line-height:1.45;margin:12px 0}
+  .variant-b .paper{padding:10px}.variant-b .paper-head,.variant-b .paper-foot{display:none}.variant-b .plan{margin:0}.variant-b .listing-lead{background:#f2f0e9;color:#333;padding:13px;margin:-16px -15px 15px}.variant-b .listing-lead .title{font-size:20px}
+  .variant-c .paper{background:#e9e6db}.variant-c .paper-head{border-bottom:0}.variant-c .plan{margin-top:0}.variant-c .paper-foot{display:none}.variant-c .editorial{font-size:12px;text-transform:uppercase;letter-spacing:.16em;border-top:2px solid #242424;border-bottom:1px solid #777;padding:7px 0;margin:12px 0;color:#222}.variant-c .room-key{display:flex;gap:9px;margin-top:9px}.variant-c .room-key span{border:1px solid #555;padding:7px;flex:1;text-align:center;font-size:11px}
+  .variant-switch{position:fixed;bottom:15px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;background:#f4f2ec;color:#222;border-radius:100px;padding:6px;box-shadow:0 5px 25px #0008;border:1px solid #bbb;white-space:nowrap}.variant-switch button{border:0;border-radius:100px;background:#242424;color:white;width:33px;height:33px;font-size:18px}.variant-switch span{font-size:12px;font-weight:700;min-width:156px;text-align:center}
+</style>
+</head>
+<body>
+<main id="app" class="phone"></main>
+<div class="variant-switch" aria-label="Prototype variant switcher"><button id="prev" aria-label="Previous variant">‹</button><span id="variant-label"></span><button id="next" aria-label="Next variant">›</button></div>
+<script>
+// PROTOTYPE: three variants of the Flat's listing and owned floorplan, switchable via ?variant=A|B|C.
+const variants={A:'Survey plan',B:'Listing first',C:'Annotated particulars'};
+const prices={workshop:800,homeGym:600};
+let view='listing', installed=null, cash=2000, sheet=false;
+let variant=variants[new URLSearchParams(location.search).get('variant')]?new URLSearchParams(location.search).get('variant'):'A';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const roomName=()=>installed==='workshop'?'Workshop':installed==='homeGym'?'Home Gym':'Unassigned';
+function plan(){
+ const choice=view==='owned', label=choice?roomName():'Spare room';
+ return `<button class="plan-button ${choice?'clickable':''}" aria-label="${choice?'Select spare room, '+esc(label):'Static floorplan preview'}" ${choice?'onclick="sheet=true;render()"':'disabled'}>
+ <svg class="plan" viewBox="0 0 316 313" role="img" aria-label="Flat floorplan: bedroom left, spare room right, entrance below">
+ <path fill="#e5e2d9" d="M24 24H292V272H24Z"/><path class="active-room" d="M161 28H288V216H161Z"/>
+ <path class="wall" d="M24 24H292V272H24Z M157 24V216 M157 216H292"/>
+ <path class="door-gap" d="M151 216h38 M113 272h38"/><path class="door" d="M151 216v36a36 36 0 0 0 36-36 M113 272v-35a35 35 0 0 1 35 35"/>
+ <path class="fixture" d="M39 35h69v51H39Z M48 43h51v23H48Z M42 100h55v28H42Z M44 166h59v37H44Z M51 171h46 M51 178h46 M51 185h46 M51 192h46 M238 43h39v33h-39Z"/>
+ <text x="38" y="150" class="room-number">01</text><text x="38" y="221" class="room-name">BEDROOM</text><text x="38" y="236" class="room-sub">Fixed use</text>
+ <text x="172" y="102" class="room-number">02 · SELECTABLE</text><text x="172" y="127" class="room-name" style="font-size:12px">${esc(label).toUpperCase()}</text><text x="172" y="145" class="room-sub">${choice?'Tap to choose use':'One spare room'}</text>
+ <text x="171" y="245" class="room-sub">ENTRY</text><text x="181" y="282" class="room-sub">↑</text>
+ </svg></button>`;
+}
+function paper(){return `<section class="paper"><div class="paper-head"><b>HARROW'S</b><small>PROPERTY PARTICULARS<br>HACKNEY · FLAT 02</small></div>${plan()}${variant==='C'?'<div class="editorial">Two rooms · one opportunity</div><div class="room-key"><span>01 Bedroom</span><span>02 Flexible room</span></div>':''}<div class="paper-foot"><span>Illustrative plan · not to scale</span><span>2 rooms / 1 spare</span></div></section>`}
+function listing(){return `<div class="${variant==='B'?'listing-lead':''}"><div class="eyebrow">Next property · Hackney</div><div class="title">Flat above a nail bar</div><div class="muted">Neighbours ask no questions. One spare room.</div></div>
+ ${variant==='B'?'<div class="meta"><span>£1,200</span><span>£80/day</span><span>1 spare</span></div>':''}
+ ${paper()}
+ ${variant==='C'?'<div class="callout">The bedroom stays a bedroom. The spare room is yours to fit out after moving in.</div>':''}
+ ${variant!=='B'?'<div class="meta"><span>£1,200 move</span><span>£80/day</span><span>1 spare</span></div>':''}
+ <div class="card"><h3>Move into this property</h3><p>Choose how to use the spare room once the Flat is yours.</p><button class="red" onclick="view='owned';sheet=false;render()">Preview owned view ↗</button></div>`}
+function options(){const can=id=>cash>=prices[id];return `<div class="card" id="options"><div class="eyebrow">Room 02 · Spare room</div><h3>${installed?'Change room use':'Choose room use'}</h3>${installed?'<p>Changing the room removes the current upgrade. Its cost is lost; the new upgrade costs full price.</p>':'<p>Choose an upgrade for this room. The bedroom cannot be changed.</p>'}
+ ${installed?`<div class="row"><div><b>Installed: ${esc(roomName())}</b><small>Current room use</small></div></div>`:''}
+ ${[['workshop','Workshop','Crafting success +8%'],['homeGym','Home Gym','Max HP +10; physical attack improves']].map(([id,name,desc])=>`<div class="row"><div><b>${name}</b><small>${desc}</small></div><button class="red" ${installed===id||!can(id)?'disabled':''} onclick="buy('${id}')">${installed===id?'Installed':'£'+prices[id]}</button></div>`).join('')}
+ <div class="row"><div><b>Library · Safe Room</b><small>Available from Townhouse</small></div><span class="muted">Locked</span></div>
+ <button class="outline" onclick="sheet=false;render()">Close</button></div>`}
+function owned(){return `<div class="eyebrow">HQ · noticeboard</div><div class="title">Your Flat</div><div class="muted">Bedroom + one room to make your own.</div>${paper()}
+ <div class="note">Tap room 02 to ${installed?'change its use':'choose an upgrade'}. Bedroom is fixed.</div>
+ ${sheet?options():`<div class="card"><h3>Room 02 · ${esc(roomName())}</h3><p>${installed?'Tap the room on the plan to replace this upgrade.':'The room is empty. Tap it on the plan to choose its use.'}</p></div>`}
+ <div class="note">Prototype cash: £${cash}. Purchases here change only this mockup.</div>`}
+function render(){const app=document.getElementById('app');app.className=`phone variant-${variant.toLowerCase()}`;app.innerHTML=`<div class="top"><span>DAY 12 · £${cash}</span><span>VEIN</span></div><div class="apphead"><button class="back" aria-label="Back" onclick="view='listing';sheet=false;render()">‹</button><div><div class="subbrand">${view==='listing'?'Property app':'HQ noticeboard'}</div><div class="brand">${view==='listing'?"Harrow's":'Floorplan'}</div></div></div><div class="tabs"><button class="${view==='listing'?'active':''}" onclick="view='listing';sheet=false;render()">Harrow's preview</button><button class="${view==='owned'?'active':''}" onclick="view='owned';sheet=false;render()">Owned Flat</button></div>${view==='listing'?listing():owned()}`;document.getElementById('variant-label').textContent=`${variant} — ${variants[variant]}`}
+function buy(id){if(installed===id||cash<prices[id])return;cash-=prices[id];installed=id;sheet=false;render()}
+function switchVariant(dir){let keys=Object.keys(variants),i=keys.indexOf(variant);variant=keys[(i+dir+keys.length)%keys.length];let u=new URL(location.href);u.searchParams.set('variant',variant);history.replaceState(null,'',u);render()}
+document.getElementById('prev').onclick=()=>switchVariant(-1);document.getElementById('next').onclick=()=>switchVariant(1);
+document.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA'].includes(document.activeElement.tagName)||document.activeElement.isContentEditable)return;if(e.key==='ArrowLeft')switchVariant(-1);if(e.key==='ArrowRight')switchVariant(1)});
+render();
+</script>
+</body>
+</html>

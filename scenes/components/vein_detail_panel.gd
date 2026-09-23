@@ -272,7 +272,7 @@ static func _build_security_button(vein: Dictionary) -> Control:
 	var cost := { "label": label_text, "resource": "cash", "amount": upgrade["cost"] }
 	var button := UI.button(UI.format_cost_label(cost, { "cash": player["cash"] }), func(): Cultivating.upgrade_vein_security(vein_id))
 	button.name = "SecurityButton"
-	button.disabled = player["cash"] < upgrade["cost"] or upgrade["tierId"] == null
+	button.disabled = player["cash"] < upgrade["cost"]
 	button.custom_minimum_size.y = 40
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UI.style_action_button(button, MapCardStyle.DIM if button.disabled else UI.action_colour())
