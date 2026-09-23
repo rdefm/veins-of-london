@@ -62,6 +62,44 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("bank_groups_entries_under_their_day_newest_first", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 3
+		Bank.record(100, "Day three sale")
+		GameState.state["world"]["day"] = 4
+		Bank.record(-20, "Day four cost")
+		Bank.record(-30, "Day four other")
+		GameState.state["phoneNav"]["app"] = "bank"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var texts := NodeQuery.label_texts(phone)
+		assert_eq(texts.count("Day 4"), 1, "one header per day, however many entries it has")
+		assert_eq(texts.count("Day 3"), 1, "the older day gets its own header")
+		var d4 := texts.find("Day 4")
+		var d3 := texts.find("Day 3")
+		assert_true(d4 < texts.find("Day four other"), "Day 4's header sits above its newest entry")
+		assert_true(texts.find("Day four other") < texts.find("Day four cost"), "entries within a day are newest first")
+		assert_true(texts.find("Day four cost") < d3, "Day 3's header follows all of Day 4's entries")
+		assert_true(d3 < texts.find("Day three sale"), "Day 3's entry sits under its header")
+		assert_true(texts.has("-£20") and texts.has("-£30") and texts.has("+£100"), "amounts keep their signs")
+
+		var row_label: Node = null
+		for l in phone.find_children("", "Label", true, false):
+			if (l as Label).text == "Day four cost":
+				row_label = l
+		var wrapped_in_card := false
+		var ancestor: Node = row_label.get_parent()
+		for _i in range(3):
+			wrapped_in_card = wrapped_in_card or ancestor is PanelContainer
+			ancestor = ancestor.get_parent()
+		assert_true(not wrapped_in_card,"transaction rows are flat hairline rows, not bordered cards")
+		assert_true(phone.find_children("", "HSeparator", true, false).size() >= 5, "hairline rules divide day headers and rows")
+
+		phone.free()
+	)
+
 	run_case("bank_respects_the_50_entry_cap", func():
 		GameState.reset()
 		for i in range(55):

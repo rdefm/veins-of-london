@@ -195,7 +195,7 @@ overlays.
 | settings_app.gd | Reduced-motion and alarm-vibration preference controls |
 | saveload_app.gd | Save slots, export/import, New Game confirm |
 | notifications_app.gd | Notification log with pending Defend buttons |
-| bank_app.gd | Reynard's: balance + transaction log |
+| bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
 | property_app.gd | Harrow's: current HQ tier + next-tier upgrade |
 | debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, relation adjusters |
 
