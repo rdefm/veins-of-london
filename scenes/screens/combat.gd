@@ -337,11 +337,16 @@ func _on_beat_played(beat: Dictionary) -> void:
 	if not effect_key.is_empty():
 		_stage.play_effect(beat, effect_key)
 		if effect_key == "healingBurst" and _turn_order_strip != null:
-			var player_key := TurnOrderStrip.card_key_string({ "type": "player", "index": -1 })
-			var healed_hp: int = GameState.state["player"]["hp"]
-			var overshoot_hp: int = mini(GameState.state["player"]["hpMax"], healed_hp + 12)
-			_turn_order_strip.set_initial_ghost(player_key, overshoot_hp)
-			_turn_order_strip.drain_ghost_to(player_key, healed_hp, 0.3)
+			var healed_key: Dictionary = { "type": "player", "index": -1 }
+			var healed_entry: Dictionary = GameState.state["player"]
+			if beat.get("targetType", "") == "ally":
+				healed_key = { "type": "ally", "index": int(beat["targetIndex"]) }
+				healed_entry = GameState.state["combat"]["allies"][healed_key["index"]]
+			var card_key := TurnOrderStrip.card_key_string(healed_key)
+			var healed_hp: int = healed_entry["hp"]
+			var overshoot_hp: int = mini(healed_entry["hpMax"], healed_hp + 12)
+			_turn_order_strip.set_initial_ghost(card_key, overshoot_hp)
+			_turn_order_strip.drain_ghost_to(card_key, healed_hp, 0.3)
 	var shield_absorbed: int = int(beat.get("shieldAbsorbed", 0))
 	if shield_absorbed > 0:
 		var shielded_slot: CombatStage.StageSlot = _stage.resolve_target_slot({ "type": "player", "index": -1 })

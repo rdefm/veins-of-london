@@ -130,15 +130,8 @@ func _build_action_deck(player: Dictionary) -> Control:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.size_flags_vertical = Control.SIZE_SHRINK_END
 	col.add_child(_build_complication_detail(player["dial"]))
-	col.add_child(_build_action_card("attack", "Attack", _on_attack_pressed))
-	var has_items: bool = (
-		Crafting.inventory_qty("timePearl") > 0 or Crafting.inventory_qty("enhancementPowder") > 0 or Crafting.inventory_qty("rewind") > 0
-		or Crafting.inventory_qty("blast") > 0 or Crafting.inventory_qty("shield") > 0
-		or Crafting.inventory_qty("blackHole") > 0 or Crafting.inventory_qty("healingBurst") > 0
-		or Crafting.inventory_qty("prophetsBreath") > 0 or Crafting.inventory_qty("wormhole") > 0
-		or (player["dial"] != null and not player["dial"]["loadedComplications"].is_empty())
-	)
-	col.add_child(_build_action_card("item", "Item", func(): Bag.open(), not has_items))
+	col.add_child(_build_action_card("attack", "Attack", _on_attack_pressed, not Combat.selection_block_reason("attack").is_empty()))
+	col.add_child(_build_action_card("item", "Item", func(): Bag.open(), not Combat.has_usable_item(player)))
 	col.add_child(_build_action_card("run", "Leg it", _on_run_pressed))
 
 	return col

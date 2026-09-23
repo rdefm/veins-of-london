@@ -168,30 +168,34 @@ func _build_dial_summary_label(player: Dictionary) -> Control:
 
 func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 	if Crafting.inventory_qty("timePearl") > 0:
-		_content.add_child(_symbol_use_button("timePearl", "Time Pearl (%d) — freeze enemy" % Crafting.inventory_qty("timePearl"), _on_use_time_pearl))
+		_content.add_child(_combat_use_button("timePearl", "Time Pearl (%d) — freeze enemy" % Crafting.inventory_qty("timePearl"), _on_use_time_pearl))
 
 	if Crafting.inventory_qty("enhancementPowder") > 0:
-		_content.add_child(_symbol_use_button("enhancementPowder", "Enhancement Powder (%d) — extra attacks" % Crafting.inventory_qty("enhancementPowder"), _on_use_enhancement_powder))
+		_content.add_child(_combat_use_button("enhancementPowder", "Enhancement Powder (%d) — extra attacks" % Crafting.inventory_qty("enhancementPowder"), _on_use_enhancement_powder))
 
 	if Crafting.inventory_qty("blast") > 0:
-		_content.add_child(_symbol_use_button("blast", "Blast (%d) — damage, flee boost, chance to disarm" % Crafting.inventory_qty("blast"), _on_use_blast))
+		_content.add_child(_combat_use_button("blast", "Blast (%d) — damage, flee boost, chance to disarm" % Crafting.inventory_qty("blast"), _on_use_blast))
 
 	if Crafting.inventory_qty("shield") > 0:
-		var shield_button := _symbol_use_button("shield", "Shield (%d) — absorb incoming damage" % Crafting.inventory_qty("shield"), _on_use_shield)
-		shield_button.disabled = player["shieldPool"] > 0
+		var shield_button := _combat_use_button("shield", "Shield (%d) — absorb incoming damage" % Crafting.inventory_qty("shield"), _on_use_shield)
+		shield_button.disabled = shield_button.disabled or player["shieldPool"] > 0
 		_content.add_child(shield_button)
 
 	if Crafting.inventory_qty("blackHole") > 0:
-		_content.add_child(_symbol_use_button("blackHole", "Black Hole (%d) — damage and freeze" % Crafting.inventory_qty("blackHole"), _on_use_black_hole))
+		_content.add_child(_combat_use_button("blackHole", "Black Hole (%d) — damage and freeze" % Crafting.inventory_qty("blackHole"), _on_use_black_hole))
 
 	if Crafting.inventory_qty("healingBurst") > 0:
-		_content.add_child(_symbol_use_button("healingBurst", "Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
+		var burst_target: String = "instant heal"
+		var ally_index: int = Combat.selected_ally_index(combat)
+		if ally_index >= 0:
+			burst_target = "heal %s" % combat["allies"][ally_index]["name"]
+		_content.add_child(_combat_use_button("healingBurst", "Healing Burst (%d) — %s" % [Crafting.inventory_qty("healingBurst"), burst_target], _on_use_healing_burst))
 
 	if Crafting.inventory_qty("prophetsBreath") > 0:
-		_content.add_child(_symbol_use_button("prophetsBreath", "Prophet's Breath (%d) — evade buff" % Crafting.inventory_qty("prophetsBreath"), _on_use_prophets_breath))
+		_content.add_child(_combat_use_button("prophetsBreath", "Prophet's Breath (%d) — evade buff" % Crafting.inventory_qty("prophetsBreath"), _on_use_prophets_breath))
 
 	if Crafting.inventory_qty("wormhole") > 0:
-		_content.add_child(_symbol_use_button("wormhole", "Wormhole (%d) — guaranteed flee" % Crafting.inventory_qty("wormhole"), _on_use_wormhole))
+		_content.add_child(_combat_use_button("wormhole", "Wormhole (%d) — guaranteed flee" % Crafting.inventory_qty("wormhole"), _on_use_wormhole))
 
 	var snap_count: int = combat["snapshots"].size()
 	if Crafting.inventory_qty("rewind") > 0:
@@ -200,6 +204,16 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 		rewind_button.disabled = snap_count == 0
 		_content.add_child(rewind_button)
 
+
+
+# Disabled, with the reason appended, when the current combat.selection
+# can't take this item (Combat.selection_block_reason(), R§3.7).
+func _combat_use_button(recipe_key: String, rest_text: String, callback: Callable) -> Button:
+	var reason: String = Combat.selection_block_reason(recipe_key)
+	var text: String = rest_text if reason.is_empty() else "%s · %s" % [rest_text, reason]
+	var button := _symbol_use_button(recipe_key, text, callback)
+	button.disabled = not reason.is_empty()
+	return button
 
 
 func _play_result_beats(result: Dictionary) -> void:
@@ -235,7 +249,9 @@ func _on_use_black_hole() -> void:
 
 func _on_use_healing_burst() -> void:
 	Bag.close()
-	_play_result_beats(Consumables.use_healing_burst())
+	var combat: Dictionary = GameState.state["combat"]
+	var target: Dictionary = combat["selection"].duplicate() if combat["active"] else {}
+	_play_result_beats(Consumables.use_healing_burst(target))
 
 
 func _on_use_prophets_breath() -> void:

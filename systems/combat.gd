@@ -81,6 +81,34 @@ const BLAST_DISARM_TURNS := 2
 # in-combat mechanic; rewind casts via combat_rewind()'s own fallback).
 const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole"]
 
+# Consumable ids usable mid-fight from the Bag.
+const COMBAT_ITEM_KEYS: Array[String] = ["timePearl", "enhancementPowder", "rewind", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole"]
+
+# R§3.7 ally-targetable table + R§2 selection: what each command/effect
+# may target. "enemy" needs selection.type == "enemy"; "self" is refused
+# while an ally is selected; "ally" heals the selected ally, else the
+# player; "untargeted" ignores selection (flee, AoE, Rewind).
+const TARGETING_ENEMY := "enemy"
+const TARGETING_SELF := "self"
+const TARGETING_ALLY := "ally"
+const TARGETING_UNTARGETED := "untargeted"
+const COMMAND_TARGETING := {
+	"attack": TARGETING_ENEMY,
+	"timePearl": TARGETING_ENEMY,
+	"blast": TARGETING_ENEMY,
+	"enhancementPowder": TARGETING_SELF,
+	"shield": TARGETING_SELF,
+	"prophetsBreath": TARGETING_SELF,
+	"healingBurst": TARGETING_ALLY,
+	"blackHole": TARGETING_UNTARGETED,
+	"wormhole": TARGETING_UNTARGETED,
+	"rewind": TARGETING_UNTARGETED,
+	"flee": TARGETING_UNTARGETED,
+}
+# PROSE-REVIEW: selection-rejection reasons.
+const REASON_SELECT_ENEMY := "Select an enemy first."
+const REASON_SELF_ONLY := "That one's only for you."
+
 # Below this fraction of hpMax, an ally spends their turn on their own
 # stash instead of attacking -- no player to hand them a Healing Burst.
 const ALLY_HEAL_THRESHOLD_FRACTION := 0.4
@@ -429,6 +457,56 @@ static func _enemy_action_index(combat: Dictionary) -> int:
 	return _first_living_enemy_index(combat["enemies"])
 
 
+# The validity query every command and the dock/Bag share: "" when
+# `command_key` (a COMMAND_TARGETING key) may resolve against the current
+# combat.selection, else the rejection reason. Never redirects an
+# enemy-only command to a fallback enemy (R§2).
+static func selection_block_reason(command_key: String) -> String:
+	var selection_type: String = GameState.state["combat"]["selection"]["type"]
+	match COMMAND_TARGETING.get(command_key, TARGETING_UNTARGETED):
+		TARGETING_ENEMY:
+			return "" if selection_type == "enemy" else REASON_SELECT_ENEMY
+		TARGETING_SELF:
+			return REASON_SELF_ONLY if selection_type == "ally" else ""
+	return ""
+
+
+# The Item card's gate: any combat item in stock, or any loaded
+# Complication, that the current selection lets resolve.
+static func has_usable_item(player: Dictionary) -> bool:
+	for key in COMBAT_ITEM_KEYS:
+		if Crafting.inventory_qty(key) > 0 and selection_block_reason(key).is_empty():
+			return true
+	var dial: Variant = player["dial"]
+	if dial == null:
+		return false
+	for entry in dial["loadedComplications"]:
+		if selection_block_reason(entry["recipeKey"]).is_empty():
+			return true
+	return false
+
+
+# The selected ally when selection.type == "ally" and that ally is still
+# standing, else -1 -- the player is the fallback target for ally-eligible
+# effects (R§3.7 ally-targetable table).
+static func selected_ally_index(combat: Dictionary) -> int:
+	var selection: Dictionary = combat["selection"]
+	if selection["type"] != "ally":
+		return -1
+	var idx: int = selection["index"]
+	if idx < 0 or idx >= combat["allies"].size() or combat["allies"][idx]["koed"]:
+		return -1
+	return idx
+
+
+# Raises ally.hp by `amount`, capped at ally.hpMax; returns HP actually
+# gained.
+static func heal_ally(ally: Dictionary, amount: int) -> int:
+	var old_hp: int = ally["hp"]
+	ally["hp"] = mini(ally["hp"] + amount, ally["hpMax"])
+	return ally["hp"] - old_hp
+
+
 static func _first_living_enemy_index(enemies: Array) -> int:
 	for i in range(enemies.size()):
 		if not enemies[i]["koed"]:
@@ -712,6 +790,9 @@ static func player_attack() -> Dictionary:
 	var combat: Dictionary = GameState.state["combat"]
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
+	var blocked: String = selection_block_reason("attack")
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
 
 	var beats: Array = []
 	if not prime_decision_point(combat, beats):
@@ -985,6 +1066,9 @@ static func use_time_pearl() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
+	var blocked: String = selection_block_reason("timePearl")
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
 	if Crafting.inventory_qty("timePearl") <= 0:
 		return { "ok": false, "reason": "No time pearls." }
 	if combat["frozenTurns"] > 0:
@@ -1015,6 +1099,9 @@ static func use_enhancement_powder() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
+	var blocked: String = selection_block_reason("enhancementPowder")
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
 	if Crafting.inventory_qty("enhancementPowder") <= 0:
 		return { "ok": false, "reason": "No enhancement powder." }
 	if combat["motionTurns"] > 0:
@@ -1053,6 +1140,9 @@ static func use_blast() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
+	var blocked: String = selection_block_reason("blast")
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
 	if Crafting.inventory_qty("blast") <= 0:
 		return { "ok": false, "reason": "No blast." }
 
@@ -1090,6 +1180,9 @@ static func use_shield() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
+	var blocked: String = selection_block_reason("shield")
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
 	if Crafting.inventory_qty("shield") <= 0:
 		return { "ok": false, "reason": "No shield." }
 	if player["shieldPool"] > 0:
@@ -1216,6 +1309,9 @@ static func use_prophets_breath() -> Dictionary:
 	if not combat["active"] or combat["outcome"] != null:
 		return { "ok": false, "reason": "Combat not active." }
 	var player: Dictionary = GameState.state["player"]
+	var blocked: String = selection_block_reason("prophetsBreath")
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
 	if Crafting.inventory_qty("prophetsBreath") <= 0:
 		return { "ok": false, "reason": "No prophet's breath." }
 
@@ -1285,6 +1381,9 @@ static func cast_complication(index: int) -> Dictionary:
 		return { "ok": false, "reason": "Use Rewind for a rewind unit." }
 	if not COMBAT_COMPLICATION_RECIPES.has(recipe_key):
 		return { "ok": false, "reason": "No combat effect for that unit." }
+	var blocked: String = selection_block_reason(recipe_key)
+	if not blocked.is_empty():
+		return { "ok": false, "reason": blocked }
 
 	if recipe_key == "timePearl" and combat["frozenTurns"] > 0:
 		combat["log"].append("Already frozen. Save the charge.")
@@ -1351,10 +1450,18 @@ static func cast_complication(index: int) -> Dictionary:
 			_log(combat, beats, "You trigger %s." % recipe["name"], BEAT_COMPLICATION_BLACK_HOLE_ANNOUNCE, {})
 			_apply_black_hole_aoe(combat, dmg, freeze_turns, beats)
 		"healingBurst":
-			var old_hp: int = player["hp"]
-			player["hp"] = mini(player["hp"] + int(power) * targets, player["hpMax"])
-			var healed: int = player["hp"] - old_hp
-			_log(combat, beats, "You trigger %s — +%d HP. %d/%d HP." % [recipe["name"], healed, player["hp"], player["hpMax"]], BEAT_COMPLICATION_HEALING_BURST, { "effectKey": "healingBurst" })
+			var ally_index: int = selected_ally_index(combat)
+			if ally_index >= 0:
+				var ally: Dictionary = combat["allies"][ally_index]
+				var healed: int = heal_ally(ally, int(power) * targets)
+				# PROSE-REVIEW: ally-targeted healing-burst Complication line.
+				_log(combat, beats, "You trigger %s on %s — +%d HP. %d/%d HP." % [recipe["name"], ally["name"], healed, ally["hp"], ally["hpMax"]], BEAT_COMPLICATION_HEALING_BURST,
+					{ "effectKey": "healingBurst", "targetType": "ally", "targetIndex": ally_index })
+			else:
+				var old_hp: int = player["hp"]
+				player["hp"] = mini(player["hp"] + int(power) * targets, player["hpMax"])
+				var healed: int = player["hp"] - old_hp
+				_log(combat, beats, "You trigger %s — +%d HP. %d/%d HP." % [recipe["name"], healed, player["hp"], player["hpMax"]], BEAT_COMPLICATION_HEALING_BURST, { "effectKey": "healingBurst" })
 		"prophetsBreath":
 			combat["evadeTurns"] = int(power) * targets
 			combat["evadeChance"] = 0.50

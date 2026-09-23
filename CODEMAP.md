@@ -28,10 +28,10 @@ Data file per system: see `data/*.json` below.
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement |
-| combat.gd | Turn-based combat engine + rewind. Resumable progression via `combat.turnCursor` + `advance_to_next_decision()`/`prime_`/`conclude_decision_point()`; pure `project_queue()` for the strip's horizon (REFERENCE.md §3.7a). Every turn beat carries its `occurrence` tag. `combat.selection` written via `set_selection()`, KO-clamped |
+| combat.gd | Turn-based combat engine + rewind. Resumable progression via `combat.turnCursor` + `prime_`/`conclude_decision_point()`; pure `project_queue()` for the strip (R§3.7a). Beats carry `occurrence` tags. `combat.selection` via `set_selection()`, KO-clamped; `selection_block_reason()`/`has_usable_item()` gate commands by R§3.7's targeting table |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
-| consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry via Combat.prime_decision_point()/conclude_decision_point() (R§3.7a) |
+| consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
 | contacts.gd | Relation, recruiting, room assignment, XP |
 | contracts.gd | Sales contract delivery, priority, settlement |
 | crafting.gd | Recipe crafting |
@@ -114,8 +114,8 @@ overlays.
 |---|---|
 | alarm_presentation.gd | Detects raid alarms; Phone pulse + vibration |
 | app_tile.gd | Normalised icon+label+numeric-count-badge+lock tile for phone launchers |
-| bag_drawer.gd | Global bottom-sheet bag drawer |
-| combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial/Complication-detail/action-card row, anchored to the true screen bottom |
+| bag_drawer.gd | Global bottom-sheet bag drawer; in combat, item buttons disable (with reason) per `Combat.selection_block_reason()` |
+| combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial/Complication-detail/action-card row, anchored to the true screen bottom; Attack/Item disabled per the current selection |
 | combat_director.gd | Combat beat-queue playback director |
 | combat_stage.gd | Combat's full-width pixel stage: backdrop, subject slots, keypose one-shots, effect sheets, juice layer. Each `StageSlot` takes taps directly (`MOUSE_FILTER_STOP`) and emits `subject_tapped`; the selected slot draws a small arrow (`is_focused`/`_draw_selection_arrow`) |
 | contact_cards.gd | Shared contact/faction card builders, inline Contacts action-row layout, OS chrome repaint |

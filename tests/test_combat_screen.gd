@@ -543,6 +543,35 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("item_card_is_disabled_when_only_self_only_items_remain_and_an_ally_is_selected", func():
+		_setup_combat([Fixtures.enemy("Scrapper")], [Fixtures.ally("Archie")])
+		GameState.state["player"]["dial"] = null
+		GameState.state["player"]["inventory"]["shield"] = { "1": 1 }
+		Combat.set_selection("ally", 0)
+
+		var screen := CombatScreen.new()
+		screen._ready()
+
+		assert_true(_deck_button_named(screen, "item").disabled, "Shield can't target an ally -- nothing usable")
+		assert_true(not _deck_button_named(screen, "run").disabled, "Leg it stays available regardless of selection")
+
+		screen.free()
+	)
+
+	run_case("attack_card_is_disabled_unless_an_enemy_is_selected", func():
+		for selected_type in ["enemy", "ally", "player"]:
+			_setup_combat([Fixtures.enemy("Scrapper")], [Fixtures.ally("Archie")])
+			Combat.set_selection(selected_type, 0)
+
+			var screen := CombatScreen.new()
+			screen._ready()
+
+			var attack_button := _deck_button_named(screen, "attack")
+			assert_eq(attack_button.disabled, selected_type != "enemy", "%s selected" % selected_type)
+
+			screen.free()
+	)
+
 	# field-kit-chrome ticket 05, ui-vision.md §5's component table: the
 	# action cards drop the default theme Button's amber fill (reserved for
 	# calc/cash reads only, §6) in favour of the locked `ui_action_red`

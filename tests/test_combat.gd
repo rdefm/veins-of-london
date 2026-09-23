@@ -56,6 +56,10 @@ func _multi_enemy_combat(specs: Array, allies: Array = []) -> Dictionary:
 	return GameState.state["combat"]
 
 
+func _test_ally(hp: int, hp_max: int) -> Dictionary:
+	return { "contactId": "archie", "name": "Archie", "hp": hp, "hpMax": hp_max, "attackMin": 0, "attackMax": 0, "stash": 0, "healAmount": 0, "speed": 10, "koed": false }
+
+
 func run() -> void:
 	# ── squad-combat ticket 04: distinct-instance roster generation ─────
 
@@ -2674,4 +2678,144 @@ func run() -> void:
 		var ids: Array = Combat.project_queue(combat, true).map(func(o): return o["occurrenceId"])
 
 		assert_eq(ids, ["3:0", "3:1", "4:0", "4:1"], "the whole committed round, then the projected next one")
+	)
+
+	# ── combat-refining 07: command validation against selection ──
+
+	run_case("attack_is_rejected_with_no_side_effects_while_an_ally_or_the_player_is_selected", func():
+		for selected_type in ["ally", "player"]:
+			var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }], [_test_ally(20, 20)])
+			Combat.set_selection(selected_type, 0)
+			var xp_before: int = GameState.state["player"]["combatXP"]
+			var log_before: int = combat["log"].size()
+			var cursor_before: Dictionary = combat["turnCursor"].duplicate(true)
+
+			var result := Combat.player_attack()
+
+			assert_true(not result["ok"], "%s selected: Attack should be refused" % selected_type)
+			assert_eq(result["reason"], Combat.REASON_SELECT_ENEMY)
+			assert_true(not result.has("beats"), "a refused Attack plays no beats")
+			assert_eq(combat["snapshots"].size(), 0, "a refused Attack pushes no snapshot")
+			assert_eq(GameState.state["player"]["combatXP"], xp_before, "a refused Attack awards no XP")
+			assert_eq(combat["enemies"][0]["hp"], 50, "no enemy is silently hit")
+			assert_eq(combat["enemies"][1]["hp"], 50, "no enemy is silently hit")
+			assert_eq(combat["log"].size(), log_before, "a refused Attack logs nothing")
+			assert_eq(combat["turnCursor"], cursor_before, "a refused Attack advances nothing")
+			assert_eq(Combat.selection_block_reason("attack"), Combat.REASON_SELECT_ENEMY, "the dock's validity query agrees")
+	)
+
+	run_case("flee_resolves_identically_with_an_ally_selected", func():
+		var outcomes: Array = []
+		for selected_type in ["enemy", "ally"]:
+			var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 3, "attackMax": 3 }], [_test_ally(20, 20)])
+			Combat.set_selection(selected_type, 0)
+			Rng.set_seed(7)
+			var result := Combat.flee()
+			outcomes.append([result["ok"], combat["outcome"], GameState.state["player"]["hp"], combat["allies"][0]["hp"]])
+		assert_eq(outcomes[0], outcomes[1], "Leg it ignores selection")
+	)
+
+	run_case("healing_burst_with_an_ally_target_heals_only_that_ally_and_names_them", func():
+		var combat := _multi_enemy_combat([{ "hp": 50 }], [_test_ally(10, 40)])
+		var player: Dictionary = GameState.state["player"]
+		player["hp"] = player["hpMax"] - 20
+		player["craftingSkill"] = 1
+		player["inventory"]["healingBurst"] = { "1": 2 }
+		Combat.set_selection("ally", 0)
+		var power: int = Crafting.effect_power("healingBurst", 1)
+
+		var result := Consumables.use_healing_burst(combat["selection"].duplicate())
+
+		assert_true(result["ok"])
+		assert_eq(combat["allies"][0]["hp"], 10 + power, "the ally gains the canonical effectPower")
+		assert_eq(player["hp"], player["hpMax"] - 20, "the player is not healed")
+		assert_eq(Crafting.inventory_qty("healingBurst"), 1, "exactly one burst consumed")
+		var heal_beat: Dictionary = {}
+		for beat in result["beats"]:
+			if beat["kind"] == Combat.BEAT_USE_HEALING_BURST:
+				heal_beat = beat
+		assert_eq(heal_beat.get("targetType"), "ally")
+		assert_eq(heal_beat.get("targetIndex"), 0)
+		assert_true("Archie" in heal_beat.get("logLine", ""), "the beat/log line names the ally")
+	)
+
+	run_case("healing_burst_complication_heals_the_selected_ally_not_the_player", func():
+		var combat := _multi_enemy_combat([{ "hp": 50 }], [_test_ally(10, 40)])
+		var player: Dictionary = GameState.state["player"]
+		player["hp"] = player["hpMax"] - 20
+		player["dial"] = Fixtures.dial_with_loaded("healingBurst", 1, 5)
+		Combat.set_selection("ally", 0)
+
+		var result := Combat.cast_complication(0)
+
+		assert_true(result["ok"])
+		assert_eq(combat["allies"][0]["hp"], mini(10 + int(result["power"]) * result["targets"], 40), "the ally is healed")
+		assert_eq(player["hp"], player["hpMax"] - 20, "the player is not healed")
+	)
+
+	run_case("self_only_effects_are_rejected_while_an_ally_is_selected_and_nothing_is_consumed", func():
+		var combat := _multi_enemy_combat([{ "hp": 50 }], [_test_ally(20, 20)])
+		var player: Dictionary = GameState.state["player"]
+		player["inventory"]["shield"] = { "1": 1 }
+		player["inventory"]["enhancementPowder"] = { "1": 1 }
+		player["inventory"]["prophetsBreath"] = { "1": 1 }
+		Combat.set_selection("ally", 0)
+
+		for result in [Combat.use_shield(), Combat.use_enhancement_powder(), Combat.use_prophets_breath()]:
+			assert_true(not result["ok"], "a self-only effect is refused with an ally selected")
+			assert_eq(result["reason"], Combat.REASON_SELF_ONLY)
+		assert_eq(Crafting.inventory_qty("shield"), 1, "nothing consumed")
+		assert_eq(Crafting.inventory_qty("enhancementPowder"), 1, "nothing consumed")
+		assert_eq(Crafting.inventory_qty("prophetsBreath"), 1, "nothing consumed")
+		assert_eq(player["shieldPool"], 0)
+		assert_eq(combat["motionTurns"], 0)
+		assert_eq(combat["snapshots"].size(), 0)
+
+		player["dial"] = Fixtures.dial_with_loaded("shield", 1, 5)
+		var dial_before: Dictionary = player["dial"].duplicate(true)
+		var cast := Combat.cast_complication(0)
+		assert_true(not cast["ok"], "a self-only Complication is refused with an ally selected")
+		assert_eq(cast["reason"], Combat.REASON_SELF_ONLY)
+		assert_eq(player["dial"], dial_before, "no Complication charge spent")
+	)
+
+	run_case("enemy_only_items_are_rejected_without_an_enemy_selected", func():
+		var combat := _multi_enemy_combat([{ "hp": 50 }], [_test_ally(20, 20)])
+		var player: Dictionary = GameState.state["player"]
+		player["inventory"]["blast"] = { "1": 1 }
+		player["inventory"]["timePearl"] = { "1": 1 }
+		for selected_type in ["ally", "player"]:
+			Combat.set_selection(selected_type, 0)
+			for result in [Combat.use_blast(), Combat.use_time_pearl()]:
+				assert_true(not result["ok"])
+				assert_eq(result["reason"], Combat.REASON_SELECT_ENEMY)
+		assert_eq(Crafting.inventory_qty("blast"), 1, "nothing consumed")
+		assert_eq(Crafting.inventory_qty("timePearl"), 1, "nothing consumed")
+		assert_eq(combat["enemies"][0]["hp"], 50)
+		assert_eq(combat["frozenTurns"], 0)
+	)
+
+	run_case("black_hole_ignores_an_ally_selection_and_hits_every_living_enemy", func():
+		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }], [_test_ally(20, 20)])
+		GameState.state["player"]["inventory"]["blackHole"] = { "1": 1 }
+		GameState.state["player"]["craftingSkill"] = 1
+		Combat.set_selection("ally", 0)
+
+		var result := Combat.use_black_hole()
+
+		assert_true(result["ok"])
+		assert_eq(combat["enemies"][0]["hp"], 42)
+		assert_eq(combat["enemies"][1]["hp"], 42)
+	)
+
+	run_case("has_usable_item_follows_the_selection", func():
+		_multi_enemy_combat([{ "hp": 50 }], [_test_ally(20, 20)])
+		var player: Dictionary = GameState.state["player"]
+		player["dial"] = null
+		player["inventory"]["shield"] = { "1": 1 }
+		assert_true(Combat.has_usable_item(player), "Shield is usable with an enemy selected")
+		Combat.set_selection("ally", 0)
+		assert_true(not Combat.has_usable_item(player), "only a self-only item in the bag and an ally selected -> nothing usable")
+		player["inventory"]["healingBurst"] = { "1": 1 }
+		assert_true(Combat.has_usable_item(player), "Healing Burst is ally-targetable")
 	)
