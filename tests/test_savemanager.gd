@@ -4,6 +4,7 @@ extends "res://tests/test_base.gd"
 # save data, and cleans up after itself.
 
 const TEST_SLOT := 91
+const Fixtures := preload("res://tests/support/fixtures.gd")
 const OffersSystem := preload("res://systems/offers.gd")
 const ContractsSystem := preload("res://systems/contracts.gd")
 
@@ -420,6 +421,56 @@ func run() -> void:
 		var filled := SaveManager.backfill_defaults(legacy)
 		assert_eq(filled["combat"]["locationKey"], "", "a save from before locationKey existed should backfill it empty (context-plate path)")
 		assert_true(filled["combat"]["active"], "backfilling must not touch existing combat keys")
+	)
+
+	# ── combat-refining 12: mid-fight cursor/selection persistence ────────
+
+	run_case("save_load_mid_fight_round_trips_cursor_selection_and_locationKey", func():
+		GameState.reset()
+		GameState.state["world"]["currentDistrict"] = "camden"
+		Rng.set_seed(1)
+		Combat.start_street_mugging()
+		var combat: Dictionary = GameState.state["combat"]
+		for enemy in combat["enemies"]:
+			enemy["hp"] = 500
+			enemy["hpMax"] = 500
+		Combat.player_attack()
+		Combat.set_selection("player", 0)
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"], "save_to_slot should succeed")
+
+		GameState.state["combat"]["turnCursor"] = { "queue": [], "index": 0, "round": 0 }
+		GameState.state["combat"]["selection"] = { "type": "enemy", "index": 0 }
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"], "load_from_slot should succeed")
+
+		var loaded: Dictionary = GameState.state["combat"]
+		assert_eq(loaded["turnCursor"], original["combat"]["turnCursor"], "the turn cursor is restored")
+		assert_eq(typeof(loaded["turnCursor"]["index"]), TYPE_INT, "cursor index comes back an int")
+		assert_eq(loaded["selection"], { "type": "player", "index": 0 }, "selection is restored")
+		assert_eq(loaded["locationKey"], "camden", "locationKey is restored")
+		assert_eq(Combat.project_queue(loaded), Combat.project_queue(original["combat"]), "the projection is the same after load")
+		Combat.set_selection("enemy", 0)
+		assert_true(Combat.player_attack()["ok"], "the fight resumes from the loaded decision point")
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("a_mid_fight_save_without_selection_or_cursor_loads_safe_defaults", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["combat"]["active"] = true
+		legacy["combat"]["enemies"] = [Fixtures.enemy("Down", 0, 20, true), Fixtures.enemy("Up")]
+		legacy["combat"].erase("selection")
+		legacy["combat"].erase("turnCursor")
+		legacy["combat"].erase("locationKey")
+
+		assert_true(SaveManager.import_string(JSON.stringify(legacy))["ok"], "the legacy save loads")
+
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["selection"], { "type": "enemy", "index": 1 }, "the backfilled selection clamps off the KO'd enemy")
+		assert_eq(combat["turnCursor"], { "queue": [], "index": 0, "round": 0 }, "cursor backfills fresh")
+		assert_eq(combat["locationKey"], "", "locationKey backfills empty")
+		var projected: Array = Combat.project_queue(combat)
+		assert_eq(projected.map(func(o): return o["type"]), ["player", "enemy"], "a valid projection of the living combatants")
 	)
 
 	# ── 21-contact-roles-sales-skill ──────────────────────────────────────

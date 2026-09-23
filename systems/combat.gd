@@ -602,7 +602,7 @@ static func push_combat_snapshot() -> void:
 		# R§3.7a: parked cursor position at this decision point, so a
 		# restore resumes at the same queued player-type entry rather than
 		# losing its place in the round.
-		"turnCursor": combat["turnCursor"].duplicate(),
+		"turnCursor": combat["turnCursor"].duplicate(true),
 	}
 	Snapshots.push("combat", combat["snapshots"], snap)
 
@@ -712,7 +712,9 @@ static func advance_to_next_decision(combat: Dictionary, beats: Variant = null) 
 					_enemy_turn(combat, enemies[entry["index"]], entry["index"], beats)
 		_stamp_occurrence(beats, turn_beats_start, _project_occurrence(entry, cursor["round"], cursor["index"] - 1))
 
-		if combat["outcome"] != null:
+		# A failsafe restore swapped in the snapshot's cursor, already parked
+		# at its player decision point -- the rest of this round never ran.
+		if combat["outcome"] != null or not is_same(combat["turnCursor"], cursor):
 			return
 
 
@@ -776,12 +778,19 @@ static func conclude_decision_point(combat: Dictionary, beats: Variant = null) -
 # `from_round_start` also includes the current round's already-resolved
 # occurrences -- the turn-order strip's playback needs the whole committed
 # round to lay out turns that resolved but haven't been played back yet.
+# A koed combatant's unresolved slots are dropped (the engine skips them);
+# once combat.outcome is set nothing is coming, so the plain read is empty.
 static func project_queue(combat: Dictionary, from_round_start: bool = false) -> Array:
 	var cursor: Dictionary = combat["turnCursor"]
 	var projected: Array = []
+	if combat.get("outcome") != null and not from_round_start:
+		return projected
 
 	for i in range(0 if from_round_start else cursor["index"], cursor["queue"].size()):
-		projected.append(_project_occurrence(cursor["queue"][i], cursor["round"], i))
+		var entry: Dictionary = cursor["queue"][i]
+		if i >= cursor["index"] and _entry_koed(combat, entry):
+			continue
+		projected.append(_project_occurrence(entry, cursor["round"], i))
 
 	# Mirrors advance_to_next_decision()'s own round-boundary tick, but
 	# against a duplicated dict so the real combat state is never mutated
@@ -802,6 +811,14 @@ static func project_queue(combat: Dictionary, from_round_start: bool = false) ->
 		projected.append(_project_occurrence(next_round[i], cursor["round"] + 1, i))
 
 	return projected
+
+
+static func _entry_koed(combat: Dictionary, entry: Dictionary) -> bool:
+	if entry["type"] == "player":
+		return false
+	var roster: Array = combat["allies"] if entry["type"] == "ally" else combat["enemies"]
+	var idx: int = entry["index"]
+	return idx < 0 or idx >= roster.size() or roster[idx]["koed"]
 
 
 # occurrenceId is stable within one project_queue() call -- "round:index
@@ -1059,7 +1076,7 @@ static func _enemy_attack_ally(combat: Dictionary, enemy: Dictionary, ally: Dict
 		{ "actorType": "enemy", "actorIndex": enemy_index, "targetType": "ally", "targetIndex": ally_index, "dmg": dmg })
 	if ally["hp"] <= 0:
 		ally["koed"] = true
-		_clamp_selection(combat)
+		clamp_selection(combat)
 		_log(combat, beats, "%s is knocked out of the fight." % ally["name"], BEAT_ALLY_KO,
 			{ "targetType": "ally", "targetIndex": ally_index })
 		Contacts.knock_out(ally["contactId"], GameState.state["world"]["day"])
@@ -1080,6 +1097,7 @@ static func flee() -> Dictionary:
 		return { "ok": true, "outcome": combat["outcome"], "beats": beats }
 
 	push_combat_snapshot()
+	var cursor: Dictionary = combat["turnCursor"]
 
 	# Blast's one-use flee boost, read defensively and cleared here
 	# regardless of the roll's outcome, so it never survives past the next
@@ -1097,7 +1115,10 @@ static func flee() -> Dictionary:
 		var parting_shot: Dictionary = enemy_attack()
 		beats.append_array(parting_shot.get("beats", []))
 
-	conclude_decision_point(combat, beats)
+	# A failsafe fired by the parting shot already restored this decision
+	# point; concluding it would spend the restored turn.
+	if is_same(combat["turnCursor"], cursor):
+		conclude_decision_point(combat, beats)
 
 	EventBus.state_changed.emit()
 	return { "ok": true, "outcome": combat["outcome"], "beats": beats }
@@ -1305,7 +1326,7 @@ static func _maybe_win_from_direct_damage(combat: Dictionary, enemy: Dictionary,
 	if enemy["hp"] > 0:
 		return
 	enemy["koed"] = true
-	_clamp_selection(combat)
+	clamp_selection(combat)
 	if not _all_enemies_koed(combat["enemies"]):
 		return
 	combat["outcome"] = "win"
@@ -1325,13 +1346,13 @@ static func _all_enemies_koed(enemies: Array) -> bool:
 # no-op when the currently-selected entry is still alive. R§2's KO-clamp
 # rule: same-type first (next living ally/enemy in array order), else
 # fall back to the next living enemy; never fires for type "player".
-static func _clamp_selection(combat: Dictionary) -> void:
+static func clamp_selection(combat: Dictionary) -> void:
 	var selection: Dictionary = combat["selection"]
 	if selection["type"] == "player":
 		return
 	var roster: Array = combat["allies"] if selection["type"] == "ally" else combat["enemies"]
 	var idx: int = selection["index"]
-	if idx < roster.size() and not roster[idx]["koed"]:
+	if idx >= 0 and idx < roster.size() and not roster[idx]["koed"]:
 		return
 	for i in range(roster.size()):
 		if not roster[i]["koed"]:
@@ -1575,7 +1596,11 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 	combat["evadeChance"] = 0.50
 	# R§3.7a: restores the cursor to the same parked player-type entry the
 	# snapshot was pushed in front of -- a coherent decision point to resume.
-	combat["turnCursor"] = snap["turnCursor"].duplicate()
+	combat["turnCursor"] = snap["turnCursor"].duplicate(true)
+	# Rewind restores only the focused enemy's hp (R§3.9) -- whoever else was
+	# KO'd since the snapshot stays down, so the restored selection may need
+	# the same KO-clamp a live KO gets.
+	clamp_selection(combat)
 	# The accumulator combat_rewind()/_try_failsafe() read for their "beat
 	# queue in reverse" replay -- cleared here after combat_rewind() already
 	# captured its own copy, so accumulation restarts from this state.

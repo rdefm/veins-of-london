@@ -60,6 +60,33 @@ func _test_ally(hp: int, hp_max: int) -> Dictionary:
 	return { "contactId": "archie", "name": "Archie", "hp": hp, "hpMax": hp_max, "attackMin": 0, "attackMax": 0, "stash": 0, "healAmount": 0, "speed": 10, "koed": false }
 
 
+# combat-refining 12: the projection invariants every shape change must
+# keep -- unique ids in scheduling order, no occurrence of a koed/missing
+# combatant, every living combatant present at least once.
+func _assert_projection_coherent(combat: Dictionary, label: String) -> void:
+	var projected: Array = Combat.project_queue(combat)
+	var seen_ids: Dictionary = {}
+	var seen_keys: Dictionary = {}
+	var last_rank := Vector2i(-1, -1)
+	for occurrence in projected:
+		var id: String = occurrence["occurrenceId"]
+		assert_true(not seen_ids.has(id), "%s: duplicate occurrence %s" % [label, id])
+		seen_ids[id] = true
+		var rank: Vector2i = TurnOrderStrip.occurrence_rank(id)
+		assert_true(rank > last_rank, "%s: %s out of scheduling order" % [label, id])
+		last_rank = rank
+		if occurrence["type"] != "player":
+			var roster: Array = combat["allies"] if occurrence["type"] == "ally" else combat["enemies"]
+			assert_true(occurrence["index"] < roster.size() and not roster[occurrence["index"]]["koed"], "%s: %s points at a koed/missing combatant" % [label, id])
+		seen_keys["%s:%d" % [occurrence["type"], occurrence.get("index", -1)]] = true
+	assert_true(seen_keys.has("player:-1"), "%s: the player has no occurrence" % label)
+	for type in ["ally", "enemy"]:
+		var roster: Array = combat["allies"] if type == "ally" else combat["enemies"]
+		for i in range(roster.size()):
+			if not roster[i]["koed"]:
+				assert_true(seen_keys.has("%s:%d" % [type, i]), "%s: living %s %d has no occurrence" % [label, type, i])
+
+
 func run() -> void:
 	# ── squad-combat ticket 04: distinct-instance roster generation ─────
 
@@ -2880,4 +2907,153 @@ func run() -> void:
 		assert_true(not Combat.has_usable_item(player), "only a self-only item in the bag and an ally selected -> nothing usable")
 		player["inventory"]["healingBurst"] = { "1": 1 }
 		assert_true(Combat.has_usable_item(player), "Healing Burst is ally-targetable")
+	)
+
+	# ── combat-refining 12: KO / reorder / outcome / Rewind coherence ──
+
+	run_case("killing_the_selected_enemy_mid_motion_round_clamps_selection_and_drops_its_queued_slots", func():
+		var combat := _multi_enemy_combat([{ "hp": 1, "speed": 1 }, { "hp": 50, "speed": 1 }])
+		combat["motionTurns"] = 1
+		combat["motionPower"] = 2
+		Rng.set_seed(1)
+
+		Combat.player_attack()
+
+		assert_true(combat["enemies"][0]["koed"], "sanity: the first hit kills enemy 0")
+		assert_eq(combat["turnCursor"]["index"], 1, "sanity: parked on the Motion extra slot, enemy 0's slot still ahead in this round")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 1 }, "KO-clamp moves to the next living enemy")
+		assert_eq(Combat.selection_block_reason("attack"), "", "Attack stays available against the clamped selection")
+		for occurrence in Combat.project_queue(combat):
+			assert_true(not (occurrence["type"] == "enemy" and occurrence["index"] == 0), "no occurrence of the KO'd enemy remains (%s)" % occurrence["occurrenceId"])
+		_assert_projection_coherent(combat, "after the KO")
+	)
+
+	run_case("an_ally_koed_ahead_of_its_own_slot_loses_every_occurrence_and_a_selection_on_it_clamps", func():
+		var ko_seed := SeedSearch.find_seed_for(200, func():
+			var combat := _multi_enemy_combat([{ "hp": 500, "speed": 99, "attackMin": 999, "attackMax": 999 }], [_test_ally(5, 20), _test_ally(20, 20)])
+			combat["allies"][0]["speed"] = 1
+			combat["allies"][1]["speed"] = 1
+			Combat.set_selection("ally", 0)
+			Combat.prime_decision_point(combat)
+			return combat["allies"][0]["koed"] and combat["outcome"] == null
+		)
+		assert_true(ko_seed != -1, "should find a seed where the fast enemy opens by KOing ally 0")
+		var combat: Dictionary = GameState.state["combat"]
+
+		assert_eq(combat["selection"], { "type": "ally", "index": 1 }, "same-type clamp: the next living ally")
+		for occurrence in Combat.project_queue(combat):
+			assert_true(not (occurrence["type"] == "ally" and occurrence["index"] == 0), "the KO'd ally keeps no occurrence (%s)" % occurrence["occurrenceId"])
+		_assert_projection_coherent(combat, "after the ally KO")
+		var result := Combat.flee()
+		assert_true(result["ok"], "a command after the KO resolves against valid indexes only")
+	)
+
+	run_case("freeze_motion_and_ability_lock_changes_keep_the_projection_coherent", func():
+		var combat := _multi_enemy_combat([{ "hp": 500, "speed": 12 }, { "hp": 500, "speed": 1 }])
+		combat["enemies"][0]["ability"] = { "id": "test_ability", "lockedTurns": 0 }
+		var player: Dictionary = GameState.state["player"]
+		player["inventory"]["timePearl"] = { "1": 1 }
+		player["inventory"]["enhancementPowder"] = { "1": 1 }
+		Rng.set_seed(1)
+		Combat.prime_decision_point(combat)
+		_assert_projection_coherent(combat, "fresh round")
+
+		assert_true(Combat.use_time_pearl()["ok"], "sanity: Time Pearl resolves")
+		_assert_projection_coherent(combat, "after freezing")
+		Combat.disarm_enemy(combat["enemies"][0], 2)
+		_assert_projection_coherent(combat, "after an ability lock")
+		assert_true(Combat.use_enhancement_powder()["ok"], "sanity: Motion powder resolves")
+		_assert_projection_coherent(combat, "after Motion")
+		var players := 0
+		for occurrence in Combat.project_queue(combat):
+			if occurrence["type"] == "player":
+				players += 1
+		assert_true(players >= 2, "Motion's extra slot appears in the projection")
+		Combat.player_attack()
+		_assert_projection_coherent(combat, "inside the Motion round")
+	)
+
+	run_case("win_loss_and_flee_leave_no_upcoming_occurrences", func():
+		var win := _multi_enemy_combat([{ "hp": 1, "speed": 1 }])
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_eq(win["outcome"], "win", "sanity")
+		assert_eq(Combat.project_queue(win), [], "nothing is coming after a win")
+		assert_true(not Combat.project_queue(win, true).is_empty(), "playback still reads the committed round")
+
+		var loss := _multi_enemy_combat([{ "hp": 500, "speed": 1, "attackMin": 999, "attackMax": 999 }])
+		Rng.set_seed(1)
+		Combat.player_attack()
+		assert_eq(loss["outcome"], "loss", "sanity")
+		assert_eq(Combat.project_queue(loss), [], "nothing is coming after a loss")
+
+		var fled := _multi_enemy_combat([{ "hp": 500, "speed": 1 }])
+		GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
+		Combat.use_wormhole()
+		assert_eq(fled["outcome"], "fled", "sanity")
+		assert_eq(Combat.project_queue(fled), [], "nothing is coming after fleeing")
+	)
+
+	run_case("rewind_restores_the_snapshots_cursor_selection_and_projection", func():
+		var combat := _multi_enemy_combat([{ "hp": 500, "speed": 1, "attackMin": 1, "attackMax": 1 }, { "hp": 500, "speed": 1, "attackMin": 1, "attackMax": 1 }])
+		Rng.set_seed(1)
+		Combat.player_attack()
+		Combat.set_selection("enemy", 1)
+		var cursor_at_decision: Dictionary = combat["turnCursor"].duplicate(true)
+		var projection_at_decision: Array = Combat.project_queue(combat)
+		Combat.player_attack()  # oldest snapshot on the (max-2) stack after the next one
+		Combat.set_selection("enemy", 0)
+		Combat.player_attack()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+
+		assert_true(Combat.combat_rewind()["ok"], "sanity: rewind resolves")
+
+		assert_eq(combat["turnCursor"], cursor_at_decision, "cursor parks at the snapshot's decision point")
+		assert_eq(combat["selection"], { "type": "enemy", "index": 1 }, "selection is the snapshot's")
+		assert_eq(Combat.project_queue(combat), projection_at_decision, "projection matches the decision point's")
+	)
+
+	run_case("rewind_clamps_a_restored_selection_whose_combatant_was_koed_since", func():
+		var combat := _multi_enemy_combat([{ "hp": 500 }], [_test_ally(20, 20)])
+		Combat.prime_decision_point(combat)
+		Combat.set_selection("ally", 0)
+		Combat.push_combat_snapshot()
+		combat["allies"][0]["koed"] = true  # KO'd after the snapshot; Rewind never revives it (R§3.9)
+		Combat.clamp_selection(combat)
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+
+		Combat.combat_rewind()
+
+		assert_eq(combat["selection"], { "type": "enemy", "index": 0 }, "a restored selection never points at a KO'd combatant")
+		_assert_projection_coherent(combat, "after rewind")
+	)
+
+	run_case("a_failsafe_mid_round_stops_the_engine_at_the_restored_decision_point", func():
+		var combat := _multi_enemy_combat([{ "hp": 500, "speed": 1, "attackMin": 999, "attackMax": 999 }, { "hp": 500, "speed": 1, "attackMin": 999, "attackMax": 999 }])
+		GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
+		Combat.prime_decision_point(combat)
+		var cursor_before: Dictionary = combat["turnCursor"].duplicate(true)
+		var hp_before: int = GameState.state["player"]["hp"]
+		Rng.set_seed(1)
+
+		Combat.player_attack()
+
+		assert_eq(combat["outcome"], null, "the failsafe caught the first lethal hit")
+		assert_eq(GameState.state["player"]["hp"], hp_before, "hp is the snapshot's")
+		assert_eq(combat["turnCursor"], cursor_before, "the cursor is back at the decision point the snapshot was pushed in front of")
+		assert_true(combat["log"][combat["log"].size() - 1].contains("Failsafe fires"), "no further turn resolved after the restore")
+	)
+
+	run_case("a_failsafe_from_a_failed_flees_parting_shot_does_not_spend_the_restored_turn", func():
+		var flee_seed := SeedSearch.find_seed_for(200, func():
+			var c := _multi_enemy_combat([{ "hp": 500, "speed": 1, "attackMin": 999, "attackMax": 999 }])
+			GameState.state["player"]["inventory"]["failsafe"] = { "1": 1 }
+			Combat.prime_decision_point(c)
+			Combat.flee()
+			return Crafting.inventory_qty("failsafe") == 0 and c["outcome"] == null
+		)
+		assert_true(flee_seed != -1, "should find a seed where the flee fails and its parting shot trips the failsafe")
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["turnCursor"]["index"], 0, "still parked on the player's own slot")
+		assert_eq(combat["turnCursor"]["round"], 1, "same round -- the restored turn was not spent")
 	)

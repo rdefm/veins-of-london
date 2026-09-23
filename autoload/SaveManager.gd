@@ -119,6 +119,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 
 	var filled := backfill_defaults(raw)
 	_restore_int_types(filled)
+	_clamp_loaded_combat_selection(filled)
 	_migrate_nadia_supply_order(filled)
 	_remap_retired_screen_id(filled)
 	_remap_retired_messages_list(filled)
@@ -248,6 +249,14 @@ func _backfill_new_combat_keys(result: Dictionary, defaults: Dictionary) -> void
 	for key in default_combat.keys():
 		if not combat.has(key):
 			combat[key] = default_combat[key].duplicate(true) if default_combat[key] is Array or default_combat[key] is Dictionary else default_combat[key]
+
+
+# A mid-fight save whose selection was backfilled (or otherwise points at
+# a koed/missing combatant) gets the same KO-clamp a live KO would.
+func _clamp_loaded_combat_selection(state: Dictionary) -> void:
+	var combat: Dictionary = state.get("combat", {})
+	if combat.get("active", false):
+		Combat.clamp_selection(combat)
 
 
 func _backfill_new_sales_keys(result: Dictionary, defaults: Dictionary) -> void:

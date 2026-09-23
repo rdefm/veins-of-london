@@ -11,7 +11,7 @@ file owns today, no history.
 | GameData.gd | Loads/validates every `data/*.json` table at boot |
 | GameState.gd | Pure state tree (Dicts/Arrays/primitives); screens read only |
 | Rng.gd | Seeded RNG for every probabilistic system |
-| SaveManager.gd | Save/load/autosave/export-import |
+| SaveManager.gd | Save/load/autosave/export-import; backfills missing keys, restores JSON ints, KO-clamps a loaded fight's selection |
 | Snapshots.gd | Bounded snapshot-stack helper backing rewind |
 
 ## systems/*.gd — static-func systems
@@ -28,7 +28,7 @@ Data file per system: see `data/*.json` below.
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement |
-| combat.gd | Turn-based combat engine + rewind. Resumable progression via `combat.turnCursor` + `prime_`/`conclude_decision_point()`; pure `project_queue()` for the strip (R§3.7a). Beats carry `occurrence` tags. `combat.selection` via `set_selection()`, KO-clamped; `selection_block_reason()`/`has_usable_item()` gate commands by R§3.7's targeting table. Stamps `combat.locationKey` |
+| combat.gd | Turn-based combat engine + rewind. Resumable progression via `combat.turnCursor` + `prime_`/`conclude_decision_point()`; pure `project_queue()` (no koed slots, empty after outcome; R§3.7a). Beats carry `occurrence` tags. `combat.selection` via `set_selection()`, `clamp_selection()` on KO/Rewind/load; `selection_block_reason()` gates commands. Stamps `combat.locationKey` |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |

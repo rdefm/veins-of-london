@@ -2073,3 +2073,47 @@ func run() -> void:
 		assert_eq(_strip_ids(strip), restored_ids, "the strip ends on the restored decision point's projection")
 		viewport.free()
 	)
+
+	# ── combat-refining 12: KO / outcome coherence on screen ──
+
+	run_case("killing_the_selected_enemy_drops_its_cards_and_moves_the_strip_selection", func():
+		_setup_combat([Fixtures.enemy("A", 1, 20, false, 1), Fixtures.enemy("B", 50, 50, false, 1)])
+		GameState.state["combat"]["motionTurns"] = 1
+		GameState.state["combat"]["motionPower"] = 2
+		var screen := CombatScreen.new()
+		screen._ready()
+		Rng.set_seed(1)
+
+		Combat.player_attack()
+
+		assert_true(GameState.state["combat"]["enemies"][0]["koed"], "sanity: A went down")
+		assert_true(_strip_card_named(screen, "A") == null, "no card for the KO'd enemy remains")
+		assert_eq(_find_strip(screen)._selected_key, { "type": "enemy", "index": 1 }, "the strip's selection follows the clamp")
+		screen.free()
+	)
+
+	run_case("win_loss_and_flee_show_the_outcome_button_with_no_cards_and_no_enabled_commands", func():
+		for outcome in ["win", "loss", "fled"]:
+			var attack: int = 999 if outcome == "loss" else 0
+			_setup_combat([Fixtures.enemy("A", 1 if outcome == "win" else 500, 500, false, 1)])
+			GameState.state["combat"]["enemies"][0]["attackMin"] = attack
+			GameState.state["combat"]["enemies"][0]["attackMax"] = attack
+			GameState.state["player"]["dial"] = Fixtures.dial(["blast"])
+			Rng.set_seed(1)
+			if outcome == "fled":
+				GameState.state["player"]["inventory"]["wormhole"] = { "1": 1 }
+				Combat.use_wormhole()
+			else:
+				Combat.player_attack()
+			assert_eq(GameState.state["combat"]["outcome"], outcome, "sanity")
+
+			var screen := CombatScreen.new()
+			screen._ready()
+
+			assert_eq(_strip_cards(screen).size(), 0, "%s: no interactive occurrence cards" % outcome)
+			for button in _deck_buttons(screen._command_dock):
+				assert_true(button.disabled, "%s: no enabled command row" % outcome)
+			assert_true(_find_dial_widget(screen) == null, "%s: the Dial is gone with the deck" % outcome)
+			assert_eq(_deck_buttons(screen._footer_holder).size(), 1, "%s: the outcome button is present" % outcome)
+			screen.free()
+	)
