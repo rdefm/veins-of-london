@@ -23,7 +23,10 @@
     "camden": { "image": "res://assets/combat/backdrops/camden.png" },
     "greenwich": { "image": "res://assets/combat/backdrops/greenwich.png" },
     "shoreditch": { "image": "res://assets/combat/backdrops/shoreditch.png" },
-    "soho": { "image": "res://assets/combat/backdrops/soho.png" }
+    "soho": { "image": "res://assets/combat/backdrops/soho.png" },
+    "hampstead": { "image": "res://assets/combat/backdrops/hampstead.png" },
+    "kingscross": { "image": "res://assets/combat/backdrops/kingscross.png" },
+    "whitechapel": { "image": "res://assets/combat/backdrops/whitechapel.png" }
   },
   "effects": {
     "timePearl": { "image": "", "frameCount": 4, "fps": 8.0 },
