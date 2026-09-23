@@ -106,7 +106,7 @@ overlays.
 | phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid + home-only Phone/Messages/Settings dock, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |
 | placeholder.gd | Stand-in for a not-yet-built screen |
 | title.gd | Title screen + load-game slot list |
-| vein_list.gd | Vein-portfolio list |
+| vein_list.gd | Vein-portfolio list (map_card_style.gd-skinned) |
 
 ## scenes/components/*.gd — reusable UI components
 
@@ -127,7 +127,7 @@ overlays.
 | hq_diorama.gd | Generic plate/region artwork renderer |
 | icons.gd | 13 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
-| map_card_style.gd | Shared PAPER/INK/DIM/LINE/GOLD/SAGE palette + card/inset/action-circle styleboxes, ink labels, text-button/bar/symbol tinting for the map-tab family (map_bubble.gd, vein_bubble.gd, vein_detail_panel.gd, map.gd's district panel/site sheet) |
+| map_card_style.gd | Shared PAPER/INK/DIM/LINE/GOLD/SAGE palette + card/inset/action-circle styleboxes, ink labels, text-button/bar/symbol tinting for the map-tab family (map_bubble.gd, vein_bubble.gd, vein_detail_panel.gd, map.gd's district panel/site sheet, vein_list.gd) |
 | map_canvas.gd | Network diagram: layout/stops/lines, hit-testing, static draw pass; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
 | map_controls.gd | Filter-chip drawer + legend button |

@@ -14,6 +14,24 @@ func run() -> void:
 	# ── row content (ticket 09: district, ore type, terroir tier, growth bar
 	# + band label, days-until-wall, security tier) ─────────────────────────
 
+	# playtest-fixes 03: the list view shares the map card look -- no Button
+	# falls back to the default theme stylebox.
+	run_case("vein_list_uses_the_map_card_style", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "growth": 60 })]
+		VeinListNav.open_for_district("shoreditch")
+
+		var screen := VeinListScreen.new()
+		screen._ready()
+
+		var buttons: Array = screen._content.find_children("", "Button", true, false)
+		assert_true(buttons.size() >= 5, "back + band filters + vein actions all built")
+		for b in buttons:
+			assert_true((b as Button).has_theme_stylebox_override("normal"), "%s must carry the map card button style" % (b as Button).text)
+
+		screen.free()
+	)
+
 	run_case("vein_row_shows_district_ore_terroir_security_and_band", func():
 		GameState.reset()
 		var vein := Fixtures.player_vein_with({ "growth": 60 })  # taking band

@@ -491,13 +491,7 @@ func _build_prune_button(action_label: String, vein: Dictionary, depth: int, dis
 	var vein_id: String = vein["id"]
 	var label_text := _prune_option_label(action_label, vein, depth)
 	var gate: Dictionary = Cultivating.prune_gate(vein, depth, district)
-	var row := UI.vbox(2)
-	var b := UI.button(label_text, func(): Cultivating.prune(vein_id, depth))
-	b.disabled = gate["disabled"]
-	row.add_child(MapCardStyle.style_button(b))
-	if gate["disabled"] and gate["reason"] != "":
-		row.add_child(_dim_label(gate["reason"]))
-	return row
+	return MapCardStyle.action_button(label_text, func(): Cultivating.prune(vein_id, depth), gate["disabled"], gate["reason"])
 func _security_line(vein: Dictionary, colour: Color) -> Control:
 	var row := UI.hbox(5)
 	var glyph := UI.icon_glyph_control(Icons.draw_padlock, 0.8, colour)

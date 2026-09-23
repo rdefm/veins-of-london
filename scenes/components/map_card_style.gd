@@ -89,3 +89,15 @@ static func style_bar(bar: ProgressBar) -> ProgressBar:
 	bar.add_theme_stylebox_override("background", skin(SAGE, 4, false))
 	bar.add_theme_stylebox_override("fill", skin(GOLD, 4, false))
 	return bar
+
+
+# Map-card version of UI.action_button: styled button plus a DIM reason line
+# when disabled.
+static func action_button(text: String, callback: Callable, disabled: bool = false, reason: String = "") -> Control:
+	var row := UI.vbox(2)
+	var b := UI.button(text, callback)
+	b.disabled = disabled
+	row.add_child(style_button(b))
+	if disabled and reason != "":
+		row.add_child(label(reason, 12, DIM))
+	return row

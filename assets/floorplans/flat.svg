@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="316" height="313" viewBox="0 0 316 313" role="img" aria-labelledby="title description">
+  <title id="title">Flat floorplan</title>
+  <desc id="description">A fixed bedroom on the left and one selectable room on the right, reached from the entrance below.</desc>
+  <rect x="24" y="24" width="268" height="248" fill="#e5e2d9"/>
+  <path id="room-02" d="M161 28H288V216H161Z" fill="#ece9e0"/>
+  <path d="M24 24H292V272H24Z M157 24V216 M157 216H292" fill="none" stroke="#242424" stroke-width="8" stroke-linejoin="miter"/>
+  <path d="M151 216h38 M113 272h38" fill="none" stroke="#e5e2d9" stroke-width="11"/>
+  <path d="M151 216v36a36 36 0 0 0 36-36 M113 272v-35a35 35 0 0 1 35 35" fill="none" stroke="#777" stroke-width="1.3"/>
+  <g fill="#333" font-family="Arial, Helvetica, sans-serif">
+    <text x="38" y="150" font-size="10" fill="#777">01</text>
+    <text x="38" y="221" font-size="14" font-weight="700" letter-spacing="1">BEDROOM</text>
+    <text x="38" y="236" font-size="10" fill="#666">Fixed use</text>
+    <text x="172" y="102" font-size="10" fill="#777">02 · SELECTABLE</text>
+    <text x="172" y="127" font-size="13" font-weight="700" letter-spacing="1">ROOM 02</text>
+    <text x="172" y="145" font-size="10" fill="#666">Choose its use</text>
+    <text x="171" y="245" font-size="10" fill="#666">ENTRY</text>
+    <text x="181" y="282" font-size="10" fill="#666">↑</text>
+  </g>
+</svg>
