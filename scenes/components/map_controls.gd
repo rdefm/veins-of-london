@@ -27,6 +27,7 @@ var _selected_faction_id: String = ""
 var _faction_picker_open: bool = false
 var _pacing_mode: String = MapEvents.DEFAULT_PACING_MODE
 var _is_open: bool = false
+var _dark: bool = false
 
 var _dim: ColorRect
 var _panel: PanelContainer
@@ -38,7 +39,6 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	_dim = ColorRect.new()
-	_dim.color = Color(MapPalette.colour("scrim"), 0.5)
 	UI.anchor_full_rect(_dim)
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_dim.visible = false
@@ -68,7 +68,9 @@ func _ready() -> void:
 	if map_canvas != null:
 		_pacing_mode = map_canvas.pacing_mode
 
-	_rebuild()
+	_dark = MapPalette.is_dark()
+	_apply_colours()
+	EventBus.state_changed.connect(_on_state_changed)
 
 
 func open() -> void:
@@ -94,11 +96,27 @@ func _on_dim_gui_input(event: InputEvent) -> void:
 		close()
 
 
+# A dark-mode toggle (fired from this drawer's own switch) restyles the
+# drawer in place: it stays open and keeps the selected filter.
+func _on_state_changed() -> void:
+	if MapPalette.is_dark() == _dark:
+		return
+	_dark = MapPalette.is_dark()
+	_apply_colours()
+
+
+# Chrome panel matching the theme's PanelContainer box, over Map chrome tokens.
+func _apply_colours() -> void:
+	_dim.color = Color(MapPalette.colour("scrim"), 0.5)
+	_panel.add_theme_stylebox_override("panel", UI.bordered_panel_style(MapPalette.colour("chromePaper"), MapPalette.colour("chromeBorder"), 10, 16, 16))
+	_rebuild()
+
+
 func _rebuild() -> void:
 	for child in _list.get_children():
 		child.queue_free()
 
-	_list.add_child(UI.heading("Filters", 14))
+	_list.add_child(_heading("Filters"))
 	for mode in MapStyle.FILTER_MODES:
 		if mode == "faction":
 			continue  # own row shape below, see _build_faction_rows()
@@ -108,7 +126,7 @@ func _rebuild() -> void:
 
 	_build_faction_rows()
 
-	_list.add_child(UI.heading("Other", 14))
+	_list.add_child(_heading("Other"))
 	_list.add_child(UI.button(PACING_LABELS[_pacing_mode], _toggle_pacing))
 	var dark := CheckButton.new()
 	dark.text = GameData.MAP_PALETTE["darkModeLabel"]
@@ -117,6 +135,12 @@ func _rebuild() -> void:
 	_list.add_child(dark)
 	_list.add_child(UI.button("? Legend", func(): _open_legend()))
 	_list.add_child(UI.button("Close", close))
+
+
+func _heading(text: String) -> Label:
+	var l := UI.heading(text, 14)
+	l.add_theme_color_override("font_color", MapPalette.colour("chromeInk"))
+	return l
 
 
 func _select_filter(mode: String) -> void:

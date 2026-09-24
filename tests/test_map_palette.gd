@@ -115,6 +115,18 @@ func run() -> void:
 			assert_true(ratio >= 3.0, "%s %s vs dark paper: %.2f:1" % [label, checks[label].to_html(false), ratio])
 	)
 
+	run_case("dark_card_text_and_action_colours_have_4_5_to_1_contrast_on_dark_card_paper", func():
+		var card_paper := MapPalette.colour_in("cardPaper", true)
+		for key in ["cardInk", "cardDim", "cardMuted", "cardAction", "danger"]:
+			var ratio := _contrast(MapPalette.colour_in(key, true), card_paper)
+			assert_true(ratio >= 4.5, "%s vs dark cardPaper: %.2f:1" % [key, ratio])
+	)
+
+	run_case("light_card_action_and_muted_keep_the_global_theme_hexes", func():
+		assert_eq(MapPalette.light("cardAction"), UI.action_colour(), "light action stays ui_action_red")
+		assert_eq(MapPalette.light("cardMuted").to_html(false), "8a8a8a", "light muted stays UI.muted_label's grey")
+	)
+
 	# ── validation ──────────────────────────────────────────────────────
 
 	run_case("real_map_palette_validates", func():

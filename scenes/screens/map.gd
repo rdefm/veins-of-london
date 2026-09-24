@@ -19,6 +19,8 @@ var _map_legend: MapLegend
 var _map_zoom_buttons: MapZoomButtons
 var _bubble: MapBubble
 var _vein_bubble: VeinBubble
+var _top_title: Label
+var _top_buttons: Array[Button] = []
 var _bubble_district_id: String = ""
 var _bubble_mode: String = ""
 var _bubble_stop: Dictionary = {}
@@ -73,6 +75,8 @@ func _refresh() -> void:
 	elif selected_site_id != null:
 		_build_site_sheet(selected_site_id)
 
+	_style_top_row()
+
 func _build_diagram_layer() -> Control:
 	var layer := VBoxContainer.new()
 	UI.anchor_full_rect(layer)
@@ -117,16 +121,48 @@ func _build_diagram_layer() -> Control:
 func _build_top_bar() -> Control:
 	var row := UI.hbox(8)
 
-	row.add_child(UI.icon_button(Icons.draw_hamburger, func(): _map_controls.toggle()))
+	_top_buttons = [UI.icon_button(Icons.draw_hamburger, func(): _map_controls.toggle()), UI.icon_button(Icons.draw_bag, func(): Bag.open())]
+	row.add_child(_top_buttons[0])
 
-	var title := UI.heading("The Network")
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	row.add_child(title)
+	_top_title = UI.heading("The Network")
+	_top_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_top_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(_top_title)
 
-	row.add_child(UI.icon_button(Icons.draw_bag, func(): Bag.open()))
+	row.add_child(_top_buttons[1])
 
 	return row
+
+
+# Map-local colours for the top row: in dark, the icon buttons take the Map
+# chrome tokens and the title the diagram ink; in light, the overrides come
+# off so the row keeps the global theme look (M1.5 §Map palette).
+func _style_top_row() -> void:
+	var dark := MapPalette.is_dark()
+	if dark:
+		_top_title.add_theme_color_override("font_color", MapPalette.colour("ink"))
+	else:
+		_top_title.remove_theme_color_override("font_color")
+	for b in _top_buttons:
+		var glyph: Control = b.get_child(0)
+		glyph.set("colour_override", MapPalette.colour("chromeInk") if dark else null)
+		glyph.queue_redraw()
+		for state in ["normal", "hover", "pressed", "focus"]:
+			if dark:
+				b.add_theme_stylebox_override(state, _top_button_style(state))
+			else:
+				b.remove_theme_stylebox_override(state)
+
+
+func _top_button_style(state: String) -> StyleBoxFlat:
+	var ink := MapPalette.colour("chromeInk")
+	var fill := MapPalette.colour("chromePaper")
+	match state:
+		"hover", "focus":
+			fill = fill.lerp(ink, 0.06)
+		"pressed":
+			fill = fill.lerp(ink, 0.12)
+	return UI.bordered_panel_style(fill, MapPalette.colour("chromeBorder"), 8, 0, 0)
 func _on_district_tapped(district_id: String, canvas_anchor: Vector2) -> void:
 	_vein_bubble.close()
 	_bubble_mode = BUBBLE_MODE_DISTRICT
@@ -285,7 +321,7 @@ func _build_district_actions(district_id: String) -> Control:
 		row.add_child(MapCardStyle.style_button(UI.button("Travel", func(): Travel.travel_to(district_id))))
 		if Crafting.inventory_qty("wormhole") > 0:
 			var wormhole := MapCardStyle.style_button(UI.symbol_button([{ "symbol": GameData.RECIPES["wormhole"]["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " Wormhole"], func(): Travel.travel_via_wormhole(district_id)))
-			MapCardStyle.tint_symbols(wormhole, UI.action_colour())
+			MapCardStyle.tint_symbols(wormhole, MapCardStyle.action())
 			row.add_child(wormhole)
 
 	return row

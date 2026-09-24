@@ -12,7 +12,10 @@ func _ready() -> void:
 func _refresh() -> void:
 	for child in _content.get_children():
 		child.queue_free()
+	MapPalette.build_light(_build)
 
+# Off the Map tab: always the light map-card look (M1.5 §Map palette).
+func _build() -> void:
 	var nav: Dictionary = GameState.state["veinListNav"]
 	var district_id: Variant = nav.get("districtId")
 	var band_filter: Variant = nav.get("bandFilter")

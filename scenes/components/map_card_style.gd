@@ -18,6 +18,17 @@ static func dim() -> Color:
 	return MapPalette.colour("cardDim")
 
 
+# Theme-grey reason/hint text (UI.muted_label's colour in light).
+static func muted() -> Color:
+	return MapPalette.colour("cardMuted")
+
+
+# Map-card action accent: ui_action_red in light, a lighter dark-only variant
+# that keeps >=4.5:1 on dark cardPaper.
+static func action() -> Color:
+	return MapPalette.colour("cardAction")
+
+
 static func line() -> Color:
 	return MapPalette.colour("cardLine")
 
@@ -86,7 +97,7 @@ static func label(text: String, size: int, colour: Color) -> Label:
 # Map-card text button: action accent when live, dim() when disabled. Call after
 # `disabled` is set.
 static func style_button(b: Button) -> Button:
-	UI.style_action_button(b, dim() if b.disabled else UI.action_colour())
+	UI.style_action_button(b, dim() if b.disabled else action())
 	return b
 
 

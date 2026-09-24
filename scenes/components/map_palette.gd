@@ -8,8 +8,22 @@ extends RefCounted
 # come from their own data tables, with an optional dark-only override per id.
 
 
+static var _light_scope: int = 0
+
+
 static func is_dark() -> bool:
+	if _light_scope > 0:
+		return false
 	return GameState.state.get("meta", {}).get("mapDarkMode", false)
+
+
+# Runs `build` with every token resolving to the light set, for screens off
+# the Map tab that reuse the map-card family (MapCardStyle) and must not
+# follow the Map-only dark toggle.
+static func build_light(build: Callable) -> void:
+	_light_scope += 1
+	build.call()
+	_light_scope -= 1
 
 
 static func colour(key: String) -> Color:

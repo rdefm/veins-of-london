@@ -15,6 +15,9 @@ var _content: VBoxContainer
 
 var _anchor: Vector2 = Vector2.ZERO
 var _bounds_size: Vector2 = Vector2.ZERO
+var _options: Array = []
+var _horizontal_actions: bool = false
+var _dark: bool = false
 
 
 func _ready() -> void:
@@ -33,16 +36,20 @@ func _ready() -> void:
 	_panel = PanelContainer.new()
 	_panel.visible = false
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	_panel.add_theme_stylebox_override("panel", MapCardStyle.card_panel())
 	add_child(_panel)
 
 	_content = UI.vbox(4)
 	_panel.add_child(_content)
+	_dark = MapPalette.is_dark()
+	_apply_panel_style()
+	EventBus.state_changed.connect(_on_state_changed)
 
 
 func open(anchor: Vector2, options: Array, bounds_size: Vector2 = Vector2.ZERO, horizontal_actions: bool = false) -> void:
 	_anchor = anchor
 	_bounds_size = bounds_size if bounds_size != Vector2.ZERO else size
+	_options = options
+	_horizontal_actions = horizontal_actions
 	_rebuild(options, horizontal_actions)
 	visible = true
 	_dim.visible = true
@@ -57,6 +64,22 @@ func close() -> void:
 	_dim.visible = false
 	_panel.visible = false
 	closed.emit()
+
+
+# A Map dark-mode toggle restyles the card and rebuilds an open bubble's rows
+# in place, keeping it open at the same anchor.
+func _on_state_changed() -> void:
+	if MapPalette.is_dark() == _dark:
+		return
+	_dark = MapPalette.is_dark()
+	_apply_panel_style()
+	if visible:
+		_rebuild(_options, _horizontal_actions)
+		_reposition()
+
+
+func _apply_panel_style() -> void:
+	_panel.add_theme_stylebox_override("panel", MapCardStyle.card_panel())
 
 
 func _on_dim_gui_input(event: InputEvent) -> void:
@@ -107,7 +130,7 @@ func _build_action_column(option: Dictionary) -> Control:
 	label.add_theme_color_override("font_color", MapCardStyle.dim() if disabled else MapCardStyle.ink())
 	column.add_child(label)
 	if disabled and reason != "":
-		var reason_label := UI.muted_label(reason)
+		var reason_label := _reason_label(reason)
 		reason_label.custom_minimum_size.x = ACTION_WIDTH
 		reason_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		reason_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -133,9 +156,15 @@ func _build_option_row(option: Dictionary) -> Control:
 	row.add_child(b)
 
 	if disabled and reason != "":
-		row.add_child(UI.muted_label(reason))
+		row.add_child(_reason_label(reason))
 
 	return row
+
+
+func _reason_label(reason: String) -> Label:
+	var l := UI.muted_label(reason)
+	l.add_theme_color_override("font_color", MapCardStyle.muted())
+	return l
 
 
 func _build_icon_label_button(label_text: String, draw_icon: Callable, callback: Callable) -> Button:

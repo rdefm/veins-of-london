@@ -18,6 +18,7 @@ var _chevron: Label
 var _divider: ColorRect
 var _rows: VBoxContainer
 var _expanded: bool = false
+var _dark: bool = false
 
 
 func _ready() -> void:
@@ -25,7 +26,6 @@ func _ready() -> void:
 
 	_panel = PanelContainer.new()
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_panel.add_theme_stylebox_override("panel", _card_style())
 	add_child(_panel)
 
 	var content := UI.vbox(8)
@@ -36,11 +36,6 @@ func _ready() -> void:
 	_header.tooltip_text = "Toggle faction key"
 	_header.custom_minimum_size = Vector2(CARD_WIDTH, UI.ICON_BUTTON_SIZE)
 	_header.size = _header.custom_minimum_size
-	var ink := MapPalette.colour("chromeInk")
-	_header.add_theme_stylebox_override("normal", _header_style(Color.TRANSPARENT))
-	_header.add_theme_stylebox_override("hover", _header_style(Color(ink, 0.06)))
-	_header.add_theme_stylebox_override("pressed", _header_style(Color(ink, 0.12)))
-	_header.add_theme_stylebox_override("focus", _header_style(Color(ink, 0.06)))
 	_header.pressed.connect(_on_header_pressed)
 	content.add_child(_header)
 
@@ -55,18 +50,15 @@ func _ready() -> void:
 	_title.text = "Factions"
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title.add_theme_font_size_override("font_size", 18)
-	_title.add_theme_color_override("font_color", MapPalette.colour("chromeInk"))
 	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header_content.add_child(_title)
 
 	_chevron = Label.new()
 	_chevron.add_theme_font_size_override("font_size", 18)
-	_chevron.add_theme_color_override("font_color", MapPalette.colour("chromeInk"))
 	_chevron.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header_content.add_child(_chevron)
 
 	_divider = ColorRect.new()
-	_divider.color = MapPalette.colour("chromeBorder")
 	_divider.custom_minimum_size.y = 1.0
 	_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(_divider)
@@ -74,11 +66,37 @@ func _ready() -> void:
 	_rows = UI.vbox(6)
 	_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(_rows)
-	_build_rows()
+	_dark = MapPalette.is_dark()
+	_apply_colours()
 	_apply_expanded_state()
+	EventBus.state_changed.connect(_on_state_changed)
+
+
+func _on_state_changed() -> void:
+	if MapPalette.is_dark() == _dark:
+		return
+	_dark = MapPalette.is_dark()
+	_apply_colours()
+
+
+# Every chrome colour, re-read from MapPalette so a dark-mode toggle restyles
+# the card in place (expanded state kept).
+func _apply_colours() -> void:
+	var ink := MapPalette.colour("chromeInk")
+	_panel.add_theme_stylebox_override("panel", _card_style())
+	_header.add_theme_stylebox_override("normal", _header_style(Color.TRANSPARENT))
+	_header.add_theme_stylebox_override("hover", _header_style(Color(ink, 0.06)))
+	_header.add_theme_stylebox_override("pressed", _header_style(Color(ink, 0.12)))
+	_header.add_theme_stylebox_override("focus", _header_style(Color(ink, 0.06)))
+	_title.add_theme_color_override("font_color", ink)
+	_chevron.add_theme_color_override("font_color", ink)
+	_divider.color = MapPalette.colour("chromeBorder")
+	_build_rows()
 
 
 func _build_rows() -> void:
+	for child in _rows.get_children():
+		child.free()
 	for faction_id in GameData.FACTIONS.keys():
 		_rows.add_child(_build_row(GameData.FACTIONS[faction_id]))
 

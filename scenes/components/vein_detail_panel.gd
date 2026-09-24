@@ -275,7 +275,7 @@ static func _build_security_button(vein: Dictionary) -> Control:
 	button.disabled = player["cash"] < upgrade["cost"]
 	button.custom_minimum_size.y = 40
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	UI.style_action_button(button, MapCardStyle.dim() if button.disabled else UI.action_colour())
+	UI.style_action_button(button, MapCardStyle.dim() if button.disabled else MapCardStyle.action())
 	return button
 
 
@@ -294,7 +294,7 @@ static func _build_alarm_button(vein: Dictionary) -> Control:
 	var button := UI.button(UI.format_cost_label(cost, { "cash": player["cash"] }), func(): Cultivating.add_alarm(vein_id))
 	button.disabled = player["cash"] < alarm_data["cost"]
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	UI.style_action_button(button, MapCardStyle.dim() if button.disabled else UI.action_colour())
+	UI.style_action_button(button, MapCardStyle.dim() if button.disabled else MapCardStyle.action())
 	row.add_child(button)
 	return row
 

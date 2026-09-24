@@ -13,6 +13,7 @@ var _box: HBoxContainer
 var _divider: ColorRect
 var _zoom_in_button: Button
 var _zoom_out_button: Button
+var _dark: bool = false
 
 
 func _ready() -> void:
@@ -27,25 +28,27 @@ func _ready() -> void:
 
 	_pill = PanelContainer.new()
 	_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_pill.add_theme_stylebox_override("panel", _pill_style())
 	add_child(_pill)
 
 	_box = UI.hbox(0)
 	_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pill.add_child(_box)
 
-	_zoom_out_button = _build_button("−", "Zoom out", false, func(): map_canvas.step_zoom(-1))
+	_zoom_out_button = _build_button("−", "Zoom out", func(): map_canvas.step_zoom(-1))
 	_box.add_child(_zoom_out_button)
 
 	_divider = ColorRect.new()
-	_divider.color = MapPalette.colour("chromeBorder")
 	_divider.custom_minimum_size.x = 1.0
 	_divider.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_box.add_child(_divider)
 
-	_zoom_in_button = _build_button("+", "Zoom in", true, func(): map_canvas.step_zoom(1))
+	_zoom_in_button = _build_button("+", "Zoom in", func(): map_canvas.step_zoom(1))
 	_box.add_child(_zoom_in_button)
+
+	_dark = MapPalette.is_dark()
+	_apply_colours()
+	EventBus.state_changed.connect(_on_state_changed)
 
 	if map_canvas != null:
 		map_canvas.zoom_changed.connect(_update_disabled)
@@ -53,12 +56,33 @@ func _ready() -> void:
 	_reposition()
 
 
-func _build_button(glyph: String, tooltip: String, right_half: bool, callback: Callable) -> Button:
+func _on_state_changed() -> void:
+	if MapPalette.is_dark() == _dark:
+		return
+	_dark = MapPalette.is_dark()
+	_apply_colours()
+
+
+# Every chrome colour, re-read from MapPalette so a dark-mode toggle restyles
+# the pill in place.
+func _apply_colours() -> void:
+	_pill.add_theme_stylebox_override("panel", _pill_style())
+	_divider.color = MapPalette.colour("chromeBorder")
+	_style_button(_zoom_out_button, false)
+	_style_button(_zoom_in_button, true)
+
+
+func _build_button(glyph: String, tooltip: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.text = glyph
 	button.tooltip_text = tooltip
 	button.custom_minimum_size = BUTTON_SIZE
 	button.add_theme_font_size_override("font_size", 22)
+	button.pressed.connect(callback)
+	return button
+
+
+func _style_button(button: Button, right_half: bool) -> void:
 	var ink := MapPalette.colour("chromeInk")
 	button.add_theme_color_override("font_color", ink)
 	button.add_theme_color_override("font_hover_color", ink)
@@ -70,8 +94,6 @@ func _build_button(glyph: String, tooltip: String, right_half: bool, callback: C
 	button.add_theme_stylebox_override("pressed", _button_style(Color(ink, 0.12), right_half))
 	button.add_theme_stylebox_override("focus", _button_style(Color(ink, 0.06), right_half))
 	button.add_theme_stylebox_override("disabled", _button_style(Color.TRANSPARENT, right_half))
-	button.pressed.connect(callback)
-	return button
 
 
 func _pill_style() -> StyleBoxFlat:

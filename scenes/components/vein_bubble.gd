@@ -24,6 +24,7 @@ var _anchor: Vector2 = Vector2.ZERO
 var _bounds_size: Vector2 = Vector2.ZERO
 var _stop: Dictionary = {}
 var _chooser_open: bool = false
+var _dark: bool = false
 
 
 func _ready() -> void:
@@ -45,13 +46,15 @@ func _ready() -> void:
 	add_child(_panel)
 
 	_panel.custom_minimum_size.x = 268
-	_panel.add_theme_stylebox_override("panel", MapCardStyle.card_panel(18, 0.13))
 	_pointer = Control.new()
 	_pointer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pointer.draw.connect(_draw_pointer)
 	add_child(_pointer)
 	_content = UI.vbox(12)
 	_panel.add_child(_content)
+	_dark = MapPalette.is_dark()
+	_apply_panel_style()
+	EventBus.state_changed.connect(_on_state_changed)
 
 
 func open(anchor: Vector2, stop: Dictionary, bounds_size: Vector2 = Vector2.ZERO) -> void:
@@ -73,6 +76,23 @@ func close() -> void:
 	_dim.visible = false
 	_panel.visible = false
 	closed.emit()
+
+
+# A Map dark-mode toggle restyles the card and rebuilds an open bubble in
+# place, keeping it open (and the Harvest chooser, if showing).
+func _on_state_changed() -> void:
+	if MapPalette.is_dark() == _dark:
+		return
+	_dark = MapPalette.is_dark()
+	_apply_panel_style()
+	_pointer.queue_redraw()
+	if visible:
+		_rebuild()
+		_reposition()
+
+
+func _apply_panel_style() -> void:
+	_panel.add_theme_stylebox_override("panel", MapCardStyle.card_panel(18, 0.13))
 
 
 func _on_dim_gui_input(event: InputEvent) -> void:

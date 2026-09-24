@@ -103,11 +103,11 @@ overlays.
 | hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward) |
 | hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment for staffed rooms |
 | hq_lab_bench.gd | Lab zone: notebook/ore/apparatus regions |
-| map.gd | Map tab: diagram + district panel + sheet |
+| map.gd | Map tab: diagram + district panel + sheet; top-row icons take Map chrome tokens in dark mode |
 | phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid + home-only Phone/Messages/Settings dock, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |
 | placeholder.gd | Stand-in for a not-yet-built screen |
 | title.gd | Title screen + load-game slot list |
-| vein_list.gd | Vein-portfolio list (map_card_style.gd-skinned) |
+| vein_list.gd | Vein-portfolio list (map_card_style.gd-skinned, always light via MapPalette.build_light) |
 
 ## scenes/components/*.gd — reusable UI components
 
@@ -129,13 +129,13 @@ overlays.
 | hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected` |
 | icons.gd | 13 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
-| map_card_style.gd | paper()/ink()/dim()/line()/gold()/sage() card-token accessors (via map_palette.gd) + card/inset/action-circle styleboxes, ink labels, text-button/bar/symbol tinting for the map-tab family (map_bubble.gd, vein_bubble.gd, vein_detail_panel.gd, map.gd's district panel/site sheet, vein_list.gd) |
+| map_card_style.gd | paper()/ink()/dim()/muted()/action()/line()/gold()/sage() card-token accessors (via map_palette.gd) + card/inset/action-circle styleboxes, ink labels, text-button/bar/symbol tinting for the map-tab family (map_bubble.gd, vein_bubble.gd, vein_detail_panel.gd, map.gd's district panel/site sheet, vein_list.gd) |
 | map_canvas.gd | Network diagram: layout/stops/lines, hit-testing, static draw pass; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
 | map_controls.gd | Filter-chip drawer: filters, faction isolate, pacing, Dark map toggle, legend button |
-| map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab colour reads through it |
-| map_legend.gd | Persistent faction-colour key |
-| map_zoom_buttons.gd | Floating +/- zoom control |
+| map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab colour reads through it; build_light() scopes a light-only build for off-Map reusers |
+| map_legend.gd | Persistent faction-colour key; restyles in place on a dark-mode toggle |
+| map_zoom_buttons.gd | Floating +/- zoom control; restyles in place on a dark-mode toggle |
 | modal_layer.gd | Dim background + generic card; mounts the dedicated Trade sheet for sell_menu, and dispatches other content through modal_registry.gd; tap-outside dismiss |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ) |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
