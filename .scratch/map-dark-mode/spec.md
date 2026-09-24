@@ -19,4 +19,4 @@ Manual light/dark toggle for the Map tab only. Estimate and inventory: `.scratch
 
 ## Tickets
 
-01 tokens refactor (no visual change) → 02 preference + toggle → 03 dark palette values → 04 live restyle of overlays + nav dock → 05 human visual QA.
+01 palette prefactor (no visual change) → 02 dark Network diagram (toggle + canvas) → 03 dark Map overlays ∥ 04 dark nav dock on Map (both blocked by 02).
