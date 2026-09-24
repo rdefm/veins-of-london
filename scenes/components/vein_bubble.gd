@@ -15,6 +15,10 @@ signal action_selected(option_id: String)
 signal info_selected()
 signal closed()
 
+# Wide enough for "Cultivate" on one line; a longer pre-tutorial caption
+# ("Cultivate — 1 block") wraps at the word break, not mid-word.
+const CAPTION_WIDTH := 88.0
+
 var _pointer: Control
 var _dim: ColorRect
 var _panel: PanelContainer
@@ -275,7 +279,7 @@ func _build_action_column(caption: String, draw_icon: Callable, disabled: bool, 
 
 	var cap := _label(caption, 11, MapCardStyle.dim() if disabled else MapCardStyle.ink())
 	cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	cap.custom_minimum_size.x = 44
+	cap.custom_minimum_size.x = CAPTION_WIDTH
 	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(cap)
 

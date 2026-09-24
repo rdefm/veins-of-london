@@ -151,6 +151,25 @@ func run() -> void:
 		bubble.free()
 	)
 
+	run_case("action_captions_fit_a_whole_word_on_one_line", func():
+		GameState.reset()
+		GameState.state["flags"]["cultivationTutorialSeen"] = true
+		var vein := Fixtures.player_vein_with({ "growth": 60 })
+		var bubble := VeinBubble.new()
+		bubble._ready()
+		bubble.open(Vector2(0, 0), _vein_stop(vein), Vector2(390, 844))
+
+		var actions_row: HBoxContainer = bubble._content.get_child(1)
+		for col in actions_row.get_children():
+			var cap: Label = col.get_child(1)
+			var font := cap.get_theme_font("font")
+			var text_width := font.get_string_size(cap.text, HORIZONTAL_ALIGNMENT_LEFT, -1, cap.get_theme_font_size("font_size")).x
+			assert_true(cap.custom_minimum_size.x >= text_width, "'%s' (%.0fpx) fits its %.0fpx caption without a mid-word break" % [cap.text, text_width, cap.custom_minimum_size.x])
+
+		bubble.free()
+		GameState.reset()
+	)
+
 	run_case("cultivate_is_disabled_at_the_ceiling", func():
 		GameState.reset()
 		var vein := Fixtures.player_vein_with({ "growth": 100 })  # fair tier, no wildCeiling -- ceiling is 100
