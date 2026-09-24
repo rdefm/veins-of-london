@@ -18,6 +18,8 @@ const _DIVIDER_COLOR := Color(0.831373, 0.811765, 0.768627, 1)
 const _LOCKED_COLOR := UI.ACTION_DISABLED_COLOUR
 
 var _tiles: Dictionary = {}
+var _bg_style: StyleBoxFlat
+var _dividers: Array[ColorRect] = []
 
 
 func _ready() -> void:
@@ -27,11 +29,9 @@ func _ready() -> void:
 
 	var bg := Panel.new()
 	UI.anchor_full_rect(bg)
-	var style := StyleBoxFlat.new()
-	style.bg_color = _BG_COLOR
-	style.border_width_top = 1
-	style.border_color = _DIVIDER_COLOR
-	bg.add_theme_stylebox_override("panel", style)
+	_bg_style = StyleBoxFlat.new()
+	_bg_style.border_width_top = 1
+	bg.add_theme_stylebox_override("panel", _bg_style)
 	add_child(bg)
 
 	var row := HBoxContainer.new()
@@ -57,17 +57,27 @@ func _ready() -> void:
 
 func _make_divider() -> ColorRect:
 	var line := ColorRect.new()
-	line.color = _DIVIDER_COLOR
 	line.custom_minimum_size = Vector2(1, BAR_HEIGHT * 0.5)
 	line.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dividers.append(line)
 	return line
 
 
 func _refresh() -> void:
 	var current_screen: String = GameState.state["currentScreen"]
 	var phone_home: bool = GameState.state["phoneNav"]["app"] == "home"
-	var action_color := UI.action_colour()
+	# The dock follows the Map palette's dark chrome only while the Map tab
+	# shows (map-dark-mode spec, decision 6); everywhere else it keeps its
+	# ui-vision.md §5 light look.
+	var dark := current_screen == "map" and MapPalette.is_dark()
+	var action_color := MapPalette.colour_in("cardAction", true) if dark else UI.action_colour()
+	var locked_color := MapPalette.colour_in("muted", true) if dark else _LOCKED_COLOR
+	var divider_color := MapPalette.colour_in("chromeBorder", true) if dark else _DIVIDER_COLOR
+	_bg_style.bg_color = MapPalette.colour_in("chromePaper", true) if dark else _BG_COLOR
+	_bg_style.border_color = divider_color
+	for line in _dividers:
+		line.color = divider_color
 
 	for tab in TABS:
 		var tile: _DockTile = _tiles[tab["screen"]]
@@ -77,7 +87,7 @@ func _refresh() -> void:
 			active = current_screen == "phone" and phone_home
 		else:
 			active = current_screen == tab["screen"]
-		tile.configure(tab["label"], locked, active, action_color, _LOCKED_COLOR)
+		tile.configure(tab["label"], locked, active, action_color, locked_color)
 		tile.tooltip_text = LOCKED_MAP_LABEL if locked else ""
 
 
@@ -196,6 +206,7 @@ class _DockTile extends Control:
 		_label.add_theme_color_override("font_color", tint)
 		_active_bar.color = action_color
 		_lock_badge.visible = locked
+		_lock_badge.set_colour(locked_color)
 		_active_bar.visible = active and not locked
 
 
@@ -253,5 +264,12 @@ class _TileIcon extends Control:
 
 
 class _LockBadge extends Control:
+	var colour: Color = NavBar._LOCKED_COLOR
+
+	func set_colour(c: Color) -> void:
+		colour = c
+		queue_redraw()
+
+
 	func _draw() -> void:
-		Icons.draw_padlock(self, size / 2.0, NavBar._LOCKED_COLOR, 1.6)
+		Icons.draw_padlock(self, size / 2.0, colour, 1.6)

@@ -1,6 +1,7 @@
 extends "res://tests/test_base.gd"
 
 const UiSim := preload("res://tests/support/ui_sim.gd")
+const Preferences := preload("res://systems/preferences.gd")
 
 # 11-phone-os-shell ticket 11: the dock restructure -- 3 slots (Phone · Map ·
 # HQ), Phone as a home button, Map's lock rendered as a padlock overlay
@@ -22,6 +23,37 @@ const UiSim := preload("res://tests/support/ui_sim.gd")
 
 
 func run() -> void:
+	await run_case("dark_mode_darkens_the_dock_only_on_map_and_follows_the_toggle_live", func():
+		var tree := Engine.get_main_loop() as SceneTree
+		GameState.reset()
+		GameState.state["flags"]["archiePartnerSeen"] = true
+		var nav := NavBar.new()
+		tree.root.add_child(nav)
+		await tree.process_frame
+
+		for screen_id in ["phone", "map", "hq"]:
+			Nav.go_to(screen_id)
+			_assert_dock(nav, false, "dark off on %s" % screen_id)
+
+		Preferences.set_map_dark_mode(true)
+		Nav.go_to("phone")
+		_assert_dock(nav, false, "dark on, Phone")
+		Nav.go_to("map")
+		_assert_dock(nav, true, "dark on, Map")
+		assert_true(nav._tiles["map"]._active_bar.visible, "Map's active bar still shows in dark")
+		Nav.go_to("hq")
+		_assert_dock(nav, false, "dark on, HQ")
+
+		Nav.go_to("map")
+		Preferences.set_map_dark_mode(false)
+		_assert_dock(nav, false, "toggled off live on Map")
+		Preferences.set_map_dark_mode(true)
+		_assert_dock(nav, true, "toggled on live on Map")
+
+		nav.free()
+		GameState.reset()
+	)
+
 	run_case("dock_has_exactly_three_slots_phone_map_hq_in_order", func():
 		GameState.reset()
 		var nav := NavBar.new()
@@ -332,3 +364,18 @@ func run() -> void:
 
 		nav.free()
 	)
+
+
+func _assert_dock(nav: NavBar, dark: bool, context: String) -> void:
+	var paper: Color = MapPalette.colour_in("chromePaper", true) if dark else NavBar._BG_COLOR
+	var divider: Color = MapPalette.colour_in("chromeBorder", true) if dark else NavBar._DIVIDER_COLOR
+	var action: Color = MapPalette.colour_in("cardAction", true) if dark else UI.action_colour()
+	assert_eq(nav._bg_style.bg_color, paper, "%s: dock background" % context)
+	assert_eq(nav._bg_style.border_color, divider, "%s: dock top border" % context)
+	for line in nav._dividers:
+		assert_eq(line.color, divider, "%s: tile divider" % context)
+	for screen_id in nav._tiles:
+		var tile: NavBar._DockTile = nav._tiles[screen_id]
+		assert_eq(tile._icon.colour, action, "%s: %s icon" % [context, screen_id])
+		assert_eq(tile._label.get_theme_color("font_color"), action, "%s: %s label" % [context, screen_id])
+		assert_eq(tile._active_bar.color, action, "%s: %s active bar" % [context, screen_id])
