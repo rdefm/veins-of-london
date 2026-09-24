@@ -5,10 +5,6 @@ extends Control
 const MARGIN := Vector2(8.0, 8.0)
 const BUTTON_SIZE := Vector2(UI.ICON_BUTTON_SIZE, UI.ICON_BUTTON_SIZE)
 const PILL_RADIUS := 14
-const CREAM := Color(0.980392, 0.972549, 0.952941, 1.0)
-const BORDER := Color(0.831373, 0.811765, 0.768627, 1.0)
-const CHARCOAL := Color(0.101961, 0.101961, 0.101961, 1.0)
-const DISABLED_CHARCOAL := Color(0.101961, 0.101961, 0.101961, 0.35)
 
 var map_canvas: MapCanvas
 
@@ -42,7 +38,7 @@ func _ready() -> void:
 	_box.add_child(_zoom_out_button)
 
 	_divider = ColorRect.new()
-	_divider.color = BORDER
+	_divider.color = MapPalette.colour("border")
 	_divider.custom_minimum_size.x = 1.0
 	_divider.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -63,15 +59,16 @@ func _build_button(glyph: String, tooltip: String, right_half: bool, callback: C
 	button.tooltip_text = tooltip
 	button.custom_minimum_size = BUTTON_SIZE
 	button.add_theme_font_size_override("font_size", 22)
-	button.add_theme_color_override("font_color", CHARCOAL)
-	button.add_theme_color_override("font_hover_color", CHARCOAL)
-	button.add_theme_color_override("font_pressed_color", CHARCOAL)
-	button.add_theme_color_override("font_focus_color", CHARCOAL)
-	button.add_theme_color_override("font_disabled_color", DISABLED_CHARCOAL)
+	var ink := MapPalette.colour("ink")
+	button.add_theme_color_override("font_color", ink)
+	button.add_theme_color_override("font_hover_color", ink)
+	button.add_theme_color_override("font_pressed_color", ink)
+	button.add_theme_color_override("font_focus_color", ink)
+	button.add_theme_color_override("font_disabled_color", Color(ink, 0.35))
 	button.add_theme_stylebox_override("normal", _button_style(Color.TRANSPARENT, right_half))
-	button.add_theme_stylebox_override("hover", _button_style(Color(CHARCOAL, 0.06), right_half))
-	button.add_theme_stylebox_override("pressed", _button_style(Color(CHARCOAL, 0.12), right_half))
-	button.add_theme_stylebox_override("focus", _button_style(Color(CHARCOAL, 0.06), right_half))
+	button.add_theme_stylebox_override("hover", _button_style(Color(ink, 0.06), right_half))
+	button.add_theme_stylebox_override("pressed", _button_style(Color(ink, 0.12), right_half))
+	button.add_theme_stylebox_override("focus", _button_style(Color(ink, 0.06), right_half))
 	button.add_theme_stylebox_override("disabled", _button_style(Color.TRANSPARENT, right_half))
 	button.pressed.connect(callback)
 	return button
@@ -79,15 +76,15 @@ func _build_button(glyph: String, tooltip: String, right_half: bool, callback: C
 
 func _pill_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = CREAM
+	style.bg_color = MapPalette.colour("chromePaper")
 	style.set_border_width_all(1)
-	style.border_color = BORDER
+	style.border_color = MapPalette.colour("border")
 	style.set_corner_radius_all(PILL_RADIUS)
 	style.content_margin_left = 1.0
 	style.content_margin_top = 1.0
 	style.content_margin_right = 1.0
 	style.content_margin_bottom = 1.0
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.13)
+	style.shadow_color = Color(MapPalette.colour("shadow"), 0.13)
 	style.shadow_size = 8
 	style.shadow_offset = Vector2(0.0, 3.0)
 	return style

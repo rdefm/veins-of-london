@@ -155,7 +155,7 @@ static func build_level_row(vein: Dictionary, compact: bool = false) -> Control:
 		var pip := Panel.new()
 		pip.custom_minimum_size = Vector2(23, 6) if compact else Vector2(14, 5)
 		pip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		pip.add_theme_stylebox_override("panel", MapCardStyle.skin((MapCardStyle.INK if i < level else MapCardStyle.LINE) if compact else (MapCanvas.PLAYER_COLOUR if i < level else MapStyle.MUTED_COLOUR), 2, false))
+		pip.add_theme_stylebox_override("panel", MapCardStyle.skin((MapCardStyle.ink() if i < level else MapCardStyle.line()) if compact else (MapPalette.colour("player") if i < level else MapPalette.colour("muted")), 2, false))
 		pips.add_child(pip)
 	row.add_child(pips)
 
@@ -172,7 +172,7 @@ static func build_condition_column(vein: Dictionary, compact: bool = false) -> C
 
 	var header := UI.hbox(4)
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var label := _label("Condition", 11, MapCardStyle.DIM) if compact else UI.muted_label("Condition")
+	var label := _label("Condition", 11, MapCardStyle.dim()) if compact else UI.muted_label("Condition")
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(label)
 	header.add_child(_label(str(vein["growth"]), 14) if compact else UI.muted_label("%d/%d" % [vein["growth"], vein_ceiling]))
@@ -240,20 +240,20 @@ func _build_action_column(caption: String, draw_icon: Callable, disabled: bool, 
 	var col := UI.vbox(4)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var btn := UI.icon_button(draw_icon, callback, MapCardStyle.DIM if disabled else MapCardStyle.INK)
+	var btn := UI.icon_button(draw_icon, callback, MapCardStyle.dim() if disabled else MapCardStyle.ink())
 	btn.custom_minimum_size = Vector2(44, 44)
 	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		if state == "focus":
 			var focus_style := MapCardStyle.skin(Color.TRANSPARENT, 22)
-			focus_style.border_color = MapCardStyle.GOLD
+			focus_style.border_color = MapCardStyle.gold()
 			btn.add_theme_stylebox_override(state, focus_style)
 		else:
 			btn.add_theme_stylebox_override(state, MapCardStyle.action_circle_style(state))
 	btn.disabled = disabled
 	col.add_child(btn)
 
-	var cap := _label(caption, 11, MapCardStyle.DIM if disabled else MapCardStyle.INK)
+	var cap := _label(caption, 11, MapCardStyle.dim() if disabled else MapCardStyle.ink())
 	cap.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	cap.custom_minimum_size.x = 44
 	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -274,7 +274,7 @@ func _open_chooser() -> void:
 # always exits the development zone.
 func _build_chooser(vein: Dictionary) -> Control:
 	var col := UI.vbox(4)
-	col.add_child(_label("Harvest depth", 12, MapCardStyle.DIM))
+	col.add_child(_label("Harvest depth", 12, MapCardStyle.dim()))
 	col.add_child(_build_chooser_row("Light", vein, GameData.VEIN_GROWTH["pruneLightDepth"], StationBubble.PRUNE_LIGHT_ID))
 	col.add_child(_build_chooser_row("Hard", vein, GameData.VEIN_GROWTH["pruneHardDepth"], StationBubble.PRUNE_HARD_ID))
 	col.add_child(MapCardStyle.style_button(UI.button("‹ Back", _close_chooser)))
@@ -359,29 +359,29 @@ class ConditionBar extends Control:
 
 		if compact:
 			var track := Rect2(4, 8, w - 8, 8)
-			draw_style_box(MapCardStyle.skin(MapCardStyle.LINE, 4, false), track)
+			draw_style_box(MapCardStyle.skin(MapCardStyle.line(), 4, false), track)
 			var zone_x := track.position.x + track.size.x * float(threshold) / vein_ceiling
-			draw_style_box(MapCardStyle.skin(MapCardStyle.GOLD, 3, false), Rect2(zone_x, 8, track.end.x - zone_x, 8))
+			draw_style_box(MapCardStyle.skin(MapCardStyle.gold(), 3, false), Rect2(zone_x, 8, track.end.x - zone_x, 8))
 			var neutral_x := track.position.x + track.size.x * float(neutral) / vein_ceiling
 			var needle_x := track.position.x + track.size.x * clampf(float(growth) / vein_ceiling, 0, 1)
-			draw_line(Vector2(neutral_x, 5), Vector2(neutral_x, 19), MapCardStyle.DIM, 1, true)
-			draw_line(Vector2(needle_x, 4), Vector2(needle_x, 20), MapCardStyle.INK, 3, true)
+			draw_line(Vector2(neutral_x, 5), Vector2(neutral_x, 19), MapCardStyle.dim(), 1, true)
+			draw_line(Vector2(needle_x, 4), Vector2(needle_x, 20), MapCardStyle.ink(), 3, true)
 			var font := get_theme_default_font()
 			for mark in [["0", track.position.x], [str(neutral), neutral_x - font.get_string_size(str(neutral), HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x / 2], ["%d+" % threshold, track.end.x - font.get_string_size("%d+" % threshold, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x]]:
-				draw_string(font, Vector2(mark[1], 34), mark[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, MapCardStyle.DIM)
+				draw_string(font, Vector2(mark[1], 34), mark[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, MapCardStyle.dim())
 			return
 
-		draw_rect(Rect2(0, 0, w, h), MapStyle.MUTED_COLOUR.lerp(Color.WHITE, 0.5))
+		draw_rect(Rect2(0, 0, w, h), MapPalette.colour("muted").lerp(MapPalette.colour("paper"), 0.5))
 
 		var fill_w: float = w * clampf(float(growth) / float(vein_ceiling), 0.0, 1.0)
-		draw_rect(Rect2(0, 0, fill_w, h), MapCanvas.PLAYER_COLOUR)
+		draw_rect(Rect2(0, 0, fill_w, h), MapPalette.colour("player"))
 
 		var zone_x: float = w * clampf(float(threshold) / float(vein_ceiling), 0.0, 1.0)
-		draw_rect(Rect2(zone_x, 0, w - zone_x, h), Color(MapStyle.DANGER_COLOUR, 0.25))
-		draw_line(Vector2(zone_x, 0), Vector2(zone_x, h), MapStyle.INK_COLOUR, 1.0)
+		draw_rect(Rect2(zone_x, 0, w - zone_x, h), Color(MapPalette.colour("danger"), 0.25))
+		draw_line(Vector2(zone_x, 0), Vector2(zone_x, h), MapPalette.colour("ink"), 1.0)
 
 		var neutral_x: float = w * clampf(float(neutral) / float(vein_ceiling), 0.0, 1.0)
-		draw_line(Vector2(neutral_x, 0), Vector2(neutral_x, h), MapStyle.INK_COLOUR, 2.0)
+		draw_line(Vector2(neutral_x, 0), Vector2(neutral_x, h), MapPalette.colour("ink"), 2.0)
 
 
 func _draw_pointer() -> void:
@@ -391,11 +391,11 @@ func _draw_pointer() -> void:
 	var a := Vector2(x - 9, y)
 	var b := Vector2(x, y + (-11 if below else 11))
 	var c := Vector2(x + 9, y)
-	_pointer.draw_colored_polygon(PackedVector2Array([a, b, c]), MapCardStyle.PAPER)
-	_pointer.draw_polyline(PackedVector2Array([a, b, c]), MapCardStyle.LINE, 1, true)
+	_pointer.draw_colored_polygon(PackedVector2Array([a, b, c]), MapCardStyle.paper())
+	_pointer.draw_polyline(PackedVector2Array([a, b, c]), MapCardStyle.line(), 1, true)
 
 
-static func _label(value: String, font_size: int = 14, colour: Color = MapCardStyle.INK) -> Label:
+static func _label(value: String, font_size: int = 14, colour: Color = MapCardStyle.ink()) -> Label:
 	var label := Label.new()
 	label.text = value
 	label.add_theme_font_size_override("font_size", font_size)
@@ -412,11 +412,11 @@ static func _compact_cues(vein: Dictionary) -> Variant:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	for cue in (["Developing", "Raid risk ↑"] if developing and risk else (["Developing"] if developing else ["Raid risk ↑"])):
 		if row.get_child_count() > 0:
-			row.add_child(_label("·", 11, MapCardStyle.GOLD))
-		var glyph := UI.icon_glyph_control(_draw_sprout if cue == "Developing" else _draw_shield, 0.8, MapCardStyle.GOLD)
+			row.add_child(_label("·", 11, MapCardStyle.gold()))
+		var glyph := UI.icon_glyph_control(_draw_sprout if cue == "Developing" else _draw_shield, 0.8, MapCardStyle.gold())
 		glyph.custom_minimum_size = Vector2(13, 18)
 		row.add_child(glyph)
-		row.add_child(_label(cue, 11, MapCardStyle.GOLD))
+		row.add_child(_label(cue, 11, MapCardStyle.gold()))
 	return row
 
 

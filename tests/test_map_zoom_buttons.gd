@@ -46,11 +46,11 @@ func run() -> void:
 
 		var pill_style := buttons._pill.get_theme_stylebox("panel") as StyleBoxFlat
 		var minus_style := buttons._zoom_out_button.get_theme_stylebox("normal") as StyleBoxFlat
-		assert_eq(pill_style.bg_color, MapZoomButtons.CREAM)
-		assert_eq(pill_style.border_color, MapZoomButtons.BORDER)
+		assert_eq(pill_style.bg_color, MapPalette.colour("chromePaper"))
+		assert_eq(pill_style.border_color, MapPalette.colour("border"))
 		assert_true(pill_style.shadow_size > 0, "cream surface has the requested subtle shadow")
-		assert_eq(buttons._zoom_out_button.get_theme_color("font_color"), MapZoomButtons.CHARCOAL)
-		assert_eq(buttons._zoom_in_button.get_theme_color("font_color"), MapZoomButtons.CHARCOAL)
+		assert_eq(buttons._zoom_out_button.get_theme_color("font_color"), MapPalette.colour("ink"))
+		assert_eq(buttons._zoom_in_button.get_theme_color("font_color"), MapPalette.colour("ink"))
 		assert_eq(minus_style.bg_color, Color.TRANSPARENT, "normal halves do not inherit the global orange button fill")
 
 		buttons.map_canvas.free()

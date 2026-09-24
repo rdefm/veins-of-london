@@ -72,7 +72,7 @@ func start_seed_claim_ring(stop: Dictionary, event: Dictionary, duration: float)
 	var ring := SeedClaimRing.new()
 	ring.position = stop["position"]
 	ring.radius = params["radius"]
-	ring.fill_colour = canvas._faded(MapCanvas.PAPER_COLOUR, alpha)
+	ring.fill_colour = canvas._faded(MapPalette.colour("stopFill"), alpha)
 	ring.track_colour = canvas._faded(style["track_colour"], alpha)
 	ring.progress_colour = canvas._faded(style["colour"], alpha)
 	ring.ring_width = style["width"]
@@ -101,7 +101,7 @@ func start_line_growth(stop: Dictionary, event: Dictionary, duration: float) -> 
 
 	var growth := LineGrowth.new()
 	growth.points = segment
-	growth.line_colour = canvas._faded(MapStyle.line_colour(canvas.filter_mode, params["colour"]), alpha)
+	growth.line_colour = canvas._faded(MapStyle.line_colour(canvas.filter_mode, params["colour"], MapPalette.colour("muted")), alpha)
 	playback_layer.add_child(growth)
 	growth.start(duration)
 	growth.tween.finished.connect(growth.queue_free)
@@ -136,9 +136,9 @@ func start_vein_drain(stop: Dictionary, event: Dictionary, duration: float) -> V
 
 func _stop_render_params(owner: String) -> Dictionary:
 	if owner == "player":
-		return { "colour": MapCanvas.PLAYER_COLOUR, "radius": MapCanvas.VEIN_STOP_RADIUS, "width": MapCanvas.VEIN_STOP_STROKE }
+		return { "colour": MapPalette.colour("player"), "radius": MapCanvas.VEIN_STOP_RADIUS, "width": MapCanvas.VEIN_STOP_STROKE }
 	return {
-		"colour": Color(GameData.FACTIONS[owner]["colour"]),
+		"colour": MapPalette.faction_colour(owner),
 		"radius": MapCanvas.FACTION_STOP_RADIUS,
 		"width": MapCanvas.FACTION_STOP_STROKE,
 	}
@@ -149,8 +149,7 @@ class ChargeHalo:
 
 	const RADIUS := 14.0
 	const PERIOD := 1.2
-	const COLOUR := Color(0.784314, 0.529412, 0.227451)  # amber #c8873a
-
+	var _colour := MapPalette.colour("player")
 	var _t := 0.0
 
 	func _ready() -> void:
@@ -164,7 +163,7 @@ class ChargeHalo:
 		var progress := _t / PERIOD
 		var scale_factor := lerpf(1.0, 1.3, progress)
 		var alpha := lerpf(0.5, 0.0, progress)
-		draw_circle(Vector2.ZERO, RADIUS * scale_factor, Color(COLOUR.r, COLOUR.g, COLOUR.b, alpha))
+		draw_circle(Vector2.ZERO, RADIUS * scale_factor, Color(_colour, alpha))
 
 
 class ChargeBurst:
@@ -173,8 +172,7 @@ class ChargeBurst:
 	const START_RADIUS := 4.0
 	const END_RADIUS := ChargeHalo.RADIUS * 1.6
 	const START_ALPHA := 0.9
-	const COLOUR := Color(1.0, 0.909804, 0.694118)  # bright warm gold, brighter than ChargeHalo's amber
-
+	var _colour := MapPalette.colour("haloGold")  # brighter than ChargeHalo's amber
 	var tween: Tween
 	var _radius := START_RADIUS
 	var _alpha := START_ALPHA
@@ -194,7 +192,7 @@ class ChargeBurst:
 
 	func _draw() -> void:
 		if _alpha > 0.0:
-			draw_circle(Vector2.ZERO, _radius, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
+			draw_circle(Vector2.ZERO, _radius, Color(_colour, _alpha))
 
 
 class DrainCollapse:
@@ -203,8 +201,7 @@ class DrainCollapse:
 	const START_RADIUS := ChargeHalo.RADIUS
 	const END_RADIUS := 0.0
 	const START_ALPHA := 0.5
-	const COLOUR := ChargeHalo.COLOUR
-
+	var _colour := MapPalette.colour("player")
 	var tween: Tween
 	var _radius := START_RADIUS
 	var _alpha := START_ALPHA
@@ -224,7 +221,7 @@ class DrainCollapse:
 
 	func _draw() -> void:
 		if _alpha > 0.0:
-			draw_circle(Vector2.ZERO, _radius, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
+			draw_circle(Vector2.ZERO, _radius, Color(_colour, _alpha))
 
 
 class DiscoverRipple:
@@ -233,8 +230,7 @@ class DiscoverRipple:
 	const RING_START_RADIUS := MapCanvas.VEIN_STOP_RADIUS
 	const RING_END_RADIUS := MapCanvas.UNCLAIMED_STOP_RADIUS * 3.0
 	const RING_START_ALPHA := 0.6
-	const RING_COLOUR := MapCanvas.MUTED_COLOUR
-
+	var _ring_colour := MapPalette.colour("muted")
 	var map_canvas: MapCanvas
 	var ore_type: String
 
@@ -264,7 +260,7 @@ class DiscoverRipple:
 
 	func _draw() -> void:
 		if _ring_alpha > 0.0:
-			draw_arc(Vector2.ZERO, _ring_radius, 0, TAU, 32, Color(RING_COLOUR.r, RING_COLOUR.g, RING_COLOUR.b, _ring_alpha), 2.0, true)
+			draw_arc(Vector2.ZERO, _ring_radius, 0, TAU, 32, Color(_ring_colour, _ring_alpha), 2.0, true)
 		if _glyph_scale > 0.0:
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2(_glyph_scale, _glyph_scale))
 			var ore: Dictionary = GameData.ORE_TYPES[ore_type]

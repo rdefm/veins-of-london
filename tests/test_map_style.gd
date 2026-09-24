@@ -7,13 +7,16 @@ extends "res://tests/test_base.gd"
 func run() -> void:
 	var owner := Color(0.784314, 0.529412, 0.227451)  # amber, stands in for PLAYER_COLOUR
 	var ore := Color(0.2, 0.4, 0.9)  # arbitrary ore colour, distinct from owner/muted/ink
+	# Supplied as inputs, the way MapCanvas passes its resolved Map palette tokens.
+	var muted := Color(0.541176, 0.541176, 0.541176)  # light --muted #8a8a8a
+	var ink := Color(0.101961, 0.101961, 0.101961)    # light --ink #1a1a1a
 
 	# ── ownership (default) ─────────────────────────────────────────────
 	run_case("ownership_leaves_everything_at_default", func():
-		assert_eq(MapStyle.line_colour("ownership", owner), owner)
+		assert_eq(MapStyle.line_colour("ownership", owner, muted), owner)
 		assert_eq(MapStyle.line_alpha("ownership"), 1.0)
 		assert_eq(MapStyle.stop_alpha("ownership", false), 1.0, "ownership never fades, even a not-at-risk stop")
-		assert_eq(MapStyle.vein_ring_colour("ownership", owner, ore, 6), owner)
+		assert_eq(MapStyle.vein_ring_colour("ownership", owner, ore, 6, muted, ink), owner)
 		assert_eq(MapStyle.vein_ring_width("ownership", 6, 2.5), 2.5)
 		assert_eq(MapStyle.badge_scale("ownership"), 1.0)
 		assert_true(not MapStyle.show_danger_ring("ownership", "none"), "danger ring is a security-filter-only thing")
@@ -21,8 +24,8 @@ func run() -> void:
 
 	# ── type ─────────────────────────────────────────────────────────────
 	run_case("type_desaturates_lines_and_recolours_rings_by_ore", func():
-		assert_eq(MapStyle.line_colour("type", owner), MapStyle.MUTED_COLOUR)
-		assert_eq(MapStyle.vein_ring_colour("type", owner, ore, 3), ore, "type recolours the ring to the ore's own colour")
+		assert_eq(MapStyle.line_colour("type", owner, muted), muted)
+		assert_eq(MapStyle.vein_ring_colour("type", owner, ore, 3, muted, ink), ore, "type recolours the ring to the ore's own colour")
 		assert_eq(MapStyle.vein_ring_width("type", 3, 2.5), 2.5, "type doesn't touch ring width")
 	)
 
@@ -31,21 +34,25 @@ func run() -> void:
 		# Color.lerp(to, 1.0) isn't guaranteed bit-exact with `to` (float
 		# rounding in from + (to-from)*weight), so compare channels within
 		# an epsilon rather than with assert_eq's exact `!=`.
-		var at_t1 := MapStyle.vein_ring_colour("growth", owner, ore, 1)
-		assert_almost_eq(at_t1.r, MapStyle.MUTED_COLOUR.r, 0.001, "tier 1 -> muted (bottom of ramp)")
-		assert_almost_eq(at_t1.g, MapStyle.MUTED_COLOUR.g, 0.001, "tier 1 -> muted (bottom of ramp)")
-		assert_almost_eq(at_t1.b, MapStyle.MUTED_COLOUR.b, 0.001, "tier 1 -> muted (bottom of ramp)")
+		var at_t1 := MapStyle.vein_ring_colour("growth", owner, ore, 1, muted, ink)
+		assert_almost_eq(at_t1.r, muted.r, 0.001, "tier 1 -> muted (bottom of ramp)")
+		assert_almost_eq(at_t1.g, muted.g, 0.001, "tier 1 -> muted (bottom of ramp)")
+		assert_almost_eq(at_t1.b, muted.b, 0.001, "tier 1 -> muted (bottom of ramp)")
 
-		var at_t6 := MapStyle.vein_ring_colour("growth", owner, ore, 6)
-		assert_almost_eq(at_t6.r, MapStyle.INK_COLOUR.r, 0.001, "tier 6 -> ink (top of ramp)")
-		assert_almost_eq(at_t6.g, MapStyle.INK_COLOUR.g, 0.001, "tier 6 -> ink (top of ramp)")
-		assert_almost_eq(at_t6.b, MapStyle.INK_COLOUR.b, 0.001, "tier 6 -> ink (top of ramp)")
+		var at_t6 := MapStyle.vein_ring_colour("growth", owner, ore, 6, muted, ink)
+		assert_almost_eq(at_t6.r, ink.r, 0.001, "tier 6 -> ink (top of ramp)")
+		assert_almost_eq(at_t6.g, ink.g, 0.001, "tier 6 -> ink (top of ramp)")
+		assert_almost_eq(at_t6.b, ink.b, 0.001, "tier 6 -> ink (top of ramp)")
 
-		var mid := MapStyle.vein_ring_colour("growth", owner, ore, 3)
-		assert_true(absf(mid.r - MapStyle.MUTED_COLOUR.r) > 0.01 and absf(mid.r - MapStyle.INK_COLOUR.r) > 0.01, "tier 3 sits strictly between the ramp's ends")
+		var mid := MapStyle.vein_ring_colour("growth", owner, ore, 3, muted, ink)
+		assert_true(absf(mid.r - muted.r) > 0.01 and absf(mid.r - ink.r) > 0.01, "tier 3 sits strictly between the ramp's ends")
 
 		assert_almost_eq(MapStyle.vein_ring_width("growth", 1, 2.5), 2.5, 0.001, "tier 1 keeps the standard marker diameter")
 		assert_almost_eq(MapStyle.vein_ring_width("growth", 6, 2.5), 2.5, 0.001, "tier 6 keeps the standard marker diameter")
+
+		var light := Color(0.9, 0.9, 0.9)
+		var dark_t6 := MapStyle.vein_ring_colour("growth", owner, ore, 6, muted, light)
+		assert_almost_eq(dark_t6.r, light.r, 0.001, "the ramp's top follows whatever foreground the caller supplies")
 
 		assert_eq(MapStyle.badge_scale("growth"), 1.0, "growth mode doesn't enlarge the security padlock -- the old level-badge enlarge is gone with the badge itself")
 	)
@@ -115,7 +122,7 @@ func run() -> void:
 	run_case("switching_away_from_faction_mode_restores_normal_styling", func():
 		assert_eq(MapStyle.line_alpha("ownership", "firm", "player"), 1.0, "a stale selected_faction_id has no effect once filter_mode isn't 'faction'")
 		assert_eq(MapStyle.stop_alpha("growth", false, "firm", "player"), MapStyle.CHARGE_FADE_ALPHA, "growth mode's own rule applies untouched, ignoring the stale faction selection")
-		assert_eq(MapStyle.line_colour("ownership", MapStyle.MUTED_COLOUR), MapStyle.MUTED_COLOUR, "ownership's plain pass-through colour is unaffected by faction mode ever having been active")
+		assert_eq(MapStyle.line_colour("ownership", owner, muted), owner, "ownership's plain pass-through colour is unaffected by faction mode ever having been active")
 	)
 
 	# ── growth fill maths (bugfixes ticket 77) ───────────────────────────

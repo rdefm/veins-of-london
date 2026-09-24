@@ -3,7 +3,7 @@ extends RefCounted
 
 # M1.5 §N4: pure re-styling math for the filter chip modes (Ownership ·
 # Type · Growth · Security · Faction isolate). Consumes already-resolved
-# values (colours, tier/security/growth band) and returns
+# values (colours incl. Map palette tokens, tier/security/growth band) and returns
 # colours/widths/scales/booleans — never touches GameState or GameData,
 # like systems/map_routing.gd. scenes/components/map_canvas.gd is the only
 # caller. §N4 is explicit that filters ONLY re-style, never hide a stop or
@@ -16,10 +16,6 @@ extends RefCounted
 
 const FILTER_MODES: Array[String] = ["ownership", "type", "growth", "security", "faction"]
 
-const MUTED_COLOUR := Color(0.541176, 0.541176, 0.541176)   # --muted #8a8a8a
-const INK_COLOUR := Color(0.101961, 0.101961, 0.101961)     # --ink #1a1a1a
-const DANGER_COLOUR := Color(0.607843, 0.137255, 0.207843)  # --danger #9b2335
-
 const CHARGE_FADE_ALPHA := 0.35
 const BADGE_ENLARGE_SCALE := 1.5
 
@@ -28,10 +24,11 @@ static func is_valid_filter(mode: String) -> bool:
 	return FILTER_MODES.has(mode)
 
 
-# Type: "all lines/stubs desaturate to --muted."
-static func line_colour(filter_mode: String, owner_colour: Color) -> Color:
+# Type: "all lines/stubs desaturate to --muted." `muted` is the caller's
+# resolved Map palette token.
+static func line_colour(filter_mode: String, owner_colour: Color, muted: Color) -> Color:
 	if filter_mode == "type":
-		return MUTED_COLOUR
+		return muted
 	return owner_colour
 
 
@@ -66,16 +63,16 @@ static func stop_alpha(filter_mode: String, at_risk: bool, selected_faction_id: 
 	return 1.0
 
 
-# Type: fullness arcs recolour by ore type. Growth: arc greyscale ramp from
-# --muted (tier 1) to --ink (tier 6+), keyed on combined_magnitude, clamped
-# to [0,1] here so a leveled-up vein past 6 still reads as full ink.
-static func vein_ring_colour(filter_mode: String, owner_colour: Color, ore_colour: Color, tier: int) -> Color:
+# Type: fullness arcs recolour by ore type. Growth: arc ramp from `muted`
+# (tier 1) to `foreground` (tier 6+), keyed on combined_magnitude, clamped
+# to [0,1] here so a leveled-up vein past 6 still reads as full foreground.
+static func vein_ring_colour(filter_mode: String, owner_colour: Color, ore_colour: Color, tier: int, muted: Color, foreground: Color) -> Color:
 	match filter_mode:
 		"type":
 			return ore_colour
 		"growth":
 			var t: float = clampf(float(tier - 1) / 5.0, 0.0, 1.0)
-			return MUTED_COLOUR.lerp(INK_COLOUR, t)
+			return muted.lerp(foreground, t)
 		_:
 			return owner_colour
 

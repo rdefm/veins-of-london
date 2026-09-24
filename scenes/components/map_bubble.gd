@@ -95,7 +95,7 @@ func _build_action_column(option: Dictionary) -> Control:
 	button.pressed.connect(func(): _select(id))
 	for state in ["normal", "hover", "pressed", "disabled"]:
 		button.add_theme_stylebox_override(state, MapCardStyle.action_circle_style(state))
-	var glyph := UI.icon_glyph_control(draw_icon, 1.25, MapCardStyle.DIM if disabled else MapCardStyle.INK)
+	var glyph := UI.icon_glyph_control(draw_icon, 1.25, MapCardStyle.dim() if disabled else MapCardStyle.ink())
 	UI.anchor_full_rect(glyph)
 	button.add_child(glyph)
 	column.add_child(button)
@@ -104,7 +104,7 @@ func _build_action_column(option: Dictionary) -> Control:
 	label.custom_minimum_size.x = ACTION_WIDTH
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_color_override("font_color", MapCardStyle.DIM if disabled else MapCardStyle.INK)
+	label.add_theme_color_override("font_color", MapCardStyle.dim() if disabled else MapCardStyle.ink())
 	column.add_child(label)
 	if disabled and reason != "":
 		var reason_label := UI.muted_label(reason)

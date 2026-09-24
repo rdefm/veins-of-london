@@ -10,15 +10,8 @@ signal zoom_changed(zoom: float)
 
 signal _batch_finished
 
-const PAPER_COLOUR := Color(1.0, 1.0, 1.0)                     # #ffffff, see _draw_paper() for why
-const RIVER_COLOUR := Color(0.831373, 0.811765, 0.768627, 0.6)  # #d4cfc4 @ 60%
-const MUTED_COLOUR := Color(0.541176, 0.541176, 0.541176)       # --muted #8a8a8a
-const TRACK_COLOUR := Color(0.831373, 0.811765, 0.768627)       # --border #d4cfc4
-const INK_COLOUR := Color(0.101961, 0.101961, 0.101961)         # --ink #1a1a1a
-const SLATE_COLOUR := Color(0.290196, 0.337255, 0.407843)       # --slate #4a5568
-const PLAYER_COLOUR := Color(0.784314, 0.529412, 0.227451)      # amber #c8873a
-const WARDED_COLOUR := Color(0.482353, 0.407843, 0.933333)      # #7b68ee
-const GUARDED_COLOUR := Color(0.227451, 0.478431, 0.321569)     # --success #3a7a52
+# Every colour below resolves through MapPalette (data/map_palette.json) at
+# draw time, so the diagram follows the Map palette's current light/dark set.
 
 const ZONE_ALPHA := 0.08
 const RIVER_WIDTH := 14.0
@@ -490,7 +483,7 @@ func _draw() -> void:
 
 
 func _draw_paper() -> void:
-	draw_rect(Rect2(Vector2.ZERO, _map_size), PAPER_COLOUR)
+	draw_rect(Rect2(Vector2.ZERO, _map_size), MapPalette.colour("paper"))
 
 
 func _draw_zones() -> void:
@@ -499,7 +492,7 @@ func _draw_zones() -> void:
 		var faction_id: String = district.get("factionPresence", "")
 		if faction_id == "" or not GameData.FACTIONS.has(faction_id):
 			continue
-		var colour: Color = Color(GameData.FACTIONS[faction_id]["colour"])
+		var colour: Color = MapPalette.faction_colour(faction_id)
 		colour.a = ZONE_ALPHA
 		var polygon := MapHitTest.to_vector2_array(GameData.MAP_LAYOUT["districts"][district_id]["zonePolygon"])
 		draw_colored_polygon(polygon, colour)
@@ -509,9 +502,10 @@ func _draw_river() -> void:
 	var points := MapLayout.river_path()
 	if points.size() < 2:
 		return
-	draw_polyline(PackedVector2Array(points), RIVER_COLOUR, RIVER_WIDTH, true)
+	var river := MapPalette.colour("river")
+	draw_polyline(PackedVector2Array(points), river, RIVER_WIDTH, true)
 	for p in points:
-		draw_circle(p, RIVER_WIDTH / 2.0, RIVER_COLOUR)
+		draw_circle(p, RIVER_WIDTH / 2.0, river)
 
 
 
@@ -523,7 +517,7 @@ func _draw_lines() -> void:
 		player_stops.append({ "id": stop["id"], "pos": stop["position"] })
 	var player_line := MapRouting.build_line(MapLayout.home_anchor(), player_stops, river, _other_owner_obstacle_stops("player"), _other_owner_lines("player"), LINE_CLEARANCE)
 	var player_alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, "player")
-	_draw_route(player_line, _faded(MapStyle.line_colour(filter_mode, PLAYER_COLOUR), player_alpha))
+	_draw_route(player_line, _faded(MapStyle.line_colour(filter_mode, MapPalette.colour("player"), MapPalette.colour("muted")), player_alpha))
 
 	for faction_id in _line_faction_stops.keys():
 		var anchor = MapLayout.faction_first_presence_anchor(faction_id)
@@ -532,10 +526,10 @@ func _draw_lines() -> void:
 		var stops: Array = []
 		for stop in _line_faction_stops[faction_id]:
 			stops.append({ "id": stop["id"], "pos": stop["position"] })
-		var faction_colour := Color(GameData.FACTIONS[faction_id]["colour"])
+		var faction_colour := MapPalette.faction_colour(faction_id)
 		var line := MapRouting.build_line(anchor, stops, river, _other_owner_obstacle_stops(faction_id), _other_owner_lines(faction_id), LINE_CLEARANCE)
 		var faction_alpha := MapStyle.line_alpha(filter_mode, selected_faction_id, faction_id)
-		_draw_route(line, _faded(MapStyle.line_colour(filter_mode, faction_colour), faction_alpha))
+		_draw_route(line, _faded(MapStyle.line_colour(filter_mode, faction_colour, MapPalette.colour("muted")), faction_alpha))
 
 
 func _draw_route(points: PackedVector2Array, colour: Color) -> void:
@@ -558,19 +552,18 @@ func _draw_stops() -> void:
 
 
 func _vein_ring_style(vein: Dictionary, _owner_colour: Color, base_width: float) -> Dictionary:
-	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
 	var tier: int = Cultivating.combined_magnitude(vein)
 	return {
 		# Ownership remains on the route line. Every stop's default fullness
 		# progress is the same restrained gold from the approved marker grammar.
-		"colour": MapStyle.vein_ring_colour(filter_mode, PLAYER_COLOUR, Color(ore["colour"]), tier),
-		"track_colour": TRACK_COLOUR,
+		"colour": MapStyle.vein_ring_colour(filter_mode, MapPalette.colour("player"), MapPalette.ore_colour(vein["oreType"]), tier, MapPalette.colour("muted"), MapPalette.colour("ink")),
+		"track_colour": MapPalette.colour("border"),
 		"width": MapStyle.vein_ring_width(filter_mode, tier, base_width),
 	}
 
 
 func _draw_fullness_ring(pos: Vector2, alpha: float, fraction: float, style: Dictionary, segments: int, target: Object = self) -> void:
-	target.draw_circle(pos, STOP_CENTER_RADIUS, _faded(PAPER_COLOUR, alpha))
+	target.draw_circle(pos, STOP_CENTER_RADIUS, _faded(MapPalette.colour("stopFill"), alpha))
 	target.draw_arc(pos, FULLNESS_RING_RADIUS, 0, TAU, segments, _faded(style["track_colour"], alpha), style["width"], true)
 	var clamped := clampf(fraction, 0.0, 1.0)
 	if clamped > 0.0:
@@ -585,7 +578,7 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 	var band_id: String = Cultivating.growth_band(vein)["id"]
 
 	var alpha := MapStyle.stop_alpha(filter_mode, MapStyle.is_risk_band(band_id), selected_faction_id, "player")
-	var style := _vein_ring_style(vein, PLAYER_COLOUR, VEIN_STOP_STROKE)
+	var style := _vein_ring_style(vein, MapPalette.colour("player"), VEIN_STOP_STROKE)
 	var fraction := MapStyle.fullness_fraction(vein["growth"], Cultivating.ceiling(vein))
 
 	_draw_fullness_ring(pos, alpha, fraction, style, 32)
@@ -595,14 +588,14 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 	_draw_security_padlock(pos, security, security_scale, alpha)
 
 	if MapStyle.show_danger_ring(filter_mode, security):
-		_draw_dotted_ring(pos, FULLNESS_RING_RADIUS + DANGER_RING_GAP, MapStyle.DANGER_COLOUR)
+		_draw_dotted_ring(pos, FULLNESS_RING_RADIUS + DANGER_RING_GAP, MapPalette.colour("danger"))
 
 
 func _draw_faction_stop(stop: Dictionary) -> void:
 	var pos: Vector2 = stop["position"]
 	var vein: Dictionary = stop["vein"]
 	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
-	var faction_colour := Color(GameData.FACTIONS[stop["owner"]]["colour"])
+	var faction_colour := MapPalette.faction_colour(stop["owner"])
 	var band_id: String = Cultivating.growth_band(vein)["id"]
 	var alpha := MapStyle.stop_alpha(filter_mode, MapStyle.is_risk_band(band_id), selected_faction_id, stop["owner"])
 	var style := _vein_ring_style(vein, faction_colour, FACTION_STOP_STROKE)
@@ -624,20 +617,20 @@ func _draw_unclaimed_stop(stop: Dictionary) -> void:
 
 
 func _unclaimed_ring_style(ore_type: String) -> Dictionary:
-	var ore_colour := Color(GameData.ORE_TYPES[ore_type]["colour"])
-	var progress_colour := MapStyle.vein_ring_colour(filter_mode, MUTED_COLOUR, ore_colour, 1)
+	var muted := MapPalette.colour("muted")
+	var progress_colour := MapStyle.vein_ring_colour(filter_mode, muted, MapPalette.ore_colour(ore_type), 1, muted, MapPalette.colour("ink"))
 	return {
 		"colour": progress_colour,
 		# With no progress arc, Type colours the complete track so the filter
 		# retains its existing ore-colour channel. Default remains neutral.
-		"track_colour": progress_colour if filter_mode == "type" else TRACK_COLOUR,
+		"track_colour": progress_colour if filter_mode == "type" else MapPalette.colour("border"),
 		"width": UNCLAIMED_STOP_STROKE,
 	}
 
 
 
 func _draw_ore_symbol(pos: Vector2, ore_type: String, _ore: Dictionary, alpha: float, target: Object = self, enlarge: float = 1.0) -> void:
-	OreGlyphs.draw(target, pos, ore_type, _faded(INK_COLOUR, alpha), 5.5 * enlarge)
+	OreGlyphs.draw(target, pos, ore_type, _faded(MapPalette.colour("glyph"), alpha), 5.5 * enlarge)
 
 
 
@@ -645,11 +638,11 @@ func _draw_ore_symbol(pos: Vector2, ore_type: String, _ore: Dictionary, alpha: f
 func _draw_security_padlock(pos: Vector2, security: String, enlarge: float, alpha: float) -> void:
 	if security == "none":
 		return
-	var colour := MUTED_COLOUR
+	var colour := MapPalette.colour("muted")
 	if security == "warded":
-		colour = WARDED_COLOUR
+		colour = MapPalette.colour("warded")
 	elif security == "guarded":
-		colour = GUARDED_COLOUR
+		colour = MapPalette.colour("guarded")
 
 	var badge_pos := pos + CLOCK_8 * BADGE_OFFSET
 	Icons.draw_padlock(self, badge_pos, _faded(colour, alpha), STOP_ICON_GROWTH * enlarge)
@@ -688,7 +681,7 @@ func _rebuild_pins() -> void:
 
 
 func _draw_pins_layer(target: CanvasItem) -> void:
-	var ring_colour := PLAYER_COLOUR
+	var ring_colour := MapPalette.colour("player")
 	ring_colour.a = 0.45
 	target.draw_arc(_here_position, HERE_RING_RADIUS, 0, TAU, 48, ring_colour, 2.5, true)
 
@@ -705,36 +698,40 @@ func _draw_pins_layer(target: CanvasItem) -> void:
 
 
 func _draw_home_pin(target: CanvasItem, pos: Vector2) -> void:
-	var head := Icons.draw_pin(target, pos, PLAYER_COLOUR)
-	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, PAPER_COLOUR)
-	Icons.draw_home(target, head, PLAYER_COLOUR, 0.5)
+	var player := MapPalette.colour("player")
+	var head := Icons.draw_pin(target, pos, player)
+	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, MapPalette.colour("stopFill"))
+	Icons.draw_home(target, head, player, 0.5)
 
 
 func _draw_contact_pin(target: Object, pos: Vector2) -> void:
-	var head := Icons.draw_pin(target, pos, WARDED_COLOUR)
-	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, PAPER_COLOUR)
-	Icons.draw_phone(target, head, WARDED_COLOUR, 0.5)
+	var warded := MapPalette.colour("warded")
+	var head := Icons.draw_pin(target, pos, warded)
+	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, MapPalette.colour("stopFill"))
+	Icons.draw_phone(target, head, warded, 0.5)
 
 
 func _draw_market_pin(target: CanvasItem, pos: Vector2) -> void:
-	var head := Icons.draw_pin(target, pos, MUTED_COLOUR)
-	Icons.draw_padlock(target, head, PAPER_COLOUR, 1.3)
+	var head := Icons.draw_pin(target, pos, MapPalette.colour("muted"))
+	Icons.draw_padlock(target, head, MapPalette.colour("stopFill"), 1.3)
 
 
 func _draw_guild_marketplace_pin(target: Object, pos: Vector2) -> void:
-	var head := Icons.draw_pin(target, pos, GUARDED_COLOUR)
-	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, PAPER_COLOUR)
-	Icons.draw_bag(target, head, GUARDED_COLOUR, 0.5)
+	var guarded := MapPalette.colour("guarded")
+	var head := Icons.draw_pin(target, pos, guarded)
+	target.draw_circle(head, PIN_HEAD_RADIUS * 0.45, MapPalette.colour("stopFill"))
+	Icons.draw_bag(target, head, guarded, 0.5)
 
 
 
 func _draw_labels(target: CanvasItem) -> void:
 	var font := ThemeDB.fallback_font
+	var slate := MapPalette.colour("slate")
 	for district_id in GameData.DISTRICTS.keys():
 		var district: Dictionary = GameData.DISTRICTS[district_id]
 		var anchor: Array = GameData.MAP_LAYOUT["districts"][district_id]["labelAnchor"]
 		var pos := Vector2(anchor[0], anchor[1])
-		target.draw_string(font, pos, district["name"].to_upper(), HORIZONTAL_ALIGNMENT_CENTER, -1, 13, SLATE_COLOUR)
+		target.draw_string(font, pos, district["name"].to_upper(), HORIZONTAL_ALIGNMENT_CENTER, -1, 13, slate)
 
 
 
@@ -865,8 +862,7 @@ class ActionResultPulse:
 	const START_RADIUS := 4.0
 	const END_RADIUS := MapHalos.ChargeHalo.RADIUS * 1.4
 	const START_ALPHA := 0.9
-	const COLOUR := MapCanvas.GUARDED_COLOUR
-
+	var _colour := MapPalette.colour("guarded")
 	var _radius := START_RADIUS
 	var _alpha := START_ALPHA
 
@@ -886,7 +882,7 @@ class ActionResultPulse:
 
 	func _draw() -> void:
 		if _alpha > 0.0:
-			draw_circle(Vector2.ZERO, _radius, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
+			draw_circle(Vector2.ZERO, _radius, Color(_colour, _alpha))
 
 
 class ActionResultShake:
@@ -895,8 +891,7 @@ class ActionResultShake:
 	const AMPLITUDE := 8.0
 	const RADIUS := 10.0
 	const START_ALPHA := 0.9
-	const COLOUR := MapStyle.DANGER_COLOUR
-
+	var _colour := MapPalette.colour("danger")
 	var _offset_x := 0.0
 	var _alpha := START_ALPHA
 
@@ -921,4 +916,4 @@ class ActionResultShake:
 
 	func _draw() -> void:
 		if _alpha > 0.0:
-			draw_circle(Vector2(_offset_x, 0.0), RADIUS, Color(COLOUR.r, COLOUR.g, COLOUR.b, _alpha))
+			draw_circle(Vector2(_offset_x, 0.0), RADIUS, Color(_colour, _alpha))

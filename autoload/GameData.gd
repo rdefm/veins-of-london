@@ -126,6 +126,11 @@ var PALETTE: Dictionary = {}
 # enters GameState and never consults host time, battery, or network state.
 var PHONE_HOME: Dictionary = {}
 
+# data/map_palette.json (M1.5 §Map palette): "light"/"dark" token -> hex
+# string sets with identical keys, plus "darkOverrides" per faction/ore id.
+# Resolved to Color by scenes/components/map_palette.gd.
+var MAP_PALETTE: Dictionary = {}
+
 # data/hq_visuals.json (docs/hq-diorama-vision.md §9): "rooms" table --
 # room-plate id -> { image, fallbackColor, width, height, regions: { zone
 # id -> {x,y,width,height,label,image} } }, read generically by
@@ -299,6 +304,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "collective_barks", "file": "res://data/collective_barks.json", "fields": [
 		{"field": "COLLECTIVE_BARKS", "key": "", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "map_palette", "file": "res://data/map_palette.json", "fields": [
+		{"field": "MAP_PALETTE", "key": "", "type": TYPE_DICTIONARY},
+	]},
 	{"table": "phone_home", "file": "res://data/phone_home.json", "fields": [
 		{"field": "PHONE_HOME", "key": "", "type": TYPE_DICTIONARY},
 	]},
@@ -421,8 +429,41 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), t.get("recipes", {}), errors)
 	_validate_collective_barks(t.get("collective_barks", {}), errors)
 	_validate_phone_home(t.get("phone_home", {}), errors)
+	_validate_map_palette(t.get("map_palette", {}), t.get("factions", {}), t.get("ore_types", {}), errors)
 
 	return errors
+
+
+# Every token is a valid colour string and light/dark carry identical keys;
+# darkOverrides may only name real faction/ore ids.
+func _validate_map_palette(map_palette: Dictionary, factions: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:
+	_require_keys(map_palette, ["light", "dark", "darkOverrides"], "map_palette", errors)
+	var light: Dictionary = map_palette.get("light", {})
+	var dark: Dictionary = map_palette.get("dark", {})
+	if light.is_empty():
+		errors.append("map_palette.light: must define at least one token")
+	for key in light:
+		if not dark.has(key):
+			errors.append("map_palette.dark: missing token '%s' present in light" % key)
+	for key in dark:
+		if not light.has(key):
+			errors.append("map_palette.light: missing token '%s' present in dark" % key)
+	for set_name in ["light", "dark"]:
+		var tokens: Dictionary = map_palette.get(set_name, {})
+		for key in tokens:
+			_validate_colour_string(tokens[key], "map_palette.%s.%s" % [set_name, key], errors)
+	var overrides: Dictionary = map_palette.get("darkOverrides", {})
+	for group in [["factions", factions], ["oreTypes", ore_types]]:
+		var entries: Dictionary = overrides.get(group[0], {})
+		for id in entries:
+			if not group[1].has(id):
+				errors.append("map_palette.darkOverrides.%s: '%s' is not a known id" % [group[0], id])
+			_validate_colour_string(entries[id], "map_palette.darkOverrides.%s.%s" % [group[0], id], errors)
+
+
+func _validate_colour_string(value: Variant, context: String, errors: Array[String]) -> void:
+	if typeof(value) != TYPE_STRING or not Color.html_is_valid(value):
+		errors.append("%s: '%s' is not a valid colour" % [context, str(value)])
 
 
 func _validate_phone_home(phone_home: Dictionary, errors: Array[String]) -> void:

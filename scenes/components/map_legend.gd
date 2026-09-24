@@ -10,9 +10,6 @@ const CARD_MARGIN_H := 10.0
 const CARD_MARGIN_TOP := 6.0
 const CARD_MARGIN_BOTTOM := 8.0
 const CONTENT_SEPARATION := 8.0
-const CREAM := Color(0.980392, 0.972549, 0.952941, 1.0)
-const BORDER := Color(0.831373, 0.811765, 0.768627, 1.0)
-const CHARCOAL := Color(0.101961, 0.101961, 0.101961, 1.0)
 
 var _panel: PanelContainer
 var _header: Button
@@ -39,10 +36,11 @@ func _ready() -> void:
 	_header.tooltip_text = "Toggle faction key"
 	_header.custom_minimum_size = Vector2(CARD_WIDTH, UI.ICON_BUTTON_SIZE)
 	_header.size = _header.custom_minimum_size
+	var ink := MapPalette.colour("ink")
 	_header.add_theme_stylebox_override("normal", _header_style(Color.TRANSPARENT))
-	_header.add_theme_stylebox_override("hover", _header_style(Color(CHARCOAL, 0.06)))
-	_header.add_theme_stylebox_override("pressed", _header_style(Color(CHARCOAL, 0.12)))
-	_header.add_theme_stylebox_override("focus", _header_style(Color(CHARCOAL, 0.06)))
+	_header.add_theme_stylebox_override("hover", _header_style(Color(ink, 0.06)))
+	_header.add_theme_stylebox_override("pressed", _header_style(Color(ink, 0.12)))
+	_header.add_theme_stylebox_override("focus", _header_style(Color(ink, 0.06)))
 	_header.pressed.connect(_on_header_pressed)
 	content.add_child(_header)
 
@@ -57,18 +55,18 @@ func _ready() -> void:
 	_title.text = "Factions"
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title.add_theme_font_size_override("font_size", 18)
-	_title.add_theme_color_override("font_color", CHARCOAL)
+	_title.add_theme_color_override("font_color", MapPalette.colour("ink"))
 	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header_content.add_child(_title)
 
 	_chevron = Label.new()
 	_chevron.add_theme_font_size_override("font_size", 18)
-	_chevron.add_theme_color_override("font_color", CHARCOAL)
+	_chevron.add_theme_color_override("font_color", MapPalette.colour("ink"))
 	_chevron.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header_content.add_child(_chevron)
 
 	_divider = ColorRect.new()
-	_divider.color = BORDER
+	_divider.color = MapPalette.colour("border")
 	_divider.custom_minimum_size.y = 1.0
 	_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(_divider)
@@ -90,14 +88,14 @@ func _build_row(faction: Dictionary) -> Control:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var swatch := ColorRect.new()
-	swatch.color = Color(faction["colour"])
+	swatch.color = MapPalette.faction_colour(faction["id"])
 	swatch.custom_minimum_size = Vector2(SWATCH_SIZE, SWATCH_SIZE)
 	swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(swatch)
 
 	var name_label := Label.new()
 	name_label.text = String(faction["shortName"])
-	name_label.add_theme_color_override("font_color", CHARCOAL)
+	name_label.add_theme_color_override("font_color", MapPalette.colour("ink"))
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(name_label)
 
@@ -119,15 +117,15 @@ func _apply_expanded_state() -> void:
 
 func _card_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = CREAM
+	style.bg_color = MapPalette.colour("chromePaper")
 	style.set_border_width_all(1)
-	style.border_color = BORDER
+	style.border_color = MapPalette.colour("border")
 	style.set_corner_radius_all(CARD_RADIUS)
 	style.content_margin_left = CARD_MARGIN_H
 	style.content_margin_top = CARD_MARGIN_TOP
 	style.content_margin_right = CARD_MARGIN_H
 	style.content_margin_bottom = CARD_MARGIN_BOTTOM
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.13)
+	style.shadow_color = Color(MapPalette.colour("shadow"), 0.13)
 	style.shadow_size = 8
 	style.shadow_offset = Vector2(0.0, 3.0)
 	return style

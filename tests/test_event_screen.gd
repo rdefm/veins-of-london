@@ -1,7 +1,7 @@
 extends "res://tests/test_base.gd"
 
 # 11-events-ui-implementation, ui-vision.md §11: EventScreen's recolour
-# into the shared palette (tension -> MapStyle.DANGER_COLOUR, craft ->
+# into the shared palette (tension -> MapPalette.light("danger"), craft ->
 # calc_gold/calc_gold_light, action bar -> ui_action_red), the choice-card
 # speaker bug fix, and the new persistent image slot. Same off-tree
 # EventScreen.new() + _ready() pattern as every other screen test (see
@@ -161,7 +161,7 @@ func run() -> void:
 		var screen := _fresh_screen()
 		var cards := screen._cards_box.get_children()
 		var style: StyleBoxFlat = cards[2].get_theme_stylebox("panel")
-		assert_eq(style.border_color, MapStyle.DANGER_COLOUR, "tension border should reuse the shared danger colour, not a private duplicate")
+		assert_eq(style.border_color, MapPalette.light("danger"), "tension border should reuse the shared danger colour, not a private duplicate")
 		assert_eq(style.bg_color, Color(0.980392, 0.972549, 0.952941, 1), "tension keeps its plain cream fill -- only the border carries the accent")
 
 		GameData.EVENTS = original_events
@@ -451,7 +451,7 @@ func run() -> void:
 
 		var tension_screen := _fresh_screen()
 		var tension_style: StyleBoxFlat = tension_screen._vn_card_panel.get_theme_stylebox("panel")
-		assert_eq(tension_style.border_color, MapStyle.DANGER_COLOUR, "tension accent should match the non-VN path exactly")
+		assert_eq(tension_style.border_color, MapPalette.light("danger"), "tension accent should match the non-VN path exactly")
 
 		Events.advance()  # -> craft
 		var craft_screen := _fresh_screen()
@@ -563,7 +563,7 @@ func run() -> void:
 
 		var screen := _fresh_screen()
 		var style: StyleBoxFlat = screen._vn_card_panel.get_theme_stylebox("panel")
-		assert_eq(style.border_color, MapStyle.DANGER_COLOUR, "the per-card-type accent is unaffected by the docked Continue arrow")
+		assert_eq(style.border_color, MapPalette.light("danger"), "the per-card-type accent is unaffected by the docked Continue arrow")
 
 		GameData.EVENTS = original_events
 	)

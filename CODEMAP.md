@@ -129,10 +129,11 @@ overlays.
 | hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected` |
 | icons.gd | 13 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
-| map_card_style.gd | Shared PAPER/INK/DIM/LINE/GOLD/SAGE palette + card/inset/action-circle styleboxes, ink labels, text-button/bar/symbol tinting for the map-tab family (map_bubble.gd, vein_bubble.gd, vein_detail_panel.gd, map.gd's district panel/site sheet, vein_list.gd) |
+| map_card_style.gd | paper()/ink()/dim()/line()/gold()/sage() card-token accessors (via map_palette.gd) + card/inset/action-circle styleboxes, ink labels, text-button/bar/symbol tinting for the map-tab family (map_bubble.gd, vein_bubble.gd, vein_detail_panel.gd, map.gd's district panel/site sheet, vein_list.gd) |
 | map_canvas.gd | Network diagram: layout/stops/lines, hit-testing, static draw pass; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
 | map_controls.gd | Filter-chip drawer + legend button |
+| map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab colour reads through it |
 | map_legend.gd | Persistent faction-colour key |
 | map_zoom_buttons.gd | Floating +/- zoom control |
 | modal_layer.gd | Dim background + generic card; mounts the dedicated Trade sheet for sell_menu, and dispatches other content through modal_registry.gd; tap-outside dismiss |
@@ -224,6 +225,7 @@ overlays.
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
 | items.json | combat.gd, profile_app.gd, bag_drawer.gd |
 | map_layout.json | map_layout.gd, map_hit_test.gd |
+| map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, faction/ore dark overrides) |
 | objectives.json | objectives.gd, todo.gd, collective.gd |
 | offers.json | offers.gd (synthetic catalogue) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |

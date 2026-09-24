@@ -36,7 +36,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	_dim = ColorRect.new()
-	_dim.color = Color(0, 0, 0, 0.5)
+	_dim.color = Color(MapPalette.colour("scrim"), 0.5)
 	UI.anchor_full_rect(_dim)
 	_dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	_dim.visible = false
@@ -131,7 +131,7 @@ func _build_faction_rows() -> void:
 
 	for faction_id in GameData.FACTIONS.keys():
 		var faction: Dictionary = GameData.FACTIONS[faction_id]
-		var colour := Color(faction["colour"])
+		var colour := MapPalette.faction_colour(faction_id)
 		var faction_button := UI.button("   " + String(faction["shortName"]), func(): _select_faction(faction_id))
 		faction_button.add_theme_color_override("font_color", colour)
 		faction_button.add_theme_color_override("font_hover_color", colour)

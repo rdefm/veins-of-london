@@ -26,7 +26,7 @@ func _refresh() -> void:
 	var back := MapCardStyle.style_button(UI.back_button(nav.get("originScreen", "map")))
 	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	body.add_child(back)
-	body.add_child(MapCardStyle.label(_title(district_id), 20, MapCardStyle.INK))
+	body.add_child(MapCardStyle.label(_title(district_id), 20, MapCardStyle.ink()))
 	body.add_child(_build_band_filter_row(band_filter))
 
 	var veins := VeinList.veins(district_id, band_filter)
@@ -38,7 +38,7 @@ func _refresh() -> void:
 		body.add_child(_build_vein_row(vein))
 
 func _dim_label(text: String) -> Label:
-	return MapCardStyle.label(text, 12, MapCardStyle.DIM)
+	return MapCardStyle.label(text, 12, MapCardStyle.dim())
 
 func _title(district_id: Variant) -> String:
 	if district_id == null:
@@ -64,8 +64,8 @@ func _build_band_filter_row(active_band: Variant) -> Control:
 func _style_filter_button(b: Button) -> Button:
 	if not b.disabled:
 		return MapCardStyle.style_button(b)
-	UI.style_action_button(b, MapCardStyle.INK)
-	b.add_theme_stylebox_override("disabled", UI.action_button_style(MapCardStyle.INK, 0.12, 0.5))
+	UI.style_action_button(b, MapCardStyle.ink())
+	b.add_theme_stylebox_override("disabled", UI.action_button_style(MapCardStyle.ink(), 0.12, 0.5))
 	return b
 
 func _build_vein_row(vein: Dictionary) -> Control:
@@ -78,10 +78,10 @@ func _build_vein_row(vein: Dictionary) -> Control:
 	var vein_ceiling: int = Cultivating.ceiling(vein)
 	var collapsed: bool = band["id"] == "collapsed"
 
-	c["content"].add_child(MapCardStyle.tint_symbols(UI.symbol_row(["%s — " % district["name"], { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s" % ore["name"]], { "heading_size": 14 }), MapCardStyle.INK))
+	c["content"].add_child(MapCardStyle.tint_symbols(UI.symbol_row(["%s — " % district["name"], { "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s" % ore["name"]], { "heading_size": 14 }), MapCardStyle.ink()))
 	var terroir_row := UI.hbox(5)
 	terroir_row.add_child(_dim_label("%s terroir ·" % String(tier).capitalize()))
-	var padlock := UI.icon_glyph_control(Icons.draw_padlock, 0.8, MapCardStyle.DIM)
+	var padlock := UI.icon_glyph_control(Icons.draw_padlock, 0.8, MapCardStyle.dim())
 	padlock.custom_minimum_size = Vector2(18, 18)
 	terroir_row.add_child(padlock)
 	terroir_row.add_child(_dim_label(Cultivating.security_label(vein)))
@@ -90,7 +90,7 @@ func _build_vein_row(vein: Dictionary) -> Control:
 	c["content"].add_child(_dim_label("Growth: %d/%d — %s" % [vein["growth"], vein_ceiling, band["label"]]))
 	c["content"].add_child(MapCardStyle.style_bar(UI.bar(vein["growth"], vein_ceiling)))
 	if collapsed:
-		c["content"].add_child(MapCardStyle.label(Cultivating.COLLAPSED_VEIN_WARNING, 12, MapStyle.DANGER_COLOUR))
+		c["content"].add_child(MapCardStyle.label(Cultivating.COLLAPSED_VEIN_WARNING, 12, MapPalette.colour("danger")))
 	else:
 		c["content"].add_child(_dim_label(Cultivating.days_to_wall_text(vein)))
 	var station_text: Variant = Rooms.vein_station_target_text(vein["id"])

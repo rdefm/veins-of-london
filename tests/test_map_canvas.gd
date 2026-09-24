@@ -82,9 +82,9 @@ func run() -> void:
 		var vein := _canvas_vein("time", 45)  # tier 3
 		var tier := Cultivating.value_tier(vein)
 
-		var style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		var style: Dictionary = canvas._vein_ring_style(vein, MapPalette.colour("player"), MapCanvas.VEIN_STOP_STROKE)
 
-		var expected_colour := MapStyle.vein_ring_colour("ownership", MapCanvas.PLAYER_COLOUR, Color(GameData.ORE_TYPES["time"]["colour"]), tier)
+		var expected_colour := MapStyle.vein_ring_colour("ownership", MapPalette.colour("player"), MapPalette.ore_colour("time"), tier, MapPalette.colour("muted"), MapPalette.colour("ink"))
 		var expected_width := MapStyle.vein_ring_width("ownership", tier, MapCanvas.VEIN_STOP_STROKE)
 		assert_eq(style["colour"], expected_colour, "ownership mode: ring colour is the owner colour, same as the static draw")
 		assert_eq(style["width"], expected_width, "ownership mode: ring width is the base stroke, same as the static draw")
@@ -97,11 +97,11 @@ func run() -> void:
 		var tier := Cultivating.value_tier(vein)
 
 		canvas.filter_mode = "type"
-		var type_style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		var type_style: Dictionary = canvas._vein_ring_style(vein, MapPalette.colour("player"), MapCanvas.VEIN_STOP_STROKE)
 		assert_eq(type_style["colour"], Color(GameData.ORE_TYPES["fate"]["colour"]), "type mode: ring recolours by ore, same as the static draw")
 
 		canvas.filter_mode = "growth"
-		var growth_style: Dictionary = canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		var growth_style: Dictionary = canvas._vein_ring_style(vein, MapPalette.colour("player"), MapCanvas.VEIN_STOP_STROKE)
 		var expected_width := MapStyle.vein_ring_width("growth", tier, MapCanvas.VEIN_STOP_STROKE)
 		assert_eq(growth_style["width"], expected_width, "growth mode: ring thickens by value_tier, same as the static draw")
 		canvas.free()
@@ -115,7 +115,7 @@ func run() -> void:
 
 		var style: Dictionary = canvas._vein_ring_style(vein, faction_colour, MapCanvas.FACTION_STOP_STROKE)
 
-		assert_eq(style["colour"], MapCanvas.PLAYER_COLOUR, "ownership remains on lines; faction fullness uses the same restrained gold as player fullness")
+		assert_eq(style["colour"], MapPalette.colour("player"), "ownership remains on lines; faction fullness uses the same restrained gold as player fullness")
 		assert_eq(style["width"], MapCanvas.FACTION_STOP_STROKE, "tier 1 + ownership mode: width is the standard fullness stroke")
 		assert_eq(MapCanvas.VEIN_STOP_RADIUS, MapCanvas.FACTION_STOP_RADIUS, "player and faction markers share one visual diameter")
 		assert_eq(MapCanvas.FACTION_STOP_RADIUS, MapCanvas.UNCLAIMED_STOP_RADIUS, "unclaimed markers share that same diameter")
@@ -142,8 +142,8 @@ func run() -> void:
 		for mode in ["ownership", "growth", "security"]:
 			canvas.filter_mode = mode
 			var style: Dictionary = canvas._unclaimed_ring_style("fate")
-			assert_eq(style["colour"], MapCanvas.MUTED_COLOUR, mode + ": unclaimed ring colour stays muted -- no owner, and no value tier for growth mode to key off")
-			assert_eq(style["track_colour"], MapCanvas.TRACK_COLOUR, mode + ": empty unclaimed ring stays a neutral complete track")
+			assert_eq(style["colour"], MapPalette.colour("muted"), mode + ": unclaimed ring colour stays muted -- no owner, and no value tier for growth mode to key off")
+			assert_eq(style["track_colour"], MapPalette.colour("border"), mode + ": empty unclaimed ring stays a neutral complete track")
 			assert_eq(style["width"], MapCanvas.UNCLAIMED_STOP_STROKE, mode + ": unclaimed ring width never thickens -- no value tier for growth mode to key off")
 
 		canvas.filter_mode = "type"
@@ -180,7 +180,7 @@ func run() -> void:
 		var alpha := MapStyle.stop_alpha("ownership", false, "", "player")
 
 		var ring_spy := DrawSpy.new()
-		var style := canvas._vein_ring_style(vein, MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		var style := canvas._vein_ring_style(vein, MapPalette.colour("player"), MapCanvas.VEIN_STOP_STROKE)
 		canvas._draw_fullness_ring(pos, alpha, 0.45, style, 32, ring_spy)
 		var outlines: Array = ring_spy.calls_matching("draw_arc")
 		assert_true(outlines.any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.FULLNESS_RING_RADIUS), "the fullness ring is centred on the stop's own position")
@@ -224,7 +224,7 @@ func run() -> void:
 	run_case("ore_glyphs_are_always_vector_drawn_in_charcoal_independent_of_ore_type", func():
 		var canvas := MapCanvas.new()
 		var alpha := 0.4
-		var expected := MapCanvas.INK_COLOUR
+		var expected := MapPalette.colour("glyph")
 		expected.a *= alpha
 
 		for ore_id in OreGlyphs.SHAPES.keys():
@@ -248,12 +248,12 @@ func run() -> void:
 	run_case("draw_fullness_ring_draws_white_centre_neutral_track_and_partial_progress_arc", func():
 		var canvas := MapCanvas.new()
 		var pos := Vector2(123.0, 45.0)
-		var style := canvas._vein_ring_style(_canvas_vein("time", 50), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		var style := canvas._vein_ring_style(_canvas_vein("time", 50), MapPalette.colour("player"), MapCanvas.VEIN_STOP_STROKE)
 
 		var spy := DrawSpy.new()
 		canvas._draw_fullness_ring(pos, 1.0, 0.5, style, 32, spy)
 
-		assert_true(spy.calls_matching("draw_circle").any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.STOP_CENTER_RADIUS and c["args"][2] == MapCanvas.PAPER_COLOUR), "white centre stays independent of fullness")
+		assert_true(spy.calls_matching("draw_circle").any(func(c): return c["args"][0] == pos and c["args"][1] == MapCanvas.STOP_CENTER_RADIUS and c["args"][2] == MapPalette.colour("stopFill")), "white centre stays independent of fullness")
 		assert_true(spy.calls_matching("draw_colored_polygon").is_empty(), "fullness never fills the centre")
 
 		var arcs: Array = spy.calls_matching("draw_arc")
@@ -268,7 +268,7 @@ func run() -> void:
 
 	run_case("white_centre_overlaps_the_fullness_ring_so_route_lines_cannot_show_between_them", func():
 		var canvas := MapCanvas.new()
-		var style := canvas._vein_ring_style(_canvas_vein("time", 50), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		var style := canvas._vein_ring_style(_canvas_vein("time", 50), MapPalette.colour("player"), MapCanvas.VEIN_STOP_STROKE)
 		var spy := DrawSpy.new()
 		canvas._draw_fullness_ring(Vector2.ZERO, 1.0, 0.5, style, 32, spy)
 
@@ -286,7 +286,7 @@ func run() -> void:
 	run_case("draw_fullness_ring_at_zero_has_track_but_no_progress_arc", func():
 		var canvas := MapCanvas.new()
 		var pos := Vector2(1.0, 2.0)
-		var style := canvas._vein_ring_style(_canvas_vein("time", 0), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		var style := canvas._vein_ring_style(_canvas_vein("time", 0), MapPalette.colour("player"), MapCanvas.VEIN_STOP_STROKE)
 
 		var spy := DrawSpy.new()
 		canvas._draw_fullness_ring(pos, 1.0, 0.0, style, 32, spy)
@@ -303,7 +303,7 @@ func run() -> void:
 	run_case("draw_fullness_ring_at_one_draws_a_complete_progress_circle", func():
 		var canvas := MapCanvas.new()
 		var pos := Vector2(5.0, 5.0)
-		var style := canvas._vein_ring_style(_canvas_vein("time", 100), MapCanvas.PLAYER_COLOUR, MapCanvas.VEIN_STOP_STROKE)
+		var style := canvas._vein_ring_style(_canvas_vein("time", 100), MapPalette.colour("player"), MapCanvas.VEIN_STOP_STROKE)
 
 		var spy := DrawSpy.new()
 		canvas._draw_fullness_ring(pos, 1.0, 1.0, style, 32, spy)
@@ -1252,7 +1252,7 @@ func run() -> void:
 		assert_true(not spy.calls_matching("draw_rect").is_empty(), "Icons.draw_phone draws its body/nub as rects")
 
 		var teardrop: Array = spy.calls_matching("draw_colored_polygon")
-		assert_true(teardrop.any(func(c): return c["args"][1] == MapCanvas.WARDED_COLOUR), "teardrop marker in WARDED_COLOUR")
+		assert_true(teardrop.any(func(c): return c["args"][1] == MapPalette.colour("warded")), "teardrop marker in the warded token")
 
 		canvas.free()
 	)
@@ -1268,7 +1268,7 @@ func run() -> void:
 		assert_true(not spy.calls_matching("draw_arc").is_empty(), "Icons.draw_bag draws its handle as an arc")
 
 		var teardrop: Array = spy.calls_matching("draw_colored_polygon")
-		assert_true(teardrop.any(func(c): return c["args"][1] == MapCanvas.GUARDED_COLOUR), "teardrop marker in GUARDED_COLOUR -- distinct from home (amber) and contact (purple)")
+		assert_true(teardrop.any(func(c): return c["args"][1] == MapPalette.colour("guarded")), "teardrop marker in the guarded token -- distinct from home (amber) and contact (purple)")
 
 		canvas.free()
 	)

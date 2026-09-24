@@ -12,7 +12,7 @@ static func build(vein: Dictionary) -> Control:
 	var root := Control.new()
 	UI.anchor_full_rect(root)
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.42)
+	dim.color = Color(MapPalette.colour("scrim"), 0.42)
 	UI.anchor_full_rect(dim)
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	dim.gui_input.connect(func(event: InputEvent):
@@ -61,9 +61,9 @@ static func _build_header(vein: Dictionary) -> Control:
 	glyph.draw_fallback = SymbolGlyph.ore_fallback(vein["oreType"])
 	glyph.custom_minimum_size = Vector2(22, 22)
 	glyph.glyph_radius = 7.5
-	glyph.color = MapCardStyle.INK
+	glyph.color = MapCardStyle.ink()
 	row.add_child(glyph)
-	var heading := _label("%s · %s" % [district["name"], ore["name"]], 16, MapCardStyle.INK)
+	var heading := _label("%s · %s" % [district["name"], ore["name"]], 16, MapCardStyle.ink())
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	heading.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -74,9 +74,9 @@ static func _build_header(vein: Dictionary) -> Control:
 	close.tooltip_text = "Close"
 	close.custom_minimum_size = Vector2(32, 32)
 	close.pressed.connect(func(): MapNav.close_vein_detail())
-	UI.style_action_button(close, MapCardStyle.INK)
+	UI.style_action_button(close, MapCardStyle.ink())
 	_make_text_invisible(close)
-	var chevron := _label("›", 22, MapCardStyle.INK)
+	var chevron := _label("›", 22, MapCardStyle.ink())
 	chevron.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	chevron.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	chevron.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -89,10 +89,10 @@ static func _build_header(vein: Dictionary) -> Control:
 static func _build_level_and_location(vein: Dictionary) -> Control:
 	var col := UI.vbox(3)
 	col.add_child(VeinBubble.build_level_row(vein, true))
-	col.add_child(_label(vein["location"], 12, MapCardStyle.DIM))
+	col.add_child(_label(vein["location"], 12, MapCardStyle.dim()))
 	var ceiling: int = Cultivating.ceiling(vein)
 	if ceiling > GameData.VEIN_GROWTH["ceiling"]:
-		col.add_child(_label("Wild-ceiling · %d maximum condition" % ceiling, 11, MapCardStyle.DIM))
+		col.add_child(_label("Wild-ceiling · %d maximum condition" % ceiling, 11, MapCardStyle.dim()))
 	return col
 
 
@@ -107,10 +107,10 @@ static func _build_status_row(vein: Dictionary) -> Control:
 static func _status_item(draw_icon: Callable, text: String) -> Control:
 	var row := UI.hbox(5)
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var glyph := UI.icon_glyph_control(draw_icon, 0.9, MapCardStyle.GOLD)
+	var glyph := UI.icon_glyph_control(draw_icon, 0.9, MapCardStyle.gold())
 	glyph.custom_minimum_size = Vector2(19, 19)
 	row.add_child(glyph)
-	var status := _label(text, 11, MapCardStyle.GOLD)
+	var status := _label(text, 11, MapCardStyle.gold())
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(status)
@@ -127,15 +127,15 @@ static func _build_detail_note(vein: Dictionary) -> Control:
 	var cap: int = Cultivating.level_cap(vein)
 	var threshold: int = GameData.VEIN_GROWTH["developmentThreshold"]
 	if level >= cap:
-		col.add_child(_label("Max level (%d/%d) · Harvestable · Raid exposure applies" % [level, cap], 11, MapCardStyle.DIM))
+		col.add_child(_label("Max level (%d/%d) · Harvestable · Raid exposure applies" % [level, cap], 11, MapCardStyle.dim()))
 	elif vein["growth"] < threshold:
-		col.add_child(_label("Not developing · Needs condition %d+" % threshold, 11, MapCardStyle.DIM))
+		col.add_child(_label("Not developing · Needs condition %d+" % threshold, 11, MapCardStyle.dim()))
 	else:
 		var streak: int = vein.get("developmentStreak", 0)
 		var chance: float = minf(1.0, GameData.VEIN_GROWTH["levelUpChancePerDay"] * streak)
-		col.add_child(_label("Developing · Day %d · About %d%% tonight" % [streak + 1, roundi(chance * 100)], 11, MapCardStyle.DIM))
-	col.add_child(_label("Cultivating skill: %d" % GameState.state["player"]["cultivatingSkill"], 10, MapCardStyle.DIM))
-	col.add_child(_label("%s · resist %d" % [Cultivating.security_label(vein), Cultivating.vein_raid_resist(vein)], 10, MapCardStyle.DIM))
+		col.add_child(_label("Developing · Day %d · About %d%% tonight" % [streak + 1, roundi(chance * 100)], 11, MapCardStyle.dim()))
+	col.add_child(_label("Cultivating skill: %d" % GameState.state["player"]["cultivatingSkill"], 10, MapCardStyle.dim()))
+	col.add_child(_label("%s · resist %d" % [Cultivating.security_label(vein), Cultivating.vein_raid_resist(vein)], 10, MapCardStyle.dim()))
 	return col
 
 
@@ -144,11 +144,11 @@ static func _build_defend_row(vein: Dictionary) -> Variant:
 	if not Raiding.has_pending_defend(vein_id):
 		return null
 	var row := UI.hbox(6)
-	var warning := _label("Under raid — defend before next tick.", 11, MapStyle.DANGER_COLOUR)
+	var warning := _label("Under raid — defend before next tick.", 11, MapPalette.colour("danger"))
 	warning.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(warning)
 	var defend := UI.button("Defend", func(): Raiding.trigger_defend(vein_id))
-	UI.style_action_button(defend, MapStyle.DANGER_COLOUR)
+	UI.style_action_button(defend, MapPalette.colour("danger"))
 	row.add_child(defend)
 	return row
 
@@ -159,8 +159,8 @@ static func _build_collapse_warning(vein: Dictionary) -> Variant:
 	var level: int = vein.get("level", 1)
 	if level <= 1:
 		var pct: int = roundi(GameData.VEIN_GROWTH["collapseChancePerDay"] * 100)
-		return _label("Empty · about %d%% chance to collapse and vanish tonight" % pct, 10, MapStyle.DANGER_COLOUR)
-	return _label("Empty · will deplete to level %d tonight" % (level - 1), 10, MapStyle.DANGER_COLOUR)
+		return _label("Empty · about %d%% chance to collapse and vanish tonight" % pct, 10, MapPalette.colour("danger"))
+	return _label("Empty · will deplete to level %d tonight" % (level - 1), 10, MapPalette.colour("danger"))
 
 
 static func _build_actions_section(vein: Dictionary) -> Control:
@@ -206,7 +206,7 @@ static func _action_tile(hidden_text: String, title: String, caption: String, dr
 	circle.custom_minimum_size = Vector2(58, 58)
 	circle.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	circle.add_theme_stylebox_override("panel", _circle_style(button.disabled))
-	var glyph_colour: Color = MapCardStyle.DIM if button.disabled else MapCardStyle.INK
+	var glyph_colour: Color = MapCardStyle.dim() if button.disabled else MapCardStyle.ink()
 	var glyph := UI.icon_glyph_control(draw_icon, icon_scale, glyph_colour)
 	glyph.custom_minimum_size = Vector2(58, 58)
 	circle.add_child(glyph)
@@ -214,7 +214,7 @@ static func _action_tile(hidden_text: String, title: String, caption: String, dr
 	var title_label := _label(title, 11, glyph_colour)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(title_label)
-	var caption_label := _label(caption, 9, MapCardStyle.DIM)
+	var caption_label := _label(caption, 9, MapCardStyle.dim())
 	caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(caption_label)
@@ -224,8 +224,8 @@ static func _action_tile(hidden_text: String, title: String, caption: String, dr
 
 static func _circle_style(disabled: bool) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(MapCardStyle.SAGE.r, MapCardStyle.SAGE.g, MapCardStyle.SAGE.b, 0.38 if disabled else 0.7)
-	style.border_color = Color(MapCardStyle.LINE.r, MapCardStyle.LINE.g, MapCardStyle.LINE.b, 0.55 if disabled else 1.0)
+	style.bg_color = Color(MapCardStyle.sage(), 0.38 if disabled else 0.7)
+	style.border_color = Color(MapCardStyle.line(), 0.55 if disabled else 1.0)
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(29)
 	return style
@@ -233,7 +233,7 @@ static func _circle_style(disabled: bool) -> StyleBoxFlat:
 
 static func _tile_hover_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(MapCardStyle.GOLD.r, MapCardStyle.GOLD.g, MapCardStyle.GOLD.b, 0.08)
+	style.bg_color = Color(MapCardStyle.gold(), 0.08)
 	style.set_corner_radius_all(10)
 	return style
 
@@ -275,18 +275,18 @@ static func _build_security_button(vein: Dictionary) -> Control:
 	button.disabled = player["cash"] < upgrade["cost"]
 	button.custom_minimum_size.y = 40
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	UI.style_action_button(button, MapCardStyle.DIM if button.disabled else UI.action_colour())
+	UI.style_action_button(button, MapCardStyle.dim() if button.disabled else UI.action_colour())
 	return button
 
 
 static func _build_alarm_button(vein: Dictionary) -> Control:
 	var alarm_data: Dictionary = GameData.VEIN_ALARM[Cultivating.ALARM_UPGRADE_ID]
 	var row := UI.hbox(8)
-	var glyph := UI.icon_glyph_control(Icons.draw_news, 0.8, MapCardStyle.INK)
+	var glyph := UI.icon_glyph_control(Icons.draw_news, 0.8, MapCardStyle.ink())
 	glyph.custom_minimum_size = Vector2(24, 24)
 	row.add_child(glyph)
 	if vein["alarmUpgrades"].has(Cultivating.ALARM_UPGRADE_ID):
-		row.add_child(_label("%s: installed" % alarm_data["label"], 11, MapCardStyle.INK))
+		row.add_child(_label("%s: installed" % alarm_data["label"], 11, MapCardStyle.ink()))
 		return row
 	var player: Dictionary = GameState.state["player"]
 	var cost := { "label": "Install %s" % alarm_data["label"], "resource": "cash", "amount": alarm_data["cost"] }
@@ -294,14 +294,14 @@ static func _build_alarm_button(vein: Dictionary) -> Control:
 	var button := UI.button(UI.format_cost_label(cost, { "cash": player["cash"] }), func(): Cultivating.add_alarm(vein_id))
 	button.disabled = player["cash"] < alarm_data["cost"]
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	UI.style_action_button(button, MapCardStyle.DIM if button.disabled else UI.action_colour())
+	UI.style_action_button(button, MapCardStyle.dim() if button.disabled else UI.action_colour())
 	row.add_child(button)
 	return row
 
 
 static func _divider() -> HSeparator:
 	var line := HSeparator.new()
-	line.modulate = Color(MapCardStyle.LINE.r, MapCardStyle.LINE.g, MapCardStyle.LINE.b, 0.7)
+	line.modulate = Color(MapCardStyle.line(), 0.7)
 	return line
 
 
@@ -313,7 +313,7 @@ static func _label(text: String, size: int, colour: Color) -> Label:
 
 
 static func _make_text_invisible(button: Button) -> void:
-	var clear := Color(0, 0, 0, 0)
+	var clear := Color.TRANSPARENT
 	button.add_theme_color_override("font_color", clear)
 	button.add_theme_color_override("font_hover_color", clear)
 	button.add_theme_color_override("font_pressed_color", clear)

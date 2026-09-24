@@ -153,7 +153,7 @@ func _style_card(panel: PanelContainer, card_type: String) -> void:
 
 	if card_type == "tension":
 		box.bg_color = Color(0.980392, 0.972549, 0.952941, 1)
-		box.border_color = MapStyle.DANGER_COLOUR
+		box.border_color = MapPalette.light("danger")
 	else:  # craft
 		box.bg_color = _calc_gold_light()
 		box.border_color = _calc_gold()

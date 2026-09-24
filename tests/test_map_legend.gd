@@ -58,10 +58,10 @@ func run() -> void:
 		legend._ready()
 		var card_style := legend._panel.get_theme_stylebox("panel") as StyleBoxFlat
 
-		assert_eq(card_style.bg_color, MapLegend.CREAM, "cream card surface")
-		assert_eq(card_style.border_color, MapLegend.BORDER, "subtle card border")
-		assert_eq(legend._title.get_theme_color("font_color"), MapLegend.CHARCOAL, "charcoal header")
-		assert_eq(legend._chevron.get_theme_color("font_color"), MapLegend.CHARCOAL, "charcoal chevron")
+		assert_eq(card_style.bg_color, MapPalette.colour("chromePaper"), "cream card surface")
+		assert_eq(card_style.border_color, MapPalette.colour("border"), "subtle card border")
+		assert_eq(legend._title.get_theme_color("font_color"), MapPalette.colour("ink"), "charcoal header")
+		assert_eq(legend._chevron.get_theme_color("font_color"), MapPalette.colour("ink"), "charcoal chevron")
 		assert_true(legend._header.size.y >= UI.ICON_BUTTON_SIZE, "header meets icon-button touch height")
 		assert_eq(legend.mouse_filter, Control.MOUSE_FILTER_IGNORE, "root never blocks map")
 		assert_eq(legend._panel.mouse_filter, Control.MOUSE_FILTER_IGNORE, "card decoration never blocks map")
