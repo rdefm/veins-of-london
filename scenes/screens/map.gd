@@ -2,10 +2,7 @@ class_name MapScreen
 extends Control
 
 const SHEET_HEIGHT := 480.0
-const TOP_ROW_MARGIN := 8.0
-
-static func top_row_clearance() -> float:
-	return TOP_ROW_MARGIN + UI.ICON_BUTTON_SIZE + UI.top_bar_clearance()
+const MENU_BUTTON_MARGIN := 8.0
 const BUBBLE_MODE_DISTRICT := "district"
 const BUBBLE_MODE_STATION := "station"
 
@@ -19,8 +16,8 @@ var _map_legend: MapLegend
 var _map_zoom_buttons: MapZoomButtons
 var _bubble: MapBubble
 var _vein_bubble: VeinBubble
-var _top_title: Label
-var _top_buttons: Array[Button] = []
+var _diagram_paper: ColorRect
+var _menu_button: Button
 var _bubble_district_id: String = ""
 var _bubble_mode: String = ""
 var _bubble_stop: Dictionary = {}
@@ -75,22 +72,19 @@ func _refresh() -> void:
 	elif selected_site_id != null:
 		_build_site_sheet(selected_site_id)
 
-	_style_top_row()
+	_style_diagram_chrome()
 
+# The diagram fills everything between the top board and the nav dock; the
+# menu button floats over it like the legend and zoom pill (M1.5 §Map palette
+# chrome tokens, both modes).
 func _build_diagram_layer() -> Control:
-	var layer := VBoxContainer.new()
-	UI.anchor_full_rect(layer)
+	var layer := Control.new()
+	UI.anchor_below_bars(layer)
 
-	var margin := MarginContainer.new()
-	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", int(TOP_ROW_MARGIN + UI.top_bar_clearance()))
-	margin.add_theme_constant_override("margin_bottom", 80)  # room above the nav bar
-	layer.add_child(margin)
-
-	var content := UI.vbox(8)
-	margin.add_child(content)
+	_diagram_paper = ColorRect.new()
+	UI.anchor_full_rect(_diagram_paper)
+	_diagram_paper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_diagram_paper)
 
 	_map_canvas = MapCanvas.new()
 	_map_canvas.district_tapped.connect(_on_district_tapped)
@@ -99,62 +93,43 @@ func _build_diagram_layer() -> Control:
 	_map_controls = MapControls.new()
 	_map_controls.map_canvas = _map_canvas
 
-	content.add_child(_build_top_bar())
-	var diagram_area := Control.new()
-	diagram_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_child(diagram_area)
-
 	var scroll := TouchScrollContainer.new()
 	UI.anchor_full_rect(scroll)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	scroll.add_child(_map_canvas)
-	diagram_area.add_child(scroll)
+	layer.add_child(scroll)
 
 	_map_legend = MapLegend.new()
-	diagram_area.add_child(_map_legend)
+	layer.add_child(_map_legend)
 	_map_zoom_buttons = MapZoomButtons.new()
 	_map_zoom_buttons.map_canvas = _map_canvas
-	diagram_area.add_child(_map_zoom_buttons)
+	layer.add_child(_map_zoom_buttons)
+
+	_menu_button = UI.icon_button(Icons.draw_hamburger, func(): _map_controls.toggle())
+	_menu_button.tooltip_text = "Map options"
+	_menu_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_menu_button.offset_left = -UI.ICON_BUTTON_SIZE - MENU_BUTTON_MARGIN
+	_menu_button.offset_right = -MENU_BUTTON_MARGIN
+	_menu_button.offset_top = MENU_BUTTON_MARGIN
+	_menu_button.offset_bottom = MENU_BUTTON_MARGIN + UI.ICON_BUTTON_SIZE
+	layer.add_child(_menu_button)
 
 	return layer
-func _build_top_bar() -> Control:
-	var row := UI.hbox(8)
-
-	_top_buttons = [UI.icon_button(Icons.draw_hamburger, func(): _map_controls.toggle()), UI.icon_button(Icons.draw_bag, func(): Bag.open())]
-	row.add_child(_top_buttons[0])
-
-	_top_title = UI.heading("The Network")
-	_top_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_top_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	row.add_child(_top_title)
-
-	row.add_child(_top_buttons[1])
-
-	return row
 
 
-# Map-local colours for the top row: in dark, the icon buttons take the Map
-# chrome tokens and the title the diagram ink; in light, the overrides come
-# off so the row keeps the global theme look (M1.5 §Map palette).
-func _style_top_row() -> void:
-	var dark := MapPalette.is_dark()
-	if dark:
-		_top_title.add_theme_color_override("font_color", MapPalette.colour("ink"))
-	else:
-		_top_title.remove_theme_color_override("font_color")
-	for b in _top_buttons:
-		var glyph: Control = b.get_child(0)
-		glyph.set("colour_override", MapPalette.colour("chromeInk") if dark else null)
-		glyph.queue_redraw()
-		for state in ["normal", "hover", "pressed", "focus"]:
-			if dark:
-				b.add_theme_stylebox_override(state, _top_button_style(state))
-			else:
-				b.remove_theme_stylebox_override(state)
+# Re-read from MapPalette on every refresh so a dark-mode toggle restyles the
+# paper and menu button in place.
+func _style_diagram_chrome() -> void:
+	_diagram_paper.color = MapPalette.colour("paper")
+	var glyph: Control = _menu_button.get_child(0)
+	glyph.set("colour_override", MapPalette.colour("chromeInk"))
+	glyph.queue_redraw()
+	for state in ["normal", "hover", "pressed", "focus"]:
+		_menu_button.add_theme_stylebox_override(state, _menu_button_style(state))
 
 
-func _top_button_style(state: String) -> StyleBoxFlat:
+func _menu_button_style(state: String) -> StyleBoxFlat:
 	var ink := MapPalette.colour("chromeInk")
 	var fill := MapPalette.colour("chromePaper")
 	match state:
@@ -162,7 +137,13 @@ func _top_button_style(state: String) -> StyleBoxFlat:
 			fill = fill.lerp(ink, 0.06)
 		"pressed":
 			fill = fill.lerp(ink, 0.12)
-	return UI.bordered_panel_style(fill, MapPalette.colour("chromeBorder"), 8, 0, 0)
+	var style := UI.bordered_panel_style(fill, MapPalette.colour("chromeBorder"), MapZoomButtons.PILL_RADIUS, 0, 0)
+	style.shadow_color = Color(MapPalette.colour("shadow"), 0.13)
+	style.shadow_size = 8
+	style.shadow_offset = Vector2(0.0, 3.0)
+	return style
+
+
 func _on_district_tapped(district_id: String, canvas_anchor: Vector2) -> void:
 	_vein_bubble.close()
 	_bubble_mode = BUBBLE_MODE_DISTRICT

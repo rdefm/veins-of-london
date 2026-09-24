@@ -171,13 +171,17 @@ func run() -> void:
 		controls.free()
 	)
 
-	run_case("map_top_row_starts_below_the_top_board", func():
+	run_case("diagram_fills_the_space_between_the_top_board_and_the_nav_dock", func():
 		GameState.reset()
 		var screen := MapScreen.new()
 		screen._ready()
 
-		var margin := screen._diagram_layer.get_child(0) as MarginContainer
-		assert_true(margin.get_theme_constant("margin_top") >= UI.top_bar_clearance(), "the hamburger/title row clears the top board")
+		var layer := screen._diagram_layer
+		assert_eq([layer.anchor_left, layer.anchor_top, layer.anchor_right, layer.anchor_bottom], [0.0, 0.0, 1.0, 1.0], "full-width, full-height anchors")
+		assert_eq([layer.offset_left, layer.offset_right], [0.0, 0.0], "no side frame")
+		assert_eq(layer.offset_top, UI.top_bar_clearance(), "starts right under the top board")
+		assert_eq(layer.offset_bottom, -NavBar.BAR_HEIGHT, "ends right on the nav dock")
+		assert_eq(screen._menu_button.get_parent(), layer, "the menu button floats on the diagram")
 
 		screen.free()
 		GameState.reset()

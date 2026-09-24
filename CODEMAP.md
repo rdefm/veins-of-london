@@ -103,7 +103,7 @@ overlays.
 | hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward) |
 | hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment for staffed rooms |
 | hq_lab_bench.gd | Lab zone: notebook/ore/apparatus regions |
-| map.gd | Map tab: diagram + district panel + sheet; top-row icons take Map chrome tokens in dark mode |
+| map.gd | Map tab: full-bleed diagram (top board to nav dock) with floating menu button, legend and zoom pill in Map chrome tokens; district panel + sheet |
 | phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid + home-only Phone/Messages/Settings dock, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |
 | placeholder.gd | Stand-in for a not-yet-built screen |
 | title.gd | Title screen + load-game slot list |

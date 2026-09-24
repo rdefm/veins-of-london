@@ -47,8 +47,6 @@ func run() -> void:
 		Preferences.set_map_dark_mode(false)
 		await tree.process_frame
 		_assert_overlays(screen, false, "after toggling back")
-		assert_true(not screen._top_title.has_theme_color_override("font_color"), "light top row goes back to the global theme")
-		assert_true(not screen._top_buttons[0].has_theme_stylebox_override("normal"), "light icon buttons go back to the global theme")
 
 		host.free()
 		GameState.reset()
@@ -117,9 +115,9 @@ func _assert_overlays(screen: MapScreen, dark: bool, context: String) -> void:
 	for l in _live_labels(screen._map_controls._list):
 		assert_eq(l.get_theme_color("font_color"), chrome_ink, "%s: drawer heading '%s'" % [context, l.text])
 
-	if dark:
-		assert_eq(screen._top_title.get_theme_color("font_color"), MapPalette.colour_in("ink", true), "%s: top-row title" % context)
-		assert_eq((screen._top_buttons[1].get_theme_stylebox("normal") as StyleBoxFlat).bg_color, chrome, "%s: top-row icon button" % context)
+	assert_eq((screen._menu_button.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, chrome, "%s: menu button paper" % context)
+	assert_eq(screen._menu_button.get_child(0).get("colour_override"), chrome_ink, "%s: menu button glyph" % context)
+	assert_eq(screen._diagram_paper.color, MapPalette.colour_in("paper", dark), "%s: diagram paper behind the canvas" % context)
 
 
 func _panel_bg(panel: PanelContainer) -> Color:

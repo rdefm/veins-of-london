@@ -104,14 +104,6 @@ func run() -> void:
 		screen.free()
 	)
 
-	# Bugfixes ticket 13: the hamburger/bag top-bar buttons used to be plain
-	# "☰"/"🎒" Button text, invisible on-device because non-ASCII glyphs
-	# don't render in the exported build's font. _build_top_bar() doesn't
-	# touch _map_controls/GameState until a button is actually pressed
-	# (each callback just closes over `self`), so it's safe to call
-	# directly on a fresh, un-_ready()'d screen -- same reasoning
-	# test_icons.gd gives for not exercising draw_* itself: this only
-	# checks the built structure, not the click behaviour.
 	# playtest-fixes 03: the district panel, site sheet and vein action card
 	# share the map card look -- no Button on this path falls back to the
 	# default theme stylebox.
@@ -137,17 +129,16 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("top_bar_hamburger_and_bag_buttons_carry_no_glyph_text", func():
+	# Non-ASCII glyphs don't render in the exported build's font, so the
+	# menu button draws its hamburger instead of carrying "☰" as text.
+	run_case("menu_button_draws_its_glyph_and_carries_no_text", func():
+		GameState.reset()
 		var screen := MapScreen.new()
-		var row := screen._build_top_bar()
+		screen._ready()
 
-		var buttons := row.find_children("", "Button", true, false)
-		assert_eq(buttons.size(), 2, "hamburger + bag, nothing else in the top bar is a Button")
-		for b in buttons:
-			assert_eq((b as Button).text, "", "an icon button must not fall back to a raw emoji/unicode glyph as its text")
-			assert_eq((b as Button).get_child_count(), 1, "each icon button should carry exactly its drawn Icons glyph as a child")
+		assert_eq(screen._menu_button.text, "", "no raw unicode glyph as button text")
+		assert_eq(screen._menu_button.get_child_count(), 1, "carries exactly its drawn Icons glyph")
 
-		row.free()
 		screen.free()
 	)
 
