@@ -38,7 +38,7 @@ func _ready() -> void:
 	_box.add_child(_zoom_out_button)
 
 	_divider = ColorRect.new()
-	_divider.color = MapPalette.colour("border")
+	_divider.color = MapPalette.colour("chromeBorder")
 	_divider.custom_minimum_size.x = 1.0
 	_divider.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -59,7 +59,7 @@ func _build_button(glyph: String, tooltip: String, right_half: bool, callback: C
 	button.tooltip_text = tooltip
 	button.custom_minimum_size = BUTTON_SIZE
 	button.add_theme_font_size_override("font_size", 22)
-	var ink := MapPalette.colour("ink")
+	var ink := MapPalette.colour("chromeInk")
 	button.add_theme_color_override("font_color", ink)
 	button.add_theme_color_override("font_hover_color", ink)
 	button.add_theme_color_override("font_pressed_color", ink)
@@ -78,7 +78,7 @@ func _pill_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = MapPalette.colour("chromePaper")
 	style.set_border_width_all(1)
-	style.border_color = MapPalette.colour("border")
+	style.border_color = MapPalette.colour("chromeBorder")
 	style.set_corner_radius_all(PILL_RADIUS)
 	style.content_margin_left = 1.0
 	style.content_margin_top = 1.0

@@ -47,6 +47,19 @@ func run() -> void:
 		var mid := MapStyle.vein_ring_colour("growth", owner, ore, 3, muted, ink)
 		assert_true(absf(mid.r - muted.r) > 0.01 and absf(mid.r - ink.r) > 0.01, "tier 3 sits strictly between the ramp's ends")
 
+		# Dark palette: the ramp runs muted -> the dark set's light foreground.
+		for dark in [false, true]:
+			var m := MapPalette.colour_in("muted", dark)
+			var fg := MapPalette.colour_in("ink", dark)
+			var bottom := MapStyle.vein_ring_colour("growth", owner, ore, 1, m, fg)
+			var top := MapStyle.vein_ring_colour("growth", owner, ore, 6, m, fg)
+			assert_almost_eq(bottom.r, m.r, 0.001, "dark=%s tier 1 -> muted" % dark)
+			assert_almost_eq(top.r, fg.r, 0.001, "dark=%s tier 6 -> foreground" % dark)
+			if dark:
+				assert_true(top.get_luminance() > bottom.get_luminance(), "dark ramp brightens toward the top tier")
+			else:
+				assert_true(top.get_luminance() < bottom.get_luminance(), "light ramp darkens toward the top tier")
+
 		assert_almost_eq(MapStyle.vein_ring_width("growth", 1, 2.5), 2.5, 0.001, "tier 1 keeps the standard marker diameter")
 		assert_almost_eq(MapStyle.vein_ring_width("growth", 6, 2.5), 2.5, 0.001, "tier 6 keeps the standard marker diameter")
 

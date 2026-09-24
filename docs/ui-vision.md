@@ -100,6 +100,8 @@ tries to reuse Phone-OS or field-kit chrome on the Map tab by default.
 
 **Applies to:** the Map/VfL tab only.
 
+**Dark variant:** the Network diagram has a player-toggled dark variant (Map controls drawer, `meta.mapDarkMode`, Map tab only). Tokens and contrast rules live in `docs/M1.5-NETWORK-MAP.md` §Map palette; the rest of the game's chrome is unaffected.
+
 ## 5. Family 4 — Field-kit HUD chrome
 
 Everything persistent or in-scene that is neither inside a phone app, nor

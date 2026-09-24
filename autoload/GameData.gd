@@ -434,10 +434,13 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	return errors
 
 
-# Every token is a valid colour string and light/dark carry identical keys;
+# The drawer toggle's label is set; every token is a valid colour string and light/dark carry identical keys;
 # darkOverrides may only name real faction/ore ids.
 func _validate_map_palette(map_palette: Dictionary, factions: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:
-	_require_keys(map_palette, ["light", "dark", "darkOverrides"], "map_palette", errors)
+	_require_keys(map_palette, ["darkModeLabel", "light", "dark", "darkOverrides"], "map_palette", errors)
+	var label: Variant = map_palette.get("darkModeLabel")
+	if map_palette.has("darkModeLabel") and (typeof(label) != TYPE_STRING or String(label).is_empty()):
+		errors.append("map_palette.darkModeLabel: must be a non-empty string")
 	var light: Dictionary = map_palette.get("light", {})
 	var dark: Dictionary = map_palette.get("dark", {})
 	if light.is_empty():

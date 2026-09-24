@@ -1,4 +1,5 @@
 {
+  "darkModeLabel": "Dark map",
   "light": {
     "paper": "#ffffff",
     "river": "#d4cfc499",
@@ -20,23 +21,25 @@
     "cardGold": "#957019",
     "cardSage": "#dedfd3",
     "chromePaper": "#faf8f3",
+    "chromeInk": "#1a1a1a",
+    "chromeBorder": "#d4cfc4",
     "shadow": "#000000",
     "scrim": "#000000"
   },
   "dark": {
-    "paper": "#ffffff",
-    "river": "#d4cfc499",
-    "border": "#d4cfc4",
-    "ink": "#1a1a1a",
+    "paper": "#1b2124",
+    "river": "#34424a99",
+    "border": "#3d474c",
+    "ink": "#e8e4da",
     "muted": "#8a8a8a",
-    "slate": "#4a5568",
+    "slate": "#a8b4c4",
     "player": "#c8873a",
     "warded": "#7b68ee",
-    "guarded": "#3a7a52",
-    "danger": "#9b2335",
+    "guarded": "#5a9e72",
+    "danger": "#e0606e",
     "stopFill": "#ffffff",
     "glyph": "#1a1a1a",
-    "haloGold": "#ffe8b1",
+    "haloGold": "#e8c47a",
     "cardPaper": "#f0eee6",
     "cardInk": "#252e30",
     "cardDim": "#65716c",
@@ -44,11 +47,19 @@
     "cardGold": "#957019",
     "cardSage": "#dedfd3",
     "chromePaper": "#faf8f3",
+    "chromeInk": "#1a1a1a",
+    "chromeBorder": "#d4cfc4",
     "shadow": "#000000",
     "scrim": "#000000"
   },
   "darkOverrides": {
-    "factions": {},
-    "oreTypes": {}
+    "factions": {
+      "firm": "#e0606e",
+      "collective": "#5a9e72"
+    },
+    "oreTypes": {
+      "emotion": "#c878a8",
+      "life": "#5a9e72"
+    }
   }
 }

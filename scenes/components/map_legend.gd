@@ -36,7 +36,7 @@ func _ready() -> void:
 	_header.tooltip_text = "Toggle faction key"
 	_header.custom_minimum_size = Vector2(CARD_WIDTH, UI.ICON_BUTTON_SIZE)
 	_header.size = _header.custom_minimum_size
-	var ink := MapPalette.colour("ink")
+	var ink := MapPalette.colour("chromeInk")
 	_header.add_theme_stylebox_override("normal", _header_style(Color.TRANSPARENT))
 	_header.add_theme_stylebox_override("hover", _header_style(Color(ink, 0.06)))
 	_header.add_theme_stylebox_override("pressed", _header_style(Color(ink, 0.12)))
@@ -55,18 +55,18 @@ func _ready() -> void:
 	_title.text = "Factions"
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title.add_theme_font_size_override("font_size", 18)
-	_title.add_theme_color_override("font_color", MapPalette.colour("ink"))
+	_title.add_theme_color_override("font_color", MapPalette.colour("chromeInk"))
 	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header_content.add_child(_title)
 
 	_chevron = Label.new()
 	_chevron.add_theme_font_size_override("font_size", 18)
-	_chevron.add_theme_color_override("font_color", MapPalette.colour("ink"))
+	_chevron.add_theme_color_override("font_color", MapPalette.colour("chromeInk"))
 	_chevron.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header_content.add_child(_chevron)
 
 	_divider = ColorRect.new()
-	_divider.color = MapPalette.colour("border")
+	_divider.color = MapPalette.colour("chromeBorder")
 	_divider.custom_minimum_size.y = 1.0
 	_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(_divider)
@@ -95,7 +95,7 @@ func _build_row(faction: Dictionary) -> Control:
 
 	var name_label := Label.new()
 	name_label.text = String(faction["shortName"])
-	name_label.add_theme_color_override("font_color", MapPalette.colour("ink"))
+	name_label.add_theme_color_override("font_color", MapPalette.colour("chromeInk"))
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(name_label)
 
@@ -119,7 +119,7 @@ func _card_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = MapPalette.colour("chromePaper")
 	style.set_border_width_all(1)
-	style.border_color = MapPalette.colour("border")
+	style.border_color = MapPalette.colour("chromeBorder")
 	style.set_corner_radius_all(CARD_RADIUS)
 	style.content_margin_left = CARD_MARGIN_H
 	style.content_margin_top = CARD_MARGIN_TOP

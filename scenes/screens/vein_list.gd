@@ -90,7 +90,7 @@ func _build_vein_row(vein: Dictionary) -> Control:
 	c["content"].add_child(_dim_label("Growth: %d/%d — %s" % [vein["growth"], vein_ceiling, band["label"]]))
 	c["content"].add_child(MapCardStyle.style_bar(UI.bar(vein["growth"], vein_ceiling)))
 	if collapsed:
-		c["content"].add_child(MapCardStyle.label(Cultivating.COLLAPSED_VEIN_WARNING, 12, MapPalette.colour("danger")))
+		c["content"].add_child(MapCardStyle.label(Cultivating.COLLAPSED_VEIN_WARNING, 12, MapPalette.light("danger")))
 	else:
 		c["content"].add_child(_dim_label(Cultivating.days_to_wall_text(vein)))
 	var station_text: Variant = Rooms.vein_station_target_text(vein["id"])

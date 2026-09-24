@@ -140,3 +140,29 @@ func run() -> void:
 		controls.free()
 		canvas.free()
 	)
+
+	run_case("dark_map_toggle_shows_the_saved_value_and_sets_it_through_preferences", func():
+		GameState.reset()
+		var controls := MapControls.new()
+		controls._ready()
+
+		var toggle := _dark_toggle(controls)
+		assert_true(toggle != null, "the drawer has a Dark map toggle")
+		assert_true(not toggle.button_pressed, "off by default")
+
+		toggle.button_pressed = true  # fires toggled, as a tap would
+		assert_true(MapPalette.is_dark(), "toggling on sets meta.mapDarkMode")
+
+		controls._rebuild()
+		assert_true(_dark_toggle(controls).button_pressed, "a rebuilt drawer shows the current value")
+
+		controls.free()
+		GameState.reset()
+	)
+
+
+func _dark_toggle(controls: MapControls) -> CheckButton:
+	for child in controls._list.get_children():
+		if child is CheckButton and not child.is_queued_for_deletion() and child.text == GameData.MAP_PALETTE["darkModeLabel"]:
+			return child
+	return null

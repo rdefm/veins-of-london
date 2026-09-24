@@ -1,6 +1,8 @@
 class_name MapControls
 extends Control
 
+const Preferences := preload("res://systems/preferences.gd")
+
 
 const FILTER_LABELS := {
 	"ownership": "Ownership",
@@ -108,6 +110,11 @@ func _rebuild() -> void:
 
 	_list.add_child(UI.heading("Other", 14))
 	_list.add_child(UI.button(PACING_LABELS[_pacing_mode], _toggle_pacing))
+	var dark := CheckButton.new()
+	dark.text = GameData.MAP_PALETTE["darkModeLabel"]
+	dark.button_pressed = MapPalette.is_dark()
+	dark.toggled.connect(Preferences.set_map_dark_mode)
+	_list.add_child(dark)
 	_list.add_child(UI.button("? Legend", func(): _open_legend()))
 	_list.add_child(UI.button("Close", close))
 

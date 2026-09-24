@@ -149,7 +149,6 @@ class ChargeHalo:
 
 	const RADIUS := 14.0
 	const PERIOD := 1.2
-	var _colour := MapPalette.colour("player")
 	var _t := 0.0
 
 	func _ready() -> void:
@@ -163,7 +162,8 @@ class ChargeHalo:
 		var progress := _t / PERIOD
 		var scale_factor := lerpf(1.0, 1.3, progress)
 		var alpha := lerpf(0.5, 0.0, progress)
-		draw_circle(Vector2.ZERO, RADIUS * scale_factor, Color(_colour, alpha))
+		# Read per frame: this halo outlives a Map dark-mode toggle.
+		draw_circle(Vector2.ZERO, RADIUS * scale_factor, Color(MapPalette.colour("player"), alpha))
 
 
 class ChargeBurst:

@@ -1,7 +1,10 @@
 extends "res://tests/test_base.gd"
 
 # MapPalette + data/map_palette.json (M1.5 §Map palette): token resolution
-# in both modes, faction/ore dark-override fallback, and load validation.
+# in both modes, faction/ore dark-override fallback, the saved dark-mode
+# preference, dark-set contrast, and load validation.
+
+const Preferences := preload("res://systems/preferences.gd")
 
 
 func run() -> void:
@@ -74,6 +77,44 @@ func run() -> void:
 		GameData.MAP_PALETTE["darkOverrides"] = saved
 	)
 
+	# ── dark mode preference + dark set ─────────────────────────────────
+
+	run_case("map_dark_mode_defaults_off", func():
+		GameState.reset()
+		assert_true(not MapPalette.is_dark(), "a fresh game draws the light diagram")
+	)
+
+	run_case("map_dark_mode_survives_save_and_load", func():
+		GameState.reset()
+		Preferences.set_map_dark_mode(true)
+		assert_true(SaveManager.save_to_slot(93)["ok"])
+		Preferences.set_map_dark_mode(false)
+		assert_true(SaveManager.load_from_slot(93)["ok"])
+		assert_true(MapPalette.is_dark(), "the saved preference comes back on load")
+		SaveManager.delete_slot(93)
+		GameState.reset()
+	)
+
+	run_case("dark_stop_centres_and_glyphs_match_light", func():
+		assert_eq(MapPalette.colour_in("stopFill", true), Color(1.0, 1.0, 1.0), "stop centres stay white")
+		assert_eq(MapPalette.colour_in("glyph", true), MapPalette.light("glyph"), "ore glyphs stay charcoal")
+		assert_true(MapPalette.colour_in("paper", true).get_luminance() < 0.2, "dark paper is dark")
+	)
+
+	run_case("every_dark_line_arc_and_danger_colour_has_3_to_1_contrast", func():
+		var paper := MapPalette.colour_in("paper", true)
+		var checks: Dictionary = {}
+		for key in ["player", "muted", "ink", "warded", "guarded", "danger"]:
+			checks["token " + key] = MapPalette.colour_in(key, true)
+		for faction_id in GameData.FACTIONS:
+			checks["faction " + faction_id] = MapPalette.faction_colour_in(faction_id, true)
+		for ore_type in GameData.ORE_TYPES:
+			checks["ore " + ore_type] = MapPalette.ore_colour_in(ore_type, true)
+		for label in checks:
+			var ratio := _contrast(checks[label], paper)
+			assert_true(ratio >= 3.0, "%s %s vs dark paper: %.2f:1" % [label, checks[label].to_html(false), ratio])
+	)
+
 	# ── validation ──────────────────────────────────────────────────────
 
 	run_case("real_map_palette_validates", func():
@@ -104,6 +145,18 @@ func run() -> void:
 		assert_true(_has_error(errors, "'nobody' is not a known id"), "unknown faction id is flagged")
 		assert_true(_has_error(errors, "darkOverrides.oreTypes.time"), "bad override colour is flagged")
 	)
+
+
+# WCAG 2 contrast ratio.
+func _contrast(a: Color, b: Color) -> float:
+	var la := _relative_luminance(a)
+	var lb := _relative_luminance(b)
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+
+
+func _relative_luminance(c: Color) -> float:
+	var lin := func(v: float) -> float: return v / 12.92 if v <= 0.03928 else pow((v + 0.055) / 1.055, 2.4)
+	return 0.2126 * lin.call(c.r) + 0.7152 * lin.call(c.g) + 0.0722 * lin.call(c.b)
 
 
 func _map_palette_errors(tables: Dictionary) -> Array[String]:

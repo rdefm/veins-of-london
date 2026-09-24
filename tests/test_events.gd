@@ -1,6 +1,7 @@
 extends "res://tests/test_base.gd"
 
 const Fixtures := preload("res://tests/support/fixtures.gd")
+const Preferences := preload("res://systems/preferences.gd")
 
 
 # M1-LONDON D5's `choices` card type — installed as a synthetic event so
@@ -648,6 +649,24 @@ func run() -> void:
 		assert_true(result["ok"])
 		assert_eq(GameState.state["player"]["cash"], cash_before, "rewind should undo the choice's effects")
 		assert_true(Events.is_awaiting_choice(), "rewind should un-resolve the choice card")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("rewind_keeps_the_live_presentation_preferences", func():
+		GameState.reset()
+		var original_events := _install_choice_event()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+
+		Events.start_event("test_choice_event")
+		Events.advance()  # -> choice card
+		Events.choose(0)  # snapshot taken with mapDarkMode absent
+		Preferences.set_map_dark_mode(true)
+		Preferences.set_reduced_motion(true)
+
+		assert_true(Events.rewind()["ok"])
+		assert_eq(GameState.state["meta"].get("mapDarkMode"), true, "rewind never flips the Map dark mode")
+		assert_eq(GameState.state["meta"].get("reducedMotion"), true, "rewind never flips reduced motion")
 
 		GameData.EVENTS = original_events
 	)

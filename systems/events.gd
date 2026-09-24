@@ -12,6 +12,8 @@ extends RefCounted
 # asset at that card index; a picked choice's own "image" rides along in
 # choiceResults[cardIndex] the same way.
 
+const Preferences := preload("res://systems/preferences.gd")
+
 
 # context: a raid's target site_id is only known at Raid-button-press time, so
 # it's carried here and read back by _event_site_id() below; every other caller omits it.
@@ -209,7 +211,9 @@ static func rewind() -> Dictionary:
 
 	var stack: Array = event_state["snapshots"]
 	var snap: Dictionary = Snapshots.pop_newest(stack)
+	var live_meta: Dictionary = GameState.state["meta"].duplicate()
 	GameState.state = snap
+	Preferences.carry_forward(live_meta)
 	# snap's own event.snapshots is always [] (see advance()) -- carry the real,
 	# already-popped live stack forward instead of trusting that.
 	GameState.state["event"]["snapshots"] = stack
