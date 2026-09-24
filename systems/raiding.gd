@@ -647,6 +647,7 @@ static func resolve_defend_outcome(won: bool) -> void:
 	GameState.state["world"]["activeDefendRaid"] = null
 	if won and outcome != null:
 		Objectives.record_alarm_defend_win(outcome["veinId"])
+		Collective.award_a2_defend_win()
 	Objectives.refresh()
 	Collective.maybe_trigger_a2_checkpoint()
 	if won or outcome == null:

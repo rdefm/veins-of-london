@@ -139,6 +139,9 @@ func _build_action_bar(contact_id: String) -> Control:
 		if hakim_done_action != null:
 			bar.add_child(hakim_done_action)
 	if contact_id == "nadia":
+		var ledger_action := ContactCards.build_nadia_ledger_action()
+		if ledger_action != null:
+			bar.add_child(ledger_action)
 		var handler_meet_action := ContactCards.build_handler_meet_action()
 		if handler_meet_action != null:
 			bar.add_child(handler_meet_action)

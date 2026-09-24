@@ -450,6 +450,7 @@ static func maybe_trigger_a2_checkpoint() -> bool:
 	var flags: Dictionary = GameState.state["flags"]
 	if not flags.get("colA2LedgerStarted", false):
 		return false
+	award_a2_missions()
 	var collective: Dictionary = GameState.state["collective"]
 	var day: int = GameState.state["world"]["day"]
 	if collective.get("ledgerStartedDay") == null:
@@ -470,6 +471,44 @@ static func maybe_trigger_a2_checkpoint() -> bool:
 	# PROSE-REVIEW: new SMS teaser, drafted against CONTENT-GUIDE.md.
 	Messages.queue_pending("nadia", "col_a2_checkpoint", "\"Come by when you've a minute. I've got numbers.\"")
 	return true
+
+
+# Act 2 relation award table (spec §7.3): +4 per T8 mission, once each, on
+# completion. Objectives.refresh() never awards, so this runs at the action
+# boundaries a mission can complete at: Crafting.attempt_craft() (supplies),
+# and every maybe_trigger_a2_checkpoint() call site via that function.
+const A2_MISSION_RELATION := 4
+
+
+static func award_a2_missions() -> void:
+	var awarded: Array = GameState.state["collective"]["a2MissionsAwarded"]
+	var objectives: Dictionary = GameState.state["objectives"]
+	for id in CHECKPOINT_MISSIONS:
+		if awarded.has(id) or not objectives.get(id, {}).get("complete", false):
+			continue
+		awarded.append(id)
+		Factions.adjust_player_relation("collective", A2_MISSION_RELATION)
+
+
+# Spec §7.3: +2 Collective relation per won alarm-defend fight during Phases
+# 1-2 (T4 resolved, T12 not yet), capped at +4 a day. The day's running total
+# lives in world.relationAwardedToday, which daily_tick already clears.
+const A2_DEFEND_RELATION := 2
+const A2_DEFEND_DAILY_CAP := 4
+const A2_DEFEND_AWARD_KEY := "a2AlarmDefend"
+
+
+static func award_a2_defend_win() -> void:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA2HandlerDeferred", false) or flags.get("networkHandlerUnlocked", false):
+		return
+	var awarded_today: Dictionary = GameState.state["world"]["relationAwardedToday"]
+	var already: int = awarded_today.get(A2_DEFEND_AWARD_KEY, 0)
+	var points: int = mini(A2_DEFEND_RELATION, A2_DEFEND_DAILY_CAP - already)
+	if points <= 0:
+		return
+	awarded_today[A2_DEFEND_AWARD_KEY] = already + points
+	Factions.adjust_player_relation("collective", points)
 
 
 static func _all_checkpoint_missions_complete() -> bool:

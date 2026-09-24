@@ -170,7 +170,8 @@ func new_game_state() -> Dictionary:
 			"mapSlotFreePool": {},
 			# Relation-accrual daily-cap tracker, keyed by lane id
 			# ("collective", "archie") -> points already awarded today,
-			# cleared on daily_tick.
+			# cleared on daily_tick. Also holds Collective.A2_DEFEND_AWARD_KEY
+			# (Act 2's alarm-defend award cap, spec §7.3).
 			"relationAwardedToday": {},
 		},
 
@@ -334,6 +335,9 @@ func new_game_state() -> Dictionary:
 			# scaling the Firm's target weight on Collective veins while
 			# state.world.day < expiresDay. null when not provoked.
 			"firmProvocation": null,
+			# Act 2 relation award table (spec §7.3): T8 mission objective
+			# ids that have already paid their +4.
+			"a2MissionsAwarded": [],
 		},
 	}
 

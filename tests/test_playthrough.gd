@@ -350,6 +350,89 @@ func _resolve_pending_by_kind(contact_id: String, kind: String) -> void:
 	assert_true(false, "no pending %s entry found for %s" % [kind, contact_id])
 
 
+# Resolves a pendingMessages entry of the given kind and plays the event it
+# delivers (plus anything it chains into), answering choice cards from
+# `choices` in order -- the "Continue →" tap real play routes through.
+func _play_pending_event(contact_id: String, kind: String, choices: Array = []) -> void:
+	for entry in Messages.pending_for(contact_id):
+		if entry["kind"] == kind:
+			Messages.resolve_pending(entry["id"])
+			Events.start_event(kind, entry["payload"])
+			_answer_until_event_ends(choices)
+			return
+	assert_true(false, "no pending %s entry found for %s" % [kind, contact_id])
+
+
+func _answer_until_event_ends(choices: Array) -> void:
+	var choice_i := 0
+	var guard := 0
+	while GameState.state["event"] != null and guard < 100:
+		guard += 1
+		if Events.is_awaiting_choice():
+			Events.choose(choices[choice_i])
+			choice_i += 1
+		else:
+			Events.advance()
+	assert_true(GameState.state["event"] == null, "the event chain should resolve within 100 steps")
+
+
+# A defend fight can field several guards; KO all but one, then land the
+# killing blow through the real attack path so outcome flips to "win".
+func _force_win_every_enemy() -> void:
+	var combat: Dictionary = GameState.state["combat"]
+	var last: int = combat["enemies"].size() - 1
+	for i in range(last):
+		combat["enemies"][i]["hp"] = 0
+		combat["enemies"][i]["koed"] = true
+	combat["selection"] = { "type": "enemy", "index": last }
+	_force_win_active_combat()
+
+
+# daily_tick can start unrelated events (district draws, home raids); clear
+# them the way the rest of this file does before the next Act 2 beat.
+func _daily_tick_and_settle() -> void:
+	TimeSystem.daily_tick()
+	if GameState.state["combat"]["active"]:
+		_force_win_active_combat()
+	if GameState.state["event"] != null:
+		_drive_active_event_to_completion()
+
+
+# Prospects any non-barren site in whichever district still has room, then
+# seeds it -- the player's own route to a fresh vein.
+func _prospect_and_seed_new_vein() -> String:
+	GameState.state["player"]["orichalchum"]["time"] += 300
+	var found: Array = []
+	for district_id in GameData.DISTRICTS.keys():
+		var prospect_seed := SeedSearch.find_seed_for(200, func():
+			var result := Sites.prospect(district_id)
+			var site: Variant = result.get("site")
+			if site == null or site["tier"] == "barren":
+				return false
+			found.clear()
+			found.append(site["id"])
+			return true
+		)
+		if prospect_seed != -1:
+			break
+	assert_true(not found.is_empty(), "should find a non-barren site somewhere")
+	if GameState.state["event"] != null:
+		_drive_active_event_to_completion()  # prospect can draw a district event (D5)
+	var site_id: String = found[0]
+	var seed_roll := SeedSearch.find_seed_for(500, func():
+		return Sites.attempt_seed(site_id).get("success", false)
+	)
+	assert_true(seed_roll != -1, "should find a successful seed roll within 500 tries")
+	return GameState.state["player"]["veins"].filter(func(v): return v["siteId"] == site_id)[0]["id"]
+
+
+func _craft_until_success(recipe_key: String) -> void:
+	var craft_seed := SeedSearch.find_seed_for(300, func():
+		return Crafting.attempt_craft(recipe_key).get("success", false)
+	)
+	assert_true(craft_seed != -1, "should find a successful %s craft within 300 tries" % recipe_key)
+
+
 func run() -> void:
 	run_case("full_playthrough_tutorial_economy_ticks_and_save_roundtrip", func():
 		GameState.reset()
@@ -829,4 +912,160 @@ func run() -> void:
 		assert_true(GameState.state["flags"]["colA1Joined"], "the deferred-join follow-up should grant membership later")
 		assert_true(GameState.state["factions"]["collective"]["joined"])
 		_assert_invariants("post-deferred-join")
+	)
+
+	# collective-act2 12, spec.md §9: the Act 2 acceptance gate. Picks up
+	# from Act 1's join-outright ending and walks T1 -> T15 including T8a
+	# through the real delivery paths (pendingMessages, pins, Nadia's action
+	# bar, daily_tick), driving each Phase 1 choice down one branch, the
+	# three Nadia missions through Crafting.attempt_craft(), VeinTrade.
+	# sell_to_faction(), Cultivating.add_alarm() and a won alarm-defend fight
+	# (Raiding.resolve_defend_outcome()), then confirms the §7.4 gate and the
+	# closer. Cash/ore top-ups stand in for grinding, as elsewhere in this file.
+	run_case("collective_act2_full_playthrough_t1_to_t15", func():
+		_play_collective_act1_through_all_three_threads()
+		_resolve_pending_by_kind("hakim", "col_a1_closer")
+		EventPlay.play_event_with_choices("col_a1_closer", [0, 0])
+		assert_true(GameState.state["flags"]["colA1Complete"])
+
+		# ── Phase 0: T1 (Des's text) chains straight through T4 ──
+		_play_pending_event("des", "col_a2_intro")
+		var flags: Dictionary = GameState.state["flags"]
+		assert_true(flags["colA2ShopSeen"], "T2 played")
+		assert_eq(flags["colA2Stage"], "call", "T3 played")
+		assert_true(flags["colA2HandlerDeferred"], "T4 played")
+		assert_true(GameState.state["collective"]["contestedVeinSiteId"] != null, "T3's on_complete scripts T5's contested vein")
+		_assert_invariants("post-phase-0")
+
+		# ── Phase 1: T5-T7, each pin live and each choice down one branch ──
+		var pin_ids: Array = MapPins.active_contact_pins().map(func(p): return p["eventId"])
+		for event_id in ["col_a2_contested_vein", "col_a2_vulnerable_site", "col_a2_hostile_member"]:
+			assert_true(pin_ids.has(event_id), "%s's pin should be live once Phase 1 opens" % event_id)
+		GameState.state["player"]["cash"] += 1000
+		EventPlay.play_event_with_choices("col_a2_contested_vein", [0])  # Take it back
+		EventPlay.play_event_with_choices("col_a2_vulnerable_site", [1])  # Stay soft and fast
+		EventPlay.play_event_with_choices("col_a2_hostile_member", [2])  # Cover their vein
+		var method_log: Dictionary = GameState.state["methodLog"]
+		assert_eq(method_log["a2ContestedVein"], "force")
+		assert_eq(method_log["a2VulnerableSite"], "soft")
+		assert_eq(method_log["a2HostileMember"], "protected")
+		_assert_invariants("post-T5-T7")
+
+		# ── T8: Nadia's ledger, from her action bar ──
+		var ledger_action := ContactCards.build_nadia_ledger_action()
+		assert_true(ledger_action != null, "T8's entry point should be open after T4")
+		ledger_action.free()
+		EventPlay.play_event("col_a2_nadia_ledger")
+		assert_true(GameState.state["flags"]["colA2LedgerStarted"])
+		var objectives: Dictionary = GameState.state["objectives"]
+		assert_true(objectives["col_a2_nadia_reseed"]["active"])
+		assert_true(objectives["col_a2_nadia_supplies"]["active"])
+		assert_true(not objectives["col_a2_nadia_defend"]["active"], "defend must not open at T8")
+
+		# ── reseed: a fresh vein, sold to the Collective ──
+		var relation_before_reseed: int = GameState.state["factions"]["collective"]["relation"]
+		var reseed_vein_id := _prospect_and_seed_new_vein()
+		assert_true(VeinTrade.sell_to_faction(reseed_vein_id, "collective")["ok"])
+		if GameState.state["event"] != null:
+			_drive_active_event_to_completion()
+		assert_true(GameState.state["objectives"]["col_a2_nadia_reseed"]["complete"])
+		assert_true(GameState.state["factions"]["collective"]["relation"] >= relation_before_reseed + Collective.A2_MISSION_RELATION, "reseed pays its +4")
+		_assert_invariants("post-reseed")
+
+		# ── supplies, then T8a: the sequencing itself, craft by craft ──
+		GameState.state["player"]["orichalchum"]["physics"] += 200
+		GameState.state["player"]["orichalchum"]["emotion"] += 200
+		for recipe_key in ["blast", "shield"]:
+			_craft_until_success(recipe_key)
+			assert_true(not GameState.state["objectives"]["col_a2_nadia_supplies"]["complete"], "%s alone must not complete supplies" % recipe_key)
+			assert_true(not GameState.state["objectives"]["col_a2_nadia_defend"]["active"], "defend stays shut while supplies is open")
+			assert_true(GameState.state["event"] == null, "T8a must not fire before supplies completes")
+		_craft_until_success("pansPrank")
+		assert_true(GameState.state["objectives"]["col_a2_nadia_supplies"]["complete"])
+		assert_eq(GameState.state["event"]["eventId"], "col_a2_nadia_defend_brief", "T8a autofires on the craft that completes supplies")
+		assert_true(not GameState.state["objectives"]["col_a2_nadia_defend"]["active"], "defend opens only once T8a resolves, not before")
+		_answer_until_event_ends([])
+		assert_true(GameState.state["flags"]["colA2DefendBriefed"])
+		assert_true(GameState.state["objectives"]["col_a2_nadia_defend"]["active"], "T8a opens defend")
+		var defend_vein_id: Variant = GameState.state["collective"]["nadiaDefendVeinId"]
+		assert_true(defend_vein_id != null, "T8a names the vein")
+		_assert_invariants("post-T8a")
+
+		# ── defend: alarm the vein, the Firm comes, the player wins ──
+		GameState.state["player"]["cash"] += 1000
+		assert_true(Cultivating.add_alarm(defend_vein_id)["ok"])
+		var defend_vein: Dictionary = Cultivating.find_vein(defend_vein_id)
+		var attempt := { "attackerId": "firm", "veinId": defend_vein_id, "siteId": defend_vein["siteId"] }
+		var raid: Array = []
+		var raid_seed := SeedSearch.find_seed_for(500, func():
+			var outcome := Raiding.roll_raid_odds(attempt)
+			raid.clear()
+			raid.append(outcome)
+			return outcome["success"]
+		)
+		assert_true(raid_seed != -1, "should find a successful Firm raid roll within 500 tries")
+		# apply_raid_resolution()'s alarmed-vein branch, minus the roll over
+		# every other player vein.
+		GameState.state["world"]["pendingDefendRaids"].append(raid[0])
+		assert_true(Raiding.trigger_defend(defend_vein_id))
+		assert_true(GameState.state["flags"]["colA2DefendReminderShown"], "Nadia's pre-fight line lands on her vein's fight")
+		var relation_before_defend: int = GameState.state["factions"]["collective"]["relation"]
+		_force_win_every_enemy()
+		assert_true(GameState.state["objectives"]["col_a2_nadia_defend"]["complete"])
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before_defend + Collective.A2_DEFEND_RELATION + Collective.A2_MISSION_RELATION, "+2 for the win, +4 for the mission")
+		assert_true(Cultivating.find_vein(defend_vein_id) != null, "a won defend keeps the vein")
+		_assert_invariants("post-defend")
+
+		# ── T9: all three missions done, Nadia's checkpoint ──
+		_play_pending_event("nadia", "col_a2_checkpoint")
+		assert_true(GameState.state["flags"]["colA2CheckpointSeen"])
+
+		# ── Phase 2: T10 then T11, a day apart ──
+		var hakim_vein_id: String = GameState.state["collective"]["hakimVeinId"]
+		_daily_tick_and_settle()
+		assert_true(GameState.state["flags"]["colA2HakimVeinLost"])
+		var hakim_site: Variant = null
+		for site in GameState.state["world"]["sites"]:
+			if site["factionVein"] != null and site["factionVein"]["id"] == hakim_vein_id:
+				hakim_site = site
+		assert_true(hakim_site != null and hakim_site["factionVein"]["factionId"] == "firm", "T10: the Firm holds Hakim's vein")
+		_play_pending_event("hakim", Collective.HAKIM_VEIN_LOST_KIND)
+
+		_daily_tick_and_settle()
+		var second_loss_target: Variant = Collective.second_loss_target_id()
+		assert_true(second_loss_target != null)
+		_play_pending_event("nadia", Collective.SECOND_LOSS_KIND)
+		assert_true(GameState.state["flags"]["colA2SecondLossSeen"])
+		assert_true(Cultivating.find_vein(second_loss_target) == null, "T11 takes the vein Nadia had hardened")
+		_assert_invariants("post-phase-2")
+
+		# ── T12: the handler meet, from Nadia's action bar ──
+		var meet_action := ContactCards.build_handler_meet_action()
+		assert_true(meet_action != null)
+		meet_action.free()
+		EventPlay.play_event("col_a2_handler_meet")
+		assert_true(GameState.state["flags"]["networkHandlerUnlocked"])
+
+		# ── T13: buy Targets intel on Hakim's vein, then take it back ──
+		var hakim_site_id: String = hakim_site["id"]
+		GameState.state["player"]["cash"] += NetworkHandler.target_price(hakim_site_id)
+		assert_true(NetworkHandler.buy_target(hakim_site_id, NetworkHandler.EFFECT_CLAIM_BONUS)["ok"])
+		var retake_action := ContactCards.build_hakim_retake_action()
+		assert_true(retake_action != null, "Targets intel on Hakim's vein opens the retake")
+		retake_action.free()
+		var relation_before_retake: int = GameState.state["factions"]["collective"]["relation"]
+		EventPlay.play_event_with_choices("col_a2_hakim_retake", [0])  # force
+		assert_true(GameState.state["flags"]["colA2HakimRetaken"])
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before_retake + 15)
+		assert_true(Sites.find_site(hakim_site_id)["ruinedByFirm"])
+		assert_true(not Sites.attempt_seed(hakim_site_id)["ok"], "ruined ground can't be reseeded")
+		_assert_invariants("post-T13")
+
+		# ── §7.4 gate, T14, T15 ──
+		assert_true(Collective.act2_gate_met(), "gate: relation %d" % GameState.state["factions"]["collective"]["relation"])
+		assert_true(GameState.state["flags"]["colA2SpineReward"], "T14 fires on the crossing")
+		_daily_tick_and_settle()
+		_play_pending_event("nadia", Collective.CLOSER_KIND)
+		assert_true(GameState.state["flags"]["colA2Complete"], "col_a2_closer fired and completed")
+		_assert_invariants("post-T15")
 	)

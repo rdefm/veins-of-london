@@ -250,6 +250,15 @@ static func build_hakim_retake_action() -> Control:
 	return UI.button("Get the yard back", func(): Events.start_event("col_a2_hakim_retake"))
 
 
+# collective-act2 spec §6.8: T8's ledger scene, open from the end of Phase 0
+# (T4) until it plays -- player-ordered alongside T5-T7 (spec §4).
+static func build_nadia_ledger_action() -> Control:
+	var flags: Dictionary = GameState.state["flags"]
+	if not flags.get("colA2HandlerDeferred", false) or flags.get("colA2LedgerStarted", false):
+		return null
+	return UI.button("Sit down with Nadia", func(): Events.start_event("col_a2_nadia_ledger"))
+
+
 # collective-act2 spec §6.12: T12's "Go with Nadia", open between
 # colA2SecondLossSeen and the meet itself.
 static func build_handler_meet_action() -> Control:
@@ -401,6 +410,9 @@ static func build_nadia_card() -> Control:
 	var supply_action := build_nadia_supply_action()
 	if supply_action != null:
 		c["content"].add_child(supply_action)
+	var ledger_action := build_nadia_ledger_action()
+	if ledger_action != null:
+		c["content"].add_child(ledger_action)
 	var handler_meet_action := build_handler_meet_action()
 	if handler_meet_action != null:
 		c["content"].add_child(handler_meet_action)

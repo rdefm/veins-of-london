@@ -27,7 +27,7 @@ Data file per system: see `data/*.json` below.
 | barometer.gd | Economic/social/political barometer + faction prefs |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
-| collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
+| collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 relation awards (T8 missions, alarm-defend daily cap), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
 | combat.gd | Turn-based combat engine + rewind. Resumable progression via `combat.turnCursor` + `prime_`/`conclude_decision_point()`; pure `project_queue()` (no koed slots, empty after outcome; R§3.7a). Beats carry `occurrence` tags. `combat.selection` via `set_selection()`, `clamp_selection()` on KO/Rewind/load; `selection_block_reason()` gates commands. Stamps `combat.locationKey` |
 | network_handler.gd | Network handler Targets (timed `collective.networkIntel` claim_bonus/security_freeze) and Sourcing (site delivered by handler text); pricing off `VeinTrade.quote()` |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
@@ -119,7 +119,7 @@ overlays.
 | combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial beside flat 1px-ruled command rows (Complication readout, Attack, Item, Leg it), anchored to the true screen bottom; Attack/Item disabled per the current selection |
 | combat_director.gd | Combat beat-queue playback director |
 | combat_stage.gd | Combat pixel stage: backdrop (location -> context -> palette); slots in two receding diagonal groups (enemies back/smaller), fitted to each sprite's visible figure, depth-sorted; keypose one-shots (sheet, `images` list, or random attack `variants`; player = `templates[player.model]`), effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot draws an arrow |
-| contact_cards.gd | Shared contact/faction card builders (incl. handler card, Targets/Sourcing, "Go with Nadia"), inline Contacts action-row layout, OS chrome repaint |
+| contact_cards.gd | Shared contact/faction card builders (incl. handler card, Targets/Sourcing, Nadia's ledger + "Go with Nadia"), inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
 | floorplan_view.gd | Estate-agent plan for a home tier from floorplans.json; static, or with tappable slot overlays showing current use |
 | dial_widget.gd | Combat's Dial-casting widget |
