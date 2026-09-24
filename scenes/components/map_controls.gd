@@ -51,9 +51,9 @@ func _ready() -> void:
 	_panel.anchor_right = 0
 	_panel.anchor_bottom = 1
 	_panel.offset_left = 0
-	_panel.offset_top = 0
+	_panel.offset_top = UI.top_bar_clearance()
 	_panel.offset_right = DRAWER_WIDTH
-	_panel.offset_bottom = 0
+	_panel.offset_bottom = -NavBar.BAR_HEIGHT
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_panel.visible = false
 	add_child(_panel)

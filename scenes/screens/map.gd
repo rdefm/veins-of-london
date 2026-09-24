@@ -5,7 +5,7 @@ const SHEET_HEIGHT := 480.0
 const TOP_ROW_MARGIN := 8.0
 
 static func top_row_clearance() -> float:
-	return TOP_ROW_MARGIN + UI.ICON_BUTTON_SIZE + UI.safe_area_top_inset()
+	return TOP_ROW_MARGIN + UI.ICON_BUTTON_SIZE + UI.top_bar_clearance()
 const BUBBLE_MODE_DISTRICT := "district"
 const BUBBLE_MODE_STATION := "station"
 
@@ -85,7 +85,7 @@ func _build_diagram_layer() -> Control:
 	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", int(TOP_ROW_MARGIN) + int(UI.safe_area_top_inset()))
+	margin.add_theme_constant_override("margin_top", int(TOP_ROW_MARGIN + UI.top_bar_clearance()))
 	margin.add_theme_constant_override("margin_bottom", 80)  # room above the nav bar
 	layer.add_child(margin)
 

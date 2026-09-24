@@ -160,6 +160,29 @@ func run() -> void:
 		GameState.reset()
 	)
 
+	run_case("drawer_sits_between_the_top_board_and_the_nav_dock", func():
+		GameState.reset()
+		var controls := MapControls.new()
+		controls._ready()
+
+		assert_eq(controls._panel.offset_top, UI.top_bar_clearance(), "the drawer starts below the top board")
+		assert_eq(controls._panel.offset_bottom, -NavBar.BAR_HEIGHT, "the drawer ends above the nav dock")
+
+		controls.free()
+	)
+
+	run_case("map_top_row_starts_below_the_top_board", func():
+		GameState.reset()
+		var screen := MapScreen.new()
+		screen._ready()
+
+		var margin := screen._diagram_layer.get_child(0) as MarginContainer
+		assert_true(margin.get_theme_constant("margin_top") >= UI.top_bar_clearance(), "the hamburger/title row clears the top board")
+
+		screen.free()
+		GameState.reset()
+	)
+
 
 func _dark_toggle(controls: MapControls) -> CheckButton:
 	for child in controls._list.get_children():
