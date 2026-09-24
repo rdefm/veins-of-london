@@ -117,7 +117,7 @@ overlays.
 | app_tile.gd | Normalised icon+label+numeric-count-badge+lock tile for phone launchers |
 | bag_drawer.gd | Global bottom-sheet bag drawer; in combat, item buttons disable (with reason) per `Combat.selection_block_reason()` |
 | combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial beside flat 1px-ruled command rows (Complication readout, Attack, Item, Leg it), anchored to the true screen bottom; Attack/Item disabled per the current selection |
-| combat_director.gd | Combat beat-queue playback director |
+| combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns |
 | combat_stage.gd | Combat pixel stage: backdrop (location -> context -> palette); slots in two receding diagonal groups (enemies back/smaller), fitted to each sprite's visible figure, depth-sorted; keypose one-shots (sheet, `images` list, or random attack `variants`; player = `templates[player.model]`), effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot draws an arrow |
 | contact_cards.gd | Shared contact/faction card builders (incl. handler card, Targets/Sourcing, Nadia's ledger + "Go with Nadia"), inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
@@ -144,7 +144,7 @@ overlays.
 | time_transition.gd | Presentation queue (day/night atlas) |
 | top_bar.gd | Header: day/phase, cash, notices |
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
-| turn_order_strip.gd | Combat turn-order strip: one card per projected turn occurrence. Tap selects; drag scrolls (offset survives re-configure). Selected card grows into a reserved band. Street-sign styling, damage decals, HP ghost drain, `_reveal_pos()`, and playback reflow via `playback_occurrences()` + `advance_to()` |
+| turn_order_strip.gd | Combat turn-order strip: one card per projected turn occurrence. Tap selects; drag scrolls (offset survives re-configure). Selected card grows into a reserved band on the decision turn only; uniform during playback. Street-sign styling, damage decals, HP ghost drain, `_reveal_pos()`, and playback reflow via `playback_occurrences()` + `advance_to()` |
 | ui.gd | Shared Control builders, time-cost labels, ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
 | vein_bubble.gd | Compact player-vein tap bubble: map_card_style.gd-skinned pin-anchored card with edge flipping, Lv segments, condition needle with 50/90+ scale, outline development/raid cues, round Harvest (light/hard chooser)/Cultivate actions; tapping the info area opens vein_detail_panel.gd instead of running an action |
 | vein_detail_panel.gd | Floating map_card_style.gd-skinned vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/alarm/Defend; reuses VeinBubble's level/condition builders |
@@ -211,7 +211,7 @@ overlays.
 | barometer.json | barometer.gd |
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
-| combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets) |
+| combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets); combat_director.gd (pacing.turnPause) |
 | constants.json | time_system.gd, jobs.gd, GameState.gd (contacts roster incl. handler) |
 | daily_cycle.json | time_transition.gd (day/night atlas) |
 | dial.json | dial.gd |

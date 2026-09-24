@@ -958,6 +958,11 @@ func _validate_combat_visuals(combat_visuals: Dictionary, palette: Dictionary, e
 		if backdrops[Combat.CONTEXT_ARCHIE_DEAL_MUGGING] != backdrops[Combat.CONTEXT_MUGGING]:
 			errors.append("combat_visuals.backdrops.archie_deal_mugging: must exactly match backdrops.mugging (permanent alias, not its own plate)")
 
+	var turn_pause: Dictionary = combat_visuals.get("pacing", {}).get("turnPause", {})
+	for mode in CombatPacing.MODES:
+		if not (turn_pause.get(mode) is float or turn_pause.get(mode) is int):
+			errors.append("combat_visuals.pacing.turnPause: missing numeric entry for pacing mode '%s'" % mode)
+
 	# Location plates are optional per key, but an entry that exists must
 	# name an image -- an empty one would silently mask the context tier.
 	var location_backdrops: Dictionary = combat_visuals.get("locationBackdrops", {})

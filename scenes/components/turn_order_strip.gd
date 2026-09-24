@@ -259,6 +259,7 @@ func configure(entries: Array, selected_pos: int, combat: Dictionary, player: Di
 	_combat = combat
 	_player = player
 	_on_selection_changed = selection_callback
+	_resolving = false
 	_rebuild(available_width)
 	# Whatever drove a new selection (a sprite tap, most often -- a card tap
 	# is already visible by definition) may have picked an occurrence that
@@ -279,6 +280,7 @@ func advance_to(entries: Array, combat: Dictionary, player: Dictionary, duration
 	_entries = entries
 	_combat = combat
 	_player = player
+	_resolving = true
 	_rebuild(_available_width)
 	if duration <= 0.0 or not is_inside_tree():
 		return
@@ -348,6 +350,10 @@ var _cards_by_key: Dictionary = {}
 # _rebuild() so a queue advance mid-playback never drops a draining ghost.
 var _ghost_hp_by_key: Dictionary = {}
 var _advance_tween: Tween = null
+# True while a round plays back (advance_to() until the next configure()):
+# no card expands, so every beat reads at the same size -- the selected card
+# grows only on the player's decision turn.
+var _resolving := false
 
 
 static func _palette_colour(id: String) -> Color:
@@ -357,6 +363,10 @@ static func _palette_colour(id: String) -> Color:
 static func card_key_string(entry_key: Dictionary) -> String:
 	var index: int = entry_key["index"] if entry_key["type"] != "player" else -1
 	return "%s:%d" % [entry_key["type"], index]
+
+
+static func card_is_expanded(entry_key: Dictionary, selected_key: Dictionary, resolving: bool) -> bool:
+	return not resolving and entry_key == selected_key
 
 
 func _rebuild(available_width: float) -> void:
@@ -383,7 +393,7 @@ func _rebuild(available_width: float) -> void:
 	var x: float = 0.0
 	for i in range(_entries.size()):
 		var entry: Dictionary = _entries[i]
-		var is_selected: bool = entry["key"] == _selected_key
+		var is_selected: bool = card_is_expanded(entry["key"], _selected_key, _resolving)
 		var w: float = base_width + (EXPANDED_WIDTH_BONUS_PX if is_selected else 0.0)
 		var h: float = _expanded_height_for(entry) if is_selected else CARD_HEIGHT
 		_card_rects.append(Rect2(Vector2(x, 0.0), Vector2(w, h)))
@@ -396,7 +406,7 @@ func _rebuild(available_width: float) -> void:
 
 	for i in range(_entries.size()):
 		var entry: Dictionary = _entries[i]
-		var is_selected: bool = entry["key"] == _selected_key
+		var is_selected: bool = card_is_expanded(entry["key"], _selected_key, _resolving)
 		var card := _build_card(entry, is_selected, _card_rects[i].size)
 		card.size_flags_vertical = Control.SIZE_FILL if is_selected else Control.SIZE_SHRINK_BEGIN
 		_row.add_child(card)

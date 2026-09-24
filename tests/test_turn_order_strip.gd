@@ -742,6 +742,32 @@ func run() -> void:
 		strip.free()
 	)
 
+	run_case("cards_are_uniform_during_playback_and_the_selected_card_grows_again_on_the_decision_turn", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		var combat := _combat([Fixtures.enemy("E1"), Fixtures.enemy("E2")])
+		var strip := TurnOrderStrip.new()
+		var entries := strip.build_entries(combat, player)
+		strip.configure(entries, 0, combat, player, 300.0, Callable())
+		assert_eq(_cards(strip)[0].size.x, TurnOrderStrip.MAX_CARD_WIDTH + TurnOrderStrip.EXPANDED_WIDTH_BONUS_PX, "sanity: decision turn expands the selected card")
+
+		strip.advance_to(entries, combat, player, 0.0)
+		for card in _cards(strip):
+			assert_eq(card.size, Vector2(TurnOrderStrip.MAX_CARD_WIDTH, TurnOrderStrip.CARD_HEIGHT), "resolving: every card the same size")
+			assert_true(not card.is_focused)
+
+		strip.configure(entries, 0, combat, player, 300.0, Callable())
+		assert_eq(_cards(strip)[0].size.x, TurnOrderStrip.MAX_CARD_WIDTH + TurnOrderStrip.EXPANDED_WIDTH_BONUS_PX, "back on the decision turn the selected card grows")
+		strip.free()
+	)
+
+	run_case("card_is_expanded_only_for_the_selected_key_outside_playback", func():
+		var key := { "type": "enemy", "index": 0 }
+		assert_true(TurnOrderStrip.card_is_expanded(key, key, false))
+		assert_true(not TurnOrderStrip.card_is_expanded(key, key, true))
+		assert_true(not TurnOrderStrip.card_is_expanded(key, { "type": "player", "index": -1 }, false))
+	)
+
 	run_case("advance_to_rebuilds_the_cards_in_the_new_order_and_keeps_a_draining_ghost", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]

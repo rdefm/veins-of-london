@@ -44,3 +44,32 @@ func run() -> void:
 		assert_true(director._active_tween != null, "a tween should be kicked off for the beat's paced pause")
 		assert_true(director.is_playing())
 	)
+
+	run_case("turn_pause_is_data_driven_and_shorter_on_quick_pacing", func():
+		var pauses: Dictionary = GameData.COMBAT_VISUALS["pacing"]["turnPause"]
+		assert_eq(CombatDirector.turn_pause_for("normal"), float(pauses["normal"]))
+		assert_eq(CombatDirector.turn_pause_for("quick"), float(pauses["quick"]))
+		assert_true(CombatDirector.turn_pause_for("quick") < CombatDirector.turn_pause_for("normal"))
+		assert_true(CombatDirector.turn_pause_for("normal") > 0.0)
+	)
+
+	run_case("is_turn_boundary_only_between_beats_of_different_occurrences", func():
+		var beats: Array = [_turn_beat("0:0"), _turn_beat("0:0"), _turn_beat("0:1"), _turn_beat(""), _turn_beat("1:0")]
+		assert_true(not CombatDirector.is_turn_boundary(beats, 0), "two beats of one turn (e.g. a Motion double attack) play back to back")
+		assert_true(CombatDirector.is_turn_boundary(beats, 1))
+		assert_true(CombatDirector.is_turn_boundary(beats, 2), "a round-boundary beat reads as its own turn")
+		assert_true(CombatDirector.is_turn_boundary(beats, 3))
+		assert_true(not CombatDirector.is_turn_boundary(beats, 4), "no pause after the last beat")
+	)
+
+	run_case("is_turn_boundary_holds_for_reversed_rewind_playback", func():
+		var beats: Array = [_turn_beat("0:1"), _turn_beat("0:0"), _turn_beat("0:0")]
+		beats.reverse()
+		assert_true(not CombatDirector.is_turn_boundary(beats, 0))
+		assert_true(CombatDirector.is_turn_boundary(beats, 1))
+	)
+
+
+func _turn_beat(occurrence_id: String) -> Dictionary:
+	var occurrence: Variant = null if occurrence_id.is_empty() else { "occurrenceId": occurrence_id }
+	return { "kind": "player_attack", "logLine": "x", "occurrence": occurrence }
