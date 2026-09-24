@@ -268,7 +268,7 @@ static func roll_rivalry_attempts() -> Array:
 			continue
 		if not Rng.chance(_initiation_chance(faction_id)):
 			continue
-		var target: Dictionary = _pick_target_vein(candidates)
+		var target: Dictionary = _pick_target_vein(faction_id, candidates)
 		attempts.append({
 			"attackerId": faction_id,
 			"defenderId": target["vein"]["factionId"],
@@ -297,11 +297,13 @@ static func _eligible_rival_veins(faction_id: String) -> Array:
 
 
 # Weighted by vein value (basePrice * combined_magnitude) -- attackers favour a rival's crown jewel over scraps.
-static func _pick_target_vein(candidates: Array) -> Dictionary:
+# Collective.firm_target_multiplier() scales that while the Firm is provoked (spec §6.7).
+static func _pick_target_vein(attacker_id: String, candidates: Array) -> Dictionary:
 	var weight_list: Array[float] = []
 	for candidate in candidates:
 		var vein: Dictionary = candidate["vein"]
-		weight_list.append(GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein))
+		var value: float = GameData.ORE_TYPES[vein["oreType"]]["basePrice"] * Cultivating.combined_magnitude(vein)
+		weight_list.append(value * Collective.firm_target_multiplier(attacker_id, vein["factionId"]))
 	return candidates[weighted_pick_index(weight_list)]
 
 

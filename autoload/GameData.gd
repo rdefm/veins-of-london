@@ -1084,6 +1084,9 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# col_a2_hakim_retake's choices (T13, spec §5.4): Collective.
 	# ruin_hakim_site() empties Hakim's retaken site for good.
 	"col_a2_ruin_site",
+	# col_a2_hostile_member's "make an example" (T7, spec §6.7): Collective.
+	# provoke_firm() stamps a timed Firm-targets-Collective weight multiplier.
+	"col_a2_provoke_firm",
 	# Network handler products (spec §5.3): NetworkHandler.reveal_vulnerable_
 	# vein() (site id from effect/context, "effect" claim_bonus|security_freeze)
 	# and NetworkHandler.reveal_site() ("oreType", "minTier").

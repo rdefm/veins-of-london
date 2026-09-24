@@ -425,6 +425,9 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_key(state.get("collective", {}), "hakimIntelLastDay")
 	for intel in state.get("collective", {}).get("networkIntel", {}).values():
 		_int_key(intel, "expiresDay")
+	var firm_provocation = state.get("collective", {}).get("firmProvocation")
+	if firm_provocation != null:
+		_int_key(firm_provocation, "expiresDay")
 	var payroll_summary = state.get("payroll", {}).get("lastSummary")
 	if payroll_summary != null:
 		_int_key(payroll_summary, "day")

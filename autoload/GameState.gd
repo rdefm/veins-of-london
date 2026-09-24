@@ -330,6 +330,10 @@ func new_game_state() -> Dictionary:
 			# effect: "claim_bonus"|"security_freeze", magnitude }. Active while
 			# state.world.day < expiresDay; pruned by NetworkHandler.expire_intel().
 			"networkIntel": {},
+			# Act 2 T7 "make an example" (spec §6.7): { multiplier, expiresDay }
+			# scaling the Firm's target weight on Collective veins while
+			# state.world.day < expiresDay. null when not provoked.
+			"firmProvocation": null,
 		},
 	}
 

@@ -1,0 +1,49 @@
+{
+  "id": "col_a2_hostile_member",
+  "pin": {
+    "district": "shoreditch",
+    "showWhenFlagsTrue": ["colA2Stage"],
+    "showWhenFlagsFalse": ["colA2HostileMemberDone"]
+  },
+  "cards": [
+    { "type": "narration", "label": "Shoreditch", "speaker": null, "text": "A back room over a print shop. Des has the kettle on, which usually means the news is bad and he'd like to be holding something." },
+    { "type": "speaker", "label": null, "speaker": "Des", "text": "\"One of ours has been paying the Firm. Small amounts, regular. So the Firm leaves their patch alone. They're not selling us out - they're frightened, and they've got a vein and two kids.\"" },
+    { "type": "speaker", "label": null, "speaker": "Nadia", "text": "\"Everyone knows. That's the problem. Everyone's watching to see what we do about it.\"" },
+    {
+      "type": "choice", "label": null, "speaker": null, "text": "What the Collective does about it.",
+      "choices": [
+        {
+          "label": "Let it go",
+          "effects": [
+            { "op": "faction_relation", "faction": "collective", "value": -3 },
+            { "op": "log_method", "key": "a2HostileMember", "value": "absorbed" }
+          ],
+          "result_text": "Nobody says anything to them. They keep paying. A few people stop sitting next to Des at meetings, and don't say why."
+        },
+        {
+          "label": "Make an example of them",
+          "effects": [
+            { "op": "col_a2_provoke_firm", "multiplier": 3, "days": 7 },
+            { "op": "log_method", "key": "a2HostileMember", "value": "example" }
+          ],
+          "result_text": "It's done loudly, so it gets round. It gets round the Firm as well, who take it personally that someone stopped paying them."
+        },
+        {
+          "label": "Cover their vein instead (£150)",
+          "effects": [
+            { "op": "add", "path": "player.cash", "value": -150 },
+            { "op": "add", "path": "factions.collective.resources", "value": 150 },
+            { "op": "faction_relation", "faction": "collective", "value": 3 },
+            { "op": "log_method", "key": "a2HostileMember", "value": "protected" }
+          ],
+          "result_text": "The Collective puts someone on their patch, paid for properly. They stop paying the Firm the same week. Nadia writes the arrangement down."
+        }
+      ]
+    },
+    { "type": "resolution", "label": null, "speaker": null, "text": "Des washes the mugs up himself. He doesn't say whether he'd have done it differently." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "colA2HostileMemberDone", "value": true },
+    { "op": "set_screen", "screen": "map" }
+  ]
+}

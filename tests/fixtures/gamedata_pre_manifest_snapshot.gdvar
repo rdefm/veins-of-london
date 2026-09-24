@@ -2859,6 +2859,93 @@
 "screen": "phone"
 }]
 },
+"col_a2_hostile_member": {
+"cards": [{
+"label": "Shoreditch",
+"speaker": null,
+"text": "A back room over a print shop. Des has the kettle on, which usually means the news is bad and he'd like to be holding something.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Des",
+"text": "\"One of ours has been paying the Firm. Small amounts, regular. So the Firm leaves their patch alone. They're not selling us out - they're frightened, and they've got a vein and two kids.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Nadia",
+"text": "\"Everyone knows. That's the problem. Everyone's watching to see what we do about it.\"",
+"type": "speaker"
+}, {
+"choices": [{
+"effects": [{
+"faction": "collective",
+"op": "faction_relation",
+"value": -3
+}, {
+"key": "a2HostileMember",
+"op": "log_method",
+"value": "absorbed"
+}],
+"label": "Let it go",
+"result_text": "Nobody says anything to them. They keep paying. A few people stop sitting next to Des at meetings, and don't say why."
+}, {
+"effects": [{
+"days": 7,
+"multiplier": 3,
+"op": "col_a2_provoke_firm"
+}, {
+"key": "a2HostileMember",
+"op": "log_method",
+"value": "example"
+}],
+"label": "Make an example of them",
+"result_text": "It's done loudly, so it gets round. It gets round the Firm as well, who take it personally that someone stopped paying them."
+}, {
+"effects": [{
+"op": "add",
+"path": "player.cash",
+"value": -150
+}, {
+"op": "add",
+"path": "factions.collective.resources",
+"value": 150
+}, {
+"faction": "collective",
+"op": "faction_relation",
+"value": 3
+}, {
+"key": "a2HostileMember",
+"op": "log_method",
+"value": "protected"
+}],
+"label": "Cover their vein instead (£150)",
+"result_text": "The Collective puts someone on their patch, paid for properly. They stop paying the Firm the same week. Nadia writes the arrangement down."
+}],
+"label": null,
+"speaker": null,
+"text": "What the Collective does about it.",
+"type": "choice"
+}, {
+"label": null,
+"speaker": null,
+"text": "Des washes the mugs up himself. He doesn't say whether he'd have done it differently.",
+"type": "resolution"
+}],
+"id": "col_a2_hostile_member",
+"on_complete": [{
+"flag": "colA2HostileMemberDone",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "map"
+}],
+"pin": {
+"district": "shoreditch",
+"showWhenFlagsFalse": ["colA2HostileMemberDone"],
+"showWhenFlagsTrue": ["colA2Stage"]
+}
+},
 "col_a2_intro": {
 "cards": [{
 "label": "Now",

@@ -387,6 +387,27 @@ static func pick_nadia_defend_vein() -> void:
 	GameState.state["collective"]["nadiaDefendVeinId"] = vein["id"] if vein != null else null
 
 
+# T7 "make an example" (spec §6.7): provokes rather than deters -- for `days`
+# days the Firm weights Collective-held veins `multiplier`x when picking a
+# rivalry target. A later call overwrites rather than stacks.
+static func provoke_firm(multiplier: float, days: int) -> void:
+	GameState.state["collective"]["firmProvocation"] = {
+		"multiplier": multiplier,
+		"expiresDay": GameState.state["world"]["day"] + days,
+	}
+
+
+# Factions._pick_target_vein()'s per-candidate weight scale; 1.0 unless the
+# Firm is the attacker, the Collective the defender, and provocation is live.
+static func firm_target_multiplier(attacker_id: String, defender_id: String) -> float:
+	if attacker_id != "firm" or defender_id != "collective":
+		return 1.0
+	var provocation: Variant = GameState.state["collective"].get("firmProvocation")
+	if provocation == null or GameState.state["world"]["day"] >= int(provocation["expiresDay"]):
+		return 1.0
+	return float(provocation["multiplier"])
+
+
 # Called from Raiding.resolve_raid_outcome() on every ownership-transferring
 # loss. Spec §6.8a: "should re-target a different Collective vein rather
 # than dead-end" if the vein col_a2_nadia_defend was watching is the one

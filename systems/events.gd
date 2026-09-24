@@ -326,6 +326,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		# Collective.pick_nadia_defend_vein() picks and writes the target itself.
 		"col_a2_pick_nadia_defend_vein":
 			Collective.pick_nadia_defend_vein()
+		"col_a2_provoke_firm":
+			Collective.provoke_firm(float(effect["multiplier"]), int(effect["days"]))
 		# Act 2 T10/T11 (spec §5.4): unrolled ownership transfer. veinIdStatePath
 		# names the vein (T10, Hakim's); without it, Collective picks T11's target.
 		"col_a2_force_vein_loss":
