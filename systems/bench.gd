@@ -220,15 +220,13 @@ static func can_refine(types: Array, approach: String) -> bool:
 
 
 # Re-experiments an already-found effect to push it toward its next tier. Ore
-# and a time block are spent regardless of outcome (M3 §7's "ore deduction:
-# always"); on success the cell's refine tier increments, which is the entirety
+# is spent regardless of outcome (M3 §7's "ore deduction: always"); bench work
+# costs no time block. On success the cell's refine tier increments, which is the entirety
 # of "applying" refineStep -- refined_value() reads it back out. Inert and never-found cells are never reachable here (M3 §5).
 static func refine(types: Array, approach: String) -> Dictionary:
 	var reason := refine_block_reason(types, approach)
 	if reason != "":
 		return { "ok": false, "reason": reason }
-
-	TimeSystem.advance_time_block()
 
 	var player: Dictionary = GameState.state["player"]
 	var costs := refine_cost(types, approach)
@@ -337,14 +335,12 @@ static func _append_note(types: Array, approach: String, outcome: String) -> voi
 
 # Runs an experiment against a pairing+approach cell. Resolves the cell's
 # permanent truth (empty -> inert, forever) or rolls an occupied cell (hit ->
-# found; miss -> hot, pity accrues). Ore and a time block are spent and XP is
+# found; miss -> hot, pity accrues). Ore is spent (no time block) and XP is
 # awarded on every attempt that isn't blocked, regardless of outcome (M3 §7's "ore deduction: always" plus the discovery-XP rows).
 static func probe(types: Array, approach: String) -> Dictionary:
 	var reason := probe_block_reason(types, approach)
 	if reason != "":
 		return { "ok": false, "reason": reason }
-
-	TimeSystem.advance_time_block()
 
 	var player: Dictionary = GameState.state["player"]
 	var costs := discovery_cost(types)

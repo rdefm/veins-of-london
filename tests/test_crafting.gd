@@ -50,6 +50,15 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 95, "5 calc deducted regardless of success/fail")
 	)
 
+	run_case("attempt_craft_costs_no_time_and_works_when_time_exhausted", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+		assert_true(Crafting.attempt_craft("timePearl")["ok"], "spent day doesn't block crafting")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 3, "crafting costs no time block")
+		assert_eq(GameState.state["world"]["day"], 1)
+	)
+
 	run_case("attempt_craft_multi_ingredient_deducts_all_and_blocks_if_any_insufficient", func():
 		GameData.RECIPES["_testMultiIngredient"] = {
 			"name": "Test Multi",

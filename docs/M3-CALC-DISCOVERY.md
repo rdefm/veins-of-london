@@ -18,7 +18,7 @@ Everything in §3 exists to solve that sentence.
 
 | Pillar | How this feature serves it |
 |---|---|
-| 1. The business is the game | An experiment costs a time block. Every bench session is a day-routing decision against harvesting, selling and travel. Discovered effects become craftable goods with sale value. |
+| 1. The business is the game | An experiment costs ore, not time. Discovered effects become craftable goods with sale value. |
 | 2. London is a place | Weak link, deliberately. The bench is at HQ. Approaches arrive via home rooms, which ties it to the property ladder rather than the map. |
 | 3. Everything is priced | Ore, a block, and — the interesting one — **information**. The census (§3.3) is knowledge the player buys with their first probe. |
 | 4. Menace and comedy | Failure prose is the main surface. Dry, administrative, occasionally alarming. One line per result, never three. |
@@ -148,7 +148,7 @@ Pairing panel                     prose census + your approaches, state marked
   ↓
 Pick an approach                  spent rows untappable; unlearned rows show their source
   ↓
-Confirm: ore cost · 1 time block · odds shown
+Confirm: ore cost · odds shown
   ↓
 [animation]
   ↓
@@ -157,7 +157,7 @@ Result:  found · something nearly took · inert · refined to II
 Note appended to that pairing's bench notes
 ```
 
-Roughly three experiments a day if the player does nothing else — the bench competes with the rest of the day, which is pillar 1 working as intended.
+Experiments cost no time block (playtest 2026-09-24); ore is the only throttle.
 
 ---
 
@@ -167,7 +167,7 @@ Roughly three experiments a day if the player does nothing else — the bench co
 
 | Quantity | Proposal | Rationale |
 |---|---|---|
-| Time cost | 1 block per experiment | Chosen: the bench must compete with the day. |
+| Time cost | None — probe, refine and craft are free of time | Playtest 2026-09-24: ore cost alone throttles the bench. |
 | Ore cost — discovery | 3 units of each type in the set (3 single / 3+3 pair) | Chosen: cheap. Experimenting is a time sink, not a money sink, so ore-poor early players can play. |
 | Ore cost — refinement tier *n* | `3 × (n + 1)` of each type | Rises fast enough to bite by tier 3. |
 | Discovery chance | `min(0.90, 0.35 + (skill − 1) × 0.12 + workshopBonus + pity)` | Mirrors the shape of `craftChance` (R§3.5) so it reads as the same game. |
@@ -476,7 +476,7 @@ The one asymmetry worth allowing: an NPC's effect may sit behind an approach the
 - **`craftingSkill`** — the bench both consumes it (odds) and feeds it (XP). Discovery XP is the largest single source, which is intended: experimenting is how a crafter grows.
 - **`workshopBonus`** (`Home.get_workshop_bonus()`) — applies to discovery odds exactly as it does to `craftChance`. Rooms already carry a crafting bonus; they should not need a second one.
 - **Affinities** (`VISION.md` §5b, unbuilt) — when they land, an Attuned type should raise odds on any cell whose set contains it. Noted, not designed here.
-- **Time blocks** — one per experiment via `TimeSystem`. No special casing.
+- **Time blocks** — none; bench work never calls `TimeSystem`.
 - **Snapshots / Rewind** — `player.bench` is pure data and rides along free. Needs a test.
 - **Lab room** (R§3.10) — a contact in the lab crafts to thresholds. It should **not** experiment; discovery is the player's. Assigning a contact to the lab enabling the `distilling` approach is the lab's contribution here.
 

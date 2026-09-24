@@ -6,7 +6,7 @@ extends RefCounted
 static func append_refine_controls(container: Control, recipe: Dictionary, types: Array, approach: String) -> void:
 	var tier := Bench.refine_tier_target(types, approach)
 	var reason := Bench.refine_block_reason(types, approach)
-	var refine_btn := UI.button(UI.format_block_cost_label("Refine to tier %d" % tier, 1, reason.is_empty()), func(): _on_refine_pressed(recipe["name"], types, approach, tier))
+	var refine_btn := UI.button("Refine to tier %d" % tier, func(): _on_refine_pressed(recipe["name"], types, approach, tier))
 	refine_btn.disabled = reason != ""
 	container.add_child(refine_btn)
 	if reason != "":

@@ -196,13 +196,23 @@ func run() -> void:
 		assert_eq(Bench.cell_state(["time"], "distilling"), "untried")
 	)
 
-	run_case("probe_advances_a_time_block", func():
+	run_case("probe_costs_no_time_block", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 100
 		GameState.state["player"]["orichalchum"]["life"] = 100
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 0)
 		Bench.probe(["life", "time"], "heat")
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "an experiment costs one time block")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 0, "an experiment costs no time block")
+		assert_eq(GameState.state["world"]["timeBlock"], 0)
+	)
+
+	run_case("probe_allowed_when_time_exhausted", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+		assert_true(TimeSystem.is_time_exhausted())
+		assert_true(Bench.probe(["life", "time"], "heat")["ok"], "spent day doesn't block the bench")
+		assert_eq(GameState.state["world"]["day"], 1, "day doesn't roll over")
 	)
 
 	run_case("refine_is_blocked_on_an_inert_cell", func():
@@ -340,14 +350,15 @@ func run() -> void:
 		GameData.RECIPES.erase("_testBenchEffect")
 	)
 
-	run_case("refine_advances_a_time_block", func():
+	run_case("refine_costs_no_time_block_and_works_when_time_exhausted", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 100
 		GameState.state["player"]["orichalchum"]["life"] = 100
 		GameState.state["player"]["bench"]["cells"]["life+time|heat"] = { "state": "found", "misses": 0, "refine": 0 }
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 0)
-		Bench.refine(["life", "time"], "heat")
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "a refinement attempt costs one time block")
+		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
+		assert_true(Bench.refine(["life", "time"], "heat")["ok"], "spent day doesn't block refining")
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 3, "a refinement attempt costs no time block")
+		assert_eq(GameState.state["world"]["day"], 1, "day doesn't roll over")
 	)
 
 	run_case("refine_blocked_without_enough_ore_deducts_nothing", func():

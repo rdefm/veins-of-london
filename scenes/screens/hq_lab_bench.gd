@@ -167,7 +167,6 @@ func _filter_and_label_apparatus_regions(regions: Dictionary, nav: Dictionary) -
 			suffix = " — %s" % GameData.RECIPES[recipe_key]["name"]
 		elif not selected.is_empty() and Bench.can_probe(selected, approach_id):
 			suffix = " — ready"
-			region["caption"] = UI.block_cost_suffix(1)
 		region["label"] = region.get("label", region_id) + suffix
 func _on_diorama_gui_input(event: InputEvent) -> void:
 	# Touch-emulated mouse events (device DEVICE_ID_EMULATION) twin every real
