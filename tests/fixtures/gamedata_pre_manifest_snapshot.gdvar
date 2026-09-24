@@ -751,34 +751,24 @@
 "CRAFTING_XP_LEVELS": [0, 0, 80, 220, 500, 1000],
 "CULTIVATING_XP_LEVELS": [0, 0, 80, 220, 500, 1000],
 "DAILY_CYCLE": {
-"atlas": "res://assets/daily_cycle/cycle.png",
-"background": "#111820",
-"cellSize": 73,
-"columns": 7,
+"bodyOutline": "#524962",
+"bodyRim": 2,
+"clips": [{"id": "morning_to_afternoon", "moon": null, "sky": [["#8ebdd7", "#c8dacf"], ["#6ca6d1", "#f1c18e"]], "sun": [[157, 35], [186, 59]]}, {"id": "afternoon_to_evening", "moon": [[128, 100], [157, 43]], "sky": [["#6ca6d1", "#f1c18e"], ["#223555", "#a56d73"]], "sun": [[186, 59], [202, 96]]}, {"id": "evening_to_morning", "moon": [[157, 43], [199, 101]], "sky": [["#223555", "#a56d73"], ["#8ebdd7", "#c8dacf"]], "sun": [[128, 102], [157, 35]]}],
 "destinationLabel": "Day %d — %s",
-"displaySize": 365,
+"diameter": 220,
+"dimColor": "#08111db0",
 "durationSeconds": 1.75,
-"frameCount": 42,
+"entrySeconds": 0.32,
+"exitSeconds": 0.32,
+"foreground": "res://assets/daily_cycle/park_foreground.png",
+"labelGap": 12,
+"moonColor": "#f1ebcb",
+"moonCutout": [0.45, -0.3, 0.75],
+"moonRadius": 11,
 "outcomeHoldSeconds": 0.75,
-"ranges": {
-"afternoon_to_evening": {
-"count": 14,
-"size": [72, 72],
-"start": 14
-},
-"evening_to_morning": {
-"count": 14,
-"size": [73, 73],
-"start": 28
-},
-"morning_to_afternoon": {
-"count": 14,
-"size": [73, 73],
-"start": 0
-}
-},
 "reducedMotionLabel": "Reduced motion",
-"rows": 6,
+"sunColor": "#ffe29c",
+"sunRadius": 13,
 "textColor": "#f4efdf"
 },
 "DAY_CLOCK": {

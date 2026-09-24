@@ -7,8 +7,9 @@ func _overlay() -> Control:
 	GameState.reset()
 	GameState.state["currentScreen"] = "hq"
 	var overlay := Overlay.new()
-	overlay.size = Vector2(390, 844)
 	overlay._ready()
+	overlay.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	overlay.size = Vector2(390, 844)
 	return overlay
 
 
@@ -104,9 +105,12 @@ func run() -> void:
 		preload("res://systems/preferences.gd").set_reduced_motion(true)
 		TimeSystem.advance_time_block()
 		UiSim.advance(overlay, 0.8)
-		var region: Rect2 = overlay.picture.texture.region
+		var frame: Dictionary = overlay.frame.duplicate(true)
+		var position: Vector2 = overlay.art_position
 		UiSim.advance(overlay, 1.0)
-		assert_eq(overlay.picture.texture.region, region)
+		assert_eq(overlay.frame, frame)
+		assert_eq(overlay.art_position, position)
+		assert_eq(overlay.frame["progress"], 1.0)
 		assert_true(overlay.active)
 		var saved := SaveManager.export_string()
 		assert_true(SaveManager.import_string(saved)["ok"])
@@ -117,16 +121,63 @@ func run() -> void:
 		assert_eq(SaveManager.export_string(), saved)
 		overlay.free()
 	)
-	run_case("atlas_ranges_fit_and_preserve_authored_frame_dimensions", func():
+	run_case("park_art_is_square_with_transparent_sky_and_coloured_landmarks", func():
 		var overlay := _overlay()
 		var config: Dictionary = GameData.DAILY_CYCLE
-		assert_eq(overlay.atlas.get_width(), int(config["columns"]) * int(config["cellSize"]))
-		assert_eq(overlay.atlas.get_height(), int(config["rows"]) * int(config["cellSize"]))
-		for entry in config["ranges"].values():
-			assert_true(entry["start"] + entry["count"] <= config["frameCount"])
-			assert_true(entry["size"][0] <= config["cellSize"])
-			assert_true(entry["size"][1] <= config["cellSize"])
+		assert_eq(config["diameter"], 220)
+		assert_eq(overlay.foreground.get_width(), overlay.foreground.get_height())
+		var pixels := Image.new()
+		assert_eq(pixels.load_png_from_buffer(FileAccess.get_file_as_bytes(config["foreground"])), OK)
+		assert_eq(pixels.get_pixel(0, 0).a, 0.0)
+		assert_true(pixels.get_pixel(627, 627).a < 0.01, "central sky remains transparent for animation")
+		for point in [Vector2i(550, 660), Vector2i(850, 650), Vector2i(1150, 650)]:
+			var colour := pixels.get_pixelv(point)
+			assert_true(colour.a > 0.9, "all three landmark regions contain opaque art")
+			assert_true(colour.r != colour.g or colour.g != colour.b, "landmarks carry colour")
 		overlay.free()
+	)
+	run_case("circle_and_label_rise_hold_and_exit_together", func():
+		var overlay := _overlay()
+		TimeSystem.advance_time_block()
+		UiSim.advance(overlay, 0.75)
+		var start_y: float = overlay.art_position.y
+		assert_true(start_y > overlay.size.y)
+		assert_eq(overlay.destination.position.y, start_y + 232.0)
+		UiSim.advance(overlay, 0.32)
+		var hold_y: float = overlay.art_position.y
+		assert_true(hold_y > 0.0 and hold_y < overlay.size.y - 220.0)
+		assert_eq(overlay.art_position.x, 85.0)
+		assert_eq(overlay.destination.size.x, 220.0)
+		assert_eq(overlay.destination.position.y, hold_y + 232.0)
+		UiSim.advance(overlay, 0.9)
+		assert_eq(overlay.art_position.y, hold_y)
+		UiSim.advance(overlay, 0.55)
+		assert_true(overlay.art_position.y > overlay.size.y)
+		overlay.free()
+	)
+	run_case("all_phase_clips_move_the_sun_and_moon_and_rest_traverses_order", func():
+		for phase in range(3):
+			var overlay := _overlay()
+			GameState.state["world"]["timeBlock"] = phase
+			TimeSystem.advance_time_block()
+			UiSim.advance(overlay, 0.8)
+			var start: Dictionary = overlay._sky_frame(0.0)
+			var finish: Dictionary = overlay._sky_frame(1.0)
+			assert_eq(start["clip"], GameData.DAILY_CYCLE["clips"][phase]["id"])
+			assert_true(start["sun"] != finish["sun"])
+			if phase > 0:
+				assert_true(start["moon"] != finish["moon"])
+			assert_true(start["top"] != finish["top"])
+			overlay.free()
+			var rest_overlay := _overlay()
+			GameState.state["world"]["timeBlock"] = phase
+			TimeSystem.do_rest()
+			UiSim.advance(rest_overlay, 0.8)
+			var clips: Array = GameData.DAILY_CYCLE["clips"]
+			for index in range(phase, 3):
+				var sample := (float(index - phase) + 0.5) / float(3 - phase)
+				assert_eq(rest_overlay._sky_frame(sample)["clip"], clips[index]["id"])
+			rest_overlay.free()
 	)
 	await run_case("live_overlay_blocks_press_and_held_release_then_returns_input", func():
 		GameState.reset()

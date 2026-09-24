@@ -1,39 +1,39 @@
 {
-  "atlas": "res://assets/daily_cycle/cycle.png",
-  "frameCount": 42,
-  "columns": 7,
-  "rows": 6,
-  "cellSize": 73,
-  "ranges": {
-    "morning_to_afternoon": {
-      "start": 0,
-      "count": 14,
-      "size": [
-        73,
-        73
-      ]
+  "foreground": "res://assets/daily_cycle/park_foreground.png",
+  "diameter": 220,
+  "labelGap": 12,
+  "entrySeconds": 0.32,
+  "exitSeconds": 0.32,
+  "clips": [
+    {
+      "id": "morning_to_afternoon",
+      "sky": [["#8ebdd7", "#c8dacf"], ["#6ca6d1", "#f1c18e"]],
+      "sun": [[157, 35], [186, 59]],
+      "moon": null
     },
-    "afternoon_to_evening": {
-      "start": 14,
-      "count": 14,
-      "size": [
-        72,
-        72
-      ]
+    {
+      "id": "afternoon_to_evening",
+      "sky": [["#6ca6d1", "#f1c18e"], ["#223555", "#a56d73"]],
+      "sun": [[186, 59], [202, 96]],
+      "moon": [[128, 100], [157, 43]]
     },
-    "evening_to_morning": {
-      "start": 28,
-      "count": 14,
-      "size": [
-        73,
-        73
-      ]
+    {
+      "id": "evening_to_morning",
+      "sky": [["#223555", "#a56d73"], ["#8ebdd7", "#c8dacf"]],
+      "sun": [[128, 102], [157, 35]],
+      "moon": [[157, 43], [199, 101]]
     }
-  },
+  ],
+  "sunRadius": 13,
+  "sunColor": "#ffe29c",
+  "moonRadius": 11,
+  "moonColor": "#f1ebcb",
+  "moonCutout": [0.45, -0.3, 0.75],
+  "bodyRim": 2,
+  "bodyOutline": "#524962",
   "durationSeconds": 1.75,
   "outcomeHoldSeconds": 0.75,
-  "displaySize": 365,
-  "background": "#111820",
+  "dimColor": "#08111db0",
   "textColor": "#f4efdf",
   "destinationLabel": "Day %d \u2014 %s",
   "reducedMotionLabel": "Reduced motion"

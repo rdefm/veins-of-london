@@ -141,7 +141,7 @@ overlays.
 | phone_device_shell.gd | Persistent rounded simulated-phone frame: clipped display, approved London wallpaper, fixed status/widget chrome, dark opened-app surface + shared/custom content mounts |
 | phone_home_dock.gd | Home-only translucent three-destination Phone/Messages/Settings dock |
 | symbol_glyph.gd | Label-or-vector fallback for a symbol |
-| time_transition.gd | Presentation queue (day/night atlas) |
+| time_transition.gd | Transient time queue, input guard, dimmed circular park/sky/sun/moon presentation |
 | top_bar.gd | Header: day/phase, cash, notices |
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
 | turn_order_strip.gd | Combat turn-order strip: one card per projected turn occurrence. Tap selects; drag scrolls (offset survives re-configure). Selected card grows into a reserved band on the decision turn only; uniform during playback. Street-sign styling, damage decals, HP ghost drain, `_reveal_pos()`, and playback reflow via `playback_occurrences()` + `advance_to()` |
@@ -213,7 +213,7 @@ overlays.
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets); combat_director.gd (pacing.turnPause) |
 | constants.json | time_system.gd, jobs.gd, GameState.gd (contacts roster incl. handler) |
-| daily_cycle.json | time_transition.gd (day/night atlas) |
+| daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |
 | enemies.json | combat.gd |
@@ -272,8 +272,9 @@ live-tree check.
 
 ## tools/*.py, *.html, *.js — asset/content pipeline tooling
 
-`png_io.py` is a pure-stdlib PNG reader/writer. `make_palette_swatch.py`/`pack_daily_cycle.py`
-render the palette swatch and daily-cycle atlas. `quest-editor.html`/`quest-editor-mobile.html`
+`png_io.py` is a pure-stdlib PNG reader/writer. `make_palette_swatch.py` renders
+the palette swatch; `pack_daily_cycle.py` preserves the retired cycle-atlas pipeline.
+`quest-editor.html`/`quest-editor-mobile.html`
 are the desktop/mobile quest content editors (`data/events/*.json`); `test_quest_editor.js`
 unit-tests the desktop editor.
 

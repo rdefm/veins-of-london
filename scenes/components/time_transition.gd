@@ -8,9 +8,10 @@ var elapsed := 0.0
 var safe_elapsed := 0.0
 var session: Dictionary = {}
 var current: Dictionary = {}
-var picture: TextureRect
 var destination: Label
-var atlas: Texture2D
+var foreground: Texture2D
+var art_position := Vector2.ZERO
+var frame: Dictionary = {}
 var held_inputs: Dictionary = {}
 
 
@@ -21,30 +22,13 @@ func _ready() -> void:
 	visible = false
 	session = GameState.state
 	var config: Dictionary = GameData.DAILY_CYCLE
-	atlas = load(config["atlas"])
-	var background := ColorRect.new()
-	background.color = Color(config["background"])
-	UI.anchor_full_rect(background)
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(background)
-	var center := CenterContainer.new()
-	UI.anchor_full_rect(center)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(center)
-	var column := VBoxContainer.new()
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.add_child(column)
-	picture = TextureRect.new()
-	picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	picture.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(picture)
+	foreground = load(config["foreground"])
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	destination = Label.new()
 	destination.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	destination.add_theme_color_override("font_color", Color(config["textColor"]))
 	destination.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(destination)
+	add_child(destination)
 	EventBus.time_advanced.connect(_capture)
 
 
@@ -62,6 +46,7 @@ func _sync_session() -> void:
 	active = false
 	visible = false
 	current = {}
+	frame = {}
 	safe_elapsed = 0.0
 
 
@@ -106,41 +91,87 @@ func _process(delta: float) -> void:
 
 func _render_frame() -> void:
 	var config: Dictionary = GameData.DAILY_CYCLE
-	var ranges: Dictionary = config["ranges"]
-	var source: Dictionary = current["source"]
-	var target: Dictionary = current["destination"]
-	var overnight: bool = target["day"] > source["day"]
+	var duration := float(config["durationSeconds"])
+	var entry := float(config["entrySeconds"])
+	var exit_time := float(config["exitSeconds"])
 	var reduced: bool = GameState.state["meta"].get("reducedMotion", false)
-	var segments: Array = []
-	if overnight:
-		if ranges.has("evening_to_morning") and not reduced:
-			for phase in range(int(source["phase"]), 3):
-				segments.append(ranges[["morning_to_afternoon", "afternoon_to_evening", "evening_to_morning"][phase]])
-	else:
-		segments.append(ranges["morning_to_afternoon" if source["phase"] == 0 else "afternoon_to_evening"])
-	var segment: Dictionary = ranges["morning_to_afternoon"]
-	var index := 0
-	if not segments.is_empty():
-		var count := 0
-		for entry in segments:
-			count += int(entry["count"])
-		var progress := clampf(elapsed / float(config["durationSeconds"]), 0.0, 1.0)
-		index = count - 1 if reduced else mini(int(progress * count), count - 1)
-		for entry in segments:
-			segment = entry
-			if index < int(entry["count"]):
-				break
-			index -= int(entry["count"])
-	index += int(segment["start"])
-	var texture := AtlasTexture.new()
-	texture.atlas = atlas
-	var cell := int(config["cellSize"])
-	var columns := int(config["columns"])
-	texture.region = Rect2((index % columns) * cell, (index / columns) * cell, segment["size"][0], segment["size"][1])
-	picture.texture = texture
-	var available := minf(size.x, float(config["displaySize"]))
-	var scale_factor := maxi(1, int(available / maxf(segment["size"][0], segment["size"][1])))
-	picture.custom_minimum_size = Vector2(segment["size"][0], segment["size"][1]) * scale_factor
+	var sky_progress := 1.0 if reduced else clampf((elapsed - entry) / (duration - entry - exit_time), 0.0, 1.0)
+	frame = _sky_frame(sky_progress)
+	var diameter := minf(float(config["diameter"]), size.x)
+	var centered_y := (size.y - diameter - float(config["labelGap"]) - destination.get_minimum_size().y) * 0.5
+	var offscreen_y := size.y + 1.0
+	var y := centered_y
+	if not reduced and elapsed < entry:
+		y = lerpf(offscreen_y, centered_y, _smooth(elapsed / entry))
+	elif not reduced and elapsed > duration - exit_time:
+		y = lerpf(centered_y, offscreen_y, _smooth((elapsed - duration + exit_time) / exit_time))
+	art_position = Vector2(roundf((size.x - diameter) * 0.5), roundf(y))
+	destination.position = art_position + Vector2(0.0, diameter + float(config["labelGap"]))
+	destination.size.x = diameter
+	queue_redraw()
+
+
+static func _smooth(t: float) -> float:
+	var p := clampf(t, 0.0, 1.0)
+	return p * p * (3.0 - 2.0 * p)
+
+
+func _sky_frame(progress: float) -> Dictionary:
+	var clips: Array = GameData.DAILY_CYCLE["clips"]
+	var source_phase := int(current["source"]["phase"])
+	var overnight: bool = current["destination"]["day"] > current["source"]["day"]
+	var count := clips.size() - source_phase if overnight else 1
+	var scaled := clampf(progress, 0.0, 1.0) * count
+	var clip_index := mini(int(scaled), count - 1)
+	var clip: Dictionary = clips[source_phase + clip_index]
+	var local_progress := clampf(scaled - clip_index, 0.0, 1.0)
+	var sky: Array = clip["sky"]
+	var result := {
+		"clip": clip["id"],
+		"progress": local_progress,
+		"top": Color(sky[0][0]).lerp(Color(sky[1][0]), local_progress),
+		"bottom": Color(sky[0][1]).lerp(Color(sky[1][1]), local_progress),
+		"sun": null,
+		"moon": null,
+	}
+	for body in ["sun", "moon"]:
+		if clip[body] != null:
+			var endpoints: Array = clip[body]
+			result[body] = Vector2(endpoints[0][0], endpoints[0][1]).lerp(
+				Vector2(endpoints[1][0], endpoints[1][1]), local_progress)
+	return result
+
+
+func _draw() -> void:
+	if not active or frame.is_empty():
+		return
+	var config: Dictionary = GameData.DAILY_CYCLE
+	draw_rect(Rect2(Vector2.ZERO, size), Color(config["dimColor"]))
+	var diameter := minf(float(config["diameter"]), size.x)
+	var radius := diameter * 0.5
+	var center := art_position + Vector2(radius, radius)
+	for row in range(int(ceilf(diameter))):
+		var y := float(row) - radius + 0.5
+		var half_width := sqrt(maxf(radius * radius - y * y, 0.0))
+		var colour: Color = frame["top"].lerp(frame["bottom"], float(row) / diameter)
+		draw_rect(Rect2(center.x - half_width, art_position.y + row, half_width * 2.0, 1.0), colour)
+	for body in ["sun", "moon"]:
+		if frame[body] != null:
+			_draw_body(body, art_position + (frame[body] as Vector2) * (diameter / float(config["diameter"])))
+	draw_texture_rect(foreground, Rect2(art_position, Vector2(diameter, diameter)), false)
+
+
+func _draw_body(body: String, position: Vector2) -> void:
+	var config: Dictionary = GameData.DAILY_CYCLE
+	var scale_factor := minf(float(config["diameter"]), size.x) / float(config["diameter"])
+	var radius := float(config[body + "Radius"]) * scale_factor
+	var rim := float(config["bodyRim"]) * scale_factor
+	draw_circle(position, radius + rim, Color(config["bodyOutline"]))
+	draw_circle(position, radius, Color(config[body + "Color"]))
+	if body == "moon":
+		var cutout: Array = config["moonCutout"]
+		draw_circle(position + Vector2(cutout[0], cutout[1]) * radius,
+			radius * float(cutout[2]), frame["top"])
 
 
 func _input(event: InputEvent) -> void:
