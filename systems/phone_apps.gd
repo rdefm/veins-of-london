@@ -35,7 +35,7 @@ static func apps() -> Array[Dictionary]:
 		# tapping it navigates straight to Nav.go_to("map") instead of
 		# opening as a PhoneNav app. Locked predicate
 		# mirrors NavBar._map_locked(); Nav.go_to("map") itself has no gate.
-		{ "id": "vfl", "label": "TfL", "locked": func(): return not GameState.state["flags"]["archiePartnerSeen"] },
+		{ "id": "vfl", "label": "VfL", "locked": func(): return not GameState.state["flags"]["archiePartnerSeen"] },
 		{ "id": "notifications", "label": "Notifications", "locked": unlocked },
 		{ "id": "saveload", "label": "Save/Load", "locked": unlocked },
 	]

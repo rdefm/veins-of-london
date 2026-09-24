@@ -79,3 +79,12 @@ Spec/doc updates ride with A/C: M1.5-NETWORK-MAP §colour lines, ui-vision §4 (
 4. **Data colour overrides:** crimson faction/`--danger`, emotion ore and `ui_action_red` fail 3:1 on dark. OK to add dark-only lighter variants (breaks "one colour per faction" identity slightly), or should the dark ground be a mid-slate instead of near-black so current hexes pass?
 5. **Persistence scope:** per-save (`meta`, like reducedMotion — resets on New Game) or device-wide (a small user:// config outside game state)? Device-wide keeps it out of Rewind by construction and is arguably right for a display preference.
 6. **Scope:** Map tab only (as ticket says) — including the bottom nav dock (Family 4) while on Map, or does the dock stay light?
+
+### Decisions (human, 2026-09-24)
+
+1. Fine — a dark-mode option for the Map tab only; family-distinctness not a concern.
+2. Stop centres stay white + charcoal glyphs in dark.
+3. Amend M1.5 §N4: Growth ramp runs muted→foreground (light on dark).
+4. Add dark-only lighter variants for failing faction/ore/danger/action colours.
+5. Persist per save file: `meta.mapDarkMode` via `Preferences`, like `reducedMotion`. Ticket B must still make sure Rewind/snapshots don't flip it.
+6. Bottom nav dock also goes dark while on the Map tab (added to ticket D).

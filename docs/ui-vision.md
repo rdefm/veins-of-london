@@ -386,7 +386,7 @@ content rules later in this section.
   | 7 | Harrow's | `property` |
   | 8 | My File | `profile` |
   | 9 | Contacts | `contacts` |
-  | 10 | TfL | `vfl` |
+  | 10 | VfL | `vfl` |
   | 11 | Notifications | `notifications` |
   | 12 | Save/Load | `saveload` |
 
@@ -413,7 +413,7 @@ content rules later in this section.
   Phone / Map / HQ navigation remain unchanged outside the simulated
   device. External Phone is the home-navigation tab; it is distinct from
   the internal `dialer` app.
-- **Routes/mechanics unchanged:** TfL (`vfl`) keeps its existing Map gate
+- **Routes/mechanics unchanged:** VfL (`vfl`) keeps its existing Map gate
   and direct Map routing. Save/Load, conditional Debug, and all existing
   app content and mechanics retain their current behaviour. This refresh
   changes presentation and launcher placement only.
