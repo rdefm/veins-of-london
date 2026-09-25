@@ -25,6 +25,7 @@ Data file per system: see `data/*.json` below.
 | bag.gd | Bag-drawer toggle |
 | bank.gd | Cash transaction log |
 | barometer.gd | Economic/social/political barometer + faction prefs |
+| business.gd | Business pot (contract settlements while active), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 relation awards (T8 missions, alarm-defend daily cap), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
@@ -34,7 +35,7 @@ Data file per system: see `data/*.json` below.
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`) |
-| contracts.gd | Sales contract delivery, priority, settlement |
+| contracts.gd | Sales contract delivery, priority, settlement (paid to the business pot while active) |
 | crafting.gd | Recipe crafting |
 | cultivating.gd | Vein growth / cultivate / prune |
 | debug_start.gd | Maximal-unlock debug state |
@@ -61,12 +62,12 @@ Data file per system: see `data/*.json` below.
 | map_zoom.gd | Zoom-level math for the diagram |
 | messages.gd | Messages data layer + conversation-index projections and total unread count |
 | modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close |
-| morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown), per-block staff output accumulation, BizBrief routing and arrears labels |
+| morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls), per-block staff output accumulation, BizBrief routing, arrears/payday/wage-prompt labels |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict |
 | objectives.gd | Objective/questline evaluator |
 | offers.gd | Sales offers: quoting, acceptance, expiry |
-| payroll.gd | Daily wage payment for room-staffed hires (founders exempt); `is_working()` gate for staff actions |
+| payroll.gd | Daily wage payment for room-staffed hires (founders exempt); `is_working()` gate for staff actions (false while the business owes wages) |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
 | phone_nav.gd | Phone app/index/thread drill-down nav |
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
@@ -189,7 +190,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | BizBrief: Brief tab (bank, operations, attention) + Manage tab (sales, production, procurement: each cultivator's veins, targets, picker) |
+| bizbrief_app.gd | BizBrief: Brief tab (bank, payday statement, pay-from-cash wage prompt, operations, attention) + Manage tab (sales, production, procurement: each cultivator's veins, targets, picker) |
 | messages_app.gd | Conversation master list + single-thread staged bubble reveal/action bar |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo; session-only expand/collapse overrides in a static var |
 | factions_app.gd | Faction cards |
@@ -212,7 +213,7 @@ overlays.
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); combat_director.gd (pacing.turnPause) |
-| constants.json | time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps) |
+| constants.json | time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps), business.gd (payday interval, weekly wages) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |

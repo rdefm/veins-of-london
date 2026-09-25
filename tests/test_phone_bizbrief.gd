@@ -110,6 +110,48 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("brief_renders_the_payday_statement_and_the_wage_prompt", func():
+		GameState.reset()
+		Business.activate()
+		for i in 6:
+			TimeSystem.do_rest()
+		GameState.state["morningAccounts"]["latest"]["payday"] = {
+			"payday": "payday-1", "day": 7, "receipts": 750,
+			"expenses": [{ "kind": "wage", "contactId": "owen", "amount": 250 }, { "kind": "calc", "source": "The Firm", "amount": 30 }],
+			"shares": { "player": 158, "archie": 156, "james": 156 },
+		}
+		GameState.state["player"]["cash"] = 1000
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var texts := NodeQuery.label_texts(phone)
+		for expected in [
+			"Payday", "Receipts £750", "Wages, Owen −£250", "Calc, The Firm −£30",
+			"Shares: You £158 · Archie £156 · James £156",
+			"Exception: the pot couldn't cover Owen's wages. Owed £214.",
+			"Owen is owed £214 and has stopped working. Pay Owen from your own cash?",
+		]:
+			assert_true(texts.has(expected), "missing %s" % expected)
+		_button_with_text(phone, "Yes").pressed.emit()
+		assert_eq(Business.owed("owen"), 0, "Yes pays from cash")
+		assert_eq(GameState.state["player"]["cash"], 786)
+		phone.free()
+	)
+
+	run_case("brief_no_leaves_owen_unpaid_and_drops_the_prompt", func():
+		GameState.reset()
+		Business.activate()
+		for i in 6:
+			TimeSystem.do_rest()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "No").pressed.emit()
+		assert_true(Business.is_unpaid("owen"))
+		assert_eq(Business.pending_wage_prompts(), [])
+		phone.free()
+	)
+
 	run_case("quiet_sections_are_not_rendered", func():
 		GameState.reset()
 		MorningAccountsSystem.finish_rollover(MorningAccountsSystem.begin_rollover())

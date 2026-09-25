@@ -25,6 +25,25 @@ func run() -> void:
 		assert_true(not ContractsSystem.deliver(contract["id"], 1)["ok"], "manual path rejects delegated contracts")
 	)
 
+	run_case("settlement_pays_the_business_pot_while_active_else_the_player", func():
+		GameState.reset()
+		var before_pot := _accept_life_contract()
+		GameState.state["player"]["orichalchum"]["life"] = 10
+		var cash_before: int = GameState.state["player"]["cash"]
+		var first: Dictionary = ContractsSystem.deliver(before_pot["id"], 5)["settlement"]
+		assert_eq(GameState.state["player"]["cash"], cash_before + first["payment"], "before the pot, the player is paid")
+		assert_eq(GameState.state["business"]["pot"], 0)
+
+		# Accepted before the pot started, settled after: routed by settle day.
+		var after_pot := _accept_life_contract()
+		Business.activate()
+		cash_before = GameState.state["player"]["cash"]
+		var second: Dictionary = ContractsSystem.deliver(after_pot["id"], 5)["settlement"]
+		assert_eq(GameState.state["player"]["cash"], cash_before, "the pot takes the payment")
+		assert_eq(GameState.state["business"]["pot"], second["payment"])
+		assert_eq(GameState.state["business"]["week"]["receipts"], second["payment"])
+	)
+
 	run_case("priority_order_is_pure_state_and_reorders_active_contracts", func():
 		GameState.reset()
 		var first := _accept_life_contract()

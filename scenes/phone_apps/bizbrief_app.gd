@@ -1,4 +1,4 @@
-# BizBrief: Brief tab (morning account — bank, operations, attention) and
+# BizBrief: Brief tab (morning account — bank, payday, wage prompts, operations, attention) and
 # Manage tab (sales offers/contracts, lab production targets, cultivator
 # procurement). The selected tab is view state held here, not in
 # state.phoneNav, so it resets with the screen.
@@ -52,8 +52,12 @@ func _build_brief(content: VBoxContainer) -> void:
 	else:
 		content.add_child(UI.muted_label("Day %d · overnight changes" % account["day"]))
 		content.add_child(_build_bank(account))
+		if account.get("payday") != null:
+			content.add_child(_build_payday(account["payday"]))
 		if MorningAccountsSystem.has_operations(account):
 			content.add_child(_build_operations(account))
+	for contact_id in Business.pending_wage_prompts():
+		content.add_child(_build_wage_prompt(contact_id))
 	# Live, not tied to the presence of a rollover snapshot -- a
 	# development-eligible vein (or an alarm/unread message) shows up here
 	# even before the first morning account ever lands.
@@ -243,6 +247,24 @@ func _build_bank(account: Dictionary) -> Control:
 	return c["panel"]
 
 
+func _build_payday(payday: Dictionary) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Payday", 14))
+	for line in MorningAccountsSystem.payday_lines(payday):
+		c["content"].add_child(UI.label(line))
+	return c["panel"]
+
+
+func _build_wage_prompt(contact_id: String) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.label(MorningAccountsSystem.wage_prompt_label(contact_id)))
+	var row := UI.hbox()
+	row.add_child(UI.expand_fill(UI.button("Yes", func(): Business.pay_owed_from_cash(contact_id))))
+	row.add_child(UI.expand_fill(UI.button("No", func(): Business.decline_wage_prompt(contact_id))))
+	c["content"].add_child(row)
+	return c["panel"]
+
+
 func _build_operations(account: Dictionary) -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Operations", 14))
@@ -268,6 +290,8 @@ func _build_operations(account: Dictionary) -> Control:
 				c["content"].add_child(UI.muted_label("Exception: %s stock %d/%d." % [recipe["name"], exception["actual"], exception["target"]]))
 			"arrearsInterest", "arrearsShortfall", "forcedDowngrade", "arrearsCountdown":
 				c["content"].add_child(UI.muted_label(MorningAccountsSystem.arrears_label(exception)))
+			"wageShortfall":
+				c["content"].add_child(UI.muted_label(MorningAccountsSystem.wage_shortfall_label(exception)))
 	return c["panel"]
 
 

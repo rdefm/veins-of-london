@@ -86,6 +86,16 @@ func new_game_state() -> Dictionary:
 		# rollover's result ({ day, entries: [{room, contactId, wage,
 		# paid}] }), overwritten next rollover.
 		"payroll": { "paidToday": {}, "lastSummary": null },
+		# Business pot (R§3.10 "Business pot and payday"): while potActive,
+		# contract settlements pay into pot; payday splits it every
+		# paydayIntervalDays. wages keys a waged contact id -> { weekly, owed,
+		# unpaid, hiredDay, daysWorked, promptPending }; ledger holds one
+		# record per payday.
+		"business": {
+			"potActive": false, "pot": 0,
+			"week": { "startDay": 1, "receipts": 0, "expenses": [] },
+			"partners": [], "wages": {}, "ledger": [], "nextPaydayId": 1,
+		},
 		# Transient UI qty-steppers, not restored by SaveManager (same
 		# convention as sellState): craftQty keys recipe key -> batch size;
 		# marketplaceQty keys "<factionId>_<kind>_<itemType>" -> qty; stashQty

@@ -45,8 +45,10 @@ static func is_paid_today(room_id: String) -> bool:
 
 # Whether a staffed contact acts at block ends (R§3.10 "Staff block step"):
 # a room hire only once today's wage is paid; a founder draws no daily wage
-# and always acts.
+# and acts unless the business owes them a weekly wage.
 static func is_working(contact_id: String) -> bool:
+	if Business.is_unpaid(contact_id):
+		return false
 	if Contacts.is_founder(contact_id):
 		return true
 	var room: Variant = GameState.state["contacts"][contact_id].get("assignedRoom")

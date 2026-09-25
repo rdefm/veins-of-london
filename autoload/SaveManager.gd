@@ -504,6 +504,21 @@ func _restore_int_types(state: Dictionary) -> void:
 		_int_key(payroll_summary, "day")
 		for entry in payroll_summary.get("entries", []):
 			_int_key(entry, "wage")
+	var business: Dictionary = state.get("business", {})
+	for key in ["pot", "nextPaydayId"]:
+		_int_key(business, key)
+	var week: Dictionary = business.get("week", {})
+	_int_key(week, "startDay")
+	_int_key(week, "receipts")
+	for expense in week.get("expenses", []):
+		_int_key(expense, "amount")
+	for wage in business.get("wages", {}).values():
+		for key in ["weekly", "owed", "hiredDay", "daysWorked"]:
+			_int_key(wage, key)
+	for record in business.get("ledger", []):
+		_restore_payday_int_types(record)
+	if morning != null and morning.get("payday") != null:
+		_restore_payday_int_types(morning["payday"])
 
 	if state.has("meta"):
 		_int_key(state["meta"], "saveVersion")
@@ -806,6 +821,14 @@ func _restore_settlement_int_types(settlement: Dictionary) -> void:
 	for key in ["day", "payment"]:
 		_int_key(settlement, key)
 	_int_dict_values(settlement.get("delivered", {}))
+
+
+func _restore_payday_int_types(record: Dictionary) -> void:
+	_int_key(record, "day")
+	_int_key(record, "receipts")
+	for expense in record.get("expenses", []):
+		_int_key(expense, "amount")
+	_int_dict_values(record.get("shares", {}))
 
 
 func _int_key(dict: Dictionary, key: String) -> void:

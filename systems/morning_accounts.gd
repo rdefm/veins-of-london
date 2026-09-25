@@ -27,6 +27,7 @@ static func begin_rollover() -> Dictionary:
 		"lossOre": {},
 		"lostVeins": 0,
 		"sales": {},
+		"payday": null,
 		"exceptions": [],
 	}
 
@@ -88,6 +89,42 @@ static func _block_production() -> Dictionary:
 
 static func _empty_block_production() -> Dictionary:
 	return { "ore": {}, "items": {}, "oreMovement": {} }
+
+
+# Business.daily_tick()'s result: the payday statement, and an exception per
+# staff wage the pot couldn't cover.
+static func capture_business(context: Dictionary, result: Dictionary) -> void:
+	context["payday"] = result["payday"]
+	for shortfall in result["shortfalls"]:
+		context["exceptions"].append({ "kind": "wageShortfall", "contactId": shortfall["contactId"], "amount": shortfall["owed"] })
+
+
+# Payday statement lines: receipts, each expense, then the shares.
+# PROSE-REVIEW: payday statement lines.
+static func payday_lines(payday: Dictionary) -> Array[String]:
+	var lines: Array[String] = ["Receipts £%d" % payday["receipts"]]
+	for expense in payday["expenses"]:
+		match expense["kind"]:
+			"wage":
+				lines.append("Wages, %s −£%d" % [Contacts.display_name(expense["contactId"]), expense["amount"]])
+			"calc":
+				lines.append("Calc, %s −£%d" % [expense.get("source", "market"), expense["amount"]])
+	var shares: Dictionary = payday["shares"]
+	var parts: Array[String] = ["You £%d" % shares["player"]]
+	for contact_id in shares:
+		if contact_id != "player":
+			parts.append("%s £%d" % [Contacts.display_name(contact_id), shares[contact_id]])
+	lines.append("Shares: " + " · ".join(parts))
+	return lines
+
+
+# PROSE-REVIEW: wage shortfall exception and prompt.
+static func wage_shortfall_label(exception: Dictionary) -> String:
+	return "Exception: the pot couldn't cover %s's wages. Owed £%d." % [Contacts.display_name(exception["contactId"]), exception["amount"]]
+
+
+static func wage_prompt_label(contact_id: String) -> String:
+	return "%s is owed £%d and has stopped working. Pay %s from your own cash?" % [Contacts.display_name(contact_id), Business.owed(contact_id), Contacts.display_name(contact_id)]
 
 
 # Arrears exceptions (ADR 0006 "Morning account and notifications") from
@@ -177,6 +214,7 @@ static func finish_rollover(context: Dictionary) -> Dictionary:
 		"oreMovement": _combined_movement(context["blockOreMovement"], _signed_delta(context["openingOre"], ore_snapshot())),
 		"production": { "ore": context["productionOre"], "items": context["productionItems"] },
 		"sales": context["sales"],
+		"payday": context["payday"],
 		"losses": { "ore": context["lossOre"], "veins": context["lostVeins"] },
 		"exceptions": context["exceptions"],
 	}

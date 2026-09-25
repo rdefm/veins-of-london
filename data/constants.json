@@ -27,6 +27,7 @@
   ],
   "guardRepel": { "chancePerGuard": 0.15, "cap": 0.75 },
   "cultivatorActionXp": 2,
+  "business": { "paydayIntervalDays": 7, "weeklyWages": { "owen": 250 } },
   "dayClock": {
     "dayFormat": "%s Day %d %s",
     "phaseCues": [

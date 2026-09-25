@@ -187,7 +187,11 @@ static func settle(contract_id: String) -> Dictionary:
 	sales["nextSettlementId"] += 1
 	sales["settlements"].append(settlement)
 	sales["contractHistory"].append({ "contract": contract.duplicate(true), "settlement": settlement.duplicate(true) })
-	if payment > 0:
+	# Routed by the day it settles: the business pot while active, else the
+	# player (R§3.10 "Business pot and payday").
+	if payment > 0 and Business.is_pot_active():
+		Business.receive(payment)
+	elif payment > 0:
 		GameState.state["player"]["cash"] += payment
 		Bank.record(payment, "Contract settlement")
 	if contract.get("delegated", false):
