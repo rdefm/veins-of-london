@@ -29,6 +29,10 @@ const PUT_TO_WORK_KIND := "biz_a1_put_to_work"
 # PROSE-REVIEW: Archie's Beat 6 summons.
 const PUT_TO_WORK_TEXT := "\"Right, partner. Time we stopped running every order by hand. Come to the unit, I'll show you how it's done.\""
 
+const OWEN_CRAFT_KIND := "biz_owen_craft"
+# PROSE-REVIEW: James's summons for Owen's crafting event.
+const OWEN_CRAFT_TEXT := "Owen has been at my second bench. Come and see what he has made before I change my mind about letting him."
+
 const CLOSING_KIND := "biz_a1_closing"
 # PROSE-REVIEW: Archie's Beat 7 summons.
 const CLOSING_TEXT := "\"Payday. Two orders ran a whole week and nobody held their hand. Come to the unit, I've got the numbers up.\""
@@ -103,6 +107,24 @@ static func maybe_trigger_put_to_work() -> bool:
 	flags["bizA1PutToWorkQueued"] = true
 	Messages.queue_pending("archie", PUT_TO_WORK_KIND, PUT_TO_WORK_TEXT)
 	Objectives.refresh()
+	return true
+
+
+# Owen's crafting event (biz-act1 spec §"Owen's crafting event"): Owen
+# cultivatingSkill ≥ 2, James recruited and a Workshop at home, all live.
+# Not an Act 1 beat. Called after event completion and at rollover;
+# bizOwenCraftQueued blocks re-firing permanently.
+static func maybe_trigger_owen_craft() -> bool:
+	var flags: Dictionary = GameState.state["flags"]
+	if flags.get("bizOwenCraftQueued", false):
+		return false
+	var contacts: Dictionary = GameState.state["contacts"]
+	if int(contacts["owen"]["cultivatingSkill"]) < GameData.BUSINESS_OWEN_CRAFT_MIN_CULTIVATING:
+		return false
+	if not contacts["james"]["recruited"] or not GameState.state["home"]["rooms"].has("workshop"):
+		return false
+	flags["bizOwenCraftQueued"] = true
+	Messages.queue_pending("james", OWEN_CRAFT_KIND, OWEN_CRAFT_TEXT)
 	return true
 
 

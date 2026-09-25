@@ -186,6 +186,7 @@ static func advance() -> void:
 		BusinessQuest.maybe_trigger_owen_intro()
 		BusinessQuest.maybe_trigger_partnership()
 		BusinessQuest.maybe_trigger_put_to_work()
+		BusinessQuest.maybe_trigger_owen_craft()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
 		event_state["cardIndex"] += 1

@@ -159,6 +159,7 @@ var CULTIVATOR_ACTION_XP: int = 0
 var BUSINESS_PAYDAY_INTERVAL_DAYS: int = 0
 var BUSINESS_WEEKLY_WAGES: Dictionary = {}
 var BUSINESS_JAMES_JOIN_CRAFTING_SKILL: int = 0
+var BUSINESS_OWEN_CRAFT_MIN_CULTIVATING: int = 0
 
 # Loaded by _list_event_ids() from every *.json file under data/events/ --
 # no id roster to keep in sync; drop a file in, it's discovered on next
@@ -308,6 +309,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "BUSINESS_PAYDAY_INTERVAL_DAYS", "key": "business.paydayIntervalDays", "type": TYPE_INT},
 		{"field": "BUSINESS_WEEKLY_WAGES", "key": "business.weeklyWages", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_JAMES_JOIN_CRAFTING_SKILL", "key": "business.jamesJoinCraftingSkill", "type": TYPE_INT},
+		{"field": "BUSINESS_OWEN_CRAFT_MIN_CULTIVATING", "key": "business.owenCraftMinCultivating", "type": TYPE_INT},
 	]},
 	{"table": "daily_cycle", "file": "res://data/daily_cycle.json", "fields": [
 		{"field": "DAILY_CYCLE", "key": "", "type": TYPE_DICTIONARY},

@@ -1,0 +1,16 @@
+{
+  "id": "biz_owen_craft",
+  "cards": [
+    { "type": "narration", "label": "Bermondsey — James's unit", "speaker": null, "text": "Owen is at the second bench, the one James never lets anyone use. There is a half-made pearl in front of him and a very small pile of failed ones beside it." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"He asked. I said no. He asked again a week later with better questions, so I said yes.\"" },
+    { "type": "speaker", "label": null, "speaker": "Owen", "text": "\"I've been watching him do it every day anyway. Seemed a waste not to try.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"He will never be quick, and he will never be me. He will be steady, which on a slow order is worth more than talent.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Put him in Production when you need hands at the bench. Put him back on the veins when you need them tended. He cannot do both, and nobody else is watching those veins while he is here.\"" },
+    { "type": "speaker", "label": null, "speaker": "Owen", "text": "\"Just tell me where you want me. I don't mind which.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "The pearl in front of him holds together. James looks at it for a long moment, then moves it to the good tray without a word." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "bizOwenProductionRole", "value": true },
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

@@ -394,6 +394,49 @@ func run() -> void:
 		assert_true(Business.split(weekly - owen_wage, 2)["player"] > 0)
 	)
 
+	run_case("owen_craft_event_queues_from_the_beat_5_scene_once", func():
+		_to_beat_5()
+		assert_eq(_owen_craft_texts(), 0, "James not yet recruited")
+		EventPlay.play_event(BusinessQuest.PARTNERSHIP_KIND)
+		assert_eq(_owen_craft_texts(), 1, "event completion checks the trigger")
+		TimeSystem.do_rest()
+		assert_eq(_owen_craft_texts(), 1, "the permanent flag blocks re-firing")
+		assert_true(not GameState.state["flags"]["bizA1Complete"], "not an Act 1 beat")
+	)
+
+	run_case("owen_craft_event_waits_for_the_workshop_then_rollover_fires_it", func():
+		_to_beat_3()
+		GameState.state["contacts"]["james"]["recruited"] = true
+		GameState.state["contacts"]["owen"]["cultivatingSkill"] = 2
+		TimeSystem.do_rest()
+		assert_eq(_owen_craft_texts(), 0, "no Workshop yet")
+		_build_workshop()
+		TimeSystem.do_rest()
+		assert_eq(_owen_craft_texts(), 1)
+	)
+
+	run_case("owen_craft_scene_opens_production_and_swapping_leaves_his_veins_untended", func():
+		_to_beat_5()
+		EventPlay.play_event(BusinessQuest.PARTNERSHIP_KIND)
+		assert_true(Contacts.set_role("owen", "cultivation")["ok"])
+		assert_true(Rooms.assign_vein("owen", "v1")["ok"])
+		assert_true(not Contacts.set_role("owen", "production")["ok"], "Production locked before the scene")
+		EventPlay.play_event(BusinessQuest.OWEN_CRAFT_KIND)
+		assert_true(Contacts.set_role("owen", "production")["ok"])
+		assert_eq(Rooms.cultivator_veins("owen"), ["v1"], "his veins keep their list")
+		assert_eq(Contacts.contacts_in_role("cultivation"), [], "no active cultivator")
+		Cultivating.find_vein("v1")["growth"] = 95
+		TimeSystem.advance_time_block()
+		assert_eq(Cultivating.find_vein("v1")["growth"], 95, "untended while he crafts")
+		assert_true(Contacts.set_role("owen", "cultivation")["ok"])
+		TimeSystem.advance_time_block()
+		assert_true(Cultivating.find_vein("v1")["growth"] < 95, "tended again from the next block end")
+	)
+
+
+func _owen_craft_texts() -> int:
+	return _pending_kinds("james").count(BusinessQuest.OWEN_CRAFT_KIND)
+
 
 func _to_beat_1() -> void:
 	GameState.reset()

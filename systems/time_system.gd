@@ -117,6 +117,7 @@ static func daily_tick() -> void:
 	BusinessQuest.maybe_trigger_owen_intro()   # ⑧e backstop for the settle/event-completion checks
 	BusinessQuest.maybe_trigger_partnership()  # ⑧f backstop for the staff-block/room-build checks
 	BusinessQuest.maybe_trigger_put_to_work()  # ⑧g backstop for the event-completion check
+	BusinessQuest.maybe_trigger_owen_craft()     # ⑧g2 Owen's crafting event, not an Act 1 beat
 	BusinessQuest.maybe_trigger_closing()      # ⑧h after ⑥.4b's payday record
 	MorningAccountsSystem.finish_rollover(morning_context)
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])

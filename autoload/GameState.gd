@@ -296,6 +296,8 @@ func new_game_state() -> Dictionary:
 			"bizA1ApprenticeReady": false, "bizA1PartnershipQueued": false, "bizA1JamesJoined": false,
 			"bizA1PutToWorkQueued": false, "bizA1DelegationUnlocked": false, "bizA1ProofDone": false,
 			"bizA1ClosingQueued": false, "bizA1Complete": false,
+			# Owen's crafting event queued (BusinessQuest.maybe_trigger_owen_craft).
+			"bizOwenCraftQueued": false,
 			# Set by Beat 3; shows BizBrief's Staff tab.
 			"bizStaffTabOpen": false,
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,
