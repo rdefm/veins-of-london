@@ -201,5 +201,15 @@
     "activateFlag": "bizA1PropositionSeen",
     "completeFlag": "bizA1MarketProven",
     "questline": "business_empire"
+  },
+  "biz_a1_meet_owen": {
+    "id": "biz_a1_meet_owen",
+    "title": "James has someone for you to meet. Go to the unit.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "bizA1OwenIntroQueued",
+    "completeFlag": "bizA1OwenJoined",
+    "questline": "business_empire"
   }
 }

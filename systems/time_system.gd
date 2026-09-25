@@ -112,6 +112,7 @@ static func daily_tick() -> void:
 	Collective.maybe_trigger_a2_crack()       # ⑧b T10/T11, a day or more behind the beat before each
 	Collective.maybe_trigger_a2_closer()      # ⑧c T15, before ⑧d so it trails T14 by a day or more
 	Collective.maybe_trigger_a2_spine_reward()  # ⑧d T14 backstop once relation accrues past the gate
+	BusinessQuest.maybe_trigger_owen_intro()   # ⑧e backstop for the settle/event-completion checks
 	MorningAccountsSystem.finish_rollover(morning_context)
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])
 	SaveManager.autosave()               # R§6: autosave on every daily tick

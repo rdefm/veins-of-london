@@ -116,12 +116,81 @@ func run() -> void:
 	)
 
 
+	run_case("beat_2_met_queues_james_owen_intro_once", func():
+		_to_beat_2()
+		assert_true(GameState.state["flags"]["bizA1OwenIntroQueued"])
+		assert_eq(_pending_kinds("james"), [BusinessQuest.OWEN_INTRO_KIND])
+		assert_true(GameState.state["objectives"]["biz_a1_meet_owen"]["active"], "ToDo shows the Beat 3 nudge")
+		TimeSystem.do_rest()
+		assert_eq(_pending_kinds("james"), [BusinessQuest.OWEN_INTRO_KIND], "the permanent flag blocks re-firing")
+	)
+
+	run_case("prior_completions_queue_owen_intro_from_the_beat_1_scene", func():
+		_to_beat_1()
+		for i in 3:
+			_complete_life_order()
+		EventPlay.play_event(BusinessQuest.PROPOSITION_KIND)
+		assert_eq(_pending_kinds("james"), [BusinessQuest.OWEN_INTRO_KIND])
+	)
+
+	run_case("beat_3_scene_recruits_owen_and_activates_the_pot", func():
+		_to_beat_2()
+		assert_true(not Contacts.is_role_available("owen", "cultivation"))
+		EventPlay.play_event(BusinessQuest.OWEN_INTRO_KIND)
+		var owen: Dictionary = GameState.state["contacts"]["owen"]
+		assert_true(owen["unlocked"], "Owen appears in Contacts")
+		assert_true(owen["recruited"])
+		assert_true(Contacts.is_role_available("owen", "cultivation"))
+		assert_true(GameState.state["flags"]["bizStaffTabOpen"])
+		var business: Dictionary = GameState.state["business"]
+		assert_true(business["potActive"])
+		assert_eq(business["partners"], ["archie", "james"])
+		assert_eq(business["wages"]["owen"]["hiredDay"], GameState.state["world"]["day"])
+		assert_true(GameState.state["objectives"]["biz_a1_meet_owen"]["complete"])
+	)
+
+	run_case("settlement_before_beat_3_pays_player_after_pays_pot", func():
+		_to_beat_2()
+		var cash_before: int = GameState.state["player"]["cash"]
+		_complete_life_order()
+		var paid_to_player: int = GameState.state["player"]["cash"] - cash_before
+		assert_true(paid_to_player > 0, "pre-business settlement pays the player")
+		assert_eq(GameState.state["business"]["pot"], 0)
+
+		EventPlay.play_event(BusinessQuest.OWEN_INTRO_KIND)
+		cash_before = GameState.state["player"]["cash"]
+		_complete_life_order()
+		assert_eq(GameState.state["player"]["cash"], cash_before, "post-Beat 3 settlement skips the player")
+		assert_eq(GameState.state["business"]["pot"], paid_to_player)
+	)
+
+	run_case("owen_on_cultivation_harvests_into_shared_stock_at_block_end", func():
+		_to_beat_2()
+		EventPlay.play_event(BusinessQuest.OWEN_INTRO_KIND)
+		assert_true(Contacts.set_role("owen", "cultivation")["ok"])
+		assert_true(Rooms.assign_vein("owen", "v1")["ok"])
+		Cultivating.find_vein("v1")["growth"] = 95
+		var ore_before: int = GameState.state["player"]["orichalchum"]["time"]
+		TimeSystem.advance_time_block()
+		assert_true(GameState.state["player"]["orichalchum"]["time"] > ore_before, "Owen pruned v1 into shared stock")
+		assert_true(Cultivating.find_vein("v1")["growth"] < 95)
+	)
+
+
 func _to_beat_1() -> void:
 	GameState.reset()
 	GameState.state["contacts"]["archie"]["recruited"] = true
 	Fixtures.seed_vein("v1", 40, "time")
 	Fixtures.seed_vein("v2", 40, "life")
 	TimeSystem.do_rest()
+
+
+# Beat 2 met by three completions after the Beat 1 scene.
+func _to_beat_2() -> void:
+	_to_beat_1()
+	EventPlay.play_event(BusinessQuest.PROPOSITION_KIND)
+	for i in 3:
+		_complete_life_order()
 
 
 # A rollover with random offers stripped, so the pending cap never blocks a

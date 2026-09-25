@@ -391,6 +391,18 @@ static func build_des_card() -> Control:
 	return c["panel"]
 
 
+# Owen is story-recruited (no relation path, no trade lane).
+static func build_owen_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Owen", 15))
+	c["content"].add_child(UI.muted_label("Apprentice cultivator · Bermondsey"))
+
+	for shortcut in build_pin_shortcut_actions("owen"):
+		c["content"].add_child(shortcut)
+	c["content"].add_child(build_messages_button("owen"))
+	return c["panel"]
+
+
 static func build_nadia_card() -> Control:
 	var nadia: Dictionary = GameState.state["contacts"]["nadia"]
 

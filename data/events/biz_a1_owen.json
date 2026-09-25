@@ -1,0 +1,27 @@
+{
+  "id": "biz_a1_owen",
+  "cards": [
+    { "type": "narration", "label": "Bermondsey — James's unit", "speaker": null, "text": "There is a third person in the unit. He is young, standing very straight by the door with his hands behind his back, and he has clearly been there a while." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Three orders, in full. I am told people have started saying you are not completely hopeless. I have not corrected them.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"This is Owen. He cultivates. Carefully, every day, and without complaint, which already puts him ahead of most people I have trained.\"" },
+    { "type": "speaker", "label": null, "speaker": "Owen", "text": "\"Thanks for having me. Really. I don't get offered much like this. Whatever veins you've got, I'll look after them.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"He will not be a craftsman. He will be a very good pair of hands, which is rarer, and which you need more.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "Owen nods, as if he has heard this before and decided it was fair." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Lovely. What's he cost?\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Two hundred and fifty a week. Paid by the business. Not by me, and not out of goodwill.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"The business. So there is one.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"I found him, and I arranged it. That earns me a third, the same as you. For now I am a limited partner: I take my share and I make nothing for it. When you give me a reason, I will join properly and craft.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Until then I keep my own work and my own clients. Neither of you will go near them.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right, so. From today orders pay into the pot, not your pocket. Owen's wages come out of it every week, and whatever's left splits three ways. Put him on your veins in BizBrief — there's a Staff tab now.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "Owen has already asked which veins are his. James turns the hourglass over and does not look up, which from James is a welcome." }
+  ],
+  "on_complete": [
+    { "op": "unlock_contact", "contact": "owen" },
+    { "op": "recruit_contact", "contact": "owen" },
+    { "op": "set_flag", "flag": "bizOwenCultivationRole", "value": true },
+    { "op": "set_flag", "flag": "bizStaffTabOpen", "value": true },
+    { "op": "activate_business" },
+    { "op": "set_flag", "flag": "bizA1OwenJoined", "value": true },
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

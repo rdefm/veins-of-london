@@ -1114,7 +1114,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# a plain unread text (no follow-up action); queue_pending_message
 	# is push_message's follow-up-action cousin (Messages.queue_pending()).
 	# recruit_contact is Contacts.force_recruit() (story recruits).
-	"unlock_contact", "push_message", "recruit_contact",
+	# activate_business is Business.activate() (Beat 3: pot + partners).
+	"unlock_contact", "push_message", "recruit_contact", "activate_business",
 	# faction_relation is "relation"'s faction-facing twin (Factions.
 	# adjust_player_relation); log_method writes state.methodLog[key]=value.
 	"queue_pending_message", "faction_relation",

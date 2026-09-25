@@ -14,6 +14,10 @@ const STARTER_TEMPLATES := ["biz_starter_1", "biz_starter_2", "biz_starter_3"]
 # PROSE-REVIEW: Archie's proposition text.
 const PROPOSITION_TEXT := "\"Two veins. That's not a hobby any more, that's supply. Come to James's — I'll explain there.\""
 
+const OWEN_INTRO_KIND := "biz_a1_owen"
+# PROSE-REVIEW: James's Beat 3 summons.
+const OWEN_INTRO_TEXT := "Three orders, delivered in full. Come to the unit. There is someone you should meet, and I would rather not explain him twice."
+
 
 # Beat 1: two or more veins and Archie recruited, whatever the Collective
 # progress. Called after every vein-count change and from TimeSystem.
@@ -29,6 +33,19 @@ static func maybe_trigger_proposition() -> bool:
 
 	flags["bizA1Proposed"] = true
 	Messages.queue_pending("archie", PROPOSITION_KIND, PROPOSITION_TEXT)
+	Objectives.refresh()
+	return true
+
+
+# Beat 3: once Beat 2 is met (by any source), James texts the Owen
+# introduction. Called after contract settlement, event completion and at
+# rollover; bizA1OwenIntroQueued blocks re-firing permanently.
+static func maybe_trigger_owen_intro() -> bool:
+	var flags: Dictionary = GameState.state["flags"]
+	if flags.get("bizA1OwenIntroQueued", false) or not flags.get("bizA1MarketProven", false):
+		return false
+	flags["bizA1OwenIntroQueued"] = true
+	Messages.queue_pending("james", OWEN_INTRO_KIND, OWEN_INTRO_TEXT)
 	Objectives.refresh()
 	return true
 

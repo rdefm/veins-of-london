@@ -207,6 +207,7 @@ static func settle(contract_id: String) -> Dictionary:
 		BusinessQuest.note_starter_closed(contract.get("templateId", ""), complete)
 	# A complete settlement can meet a contract-count objective (Beat 2).
 	Objectives.refresh()
+	BusinessQuest.maybe_trigger_owen_intro()
 	EventBus.state_changed.emit()
 	return { "ok": true, "settlement": settlement }
 

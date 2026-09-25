@@ -292,6 +292,7 @@ func new_game_state() -> Dictionary:
 			"bizOwenCultivationRole": false, "bizOwenProductionRole": false,
 			# business_empire questline (systems/business_quest.gd).
 			"bizA1Proposed": false, "bizA1PropositionSeen": false, "bizA1MarketProven": false,
+			"bizA1OwenIntroQueued": false, "bizA1OwenJoined": false,
 			# Set by Beat 3; shows BizBrief's Staff tab.
 			"bizStaffTabOpen": false,
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,

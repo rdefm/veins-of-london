@@ -176,6 +176,8 @@ static func advance() -> void:
 		# scene itself starts Archie's starter chain.
 		BusinessQuest.maybe_trigger_proposition()
 		BusinessQuest.maybe_issue_starter()
+		# Beat 3: prior completions can meet Beat 2 inside the Beat 1 scene.
+		BusinessQuest.maybe_trigger_owen_intro()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
 		event_state["cardIndex"] += 1
@@ -328,6 +330,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			GameState.state["contacts"][effect["contact"]]["unlocked"] = true
 		"recruit_contact":
 			Contacts.force_recruit(effect["contact"])
+		"activate_business":
+			Business.activate()
 		"push_message":
 			# Optional "from" lets an authored SMS thread replay its own outgoing "player" lines verbatim; defaults to "them" when omitted.
 			Messages.append(effect["contact"], effect.get("from", "them"), effect["text"])
