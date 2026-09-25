@@ -392,7 +392,7 @@ static func _drift_one(vein: Dictionary) -> void:
 
 
 # Shared post-mutation hook for every growth-changing code path (cultivate(),
-# prune(), _drift_one() above, and Rooms.process_vein_station()'s automated
+# prune(), _drift_one() above, and Rooms._cultivator_act()'s automated
 # cultivate/prune) -- staff-automated veins get the same map events and
 # streak invariant as manual cultivation, not a separate formula.
 static func apply_growth_change(vein: Dictionary, growth_before: int) -> void:

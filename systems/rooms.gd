@@ -1,8 +1,8 @@
 class_name Rooms
 extends RefCounted
 
-# Daily processing for the lab and veinStation rooms per R§3.10. Static
-# funcs only.
+# Production targets, cultivator vein lists, and the per-block staff step
+# per R§3.10. Static funcs only.
 
 # R§1.3 has no unlockFlag column for recipes, but R§3.10 says the lab crafts
 # each "unlocked recipe" -- mirrors the HTML's per-recipe checks with the
@@ -202,121 +202,104 @@ static func vein_station_target_text(vein_id: String) -> Variant:
 	return "Cultivated by %s · target %d" % [Contacts.display_name(contact_id), vein_station_target(vein_id)]
 
 
-# Called from time_system.gd's daily_tick, step ⑥ (lab half).
-static func process_lab() -> void:
-	var contact_id = Contacts.get_contact_in_room("lab")
-	if contact_id == null:
-		return
-	if not Payroll.is_paid_today("lab"):
-		return
-
-	var c: Dictionary = GameState.state["contacts"][contact_id]
-	var player: Dictionary = GameState.state["player"]
-	var flags: Dictionary = GameState.state["flags"]
-
-	var total_attempts := 0
-	var total_successes := 0
-
-	for recipe_key in _production_order():
-		var unlock_flag: String = RECIPE_UNLOCK_FLAGS.get(recipe_key, "")
-		if unlock_flag != "" and not flags.get(unlock_flag, false):
-			continue
-		var target: int = effective_lab_target(recipe_key)
-		if target <= 0:
-			continue
-
-		var r: Dictionary = GameData.RECIPES[recipe_key]
-		var skill: int = c.get("craftingSkill", 1)
-		var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
-
-		while Crafting.inventory_qty(recipe_key) < target:
-			var can_afford := true
-			for ingredient in costs:
-				if player["orichalchum"].get(ingredient, 0) < costs[ingredient]:
-					can_afford = false
-					break
-			if not can_afford:
-				break
-			for ingredient in costs:
-				player["orichalchum"][ingredient] = player["orichalchum"].get(ingredient, 0) - costs[ingredient]
-			var success: bool = Rng.chance(Crafting.craft_chance(recipe_key, skill))
-			if success:
-				Crafting.inventory_add(recipe_key, Crafting.quality_tier(recipe_key, skill))
-				Contacts.award_contact_xp(contact_id, "crafting", r["xpReward"])
-				total_successes += 1
-			else:
-				Contacts.award_contact_xp(contact_id, "crafting", int(floor(float(r["xpReward"]) / 3.0)))
-			total_attempts += 1
-
-	if total_attempts > 0:
-		var plural: String = "" if total_attempts == 1 else "s"
-		Notify.push("Lab (%s): %d crafted from %d attempt%s." % [Contacts.display_name(contact_id), total_successes, total_attempts, plural], Notify.CATEGORY_SUCCESS)
+# The staff block step (R§3.10 "Staff block step"), run by TimeSystem at
+# the end of every player time block: each working cultivator takes one
+# action, then each working producer makes one craft attempt, then Sales
+# re-checks delegated contracts if shared stock grew. Returns the block's
+# output { "ore": {oreType: qty}, "items": {recipeKey: qty} } for the
+# Morning Brief.
+static func process_staff_block() -> Dictionary:
+	var output := { "ore": {}, "items": {} }
+	for contact_id in Contacts.contacts_in_role("cultivation"):
+		if Payroll.is_working(contact_id):
+			_cultivator_act(contact_id, output["ore"])
+	for contact_id in Contacts.contacts_in_role("production"):
+		if Payroll.is_working(contact_id):
+			_producer_act(contact_id, output["items"])
+	if not output["ore"].is_empty() or not output["items"].is_empty():
+		EventBus.shared_stock_increased.emit()
+	return output
 
 
-# Called from time_system.gd's daily_tick, step ⑥ (veinStation half).
-# "Hold-at-target": per assigned vein, a contact prunes toward target if
-# growth drifted more than VEIN_STATION_HOLD_BAND above it, or rolls one
-# cultivate attempt if drifted the same amount below. Drives Cultivating's
-# prune-yield/cultivate-gain math directly rather than through
-# Cultivating.prune()/cultivate(), which spend a time block and require
-# Travel.ensure_district -- not applicable to a contact working from home.
-static func process_vein_station() -> void:
-	var contact_id = Contacts.get_contact_in_room("veinStation")
-	if contact_id == null:
-		return
-	if not Payroll.is_paid_today("veinStation"):
-		return
-
-	var c: Dictionary = GameState.state["contacts"][contact_id]
-	var targets: Dictionary = GameState.state["veinStationTargets"]
-	var player: Dictionary = GameState.state["player"]
-
-	var prune_breakdown: Dictionary = {}
-	var total_cultivated := 0
-
+# The assigned vein furthest outside its target ±VEIN_STATION_HOLD_BAND,
+# ties to the earliest in assignment order; null when every vein is in band.
+static func pick_vein(contact_id: String) -> Variant:
+	var best: Variant = null
+	var best_distance := 0
 	for vein_id in cultivator_veins(contact_id):
 		var vein = Cultivating.find_vein(vein_id)
 		if vein == null:
 			continue
-
-		var target: int = targets.get(vein_id, VEIN_STATION_DEFAULT_TARGET)
+		var target := vein_station_target(vein_id)
 		var growth: int = vein["growth"]
+		var distance: int = maxi(growth - (target + VEIN_STATION_HOLD_BAND), (target - VEIN_STATION_HOLD_BAND) - growth)
+		if distance > best_distance:
+			best = vein_id
+			best_distance = distance
+	return best
 
-		if growth > target + VEIN_STATION_HOLD_BAND:
-			var depth: int = growth - target
-			var amount: int = Cultivating.prune_yield(vein, depth)
-			vein["growth"] = maxi(0, growth - depth)
-			vein["rampantDays"] = 0
+
+# Above the band: prune down to target, yield into shared stock. Below: one
+# cultivate roll at the contact's skill. Drives Cultivating's prune-yield/
+# cultivate-gain math directly rather than through Cultivating.prune()/
+# cultivate(), which spend a time block and require Travel.ensure_district.
+static func _cultivator_act(contact_id: String, ore_out: Dictionary) -> void:
+	var vein_id: Variant = pick_vein(contact_id)
+	if vein_id == null:
+		return
+	var vein: Dictionary = Cultivating.find_vein(vein_id)
+	var target := vein_station_target(vein_id)
+	var growth: int = vein["growth"]
+	if growth > target:
+		var depth: int = growth - target
+		var amount: int = Cultivating.prune_yield(vein, depth)
+		vein["growth"] = maxi(0, growth - depth)
+		vein["rampantDays"] = 0
+		Cultivating.apply_growth_change(vein, growth)
+		var ore_type: String = vein["oreType"]
+		var ore: Dictionary = GameState.state["player"]["orichalchum"]
+		ore[ore_type] = ore.get(ore_type, 0) + amount
+		if amount > 0:
+			ore_out[ore_type] = ore_out.get(ore_type, 0) + amount
+	else:
+		var skill: int = GameState.state["contacts"][contact_id].get("cultivatingSkill", 1)
+		if Rng.chance(Cultivating.get_cult_chance(skill)):
+			var vein_ceiling: int = Cultivating.ceiling(vein)
+			var gain: int = Cultivating.cultivate_gain(skill, growth, vein_ceiling)
+			vein["growth"] = clampi(growth + gain, 0, vein_ceiling)
+			if vein["growth"] < vein_ceiling:
+				vein["rampantDays"] = 0
 			Cultivating.apply_growth_change(vein, growth)
-			var ore_type: String = vein["oreType"]
-			player["orichalchum"][ore_type] = player["orichalchum"].get(ore_type, 0) + amount
-			if amount > 0:
-				EventBus.shared_stock_increased.emit()
-			prune_breakdown[ore_type] = prune_breakdown.get(ore_type, 0) + amount
-			Contacts.award_contact_xp(contact_id, "cultivating", 15)
-		elif growth < target - VEIN_STATION_HOLD_BAND:
-			var skill: int = c.get("cultivatingSkill", 1)
-			var success: bool = Rng.chance(Cultivating.get_cult_chance(skill))
-			if success:
-				var vein_ceiling: int = Cultivating.ceiling(vein)
-				var gain: int = Cultivating.cultivate_gain(skill, growth, vein_ceiling)
-				vein["growth"] = clampi(growth + gain, 0, vein_ceiling)
-				if vein["growth"] < vein_ceiling:
-					vein["rampantDays"] = 0
-				Cultivating.apply_growth_change(vein, growth)
-				Contacts.award_contact_xp(contact_id, "cultivating", 20)
-				total_cultivated += 1
-			else:
-				Contacts.award_contact_xp(contact_id, "cultivating", 8)
+	Contacts.award_contact_xp(contact_id, "cultivating", GameData.CULTIVATOR_ACTION_XP)
 
-	var msgs: Array = []
-	if not prune_breakdown.is_empty():
-		var parts: Array = []
-		for ore_type in prune_breakdown:
-			parts.append("%d %s" % [prune_breakdown[ore_type], GameData.ORE_TYPES[ore_type]["name"]])
-		msgs.append("pruned %s" % ", ".join(parts))
-	if total_cultivated > 0:
-		var plural: String = "" if total_cultivated == 1 else "s"
-		msgs.append("cultivated %d vein%s" % [total_cultivated, plural])
-	if not msgs.is_empty():
-		Notify.push("Vein Station (%s): %s." % [Contacts.display_name(contact_id), "; ".join(msgs)], Notify.CATEGORY_SUCCESS)
+
+# One craft attempt at the first recipe in _production_order() that is
+# unlocked, below its effective target, and affordable from shared stock.
+static func _producer_act(contact_id: String, items_out: Dictionary) -> void:
+	var flags: Dictionary = GameState.state["flags"]
+	var ore: Dictionary = GameState.state["player"]["orichalchum"]
+	var skill: int = GameState.state["contacts"][contact_id].get("craftingSkill", 1)
+	for recipe_key in _production_order():
+		var unlock_flag: String = RECIPE_UNLOCK_FLAGS.get(recipe_key, "")
+		if unlock_flag != "" and not flags.get(unlock_flag, false):
+			continue
+		if Crafting.inventory_qty(recipe_key) >= effective_lab_target(recipe_key):
+			continue
+		var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
+		var can_afford := true
+		for ingredient in costs:
+			if ore.get(ingredient, 0) < costs[ingredient]:
+				can_afford = false
+				break
+		if not can_afford:
+			continue
+		for ingredient in costs:
+			ore[ingredient] = ore.get(ingredient, 0) - costs[ingredient]
+		var xp_reward: int = GameData.RECIPES[recipe_key]["xpReward"]
+		if Rng.chance(Crafting.craft_chance(recipe_key, skill)):
+			Crafting.inventory_add(recipe_key, Crafting.quality_tier(recipe_key, skill))
+			items_out[recipe_key] = items_out.get(recipe_key, 0) + 1
+			Contacts.award_contact_xp(contact_id, "crafting", xp_reward)
+		else:
+			Contacts.award_contact_xp(contact_id, "crafting", int(floor(float(xp_reward) / 3.0)))
+		return

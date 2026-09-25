@@ -121,13 +121,15 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 0
 		PayrollSystem.pay_wages()
 		assert_true(not PayrollSystem.is_paid_today("lab"))
-		Rooms.process_lab()
+		for i in TimeSystem.BLOCKS_PER_DAY:
+			Rooms.process_staff_block()
 		assert_eq(Crafting.inventory_qty("timePearl"), 0, "an unpaid Production role should do no crafting")
 
 		GameState.state["player"]["cash"] = 1000
 		PayrollSystem.pay_wages()
 		assert_true(PayrollSystem.is_paid_today("lab"))
-		Rooms.process_lab()
+		for i in 100:
+			Rooms.process_staff_block()
 		assert_eq(Crafting.inventory_qty("timePearl"), 5, "once paid, the same role resumes working normally")
 	)
 

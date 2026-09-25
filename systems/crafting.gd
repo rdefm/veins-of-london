@@ -150,7 +150,7 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 
 	# The player's own craft gets the seated Movement's attunement bonus when
 	# its ore type matches an ingredient; craft_chance() stays untouched since
-	# Rooms.process_lab() also calls it for contact crafting (no Dial there).
+	# Rooms._producer_act() also calls it for contact crafting (no Dial there).
 	var attunement := 0.0
 	for ingredient_ore in recipe_ore_types(recipe_key):
 		attunement = maxf(attunement, Dial.attunement_bonus(ingredient_ore))

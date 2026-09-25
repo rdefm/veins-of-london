@@ -3,24 +3,27 @@ extends RefCounted
 
 const RaidAlarmsSystem := preload("res://systems/raid_alarms.gd")
 
-# Exact, persisted account of one completed daily tick. The temporary
-# context returned by begin_rollover() exists only while TimeSystem runs the
-# tick; finish_rollover() stores the compact result and discards snapshots.
+# Exact, persisted account of one completed daily tick plus the staff block
+# output of the day before it. The temporary context returned by
+# begin_rollover() exists only while TimeSystem runs the tick;
+# finish_rollover() stores the compact result and discards snapshots.
 
 
 static func begin_rollover() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
+	var block: Dictionary = _block_production()
+	GameState.state["morningAccounts"]["blockProduction"] = _empty_block_production()
 	return {
 		"day": GameState.state["world"]["day"],
 		"openingBalance": player["cash"],
 		"bankIds": _bank_ids(),
-		"openingOre": _ore_snapshot(),
-		"lastOre": _ore_snapshot(),
-		"lastInventory": _inventory_snapshot(),
+		"openingOre": ore_snapshot(),
+		"lastOre": ore_snapshot(),
+		"blockOreMovement": block["oreMovement"],
 		"lastVeins": _vein_ids(),
 		"jobBefore": GameState.deep_copy(GameState.state.get("jamesJob")),
-		"productionOre": {},
-		"productionItems": {},
+		"productionOre": block["ore"],
+		"productionItems": block["items"],
 		"lossOre": {},
 		"lostVeins": 0,
 		"sales": {},
@@ -35,7 +38,7 @@ static func capture_job_expiry(context: Dictionary) -> void:
 
 
 static func capture_losses(context: Dictionary, source: String) -> void:
-	var current_ore := _ore_snapshot()
+	var current_ore := ore_snapshot()
 	var lost: Dictionary = _negative_delta(context["lastOre"], current_ore)
 	_merge_amounts(context["lossOre"], lost)
 	var current_veins := _vein_ids()
@@ -50,13 +53,21 @@ static func capture_losses(context: Dictionary, source: String) -> void:
 	context["lastVeins"] = current_veins
 
 
-static func capture_lab(context: Dictionary) -> void:
-	var inventory := _inventory_snapshot()
-	_merge_amounts(context["productionItems"], _positive_delta(context["lastInventory"], inventory))
-	context["lastInventory"] = inventory
-	context["lastOre"] = _ore_snapshot()
-	var contact_id = Contacts.get_contact_in_room("lab")
-	if contact_id == null:
+# Staff block output and the block's net ore change (yields, crafting
+# spend, Sales deliveries) accumulate here through the day and fold into the
+# next rollover's production summary and ore movement. ore_before is
+# ore_snapshot() taken just before the block ran.
+static func record_block(output: Dictionary, ore_before: Dictionary) -> void:
+	var block: Dictionary = _block_production()
+	_merge_amounts(block["ore"], output["ore"])
+	_merge_amounts(block["items"], output["items"])
+	_merge_amounts(block["oreMovement"], _signed_delta(ore_before, ore_snapshot()))
+
+
+# Personal Production targets still unmet at rollover, while anyone holds
+# the Production role.
+static func capture_production_shortfalls(context: Dictionary) -> void:
+	if Contacts.contacts_in_role("production").is_empty():
 		return
 	for recipe_key in GameState.state["labThresholds"]:
 		var target: int = GameState.state["labThresholds"][recipe_key]
@@ -65,10 +76,18 @@ static func capture_lab(context: Dictionary) -> void:
 			context["exceptions"].append({ "kind": "productionShortfall", "recipeKey": recipe_key, "target": target, "actual": actual })
 
 
-static func capture_vein_station(context: Dictionary) -> void:
-	var current_ore := _ore_snapshot()
-	_merge_amounts(context["productionOre"], _positive_delta(context["lastOre"], current_ore))
-	context["lastOre"] = current_ore
+static func _block_production() -> Dictionary:
+	var accounts: Dictionary = GameState.state["morningAccounts"]
+	if not accounts.has("blockProduction"):
+		accounts["blockProduction"] = _empty_block_production()
+	var block: Dictionary = accounts["blockProduction"]
+	if not block.has("oreMovement"):
+		block["oreMovement"] = {}
+	return block
+
+
+static func _empty_block_production() -> Dictionary:
+	return { "ore": {}, "items": {}, "oreMovement": {} }
 
 
 # Arrears exceptions (ADR 0006 "Morning account and notifications") from
@@ -155,7 +174,7 @@ static func finish_rollover(context: Dictionary) -> Dictionary:
 		"closingBalance": GameState.state["player"]["cash"],
 		"income": income,
 		"expenses": expenses,
-		"oreMovement": _signed_delta(context["openingOre"], _ore_snapshot()),
+		"oreMovement": _combined_movement(context["blockOreMovement"], _signed_delta(context["openingOre"], ore_snapshot())),
 		"production": { "ore": context["productionOre"], "items": context["productionItems"] },
 		"sales": context["sales"],
 		"losses": { "ore": context["lossOre"], "veins": context["lostVeins"] },
@@ -248,17 +267,10 @@ static func _bank_ids() -> Dictionary:
 	return ids
 
 
-static func _ore_snapshot() -> Dictionary:
+static func ore_snapshot() -> Dictionary:
 	var result := {}
 	for ore_type in GameData.ORE_TYPES:
 		result[ore_type] = int(GameState.state["player"]["orichalchum"].get(ore_type, 0))
-	return result
-
-
-static func _inventory_snapshot() -> Dictionary:
-	var result := {}
-	for recipe_key in GameData.RECIPES:
-		result[recipe_key] = Crafting.inventory_qty(recipe_key)
 	return result
 
 
@@ -267,6 +279,15 @@ static func _vein_ids() -> Array[String]:
 	for vein in GameState.state["player"]["veins"]:
 		ids.append(vein["id"])
 	return ids
+
+
+static func _combined_movement(first: Dictionary, second: Dictionary) -> Dictionary:
+	var result: Dictionary = first.duplicate()
+	_merge_amounts(result, second)
+	for key in result.keys():
+		if result[key] == 0:
+			result.erase(key)
+	return result
 
 
 static func _signed_delta(before: Dictionary, after: Dictionary) -> Dictionary:

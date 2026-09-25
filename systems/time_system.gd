@@ -14,6 +14,7 @@ const ContractsSystem := preload("res://systems/contracts.gd")
 static func advance_time_block() -> void:
 	var world: Dictionary = GameState.state["world"]
 	var source := { "day": world["day"], "phase": world["timeBlock"] }
+	run_staff_block()
 	world["timeBlocksDone"].append(world["timeBlock"])
 	world["timeBlock"] += 1
 	if world["timeBlock"] >= BLOCKS_PER_DAY:
@@ -31,11 +32,14 @@ static func is_time_exhausted() -> bool:
 	return world["timeBlocksDone"].size() >= BLOCKS_PER_DAY
 
 
-# Consumes all remaining blocks, rolls to the next day (running
-# daily_tick), then heals the player 20% of hpMax, capped at hpMax.
+# Consumes all remaining blocks (running the staff block step for each, so a
+# day always yields BLOCKS_PER_DAY staff actions), rolls to the next day
+# (running daily_tick), then heals the player 20% of hpMax, capped at hpMax.
 static func do_rest() -> void:
 	var world: Dictionary = GameState.state["world"]
 	var source := { "day": world["day"], "phase": world["timeBlock"] }
+	for i in BLOCKS_PER_DAY - world["timeBlock"]:
+		run_staff_block()
 	world["day"] += 1
 	world["timeBlock"] = 0
 	world["timeBlocksDone"] = []
@@ -51,6 +55,13 @@ static func do_rest() -> void:
 	Notify.push("Rested. Day %d. +%d HP." % [world["day"], actual_heal], Notify.CATEGORY_SUCCESS)
 	EventBus.time_advanced.emit(source, { "day": world["day"], "phase": world["timeBlock"] })
 	EventBus.state_changed.emit()
+
+
+# R§3.10 "Staff block step": staffed cultivators and producers act at the
+# end of every time block, before any rollover.
+static func run_staff_block() -> void:
+	var ore_before: Dictionary = MorningAccountsSystem.ore_snapshot()
+	MorningAccountsSystem.record_block(Rooms.process_staff_block(), ore_before)
 
 
 # Exact step order per R§3.1 — do not reorder without checking each inline
@@ -87,10 +98,7 @@ static func daily_tick() -> void:
 	Collective.maybe_trigger_act2_intro()   # ⑤i2 backstop for the same trigger events.advance() already checks
 	Factions.maybe_restock_ore()         # ⑤j no ordering dependency on any other step
 	Payroll.pay_wages()                  # ⑥ staff phase start: wages, paid after living costs -- an unaffordable role is skipped this rollover, no debt, retried next
-	Rooms.process_vein_station()         # ⑥.1 Procurement, before Production so Sales (⑥.3) sees both yields landed
-	MorningAccountsSystem.capture_vein_station(morning_context)
-	Rooms.process_lab()                  # ⑥.2 Production crafts effective targets
-	MorningAccountsSystem.capture_lab(morning_context)
+	MorningAccountsSystem.capture_production_shortfalls(morning_context)  # ⑥.1 unmet Production targets; staff work itself runs per block in run_staff_block()
 	ContractsSystem.process_delegated_deliveries() # ⑥.3 Sales closes full periods, then allocates partial stock by priority
 	ContractsSystem.daily_tick()         # ⑥.4 due periods settle; recurring periods renew
 	OffersSystem.daily_tick()            # ⑥.5 expiry, then Sales sources at most one new random offer

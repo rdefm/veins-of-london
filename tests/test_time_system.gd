@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+
 
 func run() -> void:
 	run_case("three_blocks_tick_a_day", func():
@@ -18,6 +20,30 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["day"], 2, "day rolls to 2 after the 3rd block")
 		assert_eq(GameState.state["world"]["timeBlock"], 0, "timeBlock resets to 0 on rollover")
 		assert_eq(GameState.state["world"]["timeBlocksDone"], [], "timeBlocksDone resets on rollover")
+	)
+
+	run_case("advance_time_block_runs_the_staff_step_before_any_rollover", func():
+		GameState.reset()
+		var veins := _staff_overgrown_veins(4)
+		TimeSystem.advance_time_block()
+		assert_eq(veins[0]["growth"], 70, "the block that just ended pruned the first vein")
+		assert_eq(veins[1]["growth"], 95, "one action per block")
+		TimeSystem.advance_time_block()
+		TimeSystem.advance_time_block()
+		assert_eq(GameState.state["world"]["day"], 2)
+		assert_eq(GameState.state["contacts"]["archie"]["cultivatingXP"], 3 * GameData.CULTIVATOR_ACTION_XP, "3 actions in the day, none added by the rollover")
+		assert_true(MorningAccounts.latest()["production"]["ore"]["time"] > 0, "the Morning Brief aggregates the day's block yields")
+	)
+
+	run_case("do_rest_runs_the_staff_step_for_every_remaining_block", func():
+		GameState.reset()
+		_staff_overgrown_veins(6)
+		TimeSystem.advance_time_block()
+		TimeSystem.do_rest()
+		assert_eq(GameState.state["world"]["day"], 2)
+		assert_eq(GameState.state["contacts"]["archie"]["cultivatingXP"], 3 * GameData.CULTIVATOR_ACTION_XP, "1 block played + 2 rested = 3 actions")
+		TimeSystem.do_rest()
+		assert_eq(GameState.state["contacts"]["archie"]["cultivatingXP"], 6 * GameData.CULTIVATOR_ACTION_XP, "a full rested day is 3 more")
 	)
 
 	run_case("is_time_exhausted_tracks_blocks_done", func():
@@ -693,3 +719,18 @@ func run() -> void:
 		TimeSystem.daily_tick()
 		assert_true(true, "daily_tick completed without error")
 	)
+
+
+# Archie staffs the Vein Station with count veins all at 95 against target
+# 70, so every block has a vein to prune.
+func _staff_overgrown_veins(count: int) -> Array:
+	GameState.state["contacts"]["archie"]["recruited"] = true
+	Contacts.assign_to_room("archie", "veinStation")
+	var veins: Array = []
+	for i in count:
+		var vein_id := "sv%d" % i
+		veins.append(Fixtures.player_vein_with({ "id": vein_id, "growth": 95, "rampantDays": 0 }))
+		GameState.state["veinStationTargets"][vein_id] = 70
+	GameState.state["player"]["veins"] = veins
+	GameState.state["cultivatorVeins"] = { "archie": veins.map(func(v): return v["id"]) }
+	return veins

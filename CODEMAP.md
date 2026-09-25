@@ -61,12 +61,12 @@ Data file per system: see `data/*.json` below.
 | map_zoom.gd | Zoom-level math for the diagram |
 | messages.gd | Messages data layer + conversation-index projections and total unread count |
 | modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close |
-| morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown), BizBrief routing and arrears labels |
+| morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown), per-block staff output accumulation, BizBrief routing and arrears labels |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict |
 | objectives.gd | Objective/questline evaluator |
 | offers.gd | Sales offers: quoting, acceptance, expiry |
-| payroll.gd | Daily wage payment for room-staffed hires (founders exempt) |
+| payroll.gd | Daily wage payment for room-staffed hires (founders exempt); `is_working()` gate for staff actions |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
 | phone_nav.gd | Phone app/index/thread drill-down nav |
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
@@ -74,11 +74,11 @@ Data file per system: see `data/*.json` below.
 | raid_alarms.gd | Summaries + dispatch for raid alarms |
 | raiding.gd | Vein stealth-check + raid resolution |
 | relation_accrual.gd | Capped £ relation meter |
-| rooms.gd | Daily lab/veinStation processing; per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
+| rooms.gd | Per-block staff step (cultivators then producers, one action each), Production targets/priority, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
 | sites.gd | Sites & prospecting |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
-| time_system.gd | Time blocks, rest, daily tick (tenure-aware home bill, arrears + interest, forced one-tier downgrade per ADR 0006) |
+| time_system.gd | Time blocks (each runs the staff block step), rest, daily tick (tenure-aware home bill, arrears + interest, forced one-tier downgrade per ADR 0006) |
 | todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire placeholder) with active/done/placeholder status + default expansion; Collective section carries the ledger read from state.world.sites |
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer |

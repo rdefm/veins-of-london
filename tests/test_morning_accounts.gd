@@ -33,32 +33,35 @@ func run() -> void:
 		assert_eq(account["sales"]["time calc contract"], 12)
 	)
 
-	run_case("room_processing_records_stock_production_and_shortfall", func():
+	run_case("block_production_folds_into_the_next_rollover_and_shortfall_is_flagged", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "lab")
 		GameState.state["flags"]["craftingUnlocked"] = true
 		GameState.state["labThresholds"]["timePearl"] = 2
 		GameState.state["player"]["orichalchum"]["time"] = 10000
-		var context := MorningAccountsSystem.begin_rollover()
 		Rng.set_seed(7)
-		Rooms.process_lab()
-		MorningAccountsSystem.capture_lab(context)
+		for i in 30:
+			TimeSystem.run_staff_block()
+		var context := MorningAccountsSystem.begin_rollover()
+		MorningAccountsSystem.capture_production_shortfalls(context)
 		var account := MorningAccountsSystem.finish_rollover(context)
 		assert_eq(account["production"]["items"]["timePearl"], 2)
-		assert_true(account["oreMovement"]["time"] < 0)
+		assert_true(account["oreMovement"]["time"] < 0, "crafting spend during the blocks shows as ore movement")
 		assert_true(account["exceptions"].is_empty())
+		assert_eq(GameState.state["morningAccounts"]["blockProduction"], { "ore": {}, "items": {}, "oreMovement": {} }, "the rollover consumes the day's block output")
 
 		GameState.state["labThresholds"]["timePearl"] = 5
 		GameState.state["player"]["orichalchum"]["time"] = 0
+		TimeSystem.run_staff_block()
 		context = MorningAccountsSystem.begin_rollover()
-		Rooms.process_lab()
-		MorningAccountsSystem.capture_lab(context)
+		MorningAccountsSystem.capture_production_shortfalls(context)
 		account = MorningAccountsSystem.finish_rollover(context)
+		assert_true(account["production"]["items"].is_empty())
 		assert_eq(account["exceptions"][0]["kind"], "productionShortfall")
 	)
 
-	run_case("vein_station_output_and_losses_are_recorded_separately", func():
+	run_case("cultivator_output_and_losses_are_recorded_separately", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "veinStation")
@@ -71,9 +74,8 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["cultivatorVeins"] = { "archie": ["v1"] }
 		GameState.state["veinStationTargets"] = { "v1": 70 }
+		TimeSystem.run_staff_block()
 		var context := MorningAccountsSystem.begin_rollover()
-		Rooms.process_vein_station()
-		MorningAccountsSystem.capture_vein_station(context)
 		GameState.state["player"]["orichalchum"]["time"] -= 3
 		GameState.state["player"]["veins"] = []
 		MorningAccountsSystem.capture_losses(context, "Raid")
@@ -81,7 +83,7 @@ func run() -> void:
 		assert_eq(account["production"]["ore"]["time"], 9)
 		assert_eq(account["losses"]["ore"]["time"], 3)
 		assert_eq(account["losses"]["veins"], 1)
-		assert_eq(account["oreMovement"]["time"], 6)
+		assert_eq(account["oreMovement"]["time"], 6, "the day's block yield (+9) plus the rollover loss (-3)")
 	)
 
 	run_case("attention_is_current_unresolved_alarms_and_unread_messages", func():

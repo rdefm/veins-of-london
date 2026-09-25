@@ -470,6 +470,10 @@ func _restore_int_types(state: Dictionary) -> void:
 		_int_key(bank_entry, "day")
 	var morning_accounts: Dictionary = state.get("morningAccounts", {})
 	_int_key(morning_accounts, "autoOpenedDay")
+	var block_production: Dictionary = morning_accounts.get("blockProduction", {})
+	_int_dict_values(block_production.get("ore", {}))
+	_int_dict_values(block_production.get("items", {}))
+	_int_dict_values(block_production.get("oreMovement", {}))
 	var morning = morning_accounts.get("latest")
 	if morning != null:
 		for key in ["day", "openingBalance", "closingBalance", "income", "expenses"]:

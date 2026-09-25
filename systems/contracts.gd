@@ -45,7 +45,7 @@ static func is_complete(contract: Dictionary) -> bool:
 # Operations Room hire counts only once today's wage is paid.
 static func has_staffed_sales() -> bool:
 	for contact_id in Contacts.contacts_in_role("sales"):
-		if Contacts.is_founder(contact_id) or Payroll.is_paid_today("ops"):
+		if Payroll.is_working(contact_id):
 			return true
 	return false
 

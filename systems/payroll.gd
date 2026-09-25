@@ -43,6 +43,16 @@ static func is_paid_today(room_id: String) -> bool:
 	return GameState.state["payroll"]["paidToday"].get(room_id, true)
 
 
+# Whether a staffed contact acts at block ends (R§3.10 "Staff block step"):
+# a room hire only once today's wage is paid; a founder draws no daily wage
+# and always acts.
+static func is_working(contact_id: String) -> bool:
+	if Contacts.is_founder(contact_id):
+		return true
+	var room: Variant = GameState.state["contacts"][contact_id].get("assignedRoom")
+	return room == null or is_paid_today(room)
+
+
 # Called from TimeSystem.daily_tick(), after living costs. Pays every
 # assigned role's wage in ROLE_ROOMS priority order, spending only as far
 # as remaining cash allows.

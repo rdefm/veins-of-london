@@ -150,6 +150,10 @@ var JAMES_JOB_TRUST_BANDS: Array = []
 var GUARD_REPEL_CHANCE_PER_GUARD: float = 0.0
 var GUARD_REPEL_CHANCE_CAP: float = 0.0
 
+# Cultivating XP a staffed cultivator earns per block action (prune or
+# cultivate roll, success or fail), R§3.10.
+var CULTIVATOR_ACTION_XP: int = 0
+
 # Loaded by _list_event_ids() from every *.json file under data/events/ --
 # no id roster to keep in sync; drop a file in, it's discovered on next
 # boot. Deck membership (M1-LONDON D5) is decided per file by a "deck"
@@ -294,6 +298,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "JAMES_JOB_TRUST_BANDS", "key": "jamesJobTrustBands", "type": TYPE_ARRAY},
 		{"field": "GUARD_REPEL_CHANCE_PER_GUARD", "key": "guardRepel.chancePerGuard", "type": TYPE_FLOAT},
 		{"field": "GUARD_REPEL_CHANCE_CAP", "key": "guardRepel.cap", "type": TYPE_FLOAT},
+		{"field": "CULTIVATOR_ACTION_XP", "key": "cultivatorActionXp", "type": TYPE_INT},
 	]},
 	{"table": "daily_cycle", "file": "res://data/daily_cycle.json", "fields": [
 		{"field": "DAILY_CYCLE", "key": "", "type": TYPE_DICTIONARY},
