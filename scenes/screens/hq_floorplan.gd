@@ -29,8 +29,8 @@ func _build() -> void:
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", int(UI.safe_area_top_inset()) + 16)
-	margin.add_theme_constant_override("margin_bottom", int(UI.safe_area_bottom_inset()) + 16)
+	margin.add_theme_constant_override("margin_top", int(UI.top_bar_clearance()) + 16)
+	margin.add_theme_constant_override("margin_bottom", int(UI.nav_bar_clearance()) + 16)
 	sc.add_child(margin)
 
 	var content := UI.vbox(8)

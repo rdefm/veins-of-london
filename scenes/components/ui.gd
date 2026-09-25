@@ -391,6 +391,10 @@ static func top_bar_clearance() -> float:
 	return TopBar.BAR_HEIGHT + safe_area_top_inset()
 
 
+static func nav_bar_clearance() -> float:
+	return maxf(NavBar.BAR_HEIGHT, safe_area_bottom_inset())
+
+
 static func safe_area_debug_text() -> String:
 	var window_size := DisplayServer.window_get_size()
 	if window_size.x <= 0 or window_size.y <= 0:
