@@ -4,10 +4,15 @@ extends RefCounted
 # Debug Start (R§5): a maximal-unlock state for testing every screen/
 # feature without playing the tutorial. Static funcs only.
 #
-# One deliberate exception to "all flags complete/true": homeRaidEventSeen
-# stays false, since the home-raid trigger is pending && !seen (R§3.8) —
+# Exceptions to "all flags complete/true": colA* questline flags (see the
+# flag loop in apply()), and homeRaidEventSeen, which stays false since
+# the home-raid trigger is pending && !seen (R§3.8) —
 # forcing seen true would make R§5's own `homeRaidEventPending = true`
 # clause meaningless.
+
+const QUESTLINE_FLAG_PREFIX := "colA"
+const COLLECTIVE_INTRO_SOURCE_EVENT := "archie_cultivation"
+const COLLECTIVE_INTRO_EVENT := "col_a1_intro"
 
 
 static func apply() -> void:
@@ -97,8 +102,13 @@ static func apply() -> void:
 	# real New Game gets.
 	Factions.seed_day_one_veins()
 
+	# Collective questline progression flags (colA*) stay at their "not
+	# started" default so the questline plays from its first beat; feature
+	# unlocks like collectiveLaneUnlocked still flip true (R§5).
 	var flags: Dictionary = state["flags"]
 	for key in flags.keys():
+		if String(key).begins_with(QUESTLINE_FLAG_PREFIX):
+			continue
 		match typeof(flags[key]):
 			TYPE_BOOL:
 				flags[key] = true
@@ -108,6 +118,7 @@ static func apply() -> void:
 	flags["consSoldCount"] = 5
 	flags["homeRaidEventSeen"] = false  # see the comment at the top of this file
 	flags["homeRaidEventPending"] = true
+	_queue_collective_intro()
 
 	var home: Dictionary = state["home"]
 	home["tier"] = "townhouse"
@@ -133,6 +144,17 @@ static func apply() -> void:
 
 	PhoneNav.route_home()
 	EventBus.state_changed.emit()
+
+
+# The flag loop marks the cultivating tutorial seen, so archie_cultivation
+# never plays and never queues col_a1_intro's Archie text. Replays just that
+# queue_pending_message op from the event's own data so the collective
+# questline's first beat arrives the normal way.
+static func _queue_collective_intro() -> void:
+	var source: Dictionary = GameData.EVENTS[COLLECTIVE_INTRO_SOURCE_EVENT]
+	for effect in source.get("on_complete", []):
+		if effect["op"] == "queue_pending_message" and effect["kind"] == COLLECTIVE_INTRO_EVENT:
+			Events.apply_effects([effect])
 
 
 static func _debug_site(district: String, tier: String, ore_type: String, bonuses: Array) -> Dictionary:

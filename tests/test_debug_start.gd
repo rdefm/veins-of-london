@@ -1,5 +1,8 @@
 extends "res://tests/test_base.gd"
 
+const EventPlay := preload("res://tests/support/event_play.gd")
+const NodeQuery := preload("res://tests/support/node_query.gd")
+
 
 func run() -> void:
 	run_case("debug_start_matches_R5", func():
@@ -43,6 +46,9 @@ func run() -> void:
 		assert_eq(flags["homeRaidEventSeen"], false, "homeRaidEventSeen must stay false or the pending flag can never trigger anything")
 		for key in flags.keys():
 			if key in ["tutorialStage", "consSoldCount", "homeRaidEventSeen"]:
+				continue
+			if String(key).begins_with("colA"):
+				assert_true(flags[key] == false, "questline flag '%s' should stay not-started under debug start" % key)
 				continue
 			assert_true(flags[key] == true, "flag '%s' should be true under debug start" % key)
 
@@ -163,4 +169,24 @@ func run() -> void:
 		assert_true(GameData.DIAL_HAFTS.has(dial["haftId"]), "seeded Dial has a valid haftId")
 		assert_eq(dial["currentCharge"], 0, "seeded Dial has no charge")
 		assert_eq(dial["capacityMax"], Dial.capacity_max(1), "seeded Dial's capacity matches the level-1 lookup")
+	)
+
+	# Regression (playtest-2026-09-25 02): Debug Start skips the cultivating
+	# tutorial that queues col_a1_intro, so it must queue that beat itself.
+	run_case("debug_start_delivers_the_collective_intro_and_it_plays", func():
+		DebugStart.apply()
+
+		var pending := Messages.pending_for("archie")
+		assert_eq(pending.size(), 1, "debug start queues exactly one Archie pending entry")
+		assert_eq(pending[0]["kind"], "col_a1_intro", "that entry starts the collective questline")
+
+		var button := NodeQuery.find_button(ContactCards.build_archie_card(), "Continue →")
+		assert_true(button != null, "Archie's card surfaces the col_a1_intro button")
+		button.pressed.emit()
+		assert_eq(GameState.state["event"]["eventId"], "col_a1_intro", "pressing it starts col_a1_intro")
+
+		EventPlay.play_event("col_a1_intro")
+		var flags: Dictionary = GameState.state["flags"]
+		assert_true(flags.get("colA1DesMet", false), "col_a1_intro completes from a debug-start state")
+		assert_eq(flags.get("colA1Stage", ""), "tuition", "questline advances to tuition")
 	)

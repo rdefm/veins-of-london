@@ -412,13 +412,6 @@
 "image": ""
 }
 },
-"pacing": {
-"_note": "turnPause: seconds held between two combatants' turns during beat playback and Rewind, per CombatPacing mode (scenes/components/combat_director.gd).",
-"turnPause": {
-"normal": 0.5,
-"quick": 0.2
-}
-},
 "locationBackdrops": {
 "battersea": {
 "image": "res://assets/combat/backdrops/battersea.png"
@@ -449,13 +442,20 @@
 }
 },
 "meta": {
-"actionRule": "Ticket 10, docs/combat-animation-vision.md §4: 'attack' (3 keyposes: wind-up/strike/recover, played with a transform lunge-and-return), 'hit' (1 pose, played with a transform recoil), and 'ko' (2 poses, played with a transform fall+fade) exist per-subject exactly like 'idle' -- CombatScreen loads whichever of a sheet's frames the doctrine calls for (down-sampling evenly if a sheet carries more, e.g. templates.default's own multi-frame stand-in strips) and falls back to templates.default's shared stand-in when a subject's own entry is empty, same two-level fallback 'idle' now uses too (see 'templateRule' above). 'tell' (1 pose, held with a pulse) is ticket 06's telegraph slot getting real art instead of its text/glyph placeholder -- read directly, no default fallback (no enemy has a non-null `ability` in data/enemies.json yet, so no tell art has anywhere to point). 'selfPatch' is Archie-only (§3: the `_allies_act`/`_ally_turn` heal-below-40%-HP pose) -- also no default fallback, since a generic combat stand-in has no heal pose to lend. attack/hit/ko 'fps' values here (5.0/5.0/3.0) are deliberately much lower than idle's -- they pace a short keypose sequence (3/2/2 steps after down-sampling), not a dense flipbook, and were tuned so the total on-screen time per one-shot is close to what the pre-ticket-10 flipbook version showed (a human-flagged regression: the doctrine's own frameCount at the OLD higher fps made each one-shot roughly half as long as before, worsening how long a subject without idle art is actually visible during its own turn).",
+"actionRule": "Ticket 10, docs/combat-animation-vision.md §4: 'attack' (3 keyposes: wind-up/strike/recover, played with a transform lunge-and-return), 'hit' (1 pose, played with a transform recoil), and 'ko' (2 poses, played with a transform fall+fade) exist per-subject exactly like 'idle' -- CombatScreen loads whichever of a sheet's frames the doctrine calls for (down-sampling evenly if a sheet carries more, e.g. templates.default's own multi-frame stand-in strips) and falls back to templates.default's shared stand-in when a subject's own entry is empty, same two-level fallback 'idle' now uses too (see 'templateRule' above). 'tell' (1 pose, held with a pulse) is ticket 06's telegraph slot getting real art instead of its text/glyph placeholder -- read directly, no default fallback (no enemy has a non-null `ability` in data/enemies.json yet, so no tell art has anywhere to point). 'throw' (2 poses: wind-up, release with a small forward push) plays when a subject uses a thrown bag item (CombatScreen._THROW_BEAT_KINDS) -- per-subject, no default fallback, so a subject without throw art just doesn't animate. 'selfPatch' is Archie-only (§3: the `_allies_act`/`_ally_turn` heal-below-40%-HP pose) -- also no default fallback, since a generic combat stand-in has no heal pose to lend. attack/hit/ko 'fps' values here (5.0/5.0/3.0) are deliberately much lower than idle's -- they pace a short keypose sequence (3/2/2 steps after down-sampling), not a dense flipbook, and were tuned so the total on-screen time per one-shot is close to what the pre-ticket-10 flipbook version showed (a human-flagged regression: the doctrine's own frameCount at the OLD higher fps made each one-shot roughly half as long as before, worsening how long a subject without idle art is actually visible during its own turn).",
 "backdropRule": "One entry per Combat.CANONICAL_CONTEXTS context (systems/combat.gd). 'image' is a res:// path to a 390x360 backdrop plate, or \"\" when no plate has been produced yet -- the stage then fills with the flat data/palette.json colour named by 'fallbackColor' instead.",
 "effectRule": "Ticket 11, docs/combat-animation-vision.md §5: one entry per consumable that has a signature *sheet* effect (as opposed to a pure transform -- enhancementPowder's afterimage, wormhole's fold-and-vanish, and rewind/failsafe's beat-queue-in-reverse are all transform-only, no manifest entry, per the ticket's own 'no new art' list). Each entry is {image, frameCount, fps} at 96x96 native (docs/ART-BIBLE.md §6.1), except blackHole at 160x160 ('the one expensive effect'). 'image' empty means no asset has been produced yet -- CombatScreen's effect player degrades the same way every other manifest lookup in this file does: no frames, no visual, the beat still plays (juice/shader/transform pieces that don't depend on a sheet -- timePearl's enemy-desaturate + slowed idle tweens, shield's crack-on-absorb overlay, blast's hit-flash/shake -- run regardless). No per-subject keying (unlike templates.*) -- an effect sheet is the same regardless of who triggered it or who it lands on, played once per beat that carries the matching `effectKey` extra field (systems/combat.gd's use_*()/cast_complication()), including once per enemy hit for blackHole's AoE (see Combat._apply_black_hole_aoe()).",
 "locationBackdropRule": "'locationBackdrops' maps a combat.locationKey (a data/districts.json id, or 'home') to { image } and is checked before 'backdrops': location plate -> context plate -> fallbackColor (docs/combat-animation-vision.md §2.1). A missing key or an unloadable image falls through to the context tier.",
 "name": "Combat visuals manifest",
 "purpose": "Maps combat context (and, from ticket 09, enemy/ally template key) to the art asset that renders it, so scenes/screens/combat.gd never hardcodes a path. See docs/combat-animation-vision.md §2.1/§6 and docs/ART-BIBLE.md.",
 "templateRule": "Ticket 09 (amended by a ticket-10 follow-up): 'templates' keys other than 'default' are the seven cast subjects (docs/combat-animation-vision.md §3) resolved by CombatScreen.enemy_template_key()/display-entry building -- the player's state.player.model key (e.g. 'protagonist2'), the recruited-ally contactId (e.g. 'archie'), the data/enemies.json raidGuards key (territorialScrapper/veinGuard/orichalchumDealer), 'homeRaidRaider' (GameData.ENEMY_HOME_RAID_RAIDER), and 'mugger' (any enemy with isMugging true, however many concurrent instances -- one sheet, reused). Each subject's 'idle' entry is {image, frameCount, fps}; an empty 'image' means no dedicated art has been produced yet -- CombatScreen.StageSlot now falls back to 'default's own idle entry (the same Gangsters_2-sourced stand-in attack/hit/ko already share) rather than the ticket-01 placeholder box, per-subject, not an error. The ticket-01 box is still there as a defensive fallback (a broken/missing 'default' entry), just not expected to trigger in normal play any more."
+},
+"pacing": {
+"_note": "turnPause: seconds held between two combatants' turns during beat playback and Rewind, per CombatPacing mode (scenes/components/combat_director.gd).",
+"turnPause": {
+"normal": 0.5,
+"quick": 0.2
+}
 },
 "templates": {
 "archie": {
@@ -624,6 +624,10 @@
 "fps": 0,
 "frameCount": 0,
 "image": ""
+},
+"throw": {
+"fps": 1.4375,
+"images": ["res://assets/combat/protagonist2/protagonist2_throw_windup.png", "res://assets/combat/protagonist2/protagonist2_throw_release.png"]
 }
 },
 "territorialScrapper": {
@@ -753,7 +757,22 @@
 "DAILY_CYCLE": {
 "bodyOutline": "#524962",
 "bodyRim": 2,
-"clips": [{"id": "morning_to_afternoon", "moon": null, "sky": [["#8ebdd7", "#c8dacf"], ["#6ca6d1", "#f1c18e"]], "sun": [[157, 35], [186, 59]]}, {"id": "afternoon_to_evening", "moon": [[128, 100], [157, 43]], "sky": [["#6ca6d1", "#f1c18e"], ["#223555", "#a56d73"]], "sun": [[186, 59], [202, 96]]}, {"id": "evening_to_morning", "moon": [[157, 43], [199, 101]], "sky": [["#223555", "#a56d73"], ["#8ebdd7", "#c8dacf"]], "sun": [[128, 102], [157, 35]]}],
+"clips": [{
+"id": "morning_to_afternoon",
+"moon": null,
+"sky": [["#8ebdd7", "#c8dacf"], ["#6ca6d1", "#f1c18e"]],
+"sun": [[157, 35], [186, 59]]
+}, {
+"id": "afternoon_to_evening",
+"moon": [[128, 100], [157, 43]],
+"sky": [["#6ca6d1", "#f1c18e"], ["#223555", "#a56d73"]],
+"sun": [[186, 59], [202, 96]]
+}, {
+"id": "evening_to_morning",
+"moon": [[157, 43], [199, 101]],
+"sky": [["#223555", "#a56d73"], ["#8ebdd7", "#c8dacf"]],
+"sun": [[128, 102], [157, 35]]
+}],
 "destinationLabel": "Day %d — %s",
 "diameter": 220,
 "dimColor": "#08111db0",

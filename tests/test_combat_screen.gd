@@ -1804,6 +1804,23 @@ func run() -> void:
 		GameData.COMBAT_VISUALS = original_combat_visuals
 	)
 
+	run_case("beat_played_plays_the_players_throw_pose_on_thrown_item_beats_only", func():
+		_setup_combat([Fixtures.enemy("Scrapper")])
+		var screen := CombatScreen.new()
+		screen._ready()
+		var slot := _slot_named(screen, "You")
+		assert_eq(slot._throw_keyposes.size(), 2, "sanity: protagonist2's throw wind-up + release must load")
+
+		screen._on_beat_played({ "kind": Combat.BEAT_USE_TIME_PEARL, "effectKey": "timePearl" })
+		assert_eq(slot._sprite_rect.texture, slot._throw_keyposes[0], "a thrown-item beat must start the player's throw on its wind-up pose")
+
+		slot._end_one_shot()
+		screen._on_beat_played({ "kind": Combat.BEAT_USE_MOTION })
+		assert_true(slot._one_shot_steps.is_empty(), "enhancement powder is not thrown -- no throw one-shot")
+
+		screen.free()
+	)
+
 	run_case("player_and_allies_fan_left_of_the_enemy_column", func():
 		# Friendlies stand left, enemies right -- see combat_stage.gd's
 		# receding-staging constants.

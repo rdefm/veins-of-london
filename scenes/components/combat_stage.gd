@@ -50,6 +50,7 @@ const SHAKE_FULL_FRACTION := 0.5
 const ATTACK_KEYPOSE_COUNT := 3
 const HIT_KEYPOSE_COUNT := 1
 const KO_KEYPOSE_COUNT := 2
+const THROW_KEYPOSE_COUNT := 2
 const LUNGE_PX := 14.0
 const RECOIL_PX := 8.0
 const FALL_SINK_PX := 10.0
@@ -88,6 +89,8 @@ class StageSlot extends Control:
 	var _self_patch_fps: float = 10.0
 	var _cast_keyposes: Array[Texture2D] = []
 	var _cast_fps: float = 10.0
+	var _throw_keyposes: Array[Texture2D] = []
+	var _throw_fps: float = 10.0
 	class PoseStep:
 		var texture: Texture2D
 		var offset: Vector2
@@ -268,6 +271,9 @@ class StageSlot extends Control:
 	func set_cast_animation(frames: Array[Texture2D], fps: float) -> void:
 		_cast_keyposes = frames
 		_cast_fps = fps
+	func set_throw_animation(frames: Array[Texture2D], fps: float) -> void:
+		_throw_keyposes = frames
+		_throw_fps = fps
 	# Alternative attack poses; play_attack() picks one at random per swing.
 	func set_attack_variants(variants: Array) -> void:
 		_attack_variants = variants
@@ -330,6 +336,22 @@ class StageSlot extends Control:
 			PoseStep.new(pose, Vector2.ZERO),
 		]
 		_start_one_shot(steps, _cast_fps, false)
+	# Thrown bag item: wind-up in place, release with a small forward push.
+	func play_throw() -> void:
+		if _throw_keyposes.is_empty():
+			return
+		var windup: Texture2D = _throw_keyposes[0]
+		var release: Texture2D = _throw_keyposes[mini(1, _throw_keyposes.size() - 1)]
+		var steps: Array[PoseStep] = [
+			PoseStep.new(windup, Vector2.ZERO),
+			PoseStep.new(release, Vector2(CombatStage.LUNGE_PX * 0.5 * _forward_dir(), 0.0)),
+		]
+		_start_one_shot(steps, _throw_fps, false)
+	# Seconds left in the running one-shot (0 when none is playing).
+	func one_shot_remaining() -> float:
+		if _one_shot_steps.is_empty() or _one_shot_timer.is_stopped():
+			return 0.0
+		return float(_one_shot_steps.size() - _one_shot_index - 1) * _one_shot_timer.wait_time + _one_shot_timer.time_left
 	func _new_overlay_rect(z: int) -> TextureRect:
 		var rect := TextureRect.new()
 		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -354,8 +376,12 @@ class StageSlot extends Control:
 	func play_wormhole_vanish() -> void:
 		if not is_inside_tree():
 			return
-		_sprite_rect.pivot_offset = _sprite_rect.size / 2.0
 		var tween := create_tween()
+		# Let a running throw finish before folding away.
+		var delay: float = one_shot_remaining()
+		if delay > 0.0:
+			tween.tween_interval(delay)
+		tween.tween_callback(func(): _sprite_rect.pivot_offset = _sprite_rect.size / 2.0)
 		tween.tween_property(_sprite_rect, "scale:x", 0.05, 0.25)
 		tween.parallel().tween_property(_sprite_rect, "modulate:a", 0.0, 0.25)
 		tween.tween_callback(func(): _sprite_rect.visible = false)
@@ -522,6 +548,7 @@ var _hit_keyposes_by_template: Dictionary = {}
 var _ko_keyposes_by_template: Dictionary = {}
 var _self_patch_keyposes_by_template: Dictionary = {}
 var _cast_keyposes_by_template: Dictionary = {}
+var _throw_keyposes_by_template: Dictionary = {}
 var _effect_frames_by_key: Dictionary = {}
 var _stage_shake_layer: Control
 
@@ -728,6 +755,7 @@ func _load_template_action_animations() -> void:
 	_ko_keyposes_by_template = {}
 	_self_patch_keyposes_by_template = {}
 	_cast_keyposes_by_template = {}
+	_throw_keyposes_by_template = {}
 	var templates: Dictionary = GameData.COMBAT_VISUALS.get("templates", {})
 	for key in templates.keys():
 		_attack_keyposes_by_template[key] = _load_action_keyposes(key, "attack", ATTACK_KEYPOSE_COUNT)
@@ -735,6 +763,7 @@ func _load_template_action_animations() -> void:
 		_ko_keyposes_by_template[key] = _load_action_keyposes(key, "ko", KO_KEYPOSE_COUNT)
 		_self_patch_keyposes_by_template[key] = _load_action_keyposes(key, "selfPatch", HIT_KEYPOSE_COUNT)
 		_cast_keyposes_by_template[key] = _load_action_keyposes(key, "cast", HIT_KEYPOSE_COUNT)
+		_throw_keyposes_by_template[key] = _load_action_keyposes(key, "throw", THROW_KEYPOSE_COUNT)
 # An entry with "variants" ([entry, ...]) holds alternative poses for the
 # same action; "frames"/"fps" mirror the first variant for fallback checks.
 func _load_action_keyposes(template_key: String, key: String, count: int) -> Dictionary:
@@ -895,6 +924,7 @@ func _sync_band(pool: Dictionary, display_entries: Array, side: String) -> void:
 			[_ko_keyposes_by_template, _default_ko_keyposes, _default_ko_fps, slot.set_ko_animation],
 			[_self_patch_keyposes_by_template, _empty_idle_frames, 0.0, slot.set_self_patch_animation],
 			[_cast_keyposes_by_template, _empty_idle_frames, 0.0, slot.set_cast_animation],
+			[_throw_keyposes_by_template, _empty_idle_frames, 0.0, slot.set_throw_animation],
 		]:
 			var resolved: Dictionary = _resolve_action_keyposes(action[0], template_key, action[1], action[2])
 			var setter: Callable = action[3]

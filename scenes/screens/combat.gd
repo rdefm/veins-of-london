@@ -49,6 +49,12 @@ const _ATTACK_BEAT_KINDS: Array[String] = [
 	Combat.BEAT_PLAYER_ATTACK, Combat.BEAT_ALLY_ATTACK, Combat.BEAT_ENEMY_ATTACK,
 	Combat.BEAT_ENEMY_EVADE, Combat.BEAT_PLAYER_EVADE,
 ]
+# Bag-item uses that play the thrower's throw pose (the non-thrown items --
+# enhancementPowder, healingBurst, prophetsBreath -- are left out).
+const _THROW_BEAT_KINDS: Array[String] = [
+	Combat.BEAT_USE_TIME_PEARL, Combat.BEAT_USE_BLAST, Combat.BEAT_USE_SHIELD,
+	Combat.BEAT_USE_BLACK_HOLE_ANNOUNCE, Combat.BEAT_USE_WORMHOLE,
+]
 
 
 func _ready() -> void:
@@ -337,6 +343,13 @@ func _on_beat_played(beat: Dictionary) -> void:
 			actor_slot.play_attack()
 			if beat.get("motionBoosted", false):
 				actor_slot.spawn_afterimage()
+	if _THROW_BEAT_KINDS.has(kind):
+		var thrower: Dictionary = _beat_actor(beat)
+		if thrower["type"].is_empty():
+			thrower = { "type": "player", "index": -1 }
+		var thrower_slot: CombatStage.StageSlot = _stage.resolve_target_slot(thrower)
+		if thrower_slot != null:
+			thrower_slot.play_throw()
 	if kind == Combat.BEAT_ALLY_CAST:
 		var caster_slot: CombatStage.StageSlot = _stage.resolve_target_slot(_beat_actor(beat))
 		if caster_slot != null:
