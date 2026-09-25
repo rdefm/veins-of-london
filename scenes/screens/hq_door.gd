@@ -18,7 +18,11 @@ func _ready() -> void:
 func _refresh() -> void:
 	for child in get_children():
 		child.queue_free()
+	# Off the Map tab: light card family (MapCardStyle).
+	MapPalette.build_light(_build)
 
+
+func _build() -> void:
 	var sc := UI.scroll_container()
 	add_child(sc)
 
@@ -64,7 +68,7 @@ func _build_security_slot(security_id: String) -> Control:
 	var installed: bool = count > 0 if stackable else home["security"].has(security_id)
 	var label: String = sec["name"] if count == 0 else "%s ×%d" % [sec["name"], count]
 
-	var c := UI.card()
+	var c := MapCardStyle.card(12)
 	c["panel"].custom_minimum_size.x = TILE_MIN_WIDTH
 	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
@@ -80,8 +84,6 @@ func _build_security_slot(security_id: String) -> Control:
 	elif installed and not stackable:
 		c["content"].add_child(_tile_label("Installed", true))
 	else:
-		var b := UI.button("£%d" % adj_cost, func(): Home.add_security(security_id))
-		b.disabled = GameState.state["player"]["cash"] < adj_cost
-		c["content"].add_child(b)
+		c["content"].add_child(MapCardStyle.text_button("£%d" % adj_cost, func(): Home.add_security(security_id), GameState.state["player"]["cash"] < adj_cost))
 
 	return c["panel"]

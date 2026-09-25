@@ -14,8 +14,10 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	container.add_child(UI.heading("Sell this vein?"))
 	container.add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, "%s vein — £%d." % [ore["name"], price]]))
 	container.add_child(UI.muted_label("It stops being yours. Someone else's line, someone else's cut, from here on."))
-	container.add_child(UI.button("Confirm sale", func(): _confirm(vein_id)))
-	container.add_child(UI.button("Cancel", func(): Modal.close()))
+	container.add_child(MapCardStyle.footer([
+		MapCardStyle.text_button("Cancel", func(): Modal.close()),
+		MapCardStyle.text_button("Confirm sale", func(): _confirm(vein_id)),
+	]))
 
 
 static func _confirm(vein_id: String) -> void:

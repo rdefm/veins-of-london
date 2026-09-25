@@ -21,7 +21,12 @@ func _ready() -> void:
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
 
+# Off the Map tab: light card family (MapCardStyle).
 func _refresh() -> void:
+	MapPalette.build_light(_build)
+
+
+func _build() -> void:
 	if _diorama != null:
 		_pan_x = _diorama.position.x
 	if _active_pan_tween != null:
@@ -63,12 +68,12 @@ func _refresh() -> void:
 	stop_label.position = Vector2(back.position.x + back.custom_minimum_size.x + 8.0, back.position.y)
 	add_child(stop_label)
 
-	var left := UI.button("‹", func(): LabBenchNav.step(-1))
+	var left := MapCardStyle.round_button("‹", func(): LabBenchNav.step(-1))
 	left.disabled = stop_index == 0
 	left.position = Vector2(_ARROW_INSET, scaled_height / 2.0)
 	add_child(left)
 
-	var right := UI.button("›", func(): LabBenchNav.step(1))
+	var right := MapCardStyle.round_button("›", func(): LabBenchNav.step(1))
 	right.disabled = stop_index == LabBenchNav.STOPS.size() - 1
 	right.position = Vector2(available_width - right.custom_minimum_size.x - _ARROW_INSET, scaled_height / 2.0)
 	add_child(right)

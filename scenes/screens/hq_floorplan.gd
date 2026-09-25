@@ -17,7 +17,11 @@ func _ready() -> void:
 func _refresh() -> void:
 	for child in get_children():
 		child.queue_free()
+	# Off the Map tab: light card family (MapCardStyle).
+	MapPalette.build_light(_build)
 
+
+func _build() -> void:
 	var sc := UI.scroll_container()
 	add_child(sc)
 
@@ -70,7 +74,7 @@ func _on_slot_pressed(slot: int) -> void:
 
 func _build_slot_card(tier_id: String, slot: int) -> Control:
 	var current_id: String = Home.get_room_in_slot(slot)
-	var c := UI.card()
+	var c := MapCardStyle.card()
 	c["content"].add_child(UI.muted_label("ROOM %s" % FloorplanView.slot_label(tier_id, slot)))
 	c["content"].add_child(UI.heading("Change room use" if current_id != "" else "Choose room use", 14))
 	if current_id != "":
@@ -85,10 +89,10 @@ func _build_slot_card(tier_id: String, slot: int) -> Control:
 	for room_id in _listed_room_ids():
 		c["content"].add_child(_build_use_row(slot, room_id, current_id))
 
-	c["content"].add_child(UI.button("Close", func():
+	c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func():
 		_selected_slot = -1
 		_refresh()
-	))
+	)]))
 	return c["panel"]
 
 # Rooms unlocked at this tier, plus those the next tier up would unlock.
@@ -111,17 +115,11 @@ func _build_use_row(slot: int, room_id: String, current_id: String) -> Control:
 	box.add_child(UI.muted_label(room["description"]))
 
 	if room_id == current_id:
-		var installed := UI.button("Installed", func(): pass)
-		installed.disabled = true
-		box.add_child(installed)
+		box.add_child(MapCardStyle.text_button("Installed", func(): pass, true))
 		return box
 
 	var reason := Home.room_use_block_reason(slot, room_id)
-	var b := UI.button("£%d" % room["cost"], func(): _buy(slot, room_id))
-	b.disabled = reason != ""
-	box.add_child(b)
-	if reason != "":
-		box.add_child(UI.muted_label(reason))
+	box.add_child(MapCardStyle.action_button("£%d" % room["cost"], func(): _buy(slot, room_id), reason != "", reason))
 	return box
 
 func _buy(slot: int, room_id: String) -> void:
@@ -151,7 +149,7 @@ func _build_room_slot(room_id: String) -> Control:
 	var available: bool = order.find(home["tier"]) >= order.find(room["minTier"])
 	var full: bool = home["rooms"].size() >= tier["maxRooms"] and not installed
 
-	var c := UI.card()
+	var c := MapCardStyle.card(12)
 	c["panel"].custom_minimum_size.x = TILE_MIN_WIDTH
 	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
@@ -173,9 +171,7 @@ func _build_room_slot(room_id: String) -> Control:
 	elif full:
 		c["content"].add_child(_tile_label("No room", true))
 	else:
-		var b := UI.button("£%d" % room["cost"], func(): Home.add_room(room_id))
-		b.disabled = GameState.state["player"]["cash"] < room["cost"]
-		c["content"].add_child(b)
+		c["content"].add_child(MapCardStyle.text_button("£%d" % room["cost"], func(): Home.add_room(room_id), GameState.state["player"]["cash"] < room["cost"]))
 
 	return c["panel"]
 func _build_room_contact_row(room_id: String) -> Control:
@@ -188,9 +184,7 @@ func _build_room_contact_row(room_id: String) -> Control:
 	if assigned_id != null and not Payroll.is_paid_today(room_id):
 		var wage: int = Payroll.wage_for_room(room_id)
 		box.add_child(_tile_label("Unpaid today -- £%d owed" % wage, true))
-		var pay_button := UI.button("Pay now (£%d)" % wage, func(): Payroll.pay_now(room_id))
-		pay_button.disabled = GameState.state["player"]["cash"] < wage
-		box.add_child(pay_button)
+		box.add_child(MapCardStyle.text_button("Pay now (£%d)" % wage, func(): Payroll.pay_now(room_id), GameState.state["player"]["cash"] < wage))
 
 	var row := UI.hflow(4)
 	for contact_id in contacts.keys():
@@ -198,15 +192,15 @@ func _build_room_contact_row(room_id: String) -> Control:
 		if not c["recruited"] or c["assignedRoom"] == room_id:
 			continue
 		var captured_id: String = contact_id
-		row.add_child(UI.button("Assign %s" % Contacts.display_name(contact_id), func(): Contacts.assign_to_room(captured_id, room_id)))
+		row.add_child(MapCardStyle.text_button("Assign %s" % Contacts.display_name(contact_id), func(): Contacts.assign_to_room(captured_id, room_id)))
 	if assigned_id != null:
-		row.add_child(UI.button("Unassign", func(): Contacts.assign_to_room("none", room_id)))
+		row.add_child(MapCardStyle.text_button("Unassign", func(): Contacts.assign_to_room("none", room_id)))
 	if row.get_child_count() > 0:
 		box.add_child(row)
 
 	return box
 func _build_vein_station_list_row() -> Control:
-	return UI.button("View all veins", func():
+	return MapCardStyle.text_button("View all veins", func():
 		VeinListNav.open_all()
 		Nav.go_to("vein_list")
 	)

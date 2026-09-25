@@ -29,11 +29,9 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	update_payment.call(qty.value)
 	qty.value_changed.connect(update_payment)
 
-	var supply := UI.button(presentation.get("supply", ""), func():
+	var on_supply := func():
 		var result := Collective.supply_nadia(int(qty.value))
 		if result.get("ok", false):
 			Modal.open("sale_result", { "earned": result["earned"], "gross": result["earned"], "mugged": false })
-	)
-	supply.disabled = stock <= 0
-	container.add_child(supply)
-	container.add_child(UI.button(presentation.get("cancel", ""), func(): Modal.close()))
+	var supply := MapCardStyle.text_button(presentation.get("supply", ""), on_supply, stock <= 0)
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button(presentation.get("cancel", ""), func(): Modal.close()), supply]))

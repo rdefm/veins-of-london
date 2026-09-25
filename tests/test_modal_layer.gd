@@ -1003,7 +1003,7 @@ func run() -> void:
 	# reads muted grey instead -- the project's existing "this is disabled"
 	# tint, not ui_action_red, which is reserved for an actually-available
 	# action.
-	run_case("hq_gym_disabled_train_button_reads_muted_grey_not_ui_action_red", func():
+	run_case("hq_gym_disabled_train_button_reads_card_dim_not_ui_action_red", func():
 		GameState.reset()
 		GameState.state["world"]["timeBlocksDone"] = [0, 1, 2]
 		Modal.open("hq_gym")
@@ -1014,7 +1014,7 @@ func run() -> void:
 		var train_button := _find_cost_button(layer, "Train")
 		assert_true(train_button != null)
 		assert_true(train_button.disabled)
-		assert_eq(train_button.get_theme_color("font_color"), UI.ACTION_DISABLED_COLOUR, "disabled Train button stays muted grey")
+		assert_eq(train_button.get_theme_color("font_color"), MapPalette.light("cardDim"), "disabled Train button reads the card dim token")
 
 		layer.free()
 	)

@@ -13,7 +13,7 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	else:
 		container.add_child(UI.label("Smooth as you like. Buyer paid promptly and left."))
 	container.add_child(UI.label(("+£%d" % earned) if earned >= 0 else ("-£%d" % -earned)))
-	container.add_child(UI.button("Back to it", func(): close()))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Back to it", func(): close())]))
 
 
 # A quest beat parked behind the sale plays instead of routing home.

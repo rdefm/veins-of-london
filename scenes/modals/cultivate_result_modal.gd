@@ -9,4 +9,4 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 		container.add_child(UI.label("The vein responded well. It's levelled up to %s." % data.get("newLabel", "")))
 	else:
 		container.add_child(UI.label("Development bar +%d. Keep at it." % data.get("gain", 0)))
-	container.add_child(UI.button("Got it", func(): Modal.close()))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Got it", func(): Modal.close())]))

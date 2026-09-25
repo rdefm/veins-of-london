@@ -10,8 +10,8 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 		var inv_movement: Dictionary = inventory[i]
 		var md: Dictionary = GameData.DIAL_MOVEMENTS[inv_movement["archetype"]]
 		var captured_index: int = i
-		container.add_child(UI.symbol_button([{ "symbol": md["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — attuned %s, tier %d" % [md["name"], inv_movement["oreType"], inv_movement["tier"]]], func():
+		container.add_child(MapCardStyle.symbol_option_row([{ "symbol": md["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s — attuned %s, tier %d" % [md["name"], inv_movement["oreType"], inv_movement["tier"]]], func():
 			Dial.seat_movement(captured_index)
 			Modal.close()
 		))
-	container.add_child(UI.button("Cancel", func(): Modal.close()))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Cancel", func(): Modal.close())]))

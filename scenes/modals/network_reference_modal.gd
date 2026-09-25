@@ -19,7 +19,7 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	container.add_child(_legend_glyph_row("✉", Icons.draw_phone, " pin", "Someone's waiting on you there."))
 	container.add_child(_legend_row("Padlocked pin", "The Soho market. Not yet."))
 	container.add_child(_legend_row("Amber ring", "Where you are right now."))
-	container.add_child(UI.button("Close", func(): Modal.close()))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Modal.close())]))
 
 
 static func _legend_row(glyph_label: String, description: String) -> Control:

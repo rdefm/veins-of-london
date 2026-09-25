@@ -78,7 +78,8 @@ func _ready() -> void:
 	heading_row.offset_bottom = _HEADING_ROW_HEIGHT
 	_heading = UI.heading("")
 	heading_row.add_child(_heading)
-	_pacing_button = UI.button("", _on_pacing_button_pressed)
+	# Off the Map tab: light card family (MapCardStyle).
+	_pacing_button = MapPalette.build_light(func(): return MapCardStyle.chip_button("", _on_pacing_button_pressed))
 	heading_row.add_child(_pacing_button)
 	body.add_child(heading_row)
 
@@ -482,6 +483,6 @@ func _build_outcome_button(outcome: String, context: String) -> Control:
 	else:
 		label = "💀 Come round"
 
-	return UI.button(label, _on_continue_pressed)
+	return MapPalette.build_light(func(): return MapCardStyle.chip_button(label, _on_continue_pressed))
 func _on_continue_pressed() -> void:
 	Combat.exit_combat()

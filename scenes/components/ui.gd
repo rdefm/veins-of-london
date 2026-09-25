@@ -460,10 +460,6 @@ static func bordered_panel_style(fill: Color, border_color: Color, corner_radius
 	return style
 
 
-static func action_card_panel_style(accent: Color, margin: int = 16) -> StyleBoxFlat:
-	return bordered_panel_style(ACTION_CARD_FILL, accent, 10, margin, margin)
-
-
 # Flat command rows (docs/combat-animation-vision.md §2.5, combat-refining
 # amendment): equal-height icon+label rows on the command surface,
 # separated by 1px rules, no per-row panel/border. Height is thumb-sized.

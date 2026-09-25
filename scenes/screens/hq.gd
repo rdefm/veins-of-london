@@ -19,22 +19,24 @@ func _refresh() -> void:
 		child.queue_free()
 	_diorama = null
 
-	if not GameState.state["flags"]["homeUnlocked"]:
-		_build_locked_view()
-		return
-
-	_build_room_view()
+	# Off the Map tab: light card family (MapCardStyle).
+	MapPalette.build_light(func():
+		if not GameState.state["flags"]["homeUnlocked"]:
+			_build_locked_view()
+		else:
+			_build_room_view()
+	)
 func _build_locked_view() -> void:
 	_build_locked_background()
 
 	var content := UI.screen_body(self)
 	content.add_child(UI.back_to_home_button())
 
-	var c := UI.card()
-	c["content"].add_child(UI.heading("Actions", 14))
-	c["content"].add_child(UI.button(GameData.DAY_CLOCK["restLabel"], func(): TimeSystem.do_rest()))
+	var c := MapCardStyle.card()
+	c["content"].add_child(MapCardStyle.section_label("Actions", 14))
+	c["content"].add_child(MapCardStyle.text_button(GameData.DAY_CLOCK["restLabel"], func(): TimeSystem.do_rest()))
 	if Home.has_pending_raid():
-		c["content"].add_child(UI.button("Defend", func(): Home.trigger_defend()))
+		c["content"].add_child(MapCardStyle.text_button("Defend", func(): Home.trigger_defend()))
 	content.add_child(c["panel"])
 func _build_locked_background() -> void:
 	var bedsit_plate: Dictionary = GameData.HQ_VISUALS["rooms"]["bedsit"].duplicate(true)
@@ -61,7 +63,7 @@ func _build_room_view() -> void:
 	_diorama.position = Vector2(0.0, UI.top_bar_clearance())
 	_diorama.gui_input.connect(_on_diorama_gui_input)
 	add_child(_diorama)
-	var debug_toggle := UI.button("Debug regions" if not _debug_overlay_enabled else "Debug regions ✓", _on_debug_toggle_pressed)
+	var debug_toggle := MapCardStyle.chip_button("Debug regions" if not _debug_overlay_enabled else "Debug regions ✓", _on_debug_toggle_pressed)
 	debug_toggle.position = Vector2(4.0, UI.top_bar_clearance() + 4.0)
 	add_child(debug_toggle)
 func _hostile_door_plate(plate: Dictionary) -> Dictionary:

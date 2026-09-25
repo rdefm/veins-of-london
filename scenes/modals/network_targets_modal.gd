@@ -24,12 +24,12 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 			GameData.ORE_TYPES[vein["oreType"]]["name"],
 			GameData.FACTIONS[vein["factionId"]]["name"],
 		]))
-		var row := UI.hbox(8)
-		row.add_child(UI.button("Is it soft? £%d" % price, _buy.bind(site_id, NetworkHandler.EFFECT_CLAIM_BONUS, status)))
-		row.add_child(UI.button("Delay guards £%d" % price, _buy.bind(site_id, NetworkHandler.EFFECT_SECURITY_FREEZE, status)))
-		container.add_child(row)
+		container.add_child(MapCardStyle.footer([
+			MapCardStyle.text_button("Is it soft? £%d" % price, _buy.bind(site_id, NetworkHandler.EFFECT_CLAIM_BONUS, status)),
+			MapCardStyle.text_button("Delay guards £%d" % price, _buy.bind(site_id, NetworkHandler.EFFECT_SECURITY_FREEZE, status)),
+		]))
 
-	container.add_child(UI.button("Close", func(): Modal.close()))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Modal.close())]))
 
 
 static func _buy(site_id: String, effect: String, status: Label) -> void:

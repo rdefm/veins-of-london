@@ -19,7 +19,11 @@ func _ready() -> void:
 func _refresh() -> void:
 	for child in _content.get_children():
 		child.queue_free()
+	# Off the Map tab: light card family (MapCardStyle).
+	MapPalette.build_light(_build)
 
+
+func _build() -> void:
 	var cp: Dictionary = GameState.state["combatPrototype"]
 	if not cp.get("active", false):
 		_content.add_child(UI.back_to_home_button())
@@ -27,7 +31,7 @@ func _refresh() -> void:
 		_content.add_child(UI.muted_label("No encounter active."))
 		return
 
-	_content.add_child(UI.button("‹ Exit", func(): CombatPrototype.exit_encounter()))
+	_content.add_child(MapCardStyle.text_button("‹ Exit", func(): CombatPrototype.exit_encounter()))
 
 	var def: Dictionary = GameData.COMBAT_PROTOTYPE["encounters"][cp["encounterId"]]
 	_content.add_child(UI.heading("Solo Combat Prototype — %s" % def.get("name", cp["encounterId"])))
@@ -47,9 +51,9 @@ func _refresh() -> void:
 		return
 
 	if cp["player"]["exhaustedNextTurn"] and cp.get("_pending") == null:
-		var c := UI.card()
+		var c := MapCardStyle.card()
 		c["content"].add_child(UI.label("You're exhausted — catching your breath. No action this round."))
-		c["content"].add_child(UI.button("Continue", func(): CombatPrototype.skip_exhausted_round()))
+		c["content"].add_child(MapCardStyle.text_button("Continue", func(): CombatPrototype.skip_exhausted_round()))
 		_content.add_child(c["panel"])
 	else:
 		if cp.get("_pending") != null:
@@ -61,14 +65,12 @@ func _refresh() -> void:
 		var dial_card := _build_dial_card()
 		if dial_card != null:
 			_content.add_child(dial_card)
-		_content.add_child(UI.button("Flee", func(): CombatPrototype.take_player_action(CombatPrototype.ACTION_FLEE)))
+		_content.add_child(MapCardStyle.text_button("Flee", func(): CombatPrototype.take_player_action(CombatPrototype.ACTION_FLEE)))
 
-	var rewind_button := UI.button("Rewind", func(): CombatPrototype.rewind())
-	rewind_button.disabled = cp["snapshots"].is_empty()
-	_content.add_child(rewind_button)
+	_content.add_child(MapCardStyle.text_button("Rewind", func(): CombatPrototype.rewind(), cp["snapshots"].is_empty()))
 
 func _build_player_card(cp: Dictionary) -> Control:
-	var c := UI.card()
+	var c := MapCardStyle.card()
 	var player: Dictionary = cp["player"]
 	c["content"].add_child(UI.label("You — %d/%d HP" % [player["hp"], player["hpMax"]]))
 	c["content"].add_child(UI.bar(player["hp"], player["hpMax"]))
@@ -79,14 +81,14 @@ func _build_player_card(cp: Dictionary) -> Control:
 	return c["panel"]
 
 func _build_enemy_card(enemy: Dictionary) -> Control:
-	var c := UI.card()
+	var c := MapCardStyle.card()
 	var status: String = " (down)" if enemy["koed"] else ""
 	c["content"].add_child(UI.label("%s — %d/%d HP%s" % [enemy["name"], enemy["hp"], enemy["hpMax"], status]))
 	c["content"].add_child(UI.bar(enemy["hp"], enemy["hpMax"]))
 	return c["panel"]
 
 func _build_log_card(log: Array) -> Control:
-	var c := UI.card()
+	var c := MapCardStyle.card()
 	c["content"].add_child(UI.heading("Log", 14))
 	var text := "\n".join(log)
 	var log_label := UI.label(text)
@@ -94,7 +96,7 @@ func _build_log_card(log: Array) -> Control:
 	return c["panel"]
 func _build_enemy_block(cp: Dictionary, enemy_index: int) -> Control:
 	var enemy: Dictionary = cp["enemies"][enemy_index]
-	var block := UI.card()
+	var block := MapCardStyle.card()
 	var multi: bool = cp["enemies"].size() > 1
 	if multi:
 		block["content"].add_child(UI.heading("Target: %s" % enemy["name"], 14))
@@ -107,16 +109,16 @@ func _build_enemy_block(cp: Dictionary, enemy_index: int) -> Control:
 	row2.add_child(_build_action_button(CombatPrototype.ACTION_DODGE, enemy_index))
 	block["content"].add_child(row2)
 	if Crafting.inventory_qty("blast") > 0:
-		block["content"].add_child(UI.button("Blast", func(): CombatPrototype.use_item("blast", enemy_index)))
+		block["content"].add_child(MapCardStyle.text_button("Blast", func(): CombatPrototype.use_item("blast", enemy_index)))
 	return block["panel"]
 
 func _build_action_button(action: String, enemy_index: int) -> Control:
 	var col := UI.vbox(2)
-	col.add_child(UI.button(action.capitalize(), func(): CombatPrototype.take_player_action(action, enemy_index)))
+	col.add_child(MapCardStyle.text_button(action.capitalize(), func(): CombatPrototype.take_player_action(action, enemy_index)))
 	col.add_child(UI.muted_label(ACTION_REMINDERS[action]))
 	return col
 func _build_items_card() -> Control:
-	var c := UI.card()
+	var c := MapCardStyle.card()
 	c["content"].add_child(UI.heading("Items", 14))
 	var any_shown := false
 	for item_id in SELF_OR_AOE_ITEMS:
@@ -129,7 +131,7 @@ func _build_items_card() -> Control:
 		c["content"].add_child(UI.muted_label("No usable items in stock."))
 	return c["panel"]
 func _build_item_button(item_id: String, qty: int) -> Control:
-	return UI.button("%s (%d)" % [item_id.capitalize(), qty], func(): CombatPrototype.use_item(item_id))
+	return MapCardStyle.text_button("%s (%d)" % [item_id.capitalize(), qty], func(): CombatPrototype.use_item(item_id))
 func _build_dial_card() -> Control:
 	var dial = GameState.state["player"]["dial"]
 	if dial == null:
@@ -137,7 +139,7 @@ func _build_dial_card() -> Control:
 	var loaded: Array = dial["loadedComplications"]
 	if loaded.is_empty():
 		return null
-	var c := UI.card()
+	var c := MapCardStyle.card()
 	c["content"].add_child(UI.heading("Dial", 14))
 	var any_shown := false
 	for i in range(loaded.size()):
@@ -152,10 +154,10 @@ func _build_dial_card() -> Control:
 	return c["panel"]
 
 func _build_dial_cast_button(dial_index: int, label: String) -> Control:
-	return UI.button("Cast: %s" % label, func(): CombatPrototype.cast_dial_complication(dial_index))
+	return MapCardStyle.text_button("Cast: %s" % label, func(): CombatPrototype.cast_dial_complication(dial_index))
 
 func _build_outcome_controls(cp: Dictionary) -> Control:
-	var c := UI.card()
+	var c := MapCardStyle.card()
 	var outcome: String = cp["outcome"]
 	var encounter_id: String = cp["encounterId"]
 	match outcome:
@@ -163,14 +165,14 @@ func _build_outcome_controls(cp: Dictionary) -> Control:
 			c["content"].add_child(UI.label("You win."))
 			var order: Array = GameData.COMBAT_PROTOTYPE.get("encounterOrder", [])
 			if order.find(encounter_id) + 1 < order.size() and order.has(encounter_id):
-				c["content"].add_child(UI.button("Next Encounter", func(): CombatPrototype.advance_to_next_encounter()))
+				c["content"].add_child(MapCardStyle.text_button("Next Encounter", func(): CombatPrototype.advance_to_next_encounter()))
 			else:
 				c["content"].add_child(UI.label("Sequence complete."))
 		"loss":
 			c["content"].add_child(UI.label("You go down."))
-			c["content"].add_child(UI.button("Retry", func(): CombatPrototype.start_encounter(encounter_id)))
+			c["content"].add_child(MapCardStyle.text_button("Retry", func(): CombatPrototype.start_encounter(encounter_id)))
 		"fled":
 			c["content"].add_child(UI.label("You fled."))
-			c["content"].add_child(UI.button("Retry", func(): CombatPrototype.start_encounter(encounter_id)))
-	c["content"].add_child(UI.button("Exit", func(): CombatPrototype.exit_encounter()))
+			c["content"].add_child(MapCardStyle.text_button("Retry", func(): CombatPrototype.start_encounter(encounter_id)))
+	c["content"].add_child(MapCardStyle.text_button("Exit", func(): CombatPrototype.exit_encounter()))
 	return c["panel"]

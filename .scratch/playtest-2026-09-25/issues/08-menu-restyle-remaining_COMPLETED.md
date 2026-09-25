@@ -8,6 +8,10 @@
 
 **Status:** ready-for-agent
 
-- [ ] Every menu on the audit list converted
-- [ ] No remaining uses of the placeholder button style (grep-verified)
-- [ ] No behaviour change; full suite passes
+- [x] Every menu on the audit list converted
+- [x] No remaining uses of the placeholder button style (grep-verified)
+- [x] No behaviour change; full suite passes
+
+## Comments
+
+Split into batches: 10 (modal shell + modals), 11 (HQ screens), 12 (title/marketplace/combat), 13 (bag drawer, map bubble + final grep). 08 closes when all four are done.

@@ -11,8 +11,10 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	else:
 		container.add_child(UI.label("\"I need %d %s. Standard rate. Don't take too long about it.\"" % [job["qty"], job["recipeName"]]))
 		container.add_child(UI.symbol_row([{ "symbol": job["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s ×%d — £%d/ea — total £%d — needed by day %d" % [job["recipeName"], job["qty"], job["payPerItem"], job["totalPay"], job["byDay"]]]))
-	container.add_child(UI.button("Accept", func(): accept()))
-	container.add_child(UI.button("Decline", func(): decline()))
+	container.add_child(MapCardStyle.footer([
+		MapCardStyle.text_button("Decline", func(): decline()),
+		MapCardStyle.text_button("Accept", func(): accept()),
+	]))
 
 
 static func accept() -> void:

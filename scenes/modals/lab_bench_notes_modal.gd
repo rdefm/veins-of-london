@@ -10,11 +10,11 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	else:
 		for types in touched:
 			container.add_child(_notes_card(types))
-	container.add_child(UI.button("Close", func(): Modal.close()))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Modal.close())]))
 
 
 static func _notes_card(types: Array) -> Control:
-	var c := UI.card()
+	var c := MapCardStyle.card(12, 0.0)
 	c["content"].add_child(UI.heading(_pairing_label(types), 15))
 	c["content"].add_child(UI.label("%d/%d" % [Bench.found_count_in_set(types), Bench.get_surveyed_count(types)]))
 	for row in _found_recipe_rows(types):

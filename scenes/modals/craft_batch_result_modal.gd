@@ -21,4 +21,4 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 		if success:
 			line += " — effect power %s" % str(attempt.get("power", 0))
 		container.add_child(UI.label(line))
-	container.add_child(UI.button("Got it", func(): Modal.close()))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Got it", func(): Modal.close())]))

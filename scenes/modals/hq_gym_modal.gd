@@ -10,19 +10,11 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	if not has_gym:
 		container.add_child(UI.muted_label("Build a Home Gym to get more out of each workout."))
 	container.add_child(_train_button())
-	container.add_child(UI.button("Close", func(): Modal.close()))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Modal.close())]))
 
 
 static func _train_button() -> Control:
 	var disabled: bool = TimeSystem.is_time_exhausted()
-	var accent: Color = UI.ACTION_DISABLED_COLOUR if disabled else UI.action_colour()
-
-	var c := UI.card()
-	c["panel"].add_theme_stylebox_override("panel", UI.action_card_panel_style(accent))
-
-	var b := UI.button(UI.format_block_cost_label("Train", 1, not disabled), func(): Combat.train())
-	b.disabled = disabled
-	UI.style_action_button(b, accent)
-	c["content"].add_child(b)
-
+	var c := MapCardStyle.card(12, 0.0)
+	c["content"].add_child(MapCardStyle.text_button(UI.format_block_cost_label("Train", 1, not disabled), func(): Combat.train(), disabled))
 	return c["panel"]

@@ -147,13 +147,10 @@ func _build_option_row(option: Dictionary) -> Control:
 
 	var row := UI.vbox(2)
 
-	var b: Button
 	if icon is Callable:
-		b = _build_icon_label_button(label_text, icon, func(): _select(id))
+		row.add_child(_build_icon_label_button(label_text, icon, func(): _select(id), disabled))
 	else:
-		b = UI.button(label_text, func(): _select(id))
-	b.disabled = disabled
-	row.add_child(b)
+		row.add_child(MapCardStyle.text_button(label_text, func(): _select(id), disabled))
 
 	if disabled and reason != "":
 		row.add_child(_reason_label(reason))
@@ -167,20 +164,25 @@ func _reason_label(reason: String) -> Label:
 	return l
 
 
-func _build_icon_label_button(label_text: String, draw_icon: Callable, callback: Callable) -> Button:
+# Quiet text button (MapCardStyle.text_button) with a leading drawn icon, both
+# in the action accent, dim() when disabled.
+func _build_icon_label_button(label_text: String, draw_icon: Callable, callback: Callable, disabled: bool) -> Button:
+	var colour: Color = MapCardStyle.dim() if disabled else MapCardStyle.action()
 	var b := Button.new()
 	b.pressed.connect(callback)
+	b.disabled = disabled
+	MapCardStyle.style_button(b)
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 
 	var inner := UI.hbox(6)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var glyph := UI.icon_glyph_control(draw_icon, 1.0)
+	var glyph := UI.icon_glyph_control(draw_icon, 1.0, colour)
 	glyph.custom_minimum_size = Vector2(ICON_SIZE, ICON_SIZE)
 	inner.add_child(glyph)
 
-	var text_label := UI.label(label_text)
+	var text_label := MapCardStyle.label(label_text, 16, colour)
 	text_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(text_label)
 

@@ -17,10 +17,8 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 		var have: int = player["orichalchum"].get(ore_type, 0)
 		var captured_archetype: String = archetype
 		var captured_ore: String = ore_type
-		var b := UI.symbol_button([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s — %d calc, chance %d%%" % [ore["name"], cost, chance_pct]], func(): _on_craft_pressed(captured_archetype, captured_ore))
-		b.disabled = have < cost
-		container.add_child(b)
-	container.add_child(UI.button("Cancel", func(): Modal.close()))
+		container.add_child(MapCardStyle.symbol_option_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s — %d calc, chance %d%%" % [ore["name"], cost, chance_pct]], func(): _on_craft_pressed(captured_archetype, captured_ore), have < cost))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Cancel", func(): Modal.close())]))
 
 
 static func _on_craft_pressed(archetype: String, ore_type: String) -> void:

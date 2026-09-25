@@ -10,7 +10,7 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	else:
 		container.add_child(UI.label("Went smooth. Archie's buyer paid up, no fuss."))
 	container.add_child(UI.label("+£%d" % data.get("earned", 0)))
-	container.add_child(UI.button("Back to it", func(): close()))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Back to it", func(): close())]))
 
 
 static func close() -> void:

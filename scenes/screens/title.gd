@@ -4,7 +4,11 @@ var _slot_list: VBoxContainer
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
+	# Off the Map tab: light card family (MapCardStyle).
+	MapPalette.build_light(_build)
 
+
+func _build() -> void:
 	var layout := VBoxContainer.new()
 	layout.alignment = BoxContainer.ALIGNMENT_CENTER
 	UI.anchor_center(layout)
@@ -15,21 +19,9 @@ func _ready() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	layout.add_child(title)
 
-	var new_game_button := Button.new()
-	new_game_button.text = "New Game"
-	new_game_button.pressed.connect(_on_new_game_pressed)
-	layout.add_child(new_game_button)
-
-	var load_game_button := Button.new()
-	load_game_button.text = "Load Game"
-	load_game_button.disabled = not _any_slot_saved()
-	load_game_button.pressed.connect(_on_load_game_pressed)
-	layout.add_child(load_game_button)
-
-	var debug_button := Button.new()
-	debug_button.text = "Debug Start"
-	debug_button.pressed.connect(_on_debug_start_pressed)
-	layout.add_child(debug_button)
+	layout.add_child(MapCardStyle.chip_button("New Game", _on_new_game_pressed))
+	layout.add_child(MapCardStyle.chip_button("Load Game", _on_load_game_pressed, not _any_slot_saved()))
+	layout.add_child(MapCardStyle.chip_button("Debug Start", _on_debug_start_pressed))
 
 	_slot_list = VBoxContainer.new()
 	_slot_list.visible = false
@@ -47,11 +39,11 @@ func _build_slot_row(slot: int) -> Control:
 	var summary := SaveManager.slot_summary(slot)
 	var filled: bool = not summary.is_empty()
 
-	var c := UI.card()
+	var c := MapCardStyle.card()
 	c["content"].add_child(UI.heading("Slot %d" % slot, 14))
 	if filled:
 		c["content"].add_child(UI.muted_label("Day %d · £%d" % [summary["day"], summary["cash"]]))
-		c["content"].add_child(UI.button("Load", _on_load_slot_pressed.bind(slot)))
+		c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Load", _on_load_slot_pressed.bind(slot))]))
 	else:
 		c["content"].add_child(UI.muted_label("Empty"))
 

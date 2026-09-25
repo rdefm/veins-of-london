@@ -10,7 +10,7 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	else:
 		for recipe_key in found:
 			container.add_child(_recipe_row(recipe_key))
-	container.add_child(UI.button("Close", func(): Modal.close()))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Modal.close())]))
 
 
 static func _recipe_row(recipe_key: String) -> Control:
@@ -22,7 +22,7 @@ static func _recipe_row(recipe_key: String) -> Control:
 	var power = Crafting.effect_power(recipe_key, skill)
 	var stock: int = Crafting.inventory_qty(recipe_key)
 
-	var c := UI.card()
+	var c := MapCardStyle.card(12, 0.0)
 	c["content"].add_child(UI.symbol_row([{ "symbol": r["symbol"], "fallback": SymbolGlyph.generic_fallback() }, r["name"]], { "heading_size": 15 }))
 	c["content"].add_child(UI.muted_label(r["description"]))
 	for ingredient in costs:
@@ -32,19 +32,10 @@ static func _recipe_row(recipe_key: String) -> Control:
 	c["content"].add_child(UI.label("Success: %d%%   Effect: %s   Stock: %d" % [int(round(chance * 100)), str(power), stock]))
 
 	var qty: int = Crafting.get_craft_qty(recipe_key)
-	var qty_row := UI.hbox()
-	qty_row.add_child(UI.label("Batch:"))
-	qty_row.add_child(UI.button("-", func(): Crafting.adjust_craft_qty(recipe_key, -1)))
-	qty_row.add_child(UI.label(str(qty)))
-	qty_row.add_child(UI.button("+", func(): Crafting.adjust_craft_qty(recipe_key, 1)))
-	c["content"].add_child(qty_row)
+	c["content"].add_child(MapCardStyle.stepper("Batch", qty, func(delta: int): Crafting.adjust_craft_qty(recipe_key, delta)))
 
-	var craft_btn := UI.button("Craft ×%d" % qty, func(): Crafting.attempt_craft_batch(recipe_key, qty))
 	var block_reason := Crafting.craft_block_reason(recipe_key)
-	craft_btn.disabled = block_reason != ""
-	c["content"].add_child(craft_btn)
-	if block_reason != "":
-		c["content"].add_child(UI.muted_label(block_reason))
+	c["content"].add_child(MapCardStyle.action_button("Craft ×%d" % qty, func(): Crafting.attempt_craft_batch(recipe_key, qty), block_reason != "", block_reason))
 
 	var discovery: Dictionary = r.get("discovery", {})
 	if not discovery.is_empty():

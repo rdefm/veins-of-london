@@ -52,7 +52,7 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	if not eligible_allies:
 		container.add_child(UI.muted_label("No recruited contact is fit for a fight right now."))
 
-	container.add_child(UI.button("Fight", func():
+	var fight := MapCardStyle.text_button("Fight", func():
 		var template_key: String = template_select.get_item_text(template_select.selected)
 		if template_key == "Random":
 			template_key = ""
@@ -64,15 +64,15 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 		if location_key == LOCATION_AUTO:
 			location_key = ""
 		Combat.start_debug_combat(context, location_key, value_tier, count, template_key, selected_allies)
-	))
-	container.add_child(UI.button("Cancel", func(): Modal.close()))
+	)
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Cancel", func(): Modal.close()), fight]))
 
 
 static func _ally_row(contact_id: String, selected_allies: Array) -> Control:
 	var row := UI.hbox(6)
 	# Connected after creation: a lambda captures locals by value, so one
-	# built inside UI.button()'s own call would see toggle_btn as null.
-	var toggle_btn := UI.button("☐", func(): pass)
+	# built inside text_button()'s own call would see toggle_btn as null.
+	var toggle_btn := MapCardStyle.text_button("☐", func(): pass)
 	toggle_btn.pressed.connect(func():
 		if contact_id in selected_allies:
 			selected_allies.erase(contact_id)

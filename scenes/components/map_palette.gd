@@ -19,11 +19,12 @@ static func is_dark() -> bool:
 
 # Runs `build` with every token resolving to the light set, for screens off
 # the Map tab that reuse the map-card family (MapCardStyle) and must not
-# follow the Map-only dark toggle.
-static func build_light(build: Callable) -> void:
+# follow the Map-only dark toggle. Returns whatever `build` returns.
+static func build_light(build: Callable) -> Variant:
 	_light_scope += 1
-	build.call()
+	var result: Variant = build.call()
 	_light_scope -= 1
+	return result
 
 
 static func colour(key: String) -> Color:

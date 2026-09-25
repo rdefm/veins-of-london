@@ -5,7 +5,7 @@ extends RefCounted
 static func build(container: VBoxContainer, data: Dictionary) -> void:
 	container.add_child(UI.heading(LabBenchModalHelpers.outcome_heading(data.get("outcome", ""))))
 	container.add_child(UI.symbol_row(_prose_parts(data)))
-	container.add_child(UI.button("Got it", func(): Modal.close()))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Got it", func(): Modal.close())]))
 
 
 static func _prose_parts(data: Dictionary) -> Array:

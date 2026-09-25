@@ -158,6 +158,34 @@ static func text_button(text: String, callback: Callable, disabled: bool = false
 	return style_button(b)
 
 
+# text_button counterpart of UI.symbol_button: glyphs tinted with the text.
+static func symbol_text_button(parts: Array, callback: Callable, disabled: bool = false) -> Button:
+	var b := UI.symbol_button(parts, callback)
+	b.disabled = disabled
+	style_button(b)
+	tint_symbols(b, dim() if disabled else action())
+	return b
+
+
+# Right-aligned row of quiet text buttons: a card's dismiss/confirm footer.
+static func footer(buttons: Array) -> HBoxContainer:
+	var row := UI.hbox(4)
+	row.alignment = BoxContainer.ALIGNMENT_END
+	for b in buttons:
+		row.add_child(b)
+	return row
+
+
+# Card-family PanelContainer look for an existing panel (a UI.card() or a
+# screen-owned PanelContainer).
+static func style_panel(panel: PanelContainer, radius: int = 14, shadow_alpha: float = 0.08) -> PanelContainer:
+	var style := card_panel(radius, shadow_alpha)
+	if shadow_alpha <= 0.0:
+		style.shadow_size = 0
+	panel.add_theme_stylebox_override("panel", style)
+	return panel
+
+
 const ROW_HEIGHT := 40.0
 
 static func _row_style(fill: Color) -> StyleBoxFlat:
@@ -185,6 +213,69 @@ static func option_row(text: String, callback: Callable, selected: bool = false)
 	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color", "font_focus_color"]:
 		b.add_theme_color_override(key, ink())
 	return b
+
+
+# Full-width list row built on UI.symbol_button: ink glyphs and text, sage
+# hover; `disabled` greys it to dim() on a clear fill.
+static func symbol_option_row(parts: Array, callback: Callable, disabled: bool = false) -> Button:
+	var b := UI.symbol_button(parts, callback)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.custom_minimum_size.y = ROW_HEIGHT
+	b.disabled = disabled
+	b.add_theme_stylebox_override("normal", _row_style(Color.TRANSPARENT))
+	b.add_theme_stylebox_override("hover", _row_style(Color(sage(), 0.6)))
+	b.add_theme_stylebox_override("pressed", _row_style(sage()))
+	b.add_theme_stylebox_override("disabled", _row_style(Color.TRANSPARENT))
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	tint_symbols(b, dim() if disabled else ink())
+	return b
+
+
+# Round -/+ quantity stepper: `adjust` is called with -1 / +1.
+static func stepper(caption: String, qty: int, adjust: Callable) -> HBoxContainer:
+	var row := UI.hbox(6)
+	if caption != "":
+		row.add_child(section_label(caption))
+	row.add_child(round_button("-", func(): adjust.call(-1)))
+	var qty_label := label(str(qty), 14, ink())
+	qty_label.custom_minimum_size.x = 20
+	qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(qty_label)
+	row.add_child(round_button("+", func(): adjust.call(1)))
+	return row
+
+
+# Paper pill with ink text: a text button that floats over art (pixel
+# dioramas, the combat stage) where a clear-fill text_button would vanish.
+static func chip_button(text: String, callback: Callable, disabled: bool = false) -> Button:
+	var b := UI.button(text, callback)
+	b.disabled = disabled
+	return style_chip(b)
+
+
+# Chip look for an existing button (a UI.symbol_button tile included). Call
+# after `disabled` is set.
+static func style_chip(b: Button) -> Button:
+	b.custom_minimum_size.y = maxf(b.custom_minimum_size.y, ROUND_BUTTON_SIZE)
+	b.add_theme_stylebox_override("normal", _chip_style(paper()))
+	b.add_theme_stylebox_override("hover", _chip_style(sage()))
+	b.add_theme_stylebox_override("pressed", _chip_style(line()))
+	b.add_theme_stylebox_override("disabled", _chip_style(paper()))
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	for key in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(key, ink())
+	b.add_theme_color_override("font_disabled_color", dim())
+	tint_symbols(b, dim() if b.disabled else ink())
+	return b
+
+
+static func _chip_style(fill: Color) -> StyleBoxFlat:
+	var style := skin(fill, int(ROUND_BUTTON_SIZE / 2))
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	return style
 
 
 const ROUND_BUTTON_SIZE := 32.0

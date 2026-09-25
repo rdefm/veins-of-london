@@ -25,7 +25,9 @@ func _ready() -> void:
 	_dim.gui_input.connect(_on_dim_gui_input)
 	add_child(_dim)
 
+	# Off the Map tab: the light card family (MapCardStyle).
 	_card = PanelContainer.new()
+	MapPalette.build_light(func(): MapCardStyle.style_panel(_card, 18, 0.16))
 	UI.anchor_bottom_wide(_card)
 	_card.offset_top = -DRAWER_HEIGHT
 	_card.offset_bottom = 0
@@ -55,7 +57,10 @@ func _refresh() -> void:
 
 	for child in _content.get_children():
 		child.queue_free()
+	MapPalette.build_light(_build)
 
+
+func _build() -> void:
 	var player: Dictionary = GameState.state["player"]
 	var combat: Dictionary = GameState.state["combat"]
 	var management: bool = _is_management_mode()
@@ -91,7 +96,7 @@ func _refresh() -> void:
 		_content.add_child(UI.heading("Use an item", 14))
 		_add_combat_use_buttons(player, combat)
 
-	_content.add_child(UI.button("Close", func(): Bag.close()))
+	_content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Bag.close())]))
 
 
 func _is_management_mode() -> bool:
@@ -113,9 +118,9 @@ func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
 		_content.add_child(_symbol_use_button("healingBurst", "Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
 
 
-func _symbol_use_button(recipe_key: String, rest_text: String, callback: Callable) -> Button:
+func _symbol_use_button(recipe_key: String, rest_text: String, callback: Callable, disabled: bool = false) -> Button:
 	var symbol: String = GameData.RECIPES[recipe_key]["symbol"]
-	return UI.symbol_button([{ "symbol": symbol, "fallback": SymbolGlyph.generic_fallback() }, rest_text], callback)
+	return MapCardStyle.symbol_option_row([{ "symbol": symbol, "fallback": SymbolGlyph.generic_fallback() }, rest_text], callback, disabled)
 
 
 func _on_use_healing_salve() -> void:
@@ -135,14 +140,14 @@ func _build_weapon_management(player: Dictionary) -> void:
 			continue
 		var is_equipped: bool = player["equipment"]["weapon"] == item["id"]
 		var item_id: String = item["id"]
-		var c := UI.card()
+		var c := MapCardStyle.card(12, 0.0)
 		c["content"].add_child(UI.label("%s%s" % [def["name"], " (equipped)" if is_equipped else ""]))
 		c["content"].add_child(UI.muted_label(def["description"]))
 		c["content"].add_child(UI.muted_label("+%d–%d attack" % [def["attackBonus"]["min"], def["attackBonus"]["max"]]))
 		if is_equipped:
-			c["content"].add_child(UI.button("Unequip", func(): Equipment.unequip_weapon()))
+			c["content"].add_child(MapCardStyle.text_button("Unequip", func(): Equipment.unequip_weapon()))
 		else:
-			c["content"].add_child(UI.button("Equip", func(): Equipment.equip_weapon(item_id)))
+			c["content"].add_child(MapCardStyle.text_button("Equip", func(): Equipment.equip_weapon(item_id)))
 		_content.add_child(c["panel"])
 
 
@@ -177,9 +182,7 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 		_content.add_child(_combat_use_button("blast", "Blast (%d) — damage, flee boost, chance to disarm" % Crafting.inventory_qty("blast"), _on_use_blast))
 
 	if Crafting.inventory_qty("shield") > 0:
-		var shield_button := _combat_use_button("shield", "Shield (%d) — absorb incoming damage" % Crafting.inventory_qty("shield"), _on_use_shield)
-		shield_button.disabled = shield_button.disabled or player["shieldPool"] > 0
-		_content.add_child(shield_button)
+		_content.add_child(_combat_use_button("shield", "Shield (%d) — absorb incoming damage" % Crafting.inventory_qty("shield"), _on_use_shield, player["shieldPool"] > 0))
 
 	if Crafting.inventory_qty("blackHole") > 0:
 		_content.add_child(_combat_use_button("blackHole", "Black Hole (%d) — damage and freeze" % Crafting.inventory_qty("blackHole"), _on_use_black_hole))
@@ -200,20 +203,17 @@ func _add_combat_use_buttons(player: Dictionary, combat: Dictionary) -> void:
 	var snap_count: int = combat["snapshots"].size()
 	if Crafting.inventory_qty("rewind") > 0:
 		var rewind_label := "(%d turn(s) back · +50%% evade x2 turns)" % snap_count if snap_count > 0 else "(nothing to undo yet)"
-		var rewind_button := _symbol_use_button("rewind", "Rewind (%d) — %s" % [Crafting.inventory_qty("rewind"), rewind_label], _on_use_rewind)
-		rewind_button.disabled = snap_count == 0
-		_content.add_child(rewind_button)
+		_content.add_child(_symbol_use_button("rewind", "Rewind (%d) — %s" % [Crafting.inventory_qty("rewind"), rewind_label], _on_use_rewind, snap_count == 0))
 
 
 
 # Disabled, with the reason appended, when the current combat.selection
 # can't take this item (Combat.selection_block_reason(), R§3.7).
-func _combat_use_button(recipe_key: String, rest_text: String, callback: Callable) -> Button:
+# `also_disabled` greys it for a caller-side block with no appended reason.
+func _combat_use_button(recipe_key: String, rest_text: String, callback: Callable, also_disabled: bool = false) -> Button:
 	var reason: String = Combat.selection_block_reason(recipe_key)
 	var text: String = rest_text if reason.is_empty() else "%s · %s" % [rest_text, reason]
-	var button := _symbol_use_button(recipe_key, text, callback)
-	button.disabled = not reason.is_empty()
-	return button
+	return _symbol_use_button(recipe_key, text, callback, also_disabled or not reason.is_empty())
 
 
 func _play_result_beats(result: Dictionary) -> void:

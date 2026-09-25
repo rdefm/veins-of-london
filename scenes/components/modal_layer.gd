@@ -21,7 +21,9 @@ func _ready() -> void:
 	_dim.gui_input.connect(_on_dim_gui_input)
 	add_child(_dim)
 
+	# Off the Map tab: every modal is the light vein-popover card (MapCardStyle).
 	_card = PanelContainer.new()
+	MapPalette.build_light(func(): MapCardStyle.style_panel(_card, 18, 0.16))
 	UI.anchor_center(_card)
 	add_child(_card)
 
@@ -104,10 +106,11 @@ func _build_modal_content(modal: Dictionary) -> void:
 	var type_id: String = modal.get("type", "")
 	var data: Dictionary = modal.get("data", {})
 
-	if ModalRegistry.REGISTRY.has(type_id):
-		ModalRegistry.REGISTRY[type_id].build(_card_content, data)
-		return
-
-	_card_content.add_child(UI.heading(type_id))
-	_card_content.add_child(UI.label("…"))
-	_card_content.add_child(UI.button("Close", func(): Modal.close()))
+	MapPalette.build_light(func():
+		if ModalRegistry.REGISTRY.has(type_id):
+			ModalRegistry.REGISTRY[type_id].build(_card_content, data)
+			return
+		_card_content.add_child(UI.heading(type_id))
+		_card_content.add_child(UI.label("…"))
+		_card_content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Modal.close())]))
+	)

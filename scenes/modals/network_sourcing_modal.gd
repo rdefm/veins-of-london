@@ -34,7 +34,7 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	ore_pick.item_selected.connect(update_price)
 	tier_pick.item_selected.connect(update_price)
 
-	container.add_child(UI.button("Place order", func():
+	var place := MapCardStyle.text_button("Place order", func():
 		var result := NetworkHandler.buy_sourcing(ore_ids[ore_pick.selected], NetworkHandler.SOURCING_TIERS[tier_pick.selected])
 		if not result.get("ok", false):
 			status.text = result.get("reason", "")
@@ -42,5 +42,5 @@ static func build(container: VBoxContainer, _data: Dictionary) -> void:
 		Modal.close()
 		Nav.go_to("phone")
 		PhoneNav.select_conversation(NetworkHandler.CONTACT_ID)
-	))
-	container.add_child(UI.button("Close", func(): Modal.close()))
+	)
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Modal.close()), place]))

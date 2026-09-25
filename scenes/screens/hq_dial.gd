@@ -21,11 +21,13 @@ func _refresh() -> void:
 
 	var player: Dictionary = GameState.state["player"]
 	var dial: Variant = player["dial"]
-	if dial == null:
-		_build_unseeded_screen(player)
-		return
-
-	_build_seeded_screen(player, dial)
+	# Off the Map tab: light card family (MapCardStyle).
+	MapPalette.build_light(func():
+		if dial == null:
+			_build_unseeded_screen(player)
+		else:
+			_build_seeded_screen(player, dial)
+	)
 func _build_unseeded_screen(player: Dictionary) -> void:
 	var sc := UI.scroll_container()
 	add_child(sc)
@@ -64,7 +66,7 @@ func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
 	chrome.add_child(UI.back_button("hq"))
 	chrome.add_child(UI.heading("Dial"))
 	_build_top_block(chrome, player, dial)
-	chrome.add_child(UI.button("Craft Components", func(): Modal.open("lab_bench_recipe_book")))
+	chrome.add_child(MapCardStyle.text_button("Craft Components", func(): Modal.open("lab_bench_recipe_book")))
 	var device_wrap := _build_device_art(dial)
 	device_wrap.position = Vector2(device_x, device_top)
 	add_child(device_wrap)
@@ -99,7 +101,7 @@ func _build_unseeded(content: VBoxContainer, player: Dictionary) -> void:
 		for haft_id in GameData.DIAL_HAFTS.keys():
 			var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
 			var captured_haft_id: String = haft_id
-			content.add_child(UI.button("Seed as \"%s\"" % haft["name"], func(): _on_seed_pressed(captured_haft_id)))
+			content.add_child(MapCardStyle.text_button("Seed as \"%s\"" % haft["name"], func(): _on_seed_pressed(captured_haft_id)))
 	else:
 		content.add_child(UI.muted_label("No Dial. Nothing's offered you the gift yet."))
 func _on_seed_pressed(haft_id: String) -> void:
@@ -149,7 +151,7 @@ func _needle_rotation_degrees(dial: Dictionary) -> float:
 	var fraction: float = clampf(dial["currentCharge"] / max_charge, 0.0, 1.0)
 	return lerpf(NEEDLE_MIN_DEG, NEEDLE_MAX_DEG, fraction)
 func _build_top_block(content: VBoxContainer, player: Dictionary, dial: Dictionary) -> void:
-	var c := UI.card()
+	var c := MapCardStyle.card()
 	var haft_name: String = Dial.haft_name(dial)
 	c["content"].add_child(UI.label("Level %d Dial — %s" % [dial["level"], haft_name]))
 	c["content"].add_child(UI.muted_label("Charge %s/%d (regen %s/day)" % [str(int(dial["currentCharge"])), dial["maxCharge"], str(dial["rechargeRate"])]))
@@ -159,32 +161,31 @@ func _build_top_block(content: VBoxContainer, player: Dictionary, dial: Dictiona
 	if movement != null:
 		var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
 		c["content"].add_child(UI.symbol_row([{ "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s (seated) — attuned %s, tier %d" % [m["name"], movement["oreType"], movement["tier"]]]))
-		c["content"].add_child(UI.button("Unseat", func(): Dial.unseat_movement()))
+		c["content"].add_child(MapCardStyle.text_button("Unseat", func(): Dial.unseat_movement()))
 		var cost: int = Dial.winding_cost_per_charge(movement["archetype"], movement["tier"])
 		var have: int = player["orichalchum"].get(movement["oreType"], 0)
-		var wind_button := UI.symbol_button(["Wind +1 (%d " % cost, { "symbol": GameData.ORE_TYPES[movement["oreType"]]["symbol"], "fallback": SymbolGlyph.ore_fallback(movement["oreType"]) }, ")"], func(): Dial.wind(1))
-		wind_button.disabled = dial["currentCharge"] >= dial["maxCharge"] or have < cost
+		var wind_button := MapCardStyle.symbol_text_button(["Wind +1 (%d " % cost, { "symbol": GameData.ORE_TYPES[movement["oreType"]]["symbol"], "fallback": SymbolGlyph.ore_fallback(movement["oreType"]) }, ")"], func(): Dial.wind(1), dial["currentCharge"] >= dial["maxCharge"] or have < cost)
 		wind_button.custom_minimum_size = Vector2(0, SOCKET_TILE_HEIGHT)
 		c["content"].add_child(wind_button)
 	else:
 		c["content"].add_child(UI.muted_label("No Movement seated — the Dial is inert."))
 
-	c["content"].add_child(UI.button("Craft new Movement", func(): Modal.open("craft_components_menu")))
-	var swap_button := UI.button("Swap", func(): Modal.open("movement_swap"))
-	swap_button.disabled = player["movementInventory"].is_empty()
-	c["content"].add_child(swap_button)
+	c["content"].add_child(MapCardStyle.footer([
+		MapCardStyle.text_button("Craft new Movement", func(): Modal.open("craft_components_menu")),
+		MapCardStyle.text_button("Swap", func(): Modal.open("movement_swap"), player["movementInventory"].is_empty()),
+	]))
 
 	content.add_child(c["panel"])
 func _build_socket_tile(index: int, loaded: Array) -> Control:
 	if index >= loaded.size():
-		var empty := UI.button("Empty", func(): Modal.open("dial_load_complication"))
+		var empty := MapCardStyle.chip_button("Empty", func(): Modal.open("dial_load_complication"))
 		empty.custom_minimum_size = Vector2(SOCKET_TILE_WIDTH, SOCKET_TILE_HEIGHT)
 		return empty
 
 	var entry: Dictionary = loaded[index]
 	var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
 	var captured_index: int = index
-	var tile := UI.symbol_button([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s t%d" % [recipe["name"], entry["tier"]]], func(): Dial.unload_complication(captured_index))
+	var tile := MapCardStyle.style_chip(UI.symbol_button([{ "symbol": recipe["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s t%d" % [recipe["name"], entry["tier"]]], func(): Dial.unload_complication(captured_index)))
 	tile.custom_minimum_size = Vector2(SOCKET_TILE_WIDTH, SOCKET_TILE_HEIGHT)
 	tile.clip_contents = true
 	return tile

@@ -20,7 +20,8 @@ func _refresh() -> void:
 		_build_locked()
 		return
 
-	_build_trading_ui()
+	# Off the Map tab: light card family (MapCardStyle).
+	MapPalette.build_light(_build_trading_ui)
 func _build_locked() -> void:
 	_content.add_child(UI.muted_label("Guild members only."))
 	_content.add_child(UI.label("They don't trade with outsiders. Build relation and join to get in."))
@@ -54,7 +55,7 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 
 	var fallback: Callable = SymbolGlyph.ore_fallback(item_type) if kind == "ore" else SymbolGlyph.generic_fallback()
 
-	var c := UI.card()
+	var c := MapCardStyle.card()
 	c["content"].add_child(UI.symbol_row([{ "symbol": symbol, "fallback": fallback }, name], { "heading_size": 15 }))
 	c["content"].add_child(UI.label("Buy £%d/u · Sell £%d/u · Have %d" % [buy_price, sell_price, have]))
 	var buy_max_qty := Economy.get_faction_buy_max_qty("guild", kind, item_type)
@@ -66,25 +67,14 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 	var row := UI.hflow()
 
 	var buy_total := qty * buy_price
-	var buy_button := UI.button("Buy ×%d (£%d)" % [qty, buy_total], func():
-		Economy.execute_faction_purchase("guild", [{ "kind": kind, "type": item_type, "qty": qty }])
-	)
-	buy_button.disabled = qty > buy_max_qty
-	row.add_child(buy_button)
+	var buy := func(): Economy.execute_faction_purchase("guild", [{ "kind": kind, "type": item_type, "qty": qty }])
+	row.add_child(MapCardStyle.text_button("Buy ×%d (£%d)" % [qty, buy_total], buy, qty > buy_max_qty))
 
 	var sell_total := qty * sell_price
-	var sell_button := UI.button("Sell ×%d (£%d)" % [qty, sell_total], func():
-		Economy.execute_faction_sale("guild", [{ "kind": kind, "type": item_type, "qty": qty }])
-	)
-	sell_button.disabled = qty > sell_max_qty
-	row.add_child(sell_button)
+	var sell := func(): Economy.execute_faction_sale("guild", [{ "kind": kind, "type": item_type, "qty": qty }])
+	row.add_child(MapCardStyle.text_button("Sell ×%d (£%d)" % [qty, sell_total], sell, qty > sell_max_qty))
 
 	c["content"].add_child(row)
 	return c["panel"]
 func _build_qty_stepper_row(kind: String, item_type: String, qty: int, max_qty: int) -> Control:
-	var row := UI.hbox()
-	row.add_child(UI.label("Qty:"))
-	row.add_child(UI.button("-", func(): Economy.adjust_marketplace_qty("guild", kind, item_type, -1, max_qty)))
-	row.add_child(UI.label(str(qty)))
-	row.add_child(UI.button("+", func(): Economy.adjust_marketplace_qty("guild", kind, item_type, 1, max_qty)))
-	return row
+	return MapCardStyle.stepper("Qty", qty, func(delta: int): Economy.adjust_marketplace_qty("guild", kind, item_type, delta, max_qty))

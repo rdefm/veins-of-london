@@ -12,4 +12,4 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 		container.add_child(UI.label("You made a %s. Effect power: %s. The calc cost was worth it." % [r.get("name", ""), str(power)]))
 	else:
 		container.add_child(UI.label("The calc dispersed. Nothing to show for it."))
-	container.add_child(UI.button("Got it", func(): Modal.close()))
+	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Got it", func(): Modal.close())]))
