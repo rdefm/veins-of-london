@@ -178,6 +178,7 @@ static func advance() -> void:
 		BusinessQuest.maybe_issue_starter()
 		# Beat 3: prior completions can meet Beat 2 inside the Beat 1 scene.
 		BusinessQuest.maybe_trigger_owen_intro()
+		BusinessQuest.maybe_trigger_partnership()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
 		event_state["cardIndex"] += 1
@@ -332,6 +333,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			Contacts.force_recruit(effect["contact"])
 		"activate_business":
 			Business.activate()
+		"set_james_crafting_skill":
+			BusinessQuest.set_james_crafting_skill()
 		"push_message":
 			# Optional "from" lets an authored SMS thread replay its own outgoing "player" lines verbatim; defaults to "them" when omitted.
 			Messages.append(effect["contact"], effect.get("from", "them"), effect["text"])

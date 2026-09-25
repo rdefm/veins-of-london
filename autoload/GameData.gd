@@ -158,6 +158,7 @@ var CULTIVATOR_ACTION_XP: int = 0
 # contact id, R§3.10 "Business pot and payday".
 var BUSINESS_PAYDAY_INTERVAL_DAYS: int = 0
 var BUSINESS_WEEKLY_WAGES: Dictionary = {}
+var BUSINESS_JAMES_JOIN_CRAFTING_SKILL: int = 0
 
 # Loaded by _list_event_ids() from every *.json file under data/events/ --
 # no id roster to keep in sync; drop a file in, it's discovered on next
@@ -306,6 +307,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "CULTIVATOR_ACTION_XP", "key": "cultivatorActionXp", "type": TYPE_INT},
 		{"field": "BUSINESS_PAYDAY_INTERVAL_DAYS", "key": "business.paydayIntervalDays", "type": TYPE_INT},
 		{"field": "BUSINESS_WEEKLY_WAGES", "key": "business.weeklyWages", "type": TYPE_DICTIONARY},
+		{"field": "BUSINESS_JAMES_JOIN_CRAFTING_SKILL", "key": "business.jamesJoinCraftingSkill", "type": TYPE_INT},
 	]},
 	{"table": "daily_cycle", "file": "res://data/daily_cycle.json", "fields": [
 		{"field": "DAILY_CYCLE", "key": "", "type": TYPE_DICTIONARY},
@@ -1114,8 +1116,10 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# a plain unread text (no follow-up action); queue_pending_message
 	# is push_message's follow-up-action cousin (Messages.queue_pending()).
 	# recruit_contact is Contacts.force_recruit() (story recruits).
-	# activate_business is Business.activate() (Beat 3: pot + partners).
+	# activate_business is Business.activate() (Beat 3: pot + partners);
+	# set_james_crafting_skill is BusinessQuest.set_james_crafting_skill() (Beat 5).
 	"unlock_contact", "push_message", "recruit_contact", "activate_business",
+	"set_james_crafting_skill",
 	# faction_relation is "relation"'s faction-facing twin (Factions.
 	# adjust_player_relation); log_method writes state.methodLog[key]=value.
 	"queue_pending_message", "faction_relation",
@@ -1273,7 +1277,7 @@ func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[Strin
 # types inspect world/faction/vein state.
 const OBJECTIVE_TYPES: Array[String] = [
 	"sites_discovered_matching", "traded_with_faction", "supplied_to_contact", "vein_sold_to_faction", "vein_growth_above", "flag_true",
-	"alarm_defend_wins", "faction_vein_seeded_count", "items_crafted_set", "contracts_completed",
+	"alarm_defend_wins", "faction_vein_seeded_count", "items_crafted_set", "contracts_completed", "all_of",
 ]
 const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"sites_discovered_matching": ["requireEachOreType", "minTier", "unclaimed"],
@@ -1286,6 +1290,13 @@ const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"faction_vein_seeded_count": ["factionId", "minCount"],
 	"items_crafted_set": ["recipeKeys", "minEach"],
 	"contracts_completed": ["minCount"],
+	"all_of": ["conditions"],
+}
+# all_of's live condition kinds (Objectives.condition_met()), each with its
+# required keys beside "kind" and the ToDo checklist "label".
+const OBJECTIVE_CONDITION_KEYS: Dictionary = {
+	"contact_skill": ["contactId", "skill", "minLevel"],
+	"home_room": ["roomId"],
 }
 
 
@@ -1329,6 +1340,15 @@ func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_type
 				errors.append("objectives.%s: type '%s' missing param '%s'" % [key, obj_type, required_param])
 
 		match obj_type:
+			"all_of":
+				for condition in params.get("conditions", []):
+					var cond_kind = condition.get("kind") if typeof(condition) == TYPE_DICTIONARY else null
+					if not OBJECTIVE_CONDITION_KEYS.has(cond_kind):
+						errors.append("objectives.%s: unknown condition kind '%s'" % [key, cond_kind])
+						continue
+					for cond_key in OBJECTIVE_CONDITION_KEYS[cond_kind] + ["label"]:
+						if not condition.has(cond_key):
+							errors.append("objectives.%s: condition '%s' missing '%s'" % [key, cond_kind, cond_key])
 			"sites_discovered_matching":
 				for ore_key in params.get("requireEachOreType", []):
 					if not ore_types.is_empty() and not ore_types.has(ore_key):

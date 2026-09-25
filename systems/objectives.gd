@@ -17,6 +17,7 @@ const TYPE_ALARM_DEFEND_WINS := "alarm_defend_wins"
 const TYPE_FACTION_VEIN_SEEDED_COUNT := "faction_vein_seeded_count"
 const TYPE_ITEMS_CRAFTED_SET := "items_crafted_set"
 const TYPE_CONTRACTS_COMPLETED := "contracts_completed"
+const TYPE_ALL_OF := "all_of"
 
 
 # The only entry point, called explicitly at action boundaries across
@@ -85,6 +86,11 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return _eval_items_crafted_set(params, progress)
 		TYPE_CONTRACTS_COMPLETED:
 			return completed_contract_count() >= int(params["minCount"])
+		TYPE_ALL_OF:
+			for condition in params["conditions"]:
+				if not condition_met(condition):
+					return false
+			return true
 		_:
 			return false
 
@@ -252,3 +258,34 @@ static func count_progress(def: Dictionary) -> Dictionary:
 		var target: int = int(def["params"]["minCount"])
 		return { "current": mini(completed_contract_count(), target), "target": target }
 	return {}
+
+
+# One all_of condition, read from live state (not a counter), so losing it
+# un-meets it until the objective completes.
+static func condition_met(condition: Dictionary) -> bool:
+	match condition["kind"]:
+		"contact_skill":
+			return _contact_skill_level(condition) >= int(condition["minLevel"])
+		"home_room":
+			return GameState.state["home"]["rooms"].has(condition["roomId"])
+	return false
+
+
+static func _contact_skill_level(condition: Dictionary) -> int:
+	var contact: Dictionary = GameState.state["contacts"].get(condition["contactId"], {})
+	return int(contact.get(condition["skill"] + "Skill", 0))
+
+
+# ToDo checklist rows for an all_of objective: [{ "label", "detail", "done" }]
+# (contact_skill shows "level n of N" as its detail), else [].
+static func checklist(def: Dictionary) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if def["type"] != TYPE_ALL_OF:
+		return rows
+	for condition in def["params"]["conditions"]:
+		var detail := ""
+		if condition["kind"] == "contact_skill":
+			var target: int = int(condition["minLevel"])
+			detail = "level %d of %d" % [mini(_contact_skill_level(condition), target), target]
+		rows.append({ "label": condition["label"], "detail": detail, "done": condition_met(condition) })
+	return rows

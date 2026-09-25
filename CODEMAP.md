@@ -25,7 +25,7 @@ Data file per system: see `data/*.json` below.
 | bag.gd | Bag-drawer toggle |
 | bank.gd | Cash transaction log |
 | barometer.gd | Economic/social/political barometer + faction prefs |
-| business_quest.gd | business_empire questline side effects: Beat 1 trigger (2+ veins, Archie recruited → Archie's pending text), Archie's Beat 2 starter-offer chain (state.businessQuest), Beat 3 trigger (Beat 2 met → James's pending text → biz_a1_owen scene) |
+| business_quest.gd | business_empire questline side effects: Beat 1 trigger (2+ veins, Archie recruited → Archie's pending text), Archie's Beat 2 starter-offer chain (state.businessQuest), Beat 3 trigger (Beat 2 met → James's text → biz_a1_owen), Beat 5 trigger (Beat 4 met → James's text → biz_a1_partnership) + James's crafting-skill set |
 | business.gd | Business pot (contract settlements while active), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash, Staff tab pay-terms/status labels |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
@@ -66,7 +66,7 @@ Data file per system: see `data/*.json` below.
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls), per-block staff output accumulation, BizBrief routing, arrears/payday/wage-prompt labels |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict |
-| objectives.gd | Objective/questline evaluator |
+| objectives.gd | Objective/questline evaluator; all_of live-condition objectives + their ToDo checklist rows |
 | offers.gd | Sales offers: quoting, acceptance, expiry |
 | payroll.gd | Daily wage payment for room-staffed hires (founders exempt); `is_working()` gate for staff actions (false while the business owes wages) |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
@@ -81,7 +81,7 @@ Data file per system: see `data/*.json` below.
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | time_system.gd | Time blocks (each runs the staff block step), rest, daily tick (tenure-aware home bill, arrears + interest, forced one-tier downgrade per ADR 0006) |
-| todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire) with active/done/placeholder status + default expansion, "n of N" detail for count objectives; Collective section carries the ledger read from state.world.sites |
+| todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire) with active/done/placeholder status + default expansion, "n of N" detail for count objectives, all_of checklist sub-items; Collective section carries the ledger read from state.world.sites |
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer |
 | vein_list_nav.gd | Vein list screen nav state |
@@ -193,7 +193,7 @@ overlays.
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
 | bizbrief_app.gd | BizBrief: Brief tab (bank, payday statement, pay-from-cash wage prompt, operations, attention) + Manage tab (sales, production, procurement: each cultivator's veins, targets, picker) + Staff tab once `bizStaffTabOpen` (recruited contacts' role, skills/XP/caps, pay terms, status, founder role picker, Pay now, Procurement link) |
 | messages_app.gd | Conversation master list + single-thread staged bubble reveal/action bar |
-| todo_app.gd | ToDo app: collapsible questline sections from Todo; session-only expand/collapse overrides in a static var |
+| todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | Faction cards |
 | ticker_app.gd | Barometer headlines + axis detail (push/pull, influence actions) |
 | profile_app.gd | Stats, skills, equipment |

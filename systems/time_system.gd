@@ -62,6 +62,7 @@ static func do_rest() -> void:
 static func run_staff_block() -> void:
 	var ore_before: Dictionary = MorningAccountsSystem.ore_snapshot()
 	MorningAccountsSystem.record_block(Rooms.process_staff_block(), ore_before)
+	BusinessQuest.maybe_trigger_partnership()  # Beat 4 can be met by a staff level-up
 
 
 # Exact step order per R§3.1 — do not reorder without checking each inline
@@ -113,6 +114,7 @@ static func daily_tick() -> void:
 	Collective.maybe_trigger_a2_closer()      # ⑧c T15, before ⑧d so it trails T14 by a day or more
 	Collective.maybe_trigger_a2_spine_reward()  # ⑧d T14 backstop once relation accrues past the gate
 	BusinessQuest.maybe_trigger_owen_intro()   # ⑧e backstop for the settle/event-completion checks
+	BusinessQuest.maybe_trigger_partnership()  # ⑧f backstop for the staff-block/room-build checks
 	MorningAccountsSystem.finish_rollover(morning_context)
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])
 	SaveManager.autosave()               # R§6: autosave on every daily tick

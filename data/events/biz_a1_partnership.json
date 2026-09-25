@@ -1,0 +1,23 @@
+{
+  "id": "biz_a1_partnership",
+  "cards": [
+    { "type": "narration", "label": "Bermondsey — James's unit", "speaker": null, "text": "Owen is at the bench with a cutting board of his own, labelled in James's handwriting. He looks up, then back down, very quickly." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"He has reached the second level. Slower than a gifted student, faster than I told him he would. I did not tell him that.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"And you have built a workshop. With your own money, in your own home, where you have to look at it every morning. That is what I meant by serious.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"So that's market and money. You said two things.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"I know what I said.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "He turns the hourglass over and watches it run out before he answers." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Very well. I join properly. I stop taking a share for nothing and start making the goods the share comes from. Give me ore and a target in Production and I will meet it.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"My own clients remain mine. I will do their work on my own time. If either of you so much as offers them a discount, I will know.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Full partner. Look at that. I'd hug you, but.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"You would not.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "James writes his own name on Owen's board, one line above Owen's. It is the closest thing to a contract anyone is going to get." }
+  ],
+  "on_complete": [
+    { "op": "recruit_contact", "contact": "james" },
+    { "op": "set_james_crafting_skill" },
+    { "op": "set_flag", "flag": "bizJamesProductionRole", "value": true },
+    { "op": "set_flag", "flag": "bizA1JamesJoined", "value": true },
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

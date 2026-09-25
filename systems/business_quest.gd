@@ -18,6 +18,10 @@ const OWEN_INTRO_KIND := "biz_a1_owen"
 # PROSE-REVIEW: James's Beat 3 summons.
 const OWEN_INTRO_TEXT := "Three orders, delivered in full. Come to the unit. There is someone you should meet, and I would rather not explain him twice."
 
+const PARTNERSHIP_KIND := "biz_a1_partnership"
+# PROSE-REVIEW: James's Beat 5 summons.
+const PARTNERSHIP_TEXT := "Owen has made level two, and I hear you have put a workshop in. Come to the unit. I have something to say and I will only say it once."
+
 
 # Beat 1: two or more veins and Archie recruited, whatever the Collective
 # progress. Called after every vein-count change and from TimeSystem.
@@ -48,6 +52,34 @@ static func maybe_trigger_owen_intro() -> bool:
 	Messages.queue_pending("james", OWEN_INTRO_KIND, OWEN_INTRO_TEXT)
 	Objectives.refresh()
 	return true
+
+
+# Beat 5: once Beat 4 (Owen's level + a Workshop, both live) is met, James
+# texts the partnership summons. Refreshes objectives first, since Owen's
+# level-up and a room build are not otherwise objective boundaries. Called
+# after every staff block, a room build, event completion and at rollover;
+# bizA1PartnershipQueued blocks re-firing permanently.
+static func maybe_trigger_partnership() -> bool:
+	var flags: Dictionary = GameState.state["flags"]
+	if flags.get("bizA1PartnershipQueued", false) or not flags.get("bizA1OwenJoined", false):
+		return false
+	Objectives.refresh()
+	if not flags.get("bizA1ApprenticeReady", false):
+		return false
+	flags["bizA1PartnershipQueued"] = true
+	Messages.queue_pending("james", PARTNERSHIP_KIND, PARTNERSHIP_TEXT)
+	Objectives.refresh()
+	return true
+
+
+# Beat 5 scene: James's crafting skill becomes constants.json
+# business.jamesJoinCraftingSkill, with XP raised to that level's threshold
+# so later XP levels him from there. Idempotent.
+static func set_james_crafting_skill() -> void:
+	var james: Dictionary = GameState.state["contacts"]["james"]
+	var level: int = GameData.BUSINESS_JAMES_JOIN_CRAFTING_SKILL
+	james["craftingSkill"] = level
+	james["craftingXP"] = maxi(int(james["craftingXP"]), int(GameData.CRAFTING_XP_LEVELS[level]))
 
 
 # The chain runs from the Beat 1 scene until Beat 2 is met by any source.

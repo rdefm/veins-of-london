@@ -170,10 +170,75 @@ func run() -> void:
 		assert_true(Contacts.set_role("owen", "cultivation")["ok"])
 		assert_true(Rooms.assign_vein("owen", "v1")["ok"])
 		Cultivating.find_vein("v1")["growth"] = 95
-		var ore_before: int = GameState.state["player"]["orichalchum"]["time"]
+		var ore_before: int = GameState.state["player"]["orichalchum"].get("time", 0)
 		TimeSystem.advance_time_block()
-		assert_true(GameState.state["player"]["orichalchum"]["time"] > ore_before, "Owen pruned v1 into shared stock")
+		assert_true(GameState.state["player"]["orichalchum"].get("time", 0) > ore_before, "Owen pruned v1 into shared stock")
 		assert_true(Cultivating.find_vein("v1")["growth"] < 95)
+	)
+
+	run_case("todo_shows_owens_level_and_the_workshop_as_checklist_items", func():
+		_to_beat_3()
+		var item: Dictionary = _business_item("biz_a1_apprentice")
+		assert_eq(item["checks"].map(func(c): return [c["detail"], c["done"]]), [["level 1 of 2", false], ["", false]])
+		_build_workshop()
+		item = _business_item("biz_a1_apprentice")
+		assert_eq(item["checks"].map(func(c): return c["done"]), [false, true])
+	)
+
+	run_case("prior_workshop_satisfies_beat_4_when_owen_levels", func():
+		_to_beat_2()
+		_build_workshop()
+		EventPlay.play_event(BusinessQuest.OWEN_INTRO_KIND)
+		assert_true(not GameState.state["flags"]["bizA1ApprenticeReady"], "Owen is still level 1")
+		GameState.state["contacts"]["owen"]["cultivatingSkill"] = 2
+		TimeSystem.advance_time_block()
+		assert_true(GameState.state["flags"]["bizA1ApprenticeReady"], "the existing Workshop counts")
+		assert_eq(_partnership_texts(), 1)
+		assert_true(GameState.state["objectives"]["biz_a1_partnership"]["active"])
+		TimeSystem.do_rest()
+		assert_eq(_partnership_texts(), 1, "the permanent flag blocks re-firing")
+	)
+
+	run_case("tier_move_wiping_the_workshop_un_meets_beat_4", func():
+		_to_beat_3()
+		_build_workshop()
+		Home.change_tier("townhouse", "rented")
+		assert_eq(_business_item("biz_a1_apprentice")["checks"][1]["done"], false, "the Workshop check is live")
+		GameState.state["contacts"]["owen"]["cultivatingSkill"] = 2
+		TimeSystem.do_rest()
+		assert_true(not GameState.state["flags"]["bizA1ApprenticeReady"])
+		assert_eq(_partnership_texts(), 0)
+
+		_build_workshop()
+		assert_true(GameState.state["flags"]["bizA1ApprenticeReady"], "rebuilding meets it on the build")
+		assert_eq(_partnership_texts(), 1)
+	)
+
+	run_case("beat_5_scene_recruits_james_as_a_crafter", func():
+		_to_beat_5()
+		assert_true(not Contacts.is_role_available("james", "production"))
+		EventPlay.play_event(BusinessQuest.PARTNERSHIP_KIND)
+		var james: Dictionary = GameState.state["contacts"]["james"]
+		assert_true(james["recruited"])
+		assert_eq(james["craftingSkill"], GameData.BUSINESS_JAMES_JOIN_CRAFTING_SKILL)
+		assert_eq(james["craftingSkill"], 5)
+		assert_true(Contacts.is_role_available("james", "production"))
+		assert_true(Contacts.set_role("james", "production")["ok"])
+		assert_true(GameState.state["objectives"]["biz_a1_partnership"]["complete"])
+	)
+
+	run_case("beat_5_scene_plays_cleanly_when_james_is_already_recruited", func():
+		_to_beat_5()
+		var james: Dictionary = GameState.state["contacts"]["james"]
+		james["recruited"] = true
+		james["craftingXP"] = 1500
+		var partners_before: Array = GameState.state["business"]["partners"].duplicate()
+		EventPlay.play_event(BusinessQuest.PARTNERSHIP_KIND)
+		assert_true(james["recruited"])
+		assert_eq(james["craftingSkill"], 5)
+		assert_eq(james["craftingXP"], 1500, "XP already past the level is kept")
+		assert_eq(GameState.state["business"]["partners"], partners_before, "no second partner entry")
+		assert_true(GameState.state["flags"]["bizA1JamesJoined"])
 	)
 
 
@@ -191,6 +256,32 @@ func _to_beat_2() -> void:
 	EventPlay.play_event(BusinessQuest.PROPOSITION_KIND)
 	for i in 3:
 		_complete_life_order()
+
+
+func _to_beat_3() -> void:
+	_to_beat_2()
+	EventPlay.play_event(BusinessQuest.OWEN_INTRO_KIND)
+
+
+# Beat 4 met (Workshop + Owen level 2): James's partnership text queued.
+func _to_beat_5() -> void:
+	_to_beat_3()
+	GameState.state["contacts"]["owen"]["cultivatingSkill"] = 2
+	_build_workshop()
+
+
+func _build_workshop() -> void:
+	GameState.state["home"]["tier"] = "flat"
+	GameState.state["player"]["cash"] += 1000
+	assert_true(Home.add_room("workshop")["ok"])
+
+
+func _business_item(objective_id: String) -> Dictionary:
+	var title: String = GameData.OBJECTIVES[objective_id]["title"]
+	for item in _business_section()["items"]:
+		if item["title"] == title:
+			return item
+	return {}
 
 
 # A rollover with random offers stripped, so the pending cap never blocks a
@@ -212,6 +303,10 @@ func _complete_life_order() -> void:
 
 func _pending_kinds(contact_id: String) -> Array:
 	return Messages.pending_for(contact_id).map(func(e): return e["kind"])
+
+
+func _partnership_texts() -> int:
+	return _pending_kinds("james").count(BusinessQuest.PARTNERSHIP_KIND)
 
 
 func _starter_offers() -> Array:

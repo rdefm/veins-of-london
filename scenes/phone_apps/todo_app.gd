@@ -7,6 +7,7 @@ class_name ToDoApp
 extends PhoneApp
 
 const HEADER_FONT_SIZE := 17
+const CHECK_INDENT := 22
 
 # "<questline>:<status>" -> expanded. Keyed on status too, so a questline
 # that finishes mid-session falls back to its collapsed-when-done default.
@@ -38,6 +39,8 @@ func _build_section(section: Dictionary) -> Control:
 	for item in section["items"]:
 		var text: String = item["title"] if item["detail"] == "" else "%s — %s" % [item["title"], item["detail"]]
 		rows.add_child(UI.checklist_row(text, item["done"]))
+		for check in item["checks"]:
+			rows.add_child(_check_row(check))
 		rows.add_child(UI.command_row_rule())
 	if not section["ledger"].is_empty():
 		rows.add_child(UI.muted_label("Ledger"))
@@ -46,3 +49,12 @@ func _build_section(section: Dictionary) -> Control:
 			rows.add_child(UI.command_row_rule())
 	s["content"].add_child(rows)
 	return s["panel"]
+
+
+# A sub-item of an all_of objective, indented under its parent row.
+func _check_row(check: Dictionary) -> Control:
+	var text: String = check["label"] if check["detail"] == "" else "%s — %s" % [check["label"], check["detail"]]
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", CHECK_INDENT)
+	margin.add_child(UI.checklist_row(text, check["done"]))
+	return margin

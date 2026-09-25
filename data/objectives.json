@@ -211,5 +211,30 @@
     "activateFlag": "bizA1OwenIntroQueued",
     "completeFlag": "bizA1OwenJoined",
     "questline": "business_empire"
+  },
+  "biz_a1_apprentice": {
+    "id": "biz_a1_apprentice",
+    "title": "Give James a reason to join properly.",
+    "detail": "",
+    "type": "all_of",
+    "params": {
+      "conditions": [
+        { "kind": "contact_skill", "contactId": "owen", "skill": "cultivating", "minLevel": 2, "label": "Owen at cultivating level 2" },
+        { "kind": "home_room", "roomId": "workshop", "label": "A Workshop at home" }
+      ]
+    },
+    "activateFlag": "bizA1OwenJoined",
+    "completeFlag": "bizA1ApprenticeReady",
+    "questline": "business_empire"
+  },
+  "biz_a1_partnership": {
+    "id": "biz_a1_partnership",
+    "title": "James is ready to talk. Go to the unit.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "bizA1PartnershipQueued",
+    "completeFlag": "bizA1JamesJoined",
+    "questline": "business_empire"
   }
 }

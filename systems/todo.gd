@@ -27,7 +27,8 @@ const QUESTLINES := {
 # Returns one entry per started questline (at least one active objective, or
 # a live Collective ledger) plus every unstarted one with an emptyText: { "questline", "label",
 # "status": "active"|"done"|"placeholder", "defaultExpanded": bool,
-# "items": [{ "title", "detail", "done" }], "ledger": Array, "emptyText" },
+# "items": [{ "title", "detail", "done", "checks" }], "ledger": Array, "emptyText" },
+# where "checks" is an undone all_of objective's live checklist (Objectives.checklist()).
 # in QUESTLINES' order, items capped to the most recent MAX_ITEMS_PER_SECTION.
 static func get_questline_sections() -> Array[Dictionary]:
 	var flags: Dictionary = GameState.state["flags"]
@@ -41,10 +42,12 @@ static func get_questline_sections() -> Array[Dictionary]:
 		var questline: String = def["questline"]
 		var text := _display_text(def)
 		var items: Array = items_by_questline.get(questline, [])
+		var done: bool = runtime[id].get("complete", false)
 		items.append({
 			"title": text["title"],
 			"detail": text["detail"],
-			"done": runtime[id].get("complete", false),
+			"done": done,
+			"checks": [] if done else Objectives.checklist(def),
 		})
 		items_by_questline[questline] = items
 
