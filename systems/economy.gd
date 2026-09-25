@@ -271,7 +271,9 @@ static func _faction_base_price(kind: String, item_type: String) -> int:
 	return GameData.CONSUMABLE_PRICES.get(item_type, 30)
 
 
-static func _faction_effective_price(faction_id: String, kind: String, item_type: String) -> int:
+# apply_district false prices without the district modifier whatever the
+# lane's setting -- business purchases never read the player's location.
+static func _faction_effective_price(faction_id: String, kind: String, item_type: String, apply_district: bool = true) -> int:
 	var base_price := _faction_base_price(kind, item_type)
 	var price: int
 	if kind == "ore":
@@ -280,15 +282,15 @@ static func _faction_effective_price(faction_id: String, kind: String, item_type
 		price = base_price
 
 	var config: Dictionary = GameData.FACTION_TRADE[faction_id]
-	if config.get("applyDistrictPriceMod", false):
+	if apply_district and config.get("applyDistrictPriceMod", false):
 		var district: Dictionary = GameData.DISTRICTS.get(GameState.state["world"]["currentDistrict"], {})
 		var price_mod: float = district.get("priceMod", 0.0)
 		price = GameState.round_epsilon(price * (1.0 + price_mod))
 	return price
 
 
-static func get_faction_buy_price(faction_id: String, kind: String, item_type: String) -> int:
-	var effective := _faction_effective_price(faction_id, kind, item_type)
+static func get_faction_buy_price(faction_id: String, kind: String, item_type: String, apply_district: bool = true) -> int:
+	var effective := _faction_effective_price(faction_id, kind, item_type, apply_district)
 	return GameState.round_epsilon(effective * (1.0 + get_faction_buy_spread(faction_id)))
 
 
@@ -301,9 +303,10 @@ static func get_faction_sell_price(faction_id: String, kind: String, item_type: 
 # ceiling (cash / price), unlike the raw-stock sell-side ceiling. An ore row is
 # further capped by the faction's oreStock when present -- only "collective"
 # ever has entries, so every other faction stays cash-only; consumables have no stock concept.
-static func get_faction_buy_max_qty(faction_id: String, kind: String, item_type: String) -> int:
-	var price := get_faction_buy_price(faction_id, kind, item_type)
-	var cash: int = GameState.state["player"]["cash"]
+# budget < 0 means the player's cash; a business purchase passes its own.
+static func get_faction_buy_max_qty(faction_id: String, kind: String, item_type: String, budget: int = -1, apply_district: bool = true) -> int:
+	var price := get_faction_buy_price(faction_id, kind, item_type, apply_district)
+	var cash: int = GameState.state["player"]["cash"] if budget < 0 else budget
 	var affordable := int(floor(float(cash) / float(maxi(price, 1))))
 	if kind == "ore":
 		var stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
@@ -344,11 +347,7 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 		var item_type: String = item["type"]
 		var qty: int = item["qty"]
 		if kind == "ore":
-			player["orichalchum"][item_type] = player["orichalchum"].get(item_type, 0) + qty
-			if stock.has(item_type):
-				stock[item_type] -= qty
-			if qty > 0:
-				EventBus.shared_stock_increased.emit()
+			receive_faction_ore(faction_id, item_type, qty)
 		else:
 			# Store-bought stock wasn't crafted at any tier -- files under the
 			# same "0" untiered bucket as legacy saves.
@@ -356,6 +355,30 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true, "cost": total_cost }
+
+
+# The stock side of buying ore from a faction lane, shared by the player's
+# purchase and the business's calc purchases: the lane's oreStock (when
+# tracked) drops, shared stock rises, and Sales re-checks deliveries.
+static func receive_faction_ore(faction_id: String, ore_type: String, qty: int) -> void:
+	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
+	orichalchum[ore_type] = orichalchum.get(ore_type, 0) + qty
+	var stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
+	if stock.has(ore_type):
+		stock[ore_type] -= qty
+	if qty > 0:
+		EventBus.shared_stock_increased.emit()
+
+
+# Whether the player can currently buy from a faction lane: a member-only
+# lane needs membership; the Collective's lane opens with its Act 1 intro.
+static func can_buy_from_faction(faction_id: String) -> bool:
+	var config: Dictionary = GameData.FACTION_TRADE[faction_id]
+	if config.get("memberOnly", false):
+		return bool(GameState.state["factions"][faction_id]["joined"])
+	if faction_id == "collective":
+		return bool(GameState.state["flags"].get("collectiveLaneUnlocked", false))
+	return true
 
 
 # Symmetric counterpart to execute_faction_purchase -- straight sale at the

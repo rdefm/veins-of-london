@@ -282,7 +282,10 @@ func _build_sales() -> Control:
 			card.add_child(box)
 			box.add_child(UI.label("%d. %s: %s · due day %d · £%d" % [index + 1, contract["id"], _contract_progress_summary(contract), contract["dueDay"], contract["quote"]["payment"]]))
 			box.add_child(UI.button("Remove Sales delegation" if contract.get("delegated", false) else "Delegate to Sales", func(): ContractsSystem.set_delegated(contract["id"], not contract.get("delegated", false))))
-			if not contract.get("delegated", false):
+			if contract.get("delegated", false):
+				var buying: bool = contract.get("buyCalc", false)
+				box.add_child(UI.button("Buy missing calc: on" if buying else "Buy missing calc: off", func(): ContractsSystem.set_buy_calc(contract["id"], not buying)))
+			else:
 				var row := UI.hbox()
 				row.add_child(UI.button("Deliver 1", func(): ContractsSystem.deliver(contract["id"], 1)))
 				row.add_child(UI.button("Deliver all", func(): ContractsSystem.deliver(contract["id"], ContractsSystem.remaining_qty(contract))))

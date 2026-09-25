@@ -266,6 +266,105 @@ func run() -> void:
 	)
 
 
+	run_case("buy_calc_buys_the_shortfall_cheapest_lane_first_and_spills_over", func():
+		_setup_buy_calc_lanes()
+		GameState.state["business"]["pot"] = 5000
+		var contract := _accept_life_contract()
+		ContractsSystem.set_delegated(contract["id"], true)
+		assert_true(ContractsSystem.set_buy_calc(contract["id"], true)["ok"])
+		GameState.state["player"]["orichalchum"]["life"] = 1
+		var cash_before: int = GameState.state["player"]["cash"]
+		var collective_price := Economy.get_faction_buy_price("collective", "ore", "life", false)
+		var guild_price := Economy.get_faction_buy_price("guild", "ore", "life", false)
+		assert_true(collective_price < guild_price, "the Collective's relation discount makes it cheapest")
+		ContractsSystem.process_delegated_deliveries()
+		var expenses: Array = GameState.state["business"]["week"]["expenses"]
+		assert_eq(expenses.size(), 2, "the shortfall of 4 spills from 2 Collective to 2 Guild")
+		assert_eq(expenses[0]["kind"], "calc")
+		assert_eq(expenses[0]["source"], GameData.FACTIONS["collective"]["name"])
+		assert_eq(expenses[0]["qty"], 2)
+		assert_eq(expenses[0]["amount"], collective_price * 2)
+		assert_eq(expenses[0]["contractId"], contract["id"])
+		assert_eq(expenses[1]["source"], GameData.FACTIONS["guild"]["name"])
+		assert_eq(expenses[1]["qty"], 2)
+		assert_eq(GameState.state["factions"]["collective"]["oreStock"]["life"], 0)
+		assert_eq(GameState.state["business"]["pot"], 5000 - collective_price * 2 - guild_price * 2 + int(GameState.state["business"]["week"]["receipts"]))
+		assert_eq(GameState.state["player"]["cash"], cash_before, "player cash is never touched")
+		assert_eq(GameState.state["sales"]["settlements"].size(), 1, "bought ore enters shared stock and delivers")
+		assert_true(GameState.state["sales"]["settlements"][0]["complete"])
+	)
+
+	run_case("buy_calc_skips_a_purchase_the_pot_cannot_cover_in_full", func():
+		_setup_buy_calc_lanes()
+		GameState.state["business"]["pot"] = 1
+		var contract := _accept_life_contract()
+		ContractsSystem.set_delegated(contract["id"], true)
+		ContractsSystem.set_buy_calc(contract["id"], true)
+		var cash_before: int = GameState.state["player"]["cash"]
+		ContractsSystem.process_delegated_deliveries()
+		assert_eq(GameState.state["business"]["week"]["expenses"].size(), 0)
+		assert_eq(GameState.state["business"]["pot"], 1)
+		assert_eq(GameState.state["factions"]["collective"]["oreStock"]["life"], 2)
+		assert_eq(int(GameState.state["player"]["orichalchum"].get("life", 0)), 0)
+		assert_eq(GameState.state["player"]["cash"], cash_before)
+	)
+
+	run_case("buy_calc_off_or_undelegated_buys_nothing", func():
+		_setup_buy_calc_lanes()
+		GameState.state["business"]["pot"] = 5000
+		var contract := _accept_life_contract()
+		ContractsSystem.set_buy_calc(contract["id"], true)
+		ContractsSystem.process_delegated_deliveries()
+		assert_eq(GameState.state["business"]["week"]["expenses"].size(), 0, "not delegated")
+		ContractsSystem.set_delegated(contract["id"], true)
+		ContractsSystem.set_buy_calc(contract["id"], false)
+		ContractsSystem.process_delegated_deliveries()
+		assert_eq(GameState.state["business"]["week"]["expenses"].size(), 0, "toggle off")
+	)
+
+	run_case("buy_calc_crafted_need_uses_the_lowest_cost_working_producer", func():
+		_setup_buy_calc_lanes()
+		var contacts: Dictionary = GameState.state["contacts"]
+		contacts["owen"]["recruited"] = true
+		contacts["owen"]["craftingSkill"] = 1
+		Contacts.assign_to_room("owen", "lab")
+		contacts["james"]["recruited"] = true
+		contacts["james"]["craftingSkill"] = 5
+		contacts["james"]["assignedRole"] = "production"
+		var created: Dictionary = OffersSystem.create_offer({
+			"id": "t_pearl_order", "source": "scripted", "contractType": "oneOff",
+			"expiresAfterDays": 6, "deadlineAfterDays": 5,
+			"request": { "kind": "consumable", "type": "timePearl", "qty": 2 },
+		})
+		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
+		var per_unit: int = Crafting.calc_cost("timePearl", 5)["time"]
+		assert_eq(ContractsSystem.calc_need(contract), { "time": 2 * per_unit })
+		GameState.state["player"]["orichalchum"]["time"] = 1
+		GameState.state["business"]["pot"] = 5000
+		ContractsSystem.set_delegated(contract["id"], true)
+		ContractsSystem.set_buy_calc(contract["id"], true)
+		ContractsSystem.process_delegated_deliveries()
+		var bought := 0
+		for expense in GameState.state["business"]["week"]["expenses"]:
+			bought += int(expense["qty"])
+		assert_eq(bought, 2 * per_unit - 1, "minus shared stock of that ore")
+	)
+
+
+# Pot active, Sales staffed; the Guild (joined, low relation) and the
+# Collective (unlocked, high relation, 2 life in stock) both sell ore.
+func _setup_buy_calc_lanes() -> void:
+	GameState.reset()
+	GameState.state["contacts"]["archie"]["recruited"] = true
+	Contacts.assign_to_room("archie", "ops")
+	Business.activate()
+	GameState.state["factions"]["guild"]["joined"] = true
+	GameState.state["factions"]["guild"]["relation"] = 0
+	GameState.state["flags"]["collectiveLaneUnlocked"] = true
+	GameState.state["factions"]["collective"]["relation"] = 90
+	GameState.state["factions"]["collective"]["oreStock"] = { "life": 2 }
+
+
 func _accept_life_contract() -> Dictionary:
 	var created: Dictionary = OffersSystem.create_scripted_offer("scripted_life_order")
 	return OffersSystem.accept_offer(created["offer"]["id"])["contract"]

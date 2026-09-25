@@ -64,6 +64,17 @@ static func set_delegated(contract_id: String, delegated: bool) -> Dictionary:
 	return { "ok": true, "delegated": delegated }
 
 
+# Per-contract Sales calc purchasing (R§3.10 "Calc purchases"): when set, the
+# daily Sales pass buys this contract's calc shortfall from the pot.
+static func set_buy_calc(contract_id: String, enabled: bool) -> Dictionary:
+	var contract := _find_active(contract_id)
+	if contract.is_empty():
+		return { "ok": false, "reason": "Contract not found." }
+	contract["buyCalc"] = enabled
+	EventBus.state_changed.emit()
+	return { "ok": true, "buyCalc": enabled }
+
+
 # business-spec.md: a mixed contract needs every one of its lines
 # independently covered (one ore/item pool can never stand in for another),
 # not an aggregate sum of shared stock across unrelated types.
@@ -95,6 +106,7 @@ static func shared_stock_increased() -> void:
 static func process_delegated_deliveries() -> void:
 	if not has_staffed_sales():
 		return
+	_buy_calc_shortfalls()
 	for contract in active_contracts().duplicate():
 		if contract.get("delegated", false) and _can_fully_deliver(contract):
 			_deliver_delegated(contract)
@@ -210,6 +222,103 @@ static func settle(contract_id: String) -> Dictionary:
 	BusinessQuest.maybe_trigger_owen_intro()
 	EventBus.state_changed.emit()
 	return { "ok": true, "settlement": settlement }
+
+
+# Delegated buyCalc contracts in priority order. Each contract's calc need
+# claims shared stock before the next contract counts it, so two contracts
+# never both count the same ore as on hand.
+static func _buy_calc_shortfalls() -> void:
+	if not Business.is_pot_active():
+		return
+	var claimed: Dictionary = {}
+	for contract in active_contracts().duplicate():
+		if not contract.get("delegated", false) or not contract.get("buyCalc", false):
+			continue
+		var need := calc_need(contract)
+		for ore_type in need:
+			var on_hand: int = int(GameState.state["player"]["orichalchum"].get(ore_type, 0)) - int(claimed.get(ore_type, 0))
+			var shortfall: int = int(need[ore_type]) - maxi(0, on_hand)
+			claimed[ore_type] = int(claimed.get(ore_type, 0)) + int(need[ore_type])
+			if shortfall > 0:
+				_buy_calc(contract["id"], ore_type, shortfall)
+
+
+# The calc a contract still needs, by ore type: an ore line's remaining qty;
+# a crafted line's remaining units × the lowest-cost working producer's
+# per-unit calc cost (nothing when no producer is working).
+static func calc_need(contract: Dictionary) -> Dictionary:
+	var need: Dictionary = {}
+	for line in request_lines(contract["request"]):
+		var remaining := remaining_qty(contract, line["type"])
+		if remaining <= 0:
+			continue
+		if line["kind"] == "ore":
+			need[line["type"]] = int(need.get(line["type"], 0)) + remaining
+			continue
+		var costs := _lowest_producer_cost(line["type"])
+		for ore_type in costs:
+			need[ore_type] = int(need.get(ore_type, 0)) + remaining * int(costs[ore_type])
+	return need
+
+
+static func _lowest_producer_cost(recipe_key: String) -> Dictionary:
+	var best: Dictionary = {}
+	var best_total := -1
+	for contact_id in Contacts.contacts_in_role("production"):
+		if not Payroll.is_working(contact_id):
+			continue
+		var skill: int = GameState.state["contacts"][contact_id].get("craftingSkill", 1)
+		var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
+		var total := 0
+		for ore_type in costs:
+			total += int(costs[ore_type])
+		if best_total < 0 or total < best_total:
+			best = costs
+			best_total = total
+	return best
+
+
+# Every ore lane the player can buy from right now, cheapest first, ties to
+# faction trade data order. Priced without any district modifier.
+static func calc_sources(ore_type: String) -> Array:
+	var sources: Array = []
+	var lane_index := 0
+	for faction_id in GameData.FACTION_TRADE:
+		if Economy.can_buy_from_faction(faction_id):
+			sources.append({
+				"factionId": faction_id, "order": lane_index,
+				"price": Economy.get_faction_buy_price(faction_id, "ore", ore_type, false),
+			})
+		lane_index += 1
+	sources.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if a["price"] != b["price"]:
+			return a["price"] < b["price"]
+		return a["order"] < b["order"]
+	)
+	return sources
+
+
+# Buys qty of one ore for one contract, spilling to the next-cheapest lane
+# when a lane runs dry. The whole purchase is paid from the pot or skipped.
+static func _buy_calc(contract_id: String, ore_type: String, qty: int) -> void:
+	var legs: Array = []
+	var left := qty
+	for source in calc_sources(ore_type):
+		if left <= 0:
+			break
+		var price: int = source["price"]
+		var take := mini(left, Economy.get_faction_buy_max_qty(source["factionId"], "ore", ore_type, price * left, false))
+		if take <= 0:
+			continue
+		legs.append({
+			"factionId": source["factionId"], "source": String(GameData.FACTIONS[source["factionId"]]["name"]),
+			"oreType": ore_type, "qty": take, "amount": price * take,
+		})
+		left -= take
+	if legs.is_empty() or not Business.pay_calc_purchase(contract_id, legs):
+		return
+	for leg in legs:
+		Economy.receive_faction_ore(leg["factionId"], ore_type, int(leg["qty"]))
 
 
 static func _find_active(contract_id: String) -> Dictionary:

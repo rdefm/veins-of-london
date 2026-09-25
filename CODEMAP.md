@@ -26,7 +26,7 @@ Data file per system: see `data/*.json` below.
 | bank.gd | Cash transaction log |
 | barometer.gd | Economic/social/political barometer + faction prefs |
 | business_quest.gd | business_empire questline side effects: Beat 1 trigger (2+ veins, Archie recruited → Archie's pending text), Archie's Beat 2 starter-offer chain (state.businessQuest), Beat 3 trigger (Beat 2 met → James's text → biz_a1_owen), Beat 5 trigger (Beat 4 met → James's text → biz_a1_partnership) + James's crafting-skill set |
-| business.gd | Business pot (contract settlements while active), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash, Staff tab pay-terms/status labels |
+| business.gd | Business pot (contract settlements while active; pays Sales calc purchases as `calc` expenses), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash, Staff tab pay-terms/status labels |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 relation awards (T8 missions, alarm-defend daily cap), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
@@ -36,7 +36,7 @@ Data file per system: see `data/*.json` below.
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`) |
-| contracts.gd | Sales contract delivery, priority, settlement (paid to the business pot while active) |
+| contracts.gd | Sales contract delivery, priority, settlement (paid to the business pot while active); per-contract `buyCalc` shortfall purchases from the cheapest open faction lanes, paid from the pot |
 | crafting.gd | Recipe crafting |
 | cultivating.gd | Vein growth / cultivate / prune |
 | debug_start.gd | Maximal-unlock debug state |
@@ -45,7 +45,7 @@ Data file per system: see `data/*.json` below.
 | district_bubble.gd | District tap-bubble decision |
 | district_deck.gd | Weighted district event deck picker |
 | districts.gd | Derived district info for Map tab |
-| economy.gd | Selling (Archie lane + faction lane) |
+| economy.gd | Selling (Archie lane + faction lane), faction-lane buying (pricing, lane access, ore receipt) |
 | equipment.gd | Weapon equip/unequip |
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | factions.gd | Faction joining |
@@ -191,7 +191,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | BizBrief: Brief tab (bank, payday statement, pay-from-cash wage prompt, operations, attention) + Manage tab (sales, production, procurement: each cultivator's veins, targets, picker) + Staff tab once `bizStaffTabOpen` (recruited contacts' role, skills/XP/caps, pay terms, status, founder role picker, Pay now, Procurement link) |
+| bizbrief_app.gd | BizBrief: Brief tab (bank, payday statement, pay-from-cash wage prompt, operations, attention) + Manage tab (sales + delegated buy-calc toggle, production, procurement: each cultivator's veins, targets, picker) + Staff tab once `bizStaffTabOpen` (recruited contacts' role, skills/XP/caps, pay terms, status, founder role picker, Pay now, Procurement link) |
 | messages_app.gd | Conversation master list + single-thread staged bubble reveal/action bar |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | Faction cards |

@@ -43,6 +43,26 @@ static func receive(amount: int) -> void:
 	EventBus.state_changed.emit()
 
 
+# Pays a Sales calc purchase from the pot, in full or not at all; the week's
+# expenses gain one `calc` line per source leg. legs: [{ source, oreType,
+# qty, amount }]. Player cash is never touched.
+static func pay_calc_purchase(contract_id: String, legs: Array) -> bool:
+	var business := _business()
+	var total := 0
+	for leg in legs:
+		total += int(leg["amount"])
+	if total <= 0 or int(business["pot"]) < total:
+		return false
+	business["pot"] -= total
+	for leg in legs:
+		var expense: Dictionary = leg.duplicate()
+		expense["kind"] = "calc"
+		expense["contractId"] = contract_id
+		business["week"]["expenses"].append(expense)
+	EventBus.state_changed.emit()
+	return true
+
+
 # A waged contact the pot couldn't cover stops acting at block ends until
 # paid in full.
 static func is_unpaid(contact_id: String) -> bool:
