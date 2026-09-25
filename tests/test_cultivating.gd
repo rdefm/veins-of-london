@@ -182,7 +182,7 @@ func run() -> void:
 			assert_eq(gain, 2, "a ceiling-limited gain must equal the exact headroom, seed %d" % seed)
 	)
 
-	run_case("cultivate_always_raises_growth_awards_flat_xp_and_opens_the_result_modal", func():
+	run_case("cultivate_always_raises_growth_awards_flat_xp_and_opens_no_modal", func():
 		GameState.reset()
 		GameState.state["player"]["cultivatingSkill"] = 5
 		GameState.state["player"]["cultivatingXP"] = 0
@@ -193,7 +193,38 @@ func run() -> void:
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
 		assert_true(vein["growth"] > 20, "growth should have increased")
 		assert_eq(GameState.state["player"]["cultivatingXP"], 15, "flat 15 XP per action, replacing the old 20-success/8-fail split")
-		assert_eq(GameState.state["modal"]["type"], "cultivate_result", "cultivate should open the cultivate_result modal")
+		assert_eq(GameState.state["modal"], null, "cultivate never opens a modal -- the Map ring animates instead")
+	)
+
+	run_case("cultivate_emits_vein_cultivated_with_old_and_new_growth", func():
+		GameState.reset()
+		GameState.state["player"]["cultivatingSkill"] = 5
+		GameState.state["player"]["veins"] = [_vein(20)]
+		var captured: Array = []
+		EventBus.vein_cultivated.connect(func(vein_id: String, growth_from: int, growth_to: int, levelled_up: bool):
+			captured.append([vein_id, growth_from, growth_to, levelled_up]))
+		Rng.set_seed(1)
+		var result := Cultivating.cultivate("test_vein")
+		assert_eq(captured.size(), 1, "exactly one vein_cultivated emit per cultivate")
+		assert_eq(captured[0], ["test_vein", 20, result["growth"], false])
+	)
+
+	run_case("cultivate_that_rolls_a_level_up_overnight_flags_levelled_up", func():
+		GameState.reset()
+		GameState.state["player"]["cultivatingSkill"] = 5
+		var vein := _vein(95, "shoreditch", [], "saturated", 2)
+		vein["developmentStreak"] = 19  # guarantees a 100% level-up chance at tonight's tick
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["world"]["timeBlocksDone"] = [0, 1]
+		GameState.state["world"]["timeBlock"] = 2  # this cultivate spends the day's last block
+		var captured: Array = []
+		EventBus.vein_cultivated.connect(func(vein_id: String, growth_from: int, growth_to: int, levelled_up: bool):
+			captured.append([vein_id, growth_from, growth_to, levelled_up]))
+		Rng.set_seed(1)
+		var result := Cultivating.cultivate("test_vein")
+		assert_eq(vein["level"], 3, "sanity: the overnight tick levelled the vein")
+		assert_eq(captured.size(), 1)
+		assert_eq(captured[0], ["test_vein", 95, result["growth"], true], "from the pre-action growth, to the post-level growth")
 	)
 
 	run_case("cultivate_ceiling_clamped_gain_still_reports_a_normal_success_not_a_failure", func():

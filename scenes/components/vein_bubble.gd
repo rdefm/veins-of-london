@@ -212,8 +212,8 @@ static func build_condition_column(vein: Dictionary, compact: bool = false) -> C
 
 
 # Non-colour cues (icon glyph substitute is a plain emoji + word, matching
-# the "🔒"/"🌱" text-glyph convention map.gd/cultivate_result_modal.gd both
-# use) so eligibility and raid exposure never rely on colour alone. Raised
+# the "🔒"/"🌱" text-glyph convention map.gd
+# uses) so eligibility and raid exposure never rely on colour alone. Raised
 # raid exposure tracks condition alone (a maxed-level vein can still sit at
 # 90+ and draw raids), while development eligibility additionally requires
 # headroom under the level cap -- the two can and do diverge. Public +

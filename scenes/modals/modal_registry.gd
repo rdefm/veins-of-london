@@ -6,7 +6,6 @@ extends RefCounted
 
 static var REGISTRY: Dictionary = {
 	"seed_result": SeedResultModal,
-	"cultivate_result": CultivateResultModal,
 	"craft_result": CraftResultModal,
 	"craft_batch_result": CraftBatchResultModal,
 	"sale_result": SaleResultModal,

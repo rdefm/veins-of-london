@@ -53,7 +53,7 @@ func run() -> void:
 	# modal_layer.gd is chrome only, so an unregistered type would fall to
 	# its placeholder card.
 	run_case("every_modal_type_is_registered_with_a_content_builder", func():
-		for type_id in ["seed_result", "cultivate_result", "craft_result", "craft_batch_result",
+		for type_id in ["seed_result", "craft_result", "craft_batch_result",
 				"sale_result", "archie_deal_result", "james_job_offer", "james_job_short",
 				"james_job_complete", "sell_menu", "nadia_supply", "sell_vein_quote",
 				"craft_components_menu", "network_reference", "movement_craft", "movement_swap",

@@ -66,6 +66,10 @@ const RIPPLE_DURATION_FRACTION := 0.7
 
 const ACTION_RESULT_DURATION := 0.6
 
+const RING_FILL_DURATION := 0.6
+const RING_POP_HOLD := 0.3
+const RING_SETTLE_DURATION := 0.4
+
 var pacing_mode: String = MapEvents.DEFAULT_PACING_MODE
 var event_visual_duration: float = SIMULTANEOUS_DURATION
 
@@ -82,6 +86,11 @@ var _line_faction_stops: Dictionary = {}
 
 var _pins: Array = []
 var _here_position: Vector2
+
+# Presentation-only fullness fractions drawn in place of a vein's real growth
+# while its cultivate tween plays; keyed by vein id.
+var _ring_overrides: Dictionary = {}
+var _ring_tweens: Dictionary = {}
 
 var _touches: Dictionary = {}  # touch index (int) -> current screen-space Vector2
 var _tap_index: int = -100
@@ -123,6 +132,8 @@ func _ready() -> void:
 
 	EventBus.state_changed.connect(_maybe_start_playback)
 	_maybe_start_playback()
+
+	EventBus.vein_cultivated.connect(_on_vein_cultivated)
 
 
 func _exit_tree() -> void:
@@ -579,7 +590,7 @@ func _draw_vein_stop(stop: Dictionary) -> void:
 
 	var alpha := MapStyle.stop_alpha(filter_mode, MapStyle.is_risk_band(band_id), selected_faction_id, "player")
 	var style := _vein_ring_style(vein, MapPalette.colour("player"), VEIN_STOP_STROKE)
-	var fraction := MapStyle.fullness_fraction(vein["growth"], Cultivating.ceiling(vein))
+	var fraction: float = _ring_overrides.get(vein["id"], MapStyle.fullness_fraction(vein["growth"], Cultivating.ceiling(vein)))
 
 	_draw_fullness_ring(pos, alpha, fraction, style, 32)
 	_draw_ore_symbol(pos, vein["oreType"], ore, alpha, self, STOP_ICON_GROWTH)
@@ -841,6 +852,52 @@ func play_action_result(pos: Vector2, ok: bool) -> void:
 		shake.position = pos
 		_playback_layer.add_child(shake)
 		shake.start(ACTION_RESULT_DURATION)
+
+
+# Tweens the vein's fullness ring from its pre-cultivate growth to the new one.
+# On a level-up the ring fills to full, pops, then settles at the post-level growth.
+func _on_vein_cultivated(vein_id: String, growth_from: int, growth_to: int, levelled_up: bool) -> void:
+	var vein: Variant = Cultivating.find_vein(vein_id)
+	if vein == null:
+		return
+	var vein_ceiling: int = Cultivating.ceiling(vein)
+	var from := MapStyle.fullness_fraction(growth_from, vein_ceiling)
+	var to := MapStyle.fullness_fraction(growth_to, vein_ceiling)
+
+	var previous: Tween = _ring_tweens.get(vein_id)
+	if previous != null and previous.is_valid():
+		previous.kill()
+
+	_ring_overrides[vein_id] = from
+	var tween := create_tween()
+	_ring_tweens[vein_id] = tween
+	if levelled_up:
+		tween.tween_method(_set_ring_override.bind(vein_id), from, 1.0, RING_FILL_DURATION)
+		tween.tween_callback(_pop_ring.bind(vein_id))
+		tween.tween_interval(RING_POP_HOLD)
+		tween.tween_method(_set_ring_override.bind(vein_id), 1.0, to, RING_SETTLE_DURATION)
+	else:
+		tween.tween_method(_set_ring_override.bind(vein_id), from, to, RING_FILL_DURATION)
+	tween.finished.connect(_clear_ring_override.bind(vein_id))
+	queue_redraw()
+
+
+func _set_ring_override(fraction: float, vein_id: String) -> void:
+	_ring_overrides[vein_id] = fraction
+	queue_redraw()
+
+
+func _pop_ring(vein_id: String) -> void:
+	for stop in _vein_stops:
+		if stop["id"] == vein_id:
+			play_action_result(stop["position"], true)
+			return
+
+
+func _clear_ring_override(vein_id: String) -> void:
+	_ring_overrides.erase(vein_id)
+	_ring_tweens.erase(vein_id)
+	queue_redraw()
 
 
 func _activate_pin(pin: Dictionary) -> void:

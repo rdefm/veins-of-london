@@ -16,6 +16,11 @@ signal notification_pushed
 # a visible cue independent of whether the alarm surface can auto-open yet.
 signal alarm_arrived
 
+# Presentation-only: a cultivate's growth change, for the Map's fullness-ring
+# tween. growth_from is the growth before the action; levelled_up means the
+# vein levelled during it (its growth reset before the gain landed).
+signal vein_cultivated(vein_id: String, growth_from: int, growth_to: int, levelled_up: bool)
+
 # Carries a completed action's `beats` Array for CombatScreen to play back.
 # Needed because the bag-item consumable path (global BagDrawer overlay) has
 # no other channel back to whichever CombatScreen instance is on screen.

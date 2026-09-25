@@ -200,6 +200,9 @@ func _on_station_tapped(stop: Dictionary, canvas_anchor: Vector2) -> void:
 	_bubble.open(anchor, _build_station_bubble_options(stop))
 func _on_vein_bubble_action_selected(option_id: String) -> void:
 	var result := StationBubble.apply_option(option_id, _bubble_stop)
+	# A successful cultivate plays the canvas's own ring tween instead of the pulse.
+	if option_id == StationBubble.CULTIVATE_ID and result["ok"]:
+		return
 	_map_canvas.play_action_result(_bubble_stop["position"], result["ok"])
 func _on_vein_bubble_info_selected() -> void:
 	MapNav.select_vein_detail(_bubble_stop["vein"]["id"])

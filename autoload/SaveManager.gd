@@ -678,7 +678,7 @@ func _restore_combat_prototype_int_types(cp: Dictionary) -> void:
 
 
 # state.modal.data's shape depends on modal.type (systems/crafting.gd,
-# cultivating.gd, economy.gd, jobs.gd) — unlike the fixed-schema fields
+# economy.gd, jobs.gd) — unlike the fixed-schema fields
 # above, it's polymorphic, so it needs its own per-type table rather than
 # a flat key list. seed_result and james_job_offer without a job aren't
 # listed: they carry no int fields.
@@ -693,9 +693,6 @@ func _restore_modal_int_types(modal: Dictionary) -> void:
 			_int_key(data, "successes")
 			for attempt in data.get("attempts", []):
 				_int_key(attempt, "power")
-		"cultivate_result":
-			_int_key(data, "gain")
-			_int_key(data, "newLevel")
 		"sale_result", "archie_deal_result":
 			_int_key(data, "earned")
 			_int_key(data, "gross")

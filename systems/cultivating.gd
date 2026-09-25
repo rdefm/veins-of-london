@@ -228,6 +228,9 @@ static func cultivate(vein_id: String) -> Dictionary:
 	if not travel["ok"]:
 		return travel
 
+	# Captured before the block advances: a day rollover can level the vein up.
+	var shown_growth: int = vein["growth"]
+	var level_before: int = vein.get("level", 1)
 	TimeSystem.advance_time_block()
 
 	var player: Dictionary = GameState.state["player"]
@@ -242,7 +245,8 @@ static func cultivate(vein_id: String) -> Dictionary:
 	apply_growth_change(vein, growth_before)
 	award_xp(15)
 	Objectives.refresh()
-	Modal.open("cultivate_result", { "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] })
+	EventBus.vein_cultivated.emit(vein_id, shown_growth, vein["growth"], vein.get("level", 1) > level_before)
+	EventBus.state_changed.emit()
 	return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"] }
 
 
