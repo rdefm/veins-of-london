@@ -198,7 +198,7 @@ overlays.
 | profile_app.gd | Stats, skills, equipment |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion and alarm-vibration preference controls |
-| saveload_app.gd | Save slots, export/import, New Game confirm |
+| saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |
 | notifications_app.gd | Notification log with pending Defend buttons |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
 | property_app.gd | Harrow's: current HQ tier (tenure-correct daily cost, buy-out when rented), next tier rent/buy and tier-below move-down offers with bill previews and losses, each with its static floorplan; arrears balance and countdown while in arrears |

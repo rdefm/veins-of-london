@@ -121,6 +121,20 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("copy_button_fills_the_export_box_and_confirms_on_its_label", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "saveload"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+		NodeQuery.find_button(phone, "Copy to clipboard").pressed.emit()
+
+		assert_eq(phone.app_instance("saveload")._export_box.text, SaveManager.export_string())
+		assert_true(NodeQuery.find_button(phone, "Copied") != null, "the button relabels to confirm the copy")
+
+		phone.free()
+	)
+
 	run_case("import_button_calls_through_to_SaveManager_import_string", func():
 		GameState.reset()
 		var exported := SaveManager.export_string()

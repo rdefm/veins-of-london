@@ -3,6 +3,7 @@ extends PhoneApp
 
 var _export_box: TextEdit
 var _import_box: TextEdit
+var _copy_button: Button
 
 
 func build(content: VBoxContainer) -> void:
@@ -57,11 +58,21 @@ func _build_export_card() -> Control:
 	_export_box.custom_minimum_size = Vector2(0, 100)
 	c["content"].add_child(_export_box)
 	c["content"].add_child(UI.button("Generate export string", _on_export_pressed))
+	_copy_button = UI.button("Copy to clipboard", _on_copy_pressed)
+	c["content"].add_child(_copy_button)
 	return c["panel"]
 
 
 func _on_export_pressed() -> void:
 	_export_box.text = SaveManager.export_string()
+
+
+# The export box can't be selected/copied on Android, so this copies the
+# string directly; the button's own label confirms it.
+func _on_copy_pressed() -> void:
+	_export_box.text = SaveManager.export_string()
+	DisplayServer.clipboard_set(_export_box.text)
+	_copy_button.text = "Copied"
 
 
 func _build_import_card() -> Control:
