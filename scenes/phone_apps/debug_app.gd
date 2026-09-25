@@ -1,7 +1,11 @@
 # Debug app (present only on a Debug Start save): cash/calc/site spawners,
-# combat launchers, safe-area dump, contact and faction relation adjusters.
+# combat launchers, safe-area dump, one relation adjuster over every contact
+# and faction.
 class_name DebugApp
 extends PhoneApp
+
+# View state only: the relation dropdown's selection, kept across rebuilds.
+var _relation_target_index: int = 0
 
 
 func build(content: VBoxContainer) -> void:
@@ -13,12 +17,7 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_combat_card())
 	content.add_child(_build_combat_prototype_card())
 	content.add_child(_build_safe_area_card())
-	content.add_child(UI.heading("Contact relations", 14))
-	for contact_id in GameData.CONTACTS_DEFAULTS.keys():
-		content.add_child(_build_contact_relation_card(contact_id))
-	content.add_child(UI.heading("Faction relations", 14))
-	for faction_id in GameData.FACTIONS.keys():
-		content.add_child(_build_faction_relation_card(faction_id))
+	content.add_child(_build_relation_card())
 
 
 func _build_add_money_card() -> Control:
@@ -119,34 +118,58 @@ func _build_safe_area_card() -> Control:
 	return c["panel"]
 
 
-func _build_contact_relation_card(contact_id: String) -> Control:
+# Every contact then every faction, as {kind, id, label}; the dropdown's item
+# index is the index into this list.
+static func relation_targets() -> Array:
+	var targets: Array = []
+	for contact_id in GameData.CONTACTS_DEFAULTS.keys():
+		targets.append({"kind": "contact", "id": contact_id,
+			"label": "Contact: %s" % Contacts.display_name(contact_id)})
+	for faction_id in GameData.FACTIONS.keys():
+		targets.append({"kind": "faction", "id": faction_id,
+			"label": "Faction: %s" % GameData.FACTIONS[faction_id]["name"]})
+	return targets
+
+
+static func _relation_of(target: Dictionary) -> int:
+	var bucket: String = "contacts" if target["kind"] == "contact" else "factions"
+	return GameState.state[bucket][target["id"]]["relation"]
+
+
+func _build_relation_card() -> Control:
 	var c := UI.card()
-	var relation: int = GameState.state["contacts"][contact_id]["relation"]
-	c["content"].add_child(UI.heading("%s (relation %d)" % [Contacts.display_name(contact_id), relation], 14))
+	c["content"].add_child(UI.heading("Relations", 14))
+
+	var targets := relation_targets()
+	var labels: Array = []
+	for t in targets:
+		labels.append(t["label"])
+	var target_select := UI.option_button(labels)
+	_relation_target_index = clampi(_relation_target_index, 0, targets.size() - 1)
+	target_select.selected = _relation_target_index
+	c["content"].add_child(target_select)
+
+	var current := UI.label("Relation: %d" % _relation_of(targets[_relation_target_index]))
+	c["content"].add_child(current)
+
+	target_select.item_selected.connect(func(index: int):
+		_relation_target_index = index
+		current.text = "Relation: %d" % _relation_of(targets[index])
+	)
 
 	var delta_field := LineEdit.new()
 	delta_field.placeholder_text = "Delta"
 	c["content"].add_child(delta_field)
 
 	c["content"].add_child(UI.button("Adjust", func():
-		Contacts.award_relation(contact_id, delta_field.text.to_int())
-	))
-
-	return c["panel"]
-
-
-func _build_faction_relation_card(faction_id: String) -> Control:
-	var c := UI.card()
-	var relation: int = GameState.state["factions"][faction_id]["relation"]
-	var faction_name: String = GameData.FACTIONS[faction_id]["name"]
-	c["content"].add_child(UI.heading("%s (relation %d)" % [faction_name, relation], 14))
-
-	var delta_field := LineEdit.new()
-	delta_field.placeholder_text = "Delta"
-	c["content"].add_child(delta_field)
-
-	c["content"].add_child(UI.button("Adjust", func():
-		Factions.adjust_player_relation(faction_id, delta_field.text.to_int())
+		_relation_target_index = target_select.selected
+		var target: Dictionary = targets[_relation_target_index]
+		var delta := delta_field.text.to_int()
+		if target["kind"] == "contact":
+			Contacts.award_relation(target["id"], delta)
+		else:
+			Factions.adjust_player_relation(target["id"], delta)
+		current.text = "Relation: %d" % _relation_of(target)
 	))
 
 	return c["panel"]

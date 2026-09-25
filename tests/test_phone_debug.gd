@@ -31,12 +31,25 @@ static func _find_buttons_by_text(root: Node, text: String) -> Array[Button]:
 	return buttons
 
 
-# 02-debug-app-relation-adjusters: total LineEdit count on the debug screen
-# once relation cards are added -- 2 (add-money, add-calc) plus one delta
-# field per contact and per faction, in that fixed build order (see
-# scenes/phone_apps/debug_app.gd's build()).
+# Total LineEdit count on the debug screen: add-money, add-calc, then the
+# single relation card's delta field, in build order.
 static func _expected_field_count() -> int:
-	return 2 + GameData.CONTACTS_DEFAULTS.size() + GameData.FACTIONS.size()
+	return 3
+
+
+static func _find_relation_label(root: Node) -> Label:
+	for n in root.find_children("", "Label", true, false):
+		if (n as Label).text.begins_with("Relation: "):
+			return n as Label
+	return null
+
+
+static func _relation_target_index(kind: String, id: String) -> int:
+	var targets := DebugApp.relation_targets()
+	for i in targets.size():
+		if targets[i]["kind"] == kind and targets[i]["id"] == id:
+			return i
+	return -1
 
 
 func run() -> void:
@@ -88,7 +101,7 @@ func run() -> void:
 		phone._ready()
 
 		var fields := _find_line_edits(phone)
-		assert_eq(fields.size(), _expected_field_count(), "add-money and add-calc fields plus one relation-delta field per contact and faction")
+		assert_eq(fields.size(), _expected_field_count(), "add-money, add-calc and relation-delta fields")
 		fields[0].text = "500"
 
 		var add_buttons := _find_buttons_by_text(phone, "Add")
@@ -109,11 +122,11 @@ func run() -> void:
 		phone._ready()
 
 		var fields := _find_line_edits(phone)
-		assert_eq(fields.size(), _expected_field_count(), "add-money and add-calc fields plus one relation-delta field per contact and faction")
+		assert_eq(fields.size(), _expected_field_count(), "add-money, add-calc and relation-delta fields")
 		fields[1].text = "40"
 
 		var options := _find_option_buttons(phone)
-		assert_eq(options.size(), 4, "add-calc's ore selector plus spawn-site's district/ore/terroir selectors")
+		assert_eq(options.size(), 5, "add-calc ore, spawn-site district/ore/terroir, then the relation target selector")
 		options[0].selected = 1
 		var chosen_ore := options[0].get_item_text(1)
 
@@ -153,7 +166,7 @@ func run() -> void:
 		phone._ready()
 
 		var options := _find_option_buttons(phone)
-		assert_eq(options.size(), 4, "add-calc's ore selector plus spawn-site's district/ore/terroir selectors")
+		assert_eq(options.size(), 5, "add-calc ore, spawn-site district/ore/terroir, then the relation target selector")
 
 		var district_ids: Array = GameData.DISTRICTS.keys()
 		var target_index: int = district_ids.find(district_id)
@@ -188,14 +201,11 @@ func run() -> void:
 		phone.free()
 	)
 
-	# 02-debug-app-relation-adjusters: contact and faction relation cards land
-	# after the add-money/add-calc cards in a fixed order (contacts, in
-	# GameData.CONTACTS_DEFAULTS' key order, then factions, in GameData.
-	# FACTIONS' key order) -- so field index 2 is the first contact's delta
-	# field, and the Nth contact/faction's Adjust button is the (N+2)th
-	# "Adjust"-labelled button overall.
+	# The relation card's target selector is options[4] (after add-calc's ore and
+	# spawn-site's three selectors); its delta field is fields[2]. Picking an
+	# entry emits item_selected the way a tap would.
 
-	run_case("debug_screen_lists_a_relation_control_for_every_contact_and_faction_regardless_of_lock_state", func():
+	run_case("relation_dropdown_lists_every_contact_and_faction_regardless_of_lock_state", func():
 		GameState.reset()
 		GameState.state["flags"]["debugStartUsed"] = true
 		GameState.state["phoneNav"]["app"] = "debug"
@@ -203,20 +213,40 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var expected: int = GameData.CONTACTS_DEFAULTS.size() + GameData.FACTIONS.size()
-		assert_eq(_find_line_edits(phone).size(), _expected_field_count(), "one delta field per contact and per faction, plus the two 01-debug-app fields")
-		assert_eq(_find_buttons_by_text(phone, "Adjust").size(), expected, "one Adjust button per contact and per faction")
-
-		# des/nadia/hakim start unlocked=false; guild/firm/etc start joined=false --
-		# both must still show up, per ticket 02's "regardless of unlock/join
-		# state" requirement.
+		var select: OptionButton = _find_option_buttons(phone)[4]
+		assert_eq(select.item_count, GameData.CONTACTS_DEFAULTS.size() + GameData.FACTIONS.size(), "one entry per contact and per faction")
+		assert_eq(_find_buttons_by_text(phone, "Adjust").size(), 1, "one Adjust button")
 		assert_true(not GameState.state["contacts"]["des"]["unlocked"], "sanity: des starts locked")
 		assert_true(not GameState.state["factions"]["guild"]["joined"], "sanity: guild starts unjoined")
+		assert_eq(select.get_item_text(_relation_target_index("contact", "des")), "Contact: %s" % Contacts.display_name("des"), "locked contact listed, marked as a contact")
+		assert_eq(select.get_item_text(_relation_target_index("faction", "guild")), "Faction: %s" % GameData.FACTIONS["guild"]["name"], "unjoined faction listed, marked as a faction")
 
 		phone.free()
 	)
 
-	run_case("contact_relation_control_calls_award_relation_with_the_entered_delta", func():
+	run_case("selecting_a_relation_target_shows_its_current_relation", func():
+		GameState.reset()
+		GameState.state["flags"]["debugStartUsed"] = true
+		GameState.state["phoneNav"]["app"] = "debug"
+		GameState.state["factions"]["guild"]["relation"] = 37
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var first: Dictionary = DebugApp.relation_targets()[0]
+		var first_relation: int = GameState.state["contacts"][first["id"]]["relation"]
+		assert_eq(_find_relation_label(phone).text, "Relation: %d" % first_relation, "shows the first entry's relation on build")
+
+		var select: OptionButton = _find_option_buttons(phone)[4]
+		var guild_index := _relation_target_index("faction", "guild")
+		select.selected = guild_index
+		select.item_selected.emit(guild_index)
+		assert_eq(_find_relation_label(phone).text, "Relation: 37", "shows guild's relation once selected")
+
+		phone.free()
+	)
+
+	run_case("relation_adjust_on_a_locked_contact_calls_award_relation_and_refreshes", func():
 		GameState.reset()
 		GameState.state["flags"]["debugStartUsed"] = true
 		GameState.state["phoneNav"]["app"] = "debug"
@@ -224,41 +254,39 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var starting_relation: int = GameState.state["contacts"]["archie"]["relation"]
-		var contact_ids: Array = GameData.CONTACTS_DEFAULTS.keys()
-		var archie_index: int = contact_ids.find("archie")
-
-		var fields := _find_line_edits(phone)
-		fields[2 + archie_index].text = "15"
-
-		var adjust_buttons := _find_buttons_by_text(phone, "Adjust")
-		adjust_buttons[archie_index].pressed.emit()
-
-		assert_eq(GameState.state["contacts"]["archie"]["relation"], starting_relation + 15, "archie's relation increased by the entered delta via Contacts.award_relation")
-
-		phone.free()
-	)
-
-	run_case("locked_contact_relation_control_still_calls_award_relation", func():
-		GameState.reset()
-		GameState.state["flags"]["debugStartUsed"] = true
-		GameState.state["phoneNav"]["app"] = "debug"
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		assert_true(not GameState.state["contacts"]["des"]["unlocked"], "sanity: des starts locked")
 		var starting_relation: int = GameState.state["contacts"]["des"]["relation"]
-		var contact_ids: Array = GameData.CONTACTS_DEFAULTS.keys()
-		var des_index: int = contact_ids.find("des")
+		var select: OptionButton = _find_option_buttons(phone)[4]
+		var des_index := _relation_target_index("contact", "des")
+		select.selected = des_index
+		select.item_selected.emit(des_index)
+		_find_line_edits(phone)[2].text = "90"
+		_find_buttons_by_text(phone, "Adjust")[0].pressed.emit()
 
-		var fields := _find_line_edits(phone)
-		fields[2 + des_index].text = "90"
+		assert_eq(GameState.state["contacts"]["des"]["relation"], starting_relation + 90, "a locked contact's relation is still adjustable via Contacts.award_relation")
+		assert_eq(_find_relation_label(phone).text, "Relation: %d" % (starting_relation + 90), "shown value updates after applying")
+		assert_eq(_find_option_buttons(phone)[4].selected, des_index, "selection survives the rebuild")
 
-		var adjust_buttons := _find_buttons_by_text(phone, "Adjust")
-		adjust_buttons[des_index].pressed.emit()
+		phone.free()
+	)
 
-		assert_eq(GameState.state["contacts"]["des"]["relation"], starting_relation + 90, "a locked contact's relation is still adjustable, raising it past recruitThreshold to test the unlock gate")
+	run_case("relation_adjust_on_a_faction_calls_adjust_player_relation", func():
+		GameState.reset()
+		GameState.state["flags"]["debugStartUsed"] = true
+		GameState.state["phoneNav"]["app"] = "debug"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var starting_relation: int = GameState.state["factions"]["guild"]["relation"]
+		var select: OptionButton = _find_option_buttons(phone)[4]
+		var guild_index := _relation_target_index("faction", "guild")
+		select.selected = guild_index
+		select.item_selected.emit(guild_index)
+		_find_line_edits(phone)[2].text = "-5"
+		_find_buttons_by_text(phone, "Adjust")[0].pressed.emit()
+
+		assert_eq(GameState.state["factions"]["guild"]["relation"], starting_relation - 5, "negative delta applied via Factions.adjust_player_relation")
+		assert_eq(_find_relation_label(phone).text, "Relation: %d" % (starting_relation - 5), "shown value updates after applying")
 
 		phone.free()
 	)
@@ -290,31 +318,6 @@ func run() -> void:
 		assert_eq(refresh_buttons.size(), 1, "one Refresh button on the safe-area card")
 		refresh_buttons[0].pressed.emit()
 		assert_eq(dump.text, UI.safe_area_debug_text(), "Refresh rebuilds the dump text in place")
-
-		phone.free()
-	)
-
-	run_case("faction_relation_control_calls_adjust_player_relation_with_the_entered_delta", func():
-		GameState.reset()
-		GameState.state["flags"]["debugStartUsed"] = true
-		GameState.state["phoneNav"]["app"] = "debug"
-
-		var phone := PhoneScreen.new()
-		phone._ready()
-
-		assert_true(not GameState.state["factions"]["guild"]["joined"], "sanity: guild starts unjoined")
-		var starting_relation: int = GameState.state["factions"]["guild"]["relation"]
-		var contact_count: int = GameData.CONTACTS_DEFAULTS.size()
-		var faction_ids: Array = GameData.FACTIONS.keys()
-		var guild_index: int = faction_ids.find("guild")
-
-		var fields := _find_line_edits(phone)
-		fields[2 + contact_count + guild_index].text = "40"
-
-		var adjust_buttons := _find_buttons_by_text(phone, "Adjust")
-		adjust_buttons[contact_count + guild_index].pressed.emit()
-
-		assert_eq(GameState.state["factions"]["guild"]["relation"], starting_relation + 40, "guild's relation increased by the entered delta via Factions.adjust_player_relation, still unjoined")
 
 		phone.free()
 	)

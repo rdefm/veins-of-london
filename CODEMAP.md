@@ -202,7 +202,7 @@ overlays.
 | notifications_app.gd | Notification log with pending Defend buttons |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
 | property_app.gd | Harrow's: current HQ tier (tenure-correct daily cost, buy-out when rented), next tier rent/buy and tier-below move-down offers with bill previews and losses, each with its static floorplan; arrears balance and countdown while in arrears |
-| debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, relation adjusters |
+| debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, one relation block (dropdown over every contact + faction, shows current relation, applies a delta) |
 
 ## data/*.json
 
