@@ -331,6 +331,23 @@ func run() -> void:
 		layer.free()
 	)
 
+	run_case("vein_rows_show_the_vein_level_on_sell_and_buy", func():
+		GameState.reset()
+		GameState.state["flags"]["veinSaleUnlocked"] = true
+		Fixtures.seed_vein("v1", 50)["level"] = 3
+		Fixtures.seed_faction_vein("fv1", 50)["level"] = 2
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+		var layer := ModalLayer.new()
+		layer._ready()
+		var view: PanelContainer = layer._trade_view
+		_find_cost_button(view, "Veins").pressed.emit()
+		assert_true(NodeQuery.label_texts_with_symbols(view).has(" · Lv 3"), "sell row shows the player vein's level")
+		_find_cost_button(view, "Buy from contact").pressed.emit()
+		_find_cost_button(view, "Veins").pressed.emit()
+		assert_true(NodeQuery.label_texts_with_symbols(view).has(" · Lv 2"), "buy row shows the faction vein's level")
+		layer.free()
+	)
+
 	run_case("faction_trade_keeps_sell_and_buy_selections_in_one_cart", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 1000

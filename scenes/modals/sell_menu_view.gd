@@ -231,6 +231,8 @@ func _add_row(parent: VBoxContainer, entry: Dictionary, tier_row: bool = false) 
 	info.add_child(meta)
 	meta.add_child(_label("£%d" % int(entry["price"]), 12, _gold(), false))
 	meta.add_child(_label(" / vein" if entry["kind"] == "vein" else " each", 12, MUTED, false))
+	if entry["kind"] == "vein":
+		meta.add_child(_label(" · Lv %d" % int(entry["level"]), 12, MUTED, false))
 	var stock_text := " · %d available" % int(entry["stock"])
 	if entry["direction"] == "buy":
 		stock_text = " · stock %d" % int(entry["stock"])
@@ -373,6 +375,7 @@ func _entries() -> Array:
 			var name := "%s · %s" % [GameData.DISTRICTS[vein["district"]]["name"], GameData.ORE_TYPES[vein["oreType"]]["name"]]
 			var entry := _entry("sell", "veins", "vein", key, name, vein["oreType"], "", price, 1, 1, sell_state.get(key, 0))
 			entry["veinId"] = vein["id"]
+			entry["level"] = int(vein.get("level", 1))
 			entries.append(entry)
 		if _is_faction():
 			for site in Sites.sites_with_faction_vein(faction_id):
@@ -381,6 +384,7 @@ func _entries() -> Array:
 				var name := "%s · %s" % [GameData.DISTRICTS[vein["district"]]["name"], GameData.ORE_TYPES[vein["oreType"]]["name"]]
 				var entry := _entry("buy", "veins", "vein", key, name, vein["oreType"], "", VeinTrade.quote(vein), 1, 1, sell_state.get(key, 0))
 				entry["veinId"] = vein["id"]
+				entry["level"] = int(vein.get("level", 1))
 				entries.append(entry)
 	return entries
 
