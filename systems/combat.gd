@@ -47,6 +47,7 @@ const BEAT_ENEMY_EVADE := "enemy_evade"
 const BEAT_PLAYER_EVADE := "player_evade"
 const BEAT_ABILITY_UNLOCKED := "ability_unlocked"
 const BEAT_FROZEN_WEARS_OFF := "frozen_wears_off"
+const BEAT_ENEMY_FROZEN := "enemy_frozen"
 const BEAT_ALLY_KO := "ally_ko"
 const BEAT_COMBAT_WIN := "combat_win"
 const BEAT_COMBAT_LOSS := "combat_loss"
@@ -442,7 +443,7 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 		"locationKey": location_key_for(context, vein_id) if location_key_override == null else str(location_key_override),
 		# R§2: player/ally/enemy selection. Defaults to the first enemy.
 		"selection": { "type": "enemy", "index": 0 },
-		"log": log_lines, "outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+		"log": log_lines, "outcome": null, "frozenTurns": 0, "frozenSkipped": [], "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": on_win, "snapshots": [],
 		"allies": allies,
 		# Every beat _log() threads since the oldest snapshot still on the stack
@@ -596,6 +597,7 @@ static func push_combat_snapshot() -> void:
 		"selection": combat["selection"].duplicate(),
 		"log": combat["log"].duplicate(),
 		"frozenTurns": combat["frozenTurns"],
+		"frozenSkipped": combat.get("frozenSkipped", []).duplicate(),
 		"motionTurns": combat["motionTurns"],
 		"motionPower": combat["motionPower"],
 		"evadeTurns": combat["evadeTurns"],
@@ -1075,8 +1077,11 @@ static func _resolve_enemy_attack(combat: Dictionary, enemy: Dictionary, enemy_i
 
 
 # One atomic enemy turn: ability-lock/frozen bookkeeping runs at this
-# enemy's own queue slot. A frozen turn is a no-op-plus-decrement -- the
-# entry is still walked, it just doesn't attack.
+# enemy's own queue slot. A frozen turn is a logged no-op -- the entry is
+# still walked, it just doesn't attack. Each point of frozenTurns costs
+# every living enemy one turn: frozenSkipped holds who has already lost a
+# turn this rotation, and the pool drops by 1 once every living enemy has
+# (or once an enemy comes round again, if a peer was KO'd before its skip).
 static func _enemy_turn(combat: Dictionary, enemy: Dictionary, enemy_index: int, beats: Variant = null) -> void:
 	if is_ability_locked(enemy):
 		enemy["ability"]["lockedTurns"] -= 1
@@ -1084,14 +1089,34 @@ static func _enemy_turn(combat: Dictionary, enemy: Dictionary, enemy_index: int,
 			_log(combat, beats, "%s's ability is back online." % enemy["name"], BEAT_ABILITY_UNLOCKED,
 				{ "actorType": "enemy", "actorIndex": enemy_index })
 
+	if not combat.has("frozenSkipped"):
+		combat["frozenSkipped"] = []
+	if combat["frozenTurns"] > 0 and combat["frozenSkipped"].has(enemy_index):
+		_end_freeze_rotation(combat, enemy_index, beats)
 	if combat["frozenTurns"] > 0:
-		combat["frozenTurns"] -= 1
-		if combat["frozenTurns"] == 0:
-			_log(combat, beats, "The time effect wears off. They're coming back round.", BEAT_FROZEN_WEARS_OFF,
-				{ "actorType": "enemy", "actorIndex": enemy_index })
+		combat["frozenSkipped"].append(enemy_index)
+		_log(combat, beats, "%s is frozen — no turn." % enemy["name"], BEAT_ENEMY_FROZEN,
+			{ "actorType": "enemy", "actorIndex": enemy_index })
+		if _all_living_enemies_skipped(combat):
+			_end_freeze_rotation(combat, enemy_index, beats)
 		return
 
 	_resolve_enemy_attack(combat, enemy, enemy_index, beats)
+
+
+static func _end_freeze_rotation(combat: Dictionary, enemy_index: int, beats: Variant) -> void:
+	combat["frozenTurns"] -= 1
+	combat["frozenSkipped"] = []
+	if combat["frozenTurns"] == 0:
+		_log(combat, beats, "The time effect wears off. They're coming back round.", BEAT_FROZEN_WEARS_OFF,
+			{ "actorType": "enemy", "actorIndex": enemy_index })
+
+
+static func _all_living_enemies_skipped(combat: Dictionary) -> bool:
+	for i in range(combat["enemies"].size()):
+		if not combat["enemies"][i]["koed"] and not combat["frozenSkipped"].has(i):
+			return false
+	return true
 
 
 static func _enemy_attack_player(combat: Dictionary, enemy: Dictionary, enemy_index: int = 0, beats: Variant = null) -> void:
@@ -1349,17 +1374,17 @@ static func use_shield() -> Dictionary:
 
 
 # Black Hole is the one AoE effect (R§3.7a): hits every non-koed enemy
-# independently at full, un-diluted power. frozenTurns is one shared pool
-# across the fight, so N enemies hit adds freeze_turns once per enemy, not
-# once total. Each hit gets its own log line + beat, so the juice layer
+# independently at full, un-diluted power. frozenTurns already costs every
+# living enemy a turn per point, so the freeze is added once, not per hit.
+# Each hit gets its own log line + beat, so the juice layer
 # can play an effect per enemy in the fan, sequentially.
 static func _apply_black_hole_aoe(combat: Dictionary, dmg: int, freeze_turns: int, beats: Variant = null) -> void:
+	combat["frozenTurns"] += freeze_turns
 	for i in range(combat["enemies"].size()):
 		var enemy: Dictionary = combat["enemies"][i]
 		if enemy["koed"]:
 			continue
 		enemy["hp"] = maxi(0, enemy["hp"] - dmg)
-		combat["frozenTurns"] += freeze_turns
 		_log(combat, beats, "%s takes %d damage, frozen %d turn(s). %s: %d/%d HP." % [enemy["name"], dmg, freeze_turns, enemy["name"], enemy["hp"], enemy["hpMax"]], BEAT_COMPLICATION_BLACK_HOLE_HIT,
 			{ "targetType": "enemy", "targetIndex": i, "dmg": dmg, "effectKey": "blackHole" })
 		_maybe_win_from_direct_damage(combat, enemy, beats)
@@ -1667,6 +1692,7 @@ static func _restore_from_snapshot(combat: Dictionary, player: Dictionary) -> vo
 	new_log.append("⟲ Time unspools. The moment resets. Only you remember.")
 	combat["log"] = new_log
 	combat["frozenTurns"] = snap["frozenTurns"]
+	combat["frozenSkipped"] = snap.get("frozenSkipped", []).duplicate()
 	combat["motionTurns"] = snap["motionTurns"]
 	combat["motionPower"] = snap["motionPower"]
 	combat["outcome"] = null
@@ -1764,7 +1790,7 @@ static func exit_combat() -> Dictionary:
 		"active": false, "context": CONTEXT_RAID, "veinId": null, "enemies": [],
 		"locationKey": "",
 		"selection": { "type": "enemy", "index": 0 }, "log": [],
-		"outcome": null, "frozenTurns": 0, "motionTurns": 0, "motionPower": 0,
+		"outcome": null, "frozenTurns": 0, "frozenSkipped": [], "motionTurns": 0, "motionPower": 0,
 		"evadeTurns": 0, "evadeChance": 0.0, "onWin": null, "snapshots": [],
 		"allies": [],
 		"beatsSinceSnapshot": [],

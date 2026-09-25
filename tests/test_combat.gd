@@ -2089,7 +2089,7 @@ func run() -> void:
 		var combat := _multi_enemy_combat([{ "hp": 50 }, { "hp": 50 }, { "hp": 30, "koed": true }])
 		GameState.state["player"]["inventory"]["blackHole"] = { "1": 1 }
 		GameState.state["player"]["craftingSkill"] = 1
-		# blackHole effectPower at skill 1 = 8 -> freeze = 1 + floor(8/8) = 2 per enemy hit
+		# blackHole effectPower at skill 1 = 8 -> freeze = 1 + floor(8/8) = 2 turns for every enemy
 
 		var result := Combat.use_black_hole()
 
@@ -2098,12 +2098,9 @@ func run() -> void:
 		assert_eq(combat["enemies"][1]["hp"], 42, "every living enemy should drop by the same, full undiluted power")
 		assert_eq(combat["enemies"][2]["hp"], 30, "an already-koed enemy should be skipped entirely, not double-counted")
 		# R§3.7a: the item resolves the queued player turn and the engine
-		# runs forward -- both living enemies' own queued turns follow
-		# immediately this same round and, being frozen, each silently
-		# spend one point of the shared pool (2 living x 2 turns = 4,
-		# minus 2 spent = 2). Still distinguishes "once per enemy hit" (2)
-		# from a once-total bug (which would read back as 0).
-		assert_eq(combat["frozenTurns"], 2, "freeze should be applied once per enemy actually hit, not once total")
+		# runs forward -- both living enemies' queued turns follow this
+		# same round, both frozen, completing one rotation (2 - 1 = 1).
+		assert_eq(combat["frozenTurns"], 1, "the freeze pool is added once and costs every living enemy a turn per point")
 	)
 
 	run_case("cast_complication_black_hole_applies_full_undiluted_damage_and_freeze_to_every_non_koed_enemy_independently", func():
@@ -2120,13 +2117,62 @@ func run() -> void:
 		# Movement-amplification formula, which is covered in tests/test_dial.gd.
 		var dmg: int = int(result["power"]) * result["targets"]
 		var freeze_turns: int = (1 + int(floor(float(result["power"]) / 8.0))) * result["targets"]
+		assert_true(freeze_turns >= 2, "fixture must leave freeze in the pool after one rotation")
 		assert_eq(combat["enemies"][0]["hp"], 50 - dmg, "every living enemy should drop by the same, full undiluted power")
 		assert_eq(combat["enemies"][1]["hp"], 50 - dmg, "every living enemy should drop by the same, full undiluted power")
 		assert_eq(combat["enemies"][2]["hp"], 30, "an already-koed enemy should be skipped entirely, not double-counted")
-		# R§3.7a: both living enemies' own queued turns follow immediately
-		# this same round and, being frozen, each spend one point of the
-		# shared pool -- see the sibling use_black_hole() test's own comment.
-		assert_eq(combat["frozenTurns"], freeze_turns * 2 - 2, "freeze should be applied once per enemy actually hit, not once total")
+		# One rotation (both living enemies skip) spends one point -- see
+		# the sibling use_black_hole() test's own comment.
+		assert_eq(combat["frozenTurns"], freeze_turns - 1, "the freeze pool is added once and costs every living enemy a turn per point")
+	)
+
+	run_case("use_time_pearl_freezes_every_living_enemy_not_just_the_next_one", func():
+		var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 5, "attackMax": 5, "speed": 5 }, { "hp": 50, "attackMin": 5, "attackMax": 5, "speed": 5 }, { "hp": 50, "attackMin": 5, "attackMax": 5, "speed": 5 }])
+		combat["selection"] = { "type": "enemy", "index": 2 }
+		GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
+		GameState.state["player"]["craftingSkill"] = 1
+		var hp_before: int = GameState.state["player"]["hp"]
+
+		var result := Combat.use_time_pearl()
+
+		assert_eq(GameState.state["player"]["hp"], hp_before, "no enemy should land a hit on the round the pearl freezes")
+		var frozen: Array = []
+		for beat in result["beats"]:
+			assert_true(beat["kind"] != Combat.BEAT_ENEMY_ATTACK, "no enemy_attack beat while frozen")
+			if beat["kind"] == Combat.BEAT_ENEMY_FROZEN:
+				frozen.append(beat["actorIndex"])
+		assert_eq(frozen, [0, 1, 2], "every living enemy's skipped turn gets its own frozen beat")
+		assert_eq(combat["frozenTurns"], 0, "a 1-turn pearl is spent once every enemy has lost a turn")
+	)
+
+	run_case("use_time_pearl_freeze_carries_into_next_round_for_enemies_that_already_acted", func():
+		# Enemy 0 outpaces the player, so it has already acted this round
+		# when the pearl lands -- it must still lose a turn next round.
+		var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 5, "attackMax": 5, "speed": 20 }, { "hp": 50, "attackMin": 5, "attackMax": 5, "speed": 5 }])
+		GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
+		GameState.state["player"]["craftingSkill"] = 1
+		Combat.player_attack()
+		var hp_before: int = GameState.state["player"]["hp"]
+
+		Combat.use_time_pearl()
+
+		assert_eq(GameState.state["player"]["hp"], hp_before, "the faster enemy's next-round turn should be the frozen one")
+		assert_eq(combat["frozenTurns"], 0, "pool spent once both enemies have skipped")
+	)
+
+	run_case("freeze_rotation_closes_when_an_unskipped_enemy_is_koed", func():
+		var combat := _multi_enemy_combat([{ "hp": 50, "attackMin": 5, "attackMax": 5, "speed": 5 }, { "hp": 50, "attackMin": 5, "attackMax": 5, "speed": 5 }])
+		combat["frozenTurns"] = 3
+		combat["frozenSkipped"] = [0]
+		combat["enemies"][1]["koed"] = true
+		combat["enemies"][1]["hp"] = 0
+
+		Combat._enemy_turn(combat, combat["enemies"][0], 0, [])
+
+		# 3 -> 2 (enemy 0 coming round again closes the stale rotation) -> 1
+		# (its skip alone completes the new one, being the last one standing).
+		assert_eq(combat["frozenTurns"], 1, "enemy 0 should lose exactly one turn per freeze point")
+		assert_eq(combat["frozenSkipped"], [], "the new rotation's skip completes at once with only one enemy standing")
 	)
 
 	# ── combat-presentation ticket 05: cast_complication() beats ───────────
@@ -2158,7 +2204,10 @@ func run() -> void:
 
 		assert_true(result["ok"], "casting a loaded blackHole Complication should succeed")
 		var beats: Array = result["beats"]
-		assert_eq(beats.size(), 3, "an announce beat plus one hit beat per living (non-koed) enemy")
+		# ...plus each living enemy's own frozen turn, which follows this same round.
+		assert_eq(beats.size(), 5, "an announce beat, one hit beat per living (non-koed) enemy, then each one's frozen turn")
+		assert_eq(beats[3]["kind"], Combat.BEAT_ENEMY_FROZEN)
+		assert_eq(beats[4]["kind"], Combat.BEAT_ENEMY_FROZEN)
 		assert_eq(beats[0]["kind"], Combat.BEAT_COMPLICATION_BLACK_HOLE_ANNOUNCE)
 		assert_true(not beats[0].has("dmg"), "the announce beat itself carries no damage -- the juice layer should not react to it")
 		assert_eq(beats[1]["kind"], Combat.BEAT_COMPLICATION_BLACK_HOLE_HIT)
@@ -2208,8 +2257,10 @@ func run() -> void:
 		var beats: Array = result["beats"]
 		# R§3.7a: using the item resolves the queued player turn and the
 		# engine runs forward -- the single enemy's own queued turn follows
-		# immediately this same round, appending its own trailing beat.
-		assert_eq(beats.size(), 2, "the pearl's own beat plus the immediately-following enemy turn's beat")
+		# immediately this same round: its frozen beat, then the wear-off.
+		assert_eq(beats.size(), 3, "the pearl's own beat plus the immediately-following frozen enemy turn's beats")
+		assert_eq(beats[1]["kind"], Combat.BEAT_ENEMY_FROZEN)
+		assert_eq(beats[2]["kind"], Combat.BEAT_FROZEN_WEARS_OFF)
 		assert_eq(beats[0]["kind"], Combat.BEAT_USE_TIME_PEARL)
 		assert_eq(beats[0]["effectKey"], "timePearl")
 	)
@@ -2284,7 +2335,10 @@ func run() -> void:
 		GameState.state["player"]["craftingSkill"] = 1
 		var result := Combat.use_black_hole()
 		var beats: Array = result["beats"]
-		assert_eq(beats.size(), 3, "an announce beat plus one hit beat per living (non-koed) enemy")
+		# ...plus each living enemy's own frozen turn, which follows this same round.
+		assert_eq(beats.size(), 5, "an announce beat, one hit beat per living (non-koed) enemy, then each one's frozen turn")
+		assert_eq(beats[3]["kind"], Combat.BEAT_ENEMY_FROZEN)
+		assert_eq(beats[4]["kind"], Combat.BEAT_ENEMY_FROZEN)
 		assert_eq(beats[0]["kind"], Combat.BEAT_USE_BLACK_HOLE_ANNOUNCE)
 		assert_true(not beats[0].has("dmg"), "the announce beat carries no damage -- the juice layer should not react to it")
 		assert_eq(beats[1]["kind"], Combat.BEAT_COMPLICATION_BLACK_HOLE_HIT, "shared per-enemy-hit beat kind, same as cast_complication()'s own AoE")
