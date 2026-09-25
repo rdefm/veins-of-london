@@ -173,7 +173,7 @@ Descriptions (verbatim):
 | compound | Compound | 6 | 2000000 | false | 600 | 0.01 | 8 |
 | mansion | Mansion & Grounds | 7 | 4000000 | false | 1500 | 0.005 | 12 |
 
-`dailyCost` is the tier's rent. An owned tier's daily bill is its hardcoded `ownedDailyCost` (studio 35, flat 58, townhouse 65, safehouse 80, compound 110, mansion 200; ADR 0006). The studio has no floorplan or HQ plate of its own and uses the bedsit's. The bedsit is rent-only. Moves are one tier at a time: rent (no up-front cost) or buy (`buyPrice`), up or down; see §3.3 "Tier moves".
+`dailyCost` is the tier's rent. An owned tier's daily bill is its hardcoded `ownedDailyCost` (studio 35, flat 58, townhouse 65, safehouse 80, compound 110, mansion 200; ADR 0006). The studio has no floorplan or HQ plate of its own and uses the bedsit's. Each tier also carries `description` (plain summary) and `particulars` (estate-agent listing copy shown in Harrow's detail view). The bedsit is rent-only. Moves are one tier at a time: rent (no up-front cost) or buy (`buyPrice`), up or down; see §3.3 "Tier moves".
 
 **Bills** (`bills`): `interestRate` 0.05, `interestThresholdDays` 5, `downgradeThresholdDays` 10. Interest/thresholds feed arrears (ADR 0006).
 

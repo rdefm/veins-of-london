@@ -83,6 +83,11 @@ func run() -> void:
 		assert_true(texts.has("Studio"), "next tier's name (studio, the tier above bedsit) renders")
 		var raid_pct: int = int(round(Home.get_raid_chance_for_tier("studio") * 100))
 		assert_true(texts.has("Raid risk: %d%% · Rooms 0" % raid_pct), "next tier's own stats line")
+		assert_true(NodeQuery.find_button(phone, "Rent for £60/day") == null, "offers live only in the particulars")
+		assert_true(NodeQuery.find_button(phone, "Buy for £80000") == null, "offers live only in the particulars")
+
+		_open_listing(phone, "studio")
+		texts = NodeQuery.label_texts(phone)
 		assert_true(NodeQuery.find_button(phone, "Rent for £60/day") != null, "rent offer previews studio's rent")
 		assert_true(NodeQuery.find_button(phone, "Buy for £80000") != null, "buy offer shows studio's buyPrice")
 		assert_true(texts.has("Then £35/day in utilities."), "buy offer previews studio's owned bill override")
@@ -99,8 +104,9 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var plans := phone.find_children("*", "TextureRect", true, false).filter(func(t): return t.texture == load("res://assets/floorplans/flat.svg"))
-		assert_eq(plans.size(), 1, "the Flat listing (next tier from studio) shows its plan")
+		assert_eq(_plans_of(phone, "flat").size(), 0, "the Flat listing (next tier from studio) shows no inline plan")
+		_open_listing(phone, "flat")
+		assert_eq(_plans_of(phone, "flat").size(), 1, "the Flat particulars show its plan")
 		assert_eq(phone.find_child(FloorplanView.slot_node_name(0), true, false), null, "the listing plan is static: no selectable slot")
 		for room_id in GameData.HOME_ROOMS.keys():
 			assert_true(NodeQuery.find_button(phone, "£%d" % GameData.HOME_ROOMS[room_id]["cost"]) == null, "Harrow's sells no room upgrades (%s)" % room_id)
@@ -115,6 +121,7 @@ func run() -> void:
 
 		var phone := PhoneScreen.new()
 		phone._ready()
+		_open_listing(phone, "studio")
 		var buy_button := NodeQuery.find_button(phone, "Buy for £80000")
 		assert_true(buy_button.disabled, "buy disabled without enough cash")
 		assert_true(NodeQuery.label_texts(phone).has("Not enough cash."))
@@ -123,6 +130,8 @@ func run() -> void:
 		rent_button.pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
+		assert_true(NodeQuery.find_button(phone, "‹ Listings") == null, "a move closes the particulars")
+		assert_true(phone.find_child(PropertyApp.listing_node_name("flat"), true, false) != null, "back on the listings, now a tier up")
 		phone.free()
 
 		GameState.reset()
@@ -130,6 +139,7 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "property"
 		phone = PhoneScreen.new()
 		phone._ready()
+		_open_listing(phone, "studio")
 		NodeQuery.find_button(phone, "Buy for £80000").pressed.emit()
 		assert_eq(GameState.state["home"]["tenure"], "owned", "buy button calls Home.buy_up")
 		phone.free()
@@ -175,6 +185,9 @@ func run() -> void:
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("MOVE DOWN"))
 		assert_true(texts.has("Studio"), "the flat's move-down is the studio")
+		_open_listing(phone, "studio")
+		texts = NodeQuery.label_texts(phone)
+		assert_true(texts.has("MOVE DOWN"))
 		assert_true(texts.has("Left behind: CCTV."))
 		assert_true(NodeQuery.find_button(phone, "Buy for £80000") != null, "the studio can be bought on the way down")
 		NodeQuery.find_button(phone, "Rent for £60/day").pressed.emit()
@@ -184,11 +197,40 @@ func run() -> void:
 
 		phone = PhoneScreen.new()
 		phone._ready()
+		_open_listing(phone, "bedsit")
 		assert_eq(NodeQuery.find_button(phone, "Buy for £0"), null, "the bedsit can't be bought")
 		NodeQuery.find_button(phone, "Rent for £50/day").pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "bedsit")
 		assert_eq(GameState.state["home"]["security"], ["lock"])
 		phone.free()
+	)
+
+	run_case("property_particulars_show_the_tiers_copy_and_back_returns_to_listings", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["phoneNav"]["app"] = "property"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var particulars: String = GameData.HOME_TIERS["townhouse"]["particulars"]
+		assert_true(not NodeQuery.label_texts(phone).has(particulars), "particulars stay off the listings")
+
+		_open_listing(phone, "townhouse")
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has(particulars), "townhouse particulars render")
+		assert_true(not texts.has("YOUR PLACE"), "the detail view replaces the listings")
+		assert_true(phone.find_child(PropertyApp.listing_node_name("studio"), true, false) == null)
+
+		NodeQuery.find_button(phone, "‹ Listings").pressed.emit()
+		texts = NodeQuery.label_texts(phone)
+		assert_true(texts.has("YOUR PLACE"), "back returns to the listings")
+		assert_true(not texts.has(particulars))
+		assert_eq(GameState.state["home"]["tier"], "flat", "browsing changes nothing")
+		phone.free()
+	)
+
+	run_case("property_every_tier_has_particulars", func():
+		for tier_id in GameData.HOME_TIERS.keys():
+			assert_true(str(GameData.HOME_TIERS[tier_id].get("particulars", "")) != "", "%s has particulars" % tier_id)
 	)
 
 	run_case("property_shows_a_max_tier_message_and_no_upgrade_button_at_the_top_tier", func():
@@ -225,3 +267,15 @@ func run() -> void:
 
 		phone.free()
 	)
+
+
+func _open_listing(phone: PhoneScreen, tier_id: String) -> void:
+	var tap := phone.find_child(PropertyApp.listing_node_name(tier_id), true, false) as Button
+	assert_true(tap != null, "listing for %s is tappable" % tier_id)
+	if tap != null:
+		tap.pressed.emit()
+
+
+func _plans_of(phone: PhoneScreen, tier_id: String) -> Array:
+	var texture := load("res://assets/floorplans/%s.svg" % tier_id)
+	return phone.find_children("*", "TextureRect", true, false).filter(func(t): return t.texture == texture)

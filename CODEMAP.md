@@ -200,7 +200,7 @@ overlays.
 | saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |
 | notifications_app.gd | Notification log with pending Defend buttons |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
-| property_app.gd | Harrow's: current HQ tier (tenure-correct daily cost, buy-out when rented), next tier rent/buy and tier-below move-down offers with bill previews and losses, each with its static floorplan; arrears balance and countdown while in arrears |
+| property_app.gd | Harrow's: current HQ tier card (tenure-correct daily cost, buy-out when rented, static floorplan, arrears balance/countdown) plus tappable next-tier and tier-below listings; a listing opens its particulars (floorplan, tier `particulars` copy, rent/buy with bill previews and losses) |
 | debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, one relation block (dropdown over every contact + faction, shows current relation, applies a delta), any-event trigger picker |
 
 ## data/*.json
