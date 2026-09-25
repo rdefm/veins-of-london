@@ -11,7 +11,7 @@ const NodeQuery := preload("res://tests/support/node_query.gd")
 
 
 func _collective_section() -> Variant:
-	for section in Todo.get_active_questlines():
+	for section in Todo.get_questline_sections():
 		if section["questline"] == "collective":
 			return section
 	return null

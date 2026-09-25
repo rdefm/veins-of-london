@@ -30,9 +30,10 @@ func _section(sections: Array, questline: String) -> Variant:
 func run() -> void:
 	run_case("fresh_game_shows_only_the_first_tutorial_item_undone", func():
 		GameState.reset()
-		var sections := Todo.get_active_questlines()
-		assert_eq(sections.size(), 1, "only the tutorial questline should be active at game start")
-		assert_eq(sections[0]["questline"], "tutorial")
+		var sections := Todo.get_questline_sections()
+		assert_eq(sections.map(func(s): return s["questline"]), ["tutorial", "business_empire"], "tutorial is the only started questline; Business Empire is always listed as a placeholder")
+		assert_eq(sections[0]["status"], "active")
+		assert_eq(sections[0]["defaultExpanded"], true, "an active questline starts expanded")
 		var items: Array = sections[0]["items"]
 		assert_eq(items.size(), 1, "only the first checkpoint should be unlocked at game start")
 		assert_eq(items[0]["done"], false, "first checkpoint should be undone")
@@ -44,11 +45,11 @@ func run() -> void:
 		GameState.state["flags"]["metArchie"] = true
 		GameState.state["world"]["day"] = 1
 		Objectives.refresh()
-		var items: Array = _section(Todo.get_active_questlines(), "tutorial")["items"]
+		var items: Array = _section(Todo.get_questline_sections(), "tutorial")["items"]
 		assert_eq(items[1]["title"], "Wait for Archie's text — he's lining up the buyer.", "day < 2 shows the waiting text")
 
 		GameState.state["world"]["day"] = 2
-		items = _section(Todo.get_active_questlines(), "tutorial")["items"]
+		items = _section(Todo.get_questline_sections(), "tutorial")["items"]
 		assert_eq(items[1]["title"], "Back up Archie on the sale tonight. Check Contacts.", "day >= 2 shows the follow-up text")
 	)
 
@@ -64,13 +65,13 @@ func run() -> void:
 		# archiePartnerSeen deliberately left false here -- see the next case.
 		Objectives.refresh()
 
-		var items: Array = _section(Todo.get_active_questlines(), "tutorial")["items"]
+		var items: Array = _section(Todo.get_questline_sections(), "tutorial")["items"]
 		assert_eq(items.size(), 4, "checklist should cap at 4 items")
 		assert_eq(items[3]["title"], "You have calc now. The flat isn't as secure as you thought.", "the newest unlocked item should be last")
 		assert_eq(items[3]["done"], true, "the newest unlocked item's flag is already true")
 	)
 
-	run_case("final_tutorial_item_shows_checked_then_the_whole_section_hides_on_cultivationTutorialSeen", func():
+	run_case("final_tutorial_item_shows_checked_then_the_section_turns_done_on_cultivationTutorialSeen", func():
 		# ticket 79: the old flag chain's last entry unlocked and then sat
 		# permanently unchecked forever. Now it completes and renders
 		# checked like any other item, and the whole section disappears on
@@ -84,14 +85,16 @@ func run() -> void:
 			flags[f] = true
 		Objectives.refresh()
 
-		var items: Array = _section(Todo.get_active_questlines(), "tutorial")["items"]
+		var items: Array = _section(Todo.get_questline_sections(), "tutorial")["items"]
 		assert_eq(items[3]["title"], "Archie's time vein is yours. You cultivate and harvest it — Archie sells what you make.", "the final checkpoint should be the newest unlocked item")
 		assert_eq(items[3]["done"], true, "the final checkpoint should render checked, not stuck unchecked forever")
 
 		flags["cultivationTutorialSeen"] = true
 		Objectives.refresh()
-		var sections := Todo.get_active_questlines()
-		assert_eq(_section(sections, "tutorial"), null, "the whole tutorial section should hide once the questline's gate flag is true")
+		var tutorial: Dictionary = _section(Todo.get_questline_sections(), "tutorial")
+		assert_eq(tutorial["status"], "done", "the tutorial section should turn done once the questline's gate flag is true")
+		assert_eq(tutorial["defaultExpanded"], false, "a completed questline starts collapsed")
+		assert_eq(tutorial["items"].size(), 4, "a done section keeps its items for the collapsed view")
 	)
 
 	run_case("archie_partner_line_renders_checked_immediately_after_the_real_debrief_event_not_stale", func():
@@ -116,13 +119,13 @@ func run() -> void:
 			Events.advance()
 
 		assert_true(GameState.state["objectives"]["tut_archie_partner"]["complete"], "complete flips true in the same on_complete call that sets archiePartnerSeen -- no stale window")
-		var items: Array = _section(Todo.get_active_questlines(), "tutorial")["items"]
+		var items: Array = _section(Todo.get_questline_sections(), "tutorial")["items"]
 		var last_item: Dictionary = items[items.size() - 1]
 		assert_eq(last_item["title"], "Archie's time vein is yours. You cultivate and harvest it — Archie sells what you make.")
 		assert_eq(last_item["done"], true, "renders checked with no extra refresh() call needed -- ruling out staleness")
 	)
 
-	run_case("sections_group_by_questline_and_the_whole_section_hides_on_its_gate_flag", func():
+	run_case("sections_group_by_questline_and_the_whole_section_turns_done_on_its_gate_flag", func():
 		GameState.reset()
 		var original := Fixtures.install_objectives({
 			"syn_a": _synthetic("syn_a", "collective", null, "synA"),
@@ -131,7 +134,7 @@ func run() -> void:
 		GameState.state["flags"]["synA"] = true
 		Objectives.refresh()
 
-		var sections := Todo.get_active_questlines()
+		var sections := Todo.get_questline_sections()
 		var collective_section = _section(sections, "collective")
 		assert_true(collective_section != null, "a section should appear for a questline with an active objective")
 		assert_eq(collective_section["label"], "Collective")
@@ -140,10 +143,35 @@ func run() -> void:
 		assert_eq(collective_section["items"][1]["done"], false, "syn_b hasn't completed yet")
 
 		GameState.state["flags"]["colA1Complete"] = true
-		sections = Todo.get_active_questlines()
-		assert_eq(_section(sections, "collective"), null, "the whole section should hide on the questline's gate flag, not item-by-item")
+		sections = Todo.get_questline_sections()
+		assert_eq(_section(sections, "collective")["status"], "done", "the whole section should turn done on the questline's gate flag, not item-by-item")
 
 		GameData.OBJECTIVES = original
+	)
+
+	run_case("unstarted_questlines_are_omitted_but_business_empire_is_always_a_placeholder", func():
+		GameState.reset()
+		var sections := Todo.get_questline_sections()
+		assert_eq(_section(sections, "collective"), null, "no Collective section before any of its objectives activate")
+		var empire: Dictionary = _section(sections, "business_empire")
+		assert_eq(empire["status"], "placeholder")
+		assert_eq(empire["items"], [], "the placeholder has no objectives yet")
+		assert_true(empire["emptyText"] != "", "the placeholder carries its empty-state line")
+		assert_eq(sections[sections.size() - 1]["questline"], "business_empire", "sections follow QUESTLINES' declaration order")
+	)
+
+	run_case("collective_ledger_renders_under_the_collective_section_and_keeps_it_active", func():
+		GameState.reset()
+		GameState.state["flags"]["colA1Complete"] = true
+		GameState.state["flags"]["colA2Stage"] = "hardening"
+		var vein := Factions.create_faction_vein("collective", Fixtures.site("s1", "life", "fair"), 30)
+		GameState.state["world"]["sites"] = [Fixtures.site("s1", "life", "fair", false, vein)]
+
+		var collective: Variant = _section(Todo.get_questline_sections(), "collective")
+		assert_true(collective != null, "a live ledger shows the Collective section even with no active objectives")
+		assert_eq(collective["ledger"].size(), 1, "the ledger rows ride inside the Collective section")
+		assert_eq(collective["status"], "active", "Act 1's gate flag doesn't mark Collective done while the Act 2 ledger is live")
+		assert_eq(collective["defaultExpanded"], true)
 	)
 
 	# ── Collective ledger (Act 2 §5.2) ───────────────────────────────────

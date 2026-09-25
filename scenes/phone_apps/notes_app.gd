@@ -1,28 +1,48 @@
+# Notes: one collapsible section per questline from Todo.get_questline_sections(),
+# flat hairline-divided checklist rows (docs/ui-vision.md §10 "Per-app layout
+# conventions"). Which sections are expanded is session-only view state: a
+# static var, never the state tree, so it survives the app closing and
+# reopening but not a restart.
 class_name NotesApp
 extends PhoneApp
+
+const HEADER_FONT_SIZE := 17
+
+# "<questline>:<status>" -> expanded. Keyed on status too, so a questline
+# that finishes mid-session falls back to its collapsed-when-done default.
+static var _expanded_overrides: Dictionary = {}
 
 
 func build(content: VBoxContainer) -> void:
 	content.add_child(back_button())
 	content.add_child(UI.heading("Notes"))
-	var sections := Todo.get_active_questlines()
-	var ledger := Todo.get_collective_ledger()
-	if sections.is_empty() and ledger.is_empty():
-		var empty_card := UI.card()
-		empty_card["content"].add_child(UI.muted_label("Nothing pressing."))
-		content.add_child(empty_card["panel"])
+	for section in Todo.get_questline_sections():
+		content.add_child(_build_section(section))
 
-	for section in sections:
-		content.add_child(UI.heading(section["label"], 14))
-		var c := UI.card()
-		for item in section["items"]:
-			var text: String = item["title"] if item["detail"] == "" else "%s — %s" % [item["title"], item["detail"]]
-			c["content"].add_child(UI.checklist_row(text, item["done"]))
-		content.add_child(c["panel"])
 
-	if not ledger.is_empty():
-		content.add_child(UI.heading("Collective ledger", 14))
-		var ledger_card := UI.card()
-		for row in ledger:
-			ledger_card["content"].add_child(UI.label("%s — %s (%s)" % [row["district"], row["oreType"], row["security"]]))
-		content.add_child(ledger_card["panel"])
+func _build_section(section: Dictionary) -> Control:
+	var key := "%s:%s" % [section["questline"], section["status"]]
+	var done: bool = section["status"] == "done"
+	var title: String = "%s ☑" % section["label"] if done else section["label"]
+	var s := UI.collapsible_section(title, _expanded_overrides.get(key, section["defaultExpanded"]), func(expanded: bool): _expanded_overrides[key] = expanded)
+	var header: Button = s["header"]
+	header.flat = true
+	header.add_theme_font_size_override("font_size", HEADER_FONT_SIZE)
+	if done:
+		header.add_theme_color_override("font_color", UI._MUTED_COLOUR)
+
+	var rows := UI.vbox(6)
+	rows.add_child(UI.command_row_rule())
+	if section["status"] == "placeholder":
+		rows.add_child(UI.muted_label(section["emptyText"]))
+	for item in section["items"]:
+		var text: String = item["title"] if item["detail"] == "" else "%s — %s" % [item["title"], item["detail"]]
+		rows.add_child(UI.checklist_row(text, item["done"]))
+		rows.add_child(UI.command_row_rule())
+	if not section["ledger"].is_empty():
+		rows.add_child(UI.muted_label("Ledger"))
+		for row in section["ledger"]:
+			rows.add_child(UI.label("%s — %s (%s)" % [row["district"], row["oreType"], row["security"]]))
+			rows.add_child(UI.command_row_rule())
+	s["content"].add_child(rows)
+	return s["panel"]

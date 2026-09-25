@@ -89,7 +89,7 @@ static func collapsible_section(title: String, expanded: bool, on_toggle: Callab
 	section.add_child(header)
 	section.add_child(content)
 
-	return { "panel": section, "content": content }
+	return { "panel": section, "content": content, "header": header }
 
 
 static func _accordion_header_text(title: String, expanded: bool) -> String:
