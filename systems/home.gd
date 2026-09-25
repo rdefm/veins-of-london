@@ -161,11 +161,9 @@ static func resolve_defend_outcome(won: bool) -> void:
 	_apply_raid_loss()
 
 
-# Owned-home utilities per ADR 0006: utilitiesBase + round(utilitiesFraction × dailyCost).
+# Owned-home utilities per ADR 0006: the tier's hardcoded ownedDailyCost.
 static func utilities_for_tier(tier_id: String) -> int:
-	var bills: Dictionary = GameData.HOME_BILLS
-	var daily_cost: float = GameData.HOME_TIERS[tier_id]["dailyCost"]
-	return int(bills["utilitiesBase"]) + GameState.round_epsilon(bills["utilitiesFraction"] * daily_cost)
+	return int(GameData.HOME_TIERS[tier_id]["ownedDailyCost"])
 
 
 # Pre-barometer daily bill: the tier's rent if rented, its utilities if owned.

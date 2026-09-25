@@ -86,7 +86,7 @@ func run() -> void:
 		GameState.state["home"]["tenure"] = "owned"
 		GameState.state["player"]["cash"] = 500
 		TimeSystem._apply_living_costs()
-		assert_eq(GameState.state["player"]["cash"], 435, "owned townhouse pays utilities 50 + round(0.10 × 150) = 65")
+		assert_eq(GameState.state["player"]["cash"], 435, "owned townhouse pays its ownedDailyCost 65")
 	)
 
 	run_case("daily_bill_rent_scales_with_inflation", func():
@@ -145,7 +145,7 @@ func run() -> void:
 		assert_true(last["text"].contains("owed £90"), last["text"])
 	)
 
-	run_case("arrears_rented_flat_ten_rollover_table_ends_in_rented_bedsit_with_debt_kept", func():
+	run_case("arrears_rented_flat_ten_rollover_table_ends_in_rented_studio_with_debt_kept", func():
 		GameState.reset()
 		var home: Dictionary = GameState.state["home"]
 		home["tier"] = "flat"
@@ -158,7 +158,7 @@ func run() -> void:
 			assert_eq(home["arrearsDays"], i + 1, "rollover %d days" % (i + 1))
 			assert_eq(home["tier"], "flat", "no downgrade before rollover 10")
 		TimeSystem._apply_living_costs()
-		assert_eq(home["tier"], "bedsit", "rollover 10 drops one tier")
+		assert_eq(home["tier"], "studio", "rollover 10 drops one tier")
 		assert_eq(home["tenure"], "rented")
 		assert_eq(home["arrears"], 953, "rented tier lost: arrears kept")
 		assert_eq(home["arrearsDays"], 0, "clock restarts")
@@ -166,15 +166,15 @@ func run() -> void:
 		assert_eq(last["category"], Notify.CATEGORY_WARNING, "downgrade gets its own warning")
 		assert_true(last["text"].contains("owe £953"), last["text"])
 
-		# Interest resumes only from rollover 6 of the new count; no drop below the bedsit.
+		# Interest resumes only from rollover 6 of the new count.
 		for i in 5:
 			TimeSystem._apply_living_costs()
-		assert_eq(home["arrears"], 953 + 250, "5 rollovers at the bedsit, no interest yet")
+		assert_eq(home["arrears"], 953 + 300, "5 rollovers at the studio, no interest yet")
 		TimeSystem._apply_living_costs()
-		assert_eq(home["arrears"], 1203 + GameState.round_epsilon(1203 * 0.05) + 50, "interest on the 6th rollover")
+		assert_eq(home["arrears"], 1253 + GameState.round_epsilon(1253 * 0.05) + 60, "interest on the 6th rollover")
 	)
 
-	run_case("arrears_owned_flat_table_ends_in_rented_bedsit_with_debt_cleared", func():
+	run_case("arrears_owned_flat_table_ends_in_rented_studio_with_debt_cleared", func():
 		GameState.reset()
 		var home: Dictionary = GameState.state["home"]
 		home["tier"] = "flat"
@@ -185,7 +185,7 @@ func run() -> void:
 			TimeSystem._apply_living_costs()
 			assert_eq(home["arrears"], expected[i], "rollover %d arrears" % (i + 1))
 		TimeSystem._apply_living_costs()
-		assert_eq(home["tier"], "bedsit")
+		assert_eq(home["tier"], "studio")
 		assert_eq(home["tenure"], "rented")
 		assert_eq(home["arrears"], 0, "owned tier lost: arrears cleared")
 		assert_eq(home["arrearsDays"], 0)
@@ -282,7 +282,7 @@ func run() -> void:
 		home["arrears"] = 100
 		home["arrearsDays"] = 9
 		TimeSystem._apply_living_costs()
-		assert_eq(home["tier"], "bedsit")
+		assert_eq(home["tier"], "studio")
 		assert_eq(home["rooms"], [], "rooms wiped")
 		assert_eq(Contacts.get_contact_in_room("homeGym"), null, "staff unassigned")
 		assert_eq(player["hpMax"], hp_max_with_gym - 10, "gym bonus reverted")
@@ -301,7 +301,7 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 0
 		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
 		TimeSystem._apply_living_costs()
-		assert_eq(GameState.state["home"]["tier"], "bedsit", "sanity: downgrade happened")
+		assert_eq(GameState.state["home"]["tier"], "studio", "sanity: downgrade happened")
 		GameState.state = snapshot
 		assert_eq(GameState.state["home"]["tier"], "flat")
 		assert_eq(GameState.state["home"]["tenure"], "owned")

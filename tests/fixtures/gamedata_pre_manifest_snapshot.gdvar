@@ -4525,9 +4525,7 @@
 "HOME_BILLS": {
 "downgradeThresholdDays": 10,
 "interestRate": 0.05,
-"interestThresholdDays": 5,
-"utilitiesBase": 50,
-"utilitiesFraction": 0.1
+"interestThresholdDays": 5
 },
 "HOME_ROOMS": {
 "homeGym": {
@@ -4663,9 +4661,10 @@
 "id": "compound",
 "maxRooms": 8,
 "name": "Compound",
+"ownedDailyCost": 110,
 "raidBaseChance": 0.01,
 "rentOnly": false,
-"tier": 5
+"tier": 6
 },
 "flat": {
 "buyPrice": 200000,
@@ -4674,9 +4673,10 @@
 "id": "flat",
 "maxRooms": 1,
 "name": "Flat",
+"ownedDailyCost": 58,
 "raidBaseChance": 0.06,
 "rentOnly": false,
-"tier": 2
+"tier": 3
 },
 "mansion": {
 "buyPrice": 4000000,
@@ -4685,9 +4685,10 @@
 "id": "mansion",
 "maxRooms": 12,
 "name": "Mansion & Grounds",
+"ownedDailyCost": 200,
 "raidBaseChance": 0.005,
 "rentOnly": false,
-"tier": 6
+"tier": 7
 },
 "safehouse": {
 "buyPrice": 800000,
@@ -4696,9 +4697,22 @@
 "id": "safehouse",
 "maxRooms": 5,
 "name": "Safehouse",
+"ownedDailyCost": 80,
 "raidBaseChance": 0.02,
 "rentOnly": false,
-"tier": 4
+"tier": 5
+},
+"studio": {
+"buyPrice": 100000,
+"dailyCost": 60,
+"description": "One room in Stepney with a kitchen along the wall. The door locks and the key is yours. No spare room.",
+"id": "studio",
+"maxRooms": 0,
+"name": "Studio",
+"ownedDailyCost": 35,
+"raidBaseChance": 0.07,
+"rentOnly": false,
+"tier": 2
 },
 "townhouse": {
 "buyPrice": 500000,
@@ -4707,12 +4721,13 @@
 "id": "townhouse",
 "maxRooms": 3,
 "name": "Townhouse",
+"ownedDailyCost": 65,
 "raidBaseChance": 0.04,
 "rentOnly": false,
-"tier": 3
+"tier": 4
 }
 },
-"HOME_TIER_ORDER": ["bedsit", "flat", "townhouse", "safehouse", "compound", "mansion"],
+"HOME_TIER_ORDER": ["bedsit", "studio", "flat", "townhouse", "safehouse", "compound", "mansion"],
 "HQ_VISUALS": {
 "labBench": {
 "fallbackColor": "timber_dark",

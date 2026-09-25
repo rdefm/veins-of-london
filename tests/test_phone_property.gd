@@ -80,12 +80,12 @@ func run() -> void:
 		phone._ready()
 
 		var texts := NodeQuery.label_texts(phone)
-		assert_true(texts.has("Flat"), "next tier's name (flat, the tier above bedsit) renders")
-		var raid_pct: int = int(round(Home.get_raid_chance_for_tier("flat") * 100))
-		assert_true(texts.has("Raid risk: %d%% · Rooms 1" % raid_pct), "next tier's own stats line")
-		assert_true(NodeQuery.find_button(phone, "Rent for £80/day") != null, "rent offer previews flat's rent")
-		assert_true(NodeQuery.find_button(phone, "Buy for £200000") != null, "buy offer shows flat's buyPrice")
-		assert_true(texts.has("Then £58/day in utilities."), "buy offer previews flat's owned bill")
+		assert_true(texts.has("Studio"), "next tier's name (studio, the tier above bedsit) renders")
+		var raid_pct: int = int(round(Home.get_raid_chance_for_tier("studio") * 100))
+		assert_true(texts.has("Raid risk: %d%% · Rooms 0" % raid_pct), "next tier's own stats line")
+		assert_true(NodeQuery.find_button(phone, "Rent for £60/day") != null, "rent offer previews studio's rent")
+		assert_true(NodeQuery.find_button(phone, "Buy for £100000") != null, "buy offer shows studio's buyPrice")
+		assert_true(texts.has("Then £35/day in utilities."), "buy offer previews studio's owned bill override")
 		assert_true(texts.has("Moving clears every installed room. No refunds."))
 
 		phone.free()
@@ -93,13 +93,14 @@ func run() -> void:
 
 	run_case("property_flat_listing_shows_a_static_floorplan_with_no_room_controls", func():
 		GameState.reset()
+		GameState.state["home"]["tier"] = "studio"
 		GameState.state["phoneNav"]["app"] = "property"
 
 		var phone := PhoneScreen.new()
 		phone._ready()
 
 		var plans := phone.find_children("*", "TextureRect", true, false).filter(func(t): return t.texture == load("res://assets/floorplans/flat.svg"))
-		assert_eq(plans.size(), 1, "the Flat listing (next tier from bedsit) shows its plan")
+		assert_eq(plans.size(), 1, "the Flat listing (next tier from studio) shows its plan")
 		assert_eq(phone.find_child(FloorplanView.slot_node_name(0), true, false), null, "the listing plan is static: no selectable slot")
 		for room_id in GameData.HOME_ROOMS.keys():
 			assert_true(NodeQuery.find_button(phone, "£%d" % GameData.HOME_ROOMS[room_id]["cost"]) == null, "Harrow's sells no room upgrades (%s)" % room_id)
@@ -114,22 +115,22 @@ func run() -> void:
 
 		var phone := PhoneScreen.new()
 		phone._ready()
-		var buy_button := NodeQuery.find_button(phone, "Buy for £200000")
+		var buy_button := NodeQuery.find_button(phone, "Buy for £100000")
 		assert_true(buy_button.disabled, "buy disabled without enough cash")
 		assert_true(NodeQuery.label_texts(phone).has("Not enough cash."))
-		var rent_button := NodeQuery.find_button(phone, "Rent for £80/day")
+		var rent_button := NodeQuery.find_button(phone, "Rent for £60/day")
 		assert_true(not rent_button.disabled, "renting needs no cash up front")
 		rent_button.pressed.emit()
-		assert_eq(GameState.state["home"]["tier"], "flat")
+		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
 		phone.free()
 
 		GameState.reset()
-		GameState.state["player"]["cash"] = 200000
+		GameState.state["player"]["cash"] = 100000
 		GameState.state["phoneNav"]["app"] = "property"
 		phone = PhoneScreen.new()
 		phone._ready()
-		NodeQuery.find_button(phone, "Buy for £200000").pressed.emit()
+		NodeQuery.find_button(phone, "Buy for £100000").pressed.emit()
 		assert_eq(GameState.state["home"]["tenure"], "owned", "buy button calls Home.buy_up")
 		phone.free()
 	)
@@ -173,7 +174,16 @@ func run() -> void:
 		phone._ready()
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("MOVE DOWN"))
+		assert_true(texts.has("Studio"), "the flat's move-down is the studio")
 		assert_true(texts.has("Left behind: CCTV."))
+		assert_true(NodeQuery.find_button(phone, "Buy for £100000") != null, "the studio can be bought on the way down")
+		NodeQuery.find_button(phone, "Rent for £60/day").pressed.emit()
+		assert_eq(GameState.state["home"]["tier"], "studio")
+		assert_eq(GameState.state["home"]["security"], ["lock"])
+		phone.free()
+
+		phone = PhoneScreen.new()
+		phone._ready()
 		assert_eq(NodeQuery.find_button(phone, "Buy for £0"), null, "the bedsit can't be bought")
 		NodeQuery.find_button(phone, "Rent for £50/day").pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "bedsit")

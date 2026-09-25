@@ -314,7 +314,10 @@ func run() -> void:
 
 	run_case("get_next_tier_id_walks_the_ladder_and_returns_empty_at_the_top", func():
 		GameState.reset()
-		assert_eq(Home.get_next_tier_id("bedsit"), "flat")
+		assert_eq(Home.get_next_tier_id("bedsit"), "studio")
+		assert_eq(Home.get_next_tier_id("studio"), "flat")
+		assert_eq(Home.get_prev_tier_id("flat"), "studio")
+		assert_eq(Home.get_prev_tier_id("studio"), "bedsit")
 		assert_eq(Home.get_next_tier_id("compound"), "mansion")
 		assert_eq(Home.get_next_tier_id("mansion"), "", "no tier above the top one")
 	)
@@ -323,7 +326,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["cash"] = 0
 		assert_true(Home.rent_up()["ok"], "renting has no up-front cost")
-		assert_eq(GameState.state["home"]["tier"], "flat")
+		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
 		assert_eq(GameState.state["player"]["cash"], 0)
 		assert_eq(GameState.state["bankLog"].size(), 0, "no purchase to log")
@@ -333,11 +336,12 @@ func run() -> void:
 
 	run_case("buy_up_enforces_cash_logs_and_sets_owned", func():
 		GameState.reset()
-		GameState.state["player"]["cash"] = 199999
-		assert_true(not Home.buy_up()["ok"], "short of the flat's 200000")
+		GameState.state["player"]["cash"] = 99999
+		assert_true(not Home.buy_up()["ok"], "short of the studio's 100000")
 		assert_eq(GameState.state["home"]["tier"], "bedsit")
 		assert_eq(GameState.state["bankLog"].size(), 0)
 
+		GameState.state["home"]["tier"] = "studio"
 		GameState.state["player"]["cash"] = 250000
 		assert_true(Home.buy_up()["ok"])
 		assert_eq(GameState.state["home"]["tier"], "flat")
@@ -388,8 +392,13 @@ func run() -> void:
 		assert_eq(GameState.state["home"]["tenure"], "owned")
 		assert_eq(GameState.state["player"]["cash"], 0)
 
+		GameState.state["player"]["cash"] = 100000
+		assert_true(Home.downgrade("owned")["ok"], "buying the studio at 100000")
+		assert_eq(GameState.state["home"]["tier"], "studio")
+		assert_eq(GameState.state["player"]["cash"], 0)
+
 		assert_true(not Home.downgrade("owned")["ok"], "the bedsit can't be bought")
-		assert_eq(GameState.state["home"]["tier"], "flat")
+		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_true(Home.downgrade("rented")["ok"])
 		assert_eq(GameState.state["home"]["tier"], "bedsit")
 		assert_eq(GameState.state["home"]["tenure"], "rented")

@@ -700,7 +700,7 @@ func _validate_home(tier_order: Array, tiers: Dictionary, security: Dictionary, 
 
 # ADR 0006: the bedsit is rent-only; every other tier has a positive buy price.
 func _validate_home_bills(bills: Dictionary, tiers: Dictionary, errors: Array[String]) -> void:
-	_require_keys(bills, ["utilitiesBase", "utilitiesFraction", "interestRate", "interestThresholdDays", "downgradeThresholdDays"], "home.bills", errors)
+	_require_keys(bills, ["interestRate", "interestThresholdDays", "downgradeThresholdDays"], "home.bills", errors)
 	for key in bills.keys():
 		var v = bills[key]
 		if (typeof(v) != TYPE_INT and typeof(v) != TYPE_FLOAT) or v < 0:
@@ -713,6 +713,8 @@ func _validate_home_bills(bills: Dictionary, tiers: Dictionary, errors: Array[St
 			errors.append("home.tiers.%s: rentOnly must be a bool" % key)
 		elif not tier["rentOnly"] and not (float(tier.get("buyPrice", 0)) > 0.0):
 			errors.append("home.tiers.%s: buyable tier needs a positive buyPrice" % key)
+		elif not tier["rentOnly"] and not tier.has("ownedDailyCost"):
+			errors.append("home.tiers.%s: buyable tier needs an ownedDailyCost" % key)
 
 
 const VALID_APPROACH_SOURCE_TYPES: Array[String] = ["start", "room", "contact", "faction", "device"]

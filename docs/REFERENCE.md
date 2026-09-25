@@ -166,15 +166,16 @@ Descriptions (verbatim):
 | id | name | tier | buyPrice | rentOnly | dailyCost | raidBaseChance | maxRooms |
 |---|---|---|---|---|---|---|---|
 | bedsit | Bedsit | 1 | 0 | true | 50 | 0.08 | 0 |
-| flat | Flat | 2 | 200000 | false | 80 | 0.06 | 1 |
-| townhouse | Townhouse | 3 | 500000 | false | 150 | 0.04 | 3 |
-| safehouse | Safehouse | 4 | 800000 | false | 300 | 0.02 | 5 |
-| compound | Compound | 5 | 2000000 | false | 600 | 0.01 | 8 |
-| mansion | Mansion & Grounds | 6 | 4000000 | false | 1500 | 0.005 | 12 |
+| studio | Studio | 2 | 100000 | false | 60 | 0.07 | 0 |
+| flat | Flat | 3 | 200000 | false | 80 | 0.06 | 1 |
+| townhouse | Townhouse | 4 | 500000 | false | 150 | 0.04 | 3 |
+| safehouse | Safehouse | 5 | 800000 | false | 300 | 0.02 | 5 |
+| compound | Compound | 6 | 2000000 | false | 600 | 0.01 | 8 |
+| mansion | Mansion & Grounds | 7 | 4000000 | false | 1500 | 0.005 | 12 |
 
-`dailyCost` is the tier's rent. An owned tier's daily bill is its utilities, `utilitiesBase + round(utilitiesFraction × dailyCost)` (ADR 0006). The bedsit is rent-only. Moves are one tier at a time: rent (no up-front cost) or buy (`buyPrice`), up or down; see §3.3 "Tier moves".
+`dailyCost` is the tier's rent. An owned tier's daily bill is its hardcoded `ownedDailyCost` (studio 35, flat 58, townhouse 65, safehouse 80, compound 110, mansion 200; ADR 0006). The studio has no floorplan or HQ plate of its own and uses the bedsit's. The bedsit is rent-only. Moves are one tier at a time: rent (no up-front cost) or buy (`buyPrice`), up or down; see §3.3 "Tier moves".
 
-**Bills** (`bills`): `utilitiesBase` 50, `utilitiesFraction` 0.10, `interestRate` 0.05, `interestThresholdDays` 5, `downgradeThresholdDays` 10. Interest/thresholds feed arrears (ADR 0006).
+**Bills** (`bills`): `interestRate` 0.05, `interestThresholdDays` 5, `downgradeThresholdDays` 10. Interest/thresholds feed arrears (ADR 0006).
 
 Tier descriptions: extract verbatim from HTML const `HOME_TIERS`.
 

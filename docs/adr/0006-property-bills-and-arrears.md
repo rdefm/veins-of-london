@@ -21,18 +21,19 @@ implemented.
 ## Approved rules
 
 **Tenure.** `home.tenure` is `"rented"` or `"owned"`. The bedsit is rent-only.
-From the flat upward each tier can be rented or bought.
+From the studio upward each tier can be rented or bought.
 
 | Tier | Rent/day (= `dailyCost`) | Buy price | Owned utilities/day |
 |---|---|---|---|
 | bedsit | 50 | — (rent only) | — |
+| studio | 60 | 100,000 | 35 |
 | flat | 80 | 200,000 | 58 |
 | townhouse | 150 | 500,000 | 65 |
 | safehouse | 300 | 800,000 | 80 |
 | compound | 600 | 2,000,000 | 110 |
 | mansion | 1500 | 4,000,000 | 200 |
 
-- Utilities = `50 + round(0.10 × dailyCost)`.
+- Utilities are hardcoded per tier as `ownedDailyCost` in `data/home.json`.
 - The buy price replaces `upgradeCost`. Renting has no up-front cost.
 - **Buy-out:** a player renting the current tier may buy it at the full buy
   price. The tier doesn't change and rooms are kept.
@@ -41,8 +42,8 @@ From the flat upward each tier can be rented or bought.
 - **Today's bill** = `round_epsilon(base × (1 + fx.dailyCost))`, where `base`
   is the rent (rented) or the utilities (owned). The barometer scales only
   today's bill, never arrears or interest.
-- **Data.** The rent-only flag, buy prices, the utilities formula constants
-  (50, 0.10), the interest rate (0.05) and the thresholds (5, 10) all live in
+- **Data.** The rent-only flag, buy prices, the per-tier utilities
+  (`ownedDailyCost`), the interest rate (0.05) and the thresholds (5, 10) all live in
   `data/home.json`. None are hard-coded.
 - **State.** `home.tenure`, `home.arrears` (int £ ≥ 0) and `home.arrearsDays`
   (int ≥ 0) are plain serializable fields covered by snapshot/Rewind.
@@ -120,14 +121,15 @@ the only one. Its trigger stays cash-based, not arrears-based.
 | 9 | 36 | 831 | 9 |
 | 10 | 42 | 953 | 10 → downgrade |
 
-Result: rented bedsit, rooms cleared, arrears 953 kept, days 0. Interest
-resumes from rollover 6 of the new count, and there are no further drops.
+Result: rented studio, rooms cleared, arrears 953 kept, days 0. Interest
+resumes from rollover 6 of the new count; a further 10 rollovers in arrears
+drop it to the bedsit, which has no further drops.
 
 **Repeated shortfall, owned flat (utilities 58), cash 0:**
 - Rollovers 1–5: arrears 58, 116, 174, 232, 290.
 - Rollovers 6–10: interest 15, 18, 22, 26, 30, giving arrears 363, 439, 519,
   603, 691.
-- Result: downgrade to rented bedsit, arrears cleared to 0, days 0.
+- Result: downgrade to rented studio, arrears cleared to 0, days 0.
 
 **Recovery.**
 - Rented bedsit, arrears 400, days 5, cash 0.

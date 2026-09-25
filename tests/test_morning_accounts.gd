@@ -163,10 +163,10 @@ func run() -> void:
 		assert_eq(account["exceptions"], [
 			{ "kind": "arrearsInterest", "amount": 20 },
 			{ "kind": "arrearsShortfall", "amount": 80, "arrears": 500 },
-			{ "kind": "forcedDowngrade", "fromTier": "flat", "toTier": "bedsit", "roomsLost": 1, "arrearsCleared": false, "arrears": 500 },
-			{ "kind": "arrearsCountdown", "arrears": 500, "tier": "bedsit", "interestInDays": 6 },
+			{ "kind": "forcedDowngrade", "fromTier": "flat", "toTier": "studio", "roomsLost": 1, "arrearsCleared": false, "arrears": 500 },
+			{ "kind": "arrearsCountdown", "arrears": 500, "tier": "studio", "interestInDays": 6, "downgradeInDays": 10 },
 		])
-		assert_eq(MorningAccountsSystem.arrears_label(account["exceptions"][2]), "Exception: lost the Flat for unpaid bills. Renting the Bedsit now. 1 room gone. Still owed £500.")
+		assert_eq(MorningAccountsSystem.arrears_label(account["exceptions"][2]), "Exception: lost the Flat for unpaid bills. Renting the Studio now. 1 room gone. Still owed £500.")
 		assert_true(MorningAccountsSystem.open_after_transition(6), "an arrears account auto-opens like any other")
 		assert_eq(GameState.state["phoneNav"]["app"], "bizbrief")
 
