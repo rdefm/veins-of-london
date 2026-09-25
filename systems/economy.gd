@@ -347,6 +347,8 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 		var item_type: String = item["type"]
 		var qty: int = item["qty"]
 		if kind == "ore":
+			# Taint first: the stock rise below can deliver and settle at once.
+			Contracts.note_player_supplied(item_type)
 			receive_faction_ore(faction_id, item_type, qty)
 		else:
 			# Store-bought stock wasn't crafted at any tier -- files under the

@@ -810,7 +810,7 @@ func _restore_quote_int_types(quote: Dictionary) -> void:
 # sales.activeContracts and each sales.contractHistory entry's own embedded
 # "contract" copy.
 func _restore_contract_int_types(contract: Dictionary) -> void:
-	for key in ["acceptedDay", "dueDay", "weekday"]:
+	for key in ["acceptedDay", "dueDay", "weekday", "periodStartDay"]:
 		_int_key(contract, key)
 	_restore_request_int_types(contract.get("request", {}))
 	_restore_quote_int_types(contract.get("quote", {}))

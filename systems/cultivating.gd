@@ -231,6 +231,8 @@ static func cultivate(vein_id: String) -> Dictionary:
 	# Captured before the block advances: a day rollover can level the vein up.
 	var shown_growth: int = vein["growth"]
 	var level_before: int = vein.get("level", 1)
+	# Tainted before the block ends, so a rollover settlement sees it.
+	Contracts.note_player_tended_vein(vein_id)
 	TimeSystem.advance_time_block()
 
 	var player: Dictionary = GameState.state["player"]
@@ -290,6 +292,7 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 	if not travel["ok"]:
 		return travel
 
+	Contracts.note_player_tended_vein(vein_id)
 	TimeSystem.advance_time_block()
 
 	var amount: int = prune_yield(vein, depth)

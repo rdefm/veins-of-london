@@ -7,6 +7,8 @@ extends RefCounted
 const COMPLETE_XP := 20
 const PARTIAL_XP := 10
 const PARTIAL_PAYMENT_MULTIPLIER := 0.80
+# Beat 6's delegation unlock; a period only qualifies once it is set.
+const DELEGATION_FLAG := "bizA1DelegationUnlocked"
 
 
 static func active_contracts() -> Array:
@@ -58,6 +60,11 @@ static func set_delegated(contract_id: String, delegated: bool) -> Dictionary:
 	if contract.is_empty():
 		return { "ok": false, "reason": "Contract not found." }
 	contract["delegated"] = delegated
+	# Delegating on the period's first day still covers the whole period.
+	if not delegated:
+		contract["delegatedWholePeriod"] = false
+	elif int(contract.get("periodStartDay", -1)) == int(GameState.state["world"]["day"]):
+		contract["delegatedWholePeriod"] = true
 	EventBus.state_changed.emit()
 	if delegated:
 		shared_stock_increased()
@@ -73,6 +80,40 @@ static func set_buy_calc(contract_id: String, enabled: bool) -> Dictionary:
 	contract["buyCalc"] = enabled
 	EventBus.state_changed.emit()
 	return { "ok": true, "buyCalc": enabled }
+
+
+# R§3.10 "Unattended proof": every period starts untainted, and counts as
+# delegated throughout only if delegation is already on at its start.
+static func start_period(contract: Dictionary) -> void:
+	contract["periodStartDay"] = int(GameState.state["world"]["day"])
+	contract["playerAssisted"] = false
+	contract["delegatedWholePeriod"] = contract.get("delegated", false)
+
+
+# The player put the requested type into play (crafted, unstashed or bought
+# it): every active period requesting that type counts as player-assisted.
+static func note_player_supplied(type_id: String) -> void:
+	for contract in active_contracts():
+		for line in request_lines(contract["request"]):
+			if line["type"] == type_id:
+				contract["playerAssisted"] = true
+
+
+# The player cultivated or pruned a vein: taints every active period when
+# the vein sits on any cultivator's list.
+static func note_player_tended_vein(vein_id: String) -> void:
+	if Rooms.cultivator_of(vein_id) == null:
+		return
+	for contract in active_contracts():
+		contract["playerAssisted"] = true
+
+
+static func _period_qualifies(contract: Dictionary, complete: bool) -> bool:
+	return contract["contractType"] == "recurring" and complete \
+		and contract.get("delegated", false) \
+		and contract.get("delegatedWholePeriod", contract.get("delegated", false)) \
+		and not contract.get("playerAssisted", false) \
+		and GameState.state["flags"].get(DELEGATION_FLAG, false)
 
 
 # business-spec.md: a mixed contract needs every one of its lines
@@ -149,6 +190,8 @@ static func deliver(contract_id: String, qty: int, manual: bool = true) -> Dicti
 		budget -= take
 	if delivered_total <= 0:
 		return { "ok": false, "reason": "No shared stock available." }
+	if manual:
+		contract["playerAssisted"] = true
 	if not is_complete(contract):
 		EventBus.state_changed.emit()
 		return { "ok": true, "delivered": delivered_total, "complete": false }
@@ -195,6 +238,7 @@ static func settle(contract_id: String) -> Dictionary:
 		"id": settlement_id, "contractId": contract["id"], "periodId": contract["periodId"],
 		"day": GameState.state["world"]["day"], "payment": payment,
 		"complete": complete, "delivered": contract["delivered"].duplicate(true),
+		"qualified": _period_qualifies(contract, complete),
 	}
 	sales["nextSettlementId"] += 1
 	sales["settlements"].append(settlement)
@@ -213,6 +257,7 @@ static func settle(contract_id: String) -> Dictionary:
 		sales["nextPeriodId"] += 1
 		contract["dueDay"] = int(contract["dueDay"]) + 7
 		contract["delivered"] = {}
+		start_period(contract)
 	else:
 		active_contracts().erase(contract)
 		sales["priorityOrder"].erase(contract_id)

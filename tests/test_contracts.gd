@@ -2,9 +2,114 @@ extends "res://tests/test_base.gd"
 
 const OffersSystem := preload("res://systems/offers.gd")
 const ContractsSystem := preload("res://systems/contracts.gd")
+const Fixtures := preload("res://tests/support/fixtures.gd")
 
 
 func run() -> void:
+	run_case("unattended_short_first_period_qualifies", func():
+		var contract := _proof_contract()
+		var settlement := _fill_and_settle(contract)
+		assert_true(settlement["complete"])
+		assert_true(settlement["qualified"], "delegated on the first day, untouched, after the flag")
+	)
+
+	run_case("unattended_manual_delivery_disqualifies_that_period_only", func():
+		var contract := _proof_contract()
+		ContractsSystem.set_delegated(contract["id"], false)
+		GameState.state["player"]["orichalchum"]["physics"] = ContractsSystem.remaining_qty(contract)
+		var manual: Dictionary = ContractsSystem.deliver(contract["id"], ContractsSystem.remaining_qty(contract))["settlement"]
+		assert_true(manual["complete"])
+		assert_true(not manual["qualified"])
+		ContractsSystem.set_delegated(contract["id"], true)
+		assert_true(_fill_and_settle(contract)["qualified"], "the next period starts clean")
+	)
+
+	run_case("unattended_needs_recurring_whole_period_delegation_completion_and_the_flag", func():
+		var contract := _proof_contract()
+		GameState.state["flags"].erase(ContractsSystem.DELEGATION_FLAG)
+		assert_true(not _fill_and_settle(contract)["qualified"], "settled before the Beat 6 flag")
+		GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
+		GameState.state["world"]["day"] += 1
+		ContractsSystem.set_delegated(contract["id"], false)
+		ContractsSystem.set_delegated(contract["id"], true)
+		assert_true(not _fill_and_settle(contract)["qualified"], "undelegated partway through the period")
+		GameState.state["world"]["day"] = contract["dueDay"]
+		ContractsSystem.daily_tick()
+		var last: Dictionary = GameState.state["sales"]["settlements"].back()
+		assert_true(not last["complete"] and not last["qualified"], "an empty period is incomplete")
+		assert_true(_fill_and_settle(contract)["qualified"])
+
+		var one_off := _accept_life_contract()
+		ContractsSystem.set_delegated(one_off["id"], true)
+		GameState.state["player"]["orichalchum"]["life"] = 5
+		EventBus.shared_stock_increased.emit()
+		assert_true(not GameState.state["sales"]["settlements"].back()["qualified"], "one-offs never qualify")
+	)
+
+	run_case("unattended_player_actions_on_the_requested_type_taint", func():
+		var contract := _proof_contract()
+		Economy.execute_faction_purchase("guild", [{ "kind": "ore", "type": "physics", "qty": 1 }])
+		assert_true(not _fill_and_settle(contract)["qualified"], "bought the requested ore")
+
+		GameState.state["player"]["stash"]["orichalchum"]["physics"] = 1
+		Stash.move_ore_to_shared("physics", 1)
+		assert_true(not _fill_and_settle(contract)["qualified"], "unstashed the requested ore")
+
+		var pearls := _add_weekly_contract({ "kind": "consumable", "type": "timePearl", "qty": 1 })
+		GameState.state["player"]["orichalchum"]["time"] = 1000
+		var settlements: Array = GameState.state["sales"]["settlements"]
+		var settled_before := settlements.size()
+		Rng.set_seed(1)
+		for attempt in 50:
+			if settlements.size() > settled_before:
+				break
+			Crafting.attempt_craft("timePearl")
+		assert_eq(settlements.back()["contractId"], pearls["id"])
+		assert_true(not settlements.back()["qualified"], "crafted the requested recipe")
+	)
+
+	run_case("unattended_tending_a_cultivator_vein_taints_every_period", func():
+		var contract := _proof_contract()
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["flags"]["bizOwenCultivationRole"] = true
+		Contacts.set_role("owen", "cultivation")
+		Rooms.assign_vein("owen", "v1")
+		assert_true(Cultivating.cultivate("v1")["ok"])
+		assert_true(not _fill_and_settle(contract)["qualified"], "cultivated an assigned vein")
+		assert_true(Cultivating.prune("v1", GameData.VEIN_GROWTH["pruneLightDepth"])["ok"])
+		assert_true(not _fill_and_settle(contract)["qualified"], "pruned an assigned vein")
+	)
+
+	run_case("unattended_unrelated_player_actions_leave_the_period_intact", func():
+		var contract := _proof_contract()
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
+		assert_true(Cultivating.cultivate("v1")["ok"], "a vein on no cultivator's list")
+		assert_true(Cultivating.prune("v1", GameData.VEIN_GROWTH["pruneLightDepth"])["ok"])
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		Crafting.attempt_craft("timePearl")
+		Economy.execute_faction_purchase("guild", [{ "kind": "ore", "type": "time", "qty": 1 }])
+		GameState.state["player"]["stash"]["orichalchum"]["life"] = 1
+		Stash.move_ore_to_shared("life", 1)
+		assert_true(_fill_and_settle(contract)["qualified"])
+	)
+
+	run_case("unattended_sales_calc_purchases_never_taint", func():
+		_setup_buy_calc_lanes()
+		GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
+		GameState.state["business"]["pot"] = 5000
+		var created: Dictionary = OffersSystem.create_offer({
+			"id": "t_life_weekly", "source": "scripted", "contractType": "recurring", "weekday": 1,
+			"request": { "kind": "ore", "type": "life", "qty": 2 },
+		})
+		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
+		ContractsSystem.set_delegated(contract["id"], true)
+		ContractsSystem.set_buy_calc(contract["id"], true)
+		ContractsSystem.process_delegated_deliveries()
+		assert_eq(GameState.state["business"]["week"]["expenses"].size(), 1)
+		assert_true(GameState.state["sales"]["settlements"][0]["qualified"])
+	)
+
 	run_case("manual_partial_delivery_spends_shared_stock_only_and_no_time", func():
 		GameState.reset()
 		var contract := _accept_life_contract()
@@ -363,6 +468,35 @@ func _setup_buy_calc_lanes() -> void:
 	GameState.state["flags"]["collectiveLaneUnlocked"] = true
 	GameState.state["factions"]["collective"]["relation"] = 90
 	GameState.state["factions"]["collective"]["oreStock"] = { "life": 2 }
+
+
+# Fresh state with the Beat 6 flag set and Sales staffed, then a weekly
+# physics ×3 contract delegated on its first day.
+func _proof_contract() -> Dictionary:
+	GameState.reset()
+	GameState.state["contacts"]["archie"]["recruited"] = true
+	Contacts.assign_to_room("archie", "ops")
+	GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
+	GameState.state["player"]["cash"] = 100000
+	return _add_weekly_contract({ "kind": "ore", "type": "physics", "qty": 3 })
+
+
+func _add_weekly_contract(request: Dictionary) -> Dictionary:
+	var created: Dictionary = OffersSystem.create_offer({
+		"id": "t_weekly_%s" % request["type"], "source": "scripted", "contractType": "recurring", "weekday": 1,
+		"request": request,
+	})
+	var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
+	ContractsSystem.set_delegated(contract["id"], true)
+	return contract
+
+
+# Stocks the contract's ore and lets Sales close the period.
+func _fill_and_settle(contract: Dictionary) -> Dictionary:
+	var ore_type: String = contract["request"]["type"]
+	GameState.state["player"]["orichalchum"][ore_type] = ContractsSystem.remaining_qty(contract)
+	EventBus.shared_stock_increased.emit()
+	return GameState.state["sales"]["settlements"].back()
 
 
 func _accept_life_contract() -> Dictionary:

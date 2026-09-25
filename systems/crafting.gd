@@ -143,6 +143,7 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	var skill: int = player["craftingSkill"]
 	var costs: Dictionary = calc_cost(recipe_key, skill)
+	Contracts.note_player_supplied(recipe_key)
 
 	# Deducted regardless of outcome.
 	for ingredient in costs:

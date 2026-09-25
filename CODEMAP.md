@@ -36,7 +36,7 @@ Data file per system: see `data/*.json` below.
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`) |
-| contracts.gd | Sales contract delivery, priority, settlement (paid to the business pot while active); per-contract `buyCalc` shortfall purchases from the cheapest open faction lanes, paid from the pot |
+| contracts.gd | Sales contract delivery, priority, settlement (paid to the business pot while active); per-contract `buyCalc` shortfall purchases from the cheapest open faction lanes, paid from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements |
 | crafting.gd | Recipe crafting |
 | cultivating.gd | Vein growth / cultivate / prune |
 | debug_start.gd | Maximal-unlock debug state |
