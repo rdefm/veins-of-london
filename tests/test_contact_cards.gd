@@ -17,11 +17,18 @@ func run() -> void:
 			assert_eq(ContactCards.build_recruit_row(key), null, "%s's recruit row must not exist at all" % key)
 	)
 
-	run_case("build_recruit_row_is_unchanged_for_archie_and_james", func():
+	run_case("build_recruit_row_is_absent_for_archie_and_james", func():
 		GameState.reset()
-		assert_true(ContactCards.build_recruit_row("archie") != null, "archie keeps a recruit row")
+		assert_eq(ContactCards.build_recruit_row("archie"), null, "archie recruits by story only")
 		GameState.state["contacts"]["james"]["unlocked"] = true
-		assert_true(ContactCards.build_recruit_row("james") != null, "james keeps a recruit row")
+		assert_eq(ContactCards.build_recruit_row("james"), null, "james recruits by story only")
+	)
+
+	run_case("build_recruit_row_still_shows_for_a_recruitable_contact", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"]["unlocked"] = true
+		GameState.state["contacts"]["des"]["recruitable"] = true
+		assert_true(ContactCards.build_recruit_row("des") != null)
 	)
 
 	# ── §5.5/§7.2: the Trade door ─────────────────────────────────────────

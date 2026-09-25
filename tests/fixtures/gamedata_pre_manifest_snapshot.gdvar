@@ -709,7 +709,11 @@
 "koCooldownDays": 2,
 "raidAssistThreshold": 50,
 "recruitThreshold": 80,
-"recruitable": true,
+"recruitable": false,
+"roleFlags": {
+"sales": "bizArchieSalesRole"
+},
+"roomFreeRoles": true,
 "startRelation": 10,
 "unlocked": true
 },
@@ -745,13 +749,33 @@
 "combatStashMax": 0,
 "koCooldownDays": 2,
 "recruitThreshold": 100,
-"recruitable": true,
+"recruitable": false,
+"roleFlags": {
+"production": "bizJamesProductionRole"
+},
+"roomFreeRoles": true,
 "startRelation": 0,
 "unlocked": false
 },
 "nadia": {
 "recruitThreshold": 0,
 "recruitable": false,
+"startRelation": 0,
+"unlocked": false
+},
+"owen": {
+"combatHpMax": 0,
+"recruitThreshold": 0,
+"recruitable": false,
+"roleFlags": {
+"cultivation": "bizOwenCultivationRole",
+"production": "bizOwenProductionRole"
+},
+"roomFreeRoles": true,
+"skillCaps": {
+"crafting": 3,
+"cultivating": 3
+},
 "startRelation": 0,
 "unlocked": false
 }
@@ -3481,6 +3505,9 @@
 "op": "relation",
 "value": 10
 }, {
+"contact": "archie",
+"op": "recruit_contact"
+}, {
 "op": "grant_vein_with_site",
 "vein": {
 "alarmUpgrades": [],
@@ -3590,6 +3617,9 @@
 "contact": "archie",
 "op": "relation",
 "value": 10
+}, {
+"contact": "archie",
+"op": "recruit_contact"
 }, {
 "op": "grant_vein_with_site",
 "vein": {

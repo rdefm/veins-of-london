@@ -11,7 +11,7 @@ file owns today, no history.
 | GameData.gd | Loads/validates every `data/*.json` table at boot |
 | GameState.gd | Pure state tree (Dicts/Arrays/primitives); screens read only |
 | Rng.gd | Seeded RNG for every probabilistic system |
-| SaveManager.gd | Save/load/autosave/export-import; backfills missing keys (pre-tenure homes load owned, bedsit rented), restores JSON ints, KO-clamps a loaded fight's selection |
+| SaveManager.gd | Save/load/autosave/export-import; backfills missing keys (pre-tenure homes load owned, bedsit rented), restores JSON ints, KO-clamps a loaded fight's selection, founder fix-ups (room→role, Archie recruited past home raid) |
 | Snapshots.gd | Bounded snapshot-stack helper backing rewind |
 
 ## systems/*.gd — static-func systems
@@ -33,7 +33,7 @@ Data file per system: see `data/*.json` below.
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
-| contacts.gd | Relation, recruiting, room assignment, XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`) |
+| contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`) |
 | contracts.gd | Sales contract delivery, priority, settlement |
 | crafting.gd | Recipe crafting |
 | cultivating.gd | Vein growth / cultivate / prune |
@@ -66,7 +66,7 @@ Data file per system: see `data/*.json` below.
 | notify.gd | Notifications append/evict |
 | objectives.gd | Objective/questline evaluator |
 | offers.gd | Sales offers: quoting, acceptance, expiry |
-| payroll.gd | Daily wage payment (3 staff roles) |
+| payroll.gd | Daily wage payment for room-staffed hires (founders exempt) |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
 | phone_nav.gd | Phone app/index/thread drill-down nav |
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
@@ -212,7 +212,7 @@ overlays.
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); combat_director.gd (pacing.turnPause) |
-| constants.json | time_system.gd, jobs.gd, GameState.gd (contacts roster incl. handler) |
+| constants.json | time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |

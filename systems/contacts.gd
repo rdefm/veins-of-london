@@ -1,8 +1,16 @@
 class_name Contacts
 extends RefCounted
 
-# Contacts: relation, recruiting, room assignment, contact XP. Per R§3.10.
-# Static funcs only.
+# Contacts: relation, recruiting, room assignment, staff roles, contact XP.
+# Per R§3.10. Static funcs only.
+
+# Staffing a role-room makes its occupant a member of that role (R§3.10
+# "Staff roles").
+const ROOM_ROLES := {
+	"ops": "sales",
+	"veinStation": "cultivation",
+	"lab": "production",
+}
 
 
 static func award_relation(contact_id: String, amount: int) -> void:
@@ -36,6 +44,87 @@ static func recruit(contact_id: String) -> Dictionary:
 	return { "ok": true }
 
 
+# Unconditional recruit for story beats (the home-raid debrief's Archie),
+# bypassing can_recruit()'s relation/recruitable gates. Idempotent.
+static func force_recruit(contact_id: String) -> void:
+	var contacts: Dictionary = GameState.state["contacts"]
+	if not contacts.has(contact_id):
+		return
+	contacts[contact_id]["recruited"] = true
+	EventBus.state_changed.emit()
+
+
+# Founders (constants.json roomFreeRoles) may hold a staff role without a room.
+static func is_founder(contact_id: String) -> bool:
+	return bool(GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("roomFreeRoles", false))
+
+
+# The contact's staff role: their founder assignedRole, else the role of the
+# room they staff, else null.
+static func role_of(contact_id: String) -> Variant:
+	var c: Dictionary = GameState.state["contacts"].get(contact_id, {})
+	if c.is_empty() or not c["recruited"]:
+		return null
+	if c.get("assignedRole") != null:
+		return c["assignedRole"]
+	var room: Variant = c.get("assignedRoom")
+	if room != null and ROOM_ROLES.has(room):
+		return ROOM_ROLES[room]
+	return null
+
+
+static func contacts_in_role(role: String) -> Array:
+	var result: Array = []
+	for contact_id in GameState.state["contacts"].keys():
+		if role_of(contact_id) == role:
+			result.append(contact_id)
+	return result
+
+
+# The contact whose salesSkill drives sourcing and who earns sales XP: the
+# first Sales role holder, or null.
+static func sales_contact() -> Variant:
+	var holders := contacts_in_role("sales")
+	return null if holders.is_empty() else holders[0]
+
+
+# Room-free roles a founder may currently take, each unlocked by the flag
+# its constants.json roleFlags entry names. Non-founders reach a role only
+# by staffing its room, so this is always empty for them.
+static func available_roles(contact_id: String) -> Array:
+	var result: Array = []
+	if not is_founder(contact_id):
+		return result
+	var role_flags: Dictionary = GameData.CONTACTS_DEFAULTS[contact_id].get("roleFlags", {})
+	var flags: Dictionary = GameState.state["flags"]
+	for role in role_flags.keys():
+		if flags.get(role_flags[role], false):
+			result.append(role)
+	return result
+
+
+static func is_role_available(contact_id: String, role: String) -> bool:
+	return available_roles(contact_id).has(role)
+
+
+# Sets a founder's room-free role (null clears it). Exclusive with
+# assignedRoom: setting a role vacates any room they held.
+static func set_role(contact_id: String, role: Variant) -> Dictionary:
+	var contacts: Dictionary = GameState.state["contacts"]
+	if not contacts.has(contact_id) or not contacts[contact_id]["recruited"]:
+		return { "ok": false, "reason": "Not working with you." }
+	if not is_founder(contact_id):
+		return { "ok": false, "reason": "Assign them to a room instead." }
+	if role != null and not is_role_available(contact_id, role):
+		return { "ok": false, "reason": "That role isn't open to them yet." }
+	var c: Dictionary = contacts[contact_id]
+	c["assignedRole"] = role
+	if role != null:
+		c["assignedRoom"] = null
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
 static func get_contact_in_room(room_id: String) -> Variant:
 	var contacts: Dictionary = GameState.state["contacts"]
 	for contact_id in contacts.keys():
@@ -55,6 +144,7 @@ static func assign_to_room(contact_id: String, room_id: String) -> void:
 			contacts[cid]["assignedRoom"] = null
 	if contact_id != "none" and contacts.has(contact_id):
 		contacts[contact_id]["assignedRoom"] = room_id
+		contacts[contact_id]["assignedRole"] = null
 	EventBus.state_changed.emit()
 
 
@@ -75,6 +165,9 @@ static func award_contact_xp(contact_id: String, skill: String, amount: int) -> 
 			levels = GameData.CULTIVATING_XP_LEVELS
 	c[xp_key] = c[xp_key] + amount
 	var max_level: int = levels.size() - 1
+	var caps: Dictionary = GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("skillCaps", {})
+	if caps.has(skill):
+		max_level = mini(max_level, int(caps[skill]))
 	while c[skill_key] < max_level and c[xp_key] >= levels[c[skill_key] + 1]:
 		c[skill_key] += 1
 		Notify.push("%s's %s skill reached level %d." % [display_name(contact_id), skill, c[skill_key]], Notify.CATEGORY_SUCCESS)
@@ -182,5 +275,7 @@ static func display_name(contact_id: String) -> String:
 			return "Archie"
 		"james":
 			return "James"
+		"owen":
+			return "Owen"
 		_:
 			return contact_id.capitalize()

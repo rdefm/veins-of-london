@@ -657,8 +657,9 @@ func run() -> void:
 		assert_eq(GameData.MAP_LAYOUT["districts"]["soho"]["stopSlots"].size(), 2, "soho siteCap 0 -> 2 stopSlots")
 
 		# collective1-07, spec §9.3/§9.5
-		assert_true(GameData.CONTACTS_DEFAULTS["archie"]["recruitable"], "archie stays recruitable")
-		assert_true(GameData.CONTACTS_DEFAULTS["james"]["recruitable"], "james stays recruitable")
+		for key in ["archie", "james", "owen"]:
+			assert_true(not GameData.CONTACTS_DEFAULTS[key]["recruitable"], "%s recruits by story only" % key)
+			assert_true(GameData.CONTACTS_DEFAULTS[key]["roomFreeRoles"], "%s is a founder" % key)
 		for key in ["des", "nadia", "hakim"]:
 			assert_true(not GameData.CONTACTS_DEFAULTS[key]["recruitable"], "%s is never recruitable" % key)
 			assert_eq(GameData.CONTACTS_DEFAULTS[key]["startRelation"], 0, "%s starts at relation 0" % key)

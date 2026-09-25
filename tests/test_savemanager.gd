@@ -391,6 +391,43 @@ func run() -> void:
 		assert_eq(filled["home"]["guardCount"], 0, "a save from before guardCount existed should backfill it to 0")
 	)
 
+	run_case("loading_a_save_with_archie_in_a_room_converts_him_to_the_sales_role", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["contacts"]["archie"]["recruited"] = true
+		legacy["contacts"]["archie"]["assignedRoom"] = "ops"
+		legacy["contacts"]["archie"].erase("assignedRole")
+
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		var archie: Dictionary = GameState.state["contacts"]["archie"]
+		assert_eq(archie["assignedRole"], "sales", "a founder's room becomes the matching role")
+		assert_eq(archie["assignedRoom"], null, "the room assignment is cleared")
+		assert_true(ContractsSystem.has_staffed_sales(), "Archie's founder role staffs Sales")
+	)
+
+	run_case("loading_an_old_save_past_the_home_raid_recruits_archie_and_drops_relation_recruitment", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["contacts"].erase("owen")
+		legacy["contacts"]["archie"]["recruitable"] = true
+		legacy["contacts"]["james"]["recruitable"] = true
+		legacy["flags"]["homeRaidEventSeen"] = true
+
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		var contacts: Dictionary = GameState.state["contacts"]
+		assert_true(contacts["archie"]["recruited"], "past the home raid means Archie is recruited")
+		assert_true(not contacts["archie"]["recruitable"], "Archie recruits by story only")
+		assert_true(not contacts["james"]["recruitable"], "James recruits by story only")
+		assert_true(contacts.has("owen") and not contacts["owen"]["unlocked"], "Owen backfills hidden")
+	)
+
+	run_case("loading_an_old_save_before_the_home_raid_leaves_archie_unrecruited", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		assert_true(not GameState.state["contacts"]["archie"]["recruited"])
+	)
+
 	run_case("new_game_starts_in_a_rented_bedsit_with_no_arrears", func():
 		GameState.reset()
 		var home: Dictionary = GameState.state["home"]

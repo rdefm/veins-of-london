@@ -20,8 +20,8 @@ func run() -> void:
 		for b in screen.find_children("", "Button", true, false):
 			if (b as Button).has_meta("contact_quick_action"):
 				quick[(b as Button).get_meta("contact_quick_action")] = b
-		assert_true(quick.has("messages") and quick.has("trade") and quick.has("recruit"))
-		assert_true((quick["recruit"] as Button).disabled, "recruitment remains relation-gated")
+		assert_true(quick.has("messages") and quick.has("trade"))
+		assert_true(not quick.has("recruit"), "Archie recruits by story, not relation")
 		(quick["trade"] as Button).pressed.emit()
 		assert_eq(GameState.state["modal"]["type"], "sell_menu", "Trade retains Archie's sale route")
 	)

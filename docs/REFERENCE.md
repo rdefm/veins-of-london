@@ -264,7 +264,7 @@ Muggers: generated, see §3.7.
 **Squad combat additions (§3.7a):** every template also carries a flat, authored `speed` (turn-order value, same units as the player's `GameData.COMBAT_SPEED_BY_LEVEL`, draft/needs balance sign-off). `data/enemies.json` also holds the Combat Skill curves as top-level tables — `combatXpLevels`, `combatAttackBonusByLevel`, `combatSpeedByLevel` — loaded into `GameData.COMBAT_XP_LEVELS`/`COMBAT_ATTACK_BONUS_BY_LEVEL`/`COMBAT_SPEED_BY_LEVEL`, the same "curve lives in the nearest relevant data file" precedent `dial.json` already sets for Dial's own tables. See §3.7a for how these are used.
 
 ### 1.11 Misc constants
-`TIME_BLOCKS = ["Morning","Afternoon","Evening"]` · `ARCHIE_ORE_GOAL = 10` · contacts: archie {startRelation:10, unlocked:true, recruitThreshold:80, combatHpMax:50, combatAttackMin:4, combatAttackMax:9, combatStashMax:2, combatHealAmount:15, koCooldownDays:2, raidAssistThreshold:50}, james {startRelation:0, unlocked:false, recruitThreshold:100, combatHpMax:35, combatAttackMin:2, combatAttackMax:4, combatStashMax:0, combatHealAmount:0, koCooldownDays:2, combatSpeed:6, combatDial:{chargesPerDay:3, tier:3, complications:[timePearl, rewind, healingBurst]}} (human-confirmed; see §3.7 "Ally Dial") · James job trust→qty bands: relation ≤1 → 1–3; ≤3 → 3–6; else 5–10; payPerItem = CONSUMABLE_PRICES[recipe].
+`TIME_BLOCKS = ["Morning","Afternoon","Evening"]` · `ARCHIE_ORE_GOAL = 10` · contacts: archie {startRelation:10, unlocked:true, recruitThreshold:80, recruitable:false, roomFreeRoles:true, roleFlags:{sales:bizArchieSalesRole}, combatHpMax:50, combatAttackMin:4, combatAttackMax:9, combatStashMax:2, combatHealAmount:15, koCooldownDays:2, raidAssistThreshold:50}, james {startRelation:0, unlocked:false, recruitThreshold:100, recruitable:false, roomFreeRoles:true, roleFlags:{production:bizJamesProductionRole}, combatHpMax:35, combatAttackMin:2, combatAttackMax:4, combatStashMax:0, combatHealAmount:0, koCooldownDays:2, combatSpeed:6, combatDial:{chargesPerDay:3, tier:3, complications:[timePearl, rewind, healingBurst]}}, owen {startRelation:0, unlocked:false, recruitThreshold:0, recruitable:false, combatHpMax:0, roomFreeRoles:true, skillCaps:{cultivating:3, crafting:3}, roleFlags:{cultivation:bizOwenCultivationRole, production:bizOwenProductionRole}} (human-confirmed; see §3.7 "Ally Dial"; Business Act 1 spec for founders) · James job trust→qty bands: relation ≤1 → 1–3; ≤3 → 3–6; else 5–10; payPerItem = CONSUMABLE_PRICES[recipe].
 
 **James job daily offer roll** (bugfixes-30, human-confirmed): on the daily tick, when no James job is active, roll sequentially — type-1 first, type-2 only if type-1 misses:
 - **Type-1 (flat pay):** `{recipeKey/qty}`-less job, pay `£300` flat for spending one time block. Offer chance = 100% if `player.cash <= 100`, else a 15% baseline.
@@ -376,24 +376,28 @@ state = {
     # already needs relation 100; for the rest can_join_combat()'s own
     # combatHpMax gate already excludes them from ever joining a fight.
     archie: { relation:10, unlocked:true,  recruited:false, recruitThreshold:80,
-              craftingSkill:1, craftingXP:0, cultivatingSkill:1, cultivatingXP:0, salesSkill:1, salesXP:0, assignedRoom:null,
+              craftingSkill:1, craftingXP:0, cultivatingSkill:1, cultivatingXP:0, salesSkill:1, salesXP:0, assignedRoom:null, assignedRole:null,
               combatHpMax:50, combatHp:50, combatAttackMin:4, combatAttackMax:9,
               combatStashMax:2, combatStash:2, combatHealAmount:15,
               koCooldownDays:2, koCooldownUntilDay:null, raidAssistThreshold:50 },
     james:  { relation:0,  unlocked:false, recruited:false, recruitThreshold:100,
-              craftingSkill:1, craftingXP:0, cultivatingSkill:1, cultivatingXP:0, salesSkill:1, salesXP:0, assignedRoom:null,
+              craftingSkill:1, craftingXP:0, cultivatingSkill:1, cultivatingXP:0, salesSkill:1, salesXP:0, assignedRoom:null, assignedRole:null,
               combatHpMax:35, combatHp:35, combatAttackMin:2, combatAttackMax:4,
               combatStashMax:0, combatStash:0, combatHealAmount:0, combatSpeed:6,
               koCooldownDays:2, koCooldownUntilDay:null, raidAssistThreshold:0,
               dialCharges:3 },   # every contact carries dialCharges (0 without a combatDial)
+    owen:   { relation:0, unlocked:false, recruited:false, recruitable:false, combatHpMax:0, ... },  # same shape; hidden until Beat 3
   },
+  # assignedRole (null|"sales"|"cultivation"|"production"): a founder's
+  # room-free staff role, exclusive with assignedRoom (setting one clears the
+  # other). See §3.10 "Staff roles".
   # 21-contact-roles-sales-skill: salesSkill/salesXP use the same threshold
   # ladder [0, 0, 80, 220, 500, 1000] (data/home.json's salesXpLevels) as
   # craftingSkill/cultivatingSkill above. assignedRoom is the single gate
   # for all three room-based roles — Sales ("ops"/Operations Room),
   # Production ("lab"/Improved Lab), Procurement ("veinStation"/Vein
-  # Cultivation Station) — one contact per room, one room per contact; no
-  # parallel staff/role state model exists.
+  # Cultivation Station) — one contact per room, one room per contact —
+  # except for founders, who hold assignedRole instead (§3.10 "Staff roles").
 
   combat: { active:false, context:"raid", veinId:null, enemies:[], focusedEnemyIndex:0, log:[],
             outcome:null, frozenTurns:0, motionTurns:0, motionPower:0,
@@ -600,7 +604,7 @@ Supersedes the single-`enemy` framing in §3.7 wherever it conflicts: `combat.en
 - **Unchanged by this pass:** ally roster shape/behaviour (§3.7's "Ally combat" bullet) beyond adding `speed`; win/loss/flee outcome dispatch (§3.7's onWin table); Rewind/snapshot mechanics (§3.9) beyond snapshotting `enemies`/`focusedEnemyIndex` in place of the old single `enemy`.
 
 ### 3.8 Home-raid event chain
-Trigger: `homeRaidEventPending` true → on next visit to HQ, launch. Flow: intro event (3 cards) → combat vs raider (hp 35, atk 6–14, context "home_raid") → debrief event (WIN or LOSS variant). Loss additionally: carried `orichalchum` halved (floor) — this used to also separately halve a `storedOre` pool, but that field was merged into `orichalchum` (§2's storedOre merge note), so there is only the one pool to lose now. Debrief completion (both variants): `homeRaidEventSeen = true`, `homeRaidWon` per outcome, `archiePartnerSeen = true`, `homeUnlocked = true`, `securityContactUnlocked = true`, archie relation +10, grant a vein (time-type, growth `seedGrowth` (20), rampantDays 0, security none, district "whitechapel", location "Whitechapel, behind the old brewery", claimedOnDay = today), notification "HQ's workbench is open now." (now that `homeUnlocked` is genuinely true), → home.
+Trigger: `homeRaidEventPending` true → on next visit to HQ, launch. Flow: intro event (3 cards) → combat vs raider (hp 35, atk 6–14, context "home_raid") → debrief event (WIN or LOSS variant). Loss additionally: carried `orichalchum` halved (floor) — this used to also separately halve a `storedOre` pool, but that field was merged into `orichalchum` (§2's storedOre merge note), so there is only the one pool to lose now. Debrief completion (both variants): `homeRaidEventSeen = true`, `homeRaidWon` per outcome, `archiePartnerSeen = true`, `homeUnlocked = true`, `securityContactUnlocked = true`, archie relation +10, Archie recruited (`recruit_contact` op; load fix-up also recruits him on any save with `homeRaidEventSeen`), grant a vein (time-type, growth `seedGrowth` (20), rampantDays 0, security none, district "whitechapel", location "Whitechapel, behind the old brewery", claimedOnDay = today), notification "HQ's workbench is open now." (now that `homeUnlocked` is genuinely true), → home.
 
 The chain plays once. Later HQ raids defended from the alarm (`Home.trigger_defend()`) use their own context `"home_alarm_defend"` (same raider, no `onWin`): no intro/debrief events, flags untouched. Win → nothing lost; loss or flee → exactly the undefended-raid loss (`Home._apply_raid_loss()`, not the quest's halving); either way → phone home.
 
@@ -610,7 +614,9 @@ The chain plays once. Later HQ raids defended from the alarm (`Home.trigger_defe
 - **Event rewind:** the event runner snapshots full `state` before applying each card's effects; Rewind pops one card-frame (M0-T13).
 
 ### 3.10 Contacts, rooms, jobs
-- `awardRelation(id, n)`. Recruit at threshold: sets recruited, notification, assignable to rooms (one contact per room; assigning vacates). A tier change wipes every room (§3.3 "Tier moves"), unassigning its contact.
+- `awardRelation(id, n)`. Recruit at threshold (only contacts with `recruitable: true` — Archie, James and Owen are story-recruited via the `recruit_contact` effect op): sets recruited, notification, assignable to rooms (one contact per room; assigning vacates). A tier change wipes every room (§3.3 "Tier moves"), unassigning its contact.
+- **Staff roles** (Business Act 1): roles are `sales`/`cultivation`/`production`. A room hire holds the role of their room (`ops`→Sales, `veinStation`→Cultivation, `lab`→Production). Founders (`roomFreeRoles: true`: Archie, James, Owen) instead hold `assignedRole` with no room, via `Contacts.set_role()`, only once the flag named in their `roleFlags` is true (Archie Sales from Beat 2; Owen Cultivation from Beat 3, Production after his crafting event; James Production from Beat 5). `assignedRole` and `assignedRoom` are exclusive; one role per contact; several contacts may share a role. Founders never draw a daily wage (`Payroll.pay_wages()` skips them) and are not offered in HQ room assignment. `Contracts.has_staffed_sales()` = any contact holds Sales (a room hire only once today's wage is paid). Load fix-up: a founder with a role-room is converted to its `assignedRole`, room cleared; `recruitable` is re-read from constants.json.
+- **Skill caps:** optional `skillCaps` map per contact in constants.json (Owen: `{cultivating: 3, crafting: 3}`); contact-XP level-ups stop at `min(ladder max, cap)`.
 - **Ally combat eligibility** (44-archie-combat-ally): `Contacts.can_join_combat(id)` = recruited AND `combatHpMax > 0` (a combat kit is defined for this contact) AND not currently on KO cooldown (`koCooldownUntilDay == null` or `world.day >= koCooldownUntilDay`). No relation check — joining a defense fight is a lower bar than recruiting at all. See §3.7 for the fight itself.
 - **Raid-assist eligibility** (45-archie-raid-assist): `Contacts.can_assist_raid(id)` = `relation >= raidAssistThreshold` (archie: 50) AND `can_join_combat(id)` — a higher, separate bar than defend's auto-join, since being asked along on an offensive raid is a bigger ask than defending shared ground. Gates the raid-initiation UI's "Bring Archie" toggle only; see §3.7 for how the choice reaches the fight itself.
 - **Lab (daily):** contact in lab crafts each unlocked recipe up to its effective target, using the CONTACT's skill in the §3.5 formulas (workshopBonus included), consuming player ore, awarding contact XP (full/⅓). Effective target = `labThresholds[recipe]` (personal inventory target), plus — when `labCoverContracts[recipe]` is on (ticket 30) — the summed undelivered quantity of every active contract requesting that item (a recurring contract's next period doesn't exist in state until settlement creates it, so this already excludes any future period). Additive, personal-target-first-reserved: Sales (§3.10 below / Contracts._shared_stock) may only deliver from the contract-need portion of stock, never the personal-target reserve. When shared ore can't cover every recipe's attempts, the recipe with the highest-priority (lowest sales.priorityOrder index) covered, unmet contract need is crafted first; every other recipe follows in `labThresholds`' own key-insertion order.

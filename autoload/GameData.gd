@@ -1101,7 +1101,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# unlock_contact flips contacts.<id>.unlocked; push_message appends
 	# a plain unread text (no follow-up action); queue_pending_message
 	# is push_message's follow-up-action cousin (Messages.queue_pending()).
-	"unlock_contact", "push_message",
+	# recruit_contact is Contacts.force_recruit() (story recruits).
+	"unlock_contact", "push_message", "recruit_contact",
 	# faction_relation is "relation"'s faction-facing twin (Factions.
 	# adjust_player_relation); log_method writes state.methodLog[key]=value.
 	"queue_pending_message", "faction_relation",

@@ -10,18 +10,28 @@ func run() -> void:
 
 	run_case("can_recruit_requires_unlocked_not_recruited_and_threshold_met", func():
 		GameState.reset()
-		# archie: unlocked true, relation 10, threshold 80 by default
-		assert_true(not Contacts.can_recruit("archie"), "relation 10 < threshold 80")
+		_make_recruitable("des")
+		assert_true(not Contacts.can_recruit("des"), "relation 10 < threshold 80")
 
-		GameState.state["contacts"]["archie"]["relation"] = 80
-		assert_true(Contacts.can_recruit("archie"), "unlocked, not recruited, relation meets threshold")
+		GameState.state["contacts"]["des"]["relation"] = 80
+		assert_true(Contacts.can_recruit("des"), "unlocked, not recruited, relation meets threshold")
 
-		GameState.state["contacts"]["archie"]["recruited"] = true
-		assert_true(not Contacts.can_recruit("archie"), "already recruited")
+		GameState.state["contacts"]["des"]["recruited"] = true
+		assert_true(not Contacts.can_recruit("des"), "already recruited")
 
-		# james starts unlocked:false
+		_make_recruitable("nadia")
+		GameState.state["contacts"]["nadia"]["unlocked"] = false
+		GameState.state["contacts"]["nadia"]["relation"] = 1000
+		assert_true(not Contacts.can_recruit("nadia"), "not unlocked yet, regardless of relation")
+	)
+
+	run_case("archie_and_james_are_never_relation_recruitable", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["relation"] = 1000
+		GameState.state["contacts"]["james"]["unlocked"] = true
 		GameState.state["contacts"]["james"]["relation"] = 1000
-		assert_true(not Contacts.can_recruit("james"), "not unlocked yet, regardless of relation")
+		assert_true(not Contacts.can_recruit("archie"))
+		assert_true(not Contacts.can_recruit("james"))
 	)
 
 	# collective1-07, spec §7.1: Des/Nadia/Hakim are never recruitable, even
@@ -34,10 +44,11 @@ func run() -> void:
 
 	run_case("recruit_sets_recruited_and_notifies", func():
 		GameState.reset()
-		GameState.state["contacts"]["archie"]["relation"] = 80
-		var result := Contacts.recruit("archie")
+		_make_recruitable("des")
+		GameState.state["contacts"]["des"]["relation"] = 80
+		var result := Contacts.recruit("des")
 		assert_true(result["ok"], "should succeed once eligible")
-		assert_true(GameState.state["contacts"]["archie"]["recruited"], "recruited flag set")
+		assert_true(GameState.state["contacts"]["des"]["recruited"], "recruited flag set")
 		var found := false
 		for n in GameState.state["notifications"]:
 			if n["text"].contains("now working with you"):
@@ -47,9 +58,10 @@ func run() -> void:
 
 	run_case("recruit_fails_when_not_eligible", func():
 		GameState.reset()
-		var result := Contacts.recruit("archie")
+		_make_recruitable("des")
+		var result := Contacts.recruit("des")
 		assert_true(not result["ok"], "relation 10 < threshold 80, should fail")
-		assert_true(not GameState.state["contacts"]["archie"]["recruited"], "not recruited")
+		assert_true(not GameState.state["contacts"]["des"]["recruited"], "not recruited")
 	)
 
 	run_case("room_assignment_is_exclusive_one_contact_per_room", func():
@@ -260,3 +272,88 @@ func run() -> void:
 		assert_eq(out["contacts"]["james"]["dialCharges"], 3)
 		assert_eq(out["contacts"]["archie"]["combatHp"], 7, "a contact that already had a kit is untouched")
 	)
+
+	run_case("owen_is_hidden_unrecruitable_and_has_no_combat_kit", func():
+		GameState.reset()
+		var owen: Dictionary = GameState.state["contacts"]["owen"]
+		assert_true(not owen["unlocked"])
+		assert_true(not owen["recruitable"])
+		assert_eq(owen["combatHpMax"], 0)
+		assert_eq(Contacts.display_name("owen"), "Owen")
+	)
+
+	run_case("owen_contact_xp_never_levels_past_his_skill_cap_of_3", func():
+		GameState.reset()
+		Contacts.award_contact_xp("owen", "cultivating", 1000000)
+		Contacts.award_contact_xp("owen", "crafting", 1000000)
+		assert_eq(GameState.state["contacts"]["owen"]["cultivatingSkill"], 3)
+		assert_eq(GameState.state["contacts"]["owen"]["craftingSkill"], 3)
+		Contacts.award_contact_xp("archie", "crafting", 1000000)
+		assert_eq(GameState.state["contacts"]["archie"]["craftingSkill"], GameData.CRAFTING_XP_LEVELS.size() - 1, "uncapped contacts still reach the ladder max")
+	)
+
+	run_case("founder_roles_open_only_via_their_role_flags", func():
+		GameState.reset()
+		Contacts.force_recruit("archie")
+		assert_eq(Contacts.available_roles("archie"), [])
+		assert_true(not Contacts.set_role("archie", "sales")["ok"], "Sales not open before its flag")
+		GameState.state["flags"]["bizArchieSalesRole"] = true
+		assert_eq(Contacts.available_roles("archie"), ["sales"])
+		assert_true(not Contacts.set_role("archie", "production")["ok"], "Archie never gets Production")
+		GameState.state["flags"]["bizOwenCultivationRole"] = true
+		assert_eq(Contacts.available_roles("owen"), ["cultivation"])
+		GameState.state["flags"]["bizOwenProductionRole"] = true
+		GameState.state["flags"]["bizJamesProductionRole"] = true
+		assert_eq(Contacts.available_roles("owen"), ["cultivation", "production"])
+		assert_eq(Contacts.available_roles("james"), ["production"])
+	)
+
+	run_case("set_role_and_assign_to_room_are_mutually_exclusive", func():
+		GameState.reset()
+		Contacts.force_recruit("archie")
+		GameState.state["flags"]["bizArchieSalesRole"] = true
+		Contacts.assign_to_room("archie", "lab")
+		assert_true(Contacts.set_role("archie", "sales")["ok"])
+		assert_eq(GameState.state["contacts"]["archie"]["assignedRoom"], null, "role clears the room")
+		assert_eq(Contacts.role_of("archie"), "sales")
+		Contacts.assign_to_room("archie", "lab")
+		assert_eq(GameState.state["contacts"]["archie"]["assignedRole"], null, "room clears the role")
+		assert_eq(Contacts.role_of("archie"), "production")
+	)
+
+	run_case("non_founders_hold_a_role_only_by_staffing_its_room", func():
+		GameState.reset()
+		GameState.state["contacts"]["des"]["recruited"] = true
+		assert_true(not Contacts.is_founder("des"))
+		assert_true(not Contacts.set_role("des", "sales")["ok"])
+		Contacts.assign_to_room("des", "ops")
+		assert_eq(Contacts.contacts_in_role("sales"), ["des"])
+	)
+
+	run_case("several_contacts_may_share_a_role", func():
+		GameState.reset()
+		for id in ["owen", "james"]:
+			Contacts.force_recruit(id)
+		GameState.state["flags"]["bizOwenProductionRole"] = true
+		GameState.state["flags"]["bizJamesProductionRole"] = true
+		Contacts.set_role("owen", "production")
+		Contacts.set_role("james", "production")
+		assert_eq(Contacts.contacts_in_role("production"), ["james", "owen"])
+	)
+
+	run_case("home_raid_debrief_recruits_archie", func():
+		GameState.reset()
+		for event_id in ["home_raid_debrief_win", "home_raid_debrief_loss"]:
+			GameState.reset()
+			var recruit_ops: Array = GameData.EVENTS[event_id]["on_complete"].filter(func(e): return e["op"] == "recruit_contact")
+			Events.apply_effects(recruit_ops)
+			assert_true(GameState.state["contacts"]["archie"]["recruited"], "%s recruits Archie" % event_id)
+	)
+
+
+func _make_recruitable(contact_id: String) -> void:
+	var c: Dictionary = GameState.state["contacts"][contact_id]
+	c["unlocked"] = true
+	c["recruitable"] = true
+	c["relation"] = 10
+	c["recruitThreshold"] = 80

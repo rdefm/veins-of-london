@@ -269,6 +269,9 @@ func new_game_state() -> Dictionary:
 			# until declined or its accepted deal (incl. any mugging fight) resolves.
 			"archieDealActive": false,
 			"homeRaidEventPending": false, "homeRaidEventSeen": false, "homeRaidWon": false,
+			# Business Act 1 founder role unlocks (constants.json contacts.<id>.roleFlags).
+			"bizArchieSalesRole": false, "bizJamesProductionRole": false,
+			"bizOwenCultivationRole": false, "bizOwenProductionRole": false,
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,
 			# M1-LONDON D5 — district event one-shot flags/counters.
 			"greenwichTipOff": false, "luckyOmen": false, "conclaveNoticed": false, "oddities": 0,
@@ -416,6 +419,9 @@ func _new_contacts_state() -> Dictionary:
 			# gated by the Operations Room via assignedRoom.
 			"salesSkill": 1, "salesXP": 0,
 			"assignedRoom": null,
+			# Founder-only room-free staff role (null|"sales"|"cultivation"|
+			# "production"), exclusive with assignedRoom -- R§3.10.
+			"assignedRole": null,
 			"combatHpMax": defaults.get("combatHpMax", 0),
 			"combatHp": defaults.get("combatHpMax", 0),
 			"combatAttackMin": defaults.get("combatAttackMin", 0),

@@ -120,6 +120,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	var filled := backfill_defaults(raw)
 	_restore_int_types(filled)
 	_clamp_loaded_combat_selection(filled)
+	_fix_up_founders(filled)
 	_migrate_nadia_supply_order(filled)
 	_remap_retired_screen_id(filled)
 	_remap_retired_messages_list(filled)
@@ -285,6 +286,25 @@ func _backfill_new_sales_keys(result: Dictionary, defaults: Dictionary) -> void:
 			sales["nextPeriodId"] += 1
 		if not sales["priorityOrder"].has(contract["id"]):
 			sales["priorityOrder"].append(contract["id"])
+
+
+# R§3.10 "Staff roles": recruitable follows constants.json (Archie/James
+# recruit only by story), the home-raid debrief recruits Archie, and a
+# founder saved in a role-room holds that role room-free instead.
+func _fix_up_founders(state: Dictionary) -> void:
+	if not state.has("contacts"):
+		return
+	var contacts: Dictionary = state["contacts"]
+	for contact_id in contacts.keys():
+		var c: Dictionary = contacts[contact_id]
+		if GameData.CONTACTS_DEFAULTS.has(contact_id):
+			c["recruitable"] = GameData.CONTACTS_DEFAULTS[contact_id].get("recruitable", true)
+		var room: Variant = c.get("assignedRoom")
+		if Contacts.is_founder(contact_id) and room != null and Contacts.ROOM_ROLES.has(room):
+			c["assignedRole"] = Contacts.ROOM_ROLES[room]
+			c["assignedRoom"] = null
+	if state.get("flags", {}).get("homeRaidEventSeen", false) and contacts.has("archie"):
+		contacts["archie"]["recruited"] = true
 
 
 func _backfill_new_contacts(result: Dictionary, defaults: Dictionary) -> void:

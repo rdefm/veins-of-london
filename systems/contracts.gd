@@ -41,11 +41,13 @@ static func is_complete(contract: Dictionary) -> bool:
 	return remaining_qty(contract) == 0
 
 
-# "staffed" also requires today's Sales wage to have actually been paid — an
-# unpaid role does no work for the rest of the rollover, gated via
-# Payroll.is_paid_today() rather than a second parallel flag.
+# Any contact holding the Sales role. A founder draws no daily wage; an
+# Operations Room hire counts only once today's wage is paid.
 static func has_staffed_sales() -> bool:
-	return Contacts.get_contact_in_room("ops") != null and Payroll.is_paid_today("ops")
+	for contact_id in Contacts.contacts_in_role("sales"):
+		if Contacts.is_founder(contact_id) or Payroll.is_paid_today("ops"):
+			return true
+	return false
 
 
 # Delegation is a per-contract assignment, not a second stock pool. It may
@@ -262,7 +264,7 @@ static func _has_settlement(settlement_id: String) -> bool:
 
 
 static func _award_sales_xp(amount: int) -> void:
-	var contact_id: Variant = Contacts.get_contact_in_room("ops")
+	var contact_id: Variant = Contacts.sales_contact()
 	if contact_id != null:
 		Contacts.award_contact_xp(contact_id, "sales", amount)
 

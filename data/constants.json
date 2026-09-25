@@ -2,18 +2,23 @@
   "timeBlocks": ["Morning", "Afternoon", "Evening"],
   "archieOreGoal": 10,
   "contacts": {
-    "archie": { "startRelation": 10, "unlocked": true,  "recruitThreshold": 80, "recruitable": true,
+    "archie": { "startRelation": 10, "unlocked": true,  "recruitThreshold": 80, "recruitable": false,
+                "roomFreeRoles": true, "roleFlags": { "sales": "bizArchieSalesRole" },
                 "combatHpMax": 50, "combatAttackMin": 4, "combatAttackMax": 9,
                 "combatStashMax": 2, "combatHealAmount": 15, "koCooldownDays": 2,
                 "raidAssistThreshold": 50, "combatSpeed": 9 },
-    "james":  { "startRelation": 0,  "unlocked": false, "recruitThreshold": 100, "recruitable": true,
+    "james":  { "startRelation": 0,  "unlocked": false, "recruitThreshold": 100, "recruitable": false,
+                "roomFreeRoles": true, "roleFlags": { "production": "bizJamesProductionRole" },
                 "combatHpMax": 35, "combatAttackMin": 2, "combatAttackMax": 4,
                 "combatStashMax": 0, "combatHealAmount": 0, "koCooldownDays": 2, "combatSpeed": 6,
                 "combatDial": { "chargesPerDay": 3, "tier": 3, "complications": ["timePearl", "rewind", "healingBurst"] } },
     "des":    { "startRelation": 0,  "unlocked": false, "recruitThreshold": 0,   "recruitable": false },
     "nadia":  { "startRelation": 0,  "unlocked": false, "recruitThreshold": 0,   "recruitable": false },
     "hakim":  { "startRelation": 0,  "unlocked": false, "recruitThreshold": 0,   "recruitable": false },
-    "handler": { "startRelation": 0, "unlocked": false, "recruitThreshold": 0,   "recruitable": false }
+    "handler": { "startRelation": 0, "unlocked": false, "recruitThreshold": 0,   "recruitable": false },
+    "owen":   { "startRelation": 0,  "unlocked": false, "recruitThreshold": 0,   "recruitable": false, "combatHpMax": 0,
+                "roomFreeRoles": true, "skillCaps": { "cultivating": 3, "crafting": 3 },
+                "roleFlags": { "cultivation": "bizOwenCultivationRole", "production": "bizOwenProductionRole" } }
   },
   "jamesJobTrustBands": [
     { "maxRelation": 1,    "qtyMin": 1, "qtyMax": 3 },

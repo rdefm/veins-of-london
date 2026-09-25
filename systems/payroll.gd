@@ -26,10 +26,10 @@ const ROLE_SKILL_KEYS := {
 
 
 # £100 + £50 × (role skill − 1), identical for all three roles. Returns 0
-# when the room has no assigned contact.
+# when the room has no assigned contact or a founder holds it.
 static func wage_for_room(room_id: String) -> int:
 	var contact_id: Variant = Contacts.get_contact_in_room(room_id)
-	if contact_id == null:
+	if contact_id == null or Contacts.is_founder(contact_id):
 		return 0
 	var skill: int = int(GameState.state["contacts"][contact_id].get(ROLE_SKILL_KEYS[room_id], 1))
 	return WAGE_BASE + WAGE_PER_SKILL_LEVEL * (skill - 1)
@@ -54,7 +54,8 @@ static func pay_wages() -> void:
 
 	for room_id in ROLE_ROOMS:
 		var contact_id: Variant = Contacts.get_contact_in_room(room_id)
-		if contact_id == null:
+		# Founders never draw a daily wage (R§3.10 "Staff roles").
+		if contact_id == null or Contacts.is_founder(contact_id):
 			continue
 		var wage := wage_for_room(room_id)
 		var paid: bool = player["cash"] >= wage

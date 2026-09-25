@@ -35,7 +35,7 @@ static func active_contracts() -> Array:
 
 
 static func sales_skill() -> int:
-	var contact_id: Variant = Contacts.get_contact_in_room("ops")
+	var contact_id: Variant = Contacts.sales_contact()
 	if contact_id == null:
 		return 1
 	return int(GameState.state["contacts"][contact_id].get("salesSkill", 1))
@@ -102,7 +102,7 @@ static func create_offer(template: Dictionary) -> Dictionary:
 	sales["nextOfferId"] += 1
 	pending_offers().append(offer)
 	if source == "random":
-		var contact_id: Variant = Contacts.get_contact_in_room("ops")
+		var contact_id: Variant = Contacts.sales_contact()
 		if contact_id != null:
 			Contacts.award_contact_xp(contact_id, "sales", 5)
 	EventBus.state_changed.emit()

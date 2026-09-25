@@ -119,7 +119,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("lab")
 		var contacts: Dictionary = GameState.state["contacts"]
-		var some_contact_id: String = contacts.keys()[0]
+		var some_contact_id: String = "des"
 		contacts[some_contact_id]["recruited"] = true
 
 		var screen := HqFloorplanScreen.new()
@@ -140,7 +140,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("ops")
 		var contacts: Dictionary = GameState.state["contacts"]
-		var some_contact_id: String = contacts.keys()[0]
+		var some_contact_id: String = "des"
 		contacts[some_contact_id]["recruited"] = true
 
 		var screen := HqFloorplanScreen.new()
@@ -155,11 +155,22 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("hq_floorplan_room_assignment_row_omits_founders", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("lab")
+		Contacts.force_recruit("archie")
+
+		var screen := HqFloorplanScreen.new()
+		screen._ready()
+		assert_eq(NodeQuery.find_button(screen, "Assign Archie"), null, "founders take room-free roles, not rooms")
+		screen.free()
+	)
+
 	run_case("hq_floorplan_unassign_button_vacates_the_room", func():
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("lab")
 		var contacts: Dictionary = GameState.state["contacts"]
-		var some_contact_id: String = contacts.keys()[0]
+		var some_contact_id: String = "des"
 		contacts[some_contact_id]["recruited"] = true
 		Contacts.assign_to_room(some_contact_id, "lab")
 
@@ -182,7 +193,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("lab")
 		var contacts: Dictionary = GameState.state["contacts"]
-		var some_contact_id: String = contacts.keys()[0]
+		var some_contact_id: String = "des"
 		contacts[some_contact_id]["recruited"] = true
 		Contacts.assign_to_room(some_contact_id, "lab")
 		GameState.state["player"]["cash"] = 0

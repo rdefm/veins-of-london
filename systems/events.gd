@@ -322,6 +322,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			_buy_faction_vein(effect)
 		"unlock_contact":
 			GameState.state["contacts"][effect["contact"]]["unlocked"] = true
+		"recruit_contact":
+			Contacts.force_recruit(effect["contact"])
 		"push_message":
 			# Optional "from" lets an authored SMS thread replay its own outgoing "player" lines verbatim; defaults to "them" when omitted.
 			Messages.append(effect["contact"], effect.get("from", "them"), effect["text"])
