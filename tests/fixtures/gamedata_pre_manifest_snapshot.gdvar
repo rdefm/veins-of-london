@@ -457,6 +457,10 @@
 "quick": 0.2
 }
 },
+"stage": {
+"_note": "spriteScale: multiplier on every combat stage slot's height (player, allies, enemies) over the base zone ratios in scenes/components/combat_stage.gd.",
+"spriteScale": 1.5
+},
 "templates": {
 "archie": {
 "_note": "Single-pose stills, not sheets (frameCount 1 each) -- ko/selfPatch art not produced yet, fall back per templateRule/effectRule above.",
@@ -2966,7 +2970,7 @@
 "cards": [{
 "label": "Now",
 "speaker": null,
-"text": "Des writes full sentences. Punctuation, structure, the works. This wasn't that — four separate half-thoughts sent one after another, which is how you know something's wrong before you've even read what it is.",
+"text": "Des  usually writes full sentences. Punctuation, structure, the works. This wasn't that — four separate half-thoughts sent one after another, which is how you know something's wrong before you've even read what it is.",
 "type": "narration"
 }, {
 "label": null,

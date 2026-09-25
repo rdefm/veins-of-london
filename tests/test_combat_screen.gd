@@ -259,6 +259,18 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("slot_sizes_scale_by_configured_sprite_scale", func():
+		var scale: float = CombatStage.configured_sprite_scale()
+		assert_eq(scale, float(GameData.COMBAT_VISUALS["stage"]["spriteScale"]), "stage reads its sprite scale from data/combat_visuals.json")
+		var stage_size := Vector2(CombatStage.STAGE_WIDTH, CombatStage.STAGE_HEIGHT)
+		var clearance: float = CombatScreen._STRIP_TOP_INSET + TurnOrderStrip.MAX_EXPANDED_CARD_HEIGHT
+		for side in ["player", "enemy"]:
+			var base := CombatStage.group_rects(Combat.SQUAD_MAX, side, stage_size, clearance, 1.0)
+			var scaled := CombatStage.group_rects(Combat.SQUAD_MAX, side, stage_size, clearance, scale)
+			for i in range(base.size()):
+				assert_true(is_equal_approx(scaled[i].size.y, base[i].size.y * scale) and is_equal_approx(scaled[i].size.x, base[i].size.x * scale), "%s slot %d must be %.2fx its base size" % [side, i, scale])
+	)
+
 	# combat-refining ticket 11: receding full-squad staging.
 	run_case("full_squad_stages_six_slots_in_two_receding_groups", func():
 		_setup_combat([Fixtures.enemy("E0"), Fixtures.enemy("E1"), Fixtures.enemy("E2")], [Fixtures.ally("A0"), Fixtures.ally("A1")])

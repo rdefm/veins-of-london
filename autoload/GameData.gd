@@ -1009,6 +1009,10 @@ func _validate_combat_visuals(combat_visuals: Dictionary, palette: Dictionary, e
 		if not (turn_pause.get(mode) is float or turn_pause.get(mode) is int):
 			errors.append("combat_visuals.pacing.turnPause: missing numeric entry for pacing mode '%s'" % mode)
 
+	var sprite_scale = combat_visuals.get("stage", {}).get("spriteScale")
+	if not ((sprite_scale is float or sprite_scale is int) and sprite_scale > 0):
+		errors.append("combat_visuals.stage.spriteScale: must be a positive number")
+
 	# Location plates are optional per key, but an entry that exists must
 	# name an image -- an empty one would silently mask the context tier.
 	var location_backdrops: Dictionary = combat_visuals.get("locationBackdrops", {})

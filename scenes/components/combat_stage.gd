@@ -936,7 +936,7 @@ func _layout_all_slots() -> void:
 	for group in [[_player_slots, _player_order, "player"], [_enemy_slots, _enemy_order, "enemy"]]:
 		var pool: Dictionary = group[0]
 		var order: Array = group[1]
-		var rects := group_rects(order.size(), group[2], size, _top_clearance)
+		var rects := group_rects(order.size(), group[2], size, _top_clearance, configured_sprite_scale())
 		for i in range(order.size()):
 			var slot: StageSlot = pool.get(order[i])
 			if slot == null:
@@ -957,9 +957,16 @@ func _sort_slots_by_depth() -> void:
 		_slot_layer.move_child(slots[i], i)
 
 
-# Stage-space rects for one group, front slot first. The group's bounding box
-# is centred on its anchor so a lone combatant stands in its half, not at the edge.
-static func group_rects(count: int, side: String, stage_size: Vector2, top_clearance: float) -> Array[Rect2]:
+static func configured_sprite_scale() -> float:
+	return float(GameData.COMBAT_VISUALS.get("stage", {}).get("spriteScale", 1.0))
+
+
+# Stage-space rects for one group, front slot first. Slot heights are the base
+# zone ratios times sprite_scale; a group with a rank rising above
+# the staging zone is lowered as a whole (never past the floor). The group's
+# bounding box is centred on its anchor so a lone combatant stands in its
+# half, not at the edge.
+static func group_rects(count: int, side: String, stage_size: Vector2, top_clearance: float, sprite_scale: float = 1.0) -> Array[Rect2]:
 	var rects: Array[Rect2] = []
 	if count <= 0:
 		return rects
@@ -967,7 +974,7 @@ static func group_rects(count: int, side: String, stage_size: Vector2, top_clear
 	var zone_top: float = top_clearance + SELECTION_ARROW_CLEARANCE
 	var zone_bottom: float = stage_size.y * (1.0 - FLOOR_MARGIN_RATIO)
 	var zone: float = maxf(0.0, zone_bottom - zone_top)
-	var height: float = zone * (ENEMY_FRONT_HEIGHT_RATIO if is_enemy else FRIENDLY_FRONT_HEIGHT_RATIO)
+	var height: float = zone * (ENEMY_FRONT_HEIGHT_RATIO if is_enemy else FRIENDLY_FRONT_HEIGHT_RATIO) * sprite_scale
 	var bottom: float = (zone_top + zone * ENEMY_FRONT_BOTTOM_RATIO) if is_enemy else zone_bottom
 	var x := 0.0
 	for i in range(count):
@@ -977,6 +984,15 @@ static func group_rects(count: int, side: String, stage_size: Vector2, top_clear
 		x += slot_size.x * DEPTH_STEP_X_OF_WIDTH
 		height *= DEPTH_STEP_SIZE_SCALE
 		bottom -= zone * DEPTH_STEP_Y_RATIO
+
+	var top: float = INF
+	var lowest: float = 0.0
+	for r in rects:
+		top = minf(top, r.position.y)
+		lowest = maxf(lowest, r.end.y)
+	var drop: float = clampf(zone_top - top, 0.0, maxf(0.0, zone_bottom - lowest))
+	for i in range(rects.size()):
+		rects[i].position.y += drop
 
 	var span: float = 0.0
 	for r in rects:

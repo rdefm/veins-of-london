@@ -212,7 +212,7 @@ overlays.
 | barometer.json | barometer.gd |
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
-| combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets); combat_director.gd (pacing.turnPause) |
+| combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); combat_director.gd (pacing.turnPause) |
 | constants.json | time_system.gd, jobs.gd, GameState.gd (contacts roster incl. handler) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
