@@ -105,10 +105,15 @@ func _on_state_changed() -> void:
 	_apply_colours()
 
 
-# Chrome panel matching the theme's PanelContainer box, over Map chrome tokens.
+# Vein-popover card family (MapCardStyle), squared on the screen edge it
+# slides from.
 func _apply_colours() -> void:
 	_dim.color = Color(MapPalette.colour("scrim"), 0.5)
-	_panel.add_theme_stylebox_override("panel", UI.bordered_panel_style(MapPalette.colour("chromePaper"), MapPalette.colour("chromeBorder"), 10, 16, 16))
+	var style := MapCardStyle.card_panel(18, 0.13)
+	style.corner_radius_top_left = 0
+	style.corner_radius_bottom_left = 0
+	style.shadow_offset = Vector2(6, 0)
+	_panel.add_theme_stylebox_override("panel", style)
 	_rebuild()
 
 
@@ -120,27 +125,25 @@ func _rebuild() -> void:
 	for mode in MapStyle.FILTER_MODES:
 		if mode == "faction":
 			continue  # own row shape below, see _build_faction_rows()
-		var b := UI.button(FILTER_LABELS[mode], func(): _select_filter(mode))
-		b.disabled = mode == _filter_mode
-		_list.add_child(b)
+		_list.add_child(MapCardStyle.option_row(FILTER_LABELS[mode], func(): _select_filter(mode), mode == _filter_mode))
 
 	_build_faction_rows()
 
 	_list.add_child(_heading("Other"))
-	_list.add_child(UI.button(PACING_LABELS[_pacing_mode], _toggle_pacing))
-	var dark := CheckButton.new()
+	_list.add_child(MapCardStyle.option_row(PACING_LABELS[_pacing_mode], _toggle_pacing))
+	var dark := MapCardStyle.style_check_button(CheckButton.new())
 	dark.text = GameData.MAP_PALETTE["darkModeLabel"]
 	dark.button_pressed = MapPalette.is_dark()
 	dark.toggled.connect(Preferences.set_map_dark_mode)
 	_list.add_child(dark)
-	_list.add_child(UI.button("? Legend", func(): _open_legend()))
-	_list.add_child(UI.button("Close", close))
+	_list.add_child(MapCardStyle.option_row("? Legend", func(): _open_legend()))
+	var close_button := MapCardStyle.text_button("Close", close)
+	close_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_list.add_child(close_button)
 
 
 func _heading(text: String) -> Label:
-	var l := UI.heading(text, 14)
-	l.add_theme_color_override("font_color", MapPalette.colour("chromeInk"))
-	return l
+	return MapCardStyle.section_label(text)
 
 
 func _select_filter(mode: String) -> void:
@@ -154,8 +157,7 @@ func _select_filter(mode: String) -> void:
 
 
 func _build_faction_rows() -> void:
-	var row := UI.button(_faction_row_label(), _toggle_faction_picker)
-	_list.add_child(row)
+	_list.add_child(MapCardStyle.option_row(_faction_row_label(), _toggle_faction_picker))
 
 	if not _faction_picker_open:
 		return
@@ -163,13 +165,12 @@ func _build_faction_rows() -> void:
 	for faction_id in GameData.FACTIONS.keys():
 		var faction: Dictionary = GameData.FACTIONS[faction_id]
 		var colour := MapPalette.faction_colour(faction_id)
-		var faction_button := UI.button("   " + String(faction["shortName"]), func(): _select_faction(faction_id))
-		faction_button.add_theme_color_override("font_color", colour)
-		faction_button.add_theme_color_override("font_hover_color", colour)
-		faction_button.disabled = _filter_mode == "faction" and _selected_faction_id == faction_id
+		var faction_button := MapCardStyle.option_row("   " + String(faction["shortName"]), func(): _select_faction(faction_id), _filter_mode == "faction" and _selected_faction_id == faction_id)
+		for key in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
+			faction_button.add_theme_color_override(key, colour)
 		_list.add_child(faction_button)
 
-	_list.add_child(UI.button("   Clear (show all)", _clear_faction_filter))
+	_list.add_child(MapCardStyle.option_row("   Clear (show all)", _clear_faction_filter))
 
 
 func _faction_row_label() -> String:

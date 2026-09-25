@@ -129,10 +129,10 @@ overlays.
 | hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected` |
 | icons.gd | 13 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
-| map_card_style.gd | paper()/ink()/dim()/muted()/action()/line()/gold()/sage() card-token accessors (via map_palette.gd) + card/inset/action-circle styleboxes, ink labels, text-button/bar/symbol tinting for the map-tab family (map_bubble.gd, vein_bubble.gd, vein_detail_panel.gd, map.gd's district panel/site sheet, vein_list.gd) |
+| map_card_style.gd | Shared vein-popover card family: card-token accessors (via map_palette.gd), card/inset/action-circle styleboxes, card(), section_label(), text_button(), option_row(), round_button(), style_check_button(), bar/symbol tinting. Used by map popups/drawer and off-map menus (inside MapPalette.build_light) |
 | map_canvas.gd | Network diagram: layout/stops/lines, hit-testing, static draw pass; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
-| map_controls.gd | Filter-chip drawer: filters, faction isolate, pacing, Dark map toggle, legend button |
+| map_controls.gd | Map controls drawer (map_card_style.gd-skinned): filters, faction isolate, pacing, Dark map toggle, legend button |
 | map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours with optional dark-only overrides; every Map-tab colour reads through it; build_light() scopes a light-only build for off-Map reusers |
 | map_legend.gd | Persistent faction-colour key; restyles in place on a dark-mode toggle |
 | map_zoom_buttons.gd | Floating +/- zoom control; restyles in place on a dark-mode toggle |
@@ -176,7 +176,7 @@ overlays.
 | dial_load_complication_modal.gd | Load a crafted complication into the Dial |
 | combat_setup_modal.gd | Debug combat setup: fight type (`Combat.DEBUG_SETUP_CONTEXTS`), location override for backdrop preview, enemy template/count/tier + ally toggles; calls `Combat.start_debug_combat()` |
 | network_reference_modal.gd | Network Map legend |
-| hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls |
+| hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill readout + Train action card |
 | lab_bench_modal_helpers.gd | Refine controls + outcome headings shared by the lab-bench modals |
 | lab_bench_recipe_book_modal.gd | Found recipes: cost/chance, batch qty, Craft, Refine |

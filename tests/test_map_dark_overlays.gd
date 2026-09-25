@@ -111,9 +111,9 @@ func _assert_overlays(screen: MapScreen, dark: bool, context: String) -> void:
 	assert_eq(screen._map_legend._title.get_theme_color("font_color"), chrome_ink, "%s: legend title" % context)
 	assert_eq(_panel_bg(screen._map_zoom_buttons._pill), chrome, "%s: zoom pill paper" % context)
 	assert_eq(screen._map_zoom_buttons._zoom_in_button.get_theme_color("font_color"), chrome_ink, "%s: zoom glyph" % context)
-	assert_eq(_panel_bg(screen._map_controls._panel), chrome, "%s: drawer paper" % context)
+	assert_eq(_panel_bg(screen._map_controls._panel), paper, "%s: drawer paper" % context)
 	for l in _live_labels(screen._map_controls._list):
-		assert_eq(l.get_theme_color("font_color"), chrome_ink, "%s: drawer heading '%s'" % [context, l.text])
+		assert_eq(l.get_theme_color("font_color"), dim, "%s: drawer heading '%s'" % [context, l.text])
 
 	assert_eq((screen._menu_button.get_theme_stylebox("normal") as StyleBoxFlat).bg_color, chrome, "%s: menu button paper" % context)
 	assert_eq(screen._menu_button.get_child(0).get("colour_override"), chrome_ink, "%s: menu button glyph" % context)
