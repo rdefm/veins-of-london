@@ -22,6 +22,15 @@ static func start_event(event_id: String, context: Dictionary = {}) -> void:
 	Nav.go_to("event")
 
 
+# start_event(), unless a modal flow is open (e.g. a sale confirmation) --
+# then the event waits behind it and starts when that flow closes.
+static func start_or_defer(event_id: String, context: Dictionary = {}) -> void:
+	if GameState.state["modal"] == null:
+		start_event(event_id, context)
+		return
+	Modal.defer_event(event_id, context)
+
+
 static func _event_def() -> Dictionary:
 	var event_state: Dictionary = GameState.state["event"]
 	return GameData.EVENTS[event_state["eventId"]]

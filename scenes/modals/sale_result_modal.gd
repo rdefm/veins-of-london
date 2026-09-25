@@ -16,6 +16,9 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	container.add_child(UI.button("Back to it", func(): close()))
 
 
+# A quest beat parked behind the sale plays instead of routing home.
 static func close() -> void:
+	var has_follow := Modal.has_follow_event()
 	Modal.close()
-	PhoneNav.route_home()
+	if not has_follow:
+		PhoneNav.route_home()

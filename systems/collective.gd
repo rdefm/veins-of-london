@@ -180,7 +180,8 @@ static func maybe_trigger_weather_beat(new_site: Variant) -> bool:
 # Fires col_a1_nadia_done automatically the moment col_a1_nadia_vein's
 # qualifying sale completes, called from VeinTrade.sell_to_faction() after
 # Objectives.refresh(). colA1NadiaThreadDone (the event's own on_complete
-# flag) permanently blocks re-firing on a later unrelated sale.
+# flag) permanently blocks re-firing on a later unrelated sale. A sale made
+# from a modal parks the event behind the sale confirmation (start_or_defer).
 static func maybe_trigger_nadia_vein_done() -> bool:
 	if GameState.state["flags"].get("colA1NadiaThreadDone", false):
 		return false
@@ -188,7 +189,7 @@ static func maybe_trigger_nadia_vein_done() -> bool:
 	if not objective.get("complete", false):
 		return false
 
-	Events.start_event("col_a1_nadia_done")
+	Events.start_or_defer("col_a1_nadia_done")
 	return true
 
 

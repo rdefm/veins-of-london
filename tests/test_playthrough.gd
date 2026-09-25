@@ -281,6 +281,7 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	)
 	assert_true(nadia_vein_seed_roll != -1, "should find a successful seed roll within 500 tries")
 	var nadia_vein_id: String = GameState.state["player"]["veins"].filter(func(v): return v["siteId"] == nadia_site_id)[0]["id"]
+	Modal.close()  # dismiss seed_result; an open modal would park S10 behind it
 
 	var sell_result := VeinTrade.sell_to_faction(nadia_vein_id, "collective")
 	assert_true(sell_result["ok"])

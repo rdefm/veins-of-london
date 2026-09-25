@@ -105,6 +105,59 @@ func run() -> void:
 		assert_eq(GameState.state["event"], null, "the thread is already closed -- no second col_a1_nadia_done")
 	)
 
+	# ── Sale confirmation first, quest beat after ──────────────────────────
+
+	run_case("nadia_door_sale_shows_the_sale_result_alone_with_the_event_queued_behind_it", func():
+		GameState.reset()
+		_seed_qualifying_vein()
+		Modal.open("sell_menu", {})
+		Economy.toggle_sell_vein("v1")
+
+		var result := Collective.complete_trade("nadia")
+
+		assert_true(result["ok"])
+		assert_eq(GameState.state["modal"]["type"], "sale_result")
+		assert_eq(GameState.state["event"], null, "the quest beat must not render behind the confirmation")
+		assert_true(GameState.state["currentScreen"] != "event")
+		assert_eq(GameState.state["modal"]["data"]["followEvent"]["eventId"], "col_a1_nadia_done")
+	)
+
+	run_case("dismissing_the_sale_result_starts_the_queued_event_instead_of_routing_home", func():
+		GameState.reset()
+		_seed_qualifying_vein()
+		Modal.open("sell_menu", {})
+		Economy.toggle_sell_vein("v1")
+		Collective.complete_trade("nadia")
+
+		SaleResultModal.close()
+
+		assert_eq(GameState.state["modal"], null)
+		assert_eq(GameState.state["event"]["eventId"], "col_a1_nadia_done")
+		assert_eq(GameState.state["currentScreen"], "event")
+	)
+
+	run_case("vein_list_quote_confirm_starts_the_event_once_the_quote_modal_closes", func():
+		GameState.reset()
+		_seed_qualifying_vein()
+		Modal.open("sell_vein_quote", { "veinId": "v1", "price": 1, "factionId": "collective" })
+
+		SellVeinQuoteModal._confirm("v1")
+
+		assert_eq(GameState.state["modal"], null)
+		assert_eq(GameState.state["event"]["eventId"], "col_a1_nadia_done")
+	)
+
+	run_case("non_quest_sale_result_close_still_routes_to_phone_home", func():
+		GameState.reset()
+		Modal.open("sale_result", { "earned": 10, "gross": 10, "mugged": false })
+
+		SaleResultModal.close()
+
+		assert_eq(GameState.state["modal"], null)
+		assert_eq(GameState.state["event"], null)
+		assert_eq(GameState.state["currentScreen"], "phone")
+	)
+
 	# ── on_complete: relation +10, colA1NadiaThreadDone ─────────────────────
 	# Driven directly via Events.start_event() (same idiom test_col_a1_des_
 	# report.gd uses), not through a real sale -- VeinTrade.sell_to_faction()

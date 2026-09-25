@@ -60,7 +60,7 @@ Data file per system: see `data/*.json` below.
 | map_view.gd | Persists Network camera |
 | map_zoom.gd | Zoom-level math for the diagram |
 | messages.gd | Messages data layer + conversation-index projections and total unread count |
-| modal.gd | Modal open/close state |
+| modal.gd | Modal open/close state; holds an event deferred behind a modal flow (`followEvent`) and starts it on close |
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown), BizBrief routing and arrears labels |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict |
@@ -159,7 +159,7 @@ overlays.
 | cultivate_result_modal.gd | Cultivate-attempt result card |
 | craft_result_modal.gd | Single-craft result card |
 | craft_batch_result_modal.gd | Batch-craft result card, per-attempt list |
-| sale_result_modal.gd | Archie/faction sale result card; close routes to Phone home |
+| sale_result_modal.gd | Archie/faction sale result card; close plays a deferred quest event if one is queued, else routes to Phone home |
 | archie_deal_result_modal.gd | Archie deal-vein result card; close routes to Phone home |
 | james_job_offer_modal.gd | James job offer card; Accept/Decline hand off to Jobs |
 | james_job_short_modal.gd | James job "not enough stock" card |
