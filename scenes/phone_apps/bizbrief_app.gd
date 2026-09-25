@@ -1,5 +1,5 @@
 # BizBrief: Brief tab (morning account — bank, operations, attention) and
-# Manage tab (sales offers/contracts, lab production targets, vein-station
+# Manage tab (sales offers/contracts, lab production targets, cultivator
 # procurement). The selected tab is view state held here, not in
 # state.phoneNav, so it resets with the screen.
 class_name BizBriefApp
@@ -117,8 +117,12 @@ func _build_procurement() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Procurement", 14))
 
-	if not GameState.state["home"]["rooms"].has("veinStation"):
-		c["content"].add_child(UI.muted_label("Requires the Vein Cultivation Station room."))
+	var cultivators: Array = Contacts.contacts_in_role("cultivation")
+	if cultivators.is_empty():
+		if not GameState.state["home"]["rooms"].has("veinStation"):
+			c["content"].add_child(UI.muted_label("Requires the Vein Cultivation Station room."))
+		else:
+			c["content"].add_child(UI.muted_label("No cultivators yet."))
 		return c["panel"]
 
 	var veins: Array = VeinList.veins(null, null)
@@ -126,31 +130,50 @@ func _build_procurement() -> Control:
 		c["content"].add_child(UI.muted_label("No veins yet."))
 		return c["panel"]
 
-	for vein in veins:
-		c["content"].add_child(_build_procurement_vein_row(vein))
+	for contact_id in cultivators:
+		c["content"].add_child(_build_cultivator_section(contact_id, veins))
 	return c["panel"]
+
+
+func _vein_name(vein: Dictionary) -> String:
+	return "%s — %s" % [GameData.DISTRICTS[vein["district"]]["name"], GameData.ORE_TYPES[vein["oreType"]]["name"]]
+
+
+# One cultivator: their assigned veins with target controls, then a picker
+# of every vein not on their list (picking one held elsewhere moves it).
+func _build_cultivator_section(contact_id: String, veins: Array) -> Control:
+	var box := UI.vbox(4)
+	var assigned: Array = Rooms.cultivator_veins(contact_id)
+	box.add_child(UI.heading(Contacts.display_name(contact_id), 14))
+	if assigned.is_empty():
+		box.add_child(UI.muted_label("No veins assigned."))
+	var unassigned: Array = []
+	for vein in veins:
+		if assigned.has(vein["id"]):
+			box.add_child(_build_procurement_vein_row(vein))
+		else:
+			unassigned.append(vein)
+	if not unassigned.is_empty():
+		var picker := UI.hflow()
+		for vein in unassigned:
+			var vein_id: String = vein["id"]
+			picker.add_child(UI.button("Assign %s" % _vein_name(vein), func(): Rooms.assign_vein(contact_id, vein_id)))
+		box.add_child(picker)
+	return box
 
 
 func _build_procurement_vein_row(vein: Dictionary) -> Control:
 	var vein_id: String = vein["id"]
-	var ore: Dictionary = GameData.ORE_TYPES[vein["oreType"]]
-	var district: Dictionary = GameData.DISTRICTS[vein["district"]]
+	var target: int = Rooms.vein_station_target(vein_id)
 
 	var box := UI.vbox(4)
-	box.add_child(UI.label("%s — %s" % [district["name"], ore["name"]]))
-
-	var station_text: Variant = Rooms.vein_station_target_text(vein_id)
-	if station_text == null:
-		box.add_child(UI.button("Assign to Vein Station", func(): Rooms.toggle_vein_station_vein(vein_id)))
-		return box
-
-	var target: int = GameState.state["veinStationTargets"].get(vein_id, Rooms.VEIN_STATION_DEFAULT_TARGET)
-	box.add_child(UI.muted_label(String(station_text)))
+	box.add_child(UI.label(_vein_name(vein)))
+	box.add_child(UI.muted_label("Target: %d" % target))
 
 	var row := UI.hbox()
 	row.add_child(UI.button("-5", func(): Rooms.set_vein_station_target(vein_id, target - 5)))
 	row.add_child(UI.button("+5", func(): Rooms.set_vein_station_target(vein_id, target + 5)))
-	row.add_child(UI.button("Unassign", func(): Rooms.toggle_vein_station_vein(vein_id)))
+	row.add_child(UI.button("Unassign", func(): Rooms.unassign_vein(vein_id)))
 	box.add_child(row)
 
 	return box

@@ -1,5 +1,6 @@
 extends "res://tests/test_base.gd"
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
 
 func run() -> void:
 	run_case("process_lab_is_a_no_op_without_an_assigned_contact", func():
@@ -150,7 +151,7 @@ func run() -> void:
 			"hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0,
 		}
 		GameState.state["player"]["veins"] = [vein]
-		GameState.state["veinStationVeins"] = ["vs1"]
+		GameState.state["cultivatorVeins"] = { "archie": ["vs1"] }
 		GameState.state["veinStationTargets"] = { "vs1": 70 }
 		var xp_before: int = GameState.state["contacts"]["archie"]["cultivatingXP"]
 
@@ -184,7 +185,7 @@ func run() -> void:
 			"level": 1, "developmentStreak": 3,
 		}
 		GameState.state["player"]["veins"] = [vein]
-		GameState.state["veinStationVeins"] = ["vs5"]
+		GameState.state["cultivatorVeins"] = { "archie": ["vs5"] }
 		GameState.state["veinStationTargets"] = { "vs5": 70 }
 
 		Rng.set_seed(1)
@@ -210,7 +211,7 @@ func run() -> void:
 				"hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0,
 			}
 			GameState.state["player"]["veins"] = [vein]
-			GameState.state["veinStationVeins"] = ["vs2"]
+			GameState.state["cultivatorVeins"] = { "archie": ["vs2"] }
 			GameState.state["veinStationTargets"] = { "vs2": 70 }
 			Rng.set_seed(candidate)
 			Rooms.process_vein_station()
@@ -239,7 +240,7 @@ func run() -> void:
 			"hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0,
 		}
 		GameState.state["player"]["veins"] = [vein]
-		GameState.state["veinStationVeins"] = ["vs3"]
+		GameState.state["cultivatorVeins"] = { "archie": ["vs3"] }
 		GameState.state["veinStationTargets"] = { "vs3": 70 }
 		var xp_before: int = GameState.state["contacts"]["archie"]["cultivatingXP"]
 
@@ -260,7 +261,7 @@ func run() -> void:
 			"hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0,
 		}
 		GameState.state["player"]["veins"] = [vein]
-		GameState.state["veinStationVeins"] = ["vs4"]
+		GameState.state["cultivatorVeins"] = { "archie": ["vs4"] }
 		GameState.state["veinStationTargets"] = { "vs4": 70 }
 		Rooms.process_vein_station()
 		assert_eq(vein["growth"], 95, "no assigned contact -> nothing happens")
@@ -274,14 +275,45 @@ func run() -> void:
 		assert_eq(GameState.state["labThresholds"]["timePearl"], 0, "should floor at 0, not go negative")
 	)
 
-	run_case("toggle_vein_station_vein_adds_and_removes", func():
+	run_case("assign_vein_adds_and_unassign_vein_removes", func():
 		GameState.reset()
-		Rooms.toggle_vein_station_vein("v1")
-		assert_eq(GameState.state["veinStationVeins"], ["v1"], "first toggle adds")
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "veinStation")
+		assert_true(Rooms.assign_vein("archie", "v1")["ok"])
+		assert_eq(Rooms.cultivator_veins("archie"), ["v1"], "assign adds")
 		assert_eq(GameState.state["veinStationTargets"]["v1"], 70, "default target 70 on assignment")
-		Rooms.toggle_vein_station_vein("v1")
-		assert_eq(GameState.state["veinStationVeins"], [], "second toggle removes")
+		Rooms.unassign_vein("v1")
+		assert_eq(Rooms.cultivator_veins("archie"), [], "unassign removes")
 		assert_true(not GameState.state["veinStationTargets"].has("v1"), "target cleared on unassignment")
+	)
+
+	run_case("assign_vein_rejects_a_contact_outside_the_cultivation_role", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		assert_true(not Rooms.assign_vein("archie", "v1")["ok"])
+		assert_eq(Rooms.cultivator_of("v1"), null)
+	)
+
+	run_case("assign_vein_moves_a_vein_between_cultivators_keeping_its_target", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with(), Fixtures.player_vein_with({ "id": "v2" })]
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "veinStation")
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["flags"]["bizOwenCultivationRole"] = true
+		assert_true(Contacts.set_role("owen", "cultivation")["ok"])
+
+		Rooms.assign_vein("archie", "v1")
+		Rooms.assign_vein("archie", "v2")
+		Rooms.set_vein_station_target("v1", 85)
+		assert_true(Rooms.assign_vein("owen", "v1")["ok"])
+
+		assert_eq(Rooms.cultivator_veins("archie"), ["v2"], "moved off the old list")
+		assert_eq(Rooms.cultivator_veins("owen"), ["v1"], "onto the new one")
+		assert_eq(Rooms.cultivator_of("v1"), "owen")
+		assert_eq(Rooms.vein_station_target("v1"), 85, "target follows the vein")
 	)
 
 	run_case("set_vein_station_target_clamps_to_the_vein_ceiling", func():
@@ -293,7 +325,6 @@ func run() -> void:
 			"hospitability": { "tier": "fair", "bonuses": [] }, "rampantDays": 0,
 		}
 		GameState.state["player"]["veins"] = [vein]
-		Rooms.toggle_vein_station_vein("v2")
 		Rooms.set_vein_station_target("v2", 150)
 		assert_eq(GameState.state["veinStationTargets"]["v2"], 100, "clamped to the vein's ceiling (100, no wildCeiling)")
 		Rooms.set_vein_station_target("v2", -10)

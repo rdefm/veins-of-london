@@ -11,6 +11,13 @@ static func _button_with_text(root: Node, text: String) -> Button:
 	return null
 
 
+static func _assign_button(root: Node) -> Button:
+	for candidate in root.find_children("", "Button", true, false):
+		if (candidate as Button).text.begins_with("Assign "):
+			return candidate as Button
+	return null
+
+
 # The bizbrief's own vein: no site link, and a real street for the location line.
 static func _brief_vein() -> Dictionary:
 	return Fixtures.player_vein_with({ "location": "Vallance Rd, by the bus stop", "siteId": null })
@@ -187,25 +194,43 @@ func run() -> void:
 		_button_with_text(phone, "Manage").pressed.emit()
 
 		assert_true(NodeQuery.label_texts(phone).has("Requires the Vein Cultivation Station room."))
-		assert_true(_button_with_text(phone, "Assign to Vein Station") == null, "no assign control before the room exists")
+		assert_true(_assign_button(phone) == null, "no assign control before the room exists")
 		phone.free()
 	)
 
-	run_case("procurement_lists_an_unassigned_vein_and_assigns_it_on_tap", func():
+	run_case("procurement_lists_each_cultivator_and_assigns_a_vein_on_tap", func():
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("veinStation")
 		GameState.state["player"]["veins"] = [_brief_vein()]
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "veinStation")
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Manage").pressed.emit()
 
-		assert_true(NodeQuery.label_texts(phone).any(func(t: String): return t.contains("Time Orichalchum")), "vein row identifies the ore/district")
-		var assign := _button_with_text(phone, "Assign to Vein Station")
-		assert_true(assign != null)
+		assert_true(NodeQuery.label_texts(phone).has("Archie"), "cultivator section heading")
+		var assign := _assign_button(phone)
+		assert_true(assign != null and assign.text.contains("Time Orichalchum"), "picker identifies the ore/district")
 		assign.pressed.emit()
 
-		assert_eq(GameState.state["veinStationVeins"], ["v1"])
+		assert_eq(Rooms.cultivator_veins("archie"), ["v1"])
+		phone.free()
+	)
+
+	run_case("procurement_shows_a_founder_cultivator_without_the_station_room", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_brief_vein()]
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["flags"]["bizOwenCultivationRole"] = true
+		Contacts.set_role("owen", "cultivation")
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+
+		assert_true(NodeQuery.label_texts(phone).has("Owen"))
+		assert_true(_assign_button(phone) != null)
 		phone.free()
 	)
 
@@ -213,13 +238,15 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["home"]["rooms"].append("veinStation")
 		GameState.state["player"]["veins"] = [_brief_vein()]
-		Rooms.toggle_vein_station_vein("v1")
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "veinStation")
+		Rooms.assign_vein("archie", "v1")
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Manage").pressed.emit()
 
-		assert_true(NodeQuery.label_texts(phone).has("Vein Station target: 70"))
+		assert_true(NodeQuery.label_texts(phone).has("Target: 70"))
 
 		_button_with_text(phone, "+5").pressed.emit()
 		assert_eq(GameState.state["veinStationTargets"]["v1"], 75)
@@ -228,6 +255,6 @@ func run() -> void:
 		assert_eq(GameState.state["veinStationTargets"]["v1"], 70)
 
 		_button_with_text(phone, "Unassign").pressed.emit()
-		assert_eq(GameState.state["veinStationVeins"], [])
+		assert_eq(Rooms.cultivator_veins("archie"), [])
 		phone.free()
 	)

@@ -106,7 +106,7 @@ func run() -> void:
 	run_case("vein_row_shows_the_vein_station_target_when_assigned", func():
 		GameState.reset()
 		var vein := Fixtures.player_vein_with()
-		GameState.state["veinStationVeins"] = ["v1"]
+		GameState.state["cultivatorVeins"] = { "archie": ["v1"] }
 		GameState.state["veinStationTargets"] = { "v1": 65 }
 
 		var screen := VeinListScreen.new()
@@ -114,7 +114,7 @@ func run() -> void:
 
 		var labels := row.find_children("", "Label", true, false)
 		var texts: Array = labels.map(func(l): return (l as Label).text)
-		assert_true(texts.any(func(t: String): return t.contains("Vein Station target: 65")))
+		assert_true(texts.any(func(t: String): return t.contains("Cultivated by Archie · target 65")))
 
 		row.free()
 		screen.free()

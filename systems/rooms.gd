@@ -131,22 +131,56 @@ const VEIN_STATION_DEFAULT_TARGET := 70
 const VEIN_STATION_HOLD_BAND := 5
 
 
-static func toggle_vein_station_vein(vein_id: String) -> void:
-	var list: Array = GameState.state["veinStationVeins"]
+# Every cultivator (R§3.10 "Staff roles") holds their own uncapped list in
+# state.cultivatorVeins { contactId: [veinId] }; a vein sits on at most one
+# list. Screens never mutate cultivatorVeins/veinStationTargets directly.
+static func cultivator_veins(contact_id: String) -> Array:
+	return GameState.state["cultivatorVeins"].get(contact_id, [])
+
+
+# The contact whose list holds the vein, or null.
+static func cultivator_of(vein_id: String) -> Variant:
+	var lists: Dictionary = GameState.state["cultivatorVeins"]
+	for contact_id in lists.keys():
+		if lists[contact_id].has(vein_id):
+			return contact_id
+	return null
+
+
+# Adds the vein to the cultivator's list, moving it off any other list. A
+# moved vein keeps its target; a fresh assignment gets the default.
+static func assign_vein(contact_id: String, vein_id: String) -> Dictionary:
+	if Contacts.role_of(contact_id) != "cultivation":
+		return { "ok": false, "reason": "Not a cultivator." }
+	if Cultivating.find_vein(vein_id) == null:
+		return { "ok": false, "reason": "No such vein." }
+	var previous: Variant = cultivator_of(vein_id)
+	if previous == contact_id:
+		return { "ok": true }
+	var lists: Dictionary = GameState.state["cultivatorVeins"]
+	if previous != null:
+		lists[previous].erase(vein_id)
+	if not lists.has(contact_id):
+		lists[contact_id] = []
+	lists[contact_id].append(vein_id)
 	var targets: Dictionary = GameState.state["veinStationTargets"]
-	var idx: int = list.find(vein_id)
-	if idx >= 0:
-		list.remove_at(idx)
-		targets.erase(vein_id)
-	else:
-		list.append(vein_id)
+	if not targets.has(vein_id):
 		targets[vein_id] = VEIN_STATION_DEFAULT_TARGET
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+static func unassign_vein(vein_id: String) -> void:
+	var previous: Variant = cultivator_of(vein_id)
+	if previous == null:
+		return
+	GameState.state["cultivatorVeins"][previous].erase(vein_id)
+	GameState.state["veinStationTargets"].erase(vein_id)
 	EventBus.state_changed.emit()
 
 
-# Screens never mutate state.veinStationTargets directly. Clamped to the
-# vein's own ceiling (100, or 120 with the wildCeiling bonus) since a
-# target above it could never be reached.
+# Clamped to the vein's own ceiling (100, or 120 with the wildCeiling bonus)
+# since a target above it could never be reached.
 static func set_vein_station_target(vein_id: String, target: int) -> void:
 	var vein = Cultivating.find_vein(vein_id)
 	if vein == null:
@@ -155,15 +189,17 @@ static func set_vein_station_target(vein_id: String, target: int) -> void:
 	EventBus.state_changed.emit()
 
 
-# The read-only "Vein Station target: N" summary shared by the map sheet's
-# assignment row and the vein list -- null when the vein isn't assigned at
-# all, so both callers can decide what to render without duplicating the
-# veinStationVeins/veinStationTargets lookup.
+static func vein_station_target(vein_id: String) -> int:
+	return GameState.state["veinStationTargets"].get(vein_id, VEIN_STATION_DEFAULT_TARGET)
+
+
+# The read-only "Cultivated by X · target N" summary shared by Procurement
+# and the vein list -- null when no cultivator holds the vein.
 static func vein_station_target_text(vein_id: String) -> Variant:
-	if not GameState.state["veinStationVeins"].has(vein_id):
+	var contact_id: Variant = cultivator_of(vein_id)
+	if contact_id == null:
 		return null
-	var target: int = GameState.state["veinStationTargets"].get(vein_id, VEIN_STATION_DEFAULT_TARGET)
-	return "Vein Station target: %d" % target
+	return "Cultivated by %s · target %d" % [Contacts.display_name(contact_id), vein_station_target(vein_id)]
 
 
 # Called from time_system.gd's daily_tick, step ⑥ (lab half).
@@ -238,7 +274,7 @@ static func process_vein_station() -> void:
 	var prune_breakdown: Dictionary = {}
 	var total_cultivated := 0
 
-	for vein_id in GameState.state["veinStationVeins"]:
+	for vein_id in cultivator_veins(contact_id):
 		var vein = Cultivating.find_vein(vein_id)
 		if vein == null:
 			continue

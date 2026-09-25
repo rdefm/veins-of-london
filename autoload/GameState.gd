@@ -250,8 +250,10 @@ func new_game_state() -> Dictionary:
 		# Per-recipe opt-in { recipeKey: bool }; when true, Production adds
 		# undelivered active-contract need to labThresholds for that recipe.
 		"labCoverContracts": {},
-		"veinStationVeins": [],
-		# Companion to veinStationVeins above -- { veinId: int growth target }.
+		# { contactId: [veinId] } -- each cultivator's own vein list; a vein
+		# is on at most one list (R§3.10 "Staff roles").
+		"cultivatorVeins": {},
+		# { veinId: int growth target }, whichever cultivator holds the vein.
 		"veinStationTargets": {},
 
 		"flags": {

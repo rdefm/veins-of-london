@@ -69,7 +69,7 @@ func run() -> void:
 			"hospitability": { "tier": "fair", "bonuses": [] },
 		}
 		GameState.state["player"]["veins"] = [vein]
-		GameState.state["veinStationVeins"] = ["v1"]
+		GameState.state["cultivatorVeins"] = { "archie": ["v1"] }
 		GameState.state["veinStationTargets"] = { "v1": 70 }
 		var context := MorningAccountsSystem.begin_rollover()
 		Rooms.process_vein_station()

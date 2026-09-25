@@ -120,6 +120,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	var filled := backfill_defaults(raw)
 	_restore_int_types(filled)
 	_clamp_loaded_combat_selection(filled)
+	_migrate_vein_station_veins(filled)
 	_fix_up_founders(filled)
 	_migrate_nadia_supply_order(filled)
 	_remap_retired_screen_id(filled)
@@ -286,6 +287,41 @@ func _backfill_new_sales_keys(result: Dictionary, defaults: Dictionary) -> void:
 			sales["nextPeriodId"] += 1
 		if not sales["priorityOrder"].has(contract["id"]):
 			sales["priorityOrder"].append(contract["id"])
+
+
+# R§3.10 "Staff roles": the single shared veinStationVeins list moves onto
+# the Station occupant's cultivatorVeins list, or Owen's if he is the only
+# cultivator; with neither, the assignments are dropped (targets are kept).
+# Runs before _fix_up_founders, which may clear a founder's Station room.
+func _migrate_vein_station_veins(state: Dictionary) -> void:
+	if not state.has("veinStationVeins"):
+		return
+	var old_list: Array = state["veinStationVeins"]
+	state.erase("veinStationVeins")
+	if old_list.is_empty():
+		return
+	var contacts: Dictionary = state.get("contacts", {})
+	var occupant: Variant = null
+	var cultivators: Array = []
+	for contact_id in contacts.keys():
+		var c: Dictionary = contacts[contact_id]
+		if not c.get("recruited", false):
+			continue
+		if c.get("assignedRoom") == "veinStation":
+			occupant = contact_id
+		if c.get("assignedRoom") == "veinStation" or c.get("assignedRole") == "cultivation":
+			cultivators.append(contact_id)
+	var destination: Variant = occupant
+	if destination == null and cultivators == ["owen"]:
+		destination = "owen"
+	if destination == null:
+		return
+	var lists: Dictionary = state["cultivatorVeins"]
+	if not lists.has(destination):
+		lists[destination] = []
+	for vein_id in old_list:
+		if not lists[destination].has(vein_id):
+			lists[destination].append(vein_id)
 
 
 # R§3.10 "Staff roles": recruitable follows constants.json (Archie/James

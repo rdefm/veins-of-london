@@ -421,6 +421,44 @@ func run() -> void:
 		assert_true(contacts.has("owen") and not contacts["owen"]["unlocked"], "Owen backfills hidden")
 	)
 
+	run_case("loading_an_old_vein_station_list_moves_it_to_the_station_occupant", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy.erase("cultivatorVeins")
+		legacy["veinStationVeins"] = ["v1", "v2"]
+		legacy["veinStationTargets"] = { "v1": 60.0, "v2": 80.0 }
+		legacy["contacts"]["archie"]["recruited"] = true
+		legacy["contacts"]["archie"]["assignedRoom"] = "veinStation"
+
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		assert_eq(GameState.state["cultivatorVeins"], { "archie": ["v1", "v2"] }, "occupant takes the list, even though founder fix-up clears the room")
+		assert_eq(GameState.state["veinStationTargets"], { "v1": 60, "v2": 80 }, "targets stay keyed by vein id")
+		assert_true(not GameState.state.has("veinStationVeins"), "old key removed")
+	)
+
+	run_case("loading_an_old_vein_station_list_goes_to_owen_when_he_is_the_only_cultivator", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy.erase("cultivatorVeins")
+		legacy["veinStationVeins"] = ["v1"]
+		legacy["contacts"]["owen"]["recruited"] = true
+		legacy["contacts"]["owen"]["assignedRole"] = "cultivation"
+
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		assert_eq(GameState.state["cultivatorVeins"], { "owen": ["v1"] })
+	)
+
+	run_case("loading_an_old_vein_station_list_with_no_cultivator_drops_it", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy.erase("cultivatorVeins")
+		legacy["veinStationVeins"] = ["v1"]
+
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		assert_eq(GameState.state["cultivatorVeins"], {})
+		assert_true(not GameState.state.has("veinStationVeins"))
+	)
+
 	run_case("loading_an_old_save_before_the_home_raid_leaves_archie_unrecruited", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)

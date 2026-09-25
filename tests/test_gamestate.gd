@@ -65,7 +65,7 @@ func run() -> void:
 
 		assert_eq(s["jamesJob"], null, "jamesJob")
 		assert_eq(s["pendingSaleCut"], 0, "pendingSaleCut")
-		assert_eq(s["veinStationVeins"], [], "veinStationVeins")
+		assert_eq(s["cultivatorVeins"], {}, "cultivatorVeins")
 
 		assert_eq(s["flags"]["tutorialStage"], "intro", "flags.tutorialStage")
 		assert_eq(s["flags"]["metArchie"], false, "flags.metArchie")
