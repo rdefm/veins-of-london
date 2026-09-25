@@ -1,6 +1,7 @@
-# BizBrief: Brief tab (morning account — bank, payday, wage prompts, operations, attention) and
+# BizBrief: Brief tab (morning account — bank, payday, wage prompts, operations, attention),
 # Manage tab (sales offers/contracts, lab production targets, cultivator
-# procurement). The selected tab is view state held here, not in
+# procurement) and, once bizStaffTabOpen is set, Staff tab (recruited
+# contacts, roles, pay). The selected tab is view state held here, not in
 # state.phoneNav, so it resets with the screen.
 class_name BizBriefApp
 extends PhoneApp
@@ -12,6 +13,8 @@ const ContractCard := preload("res://scenes/components/contract_card.gd")
 
 const BRIEF_TAB := "brief"
 const MANAGE_TAB := "manage"
+const STAFF_TAB := "staff"
+const SKILLS := ["sales", "crafting", "cultivating"]
 
 var _tab := BRIEF_TAB
 
@@ -22,6 +25,9 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_tabs())
 	if _tab == MANAGE_TAB:
 		_build_manage(content)
+		return
+	if _tab == STAFF_TAB and _staff_tab_open():
+		_build_staff(content)
 		return
 	_build_brief(content)
 
@@ -34,7 +40,15 @@ func _build_tabs() -> Control:
 	var manage := UI.button("Manage", func(): _set_tab(MANAGE_TAB))
 	manage.disabled = _tab == MANAGE_TAB
 	tabs.add_child(UI.expand_fill(manage))
+	if _staff_tab_open():
+		var staff := UI.button("Staff", func(): _set_tab(STAFF_TAB))
+		staff.disabled = _tab == STAFF_TAB
+		tabs.add_child(UI.expand_fill(staff))
 	return tabs
+
+
+func _staff_tab_open() -> bool:
+	return bool(GameState.state["flags"].get("bizStaffTabOpen", false))
 
 
 func _set_tab(tab: String) -> void:
@@ -71,6 +85,51 @@ func _build_manage(content: VBoxContainer) -> void:
 	content.add_child(_build_sales())
 	content.add_child(_build_production())
 	content.add_child(_build_procurement())
+
+
+func _build_staff(content: VBoxContainer) -> void:
+	content.add_child(UI.heading("Staff", 16))
+	var contacts: Dictionary = GameState.state["contacts"]
+	for contact_id in contacts.keys():
+		if contacts[contact_id]["recruited"]:
+			content.add_child(_build_staff_card(contact_id))
+	content.add_child(UI.button("Vein picking: Manage → Procurement", func(): _set_tab(MANAGE_TAB)))
+
+
+func _build_staff_card(contact_id: String) -> Control:
+	var c := UI.card()
+	var role: Variant = Contacts.role_of(contact_id)
+	c["content"].add_child(UI.heading(Contacts.display_name(contact_id), 14))
+	c["content"].add_child(UI.label("%s · %s" % ["No role" if role == null else String(role).capitalize(), Business.pay_terms(contact_id)]))
+	c["content"].add_child(UI.muted_label(Business.staff_status(contact_id)))
+	var contact: Dictionary = GameState.state["contacts"][contact_id]
+	var caps: Dictionary = GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("skillCaps", {})
+	for skill in SKILLS:
+		if not contact.has(skill + "Skill"):
+			continue
+		var line := "%s %d · %d XP" % [skill.capitalize(), int(contact[skill + "Skill"]), int(contact.get(skill + "XP", 0))]
+		if caps.has(skill):
+			line += " · cap %d" % int(caps[skill])
+		c["content"].add_child(UI.muted_label(line))
+	if Contacts.is_founder(contact_id):
+		c["content"].add_child(_build_role_picker(contact_id, role))
+	var owed := Business.owed(contact_id)
+	if owed > 0:
+		c["content"].add_child(UI.button("Pay now £%d" % owed, func(): Business.pay_owed_from_cash(contact_id)))
+	return c["panel"]
+
+
+# The founder's open room-free roles, plus clearing a held role.
+func _build_role_picker(contact_id: String, current: Variant) -> Control:
+	var row := UI.hflow()
+	for role in Contacts.available_roles(contact_id):
+		var role_id: String = role
+		var pick := UI.button(role_id.capitalize(), func(): Contacts.set_role(contact_id, role_id))
+		pick.disabled = current == role_id
+		row.add_child(pick)
+	if GameState.state["contacts"][contact_id].get("assignedRole") != null:
+		row.add_child(UI.button("Clear role", func(): Contacts.set_role(contact_id, null)))
+	return row
 
 
 func _build_production() -> Control:

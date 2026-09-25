@@ -292,6 +292,8 @@ func new_game_state() -> Dictionary:
 			"bizOwenCultivationRole": false, "bizOwenProductionRole": false,
 			# business_empire questline (systems/business_quest.gd).
 			"bizA1Proposed": false, "bizA1PropositionSeen": false, "bizA1MarketProven": false,
+			# Set by Beat 3; shows BizBrief's Staff tab.
+			"bizStaffTabOpen": false,
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,
 			# M1-LONDON D5 — district event one-shot flags/counters.
 			"greenwichTipOff": false, "luckyOmen": false, "conclaveNoticed": false, "oddities": 0,

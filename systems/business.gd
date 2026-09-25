@@ -53,6 +53,42 @@ static func owed(contact_id: String) -> int:
 	return int(_business()["wages"].get(contact_id, {}).get("owed", 0))
 
 
+# BizBrief Staff tab pay terms: a partner's share of the payday remainder,
+# a weekly business wage, or a room hire's daily Payroll wage.
+static func pay_terms(contact_id: String) -> String:
+	var business := _business()
+	var partners: Array = business["partners"]
+	if partners.has(contact_id):
+		return "%s share" % _share_fraction(partners.size() + 1)
+	if business["wages"].has(contact_id):
+		return "£%d a week" % int(business["wages"][contact_id]["weekly"])
+	var room: Variant = GameState.state["contacts"][contact_id].get("assignedRoom")
+	if room != null and Payroll.ROLE_SKILL_KEYS.has(room) and not Contacts.is_founder(contact_id):
+		return "£%d a day" % Payroll.wage_for_room(room)
+	return "No pay"
+
+
+static func _share_fraction(people: int) -> String:
+	match people:
+		2:
+			return "½"
+		3:
+			return "⅓"
+		4:
+			return "¼"
+	return "1/%d" % people
+
+
+# BizBrief Staff tab status: unpaid (owed a business wage), idle (no role),
+# or whether they act at block ends today.
+static func staff_status(contact_id: String) -> String:
+	if is_unpaid(contact_id):
+		return "Unpaid · owed £%d" % owed(contact_id)
+	if Contacts.role_of(contact_id) == null:
+		return "Idle"
+	return "Working" if Payroll.is_working(contact_id) else "Unpaid today"
+
+
 # Contact ids whose wage shortfall still awaits the morning
 # "pay from your own cash?" answer.
 static func pending_wage_prompts() -> Array[String]:

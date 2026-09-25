@@ -300,3 +300,98 @@ func run() -> void:
 		assert_eq(Rooms.cultivator_veins("archie"), [])
 		phone.free()
 	)
+
+	run_case("staff_tab_hidden_until_beat_3_flag", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_true(_button_with_text(phone, "Staff") == null)
+		phone.free()
+
+		GameState.state["flags"]["bizStaffTabOpen"] = true
+		phone = PhoneScreen.new()
+		phone._ready()
+		assert_true(_button_with_text(phone, "Staff") != null)
+		phone.free()
+	)
+
+	run_case("staff_tab_lists_recruited_contacts_with_terms_skills_and_status", func():
+		GameState.reset()
+		GameState.state["flags"]["bizStaffTabOpen"] = true
+		GameState.state["flags"]["bizOwenCultivationRole"] = true
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["contacts"]["owen"]["cultivatingSkill"] = 2
+		GameState.state["contacts"]["owen"]["cultivatingXP"] = 40
+		Contacts.set_role("owen", "cultivation")
+		Business.activate()
+		GameState.state["business"]["wages"]["owen"]["unpaid"] = true
+		GameState.state["business"]["wages"]["owen"]["owed"] = 120
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Staff").pressed.emit()
+
+		var texts := NodeQuery.label_texts(phone)
+		for expected in ["Archie", "Owen", "No role · ⅓ share", "Cultivation · £%d a week" % int(GameData.BUSINESS_WEEKLY_WAGES["owen"]), "Unpaid · owed £120", "Cultivating 2 · 40 XP · cap 3"]:
+			assert_true(texts.has(expected), "missing %s" % expected)
+		assert_true(not texts.has("James"), "unrecruited James not listed")
+		phone.free()
+	)
+
+	run_case("staff_role_picker_offers_only_available_roles_and_sets_role", func():
+		GameState.reset()
+		GameState.state["flags"]["bizStaffTabOpen"] = true
+		GameState.state["flags"]["bizOwenCultivationRole"] = true
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Staff").pressed.emit()
+
+		assert_true(_button_with_text(phone, "Production") == null, "production not yet available")
+		_button_with_text(phone, "Cultivation").pressed.emit()
+		assert_eq(Contacts.role_of("owen"), "cultivation")
+
+		_button_with_text(phone, "Clear role").pressed.emit()
+		assert_eq(Contacts.role_of("owen"), null)
+		phone.free()
+	)
+
+	run_case("staff_pay_now_shows_only_while_owed_and_pays_from_cash", func():
+		GameState.reset()
+		GameState.state["flags"]["bizStaffTabOpen"] = true
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		Business.activate()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Staff").pressed.emit()
+		assert_true(_button_with_text(phone, "Pay now £120") == null)
+		phone.free()
+
+		GameState.state["business"]["wages"]["owen"]["unpaid"] = true
+		GameState.state["business"]["wages"]["owen"]["owed"] = 120
+		GameState.state["player"]["cash"] = 500
+		phone = PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Staff").pressed.emit()
+		_button_with_text(phone, "Pay now £120").pressed.emit()
+		assert_eq(GameState.state["player"]["cash"], 380)
+		assert_true(not Business.is_unpaid("owen"))
+		assert_true(_button_with_text(phone, "Pay now £120") == null, "button gone once paid")
+		phone.free()
+	)
+
+	run_case("staff_procurement_link_opens_manage", func():
+		GameState.reset()
+		GameState.state["flags"]["bizStaffTabOpen"] = true
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Staff").pressed.emit()
+		_button_with_text(phone, "Vein picking: Manage → Procurement").pressed.emit()
+		assert_true(NodeQuery.label_texts(phone).has("Procurement"))
+		phone.free()
+	)

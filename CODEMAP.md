@@ -26,7 +26,7 @@ Data file per system: see `data/*.json` below.
 | bank.gd | Cash transaction log |
 | barometer.gd | Economic/social/political barometer + faction prefs |
 | business_quest.gd | business_empire questline side effects: Beat 1 trigger (2+ veins, Archie recruited → Archie's pending text) and Archie's Beat 2 starter-offer chain (state.businessQuest) |
-| business.gd | Business pot (contract settlements while active), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash |
+| business.gd | Business pot (contract settlements while active), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash, Staff tab pay-terms/status labels |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
 | collective.gd | Collective faction doors, Nadia settlement, Collective questline beat triggers + Act 2 scripted vein losses, Hakim retake gate + site ruin (ruinedByFirm), T7 Firm provocation (timed Firm-targeting weight), Act 2 relation awards (T8 missions, alarm-defend daily cap), Act 2 gate + T14 spine reward (Hakim intel's weak-enemy-vein branch) + T15 closer delivery |
@@ -191,7 +191,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | BizBrief: Brief tab (bank, payday statement, pay-from-cash wage prompt, operations, attention) + Manage tab (sales, production, procurement: each cultivator's veins, targets, picker) |
+| bizbrief_app.gd | BizBrief: Brief tab (bank, payday statement, pay-from-cash wage prompt, operations, attention) + Manage tab (sales, production, procurement: each cultivator's veins, targets, picker) + Staff tab once `bizStaffTabOpen` (recruited contacts' role, skills/XP/caps, pay terms, status, founder role picker, Pay now, Procurement link) |
 | messages_app.gd | Conversation master list + single-thread staged bubble reveal/action bar |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo; session-only expand/collapse overrides in a static var |
 | factions_app.gd | Faction cards |
