@@ -96,6 +96,7 @@ static func daily_tick() -> void:
 	MorningAccountsSystem.capture_losses(morning_context, "Raid")
 	Collective.maybe_trigger_hakim_intel()  # ⑤i no ordering dependency on any other step
 	Collective.maybe_trigger_act2_intro()   # ⑤i2 backstop for the same trigger events.advance() already checks
+	BusinessQuest.maybe_trigger_proposition()  # ⑤i3 backstop for the vein-count-change checks (catches today's self-seed)
 	Factions.maybe_restock_ore()         # ⑤j no ordering dependency on any other step
 	Payroll.pay_wages()                  # ⑥ staff phase start: wages, paid after living costs -- an unaffordable role is skipped this rollover, no debt, retried next
 	MorningAccountsSystem.capture_production_shortfalls(morning_context)  # ⑥.1 unmet Production targets; staff work itself runs per block in run_staff_block()
@@ -103,6 +104,7 @@ static func daily_tick() -> void:
 	ContractsSystem.daily_tick()         # ⑥.4 due periods settle; recurring periods renew
 	MorningAccountsSystem.capture_business(morning_context, Business.daily_tick())  # ⑥.4b after ⑥.4 so payday banks today's settlements
 	OffersSystem.daily_tick()            # ⑥.5 expiry, then Sales sources at most one new random offer
+	BusinessQuest.maybe_issue_starter()  # ⑥.5b after ⑥.5's expiry; outside the random roll and its slot
 	Dial.daily_regen()                   # ⑦ Dial charge regen
 	Contacts.daily_dial_regen()          # ⑦.1 ally Dial charges refill
 	Objectives.refresh()                 # ⑧ objectives boundary

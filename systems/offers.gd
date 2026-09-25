@@ -151,6 +151,7 @@ static func accept_offer(offer_id: String) -> Dictionary:
 			continue
 		if int(offer["expiresDay"]) <= GameState.state["world"]["day"]:
 			pending.remove_at(index)
+			BusinessQuest.note_starter_closed(offer.get("templateId", ""), false)
 			EventBus.state_changed.emit()
 			return { "ok": false, "reason": "Offer expired." }
 		var sales: Dictionary = GameState.state["sales"]
@@ -178,7 +179,9 @@ static func decline_offer(offer_id: String) -> Dictionary:
 	var pending := pending_offers()
 	for index in pending.size():
 		if pending[index]["id"] == offer_id:
+			var template_id: String = pending[index].get("templateId", "")
 			pending.remove_at(index)
+			BusinessQuest.note_starter_closed(template_id, false)
 			EventBus.state_changed.emit()
 			return { "ok": true }
 	return { "ok": false, "reason": "Offer not found." }
@@ -190,7 +193,9 @@ static func expire_pending_offers() -> void:
 	var changed := false
 	for index in range(pending.size() - 1, -1, -1):
 		if int(pending[index]["expiresDay"]) <= today:
+			var template_id: String = pending[index].get("templateId", "")
 			pending.remove_at(index)
+			BusinessQuest.note_starter_closed(template_id, false)
 			changed = true
 	if changed:
 		EventBus.state_changed.emit()

@@ -128,6 +128,7 @@ static func buy_from_faction(vein_id: String, faction_id: String, contact_id: St
 		RelationAccrual.accrue_contact_trade(contact_id, price)
 
 	Objectives.refresh()
+	BusinessQuest.maybe_trigger_proposition()
 	EventBus.state_changed.emit()
 	return { "ok": true, "price": price, "factionId": faction_id }
 

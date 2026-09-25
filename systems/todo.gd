@@ -14,17 +14,18 @@ const MAX_ITEMS_PER_SECTION := 4
 # Per-questline presentation, in display order: label, and the flag that
 # marks the whole questline done -- a distinct, later "epic complete" flag,
 # not any one objective's own completeFlag, so the last objective renders
-# checked before the section collapses. A "placeholder" questline has no
-# objectives yet and always renders its emptyText.
+# checked before the section collapses. A questline with an emptyText is
+# listed as a placeholder showing that text until its first objective
+# activates; one without is omitted until then.
 const QUESTLINES := {
 	"tutorial": { "label": "Tutorial", "doneFlag": "cultivationTutorialSeen" },
 	"collective": { "label": "Collective", "doneFlag": "colA1Complete" },
-	"business_empire": { "label": "Business Empire", "placeholder": true, "emptyText": "Nothing on the books yet." },
+	"business_empire": { "label": "Business Empire", "doneFlag": "bizA1Complete", "emptyText": "Nothing on the books yet." },
 }
 
 
 # Returns one entry per started questline (at least one active objective, or
-# a live Collective ledger) plus every placeholder: { "questline", "label",
+# a live Collective ledger) plus every unstarted one with an emptyText: { "questline", "label",
 # "status": "active"|"done"|"placeholder", "defaultExpanded": bool,
 # "items": [{ "title", "detail", "done" }], "ledger": Array, "emptyText" },
 # in QUESTLINES' order, items capped to the most recent MAX_ITEMS_PER_SECTION.
@@ -55,10 +56,10 @@ static func get_questline_sections() -> Array[Dictionary]:
 		if questline == "collective":
 			ledger = get_collective_ledger()
 		var status := "active"
-		if config.get("placeholder", false):
+		if items.is_empty() and ledger.is_empty():
+			if not config.has("emptyText"):
+				continue
 			status = "placeholder"
-		elif items.is_empty() and ledger.is_empty():
-			continue
 		elif flags.get(config.get("doneFlag"), false) and ledger.is_empty():
 			status = "done"
 		if items.size() > MAX_ITEMS_PER_SECTION:
@@ -100,7 +101,12 @@ static func get_collective_ledger() -> Array[Dictionary]:
 # before day 2, Archie's text hasn't arrived, so its title doesn't apply
 # yet). Generic (not id-keyed) so any objective can opt into a day-gated
 # title via these two data fields.
+# Count-style objectives (Objectives.count_progress) show "n of N" as their
+# detail.
 static func _display_text(def: Dictionary) -> Dictionary:
 	if def.has("earlyTitle") and GameState.state["world"]["day"] < def["earlyTitleBeforeDay"]:
 		return { "title": def["earlyTitle"], "detail": "" }
+	var progress := Objectives.count_progress(def)
+	if not progress.is_empty():
+		return { "title": def["title"], "detail": "%d of %d" % [progress["current"], progress["target"]] }
 	return { "title": def["title"], "detail": def.get("detail", "") }

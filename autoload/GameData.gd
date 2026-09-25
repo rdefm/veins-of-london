@@ -1272,7 +1272,7 @@ func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[Strin
 # types inspect world/faction/vein state.
 const OBJECTIVE_TYPES: Array[String] = [
 	"sites_discovered_matching", "traded_with_faction", "supplied_to_contact", "vein_sold_to_faction", "vein_growth_above", "flag_true",
-	"alarm_defend_wins", "faction_vein_seeded_count", "items_crafted_set",
+	"alarm_defend_wins", "faction_vein_seeded_count", "items_crafted_set", "contracts_completed",
 ]
 const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"sites_discovered_matching": ["requireEachOreType", "minTier", "unclaimed"],
@@ -1284,6 +1284,7 @@ const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"alarm_defend_wins": ["minCount"],
 	"faction_vein_seeded_count": ["factionId", "minCount"],
 	"items_crafted_set": ["recipeKeys", "minEach"],
+	"contracts_completed": ["minCount"],
 }
 
 

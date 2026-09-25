@@ -16,6 +16,7 @@ const TYPE_FLAG_TRUE := "flag_true"
 const TYPE_ALARM_DEFEND_WINS := "alarm_defend_wins"
 const TYPE_FACTION_VEIN_SEEDED_COUNT := "faction_vein_seeded_count"
 const TYPE_ITEMS_CRAFTED_SET := "items_crafted_set"
+const TYPE_CONTRACTS_COMPLETED := "contracts_completed"
 
 
 # The only entry point, called explicitly at action boundaries across
@@ -82,6 +83,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return _eval_faction_vein_seeded_count(params, progress)
 		TYPE_ITEMS_CRAFTED_SET:
 			return _eval_items_crafted_set(params, progress)
+		TYPE_CONTRACTS_COMPLETED:
+			return completed_contract_count() >= int(params["minCount"])
 		_:
 			return false
 
@@ -229,3 +232,23 @@ static func _eval_items_crafted_set(params: Dictionary, progress: Dictionary) ->
 		if since < min_each:
 			return false
 	return true
+
+
+# Fully completed BizBrief settlements (settlement.complete), read live from
+# sales.contractHistory so completions from before activation count. Each
+# settled recurring period is its own history entry, so counts as one.
+static func completed_contract_count() -> int:
+	var count := 0
+	for entry in GameState.state["sales"]["contractHistory"]:
+		if entry["settlement"].get("complete", false):
+			count += 1
+	return count
+
+
+# { "current", "target" } for count-style objectives the ToDo app shows
+# progress on, else {}. current is capped at target.
+static func count_progress(def: Dictionary) -> Dictionary:
+	if def["type"] == TYPE_CONTRACTS_COMPLETED:
+		var target: int = int(def["params"]["minCount"])
+		return { "current": mini(completed_contract_count(), target), "target": target }
+	return {}

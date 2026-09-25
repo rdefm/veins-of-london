@@ -181,5 +181,25 @@
     "activateFlag": "colA2DefendBriefed",
     "completeFlag": "colA2NadiaDefendDone",
     "questline": "collective"
+  },
+  "biz_a1_proposition": {
+    "id": "biz_a1_proposition",
+    "title": "Archie's got a proposition. Meet him at James's.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "bizA1Proposed",
+    "completeFlag": "bizA1PropositionSeen",
+    "questline": "business_empire"
+  },
+  "biz_a1_market_proof": {
+    "id": "biz_a1_market_proof",
+    "title": "Prove the market to James: complete three BizBrief contracts in full",
+    "detail": "",
+    "type": "contracts_completed",
+    "params": { "minCount": 3 },
+    "activateFlag": "bizA1PropositionSeen",
+    "completeFlag": "bizA1MarketProven",
+    "questline": "business_empire"
   }
 }

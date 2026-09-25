@@ -353,6 +353,7 @@ static func self_seed(vein: Dictionary) -> void:
 	var hospitability := { "tier": site["tier"], "bonuses": site["bonuses"] }
 	var new_vein := make_vein(site["oreType"], GameData.VEIN_GROWTH["selfSeedGrowth"], district, site["id"], hospitability)
 	GameState.state["player"]["veins"].append(new_vein)
+	BusinessQuest.maybe_trigger_proposition()
 	MapEvents.queue_seed_claim(district, new_vein["id"], "player")
 	MapEvents.queue_join_line(district, new_vein["id"], "player")
 

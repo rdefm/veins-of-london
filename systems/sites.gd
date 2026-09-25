@@ -424,6 +424,7 @@ static func attempt_seed(site_id: String) -> Dictionary:
 			MapEvents.queue_join_line(district, natural_vein_id, "player")
 
 		Cultivating.award_xp(30)
+		BusinessQuest.maybe_trigger_proposition()
 		Modal.open("seed_result", { "success": true, "oreType": ore_type, "siteId": site_id })
 		return { "ok": true, "success": true, "siteId": site_id, "veinId": vein["id"], "naturalVeinId": natural_vein_id }
 	else:

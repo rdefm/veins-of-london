@@ -85,6 +85,7 @@ static func claim_vein(site_id: String) -> void:
 
 	site["claimed"] = true
 	site["factionVein"] = null
+	BusinessQuest.maybe_trigger_proposition()
 
 	Factions.adjust_player_relation(faction_id, CLAIM_RELATION_HIT)
 	MapEvents.queue_seed_claim(district, vein_id, "player")

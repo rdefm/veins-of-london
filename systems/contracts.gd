@@ -204,6 +204,9 @@ static func settle(contract_id: String) -> Dictionary:
 	else:
 		active_contracts().erase(contract)
 		sales["priorityOrder"].erase(contract_id)
+		BusinessQuest.note_starter_closed(contract.get("templateId", ""), complete)
+	# A complete settlement can meet a contract-count objective (Beat 2).
+	Objectives.refresh()
 	EventBus.state_changed.emit()
 	return { "ok": true, "settlement": settlement }
 

@@ -517,6 +517,9 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(wage, key)
 	for record in business.get("ledger", []):
 		_restore_payday_int_types(record)
+	var business_quest: Dictionary = state.get("businessQuest", {})
+	_int_key(business_quest, "starterIndex")
+	_int_key(business_quest, "starterReissueDay")
 	if morning != null and morning.get("payday") != null:
 		_restore_payday_int_types(morning["payday"])
 

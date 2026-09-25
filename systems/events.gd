@@ -172,6 +172,10 @@ static func advance() -> void:
 		Collective.maybe_trigger_a2_checkpoint()
 		# T14's gate usually crosses on T13's own +15 relation award.
 		Collective.maybe_trigger_a2_spine_reward()
+		# Beat 1: an event can grant a vein or recruit Archie; the Beat 1
+		# scene itself starts Archie's starter chain.
+		BusinessQuest.maybe_trigger_proposition()
+		BusinessQuest.maybe_issue_starter()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
 		event_state["cardIndex"] += 1

@@ -1,0 +1,22 @@
+{
+  "id": "biz_a1_proposition",
+  "cards": [
+    { "type": "narration", "label": "Bermondsey — James's unit", "speaker": null, "text": "The shutter is half up. Archie is already inside, standing well back from the shelves, the way he always does — partly the allergy, partly James." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. Before he starts. You've got two veins going. Two's not a hobby. Two's a supply.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"So here's the pitch. I sell. James makes. You grow it. Everyone does one job properly instead of three badly, and we split what comes in.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "James has a small brass hourglass on the workbench. He turns it over while Archie talks, and again when Archie stops. It is an ordinary hourglass. He uses it to time glue." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"You are proposing that I go into business with a man who cannot stand within two metres of his own product, and someone I taught to make a pearl.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"When you say it like that it sounds bad.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"I said it accurately.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"I have a business. It carries on whatever I decide here; my clients have no interest in who your friends are. If I put my name to a second one, I want two things first.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"A market that pays, reliably. Three orders delivered in full. Not most of an order — in full. Whatever you have already delivered counts. I have no wish to watch you repeat yourself.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"And a serious investment. Anyone can sell a few jars. I want to see you put money into this that you would miss.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Market and money. Done.\" He's already on his phone. \"I'll send you proper orders — buyers I know pay. They'll come through on BizBrief.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "James turns the hourglass once more and goes back to his glue. He has not said yes. He has not said no, either, and Archie is treating that as a signature." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "bizA1PropositionSeen", "value": true },
+    { "op": "set_flag", "flag": "bizArchieSalesRole", "value": true },
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

@@ -25,6 +25,7 @@ Data file per system: see `data/*.json` below.
 | bag.gd | Bag-drawer toggle |
 | bank.gd | Cash transaction log |
 | barometer.gd | Economic/social/political barometer + faction prefs |
+| business_quest.gd | business_empire questline side effects: Beat 1 trigger (2+ veins, Archie recruited → Archie's pending text) and Archie's Beat 2 starter-offer chain (state.businessQuest) |
 | business.gd | Business pot (contract settlements while active), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
@@ -80,7 +81,7 @@ Data file per system: see `data/*.json` below.
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | time_system.gd | Time blocks (each runs the staff block step), rest, daily tick (tenure-aware home bill, arrears + interest, forced one-tier downgrade per ADR 0006) |
-| todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire placeholder) with active/done/placeholder status + default expansion; Collective section carries the ledger read from state.world.sites |
+| todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire) with active/done/placeholder status + default expansion, "n of N" detail for count objectives; Collective section carries the ledger read from state.world.sites |
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer |
 | vein_list_nav.gd | Vein list screen nav state |
@@ -226,8 +227,8 @@ overlays.
 | items.json | combat.gd, profile_app.gd, bag_drawer.gd |
 | map_layout.json | map_layout.gd, map_hit_test.gd |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, faction/ore dark overrides) + map_controls.gd (`darkModeLabel`) |
-| objectives.json | objectives.gd, todo.gd, collective.gd |
-| offers.json | offers.gd (synthetic catalogue) |
+| objectives.json | objectives.gd, todo.gd, collective.gd, business_quest.gd |
+| offers.json | offers.gd (synthetic catalogue), business_quest.gd (biz_starter_* chain + Archie nudge text) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | palette.json | GameData.gd (reference combat-art palette) |
 | phone_home.json | GameData.gd + phone_device_shell.gd (fixed wallpaper/status/widget presentation; no GameState or host-service data) |

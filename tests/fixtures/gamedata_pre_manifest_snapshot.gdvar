@@ -1325,6 +1325,82 @@
 "screen": "map"
 }]
 },
+"biz_a1_proposition": {
+"cards": [{
+"label": "Bermondsey — James's unit",
+"speaker": null,
+"text": "The shutter is half up. Archie is already inside, standing well back from the shelves, the way he always does — partly the allergy, partly James.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Right. Before he starts. You've got two veins going. Two's not a hobby. Two's a supply.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"So here's the pitch. I sell. James makes. You grow it. Everyone does one job properly instead of three badly, and we split what comes in.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "James has a small brass hourglass on the workbench. He turns it over while Archie talks, and again when Archie stops. It is an ordinary hourglass. He uses it to time glue.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"You are proposing that I go into business with a man who cannot stand within two metres of his own product, and someone I taught to make a pearl.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"When you say it like that it sounds bad.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"I said it accurately.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"I have a business. It carries on whatever I decide here; my clients have no interest in who your friends are. If I put my name to a second one, I want two things first.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"A market that pays, reliably. Three orders delivered in full. Not most of an order — in full. Whatever you have already delivered counts. I have no wish to watch you repeat yourself.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"And a serious investment. Anyone can sell a few jars. I want to see you put money into this that you would miss.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Market and money. Done.\" He's already on his phone. \"I'll send you proper orders — buyers I know pay. They'll come through on BizBrief.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "James turns the hourglass once more and goes back to his glue. He has not said yes. He has not said no, either, and Archie is treating that as a signature.",
+"type": "resolution"
+}],
+"id": "biz_a1_proposition",
+"on_complete": [{
+"flag": "bizA1PropositionSeen",
+"op": "set_flag",
+"value": true
+}, {
+"flag": "bizArchieSalesRole",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
 "busker_greenwich": {
 "cards": [{
 "label": "Greenwich Market",
@@ -4700,10 +4776,10 @@
 "buyPrice": 0,
 "dailyCost": 50,
 "description": "A single room in Whitechapel. The boiler makes a sound like someone clearing their throat. No storage to speak of.",
-"particulars": "An incredibly cosy, fully integrated living space in vibrant Whitechapel, where bed, kitchen and bathroom enjoy an unusually close working relationship. Characterful boiler with a voice of its own. Viewing essential, as the photographer could not fit the room in.",
 "id": "bedsit",
 "maxRooms": 0,
 "name": "Bedsit",
+"particulars": "An incredibly cosy, fully integrated living space in vibrant Whitechapel, where bed, kitchen and bathroom enjoy an unusually close working relationship. Characterful boiler with a voice of its own. Viewing essential, as the photographer could not fit the room in.",
 "raidBaseChance": 0.08,
 "rentOnly": true,
 "tier": 1
@@ -4712,11 +4788,11 @@
 "buyPrice": 2000000,
 "dailyCost": 600,
 "description": "Gated property, East London. Eight rooms. People who matter know you live here.",
-"particulars": "A statement gated estate for the East London buyer who has arrived and would like people to notice from a safe distance. Perimeter wall, controlled access, a driveway long enough to see visitors coming. The kind of address that ends conversations.",
 "id": "compound",
 "maxRooms": 8,
 "name": "Compound",
 "ownedDailyCost": 110,
+"particulars": "A statement gated estate for the East London buyer who has arrived and would like people to notice from a safe distance. Perimeter wall, controlled access, a driveway long enough to see visitors coming. The kind of address that ends conversations.",
 "raidBaseChance": 0.01,
 "rentOnly": false,
 "tier": 6
@@ -4725,11 +4801,11 @@
 "buyPrice": 200000,
 "dailyCost": 80,
 "description": "Two rooms above a nail bar in Hackney. Neighbours ask no questions. One spare room.",
-"particulars": "A generous two-room apartment in the heart of Hackney's thriving beauty quarter, the nail bar below supplying ambient fragrance at no extra cost. Famously incurious neighbours. Bonus second room, suitable as a study, a workshop or somewhere to put the problem.",
 "id": "flat",
 "maxRooms": 1,
 "name": "Flat",
 "ownedDailyCost": 58,
+"particulars": "A generous two-room apartment in the heart of Hackney's thriving beauty quarter, the nail bar below supplying ambient fragrance at no extra cost. Famously incurious neighbours. Bonus second room, suitable as a study, a workshop or somewhere to put the problem.",
 "raidBaseChance": 0.06,
 "rentOnly": false,
 "tier": 3
@@ -4738,11 +4814,11 @@
 "buyPrice": 4000000,
 "dailyCost": 1500,
 "description": "Grounds, staff quarters, a gate. Twelve rooms. Plato would have something to say about this.",
-"particulars": "A landmark residence with rolling grounds, staff quarters and a gate that opens only for the right people. Twelve reception-grade rooms, each large enough to lose a guest in. Philosopher-kings may find it modest; nobody else will.",
 "id": "mansion",
 "maxRooms": 12,
 "name": "Mansion & Grounds",
 "ownedDailyCost": 200,
+"particulars": "A landmark residence with rolling grounds, staff quarters and a gate that opens only for the right people. Twelve reception-grade rooms, each large enough to lose a guest in. Philosopher-kings may find it modest; nobody else will.",
 "raidBaseChance": 0.005,
 "rentOnly": false,
 "tier": 7
@@ -4751,11 +4827,11 @@
 "buyPrice": 800000,
 "dailyCost": 300,
 "description": "Off-grid property, no registered occupant. Not technically yours, but no one is arguing. Five spare rooms.",
-"particulars": "A rare opportunity to acquire a truly discreet off-grid residence, unknown to the Land Registry, the council and, it is hoped, everyone else. Deceptively spacious. Utilities arranged privately. Title is best described as a matter of confidence.",
 "id": "safehouse",
 "maxRooms": 5,
 "name": "Safehouse",
 "ownedDailyCost": 80,
+"particulars": "A rare opportunity to acquire a truly discreet off-grid residence, unknown to the Land Registry, the council and, it is hoped, everyone else. Deceptively spacious. Utilities arranged privately. Title is best described as a matter of confidence.",
 "raidBaseChance": 0.02,
 "rentOnly": false,
 "tier": 5
@@ -4764,11 +4840,11 @@
 "buyPrice": 80000,
 "dailyCost": 60,
 "description": "One room in Stepney with a kitchen along the wall. The door locks and the key is yours. No spare room.",
-"particulars": "A bright, open-plan residence in up-and-coming Stepney, the kitchen thoughtfully arranged along one wall so you can cook without leaving bed. Secure entry: the door locks. Ideal for the discerning professional who owns very little and intends to keep it that way.",
 "id": "studio",
 "maxRooms": 0,
 "name": "Studio",
 "ownedDailyCost": 35,
+"particulars": "A bright, open-plan residence in up-and-coming Stepney, the kitchen thoughtfully arranged along one wall so you can cook without leaving bed. Secure entry: the door locks. Ideal for the discerning professional who owns very little and intends to keep it that way.",
 "raidBaseChance": 0.07,
 "rentOnly": false,
 "tier": 2
@@ -4777,11 +4853,11 @@
 "buyPrice": 500000,
 "dailyCost": 150,
 "description": "Three floors, Bethnal Green. Previous tenant left in a hurry. Three spare rooms.",
-"particulars": "A handsome three-storey period home in sought-after Bethnal Green, offered with vacant possession following the previous occupant's swift and unplanned departure. Some original features, some original stains. Chain-free, in that nobody is coming back for it.",
 "id": "townhouse",
 "maxRooms": 3,
 "name": "Townhouse",
 "ownedDailyCost": 65,
+"particulars": "A handsome three-storey period home in sought-after Bethnal Green, offered with vacant possession following the previous occupant's swift and unplanned departure. Some original features, some original stains. Chain-free, in that nobody is coming back for it.",
 "raidBaseChance": 0.04,
 "rentOnly": false,
 "tier": 4
@@ -5068,6 +5144,28 @@
 "riverPath": [[80, 760], [300, 780], [480, 820], [650, 850], [820, 830], [1000, 880], [1120, 900]]
 },
 "OBJECTIVES": {
+"biz_a1_market_proof": {
+"activateFlag": "bizA1PropositionSeen",
+"completeFlag": "bizA1MarketProven",
+"detail": "",
+"id": "biz_a1_market_proof",
+"params": {
+"minCount": 3
+},
+"questline": "business_empire",
+"title": "Prove the market to James: complete three BizBrief contracts in full",
+"type": "contracts_completed"
+},
+"biz_a1_proposition": {
+"activateFlag": "bizA1Proposed",
+"completeFlag": "bizA1PropositionSeen",
+"detail": "",
+"id": "biz_a1_proposition",
+"params": {},
+"questline": "business_empire",
+"title": "Archie's got a proposition. Meet him at James's.",
+"type": "flag_true"
+},
 "col_a1_des_sites": {
 "activateFlag": "colA1DesThreadActive",
 "completeFlag": "colA1DesSitesFound",
@@ -5276,6 +5374,45 @@
 }
 },
 "OFFER_TEMPLATES": {
+"biz_starter_1": {
+"contractType": "oneOff",
+"deadlineAfterDays": 5,
+"expiresAfterDays": 5,
+"id": "biz_starter_1",
+"nudge": "\"Put one on BizBrief for you. Four time, bloke in Stepney. He pays on the day, which is rarer than it should be.\"",
+"request": {
+"kind": "ore",
+"qty": 4,
+"type": "time"
+},
+"source": "scripted"
+},
+"biz_starter_2": {
+"contractType": "oneOff",
+"deadlineAfterDays": 5,
+"expiresAfterDays": 5,
+"id": "biz_starter_2",
+"nudge": "\"Next one's on BizBrief. Three pearls. Make them yourself — James will ask.\"",
+"request": {
+"kind": "consumable",
+"qty": 3,
+"type": "timePearl"
+},
+"source": "scripted"
+},
+"biz_starter_3": {
+"contractType": "oneOff",
+"deadlineAfterDays": 5,
+"expiresAfterDays": 5,
+"id": "biz_starter_3",
+"nudge": "\"Another on BizBrief. Five life. She's fussy about dates, so don't be late.\"",
+"request": {
+"kind": "ore",
+"qty": 5,
+"type": "life"
+},
+"source": "scripted"
+},
 "random_time_ore": {
 "contractType": "oneOff",
 "id": "random_time_ore",

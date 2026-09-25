@@ -1,0 +1,160 @@
+extends "res://tests/test_base.gd"
+
+const Fixtures := preload("res://tests/support/fixtures.gd")
+const EventPlay := preload("res://tests/support/event_play.gd")
+
+
+func run() -> void:
+	run_case("beat_1_fires_at_two_veins_with_no_collective_progress", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Fixtures.seed_vein("v1", 40, "time")
+		TimeSystem.do_rest()
+		assert_true(not GameState.state["flags"]["bizA1Proposed"], "one vein is not enough")
+
+		GameState.state["player"]["cash"] = 100000
+		Fixtures.seed_faction_vein("fv1", 40)
+		assert_true(VeinTrade.buy_from_faction("fv1", "collective")["ok"])
+		assert_true(not GameState.state["flags"].get("colA1Started", false), "no Collective progress")
+		assert_true(GameState.state["flags"]["bizA1Proposed"], "second vein fires Beat 1")
+		assert_eq(_pending_kinds("archie"), [BusinessQuest.PROPOSITION_KIND])
+		assert_true(GameState.state["objectives"]["biz_a1_proposition"]["active"], "ToDo shows the proposition")
+
+		TimeSystem.do_rest()
+		assert_eq(_pending_kinds("archie"), [BusinessQuest.PROPOSITION_KIND], "the permanent flag blocks re-firing")
+	)
+
+	run_case("beat_1_waits_for_archie_to_be_recruited_then_backstop_fires", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = false
+		Fixtures.seed_vein("v1", 40, "time")
+		Fixtures.seed_vein("v2", 40, "life")
+		TimeSystem.do_rest()
+		assert_true(not GameState.state["flags"]["bizA1Proposed"])
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		TimeSystem.do_rest()
+		assert_true(GameState.state["flags"]["bizA1Proposed"], "rollover backstop")
+	)
+
+	run_case("beat_1_scene_opens_sales_role_and_first_starter", func():
+		_to_beat_1()
+		assert_true(not Contacts.is_role_available("archie", "sales"))
+		EventPlay.play_event(BusinessQuest.PROPOSITION_KIND)
+		assert_true(GameState.state["flags"]["bizA1PropositionSeen"])
+		assert_true(Contacts.is_role_available("archie", "sales"), "Archie's Sales role opens at Beat 2")
+		assert_eq(_starter_offer_templates(), ["biz_starter_1"])
+		var offer: Dictionary = _starter_offers()[0]
+		assert_eq(offer["request"], { "kind": "ore", "type": "time", "qty": 4 })
+		assert_true(GameState.state["objectives"]["biz_a1_market_proof"]["active"])
+		assert_true(not GameState.state["objectives"]["biz_a1_market_proof"]["complete"])
+	)
+
+	run_case("three_prior_completions_satisfy_beat_2_instantly", func():
+		_to_beat_1()
+		for i in 3:
+			_complete_life_order()
+		EventPlay.play_event(BusinessQuest.PROPOSITION_KIND)
+		assert_true(GameState.state["flags"]["bizA1MarketProven"], "earlier completions count")
+		assert_eq(_starter_offer_templates(), [], "no starter once Beat 2 is met")
+	)
+
+	run_case("partial_settlement_does_not_count_toward_beat_2", func():
+		_to_beat_1()
+		EventPlay.play_event(BusinessQuest.PROPOSITION_KIND)
+		var created: Dictionary = Offers.create_scripted_offer("scripted_life_order")
+		var contract: Dictionary = Offers.accept_offer(created["offer"]["id"])["contract"]
+		GameState.state["player"]["orichalchum"]["life"] = 2
+		Contracts.deliver(contract["id"], 2)
+		Contracts.settle(contract["id"])
+		assert_eq(Objectives.completed_contract_count(), 0)
+	)
+
+	run_case("expired_starter_reissues_after_one_day", func():
+		_to_beat_1()
+		EventPlay.play_event(BusinessQuest.PROPOSITION_KIND)
+		var expires_day: int = _starter_offers()[0]["expiresDay"]
+		while GameState.state["world"]["day"] < expires_day:
+			_tick()
+			assert_true(_starter_offers().size() <= 1, "never more than one starter outstanding")
+		assert_eq(_starter_offer_templates(), [], "expired on its expiry day, not reissued the same rollover")
+		_tick()
+		assert_eq(_starter_offer_templates(), ["biz_starter_1"], "the same starter reissued a day later")
+	)
+
+	run_case("declined_starter_reissues_next_day_and_completed_one_advances", func():
+		_to_beat_1()
+		EventPlay.play_event(BusinessQuest.PROPOSITION_KIND)
+		Offers.decline_offer(_starter_offers()[0]["id"])
+		BusinessQuest.maybe_issue_starter()
+		assert_eq(_starter_offer_templates(), [], "not the same day")
+		_tick()
+		assert_eq(_starter_offer_templates(), ["biz_starter_1"])
+
+		var contract: Dictionary = Offers.accept_offer(_starter_offers()[0]["id"])["contract"]
+		_tick()
+		assert_eq(_starter_offer_templates(), [], "an active starter contract is the outstanding one")
+		GameState.state["player"]["orichalchum"]["time"] = 4
+		assert_true(Contracts.deliver(contract["id"], 4)["complete"])
+		assert_eq(Objectives.completed_contract_count(), 1)
+		_tick()
+		assert_eq(_starter_offer_templates(), ["biz_starter_2"], "the next starter a day after completion")
+		assert_eq(_starter_offers()[0]["request"], { "kind": "consumable", "type": "timePearl", "qty": 3 })
+	)
+
+	run_case("todo_business_empire_shows_progress_toward_three", func():
+		GameState.reset()
+		var section := _business_section()
+		assert_eq(section["status"], "placeholder", "unstarted questline shows its empty text")
+		_to_beat_1()
+		EventPlay.play_event(BusinessQuest.PROPOSITION_KIND)
+		_complete_life_order()
+		section = _business_section()
+		assert_eq(section["status"], "active")
+		var proof: Dictionary = section["items"][section["items"].size() - 1]
+		assert_eq(proof["detail"], "1 of 3")
+		assert_true(not proof["done"])
+	)
+
+
+func _to_beat_1() -> void:
+	GameState.reset()
+	GameState.state["contacts"]["archie"]["recruited"] = true
+	Fixtures.seed_vein("v1", 40, "time")
+	Fixtures.seed_vein("v2", 40, "life")
+	TimeSystem.do_rest()
+
+
+# A rollover with random offers stripped, so the pending cap never blocks a
+# starter the case is waiting on.
+func _tick() -> void:
+	TimeSystem.do_rest()
+	var pending: Array = Offers.pending_offers()
+	for offer in pending.duplicate():
+		if offer["source"] == "random":
+			pending.erase(offer)
+
+
+func _complete_life_order() -> void:
+	var created: Dictionary = Offers.create_scripted_offer("scripted_life_order")
+	var contract: Dictionary = Offers.accept_offer(created["offer"]["id"])["contract"]
+	GameState.state["player"]["orichalchum"]["life"] = 5
+	Contracts.deliver(contract["id"], 5)
+
+
+func _pending_kinds(contact_id: String) -> Array:
+	return Messages.pending_for(contact_id).map(func(e): return e["kind"])
+
+
+func _starter_offers() -> Array:
+	return Offers.pending_offers().filter(func(o): return BusinessQuest.is_starter(o["templateId"]))
+
+
+func _starter_offer_templates() -> Array:
+	return _starter_offers().map(func(o): return o["templateId"])
+
+
+func _business_section() -> Dictionary:
+	for section in Todo.get_questline_sections():
+		if section["questline"] == "business_empire":
+			return section
+	return {}

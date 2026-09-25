@@ -96,6 +96,10 @@ func new_game_state() -> Dictionary:
 			"week": { "startDay": 1, "receipts": 0, "expenses": [] },
 			"partners": [], "wages": {}, "ledger": [], "nextPaydayId": 1,
 		},
+		# Archie's Beat 2 starter-offer chain (systems/business_quest.gd):
+		# which starter template is next, and the day it may be (re)issued
+		# (null = as soon as none is outstanding).
+		"businessQuest": { "starterIndex": 0, "starterReissueDay": null },
 		# Transient UI qty-steppers, not restored by SaveManager (same
 		# convention as sellState): craftQty keys recipe key -> batch size;
 		# marketplaceQty keys "<factionId>_<kind>_<itemType>" -> qty; stashQty
@@ -286,6 +290,8 @@ func new_game_state() -> Dictionary:
 			# Business Act 1 founder role unlocks (constants.json contacts.<id>.roleFlags).
 			"bizArchieSalesRole": false, "bizJamesProductionRole": false,
 			"bizOwenCultivationRole": false, "bizOwenProductionRole": false,
+			# business_empire questline (systems/business_quest.gd).
+			"bizA1Proposed": false, "bizA1PropositionSeen": false, "bizA1MarketProven": false,
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,
 			# M1-LONDON D5 — district event one-shot flags/counters.
 			"greenwichTipOff": false, "luckyOmen": false, "conclaveNoticed": false, "oddities": 0,
