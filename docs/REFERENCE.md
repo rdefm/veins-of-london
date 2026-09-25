@@ -166,7 +166,7 @@ Descriptions (verbatim):
 | id | name | tier | buyPrice | rentOnly | dailyCost | raidBaseChance | maxRooms |
 |---|---|---|---|---|---|---|---|
 | bedsit | Bedsit | 1 | 0 | true | 50 | 0.08 | 0 |
-| studio | Studio | 2 | 100000 | false | 60 | 0.07 | 0 |
+| studio | Studio | 2 | 80000 | false | 60 | 0.07 | 0 |
 | flat | Flat | 3 | 200000 | false | 80 | 0.06 | 1 |
 | townhouse | Townhouse | 4 | 500000 | false | 150 | 0.04 | 3 |
 | safehouse | Safehouse | 5 | 800000 | false | 300 | 0.02 | 5 |
@@ -185,7 +185,7 @@ Tier descriptions: extract verbatim from HTML const `HOME_TIERS`.
 |---|---|---|---|---|
 | lock | Reinforced Lock | 80 | 0.02 | bedsit |
 | cameras | CCTV | 250 | 0.03 | flat |
-| alarm | Alarm System | 400 | 0.03 | flat |
+| alarm | Alarm System | 400 | 0.03 | studio |
 | reinforcedDoor | Reinforced Door | 600 | 0.04 | townhouse |
 | ward | Orichalchum Ward | 2000 | 0.06 | safehouse |
 | guard | Hired Guard | 1200 | 0.05 | compound |

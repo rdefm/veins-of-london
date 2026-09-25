@@ -26,7 +26,7 @@ From the studio upward each tier can be rented or bought.
 | Tier | Rent/day (= `dailyCost`) | Buy price | Owned utilities/day |
 |---|---|---|---|
 | bedsit | 50 | — (rent only) | — |
-| studio | 60 | 100,000 | 35 |
+| studio | 60 | 80,000 | 35 |
 | flat | 80 | 200,000 | 58 |
 | townhouse | 150 | 500,000 | 65 |
 | safehouse | 300 | 800,000 | 80 |

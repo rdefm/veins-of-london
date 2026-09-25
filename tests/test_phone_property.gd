@@ -84,7 +84,7 @@ func run() -> void:
 		var raid_pct: int = int(round(Home.get_raid_chance_for_tier("studio") * 100))
 		assert_true(texts.has("Raid risk: %d%% · Rooms 0" % raid_pct), "next tier's own stats line")
 		assert_true(NodeQuery.find_button(phone, "Rent for £60/day") != null, "rent offer previews studio's rent")
-		assert_true(NodeQuery.find_button(phone, "Buy for £100000") != null, "buy offer shows studio's buyPrice")
+		assert_true(NodeQuery.find_button(phone, "Buy for £80000") != null, "buy offer shows studio's buyPrice")
 		assert_true(texts.has("Then £35/day in utilities."), "buy offer previews studio's owned bill override")
 		assert_true(texts.has("Moving clears every installed room. No refunds."))
 
@@ -115,7 +115,7 @@ func run() -> void:
 
 		var phone := PhoneScreen.new()
 		phone._ready()
-		var buy_button := NodeQuery.find_button(phone, "Buy for £100000")
+		var buy_button := NodeQuery.find_button(phone, "Buy for £80000")
 		assert_true(buy_button.disabled, "buy disabled without enough cash")
 		assert_true(NodeQuery.label_texts(phone).has("Not enough cash."))
 		var rent_button := NodeQuery.find_button(phone, "Rent for £60/day")
@@ -126,11 +126,11 @@ func run() -> void:
 		phone.free()
 
 		GameState.reset()
-		GameState.state["player"]["cash"] = 100000
+		GameState.state["player"]["cash"] = 80000
 		GameState.state["phoneNav"]["app"] = "property"
 		phone = PhoneScreen.new()
 		phone._ready()
-		NodeQuery.find_button(phone, "Buy for £100000").pressed.emit()
+		NodeQuery.find_button(phone, "Buy for £80000").pressed.emit()
 		assert_eq(GameState.state["home"]["tenure"], "owned", "buy button calls Home.buy_up")
 		phone.free()
 	)
@@ -176,7 +176,7 @@ func run() -> void:
 		assert_true(texts.has("MOVE DOWN"))
 		assert_true(texts.has("Studio"), "the flat's move-down is the studio")
 		assert_true(texts.has("Left behind: CCTV."))
-		assert_true(NodeQuery.find_button(phone, "Buy for £100000") != null, "the studio can be bought on the way down")
+		assert_true(NodeQuery.find_button(phone, "Buy for £80000") != null, "the studio can be bought on the way down")
 		NodeQuery.find_button(phone, "Rent for £60/day").pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["home"]["security"], ["lock"])

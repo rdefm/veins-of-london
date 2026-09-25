@@ -336,8 +336,8 @@ func run() -> void:
 
 	run_case("buy_up_enforces_cash_logs_and_sets_owned", func():
 		GameState.reset()
-		GameState.state["player"]["cash"] = 99999
-		assert_true(not Home.buy_up()["ok"], "short of the studio's 100000")
+		GameState.state["player"]["cash"] = 79999
+		assert_true(not Home.buy_up()["ok"], "short of the studio's 80000")
 		assert_eq(GameState.state["home"]["tier"], "bedsit")
 		assert_eq(GameState.state["bankLog"].size(), 0)
 
@@ -392,8 +392,8 @@ func run() -> void:
 		assert_eq(GameState.state["home"]["tenure"], "owned")
 		assert_eq(GameState.state["player"]["cash"], 0)
 
-		GameState.state["player"]["cash"] = 100000
-		assert_true(Home.downgrade("owned")["ok"], "buying the studio at 100000")
+		GameState.state["player"]["cash"] = 80000
+		assert_true(Home.downgrade("owned")["ok"], "buying the studio at 80000")
 		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["player"]["cash"], 0)
 

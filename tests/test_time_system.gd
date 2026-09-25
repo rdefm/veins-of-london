@@ -287,7 +287,7 @@ func run() -> void:
 		assert_eq(Contacts.get_contact_in_room("homeGym"), null, "staff unassigned")
 		assert_eq(player["hpMax"], hp_max_with_gym - 10, "gym bonus reverted")
 		assert_eq(player["hp"], player["hpMax"], "hp clamped")
-		assert_eq(home["security"], ["lock"], "alarm (minTier flat) lost; lock kept")
+		assert_eq(home["security"], ["lock", "alarm"], "lock and alarm (minTier studio) kept")
 		assert_eq(player["cash"], 0, "cash never negative")
 	)
 

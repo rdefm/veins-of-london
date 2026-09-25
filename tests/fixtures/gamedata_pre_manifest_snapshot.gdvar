@@ -4597,7 +4597,7 @@
 "cost": 400,
 "description": "Monitored alarm. Response time: nine minutes. Make of that what you will.",
 "id": "alarm",
-"minTier": "flat",
+"minTier": "studio",
 "name": "Alarm System",
 "raidReduction": 0.03
 },
@@ -4703,7 +4703,7 @@
 "tier": 5
 },
 "studio": {
-"buyPrice": 100000,
+"buyPrice": 80000,
 "dailyCost": 60,
 "description": "One room in Stepney with a kitchen along the wall. The door locks and the key is yours. No spare room.",
 "id": "studio",
