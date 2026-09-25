@@ -1,11 +1,12 @@
 # Debug app (present only on a Debug Start save): cash/calc/site spawners,
 # combat launchers, safe-area dump, one relation adjuster over every contact
-# and faction.
+# and faction, and an any-event trigger.
 class_name DebugApp
 extends PhoneApp
 
-# View state only: the relation dropdown's selection, kept across rebuilds.
+# View state only: the relation and event dropdowns' selections, kept across rebuilds.
 var _relation_target_index: int = 0
+var _event_index: int = 0
 
 
 func build(content: VBoxContainer) -> void:
@@ -18,6 +19,26 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_combat_prototype_card())
 	content.add_child(_build_safe_area_card())
 	content.add_child(_build_relation_card())
+	content.add_child(_build_trigger_event_card())
+
+
+func _build_trigger_event_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Trigger event", 14))
+
+	var event_ids := DebugTools.event_ids()
+	var event_select := UI.option_button(event_ids)
+	_event_index = clampi(_event_index, 0, event_ids.size() - 1)
+	event_select.selected = _event_index
+	event_select.item_selected.connect(func(index: int): _event_index = index)
+	c["content"].add_child(event_select)
+
+	c["content"].add_child(UI.button("Fire", func():
+		_event_index = event_select.selected
+		DebugTools.fire_event(event_ids[_event_index])
+	))
+
+	return c["panel"]
 
 
 func _build_add_money_card() -> Control:

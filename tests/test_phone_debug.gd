@@ -126,7 +126,7 @@ func run() -> void:
 		fields[1].text = "40"
 
 		var options := _find_option_buttons(phone)
-		assert_eq(options.size(), 5, "add-calc ore, spawn-site district/ore/terroir, then the relation target selector")
+		assert_eq(options.size(), 6, "add-calc ore, spawn-site district/ore/terroir, the relation target selector, then the event picker")
 		options[0].selected = 1
 		var chosen_ore := options[0].get_item_text(1)
 
@@ -166,7 +166,7 @@ func run() -> void:
 		phone._ready()
 
 		var options := _find_option_buttons(phone)
-		assert_eq(options.size(), 5, "add-calc ore, spawn-site district/ore/terroir, then the relation target selector")
+		assert_eq(options.size(), 6, "add-calc ore, spawn-site district/ore/terroir, the relation target selector, then the event picker")
 
 		var district_ids: Array = GameData.DISTRICTS.keys()
 		var target_index: int = district_ids.find(district_id)
@@ -318,6 +318,27 @@ func run() -> void:
 		assert_eq(refresh_buttons.size(), 1, "one Refresh button on the safe-area card")
 		refresh_buttons[0].pressed.emit()
 		assert_eq(dump.text, UI.safe_area_debug_text(), "Refresh rebuilds the dump text in place")
+
+		phone.free()
+	)
+
+	run_case("trigger_event_picker_lists_every_event_and_fire_starts_the_selected_one", func():
+		DebugStart.apply()
+		GameState.state["phoneNav"]["app"] = "debug"
+
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var select: OptionButton = _find_option_buttons(phone)[5]
+		assert_eq(select.item_count, GameData.EVENTS.size(), "one picker entry per loaded event")
+		var target_index := DebugTools.event_ids().find("rain")
+		assert_eq(select.get_item_text(target_index), "rain", "entries are event ids")
+		select.selected = target_index
+		select.item_selected.emit(target_index)
+		_find_buttons_by_text(phone, "Fire")[0].pressed.emit()
+
+		assert_eq(GameState.state["event"]["eventId"], "rain", "Fire starts the selected event")
+		assert_eq(GameState.state["currentScreen"], "event", "and routes to the event screen")
 
 		phone.free()
 	)
