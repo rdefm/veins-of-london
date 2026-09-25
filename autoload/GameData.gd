@@ -162,7 +162,7 @@ var EVENTS: Dictionary = {}
 var COLLECTIVE_BARKS: Dictionary = {}
 
 # data/objectives.json, keyed by objective id (systems/objectives.gd).
-# "questline" groups an entry for todo.gd's Notes-app rendering: the
+# "questline" groups an entry for todo.gd's ToDo-app rendering: the
 # tutorial's flag chain and Collective's Act 1 threads are both just
 # objectives, distinguished only by questline.
 var OBJECTIVES: Dictionary = {}

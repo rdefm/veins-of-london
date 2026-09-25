@@ -1,10 +1,10 @@
 class_name Todo
 extends RefCounted
 
-# The Phone "Notes" app's checklist (R§3.11, M1-LONDON.md D4). The
+# The Phone "ToDo" app's checklist (R§3.11, M1-LONDON.md D4). The
 # tutorial's flag chain and the Collective's Act 1 threads are both
 # ordinary data/objectives.json entries (systems/objectives.gd),
-# distinguished only by their "questline" field -- Notes renders one
+# distinguished only by their "questline" field -- ToDo renders one
 # collapsible section per questline off a single loop. Static funcs only --
 # pure read over GameState.state; never calls Objectives.refresh() itself
 # (that stays at GameState.reset() and Events.apply_effects()).

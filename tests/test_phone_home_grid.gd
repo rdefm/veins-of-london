@@ -27,7 +27,7 @@ func run() -> void:
 		var ids: Array[String] = []
 		for t in tiles:
 			ids.append(t._app_id)
-		assert_eq(ids, ["alarms", "notes", "bizbrief", "ticker", "factions", "bank", "property", "profile", "contacts", "vfl", "notifications", "saveload"], "grid renders the registry's apps, in registry order")
+		assert_eq(ids, ["alarms", "todo", "bizbrief", "ticker", "factions", "bank", "property", "profile", "contacts", "vfl", "notifications", "saveload"], "grid renders the registry's apps, in registry order")
 
 		phone.free()
 	)
@@ -105,7 +105,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_eq(phone._badge_count_for("notes"), 0, "notes has no badge count")
+		assert_eq(phone._badge_count_for("todo"), 0, "todo has no badge count")
 		assert_eq(phone._badge_count_for("factions"), 0, "factions has no badge count")
 
 		phone.free()
@@ -170,7 +170,7 @@ func run() -> void:
 		var synthetic: Array[Dictionary] = [
 			{ "id": "messages", "label": "Messages", "locked": func(): return false },
 			{ "id": "map", "label": "Map", "locked": func(): return state["map_locked"] },
-			{ "id": "notes", "label": "Notes", "locked": func(): return false },
+			{ "id": "todo", "label": "ToDo", "locked": func(): return false },
 		]
 
 		var before := phone._build_app_grid(synthetic)
@@ -178,7 +178,7 @@ func run() -> void:
 		var before_ids: Array[String] = []
 		for t in before_tiles:
 			before_ids.append(t._app_id)
-		assert_eq(before_ids, ["messages", "map", "notes"], "slot order before unlocking")
+		assert_eq(before_ids, ["messages", "map", "todo"], "slot order before unlocking")
 		assert_true(before_tiles[1]._lock_overlay.visible, "map renders locked before the state change")
 
 		state["map_locked"] = false
@@ -187,7 +187,7 @@ func run() -> void:
 		var after_ids: Array[String] = []
 		for t in after_tiles:
 			after_ids.append(t._app_id)
-		assert_eq(after_ids, ["messages", "map", "notes"], "slot order is unchanged after unlocking -- no reflow")
+		assert_eq(after_ids, ["messages", "map", "todo"], "slot order is unchanged after unlocking -- no reflow")
 		assert_true(not after_tiles[1]._lock_overlay.visible, "map renders unlocked after the state change, same slot")
 
 		before.free()
@@ -201,17 +201,17 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		var notes_tile: AppTile = null
+		var todo_tile: AppTile = null
 		for t in NodeQuery.find_tiles(phone):
-			if t._app_id == "notes":
-				notes_tile = t
-		assert_true(notes_tile != null, "notes tile must exist")
+			if t._app_id == "todo":
+				todo_tile = t
+		assert_true(todo_tile != null, "todo tile must exist")
 
 		var event := InputEventScreenTouch.new()
 		event.pressed = true
-		notes_tile._on_gui_input(event)
+		todo_tile._on_gui_input(event)
 
-		assert_eq(GameState.state["phoneNav"]["app"], "notes", "tapping a tile routes through PhoneNav.open_app, same as before this ticket")
+		assert_eq(GameState.state["phoneNav"]["app"], "todo", "tapping a tile routes through PhoneNav.open_app, same as before this ticket")
 
 		phone.free()
 	)
@@ -292,7 +292,7 @@ func run() -> void:
 
 	# 119-phone-home-grid-tiles-overlap: proves the fix at the actual rendered-
 	# geometry level, against the real, on-disk icon roster (bank.png,
-	# property.png, notes.png, saveload.png as of this ticket -- each far
+	# property.png, todo.png, saveload.png as of this ticket -- each far
 	# bigger than a tile's own frame, e.g. property.png is 1408x768). Needs a
 	# real, live, laid-out tree (same tree.root.add_child()+await process_frame
 	# pattern tests/test_map_canvas.gd's own step_zoom cases use) because an

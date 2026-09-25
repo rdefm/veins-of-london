@@ -2,7 +2,7 @@ extends "res://tests/test_base.gd"
 
 const Fixtures := preload("res://tests/support/fixtures.gd")
 
-# Todo — the Phone "Notes" app's checklist (R§3.11). Ticket 79: rewritten
+# Todo — the Phone "ToDo" app's checklist (R§3.11). Ticket 79: rewritten
 # against the objective-backed model (data/objectives.json's "tutorial"
 # questline replaces the old hardcoded flag chain; systems/objectives.gd's
 # generic engine drives active/done for both it and Collective). Todo itself

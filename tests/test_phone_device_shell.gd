@@ -43,7 +43,7 @@ func run() -> void:
 
 	run_case("opening_an_app_keeps_the_shell_but_switches_to_the_dark_content_surface", func():
 		GameState.reset()
-		PhoneNav.open_app("notes")
+		PhoneNav.open_app("todo")
 
 		var phone := PhoneScreen.new()
 		phone._ready()

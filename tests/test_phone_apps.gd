@@ -14,8 +14,8 @@ func run() -> void:
 		for app in PhoneApps.apps():
 			ids.append(app["id"])
 			labels.append(app["label"])
-		assert_eq(ids, ["alarms", "notes", "bizbrief", "ticker", "factions", "bank", "property", "profile", "contacts", "vfl", "notifications", "saveload"], "grid slot order comes straight from the registry order")
-		assert_eq(labels, ["Alarms", "Notes", "BizBrief", "The Ticker", "Factions", "Reynard's", "Harrow's", "My File", "Contacts", "VfL", "Notifications", "Save/Load"], "player-facing launcher labels are exact")
+		assert_eq(ids, ["alarms", "todo", "bizbrief", "ticker", "factions", "bank", "property", "profile", "contacts", "vfl", "notifications", "saveload"], "grid slot order comes straight from the registry order")
+		assert_eq(labels, ["Alarms", "ToDo", "BizBrief", "The Ticker", "Factions", "Reynard's", "Harrow's", "My File", "Contacts", "VfL", "Notifications", "Save/Load"], "player-facing launcher labels are exact")
 	)
 
 	# 01-debug-app: the Debug tile is genuinely absent from the roster on a
@@ -80,7 +80,7 @@ func run() -> void:
 	run_case("build_tile_configs_wires_non_negative_numeric_badge_counts_per_app_id", func():
 		var synthetic: Array[Dictionary] = [
 			{ "id": "messages", "label": "Messages", "locked": func(): return false },
-			{ "id": "notes", "label": "Notes", "locked": func(): return false },
+			{ "id": "todo", "label": "ToDo", "locked": func(): return false },
 		]
 		var configs := PhoneApps.build_tile_configs(synthetic, func(id): return 7 if id == "messages" else -4)
 
@@ -110,7 +110,7 @@ func run() -> void:
 	)
 
 	run_case("every_main_grid_and_debug_icon_exists_as_a_square_128px_alpha_png", func():
-		var ids := ["alarms", "notes", "bizbrief", "ticker", "factions", "bank", "property", "profile", "contacts", "vfl", "notifications", "saveload", "debug"]
+		var ids := ["alarms", "todo", "bizbrief", "ticker", "factions", "bank", "property", "profile", "contacts", "vfl", "notifications", "saveload", "debug"]
 		for id in ids:
 			var path := AppTile.icon_path(id)
 			assert_true(FileAccess.file_exists(path), "%s icon exists at the ADR contract path" % id)

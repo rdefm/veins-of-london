@@ -163,14 +163,14 @@ func run() -> void:
 	run_case("tapping_the_tile_emits_tile_pressed_with_its_app_id", func():
 		var tile := AppTile.new()
 		tile._ready()
-		tile.configure({ "id": "notes", "label": "Notes" })
+		tile.configure({ "id": "todo", "label": "ToDo" })
 
 		var pressed_ids := []
 		tile.tile_pressed.connect(func(app_id): pressed_ids.append(app_id))
 
 		tile._on_gui_input(UiSim.synthetic_tap())
 
-		assert_eq(pressed_ids, ["notes"], "tapping the tile identifies which app it is")
+		assert_eq(pressed_ids, ["todo"], "tapping the tile identifies which app it is")
 
 		tile.free()
 	)
@@ -178,7 +178,7 @@ func run() -> void:
 	run_case("a_release_event_does_not_emit_tile_pressed", func():
 		var tile := AppTile.new()
 		tile._ready()
-		tile.configure({ "id": "notes", "label": "Notes" })
+		tile.configure({ "id": "todo", "label": "ToDo" })
 
 		var pressed_ids := []
 		tile.tile_pressed.connect(func(app_id): pressed_ids.append(app_id))
@@ -322,14 +322,14 @@ func run() -> void:
 		# this case on the fallback path so _frame_style is actually
 		# recomputed (and not just left stale from the first, active
 		# configure()) by the second call, same reasoning app_tile.gd's own
-		# suppression comment documents. "notes" itself now has real art
+		# suppression comment documents. "todo" itself now has real art
 		# (08-family-2-chrome-contacts) and would exercise a different path.
-		tile.configure({ "id": "not_yet_drawn", "label": "Notes", "locked": false, "badge": 0, "active": false })
+		tile.configure({ "id": "not_yet_drawn", "label": "ToDo", "locked": false, "badge": 0, "active": false })
 
 		assert_true(not tile._lock_overlay.visible, "locked state from the first configure() doesn't linger")
 		assert_true(not tile._badge.visible, "badge state from the first configure() doesn't linger")
 		assert_eq(tile._frame_style.bg_color, AppTile.FRAME_BG_COLOUR, "active state from the first configure() doesn't linger")
-		assert_eq(tile._name_label.text, "Notes", "the label reflects the latest configure() call")
+		assert_eq(tile._name_label.text, "ToDo", "the label reflects the latest configure() call")
 
 		tile.free()
 	)

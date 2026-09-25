@@ -124,6 +124,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_remap_retired_screen_id(filled)
 	_remap_retired_messages_list(filled)
 	_remap_retired_lab_screen(filled)
+	_remap_retired_notes_app(filled)
 	GameState.state = filled
 	EventBus.state_changed.emit()
 	return { "ok": true }
@@ -196,6 +197,16 @@ func _remap_retired_messages_list(save: Dictionary) -> void:
 func _remap_retired_lab_screen(save: Dictionary) -> void:
 	if save.get("currentScreen", "") == "lab":
 		save["currentScreen"] = "hq"
+
+
+# "notes" is the ToDo app's retired id; a save left open on it reopens ToDo.
+# Grid slot order comes from PhoneApps.apps(), never the save, so nothing
+# else carries the id.
+func _remap_retired_notes_app(save: Dictionary) -> void:
+	var phone_nav: Dictionary = save.get("phoneNav", {})
+	if phone_nav.get("app") == "notes":
+		phone_nav["app"] = "todo"
+		save["phoneNav"] = phone_nav
 
 
 # A save whose meta.saveVersion doesn't match SAVE_VERSION is rejected

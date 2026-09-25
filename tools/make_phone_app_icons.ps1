@@ -174,7 +174,7 @@ function New-GeneratedIcon([string]$id, [string]$top, [string]$bottom) {
 New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
 
 # Supplied artwork remains the source for the six matching launcher apps.
-Convert-SourceIcon 'logo-notes.png' 'notes'
+Convert-SourceIcon 'logo-todo.png' 'todo'
 Convert-SourceIcon 'logo-bizbrief.png' 'bizbrief'
 Convert-SourceIcon 'logo-reynards.png' 'bank'
 Convert-SourceIcon 'logo-harrows.png' 'property'

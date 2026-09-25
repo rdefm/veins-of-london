@@ -16,17 +16,17 @@ func run() -> void:
 		var received := [false]
 		var on_changed := func(): received[0] = true
 		EventBus.state_changed.connect(on_changed)
-		PhoneNav.open_app("notes")
+		PhoneNav.open_app("todo")
 		EventBus.state_changed.disconnect(on_changed)
 
-		assert_eq(GameState.state["phoneNav"]["app"], "notes", "app should update")
+		assert_eq(GameState.state["phoneNav"]["app"], "todo", "app should update")
 		assert_true(received[0], "state_changed should fire")
 	)
 
 	run_case("open_app_clears_any_stale_selected_axis", func():
 		GameState.reset()
 		PhoneNav.select_axis("economic")
-		PhoneNav.open_app("notes")
+		PhoneNav.open_app("todo")
 		assert_eq(GameState.state["phoneNav"]["selectedAxis"], null, "switching app should clear selectedAxis")
 	)
 

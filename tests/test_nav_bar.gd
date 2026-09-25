@@ -167,7 +167,7 @@ func run() -> void:
 		var phone_tile: NavBar._DockTile = nav._tiles["phone"]
 		assert_true(phone_tile.active, "Phone tile is active while parked on the app grid")
 
-		GameState.state["phoneNav"]["app"] = "notes"
+		GameState.state["phoneNav"]["app"] = "todo"
 		EventBus.state_changed.emit()
 		assert_true(not phone_tile.active, "Phone tile stops being active once an app is open, even though currentScreen is still phone")
 
@@ -288,7 +288,7 @@ func run() -> void:
 	run_case("phone_slot_from_elsewhere_navigates_to_phone_and_resets_to_the_grid", func():
 		GameState.reset()
 		GameState.state["currentScreen"] = "hq"
-		GameState.state["phoneNav"]["app"] = "notes"
+		GameState.state["phoneNav"]["app"] = "todo"
 		var nav := NavBar.new()
 		nav._ready()
 
@@ -304,7 +304,7 @@ func run() -> void:
 	run_case("phone_slot_from_inside_an_app_returns_to_the_grid_without_a_screen_change", func():
 		GameState.reset()
 		GameState.state["currentScreen"] = "phone"
-		GameState.state["phoneNav"]["app"] = "notes"
+		GameState.state["phoneNav"]["app"] = "todo"
 
 		var received: Array[String] = []
 		var on_screen := func(screen: String): received.append(screen)

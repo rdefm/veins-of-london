@@ -26,13 +26,13 @@ func run() -> void:
 
 	run_case("shell_instantiates_one_app_per_id_and_reuses_it_across_refreshes", func():
 		GameState.reset()
-		GameState.state["phoneNav"]["app"] = "notes"
+		GameState.state["phoneNav"]["app"] = "todo"
 		var phone := PhoneScreen.new()
 		phone._ready()
-		var first = phone.app_instance("notes")
+		var first = phone.app_instance("todo")
 		phone._refresh()
-		assert_true(first == phone.app_instance("notes"), "same instance survives a refresh")
-		assert_true(phone.app_instance("notes").shell == phone, "app knows its shell")
+		assert_true(first == phone.app_instance("todo"), "same instance survives a refresh")
+		assert_true(phone.app_instance("todo").shell == phone, "app knows its shell")
 		phone.free()
 	)
 

@@ -10,7 +10,7 @@ static var REGISTRY: Dictionary = {
 	"bizbrief": BizBriefApp,
 	"dialer": DialerApp,
 	"messages": MessagesApp,
-	"notes": NotesApp,
+	"todo": ToDoApp,
 	"factions": FactionsApp,
 	"ticker": TickerApp,
 	"profile": ProfileApp,

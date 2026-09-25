@@ -1,9 +1,9 @@
-# Notes: one collapsible section per questline from Todo.get_questline_sections(),
+# ToDo: one collapsible section per questline from Todo.get_questline_sections(),
 # flat hairline-divided checklist rows (docs/ui-vision.md §10 "Per-app layout
 # conventions"). Which sections are expanded is session-only view state: a
 # static var, never the state tree, so it survives the app closing and
 # reopening but not a restart.
-class_name NotesApp
+class_name ToDoApp
 extends PhoneApp
 
 const HEADER_FONT_SIZE := 17
@@ -15,7 +15,7 @@ static var _expanded_overrides: Dictionary = {}
 
 func build(content: VBoxContainer) -> void:
 	content.add_child(back_button())
-	content.add_child(UI.heading("Notes"))
+	content.add_child(UI.heading("ToDo"))
 	for section in Todo.get_questline_sections():
 		content.add_child(_build_section(section))
 

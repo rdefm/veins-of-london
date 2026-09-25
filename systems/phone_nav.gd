@@ -2,11 +2,11 @@ class_name PhoneNav
 extends RefCounted
 
 # Drill-down state for the Phone tab (M1-LONDON §D4/D4.5): a home launcher
-# with "apps" (messages/notes/factions/ticker), plus the Ticker's own
+# with "apps" (messages/todo/factions/ticker), plus the Ticker's own
 # drill-down into a single axis's detail view. state.phoneNav (R§2) is
 # navigated only through here, same as Nav.go_to/MapNav.
 
-const APPS: Array[String] = ["alarms", "bizbrief", "dialer", "messages", "notes", "factions", "ticker", "profile", "saveload", "settings", "notifications", "bank", "property"]
+const APPS: Array[String] = ["alarms", "bizbrief", "dialer", "messages", "todo", "factions", "ticker", "profile", "saveload", "settings", "notifications", "bank", "property"]
 
 
 static func open_app(app_id: String) -> void:

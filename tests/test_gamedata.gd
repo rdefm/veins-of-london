@@ -243,7 +243,7 @@ func run() -> void:
 		assert_true(found, "an objective referencing an unknown faction should be flagged")
 	)
 
-	# ticket 79: questline groups Notes-app sections (systems/todo.gd) --
+	# ticket 79: questline groups ToDo-app sections (systems/todo.gd) --
 	# required on every objective, same as activateFlag/completeFlag.
 	run_case("corrupt_fixture_objective_missing_questline_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)

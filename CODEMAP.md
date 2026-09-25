@@ -79,7 +79,7 @@ Data file per system: see `data/*.json` below.
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | time_system.gd | Time blocks, rest, daily tick (tenure-aware home bill, arrears + interest, forced one-tier downgrade per ADR 0006) |
-| todo.gd | Notes sections per questline (Tutorial, Collective, Business Empire placeholder) with active/done/placeholder status + default expansion; Collective section carries the ledger read from state.world.sites |
+| todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire placeholder) with active/done/placeholder status + default expansion; Collective section carries the ledger read from state.world.sites |
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer |
 | vein_list_nav.gd | Vein list screen nav state |
@@ -192,7 +192,7 @@ overlays.
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
 | bizbrief_app.gd | BizBrief: Brief tab (bank, operations, attention) + Manage tab (sales, production, procurement) |
 | messages_app.gd | Conversation master list + single-thread staged bubble reveal/action bar |
-| notes_app.gd | Collapsible questline sections from Todo; session-only expand/collapse overrides in a static var |
+| todo_app.gd | ToDo app: collapsible questline sections from Todo; session-only expand/collapse overrides in a static var |
 | factions_app.gd | Faction cards |
 | ticker_app.gd | Barometer headlines + axis detail (push/pull, influence actions) |
 | profile_app.gd | Stats, skills, equipment |

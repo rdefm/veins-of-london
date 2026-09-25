@@ -92,9 +92,9 @@ func run() -> void:
 		assert_eq(GameState.state["currentScreen"], "contacts", "S1 -> Archie's card, where the pending text was tapped from")
 	)
 
-	# ── ticket 90: Notes never goes silent through the S1-S4 tuition chain ──
+	# ── ticket 90: ToDo never goes silent through the S1-S4 tuition chain ──
 
-	run_case("col_a1_intro_on_complete_notifies_the_player_to_check_the_map_and_notes_goes_from_empty_to_showing_the_chain", func():
+	run_case("col_a1_intro_on_complete_notifies_the_player_to_check_the_map_and_todo_goes_from_empty_to_showing_the_chain", func():
 		GameState.reset()
 		assert_true(_collective_section() == null, "no Collective section before Des is even met")
 
@@ -103,13 +103,13 @@ func run() -> void:
 		assert_true(Fixtures.has_notification("Des reckons there's ground worth a look. Check the map."), "S1 should notify the player where to look next, not leave them silent")
 
 		var section: Variant = _collective_section()
-		assert_true(section != null, "Notes' Collective section should appear the instant colA1DesMet flips true")
+		assert_true(section != null, "ToDo's Collective section should appear the instant colA1DesMet flips true")
 		assert_eq(section["items"].size(), 1)
 		assert_eq(section["items"][0]["title"], "Des is waiting on the map. He'll teach you to prospect.")
 		assert_eq(section["items"][0]["done"], false)
 	)
 
-	run_case("notes_tracks_the_full_tuition_chain_through_S2_S3_S4", func():
+	run_case("todo_tracks_the_full_tuition_chain_through_S2_S3_S4", func():
 		GameState.reset()
 		EventPlay.play_event("col_a1_intro")
 

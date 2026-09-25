@@ -14,7 +14,7 @@ static func apps() -> Array[Dictionary]:
 	var unlocked := func(): return false
 	var list: Array[Dictionary] = [
 		{ "id": "alarms", "label": "Alarms", "locked": unlocked },
-		{ "id": "notes", "label": "Notes", "locked": unlocked },
+		{ "id": "todo", "label": "ToDo", "locked": unlocked },
 		# PROSE-REVIEW: BizBrief / Morning Brief.
 		{ "id": "bizbrief", "label": "BizBrief", "locked": unlocked },
 		{ "id": "ticker", "label": "The Ticker", "locked": unlocked },

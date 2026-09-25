@@ -868,6 +868,23 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("loading_a_save_open_on_the_retired_notes_app_reopens_todo", func():
+		GameState.reset()
+		GameState.state["currentScreen"] = "phone"
+		GameState.state["phoneNav"]["app"] = "notes"
+		var save_result := SaveManager.save_to_slot(TEST_SLOT)
+		assert_true(save_result["ok"], "save_to_slot should succeed")
+
+		GameState.reset()
+		var load_result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(load_result["ok"], "load_from_slot should succeed")
+
+		assert_eq(GameState.state["phoneNav"]["app"], "todo", "the old notes id should remap to todo")
+		assert_true(PhoneAppRegistry.REGISTRY.has(GameState.state["phoneNav"]["app"]), "the remapped id must be a live app")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("autosave_rotates_across_3_slots_then_overwrites_the_oldest", func():
 		for i in range(SaveManager.AUTOSAVE_COUNT):
 			if FileAccess.file_exists(SaveManager.autosave_path(i)):
