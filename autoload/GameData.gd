@@ -1117,9 +1117,10 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# is push_message's follow-up-action cousin (Messages.queue_pending()).
 	# recruit_contact is Contacts.force_recruit() (story recruits).
 	# activate_business is Business.activate() (Beat 3: pot + partners);
-	# set_james_crafting_skill is BusinessQuest.set_james_crafting_skill() (Beat 5).
+	# set_james_crafting_skill is BusinessQuest.set_james_crafting_skill() (Beat 5);
+	# issue_recurring_offers is BusinessQuest.maybe_issue_recurring() (Beat 6).
 	"unlock_contact", "push_message", "recruit_contact", "activate_business",
-	"set_james_crafting_skill",
+	"set_james_crafting_skill", "issue_recurring_offers",
 	# faction_relation is "relation"'s faction-facing twin (Factions.
 	# adjust_player_relation); log_method writes state.methodLog[key]=value.
 	"queue_pending_message", "faction_relation",
@@ -1278,6 +1279,7 @@ func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[Strin
 const OBJECTIVE_TYPES: Array[String] = [
 	"sites_discovered_matching", "traded_with_faction", "supplied_to_contact", "vein_sold_to_faction", "vein_growth_above", "flag_true",
 	"alarm_defend_wins", "faction_vein_seeded_count", "items_crafted_set", "contracts_completed", "all_of",
+	"recurring_proof",
 ]
 const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"sites_discovered_matching": ["requireEachOreType", "minTier", "unclaimed"],
@@ -1291,6 +1293,7 @@ const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"items_crafted_set": ["recipeKeys", "minEach"],
 	"contracts_completed": ["minCount"],
 	"all_of": ["conditions"],
+	"recurring_proof": ["minContracts", "minCrafted"],
 }
 # all_of's live condition kinds (Objectives.condition_met()), each with its
 # required keys beside "kind" and the ToDo checklist "label".

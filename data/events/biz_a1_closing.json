@@ -1,0 +1,20 @@
+{
+  "id": "biz_a1_closing",
+  "fillFromContext": true,
+  "cards": [
+    { "type": "narration", "label": "Bermondsey — James's unit", "speaker": null, "text": "BizBrief is open on Archie's phone, propped against the hourglass. Owen has been given a chair for the occasion and is not sure what to do with it." },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. Two orders, a full week each, and none of us laid a finger on them. {periodOne}. {periodTwo}.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"This payday the pot took {receipts}. Owen's wages come out first: {owenWage}.\"" },
+    { "type": "speaker", "label": null, "speaker": "Owen", "text": "\"That's me. Thanks.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"What's left splits three ways. {archieShare} to me, {jamesShare} to James, {playerShare} to you.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"It ran without us. You get that? Money made while you were off doing something else.\"" },
+    { "type": "narration", "label": null, "speaker": null, "text": "James takes a long time to put his cup down." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"The pearls were within tolerance, the buyer paid on time, and nobody needed anything explained twice. I will call that adequate.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Adequate. From him. Frame that.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "Owen goes back to his veins, James to his own clients. On Archie's phone, next week's orders are already coming in." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "bizA1Complete", "value": true },
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

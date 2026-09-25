@@ -25,7 +25,7 @@ Data file per system: see `data/*.json` below.
 | bag.gd | Bag-drawer toggle |
 | bank.gd | Cash transaction log |
 | barometer.gd | Economic/social/political barometer + faction prefs |
-| business_quest.gd | business_empire questline side effects: Beat 1 trigger (2+ veins, Archie recruited → Archie's pending text), Archie's Beat 2 starter-offer chain (state.businessQuest), Beat 3 trigger (Beat 2 met → James's text → biz_a1_owen), Beat 5 trigger (Beat 4 met → James's text → biz_a1_partnership) + James's crafting-skill set |
+| business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7 trigger texts, Beat 2 starter-offer chain, Beat 6 recurring offers (held open, reissued), Beat 7 closing payload from the latest payday record, James's crafting-skill set. Rules: REFERENCE.md "Business Empire questline" |
 | business.gd | Business pot (contract settlements while active; pays Sales calc purchases as `calc` expenses), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash, Staff tab pay-terms/status labels |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
@@ -66,7 +66,7 @@ Data file per system: see `data/*.json` below.
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls), per-block staff output accumulation, BizBrief routing, arrears/payday/wage-prompt labels |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict |
-| objectives.gd | Objective/questline evaluator; all_of live-condition objectives + their ToDo checklist rows |
+| objectives.gd | Objective/questline evaluator; all_of live-condition and recurring_proof (Beat 6) objectives + their ToDo checklist rows |
 | offers.gd | Sales offers: quoting, acceptance, expiry |
 | payroll.gd | Daily wage payment for room-staffed hires (founders exempt); `is_working()` gate for staff actions (false while the business owes wages) |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
@@ -191,7 +191,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | BizBrief: Brief tab (bank, payday statement, pay-from-cash wage prompt, operations, attention) + Manage tab (sales + delegated buy-calc toggle, production, procurement: each cultivator's veins, targets, picker) + Staff tab once `bizStaffTabOpen` (recruited contacts' role, skills/XP/caps, pay terms, status, founder role picker, Pay now, Procurement link) |
+| bizbrief_app.gd | BizBrief: Brief tab (bank, payday statement, pay-from-cash wage prompt, operations, attention) + Manage tab (offer accept/decline, gated delegation, buy-calc toggle, production, procurement: each cultivator's veins, targets, picker) + Staff tab once `bizStaffTabOpen` (recruited contacts' role, skills/XP/caps, pay terms, status, founder role picker, Pay now, Procurement link) |
 | messages_app.gd | Conversation master list + single-thread staged bubble reveal/action bar |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | Faction cards |
@@ -228,7 +228,7 @@ overlays.
 | map_layout.json | map_layout.gd, map_hit_test.gd |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, faction/ore dark overrides) + map_controls.gd (`darkModeLabel`) |
 | objectives.json | objectives.gd, todo.gd, collective.gd, business_quest.gd |
-| offers.json | offers.gd (synthetic catalogue), business_quest.gd (biz_starter_* chain + Archie nudge text) |
+| offers.json | offers.gd (synthetic catalogue), business_quest.gd (biz_starter_* chain + Archie nudge text, Beat 6 biz_recurring_*) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | palette.json | GameData.gd (reference combat-art palette) |
 | phone_home.json | GameData.gd + phone_device_shell.gd (fixed wallpaper/status/widget presentation; no GameState or host-service data) |

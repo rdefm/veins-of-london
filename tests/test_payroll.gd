@@ -173,6 +173,7 @@ func run() -> void:
 		PayrollSystem.pay_wages()
 		assert_true(not PayrollSystem.is_paid_today("ops"))
 
+		GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
 		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_life_order")
 		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
 		ContractsSystem.set_delegated(contract["id"], true)

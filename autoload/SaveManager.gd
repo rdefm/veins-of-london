@@ -520,6 +520,10 @@ func _restore_int_types(state: Dictionary) -> void:
 	var business_quest: Dictionary = state.get("businessQuest", {})
 	_int_key(business_quest, "starterIndex")
 	_int_key(business_quest, "starterReissueDay")
+	_int_key(business_quest, "proofLedgerSize")
+	var reissue_days: Dictionary = business_quest.get("recurringReissueDay", {})
+	for template_id in reissue_days:
+		_int_key(reissue_days, template_id)
 	if morning != null and morning.get("payday") != null:
 		_restore_payday_int_types(morning["payday"])
 

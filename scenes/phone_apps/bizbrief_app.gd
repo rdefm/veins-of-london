@@ -268,8 +268,12 @@ func _build_sales() -> Control:
 		c["content"].add_child(UI.muted_label("No pending offers."))
 	for offer in offers:
 		var request: Dictionary = offer["request"]
-		c["content"].add_child(UI.label("%s · £%d · expires day %d" % [_request_summary(request), offer["quote"]["payment"], offer["expiresDay"]]))
-		c["content"].add_child(UI.button("Accept", func(): OffersSystem.accept_offer(offer["id"])))
+		var expiry: String = "open until taken" if BusinessQuest.holds_offer_open(offer.get("templateId", "")) else "expires day %d" % offer["expiresDay"]
+		c["content"].add_child(UI.label("%s · £%d · %s" % [_request_summary(request), offer["quote"]["payment"], expiry]))
+		var offer_row := UI.hbox()
+		offer_row.add_child(UI.button("Accept", func(): OffersSystem.accept_offer(offer["id"])))
+		offer_row.add_child(UI.button("Decline", func(): OffersSystem.decline_offer(offer["id"])))
+		c["content"].add_child(offer_row)
 	var contracts: Array = ContractsSystem.active_contracts()
 	if not contracts.is_empty():
 		c["content"].add_child(UI.heading("Active contracts", 14))
@@ -281,7 +285,8 @@ func _build_sales() -> Control:
 			var box := VBoxContainer.new()
 			card.add_child(box)
 			box.add_child(UI.label("%d. %s: %s · due day %d · £%d" % [index + 1, contract["id"], _contract_progress_summary(contract), contract["dueDay"], contract["quote"]["payment"]]))
-			box.add_child(UI.button("Remove Sales delegation" if contract.get("delegated", false) else "Delegate to Sales", func(): ContractsSystem.set_delegated(contract["id"], not contract.get("delegated", false))))
+			if contract.get("delegated", false) or ContractsSystem.delegation_unlocked():
+				box.add_child(UI.button("Remove Sales delegation" if contract.get("delegated", false) else "Delegate to Sales", func(): ContractsSystem.set_delegated(contract["id"], not contract.get("delegated", false))))
 			if contract.get("delegated", false):
 				var buying: bool = contract.get("buyCalc", false)
 				box.add_child(UI.button("Buy missing calc: on" if buying else "Buy missing calc: off", func(): ContractsSystem.set_buy_calc(contract["id"], not buying)))

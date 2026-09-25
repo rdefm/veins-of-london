@@ -1325,6 +1325,69 @@
 "screen": "map"
 }]
 },
+"biz_a1_closing": {
+"cards": [{
+"label": "Bermondsey — James's unit",
+"speaker": null,
+"text": "BizBrief is open on Archie's phone, propped against the hourglass. Owen has been given a chair for the occasion and is not sure what to do with it.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Right. Two orders, a full week each, and none of us laid a finger on them. {periodOne}. {periodTwo}.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"This payday the pot took {receipts}. Owen's wages come out first: {owenWage}.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Owen",
+"text": "\"That's me. Thanks.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"What's left splits three ways. {archieShare} to me, {jamesShare} to James, {playerShare} to you.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"It ran without us. You get that? Money made while you were off doing something else.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "James takes a long time to put his cup down.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"The pearls were within tolerance, the buyer paid on time, and nobody needed anything explained twice. I will call that adequate.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Adequate. From him. Frame that.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "Owen goes back to his veins, James to his own clients. On Archie's phone, next week's orders are already coming in.",
+"type": "resolution"
+}],
+"fillFromContext": true,
+"id": "biz_a1_closing",
+"on_complete": [{
+"flag": "bizA1Complete",
+"op": "set_flag",
+"value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
 "biz_a1_owen": {
 "cards": [{
 "label": "Bermondsey — James's unit",
@@ -1565,6 +1628,70 @@
 "flag": "bizArchieSalesRole",
 "op": "set_flag",
 "value": true
+}, {
+"op": "set_screen",
+"screen": "phone"
+}]
+},
+"biz_a1_put_to_work": {
+"cards": [{
+"label": "Bermondsey — James's unit",
+"speaker": null,
+"text": "Archie has taken the end of James's bench, his phone propped against a jar of powder. James is pretending not to watch.",
+"type": "narration"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Up to now you've run every order yourself. Fetch it, carry it, hand it over. That's a job, not a business.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"This one comes every week. Five pearls, same buyer, same day. Say yes once and it keeps coming. That's a recurring order.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Now the clever bit. Tap 'Delegate to Sales' and it's mine. I watch the stock, I hand it over when it's there, I chase the money. You don't touch it.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "James",
+"text": "\"The pearls will be mine. Owen's ore goes in, my pearls come out. The arrangement works without you in the room, which is the only test of an arrangement.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"So here's the test. Two of these, each running a full week with no help from you. Start whenever. A short first week counts if nobody touches it.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Help means handing the goods over yourself, making the thing it asks for, tending any of Owen's veins, moving what it wants out of your stash, or buying the calc it wants. Do any of that and that week doesn't count.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Everything else is yours. Other veins, other crafting, the Collective, whoever you're fighting this week. And if I buy calc for an order out of the pot, that's the business doing its job. Doesn't count against you.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": "Archie",
+"text": "\"Pearls are on BizBrief now. There's a second one with them: six time or six life, weekly. Pick whichever you can keep up with.\"",
+"type": "speaker"
+}, {
+"label": null,
+"speaker": null,
+"text": "James goes back to his bench. Archie puts his phone face down beside the hourglass and leaves it there.",
+"type": "resolution"
+}],
+"id": "biz_a1_put_to_work",
+"on_complete": [{
+"flag": "bizA1DelegationUnlocked",
+"op": "set_flag",
+"value": true
+}, {
+"op": "issue_recurring_offers"
 }, {
 "op": "set_screen",
 "screen": "phone"
@@ -5335,6 +5462,26 @@
 "title": "Give James a reason to join properly.",
 "type": "all_of"
 },
+"biz_a1_closing": {
+"activateFlag": "bizA1ClosingQueued",
+"completeFlag": "bizA1Complete",
+"detail": "",
+"id": "biz_a1_closing",
+"params": {},
+"questline": "business_empire",
+"title": "Payday. Archie wants to go through the numbers.",
+"type": "flag_true"
+},
+"biz_a1_demo": {
+"activateFlag": "bizA1PutToWorkQueued",
+"completeFlag": "bizA1DelegationUnlocked",
+"detail": "",
+"id": "biz_a1_demo",
+"params": {},
+"questline": "business_empire",
+"title": "Archie wants to show you how an order runs itself.",
+"type": "flag_true"
+},
 "biz_a1_market_proof": {
 "activateFlag": "bizA1PropositionSeen",
 "completeFlag": "bizA1MarketProven",
@@ -5376,6 +5523,19 @@
 "questline": "business_empire",
 "title": "Archie's got a proposition. Meet him at James's.",
 "type": "flag_true"
+},
+"biz_a1_put_to_work": {
+"activateFlag": "bizA1DelegationUnlocked",
+"completeFlag": "bizA1ProofDone",
+"detail": "",
+"id": "biz_a1_put_to_work",
+"params": {
+"minContracts": 2,
+"minCrafted": 1
+},
+"questline": "business_empire",
+"title": "Put it to work: two recurring orders, one week each, without your help.",
+"type": "recurring_proof"
 },
 "col_a1_des_sites": {
 "activateFlag": "colA1DesThreadActive",
@@ -5585,6 +5745,42 @@
 }
 },
 "OFFER_TEMPLATES": {
+"biz_recurring_life_ore": {
+"contractType": "recurring",
+"expiresAfterDays": 7,
+"id": "biz_recurring_life_ore",
+"request": {
+"kind": "ore",
+"qty": 6,
+"type": "life"
+},
+"source": "scripted",
+"weekday": 0
+},
+"biz_recurring_time_ore": {
+"contractType": "recurring",
+"expiresAfterDays": 7,
+"id": "biz_recurring_time_ore",
+"request": {
+"kind": "ore",
+"qty": 6,
+"type": "time"
+},
+"source": "scripted",
+"weekday": 0
+},
+"biz_recurring_time_pearl": {
+"contractType": "recurring",
+"expiresAfterDays": 7,
+"id": "biz_recurring_time_pearl",
+"request": {
+"kind": "consumable",
+"qty": 5,
+"type": "timePearl"
+},
+"source": "scripted",
+"weekday": 0
+},
 "biz_starter_1": {
 "contractType": "oneOff",
 "deadlineAfterDays": 5,

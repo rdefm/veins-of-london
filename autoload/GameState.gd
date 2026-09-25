@@ -99,7 +99,7 @@ func new_game_state() -> Dictionary:
 		# Archie's Beat 2 starter-offer chain (systems/business_quest.gd):
 		# which starter template is next, and the day it may be (re)issued
 		# (null = as soon as none is outstanding).
-		"businessQuest": { "starterIndex": 0, "starterReissueDay": null },
+		"businessQuest": { "starterIndex": 0, "starterReissueDay": null, "recurringReissueDay": {}, "proofLedgerSize": null },
 		# Transient UI qty-steppers, not restored by SaveManager (same
 		# convention as sellState): craftQty keys recipe key -> batch size;
 		# marketplaceQty keys "<factionId>_<kind>_<itemType>" -> qty; stashQty
@@ -294,6 +294,8 @@ func new_game_state() -> Dictionary:
 			"bizA1Proposed": false, "bizA1PropositionSeen": false, "bizA1MarketProven": false,
 			"bizA1OwenIntroQueued": false, "bizA1OwenJoined": false,
 			"bizA1ApprenticeReady": false, "bizA1PartnershipQueued": false, "bizA1JamesJoined": false,
+			"bizA1PutToWorkQueued": false, "bizA1DelegationUnlocked": false, "bizA1ProofDone": false,
+			"bizA1ClosingQueued": false, "bizA1Complete": false,
 			# Set by Beat 3; shows BizBrief's Staff tab.
 			"bizStaffTabOpen": false,
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,

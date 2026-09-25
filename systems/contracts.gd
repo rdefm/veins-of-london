@@ -52,13 +52,19 @@ static func has_staffed_sales() -> bool:
 	return false
 
 
+static func delegation_unlocked() -> bool:
+	return GameState.state["flags"].get(DELEGATION_FLAG, false)
+
+
 # Delegation is a per-contract assignment, not a second stock pool. It may
 # remain configured while Operations is vacant; only a staffed Sales contact
-# can execute it.
+# can execute it. Turning it on needs the Beat 6 flag; turning it off never does.
 static func set_delegated(contract_id: String, delegated: bool) -> Dictionary:
 	var contract := _find_active(contract_id)
 	if contract.is_empty():
 		return { "ok": false, "reason": "Contract not found." }
+	if delegated and not delegation_unlocked():
+		return { "ok": false, "reason": "Delegation isn't unlocked yet." }
 	contract["delegated"] = delegated
 	# Delegating on the period's first day still covers the whole period.
 	if not delegated:
@@ -262,9 +268,11 @@ static func settle(contract_id: String) -> Dictionary:
 		active_contracts().erase(contract)
 		sales["priorityOrder"].erase(contract_id)
 		BusinessQuest.note_starter_closed(contract.get("templateId", ""), complete)
-	# A complete settlement can meet a contract-count objective (Beat 2).
+	# A complete settlement can meet a contract-count objective (Beat 2) or
+	# the recurring proof (Beat 6).
 	Objectives.refresh()
 	BusinessQuest.maybe_trigger_owen_intro()
+	BusinessQuest.note_proof_met()
 	EventBus.state_changed.emit()
 	return { "ok": true, "settlement": settlement }
 

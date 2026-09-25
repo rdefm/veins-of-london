@@ -149,7 +149,7 @@ static func accept_offer(offer_id: String) -> Dictionary:
 		var offer: Dictionary = pending[index]
 		if offer["id"] != offer_id:
 			continue
-		if int(offer["expiresDay"]) <= GameState.state["world"]["day"]:
+		if is_expired(offer):
 			pending.remove_at(index)
 			BusinessQuest.note_starter_closed(offer.get("templateId", ""), false)
 			EventBus.state_changed.emit()
@@ -183,17 +183,24 @@ static func decline_offer(offer_id: String) -> Dictionary:
 			var template_id: String = pending[index].get("templateId", "")
 			pending.remove_at(index)
 			BusinessQuest.note_starter_closed(template_id, false)
+			BusinessQuest.note_recurring_declined(template_id)
 			EventBus.state_changed.emit()
 			return { "ok": true }
 	return { "ok": false, "reason": "Offer not found." }
 
 
+# Beat 6's recurring offers stay open until Beat 6 is met.
+static func is_expired(offer: Dictionary) -> bool:
+	if BusinessQuest.holds_offer_open(offer.get("templateId", "")):
+		return false
+	return int(offer["expiresDay"]) <= int(GameState.state["world"]["day"])
+
+
 static func expire_pending_offers() -> void:
-	var today: int = GameState.state["world"]["day"]
 	var pending := pending_offers()
 	var changed := false
 	for index in range(pending.size() - 1, -1, -1):
-		if int(pending[index]["expiresDay"]) <= today:
+		if is_expired(pending[index]):
 			var template_id: String = pending[index].get("templateId", "")
 			pending.remove_at(index)
 			BusinessQuest.note_starter_closed(template_id, false)

@@ -6,6 +6,9 @@
     "scripted_life_order": { "id": "scripted_life_order", "source": "scripted", "contractType": "oneOff", "expiresAfterDays": 5, "deadlineAfterDays": 4, "request": { "kind": "ore", "type": "life", "qty": 5 } },
     "biz_starter_1": { "id": "biz_starter_1", "source": "scripted", "contractType": "oneOff", "expiresAfterDays": 5, "deadlineAfterDays": 5, "request": { "kind": "ore", "type": "time", "qty": 4 }, "nudge": "\"Put one on BizBrief for you. Four time, bloke in Stepney. He pays on the day, which is rarer than it should be.\"" },
     "biz_starter_2": { "id": "biz_starter_2", "source": "scripted", "contractType": "oneOff", "expiresAfterDays": 5, "deadlineAfterDays": 5, "request": { "kind": "consumable", "type": "timePearl", "qty": 3 }, "nudge": "\"Next one's on BizBrief. Three pearls. Make them yourself — James will ask.\"" },
-    "biz_starter_3": { "id": "biz_starter_3", "source": "scripted", "contractType": "oneOff", "expiresAfterDays": 5, "deadlineAfterDays": 5, "request": { "kind": "ore", "type": "life", "qty": 5 }, "nudge": "\"Another on BizBrief. Five life. She's fussy about dates, so don't be late.\"" }
+    "biz_starter_3": { "id": "biz_starter_3", "source": "scripted", "contractType": "oneOff", "expiresAfterDays": 5, "deadlineAfterDays": 5, "request": { "kind": "ore", "type": "life", "qty": 5 }, "nudge": "\"Another on BizBrief. Five life. She's fussy about dates, so don't be late.\"" },
+    "biz_recurring_time_pearl": { "id": "biz_recurring_time_pearl", "source": "scripted", "contractType": "recurring", "weekday": 0, "expiresAfterDays": 7, "request": { "kind": "consumable", "type": "timePearl", "qty": 5 } },
+    "biz_recurring_time_ore": { "id": "biz_recurring_time_ore", "source": "scripted", "contractType": "recurring", "weekday": 0, "expiresAfterDays": 7, "request": { "kind": "ore", "type": "time", "qty": 6 } },
+    "biz_recurring_life_ore": { "id": "biz_recurring_life_ore", "source": "scripted", "contractType": "recurring", "weekday": 0, "expiresAfterDays": 7, "request": { "kind": "ore", "type": "life", "qty": 6 } }
   }
 }

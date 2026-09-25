@@ -106,6 +106,7 @@ static func daily_tick() -> void:
 	MorningAccountsSystem.capture_business(morning_context, Business.daily_tick())  # ⑥.4b after ⑥.4 so payday banks today's settlements
 	OffersSystem.daily_tick()            # ⑥.5 expiry, then Sales sources at most one new random offer
 	BusinessQuest.maybe_issue_starter()  # ⑥.5b after ⑥.5's expiry; outside the random roll and its slot
+	BusinessQuest.maybe_issue_recurring()  # ⑥.5c Beat 6 reissues, after ⑥.5b so the starter chain goes first
 	Dial.daily_regen()                   # ⑦ Dial charge regen
 	Contacts.daily_dial_regen()          # ⑦.1 ally Dial charges refill
 	Objectives.refresh()                 # ⑧ objectives boundary
@@ -115,6 +116,8 @@ static func daily_tick() -> void:
 	Collective.maybe_trigger_a2_spine_reward()  # ⑧d T14 backstop once relation accrues past the gate
 	BusinessQuest.maybe_trigger_owen_intro()   # ⑧e backstop for the settle/event-completion checks
 	BusinessQuest.maybe_trigger_partnership()  # ⑧f backstop for the staff-block/room-build checks
+	BusinessQuest.maybe_trigger_put_to_work()  # ⑧g backstop for the event-completion check
+	BusinessQuest.maybe_trigger_closing()      # ⑧h after ⑥.4b's payday record
 	MorningAccountsSystem.finish_rollover(morning_context)
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])
 	SaveManager.autosave()               # R§6: autosave on every daily tick

@@ -60,9 +60,15 @@ static func revealed_cards() -> Array:
 	var cards: Array = _event_def()["cards"]
 	var choice_results: Dictionary = event_state["choiceResults"]
 
+	# fillFromContext: card text's {key} placeholders read the event's context.
+	var fill: bool = _event_def().get("fillFromContext", false)
 	var result: Array = []
 	for i in range(event_state["cardIndex"] + 1):
-		result.append(cards[i])
+		var card: Dictionary = cards[i]
+		if fill:
+			card = card.duplicate()
+			card["text"] = String(card["text"]).format(event_state.get("context", {}))
+		result.append(card)
 		if choice_results.has(str(i)):
 			var resolution: Dictionary = choice_results[str(i)]
 			var resolution_card: Dictionary = { "type": "resolution", "label": null, "speaker": null, "text": resolution["text"] }
@@ -179,6 +185,7 @@ static func advance() -> void:
 		# Beat 3: prior completions can meet Beat 2 inside the Beat 1 scene.
 		BusinessQuest.maybe_trigger_owen_intro()
 		BusinessQuest.maybe_trigger_partnership()
+		BusinessQuest.maybe_trigger_put_to_work()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
 		event_state["cardIndex"] += 1
@@ -335,6 +342,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			Business.activate()
 		"set_james_crafting_skill":
 			BusinessQuest.set_james_crafting_skill()
+		"issue_recurring_offers":
+			BusinessQuest.maybe_issue_recurring()
 		"push_message":
 			# Optional "from" lets an authored SMS thread replay its own outgoing "player" lines verbatim; defaults to "them" when omitted.
 			Messages.append(effect["contact"], effect.get("from", "them"), effect["text"])

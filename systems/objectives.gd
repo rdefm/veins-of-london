@@ -18,6 +18,7 @@ const TYPE_FACTION_VEIN_SEEDED_COUNT := "faction_vein_seeded_count"
 const TYPE_ITEMS_CRAFTED_SET := "items_crafted_set"
 const TYPE_CONTRACTS_COMPLETED := "contracts_completed"
 const TYPE_ALL_OF := "all_of"
+const TYPE_RECURRING_PROOF := "recurring_proof"
 
 
 # The only entry point, called explicitly at action boundaries across
@@ -91,6 +92,9 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 				if not condition_met(condition):
 					return false
 			return true
+		TYPE_RECURRING_PROOF:
+			var proof := recurring_proof()
+			return proof["contracts"] >= int(params["minContracts"]) and proof["crafted"] >= int(params["minCrafted"])
 		_:
 			return false
 
@@ -276,10 +280,36 @@ static func _contact_skill_level(condition: Dictionary) -> int:
 	return int(contact.get(condition["skill"] + "Skill", 0))
 
 
-# ToDo checklist rows for an all_of objective: [{ "label", "detail", "done" }]
-# (contact_skill shows "level n of N" as its detail), else [].
+# biz-act1 spec §"Unattended proof": distinct contract ids with at least
+# one qualified settlement, read live from sales.contractHistory, and how
+# many of those request a crafted item. { "contracts": int, "crafted": int }
+static func recurring_proof() -> Dictionary:
+	var contract_ids := {}
+	var crafted := {}
+	for entry in GameState.state["sales"]["contractHistory"]:
+		if not entry["settlement"].get("qualified", false):
+			continue
+		var contract: Dictionary = entry["contract"]
+		contract_ids[contract["id"]] = true
+		if requests_crafted(contract["request"]):
+			crafted[contract["id"]] = true
+	return { "contracts": contract_ids.size(), "crafted": crafted.size() }
+
+
+static func requests_crafted(request: Dictionary) -> bool:
+	for line in Contracts.request_lines(request):
+		if line["kind"] != "ore":
+			return true
+	return false
+
+
+# ToDo checklist rows for an all_of or recurring_proof objective:
+# [{ "label", "detail", "done" }] (contact_skill shows "level n of N" as its
+# detail), else [].
 static func checklist(def: Dictionary) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
+	if def["type"] == TYPE_RECURRING_PROOF:
+		return _recurring_proof_checklist(def["params"])
 	if def["type"] != TYPE_ALL_OF:
 		return rows
 	for condition in def["params"]["conditions"]:
@@ -288,4 +318,15 @@ static func checklist(def: Dictionary) -> Array[Dictionary]:
 			var target: int = int(condition["minLevel"])
 			detail = "level %d of %d" % [mini(_contact_skill_level(condition), target), target]
 		rows.append({ "label": condition["label"], "detail": detail, "done": condition_met(condition) })
+	return rows
+
+
+# PROSE-REVIEW: Beat 6 ToDo checklist labels.
+static func _recurring_proof_checklist(params: Dictionary) -> Array[Dictionary]:
+	var proof := recurring_proof()
+	var target: int = int(params["minContracts"])
+	var crafted_target: int = int(params["minCrafted"])
+	var rows: Array[Dictionary] = []
+	rows.append({ "label": "Recurring orders that ran a full week without you", "detail": "%d of %d" % [mini(proof["contracts"], target), target], "done": proof["contracts"] >= target })
+	rows.append({ "label": "One of them an order for something crafted", "detail": "", "done": proof["crafted"] >= crafted_target })
 	return rows

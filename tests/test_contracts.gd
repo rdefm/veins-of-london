@@ -110,6 +110,18 @@ func run() -> void:
 		assert_true(GameState.state["sales"]["settlements"][0]["qualified"])
 	)
 
+	run_case("delegation_needs_the_beat_6_flag_to_turn_on_never_to_turn_off", func():
+		GameState.reset()
+		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_life_order")
+		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
+		assert_true(not ContractsSystem.set_delegated(contract["id"], true)["ok"])
+		assert_true(not contract["delegated"])
+		contract["delegated"] = true  # a save delegated before the gate
+		assert_true(ContractsSystem.set_delegated(contract["id"], false)["ok"])
+		GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
+		assert_true(ContractsSystem.set_delegated(contract["id"], true)["ok"])
+	)
+
 	run_case("manual_partial_delivery_spends_shared_stock_only_and_no_time", func():
 		GameState.reset()
 		var contract := _accept_life_contract()
@@ -468,6 +480,7 @@ func _setup_buy_calc_lanes() -> void:
 	GameState.state["flags"]["collectiveLaneUnlocked"] = true
 	GameState.state["factions"]["collective"]["relation"] = 90
 	GameState.state["factions"]["collective"]["oreStock"] = { "life": 2 }
+	GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
 
 
 # Fresh state with the Beat 6 flag set and Sales staffed, then a weekly
@@ -500,6 +513,7 @@ func _fill_and_settle(contract: Dictionary) -> Dictionary:
 
 
 func _accept_life_contract() -> Dictionary:
+	GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
 	var created: Dictionary = OffersSystem.create_scripted_offer("scripted_life_order")
 	return OffersSystem.accept_offer(created["offer"]["id"])["contract"]
 
@@ -508,6 +522,7 @@ func _accept_life_contract() -> Dictionary:
 # one-off support). Built inline rather than via data/offers.json: the real
 # scripted/random mixed-offer catalogue is deferred to tickets 33/34.
 func _accept_mixed_contract() -> Dictionary:
+	GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
 	var created: Dictionary = OffersSystem.create_offer({
 		"id": "t_mixed_calc_order", "source": "scripted", "contractType": "oneOff",
 		"expiresAfterDays": 6, "deadlineAfterDays": 5,

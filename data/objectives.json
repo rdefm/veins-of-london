@@ -236,5 +236,35 @@
     "activateFlag": "bizA1PartnershipQueued",
     "completeFlag": "bizA1JamesJoined",
     "questline": "business_empire"
+  },
+  "biz_a1_demo": {
+    "id": "biz_a1_demo",
+    "title": "Archie wants to show you how an order runs itself.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "bizA1PutToWorkQueued",
+    "completeFlag": "bizA1DelegationUnlocked",
+    "questline": "business_empire"
+  },
+  "biz_a1_put_to_work": {
+    "id": "biz_a1_put_to_work",
+    "title": "Put it to work: two recurring orders, one week each, without your help.",
+    "detail": "",
+    "type": "recurring_proof",
+    "params": { "minContracts": 2, "minCrafted": 1 },
+    "activateFlag": "bizA1DelegationUnlocked",
+    "completeFlag": "bizA1ProofDone",
+    "questline": "business_empire"
+  },
+  "biz_a1_closing": {
+    "id": "biz_a1_closing",
+    "title": "Payday. Archie wants to go through the numbers.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "bizA1ClosingQueued",
+    "completeFlag": "bizA1Complete",
+    "questline": "business_empire"
   }
 }
