@@ -28,6 +28,10 @@ const CANONICAL_CONTEXTS: Array[String] = [
 # raid; shared with scenes/screens/combat.gd's win-line/label logic.
 const NON_LETHAL_MUGGING_CONTEXTS: Array[String] = [CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING, CONTEXT_ARCHIE_DEAL_MUGGING]
 
+# Contexts fought in the player's own flat (no vein at stake); shared with
+# scenes/screens/combat.gd's win-line/label logic.
+const HOME_CONTEXTS: Array[String] = [CONTEXT_HOME_RAID, CONTEXT_HOME_ALARM_DEFEND]
+
 # R§2 combat.locationKey for the two home contexts -- home isn't a district.
 const HOME_LOCATION_KEY := "home"
 
@@ -497,7 +501,7 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 # that resolves to nothing yields "", which the stage's backdrop lookup
 # treats as "no location plate".
 static func location_key_for(context: String, vein_id) -> String:
-	if context == CONTEXT_HOME_RAID or context == CONTEXT_HOME_ALARM_DEFEND:
+	if HOME_CONTEXTS.has(context):
 		return HOME_LOCATION_KEY
 	if context == CONTEXT_RAID or context == CONTEXT_DEFEND_VEIN or context == CONTEXT_EVENT_RAID:
 		if vein_id == null:
@@ -1467,7 +1471,11 @@ static func _maybe_win_from_direct_damage(combat: Dictionary, enemy: Dictionary,
 	if not _all_enemies_koed(combat["enemies"]):
 		return
 	combat["outcome"] = "win"
-	var line: String = "They leg it. Good call on their part." if NON_LETHAL_MUGGING_CONTEXTS.has(combat["context"]) else "They go down. Vein is yours."
+	var line: String = "They go down. Vein is yours."
+	if NON_LETHAL_MUGGING_CONTEXTS.has(combat["context"]):
+		line = "They leg it. Good call on their part."
+	elif HOME_CONTEXTS.has(combat["context"]):
+		line = "They're gone."
 	_log(combat, beats, line, BEAT_COMBAT_WIN, {})
 	_dispatch_on_win()
 

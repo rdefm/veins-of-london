@@ -477,7 +477,12 @@ func _play_juice(beat: Dictionary) -> void:
 func _build_outcome_button(outcome: String, context: String) -> Control:
 	var label: String
 	if outcome == "win":
-		label = "✅ They've legged it" if Combat.NON_LETHAL_MUGGING_CONTEXTS.has(context) else "✅ Vein secured"
+		if Combat.NON_LETHAL_MUGGING_CONTEXTS.has(context):
+			label = "✅ They've legged it"
+		elif Combat.HOME_CONTEXTS.has(context):
+			label = "✅ Flat secured"
+		else:
+			label = "✅ Vein secured"
 	elif outcome == "fled":
 		label = "🏃 Scarper"
 	else:

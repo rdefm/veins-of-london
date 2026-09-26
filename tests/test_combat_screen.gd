@@ -1340,6 +1340,27 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("win_outcome_label_matches_context_flavour", func():
+		var expected := {
+			Combat.CONTEXT_HOME_RAID: "✅ Flat secured",
+			Combat.CONTEXT_HOME_ALARM_DEFEND: "✅ Flat secured",
+			Combat.CONTEXT_MUGGING: "✅ They've legged it",
+			Combat.CONTEXT_RAID: "✅ Vein secured",
+			Combat.CONTEXT_EVENT_RAID: "✅ Vein secured",
+			Combat.CONTEXT_DEFEND_VEIN: "✅ Vein secured",
+		}
+		var screen := CombatScreen.new()
+		for context in expected:
+			var outcome := screen._build_outcome_button("win", context)
+			var buttons := outcome.find_children("*", "Button", true, false)
+			if outcome is Button:
+				buttons.append(outcome)
+			assert_eq(buttons.size(), 1, "sanity: one outcome button for %s" % context)
+			assert_eq((buttons[0] as Button).text, expected[context], "%s win label" % context)
+			outcome.free()
+		screen.free()
+	)
+
 	run_case("stage_backdrop_archie_deal_mugging_reuses_muggings_plate", func():
 		_setup_combat([Fixtures.enemy("A mugger")], [], 0, Combat.CONTEXT_ARCHIE_DEAL_MUGGING)
 

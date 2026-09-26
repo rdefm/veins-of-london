@@ -2780,6 +2780,28 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_ATTACK_TURN, "XP is still awarded once, win or not")
 	)
 
+	run_case("win_log_line_matches_context_flavour", func():
+		var expected := {
+			Combat.CONTEXT_HOME_RAID: "They're gone.",
+			Combat.CONTEXT_HOME_ALARM_DEFEND: "They're gone.",
+			Combat.CONTEXT_MUGGING: "They leg it. Good call on their part.",
+			Combat.CONTEXT_RAID: "They go down. Vein is yours.",
+			Combat.CONTEXT_EVENT_RAID: "They go down. Vein is yours.",
+			Combat.CONTEXT_DEFEND_VEIN: "They go down. Vein is yours.",
+		}
+		for context in expected:
+			_fresh_combat(context)
+			GameState.state["combat"]["onWin"] = ""
+			GameState.state["player"]["attackMin"] = 999
+			GameState.state["player"]["attackMax"] = 999
+			GameState.state["combat"]["enemies"][0]["attackMin"] = 0
+			GameState.state["combat"]["enemies"][0]["attackMax"] = 0
+			Rng.set_seed(1)
+			Combat.player_attack()
+			assert_eq(GameState.state["combat"]["outcome"], "win", "sanity: %s fight won" % context)
+			assert_true(GameState.state["combat"]["log"].has(expected[context]), "%s win line should be %s" % [context, expected[context]])
+	)
+
 	run_case("combat_xp_levels_up_combat_skill_via_the_shared_progression_curve", func():
 		_fresh_combat()
 		GameState.state["player"]["combatXP"] = GameData.COMBAT_XP_LEVELS[2] - Combat.COMBAT_XP_PER_ATTACK_TURN
