@@ -1,15 +1,15 @@
 # Harrow's: every tier on the ladder as an estate-agent listing, in ladder
 # order, each led by its photo (data/home.json tier `image`, placeholder when
-# empty or unloadable). The listings mount their own root under Harrow's brand
-# chrome -- white surfaces, green/gold bar, serif headings -- instead of the
-# shared dark phone-app chrome (docs/ui-vision.md §10 "Harrow's exception").
+# empty or unloadable). Listings and particulars mount their own root under
+# Harrow's brand chrome -- white surfaces, green/gold bar, serif headings --
+# instead of the shared dark phone-app chrome (docs/ui-vision.md §10 "Harrow's exception").
 # The current tier is the YOUR PLACE card (tenure, daily cost, raid risk,
 # rooms, arrears balance and countdown, buy-out when rented, floor plan); any
-# other listing opens its particulars: floor plan, the tier's `particulars`
-# copy and the Rent/Buy offers, which appear only there
-# (docs/hq-diorama-vision.md §7).
+# other listing opens its particulars: hero photo, terms, the tier's
+# `particulars` copy, its static floor plan when it has one, and the Rent/Buy
+# offers, which appear only there (docs/hq-diorama-vision.md §7).
 #
-# PROSE-REVIEW: tenure, rent/buy, buy-out, room-wipe, arrears, feed intro and photo-placeholder strings.
+# PROSE-REVIEW: tenure, rent/buy, buy-out, room-wipe, arrears, feed intro, photo-placeholder and floorplan-caption strings.
 class_name PropertyApp
 extends PhoneApp
 
@@ -18,7 +18,10 @@ const PHOTO_NODE_PREFIX := "ListingPhoto_"
 const PHOTO_PLACEHOLDER_NODE_PREFIX := "ListingPhotoPlaceholder_"
 const FEED_ROOT_NODE_NAME := "HarrowsFeed"
 const BRAND_BAR_NODE_NAME := "HarrowsBrandBar"
+const PARTICULARS_ROOT_NODE_NAME := "HarrowsParticulars"
+const PLAN_SECTION_NODE_NAME := "HarrowsFloorplan"
 const PHOTO_HEIGHT := 180.0
+const HERO_PHOTO_HEIGHT := 215.0
 
 const BRAND_GREEN_FALLBACK := Color("#06472f")
 const BRAND_GOLD_FALLBACK := Color("#efd079")
@@ -27,12 +30,13 @@ const INK := Color("#22201e")
 const MUTED := Color("#686663")
 const FACT_INK := Color("#454340")
 const LINE := Color("#e7e4e0")
+const SOFT := Color("#f7f6f4")
 const PHOTO_FILL := Color("#d1c2af")
 const SERIF_FONT_NAMES: PackedStringArray = ["Georgia", "Times New Roman", "Noto Serif", "DejaVu Serif", "serif"]
 
 # Tier id whose particulars are open; "" shows the listings. View state only.
 var _open_tier_id: String = ""
-var _feed_root: Control = null
+var _root: Control = null
 var _serif: SystemFont = null
 var _bold: FontVariation = null
 
@@ -57,39 +61,48 @@ static func brand_gold() -> Color:
 	return GameData.PALETTE.get("harrows_gold", BRAND_GOLD_FALLBACK)
 
 
-func build(content: VBoxContainer) -> void:
+func build(_content: VBoxContainer) -> void:
 	var tier_id: String = GameState.state["home"]["tier"]
 	if _open_tier_id != "" and _open_tier_id != tier_id and GameData.HOME_TIERS.has(_open_tier_id):
-		_build_particulars(content, _open_tier_id)
+		_build_particulars(_open_tier_id)
 		return
 	_open_tier_id = ""
 	_build_feed()
 
 
 func teardown() -> void:
-	if _feed_root != null:
-		if _feed_root.get_parent() != null:
-			_feed_root.get_parent().remove_child(_feed_root)
-		_feed_root.queue_free()
-		_feed_root = null
+	if _root != null:
+		if _root.get_parent() != null:
+			_root.get_parent().remove_child(_root)
+		_root.queue_free()
+		_root = null
 
 
-func _build_feed() -> void:
-	_feed_root = UI.vbox(0)
-	_feed_root.name = FEED_ROOT_NODE_NAME
-	shell.mount_custom_root(_feed_root)
-	_feed_root.add_child(_build_brand_bar())
+# Mounts Harrow's own root: brand bar over a white scrolling page. Returns the
+# page column.
+func _mount_root(root_name: String) -> VBoxContainer:
+	_root = UI.vbox(0)
+	_root.name = root_name
+	shell.mount_custom_root(_root)
+	_root.add_child(_build_brand_bar())
 
 	var scroll := UI.scroll_container()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var paper := StyleBoxFlat.new()
 	paper.bg_color = PAPER
 	scroll.add_theme_stylebox_override("panel", paper)
-	_feed_root.add_child(scroll)
+	_root.add_child(scroll)
 
+	var page := UI.vbox(0)
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(page)
+	return page
+
+
+func _build_feed() -> void:
 	var feed := UI.vbox(16)
 	feed.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_margins(feed, 12, 0, 12, 16))
+	_mount_root(FEED_ROOT_NODE_NAME).add_child(_margins(feed, 12, 0, 12, 16))
 
 	var intro := UI.vbox(6)
 	intro.add_child(_text("Find your next place.", 26, INK, _serif_font()))
@@ -226,10 +239,10 @@ func _add_title(body: VBoxContainer, tier_id: String) -> void:
 	body.add_child(_text(tier["description"], 13, MUTED))
 
 
-func _price_row(amount: int, unit: String) -> Control:
+func _price_row(amount: int, unit: String, size: int = 20) -> Control:
 	var row := UI.hbox(6)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var figure := _text("£%d" % amount, 20, INK, _bold_font())
+	var figure := _text("£%d" % amount, size, INK, _bold_font())
 	figure.autowrap_mode = TextServer.AUTOWRAP_OFF
 	figure.size_flags_horizontal = Control.SIZE_FILL
 	row.add_child(figure)
@@ -268,19 +281,20 @@ func _rule_style(margin_h: int, margin_top: int, margin_bottom: int = -1) -> Sty
 	return style
 
 
-# Harrow's primary action: green fill, white text; unaffordable reads as a
-# muted outline with the shortfall beneath it.
-func _add_brand_purchase_button(content: VBoxContainer, text: String, price: int, on_press: Callable) -> void:
+# Harrow's action: green fill with white text, or white with a green outline
+# when secondary; unaffordable reads as a muted outline with the shortfall
+# beneath it.
+func _add_brand_purchase_button(content: VBoxContainer, text: String, price: int, on_press: Callable, secondary: bool = false) -> void:
 	var b := UI.button(text, on_press)
 	b.custom_minimum_size = Vector2(0, 44)
 	b.focus_mode = Control.FOCUS_NONE
-	var fill := UI.bordered_panel_style(brand_green(), brand_green(), 4, 12, 10)
+	var fill := UI.bordered_panel_style(PAPER if secondary else brand_green(), brand_green(), 4, 12, 10)
 	var outline := UI.bordered_panel_style(PAPER, LINE, 4, 12, 10)
 	for state in ["normal", "hover", "pressed", "focus"]:
 		b.add_theme_stylebox_override(state, fill)
 	b.add_theme_stylebox_override("disabled", outline)
 	for colour_name in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		b.add_theme_color_override(colour_name, PAPER)
+		b.add_theme_color_override(colour_name, brand_green() if secondary else PAPER)
 	b.add_theme_color_override("font_disabled_color", MUTED)
 	b.disabled = GameState.state["player"]["cash"] < price
 	content.add_child(b)
@@ -331,25 +345,105 @@ func _bold_font() -> Font:
 	return _bold
 
 
-func _build_particulars(content: VBoxContainer, tier_id: String) -> void:
+# Particulars, top to bottom as the mockup's detail view: hero photo, terms,
+# fact cells, the tier's copy, its static plan when it has one, then the
+# offer box with Rent/Buy and what the move costs.
+func _build_particulars(tier_id: String) -> void:
 	var tier: Dictionary = GameData.HOME_TIERS[tier_id]
-	var on_rent: Callable = Home.rent_to.bind(tier_id)
-	var on_buy: Callable = Home.buy_to.bind(tier_id)
-	content.add_child(UI.button("‹ Listings", _open_particulars.bind("")))
-	content.add_child(UI.muted_label(_move_caption(tier_id)))
-	content.add_child(UI.heading(tier["name"]))
-	_add_static_plan(content, tier_id)
-	content.add_child(UI.label(tier["particulars"]))
-	content.add_child(_tier_stats_label(tier_id))
+	var page := _mount_root(PARTICULARS_ROOT_NODE_NAME)
 
-	var c := UI.card()
-	c["content"].add_child(UI.button("Rent for £%d/day" % Home.bill_base_for(tier_id, Home.TENURE_RENTED), _close_then.bind(on_rent)))
+	var back := UI.button("← Back to listings", _open_particulars.bind(""))
+	back.flat = true
+	back.focus_mode = Control.FOCUS_NONE
+	back.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	for colour_name in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		back.add_theme_color_override(colour_name, brand_green())
+	back.add_theme_font_size_override("font_size", 14)
+	page.add_child(_margins(back, 10, 4, 10, 4))
+	page.add_child(_build_photo(tier_id, HERO_PHOTO_HEIGHT))
+
+	var body := UI.vbox(6)
+	page.add_child(_margins(body, 18, 19, 18, 28))
+	body.add_child(_text(_move_caption(tier_id), 11, brand_green(), _bold_font()))
+	body.add_child(_text(tier["name"], 29, INK, _serif_font()))
+	body.add_child(_text(tier["description"], 13, MUTED))
+	body.add_child(_margins(_price_row(Home.bill_base_for(tier_id, Home.TENURE_RENTED), "/ day rent", 23), 0, 14, 0, 0))
+	if Home.can_buy_tier(tier_id):
+		body.add_child(_text("Or buy for £%d · then £%d/day in utilities" % [Home.buy_price(tier_id), Home.bill_base_for(tier_id, Home.TENURE_OWNED)], 13, MUTED))
+	body.add_child(_margins(_detail_facts(tier_id), 0, 10, 0, 0))
+
+	body.add_child(_subheading("Property description"))
+	body.add_child(_text(tier["particulars"], 14, INK))
+	if FloorplanView.has_plan(tier_id):
+		body.add_child(_plan_section(tier_id))
+	body.add_child(_margins(_offer_box(tier_id), 0, 14, 0, 0))
+
+
+# Two centred cells split by a thin rule: spare rooms and raid risk.
+func _detail_facts(tier_id: String) -> Control:
+	var rooms: int = GameData.HOME_TIERS[tier_id]["maxRooms"]
+	var cells := [
+		["%d" % rooms, "spare room" if rooms == 1 else "spare rooms"],
+		["%d%%" % int(round(Home.get_raid_chance_for_tier(tier_id) * 100)), "raid risk"],
+	]
+	var style := StyleBoxFlat.new()
+	style.bg_color = PAPER
+	style.border_color = LINE
+	style.border_width_top = 1
+	style.border_width_bottom = 1
+	style.content_margin_top = 14
+	style.content_margin_bottom = 14
+	var band := PanelContainer.new()
+	band.add_theme_stylebox_override("panel", style)
+	var row := UI.hbox(0)
+	band.add_child(row)
+	for i in cells.size():
+		if i > 0:
+			var divider := VSeparator.new()
+			divider.add_theme_color_override("color", LINE)
+			row.add_child(divider)
+		var cell := UI.vbox(2)
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		for part in [_text(cells[i][0], 17, INK, _bold_font()), _text(cells[i][1], 11, MUTED)]:
+			part.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cell.add_child(part)
+		row.add_child(cell)
+	return band
+
+
+func _subheading(text: String) -> Control:
+	return _margins(_text(text, 16, INK, _bold_font()), 0, 16, 0, 3)
+
+
+# Read-only here; rooms are bought on HQ's noticeboard (docs/hq-diorama-vision.md §7).
+func _plan_section(tier_id: String) -> Control:
+	var section := UI.vbox(6)
+	section.name = PLAN_SECTION_NODE_NAME
+	section.add_child(_subheading("Floorplan"))
+	section.add_child(FloorplanView.build(tier_id))
+	var selectable: int = GameData.FLOORPLANS[tier_id]["slots"].size()
+	section.add_child(_text("Bedroom plus %d selectable room%s. Room use is managed at home." % [selectable, "" if selectable == 1 else "s"], 12, MUTED))
+	return section
+
+
+# Soft-grey box: Rent (primary), Buy (secondary, disabled when unaffordable),
+# then the move's losses.
+func _offer_box(tier_id: String) -> Control:
+	var style := StyleBoxFlat.new()
+	style.bg_color = SOFT
+	style.set_content_margin_all(16)
+	var box := PanelContainer.new()
+	box.add_theme_stylebox_override("panel", style)
+	var offer := UI.vbox(9)
+	box.add_child(offer)
+
+	var rent: int = Home.bill_base_for(tier_id, Home.TENURE_RENTED)
+	_add_brand_purchase_button(offer, "Rent for £%d/day" % rent, 0, _close_then.bind(Home.rent_to.bind(tier_id)))
 	if Home.can_buy_tier(tier_id):
 		var price: int = Home.buy_price(tier_id)
-		_add_purchase_button(c["content"], "Buy for £%d" % price, price, _close_then.bind(on_buy))
-		c["content"].add_child(UI.muted_label("Then £%d/day in utilities." % Home.bill_base_for(tier_id, Home.TENURE_OWNED)))
+		_add_brand_purchase_button(offer, "Buy for £%d" % price, price, _close_then.bind(Home.buy_to.bind(tier_id)), true)
 
-	c["content"].add_child(UI.muted_label("Moving clears every installed room. No refunds."))
+	offer.add_child(_text("Moving clears every installed room. No refunds.", 12, MUTED))
 	var lost: Array[String] = []
 	for security_id in Home.security_lost_moving_to(tier_id):
 		lost.append(GameData.HOME_SECURITY[security_id]["name"])
@@ -357,13 +451,8 @@ func _build_particulars(content: VBoxContainer, tier_id: String) -> void:
 	if guards > 0:
 		lost.append("%d guard%s" % [guards, "" if guards == 1 else "s"])
 	if not lost.is_empty():
-		c["content"].add_child(UI.muted_label("Left behind: %s." % ", ".join(lost)))
-	content.add_child(c["panel"])
-
-
-func _tier_stats_label(tier_id: String) -> Label:
-	var raid_pct: int = int(round(Home.get_raid_chance_for_tier(tier_id) * 100))
-	return UI.label("Raid risk: %d%% · Rooms %d" % [raid_pct, GameData.HOME_TIERS[tier_id]["maxRooms"]])
+		offer.add_child(_text("Left behind: %s." % ", ".join(lost), 12, MUTED))
+	return box
 
 
 func _open_particulars(tier_id: String) -> void:
@@ -378,14 +467,6 @@ func _close_then(action: Callable) -> void:
 	refresh()
 
 
-func _add_purchase_button(content: VBoxContainer, text: String, price: int, on_press: Callable) -> void:
-	var b := UI.button(text, on_press)
-	b.disabled = GameState.state["player"]["cash"] < price
-	content.add_child(b)
-	if b.disabled:
-		content.add_child(UI.muted_label("Not enough cash. You have £%d." % GameState.state["player"]["cash"]))
-
-
 # Plans are read-only here; rooms are bought on HQ's noticeboard (§7).
 func _add_static_plan(content: VBoxContainer, tier_id: String) -> void:
 	if FloorplanView.has_plan(tier_id):
@@ -394,7 +475,7 @@ func _add_static_plan(content: VBoxContainer, tier_id: String) -> void:
 
 # The tier's listing photo, cropped to fill the card width; a flat placeholder
 # when data/home.json has no image for it or the path doesn't load.
-func _build_photo(tier_id: String) -> Control:
+func _build_photo(tier_id: String, height: float = PHOTO_HEIGHT) -> Control:
 	var path: String = GameData.HOME_TIERS[tier_id].get("image", "")
 	if path != "" and ResourceLoader.exists(path):
 		var photo := TextureRect.new()
@@ -403,12 +484,12 @@ func _build_photo(tier_id: String) -> Control:
 		photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		photo.clip_contents = true
-		photo.custom_minimum_size = Vector2(0, PHOTO_HEIGHT)
+		photo.custom_minimum_size = Vector2(0, height)
 		photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		return photo
 	var placeholder := PanelContainer.new()
 	placeholder.name = photo_placeholder_node_name(tier_id)
-	placeholder.custom_minimum_size = Vector2(0, PHOTO_HEIGHT)
+	placeholder.custom_minimum_size = Vector2(0, height)
 	placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = PHOTO_FILL

@@ -98,7 +98,7 @@ func run() -> void:
 		texts = NodeQuery.label_texts(phone)
 		assert_true(NodeQuery.find_button(phone, "Rent for £60/day") != null, "rent offer previews studio's rent")
 		assert_true(NodeQuery.find_button(phone, "Buy for £80000") != null, "buy offer shows studio's buyPrice")
-		assert_true(texts.has("Then £35/day in utilities."), "buy offer previews studio's owned bill override")
+		assert_true(texts.has("Or buy for £80000 · then £35/day in utilities"), "buy offer previews studio's owned bill override")
 		assert_true(texts.has("Moving clears every installed room. No refunds."))
 
 		phone.free()
@@ -115,10 +115,51 @@ func run() -> void:
 		assert_eq(_plans_of(phone, "flat").size(), 0, "the Flat listing (next tier from studio) shows no inline plan")
 		_open_listing(phone, "flat")
 		assert_eq(_plans_of(phone, "flat").size(), 1, "the Flat particulars show its plan")
+		var section := phone.find_child(PropertyApp.PLAN_SECTION_NODE_NAME, true, false)
+		assert_true(section != null, "the plan sits in its own Floorplan section")
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.find("Floorplan") > texts.find(GameData.HOME_TIERS["flat"]["particulars"]), "the plan follows the copy")
+		assert_true(texts.find("Floorplan") < texts.find("Moving clears every installed room. No refunds."), "the offer box comes after the plan")
+		assert_true(NodeQuery.find_button(phone, "Rent for £80/day") != null, "the Flat still offers its rent")
 		assert_eq(phone.find_child(FloorplanView.slot_node_name(0), true, false), null, "the listing plan is static: no selectable slot")
 		for room_id in GameData.HOME_ROOMS.keys():
 			assert_true(NodeQuery.find_button(phone, "£%d" % GameData.HOME_ROOMS[room_id]["cost"]) == null, "Harrow's sells no room upgrades (%s)" % room_id)
 
+		phone.free()
+	)
+
+	run_case("property_particulars_without_a_plan_omit_the_floorplan_section", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "property"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		for tier_id in GameData.HOME_TIER_ORDER:
+			if tier_id == "bedsit":
+				continue
+			_open_listing(phone, tier_id)
+			var has_section := phone.find_child(PropertyApp.PLAN_SECTION_NODE_NAME, true, false) != null
+			assert_eq(has_section, FloorplanView.has_plan(tier_id), "%s plan section matches whether it has a plan" % tier_id)
+			assert_eq(NodeQuery.label_texts(phone).has("Floorplan"), FloorplanView.has_plan(tier_id), "%s shows no empty Floorplan heading" % tier_id)
+			NodeQuery.find_button(phone, "← Back to listings").pressed.emit()
+		phone.free()
+	)
+
+	run_case("property_particulars_wear_harrows_chrome_with_hero_facts_and_copy", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "property"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_open_listing(phone, "studio")
+		assert_true(phone.find_child(PropertyApp.PARTICULARS_ROOT_NODE_NAME, true, false) != null, "particulars mount Harrow's own root")
+		assert_eq(phone.find_child(PropertyApp.FEED_ROOT_NODE_NAME, true, false), null, "the feed root is gone")
+		assert_true(not phone.device_shell.content_scroll.visible, "the shared dark column stays hidden")
+		assert_true(phone.find_child(PropertyApp.BRAND_BAR_NODE_NAME, true, false) != null, "the brand bar stays over the particulars")
+		var hero := phone.find_child(PropertyApp.photo_node_name("studio"), true, false) as Control
+		assert_true(hero != null and hero.custom_minimum_size.y == PropertyApp.HERO_PHOTO_HEIGHT, "studio's photo leads as the hero")
+		var texts := NodeQuery.label_texts(phone)
+		var raid_pct: int = int(round(Home.get_raid_chance_for_tier("studio") * 100))
+		for expected in ["Studio", GameData.HOME_TIERS["studio"]["description"], "£60", "/ day rent", "0", "spare rooms", "%d%%" % raid_pct, "raid risk", "Property description", GameData.HOME_TIERS["studio"]["particulars"]]:
+			assert_true(texts.has(expected), "studio particulars show %s" % expected)
 		phone.free()
 	)
 
@@ -138,7 +179,7 @@ func run() -> void:
 		rent_button.pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
-		assert_true(NodeQuery.find_button(phone, "‹ Listings") == null, "a move closes the particulars")
+		assert_true(NodeQuery.find_button(phone, "← Back to listings") == null, "a move closes the particulars")
 		assert_true(phone.find_child(PropertyApp.listing_node_name("bedsit"), true, false) != null, "back on the listings, the bedsit now a listing")
 		assert_eq(phone.find_child(PropertyApp.listing_node_name("studio"), true, false), null, "the studio is now YOUR PLACE, not a listing")
 		phone.free()
@@ -229,7 +270,7 @@ func run() -> void:
 		assert_true(not texts.has("YOUR PLACE"), "the detail view replaces the listings")
 		assert_true(phone.find_child(PropertyApp.listing_node_name("studio"), true, false) == null)
 
-		NodeQuery.find_button(phone, "‹ Listings").pressed.emit()
+		NodeQuery.find_button(phone, "← Back to listings").pressed.emit()
 		texts = NodeQuery.label_texts(phone)
 		assert_true(texts.has("YOUR PLACE"), "back returns to the listings")
 		assert_true(not texts.has(particulars))
