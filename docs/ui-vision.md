@@ -147,10 +147,15 @@ log are one material, confirmed dot-matrix (resolved 2026-09-10):**
   what's new below is how it's built and where it lives.
 - **The top status bar and the notification board are the same physical
   object.** Day/time-blocks, cash and the bag button sit on the board's
-  larger top line; below that, unseen notifications render as smaller
-  numbered rows ("1st ...", "2nd ..."), styled after a real multi-line
-  Tube departure board — same reference (2026-09-10 session), not a
-  separate signage strip. They stay **two logical components** —
+  larger top line; below that, one notice row shows a single notification
+  at a time, styled after a real Tube departure board — same reference
+  (2026-09-10 session), not a separate signage strip. **Amended
+  2026-09-26:** new notifications queue (presentation-only, never in
+  state); each rolls up from below, marquee-scrolls if too long to fit,
+  holds 4s, then the next rolls up; the latest stays when the queue is
+  empty. The board sits in a physical sign housing (metal frame, bolts,
+  recessed bezel). Tapping the board opens the Phone's Notifications app;
+  during combat the tap does nothing. They stay **two logical components** —
   `top_bar.gd` and the notification renderer (replacing
   `notification_toast.gd`'s current cream/amber card styling) — mounted
   together so the board reads as one object when both are present, but
@@ -180,8 +185,8 @@ log are one material, confirmed dot-matrix (resolved 2026-09-10):**
   still queue/drain as before. The **post-combat outcome log** (the full
   recap shown once the fight resolves, alongside the outcome button)
   stays a separate component, unaffected by this — it's a full-screen
-  recap, not a live ticker feed, and doesn't fit the board's 2-row
-  format. See `.scratch/field-kit-chrome/issues/03-combat-log-dot-matrix-reskin.md`.
+  recap, not a live ticker feed, and doesn't fit the board's one-row
+  notice format. See `.scratch/field-kit-chrome/issues/03-combat-log-dot-matrix-reskin.md`.
 - **Rendering technique:** a custom `_draw()`-based dot-matrix grid — a
   small hardcoded bitmap-font table (5×7-style cells, just the character
   set actually needed) drawn as amber dots on black, per character. This

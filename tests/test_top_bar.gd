@@ -137,26 +137,23 @@ func run() -> void:
 		bar.free()
 	)
 
-	# Bugfixes ticket 107: TopBar absorbed notification_toast.gd's job --
-	# the merged board's notification rows are lines 1+ of the same
-	# DotMatrixBoard the status line (line 0) already renders on, with no
-	# fade timer, no tap-to-dismiss, and no held queue. What shows is
-	# always "the most recent MAX_VISIBLE_NOTIFICATIONS eligible entries,"
-	# recomputed fresh every refresh straight off GameState.state
-	# ["notifications"] -- these cases replace test_notification_toast.gd's
-	# old coverage (deleted along with that file) for the new behaviour.
-	run_case("with_no_notifications_the_board_is_just_the_status_line", func():
+	# The notice row (ui-vision.md §5): one NotificationTicker below the two
+	# status lines. TopBar decides what reaches the ticker's presentation-only
+	# queue; test_notification_ticker.gd covers roll/marquee/hold timing.
+	run_case("with_no_notifications_the_board_is_just_the_status_lines_and_a_blank_ticker", func():
 		GameState.reset()
 
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._board.target_text(2), "", "no second line exists yet")
+		assert_eq(bar._board.target_text(2), "", "status board carries no notification rows")
+		assert_eq(bar._ticker.current_text, "")
+		assert_eq(bar._ticker.queued(), [] as Array[String])
 
 		bar.free()
 	)
 
-	run_case("notifications_render_as_ranked_rows_below_the_status_line", func():
+	run_case("boot_puts_the_latest_existing_notification_straight_on_the_board", func():
 		GameState.reset()
 		Notify.push("First.")
 		Notify.push("Second.")
@@ -164,176 +161,154 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._board.target_text(2), "1ST FIRST.", "the older of the two visible entries is ranked 1st")
-		assert_eq(bar._board.target_text(3), "2ND SECOND.", "the newer is ranked 2nd")
+		assert_eq(bar._ticker.current_text, "SECOND.", "only the latest shows -- older history isn't replayed")
+		assert_eq(bar._ticker.queued(), [] as Array[String])
+		assert_true(bar._ticker.phase != NotificationTicker.Phase.ROLLING, "no roll-up on boot")
 
 		bar.free()
 	)
 
-	run_case("a_third_notification_displaces_the_oldest_instead_of_queuing", func():
-		# The core behaviour change from the old toast: overflow used to
-		# queue behind the visible 2 and wait for a dismiss/fade. Now the
-		# oldest visible entry just scrolls off -- there is no queue left
-		# to hold it.
+	run_case("new_notifications_queue_in_push_order_one_at_a_time", func():
 		GameState.reset()
-		Notify.push("First.")
-		Notify.push("Second.")
-		Notify.push("Third.")
-
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._board.target_text(2), "1ST SECOND.", "First. has scrolled off -- it's no longer the newest 2")
-		assert_eq(bar._board.target_text(3), "2ND THIRD.", "Third. is the newest, so it takes the bottom row")
+		Notify.push("One.")
+		Notify.push("Two.")
+		Notify.push("Three.")
+
+		assert_eq(bar._ticker.current_text, "ONE.", "the first rolls straight up")
+		assert_eq(bar._ticker.phase, NotificationTicker.Phase.ROLLING)
+		assert_eq(bar._ticker.queued(), ["TWO.", "THREE."] as Array[String], "the rest wait their turn, oldest first")
+		assert_true(not GameState.state.has("ticker") and not GameState.state.has("notificationQueue"), "the display queue never lands in GameState.state")
 
 		bar.free()
 	)
 
-	run_case("unresolved_raid_alarm_stays_pinned_ahead_of_routine_notifications", func():
+	run_case("plain_refreshes_and_dismisses_never_requeue_or_drop_the_showing_message", func():
 		GameState.reset()
+		var bar := TopBar.new()
+		bar._ready()
+		var a := Notify.push("Sticks around.")
+
+		EventBus.state_changed.emit()
+		Notify.dismiss(a["id"])
+
+		assert_eq(bar._ticker.current_text, "STICKS AROUND.")
+		assert_eq(bar._ticker.queued(), [] as Array[String], "a refresh isn't a new notification")
+
+		bar.free()
+	)
+
+	run_case("the_latest_notification_stays_once_the_queue_drains", func():
+		GameState.reset()
+		var bar := TopBar.new()
+		bar._ready()
+		bar._ticker.size = Vector2(2000, NotificationTicker.row_height())
+		Notify.push("One.")
+		Notify.push("Two.")
+
+		bar._ticker.advance(60.0)
+
+		assert_eq(bar._ticker.current_text, "TWO.")
+		assert_eq(bar._ticker.phase, NotificationTicker.Phase.IDLE)
+
+		bar.free()
+	)
+
+	run_case("a_load_or_rewind_resets_the_board_to_that_states_latest_without_replaying", func():
+		GameState.reset()
+		Notify.push("Before save.")
+		var saved := SaveManager.export_string()
+		var bar := TopBar.new()
+		bar._ready()
+		Notify.push("After save 1.")
+		Notify.push("After save 2.")
+
+		SaveManager.import_string(saved)
+
+		assert_eq(bar._ticker.current_text, "BEFORE SAVE.")
+		assert_eq(bar._ticker.queued(), [] as Array[String], "the discarded timeline's queue is cleared")
+
+		bar.free()
+	)
+
+	run_case("a_rising_raid_alarm_count_queues_an_alarm_message", func():
+		GameState.reset()
+		var bar := TopBar.new()
+		bar._ready()
+
 		GameState.state["home"]["pendingRaid"] = true
 		GameState.state["home"]["pendingRaidNotificationId"] = "raid_1"
-		Notify.push("Routine one.")
-		Notify.push("Routine two.")
-		Notify.push("Routine three.")
-		var bar := TopBar.new()
-		bar._ready()
-		assert_eq(bar._board.target_text(2), "RAID ALARM ×1 — PHONE")
-		assert_eq(bar._board.target_text(3), "1ST ROUTINE THREE.")
-		bar.free()
-	)
-
-	run_case("a_notification_stays_visible_across_refreshes_until_displaced_by_a_newer_one", func():
-		# Guards the "no fade timer" acceptance check directly: a plain
-		# state_changed refresh (the kind cash/day changes fire constantly)
-		# must never drop a still-current notification on its own.
-		GameState.reset()
-		Notify.push("Sticks around.")
-
-		var bar := TopBar.new()
-		bar._ready()
-		assert_eq(bar._board.target_text(2), "1ST STICKS AROUND.")
-
 		EventBus.state_changed.emit()
 		EventBus.state_changed.emit()
 
-		assert_eq(bar._board.target_text(2), "1ST STICKS AROUND.", "still showing -- nothing displaced it and no timer touched it")
+		assert_eq(bar._ticker.current_text, "RAID ALARM ×1 — PHONE")
+		assert_eq(bar._ticker.queued(), [] as Array[String], "queued once, not on every refresh")
 
 		bar.free()
 	)
 
-	run_case("dismissing_a_notification_does_not_remove_it_from_view", func():
-		# Notify.dismiss() only flips `seen` for the Notifications app's own
-		# bookkeeping now (bugfixes ticket 107) -- the merged board doesn't
-		# read `seen` at all, so a dismiss (or the old auto-fade this
-		# replaces) must not affect what's showing.
+	run_case("non_combat_notifications_hold_during_combat_and_release_in_order_after", func():
 		GameState.reset()
-		var a := Notify.push("Still on the board.")
-
 		var bar := TopBar.new()
 		bar._ready()
-
-		Notify.dismiss(a["id"])  # fires state_changed -> _refresh()
-
-		assert_eq(bar._board.target_text(2), "1ST STILL ON THE BOARD.", "dismissing (marking seen) never hides a row -- only displacement does")
-
-		bar.free()
-	)
-
-	run_case("no_separate_row_controls_are_created_for_notifications", func():
-		# Retiring the floating toast means there's no second surface at
-		# all -- notification rows are text on the one board, not their
-		# own Button/Timer child nodes the way notification_toast.gd built.
-		GameState.reset()
-		Notify.push("First.")
-		Notify.push("Second.")
-
-		var bar := TopBar.new()
-		bar._ready()
-
-		assert_eq(bar.get_child_count(), 2, "just the board and the bag button, regardless of how many notifications are showing")
-
-		bar.free()
-	)
-
-	run_case("notifications_are_fully_suppressed_while_combat_is_active", func():
-		GameState.reset()
 		GameState.state["combat"]["active"] = true
-		Notify.push("Should hold, not render.")
 
-		var bar := TopBar.new()
-		bar._ready()
-
-		assert_eq(bar._board.target_text(2), "", "nothing renders below the status line while combat is active")
-
-		bar.free()
-	)
-
-	run_case("held_notifications_appear_once_combat_ends", func():
-		GameState.reset()
-		GameState.state["combat"]["active"] = true
 		Notify.push("Held 1.")
+		Notify.push("Scrapper hits you for 4.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
 		Notify.push("Held 2.")
 
-		var bar := TopBar.new()
-		bar._ready()
-		assert_eq(bar._board.target_text(2), "", "sanity: nothing shown mid-combat")
+		assert_eq(bar._ticker.current_text, "SCRAPPER HITS YOU FOR 4.", "combat-log lines go straight through")
+		assert_eq(bar._ticker.queued(), [] as Array[String], "everything else holds")
 
 		GameState.state["combat"]["active"] = false
 		EventBus.state_changed.emit()
 
-		assert_eq(bar._board.target_text(2), "1ST HELD 1.", "once combat ends, the held entries are the most recent eligible ones")
-		assert_eq(bar._board.target_text(3), "2ND HELD 2.")
+		assert_eq(bar._ticker.queued(), ["HELD 1.", "HELD 2."] as Array[String], "held entries queue once combat ends, oldest first")
 
 		bar.free()
 	)
 
-	run_case("combat_log_sourced_notifications_render_live_during_combat", func():
-		# field-kit-chrome ticket 03, ui-vision.md §5's 2026-09-11
-		# amendment: CombatScreen stamps Notify.META_COMBAT_LOG on the
-		# mid-fight ticker lines it posts -- the one thing that bypasses
-		# suppression and renders immediately instead of holding.
+	run_case("booting_mid_combat_shows_only_the_latest_combat_log_line", func():
 		GameState.reset()
 		GameState.state["combat"]["active"] = true
-		Notify.push("Scrapper hits you for 4.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
-
-		var bar := TopBar.new()
-		bar._ready()
-
-		assert_eq(bar._board.target_text(2), "1ST SCRAPPER HITS YOU FOR 4.", "a combat-log entry renders immediately even while combat is active")
-
-		bar.free()
-	)
-
-	run_case("non_combat_log_notifications_still_hold_during_combat_alongside_a_live_combat_log_entry", func():
-		GameState.reset()
-		GameState.state["combat"]["active"] = true
-		Notify.push("You strike back.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
+		Notify.push("Beat one.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
 		Notify.push("An unrelated notification.")
 
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._board.target_text(2), "1ST YOU STRIKE BACK.", "only the combat-log entry shows -- every other source keeps holding")
-		assert_eq(bar._board.target_text(3), "", "no second row -- the unrelated notification is still suppressed")
+		assert_eq(bar._ticker.current_text, "BEAT ONE.")
 
 		bar.free()
 	)
 
-	run_case("combat_log_entries_still_respect_max_visible_during_combat", func():
+	run_case("tapping_the_board_opens_the_phones_notifications_app", func():
 		GameState.reset()
-		GameState.state["combat"]["active"] = true
-		Notify.push("Beat one.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
-		Notify.push("Beat two.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
-		Notify.push("Beat three.", Notify.CATEGORY_INFO, { Notify.META_COMBAT_LOG: true })
-
 		var bar := TopBar.new()
 		bar._ready()
 
-		assert_eq(bar._board.target_text(2), "1ST BEAT TWO.", "combat-log entries still cap at MAX_VISIBLE_NOTIFICATIONS, most recent first")
-		assert_eq(bar._board.target_text(3), "2ND BEAT THREE.")
+		var tap := InputEventMouseButton.new()
+		tap.button_index = MOUSE_BUTTON_LEFT
+		tap.pressed = true
+		bar._gui_input(tap)
+
+		assert_eq(GameState.state["currentScreen"], "phone")
+		assert_eq(GameState.state["phoneNav"]["app"], "notifications")
 
 		bar.free()
+	)
+
+	run_case("tapping_the_board_during_combat_does_nothing", func():
+		GameState.reset()
+		GameState.state["combat"]["active"] = true
+		var screen_before: String = GameState.state["currentScreen"]
+		var app_before: Variant = GameState.state["phoneNav"]["app"]
+
+		assert_true(not TopBar.open_notifications_log(), "the tap is refused")
+		assert_eq(GameState.state["currentScreen"], screen_before)
+		assert_eq(GameState.state["phoneNav"]["app"], app_before)
 	)
 
 	run_case("the_bag_icon_renders_the_boards_lit_amber_not_the_theme_default", func():
