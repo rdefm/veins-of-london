@@ -11,6 +11,13 @@ static func _button_with_text(root: Node, text: String) -> Button:
 	return null
 
 
+static func _label_with_text(root: Node, text: String) -> Label:
+	for candidate in root.find_children("", "Label", true, false):
+		if (candidate as Label).text == text:
+			return candidate as Label
+	return null
+
+
 static func _assign_button(root: Node) -> Button:
 	for candidate in root.find_children("", "Button", true, false):
 		if (candidate as Button).text.begins_with("Assign "):
@@ -223,6 +230,38 @@ func run() -> void:
 		assert_true(cover != null)
 		cover.pressed.emit()
 		assert_true(GameState.state["labCoverContracts"]["timePearl"])
+		phone.free()
+	)
+
+	run_case("production_log_rows_are_collapsed_and_expand_on_tap", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"].append("lab")
+		GameState.state["flags"]["craftingUnlocked"] = true
+		GameState.state["productionLog"] = [
+			{ "day": 2, "blocks": [{ "block": 0, "entries": [{ "contactId": "james", "made": { "timePearl": { "3": 7 } }, "failed": { "timePearl": 2 }, "oreShort": { "recipeKey": "timePearl", "ore": ["time"] } }] }] },
+			{ "day": 3, "blocks": [] },
+		]
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+
+		var row := _button_with_text(phone, "Day 2 · 7 made · 2 failed ▸")
+		assert_true(row != null, "day row shows a collapsed summary")
+		assert_true(_button_with_text(phone, "Day 3 · 0 made · 0 failed ▸") != null)
+		var entry_label := _label_with_text(phone, "James made 7 Time Pearl (tier 3)")
+		assert_true(entry_label != null and not entry_label.get_parent().visible, "collapsed hides entries")
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		row.pressed.emit()
+		assert_eq(GameState.state, before, "expanding only changes view state")
+		assert_true(entry_label.get_parent().visible, "tap expands the day")
+
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("Morning"), "block heading")
+		assert_true(texts.has("James failed 2 Time Pearl"))
+		assert_true(texts.has("James stopped: not enough Time Orichalchum for Time Pearl"), "ore-short note")
+		row.pressed.emit()
+		assert_true(not entry_label.get_parent().visible, "tap again collapses")
 		phone.free()
 	)
 

@@ -39,7 +39,7 @@ static func do_rest() -> void:
 	var world: Dictionary = GameState.state["world"]
 	var source := { "day": world["day"], "phase": world["timeBlock"] }
 	for i in BLOCKS_PER_DAY - world["timeBlock"]:
-		run_staff_block()
+		run_staff_block(world["timeBlock"] + i)
 	world["day"] += 1
 	world["timeBlock"] = 0
 	world["timeBlocksDone"] = []
@@ -58,10 +58,11 @@ static func do_rest() -> void:
 
 
 # R§3.10 "Staff block step": staffed cultivators and producers act at the
-# end of every time block, before any rollover.
-static func run_staff_block() -> void:
+# end of every time block, before any rollover. block defaults to
+# world.timeBlock; do_rest() passes each skipped block's index.
+static func run_staff_block(block: int = -1) -> void:
 	var ore_before: Dictionary = MorningAccountsSystem.ore_snapshot()
-	MorningAccountsSystem.record_block(Rooms.process_staff_block(), ore_before)
+	MorningAccountsSystem.record_block(Rooms.process_staff_block(block), ore_before)
 	BusinessQuest.maybe_trigger_partnership()  # Beat 4 can be met by a staff level-up
 
 
@@ -101,6 +102,7 @@ static func daily_tick() -> void:
 	Factions.maybe_restock_ore()         # ⑤j no ordering dependency on any other step
 	Payroll.pay_wages()                  # ⑥ staff phase start: wages, paid after living costs -- an unaffordable role is skipped this rollover, no debt, retried next
 	MorningAccountsSystem.capture_production_shortfalls(morning_context)  # ⑥.1 unmet Production targets; staff work itself runs per block in run_staff_block()
+	Rooms.trim_production_log()          # ⑥.2 drop production-log days older than the retention window
 	ContractsSystem.process_delegated_deliveries() # ⑥.3 Sales closes full periods, then allocates partial stock by priority
 	ContractsSystem.daily_tick()         # ⑥.4 due periods settle; recurring periods renew
 	MorningAccountsSystem.capture_business(morning_context, Business.daily_tick())  # ⑥.4b after ⑥.4 so payday banks today's settlements

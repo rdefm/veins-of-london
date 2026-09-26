@@ -17,6 +17,8 @@ const STAFF_TAB := "staff"
 const SKILLS := ["sales", "crafting", "cultivating"]
 
 var _tab := BRIEF_TAB
+# Production-log days shown expanded (view state), day -> true.
+var _expanded_log_days := {}
 
 
 func build(content: VBoxContainer) -> void:
@@ -138,6 +140,8 @@ func _build_production() -> Control:
 
 	if not GameState.state["home"]["rooms"].has("lab"):
 		c["content"].add_child(UI.muted_label("Requires the Improved Lab."))
+		if not GameState.state["productionLog"].is_empty():
+			c["content"].add_child(_build_production_log())
 		return c["panel"]
 
 	var flags: Dictionary = GameState.state["flags"]
@@ -150,7 +154,56 @@ func _build_production() -> Control:
 		c["content"].add_child(_build_production_recipe_row(recipe_key))
 	if not any_unlocked:
 		c["content"].add_child(UI.muted_label("No craftable recipes unlocked yet."))
+	c["content"].add_child(_build_production_log())
 	return c["panel"]
+
+
+# state.productionLog, newest day first; each day is a collapsed row that
+# expands to its per-block, per-crafter entries.
+func _build_production_log() -> Control:
+	var box := UI.vbox(4)
+	box.add_child(UI.heading("Production log", 13))
+	var log: Array = GameState.state["productionLog"]
+	if log.is_empty():
+		box.add_child(UI.muted_label("Nothing crafted yet."))
+		return box
+	for i in range(log.size() - 1, -1, -1):
+		var day_record: Dictionary = log[i]
+		var day: int = day_record["day"]
+		var totals: Dictionary = Rooms.production_day_totals(day_record)
+		var section := UI.collapsible_section("Day %d · %d made · %d failed" % [day, totals["made"], totals["failed"]], _expanded_log_days.has(day), func(open: bool): _set_log_day_expanded(day, open))
+		for block_record in day_record["blocks"]:
+			section["content"].add_child(UI.label(GameData.TIME_BLOCKS[int(block_record["block"])]))
+			for entry in block_record["entries"]:
+				for line in _production_entry_lines(entry):
+					section["content"].add_child(UI.muted_label(line))
+		box.add_child(section["panel"])
+	return box
+
+
+func _set_log_day_expanded(day: int, open: bool) -> void:
+	if open:
+		_expanded_log_days[day] = true
+	else:
+		_expanded_log_days.erase(day)
+
+
+func _production_entry_lines(entry: Dictionary) -> Array[String]:
+	var name := Contacts.display_name(entry["contactId"])
+	var lines: Array[String] = []
+	for recipe_key in entry["made"]:
+		var tiers: Dictionary = entry["made"][recipe_key]
+		for tier_key in tiers:
+			lines.append("%s made %d %s (tier %s)" % [name, int(tiers[tier_key]), GameData.RECIPES[recipe_key]["name"], tier_key])
+	for recipe_key in entry["failed"]:
+		lines.append("%s failed %d %s" % [name, int(entry["failed"][recipe_key]), GameData.RECIPES[recipe_key]["name"]])
+	var ore_short = entry.get("oreShort")
+	if ore_short != null:
+		var ore_names: Array[String] = []
+		for ore_type in ore_short["ore"]:
+			ore_names.append(GameData.ORE_TYPES[ore_type]["name"])
+		lines.append("%s stopped: not enough %s for %s" % [name, ", ".join(ore_names), GameData.RECIPES[ore_short["recipeKey"]]["name"]])
+	return lines
 
 
 func _build_production_recipe_row(recipe_key: String) -> Control:

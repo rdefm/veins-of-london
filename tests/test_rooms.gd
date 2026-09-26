@@ -422,6 +422,88 @@ func run() -> void:
 	)
 
 
+	run_case("production_log_records_each_blocks_made_and_failed_per_crafter", func():
+		GameState.reset()
+		_staff_lab("archie", 1)
+		GameState.state["labThresholds"]["timePearl"] = 1000
+		GameState.state["player"]["orichalchum"]["time"] = 50
+		GameState.state["world"]["day"] = 4
+		Rng.set_seed(3)
+		var output: Dictionary = Rooms.process_staff_block(2)
+		var log: Array = GameState.state["productionLog"]
+		assert_eq(log.size(), 1, "one day record")
+		assert_eq(log[0]["day"], 4)
+		assert_eq(log[0]["blocks"].size(), 1)
+		assert_eq(log[0]["blocks"][0]["block"], 2, "block index as passed")
+		var entry: Dictionary = log[0]["blocks"][0]["entries"][0]
+		assert_eq(entry["contactId"], "archie")
+		var made := 0
+		for tier_key in entry["made"].get("timePearl", {}):
+			made += entry["made"]["timePearl"][tier_key]
+		assert_eq(made, output["items"].get("timePearl", 0), "log's made matches block output")
+		assert_eq(made + entry["failed"].get("timePearl", 0), 10, "every 5-ore attempt of 50 ore is logged as made or failed")
+		assert_eq(Rooms.production_day_totals(log[0]), { "made": made, "failed": 10 - made })
+		Rooms.process_staff_block(2)
+		assert_eq(log[0]["blocks"].size(), 2, "a second block on the same day appends to that day")
+	)
+
+	run_case("production_log_notes_the_ore_a_crafter_ran_short_of", func():
+		GameState.reset()
+		_staff_lab("archie", 1)
+		GameState.state["labThresholds"]["timePearl"] = 1000
+		GameState.state["player"]["orichalchum"]["time"] = 2
+		Rooms.process_staff_block(0)
+		var entry: Dictionary = GameState.state["productionLog"][0]["blocks"][0]["entries"][0]
+		assert_eq(entry["made"], {})
+		assert_eq(entry["failed"], {})
+		assert_eq(entry["oreShort"], { "recipeKey": "timePearl", "ore": ["time"] }, "names the recipe and the ore short")
+	)
+
+	run_case("production_log_has_no_ore_short_note_when_targets_are_met", func():
+		GameState.reset()
+		_staff_lab("archie", 1)
+		GameState.state["labThresholds"]["timePearl"] = 1
+		GameState.state["player"]["orichalchum"]["time"] = 1000
+		Rng.set_seed(1)
+		Rooms.process_staff_block(0)
+		for day_record in GameState.state["productionLog"]:
+			for block_record in day_record["blocks"]:
+				for entry in block_record["entries"]:
+					assert_eq(entry["oreShort"], null, "stopping at target is not an ore-short stop")
+		Rooms.process_staff_block(1)
+		var blocks: Array = GameState.state["productionLog"][0]["blocks"]
+		assert_eq(blocks[-1]["block"], 0, "an idle, target-met block is not logged")
+	)
+
+	run_case("production_log_trims_to_the_last_ten_days_at_rollover", func():
+		GameState.reset()
+		var log: Array = []
+		for day in range(1, 13):
+			log.append({ "day": day, "blocks": [] })
+		GameState.state["productionLog"] = log
+		GameState.state["world"]["day"] = 12
+		GameState.state["world"]["timeBlock"] = TimeSystem.BLOCKS_PER_DAY - 1
+		TimeSystem.advance_time_block()
+		var days: Array = []
+		for day_record in GameState.state["productionLog"]:
+			days.append(day_record["day"])
+		assert_eq(days, [4, 5, 6, 7, 8, 9, 10, 11, 12], "rollover into day 13 keeps days 4..13 only")
+	)
+
+	run_case("rest_logs_each_remaining_block_under_its_own_index", func():
+		GameState.reset()
+		_staff_lab("archie", 1)
+		GameState.state["labThresholds"]["timePearl"] = 1000
+		GameState.state["player"]["orichalchum"]["time"] = 2
+		GameState.state["world"]["timeBlock"] = 1
+		TimeSystem.do_rest()
+		var blocks: Array = []
+		for block_record in GameState.state["productionLog"][0]["blocks"]:
+			blocks.append(block_record["block"])
+		assert_eq(blocks, [1, 2])
+	)
+
+
 func _run_blocks(count: int) -> void:
 	for i in count:
 		Rooms.process_staff_block()

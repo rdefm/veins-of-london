@@ -76,7 +76,7 @@ Data file per system: see `data/*.json` below.
 | raid_alarms.gd | Summaries + dispatch for raid alarms |
 | raiding.gd | Vein stealth-check + raid resolution |
 | relation_accrual.gd | Capped £ relation meter |
-| rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), Production targets/priority, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
+| rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), writes/trims `productionLog`, Production targets/priority, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
 | sites.gd | Sites & prospecting |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
@@ -191,7 +191,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | BizBrief: Brief tab (bank, payday statement, pay-from-cash wage prompt, operations, attention) + Manage tab (offer accept/decline, gated delegation, buy-calc toggle, production, procurement: each cultivator's veins, targets, picker) + Staff tab once `bizStaffTabOpen` (recruited contacts' role, skills/XP/caps, pay terms, status, founder role picker, Pay now, Procurement link) |
+| bizbrief_app.gd | BizBrief: Brief tab (bank, payday, wage prompt, operations, attention) + Manage tab (offers, gated delegation, buy-calc toggle, production targets + collapsible production log, procurement: cultivators' veins/targets/picker) + Staff tab once `bizStaffTabOpen` (role, skills/XP/caps, pay terms, status, founder role picker, Pay now, Procurement link) |
 | messages_app.gd | Conversation master list + single-thread staged bubble reveal/action bar |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | Faction cards |
@@ -214,7 +214,7 @@ overlays.
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); combat_director.gd (pacing.turnPause) |
-| constants.json | time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps), business.gd (payday interval, weekly wages) |
+| constants.json | time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps), business.gd (payday interval, weekly wages), rooms.gd (productionLogDays) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |

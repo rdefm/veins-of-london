@@ -391,6 +391,27 @@ func run() -> void:
 		assert_eq(filled["home"]["guardCount"], 0, "a save from before guardCount existed should backfill it to 0")
 	)
 
+	run_case("loading_a_save_without_productionLog_starts_an_empty_log", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy.erase("productionLog")
+
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		assert_eq(GameState.state["productionLog"], [], "an old save loads with an empty production log")
+	)
+
+	run_case("productionLog_round_trips_through_json_with_int_counts", func():
+		GameState.reset()
+		GameState.state["productionLog"] = [{ "day": 3, "blocks": [{ "block": 1, "entries": [{ "contactId": "james", "made": { "timePearl": { "2": 4 } }, "failed": { "timePearl": 1 }, "oreShort": { "recipeKey": "timePearl", "ore": ["time"] } }] }] }]
+		var parsed: Dictionary = JSON.parse_string(JSON.stringify(GameState.state))
+		assert_true(SaveManager._load_save_dict(parsed)["ok"])
+		var entry: Dictionary = GameState.state["productionLog"][0]["blocks"][0]["entries"][0]
+		assert_eq(typeof(GameState.state["productionLog"][0]["day"]), TYPE_INT)
+		assert_eq(typeof(GameState.state["productionLog"][0]["blocks"][0]["block"]), TYPE_INT)
+		assert_eq(typeof(entry["made"]["timePearl"]["2"]), TYPE_INT)
+		assert_eq(typeof(entry["failed"]["timePearl"]), TYPE_INT)
+	)
+
 	run_case("loading_a_save_with_archie_in_a_room_converts_him_to_the_sales_role", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)

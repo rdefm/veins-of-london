@@ -77,6 +77,9 @@ func new_game_state() -> Dictionary:
 		# blockProduction accumulates today's staff block output until the
 		# next rollover folds it into latest.
 		"morningAccounts": { "latest": null, "autoOpenedDay": 0, "blockProduction": { "ore": {}, "items": {}, "oreMovement": {} } },
+		# Staff producers' per-day, per-block record (R§2), oldest first,
+		# trimmed to PRODUCTION_LOG_DAYS at rollover; Rooms is the only writer.
+		"productionLog": [],
 		"sellState": {},
 		# Serializable pending-offer and accepted-contract ledger.
 		"sales": { "pendingOffers": [], "activeContracts": [], "priorityOrder": [], "contractHistory": [], "settlements": [], "nextOfferId": 1, "nextContractId": 1, "nextPeriodId": 1, "nextSettlementId": 1 },

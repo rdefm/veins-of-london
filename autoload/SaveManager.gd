@@ -474,6 +474,14 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_dict_values(block_production.get("ore", {}))
 	_int_dict_values(block_production.get("items", {}))
 	_int_dict_values(block_production.get("oreMovement", {}))
+	for day_record in state.get("productionLog", []):
+		_int_key(day_record, "day")
+		for block_record in day_record.get("blocks", []):
+			_int_key(block_record, "block")
+			for entry in block_record.get("entries", []):
+				for recipe_key in entry.get("made", {}):
+					_int_dict_values(entry["made"][recipe_key])
+				_int_dict_values(entry.get("failed", {}))
 	var morning = morning_accounts.get("latest")
 	if morning != null:
 		for key in ["day", "openingBalance", "closingBalance", "income", "expenses"]:

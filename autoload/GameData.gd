@@ -154,6 +154,9 @@ var GUARD_REPEL_CHANCE_CAP: float = 0.0
 # cultivate roll, success or fail), R§3.10.
 var CULTIVATOR_ACTION_XP: int = 0
 
+# Days of staff production kept in state.productionLog, R§2.
+var PRODUCTION_LOG_DAYS: int = 0
+
 # Business pot payday cadence (days) and weekly wage per waged staff
 # contact id, R§3.10 "Business pot and payday".
 var BUSINESS_PAYDAY_INTERVAL_DAYS: int = 0
@@ -306,6 +309,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "GUARD_REPEL_CHANCE_PER_GUARD", "key": "guardRepel.chancePerGuard", "type": TYPE_FLOAT},
 		{"field": "GUARD_REPEL_CHANCE_CAP", "key": "guardRepel.cap", "type": TYPE_FLOAT},
 		{"field": "CULTIVATOR_ACTION_XP", "key": "cultivatorActionXp", "type": TYPE_INT},
+		{"field": "PRODUCTION_LOG_DAYS", "key": "productionLogDays", "type": TYPE_INT},
 		{"field": "BUSINESS_PAYDAY_INTERVAL_DAYS", "key": "business.paydayIntervalDays", "type": TYPE_INT},
 		{"field": "BUSINESS_WEEKLY_WAGES", "key": "business.weeklyWages", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_JAMES_JOIN_CRAFTING_SKILL", "key": "business.jamesJoinCraftingSkill", "type": TYPE_INT},

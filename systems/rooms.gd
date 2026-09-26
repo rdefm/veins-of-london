@@ -215,15 +215,19 @@ static func vein_station_target_text(vein_id: String) -> Variant:
 # the end of every player time block: each working cultivator takes one
 # action, then working producers craft until every target is met or none
 # can afford its next item, then Sales re-checks delegated contracts if
-# shared stock grew. Returns the block's
+# shared stock grew. block is the day's time-block index for the production
+# log (defaults to world.timeBlock). Returns the block's
 # output { "ore": {oreType: qty}, "items": {recipeKey: qty} } for the
 # Morning Brief.
-static func process_staff_block() -> Dictionary:
+static func process_staff_block(block: int = -1) -> Dictionary:
 	var output := { "ore": {}, "items": {} }
 	for contact_id in Contacts.contacts_in_role("cultivation"):
 		if Payroll.is_working(contact_id):
 			_cultivator_act(contact_id, output["ore"])
-	_run_producers(output["items"])
+	var entries := _run_producers(output["items"])
+	if block < 0:
+		block = GameState.state["world"]["timeBlock"]
+	_log_production(block, entries)
 	if not output["ore"].is_empty() or not output["items"].is_empty():
 		EventBus.shared_stock_increased.emit()
 	return output
@@ -290,29 +294,39 @@ const MAX_PRODUCER_ATTEMPTS_PER_BLOCK := 10000
 # Producers take turns one attempt at a time, in contacts_in_role order,
 # until none can make another attempt. Targets are checked against live
 # stock before every attempt, so crafters never double-count a target.
-static func _run_producers(items_out: Dictionary) -> void:
+# Returns one production-log entry per working producer (R§2 productionLog).
+static func _run_producers(items_out: Dictionary) -> Array:
 	var active: Array = []
+	var entries: Array = []
+	var entry_of := {}
 	for contact_id in Contacts.contacts_in_role("production"):
 		if Payroll.is_working(contact_id):
 			active.append(contact_id)
+			var entry := { "contactId": contact_id, "made": {}, "failed": {}, "oreShort": null }
+			entries.append(entry)
+			entry_of[contact_id] = entry
 	var attempts := 0
 	while not active.is_empty() and attempts < MAX_PRODUCER_ATTEMPTS_PER_BLOCK:
 		for contact_id in active.duplicate():
 			if attempts >= MAX_PRODUCER_ATTEMPTS_PER_BLOCK:
 				break
-			if _producer_act(contact_id, items_out):
+			if _producer_act(contact_id, items_out, entry_of[contact_id]):
 				attempts += 1
 			else:
 				active.erase(contact_id)
+	return entries
 
 
 # One craft attempt at the first recipe in _production_order() that is
-# unlocked, below its effective target, and affordable from shared stock.
-# Returns false (no attempt) when nothing qualifies.
-static func _producer_act(contact_id: String, items_out: Dictionary) -> bool:
+# unlocked, below its effective target, and affordable from shared stock,
+# recorded into entry. Returns false (no attempt) when nothing qualifies;
+# if a below-target recipe was skipped as unaffordable, entry.oreShort
+# names the first such recipe and the ore types it lacked.
+static func _producer_act(contact_id: String, items_out: Dictionary, entry: Dictionary) -> bool:
 	var flags: Dictionary = GameState.state["flags"]
 	var ore: Dictionary = GameState.state["player"]["orichalchum"]
 	var skill: int = GameState.state["contacts"][contact_id].get("craftingSkill", 1)
+	var ore_short: Variant = null
 	for recipe_key in _production_order():
 		var unlock_flag: String = RECIPE_UNLOCK_FLAGS.get(recipe_key, "")
 		if unlock_flag != "" and not flags.get(unlock_flag, false):
@@ -320,21 +334,70 @@ static func _producer_act(contact_id: String, items_out: Dictionary) -> bool:
 		if Crafting.inventory_qty(recipe_key) >= effective_lab_target(recipe_key):
 			continue
 		var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
-		var can_afford := true
+		var short_types: Array = []
 		for ingredient in costs:
 			if ore.get(ingredient, 0) < costs[ingredient]:
-				can_afford = false
-				break
-		if not can_afford:
+				short_types.append(ingredient)
+		if not short_types.is_empty():
+			if ore_short == null:
+				ore_short = { "recipeKey": recipe_key, "ore": short_types }
 			continue
 		for ingredient in costs:
 			ore[ingredient] = ore.get(ingredient, 0) - costs[ingredient]
 		var xp_reward: int = GameData.RECIPES[recipe_key]["xpReward"]
 		if Rng.chance(Crafting.craft_chance(recipe_key, skill)):
-			Crafting.inventory_add(recipe_key, Crafting.quality_tier(recipe_key, skill))
+			var tier := Crafting.quality_tier(recipe_key, skill)
+			Crafting.inventory_add(recipe_key, tier)
 			items_out[recipe_key] = items_out.get(recipe_key, 0) + 1
+			var made: Dictionary = entry["made"]
+			if not made.has(recipe_key):
+				made[recipe_key] = {}
+			made[recipe_key][str(tier)] = made[recipe_key].get(str(tier), 0) + 1
 			Contacts.award_contact_xp(contact_id, "crafting", xp_reward)
 		else:
+			entry["failed"][recipe_key] = entry["failed"].get(recipe_key, 0) + 1
 			Contacts.award_contact_xp(contact_id, "crafting", int(floor(float(xp_reward) / 3.0)))
 		return true
+	entry["oreShort"] = ore_short
 	return false
+
+
+# Appends this block's producer entries to today's productionLog day,
+# skipping producers that neither attempted nor hit an ore-short stop.
+static func _log_production(block: int, entries: Array) -> void:
+	var kept: Array = []
+	for entry in entries:
+		if not entry["made"].is_empty() or not entry["failed"].is_empty() or entry["oreShort"] != null:
+			kept.append(entry)
+	if kept.is_empty():
+		return
+	var log: Array = GameState.state["productionLog"]
+	var day: int = GameState.state["world"]["day"]
+	if log.is_empty() or log[-1]["day"] != day:
+		log.append({ "day": day, "blocks": [] })
+	log[-1]["blocks"].append({ "block": block, "entries": kept })
+
+
+# Rollover trim: keeps only the last PRODUCTION_LOG_DAYS days, counting the
+# new current day.
+static func trim_production_log() -> void:
+	var oldest_kept: int = GameState.state["world"]["day"] - GameData.PRODUCTION_LOG_DAYS + 1
+	var kept: Array = []
+	for day_record in GameState.state["productionLog"]:
+		if day_record["day"] >= oldest_kept:
+			kept.append(day_record)
+	GameState.state["productionLog"] = kept
+
+
+# Totals for one productionLog day record: { made, failed } attempt counts.
+static func production_day_totals(day_record: Dictionary) -> Dictionary:
+	var made := 0
+	var failed := 0
+	for block_record in day_record["blocks"]:
+		for entry in block_record["entries"]:
+			for recipe_key in entry["made"]:
+				for tier_key in entry["made"][recipe_key]:
+					made += int(entry["made"][recipe_key][tier_key])
+			for recipe_key in entry["failed"]:
+				failed += int(entry["failed"][recipe_key])
+	return { "made": made, "failed": failed }
