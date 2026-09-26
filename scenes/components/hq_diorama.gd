@@ -26,6 +26,7 @@ func _init() -> void:
 
 	_background_texture = TextureRect.new()
 	_background_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_background_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_background_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_background_texture.visible = false
 	_background_texture.z_index = -1

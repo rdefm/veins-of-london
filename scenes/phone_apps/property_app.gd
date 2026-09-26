@@ -217,12 +217,16 @@ func _build_listing_card(caption: String, tier_id: String) -> Control:
 	return card["panel"]
 
 
-# White bordered card: photo flush to the top edge, then a padded body.
+# White bordered card: photo flush to the square top edge, then a padded
+# body; only the bottom corners round. No clip_children: nested inside the
+# phone display's clip it paints the card solid under gl_compatibility.
 func _listing_shell(tier_id: String) -> Dictionary:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	panel.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
-	panel.add_theme_stylebox_override("panel", UI.bordered_panel_style(PAPER, LINE, 6, 0, 0))
+	var style := UI.bordered_panel_style(PAPER, LINE, 6, 0, 0)
+	style.corner_radius_top_left = 0
+	style.corner_radius_top_right = 0
+	panel.add_theme_stylebox_override("panel", style)
 	var column := UI.vbox(0)
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(column)

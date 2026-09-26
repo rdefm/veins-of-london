@@ -178,3 +178,13 @@ func run() -> void:
 		assert_true(not diorama._background_fill.visible, "the fallback fill should stay hidden when there's a real room image")
 		diorama.free()
 	)
+
+	run_case("room_art_larger_than_the_plate_scales_down_to_the_plate", func():
+		for tier_id in ["studio", "flat"]:
+			var plate: Dictionary = GameData.HQ_VISUALS["rooms"][tier_id]
+			var diorama := HqDiorama.new()
+			diorama.build(plate)
+			assert_true(diorama._background_texture.get_combined_minimum_size() == Vector2.ZERO, "%s art must not force its native pixel size onto the texture layer" % tier_id)
+			assert_eq(diorama._background_texture.size, Vector2(plate["width"], plate["height"]), "%s art should fill exactly the plate" % tier_id)
+			diorama.free()
+	)
