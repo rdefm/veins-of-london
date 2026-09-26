@@ -130,11 +130,18 @@ func run() -> void:
 		assert_true(diorama.is_debug_overlay_enabled(), "set_debug_overlay_enabled(true) should flip the toggle on")
 
 		var spy := DrawSpy.new()
-		diorama._draw_debug_region(spy, Rect2(0, 0, 50, 50), "dial")
+		diorama._draw_debug_region(spy, {"x": 0, "y": 0, "width": 50, "height": 50}, "dial")
 		var outlines: Array = spy.calls_matching("draw_rect")
 		assert_true(outlines.any(func(c): return c["args"][0] == Rect2(0, 0, 50, 50) and c["args"][2] == false), "debug region draws an unfilled outline rect")
 		var labels: Array = spy.calls_matching("draw_string")
 		assert_true(labels.any(func(c): return c["args"][2] == "dial"), "debug region draws the region's own id as text")
+
+		var poly_spy := DrawSpy.new()
+		diorama._draw_debug_region(poly_spy, {"x": 0, "y": 0, "width": 100, "height": 100, "polygon": [[0, 0], [100, 0], [0, 100]]}, "tri")
+		assert_eq(poly_spy.calls_matching("draw_rect").size(), 0, "a region with a polygon must not outline its rect")
+		var polylines: Array = poly_spy.calls_matching("draw_polyline")
+		assert_true(polylines.any(func(c): return c["args"][0] == PackedVector2Array([Vector2(0, 0), Vector2(100, 0), Vector2(0, 100), Vector2(0, 0)])), "debug region outlines the polygon, closed")
+		assert_true(poly_spy.calls_matching("draw_string").any(func(c): return c["args"][2] == "tri"), "a polygon region still gets its id label")
 
 		diorama.set_debug_overlay_enabled(false)
 		assert_true(not diorama.is_debug_overlay_enabled(), "set_debug_overlay_enabled(false) should flip the toggle back off, at runtime")

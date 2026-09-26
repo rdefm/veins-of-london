@@ -2,7 +2,7 @@ class_name HqRegionMapperLogic
 extends RefCounted
 
 # Pure helpers behind tools/hq_region_mapper.gd: plate/region edits on the
-# parsed data/hq_visuals.json tree, hit testing, and writing the "rooms"
+# parsed data/hq_visuals.json tree and writing the "rooms"
 # block back in the file's hand-formatted style (plate keys one per line,
 # each region on one line) so meta and labBench stay byte-for-byte intact.
 
@@ -87,46 +87,13 @@ static func set_region_polygon(plate: Dictionary, zone_id: String, label: String
 	var regions: Dictionary = plate["regions"]
 	var region: Dictionary = regions.get(zone_id, {"x": 0, "y": 0, "width": 0, "height": 0, "label": label, "image": ""})
 	if String(region.get("image", "")).is_empty():
-		var box := bounds(points)
+		var box := HqDiorama.polygon_bounds(points)
 		region["x"] = int(box.position.x)
 		region["y"] = int(box.position.y)
 		region["width"] = int(box.size.x)
 		region["height"] = int(box.size.y)
 	region["polygon"] = points.duplicate(true)
 	regions[zone_id] = region
-
-
-static func bounds(points: Array) -> Rect2:
-	var box := Rect2(Vector2(points[0][0], points[0][1]), Vector2.ZERO)
-	for p in points:
-		box = box.expand(Vector2(p[0], p[1]))
-	return box
-
-
-static func to_packed(points: Array) -> PackedVector2Array:
-	var packed := PackedVector2Array()
-	for p in points:
-		packed.append(Vector2(p[0], p[1]))
-	return packed
-
-
-static func region_rect(region: Dictionary) -> Rect2:
-	return Rect2(region.get("x", 0), region.get("y", 0), region.get("width", 0), region.get("height", 0))
-
-
-# Polygon when the region has one, else its rect.
-static func region_contains(region: Dictionary, point: Vector2) -> bool:
-	if region.has("polygon"):
-		return Geometry2D.is_point_in_polygon(point, to_packed(region["polygon"]))
-	return region_rect(region).has_point(point)
-
-
-static func regions_at(regions: Dictionary, point: Vector2) -> Array[String]:
-	var hits: Array[String] = []
-	for id in regions:
-		if region_contains(regions[id], point):
-			hits.append(id)
-	return hits
 
 
 # The value of the top-level "rooms" key, indented to sit at depth 1.

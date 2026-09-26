@@ -460,3 +460,68 @@ func run() -> void:
 
 		hq.free()
 	)
+
+	# ── traced zone polygons (docs/hq-diorama-vision.md §3.2) ──────────────
+
+	run_case("hq_studio_tap_inside_a_zone_polygon_routes_to_that_zone", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["tier"] = "studio"
+		GameState.state["currentScreen"] = "hq"
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_true(hq._diorama._plate["regions"]["dial"].has("polygon"), "studio's Dial must carry a traced polygon for this case to mean anything")
+		UiSim.tap_zone(hq, "dial")
+		assert_eq(GameState.state["currentScreen"], "hq_dial", "a tap inside the Dial polygon must route to the Dial")
+
+		hq.free()
+	)
+
+	run_case("hq_studio_tap_in_overlapping_boxes_but_outside_both_polygons_opens_nothing", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["tier"] = "studio"
+		GameState.state["currentScreen"] = "hq"
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		var rects: Dictionary = hq._diorama.region_rects()
+		var overlap: Rect2 = (rects["security"] as Rect2).intersection(rects["dial"])
+		assert_true(overlap.has_area(), "studio's Security and Dial boxes must overlap for this case to mean anything")
+		var gap := Vector2(-1, -1)
+		for x in range(int(overlap.position.x), int(overlap.end.x)):
+			for y in range(int(overlap.position.y), int(overlap.end.y)):
+				if hq._diorama.zone_at(Vector2(x, y)) == "":
+					gap = Vector2(x, y)
+					break
+			if gap.x >= 0:
+				break
+		assert_true(gap.x >= 0, "some point in the Security/Dial box overlap must fall outside both polygons")
+
+		hq._on_diorama_gui_input(UiSim.tap_at(gap))
+		assert_eq(GameState.state["currentScreen"], "hq", "a tap in the boxes but outside every polygon must not navigate")
+		assert_eq(GameState.state["modal"], null, "a tap in the boxes but outside every polygon must not open a modal")
+
+		hq.free()
+	)
+
+	run_case("hq_bedsit_zones_without_polygons_hit_test_their_rects", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		var regions: Dictionary = hq._diorama._plate["regions"]
+		for zone_id in regions:
+			assert_true(not regions[zone_id].has("polygon"), "bedsit zone '%s' must have no polygon" % zone_id)
+			var rect := HqDiorama.region_rect(regions[zone_id])
+			assert_eq(hq._diorama.zone_at(rect.position), zone_id, "rect's top-left corner must hit '%s'" % zone_id)
+			assert_eq(hq._diorama.zone_at(rect.get_center()), zone_id, "rect's centre must hit '%s'" % zone_id)
+			assert_eq(hq._diorama.zone_at(rect.end - Vector2(0.5, 0.5)), zone_id, "rect's inner bottom-right must hit '%s'" % zone_id)
+
+		hq.free()
+	)

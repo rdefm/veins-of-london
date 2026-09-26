@@ -39,8 +39,18 @@ static func drag(index: int, pos: Vector2) -> InputEventScreenDrag:
 
 
 static func tap_zone(screen, zone_id: String) -> void:
-	var rect: Rect2 = screen._diorama.region_rects()[zone_id]
-	screen._on_diorama_gui_input(tap_at(rect.get_center()))
+	screen._on_diorama_gui_input(tap_at(zone_point(screen._diorama, zone_id)))
+
+
+# A point inside the zone's hit shape: its rect's centre, or for a traced
+# polygon the centroid of its first triangle (inside even when concave).
+static func zone_point(diorama: HqDiorama, zone_id: String) -> Vector2:
+	var region: Dictionary = diorama._plate["regions"][zone_id]
+	if not region.has("polygon"):
+		return HqDiorama.region_rect(region).get_center()
+	var points := HqDiorama.polygon_points(region["polygon"])
+	var tri := Geometry2D.triangulate_polygon(points)
+	return (points[tri[0]] + points[tri[1]] + points[tri[2]]) / 3.0
 
 
 static func advance(node: Node, seconds: float) -> void:

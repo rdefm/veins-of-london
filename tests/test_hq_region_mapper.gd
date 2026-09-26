@@ -51,9 +51,9 @@ func run() -> void:
 			"tri": {"x": 0, "y": 0, "width": 100, "height": 100, "polygon": [[0, 0], [100, 0], [0, 100]]},
 			"box": {"x": 200, "y": 0, "width": 50, "height": 50},
 		}
-		assert_eq(HqRegionMapperLogic.regions_at(regions, Vector2(10, 10)), ["tri"])
-		assert_eq(HqRegionMapperLogic.regions_at(regions, Vector2(90, 90)), [], "inside the bounding box but outside the triangle")
-		assert_eq(HqRegionMapperLogic.regions_at(regions, Vector2(220, 20)), ["box"])
+		assert_eq(HqDiorama.regions_at(regions, Vector2(10, 10)), ["tri"])
+		assert_eq(HqDiorama.regions_at(regions, Vector2(90, 90)), [], "inside the bounding box but outside the triangle")
+		assert_eq(HqDiorama.regions_at(regions, Vector2(220, 20)), ["box"])
 	)
 
 	run_case("room_images_follow_tier_order_and_skip_other_files", func():

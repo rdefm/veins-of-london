@@ -74,8 +74,8 @@ func build(plate: Dictionary) -> void:
 		sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		sprite.texture = texture
-		sprite.position = _region_rect(region).position
-		sprite.size = _region_rect(region).size
+		sprite.position = region_rect(region).position
+		sprite.size = region_rect(region).size
 		add_child(sprite)
 		_region_sprites[region_id] = sprite
 
@@ -85,8 +85,8 @@ func build(plate: Dictionary) -> void:
 			continue
 		var caption := UI.label(region["caption"])
 		caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		caption.position = _region_rect(region).position
-		caption.size.x = _region_rect(region).size.x
+		caption.position = region_rect(region).position
+		caption.size.x = region_rect(region).size.x
 		caption.add_theme_color_override("font_color", Color.WHITE)
 		caption.add_theme_color_override("font_shadow_color", Color.BLACK)
 		caption.add_theme_constant_override("shadow_offset_x", 1)
@@ -110,11 +110,47 @@ func region_rects() -> Dictionary:
 	var result: Dictionary = {}
 	var regions: Dictionary = _plate.get("regions", {})
 	for region_id in regions:
-		result[region_id] = _region_rect(regions[region_id])
+		result[region_id] = region_rect(regions[region_id])
 	return result
 
 
-func _region_rect(region: Dictionary) -> Rect2:
+# The first region whose hit shape contains `point` (plate-local), or "".
+func zone_at(point: Vector2) -> String:
+	var hits := regions_at(_plate.get("regions", {}), point)
+	return hits[0] if not hits.is_empty() else ""
+
+
+# A region's hit shape is its traced polygon when it has one, else its
+# x/y/width/height rect (docs/hq-diorama-vision.md §3.2).
+static func region_contains(region: Dictionary, point: Vector2) -> bool:
+	if region.has("polygon"):
+		return Geometry2D.is_point_in_polygon(point, polygon_points(region["polygon"]))
+	return region_rect(region).has_point(point)
+
+
+static func regions_at(regions: Dictionary, point: Vector2) -> Array[String]:
+	var hits: Array[String] = []
+	for id in regions:
+		if region_contains(regions[id], point):
+			hits.append(id)
+	return hits
+
+
+static func polygon_points(points: Array) -> PackedVector2Array:
+	var packed := PackedVector2Array()
+	for p in points:
+		packed.append(Vector2(p[0], p[1]))
+	return packed
+
+
+static func polygon_bounds(points: Array) -> Rect2:
+	var box := Rect2(Vector2(points[0][0], points[0][1]), Vector2.ZERO)
+	for p in points:
+		box = box.expand(Vector2(p[0], p[1]))
+	return box
+
+
+static func region_rect(region: Dictionary) -> Rect2:
 	return Rect2(region.get("x", 0.0), region.get("y", 0.0), region.get("width", 0.0), region.get("height", 0.0))
 
 
@@ -124,18 +160,18 @@ func _draw() -> void:
 		var region: Dictionary = regions[region_id]
 		if not _should_draw_placeholder(region_id, region):
 			continue
-		_draw_placeholder_box(self, _region_rect(region), region.get("label", region_id))
+		_draw_placeholder_box(self, region_rect(region), region.get("label", region_id))
 
 	# A region flagged "selected" gets an outline grown past its rect so it
 	# still reads around a region sprite drawn on top.
 	var outline_color: Color = GameData.PALETTE.get(SELECTED_OUTLINE_PALETTE_ID, Color.GOLD)
 	for region_id in regions:
 		if regions[region_id].get("selected", false):
-			draw_rect(_region_rect(regions[region_id]).grow(SELECTED_OUTLINE_WIDTH), outline_color, false, SELECTED_OUTLINE_WIDTH)
+			draw_rect(region_rect(regions[region_id]).grow(SELECTED_OUTLINE_WIDTH), outline_color, false, SELECTED_OUTLINE_WIDTH)
 
 	if _debug_overlay_enabled:
 		for region_id in regions:
-			_draw_debug_region(self, _region_rect(regions[region_id]), region_id)
+			_draw_debug_region(self, regions[region_id], region_id)
 
 
 func _should_draw_placeholder(region_id: String, region: Dictionary) -> bool:
@@ -152,8 +188,16 @@ func _draw_placeholder_box(target: Object, rect: Rect2, label: String) -> void:
 	target.draw_string(font, rect.position + DEBUG_LABEL_MARGIN, label, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - DEBUG_LABEL_MARGIN.x * 2.0, font_size, PLACEHOLDER_BORDER)
 
 
-func _draw_debug_region(target: Object, rect: Rect2, region_id: String) -> void:
-	target.draw_rect(rect, DEBUG_OUTLINE_COLOR, false, 2.0)
+# Outlines the region's hit shape: its polygon when it has one, else its rect.
+func _draw_debug_region(target: Object, region: Dictionary, region_id: String) -> void:
+	var rect := region_rect(region)
+	if region.has("polygon"):
+		var outline := polygon_points(region["polygon"])
+		outline.append(outline[0])
+		target.draw_polyline(outline, DEBUG_OUTLINE_COLOR, 2.0)
+		rect = polygon_bounds(region["polygon"])
+	else:
+		target.draw_rect(rect, DEBUG_OUTLINE_COLOR, false, 2.0)
 	var font := ThemeDB.fallback_font
 	var font_size := ThemeDB.fallback_font_size
 	target.draw_string(font, rect.position + DEBUG_LABEL_MARGIN, region_id, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x, font_size, DEBUG_LABEL_COLOR)

@@ -34,6 +34,10 @@ func draw_colored_polygon(points: PackedVector2Array, color: Color, uvs: PackedV
 	calls.append({ "method": "draw_colored_polygon", "args": [points, color, uvs, texture] })
 
 
+func draw_polyline(points: PackedVector2Array, color: Color, width: float = -1.0, antialiased: bool = false) -> void:
+	calls.append({ "method": "draw_polyline", "args": [points, color, width, antialiased] })
+
+
 func draw_line(from: Vector2, to: Vector2, color: Color, width: float = -1.0, antialiased: bool = false) -> void:
 	calls.append({ "method": "draw_line", "args": [from, to, color, width, antialiased] })
 

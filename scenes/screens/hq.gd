@@ -93,11 +93,9 @@ func _on_diorama_gui_input(event: InputEvent) -> void:
 	if not is_press:
 		return
 
-	var rects: Dictionary = _diorama.region_rects()
-	for zone_id in rects:
-		if (rects[zone_id] as Rect2).has_point(event.position):
-			_on_zone_tapped(zone_id)
-			return
+	var zone_id := _diorama.zone_at(event.position)
+	if zone_id != "":
+		_on_zone_tapped(zone_id)
 func _on_zone_tapped(zone_id: String) -> void:
 	match zone_id:
 		"dial":

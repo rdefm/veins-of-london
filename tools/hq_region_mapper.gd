@@ -350,7 +350,7 @@ func _on_canvas_input(event: InputEvent) -> void:
 	var rounded := point.round()
 	if _mode == Mode.TEST:
 		_test_point = rounded
-		var hits := HqRegionMapperLogic.regions_at(_plate().get("regions", {}), rounded)
+		var hits := HqDiorama.regions_at(_plate().get("regions", {}), rounded)
 		var names := PackedStringArray()
 		for id in hits:
 			names.append("%s (%s)" % [_zone_label(id), id])
@@ -432,9 +432,9 @@ func _draw_region(zone_id: String, region: Dictionary) -> void:
 		if selected:
 			for p in screen_points:
 				_canvas.draw_circle(p, 3.0, color)
-		label_at = _to_screen(HqRegionMapperLogic.bounds(region["polygon"]).position)
+		label_at = _to_screen(HqDiorama.polygon_bounds(region["polygon"]).position)
 	else:
-		var rect := HqRegionMapperLogic.region_rect(region)
+		var rect := HqDiorama.region_rect(region)
 		var screen_rect := Rect2(_to_screen(rect.position), rect.size * _view_scale())
 		_canvas.draw_rect(screen_rect, Color(color, 0.12), true)
 		_canvas.draw_rect(screen_rect, Color(color, 0.8), false, 1.0)
