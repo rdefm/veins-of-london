@@ -26,6 +26,8 @@
     { "id": "brick_lit",         "hex": "#b56b50", "group": "brick" },
     { "id": "timber_dark",       "hex": "#4c3830", "group": "brick" },
     { "id": "timber_mid",        "hex": "#6d5342", "group": "brick" },
+    { "id": "lab_wall",          "hex": "#f5f3ef", "group": "brick" },
+    { "id": "lab_floor",         "hex": "#8a4e26", "group": "brick" },
 
     { "id": "pastel_blue",       "hex": "#74909a", "group": "pastel" },
     { "id": "pastel_teal",       "hex": "#93af9f", "group": "pastel" },

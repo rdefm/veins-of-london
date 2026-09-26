@@ -52,7 +52,7 @@ Data file per system: see `data/*.json` below.
 | factions.gd | Faction joining |
 | home.gd | Home tier/tenure/security/rooms/raid chance; daily bill base (rent or utilities); arrears countdown; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
-| lab_bench_nav.gd | Lab bench nav: stop, notebook, ore |
+| lab_bench_nav.gd | Lab bench nav: held notebook, selected ore |
 | map_events.gd | Map event queue + playback |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
@@ -107,7 +107,7 @@ overlays.
 | hq_dial.gd | Dial loadout sub-view (Movements, Complications) |
 | hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward) |
 | hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment for staffed rooms |
-| hq_lab_bench.gd | Lab zone: notebook/ore/apparatus regions |
+| hq_lab_bench.gd | Lab zone: single portrait bench plate, jar count badges, notebook/ore/apparatus regions |
 | map.gd | Map tab: full-bleed diagram (top board to nav dock) with floating menu button, legend and zoom pill in Map chrome tokens; district panel + sheet |
 | phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid + home-only Phone/Messages/Settings dock, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |
 | placeholder.gd | Stand-in for a not-yet-built screen |

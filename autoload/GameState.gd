@@ -56,11 +56,11 @@ func new_game_state() -> Dictionary:
 		# scrollX/scrollY as ints), so camera position persists. everOpened
 		# gates MapCanvas's one-shot auto-focus, false until first map open.
 		"mapView": { "everOpened": false, "zoom": MapZoom.DEFAULT, "scrollX": 0, "scrollY": 0 },
-		# Lab bench nav (docs/hq-diorama-vision.md §5). stop is the focal
-		# stop in frame; mode (the held-open notebook) persists across
-		# re-entry, unlike selectedOre (up to 2 ids, §5.4), which
-		# open() always resets so re-entry never opens on a stale pairing.
-		"labBenchNav": { "stop": "books_ore", "mode": null, "selectedOre": [] },
+		# Lab bench nav (docs/hq-diorama-vision.md §5). mode (the held-open
+		# notebook) persists across re-entry, unlike selectedOre (up to 2
+		# ids, §5.4), which open() always resets so re-entry never opens on
+		# a stale pairing.
+		"labBenchNav": { "mode": null, "selectedOre": [] },
 		# state.objectives[<id>] = { active, complete, progress }, keyed by
 		# data/objectives.json ids; Objectives.refresh() is the only writer.
 		# progress is per-evaluator scratch data -- e.g. traded_with_faction

@@ -1,24 +1,21 @@
 class_name HqLabBenchScreen
 extends Control
 
-const _STOP_LABELS := {
-	"books_ore": "Books & ore containers",
-	"apparatus": "Apparatus",
-}
-const _PAN_DURATION := 0.4
-const _ARROW_INSET := 4.0
-const _ORE_PLENTY_THRESHOLD := 20
+const _INSET := 4.0
+const _BADGE_HEIGHT := 26.0
+const _BADGE_FONT_SIZE := 14
+const _BADGE_RADIUS := 8
+const _BADGE_PADDING := 6
 const _SELECT_ORE_HINT := "Pick an ore type first."
 
 var _diorama: HqDiorama
 var _press_zone: String = ""
-var _pan_x: float = 0.0
-var _pan_initialized: bool = false
-var _active_pan_tween: Tween = null
+var _debug_overlay_enabled: bool = false
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
 	EventBus.state_changed.connect(_refresh)
+	resized.connect(_refresh)
 	_refresh()
 
 # Off the Map tab: light card family (MapCardStyle).
@@ -26,69 +23,89 @@ func _refresh() -> void:
 	MapPalette.build_light(_build)
 
 
+# §5.1: one portrait plate, width-fit and vertically centred, the bands above
+# and below filled with the plate's wall/floor colours.
 func _build() -> void:
-	if _diorama != null:
-		_pan_x = _diorama.position.x
-	if _active_pan_tween != null:
-		_active_pan_tween.kill()
-		_active_pan_tween = null
-
 	for child in get_children():
 		child.queue_free()
 	_diorama = null
 
 	var plate: Dictionary = GameData.HQ_VISUALS["labBench"]
-	var stop_width: float = plate["width"] / float(LabBenchNav.STOPS.size())
-	var plate_height: float = plate["height"]
-	var nav: Dictionary = GameState.state["labBenchNav"]
-	var stop_index: int = LabBenchNav.STOPS.find(nav["stop"])
-	var available_width: float = size.x if size.x > 0.0 else stop_width
-	var scale_factor: float = available_width / stop_width
-	var scaled_height: float = plate_height * scale_factor
+	var plate_size := Vector2(plate["width"], plate["height"])
+	var available: Vector2 = size if size.x > 0.0 and size.y > 0.0 else plate_size
+	var scale_factor: float = available.x / plate_size.x
+	var scaled_height: float = plate_size.y * scale_factor
+	var top: float = (available.y - scaled_height) / 2.0
+
+	_add_band(plate.get("bandTopColor", ""), Rect2(0.0, 0.0, available.x, maxf(top, 0.0)))
+	_add_band(plate.get("bandBottomColor", ""), Rect2(0.0, top + scaled_height, available.x, maxf(available.y - top - scaled_height, 0.0)))
 
 	var frame := Control.new()
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.clip_contents = true
-	frame.position = Vector2.ZERO
-	frame.size = Vector2(stop_width, plate_height)
+	frame.position = Vector2(0.0, top)
+	frame.size = plate_size
 	frame.scale = Vector2(scale_factor, scale_factor)
 	add_child(frame)
 
+	var visible_plate := _visible_plate(plate, GameState.state["labBenchNav"])
 	_diorama = HqDiorama.new()
-	_diorama.build(_visible_plate(plate, nav))
+	_diorama.build(visible_plate)
+	_diorama.set_debug_overlay_enabled(_debug_overlay_enabled)
 	_diorama.gui_input.connect(_on_diorama_gui_input)
 	frame.add_child(_diorama)
-	_pan_diorama_to(-stop_index * stop_width)
+
+	_add_ore_badges(visible_plate["regions"], frame.position, scale_factor)
 
 	var back := UI.back_button("hq")
-	back.position = Vector2(_ARROW_INSET, UI.safe_area_top_inset() + _ARROW_INSET)
+	back.position = Vector2(_INSET, UI.safe_area_top_inset() + _INSET)
 	add_child(back)
 
-	var stop_label := UI.label(_STOP_LABELS.get(nav["stop"], ""))
-	stop_label.position = Vector2(back.position.x + back.custom_minimum_size.x + 8.0, back.position.y)
-	add_child(stop_label)
+	var debug_toggle := MapCardStyle.chip_button("Debug regions" if not _debug_overlay_enabled else "Debug regions ✓", _on_debug_toggle_pressed)
+	debug_toggle.position = Vector2(back.position.x + back.custom_minimum_size.x + 8.0, back.position.y)
+	add_child(debug_toggle)
 
-	var left := MapCardStyle.round_button("‹", func(): LabBenchNav.step(-1))
-	left.disabled = stop_index == 0
-	left.position = Vector2(_ARROW_INSET, scaled_height / 2.0)
-	add_child(left)
 
-	var right := MapCardStyle.round_button("›", func(): LabBenchNav.step(1))
-	right.disabled = stop_index == LabBenchNav.STOPS.size() - 1
-	right.position = Vector2(available_width - right.custom_minimum_size.x - _ARROW_INSET, scaled_height / 2.0)
-	add_child(right)
-func _pan_diorama_to(target_x: float) -> void:
-	if not _pan_initialized or not is_inside_tree():
-		_diorama.position = Vector2(target_x, 0.0)
-		_pan_x = target_x
-		_pan_initialized = true
-		return
+func _add_band(palette_id: String, rect: Rect2) -> void:
+	var band := ColorRect.new()
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.color = GameData.PALETTE.get(palette_id, Color.BLACK)
+	band.position = rect.position
+	band.size = rect.size
+	add_child(band)
 
-	_diorama.position = Vector2(_pan_x, 0.0)
-	if not is_equal_approx(_pan_x, target_x):
-		_active_pan_tween = create_tween()
-		_active_pan_tween.tween_property(_diorama, "position:x", target_x, _PAN_DURATION)
-	_pan_x = target_x
+
+# §5.4: a count badge of player.orichalchum[type] centred on each jar's
+# bottom edge, in screen space so it stays legible at any plate scale.
+func _add_ore_badges(regions: Dictionary, origin: Vector2, scale_factor: float) -> void:
+	for region_id in regions:
+		if not String(region_id).begins_with(LabBenchNav.ORE_REGION_PREFIX):
+			continue
+		var ore_type := String(region_id).trim_prefix(LabBenchNav.ORE_REGION_PREFIX)
+		var rect := HqDiorama.region_rect(regions[region_id])
+		var count: int = GameState.state["player"]["orichalchum"].get(ore_type, 0)
+
+		var box := CenterContainer.new()
+		box.name = "OreBadge_%s" % ore_type
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.position = origin + Vector2(rect.position.x, rect.end.y) * scale_factor - Vector2(0.0, _BADGE_HEIGHT)
+		box.size = Vector2(rect.size.x * scale_factor, _BADGE_HEIGHT)
+
+		var panel := PanelContainer.new()
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var style := MapCardStyle.skin(MapCardStyle.paper(), _BADGE_RADIUS)
+		style.content_margin_left = _BADGE_PADDING
+		style.content_margin_right = _BADGE_PADDING
+		panel.add_theme_stylebox_override("panel", style)
+		panel.add_child(MapCardStyle.label(str(count), _BADGE_FONT_SIZE, MapCardStyle.ink()))
+		box.add_child(panel)
+		add_child(box)
+
+
+func _on_debug_toggle_pressed() -> void:
+	_debug_overlay_enabled = not _debug_overlay_enabled
+	_refresh()
+
+
 func _visible_plate(plate: Dictionary, nav: Dictionary) -> Dictionary:
 	var visible_plate: Dictionary = plate.duplicate(true)
 	var regions: Dictionary = visible_plate["regions"]
@@ -109,11 +126,8 @@ func _label_ore_regions(regions: Dictionary, nav: Dictionary) -> void:
 			continue
 		var region: Dictionary = regions[region_id]
 		var count: int = GameState.state["player"]["orichalchum"].get(ore_type, 0)
-		var bucket := _ore_bucket(count)
-		region["image"] = region.get("%sImage" % bucket, "")
-
 		var ore_name: String = GameData.ORE_TYPES[ore_type]["name"]
-		var label := "%s — %d (%s)" % [ore_name, count, bucket]
+		var label := "%s — %d" % [ore_name, count]
 		if selected.has(ore_type):
 			region["selected"] = true
 			label += " · selected"
@@ -122,12 +136,6 @@ func _label_ore_regions(regions: Dictionary, nav: Dictionary) -> void:
 				label += " · costs %s" % cost_label
 		region["label"] = label
 
-func _ore_bucket(count: int) -> String:
-	if count <= 0:
-		return "empty"
-	if count >= _ORE_PLENTY_THRESHOLD:
-		return "plenty"
-	return "some"
 func _selected_ore_cost_label(type_id: String, nav: Dictionary) -> String:
 	if nav["mode"] == LabBenchNav.MODE_RECIPES:
 		var costs := _selected_ore_manual_costs(nav["selectedOre"], type_id)
@@ -197,11 +205,7 @@ func _on_diorama_gui_input(event: InputEvent) -> void:
 	_press_zone = ""
 
 func _zone_at(pos: Vector2) -> String:
-	var rects: Dictionary = _diorama.region_rects()
-	for zone_id in rects:
-		if (rects[zone_id] as Rect2).has_point(pos):
-			return zone_id
-	return ""
+	return _diorama.zone_at(pos)
 func _on_zone_tapped(zone_id: String) -> void:
 	match zone_id:
 		"notebookRecipes":

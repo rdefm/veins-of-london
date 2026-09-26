@@ -1,24 +1,20 @@
 extends "res://tests/test_base.gd"
 
-# hq-diorama ticket 06, docs/hq-diorama-vision.md §5: LabBenchNav's own nav
-# state (systems/lab_bench_nav.gd) -- which focal stop is in frame, and
-# which notebook mode is held. Ticket 11 merged the original three stops
-# (books/ore/apparatus) down to two ("books_ore"/"apparatus"). Screen-level
-# tap dispatch is covered by tests/test_hq_lab_bench.gd; these cases are the
-# pure state transitions only.
+# docs/hq-diorama-vision.md §5: LabBenchNav's own nav state
+# (systems/lab_bench_nav.gd) -- which notebook mode is held and which ore
+# types are selected. Screen-level tap dispatch is covered by
+# tests/test_hq_lab_bench.gd; these cases are the pure state transitions only.
 
 
 func run() -> void:
-	run_case("open_lands_on_the_books_ore_stop_and_emits", func():
+	run_case("open_emits_state_changed", func():
 		GameState.reset()
-		GameState.state["labBenchNav"]["stop"] = "apparatus"
 		var received := [false]
 		var on_changed := func(): received[0] = true
 		EventBus.state_changed.connect(on_changed)
 		LabBenchNav.open()
 		EventBus.state_changed.disconnect(on_changed)
 
-		assert_eq(GameState.state["labBenchNav"]["stop"], "books_ore", "§5.1: the bench always opens on the books+ore stop")
 		assert_true(received[0], "state_changed should fire")
 	)
 
@@ -27,26 +23,6 @@ func run() -> void:
 		GameState.state["labBenchNav"]["mode"] = "recipes"
 		LabBenchNav.open()
 		assert_eq(GameState.state["labBenchNav"]["mode"], "recipes", "§5.2: the held notebook stays open for the whole session, including across re-entering the bench")
-	)
-
-	run_case("step_advances_one_stop_at_a_time_in_stop_order", func():
-		GameState.reset()
-		assert_eq(GameState.state["labBenchNav"]["stop"], "books_ore")
-		LabBenchNav.step(1)
-		assert_eq(GameState.state["labBenchNav"]["stop"], "apparatus")
-	)
-
-	run_case("step_clamps_at_the_last_stop_rather_than_wrapping", func():
-		GameState.reset()
-		GameState.state["labBenchNav"]["stop"] = "apparatus"
-		LabBenchNav.step(1)
-		assert_eq(GameState.state["labBenchNav"]["stop"], "apparatus", "§5.1: no free scrolling past either end -- stepping past the last stop is a no-op, not a wrap")
-	)
-
-	run_case("step_clamps_at_the_first_stop_rather_than_wrapping", func():
-		GameState.reset()
-		LabBenchNav.step(-1)
-		assert_eq(GameState.state["labBenchNav"]["stop"], "books_ore", "stepping back from the first stop is a no-op")
 	)
 
 	run_case("tap_notebook_sets_the_mode_when_none_is_held", func():

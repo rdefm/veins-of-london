@@ -5271,124 +5271,121 @@
 "HOME_TIER_ORDER": ["bedsit", "studio", "flat", "townhouse", "safehouse", "compound", "mansion"],
 "HQ_VISUALS": {
 "labBench": {
+"bandBottomColor": "lab_floor",
+"bandTopColor": "lab_wall",
 "fallbackColor": "timber_dark",
-"height": 408,
-"image": "res://assets/hq/lab_bench.png",
+"height": 1536,
+"image": "res://assets/hq/lab-bench-with-equipment_portrait.png",
 "regions": {
 "apparatus_compression": {
-"height": 85,
+"height": 305,
 "image": "",
 "label": "Press",
-"width": 118,
-"x": 330,
-"y": 243
+"placeholder": false,
+"width": 214,
+"x": 780,
+"y": 970
 },
 "apparatus_distilling": {
-"height": 85,
+"height": 404,
 "image": "",
 "label": "Still",
-"width": 118,
-"x": 471,
-"y": 243
+"placeholder": false,
+"polygon": [[216, 448], [252, 448], [254, 356], [292, 356], [292, 448], [338, 448], [342, 366], [366, 366], [372, 452], [420, 452], [560, 496], [622, 512], [680, 548], [704, 600], [716, 650], [716, 750], [610, 750], [608, 660], [636, 606], [560, 588], [432, 558], [412, 600], [398, 630], [398, 760], [232, 760], [232, 660], [250, 660], [250, 500], [216, 500]],
+"width": 500,
+"x": 216,
+"y": 356
 },
 "apparatus_grinding": {
-"height": 85,
+"height": 190,
 "image": "",
 "label": "Mortar",
-"width": 118,
-"x": 471,
-"y": 150
+"placeholder": false,
+"width": 176,
+"x": 752,
+"y": 684
 },
 "apparatus_heat": {
-"height": 85,
+"height": 210,
 "image": "",
 "label": "Burner",
-"width": 118,
-"x": 330,
-"y": 150
+"placeholder": false,
+"width": 122,
+"x": 100,
+"y": 625
 },
 "notebookExperiments": {
-"height": 88,
+"height": 272,
 "image": "",
 "label": "Experiments",
 "placeholder": false,
-"width": 98,
-"x": 170,
-"y": 193
+"width": 292,
+"x": 400,
+"y": 870
 },
 "notebookRecipes": {
-"height": 88,
+"height": 272,
 "image": "",
 "label": "Recipes",
 "placeholder": false,
-"width": 104,
-"x": 48,
-"y": 193
+"width": 308,
+"x": 66,
+"y": 870
 },
 "ore_emotion": {
-"emptyImage": "",
-"height": 45,
+"height": 244,
 "image": "",
 "label": "Emotion",
-"plentyImage": "",
-"someImage": "",
-"width": 50,
-"x": 235,
-"y": 144
+"placeholder": false,
+"width": 138,
+"x": 764,
+"y": 108
 },
 "ore_fate": {
-"emptyImage": "",
-"height": 45,
+"height": 244,
 "image": "",
 "label": "Fate",
-"plentyImage": "",
-"someImage": "",
-"width": 50,
-"x": 180,
-"y": 144
+"placeholder": false,
+"width": 138,
+"x": 284,
+"y": 108
 },
 "ore_life": {
-"emptyImage": "",
-"height": 45,
+"height": 244,
 "image": "",
 "label": "Life",
-"plentyImage": "",
-"someImage": "",
-"width": 50,
-"x": 126,
-"y": 144
+"placeholder": false,
+"width": 138,
+"x": 444,
+"y": 108
 },
 "ore_physics": {
-"emptyImage": "",
-"height": 45,
+"height": 244,
 "image": "",
 "label": "Physics",
-"plentyImage": "",
-"someImage": "",
-"width": 50,
-"x": 71,
-"y": 144
+"placeholder": false,
+"width": 138,
+"x": 604,
+"y": 108
 },
 "ore_time": {
-"emptyImage": "",
-"height": 45,
+"height": 244,
 "image": "",
 "label": "Time",
-"plentyImage": "",
-"someImage": "",
-"width": 50,
-"x": 16,
-"y": 144
+"placeholder": false,
+"width": 142,
+"x": 122,
+"y": 108
 }
 },
-"width": 612
+"width": 1024
 },
 "meta": {
 "artReview": "ART-REVIEW (ticket 10): bedsit plate produced (assets/hq/bedsit_room.png) and all region rects re-measured against it by pixel inspection of the finished art -- NOT yet confirmed against the live in-app debug overlay (CLAUDE.md workflow rule 5: agent cannot see the running UI), so the human should still toggle hq.gd's debug overlay on-device once and eyeball each of the 6 rects below against the real render. oreStore has no fixture drawn in the source art at all (no bag/strongbox/safe was produced) -- 'image' stays empty and it renders as a placeholder box until that art exists; region rect is a guessed empty floor spot, not measured against anything. Security ships both states: 'image' (no lock, matches state.home.security=[] at new-game start, REFERENCE.md §2) and 'installedImage' (Reinforced Lock fitted), swapped at render time by hq.gd's _security_lock_installed_plate() -- see regionRule above.",
 "gymDeviation": "hq-diorama ticket 02: §3.1's own table lists Gym's 'First tier present' as 'flat', one tier above bedsit -- v1 (§10) ships the bedsit plate only, so a strict reading has no gym region here. Ticket 02's own prose lists Gym among the zones to wire up regardless, and the human maintainer explicitly chose (2026-09-07) to wire it into the bedsit plate now rather than leave Train unreachable until a Flat-tier plate art ticket ships -- a deliberate, approved deviation from the tier table, not an oversight.",
-"labBench": "hq-diorama ticket 06, docs/hq-diorama-vision.md §5.1: the Lab bench sub-view plate, a sibling of 'rooms' rather than a member of it -- it's reached from the 'lab' room zone, not a property tier. Ticket 11 merged the original three 390px-wide focal stops (books/ore/apparatus) down to two -- books+ore now share stop 0, apparatus keeps stop 1. Ticket 23: a new borderless single full-table image replaced the old 780x844 desk render with a 612x408 one -- ONE image for both stops combined (not a per-stop composite the way ticket 12's was), so the plate is now 612x408 (stop width 306), the screen still panning between stops by offsetting the rendered HqDiorama's x position by whole stop-widths, tweened per ticket 11. notebookRecipes/notebookExperiments were re-placed by eye against the new image's actual book art (pixel-sampled, not guessed -- the orange 'recipes' cover and blue-grey 'experiments' cover are both distinctly coloured against the wood background). The five ore_* and four apparatus_* regions have no art of their own yet, but this image (unlike ticket 12's) is a real photographed table with an alpha-cut edge, not a flat colour fill -- so a pure proportional rescale of their 780x844-space rects landed mostly off the visible tabletop (ART-REVIEW caught this on review and it was corrected before commit): the table's opaque region only starts at y~142 (its flat top surface runs roughly y142-336, corners sloping in from x~40 and x~560), well below where a naive '612/780, 408/844' scale of the old rects would place them. Final placement -- ART-REVIEW (ticket 23), still a starting point: ore_* keeps its scaled x/width (16/71/126/180/235, each 50 wide) but y/height were hand-fit into the one open strip of real tabletop above the books (y144, height45 -- the full available gap between the table's opaque top edge and the notebook rects, so it's near the 44x44 hit-region floor) rather than the scaled ~y111/h150, which would have overlapped the freshly-placed notebook rects (GameData._validate_hq_visuals() forbids region overlap) and sat mostly above the table's alpha edge anyway. apparatus_* keeps its scaled x (330/471, 118 wide) but was rebuilt as a 2x2 grid hand-fit inside the table's actual opaque vertical span (y142-336) with even margins/gap (y150/243, each 85 tall) instead of the scaled ~y29/219,h160, which ran well above the table's top edge (row 1) and past its bottom edge (row 2). All nine regions still render as placeholder boxes (labels only) until their own sprites exist; the human should confirm every rect on-device against hq_lab_bench.gd's debug overlay once real art lands -- particularly ore_time and apparatus_grinding/apparatus_distilling, whose outer edges still clip slightly into the table's sloped left/right corners. Ticket 18: notebookRecipes/notebookExperiments keep 'placeholder': false since the desk art renders both books directly at these rects, so HqDiorama draws no grey box over them.",
-"labBenchApparatus": "ticket 07, §5.3 (ticket 11: now stop 1, x 390-780, since books+ore merged into stop 0) -- one region per data/approaches.json approach, region ids 'apparatus_<approachId>' (same derive-from-id convention as the ore containers above). All four are authored here regardless of room gating; hq_lab_bench.gd deletes an apparatus's region from its own render-time copy of this plate when Approaches.is_known() is false for that approach, per §3.2's 'a hit region for an object not present at this tier does not exist' -- so this manifest is the full four-apparatus roster the property ladder eventually reveals, not what's tappable on a fresh bedsit save (which only ever shows heat/grinding, the two start-known approaches). Ticket 13 replaces ticket 11's placeholder merge layout with a symmetric 2x2 slot grid within stop 1's own 390-wide half (x 390-780): 30px side margins/gap, 60px top/bottom margins/gap, each slot 150x332 -- heat top-left, grinding top-right, compression bottom-left, distilling bottom-right, same corners ticket 11 used. No art changes -- 'image' stays empty on all four per this ticket's own scope, so each still renders as a labelled placeholder box (§9) ready to take a sprite later with no code or data-shape change.",
-"labBenchOre": "ticket 07, §5.4 (ticket 11: moved into stop 0 alongside the books, x 0-390; ticket 12: laid out as five narrow columns side by side -- x 20/90/160/230/300, each 64 wide, y 229-540 -- in the open desk space above the books, jar-like and in a row per the human's own correction on this ticket's first pass, which had them as full-width stacked bars instead; height further cut from an initial 460 to 311 -- roughly 0.8x the desk photo's own 389px-tall visible slice -- on the human's second correction, since spanning nearly the full column read as too tall) -- five containers, region ids 'ore_<oreTypeId>' so scenes/screens/hq_lab_bench.gd can derive the ore type straight from the region id with no lookup table. 'image' stays empty (no fixture drawn) alongside three new optional per-count-state fields -- 'emptyImage'/'someImage'/'plentyImage' -- following the same deep-copy-and-swap convention data/hq_visuals.json's 'installedImage' already established for the door's security region: the screen picks whichever of the three matches the player's current ore count and swaps it into 'image' for that render pass only, never mutating GameData.HQ_VISUALS itself. All three stay empty until a state-variant sprite is produced, so every container renders as a placeholder box today, its label text carrying the empty/some/plenty state instead (§9's degradation rule).",
+"labBench": "docs/hq-diorama-vision.md §5.1: the Lab bench sub-view plate, a sibling of 'rooms' reached from the 'lab' room zone. One 1024x1536 portrait image shown as a single screen: width-fit, vertically centred, the bands above/below filled with the palette colours named by 'bandTopColor' (wall) and 'bandBottomColor' (floor). Every region is baked into the art (placeholder: false); the distilling rig is a traced polygon since its retort spans the middle.",
+"labBenchApparatus": "§5.3: one region per data/approaches.json approach, region ids 'apparatus_<approachId>' (same derive-from-id convention as the jars). hq_lab_bench.gd drops an apparatus region from its render-time copy when Approaches.is_known() is false for it (§3.2).",
+"labBenchOre": "§5.4: five jars, region ids 'ore_<oreTypeId>' so scenes/screens/hq_lab_bench.gd derives the ore type straight from the id. The screen overlays each with a count badge of player.orichalchum[type]; a selected jar gets HqDiorama's gold outline.",
 "name": "HQ visuals manifest",
 "plateRule": "One entry per key under 'rooms' (v1 ships only 'bedsit' -- docs/hq-diorama-vision.md §10). 'image' is a res:// path to the room's 390x660 display-resolution plate (authored 195x330, shown 2x nearest per §3), or \"\" when no plate has been produced yet -- the room then fills with the flat data/palette.json colour named by 'fallbackColor' instead, same two-level fallback combat_visuals.json's backdrops use. 'width'/'height' are the plate's display-resolution size in logical px.",
 "polygonRule": "A region may carry an optional 'polygon' -- [[x, y], ...], at least 3 points, in the plate's display-resolution space -- as its hit shape; x/y/width/height then stays the sprite/placeholder rect (the polygon's bounding box when the region has no sprite). GameData validates the polygon's bounding box against the 44x44 minimum and tests overlap shape-to-shape. Authored with tools/hq_region_mapper.tscn.",

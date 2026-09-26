@@ -139,39 +139,42 @@ rules, costs and probabilities are untouched.
 
 ### 5.1 Camera
 
-**A wide plate with snap-to stops.** One long bench image, three focal
-stops, arrows step left/right. No free scrolling — a swipe gesture would
-fight the ore-dragging (§5.4). The arrows are also the affordance that
-there is more bench off-screen.
+**One portrait plate, one screen.** The whole bench — jars, apparatus and
+both notebooks — is a single **1024 × 1536** image
+(`assets/hq/lab-bench-with-equipment_portrait.png`), shown width-fit and
+vertically centred. The bands above and below are filled with colours
+matching the art's wall and floor. No stops, no arrows, no panning — nothing
+scrolls, so nothing fights the ore-dragging (§5.4). The back button sits
+top-left.
 
-Stops, left to right: **books → ore containers → apparatus.**
-
-Canvas: **1170 × 844** displayed (3 × 390 wide, full-bleed), authored at
-**585 × 422**, displayed 2× nearest.
+Layout, top to bottom: **ore jars → apparatus → notebooks** (the vise sits
+bottom-right beside the books). Every object is baked into the art; its hit
+region is traced on it, with a polygon wherever a rect would overlap a
+neighbour.
 
 ### 5.2 The two notebooks — mode
 
-The bench opens on the books stop with two notebooks: **Recipes** and
+The bench has two notebooks: **Recipes** and
 **Experiments**. Tapping one sets the mode. The chosen notebook stays
 visibly open/held for the whole session so the mode is never invisible.
 Every notebook tap — including on the held one — opens that notebook's book.
 The player can switch modes freely.
 
 **Experiments mode**
-1. Ore stop: select 1 or 2 ore types.
+1. Select 1 or 2 ore jars.
 2. The Experiments notebook is tappable here — a panel of pairings already
    tried and their results, and current recipe levels.
-3. Arrow → apparatus stop. Tap an apparatus to run.
+3. Tap an apparatus to run.
 4. It animates (§5.5), consumes ore, and reports the outcome.
 
 **Recipes mode** — two paths, both valid:
 - **Book path:** tap the recipe book, pick a known recipe *and a quantity*,
   craft.
-- **Manual path:** select an ore type at the ore stop, arrow to the
-  apparatus, tap the apparatus that matches. Crafts **quantity 1**. This is
+- **Manual path:** select an ore jar, then tap the apparatus that
+  matches. Crafts **quantity 1**. This is
   the expert path — craft from memory without opening the book.
 
-In Recipes mode the ore stop is a *receipt*, not a decision, when using the
+In Recipes mode the ore jars are a *receipt*, not a decision, when using the
 book path.
 
 ### 5.3 Apparatus
@@ -201,9 +204,9 @@ ore + apparatus resolves to exactly one recipe with no new data.
 
 ### 5.4 Ore containers
 
-Five containers at the ore stop, one per ore type, each labelled with its
-ore symbol and a numeric count. **Three visual states each** — empty /
-some / plenty — for 15 sprites.
+Five jars along the back of the bench, one per ore type, each painted with
+its ore symbol. Each carries a small numeric **count badge** (ore held); a
+selected jar gets a gold outline.
 
 Selection is **tap-to-select, then tap the apparatus**, as the primary and
 always-available path. Drag-and-drop does the same thing and exists as a

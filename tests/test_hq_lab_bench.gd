@@ -17,10 +17,8 @@ const UiSim := preload("res://tests/support/ui_sim.gd")
 #
 # HqLabBenchScreen.new() is safe to call _ready() on directly without
 # adding it to a live scene tree, same reasoning tests/test_hq_floorplan.gd
-# already relies on for HqFloorplanScreen. This ticket delivers navigation
-# and mode state only -- no ore-container/apparatus content exists yet
-# (ticket 07), so there's nothing to assert about the ore/apparatus stops
-# beyond "the arrows reach them".
+# already relies on for HqFloorplanScreen. Off-tree the screen has no size,
+# so it lays the plate out at its own native size (scale 1, no bands).
 
 
 func run() -> void:
@@ -37,113 +35,106 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_opens_on_the_books_ore_stop_with_the_left_arrow_disabled", func():
-		GameState.reset()
-		GameState.state["labBenchNav"]["stop"] = "books_ore"
+	# ── §5.1: one portrait plate, no stops ─────────────────────────────────
 
+	run_case("hq_lab_bench_has_no_stop_arrows_or_caption", func():
+		GameState.reset()
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		assert_true(NodeQuery.find_button(screen, "‹").disabled, "§5.1: the left arrow must be disabled at the first (books+ore) stop")
-		assert_true(not NodeQuery.find_button(screen, "›").disabled, "the right arrow must stay enabled with the apparatus stop ahead")
+		assert_true(NodeQuery.find_button(screen, "‹") == null, "§5.1: no left arrow -- the bench is one screen")
+		assert_true(NodeQuery.find_button(screen, "›") == null, "§5.1: no right arrow")
+		assert_true(not NodeQuery.label_texts(screen).has("Books & ore containers"), "no stop caption")
+		assert_true(not NodeQuery.label_texts(screen).has("Apparatus"), "no stop caption")
 
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_right_arrow_steps_to_the_apparatus_stop", func():
+	run_case("hq_lab_bench_an_old_save_carrying_a_stop_still_loads_and_renders", func():
 		GameState.reset()
+		var save: Dictionary = GameState.state.duplicate(true)
+		save["labBenchNav"] = { "stop": "apparatus", "mode": "recipes", "selectedOre": [] }
+		var result := SaveManager._load_save_dict(save)
+		assert_true(result["ok"], "a save from before the single-screen bench must still load")
+		assert_eq(GameState.state["labBenchNav"]["mode"], "recipes", "the rest of the bench's nav state survives")
 
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
-
-		NodeQuery.find_button(screen, "›").pressed.emit()
-
-		assert_eq(GameState.state["labBenchNav"]["stop"], "apparatus", "tapping the right arrow must advance exactly one stop")
+		UiSim.tap_zone(screen, "ore_life")
+		assert_eq(GameState.state["labBenchNav"]["selectedOre"], ["life"], "the bench still works on the loaded state")
 
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_right_arrow_is_disabled_on_the_apparatus_stop", func():
+	run_case("hq_lab_bench_fits_the_plate_to_width_centred_with_filled_bands", func():
 		GameState.reset()
-		GameState.state["labBenchNav"]["stop"] = "apparatus"
+		var plate: Dictionary = GameData.HQ_VISUALS["labBench"]
+		var screen := HqLabBenchScreen.new()
+		screen._ready()
+		screen.size = Vector2(390.0, 844.0)
+		screen._build()
 
+		var frame: Control = screen._diorama.get_parent()
+		var scale_factor: float = 390.0 / float(plate["width"])
+		var scaled_height: float = plate["height"] * scale_factor
+		assert_almost_eq(frame.scale.x, scale_factor, 0.001, "§5.1: the plate is width-fit")
+		assert_almost_eq(frame.position.y, (844.0 - scaled_height) / 2.0, 0.01, "§5.1: the plate is vertically centred")
+
+		var bands: Array = []
+		for child in screen.get_children():
+			if child is ColorRect and not child.is_queued_for_deletion():
+				bands.append(child)
+		assert_eq(bands.size(), 2, "one band above the plate, one below")
+		assert_eq(bands[0].color, GameData.PALETTE[plate["bandTopColor"]], "the top band matches the art's wall")
+		assert_almost_eq(bands[0].size.y, frame.position.y, 0.01, "the top band fills down to the plate")
+		assert_eq(bands[1].color, GameData.PALETTE[plate["bandBottomColor"]], "the bottom band matches the art's floor")
+		assert_almost_eq(bands[1].position.y, frame.position.y + scaled_height, 0.01, "the bottom band starts where the plate ends")
+		assert_almost_eq(bands[1].position.y + bands[1].size.y, 844.0, 0.01, "the bottom band fills to the screen's bottom edge")
+
+		screen.free()
+	)
+
+	run_case("hq_lab_bench_every_bench_object_is_a_region_with_no_placeholder_box", func():
+		GameState.reset()
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		assert_true(NodeQuery.find_button(screen, "›").disabled, "§5.1: the right arrow must be disabled at the last (apparatus) stop")
-		assert_true(not NodeQuery.find_button(screen, "‹").disabled, "the left arrow must stay enabled with the books+ore stop behind it")
+		var regions: Dictionary = screen._diorama._plate["regions"]
+		var expected := ["ore_time", "ore_fate", "ore_life", "ore_physics", "ore_emotion",
+			"apparatus_heat", "apparatus_distilling", "apparatus_grinding", "apparatus_compression",
+			"notebookRecipes", "notebookExperiments"]
+		assert_eq(regions.size(), expected.size(), "exactly the 11 bench objects are tappable")
+		for region_id in expected:
+			assert_true(regions.has(region_id), "%s must be a region" % region_id)
+			assert_true(not screen._diorama._should_draw_placeholder(region_id, regions[region_id]), "%s: the art is the visual, no placeholder box" % region_id)
 
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_left_arrow_steps_back_from_the_apparatus_stop", func():
+	run_case("hq_lab_bench_debug_toggle_turns_on_the_region_overlay", func():
 		GameState.reset()
-		GameState.state["labBenchNav"]["stop"] = "apparatus"
-
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		NodeQuery.find_button(screen, "‹").pressed.emit()
-
-		assert_eq(GameState.state["labBenchNav"]["stop"], "books_ore", "tapping the left arrow must step back exactly one stop")
+		assert_true(not screen._diorama.is_debug_overlay_enabled())
+		NodeQuery.find_button(screen, "Debug regions").pressed.emit()
+		assert_true(screen._diorama.is_debug_overlay_enabled(), "the debug chip shows the hit shapes on the bench too")
 
 		screen.free()
 	)
 
-	# ── ticket 11: arrow nav tweens the pan instead of snapping ───────────
-
-	await run_case("hq_lab_bench_right_arrow_tweens_the_diorama_pan_when_in_a_live_tree", func():
+	run_case("hq_lab_bench_the_retort_is_a_traced_polygon_not_its_bounding_box", func():
 		GameState.reset()
-		var tree := Engine.get_main_loop() as SceneTree
 		var screen := HqLabBenchScreen.new()
-		tree.root.add_child(screen)
-		await tree.process_frame
+		screen._ready()
 
-		var stop_width: float = GameData.HQ_VISUALS["labBench"]["width"] / float(LabBenchNav.STOPS.size())
+		var region: Dictionary = screen._diorama._plate["regions"]["apparatus_distilling"]
+		assert_true(region.has("polygon"), "the retort spans the middle -- its hit shape must be traced")
+		assert_eq(screen._zone_at(UiSim.zone_point(screen._diorama, "apparatus_distilling")), "apparatus_distilling")
+		var bounds := HqDiorama.polygon_bounds(region["polygon"])
+		var outside := Vector2(bounds.end.x - 10.0, bounds.position.y + 10.0)
+		assert_eq(screen._zone_at(outside), "", "bare table inside the retort's bounding box is not the retort")
 
-		NodeQuery.find_button(screen, "›").pressed.emit()
-
-		assert_true(screen._active_pan_tween != null, "ticket 11: an arrow step must kick off a tween rather than snap instantly")
-		assert_almost_eq(screen._diorama.position.x, 0.0, 0.01, "mid-tween, the diorama must still be at its pre-step position")
-
-		screen._active_pan_tween.custom_step(999999.0)
-		assert_almost_eq(screen._diorama.position.x, -stop_width, 0.01, "once the tween finishes, the diorama must have arrived at the apparatus stop")
-
-		tree.root.remove_child(screen)
-		screen.free()
-	)
-
-	# code-review (ticket 11): _refresh() rebuilds the diorama on *every*
-	# state_changed, not only an arrow step -- an unrelated state change
-	# (e.g. an impatient tap on a notebook) firing mid-pan must resume the
-	# same pan from wherever it actually is, not snap straight to the
-	# destination early (which is what happens if the rebuild trusts a
-	# _pan_x already overwritten with the tween's target rather than the
-	# diorama's live position).
-	await run_case("hq_lab_bench_an_unrelated_refresh_mid_pan_resumes_toward_the_same_target_instead_of_snapping_there", func():
-		GameState.reset()
-		var tree := Engine.get_main_loop() as SceneTree
-		var screen := HqLabBenchScreen.new()
-		tree.root.add_child(screen)
-		await tree.process_frame
-
-		var stop_width: float = GameData.HQ_VISUALS["labBench"]["width"] / float(LabBenchNav.STOPS.size())
-
-		NodeQuery.find_button(screen, "›").pressed.emit()
-		screen._active_pan_tween.custom_step(0.2)  # halfway through _PAN_DURATION -- still mid-flight
-
-		var mid_x: float = screen._diorama.position.x
-		assert_true(mid_x < -1.0 and mid_x > -(stop_width - 1.0), "sanity: the fixture must actually be mid-flight, not at either end (%s)" % mid_x)
-
-		LabBenchNav.tap_notebook(LabBenchNav.MODE_RECIPES)  # unrelated state_changed, same stop
-
-		assert_almost_eq(screen._diorama.position.x, mid_x, 0.01, "the rebuilt diorama must resume from where the pan actually was, not jump ahead to the destination")
-		assert_true(screen._active_pan_tween != null, "the rebuild must still be animating toward the apparatus stop, not have already arrived")
-
-		screen._active_pan_tween.custom_step(999999.0)
-		assert_almost_eq(screen._diorama.position.x, -stop_width, 0.01, "the resumed tween must still land on the apparatus stop")
-
-		tree.root.remove_child(screen)
 		screen.free()
 	)
 
@@ -265,38 +256,32 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_ore_container_label_reads_empty_at_zero_count", func():
+	run_case("hq_lab_bench_each_jar_shows_a_count_badge_of_ore_held", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["life"] = 0
+		GameState.state["player"]["orichalchum"]["life"] = 7
+		GameState.state["player"]["orichalchum"]["time"] = 0
 
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		assert_true(screen._diorama._plate["regions"]["ore_life"]["label"].contains("empty"), "§5.4: zero count is the empty visual state")
+		for ore_type in GameData.ORE_TYPES.keys():
+			var badge := screen.get_node_or_null("OreBadge_%s" % ore_type)
+			assert_true(badge != null, "§5.4: %s's jar must carry a count badge" % ore_type)
+		assert_true(NodeQuery.label_texts(screen.get_node("OreBadge_life")).has("7"), "the badge reads player.orichalchum[type]")
+		assert_true(NodeQuery.label_texts(screen.get_node("OreBadge_time")).has("0"), "an empty jar still reads 0")
 
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_ore_container_label_reads_some_at_a_middling_count", func():
+	run_case("hq_lab_bench_count_badges_let_taps_through_to_the_jar", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["life"] = 5
-
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		assert_true(screen._diorama._plate["regions"]["ore_life"]["label"].contains("some"), "§5.4: a middling count is the some visual state")
-
-		screen.free()
-	)
-
-	run_case("hq_lab_bench_ore_container_label_reads_plenty_at_a_high_count", func():
-		GameState.reset()
-		GameState.state["player"]["orichalchum"]["life"] = 25
-
-		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		assert_true(screen._diorama._plate["regions"]["ore_life"]["label"].contains("plenty"), "§5.4: a high count is the plenty visual state")
+		var badge: Control = screen.get_node("OreBadge_life")
+		assert_eq(badge.mouse_filter, Control.MOUSE_FILTER_IGNORE, "a badge over a jar must not swallow the jar's tap")
+		for child in badge.find_children("*", "Control", true, false):
+			assert_eq((child as Control).mouse_filter, Control.MOUSE_FILTER_IGNORE, "%s must not swallow the jar's tap" % child.name)
 
 		screen.free()
 	)
@@ -374,7 +359,7 @@ func run() -> void:
 		GameState.reset()
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
-		var center: Vector2 = screen._diorama.region_rects()["ore_life"].get_center()
+		var center: Vector2 = UiSim.zone_point(screen._diorama, "ore_life")
 
 		screen._on_diorama_gui_input(UiSim.tap_at(center))
 		var twin := InputEventMouseButton.new()
@@ -563,9 +548,8 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		var rects: Dictionary = screen._diorama.region_rects()
-		var ore_center: Vector2 = (rects["ore_time"] as Rect2).get_center()
-		var apparatus_center: Vector2 = (rects["apparatus_heat"] as Rect2).get_center()
+		var ore_center: Vector2 = UiSim.zone_point(screen._diorama, "ore_time")
+		var apparatus_center: Vector2 = UiSim.zone_point(screen._diorama, "apparatus_heat")
 
 		var press := InputEventScreenTouch.new()
 		press.pressed = true
@@ -588,7 +572,7 @@ func run() -> void:
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
-		var ore_center: Vector2 = (screen._diorama.region_rects()["ore_life"] as Rect2).get_center()
+		var ore_center: Vector2 = UiSim.zone_point(screen._diorama, "ore_life")
 
 		var press := InputEventScreenTouch.new()
 		press.pressed = true

@@ -1101,6 +1101,9 @@ func _validate_hq_plate(plate: Dictionary, context: String, palette: Dictionary,
 		errors.append("%s: neither 'image' nor 'fallbackColor' set -- the plate would render nothing" % context)
 	if not fallback_color.is_empty() and not palette.has(fallback_color):
 		errors.append("%s: fallbackColor '%s' is not a data/palette.json colour id" % [context, fallback_color])
+	for band_key in ["bandTopColor", "bandBottomColor"]:
+		if plate.has(band_key) and not palette.has(plate[band_key]):
+			errors.append("%s: %s '%s' is not a data/palette.json colour id" % [context, band_key, plate[band_key]])
 
 	var regions: Dictionary = plate.get("regions", {})
 	var seen_ids: Array[String] = []
