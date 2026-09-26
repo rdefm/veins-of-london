@@ -138,7 +138,7 @@ func _build_production() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Production", 14))
 
-	if not GameState.state["home"]["rooms"].has("lab"):
+	if not Rooms.production_settings_open():
 		c["content"].add_child(UI.muted_label("Requires the Improved Lab."))
 		if not GameState.state["productionLog"].is_empty():
 			c["content"].add_child(_build_production_log())

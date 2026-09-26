@@ -19,6 +19,7 @@ const TYPE_ITEMS_CRAFTED_SET := "items_crafted_set"
 const TYPE_CONTRACTS_COMPLETED := "contracts_completed"
 const TYPE_ALL_OF := "all_of"
 const TYPE_RECURRING_PROOF := "recurring_proof"
+const TYPE_TEMPLATE_PERIODS_COMPLETED := "template_periods_completed"
 
 
 # The only entry point, called explicitly at action boundaries across
@@ -95,6 +96,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 		TYPE_RECURRING_PROOF:
 			var proof := recurring_proof()
 			return proof["contracts"] >= int(params["minContracts"]) and proof["crafted"] >= int(params["minCrafted"])
+		TYPE_TEMPLATE_PERIODS_COMPLETED:
+			return completed_period_count(params["templateId"]) >= int(params["minCount"])
 		_:
 			return false
 
@@ -255,12 +258,25 @@ static func completed_contract_count() -> int:
 	return count
 
 
+# Fully completed settlements of contracts made from templateId, read live
+# from sales.contractHistory; each recurring period counts as one.
+static func completed_period_count(template_id: String) -> int:
+	var count := 0
+	for entry in GameState.state["sales"]["contractHistory"]:
+		if entry["settlement"].get("complete", false) and entry["contract"].get("templateId", "") == template_id:
+			count += 1
+	return count
+
+
 # { "current", "target" } for count-style objectives the ToDo app shows
 # progress on, else {}. current is capped at target.
 static func count_progress(def: Dictionary) -> Dictionary:
+	var params: Dictionary = def.get("params", {})
+	var target: int = int(params.get("minCount", 0))
 	if def["type"] == TYPE_CONTRACTS_COMPLETED:
-		var target: int = int(def["params"]["minCount"])
 		return { "current": mini(completed_contract_count(), target), "target": target }
+	if def["type"] == TYPE_TEMPLATE_PERIODS_COMPLETED:
+		return { "current": mini(completed_period_count(params["templateId"]), target), "target": target }
 	return {}
 
 
@@ -321,7 +337,7 @@ static func checklist(def: Dictionary) -> Array[Dictionary]:
 	return rows
 
 
-# PROSE-REVIEW: Beat 6 ToDo checklist labels.
+# PROSE-REVIEW: Beat 7 ToDo checklist labels.
 static func _recurring_proof_checklist(params: Dictionary) -> Array[Dictionary]:
 	var proof := recurring_proof()
 	var target: int = int(params["minContracts"])

@@ -185,6 +185,7 @@ static func advance() -> void:
 		# Beat 3: prior completions can meet Beat 2 inside the Beat 1 scene.
 		BusinessQuest.maybe_trigger_owen_intro()
 		BusinessQuest.maybe_trigger_partnership()
+		BusinessQuest.maybe_trigger_production()
 		BusinessQuest.maybe_trigger_put_to_work()
 		BusinessQuest.maybe_trigger_owen_craft()
 		SaveManager.autosave()  # R§6: autosave on event completion

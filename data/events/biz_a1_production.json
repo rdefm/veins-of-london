@@ -1,0 +1,20 @@
+{
+  "id": "biz_a1_production",
+  "cards": [
+    { "type": "narration", "label": "Bermondsey — James's unit", "speaker": null, "text": "James has cleared the second bench. On it: a scale, a tray of time ore, and his phone, open on BizBrief. Archie is leaning in the doorway, eating crisps." },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"If I am to make the goods, someone has to tell me which goods. That is what Production is for.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Staff tab. Put me in Production. After that I work at the end of every block, the way Owen works the veins.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"Manage tab. Every recipe has a target. I keep that many in stock and not one more. Raise it and I make more. Leave it at nothing and I sit on my hands.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"'Cover contract needs' means I also make whatever the open orders still want, on top of the target. Turn it on for anything you have sold.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"I work from the business's ore. No ore, no pearls. That part is yours and Owen's.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Which is why I found him something to make. Five pearls a week, same buyer, same day. It's on BizBrief.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Take it, put James on pearls, keep the ore coming. One full week, all five handed over. Then I'll show you the good bit.\"" },
+    { "type": "speaker", "label": null, "speaker": "James", "text": "\"In full. Four pearls is not a week.\"" },
+    { "type": "resolution", "label": null, "speaker": null, "text": "James sets the hourglass beside the scale and starts weighing out the first batch." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "bizA1ProductionSeen", "value": true },
+    { "op": "issue_recurring_offers" },
+    { "op": "set_screen", "screen": "phone" }
+  ]
+}

@@ -25,7 +25,7 @@ Data file per system: see `data/*.json` below.
 | bag.gd | Bag-drawer toggle |
 | bank.gd | Cash transaction log |
 | barometer.gd | Economic/social/political barometer + faction prefs |
-| business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7 trigger texts, Beat 2 starter-offer chain, recurring offers (ore from Beat 3, Time Pearl from Beat 6; held open, reissued), Beat 7 closing payload from the latest payday record, James's crafting-skill set, Owen's crafting-event trigger. Rules: REFERENCE.md "Business Empire questline" |
+| business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7/8 trigger texts, Beat 2 starter-offer chain, recurring offers (ore from Beat 3, Time Pearl from Beat 6; held open, reissued), Beat 8 closing payload from the latest payday record, James's crafting-skill set, Owen's crafting-event trigger. Rules: REFERENCE.md "Business Empire questline" |
 | business.gd | Business pot (contract settlements while active; pays Sales calc purchases as `calc` expenses), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash, Staff tab pay-terms/status labels |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
@@ -66,7 +66,7 @@ Data file per system: see `data/*.json` below.
 | morning_accounts.gd | Rollover capture (incl. arrears exceptions and countdown, payday statement, wage shortfalls), per-block staff output accumulation, BizBrief routing, arrears/payday/wage-prompt labels |
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict |
-| objectives.gd | Objective/questline evaluator; all_of live-condition and recurring_proof (Beat 6) objectives + their ToDo checklist rows |
+| objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
 | offers.gd | Sales offers: quoting, acceptance, expiry |
 | payroll.gd | Daily wage payment for room-staffed hires (founders exempt); `is_working()` gate for staff actions (false while the business owes wages) |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
@@ -76,7 +76,7 @@ Data file per system: see `data/*.json` below.
 | raid_alarms.gd | Summaries + dispatch for raid alarms |
 | raiding.gd | Vein stealth-check + raid resolution |
 | relation_accrual.gd | Capped £ relation meter |
-| rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), writes/trims `productionLog`, Production targets/priority, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
+| rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), writes/trims `productionLog`, Production targets/priority and when they are settable, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
 | sites.gd | Sites & prospecting |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |

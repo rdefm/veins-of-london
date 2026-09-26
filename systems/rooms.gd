@@ -31,6 +31,17 @@ static func lab_covers_contracts(recipe_key: String) -> bool:
 	return GameState.state["labCoverContracts"].get(recipe_key, false)
 
 
+# Production targets are settable with an Improved Lab, or once any founder
+# may take the Production role (founders need no room).
+static func production_settings_open() -> bool:
+	if GameState.state["home"]["rooms"].has("lab"):
+		return true
+	for contact_id in GameState.state["contacts"].keys():
+		if Contacts.is_role_available(contact_id, "production"):
+			return true
+	return false
+
+
 # business-spec.md "Production and Procurement": contract need counts only
 # undelivered qty of active current periods -- a recurring contract's next
 # period doesn't exist until settle() creates it, so summing remaining_qty

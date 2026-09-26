@@ -127,7 +127,7 @@ room. Future hires still need the matching room.
 52. As a player, I want Archie assignable to Sales from Beat 2 without an Operations Room, so that I can use BizBrief mid-game.
 53. As a player, I want Archie to source at most one new offer per day at rollover, so that offers keep arriving.
 54. As a player, I want delegated deliveries to happen instantly whenever stock allows, with no cap, so that nothing sits waiting for a slot.
-55. As a player, I want delegation available once Archie teaches it in Beat 6, so that the feature arrives with its lesson.
+55. As a player, I want delegation available once Archie teaches it in Beat 7, so that the feature arrives with its lesson.
 56. As a player, I want a per-contract switch beside each contract letting Archie buy missing calc from the cheapest source available to me (relation discounts included), paid from the pot, so that a short supply need not fail an order.
 57. As a player, I want Archie to buy only the shortfall (the ore still missing, or the ingredient calc James needs for the remaining crafted units), so that the pot is not wasted.
 58. As a player, I want Archie to skip a purchase the pot cannot cover rather than dip into my cash, so that my money is safe.
@@ -180,9 +180,10 @@ room. Future hires still need the matching room.
   - **Beat 3:** Beat 2 met → James story scene introducing Owen. On completion, Owen is unlocked and recruited, the Staff tab opens, the business pot activates, Archie and James become partners (James as a limited partner), and the recurring ore offers start.
   - **Beat 4:** live checks: Owen `cultivatingSkill ≥ 2` AND `workshop` in `home.rooms`. Both are live state, not counters, so a tier move that wipes the Workshop un-meets the objective.
   - **Beat 5:** Beat 4 met → partnership scene. James is recruited, his `craftingSkill` is set to a data-driven value (5), and the Production role unlocks for him. Recruit side effects are idempotent if he is already recruited.
-  - **Beat 6:** a scene in which Archie demonstrates a recurring order and unlocks delegation. It issues the guaranteed Time Pearl recurring offer (the two ore choices already run from Beat 3; an ore contract taken earlier counts once delegated). Objective: two distinct recurring contracts each have at least one qualifying period (see "Unattended proof"), at least one of which requests a crafted item.
-  - **Beat 7:** Beat 6 met → closing scene reading the latest payday record. Act complete.
-- Story scenes (Beats 1, 3, 5, 6, 7, and Owen's crafting event) are events under the existing event data format. Beats 2 and 4 are ToDo goals plus text nudges. All new prose is drafted against CONTENT-GUIDE.md and CHARACTER-VOICE-GUIDE.md and flagged `PROSE-REVIEW:`. The quest text must say that James keeps his own business on the side (James jobs continue unchanged) and that he joins at Beat 3 as a limited partner who helped source Owen, then fully at Beat 5.
+  - **Beat 6:** Beat 5 scene done → James texts; his scene teaches the Production role (Staff tab) and Production targets, and issues the guaranteed Time Pearl recurring offer. Objective: one fully completed period of that Time Pearl contract. Production targets are settable without an Improved Lab once a founder may take Production. Old saves that had already queued Beat 7 skip Beat 6; the Time Pearl offer then follows the delegation unlock.
+  - **Beat 7:** Beat 6 met → a scene in which Archie unlocks delegation. It issues no offers (the ore choices run from Beat 3, the Time Pearl order from Beat 6; a contract taken earlier counts once delegated). Objective: two distinct recurring contracts each have at least one qualifying period (see "Unattended proof"), at least one of which requests a crafted item.
+  - **Beat 8:** Beat 7 met → closing scene reading the latest payday record. Act complete.
+- Story scenes (Beats 1, 3, 5, 6, 7, 8, and Owen's crafting event) are events under the existing event data format. Beats 2 and 4 are ToDo goals plus text nudges. All new prose is drafted against CONTENT-GUIDE.md and CHARACTER-VOICE-GUIDE.md and flagged `PROSE-REVIEW:`. The quest text must say that James keeps his own business on the side (James jobs continue unchanged) and that he joins at Beat 3 as a limited partner who helped source Owen, then fully at Beat 5.
 - The hourglass James turns in Beat 1 is an ordinary object. There are no Guild contracts, no Guild invitation, and no Dial reveal.
 
 ### Contacts and roles
@@ -219,7 +220,7 @@ room. Future hires still need the matching room.
 - **Sales:**
   - Sourcing stays once per day at rollover, using the existing chance formula with the Sales worker's `salesSkill`.
   - Delivery for delegated contracts stays instant whenever stock increases, plus the rollover partial pass, with no cap.
-  - `Contracts.has_staffed_sales()` becomes "any contact holds the Sales role". Delegation is additionally gated on a Beat 6 flag.
+  - `Contracts.has_staffed_sales()` becomes "any contact holds the Sales role". Delegation is additionally gated on a Beat 7 flag.
 - **Wages:**
   - Room-staffed hires keep the existing daily formula `£100 + £50 × (skill − 1)`.
   - Founders never draw a daily wage.
@@ -236,12 +237,12 @@ New scripted templates in the offers data (quote formula unchanged: snapshotted 
 | `biz_starter_1` | one-off | time ore × 4 | Beat 2 chain |
 | `biz_starter_2` | one-off | timePearl × 3 | Beat 2 chain |
 | `biz_starter_3` | one-off | life ore × 5 | Beat 2 chain |
-| `biz_recurring_time_pearl` | recurring, weekly | timePearl × 5 | Guaranteed at Beat 6 |
+| `biz_recurring_time_pearl` | recurring, weekly | timePearl × 5 | Guaranteed at Beat 6 (James's Production scene) |
 | `biz_recurring_time_ore` | recurring, weekly | time ore × 6 | From Beat 3, choice A |
 | `biz_recurring_life_ore` | recurring, weekly | life ore × 6 | From Beat 3, choice B |
 
 - **Starter chain:** while Beat 2 is unmet, exactly one starter is outstanding at a time. The next starter (or a reissue of the same one, if it expired or was declined) is created **one day after** the previous starter's offer or contract closes. The chain stops as soon as Beat 2 is met, whatever the source of the completions. Authored expiry and deadline per template.
-- **Recurring offers:** the two ore choices are issued from Beat 3 (Owen joins), so the pot has income for Owen's wage before James joins; the Time Pearl order from Beat 6. Before Beat 6 they are ore-only. The player still takes one ore choice: neither is reissued while either runs as a contract. All stop once Beat 6 is met; until then they do not expire, and a declined one is reissued the next day. The pending-offer cap of four is respected: if it is full, the reissue waits.
+- **Recurring offers:** the two ore choices are issued from Beat 3 (Owen joins), so the pot has income for Owen's wage before James joins; the Time Pearl order from Beat 6. Before Beat 6 they are ore-only. The player still takes one ore choice: neither is reissued while either runs as a contract. All stop once Beat 7 is met; until then they do not expire, and a declined one is reissued the next day. The pending-offer cap of four is respected: if it is full, the reissue waits.
 - Starter offers bypass the random-offer daily roll and do not use its slot.
 
 ### Business pot and payday
@@ -290,8 +291,8 @@ New scripted templates in the offers data (quote formula unchanged: snapshotted 
   4. unstashes the requested item or ore type into shared stock;
   5. buys the requested ore type through any player purchase path.
 - Sales' automatic calc purchases never set it.
-- A period **qualifies** when the contract is recurring, delegated for the whole period, settles `complete == true`, has `playerAssisted == false`, and settles after the Beat 6 flag. Short first periods qualify.
-- The settlement record stores `qualified: bool`. The Beat 6 evaluator counts distinct contract ids with ≥ 1 qualified settlement (≥ 2 needed, ≥ 1 of them a crafted-item request). The two contracts need not qualify in the same week.
+- A period **qualifies** when the contract is recurring, delegated for the whole period, settles `complete == true`, has `playerAssisted == false`, and settles after the Beat 7 flag. Short first periods qualify.
+- The settlement record stores `qualified: bool`. The Beat 7 evaluator counts distinct contract ids with ≥ 1 qualified settlement (≥ 2 needed, ≥ 1 of them a crafted-item request). The two contracts need not qualify in the same week.
 
 ### Owen's crafting event
 
@@ -305,7 +306,7 @@ New scripted templates in the offers data (quote formula unchanged: snapshotted 
   - Lists every recruited contact from the single contacts state: role, skill levels, XP, caps, pay terms ("⅓ share" / "£250 a week" / daily wage), and a working/unpaid status.
   - Includes the role assignment control, and the Pay now action while Owen is owed.
   - Links to Manage → Procurement for vein selection. It holds no roster state of its own.
-- **Manage → Sales:** delegation toggle (after Beat 6) and the per-contract `buyCalc` switch.
+- **Manage → Sales:** delegation toggle (after Beat 7) and the per-contract `buyCalc` switch.
 - **Manage → Procurement:** existing vein picker and targets, now listing every cultivator.
 - **Brief:** the payday statement and the pay-from-cash prompt.
 - Screens stay read-only on state and call system functions only.
@@ -330,7 +331,7 @@ New scripted templates in the offers data (quote formula unchanged: snapshotted 
 ## Testing Decisions
 
 - **Good tests assert external behaviour only:** the resulting `GameState.state` after driving the game through its public entry points. Never private helpers or internal call order.
-- **Primary seam: time.** `TimeSystem.advance_time_block()`, `do_rest()` and `daily_tick()` drive days. Tests assert on `business`, `contacts`, `sales`, `player.cash`, objectives and flags. This covers per-block staff actions, rest giving the skipped blocks their actions, payday after settlement, pot routing, owed wages and resumption, and the Beat 6 proof end to end.
+- **Primary seam: time.** `TimeSystem.advance_time_block()`, `do_rest()` and `daily_tick()` drive days. Tests assert on `business`, `contacts`, `sales`, `player.cash`, objectives and flags. This covers per-block staff actions, rest giving the skipped blocks their actions, payday after settlement, pot routing, owed wages and resumption, and the Beat 7 proof end to end.
 - **Secondary seam: player actions** through the same public calls the UI uses: `Offers.accept_offer` / `decline_offer`, `Contracts.deliver` / `set_delegated` / the `buyCalc` setter, player cultivate / prune / craft / unstash / buy, role assignment, `Business` pay-now, and event completion via the event runner. Taint must be exercised through these real calls, never by writing `playerAssisted` directly.
 - **Supplementary pure checks** (not a seam) where a rule is fiddly: the cultivator's vein pick (furthest outside band, ties by order, idle), the three-way split rounding, and prorated first-week wage.
 - Must-have scenarios:

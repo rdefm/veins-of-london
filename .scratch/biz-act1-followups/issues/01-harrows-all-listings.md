@@ -1,6 +1,6 @@
 # 01 — Harrow's: every HQ tier listed, with an image
 
-**What to build:** Harrow's reads like an estate-agent app. Instead of only the current tier, the next tier up and the tier below, it lists every HQ tier on the property ladder. Each listing card leads with an image (exterior/hero shot), then the existing summary. Tapping any listing opens its particulars exactly as today, with the rent/buy flows, bill previews and losses unchanged. The human supplies the images. Until an image exists, each card shows a clean placeholder, the same "empty image path → fallback" pattern `data/hq_visuals.json` already uses. Tiers the player can't yet afford or move to are still listed, and their particulars show why (cost vs cash, etc.) rather than hiding the tier.
+**What to build:** Harrow's reads like an estate-agent app. Instead of only the current tier, the next tier up and the tier below, it lists every HQ tier on the property ladder. Each listing card leads with an image (exterior/hero shot), then the existing summary (see reference_screenshot.png). Tapping any listing opens its particulars exactly as today, with the rent/buy flows, bill previews and losses unchanged. The human supplies the images. Until an image exists, each card shows a clean placeholder, the same "empty image path → fallback" pattern `data/hq_visuals.json` already uses. Tiers the player can't yet afford or move to are still listed, and their particulars show why (cost vs cash, etc.) rather than hiding the tier.
 
 **Blocked by:** None — can start immediately.
 

@@ -1285,7 +1285,7 @@ func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[Strin
 const OBJECTIVE_TYPES: Array[String] = [
 	"sites_discovered_matching", "traded_with_faction", "supplied_to_contact", "vein_sold_to_faction", "vein_growth_above", "flag_true",
 	"alarm_defend_wins", "faction_vein_seeded_count", "items_crafted_set", "contracts_completed", "all_of",
-	"recurring_proof",
+	"recurring_proof", "template_periods_completed",
 ]
 const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"sites_discovered_matching": ["requireEachOreType", "minTier", "unclaimed"],
@@ -1300,6 +1300,7 @@ const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"contracts_completed": ["minCount"],
 	"all_of": ["conditions"],
 	"recurring_proof": ["minContracts", "minCrafted"],
+	"template_periods_completed": ["templateId", "minCount"],
 }
 # all_of's live condition kinds (Objectives.condition_met()), each with its
 # required keys beside "kind" and the ToDo checklist "label".

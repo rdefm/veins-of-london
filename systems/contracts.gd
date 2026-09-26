@@ -7,7 +7,7 @@ extends RefCounted
 const COMPLETE_XP := 20
 const PARTIAL_XP := 10
 const PARTIAL_PAYMENT_MULTIPLIER := 0.80
-# Beat 6's delegation unlock; a period only qualifies once it is set.
+# Beat 7's delegation unlock; a period only qualifies once it is set.
 const DELEGATION_FLAG := "bizA1DelegationUnlocked"
 
 
@@ -58,7 +58,7 @@ static func delegation_unlocked() -> bool:
 
 # Delegation is a per-contract assignment, not a second stock pool. It may
 # remain configured while Operations is vacant; only a staffed Sales contact
-# can execute it. Turning it on needs the Beat 6 flag; turning it off never does.
+# can execute it. Turning it on needs the Beat 7 flag; turning it off never does.
 static func set_delegated(contract_id: String, delegated: bool) -> Dictionary:
 	var contract := _find_active(contract_id)
 	if contract.is_empty():
@@ -268,10 +268,11 @@ static func settle(contract_id: String) -> Dictionary:
 		active_contracts().erase(contract)
 		sales["priorityOrder"].erase(contract_id)
 		BusinessQuest.note_starter_closed(contract.get("templateId", ""), complete)
-	# A complete settlement can meet a contract-count objective (Beat 2) or
-	# the recurring proof (Beat 6).
+	# A complete settlement can meet a contract-count objective (Beat 2), the
+	# first Time Pearl period (Beat 6) or the recurring proof (Beat 7).
 	Objectives.refresh()
 	BusinessQuest.maybe_trigger_owen_intro()
+	BusinessQuest.maybe_trigger_put_to_work()
 	BusinessQuest.note_proof_met()
 	EventBus.state_changed.emit()
 	return { "ok": true, "settlement": settlement }

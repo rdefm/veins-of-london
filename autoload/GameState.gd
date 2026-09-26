@@ -297,6 +297,7 @@ func new_game_state() -> Dictionary:
 			"bizA1Proposed": false, "bizA1PropositionSeen": false, "bizA1MarketProven": false,
 			"bizA1OwenIntroQueued": false, "bizA1OwenJoined": false,
 			"bizA1ApprenticeReady": false, "bizA1PartnershipQueued": false, "bizA1JamesJoined": false,
+			"bizA1ProductionQueued": false, "bizA1ProductionSeen": false, "bizA1FirstOrderDone": false,
 			"bizA1PutToWorkQueued": false, "bizA1DelegationUnlocked": false, "bizA1ProofDone": false,
 			"bizA1ClosingQueued": false, "bizA1Complete": false,
 			# Owen's crafting event queued (BusinessQuest.maybe_trigger_owen_craft).

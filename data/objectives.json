@@ -237,6 +237,26 @@
     "completeFlag": "bizA1JamesJoined",
     "questline": "business_empire"
   },
+  "biz_a1_production": {
+    "id": "biz_a1_production",
+    "title": "James wants to show you Production. Go to the unit.",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "bizA1ProductionQueued",
+    "completeFlag": "bizA1ProductionSeen",
+    "questline": "business_empire"
+  },
+  "biz_a1_first_order": {
+    "id": "biz_a1_first_order",
+    "title": "Deliver a full week of James's Time Pearl order.",
+    "detail": "",
+    "type": "template_periods_completed",
+    "params": { "templateId": "biz_recurring_time_pearl", "minCount": 1 },
+    "activateFlag": "bizA1ProductionSeen",
+    "completeFlag": "bizA1FirstOrderDone",
+    "questline": "business_empire"
+  },
   "biz_a1_demo": {
     "id": "biz_a1_demo",
     "title": "Archie wants to show you how an order runs itself.",
