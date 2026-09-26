@@ -110,10 +110,10 @@ Approaches are the content valve. Learning one re-opens every set the player tho
 |---|---|---|
 | Heat | Known from the start | The obvious one. Everyone starts here. |
 | Grinding | Known from the start | Cheap, crude, surprisingly productive. |
-| Compression | `workshop` room (tier: flat) | First real gate; ties the bench to the property ladder. |
-| Distilling | `lab` room (tier: compound) — **rename this room "Improved Lab"** to disambiguate from the bench's in-fiction name (§8), see note below | Late. Opens a swathe of previously-inert-looking sets. |
+| Compression | Known from the start | The press is on the bench from day one. |
+| Distilling | Known from the start | The still is on the bench from day one. |
 
-Calcining and Quenching (taught-by-contact / faction-reward sourced) are **cut from the launch roster**. All 4 launch approaches are start-or-room sourced; no approach is currently taught by an NPC or faction. This is a launch-content choice, not a schema limit — `source: {type:"contact"|"faction"|"device", id:"..."}` is still valid per the schema and can be used by a future approach.
+Calcining and Quenching (taught-by-contact / faction-reward sourced) are **cut from the launch roster**. All 4 launch approaches are known from the start; no approach is room-gated (the Workshop and Improved Lab rooms keep their crafting bonus and other effects), and no approach is currently taught by an NPC or faction. This is a launch-content choice, not a schema limit — `source: {type:"room"|"contact"|"faction"|"device", id:"..."}` is still valid per the schema and can be used by a future approach.
 
 **Cross-doc note:** the home room named `lab` (REFERENCE.md §1.x, cost 15000, tier compound) needs renaming to **"Improved Lab"** so it reads distinctly from the bench's in-fiction name "The Lab" (§8). This is a REFERENCE.md + rooms-data edit, out of scope for this document — flagging so it isn't lost before spec.
 
@@ -345,8 +345,8 @@ state.benchNav: { view: "home", types: [], approach: null }
 {
   "heat":        { "name": "Heat",        "symbol": "△", "source": {"type":"start"} },
   "grinding":    { "name": "Grinding",    "symbol": "◇", "source": {"type":"start"} },
-  "compression": { "name": "Compression", "symbol": "▽", "source": {"type":"room","id":"workshop"} },
-  "distilling":  { "name": "Distilling",  "symbol": "○", "source": {"type":"room","id":"lab"} }
+  "compression": { "name": "Compression", "symbol": "▽", "source": {"type":"start"} },
+  "distilling":  { "name": "Distilling",  "symbol": "○", "source": {"type":"start"} }
 }
 ```
 
@@ -437,7 +437,7 @@ Initial roster supplied in `docs/calc-effects.txt` (13 effects, 5 canonical type
 | Rejuvenation | time+life | Grinding | bulk-produced luxury sale good |
 | Wormhole | time+physics | Compression | "bends spacetime" — space literally compressed |
 
-Result: Heat/Grinding (starter approaches) cover 7 of 14 effects across life, physics, time, fate, and time+life — an early player finds something in most sets. Compression and Distilling (room-gated) cover the rest, in rising order of unlock difficulty per §4.
+Result: Heat/Grinding (starter approaches) cover 7 of 14 effects across life, physics, time, fate, and time+life — an early player finds something in most sets. Compression and Distilling (also start-known) cover the rest.
 
 No effect collides on (type-set, approach) — checked per type-set: life {Heat, Grinding}, physics {Grinding, Heat, Compression}, time {Heat, Distilling, Compression}, fate {Grinding}, emotion {Distilling}, time+life {Heat, Distilling, Grinding}, time+physics {Compression}. This leaves 8 of 15 type-sets barren at launch (deliberate per the authoring rule below) — matches the cell budget in §2.1 (60 cells, 14 filled).
 
@@ -478,7 +478,7 @@ The one asymmetry worth allowing: an NPC's effect may sit behind an approach the
 - **Affinities** (`VISION.md` §5b, unbuilt) — when they land, an Attuned type should raise odds on any cell whose set contains it. Noted, not designed here.
 - **Time blocks** — none; bench work never calls `TimeSystem`.
 - **Snapshots / Rewind** — `player.bench` is pure data and rides along free. Needs a test.
-- **Lab room** (R§3.10) — a contact in the lab crafts to thresholds. It should **not** experiment; discovery is the player's. Assigning a contact to the lab enabling the `distilling` approach is the lab's contribution here.
+- **Lab room** (R§3.10) — a contact in the lab crafts to thresholds. It should **not** experiment; discovery is the player's. The lab room does not gate any approach.
 
 ---
 

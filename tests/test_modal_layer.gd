@@ -1191,13 +1191,16 @@ func run() -> void:
 	run_case("lab_bench_notes_modal_refine_button_is_disabled_when_the_technique_is_unknown", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["physics"] = 100
-		# compression's source is the "workshop" room (data/approaches.json), not
-		# built on a fresh save -- a second, distinct block-reason branch from
-		# the ore-cost one above. "physics" (blackHole, approach compression)
-		# rather than "time"/"life" avoids colliding with the tutorial-taught
-		# timePearl/rewind/enhancementPowder cells, which default to Found at
-		# already-known approaches and would confuse a same-text button lookup.
-		GameState.state["player"]["bench"]["cells"]["physics|compression"] = { "state": "found", "misses": 0, "refine": 0 }
+		# A test-only room-gated approach on a copy of blackHole (physics) --
+		# a second, distinct block-reason branch from the ore-cost one above.
+		# "physics" rather than "time"/"life" avoids colliding with the
+		# tutorial-taught timePearl/rewind/enhancementPowder cells, which
+		# default to Found and would confuse a same-text button lookup.
+		GameData.APPROACHES["_testGated"] = { "name": "Gated", "symbol": "?", "source": { "type": "room", "id": "lab" } }
+		var gated_recipe: Dictionary = GameData.RECIPES["blackHole"].duplicate(true)
+		gated_recipe["discovery"]["approach"] = "_testGated"
+		GameData.RECIPES["_testGatedRecipe"] = gated_recipe
+		GameState.state["player"]["bench"]["cells"]["physics|_testGated"] = { "state": "found", "misses": 0, "refine": 0 }
 		Modal.open("lab_bench_notes")
 
 		var layer := ModalLayer.new()
@@ -1205,10 +1208,12 @@ func run() -> void:
 
 		var refine_button := _find_cost_button(layer, "Refine to tier 1")
 		assert_true(refine_button != null)
-		assert_true(refine_button.disabled, "compression isn't known yet -- Bench.refine_block_reason() blocks it")
+		assert_true(refine_button.disabled, "the gated approach isn't known -- Bench.refine_block_reason() blocks it")
 		assert_true(NodeQuery.label_texts_with_symbols(layer).has("You haven't the technique for that yet."))
 
 		layer.free()
+		GameData.RECIPES.erase("_testGatedRecipe")
+		GameData.APPROACHES.erase("_testGated")
 	)
 
 	run_case("lab_bench_probe_result_modal_found_names_the_recipe", func():

@@ -176,15 +176,15 @@ book path.
 
 ### 5.3 Apparatus
 
-Four apparatus, one per approach in `data/approaches.json`, two of which
-are room-gated and so **appear on the bench as the property is upgraded**:
+Four apparatus, one per approach in `data/approaches.json`, all known
+from the start — every apparatus works as soon as the Lab does:
 
 | Approach | Apparatus | Gate |
 |---|---|---|
 | `heat △` | burner | from the start |
 | `grinding ◇` | mortar | from the start |
-| `compression ▽` | press | Workshop room |
-| `distilling ○` | still | Improved Lab room |
+| `compression ▽` | press | from the start |
+| `distilling ○` | still | from the start |
 
 Each apparatus has **two ore slots, the second optional** — a type set is
 one of the 5 singles or one of the 10 unordered pairs.

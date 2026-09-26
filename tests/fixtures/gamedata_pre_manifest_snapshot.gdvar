@@ -3,16 +3,14 @@
 "compression": {
 "name": "Compression",
 "source": {
-"id": "workshop",
-"type": "room"
+"type": "start"
 },
 "symbol": "▽"
 },
 "distilling": {
 "name": "Distilling",
 "source": {
-"id": "lab",
-"type": "room"
+"type": "start"
 },
 "symbol": "○"
 },

@@ -7,6 +7,7 @@ extends "res://tests/test_base.gd"
 
 func run() -> void:
 	run_case("source_text_for_a_room_sourced_approach_names_the_room", func():
-		assert_eq(Approaches.source_text("compression"), "Needs the Workshop.", "compression is sourced from the workshop room")
-		assert_eq(Approaches.source_text("distilling"), "Needs the Improved Lab.", "distilling is sourced from the (renamed) lab room")
+		GameData.APPROACHES["_testGated"] = { "name": "Gated", "symbol": "?", "source": { "type": "room", "id": "lab" } }
+		assert_eq(Approaches.source_text("_testGated"), "Needs the Improved Lab.", "a lab-sourced approach names the room")
+		GameData.APPROACHES.erase("_testGated")
 	)

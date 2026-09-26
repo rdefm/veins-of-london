@@ -441,28 +441,27 @@ func run() -> void:
 
 	# ── ticket 07, §5.3: apparatus ──────────────────────────────────────────
 
-	run_case("hq_lab_bench_apparatus_regions_only_exist_for_known_approaches", func():
+	run_case("hq_lab_bench_all_four_apparatus_regions_exist_on_a_fresh_save", func():
 		GameState.reset()
 		var screen := HqLabBenchScreen.new()
 		screen._ready()
 
 		var rects: Dictionary = screen._diorama.region_rects()
-		assert_true(rects.has("apparatus_heat"), "heat is known from the start")
-		assert_true(rects.has("apparatus_grinding"), "grinding is known from the start")
-		assert_true(not rects.has("apparatus_compression"), "§3.2: compression needs the Workshop room -- no region at all on a fresh bedsit save, not a dimmed one")
-		assert_true(not rects.has("apparatus_distilling"), "distilling needs Improved Lab -- same rule")
+		for approach_id in ["heat", "grinding", "compression", "distilling"]:
+			assert_true(rects.has("apparatus_" + approach_id), "§5.3: %s is known from the start" % approach_id)
 
 		screen.free()
 	)
 
-	run_case("hq_lab_bench_apparatus_region_appears_once_its_room_is_built", func():
+	run_case("hq_lab_bench_apparatus_region_for_an_unknown_approach_is_dropped", func():
+		GameData.APPROACHES["_testGated"] = { "name": "Gated", "symbol": "?", "source": { "type": "room", "id": "lab" } }
 		GameState.reset()
-		GameState.state["home"]["rooms"].append("workshop")
 		var screen := HqLabBenchScreen.new()
-		screen._ready()
-
-		assert_true(screen._diorama.region_rects().has("apparatus_compression"), "§5.3: apparatus appear on the bench as the property is upgraded")
-
+		var regions := { "apparatus__testGated": { "label": "Gated" }, "apparatus_heat": { "label": "Burner" } }
+		screen._filter_and_label_apparatus_regions(regions, { "mode": LabBenchNav.MODE_EXPERIMENTS, "selectedOre": [] })
+		assert_true(not regions.has("apparatus__testGated"), "no region at all for an unknown approach, not a dimmed one")
+		assert_true(regions.has("apparatus_heat"), "known approaches keep their region")
+		GameData.APPROACHES.erase("_testGated")
 		screen.free()
 	)
 

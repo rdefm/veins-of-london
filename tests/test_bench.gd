@@ -102,12 +102,13 @@ func run() -> void:
 	run_case("census_reveals_total_effect_count_including_unlearned_approaches_on_first_probe", func():
 		GameState.reset()
 		GameData.RECIPES["_testBenchHeat"] = { "discovery": { "types": ["fate", "physics"], "approach": "heat" } }
-		GameData.RECIPES["_testBenchDistilling"] = { "discovery": { "types": ["physics", "fate"], "approach": "distilling" } }
+		GameData.APPROACHES["_testGated"] = { "name": "Gated", "symbol": "?", "source": { "type": "room", "id": "lab" } }
+		GameData.RECIPES["_testBenchDistilling"] = { "discovery": { "types": ["physics", "fate"], "approach": "_testGated" } }
 		GameState.state["player"]["orichalchum"]["fate"] = 100
 		GameState.state["player"]["orichalchum"]["physics"] = 100
 
 		assert_true(not Bench.is_surveyed(["fate", "physics"]), "sanity: unsurveyed before any probe")
-		assert_true(not Approaches.is_known("distilling"), "sanity: distilling is not learned by default")
+		assert_true(not Approaches.is_known("_testGated"), "sanity: the gated approach is not learned by default")
 
 		Bench.probe(["fate", "physics"], "heat")
 
@@ -116,6 +117,7 @@ func run() -> void:
 
 		GameData.RECIPES.erase("_testBenchHeat")
 		GameData.RECIPES.erase("_testBenchDistilling")
+		GameData.APPROACHES.erase("_testGated")
 	)
 
 	run_case("census_survey_is_written_once_and_does_not_change_on_later_probes", func():
@@ -189,11 +191,13 @@ func run() -> void:
 	)
 
 	run_case("probe_blocked_on_an_unlearned_approach", func():
+		GameData.APPROACHES["_testGated"] = { "name": "Gated", "symbol": "?", "source": { "type": "room", "id": "lab" } }
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 100
-		var result := Bench.probe(["time"], "distilling")
-		assert_true(not result["ok"], "distilling is not known by default (needs the lab room)")
-		assert_eq(Bench.cell_state(["time"], "distilling"), "untried")
+		var result := Bench.probe(["time"], "_testGated")
+		assert_true(not result["ok"], "a room-gated approach is not known without the room")
+		assert_eq(Bench.cell_state(["time"], "_testGated"), "untried")
+		GameData.APPROACHES.erase("_testGated")
 	)
 
 	run_case("probe_costs_no_time_block", func():
@@ -251,14 +255,16 @@ func run() -> void:
 	)
 
 	run_case("refine_is_blocked_on_an_unlearned_approach", func():
-		GameData.RECIPES["_testBenchEffect"] = { "discovery": { "types": ["time"], "approach": "distilling" } }
+		GameData.APPROACHES["_testGated"] = { "name": "Gated", "symbol": "?", "source": { "type": "room", "id": "lab" } }
+		GameData.RECIPES["_testBenchEffect"] = { "discovery": { "types": ["time"], "approach": "_testGated" } }
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 100
-		GameState.state["player"]["bench"]["cells"]["time|distilling"] = { "state": "found", "misses": 0, "refine": 0 }
-		var result := Bench.refine(["time"], "distilling")
-		assert_true(not result["ok"], "distilling is not known by default (needs the lab room)")
-		assert_eq(Bench.get_cell(["time"], "distilling")["refine"], 0, "a blocked refine must not advance the tier")
+		GameState.state["player"]["bench"]["cells"]["time|_testGated"] = { "state": "found", "misses": 0, "refine": 0 }
+		var result := Bench.refine(["time"], "_testGated")
+		assert_true(not result["ok"], "a room-gated approach is not known without the room")
+		assert_eq(Bench.get_cell(["time"], "_testGated")["refine"], 0, "a blocked refine must not advance the tier")
 		GameData.RECIPES.erase("_testBenchEffect")
+		GameData.APPROACHES.erase("_testGated")
 	)
 
 	run_case("refine_cost_rises_by_tier", func():

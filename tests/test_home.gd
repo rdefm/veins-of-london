@@ -706,27 +706,19 @@ func run() -> void:
 		var known := Approaches.get_known()
 		assert_true(known.has("heat"), "heat is start-known")
 		assert_true(known.has("grinding"), "grinding is start-known")
-		assert_true(not known.has("compression"), "compression requires workshop, not owned")
-		assert_true(not known.has("distilling"), "distilling requires lab, not owned")
+		assert_true(known.has("compression"), "compression is start-known")
+		assert_true(known.has("distilling"), "distilling is start-known")
 	)
 
-	run_case("known_approaches_unlock_via_room_ownership", func():
+	run_case("room_sourced_approach_unlocks_via_room_ownership", func():
+		GameData.APPROACHES["_testGated"] = { "name": "Gated", "symbol": "?", "source": { "type": "room", "id": "lab" } }
 		GameState.reset()
 		GameState.state["home"]["rooms"] = ["workshop"]
-		var known := Approaches.get_known()
-		assert_true(known.has("compression"), "workshop owned -> compression known")
-		assert_true(not known.has("distilling"), "lab not owned -> distilling still locked")
+		assert_true(not Approaches.get_known().has("_testGated"), "lab not owned -> gated approach locked")
+		assert_true(not Approaches.is_known("_testGated"), "is_known agrees with get_known")
 
 		GameState.state["home"]["rooms"] = ["workshop", "lab"]
-		known = Approaches.get_known()
-		assert_true(known.has("compression"), "workshop still owned -> compression known")
-		assert_true(known.has("distilling"), "lab owned -> distilling known")
-	)
-
-	run_case("is_known_matches_get_known", func():
-		GameState.reset()
-		GameState.state["home"]["rooms"] = ["lab"]
-		assert_true(Approaches.is_known("heat"), "heat always known")
-		assert_true(Approaches.is_known("distilling"), "lab owned -> distilling known")
-		assert_true(not Approaches.is_known("compression"), "workshop not owned -> compression locked")
+		assert_true(Approaches.get_known().has("_testGated"), "lab owned -> gated approach known")
+		assert_true(Approaches.is_known("_testGated"), "is_known agrees with get_known")
+		GameData.APPROACHES.erase("_testGated")
 	)

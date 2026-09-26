@@ -26,10 +26,10 @@ static func is_known(approach_id: String) -> bool:
 
 # Plain-words description of where to get an approach the player doesn't
 # know yet -- the pairing panel shows this instead of a lock icon (M3 §8.3).
-# Only "room" is a real source in the launch roster (data/approaches.json);
-# the schema also allows "contact"/"faction"/"device" (M3 §4) for a future
-# approach, so this falls back rather than erroring on one of those, but
-# doesn't invent copy for a source no approach uses yet.
+# Every launch approach is start-known (data/approaches.json), so this only
+# fires for a future gated approach. The schema allows "room"/"contact"/
+# "faction"/"device" sources (M3 §4); only "room" has copy, the rest fall
+# back rather than erroring.
 # PROSE-REVIEW: new prose, tone bible per docs/CONTENT-GUIDE.md.
 static func source_text(approach_id: String) -> String:
 	var source: Dictionary = GameData.APPROACHES[approach_id]["source"]
