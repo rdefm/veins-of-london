@@ -231,10 +231,10 @@ func run() -> void:
 	run_case("shipped_owen_texts_pool_validates", func():
 		var errors := GameData.validate_tables(GameData.snapshot()).filter(func(e): return e.begins_with("owen_texts"))
 		assert_eq(errors, [], "no owen_texts errors")
-		var has_question := false
+		var counts := { "question": 0, "flavour": 0 }
 		for entry in GameData.OWEN_TEXTS["texts"]:
-			has_question = has_question or entry["kind"] == "question"
-		assert_true(has_question, "ships at least one XP question")
+			counts[entry["kind"]] += 1
+		assert_eq(counts, { "question": 8, "flavour": 8 }, "ships 8 questions and 8 flavour texts")
 	)
 
 	run_case("validator_rejects_a_malformed_pool", func():

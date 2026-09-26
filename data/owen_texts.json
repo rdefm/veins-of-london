@@ -14,6 +14,80 @@
       ]
     },
     {
+      "id": "in_band_leave_it",
+      "kind": "question",
+      "needsVein": true,
+      "text": "The {ore} vein on {street} is sitting a couple over the target you gave me. Do I prune it back?",
+      "replies": [
+        { "text": "Leave it. A few either side is fine.", "correct": true, "response": "Leaving it. Feels wrong standing there doing nothing, but fine." },
+        { "text": "Yes. Right back to the number.", "correct": false, "response": "Did it. Got about nothing off it, and a look from James." },
+        { "text": "Cultivate it instead.", "correct": false, "response": "Up? It's already over. I'll do it if you say, but I'm confused." }
+      ]
+    },
+    {
+      "id": "furthest_out_first",
+      "kind": "question",
+      "needsVein": true,
+      "text": "Two veins off target today. The {ore} one on {street} is a bit high, the other one's miles low. I've only got time for one.",
+      "replies": [
+        { "text": "Whichever's furthest out.", "correct": true, "response": "Miles low, then. Thought so. Going now." },
+        { "text": "The high one. Get the calc in.", "correct": false, "response": "Fair enough. The low one's still sinking, mind." },
+        { "text": "Neither. Wait till tomorrow.", "correct": false, "response": "Okay. They'll both be worse tomorrow, though, won't they." }
+      ]
+    },
+    {
+      "id": "drift_keeps_going",
+      "kind": "question",
+      "needsVein": true,
+      "text": "If I leave the {ore} vein on {street} alone for a few days, does it drift back to the middle on its own?",
+      "replies": [
+        { "text": "No. It keeps going whichever way it's leaning.", "correct": true, "response": "So a low one just gets lower. That's grim. Right." },
+        { "text": "Yes, give it time.", "correct": false, "response": "James laughed when I told him. I don't think he meant it nicely." },
+        { "text": "Only if it rains.", "correct": false, "response": "Is that real? I'll write it down with a question mark next to it." }
+      ]
+    },
+    {
+      "id": "hard_vs_light",
+      "kind": "question",
+      "needsVein": false,
+      "text": "Is a hard prune just two light ones done at once?",
+      "replies": [
+        { "text": "No. Hard cuts deeper and pays a bit better per point.", "correct": true, "response": "Better per point. So hard when there's plenty above halfway. Got it." },
+        { "text": "Same thing, really.", "correct": false, "response": "Okay. James just wrote 'no' on a post-it and stuck it to my arm." }
+      ]
+    },
+    {
+      "id": "rampant_spreads",
+      "kind": "question",
+      "needsVein": true,
+      "text": "The {ore} vein on {street} is right at the top and won't go any higher. James says if it sits there long enough it spreads. Is he winding me up?",
+      "replies": [
+        { "text": "He's not. Leave it at the top a few days and it seeds a new one nearby.", "correct": true, "response": "A new one. From nothing. I might need to sit down." },
+        { "text": "He is. It just sits there.", "correct": false, "response": "He said you'd say that. He said to tell you you're wrong, and to use those words." }
+      ]
+    },
+    {
+      "id": "zero_not_dead",
+      "kind": "question",
+      "needsVein": true,
+      "text": "The {ore} vein on {street} has gone right down to nothing. Is it dead?",
+      "replies": [
+        { "text": "Not yet. Cultivate it today and it can come back.", "correct": true, "response": "On it now. Didn't sleep much, if I'm honest." },
+        { "text": "Yes. Let it go.", "correct": false, "response": "Okay. Feels like leaving a dog tied up outside a shop, but okay." },
+        { "text": "Prune it. Get what's left.", "correct": false, "response": "There's nothing left to prune. I checked twice." }
+      ]
+    },
+    {
+      "id": "ground_matters",
+      "kind": "question",
+      "needsVein": false,
+      "text": "Two veins, same growth. One's on good ground, one's on rubbish ground. Same calc off a prune?",
+      "replies": [
+        { "text": "No. Better ground, more calc.", "correct": true, "response": "So it's the ground, not me. Weirdly a relief." },
+        { "text": "Same. Growth is growth.", "correct": false, "response": "That's what I thought. Then why does one always come up short. I measured." }
+      ]
+    },
+    {
       "id": "bus_stop_gardening",
       "kind": "flavour",
       "needsVein": false,
@@ -21,6 +95,76 @@
       "replies": [
         { "text": "Close enough.", "correct": false, "response": "He moved seats." },
         { "text": "Next time, say nothing.", "correct": false, "response": "Noted. I'll just nod. Nodding's safe." }
+      ]
+    },
+    {
+      "id": "striped_paint",
+      "kind": "flavour",
+      "needsVein": true,
+      "text": "Archie said we need to paint the gate on the vein at {street}, and I should get some striped paint from B&Q. The guy said they're all out of striped paint. Do you think plain white would be ok?",
+      "replies": [
+        { "text": "Plain white's fine.", "correct": false, "response": "Good. I'll tell Archie they were out. He said they usually are." },
+        { "text": "Owen. There's no striped paint.", "correct": false, "response": "Right. He also sent me for a long weight last week. I stood there forty minutes." }
+      ]
+    },
+    {
+      "id": "mum_farmer",
+      "kind": "flavour",
+      "needsVein": false,
+      "text": "My mum asked what the new job is. I said agriculture. She's told the whole family I'm a farmer now.",
+      "replies": [
+        { "text": "Let her have it.", "correct": false, "response": "She's bought me wellies." },
+        { "text": "Tell her the truth.", "correct": false, "response": "What is the truth, though. Genuinely asking." }
+      ]
+    },
+    {
+      "id": "james_chair",
+      "kind": "flavour",
+      "needsVein": false,
+      "text": "James ate his lunch standing up again. Should I get him a chair or is that rude.",
+      "replies": [
+        { "text": "Leave it.", "correct": false, "response": "Leaving it. He's got three chairs. He knows." },
+        { "text": "Get him a chair.", "correct": false, "response": "Did. He put his coat on it." }
+      ]
+    },
+    {
+      "id": "coat_in_rain",
+      "kind": "flavour",
+      "needsVein": true,
+      "text": "It's raining on {street}. Do veins mind rain? I've put my coat over the {ore} one just in case.",
+      "replies": [
+        { "text": "They don't mind.", "correct": false, "response": "Getting my coat back, then. It's quite wet." },
+        { "text": "Good lad.", "correct": false, "response": "Thought so. I'm freezing, though." }
+      ]
+    },
+    {
+      "id": "first_savings",
+      "kind": "flavour",
+      "needsVein": false,
+      "text": "Got paid. Put half in savings. First time I've had savings. Doesn't feel like anything. It's just a number that's bigger.",
+      "replies": [
+        { "text": "That's all savings is.", "correct": false, "response": "Bit disappointing, then. Still keeping it." },
+        { "text": "Treat yourself.", "correct": false, "response": "Got a meal deal with the posh crisps. Felt like a king for about ten minutes." }
+      ]
+    },
+    {
+      "id": "lanyard_man",
+      "kind": "flavour",
+      "needsVein": true,
+      "text": "There was a man on {street} watching me all morning. Didn't say anything. Had a lanyard. Should I be worried?",
+      "replies": [
+        { "text": "Tell me if he comes back.", "correct": false, "response": "Will do. He wrote something down when I left." },
+        { "text": "Probably the council.", "correct": false, "response": "That's what I thought. Council don't usually take photos, though." }
+      ]
+    },
+    {
+      "id": "archie_fish",
+      "kind": "flavour",
+      "needsVein": false,
+      "text": "Archie gave me a fish. Not a cooked one. Said a bloke owed him. What do I do with a fish.",
+      "replies": [
+        { "text": "Cook it.", "correct": false, "response": "I haven't got an oven. I've got a kettle." },
+        { "text": "Give it back to Archie.", "correct": false, "response": "He says he doesn't do returns." }
       ]
     }
   ]
