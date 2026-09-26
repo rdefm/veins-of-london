@@ -1515,14 +1515,14 @@ func run() -> void:
 
 	run_case("player_slot_uses_the_chosen_models_idle_and_attack_variants", func():
 		_setup_combat([Fixtures.enemy("Territorial Scrapper")])
-		GameState.state["player"]["model"] = "protagonist2"
+		GameState.state["player"]["model"] = "territorial3"
 
 		var screen := CombatScreen.new()
 		screen._ready()
 		var slot := _slot_named(screen, "You")
 
-		assert_eq(slot._idle_frames, screen._stage._idle_frames_by_template["protagonist2"]["frames"], "the player slot reads templates[state.player.model]")
-		assert_eq(slot._attack_variants.size(), 2, "protagonist2 declares two attack variants")
+		assert_eq(slot._idle_frames, screen._stage._idle_frames_by_template["territorial3"]["frames"], "the player slot reads templates[state.player.model]")
+		assert_eq(slot._attack_variants.size(), 2, "territorial3 declares two attack variants")
 		assert_eq(slot._attack_variants[0]["frames"].size(), 1, "jab variant is one pose")
 		assert_eq(slot._attack_variants[1]["frames"].size(), 2, "wind-up + cross variant is two poses")
 		assert_eq(slot._hit_keyposes.size(), 1, "hurt pose loads")
@@ -1821,7 +1821,7 @@ func run() -> void:
 		var screen := CombatScreen.new()
 		screen._ready()
 		var slot := _slot_named(screen, "You")
-		assert_eq(slot._throw_keyposes.size(), 2, "sanity: protagonist2's throw wind-up + release must load")
+		assert_eq(slot._throw_keyposes.size(), 2, "sanity: territorial3's throw wind-up + release must load")
 
 		screen._on_beat_played({ "kind": Combat.BEAT_USE_TIME_PEARL, "effectKey": "timePearl" })
 		assert_eq(slot._sprite_rect.texture, slot._throw_keyposes[0], "a thrown-item beat must start the player's throw on its wind-up pose")

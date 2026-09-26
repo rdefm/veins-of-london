@@ -123,6 +123,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_migrate_vein_station_veins(filled)
 	_fix_up_founders(filled)
 	_migrate_nadia_supply_order(filled)
+	_migrate_player_model(filled)
 	_remap_retired_screen_id(filled)
 	_remap_retired_messages_list(filled)
 	_remap_retired_lab_screen(filled)
@@ -130,6 +131,14 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	GameState.state = filled
 	EventBus.state_changed.emit()
 	return { "ok": true }
+
+
+# player.model is a data/combat_visuals.json templates key; the "protagonist2"
+# sprite set is keyed "territorial3".
+func _migrate_player_model(save: Dictionary) -> void:
+	var player: Dictionary = save.get("player", {})
+	if player.get("model", "") == "protagonist2":
+		player["model"] = "territorial3"
 
 
 # A save with an in-progress col_a1_nadia_supply objective can't identify

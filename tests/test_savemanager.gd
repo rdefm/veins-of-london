@@ -495,6 +495,27 @@ func run() -> void:
 		assert_true(not GameState.state.has("veinStationVeins"))
 	)
 
+	run_case("new_game_player_model_is_territorial3", func():
+		GameState.reset()
+		assert_eq(GameState.state["player"]["model"], "territorial3")
+	)
+
+	run_case("loading_a_protagonist2_save_migrates_player_model_to_territorial3", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["player"]["model"] = "protagonist2"
+		assert_true(SaveManager.import_string(JSON.stringify(legacy))["ok"])
+		assert_eq(GameState.state["player"]["model"], "territorial3")
+	)
+
+	run_case("loading_a_save_with_another_player_model_leaves_it_alone", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["player"]["model"] = "territorial1"
+		assert_true(SaveManager.import_string(JSON.stringify(legacy))["ok"])
+		assert_eq(GameState.state["player"]["model"], "territorial1")
+	)
+
 	run_case("loading_an_old_save_before_the_home_raid_leaves_archie_unrecruited", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)
