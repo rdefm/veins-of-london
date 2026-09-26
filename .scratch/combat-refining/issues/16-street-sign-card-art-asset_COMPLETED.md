@@ -11,10 +11,9 @@
 - `docs/combat-animation-vision.md` — §2.4 Nameplate anatomy
 - `assets/combat/` — destination for approved reusable art
 
-**Status:** ready-for-human
-
-- [ ] Human supplies a clean, reusable sign frame without baked-in names, HP values, faction labels, or invented setting text.
-- [ ] The frame can serve collapsed and compact selected cards without stretching its border or hiding information.
-- [ ] Deliverable includes source artwork or export guidance and the game-ready asset at the project's intended pixel scale.
-- [ ] Human approves legibility and resemblance to the mockup before integration begins.
+**Status:** completed
+- [x] Human supplies a clean, reusable sign frame without baked-in names, HP values, faction labels, or invented setting text.
+- [x] The frame can serve collapsed and compact selected cards without stretching its border or hiding information.
+- [x] Deliverable includes source artwork or export guidance and the game-ready asset at the project's intended pixel scale.
+- [x] Human approves legibility and resemblance to the mockup before integration begins.
 
