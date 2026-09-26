@@ -325,6 +325,26 @@ func run() -> void:
 		assert_eq(Rooms.vein_station_target("v1"), 85, "target follows the vein")
 	)
 
+	run_case("cultivators_lists_current_role_holders_with_vein_counts", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with(), Fixtures.player_vein_with({ "id": "v2" })]
+		assert_eq(Rooms.cultivators(), [], "nobody in the role")
+		_staff_station("archie")
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		GameState.state["flags"]["bizOwenCultivationRole"] = true
+		assert_true(Contacts.set_role("owen", "cultivation")["ok"])
+		Rooms.assign_vein("archie", "v1")
+		Rooms.assign_vein("archie", "v2")
+
+		var rows: Array = Rooms.cultivators()
+		assert_eq(rows.size(), 2)
+		for row in rows:
+			assert_eq(row["veinCount"], 2 if row["id"] == "archie" else 0)
+
+		Contacts.set_role("owen", null)
+		assert_eq(Rooms.cultivators(), [{ "id": "archie", "veinCount": 2 }], "a founder out of the role isn't listed")
+	)
+
 	run_case("set_vein_station_target_clamps_to_the_vein_ceiling", func():
 		GameState.reset()
 		var vein := {

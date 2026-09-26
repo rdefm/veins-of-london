@@ -18,7 +18,90 @@ static func _info_inner(bubble: VeinBubble) -> Control:
 	return info_panel.get_child(0) as Control
 
 
+static func _find_button(root: Node, prefix: String) -> Button:
+	for child in root.get_children():
+		if child is Button and (child as Button).text.begins_with(prefix):
+			return child
+		var found := _find_button(child, prefix)
+		if found != null:
+			return found
+	return null
+
+
+static func _staff_cultivators() -> void:
+	GameState.state["contacts"]["archie"]["recruited"] = true
+	Contacts.assign_to_room("archie", "veinStation")
+	GameState.state["contacts"]["owen"]["recruited"] = true
+	GameState.state["flags"]["bizOwenCultivationRole"] = true
+	Contacts.set_role("owen", "cultivation")
+
+
 func run() -> void:
+	run_case("cultivator_row_is_hidden_without_a_cultivation_role_holder", func():
+		GameState.reset()
+		var vein := Fixtures.player_vein_with()
+		GameState.state["player"]["veins"] = [vein]
+		GameState.state["contacts"]["owen"]["recruited"] = true
+		var bubble := VeinBubble.new()
+		bubble._ready()
+		bubble.open(Vector2(100, 100), _vein_stop(vein), Vector2(390, 844))
+		assert_eq(bubble._content.get_child_count(), 2, "info + actions only")
+		assert_eq(_find_button(bubble._content, "Assign cultivator"), null)
+		bubble.free()
+	)
+
+	run_case("picker_lists_cultivators_with_counts_and_picking_assigns_with_the_default_target", func():
+		GameState.reset()
+		var vein := Fixtures.player_vein_with()
+		GameState.state["player"]["veins"] = [vein, Fixtures.player_vein_with({ "id": "v2" })]
+		_staff_cultivators()
+		Rooms.assign_vein("archie", "v2")
+		var bubble := VeinBubble.new()
+		bubble._ready()
+		bubble.open(Vector2(100, 100), _vein_stop(vein), Vector2(390, 844))
+
+		_find_button(bubble._content, "Assign cultivator").pressed.emit()
+		var archie_name := Contacts.display_name("archie")
+		var owen_name := Contacts.display_name("owen")
+		assert_true(_find_button(bubble._content, "%s · 1 vein" % archie_name) != null, "row shows vein count")
+		assert_true(_find_button(bubble._content, "%s · 0 veins" % owen_name) != null)
+		assert_eq(_find_button(bubble._content, "Unassign"), null, "no Unassign on an unassigned vein")
+
+		_find_button(bubble._content, owen_name).pressed.emit()
+		assert_eq(Rooms.cultivator_of("v1"), "owen")
+		assert_eq(Rooms.vein_station_target("v1"), Rooms.VEIN_STATION_DEFAULT_TARGET)
+		assert_true(_find_button(bubble._content, "Tended by %s" % owen_name) != null, "picker closes back to the row")
+		bubble.free()
+	)
+
+	run_case("assigned_vein_marks_its_cultivator_steps_the_target_and_unassigns", func():
+		GameState.reset()
+		var vein := Fixtures.player_vein_with()
+		GameState.state["player"]["veins"] = [vein]
+		_staff_cultivators()
+		Rooms.assign_vein("archie", "v1")
+		var bubble := VeinBubble.new()
+		bubble._ready()
+		bubble.open(Vector2(100, 100), _vein_stop(vein), Vector2(390, 844))
+
+		_find_button(bubble._content, "-").pressed.emit()
+		assert_eq(Rooms.vein_station_target("v1"), 65, "stepper moves the target by 5")
+
+		_find_button(bubble._content, "Tended by").pressed.emit()
+		var current := _find_button(bubble._content, Contacts.display_name("archie"))
+		assert_true(current.disabled and current.text.ends_with("✓"), "current cultivator is marked")
+
+		_find_button(bubble._content, Contacts.display_name("owen")).pressed.emit()
+		assert_eq(Rooms.cultivator_of("v1"), "owen")
+		assert_eq(Rooms.vein_station_target("v1"), 65, "re-picking keeps the target")
+
+		_find_button(bubble._content, "Tended by").pressed.emit()
+		_find_button(bubble._content, "Unassign").pressed.emit()
+		assert_eq(Rooms.cultivator_of("v1"), null)
+		assert_true(_find_button(bubble._content, "Assign cultivator") != null)
+		bubble.free()
+	)
+
 	run_case("open_shows_district_ore_identity_and_level_segments", func():
 		GameState.reset()
 		var vein := Fixtures.player_vein_with({ "growth": 60, "level": 2 })  # fair tier -> cap 3

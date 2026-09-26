@@ -138,6 +138,15 @@ static func cultivator_veins(contact_id: String) -> Array:
 	return GameState.state["cultivatorVeins"].get(contact_id, [])
 
 
+# Current Cultivation-role holders as [{ "id", "veinCount" }], in contact
+# order -- a founder swapped to another role is left out.
+static func cultivators() -> Array:
+	var result: Array = []
+	for contact_id in Contacts.contacts_in_role("cultivation"):
+		result.append({ "id": contact_id, "veinCount": cultivator_veins(contact_id).size() })
+	return result
+
+
 # The contact whose list holds the vein, or null.
 static func cultivator_of(vein_id: String) -> Variant:
 	var lists: Dictionary = GameState.state["cultivatorVeins"]

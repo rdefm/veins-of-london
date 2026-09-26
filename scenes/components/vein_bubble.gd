@@ -6,7 +6,10 @@ extends Control
 # eligibility/raised-raid-exposure cues, and two round Harvest/Cultivate
 # actions kept separate from the info area. Player-owned vein stops only --
 # a faction vein or an unclaimed site has neither action and keeps the
-# plain MapBubble list (see map.gd's station-tap branch). Tapping the info
+# plain MapBubble list (see map.gd's station-tap branch). While anyone holds
+# the Cultivation role, a cultivator row assigns the vein through Rooms
+# (picker of current cultivators, Unassign) and, once assigned, steps its
+# hold target (R§3.10 "Cultivator (per block, hold-at-target)"). Tapping the info
 # area emits info_selected(), which map.gd routes into VeinDetailPanel
 # instead of the site sheet's Manage view.
 
@@ -19,6 +22,9 @@ signal closed()
 # ("Cultivate — 1 block") wraps at the word break, not mid-word.
 const CAPTION_WIDTH := 88.0
 
+# Matches BizBrief Procurement's -5/+5 target buttons.
+const TARGET_STEP := 5
+
 var _pointer: Control
 var _dim: ColorRect
 var _panel: PanelContainer
@@ -28,6 +34,7 @@ var _anchor: Vector2 = Vector2.ZERO
 var _bounds_size: Vector2 = Vector2.ZERO
 var _stop: Dictionary = {}
 var _chooser_open: bool = false
+var _picker_open: bool = false
 var _dark: bool = false
 
 
@@ -66,6 +73,7 @@ func open(anchor: Vector2, stop: Dictionary, bounds_size: Vector2 = Vector2.ZERO
 	_bounds_size = bounds_size if bounds_size != Vector2.ZERO else size
 	_stop = stop
 	_chooser_open = false
+	_picker_open = false
 	_rebuild()
 	visible = true
 	_dim.visible = true
@@ -117,8 +125,12 @@ func _rebuild() -> void:
 	_content.add_child(_build_info_button(vein))
 	if _chooser_open:
 		_content.add_child(_build_chooser(vein))
+	elif _picker_open:
+		_content.add_child(_build_cultivator_picker(vein))
 	else:
 		_content.add_child(_build_actions_row(vein))
+		if not Rooms.cultivators().is_empty():
+			_content.add_child(_build_cultivator_row(vein))
 
 
 # A Button isn't a Container -- it never reports a child Control's minimum
@@ -311,6 +323,68 @@ func _build_chooser_row(label_text: String, vein: Dictionary, depth: int, option
 	var resulting: int = Cultivating.prune_resulting_growth(vein, depth)
 	var text := "%s · %d ore · %d→%d" % [label_text, projected_yield, vein["growth"], resulting]
 	return MapCardStyle.action_button(text, func(): _select_action(option_id), opt["disabled"], opt["reason"])
+
+
+# "Assign cultivator" or "Tended by <name>" (reopens the picker), plus the
+# hold-target stepper once the vein is on someone's list.
+func _build_cultivator_row(vein: Dictionary) -> Control:
+	var vein_id: String = vein["id"]
+	var col := UI.vbox(4)
+	var holder: Variant = Rooms.cultivator_of(vein_id)
+	var caption := "Assign cultivator" if holder == null else "Tended by %s" % Contacts.display_name(holder)
+	col.add_child(MapCardStyle.text_button(caption, _open_picker))
+	if holder != null:
+		var target: int = Rooms.vein_station_target(vein_id)
+		col.add_child(MapCardStyle.stepper("Hold target", target, func(dir: int): _set_target(vein_id, target + dir * TARGET_STEP)))
+	return col
+
+
+# Current Cultivation-role holders with their vein counts; the vein's own
+# cultivator is marked (and disabled -- re-picking is a no-op).
+func _build_cultivator_picker(vein: Dictionary) -> Control:
+	var vein_id: String = vein["id"]
+	var holder: Variant = Rooms.cultivator_of(vein_id)
+	var col := UI.vbox(4)
+	col.add_child(_label("Cultivator", 12, MapCardStyle.dim()))
+	for row in Rooms.cultivators():
+		var contact_id: String = row["id"]
+		var count: int = row["veinCount"]
+		var text := "%s · %d vein%s" % [Contacts.display_name(contact_id), count, "" if count == 1 else "s"]
+		if contact_id == holder:
+			text += " ✓"
+		col.add_child(MapCardStyle.option_row(text, func(): _assign(contact_id, vein_id), contact_id == holder))
+	if holder != null:
+		col.add_child(MapCardStyle.text_button("Unassign", func(): _unassign(vein_id)))
+	col.add_child(MapCardStyle.style_button(UI.button("‹ Back", _close_picker)))
+	return col
+
+
+func _open_picker() -> void:
+	_picker_open = true
+	_rebuild()
+	_reposition()
+
+
+func _close_picker() -> void:
+	_picker_open = false
+	_rebuild()
+	_reposition()
+
+
+func _assign(contact_id: String, vein_id: String) -> void:
+	Rooms.assign_vein(contact_id, vein_id)
+	_close_picker()
+
+
+func _unassign(vein_id: String) -> void:
+	Rooms.unassign_vein(vein_id)
+	_close_picker()
+
+
+func _set_target(vein_id: String, target: int) -> void:
+	Rooms.set_vein_station_target(vein_id, target)
+	_rebuild()
+	_reposition()
 
 
 func _close_chooser() -> void:
