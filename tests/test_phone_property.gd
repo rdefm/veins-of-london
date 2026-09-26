@@ -124,14 +124,15 @@ func run() -> void:
 		_open_listing(phone, "studio")
 		var buy_button := NodeQuery.find_button(phone, "Buy for £80000")
 		assert_true(buy_button.disabled, "buy disabled without enough cash")
-		assert_true(NodeQuery.label_texts(phone).has("Not enough cash."))
+		assert_true(NodeQuery.label_texts(phone).has("Not enough cash. You have £100."), "particulars show the shortfall against cash")
 		var rent_button := NodeQuery.find_button(phone, "Rent for £60/day")
 		assert_true(not rent_button.disabled, "renting needs no cash up front")
 		rent_button.pressed.emit()
 		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
 		assert_true(NodeQuery.find_button(phone, "‹ Listings") == null, "a move closes the particulars")
-		assert_true(phone.find_child(PropertyApp.listing_node_name("flat"), true, false) != null, "back on the listings, now a tier up")
+		assert_true(phone.find_child(PropertyApp.listing_node_name("bedsit"), true, false) != null, "back on the listings, the bedsit now a listing")
+		assert_eq(phone.find_child(PropertyApp.listing_node_name("studio"), true, false), null, "the studio is now YOUR PLACE, not a listing")
 		phone.free()
 
 		GameState.reset()
@@ -233,17 +234,77 @@ func run() -> void:
 			assert_true(str(GameData.HOME_TIERS[tier_id].get("particulars", "")) != "", "%s has particulars" % tier_id)
 	)
 
-	run_case("property_shows_a_max_tier_message_and_no_upgrade_button_at_the_top_tier", func():
+	run_case("property_lists_every_tier_in_ladder_order_with_the_current_one_marked", func():
 		GameState.reset()
-		GameState.state["home"]["tier"] = "mansion"
+		GameState.state["home"]["tier"] = "flat"
 		GameState.state["phoneNav"]["app"] = "property"
-
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_true(NodeQuery.label_texts(phone).has("Top of the ladder. Nowhere further to move."), "max-tier message renders")
-		assert_true(NodeQuery.find_button(phone, "Rent for £1500/day") == null, "no mansion rent offer at the top tier")
+		var shown: Array = []
+		for node in phone.find_children("ListingPhoto*", "", true, false):
+			shown.append(String(node.name).trim_prefix(PropertyApp.PHOTO_PLACEHOLDER_NODE_PREFIX).trim_prefix(PropertyApp.PHOTO_NODE_PREFIX))
+		assert_eq(shown, GameData.HOME_TIER_ORDER, "every tier leads with a photo or placeholder, in tierOrder")
+		for tier_id in GameData.HOME_TIER_ORDER:
+			var tap := phone.find_child(PropertyApp.listing_node_name(tier_id), true, false)
+			if tier_id == "flat":
+				assert_eq(tap, null, "YOUR PLACE is not a tappable listing")
+			else:
+				assert_true(tap != null, "%s is a tappable listing" % tier_id)
+		var texts := NodeQuery.label_texts(phone)
+		assert_eq(texts.count("YOUR PLACE"), 1, "exactly one card is marked as home")
+		assert_eq(texts.count("MOVE DOWN"), 2, "bedsit and studio sit below the flat")
+		assert_eq(texts.count("MOVE UP"), 4, "townhouse up to mansion sit above it")
+		phone.free()
+	)
 
+	run_case("property_listing_photo_loads_from_data_and_falls_back_to_a_placeholder", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "property"
+		var original: String = GameData.HOME_TIERS["studio"]["image"]
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var photo := phone.find_child(PropertyApp.photo_node_name("studio"), true, false) as TextureRect
+		assert_true(photo != null and photo.texture != null, "studio's shipped photo renders")
+		phone.free()
+
+		for broken in ["", "res://assets/hq/does_not_exist.png"]:
+			GameData.HOME_TIERS["studio"]["image"] = broken
+			phone = PhoneScreen.new()
+			phone._ready()
+			assert_eq(phone.find_child(PropertyApp.photo_node_name("studio"), true, false), null, "no photo for image '%s'" % broken)
+			assert_true(phone.find_child(PropertyApp.photo_placeholder_node_name("studio"), true, false) != null, "placeholder for image '%s'" % broken)
+			phone.free()
+		GameData.HOME_TIERS["studio"]["image"] = original
+	)
+
+	run_case("property_far_tier_particulars_rent_and_buy_jump_straight_there", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 1000
+		GameState.state["phoneNav"]["app"] = "property"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_open_listing(phone, "compound")
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has(GameData.HOME_TIERS["compound"]["particulars"]), "a far tier's particulars open")
+		assert_true(texts.has("MOVE UP"))
+		var buy_button := NodeQuery.find_button(phone, "Buy for £2000000")
+		assert_true(buy_button != null and buy_button.disabled, "unaffordable buy is shown, disabled")
+		assert_true(texts.has("Not enough cash. You have £1000."))
+		NodeQuery.find_button(phone, "Rent for £600/day").pressed.emit()
+		assert_eq(GameState.state["home"]["tier"], "compound", "renting jumps five tiers in one move")
+		assert_eq(GameState.state["home"]["tenure"], "rented")
+		phone.free()
+
+		GameState.state["player"]["cash"] = 200000
+		phone = PhoneScreen.new()
+		phone._ready()
+		_open_listing(phone, "flat")
+		assert_true(NodeQuery.label_texts(phone).has("MOVE DOWN"))
+		NodeQuery.find_button(phone, "Buy for £200000").pressed.emit()
+		assert_eq(GameState.state["home"]["tier"], "flat", "buying jumps three tiers down")
+		assert_eq(GameState.state["home"]["tenure"], "owned")
+		assert_eq(GameState.state["player"]["cash"], 0)
 		phone.free()
 	)
 

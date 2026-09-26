@@ -275,17 +275,45 @@ static func rent_up() -> Dictionary:
 	var next_tier_id: String = get_next_tier_id(GameState.state["home"]["tier"])
 	if next_tier_id == "":
 		return { "ok": false, "reason": "Already at the top tier." }
-	change_tier(next_tier_id, TENURE_RENTED)
-	Notify.push("Signed the lease on the %s." % GameData.HOME_TIERS[next_tier_id]["name"], Notify.CATEGORY_SUCCESS)
-	SaveManager.autosave()
-	return { "ok": true }
+	return rent_to(next_tier_id)
 
 
 static func buy_up() -> Dictionary:
 	var next_tier_id: String = get_next_tier_id(GameState.state["home"]["tier"])
 	if next_tier_id == "":
 		return { "ok": false, "reason": "Already at the top tier." }
-	return _buy_move(next_tier_id)
+	return buy_to(next_tier_id)
+
+
+# Rents any other tier on the ladder, up or down, with no up-front cost.
+static func rent_to(tier_id: String) -> Dictionary:
+	var refusal: Dictionary = _move_refusal(tier_id)
+	if not refusal.is_empty():
+		return refusal
+	var moving_down: bool = _tier_below_min(tier_id, GameState.state["home"]["tier"])
+	change_tier(tier_id, TENURE_RENTED)
+	var tier_name: String = GameData.HOME_TIERS[tier_id]["name"]
+	Notify.push(("Moved down to a rented %s." if moving_down else "Signed the lease on the %s.") % tier_name, Notify.CATEGORY_SUCCESS)
+	SaveManager.autosave()
+	return { "ok": true }
+
+
+# Buys any other buyable tier on the ladder, up or down, at its buyPrice.
+static func buy_to(tier_id: String) -> Dictionary:
+	var refusal: Dictionary = _move_refusal(tier_id)
+	if not refusal.is_empty():
+		return refusal
+	if not can_buy_tier(tier_id):
+		return { "ok": false, "reason": "This place can't be bought." }
+	return _buy_move(tier_id)
+
+
+static func _move_refusal(tier_id: String) -> Dictionary:
+	if not GameData.HOME_TIERS.has(tier_id):
+		return { "ok": false, "reason": "No such place." }
+	if tier_id == GameState.state["home"]["tier"]:
+		return { "ok": false, "reason": "You already live here." }
+	return {}
 
 
 # Buys the currently rented tier outright; tier, rooms and staff are unchanged.
@@ -314,14 +342,7 @@ static func downgrade(tenure: String) -> Dictionary:
 	var prev_tier_id: String = get_prev_tier_id(GameState.state["home"]["tier"])
 	if prev_tier_id == "":
 		return { "ok": false, "reason": "Nowhere lower to go." }
-	if tenure == TENURE_OWNED:
-		if not can_buy_tier(prev_tier_id):
-			return { "ok": false, "reason": "This place can't be bought." }
-		return _buy_move(prev_tier_id)
-	change_tier(prev_tier_id, TENURE_RENTED)
-	Notify.push("Moved down to a rented %s." % GameData.HOME_TIERS[prev_tier_id]["name"], Notify.CATEGORY_SUCCESS)
-	SaveManager.autosave()
-	return { "ok": true }
+	return buy_to(prev_tier_id) if tenure == TENURE_OWNED else rent_to(prev_tier_id)
 
 
 static func _buy_move(tier_id: String) -> Dictionary:

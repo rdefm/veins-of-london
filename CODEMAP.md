@@ -205,7 +205,7 @@ overlays.
 | saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |
 | notifications_app.gd | Notification log with pending Defend buttons |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
-| property_app.gd | Harrow's: current HQ tier card (tenure-correct daily cost, buy-out when rented, static floorplan, arrears balance/countdown) plus tappable next-tier and tier-below listings; a listing opens its particulars (floorplan, tier `particulars` copy, rent/buy with bill previews and losses) |
+| property_app.gd | Harrow's: every tier as a listing in ladder order, each led by its `image` photo (placeholder if empty/unloadable); the current tier is the YOUR PLACE card (daily cost, buy-out, floorplan, arrears). Other listings open particulars (floorplan, copy, rent/buy to that tier via `Home.rent_to`/`buy_to`, bill previews, losses) |
 | debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, one relation block (dropdown over every contact + faction, shows current relation, applies a delta), any-event trigger picker |
 
 ## data/*.json
@@ -224,7 +224,7 @@ overlays.
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |
 | factions.json | factions.gd, sites.gd, raiding.gd, debug_start.gd |
-| home.json | home.gd, approaches.gd, contacts.gd |
+| home.json | home.gd, approaches.gd, contacts.gd, property_app.gd (tier `image` listing photos) |
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
 | items.json | combat.gd, profile_app.gd, bag_drawer.gd |

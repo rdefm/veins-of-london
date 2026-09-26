@@ -714,7 +714,11 @@ func _validate_home(tier_order: Array, tiers: Dictionary, security: Dictionary, 
 		if not tiers.has(id):
 			errors.append("home: tierOrder references unknown tier '%s'" % id)
 	for key in tiers.keys():
-		_require_keys(tiers[key], ["id", "name", "tier", "buyPrice", "rentOnly", "dailyCost", "raidBaseChance", "maxRooms", "description"], "home.tiers.%s" % key, errors)
+		_require_keys(tiers[key], ["id", "name", "tier", "image", "buyPrice", "rentOnly", "dailyCost", "raidBaseChance", "maxRooms", "description"], "home.tiers.%s" % key, errors)
+		# Harrow's listing photo: a res:// path, or "" for the placeholder.
+		var image: Variant = tiers[key].get("image", "")
+		if typeof(image) != TYPE_STRING or (image != "" and not String(image).begins_with("res://")):
+			errors.append("home.tiers.%s: image must be \"\" or a res:// path" % key)
 
 	for key in security.keys():
 		var sec_entry: Dictionary = security[key]

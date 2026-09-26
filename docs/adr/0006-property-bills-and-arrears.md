@@ -151,3 +151,12 @@ drop it to the bedsit, which has no further drops.
   unassigned automatically. Nothing else happens to them.
 - **Wiping the Home Gym reverts its bonus.** `hpMax −= bonusValue` and `hp`
   is clamped to the new max. Building the gym again re-grants the bonus.
+
+## Follow-up decision (2026-09-26): moves skip tiers
+
+- **Any tier, one move.** Harrow's lists every tier, and the player may rent
+  or buy any tier other than the current one directly, up or down, without
+  stepping through the ones between (`Home.rent_to` / `Home.buy_to`). Buying
+  still needs the full `buyPrice` in cash; the bedsit still can't be bought.
+  The same room wipe and security/guard losses apply. The forced downgrade
+  is unchanged: one tier.

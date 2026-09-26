@@ -3,49 +3,49 @@
   "bills": { "interestRate": 0.05, "interestThresholdDays": 5, "downgradeThresholdDays": 10 },
   "tiers": {
     "bedsit": {
-      "id": "bedsit", "name": "Bedsit", "tier": 1,
+      "id": "bedsit", "name": "Bedsit", "tier": 1, "image": "res://assets/hq/bedsit_external.png",
       "buyPrice": 0, "rentOnly": true, "dailyCost": 50, "raidBaseChance": 0.08,
       "maxRooms": 0,
       "description": "A single room in Whitechapel. The boiler makes a sound like someone clearing their throat. No storage to speak of.",
       "particulars": "An incredibly cosy, fully integrated living space in vibrant Whitechapel, where bed, kitchen and bathroom enjoy an unusually close working relationship. Characterful boiler with a voice of its own. Viewing essential, as the photographer could not fit the room in."
     },
     "studio": {
-      "id": "studio", "name": "Studio", "tier": 2,
+      "id": "studio", "name": "Studio", "tier": 2, "image": "res://assets/hq/studio_external.png",
       "buyPrice": 80000, "rentOnly": false, "dailyCost": 60, "ownedDailyCost": 35, "raidBaseChance": 0.07,
       "maxRooms": 0,
       "description": "One room in Stepney with a kitchen along the wall. The door locks and the key is yours. No spare room.",
       "particulars": "A bright, open-plan residence in up-and-coming Stepney, the kitchen thoughtfully arranged along one wall so you can cook without leaving bed. Secure entry: the door locks. Ideal for the discerning professional who owns very little and intends to keep it that way."
     },
     "flat": {
-      "id": "flat", "name": "Flat", "tier": 3,
+      "id": "flat", "name": "Flat", "tier": 3, "image": "res://assets/hq/flat_external.png",
       "buyPrice": 200000, "rentOnly": false, "dailyCost": 80, "ownedDailyCost": 58, "raidBaseChance": 0.06,
       "maxRooms": 1,
       "description": "Two rooms above a nail bar in Hackney. Neighbours ask no questions. One spare room.",
       "particulars": "A generous two-room apartment in the heart of Hackney's thriving beauty quarter, the nail bar below supplying ambient fragrance at no extra cost. Famously incurious neighbours. Bonus second room, suitable as a study, a workshop or somewhere to put the problem."
     },
     "townhouse": {
-      "id": "townhouse", "name": "Townhouse", "tier": 4,
+      "id": "townhouse", "name": "Townhouse", "tier": 4, "image": "res://assets/hq/townhouse_external.png",
       "buyPrice": 500000, "rentOnly": false, "dailyCost": 150, "ownedDailyCost": 65, "raidBaseChance": 0.04,
       "maxRooms": 3,
       "description": "Three floors, Bethnal Green. Previous tenant left in a hurry. Three spare rooms.",
       "particulars": "A handsome three-storey period home in sought-after Bethnal Green, offered with vacant possession following the previous occupant's swift and unplanned departure. Some original features, some original stains. Chain-free, in that nobody is coming back for it."
     },
     "safehouse": {
-      "id": "safehouse", "name": "Safehouse", "tier": 5,
+      "id": "safehouse", "name": "Safehouse", "tier": 5, "image": "res://assets/hq/safehouse_external.png",
       "buyPrice": 800000, "rentOnly": false, "dailyCost": 300, "ownedDailyCost": 80, "raidBaseChance": 0.02,
       "maxRooms": 5,
       "description": "Off-grid property, no registered occupant. Not technically yours, but no one is arguing. Five spare rooms.",
       "particulars": "A rare opportunity to acquire a truly discreet off-grid residence, unknown to the Land Registry, the council and, it is hoped, everyone else. Deceptively spacious. Utilities arranged privately. Title is best described as a matter of confidence."
     },
     "compound": {
-      "id": "compound", "name": "Compound", "tier": 6,
+      "id": "compound", "name": "Compound", "tier": 6, "image": "res://assets/hq/compound_external.png",
       "buyPrice": 2000000, "rentOnly": false, "dailyCost": 600, "ownedDailyCost": 110, "raidBaseChance": 0.01,
       "maxRooms": 8,
       "description": "Gated property, East London. Eight rooms. People who matter know you live here.",
       "particulars": "A statement gated estate for the East London buyer who has arrived and would like people to notice from a safe distance. Perimeter wall, controlled access, a driveway long enough to see visitors coming. The kind of address that ends conversations."
     },
     "mansion": {
-      "id": "mansion", "name": "Mansion & Grounds", "tier": 7,
+      "id": "mansion", "name": "Mansion & Grounds", "tier": 7, "image": "res://assets/hq/mansion_external.png",
       "buyPrice": 4000000, "rentOnly": false, "dailyCost": 1500, "ownedDailyCost": 200, "raidBaseChance": 0.005,
       "maxRooms": 12,
       "description": "Grounds, staff quarters, a gate. Twelve rooms. Plato would have something to say about this.",

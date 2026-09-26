@@ -351,6 +351,25 @@ func run() -> void:
 		assert_eq(GameState.state["bankLog"][0]["amount"], -200000)
 	)
 
+	run_case("rent_to_and_buy_to_jump_any_distance_and_refuse_bad_targets", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"] = []
+		assert_true(not Home.rent_to("bedsit")["ok"], "can't move to where you live")
+		assert_true(not Home.rent_to("castle")["ok"], "unknown tier refused")
+		assert_true(Home.rent_to("safehouse")["ok"], "rent skips tiers")
+		assert_eq(GameState.state["home"]["tier"], "safehouse")
+		assert_eq(GameState.state["home"]["tenure"], "rented")
+
+		GameState.state["player"]["cash"] = 100000
+		assert_true(not Home.buy_to("flat")["ok"], "short of the flat's 200000")
+		assert_true(not Home.buy_to("bedsit")["ok"], "the bedsit can't be bought")
+		assert_eq(GameState.state["home"]["tier"], "safehouse")
+		assert_true(Home.buy_to("studio")["ok"], "buy skips tiers downward")
+		assert_eq(GameState.state["home"]["tier"], "studio")
+		assert_eq(GameState.state["home"]["tenure"], "owned")
+		assert_eq(GameState.state["player"]["cash"], 20000)
+	)
+
 	run_case("buy_out_owns_the_rented_tier_and_keeps_rooms_and_staff", func():
 		GameState.reset()
 		GameState.state["home"]["tier"] = "compound"
