@@ -209,7 +209,7 @@ overlays.
 | saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |
 | notifications_app.gd | Notification log with pending Defend buttons |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
-| property_app.gd | Harrow's: every tier as a listing in ladder order, each led by its `image` photo (placeholder if empty/unloadable); the current tier is the YOUR PLACE card (daily cost, buy-out, floorplan, arrears). Other listings open particulars (floorplan, copy, rent/buy to that tier via `Home.rent_to`/`buy_to`, bill previews, losses) |
+| property_app.gd | Harrow's: listing feed on its own mounted root in brand chrome (white cards, green/gold bar, serif headings; ui-vision §10 exception), every tier in ladder order led by its `image` photo; current tier is the YOUR PLACE card (tenure, cost, risk, rooms, arrears, buy-out, floorplan). Other listings open particulars (rent/buy via `Home.rent_to`/`buy_to`, previews, losses) |
 | debug_app.gd | Debug Start-only tools: cash/calc/site spawners, combat launchers, one relation block (dropdown over every contact + faction, shows current relation, applies a delta), any-event trigger picker |
 
 ## data/*.json

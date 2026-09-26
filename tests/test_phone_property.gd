@@ -18,8 +18,9 @@ func run() -> void:
 		phone._ready()
 
 		var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
-		var expected: String = "Daily cost: £50 · Raid risk: %d%% · Rooms 0/0" % raid_pct
-		assert_true(NodeQuery.label_texts(phone).has(expected), "current tier's stats line matches bedsit's daily cost/raid risk/rooms")
+		var texts := NodeQuery.label_texts(phone)
+		for expected in ["YOUR PLACE", "£50", "/ day rent", "Rented.", "Rooms 0/0", "Raid risk %d%%" % raid_pct]:
+			assert_true(texts.has(expected), "current bedsit card shows %s" % expected)
 
 		phone.free()
 	)
@@ -62,13 +63,18 @@ func run() -> void:
 		GameState.state["home"]["tenure"] = "owned"
 		var phone := PhoneScreen.new()
 		phone._ready()
-		assert_true(NodeQuery.label_texts(phone).has("Daily cost: £65 · Raid risk: %d%% · Rooms 0/3" % raid_pct), "owned townhouse shows utilities (65)")
+		var texts := NodeQuery.label_texts(phone)
+		for expected in ["£65", "/ day utilities", "Owned outright.", "Rooms 0/3", "Raid risk %d%%" % raid_pct]:
+			assert_true(texts.has(expected), "owned townhouse shows %s" % expected)
 		phone.free()
 
 		GameState.state["home"]["tenure"] = "rented"
 		phone = PhoneScreen.new()
 		phone._ready()
-		assert_true(NodeQuery.label_texts(phone).has("Daily cost: £150 · Raid risk: %d%% · Rooms 0/3" % raid_pct), "rented townhouse shows rent (150)")
+		texts = NodeQuery.label_texts(phone)
+		for expected in ["£150", "/ day rent", "Rented."]:
+			assert_true(texts.has(expected), "rented townhouse shows %s" % expected)
+		assert_true(not texts.has("/ day utilities"), "no listing is priced in utilities")
 		phone.free()
 	)
 
@@ -82,7 +88,9 @@ func run() -> void:
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Studio"), "next tier's name (studio, the tier above bedsit) renders")
 		var raid_pct: int = int(round(Home.get_raid_chance_for_tier("studio") * 100))
-		assert_true(texts.has("Raid risk: %d%% · Rooms 0" % raid_pct), "next tier's own stats line")
+		for expected in ["£60", "Buy £80000", "0 spare rooms", "Raid risk %d%%" % raid_pct]:
+			assert_true(texts.has(expected), "studio listing shows %s" % expected)
+		assert_true(texts.has("1 spare room"), "the flat listing's single room reads singular")
 		assert_true(NodeQuery.find_button(phone, "Rent for £60/day") == null, "offers live only in the particulars")
 		assert_true(NodeQuery.find_button(phone, "Buy for £80000") == null, "offers live only in the particulars")
 
@@ -255,6 +263,52 @@ func run() -> void:
 		assert_eq(texts.count("YOUR PLACE"), 1, "exactly one card is marked as home")
 		assert_eq(texts.count("MOVE DOWN"), 2, "bedsit and studio sit below the flat")
 		assert_eq(texts.count("MOVE UP"), 4, "townhouse up to mansion sit above it")
+		assert_true(texts.has("7 properties across London"), "the feed intro counts every tier")
+		assert_eq(texts.count("View particulars →"), 6, "every listing but YOUR PLACE offers its particulars")
+		assert_true(not texts.any(func(t: String): return t == "Buy £0"), "the rent-only bedsit lists no buy price")
+		for tier_id in ["studio", "townhouse", "mansion"]:
+			assert_true(texts.has("Buy £%d" % Home.buy_price(tier_id)), "%s lists its buy price" % tier_id)
+		phone.free()
+	)
+
+	run_case("property_feed_wears_harrows_brand_chrome_and_back_returns_to_the_phone", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "property"
+		var phone := PhoneScreen.new()
+		phone._ready()
+
+		var feed := phone.find_child(PropertyApp.FEED_ROOT_NODE_NAME, true, false)
+		assert_true(feed != null, "the listings mount Harrow's own root")
+		assert_true(not phone.device_shell.content_scroll.visible, "the shared dark content column is hidden under the feed")
+		var bar := phone.find_child(PropertyApp.BRAND_BAR_NODE_NAME, true, false) as PanelContainer
+		var bar_style := bar.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_eq(bar_style.bg_color, PropertyApp.brand_green(), "brand bar is Harrow's green")
+		assert_eq(bar_style.border_color, PropertyApp.brand_gold(), "brand bar is ruled in Harrow's gold")
+		assert_eq(PropertyApp.brand_green(), GameData.PALETTE["harrows_green"], "brand green comes from data/palette.json")
+		var photo := phone.find_child(PropertyApp.photo_node_name("studio"), true, false) as Control
+		var card_style := photo.get_parent().get_parent().get_theme_stylebox("panel") as StyleBoxFlat
+		assert_eq(card_style.bg_color, PropertyApp.PAPER, "listing cards are white, not phone-OS dark")
+		assert_eq(NodeQuery.find_button(phone, "‹ Back"), null, "the brand bar's back replaces the shared one")
+
+		NodeQuery.find_button(phone, "‹ Phone").pressed.emit()
+		assert_eq(GameState.state["phoneNav"]["app"], "home", "‹ Phone returns to the phone home")
+		assert_true(phone.device_shell.content_scroll.visible, "the shared column is back for the home screen")
+		phone.free()
+	)
+
+	run_case("property_other_phone_apps_keep_the_shared_dark_chrome", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "bank"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_eq(phone.find_child(PropertyApp.FEED_ROOT_NODE_NAME, true, false), null)
+		assert_true(phone.device_shell.content_scroll.visible, "Reynard's renders in the shared column")
+		var panels := phone.device_shell.content.find_children("", "PanelContainer", true, false)
+		assert_true(not panels.is_empty(), "Reynard's has a card")
+		var dark := panels.any(func(p: PanelContainer):
+			var s := p.get_theme_stylebox("panel") as StyleBoxFlat
+			return s != null and s.bg_color == GameData.PALETTE["phone_bg_content"])
+		assert_true(dark, "Reynard's cards keep the phone-OS content fill")
 		phone.free()
 	)
 

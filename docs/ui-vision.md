@@ -245,6 +245,8 @@ palette and accent rules in §6, and the typography in §7.
   exception (§11):** a "craft" event card may also carry `calc_gold` panel
   styling, since crafting is inherently a calc-spend action — scoped to
   that one card type only, not a general loosening of this rule.
+- **Harrow's is exempt from this section's gold and red rules** — its
+  brand green/gold chrome is specified in §10 "Harrow's exception".
 - **Ordinary buttons/actions across Families 2–4 use a new accent:
   pillar-box/bus red** — Royal Mail red / Routemaster red register.
   Civic-London, not tied to any one faction, and distinct from the
@@ -260,7 +262,7 @@ palette and accent rules in §6, and the typography in §7.
 ## 7. Typography
 
 **Two typefaces total**, shared across all four families rather than one
-per family:
+per family (sole exception: Harrow's editorial serif, §10):
 
 1. **One UI sans** — covers all vector chrome: Families 2, 3, and 4 alike.
    Families are differentiated by colour, layout, and per-component object
@@ -551,7 +553,28 @@ changes home placement and the surrounding shell, not gameplay.
 | Save/Load | Slot rows + action cards (`_build_save_slot_row`, export/import/new-game cards) | Action-list pattern: row = slot summary + inline buttons. Save/Load buttons filled `ui_action_red`; Delete/New-Game (destructive/irreversible) rendered as a lower-weight outline button instead of a second "danger" accent — de-emphasis via weight, not a new colour |
 | Notifications | Flat log (`_build_notification_row`) | Flat-list pattern, newest-first, no push-navigation — this is the full-history log app §3 distinguishes from the persistent dot-matrix board (Family 4) |
 | Reynard's | Balance + flat log (`_build_balance_card`, `_build_bank_transaction_row`) | Dashboard pattern for the balance card (figure in `calc_gold`) + flat-list pattern for the transaction rows below it (amounts in `calc_gold`, everything else ink) |
-| Harrow's | Two comparison cards (`_build_property_current_card`, `_build_property_next_card`) | Dashboard pattern: current-tier and next-tier cards stacked. `£` figures in card body text use `calc_gold`; the "Move for £X" action button stays standard button ink-on-`ui_action_red` (gold-on-red would fail contrast) |
+| Harrow's | Estate-agent listing feed (`property_app.gd`), own mounted root | **Documented exception, below** — Harrow's brand chrome, not this family's shared dark chrome |
+
+**Harrow's exception (approved 2026-09-26, `.scratch/harrows-redesign/`):**
+Harrow's reads as a conventional estate-agent app inside the unchanged
+device frame and status bar. It is the one Family 2 app whose internal
+chrome departs from the rules in this section and §§6–7:
+- **Surfaces:** white listing/particulars surfaces, thin warm-grey rules,
+  dark ink text — not `phone_bg_content` dark cards.
+- **Brand colour:** `harrows_green` (`#06472f`) and `harrows_gold`
+  (`#efd079`), both taken from Harrow's launcher icon and locked in
+  `data/palette.json` (group `harrows`). Green fills the top brand bar and
+  primary actions, and marks eyebrows and the "View particulars" row; gold
+  is the brand bar's wordmark, back control and rule.
+- **Actions:** green, not `ui_action_red`; unaffordable actions read as a
+  muted outline.
+- **Gold:** `harrows_gold` is brand chrome here, not a currency read.
+  `£` figures in Harrow's are bold ink; `calc_gold` is not used.
+- **Typography:** property names, the feed heading and the wordmark use an
+  editorial serif (system Georgia/serif, engine font as fallback); body,
+  prices and facts stay on the shared UI sans (prices/eyebrows emboldened).
+Every other phone app keeps the shared dark chrome, `ui_action_red`
+actions, `calc_gold`-only currency and the single UI sans unchanged.
 
 **List/detail pattern** (The Ticker, Messages): master rows are flat,
 hairline-divided, no card border per row — title line in ink, one muted
@@ -563,7 +586,7 @@ the *mechanism* changes; this section only specifies row and header paint.
 **Reconciled against §6:** no third *accent* introduced — `calc_gold` and
 `ui_action_red` still cover everything this family's chrome does.
 `calc_gold` stays exactly what §6 already says — calc/currency reads only
-(Reynard's, Harrow's, nowhere else in this family). `ui_action_red` is
+(Reynard's, nowhere else in this family; Harrow's is the exception above). `ui_action_red` is
 reused, not reclaimed from Family 4 — §6 already scoped it to "ordinary
 buttons/actions across Families 2–4" collectively; the ticket's framing
 ("already claimed by Family 4") describes what's implemented so far, not
