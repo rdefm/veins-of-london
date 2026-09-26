@@ -131,6 +131,22 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("schema_validation_accepts_an_on_complete_that_only_chains_into_another_event", func():
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_chains_on"] = {
+			"id": "test_chains_on",
+			"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
+			"on_complete": [{ "op": "start_event", "event": "intro" }],
+		}
+
+		var errors := GameData.validate_tables(GameData.snapshot())
+		var relevant := errors.filter(func(e): return e.begins_with("events.test_chains_on"))
+		assert_eq(relevant, [], "start_event navigates to the chained event -- no separate set_screen needed")
+
+		GameData.EVENTS = original_events
+	)
+
 	run_case("start_event_sets_state_and_screen", func():
 		GameState.reset()
 		Events.start_event("intro")

@@ -158,24 +158,19 @@ func _play_collective_act1_through_all_three_threads() -> void:
 	assert_eq(GameState.state["flags"]["colA1Stage"], "tuition")
 	_assert_invariants("post-S1")
 
-	# ── S2/S3: the prospecting/seeding tutorial (map-pin delivered; content driven directly) ──
-	Events.start_event("col_a1_prospecting")
+	# ── S2-S4: prospecting, seeding and hub chain straight on from S1 ──
+	assert_eq(GameState.state["event"]["eventId"], "col_a1_prospecting", "S1's on_complete starts S2")
 	for i in range(GameData.EVENTS["col_a1_prospecting"]["cards"].size()):
 		Events.advance()
 	assert_true(GameState.state["flags"]["colA1ProspectingTaught"])
 
-	Events.start_event("col_a1_seeding")
+	assert_eq(GameState.state["event"]["eventId"], "col_a1_seeding", "S2's on_complete starts S3")
 	for i in range(GameData.EVENTS["col_a1_seeding"]["cards"].size()):
 		Events.advance()
 	assert_true(GameState.state["flags"]["colA1SeedingTaught"])
 	_assert_invariants("post-S2-S3")
 
-	# ── S4: col_a1_hub, delivered via Des's own pendingMessages entry from S3's on_complete ──
-	var s4_pending: Array = Messages.pending_for("des")
-	assert_eq(s4_pending.size(), 1)
-	assert_eq(s4_pending[0]["kind"], "col_a1_hub")
-	Messages.resolve_pending(s4_pending[0]["id"])
-	Events.start_event("col_a1_hub")
+	assert_eq(GameState.state["event"]["eventId"], "col_a1_hub", "S3's on_complete starts S4")
 	for i in range(GameData.EVENTS["col_a1_hub"]["cards"].size()):
 		Events.advance()
 	assert_true(GameState.state["contacts"]["nadia"]["unlocked"])

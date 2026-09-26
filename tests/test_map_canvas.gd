@@ -1179,22 +1179,17 @@ func run() -> void:
 		canvas.free()
 	)
 
-	# Bugfixes ticket 102: col_a1_prospecting's pin sits in "shoreditch",
-	# whose district anchor is deliberately the same point as home_anchor()
-	# (data/map_layout.json's homeAnchor tracks shoreditch's, per that
-	# file's own commit history -- the lock-up is genuinely there). Before
-	# this ticket's fix, that made Des's pin coincide exactly with the home
-	# pin: invisible on top of it, and unreachable by tap since _handle_tap
+	# col_a2_hostile_member's pin sits in "shoreditch", whose district anchor
+	# is deliberately the same point as home_anchor() (data/map_layout.json's
+	# homeAnchor tracks shoreditch's -- the lock-up is genuinely there).
+	# Un-nudged, a shoreditch pin would coincide exactly with the home pin:
+	# invisible on top of it, and unreachable by tap since _handle_tap
 	# activates whichever pin in _pins comes first within PIN_TAP_RADIUS,
-	# and home is always appended first. The gating itself (MapPins /
-	# Objectives, both reading colA1DesMet/colA1ProspectingTaught off the
-	# same state.flags) was never the bug -- see tests/test_col_a1_tuition.gd
-	# and tests/test_map_pins.gd, which already covered that and passed
-	# throughout.
+	# and home is always appended first.
 	run_case("rebuild_pins_nudges_a_shoreditch_contact_pin_clear_of_the_home_pin", func():
 		GameState.reset()
-		GameState.state["flags"]["colA1DesMet"] = true
-		GameState.state["flags"]["colA1ProspectingTaught"] = false
+		GameState.state["flags"]["colA2Stage"] = "started"
+		GameState.state["flags"]["colA2HostileMemberDone"] = false
 		var canvas := MapCanvas.new()
 		canvas._rebuild_pins()
 
@@ -1203,23 +1198,23 @@ func run() -> void:
 		for pin in canvas._pins:
 			if pin["kind"] == "home":
 				home = pin
-			elif pin["kind"] == "contact" and pin["eventId"] == "col_a1_prospecting":
+			elif pin["kind"] == "contact" and pin["eventId"] == "col_a2_hostile_member":
 				contact = pin
-		assert_true(home != null and contact != null, "both the home pin and Des's col_a1_prospecting pin should be present")
+		assert_true(home != null and contact != null, "both the home pin and the col_a2_hostile_member pin should be present")
 		assert_true(home["position"] != contact["position"], "the two pins must not land on identical coordinates")
 		assert_true(home["position"].distance_to(contact["position"]) > MapCanvas.PIN_TAP_RADIUS * 2, "far enough apart that _handle_tap's first-match-wins order can never shadow one with the other")
 
 		# The other half of the ticket's acceptance check: the nudge must not
-		# outlive the gate it's attached to -- once colA1ProspectingTaught
-		# flips true (same flag col_a1_prospecting's own showWhenFlagsFalse
-		# reads), the pin disappears from _pins exactly as it always did.
-		GameState.state["flags"]["colA1ProspectingTaught"] = true
+		# outlive the gate it's attached to -- once colA2HostileMemberDone
+		# flips true (col_a2_hostile_member's own showWhenFlagsFalse), the
+		# pin disappears from _pins.
+		GameState.state["flags"]["colA2HostileMemberDone"] = true
 		canvas._rebuild_pins()
 		var still_there := false
 		for pin in canvas._pins:
-			if pin["kind"] == "contact" and pin["eventId"] == "col_a1_prospecting":
+			if pin["kind"] == "contact" and pin["eventId"] == "col_a2_hostile_member":
 				still_there = true
-		assert_true(not still_there, "hidden again once taught, same as before the nudge fix")
+		assert_true(not still_there, "hidden again once done")
 
 		canvas.free()
 	)

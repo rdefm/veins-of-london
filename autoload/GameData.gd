@@ -1320,9 +1320,10 @@ const VALID_EFFECT_OPS: Array[String] = [
 # Screens only swap on EventBus.screen_changed (Nav.go_to()), never fired
 # by Events.advance() itself -- an on_complete forgetting a "set_screen"
 # op leaves EventScreen mounted dereferencing a null state.event.
-# "start_home_raid_combat" is the one exception (sets currentScreen
-# itself in combat.gd).
-const SELF_NAVIGATING_ON_COMPLETE_OPS: Array[String] = ["start_home_raid_combat"]
+# "start_home_raid_combat" (sets currentScreen itself in combat.gd) and
+# "start_event" (Events.start_event() navigates to the next event) are
+# the exceptions.
+const SELF_NAVIGATING_ON_COMPLETE_OPS: Array[String] = ["start_home_raid_combat", "start_event"]
 
 
 func _on_complete_navigates(on_complete: Array) -> bool:

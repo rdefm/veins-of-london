@@ -4,10 +4,6 @@ extends "res://tests/test_base.gd"
 # the real archie_cultivation event data (the only pin-bearing event as of
 # T13) rather than a synthetic fixture, since GameData.EVENTS is loaded
 # once at boot and isn't swappable per-test.
-#
-# collective1-08 adds two more real pin-bearing events (col_a1_prospecting,
-# col_a1_seeding); their own gating is exercised against the real event
-# data in tests/test_col_a1_tuition.gd instead of duplicated here.
 
 
 func run() -> void:
@@ -101,25 +97,25 @@ func run() -> void:
 
 	# 103-phone-shortcut-for-pin-gated-quests: active_phone_shortcuts_for()
 	# routes on the pin's own "contact" field, not a hardcoded contact id --
-	# exercised against the real col_a1_prospecting data (the first event to
-	# declare "contact"/"phoneLabel") since GameData.EVENTS isn't swappable
+	# exercised against the real col_a1_hakim_meet data (an event declaring
+	# "contact"/"phoneLabel") since GameData.EVENTS isn't swappable
 	# per-test (same constraint the file header above notes).
 
 	run_case("active_phone_shortcuts_for_returns_nothing_before_the_pin_gate_is_met", func():
 		GameState.reset()
-		assert_true(MapPins.active_phone_shortcuts_for("des").is_empty(), "colA1DesMet not set yet -- no shortcut")
+		assert_true(MapPins.active_phone_shortcuts_for("hakim").is_empty(), "colA1HubReached not set yet -- no shortcut")
 		GameState.reset()
 	)
 
 	run_case("active_phone_shortcuts_for_finds_the_pin_by_its_declared_contact_once_gated_in", func():
 		GameState.reset()
-		GameState.state["flags"]["colA1DesMet"] = true
+		GameState.state["flags"]["colA1HubReached"] = true
 
-		var shortcuts := MapPins.active_phone_shortcuts_for("des")
+		var shortcuts := MapPins.active_phone_shortcuts_for("hakim")
 		var ids: Array = []
 		for pin in shortcuts:
 			ids.append(pin["eventId"])
-		assert_true(ids.has("col_a1_prospecting"), "des's pin declares contact:des -- routed to des")
+		assert_true(ids.has("col_a1_hakim_meet"), "hakim's pin declares contact:hakim -- routed to hakim")
 		assert_true(MapPins.active_phone_shortcuts_for("archie").is_empty(), "the same pin must not also route to an unrelated contact")
 		GameState.reset()
 	)

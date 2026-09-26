@@ -2749,11 +2749,8 @@
 "op": "set_flag",
 "value": "tuition"
 }, {
-"op": "notify",
-"text": "Des reckons there's ground worth a look. Check the map."
-}, {
-"op": "set_screen",
-"screen": "contacts"
+"event": "col_a1_prospecting",
+"op": "start_event"
 }]
 },
 "col_a1_nadia_done": {
@@ -2942,16 +2939,9 @@
 "op": "set_flag",
 "value": true
 }, {
-"op": "set_screen",
-"screen": "map"
-}],
-"pin": {
-"contact": "des",
-"district": "shoreditch",
-"phoneLabel": "Go prospecting with Des",
-"showWhenFlagsFalse": ["colA1ProspectingTaught"],
-"showWhenFlagsTrue": ["colA1DesMet"]
-}
+"event": "col_a1_seeding",
+"op": "start_event"
+}]
 },
 "col_a1_seeding": {
 "cards": [{
@@ -3006,21 +2996,9 @@
 "op": "set_flag",
 "value": true
 }, {
-"contact": "des",
-"kind": "col_a1_hub",
-"op": "queue_pending_message",
-"text": "When you've got a minute. Nothing urgent, but there are three things."
-}, {
-"op": "set_screen",
-"screen": "map"
-}],
-"pin": {
-"contact": "des",
-"district": "shoreditch",
-"phoneLabel": "Go seed a patch with Des",
-"showWhenFlagsFalse": ["colA1SeedingTaught"],
-"showWhenFlagsTrue": ["colA1ProspectingTaught"]
-}
+"event": "col_a1_hub",
+"op": "start_event"
+}]
 },
 "col_a2_checkpoint": {
 "cards": [{
@@ -5850,16 +5828,6 @@
 "title": "Bring Hakim's vein back",
 "type": "vein_growth_above"
 },
-"col_a1_hub_reached": {
-"activateFlag": "colA1SeedingTaught",
-"completeFlag": "colA1HubReached",
-"detail": "",
-"id": "col_a1_hub_reached",
-"params": {},
-"questline": "collective",
-"title": "Des has texted — three things he needs help with. Check Contacts.",
-"type": "flag_true"
-},
 "col_a1_nadia_supply": {
 "activateFlag": "colA1NadiaMet",
 "completeFlag": "colA1NadiaSupplied",
@@ -5898,26 +5866,6 @@
 "questline": "collective",
 "title": "Sell Nadia a time vein",
 "type": "vein_sold_to_faction"
-},
-"col_a1_prospecting": {
-"activateFlag": "colA1DesMet",
-"completeFlag": "colA1ProspectingTaught",
-"detail": "",
-"id": "col_a1_prospecting",
-"params": {},
-"questline": "collective",
-"title": "Des is waiting on the map. He'll teach you to prospect.",
-"type": "flag_true"
-},
-"col_a1_seeding": {
-"activateFlag": "colA1ProspectingTaught",
-"completeFlag": "colA1SeedingTaught",
-"detail": "",
-"id": "col_a1_seeding",
-"params": {},
-"questline": "collective",
-"title": "Des is waiting on the map. He'll teach you to seed a patch.",
-"type": "flag_true"
 },
 "col_a2_nadia_defend": {
 "activateFlag": "colA2DefendBriefed",

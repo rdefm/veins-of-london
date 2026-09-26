@@ -119,9 +119,9 @@ func run() -> void:
 
 	run_case("fire_event_unlocks_contacts_its_effects_address", func():
 		DebugStart.apply()
-		assert_eq(GameState.state["contacts"]["des"]["unlocked"], false, "sanity: Des locked on a debug start")
-		DebugTools.fire_event("col_a1_seeding")
-		assert_eq(GameState.state["contacts"]["des"]["unlocked"], true, "unlocked because the event queues Des a message")
+		assert_eq(GameState.state["contacts"]["handler"]["unlocked"], false, "sanity: the handler locked on a debug start")
+		DebugTools.fire_event("col_a2_handler_meet")
+		assert_eq(GameState.state["contacts"]["handler"]["unlocked"], true, "unlocked because the event pushes the handler a message")
 	)
 
 

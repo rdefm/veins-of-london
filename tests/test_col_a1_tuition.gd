@@ -4,30 +4,28 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 const EventPlay := preload("res://tests/support/event_play.gd")
 const NodeQuery := preload("res://tests/support/node_query.gd")
 
-# collective1-08, spec.md §4/§6.1-6.4: Act 1 Phase 1 -- the mandatory tuition
-# chain (S1-S4). Drives the real col_a1_intro/col_a1_prospecting/
-# col_a1_seeding/col_a1_hub event JSON card-by-card, same idiom
-# tests/test_playthrough.gd already uses for archie_cultivation.
+# Act 1 Phase 1 -- the mandatory tuition chain (S1-S4), which plays as one
+# continuous event: col_a1_intro -> col_a1_prospecting -> col_a1_seeding ->
+# col_a1_hub, each started by the previous one's on_complete. Drives the real
+# event JSON card-by-card.
 
 
-func _collective_section() -> Variant:
-	for section in Todo.get_questline_sections():
-		if section["questline"] == "collective":
-			return section
-	return null
-
-
-# Looks an item up by title rather than a fixed index -- S4 (col_a1_hub)
-# also flips colA1HubReached/colA1DesThreadActive, which simultaneously
-# activates col_a1_des_sites and col_a1_hakim_rescue (their own activateFlags
-# per data/objectives.json), so the Collective section's item count grows
-# past MAX_ITEMS_PER_SECTION and the cap trims from the front -- a positional
-# index into "items" would be fragile to that unrelated activation.
-func _find_item(items: Array, title: String) -> Variant:
-	for item in items:
-		if item["title"] == title:
-			return item
-	return null
+# Starts event_id (or, given "", keeps playing the live one) and presses
+# Continue until state.event clears, returning each event id seen in order.
+# Asserts the screen never leaves "event" while one is live.
+func _play_chain_from(event_id: String) -> Array:
+	if event_id != "":
+		Events.start_event(event_id)
+	var played: Array = []
+	var guard := 0
+	while GameState.state["event"] != null and guard < 200:
+		var live_id: String = GameState.state["event"]["eventId"]
+		if played.is_empty() or played[played.size() - 1] != live_id:
+			played.append(live_id)
+		assert_eq(GameState.state["currentScreen"], "event", "%s: never sent off the event screen mid-chain" % live_id)
+		Events.advance()
+		guard += 1
+	return played
 
 
 func run() -> void:
@@ -73,210 +71,57 @@ func run() -> void:
 		assert_true(NodeQuery.find_button(card, "Continue →") == null, "no pending entry yet -- no button")
 	)
 
-	# ── S1: col_a1_intro ────────────────────────────────────────────────
+	# ── S1-S4: one continuous event, intro -> prospecting -> seeding -> hub ──
 
-	run_case("col_a1_intro_on_complete_unlocks_des_and_the_collective_lane_and_awards_relation", func():
+	run_case("col_a1_intro_plays_through_to_hub_as_one_sequence_and_lands_on_phone", func():
 		GameState.reset()
 		var relation_before: int = GameState.state["factions"]["collective"]["relation"]
-
-		EventPlay.play_event("col_a1_intro")
-
-		assert_true(GameState.state["contacts"]["des"]["unlocked"], "des should be unlocked")
-		assert_true(GameState.state["flags"]["colA1DesMet"])
-		assert_true(GameState.state["flags"]["collectiveLaneUnlocked"])
-		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 5, "S1 awards +5 collective relation")
-		assert_eq(GameState.state["flags"]["colA1Stage"], "tuition")
-		# Regression (bugfix: col_a1_intro's Continue button did nothing once
-		# the event finished): on_complete must navigate off the event screen,
-		# not just leave state.event null with currentScreen still "event".
-		assert_eq(GameState.state["currentScreen"], "contacts", "S1 -> Archie's card, where the pending text was tapped from")
-	)
-
-	# ── ticket 90: ToDo never goes silent through the S1-S4 tuition chain ──
-
-	run_case("col_a1_intro_on_complete_notifies_the_player_to_check_the_map_and_todo_goes_from_empty_to_showing_the_chain", func():
-		GameState.reset()
-		assert_true(_collective_section() == null, "no Collective section before Des is even met")
-
-		EventPlay.play_event("col_a1_intro")
-
-		assert_true(Fixtures.has_notification("Des reckons there's ground worth a look. Check the map."), "S1 should notify the player where to look next, not leave them silent")
-
-		var section: Variant = _collective_section()
-		assert_true(section != null, "ToDo's Collective section should appear the instant colA1DesMet flips true")
-		assert_eq(section["items"].size(), 1)
-		assert_eq(section["items"][0]["title"], "Des is waiting on the map. He'll teach you to prospect.")
-		assert_eq(section["items"][0]["done"], false)
-	)
-
-	run_case("todo_tracks_the_full_tuition_chain_through_S2_S3_S4", func():
-		GameState.reset()
-		EventPlay.play_event("col_a1_intro")
-
-		EventPlay.play_event("col_a1_prospecting")
-		var items: Array = _collective_section()["items"]
-		assert_eq(_find_item(items, "Des is waiting on the map. He'll teach you to prospect.")["done"], true, "S2 taught -- the prospecting step should render checked")
-		assert_eq(_find_item(items, "Des is waiting on the map. He'll teach you to seed a patch.")["done"], false)
-
-		EventPlay.play_event("col_a1_seeding")
-		items = _collective_section()["items"]
-		assert_eq(_find_item(items, "Des is waiting on the map. He'll teach you to seed a patch.")["done"], true, "S3 taught -- the seeding step should render checked")
-		assert_eq(_find_item(items, "Des has texted — three things he needs help with. Check Contacts.")["done"], false)
-
-		EventPlay.play_event("col_a1_hub")
-		items = _collective_section()["items"]
-		assert_eq(_find_item(items, "Des has texted — three things he needs help with. Check Contacts.")["done"], true, "S4 reached -- the hub step should render checked")
-	)
-
-	# ── S2/S3: map pins, teach-don't-require ────────────────────────────
-
-	run_case("col_a1_prospecting_pin_is_gated_on_colA1DesMet_and_hides_once_taught", func():
-		GameState.reset()
-		var pins := MapPins.active_contact_pins()
-		var ids: Array = []
-		for pin in pins:
-			ids.append(pin["eventId"])
-		assert_true(not ids.has("col_a1_prospecting"), "hidden before colA1DesMet")
-
-		GameState.state["flags"]["colA1DesMet"] = true
-		pins = MapPins.active_contact_pins()
-		ids = []
-		for pin in pins:
-			ids.append(pin["eventId"])
-		assert_true(ids.has("col_a1_prospecting"), "shown once colA1DesMet is true")
-
-		EventPlay.play_event("col_a1_prospecting")
-		assert_true(GameState.state["flags"]["colA1ProspectingTaught"])
-
-		pins = MapPins.active_contact_pins()
-		ids = []
-		for pin in pins:
-			ids.append(pin["eventId"])
-		assert_true(not ids.has("col_a1_prospecting"), "hidden again once taught")
-	)
-
-	run_case("col_a1_prospecting_does_not_force_a_real_prospect_action", func():
-		GameState.reset()
-		GameState.state["flags"]["colA1DesMet"] = true
 		var sites_before: int = GameState.state["world"]["sites"].size()
 
-		EventPlay.play_event("col_a1_prospecting")
+		var played := _play_chain_from("col_a1_intro")
 
-		assert_eq(GameState.state["world"]["sites"].size(), sites_before, "the tutorial teaches, it doesn't call Sites.prospect()")
-		# Regression: on_complete must navigate off the event screen (see S1's
-		# comment above).
-		assert_eq(GameState.state["currentScreen"], "map", "S2 -> the map pin it was tapped from")
+		assert_eq(played, ["col_a1_intro", "col_a1_prospecting", "col_a1_seeding", "col_a1_hub"], "each event starts the moment the previous one ends")
+		assert_eq(GameState.state["currentScreen"], "phone", "hub's on_complete is the chain's only screen change")
+		assert_true(GameState.state["contacts"]["des"]["unlocked"])
+		assert_true(GameState.state["contacts"]["nadia"]["unlocked"])
+		assert_true(GameState.state["contacts"]["hakim"]["unlocked"])
+		for flag in ["colA1DesMet", "collectiveLaneUnlocked", "colA1ProspectingTaught", "colA1SeedingTaught", "colA1DesThreadActive", "colA1HubReached", "colA1ArchiePryAvailable"]:
+			assert_true(GameState.state["flags"][flag], "%s set by the chain" % flag)
+		assert_eq(GameState.state["flags"]["colA1Stage"], "hub")
+		assert_eq(GameState.state["factions"]["collective"]["relation"], relation_before + 5, "S1's +5 is the chain's only relation award")
+		assert_eq(GameState.state["world"]["sites"].size(), sites_before, "the tuition teaches, it doesn't call Sites.prospect()")
+		assert_true(Messages.pending_for("des").is_empty(), "no three-things pending message -- hub already played")
+		assert_true(not Fixtures.has_notification("Des reckons there's ground worth a look. Check the map."), "no map nudge -- the player never leaves the event")
 	)
 
-	run_case("col_a1_seeding_pin_is_gated_on_colA1ProspectingTaught_and_hides_once_taught", func():
-		GameState.reset()
-		var pins := MapPins.active_contact_pins()
-		var ids: Array = []
-		for pin in pins:
-			ids.append(pin["eventId"])
-		assert_true(not ids.has("col_a1_seeding"), "hidden before colA1ProspectingTaught")
-
-		GameState.state["flags"]["colA1ProspectingTaught"] = true
-		pins = MapPins.active_contact_pins()
-		ids = []
-		for pin in pins:
-			ids.append(pin["eventId"])
-		assert_true(ids.has("col_a1_seeding"), "shown once colA1ProspectingTaught is true")
-
-		EventPlay.play_event("col_a1_seeding")
-		assert_true(GameState.state["flags"]["colA1SeedingTaught"])
-
-		pins = MapPins.active_contact_pins()
-		ids = []
-		for pin in pins:
-			ids.append(pin["eventId"])
-		assert_true(not ids.has("col_a1_seeding"), "hidden again once taught")
-	)
-
-	# ── ticket 103: phone shortcut is a second path to the same pin-gated event ──
-
-	run_case("col_a1_prospecting_reaches_the_same_outcome_via_the_phone_shortcut_as_via_the_map_pin", func():
-		# Map-pin path (existing precedent: this is exactly what
-		# MapCanvas._activate_pin() does when the player taps the pin).
+	run_case("tuition_events_declare_no_map_pin_or_phone_shortcut", func():
 		GameState.reset()
 		GameState.state["flags"]["colA1DesMet"] = true
-		EventPlay.play_event("col_a1_prospecting")
-		var via_pin_taught: bool = GameState.state["flags"]["colA1ProspectingTaught"]
-		var via_pin_screen: String = GameState.state["currentScreen"]
-
-		# Phone-shortcut path: same event, reached instead by pressing the
-		# button ContactCards.build_des_card() surfaces (ticket 103) -- no
-		# travel, no map pin tapped.
-		GameState.reset()
-		GameState.state["flags"]["colA1DesMet"] = true
-		var button := NodeQuery.find_button(ContactCards.build_des_card(), "📍 Go prospecting with Des")
-		assert_true(button != null, "phone shortcut must be available whenever the map pin is")
-		button.pressed.emit()
-		for i in range(GameData.EVENTS["col_a1_prospecting"]["cards"].size()):
-			Events.advance()
-		var via_phone_taught: bool = GameState.state["flags"]["colA1ProspectingTaught"]
-		var via_phone_screen: String = GameState.state["currentScreen"]
-
-		assert_true(via_pin_taught, "sanity: map-pin path teaches prospecting")
-		assert_eq(via_phone_taught, via_pin_taught, "phone shortcut must leave the same flag outcome as the map pin")
-		assert_eq(via_phone_screen, via_pin_screen, "phone shortcut must leave the same on_complete navigation as the map pin")
-
-		# The map pin itself keeps working unchanged -- this is an additional
-		# access path, not a replacement.
-		var pins := MapPins.active_contact_pins()
 		var ids: Array = []
-		for pin in pins:
+		for pin in MapPins.active_contact_pins():
 			ids.append(pin["eventId"])
-		assert_true(not ids.has("col_a1_prospecting"), "pin gone once taught, exactly as before -- both paths converge on the same flag")
+		assert_true(not ids.has("col_a1_prospecting"))
+		assert_true(not ids.has("col_a1_seeding"))
+		assert_true(MapPins.active_phone_shortcuts_for("des").is_empty())
 	)
 
-	run_case("col_a1_seeding_reaches_the_same_outcome_via_the_phone_shortcut_as_via_the_map_pin", func():
-		# Map-pin path.
+	run_case("rewind_inside_a_chained_event_stays_inside_that_event", func():
 		GameState.reset()
-		GameState.state["flags"]["colA1ProspectingTaught"] = true
-		EventPlay.play_event("col_a1_seeding")
-		var via_pin_taught: bool = GameState.state["flags"]["colA1SeedingTaught"]
-		var via_pin_screen: String = GameState.state["currentScreen"]
-		var via_pin_pending: Array = Messages.pending_for("des")
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 2 }
+		EventPlay.play_event("col_a1_intro")
 
-		# Phone-shortcut path.
-		GameState.reset()
-		GameState.state["flags"]["colA1ProspectingTaught"] = true
-		var button := NodeQuery.find_button(ContactCards.build_des_card(), "📍 Go seed a patch with Des")
-		assert_true(button != null, "phone shortcut must be available whenever the map pin is")
-		button.pressed.emit()
-		for i in range(GameData.EVENTS["col_a1_seeding"]["cards"].size()):
-			Events.advance()
-		var via_phone_taught: bool = GameState.state["flags"]["colA1SeedingTaught"]
-		var via_phone_screen: String = GameState.state["currentScreen"]
-		var via_phone_pending: Array = Messages.pending_for("des")
+		assert_eq(GameState.state["event"]["eventId"], "col_a1_prospecting")
+		assert_true(not Events.can_rewind(), "a chained event's first card has no snapshot reaching back into the previous event")
 
-		assert_true(via_pin_taught, "sanity: map-pin path teaches seeding")
-		assert_eq(via_phone_taught, via_pin_taught, "phone shortcut must leave the same flag outcome as the map pin")
-		assert_eq(via_phone_screen, via_pin_screen, "phone shortcut must leave the same on_complete navigation as the map pin")
-		assert_eq(via_phone_pending.size(), via_pin_pending.size(), "both paths queue the same col_a1_hub pending message for des")
+		Events.advance()
+		assert_true(Events.rewind()["ok"])
+		assert_eq(GameState.state["event"]["eventId"], "col_a1_prospecting", "rewind lands back inside the same event")
+		assert_eq(GameState.state["event"]["cardIndex"], 0)
+		assert_eq(GameState.state["currentScreen"], "event")
 
-		var pins := MapPins.active_contact_pins()
-		var ids: Array = []
-		for pin in pins:
-			ids.append(pin["eventId"])
-		assert_true(not ids.has("col_a1_seeding"), "pin gone once taught, exactly as before -- both paths converge on the same flag")
-	)
-
-	run_case("col_a1_seeding_on_complete_queues_the_col_a1_hub_pending_message_for_des", func():
-		GameState.reset()
-		GameState.state["flags"]["colA1ProspectingTaught"] = true
-
-		EventPlay.play_event("col_a1_seeding")
-
-		var pending := Messages.pending_for("des")
-		assert_eq(pending.size(), 1)
-		assert_eq(pending[0]["kind"], "col_a1_hub")
-		var thread: Array = GameState.state["messages"]["des"]
-		assert_eq(thread[thread.size() - 1]["text"], "When you've got a minute. Nothing urgent, but there are three things.")
-		# Regression: on_complete must navigate off the event screen (see S1's
-		# comment above).
-		assert_eq(GameState.state["currentScreen"], "map", "S3 -> the map pin it was tapped from")
+		var played := _play_chain_from("")
+		assert_eq(played, ["col_a1_prospecting", "col_a1_seeding", "col_a1_hub"], "the chain still runs to hub after a rewind")
+		assert_eq(GameState.state["currentScreen"], "phone")
 	)
 
 	# ── S4: col_a1_hub ───────────────────────────────────────────────────
@@ -296,9 +141,7 @@ func run() -> void:
 		Objectives.refresh()
 		assert_true(GameState.state["objectives"]["col_a1_des_sites"]["active"], "S4 activates col_a1_des_sites")
 		assert_true(GameState.state["objectives"]["col_a1_hakim_rescue"]["active"], "S4 activates col_a1_hakim_rescue")
-		# Regression: on_complete must navigate off the event screen (see S1's
-		# comment above).
-		assert_eq(GameState.state["currentScreen"], "phone", "S4 -> Des's conversation, where the pending text was tapped from")
+		assert_eq(GameState.state["currentScreen"], "phone", "S4 navigates off the event screen")
 	)
 
 	run_case("col_a1_hub_does_not_move_collective_relation_on_its_own", func():
@@ -314,8 +157,7 @@ func run() -> void:
 
 	run_case("stopping_after_S4_keeps_the_trading_lane_open_and_relation_never_moves_further", func():
 		GameState.reset()
-		EventPlay.play_event("col_a1_intro")
-		EventPlay.play_event("col_a1_hub")
+		_play_chain_from("col_a1_intro")
 		var relation_after_hub: int = GameState.state["factions"]["collective"]["relation"]
 
 		# Time passes. Nothing the player does (short of trading or the

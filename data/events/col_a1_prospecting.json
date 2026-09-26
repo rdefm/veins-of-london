@@ -1,12 +1,5 @@
 {
   "id": "col_a1_prospecting",
-  "pin": {
-    "district": "shoreditch",
-    "showWhenFlagsTrue": ["colA1DesMet"],
-    "showWhenFlagsFalse": ["colA1ProspectingTaught"],
-    "contact": "des",
-    "phoneLabel": "Go prospecting with Des"
-  },
   "cards": [
     { "type": "narration", "label": "Shoreditch - a service yard behind a coffee place", "speaker": null, "text": "Des has brought you to the least interesting place in Shoreditch and is looking at it with open enthusiasm." },
     { "type": "speaker", "label": null, "speaker": "Des", "text": "\"Everyone looks for the dramatic bit. Cracked stone, old church, that sort of thing. Mostly what you want is somewhere that's been left alone a long time and had something happen to it once.\"" },
@@ -19,6 +12,6 @@
   ],
   "on_complete": [
     { "op": "set_flag", "flag": "colA1ProspectingTaught", "value": true },
-    { "op": "set_screen", "screen": "map" }
+    { "op": "start_event", "event": "col_a1_seeding" }
   ]
 }
