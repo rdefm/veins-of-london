@@ -5470,36 +5470,50 @@
 "image": "res://assets/hq/studio_room.png",
 "regions": {
 "dial": {
-"height": 87,
+"height": 98,
 "image": "",
 "label": "Dial",
-"polygon": [[84, 256], [121, 248], [129, 330], [116, 335]],
-"width": 45,
-"x": 84,
-"y": 248
+"placeholder": false,
+"polygon": [[167, 231], [204, 243], [211, 316], [168, 329]],
+"width": 44,
+"x": 167,
+"y": 231
 },
 "gym": {
 "height": 53,
 "image": "",
 "label": "Gym",
+"placeholder": false,
 "polygon": [[314, 323], [283, 356], [310, 376], [335, 374], [338, 340]],
 "width": 55,
 "x": 283,
 "y": 323
 },
 "lab": {
-"height": 90,
+"height": 121,
 "image": "",
 "label": "Lab",
-"polygon": [[35, 281], [105, 314], [25, 371], [2, 368], [1, 284]],
-"width": 104,
+"placeholder": false,
+"polygon": [[3, 287], [74, 265], [92, 304], [138, 316], [62, 386], [3, 382]],
+"width": 135,
+"x": 3,
+"y": 265
+},
+"oreStore": {
+"height": 118,
+"image": "",
+"label": "Ore store",
+"placeholder": false,
+"polygon": [[47, 413], [1, 407], [2, 509], [45, 525]],
+"width": 46,
 "x": 1,
-"y": 281
+"y": 407
 },
 "rest": {
 "height": 236,
 "image": "",
 "label": "Rest",
+"placeholder": false,
 "polygon": [[385, 379], [186, 456], [189, 555], [245, 614], [388, 615]],
 "width": 202,
 "x": 186,
@@ -5509,19 +5523,21 @@
 "height": 156,
 "image": "",
 "label": "Rooms",
+"placeholder": false,
 "polygon": [[2, 131], [3, 122], [44, 135], [48, 265], [0, 278]],
 "width": 48,
 "x": 0,
 "y": 122
 },
 "security": {
-"height": 209,
+"height": 207,
 "image": "",
 "label": "Security",
-"polygon": [[118, 119], [166, 129], [169, 312], [131, 328]],
-"width": 51,
-"x": 118,
-"y": 119
+"placeholder": false,
+"polygon": [[119, 117], [163, 132], [162, 313], [145, 324], [140, 311], [117, 306]],
+"width": 46,
+"x": 117,
+"y": 117
 }
 },
 "width": 390

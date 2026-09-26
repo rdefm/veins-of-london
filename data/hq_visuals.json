@@ -34,12 +34,13 @@
       "width": 390,
       "height": 660,
       "regions": {
-        "security": { "x": 118, "y": 119, "width": 51, "height": 209, "label": "Security", "image": "", "polygon": [[118, 119], [166, 129], [169, 312], [131, 328]] },
-        "lab": { "x": 1, "y": 281, "width": 104, "height": 90, "label": "Lab", "image": "", "polygon": [[35, 281], [105, 314], [25, 371], [2, 368], [1, 284]] },
-        "dial": { "x": 84, "y": 248, "width": 45, "height": 87, "label": "Dial", "image": "", "polygon": [[84, 256], [121, 248], [129, 330], [116, 335]] },
-        "rest": { "x": 186, "y": 379, "width": 202, "height": 236, "label": "Rest", "image": "", "polygon": [[385, 379], [186, 456], [189, 555], [245, 614], [388, 615]] },
-        "gym": { "x": 283, "y": 323, "width": 55, "height": 53, "label": "Gym", "image": "", "polygon": [[314, 323], [283, 356], [310, 376], [335, 374], [338, 340]] },
-        "rooms": { "x": 0, "y": 122, "width": 48, "height": 156, "label": "Rooms", "image": "", "polygon": [[2, 131], [3, 122], [44, 135], [48, 265], [0, 278]] }
+        "security": { "x": 117, "y": 117, "width": 46, "height": 207, "label": "Security", "image": "", "placeholder": false, "polygon": [[119, 117], [163, 132], [162, 313], [145, 324], [140, 311], [117, 306]] },
+        "lab": { "x": 3, "y": 265, "width": 135, "height": 121, "label": "Lab", "image": "", "placeholder": false, "polygon": [[3, 287], [74, 265], [92, 304], [138, 316], [62, 386], [3, 382]] },
+        "dial": { "x": 167, "y": 231, "width": 44, "height": 98, "label": "Dial", "image": "", "placeholder": false, "polygon": [[167, 231], [204, 243], [211, 316], [168, 329]] },
+        "rest": { "x": 186, "y": 379, "width": 202, "height": 236, "label": "Rest", "image": "", "placeholder": false, "polygon": [[385, 379], [186, 456], [189, 555], [245, 614], [388, 615]] },
+        "gym": { "x": 283, "y": 323, "width": 55, "height": 53, "label": "Gym", "image": "", "placeholder": false, "polygon": [[314, 323], [283, 356], [310, 376], [335, 374], [338, 340]] },
+        "rooms": { "x": 0, "y": 122, "width": 48, "height": 156, "label": "Rooms", "image": "", "placeholder": false, "polygon": [[2, 131], [3, 122], [44, 135], [48, 265], [0, 278]] },
+        "oreStore": { "x": 1, "y": 407, "width": 46, "height": 118, "label": "Ore store", "image": "", "placeholder": false, "polygon": [[47, 413], [1, 407], [2, 509], [45, 525]] }
       }
     }
   },

@@ -103,7 +103,7 @@ overlays.
 | event.gd | Event-card screen (VN and non-VN layouts) |
 | factions.gd | Factions tab |
 | guild_marketplace.gd | Faction trading UI |
-| hq.gd | HQ tab: bedsit plate, routes taps to sub-screens |
+| hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |
 | hq_dial.gd | Dial loadout sub-view (Movements, Complications) |
 | hq_door.gd | Security zone (lock/cameras/door/alarm/guard/ward) |
 | hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment for staffed rooms |
@@ -133,7 +133,7 @@ overlays.
 | dot_matrix_board.gd | Amber-on-black dot-matrix board renderer |
 | dot_matrix_font.gd | Bitmap font for dot_matrix_board.gd |
 | haptics.gd | Adapter over `Input.vibrate_handheld()` |
-| hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected`; owns the region hit rule (`zone_at`/`regions_at`: traced polygon else rect) and the debug hit-shape overlay |
+| hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected`; owns the region hit rule (`zone_at`/`regions_at`: traced polygon else rect), the debug hit-shape overlay, and caption placement (polygon-centred for traced regions) |
 | icons.gd | 13 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
 | map_card_style.gd | Shared vein-popover card family: card tokens (via map_palette.gd), card/inset/action-circle styleboxes, card()/style_panel(), section_label(), text/symbol_text/chip buttons, option rows, round_button()/stepper(), footer(), check-button + symbol tinting. The one button/card look for every non-phone menu; off-map callers build inside MapPalette.build_light |

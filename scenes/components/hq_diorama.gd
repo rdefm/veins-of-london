@@ -85,8 +85,11 @@ func build(plate: Dictionary) -> void:
 			continue
 		var caption := UI.label(region["caption"])
 		caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		caption.position = region_rect(region).position
-		caption.size.x = region_rect(region).size.x
+		var band := caption_rect(region, caption.get_minimum_size().y)
+		caption.position = band.position
+		caption.size.x = band.size.x
+		if region.has("polygon"):
+			caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		caption.add_theme_color_override("font_color", Color.WHITE)
 		caption.add_theme_color_override("font_shadow_color", Color.BLACK)
 		caption.add_theme_constant_override("shadow_offset_x", 1)
@@ -152,6 +155,22 @@ static func polygon_bounds(points: Array) -> Rect2:
 
 static func region_rect(region: Dictionary) -> Rect2:
 	return Rect2(region.get("x", 0.0), region.get("y", 0.0), region.get("width", 0.0), region.get("height", 0.0))
+
+
+# Where a region's caption sits: its rect's top edge, or for a traced polygon
+# a band centred vertically on the polygon's vertex mean, so it lands on the
+# painted object rather than on the bounding box's empty corner.
+static func caption_rect(region: Dictionary, caption_height: float) -> Rect2:
+	if not region.has("polygon"):
+		var rect := region_rect(region)
+		return Rect2(rect.position, Vector2(rect.size.x, caption_height))
+	var points := polygon_points(region["polygon"])
+	var mean := Vector2.ZERO
+	for p in points:
+		mean += p
+	mean /= points.size()
+	var bounds := polygon_bounds(region["polygon"])
+	return Rect2(bounds.position.x, mean.y - caption_height / 2.0, bounds.size.x, caption_height)
 
 
 func _draw() -> void:

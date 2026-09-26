@@ -266,13 +266,9 @@ func run() -> void:
 		hq.free()
 	)
 
-	# §8: "while a raid is pending, the door goes hostile in the room plate" --
-	# no hostile-variant art exists yet (v1 ships zero door art), so the
-	# security region's placeholder-box label is the only signal available;
-	# see hq.gd's _hostile_door_plate(). HqDiorama's own _plate is read
-	# directly here, same as tests/test_hq_diorama.gd already reads
-	# _region_sprites -- the underscore is convention, not enforcement.
-	run_case("hq_room_plate_shows_a_hostile_security_label_while_a_raid_is_pending", func():
+	# §8: a pending raid is announced through notifications; the room plate
+	# itself stays as authored.
+	run_case("hq_room_plate_leaves_the_security_label_unchanged_while_a_raid_is_pending", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
 		GameState.state["home"]["pendingRaid"] = true
@@ -282,21 +278,80 @@ func run() -> void:
 		hq._ready()
 
 		var rendered_region: Dictionary = hq._diorama._plate["regions"]["security"]
-		assert_eq(rendered_region["label"], "Security — RAID", "the security region's placeholder-box label must go hostile while a raid is pending")
-		assert_eq(GameData.HQ_VISUALS["rooms"]["bedsit"]["regions"]["security"]["label"], "Security", "the source manifest itself must be untouched -- GameData.HQ_VISUALS is loaded once at boot and must never be mutated")
+		assert_eq(rendered_region["label"], "Security", "a pending raid must not relabel the security region")
 
 		hq.free()
 	)
 
-	run_case("hq_room_plate_shows_the_normal_security_label_when_no_raid_is_pending", func():
+	# ── Studio plate (docs/hq-diorama-vision.md §3.1): zones baked into the art ─
+
+	run_case("hq_studio_tier_renders_the_studio_plate_with_no_placeholder_boxes", func():
 		GameState.reset()
 		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["tier"] = "studio"
 
 		var hq := HqScreen.new()
 		hq._ready()
 
-		var rendered_region: Dictionary = hq._diorama._plate["regions"]["security"]
-		assert_eq(rendered_region["label"], "Security", "with no raid pending, the security region's label must render normally")
+		assert_eq(hq._diorama._plate["image"], "res://assets/hq/studio_room.png")
+		var regions: Dictionary = hq._diorama._plate["regions"]
+		for region_id in regions:
+			assert_true(not hq._diorama._should_draw_placeholder(region_id, regions[region_id]), "Studio region '%s' must not draw a placeholder box" % region_id)
+
+		hq.free()
+	)
+
+	run_case("hq_studio_rest_caption_sits_inside_the_bed_polygon", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["tier"] = "studio"
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_eq(hq._diorama._captions.size(), 1, "sanity: only the rest region carries a caption")
+		var caption: Label = hq._diorama._captions[0]
+		assert_eq(caption.text, GameData.DAY_CLOCK["restLabel"])
+		var centre := caption.position + Vector2(caption.size.x / 2.0, caption.get_minimum_size().y / 2.0)
+		assert_eq(hq._diorama.zone_at(centre), "rest", "the rest caption's centre must fall on the bed's traced polygon")
+
+		hq.free()
+	)
+
+	run_case("hq_studio_zone_taps_open_their_menus", func():
+		var expectations := {
+			"security": func(): return GameState.state["currentScreen"] == "hq_door",
+			"lab": func(): return GameState.state["currentScreen"] == "hq_lab_bench",
+			"dial": func(): return GameState.state["currentScreen"] == "hq_dial",
+			"rooms": func(): return GameState.state["currentScreen"] == "hq_floorplan",
+			"oreStore": func(): return GameState.state["modal"] != null and GameState.state["modal"]["type"] == "hq_ore_readout",
+			"gym": func(): return GameState.state["modal"] != null and GameState.state["modal"]["type"] == "hq_gym",
+			"rest": func(): return GameState.state["world"]["timeBlock"] == 0,
+		}
+		for zone_id in expectations:
+			GameState.reset()
+			GameState.state["flags"]["homeUnlocked"] = true
+			GameState.state["home"]["tier"] = "studio"
+			GameState.state["currentScreen"] = "hq"
+			GameState.state["world"]["timeBlock"] = 2
+
+			var hq := HqScreen.new()
+			hq._ready()
+			UiSim.tap_zone(hq, zone_id)
+			assert_true(expectations[zone_id].call(), "tapping Studio zone '%s' must open its menu" % zone_id)
+			hq.free()
+	)
+
+	run_case("hq_studio_lock_installed_changes_nothing_on_the_plate", func():
+		GameState.reset()
+		GameState.state["flags"]["homeUnlocked"] = true
+		GameState.state["home"]["tier"] = "studio"
+		GameState.state["home"]["security"] = ["lock"]
+
+		var hq := HqScreen.new()
+		hq._ready()
+
+		assert_eq(hq._diorama._plate["regions"]["security"], GameData.HQ_VISUALS["rooms"]["studio"]["regions"]["security"], "Studio has no installedImage, so a lock must leave its security region as authored")
 
 		hq.free()
 	)
@@ -489,17 +544,16 @@ func run() -> void:
 		hq._ready()
 
 		var rects: Dictionary = hq._diorama.region_rects()
-		var overlap: Rect2 = (rects["security"] as Rect2).intersection(rects["dial"])
-		assert_true(overlap.has_area(), "studio's Security and Dial boxes must overlap for this case to mean anything")
+		var ids: Array = rects.keys()
 		var gap := Vector2(-1, -1)
-		for x in range(int(overlap.position.x), int(overlap.end.x)):
-			for y in range(int(overlap.position.y), int(overlap.end.y)):
-				if hq._diorama.zone_at(Vector2(x, y)) == "":
-					gap = Vector2(x, y)
-					break
-			if gap.x >= 0:
-				break
-		assert_true(gap.x >= 0, "some point in the Security/Dial box overlap must fall outside both polygons")
+		for i in ids.size():
+			for j in range(i + 1, ids.size()):
+				var overlap: Rect2 = (rects[ids[i]] as Rect2).intersection(rects[ids[j]])
+				for x in range(int(overlap.position.x), int(overlap.end.x)):
+					for y in range(int(overlap.position.y), int(overlap.end.y)):
+						if gap.x < 0 and hq._diorama.zone_at(Vector2(x, y)) == "":
+							gap = Vector2(x, y)
+		assert_true(gap.x >= 0, "some point where two studio boxes overlap must fall outside every polygon")
 
 		hq._on_diorama_gui_input(UiSim.tap_at(gap))
 		assert_eq(GameState.state["currentScreen"], "hq", "a tap in the boxes but outside every polygon must not navigate")

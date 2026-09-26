@@ -54,8 +54,6 @@ func _build_room_view() -> void:
 	plate = _security_lock_installed_plate(plate, home).duplicate(true)
 	if plate["regions"].has("rest"):
 		plate["regions"]["rest"]["caption"] = GameData.DAY_CLOCK["restLabel"]
-	if Home.has_pending_raid():
-		plate = _hostile_door_plate(plate)
 
 	_diorama = HqDiorama.new()
 	_diorama.build(plate)
@@ -66,12 +64,6 @@ func _build_room_view() -> void:
 	var debug_toggle := MapCardStyle.chip_button("Debug regions" if not _debug_overlay_enabled else "Debug regions ✓", _on_debug_toggle_pressed)
 	debug_toggle.position = Vector2(4.0, UI.top_bar_clearance() + 4.0)
 	add_child(debug_toggle)
-func _hostile_door_plate(plate: Dictionary) -> Dictionary:
-	var hostile_plate: Dictionary = plate.duplicate(true)
-	var security_region: Dictionary = hostile_plate["regions"].get("security")
-	if security_region != null:
-		security_region["label"] = "Security — RAID"
-	return hostile_plate
 func _security_lock_installed_plate(plate: Dictionary, home: Dictionary) -> Dictionary:
 	if not home["security"].has("lock"):
 		return plate

@@ -71,7 +71,7 @@ hardware.
 |---|---|---|---|
 | Dial | bag & umbrella on the desk | Dial loadout view (§4) — **diegetic** | bedsit |
 | Lab | lab equipment on the desk | Lab bench (§5) — **diegetic** | bedsit |
-| Security | front door | Security view (§8) — **diegetic**; *hostile-door state* when a raid is pending, opening Defend instead | bedsit |
+| Security | front door | Security view (§8) — **diegetic**; opens Defend instead while a raid is pending | bedsit |
 | Rest | the bed | Rest directly, no intermediate view | bedsit |
 | Rooms | pinned noticeboard | Floorplan (§6) — **diegetic** | bedsit (empty plan; teaches the object) |
 | Ore store | bag → strongbox → safe | readout: stored ore + "this is what a raid takes" | bedsit |
@@ -262,8 +262,9 @@ Drawn with visible fixture points: an empty lock plate, an empty bar
 bracket, a bare camera mount, an unmarked ward panel. Installed security
 fills its slot; uninstalled security is a visible absence you tap to buy.
 
-**Hostile state:** while a raid is pending, the door goes hostile in the
-room plate — and tapping it opens Defend rather than the security list.
+**Hostile state:** while a raid is pending, tapping the door opens Defend
+rather than the security list. The room plate itself does not change; the
+raid is announced to the player through notifications.
 
 ## 9. Data & degradation
 
