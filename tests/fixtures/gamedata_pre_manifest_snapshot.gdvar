@@ -448,7 +448,7 @@
 "locationBackdropRule": "'locationBackdrops' maps a combat.locationKey (a data/districts.json id, or 'home') to { image } and is checked before 'backdrops': location plate -> context plate -> fallbackColor (docs/combat-animation-vision.md §2.1). A missing key or an unloadable image falls through to the context tier.",
 "name": "Combat visuals manifest",
 "purpose": "Maps combat context (and, from ticket 09, enemy/ally template key) to the art asset that renders it, so scenes/screens/combat.gd never hardcodes a path. See docs/combat-animation-vision.md §2.1/§6 and docs/ART-BIBLE.md.",
-"templateRule": "Ticket 09 (amended by a ticket-10 follow-up): 'templates' keys other than 'default' are the seven cast subjects (docs/combat-animation-vision.md §3) resolved by CombatScreen.enemy_template_key()/display-entry building -- the player's state.player.model key (e.g. 'territorial3'), the recruited-ally contactId (e.g. 'archie'), the data/enemies.json raidGuards key (territorialScrapper/veinGuard/orichalchumDealer), 'homeRaidRaider' (GameData.ENEMY_HOME_RAID_RAIDER), and 'mugger' (any enemy with isMugging true, however many concurrent instances -- one sheet, reused). Each subject's 'idle' entry is {image, frameCount, fps}; an empty 'image' means no dedicated art has been produced yet -- CombatScreen.StageSlot now falls back to 'default's own idle entry (the same Gangsters_2-sourced stand-in attack/hit/ko already share) rather than the ticket-01 placeholder box, per-subject, not an error. The ticket-01 box is still there as a defensive fallback (a broken/missing 'default' entry), just not expected to trigger in normal play any more."
+"templateRule": "Ticket 09 (amended by a ticket-10 follow-up): 'templates' keys other than 'default' are the seven cast subjects (docs/combat-animation-vision.md §3) resolved by CombatScreen.enemy_template_key()/display-entry building -- the player's state.player.model key (a discovered territorial variant such as 'territorial3' -- not written here: GameData.combat_templates() builds one entry per assets/combat/territorial<N>/ folder from 'territorialVariant', and a hand-written entry of the same key would win),the recruited-ally contactId (e.g. 'archie'), the data/enemies.json raidGuards key (territorialScrapper/veinGuard/orichalchumDealer), 'homeRaidRaider' (GameData.ENEMY_HOME_RAID_RAIDER), and 'mugger' (any enemy with isMugging true, however many concurrent instances -- one sheet, reused). Each subject's 'idle' entry is {image, frameCount, fps}; an empty 'image' means no dedicated art has been produced yet -- CombatScreen.StageSlot now falls back to 'default's own idle entry (the same Gangsters_2-sourced stand-in attack/hit/ko already share) rather than the ticket-01 placeholder box, per-subject, not an error. The ticket-01 box is still there as a defensive fallback (a broken/missing 'default' entry), just not expected to trigger in normal play any more."
 },
 "pacing": {
 "_note": "turnPause: seconds held between two combatants' turns during beat playback and Rewind, per CombatPacing mode (scenes/components/combat_director.gd).",
@@ -605,35 +605,6 @@
 "image": "res://assets/combat/orichalchum_dealer/ko.png"
 }
 },
-"territorial3": {
-"_note": "Playable protagonist (state.player.model). Separate single-pose files; attack 'variants' are alternative swings, one picked at random per attack: a 1-frame jab, or guard wind-up then cross.",
-"attack": {
-"variants": [{
-"fps": 5,
-"images": ["res://assets/combat/territorial3/territorial3_attack_1.png"]
-}, {
-"fps": 5,
-"images": ["res://assets/combat/territorial3/territorial3_attack_2a.png", "res://assets/combat/territorial3/territorial3_attack_2b.png"]
-}]
-},
-"hit": {
-"fps": 5,
-"images": ["res://assets/combat/territorial3/territorial3_hurt.png"]
-},
-"idle": {
-"fps": 0,
-"images": ["res://assets/combat/territorial3/territorial3_idle.png"]
-},
-"ko": {
-"fps": 0,
-"frameCount": 0,
-"image": ""
-},
-"throw": {
-"fps": 1.4375,
-"images": ["res://assets/combat/territorial3/territorial3_throw_windup.png", "res://assets/combat/territorial3/territorial3_throw_release.png"]
-}
-},
 "territorialScrapper": {
 "_note": "Asset-pack sourced stand-in (assets/Gangsters_2), untouched, same convention as templates.default -- see that entry's own _note. Not final art.",
 "attack": {
@@ -677,6 +648,36 @@
 "fps": 0,
 "frameCount": 0,
 "image": ""
+}
+}
+},
+"territorialVariant": {
+"_note": "Shared pose spec for every discovered assets/combat/territorial<N>/ folder (GameData.TERRITORIAL_VARIANTS). Each file stem resolves to territorial<N>/territorial<N>_<stem>.png; a pose, or one attack variant, loads only when all its files exist. Attack 'variants' are alternative swings, one picked at random per attack: a 1-pose jab, or guard wind-up then cross. ko reuses the hurt pose under the ko fall+fade transform.",
+"poses": {
+"attack": {
+"variants": [{
+"files": ["attack_1"],
+"fps": 5
+}, {
+"files": ["attack_2a", "attack_2b"],
+"fps": 5
+}]
+},
+"hit": {
+"files": ["hurt"],
+"fps": 5
+},
+"idle": {
+"files": ["idle"],
+"fps": 0
+},
+"ko": {
+"files": ["hurt"],
+"fps": 3
+},
+"throw": {
+"files": ["throw_windup", "throw_release"],
+"fps": 1.4375
 }
 }
 }

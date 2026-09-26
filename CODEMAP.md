@@ -8,7 +8,7 @@ file owns today, no history.
 | File | Purpose |
 |---|---|
 | EventBus.gd | Central signal bus — systems emit, screens redraw |
-| GameData.gd | Loads/validates every `data/*.json` table at boot |
+| GameData.gd | Loads/validates every `data/*.json` table at boot; scans `assets/combat/territorial<N>/` folders into `TERRITORIAL_VARIANTS` and builds their sprite sets in `combat_templates()` |
 | GameState.gd | Pure state tree (Dicts/Arrays/primitives); screens read only |
 | Rng.gd | Seeded RNG for every probabilistic system |
 | SaveManager.gd | Save/load/autosave/export-import; backfills missing keys (pre-tenure homes load owned, bedsit rented), restores JSON ints, KO-clamps a loaded fight's selection, founder fix-ups (room→role, Archie recruited past home raid) |
@@ -122,7 +122,7 @@ overlays.
 | bag_drawer.gd | Global bottom-sheet bag drawer; in combat, item buttons disable (with reason) per `Combat.selection_block_reason()` |
 | combat_command_dock.gd | Combat's lower command region: full-width near-white surface Panel holding the Dial beside flat 1px-ruled command rows (Complication readout, Attack, Item, Leg it), anchored to the true screen bottom; Attack/Item disabled per the current selection |
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns |
-| combat_stage.gd | Combat pixel stage: backdrop (location -> context -> palette); slots in two receding diagonal groups (enemies back/smaller), fitted to each sprite's visible figure, depth-sorted; keypose one-shots (sheet, `images` list, or random attack `variants`; player = `templates[player.model]`), effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot draws an arrow |
+| combat_stage.gd | Combat pixel stage: backdrop (location -> context -> palette); slots in two receding diagonal groups (enemies back/smaller), fitted to each visible figure, depth-sorted; keypose one-shots (sheet, `images` list, or random attack `variants`; player = `combat_templates()[player.model]`), effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot draws an arrow |
 | contact_cards.gd | Shared contact/faction card builders (incl. handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia"), inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
 | line_chart.gd | One-series `_draw` line chart (palette-id colour, max label, first/last day) for BizBrief Stats |
@@ -218,7 +218,7 @@ overlays.
 | barometer.json | barometer.gd |
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
-| combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); combat_director.gd (pacing.turnPause) |
+| combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause) |
 | constants.json | time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps), business.gd (payday interval, weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |

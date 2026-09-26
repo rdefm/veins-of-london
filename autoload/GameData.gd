@@ -116,6 +116,12 @@ var COMBAT_SPEED_BY_LEVEL: Array = []
 # attack stand-in; unvalidated below (shape not finalised).
 var COMBAT_VISUALS: Dictionary = {}
 
+# Keys of every assets/combat/territorial<N>/ folder, ordered by N, found at
+# boot by _scan_territorial_variants(); combat_templates() gives each one a
+# sprite set built from combat_visuals.json's "territorialVariant" spec.
+const TERRITORIAL_VARIANT_ROOT := "res://assets/combat/"
+var TERRITORIAL_VARIANTS: Array[String] = []
+
 # data/palette.json (docs/ART-BIBLE.md §2): colour id -> Color, so any
 # screen can resolve a data-declared palette key without hardcoding hex.
 # Not its own validate_tables() subject -- cross-referenced by
@@ -351,6 +357,7 @@ func load_all() -> void:
 
 	_load_palette()
 	_load_events()
+	_scan_territorial_variants()
 
 	loaded = true
 
@@ -1056,6 +1063,17 @@ func _validate_combat_visuals(combat_visuals: Dictionary, palette: Dictionary, e
 		if str(location_entry.get("image", "")).is_empty():
 			errors.append("combat_visuals.locationBackdrops.%s: 'image' must be a res:// path (drop the entry instead of leaving it empty)" % location_key)
 
+	# Every territorial variant pose (and attack variant) names at least one
+	# file stem; an empty list would build a pose that can never load.
+	var poses: Dictionary = combat_visuals.get("territorialVariant", {}).get("poses", {})
+	for pose in poses.keys():
+		var pose_spec: Dictionary = poses[pose]
+		var pose_entries: Array = pose_spec.get("variants", [pose_spec])
+		for pose_entry in pose_entries:
+			var files: Array = pose_entry.get("files", [])
+			if files.is_empty():
+				errors.append("combat_visuals.territorialVariant.poses.%s: needs a non-empty 'files' list" % pose)
+
 
 # Iterates whatever room/region ids data/hq_visuals.json has -- no
 # CANONICAL_* roster, since the point (§9/§3.2) is a plate or region can
@@ -1478,6 +1496,78 @@ func _list_event_ids() -> Array[String]:
 	dir.list_dir_end()
 	ids.sort()
 	return ids
+
+
+# ResourceLoader.list_directory() lists the resource filesystem, so it sees
+# the folders in an exported pack too, where res:// holds .import/.remap
+# entries instead of raw PNGs.
+func _scan_territorial_variants() -> void:
+	TERRITORIAL_VARIANTS = []
+	if not DirAccess.dir_exists_absolute(TERRITORIAL_VARIANT_ROOT):
+		_load_errors.append("Could not open directory: %s" % TERRITORIAL_VARIANT_ROOT)
+		return
+	TERRITORIAL_VARIANTS = ordered_territorial_variants(ResourceLoader.list_directory(TERRITORIAL_VARIANT_ROOT))
+
+
+# A listing entry's variant key ("territorial2/", "territorial2.remap" ->
+# "territorial2"), or "" when the name isn't territorial<integer>.
+static func territorial_variant_key(entry: String) -> String:
+	var name := entry.trim_suffix("/").trim_suffix(".remap").trim_suffix(".import")
+	var pattern := RegEx.create_from_string("^territorial\\d+$")
+	return name if pattern.search(name) != null else ""
+
+
+static func ordered_territorial_variants(entries: PackedStringArray) -> Array[String]:
+	var keys: Array[String] = []
+	for entry in entries:
+		var key := territorial_variant_key(entry)
+		if not key.is_empty() and not keys.has(key):
+			keys.append(key)
+	keys.sort_custom(func(a: String, b: String) -> bool: return int(a.trim_prefix("territorial")) < int(b.trim_prefix("territorial")))
+	return keys
+
+
+# COMBAT_VISUALS.templates plus one built entry per TERRITORIAL_VARIANTS key
+# (a hand-written templates entry of the same key wins). Nothing is built
+# when the manifest carries no "territorialVariant" spec.
+func combat_templates() -> Dictionary:
+	var templates: Dictionary = COMBAT_VISUALS.get("templates", {}).duplicate()
+	if not COMBAT_VISUALS.has("territorialVariant"):
+		return templates
+	for key in TERRITORIAL_VARIANTS:
+		if not templates.has(key):
+			templates[key] = territorial_variant_template(key)
+	return templates
+
+
+# One variant's template entry in the `images` form combat_stage.gd loads.
+# A pose, or one attack variant, whose files aren't all present is left
+# empty, so the stage's usual per-pose fallback applies.
+func territorial_variant_template(key: String) -> Dictionary:
+	var poses: Dictionary = COMBAT_VISUALS.get("territorialVariant", {}).get("poses", {})
+	var template: Dictionary = {}
+	for pose in poses.keys():
+		var pose_spec: Dictionary = poses[pose]
+		if pose_spec.has("variants"):
+			var variants: Array = []
+			for variant_spec in pose_spec["variants"]:
+				var built := _territorial_pose(key, variant_spec)
+				if not built.is_empty():
+					variants.append(built)
+			template[pose] = { "variants": variants }
+		else:
+			template[pose] = _territorial_pose(key, pose_spec)
+	return template
+
+
+func _territorial_pose(key: String, pose_spec: Dictionary) -> Dictionary:
+	var images: Array = []
+	for stem in pose_spec.get("files", []):
+		var path := "%s%s/%s_%s.png" % [TERRITORIAL_VARIANT_ROOT, key, key, stem]
+		if not ResourceLoader.exists(path):
+			return {}
+		images.append(path)
+	return { "images": images, "fps": float(pose_spec.get("fps", 0.0)) }
 
 
 # `table` is purely for error messages, so a missing/broken file's error

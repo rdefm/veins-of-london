@@ -541,6 +541,9 @@ var _default_hit_keyposes: Array[Texture2D] = []
 var _default_hit_fps: float = 10.0
 var _default_ko_keyposes: Array[Texture2D] = []
 var _default_ko_fps: float = 12.0
+# GameData.combat_templates() at build time: manifest entries plus the
+# discovered territorial variants.
+var _templates: Dictionary = {}
 var _idle_frames_by_template: Dictionary = {}
 var _empty_idle_frames: Array[Texture2D] = []
 var _attack_keyposes_by_template: Dictionary = {}
@@ -726,6 +729,7 @@ func _build() -> void:
 	_stage_shake_layer.add_child(_vignette)
 	_fit_layers_to_size()
 
+	_templates = GameData.combat_templates()
 	_load_default_animations()
 	_load_template_idle_animations()
 	_load_template_action_animations()
@@ -746,8 +750,7 @@ func _load_default_animations() -> void:
 	_default_ko_fps = ko["fps"]
 func _load_template_idle_animations() -> void:
 	_idle_frames_by_template = {}
-	var templates: Dictionary = GameData.COMBAT_VISUALS.get("templates", {})
-	for key in templates.keys():
+	for key in _templates.keys():
 		_idle_frames_by_template[key] = _load_animation_frames(key, "idle")
 func _load_template_action_animations() -> void:
 	_attack_keyposes_by_template = {}
@@ -756,8 +759,7 @@ func _load_template_action_animations() -> void:
 	_self_patch_keyposes_by_template = {}
 	_cast_keyposes_by_template = {}
 	_throw_keyposes_by_template = {}
-	var templates: Dictionary = GameData.COMBAT_VISUALS.get("templates", {})
-	for key in templates.keys():
+	for key in _templates.keys():
 		_attack_keyposes_by_template[key] = _load_action_keyposes(key, "attack", ATTACK_KEYPOSE_COUNT)
 		_hit_keyposes_by_template[key] = _load_action_keyposes(key, "hit", HIT_KEYPOSE_COUNT)
 		_ko_keyposes_by_template[key] = _load_action_keyposes(key, "ko", KO_KEYPOSE_COUNT)
@@ -767,7 +769,7 @@ func _load_template_action_animations() -> void:
 # An entry with "variants" ([entry, ...]) holds alternative poses for the
 # same action; "frames"/"fps" mirror the first variant for fallback checks.
 func _load_action_keyposes(template_key: String, key: String, count: int) -> Dictionary:
-	var entry: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get(template_key, {}).get(key, {})
+	var entry: Dictionary = _templates.get(template_key, {}).get(key, {})
 	if entry.has("variants"):
 		var variants: Array = []
 		for variant in entry["variants"]:
@@ -797,7 +799,7 @@ func _resolve_action_keyposes(by_template: Dictionary, template_key: String, def
 	return { "frames": frames, "fps": entry.get("fps", 0.0) }
 
 func _load_animation_frames(template_key: String, key: String) -> Dictionary:
-	var entry: Dictionary = GameData.COMBAT_VISUALS.get("templates", {}).get(template_key, {}).get(key, {})
+	var entry: Dictionary = _templates.get(template_key, {}).get(key, {})
 	return _load_sheet_frames(entry)
 # An entry is either one horizontal sheet ({image, frameCount}) or
 # separate single-pose files ({images: [...]}), one frame each.

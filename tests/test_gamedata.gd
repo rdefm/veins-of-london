@@ -454,6 +454,61 @@ func run() -> void:
 		assert_true(found, "a script entry naming an action outside CombatPrototype.SCRIPTABLE_ACTIONS should be flagged")
 	)
 
+	# ── territorial variants: discovered from assets/combat/territorial<N>/ ──
+
+	run_case("territorial_variants_discovered_in_order", func():
+		assert_eq(GameData.TERRITORIAL_VARIANTS, ["territorial1", "territorial2", "territorial3"] as Array[String], "every territorial<N> folder, ordered by N")
+		assert_true(not GameData.COMBAT_VISUALS["templates"].has("territorial3"), "territorial3 is discovered, not hand-written")
+		assert_true(GameData.combat_templates().has("territorial3"), "combat_templates() includes discovered variants")
+	)
+
+	run_case("territorial_variant_key_normalises_export_listing_entries", func():
+		assert_eq(GameData.territorial_variant_key("territorial2/"), "territorial2", "directory entry")
+		assert_eq(GameData.territorial_variant_key("territorial2"), "territorial2", "bare name")
+		assert_eq(GameData.territorial_variant_key("territorial2.remap"), "territorial2", ".remap suffix stripped")
+		assert_eq(GameData.territorial_variant_key("territorial2.import"), "territorial2", ".import suffix stripped")
+		assert_eq(GameData.territorial_variant_key("territorial_scrapper/"), "", "non-integer suffix is not a variant")
+		assert_eq(GameData.territorial_variant_key("territorial/"), "", "no integer is not a variant")
+		assert_eq(GameData.territorial_variant_key("territorial1.png.import"), "", "a file is not a variant")
+		assert_eq(GameData.territorial_variant_key("archie/"), "", "other folders ignored")
+	)
+
+	run_case("ordered_territorial_variants_handles_gaps_and_non_matching_names", func():
+		var entries := PackedStringArray(["territorial10/", "archie/", "territorial3/", "territorial_scrapper/", "territorial1/", "territorial1.remap", "backdrops/"])
+		assert_eq(GameData.ordered_territorial_variants(entries), ["territorial1", "territorial3", "territorial10"] as Array[String], "numeric order, gap kept, non-matching and duplicate entries dropped")
+	)
+
+	run_case("territorial_variant_template_builds_poses_from_the_shared_spec", func():
+		var t: Dictionary = GameData.territorial_variant_template("territorial1")
+		assert_eq(t["idle"]["images"], ["res://assets/combat/territorial1/territorial1_idle.png"], "idle from <key>_idle.png")
+		assert_eq(t["attack"]["variants"].size(), 2, "jab + wind-up/cross")
+		assert_eq(t["ko"]["images"], ["res://assets/combat/territorial1/territorial1_hurt.png"], "ko reuses the hurt pose")
+		assert_eq(t["throw"]["images"].size(), 2, "throw wind-up + release")
+	)
+
+	run_case("territorial_variant_missing_files_leave_the_pose_empty", func():
+		var original: Dictionary = GameData.COMBAT_VISUALS
+		var patched: Dictionary = original.duplicate(true)
+		patched["territorialVariant"]["poses"]["throw"]["files"] = ["throw_windup", "throw_missing"]
+		patched["territorialVariant"]["poses"]["attack"]["variants"].append({ "files": ["attack_missing"], "fps": 5.0 })
+		GameData.COMBAT_VISUALS = patched
+		var t: Dictionary = GameData.territorial_variant_template("territorial2")
+		GameData.COMBAT_VISUALS = original
+		assert_eq(t["throw"], {}, "one missing throw file drops the whole throw pose")
+		assert_eq(t["attack"]["variants"].size(), 2, "an attack variant with a missing file is dropped")
+	)
+
+	run_case("corrupt_fixture_territorial_variant_pose_without_files_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		corrupted["combat_visuals"]["territorialVariant"]["poses"]["hit"]["files"] = []
+		var errors := GameData.validate_tables(corrupted)
+		var found := false
+		for e in errors:
+			if e.contains("territorialVariant.poses.hit"):
+				found = true
+		assert_true(found, "a pose with no file stems should be flagged")
+	)
+
 	# ── combat-presentation ticket 08: data/combat_visuals.json ──
 
 	run_case("corrupt_fixture_combat_visuals_missing_canonical_context_fails", func():

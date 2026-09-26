@@ -1526,6 +1526,12 @@ func run() -> void:
 		assert_eq(slot._attack_variants[0]["frames"].size(), 1, "jab variant is one pose")
 		assert_eq(slot._attack_variants[1]["frames"].size(), 2, "wind-up + cross variant is two poses")
 		assert_eq(slot._hit_keyposes.size(), 1, "hurt pose loads")
+		assert_eq(slot._ko_keyposes, slot._hit_keyposes, "ko plays the variant's own hurt pose, not the default ko")
+		assert_eq(slot._ko_fps, 3.0, "ko fps from the territorialVariant spec")
+		for key in GameData.TERRITORIAL_VARIANTS:
+			assert_true(not screen._stage._idle_frames_by_template[key]["frames"].is_empty(), "%s idle loads" % key)
+			assert_eq(screen._stage._ko_keyposes_by_template[key]["frames"].size(), 1, "%s ko from its hurt image" % key)
+			assert_eq(screen._stage._throw_keyposes_by_template[key]["frames"].size(), 2, "%s throw loads" % key)
 
 		screen.free()
 	)
