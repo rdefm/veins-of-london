@@ -119,7 +119,7 @@ room. Future hires still need the matching room.
 47. As a player who somehow already recruited James, I want the scene still to play without breaking anything, so that old saves stay safe.
 48. As a player, I want James's crafting skill set to 5 when he joins, so that he is the master crafter the story says he is.
 49. As a player, I want to assign James to production from the Staff tab, so that the business can make goods.
-50. As a player, I want James to make one craft attempt at the end of each time block, working toward my Production targets and contract needs, so that his output is steady and predictable.
+50. As a player, I want James to keep crafting at the end of each time block until my Production targets and contract needs are met or he runs out of ore, so that stock is topped up without babysitting.
 51. As a player, I want James to use ore from shared stock, never my personal stash, so that my reserve stays mine.
 
 ### Archie's sales role
@@ -211,8 +211,8 @@ room. Future hires still need the matching room.
   - Above the band → prune down to the target, yield into shared stock. Below the band → one cultivate roll at the worker's skill (existing station semantics). Every vein within its band → idle.
   - Ties go to vein assignment order.
   - XP: **2 per action** (prune or cultivate, success or fail), replacing the station's old 15/20/8 values. This is a data value.
-- **Producers** (replaces the Lab's "attempt until targets met"):
-  - Each block, each producer makes **one** craft attempt toward the existing Production effective targets (personal target + contract need when "cover contracts" is on).
+- **Producers:**
+  - Each block, producers keep making craft attempts toward the existing Production effective targets (personal target + contract need when "cover contracts" is on) until every target is met or the next item's ore is short, then wait for the next block. Multiple producers take turns one attempt at a time, in role order.
   - The existing priority order applies: contract-card order first, then target order.
   - Uses the worker's crafting skill, shared-stock ore only, and existing XP rules (full or ⅓).
   - Idle if nothing is below target or ore is short.

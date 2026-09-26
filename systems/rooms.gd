@@ -213,8 +213,9 @@ static func vein_station_target_text(vein_id: String) -> Variant:
 
 # The staff block step (R§3.10 "Staff block step"), run by TimeSystem at
 # the end of every player time block: each working cultivator takes one
-# action, then each working producer makes one craft attempt, then Sales
-# re-checks delegated contracts if shared stock grew. Returns the block's
+# action, then working producers craft until every target is met or none
+# can afford its next item, then Sales re-checks delegated contracts if
+# shared stock grew. Returns the block's
 # output { "ore": {oreType: qty}, "items": {recipeKey: qty} } for the
 # Morning Brief.
 static func process_staff_block() -> Dictionary:
@@ -222,9 +223,7 @@ static func process_staff_block() -> Dictionary:
 	for contact_id in Contacts.contacts_in_role("cultivation"):
 		if Payroll.is_working(contact_id):
 			_cultivator_act(contact_id, output["ore"])
-	for contact_id in Contacts.contacts_in_role("production"):
-		if Payroll.is_working(contact_id):
-			_producer_act(contact_id, output["items"])
+	_run_producers(output["items"])
 	if not output["ore"].is_empty() or not output["items"].is_empty():
 		EventBus.shared_stock_increased.emit()
 	return output
@@ -282,9 +281,35 @@ static func _cultivator_act(contact_id: String, ore_out: Dictionary) -> void:
 	Contacts.award_contact_xp(contact_id, "cultivating", GameData.CULTIVATOR_ACTION_XP)
 
 
+# Safety bound on total producer attempts in one block. Every recipe costs
+# at least 1 ore per ingredient (Crafting.calc_cost), so ore stock already
+# bounds the loop; this only guards an ingredient-less recipe failing forever.
+const MAX_PRODUCER_ATTEMPTS_PER_BLOCK := 10000
+
+
+# Producers take turns one attempt at a time, in contacts_in_role order,
+# until none can make another attempt. Targets are checked against live
+# stock before every attempt, so crafters never double-count a target.
+static func _run_producers(items_out: Dictionary) -> void:
+	var active: Array = []
+	for contact_id in Contacts.contacts_in_role("production"):
+		if Payroll.is_working(contact_id):
+			active.append(contact_id)
+	var attempts := 0
+	while not active.is_empty() and attempts < MAX_PRODUCER_ATTEMPTS_PER_BLOCK:
+		for contact_id in active.duplicate():
+			if attempts >= MAX_PRODUCER_ATTEMPTS_PER_BLOCK:
+				break
+			if _producer_act(contact_id, items_out):
+				attempts += 1
+			else:
+				active.erase(contact_id)
+
+
 # One craft attempt at the first recipe in _production_order() that is
 # unlocked, below its effective target, and affordable from shared stock.
-static func _producer_act(contact_id: String, items_out: Dictionary) -> void:
+# Returns false (no attempt) when nothing qualifies.
+static func _producer_act(contact_id: String, items_out: Dictionary) -> bool:
 	var flags: Dictionary = GameState.state["flags"]
 	var ore: Dictionary = GameState.state["player"]["orichalchum"]
 	var skill: int = GameState.state["contacts"][contact_id].get("craftingSkill", 1)
@@ -311,4 +336,5 @@ static func _producer_act(contact_id: String, items_out: Dictionary) -> void:
 			Contacts.award_contact_xp(contact_id, "crafting", xp_reward)
 		else:
 			Contacts.award_contact_xp(contact_id, "crafting", int(floor(float(xp_reward) / 3.0)))
-		return
+		return true
+	return false

@@ -76,7 +76,7 @@ Data file per system: see `data/*.json` below.
 | raid_alarms.gd | Summaries + dispatch for raid alarms |
 | raiding.gd | Vein stealth-check + raid resolution |
 | relation_accrual.gd | Capped £ relation meter |
-| rooms.gd | Per-block staff step (cultivators then producers, one action each), Production targets/priority, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
+| rooms.gd | Per-block staff step (one action per cultivator, then producers take turns crafting until targets met or ore short), Production targets/priority, per-cultivator vein lists (`cultivatorVeins`) and per-vein targets |
 | sites.gd | Sites & prospecting |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |

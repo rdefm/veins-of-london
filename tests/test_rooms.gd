@@ -13,27 +13,63 @@ func run() -> void:
 		assert_eq(output, { "ore": {}, "items": {} })
 	)
 
-	run_case("producer_makes_one_attempt_per_block_and_idles_when_ore_is_short", func():
+	run_case("producer_crafts_until_ore_runs_out_within_one_block", func():
 		GameState.reset()
 		_staff_lab("archie", 1)
 		GameState.state["labThresholds"]["timePearl"] = 1000  # unreachable target
-		# timePearl calcCost at skill 1 = baseCalcCost = 5. Exactly 3 attempts' worth.
-		GameState.state["player"]["orichalchum"]["time"] = 15
+		# timePearl calcCost at skill 1 = 5. Exactly 3 attempts' worth; 3 successes
+		# (60 XP) stay under level 2's 80, so the cost holds at 5.
+		GameState.state["player"]["orichalchum"]["time"] = 17
 		Rng.set_seed(1)
+		var output: Dictionary = Rooms.process_staff_block()
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 2, "3 attempts in one block, then 2 is short for the next")
+		var made: int = output["items"].get("timePearl", 0)
+		assert_eq(Crafting.inventory_qty("timePearl"), made, "block output matches items made")
 		Rooms.process_staff_block()
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 10, "one attempt per block")
-		_run_blocks(3)
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 0, "3 attempts spend it all; the 4th block idles on short ore")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 2, "next block idles on short ore")
 	)
 
-	run_case("producer_crafts_to_threshold_and_then_idles", func():
+	run_case("producer_failures_consume_ore_and_count_as_attempts", func():
+		var found := false
+		for candidate in range(200):
+			GameState.reset()
+			_staff_lab("archie", 1)
+			GameState.state["labThresholds"]["timePearl"] = 1000
+			GameState.state["player"]["orichalchum"]["time"] = 15
+			Rng.set_seed(candidate)
+			var output: Dictionary = Rooms.process_staff_block()
+			var made: int = output["items"].get("timePearl", 0)
+			if made < 3:
+				found = true
+				assert_eq(GameState.state["player"]["orichalchum"]["time"], 0, "all 3 attempts spent 5 ore each, failures included")
+				var xp: int = GameState.state["contacts"]["archie"]["craftingXP"]
+				assert_eq(xp, made * 20 + (3 - made) * 6, "full XP per success, a third per failure")
+				break
+		assert_true(found, "should find a block with at least one failure within 200 seeds")
+	)
+
+	run_case("producer_stops_exactly_at_the_target_within_one_block", func():
 		GameState.reset()
 		_staff_lab("archie", 3)
-		GameState.state["labThresholds"]["timePearl"] = 2
+		GameState.state["labThresholds"]["timePearl"] = 10
 		GameState.state["player"]["orichalchum"]["time"] = 10000  # ore never the bottleneck here
 		Rng.set_seed(7)
-		_run_blocks(30)
-		assert_eq(Crafting.inventory_qty("timePearl"), 2, "should stop exactly at the threshold, never overshoot")
+		var output: Dictionary = Rooms.process_staff_block()
+		assert_eq(Crafting.inventory_qty("timePearl"), 10, "should stop exactly at the target, never overshoot")
+		assert_eq(output["items"], { "timePearl": 10 })
+		var ore_after: int = GameState.state["player"]["orichalchum"]["time"]
+		Rooms.process_staff_block()
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], ore_after, "stock at target -> no further attempts")
+	)
+
+	run_case("producer_loop_is_bounded", func():
+		GameState.reset()
+		_staff_lab("archie", 1)
+		GameState.state["labThresholds"]["timePearl"] = 1000000
+		GameState.state["player"]["orichalchum"]["time"] = 10000000
+		Rooms.process_staff_block()
+		var spent: int = 10000000 - GameState.state["player"]["orichalchum"]["time"]
+		assert_true(spent <= Rooms.MAX_PRODUCER_ATTEMPTS_PER_BLOCK * 5, "attempts capped at MAX_PRODUCER_ATTEMPTS_PER_BLOCK")
 	)
 
 	run_case("producer_skips_recipes_not_yet_unlocked", func():
@@ -49,7 +85,23 @@ func run() -> void:
 		assert_eq(Crafting.inventory_qty("enhancementPowder"), 0, "enhancementPowder gated by enhancementUnlocked")
 	)
 
-	run_case("each_producer_makes_its_own_attempt_per_block", func():
+	run_case("producers_share_stock_in_turn_without_double_counting_the_target", func():
+		GameState.reset()
+		_staff_lab("archie", 1)
+		GameState.state["contacts"]["james"]["recruited"] = true
+		GameState.state["flags"]["bizJamesProductionRole"] = true
+		assert_true(Contacts.set_role("james", "production")["ok"])
+		GameState.state["labThresholds"]["timePearl"] = 6
+		GameState.state["player"]["orichalchum"]["time"] = 10000
+		Rng.set_seed(3)
+		var output: Dictionary = Rooms.process_staff_block()
+		assert_eq(Crafting.inventory_qty("timePearl"), 6, "two producers together stop exactly at the shared target")
+		assert_eq(output["items"], { "timePearl": 6 })
+		assert_true(GameState.state["contacts"]["archie"]["craftingXP"] > 0, "archie took turns")
+		assert_true(GameState.state["contacts"]["james"]["craftingXP"] > 0, "james took turns")
+	)
+
+	run_case("producers_stop_together_when_shared_ore_runs_out", func():
 		GameState.reset()
 		_staff_lab("archie", 1)
 		GameState.state["contacts"]["james"]["recruited"] = true
@@ -59,9 +111,11 @@ func run() -> void:
 		GameState.state["player"]["orichalchum"]["time"] = 100
 		Rng.set_seed(1)
 		Rooms.process_staff_block()
-		var james_skill: int = GameState.state["contacts"]["james"]["craftingSkill"]
-		var expected: int = Crafting.calc_cost("timePearl", 1)["time"] + Crafting.calc_cost("timePearl", james_skill)["time"]
-		assert_eq(100 - GameState.state["player"]["orichalchum"]["time"], expected, "two producers, two attempts")
+		var left: int = GameState.state["player"]["orichalchum"]["time"]
+		var cheapest: int = mini(
+			Crafting.calc_cost("timePearl", GameState.state["contacts"]["archie"]["craftingSkill"])["time"],
+			Crafting.calc_cost("timePearl", GameState.state["contacts"]["james"]["craftingSkill"])["time"])
+		assert_true(left < cheapest, "neither producer can afford another attempt")
 	)
 
 	run_case("an_unpaid_room_hire_does_not_act", func():
@@ -133,9 +187,7 @@ func run() -> void:
 		# GameData.RECIPES.keys()'s fixed data order.
 		Contracts.reorder(rewind_contract["id"], 0)
 		Rooms.process_staff_block()
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 7, "the higher-priority contract's recipe (rewind, 6) goes first")
-		_run_blocks(2)
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 1, "rewind again (7 -> 1), then 1 is short for both recipes -> idle")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 1, "rewind (6) twice in one block, 13 -> 1; timePearl never gets the ore")
 	)
 
 	run_case("pick_vein_takes_the_vein_furthest_outside_its_band", func():
