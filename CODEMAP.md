@@ -278,7 +278,8 @@ infrastructure, excluded from discovery.
 binary and the godot-ai MCP server; `soak.sh` repeats the playthrough test. The two
 `debug_combat_*_screenshot.gd` files are windowed dev screenshot harnesses;
 `diagnose_115_timing.gd` is a hang-timing probe; `verify_map_camera_persistence.gd` is a
-live-tree check.
+live-tree check. `sim_combat_balance.gd` (+ `_impl.gd`) is the headless itemless-combat win-rate
+sim behind R§3.7a's balance numbers.
 
 ## tools/*.py, *.html, *.js — asset/content pipeline tooling
 

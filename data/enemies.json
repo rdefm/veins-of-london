@@ -3,8 +3,9 @@
   "combatXpLevels": [0, 0, 80, 220, 500, 1000],
   "combatAttackBonusByLevel": [0, 0, 2, 4, 7, 11],
   "combatSpeedByLevel": [0, 10, 12, 14, 17, 21],
+  "combatHpBonusByLevel": [0, 0, 0, 55, 55, 140],
   "raidGuards": {
-    "territorialScrapper": { "name": "Territorial Scrapper", "hpBase": 20, "attackMin": 3, "attackMax": 8, "evadeChance": 0, "speed": 12 },
+    "territorialScrapper": { "name": "Territorial Scrapper", "hpBase": 30, "attackMin": 3, "attackMax": 8, "evadeChance": 0, "speed": 12 },
     "veinGuard":            { "name": "Vein Guard",            "hpBase": 30, "attackMin": 4, "attackMax": 10, "evadeChance": 0, "speed": 8 },
     "orichalchumDealer":    { "name": "Orichalchum Dealer",    "hpBase": 25, "attackMin": 5, "attackMax": 12, "evadeChance": 0, "speed": 10 }
   },

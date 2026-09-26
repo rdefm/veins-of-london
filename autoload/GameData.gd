@@ -108,6 +108,7 @@ var COMBAT_PROTOTYPE: Dictionary = {}
 var COMBAT_XP_LEVELS: Array = []
 var COMBAT_ATTACK_BONUS_BY_LEVEL: Array = []
 var COMBAT_SPEED_BY_LEVEL: Array = []
+var COMBAT_HP_BONUS_BY_LEVEL: Array = []
 
 # data/combat_visuals.json (docs/combat-animation-vision.md §2.1/§6):
 # "backdrops" -- context id -> { image, fallbackColor (PALETTE key) }.
@@ -302,6 +303,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "COMBAT_XP_LEVELS", "key": "combatXpLevels", "type": TYPE_ARRAY},
 		{"field": "COMBAT_ATTACK_BONUS_BY_LEVEL", "key": "combatAttackBonusByLevel", "type": TYPE_ARRAY},
 		{"field": "COMBAT_SPEED_BY_LEVEL", "key": "combatSpeedByLevel", "type": TYPE_ARRAY},
+		{"field": "COMBAT_HP_BONUS_BY_LEVEL", "key": "combatHpBonusByLevel", "type": TYPE_ARRAY},
 	]},
 	{"table": "combat_prototype", "file": "res://data/combat_prototype.json", "fields": [
 		{"field": "COMBAT_PROTOTYPE", "key": "", "type": TYPE_DICTIONARY},
@@ -953,6 +955,7 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 	var combat_xp_levels: Array = t.get("combat_xp_levels", [])
 	var combat_attack_bonus_by_level: Array = t.get("combat_attack_bonus_by_level", [])
 	var combat_speed_by_level: Array = t.get("combat_speed_by_level", [])
+	var combat_hp_bonus_by_level: Array = t.get("combat_hp_bonus_by_level", [])
 
 	for key in raid_guards.keys():
 		_require_keys(raid_guards[key], ["name", "hpBase", "attackMin", "attackMax", "speed"], "enemies.raidGuards.%s" % key, errors)
@@ -965,6 +968,8 @@ func _validate_enemies(t: Dictionary, errors: Array[String]) -> void:
 		errors.append("enemies.combatAttackBonusByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_attack_bonus_by_level.size())
 	if combat_speed_by_level.size() != 6:
 		errors.append("enemies.combatSpeedByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_speed_by_level.size())
+	if combat_hp_bonus_by_level.size() != 6:
+		errors.append("enemies.combatHpBonusByLevel: expected 6 entries (index=level, 0..5), got %d" % combat_hp_bonus_by_level.size())
 
 
 # Every encounterOrder id needs a matching flat single-enemy `encounters`

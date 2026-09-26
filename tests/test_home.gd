@@ -574,7 +574,7 @@ func run() -> void:
 		assert_eq(GameState.state["home"]["rooms"], ["homeGym"], "the new use takes the same physical slot")
 		assert_eq(GameState.state["player"]["cash"], 600, "full 600 charged, the workshop's 800 not refunded")
 		assert_almost_eq(Home.get_workshop_bonus(), 0.0, 0.0001, "the replaced workshop's crafting bonus ends")
-		assert_eq(GameState.state["player"]["hpMax"], 110, "the new Home Gym's bonus applies")
+		assert_eq(GameState.state["player"]["hpMax"], 50, "the new Home Gym's bonus applies")
 	)
 
 	run_case("replacing_home_gym_reverses_its_hp_bonus_and_clamps_hp", func():
@@ -582,15 +582,15 @@ func run() -> void:
 		GameState.state["home"]["tier"] = "flat"
 		GameState.state["player"]["cash"] = 5000
 		Home.set_room_use(0, "homeGym")
-		GameState.state["player"]["hp"] = 110
+		GameState.state["player"]["hp"] = 50
 		Home.set_room_use(0, "workshop")
-		assert_eq(GameState.state["player"]["hpMax"], 100, "hpMax loses the gym's +10")
-		assert_eq(GameState.state["player"]["hp"], 100, "hp clamps to the reduced hpMax")
+		assert_eq(GameState.state["player"]["hpMax"], 40, "hpMax loses the gym's +10")
+		assert_eq(GameState.state["player"]["hp"], 40, "hp clamps to the reduced hpMax")
 
 		Home.set_room_use(0, "homeGym")
-		GameState.state["player"]["hp"] = 40
+		GameState.state["player"]["hp"] = 30
 		Home.set_room_use(0, "workshop")
-		assert_eq(GameState.state["player"]["hp"], 40, "an hp already under the reduced cap is left alone")
+		assert_eq(GameState.state["player"]["hp"], 30, "an hp already under the reduced cap is left alone")
 	)
 
 	run_case("blocked_replacement_leaves_the_slot_and_cash_untouched", func():

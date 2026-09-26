@@ -1053,7 +1053,7 @@
 "attackMax": 8,
 "attackMin": 3,
 "evadeChance": 0,
-"hpBase": 20,
+"hpBase": 30,
 "name": "Territorial Scrapper",
 "speed": 12
 },

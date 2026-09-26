@@ -16,7 +16,7 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 
-		assert_true(NodeQuery.symbol_row_texts(phone).has("HP: 100 / 100"), "HP line reads straight from player.hp/hpMax")
+		assert_true(NodeQuery.symbol_row_texts(phone).has("HP: 40 / 40"), "HP line reads straight from player.hp/hpMax")
 		assert_true(phone.find_children("", "ProgressBar", true, false).size() > 0, "an HP bar must be rendered")
 
 		phone.free()

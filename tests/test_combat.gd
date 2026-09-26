@@ -1029,8 +1029,8 @@ func run() -> void:
 	run_case("get_attack_range_with_no_weapon_equipped", func():
 		GameState.reset()
 		var range := Combat.get_attack_range()
-		assert_eq(range["min"], 5, "bare player attackMin")
-		assert_eq(range["max"], 12, "bare player attackMax")
+		assert_eq(range["min"], 3, "bare player attackMin")
+		assert_eq(range["max"], 7, "bare player attackMax")
 	)
 
 	# ── hygiene-03: canonical context constants/validation ──────────────
@@ -2788,6 +2788,20 @@ func run() -> void:
 		Rng.set_seed(1)
 		Combat.player_attack()
 		assert_eq(GameState.state["player"]["combatSkill"], 2, "crossing GameData.COMBAT_XP_LEVELS[2] should level Combat Skill up to 2, same Progression.award_xp() mechanism crafting/cultivating use")
+	)
+
+	run_case("combat_skill_level_up_raises_hp_max_and_hp_by_the_curve_delta", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		player["hpMax"] = 50
+		player["hp"] = 20
+		var curve: Array = GameData.COMBAT_HP_BONUS_BY_LEVEL
+		# level 1 -> 5 in one award: each level's delta applies once
+		Combat.award_xp(GameData.COMBAT_XP_LEVELS[5])
+		assert_eq(player["combatSkill"], 5, "sanity: a max-level award lands on level 5")
+		var gain: int = curve[5] - curve[1]
+		assert_eq(player["hpMax"], 50 + gain, "hpMax should rise by the summed per-level curve deltas")
+		assert_eq(player["hp"], 20 + gain, "current hp should rise by the same amount, not refill")
 	)
 
 	run_case("train_is_available_without_a_home_gym_at_the_lower_flat_xp_amount", func():

@@ -865,7 +865,14 @@ static func _project_occurrence(entry: Dictionary, round_num: int, index_in_roun
 # Cultivating.award_xp() already uses.
 static func award_xp(amount: int) -> void:
 	var player: Dictionary = GameState.state["player"]
-	var on_level_up := func(): Notify.push("Combat Skill up — now level %d." % player["combatSkill"], Notify.CATEGORY_SUCCESS)
+	var on_level_up := func():
+		# R§3.7a HP bonus: flat per-level delta on top of hpMax, so it
+		# stacks with Home Gym's own flat bonus.
+		var level: int = player["combatSkill"]
+		var gain: int = GameData.COMBAT_HP_BONUS_BY_LEVEL[level] - GameData.COMBAT_HP_BONUS_BY_LEVEL[level - 1]
+		player["hpMax"] += gain
+		player["hp"] += gain
+		Notify.push("Combat Skill up — now level %d." % level, Notify.CATEGORY_SUCCESS)
 	Progression.award_xp(player, "combatXP", "combatSkill", GameData.COMBAT_XP_LEVELS, amount, on_level_up)
 
 
