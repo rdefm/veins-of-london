@@ -283,78 +283,78 @@ func run() -> void:
 		hq.free()
 	)
 
-	# ── Studio plate (docs/hq-diorama-vision.md §3.1): zones baked into the art ─
-
-	run_case("hq_studio_tier_renders_the_studio_plate_with_no_placeholder_boxes", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-		GameState.state["home"]["tier"] = "studio"
-
-		var hq := HqScreen.new()
-		hq._ready()
-
-		assert_eq(hq._diorama._plate["image"], "res://assets/hq/studio_room.png")
-		var regions: Dictionary = hq._diorama._plate["regions"]
-		for region_id in regions:
-			assert_true(not hq._diorama._should_draw_placeholder(region_id, regions[region_id]), "Studio region '%s' must not draw a placeholder box" % region_id)
-
-		hq.free()
-	)
-
-	run_case("hq_studio_rest_caption_sits_inside_the_bed_polygon", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-		GameState.state["home"]["tier"] = "studio"
-
-		var hq := HqScreen.new()
-		hq._ready()
-
-		assert_eq(hq._diorama._captions.size(), 1, "sanity: only the rest region carries a caption")
-		var caption: Label = hq._diorama._captions[0]
-		assert_eq(caption.text, GameData.DAY_CLOCK["restLabel"])
-		var centre := caption.position + Vector2(caption.size.x / 2.0, caption.get_minimum_size().y / 2.0)
-		assert_eq(hq._diorama.zone_at(centre), "rest", "the rest caption's centre must fall on the bed's traced polygon")
-
-		hq.free()
-	)
-
-	run_case("hq_studio_zone_taps_open_their_menus", func():
-		var expectations := {
-			"security": func(): return GameState.state["currentScreen"] == "hq_door",
-			"lab": func(): return GameState.state["currentScreen"] == "hq_lab_bench",
-			"dial": func(): return GameState.state["currentScreen"] == "hq_dial",
-			"rooms": func(): return GameState.state["currentScreen"] == "hq_floorplan",
-			"oreStore": func(): return GameState.state["modal"] != null and GameState.state["modal"]["type"] == "hq_ore_readout",
-			"gym": func(): return GameState.state["modal"] != null and GameState.state["modal"]["type"] == "hq_gym",
-			"rest": func(): return GameState.state["world"]["timeBlock"] == 0,
-		}
-		for zone_id in expectations:
+	# ── Studio and Flat plates (docs/hq-diorama-vision.md §3.1): zones baked into the art ─
+	for tier in ["studio", "flat"]:
+		run_case("hq_%s_tier_renders_its_own_plate_with_no_placeholder_boxes" % tier, func():
 			GameState.reset()
 			GameState.state["flags"]["homeUnlocked"] = true
-			GameState.state["home"]["tier"] = "studio"
-			GameState.state["currentScreen"] = "hq"
-			GameState.state["world"]["timeBlock"] = 2
+			GameState.state["home"]["tier"] = tier
 
 			var hq := HqScreen.new()
 			hq._ready()
-			UiSim.tap_zone(hq, zone_id)
-			assert_true(expectations[zone_id].call(), "tapping Studio zone '%s' must open its menu" % zone_id)
+
+			assert_eq(hq._diorama._plate["image"], "res://assets/hq/%s_room.png" % tier)
+			var regions: Dictionary = hq._diorama._plate["regions"]
+			for region_id in regions:
+				assert_true(not hq._diorama._should_draw_placeholder(region_id, regions[region_id]), "%s region '%s' must not draw a placeholder box" % [tier, region_id])
+
 			hq.free()
-	)
+		)
 
-	run_case("hq_studio_lock_installed_changes_nothing_on_the_plate", func():
-		GameState.reset()
-		GameState.state["flags"]["homeUnlocked"] = true
-		GameState.state["home"]["tier"] = "studio"
-		GameState.state["home"]["security"] = ["lock"]
+		run_case("hq_%s_rest_caption_sits_inside_the_bed_polygon" % tier, func():
+			GameState.reset()
+			GameState.state["flags"]["homeUnlocked"] = true
+			GameState.state["home"]["tier"] = tier
 
-		var hq := HqScreen.new()
-		hq._ready()
+			var hq := HqScreen.new()
+			hq._ready()
 
-		assert_eq(hq._diorama._plate["regions"]["security"], GameData.HQ_VISUALS["rooms"]["studio"]["regions"]["security"], "Studio has no installedImage, so a lock must leave its security region as authored")
+			assert_eq(hq._diorama._captions.size(), 1, "sanity: only the rest region carries a caption")
+			var caption: Label = hq._diorama._captions[0]
+			assert_eq(caption.text, GameData.DAY_CLOCK["restLabel"])
+			var centre := caption.position + Vector2(caption.size.x / 2.0, caption.get_minimum_size().y / 2.0)
+			assert_eq(hq._diorama.zone_at(centre), "rest", "the rest caption's centre must fall on the bed's traced polygon")
 
-		hq.free()
-	)
+			hq.free()
+		)
+
+		run_case("hq_%s_zone_taps_open_their_menus" % tier, func():
+			var expectations := {
+				"security": func(): return GameState.state["currentScreen"] == "hq_door",
+				"lab": func(): return GameState.state["currentScreen"] == "hq_lab_bench",
+				"dial": func(): return GameState.state["currentScreen"] == "hq_dial",
+				"rooms": func(): return GameState.state["currentScreen"] == "hq_floorplan",
+				"oreStore": func(): return GameState.state["modal"] != null and GameState.state["modal"]["type"] == "hq_ore_readout",
+				"gym": func(): return GameState.state["modal"] != null and GameState.state["modal"]["type"] == "hq_gym",
+				"rest": func(): return GameState.state["world"]["timeBlock"] == 0,
+			}
+			for zone_id in expectations:
+				GameState.reset()
+				GameState.state["flags"]["homeUnlocked"] = true
+				GameState.state["home"]["tier"] = tier
+				GameState.state["currentScreen"] = "hq"
+				GameState.state["world"]["timeBlock"] = 2
+
+				var hq := HqScreen.new()
+				hq._ready()
+				UiSim.tap_zone(hq, zone_id)
+				assert_true(expectations[zone_id].call(), "tapping %s zone '%s' must open its menu" % [tier, zone_id])
+				hq.free()
+		)
+
+		run_case("hq_%s_lock_installed_changes_nothing_on_the_plate" % tier, func():
+			GameState.reset()
+			GameState.state["flags"]["homeUnlocked"] = true
+			GameState.state["home"]["tier"] = tier
+			GameState.state["home"]["security"] = ["lock"]
+
+			var hq := HqScreen.new()
+			hq._ready()
+
+			assert_eq(hq._diorama._plate["regions"]["security"], GameData.HQ_VISUALS["rooms"][tier]["regions"]["security"], "%s has no installedImage, so a lock must leave its security region as authored" % tier)
+
+			hq.free()
+		)
 
 	# hq-diorama ticket 10: the Reinforced Lock is the first HQ visual that
 	# varies with real per-save state (state.home.security) rather than tier
