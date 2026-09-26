@@ -412,6 +412,21 @@
 "image": ""
 }
 },
+"cardFrames": {
+"_note": "Street-sign nine-slice frames for turn-order cards (scenes/components/turn_order_strip.gd), keyed by damage tier. margin: nine-slice margin in px on all four sides; see assets/combat/combat-cards/README.md.",
+"clean": {
+"image": "res://assets/combat/combat-cards/street_sign_frame.png",
+"margin": 6
+},
+"cracked": {
+"image": "res://assets/combat/combat-cards/street_sign_frame_50.png",
+"margin": 12
+},
+"ruined": {
+"image": "res://assets/combat/combat-cards/street_sign_frame_20.png",
+"margin": 12
+}
+},
 "locationBackdrops": {
 "battersea": {
 "image": "res://assets/combat/backdrops/battersea.png"

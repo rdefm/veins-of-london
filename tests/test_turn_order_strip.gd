@@ -396,7 +396,7 @@ func run() -> void:
 			TurnOrderStrip.SIGN_GROUND_ID, TurnOrderStrip.SIGN_LETTERING_ID,
 			TurnOrderStrip.SIGN_BORDER_ID, TurnOrderStrip.SIGN_STATUS_ID,
 			TurnOrderStrip.SIGN_INTENT_ID, TurnOrderStrip.SIGN_HP_TRACK_ID,
-			TurnOrderStrip.SIGN_GHOST_ID, TurnOrderStrip.SIGN_DAMAGE_ID,
+			TurnOrderStrip.SIGN_GHOST_ID,
 		]:
 			assert_true(GameData.PALETTE.has(id), "%s must resolve through data/palette.json" % id)
 		var ground: Color = GameData.PALETTE[TurnOrderStrip.SIGN_GROUND_ID]
@@ -405,6 +405,22 @@ func run() -> void:
 		assert_true(ground.get_luminance() > 0.9, "reference cards use a near-white face")
 		assert_true(GameData.PALETTE[TurnOrderStrip.SIGN_BORDER_ID].get_luminance() < 0.15, "reference cards use a dark high-contrast border")
 		assert_true(GameData.PALETTE[TurnOrderStrip.SIGN_BORDER_ID] != Color(GameData.FACTIONS["collective"]["colour"]), "neutral border must not inherit faction colour")
+	)
+
+	run_case("each_damage_tier_draws_its_own_nine_slice_sign_frame_from_combat_visuals", func():
+		GameState.reset()
+		var expected := {
+			0: ["res://assets/combat/combat-cards/street_sign_frame.png", 6.0],
+			1: ["res://assets/combat/combat-cards/street_sign_frame_50.png", 12.0],
+			2: ["res://assets/combat/combat-cards/street_sign_frame_20.png", 12.0],
+		}
+		for tier: int in expected:
+			var style := TurnOrderStrip.frame_style_for_tier(tier)
+			assert_true(style is StyleBoxTexture, "tier %d must render the approved sign art, not the flat fallback" % tier)
+			var frame: StyleBoxTexture = style
+			assert_eq(frame.texture.resource_path, expected[tier][0])
+			for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+				assert_eq(frame.get_texture_margin(side), expected[tier][1], "tier %d nine-slice margin keeps corners unscaled" % tier)
 	)
 
 	run_case("clean_selected_card_uses_the_reference_shallow_expanded_height", func():

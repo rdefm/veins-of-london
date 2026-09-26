@@ -12,6 +12,12 @@
     "_note": "spriteScale: multiplier on every combat stage slot's height (player, allies, enemies) over the base zone ratios in scenes/components/combat_stage.gd.",
     "spriteScale": 1.5
   },
+  "cardFrames": {
+    "_note": "Street-sign nine-slice frames for turn-order cards (scenes/components/turn_order_strip.gd), keyed by damage tier. margin: nine-slice margin in px on all four sides; see assets/combat/combat-cards/README.md.",
+    "clean": { "image": "res://assets/combat/combat-cards/street_sign_frame.png", "margin": 6 },
+    "cracked": { "image": "res://assets/combat/combat-cards/street_sign_frame_50.png", "margin": 12 },
+    "ruined": { "image": "res://assets/combat/combat-cards/street_sign_frame_20.png", "margin": 12 }
+  },
   "pacing": {
     "_note": "turnPause: seconds held between two combatants' turns during beat playback and Rewind, per CombatPacing mode (scenes/components/combat_director.gd).",
     "turnPause": { "normal": 0.5, "quick": 0.2 }

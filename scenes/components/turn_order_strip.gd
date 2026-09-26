@@ -28,7 +28,9 @@ const SIGN_STATUS_ID := "combat_sign_status"
 const SIGN_INTENT_ID := "combat_sign_intent"
 const SIGN_HP_TRACK_ID := "combat_sign_hp_track"
 const SIGN_GHOST_ID := "combat_sign_ghost"
-const SIGN_DAMAGE_ID := "combat_sign_damage"
+
+# combat_visuals.json cardFrames keys, indexed by NameplateCard.damage_tier.
+const FRAME_TIER_KEYS: Array[String] = ["clean", "cracked", "ruined"]
 
 
 class NameplateCard extends Control:
@@ -76,12 +78,7 @@ class NameplateCard extends Control:
 
 	func _draw() -> void:
 		var rect := Rect2(Vector2.ZERO, size)
-		var sign := StyleBoxFlat.new()
-		sign.bg_color = TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_GROUND_ID)
-		sign.border_color = TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_BORDER_ID)
-		sign.set_border_width_all(2)
-		sign.set_corner_radius_all(4)
-		draw_style_box(sign, rect)
+		draw_style_box(TurnOrderStrip.frame_style_for_tier(damage_tier), rect)
 
 		var bar_y: float = 25.0
 		var frac: float = clampf(float(hp) / float(maxi(1, hp_max)), 0.0, 1.0)
@@ -92,30 +89,6 @@ class NameplateCard extends Control:
 			var ghost_frac: float = clampf(float(ghost_hp) / float(maxi(1, hp_max)), 0.0, 1.0)
 			if ghost_frac > frac:
 				draw_rect(Rect2(Vector2(8.0 + (size.x - 16.0) * frac, bar_y), Vector2((size.x - 16.0) * (ghost_frac - frac), TurnOrderStrip.HP_BAR_HEIGHT)), TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_GHOST_ID), true)
-
-		_draw_damage_overlay()
-
-	func _draw_damage_overlay() -> void:
-		if damage_tier == 0:
-			return
-		var ink := TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_DAMAGE_ID)
-		# Damage stays clear of the name/HP band (y <= 28) and the bottom
-		# faction line. Children render above this procedural decal as a
-		# second guard against lost information.
-		var right: float = size.x - 4.0
-		draw_polyline(PackedVector2Array([
-			Vector2(right, 4.0), Vector2(right - 7.0, 10.0),
-			Vector2(right - 3.0, 17.0), Vector2(right - 10.0, 23.0),
-		]), ink, 1.0)
-		if damage_tier < 2:
-			return
-		draw_polyline(PackedVector2Array([
-			Vector2(3.0, 38.0), Vector2(10.0, 44.0), Vector2(5.0, 53.0),
-		]), ink, 1.0)
-		# A small mid-edge chip; never intersects the protected information bands.
-		draw_colored_polygon(PackedVector2Array([
-			Vector2(size.x, 48.0), Vector2(size.x - 7.0, 52.0), Vector2(size.x, 57.0),
-		]), TurnOrderStrip._palette_colour(TurnOrderStrip.SIGN_BORDER_ID))
 
 
 # One card per turn *occurrence* (CONTEXT.md's Turn occurrence), not one
@@ -358,6 +331,34 @@ var _resolving := false
 
 static func _palette_colour(id: String) -> Color:
 	return GameData.PALETTE[id]
+
+
+static var _frame_styles: Dictionary = {}
+
+
+# One damage-tier frame replaces the whole sign (a transparent overlay
+# cannot cut the ruined frame's missing pieces), drawn behind live content.
+# Falls back to a flat palette sign if the frame asset is missing.
+static func frame_style_for_tier(tier: int) -> StyleBox:
+	var tier_key: String = FRAME_TIER_KEYS[clampi(tier, 0, FRAME_TIER_KEYS.size() - 1)]
+	if _frame_styles.has(tier_key):
+		return _frame_styles[tier_key]
+	var entry: Dictionary = GameData.COMBAT_VISUALS.get("cardFrames", {}).get(tier_key, {})
+	var image_path: String = entry.get("image", "")
+	var style: StyleBox
+	if not image_path.is_empty() and ResourceLoader.exists(image_path):
+		var frame := StyleBoxTexture.new()
+		frame.texture = load(image_path)
+		frame.set_texture_margin_all(float(entry.get("margin", 0)))
+		style = frame
+	else:
+		var flat := StyleBoxFlat.new()
+		flat.bg_color = _palette_colour(SIGN_GROUND_ID)
+		flat.border_color = _palette_colour(SIGN_BORDER_ID)
+		flat.set_border_width_all(2)
+		style = flat
+	_frame_styles[tier_key] = style
+	return style
 
 
 static func card_key_string(entry_key: Dictionary) -> String:

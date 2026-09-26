@@ -66,7 +66,6 @@
     { "id": "combat_sign_intent", "hex": "#171717", "group": "combat_ui" },
     { "id": "combat_sign_hp_track", "hex": "#bbbbbb", "group": "combat_ui" },
     { "id": "combat_sign_ghost", "hex": "#ececec", "group": "combat_ui" },
-    { "id": "combat_sign_damage", "hex": "#292929", "group": "combat_ui" },
 
     { "id": "phone_frame",       "hex": "#111216", "group": "phone_os" },
     { "id": "phone_frame_border", "hex": "#363a43", "group": "phone_os" },
