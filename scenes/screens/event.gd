@@ -4,6 +4,12 @@ extends Control
 const IMAGE_SLOT_HEIGHT := 170.0
 const VN_TEXT_FRAME_HEIGHT := 236.0
 const VN_BOTTOM_MARGIN := 16.0
+const ACTION_SEPARATION := 8
+const ACTION_BAR_HEIGHT := 48.0
+# Horizontal gutters around a control row: the 16px screen margin each side,
+# plus (VN only) the text card's own 16px content margin each side.
+const SCREEN_GUTTER_H := 32.0
+const VN_CARD_PADDING_H := 32.0
 
 const _CALC_GOLD_FALLBACK := Color("#d4af52")
 const _CALC_GOLD_LIGHT_FALLBACK := Color("#f2dfa0")
@@ -11,7 +17,7 @@ const _INK_COLOR := Color(0.101961, 0.101961, 0.101961, 1)
 
 var _scroll: ScrollContainer
 var _cards_box: VBoxContainer
-var _action_bar: HBoxContainer
+var _action_bar: BoxContainer
 var _image_frame: PanelContainer
 var _image_texture: TextureRect
 var _vn_mode: bool = false
@@ -22,7 +28,8 @@ var _vn_card_box: VBoxContainer
 var _vn_text_frame: VBoxContainer
 var _vn_card_panel: PanelContainer
 var _vn_text_scroll: ScrollContainer
-var _vn_controls_row: HBoxContainer
+var _vn_controls_row: BoxContainer
+var _item_menu: Control
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -50,13 +57,10 @@ func _ready() -> void:
 
 		_cards_box = UI.vbox(10)
 		margin.add_child(_cards_box)
-		_action_bar = UI.hbox(8)
+		_action_bar = _controls_box()
 		_action_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 		_action_bar.offset_left = 16
 		_action_bar.offset_right = -16
-		var bottom_inset := UI.safe_area_bottom_inset()
-		_action_bar.offset_top = -56 - bottom_inset
-		_action_bar.offset_bottom = -8 - bottom_inset
 		add_child(_action_bar)
 
 	EventBus.state_changed.connect(_refresh)
@@ -65,6 +69,8 @@ func _ready() -> void:
 func _refresh() -> void:
 	if GameState.state["event"] == null:
 		return  # on_complete already navigated away; this node is about to be freed
+
+	_close_item_menu()
 
 	if _vn_mode:
 		_refresh_vn_frame()
@@ -80,17 +86,12 @@ func _refresh() -> void:
 		_cards_box.add_child(_build_card(card)["panel"])
 	_refresh_image_slot()
 
-	if Events.can_rewind():
-		_action_bar.add_child(_build_rewind_button())
-
-	if Events.is_awaiting_choice():
-		var choices: Array = Events.current_card()["choices"]
-		for i in range(choices.size()):
-			_action_bar.add_child(_build_choice_button(choices[i]["label"], i))
-	else:
-		var continue_button := _build_continue_button("Continue →")
-		continue_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_action_bar.add_child(continue_button)
+	var controls: Array = _fill_controls(_action_bar, _screen_width() - SCREEN_GUTTER_H, "Continue →")
+	var bar_height: float = maxf(ACTION_BAR_HEIGHT, _stack_height(controls) if _action_bar.vertical else 0.0)
+	var bottom_inset := UI.safe_area_bottom_inset()
+	_action_bar.offset_bottom = -8 - bottom_inset
+	_action_bar.offset_top = -8 - bottom_inset - bar_height
+	_scroll.offset_bottom = -bar_height - 16
 
 	_scroll_to_bottom()
 
@@ -115,10 +116,112 @@ func _populate_card_text(content: VBoxContainer, card: Dictionary) -> void:
 			content.add_child(UI.label(card["text"]))
 		_:
 			content.add_child(UI.label(card["text"]))
-func _build_rewind_button() -> Button:
-	var b := UI.button("⟲ Rewind", func(): Events.rewind())
+
+func _controls_box() -> BoxContainer:
+	var box := BoxContainer.new()
+	box.add_theme_constant_override("separation", ACTION_SEPARATION)
+	return box
+
+# Fills `box` with the Item button (when anything is usable) and either the
+# choices or Continue. Choices stay in one row with Item when they all fit
+# `available_width`; otherwise the box turns vertical, one full-width choice
+# per line. Returns the controls added, in order.
+func _fill_controls(box: BoxContainer, available_width: float, continue_text: String) -> Array:
+	var controls: Array = []
+	var item_button: Button = _build_item_button() if EventItems.has_usable() else null
+	if item_button != null:
+		controls.append(item_button)
+
+	box.vertical = false
+	if Events.is_awaiting_choice():
+		var choices: Array = Events.current_card()["choices"]
+		for i in range(choices.size()):
+			controls.append(_build_choice_button(choices[i]["label"], i))
+		var widths: Array = controls.map(func(c: Control) -> float: return c.get_combined_minimum_size().x)
+		box.vertical = not fits_in_row(widths, ACTION_SEPARATION, available_width)
+		if box.vertical and item_button != null:
+			item_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	elif continue_text == "→":
+		var spacer := Control.new()
+		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		controls.append(spacer)
+		controls.append(_build_continue_button(continue_text))
+	else:
+		var continue_button := _build_continue_button(continue_text)
+		continue_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		controls.append(continue_button)
+
+	for c in controls:
+		box.add_child(c)
+	return controls
+
+static func fits_in_row(widths: Array, separation: float, available_width: float) -> bool:
+	var total: float = separation * maxf(widths.size() - 1, 0)
+	for w in widths:
+		total += w
+	return total <= available_width
+
+func _stack_height(controls: Array) -> float:
+	var total: float = ACTION_SEPARATION * maxf(controls.size() - 1, 0)
+	for c in controls:
+		total += (c as Control).get_combined_minimum_size().y
+	return total
+
+func _screen_width() -> float:
+	if is_inside_tree():
+		return get_viewport_rect().size.x
+	return float(ProjectSettings.get_setting("display/window/size/viewport_width", 390))
+
+func _build_item_button() -> Button:
+	var b := UI.button("Item", func(): pass)
+	b.pressed.connect(func(): _toggle_item_menu(b))
 	_style_action_button(b)
 	return b
+
+func _toggle_item_menu(anchor: Button) -> void:
+	if is_instance_valid(_item_menu):
+		_close_item_menu()
+		return
+	_item_menu = Control.new()
+	UI.anchor_full_rect(_item_menu)
+	_item_menu.mouse_filter = Control.MOUSE_FILTER_STOP
+	_item_menu.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed:
+			_close_item_menu()
+	)
+
+	var panel := PanelContainer.new()
+	var list := UI.vbox(6)
+	panel.add_child(list)
+	for entry in EventItems.usable_entries():
+		var id: String = entry["id"]
+		var b := UI.button(item_entry_label(entry), func(): _on_item_picked(id))
+		_style_action_button(b)
+		list.add_child(b)
+	_item_menu.add_child(panel)
+	add_child(_item_menu)
+
+	# Opens upward from the Item button, kept inside the screen's gutters.
+	var panel_size: Vector2 = panel.get_combined_minimum_size()
+	var anchor_pos: Vector2 = anchor.global_position - global_position
+	var x: float = clampf(anchor_pos.x, 16.0, maxf(16.0, _screen_width() - 16.0 - panel_size.x))
+	var y: float = maxf(UI.top_bar_clearance(), anchor_pos.y - panel_size.y - 8.0)
+	panel.position = Vector2(x, y)
+
+static func item_entry_label(entry: Dictionary) -> String:
+	var count: int = entry["count"]
+	if entry["source"] == "dial":
+		return "%s · %d charge%s" % [entry["label"], count, "" if count == 1 else "s"]
+	return "%s ×%d" % [entry["label"], count]
+
+func _on_item_picked(id: String) -> void:
+	_close_item_menu()
+	EventItems.use(id)
+
+func _close_item_menu() -> void:
+	if is_instance_valid(_item_menu):
+		_item_menu.queue_free()
+	_item_menu = null
 
 func _build_choice_button(label: String, choice_index: int) -> Button:
 	var choice: Dictionary = Events.current_card()["choices"][choice_index]
@@ -282,26 +385,21 @@ func _refresh_vn_card() -> void:
 	_vn_text_scroll.add_child(prose)
 	built["content"].add_child(_vn_text_scroll)
 
-	_vn_controls_row = _build_vn_controls_row()
+	_vn_controls_row = _controls_box()
+	var controls: Array = _fill_controls(_vn_controls_row, _screen_width() - SCREEN_GUTTER_H - VN_CARD_PADDING_H, "→")
 	built["content"].add_child(_vn_controls_row)
 	_vn_card_box.add_child(_vn_card_panel)
-func _build_vn_controls_row() -> HBoxContainer:
-	var row := UI.hbox(8)
 
-	if Events.can_rewind():
-		row.add_child(_build_rewind_button())
-
-	if Events.is_awaiting_choice():
-		var choices: Array = Events.current_card()["choices"]
-		for i in range(choices.size()):
-			row.add_child(_build_choice_button(choices[i]["label"], i))
-	else:
-		var spacer := Control.new()
-		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(spacer)
-		row.add_child(_build_continue_button("→"))
-
-	return row
+	# A stacked choice column grows the text panel upward by the extra rows,
+	# so the prose viewport keeps its usual height.
+	var extra: float = 0.0
+	if _vn_controls_row.vertical:
+		var row_height: float = 0.0
+		for c in controls:
+			row_height = maxf(row_height, (c as Control).get_combined_minimum_size().y)
+		extra = maxf(0.0, _stack_height(controls) - row_height)
+	_vn_card_box.offset_top = -VN_TEXT_FRAME_HEIGHT - VN_BOTTOM_MARGIN - extra
+	_vn_image_frame.offset_bottom = _vn_card_box.offset_top
 
 func _scroll_to_bottom() -> void:
 	if not is_inside_tree():

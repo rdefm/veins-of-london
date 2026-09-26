@@ -48,6 +48,7 @@ Data file per system: see `data/*.json` below.
 | districts.gd | Derived district info for Map tab |
 | economy.gd | Selling (Archie lane + faction lane), faction-lane buying (pricing, lane access, ore receipt) |
 | equipment.gd | Weapon equip/unequip |
+| event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | factions.gd | Faction joining |
 | home.gd | Home tier/tenure/security/rooms/raid chance; daily bill base (rent or utilities); arrears countdown; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
@@ -100,7 +101,7 @@ overlays.
 | combat.gd | Combat screen: orchestrator over CombatStage (fills the upper region)/CombatCommandDock -- owns turn flow, director bridging, band sync. Keeps one persistent strip and steps its queue beat by beat during (and Rewind) playback. `_select_target()` is the sole tap->`Combat.set_selection()` route; a stage tap during playback fast-forwards |
 | combat_prototype.gd | Minimal combat-prototype screen, Debug-app only |
 | contacts.gd | Contacts app inside PhoneDeviceShell; alphabetic directory with inline flag-gated actions |
-| event.gd | Event-card screen (VN and non-VN layouts) |
+| event.gd | Event-card screen (VN and non-VN layouts); Item button + popup over EventItems; choices row, or stack full-width when they don't fit |
 | factions.gd | Factions tab |
 | guild_marketplace.gd | Faction trading UI |
 | hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |

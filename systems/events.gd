@@ -143,10 +143,15 @@ static func is_last_card() -> bool:
 
 
 static func can_rewind() -> bool:
-	var event_state = GameState.state["event"]
-	if event_state == null or event_state["snapshots"].is_empty():
+	if not has_rewind_point():
 		return false
 	return Crafting.inventory_qty("rewind") > 0 or Dial.find_loaded_rewind_complication_index() >= 0
+
+
+# True once the live event has a snapshot to rewind to, regardless of stock/charge.
+static func has_rewind_point() -> bool:
+	var event_state = GameState.state["event"]
+	return event_state != null and not event_state["snapshots"].is_empty()
 
 
 # Continue: snapshots full state, then either reveals the next card or (on the last card) runs on_complete and clears state.event.
@@ -226,13 +231,23 @@ static func _snapshot_before_mutation() -> void:
 	Snapshots.push("event", stack, snap)
 
 
-static func rewind() -> Dictionary:
+# source: "consumable" or "dial" pays from that source only; "" prefers the
+# consumable and falls back to a loaded Dial Rewind complication.
+static func rewind(source: String = "") -> Dictionary:
 	if not can_rewind():
 		return { "ok": false, "reason": "No rewind available." }
 
 	var event_state: Dictionary = GameState.state["event"]
 	var has_consumable: bool = Crafting.inventory_qty("rewind") > 0
 	var rewind_index: int = Dial.find_loaded_rewind_complication_index()
+	match source:
+		"consumable":
+			if not has_consumable:
+				return { "ok": false, "reason": "No Rewind in stock." }
+		"dial":
+			if rewind_index < 0:
+				return { "ok": false, "reason": "No Dial Rewind charge." }
+			has_consumable = false
 
 	var stack: Array = event_state["snapshots"]
 	var snap: Dictionary = Snapshots.pop_newest(stack)

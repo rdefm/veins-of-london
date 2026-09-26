@@ -95,6 +95,17 @@ func _install_vn_event() -> Dictionary:
 	return original_events
 
 
+func _button_with_text(root: Node, text: String) -> Button:
+	for b in root.find_children("", "Button", true, false):
+		if b.text == text:
+			return b
+	return null
+
+
+func _controls_of(screen: EventScreen) -> BoxContainer:
+	return screen._vn_controls_row if screen._vn_mode else screen._action_bar
+
+
 func run() -> void:
 	run_case("evening_choice_labels_only_the_time_consuming_option", func():
 		GameState.reset()
@@ -295,7 +306,7 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	run_case("rewind_button_is_recoloured_to_ui_action_red_when_available", func():
+	run_case("item_button_is_recoloured_to_ui_action_red_when_available", func():
 		GameState.reset()
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
 		var original_events := _install_full_card_event()
@@ -303,14 +314,11 @@ func run() -> void:
 		Events.advance()  # pushes a snapshot, makes Rewind available
 
 		var screen := _fresh_screen()
-		var buttons := screen._action_bar.get_children()
-		var rewind_button: Button = null
-		for b in buttons:
-			if b.text == "⟲ Rewind":
-				rewind_button = b
-		assert_true(rewind_button != null, "Rewind should be offered once a snapshot exists and a rewind charge is in hand")
+		var item_button := _button_with_text(screen._action_bar, "Item")
+		assert_true(item_button != null, "Item should be offered once a snapshot exists and a rewind charge is in hand")
+		assert_true(_button_with_text(screen._action_bar, "⟲ Rewind") == null, "no standalone Rewind button remains")
 		var accent: Color = GameData.PALETTE["ui_action_red"]
-		assert_eq(rewind_button.get_theme_color("font_color"), accent, "Rewind is an ordinary action button -- ui_action_red, no bespoke colour")
+		assert_eq(item_button.get_theme_color("font_color"), accent, "Item is an ordinary action button -- ui_action_red, no bespoke colour")
 
 		GameData.EVENTS = original_events
 	)
@@ -534,7 +542,7 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	run_case("vn_mode_rewind_renders_attached_to_the_box_when_available", func():
+	run_case("vn_mode_item_button_renders_attached_to_the_box_when_available", func():
 		GameState.reset()
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
 		var original_events := _install_vn_event()
@@ -542,15 +550,12 @@ func run() -> void:
 		Events.advance()  # pushes a snapshot, makes Rewind available
 
 		var screen := _fresh_screen()
-		assert_true(screen._action_bar == null, "Rewind must not fall back to the old action bar")
-		var buttons := screen._vn_card_panel.find_children("", "Button", true, false)
-		var rewind_button: Button = null
-		for b in buttons:
-			if b.text == "⟲ Rewind":
-				rewind_button = b
-		assert_true(rewind_button != null, "Rewind should be attached to the box once a snapshot exists and a rewind charge is in hand")
+		assert_true(screen._action_bar == null, "Item must not fall back to the old action bar")
+		var item_button := _button_with_text(screen._vn_card_panel, "Item")
+		assert_true(item_button != null, "Item should be attached to the box once a snapshot exists and a rewind charge is in hand")
+		assert_true(_button_with_text(screen._vn_card_panel, "⟲ Rewind") == null, "no standalone Rewind button remains")
 		var accent: Color = GameData.PALETTE["ui_action_red"]
-		assert_eq(rewind_button.get_theme_color("font_color"), accent, "Rewind keeps the ui_action_red accent")
+		assert_eq(item_button.get_theme_color("font_color"), accent, "Item keeps the ui_action_red accent")
 
 		GameData.EVENTS = original_events
 	)
@@ -585,8 +590,143 @@ func run() -> void:
 		assert_true(is_instance_valid(screen._action_bar), "a non-VN event still gets the separate bottom action bar")
 		var buttons := screen._action_bar.get_children()
 		var texts: Array = buttons.map(func(b): return b.text)
-		assert_true(texts.has("⟲ Rewind"), "Rewind still renders on the action bar, not folded into any card")
+		assert_true(texts.has("Item"), "Item renders on the action bar, not folded into any card")
 		assert_true(texts.has("Continue →"), "Continue still reads as the full \"Continue →\" label on the action bar, not the VN arrow glyph")
+
+		GameData.EVENTS = original_events
+	)
+
+	# ── Item button + choice row/stack ──────────────────────────────────
+
+	run_case("item_button_hidden_on_the_first_card_even_with_stock", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		var original_events := _install_full_card_event()
+		Events.start_event("test_screen_event")
+
+		var screen := _fresh_screen()
+		assert_true(_button_with_text(screen._action_bar, "Item") == null, "nothing to rewind to yet")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("item_button_hidden_with_a_snapshot_but_no_stock_or_charge", func():
+		GameState.reset()
+		var original_events := _install_full_card_event()
+		Events.start_event("test_screen_event")
+		Events.advance()
+
+		var screen := _fresh_screen()
+		assert_true(_button_with_text(screen._action_bar, "Item") == null)
+		var vn_original := _install_vn_event()
+		Events.start_event("test_vn_event")
+		Events.advance()
+		var vn_screen := _fresh_screen()
+		assert_true(_button_with_text(vn_screen._vn_card_panel, "Item") == null, "VN layout hides it too")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("item_popup_lists_rewind_with_qty_and_rewinds_via_the_consumable", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 2 }
+		var original_events := _install_full_card_event()
+		Events.start_event("test_screen_event")
+		Events.advance()  # -> card 1
+
+		var screen := _fresh_screen()
+		_button_with_text(screen._action_bar, "Item").pressed.emit()
+		assert_true(is_instance_valid(screen._item_menu), "tapping Item opens the popup")
+		var entry := _button_with_text(screen._item_menu, "⟲ Rewind ×2")
+		assert_true(entry != null, "consumable entry shows its inventory qty")
+		entry.pressed.emit()
+		assert_eq(GameState.state["event"]["cardIndex"], 0, "picking Rewind steps back one card")
+		assert_eq(Crafting.inventory_qty("rewind"), 1, "one consumable spent")
+		assert_true(screen._item_menu == null, "popup closes once an item is used")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("item_popup_rewinds_via_a_loaded_dial_rewind_charge", func():
+		GameState.reset()
+		var dial: Dictionary = Dial.new_dial("test_haft")
+		dial["currentCharge"] = 2
+		dial["maxCharge"] = 2
+		dial["loadedComplications"] = [{ "recipeKey": "rewind", "tier": 1, "detent": 0 }]
+		GameState.state["player"]["dial"] = dial
+		var original_events := _install_vn_event()
+		Events.start_event("test_vn_event")
+		Events.advance()  # -> card 1
+
+		var screen := _fresh_screen()
+		_button_with_text(screen._vn_card_panel, "Item").pressed.emit()
+		var entry := _button_with_text(screen._item_menu, "⟲ Rewind (Dial) · 2 charges")
+		assert_true(entry != null, "Dial entry shows its remaining charges")
+		assert_true(_button_with_text(screen._item_menu, "⟲ Rewind ×0") == null, "no consumable entry without stock")
+		entry.pressed.emit()
+		assert_eq(GameState.state["event"]["cardIndex"], 0)
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 1, "one Dial charge spent")
+
+		GameData.EVENTS = original_events
+	)
+
+	run_case("fits_in_row_sums_widths_and_separators", func():
+		assert_true(EventScreen.fits_in_row([100.0, 100.0], 8, 208.0))
+		assert_true(not EventScreen.fits_in_row([100.0, 100.0], 8, 207.0))
+		assert_true(EventScreen.fits_in_row([], 8, 0.0))
+	)
+
+	run_case("two_short_choices_plus_item_stay_in_one_row", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		var original_events := _install_full_card_event()
+		Events.start_event("test_screen_event")
+		for i in range(4):
+			Events.advance()  # -> choice
+
+		var screen := _fresh_screen()
+		assert_true(not screen._action_bar.vertical, "Item + two short choices fit at phone width")
+		assert_eq(screen._action_bar.get_children().size(), 3)
+
+		GameData.EVENTS = original_events
+	)
+
+	for event_id in ["col_a1_firm_intimidation", "col_a2_hostile_member"]:
+		run_case("%s_three_choices_stack_full_width_at_phone_width" % event_id, func():
+			GameState.reset()
+			GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+			Events.start_event(event_id)
+			for i in range(3):
+				Events.advance()  # -> choice
+			assert_true(Events.is_awaiting_choice(), "sanity: on the choice card")
+
+			var screen := _fresh_screen()
+			var box := _controls_of(screen)
+			assert_true(box.vertical, "3 choices + Item don't fit one row -- they stack")
+			var labels: Array = Events.current_card()["choices"].map(func(c): return c["label"])
+			for label in labels:
+				var b := _button_with_text(box, label)
+				assert_true(b != null, "every option renders: %s" % label)
+				assert_eq(b.size_flags_horizontal, Control.SIZE_EXPAND_FILL, "each stacked choice fills the width")
+		)
+
+	run_case("vn_mode_long_choices_stack_and_grow_the_panel_upward", func():
+		GameState.reset()
+		var original_events := _install_vn_event()
+		var choice_card: Dictionary = GameData.EVENTS["test_vn_event"]["cards"][3]
+		choice_card["choices"] = [
+			{ "label": "A deliberately long first option", "effects": [], "result_text": "One." },
+			{ "label": "An equally long second option", "effects": [], "result_text": "Two." },
+			{ "label": "And a long third option too", "effects": [], "result_text": "Three." },
+		]
+		Events.start_event("test_vn_event")
+		for i in range(3):
+			Events.advance()  # -> choice
+
+		var screen := _fresh_screen()
+		assert_true(screen._vn_controls_row.vertical)
+		assert_true(screen._vn_text_frame.offset_top < -EventScreen.VN_TEXT_FRAME_HEIGHT - EventScreen.VN_BOTTOM_MARGIN, "panel grows to fit the stack")
+		assert_eq(screen._vn_image_frame.offset_bottom, screen._vn_text_frame.offset_top, "image still ends where the panel starts")
 
 		GameData.EVENTS = original_events
 	)
