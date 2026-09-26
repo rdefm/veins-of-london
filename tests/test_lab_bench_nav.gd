@@ -1,8 +1,8 @@
 extends "res://tests/test_base.gd"
 
 # docs/hq-diorama-vision.md §5: LabBenchNav's own nav state
-# (systems/lab_bench_nav.gd) -- which notebook mode is held and which ore
-# types are selected. Screen-level tap dispatch is covered by
+# (systems/lab_bench_nav.gd) -- which ore types are selected, and which
+# confirm variant / readiness a gear has for that selection. Screen-level tap dispatch is covered by
 # tests/test_hq_lab_bench.gd; these cases are the pure state transitions only.
 
 
@@ -16,33 +16,6 @@ func run() -> void:
 		EventBus.state_changed.disconnect(on_changed)
 
 		assert_true(received[0], "state_changed should fire")
-	)
-
-	run_case("open_does_not_disturb_an_already_held_mode", func():
-		GameState.reset()
-		GameState.state["labBenchNav"]["mode"] = "recipes"
-		LabBenchNav.open()
-		assert_eq(GameState.state["labBenchNav"]["mode"], "recipes", "§5.2: the held notebook stays open for the whole session, including across re-entering the bench")
-	)
-
-	run_case("tap_notebook_sets_the_mode_when_none_is_held", func():
-		GameState.reset()
-		LabBenchNav.tap_notebook(LabBenchNav.MODE_RECIPES)
-		assert_eq(GameState.state["labBenchNav"]["mode"], "recipes")
-	)
-
-	run_case("tap_notebook_on_the_held_notebook_keeps_it_held", func():
-		GameState.reset()
-		LabBenchNav.tap_notebook(LabBenchNav.MODE_EXPERIMENTS)
-		LabBenchNav.tap_notebook(LabBenchNav.MODE_EXPERIMENTS)
-		assert_eq(GameState.state["labBenchNav"]["mode"], "experiments", "§5.2: re-tapping the held notebook never toggles it off")
-	)
-
-	run_case("tap_notebook_switches_modes_freely", func():
-		GameState.reset()
-		LabBenchNav.tap_notebook(LabBenchNav.MODE_RECIPES)
-		LabBenchNav.tap_notebook(LabBenchNav.MODE_EXPERIMENTS)
-		assert_eq(GameState.state["labBenchNav"]["mode"], "experiments", "§5.2: the player can switch modes freely, no confirmation")
 	)
 
 	# ── ticket 07, §5.4: ore-stop selection ────────────────────────────────
@@ -89,11 +62,33 @@ func run() -> void:
 		assert_true(received[0])
 	)
 
-	run_case("open_resets_selected_ore_but_leaves_mode_untouched", func():
+	run_case("open_resets_selected_ore", func():
 		GameState.reset()
 		GameState.state["labBenchNav"]["selectedOre"] = ["life", "time"]
-		GameState.state["labBenchNav"]["mode"] = "recipes"
 		LabBenchNav.open()
 		assert_eq(GameState.state["labBenchNav"]["selectedOre"], [], "re-entering the bench must not open on a stale pairing from last session")
-		assert_eq(GameState.state["labBenchNav"]["mode"], "recipes", "mode still stays held across a re-entry, unlike selectedOre")
+	)
+
+	# ── §5.3: gear confirm variant + readiness ─────────────────────────────
+
+	run_case("confirm_variant_follows_the_cell_state", func():
+		GameState.reset()
+		GameState.state["player"]["bench"]["cells"]["fate|heat"] = { "state": "inert", "misses": 0, "refine": 0 }
+		GameState.state["player"]["bench"]["cells"]["physics|grinding"] = { "state": "hot", "misses": 1, "refine": 0 }
+		assert_eq(LabBenchNav.confirm_variant(["time"], "heat"), LabBenchNav.CONFIRM_CRAFT, "rewind is tutorial-found")
+		assert_eq(LabBenchNav.confirm_variant(["physics"], "heat"), LabBenchNav.CONFIRM_PROBE, "untried")
+		assert_eq(LabBenchNav.confirm_variant(["physics"], "grinding"), LabBenchNav.CONFIRM_PROBE, "hot")
+		assert_eq(LabBenchNav.confirm_variant(["fate"], "heat"), LabBenchNav.CONFIRM_INERT)
+	)
+
+	run_case("gear_ready_for_a_legal_probe_or_a_found_recipe_only", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["physics"] = Bench.ORE_COST_PER_TYPE
+		GameState.state["player"]["orichalchum"]["time"] = 0
+		GameState.state["player"]["bench"]["cells"]["physics|grinding"] = { "state": "inert", "misses": 0, "refine": 0 }
+		assert_true(LabBenchNav.gear_ready(["physics"], "heat"), "affordable probe")
+		assert_true(not LabBenchNav.gear_ready(["physics"], "grinding"), "inert is never ready")
+		assert_true(LabBenchNav.gear_ready(["time"], "heat"), "a found recipe is ready even with no ore")
+		assert_true(not LabBenchNav.gear_ready(["time"], "grinding"), "unaffordable probe")
+		assert_true(not LabBenchNav.gear_ready([], "heat"), "no selection")
 	)

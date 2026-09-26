@@ -29,4 +29,5 @@ static var REGISTRY: Dictionary = {
 	"lab_bench_recipe_book": LabBenchRecipeBookModal,
 	"lab_bench_notes": LabBenchNotesModal,
 	"lab_bench_probe_result": LabBenchProbeResultModal,
+	"lab_bench_confirm": LabBenchConfirmModal,
 }

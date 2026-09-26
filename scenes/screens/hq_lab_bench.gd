@@ -7,6 +7,8 @@ const _BADGE_FONT_SIZE := 14
 const _BADGE_RADIUS := 8
 const _BADGE_PADDING := 6
 const _SELECT_ORE_HINT := "Pick an ore type first."
+const _STATUS_FONT_SIZE := 15
+const _STATUS_MIN_HEIGHT := 32.0
 
 var _diorama: HqDiorama
 var _press_zone: String = ""
@@ -55,6 +57,7 @@ func _build() -> void:
 	frame.add_child(_diorama)
 
 	_add_ore_badges(visible_plate["regions"], frame.position, scale_factor)
+	_add_status_line(Rect2(0.0, top + scaled_height, available.x, maxf(available.y - top - scaled_height, _STATUS_MIN_HEIGHT)))
 
 	var back := UI.back_button("hq")
 	back.position = Vector2(_INSET, UI.safe_area_top_inset() + _INSET)
@@ -101,6 +104,18 @@ func _add_ore_badges(regions: Dictionary, origin: Vector2, scale_factor: float) 
 		add_child(box)
 
 
+func _add_status_line(rect: Rect2) -> void:
+	var line := MapCardStyle.label(status_line(GameState.state["labBenchNav"]["selectedOre"]), _STATUS_FONT_SIZE, MapCardStyle.paper())
+	line.name = "StatusLine"
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	line.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	line.position = rect.position
+	line.size = rect.size
+	add_child(line)
+
+
 func _on_debug_toggle_pressed() -> void:
 	_debug_overlay_enabled = not _debug_overlay_enabled
 	_refresh()
@@ -109,15 +124,9 @@ func _on_debug_toggle_pressed() -> void:
 func _visible_plate(plate: Dictionary, nav: Dictionary) -> Dictionary:
 	var visible_plate: Dictionary = plate.duplicate(true)
 	var regions: Dictionary = visible_plate["regions"]
-	_label_notebook_regions(regions, nav["mode"])
 	_label_ore_regions(regions, nav)
 	_filter_and_label_apparatus_regions(regions, nav)
 	return visible_plate
-func _label_notebook_regions(regions: Dictionary, mode: Variant) -> void:
-	if regions.has("notebookRecipes"):
-		regions["notebookRecipes"]["label"] = "Recipes (open)" if mode == LabBenchNav.MODE_RECIPES else "Recipes"
-	if regions.has("notebookExperiments"):
-		regions["notebookExperiments"]["label"] = "Experiments (open)" if mode == LabBenchNav.MODE_EXPERIMENTS else "Experiments"
 func _label_ore_regions(regions: Dictionary, nav: Dictionary) -> void:
 	var selected: Array = nav["selectedOre"]
 	for ore_type in GameData.ORE_TYPES.keys():
@@ -131,34 +140,10 @@ func _label_ore_regions(regions: Dictionary, nav: Dictionary) -> void:
 		if selected.has(ore_type):
 			region["selected"] = true
 			label += " · selected"
-			var cost_label := _selected_ore_cost_label(ore_type, nav)
-			if cost_label != "":
-				label += " · costs %s" % cost_label
 		region["label"] = label
 
-func _selected_ore_cost_label(type_id: String, nav: Dictionary) -> String:
-	if nav["mode"] == LabBenchNav.MODE_RECIPES:
-		var costs := _selected_ore_manual_costs(nav["selectedOre"], type_id)
-		if costs.is_empty():
-			return ""
-		if costs.size() == 1:
-			return str(costs[0])
-		costs.sort()
-		return "%d–%d" % [costs[0], costs[costs.size() - 1]]
-	return str(Bench.ORE_COST_PER_TYPE)
-func _selected_ore_manual_costs(selected: Array, type_id: String) -> Array:
-	if selected.is_empty():
-		return []
-	var skill: int = GameState.state["player"]["craftingSkill"]
-	var costs: Array = []
-	for approach_id in Approaches.get_known():
-		var recipe_key := Bench.find_recipe_for_cell(selected, approach_id)
-		if recipe_key == "" or Bench.cell_state(selected, approach_id) != "found":
-			continue
-		var cost: int = Crafting.calc_cost(recipe_key, skill).get(type_id, 0)
-		if cost > 0:
-			costs.append(cost)
-	return costs
+# §5.3: a ready gear carries the same gold outline flag as a selected jar. A
+# found cell names its recipe; an unprobed one only says it's ready (§5.6).
 func _filter_and_label_apparatus_regions(regions: Dictionary, nav: Dictionary) -> void:
 	var selected: Array = nav["selectedOre"]
 	for approach_id in GameData.APPROACHES.keys():
@@ -170,17 +155,26 @@ func _filter_and_label_apparatus_regions(regions: Dictionary, nav: Dictionary) -
 			continue
 
 		var region: Dictionary = regions[region_id]
-		var suffix := ""
-		var recipe_key := ""
-		if nav["mode"] == LabBenchNav.MODE_RECIPES and not selected.is_empty():
-			recipe_key = Bench.find_recipe_for_cell(selected, approach_id)
-			if recipe_key != "" and Bench.cell_state(selected, approach_id) != "found":
-				recipe_key = ""
-		if recipe_key != "":
-			suffix = " — %s" % GameData.RECIPES[recipe_key]["name"]
-		elif not selected.is_empty() and Bench.can_probe(selected, approach_id):
-			suffix = " — ready"
+		if not LabBenchNav.gear_ready(selected, approach_id):
+			continue
+		region["selected"] = true
+		var suffix := " — ready"
+		if LabBenchNav.confirm_variant(selected, approach_id) == LabBenchNav.CONFIRM_CRAFT:
+			suffix = " — %s" % GameData.RECIPES[Bench.find_recipe_for_cell(selected, approach_id)]["name"]
 		region["label"] = region.get("label", region_id) + suffix
+
+
+# The one-line selection summary in the band below the table.
+static func status_line(selected: Array) -> String:
+	if selected.is_empty():
+		return _SELECT_ORE_HINT
+	var ready: Array[String] = []
+	for approach_id in GameData.APPROACHES.keys():
+		if LabBenchNav.gear_ready(selected, approach_id):
+			ready.append(LabBenchNav.apparatus_name(approach_id))
+	if ready.is_empty():
+		return "%s · nothing ready" % LabBenchNav.pairing_label(selected)
+	return "%s · %s ready" % [LabBenchNav.pairing_label(selected), ", ".join(ready)]
 func _on_diorama_gui_input(event: InputEvent) -> void:
 	# Touch-emulated mouse events (device DEVICE_ID_EMULATION) twin every real
 	# touch; handling both would toggle an ore selection on and straight off.
@@ -209,40 +203,20 @@ func _zone_at(pos: Vector2) -> String:
 func _on_zone_tapped(zone_id: String) -> void:
 	match zone_id:
 		"notebookRecipes":
-			_tap_notebook_and_open_modal(LabBenchNav.MODE_RECIPES, "lab_bench_recipe_book")
+			Modal.open("lab_bench_recipe_book")
 		"notebookExperiments":
-			_tap_notebook_and_open_modal(LabBenchNav.MODE_EXPERIMENTS, "lab_bench_notes")
+			Modal.open("lab_bench_notes")
 		_:
 			if zone_id.begins_with(LabBenchNav.ORE_REGION_PREFIX):
 				LabBenchNav.select_ore(zone_id.trim_prefix(LabBenchNav.ORE_REGION_PREFIX))
 			elif zone_id.begins_with(LabBenchNav.APPARATUS_REGION_PREFIX):
 				_run_apparatus(zone_id.trim_prefix(LabBenchNav.APPARATUS_REGION_PREFIX))
 
-func _tap_notebook_and_open_modal(mode_id: String, modal_type: String) -> void:
-	LabBenchNav.tap_notebook(mode_id)
-	Modal.open(modal_type)
-# An apparatus tap probes the selected ore set unless the Recipes notebook is
-# held over an already-found cell, which crafts instead. No notebook is needed
-# to experiment.
+# §5.3: a gear tap never spends ore by itself — it opens the confirm modal,
+# which picks probe / craft / inert from the cell's history.
 func _run_apparatus(approach_id: String) -> void:
-	var nav: Dictionary = GameState.state["labBenchNav"]
-	var selected: Array = nav["selectedOre"]
+	var selected: Array = GameState.state["labBenchNav"]["selectedOre"]
 	if selected.is_empty():
 		Notify.push(_SELECT_ORE_HINT)
 		return
-
-	if nav["mode"] == LabBenchNav.MODE_RECIPES:
-		var recipe_key := Bench.find_recipe_for_cell(selected, approach_id)
-		if recipe_key != "" and Bench.cell_state(selected, approach_id) == "found":
-			Crafting.attempt_craft(recipe_key)
-			return
-
-	var reason := Bench.probe_block_reason(selected, approach_id)
-	if reason != "":
-		Notify.push(reason, Notify.CATEGORY_WARNING)
-		return
-	var result := Bench.probe(selected, approach_id)
-	Modal.open("lab_bench_probe_result", {
-		"outcome": result.get("outcome", ""),
-		"recipeKey": result.get("recipeKey", ""),
-	})
+	Modal.open("lab_bench_confirm", { "types": selected.duplicate(), "approach": approach_id })

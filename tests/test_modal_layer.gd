@@ -58,7 +58,7 @@ func run() -> void:
 				"james_job_complete", "sell_menu", "nadia_supply", "sell_vein_quote",
 				"craft_components_menu", "network_reference", "movement_craft", "movement_swap",
 				"dial_load_complication", "combat_setup", "hq_ore_readout", "hq_gym",
-				"lab_bench_recipe_book", "lab_bench_notes", "lab_bench_probe_result"]:
+				"lab_bench_recipe_book", "lab_bench_notes", "lab_bench_probe_result", "lab_bench_confirm"]:
 			assert_true(ModalRegistry.REGISTRY.has(type_id), "%s is registered" % type_id)
 			assert_true(ModalRegistry.REGISTRY[type_id].has_method("build"), "%s exposes build()" % type_id)
 	)

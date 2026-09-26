@@ -60,7 +60,7 @@ func new_game_state() -> Dictionary:
 		# notebook) persists across re-entry, unlike selectedOre (up to 2
 		# ids, §5.4), which open() always resets so re-entry never opens on
 		# a stale pairing.
-		"labBenchNav": { "mode": null, "selectedOre": [] },
+		"labBenchNav": { "selectedOre": [] },
 		# state.objectives[<id>] = { active, complete, progress }, keyed by
 		# data/objectives.json ids; Objectives.refresh() is the only writer.
 		# progress is per-evaluator scratch data -- e.g. traded_with_faction

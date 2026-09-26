@@ -152,30 +152,20 @@ bottom-right beside the books). Every object is baked into the art; its hit
 region is traced on it, with a polygon wherever a rect would overlap a
 neighbour.
 
-### 5.2 The two notebooks — mode
+### 5.2 The two notebooks
 
-The bench has two notebooks: **Recipes** and
-**Experiments**. Tapping one sets the mode. The chosen notebook stays
-visibly open/held for the whole session so the mode is never invisible.
-Every notebook tap — including on the held one — opens that notebook's book.
-The player can switch modes freely.
+The bench has two notebooks: **Recipes** and **Experiments**. There is no
+mode — each notebook just opens its book:
 
-**Experiments mode**
+- **Recipes** — every found recipe, with quantity stepper, craft and refine.
+- **Experiments** — pairings already tried and their results, and current
+  recipe levels.
+
+**At the table** (no book needed):
 1. Select 1 or 2 ore jars.
-2. The Experiments notebook is tappable here — a panel of pairings already
-   tried and their results, and current recipe levels.
-3. Tap an apparatus to run.
-4. It animates (§5.5), consumes ore, and reports the outcome.
-
-**Recipes mode** — two paths, both valid:
-- **Book path:** tap the recipe book, pick a known recipe *and a quantity*,
-  craft.
-- **Manual path:** select an ore jar, then tap the apparatus that
-  matches. Crafts **quantity 1**. This is
-  the expert path — craft from memory without opening the book.
-
-In Recipes mode the ore jars are a *receipt*, not a decision, when using the
-book path.
+2. Tap (or drag a jar onto) a piece of gear. A small confirm modal opens;
+   which one depends on the pairing's history on that gear (§5.3).
+3. Confirm. It animates (§5.5), consumes ore, and reports the outcome.
 
 ### 5.3 Apparatus
 
@@ -192,12 +182,23 @@ from the start — every apparatus works as soon as the Lab does:
 Each apparatus has **two ore slots, the second optional** — a type set is
 one of the 5 singles or one of the 10 unordered pairs.
 
-**Arming rule (crafting mode):** an apparatus only lights up when the
-current ore selection resolves to a **known** recipe on that approach.
-Unknown combinations are inert — no error, no ore spent, no wasted tap. The
-lighting itself teaches which apparatus a recipe lives on. In experiments
-mode any legal selection arms any known approach; that is the whole point
-of experimenting.
+**Arming rule:** a gear is **ready** — gold outline, same as a selected
+jar — when the current selection can legally probe it (affordable, not
+inert) or it holds a **found** recipe. A found gear's label names its
+recipe; an unprobed one only says it's ready (§5.6). One status line in the
+band below the table summarises the selection, e.g. "Time + Life · Burner
+ready".
+
+**Gear-tap confirm modal** — picked by the cell's state, never by a book:
+
+| Cell | Modal |
+|---|---|
+| untried / `hot` | probe: ore held + cost per type, Confirm (disabled with reason when blocked); then the probe-result card |
+| `found` | craft: recipe, ore held + cost per craft, batch stepper (shared with the recipe book), total, Confirm ×N (disabled with reason when the batch is unaffordable) |
+| `inert` | warning only ("Nothing here. Already confirmed."), no action |
+
+No ore selected → "Pick an ore type first." toast. A tap never spends ore by
+itself; only Confirm does.
 
 Every recipe already carries its `discovery: {types, approach}` pair, so
 ore + apparatus resolves to exactly one recipe with no new data.
@@ -213,9 +214,9 @@ always-available path. Drag-and-drop does the same thing and exists as a
 flourish, never as the only route: one-handed dragging at 390px fails for
 some players, and there is no fallback UI left once the picker is gone.
 
-A selected ore chip must communicate the cost it will incur (a probe costs
-3 per type; a craft costs the recipe's own ingredients) so nobody commits
-blind.
+Cost is communicated before commit by the gear's confirm modal (§5.3): a
+probe costs 3 per type; a craft costs the recipe's own ingredients × batch.
+Nobody commits blind.
 
 ### 5.5 Animations
 
