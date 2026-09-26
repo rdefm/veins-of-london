@@ -536,6 +536,10 @@ func _restore_int_types(state: Dictionary) -> void:
 	var reissue_days: Dictionary = business_quest.get("recurringReissueDay", {})
 	for template_id in reissue_days:
 		_int_key(reissue_days, template_id)
+	var owen_texts: Dictionary = state.get("owenTexts", {})
+	_int_key(owen_texts, "nextDay")
+	_int_key(owen_texts, "playSeq")
+	_int_dict_values(owen_texts.get("played", {}))
 	if morning != null and morning.get("payday") != null:
 		_restore_payday_int_types(morning["payday"])
 

@@ -178,6 +178,9 @@ var EVENTS: Dictionary = {}
 # terms. Keyed by contact id.
 var COLLECTIVE_BARKS: Dictionary = {}
 
+# data/owen_texts.json: Owen's random-text pool and cadence (systems/owen_texts.gd).
+var OWEN_TEXTS: Dictionary = {}
+
 # data/objectives.json, keyed by objective id (systems/objectives.gd).
 # "questline" groups an entry for todo.gd's ToDo-app rendering: the
 # tutorial's flag chain and Collective's Act 1 threads are both just
@@ -334,6 +337,9 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "phone_home", "file": "res://data/phone_home.json", "fields": [
 		{"field": "PHONE_HOME", "key": "", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "owen_texts", "file": "res://data/owen_texts.json", "fields": [
+		{"field": "OWEN_TEXTS", "key": "", "type": TYPE_DICTIONARY},
+	]},
 ]
 
 
@@ -452,6 +458,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_events(t.get("events", {}), t.get("districts", {}), errors)
 	_validate_objectives(t.get("objectives", {}), t.get("factions", {}), t.get("ore_types", {}), t.get("site_tier_order", []), t.get("recipes", {}), errors)
 	_validate_collective_barks(t.get("collective_barks", {}), errors)
+	_validate_owen_texts(t.get("owen_texts", {}), errors)
 	_validate_phone_home(t.get("phone_home", {}), errors)
 	_validate_map_palette(t.get("map_palette", {}), t.get("factions", {}), t.get("ore_types", {}), errors)
 
@@ -1109,6 +1116,51 @@ func _validate_collective_barks(barks: Dictionary, errors: Array[String]) -> voi
 		var lines: Array = barks[key]
 		if lines.size() < 6:
 			errors.append("collective_barks.%s: needs at least 6 lines, got %d" % [key, lines.size()])
+
+
+const OWEN_TEXT_KINDS: Array[String] = ["question", "flavour"]
+const OWEN_TEXT_VEIN_PLACEHOLDERS: Array[String] = ["{street}", "{district}", "{ore}"]
+
+
+# Each text has 2-3 replies; a question has exactly one correct reply, a
+# flavour text none. Vein placeholders only in needsVein texts.
+func _validate_owen_texts(owen_texts: Dictionary, errors: Array[String]) -> void:
+	_require_keys(owen_texts, ["intervalMinDays", "intervalMaxDays", "texts"], "owen_texts", errors)
+	var min_days := int(owen_texts.get("intervalMinDays", 0))
+	var max_days := int(owen_texts.get("intervalMaxDays", 0))
+	if min_days < 1 or max_days < min_days:
+		errors.append("owen_texts: need 1 <= intervalMinDays <= intervalMaxDays, got %d..%d" % [min_days, max_days])
+	var seen := {}
+	for entry in owen_texts.get("texts", []):
+		var id := str(entry.get("id", ""))
+		var path := "owen_texts.%s" % id
+		if id == "" or seen.has(id):
+			errors.append("owen_texts: missing or duplicate id '%s'" % id)
+		seen[id] = true
+		var kind := str(entry.get("kind", ""))
+		if not OWEN_TEXT_KINDS.has(kind):
+			errors.append("%s: kind '%s' not one of %s" % [path, kind, OWEN_TEXT_KINDS])
+		var strings: Array = [entry.get("text")]
+		var replies: Array = entry.get("replies", [])
+		if replies.size() < 2 or replies.size() > 3:
+			errors.append("%s: needs 2-3 replies, got %d" % [path, replies.size()])
+		var correct_count := 0
+		for reply in replies:
+			strings.append(reply.get("text"))
+			strings.append(reply.get("response"))
+			if reply.get("correct", false):
+				correct_count += 1
+		var expected_correct := 1 if kind == "question" else 0
+		if correct_count != expected_correct:
+			errors.append("%s: a %s needs exactly %d correct reply, got %d" % [path, kind, expected_correct, correct_count])
+		var needs_vein: bool = entry.get("needsVein", false)
+		for text in strings:
+			if typeof(text) != TYPE_STRING or text == "":
+				errors.append("%s: text, reply text and response must be non-empty strings" % path)
+				continue
+			for placeholder in OWEN_TEXT_VEIN_PLACEHOLDERS:
+				if not needs_vein and text.contains(placeholder):
+					errors.append("%s: %s needs needsVein true" % [path, placeholder])
 
 
 const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "resolution", "craft", "choice"]

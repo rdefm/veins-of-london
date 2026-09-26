@@ -69,6 +69,7 @@ Data file per system: see `data/*.json` below.
 | notify.gd | Notifications append/evict |
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
 | offers.gd | Sales offers: quoting, acceptance, expiry |
+| owen_texts.gd | Owen's random texts: rollover scheduler (2-3 day interval, paused while he isn't working), unplayed-then-LRU pick, vein templating from his cultivator list, reply choices granting cultivating XP on a correct answer |
 | payroll.gd | Daily wage payment for room-staffed hires (founders exempt); `is_working()` gate for staff actions (false while the business owes wages) |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
 | phone_nav.gd | Phone app/index/thread drill-down nav |
@@ -194,7 +195,7 @@ overlays.
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
 | bizbrief_app.gd | BizBrief tabs: Brief (bank, payday, wage prompt, operations, attention); Manage (offers, delegation, buy-calc, production targets + log, cultivator procurement); Staff once `bizStaffTabOpen` (role, skills, pay terms, status, role picker, Pay now); Stats while pot active (4 line charts, ore source toggle) |
-| messages_app.gd | Conversation master list + single-thread staged bubble reveal/action bar |
+| messages_app.gd | Conversation master list + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices) |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | Faction cards |
 | ticker_app.gd | Barometer headlines + axis detail (push/pull, influence actions) |
@@ -232,6 +233,7 @@ overlays.
 | objectives.json | objectives.gd, todo.gd, collective.gd, business_quest.gd |
 | offers.json | offers.gd (synthetic catalogue), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
+| owen_texts.json | owen_texts.gd (text pool, reply options, interval days) |
 | palette.json | GameData.gd (reference combat-art palette) |
 | phone_home.json | GameData.gd + phone_device_shell.gd (fixed wallpaper/status/widget presentation; no GameState or host-service data) |
 | recipes.json | widely read (crafting, bench, combat, dial, jobs, rooms) |

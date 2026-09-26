@@ -148,6 +148,10 @@ func _build_action_bar(contact_id: String) -> Control:
 	if contact_id == ContactCards.HANDLER_ID:
 		for action in ContactCards.build_handler_actions():
 			bar.add_child(action)
+	if contact_id == OwenTexts.CONTACT_ID:
+		var replies := OwenTexts.active_replies()
+		for i in range(replies.size()):
+			bar.add_child(UI.button(replies[i], OwenTexts.reply.bind(i)))
 	for entry in Messages.pending_for(contact_id):
 		bar.add_child(UI.button("Continue →", _on_pending_action_pressed.bind(entry)))
 	if contact_id == "archie":

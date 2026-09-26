@@ -1,0 +1,27 @@
+{
+  "intervalMinDays": 2,
+  "intervalMaxDays": 3,
+  "texts": [
+    {
+      "id": "prune_below_half",
+      "kind": "question",
+      "needsVein": true,
+      "text": "Say the {ore} vein on {street} drops just under halfway. If I prune it then, do we get any calc off it?",
+      "replies": [
+        { "text": "Nothing. Only what's above the middle counts.", "correct": true, "response": "Right. Leave it to climb, then. Writing that down." },
+        { "text": "Prune it hard, see what comes off.", "correct": false, "response": "Will do. James said under halfway gives you nothing, but he says a lot of things." },
+        { "text": "Prune it light. Little and often.", "correct": false, "response": "Little and often. Got it. I think." }
+      ]
+    },
+    {
+      "id": "bus_stop_gardening",
+      "kind": "flavour",
+      "needsVein": false,
+      "text": "Bloke at the bus stop asked what I do. I said gardening. He asked what I grow. I panicked and said rocks.",
+      "replies": [
+        { "text": "Close enough.", "correct": false, "response": "He moved seats." },
+        { "text": "Next time, say nothing.", "correct": false, "response": "Noted. I'll just nod. Nodding's safe." }
+      ]
+    }
+  ]
+}
