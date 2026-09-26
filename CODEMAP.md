@@ -25,7 +25,7 @@ Data file per system: see `data/*.json` below.
 | bag.gd | Bag-drawer toggle |
 | bank.gd | Cash transaction log |
 | barometer.gd | Economic/social/political barometer + faction prefs |
-| business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7 trigger texts, Beat 2 starter-offer chain, Beat 6 recurring offers (held open, reissued), Beat 7 closing payload from the latest payday record, James's crafting-skill set, Owen's crafting-event trigger. Rules: REFERENCE.md "Business Empire questline" |
+| business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7 trigger texts, Beat 2 starter-offer chain, recurring offers (ore from Beat 3, Time Pearl from Beat 6; held open, reissued), Beat 7 closing payload from the latest payday record, James's crafting-skill set, Owen's crafting-event trigger. Rules: REFERENCE.md "Business Empire questline" |
 | business.gd | Business pot (contract settlements while active; pays Sales calc purchases as `calc` expenses), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash, Staff tab pay-terms/status labels |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
@@ -228,7 +228,7 @@ overlays.
 | map_layout.json | map_layout.gd, map_hit_test.gd |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, faction/ore dark overrides) + map_controls.gd (`darkModeLabel`) |
 | objectives.json | objectives.gd, todo.gd, collective.gd, business_quest.gd |
-| offers.json | offers.gd (synthetic catalogue), business_quest.gd (biz_starter_* chain + Archie nudge text, Beat 6 biz_recurring_*) |
+| offers.json | offers.gd (synthetic catalogue), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | palette.json | GameData.gd (reference combat-art palette) |
 | phone_home.json | GameData.gd + phone_device_shell.gd (fixed wallpaper/status/widget presentation; no GameState or host-service data) |

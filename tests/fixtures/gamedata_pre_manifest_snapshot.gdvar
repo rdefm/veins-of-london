@@ -1447,7 +1447,7 @@
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Right, so. From today orders pay into the pot, not your pocket. Owen's wages come out of it every week, and whatever's left splits three ways. Put him on your veins in BizBrief — there's a Staff tab now.\"",
+"text": "\"Right, so. From today orders pay into the pot, not your pocket. Owen's wages come out of it every week, and whatever's left splits three ways. Put him on your veins in BizBrief — there's a Staff tab now. And there's a weekly ore order on there. Take one, it pays his wages.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1476,6 +1476,8 @@
 "flag": "bizA1OwenJoined",
 "op": "set_flag",
 "value": true
+}, {
+"op": "issue_recurring_offers"
 }, {
 "op": "set_screen",
 "screen": "phone"
@@ -1677,7 +1679,7 @@
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Pearls are on BizBrief now. There's a second one with them: six time or six life, weekly. Pick whichever you can keep up with.\"",
+"text": "\"Pearls are on BizBrief now. If you've not taken a weekly ore order yet, six time or six life is still there. Pick whichever you can keep up with.\"",
 "type": "speaker"
 }, {
 "label": null,

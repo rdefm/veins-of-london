@@ -177,10 +177,10 @@ room. Future hires still need the matching room.
 - A new questline `business_empire` fills the existing ToDo placeholder. Beats are objectives in the existing objectives catalogue, evaluated by `Objectives.refresh()`, with new evaluator types where needed:
   - **Beat 1 trigger:** the player owns ≥ 2 veins, **independent of the Collective questline**. Collective Act 1 need not be started or finished. Archie must be recruited (true from the home-raid debrief onward), so this is always post-tutorial. Checked after any change in vein count (event completion, seeding, purchase, self-seed) and at rollover as a backstop. Archie queues a text through `Messages.queue_pending`, which leads into a Beat 1 story scene. A permanent flag blocks re-firing. Beat 1 prose must not assume where the second vein came from.
   - **Beat 2:** count of fully completed BizBrief contract settlements (`settlement.complete == true`), read live from `sales.contractHistory`, so completions before the pitch count. Target 3. A completed recurring period counts as one.
-  - **Beat 3:** Beat 2 met → James story scene introducing Owen. On completion, Owen is unlocked and recruited, the Staff tab opens, the business pot activates, and Archie and James become partners (James as a limited partner).
+  - **Beat 3:** Beat 2 met → James story scene introducing Owen. On completion, Owen is unlocked and recruited, the Staff tab opens, the business pot activates, Archie and James become partners (James as a limited partner), and the recurring ore offers start.
   - **Beat 4:** live checks: Owen `cultivatingSkill ≥ 2` AND `workshop` in `home.rooms`. Both are live state, not counters, so a tier move that wipes the Workshop un-meets the objective.
   - **Beat 5:** Beat 4 met → partnership scene. James is recruited, his `craftingSkill` is set to a data-driven value (5), and the Production role unlocks for him. Recruit side effects are idempotent if he is already recruited.
-  - **Beat 6:** a scene in which Archie demonstrates a recurring order and unlocks delegation. It issues the guaranteed Time Pearl recurring offer plus the two alternative ore recurring offers. Objective: two distinct recurring contracts each have at least one qualifying period (see "Unattended proof"), at least one of which requests a crafted item.
+  - **Beat 6:** a scene in which Archie demonstrates a recurring order and unlocks delegation. It issues the guaranteed Time Pearl recurring offer (the two ore choices already run from Beat 3; an ore contract taken earlier counts once delegated). Objective: two distinct recurring contracts each have at least one qualifying period (see "Unattended proof"), at least one of which requests a crafted item.
   - **Beat 7:** Beat 6 met → closing scene reading the latest payday record. Act complete.
 - Story scenes (Beats 1, 3, 5, 6, 7, and Owen's crafting event) are events under the existing event data format. Beats 2 and 4 are ToDo goals plus text nudges. All new prose is drafted against CONTENT-GUIDE.md and CHARACTER-VOICE-GUIDE.md and flagged `PROSE-REVIEW:`. The quest text must say that James keeps his own business on the side (James jobs continue unchanged) and that he joins at Beat 3 as a limited partner who helped source Owen, then fully at Beat 5.
 - The hourglass James turns in Beat 1 is an ordinary object. There are no Guild contracts, no Guild invitation, and no Dial reveal.
@@ -237,11 +237,11 @@ New scripted templates in the offers data (quote formula unchanged: snapshotted 
 | `biz_starter_2` | one-off | timePearl × 3 | Beat 2 chain |
 | `biz_starter_3` | one-off | life ore × 5 | Beat 2 chain |
 | `biz_recurring_time_pearl` | recurring, weekly | timePearl × 5 | Guaranteed at Beat 6 |
-| `biz_recurring_time_ore` | recurring, weekly | time ore × 6 | Beat 6 choice A |
-| `biz_recurring_life_ore` | recurring, weekly | life ore × 6 | Beat 6 choice B |
+| `biz_recurring_time_ore` | recurring, weekly | time ore × 6 | From Beat 3, choice A |
+| `biz_recurring_life_ore` | recurring, weekly | life ore × 6 | From Beat 3, choice B |
 
 - **Starter chain:** while Beat 2 is unmet, exactly one starter is outstanding at a time. The next starter (or a reissue of the same one, if it expired or was declined) is created **one day after** the previous starter's offer or contract closes. The chain stops as soon as Beat 2 is met, whatever the source of the completions. Authored expiry and deadline per template.
-- **Beat 6 recurring offers** do not expire while Beat 6 is unmet. A declined one is reissued the next day. The pending-offer cap of four is respected: if it is full, the reissue waits.
+- **Recurring offers:** the two ore choices are issued from Beat 3 (Owen joins), so the pot has income for Owen's wage before James joins; the Time Pearl order from Beat 6. Before Beat 6 they are ore-only. The player still takes one ore choice: neither is reissued while either runs as a contract. All stop once Beat 6 is met; until then they do not expire, and a declined one is reissued the next day. The pending-offer cap of four is respected: if it is full, the reissue waits.
 - Starter offers bypass the random-offer daily roll and do not use its slot.
 
 ### Business pot and payday

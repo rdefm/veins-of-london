@@ -9,7 +9,7 @@
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"So here's the test. Two of these, each running a full week with no help from you. Start whenever. A short first week counts if nobody touches it.\"" },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Help means handing the goods over yourself, making the thing it asks for, tending any of Owen's veins, moving what it wants out of your stash, or buying the calc it wants. Do any of that and that week doesn't count.\"" },
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Everything else is yours. Other veins, other crafting, the Collective, whoever you're fighting this week. And if I buy calc for an order out of the pot, that's the business doing its job. Doesn't count against you.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Pearls are on BizBrief now. There's a second one with them: six time or six life, weekly. Pick whichever you can keep up with.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Pearls are on BizBrief now. If you've not taken a weekly ore order yet, six time or six life is still there. Pick whichever you can keep up with.\"" },
     { "type": "resolution", "label": null, "speaker": null, "text": "James goes back to his bench. Archie puts his phone face down beside the hourglass and leaves it there." }
   ],
   "on_complete": [

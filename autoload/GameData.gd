@@ -1120,7 +1120,7 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# recruit_contact is Contacts.force_recruit() (story recruits).
 	# activate_business is Business.activate() (Beat 3: pot + partners);
 	# set_james_crafting_skill is BusinessQuest.set_james_crafting_skill() (Beat 5);
-	# issue_recurring_offers is BusinessQuest.maybe_issue_recurring() (Beat 6).
+	# issue_recurring_offers is BusinessQuest.maybe_issue_recurring() (Beats 3, 6).
 	"unlock_contact", "push_message", "recruit_contact", "activate_business",
 	"set_james_crafting_skill", "issue_recurring_offers",
 	# faction_relation is "relation"'s faction-facing twin (Factions.

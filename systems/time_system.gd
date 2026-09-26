@@ -106,7 +106,7 @@ static func daily_tick() -> void:
 	MorningAccountsSystem.capture_business(morning_context, Business.daily_tick())  # ⑥.4b after ⑥.4 so payday banks today's settlements
 	OffersSystem.daily_tick()            # ⑥.5 expiry, then Sales sources at most one new random offer
 	BusinessQuest.maybe_issue_starter()  # ⑥.5b after ⑥.5's expiry; outside the random roll and its slot
-	BusinessQuest.maybe_issue_recurring()  # ⑥.5c Beat 6 reissues, after ⑥.5b so the starter chain goes first
+	BusinessQuest.maybe_issue_recurring()  # ⑥.5c recurring-offer reissues, after ⑥.5b so the starter chain goes first
 	Dial.daily_regen()                   # ⑦ Dial charge regen
 	Contacts.daily_dial_regen()          # ⑦.1 ally Dial charges refill
 	Objectives.refresh()                 # ⑧ objectives boundary

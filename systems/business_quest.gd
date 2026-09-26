@@ -10,7 +10,8 @@ extends RefCounted
 const PROPOSITION_KIND := "biz_a1_proposition"
 const MIN_VEINS := 2
 const STARTER_TEMPLATES := ["biz_starter_1", "biz_starter_2", "biz_starter_3"]
-# Beat 6: the guaranteed order, then the two ore orders the player picks from.
+# The Time Pearl order (from Beat 6), then the two ore orders the player picks
+# from (from Beat 3).
 const RECURRING_GUARANTEED := "biz_recurring_time_pearl"
 const RECURRING_CHOICES := ["biz_recurring_time_ore", "biz_recurring_life_ore"]
 
@@ -128,27 +129,33 @@ static func maybe_trigger_owen_craft() -> bool:
 	return true
 
 
-# Beat 6's recurring offers run from the Beat 6 scene until Beat 6 is met.
-static func recurring_offers_active() -> bool:
+# Archie's recurring offers: the two ore orders from Beat 3 (Owen joined),
+# the Time Pearl order from the Beat 6 scene. All stop once Beat 6 is met.
+static func recurring_offer_active(template_id: String) -> bool:
 	var flags: Dictionary = GameState.state["flags"]
-	return Contracts.delegation_unlocked() and not flags.get("bizA1ProofDone", false)
+	if flags.get("bizA1ProofDone", false):
+		return false
+	if template_id == RECURRING_GUARANTEED:
+		return Contracts.delegation_unlocked()
+	if RECURRING_CHOICES.has(template_id):
+		return flags.get("bizA1OwenJoined", false)
+	return false
 
 
-static func is_beat6_template(template_id: String) -> bool:
+static func is_recurring_template(template_id: String) -> bool:
 	return template_id == RECURRING_GUARANTEED or RECURRING_CHOICES.has(template_id)
 
 
 static func holds_offer_open(template_id: String) -> bool:
-	return is_beat6_template(template_id) and recurring_offers_active()
+	return recurring_offer_active(template_id)
 
 
-# Issues each Beat 6 offer that is not outstanding and whose reissue day has
-# come. A choice offer is not reissued while either choice runs as a
-# contract. A full pending list makes the rest wait for a later call. Called
-# from the Beat 6 scene and at rollover (after offer expiry).
+# Issues each recurring offer that is active, not outstanding and whose
+# reissue day has come. An ore choice is not reissued while either choice
+# runs as a contract. A full pending list makes the rest wait for a later
+# call. Called from the Beat 3 and Beat 6 scenes and at rollover (after
+# offer expiry).
 static func maybe_issue_recurring() -> void:
-	if not recurring_offers_active():
-		return
 	var reissue := _recurring_reissue_days()
 	var today: int = int(GameState.state["world"]["day"])
 	var choice_running := false
@@ -156,7 +163,7 @@ static func maybe_issue_recurring() -> void:
 		if RECURRING_CHOICES.has(contract.get("templateId", "")):
 			choice_running = true
 	for template_id in [RECURRING_GUARANTEED] + RECURRING_CHOICES:
-		if _template_outstanding(template_id):
+		if not recurring_offer_active(template_id) or _template_outstanding(template_id):
 			continue
 		if RECURRING_CHOICES.has(template_id) and choice_running:
 			continue
@@ -167,7 +174,7 @@ static func maybe_issue_recurring() -> void:
 		reissue.erase(template_id)
 
 
-# A declined Beat 6 offer is reissued one day later while Beat 6 is unmet.
+# A declined recurring offer is reissued one day later while it is active.
 static func note_recurring_declined(template_id: String) -> void:
 	if not holds_offer_open(template_id):
 		return

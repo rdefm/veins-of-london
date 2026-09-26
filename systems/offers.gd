@@ -189,7 +189,7 @@ static func decline_offer(offer_id: String) -> Dictionary:
 	return { "ok": false, "reason": "Offer not found." }
 
 
-# Beat 6's recurring offers stay open until Beat 6 is met.
+# Archie's recurring offers stay open while active (until Beat 6 is met).
 static func is_expired(offer: Dictionary) -> bool:
 	if BusinessQuest.holds_offer_open(offer.get("templateId", "")):
 		return false

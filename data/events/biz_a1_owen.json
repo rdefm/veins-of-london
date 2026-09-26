@@ -12,7 +12,7 @@
     { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"The business. So there is one.\"" },
     { "type": "speaker", "label": null, "speaker": "James", "text": "\"I found him, and I arranged it. That earns me a third, the same as you. For now I am a limited partner: I take my share and I make nothing for it. When you give me a reason, I will join properly and craft.\"" },
     { "type": "speaker", "label": null, "speaker": "James", "text": "\"Until then I keep my own work and my own clients. Neither of you will go near them.\"" },
-    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right, so. From today orders pay into the pot, not your pocket. Owen's wages come out of it every week, and whatever's left splits three ways. Put him on your veins in BizBrief — there's a Staff tab now.\"" },
+    { "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right, so. From today orders pay into the pot, not your pocket. Owen's wages come out of it every week, and whatever's left splits three ways. Put him on your veins in BizBrief — there's a Staff tab now. And there's a weekly ore order on there. Take one, it pays his wages.\"" },
     { "type": "resolution", "label": null, "speaker": null, "text": "Owen has already asked which veins are his. James turns the hourglass over and does not look up, which from James is a welcome." }
   ],
   "on_complete": [
@@ -22,6 +22,7 @@
     { "op": "set_flag", "flag": "bizStaffTabOpen", "value": true },
     { "op": "activate_business" },
     { "op": "set_flag", "flag": "bizA1OwenJoined", "value": true },
+    { "op": "issue_recurring_offers" },
     { "op": "set_screen", "screen": "phone" }
   ]
 }

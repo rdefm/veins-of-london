@@ -253,46 +253,91 @@ func run() -> void:
 		EventPlay.play_event(BusinessQuest.PUT_TO_WORK_KIND)
 		assert_true(Contracts.delegation_unlocked())
 		assert_true(Contracts.set_delegated(early["id"], true)["ok"])
-		assert_eq(_beat6_offer_templates(), ["biz_recurring_time_pearl", "biz_recurring_time_ore", "biz_recurring_life_ore"])
-		assert_eq(_beat6_offer("biz_recurring_time_pearl")["request"], { "kind": "consumable", "type": "timePearl", "qty": 5 })
-		assert_eq(_beat6_offer("biz_recurring_time_ore")["request"], { "kind": "ore", "type": "time", "qty": 6 })
-		assert_eq(_beat6_offer("biz_recurring_life_ore")["request"], { "kind": "ore", "type": "life", "qty": 6 })
-		assert_eq(_beat6_offer("biz_recurring_time_pearl")["contractType"], "recurring")
+		var templates := _recurring_offer_templates()
+		templates.sort()
+		assert_eq(templates, ["biz_recurring_life_ore", "biz_recurring_time_ore", "biz_recurring_time_pearl"])
+		assert_eq(_recurring_offer("biz_recurring_time_pearl")["request"], { "kind": "consumable", "type": "timePearl", "qty": 5 })
+		assert_eq(_recurring_offer("biz_recurring_time_ore")["request"], { "kind": "ore", "type": "time", "qty": 6 })
+		assert_eq(_recurring_offer("biz_recurring_life_ore")["request"], { "kind": "ore", "type": "life", "qty": 6 })
+		assert_eq(_recurring_offer("biz_recurring_time_pearl")["contractType"], "recurring")
 		assert_true(GameState.state["objectives"]["biz_a1_put_to_work"]["active"])
+	)
+
+	run_case("beat_3_scene_issues_the_ore_recurring_offers_only", func():
+		_to_beat_2()
+		_strip_random_offers()
+		EventPlay.play_event(BusinessQuest.OWEN_INTRO_KIND)
+		var templates := _recurring_offer_templates()
+		templates.sort()
+		assert_eq(templates, ["biz_recurring_life_ore", "biz_recurring_time_ore"])
+		for i in 10:
+			_tick()
+		templates = _recurring_offer_templates()
+		templates.sort()
+		assert_eq(templates, ["biz_recurring_life_ore", "biz_recurring_time_ore"], "no expiry, no Time Pearl order before Beat 6")
+	)
+
+	run_case("no_recurring_offers_before_owen_joins", func():
+		_to_beat_2()
+		for i in 3:
+			_tick()
+		assert_eq(_recurring_offer_templates(), [])
+	)
+
+	run_case("declined_ore_offer_reissues_next_day_before_beat_6", func():
+		_to_beat_3()
+		Offers.decline_offer(_recurring_offer("biz_recurring_life_ore")["id"])
+		assert_true(_recurring_offer("biz_recurring_life_ore").is_empty())
+		_tick()
+		assert_true(not _recurring_offer("biz_recurring_life_ore").is_empty())
+	)
+
+	run_case("save_already_past_beat_3_gets_the_ore_offers_at_rollover", func():
+		_to_beat_3()
+		# A save from before the ore offers started at Beat 3.
+		var pending: Array = Offers.pending_offers()
+		for offer in pending.duplicate():
+			if BusinessQuest.is_recurring_template(offer["templateId"]):
+				pending.erase(offer)
+		GameState.state["businessQuest"].erase("recurringReissueDay")
+		_tick()
+		var templates := _recurring_offer_templates()
+		templates.sort()
+		assert_eq(templates, ["biz_recurring_life_ore", "biz_recurring_time_ore"])
 	)
 
 	run_case("beat_6_offers_stay_open_until_beat_6_is_met", func():
 		_to_beat_6()
 		for i in 10:
 			_tick()
-		assert_eq(_beat6_offer_templates().size(), 3, "no expiry while Beat 6 is unmet")
+		assert_eq(_recurring_offer_templates().size(), 3, "no expiry while Beat 6 is unmet")
 		GameState.state["flags"]["bizA1ProofDone"] = true
 		_tick()
-		assert_eq(_beat6_offer_templates().size(), 0, "normal expiry once Beat 6 is met")
+		assert_eq(_recurring_offer_templates().size(), 0, "normal expiry once Beat 6 is met")
 	)
 
 	run_case("declined_beat_6_offer_reissues_next_day_once_the_pending_cap_allows", func():
 		_to_beat_6()
-		Offers.decline_offer(_beat6_offer("biz_recurring_time_pearl")["id"])
+		Offers.decline_offer(_recurring_offer("biz_recurring_time_pearl")["id"])
 		while Offers.pending_offers().size() < Offers.PENDING_CAP:
 			Offers.create_offer(Offers.random_templates()[0])
 		TimeSystem.do_rest()
-		assert_true(_beat6_offer("biz_recurring_time_pearl").is_empty(), "the cap is full, so the reissue waits")
+		assert_true(_recurring_offer("biz_recurring_time_pearl").is_empty(), "the cap is full, so the reissue waits")
 		# Two free slots, so the day's random roll can't refill the cap first.
 		for offer in Offers.pending_offers().duplicate():
-			if not BusinessQuest.is_beat6_template(offer["templateId"]):
+			if not BusinessQuest.is_recurring_template(offer["templateId"]):
 				Offers.decline_offer(offer["id"])
 		_tick()
-		assert_true(not _beat6_offer("biz_recurring_time_pearl").is_empty())
+		assert_true(not _recurring_offer("biz_recurring_time_pearl").is_empty())
 	)
 
 	run_case("declined_choice_is_not_reissued_while_the_other_choice_runs", func():
 		_to_beat_6()
-		Offers.accept_offer(_beat6_offer("biz_recurring_time_ore")["id"])
-		Offers.decline_offer(_beat6_offer("biz_recurring_life_ore")["id"])
+		Offers.accept_offer(_recurring_offer("biz_recurring_time_ore")["id"])
+		Offers.decline_offer(_recurring_offer("biz_recurring_life_ore")["id"])
 		_tick()
 		_tick()
-		assert_true(_beat6_offer("biz_recurring_life_ore").is_empty())
+		assert_true(_recurring_offer("biz_recurring_life_ore").is_empty())
 	)
 
 	run_case("beat_6_needs_two_qualified_contracts_one_crafted_in_any_weeks", func():
@@ -389,7 +434,7 @@ func run() -> void:
 
 	run_case("two_realistic_recurring_orders_leave_a_positive_weekly_share", func():
 		_to_beat_6()
-		var weekly: int = int(_beat6_offer("biz_recurring_time_pearl")["quote"]["payment"]) + int(_beat6_offer("biz_recurring_time_ore")["quote"]["payment"])
+		var weekly: int = int(_recurring_offer("biz_recurring_time_pearl")["quote"]["payment"]) + int(_recurring_offer("biz_recurring_time_ore")["quote"]["payment"])
 		var owen_wage: int = GameData.BUSINESS_WEEKLY_WAGES["owen"]
 		assert_true(Business.split(weekly - owen_wage, 2)["player"] > 0)
 	)
@@ -454,8 +499,10 @@ func _to_beat_2() -> void:
 		_complete_life_order()
 
 
+# Beat 3 scene played with random offers stripped, so both ore offers issue.
 func _to_beat_3() -> void:
 	_to_beat_2()
+	_strip_random_offers()
 	EventPlay.play_event(BusinessQuest.OWEN_INTRO_KIND)
 
 
@@ -482,20 +529,20 @@ func _strip_random_offers() -> void:
 			pending.erase(offer)
 
 
-func _beat6_offer(template_id: String) -> Dictionary:
+func _recurring_offer(template_id: String) -> Dictionary:
 	for offer in Offers.pending_offers():
 		if offer["templateId"] == template_id:
 			return offer
 	return {}
 
 
-func _beat6_offer_templates() -> Array:
-	return Offers.pending_offers().filter(func(o): return BusinessQuest.is_beat6_template(o["templateId"])).map(func(o): return o["templateId"])
+func _recurring_offer_templates() -> Array:
+	return Offers.pending_offers().filter(func(o): return BusinessQuest.is_recurring_template(o["templateId"])).map(func(o): return o["templateId"])
 
 
 # Accepted and delegated on its first day, so the whole period is delegated.
 func _accept_delegated(template_id: String) -> Dictionary:
-	var contract: Dictionary = Offers.accept_offer(_beat6_offer(template_id)["id"])["contract"]
+	var contract: Dictionary = Offers.accept_offer(_recurring_offer(template_id)["id"])["contract"]
 	assert_true(Contracts.set_delegated(contract["id"], true)["ok"])
 	return contract
 
