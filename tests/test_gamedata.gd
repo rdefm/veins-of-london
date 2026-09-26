@@ -619,6 +619,33 @@ func run() -> void:
 		assert_true(found, "two regions in the same room must not overlap (docs/hq-diorama-vision.md §3.2)")
 	)
 
+	run_case("hq_visuals_polygons_overlap_by_shape_not_bounding_box", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		var plate: Dictionary = {"image": "", "fallbackColor": "timber_dark", "width": 390, "height": 660, "regions": {
+			"lower": {"x": 0, "y": 0, "width": 200, "height": 200, "label": "L", "image": "", "polygon": [[0, 0], [200, 200], [0, 200]]},
+			"upper": {"x": 0, "y": 0, "width": 200, "height": 200, "label": "U", "image": "", "polygon": [[0, 0], [200, 0], [200, 200]]},
+		}}
+		corrupted["hq_visuals"]["rooms"]["studio"] = plate
+		var errors := GameData.validate_tables(corrupted).filter(func(e): return e.begins_with("hq_visuals.rooms.studio"))
+		assert_eq(errors, [], "triangles sharing only a diagonal edge don't overlap even though their boxes coincide")
+
+		plate["regions"]["upper"]["polygon"] = [[0, 0], [200, 0], [100, 200]]
+		errors = GameData.validate_tables(corrupted).filter(func(e): return e.contains("overlaps region"))
+		assert_eq(errors.size(), 1, "polygons that genuinely intersect are flagged")
+	)
+
+	run_case("hq_visuals_bad_polygon_fails", func():
+		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+		var region: Dictionary = corrupted["hq_visuals"]["rooms"]["bedsit"]["regions"]["dial"]
+		region["polygon"] = [[0, 520], [60, 660], [60, 520], [0, 660]]
+		var errors := GameData.validate_tables(corrupted).filter(func(e): return e.contains("regions.dial.polygon"))
+		assert_eq(errors.size(), 1, "a self-intersecting polygon is flagged")
+
+		region["polygon"] = [[0, 520], [20, 520], [0, 540]]
+		errors = GameData.validate_tables(corrupted).filter(func(e): return e.contains("regions.dial") and e.contains("44x44"))
+		assert_eq(errors.size(), 1, "the size rule measures the polygon's bounding box")
+	)
+
 	run_case("corrupt_fixture_hq_visuals_missing_region_key_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
 		corrupted["hq_visuals"]["rooms"]["bedsit"]["regions"]["dial"].erase("label")

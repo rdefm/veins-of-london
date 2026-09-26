@@ -288,6 +288,7 @@ the palette swatch; `pack_daily_cycle.py` preserves the retired cycle-atlas pipe
 `quest-editor.html`/`quest-editor-mobile.html`
 are the desktop/mobile quest content editors (`data/events/*.json`); `test_quest_editor.js`
 unit-tests the desktop editor.
+`hq_region_mapper.tscn` (+ `_logic.gd`, Godot) traces per-tier HQ zone hit polygons on `assets/hq/<tier>_room.png` and saves them into `data/hq_visuals.json` "rooms".
 
 ## docs/*.md and docs/adr/
 

@@ -23,3 +23,7 @@ adb install build/vein.apk
 Or skip `adb`: copy `build/vein.apk` to the phone (cloud drive, USB, email) and tap it to sideload — enable "install unknown apps" for whatever app opens it.
 
 `scripts/setup_godot.sh` gets you the headless Godot *binary*; it does not install export templates or the Android SDK.
+
+
+##HQ image mapping tool
+godot --path . res://tools/hq_region_mapper.tscn

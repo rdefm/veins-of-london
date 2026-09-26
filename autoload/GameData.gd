@@ -1105,20 +1105,77 @@ func _validate_hq_plate(plate: Dictionary, context: String, palette: Dictionary,
 	var regions: Dictionary = plate.get("regions", {})
 	var seen_ids: Array[String] = []
 	var seen_rects: Array[Rect2] = []
+	var seen_polygons: Array[PackedVector2Array] = []
 	for region_id in regions:
 		var region: Dictionary = regions[region_id]
 		var region_context := "%s.regions.%s" % [context, region_id]
 		_require_keys(region, ["x", "y", "width", "height", "label", "image"], region_context, errors)
-		var width: float = region.get("width", 0.0)
-		var height: float = region.get("height", 0.0)
-		if width < 44 or height < 44:
-			errors.append("%s: %sx%s is below the 44x44 minimum hit-region size (docs/hq-diorama-vision.md §3.2)" % [region_context, width, height])
-		var rect := Rect2(region.get("x", 0.0), region.get("y", 0.0), width, height)
+		# An optional 'polygon' is the hit shape; its bounding box is then
+		# what the size rule measures, and overlap is tested shape-to-shape.
+		var rect := Rect2(region.get("x", 0.0), region.get("y", 0.0), region.get("width", 0.0), region.get("height", 0.0))
+		var polygon := PackedVector2Array()
+		if region.has("polygon"):
+			polygon = _hq_region_polygon(region["polygon"], region_context, errors)
+			if polygon.is_empty():
+				continue
+			rect = _polygon_bounds(polygon)
+		if rect.size.x < 44 or rect.size.y < 44:
+			errors.append("%s: %sx%s is below the 44x44 minimum hit-region size (docs/hq-diorama-vision.md §3.2)" % [region_context, rect.size.x, rect.size.y])
 		for i in seen_rects.size():
-			if rect.intersects(seen_rects[i]):
+			if _hq_shapes_overlap(rect, polygon, seen_rects[i], seen_polygons[i]):
 				errors.append("%s: overlaps region '%s' in the same plate -- hit regions must not overlap (docs/hq-diorama-vision.md §3.2)" % [region_context, seen_ids[i]])
 		seen_ids.append(region_id)
 		seen_rects.append(rect)
+		seen_polygons.append(polygon)
+
+
+# The region's polygon as points, or empty (with an error) when it isn't
+# at least 3 numeric [x, y] pairs forming a simple polygon.
+func _hq_region_polygon(value: Variant, context: String, errors: Array[String]) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	if typeof(value) != TYPE_ARRAY or (value as Array).size() < 3:
+		errors.append("%s.polygon: must be an array of at least 3 [x, y] points" % context)
+		return PackedVector2Array()
+	for p in value:
+		if typeof(p) != TYPE_ARRAY or (p as Array).size() != 2 or not (typeof(p[0]) in [TYPE_INT, TYPE_FLOAT]) or not (typeof(p[1]) in [TYPE_INT, TYPE_FLOAT]):
+			errors.append("%s.polygon: every point must be a numeric [x, y] pair" % context)
+			return PackedVector2Array()
+		points.append(Vector2(p[0], p[1]))
+	if Geometry2D.triangulate_polygon(points).is_empty():
+		errors.append("%s.polygon: self-intersecting or degenerate" % context)
+		return PackedVector2Array()
+	return points
+
+
+func _polygon_bounds(points: PackedVector2Array) -> Rect2:
+	var box := Rect2(points[0], Vector2.ZERO)
+	for p in points:
+		box = box.expand(p)
+	return box
+
+
+# Rect-vs-rect keeps Rect2.intersects (shared edges don't count); once
+# either side is a polygon, overlap means an intersection with real area.
+func _hq_shapes_overlap(a_rect: Rect2, a_polygon: PackedVector2Array, b_rect: Rect2, b_polygon: PackedVector2Array) -> bool:
+	if a_polygon.is_empty() and b_polygon.is_empty():
+		return a_rect.intersects(b_rect)
+	var a := a_polygon if not a_polygon.is_empty() else _rect_polygon(a_rect)
+	var b := b_polygon if not b_polygon.is_empty() else _rect_polygon(b_rect)
+	for piece in Geometry2D.intersect_polygons(a, b):
+		if absf(_polygon_area(piece)) > 0.5:
+			return true
+	return false
+
+
+func _rect_polygon(rect: Rect2) -> PackedVector2Array:
+	return PackedVector2Array([rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)])
+
+
+func _polygon_area(points: PackedVector2Array) -> float:
+	var area := 0.0
+	for i in points.size():
+		area += points[i].cross(points[(i + 1) % points.size()])
+	return area * 0.5
 
 
 func _validate_constants(time_blocks: Array, contacts_defaults: Dictionary, errors: Array[String]) -> void:
