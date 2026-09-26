@@ -24,7 +24,7 @@ func run() -> void:
 		var rebuilt := HqRegionMapperLogic.replace_rooms_block(text, HqRegionMapperLogic.serialize_rooms(data["rooms"], "\n"))
 		var reparsed: Dictionary = HqRegionMapperLogic.normalize(JSON.parse_string(rebuilt))
 		assert_eq(reparsed["rooms"]["studio"]["regions"]["rest"]["polygon"], [[10, 10], [120, 20], [100, 90]])
-		assert_eq(reparsed["rooms"].keys(), ["bedsit", "studio"])
+		assert_eq(reparsed["rooms"].keys(), data["rooms"].keys())
 		assert_eq(reparsed["labBench"], data["labBench"])
 		assert_eq(reparsed["meta"], data["meta"])
 	)

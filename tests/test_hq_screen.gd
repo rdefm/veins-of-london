@@ -178,7 +178,7 @@ func run() -> void:
 		# v1 (docs/hq-diorama-vision.md §10) ships only the bedsit plate --
 		# a player already at a later tier (art not shipped yet) must still
 		# get a navigable room, not a crash or a blank screen.
-		GameState.state["home"]["tier"] = "flat"
+		GameState.state["home"]["tier"] = "townhouse"
 
 		var hq := HqScreen.new()
 		hq._ready()

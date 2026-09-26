@@ -5464,6 +5464,77 @@
 },
 "width": 390
 },
+"flat": {
+"fallbackColor": "timber_dark",
+"height": 585,
+"image": "res://assets/hq/flat_room.png",
+"regions": {
+"dial": {
+"height": 124,
+"image": "",
+"label": "Dial",
+"polygon": [[155, 127], [157, 235], [202, 221], [197, 111]],
+"width": 47,
+"x": 155,
+"y": 111
+},
+"gym": {
+"height": 107,
+"image": "",
+"label": "Gym",
+"polygon": [[8, 464], [89, 462], [132, 518], [61, 569], [8, 547]],
+"width": 124,
+"x": 8,
+"y": 462
+},
+"lab": {
+"height": 124,
+"image": "",
+"label": "Lab",
+"polygon": [[6, 263], [4, 328], [84, 342], [109, 336], [145, 243], [93, 218]],
+"width": 141,
+"x": 4,
+"y": 218
+},
+"oreStore": {
+"height": 119,
+"image": "",
+"label": "Ore store",
+"polygon": [[2, 332], [79, 344], [84, 408], [43, 443], [6, 451]],
+"width": 82,
+"x": 2,
+"y": 332
+},
+"rest": {
+"height": 339,
+"image": "",
+"label": "Rest",
+"polygon": [[283, 245], [194, 581], [386, 584], [384, 248]],
+"width": 192,
+"x": 194,
+"y": 245
+},
+"rooms": {
+"height": 165,
+"image": "",
+"label": "Rooms",
+"polygon": [[14, 102], [13, 249], [98, 205], [96, 84]],
+"width": 85,
+"x": 13,
+"y": 84
+},
+"security": {
+"height": 158,
+"image": "",
+"label": "Security",
+"polygon": [[207, 66], [205, 216], [284, 221], [279, 63]],
+"width": 79,
+"x": 205,
+"y": 63
+}
+},
+"width": 390
+},
 "studio": {
 "fallbackColor": "timber_dark",
 "height": 660,
