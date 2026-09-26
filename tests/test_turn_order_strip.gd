@@ -273,14 +273,14 @@ func run() -> void:
 
 	run_case("tell_image_is_null_with_no_manifest_tell_entry_so_the_text_label_still_renders", func():
 		GameState.reset()
-		var combat := _combat([Fixtures.enemy("Territorial Scrapper", 20, 20, false, 30, false, null)])
+		var combat := _combat([Fixtures.enemy("Orichalchum Dealer", 20, 20, false, 30, false, null)])
 
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
 		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
 
-		var card := _card_named(strip, "Territorial Scrapper")
-		assert_eq(card.tell_image, null, "no templates.territorialScrapper.tell entry yet -- the text fallback still owns the slot")
+		var card := _card_named(strip, "Orichalchum Dealer")
+		assert_eq(card.tell_image, null, "no templates.orichalchumDealer.tell entry yet -- the text fallback still owns the slot")
 		assert_true(card.telegraph_label != null, "with no tell art, _build_card_content() must still build the text label")
 		assert_true(card.tell_rect == null)
 	)
@@ -293,16 +293,16 @@ func run() -> void:
 		# templates.default's own idle sheet as a stand-in image.
 		var original_combat_visuals: Dictionary = GameData.COMBAT_VISUALS
 		var patched: Dictionary = original_combat_visuals.duplicate(true)
-		patched["templates"]["territorialScrapper"]["tell"] = original_combat_visuals["templates"]["default"]["idle"]
+		patched["templates"]["orichalchumDealer"]["tell"] = original_combat_visuals["templates"]["default"]["idle"]
 		GameData.COMBAT_VISUALS = patched
 
-		var combat := _combat([Fixtures.enemy("Territorial Scrapper", 20, 20, false, 30, false, null)])
+		var combat := _combat([Fixtures.enemy("Orichalchum Dealer", 20, 20, false, 30, false, null)])
 		var strip := TurnOrderStrip.new()
 		var entries := strip.build_entries(combat, GameState.state["player"])
 		strip.configure(entries, entries.find(_entry_of_type(entries, "enemy")), combat, GameState.state["player"], 300.0, Callable())
 
-		var card := _card_named(strip, "Territorial Scrapper")
-		assert_true(card.tell_image != null, "an injected templates.territorialScrapper.tell entry must resolve to a texture")
+		var card := _card_named(strip, "Orichalchum Dealer")
+		assert_true(card.tell_image != null, "an injected templates.orichalchumDealer.tell entry must resolve to a texture")
 		assert_true(card.tell_rect != null, "the pose replaces the text label -- _build_card_content() must build a TextureRect")
 		assert_true(card.telegraph_label == null, "the text label must not also be built once tell art exists")
 

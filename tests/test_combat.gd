@@ -173,6 +173,88 @@ func run() -> void:
 		assert_true(mixed_found, "an unforced 3-guard raid should sometimes mix archetypes across 300 seeds")
 	)
 
+	# ── territorial-variants: a scrapper rolls a territorial variant ─────
+
+	run_case("only_territorial_scrappers_carry_a_variant_naming_a_discovered_variant", func():
+		GameState.reset()
+		for seed in range(100):
+			Rng.set_seed(seed)
+			for entry in Combat.generate_raid_enemy("v1", 1, 3, ""):
+				if entry["name"] == GameData.ENEMY_RAID_GUARDS[Combat.SCRAPPER_TEMPLATE_KEY]["name"]:
+					assert_true(GameData.TERRITORIAL_VARIANTS.has(entry.get("variant", "")), "seed %d: scrapper variant %s is a discovered variant" % [seed, entry.get("variant")])
+				else:
+					assert_true(not entry.has("variant"), "seed %d: %s carries no variant" % [seed, entry["name"]])
+	)
+
+	run_case("a_scrappers_variant_is_never_the_players_own_model", func():
+		for model in GameData.TERRITORIAL_VARIANTS:
+			GameState.reset()
+			GameState.state["player"]["model"] = model
+			for seed in range(100):
+				Rng.set_seed(seed)
+				for entry in Combat.generate_raid_enemy("v1", 1, 3, Combat.SCRAPPER_TEMPLATE_KEY):
+					assert_true(entry["variant"] != model, "seed %d: variant must not equal player.model %s" % [seed, model])
+	)
+
+	run_case("scrappers_spread_across_distinct_variants_before_repeating", func():
+		GameState.reset()
+		var pool_size: int = GameData.TERRITORIAL_VARIANTS.size() - (1 if GameData.TERRITORIAL_VARIANTS.has(GameState.state["player"]["model"]) else 0)
+		assert_true(pool_size >= 1, "sanity: at least one variant available")
+		for guards in range(1, Combat.SQUAD_MAX + 1):
+			for seed in range(50):
+				Rng.set_seed(seed)
+				var distinct := {}
+				for entry in Combat.generate_raid_enemy("v1", 1, guards, Combat.SCRAPPER_TEMPLATE_KEY):
+					distinct[entry["variant"]] = true
+				assert_eq(distinct.size(), mini(guards, pool_size), "seed %d, %d scrappers: min(N, P) distinct variants" % [seed, guards])
+	)
+
+	run_case("scrapper_variant_spread_with_a_small_pool_gives_every_variant_then_repeats", func():
+		GameState.reset()
+		var original: Array[String] = GameData.TERRITORIAL_VARIANTS
+		GameData.TERRITORIAL_VARIANTS = ["territorial1", "territorial2"] as Array[String]
+		GameState.state["player"]["model"] = "territorial9"
+		for seed in range(30):
+			Rng.set_seed(seed)
+			var distinct := {}
+			for entry in Combat.generate_raid_enemy("v1", 1, 3, Combat.SCRAPPER_TEMPLATE_KEY):
+				distinct[entry["variant"]] = true
+			assert_eq(distinct.size(), 2, "seed %d: 2 variants, 3 scrappers -> both variants plus one repeat" % seed)
+		GameData.TERRITORIAL_VARIANTS = original
+	)
+
+	run_case("an_empty_variant_pool_falls_back_to_the_default_template", func():
+		GameState.reset()
+		var original: Array[String] = GameData.TERRITORIAL_VARIANTS
+		GameData.TERRITORIAL_VARIANTS = ["territorial1"] as Array[String]
+		GameState.state["player"]["model"] = "territorial1"
+		var entries := Combat.generate_raid_enemy("v1", 1, 2, Combat.SCRAPPER_TEMPLATE_KEY)
+		GameData.TERRITORIAL_VARIANTS = original
+		for entry in entries:
+			assert_eq(entry["variant"], Combat.SCRAPPER_FALLBACK_VARIANT)
+	)
+
+	run_case("scrapper_variant_rolls_are_deterministic_under_the_same_seed", func():
+		GameState.reset()
+		Rng.set_seed(7)
+		var first := Combat.generate_raid_enemy("v1", 1, 3, Combat.SCRAPPER_TEMPLATE_KEY).map(func(e: Dictionary) -> String: return e["variant"])
+		Rng.set_seed(7)
+		var second := Combat.generate_raid_enemy("v1", 1, 3, Combat.SCRAPPER_TEMPLATE_KEY).map(func(e: Dictionary) -> String: return e["variant"])
+		assert_eq(first, second)
+	)
+
+	run_case("scrapper_variants_survive_rewind", func():
+		GameState.reset()
+		Combat.start_raid("v1", 1, 3, Combat.SCRAPPER_TEMPLATE_KEY)
+		var combat: Dictionary = GameState.state["combat"]
+		var before: Array = combat["enemies"].map(func(e: Dictionary) -> String: return e["variant"])
+		Combat.push_combat_snapshot()
+		combat["enemies"][0]["hp"] = 1
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		assert_true(Combat.combat_rewind()["ok"], "sanity: rewind ran")
+		assert_eq(combat["enemies"].map(func(e: Dictionary) -> String: return e["variant"]), before, "Rewind keeps every scrapper's variant")
+	)
+
 	run_case("generate_raid_enemy_entries_fall_within_their_templates_variance_band_with_value_tier_scaling", func():
 		GameState.reset()
 		var template: Dictionary = GameData.ENEMY_RAID_GUARDS["veinGuard"]

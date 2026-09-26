@@ -48,6 +48,21 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("save_mutate_load_round_trips_a_scrappers_combat_variant", func():
+		GameState.reset()
+		Combat.start_raid("v1", 1, 3, Combat.SCRAPPER_TEMPLATE_KEY)
+		var variants: Array = GameState.state["combat"]["enemies"].map(func(e: Dictionary) -> String: return e["variant"])
+
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"], "save_to_slot should succeed")
+		for enemy in GameState.state["combat"]["enemies"]:
+			enemy["variant"] = "x"
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"], "load_from_slot should succeed")
+
+		assert_eq(GameState.state["combat"]["enemies"].map(func(e: Dictionary) -> String: return e["variant"]), variants, "each scrapper's variant is restored")
+
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
 	run_case("save_mutate_load_round_trips_factionRelations_as_ints", func():
 		GameState.reset()
 		Factions.adjust_relation("collective", "firm", -12)

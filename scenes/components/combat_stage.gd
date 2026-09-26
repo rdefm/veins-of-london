@@ -863,6 +863,8 @@ func _enemy_display_entries(enemies: Array, selection: Dictionary) -> Array:
 static func enemy_template_key(enemy: Dictionary) -> String:
 	if enemy.get("isMugging", false):
 		return "mugger"
+	if enemy.has("variant"):
+		return enemy["variant"]
 	var name: String = enemy.get("name", "")
 	for key in GameData.ENEMY_RAID_GUARDS.keys():
 		if GameData.ENEMY_RAID_GUARDS[key].get("name", "") == name:

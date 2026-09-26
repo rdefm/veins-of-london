@@ -143,6 +143,11 @@ const COMBAT_XP_PER_WORKOUT_SESSION := 10
 const ENEMY_INSTANCE_VARIANCE := 0.15
 const SQUAD_MAX := 3
 
+# The data/enemies.json raidGuards key whose spawned entries carry a
+# `variant` (a GameData.TERRITORIAL_VARIANTS key, or the fallback template).
+const SCRAPPER_TEMPLATE_KEY := "territorialScrapper"
+const SCRAPPER_FALLBACK_VARIANT := "default"
+
 
 static func is_canonical_context(context: String) -> bool:
 	return CANONICAL_CONTEXTS.has(context)
@@ -222,12 +227,34 @@ static func generate_raid_enemy(vein_id, value_tier: int, guards: int = 1, templ
 	var templates: Dictionary = GameData.ENEMY_RAID_GUARDS
 	var guard_count: int = clampi(guards, 1, SQUAD_MAX)
 	var entries: Array = []
+	var used_variants: Array = []
 	for _i in range(guard_count):
 		var key: String = template_key
 		if key == "" or not templates.has(key):
 			key = Rng.rand_from(templates.keys())
-		entries.append(_spawn_guard_instance(templates[key], value_tier))
+		var entry := _spawn_guard_instance(templates[key], value_tier)
+		if key == SCRAPPER_TEMPLATE_KEY:
+			entry["variant"] = _roll_scrapper_variant(used_variants)
+		entries.append(entry)
 	return entries
+
+
+# A Territorial Scrapper's sprite set: a discovered territorial variant other
+# than the player's own model, distinct within one fight until the pool runs
+# out (`used` accumulates across the fight's scrappers). An empty pool falls
+# back to the "default" stand-in template.
+static func _roll_scrapper_variant(used: Array) -> String:
+	var own_model: String = GameState.state["player"].get("model", "")
+	var pool: Array = []
+	for key in GameData.TERRITORIAL_VARIANTS:
+		if key != own_model:
+			pool.append(key)
+	if pool.is_empty():
+		return SCRAPPER_FALLBACK_VARIANT
+	var fresh: Array = pool.filter(func(k: String) -> bool: return not used.has(k))
+	var pick: String = Rng.rand_from(pool if fresh.is_empty() else fresh)
+	used.append(pick)
+	return pick
 
 
 static func _spawn_guard_instance(template: Dictionary, value_tier: int) -> Dictionary:

@@ -1456,10 +1456,10 @@ func run() -> void:
 
 	# ── combat-presentation ticket 09: per-subject idle sheets ──────────────
 	# Most subjects' manifest "idle" entry is still an empty stub (see
-	# data/combat_visuals.json's templateRule note) -- territorialScrapper and
-	# orichalchumDealer are the two exceptions (asset-pack sourced stand-ins,
-	# not final art -- see those entries' own _note), so the tests below cover
-	# both a real-data fallback case and a real-data loaded case; a synthetic
+	# data/combat_visuals.json's templateRule note) -- orichalchumDealer is
+	# the exception (an asset-pack sourced stand-in, not final art), and a
+	# Territorial Scrapper draws its stored territorial variant, so the tests
+	# below cover both a real-data fallback case and a real-data loaded case; a synthetic
 	# manifest override covers the mugger/ping-pong/mirroring cases ahead of
 	# that subject having its own real entry.
 
@@ -1499,16 +1499,20 @@ func run() -> void:
 		GameData.COMBAT_VISUALS = original_combat_visuals
 	)
 
-	run_case("stage_slot_shows_territorial_scrappers_real_manifest_idle_animation", func():
-		_setup_combat([Fixtures.enemy("Territorial Scrapper")])
+	run_case("stage_slot_draws_a_territorial_scrapper_with_its_stored_variant", func():
+		var scrapper := Fixtures.enemy("Territorial Scrapper")
+		scrapper["variant"] = "territorial2"
+		_setup_combat([scrapper])
 
 		var screen := CombatScreen.new()
 		screen._ready()
 		var slot := _slot_named(screen, "Territorial Scrapper")
 
-		assert_eq(screen._stage._idle_frames_by_template["territorialScrapper"]["frames"].size(), 7, "data/combat_visuals.json's templates.territorialScrapper.idle declares frameCount 7")
-		assert_true(not slot._idle_frames.is_empty(), "territorialScrapper has a real manifest entry (assets/Gangsters_2/Idle.png) -- must not fall back to the placeholder box")
+		assert_eq(slot._idle_frames, screen._stage._idle_frames_by_template["territorial2"]["frames"], "the scrapper reads templates[enemy.variant]")
 		assert_true(slot._sprite_rect.visible, "the sprite layer must be showing")
+		assert_eq(slot._attack_variants.size(), 2, "the variant's two attack swings load")
+		assert_eq(slot._hit_keyposes.size(), 1, "the variant's hurt pose loads")
+		assert_eq(slot._ko_keyposes, slot._hit_keyposes, "ko plays the variant's own hurt pose")
 
 		screen.free()
 	)
@@ -1612,6 +1616,7 @@ func run() -> void:
 
 		assert_eq(CombatStage.enemy_template_key({ "name": "anything at all", "isMugging": true }), "mugger")
 		assert_eq(CombatStage.enemy_template_key({ "name": "Territorial Scrapper", "isMugging": false }), "territorialScrapper")
+		assert_eq(CombatStage.enemy_template_key({ "name": "Territorial Scrapper", "isMugging": false, "variant": "territorial1" }), "territorial1", "a stored variant wins over the name match")
 		assert_eq(CombatStage.enemy_template_key({ "name": "Vein Guard", "isMugging": false }), "veinGuard")
 		assert_eq(CombatStage.enemy_template_key({ "name": "Orichalchum Dealer", "isMugging": false }), "orichalchumDealer")
 		assert_eq(CombatStage.enemy_template_key({ "name": GameData.ENEMY_HOME_RAID_RAIDER["name"], "isMugging": false }), "homeRaidRaider")
@@ -1670,16 +1675,16 @@ func run() -> void:
 	)
 
 	run_case("a_real_per_subject_template_overrides_the_shared_default_stand_in", func():
-		# "Territorial Scrapper" exactly matches data/enemies.json's
-		# raidGuards.territorialScrapper.name, so CombatScreen.
-		# enemy_template_key() resolves it to "territorialScrapper" -- which
+		# "Orichalchum Dealer" exactly matches data/enemies.json's
+		# raidGuards.orichalchumDealer.name, so CombatScreen.
+		# enemy_template_key() resolves it to "orichalchumDealer" -- which
 		# has its own real (asset-pack sourced) attack/hit/ko art wired in
 		# data/combat_visuals.json, distinct from the shared "default" stand-in.
-		_setup_combat([Fixtures.enemy("Territorial Scrapper")])
+		_setup_combat([Fixtures.enemy("Orichalchum Dealer")])
 		var screen := CombatScreen.new()
 		screen._ready()
 
-		var slot := _slot_named(screen, "Territorial Scrapper")
+		var slot := _slot_named(screen, "Orichalchum Dealer")
 		assert_true(slot._attack_keyposes != screen._stage._default_attack_keyposes, "a subject with its own attack art must not fall back to the shared default")
 		assert_eq(slot._attack_keyposes.size(), CombatStage.ATTACK_KEYPOSE_COUNT)
 		assert_eq(slot._hit_keyposes.size(), CombatStage.HIT_KEYPOSE_COUNT)
