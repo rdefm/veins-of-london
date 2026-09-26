@@ -15,8 +15,12 @@ const COLLECTIVE_INTRO_SOURCE_EVENT := "archie_cultivation"
 const COLLECTIVE_INTRO_EVENT := "col_a1_intro"
 
 
-static func apply() -> void:
+# `model`, when non-empty, is the title picker's chosen sprite set, written
+# after the reset so it survives it.
+static func apply(model: String = "") -> void:
 	GameState.reset()
+	if not model.is_empty():
+		PlayerModel.set_model(model)
 	var state: Dictionary = GameState.state
 	var player: Dictionary = state["player"]
 

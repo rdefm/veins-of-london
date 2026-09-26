@@ -80,6 +80,82 @@ func run() -> void:
 		title.free()
 	)
 
+	run_case("new_game_opens_the_picker_before_starting_anything", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 777
+		var before: Dictionary = GameState.state.duplicate(true)
+
+		var title := TitleScreen.new()
+		title._ready()
+		NodeQuery.find_button(title, "New Game").pressed.emit()
+
+		assert_true(title._picker.visible, "New Game shows the picker")
+		assert_true(not title._menu.visible, "the title menu hides behind the picker")
+		assert_eq(GameState.state, before, "opening the picker changes no state")
+		assert_true(title._picker_preview.texture != null, "the picker previews the shown variant's idle image")
+
+		NodeQuery.find_button(title, "Back").pressed.emit()
+		assert_true(not title._picker.visible and title._menu.visible, "Back returns to the title menu")
+		assert_eq(GameState.state, before, "Back starts no game")
+
+		title.free()
+	)
+
+	run_case("picker_arrows_cycle_every_variant_and_wrap", func():
+		GameState.reset()
+		var title := TitleScreen.new()
+		title._ready()
+		NodeQuery.find_button(title, "New Game").pressed.emit()
+
+		var variants: Array[String] = GameData.TERRITORIAL_VARIANTS
+		var seen: Array[String] = []
+		for _i in range(variants.size()):
+			seen.append(title.picker_variant())
+			NodeQuery.find_button(title, "▶").pressed.emit()
+		assert_eq(seen, variants, "▶ steps through every discovered variant in order")
+		assert_eq(title.picker_variant(), variants[0], "▶ wraps back to the first")
+
+		NodeQuery.find_button(title, "◀").pressed.emit()
+		assert_eq(title.picker_variant(), variants[variants.size() - 1], "◀ wraps to the last")
+
+		title.free()
+	)
+
+	run_case("new_game_select_sets_the_model_then_starts_intro", func():
+		GameState.reset()
+		var title := TitleScreen.new()
+		title._ready()
+		NodeQuery.find_button(title, "New Game").pressed.emit()
+		NodeQuery.find_button(title, "▶").pressed.emit()
+		var picked: String = title.picker_variant()
+
+		NodeQuery.find_button(title, "Select").pressed.emit()
+
+		assert_eq(GameState.state["player"]["model"], picked, "Select sets player.model to the shown variant")
+		assert_eq(GameState.state["event"]["eventId"], "intro", "the intro event starts as before")
+		assert_eq(GameState.state["currentScreen"], "event", "the game navigates into the intro")
+
+		title.free()
+	)
+
+	run_case("debug_start_select_applies_debug_state_with_the_model", func():
+		GameState.reset()
+		var title := TitleScreen.new()
+		title._ready()
+		NodeQuery.find_button(title, "Debug Start").pressed.emit()
+		assert_true(title._picker.visible, "Debug Start shows the picker")
+		assert_eq(GameState.state["player"]["cash"], GameState.new_game_state()["player"]["cash"], "debug state isn't applied before Select")
+
+		NodeQuery.find_button(title, "▶").pressed.emit()
+		var picked: String = title.picker_variant()
+		NodeQuery.find_button(title, "Select").pressed.emit()
+
+		assert_eq(GameState.state["player"]["cash"], 1000000, "Select applies the debug state")
+		assert_eq(GameState.state["player"]["model"], picked, "player.model still holds the pick after DebugStart")
+
+		title.free()
+	)
+
 	run_case("loading_a_slot_restores_state_and_navigates_into_the_session", func():
 		GameState.reset()
 		_delete_all_slots()

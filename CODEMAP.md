@@ -40,7 +40,7 @@ Data file per system: see `data/*.json` below.
 | contracts.gd | Sales contract delivery, priority, settlement (paid to the business pot while active); per-contract `buyCalc` shortfall purchases from the cheapest open faction lanes, paid from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements |
 | crafting.gd | Recipe crafting |
 | cultivating.gd | Vein growth / cultivate / prune |
-| debug_start.gd | Maximal-unlock debug state |
+| debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
 | debug_tools.gd | Debug phone-app state adjusters; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context) then starts it |
 | dial.gd | Dial mechanic (Movements, charge economy) |
 | district_bubble.gd | District tap-bubble decision |
@@ -73,6 +73,7 @@ Data file per system: see `data/*.json` below.
 | payroll.gd | Daily wage payment for room-staffed hires (founders exempt); `is_working()` gate for staff actions (false while the business owes wages) |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
 | phone_nav.gd | Phone app/index/thread drill-down nav |
+| player_model.gd | `set_model()`: validates a key against `GameData.TERRITORIAL_VARIANTS` and writes `player.model` |
 | preferences.gd | Saved presentation prefs in `meta` (reduced motion, vibration, Map dark mode) + carry_forward() so event Rewind never flips them |
 | progression.gd | Shared "award XP" ladder loop |
 | raid_alarms.gd | Summaries + dispatch for raid alarms |
@@ -110,7 +111,7 @@ overlays.
 | map.gd | Map tab: full-bleed diagram (top board to nav dock) with floating menu button, legend and zoom pill in Map chrome tokens; district panel + sheet |
 | phone.gd | Phone tab controller: mounts PhoneDeviceShell, owns four-column home grid + home-only Phone/Messages/Settings dock, live badge-count projections + tile routing, dispatches apps through phone_app_registry.gd |
 | placeholder.gd | Stand-in for a not-yet-built screen |
-| title.gd | Title screen + load-game slot list |
+| title.gd | Title screen + load-game slot list; sprite picker overlay (idle preview, ◀/▶, Select, Back) that New Game and Debug Start open first |
 | vein_list.gd | Vein-portfolio list (map_card_style.gd-skinned, always light via MapPalette.build_light) |
 
 ## scenes/components/*.gd — reusable UI components
