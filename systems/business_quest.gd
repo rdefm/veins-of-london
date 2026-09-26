@@ -43,22 +43,33 @@ const CLOSING_KIND := "biz_a1_closing"
 const CLOSING_TEXT := "\"Payday. Two orders ran a whole week and nobody held their hand. Come to the unit, I've got the numbers up.\""
 
 
-# Beat 1: two or more veins and Archie recruited, whatever the Collective
-# progress. Called after every vein-count change and from TimeSystem.
-# daily_tick() as a backstop; bizA1Proposed blocks re-firing permanently.
+# Beat 1: two or more of the player's own veins (Hakim's, at
+# collective.hakimVeinId, never counts) and Archie recruited, whatever the
+# Collective progress. Called after every vein-count change and from
+# TimeSystem.daily_tick() as a backstop; bizA1Proposed blocks re-firing
+# permanently.
 static func maybe_trigger_proposition() -> bool:
 	var flags: Dictionary = GameState.state["flags"]
 	if flags.get("bizA1Proposed", false):
 		return false
 	if not GameState.state["contacts"].get("archie", {}).get("recruited", false):
 		return false
-	if GameState.state["player"]["veins"].size() < MIN_VEINS:
+	if _own_vein_count() < MIN_VEINS:
 		return false
 
 	flags["bizA1Proposed"] = true
 	Messages.queue_pending("archie", PROPOSITION_KIND, PROPOSITION_TEXT)
 	Objectives.refresh()
 	return true
+
+
+static func _own_vein_count() -> int:
+	var hakim_vein_id: Variant = GameState.state["collective"].get("hakimVeinId")
+	var count := 0
+	for vein in GameState.state["player"]["veins"]:
+		if hakim_vein_id == null or vein["id"] != hakim_vein_id:
+			count += 1
+	return count
 
 
 # Beat 3: once Beat 2 is met (by any source), James texts the Owen

@@ -36,6 +36,29 @@ func run() -> void:
 		assert_true(GameState.state["flags"]["bizA1Proposed"], "rollover backstop")
 	)
 
+	run_case("beat_1_never_counts_hakims_vein", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Fixtures.seed_vein("hakim_v", 40, "life")
+		GameState.state["collective"]["hakimVeinId"] = "hakim_v"
+		Fixtures.seed_vein("v1", 40, "time")
+		assert_true(not BusinessQuest.maybe_trigger_proposition(), "one own vein + Hakim's is not enough")
+		assert_true(not GameState.state["flags"]["bizA1Proposed"])
+
+		Fixtures.seed_vein("v2", 40, "life")
+		assert_true(BusinessQuest.maybe_trigger_proposition(), "two own veins + Hakim's fires")
+		assert_true(GameState.state["flags"]["bizA1Proposed"])
+	)
+
+	run_case("beat_1_counts_every_vein_when_hakim_vein_id_is_null", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		assert_eq(GameState.state["collective"]["hakimVeinId"], null)
+		Fixtures.seed_vein("v1", 40, "time")
+		Fixtures.seed_vein("v2", 40, "life")
+		assert_true(BusinessQuest.maybe_trigger_proposition())
+	)
+
 	run_case("beat_1_scene_opens_sales_role_and_first_starter", func():
 		_to_beat_1()
 		assert_true(not Contacts.is_role_available("archie", "sales"))
@@ -670,6 +693,9 @@ func _tick() -> void:
 
 
 func _complete_life_order() -> void:
+	# Random offers can fill the pending cap and block the scripted order.
+	if Offers.pending_offers().size() >= Offers.PENDING_CAP:
+		_strip_random_offers()
 	var created: Dictionary = Offers.create_scripted_offer("scripted_life_order")
 	var contract: Dictionary = Offers.accept_offer(created["offer"]["id"])["contract"]
 	GameState.state["player"]["orichalchum"]["life"] = 5
