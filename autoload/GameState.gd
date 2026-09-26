@@ -80,6 +80,10 @@ func new_game_state() -> Dictionary:
 		# Staff producers' per-day, per-block record (R§2), oldest first,
 		# trimmed to PRODUCTION_LOG_DAYS at rollover; Rooms is the only writer.
 		"productionLog": [],
+		# BizBrief Stats tab (R§2): today's running tally, folded into days[]
+		# at rollover and trimmed to BUSINESS_STATS_DAYS; BusinessStats is the
+		# only writer.
+		"businessStats": { "today": { "revenue": 0, "expenses": 0, "oreCultivator": 0, "orePlayer": 0 }, "days": [] },
 		"sellState": {},
 		# Serializable pending-offer and accepted-contract ledger.
 		"sales": { "pendingOffers": [], "activeContracts": [], "priorityOrder": [], "contractHistory": [], "settlements": [], "nextOfferId": 1, "nextContractId": 1, "nextPeriodId": 1, "nextSettlementId": 1 },

@@ -355,6 +355,26 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("stats_tab_appears_with_the_business_pot_and_toggles_ore_source", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		assert_true(_button_with_text(phone, "Stats") == null)
+		phone.free()
+
+		Business.activate()
+		phone = PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Stats").pressed.emit()
+		assert_eq(phone.find_children("*", "LineChart", true, false).size(), 4)
+		assert_true(_button_with_text(phone, "Cultivators").disabled)
+		_button_with_text(phone, "You").pressed.emit()
+		assert_true(_button_with_text(phone, "You").disabled)
+		assert_true(not _button_with_text(phone, "Cultivators").disabled)
+		phone.free()
+	)
+
 	run_case("staff_tab_lists_recruited_contacts_with_terms_skills_and_status", func():
 		GameState.reset()
 		GameState.state["flags"]["bizStaffTabOpen"] = true

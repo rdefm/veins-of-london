@@ -1,8 +1,10 @@
 # BizBrief: Brief tab (morning account — bank, payday, wage prompts, operations, attention),
 # Manage tab (sales offers/contracts, lab production targets, cultivator
-# procurement) and, once bizStaffTabOpen is set, Staff tab (recruited
-# contacts, roles, pay). The selected tab is view state held here, not in
-# state.phoneNav, so it resets with the screen.
+# procurement), once bizStaffTabOpen is set, Staff tab (recruited
+# contacts, roles, pay) and, once the business pot is active, Stats tab
+# (10-day business performance charts). The selected tab and ore-chart
+# source are view state held here, not in state.phoneNav, so they reset
+# with the screen.
 class_name BizBriefApp
 extends PhoneApp
 
@@ -10,13 +12,17 @@ const MorningAccountsSystem := preload("res://systems/morning_accounts.gd")
 const OffersSystem := preload("res://systems/offers.gd")
 const ContractsSystem := preload("res://systems/contracts.gd")
 const ContractCard := preload("res://scenes/components/contract_card.gd")
+const LineChartScript := preload("res://scenes/components/line_chart.gd")
 
 const BRIEF_TAB := "brief"
 const MANAGE_TAB := "manage"
 const STAFF_TAB := "staff"
+const STATS_TAB := "stats"
+const ORE_SOURCES := { "oreCultivator": "Cultivators", "orePlayer": "You" }
 const SKILLS := ["sales", "crafting", "cultivating"]
 
 var _tab := BRIEF_TAB
+var _ore_source := "oreCultivator"
 # Production-log days shown expanded (view state), day -> true.
 var _expanded_log_days := {}
 
@@ -30,6 +36,9 @@ func build(content: VBoxContainer) -> void:
 		return
 	if _tab == STAFF_TAB and _staff_tab_open():
 		_build_staff(content)
+		return
+	if _tab == STATS_TAB and Business.is_pot_active():
+		_build_stats(content)
 		return
 	_build_brief(content)
 
@@ -46,6 +55,10 @@ func _build_tabs() -> Control:
 		var staff := UI.button("Staff", func(): _set_tab(STAFF_TAB))
 		staff.disabled = _tab == STAFF_TAB
 		tabs.add_child(UI.expand_fill(staff))
+	if Business.is_pot_active():
+		var stats := UI.button("Stats", func(): _set_tab(STATS_TAB))
+		stats.disabled = _tab == STATS_TAB
+		tabs.add_child(UI.expand_fill(stats))
 	return tabs
 
 
@@ -96,6 +109,39 @@ func _build_staff(content: VBoxContainer) -> void:
 		if contacts[contact_id]["recruited"]:
 			content.add_child(_build_staff_card(contact_id))
 	content.add_child(UI.button("Vein picking: Manage → Procurement", func(): _set_tab(MANAGE_TAB)))
+
+
+func _build_stats(content: VBoxContainer) -> void:
+	content.add_child(UI.heading("Stats", 16))
+	content.add_child(UI.muted_label("Last %d days" % GameData.BUSINESS_STATS_DAYS))
+	content.add_child(_build_chart("Revenue", "revenue", "calc_gold", "£"))
+	content.add_child(_build_chart("Expenses", "expenses", "brick_lit", "£"))
+	var toggle := UI.hbox()
+	for source in ORE_SOURCES:
+		var button := UI.button(ORE_SOURCES[source], func(): _set_ore_source(source))
+		button.disabled = _ore_source == source
+		toggle.add_child(UI.expand_fill(button))
+	content.add_child(_build_chart("Ore collected", _ore_source, "calc_gold_light", "", toggle))
+	content.add_child(_build_chart("Items produced", "items", "pastel_teal"))
+
+
+# A titled card holding one metric's LineChart; header_extra (e.g. the ore
+# source toggle) sits between the title and the chart.
+func _build_chart(title: String, metric: String, colour_id: String, prefix: String = "", header_extra: Control = null) -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.label(title))
+	if header_extra != null:
+		c["content"].add_child(header_extra)
+	var chart: LineChart = LineChartScript.new()
+	c["content"].add_child(chart.setup(BusinessStats.series(metric), BusinessStats.window_days(), colour_id, prefix))
+	return c["panel"]
+
+
+func _set_ore_source(source: String) -> void:
+	if source == _ore_source:
+		return
+	_ore_source = source
+	refresh()
 
 
 func _build_staff_card(contact_id: String) -> Control:

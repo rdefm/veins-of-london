@@ -26,6 +26,7 @@ Data file per system: see `data/*.json` below.
 | bank.gd | Cash transaction log |
 | barometer.gd | Economic/social/political barometer + faction prefs |
 | business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7/8 trigger texts, Beat 2 starter-offer chain, recurring offers (ore from Beat 3, Time Pearl from Beat 6; held open, reissued), Beat 8 closing payload from the latest payday record, James's crafting-skill set, Owen's crafting-event trigger. Rules: REFERENCE.md "Business Empire questline" |
+| business_stats.gd | BizBrief Stats tab's daily tally (revenue, expenses, cultivator/player ore); rollover snapshot with productionLog items into `businessStats.days`, 10-day trim, zero-filled chart series |
 | business.gd | Business pot (contract settlements while active; pays Sales calc purchases as `calc` expenses), weekly payday (Owen's wage, 3-way split, ledger), owed wages + pay-from-cash, Staff tab pay-terms/status labels |
 | bench.gd | Lab discovery engine (type-set × approach) |
 | bubble_layout.gd | Popup-position math for MapBubble |
@@ -123,6 +124,7 @@ overlays.
 | combat_stage.gd | Combat pixel stage: backdrop (location -> context -> palette); slots in two receding diagonal groups (enemies back/smaller), fitted to each sprite's visible figure, depth-sorted; keypose one-shots (sheet, `images` list, or random attack `variants`; player = `templates[player.model]`), effects, juice layer. `StageSlot` taps emit `subject_tapped`; selected slot draws an arrow |
 | contact_cards.gd | Shared contact/faction card builders (incl. handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia"), inline Contacts action-row layout, OS chrome repaint |
 | contract_card.gd | Draggable BizBrief Sales card |
+| line_chart.gd | One-series `_draw` line chart (palette-id colour, max label, first/last day) for BizBrief Stats |
 | floorplan_view.gd | Estate-agent plan for a home tier from floorplans.json; static, or with tappable slot overlays showing current use |
 | dial_widget.gd | Combat's Dial-casting widget |
 | dot_matrix_board.gd | Amber-on-black dot-matrix board renderer |
@@ -191,7 +193,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | BizBrief: Brief tab (bank, payday, wage prompt, operations, attention) + Manage tab (offers, gated delegation, buy-calc toggle, production targets + collapsible production log, procurement: cultivators' veins/targets/picker) + Staff tab once `bizStaffTabOpen` (role, skills/XP/caps, pay terms, status, founder role picker, Pay now, Procurement link) |
+| bizbrief_app.gd | BizBrief tabs: Brief (bank, payday, wage prompt, operations, attention); Manage (offers, delegation, buy-calc, production targets + log, cultivator procurement); Staff once `bizStaffTabOpen` (role, skills, pay terms, status, role picker, Pay now); Stats while pot active (4 line charts, ore source toggle) |
 | messages_app.gd | Conversation master list + single-thread staged bubble reveal/action bar |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | Faction cards |
@@ -214,7 +216,7 @@ overlays.
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); combat_director.gd (pacing.turnPause) |
-| constants.json | time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps), business.gd (payday interval, weekly wages), rooms.gd (productionLogDays) |
+| constants.json | time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps), business.gd (payday interval, weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |

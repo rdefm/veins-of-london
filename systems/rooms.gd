@@ -235,6 +235,7 @@ static func process_staff_block(block: int = -1) -> Dictionary:
 	for contact_id in Contacts.contacts_in_role("cultivation"):
 		if Payroll.is_working(contact_id):
 			_cultivator_act(contact_id, output["ore"])
+	BusinessStats.record_cultivator_ore(output["ore"])
 	var entries := _run_producers(output["items"])
 	if block < 0:
 		block = GameState.state["world"]["timeBlock"]

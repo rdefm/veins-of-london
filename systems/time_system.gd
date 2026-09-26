@@ -106,6 +106,7 @@ static func daily_tick() -> void:
 	ContractsSystem.process_delegated_deliveries() # ⑥.3 Sales closes full periods, then allocates partial stock by priority
 	ContractsSystem.daily_tick()         # ⑥.4 due periods settle; recurring periods renew
 	MorningAccountsSystem.capture_business(morning_context, Business.daily_tick())  # ⑥.4b after ⑥.4 so payday banks today's settlements
+	BusinessStats.capture_day()          # ⑥.4c after ⑥.4b so the ended day's snapshot includes this rollover's settlements and payday wages
 	OffersSystem.daily_tick()            # ⑥.5 expiry, then Sales sources at most one new random offer
 	BusinessQuest.maybe_issue_starter()  # ⑥.5b after ⑥.5's expiry; outside the random roll and its slot
 	BusinessQuest.maybe_issue_recurring()  # ⑥.5c recurring-offer reissues, after ⑥.5b so the starter chain goes first

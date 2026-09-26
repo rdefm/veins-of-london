@@ -147,6 +147,76 @@ func run() -> void:
 		assert_eq(typeof(business["week"]["receipts"]), TYPE_INT)
 	)
 
+	run_case("rollover_snapshots_the_ended_day_and_resets_the_tally", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 3
+		Business.activate()
+		Business.receive(120)
+		BusinessStats.record_expense(45)
+		GameState.state["productionLog"] = [{ "day": 3, "blocks": [{ "block": 0, "entries": [{ "contactId": "james", "made": { "timePearl": { "1": 2, "2": 1 } }, "failed": { "timePearl": 4 }, "oreShort": null }] }] }]
+		TimeSystem.do_rest()
+		var stats: Dictionary = GameState.state["businessStats"]
+		var snapshot: Dictionary = stats["days"][-1]
+		assert_eq(snapshot["day"], 3)
+		assert_eq(snapshot["revenue"], 120)
+		assert_true(snapshot["expenses"] >= 45, "recorded expenses land in the ended day")
+		assert_eq(snapshot["items"], 3, "made items, not failed attempts")
+		assert_eq(stats["today"], { "revenue": 0, "expenses": 0, "oreCultivator": 0, "orePlayer": 0 })
+	)
+
+	run_case("no_snapshot_before_the_pot_is_active", func():
+		GameState.reset()
+		Business.receive(50)
+		TimeSystem.do_rest()
+		assert_eq(GameState.state["businessStats"]["days"], [])
+		assert_eq(GameState.state["businessStats"]["today"]["revenue"], 0, "the tally still resets")
+	)
+
+	run_case("snapshots_trim_to_the_last_ten_days", func():
+		GameState.reset()
+		Business.activate()
+		for i in 12:
+			TimeSystem.do_rest()
+		var days: Array = GameState.state["businessStats"]["days"]
+		var last_day: int = GameState.state["world"]["day"] - 1
+		assert_eq(days.size(), GameData.BUSINESS_STATS_DAYS)
+		assert_eq(days[0]["day"], last_day - GameData.BUSINESS_STATS_DAYS + 1)
+		assert_eq(days[-1]["day"], last_day)
+	)
+
+	run_case("series_fills_days_without_a_snapshot_with_zero", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 15
+		GameState.state["businessStats"]["days"] = [{ "day": 12, "revenue": 70, "expenses": 0, "oreCultivator": 0, "orePlayer": 0, "items": 0 }]
+		var window := BusinessStats.window_days()
+		assert_eq(window.size(), 10)
+		assert_eq(window[0], 5)
+		assert_eq(window[-1], 14)
+		assert_eq(BusinessStats.series("revenue"), [0, 0, 0, 0, 0, 0, 0, 70, 0, 0])
+
+		GameState.state["world"]["day"] = 4
+		assert_eq(BusinessStats.window_days(), [1, 2, 3], "the window never reaches before day 1")
+	)
+
+	run_case("ore_tally_splits_cultivator_output_from_player_prunes", func():
+		GameState.reset()
+		Business.activate()
+		_staff_owen()
+		GameState.state["player"]["veins"][0]["growth"] = 90
+		Rooms.set_vein_station_target("v1", 50)
+		GameState.state["player"]["veins"].append(Fixtures.player_vein("v2", "s2", "shoreditch", "life", 90, "fair"))
+		var ore: Dictionary = GameState.state["player"]["orichalchum"]
+		var time_before: int = ore.get("time", 0)
+		var life_before: int = ore.get("life", 0)
+		var result := Cultivating.prune("v2", GameData.VEIN_GROWTH["pruneHardDepth"])
+		assert_true(result["ok"])
+		var today: Dictionary = GameState.state["businessStats"]["today"]
+		assert_true(today["orePlayer"] > 0)
+		assert_eq(today["orePlayer"], ore["life"] - life_before, "the player's prune counts as player ore")
+		assert_true(today["oreCultivator"] > 0)
+		assert_eq(today["oreCultivator"], ore["time"] - time_before, "Owen's block prune counts as cultivator ore")
+	)
+
 
 func _staff_owen() -> void:
 	GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]

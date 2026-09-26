@@ -74,6 +74,7 @@ static func pay_wages() -> void:
 		if paid:
 			player["cash"] -= wage
 			Bank.record(-wage, "Wages: %s" % Contacts.display_name(contact_id))
+			BusinessStats.record_expense(wage)
 		else:
 			unpaid_names.append(Contacts.display_name(contact_id))
 		paid_today[room_id] = paid
@@ -107,6 +108,7 @@ static func pay_now(room_id: String) -> Dictionary:
 
 	player["cash"] -= wage
 	Bank.record(-wage, "Wages: %s" % Contacts.display_name(contact_id))
+	BusinessStats.record_expense(wage)
 	GameState.state["payroll"]["paidToday"][room_id] = true
 	var summary: Variant = GameState.state["payroll"]["lastSummary"]
 	if summary != null:
