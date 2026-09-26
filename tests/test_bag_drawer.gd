@@ -37,6 +37,30 @@ func _install_item_hook_event() -> Dictionary:
 	return original_events
 
 
+func _button_effective_texts(root: Node) -> Array[String]:
+	var texts: Array[String] = []
+	for b in root.find_children("", "Button", true, false):
+		var btn := b as Button
+		texts.append(btn.text if btn.get_child_count() == 0 else NodeQuery.effective_text(btn.get_child(0) as Control))
+	return texts
+
+
+# Label texts outside any Button (headings, ore/consumable/summary rows).
+func _non_button_texts(root: Node) -> String:
+	var texts: Array[String] = []
+	for l in root.find_children("", "Label", true, false):
+		var inside_button := false
+		var node: Node = l.get_parent()
+		while node != null and node != root:
+			if node is Button:
+				inside_button = true
+				break
+			node = node.get_parent()
+		if not inside_button:
+			texts.append((l as Label).text)
+	return "\n".join(texts)
+
+
 func run() -> void:
 	run_case("tap_outside_the_open_bag_drawer_closes_it", func():
 		GameState.reset()
@@ -94,11 +118,57 @@ func run() -> void:
 		drawer._ready()
 
 		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Equip") == null, "no Equip button during combat")
-		assert_true(NodeQuery.label_texts_with_symbols(drawer).has("Weapon: none equipped"), "falls back to the read-only equipped summary")
-		assert_true(NodeQuery.label_texts_with_symbols(drawer).has("Dial: none"), "falls back to the read-only Dial summary")
 		assert_eq(drawer._card.offset_top, -BagDrawer.DRAWER_HEIGHT, "drawer stays the short read-only height")
 
 		drawer.free()
+	)
+
+	run_case("combat_drawer_lists_only_in_stock_combat_item_buttons", func():
+		GameState.reset()
+		Bag.open()
+		GameState.state["combat"]["active"] = true
+		var player: Dictionary = GameState.state["player"]
+		player["inventory"]["timePearl"] = { "1": 1 }
+		player["inventory"]["shield"] = { "1": 2 }
+		player["inventory"]["blast"] = { "1": 0 }
+		player["inventory"]["healingSalve"] = { "1": 1 }
+		player["shieldPool"] = 5
+
+		var drawer := BagDrawer.new()
+		drawer._ready()
+
+		var labels := _non_button_texts(drawer)
+		for absent in ["Ore", "Consumables", "Equipped", "Weapon: none equipped", "Dial: none", "Healing Salve", "Blast"]:
+			assert_true(not labels.contains(absent), "combat drawer shows no '%s'" % absent)
+
+		var buttons := _button_effective_texts(drawer)
+		assert_eq(buttons.size(), 3, "only Time Pearl, Shield and Close: %s" % [buttons])
+		assert_true(buttons[0].contains("Time Pearl (1)"), "in-stock Time Pearl gets a use button")
+		assert_true(buttons[1].contains("Shield (2)"), "in-stock Shield gets a use button")
+		assert_eq(buttons[2], "Close", "Close footer stays")
+		var shield_button := NodeQuery.find_button_by_effective_text(drawer, buttons[1])
+		assert_true(shield_button.disabled, "Shield greyed while shieldPool > 0")
+
+		drawer.free()
+	)
+
+	run_case("item_hook_event_drawer_keeps_the_full_read_only_view", func():
+		GameState.reset()
+		Bag.open()
+		var original_events := _install_item_hook_event()
+
+		var drawer := BagDrawer.new()
+		drawer._ready()
+
+		var labels := NodeQuery.label_texts_with_symbols(drawer)
+		assert_true(labels.has("Ore"), "Ore section outside combat")
+		assert_true(labels.has("Consumables"), "Consumables section outside combat")
+		assert_true(labels.has("Weapon: none equipped"), "read-only equipped summary outside combat")
+		assert_true(labels.has("Dial: none"), "read-only Dial summary outside combat")
+
+		drawer.free()
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
 	)
 
 	run_case("management_controls_hidden_during_an_item_hook_event_card", func():

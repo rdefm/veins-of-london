@@ -69,6 +69,12 @@ func _build() -> void:
 
 	_content.add_child(UI.heading("Bag"))
 
+	# In combat the drawer is the Item action: in-stock combat items only.
+	if combat["active"]:
+		_add_combat_use_buttons(player, combat)
+		_content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Bag.close())]))
+		return
+
 	_content.add_child(UI.heading("Ore", 14))
 	for ore_type in GameData.ORE_TYPES.keys():
 		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
@@ -91,10 +97,6 @@ func _build() -> void:
 		_content.add_child(UI.heading("Equipped", 14))
 		_content.add_child(_build_equipped_weapon_label(player))
 		_content.add_child(_build_dial_summary_label(player))
-
-	if combat["active"]:
-		_content.add_child(UI.heading("Use an item", 14))
-		_add_combat_use_buttons(player, combat)
 
 	_content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Bag.close())]))
 
