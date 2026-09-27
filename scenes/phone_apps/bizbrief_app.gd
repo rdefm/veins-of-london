@@ -131,6 +131,7 @@ func _build_stats(content: VBoxContainer) -> void:
 	for source in ORE_SOURCES:
 		var button := UI.button(ORE_SOURCES[source], func(): _set_ore_source(source))
 		button.disabled = _ore_source == source
+		button.set_meta(ContactCards.TOGGLE_OPTION_META, true)
 		toggle.add_child(UI.expand_fill(button))
 	content.add_child(_build_chart("Ore collected", _ore_source, "calc_gold_light", "", toggle))
 	content.add_child(_build_chart("Items produced", "items", "pastel_teal"))

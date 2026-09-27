@@ -520,6 +520,9 @@ static func phone_colour(role: String) -> Color:
 
 # A button carrying this meta keeps its own styling under apply_phone_os_chrome.
 const OWN_STYLE_META := "phone_own_style"
+# A segmented-toggle option: disabled marks the selected one, which takes the
+# accent fill; the other options stay tappable but read muted.
+const TOGGLE_OPTION_META := "phone_toggle_option"
 
 
 static func apply_phone_os_chrome(root: Node) -> void:
@@ -600,6 +603,9 @@ static func _style_button(b: Button) -> void:
 	if b.has_meta("contact_quick_action"):
 		_style_contact_quick_button(b)
 		return
+	if b.has_meta(TOGGLE_OPTION_META):
+		_style_toggle_option(b)
+		return
 	if b.has_meta("contact_back"):
 		var plain := _button_fill_style(Color(0, 0, 0, 0))
 		plain.content_margin_left = 0
@@ -642,6 +648,24 @@ static func _style_outline_button(b: Button) -> void:
 	style.set_border_width_all(1)
 	b.add_theme_stylebox_override("disabled", style)
 	b.add_theme_color_override("font_disabled_color", muted)
+	_recolor_button_content(b, muted)
+
+
+static func _style_toggle_option(b: Button) -> void:
+	if b.disabled:
+		var text_colour := _palette(_PHONE_TEXT_PRIMARY, _FALLBACK_TEXT_PRIMARY)
+		b.add_theme_stylebox_override("disabled", _button_fill_style(_palette("ui_action_red", _FALLBACK_ACTION)))
+		b.add_theme_color_override("font_disabled_color", text_colour)
+		_recolor_button_content(b, text_colour)
+		return
+	var muted := _palette(_PHONE_TEXT_MUTED, _FALLBACK_TEXT_MUTED)
+	var style := _button_fill_style(Color(0, 0, 0, 0))
+	style.border_color = _palette(_PHONE_DIVIDER, _FALLBACK_DIVIDER)
+	style.set_border_width_all(1)
+	for state in ["normal", "hover", "pressed"]:
+		b.add_theme_stylebox_override(state, style)
+	for state in ["font_color", "font_hover_color", "font_pressed_color"]:
+		b.add_theme_color_override(state, muted)
 	_recolor_button_content(b, muted)
 
 
