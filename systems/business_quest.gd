@@ -162,14 +162,14 @@ static func maybe_trigger_owen_craft() -> bool:
 
 
 # Archie's recurring offers: the two ore orders from Beat 3 (Owen joined),
-# the Time Pearl order from the Beat 6 scene (or from Beat 7's delegation
-# unlock, for a save that skipped Beat 6). All stop once Beat 7 is met.
+# the Time Pearl order from the Beat 6 scene (or from Beat 7's scene, for a
+# save that skipped Beat 6). All stop once Beat 7 is met.
 static func recurring_offer_active(template_id: String) -> bool:
 	var flags: Dictionary = GameState.state["flags"]
 	if flags.get("bizA1ProofDone", false):
 		return false
 	if template_id == RECURRING_GUARANTEED:
-		return flags.get("bizA1ProductionSeen", false) or Contracts.delegation_unlocked()
+		return flags.get("bizA1ProductionSeen", false) or flags.get(Contracts.PROOF_FLAG, false)
 	if RECURRING_CHOICES.has(template_id):
 		return flags.get("bizA1OwenJoined", false)
 	return false

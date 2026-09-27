@@ -24,8 +24,7 @@ func _initialize() -> void:
 	# above -- has already run before any test case starts. Without this,
 	# whichever case happens to be first in the whole process to `await` a
 	# frame (test_hq_lab_bench.gd, historically) is also the first point
-	# autoload/GameState.gd's EventBus.shared_stock_increased connection
-	# actually appears (ticket 123), which run_case()'s teardown could then
+	# an autoload's deferred EventBus connection actually appears, which run_case()'s teardown could then
 	# mistake for a freshly leaked node. This closes that timing hazard at
 	# its source; protect_autoloads() below is the backstop in case some
 	# other autoload's _ready() ever grows the same pattern.

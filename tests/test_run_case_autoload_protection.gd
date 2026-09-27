@@ -20,13 +20,13 @@ func run() -> void:
 		var gamestate_id_before := GameState.get_instance_id()
 
 		var before := _snapshot_eventbus_connections()
-		var without_gamestate: Array[Callable] = []
-		for c in before["shared_stock_increased"]:
-			if c.get_object() != GameState:
-				without_gamestate.append(c)
-		before["shared_stock_increased"] = without_gamestate
+		# An autoload connection made after the snapshot, so it "looks new".
+		var autoload_conn := Callable(GameState, "get_instance_id")
+		EventBus.state_changed.connect(autoload_conn)
 
 		_disconnect_and_free_new_eventbus_connections(before)
+		assert_true(EventBus.state_changed.is_connected(autoload_conn), "an autoload's connection is left alone")
+		EventBus.state_changed.disconnect(autoload_conn)
 
 		# Identity, not just non-null: a queue_free()'d Node can still read
 		# as non-null and even keep its old instance id for a few lines

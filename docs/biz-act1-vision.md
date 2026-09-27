@@ -28,7 +28,7 @@ next business act.
 | 3. James's answer | James has heard that the player is building a reputation for being less than completely hopeless. He introduces Owen, a young, keen Guild apprentice placed in cultivation. James has quietly arranged this work outside Owen's usual Guild path. | Recruit Owen through this story, not a relation threshold. Open BizBrief's **Staff** tab and introduce cultivation assignments. |
 | 4. A working supply | Archie shows the player how to assign Owen to owned veins in BizBrief. Owen gains experience by working, gradually becoming more capable. | Raise Owen's cultivating skill to **level 2** and own the existing **Workshop** room (the £800 room available in a flat). A Workshop built earlier counts. |
 | 5. The partnership | Seeing completed contracts, Owen's progress, and the Workshop, James agrees. The agreement is informal: player, Archie, and James each take one third of the business's distributable contract proceeds. James joins as a recruited contact through this event. | Unlock James's BizBrief production role, the partnership settlement rule, and Archie's explanation of recurring contracts. James's old relation-based recruitment gate is replaced by this quest. |
-| 6. Put it to work | Archie demonstrates a recurring order and delegation. The first guaranteed recurring offer is for **Time Pearls**, requiring Owen's supply, James's production, and Archie's delivery. A suitable second recurring offer must also be reliably available, with player choice of which offer to take. | Accept, configure, and delegate two recurring BizBrief contracts. Each must complete and pay out **at least one period** through the assigned team, with no manual sourcing, cultivation, crafting, stock top-up, or delivery in the qualifying period. |
+| 6. Put it to work | Archie demonstrates a recurring order that Sales delivers on its own. The first guaranteed recurring offer is for **Time Pearls**, requiring Owen's supply, James's production, and Archie's delivery. A suitable second recurring offer must also be reliably available, with player choice of which offer to take. | Accept and configure two recurring BizBrief contracts. Each must complete and pay out **at least one period** through the assigned team, with no manual sourcing, cultivation, crafting, stock top-up, or delivery in the qualifying period. |
 | 7. Proof | BizBrief shows both completed periods, Owen's wage, and the resulting three-way payout. Archie is excited that they are building something bigger. James gives minimal acknowledgement beneath his usual grumpiness. | Arc complete. The operation remains running; future expansion has a clear purpose. No Guild contract channel or invitation is granted here. |
 
 The three-contract test recognises work the player did before Archie's pitch.
@@ -127,7 +127,7 @@ player payout.
 - Owen's gratitude and ambition are legible through behaviour. His full Guild
   background remains reference material for later quests.
 - Keep the BizBrief teaching in the action: offer, acceptance, delivery,
-  assignment, production, delegation, settlement. Avoid exposition that
+  assignment, production, settlement. Avoid exposition that
   merely recites the interface.
 - New dialogue and event prose are drafts subject to `docs/CONTENT-GUIDE.md`
   and the character voice guide. This document fixes beats, not final lines.

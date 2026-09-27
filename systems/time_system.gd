@@ -63,6 +63,7 @@ static func do_rest() -> void:
 static func run_staff_block(block: int = -1) -> void:
 	var ore_before: Dictionary = MorningAccountsSystem.ore_snapshot()
 	MorningAccountsSystem.record_block(Rooms.process_staff_block(block), ore_before)
+	ContractsSystem.process_sales_deliveries()  # R§3.10 "Sales delivery": after the staff step
 	BusinessQuest.maybe_trigger_partnership()  # Beat 4 can be met by a staff level-up
 
 
@@ -103,7 +104,7 @@ static func daily_tick() -> void:
 	Payroll.pay_wages()                  # ⑥ staff phase start: Monday room wages, paid after living costs -- an unaffordable role idles until paid or next Monday, no debt
 	MorningAccountsSystem.capture_production_shortfalls(morning_context)  # ⑥.1 unmet Production targets; staff work itself runs per block in run_staff_block()
 	Rooms.trim_production_log()          # ⑥.2 drop production-log days older than the retention window
-	ContractsSystem.process_delegated_deliveries() # ⑥.3 Sales closes full periods, then allocates partial stock by priority
+	ContractsSystem.process_daily_sales() # ⑥.3 Sales buys flagged calc shortfalls, closes full periods, then allocates partial stock by priority
 	ContractsSystem.daily_tick()         # ⑥.4 due periods settle; recurring periods renew
 	MorningAccountsSystem.capture_business(morning_context, Business.daily_tick())  # ⑥.4b after ⑥.4 so payday banks today's settlements
 	BusinessStats.capture_day()          # ⑥.4c after ⑥.4b so the ended day's snapshot includes this rollover's settlements and payday wages

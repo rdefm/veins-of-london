@@ -74,8 +74,6 @@ static func inventory_add(recipe_key: String, tier: int, qty: int = 1) -> void:
 	var buckets: Dictionary = inventory[recipe_key]
 	var key := str(tier)
 	buckets[key] = buckets.get(key, 0) + qty
-	if qty > 0:
-		EventBus.shared_stock_increased.emit()
 
 
 # Removes lowest tier first -- keeps higher-quality stock for Economy's

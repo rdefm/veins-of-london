@@ -6,7 +6,9 @@
 
 **Relevant files:** `systems/business_quest.gd` (~L263-290 proof periods, Beat 8 payload), `systems/objectives.gd` (~L300 `recurring_proof`), `systems/contracts.gd` (`_period_qualifies`, `note_player_*`), `data/objectives.json` (`biz_a1_put_to_work`), the `biz_a1_put_to_work` / `biz_a1_closing` event data, `docs/biz-act1-vision.md`; REFERENCE.md §3.10 "Unattended proof", Beats 7-8.
 
-**Status:** needs-info
+**Decision (2026-09-27):** keep the "no help" rule. `qualified` = recurring AND complete AND NOT `playerAssisted` AND flag `bizA1DelegationUnlocked` set at settle time (flag kept as the "Beat 7 scene seen" gate; `delegatedWholePeriod` dropped). Objective `biz_a1_put_to_work` unchanged (2 distinct contracts, ≥1 crafted). Beat 8 payload unchanged. Scene prose tweaked to drop delegation/toggle wording — PROSE-REVIEW.
+
+**Status:** ready-for-agent
 
 - [ ] Human decides the new Beat 7 proof and scene intent
 - [ ] Objective, qualification rule and Beat 8 payload updated to match; tested

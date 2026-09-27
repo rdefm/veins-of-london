@@ -228,12 +228,10 @@ func run() -> void:
 		PayrollSystem.pay_wages()
 		assert_true(not PayrollSystem.is_paid_this_week("ops"))
 
-		GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
 		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_life_order")
 		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
-		ContractsSystem.set_delegated(contract["id"], true)
 		GameState.state["player"]["orichalchum"]["life"] = 5
-		EventBus.shared_stock_increased.emit()
+		ContractsSystem.process_sales_deliveries()
 		assert_eq(ContractsSystem.delivered_qty(contract), 0, "an unpaid Sales role should not deliver, even though stock now fully covers it")
 
 		var pending_before: int = OffersSystem.pending_offers().size()

@@ -59,10 +59,9 @@ func run_case(case_name: String, fn: Callable) -> void:
 # test file, present or future, with no per-file plumbing.
 #
 # bugfixes ticket 124: a project autoload can *also* look like a fresh
-# connection here -- autoload/GameState.gd's own _ready()-time
-# EventBus.shared_stock_increased.connect() is deferred (ticket 123) and
-# only actually appears on EventBus the first time some case flushes a real
-# engine frame. That made the live GameState singleton itself pass the
+# connection here -- an autoload's own deferred _ready()-time EventBus
+# connect() only actually appears on EventBus the first time some case
+# flushes a real engine frame. That made the live GameState singleton itself pass the
 # `target is Node` check below and get queue_free()'d, corrupting every
 # later GameState access into a use-after-free that eventually segfaulted
 # somewhere unrelated (122-diagnose-full-suite-segfault_COMPLETED.md).

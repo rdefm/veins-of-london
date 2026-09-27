@@ -7,8 +7,8 @@ extends RefCounted
 const COMPLETE_XP := 20
 const PARTIAL_XP := 10
 const PARTIAL_PAYMENT_MULTIPLIER := 0.80
-# Beat 7's delegation unlock; a period only qualifies once it is set.
-const DELEGATION_FLAG := "bizA1DelegationUnlocked"
+# Set by Beat 7's scene; a period only qualifies once it is set.
+const PROOF_FLAG := "bizA1DelegationUnlocked"
 
 
 static func active_contracts() -> Array:
@@ -66,15 +66,6 @@ static func is_period_filled(contract: Dictionary) -> bool:
 	return contract.get("periodFilled", false)
 
 
-# Why this contract is or isn't being delivered by Sales: "locked" (Beat 7
-# not reached), "off" (not delegated), "unstaffed" (delegated, Sales vacant)
-# or "active".
-static func delegation_status(contract: Dictionary) -> String:
-	if not contract.get("delegated", false):
-		return "off" if delegation_unlocked() else "locked"
-	return "active" if has_staffed_sales() else "unstaffed"
-
-
 # Any contact holding the Sales role. A founder draws no room wage; an
 # Operations Room hire counts only while this week's wage is paid.
 static func has_staffed_sales() -> bool:
@@ -82,31 +73,6 @@ static func has_staffed_sales() -> bool:
 		if Payroll.is_working(contact_id):
 			return true
 	return false
-
-
-static func delegation_unlocked() -> bool:
-	return GameState.state["flags"].get(DELEGATION_FLAG, false)
-
-
-# Delegation is a per-contract assignment, not a second stock pool. It may
-# remain configured while Operations is vacant; only a staffed Sales contact
-# can execute it. Turning it on needs the Beat 7 flag; turning it off never does.
-static func set_delegated(contract_id: String, delegated: bool) -> Dictionary:
-	var contract := _find_active(contract_id)
-	if contract.is_empty():
-		return { "ok": false, "reason": "Contract not found." }
-	if delegated and not delegation_unlocked():
-		return { "ok": false, "reason": "Delegation isn't unlocked yet." }
-	contract["delegated"] = delegated
-	# Delegating on the period's first day still covers the whole period.
-	if not delegated:
-		contract["delegatedWholePeriod"] = false
-	elif int(contract.get("periodStartDay", -1)) == int(GameState.state["world"]["day"]):
-		contract["delegatedWholePeriod"] = true
-	EventBus.state_changed.emit()
-	if delegated:
-		shared_stock_increased()
-	return { "ok": true, "delegated": delegated }
 
 
 # Per-contract Sales calc purchasing (R§3.10 "Calc purchases"): when set, the
@@ -120,12 +86,10 @@ static func set_buy_calc(contract_id: String, enabled: bool) -> Dictionary:
 	return { "ok": true, "buyCalc": enabled }
 
 
-# R§3.10 "Unattended proof": every period starts untainted, and counts as
-# delegated throughout only if delegation is already on at its start.
+# R§3.10 "Unattended proof": every period starts untainted.
 static func start_period(contract: Dictionary) -> void:
 	contract["periodStartDay"] = int(GameState.state["world"]["day"])
 	contract["playerAssisted"] = false
-	contract["delegatedWholePeriod"] = contract.get("delegated", false)
 
 
 # The player put the requested type into play (crafted, unstashed or bought
@@ -148,10 +112,8 @@ static func note_player_tended_vein(vein_id: String) -> void:
 
 static func _period_qualifies(contract: Dictionary, complete: bool) -> bool:
 	return contract["contractType"] == "recurring" and complete \
-		and contract.get("delegated", false) \
-		and contract.get("delegatedWholePeriod", contract.get("delegated", false)) \
 		and not contract.get("playerAssisted", false) \
-		and GameState.state["flags"].get(DELEGATION_FLAG, false)
+		and GameState.state["flags"].get(PROOF_FLAG, false)
 
 
 # business-spec.md: a mixed contract needs every one of its lines
@@ -165,78 +127,51 @@ static func _can_fully_deliver(contract: Dictionary) -> bool:
 	return true
 
 
-# Called after a shared-stock increase. Sales only closes fully fundable
-# delegated periods here; partial delivery is deliberately daily-only.
-static func shared_stock_increased() -> void:
+# R§3.10 "Sales delivery": at the end of every time block's staff step, a
+# working Sales contact closes every fully-coverable period first, then
+# spends remaining shared stock on partials in priority order. Stock added
+# mid-block waits for this pass, so the player can stash it first.
+static func process_sales_deliveries() -> void:
 	if not has_staffed_sales():
 		return
 	for contract in active_contracts().duplicate():
-		if not contract.get("delegated", false) or is_period_filled(contract):
-			continue
-		if not _can_fully_deliver(contract):
-			continue
-		_deliver_delegated(contract)
+		if _can_fully_deliver(contract):
+			_deliver(contract)
+	for contract in active_contracts().duplicate():
+		_deliver(contract)
 
 
-# Daily Sales pass: close every fully-funded period first, then spend any
-# remaining shared stock on partials in priority order. The second loop
-# needs no manual per-contract cap: _deliver_delegated's uncapped qty already
-# caps each requested type by its own shared stock ("Sales has no delivery-cap limit").
-static func process_delegated_deliveries() -> void:
+# Daily Sales pass (rollover ⑥.3): buy flagged calc shortfalls, then deliver.
+static func process_daily_sales() -> void:
 	if not has_staffed_sales():
 		return
 	_buy_calc_shortfalls()
-	for contract in active_contracts().duplicate():
-		if contract.get("delegated", false) and _can_fully_deliver(contract):
-			_deliver_delegated(contract)
-	for contract in active_contracts().duplicate():
-		if not contract.get("delegated", false):
-			continue
-		_deliver_delegated(contract)
+	process_sales_deliveries()
 
 
-# The only stock-mutating delivery entry point (_deliver_delegated calls it
-# with manual=false). qty is a TOTAL cap across every requested type,
-# spent against request_lines() in order -- one type's remaining need is
-# filled (capped by its own shared stock) before the next gets any leftover
-# budget. Per business-spec.md §Fulfilment and settlement, delivery costs no
-# time, and a delivery that leaves nothing remaining settles the period at
-# once through settle(), so the due-day tick never sees that period again.
-static func deliver(contract_id: String, qty: int, manual: bool = true) -> Dictionary:
-	var contract := _find_active(contract_id)
-	if contract.is_empty():
-		return { "ok": false, "reason": "Contract not found." }
+# The only stock-mutating delivery path. Fills each requested line in
+# request_lines() order, capped by its own shared stock. Per business-spec.md
+# §Fulfilment and settlement, a delivery that leaves nothing remaining
+# settles the period at once through settle(), so the due-day tick never
+# sees that period again.
+static func _deliver(contract: Dictionary) -> void:
 	if is_period_filled(contract):
-		return { "ok": false, "reason": "Delivered this week." }
-	if contract.get("delegated", false) and manual:
-		return { "ok": false, "reason": "Delegated contracts cannot be delivered manually." }
-	if qty <= 0:
-		return { "ok": false, "reason": "Choose a quantity." }
-	var budget := qty
+		return
 	var delivered_total := 0
 	var delivered: Dictionary = contract["delivered"]
 	for line in request_lines(contract["request"]):
-		if budget <= 0:
-			break
-		var line_remaining := remaining_qty(contract, line["type"])
-		if line_remaining <= 0:
-			continue
-		var take := mini(mini(budget, line_remaining), _shared_stock_for_line(line))
+		var take := mini(remaining_qty(contract, line["type"]), _shared_stock_for_line(line))
 		if take <= 0:
 			continue
 		_remove_shared_stock_for_line(line, take)
 		delivered[line["type"]] = int(delivered.get(line["type"], 0)) + take
 		delivered_total += take
-		budget -= take
 	if delivered_total <= 0:
-		return { "ok": false, "reason": "No shared stock available." }
-	if manual:
-		contract["playerAssisted"] = true
-	if not is_complete(contract):
+		return
+	if is_complete(contract):
+		settle(contract["id"])
+	else:
 		EventBus.state_changed.emit()
-		return { "ok": true, "delivered": delivered_total, "complete": false }
-	var settled := settle(contract_id)
-	return { "ok": true, "delivered": delivered_total, "complete": true, "settlement": settled.get("settlement", {}) }
 
 
 static func reorder(contract_id: String, destination_index: int) -> bool:
@@ -278,9 +213,8 @@ static func is_cancelled(history_entry: Dictionary) -> bool:
 static func daily_tick() -> void:
 	# Iterate a copy: one-off settlement removes entries, recurring settlement
 	# renews its period in place. A filled period was already paid, so its
-	# due day only opens the next one. Fresh periods get Sales' full-fill
-	# check straight away rather than waiting for the next stock change.
-	var renewed := false
+	# due day only opens the next one. Fresh periods wait for the next
+	# block's Sales pass.
 	for contract in active_contracts().duplicate():
 		if int(contract["dueDay"]) > int(GameState.state["world"]["day"]):
 			continue
@@ -289,9 +223,6 @@ static func daily_tick() -> void:
 			EventBus.state_changed.emit()
 		else:
 			settle(contract["id"])
-		renewed = renewed or contract["contractType"] == "recurring"
-	if renewed:
-		shared_stock_increased()
 
 
 static func settle(contract_id: String) -> Dictionary:
@@ -325,7 +256,7 @@ static func settle(contract_id: String) -> Dictionary:
 	elif payment > 0:
 		GameState.state["player"]["cash"] += payment
 		Bank.record(payment, "Contract settlement")
-	if contract.get("delegated", false):
+	if not contract["delivered"].is_empty():
 		_award_sales_xp(COMPLETE_XP if complete else PARTIAL_XP)
 	# A recurring period filled before its due day pays now and locks until
 	# that Monday; one reaching its due day (filled or not) renews at once.
@@ -348,7 +279,7 @@ static func settle(contract_id: String) -> Dictionary:
 	return { "ok": true, "settlement": settlement }
 
 
-# Delegated buyCalc contracts in priority order. Each contract's calc need
+# buyCalc contracts in priority order. Each contract's calc need
 # claims shared stock before the next contract counts it, so two contracts
 # never both count the same ore as on hand.
 static func _buy_calc_shortfalls() -> void:
@@ -356,7 +287,7 @@ static func _buy_calc_shortfalls() -> void:
 		return
 	var claimed: Dictionary = {}
 	for contract in active_contracts().duplicate():
-		if not contract.get("delegated", false) or not contract.get("buyCalc", false):
+		if not contract.get("buyCalc", false):
 			continue
 		var need := calc_need(contract)
 		for ore_type in need:
@@ -460,13 +391,6 @@ static func _find_active(contract_id: String) -> Dictionary:
 		if contract["id"] == contract_id:
 			return contract
 	return {}
-
-
-static func _deliver_delegated(contract: Dictionary, qty: int = -1) -> void:
-	var amount := remaining_qty(contract) if qty < 0 else qty
-	if amount <= 0:
-		return
-	deliver(contract["id"], amount, false)
 
 
 # Per requested-type line rather than per whole request, since a mixed

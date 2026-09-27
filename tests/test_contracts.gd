@@ -18,10 +18,10 @@ func run() -> void:
 	)
 
 	run_case("cancel_one_off_removes_records_and_pays_nothing", func():
-		GameState.reset()
+		_staff_sales()
 		var contract := _accept_life_contract()
 		GameState.state["player"]["orichalchum"]["life"] = 2
-		ContractsSystem.deliver(contract["id"], 2)
+		ContractsSystem.process_sales_deliveries()
 		var cash: int = GameState.state["player"]["cash"]
 		assert_true(ContractsSystem.cancel(contract["id"])["ok"])
 		var sales: Dictionary = GameState.state["sales"]
@@ -68,41 +68,23 @@ func run() -> void:
 		var contract := _proof_contract()
 		var settlement := _fill_and_settle(contract)
 		assert_true(settlement["complete"])
-		assert_true(settlement["qualified"], "delegated on the first day, untouched, after the flag")
+		assert_true(settlement["qualified"], "untouched, after the flag")
 	)
 
-	run_case("unattended_manual_delivery_disqualifies_that_period_only", func():
+	run_case("unattended_needs_recurring_completion_and_the_flag", func():
 		var contract := _proof_contract()
-		ContractsSystem.set_delegated(contract["id"], false)
-		GameState.state["player"]["orichalchum"]["physics"] = ContractsSystem.remaining_qty(contract)
-		var manual: Dictionary = ContractsSystem.deliver(contract["id"], ContractsSystem.remaining_qty(contract))["settlement"]
-		assert_true(manual["complete"])
-		assert_true(not manual["qualified"])
-		ContractsSystem.set_delegated(contract["id"], true)
-		_next_period(contract)
-		assert_true(_fill_and_settle(contract)["qualified"], "the next period starts clean")
-	)
-
-	run_case("unattended_needs_recurring_whole_period_delegation_completion_and_the_flag", func():
-		var contract := _proof_contract()
-		GameState.state["flags"].erase(ContractsSystem.DELEGATION_FLAG)
-		assert_true(not _fill_and_settle(contract)["qualified"], "settled before the Beat 6 flag")
-		GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
-		_next_period(contract)
-		GameState.state["world"]["day"] += 1
-		ContractsSystem.set_delegated(contract["id"], false)
-		ContractsSystem.set_delegated(contract["id"], true)
-		assert_true(not _fill_and_settle(contract)["qualified"], "undelegated partway through the period")
+		GameState.state["flags"].erase(ContractsSystem.PROOF_FLAG)
+		assert_true(not _fill_and_settle(contract)["qualified"], "settled before the Beat 7 flag")
+		GameState.state["flags"][ContractsSystem.PROOF_FLAG] = true
 		_next_period(contract)
 		_next_period(contract)
 		var last: Dictionary = GameState.state["sales"]["settlements"].back()
 		assert_true(not last["complete"] and not last["qualified"], "an empty period is incomplete")
 		assert_true(_fill_and_settle(contract)["qualified"])
 
-		var one_off := _accept_life_contract()
-		ContractsSystem.set_delegated(one_off["id"], true)
+		_accept_life_contract()
 		GameState.state["player"]["orichalchum"]["life"] = 5
-		EventBus.shared_stock_increased.emit()
+		ContractsSystem.process_sales_deliveries()
 		assert_true(not GameState.state["sales"]["settlements"].back()["qualified"], "one-offs never qualify")
 	)
 
@@ -117,14 +99,9 @@ func run() -> void:
 		assert_true(not _fill_and_settle(contract)["qualified"], "unstashed the requested ore")
 
 		var pearls := _add_weekly_contract({ "kind": "consumable", "type": "timePearl", "qty": 1 })
-		GameState.state["player"]["orichalchum"]["time"] = 1000
+		_craft_one_time_pearl()
+		ContractsSystem.process_sales_deliveries()
 		var settlements: Array = GameState.state["sales"]["settlements"]
-		var settled_before := settlements.size()
-		Rng.set_seed(1)
-		for attempt in 50:
-			if settlements.size() > settled_before:
-				break
-			Crafting.attempt_craft("timePearl")
 		assert_eq(settlements.back()["contractId"], pearls["id"])
 		assert_true(not settlements.back()["qualified"], "crafted the requested recipe")
 	)
@@ -158,66 +135,97 @@ func run() -> void:
 
 	run_case("unattended_sales_calc_purchases_never_taint", func():
 		_setup_buy_calc_lanes()
-		GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
 		GameState.state["business"]["pot"] = 5000
 		var created: Dictionary = OffersSystem.create_offer({
 			"id": "t_life_weekly", "source": "scripted", "contractType": "recurring", "weekday": 1,
 			"request": { "kind": "ore", "type": "life", "qty": 2 },
 		})
 		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
-		ContractsSystem.set_delegated(contract["id"], true)
 		ContractsSystem.set_buy_calc(contract["id"], true)
-		ContractsSystem.process_delegated_deliveries()
+		ContractsSystem.process_daily_sales()
 		assert_eq(GameState.state["business"]["week"]["expenses"].size(), 1)
 		assert_true(GameState.state["sales"]["settlements"][0]["qualified"])
 	)
 
-	run_case("delegation_needs_the_beat_6_flag_to_turn_on_never_to_turn_off", func():
-		GameState.reset()
-		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_life_order")
-		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
-		assert_true(not ContractsSystem.set_delegated(contract["id"], true)["ok"])
-		assert_true(not contract["delegated"])
-		contract["delegated"] = true  # a save delegated before the gate
-		assert_true(ContractsSystem.set_delegated(contract["id"], false)["ok"])
-		GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
-		assert_true(ContractsSystem.set_delegated(contract["id"], true)["ok"])
+	run_case("block_advance_delivers_coverable_contracts_after_the_staff_step", func():
+		_staff_sales()
+		var contract := _accept_life_contract()
+		GameState.state["player"]["orichalchum"]["life"] = 5
+		assert_eq(ContractsSystem.delivered_qty(contract), 0, "nothing moves mid-block")
+		TimeSystem.advance_time_block()
+		assert_eq(GameState.state["sales"]["settlements"].size(), 1)
+		assert_true(GameState.state["sales"]["settlements"][0]["complete"])
+		assert_eq(GameState.state["contacts"]["archie"]["salesXP"], ContractsSystem.COMPLETE_XP)
 	)
 
-	run_case("manual_partial_delivery_spends_shared_stock_only_and_no_time", func():
+	run_case("stock_added_mid_block_waits_for_the_next_block", func():
+		_staff_sales()
+		var ore := _accept_life_contract()
+		var pearls := _add_weekly_contract({ "kind": "consumable", "type": "timePearl", "qty": 1 })
+		# Pruning ends its block first, then yields ore into shared stock.
+		GameState.state["player"]["veins"] = [Fixtures.player_vein_with({ "oreType": "life" })]
+		assert_true(Cultivating.prune("v1", GameData.VEIN_GROWTH["pruneLightDepth"])["ok"])
+		GameState.state["player"]["stash"]["orichalchum"]["life"] = 2
+		Stash.move_ore_to_shared("life", 2)
+		_craft_one_time_pearl()
+		assert_eq(ContractsSystem.delivered_qty(ore), 0, "unstashed and pruned ore waits")
+		assert_eq(GameState.state["sales"]["settlements"].size(), 0, "a crafted pearl waits")
+		TimeSystem.advance_time_block()
+		assert_true(ContractsSystem.delivered_qty(ore) >= 2, "delivered at the block's end")
+		assert_true(_settled_ids().has(pearls["id"]), "the pearl period closes at the block's end")
+	)
+
+	run_case("stashed_stock_is_never_taken", func():
+		_staff_sales()
+		var contract := _accept_life_contract()
+		GameState.state["player"]["stash"]["orichalchum"]["life"] = 5
+		GameState.state["player"]["orichalchum"]["life"] = 1
+		TimeSystem.advance_time_block()
+		assert_eq(ContractsSystem.delivered_qty(contract), 1, "only shared stock")
+		assert_eq(GameState.state["player"]["stash"]["orichalchum"]["life"], 5, "stash untouched")
+	)
+
+	run_case("unassigned_sales_delivers_nothing", func():
 		GameState.reset()
 		var contract := _accept_life_contract()
-		GameState.state["player"]["orichalchum"]["life"] = 4
+		GameState.state["player"]["orichalchum"]["life"] = 5
+		TimeSystem.advance_time_block()
+		ContractsSystem.process_daily_sales()
+		assert_eq(ContractsSystem.delivered_qty(contract), 0)
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 5)
+	)
+
+	run_case("partial_delivery_spends_shared_stock_only_and_no_time", func():
+		_staff_sales()
+		var contract := _accept_life_contract()
+		GameState.state["player"]["orichalchum"]["life"] = 2
 		var cash_before: int = GameState.state["player"]["cash"]
-		var result: Dictionary = ContractsSystem.deliver(contract["id"], 2)
-		assert_true(result["ok"])
-		assert_eq(result["delivered"], 2)
-		assert_true(not result["complete"])
+		ContractsSystem.process_sales_deliveries()
 		assert_eq(ContractsSystem.delivered_qty(contract), 2)
-		assert_eq(GameState.state["player"]["orichalchum"]["life"], 2)
-		assert_eq(GameState.state["world"]["timeBlock"], 0, "manual delivery costs no time")
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 0, "manual delivery costs no time")
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 0)
+		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 0, "delivery costs no time")
 		assert_eq(GameState.state["player"]["cash"], cash_before, "a partial delivery does not settle")
 		assert_eq(GameState.state["sales"]["settlements"].size(), 0)
 		assert_eq(ContractsSystem.active_contracts().size(), 1)
-		contract["delegated"] = true
-		assert_true(not ContractsSystem.deliver(contract["id"], 1)["ok"], "manual path rejects delegated contracts")
 	)
 
 	run_case("settlement_pays_the_business_pot_while_active_else_the_player", func():
-		GameState.reset()
-		var before_pot := _accept_life_contract()
-		GameState.state["player"]["orichalchum"]["life"] = 10
+		_staff_sales()
+		_accept_life_contract()
+		GameState.state["player"]["orichalchum"]["life"] = 5
 		var cash_before: int = GameState.state["player"]["cash"]
-		var first: Dictionary = ContractsSystem.deliver(before_pot["id"], 5)["settlement"]
+		ContractsSystem.process_sales_deliveries()
+		var first: Dictionary = GameState.state["sales"]["settlements"].back()
 		assert_eq(GameState.state["player"]["cash"], cash_before + first["payment"], "before the pot, the player is paid")
 		assert_eq(GameState.state["business"]["pot"], 0)
 
 		# Accepted before the pot started, settled after: routed by settle day.
-		var after_pot := _accept_life_contract()
+		_accept_life_contract()
 		Business.activate()
 		cash_before = GameState.state["player"]["cash"]
-		var second: Dictionary = ContractsSystem.deliver(after_pot["id"], 5)["settlement"]
+		GameState.state["player"]["orichalchum"]["life"] = 5
+		ContractsSystem.process_sales_deliveries()
+		var second: Dictionary = GameState.state["sales"]["settlements"].back()
 		assert_eq(GameState.state["player"]["cash"], cash_before, "the pot takes the payment")
 		assert_eq(GameState.state["business"]["pot"], second["payment"])
 		assert_eq(GameState.state["business"]["week"]["receipts"], second["payment"])
@@ -233,101 +241,87 @@ func run() -> void:
 		assert_eq(ContractsSystem.active_contracts()[0]["id"], second["id"])
 	)
 
-	run_case("staffed_sales_closes_a_fully_stocked_delegated_period_immediately", func():
-		GameState.reset()
-		GameState.state["contacts"]["archie"]["recruited"] = true
-		Contacts.assign_to_room("archie", "ops")
-		var contract := _accept_life_contract()
-		assert_true(ContractsSystem.set_delegated(contract["id"], true)["ok"])
-		GameState.state["player"]["orichalchum"]["life"] = 5
-		EventBus.shared_stock_increased.emit()
-		assert_eq(ContractsSystem.active_contracts().size(), 0)
-		assert_eq(GameState.state["sales"]["settlements"].size(), 1)
-		assert_eq(GameState.state["contacts"]["archie"]["salesXP"], ContractsSystem.COMPLETE_XP)
-	)
-
-	run_case("daily_sales_allocates_partial_stock_in_priority_order", func():
-		GameState.reset()
-		GameState.state["contacts"]["archie"]["recruited"] = true
-		Contacts.assign_to_room("archie", "ops")
+	run_case("sales_allocates_partial_stock_in_priority_order", func():
+		_staff_sales()
 		var first := _accept_life_contract()
 		var second := _accept_life_contract()
-		ContractsSystem.set_delegated(first["id"], true)
-		ContractsSystem.set_delegated(second["id"], true)
 		GameState.state["player"]["orichalchum"]["life"] = 7
-		ContractsSystem.process_delegated_deliveries()
-		assert_eq(ContractsSystem.delivered_qty(first), 5)
+		ContractsSystem.process_sales_deliveries()
+		assert_eq(_settled_ids(), [first["id"]], "the first closes")
 		assert_eq(ContractsSystem.delivered_qty(second), 2)
 		assert_eq(GameState.state["player"]["orichalchum"]["life"], 0)
 	)
 
-	# ticket 30: Production contract-coverage toggle -- the personal-target
-	# portion of a covered item's shared stock is a protected buffer.
+	run_case("fully_coverable_periods_close_before_higher_priority_partials", func():
+		_staff_sales()
+		var mixed := _accept_mixed_contract()
+		var fate := _add_weekly_contract({ "kind": "ore", "type": "fate", "qty": 3 })
+		GameState.state["player"]["orichalchum"]["fate"] = 3
+		ContractsSystem.process_sales_deliveries()
+		assert_eq(_settled_ids(), [fate["id"]], "the coverable lower-priority period closes first")
+		assert_eq(ContractsSystem.delivered_qty(mixed, "fate"), 0, "nothing left for the uncoverable partial")
+	)
+
+	# Production contract-coverage toggle: the personal-target portion of a
+	# covered item's shared stock is a protected buffer.
 	run_case("delivery_cannot_draw_below_the_covered_personal_target_reserve", func():
-		GameState.reset()
+		_staff_sales()
 		GameState.state["labThresholds"]["timePearl"] = 5
 		Rooms.set_lab_cover_contracts("timePearl", true)
 		Crafting.inventory_add("timePearl", 1, 8)
 		var created: Dictionary = OffersSystem.create_offer({ "id": "t_reserve", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 10 } })
 		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
-		var result: Dictionary = ContractsSystem.deliver(contract["id"], 10)
-		assert_true(result["ok"])
-		assert_eq(result["delivered"], 3, "only the unreserved portion (8 in stock minus the 5 reserve) should be deliverable")
+		ContractsSystem.process_sales_deliveries()
+		assert_eq(ContractsSystem.delivered_qty(contract), 3, "only the unreserved portion (8 in stock minus the 5 reserve) should be deliverable")
 		assert_eq(Crafting.inventory_qty("timePearl"), 5, "the personal-target reserve should remain untouched")
 	)
 
 	run_case("shared_stock_is_undivided_when_the_item_is_not_covering_contracts", func():
-		GameState.reset()
+		_staff_sales()
 		GameState.state["labThresholds"]["timePearl"] = 5
 		Crafting.inventory_add("timePearl", 1, 8)
 		var created: Dictionary = OffersSystem.create_offer({ "id": "t_open", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 10 } })
 		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
-		var result: Dictionary = ContractsSystem.deliver(contract["id"], 10)
-		assert_eq(result["delivered"], 8, "toggle off -- no reserve, full shared stock available as before ticket 30")
+		ContractsSystem.process_sales_deliveries()
+		assert_eq(ContractsSystem.delivered_qty(contract), 8, "toggle off -- no reserve, full shared stock available")
 	)
 
-	run_case("full_manual_oneoff_delivery_settles_immediately_and_cannot_repeat", func():
-		GameState.reset()
+	run_case("full_oneoff_delivery_settles_immediately_and_cannot_repeat", func():
+		_staff_sales()
 		var contract := _accept_life_contract()
 		GameState.state["player"]["orichalchum"]["life"] = 5
 		var cash_before: int = GameState.state["player"]["cash"]
-		var result: Dictionary = ContractsSystem.deliver(contract["id"], 5)
-		assert_true(result["ok"])
-		assert_true(result["complete"])
-		assert_eq(result["settlement"]["payment"], contract["quote"]["payment"])
-		assert_true(result["settlement"]["complete"])
+		ContractsSystem.process_sales_deliveries()
+		var settlement: Dictionary = GameState.state["sales"]["settlements"].back()
+		assert_eq(settlement["payment"], contract["quote"]["payment"])
+		assert_true(settlement["complete"])
 		assert_eq(GameState.state["player"]["cash"], cash_before + contract["quote"]["payment"])
 		assert_eq(GameState.state["sales"]["settlements"].size(), 1)
 		assert_eq(ContractsSystem.active_contracts().size(), 0)
 		assert_true(not GameState.state["sales"]["priorityOrder"].has(contract["id"]))
-		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 0, "manual delivery costs no time")
 		assert_true(not ContractsSystem.settle(contract["id"])["ok"], "removed period cannot pay again")
 		GameState.state["world"]["day"] = contract["dueDay"]
 		ContractsSystem.daily_tick()
 		assert_eq(GameState.state["player"]["cash"], cash_before + contract["quote"]["payment"], "due-day tick does not pay again")
 	)
 
-	run_case("full_manual_recurring_fill_pays_once_and_locks_until_monday", func():
-		GameState.reset()
-		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_physics_weekly")
-		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
+	run_case("full_recurring_fill_pays_once_and_locks_until_monday", func():
+		var contract := _proof_contract()
 		var old_period: String = contract["periodId"]
 		var old_due: int = contract["dueDay"]
 		var payment: int = contract["quote"]["payment"]
 		var qty: int = ContractsSystem.remaining_qty(contract)
 		GameState.state["player"]["orichalchum"]["physics"] = qty * 3
 		var cash_before: int = GameState.state["player"]["cash"]
-		var result: Dictionary = ContractsSystem.deliver(contract["id"], qty)
-		assert_true(result["ok"])
-		assert_true(result["complete"])
+		ContractsSystem.process_sales_deliveries()
 		assert_eq(GameState.state["player"]["cash"], cash_before + payment)
 		assert_eq(ContractsSystem.active_contracts().size(), 1, "recurring contract stays active")
 		assert_true(ContractsSystem.is_period_filled(contract))
 		assert_eq(contract["periodId"], old_period, "no new period until Monday")
 		assert_eq(contract["dueDay"], old_due, "due day does not move forward")
-		var again: Dictionary = ContractsSystem.deliver(contract["id"], qty)
-		assert_true(not again["ok"], "a filled period refuses further deliveries")
-		assert_eq(GameState.state["player"]["orichalchum"]["physics"], qty * 2, "no stock taken by the refused delivery")
+		ContractsSystem.process_sales_deliveries()
+		assert_eq(GameState.state["sales"]["settlements"].size(), 1, "locked: no second fill this week")
+		assert_eq(GameState.state["player"]["orichalchum"]["physics"], qty * 2, "no stock taken while locked")
 		assert_true(not ContractsSystem.settle(contract["id"])["ok"], "a filled period cannot settle twice")
 		GameState.state["world"]["day"] = old_due - 1
 		ContractsSystem.daily_tick()
@@ -339,39 +333,17 @@ func run() -> void:
 		assert_true(not ContractsSystem.is_period_filled(contract), "Monday opens a fresh period")
 		assert_true(contract["periodId"] != old_period)
 		assert_eq(contract["dueDay"], old_due + 7)
-		assert_eq(ContractsSystem.delivered_qty(contract), 0)
-		assert_true(ContractsSystem.deliver(contract["id"], qty)["ok"], "the new period takes deliveries")
-		assert_eq(GameState.state["player"]["cash"], cash_before + payment * 2)
-	)
-
-	run_case("delegated_recurring_autofills_on_stock_then_locks_and_reopens_monday", func():
-		var contract := _proof_contract()
-		var qty: int = ContractsSystem.remaining_qty(contract)
-		var due: int = contract["dueDay"]
-		var cash_before: int = GameState.state["player"]["cash"]
-		GameState.state["player"]["orichalchum"]["physics"] = qty * 3
-		EventBus.shared_stock_increased.emit()
-		assert_eq(GameState.state["sales"]["settlements"].size(), 1, "filled as soon as stock covered it")
-		assert_eq(GameState.state["player"]["cash"], cash_before + contract["quote"]["payment"])
-		assert_true(ContractsSystem.is_period_filled(contract))
-		EventBus.shared_stock_increased.emit()
-		ContractsSystem.process_delegated_deliveries()
-		assert_eq(GameState.state["sales"]["settlements"].size(), 1, "locked: no second fill this week")
-		assert_eq(GameState.state["player"]["orichalchum"]["physics"], qty * 2)
-		GameState.state["world"]["day"] = due
-		ContractsSystem.daily_tick()
-		assert_eq(GameState.state["sales"]["settlements"].size(), 2, "Monday's fresh period fills from stock on hand")
-		assert_eq(contract["dueDay"], due + 7)
+		assert_eq(ContractsSystem.delivered_qty(contract), 0, "the fresh period waits for the next Sales pass")
+		ContractsSystem.process_sales_deliveries()
+		assert_eq(GameState.state["player"]["cash"], cash_before + payment * 2, "the new period takes deliveries")
 		assert_true(GameState.state["sales"]["settlements"].back()["qualified"])
 	)
 
 	run_case("unfilled_recurring_period_settles_partial_on_monday_and_renews", func():
-		GameState.reset()
-		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_physics_weekly")
-		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
+		var contract := _proof_contract()
 		var due: int = contract["dueDay"]
 		GameState.state["player"]["orichalchum"]["physics"] = 1
-		ContractsSystem.deliver(contract["id"], 1)
+		ContractsSystem.process_sales_deliveries()
 		GameState.state["world"]["day"] = due
 		ContractsSystem.daily_tick()
 		var settlement: Dictionary = GameState.state["sales"]["settlements"].back()
@@ -382,23 +354,11 @@ func run() -> void:
 		assert_eq(ContractsSystem.delivered_qty(contract), 0)
 	)
 
-	run_case("delegation_status_reports_unlock_toggle_and_staffing", func():
-		var contract := _proof_contract()
-		assert_eq(ContractsSystem.delegation_status(contract), "active")
-		ContractsSystem.set_delegated(contract["id"], false)
-		assert_eq(ContractsSystem.delegation_status(contract), "off")
-		GameState.state["flags"].erase(ContractsSystem.DELEGATION_FLAG)
-		assert_eq(ContractsSystem.delegation_status(contract), "locked")
-		contract["delegated"] = true
-		Contacts.assign_to_room("none", "ops")
-		assert_eq(ContractsSystem.delegation_status(contract), "unstaffed")
-	)
-
 	run_case("deadline_settlement_still_pays_partial_for_incomplete_oneoff", func():
-		GameState.reset()
+		_staff_sales()
 		var contract := _accept_life_contract()
 		GameState.state["player"]["orichalchum"]["life"] = 2
-		ContractsSystem.deliver(contract["id"], 2)
+		ContractsSystem.process_sales_deliveries()
 		assert_eq(GameState.state["sales"]["settlements"].size(), 0)
 		GameState.state["world"]["day"] = contract["dueDay"]
 		ContractsSystem.daily_tick()
@@ -407,71 +367,33 @@ func run() -> void:
 		assert_eq(ContractsSystem.active_contracts().size(), 0)
 	)
 
-	# ticket 32: mixed one-off delivery/settlement.
-	run_case("manual_delivery_spans_every_requested_type_at_no_time_cost", func():
-		GameState.reset()
+	run_case("delivery_spans_every_requested_type", func():
+		_staff_sales()
 		var contract := _accept_mixed_contract()
 		GameState.state["player"]["orichalchum"]["fate"] = 5
 		Crafting.inventory_add("timePearl", 1, 5)
-		var result: Dictionary = ContractsSystem.deliver(contract["id"], 10)
-		assert_true(result["ok"])
-		assert_eq(result["delivered"], 5, "3 fate + 2 timePearl, each capped by its own remaining need")
-		assert_eq(ContractsSystem.delivered_qty(contract, "fate"), 3)
-		assert_eq(ContractsSystem.delivered_qty(contract, "timePearl"), 2)
-		assert_true(result["complete"])
-		assert_eq(GameState.state["world"]["timeBlock"], 0, "manual delivery costs no time")
-		assert_eq(GameState.state["sales"]["settlements"].size(), 1, "full mixed delivery settles immediately")
+		ContractsSystem.process_sales_deliveries()
+		assert_eq(GameState.state["player"]["orichalchum"]["fate"], 2, "each type capped by its own remaining need")
+		assert_eq(Crafting.inventory_qty("timePearl"), 3)
+		assert_eq(_settled_ids(), [contract["id"]], "full mixed delivery settles immediately")
 	)
 
 	run_case("mixed_delivery_caps_each_type_by_its_own_shared_stock_independently", func():
-		GameState.reset()
+		_staff_sales()
 		var contract := _accept_mixed_contract()
 		GameState.state["player"]["orichalchum"]["fate"] = 1
 		Crafting.inventory_add("timePearl", 1, 5)
-		var result: Dictionary = ContractsSystem.deliver(contract["id"], 10)
-		assert_true(result["ok"])
-		assert_eq(result["delivered"], 3, "1 fate (all that's available) + 2 timePearl (fully covered)")
-		assert_eq(ContractsSystem.delivered_qty(contract, "fate"), 1)
-		assert_eq(ContractsSystem.delivered_qty(contract, "timePearl"), 2)
-		assert_true(not result["complete"], "fate still short by 2")
-	)
-
-	run_case("delegated_mixed_contract_only_closes_when_every_type_is_fully_covered", func():
-		GameState.reset()
-		GameState.state["contacts"]["archie"]["recruited"] = true
-		Contacts.assign_to_room("archie", "ops")
-		var contract := _accept_mixed_contract()
-		ContractsSystem.set_delegated(contract["id"], true)
-		GameState.state["player"]["orichalchum"]["fate"] = 3
-		Crafting.inventory_add("timePearl", 1, 1)
-		ContractsSystem.shared_stock_increased()
-		assert_eq(ContractsSystem.active_contracts().size(), 1, "timePearl line still short -- not fully deliverable yet")
-		assert_eq(ContractsSystem.delivered_qty(contract, "fate"), 0, "no partial delivery on the realtime recheck")
-		Crafting.inventory_add("timePearl", 1, 1)
-		ContractsSystem.shared_stock_increased()
-		assert_eq(ContractsSystem.active_contracts().size(), 0, "now fully fundable across every type -- closes immediately")
-		assert_eq(GameState.state["contacts"]["archie"]["salesXP"], ContractsSystem.COMPLETE_XP)
-	)
-
-	run_case("daily_partial_pass_fills_each_mixed_type_independently", func():
-		GameState.reset()
-		GameState.state["contacts"]["archie"]["recruited"] = true
-		Contacts.assign_to_room("archie", "ops")
-		var contract := _accept_mixed_contract()
-		ContractsSystem.set_delegated(contract["id"], true)
-		GameState.state["player"]["orichalchum"]["fate"] = 1
-		Crafting.inventory_add("timePearl", 1, 5)
-		ContractsSystem.process_delegated_deliveries()
+		ContractsSystem.process_sales_deliveries()
 		assert_eq(ContractsSystem.delivered_qty(contract, "fate"), 1, "only 1 fate available")
 		assert_eq(ContractsSystem.delivered_qty(contract, "timePearl"), 2, "timePearl fully covered even though fate is short")
 		assert_eq(ContractsSystem.active_contracts().size(), 1, "fate line still short, period stays open")
 	)
 
 	run_case("mixed_oneoff_settlement_is_quoted_value_weighted", func():
-		GameState.reset()
+		_staff_sales()
 		var contract := _accept_mixed_contract()
 		GameState.state["player"]["orichalchum"]["fate"] = 3
-		ContractsSystem.deliver(contract["id"], 3, false)
+		ContractsSystem.process_sales_deliveries()
 		GameState.state["world"]["day"] = contract["dueDay"]
 		var settled: Dictionary = ContractsSystem.settle(contract["id"])
 		assert_true(settled["ok"])
@@ -479,26 +401,26 @@ func run() -> void:
 		assert_eq(settled["settlement"]["payment"], 324, "quote £765 × (270/510 quoted-value-weighted) × 0.80")
 	)
 
-	run_case("settlement_falls_back_to_the_flat_ratio_for_a_pre_ticket32_quote_with_no_lines", func():
-		GameState.reset()
+	run_case("settlement_falls_back_to_the_flat_ratio_for_a_quote_with_no_lines", func():
+		_staff_sales()
 		var contract := _accept_life_contract()
 		contract["quote"].erase("lines")
 		GameState.state["player"]["orichalchum"]["life"] = 2
-		ContractsSystem.deliver(contract["id"], 2, false)
+		ContractsSystem.process_sales_deliveries()
 		GameState.state["world"]["day"] = contract["dueDay"]
 		var settled: Dictionary = ContractsSystem.settle(contract["id"])
-		assert_true(settled["ok"], "a contract accepted before ticket 32 must still settle, not KeyError")
+		assert_true(settled["ok"], "a quote with no lines must still settle, not KeyError")
 		assert_eq(settled["settlement"]["payment"], GameState.round_epsilon(float(contract["quote"]["payment"]) * (2.0 / 5.0) * 0.80))
 	)
 
 	run_case("partial_recurring_settlement_penalises_then_renews_with_new_period_id", func():
-		GameState.reset()
+		_staff_sales()
 		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_physics_weekly")
 		var accepted: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])
 		var contract: Dictionary = accepted["contract"]
 		var old_period: String = contract["periodId"]
 		GameState.state["player"]["orichalchum"]["physics"] = 1
-		ContractsSystem.deliver(contract["id"], 1, false)
+		ContractsSystem.process_sales_deliveries()
 		GameState.state["world"]["day"] = contract["dueDay"]
 		var settled: Dictionary = ContractsSystem.settle(contract["id"])
 		assert_true(settled["ok"])
@@ -513,14 +435,13 @@ func run() -> void:
 		_setup_buy_calc_lanes()
 		GameState.state["business"]["pot"] = 5000
 		var contract := _accept_life_contract()
-		ContractsSystem.set_delegated(contract["id"], true)
 		assert_true(ContractsSystem.set_buy_calc(contract["id"], true)["ok"])
 		GameState.state["player"]["orichalchum"]["life"] = 1
 		var cash_before: int = GameState.state["player"]["cash"]
 		var collective_price := Economy.get_faction_buy_price("collective", "ore", "life", false)
 		var guild_price := Economy.get_faction_buy_price("guild", "ore", "life", false)
 		assert_true(collective_price < guild_price, "the Collective's relation discount makes it cheapest")
-		ContractsSystem.process_delegated_deliveries()
+		ContractsSystem.process_daily_sales()
 		var expenses: Array = GameState.state["business"]["week"]["expenses"]
 		assert_eq(expenses.size(), 2, "the shortfall of 4 spills from 2 Collective to 2 Guild")
 		assert_eq(expenses[0]["kind"], "calc")
@@ -541,10 +462,9 @@ func run() -> void:
 		_setup_buy_calc_lanes()
 		GameState.state["business"]["pot"] = 1
 		var contract := _accept_life_contract()
-		ContractsSystem.set_delegated(contract["id"], true)
 		ContractsSystem.set_buy_calc(contract["id"], true)
 		var cash_before: int = GameState.state["player"]["cash"]
-		ContractsSystem.process_delegated_deliveries()
+		ContractsSystem.process_daily_sales()
 		assert_eq(GameState.state["business"]["week"]["expenses"].size(), 0)
 		assert_eq(GameState.state["business"]["pot"], 1)
 		assert_eq(GameState.state["factions"]["collective"]["oreStock"]["life"], 2)
@@ -552,16 +472,11 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], cash_before)
 	)
 
-	run_case("buy_calc_off_or_undelegated_buys_nothing", func():
+	run_case("buy_calc_off_buys_nothing", func():
 		_setup_buy_calc_lanes()
 		GameState.state["business"]["pot"] = 5000
-		var contract := _accept_life_contract()
-		ContractsSystem.set_buy_calc(contract["id"], true)
-		ContractsSystem.process_delegated_deliveries()
-		assert_eq(GameState.state["business"]["week"]["expenses"].size(), 0, "not delegated")
-		ContractsSystem.set_delegated(contract["id"], true)
-		ContractsSystem.set_buy_calc(contract["id"], false)
-		ContractsSystem.process_delegated_deliveries()
+		_accept_life_contract()
+		ContractsSystem.process_daily_sales()
 		assert_eq(GameState.state["business"]["week"]["expenses"].size(), 0, "toggle off")
 	)
 
@@ -584,9 +499,8 @@ func run() -> void:
 		assert_eq(ContractsSystem.calc_need(contract), { "time": 2 * per_unit })
 		GameState.state["player"]["orichalchum"]["time"] = 1
 		GameState.state["business"]["pot"] = 5000
-		ContractsSystem.set_delegated(contract["id"], true)
 		ContractsSystem.set_buy_calc(contract["id"], true)
-		ContractsSystem.process_delegated_deliveries()
+		ContractsSystem.process_daily_sales()
 		var bought := 0
 		for expense in GameState.state["business"]["week"]["expenses"]:
 			bought += int(expense["qty"])
@@ -594,28 +508,31 @@ func run() -> void:
 	)
 
 
-# Pot active, Sales staffed; the Guild (joined, low relation) and the
-# Collective (unlocked, high relation, 2 life in stock) both sell ore.
-func _setup_buy_calc_lanes() -> void:
+# Fresh state with Archie working Sales from the Operations Room.
+func _staff_sales() -> void:
 	GameState.reset()
 	GameState.state["contacts"]["archie"]["recruited"] = true
 	Contacts.assign_to_room("archie", "ops")
+
+
+# Pot active, Sales staffed; the Guild (joined, low relation) and the
+# Collective (unlocked, high relation, 2 life in stock) both sell ore.
+func _setup_buy_calc_lanes() -> void:
+	_staff_sales()
 	Business.activate()
 	GameState.state["factions"]["guild"]["joined"] = true
 	GameState.state["factions"]["guild"]["relation"] = 0
 	GameState.state["flags"]["collectiveLaneUnlocked"] = true
 	GameState.state["factions"]["collective"]["relation"] = 90
 	GameState.state["factions"]["collective"]["oreStock"] = { "life": 2 }
-	GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
+	GameState.state["flags"][ContractsSystem.PROOF_FLAG] = true
 
 
-# Fresh state with the Beat 6 flag set and Sales staffed, then a weekly
-# physics ×3 contract delegated on its first day.
+# Fresh state with the Beat 7 flag set and Sales staffed, then a weekly
+# physics ×3 contract.
 func _proof_contract() -> Dictionary:
-	GameState.reset()
-	GameState.state["contacts"]["archie"]["recruited"] = true
-	Contacts.assign_to_room("archie", "ops")
-	GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
+	_staff_sales()
+	GameState.state["flags"][ContractsSystem.PROOF_FLAG] = true
 	GameState.state["player"]["cash"] = 100000
 	return _add_weekly_contract({ "kind": "ore", "type": "physics", "qty": 3 })
 
@@ -625,9 +542,7 @@ func _add_weekly_contract(request: Dictionary) -> Dictionary:
 		"id": "t_weekly_%s" % request["type"], "source": "scripted", "contractType": "recurring", "weekday": 1,
 		"request": request,
 	})
-	var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
-	ContractsSystem.set_delegated(contract["id"], true)
-	return contract
+	return OffersSystem.accept_offer(created["offer"]["id"])["contract"]
 
 
 # Rolls to the contract's due Monday so a filled period opens the next one.
@@ -640,21 +555,35 @@ func _next_period(contract: Dictionary) -> void:
 func _fill_and_settle(contract: Dictionary) -> Dictionary:
 	var ore_type: String = contract["request"]["type"]
 	GameState.state["player"]["orichalchum"][ore_type] = ContractsSystem.remaining_qty(contract)
-	EventBus.shared_stock_increased.emit()
+	ContractsSystem.process_sales_deliveries()
 	return GameState.state["sales"]["settlements"].back()
 
 
+# Crafts until one Time Pearl lands in shared stock (seeded, so deterministic).
+func _craft_one_time_pearl() -> void:
+	GameState.state["player"]["orichalchum"]["time"] = 1000
+	Rng.set_seed(1)
+	for attempt in 50:
+		if Crafting.inventory_qty("timePearl") > 0:
+			return
+		Crafting.attempt_craft("timePearl")
+
+
+func _settled_ids() -> Array:
+	var ids: Array = []
+	for settlement in GameState.state["sales"]["settlements"]:
+		ids.append(settlement["contractId"])
+	return ids
+
+
 func _accept_life_contract() -> Dictionary:
-	GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
 	var created: Dictionary = OffersSystem.create_scripted_offer("scripted_life_order")
 	return OffersSystem.accept_offer(created["offer"]["id"])["contract"]
 
 
-# ticket 32: fate ore qty 3 + timePearl qty 2 (business-spec.md's mixed
-# one-off support). Built inline rather than via data/offers.json: the real
-# scripted/random mixed-offer catalogue is deferred to tickets 33/34.
+# Fate ore qty 3 + timePearl qty 2, built inline rather than from
+# data/offers.json.
 func _accept_mixed_contract() -> Dictionary:
-	GameState.state["flags"][ContractsSystem.DELEGATION_FLAG] = true
 	var created: Dictionary = OffersSystem.create_offer({
 		"id": "t_mixed_calc_order", "source": "scripted", "contractType": "oneOff",
 		"expiresAfterDays": 6, "deadlineAfterDays": 5,

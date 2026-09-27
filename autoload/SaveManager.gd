@@ -126,6 +126,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_migrate_nadia_supply_order(filled)
 	_migrate_player_model(filled)
 	_migrate_weekly_cadence(filled)
+	_migrate_drop_delegation(filled)
 	_remap_retired_screen_id(filled)
 	_remap_retired_messages_list(filled)
 	_remap_retired_lab_screen(filled)
@@ -154,6 +155,20 @@ func _migrate_weekly_cadence(state: Dictionary) -> void:
 		contract["weekday"] = Offers.RECURRING_WEEKDAY
 		if contract.get("contractType") == "recurring":
 			contract["dueDay"] = Calendar.monday_on_or_after(int(contract["dueDay"]))
+
+
+# Sales delivers every contract (R§3.10 "Sales delivery"); per-contract
+# delegation fields are dropped. Between Beat 1 and the Staff tab opening,
+# Archie holds Sales, as the Beat 1 scene now sets.
+func _migrate_drop_delegation(state: Dictionary) -> void:
+	for contract in state.get("sales", {}).get("activeContracts", []):
+		contract.erase("delegated")
+		contract.erase("delegatedWholePeriod")
+	var flags: Dictionary = state.get("flags", {})
+	var archie: Dictionary = state.get("contacts", {}).get("archie", {})
+	if flags.get("bizArchieSalesRole", false) and not flags.get("bizStaffTabOpen", false) \
+			and archie.get("assignedRole") == null and archie.get("assignedRoom") == null:
+		archie["assignedRole"] = "sales"
 
 
 # player.model is a data/combat_visuals.json templates key; the "protagonist2"

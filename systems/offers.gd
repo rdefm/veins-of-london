@@ -167,7 +167,7 @@ static func accept_offer(offer_id: String) -> Dictionary:
 		# Extra requested types were fixed at offer-creation (quote) time; their
 		# deadline bonus applies on top of whichever base above was picked.
 		due_day += int(offer.get("extraTypeDeadlineDays", 0))
-		var contract := { "id": "contract-%d" % sales["nextContractId"], "periodId": "period-%d" % sales["nextPeriodId"], "offerId": offer_id, "templateId": offer["templateId"], "contractType": offer["contractType"], "request": offer["request"].duplicate(true), "quote": offer["quote"].duplicate(true), "acceptedDay": accepted_day, "dueDay": due_day, "weekday": offer["weekday"], "delegated": false, "delivered": {}, "status": "active" }
+		var contract := { "id": "contract-%d" % sales["nextContractId"], "periodId": "period-%d" % sales["nextPeriodId"], "offerId": offer_id, "templateId": offer["templateId"], "contractType": offer["contractType"], "request": offer["request"].duplicate(true), "quote": offer["quote"].duplicate(true), "acceptedDay": accepted_day, "dueDay": due_day, "weekday": offer["weekday"], "delivered": {}, "status": "active" }
 		Contracts.start_period(contract)
 		sales["nextContractId"] += 1
 		sales["nextPeriodId"] += 1

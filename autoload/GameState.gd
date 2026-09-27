@@ -10,16 +10,7 @@ var state: Dictionary = {}
 
 
 func _ready() -> void:
-	EventBus.shared_stock_increased.connect(_on_shared_stock_increased)
 	reset()
-
-
-func _on_shared_stock_increased() -> void:
-	# Deferred script lookup avoids a Contracts <-> Crafting compile cycle:
-	# Contracts consumes crafted stock, while crafting emits this stock-change
-	# boundary after a successful addition.
-	var contracts_script: GDScript = load("res://systems/contracts.gd")
-	contracts_script.shared_stock_increased()
 
 
 func reset() -> void:

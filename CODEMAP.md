@@ -37,7 +37,7 @@ Data file per system: see `data/*.json` below.
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`) |
-| contracts.gd | Sales contract delivery, priority, settlement (paid to the business pot while active); a recurring period pays on fill then locks (`periodFilled`) until its Monday renewal; per-contract `buyCalc` shortfall purchases from the cheapest open faction lanes, paid from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; unpaid `cancel()` |
+| contracts.gd | Block-end Sales auto-delivery from shared stock (full periods, then partials by priority), settlement (to the pot while active); a recurring period pays on fill then locks (`periodFilled`) until Monday renewal; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; unpaid `cancel()` |
 | crafting.gd | Recipe crafting |
 | cultivating.gd | Vein growth / cultivate / prune |
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
@@ -201,7 +201,7 @@ overlays.
 | phone_app.gd | PhoneApp base: shell ref, build(content)/teardown() hooks, shared back button + refresh |
 | phone_app_registry.gd | app id -> PhoneApp script table; the only dispatch path phone.gd uses |
 | alarms_app.gd | Raid alarm rows: defend / leave undefended (two-tap) / decide later |
-| bizbrief_app.gd | BizBrief tabs: Brief (bank, payday, wage prompt, operations, attention); Manage (offers, delegation, buy-calc, cancel, production targets + log, cultivator procurement); Staff once `bizStaffTabOpen` (role, skills, pay terms, status, role picker, Pay now); Stats while pot active (4 line charts, ore source toggle) |
+| bizbrief_app.gd | BizBrief tabs: Brief (bank, payday, wage prompt, operations, attention); Manage (offers, Sales status, buy-calc, cancel, production targets + log, cultivator procurement); Staff once `bizStaffTabOpen` (role, skills, pay terms, status, role picker, Pay now); Stats while pot active (4 line charts, ore source toggle) |
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread staged bubble reveal/action bar (incl. Owen's text reply choices); thread opens scrolled to the newest message |
 | todo_app.gd | ToDo app: collapsible questline sections from Todo, all_of checks as indented sub-rows; session-only expand/collapse overrides in a static var |
 | factions_app.gd | Faction cards |

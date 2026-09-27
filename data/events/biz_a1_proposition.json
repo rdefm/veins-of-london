@@ -17,6 +17,7 @@
   "on_complete": [
     { "op": "set_flag", "flag": "bizA1PropositionSeen", "value": true },
     { "op": "set_flag", "flag": "bizArchieSalesRole", "value": true },
+    { "op": "set_contact_role", "contact": "archie", "role": "sales" },
     { "op": "set_screen", "screen": "phone" }
   ]
 }

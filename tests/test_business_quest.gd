@@ -74,6 +74,7 @@ func run() -> void:
 
 	run_case("three_prior_completions_satisfy_beat_2_instantly", func():
 		_to_beat_1()
+		_staff_ops_with_des()
 		for i in 3:
 			_complete_life_order()
 		EventPlay.play_event(BusinessQuest.PROPOSITION_KIND)
@@ -87,7 +88,7 @@ func run() -> void:
 		var created: Dictionary = Offers.create_scripted_offer("scripted_life_order")
 		var contract: Dictionary = Offers.accept_offer(created["offer"]["id"])["contract"]
 		GameState.state["player"]["orichalchum"]["life"] = 2
-		Contracts.deliver(contract["id"], 2)
+		Contracts.process_sales_deliveries()
 		Contracts.settle(contract["id"])
 		assert_eq(Objectives.completed_contract_count(), 0)
 	)
@@ -117,7 +118,8 @@ func run() -> void:
 		_tick()
 		assert_eq(_starter_offer_templates(), [], "an active starter contract is the outstanding one")
 		GameState.state["player"]["orichalchum"]["time"] = 4
-		assert_true(Contracts.deliver(contract["id"], 4)["complete"])
+		Contracts.process_sales_deliveries()
+		assert_true(Offers.active_contracts().filter(func(c): return c["id"] == contract["id"]).is_empty(), "Archie delivered it in full")
 		assert_eq(Objectives.completed_contract_count(), 1)
 		_tick()
 		assert_eq(_starter_offer_templates(), ["biz_starter_2"], "the next starter a day after completion")
@@ -150,6 +152,7 @@ func run() -> void:
 
 	run_case("prior_completions_queue_owen_intro_from_the_beat_1_scene", func():
 		_to_beat_1()
+		_staff_ops_with_des()
 		for i in 3:
 			_complete_life_order()
 		EventPlay.play_event(BusinessQuest.PROPOSITION_KIND)
@@ -184,7 +187,7 @@ func run() -> void:
 		cash_before = GameState.state["player"]["cash"]
 		_complete_life_order()
 		assert_eq(GameState.state["player"]["cash"], cash_before, "post-Beat 3 settlement skips the player")
-		assert_eq(GameState.state["business"]["pot"], paid_to_player)
+		assert_eq(GameState.state["business"]["pot"], GameState.state["sales"]["settlements"].back()["payment"])
 	)
 
 	run_case("owen_on_cultivation_harvests_into_shared_stock_at_block_end", func():
@@ -287,15 +290,14 @@ func run() -> void:
 		assert_eq(_recurring_offer("biz_recurring_time_pearl")["contractType"], "recurring")
 		assert_true(GameState.state["objectives"]["biz_a1_first_order"]["active"])
 		assert_eq(_business_item("biz_a1_first_order")["detail"], "0 of 1")
-		var pearls: Dictionary = Offers.accept_offer(_recurring_offer("biz_recurring_time_pearl")["id"])["contract"]
-		assert_true(not Contracts.set_delegated(pearls["id"], true)["ok"], "delegation is gated on Beat 7")
 	)
 
 	run_case("one_full_time_pearl_period_meets_beat_6_and_queues_beat_7", func():
 		_to_production()
 		var pearls: Dictionary = Offers.accept_offer(_recurring_offer("biz_recurring_time_pearl")["id"])["contract"]
 		Crafting.inventory_add("timePearl", 1, 4)
-		assert_true(Contracts.deliver(pearls["id"], 4)["ok"])
+		Contracts.process_sales_deliveries()
+		assert_eq(Contracts.delivered_qty(pearls), 4)
 		var settlements: Array = GameState.state["sales"]["settlements"]
 		var settled_before := settlements.size()
 		for i in 8:
@@ -304,19 +306,18 @@ func run() -> void:
 		assert_true(not GameState.state["flags"]["bizA1FirstOrderDone"], "a short period does not count")
 		assert_eq(_pending_kinds("archie").count(BusinessQuest.PUT_TO_WORK_KIND), 0)
 		Crafting.inventory_add("timePearl", 1, 5)
-		assert_true(Contracts.deliver(pearls["id"], 5)["complete"])
+		Contracts.process_sales_deliveries()
 		assert_true(GameState.state["flags"]["bizA1FirstOrderDone"])
 		assert_true(_business_item("biz_a1_first_order")["done"])
 		assert_eq(_pending_kinds("archie").count(BusinessQuest.PUT_TO_WORK_KIND), 1, "settlement queues Beat 7")
 		assert_true(GameState.state["objectives"]["biz_a1_demo"]["active"])
 	)
 
-	run_case("beat_7_scene_unlocks_delegation_without_issuing_the_pearl_offer", func():
-		var pearls := _to_first_order_done()
+	run_case("beat_7_scene_starts_the_proof_without_issuing_the_pearl_offer", func():
+		_to_first_order_done()
 		_strip_random_offers()
 		EventPlay.play_event(BusinessQuest.PUT_TO_WORK_KIND)
-		assert_true(Contracts.delegation_unlocked())
-		assert_true(Contracts.set_delegated(pearls["id"], true)["ok"])
+		assert_true(GameState.state["flags"][Contracts.PROOF_FLAG])
 		assert_true(_recurring_offer("biz_recurring_time_pearl").is_empty(), "the pearl order already runs")
 		assert_true(GameState.state["objectives"]["biz_a1_put_to_work"]["active"])
 	)
@@ -437,9 +438,9 @@ func run() -> void:
 
 	run_case("beat_7_needs_two_qualified_contracts_one_crafted_in_any_weeks", func():
 		_to_beat_7()
-		var pearls := _delegate_pearls()
-		var time_ore := _accept_delegated("biz_recurring_time_ore")
-		var life_ore := _accept_delegated("biz_recurring_life_ore")
+		var pearls := _pearl_contract()
+		var time_ore := _accept_recurring("biz_recurring_time_ore")
+		var life_ore := _accept_recurring("biz_recurring_life_ore")
 		_stock_ore("time", 6)
 		for i in 8:
 			_tick()
@@ -455,14 +456,12 @@ func run() -> void:
 		assert_true(time_ore["id"] != life_ore["id"] and pearls["id"] != time_ore["id"])
 	)
 
-	run_case("pre_existing_delegated_recurring_contract_counts", func():
+	run_case("pre_existing_recurring_contract_without_period_tracking_counts", func():
 		_to_beat_5()
 		EventPlay.play_event(BusinessQuest.PARTNERSHIP_KIND)
 		var created: Dictionary = Offers.create_scripted_offer("scripted_physics_weekly")
 		var physics: Dictionary = Offers.accept_offer(created["offer"]["id"])["contract"]
-		# A save from before the delegation gate and period tracking.
-		physics["delegated"] = true
-		physics.erase("delegatedWholePeriod")
+		# A save from before period tracking.
 		physics.erase("periodStartDay")
 		_strip_random_offers()
 		EventPlay.play_event(BusinessQuest.PUT_TO_WORK_KIND)
@@ -470,7 +469,7 @@ func run() -> void:
 		Contacts.set_role("archie", "sales")
 		_stock_ore("physics", 3)
 		assert_eq(Objectives.recurring_proof()["contracts"], 1)
-		_accept_delegated("biz_recurring_time_pearl")
+		_accept_recurring("biz_recurring_time_pearl")
 		_stock_pearls(5)
 		assert_true(GameState.state["flags"]["bizA1ProofDone"])
 	)
@@ -479,9 +478,9 @@ func run() -> void:
 		_to_beat_7()
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["business"]["pot"] = 5000
-		var time_ore := _accept_delegated("biz_recurring_time_ore")
+		var time_ore := _accept_recurring("biz_recurring_time_ore")
 		Contracts.set_buy_calc(time_ore["id"], true)
-		Contracts.process_delegated_deliveries()
+		Contracts.process_daily_sales()
 		var settlement: Dictionary = GameState.state["sales"]["settlements"].back()
 		assert_eq(settlement["contractId"], time_ore["id"])
 		assert_true(settlement["complete"] and settlement["qualified"])
@@ -490,12 +489,12 @@ func run() -> void:
 
 	run_case("beat_8_waits_for_payday_then_closes_the_act_and_business_runs_on", func():
 		_to_beat_7()
-		var pearls := _delegate_pearls()
-		# Beat 6's hand-filled pearl period stays locked until Monday, whose
+		var pearls := _pearl_contract()
+		# Beat 6's filled pearl period stays locked until Monday, whose
 		# payday banks it before the proof is met.
 		while Contracts.is_period_filled(pearls):
 			_tick()
-		var time_ore := _accept_delegated("biz_recurring_time_ore")
+		var time_ore := _accept_recurring("biz_recurring_time_ore")
 		_stock_pearls(5)
 		_stock_ore("time", 6)
 		assert_true(GameState.state["flags"]["bizA1ProofDone"])
@@ -509,7 +508,7 @@ func run() -> void:
 		assert_eq(entries.size(), 1)
 		var record: Dictionary = ledger.back()
 		var payload: Dictionary = entries[0]["payload"]
-		# The two delegated periods.
+		# The two proof periods.
 		var receipts: int = int(pearls["quote"]["payment"]) + int(time_ore["quote"]["payment"])
 		assert_eq(record["receipts"], receipts)
 		assert_eq(payload["receipts"], "£%d" % receipts)
@@ -622,13 +621,14 @@ func _to_production() -> void:
 	EventPlay.play_event(BusinessQuest.PRODUCTION_KIND)
 
 
-# Beat 6 met: the Time Pearl order taken and one period delivered by hand.
+# Beat 6 met: the Time Pearl order taken and one period delivered by Sales.
 # Returns the running pearl contract.
 func _to_first_order_done() -> Dictionary:
 	_to_production()
 	var contract: Dictionary = Offers.accept_offer(_recurring_offer("biz_recurring_time_pearl")["id"])["contract"]
 	Crafting.inventory_add("timePearl", 1, 5)
-	assert_true(Contracts.deliver(contract["id"], 5)["complete"])
+	Contracts.process_sales_deliveries()
+	assert_true(Contracts.is_period_filled(contract))
 	return contract
 
 
@@ -646,13 +646,6 @@ func _pearl_contract() -> Dictionary:
 		if contract["templateId"] == "biz_recurring_time_pearl":
 			return contract
 	return {}
-
-
-# Delegated on its period's first day, so the whole period is delegated.
-func _delegate_pearls() -> Dictionary:
-	var contract := _pearl_contract()
-	assert_true(Contracts.set_delegated(contract["id"], true)["ok"])
-	return contract
 
 
 func _strip_random_offers() -> void:
@@ -673,24 +666,21 @@ func _recurring_offer_templates() -> Array:
 	return Offers.pending_offers().filter(func(o): return BusinessQuest.is_recurring_template(o["templateId"])).map(func(o): return o["templateId"])
 
 
-# Accepted and delegated on its first day, so the whole period is delegated.
-func _accept_delegated(template_id: String) -> Dictionary:
-	var contract: Dictionary = Offers.accept_offer(_recurring_offer(template_id)["id"])["contract"]
-	assert_true(Contracts.set_delegated(contract["id"], true)["ok"])
-	return contract
+func _accept_recurring(template_id: String) -> Dictionary:
+	return Offers.accept_offer(_recurring_offer(template_id)["id"])["contract"]
 
 
 # Stock appearing without the player (as a cultivator or producer would
-# supply it); Sales closes any fully covered delegated period.
+# supply it), then Sales' block-end pass.
 func _stock_ore(ore_type: String, qty: int) -> void:
 	var ore: Dictionary = GameState.state["player"]["orichalchum"]
 	ore[ore_type] = int(ore.get(ore_type, 0)) + qty
-	EventBus.shared_stock_increased.emit()
+	Contracts.process_sales_deliveries()
 
 
 func _stock_pearls(qty: int) -> void:
 	Crafting.inventory_add("timePearl", 1, qty)
-	EventBus.shared_stock_increased.emit()
+	Contracts.process_sales_deliveries()
 
 
 func _build_workshop() -> void:
@@ -717,6 +707,12 @@ func _tick() -> void:
 			pending.erase(offer)
 
 
+# Des working Sales from the Operations Room, before Archie can take it.
+func _staff_ops_with_des() -> void:
+	GameState.state["contacts"]["des"]["recruited"] = true
+	Contacts.assign_to_room("des", "ops")
+
+
 func _complete_life_order() -> void:
 	# Random offers can fill the pending cap and block the scripted order.
 	if Offers.pending_offers().size() >= Offers.PENDING_CAP:
@@ -724,7 +720,7 @@ func _complete_life_order() -> void:
 	var created: Dictionary = Offers.create_scripted_offer("scripted_life_order")
 	var contract: Dictionary = Offers.accept_offer(created["offer"]["id"])["contract"]
 	GameState.state["player"]["orichalchum"]["life"] = 5
-	Contracts.deliver(contract["id"], 5)
+	Contracts.process_sales_deliveries()
 
 
 func _pending_kinds(contact_id: String) -> Array:

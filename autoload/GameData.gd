@@ -1272,9 +1272,10 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# recruit_contact is Contacts.force_recruit() (story recruits).
 	# activate_business is Business.activate() (Beat 3: pot + partners);
 	# set_james_crafting_skill is BusinessQuest.set_james_crafting_skill() (Beat 5);
-	# issue_recurring_offers is BusinessQuest.maybe_issue_recurring() (Beats 3, 6).
+	# issue_recurring_offers is BusinessQuest.maybe_issue_recurring() (Beats 3, 6);
+	# set_contact_role is Contacts.set_role(contact, role) (Beat 1: Archie takes Sales).
 	"unlock_contact", "push_message", "recruit_contact", "activate_business",
-	"set_james_crafting_skill", "issue_recurring_offers",
+	"set_james_crafting_skill", "issue_recurring_offers", "set_contact_role",
 	# faction_relation is "relation"'s faction-facing twin (Factions.
 	# adjust_player_relation); log_method writes state.methodLog[key]=value.
 	"queue_pending_message", "faction_relation",

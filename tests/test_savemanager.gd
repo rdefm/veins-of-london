@@ -171,6 +171,30 @@ func run() -> void:
 		assert_eq(GameState.state["sales"]["activeContracts"][0]["dueDay"], 15, "a Monday due day is left alone")
 	)
 
+	run_case("old_save_drops_contract_delegation_fields", func():
+		GameState.reset()
+		var offer: Dictionary = OffersSystem.create_scripted_offer("scripted_life_order")["offer"]
+		var contract: Dictionary = OffersSystem.accept_offer(offer["id"])["contract"]
+		contract["delegated"] = true
+		contract["delegatedWholePeriod"] = true
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		var loaded: Dictionary = GameState.state["sales"]["activeContracts"][0]
+		assert_true(not loaded.has("delegated"))
+		assert_true(not loaded.has("delegatedWholePeriod"))
+	)
+
+	run_case("old_save_between_beat_1_and_the_staff_tab_puts_archie_in_sales", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["flags"]["bizArchieSalesRole"] = true
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_eq(GameState.state["contacts"]["archie"]["assignedRole"], "sales")
+		GameState.state["contacts"]["archie"]["assignedRole"] = null
+		GameState.state["flags"]["bizStaffTabOpen"] = true
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_eq(GameState.state["contacts"]["archie"]["assignedRole"], null, "the player's own choice once the Staff tab is open")
+	)
+
 	run_case("old_save_arrears_day_clock_migrates_to_whole_weeks", func():
 		GameState.reset()
 		GameState.state["home"]["arrears"] = 300
@@ -318,8 +342,11 @@ func run() -> void:
 		# needs the same round-trip proof.
 		GameState.state["player"]["orichalchum"]["fate"] = 3
 		Crafting.inventory_add("timePearl", 1, 2)
-		var settled: Dictionary = ContractsSystem.deliver(contract["id"], 5)
-		assert_true(settled["ok"] and settled["complete"], "full delivery settles immediately")
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["flags"]["bizArchieSalesRole"] = true
+		Contacts.set_role("archie", "sales")
+		ContractsSystem.process_sales_deliveries()
+		assert_eq(GameState.state["sales"]["contractHistory"].size(), 1, "full delivery settles immediately")
 		var original_with_history: Dictionary = GameState.deep_copy(GameState.state)
 
 		save_result = SaveManager.save_to_slot(TEST_SLOT)

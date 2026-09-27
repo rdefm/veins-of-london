@@ -1686,6 +1686,10 @@
 "op": "set_flag",
 "value": true
 }, {
+"contact": "archie",
+"op": "set_contact_role",
+"role": "sales"
+}, {
 "op": "set_screen",
 "screen": "phone"
 }]
@@ -1709,7 +1713,7 @@
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Now the clever bit. Tap 'Delegate to Sales' and it's mine. I watch the stock, I hand it over when it's there, I chase the money. You don't touch it.\"",
+"text": "\"Now the clever bit. It's already mine. End of every stretch I check the stock, hand over whatever's there, chase the money. Anything you want kept, stash it before I come round.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -1724,7 +1728,7 @@
 }, {
 "label": null,
 "speaker": "Archie",
-"text": "\"Help means handing the goods over yourself, making the thing it asks for, tending any of Owen's veins, moving what it wants out of your stash, or buying the calc it wants. Do any of that and that week doesn't count.\"",
+"text": "\"Help means making the thing it asks for, tending any of Owen's veins, moving what it wants out of your stash, or buying the calc it wants. Do any of that and that week doesn't count.\"",
 "type": "speaker"
 }, {
 "label": null,
@@ -5064,7 +5068,7 @@
 "bonus": "faction",
 "bonusValue": 1,
 "cost": 5000,
-"description": "Desk, screens, maps. Staff it with a contact to run Sales — sourcing offers and chasing the deliveries you delegate to them.",
+"description": "Desk, screens, maps. Staff it with a contact to run Sales — sourcing offers and delivering your contracts from shared stock.",
 "id": "ops",
 "minTier": "safehouse",
 "name": "Operations Room"

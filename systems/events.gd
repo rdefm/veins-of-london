@@ -295,8 +295,6 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"add_ore":
 			var ore: Dictionary = GameState.state["player"]["orichalchum"]
 			ore[effect["type"]] = ore.get(effect["type"], 0) + effect["qty"]
-			if effect["qty"] > 0:
-				EventBus.shared_stock_increased.emit()
 		"add_item":
 			# Event-granted items aren't crafted at any tier -- filed under the untiered "0" bucket, same as a Guild purchase.
 			Crafting.inventory_add(effect["item"], 0, effect["qty"])
@@ -361,6 +359,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			BusinessQuest.set_james_crafting_skill()
 		"issue_recurring_offers":
 			BusinessQuest.maybe_issue_recurring()
+		"set_contact_role":
+			Contacts.set_role(effect["contact"], effect["role"])
 		"push_message":
 			# Optional "from" lets an authored SMS thread replay its own outgoing "player" lines verbatim; defaults to "them" when omitted.
 			Messages.append(effect["contact"], effect.get("from", "them"), effect["text"])

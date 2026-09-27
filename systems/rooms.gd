@@ -236,8 +236,7 @@ static func vein_station_target_text(vein_id: String) -> Variant:
 # The staff block step (R§3.10 "Staff block step"), run by TimeSystem at
 # the end of every player time block: each working cultivator takes one
 # action, then working producers craft until every target is met or none
-# can afford its next item, then Sales re-checks delegated contracts if
-# shared stock grew. block is the day's time-block index for the production
+# can afford its next item. block is the day's time-block index for the production
 # log (defaults to world.timeBlock). Returns the block's
 # output { "ore": {oreType: qty}, "items": {recipeKey: qty} } for the
 # Morning Brief.
@@ -251,8 +250,6 @@ static func process_staff_block(block: int = -1) -> Dictionary:
 	if block < 0:
 		block = GameState.state["world"]["timeBlock"]
 	_log_production(block, entries)
-	if not output["ore"].is_empty() or not output["items"].is_empty():
-		EventBus.shared_stock_increased.emit()
 	return output
 
 

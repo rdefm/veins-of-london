@@ -364,8 +364,6 @@ static func receive_faction_ore(faction_id: String, ore_type: String, qty: int) 
 	var stock: Dictionary = GameState.state["factions"][faction_id]["oreStock"]
 	if stock.has(ore_type):
 		stock[ore_type] -= qty
-	if qty > 0:
-		EventBus.shared_stock_increased.emit()
 
 
 # Whether the player can currently buy from a faction lane: a member-only
