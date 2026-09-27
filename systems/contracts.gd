@@ -43,8 +43,8 @@ static func is_complete(contract: Dictionary) -> bool:
 	return remaining_qty(contract) == 0
 
 
-# Any contact holding the Sales role. A founder draws no daily wage; an
-# Operations Room hire counts only once today's wage is paid.
+# Any contact holding the Sales role. A founder draws no room wage; an
+# Operations Room hire counts only while this week's wage is paid.
 static func has_staffed_sales() -> bool:
 	for contact_id in Contacts.contacts_in_role("sales"):
 		if Payroll.is_working(contact_id):
@@ -261,7 +261,7 @@ static func settle(contract_id: String) -> Dictionary:
 	if contract["contractType"] == "recurring":
 		contract["periodId"] = "period-%d" % int(sales["nextPeriodId"])
 		sales["nextPeriodId"] += 1
-		contract["dueDay"] = int(contract["dueDay"]) + 7
+		contract["dueDay"] = int(contract["dueDay"]) + Calendar.days_per_week()
 		contract["delivered"] = {}
 		start_period(contract)
 	else:

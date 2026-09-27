@@ -29,7 +29,7 @@
   "cultivatorActionXp": 2,
   "productionLogDays": 10,
   "businessStatsDays": 10,
-  "business": { "paydayIntervalDays": 7, "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
+  "business": { "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
   "calendar": {
     "startMonth": 3,
     "daysPerMonth": 28,

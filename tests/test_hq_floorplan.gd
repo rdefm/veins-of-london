@@ -198,23 +198,23 @@ func run() -> void:
 		Contacts.assign_to_room(some_contact_id, "lab")
 		GameState.state["player"]["cash"] = 0
 		Payroll.pay_wages()
-		assert_true(not Payroll.is_paid_today("lab"))
+		assert_true(not Payroll.is_paid_this_week("lab"))
 
 		var poor_screen := HqFloorplanScreen.new()
 		poor_screen._ready()
-		var disabled_button := NodeQuery.find_button(poor_screen, "Pay now (£100)")
+		var disabled_button := NodeQuery.find_button(poor_screen, "Pay now (£700)")
 		assert_true(disabled_button != null, "an unpaid role must expose a Pay now catch-up button")
 		assert_true(disabled_button.disabled, "Pay now should be disabled while cash is still short")
 		poor_screen.free()
 
-		GameState.state["player"]["cash"] = 100
+		GameState.state["player"]["cash"] = 700
 		var funded_screen := HqFloorplanScreen.new()
 		funded_screen._ready()
-		var pay_button := NodeQuery.find_button(funded_screen, "Pay now (£100)")
+		var pay_button := NodeQuery.find_button(funded_screen, "Pay now (£700)")
 		assert_true(not pay_button.disabled, "Pay now should enable once cash covers the wage")
 		pay_button.pressed.emit()
 
-		assert_true(Payroll.is_paid_today("lab"), "tapping Pay now must clear today's unpaid wage")
+		assert_true(Payroll.is_paid_this_week("lab"), "tapping Pay now must clear this week's unpaid wage")
 		assert_eq(GameState.state["player"]["cash"], 0)
 
 		funded_screen.free()

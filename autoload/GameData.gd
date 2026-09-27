@@ -171,7 +171,6 @@ var BUSINESS_STATS_DAYS: int = 0
 
 # Business pot payday cadence (days) and weekly wage per waged staff
 # contact id, R§3.10 "Business pot and payday".
-var BUSINESS_PAYDAY_INTERVAL_DAYS: int = 0
 var BUSINESS_WEEKLY_WAGES: Dictionary = {}
 var BUSINESS_JAMES_JOIN_CRAFTING_SKILL: int = 0
 var BUSINESS_OWEN_CRAFT_MIN_CULTIVATING: int = 0
@@ -328,7 +327,6 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "CULTIVATOR_ACTION_XP", "key": "cultivatorActionXp", "type": TYPE_INT},
 		{"field": "PRODUCTION_LOG_DAYS", "key": "productionLogDays", "type": TYPE_INT},
 		{"field": "BUSINESS_STATS_DAYS", "key": "businessStatsDays", "type": TYPE_INT},
-		{"field": "BUSINESS_PAYDAY_INTERVAL_DAYS", "key": "business.paydayIntervalDays", "type": TYPE_INT},
 		{"field": "BUSINESS_WEEKLY_WAGES", "key": "business.weeklyWages", "type": TYPE_DICTIONARY},
 		{"field": "BUSINESS_JAMES_JOIN_CRAFTING_SKILL", "key": "business.jamesJoinCraftingSkill", "type": TYPE_INT},
 		{"field": "BUSINESS_OWEN_CRAFT_MIN_CULTIVATING", "key": "business.owenCraftMinCultivating", "type": TYPE_INT},

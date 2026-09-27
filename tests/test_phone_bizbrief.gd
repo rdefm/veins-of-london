@@ -119,6 +119,7 @@ func run() -> void:
 
 	run_case("brief_renders_the_payday_statement_and_the_wage_prompt", func():
 		GameState.reset()
+		GameState.state["world"]["day"] = 2
 		Business.activate()
 		for i in 6:
 			TimeSystem.do_rest()
@@ -147,6 +148,7 @@ func run() -> void:
 
 	run_case("brief_no_leaves_owen_unpaid_and_drops_the_prompt", func():
 		GameState.reset()
+		GameState.state["world"]["day"] = 2
 		Business.activate()
 		for i in 6:
 			TimeSystem.do_rest()
@@ -396,6 +398,20 @@ func run() -> void:
 		for expected in ["Archie", "Owen", "No role · ⅓ share", "Cultivation · £%d a week" % int(GameData.BUSINESS_WEEKLY_WAGES["owen"]), "Unpaid · owed £120", "Cultivating 2 · 40 XP · cap 3"]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 		assert_true(not texts.has("James"), "unrecruited James not listed")
+		phone.free()
+	)
+
+	run_case("staff_tab_shows_a_room_hires_weekly_wage", func():
+		GameState.reset()
+		GameState.state["flags"]["bizStaffTabOpen"] = true
+		GameState.state["contacts"]["des"]["recruited"] = true
+		Contacts.assign_to_room("des", "lab")
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Staff").pressed.emit()
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("Production · £700 a week"), "room hire pay terms are weekly")
 		phone.free()
 	)
 

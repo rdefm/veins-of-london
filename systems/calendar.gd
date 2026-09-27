@@ -15,11 +15,38 @@ static func date_parts(day: int) -> Dictionary:
 	var days_per_year: int = days_per_month * months.size()
 	var index: int = maxi(0, day - 1) + int(cal["startMonth"]) * days_per_month
 	return {
-		"weekday": weekdays[index % weekdays.size()],
+		"weekday": weekdays[weekday_index(day)],
 		"dayOfMonth": index % days_per_month + 1,
 		"month": months[(index % days_per_year) / days_per_month],
 		"year": index / days_per_year + 1,
 	}
+
+
+# 0-based index into weekdayNames for a 1-based world.day (0 = MON).
+static func weekday_index(day: int) -> int:
+	var cal: Dictionary = GameData.CALENDAR
+	var index: int = maxi(0, day - 1) + int(cal["startMonth"]) * int(cal["daysPerMonth"])
+	return index % (cal["weekdayNames"] as Array).size()
+
+
+static func days_per_week() -> int:
+	return (GameData.CALENDAR["weekdayNames"] as Array).size()
+
+
+static func is_monday(day: int) -> bool:
+	return weekday_index(day) == 0
+
+
+# The first day after `day` that falls on weekday index `weekday`.
+static func next_weekday_after(day: int, weekday: int) -> int:
+	var week := days_per_week()
+	var offset := posmod(weekday - weekday_index(day), week)
+	return day + (week if offset == 0 else offset)
+
+
+# `day` if it is a Monday, else the next Monday after it.
+static func monday_on_or_after(day: int) -> int:
+	return day if is_monday(day) else next_weekday_after(day, 0)
 
 
 # Display string, e.g. "MON 3 JAN"; from year 2 on, "MON 3 JAN Y2".

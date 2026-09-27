@@ -24,6 +24,9 @@ const MIXED_TYPE_QTY_MIN := 2
 const MIXED_TYPE_QTY_MAX := 5
 const MIXED_EXTRA_TYPE_DEADLINE_DAYS := 2
 const MIXED_EXTRA_TYPE_BONUS := 0.20
+# Every offer's weekday is Monday (Calendar weekday index 0): a recurring
+# contract falls due on the rollover into each Monday (R§3.10 "Weekly cadence").
+const RECURRING_WEEKDAY := 0
 
 
 static func pending_offers() -> Array:
@@ -49,9 +52,9 @@ static func daily_tick() -> void:
 	expire_pending_offers()
 	if pending_offers().size() >= PENDING_CAP:
 		return
-	# An assigned-but-unpaid Sales role sources nothing today; an unassigned
+	# An assigned-but-unpaid Sales role sources nothing this week; an unassigned
 	# room isn't gated here since it never owes a wage (business-spec.md).
-	if Contacts.get_contact_in_room("ops") != null and not Payroll.is_paid_today("ops"):
+	if Contacts.get_contact_in_room("ops") != null and not Payroll.is_paid_this_week("ops"):
 		return
 	if not Rng.chance(random_offer_chance()):
 		return
@@ -95,7 +98,7 @@ static func create_offer(template: Dictionary) -> Dictionary:
 	var offer := {
 		"id": "offer-%d" % sales["nextOfferId"], "templateId": template.get("id", ""),
 		"source": source, "contractType": contract_type, "request": request,
-		"createdDay": today, "expiresDay": today + expiry_days, "weekday": int(template.get("weekday", 0)),
+		"createdDay": today, "expiresDay": today + expiry_days, "weekday": RECURRING_WEEKDAY,
 		"deadlineAfterDays": int(template.get("deadlineAfterDays", 0)),
 		"extraTypeDeadlineDays": extra_types * MIXED_EXTRA_TYPE_DEADLINE_DAYS, "quote": quote,
 	}
@@ -158,7 +161,7 @@ static func accept_offer(offer_id: String) -> Dictionary:
 		var accepted_day: int = GameState.state["world"]["day"]
 		var due_day := accepted_day + Rng.randi_range(RANDOM_ONE_OFF_DEADLINE_MIN_DAYS, RANDOM_ONE_OFF_DEADLINE_MAX_DAYS)
 		if offer["contractType"] == "recurring":
-			due_day = _next_weekday_strictly_after(accepted_day, int(offer["weekday"]))
+			due_day = Calendar.next_weekday_after(accepted_day, int(offer["weekday"]))
 		elif offer["source"] == "scripted":
 			due_day = accepted_day + int(offer["deadlineAfterDays"])
 		# Extra requested types were fixed at offer-creation (quote) time; their
@@ -207,11 +210,6 @@ static func expire_pending_offers() -> void:
 			changed = true
 	if changed:
 		EventBus.state_changed.emit()
-
-
-static func _next_weekday_strictly_after(day: int, weekday: int) -> int:
-	var offset := posmod(weekday - posmod(day, 7), 7)
-	return day + (7 if offset == 0 else offset)
 
 
 # business-spec.md "Offer and contract types": mixed requests are one-off

@@ -71,7 +71,7 @@ Data file per system: see `data/*.json` below.
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
 | offers.gd | Sales offers: quoting, acceptance, expiry |
 | owen_texts.gd | Owen's random texts: rollover scheduler (2-3 day interval, paused while he isn't working), unplayed-then-LRU pick, vein templating from his cultivator list, reply choices granting cultivating XP on a correct answer |
-| payroll.gd | Daily wage payment for room-staffed hires (founders exempt); `is_working()` gate for staff actions (false while the business owes wages) |
+| payroll.gd | Monday weekly wage payment for room-staffed hires (founders exempt), first part-week prorated at next Monday; `is_working()` gate for staff actions (false while unpaid this week or the business owes wages) |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
 | phone_nav.gd | Phone app/index/thread drill-down nav |
 | player_model.gd | `set_model()`: validates a key against `GameData.TERRITORIAL_VARIANTS` and writes `player.model` |
@@ -84,7 +84,7 @@ Data file per system: see `data/*.json` below.
 | sites.gd | Sites & prospecting |
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
-| calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; every player-facing date string uses `Calendar.format_day` |
+| calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; every player-facing date string uses `Calendar.format_day`; weekday/Monday helpers for the weekly cadence |
 | time_system.gd | Time blocks (each runs the staff block step), rest, daily tick (tenure-aware home bill, arrears + interest, forced one-tier downgrade per ADR 0006) |
 | todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire) with active/done/placeholder status + default expansion, "n of N" detail for count objectives, all_of checklist sub-items; Collective section carries the ledger read from state.world.sites |
 | travel.gd | District travel (free) |
@@ -223,7 +223,7 @@ overlays.
 | collective_barks.json | collective.gd |
 | combat_prototype.json | combat_prototype.gd |
 | combat_visuals.json | combat_stage.gd (locationBackdrops, backdrops, pose sheets, stage.spriteScale); GameData.gd (territorialVariant pose spec); combat_director.gd (pacing.turnPause); turn_order_strip.gd (cardFrames) |
-| constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps), business.gd (payday interval, weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays) |
+| constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (contacts roster incl. handler/owen; founder roleFlags, skillCaps), business.gd (weekly wages), rooms.gd (productionLogDays), business_stats.gd (businessStatsDays) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |

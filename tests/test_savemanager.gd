@@ -146,6 +146,42 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("old_save_recurring_contract_due_mid_week_migrates_to_the_next_monday", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 3
+		var created: Dictionary = Offers.create_scripted_offer("scripted_physics_weekly")
+		var contract: Dictionary = Offers.accept_offer(created["offer"]["id"])["contract"]
+		var one_off: Dictionary = Offers.accept_offer(Offers.create_scripted_offer("scripted_life_order")["offer"]["id"])["contract"]
+		# An old save: recurring due on a WED, weekday THU, no payroll.hires.
+		contract["dueDay"] = 10
+		contract["weekday"] = 3
+		var one_off_due: int = one_off["dueDay"]
+		GameState.state["payroll"].erase("hires")
+		var text := SaveManager.export_string()
+		assert_true(SaveManager.import_string(text)["ok"])
+
+		var loaded: Array = GameState.state["sales"]["activeContracts"]
+		assert_eq(loaded[0]["dueDay"], 15, "WED day 10 moves to MON day 15")
+		assert_eq(loaded[0]["weekday"], 0)
+		assert_eq(loaded[1]["dueDay"], one_off_due, "a one-off keeps its deadline")
+		assert_eq(GameState.state["payroll"]["hires"], {})
+
+		var round_trip := SaveManager.export_string()
+		assert_true(SaveManager.import_string(round_trip)["ok"])
+		assert_eq(GameState.state["sales"]["activeContracts"][0]["dueDay"], 15, "a Monday due day is left alone")
+	)
+
+	run_case("payroll_hires_round_trip_with_int_day", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 5
+		GameState.state["contacts"]["des"]["recruited"] = true
+		Contacts.assign_to_room("des", "lab")
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_eq(typeof(GameState.state["payroll"]["hires"]["lab"]["day"]), TYPE_INT)
+		assert_eq(GameState.state, original)
+	)
+
 	run_case("save_mutate_load_round_trips_messages_with_day_int_intact", func():
 		GameState.reset()
 		# 21-contact-roles-sales-skill: mutate the default "des" contact in

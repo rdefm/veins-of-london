@@ -124,6 +124,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_fix_up_founders(filled)
 	_migrate_nadia_supply_order(filled)
 	_migrate_player_model(filled)
+	_migrate_weekly_cadence(filled)
 	_remap_retired_screen_id(filled)
 	_remap_retired_messages_list(filled)
 	_remap_retired_lab_screen(filled)
@@ -131,6 +132,21 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	GameState.state = filled
 	EventBus.state_changed.emit()
 	return { "ok": true }
+
+
+# R§3.10 "Weekly cadence": every offer's weekday is Monday, and an active
+# recurring contract due on another weekday moves to the next Monday.
+func _migrate_weekly_cadence(state: Dictionary) -> void:
+	var payroll: Dictionary = state.get("payroll", {})
+	if not payroll.has("hires"):
+		payroll["hires"] = {}
+	var sales: Dictionary = state.get("sales", {})
+	for offer in sales.get("pendingOffers", []):
+		offer["weekday"] = Offers.RECURRING_WEEKDAY
+	for contract in sales.get("activeContracts", []):
+		contract["weekday"] = Offers.RECURRING_WEEKDAY
+		if contract.get("contractType") == "recurring":
+			contract["dueDay"] = Calendar.monday_on_or_after(int(contract["dueDay"]))
 
 
 # player.model is a data/combat_visuals.json templates key; the "protagonist2"
@@ -525,6 +541,8 @@ func _restore_int_types(state: Dictionary) -> void:
 		_int_key(payroll_summary, "day")
 		for entry in payroll_summary.get("entries", []):
 			_int_key(entry, "wage")
+	for hire in state.get("payroll", {}).get("hires", {}).values():
+		_int_key(hire, "day")
 	var business: Dictionary = state.get("business", {})
 	for key in ["pot", "nextPaydayId"]:
 		_int_key(business, key)

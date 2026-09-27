@@ -5988,8 +5988,7 @@
 "qty": 6,
 "type": "life"
 },
-"source": "scripted",
-"weekday": 0
+"source": "scripted"
 },
 "biz_recurring_time_ore": {
 "contractType": "recurring",
@@ -6000,8 +5999,7 @@
 "qty": 6,
 "type": "time"
 },
-"source": "scripted",
-"weekday": 0
+"source": "scripted"
 },
 "biz_recurring_time_pearl": {
 "contractType": "recurring",
@@ -6012,8 +6010,7 @@
 "qty": 5,
 "type": "timePearl"
 },
-"source": "scripted",
-"weekday": 0
+"source": "scripted"
 },
 "biz_starter_1": {
 "contractType": "oneOff",
@@ -6093,8 +6090,7 @@
 "qty": 3,
 "type": "physics"
 },
-"source": "scripted",
-"weekday": 1
+"source": "scripted"
 }
 },
 "ORE_TYPES": {

@@ -52,12 +52,24 @@ func run() -> void:
 		assert_eq(OffersSystem.pending_offers().size(), 0)
 	)
 
+	run_case("recurring_contract_falls_due_on_monday_and_renews_to_the_next_monday", func():
+		GameState.reset()
+		GameState.state["world"]["day"] = 3  # WED
+		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_physics_weekly")
+		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
+		assert_eq(contract["dueDay"], 8, "WED day 3 -> MON day 8")
+		assert_true(Calendar.is_monday(contract["dueDay"]))
+		GameState.state["world"]["day"] = 8
+		Contracts.daily_tick()
+		assert_eq(contract["dueDay"], 15, "renewal lands on MON day 15")
+	)
+
 	run_case("recurring_first_due_date_is_strictly_after_acceptance", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 8
 		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_physics_weekly")
 		var accepted: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])
-		assert_eq(accepted["contract"]["dueDay"], 15, "weekday 1 on day 8 repeats next week")
+		assert_eq(accepted["contract"]["dueDay"], 15, "MON day 8 repeats next MON")
 	)
 
 	run_case("staffed_sales_earns_source_xp_but_declining_or_expiry_adds_none", func():

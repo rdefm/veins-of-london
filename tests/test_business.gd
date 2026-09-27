@@ -32,23 +32,23 @@ func run() -> void:
 
 	run_case("payday_pays_a_prorated_first_week_then_splits_the_rest", func():
 		GameState.reset()
-		GameState.state["world"]["day"] = 5
+		GameState.state["world"]["day"] = 6
 		Business.activate()
 		Business.receive(500)
 		TimeSystem.do_rest()
-		assert_eq(GameState.state["business"]["ledger"].size(), 0, "no payday before day 7")
+		assert_eq(GameState.state["business"]["ledger"].size(), 0, "no payday before MON day 8")
 		TimeSystem.do_rest()
 		var business: Dictionary = GameState.state["business"]
 		assert_eq(business["ledger"].size(), 1)
 		var record: Dictionary = business["ledger"][0]
 		assert_eq(record["payday"], "payday-1")
-		assert_eq(record["day"], 7)
+		assert_eq(record["day"], 8)
 		assert_eq(record["receipts"], 500)
 		assert_eq(record["expenses"], [{ "kind": "wage", "contactId": "owen", "amount": 71 }])
 		# R = 500 − 71 = 429 → 143 each.
 		assert_eq(record["shares"], { "player": 143, "archie": 143, "james": 143 })
 		assert_eq(business["pot"], 0)
-		assert_eq(business["week"], { "startDay": 7, "receipts": 0, "expenses": [] })
+		assert_eq(business["week"], { "startDay": 8, "receipts": 0, "expenses": [] })
 		assert_eq(business["nextPaydayId"], 2)
 		var share_entries: Array = GameState.state["bankLog"].filter(func(e): return e["label"] == "Business share")
 		assert_eq(share_entries.size(), 1)
@@ -59,24 +59,34 @@ func run() -> void:
 
 	run_case("a_full_week_pays_the_full_wage", func():
 		GameState.reset()
-		GameState.state["world"]["day"] = 7
+		GameState.state["world"]["day"] = 8
 		Business.activate()
 		Business.receive(1000)
 		for i in 7:
 			TimeSystem.do_rest()
 		var record: Dictionary = GameState.state["business"]["ledger"][0]
-		assert_eq(record["day"], 14)
+		assert_eq(record["day"], 15)
 		assert_eq(record["expenses"][0]["amount"], 250)
 		assert_eq(record["shares"], { "player": 250, "archie": 250, "james": 250 })
 	)
 
+	run_case("payday_fires_only_on_the_rollover_into_each_monday", func():
+		GameState.reset()
+		Business.activate()
+		for i in 15:
+			TimeSystem.do_rest()
+		var days: Array = GameState.state["business"]["ledger"].map(func(r): return r["day"])
+		assert_eq(days, [8, 15], "paydays on MON day 8 and MON day 15 only")
+	)
+
 	run_case("declined_wage_prompt_stops_owen_and_full_payment_resumes_him", func():
 		GameState.reset()
+		GameState.state["world"]["day"] = 2
 		_staff_owen()
 		Business.activate()
 		for i in 6:
 			TimeSystem.do_rest()
-		# Day 7, empty pot: 6 days' wage (£214) goes owed.
+		# MON day 8, empty pot: 6 days' wage (£214) goes owed.
 		var wage: Dictionary = GameState.state["business"]["wages"]["owen"]
 		assert_eq(wage["owed"], 214)
 		assert_true(Business.is_unpaid("owen"))
@@ -108,24 +118,32 @@ func run() -> void:
 		assert_true(not Business.pay_owed_from_cash("owen")["ok"], "nothing left to pay")
 	)
 
-	run_case("a_later_rollover_pays_owed_wages_from_the_pot", func():
+	run_case("owed_wages_wait_for_the_next_monday_payday", func():
 		GameState.reset()
+		GameState.state["world"]["day"] = 2
 		Business.activate()
 		for i in 6:
 			TimeSystem.do_rest()
 		assert_eq(Business.owed("owen"), 214)
 		Business.receive(300)
 		TimeSystem.do_rest()
+		assert_eq(Business.owed("owen"), 214, "no mid-week retry")
+		for i in 6:
+			TimeSystem.do_rest()
 		var business: Dictionary = GameState.state["business"]
+		assert_eq(GameState.state["world"]["day"], 15)
 		assert_eq(Business.owed("owen"), 0)
 		assert_true(not Business.is_unpaid("owen"))
 		assert_eq(Business.pending_wage_prompts(), [])
-		assert_eq(business["pot"], 86)
-		assert_eq(business["week"]["expenses"], [{ "kind": "wage", "contactId": "owen", "amount": 214 }])
+		var record: Dictionary = business["ledger"][-1]
+		assert_eq(record["expenses"], [{ "kind": "wage", "contactId": "owen", "amount": 214 }])
+		# R = 300 − 214 = 86 → 28 each partner, 30 to the player.
+		assert_eq(record["shares"], { "player": 30, "archie": 28, "james": 28 })
 	)
 
 	run_case("pay_now_refuses_without_enough_cash", func():
 		GameState.reset()
+		GameState.state["world"]["day"] = 2
 		Business.activate()
 		for i in 6:
 			TimeSystem.do_rest()

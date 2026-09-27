@@ -100,7 +100,7 @@ static func daily_tick() -> void:
 	Collective.maybe_trigger_act2_intro()   # ⑤i2 backstop for the same trigger events.advance() already checks
 	BusinessQuest.maybe_trigger_proposition()  # ⑤i3 backstop for the vein-count-change checks (catches today's self-seed)
 	Factions.maybe_restock_ore()         # ⑤j no ordering dependency on any other step
-	Payroll.pay_wages()                  # ⑥ staff phase start: wages, paid after living costs -- an unaffordable role is skipped this rollover, no debt, retried next
+	Payroll.pay_wages()                  # ⑥ staff phase start: Monday room wages, paid after living costs -- an unaffordable role idles until paid or next Monday, no debt
 	MorningAccountsSystem.capture_production_shortfalls(morning_context)  # ⑥.1 unmet Production targets; staff work itself runs per block in run_staff_block()
 	Rooms.trim_production_log()          # ⑥.2 drop production-log days older than the retention window
 	ContractsSystem.process_delegated_deliveries() # ⑥.3 Sales closes full periods, then allocates partial stock by priority

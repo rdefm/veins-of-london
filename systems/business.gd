@@ -3,8 +3,8 @@ extends RefCounted
 
 # The business pot, weekly payday, and owed staff wages (R§3.10 "Business
 # pot and payday"). While the pot is active, contract settlements credit
-# the pot instead of player cash; every paydayIntervalDays the pot pays
-# staff wages and the remainder splits evenly between the player and each
+# the pot instead of player cash; on the rollover into each Monday the pot
+# pays staff wages and the remainder splits evenly between the player and each
 # partner, rounding to the player. Static funcs only.
 
 
@@ -76,7 +76,7 @@ static func owed(contact_id: String) -> int:
 
 
 # BizBrief Staff tab pay terms: a partner's share of the payday remainder,
-# a weekly business wage, or a room hire's daily Payroll wage.
+# a weekly business wage, or a room hire's weekly Payroll wage.
 static func pay_terms(contact_id: String) -> String:
 	var business := _business()
 	var partners: Array = business["partners"]
@@ -86,7 +86,7 @@ static func pay_terms(contact_id: String) -> String:
 		return "£%d a week" % int(business["wages"][contact_id]["weekly"])
 	var room: Variant = GameState.state["contacts"][contact_id].get("assignedRoom")
 	if room != null and Payroll.ROLE_SKILL_KEYS.has(room) and not Contacts.is_founder(contact_id):
-		return "£%d a day" % Payroll.wage_for_room(room)
+		return "£%d a week" % Payroll.wage_for_room(room)
 	return "No pay"
 
 
@@ -108,7 +108,7 @@ static func staff_status(contact_id: String) -> String:
 		return "Unpaid · owed £%d" % owed(contact_id)
 	if Contacts.role_of(contact_id) == null:
 		return "Idle"
-	return "Working" if Payroll.is_working(contact_id) else "Unpaid today"
+	return "Working" if Payroll.is_working(contact_id) else "Unpaid this week"
 
 
 # Contact ids whose wage shortfall still awaits the morning
@@ -122,10 +122,9 @@ static func pending_wage_prompts() -> Array[String]:
 	return ids
 
 
-# round(weekly × days / interval): a full week's wage, prorated for a
-# partial week.
+# round(weekly × days / 7): a full week's wage, prorated for a partial week.
 static func prorated_wage(weekly: int, days_worked: int) -> int:
-	return GameState.round_epsilon(float(weekly) * float(days_worked) / float(GameData.BUSINESS_PAYDAY_INTERVAL_DAYS))
+	return GameState.round_epsilon(float(weekly) * float(days_worked) / float(Calendar.days_per_week()))
 
 
 # Each partner takes floor(R / (partners + 1)); the player takes the rest,
@@ -163,8 +162,8 @@ static func decline_wage_prompt(contact_id: String) -> void:
 
 
 # Rollover step, after due contract settlements: accrue a worked day for
-# every paid staff member, then run payday on a payday, else retry owed
-# wages from the pot. Returns { "payday": ledger record or null,
+# every paid staff member, then run payday (which also retries owed wages)
+# on the rollover into a Monday. Returns { "payday": ledger record or null,
 # "shortfalls": [{ contactId, owed }] } for the Morning Brief.
 static func daily_tick() -> Dictionary:
 	var result := { "payday": null, "shortfalls": [] }
@@ -175,25 +174,10 @@ static func daily_tick() -> Dictionary:
 		if not wages[contact_id]["unpaid"]:
 			wages[contact_id]["daysWorked"] += 1
 	var day: int = GameState.state["world"]["day"]
-	if day % GameData.BUSINESS_PAYDAY_INTERVAL_DAYS == 0:
+	if Calendar.is_monday(day):
 		result = _payday(day)
-	else:
-		_retry_owed()
 	EventBus.state_changed.emit()
 	return result
-
-
-static func _retry_owed() -> void:
-	var business := _business()
-	for contact_id in business["wages"]:
-		var wage: Dictionary = business["wages"][contact_id]
-		var amount := int(wage["owed"])
-		if amount <= 0 or business["pot"] < amount:
-			continue
-		business["pot"] -= amount
-		business["week"]["expenses"].append({ "kind": "wage", "contactId": contact_id, "amount": amount })
-		BusinessStats.record_expense(amount)
-		_clear_owed(wage)
 
 
 # Wages due are this week's prorated days plus anything owed, paid from the
