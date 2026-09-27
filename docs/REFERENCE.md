@@ -411,7 +411,7 @@ state = {
 
   jamesJob: null,             # { type:"craft", recipeKey, recipeName, symbol, qty, payPerItem, totalPay, byDay } | { type:"flatPay", pay } | null
   pendingSaleCut: 0,
-  labThresholds: {},          # { recipeKey: int } personal inventory target
+  labThresholds: {},          # { recipeKey: int } personal inventory target, 0..constants.json productionTargetMax (50); loaded saves clamp into range
   labCoverContracts: {},      # { recipeKey: bool } ticket 30 -- opt in to also craft toward contract need
   cultivatorVeins: {},        # { contactId: [veinId] } each cultivator's own uncapped list; a vein is on at most one list (§3.10 "Staff roles")
   owenTexts: { nextDay:null, played:{}, playSeq:0, active:null },  # Owen's random texts (OwenTexts): nextDay due day (null until the first rollover after bizA1OwenJoined, then +intervalMin..Max days; +1 per rollover he isn't working); played { textId: playSeq } for unplayed-then-LRU picks; active { id, vars } awaiting the player's reply, a correct question reply = cultivatorActionXp

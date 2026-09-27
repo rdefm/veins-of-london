@@ -245,21 +245,23 @@ static func stepper(caption: String, qty: int, adjust: Callable) -> HBoxContaine
 	return row
 
 
-# Drag-to-pick quantity from 1..max_qty (disabled when max_qty < 1).
+# Drag-to-pick quantity from min_qty..max_qty (disabled when max_qty is
+# below max(min_qty, 1)). min_qty 0 gives a "not chosen" position.
 # `on_change(qty)` fires live while dragging, for labels the screen updates
 # in place; `on_commit(qty)` fires once on release, where the screen hands
 # the pick to its system -- committing mid-drag would rebuild the modal
 # out from under the finger.
-static func quantity_slider(caption: String, qty: int, max_qty: int, on_change: Callable, on_commit: Callable) -> HBoxContainer:
+static func quantity_slider(caption: String, qty: int, max_qty: int, on_change: Callable, on_commit: Callable, min_qty: int = 1) -> HBoxContainer:
 	var row := UI.hbox(8)
 	if caption != "":
 		row.add_child(section_label(caption))
+	var top := maxi(maxi(min_qty, 1), max_qty)
 	var slider := HSlider.new()
-	slider.min_value = 1
-	slider.max_value = maxi(1, max_qty)
+	slider.min_value = min_qty
+	slider.max_value = top
 	slider.step = 1
-	slider.value = clampi(qty, 1, maxi(1, max_qty))
-	slider.editable = max_qty >= 1
+	slider.value = clampi(qty, min_qty, top)
+	slider.editable = max_qty >= maxi(min_qty, 1)
 	slider.custom_minimum_size.y = ROUND_BUTTON_SIZE
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER

@@ -23,7 +23,7 @@ static func _find_label(root: Node, text: String) -> Label:
 # Ticket 66: same card-scoping trick as tests/test_lab_screen.gd's
 # _find_button_in_card -- finds the goods row's heading (now a symbol_row,
 # ticket 114), then searches its content VBoxContainer (the heading row's
-# parent) recursively so nested rows (the qty stepper's own hbox, the
+# parent) recursively so nested rows (the qty slider's own hbox, the
 # buy/sell hbox) are covered too, unlike a direct-sibling-only search.
 #
 # Keeps the LAST match, not the first: _refresh() queue_free()s the old
@@ -52,8 +52,8 @@ static func _find_button_in_card(root: Node, heading_text: String, button_text: 
 	return null
 
 
-# Same card-scoping as _find_button_in_card, but for the qty stepper's own
-# numeric Label (not a Button) -- used to read back the stepper's current
+# Same card-scoping as _find_button_in_card, but for the qty slider's own
+# numeric Label (not a Button) -- used to read back the slider's current
 # value.
 static func _find_label_in_card(root: Node, heading_text: String, label_text: String) -> Label:
 	var card := _find_card_content(root, heading_text)
@@ -63,6 +63,23 @@ static func _find_label_in_card(root: Node, heading_text: String, label_text: St
 		if (sub as Label).text == label_text:
 			return sub
 	return null
+
+
+# Last match, same stale-generation reasoning as _find_card_content.
+static func _slider_in_card(root: Node, heading_text: String) -> HSlider:
+	var card := _find_card_content(root, heading_text)
+	var found: HSlider = null
+	if card != null:
+		for sub in card.find_children("", "HSlider", true, false):
+			found = sub
+	return found
+
+
+# Range skips value_changed while outside the tree, so emit it the way a drag
+# would.
+static func _slide_to(slider: HSlider, value: int) -> void:
+	slider.value = value
+	slider.value_changed.emit(float(value))
 
 
 const TIME_HEADING := "⧖Time Orichalchum"
@@ -207,8 +224,7 @@ func run() -> void:
 		screen.free()
 	)
 
-	# bugfixes-66: the qty stepper, ticket acceptance checks.
-	run_case("guild_marketplace_qty_stepper_starts_at_one", func():
+	run_case("guild_marketplace_qty_slider_starts_at_one", func():
 		GameState.reset()
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
@@ -219,11 +235,12 @@ func run() -> void:
 		assert_true(_find_label_in_card(screen, TIME_HEADING, "1") != null, "qty label starts at 1")
 		assert_true(NodeQuery.find_button(screen, "Buy ×1 (£69)") != null, "buy button starts phrased for qty 1")
 		assert_true(NodeQuery.find_button(screen, "Sell ×1 (£51)") != null, "sell button starts phrased for qty 1")
+		assert_eq(int(_slider_in_card(screen, TIME_HEADING).min_value), 1, "the shared qty can't go below 1")
 
 		screen.free()
 	)
 
-	run_case("guild_marketplace_qty_stepper_increments_and_updates_buy_sell_totals", func():
+	run_case("guild_marketplace_qty_slider_updates_buy_sell_totals_live_and_on_release", func():
 		GameState.reset()
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
@@ -233,59 +250,38 @@ func run() -> void:
 		var screen := GuildMarketplaceScreen.new()
 		screen._ready()
 
-		_find_button_in_card(screen, TIME_HEADING, "+").pressed.emit()
-		_find_button_in_card(screen, TIME_HEADING, "+").pressed.emit()
-		_find_button_in_card(screen, TIME_HEADING, "+").pressed.emit()
-
-		# time buy £69/u, sell £51/u (same figures as the ×1 tests above) --
-		# stepper starts at 1 (see the ×1 test above), so 3 taps of + land on
-		# 4, not 3: buy £276, sell £204.
-		assert_true(_find_label_in_card(screen, TIME_HEADING, "4") != null, "qty label reflects 3 taps of + landing on 4 (starts at 1)")
-		assert_true(NodeQuery.find_button(screen, "Buy ×4 (£276)") != null, "buy button reflects qty and total")
-		assert_true(NodeQuery.find_button(screen, "Sell ×4 (£204)") != null, "sell button reflects qty and total")
+		# time buy £69/u, sell £51/u (same figures as the ×1 test above).
+		_slide_to(_slider_in_card(screen, TIME_HEADING), 4)
+		assert_true(NodeQuery.find_button(screen, "Buy ×4 (£276)") != null, "buy button follows the drag")
+		assert_true(NodeQuery.find_button(screen, "Sell ×4 (£204)") != null, "sell button follows the drag")
+		_slider_in_card(screen, TIME_HEADING).drag_ended.emit(true)
+		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 4, "release stores the pick")
+		assert_true(_find_label_in_card(screen, TIME_HEADING, "4") != null, "the re-rendered row keeps the pick")
 
 		screen.free()
 	)
 
-	run_case("guild_marketplace_qty_stepper_cannot_go_below_one", func():
-		GameState.reset()
-		GameState.state["factions"]["guild"]["joined"] = true
-		GameState.state["factions"]["guild"]["relation"] = 40
-
-		var screen := GuildMarketplaceScreen.new()
-		screen._ready()
-
-		_find_button_in_card(screen, TIME_HEADING, "-").pressed.emit()
-		_find_button_in_card(screen, TIME_HEADING, "-").pressed.emit()
-
-		assert_true(_find_label_in_card(screen, TIME_HEADING, "1") != null, "qty stays at 1, doesn't go below")
-
-		screen.free()
-	)
-
-	run_case("guild_marketplace_qty_stepper_clamps_buy_side_at_affordability", func():
+	run_case("guild_marketplace_qty_slider_maxes_at_affordability_with_nothing_held", func():
 		GameState.reset()
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
 		# buy £69/u, cash 150 -> affordable ceiling is 2 (2*69=138 <= 150,
-		# 3*69=207 > 150). No stock held, so the stepper's own max is 2.
+		# 3*69=207 > 150). No stock held, so the slider's own max is 2.
 		GameState.state["player"]["cash"] = 150
 
 		var screen := GuildMarketplaceScreen.new()
 		screen._ready()
 
-		for i in range(5):
-			_find_button_in_card(screen, TIME_HEADING, "+").pressed.emit()
-
-		assert_true(_find_label_in_card(screen, TIME_HEADING, "2") != null, "qty stops climbing at the affordability ceiling")
+		var slider := _slider_in_card(screen, TIME_HEADING)
+		assert_eq(int(slider.max_value), 2, "qty stops at the affordability ceiling")
+		_slide_to(slider, 2)
 		var buy_button := NodeQuery.find_button(screen, "Buy ×2 (£138)")
-		assert_true(buy_button != null, "buy button reflects the clamped qty")
-		assert_true(not buy_button.disabled, "qty 2 is exactly what's affordable, so buy stays enabled")
+		assert_true(buy_button != null and not buy_button.disabled, "qty 2 is exactly what's affordable, so buy stays enabled")
 
 		screen.free()
 	)
 
-	run_case("guild_marketplace_qty_stepper_clamps_sell_side_at_stock", func():
+	run_case("guild_marketplace_qty_slider_maxes_at_held_with_no_cash", func():
 		GameState.reset()
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
@@ -295,13 +291,11 @@ func run() -> void:
 		var screen := GuildMarketplaceScreen.new()
 		screen._ready()
 
-		for i in range(5):
-			_find_button_in_card(screen, TIME_HEADING, "+").pressed.emit()
-
-		assert_true(_find_label_in_card(screen, TIME_HEADING, "2") != null, "qty stops climbing at the stock ceiling")
+		var slider := _slider_in_card(screen, TIME_HEADING)
+		assert_eq(int(slider.max_value), 2, "qty stops at the stock ceiling")
+		_slide_to(slider, 2)
 		var sell_button := NodeQuery.find_button(screen, "Sell ×2 (£102)")
-		assert_true(sell_button != null, "sell button reflects the clamped qty")
-		assert_true(not sell_button.disabled, "qty 2 is exactly what's held, so sell stays enabled")
+		assert_true(sell_button != null and not sell_button.disabled, "qty 2 is exactly what's held, so sell stays enabled")
 
 		screen.free()
 	)
@@ -311,7 +305,7 @@ func run() -> void:
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
 		# buy £69/u, cash 100 -> affordable ceiling is 1. Stock 5 lets the
-		# shared stepper climb past that, since its own max is the larger of
+		# shared slider climb past that, since its own max is the larger of
 		# the two ceilings (5).
 		GameState.state["player"]["cash"] = 100
 		GameState.state["player"]["orichalchum"]["time"] = 5
@@ -319,10 +313,7 @@ func run() -> void:
 		var screen := GuildMarketplaceScreen.new()
 		screen._ready()
 
-		for i in range(3):
-			_find_button_in_card(screen, TIME_HEADING, "+").pressed.emit()
-
-		assert_true(_find_label_in_card(screen, TIME_HEADING, "4") != null, "qty climbed to 4, past the buy ceiling")
+		_slide_to(_slider_in_card(screen, TIME_HEADING), 4)
 		var buy_button := NodeQuery.find_button(screen, "Buy ×4 (£276)")
 		assert_true(buy_button != null and buy_button.disabled, "buy disables once qty exceeds what's affordable")
 		var sell_button := NodeQuery.find_button(screen, "Sell ×4 (£204)")
@@ -331,11 +322,7 @@ func run() -> void:
 		screen.free()
 	)
 
-	# Regression: selling can shrink the row's ceiling out from under a
-	# stepper value picked before the sale, without the player touching the
-	# stepper itself. The very next "-" tap must still move the displayed
-	# number, not silently re-clamp to the same value it's already showing.
-	run_case("guild_marketplace_qty_stepper_responds_immediately_after_a_sale_shrinks_the_ceiling", func():
+	run_case("guild_marketplace_qty_slider_reclamps_after_a_sale_shrinks_the_ceiling", func():
 		GameState.reset()
 		GameState.state["factions"]["guild"]["joined"] = true
 		GameState.state["factions"]["guild"]["relation"] = 40
@@ -345,18 +332,15 @@ func run() -> void:
 		var screen := GuildMarketplaceScreen.new()
 		screen._ready()
 
-		for i in range(9):
-			_find_button_in_card(screen, TIME_HEADING, "+").pressed.emit()
-		assert_true(_find_label_in_card(screen, TIME_HEADING, "10") != null, "qty stepper reaches the stock ceiling (10)")
-
+		_slide_to(_slider_in_card(screen, TIME_HEADING), 10)
+		_slider_in_card(screen, TIME_HEADING).drag_ended.emit(true)
 		NodeQuery.find_button(screen, "Sell ×10 (£510)").pressed.emit()
 		# cash 100 + 510 = 610, stock now 0 -> buy ceiling floor(610/69) = 8,
-		# sell ceiling 0 -> stepper display re-clamps the still-10 stored qty
-		# down to 8 for this render.
-		assert_true(_find_label_in_card(screen, TIME_HEADING, "8") != null, "display re-clamps to the new ceiling right after the sale")
-
-		_find_button_in_card(screen, TIME_HEADING, "-").pressed.emit()
-		assert_true(_find_label_in_card(screen, TIME_HEADING, "7") != null, "a single '-' tap must move the number, not re-clamp to the same 8 it's already showing")
+		# sell ceiling 0 -> the still-10 stored qty shows as 8.
+		var slider := _slider_in_card(screen, TIME_HEADING)
+		assert_eq(int(slider.max_value), 8, "slider max follows the new ceiling")
+		assert_eq(int(slider.value), 8, "display re-clamps right after the sale")
+		assert_true(NodeQuery.find_button(screen, "Buy ×8 (£552)") != null)
 
 		screen.free()
 	)

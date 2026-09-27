@@ -245,24 +245,12 @@ func _add_row(parent: VBoxContainer, entry: Dictionary, tier_row: bool = false) 
 	elif int(entry["max"]) <= 0:
 		row.add_child(_label("Sold out" if int(entry["stock"]) <= 0 else "Unavailable", 12, MUTED))
 	else:
-		var stepper := UI.hbox(3)
-		stepper.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(stepper)
-		var minus := _button("−", _adjust.bind(entry, -1), BUTTON_BG, 44)
-		minus.custom_minimum_size.x = 44
-		minus.disabled = int(entry["qty"]) <= 0
-		minus.accessibility_name = "Remove one %s" % entry["name"]
-		stepper.add_child(minus)
-		var qty := _label(str(entry["qty"]), 14, TEXT)
-		qty.custom_minimum_size.x = 22
-		qty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		qty.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		stepper.add_child(qty)
-		var plus := _button("+", _adjust.bind(entry, 1), BUTTON_BG, 44)
-		plus.custom_minimum_size.x = 44
-		plus.disabled = int(entry["qty"]) >= int(entry["max"])
-		plus.accessibility_name = "Add one %s" % entry["name"]
-		stepper.add_child(plus)
+		var slider := MapCardStyle.quantity_slider("", int(entry["qty"]), int(entry["max"]), func(_value: int): pass, _set_qty.bind(entry), 0)
+		slider.custom_minimum_size.x = 150
+		slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		(slider.get_child(0) as HSlider).accessibility_name = "%s quantity" % entry["name"]
+		(slider.get_child(1) as Label).add_theme_color_override("font_color", TEXT)
+		row.add_child(slider)
 	parent.add_child(_divider())
 
 
@@ -430,8 +418,8 @@ func _toggle_item(recipe_key: String) -> void:
 	_render()
 
 
-func _adjust(entry: Dictionary, delta: int) -> void:
-	Economy.adjust_sell_qty(entry["key"], delta, entry["max"])
+func _set_qty(qty: int, entry: Dictionary) -> void:
+	Economy.set_sell_qty(entry["key"], qty, entry["max"])
 
 
 func _toggle_vein(entry: Dictionary) -> void:

@@ -60,21 +60,26 @@ func _build_goods_row(kind: String, item_type: String) -> Control:
 	c["content"].add_child(UI.label("Buy £%d/u · Sell £%d/u · Have %d" % [buy_price, sell_price, have]))
 	var buy_max_qty := Economy.get_faction_buy_max_qty("guild", kind, item_type)
 	var sell_max_qty := have
-	var stepper_max := maxi(buy_max_qty, sell_max_qty)
-	var qty: int = clampi(Economy.get_marketplace_qty("guild", kind, item_type), 1, maxi(stepper_max, 1))
+	var slider_max := maxi(buy_max_qty, sell_max_qty)
+	var qty: int = clampi(Economy.get_marketplace_qty("guild", kind, item_type), 1, maxi(slider_max, 1))
 
-	c["content"].add_child(_build_qty_stepper_row(kind, item_type, qty, stepper_max))
+	var picked := [qty]
+	var buy := MapCardStyle.text_button("", func(): Economy.execute_faction_purchase("guild", [{ "kind": kind, "type": item_type, "qty": picked[0] }]))
+	var sell := MapCardStyle.text_button("", func(): Economy.execute_faction_sale("guild", [{ "kind": kind, "type": item_type, "qty": picked[0] }]))
+	# Buy and Sell share one qty; each disables past its own ceiling.
+	var on_change := func(value: int) -> void:
+		picked[0] = value
+		buy.text = "Buy ×%d (£%d)" % [value, value * buy_price]
+		buy.disabled = value > buy_max_qty
+		sell.text = "Sell ×%d (£%d)" % [value, value * sell_price]
+		sell.disabled = value > sell_max_qty
+		MapCardStyle.style_button(buy)
+		MapCardStyle.style_button(sell)
+	on_change.call(qty)
+
+	c["content"].add_child(MapCardStyle.quantity_slider("Qty", qty, slider_max, on_change, func(value: int): Economy.set_marketplace_qty("guild", kind, item_type, value, slider_max)))
 	var row := UI.hflow()
-
-	var buy_total := qty * buy_price
-	var buy := func(): Economy.execute_faction_purchase("guild", [{ "kind": kind, "type": item_type, "qty": qty }])
-	row.add_child(MapCardStyle.text_button("Buy ×%d (£%d)" % [qty, buy_total], buy, qty > buy_max_qty))
-
-	var sell_total := qty * sell_price
-	var sell := func(): Economy.execute_faction_sale("guild", [{ "kind": kind, "type": item_type, "qty": qty }])
-	row.add_child(MapCardStyle.text_button("Sell ×%d (£%d)" % [qty, sell_total], sell, qty > sell_max_qty))
-
+	row.add_child(buy)
+	row.add_child(sell)
 	c["content"].add_child(row)
 	return c["panel"]
-func _build_qty_stepper_row(kind: String, item_type: String, qty: int, max_qty: int) -> Control:
-	return MapCardStyle.stepper("Qty", qty, func(delta: int): Economy.adjust_marketplace_qty("guild", kind, item_type, delta, max_qty))

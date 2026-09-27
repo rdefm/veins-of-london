@@ -220,12 +220,14 @@ func run() -> void:
 		assert_true(not texts.has("Enhancement Powder"), "enhancementUnlocked recipe stays hidden until unlocked")
 		assert_true(texts.has("Personal target: 0"))
 
-		var plus_buttons: Array = []
-		for candidate in phone.find_children("", "Button", true, false):
-			if (candidate as Button).text == "+5":
-				plus_buttons.append(candidate)
-		assert_eq(plus_buttons.size(), 2, "one +5 button per unlocked recipe")
-		plus_buttons[0].pressed.emit()
+		var sliders: Array = phone.find_children("", "HSlider", true, false)
+		assert_eq(sliders.size(), 2, "one target slider per unlocked recipe")
+		var slider := sliders[0] as HSlider
+		assert_eq([int(slider.min_value), int(slider.max_value)], [0, GameData.PRODUCTION_TARGET_MAX], "target spans 0..the data cap")
+		slider.value = 5
+		slider.value_changed.emit(5.0)
+		assert_true(NodeQuery.label_texts(phone).has("Personal target: 5"), "label follows the drag")
+		slider.drag_ended.emit(true)
 		assert_eq(GameState.state["labThresholds"]["timePearl"], 5)
 
 		var cover := _button_with_text(phone, "Cover contract needs")

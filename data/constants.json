@@ -28,6 +28,7 @@
   "guardRepel": { "chancePerGuard": 0.15, "cap": 0.75 },
   "cultivatorActionXp": 2,
   "productionLogDays": 10,
+  "productionTargetMax": 50,
   "businessStatsDays": 10,
   "business": { "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
   "calendar": {

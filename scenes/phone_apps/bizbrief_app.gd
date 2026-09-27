@@ -272,19 +272,23 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	var box := UI.vbox(4)
 	box.add_child(UI.label(recipe["name"]))
 
-	var target_text := "Personal target: %d" % target
-	if covering:
-		var need: int = Rooms.contract_need(recipe_key)
-		target_text += " · contract need: %d · crafting to: %d" % [need, Rooms.effective_lab_target(recipe_key)]
-	box.add_child(UI.muted_label(target_text))
+	var target_label := UI.muted_label(_target_text(recipe_key, target, covering))
+	box.add_child(target_label)
+	var on_change := func(value: int) -> void: target_label.text = _target_text(recipe_key, value, covering)
+	box.add_child(MapCardStyle.quantity_slider("Target", target, GameData.PRODUCTION_TARGET_MAX, on_change, func(value: int): Rooms.set_lab_threshold(recipe_key, value), 0))
 
 	var target_row := UI.hbox()
-	target_row.add_child(UI.button("-5", func(): Rooms.adjust_lab_threshold(recipe_key, -5)))
-	target_row.add_child(UI.button("+5", func(): Rooms.adjust_lab_threshold(recipe_key, 5)))
 	target_row.add_child(UI.button("Stop covering contracts" if covering else "Cover contract needs", func(): Rooms.set_lab_cover_contracts(recipe_key, not covering)))
 	box.add_child(target_row)
 
 	return box
+
+
+static func _target_text(recipe_key: String, target: int, covering: bool) -> String:
+	var text := "Personal target: %d" % target
+	if covering:
+		text += " · contract need: %d · crafting to: %d" % [Rooms.contract_need(recipe_key), Rooms.effective_lab_target(recipe_key, target)]
+	return text
 
 
 func _build_procurement() -> Control:

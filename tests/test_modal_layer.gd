@@ -24,6 +24,16 @@ static func _find_option_with_item(root: Node, item_text: String) -> OptionButto
 	return null
 
 
+# Keeps the last match: a re-render queue_free()s old rows, which linger
+# until a frame passes.
+func _find_slider(root: Node, accessibility_name: String) -> HSlider:
+	var found: HSlider = null
+	for s in root.find_children("", "HSlider", true, false):
+		if (s as HSlider).accessibility_name == accessibility_name:
+			found = s
+	return found
+
+
 func _find_cost_button(root: Node, text: String) -> Button:
 	for b in root.find_children("", "Button", true, false):
 		var btn := b as Button
@@ -37,13 +47,6 @@ func _find_cost_button(root: Node, text: String) -> Button:
 static func _find_button_prefix(root: Node, prefix: String) -> Button:
 	for button in root.find_children("", "Button", true, false):
 		if (button as Button).text.begins_with(prefix) or (button as Button).accessibility_name.begins_with(prefix):
-			return button as Button
-	return null
-
-
-static func _find_named_button(root: Node, name: String) -> Button:
-	for button in root.find_children("", "Button", true, false):
-		if (button as Button).accessibility_name == name:
 			return button as Button
 	return null
 
@@ -247,8 +250,8 @@ func run() -> void:
 		assert_true(stock_label != null and stock_label.get_line_count() == 1, "stock stays on one line")
 		assert_true(total_label != null and total_label.get_line_count() == 1, "footer total stays on one line")
 		assert_true(total_label.get_global_rect().end.x <= view.get_global_rect().end.x, "footer total fits inside sheet")
-		var minus := _find_named_button(view, "Remove one Time Orichalchum")
-		assert_true(minus != null and stock_label.get_global_rect().end.x <= minus.get_global_rect().position.x, "ore metadata does not overlap quantity controls")
+		var slider := _find_slider(view, "Time Orichalchum quantity")
+		assert_true(slider != null and stock_label.get_global_rect().end.x <= slider.get_global_rect().position.x, "ore metadata does not overlap quantity controls")
 		_find_cost_button(view, "Items").pressed.emit()
 		await (Engine.get_main_loop() as SceneTree).process_frame
 		var group := _find_button_prefix(view, "Blast")
@@ -294,8 +297,10 @@ func run() -> void:
 		assert_true(group != null and group.accessibility_name.contains("2 tiers"), "one group for Blast's two stocked tiers")
 		assert_true(NodeQuery.label_texts_with_symbols(view).has("Tier 2"))
 		assert_true(NodeQuery.label_texts_with_symbols(view).has("Tier 3"))
-		_find_named_button(view, "Add one Blast · tier 2").pressed.emit()
-		_find_named_button(view, "Add one Blast · tier 3").pressed.emit()
+		for tier_name in ["Blast · tier 2 quantity", "Blast · tier 3 quantity"]:
+			var slider := _find_slider(view, tier_name)
+			slider.value = 1
+			slider.drag_ended.emit(true)
 		assert_eq(GameState.state["sellState"]["con_blast_2"], 1)
 		assert_eq(GameState.state["sellState"]["con_blast_3"], 1)
 		group = _find_button_prefix(view, "Blast")
@@ -359,9 +364,9 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 		var view: PanelContainer = layer._trade_view
-		Economy.adjust_sell_qty("ore_time", 2, 10)
+		Economy.set_sell_qty("ore_time", 2, 10)
 		_find_cost_button(view, "Buy from contact").pressed.emit()
-		Economy.adjust_sell_qty("buyOre_time", 1, 8)
+		Economy.set_sell_qty("buyOre_time", 1, 8)
 		assert_eq(GameState.state["sellState"]["ore_time"], 2, "switching direction retains sales")
 		assert_eq(GameState.state["sellState"]["buyOre_time"], 1)
 		assert_true(NodeQuery.label_texts_with_symbols(view).has("3 selected · sell £%d · buy £%d" % [2 * sell_price, buy_price]), "total counts both directions")
@@ -373,6 +378,37 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 9)
 		assert_eq(GameState.state["factions"]["collective"]["oreStock"]["time"], 7)
 		assert_eq(GameState.state["modal"]["type"], "sale_result")
+		layer.free()
+	)
+
+	run_case("trade_sliders_max_at_held_to_sell_and_affordable_or_stock_to_buy", func():
+		GameState.reset()
+		var buy_price: int = Economy.get_faction_buy_price("collective", "ore", "time")
+		GameState.state["player"]["orichalchum"]["time"] = 7
+		GameState.state["factions"]["collective"]["oreStock"] = { "time": 8, "physics": 0, "life": 0, "fate": 0, "emotion": 0 }
+		GameState.state["player"]["cash"] = buy_price * 3
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+		var layer := ModalLayer.new()
+		layer._ready()
+		var view: PanelContainer = layer._trade_view
+		var sell_slider := _find_slider(view, "Time Orichalchum quantity")
+		assert_eq(int(sell_slider.min_value), 0, "an unchosen row sits at 0")
+		assert_eq(int(sell_slider.value), 0)
+		assert_eq(int(sell_slider.max_value), 7, "selling maxes at what's held")
+		_find_cost_button(view, "Buy from contact").pressed.emit()
+		assert_eq(int(_find_slider(view, "Time Orichalchum quantity").max_value), 3, "cash covers 3, below stock 8")
+		layer.free()
+
+		GameState.state["player"]["cash"] = buy_price * 20
+		Modal.open("sell_menu", { "factionId": "collective", "contactId": "des" })
+		layer = ModalLayer.new()
+		layer._ready()
+		_find_cost_button(layer._trade_view, "Buy from contact").pressed.emit()
+		var buy_slider := _find_slider(layer._trade_view, "Time Orichalchum quantity")
+		assert_eq(int(buy_slider.max_value), 8, "stock 8 caps below the 20 cash covers")
+		buy_slider.value = 5
+		buy_slider.drag_ended.emit(true)
+		assert_eq(GameState.state["sellState"]["buyOre_time"], 5, "release commits the pick to sellState")
 		layer.free()
 	)
 

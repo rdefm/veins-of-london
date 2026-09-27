@@ -485,6 +485,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_key(state, "pendingSaleCut")
 	_int_key(state, "pendingArchieDealCut")
 	_int_dict_values(state.get("labThresholds", {}))
+	Rooms.clamp_lab_thresholds(state.get("labThresholds", {}))
 	_int_dict_values(state.get("veinStationTargets", {}))
 	var sales: Dictionary = state.get("sales", {})
 	for key in ["nextOfferId", "nextContractId", "nextPeriodId", "nextSettlementId"]:

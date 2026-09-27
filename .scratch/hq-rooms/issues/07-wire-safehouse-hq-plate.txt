@@ -1,0 +1,25 @@
+# 07 — Wire safehouse HQ plate
+
+
+
+**What to build:** A player whose home tier is safehouse-sees `assets/hq/safehouse_room.png` as the HQ room view, with no placeholder boxes. Every zone the human traced opens its menu, taps outside the traced shapes do nothing, and zones the human left unset are absent. The rest caption, if Rest is traced, sits legibly on the bed art. The raid indicator (ticket 02) shows on this tier's security zone.
+
+**Blocked by:** 01 — HQ taps use traced zone polygons; 02 — Studio HQ renders cleanly on its own art
+
+**Relevant files:**
+- `assets/hq/safehouse_room.png`
+- `data/hq_visuals.json` — `rooms.safehouse` (set `placeholder: false` on each region)
+- `data/home.json` — `tierOrder`, `tiers.safehouse`
+- `scenes/screens/hq.gd` — `_build_room_view()`, `_on_zone_tapped()`
+- `scenes/components/hq_diorama.gd`
+- `tests/test_hq_screen.gd`
+- `docs/hq-diorama-vision.md` §3.1, §3.2
+
+**Status:** ready-for-agent
+
+- [ ] `rooms.safehouse` exists in `data/hq_visuals.json`, points at `assets/hq/safehouse_room.png`, and passes the data check
+- [ ] Every safehouse region has `placeholder: false`
+- [ ] A safehouse-tier player gets the safehouse plate (test)
+- [ ] Each traced zone routes to its menu (test per zone)
+- [ ] Other tiers are unchanged
+- [ ] On-device check block for the human in the report

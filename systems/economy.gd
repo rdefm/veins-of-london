@@ -153,12 +153,11 @@ static func complete_mugged_sale() -> Dictionary:
 	return { "earned": earned, "gross": earned * 2, "mugged": true }
 
 
-# state.sellState (R§2) backs the sell_menu modal's qty steppers; screens
-# can't mutate it directly, hence these UI-support funcs.
-static func adjust_sell_qty(key: String, delta: int, max_qty: int) -> void:
-	var sell_state: Dictionary = GameState.state["sellState"]
-	var current: int = sell_state.get(key, 0)
-	sell_state[key] = clampi(current + delta, 0, max_qty)
+# state.sellState (R§2) backs the sell_menu modal's qty sliders; screens
+# can't mutate it directly, hence these UI-support funcs. max_qty is the
+# row's ceiling: held qty to sell, get_faction_buy_max_qty() to buy.
+static func set_sell_qty(key: String, qty: int, max_qty: int) -> void:
+	GameState.state["sellState"][key] = clampi(qty, 0, maxi(max_qty, 0))
 	EventBus.state_changed.emit()
 
 
@@ -167,7 +166,7 @@ static func clear_sell_state() -> void:
 	EventBus.state_changed.emit()
 
 
-# A vein isn't stackable, so this is a plain 0/1 flip (unlike adjust_sell_qty);
+# A vein isn't stackable, so this is a plain 0/1 flip (unlike set_sell_qty);
 # sell_to_faction_from_sell_state() below reads the same "vein_<id>" keys back out.
 static func toggle_sell_vein(vein_id: String) -> void:
 	var sell_state: Dictionary = GameState.state["sellState"]
@@ -186,7 +185,7 @@ static func toggle_buy_vein(vein_id: String) -> void:
 
 
 # state.marketplaceQty backs the Guild marketplace's per-row Buy/Sell ×N
-# stepper -- one shared qty per row, floored at 1. max_qty is the caller's
+# slider -- one shared qty per row, floored at 1. max_qty is the caller's
 # larger of the row's buy/sell ceilings; buttons disable independently past
 # their own ceiling.
 static func get_marketplace_qty(faction_id: String, kind: String, item_type: String) -> int:
@@ -194,13 +193,9 @@ static func get_marketplace_qty(faction_id: String, kind: String, item_type: Str
 	return int(GameState.state["marketplaceQty"].get(key, 1))
 
 
-static func adjust_marketplace_qty(faction_id: String, kind: String, item_type: String, delta: int, max_qty: int) -> void:
+static func set_marketplace_qty(faction_id: String, kind: String, item_type: String, qty: int, max_qty: int) -> void:
 	var key := "%s_%s_%s" % [faction_id, kind, item_type]
-	# Stored qty can go stale between renders (a buy/sell shrinks max_qty
-	# without touching it; the screen only clamps for display) -- re-clamp
-	# against today's max_qty before applying delta.
-	var current: int = clampi(get_marketplace_qty(faction_id, kind, item_type), 1, maxi(max_qty, 1))
-	GameState.state["marketplaceQty"][key] = clampi(current + delta, 1, maxi(max_qty, 1))
+	GameState.state["marketplaceQty"][key] = clampi(qty, 1, maxi(max_qty, 1))
 	EventBus.state_changed.emit()
 
 
@@ -299,8 +294,9 @@ static func get_faction_sell_price(faction_id: String, kind: String, item_type: 
 	return GameState.round_epsilon(effective * (1.0 - get_faction_sell_spread(faction_id)))
 
 
-# The Guild marketplace's per-row qty stepper needs a buy-side affordability
-# ceiling (cash / price), unlike the raw-stock sell-side ceiling. An ore row is
+# The Guild marketplace's and sell menu's buy-row qty sliders need a
+# buy-side affordability ceiling (cash / price), unlike the raw-stock
+# sell-side ceiling. An ore row is
 # further capped by the faction's oreStock when present -- only "collective"
 # ever has entries, so every other faction stays cash-only; consumables have no stock concept.
 # budget < 0 means the player's cash; a business purchase passes its own.

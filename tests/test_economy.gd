@@ -218,23 +218,25 @@ func run() -> void:
 		assert_eq(bank_log[0]["amount"], 90, "the recorded amount matches the deferred payout")
 	)
 
-	run_case("adjust_sell_qty_clamps_between_0_and_max", func():
+	run_case("set_sell_qty_clamps_between_0_and_max", func():
 		GameState.reset()
-		Economy.adjust_sell_qty("ore_time", 5, 3)
+		Economy.set_sell_qty("ore_time", 2, 3)
+		assert_eq(GameState.state["sellState"]["ore_time"], 2)
+		Economy.set_sell_qty("ore_time", 5, 3)
 		assert_eq(GameState.state["sellState"]["ore_time"], 3, "should clamp at max_qty")
-		Economy.adjust_sell_qty("ore_time", -10, 3)
+		Economy.set_sell_qty("ore_time", -10, 3)
 		assert_eq(GameState.state["sellState"]["ore_time"], 0, "should clamp at 0, not go negative")
 	)
 
 	run_case("clear_sell_state_empties_it", func():
 		GameState.reset()
-		Economy.adjust_sell_qty("ore_time", 2, 10)
+		Economy.set_sell_qty("ore_time", 2, 10)
 		Economy.clear_sell_state()
 		assert_eq(GameState.state["sellState"], {}, "should be empty after clearing")
 	)
 
 	# vein-trade-assets ticket 01: toggle_sell_vein is a plain 0/1 flip, not
-	# adjust_sell_qty's clamped +/- delta -- a vein isn't stackable.
+	# set_sell_qty's clamped quantity -- a vein isn't stackable.
 	run_case("toggle_sell_vein_flips_between_0_and_1", func():
 		GameState.reset()
 		Economy.toggle_sell_vein("v1")
@@ -254,37 +256,29 @@ func run() -> void:
 		assert_eq(GameState.state["sellState"]["buyVein_v1"], 0, "second toggle deselects it")
 	)
 
-	# bugfixes-66: marketplaceQty backs the Guild marketplace's per-row qty
-	# stepper -- unlike sellState above, it floors at 1, not 0.
+	# marketplaceQty backs the Guild marketplace's per-row qty slider --
+	# unlike sellState above, it floors at 1, not 0.
 	run_case("get_marketplace_qty_defaults_to_one", func():
 		GameState.reset()
 		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 1, "unset row defaults to qty 1")
 	)
 
-	run_case("adjust_marketplace_qty_clamps_between_1_and_max", func():
+	run_case("set_marketplace_qty_clamps_between_1_and_max", func():
 		GameState.reset()
-		Economy.adjust_marketplace_qty("guild", "ore", "time", 5, 3)
+		Economy.set_marketplace_qty("guild", "ore", "time", 2, 3)
+		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 2)
+		Economy.set_marketplace_qty("guild", "ore", "time", 5, 3)
 		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 3, "should clamp at max_qty")
-		Economy.adjust_marketplace_qty("guild", "ore", "time", -10, 3)
+		Economy.set_marketplace_qty("guild", "ore", "time", -10, 3)
 		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 1, "should clamp at 1, not 0 or negative")
 	)
 
-	run_case("adjust_marketplace_qty_keys_are_scoped_per_faction_kind_and_item", func():
+	run_case("set_marketplace_qty_keys_are_scoped_per_faction_kind_and_item", func():
 		GameState.reset()
-		Economy.adjust_marketplace_qty("guild", "ore", "time", 2, 10)
-		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 3, "time row bumped to 3")
+		Economy.set_marketplace_qty("guild", "ore", "time", 3, 10)
+		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 3)
 		assert_eq(Economy.get_marketplace_qty("guild", "ore", "physics"), 1, "a different item's row is untouched")
 		assert_eq(Economy.get_marketplace_qty("guild", "consumable", "time"), 1, "a different kind sharing the same item id is untouched")
-	)
-
-	# A stale stored qty (from before a buy/sell shrank the ceiling) must
-	# re-clamp against today's max_qty on the very next tap, not lag a step
-	# behind what's displayed.
-	run_case("adjust_marketplace_qty_reclamps_a_stale_stored_value_before_applying_delta", func():
-		GameState.reset()
-		Economy.adjust_marketplace_qty("guild", "ore", "time", 9, 999)  # stored raw qty is now 10
-		Economy.adjust_marketplace_qty("guild", "ore", "time", -1, 7)  # ceiling has since shrunk to 7
-		assert_eq(Economy.get_marketplace_qty("guild", "ore", "time"), 6, "should clamp the stale 10 down to 7 first, then apply -1, not compute 10-1=9 clamped to 7")
 	)
 
 	run_case("get_faction_buy_max_qty_floors_cash_over_price", func():
@@ -310,8 +304,8 @@ func run() -> void:
 			GameState.reset()
 			GameState.state["player"]["orichalchum"]["time"] = 10
 			GameState.state["player"]["inventory"]["timePearl"] = { "0": 5 }
-			Economy.adjust_sell_qty("ore_time", 3, 10)
-			Economy.adjust_sell_qty("con_timePearl_0", 2, 5)
+			Economy.set_sell_qty("ore_time", 3, 10)
+			Economy.set_sell_qty("con_timePearl_0", 2, 5)
 			var result := Economy.sell_from_sell_state()
 			return not result["mugged"]
 		)
@@ -367,8 +361,8 @@ func run() -> void:
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["inventory"]["timePearl"] = { "1": 5, "5": 5 }
-			Economy.adjust_sell_qty("con_timePearl_1", 2, 5)
-			Economy.adjust_sell_qty("con_timePearl_5", 1, 5)
+			Economy.set_sell_qty("con_timePearl_1", 2, 5)
+			Economy.set_sell_qty("con_timePearl_5", 1, 5)
 			var result := Economy.sell_from_sell_state()
 			return not result["mugged"]
 		)
@@ -641,7 +635,7 @@ func run() -> void:
 	run_case("sell_to_faction_from_sell_state_prices_via_the_faction_lane_and_clears_afterward", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
-		Economy.adjust_sell_qty("ore_time", 3, 10)
+		Economy.set_sell_qty("ore_time", 3, 10)
 
 		var result := Economy.sell_to_faction_from_sell_state("collective")
 
@@ -656,7 +650,7 @@ func run() -> void:
 	run_case("sell_to_faction_from_sell_state_passes_its_own_contact_id_through_to_every_leg", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
-		Economy.adjust_sell_qty("ore_time", 3, 10)
+		Economy.set_sell_qty("ore_time", 3, 10)
 		var vein := Fixtures.seed_vein("v1", 1)
 		var vein_price: int = VeinTrade.quote(vein)
 		assert_true(vein_price < 500, "sanity: keep this test under the personal-lane rate")
@@ -729,7 +723,7 @@ func run() -> void:
 	run_case("sell_to_faction_from_sell_state_batches_ore_and_a_vein_into_one_earned_total", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
-		Economy.adjust_sell_qty("ore_time", 3, 10)
+		Economy.set_sell_qty("ore_time", 3, 10)
 		var vein := Fixtures.seed_vein("v1", 50)
 		var vein_price: int = VeinTrade.quote(vein)
 		Economy.toggle_sell_vein("v1")
@@ -745,7 +739,7 @@ func run() -> void:
 	run_case("sell_to_faction_from_sell_state_ignores_an_untoggled_vein", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
-		Economy.adjust_sell_qty("ore_time", 1, 10)
+		Economy.set_sell_qty("ore_time", 1, 10)
 		Fixtures.seed_vein("v1", 50)  # never toggled
 
 		var result := Economy.sell_to_faction_from_sell_state("collective")
@@ -794,7 +788,7 @@ func run() -> void:
 		GameState.reset()
 		Fixtures.seed_faction_vein("fv1", 50)  # never toggled
 		GameState.state["player"]["orichalchum"]["time"] = 10
-		Economy.adjust_sell_qty("ore_time", 1, 10)
+		Economy.set_sell_qty("ore_time", 1, 10)
 
 		var result := Economy.sell_to_faction_from_sell_state("collective")
 

@@ -72,6 +72,21 @@
         "oreStore": { "x": 2, "y": 325, "width": 74, "height": 127, "label": "Ore store", "image": "", "placeholder": false, "polygon": [[4, 325], [67, 334], [76, 419], [35, 450], [2, 452]] },
         "gym": { "x": 1, "y": 446, "width": 142, "height": 128, "label": "Gym", "image": "", "placeholder": false, "polygon": [[7, 485], [68, 446], [143, 518], [69, 574], [1, 518]] }
       }
+    },
+    "safehouse": {
+      "image": "res://assets/hq/safehouse_room.png",
+      "fallbackColor": "timber_dark",
+      "width": 390,
+      "height": 585,
+      "regions": {
+        "security": { "x": 242, "y": 59, "width": 110, "height": 190, "label": "Security", "image": "", "polygon": [[242, 67], [243, 248], [273, 249], [278, 226], [319, 228], [324, 170], [352, 160], [352, 71], [313, 59]] },
+        "rooms": { "x": 7, "y": 57, "width": 100, "height": 149, "label": "Rooms", "image": "", "polygon": [[7, 57], [7, 206], [107, 189], [102, 71]] },
+        "lab": { "x": 4, "y": 197, "width": 157, "height": 113, "label": "Lab", "image": "", "polygon": [[8, 220], [98, 197], [161, 245], [99, 310], [55, 307], [4, 287]] },
+        "dial": { "x": 178, "y": 140, "width": 60, "height": 118, "label": "Dial", "image": "", "polygon": [[181, 254], [178, 140], [236, 142], [238, 258]] },
+        "rest": { "x": 164, "y": 233, "width": 225, "height": 338, "label": "Rest", "image": "", "polygon": [[281, 233], [274, 301], [164, 449], [172, 531], [386, 571], [389, 235]] },
+        "oreStore": { "x": 8, "y": 300, "width": 76, "height": 124, "label": "Ore store", "image": "", "polygon": [[9, 300], [74, 316], [84, 383], [42, 424], [8, 410]] },
+        "gym": { "x": 4, "y": 428, "width": 124, "height": 136, "label": "Gym", "image": "", "polygon": [[4, 477], [58, 428], [128, 499], [126, 548], [57, 564], [17, 561]] }
+      }
     }
   },
   "labBench": {

@@ -520,6 +520,15 @@ func run() -> void:
 		assert_true(contacts.has("owen") and not contacts["owen"]["unlocked"], "Owen backfills hidden")
 	)
 
+	run_case("loading_clamps_production_targets_above_the_cap", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["labThresholds"] = { "timePearl": 80.0, "rewind": 10.0 }
+
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		assert_eq(GameState.state["labThresholds"], { "timePearl": GameData.PRODUCTION_TARGET_MAX, "rewind": 10 }, "over-cap target clamps; in-range one is kept")
+	)
+
 	run_case("loading_an_old_vein_station_list_moves_it_to_the_station_occupant", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)

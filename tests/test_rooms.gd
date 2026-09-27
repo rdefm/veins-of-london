@@ -328,12 +328,22 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["archie"]["cultivatingXP"], 3 * GameData.CULTIVATOR_ACTION_XP)
 	)
 
-	run_case("adjust_lab_threshold_floors_at_0", func():
+	run_case("set_lab_threshold_clamps_between_0_and_production_target_max", func():
 		GameState.reset()
-		Rooms.adjust_lab_threshold("timePearl", 5)
-		assert_eq(GameState.state["labThresholds"]["timePearl"], 5)
-		Rooms.adjust_lab_threshold("timePearl", -10)
+		assert_eq(GameData.PRODUCTION_TARGET_MAX, 50, "the cap lives in constants.json")
+		Rooms.set_lab_threshold("timePearl", 12)
+		assert_eq(GameState.state["labThresholds"]["timePearl"], 12)
+		Rooms.set_lab_threshold("timePearl", -10)
 		assert_eq(GameState.state["labThresholds"]["timePearl"], 0, "should floor at 0, not go negative")
+		Rooms.set_lab_threshold("timePearl", 80)
+		assert_eq(GameState.state["labThresholds"]["timePearl"], 50, "should cap at PRODUCTION_TARGET_MAX")
+	)
+
+	run_case("effective_lab_target_previews_an_unstored_personal_target", func():
+		GameState.reset()
+		GameState.state["labThresholds"]["timePearl"] = 4
+		assert_eq(Rooms.effective_lab_target("timePearl"), 4, "defaults to the stored target")
+		assert_eq(Rooms.effective_lab_target("timePearl", 9), 9, "a passed target overrides the stored one")
 	)
 
 	run_case("assign_vein_adds_and_unassign_vein_removes", func():

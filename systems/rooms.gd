@@ -14,10 +14,20 @@ const RECIPE_UNLOCK_FLAGS := {
 }
 
 
-static func adjust_lab_threshold(recipe_key: String, delta: int) -> void:
-	var thresholds: Dictionary = GameState.state["labThresholds"]
-	thresholds[recipe_key] = maxi(0, thresholds.get(recipe_key, 0) + delta)
+static func set_lab_threshold(recipe_key: String, target: int) -> void:
+	GameState.state["labThresholds"][recipe_key] = clamp_lab_threshold(target)
 	EventBus.state_changed.emit()
+
+
+static func clamp_lab_threshold(target: int) -> int:
+	return clampi(target, 0, GameData.PRODUCTION_TARGET_MAX)
+
+
+# Pulls every stored target into 0..PRODUCTION_TARGET_MAX; SaveManager runs
+# it on load so a save from before the cap never sits above it.
+static func clamp_lab_thresholds(thresholds: Dictionary) -> void:
+	for recipe_key in thresholds.keys():
+		thresholds[recipe_key] = clamp_lab_threshold(int(thresholds[recipe_key]))
 
 
 # Per-item opt-in for Production to also craft toward accepted-contract
@@ -69,8 +79,9 @@ static func _matching_active_contracts(recipe_key: String) -> Array:
 # Additive combination: personal target plus contract need, with the
 # personal-target portion reserved. Toggled off, this is just the
 # personal target.
-static func effective_lab_target(recipe_key: String) -> int:
-	var target: int = GameState.state["labThresholds"].get(recipe_key, 0)
+# personal_target >= 0 previews a target not yet stored (a slider mid-drag).
+static func effective_lab_target(recipe_key: String, personal_target: int = -1) -> int:
+	var target: int = personal_target if personal_target >= 0 else GameState.state["labThresholds"].get(recipe_key, 0)
 	if lab_covers_contracts(recipe_key):
 		target += contract_need(recipe_key)
 	return target
