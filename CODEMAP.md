@@ -146,14 +146,14 @@ overlays.
 | map_legend.gd | Persistent faction-colour key; restyles in place on a dark-mode toggle |
 | map_zoom_buttons.gd | Floating +/- zoom control; restyles in place on a dark-mode toggle |
 | modal_layer.gd | Dim background + light map_card_style.gd card (content built inside MapPalette.build_light); mounts the dedicated Trade sheet for sell_menu, and dispatches other content through modal_registry.gd; tap-outside dismiss |
-| notification_ticker.gd | Top board's one-message notice row: presentation-only queue, roll-up from below, marquee for overflow, 4s hold; latest stays when empty |
+| notification_ticker.gd | Top board's one-message notice row: presentation-only queue, roll-up from below, marquee for overflow, 4s hold; latest stays when empty; transient (combat-log) entries droppable |
 | nav_bar.gd | Bottom nav dock (Phone·Map·HQ); swaps to MapPalette dark chrome tokens while the Map tab shows with Map dark mode on |
 | ore_glyphs.gd | Five canonical ore silhouettes as hand-drawn vectors; bundled-font coverage probe for non-map symbol fallback |
 | phone_device_shell.gd | Persistent rounded simulated-phone frame: clipped display, approved London wallpaper, fixed status/widget chrome, dark opened-app surface + shared/custom content mounts |
 | phone_home_dock.gd | Home-only translucent three-destination Phone/Messages/Settings dock |
 | symbol_glyph.gd | Label-or-vector fallback for a symbol |
 | time_transition.gd | Transient time queue, input guard, dimmed circular park/sky/sun/moon presentation |
-| top_bar.gd | Top departure board: casing + status lines + NotificationTicker; feeds new notifications (combat hold, raid-alarm line, reset on load/Rewind); tap opens Notifications app except in combat |
+| top_bar.gd | Top departure board: casing + status lines + NotificationTicker; feeds new notifications (combat hold, combat lines dropped when fight ends, raid-alarm line, reset on load/Rewind); tap opens Notifications app except in combat |
 | touch_scroll_container.gd | ScrollContainer, touch drag-scroll |
 | turn_order_strip.gd | Combat turn-order strip: one card per projected turn occurrence. Tap selects; drag scrolls (offset survives re-configure). Selected card grows into a reserved band on the decision turn only; uniform during playback. Nine-slice sign frame per damage tier (cardFrames), HP ghost drain, `_reveal_pos()`, and playback reflow via `playback_occurrences()` + `advance_to()` |
 | ui.gd | Shared Control builders, time-cost labels, ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |

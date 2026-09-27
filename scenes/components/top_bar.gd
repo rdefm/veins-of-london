@@ -22,6 +22,7 @@ var _initialized := false
 var _last_notification_id: String = ""
 var _last_alarm_count := 0
 var _held: Array[String] = []  # non-combat messages raised mid-fight, released when it ends
+var _was_combat_active := false
 
 
 func _ready() -> void:
@@ -99,16 +100,18 @@ func _refresh() -> void:
 
 # Feeds the ticker every notification pushed since the last sync. During
 # combat only combat-log lines go straight through (ui-vision.md §5); the
-# rest are held until the fight ends. A notifications list missing the
-# last one seen (boot, load, Rewind, new game) resets the board
-# to the latest eligible notification with no animation.
+# rest are held until the fight ends. Combat-log lines exist on the board
+# only while their fight runs: they are dropped when it ends and never shown
+# outside one. A notifications list missing the last one seen (boot, load,
+# Rewind, new game) resets the board to the latest eligible notification
+# with no animation.
 func _sync_ticker() -> void:
 	var combat_active: bool = GameState.state["combat"]["active"]
 	var notifications: Array = GameState.state["notifications"]
 	var start := _first_unseen_index(notifications)
 	if start < 0:
 		_held.clear()
-		_ticker.show_immediately(_latest_eligible_text(notifications, combat_active))
+		_ticker.show_immediately(_latest_eligible_text(notifications, combat_active), combat_active)
 	else:
 		for i in range(start, notifications.size()):
 			var notification: Dictionary = notifications[i]
@@ -124,6 +127,9 @@ func _sync_ticker() -> void:
 		for text in _held:
 			_ticker.enqueue(text)
 		_held.clear()
+	if _was_combat_active and not combat_active:
+		_ticker.drop_transient(_latest_eligible_text(notifications, false))
+	_was_combat_active = combat_active
 	_initialized = true
 
 
@@ -139,15 +145,19 @@ func _first_unseen_index(notifications: Array) -> int:
 
 
 func _route(text: String, is_combat_log: bool, combat_active: bool) -> void:
-	if combat_active and not is_combat_log:
+	if is_combat_log:
+		if combat_active:
+			_ticker.enqueue(text, true)
+	elif combat_active:
 		_held.append(text)
 	else:
 		_ticker.enqueue(text)
 
 
+# In combat, the latest combat-log line; outside it, the latest other one.
 static func _latest_eligible_text(notifications: Array, combat_active: bool) -> String:
 	for i in range(notifications.size() - 1, -1, -1):
-		if not combat_active or notifications[i].get(Notify.META_COMBAT_LOG, false):
+		if notifications[i].get(Notify.META_COMBAT_LOG, false) == combat_active:
 			return notifications[i]["text"]
 	return ""
 
