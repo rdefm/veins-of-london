@@ -23,7 +23,7 @@ func _build_save_slot_row(slot: int) -> Control:
 
 	var summary_text: String
 	if filled:
-		summary_text = "Day %d · £%d" % [summary["day"], summary["cash"]]
+		summary_text = "%s · £%d" % [Calendar.format_day(int(summary["day"])),summary["cash"]]
 	else:
 		summary_text = "Empty"
 

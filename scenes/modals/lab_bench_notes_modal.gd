@@ -50,4 +50,4 @@ static func _pairing_label(types: Array) -> String:
 
 static func _history_line(entry: Dictionary) -> String:
 	var approach_name: String = GameData.APPROACHES[entry["approach"]]["name"]
-	return "Day %d — %s: %s" % [entry["day"], approach_name, LabBenchModalHelpers.outcome_heading(entry["outcome"])]
+	return "%s — %s: %s" % [Calendar.format_day(int(entry["day"])),approach_name, LabBenchModalHelpers.outcome_heading(entry["outcome"])]

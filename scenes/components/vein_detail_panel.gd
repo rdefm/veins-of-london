@@ -133,7 +133,7 @@ static func _build_detail_note(vein: Dictionary) -> Control:
 	else:
 		var streak: int = vein.get("developmentStreak", 0)
 		var chance: float = minf(1.0, GameData.VEIN_GROWTH["levelUpChancePerDay"] * streak)
-		col.add_child(_label("Developing · Day %d · About %d%% tonight" % [streak + 1, roundi(chance * 100)], 11, MapCardStyle.dim()))
+		col.add_child(_label("Developing · streak %d · About %d%% tonight" % [streak + 1, roundi(chance * 100)], 11, MapCardStyle.dim()))
 	col.add_child(_label("Cultivating skill: %d" % GameState.state["player"]["cultivatingSkill"], 10, MapCardStyle.dim()))
 	col.add_child(_label("%s · resist %d" % [Cultivating.security_label(vein), Cultivating.vein_raid_resist(vein)], 10, MapCardStyle.dim()))
 	return col

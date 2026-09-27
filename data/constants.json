@@ -30,8 +30,16 @@
   "productionLogDays": 10,
   "businessStatsDays": 10,
   "business": { "paydayIntervalDays": 7, "weeklyWages": { "owen": 250 }, "jamesJoinCraftingSkill": 5, "owenCraftMinCultivating": 2 },
+  "calendar": {
+    "startMonth": 3,
+    "daysPerMonth": 28,
+    "monthNames": ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"],
+    "weekdayNames": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"],
+    "dateFormat": "%s %d %s",
+    "yearSuffix": " Y%d"
+  },
   "dayClock": {
-    "dayFormat": "%s Day %d %s",
+    "dayFormat": "%s %s %s",
     "phaseCues": [
       "☀",
       "☀",

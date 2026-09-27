@@ -52,7 +52,7 @@ static func do_rest() -> void:
 	player["hp"] = mini(old_hp + heal, player["hpMax"])
 	var actual_heal: int = player["hp"] - old_hp
 
-	Notify.push("Rested. Day %d. +%d HP." % [world["day"], actual_heal], Notify.CATEGORY_SUCCESS)
+	Notify.push("Rested. %s. +%d HP." % [Calendar.format_day(world["day"]),actual_heal], Notify.CATEGORY_SUCCESS)
 	EventBus.time_advanced.emit(source, { "day": world["day"], "phase": world["timeBlock"] })
 	EventBus.state_changed.emit()
 
@@ -167,9 +167,10 @@ static func _apply_living_costs() -> Dictionary:
 	else:
 		home["arrearsDays"] += 1
 
-	var text := "Day %d: -£%d living costs." % [GameState.state["world"]["day"], bill_paid]
+	var date: String = Calendar.format_day(GameState.state["world"]["day"])
+	var text := "%s: -£%d living costs." % [date, bill_paid]
 	if arrears_paid > 0:
-		text = "Day %d: -£%d living costs, -£%d off arrears." % [GameState.state["world"]["day"], bill_paid, arrears_paid]
+		text = "%s: -£%d living costs, -£%d off arrears." % [date, bill_paid, arrears_paid]
 	var category := Notify.CATEGORY_INFO
 	if interest > 0:
 		text += " £%d interest added." % interest

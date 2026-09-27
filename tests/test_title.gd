@@ -74,7 +74,7 @@ func run() -> void:
 		assert_true(title._slot_list.visible, "tapping Load Game must reveal the slot summary")
 		var texts := NodeQuery.label_texts(title)
 		assert_true(texts.has("Slot %d" % TEST_SLOT), "the summary must name the slot")
-		assert_true(texts.has("Day 3 · £555"), "the summary must show the saved day/cash")
+		assert_true(texts.has("WED 3 APR · £555"), "the summary must show the saved day/cash")
 
 		SaveManager.delete_slot(TEST_SLOT)
 		title.free()

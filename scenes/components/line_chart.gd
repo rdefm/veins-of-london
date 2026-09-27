@@ -54,8 +54,8 @@ func _draw() -> void:
 	draw_string(font, Vector2(PAD_LEFT, PAD_TOP - 4.0), "%s%d" % [_prefix, top_value], HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, text)
 	if not _days.is_empty():
 		var label_y := size.y - 4.0
-		draw_string(font, Vector2(PAD_LEFT, label_y), "Day %d" % _days[0], HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, text)
-		draw_string(font, Vector2(PAD_LEFT, label_y), "Day %d" % _days[-1], HORIZONTAL_ALIGNMENT_RIGHT, plot.size.x, FONT_SIZE, text)
+		draw_string(font, Vector2(PAD_LEFT, label_y), Calendar.format_day(_days[0]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, text)
+		draw_string(font, Vector2(PAD_LEFT, label_y), Calendar.format_day(_days[-1]), HORIZONTAL_ALIGNMENT_RIGHT, plot.size.x, FONT_SIZE, text)
 
 	if _values.is_empty():
 		return

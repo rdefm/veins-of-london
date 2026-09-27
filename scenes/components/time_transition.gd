@@ -85,7 +85,7 @@ func _process(delta: float) -> void:
 	active = true
 	visible = true
 	var target: Dictionary = current["destination"]
-	destination.text = GameData.DAILY_CYCLE["destinationLabel"] % [target["day"], GameData.TIME_BLOCKS[int(target["phase"])]]
+	destination.text = GameData.DAILY_CYCLE["destinationLabel"] % [Calendar.format_day(int(target["day"])),GameData.TIME_BLOCKS[int(target["phase"])]]
 	_render_frame()
 
 

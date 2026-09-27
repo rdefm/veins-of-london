@@ -79,7 +79,7 @@ func _build_brief(content: VBoxContainer) -> void:
 	if account == null:
 		content.add_child(UI.muted_label("No morning account yet."))
 	else:
-		content.add_child(UI.muted_label("Day %d · overnight changes" % account["day"]))
+		content.add_child(UI.muted_label("%s · overnight changes" % Calendar.format_day(int(account["day"]))))
 		content.add_child(_build_bank(account))
 		if account.get("payday") != null:
 			content.add_child(_build_payday(account["payday"]))
@@ -217,7 +217,7 @@ func _build_production_log() -> Control:
 		var day_record: Dictionary = log[i]
 		var day: int = day_record["day"]
 		var totals: Dictionary = Rooms.production_day_totals(day_record)
-		var section := UI.collapsible_section("Day %d · %d made · %d failed" % [day, totals["made"], totals["failed"]], _expanded_log_days.has(day), func(open: bool): _set_log_day_expanded(day, open))
+		var section := UI.collapsible_section("%s · %d made · %d failed" % [Calendar.format_day(day),totals["made"], totals["failed"]], _expanded_log_days.has(day), func(open: bool): _set_log_day_expanded(day, open))
 		for block_record in day_record["blocks"]:
 			section["content"].add_child(UI.label(GameData.TIME_BLOCKS[int(block_record["block"])]))
 			for entry in block_record["entries"]:
@@ -367,7 +367,7 @@ func _build_sales() -> Control:
 		c["content"].add_child(UI.muted_label("No pending offers."))
 	for offer in offers:
 		var request: Dictionary = offer["request"]
-		var expiry: String = "open until taken" if BusinessQuest.holds_offer_open(offer.get("templateId", "")) else "expires day %d" % offer["expiresDay"]
+		var expiry: String = "open until taken" if BusinessQuest.holds_offer_open(offer.get("templateId", "")) else "expires %s" % Calendar.format_day(int(offer["expiresDay"]))
 		c["content"].add_child(UI.label("%s · £%d · %s" % [_request_summary(request), offer["quote"]["payment"], expiry]))
 		var offer_row := UI.hbox()
 		offer_row.add_child(UI.button("Accept", func(): OffersSystem.accept_offer(offer["id"])))
@@ -383,7 +383,7 @@ func _build_sales() -> Control:
 			card.configure(contract["id"], index)
 			var box := VBoxContainer.new()
 			card.add_child(box)
-			box.add_child(UI.label("%d. %s: %s · due day %d · £%d" % [index + 1, contract["id"], _contract_progress_summary(contract), contract["dueDay"], contract["quote"]["payment"]]))
+			box.add_child(UI.label("%d. %s: %s · due %s · £%d" % [index + 1, contract["id"], _contract_progress_summary(contract), Calendar.format_day(int(contract["dueDay"])),contract["quote"]["payment"]]))
 			if contract.get("delegated", false) or ContractsSystem.delegation_unlocked():
 				box.add_child(UI.button("Remove Sales delegation" if contract.get("delegated", false) else "Delegate to Sales", func(): ContractsSystem.set_delegated(contract["id"], not contract.get("delegated", false))))
 			if contract.get("delegated", false):

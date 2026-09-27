@@ -113,7 +113,7 @@ func _build_balance_card() -> Control:
 
 
 func _build_day_header(day: int) -> Control:
-	var l := UI.muted_label("Day %d" % day)
+	var l := UI.muted_label(Calendar.format_day(day))
 	l.uppercase = true
 	l.add_theme_font_size_override("font_size", EYEBROW_FONT_SIZE)
 	return l

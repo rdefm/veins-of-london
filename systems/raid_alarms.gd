@@ -77,4 +77,4 @@ static func open() -> void:
 
 
 static func _deadline_label() -> String:
-	return "By end of Day %d" % GameState.state["world"]["day"]
+	return "By end of %s" % Calendar.format_day(GameState.state["world"]["day"])

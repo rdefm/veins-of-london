@@ -17,7 +17,7 @@ func build(content: VBoxContainer) -> void:
 func _build_notification_row(notification: Dictionary) -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.label(notification["text"]))
-	c["content"].add_child(UI.muted_label("Day %d" % notification["day"]))
+	c["content"].add_child(UI.muted_label(Calendar.format_day(int(notification["day"]))))
 
 	var vein_id: Variant = notification.get("veinId")
 	if vein_id != null and Raiding.is_defend_notification_pending(notification["id"]):

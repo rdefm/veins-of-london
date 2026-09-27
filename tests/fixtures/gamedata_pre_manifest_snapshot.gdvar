@@ -792,7 +792,7 @@
 "sky": [["#223555", "#a56d73"], ["#8ebdd7", "#c8dacf"]],
 "sun": [[128, 102], [157, 35]]
 }],
-"destinationLabel": "Day %d — %s",
+"destinationLabel": "%s — %s",
 "diameter": 220,
 "dimColor": "#08111db0",
 "durationSeconds": 1.75,
@@ -812,7 +812,7 @@
 "DAY_CLOCK": {
 "blockPlural": "%d blocks",
 "blockSingular": "%d block",
-"dayFormat": "%s Day %d %s",
+"dayFormat": "%s %s %s",
 "finalBlock": "last block today",
 "phaseCues": ["☀", "☀", "☾"],
 "restLabel": "Rest — next morning",

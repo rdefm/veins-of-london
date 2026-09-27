@@ -53,7 +53,7 @@ func _build_slot_row(slot: int) -> Control:
 	var c := MapCardStyle.card()
 	c["content"].add_child(UI.heading("Slot %d" % slot, 14))
 	if filled:
-		c["content"].add_child(UI.muted_label("Day %d · £%d" % [summary["day"], summary["cash"]]))
+		c["content"].add_child(UI.muted_label("%s · £%d" % [Calendar.format_day(int(summary["day"])),summary["cash"]]))
 		c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Load", _on_load_slot_pressed.bind(slot))]))
 	else:
 		c["content"].add_child(UI.muted_label("Empty"))

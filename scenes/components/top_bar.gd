@@ -78,7 +78,7 @@ static func _status_lines_height() -> float:
 func _status_line_text() -> String:
 	var world: Dictionary = GameState.state["world"]
 	var phase: int = world["timeBlock"]
-	return GameData.DAY_CLOCK["dayFormat"] % [GameData.DAY_CLOCK["phaseCues"][phase], world["day"], GameData.TIME_BLOCKS[phase]]
+	return GameData.DAY_CLOCK["dayFormat"] % [GameData.DAY_CLOCK["phaseCues"][phase], Calendar.format_day(world["day"]),GameData.TIME_BLOCKS[phase]]
 
 
 func _progress_line_text() -> String:

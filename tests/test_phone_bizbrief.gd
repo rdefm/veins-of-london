@@ -246,9 +246,9 @@ func run() -> void:
 		phone._ready()
 		_button_with_text(phone, "Manage").pressed.emit()
 
-		var row := _button_with_text(phone, "Day 2 · 7 made · 2 failed ▸")
+		var row := _button_with_text(phone, "TUE 2 APR · 7 made · 2 failed ▸")
 		assert_true(row != null, "day row shows a collapsed summary")
-		assert_true(_button_with_text(phone, "Day 3 · 0 made · 0 failed ▸") != null)
+		assert_true(_button_with_text(phone, "WED 3 APR · 0 made · 0 failed ▸") != null)
 		var entry_label := _label_with_text(phone, "James made 7 Time Pearl (tier 3)")
 		assert_true(entry_label != null and not entry_label.get_parent().visible, "collapsed hides entries")
 		var before: Dictionary = GameState.deep_copy(GameState.state)

@@ -35,6 +35,6 @@
   "outcomeHoldSeconds": 0.75,
   "dimColor": "#08111db0",
   "textColor": "#f4efdf",
-  "destinationLabel": "Day %d \u2014 %s",
+  "destinationLabel": "%s \u2014 %s",
   "reducedMotionLabel": "Reduced motion"
 }

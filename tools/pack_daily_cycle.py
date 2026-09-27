@@ -33,7 +33,7 @@ manifest_path = ROOT / "data/daily_cycle.json"
 manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {
     "durationSeconds": 1.75, "outcomeHoldSeconds": 0.75,
     "displaySize": 365, "background": "#111820", "textColor": "#f4efdf",
-    "destinationLabel": "Day %d — %s", "reducedMotionLabel": "Reduced motion",
+    "destinationLabel": "%s — %s", "reducedMotionLabel": "Reduced motion",
 }
 manifest.update({
     "atlas": "res://assets/daily_cycle/cycle.png",

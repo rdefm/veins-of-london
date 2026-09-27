@@ -146,6 +146,8 @@ var HQ_VISUALS: Dictionary = {}
 
 var TIME_BLOCKS: Array = []
 var DAY_CLOCK: Dictionary = {}
+# Calendar display constants (R§3.1 "Calendar"), read by systems/calendar.gd.
+var CALENDAR: Dictionary = {}
 var DAILY_CYCLE: Dictionary = {}
 var ARCHIE_ORE_GOAL: int = 0
 var CONTACTS_DEFAULTS: Dictionary = {}
@@ -317,6 +319,7 @@ const MANIFEST: Array[Dictionary] = [
 	{"table": "constants", "file": "res://data/constants.json", "fields": [
 		{"field": "TIME_BLOCKS", "key": "timeBlocks", "type": TYPE_ARRAY},
 		{"field": "DAY_CLOCK", "key": "dayClock", "type": TYPE_DICTIONARY},
+		{"field": "CALENDAR", "key": "calendar", "type": TYPE_DICTIONARY},
 		{"field": "ARCHIE_ORE_GOAL", "key": "archieOreGoal", "type": TYPE_INT},
 		{"field": "CONTACTS_DEFAULTS", "key": "contacts", "type": TYPE_DICTIONARY},
 		{"field": "JAMES_JOB_TRUST_BANDS", "key": "jamesJobTrustBands", "type": TYPE_ARRAY},
