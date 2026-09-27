@@ -57,7 +57,9 @@ static func release_slot_index(district_id: String, slot_index: int) -> void:
 # Shared by every removal path that takes a vein out of state.player.veins
 # while its site survives (collapse, sale, raid). Only the saturated-site
 # natural-vein bonus ever carries its own stamped slotIndex (attempt_seed() below) -- an ordinary vein reuses its site's slot, nothing to free.
+# The vein also leaves its cultivator's list and loses its hold target.
 static func release_vein_slot(vein: Dictionary) -> void:
+	Rooms.unassign_vein(vein["id"])
 	if vein.has("slotIndex"):
 		release_slot_index(vein["district"], vein["slotIndex"])
 

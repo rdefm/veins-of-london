@@ -121,6 +121,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_restore_int_types(filled)
 	_clamp_loaded_combat_selection(filled)
 	_migrate_vein_station_veins(filled)
+	_strip_unowned_cultivator_veins(filled)
 	_fix_up_founders(filled)
 	_migrate_nadia_supply_order(filled)
 	_migrate_player_model(filled)
@@ -353,6 +354,16 @@ func _migrate_vein_station_veins(state: Dictionary) -> void:
 	for vein_id in old_list:
 		if not lists[destination].has(vein_id):
 			lists[destination].append(vein_id)
+
+
+# R§3.10 "Staff roles": a cultivator list only holds veins the player owns.
+func _strip_unowned_cultivator_veins(state: Dictionary) -> void:
+	var owned: Dictionary = {}
+	for vein in state.get("player", {}).get("veins", []):
+		owned[vein["id"]] = true
+	var lists: Dictionary = state.get("cultivatorVeins", {})
+	for contact_id in lists.keys():
+		lists[contact_id] = lists[contact_id].filter(func(vein_id): return owned.has(vein_id))
 
 
 # R§3.10 "Staff roles": recruitable follows constants.json (Archie/James

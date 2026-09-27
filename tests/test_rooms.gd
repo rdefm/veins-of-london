@@ -349,6 +349,17 @@ func run() -> void:
 		assert_true(not GameState.state["veinStationTargets"].has("v1"), "target cleared on unassignment")
 	)
 
+	# Raid, Collective and cultivation-loss removal all go through
+	# Sites.release_vein_slot(), same as a sale.
+	run_case("release_vein_slot_clears_the_veins_cultivator_assignment", func():
+		GameState.reset()
+		GameState.state["cultivatorVeins"] = { "archie": ["v1"], "owen": ["v2"] }
+		GameState.state["veinStationTargets"] = { "v1": 60, "v2": 80 }
+		Sites.release_vein_slot(Fixtures.player_vein_with())
+		assert_eq(GameState.state["cultivatorVeins"], { "archie": [], "owen": ["v2"] })
+		assert_eq(GameState.state["veinStationTargets"], { "v2": 80 })
+	)
+
 	run_case("assign_vein_rejects_a_contact_outside_the_cultivation_role", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]

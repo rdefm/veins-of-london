@@ -86,6 +86,18 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["veins"].size(), 0)
 	)
 
+	run_case("sell_to_faction_clears_the_veins_cultivator_assignment", func():
+		GameState.reset()
+		_seed_tiered_vein(50, "rich")
+		GameState.state["cultivatorVeins"] = { "owen": ["v1", "v2"] }
+		GameState.state["veinStationTargets"] = { "v1": 60, "v2": 80 }
+
+		VeinTrade.sell_to_faction("v1", "collective")
+
+		assert_eq(GameState.state["cultivatorVeins"], { "owen": ["v2"] }, "sold vein leaves the list")
+		assert_eq(GameState.state["veinStationTargets"], { "v2": 80 }, "sold vein's target dropped")
+	)
+
 	run_case("sell_to_faction_pays_the_quoted_price_into_player_cash", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(50, "rich")

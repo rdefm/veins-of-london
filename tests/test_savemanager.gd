@@ -525,6 +525,7 @@ func run() -> void:
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)
 		legacy.erase("cultivatorVeins")
 		legacy["veinStationVeins"] = ["v1", "v2"]
+		legacy["player"]["veins"] = [Fixtures.player_vein_with(), Fixtures.player_vein_with({ "id": "v2" })]
 		legacy["veinStationTargets"] = { "v1": 60.0, "v2": 80.0 }
 		legacy["contacts"]["archie"]["recruited"] = true
 		legacy["contacts"]["archie"]["assignedRoom"] = "veinStation"
@@ -540,6 +541,7 @@ func run() -> void:
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)
 		legacy.erase("cultivatorVeins")
 		legacy["veinStationVeins"] = ["v1"]
+		legacy["player"]["veins"] = [Fixtures.player_vein_with()]
 		legacy["contacts"]["owen"]["recruited"] = true
 		legacy["contacts"]["owen"]["assignedRole"] = "cultivation"
 
@@ -556,6 +558,16 @@ func run() -> void:
 		assert_true(SaveManager._load_save_dict(legacy)["ok"])
 		assert_eq(GameState.state["cultivatorVeins"], {})
 		assert_true(not GameState.state.has("veinStationVeins"))
+	)
+
+	run_case("loading_strips_unowned_vein_ids_from_cultivator_lists", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["player"]["veins"] = [Fixtures.player_vein_with()]
+		legacy["cultivatorVeins"] = { "owen": ["v1", "gone1", "gone2"], "archie": ["gone3"] }
+
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		assert_eq(GameState.state["cultivatorVeins"], { "owen": ["v1"], "archie": [] })
 	)
 
 	run_case("new_game_player_model_is_territorial3", func():
