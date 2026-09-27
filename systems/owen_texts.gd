@@ -48,6 +48,8 @@ static func send_next() -> String:
 	owen_texts["played"][entry["id"]] = owen_texts["playSeq"]
 	owen_texts["active"] = { "id": entry["id"], "vars": vars }
 	Messages.append(CONTACT_ID, "them", String(entry["text"]).format(vars))
+	# PROSE-REVIEW: Owen text toast.
+	Notify.push("Owen texted.", Notify.CATEGORY_INFO, { Notify.META_CONTACT_ID: CONTACT_ID })
 	return entry["id"]
 
 

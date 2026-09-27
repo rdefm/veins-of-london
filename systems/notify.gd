@@ -21,6 +21,10 @@ const VALID_CATEGORIES: Array[String] = [CATEGORY_INFO, CATEGORY_SUCCESS, CATEGO
 # hold-while-combat-active rule.
 const META_COMBAT_LOG := "combatLog"
 
+# Contact id stamped on an incoming-text notification, so a per-contact
+# clear can find that contact's queued lines.
+const META_CONTACT_ID := "contactId"
+
 
 # `meta`: optional extra pure-data fields merged onto the entry, e.g.
 # `{"veinId": ...}` so phone.gd can render a Defend button on that entry.

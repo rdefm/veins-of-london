@@ -69,6 +69,9 @@ func _build_conversation(content: VBoxContainer, contact_id: String) -> void:
 	var scroll := UI.scroll_container()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_conversation_root.add_child(scroll)
+	# Opens on the newest message and follows each revealed bubble down.
+	var v_bar := scroll.get_v_scroll_bar()
+	v_bar.changed.connect(func(): scroll.scroll_vertical = int(v_bar.max_value))
 
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL

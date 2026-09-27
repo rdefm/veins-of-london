@@ -72,6 +72,38 @@ func run() -> void:
 		phone.free()
 	)
 
+	# Needs a real, sized SceneTree entry: the scrollbar's range (and its
+	# deferred `changed` signal) only resolves during live layout.
+	await run_case("conversation_thread_opens_scrolled_to_the_newest_message", func():
+		var tree := Engine.get_main_loop() as SceneTree
+		await tree.process_frame
+		await tree.process_frame
+
+		GameState.reset()
+		for i in range(40):
+			Messages.append("archie", "them", "Message %d" % i)
+		Messages.mark_read("archie")
+		PhoneNav.select_conversation("archie")
+
+		var viewport := Control.new()
+		viewport.size = Vector2(390, 844)
+		tree.root.add_child(viewport)
+		var phone := PhoneScreen.new()
+		viewport.add_child(phone)
+		for _i in range(4):
+			await tree.process_frame
+
+		var thread_scroll: ScrollContainer = null
+		for candidate in phone.find_children("", "ScrollContainer", true, false):
+			if NodeQuery.label_texts(candidate).has("Message 0"):
+				thread_scroll = candidate
+		assert_true(thread_scroll != null, "thread sits in a scroll container")
+		var v_bar := thread_scroll.get_v_scroll_bar()
+		assert_true(v_bar.max_value > v_bar.page, "sanity: the thread overflows")
+		assert_eq(thread_scroll.scroll_vertical, int(v_bar.max_value - v_bar.page), "opens on the newest message")
+		viewport.free()
+	)
+
 	# 83-contacts-archie-james-sms-port: Archie/James aren't Collective doors
 	# -- their conversation action bar must not fall through to the generic
 	# build_trade_action() (the Collective faction lane). Archie keeps his

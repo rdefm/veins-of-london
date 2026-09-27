@@ -217,6 +217,19 @@ func run() -> void:
 		_restore_pool()
 	)
 
+	run_case("owen_text_notifies_once_tagged_with_contact", func():
+		_join_owen(false)
+		var before: int = GameState.state["notifications"].size()
+		OwenTexts.send_next()
+		var notifications: Array = GameState.state["notifications"]
+		assert_eq(notifications.size(), before + 1, "one notification per text")
+		assert_eq(notifications.back().get(Notify.META_CONTACT_ID), "owen", "tagged with the contact id")
+		assert_true(Messages.has_unread("owen"), "thread marked unread")
+		OwenTexts.reply(0)
+		assert_eq(notifications.size(), before + 1, "his answer to a reply doesn't notify")
+		_restore_pool()
+	)
+
 	run_case("owen_texts_state_is_pure_and_backfills_on_old_saves", func():
 		_join_owen(true)
 		OwenTexts.send_next()
