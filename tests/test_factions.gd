@@ -833,3 +833,33 @@ func run() -> void:
 			var site_cap: int = GameData.DISTRICTS[district_id]["siteCap"]
 			assert_true(Sites.sites_in_district(district_id).size() <= site_cap, "%s: starting veins alone must never exceed the bumped siteCap" % district_id)
 	)
+
+	# ── economic identity data (R§1.8) ──────────────────────────────────
+
+	run_case("every_faction_carries_identity_fields_referencing_real_keys", func():
+		for faction_id in GameData.FACTIONS:
+			var f: Dictionary = GameData.FACTIONS[faction_id]
+			assert_true(f.get("archetype", "") != "", "%s: archetype set" % faction_id)
+			assert_true(GameData.CANONICAL_ORE_TYPES.has(f["primaryOre"]), "%s: primaryOre is an ore type" % faction_id)
+			assert_true(GameData.CANONICAL_ORE_TYPES.has(f["secondaryOre"]), "%s: secondaryOre is an ore type" % faction_id)
+			assert_true(f["primaryOre"] != f["secondaryOre"], "%s: primary and secondary ore differ" % faction_id)
+			assert_true(not f["crafts"].is_empty(), "%s: crafts something" % faction_id)
+			for recipe_key in f["crafts"]:
+				assert_true(GameData.RECIPES.has(recipe_key), "%s crafts unknown recipe %s" % [faction_id, recipe_key])
+			assert_true(not f["consumes"].is_empty(), "%s: consumes something" % faction_id)
+			for recipe_key in f["consumes"]:
+				assert_true(GameData.RECIPES.has(recipe_key), "%s consumes unknown recipe %s" % [faction_id, recipe_key])
+				assert_true(int(f["consumes"][recipe_key]) > 0, "%s: %s weekly qty positive" % [faction_id, recipe_key])
+	)
+
+	run_case("factions_crafting_with_ore_matches_primary_or_secondary", func():
+		assert_eq(Factions.factions_crafting_with_ore("life"), ["collective", "firm"] as Array[String], "life: collective primary, firm secondary")
+		assert_eq(Factions.factions_crafting_with_ore("fate"), ["network", "conclave"] as Array[String], "fate: network secondary, conclave primary")
+		assert_eq(Factions.factions_crafting_with_ore("nonsense"), [] as Array[String], "unknown ore: none")
+	)
+
+	run_case("factions_consuming_lists_factions_with_item_in_consumes", func():
+		assert_eq(Factions.factions_consuming("enhancementPowder"), ["firm", "guild"] as Array[String], "firm and guild consume powder")
+		assert_eq(Factions.factions_consuming("rejuvenation"), ["conclave"] as Array[String], "only conclave consumes rejuvenation")
+		assert_eq(Factions.factions_consuming("blackHole"), [] as Array[String], "nobody consumes blackHole")
+	)

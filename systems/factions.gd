@@ -3,7 +3,8 @@ extends RefCounted
 
 # Faction joining/leaving, player-faction and faction-faction relation,
 # faction vein ownership (claims, day-1 roster, security rolls), passive
-# daily income, and inter-faction rivalry (R§1.8).
+# daily income, inter-faction rivalry, and economic-identity read helpers
+# (R§1.8).
 
 
 static func can_join(faction_id: String) -> bool:
@@ -27,6 +28,27 @@ static func join(faction_id: String) -> Dictionary:
 static func adjust_player_relation(faction_id: String, delta: int) -> void:
 	GameState.state["factions"][faction_id]["relation"] += delta
 	EventBus.state_changed.emit()
+
+
+# ── Economic identity (R§1.8) ───────────────────────────────────────────
+
+# Factions whose primaryOre or secondaryOre is ore_type, in data order.
+static func factions_crafting_with_ore(ore_type: String) -> Array[String]:
+	var result: Array[String] = []
+	for faction_id in GameData.FACTIONS:
+		var f: Dictionary = GameData.FACTIONS[faction_id]
+		if f["primaryOre"] == ore_type or f["secondaryOre"] == ore_type:
+			result.append(faction_id)
+	return result
+
+
+# Factions whose `consumes` lists recipe_key, in data order.
+static func factions_consuming(recipe_key: String) -> Array[String]:
+	var result: Array[String] = []
+	for faction_id in GameData.FACTIONS:
+		if GameData.FACTIONS[faction_id]["consumes"].has(recipe_key):
+			result.append(faction_id)
+	return result
 
 
 # ── Collective ore stock + restocking ───────────────────────────────────

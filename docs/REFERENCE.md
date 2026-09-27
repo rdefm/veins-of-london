@@ -225,6 +225,16 @@ Five factions; copy `name`, `shortName`, `tagline`, `industries`, `description`,
 
 **`raidStealth`** (direction-b-stealth-and-anonymity — **draft only, needs balance sign-off**): each faction's baseline chance (0.0-1.0) of pulling off a raid against a player vein clean, before the target vein's own defenses are weighed in — see `Raiding.faction_stealth_chance()`, §3.12. Network (secretive information brokers) and Conclave (institutional, deniable operations) sit highest; Guild (crafting-focused, not a raiding outfit) and Collective (loosely organised, no tradecraft) sit lowest; Firm (professional but forceful, not clandestine) sits in the middle.
 
+**Economic identity** (biz-act2-market-sim — **draft, consumes quantities are placeholders**): `archetype`, `primaryOre`, `secondaryOre`, `crafts` (recipe keys), `consumes` (`{recipeKey: baseWeeklyQty}`). Every referenced recipe key must exist in `data/recipes.json`. Read helpers: `Factions.factions_crafting_with_ore(ore)` (primaryOre or secondaryOre matches), `Factions.factions_consuming(recipeKey)`; both return faction ids in data order.
+
+| id | archetype | primaryOre | secondaryOre | crafts | consumes |
+|---|---|---|---|---|---|
+| collective | producer | life | emotion | healingSalve, enhancementPowder | healingSalve 3 |
+| firm | producer | physics | life | blast, shield, healingBurst | blast 3, shield 3, healingBurst 3, enhancementPowder 3 |
+| guild | crafter | time | physics | timePearl, rewind, wormhole, prophetsBreath, rejuvenation | timePearl 1, enhancementPowder 1 |
+| network | informationBroker | emotion | fate | pansPrank | prophetsBreath 3 |
+| conclave | manipulator | fate | time | failsafe | failsafe 3, rejuvenation 3 |
+
 **Faction barometer preferences** (`FACTION_BAROMETER_PREFS`, daily nudges — see §3.2):
 
 - collective: push economic/stable str 3; push social/stable str 3
