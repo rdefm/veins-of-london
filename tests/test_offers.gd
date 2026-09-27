@@ -18,8 +18,42 @@ func run() -> void:
 		assert_true(accepted["ok"])
 		assert_eq(OffersSystem.pending_offers().size(), 0)
 		assert_eq(OffersSystem.active_contracts().size(), 1)
-		assert_eq(accepted["contract"]["quote"]["payment"], 350, "acceptance never reprices")
+		assert_eq(accepted["contract"]["signedQuote"]["payment"], 350, "acceptance never reprices")
 		assert_eq(accepted["contract"]["dueDay"], 14, "scripted one-off uses authored deadline")
+	)
+
+	run_case("pending_price_is_locked_and_settlement_pays_the_signed_price", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "ops")
+		GameState.state["market"]["goods"]["ore"]["life"]["price"] = 56
+		var offer: Dictionary = OffersSystem.create_scripted_offer("scripted_life_order")["offer"]
+		GameState.state["market"]["goods"]["ore"]["life"]["stock"] = 0
+		Market.daily_reprice()
+		assert_true(Market.quote("ore", "life") != 56, "the market moved")
+		assert_eq(OffersSystem.pending_offers()[0]["quote"]["payment"], 350, "pending price ignores the reprice")
+		var contract: Dictionary = OffersSystem.accept_offer(offer["id"])["contract"]
+		assert_eq(contract["signedQuote"]["payment"], 350)
+		Market.daily_reprice()
+		GameState.state["player"]["orichalchum"]["life"] = 5
+		var cash_before: int = GameState.state["player"]["cash"]
+		Contracts.process_sales_deliveries()
+		assert_eq(GameState.state["player"]["cash"], cash_before + 350, "settles at the signed price")
+	)
+
+	run_case("every_offer_template_expires_two_days_after_issue", func():
+		for template_id in GameData.OFFER_TEMPLATES.keys():
+			GameState.reset()
+			GameState.state["world"]["day"] = 7
+			var created: Dictionary = OffersSystem.create_offer(GameData.OFFER_TEMPLATES[template_id])
+			assert_true(created["ok"], template_id)
+			assert_eq(created["offer"]["expiresDay"], 9, template_id)
+			GameState.state["world"]["day"] = 8
+			OffersSystem.expire_pending_offers()
+			assert_eq(OffersSystem.pending_offers().size(), 1, "%s still open the next day" % template_id)
+			GameState.state["world"]["day"] = 9
+			OffersSystem.expire_pending_offers()
+			assert_eq(OffersSystem.pending_offers().size(), 0, "%s gone on day 2" % template_id)
 	)
 
 	run_case("crafted_quote_reads_the_items_london_quote_and_ignores_tier", func():
@@ -52,7 +86,7 @@ func run() -> void:
 		assert_true(created["ok"])
 		var offer: Dictionary = created["offer"]
 		assert_true(offer["request"]["qty"] >= 4 and offer["request"]["qty"] <= 10)
-		assert_true(offer["expiresDay"] >= 4 and offer["expiresDay"] <= 15)
+		assert_eq(offer["expiresDay"], 3, "issued day 1, expires 2 days later")
 		GameState.state["world"]["day"] = offer["expiresDay"]
 		OffersSystem.expire_pending_offers()
 		assert_eq(OffersSystem.pending_offers().size(), 0)
@@ -98,7 +132,7 @@ func run() -> void:
 		GameState.state["world"]["day"] = 10
 		var created: Dictionary = OffersSystem.create_offer({
 			"id": "t_mixed_calc_order", "source": "scripted", "contractType": "oneOff",
-			"expiresAfterDays": 6, "deadlineAfterDays": 5,
+			"deadlineAfterDays": 5,
 			"request": { "types": [{ "kind": "ore", "type": "fate", "qty": 3 }, { "kind": "consumable", "type": "timePearl", "qty": 2 }] },
 		})
 		assert_true(created["ok"])

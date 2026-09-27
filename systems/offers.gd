@@ -2,14 +2,13 @@ class_name Offers
 extends RefCounted
 
 # Pending sales offers and their immutable quotes. Accepted entries become
-# the ledger fulfilment/settlement (systems/contracts.gd) consume.
+# the ledger fulfilment/settlement (systems/contracts.gd) consume, carrying
+# the offer's quote as signedQuote (R§3.10 "Offer price and expiry").
 
 const PENDING_CAP := 4
 const RANDOM_BASE_CHANCE := 0.20
 const RANDOM_CHANCE_PER_SALES_LEVEL := 0.10
 const RANDOM_MAX_CHANCE := 0.60
-const RANDOM_EXPIRY_MIN_DAYS := 3
-const RANDOM_EXPIRY_MAX_DAYS := 14
 const RANDOM_ONE_OFF_QTY_MIN := 4
 const RANDOM_ONE_OFF_QTY_MAX := 10
 const RANDOM_RECURRING_QTY_MIN := 3
@@ -91,14 +90,13 @@ static func create_offer(template: Dictionary) -> Dictionary:
 	_fill_request_quantities(request, contract_type)
 	var today: int = GameState.state["world"]["day"]
 	var source: String = template.get("source", "random")
-	var expiry_days: int = int(template.get("expiresAfterDays", Rng.randi_range(RANDOM_EXPIRY_MIN_DAYS, RANDOM_EXPIRY_MAX_DAYS)))
 	var quote := quote_for_request(request, sales_skill())
 	var extra_types: int = maxi(0, quote["lines"].size() - 1)
 	var sales: Dictionary = GameState.state["sales"]
 	var offer := {
 		"id": "offer-%d" % sales["nextOfferId"], "templateId": template.get("id", ""),
 		"source": source, "contractType": contract_type, "request": request,
-		"createdDay": today, "expiresDay": today + expiry_days, "weekday": RECURRING_WEEKDAY,
+		"createdDay": today, "expiresDay": today + GameData.OFFER_EXPIRY_DAYS, "weekday": RECURRING_WEEKDAY,
 		"deadlineAfterDays": int(template.get("deadlineAfterDays", 0)),
 		"extraTypeDeadlineDays": extra_types * MIXED_EXTRA_TYPE_DEADLINE_DAYS, "quote": quote,
 		"counterparty": pick_counterparty(template.get("id", ""), request, int(quote["payment"])),
@@ -159,7 +157,7 @@ static func pick_counterparty(template_id: String, request: Dictionary, payment:
 # first if it has none (old-save backfill).
 static func ensure_counterparty(entry: Dictionary, factions: Dictionary = {}) -> String:
 	if String(entry.get("counterparty", "")) == "":
-		entry["counterparty"] = pick_counterparty(entry.get("templateId", ""), entry["request"], int(entry.get("quote", {}).get("payment", 0)), factions)
+		entry["counterparty"] = pick_counterparty(entry.get("templateId", ""), entry["request"], int(entry.get("quote", entry.get("signedQuote", {})).get("payment", 0)), factions)
 	return entry["counterparty"]
 
 
@@ -224,6 +222,7 @@ static func accept_offer(offer_id: String) -> Dictionary:
 		if is_expired(offer):
 			pending.remove_at(index)
 			BusinessQuest.note_starter_closed(offer.get("templateId", ""), false)
+			BusinessQuest.note_recurring_closed(offer.get("templateId", ""))
 			EventBus.state_changed.emit()
 			return { "ok": false, "reason": "Offer expired." }
 		var sales: Dictionary = GameState.state["sales"]
@@ -236,7 +235,7 @@ static func accept_offer(offer_id: String) -> Dictionary:
 		# Extra requested types were fixed at offer-creation (quote) time; their
 		# deadline bonus applies on top of whichever base above was picked.
 		due_day += int(offer.get("extraTypeDeadlineDays", 0))
-		var contract := { "id": "contract-%d" % sales["nextContractId"], "periodId": "period-%d" % sales["nextPeriodId"], "offerId": offer_id, "templateId": offer["templateId"], "contractType": offer["contractType"], "request": offer["request"].duplicate(true), "quote": offer["quote"].duplicate(true), "acceptedDay": accepted_day, "dueDay": due_day, "weekday": offer["weekday"], "delivered": {}, "status": "active", "counterparty": ensure_counterparty(offer) }
+		var contract := { "id": "contract-%d" % sales["nextContractId"], "periodId": "period-%d" % sales["nextPeriodId"], "offerId": offer_id, "templateId": offer["templateId"], "contractType": offer["contractType"], "request": offer["request"].duplicate(true), "signedQuote": offer["quote"].duplicate(true), "acceptedDay": accepted_day, "dueDay": due_day, "weekday": offer["weekday"], "delivered": {}, "status": "active", "counterparty": ensure_counterparty(offer) }
 		Contracts.start_period(contract)
 		sales["nextContractId"] += 1
 		sales["nextPeriodId"] += 1
@@ -255,16 +254,13 @@ static func decline_offer(offer_id: String) -> Dictionary:
 			var template_id: String = pending[index].get("templateId", "")
 			pending.remove_at(index)
 			BusinessQuest.note_starter_closed(template_id, false)
-			BusinessQuest.note_recurring_declined(template_id)
+			BusinessQuest.note_recurring_closed(template_id)
 			EventBus.state_changed.emit()
 			return { "ok": true }
 	return { "ok": false, "reason": "Offer not found." }
 
 
-# Archie's recurring offers stay open while active (until Beat 7 is met).
 static func is_expired(offer: Dictionary) -> bool:
-	if BusinessQuest.holds_offer_open(offer.get("templateId", "")):
-		return false
 	return int(offer["expiresDay"]) <= int(GameState.state["world"]["day"])
 
 
@@ -276,6 +272,7 @@ static func expire_pending_offers() -> void:
 			var template_id: String = pending[index].get("templateId", "")
 			pending.remove_at(index)
 			BusinessQuest.note_starter_closed(template_id, false)
+			BusinessQuest.note_recurring_closed(template_id)
 			changed = true
 	if changed:
 		EventBus.state_changed.emit()

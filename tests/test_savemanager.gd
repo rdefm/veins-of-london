@@ -302,7 +302,7 @@ func run() -> void:
 		GameState.state["world"]["day"] = 10
 		var created: Dictionary = OffersSystem.create_offer({
 			"id": "t_mixed_savemanager", "source": "scripted", "contractType": "oneOff",
-			"expiresAfterDays": 6, "deadlineAfterDays": 5,
+			"deadlineAfterDays": 5,
 			"request": { "types": [{ "kind": "ore", "type": "fate", "qty": 3 }, { "kind": "consumable", "type": "timePearl", "qty": 2 }] },
 		})
 		assert_true(created["ok"])
@@ -333,7 +333,7 @@ func run() -> void:
 		assert_true(load_result["ok"], "load_from_slot should succeed")
 
 		var contract: Dictionary = GameState.state["sales"]["activeContracts"][0]
-		_assert_quote_lines_are_ints(contract["quote"], "contract")
+		_assert_quote_lines_are_ints(contract["signedQuote"], "contract")
 		assert_eq(GameState.state, original_with_contract, "the full state tree (including the accepted contract's quote.lines) should deep-equal what was saved")
 
 		# A settled contract lands in sales.contractHistory as its own full
@@ -357,7 +357,7 @@ func run() -> void:
 		assert_true(load_result["ok"], "load_from_slot should succeed")
 
 		var history_entry: Dictionary = GameState.state["sales"]["contractHistory"][0]
-		_assert_quote_lines_are_ints(history_entry["contract"]["quote"], "contractHistory.contract")
+		_assert_quote_lines_are_ints(history_entry["contract"]["signedQuote"], "contractHistory.contract")
 		assert_eq(typeof(history_entry["contract"]["dueDay"]), TYPE_INT, "contractHistory.contract.dueDay should be restored as int, not float")
 		assert_eq(typeof(history_entry["contract"]["delivered"]["fate"]), TYPE_INT, "contractHistory.contract.delivered[].qty should be restored as int, not float")
 		assert_eq(typeof(history_entry["settlement"]["payment"]), TYPE_INT, "contractHistory.settlement.payment should be restored as int, not float")
@@ -509,6 +509,21 @@ func run() -> void:
 		assert_eq(offers[0]["counterparty"], "firm", "scripted: from data")
 		assert_eq(offers[1]["counterparty"], "firm", "small, no fit: the save's better relation")
 		assert_eq(filled["sales"]["activeContracts"][0]["counterparty"], "collective")
+	)
+
+	run_case("old_save_contract_quote_becomes_signed_quote", func():
+		GameState.reset()
+		var contract: Dictionary = Offers.accept_offer(Offers.create_scripted_offer("scripted_life_order")["offer"]["id"])["contract"]
+		var payment: int = contract["signedQuote"]["payment"]
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		var old_contract: Dictionary = legacy["sales"]["activeContracts"][0]
+		old_contract["quote"] = old_contract["signedQuote"]
+		old_contract.erase("signedQuote")
+		legacy["sales"]["contractHistory"].append({ "contract": old_contract.duplicate(true), "cancelledDay": 1 })
+		var filled := SaveManager.backfill_defaults(legacy)
+		for migrated in [filled["sales"]["activeContracts"][0], filled["sales"]["contractHistory"][0]["contract"]]:
+			assert_true(not migrated.has("quote"))
+			assert_eq(migrated["signedQuote"]["payment"], payment)
 	)
 
 	run_case("loading_a_pre_107_save_backfills_home_guardCount_to_0", func():

@@ -54,13 +54,13 @@ The Ticker app splits into News (current headlines and push/pull) and a new Stoc
 29. As a player, I want faction AI's vein-targeting and raid-strength scoring to stay stable, so that faction behaviour doesn't swing with daily prices.
 
 ### Contracts — price and term
-30. As a player, I want a pending offer's price to follow the market each day, so that I can see what I'd lock in today.
+30. As a player, I want an offer's price fixed at the market price on the day it is issued, and every offer to expire 2 days after issue, so that I weigh each offer against today's market and act quickly.
 31. As a player, I want accepting an offer to lock its price for the whole contract, so that I can lock in good prices.
 32. As a player, I want the existing premium stack (contract multiplier, mixed-type bonus, Sales-level bonus) applied on top of the market price, so that contracts still pay better than the counter.
 33. As a player, I want recurring contracts to run a fixed 4-week term and then expire, so that deals are periodically renegotiated.
 34. As a player, I want a renewal offer — same request, same counterparty, priced at the then-current market — when a recurring contract expires, so that I can continue a good relationship.
 35. As a player, I want a renewal offer to appear even when my pending list is full, so that I never silently lose a renewal.
-36. As a player, I want a renewal offer to expire after a few days if ignored, so that my list doesn't clog.
+36. As a player, I want a renewal offer to expire 2 days after issue if ignored, like every other offer, so that my list doesn't clog.
 37. As a player, I want declining or ignoring a renewal to cost no relation, so that ending a deal cleanly is always free.
 38. As a player with an open-ended recurring contract from an older save, I want it to gain a 4-week term at its next weekly renewal, so that old saves join the new system cleanly.
 39. As a player in Act 1, I want the Act 1 recurring contracts to follow the same term rule without breaking the questline, so that the proof beats stay completable.
@@ -131,9 +131,10 @@ The Ticker app splits into News (current headlines and push/pull) and a new Stoc
 - Sell rows expose yesterday's price so screens can render ▲/▼.
 
 ### Contracts / Offers
-- **Price:** a pending offer's quote is recomputed from today's market (Offers exposes the live quote; screens re-read it). `accept_offer` freezes the quote onto the contract as the signed price; all settlement reads the signed price. Premium = existing multiplier stack, no haggling UI.
+- **Price:** an offer's quote is priced from the London quote at issue and stays fixed while pending. `accept_offer` freezes it onto the contract as `signedQuote`; all settlement reads `signedQuote`. Premium = existing multiplier stack, no haggling UI.
+- **Offer expiry:** every offer (random, scripted incl. Act 1 starters/recurring, renewal) expires 2 days after issue — one offers.json `expiryDays` value. Scripted templates' reissue hooks (a day after decline/expiry) keep Act 1 completable.
 - **Term:** recurring contracts gain `startDay`, `termWeeks` (default 4, JSON), `expiryDay` (a Monday). On the due-day tick where `dueDay ≥ expiryDay`, the final period settles as usual and the contract moves to history as expired instead of renewing; a renewal offer is issued.
-- **Renewal offer:** same request lines and counterparty, `source: "renewal"`, fresh live quote, short expiry (placeholder 3 days, JSON), bypasses `PENDING_CAP`. Accepting starts a new term. Declining/expiring: no relation change. Templates keep their existing reissue hooks, so Act 1 recurring templates can't softlock (Act 1 proof needs 2 qualified periods, well inside 4 weeks).
+- **Renewal offer:** same request lines and counterparty, `source: "renewal"`, quote priced at issue, the standard 2-day expiry, bypasses `PENDING_CAP`. Accepting starts a new term. Declining/expiring: no relation change. Templates keep their existing reissue hooks, so Act 1 recurring templates can't softlock (Act 1 proof needs 2 qualified periods, well inside 4 weeks).
 - **Migration:** an active recurring contract with no `expiryDay` gets one at its next weekly renewal (`renewal day + 4 weeks`). SaveManager backfill leaves the field absent so this rule can apply.
 - **Counterparty:** every offer and contract carries `counterparty` (a faction id), shown on offer and active cards.
   - Scripted templates (incl. `biz_starter_*`, `biz_recurring_*`, `scripted_*`) declare `counterparty` in offers data.
@@ -172,7 +173,7 @@ The Ticker app splits into News (current headlines and push/pull) and a new Stoc
 - Market constants: clamp min/max, smoothing fraction, reversion fraction, curve shape, history length, annotation thresholds, sim-start switch.
 - Per good: `normalStock`, stand-in supply, stand-in demand; ore→item conversion rate.
 - Barometer: `demandAll` / `itemDemand` per state (old price keys removed).
-- Offers: `counterparty` per scripted template; small-offer threshold; renewal expiry days; default term weeks; cancel relation hit.
+- Offers: `counterparty` per scripted template; small-offer threshold; offer expiry days (all offers); default term weeks; cancel relation hit.
 - Factions: identity fields above.
 
 ### Docs
@@ -193,7 +194,7 @@ The Ticker app splits into News (current headlines and push/pull) and a new Stoc
 - **Market quote (pure) direct tests:** clamps at both ends, zero stock, stock exactly normal, 2-day average with and without history.
 - **Existing public entry points:**
   - Economy Archie sell lane and faction lanes: price equals quote-derived price; supply/demand recorded; mugged sale still records supply; Archie deal records nothing.
-  - Offers: pending live quote changes after a reprice; accept freezes it; settlement pays the signed price after further reprices; counterparty assignment for small (Collective/Firm by fit, relation fallback) and large offers; scripted templates carry their authored counterparty.
+  - Offers: pending quote unchanged by a reprice; accept stores `signedQuote`; every offer expires 2 days after issue; settlement pays the signed price after further reprices; counterparty assignment for small (Collective/Firm by fit, relation fallback) and large offers; scripted templates carry their authored counterparty.
   - Contracts: cancel applies the relation hit to the counterparty only; deliveries don't record supply but do record the delivery hook.
 - **SaveManager round-trip:** market, contract and offer fields survive save/load; old save backfills market at resting prices and counterparties.
 - Seeded Rng for any probabilistic step (random offer counterparty picks).

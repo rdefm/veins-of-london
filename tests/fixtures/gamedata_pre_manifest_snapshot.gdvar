@@ -6270,11 +6270,11 @@
 "cancelRelationHit": 3,
 "smallOfferThreshold": 1000
 },
+"OFFER_EXPIRY_DAYS": 2,
 "OFFER_TEMPLATES": {
 "biz_recurring_life_ore": {
 "contractType": "recurring",
 "counterparty": "collective",
-"expiresAfterDays": 7,
 "id": "biz_recurring_life_ore",
 "request": {
 "kind": "ore",
@@ -6286,7 +6286,6 @@
 "biz_recurring_time_ore": {
 "contractType": "recurring",
 "counterparty": "guild",
-"expiresAfterDays": 7,
 "id": "biz_recurring_time_ore",
 "request": {
 "kind": "ore",
@@ -6298,7 +6297,6 @@
 "biz_recurring_time_pearl": {
 "contractType": "recurring",
 "counterparty": "guild",
-"expiresAfterDays": 7,
 "id": "biz_recurring_time_pearl",
 "request": {
 "kind": "consumable",
@@ -6311,7 +6309,6 @@
 "contractType": "oneOff",
 "counterparty": "collective",
 "deadlineAfterDays": 5,
-"expiresAfterDays": 5,
 "id": "biz_starter_1",
 "nudge": "\"Put one on BizBrief for you. Four time, bloke in Stepney. He pays on the day, which is rarer than it should be.\"",
 "request": {
@@ -6325,7 +6322,6 @@
 "contractType": "oneOff",
 "counterparty": "guild",
 "deadlineAfterDays": 5,
-"expiresAfterDays": 5,
 "id": "biz_starter_2",
 "nudge": "\"Next one's on BizBrief. Three pearls. Make them yourself — James will ask.\"",
 "request": {
@@ -6339,7 +6335,6 @@
 "contractType": "oneOff",
 "counterparty": "collective",
 "deadlineAfterDays": 5,
-"expiresAfterDays": 5,
 "id": "biz_starter_3",
 "nudge": "\"Another on BizBrief. Five life. She's fussy about dates, so don't be late.\"",
 "request": {
@@ -6371,7 +6366,6 @@
 "contractType": "oneOff",
 "counterparty": "collective",
 "deadlineAfterDays": 4,
-"expiresAfterDays": 5,
 "id": "scripted_life_order",
 "request": {
 "kind": "ore",
@@ -6383,7 +6377,6 @@
 "scripted_physics_weekly": {
 "contractType": "recurring",
 "counterparty": "firm",
-"expiresAfterDays": 7,
 "id": "scripted_physics_weekly",
 "request": {
 "kind": "ore",

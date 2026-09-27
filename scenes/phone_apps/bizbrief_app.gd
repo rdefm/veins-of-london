@@ -408,7 +408,7 @@ func _build_sales() -> Control:
 		c["content"].add_child(UI.muted_label("No pending offers."))
 	for offer in offers:
 		var request: Dictionary = offer["request"]
-		var expiry: String = "open until taken" if BusinessQuest.holds_offer_open(offer.get("templateId", "")) else "expires %s" % Calendar.format_day(int(offer["expiresDay"]))
+		var expiry: String = "expires %s" % Calendar.format_day(int(offer["expiresDay"]))
 		c["content"].add_child(_build_contract_tags(offer))
 		c["content"].add_child(UI.muted_label(_counterparty_text(offer)))
 		c["content"].add_child(UI.label("%s · £%d · %s" % [_request_summary(request), offer["quote"]["payment"], expiry]))
@@ -428,14 +428,14 @@ func _build_sales() -> Control:
 			card.add_child(box)
 			box.add_child(_build_contract_tags(contract))
 			box.add_child(UI.muted_label(_counterparty_text(contract)))
-			box.add_child(UI.label("%d. %s: %s · due %s · £%d" % [index + 1, contract["id"], _contract_progress_summary(contract), Calendar.format_day(int(contract["dueDay"])),contract["quote"]["payment"]]))
+			box.add_child(UI.label("%d. %s: %s · due %s · £%d" % [index + 1, contract["id"], _contract_progress_summary(contract), Calendar.format_day(int(contract["dueDay"])),contract["signedQuote"]["payment"]]))
 			var filled: bool = ContractsSystem.is_period_filled(contract)
 			if filled:
 				box.add_child(UI.muted_label("Delivered this week — next period %s" % Calendar.format_day(int(contract["dueDay"]))))
 			box.add_child(UI.muted_label(SALES_STATUS_TEXT[ContractsSystem.has_staffed_sales()]))
 			var buying: bool = contract.get("buyCalc", false)
 			box.add_child(UI.button("Buy missing calc: on" if buying else "Buy missing calc: off", func(): ContractsSystem.set_buy_calc(contract["id"], not buying)))
-			var summary := "%s · £%d" % [_request_summary(contract["request"]), contract["quote"]["payment"]]
+			var summary := "%s · £%d" % [_request_summary(contract["request"]), contract["signedQuote"]["payment"]]
 			box.add_child(UI.button("Cancel contract", func(): Modal.open("contract_cancel", { "contractId": contract["id"], "summary": summary })))
 			c["content"].add_child(card)
 	var history: Array = GameState.state["sales"].get("contractHistory", [])

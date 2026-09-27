@@ -179,10 +179,6 @@ static func is_recurring_template(template_id: String) -> bool:
 	return template_id == RECURRING_GUARANTEED or RECURRING_CHOICES.has(template_id)
 
 
-static func holds_offer_open(template_id: String) -> bool:
-	return recurring_offer_active(template_id)
-
-
 # Issues each recurring offer that is active, not outstanding and whose
 # reissue day has come. An ore choice is not reissued while either choice
 # runs as a contract. A full pending list makes the rest wait for a later
@@ -207,9 +203,10 @@ static func maybe_issue_recurring() -> void:
 		reissue.erase(template_id)
 
 
-# A declined recurring offer is reissued one day later while it is active.
-static func note_recurring_declined(template_id: String) -> void:
-	if not holds_offer_open(template_id):
+# A declined, expired or cancelled recurring offer is reissued one day
+# later while it is active.
+static func note_recurring_closed(template_id: String) -> void:
+	if not recurring_offer_active(template_id):
 		return
 	_recurring_reissue_days()[template_id] = int(GameState.state["world"]["day"]) + 1
 

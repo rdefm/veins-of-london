@@ -324,23 +324,23 @@ func run() -> void:
 		var cash_before: int = GameState.state["player"]["cash"]
 		ContractsSystem.process_sales_deliveries()
 		var settlement: Dictionary = GameState.state["sales"]["settlements"].back()
-		assert_eq(settlement["payment"], contract["quote"]["payment"])
+		assert_eq(settlement["payment"], contract["signedQuote"]["payment"])
 		assert_true(settlement["complete"])
-		assert_eq(GameState.state["player"]["cash"], cash_before + contract["quote"]["payment"])
+		assert_eq(GameState.state["player"]["cash"], cash_before + contract["signedQuote"]["payment"])
 		assert_eq(GameState.state["sales"]["settlements"].size(), 1)
 		assert_eq(ContractsSystem.active_contracts().size(), 0)
 		assert_true(not GameState.state["sales"]["priorityOrder"].has(contract["id"]))
 		assert_true(not ContractsSystem.settle(contract["id"])["ok"], "removed period cannot pay again")
 		GameState.state["world"]["day"] = contract["dueDay"]
 		ContractsSystem.daily_tick()
-		assert_eq(GameState.state["player"]["cash"], cash_before + contract["quote"]["payment"], "due-day tick does not pay again")
+		assert_eq(GameState.state["player"]["cash"], cash_before + contract["signedQuote"]["payment"], "due-day tick does not pay again")
 	)
 
 	run_case("full_recurring_fill_pays_once_and_locks_until_monday", func():
 		var contract := _proof_contract()
 		var old_period: String = contract["periodId"]
 		var old_due: int = contract["dueDay"]
-		var payment: int = contract["quote"]["payment"]
+		var payment: int = contract["signedQuote"]["payment"]
 		var qty: int = ContractsSystem.remaining_qty(contract)
 		GameState.state["player"]["orichalchum"]["physics"] = qty * 3
 		var cash_before: int = GameState.state["player"]["cash"]
@@ -435,13 +435,13 @@ func run() -> void:
 	run_case("settlement_falls_back_to_the_flat_ratio_for_a_quote_with_no_lines", func():
 		_staff_sales()
 		var contract := _accept_life_contract()
-		contract["quote"].erase("lines")
+		contract["signedQuote"].erase("lines")
 		GameState.state["player"]["orichalchum"]["life"] = 2
 		ContractsSystem.process_sales_deliveries()
 		GameState.state["world"]["day"] = contract["dueDay"]
 		var settled: Dictionary = ContractsSystem.settle(contract["id"])
 		assert_true(settled["ok"], "a quote with no lines must still settle, not KeyError")
-		assert_eq(settled["settlement"]["payment"], GameState.round_epsilon(float(contract["quote"]["payment"]) * (2.0 / 5.0) * 0.80))
+		assert_eq(settled["settlement"]["payment"], GameState.round_epsilon(float(contract["signedQuote"]["payment"]) * (2.0 / 5.0) * 0.80))
 	)
 
 	run_case("partial_recurring_settlement_penalises_then_renews_with_new_period_id", func():
@@ -455,7 +455,7 @@ func run() -> void:
 		GameState.state["world"]["day"] = contract["dueDay"]
 		var settled: Dictionary = ContractsSystem.settle(contract["id"])
 		assert_true(settled["ok"])
-		assert_eq(settled["settlement"]["payment"], GameState.round_epsilon(float(contract["quote"]["payment"]) / 3.0 * 0.80))
+		assert_eq(settled["settlement"]["payment"], GameState.round_epsilon(float(contract["signedQuote"]["payment"]) / 3.0 * 0.80))
 		assert_true(contract["periodId"] != old_period)
 		assert_eq(contract["dueDay"], 15)
 		assert_eq(ContractsSystem.delivered_qty(contract), 0)
@@ -523,7 +523,7 @@ func run() -> void:
 		contacts["james"]["assignedRole"] = "production"
 		var created: Dictionary = OffersSystem.create_offer({
 			"id": "t_pearl_order", "source": "scripted", "contractType": "oneOff",
-			"expiresAfterDays": 6, "deadlineAfterDays": 5,
+			"deadlineAfterDays": 5,
 			"request": { "kind": "consumable", "type": "timePearl", "qty": 2 },
 		})
 		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
@@ -618,7 +618,7 @@ func _accept_life_contract() -> Dictionary:
 func _accept_mixed_contract() -> Dictionary:
 	var created: Dictionary = OffersSystem.create_offer({
 		"id": "t_mixed_calc_order", "source": "scripted", "contractType": "oneOff",
-		"expiresAfterDays": 6, "deadlineAfterDays": 5,
+		"deadlineAfterDays": 5,
 		"request": { "types": [{ "kind": "ore", "type": "fate", "qty": 3 }, { "kind": "consumable", "type": "timePearl", "qty": 2 }] },
 	})
 	return OffersSystem.accept_offer(created["offer"]["id"])["contract"]

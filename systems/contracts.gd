@@ -204,7 +204,7 @@ static func cancel(contract_id: String) -> Dictionary:
 	sales["contractHistory"].append({ "contract": record, "cancelledDay": GameState.state["world"]["day"] })
 	var template_id: String = contract.get("templateId", "")
 	BusinessQuest.note_starter_closed(template_id, false)
-	BusinessQuest.note_recurring_declined(template_id)
+	BusinessQuest.note_recurring_closed(template_id)
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
@@ -240,7 +240,7 @@ static func settle(contract_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Period already settled." }
 	var complete := is_complete(contract)
 	var proportion := _delivered_proportion(contract)
-	var payment: int = int(contract["quote"]["payment"])
+	var payment: int = int(contract["signedQuote"]["payment"])
 	if not complete:
 		payment = GameState.round_epsilon(float(payment) * proportion * PARTIAL_PAYMENT_MULTIPLIER)
 	var settlement := {
@@ -421,7 +421,7 @@ static func _remove_shared_stock_for_line(line: Dictionary, qty: int) -> void:
 # delivered/qty ratio for a single-type contract (unit_value cancels out),
 # so both shapes share this one implementation.
 static func _delivered_proportion(contract: Dictionary) -> float:
-	var quote: Dictionary = contract["quote"]
+	var quote: Dictionary = contract["signedQuote"]
 	if not quote.has("lines"):
 		# An older snapshotted quote with no "lines" key -- fall back to a
 		# flat ratio rather than KeyError on an in-flight save.

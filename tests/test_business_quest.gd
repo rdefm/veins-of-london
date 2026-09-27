@@ -345,11 +345,11 @@ func run() -> void:
 		var templates := _recurring_offer_templates()
 		templates.sort()
 		assert_eq(templates, ["biz_recurring_life_ore", "biz_recurring_time_ore"])
-		for i in 10:
+		for i in 3:
 			_tick()
 		templates = _recurring_offer_templates()
 		templates.sort()
-		assert_eq(templates, ["biz_recurring_life_ore", "biz_recurring_time_ore"], "no expiry, no Time Pearl order before Beat 6")
+		assert_eq(templates, ["biz_recurring_life_ore", "biz_recurring_time_ore"], "lapsed and reissued, no Time Pearl order before Beat 6")
 	)
 
 	run_case("no_recurring_offers_before_owen_joins", func():
@@ -402,14 +402,18 @@ func run() -> void:
 		assert_eq(templates, ["biz_recurring_life_ore", "biz_recurring_time_ore"])
 	)
 
-	run_case("recurring_offers_stay_open_until_beat_7_is_met", func():
+	run_case("lapsed_recurring_offers_reissue_next_day_until_beat_7_is_met", func():
 		_to_beat_7()
-		for i in 10:
+		var expires_day: int = _recurring_offer("biz_recurring_time_ore")["expiresDay"]
+		while GameState.state["world"]["day"] < expires_day:
 			_tick()
-		assert_eq(_recurring_offer_templates().size(), 2, "no expiry while Beat 7 is unmet")
-		GameState.state["flags"]["bizA1ProofDone"] = true
+		assert_true(_recurring_offer("biz_recurring_time_ore").is_empty(), "expired on its expiry day")
 		_tick()
-		assert_eq(_recurring_offer_templates().size(), 0, "normal expiry once Beat 7 is met")
+		assert_true(not _recurring_offer("biz_recurring_time_ore").is_empty(), "reissued a day later while Beat 7 is unmet")
+		GameState.state["flags"]["bizA1ProofDone"] = true
+		for i in 3:
+			_tick()
+		assert_eq(_recurring_offer_templates().size(), 0, "no reissue once Beat 7 is met")
 	)
 
 	run_case("declined_recurring_offer_reissues_next_day_once_the_pending_cap_allows", func():
@@ -509,7 +513,7 @@ func run() -> void:
 		var record: Dictionary = ledger.back()
 		var payload: Dictionary = entries[0]["payload"]
 		# The two proof periods.
-		var receipts: int = int(pearls["quote"]["payment"]) + int(time_ore["quote"]["payment"])
+		var receipts: int = int(pearls["signedQuote"]["payment"]) + int(time_ore["signedQuote"]["payment"])
 		assert_eq(record["receipts"], receipts)
 		assert_eq(payload["receipts"], "£%d" % receipts)
 		assert_eq(payload["playerShare"], "£%d" % int(record["shares"]["player"]))
@@ -534,7 +538,7 @@ func run() -> void:
 
 	run_case("two_realistic_recurring_orders_leave_a_positive_weekly_share", func():
 		_to_beat_7()
-		var weekly: int = int(_pearl_contract()["quote"]["payment"]) + int(_recurring_offer("biz_recurring_time_ore")["quote"]["payment"])
+		var weekly: int = int(_pearl_contract()["signedQuote"]["payment"]) + int(_recurring_offer("biz_recurring_time_ore")["quote"]["payment"])
 		var owen_wage: int = GameData.BUSINESS_WEEKLY_WAGES["owen"]
 		assert_true(Business.split(weekly - owen_wage, 2)["player"] > 0)
 	)

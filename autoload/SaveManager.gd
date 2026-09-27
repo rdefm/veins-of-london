@@ -337,9 +337,21 @@ func _backfill_new_sales_keys(result: Dictionary, defaults: Dictionary) -> void:
 			sales["nextPeriodId"] += 1
 		if not sales["priorityOrder"].has(contract["id"]):
 			sales["priorityOrder"].append(contract["id"])
+	# R§3.10 "Offer price and expiry": a contract's quote is its signedQuote.
+	for contract in sales.get("activeContracts", []):
+		_rename_quote_to_signed(contract)
+	for entry in sales.get("contractHistory", []):
+		if entry.get("contract") is Dictionary:
+			_rename_quote_to_signed(entry["contract"])
 	# R§3.10 "Counterparty": offers/contracts from before counterparties exist.
 	for entry in sales.get("pendingOffers", []) + sales.get("activeContracts", []):
 		Offers.ensure_counterparty(entry, result.get("factions", {}))
+
+
+func _rename_quote_to_signed(contract: Dictionary) -> void:
+	if contract.has("quote") and not contract.has("signedQuote"):
+		contract["signedQuote"] = contract["quote"]
+		contract.erase("quote")
 
 
 # R§3.10 "Staff roles": the single shared veinStationVeins list moves onto
@@ -918,7 +930,7 @@ func _restore_contract_int_types(contract: Dictionary) -> void:
 	for key in ["acceptedDay", "dueDay", "weekday", "periodStartDay"]:
 		_int_key(contract, key)
 	_restore_request_int_types(contract.get("request", {}))
-	_restore_quote_int_types(contract.get("quote", {}))
+	_restore_quote_int_types(contract.get("signedQuote", {}))
 	_int_dict_values(contract.get("delivered", {}))
 
 
