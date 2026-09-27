@@ -17,6 +17,14 @@ static func _on_refine_pressed(recipe_name: String, types: Array, approach: Stri
 		Notify.push("No improvement this time. Still tier %d." % (tier - 1), Notify.CATEGORY_WARNING)
 
 
+# "Total: 10 Time · 6 Fate" -- a batch's whole calc cost, per ore.
+static func batch_total_text(costs: Dictionary, qty: int) -> String:
+	var parts: Array[String] = []
+	for ore_type in costs:
+		parts.append("%d %s" % [costs[ore_type] * qty, String(ore_type).capitalize()])
+	return "Total: %s" % " · ".join(parts)
+
+
 static func outcome_heading(outcome: String) -> String:
 	match outcome:
 		"found":

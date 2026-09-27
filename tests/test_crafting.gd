@@ -281,20 +281,72 @@ func run() -> void:
 
 	# ── bugfixes ticket 57: batch craft +/- qty and attempt_craft_batch ───
 
-	run_case("get_craft_qty_defaults_to_one_and_adjust_craft_qty_increments", func():
+	run_case("max_craftable_qty_is_held_calc_over_cost_rounded_down", func():
 		GameState.reset()
-		assert_eq(Crafting.get_craft_qty("timePearl"), 1, "an unselected recipe defaults to a batch of 1")
-		Crafting.adjust_craft_qty("timePearl", 1)
-		Crafting.adjust_craft_qty("timePearl", 1)
-		assert_eq(Crafting.get_craft_qty("timePearl"), 3, "each + tap increments by 1")
+		GameState.state["player"]["craftingSkill"] = 1
+		var cost: int = Crafting.calc_cost("timePearl", 1)["time"]
+		GameState.state["player"]["orichalchum"]["time"] = cost * 3 + cost - 1
+		assert_eq(Crafting.max_craftable_qty("timePearl"), 3, "a partial batch's worth of calc doesn't count")
 	)
 
-	run_case("adjust_craft_qty_clamps_between_one_and_max_batch_qty", func():
+	run_case("max_craftable_qty_is_zero_when_one_craft_is_unaffordable", func():
 		GameState.reset()
-		Crafting.adjust_craft_qty("timePearl", -5)
-		assert_eq(Crafting.get_craft_qty("timePearl"), 1, "a batch of zero (or fewer) makes no sense -- floor of 1")
-		Crafting.adjust_craft_qty("timePearl", 1000)
-		assert_eq(Crafting.get_craft_qty("timePearl"), Crafting.MAX_BATCH_QTY, "quantity is capped, not unbounded")
+		GameState.state["player"]["orichalchum"]["time"] = 0
+		assert_eq(Crafting.max_craftable_qty("timePearl"), 0)
+	)
+
+	run_case("max_craftable_qty_ignores_stashed_calc", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 0
+		GameState.state["player"]["stash"]["orichalchum"]["time"] = 100
+		assert_eq(Crafting.max_craftable_qty("timePearl"), 0, "stashed calc isn't on the bench")
+	)
+
+	run_case("max_craftable_qty_is_set_by_the_scarcest_ingredient", func():
+		GameState.reset()
+		GameState.state["player"]["craftingSkill"] = 1
+		GameData.RECIPES["_testTwoOre"] = {
+			"name": "Test", "symbol": "", "ingredients": { "fate": 2, "life": 3 },
+			"baseSuccess": 1.0, "effectPower": [0, 1, 1, 1, 1, 1],
+			"xpReward": 0, "eventUsable": false, "description": "",
+		}
+		GameState.state["player"]["orichalchum"]["fate"] = 20
+		GameState.state["player"]["orichalchum"]["life"] = 7
+		assert_eq(Crafting.max_craftable_qty("_testTwoOre"), 2, "life's 7/3 limits below fate's 20/2")
+		GameState.state["player"]["orichalchum"]["life"] = 0
+		assert_eq(Crafting.max_craftable_qty("_testTwoOre"), 0, "one missing ingredient zeroes the batch")
+		GameData.RECIPES.erase("_testTwoOre")
+	)
+
+	run_case("get_craft_qty_defaults_to_one", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 100
+		assert_eq(Crafting.get_craft_qty("timePearl"), 1, "an unselected recipe defaults to a batch of 1")
+	)
+
+	run_case("set_craft_qty_clamps_between_one_and_max_craftable", func():
+		GameState.reset()
+		GameState.state["player"]["craftingSkill"] = 1
+		var cost: int = Crafting.calc_cost("timePearl", 1)["time"]
+		GameState.state["player"]["orichalchum"]["time"] = cost * 4
+		Crafting.set_craft_qty("timePearl", 3)
+		assert_eq(Crafting.get_craft_qty("timePearl"), 3)
+		Crafting.set_craft_qty("timePearl", -5)
+		assert_eq(Crafting.get_craft_qty("timePearl"), 1, "floor of 1")
+		Crafting.set_craft_qty("timePearl", 1000)
+		assert_eq(Crafting.get_craft_qty("timePearl"), 4, "capped at what the calc covers")
+	)
+
+	run_case("get_craft_qty_reclamps_after_calc_is_spent", func():
+		GameState.reset()
+		GameState.state["player"]["craftingSkill"] = 1
+		var cost: int = Crafting.calc_cost("timePearl", 1)["time"]
+		GameState.state["player"]["orichalchum"]["time"] = cost * 4
+		Crafting.set_craft_qty("timePearl", 4)
+		GameState.state["player"]["orichalchum"]["time"] = cost * 2
+		assert_eq(Crafting.get_craft_qty("timePearl"), 2, "a stale pick never exceeds today's max")
+		GameState.state["player"]["orichalchum"]["time"] = 0
+		assert_eq(Crafting.get_craft_qty("timePearl"), 1, "nothing craftable still reads 1, never 0")
 	)
 
 	run_case("attempt_craft_batch_rolls_each_attempt_independently_not_a_pooled_chance", func():

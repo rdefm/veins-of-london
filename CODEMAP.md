@@ -138,7 +138,7 @@ overlays.
 | hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected`; owns the region hit rule (`zone_at`/`regions_at`: traced polygon else rect), the debug hit-shape overlay, and caption placement (polygon-centred for traced regions) |
 | icons.gd | 13 drawn icon glyphs |
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
-| map_card_style.gd | Shared vein-popover card family: card tokens (via map_palette.gd), card/inset/action-circle styleboxes, card()/style_panel(), section_label(), text/symbol_text/chip buttons, option rows, round_button()/stepper(), footer(), check-button + symbol tinting. The one button/card look for every non-phone menu; off-map callers build inside MapPalette.build_light |
+| map_card_style.gd | Shared vein-popover card family: card tokens (via map_palette.gd), card/inset/action-circle styleboxes, card()/style_panel(), section_label(), text/symbol_text/chip buttons, option rows, round_button()/stepper()/quantity_slider(), footer(), check-button + symbol tinting. The one button/card look for every non-phone menu; off-map callers build inside MapPalette.build_light |
 | map_canvas.gd | Network diagram: layout/stops/lines, hit-testing, static draw pass; tweens a vein's fullness ring on EventBus.vein_cultivated; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
 | map_controls.gd | Map controls drawer (map_card_style.gd-skinned): filters, faction isolate, pacing, Dark map toggle, legend button |
@@ -187,11 +187,11 @@ overlays.
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD via `Combat.skill_summary()`) + Train action card |
-| lab_bench_modal_helpers.gd | Refine controls + outcome headings shared by the lab-bench modals |
-| lab_bench_recipe_book_modal.gd | Found recipes: cost/chance, batch qty, Craft, Refine |
+| lab_bench_modal_helpers.gd | Refine controls, batch total text + outcome headings shared by the lab-bench modals |
+| lab_bench_recipe_book_modal.gd | Found recipes: cost/chance, batch slider + total, Craft, Refine |
 | lab_bench_notes_modal.gd | Per-pairing survey notes with found-recipe refine rows |
 | lab_bench_probe_result_modal.gd | Probe outcome card |
-| lab_bench_confirm_modal.gd | Gear-tap confirm: probe, craft ×N (batch stepper) or inert warning, by cell state |
+| lab_bench_confirm_modal.gd | Gear-tap confirm: probe, craft ×N (batch slider, max = affordable) or inert warning, by cell state |
 | contract_cancel_modal.gd | BizBrief contract cancel confirm (Keep / Confirm → `Contracts.cancel`) |
 
 ## scenes/phone_apps/*.gd — phone app views, one script per app

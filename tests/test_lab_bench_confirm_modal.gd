@@ -22,6 +22,18 @@ func _find_button_prefix(root: Node, prefix: String) -> Button:
 	return null
 
 
+func _slider(root: Node) -> HSlider:
+	var found := root.find_children("", "HSlider", true, false)
+	return found[0] if not found.is_empty() else null
+
+
+# Range skips value_changed while outside the tree, so emit it the way a drag
+# would.
+func _slide_to(slider: HSlider, value: int) -> void:
+	slider.value = value
+	slider.value_changed.emit(float(value))
+
+
 func run() -> void:
 	run_case("untried_cell_shows_a_probe_modal_with_no_stepper", func():
 		GameState.reset()
@@ -62,34 +74,55 @@ func run() -> void:
 		modal.free()
 	)
 
-	run_case("found_cell_shows_a_craft_modal_with_a_stepper", func():
+	run_case("found_cell_shows_a_craft_modal_with_a_slider_maxed_at_affordable", func():
 		GameState.reset()
+		var cost: int = Crafting.calc_cost("rewind", GameState.state["player"]["craftingSkill"])["time"]
+		GameState.state["player"]["orichalchum"]["time"] = cost * 4
 		var modal := _build(["time"], "heat")
 
 		assert_true(NodeQuery.label_texts(modal).has(GameData.RECIPES["rewind"]["name"]), "the recipe is named")
-		assert_true(NodeQuery.find_button(modal, "+") != null, "a craft carries the batch stepper")
+		var slider := _slider(modal)
+		assert_true(slider != null, "a craft carries the batch slider")
+		assert_eq(int(slider.value), 1, "starts at 1")
+		assert_eq(int(slider.max_value), 4, "maxes at what the calc covers")
 		assert_true(_find_button_prefix(modal, "Confirm ×1") != null)
 		modal.free()
 	)
 
-	run_case("craft_stepper_shares_the_recipe_books_batch_qty", func():
+	run_case("dragging_the_slider_updates_total_and_confirm_live", func():
 		GameState.reset()
+		var cost: int = Crafting.calc_cost("rewind", GameState.state["player"]["craftingSkill"])["time"]
+		GameState.state["player"]["orichalchum"]["time"] = cost * 4
 		var modal := _build(["time"], "heat")
-		NodeQuery.find_button(modal, "+").pressed.emit()
+		_slide_to(_slider(modal), 3)
+
+		assert_true(_find_button_prefix(modal, "Confirm ×3") != null, "button label follows the slider")
+		assert_true(NodeQuery.label_texts(modal).has(LabBenchModalHelpers.batch_total_text({ "time": cost }, 3)), "total follows the slider")
+		modal.free()
+	)
+
+	run_case("releasing_the_slider_commits_the_batch_qty_through_crafting", func():
+		GameState.reset()
+		var cost: int = Crafting.calc_cost("rewind", GameState.state["player"]["craftingSkill"])["time"]
+		GameState.state["player"]["orichalchum"]["time"] = cost * 4
+		var modal := _build(["time"], "heat")
+		var slider := _slider(modal)
+		_slide_to(slider, 2)
+		slider.drag_ended.emit(true)
 		modal.free()
 
 		assert_eq(Crafting.get_craft_qty("rewind"), 2)
 		modal = _build(["time"], "heat")
-		assert_true(_find_button_prefix(modal, "Confirm ×2") != null)
+		assert_true(_find_button_prefix(modal, "Confirm ×2") != null, "shared with the recipe book via craftQty")
 		modal.free()
 	)
 
-	run_case("craft_confirm_crafts_n_via_the_batch", func():
+	run_case("craft_confirm_crafts_the_slider_pick", func():
 		GameState.reset()
 		var cost: int = Crafting.calc_cost("rewind", GameState.state["player"]["craftingSkill"])["time"]
 		GameState.state["player"]["orichalchum"]["time"] = cost * 3
-		Crafting.adjust_craft_qty("rewind", 2)
 		var modal := _build(["time"], "heat")
+		_slide_to(_slider(modal), 3)
 
 		_find_button_prefix(modal, "Confirm ×3").pressed.emit()
 
@@ -99,16 +132,14 @@ func run() -> void:
 		modal.free()
 	)
 
-	run_case("craft_confirm_is_disabled_when_the_batch_is_unaffordable", func():
+	run_case("nothing_craftable_disables_slider_and_confirm_with_the_reason", func():
 		GameState.reset()
-		var cost: int = Crafting.calc_cost("rewind", GameState.state["player"]["craftingSkill"])["time"]
-		GameState.state["player"]["orichalchum"]["time"] = cost
-		Crafting.adjust_craft_qty("rewind", 1)
+		GameState.state["player"]["orichalchum"]["time"] = 0
 		var modal := _build(["time"], "heat")
 
-		var confirm := _find_button_prefix(modal, "Confirm ×2")
-		assert_true(confirm.disabled, "enough for one, not for two")
-		assert_true(NodeQuery.label_texts(modal).has("Not enough calc for ×2."))
+		assert_true(not _slider(modal).editable, "no batch to pick")
+		assert_true(_find_button_prefix(modal, "Confirm ×1").disabled)
+		assert_true(NodeQuery.label_texts(modal).has(Crafting.craft_block_reason("rewind")))
 		modal.free()
 	)
 

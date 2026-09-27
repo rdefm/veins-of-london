@@ -32,10 +32,18 @@ static func _recipe_row(recipe_key: String) -> Control:
 	c["content"].add_child(UI.label("Success: %d%%   Effect: %s   Stock: %d" % [int(round(chance * 100)), str(power), stock]))
 
 	var qty: int = Crafting.get_craft_qty(recipe_key)
-	c["content"].add_child(MapCardStyle.stepper("Batch", qty, func(delta: int): Crafting.adjust_craft_qty(recipe_key, delta)))
-
 	var block_reason := Crafting.craft_block_reason(recipe_key)
-	c["content"].add_child(MapCardStyle.action_button("Craft ×%d" % qty, func(): Crafting.attempt_craft_batch(recipe_key, qty), block_reason != "", block_reason))
+	var picked := [qty]
+	var craft := MapCardStyle.action_button("Craft ×%d" % qty, func(): Crafting.attempt_craft_batch(recipe_key, picked[0]), block_reason != "", block_reason)
+	var craft_button := craft.get_child(0) as Button
+	var total := UI.label(LabBenchModalHelpers.batch_total_text(costs, qty))
+	var on_change := func(value: int) -> void:
+		picked[0] = value
+		total.text = LabBenchModalHelpers.batch_total_text(costs, value)
+		craft_button.text = "Craft ×%d" % value
+	c["content"].add_child(MapCardStyle.quantity_slider("Batch", qty, Crafting.max_craftable_qty(recipe_key), on_change, func(value: int): Crafting.set_craft_qty(recipe_key, value)))
+	c["content"].add_child(total)
+	c["content"].add_child(craft)
 
 	var discovery: Dictionary = r.get("discovery", {})
 	if not discovery.is_empty():

@@ -245,6 +245,44 @@ static func stepper(caption: String, qty: int, adjust: Callable) -> HBoxContaine
 	return row
 
 
+# Drag-to-pick quantity from 1..max_qty (disabled when max_qty < 1).
+# `on_change(qty)` fires live while dragging, for labels the screen updates
+# in place; `on_commit(qty)` fires once on release, where the screen hands
+# the pick to its system -- committing mid-drag would rebuild the modal
+# out from under the finger.
+static func quantity_slider(caption: String, qty: int, max_qty: int, on_change: Callable, on_commit: Callable) -> HBoxContainer:
+	var row := UI.hbox(8)
+	if caption != "":
+		row.add_child(section_label(caption))
+	var slider := HSlider.new()
+	slider.min_value = 1
+	slider.max_value = maxi(1, max_qty)
+	slider.step = 1
+	slider.value = clampi(qty, 1, maxi(1, max_qty))
+	slider.editable = max_qty >= 1
+	slider.custom_minimum_size.y = ROUND_BUTTON_SIZE
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var track := skin(line(), 3, false)
+	track.content_margin_top = 3
+	track.content_margin_bottom = 3
+	slider.add_theme_stylebox_override("slider", track)
+	var filled := skin(sage(), 3, false)
+	slider.add_theme_stylebox_override("grabber_area", filled)
+	slider.add_theme_stylebox_override("grabber_area_highlight", filled)
+	slider.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	row.add_child(slider)
+	var qty_label := label(str(int(slider.value)), 14, ink() if slider.editable else dim())
+	qty_label.custom_minimum_size.x = 24
+	qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(qty_label)
+	slider.value_changed.connect(func(value: float):
+		qty_label.text = str(int(value))
+		on_change.call(int(value)))
+	slider.drag_ended.connect(func(_changed: bool): on_commit.call(int(slider.value)))
+	return row
+
+
 # Paper pill with ink text: a text button that floats over art (pixel
 # dioramas, the combat stage) where a clear-fill text_button would vanish.
 static func chip_button(text: String, callback: Callable, disabled: bool = false) -> Button:

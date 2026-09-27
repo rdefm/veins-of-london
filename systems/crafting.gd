@@ -5,11 +5,6 @@ extends RefCounted
 # gated (matches the HTML prototype: attemptCraft never calls
 # advanceTimeBlock — only seed/cultivate/harvest are).
 
-# The Lab's batch-craft quantity picker is a UI convenience, not a balance
-# knob -- capped generously to keep the state tree and stepper sane.
-const MAX_BATCH_QTY := 99
-
-
 static func craft_chance(recipe_key: String, skill: int) -> float:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	return min(0.95, r["baseSuccess"] + (skill - 1) * 0.13 + Home.get_workshop_bonus())
@@ -174,16 +169,33 @@ static func attempt_craft(recipe_key: String) -> Dictionary:
 		return { "ok": true, "success": false, "recipeKey": recipe_key, "power": 0 }
 
 
-# state.craftQty is keyed by recipeKey, transient like state.sellState. int()
-# guards a stored float since craftQty isn't restored across save/load.
+# The largest batch the player's unstashed calc covers at current skill: the
+# scarcest ingredient decides. 0 when not even one craft is affordable.
+static func max_craftable_qty(recipe_key: String) -> int:
+	var costs: Dictionary = calc_cost(recipe_key, GameState.state["player"]["craftingSkill"])
+	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
+	var most := -1
+	for ingredient in costs:
+		var affordable: int = floori(float(orichalchum.get(ingredient, 0)) / float(costs[ingredient]))
+		most = affordable if most < 0 else mini(most, affordable)
+	return maxi(most, 0)
+
+
+# state.craftQty is keyed by recipeKey, transient like state.sellState. Read
+# back clamped to 1..max_craftable_qty() so a batch picked before calc was
+# spent never exceeds what's affordable now; int() guards a stored float
+# since craftQty isn't restored across save/load.
 static func get_craft_qty(recipe_key: String) -> int:
-	return int(GameState.state["craftQty"].get(recipe_key, 1))
+	return _clamp_qty(recipe_key, int(GameState.state["craftQty"].get(recipe_key, 1)))
 
 
-static func adjust_craft_qty(recipe_key: String, delta: int) -> void:
-	var current: int = get_craft_qty(recipe_key)
-	GameState.state["craftQty"][recipe_key] = clampi(current + delta, 1, MAX_BATCH_QTY)
+static func set_craft_qty(recipe_key: String, qty: int) -> void:
+	GameState.state["craftQty"][recipe_key] = _clamp_qty(recipe_key, qty)
 	EventBus.state_changed.emit()
+
+
+static func _clamp_qty(recipe_key: String, qty: int) -> int:
+	return clampi(qty, 1, maxi(1, max_craftable_qty(recipe_key)))
 
 
 # Loops attempt_craft() `quantity` times, each independently rolled and

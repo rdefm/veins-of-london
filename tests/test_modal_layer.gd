@@ -1092,7 +1092,28 @@ func run() -> void:
 		layer._ready()
 
 		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Time Pearl"), "tutorial-taught recipes are already Found on a fresh save")
-		assert_true(_find_cost_button(layer, "Craft ×1") != null, "each row's batch stepper defaults to qty 1")
+		assert_true(_find_cost_button(layer, "Craft ×1") != null, "each row's batch slider defaults to qty 1")
+
+		layer.free()
+	)
+
+	run_case("lab_bench_recipe_book_batch_slider_maxes_at_affordable_and_drives_the_craft_label", func():
+		GameState.reset()
+		var cost: int = Crafting.calc_cost("timePearl", GameState.state["player"]["craftingSkill"])["time"]
+		GameState.state["player"]["orichalchum"]["time"] = cost * 3
+		Modal.open("lab_bench_recipe_book")
+
+		var layer := ModalLayer.new()
+		layer._ready()
+		var slider: HSlider = null
+		for s in layer.find_children("", "HSlider", true, false):
+			if int((s as HSlider).max_value) == Crafting.max_craftable_qty("timePearl"):
+				slider = s
+		assert_true(slider != null, "timePearl's row slider maxes at what the calc covers")
+		assert_eq(Crafting.max_craftable_qty("timePearl"), 3)
+		slider.value = 3
+		slider.value_changed.emit(3.0)  # Range skips it outside the tree
+		assert_true(_find_cost_button(layer, "Craft ×3") != null, "craft label follows the slider live")
 
 		layer.free()
 	)
