@@ -64,6 +64,17 @@ func run() -> void:
 		assert_eq(deal["playerCut"], int(floor(deal["gross"] * 0.5)), "playerCut is a flat floor(gross*0.5), not the relation-scaled Archie ratio")
 	)
 
+	run_case("roll_deal_prices_at_the_london_quote_and_records_nothing", func():
+		GameState.reset()
+		for ore_type in GameData.ORE_TYPES:
+			GameState.state["market"]["goods"]["ore"][ore_type]["price"] = 123
+		var market_before: Dictionary = GameState.state["market"].duplicate(true)
+		Rng.set_seed(1)
+		var deal := ArchieDeals.roll_deal(0)
+		assert_eq(deal["gross"], 123 * deal["qty"], "gross = London quote * qty")
+		assert_eq(GameState.state["market"], market_before, "a tag-along deal never moves the market")
+	)
+
 	# ── daily-tick roll gating ───────────────────────────────────────────
 
 	run_case("roll_daily_offer_never_fires_before_archieMotionEventSeen", func():

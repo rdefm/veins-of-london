@@ -142,6 +142,20 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 40 + 69, "consumable sale price also carries the district priceMod")
 	)
 
+	run_case("consumable_sale_prices_at_the_london_quote_and_records_supply_even_when_mugged", func():
+		GameState.reset()
+		GameState.state["market"]["goods"]["consumable"]["timePearl"]["price"] = 150
+		assert_eq(Economy.get_archie_consumable_price("timePearl", 5, 0.0), 300, "quote 150 × tier-5 quality 2.0")
+		var seed := SeedSearch.find_seed_for(200, func():
+			GameState.reset()
+			GameState.state["player"]["inventory"]["timePearl"] = { "0": 5 }
+			var result := Economy.execute_sale([{ "kind": "consumable", "type": "timePearl", "qty": 2 }])
+			return result["mugged"]
+		)
+		assert_true(seed != -1, "should find a mugged roll within 200 tries")
+		assert_eq(GameState.state["market"]["supply"]["consumable"]["timePearl"], { "player": 2 }, "a mugged consumable sale still records supply")
+	)
+
 	run_case("dangerMod_can_tip_a_non_mugging_roll_into_a_mugging", func():
 		var found_seed := -1
 		for seed in range(1000):
@@ -459,6 +473,31 @@ func run() -> void:
 		assert_eq(bank_log.size(), 1, "a Guild sale records one bank transaction")
 		assert_eq(bank_log[0]["amount"], 102, "the recorded amount matches total earned")
 		assert_eq(bank_log[0]["label"], "Guild sale", "the recorded label names the sale -- generalization must not change the Guild's exact copy")
+	)
+
+	run_case("faction_lane_prices_at_the_london_quote", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 40
+		GameState.state["market"]["goods"]["ore"]["time"]["price"] = 80
+		GameState.state["market"]["goods"]["consumable"]["timePearl"]["price"] = 100
+		assert_eq(Economy.get_faction_buy_price("guild", "ore", "time"), 92, "quote 80 × 1.15")
+		assert_eq(Economy.get_faction_sell_price("guild", "ore", "time"), 68, "quote 80 × 0.85")
+		assert_eq(Economy.get_faction_sell_price("guild", "consumable", "timePearl"), 85, "quote 100 × 0.85")
+	)
+
+	run_case("faction_lane_sales_record_supply_and_purchases_record_demand", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["relation"] = 40
+		GameState.state["player"]["cash"] = 1000
+		GameState.state["player"]["orichalchum"]["time"] = 5
+		GameState.state["player"]["inventory"]["timePearl"] = { "0": 2 }
+		Economy.execute_faction_sale("guild", [{ "kind": "ore", "type": "time", "qty": 2 }, { "kind": "consumable", "type": "timePearl", "qty": 1 }])
+		Economy.execute_faction_purchase("guild", [{ "kind": "ore", "type": "life", "qty": 3 }, { "kind": "consumable", "type": "shield", "qty": 1 }])
+		var market: Dictionary = GameState.state["market"]
+		assert_eq(market["supply"]["ore"]["time"], { "player": 2 })
+		assert_eq(market["supply"]["consumable"]["timePearl"], { "player": 1 })
+		assert_eq(market["demand"]["ore"]["life"], { "player": 3 })
+		assert_eq(market["demand"]["consumable"]["shield"], { "player": 1 })
 	)
 
 	# ── The Collective lane (collective1-01 spec.md §8.1, §9.4): asymmetric spread, no district mod ─

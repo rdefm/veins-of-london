@@ -374,6 +374,7 @@ static func _buy_calc(contract_id: String, ore_type: String, qty: int) -> void:
 		return
 	for leg in legs:
 		Economy.receive_faction_ore(leg["factionId"], ore_type, int(leg["qty"]))
+		Market.record_demand("ore", ore_type, int(leg["qty"]), "player")
 
 
 static func _renew_period(contract: Dictionary) -> void:

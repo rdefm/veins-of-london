@@ -9,14 +9,13 @@ extends RefCounted
 const SELL_FACTION_ID := "collective"
 
 
-# Barometer-effective price times terroir times a fixed per-unit rate,
-# scaled by how far above/below neutral the vein's growth sits. A fresh
-# seed (growth 20) prices at 0.4x. At veinSaleBaseUnits 175 that is ~70
-# calc-worth x terroir, above the 40-calc seed cost on non-poor tiers; no
-# same-day-sale rule guards seed-and-flip.
+# The ore's 2-day average London price (R§3.13) times terroir times a fixed
+# per-unit rate, scaled by how far above/below neutral the vein's growth
+# sits. A fresh seed (growth 20) prices at 0.4x. At veinSaleBaseUnits 175
+# that is ~70 calc-worth x terroir, above the 40-calc seed cost on non-poor
+# tiers; no same-day-sale rule guards seed-and-flip.
 static func quote(vein: Dictionary) -> int:
-	var base_price: int = GameData.ORE_TYPES[vein["oreType"]]["basePrice"]
-	var ore_price: int = Barometer.get_effective_ore_price(vein["oreType"], base_price)
+	var ore_price: int = Market.quote_avg2("ore", vein["oreType"])
 	var terroir: float = Cultivating.terroir_yield_mult(vein)
 	var growth_factor: float = float(vein["growth"]) / float(GameData.VEIN_GROWTH["neutral"])
 	return GameState.round_epsilon(ore_price * terroir * GameData.VEIN_GROWTH["veinSaleBaseUnits"] * growth_factor)

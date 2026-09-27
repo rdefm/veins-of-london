@@ -348,7 +348,7 @@ func _entries() -> Array:
 				if _is_faction():
 					price = Economy.get_faction_sell_price(faction_id, "consumable", recipe_key)
 				else:
-					price = GameState.round_epsilon(GameData.CONSUMABLE_PRICES[recipe_key] * Economy.quality_price_multiplier(tier) * (1.0 + price_mod))
+					price = Economy.get_archie_consumable_price(recipe_key, tier, price_mod)
 				var key := "con_%s_%s" % [recipe_key, tier_key]
 				var tier_label := "untiered" if tier <= 0 else "tier %d" % tier
 				var item := _entry("sell", "items", "consumable", key, "%s · %s" % [recipe["name"], tier_label], "", recipe["symbol"], price, have, have, sell_state.get(key, 0))

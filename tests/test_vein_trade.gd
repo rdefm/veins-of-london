@@ -39,6 +39,18 @@ func run() -> void:
 		assert_eq(VeinTrade.quote(vein), 4900)
 	)
 
+	run_case("quote_uses_the_2_day_average_london_price", func():
+		GameState.reset()
+		var vein := _seed_tiered_vein(20, "fair")
+		var good: Dictionary = GameState.state["market"]["goods"]["ore"]["life"]
+		good["price"] = 200
+		good["history"] = [60, 80]
+		# avg 70 = base, so the worked-table price holds despite today's 200
+		assert_eq(VeinTrade.quote(vein), 4900)
+		good["history"] = [80, 100]
+		assert_eq(VeinTrade.quote(vein), 6300, "avg 90 -> 4900 × 90/70")
+	)
+
 	run_case("quote_fresh_seed_rich", func():
 		GameState.reset()
 		var vein := _seed_tiered_vein(20, "rich")

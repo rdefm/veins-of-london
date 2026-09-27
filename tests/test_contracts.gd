@@ -456,6 +456,7 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], cash_before, "player cash is never touched")
 		assert_eq(GameState.state["sales"]["settlements"].size(), 1, "bought ore enters shared stock and delivers")
 		assert_true(GameState.state["sales"]["settlements"][0]["complete"])
+		assert_eq(GameState.state["market"]["demand"]["ore"]["life"], { "player": 4 }, "calc bought for the contract records London demand")
 	)
 
 	run_case("buy_calc_skips_a_purchase_the_pot_cannot_cover_in_full", func():

@@ -132,18 +132,9 @@ static func quote_for_request(request: Dictionary, skill: int) -> Dictionary:
 	return quote
 
 
+# Today's London quote for one unit (R§3.13).
 static func unit_value(kind: String, item_type: String) -> int:
-	if kind == "ore":
-		var ore: Dictionary = GameData.ORE_TYPES[item_type]
-		return Barometer.get_effective_ore_price(item_type, ore["basePrice"])
-	var recipe: Dictionary = GameData.RECIPES[item_type]
-	var weighted_modifier := 0.0
-	var total_ingredients := 0
-	for ore_type in recipe["ingredients"].keys():
-		var qty: int = int(recipe["ingredients"][ore_type])
-		total_ingredients += qty
-		weighted_modifier += Barometer.get_ore_price_modifier(ore_type) * float(qty)
-	return GameState.round_epsilon(float(GameData.CONSUMABLE_PRICES[item_type]) * (1.0 + weighted_modifier / float(total_ingredients)))
+	return Market.quote(kind, item_type)
 
 
 static func accept_offer(offer_id: String) -> Dictionary:

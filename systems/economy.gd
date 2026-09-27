@@ -40,6 +40,12 @@ static func get_archie_ore_price(ore_type: String, price_mod: float) -> int:
 	return GameState.round_epsilon(Market.quote("ore", ore_type) * (1.0 + price_mod))
 
 
+# Archie's per-unit consumable price before his cut: London quote, then the
+# tier's quality multiplier, then the district/omen modifier (R§3.6).
+static func get_archie_consumable_price(recipe_key: String, tier: int, price_mod: float) -> int:
+	return GameState.round_epsilon(Market.quote("consumable", recipe_key) * quality_price_multiplier(tier) * (1.0 + price_mod))
+
+
 static func get_archie_cut_ratio() -> float:
 	var relation: int = GameState.state["contacts"]["archie"]["relation"]
 	if relation <= ARCHIE_CUT_RELATION_MIN:
@@ -105,10 +111,11 @@ static func execute_sale(items: Array) -> Dictionary:
 			Market.record_supply("ore", item_type, qty, "player")
 		elif kind == "consumable":
 			var tier: int = item.get("tier", 0)
-			var price_per_unit: int = GameState.round_epsilon(GameData.CONSUMABLE_PRICES.get(item_type, 30) * quality_price_multiplier(tier) * (1.0 + price_mod))
+			var price_per_unit: int = get_archie_consumable_price(item_type, tier, price_mod)
 			gross += price_per_unit * qty
 			cons_sold += qty
 			Crafting.inventory_remove_from_tier(item_type, tier, qty)
+			Market.record_supply("consumable", item_type, qty, "player")
 
 	if cons_sold > 0:
 		flags["consSoldCount"] = flags["consSoldCount"] + cons_sold
@@ -237,7 +244,7 @@ static func sell_from_sell_state() -> Dictionary:
 
 # ── Faction trade lanes ──────────────────────────────────────────────────
 # A separate pricing/transaction lane from the Archie sell flow above: no
-# player-cut split -- a faction trades at ticker-effective base price
+# player-cut split -- a faction trades at the London quote
 # plus/minus a relation-narrowed spread, configured per faction_id in
 # data/faction_trade.json (GameData.FACTION_TRADE).
 
@@ -267,22 +274,11 @@ static func get_faction_buy_spread(faction_id: String) -> float:
 	return _faction_spread(faction_id, "buySpreadMax", "buySpreadMin")
 
 
-static func _faction_base_price(kind: String, item_type: String) -> int:
-	if kind == "ore":
-		return GameData.ORE_TYPES[item_type]["basePrice"]
-	return GameData.CONSUMABLE_PRICES.get(item_type, 30)
-
-
-# apply_district false prices without the district modifier whatever the
+# London quote (R§3.13), plus the district modifier where the lane applies
+# it. apply_district false prices without the district modifier whatever the
 # lane's setting -- business purchases never read the player's location.
 static func _faction_effective_price(faction_id: String, kind: String, item_type: String, apply_district: bool = true) -> int:
-	var base_price := _faction_base_price(kind, item_type)
-	var price: int
-	if kind == "ore":
-		price = Barometer.get_effective_ore_price(item_type, base_price)
-	else:
-		price = base_price
-
+	var price := Market.quote(kind, item_type)
 	var config: Dictionary = GameData.FACTION_TRADE[faction_id]
 	if apply_district and config.get("applyDistrictPriceMod", false):
 		var district: Dictionary = GameData.DISTRICTS.get(GameState.state["world"]["currentDistrict"], {})
@@ -353,10 +349,12 @@ static func execute_faction_purchase(faction_id: String, items: Array) -> Dictio
 			# Taint first: the stock rise below can deliver and settle at once.
 			Contracts.note_player_supplied(item_type)
 			receive_faction_ore(faction_id, item_type, qty)
+			Market.record_demand("ore", item_type, qty, "player")
 		else:
 			# Store-bought stock wasn't crafted at any tier -- files under the
 			# same "0" untiered bucket as legacy saves.
 			Crafting.inventory_add(item_type, 0, qty)
+			Market.record_demand("consumable", item_type, qty, "player")
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true, "cost": total_cost }
@@ -401,6 +399,7 @@ static func execute_faction_sale(faction_id: String, items: Array, contact_id: S
 		var qty: int = item["qty"]
 		var price_per_unit := get_faction_sell_price(faction_id, kind, item_type)
 		total_earned += price_per_unit * qty
+		Market.record_supply(kind, item_type, qty, "player")
 		if kind == "ore":
 			player["orichalchum"][item_type] = maxi(0, player["orichalchum"].get(item_type, 0) - qty)
 			# Lifetime cumulative sold-to-this-faction bookkeeping --

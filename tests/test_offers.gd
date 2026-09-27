@@ -7,13 +7,13 @@ func run() -> void:
 	run_case("scripted_offer_snapshots_quote_and_acceptance_creates_contract", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 10
-		GameState.state["barometer"]["economic"] = "recession"
+		GameState.state["market"]["goods"]["ore"]["life"]["price"] = 56
 		var created: Dictionary = OffersSystem.create_scripted_offer("scripted_life_order")
 		assert_true(created["ok"])
 		var offer: Dictionary = created["offer"]
-		assert_eq(offer["quote"]["unitValue"], 56, "£70 with recession's -20% modifier")
+		assert_eq(offer["quote"]["unitValue"], 56, "today's London quote, not base £70")
 		assert_eq(offer["quote"]["payment"], 350, "5 × £56 × 1.25")
-		GameState.state["barometer"]["economic"] = "boom"
+		GameState.state["market"]["goods"]["ore"]["life"]["price"] = 90
 		var accepted: Dictionary = OffersSystem.accept_offer(offer["id"])
 		assert_true(accepted["ok"])
 		assert_eq(OffersSystem.pending_offers().size(), 0)
@@ -22,16 +22,22 @@ func run() -> void:
 		assert_eq(accepted["contract"]["dueDay"], 14, "scripted one-off uses authored deadline")
 	)
 
-	run_case("crafted_quote_weights_recipe_ore_modifiers_and_ignores_tier", func():
+	run_case("crafted_quote_reads_the_items_london_quote_and_ignores_tier", func():
 		GameState.reset()
-		GameState.state["barometer"]["economic"] = "stable"
-		GameState.state["barometer"]["social"] = "stable"
-		GameState.state["barometer"]["political"] = "stable"
-		GameData.BAROMETER_STATES["economic"]["stable"]["effects"]["timePremium"] = 0.20
+		GameState.state["market"]["goods"]["consumable"]["healingBurst"]["price"] = 198
 		var quote: Dictionary = OffersSystem.quote_for_request({ "kind": "consumable", "type": "healingBurst", "qty": 4 }, 2)
-		assert_eq(quote["unitValue"], 198, "time/life 4:4 weights a +20% time premium equally")
+		assert_eq(quote["unitValue"], 198, "the item's own London quote")
 		assert_eq(quote["payment"], 1040, "level 2 Sales adds 5% after the contract multiplier")
-		GameData.BAROMETER_STATES["economic"]["stable"]["effects"].erase("timePremium")
+	)
+
+	run_case("unit_value_follows_the_quote_after_a_reprice", func():
+		GameState.reset()
+		var before := OffersSystem.unit_value("ore", "time")
+		GameState.state["market"]["goods"]["ore"]["time"]["stock"] = 0
+		Market.daily_reprice()
+		var after := OffersSystem.unit_value("ore", "time")
+		assert_true(after > before, "a starved market lifts tomorrow's unit value")
+		assert_eq(after, Market.quote("ore", "time"))
 	)
 
 	run_case("random_offer_roll_is_passive_capped_and_expires", func():

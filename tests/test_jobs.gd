@@ -41,11 +41,15 @@ func run() -> void:
 		assert_true(seen_enhancement, "enhancementPowder should appear in the pool once unlocked")
 	)
 
-	run_case("pay_per_item_matches_consumable_prices", func():
+	run_case("pay_per_item_follows_the_london_quote_after_a_reprice", func():
 		GameState.reset()
+		for recipe_key in GameData.CONSUMABLE_PRICES:
+			GameState.state["market"]["goods"]["consumable"][recipe_key]["stock"] = 0
+		Market.daily_reprice()
 		Rng.set_seed(1)
 		var job := Jobs.generate_james_job()
-		assert_eq(job["payPerItem"], GameData.CONSUMABLE_PRICES[job["recipeKey"]], "payPerItem should come straight from CONSUMABLE_PRICES")
+		assert_true(job["payPerItem"] > GameData.CONSUMABLE_PRICES[job["recipeKey"]], "a starved market lifts pay above base")
+		assert_eq(job["payPerItem"], Market.quote("consumable", job["recipeKey"]), "payPerItem is the item's London quote")
 		assert_eq(job["totalPay"], job["payPerItem"] * job["qty"], "totalPay = payPerItem * qty")
 	)
 

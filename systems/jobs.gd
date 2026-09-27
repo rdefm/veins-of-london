@@ -48,7 +48,7 @@ static func generate_james_job() -> Dictionary:
 		max_qty = 10
 
 	var qty: int = Rng.randi_range(min_qty, max_qty)
-	var pay_per_item: int = GameData.CONSUMABLE_PRICES[recipe_key]
+	var pay_per_item: int = Market.quote("consumable", recipe_key)
 	var day: int = GameState.state["world"]["day"]
 
 	return {

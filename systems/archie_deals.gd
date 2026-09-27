@@ -74,8 +74,7 @@ static func roll_deal(cash: int) -> Dictionary:
 
 	var district: Dictionary = GameData.DISTRICTS.get(GameState.state["world"]["currentDistrict"], {})
 	var price_mod: float = district.get("priceMod", 0.0)
-	var base_price: int = GameData.ORE_TYPES[ore_type]["basePrice"]
-	var price_per_unit: int = GameState.round_epsilon(Barometer.get_effective_ore_price(ore_type, base_price) * (1.0 + price_mod))
+	var price_per_unit: int = Economy.get_archie_ore_price(ore_type, price_mod)
 	var gross: int = price_per_unit * qty
 
 	return { "oreType": ore_type, "qty": qty, "gross": gross, "playerCut": int(floor(gross * 0.5)) }
