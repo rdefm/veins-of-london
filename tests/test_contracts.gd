@@ -6,6 +6,17 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 
 
 func run() -> void:
+	run_case("request_ore_types_covers_ore_mixed_and_crafted", func():
+		assert_eq(ContractsSystem.request_ore_types({ "kind": "ore", "type": "life", "qty": 3 }), ["life"])
+		assert_eq(ContractsSystem.request_ore_types({ "kind": "consumable", "type": "timePearl", "qty": 2 }), ["time"])
+		assert_eq(ContractsSystem.request_ore_types({ "kind": "consumable", "type": "healingBurst", "qty": 1 }), ["time", "life"], "multi-ingredient recipe, ORE_TYPES order")
+		assert_eq(ContractsSystem.request_ore_types({ "types": [
+			{ "kind": "ore", "type": "emotion", "qty": 2 },
+			{ "kind": "ore", "type": "time", "qty": 2 },
+			{ "kind": "consumable", "type": "timePearl", "qty": 1 },
+		] }), ["time", "emotion"], "mixed: one glyph per type, deduped")
+	)
+
 	run_case("cancel_one_off_removes_records_and_pays_nothing", func():
 		GameState.reset()
 		var contract := _accept_life_contract()

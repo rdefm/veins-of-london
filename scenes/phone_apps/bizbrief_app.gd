@@ -23,6 +23,8 @@ const DELEGATION_STATUS_TEXT := {
 	"active": "Delegated. Sales delivers the moment shared stock covers it.",
 }
 
+const CONTRACT_TYPE_PIP_TEXT := { "oneOff": "ONE-OFF", "recurring": "WEEKLY" }
+
 const BRIEF_TAB := "brief"
 const MANAGE_TAB := "manage"
 const STAFF_TAB := "staff"
@@ -368,6 +370,28 @@ func _contract_progress_summary(contract: Dictionary) -> String:
 	return ", ".join(parts)
 
 
+# Type pip plus one ore glyph per requested ore type, for an offer or an
+# active contract (both carry contractType and request).
+func _build_contract_tags(entry: Dictionary) -> Control:
+	var row := UI.hbox(4)
+	var pip := PanelContainer.new()
+	var pip_label := UI.muted_label(CONTRACT_TYPE_PIP_TEXT[entry.get("contractType", "oneOff")])
+	pip_label.add_theme_font_size_override("font_size", 10)
+	pip.add_theme_stylebox_override("panel", UI.bordered_panel_style(Color(0, 0, 0, 0), pip_label.get_theme_color("font_color"), 3, 4, 0))
+	pip.add_child(pip_label)
+	pip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(pip)
+	for ore_type in ContractsSystem.request_ore_types(entry["request"]):
+		var glyph := SymbolGlyph.new()
+		glyph.symbol = GameData.ORE_TYPES[ore_type]["symbol"]
+		glyph.draw_fallback = SymbolGlyph.ore_fallback(ore_type)
+		glyph.custom_minimum_size = Vector2(UI.SYMBOL_GLYPH_SIZE, UI.SYMBOL_GLYPH_SIZE)
+		glyph.glyph_radius = UI.SYMBOL_GLYPH_SIZE * 0.34
+		glyph.color = MapPalette.ore_colour_in(ore_type, true)
+		row.add_child(glyph)
+	return row
+
+
 func _build_sales() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Sales", 14))
@@ -377,6 +401,7 @@ func _build_sales() -> Control:
 	for offer in offers:
 		var request: Dictionary = offer["request"]
 		var expiry: String = "open until taken" if BusinessQuest.holds_offer_open(offer.get("templateId", "")) else "expires %s" % Calendar.format_day(int(offer["expiresDay"]))
+		c["content"].add_child(_build_contract_tags(offer))
 		c["content"].add_child(UI.label("%s · £%d · %s" % [_request_summary(request), offer["quote"]["payment"], expiry]))
 		var offer_row := UI.hbox()
 		offer_row.add_child(UI.button("Accept", func(): OffersSystem.accept_offer(offer["id"])))
@@ -392,6 +417,7 @@ func _build_sales() -> Control:
 			card.configure(contract["id"], index)
 			var box := VBoxContainer.new()
 			card.add_child(box)
+			box.add_child(_build_contract_tags(contract))
 			box.add_child(UI.label("%d. %s: %s · due %s · £%d" % [index + 1, contract["id"], _contract_progress_summary(contract), Calendar.format_day(int(contract["dueDay"])),contract["quote"]["payment"]]))
 			var filled: bool = ContractsSystem.is_period_filled(contract)
 			if filled:

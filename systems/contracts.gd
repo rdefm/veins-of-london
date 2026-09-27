@@ -22,6 +22,23 @@ static func request_lines(request: Dictionary) -> Array:
 	return request["types"] if request.has("types") else [request]
 
 
+# The ore types a request asks for, in canonical ore order: an ore line's
+# own type; a crafted line's recipe ingredient types.
+static func request_ore_types(request: Dictionary) -> Array[String]:
+	var wanted: Dictionary = {}
+	for line in request_lines(request):
+		if line["kind"] == "ore":
+			wanted[line["type"]] = true
+			continue
+		for ore_type in GameData.RECIPES[line["type"]]["ingredients"]:
+			wanted[ore_type] = true
+	var ordered: Array[String] = []
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		if wanted.has(ore_type):
+			ordered.append(ore_type)
+	return ordered
+
+
 static func delivered_qty(contract: Dictionary, type_id: String = "") -> int:
 	var request: Dictionary = contract["request"]
 	var key: String = type_id if type_id != "" else String(request.get("type", ""))
