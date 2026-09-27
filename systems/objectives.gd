@@ -249,11 +249,12 @@ static func _eval_items_crafted_set(params: Dictionary, progress: Dictionary) ->
 
 # Fully completed BizBrief settlements (settlement.complete), read live from
 # sales.contractHistory so completions from before activation count. Each
-# settled recurring period is its own history entry, so counts as one.
+# settled recurring period is its own history entry, so counts as one; a
+# cancelled contract's entry has no settlement, so never counts.
 static func completed_contract_count() -> int:
 	var count := 0
 	for entry in GameState.state["sales"]["contractHistory"]:
-		if entry["settlement"].get("complete", false):
+		if entry.get("settlement", {}).get("complete", false):
 			count += 1
 	return count
 
@@ -263,7 +264,7 @@ static func completed_contract_count() -> int:
 static func completed_period_count(template_id: String) -> int:
 	var count := 0
 	for entry in GameState.state["sales"]["contractHistory"]:
-		if entry["settlement"].get("complete", false) and entry["contract"].get("templateId", "") == template_id:
+		if entry.get("settlement", {}).get("complete", false) and entry["contract"].get("templateId", "") == template_id:
 			count += 1
 	return count
 
@@ -303,7 +304,7 @@ static func recurring_proof() -> Dictionary:
 	var contract_ids := {}
 	var crafted := {}
 	for entry in GameState.state["sales"]["contractHistory"]:
-		if not entry["settlement"].get("qualified", false):
+		if not entry.get("settlement", {}).get("qualified", false):
 			continue
 		var contract: Dictionary = entry["contract"]
 		contract_ids[contract["id"]] = true

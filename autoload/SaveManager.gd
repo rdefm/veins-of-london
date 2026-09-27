@@ -494,6 +494,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	for entry in sales.get("contractHistory", []):
 		_restore_contract_int_types(entry.get("contract", {}))
 		_restore_settlement_int_types(entry.get("settlement", {}))
+		_int_key(entry, "cancelledDay")
 	for notification in state.get("notifications", []):
 		_int_key(notification, "day")
 	for bank_entry in state.get("bankLog", []):

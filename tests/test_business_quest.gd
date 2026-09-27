@@ -366,6 +366,27 @@ func run() -> void:
 		assert_true(not _recurring_offer("biz_recurring_life_ore").is_empty())
 	)
 
+	run_case("cancelled_starter_reissues_next_day_same_starter", func():
+		_to_beat_1()
+		EventPlay.play_event(BusinessQuest.PROPOSITION_KIND)
+		var contract: Dictionary = Offers.accept_offer(_starter_offers()[0]["id"])["contract"]
+		assert_true(Contracts.cancel(contract["id"])["ok"])
+		BusinessQuest.maybe_issue_starter()
+		assert_eq(_starter_offer_templates(), [], "not the same day")
+		_tick()
+		assert_eq(_starter_offer_templates(), ["biz_starter_1"], "same starter, not advanced")
+	)
+
+	run_case("cancelled_recurring_contract_reissues_next_day", func():
+		_to_beat_3()
+		var contract: Dictionary = Offers.accept_offer(_recurring_offer("biz_recurring_life_ore")["id"])["contract"]
+		assert_true(Contracts.cancel(contract["id"])["ok"])
+		BusinessQuest.maybe_issue_recurring()
+		assert_true(_recurring_offer("biz_recurring_life_ore").is_empty(), "not the same day")
+		_tick()
+		assert_true(not _recurring_offer("biz_recurring_life_ore").is_empty())
+	)
+
 	run_case("save_already_past_beat_3_gets_the_ore_offers_at_rollover", func():
 		_to_beat_3()
 		# A save from before the ore offers started at Beat 3.

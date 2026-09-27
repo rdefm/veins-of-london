@@ -407,11 +407,16 @@ func _build_sales() -> Control:
 				row.add_child(UI.button("Deliver 1", func(): ContractsSystem.deliver(contract["id"], 1)))
 				row.add_child(UI.button("Deliver all", func(): ContractsSystem.deliver(contract["id"], ContractsSystem.remaining_qty(contract))))
 				box.add_child(row)
+			var summary := "%s · £%d" % [_request_summary(contract["request"]), contract["quote"]["payment"]]
+			box.add_child(UI.button("Cancel contract", func(): Modal.open("contract_cancel", { "contractId": contract["id"], "summary": summary })))
 			c["content"].add_child(card)
 	var history: Array = GameState.state["sales"].get("contractHistory", [])
 	if not history.is_empty():
 		c["content"].add_child(UI.heading("History", 14))
 		for entry in history:
+			if ContractsSystem.is_cancelled(entry):
+				c["content"].add_child(UI.muted_label("%s · cancelled %s" % [entry["contract"]["id"], Calendar.format_day(int(entry["cancelledDay"]))]))
+				continue
 			var settled: Dictionary = entry["settlement"]
 			c["content"].add_child(UI.muted_label("%s · %s · £%d" % [settled["id"], "complete" if settled["complete"] else "partial", settled["payment"]]))
 	return c["panel"]

@@ -6,6 +6,53 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 
 
 func run() -> void:
+	run_case("cancel_one_off_removes_records_and_pays_nothing", func():
+		GameState.reset()
+		var contract := _accept_life_contract()
+		GameState.state["player"]["orichalchum"]["life"] = 2
+		ContractsSystem.deliver(contract["id"], 2)
+		var cash: int = GameState.state["player"]["cash"]
+		assert_true(ContractsSystem.cancel(contract["id"])["ok"])
+		var sales: Dictionary = GameState.state["sales"]
+		assert_true(ContractsSystem.active_contracts().is_empty())
+		assert_true(not sales["priorityOrder"].has(contract["id"]))
+		assert_eq(sales["settlements"].size(), 0, "no settlement")
+		assert_eq(GameState.state["player"]["cash"], cash, "pays nothing")
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 0, "delivered ore not refunded")
+		var entry: Dictionary = sales["contractHistory"].back()
+		assert_true(ContractsSystem.is_cancelled(entry))
+		assert_eq(entry["contract"]["status"], "cancelled")
+		assert_eq(entry["cancelledDay"], GameState.state["world"]["day"])
+		assert_true(not ContractsSystem.cancel(contract["id"])["ok"], "already gone")
+	)
+
+	run_case("cancel_recurring_ends_it_for_good", func():
+		var contract := _proof_contract()
+		_fill_and_settle(contract)
+		assert_true(ContractsSystem.cancel(contract["id"])["ok"])
+		assert_true(ContractsSystem.active_contracts().is_empty())
+		var settled: int = GameState.state["sales"]["settlements"].size()
+		GameState.state["world"]["day"] = int(contract["dueDay"]) + 7
+		ContractsSystem.daily_tick()
+		assert_eq(GameState.state["sales"]["settlements"].size(), settled, "no further periods")
+		assert_true(ContractsSystem.is_cancelled(GameState.state["sales"]["contractHistory"].back()))
+	)
+
+	run_case("cancelled_contracts_count_toward_no_objective", func():
+		var contract := _proof_contract()
+		_fill_and_settle(contract)
+		var before_count := Objectives.completed_contract_count()
+		var before_template := Objectives.completed_period_count(contract["templateId"])
+		var before_proof := Objectives.recurring_proof()
+		ContractsSystem.cancel(contract["id"])
+		var one_off := _accept_life_contract()
+		ContractsSystem.cancel(one_off["id"])
+		assert_eq(Objectives.completed_contract_count(), before_count)
+		assert_eq(Objectives.completed_period_count(contract["templateId"]), before_template)
+		assert_eq(Objectives.completed_period_count(one_off["templateId"]), 0)
+		assert_eq(Objectives.recurring_proof(), before_proof)
+	)
+
 	run_case("unattended_short_first_period_qualifies", func():
 		var contract := _proof_contract()
 		var settlement := _fill_and_settle(contract)

@@ -58,7 +58,7 @@ func run() -> void:
 				"james_job_complete", "sell_menu", "nadia_supply", "sell_vein_quote",
 				"craft_components_menu", "network_reference", "movement_craft", "movement_swap",
 				"dial_load_complication", "combat_setup", "hq_ore_readout", "hq_gym",
-				"lab_bench_recipe_book", "lab_bench_notes", "lab_bench_probe_result", "lab_bench_confirm"]:
+				"lab_bench_recipe_book", "lab_bench_notes", "lab_bench_probe_result", "lab_bench_confirm", "contract_cancel"]:
 			assert_true(ModalRegistry.REGISTRY.has(type_id), "%s is registered" % type_id)
 			assert_true(ModalRegistry.REGISTRY[type_id].has_method("build"), "%s exposes build()" % type_id)
 	)
@@ -491,6 +491,27 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["movementInventory"], [], "the seated Movement should leave movementInventory")
 		assert_eq(GameState.state["modal"], null, "seating from the picker should close the modal")
 
+		layer.free()
+	)
+
+	run_case("contract_cancel_keep_leaves_contract_and_confirm_cancels_it", func():
+		GameState.reset()
+		var created: Dictionary = Offers.create_scripted_offer("scripted_life_order")
+		var contract: Dictionary = Offers.accept_offer(created["offer"]["id"])["contract"]
+		Modal.open("contract_cancel", { "contractId": contract["id"], "summary": "5 Life" })
+		var layer := ModalLayer.new()
+		layer._ready()
+		_find_cost_button(layer, "Keep").pressed.emit()
+		assert_eq(GameState.state["modal"], null, "Keep closes the pop-up")
+		assert_eq(Contracts.active_contracts().size(), 1, "Keep leaves the contract")
+		layer.free()
+
+		Modal.open("contract_cancel", { "contractId": contract["id"], "summary": "5 Life" })
+		layer = ModalLayer.new()
+		layer._ready()
+		_find_cost_button(layer, "Confirm").pressed.emit()
+		assert_eq(GameState.state["modal"], null)
+		assert_true(Contracts.active_contracts().is_empty(), "Confirm cancels it")
 		layer.free()
 	)
 

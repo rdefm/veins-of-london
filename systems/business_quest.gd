@@ -287,7 +287,7 @@ static func _proof_periods() -> Array:
 	var seen := {}
 	for entry in GameState.state["sales"]["contractHistory"]:
 		var contract_id: String = entry["contract"]["id"]
-		if entry["settlement"].get("qualified", false) and not seen.has(contract_id):
+		if entry.get("settlement", {}).get("qualified", false) and not seen.has(contract_id):
 			seen[contract_id] = true
 			firsts.append(entry)
 	for index in firsts.size():

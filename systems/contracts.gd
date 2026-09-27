@@ -233,6 +233,31 @@ static func reorder(contract_id: String, destination_index: int) -> bool:
 	return true
 
 
+# Ends a one-off or recurring contract now: no payment, no refund of ore
+# already delivered. Its history entry carries "cancelledDay" and no
+# "settlement", so no settlement-reading objective counts it. A quest
+# starter/recurring contract is reissued as if its offer were declined.
+static func cancel(contract_id: String) -> Dictionary:
+	var contract := _find_active(contract_id)
+	if contract.is_empty():
+		return { "ok": false, "reason": "Contract not found." }
+	var sales: Dictionary = GameState.state["sales"]
+	active_contracts().erase(contract)
+	sales["priorityOrder"].erase(contract_id)
+	var record := contract.duplicate(true)
+	record["status"] = "cancelled"
+	sales["contractHistory"].append({ "contract": record, "cancelledDay": GameState.state["world"]["day"] })
+	var template_id: String = contract.get("templateId", "")
+	BusinessQuest.note_starter_closed(template_id, false)
+	BusinessQuest.note_recurring_declined(template_id)
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+static func is_cancelled(history_entry: Dictionary) -> bool:
+	return not history_entry.has("settlement")
+
+
 static func daily_tick() -> void:
 	# Iterate a copy: one-off settlement removes entries, recurring settlement
 	# renews its period in place. A filled period was already paid, so its
