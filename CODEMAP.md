@@ -51,7 +51,7 @@ Data file per system: see `data/*.json` below.
 | event_items.gd | Registry of items usable from an event's Item button (Rewind consumable + Dial Rewind): eligibility, counts, effect |
 | events.gd | Event-card runner + rewind, auto-discovers art |
 | factions.gd | Faction joining |
-| home.gd | Home tier/tenure/security/rooms/raid chance; daily bill base (rent or utilities); arrears countdown; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
+| home.gd | Home tier/tenure/security/rooms/raid chance; per-day and weekly bill base (rent or utilities); arrears countdown in days to the Monday rollover; rent/buy/buy-out/downgrade tier moves via shared `change_tier` (room wipe, security loss); per-slot room purchase/replacement (`set_room_use`); daily raid roll, alarm queue/expiry, and alarm-defend win/loss resolution (R§3.8) |
 | jobs.gd | James's jobs, trust bands |
 | lab_bench_nav.gd | Lab bench nav: selected ore; gear confirm variant (probe/craft/inert) + readiness |
 | map_events.gd | Map event queue + playback |
@@ -85,7 +85,7 @@ Data file per system: see `data/*.json` below.
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; every player-facing date string uses `Calendar.format_day`; weekday/Monday helpers for the weekly cadence |
-| time_system.gd | Time blocks (each runs the staff block step), rest, daily tick (tenure-aware home bill, arrears + interest, forced one-tier downgrade per ADR 0006) |
+| time_system.gd | Time blocks (each runs the staff block step), rest, daily tick (Monday-only tenure-aware weekly home bill, weekly arrears clock + interest, forced one-tier downgrade per ADR 0006) |
 | todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire) with active/done/placeholder status + default expansion, "n of N" detail for count objectives, all_of checklist sub-items; Collective section carries the ledger read from state.world.sites |
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer |

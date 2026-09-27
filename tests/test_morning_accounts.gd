@@ -7,15 +7,15 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 func run() -> void:
 	run_case("daily_tick_stores_resulting_day_and_actual_reynards_totals", func():
 		GameState.reset()
-		GameState.state["world"]["day"] = 2
-		GameState.state["player"]["cash"] = 120
+		GameState.state["world"]["day"] = 8
+		GameState.state["player"]["cash"] = 420
 		TimeSystem.daily_tick()
 		var account: Dictionary = MorningAccountsSystem.latest()
-		assert_eq(account["day"], 2)
-		assert_eq(account["openingBalance"], 120)
+		assert_eq(account["day"], 8)
+		assert_eq(account["openingBalance"], 420)
 		assert_eq(account["closingBalance"], 70)
 		assert_eq(account["income"], 0)
-		assert_eq(account["expenses"], 50)
+		assert_eq(account["expenses"], 350)
 	)
 
 	run_case("account_uses_actual_bank_entries_for_income_and_expense", func():
@@ -129,12 +129,12 @@ func run() -> void:
 
 	run_case("expenses_are_arrears_payment_plus_todays_bill_with_no_arrears_exceptions_once_cleared", func():
 		GameState.reset()
-		GameState.state["player"]["cash"] = 200
+		GameState.state["player"]["cash"] = 500
 		GameState.state["home"]["arrears"] = 100
-		GameState.state["home"]["arrearsDays"] = 2
+		GameState.state["home"]["arrearsWeeks"] = 0
 		TimeSystem.daily_tick()
 		var account: Dictionary = MorningAccountsSystem.latest()
-		assert_eq(account["expenses"], 150)
+		assert_eq(account["expenses"], 450)
 		assert_true(account["exceptions"].is_empty())
 	)
 
@@ -145,11 +145,11 @@ func run() -> void:
 		var account: Dictionary = MorningAccountsSystem.latest()
 		assert_eq(account["expenses"], 0)
 		assert_eq(account["exceptions"], [
-			{ "kind": "arrearsShortfall", "amount": 50, "arrears": 50 },
-			{ "kind": "arrearsCountdown", "arrears": 50, "tier": "bedsit", "interestInDays": 5 },
+			{ "kind": "arrearsShortfall", "amount": 350, "arrears": 350 },
+			{ "kind": "arrearsCountdown", "arrears": 350, "tier": "bedsit", "interestInDays": 7 },
 		])
 		assert_true(MorningAccountsSystem.has_operations(account))
-		assert_eq(MorningAccountsSystem.arrears_label(account["exceptions"][1]), "Interest starts in 5 days.")
+		assert_eq(MorningAccountsSystem.arrears_label(account["exceptions"][1]), "Interest starts in 7 days.")
 	)
 
 	run_case("forced_downgrade_records_interest_shortfall_move_and_kept_arrears", func():
@@ -157,19 +157,19 @@ func run() -> void:
 		GameState.state["home"]["tier"] = "flat"
 		GameState.state["home"]["rooms"] = ["lab"]
 		GameState.state["home"]["arrears"] = 400
-		GameState.state["home"]["arrearsDays"] = 9
+		GameState.state["home"]["arrearsWeeks"] = 1
 		GameState.state["player"]["cash"] = 0
-		GameState.state["world"]["day"] = 6
+		GameState.state["world"]["day"] = 8
 		TimeSystem.daily_tick()
 		var account: Dictionary = MorningAccountsSystem.latest()
 		assert_eq(account["exceptions"], [
 			{ "kind": "arrearsInterest", "amount": 20 },
-			{ "kind": "arrearsShortfall", "amount": 80, "arrears": 500 },
-			{ "kind": "forcedDowngrade", "fromTier": "flat", "toTier": "studio", "roomsLost": 1, "arrearsCleared": false, "arrears": 500 },
-			{ "kind": "arrearsCountdown", "arrears": 500, "tier": "studio", "interestInDays": 6, "downgradeInDays": 10 },
+			{ "kind": "arrearsShortfall", "amount": 560, "arrears": 980 },
+			{ "kind": "forcedDowngrade", "fromTier": "flat", "toTier": "studio", "roomsLost": 1, "arrearsCleared": false, "arrears": 980 },
+			{ "kind": "arrearsCountdown", "arrears": 980, "tier": "studio", "interestInDays": 14, "downgradeInDays": 14 },
 		])
-		assert_eq(MorningAccountsSystem.arrears_label(account["exceptions"][2]), "Exception: lost the Flat for unpaid bills. Renting the Studio now. 1 room gone. Still owed £500.")
-		assert_true(MorningAccountsSystem.open_after_transition(6), "an arrears account auto-opens like any other")
+		assert_eq(MorningAccountsSystem.arrears_label(account["exceptions"][2]), "Exception: lost the Flat for unpaid bills. Renting the Studio now. 1 room gone. Still owed £980.")
+		assert_true(MorningAccountsSystem.open_after_transition(8), "an arrears account auto-opens like any other")
 		assert_eq(GameState.state["phoneNav"]["app"], "bizbrief")
 
 		var saved := SaveManager.export_string()
@@ -184,7 +184,7 @@ func run() -> void:
 		GameState.state["home"]["tier"] = "flat"
 		GameState.state["home"]["tenure"] = "owned"
 		GameState.state["home"]["arrears"] = 603
-		GameState.state["home"]["arrearsDays"] = 9
+		GameState.state["home"]["arrearsWeeks"] = 1
 		GameState.state["player"]["cash"] = 0
 		TimeSystem.daily_tick()
 		var exceptions: Array = MorningAccountsSystem.latest()["exceptions"]
@@ -193,17 +193,23 @@ func run() -> void:
 		assert_true(MorningAccountsSystem.arrears_label(exceptions[-1]).ends_with("The debt went with it."))
 	)
 
-	run_case("countdown_names_the_next_interest_and_downgrade_rollovers", func():
+	run_case("countdown_names_the_days_to_the_monday_interest_and_downgrade_rollovers", func():
 		GameState.reset()
 		assert_eq(Home.arrears_countdown(), {})
 		GameState.state["home"]["tier"] = "flat"
 		GameState.state["home"]["arrears"] = 240
-		GameState.state["home"]["arrearsDays"] = 4
+		GameState.state["home"]["arrearsWeeks"] = 0
+		GameState.state["world"]["day"] = 3  # WED: the next Monday rollover is day 8
 		var countdown := Home.arrears_countdown()
-		assert_eq(countdown, { "arrears": 240, "tier": "flat", "interestInDays": 2, "downgradeInDays": 6 })
-		assert_eq(MorningAccountsSystem.countdown_lines(countdown), ["Interest starts in 2 days.", "Lose the Flat in 6 days."])
-		GameState.state["home"]["arrearsDays"] = 9
-		assert_eq(MorningAccountsSystem.countdown_lines(Home.arrears_countdown()), ["Interest compounds daily.", "Lose the Flat tomorrow."])
+		assert_eq(countdown, { "arrears": 240, "tier": "flat", "interestInDays": 12, "downgradeInDays": 12 })
+		assert_eq(MorningAccountsSystem.countdown_lines(countdown), ["Interest starts in 12 days.", "Lose the Flat in 12 days."])
+		GameState.state["home"]["arrearsWeeks"] = 1
+		GameState.state["world"]["day"] = 7  # SUN
+		assert_eq(MorningAccountsSystem.countdown_lines(Home.arrears_countdown()), ["Interest starts tomorrow.", "Lose the Flat tomorrow."])
+		GameState.state["world"]["day"] = 8  # MON, just billed: a full week to the next
+		assert_eq(Home.arrears_countdown()["downgradeInDays"], 7)
+		GameState.state["home"]["arrearsWeeks"] = 2
+		assert_eq(MorningAccountsSystem.countdown_lines(Home.arrears_countdown()), ["Interest compounds weekly.", "Lose the Flat in 7 days."])
 	)
 
 	run_case("an_account_saved_before_arrears_exceptions_still_loads", func():

@@ -5028,9 +5028,9 @@
 "GUARD_REPEL_CHANCE_CAP": 0.75,
 "GUARD_REPEL_CHANCE_PER_GUARD": 0.15,
 "HOME_BILLS": {
-"downgradeThresholdDays": 10,
+"downgradeThresholdWeeks": 2,
 "interestRate": 0.05,
-"interestThresholdDays": 5
+"interestThresholdWeeks": 1
 },
 "HOME_ROOMS": {
 "homeGym": {

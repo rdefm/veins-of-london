@@ -80,7 +80,7 @@ static func daily_tick() -> void:
 	MorningAccountsSystem.capture_job_expiry(morning_context)
 	Jobs.roll_daily_offer()              # ②c
 	ArchieDeals.roll_daily_offer()       # ②d
-	var bill_result: Dictionary = _apply_living_costs()  # ③ living costs
+	var bill_result: Dictionary = _apply_living_costs()  # ③ living costs, Mondays only
 	MorningAccountsSystem.capture_bills(morning_context, bill_result)
 	_apply_healing_salve_tick()          # ③b Healing Salve HoT, right after living costs
 	_apply_passive_regen()               # ③c stacks with the Salve HoT rather than replacing it
@@ -129,21 +129,25 @@ static func daily_tick() -> void:
 	SaveManager.autosave()               # R§6: autosave on every daily tick
 
 
-# Home bill per ADR 0006 "Daily ordering": interest on carried arrears, pay
-# arrears, pay today's bill (rent if rented, utilities if owned, barometer-
-# scaled), shortfall into arrears, advance the clock, then the forced
-# downgrade check. Cash never goes negative. Returns what happened for the
-# morning account: { interest, shortfall, arrears, downgrade } (downgrade is
-# {} unless one fired).
+# Home bill per ADR 0006 "Weekly ordering": on the rollover into a Monday
+# only -- interest on carried arrears, pay arrears, pay the week's bill
+# (Home.weekly_bill_base(), barometer-scaled), shortfall into arrears,
+# advance the week clock, then the forced downgrade check. Cash never goes
+# negative. Returns what happened for the morning account: { interest,
+# shortfall, arrears, downgrade } (downgrade is {} unless one fired); on any
+# other rollover nothing is charged and only the carried arrears come back.
 #
 # PROSE-REVIEW: the arrears and repossession lines below.
 static func _apply_living_costs() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	var home: Dictionary = GameState.state["home"]
 	var bills: Dictionary = GameData.HOME_BILLS
+	var day: int = GameState.state["world"]["day"]
+	if not Calendar.is_monday(day):
+		return { "interest": 0, "shortfall": 0, "arrears": home["arrears"], "downgrade": {} }
 
 	var interest := 0
-	if home["arrears"] > 0 and home["arrearsDays"] >= int(bills["interestThresholdDays"]):
+	if home["arrears"] > 0 and home["arrearsWeeks"] >= int(bills["interestThresholdWeeks"]):
 		interest = GameState.round_epsilon(home["arrears"] * bills["interestRate"])
 		home["arrears"] += interest
 
@@ -154,23 +158,23 @@ static func _apply_living_costs() -> Dictionary:
 		Bank.record(-arrears_paid, "Arrears")
 
 	var fx: Dictionary = Barometer.get_merged_effects()
-	var bill: int = GameState.round_epsilon(Home.current_bill_base() * (1.0 + fx.get("dailyCost", 0.0)))
+	var bill: int = GameState.round_epsilon(Home.weekly_bill_base() * (1.0 + fx.get("dailyCost", 0.0)))
 	var bill_paid: int = mini(player["cash"], bill)
 	player["cash"] -= bill_paid
 	if bill_paid > 0:
-		Bank.record(-bill_paid, "Living costs")
+		Bank.record(-bill_paid, "Weekly living costs")
 	var shortfall: int = bill - bill_paid
 	home["arrears"] += shortfall
 
 	if home["arrears"] == 0:
-		home["arrearsDays"] = 0
+		home["arrearsWeeks"] = 0
 	else:
-		home["arrearsDays"] += 1
+		home["arrearsWeeks"] += 1
 
-	var date: String = Calendar.format_day(GameState.state["world"]["day"])
-	var text := "%s: -£%d living costs." % [date, bill_paid]
+	var date: String = Calendar.format_day(day)
+	var text := "%s: -£%d weekly living costs." % [date, bill_paid]
 	if arrears_paid > 0:
-		text = "%s: -£%d living costs, -£%d off arrears." % [date, bill_paid, arrears_paid]
+		text = "%s: -£%d weekly living costs, -£%d off arrears." % [date, bill_paid, arrears_paid]
 	var category := Notify.CATEGORY_INFO
 	if interest > 0:
 		text += " £%d interest added." % interest
@@ -187,7 +191,7 @@ static func _apply_living_costs() -> Dictionary:
 
 	var arrears_after_bill: int = home["arrears"]
 	var downgrade := {}
-	if home["arrearsDays"] >= int(bills["downgradeThresholdDays"]):
+	if home["arrearsWeeks"] >= int(bills["downgradeThresholdWeeks"]):
 		downgrade = _force_downgrade()
 	return { "interest": interest, "shortfall": shortfall, "arrears": arrears_after_bill, "downgrade": downgrade }
 
@@ -207,7 +211,7 @@ static func _force_downgrade() -> Dictionary:
 	var result: Dictionary = Home.change_tier(prev_tier_id, Home.TENURE_RENTED)
 	if was_owned:
 		home["arrears"] = 0
-	home["arrearsDays"] = 0
+	home["arrearsWeeks"] = 0
 
 	var text := "The %s's gone for unpaid bills. You're in a rented %s now." % [lost_tier_name, GameData.HOME_TIERS[prev_tier_id]["name"]]
 	if not result["roomsLost"].is_empty():

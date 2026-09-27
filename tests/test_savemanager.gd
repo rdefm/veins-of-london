@@ -171,6 +171,18 @@ func run() -> void:
 		assert_eq(GameState.state["sales"]["activeContracts"][0]["dueDay"], 15, "a Monday due day is left alone")
 	)
 
+	run_case("old_save_arrears_day_clock_migrates_to_whole_weeks", func():
+		GameState.reset()
+		GameState.state["home"]["arrears"] = 300
+		GameState.state["home"].erase("arrearsWeeks")
+		GameState.state["home"]["arrearsDays"] = 9
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		var home: Dictionary = GameState.state["home"]
+		assert_eq(home["arrearsWeeks"], 2, "9 days rounds up to 2 weeks")
+		assert_eq(typeof(home["arrearsWeeks"]), TYPE_INT)
+		assert_true(not home.has("arrearsDays"), "the day clock is dropped")
+	)
+
 	run_case("payroll_hires_round_trip_with_int_day", func():
 		GameState.reset()
 		GameState.state["world"]["day"] = 5
@@ -580,20 +592,20 @@ func run() -> void:
 		assert_eq(home["tier"], "bedsit", "new game tier")
 		assert_eq(home["tenure"], "rented", "new game tenure")
 		assert_eq(home["arrears"], 0, "new game arrears")
-		assert_eq(home["arrearsDays"], 0, "new game arrearsDays")
+		assert_eq(home["arrearsWeeks"], 0, "new game arrearsWeeks")
 	)
 
 	run_case("loading_a_pre_tenure_save_owns_its_tier_or_rents_the_bedsit", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)
-		for key in ["tenure", "arrears", "arrearsDays"]:
+		for key in ["tenure", "arrears", "arrearsWeeks"]:
 			legacy["home"].erase(key)
 		legacy["home"]["tier"] = "townhouse"
 
 		var filled := SaveManager.backfill_defaults(legacy)
 		assert_eq(filled["home"]["tenure"], "owned", "a pre-tenure townhouse save loads as owned")
 		assert_eq(filled["home"]["arrears"], 0, "arrears backfills to 0")
-		assert_eq(filled["home"]["arrearsDays"], 0, "arrearsDays backfills to 0")
+		assert_eq(filled["home"]["arrearsWeeks"], 0, "arrearsWeeks backfills to 0")
 		assert_eq(SaveManager.backfill_defaults(filled), filled, "re-migrating a migrated save is idempotent")
 
 		legacy["home"]["tier"] = "bedsit"
@@ -605,7 +617,7 @@ func run() -> void:
 		GameState.state["home"]["tier"] = "flat"
 		GameState.state["home"]["tenure"] = "owned"
 		GameState.state["home"]["arrears"] = 120
-		GameState.state["home"]["arrearsDays"] = 3
+		GameState.state["home"]["arrearsWeeks"] = 3
 		var original: Dictionary = GameState.deep_copy(GameState.state)
 
 		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"], "save_to_slot should succeed")
@@ -613,7 +625,7 @@ func run() -> void:
 		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"], "load_from_slot should succeed")
 
 		assert_eq(typeof(GameState.state["home"]["arrears"]), TYPE_INT, "arrears restored as int")
-		assert_eq(typeof(GameState.state["home"]["arrearsDays"]), TYPE_INT, "arrearsDays restored as int")
+		assert_eq(typeof(GameState.state["home"]["arrearsWeeks"]), TYPE_INT, "arrearsWeeks restored as int")
 		assert_eq(GameState.state, original, "home tenure/arrears round-trip exactly")
 
 		SaveManager.delete_slot(TEST_SLOT)

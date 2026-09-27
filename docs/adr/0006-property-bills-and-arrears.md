@@ -50,6 +50,9 @@ From the studio upward each tier can be rented or bought.
 
 ## Daily ordering (replaces §3.1 step ③; payroll ⑥ unchanged)
 
+Now runs weekly with the clock in weeks: see "Follow-up decision
+(2026-09-27): weekly bill" below.
+
 1. **Interest.** If `arrears > 0` and `arrearsDays ≥ 5`: `arrears +=
    round_epsilon(arrears × 0.05)`, compounding. It first applies on the 6th
    consecutive rollover in arrears.
@@ -160,3 +163,33 @@ drop it to the bedsit, which has no further drops.
   still needs the full `buyPrice` in cash; the bedsit still can't be bought.
   The same room wipe and security/guard losses apply. The forced downgrade
   is unchanged: one tier.
+
+## Follow-up decision (2026-09-27): weekly bill ("Weekly ordering")
+
+Supersedes the cadence of "Daily ordering" above; the step order is kept.
+
+- **Monday only.** The home bill runs on the rollover into a Monday and on
+  no other rollover. The week's bill = `round_epsilon(base × 7 × (1 +
+  fx.dailyCost))` (`Home.weekly_bill_base()`); `dailyCost` /
+  `ownedDailyCost` stay per-day in `data/home.json`. Bank label and
+  notification: "Weekly living costs".
+- **Week clock.** `home.arrearsDays` becomes `home.arrearsWeeks`: +1 at each
+  Monday bill that leaves arrears, 0 once arrears are cleared. Thresholds
+  move to weeks: `interestThresholdWeeks` 1, `downgradeThresholdWeeks` 2.
+  Interest (`interestRate` 0.05, unchanged) is charged per Monday.
+- **Why 1 and 2.** Arrears can only change on a Monday, so a downgrade can
+  only land on one. Under the daily rules a flat was lost 9 days after the
+  first missed bill (interest from day 5). Two missed weeks loses it 7 days
+  after the first missed bill (the nearest Monday to 9; three weeks would
+  be 14) with one interest charge on the way. After a forced downgrade the
+  clock restarts at 0, so the next drop needs two further missed Mondays
+  (14 days, was 10).
+- **Countdown.** `Home.arrears_countdown()` still reports days: the days to
+  the Monday rollover where interest starts or the downgrade fires.
+  `interestInDays` is absent once interest has been charged.
+- **Migration.** Old saves: `arrearsWeeks = ceil(arrearsDays / 7)`.
+
+Worked example, rented flat, cash 0 every Monday: MON 1 → arrears 560,
+weeks 1; MON 8 → interest 28, arrears 1148, weeks 2 → rented studio, debt
+kept, weeks 0. Owned flat: 406, then 20 + 406 = 832 → rented studio, debt
+cleared.

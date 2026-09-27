@@ -1,6 +1,6 @@
 {
   "tierOrder": ["bedsit", "studio", "flat", "townhouse", "safehouse", "compound", "mansion"],
-  "bills": { "interestRate": 0.05, "interestThresholdDays": 5, "downgradeThresholdDays": 10 },
+  "bills": { "interestRate": 0.05, "interestThresholdWeeks": 1, "downgradeThresholdWeeks": 2 },
   "tiers": {
     "bedsit": {
       "id": "bedsit", "name": "Bedsit", "tier": 1, "image": "res://assets/hq/bedsit_external.png",

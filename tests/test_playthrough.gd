@@ -1018,6 +1018,13 @@ func run() -> void:
 
 		# ── Phase 2: T10 then T11, a day apart ──
 		var hakim_vein_id: String = GameState.state["collective"]["hakimVeinId"]
+		var hakim_before: Variant = null
+		for site in Sites.sites_with_faction_vein("collective"):
+			if site["factionVein"]["id"] == hakim_vein_id:
+				hakim_before = site["factionVein"]
+		assert_true(hakim_before != null, "pre-T10: the Collective still holds Hakim's vein")
+		if hakim_before != null:
+			hakim_before["growth"] = 50  # neutral: no drift, no collapse roll on T10's tick
 		_daily_tick_and_settle()
 		assert_true(GameState.state["flags"]["colA2HakimVeinLost"])
 		var hakim_site: Variant = null

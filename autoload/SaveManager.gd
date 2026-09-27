@@ -135,8 +135,14 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 
 
 # R§3.10 "Weekly cadence": every offer's weekday is Monday, and an active
-# recurring contract due on another weekday moves to the next Monday.
+# recurring contract due on another weekday moves to the next Monday. The
+# home arrears clock counts weeks (ADR 0006 "Weekly ordering"): a day count
+# rounds up to whole weeks.
 func _migrate_weekly_cadence(state: Dictionary) -> void:
+	var home: Dictionary = state.get("home", {})
+	if home.has("arrearsDays"):
+		home["arrearsWeeks"] = ceili(float(home["arrearsDays"]) / float(Calendar.days_per_week()))
+		home.erase("arrearsDays")
 	var payroll: Dictionary = state.get("payroll", {})
 	if not payroll.has("hires"):
 		payroll["hires"] = {}
@@ -648,7 +654,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		_int_key(home, "lastRaidDay")
 		_int_key(home, "guardCount")
 		_int_key(home, "arrears")
-		_int_key(home, "arrearsDays")
+		_int_key(home, "arrearsWeeks")
 
 	if state.has("mapView"):
 		var map_view: Dictionary = state["mapView"]

@@ -144,7 +144,7 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["day"], 2)
 		assert_eq(GameState.state["world"]["timeBlock"], 0)
 		assert_eq(GameState.state["player"]["combatXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION)
-		assert_eq(GameState.state["player"]["cash"], 450)
+		assert_eq(GameState.state["player"]["cash"], 500, "TUE rollover: no living costs")
 		layer.free()
 	)
 

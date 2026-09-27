@@ -178,24 +178,37 @@ static func current_bill_base() -> int:
 	return bill_base_for(home["tier"], home["tenure"])
 
 
-# Rollovers left before each arrears consequence (ADR 0006 "Daily ordering"),
-# read from live state. Empty when not in arrears. "interestInDays" is absent
-# once interest already compounds; "downgradeInDays" is absent at the bedsit.
+# The week's bill before barometer scaling: the per-day base × days per week.
+static func weekly_bill_base() -> int:
+	return current_bill_base() * Calendar.days_per_week()
+
+
+# Days left before each arrears consequence (ADR 0006 "Weekly ordering"),
+# read from live state; both land on a Monday rollover. Empty when not in
+# arrears. "interestInDays" is absent once interest has been charged;
+# "downgradeInDays" is absent at the bedsit.
 static func arrears_countdown() -> Dictionary:
 	var home: Dictionary = GameState.state["home"]
 	if home["arrears"] <= 0:
 		return {}
 	var bills: Dictionary = GameData.HOME_BILLS
-	var days: int = home["arrearsDays"]
+	var weeks: int = home["arrearsWeeks"]
 	var result := { "arrears": home["arrears"], "tier": home["tier"] }
-	var interest_threshold := int(bills["interestThresholdDays"])
-	# Interest applies at a rollover that starts with arrearsDays ≥ threshold.
-	if days < interest_threshold:
-		result["interestInDays"] = interest_threshold + 1 - days
-	# The downgrade fires at the rollover that brings arrearsDays to its threshold.
+	var interest_threshold := int(bills["interestThresholdWeeks"])
+	# Interest applies at a Monday rollover that starts with arrearsWeeks ≥
+	# threshold, so it has been charged once arrearsWeeks passes the threshold.
+	if weeks <= interest_threshold:
+		result["interestInDays"] = _days_to_monday_rollover(interest_threshold + 1 - weeks)
+	# The downgrade fires at the Monday rollover that brings arrearsWeeks to its threshold.
 	if get_prev_tier_id(home["tier"]) != "":
-		result["downgradeInDays"] = int(bills["downgradeThresholdDays"]) - days
+		result["downgradeInDays"] = _days_to_monday_rollover(maxi(1, int(bills["downgradeThresholdWeeks"]) - weeks))
 	return result
+
+
+# Days from today until the nth upcoming Monday rollover (n ≥ 1).
+static func _days_to_monday_rollover(n: int) -> int:
+	var day: int = GameState.state["world"]["day"]
+	return Calendar.next_weekday_after(day, 0) - day + Calendar.days_per_week() * (n - 1)
 
 
 # Returns the next tier up the ladder, "" at the top tier.

@@ -745,7 +745,7 @@ func _validate_home(tier_order: Array, tiers: Dictionary, security: Dictionary, 
 
 # ADR 0006: the bedsit is rent-only; every other tier has a positive buy price.
 func _validate_home_bills(bills: Dictionary, tiers: Dictionary, errors: Array[String]) -> void:
-	_require_keys(bills, ["interestRate", "interestThresholdDays", "downgradeThresholdDays"], "home.bills", errors)
+	_require_keys(bills, ["interestRate", "interestThresholdWeeks", "downgradeThresholdWeeks"], "home.bills", errors)
 	for key in bills.keys():
 		var v = bills[key]
 		if (typeof(v) != TYPE_INT and typeof(v) != TYPE_FLOAT) or v < 0:

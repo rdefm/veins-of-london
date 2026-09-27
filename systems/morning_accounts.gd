@@ -176,7 +176,7 @@ static func countdown_lines(countdown: Dictionary) -> Array[String]:
 	if countdown.has("interestInDays"):
 		lines.append("Interest starts %s." % _days_phrase(countdown["interestInDays"]))
 	else:
-		lines.append("Interest compounds daily.")
+		lines.append("Interest compounds weekly.")
 	if countdown.has("downgradeInDays"):
 		lines.append("Lose the %s %s." % [GameData.HOME_TIERS[countdown["tier"]]["name"], _days_phrase(countdown["downgradeInDays"])])
 	return lines

@@ -35,12 +35,12 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["des"]["recruited"] = true
 		Contacts.assign_to_room("des", "ops")
-		GameState.state["player"]["cash"] = 1000
+		GameState.state["player"]["cash"] = 1500
 		TimeSystem.daily_tick()
-		# Day 1 (MON), stable barometer: living cost 50, then the ops weekly wage (skill 1 -> £700).
-		assert_eq(GameState.state["player"]["cash"], 1000 - 50 - 700, "living costs then wage should both be deducted")
+		# Day 1 (MON), stable barometer: weekly living cost 350, then the ops weekly wage (skill 1 -> £700).
+		assert_eq(GameState.state["player"]["cash"], 1500 - 350 - 700, "living costs then wage should both be deducted")
 		var log: Array = GameState.state["bankLog"]
-		assert_eq(log[0]["label"], "Living costs", "living costs should be recorded first")
+		assert_eq(log[0]["label"], "Weekly living costs", "living costs should be recorded first")
 		assert_eq(log[1]["label"], "Wages: Des", "the wage should be recorded right after living costs")
 		assert_eq(log[1]["amount"], -700)
 	)
@@ -50,16 +50,16 @@ func run() -> void:
 		GameState.state["contacts"]["des"]["recruited"] = true
 		Contacts.assign_to_room("des", "ops")
 		GameState.state["home"]["arrears"] = 400
-		GameState.state["home"]["arrearsDays"] = 5
-		GameState.state["player"]["cash"] = 1200
+		GameState.state["home"]["arrearsWeeks"] = 1
+		GameState.state["player"]["cash"] = 1500
 		TimeSystem.daily_tick()
-		# ADR 0006 recovery: interest 20, pays 420 arrears + 50 bill -> 730, then the ops wage 700.
+		# ADR 0006 recovery: interest 20, pays 420 arrears + 350 bill -> 770, then the ops wage 700.
 		assert_eq(GameState.state["home"]["arrears"], 0)
 		assert_eq(GameState.state["player"]["cash"], 30)
 		var log: Array = GameState.state["bankLog"]
 		assert_eq(log[0]["label"], "Arrears")
 		assert_eq(log[0]["amount"], -420)
-		assert_eq(log[1]["label"], "Living costs")
+		assert_eq(log[1]["label"], "Weekly living costs")
 		assert_eq(log[2]["label"], "Wages: Des")
 	)
 
@@ -71,9 +71,9 @@ func run() -> void:
 		Contacts.assign_to_room("nadia", "veinStation")
 		GameState.state["contacts"]["hakim"]["recruited"] = true
 		Contacts.assign_to_room("hakim", "ops")
-		# Living cost 50 + lab 700 + veinStation 700 = 1450, exactly covered;
+		# Living cost 350 + lab 700 + veinStation 700 = 1750, exactly covered;
 		# nothing left over for the ops wage (700).
-		GameState.state["player"]["cash"] = 1450
+		GameState.state["player"]["cash"] = 1750
 		TimeSystem.daily_tick()
 
 		assert_eq(GameState.state["player"]["cash"], 0, "the two affordable wages should be paid, ops skipped -- no partial charge")
@@ -98,7 +98,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["hakim"]["recruited"] = true
 		Contacts.assign_to_room("hakim", "ops")
-		GameState.state["player"]["cash"] = 50  # exactly living costs, nothing for the £700 wage
+		GameState.state["player"]["cash"] = 350  # exactly living costs, nothing for the £700 wage
 		TimeSystem.daily_tick()
 		assert_eq(GameState.state["player"]["cash"], 0)
 		assert_true(not GameState.state["payroll"]["paidToday"]["ops"], "unpaid on MON day 1")
@@ -108,13 +108,13 @@ func run() -> void:
 			GameState.state["world"]["day"] = day
 			TimeSystem.daily_tick()
 			assert_true(not PayrollSystem.is_paid_this_week("ops"), "still unpaid mid-week (day %d)" % day)
-		assert_eq(GameState.state["player"]["cash"], 2000 - 6 * 50, "mid-week rollovers charge living costs only")
+		assert_eq(GameState.state["player"]["cash"], 2000, "mid-week rollovers charge nothing")
 
 		GameState.state["world"]["day"] = 8
 		var before: int = GameState.state["player"]["cash"]
 		TimeSystem.daily_tick()
-		# MON day 8: living cost 50, then the ops weekly wage 700 -- no carried-over debt.
-		assert_eq(GameState.state["player"]["cash"], before - 50 - 700, "the wage should be retried fresh, not doubled up as a debt")
+		# MON day 8: living cost 350, then the ops weekly wage 700 -- no carried-over debt.
+		assert_eq(GameState.state["player"]["cash"], before - 350 - 700, "the wage should be retried fresh, not doubled up as a debt")
 		assert_true(GameState.state["payroll"]["paidToday"]["ops"], "paid on the Monday retry")
 	)
 

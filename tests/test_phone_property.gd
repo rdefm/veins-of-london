@@ -35,12 +35,12 @@ func run() -> void:
 		phone.free()
 
 		GameState.state["home"]["arrears"] = 320
-		GameState.state["home"]["arrearsDays"] = 5
+		GameState.state["home"]["arrearsWeeks"] = 1
 		var before: Dictionary = GameState.deep_copy(GameState.state)
 		phone = PhoneScreen.new()
 		phone._ready()
 		var texts := NodeQuery.label_texts(phone)
-		for expected in ["Arrears: £320", "Interest compounds daily.", "Lose the Flat in 5 days."]:
+		for expected in ["Arrears: £320", "Interest starts in 7 days.", "Lose the Flat in 7 days."]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 		assert_eq(GameState.state["home"], before["home"], "rendering only reads state")
 		phone.free()

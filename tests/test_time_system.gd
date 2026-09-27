@@ -74,11 +74,29 @@ func run() -> void:
 
 	run_case("rest_rolls_to_next_day_and_runs_daily_tick", func():
 		GameState.reset()
-		var start_day: int = GameState.state["world"]["day"]
+		GameState.state["world"]["day"] = 7  # SUN, so the rest rolls into MON
 		var start_cash: int = GameState.state["player"]["cash"]
 		TimeSystem.do_rest()
-		assert_eq(GameState.state["world"]["day"], start_day + 1, "rest advances the day")
-		assert_true(GameState.state["player"]["cash"] < start_cash, "daily_tick's living costs should have run")
+		assert_eq(GameState.state["world"]["day"], 8, "rest advances the day")
+		assert_true(GameState.state["player"]["cash"] < start_cash, "daily_tick's Monday living costs should have run")
+	)
+
+	run_case("living_costs_charge_only_on_the_rollover_into_monday", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		var charged_days: Array = []
+		for day in range(2, 16):
+			GameState.state["world"]["day"] = day
+			var before: int = GameState.state["player"]["cash"]
+			var result: Dictionary = TimeSystem._apply_living_costs()
+			if GameState.state["player"]["cash"] != before:
+				charged_days.append(day)
+				assert_eq(before - GameState.state["player"]["cash"], 350, "one weekly bill: 7 × the bedsit's 50")
+			else:
+				assert_eq(result, { "interest": 0, "shortfall": 0, "arrears": 0, "downgrade": {} }, "day %d: nothing happens" % day)
+		assert_eq(charged_days, [8, 15], "only MON day 8 and MON day 15 charge")
+		var labels: Array = GameState.state["bankLog"].map(func(e: Dictionary) -> String: return e["label"])
+		assert_eq(labels, ["Weekly living costs", "Weekly living costs"])
 	)
 
 	run_case("daily_cost_applies_inflation_multiplier", func():
@@ -88,50 +106,50 @@ func run() -> void:
 		GameState.state["barometer"]["economic"] = "inflation"
 		GameState.state["player"]["cash"] = 1000
 		TimeSystem.daily_tick()
-		# rented bedsit bill = round(50 * (1 + 0.30)) = 65
-		assert_eq(GameState.state["player"]["cash"], 1000 - 65, "inflation's +0.30 dailyCost should apply")
+		# Day 1 is MON: rented bedsit weekly bill = round(350 * (1 + 0.30)) = 455
+		assert_eq(GameState.state["player"]["cash"], 1000 - 455, "inflation's +0.30 dailyCost should apply")
 
 		var bank_log: Array = GameState.state["bankLog"]
 		assert_eq(bank_log.size(), 1, "living costs record one bank transaction")
-		assert_eq(bank_log[0]["amount"], -65, "the recorded amount matches the inflation-adjusted daily cost")
-		assert_eq(bank_log[0]["label"], "Living costs", "the recorded label names the deduction")
+		assert_eq(bank_log[0]["amount"], -455, "the recorded amount matches the inflation-adjusted weekly cost")
+		assert_eq(bank_log[0]["label"], "Weekly living costs", "the recorded label names the deduction")
 	)
 
-	run_case("daily_bill_charges_rent_when_rented", func():
+	run_case("weekly_bill_charges_rent_when_rented", func():
 		GameState.reset()
 		GameState.state["home"]["tier"] = "flat"
 		GameState.state["home"]["tenure"] = "rented"
-		GameState.state["player"]["cash"] = 500
+		GameState.state["player"]["cash"] = 1000
 		TimeSystem._apply_living_costs()
-		assert_eq(GameState.state["player"]["cash"], 420, "rented flat pays rent 80")
+		assert_eq(GameState.state["player"]["cash"], 440, "rented flat pays rent 7 × 80")
 	)
 
-	run_case("daily_bill_charges_utilities_when_owned", func():
+	run_case("weekly_bill_charges_utilities_when_owned", func():
 		GameState.reset()
 		GameState.state["home"]["tier"] = "townhouse"
 		GameState.state["home"]["tenure"] = "owned"
-		GameState.state["player"]["cash"] = 500
+		GameState.state["player"]["cash"] = 1000
 		TimeSystem._apply_living_costs()
-		assert_eq(GameState.state["player"]["cash"], 435, "owned townhouse pays its ownedDailyCost 65")
+		assert_eq(GameState.state["player"]["cash"], 545, "owned townhouse pays 7 × its ownedDailyCost 65")
 	)
 
-	run_case("daily_bill_rent_scales_with_inflation", func():
+	run_case("weekly_bill_rent_scales_with_inflation", func():
 		GameState.reset()
 		GameState.state["barometer"]["economic"] = "inflation"
 		GameState.state["home"]["tier"] = "flat"
 		GameState.state["home"]["tenure"] = "rented"
-		GameState.state["player"]["cash"] = 500
+		GameState.state["player"]["cash"] = 1000
 		TimeSystem._apply_living_costs()
-		assert_eq(GameState.state["player"]["cash"], 396, "rented flat under inflation pays round(80 × 1.3) = 104")
+		assert_eq(GameState.state["player"]["cash"], 272, "rented flat under inflation pays round(560 × 1.3) = 728")
 	)
 
-	run_case("daily_bill_notification_states_the_amount_actually_paid", func():
+	run_case("weekly_bill_notification_states_the_amount_actually_paid", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 30
 		TimeSystem._apply_living_costs()
 		var last: Dictionary = GameState.state["notifications"][GameState.state["notifications"].size() - 1]
-		assert_true(last["text"].contains("-£30 living costs"), "notification shows the 30 paid, not the nominal 50: %s" % last["text"])
-		assert_true(last["text"].contains("£20 short"), "notification states the shortfall: %s" % last["text"])
+		assert_true(last["text"].contains("-£30 weekly living costs"), "notification shows the 30 paid, not the nominal 350: %s" % last["text"])
+		assert_true(last["text"].contains("£320 short"), "notification states the shortfall: %s" % last["text"])
 		assert_eq(last["category"], Notify.CATEGORY_WARNING)
 	)
 
@@ -139,8 +157,8 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["cash"] = 0
 		TimeSystem._apply_living_costs()
-		assert_eq(GameState.state["home"]["arrears"], 50)
-		assert_eq(GameState.state["home"]["arrearsDays"], 1)
+		assert_eq(GameState.state["home"]["arrears"], 350)
+		assert_eq(GameState.state["home"]["arrearsWeeks"], 1)
 		assert_eq(GameState.state["player"]["cash"], 0)
 	)
 
@@ -149,97 +167,96 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 30
 		TimeSystem._apply_living_costs()
 		assert_eq(GameState.state["player"]["cash"], 0)
-		assert_eq(GameState.state["home"]["arrears"], 20)
-		assert_eq(GameState.state["home"]["arrearsDays"], 1)
+		assert_eq(GameState.state["home"]["arrears"], 320)
+		assert_eq(GameState.state["home"]["arrearsWeeks"], 1)
 	)
 
 	run_case("arrears_partial_payment_does_not_reset_the_clock", func():
 		GameState.reset()
 		GameState.state["home"]["arrears"] = 100
-		GameState.state["home"]["arrearsDays"] = 3
+		GameState.state["home"]["arrearsWeeks"] = 1
 		GameState.state["player"]["cash"] = 60
 		TimeSystem._apply_living_costs()
 		assert_eq(GameState.state["player"]["cash"], 0)
-		assert_eq(GameState.state["home"]["arrears"], 90, "no interest at days 3; 60 off 100, then bill 50 unpaid")
-		assert_eq(GameState.state["home"]["arrearsDays"], 4)
+		assert_eq(GameState.state["home"]["arrears"], 395, "interest 5 on 100; 60 off 105, then bill 350 unpaid")
+		assert_eq(GameState.state["home"]["arrearsWeeks"], 2)
 		var bank_log: Array = GameState.state["bankLog"]
 		assert_eq(bank_log.size(), 1)
 		assert_eq(bank_log[0]["label"], "Arrears")
 		assert_eq(bank_log[0]["amount"], -60)
 		var last: Dictionary = GameState.state["notifications"][GameState.state["notifications"].size() - 1]
 		assert_true(last["text"].contains("-£60 off arrears"), last["text"])
-		assert_true(last["text"].contains("owed £90"), last["text"])
+		assert_true(last["text"].contains("owed £395"), last["text"])
 	)
 
-	run_case("arrears_rented_flat_ten_rollover_table_ends_in_rented_studio_with_debt_kept", func():
+	run_case("arrears_rented_flat_second_monday_ends_in_rented_studio_with_debt_kept", func():
 		GameState.reset()
 		var home: Dictionary = GameState.state["home"]
 		home["tier"] = "flat"
 		home["tenure"] = "rented"
-		var expected := [80, 160, 240, 320, 400, 500, 605, 715, 831]
-		for i in expected.size():
-			GameState.state["player"]["cash"] = 0
-			TimeSystem._apply_living_costs()
-			assert_eq(home["arrears"], expected[i], "rollover %d arrears" % (i + 1))
-			assert_eq(home["arrearsDays"], i + 1, "rollover %d days" % (i + 1))
-			assert_eq(home["tier"], "flat", "no downgrade before rollover 10")
+		GameState.state["player"]["cash"] = 0
 		TimeSystem._apply_living_costs()
-		assert_eq(home["tier"], "studio", "rollover 10 drops one tier")
+		assert_eq(home["arrears"], 560, "first Monday: the week's 560 unpaid")
+		assert_eq(home["arrearsWeeks"], 1)
+		assert_eq(home["tier"], "flat", "no downgrade on the first missed week")
+		TimeSystem._apply_living_costs()
+		assert_eq(home["tier"], "studio", "the second missed week drops one tier")
 		assert_eq(home["tenure"], "rented")
-		assert_eq(home["arrears"], 953, "rented tier lost: arrears kept")
-		assert_eq(home["arrearsDays"], 0, "clock restarts")
+		assert_eq(home["arrears"], 560 + 28 + 560, "interest 28, rented tier lost: arrears kept")
+		assert_eq(home["arrearsWeeks"], 0, "clock restarts")
 		var last: Dictionary = GameState.state["notifications"][GameState.state["notifications"].size() - 1]
 		assert_eq(last["category"], Notify.CATEGORY_WARNING, "downgrade gets its own warning")
-		assert_true(last["text"].contains("owe £953"), last["text"])
+		assert_true(last["text"].contains("owe £1148"), last["text"])
 
-		# Interest resumes only from rollover 6 of the new count.
-		for i in 5:
-			TimeSystem._apply_living_costs()
-		assert_eq(home["arrears"], 953 + 300, "5 rollovers at the studio, no interest yet")
+		# Interest resumes only from the second Monday of the new count.
 		TimeSystem._apply_living_costs()
-		assert_eq(home["arrears"], 1253 + GameState.round_epsilon(1253 * 0.05) + 60, "interest on the 6th rollover")
+		assert_eq(home["arrears"], 1148 + 420, "first Monday at the studio, no interest yet")
+		TimeSystem._apply_living_costs()
+		assert_eq(home["arrears"], 1568 + GameState.round_epsilon(1568 * 0.05) + 420, "interest on the second Monday")
 	)
 
-	run_case("arrears_owned_flat_table_ends_in_rented_studio_with_debt_cleared", func():
+	run_case("arrears_owned_flat_ends_in_rented_studio_with_debt_cleared", func():
 		GameState.reset()
 		var home: Dictionary = GameState.state["home"]
 		home["tier"] = "flat"
 		home["tenure"] = "owned"
-		var expected := [58, 116, 174, 232, 290, 363, 439, 519, 603]
-		for i in expected.size():
-			GameState.state["player"]["cash"] = 0
-			TimeSystem._apply_living_costs()
-			assert_eq(home["arrears"], expected[i], "rollover %d arrears" % (i + 1))
+		GameState.state["player"]["cash"] = 0
 		TimeSystem._apply_living_costs()
+		assert_eq(home["arrears"], 406, "7 × utilities 58")
+		var result: Dictionary = TimeSystem._apply_living_costs()
+		assert_eq(result["arrears"], 406 + 20 + 406, "interest 20 + utilities 406 = 832 before the drop")
 		assert_eq(home["tier"], "studio")
 		assert_eq(home["tenure"], "rented")
 		assert_eq(home["arrears"], 0, "owned tier lost: arrears cleared")
-		assert_eq(home["arrearsDays"], 0)
+		assert_eq(home["arrearsWeeks"], 0)
 	)
 
-	run_case("arrears_owned_flat_rollover_10_reaches_691_before_the_drop", func():
+	run_case("arrears_downgrade_lands_seven_days_after_the_first_missed_bill", func():
 		GameState.reset()
 		var home: Dictionary = GameState.state["home"]
 		home["tier"] = "flat"
-		home["tenure"] = "owned"
-		home["arrears"] = 603
-		home["arrearsDays"] = 8
-		GameState.state["player"]["cash"] = 0
-		# The ADR's rollover-10 balance, with the clock held one day short so
-		# the drop's debt-clear doesn't hide it.
-		TimeSystem._apply_living_costs()
-		assert_eq(home["arrears"], 603 + 30 + 58, "interest 30 + utilities 58 = 691")
+		home["tenure"] = "rented"
+		var downgrade_day := 0
+		for day in range(1, 16):
+			GameState.state["world"]["day"] = day
+			GameState.state["player"]["cash"] = 0
+			TimeSystem._apply_living_costs()
+			if downgrade_day == 0 and home["tier"] == "studio":
+				downgrade_day = day
+			if day < 8:
+				assert_eq(home["arrears"], 560, "day %d: arrears only move on a Monday" % day)
+		assert_eq(downgrade_day, 8, "missed MON day 1, lost the flat MON day 8")
 	)
 
 	run_case("arrears_recovery_partial_still_in_arrears", func():
 		GameState.reset()
 		var home: Dictionary = GameState.state["home"]
 		home["arrears"] = 400
-		home["arrearsDays"] = 5
+		home["arrearsWeeks"] = 1
 		GameState.state["player"]["cash"] = 300
 		TimeSystem._apply_living_costs()
-		assert_eq(home["arrears"], 170)
-		assert_eq(home["arrearsDays"], 6)
+		assert_eq(home["arrears"], 470, "interest 20; 300 off 420; bill 350 unpaid")
+		assert_eq(home["arrearsWeeks"], 2)
 		assert_eq(GameState.state["player"]["cash"], 0)
 	)
 
@@ -247,23 +264,23 @@ func run() -> void:
 		GameState.reset()
 		var home: Dictionary = GameState.state["home"]
 		home["arrears"] = 400
-		home["arrearsDays"] = 5
-		GameState.state["player"]["cash"] = 600
+		home["arrearsWeeks"] = 1
+		GameState.state["player"]["cash"] = 1000
 		TimeSystem._apply_living_costs()
 		assert_eq(home["arrears"], 0)
-		assert_eq(home["arrearsDays"], 0)
-		assert_eq(GameState.state["player"]["cash"], 130)
+		assert_eq(home["arrearsWeeks"], 0)
+		assert_eq(GameState.state["player"]["cash"], 230)
 	)
 
 	run_case("arrears_exact_affordability_clears_everything", func():
 		GameState.reset()
 		var home: Dictionary = GameState.state["home"]
-		home["arrears"] = 70
-		home["arrearsDays"] = 2
-		GameState.state["player"]["cash"] = 120
+		home["arrears"] = 100
+		home["arrearsWeeks"] = 1
+		GameState.state["player"]["cash"] = 455
 		TimeSystem._apply_living_costs()
 		assert_eq(home["arrears"], 0)
-		assert_eq(home["arrearsDays"], 0)
+		assert_eq(home["arrearsWeeks"], 0)
 		assert_eq(GameState.state["player"]["cash"], 0)
 	)
 
@@ -272,22 +289,22 @@ func run() -> void:
 		GameState.state["barometer"]["economic"] = "inflation"
 		var home: Dictionary = GameState.state["home"]
 		home["arrears"] = 400
-		home["arrearsDays"] = 5
+		home["arrearsWeeks"] = 1
 		GameState.state["player"]["cash"] = 0
 		TimeSystem._apply_living_costs()
-		# interest round(400 × 0.05) = 20 unscaled; only today's bill scales: round(50 × 1.3) = 65.
-		assert_eq(home["arrears"], 400 + 20 + 65)
+		# interest round(400 × 0.05) = 20 unscaled; only the week's bill scales: round(350 × 1.3) = 455.
+		assert_eq(home["arrears"], 400 + 20 + 455)
 	)
 
 	run_case("arrears_bedsit_never_downgrades", func():
 		GameState.reset()
 		var home: Dictionary = GameState.state["home"]
-		for i in 15:
+		for i in 4:
 			GameState.state["player"]["cash"] = 0
 			TimeSystem._apply_living_costs()
 		assert_eq(home["tier"], "bedsit")
-		assert_eq(home["arrearsDays"], 15, "clock keeps running at the floor")
-		assert_true(home["arrears"] > 750, "interest keeps accruing")
+		assert_eq(home["arrearsWeeks"], 4, "clock keeps running at the floor")
+		assert_true(home["arrears"] > 4 * 350, "interest keeps accruing")
 	)
 
 	run_case("forced_downgrade_wipes_rooms_unassigns_staff_reverts_gym_and_drops_security", func():
@@ -306,7 +323,7 @@ func run() -> void:
 		player["hp"] = hp_max_with_gym
 		player["cash"] = 0
 		home["arrears"] = 100
-		home["arrearsDays"] = 9
+		home["arrearsWeeks"] = 1
 		TimeSystem._apply_living_costs()
 		assert_eq(home["tier"], "studio")
 		assert_eq(home["rooms"], [], "rooms wiped")
@@ -323,7 +340,7 @@ func run() -> void:
 		home["tier"] = "flat"
 		home["tenure"] = "owned"
 		home["arrears"] = 603
-		home["arrearsDays"] = 9
+		home["arrearsWeeks"] = 1
 		GameState.state["player"]["cash"] = 0
 		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
 		TimeSystem._apply_living_costs()
@@ -332,7 +349,7 @@ func run() -> void:
 		assert_eq(GameState.state["home"]["tier"], "flat")
 		assert_eq(GameState.state["home"]["tenure"], "owned")
 		assert_eq(GameState.state["home"]["arrears"], 603)
-		assert_eq(GameState.state["home"]["arrearsDays"], 9)
+		assert_eq(GameState.state["home"]["arrearsWeeks"], 1)
 	)
 
 	run_case("daily_cost_notification_flags_flat_broke", func():
