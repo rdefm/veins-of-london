@@ -5670,6 +5670,84 @@
 }
 },
 "width": 390
+},
+"safehouse": {
+"fallbackColor": "timber_dark",
+"height": 585,
+"image": "res://assets/hq/safehouse_room.png",
+"regions": {
+"dial": {
+"height": 118,
+"image": "",
+"label": "Dial",
+"placeholder": false,
+"polygon": [[181, 254], [178, 140], [236, 142], [238, 258]],
+"width": 60,
+"x": 178,
+"y": 140
+},
+"gym": {
+"height": 136,
+"image": "",
+"label": "Gym",
+"placeholder": false,
+"polygon": [[4, 477], [58, 428], [128, 499], [126, 548], [57, 564], [17, 561]],
+"width": 124,
+"x": 4,
+"y": 428
+},
+"lab": {
+"height": 113,
+"image": "",
+"label": "Lab",
+"placeholder": false,
+"polygon": [[8, 220], [98, 197], [161, 245], [99, 310], [55, 307], [4, 287]],
+"width": 157,
+"x": 4,
+"y": 197
+},
+"oreStore": {
+"height": 124,
+"image": "",
+"label": "Ore store",
+"placeholder": false,
+"polygon": [[9, 300], [74, 316], [84, 383], [42, 424], [8, 410]],
+"width": 76,
+"x": 8,
+"y": 300
+},
+"rest": {
+"height": 338,
+"image": "",
+"label": "Rest",
+"placeholder": false,
+"polygon": [[281, 233], [274, 301], [164, 449], [172, 531], [386, 571], [389, 235]],
+"width": 225,
+"x": 164,
+"y": 233
+},
+"rooms": {
+"height": 149,
+"image": "",
+"label": "Rooms",
+"placeholder": false,
+"polygon": [[7, 57], [7, 206], [107, 189], [102, 71]],
+"width": 100,
+"x": 7,
+"y": 57
+},
+"security": {
+"height": 190,
+"image": "",
+"label": "Security",
+"placeholder": false,
+"polygon": [[242, 67], [243, 248], [273, 249], [278, 226], [319, 228], [324, 170], [352, 160], [352, 71], [313, 59]],
+"width": 110,
+"x": 242,
+"y": 59
+}
+},
+"width": 390
 }
 }
 },
