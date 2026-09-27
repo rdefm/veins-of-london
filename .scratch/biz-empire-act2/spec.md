@@ -2,7 +2,7 @@
 
 Status: ready-for-agent
 
-> Macro vision. Not ticketed directly — split first into five sub-specs (see Further Notes), each of which is then ticketed. All numbers here are placeholders or omitted; sub-specs set them.
+> Macro vision. Not ticketed directly — split first into sub-specs (see Further Notes), each of which is then ticketed. All numbers here are placeholders or omitted; sub-specs set them.
 
 ## Problem Statement
 
@@ -220,20 +220,31 @@ A severely weakened faction may take a protector; the protector gets cheaper acc
 
 - Ticker evolution (new states, how Ticker states map to item demand in detail) — separate doc; this spec only assumes a per-item demand multiplier.
 - All balance numbers — set in the sub-specs.
-- Detailed design of relation-builder content (specific favours, gift items, flavour quests) — sub-spec ④.
-- Vassal mechanics beyond the intent above — explored in sub-spec ④.
+- Detailed design of relation-builder content (specific favours, gift items, flavour quests) — sub-spec 4b.
+- Vassal mechanics beyond the intent above — explored in sub-spec 6.
 - Collective–Firm under FactionAI before the Collective questline is complete.
 - Quest routing for the crafting-share route (system exists; no questline steers to it).
 - Prose — every new line of dialogue/notification goes through CONTENT-GUIDE and is flagged PROSE-REVIEW in its ticket.
 
 ## Further Notes
 
-- **Split into five sub-specs before ticketing**, in dependency order:
-  1. Market sim (two-tier prices, contracts lock/term, sim-start switch)
-  2. Faction economic identity (FactionSim, archetypes, shares, stockpiles, Factions-app/BizBrief reads)
-  3. Guard upkeep + business float
-  4. Relations & pressure AI (stances, pressure, escalation, relation levers, partners, Network intel products, communication rule, weakening floor, vassal exploration, Collective–Firm hold)
+- **Split into sub-specs before ticketing**, in dependency order:
+  1. Market sim (two-tier prices, contracts lock/term/counterparty, sim-start switch). Must also fix:
+     - an interim Ticker → per-item demand mapping (no Ticker-evolution doc exists yet);
+     - a stand-in baseline supply per ore type/item so day-1 prices are sane before FactionSim, replaced by real faction sales in 2;
+     - the hooks 2 plugs into (supply/demand recording, contract deliveries → shares and buyer demand) — defined here, filled in 2.
+  2. Faction economic identity (FactionSim, archetypes, shares, stockpile holdings + location state, faction guard upkeep, Factions-app/BizBrief reads). Stockpile *raids* are 4b.
+  3. Guard upkeep + business float (player side). Near-independent of 1/2; can be specced, ticketed and built anytime.
+  4a. Pressure AI (stances, threat/dependence/pressure, relation and stance drift, escalation actions, communication rule, Collective–Firm hold)
+  4b. Relation levers & intel (favours/gifts/flavour quests, partners, Network intel products, stockpile raids, weakening floor)
   5. Act 2 questline
+  6. Vassals (exploration; not needed by 5)
+- **Sequencing:** don't write every sub-spec up front.
+  1. Write 1 in full, plus a thin interface sketch of 2 (only the seams 1 must expose).
+  2. Ticket and build 1; playtest.
+  3. Finalise 2, then ticket and build it.
+  4. 3 slots in whenever convenient.
+  5. Write 4a/4b/5/6 only after 1+2 are built — pressure weights and share thresholds need real share numbers.
 - Framing: the Collective questline introduces the *how* of faction conflict; Biz Act 2 introduces the *why*.
 - Canonical vocabulary applies throughout: site vs vein, faction-claimed, growth/prune, the five ore types, `cash`, consumable ids.
 - REFERENCE.md must be updated as each sub-spec lands (faction data table §1.8, barometer effects §1.9, selling §3.6, raiding §3.12, Business Empire questline §3.10).
