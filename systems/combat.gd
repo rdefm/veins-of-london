@@ -882,7 +882,8 @@ static func award_xp(amount: int) -> void:
 
 # R§3.7a read-only summary for the HQ gym modal. XP values are cumulative
 # (COMBAT_XP_LEVELS thresholds); xpFloor/xpNext bound the current level's
-# band. At max level xpNext == xpFloor and next* gains are 0.
+# band. "stats" is the player's effective hpMax/attack range/speed now;
+# "nextStats" is the same after one more level (equal to "stats" at max).
 static func skill_summary() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	var level: int = player["combatSkill"]
@@ -892,7 +893,20 @@ static func skill_summary() -> Dictionary:
 	var next: int = level if is_max else level + 1
 	var hp: Array = GameData.COMBAT_HP_BONUS_BY_LEVEL
 	var atk: Array = GameData.COMBAT_ATTACK_BONUS_BY_LEVEL
-	var spd: Array = GameData.COMBAT_SPEED_BY_LEVEL
+	var attack := get_attack_range()
+	var stats := {
+		"hpMax": player["hpMax"],
+		"attackMin": attack["min"],
+		"attackMax": attack["max"],
+		"speed": GameData.COMBAT_SPEED_BY_LEVEL[level],
+	}
+	var atk_gain: int = atk[next] - atk[level]
+	var next_stats := {
+		"hpMax": stats["hpMax"] + hp[next] - hp[level],
+		"attackMin": stats["attackMin"] + atk_gain,
+		"attackMax": stats["attackMax"] + atk_gain,
+		"speed": GameData.COMBAT_SPEED_BY_LEVEL[next],
+	}
 	return {
 		"level": level,
 		"maxLevel": max_level,
@@ -900,12 +914,8 @@ static func skill_summary() -> Dictionary:
 		"xp": player["combatXP"],
 		"xpFloor": levels[level],
 		"xpNext": levels[next],
-		"hpBonus": hp[level],
-		"attackBonus": atk[level],
-		"speed": spd[level],
-		"nextHp": hp[next] - hp[level],
-		"nextAttack": atk[next] - atk[level],
-		"nextSpeed": spd[next] - spd[level],
+		"stats": stats,
+		"nextStats": next_stats,
 	}
 
 

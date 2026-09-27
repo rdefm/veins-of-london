@@ -23,21 +23,14 @@ static func _skill_card(s: Dictionary) -> Control:
 		box.add_child(UI.label("Combat Skill: Lv%d" % s["level"]))
 		box.add_child(UI.muted_label("%d / %d XP" % [s["xp"], s["xpNext"]]))
 		box.add_child(MapCardStyle.style_bar(UI.bar(s["xp"] - s["xpFloor"], s["xpNext"] - s["xpFloor"])))
-	box.add_child(UI.label("+%d HP · +%d ATK · %d SPD" % [s["hpBonus"], s["attackBonus"], s["speed"]]))
+	box.add_child(UI.label(stats_text(s["stats"])))
 	if not s["isMax"]:
-		box.add_child(UI.muted_label("Next: " + _gains_text(s)))
+		box.add_child(UI.muted_label("Next level: " + stats_text(s["nextStats"])))
 	return c["panel"]
 
 
-static func _gains_text(s: Dictionary) -> String:
-	var parts: PackedStringArray = []
-	if s["nextHp"] > 0:
-		parts.append("+%d HP" % s["nextHp"])
-	if s["nextAttack"] > 0:
-		parts.append("+%d ATK" % s["nextAttack"])
-	if s["nextSpeed"] > 0:
-		parts.append("+%d SPD" % s["nextSpeed"])
-	return ", ".join(parts)
+static func stats_text(stats: Dictionary) -> String:
+	return "HP %d · ATK %d–%d · SPD %d" % [stats["hpMax"], stats["attackMin"], stats["attackMax"], stats["speed"]]
 
 
 static func _train_button() -> Control:

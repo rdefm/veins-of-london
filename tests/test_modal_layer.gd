@@ -935,8 +935,8 @@ func run() -> void:
 		var texts := NodeQuery.label_texts_with_symbols(layer)
 		assert_true(texts.has("Combat Skill: Lv1"), "shows the current combat level")
 		assert_true(texts.has("0 / %d XP" % s["xpNext"]), "shows xp against the next threshold")
-		assert_true(texts.has("+%d HP · +%d ATK · %d SPD" % [s["hpBonus"], s["attackBonus"], s["speed"]]), "shows current bonuses")
-		assert_true(texts.any(func(t: String): return t.begins_with("Next: ")), "shows the next-level gain line")
+		assert_true(texts.has(HqGymModal.stats_text(s["stats"])), "shows current combat stats")
+		assert_true(texts.has("Next level: " + HqGymModal.stats_text(s["nextStats"])), "shows next-level stats")
 		assert_eq(layer.find_children("*", "ProgressBar", true, false).size(), 1, "one XP bar")
 
 		_find_cost_button(layer, "Train").pressed.emit()
@@ -961,7 +961,7 @@ func run() -> void:
 
 		var texts := NodeQuery.label_texts_with_symbols(layer)
 		assert_true(texts.has("Combat Skill: Lv%d (max)" % max_level), "says max level")
-		assert_true(not texts.any(func(t: String): return t.begins_with("Next: ")), "no next-level line at max")
+		assert_true(not texts.any(func(t: String): return t.begins_with("Next level: ")), "no next-level line at max")
 
 		layer.free()
 	)

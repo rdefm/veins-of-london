@@ -2840,12 +2840,17 @@ func run() -> void:
 		assert_eq(s["xp"], 100, "xp")
 		assert_eq(s["xpFloor"], xp[2], "xpFloor is the current level's threshold")
 		assert_eq(s["xpNext"], xp[3], "xpNext is the next level's threshold")
-		assert_eq(s["hpBonus"], hp[2], "hpBonus")
-		assert_eq(s["attackBonus"], atk[2], "attackBonus")
-		assert_eq(s["speed"], spd[2], "speed")
-		assert_eq(s["nextHp"], hp[3] - hp[2], "nextHp is the level-3 delta")
-		assert_eq(s["nextAttack"], atk[3] - atk[2], "nextAttack is the level-3 delta")
-		assert_eq(s["nextSpeed"], spd[3] - spd[2], "nextSpeed is the level-3 delta")
+		var player: Dictionary = GameState.state["player"]
+		var now: Dictionary = s["stats"]
+		var nxt: Dictionary = s["nextStats"]
+		assert_eq(now["hpMax"], player["hpMax"], "current hpMax")
+		assert_eq(now["attackMin"], Combat.get_attack_range()["min"], "current attack min is the effective range")
+		assert_eq(now["attackMax"], Combat.get_attack_range()["max"], "current attack max is the effective range")
+		assert_eq(now["speed"], spd[2], "current speed")
+		assert_eq(nxt["hpMax"], now["hpMax"] + hp[3] - hp[2], "next hpMax adds the level-3 delta")
+		assert_eq(nxt["attackMin"], now["attackMin"] + atk[3] - atk[2], "next attack min adds the level-3 delta")
+		assert_eq(nxt["attackMax"], now["attackMax"] + atk[3] - atk[2], "next attack max adds the level-3 delta")
+		assert_eq(nxt["speed"], spd[3], "next speed is the level-3 speed")
 	)
 
 	run_case("skill_summary_at_max_level_flags_max_and_reports_no_next_gains", func():
@@ -2857,8 +2862,8 @@ func run() -> void:
 		assert_true(s["isMax"], "max level flagged")
 		assert_eq(s["maxLevel"], max_level, "maxLevel")
 		assert_eq(s["xpNext"], s["xpFloor"], "no next threshold past max")
-		assert_eq(s["nextHp"] + s["nextAttack"] + s["nextSpeed"], 0, "no next-level gains at max")
-		assert_eq(s["attackBonus"], GameData.COMBAT_ATTACK_BONUS_BY_LEVEL[max_level], "current bonus still reported at max")
+		assert_eq(s["nextStats"], s["stats"], "no next-level change at max")
+		assert_eq(s["stats"]["speed"], GameData.COMBAT_SPEED_BY_LEVEL[max_level], "current stats still reported at max")
 	)
 
 	run_case("train_is_available_without_a_home_gym_at_the_lower_flat_xp_amount", func():

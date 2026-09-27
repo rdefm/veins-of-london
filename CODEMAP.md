@@ -186,7 +186,7 @@ overlays.
 | combat_setup_modal.gd | Debug combat setup: fight type (`Combat.DEBUG_SETUP_CONTEXTS`), location override for backdrop preview, enemy template/count/tier + ally toggles; calls `Combat.start_debug_combat()` |
 | network_reference_modal.gd | Network Map legend |
 | hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
-| hq_gym_modal.gd | Combat skill card (level, XP bar, current bonuses, next-level gains via `Combat.skill_summary()`) + Train action card |
+| hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD via `Combat.skill_summary()`) + Train action card |
 | lab_bench_modal_helpers.gd | Refine controls + outcome headings shared by the lab-bench modals |
 | lab_bench_recipe_book_modal.gd | Found recipes: cost/chance, batch qty, Craft, Refine |
 | lab_bench_notes_modal.gd | Per-pairing survey notes with found-recipe refine rows |
