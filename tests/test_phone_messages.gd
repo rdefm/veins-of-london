@@ -48,6 +48,65 @@ func run() -> void:
 		assert_eq(GameState.state["phoneNav"]["selectedContactId"], null)
 		phone.free()
 	)
+	run_case("messages_index_clear_button_shows_only_when_there_is_something_to_clear", func():
+		GameState.reset()
+		Messages.append("archie", "them", "Unread")
+		Messages.append("james", "them", "Read")
+		Messages.mark_read("james")
+		Notify.push("Archie texted.", Notify.CATEGORY_INFO, { Notify.META_CONTACT_ID: "archie" })
+		PhoneNav.open_app("messages")
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var clears := phone.find_children("", "Button", true, false).filter(func(b): return (b as Button).text == "Clear")
+		assert_eq(clears.size(), 1, "only the row with something to clear carries a Clear button")
+
+		(clears[0] as Button).pressed.emit()
+
+		assert_true(not Messages.has_unread("archie"), "clear marks the thread read")
+		assert_true(not Notify.has_unseen_for_contact("archie"), "clear marks the contact's notifications seen")
+		assert_eq(GameState.state["phoneNav"]["selectedContactId"], null, "clear doesn't open the thread")
+		phone.free()
+	)
+
+	# Needs live layout: row heights only resolve inside a sized tree.
+	await run_case("messages_index_rows_have_a_fixed_height_and_cut_long_previews", func():
+		var tree := Engine.get_main_loop() as SceneTree
+		await tree.process_frame
+
+		GameState.reset()
+		var long_text := "This is a very long message that would wrap across several lines if the row let it, which it must not. ".repeat(3)
+		for contact_id in ["archie", "james", "owen", "des", "nadia"]:
+			Messages.append(contact_id, "them", long_text)
+			Messages.append(contact_id, "them", long_text + "
+second line")
+		PhoneNav.open_app("messages")
+
+		var viewport := Control.new()
+		viewport.size = Vector2(390, 844)
+		tree.root.add_child(viewport)
+		var phone := PhoneScreen.new()
+		viewport.add_child(phone)
+		for _i in range(4):
+			await tree.process_frame
+
+		var previews: Array = phone.find_children("", "Label", true, false).filter(func(l): return (l as Label).text.begins_with("This is a very long"))
+		assert_eq(previews.size(), 5, "one preview per row")
+		var last_bottom := -INF
+		for l in previews:
+			var label := l as Label
+			assert_eq(label.text_overrun_behavior, TextServer.OVERRUN_TRIM_ELLIPSIS, "long previews end in …")
+			assert_true(label.get_line_count() <= 1 or label.max_lines_visible == 1, "one line only")
+			assert_true(label.text.find("
+") == -1, "newlines flattened")
+			var rect := label.get_global_rect()
+			assert_true(rect.end.x <= 390.0 + 0.5, "preview stays inside the screen width")
+			assert_true(rect.position.y >= last_bottom, "rows never overlap")
+			last_bottom = rect.end.y
+			var row := label.get_parent().get_parent().get_parent().get_parent() as Control
+			assert_eq(row.size.y, MessagesApp.ROW_HEIGHT, "fixed row height")
+		viewport.free()
+	)
+
 	run_case("selecting_a_conversation_marks_it_read_and_renders_its_history_and_trade_button", func():
 		GameState.reset()
 		GameState.state["contacts"]["des"] = { "unlocked": true, "relation": 0 }

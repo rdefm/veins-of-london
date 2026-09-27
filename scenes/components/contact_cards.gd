@@ -505,6 +505,23 @@ static func _palette(id: String, fallback: Color) -> Color:
 	return GameData.PALETTE.get(id, fallback)
 
 
+# Phone-OS chrome tokens (ui-vision.md §10) for a control that paints itself:
+# "divider", "text", "muted" or "action".
+static func phone_colour(role: String) -> Color:
+	match role:
+		"divider":
+			return _palette(_PHONE_DIVIDER, _FALLBACK_DIVIDER)
+		"muted":
+			return _palette(_PHONE_TEXT_MUTED, _FALLBACK_TEXT_MUTED)
+		"action":
+			return _palette("ui_action_red", _FALLBACK_ACTION)
+	return _palette(_PHONE_TEXT_PRIMARY, _FALLBACK_TEXT_PRIMARY)
+
+
+# A button carrying this meta keeps its own styling under apply_phone_os_chrome.
+const OWN_STYLE_META := "phone_own_style"
+
+
 static func apply_phone_os_chrome(root: Node) -> void:
 	_style_subtree(root, false)
 
@@ -578,6 +595,8 @@ static func _style_label(l: Label) -> void:
 
 
 static func _style_button(b: Button) -> void:
+	if b.has_meta(OWN_STYLE_META):
+		return
 	if b.has_meta("contact_quick_action"):
 		_style_contact_quick_button(b)
 		return

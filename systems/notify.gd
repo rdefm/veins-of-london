@@ -52,3 +52,19 @@ static func dismiss(id: String) -> void:
 			notification["seen"] = true
 			break
 	EventBus.state_changed.emit()
+
+
+# Marks every notification tagged with `contact_id` seen; TopBar drops a seen
+# notification's line from the ticker queue.
+static func dismiss_contact(contact_id: String) -> void:
+	for notification in GameState.state["notifications"]:
+		if notification.get(META_CONTACT_ID) == contact_id:
+			notification["seen"] = true
+	EventBus.state_changed.emit()
+
+
+static func has_unseen_for_contact(contact_id: String) -> bool:
+	for notification in GameState.state["notifications"]:
+		if notification.get(META_CONTACT_ID) == contact_id and not notification["seen"]:
+			return true
+	return false

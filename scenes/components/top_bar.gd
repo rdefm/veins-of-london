@@ -21,7 +21,7 @@ var _bag_button: Button
 var _initialized := false
 var _last_notification_id: String = ""
 var _last_alarm_count := 0
-var _held: Array[String] = []  # non-combat messages raised mid-fight, released when it ends
+var _held: Array[Dictionary] = []  # { text, key } non-combat messages raised mid-fight, released when it ends
 var _was_combat_active := false
 
 
@@ -115,7 +115,7 @@ func _sync_ticker() -> void:
 	else:
 		for i in range(start, notifications.size()):
 			var notification: Dictionary = notifications[i]
-			_route(notification["text"], notification.get(Notify.META_COMBAT_LOG, false), combat_active)
+			_route(notification["text"], notification.get(Notify.META_COMBAT_LOG, false), combat_active, str(notification["id"]))
 	_last_notification_id = str(notifications.back()["id"]) if not notifications.is_empty() else ""
 
 	var alarm_count := RaidAlarmsSystem.count()
@@ -123,9 +123,10 @@ func _sync_ticker() -> void:
 		_route("RAID ALARM%s ×%d — PHONE" % ["S" if alarm_count != 1 else "", alarm_count], false, combat_active)
 	_last_alarm_count = alarm_count
 
+	_drop_seen(notifications)
 	if not combat_active and not _held.is_empty():
-		for text in _held:
-			_ticker.enqueue(text)
+		for held in _held:
+			_ticker.enqueue(held["text"], false, held["key"])
 		_held.clear()
 	if _was_combat_active and not combat_active:
 		_ticker.drop_transient(_latest_eligible_text(notifications, false))
@@ -144,14 +145,29 @@ func _first_unseen_index(notifications: Array) -> int:
 	return -1
 
 
-func _route(text: String, is_combat_log: bool, combat_active: bool) -> void:
+func _route(text: String, is_combat_log: bool, combat_active: bool, key: String = "") -> void:
 	if is_combat_log:
 		if combat_active:
-			_ticker.enqueue(text, true)
+			_ticker.enqueue(text, true, key)
 	elif combat_active:
-		_held.append(text)
+		_held.append({ "text": text, "key": key })
 	else:
-		_ticker.enqueue(text)
+		_ticker.enqueue(text, false, key)
+
+
+# A notification marked seen (e.g. a Messages per-contact clear) drops its
+# still-waiting line from the ticker queue and the combat hold.
+func _drop_seen(notifications: Array) -> void:
+	var seen := {}
+	for notification in notifications:
+		if notification["seen"]:
+			seen[str(notification["id"])] = true
+	if seen.is_empty():
+		return
+	_ticker.drop_keys(seen)
+	for i in range(_held.size() - 1, -1, -1):
+		if seen.has(_held[i]["key"]):
+			_held.remove_at(i)
 
 
 # In combat, the latest combat-log line; outside it, the latest other one.

@@ -200,6 +200,44 @@ func run() -> void:
 		bar.free()
 	)
 
+	run_case("clearing_a_contact_drops_only_its_queued_ticker_lines", func():
+		GameState.reset()
+		var bar := TopBar.new()
+		bar._ready()
+		Notify.push("One.")
+		Notify.push("Owen texted.", Notify.CATEGORY_INFO, { Notify.META_CONTACT_ID: "owen" })
+		Notify.push("Two.")
+		Notify.push("Owen again.", Notify.CATEGORY_INFO, { Notify.META_CONTACT_ID: "owen" })
+		assert_eq(bar._ticker.queued(), ["OWEN TEXTED.", "TWO.", "OWEN AGAIN."] as Array[String], "sanity")
+
+		Messages.clear("owen")
+
+		assert_eq(bar._ticker.current_text, "ONE.", "the showing message stays")
+		assert_eq(bar._ticker.queued(), ["TWO."] as Array[String], "only that contact's waiting lines drop")
+		bar._ticker.size = Vector2(2000, NotificationTicker.row_height())
+		bar._ticker.advance(60.0)
+		assert_eq(bar._ticker.current_text, "TWO.", "the queue stays consistent after the drop")
+
+		bar.free()
+	)
+
+	run_case("clearing_a_contact_mid_combat_drops_its_held_line", func():
+		GameState.reset()
+		var bar := TopBar.new()
+		bar._ready()
+		GameState.state["combat"]["active"] = true
+		Notify.push("Owen texted.", Notify.CATEGORY_INFO, { Notify.META_CONTACT_ID: "owen" })
+		Notify.push("Held.")
+		Messages.clear("owen")
+		GameState.state["combat"]["active"] = false
+		EventBus.state_changed.emit()
+
+		assert_eq(bar._ticker.current_text, "HELD.", "only the other held line is released")
+		assert_eq(bar._ticker.queued(), [] as Array[String])
+
+		bar.free()
+	)
+
 	run_case("the_latest_notification_stays_once_the_queue_drains", func():
 		GameState.reset()
 		var bar := TopBar.new()

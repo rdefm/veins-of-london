@@ -56,7 +56,7 @@ static func select_conversation(contact_id: String) -> void:
 	GameState.state["phoneNav"]["app"] = "messages"
 	GameState.state["phoneNav"]["selectedContactId"] = contact_id
 	GameState.state["phoneNav"]["revealFromIndex"] = maxi(thread.size() - Messages.unread_count(contact_id), 0)
-	Messages.mark_read(contact_id)
+	Messages.clear(contact_id)
 	EventBus.state_changed.emit()
 
 

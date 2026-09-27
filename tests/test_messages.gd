@@ -57,6 +57,35 @@ func run() -> void:
 		assert_true(not Messages.has_unread("des"), "mark_read clears every message in the thread")
 	)
 
+	run_case("clear_marks_the_thread_read_and_only_that_contacts_notifications_seen", func():
+		GameState.reset()
+		_add_test_contact("des")
+		Messages.append("des", "them", "One.")
+		Messages.append("owen", "them", "Two.")
+		var des_note := Notify.push("Des texted.", Notify.CATEGORY_INFO, { Notify.META_CONTACT_ID: "des" })
+		var owen_note := Notify.push("Owen texted.", Notify.CATEGORY_INFO, { Notify.META_CONTACT_ID: "owen" })
+		var plain_note := Notify.push("Something else.")
+		assert_true(Messages.can_clear("des"), "sanity: unread thread is clearable")
+
+		Messages.clear("des")
+
+		assert_true(not Messages.has_unread("des"), "thread read")
+		assert_eq(des_note["seen"], true, "the contact's notification is seen")
+		assert_eq(owen_note["seen"], false, "another contact's notification is untouched")
+		assert_eq(plain_note["seen"], false, "an untagged notification is untouched")
+		assert_true(Messages.has_unread("owen"), "another contact's thread is untouched")
+		assert_true(not Messages.can_clear("des"), "nothing left to clear")
+	)
+
+	run_case("can_clear_is_true_for_an_unseen_contact_notification_on_a_read_thread", func():
+		GameState.reset()
+		Messages.append("owen", "them", "Hi.")
+		Messages.mark_read("owen")
+		assert_true(not Messages.can_clear("owen"), "read thread, no notification: nothing to clear")
+		Notify.push("Owen texted.", Notify.CATEGORY_INFO, { Notify.META_CONTACT_ID: "owen" })
+		assert_true(Messages.can_clear("owen"), "an unseen tagged notification is clearable")
+	)
+
 	run_case("append_evicts_from_the_front_once_the_50_message_cap_is_exceeded", func():
 		GameState.reset()
 		_add_test_contact("des")

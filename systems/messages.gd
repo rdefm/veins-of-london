@@ -36,6 +36,18 @@ static func mark_read(contact_id: String) -> void:
 	EventBus.state_changed.emit()
 
 
+# The Messages index row's clear: the thread read and the contact's
+# notifications seen, so their queued ticker lines drop.
+static func clear(contact_id: String) -> void:
+	for msg in GameState.state["messages"].get(contact_id, []):
+		msg["read"] = true
+	Notify.dismiss_contact(contact_id)
+
+
+static func can_clear(contact_id: String) -> bool:
+	return has_unread(contact_id) or Notify.has_unseen_for_contact(contact_id)
+
+
 static func has_unread(contact_id: String) -> bool:
 	for msg in GameState.state["messages"].get(contact_id, []):
 		if not msg["read"]:
