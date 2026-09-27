@@ -47,6 +47,8 @@ London gets a living two-tier market and factions with real economic identities 
 18. As a player, I want contract deliveries to count toward my production share, so that supplier relationships reflect my real output.
 19. As a player, I want my deliveries to reduce the buyer faction's market demand, so that being their supplier has a visible market effect.
 20. As a player with an open-ended recurring contract from before Act 2, I want it to become a fixed-term contract at its next renewal, so that old saves join the new system cleanly.
+20a. As a player, I want every contract offer and active contract to clearly show who it's with (a faction or named contact), so that I know whose relationship each deal touches.
+20b. As a player who cancels an accepted contract, I want the relationship hit to land on that contract's counterparty, so that walking away has a sensible, targeted cost.
 
 ### Faction simulation
 21. As a player, I want faction veins to produce real ore, so that faction output and market share are genuine.
@@ -162,7 +164,7 @@ London gets a living two-tier market and factions with real economic identities 
 - **FactionAI** (new system): threat, dependence, pressure, relation drift, stance drift, escalation choice, faction-vs-faction application, partner favour requests. Emits communication (messages, notifications, activity-log entries, chart annotations) for every action against the player.
 - **Shares**: rolling 7-day tallies of harvested ore (player veins, staff cultivators, faction veins) and successful-craft ore consumption (player, staff producers, factions), per producer per ore type. May live in Market or its own small system; sub-spec decides.
 - **Economy**: faction lanes and the Archie lane price through Market's quote; sales report supply to Market. Faction marketplace stock reads FactionSim holdings; the random ore restock goes away.
-- **Contracts / Offers**: price locked at signing from Market's quote ± premium; fixed term with an expiry and a renewal offer; deliveries feed shares and reduce the buyer's demand. Open-ended recurring contracts migrate to fixed term at their next renewal.
+- **Contracts / Offers**: price locked at signing from Market's quote ± premium; fixed term with an expiry and a renewal offer; deliveries feed shares and reduce the buyer's demand. Open-ended recurring contracts migrate to fixed term at their next renewal. Every contract records its counterparty (faction or contact), shown on offer and active cards; cancelling an accepted contract applies a small relation hit to that counterparty (the cancel flow itself — confirm pop-up, immediate cancel — ships earlier, before counterparties exist).
 - **Business**: reserve float (donate, withdraw, float-first expense draw, payday excludes float from the split); guard wages become a pot expense line.
 - **Cultivating / Raiding**: guard wage per Hired Guard and extra guard; walk-off when unpaid; stockpile raid resolution alongside vein raids; factions bias claims/raids to their specialist ores.
 - **Barometer (Ticker)**: feeds item demand. The current flat orePrice/typePremium effects are superseded by item-demand effects — exact mechanics belong to the separate Ticker-evolution doc; this spec only assumes a per-item demand multiplier the Ticker can drive. Faction barometer prefs stay as personality bias; manipulators add position-driven pushes.

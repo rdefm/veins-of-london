@@ -303,12 +303,22 @@ func _on_dial_triggered(result: Dictionary) -> void:
 	await _play_beats(beats, log_before)
 
 func _play_round(action: Callable) -> void:
+	_finish_playback()
 	var combat: Dictionary = GameState.state["combat"]
 	_frozen_roster = { "enemies": combat["enemies"].duplicate(true), "allies": combat["allies"].duplicate(true) }
 	var log_before: int = combat["log"].size()
 	var result: Dictionary = action.call()
 	await _play_beats(result.get("beats", []), log_before)
+# The dock and Bag stay live during playback, so a command can land while
+# an earlier one's beats are still playing. Skipping that playback to its
+# end first (each remaining beat still posts its log line) keeps the two
+# from interleaving or sharing _revealed_log_count.
+func _finish_playback() -> void:
+	if _director.is_playing():
+		_director.skip_to_end()
+
 func _play_beats(beats: Array, log_before: int) -> void:
+	_finish_playback()
 	if beats.is_empty():
 		_frozen_roster = {}
 		return
@@ -385,13 +395,14 @@ func _on_beat_played(beat: Dictionary) -> void:
 	if CombatDirector.beat_is_damaging(beat):
 		_play_juice(beat)
 func _on_combat_beats_played(beats: Array) -> void:
-	if _director.is_playing() or beats.is_empty():
+	if beats.is_empty():
 		return
 	var log_before: int = GameState.state["combat"]["log"].size() - beats.size()
 	await _play_beats(beats, log_before)
 func _on_combat_rewind_played(beats: Array) -> void:
-	if _director.is_playing() or beats.is_empty():
+	if beats.is_empty():
 		return
+	_finish_playback()
 	_begin_queue_playback(beats, true)
 	await _director.play(beats, _on_rewind_beat_played)
 	_end_queue_playback()

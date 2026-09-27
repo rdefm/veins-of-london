@@ -2152,6 +2152,78 @@ func run() -> void:
 		viewport.free()
 	)
 
+	# A command issued while a previous command's beats are still playing
+	# (the dock and Bag stay live during playback) must not drop or garble
+	# either command's beats: every log line still posts, in order, and the
+	# pearl's frozen beat is shown before any enemy attack.
+	for enemy_count in [1, 2]:
+		await run_case("attack_pressed_mid_pearl_playback_still_shows_the_frozen_beat_%d_enemies" % enemy_count, func():
+			var tree := Engine.get_main_loop() as SceneTree
+			var enemies: Array = []
+			for i in range(enemy_count):
+				enemies.append(Fixtures.enemy("Slow %d" % i, 500, 500, false, 1))
+			_setup_combat(enemies)
+			GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
+			GameState.state["player"]["craftingSkill"] = 1
+			var viewport := Control.new()
+			viewport.size = Vector2(390, 844)
+			tree.root.add_child(viewport)
+			var screen := CombatScreen.new()
+			viewport.add_child(screen)
+			Rng.set_seed(1)
+
+			var pearl: Dictionary = Combat.use_time_pearl()
+			EventBus.combat_beats_played.emit(pearl["beats"])  # the Bag's own route
+			assert_true(screen._director.is_playing(), "sanity: the pearl's beats are mid-playback")
+			screen._on_attack_pressed()
+			for _i in range(40):
+				if not screen._director.is_playing():
+					break
+				screen._director.fast_forward_current_beat()
+				await tree.process_frame
+
+			var posted: Array = GameState.state["notifications"].map(func(n): return n["text"])
+			assert_eq(posted, GameState.state["combat"]["log"], "every log line posts exactly once, in order")
+			var throw_at: int = posted.find(posted.filter(func(t): return t.begins_with("You throw a time pearl"))[0])
+			var frozen_at := -1
+			var attack_at := -1
+			for i in range(throw_at, posted.size()):
+				if frozen_at == -1 and posted[i].contains("is frozen — no turn"):
+					frozen_at = i
+				if attack_at == -1 and posted[i].contains("hits you"):
+					attack_at = i
+			assert_true(frozen_at > throw_at, "the frozen beat posts after the throw")
+			assert_true(attack_at == -1 or attack_at > frozen_at, "no enemy attack shows before the frozen beat")
+			viewport.free()
+		)
+
+	await run_case("pearl_used_mid_attack_playback_still_plays_its_beats", func():
+		var tree := Engine.get_main_loop() as SceneTree
+		_setup_combat([Fixtures.enemy("Slow A", 500, 500, false, 1), Fixtures.enemy("Slow B", 500, 500, false, 1)])
+		GameState.state["player"]["inventory"]["timePearl"] = { "1": 1 }
+		GameState.state["player"]["craftingSkill"] = 1
+		var viewport := Control.new()
+		viewport.size = Vector2(390, 844)
+		tree.root.add_child(viewport)
+		var screen := CombatScreen.new()
+		viewport.add_child(screen)
+		Rng.set_seed(1)
+
+		screen._on_attack_pressed()
+		assert_true(screen._director.is_playing(), "sanity: the attack's beats are mid-playback")
+		EventBus.combat_beats_played.emit(Combat.use_time_pearl()["beats"])
+		for _i in range(40):
+			if not screen._director.is_playing():
+				break
+			screen._director.fast_forward_current_beat()
+			await tree.process_frame
+
+		var posted: Array = GameState.state["notifications"].map(func(n): return n["text"])
+		assert_eq(posted, GameState.state["combat"]["log"], "the pearl's lines post too, after the attack's")
+		assert_true(posted.any(func(t): return t.contains("is frozen — no turn")), "the frozen beat is shown")
+		viewport.free()
+	)
+
 	# ── combat-refining 12: KO / outcome coherence on screen ──
 
 	run_case("killing_the_selected_enemy_drops_its_cards_and_moves_the_strip_selection", func():
