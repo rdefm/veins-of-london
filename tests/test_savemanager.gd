@@ -126,8 +126,8 @@ func run() -> void:
 
 	run_case("save_mutate_load_round_trips_payroll_lastSummary_with_int_fields_intact", func():
 		GameState.reset()
-		GameState.state["contacts"]["archie"]["recruited"] = true
-		Contacts.assign_to_room("archie", "ops")
+		GameState.state["contacts"]["des"]["recruited"] = true
+		Contacts.assign_to_room("des", "ops")
 		Payroll.pay_wages()
 		var original: Dictionary = GameState.deep_copy(GameState.state)
 
