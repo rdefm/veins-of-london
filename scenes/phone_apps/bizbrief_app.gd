@@ -411,6 +411,8 @@ func _build_sales() -> Control:
 		var expiry: String = "expires %s" % Calendar.format_day(int(offer["expiresDay"]))
 		c["content"].add_child(_build_contract_tags(offer))
 		c["content"].add_child(UI.muted_label(_counterparty_text(offer)))
+		if offer.get("source", "") == "renewal":
+			c["content"].add_child(UI.muted_label("Renewal. Same order, today's price."))
 		c["content"].add_child(UI.label("%s · £%d · %s" % [_request_summary(request), offer["quote"]["payment"], expiry]))
 		var offer_row := UI.hbox()
 		offer_row.add_child(UI.button("Accept", func(): OffersSystem.accept_offer(offer["id"])))
@@ -429,6 +431,8 @@ func _build_sales() -> Control:
 			box.add_child(_build_contract_tags(contract))
 			box.add_child(UI.muted_label(_counterparty_text(contract)))
 			box.add_child(UI.label("%d. %s: %s · due %s · £%d" % [index + 1, contract["id"], _contract_progress_summary(contract), Calendar.format_day(int(contract["dueDay"])),contract["signedQuote"]["payment"]]))
+			if contract.has("expiryDay"):
+				box.add_child(UI.muted_label("Term ends %s" % Calendar.format_day(int(contract["expiryDay"]))))
 			var filled: bool = ContractsSystem.is_period_filled(contract)
 			if filled:
 				box.add_child(UI.muted_label("Delivered this week — next period %s" % Calendar.format_day(int(contract["dueDay"]))))
@@ -446,7 +450,8 @@ func _build_sales() -> Control:
 				c["content"].add_child(UI.muted_label("%s · cancelled %s" % [entry["contract"]["id"], Calendar.format_day(int(entry["cancelledDay"]))]))
 				continue
 			var settled: Dictionary = entry["settlement"]
-			c["content"].add_child(UI.muted_label("%s · %s · £%d" % [settled["id"], "complete" if settled["complete"] else "partial", settled["payment"]]))
+			var ended: String = " · term ended" if ContractsSystem.is_expired(entry) else ""
+			c["content"].add_child(UI.muted_label("%s · %s · £%d%s" % [settled["id"], "complete" if settled["complete"] else "partial", settled["payment"], ended]))
 	return c["panel"]
 
 

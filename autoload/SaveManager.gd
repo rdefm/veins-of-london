@@ -540,6 +540,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		_restore_contract_int_types(entry.get("contract", {}))
 		_restore_settlement_int_types(entry.get("settlement", {}))
 		_int_key(entry, "cancelledDay")
+		_int_key(entry, "expiredDay")
 	for notification in state.get("notifications", []):
 		_int_key(notification, "day")
 	for bank_entry in state.get("bankLog", []):
@@ -927,7 +928,7 @@ func _restore_quote_int_types(quote: Dictionary) -> void:
 # sales.activeContracts and each sales.contractHistory entry's own embedded
 # "contract" copy.
 func _restore_contract_int_types(contract: Dictionary) -> void:
-	for key in ["acceptedDay", "dueDay", "weekday", "periodStartDay"]:
+	for key in ["acceptedDay", "dueDay", "weekday", "periodStartDay", "startDay", "termWeeks", "expiryDay"]:
 		_int_key(contract, key)
 	_restore_request_int_types(contract.get("request", {}))
 	_restore_quote_int_types(contract.get("signedQuote", {}))

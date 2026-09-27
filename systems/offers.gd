@@ -88,27 +88,41 @@ static func create_offer(template: Dictionary) -> Dictionary:
 	if not _valid_request(request, contract_type):
 		return { "ok": false, "reason": "Invalid offer request." }
 	_fill_request_quantities(request, contract_type)
-	var today: int = GameState.state["world"]["day"]
 	var source: String = template.get("source", "random")
-	var quote := quote_for_request(request, sales_skill())
-	var extra_types: int = maxi(0, quote["lines"].size() - 1)
-	var sales: Dictionary = GameState.state["sales"]
-	var offer := {
-		"id": "offer-%d" % sales["nextOfferId"], "templateId": template.get("id", ""),
-		"source": source, "contractType": contract_type, "request": request,
-		"createdDay": today, "expiresDay": today + GameData.OFFER_EXPIRY_DAYS, "weekday": RECURRING_WEEKDAY,
-		"deadlineAfterDays": int(template.get("deadlineAfterDays", 0)),
-		"extraTypeDeadlineDays": extra_types * MIXED_EXTRA_TYPE_DEADLINE_DAYS, "quote": quote,
-		"counterparty": pick_counterparty(template.get("id", ""), request, int(quote["payment"])),
-	}
-	sales["nextOfferId"] += 1
-	pending_offers().append(offer)
+	var offer := _issue_offer(template.get("id", ""), source, contract_type, request, int(template.get("deadlineAfterDays", 0)), "")
 	if source == "random":
 		var contact_id: Variant = Contacts.sales_contact()
 		if contact_id != null:
 			Contacts.award_contact_xp(contact_id, "sales", 5)
 	EventBus.state_changed.emit()
 	return { "ok": true, "offer": offer }
+
+
+# R§3.10 "Renewal offer": an expired recurring contract's request and
+# counterparty, quoted fresh today. Bypasses PENDING_CAP.
+static func create_renewal_offer(contract: Dictionary) -> Dictionary:
+	var offer := _issue_offer(contract.get("templateId", ""), "renewal", "recurring", contract["request"].duplicate(true), 0, ensure_counterparty(contract))
+	EventBus.state_changed.emit()
+	return offer
+
+
+# Prices and appends one pending offer; an empty counterparty is picked.
+static func _issue_offer(template_id: String, source: String, contract_type: String, request: Dictionary, deadline_after_days: int, counterparty: String) -> Dictionary:
+	var today: int = GameState.state["world"]["day"]
+	var quote := quote_for_request(request, sales_skill())
+	var extra_types: int = maxi(0, quote["lines"].size() - 1)
+	var sales: Dictionary = GameState.state["sales"]
+	var offer := {
+		"id": "offer-%d" % sales["nextOfferId"], "templateId": template_id,
+		"source": source, "contractType": contract_type, "request": request,
+		"createdDay": today, "expiresDay": today + GameData.OFFER_EXPIRY_DAYS, "weekday": RECURRING_WEEKDAY,
+		"deadlineAfterDays": deadline_after_days,
+		"extraTypeDeadlineDays": extra_types * MIXED_EXTRA_TYPE_DEADLINE_DAYS, "quote": quote,
+		"counterparty": counterparty if counterparty != "" else pick_counterparty(template_id, request, int(quote["payment"])),
+	}
+	sales["nextOfferId"] += 1
+	pending_offers().append(offer)
+	return offer
 
 
 # One quote.lines entry per requested type (single or mixed) so settle()
@@ -237,6 +251,8 @@ static func accept_offer(offer_id: String) -> Dictionary:
 		due_day += int(offer.get("extraTypeDeadlineDays", 0))
 		var contract := { "id": "contract-%d" % sales["nextContractId"], "periodId": "period-%d" % sales["nextPeriodId"], "offerId": offer_id, "templateId": offer["templateId"], "contractType": offer["contractType"], "request": offer["request"].duplicate(true), "signedQuote": offer["quote"].duplicate(true), "acceptedDay": accepted_day, "dueDay": due_day, "weekday": offer["weekday"], "delivered": {}, "status": "active", "counterparty": ensure_counterparty(offer) }
 		Contracts.start_period(contract)
+		if contract["contractType"] == "recurring":
+			Contracts.start_term(contract, accepted_day)
 		sales["nextContractId"] += 1
 		sales["nextPeriodId"] += 1
 		pending.remove_at(index)

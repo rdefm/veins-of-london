@@ -539,6 +539,106 @@ func run() -> void:
 		assert_eq(bought, 2 * per_unit - 1, "minus shared stock of that ore")
 	)
 
+	run_case("recurring_term_expires_after_final_period_and_issues_renewal", func():
+		var contract := _proof_contract()
+		assert_eq(contract["termWeeks"], 4)
+		assert_eq(contract["startDay"], contract["acceptedDay"])
+		assert_true(Calendar.is_monday(int(contract["expiryDay"])), "term ends on a Monday")
+		assert_true(int(contract["expiryDay"]) >= int(contract["startDay"]) + 28)
+		var expiry: int = contract["expiryDay"]
+		var counterparty: String = contract["counterparty"]
+		while int(contract["dueDay"]) < expiry:
+			_fill_and_settle(contract)
+			_next_period(contract)
+			assert_eq(ContractsSystem.active_contracts().size(), 1, "renews inside the term")
+		for index in OffersSystem.PENDING_CAP:
+			OffersSystem.create_offer(GameData.OFFER_TEMPLATES["random_time_ore"])
+		GameState.state["player"]["orichalchum"]["physics"] = 1
+		ContractsSystem.process_sales_deliveries()
+		var settled_before: int = GameState.state["sales"]["settlements"].size()
+		GameState.state["world"]["day"] = expiry
+		ContractsSystem.daily_tick()
+		assert_eq(GameState.state["sales"]["settlements"].size(), settled_before + 1, "final period settles as usual")
+		assert_true(not GameState.state["sales"]["settlements"].back()["complete"])
+		assert_eq(ContractsSystem.active_contracts().size(), 0, "no renewal past the term")
+		assert_true(not GameState.state["sales"]["priorityOrder"].has(contract["id"]))
+		var last: Dictionary = GameState.state["sales"]["contractHistory"].back()
+		assert_true(ContractsSystem.is_expired(last))
+		assert_eq(last["contract"]["status"], "expired")
+		assert_true(not ContractsSystem.is_cancelled(last))
+		var pending: Array = OffersSystem.pending_offers()
+		assert_eq(pending.size(), OffersSystem.PENDING_CAP + 1, "renewal bypasses the cap")
+		var renewal: Dictionary = pending.back()
+		assert_eq(renewal["source"], "renewal")
+		assert_eq(renewal["contractType"], "recurring")
+		assert_eq(renewal["request"], contract["request"])
+		assert_eq(renewal["counterparty"], counterparty)
+		assert_eq(renewal["createdDay"], expiry)
+		assert_eq(renewal["expiresDay"], expiry + GameData.OFFER_EXPIRY_DAYS)
+		assert_eq(renewal["quote"], OffersSystem.quote_for_request(renewal["request"], OffersSystem.sales_skill()), "quoted at issue")
+	)
+
+	run_case("filled_final_period_expires_on_its_due_day_without_second_pay", func():
+		var contract := _proof_contract()
+		var expiry: int = contract["expiryDay"]
+		while int(contract["dueDay"]) < expiry:
+			_next_period(contract)
+		_fill_and_settle(contract)
+		var cash_before: int = GameState.state["player"]["cash"]
+		GameState.state["world"]["day"] = expiry
+		ContractsSystem.daily_tick()
+		assert_eq(GameState.state["player"]["cash"], cash_before)
+		assert_eq(ContractsSystem.active_contracts().size(), 0)
+		assert_true(ContractsSystem.is_expired(GameState.state["sales"]["contractHistory"].back()))
+		assert_eq(OffersSystem.pending_offers().back()["source"], "renewal")
+	)
+
+	run_case("renewal_decline_or_expiry_costs_no_relation_and_accept_starts_new_term", func():
+		for ending in ["decline", "expire", "accept"]:
+			var contract := _proof_contract()
+			while ContractsSystem.active_contracts().size() > 0:
+				_next_period(contract)
+			var renewal: Dictionary = OffersSystem.pending_offers().back()
+			var relations := {}
+			for faction_id in GameState.state["factions"]:
+				relations[faction_id] = GameState.state["factions"][faction_id]["relation"]
+			if ending == "decline":
+				assert_true(OffersSystem.decline_offer(renewal["id"])["ok"])
+			elif ending == "expire":
+				GameState.state["world"]["day"] = renewal["expiresDay"]
+				OffersSystem.expire_pending_offers()
+				assert_eq(OffersSystem.pending_offers().size(), 0, "renewal expires like any offer")
+			else:
+				var renewed: Dictionary = OffersSystem.accept_offer(renewal["id"])["contract"]
+				assert_eq(renewed["startDay"], GameState.state["world"]["day"])
+				assert_eq(renewed["expiryDay"], Calendar.monday_on_or_after(int(renewed["startDay"]) + 28), "fresh term")
+				assert_eq(renewed["signedQuote"], renewal["quote"])
+			for faction_id in relations:
+				assert_eq(GameState.state["factions"][faction_id]["relation"], relations[faction_id], "%s: %s" % [ending, faction_id])
+	)
+
+	run_case("open_ended_recurring_contract_gains_term_at_next_renewal", func():
+		var contract := _proof_contract()
+		for key in ["startDay", "termWeeks", "expiryDay"]:
+			contract.erase(key)
+		var renewal_day: int = contract["dueDay"]
+		_next_period(contract)
+		assert_eq(ContractsSystem.active_contracts().size(), 1)
+		assert_eq(contract["startDay"], renewal_day)
+		assert_eq(contract["termWeeks"], 4)
+		assert_eq(contract["expiryDay"], renewal_day + 28)
+	)
+
+	run_case("one_off_contracts_carry_no_term", func():
+		_staff_sales()
+		var contract := _accept_life_contract()
+		assert_true(not contract.has("expiryDay"))
+		GameState.state["world"]["day"] = contract["dueDay"]
+		ContractsSystem.daily_tick()
+		assert_eq(OffersSystem.pending_offers().size(), 0, "no renewal for a one-off")
+		assert_true(not ContractsSystem.is_expired(GameState.state["sales"]["contractHistory"].back()))
+	)
+
 
 # Fresh state with Archie working Sales from the Operations Room.
 func _staff_sales() -> void:

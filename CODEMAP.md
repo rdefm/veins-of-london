@@ -37,7 +37,7 @@ Data file per system: see `data/*.json` below.
 | combat_prototype.gd | Bounded combat experiment, Debug-app |
 | consumables.gd | Healing Salve (out-of-combat) + Healing Burst (in or out); in-combat use_healing_burst() resolves the parked player turn-cursor entry (R§3.7a) and heals an ally target instead of the player (R§3.7) |
 | contacts.gd | Relation, recruiting (incl. story `force_recruit`), room assignment, founder staff roles (`set_role`/`role_of`/`available_roles`), capped XP, ally combat kit + per-day ally Dial charges (`daily_dial_regen()`) |
-| contracts.gd | Block-end Sales auto-delivery from shared stock (full, then partials by priority; noted to Market), settlement (to the pot while active); a recurring period pays on fill then locks (`periodFilled`) until Monday renewal; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
+| contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; noted to Market), settlement (to pot while active); recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
 | crafting.gd | Recipe crafting |
 | cultivating.gd | Vein growth / cultivate / prune |
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
@@ -70,7 +70,7 @@ Data file per system: see `data/*.json` below.
 | nav.gd | Screen navigation |
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
 | objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
-| offers.gd | Sales offers: quoting (price fixed at issue), counterparty faction pick (authored / identity-weighted / Collective-Firm fit), acceptance (quote → contract `signedQuote`), 2-day expiry |
+| offers.gd | Sales offers: quoting (price fixed at issue), counterparty faction pick (authored / identity-weighted / Collective-Firm fit), acceptance (quote → contract `signedQuote`, recurring term), renewal offers (cap-exempt), 2-day expiry |
 | owen_texts.gd | Owen's random texts: rollover scheduler (2-3 day interval, paused while he isn't working), unplayed-then-LRU pick, vein templating from his cultivator list, reply choices granting cultivating XP on a correct answer; each sent text pushes a contact-tagged ticker notification |
 | payroll.gd | Monday weekly wage payment for room-staffed hires (founders exempt), first part-week prorated at next Monday; `is_working()` gate for staff actions (false while unpaid this week or the business owes wages) |
 | phone_apps.gd | Phone main-grid roster/order/labels + badge-config projection |
@@ -241,7 +241,7 @@ overlays.
 | market.json | market.gd (constants, sim start, ore conversion rate, annotation cap/thresholds, delivery-log cap, per-good normalStock/stand-in supply/demand) |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, faction/ore dark overrides) + map_controls.gd (`darkModeLabel`) |
 | objectives.json | objectives.gd, todo.gd, collective.gd, business_quest.gd |
-| offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
+| offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, small-offer threshold, cancel relation hit), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
 | owen_texts.json | owen_texts.gd (text pool, reply options, interval days) |
 | palette.json | GameData.gd (reference combat-art palette) |

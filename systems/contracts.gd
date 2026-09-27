@@ -92,6 +92,20 @@ static func start_period(contract: Dictionary) -> void:
 	contract["playerAssisted"] = false
 
 
+# R§3.10 "Term": a recurring contract runs offers.json termWeeks from
+# start_day and expires on the first Monday on or after its end.
+static func start_term(contract: Dictionary, start_day: int) -> void:
+	var term_weeks: int = GameData.OFFER_TERM_WEEKS
+	contract["startDay"] = start_day
+	contract["termWeeks"] = term_weeks
+	contract["expiryDay"] = Calendar.monday_on_or_after(start_day + term_weeks * Calendar.days_per_week())
+
+
+# The period due now is the term's last: it settles, then the contract expires.
+static func _term_ended(contract: Dictionary) -> bool:
+	return contract.has("expiryDay") and int(contract["dueDay"]) >= int(contract["expiryDay"])
+
+
 # The player put the requested type into play (crafted, unstashed or bought
 # it): every active period requesting that type counts as player-assisted.
 static func note_player_supplied(type_id: String) -> void:
@@ -222,7 +236,7 @@ static func daily_tick() -> void:
 		if int(contract["dueDay"]) > int(GameState.state["world"]["day"]):
 			continue
 		if is_period_filled(contract):
-			_renew_period(contract)
+			_close_period(contract)
 			EventBus.state_changed.emit()
 		else:
 			settle(contract["id"])
@@ -262,12 +276,13 @@ static func settle(contract_id: String) -> Dictionary:
 	if not contract["delivered"].is_empty():
 		_award_sales_xp(COMPLETE_XP if complete else PARTIAL_XP)
 	# A recurring period filled before its due day pays now and locks until
-	# that Monday; one reaching its due day (filled or not) renews at once.
+	# that Monday; one reaching its due day (filled or not) renews or, at the
+	# term's end, expires at once.
 	if contract["contractType"] == "recurring":
 		if complete and int(contract["dueDay"]) > int(GameState.state["world"]["day"]):
 			contract["periodFilled"] = true
 		else:
-			_renew_period(contract)
+			_close_period(contract)
 	else:
 		active_contracts().erase(contract)
 		sales["priorityOrder"].erase(contract_id)
@@ -380,7 +395,39 @@ static func _buy_calc(contract_id: String, ore_type: String, qty: int) -> void:
 		Market.record_demand("ore", ore_type, int(leg["qty"]), "player")
 
 
+# A recurring contract's due-day close, once its period is paid.
+static func _close_period(contract: Dictionary) -> void:
+	if _term_ended(contract):
+		_expire(contract)
+	else:
+		_renew_period(contract)
+
+
+# R§3.10 "Term": the contract leaves active; its last history entry (the
+# final period's settlement) is marked expired, and a renewal offer issues.
+static func _expire(contract: Dictionary) -> void:
+	var sales: Dictionary = GameState.state["sales"]
+	active_contracts().erase(contract)
+	sales["priorityOrder"].erase(contract["id"])
+	contract["status"] = "expired"
+	var history: Array = sales["contractHistory"]
+	for index in range(history.size() - 1, -1, -1):
+		var entry: Dictionary = history[index]
+		if entry["contract"]["id"] == contract["id"]:
+			entry["contract"]["status"] = "expired"
+			entry["expiredDay"] = GameState.state["world"]["day"]
+			break
+	Offers.create_renewal_offer(contract)
+
+
+static func is_expired(history_entry: Dictionary) -> bool:
+	return history_entry.has("expiredDay")
+
+
+# A contract with no term (an older save) gains one at this renewal.
 static func _renew_period(contract: Dictionary) -> void:
+	if not contract.has("expiryDay"):
+		start_term(contract, int(contract["dueDay"]))
 	var sales: Dictionary = GameState.state["sales"]
 	contract["periodId"] = "period-%d" % int(sales["nextPeriodId"])
 	sales["nextPeriodId"] += 1

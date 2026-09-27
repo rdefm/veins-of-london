@@ -1,5 +1,6 @@
 {
   "expiryDays": 2,
+  "termWeeks": 4,
   "counterparty": { "smallOfferThreshold": 1000, "cancelRelationHit": 3 },
   "templates": {
     "random_time_ore": { "id": "random_time_ore", "source": "random", "contractType": "oneOff", "request": { "kind": "ore", "type": "time" } },
