@@ -373,6 +373,36 @@ func run() -> void:
 		GameData.HOME_TIERS["studio"]["image"] = original
 	)
 
+	run_case("property_owned_home_shows_trade_in_maths_and_net_affordability", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["home"]["tenure"] = "owned"
+		GameState.state["player"]["cash"] = 300000
+		GameState.state["phoneNav"]["app"] = "property"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var texts := NodeQuery.label_texts(phone)
+		for expected in ["Buy £800000", "Sell your flat −£200000", "You pay £600000", "You receive £120000"]:
+			assert_true(texts.has(expected), "listings show %s" % expected)
+
+		_open_listing(phone, "safehouse")
+		texts = NodeQuery.label_texts(phone)
+		assert_true(texts.has("£800000 · Sell your flat −£200000 · You pay £600000"), "particulars spell out the trade-in")
+		assert_true(texts.has("Renting sells your flat: you receive £200000."), "rent option shows the sale credit")
+		assert_true(NodeQuery.find_button(phone, "Buy for £800000").disabled, "net 600000 beats cash 300000")
+		phone.free()
+
+		phone = PhoneScreen.new()
+		phone._ready()
+		_open_listing(phone, "townhouse")
+		var buy_button := NodeQuery.find_button(phone, "Buy for £500000")
+		assert_true(not buy_button.disabled, "net 300000 is affordable though the price isn't")
+		buy_button.pressed.emit()
+		assert_eq(GameState.state["home"]["tier"], "townhouse")
+		assert_eq(GameState.state["player"]["cash"], 0, "cash moves by the net amount")
+		phone.free()
+	)
+
 	run_case("property_far_tier_particulars_rent_and_buy_jump_straight_there", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 1000

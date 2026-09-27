@@ -8,12 +8,12 @@
 
 **Status:** ready-for-agent
 
-- [ ] Owned → buy pricier tier: pays net difference; tested
-- [ ] Owned → buy cheaper tier: receives difference; tested
-- [ ] Owned → rent any tier: receives full value; tested
-- [ ] Rented → buy: pays full price (unchanged); tested
-- [ ] "Not enough cash" uses net cost; tested
-- [ ] Ledger records the sale credit and the purchase
-- [ ] Listings/particulars show price, sale credit and net pay/receive when owned
-- [ ] PROSE-REVIEW: any new listing/notification strings
+- [x] Owned → buy pricier tier: pays net difference; tested
+- [x] Owned → buy cheaper tier: receives difference; tested
+- [x] Owned → rent any tier: receives full value; tested
+- [x] Rented → buy: pays full price (unchanged); tested
+- [x] "Not enough cash" uses net cost; tested
+- [x] Ledger records the sale credit and the purchase
+- [x] Listings/particulars show price, sale credit and net pay/receive when owned
+- [x] PROSE-REVIEW: any new listing/notification strings
 - [ ] Human on-device: own a flat, open Harrow's — each listing shows the breakdown; upgrade and check cash moves by the net amount

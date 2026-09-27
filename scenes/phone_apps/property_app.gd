@@ -197,6 +197,8 @@ func _build_listing_card(caption: String, tier_id: String) -> Control:
 	var facts: Array[String] = []
 	if Home.can_buy_tier(tier_id):
 		facts.append("Buy £%d" % Home.buy_price(tier_id))
+		if Home.sale_credit() > 0:
+			facts.append_array(_trade_in_parts(tier_id))
 	var rooms: int = tier["maxRooms"]
 	facts.append("%d spare room%s" % [rooms, "" if rooms == 1 else "s"])
 	facts.append("Raid risk %d%%" % int(round(Home.get_raid_chance_for_tier(tier_id) * 100)))
@@ -442,10 +444,17 @@ func _offer_box(tier_id: String) -> Control:
 	box.add_child(offer)
 
 	var rent: int = Home.weekly_bill_for(tier_id, Home.TENURE_RENTED)
+	var credit: int = Home.sale_credit()
 	_add_brand_purchase_button(offer, "Rent for £%d/week" % rent, 0, _close_then.bind(Home.rent_to.bind(tier_id)))
+	if credit > 0:
+		offer.add_child(_text("Renting sells your %s: you receive £%d." % [_current_home_name(), credit], 12, MUTED))
 	if Home.can_buy_tier(tier_id):
 		var price: int = Home.buy_price(tier_id)
-		_add_brand_purchase_button(offer, "Buy for £%d" % price, price, _close_then.bind(Home.buy_to.bind(tier_id)), true)
+		_add_brand_purchase_button(offer, "Buy for £%d" % price, maxi(0, Home.net_buy_cost(tier_id)), _close_then.bind(Home.buy_to.bind(tier_id)), true)
+		if credit > 0:
+			var maths: Array[String] = ["£%d" % price]
+			maths.append_array(_trade_in_parts(tier_id))
+			offer.add_child(_text(" · ".join(maths), 12, MUTED))
 
 	offer.add_child(_text("Moving clears every installed room. No refunds.", 12, MUTED))
 	var lost: Array[String] = []
@@ -457,6 +466,19 @@ func _offer_box(tier_id: String) -> Control:
 	if not lost.is_empty():
 		offer.add_child(_text("Left behind: %s." % ", ".join(lost), 12, MUTED))
 	return box
+
+
+# Trade-in maths for an owned home (R§3.3 "Tier moves"): the sale credit,
+# then what the buy nets out to.
+func _trade_in_parts(tier_id: String) -> Array[String]:
+	var net: int = Home.net_buy_cost(tier_id)
+	var parts: Array[String] = ["Sell your %s −£%d" % [_current_home_name(), Home.sale_credit()]]
+	parts.append("You pay £%d" % net if net >= 0 else "You receive £%d" % -net)
+	return parts
+
+
+func _current_home_name() -> String:
+	return String(GameData.HOME_TIERS[GameState.state["home"]["tier"]]["name"]).to_lower()
 
 
 func _open_particulars(tier_id: String) -> void:

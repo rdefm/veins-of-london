@@ -242,6 +242,21 @@ static func buy_price(tier_id: String) -> int:
 	return int(GameData.HOME_TIERS[tier_id]["buyPrice"])
 
 
+# Trade-in (R§3.3 "Tier moves"): an owned home sells at its full buyPrice on
+# any move; a rented one is worth nothing.
+static func sale_credit() -> int:
+	var home: Dictionary = GameState.state["home"]
+	if home["tenure"] != TENURE_OWNED:
+		return 0
+	return buy_price(home["tier"])
+
+
+# Cash a buy move to tier_id takes after the trade-in; negative when the
+# player is paid the difference.
+static func net_buy_cost(tier_id: String) -> int:
+	return buy_price(tier_id) - sale_credit()
+
+
 # Shared tier move (ADR 0006): every installed room is wiped with no refund
 # (staff unassigned, gym bonus reverted with hp clamped), security whose
 # minTier is above the new tier is lost (guards follow the "guard" row), and
@@ -303,20 +318,26 @@ static func buy_up() -> Dictionary:
 	return buy_to(next_tier_id)
 
 
-# Rents any other tier on the ladder, up or down, with no up-front cost.
+# Rents any other tier on the ladder, up or down, with no up-front cost; an
+# owned home is sold first.
 static func rent_to(tier_id: String) -> Dictionary:
 	var refusal: Dictionary = _move_refusal(tier_id)
 	if not refusal.is_empty():
 		return refusal
 	var moving_down: bool = _tier_below_min(tier_id, GameState.state["home"]["tier"])
+	var sold_name: String = _sell_current_home()
 	change_tier(tier_id, TENURE_RENTED)
 	var tier_name: String = GameData.HOME_TIERS[tier_id]["name"]
-	Notify.push(("Moved down to a rented %s." if moving_down else "Signed the lease on the %s.") % tier_name, Notify.CATEGORY_SUCCESS)
+	var text: String = ("Moved down to a rented %s." if moving_down else "Signed the lease on the %s.") % tier_name
+	if sold_name != "":
+		text = ("Sold the %s and moved down to a rented %s." if moving_down else "Sold the %s and signed the lease on the %s.") % [sold_name, tier_name]
+	Notify.push(text, Notify.CATEGORY_SUCCESS)
 	SaveManager.autosave()
 	return { "ok": true }
 
 
-# Buys any other buyable tier on the ladder, up or down, at its buyPrice.
+# Buys any other buyable tier on the ladder, up or down, at its buyPrice less
+# the owned home's sale credit.
 static func buy_to(tier_id: String) -> Dictionary:
 	var refusal: Dictionary = _move_refusal(tier_id)
 	if not refusal.is_empty():
@@ -367,14 +388,30 @@ static func _buy_move(tier_id: String) -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	var tier: Dictionary = GameData.HOME_TIERS[tier_id]
 	var price: int = buy_price(tier_id)
-	if player["cash"] < price:
+	if player["cash"] < net_buy_cost(tier_id):
 		return { "ok": false, "reason": "Not enough cash." }
+	var sold_name: String = _sell_current_home()
 	player["cash"] -= price
 	Bank.record(-price, "HQ purchase: %s" % tier["name"])
 	change_tier(tier_id, TENURE_OWNED)
-	Notify.push("Bought the %s. The keys are yours." % tier["name"], Notify.CATEGORY_SUCCESS)
+	if sold_name != "":
+		Notify.push("Sold the %s and bought the %s. The keys are yours." % [sold_name, tier["name"]], Notify.CATEGORY_SUCCESS)
+	else:
+		Notify.push("Bought the %s. The keys are yours." % tier["name"], Notify.CATEGORY_SUCCESS)
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
+
+
+# Credits and bank-logs the owned home's sale ahead of a move; returns the
+# sold tier's name, or "" when rented (nothing to sell).
+static func _sell_current_home() -> String:
+	var credit: int = sale_credit()
+	if credit <= 0:
+		return ""
+	var tier_name: String = GameData.HOME_TIERS[GameState.state["home"]["tier"]]["name"]
+	GameState.state["player"]["cash"] += credit
+	Bank.record(credit, "HQ sale: %s" % tier_name)
+	return tier_name
 
 
 static func add_security(security_id: String) -> Dictionary:

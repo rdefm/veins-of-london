@@ -404,23 +404,87 @@ func run() -> void:
 		assert_true(not Home.downgrade("rented")["ok"], "no downgrade from the bedsit")
 
 		GameState.state["home"]["tier"] = "townhouse"
-		GameState.state["home"]["tenure"] = "owned"
+		GameState.state["home"]["tenure"] = "rented"
 		GameState.state["player"]["cash"] = 200000
 		assert_true(Home.downgrade("owned")["ok"], "buying the flat at 200000")
 		assert_eq(GameState.state["home"]["tier"], "flat")
 		assert_eq(GameState.state["home"]["tenure"], "owned")
 		assert_eq(GameState.state["player"]["cash"], 0)
 
-		GameState.state["player"]["cash"] = 80000
-		assert_true(Home.downgrade("owned")["ok"], "buying the studio at 80000")
+		assert_true(Home.downgrade("owned")["ok"], "flat sells for 200000, studio costs 80000")
 		assert_eq(GameState.state["home"]["tier"], "studio")
-		assert_eq(GameState.state["player"]["cash"], 0)
+		assert_eq(GameState.state["player"]["cash"], 120000)
 
 		assert_true(not Home.downgrade("owned")["ok"], "the bedsit can't be bought")
 		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_true(Home.downgrade("rented")["ok"])
 		assert_eq(GameState.state["home"]["tier"], "bedsit")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
+	)
+
+	run_case("trade_in_owned_to_pricier_tier_pays_the_difference", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["home"]["tenure"] = "owned"
+		GameState.state["player"]["cash"] = 299999
+		assert_eq(Home.sale_credit(), 200000)
+		assert_eq(Home.net_buy_cost("townhouse"), 300000)
+		assert_true(not Home.buy_to("townhouse")["ok"], "net cost 300000 decides affordability")
+		assert_eq(GameState.state["home"]["tier"], "flat")
+		assert_eq(GameState.state["player"]["cash"], 299999, "a refused move sells nothing")
+		assert_eq(GameState.state["bankLog"].size(), 0)
+
+		GameState.state["player"]["cash"] = 300000
+		assert_true(Home.buy_to("townhouse")["ok"], "500000 townhouse less the 200000 flat")
+		assert_eq(GameState.state["home"]["tier"], "townhouse")
+		assert_eq(GameState.state["home"]["tenure"], "owned")
+		assert_eq(GameState.state["player"]["cash"], 0)
+		var log: Array = GameState.state["bankLog"]
+		assert_eq(log.size(), 2, "sale credit and purchase both logged")
+		assert_eq(log[0]["amount"], 200000)
+		assert_eq(log[0]["label"], "HQ sale: Flat")
+		assert_eq(log[1]["amount"], -500000)
+		assert_eq(log[1]["label"], "HQ purchase: Townhouse")
+	)
+
+	run_case("trade_in_owned_to_cheaper_tier_receives_the_difference", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "townhouse"
+		GameState.state["home"]["tenure"] = "owned"
+		GameState.state["player"]["cash"] = 0
+		assert_eq(Home.net_buy_cost("studio"), -420000)
+		assert_true(Home.buy_to("studio")["ok"], "affordable with no cash on hand")
+		assert_eq(GameState.state["home"]["tier"], "studio")
+		assert_eq(GameState.state["home"]["tenure"], "owned")
+		assert_eq(GameState.state["player"]["cash"], 420000)
+	)
+
+	run_case("trade_in_owned_to_rented_credits_full_value", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "flat"
+		GameState.state["home"]["tenure"] = "owned"
+		GameState.state["player"]["cash"] = 5
+		assert_true(Home.rent_to("mansion")["ok"])
+		assert_eq(GameState.state["home"]["tenure"], "rented")
+		assert_eq(GameState.state["player"]["cash"], 200005)
+		assert_eq(GameState.state["bankLog"].size(), 1)
+		assert_eq(GameState.state["bankLog"][0]["amount"], 200000)
+		assert_eq(Home.sale_credit(), 0, "a rented home has no value")
+
+		assert_true(Home.rent_to("bedsit")["ok"], "rented to rented moves no cash")
+		assert_eq(GameState.state["player"]["cash"], 200005)
+		assert_eq(GameState.state["bankLog"].size(), 1)
+	)
+
+	run_case("trade_in_rented_to_buy_pays_full_price", func():
+		GameState.reset()
+		GameState.state["home"]["tier"] = "studio"
+		GameState.state["home"]["tenure"] = "rented"
+		GameState.state["player"]["cash"] = 200000
+		assert_eq(Home.net_buy_cost("flat"), 200000)
+		assert_true(Home.buy_to("flat")["ok"])
+		assert_eq(GameState.state["player"]["cash"], 0)
+		assert_eq(GameState.state["bankLog"].size(), 1, "no sale to log")
 	)
 
 	run_case("downgrade_buy_is_refused_when_cash_is_short", func():
